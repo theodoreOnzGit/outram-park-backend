@@ -490,3 +490,89 @@ anisotropic per-direction coefficient (1080/1080). 50 rows pinned (`PINS_LES_FIL
 - Not covered: coupled (cyclic/AMI) patches, `Mixed`/`fixedGradient` boundary conditions on the
   filtered field, non-orthogonal meshes (the duct is orthogonal; the uncorrected `snGrad` uses
   `nonOrthDeltaCoeffs` as upstream, but only the orthogonal case was compared).
+
+## Slice 7 results, part 2: dynamicKEqn (2026-11-13, release; same duct; upstream `grad(U)` cells AND boundary faces, `div(phi)`, `delta` fed in)
+
+Driver: `-model dynamicKEqn -filter simple|laplace|anisotropic` (cases `dynamicKEqn_*`). The real model
+runs (`validate()`, `correct()` into `dumpSolver`); the driver transcribes `Ck(D, KK)` and `Ce(D, KK)`
+and ALSO calls the REAL protected `Ck` and `Ce` of the model object (a `using`-declaration on a derived
+struct reaches the symbols `libincompressibleTurbulenceModels` exports; dumped as `R_Ck_symm`, `R_Ck_dev`,
+`R_Ce`). Port: `outram_foam_turbulence_lib::les::dynamic_k_eqn::DynamicKEqn::{terms, source_terms}`
+(terms only, no `correct()`) on top of `les_filter` and `les::pointwise`.
+
+**Audit held** (transcribed k equation against the real matrix, all three filters: diag/source 360/360,
+upper/lower 894/894) and **the transcription equals the REAL `Ck`/`Ce` members 360/360** (after the two
+corrections below).
+
+**Every term is bit-identical, max 0 ulp, in all three filters** (cells and boundary faces where dumped):
+`D = symm(grad U)`, `D = devSymm(grad U)`, `KK` (unclamped and clamped), `LL`, `MM` (both `D`),
+`Ck(symm)`, `Ck(devSymm)` against the real member and the transcription, `Ce` against the real member
+and the transcription, `nut` after `validate()` and after `correct()` against the real model's `nut`,
+`G`, `k_SuSp`, `k_Sp`. The registered `dynamicKEqn:G` equals the transcribed `G`. 27 rows per filter
+pinned (`PINS_DYN_*`). PETIR `pow` (in `Ce`) agrees with glibc on every argument that occurs.
+
+### Two upstream behaviours that decided the result (both were wrong in my first runs)
+
+1. **`tmp` reuse gives an expression the PATCH TYPE of an operand, and the next filter's
+   `correctBoundaryConditions` then rewrites the boundary.** Same-type `tmp` operators
+   (`+`, `-`, `*`, `dev`, `pow`...) reuse the first (or, for `scalar*symmTensor`, the second) `tmp`
+   operand's storage and patch types. A `simple` or `laplace` result is `extrapolatedCalculated`
+   (it comes from `surfaceSum`/`surfaceIntegrate`), so `MM` and `LL`'s argument carries stale boundary
+   values (`D_b + lap`) that `simpleFilter_`'s `correctBoundaryConditions` replaces with the owner-cell
+   values; an `anisotropic` result is `calculated` and keeps them. In `Ce`, `this->nuEff()*(...)` is
+   `tmp*tmp` and reuses `nuEff`'s calculated type, so there is NO re-extrapolation. My first C++
+   transcription passed `nuEff` as a named `const` field, which hands the product the filtered
+   difference's (extrapolated) type: its audit failed (laplace 205/360 diag cells, worst 0.12) and
+   `Ce` differed from the real member by up to 33 %. Found by calling the real `Ce` and diffing, fixed
+   by forming `nuEff` as a `tmp` in the transcription; the port's `DynamicKEqn::sf_entry` applies the
+   re-extrapolation exactly where upstream does.
+2. **`delta` is a `calculated` field whose boundary is `small = 1e-15`, not the owner-cell value**
+   (`LESdelta.C`: constructed with `calculatedFvPatchScalarField` at `small`; `correctBoundaryConditions`
+   does nothing to it). It only matters where a boundary value of `delta` reaches a filter
+   (`-2 delta sqrt(KK) filter(D)` in `MM`, `2 delta` in `Ce`'s denominator): the anisotropic `MM`
+   with `D = devSymm` differed in 1680 of 2160 components until the port used `small`.
+
+### Negative controls (rows expected NOT to be identical, pinned)
+
+| row | simple | laplace | anisotropic |
+|---|---|---|---|
+| `nut` formed with `devSymm` `D` against the real `nut` after `validate()` (prediction 5) | 280/360 | 248/360 | 203/360 |
+| `Ck_dev` with the port-style EXTRAPOLATED `grad(U)` boundary against the real `Ck` (prediction 6) | 280/360 | 360/360 | 203/360 |
+
+### Predictions against results
+
+- 1, 2: held (simple, anisotropic 0 ulp). 3: structure held, libm half WRONG (see part 1).
+- 4: HELD, and better than predicted: `Ce` is also 360/360 (I predicted a few ulp from `pow`).
+- 5: held in direction, WRONG in extent. The real `nut` after `validate()` is reproduced 360/360 by the
+  `symm` form, and the `devSymm` form differs, but in 80 / 112 / 157 of 360 cells (simple / laplace /
+  anisotropic), not "all cells with `div U != 0`": `Ck` is clipped to zero in 248 of 360 cells, where
+  both forms give `nut = 0`.
+- 6: WRONG. I predicted the extrapolated boundary would change `Ck` in more than 300 cells: it changes 80
+  (simple), 0 (laplace), 157 (anisotropic). The chained `simple` passes after `LL`/`MM` re-extrapolate
+  their own boundaries, which hides most of the boundary gradient for `simple` and `laplace`.
+- 7: held after the correction above.
+
+### Defects (port against ESI v2506)
+
+1. `fvc::grad_vec` leaves the boundary gradient extrapolated (zero-gradient), while upstream
+   `gaussGrad::correctBoundaryConditions` replaces its wall-normal component
+   (`grad(U)` boundary dumped as `gradU_b`). It matters to `dynamicKEqn` through `D`'s boundary values
+   (anisotropic filter: 157 cells of `Ck` change). NOT fixed (`grad_vec` is shared and was not
+   changed): the dynamic models take the gradient with its boundary faces as an input, as the kEqn and
+   LaunderSharma ports take theirs. Recorded for gh:#1489. Not re-verified against `gaussGrad.C` line by
+   line in this slice; the evidence is the dump (`gradU_b` differs from the owner-cell value).
+2. `dynamicKEqn` has no `correct()` in the port (the k equation assembly, `bound`, and `correctNut` after
+   the solve are not ported); `nut` after `correct()` is checked with `k` unchanged, as the dump solver
+   does not solve.
+3. Upstream's own inconsistency, reproduced: `correctNut()` uses `symm(grad U)` and an unclamped `KK`
+   while `correct()` uses `devSymm(grad U)` and `KK` clamped at `SMALL`.
+
+### Honest scope
+
+One 360-cell orthogonal duct, one set of frozen polynomial fields: `Ck` is clipped to zero in 248 cells,
+so the positive-`Ck` branch is exercised in 112 cells only; `KK` is at the `SMALL` clamp in the cells
+nearest the walls. `laplace`/`anisotropic` with `widthCoeff` 2 only. Non-orthogonal meshes and coupled
+patches are not covered. The unused `T_m_dev`/`T_FD_dev` dumps exist only in the anisotropic reference
+(added while locating the `delta` boundary).
+
+**Disclosure: a script bug in the first dynamicKEqn runs.** `run.sh` applied the `*_lowRe` viscosity (`nu = 1e-2`) to every case whose model name differed from its case name, which included the new `dynamicKEqn_*` cases; the audit numbers quoted for the failed transcription (laplace 205/360, worst 0.12) were taken at `nu = 1e-2`. The condition is now `case $M in *_lowRe)`; all committed references are at `nu = 1e-5` (checked: `nu_f` = 1e-5 in all three).

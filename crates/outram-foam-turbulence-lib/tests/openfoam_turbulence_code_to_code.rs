@@ -1482,3 +1482,213 @@ const PINS_LES_FILTERS: &[(&str, usize)] = &[
     ("aniso F_aniso_gradU cells", 3240),
     ("aniso F_aniso_gradU faces", 3348),
 ];
+
+// ── gh:#1544 slice 7: dynamicKEqn terms against the real ESI model ───────────────────
+
+use outram_foam_turbulence_lib::les::dynamic_k_eqn::DynamicKEqn;
+
+const REF_DYN_SIMPLE: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicKEqn_simple.txt.gz"
+);
+const REF_DYN_LAPLACE: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicKEqn_laplace.txt.gz"
+);
+const REF_DYN_ANISO: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicKEqn_anisotropic.txt.gz"
+);
+
+fn dyn_filter(kind: &str, mesh: &Arc<FvMesh>) -> LesFilter {
+    match kind {
+        "simple" => LesFilter::Simple,
+        "laplace" => LesFilter::Laplace(LaplaceFilter::new(mesh.clone(), 2.0)),
+        _ => LesFilter::Anisotropic(AnisotropicFilter::new(mesh.clone(), 2.0)),
+    }
+}
+
+/// The model on the dumped state: `k`, `nut` (with boundary, as `validate()` left it), `nu`, `U`.
+fn dyn_model(r: &Ref, mesh: &Arc<FvMesh>, kind: &str) -> DynamicKEqn {
+    let mut m = DynamicKEqn::new(mesh.clone(), dyn_filter(kind, mesh));
+    m.k = r.zg(mesh, "k", "k");
+    m.nu_t = ref_field(r, mesh, "nutpre", Some("nutpre_b"), false);
+    m.nu = ref_field(r, mesh, "nu_f", Some("nu_f_b"), false);
+    m.u = ref_field(r, mesh, "U", Some("Ub"), false);
+    m
+}
+
+fn dyn_state(r: &Ref, own_delta: bool) -> FrozenState {
+    FrozenState {
+        grad_u: r.t("gradU"),
+        div_u: r.s("divU"),
+        cell_length: if own_delta { None } else { Some(r.s("T_delta")) },
+        ..FrozenState::default()
+    }
+}
+
+fn dyn_rows(label: &str, gz: &[u8], kind: &str) -> Rows {
+    let r = parse(gz);
+    check_audits(&r, 4);
+    let mesh = r.mesh();
+    let m = dyn_model(&r, &mesh, kind);
+    let grad_faces: Vec<Tensor> = r.cols["gradU_b"].iter().map(|v| Tensor::make(v)).collect();
+    let st = dyn_state(&r, false);
+    let t = m.terms(&st, &grad_faces);
+    let mut rows = Rows::new();
+    rows.extend(compare_filtered(label, &r, &t.d_symm, "T_D_symm"));
+    rows.extend(compare_filtered(label, &r, &t.d_dev, "T_D_dev"));
+    rows.extend(compare_filtered(label, &r, &t.kk_nut, "T_KK_nut"));
+    rows.extend(compare_filtered(label, &r, &t.kk, "T_KK"));
+    rows.extend(compare_filtered(label, &r, &t.ll, "T_LL"));
+    rows.extend(compare_filtered(label, &r, &t.mm_symm, "T_MM_symm"));
+    rows.extend(compare_filtered(label, &r, &t.mm_dev, "T_MM_dev"));
+    // the REAL protected Ck and Ce of the model object (cells)
+    let cells = |f: &VolScalarField| -> Vec<f64> { f.internal.iter().cloned().collect() };
+    for (name, key, vals) in [
+        ("Ck_symm vs real Ck", "R_Ck_symm", cells(&t.ck_symm)),
+        ("Ck_dev vs real Ck", "R_Ck_dev", cells(&t.ck_dev)),
+        ("Ce vs real Ce", "R_Ce", cells(&t.ce)),
+        ("Ck_symm vs transcription", "T_Ck_symm", cells(&t.ck_symm)),
+        ("Ck_dev vs transcription", "T_Ck_dev", cells(&t.ck_dev)),
+        ("Ce vs transcription", "T_Ce", cells(&t.ce)),
+        ("nut after validate() vs real nut", "nut_real", t.nut_validate.clone()),
+        ("nut after correct() vs real nut", "nut_after", t.nut_after.clone()),
+    ] {
+        let l = format!("{label} {name}");
+        let s = cmp(&l, &vals, &r.s(key));
+        rows.push((l, s));
+    }
+    // the other D: the dev form against the validate()-time nut (prediction 5: they differ)
+    let l = format!("{label} nut(devSymm form) vs nut after validate()");
+    let s = cmp(&l, &t.nut_after, &r.s("nut_real"));
+    rows.push((l, s));
+    let terms = m.source_terms(&st, &grad_faces);
+    for (term, key) in [("G", "T_G"), ("k_SuSp", "T_k_SuSp"), ("k_Sp", "T_k_Sp")] {
+        let l = format!("{label} {term}");
+        let s = cmp(&l, terms.get(term).unwrap(), &r.s(key));
+        rows.push((l, s));
+    }
+    check_registered(&r, "reg_k_dynamicKEqn_G", "T_G");
+    // prediction 6: the port's own gradient boundary (extrapolated to the owner cell)
+    let owner_faces: Vec<Tensor> = mesh
+        .patches
+        .iter()
+        .flat_map(|p| (p.start..p.start + p.size).map(|f| st.grad_u[mesh.owner[f]]))
+        .collect();
+    let te = m.terms(&st, &owner_faces);
+    let l = format!("{label} Ck_dev with EXTRAPOLATED grad(U) boundary vs real Ck");
+    let s = cmp(&l, &cells(&te.ck_dev), &r.s("R_Ck_dev"));
+    rows.push((l, s));
+    // every row is bit-identical except the two negative controls (the wrong `D` and the
+    // extrapolated gradient boundary), which are expected to differ and are pinned below
+    for (l, st) in &rows {
+        if !l.contains("EXTRAPOLATED") && !l.contains("devSymm form") {
+            assert_eq!(st.identical, st.n, "{l}");
+        }
+    }
+    rows
+}
+
+#[test]
+fn dynamic_k_eqn_simple_vs_openfoam() {
+    let rows = dyn_rows("dynamicKEqn[simple]", REF_DYN_SIMPLE, "simple");
+    pin(&rows, PINS_DYN_SIMPLE);
+}
+
+#[test]
+fn dynamic_k_eqn_laplace_vs_openfoam() {
+    let rows = dyn_rows("dynamicKEqn[laplace]", REF_DYN_LAPLACE, "laplace");
+    pin(&rows, PINS_DYN_LAPLACE);
+}
+
+#[test]
+fn dynamic_k_eqn_anisotropic_vs_openfoam() {
+    let rows = dyn_rows("dynamicKEqn[aniso]", REF_DYN_ANISO, "anisotropic");
+    pin(&rows, PINS_DYN_ANISO);
+}
+
+const PINS_DYN_SIMPLE: &[(&str, usize)] = &[
+    ("dynamicKEqn[simple] T_D_symm cells", 2160),
+    ("dynamicKEqn[simple] T_D_symm faces", 2232),
+    ("dynamicKEqn[simple] T_D_dev cells", 2160),
+    ("dynamicKEqn[simple] T_D_dev faces", 2232),
+    ("dynamicKEqn[simple] T_KK_nut cells", 360),
+    ("dynamicKEqn[simple] T_KK_nut faces", 372),
+    ("dynamicKEqn[simple] T_KK cells", 360),
+    ("dynamicKEqn[simple] T_KK faces", 372),
+    ("dynamicKEqn[simple] T_LL cells", 2160),
+    ("dynamicKEqn[simple] T_LL faces", 2232),
+    ("dynamicKEqn[simple] T_MM_symm cells", 2160),
+    ("dynamicKEqn[simple] T_MM_symm faces", 2232),
+    ("dynamicKEqn[simple] T_MM_dev cells", 2160),
+    ("dynamicKEqn[simple] T_MM_dev faces", 2232),
+    ("dynamicKEqn[simple] Ck_symm vs real Ck", 360),
+    ("dynamicKEqn[simple] Ck_dev vs real Ck", 360),
+    ("dynamicKEqn[simple] Ce vs real Ce", 360),
+    ("dynamicKEqn[simple] Ck_symm vs transcription", 360),
+    ("dynamicKEqn[simple] Ck_dev vs transcription", 360),
+    ("dynamicKEqn[simple] Ce vs transcription", 360),
+    ("dynamicKEqn[simple] nut after validate() vs real nut", 360),
+    ("dynamicKEqn[simple] nut after correct() vs real nut", 360),
+    ("dynamicKEqn[simple] nut(devSymm form) vs nut after validate()", 280),
+    ("dynamicKEqn[simple] G", 360),
+    ("dynamicKEqn[simple] k_SuSp", 360),
+    ("dynamicKEqn[simple] k_Sp", 360),
+    ("dynamicKEqn[simple] Ck_dev with EXTRAPOLATED grad(U) boundary vs real Ck", 280),
+];
+const PINS_DYN_LAPLACE: &[(&str, usize)] = &[
+    ("dynamicKEqn[laplace] T_D_symm cells", 2160),
+    ("dynamicKEqn[laplace] T_D_symm faces", 2232),
+    ("dynamicKEqn[laplace] T_D_dev cells", 2160),
+    ("dynamicKEqn[laplace] T_D_dev faces", 2232),
+    ("dynamicKEqn[laplace] T_KK_nut cells", 360),
+    ("dynamicKEqn[laplace] T_KK_nut faces", 372),
+    ("dynamicKEqn[laplace] T_KK cells", 360),
+    ("dynamicKEqn[laplace] T_KK faces", 372),
+    ("dynamicKEqn[laplace] T_LL cells", 2160),
+    ("dynamicKEqn[laplace] T_LL faces", 2232),
+    ("dynamicKEqn[laplace] T_MM_symm cells", 2160),
+    ("dynamicKEqn[laplace] T_MM_symm faces", 2232),
+    ("dynamicKEqn[laplace] T_MM_dev cells", 2160),
+    ("dynamicKEqn[laplace] T_MM_dev faces", 2232),
+    ("dynamicKEqn[laplace] Ck_symm vs real Ck", 360),
+    ("dynamicKEqn[laplace] Ck_dev vs real Ck", 360),
+    ("dynamicKEqn[laplace] Ce vs real Ce", 360),
+    ("dynamicKEqn[laplace] Ck_symm vs transcription", 360),
+    ("dynamicKEqn[laplace] Ck_dev vs transcription", 360),
+    ("dynamicKEqn[laplace] Ce vs transcription", 360),
+    ("dynamicKEqn[laplace] nut after validate() vs real nut", 360),
+    ("dynamicKEqn[laplace] nut after correct() vs real nut", 360),
+    ("dynamicKEqn[laplace] nut(devSymm form) vs nut after validate()", 248),
+    ("dynamicKEqn[laplace] G", 360),
+    ("dynamicKEqn[laplace] k_SuSp", 360),
+    ("dynamicKEqn[laplace] k_Sp", 360),
+    ("dynamicKEqn[laplace] Ck_dev with EXTRAPOLATED grad(U) boundary vs real Ck", 360),
+];
+const PINS_DYN_ANISO: &[(&str, usize)] = &[
+    ("dynamicKEqn[aniso] T_D_symm cells", 2160),
+    ("dynamicKEqn[aniso] T_D_symm faces", 2232),
+    ("dynamicKEqn[aniso] T_D_dev cells", 2160),
+    ("dynamicKEqn[aniso] T_D_dev faces", 2232),
+    ("dynamicKEqn[aniso] T_KK_nut cells", 360),
+    ("dynamicKEqn[aniso] T_KK_nut faces", 372),
+    ("dynamicKEqn[aniso] T_KK cells", 360),
+    ("dynamicKEqn[aniso] T_KK faces", 372),
+    ("dynamicKEqn[aniso] T_LL cells", 2160),
+    ("dynamicKEqn[aniso] T_LL faces", 2232),
+    ("dynamicKEqn[aniso] T_MM_symm cells", 2160),
+    ("dynamicKEqn[aniso] T_MM_symm faces", 2232),
+    ("dynamicKEqn[aniso] T_MM_dev cells", 2160),
+    ("dynamicKEqn[aniso] T_MM_dev faces", 2232),
+    ("dynamicKEqn[aniso] Ck_symm vs real Ck", 360),
+    ("dynamicKEqn[aniso] Ck_dev vs real Ck", 360),
+    ("dynamicKEqn[aniso] Ce vs real Ce", 360),
+    ("dynamicKEqn[aniso] Ck_symm vs transcription", 360),
+    ("dynamicKEqn[aniso] Ck_dev vs transcription", 360),
+    ("dynamicKEqn[aniso] Ce vs transcription", 360),
+    ("dynamicKEqn[aniso] nut after validate() vs real nut", 360),
+    ("dynamicKEqn[aniso] nut after correct() vs real nut", 360),
+    ("dynamicKEqn[aniso] nut(devSymm form) vs nut after validate()", 203),
+    ("dynamicKEqn[aniso] G", 360),
+    ("dynamicKEqn[aniso] k_SuSp", 360),
+    ("dynamicKEqn[aniso] k_Sp", 360),
+    ("dynamicKEqn[aniso] Ck_dev with EXTRAPOLATED grad(U) boundary vs real Ck", 203),
+];

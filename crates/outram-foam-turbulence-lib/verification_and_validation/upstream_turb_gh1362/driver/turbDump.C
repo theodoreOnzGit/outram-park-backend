@@ -36,12 +36,22 @@
 #include "simpleFilter.H"
 #include "laplaceFilter.H"
 #include "anisotropicFilter.H"
+#include "dynamicKEqn.H"
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
 #include <string>
 
 using namespace Foam;
+
+// The REAL protected Ck(D, KK) and Ce(D, KK) of dynamicKEqn, reached through a using-declaration
+// (the symbols are exported by libincompressibleTurbulenceModels).
+typedef LESModels::dynamicKEqn<IncompressibleTurbulenceModel<transportModel>> RealDynK;
+struct RealDynKAccess : public RealDynK
+{
+    using RealDynK::Ck;
+    using RealDynK::Ce;
+};
 
 static void H(const std::string& key, label i, scalar a)
 {
@@ -238,21 +248,77 @@ static void auditMatrix(const word& eq, const fvScalarMatrix& mIn)
     m.addBoundaryDiag(d, 0);
     scalarField src(m.source());
     m.addBoundarySource(src, false);
+    dumpS("TM_" + std::string(eq.c_str()) + "_diag", d);
     auditPart(eq, "diag", real[0], d);
     auditPart(eq, "source", real[3], src);
     if (m.hasUpper()) auditPart(eq, "upper", real[1], m.upper());
     if (m.hasLower()) auditPart(eq, "lower", real[2], m.lower());
 }
 
+
+// dynamicKEqn.C, transcribed expression for expression (Ck(D, KK), Ce(D, KK)).
+static volScalarField dynCk
+(
+    const simpleFilter& sF, const LESfilter& F, const volVectorField& U,
+    const volScalarField& delta, const volSymmTensorField& D, const volScalarField& KK,
+    autoPtr<volSymmTensorField>& LLout, autoPtr<volSymmTensorField>& MMout
+)
+{
+    const volSymmTensorField LL
+    (
+        sF(dev(F(sqr(U)) - (sqr(F(U)))))
+    );
+    const volSymmTensorField MM
+    (
+        sF
+        (
+            -2.0*delta*sqrt
+            (
+                max(KK, dimensionedScalar(KK.dimensions(), Zero))
+            )*F(D)
+        )
+    );
+    const volScalarField Ck
+    (
+        sF(0.5*(LL && MM))
+       /(
+            sF(magSqr(MM))
+          + dimensionedScalar("small", sqr(MM.dimensions()), VSMALL)
+        )
+    );
+    LLout.reset(new volSymmTensorField("LL", LL));
+    MMout.reset(new volSymmTensorField("MM", MM));
+    tmp<volScalarField> tfld = 0.5*(mag(Ck) + Ck);
+    return tfld();
+}
+
+static volScalarField dynCe
+(
+    const simpleFilter& sF, const LESfilter& F, const volScalarField& nut,
+    const volScalarField& nu, const volScalarField& delta, const volSymmTensorField& D,
+    const volScalarField& KK
+)
+{
+    const volScalarField Ce
+    (
+        sF(volScalarField::New("nuEff", nut + nu)*(F(magSqr(D)) - magSqr(F(D))))
+       /sF(pow(KK, 1.5)/(2.0*delta))
+    );
+    tmp<volScalarField> tfld = 0.5*(mag(Ce) + Ce);
+    return tfld();
+}
+
 int main(int argc, char* argv[])
 {
     argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE|LESfilters|dynamicKEqn|dynamicLagrangian");
+    argList::addOption("filter", "name", "simple|laplace|anisotropic (dynamicKEqn test filter)");
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
     dimensionSet::checking(false);
 
     const word model(args.get<word>("model"));
+    const word filterName(args.getOrDefault<word>("filter", "simple"));
     const vectorField& Cf = mesh.Cf().primitiveField();
     const vectorField& C = mesh.C().primitiveField();
     const label nInt = mesh.nInternalFaces();
@@ -403,6 +469,29 @@ int main(int argc, char* argv[])
     dumpV("gradk", tgradk().primitiveField());
     dumpV("gradomega", tgradom().primitiveField());
     dumpV("gradnuTilda", tgradnt().primitiveField());
+
+    // nut as validate() left it (the model's nut_ is overwritten by correct())
+    const volScalarField nutPre("nutPre", nut);
+    if (model == "dynamicKEqn")
+    {
+        // the REAL Ck and Ce of the model object on the same frozen state, called before
+        // correct() changes nut; KK is formed with the same filter class as the model's
+        const RealDynKAccess& rm =
+            static_cast<const RealDynKAccess&>(dynamic_cast<const RealDynK&>(turbulence()));
+        autoPtr<LESfilter> F0p;
+        if (filterName == "simple") F0p.reset(new simpleFilter(mesh));
+        else if (filterName == "laplace") F0p.reset(new laplaceFilter(mesh, 2.0));
+        else F0p.reset(new anisotropicFilter(mesh, 2.0));
+        const LESfilter& F0 = F0p();
+        const volSymmTensorField Dsymm0(symm(gradU));
+        const volSymmTensorField Ddev0(devSymm(gradU));
+        const volScalarField KKnut0(0.5*(F0(magSqr(U)) - magSqr(F0(U))));
+        volScalarField KK0(0.5*(F0(magSqr(U)) - magSqr(F0(U))));
+        KK0.clamp_min(SMALL);
+        dumpVF("R_Ck_symm", rm.Ck(Dsymm0, KKnut0));
+        dumpVF("R_Ck_dev", rm.Ck(Ddev0, KK0));
+        dumpVF("R_Ce", rm.Ce(Ddev0, KK0));
+    }
 
     // ---- the REAL correct(): matrices and local fields are printed by the
     //      dumpSolver instead of being solved ------------------------------
@@ -1143,6 +1232,65 @@ int main(int argc, char* argv[])
             Eeps1 - fvm::SuSp(SuSpEps, epsP()) - fvm::Sp(SpEps, epsP()) + E
         );
         auditMatrix("epsilon", epsEqn);
+        fvScalarMatrix kEqn
+        (
+            fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
+         ==
+            G - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
+        );
+        auditMatrix("k", kEqn);
+    }
+    else if (model == "dynamicKEqn")
+    {
+        // LESModels/dynamicKEqn/dynamicKEqn.C: Ck, Ce, correctNut(), correct(); delta cubeRootVol.
+        const scalar widthCoeff = 2.0;
+        const simpleFilter sF(mesh);
+        autoPtr<LESfilter> Fp;
+        if (filterName == "simple") Fp.reset(new simpleFilter(mesh));
+        else if (filterName == "laplace") Fp.reset(new laplaceFilter(mesh, widthCoeff));
+        else Fp.reset(new anisotropicFilter(mesh, widthCoeff));
+        const LESfilter& F = Fp();
+        const volScalarField& delta = mesh.lookupObject<volScalarField>("delta");
+        dumpS("T_delta", delta.primitiveField());
+        dumpVF("nutpre", nutPre);
+        dumpVF("nut_after", nut);
+        dumpVF("nu_f", nu);
+        dumpVF("delta_f", delta);
+        // correctNut(): D = symm(grad U), KK unclamped
+        const volSymmTensorField Dsymm(symm(gradU));
+        const volScalarField KKnut(0.5*(F(magSqr(U)) - magSqr(F(U))));
+        autoPtr<volSymmTensorField> LLs, MMs;
+        const volScalarField CkSymm(dynCk(sF, F, U, delta, Dsymm, KKnut, LLs, MMs));
+        const volScalarField nutValidate(CkSymm*sqrt(k)*delta);
+        // correct(): D = devSymm(grad U), KK clamped
+        const volSymmTensorField Ddev(devSymm(gradU));
+        volScalarField KK(0.5*(F(magSqr(U)) - magSqr(F(U))));
+        KK.clamp_min(SMALL);
+        autoPtr<volSymmTensorField> LLd, MMd;
+        const volScalarField CkDev(dynCk(sF, F, U, delta, Ddev, KK, LLd, MMd));
+        const volScalarField CeF(dynCe(sF, F, nutPre, nu, delta, Ddev, KK));
+        const volScalarField nutAfter(CkDev*sqrt(k)*delta);
+        const volScalarField G("G", 2.0*nutPre*(gradU && Ddev));
+        const volScalarField::Internal SuSpK((2.0/3.0)*divU);
+        const volScalarField SpK(CeF*sqrt(k)/delta);
+        dumpVF("T_D_symm", Dsymm);
+        dumpVF("T_m_dev", volScalarField(-2.0*delta*sqrt(max(KK, dimensionedScalar(KK.dimensions(), Zero)))));
+        dumpVF("T_FD_dev", volSymmTensorField(F(Ddev)));
+        dumpVF("T_D_dev", Ddev);
+        dumpVF("T_KK_nut", KKnut);
+        dumpVF("T_KK", KK);
+        dumpVF("T_LL", LLd());
+        dumpVF("T_MM_symm", MMs());
+        dumpVF("T_MM_dev", MMd());
+        dumpVF("T_Ck_symm", CkSymm);
+        dumpVF("T_Ck_dev", CkDev);
+        dumpVF("T_Ce", CeF);
+        dumpS("T_nut_validate", nutValidate.primitiveField());
+        dumpS("T_nut_after", nutAfter.primitiveField());
+        dumpS("T_G", G.primitiveField());
+        dumpS("T_k_SuSp", SuSpK.field());
+        dumpS("T_k_Sp", SpK.primitiveField());
+        const volScalarField Dk("DkEff", nutPre + nu);
         fvScalarMatrix kEqn
         (
             fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
