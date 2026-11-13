@@ -91,12 +91,18 @@ Deck 30 now passes its first RECONR and stops at the photo-atomic one (the same 
 - 43: BROADR `thinb` (gh:#619).
 - 48 and 59: `iheat`'s two single-precision literals. ~~The residual recorded in `../acer_photoatomic_vs_njoy2016.md`~~ was a port defect, not upstream's convergence (the notes above that call it a residual are superseded).
 
-A prediction was posted on gh:#1369 before each run, and all five held on the first run. Remaining: 02 and 76 (CCCCR), 06 and 12 (PLOTR), 03 and 30 (GAMINR, MATXSR), 80 (LEAPR, last figure). Record: `README.md` section 24.
+A prediction was posted on gh:#1369 before each run, and all five held on the first run. Remaining: ~~02 and 76 (CCCCR)~~, 06 and 12 (PLOTR), 03 and 30 (GAMINR, MATXSR), ~~80 (LEAPR, last figure)~~. Record: `README.md` section 24. **UPDATE 2026-11-13:** 02, 76 and 80 are closed, as in the note below.
+
+**Re-run 2026-11-13, decks 80, 02 and 76 closed (gh:#1369):** rows 02, 76 and 80 were re-run alone (`SURVEY_CASES`, 537 s) on develop 60675b0f0 plus this work. Their rows are replaced; every other row is as before. **Identical: 83 of 87** (80 before). The causes:
+- 80: LEAPR `trans` keeps `sb` across its loops, and a `sbfill` that stops one entry short reads an earlier call's value. The port padded with zero. ~~"last figure"~~: most of its 24 264 differing values were off by more than 3e-5.
+- 02 and 76: CCCCR translated (`src/ccccr/`). ISOTXS (02 unit 26), BRKOXS (02 unit 27) and DLAYXS (76 unit 30) are byte-identical, and are counted in "tapes identical".
+
+From this run on, the survey counts a binary file of ours that differs from NJOY's as `differs`. Before, it was listed in the last column and could not fail. Remaining: 06 and 12 (PLOTR), 03 and 30 (GAMINR, MATXSR). Record: `README.md` section 25.
 
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
-| 02 | NotPorted (ccccr: card reader not yet translated) | 1 |  | tape28 tape29 | tape21 tape22 tape23 tape24 tape25 tape26 tape27 |
+| 02 | identical | 5 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 03 | NotPorted (gaminr: card reader not yet translated) | 0 | tape31 2180/2180 lines | tape33 tape34 tape35 tape36 tape37 |  |
 | 04 | identical | 3 |  |  | tape21 tape22 |
 | 05 | identical | 3 |  |  | tape31 tape32 |
@@ -170,10 +176,10 @@ A prediction was posted on gh:#1369 before each run, and all five held on the fi
 | 73 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 74 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
 | 75 | identical | 4 |  |  |  |
-| 76 | NotPorted (ccccr: card reader not yet translated) | 1 |  |  | tape21 tape22 tape23 tape24 tape30 |
+| 76 | identical | 2 |  |  | tape21 tape22 tape23 tape24 |
 | 78 | identical | 7 |  |  | tape21 tape30 |
 | 79 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
-| 80 | differs | 0 | tape24 17369/91453 lines |  |  |
+| 80 | identical | 1 |  |  |  |
 | 81 | identical | 1 |  |  | tape21 tape22 |
 | 82 | identical | 18 |  |  |  |
 | 83 | identical | 1 |  |  | tape21 tape30 |

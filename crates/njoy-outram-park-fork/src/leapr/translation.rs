@@ -217,22 +217,40 @@ pub fn stable(al: f64, delta: f64, twt: f64, c: f64, ndmax: usize) -> (Vec<f64>,
 /// Generate the continuous `S(beta)` on the convolution grid (`sbfill`,
 /// leapr.f90:1164-1251) by log-linear interpolation of the tabulated law.
 ///
-/// Returns the `sb` array (length `2*nbt-1`) used by the translational
-/// convolution. `delta` may be grown internally to avoid floating-point
-/// underflow of the grid step (rare); the possibly-updated value is returned.
+/// Writes `sb(1..n)` **in place** into `sb`, the one scratch array `trans`
+/// allocates per call (`allocate(sb(ndmax))`, leapr.f90:883) and keeps across
+/// every alpha and beta, and returns `(n, delta)`. Entries past `n` are left
+/// as an earlier call wrote them, as upstream does. `delta` may be grown
+/// internally to avoid floating-point underflow of the grid step (rare); the
+/// possibly-updated value is returned (upstream's `delta` is passed by
+/// reference).
+///
+/// **Why in place (gh:#1369, deck 80).** `trans` reads `sb(nbt+i-1)` up to
+/// `sb(2*nbt-1)` (leapr.f90:935-937). The loop below is upstream's verbatim,
+/// and when the accumulated rounding of `bet += delta` over ~2*nbt steps
+/// exceeds the `delta/100` slack in `bmax` it stops one entry short (D-in-D2O
+/// at 293.6 K: 31,628 entries for nbt = 15,815). Upstream then reads what an
+/// **earlier** `sbfill` call of the same `trans` left in that slot, weighted by
+/// the kernel's tail `sd(nbt)`. ~~The port padded with zero~~ (corrected
+/// 2026-11-13): a fresh array per call padded with zero dropped that positive
+/// term, which made 24 264 values of deck 80's MF=7/MT=4 smaller than
+/// NJOY2016's. An entry no earlier call wrote is undefined in Fortran; the
+/// caller supplies zero there, which is what gfortran/glibc give for a fresh
+/// 8 MB allocation (zero pages).
 ///
 /// # Arguments
+/// * `sb` — the persistent scratch array (grown with zeros as needed).
 /// * `nbt` — half-width of the convolution grid (`= nsd`).
 /// * `delta` — grid spacing (dimensionless).
 /// * `be` — the target beta (dimensionless).
 /// * `s` — the current continuous `S` indexed by the beta grid (dimensionless).
 /// * `betan` — the scaled beta grid (dimensionless).
-fn sbfill(nbt: usize, mut delta: f64, be: f64, s: &[f64], betan: &[f64]) -> (Vec<f64>, f64) {
+fn sbfill(sb: &mut Vec<f64>, nbt: usize, mut delta: f64, be: f64, s: &[f64], betan: &[f64]) -> (usize, f64) {
     const SHADE: f64 = 1.00001;
     let nbeta = betan.len();
     let bmin = -be - (nbt as f64 - 1.0) * delta;
     let bmax = -be + (nbt as f64 - 1.0) * delta + delta / 100.0;
-    let mut sb: Vec<f64> = Vec::new();
+    let mut n = 0_usize;
     let mut j = nbeta; // 1-based pointer into betan
     let mut bet = bmin;
     while bet <= bmax {
@@ -271,22 +289,22 @@ fn sbfill(nbt: usize, mut delta: f64, be: f64, s: &[f64], betan: &[f64]) -> (Vec
         } else {
             0.0
         };
-        sb.push(val);
+        if sb.len() <= n {
+            sb.resize(n + 1, 0.0);
+        }
+        sb[n] = val;
+        n += 1;
         // underflow guard on the grid step
         while bet == bet + delta {
             delta *= 10.0;
         }
         bet += delta;
     }
-    // `trans` reads `sb(nbt+i-1)` up to `sb(2*nbt-1)` (leapr.f90:920-923).
-    // The loop above is upstream's verbatim, and when the accumulated
-    // rounding of `bet += delta` over ~2*nbt steps exceeds the `delta/100`
-    // slack in `bmax` it stops one entry short (D-in-D2O at 293.6 K: 31,628
-    // entries for nbt = 15,815). Upstream then reads whatever the persistent
-    // `sb(ndmax)` array holds there, weighted by the kernel's truncated tail
-    // `sd(nbt) <= eps*sd(1)`; zero is the value that term is meant to carry.
-    sb.resize(sb.len().max(2 * nbt - 1), 0.0);
-    (sb, delta)
+    // Never-written slots up to `sb(2*nbt-1)` read as zero (see above).
+    if sb.len() < 2 * nbt - 1 {
+        sb.resize(2 * nbt - 1, 0.0);
+    }
+    (n, delta)
 }
 
 /// Add the translational term to the continuous scattering law (`trans`,
@@ -326,6 +344,9 @@ pub fn add_translation(
     let ndmax = nbeta.max(1_000_000);
 
     let betan: Vec<f64> = input.beta.iter().map(|&b| b * sc).collect();
+    // `sb(ndmax)`: one scratch array for the whole call (leapr.f90:883), see
+    // [`sbfill`].
+    let mut sb: Vec<f64> = Vec::new();
 
     for ialpha in 0..nalpha {
         let al = input.alpha[ialpha] * sc / arat;
@@ -353,7 +374,7 @@ pub fn add_translation(
         for ibeta in 0..nbeta {
             let be = betan[ibeta];
             let nbt = nsd;
-            let (sb, new_delta) = sbfill(nbt, delta, be, &s_cont, &betan);
+            let (_n, new_delta) = sbfill(&mut sb, nbt, delta, be, &s_cont, &betan);
             delta = new_delta;
 
             // Simpson-rule convolution of s-transport with s-continuous
@@ -371,7 +392,8 @@ pub fn add_translation(
                 let bb = (i - 1) as f64 * delta;
                 s += f * sd[i - 1] * sb[lo - 1] * (-bb).r_exp();
             }
-            s *= delta / 3.0;
+            // `s=s*delta/3` (leapr.f90:939) is `(s*delta)/3`.
+            s = s * delta / 3.0;
             if s < TINY {
                 s = 0.0;
             }

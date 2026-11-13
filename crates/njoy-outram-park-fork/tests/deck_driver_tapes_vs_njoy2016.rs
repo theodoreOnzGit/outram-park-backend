@@ -1809,16 +1809,87 @@ fn test_33_leapr_whole_deck() {
     let _ = whole_deck_units("33", "", &[], &[24, 34]);
 }
 
-/// Deck 80 (H in HF, `nphon = 108`, 200 alphas, 1 325 betas from 1e-13).
-/// **Result (2026-11-13): 17 369 of 91 453 lines differ**, all in MF=7/MT=4
+/// Deck 80 (H in HF, ~~`nphon = 108`~~ **CORRECTED 2026-11-13:** `mat = 8`,
+/// `za = 108` (card 4), `nphon` the default 100; 200 alphas, 1 325 betas from
+/// 1e-13; a diffusive translational term, `twt = 6.3e-3`, `c = 49.54`).
+/// ~~**Result (2026-11-13): 17 369 of 91 453 lines differ**, all in MF=7/MT=4
 /// and all by one unit in the last printed (sixth) figure of S(alpha, beta),
 /// e.g. `1.30695-13` against NJOY's `1.30696-13`. The card stream and MF=1
 /// are identical. Cause not investigated (gh:#1369); ignored with that reason,
-/// not loosened.
+/// not loosened.~~
+/// **CORRECTED 2026-11-13 (gh:#1369):** the 17 369 lines were 24 264 values,
+/// and only 4 742 differed in the last figure. 19 522 differed by more than
+/// 3e-5 relative, and in **every** one NJOY's value was the larger: a missing
+/// positive term. Cause, read upstream: `trans` allocates `sb` once and keeps
+/// it across the alpha and beta loops (`leapr.f90:883`). When `sbfill` stops
+/// one entry short of `2*nbt-1`, the convolution reads the value an earlier
+/// call left there. The port padded a fresh array with zero. Fix:
+/// `leapr::translation::sbfill` writes one persistent buffer in place.
+/// Prediction (posted before the change): identical. **Result: 0 differing
+/// lines of 91 453.**
 #[test]
-#[ignore = "deck 80: 17 369 lines of MF=7/MT=4 differ in the last printed figure; cause not investigated (gh:#1369)"]
 fn test_80_leapr_whole_deck() {
     let _ = whole_deck_units("80", "", &[], &[24]);
+}
+
+/// The whole deck `case`: text units compared line by line, binary units (files
+/// this crate writes as raw bytes, such as CCCCR's) byte for byte.
+fn whole_deck_text_and_bytes(case: &str, resource: &str, text: &[u32], binary: &[u32]) -> Option<()> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, None, "")?;
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("wb{case}"), resource, &[], &full, &full)?;
+    let mut bad = Vec::new();
+    for &u in text {
+        let name = format!("tape{u}");
+        let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+        let n = std::fs::read_to_string(njoy.join(&name)).unwrap().lines().count();
+        println!("deck {case} unit {u}: {} differing lines of {n}", d.len());
+        if !d.is_empty() {
+            bad.push(u);
+        }
+    }
+    for &u in binary {
+        let name = format!("tape{u}");
+        let a = std::fs::read(ours.join(&name)).unwrap_or_default();
+        let b = std::fs::read(njoy.join(&name)).unwrap();
+        let first = a.iter().zip(&b).position(|(x, y)| x != y);
+        println!("deck {case} unit {u}: {} bytes ours, {} NJOY's, first differing byte {first:?}", a.len(), b.len());
+        if a != b || b.is_empty() {
+            bad.push(u);
+        }
+    }
+    if std::env::var_os("DECK_KEEP").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
+    Some(())
+}
+
+/// **Deck 02 (Pu-238 ENDF/B-IV), the whole deck, CCCCR included** (gh:#1369):
+/// ISOTXS (26) and BRKOXS (27), gfortran unformatted files, byte for byte, and
+/// MODER's text copies of the PENDF (28) and GENDF (29) line by line.
+///
+/// CCCCR is `ccccr.f90` translated (`crate::ccccr`): 50 groups, `maxord = 4`,
+/// `ifopt = 1`, `nsblok = 1`, `ichix = -1` (chi vector from the GROUPR flux);
+/// BRKOXS at 3 temperatures and 6 sigma-zeros from the binary GENDF (unit -25).
+/// Prediction (gh:#1369, posted before the code ran): both files byte-identical.
+/// **Result (2026-11-13): 42 128 and 23 164 bytes, identical; 28 and 29
+/// identical.**
+#[test]
+fn test_02_ccccr_whole_deck() {
+    let _ = whole_deck_text_and_bytes("02", "t404", &[28, 29], &[26, 27]);
+}
+
+/// **Deck 76 (U-235 ENDF/B-VIII.0), the whole deck, CCCCR included** (gh:#1369):
+/// the GROUPR GENDF (25, text) line by line and DLAYXS (30) byte for byte.
+///
+/// DLAYXS from a coded GENDF (`nin = 25`): 69 groups, 6 delayed families
+/// (`dldata`'s MF=3 and MF=5 MT=455). Prediction (gh:#1369, before the code
+/// ran): byte-identical. **Result (2026-11-13): 3 732 bytes, identical; 25
+/// identical.** NJOY2016 takes about 90 s on this deck.
+#[test]
+fn test_76_ccccr_whole_deck() {
+    let _ = whole_deck_text_and_bytes("76", "n-092_U_235-ENDF8.0.endf", &[25], &[30]);
 }
 
 /// **ACER `iopt = 4` (photo-atomic) from the deck driver** (gh:#1369): deck 48
@@ -2034,7 +2105,7 @@ fn test_15_groupr_gendf_whole_tape() {
 }
 
 /// **Deck 76 (U-235 ENDF/B-VIII.0), the GROUPR GENDF (unit 25, text) as written,
-/// `6 /` included** (gh:#1369, round 3): the deck up to CCCCR (not ported).
+/// `6 /` included** (gh:#1369, round 3): the deck up to CCCCR (~~not ported~~ **CORRECTED 2026-11-13:** ported; the whole deck is `test_76_ccccr_whole_deck`).
 ///
 /// `6 /` reaches MF=4/MT=18: `getff` label 200 with `econst` (`groupr.f90:7132-7232`),
 /// prompt nu from `getyld` on MF=1/MT=456, `getsed` on the tabulated `LF = 1`
@@ -2187,7 +2258,7 @@ fn test_17_through_moder_merge() {
 }
 
 /// **Deck 02 (Pu-238 ENDF/B-IV), the GROUPR GENDF (MODER copy, unit 29) and UNRESR's
-/// PENDF (unit 28)**, the deck up to CCCCR (not ported) with its own two MODER steps
+/// PENDF (unit 28)**, the deck up to CCCCR (~~not ported~~ **CORRECTED 2026-11-13:** ported, `test_02_ccccr_whole_deck`) with its own two MODER steps
 /// (gh:#1369 round 5). GROUPR: `iwt = 4` (`genwtf`/`getwtf`'s thermal + `1/E` +
 /// fission with `eb, tb, ec, tc = .1, .025, 8.208e5, 1.4e6`), `lord = 3`, three
 /// temperatures × seven sigma-zeros, MT 251-253 and 259, and `6 18` (`anased` law 7).
@@ -2216,7 +2287,7 @@ fn test_02_groupr_gendf_and_unresr_pendf() {
 
 /// **Deck 76 (U-235 ENDF/B-VIII.0), the GROUPR GENDF (unit 25, text) with the
 /// automatic `6 /` card removed on both sides** (gh:#1369): the deck up to CCCCR
-/// (not ported).
+/// (~~not ported~~ **CORRECTED 2026-11-13:** ported, `test_76_ccccr_whole_deck`).
 ///
 /// `6 /` reaches MF=4/MT=18, `getff` label 200 with `econst` (fission, `getyld`
 /// on MT=456), ~~which is not translated, so the deck as written stops there~~

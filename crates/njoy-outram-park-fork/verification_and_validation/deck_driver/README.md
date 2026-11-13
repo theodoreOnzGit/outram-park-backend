@@ -364,7 +364,7 @@ ports.
 | 48, 59 | `NotPorted`: ACER `iopt = 4` | none | `deck::acer_photon` binds the units; the directory line follows `phoout` (`acepa.f90:1023`) | directory line identical; the ACE differs in 36 of 17 964 lines, all in the heating block (45 words, worst 8.7e-8). This is the residual already recorded in `../acer_photoatomic_vs_njoy2016.md`. |
 | 56, 57, 58, 66, 78 | `NotPorted`: ACER `iopt = 5` | none | as above | ~~the builder refuses by name: MF=4 angular data (56), MF=6 `LCT != 1` (57, 58, 78), MT=18 nubar (66)~~ **CORRECTED 2026-11-13:** 57, 58, 66 and 78 build, ACE identical; ~~56 still stops at MF=4 (section 21)~~ **CORRECTED 2026-11-13:** all five are identical whole decks (section 22) |
 | 43 | `differs`: tape35 320 lines | at `tempef <= 0` BROADR only thins (`thinb`, `broadr.f90:1677-1760`), which is not ported (gh:#619); the driver passed RECONR's grid through | the driver now refuses it (`NotPorted`) | `NotPorted`, honestly |
-| 80 | `leapr: card reader not yet translated` | not investigated | none | runs; 17 369 of 91 453 lines of MF=7/MT=4 differ in the last printed figure (`test_80_leapr_whole_deck`, ignored with that reason) |
+| 80 | `leapr: card reader not yet translated` | not investigated | none | ~~runs; 17 369 of 91 453 lines of MF=7/MT=4 differ in the last printed figure (`test_80_leapr_whole_deck`, ignored with that reason)~~ **CORRECTED 2026-11-13 (§25):** 24 264 values differed, most by more than 3e-5, all low (LEAPR `sbfill`'s persistent `sb`); now identical, gate un-ignored |
 
 ## 13. GROUPR automatic lists, nuclide production, `getmf6` and `gam102` (2026-11-13, gh:#1369)
 
@@ -1223,7 +1223,7 @@ place, with strike-through, in that record, AGENTS.md and the docs that quoted
 
 **Not done.** The large ports (CCCCR: 02, 76; PLOTR: 06, 12; GAMINR/MATXSR: 03, 30)
 were out of scope this round. Deck 80 (LEAPR, the last printed figure of MF=7/MT=4)
-was not attempted.
+was not attempted. **UPDATE 2026-11-13 (§25):** CCCCR (02, 76) and deck 80 are closed; ~~"the last printed figure"~~ was a mis-description (most values differed by more than 3e-5).
 
 **Survey.** Rows 11, 17, 43, 48 and 59 were re-run alone (`SURVEY_CASES`, 230 s) on
 develop 16330e9f6 plus this work. All five are `identical`. **80 of 87 are identical**
@@ -1241,3 +1241,80 @@ or test change):
 | `ace_five_route_parity` | 13 of 13 passed |
 | `acer_photoatomic_vs_njoy2016` | 4 of 4 passed |
 | `--lib` | 763 of 763 passed |
+
+## 25. Decks 80, 02 and 76 closed: LEAPR's persistent `sb`, and CCCCR translated (2026-11-13, gh:#1369)
+
+The last of §23's one-deck items (80) and the CCCCR port (02, 76). I searched the
+existing code first and read upstream. For each, a prediction was posted on
+gh:#1369 **before** any new code ran, and each held on the first run. No folder
+I touched has a kovan `kind = "review"` block.
+
+| deck | cause, read upstream | fix | result |
+|---|---|---|---|
+| 80 | ~~"17 369 lines differ in the last printed figure"~~ **CORRECTED:** 24 264 values differed, and 19 522 of them by more than 3e-5. In **every** one, NJOY's was the larger. `trans` allocates `sb(ndmax)` once per call and keeps it across the alpha and beta loops (`leapr.f90:883`). When `sbfill`'s `bet += delta` rounding stops it one entry short of `2*nbt-1`, the convolution reads (`:935-937`) the value an earlier `sbfill` left there. The port built a fresh array per call and padded it with zero | `leapr::translation::sbfill` writes one persistent buffer in place, and never-written entries read zero. Also `s=s*delta/3` is now `(s*delta)/3` (`:939`), where the port had `s*(delta/3)` | tape24 identical, 91 453 lines |
+| 02 | CCCCR not ported (`ccccr.f90`, 3 526 lines) | `src/ccccr/`, a line-for-line translation: `core`, `state`, `isotxs`, `brkoxs`, `dlayxs`; `deck::ccccr` for the cards; `TapeUnits::put_bytes` | ISOTXS (26, 42 128 bytes) and BRKOXS (27, 23 164 bytes) byte-identical; 28 and 29 identical |
+| 76 | the same | the same (DLAYXS from a coded GENDF) | DLAYXS (30, 3 732 bytes) byte-identical; 25 identical |
+
+**Deck 80, the stale record.** The `#[ignore]` reason on `test_80_leapr_whole_deck`
+said every difference was one unit in the sixth figure. That was never measured
+value by value. Counting values shows otherwise: 4 742 differed in the last figure,
+and 19 522 by 3e-5 or more (`6.87804e-17` against `6.87827e-17`), with a few tail
+values `0` where NJOY has `5.7e-58`. The fact that every difference had one sign
+is what pointed at a missing term. Corrected with strike-through in the test doc.
+Decks 09, 22, 23 and 33 also run `trans`, and they stay identical.
+
+**CCCCR: how byte identity was reached.**
+- The port keeps upstream's equivalenced container as 100 000 four-byte words,
+  indexed 1-based as upstream indexes it.
+- It keeps the mixed precision. `a` is `real(4)`, so `a(locn)/a(locd)`,
+  `a(locsg)/a(locsg0)`, `abs(a(noloc)-1.0)` and `a(mdex)-273.16` are single
+  precision.
+- It writes gfortran's 4-byte record markers.
+
+Record: `src/ccccr/README.md`.
+
+**Divergences and undefined behaviour, by name.**
+- LEAPR `sbfill`: an `sb` entry that no earlier call wrote is **undefined** in
+  Fortran. The port reads zero, which is what gfortran with glibc gives for a fresh
+  8 MB `allocate`. A stale entry that an earlier call wrote is defined (an
+  allocatable keeps its values), and the port reproduces it.
+- CCCCR `prinxs`: with MT=455 before any MT=18, it indexes `dnorm(0)`, which is
+  undefined. The port refuses this.
+- CCCCR `ruinis` (`ichix = 1`): `spec` is read through `real(8)` and rounded,
+  where upstream converts the decimal straight to `real(4)`. These can differ only
+  at an `f32` midpoint. No deck reads `spec`.
+- Refused by name, and run by no upstream deck:
+  - ISOTXS `ifopt = 2`;
+  - `nsblok = ngroup`;
+  - a chi matrix (`ichix > 1`);
+  - BRKOXS `nsblk = nreact`.
+
+  The listing (`lprint = 1`) is not written.
+
+**Survey.** The survey now counts a binary file of ours that differs from NJOY's
+as `differs`. Before, it was listed as "binary" and could not fail.
+
+**Gates** (`tests/deck_driver_tapes_vs_njoy2016.rs`):
+- `test_80_leapr_whole_deck` (no longer `#[ignore]`d);
+- `test_02_ccccr_whole_deck`;
+- `test_76_ccccr_whole_deck`;
+- `ccccr::core::tests`;
+- `deck::tapes::tests::only_output_units_are_written_back` (raw bytes).
+
+**Survey.** Rows 02, 76 and 80 were re-run alone (`SURVEY_CASES`, 537 s) on
+develop 60675b0f0 plus this work, and all three are `identical`. **83 of 87 are
+identical** (80 before). Remaining: 06 and 12 (PLOTR), 03 and 30 (GAMINR, MATXSR).
+
+**Tests** (release, on develop 60675b0f0 plus this work, all run after the last
+code or test change):
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 137 passed, 0 failed, 0 ignored, 2 036 s |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `deck_driver_photonuclear_vs_njoy2016` | 6 of 6 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `acer_photoatomic_vs_njoy2016` | 4 of 4 passed |
+| the 14 `leapr_*` oracle test files | 48 passed, 0 failed, 1 ignored (`leapr_coher_general_self_consistency`, ignored before this work) |
+| `--lib` | 764 of 764 passed |
