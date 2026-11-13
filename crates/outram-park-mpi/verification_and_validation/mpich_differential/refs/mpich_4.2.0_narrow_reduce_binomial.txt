@@ -21,6 +21,12 @@ allreduce_sum_f64_c40 n=2 r=0 count=40 fnv=93f0269541d05661
 allreduce_sum_f64_c40 n=2 r=1 count=40 fnv=93f0269541d05661
 allreduce_sum_f32 n=2 r=0 c12ce41e bdbe195a
 allreduce_sum_f32 n=2 r=1 c12ce41e bdbe195a
+reduce_special_f64 n=2 r=0 zmax=8000000000000000 zmin=8000000000000000 nmax=7ff8000000000000 nmin=7ff8000000000000
+reduce_sum_f64_c1024 n=2 r=0 root=0 count=1024 fnv=79b01ed50f2762f6
+allreduce_sum_f64_c1024 n=2 r=0 count=1024 fnv=79b01ed50f2762f6
+allreduce_sum_f64_c1024 n=2 r=1 count=1024 fnv=79b01ed50f2762f6
+allreduce_special_f64 n=2 r=0 zmax=8000000000000000 zmin=8000000000000000 nmax=7ff8000000000000 nmin=7ff8000000000000
+allreduce_special_f64 n=2 r=1 zmax=0000000000000000 zmin=0000000000000000 nmax=3ff0000000000000 nmin=3ff0000000000000
 bcast_i32 n=2 r=0 11,22,33
 bcast_i32 n=2 r=1 11,22,33
 scatter_i32 n=2 r=0 1000,2000
@@ -61,6 +67,14 @@ allreduce_sum_f64_c40 n=3 r=2 count=40 fnv=47b230cf50c58ac2
 allreduce_sum_f32 n=3 r=0 c077fffe c16d353b
 allreduce_sum_f32 n=3 r=1 c077fffe c16d353b
 allreduce_sum_f32 n=3 r=2 c077fffe c16d353b
+reduce_special_f64 n=3 r=0 zmax=0000000000000000 zmin=0000000000000000 nmax=4008000000000000 nmin=4008000000000000
+reduce_sum_f64_c1024 n=3 r=0 root=0 count=1024 fnv=fca6deaa95bd1405
+allreduce_sum_f64_c1024 n=3 r=0 count=1024 fnv=fca6deaa95bd1405
+allreduce_sum_f64_c1024 n=3 r=1 count=1024 fnv=fca6deaa95bd1405
+allreduce_sum_f64_c1024 n=3 r=2 count=1024 fnv=fca6deaa95bd1405
+allreduce_special_f64 n=3 r=0 zmax=0000000000000000 zmin=0000000000000000 nmax=4008000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=3 r=1 zmax=0000000000000000 zmin=0000000000000000 nmax=4008000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=3 r=2 zmax=0000000000000000 zmin=0000000000000000 nmax=4008000000000000 nmin=3ff0000000000000
 bcast_i32 n=3 r=0 11,22,33
 bcast_i32 n=3 r=1 11,22,33
 bcast_i32 n=3 r=2 11,22,33
@@ -112,6 +126,16 @@ allreduce_sum_f32 n=4 r=0 c0c2562c c11fe6a8
 allreduce_sum_f32 n=4 r=1 c0c2562c c11fe6a8
 allreduce_sum_f32 n=4 r=2 c0c2562c c11fe6a8
 allreduce_sum_f32 n=4 r=3 c0c2562c c11fe6a8
+reduce_special_f64 n=4 r=0 zmax=8000000000000000 zmin=8000000000000000 nmax=4010000000000000 nmin=4008000000000000
+reduce_sum_f64_c1024 n=4 r=0 root=0 count=1024 fnv=e228eacaafb319f4
+allreduce_sum_f64_c1024 n=4 r=0 count=1024 fnv=e228eacaafb319f4
+allreduce_sum_f64_c1024 n=4 r=1 count=1024 fnv=e228eacaafb319f4
+allreduce_sum_f64_c1024 n=4 r=2 count=1024 fnv=e228eacaafb319f4
+allreduce_sum_f64_c1024 n=4 r=3 count=1024 fnv=e228eacaafb319f4
+allreduce_special_f64 n=4 r=0 zmax=8000000000000000 zmin=8000000000000000 nmax=4010000000000000 nmin=4008000000000000
+allreduce_special_f64 n=4 r=1 zmax=0000000000000000 zmin=0000000000000000 nmax=4010000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=4 r=2 zmax=8000000000000000 zmin=8000000000000000 nmax=7ff8000000000000 nmin=7ff8000000000000
+allreduce_special_f64 n=4 r=3 zmax=0000000000000000 zmin=0000000000000000 nmax=4010000000000000 nmin=3ff0000000000000
 bcast_i32 n=4 r=0 11,22,33
 bcast_i32 n=4 r=1 11,22,33
 bcast_i32 n=4 r=2 11,22,33
@@ -184,6 +208,18 @@ allreduce_sum_f32 n=5 r=1 c093720e c15246f9
 allreduce_sum_f32 n=5 r=2 c093720e c15246f9
 allreduce_sum_f32 n=5 r=3 c093720e c15246f9
 allreduce_sum_f32 n=5 r=4 c093720e c15246f9
+reduce_special_f64 n=5 r=0 zmax=0000000000000000 zmin=0000000000000000 nmax=4014000000000000 nmin=4008000000000000
+reduce_sum_f64_c1024 n=5 r=0 root=0 count=1024 fnv=0be6f0132f79e7a1
+allreduce_sum_f64_c1024 n=5 r=0 count=1024 fnv=d2759dcb74672290
+allreduce_sum_f64_c1024 n=5 r=1 count=1024 fnv=d2759dcb74672290
+allreduce_sum_f64_c1024 n=5 r=2 count=1024 fnv=d2759dcb74672290
+allreduce_sum_f64_c1024 n=5 r=3 count=1024 fnv=d2759dcb74672290
+allreduce_sum_f64_c1024 n=5 r=4 count=1024 fnv=d2759dcb74672290
+allreduce_special_f64 n=5 r=0 zmax=0000000000000000 zmin=0000000000000000 nmax=4014000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=5 r=1 zmax=0000000000000000 zmin=0000000000000000 nmax=4014000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=5 r=2 zmax=8000000000000000 zmin=8000000000000000 nmax=4014000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=5 r=3 zmax=0000000000000000 zmin=0000000000000000 nmax=4014000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=5 r=4 zmax=0000000000000000 zmin=0000000000000000 nmax=4014000000000000 nmin=3ff0000000000000
 bcast_i32 n=5 r=0 11,22,33
 bcast_i32 n=5 r=1 11,22,33
 bcast_i32 n=5 r=2 11,22,33
@@ -269,6 +305,20 @@ allreduce_sum_f32 n=6 r=2 c0b0c0a0 c1333a4d
 allreduce_sum_f32 n=6 r=3 c0b0c0a0 c1333a4d
 allreduce_sum_f32 n=6 r=4 c0b0c0a0 c1333a4d
 allreduce_sum_f32 n=6 r=5 c0b0c0a0 c1333a4d
+reduce_special_f64 n=6 r=0 zmax=8000000000000000 zmin=8000000000000000 nmax=4018000000000000 nmin=4008000000000000
+reduce_sum_f64_c1024 n=6 r=0 root=0 count=1024 fnv=8fd925e1d586a2d8
+allreduce_sum_f64_c1024 n=6 r=0 count=1024 fnv=8fd925e1d586a2d8
+allreduce_sum_f64_c1024 n=6 r=1 count=1024 fnv=8fd925e1d586a2d8
+allreduce_sum_f64_c1024 n=6 r=2 count=1024 fnv=8fd925e1d586a2d8
+allreduce_sum_f64_c1024 n=6 r=3 count=1024 fnv=8fd925e1d586a2d8
+allreduce_sum_f64_c1024 n=6 r=4 count=1024 fnv=8fd925e1d586a2d8
+allreduce_sum_f64_c1024 n=6 r=5 count=1024 fnv=8fd925e1d586a2d8
+allreduce_special_f64 n=6 r=0 zmax=8000000000000000 zmin=8000000000000000 nmax=4018000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=6 r=1 zmax=8000000000000000 zmin=8000000000000000 nmax=4018000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=6 r=2 zmax=0000000000000000 zmin=0000000000000000 nmax=4018000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=6 r=3 zmax=0000000000000000 zmin=0000000000000000 nmax=4018000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=6 r=4 zmax=0000000000000000 zmin=0000000000000000 nmax=4018000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=6 r=5 zmax=0000000000000000 zmin=0000000000000000 nmax=4018000000000000 nmin=3ff0000000000000
 bcast_i32 n=6 r=0 11,22,33
 bcast_i32 n=6 r=1 11,22,33
 bcast_i32 n=6 r=2 11,22,33
@@ -379,6 +429,22 @@ allreduce_sum_f32 n=7 r=3 c0a72b15 c13daee5
 allreduce_sum_f32 n=7 r=4 c0a72b15 c13daee5
 allreduce_sum_f32 n=7 r=5 c0a72b15 c13daee5
 allreduce_sum_f32 n=7 r=6 c0a72b15 c13daee5
+reduce_special_f64 n=7 r=0 zmax=0000000000000000 zmin=0000000000000000 nmax=401c000000000000 nmin=4008000000000000
+reduce_sum_f64_c1024 n=7 r=0 root=0 count=1024 fnv=054a670408cede95
+allreduce_sum_f64_c1024 n=7 r=0 count=1024 fnv=054a670408cede95
+allreduce_sum_f64_c1024 n=7 r=1 count=1024 fnv=054a670408cede95
+allreduce_sum_f64_c1024 n=7 r=2 count=1024 fnv=054a670408cede95
+allreduce_sum_f64_c1024 n=7 r=3 count=1024 fnv=054a670408cede95
+allreduce_sum_f64_c1024 n=7 r=4 count=1024 fnv=054a670408cede95
+allreduce_sum_f64_c1024 n=7 r=5 count=1024 fnv=054a670408cede95
+allreduce_sum_f64_c1024 n=7 r=6 count=1024 fnv=054a670408cede95
+allreduce_special_f64 n=7 r=0 zmax=0000000000000000 zmin=0000000000000000 nmax=401c000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=7 r=1 zmax=0000000000000000 zmin=0000000000000000 nmax=401c000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=7 r=2 zmax=0000000000000000 zmin=0000000000000000 nmax=401c000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=7 r=3 zmax=0000000000000000 zmin=0000000000000000 nmax=401c000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=7 r=4 zmax=0000000000000000 zmin=0000000000000000 nmax=401c000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=7 r=5 zmax=0000000000000000 zmin=0000000000000000 nmax=401c000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=7 r=6 zmax=0000000000000000 zmin=0000000000000000 nmax=401c000000000000 nmin=3ff0000000000000
 bcast_i32 n=7 r=0 11,22,33
 bcast_i32 n=7 r=1 11,22,33
 bcast_i32 n=7 r=2 11,22,33
@@ -504,6 +570,24 @@ allreduce_sum_f32 n=8 r=4 c0ad6cfc c136fd78
 allreduce_sum_f32 n=8 r=5 c0ad6cfc c136fd78
 allreduce_sum_f32 n=8 r=6 c0ad6cfc c136fd78
 allreduce_sum_f32 n=8 r=7 c0ad6cfc c136fd78
+reduce_special_f64 n=8 r=0 zmax=8000000000000000 zmin=8000000000000000 nmax=4020000000000000 nmin=4008000000000000
+reduce_sum_f64_c1024 n=8 r=0 root=0 count=1024 fnv=22b0451f8b82f6dd
+allreduce_sum_f64_c1024 n=8 r=0 count=1024 fnv=22b0451f8b82f6dd
+allreduce_sum_f64_c1024 n=8 r=1 count=1024 fnv=22b0451f8b82f6dd
+allreduce_sum_f64_c1024 n=8 r=2 count=1024 fnv=22b0451f8b82f6dd
+allreduce_sum_f64_c1024 n=8 r=3 count=1024 fnv=22b0451f8b82f6dd
+allreduce_sum_f64_c1024 n=8 r=4 count=1024 fnv=22b0451f8b82f6dd
+allreduce_sum_f64_c1024 n=8 r=5 count=1024 fnv=22b0451f8b82f6dd
+allreduce_sum_f64_c1024 n=8 r=6 count=1024 fnv=22b0451f8b82f6dd
+allreduce_sum_f64_c1024 n=8 r=7 count=1024 fnv=22b0451f8b82f6dd
+allreduce_special_f64 n=8 r=0 zmax=8000000000000000 zmin=8000000000000000 nmax=4020000000000000 nmin=4008000000000000
+allreduce_special_f64 n=8 r=1 zmax=0000000000000000 zmin=0000000000000000 nmax=4020000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=8 r=2 zmax=8000000000000000 zmin=8000000000000000 nmax=4020000000000000 nmin=4014000000000000
+allreduce_special_f64 n=8 r=3 zmax=0000000000000000 zmin=0000000000000000 nmax=4020000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=8 r=4 zmax=8000000000000000 zmin=8000000000000000 nmax=4020000000000000 nmin=4008000000000000
+allreduce_special_f64 n=8 r=5 zmax=0000000000000000 zmin=0000000000000000 nmax=4020000000000000 nmin=3ff0000000000000
+allreduce_special_f64 n=8 r=6 zmax=8000000000000000 zmin=8000000000000000 nmax=7ff8000000000000 nmin=7ff8000000000000
+allreduce_special_f64 n=8 r=7 zmax=0000000000000000 zmin=0000000000000000 nmax=4020000000000000 nmin=3ff0000000000000
 bcast_i32 n=8 r=0 11,22,33
 bcast_i32 n=8 r=1 11,22,33
 bcast_i32 n=8 r=2 11,22,33

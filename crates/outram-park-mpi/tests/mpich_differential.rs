@@ -194,6 +194,66 @@ fn case_allreduce(comm: &Communicator, nw: bool, out: &mut Slots) {
     ));
 }
 
+fn special_line(r: &[f64]) -> String {
+    format!(
+        "zmax={} zmin={} nmax={} nmin={}",
+        hex64(r[0]),
+        hex64(r[1]),
+        hex64(r[2]),
+        hex64(r[3])
+    )
+}
+
+fn case_special(comm: &Communicator, nw: bool, out: &mut Slots) {
+    let me = comm.rank();
+    let zeros = if me % 2 == 0 { 0.0 } else { -0.0 };
+    let nans = if me == 1 {
+        f64::from_bits(0x7ff8_0000_0000_0000)
+    } else {
+        f64::from(me + 1)
+    };
+    let input = [zeros, zeros, nans, nans];
+    let ops = [ReduceOp::Max, ReduceOp::Min, ReduceOp::Max, ReduceOp::Min];
+    let mut rout = Vec::new();
+    let mut aout = Vec::new();
+    let mut root_has = false;
+    for k in 0..4 {
+        let r = comm.reduce(&[input[k]], ops[k], 0).unwrap();
+        if let Some(v) = r {
+            root_has = true;
+            rout.push(v[0]);
+        }
+        aout.push(comm.all_reduce(&[input[k]], ops[k]).unwrap()[0]);
+    }
+    out.push((
+        "reduce_special_f64",
+        root_has.then(|| special_line(&rout)),
+    ));
+    // 8 KiB messages (above MPICH's 2 KiB short-message limit)
+    let sb: Vec<f64> = (0..1024).map(|j| mk(nw, me, j)).collect();
+    let r = comm.reduce(&sb, ReduceOp::Sum, 0).unwrap();
+    out.push((
+        "reduce_sum_f64_c1024",
+        r.map(|v| format!("root=0 count=1024 fnv={:016x}", fnv(&v))),
+    ));
+    let r = comm.all_reduce(&sb, ReduceOp::Sum).unwrap();
+    out.push((
+        "allreduce_sum_f64_c1024",
+        Some(format!("count=1024 fnv={:016x}", fnv(&r))),
+    ));
+    let n = comm.size();
+    let spec = [(256usize, n - 1), (257, n - 1), (1024, n - 1), (1024, n / 2)];
+    for (cnt, root) in spec {
+        let sb: Vec<f64> = (0..cnt).map(|j| mk(nw, me, j as i32)).collect();
+        let r = comm.reduce(&sb, ReduceOp::Sum, root).unwrap();
+        out.push((
+            "reduce_sum_f64_long",
+            r.map(|v| format!("root={root} count={cnt} fnv={:016x}", fnv(&v))),
+        ));
+    }
+    out.push(("allreduce_special_f64", Some(special_line(&aout))));
+}
+
 fn case_movement(comm: &Communicator, out: &mut Slots) {
     let n = comm.size();
     let me = comm.rank();
@@ -354,6 +414,7 @@ fn port_lines(n: i32, nw: bool) -> Vec<String> {
         case_p2p(comm, &mut out);
         case_reduce(comm, nw, &mut out);
         case_allreduce(comm, nw, &mut out);
+        case_special(comm, nw, &mut out);
         case_movement(comm, &mut out);
         case_group(comm, &mut out);
         case_split(comm, &mut out);

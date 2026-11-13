@@ -66,4 +66,14 @@ n = 2, 3, 4, 6, 7, 8 and differ only at n = 5 (`((x0+x1)+x2)+(x3+x4)` against
 |---|---|---|
 | P9 | add 40-lane `reduce`/`allreduce` sums (320 bytes, still under MPICH's 2 KiB short-message limit), compared by FNV-1a hash | `reduce` identical at all n; `allreduce` identical except n = 5 before the fix, identical everywhere after translating recursive doubling |
 | P10 | `MPI_MAX`/`MPI_MIN` on f64 with `+0.0`/`-0.0` and with a NaN, through `reduce` and `allreduce` | MPICH's built-in is `inoutvec = MAX(invec, inoutvec)` with `MAX(a,b) = a > b ? a : b`, so on ties and NaN the **accumulator** (`inout`) wins. This port calls `combine(op, acc, incoming)`, i.e. the **incoming** value wins. **Predicted: `reduce` differs at n = 2 for the zeros case (sign of zero) and for the NaN case**; fixing the operand order to `combine(op, incoming, acc)` removes it |
-| P11 | messages over 2 KiB (1024 doubles): MPICH's default switches from recursive doubling to `reduce_scatter_allgather`, whose per-element association is the *halving* butterfly, so even for n = 4 it differs from recursive doubling | recorded as a known remaining difference of the fix (not closed here), and filed as a child issue |
+| P12 | added after the second run (it showed P11 false, see below): `reduce` of 256, 257 and 1024 doubles at roots n-1 and n/2 | 256 doubles (2048 bytes, "short"): port identical (binomial rooted at `root`). 257 and 1024 doubles ("long", MPICH `reduce_scatter_gather`, always rooted at rank 0 then moved to `root`): port **differs for every n >= 3 where the rotated tree associates differently from the unrotated fold+butterfly**, i.e. root n-1 and n/2 at most n, and root 0 at n = 5; after the fix **all identical** |
+| P11 (**FALSE, see the second-run note under this table**) | messages over 2 KiB (1024 doubles): MPICH's default switches from recursive doubling to `reduce_scatter_allgather`, whose per-element association is the *halving* butterfly, so even for n = 4 it differs from recursive doubling | recorded as a known remaining difference of the fix (not closed here), and filed as a child issue |
+
+**Second-run note (written before P12's run).** The second MPICH run (with P9-P11's cases
+and forced algorithms) showed: (a) MPICH's default `allreduce` at 8 KiB gives the same bits
+as forced recursive doubling **and** as forced `reduce_scatter_allgather` at every n = 2..8,
+so P11's reasoning (halving distance n/2 first) was wrong: MPICH's reduce-scatter halves
+with `mask = 1` first, the same per-element association as recursive doubling. (b) MPICH's
+default `reduce` at 8 KiB, n = 5, root 0 gave the same bits as its `allreduce`, not the
+binomial's: the long-message `reduce` is `reduce_scatter_gather`. That is what P12
+tests.

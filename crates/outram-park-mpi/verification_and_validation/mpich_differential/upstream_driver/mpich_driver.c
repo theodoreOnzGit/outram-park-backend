@@ -161,6 +161,68 @@ static void case_reduce(void) {
     emit("allreduce_maxmin_f64", f);
 }
 
+static double from_bits(uint64_t u) { double d; memcpy(&d, &u, 8); return d; }
+
+/* MPI_MAX / MPI_MIN on f64 ties (+0.0 vs -0.0) and NaN: which operand wins depends on the
+ * operand order inside the reduction, so it exposes `combine(acc, incoming)` vs
+ * MPICH's `inout = op(invec, inout)`. */
+static void case_special(void) {
+    double zeros = (world_r % 2 == 0) ? 0.0 : -0.0;
+    double nans = (world_r == 1) ? from_bits(0x7ff8000000000000ULL) : (double)(world_r + 1);
+    double in[4] = {zeros, zeros, nans, nans};
+    MPI_Op ops[4] = {MPI_MAX, MPI_MIN, MPI_MAX, MPI_MIN};
+    char f[LINE];
+    f[0] = 0;
+    double rout[4], aout[4];
+    for (int k = 0; k < 4; k++) {
+        MPI_Reduce(&in[k], &rout[k], 1, MPI_DOUBLE, ops[k], 0, MPI_COMM_WORLD);
+        MPI_Allreduce(&in[k], &aout[k], 1, MPI_DOUBLE, ops[k], MPI_COMM_WORLD);
+    }
+    if (world_r == 0) {
+        cat(f, "zmax=%016llx zmin=%016llx nmax=%016llx nmin=%016llx", (unsigned long long)bits(rout[0]),
+            (unsigned long long)bits(rout[1]), (unsigned long long)bits(rout[2]), (unsigned long long)bits(rout[3]));
+    }
+    emit("reduce_special_f64", f[0] ? f : NULL);
+    {
+        /* 8 KiB messages: above MPICH's 2 KiB short-message limit, where its default
+         * algorithm changes (reduce_scatter_allgather / reduce_scatter_gather) */
+        double *sb = (double *)malloc(sizeof(double) * 1024), *rb = (double *)malloc(sizeof(double) * 1024);
+        for (int j = 0; j < 1024; j++) sb[j] = mk(world_r, j);
+        MPI_Reduce(sb, rb, 1024, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        char g[LINE];
+        g[0] = 0;
+        if (world_r == 0) snprintf(g, LINE, "root=0 count=1024 fnv=%016llx", (unsigned long long)fnv(rb, 1024));
+        emit("reduce_sum_f64_c1024", g[0] ? g : NULL);
+        MPI_Allreduce(sb, rb, 1024, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        snprintf(g, LINE, "count=1024 fnv=%016llx", (unsigned long long)fnv(rb, 1024));
+        emit("allreduce_sum_f64_c1024", g);
+        free(sb);
+        free(rb);
+    }
+    {
+        /* the short/long switch of MPICH's reduce: 2048 bytes = 256 doubles is "short"
+         * (binomial), 257 doubles is "long" (reduce_scatter_gather); roots away from 0 */
+        int counts[4] = {256, 257, 1024, 1024};
+        int roots[4] = {world_n - 1, world_n - 1, world_n - 1, world_n / 2};
+        for (int k = 0; k < 4; k++) {
+            int cnt = counts[k], root = roots[k];
+            double *sb = (double *)malloc(sizeof(double) * cnt), *rb = (double *)malloc(sizeof(double) * cnt);
+            for (int j = 0; j < cnt; j++) sb[j] = mk(world_r, j);
+            MPI_Reduce(sb, rb, cnt, MPI_DOUBLE, MPI_SUM, root, MPI_COMM_WORLD);
+            char g[LINE];
+            g[0] = 0;
+            if (world_r == root)
+                snprintf(g, LINE, "root=%d count=%d fnv=%016llx", root, cnt, (unsigned long long)fnv(rb, cnt));
+            emit("reduce_sum_f64_long", g[0] ? g : NULL);
+            free(sb);
+            free(rb);
+        }
+    }
+    snprintf(f, LINE, "zmax=%016llx zmin=%016llx nmax=%016llx nmin=%016llx", (unsigned long long)bits(aout[0]),
+             (unsigned long long)bits(aout[1]), (unsigned long long)bits(aout[2]), (unsigned long long)bits(aout[3]));
+    emit("allreduce_special_f64", f);
+}
+
 static void case_allreduce(void) {
     for (int count = 1; count <= 3; count += 2) {
         double sb[3], rb[3] = {0, 0, 0};
@@ -366,6 +428,7 @@ int main(int argc, char **argv) {
     case_p2p();
     case_reduce();
     case_allreduce();
+    case_special();
     case_movement();
     case_group();
     case_split();
