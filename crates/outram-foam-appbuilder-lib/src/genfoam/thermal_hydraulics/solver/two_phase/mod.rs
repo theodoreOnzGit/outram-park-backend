@@ -326,9 +326,18 @@ pub struct TwoPhaseControls {
     /// criteria are first met in the LAST outer iteration, upstream leaves `converged_` set and the
     /// NEXT time step solves nothing. `true` reproduces that
     /// ([`TwoPhaseSolver::with_upstream_stale_pimple_converged_flag`]); the upstream comparison tests
-    /// set it. The skipped step still advances time, runs the courant/`maxDeltaT` update and the
-    /// port's unconditional `calcCumulContErrs`.
+    /// set it. The skipped step still advances time and runs the courant/`maxDeltaT` update; it adds
+    /// nothing to the cumulative continuity errors (~~"and the port's unconditional `calcCumulContErrs`"~~
+    /// **CORRECTED 2026-11-13:** `calcCumulContErrs` now runs only in the iteration flagged converged,
+    /// as upstream's does; checked against the real binary in the `nOuterCorrectors 6` control).
     pub stale_pimple_converged_flag: bool,
+    /// The patch values of `p` are the case file's (`READ_IF_PRESENT`, `calculated`, `value`) until the first
+    /// `p_ = max(p_rgh_ + rho_*gh_, pMin_)`, as in GeN-Foam 652b3da (gh:#1361 round 5). **Default `true`.**
+    /// The thermo packages are constructed from `p`, so for an inlet whose `p_rgh` is fixed at 1.4e5 and whose
+    /// `p` file says 1e5, the construction-time patch densities (and their lazily stored old-time copies) belong
+    /// to 1e5, not 1.4e5; for an absent phase (`alpha = 0`, `alphaRhof = residualAlpha rho`) that sets the
+    /// inlet-face flux in steps 1 and 2. `false` ([`TwoPhaseCase::without_p_patch_from_file`]) is the earlier form.
+    pub p_patch_from_file: bool,
     /// Reproduce what `phaseChangeModel::correctInterfacialTemperature` really does
     /// with `maxTInterfaceDdt` (gh:#1361 round 3). Default `true`.
     ///
@@ -702,10 +711,13 @@ impl TwoPhaseSolver {
             .map(|f| s.fluids[0].alpha_phi[f] + s.fluids[1].alpha_phi[f])
             .collect();
         s.update_mixture_density();
-        // p on patches is `calculated`: p = p_rgh + rho gh.
-        for f in ni..nf {
-            if s.geom.active[f] {
-                s.p.b[f - ni] = s.p_rgh.b[f - ni] + s.rho_mix.b[f - ni] * s.ghf[f];
+        // p on patches is `calculated`. Upstream keeps the file's patch values until the first
+        // `p_ = max(p_rgh_ + rho_*gh_, pMin_)`; the earlier form set `p = p_rgh + rho gh` here.
+        if !s.controls.p_patch_from_file {
+            for f in ni..nf {
+                if s.geom.active[f] {
+                    s.p.b[f - ni] = s.p_rgh.b[f - ni] + s.rho_mix.b[f - ni] * s.ghf[f];
+                }
             }
         }
         // Structure surface temperature starts at the power models' T.
@@ -769,8 +781,18 @@ impl TwoPhaseSolver {
     ///
     /// # Errors
     /// [`crate::error::AppBuilderError::Diverged`] when a field turns
-    /// non-finite.
+    /// non-finite, or when the step size is not positive or has collapsed below the resolution of
+    /// the time (`time + dt == time`).
     pub fn step(&mut self) -> Result<StepReport, crate::error::AppBuilderError> {
+        // A step that cannot advance the clock (`dt` collapsed below the resolution of `time`, or is not
+        // positive) would let the caller loop forever: `maxDeltaT` can only grow a zero step by a factor
+        // of zero. Measured (gh:#1361 round 5): the shipped-tolerance 1D_boiling run with the upstream
+        // PIMPLE option and the earlier construction-time `p` patch reached a Courant number that took
+        // `dt` from 1.9e-3 to 2.4e-7 and then below the ulp of t = 9.9498 s, where it spun with `dt`
+        // effectively 0. Upstream has no such guard (it would spin too); this is a port-side guard.
+        if self.dt.is_nan() || self.dt <= 0.0 || self.time + self.dt == self.time {
+            return Err(crate::error::AppBuilderError::Diverged { iter: 0, residual: f64::NAN });
+        }
         let n = self.geom.n_cells();
         for k in 0..2 {
             let f = &mut self.fluids[k];
@@ -2007,8 +2029,9 @@ impl TwoPhaseSolver {
         }
     }
 
-    /// `twoPhase::calcCumulContErrs` (final iteration): the volume-weighted
-    /// time integral of each fluid's continuity error [kg/m^3].
+    /// `twoPhase::calcCumulContErrs`, called in the iteration flagged converged (its `if (pimple_.finalIter())`
+    /// is true only there, see `step`): the volume-weighted time integral of each fluid's continuity error
+    /// [kg/m^3] over the step just taken.
     fn calc_cumul_cont_errs(&mut self) {
         let m = &self.geom.mesh;
         let tot_v: f64 = m.cell_volumes.iter().sum();

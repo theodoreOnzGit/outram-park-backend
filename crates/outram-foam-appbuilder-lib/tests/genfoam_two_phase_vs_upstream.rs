@@ -263,9 +263,11 @@ fn one_d_boiling_first_steps_tight_vs_upstream() {
     }
     // Measured 2026-11-12 (README, Round 3): steps 3-65 worst p 4.7e-12, T.liquid 2.5e-13,
     // U.liquid 9.3e-12, T.vapour 2.3e-10, T.interface 7.6e-10, U.vapour 7.0e-10; the vapour
-    // is absent (alpha and dmdt are exactly 0 in both). Steps 1-2: only U.vapour is looser
-    // (5.7e-6 at step 2, 2.1e-5 at step 1), the absent-vapour inlet cell, a known residual.
-    assert_bounds(&rows, 1, 2, &|k| if k == "U.vapour" { 5e-5 } else { 1e-10 });
+    // is absent (alpha and dmdt are exactly 0 in both). Steps 1-2: `U.vapour` was 5.7e-6 at step 2 and
+    // 2.1e-5 at step 1 (the inlet cell of the absent phase, the construction-time patch `p`), until
+    // gh:#1361 round 5 read `p`'s patch from the case file; measured 2026-11-13 after it: 1.35e-11 and
+    // 1.96e-11. The bound for steps 1-2 is now the common 1e-10 (tightened from 5e-5 for `U.vapour`).
+    assert_bounds(&rows, 1, 2, &|_| 1e-10);
     assert_bounds(&rows, 3, 65, &|k| match k {
         "p" | "p_rgh" => 1e-11,
         "T.liquid" | "T.fixedPower" => 1e-12,
@@ -387,11 +389,14 @@ fn one_d_boiling_full_tight_vs_upstream() {
 fn one_d_boiling_full_shipped_vs_upstream() {
     // Measured 2026-11-12: worst 3.0e-5 (T.liquid, t = 6 s): the two codes' loose linear
     // solvers (GAMG 1e-6 vs ILU-BiCGStab for p_rgh, relTol 0.001) stop at different residuals.
-    // The upstream option is NOT set here: with it, this run stalls after t = 9.5 s (step 4903, over 20
-    // minutes of CPU with no further reference time reached; cause not investigated, README "Round 4
-    // follow-up"). The gated comparison (t <= 6 s) is identical either way: the first step whose
-    // criteria are first met in the last outer iteration is 735, after the onset at step 618.
-    full("full_shipped", "boiling_shipped_full", false, 1e-4, false);
+    // The upstream option is set (round 5). In round 4 this run "stalled after t = 9.5 s (step 4903)" with it:
+    // that was the port's own post-onset trajectory collapsing its time step (Courant number, dt 1.9e-3 -> 2.4e-7
+    // -> below the ulp of t = 9.9498 s) and then spinning with dt = 0, not a stalled solve or a control-flow
+    // fault (README "Round 5", item 2). With `p`'s patch read from the case file the run completes (5292 steps,
+    // upstream 4401), and a collapsed step is now an error (`one_d_boiling_a_collapsed_time_step_is_an_error`).
+    // The gated comparison (t <= 6 s) is identical either way: the first step whose criteria are first met in
+    // the last outer iteration is after the onset at step 618.
+    full("full_shipped", "boiling_shipped_full", false, 1e-4, true);
 }
 
 /// Default (corrected) vs upstream-defect option on the whole tight run (gh:#1361 round 4 follow-up,
@@ -531,7 +536,11 @@ fn dump_pimple_flow() {
     let tight = std::env::var("GH1361_TIGHT").map_or(true, |v| v != "0");
     let stale = std::env::var("GH1361_STALE").map_or(true, |v| v != "0");
     let dir = protocol_copy("flow", tight, std::env::var("GH1361_EVERY_STEP").is_ok());
-    let mut s = TwoPhaseSolver::new(TwoPhaseCase::read(&dir).expect("read"));
+    let mut case = TwoPhaseCase::read(&dir).expect("read");
+    if std::env::var("GH1361_ABL_PPATCH").is_ok() {
+        case = case.without_p_patch_from_file();
+    }
+    let mut s = TwoPhaseSolver::new(case);
     let _ = std::fs::remove_dir_all(&dir);
     if stale {
         s = s.with_upstream_stale_pimple_converged_flag();
@@ -541,11 +550,14 @@ fn dump_pimple_flow() {
     }
     let end: f64 = std::env::var("GH1361_END").map_or_else(|_| 12.0, |v| v.parse().expect("end"));
     let n_outer = s.controls.n_outer;
-    let mut text = String::new();
+    let mut file = std::fs::File::create(&out).expect("create");
     let mut n = 0usize;
     while s.time < end - 1e-9 {
         let rep = s.step().expect("step");
         n += 1;
+        if n % 100 == 0 {
+            eprintln!("step {n} t = {} dt = {:e} outer iterations {}", rep.time, rep.dt, rep.outer_iterations);
+        }
         let ending = if rep.outer_iterations == 0 {
             "conv0".to_string()
         } else if rep.converged_at != 0 && rep.converged_at < n_outer {
@@ -561,15 +573,18 @@ fn dump_pimple_flow() {
                 s.pimple_trace[..k].iter().map(|t| format!("{:e}", f(t))).collect::<Vec<_>>().join(",")
             }
         };
-        text.push_str(&format!(
-            "STEP {n} {} {} {ending} {} {}\n",
+        use std::io::Write;
+        writeln!(
+            file,
+            "STEP {n} {} {} {ending} {} {}",
             rep.time,
             rep.outer_iterations,
             join(&|t| t.0),
             join(&|t| t.1)
-        ));
+        )
+        .expect("write");
+        file.flush().expect("flush");
     }
-    std::fs::write(out, text).expect("write");
 }
 
 // ───────────────────────── round 5: PIMPLE control flow ─────────────────────────
@@ -687,4 +702,80 @@ fn one_d_boiling_pimple_flow_nouter7_vs_upstream() {
         assert_eq!(rep.outer_iterations, want.iterations, "step {}: outer iterations", i + 1);
         assert_eq!(port_ending(&rep, 7), want.ending, "step {}: how the PIMPLE loop ended", i + 1);
     }
+}
+
+/// Round 5, item 4: the earlier form (patch values of `p` start as `p_rgh`'s) keeps reproducing the recorded
+/// `U.vapour` miss of steps 1 and 2 at the 24-outer-iteration protocol (measured 2026-11-12: 2.1e-5 and
+/// 5.7e-6), and the corrected default does not.
+#[test]
+fn one_d_boiling_p_patch_ablation_reproduces_the_recorded_u_vapour_miss() {
+    let r = load_reference("boiling_tight_steps80");
+    let dir = protocol_copy("abl_ppatch", true, true);
+    let case = TwoPhaseCase::read(&dir).expect("read");
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(case.controls.p_patch_from_file, "the default reads p's patch values from the case file");
+    let mut abl = TwoPhaseSolver::new(case.clone().without_p_patch_from_file()).with_upstream_stale_pimple_converged_flag();
+    let mut def = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    for n in 1..=2usize {
+        abl.step().expect("step");
+        def.step().expect("step");
+        let u = &r.fields[&(r.times[n - r.first].clone(), "U.vapour".to_string())];
+        let w_abl = worst_rel(&abl.fluids[1].u.c.iter().map(|v| v.x).collect::<Vec<_>>(), u);
+        let w_def = worst_rel(&def.fluids[1].u.c.iter().map(|v| v.x).collect::<Vec<_>>(), u);
+        eprintln!("step {n}: U.vapour vs upstream, earlier form {w_abl:.2e}, default {w_def:.2e}");
+        assert!(w_abl > 1e-6, "the earlier form should miss step {n} by about 1e-5, got {w_abl:.3e}");
+        assert!(w_def < 1e-10, "the default should agree at step {n}, got {w_def:.3e}");
+    }
+}
+
+/// Round 5, item 2: a collapsed time step is an error, not an endless loop. (The shipped-tolerance run with the
+/// upstream PIMPLE option and the earlier `p` patch took `dt` from 1.9e-3 to 2.4e-7 and below the ulp of t = 9.9498 s,
+/// then spun for ever; README "Round 5".)
+#[test]
+fn one_d_boiling_a_collapsed_time_step_is_an_error() {
+    let dir = protocol_copy("dt_guard", true, true);
+    let case = TwoPhaseCase::read(&dir).expect("read");
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut s = TwoPhaseSolver::new(case);
+    s.step().expect("a normal step");
+    let t = s.time;
+    s.dt = 0.0;
+    assert!(s.step().is_err(), "dt = 0 must not be stepped");
+    s.dt = t * 1e-17;
+    assert!(s.step().is_err(), "dt below the resolution of the time must not be stepped");
+    assert_eq!(s.time, t, "the refused steps did not move the clock");
+}
+
+/// Round 5, item 1: the port's PIMPLE control flow of the whole tight 12 s run against upstream's, step by step
+/// (iterations run and how the loop ended, from `refs/boiling_tight_full_flow`, written by
+/// `scripts/extract_pimple_flow.sh` from the upstream log). Every one of the first 723 steps is identical, the
+/// criteria being met (or not) in the same outer iteration and the same steps skipped. The first difference is
+/// at step 724: by then the two trajectories have separated (the residual lists first differ by 17 % at step 637
+/// and the clocks differ by 0.03 s at step 700, measured 2026-11-13), and at step 724 upstream's last `p_rgh`
+/// residual is 2.2e-4 against the port's below 1e-5. That is the flow's sensitivity after the boiling onset
+/// (round 3 "noise floor"), not a different loop.
+#[test]
+fn one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split() {
+    let flow = load_flow("boiling_tight_full_flow");
+    let dir = protocol_copy("flow_full", true, false);
+    let case = TwoPhaseCase::read(&dir).expect("read");
+    let _ = std::fs::remove_dir_all(&dir);
+    let n_outer = case.controls.n_outer;
+    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    let mut first_diff = None;
+    for (i, want) in flow.iter().enumerate().take(800) {
+        let rep = s.step().expect("step");
+        if first_diff.is_none() && (rep.outer_iterations != want.iterations || port_ending(&rep, n_outer) != want.ending) {
+            first_diff = Some(i + 1);
+        }
+    }
+    eprintln!("first step whose iteration count or ending differs from upstream: {first_diff:?}");
+    assert_eq!(first_diff, Some(724));
+}
+
+/// Diagnostic (not a gate), round 5: the whole tight run with the corrected default ending, for the moved-numbers table.
+#[test]
+#[ignore]
+fn full_tight_default_ending_diagnostic() {
+    full("full_tight_default", "boiling_tight_full", true, 1e-10, false);
 }
