@@ -26,7 +26,7 @@ much of NJOY's formatter family does this crate carry?**
 | **DTFR** | DTF-IV card-image tables, CLAW format | discrete-ordinates (Sₙ) and diffusion codes | **ported**, `dtfr::run_with_input` | U-238 CLAW tables vs NJOY2016: worst 4.9e-6 against a 2e-5 gate (first recorded [2026-10-04](./remeasured.md)) |
 | **RESXSR** | pointwise resonance cross sections (RESXS) for 4–200 eV | intermediate-resonance self-shielding calculators | **ported**, `resxsr::run_resxs` | H-2 RESXS stream **byte-identical** to NJOY2016's (2 124 bytes) |
 | **MIXR** | a new PENDF of weighted sums (elements from isotopes, mixtures) | plotting, elemental data | **ported**, `mixr::run_mix` | H-2/Be-9 0.5/0.5 mix vs NJOY2016: 787 points per MT, **identical** (first recorded [2026-10-04](./remeasured.md)) |
-| **MATXSR** | MATXS generalised material cross-section files | TRANSX → many transport codes | **`NotPorted`** stub | none |
+| **MATXSR** | MATXS generalised material cross-section files | TRANSX → many transport codes | ~~**`NotPorted`** stub~~ **CORRECTED 2026-11-13 (gh:#1369):** translated (`src/matxsr/`) | ~~none~~ MATXS identical to NJOY2016.80 line for line on upstream decks 03 and 30, and byte for byte to their committed reference tapes (`tests/deck_driver_photon_vs_njoy2016.rs`) |
 | **CCCCR** | CCCC files ISOTXS, BRKOXS, DLAYXS | fast-reactor codes (US FBR programme) | ~~**`NotPorted`** stub~~ **CORRECTED 2026-11-13:** ported (`src/ccccr/`, gh:#1369) | ~~none~~ ISOTXS, BRKOXS and DLAYXS byte-identical to NJOY2016.80 on upstream decks 02 and 76 (`tests/deck_driver_tapes_vs_njoy2016.rs`) |
 | **POWR** | EPRI-CELL / EPRI-CPM libraries | EPRI lattice codes | **`NotPorted`** stub | none |
 | **PLOTR** | VIEWR input describing 2-D/3-D plots of ENDF/PENDF/GENDF data | plotting | ~~**`NotPorted`** stub~~ ~~**CORRECTED 2026-11-13:** ported (`viewr`, 2026-11-12, gh:#1369)~~ **CORRECTED again 2026-11-13:** that note described VIEWR; PLOTR itself is ported since 2026-11-13 (`src/plotr/`, gh:#1369) | plot-command files identical to NJOY2016.80's line by line on upstream decks 06 and 12 and on five further decks (`tests/deck_driver_plotr_vs_njoy2016.rs`); an MF=6 curve is refused (undefined upstream) |
@@ -37,7 +37,7 @@ WIMSR among the `NotPorted` stubs. It was ported and verified on 2026-09-11;
 only its card-deck `run()` is still `NotPorted` (callers build a `WimsrInput`).
 The comment now says so, with a strike-through.
 
-The five stubs are deliberate: OUTRAM PARK does not target those codes, and a
+~~The five stubs are deliberate:~~ **CORRECTED 2026-11-13 (gh:#1369):** two of the five rows above are still stubs (POWR, and MATXSR's bare `run()`); the others were translated for the NJOY2016 test decks. The stubs that remain are deliberate: OUTRAM PARK does not target those codes, and a
 stub returns `NjoyError::NotPorted("matxsr")` rather than a plausible-looking
 file. In this workspace plotting is done by the demos and egui apps, not
 PostScript. They stay visible rows so nobody mistakes the absence for a

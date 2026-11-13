@@ -52,10 +52,12 @@
 use crate::NjoyError;
 
 pub mod assemble;
+pub mod deck;
 pub mod driver;
 pub mod format;
 pub mod gendf;
 pub mod input;
+pub mod plots;
 pub mod table;
 
 pub use assemble::{assemble_tables, DtfrTables, PhotonTable};

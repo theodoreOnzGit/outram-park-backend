@@ -348,7 +348,8 @@ parser was written. ERRORR has `run_mf33` and `ErrorrResult::to_tape`, but
 every errorr deck also needs an unported piece: a GROUPR input tape (`ngout`),
 MF=31/34/35, or COVR's plot option (~~all~~ **CORRECTED 2026-11-13:** MF=35 from a GENDF,
 section 18, and COVR's plot option and MF=33 from a deck, section 19, are ported now).
-GAMINR's numeric engine is not ported.
+~~GAMINR's numeric engine is not ported.~~ **CORRECTED 2026-11-13 (§27):** the engine was
+ported (`src/gaminr/matrix.rs`); its tape control flow is translated now and decks 03 and 30 are identical.
 ~~PLOTR is not ported at all (`src/plotr/mod.rs`).~~ **CORRECTED 2026-11-13 (§26):**
 PLOTR is translated (`src/plotr/`) and decks 06 and 12 are identical. ~~All three are left as large
 ports.~~
@@ -1150,7 +1151,7 @@ prediction** (recorded on the issue).
 **Not done.** The order is the ranking above:
 - ~~CCCCR (02, 76) and PLOTR (06, 12): large ports with nothing in `src/`.~~ **CORRECTED
   2026-11-13:** both translated and closed (§25, §26).
-- 03 and 30: GAMINR's driver and MATXSR. Deck 03 first needs RECONR on DLC-7e's old photon format; deck 30 needs a genuine `ith = 0` on its photo-atomic MF=23.
+- ~~03 and 30: GAMINR's driver and MATXSR. Deck 03 first needs RECONR on DLC-7e's old photon format; deck 30 needs a genuine `ith = 0` on its photo-atomic MF=23.~~ **CORRECTED 2026-11-13 (§27):** closed. Deck 30's `ith = 0` was not genuine: the deck PENDF writer built its union grid without MF=23, so every MF=23 section was empty.
 - ~~11: WIMSR's card reader. The engine is byte-identical on U-238.~~
 - ~~17: ERRORR `iread = 2`.~~
 - ~~43: BROADR `thinb`, gh:#619.~~
@@ -1305,7 +1306,7 @@ as `differs`. Before, it was listed as "binary" and could not fail.
 
 **Survey.** Rows 02, 76 and 80 were re-run alone (`SURVEY_CASES`, 537 s) on
 develop 60675b0f0 plus this work, and all three are `identical`. **83 of 87 are
-identical** (80 before). Remaining: ~~06 and 12 (PLOTR),~~ 03 and 30 (GAMINR, MATXSR).
+identical** (80 before). Remaining: ~~06 and 12 (PLOTR),~~ ~~03 and 30 (GAMINR, MATXSR)~~ (closed, §27).
 **UPDATE 2026-11-13:** 06 and 12 are closed in §26.
 
 **Tests** (release, on develop 60675b0f0 plus this work, all run after the last
@@ -1382,7 +1383,7 @@ before anything set them; `rname` past its table, MT=229-236 among them;
 
 **Survey.** Rows 06 and 12 were re-run alone (`SURVEY_CASES=06,12`) on develop
 0ad98bc5d plus this work: both `identical` (06: 2 tapes, 12: 4). **85 of 87 are
-identical** (83 before). Remaining: 03 and 30 (GAMINR, MATXSR).
+identical** (83 before). Remaining: ~~03 and 30 (GAMINR, MATXSR)~~ none (§27).
 
 **Tests** (release, `ulimit -v 12582912`, all run after the last code change):
 
@@ -1394,3 +1395,104 @@ identical** (83 before). Remaining: 03 and 30 (GAMINR, MATXSR).
 | `deck_driver_photonuclear_vs_njoy2016` | 6 of 6 passed |
 | `deck_driver_survey` (`SURVEY_CASES=06,12`, `--ignored`) | 06 and 12 `identical` |
 | `--lib` | 772 of 772 passed |
+
+## 27. Decks 03 and 30 closed: photo-atomic RECONR, GAMINR's tape driver, DTFR from a deck, MATXSR translated (2026-11-13, gh:#1369)
+
+The last two of 87. Both decks now run to `stop` and every coded unit NJOY2016.80
+writes is identical line for line. Gate: `tests/deck_driver_photon_vs_njoy2016.rs`.
+
+**Method.** Each deck is run whole by `NJOY2016_ROOT/build/njoy` and by `run_deck`
+on the same tapes (03: `gam23` on 30, `gam27` on 32; 30: the H-1 neutron and
+photo-atomic ENDF/B-VIII.0 tapes on 20 and 40). Every coded unit is compared as a
+string, line for line, and the units upstream commits are compared byte for byte.
+Pass: no differing line, no differing byte, the run reaches `stop`. A prediction
+was posted on gh:#1369 before each first run (photo-atomic RECONR, GAMINR, DTFR,
+MATXSR, and the two decks of our own).
+
+| deck | unit | module | lines | result |
+|---|---|---|---|---|
+| 03 | 31 | RECONR (H, U; ENDF-4) | 2 180 | identical |
+| 03 | 33 | GAMINR (LANL 12) | 604 | identical |
+| 03 | 34 | DTFR tables | 340 | identical |
+| 03 | 35 | MATXSR | 211 | identical |
+| 03 | 36 | DTFR plot commands | 1 711 | identical |
+| 03 | 37 | VIEWR | 9 274 | identical; `referenceTape37` byte for byte |
+| 30 | 31 | GROUPR | 21 249 | identical (as before) |
+| 30 | 43 | GAMINR (VITAMIN-J 42) | 1 477 | identical; `referenceTape43` byte for byte |
+| 30 | 44 | MATXSR (`nscat`, `ng`, `gscat`) | 18 924 | identical; `referenceTape44` byte for byte |
+| 30 | 45 | MODER of the photo-atomic PENDF | 4 408 | identical; `referenceTape45` byte for byte |
+| X1 | 50, 51, 52 | DTFR photon table, `ifilm = 2`; VIEWR | 3 858, 35 730, 40 988 | identical |
+| X2 | 43, 44 | GAMINR `igg = 1`, `iwt = 2`; MATXSR | 39, 20 | identical (MT=501 listed first, below) |
+
+**What was missing, read upstream:**
+- **Photo-atomic RECONR** (`deck/pendf_photon.rs`). The deck PENDF writer built
+  its union grid from MF=3/10/12/13 only, so on a tape with only MF=23 the grid
+  was empty and every section had no point. Deck 30's "MF=10-23 section with no
+  positive point" was that, not a genuine `ith = 0`; deck 03's tape31 differed
+  in all 2180 lines. Translated: `anlyzd`'s MT=501 (and MT=522 when 534-572 are
+  present) as redundant reactions and no MF=2 (`reconr.f90:599-657`), `lunion`'s
+  MF=23 skips and no threshold raise (`:1866-1914`), `emerge`'s MF=23 sums
+  (`:4896-4915`) and `recout`'s order and heads (`:5222-5345`; the first
+  redundant head keeps `scr(5:6)` of the first scratch head, the ENDF-4 TEMP
+  record carries the entry count, because `scr(6)` is set again just before
+  `hdatio`).
+- **GAMINR's control flow** (`gaminr/tape.rs`): the ENDF-format probe from
+  `nendf`, the gamout MF=1 head, the standard or listed reactions, the
+  total-heating edit and the `akn` cache (`gaminr.f90:133-536`). The head's title
+  word is `rt(1)` after `tt(1) = ''` through the `tt`/`rt` equivalence: four
+  blanks and columns 5-8 of the PENDF's first card, printed `1.7514+190` (03) and
+  `6.0135-154` (30). Two engine defects were fixed: `gtsig` used a local lookup
+  instead of `gety1` (the threshold differs), and `EPAIR` was not upstream's
+  expression.
+- **DTFR from a deck** (`dtfr/deck.rs`, `dtfr/plots.rs`): `dtfr`, `ruin`,
+  `dtfout`, `ploted`, `histod`, `dpend`, `plotnn`, `plotnp`. The plots had been
+  called "permanently out of scope"; deck 03 compares them.
+- **MATXSR** (`src/matxsr/`): every routine of `matxsr.f90`. The container is
+  `real(k4)`, so every number on the file is an `f32`; `hname` hard-wires
+  `iverf = 6`, so ENDF-4 MT=602/621 are `p02`/`p21`; a list that ends exactly at
+  a `/` in a format writes an empty line (checked with gfortran 13).
+
+**Refused by name (undefined or not ported):**
+- RECONR: an MF=23 section with no positive point (`istart = 0` reads an undefined
+  buffer word); photo-atomic and other materials in one run; MF=3/10/12/13 on a
+  photo-atomic material.
+- GAMINR: `ngam1 /= 0` (old-tape merge), `ngam2 = 0`, `iwt = 1`, a PENDF with no
+  description card (`rt(1)` is then a stale scratch word), `mfd/mtd` outside
+  MF=23 and MF=26 MT=502/504/516, a heating edit with `mfd /= 23`.
+- MATXSR: a binary MATXS (`nmatx < 0`); `shufl` when one band does not fit
+  (`imax` undefined); a vector MT=1/501 (or charged-particle MT=2) after another
+  vector reaction.
+
+**A prediction that failed, and a check that hid it.** X2 as first written listed
+23/501 after 23/502. `vector` names the first section `hvps(1)`, then MT=501
+writes `hvps(1:2)` unconditionally and moves `n1i` past a slot it never set, so
+NJOY prints eight zero bytes as the third name (unit 44, line 11) and the 502 data
+is overwritten. A first check with `diff` reported 0 differing lines: `diff` treats
+a file with NUL bytes as binary and printed no `>` lines. The gate's string
+comparison found it. The port now refuses that order
+(`x2_mt501_after_another_reaction_is_refused`); with MT=501 first X2 is identical.
+Every comparison in this section was then re-made by the gate's string comparison.
+
+**Not exercised by any deck:** MATXSR's reference subtraction (`iref`: several
+temperatures or sigma-zeros), its constant sub-blocks (`jconst`) and charged
+particles; DTFR `iedit = 1` (CLAW, dated header), thermal corrections and the
+fission branches through a deck; GAMINR with several materials of decreasing Z
+other than 03's H then U.
+
+**Survey.** Rows 03 and 30 were re-run alone (`SURVEY_CASES=03,30`) on develop
+1a81b9422 plus this work: both `identical` (03: 6 tapes, 30: 4). **87 of 87 are
+identical** (85 before). Remaining: none.
+
+**Tests** (release, all run after the last code change):
+
+| suite | result |
+|---|---|
+| `deck_driver_photon_vs_njoy2016` (new) | 5 of 5 passed, 6.7 s |
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` | 137 passed, 0 failed, 0 ignored, 1 964 s |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed, 221 s |
+| `deck_driver_photonuclear_vs_njoy2016` | 6 of 6 passed |
+| `deck_driver_plotr_vs_njoy2016` | 7 of 7 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `gaminr_vs_njoy2016` | 2 of 2 passed |
+| `deck_driver_survey` (`SURVEY_CASES=03,30`, `--ignored`) | 03 and 30 `identical` |
+| `--lib` | 774 of 774 passed |

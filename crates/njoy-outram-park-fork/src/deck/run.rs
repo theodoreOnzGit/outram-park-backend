@@ -138,7 +138,19 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 if opts.parse_only { Ok(()) } else { crate::deck::ccccr::run_ccccr_deck(&c, &mut units, &mut notes) }
             }
             "plotr" => crate::deck::plotr::run_plotr(&mut r, &mut units, opts.parse_only),
-            "gaminr" | "dtfr" | "matxsr" | "resxsr"
+            "gaminr" => {
+                let c = crate::deck::gaminr::read_gaminr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::deck::gaminr::run_gaminr(&c, &mut units) }
+            }
+            "dtfr" => {
+                let c = crate::dtfr::deck::read_dtfr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::dtfr::deck::run_dtfr(&c, &mut units) }
+            }
+            "matxsr" => {
+                let c = crate::matxsr::read_matxsr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::matxsr::run_matxsr_deck(&c, &mut units) }
+            }
+            "resxsr"
             | "powr" | "mixr" => {
                 // The card readers of these modules are a later part of gh:#1369.
                 blocked = Some((name.clone(), "card reader not yet translated".to_string()));
@@ -261,6 +273,20 @@ fn run_reconr(c: &ReconrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
     units.openz(c.nendf, 0)?;
     units.openz(c.npend, 1)?;
     let endf = units.get(c.nendf)?.tape.clone();
+    // A photo-atomic evaluation (MF=23) takes `anlyzd`'s `igam` path
+    // ([`crate::deck::pendf_photon`], gh:#1369 decks 03 and 30).
+    let photo: Vec<bool> = c.materials.iter().map(|m| crate::deck::pendf_photon::is_photoatomic(&endf, m.mat)).collect();
+    if photo.iter().any(|&p| p) {
+        if !photo.iter().all(|&p| p) {
+            return Err(NjoyError::NotPorted("RECONR: photo-atomic and other materials in one run"));
+        }
+        if c.materials.iter().any(|m| !m.enode.is_empty()) {
+            return Err(NjoyError::NotPorted("RECONR user grid energies enode (card 6)"));
+        }
+        let mats: Vec<(i32, Vec<String>, f64, f64)> = c.materials.iter().map(|m| (m.mat, m.cards.clone(), m.err, m.tempr)).collect();
+        let tape = crate::deck::pendf_photon::photon_tape(&endf, &mats, &c.label, c.npend)?;
+        return units.store(c.npend, tape, None);
+    }
     let mut sections: Vec<Section> = Vec::new();
     let mut last: Option<(i32, ReconrResult)> = None;
     for m in &c.materials {
@@ -677,7 +703,7 @@ fn gamsum_block(meta: &PendfMeta, tape: &Tape, mat: i32, tempd: f64) -> Option<R
 }
 
 /// `dater` (`util.f90:72-94`): `' mm/dd/yy'` of today (UTC).
-fn dater() -> String {
+pub(crate) fn dater() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs() as i64);

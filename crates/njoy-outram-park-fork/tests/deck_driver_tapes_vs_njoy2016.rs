@@ -1973,8 +1973,9 @@ fn test_73_whole_deck() {
 }
 
 /// **Deck 30 (H-1 ENDF/B-VIII.0), the GROUPR GENDF (unit 31, text)**: the deck
-/// up to the photo-atomic RECONR, which feeds GAMINR and MATXSR (not ported)
-/// (gh:#1369).
+/// up to the photo-atomic RECONR, which feeds GAMINR and MATXSR (~~not ported~~
+/// **CORRECTED 2026-11-13:** translated; the whole deck is gated in
+/// `tests/deck_driver_photon_vs_njoy2016.rs`) (gh:#1369).
 ///
 /// Exercises `3 259` (`getsig`'s average inverse velocity, `:6762-6766`), the
 /// automatic `6/` (`conver`'s MF=4 list: MT=2) and `16/` (`mf18`: MF=6 MT=102's

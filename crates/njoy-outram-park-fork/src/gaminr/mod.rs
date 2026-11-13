@@ -34,8 +34,10 @@
 //!   [`PointwiseXs`], [`GroupFlux`]), plus the GENDF vector writer
 //!   ([`GendfSection`], [`GendfTape`]).
 //! - [`run`] / [`run_with_input`] — the top-level driver skeleton documenting
-//!   the full pipeline; the **end-to-end tape driver returns
-//!   [`crate::NjoyError::NotPorted`]** rather than fabricating results.
+//!   the full pipeline; ~~the **end-to-end tape driver returns
+//!   [`crate::NjoyError::NotPorted`]** rather than fabricating results~~
+//!   **CORRECTED 2026-11-13 (gh:#1369):** these two still return `NotPorted`; the tape driver is
+//!   [`tape::run_gaminr_tape`].
 //!
 //! - [`gtff`] — the **matrix feed functions** (`gaminr.f90:1162-1514`):
 //!   coherent (`mtd = 502`), incoherent with its cross-section and heating
@@ -52,15 +54,18 @@
 //!
 //! # NOT yet ported (honest gap list)
 //!
-//! - **Tape control flow** of the main `gaminr` subroutine
+//! - ~~**Tape control flow** of the main `gaminr` subroutine
 //!   (`gaminr.f90:133-292`, `:420-535`): `ruing`, the ENDF-format probe,
 //!   the GAM-out MF=1/451 header, the old-tape merge (`ngam1`) and the
 //!   multi-material loop; the engine takes parsed sections and returns
-//!   [`GendfSection`]s.
-//! - The **Klein–Nishina cache** (`akn`, `:319-325`, `:343-350`): NJOY
+//!   [`GendfSection`]s.~~ **CORRECTED 2026-11-13 (gh:#1369):** translated in [`tape`]
+//!   (`run_gaminr_tape`, run from a deck by `crate::deck::gaminr`), all but the
+//!   old-tape merge (`ngam1 /= 0`), which is refused by name.
+//! - ~~The **Klein–Nishina cache** (`akn`, `:319-325`, `:343-350`): NJOY
 //!   reuses the incoherent matrix of the first material scaled by `Z`
 //!   above `Z * 12.4 keV` for later materials in the same run; a
-//!   single-material call never takes that branch.
+//!   single-material call never takes that branch.~~ **CORRECTED 2026-11-13 (gh:#1369):** ported
+//!   (`matrix::reaction_groups`); deck 03's U takes it.
 //! - `gtsig` on a non-lin-lin MF=23 section (RECONR normally linearises).
 //! - The read-in weight TAB1 (`iwt=1`) and read-in group grid (`igg=1`)
 //!   *evaluation* paths beyond deck capture.
@@ -73,6 +78,7 @@ pub mod gtff;
 pub mod input;
 pub mod matrix;
 pub mod photon_groups;
+pub mod tape;
 pub mod weights;
 
 pub use gpanel::{

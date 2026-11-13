@@ -91,21 +91,23 @@ Deck 30 now passes its first RECONR and stops at the photo-atomic one (the same 
 - 43: BROADR `thinb` (gh:#619).
 - 48 and 59: `iheat`'s two single-precision literals. ~~The residual recorded in `../acer_photoatomic_vs_njoy2016.md`~~ was a port defect, not upstream's convergence (the notes above that call it a residual are superseded).
 
-A prediction was posted on gh:#1369 before each run, and all five held on the first run. Remaining: ~~02 and 76 (CCCCR)~~, 06 and 12 (PLOTR), 03 and 30 (GAMINR, MATXSR), ~~80 (LEAPR, last figure)~~. Record: `README.md` section 24. **UPDATE 2026-11-13:** 02, 76 and 80 are closed, as in the note below.
+A prediction was posted on gh:#1369 before each run, and all five held on the first run. Remaining: ~~02 and 76 (CCCCR)~~, 06 and 12 (PLOTR), ~~03 and 30 (GAMINR, MATXSR)~~ (closed, note below), ~~80 (LEAPR, last figure)~~. Record: `README.md` section 24. **UPDATE 2026-11-13:** 02, 76 and 80 are closed, as in the note below.
 
 **Re-run 2026-11-13, decks 80, 02 and 76 closed (gh:#1369):** rows 02, 76 and 80 were re-run alone (`SURVEY_CASES`, 537 s) on develop 60675b0f0 plus this work. Their rows are replaced; every other row is as before. **Identical: 83 of 87** (80 before). The causes:
 - 80: LEAPR `trans` keeps `sb` across its loops, and a `sbfill` that stops one entry short reads an earlier call's value. The port padded with zero. ~~"last figure"~~: most of its 24 264 differing values were off by more than 3e-5.
 - 02 and 76: CCCCR translated (`src/ccccr/`). ISOTXS (02 unit 26), BRKOXS (02 unit 27) and DLAYXS (76 unit 30) are byte-identical, and are counted in "tapes identical".
 
-From this run on, the survey counts a binary file of ours that differs from NJOY's as `differs`. Before, it was listed in the last column and could not fail. Remaining: ~~06 and 12 (PLOTR),~~ 03 and 30 (GAMINR, MATXSR). Record: `README.md` section 25.
+From this run on, the survey counts a binary file of ours that differs from NJOY's as `differs`. Before, it was listed in the last column and could not fail. Remaining: ~~06 and 12 (PLOTR),~~ ~~03 and 30 (GAMINR, MATXSR)~~ (closed, note below). Record: `README.md` section 25.
 
-**Re-run 2026-11-13, decks 06 and 12 closed (gh:#1369):** rows 06 and 12 were re-run alone (`SURVEY_CASES=06,12`, 1.3 s) on develop 0ad98bc5d plus this work. Their rows are replaced; every other row is as before. **Identical: 85 of 87** (83 before). PLOTR is translated (`src/plotr/`): deck 06's plot file and PostScript (31, 32) and deck 12's 21-24 are NJOY2016.80's line for line. Remaining: 03 and 30 (GAMINR, MATXSR). Record: `README.md` section 26.
+**Re-run 2026-11-13, decks 06 and 12 closed (gh:#1369):** rows 06 and 12 were re-run alone (`SURVEY_CASES=06,12`, 1.3 s) on develop 0ad98bc5d plus this work. Their rows are replaced; every other row is as before. **Identical: 85 of 87** (83 before). PLOTR is translated (`src/plotr/`): deck 06's plot file and PostScript (31, 32) and deck 12's 21-24 are NJOY2016.80's line for line. Remaining: ~~03 and 30 (GAMINR, MATXSR)~~ (closed, note below). Record: `README.md` section 26.
+
+**Re-run 2026-11-13, decks 03 and 30 closed (gh:#1369):** rows 03 and 30 were re-run alone (`SURVEY_CASES=03,30`, 6.4 s) on develop 1a81b9422 plus this work. Their rows are replaced; every other row is as before. **Identical: 87 of 87** (85 before). Translated: RECONR's photo-atomic path (`deck/pendf_photon.rs`; the deck PENDF had built its union grid without MF=23, so deck 30's "no positive point" was an empty grid, not a genuine `ith = 0`, and deck 03's tape31 differed in all 2180 lines), GAMINR's tape control flow (`gaminr/tape.rs`, the `akn` cache, `gety1` in `gtsig`), DTFR from a deck with its plots (`dtfr/deck.rs`, `dtfr/plots.rs`) and MATXSR (`src/matxsr/`). Deck 03's units 31, 33-37 and deck 30's 31, 43-45 are NJOY2016.80's line for line, and upstream's committed `referenceTape37` (03) and `referenceTape43/44/45` (30) byte for byte (`tests/deck_driver_photon_vs_njoy2016.rs`). Remaining: none. Record: `README.md` section 27.
 
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
 | 02 | identical | 5 |  |  | tape21 tape22 tape23 tape24 tape25 |
-| 03 | NotPorted (gaminr: card reader not yet translated) | 0 | tape31 2180/2180 lines | tape33 tape34 tape35 tape36 tape37 |  |
+| 03 | identical | 6 |  |  |  |
 | 04 | identical | 3 |  |  | tape21 tape22 |
 | 05 | identical | 3 |  |  | tape31 tape32 |
 | 06 | identical | 2 |  |  |  |
@@ -132,7 +134,7 @@ From this run on, the survey counts a binary file of ours that differs from NJOY
 | 27 | identical | 6 |  |  | tape21 tape22 tape23 tape25 |
 | 28 | identical | 18 |  |  | tape21 tape22 tape23 |
 | 29 | identical | 3 |  |  | tape21 tape22 tape23 tape25 |
-| 30 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 1 |  | tape43 tape44 tape45 | tape21 tape22 tape23 tape41 tape42 |
+| 30 | identical | 4 |  |  | tape21 tape22 tape23 tape41 tape42 |
 | 31 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
 | 32 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
 | 33 | identical | 2 |  |  |  |

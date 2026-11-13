@@ -52352,6 +52352,8 @@ pub use crate::errorr::groups::NeutronGroupStructure;
 ## Module `gaminr`
 
 `GAMINR` — multigroup photon-interaction (photoatomic) cross sections and
+
+> **Note 2026-11-13 (gh:#1369):** new public items `gaminr::tape` (`GaminrCards`, `run_gaminr_tape`: the tape control flow of `gaminr.f90:133-536`) and `deck::gaminr` (`read_gaminr`, `run_gaminr`); `gaminr::matrix::gaminr_reaction` now uses upstream's `gety1` for `gtsig`. `gaminr::gtff::EPAIR` is upstream's expression. **Not re-generated:** `kovan-cli` was not available in the session that wrote this, so this mirror is hand-corrected; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
 matrices.
 
 Produces multigroup **photoatomic** data from ENDF photon-interaction
@@ -71111,6 +71113,8 @@ pub fn moment_check(sab: &crate::leapr::SabMatrix, beta: &[f64], ialpha: usize, 
 
 ## Module `deck`
 
+> **Note 2026-11-13 (gh:#1369):** new public modules `deck::gaminr` and `deck::pendf_photon` (`is_photoatomic`, `photon_material`, `photon_tape`, `PhotonPendf`: RECONR on a photo-atomic tape); `run_deck` now runs GAMINR, DTFR and MATXSR. **Not re-generated:** `kovan-cli` was not available in the session that wrote this, so this mirror is hand-corrected; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
+
 LEAPR **card-deck reader** — parse a `.leapr` text deck into [`LeaprDeck`].
 
 [`crate::leapr::input::LeaprInput`] models one LEAPR job *by value*, which is
@@ -82463,6 +82467,8 @@ pub fn run() -> Result<(), crate::NjoyError> { /* ... */ }
 
 ## Module `dtfr`
 
+> **Note 2026-11-13 (gh:#1369):** new public items `dtfr::deck` (`DtfrCards`, `read_dtfr`, `run_dtfr_tape`, `run_dtfr`: `dtfr`, `ruin`, `dtfout`) and `dtfr::plots` (crate-internal `ploted`, `plotnn`, `plotnp`); the plotting is no longer out of scope. **Not re-generated:** `kovan-cli` was not available in the session that wrote this, so this mirror is hand-corrected; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
+
 `DTFR` — DTF-IV format libraries for discrete-ordinates (Sₙ) codes.
 
 Prepares multigroup transport tables in the DTF-IV card-image format accepted
@@ -85253,7 +85259,10 @@ time dependence — from GROUPR/GAMINR GENDF output. MATXS libraries are the
 input to the TRANSX code, which builds effective cross sections for transport.
 
 **Upstream:** `matxsr.f90`. **Manual:** LA-UR-17-20093 §MATXSR.
-**Status:** not yet ported — [`crate::NjoyError::NotPorted`] placeholder.
+~~**Status:** not yet ported — [`crate::NjoyError::NotPorted`] placeholder.~~
+**CORRECTED 2026-11-13 (gh:#1369):** translated routine by routine (`cards`,
+`data`, `matrix`, `hname`, `output`); upstream decks 03 and 30 give the MATXS
+file line for line (`tests/deck_driver_photon_vs_njoy2016.rs`). **Not re-generated:** `kovan-cli` was not available in the session that wrote this, so this mirror is hand-corrected; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
 See `README.md` in this directory for theory, plan, and caveats.
 
 ```rust
@@ -85264,11 +85273,34 @@ pub mod matxsr { /* ... */ }
 
 #### Function `run`
 
-Run MATXSR. Placeholder until ported (Phase 6; see `docs/porting-plan.md`).
+Run MATXSR with no cards: the module registry entry (still `NotPorted`). A deck
+runs it with `run_matxsr`.
 
 ```rust
 pub fn run() -> Result<(), crate::NjoyError> { /* ... */ }
 ```
+
+#### Function `run_matxsr`
+
+Run MATXSR (`matxsr`, `cmatxs`) on the GENDF tapes (by unit number): the coded
+MATXS file. (Added 2026-11-13; hand-written entry.)
+
+```rust
+pub fn run_matxsr(c: &MatxsrCards, tapes: Vec<(i32, crate::errorr::gendf::GendfTape)>) -> Result<String, crate::NjoyError> { /* ... */ }
+```
+
+#### Function `run_matxsr_deck`
+
+MATXSR on a deck's tape units. (Added 2026-11-13; hand-written entry.)
+
+```rust
+pub fn run_matxsr_deck(c: &MatxsrCards, units: &mut crate::deck::tapes::TapeUnits) -> Result<(), crate::NjoyError> { /* ... */ }
+```
+
+#### Function `cards::read_matxsr`, struct `cards::MatxsrCards`, function `hname::hname`
+
+MATXSR's card reader and cards, and `hname` (the reaction names). (Added
+2026-11-13; hand-written entry.)
 
 ## Module `resxsr`
 
