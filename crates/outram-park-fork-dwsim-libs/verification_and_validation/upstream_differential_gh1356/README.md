@@ -75,3 +75,55 @@ absolute**; if breached the first divergent iteration is reported.
 bubble/dew, stability TPD, SRK/PR1978/PRSV2/LKP/UNIFAC (all need the stateful
 property-package plumbing), unit operations needing a flash (heater, pump,
 compressor, valve, pipe, heat exchanger). See the #1357 gap list.
+
+## RESULTS (measured 2026-11-13, release, pinned upstream `1abf72d1`)
+
+Reproduce: `python3 -I <driver>.py <outdir>` (activity, petroleum), `fug_driver.py
+fug_inputs.txt out.txt`; `./check_verbatim.sh <dwsim clone>` (output:
+`check_verbatim_output.txt`: 21 statements and 194 literals found upstream);
+tests `tests/upstream_{activity,petroleum,shortcut}_parity.rs` with frozen
+bit-pattern fixtures in `tests/fixtures/upstream_gh1356/`. Inputs are arbitrary
+test parameters (no external data; provenance: this folder); alkane constants
+are Poling, Prausnitz & O'Connell (2001), Appendix A.
+
+| study | points | before any fix | after | prediction | verdict |
+|---|---|---|---|---|---|
+| S1 NRTL gamma | 345 pts, 966 gammas | 866 bit-identical, worst 4.0e-16 (2 ulp) | **964**, worst 1.5e-16 (1 ulp) | arithmetic reorders visible; <= 3.6e-15; after fix <= 2 ulp | held (NRTL closer than predicted: 90 % identical before) |
+| S1 UNIQUAC gamma | 345 pts, 966 gammas | 313 bit-identical, worst 2.0e-15 (12 ulp) | **966, 0 ulp** | same | held; 12 ulp inside the 16 eps bound |
+| S2 petroleum correlations | 1328 | 1280 bit-identical, worst 4.2e-15 | unchanged (no port change) | <= 4 ulp, 1e-14 | relative bound held; **ulp bound failed on one row** (26 ulp, Walther B, logZ1 ~ logZ2, cancellation); the control proves libm-vs-PETIR only |
+| S3 FUG shortcut (K seeded from the port) | 8 cases x 14 | 110/112 bit-identical | unchanged | 1e-12; Rmin 1e-6 abs | held (worst non-Rmin 0, abs dRmin 5.6e-17) |
+
+### Mismatches localised to the first divergent operation
+
+- **NRTL (100 gammas before the fix).** `activity_driver.py` evaluates the
+  port's own operation order next to upstream's and reports the first
+  differing intermediate (`activity_localisation.txt`): `tau`, `G`, `S`, `C`
+  agree in every point; the first divergence is `ln gamma` (term-by-term
+  accumulation into `C/S` versus `SumY` then add). Fixed (upstream's order).
+  The remaining 2 gammas differ by 1 ulp in `exp` (PETIR vs libm).
+- **UNIQUAC (653 gammas before).** Read, then confirmed by the fix removing
+  every difference: reciprocal multiply for `tau`, `(-a)+((b T)+(c T^2))`
+  grouping, `fi/teta` with `x` inside, `theta*(tau/S)`, and the
+  `((-ln S)-sum1)+1` order. Not separately bisected per operation.
+- **Walther viscosity (6 rows).** The libm control in the test reproduces
+  upstream bit for bit: `log10`/`exp` implementation, not arithmetic.
+- **FUG `Rmin`, distributed-key branch (2 cases).** `fug_port_lu_control.py`
+  reproduces the port's values by substituting the port's `lu_solve` for
+  Mapack's LU: the dense solve, not Brent, not the physics. Left as accepted
+  round-off (< 1e-8); flagged for the maintainer.
+
+### Port changes
+
+1. NRTL/UNIQUAC `activity_coefficients` re-ordered to upstream's operations
+   (`src/thermo/activity.rs`; no kovan review stamp existed on them).
+   Deliberate deviation kept: UNIQUAC at `x_i = 0` returns the finite
+   infinite-dilution value where upstream returns NaN (0/0 in `fi/teta`).
+2. Doc claims contradicted by the new measurements, struck through in place:
+   the `columns/shortcut.rs` module banner ("not validated against DWSIM's own
+   output") and the T14, T43, S13 rows of `docs/upstream-port-coverage.md`.
+
+### Upstream observation (not a port defect)
+
+In the distributed-key Underwood branch `Rmin` can come out negative (-2.8e-2
+Ideal, -6.4e-3 Peng-Robinson at feed q = 0.8); the `Rmin > R` guard
+(`ShortcutColumn.vb:405`) cannot catch it. The port reproduces it.
