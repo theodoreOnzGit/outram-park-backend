@@ -34,7 +34,9 @@
 //! - MF=6 `LAW = 2` two-body products (`LANG = 0` or `12`), `LAW = 3`
 //!   (isotropic two-body), `LAW = 4` recoils (angles from the section's
 //!   first, `LAW = 2`, subsection with the odd Legendre terms negated), all
-//!   law 33, and `LAW = 0`, which upstream writes as an empty law-0 entry.
+//!   law 33, and `LAW = 0`, which upstream writes as an empty law-0 entry
+//!   (**and then stops on**: `change` knows no DLWH law 0, `:13945`; seen on
+//!   the LAW = 5 synthetic tapes of gh:#1490, which leave the same entry).
 //!
 //! ~~That covers every entry in ENDF/B-VIII.0 U-235 and U-238~~ (extended
 //! 2026-10-14, GitHub #872): with the branches above, H-1, F-19, Al-27,
@@ -47,19 +49,21 @@
 //!   `acelcp_ext::elastic_recoil_angular`; ESZ's elastic column, no DLWH entry);
 //! - ~~incident charged particles~~ **CORRECTED 2026-11-11: `izai` branches
 //!   ported** (gh:#1485): test decks 14, 50-54, 62 and 71 give NJOY2016's ACE
-//!   in every word (`tests/deck_driver_tapes_vs_njoy2016.rs`). Still refused:
+//!   in every word (`tests/deck_driver_tapes_vs_njoy2016.rs`). ~~Still refused:
 //!   a LAW = 5 product other than the projectile's own, and a LAW = 4 recoil
-//!   heating of an incident charged particle (`recoil_heating_supported`).
-//!   **Neither is reachable from a held evaluation** (gh:#1490, pinned by
-//!   `tests/acer_charged_particle.rs::held_charged_evaluations_reach_only_ported_branches`).
-//!   Upstream itself has no LAW = 5 branch in `acelcp`'s product loop
-//!   (`:10318-10743`; ENDF-6 gives LAW = 5 to the scattered projectile only).
-//!   Its LAW = 4 recoil heating (`:11036-11080`) reads `ne`, `e` and `amass`
-//!   left over from earlier code and mixes `q` in MeV with `e` in eV, so a
-//!   port could be checked only on a synthetic tape; it is left refused.
+//!   heating of an incident charged particle.~~ **CORRECTED 2026-11-13
+//!   (gh:#1490): both translated**, checked by differentials against
+//!   NJOY2016 on synthetic tapes (`tests/acer_charged_particle.rs`,
+//!   `synthetic_*`):
+//!   - a LAW = 5 product other than the projectile is upstream's empty law-0
+//!     DLWH entry, with the body not skipped (`acelcp_recoil::law5_tail_is_harmless`);
+//!     `change` then stops on it, as upstream's does;
+//!   - the LAW = 4 recoil heating (`:11036-11080`), stale `ne`, `e` and
+//!     `amass` included (`acelcp_recoil::recoil_law4_heating`, `acelcp_recoil::AcelcpStale`).
 //!
 //! [`append`] returns without writing anything, rather than a partial block,
-//! when a production item needs one of these.
+//! when a production item needs a branch that is not ported;
+//! [`append_incident_mode`] says so with `NotPorted`.
 
 use petir::mathf::RealMath;
 use crate::endf::interp::terpa;
@@ -67,6 +71,7 @@ use crate::endf::records::{List, SectionCursor, Tab1};
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;
 use crate::reconr::ReconrResult;
+use crate::NjoyError;
 
 use super::{jxs, nxs, AceTable};
 
@@ -406,13 +411,18 @@ impl Xss<'_> {
 /// `ntype.eq.0` (`:9280`). Test 08 (Ni-61) wrote NXS(7)=2 and JXS(30-32)
 /// where NJOY wrote 0 (gh:#1449).
 pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32) {
-    append_incident(table, tape, mat, pendf, newfor, 1, 1.0);
+    append_mode(table, tape, mat, pendf, newfor, true);
 }
 
 /// [`append`] with `topfil`'s scratch tape binary (`text = false`, a negative
 /// ACER PENDF unit): the LAW = 7 rewrite keeps full doubles (gh:#1492).
+///
+/// A production item this port does not translate leaves the table without
+/// the blocks, as before gh:#1490; the `NotPorted` that
+/// [`append_incident_mode`] returns for it is dropped here. For `izai = 1`
+/// that is the only error it can return (the recoil heating is `izai > 1`).
 pub fn append_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32, text: bool) {
-    append_incident_mode(table, tape, mat, pendf, newfor, 1, 1.0, text);
+    let _ = append_incident_mode(table, tape, mat, pendf, newfor, 1, 1.0, text);
 }
 
 /// [`append`] for an incident particle `izai` of mass ratio `awi` (`acelcp`'s
@@ -421,15 +431,27 @@ pub fn append_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrRe
 /// production carries no heating, and for `izai > 1` the production heating
 /// is added to ESZ's heating column and the heavy recoils' heating follows
 /// (`acefc.f90:10907-11126`).
-pub fn append_incident(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32, izai: i32, awi: f64) {
-    append_incident_mode(table, tape, mat, pendf, newfor, izai, awi, true);
+///
+/// # Errors
+/// As [`append_incident_mode`], with a text scratch tape.
+pub fn append_incident(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32, izai: i32, awi: f64) -> Result<(), NjoyError> {
+    append_incident_mode(table, tape, mat, pendf, newfor, izai, awi, true)
 }
 
-/// [`append_incident`] with the scratch-tape mode of [`append_mode`].
+/// [`append_incident`] with the scratch-tape mode of [`append_mode`]: `text`
+/// is `acelcp`'s `nin`, `topfil`'s scratch unit `mscr`, which is binary when
+/// ACER's PENDF unit is negative (`acefc.f90:176-178`).
+///
+/// # Errors
+/// [`NjoyError::NotPorted`], before the table is touched, for a production
+/// item whose branch is not translated; and, for `izai > 1`, from the heavy
+/// recoils' heating (`acelcp_recoil::recoil_law4_heating`) when upstream would
+/// read scratch words its LAW = 4 branch did not write. The table is then
+/// partly written and must be dropped.
 #[allow(clippy::too_many_arguments)]
-pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32, izai: i32, awi: f64, text: bool) {
+pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32, izai: i32, awi: f64, text: bool) -> Result<(), NjoyError> {
     if newfor == 0 {
-        return;
+        return Ok(());
     }
     let za = f64::from(table.nxs[nxs::ZA]);
     let ntr_all = table.nxs[nxs::NTR] as usize;
@@ -445,7 +467,7 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
         .map(|&(ip, code, k)| (ip, code, t[k]))
         .collect();
     if types.is_empty() {
-        return;
+        return Ok(());
     }
     // Refuse what is not ported, before touching the table.
     for p in &prods {
@@ -457,11 +479,11 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
             3 => p.mt == 102 && izai == 1,
             // Two-body levels and the elastic recoil (MT=2).
             4 => mf4_ltt(tape, mat, p.mt).is_some(),
-            6 => (p.mt == 102 && izai == 1) || mf6_supported(tape, mat, p),
+            6 => (p.mt == 102 && izai == 1) || mf6_supported(tape, mat, p, text),
             _ => false,
         };
         if !ok {
-            return;
+            return Err(NjoyError::NotPorted("acelcp: a production item whose MF=4/MF=6 branch is not translated"));
         }
     }
 
@@ -515,6 +537,11 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
     // Upstream's `awp` is one variable for the whole routine; the capture
     // recoil branch reads it without setting it. Zero until an item sets it.
     let mut stale_awp = 0.0f64;
+    // `e`, `ne` and `amass` as the production passes leave them, for the
+    // LAW = 4 recoil heating that reads them unset (gh:#1490). Each update
+    // below sits at the code that mirrors upstream's assignment.
+    let mut stale = super::acelcp_recoil::AcelcpStale::new();
+    let esz_top = x.get(esz + nes - 1);
     for (itype, &(ip, _, thr)) in types.iter().enumerate() {
         let thresh = thr / EMEV;
         let ntrh = prods.iter().filter(|p| p.ip == ip && p.mf > 0).count();
@@ -548,7 +575,7 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
             jp += 1;
             x.n(mtrh + jp - 1, f64::from(p.mt));
             x.n(lsigh + jp - 1, (next - sigh + 1) as f64);
-            let Some((k, iaa, _q)) = find_sig(&x, p.mt) else { return };
+            let Some((k, iaa, _q)) = find_sig(&x, p.mt) else { return Ok(()) };
             // Special branch for MF=4 and the neutron capture recoil, whatever
             // file the MT=102 item came from (`:9370-9392`).
             if p.mf == 4 || (p.mt == 102 && izai == 1) {
@@ -611,6 +638,14 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
                     x.r(next + 1 + ne + i, sigfig(y, 7, 0));
                 }
                 next += 1 + 2 * ne;
+                // Upstream's `e=xss(esz+ie-1)*emev ... e=e/emev` over
+                // `ie=iaa,nes` (`:9477-9480`) and `ne=nint(scr(6))`, the
+                // yield's NP (`:9506`). The isotropy pre-check's `ne`
+                // (`:9430`) is always overwritten by the latter.
+                if iaa <= nes {
+                    stale.e = Some((esz_top * EMEV) / EMEV);
+                }
+                stale.ne = ne as i64;
             }
         }
 
@@ -626,13 +661,20 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
         let mut jp = 0usize;
         for p in prods.iter().filter(|p| p.ip == ip && p.mf != 0) {
             jp += 1;
-            let Some((k, iaa, q)) = find_sig(&x, p.mt) else { return };
+            let Some((k, iaa, q)) = find_sig(&x, p.mt) else { return Ok(()) };
             let amass = awr / awi;
             if p.mt == 2 {
                 // Elastic recoil: the scattered particle's distribution
                 // reversed (`:9555-9636`).
                 let (land, and) = (table_land, table_and);
                 super::acelcp_ext::elastic_recoil_angular(&mut x, &mut next, landh + jp - 1, andh, land, and, hpd, it, nes, esz, amass);
+                // `ne=nint(xss(loce))` (`:9558`), `amass=awr/awi` (`:9576`),
+                // `e=xss(esz+ie-1)` to `ie=nes` (`:9630`).
+                stale.ne = x.get(x.get(land).round() as usize + and - 1).round() as i64;
+                stale.amass = Some(amass);
+                if it <= nes {
+                    stale.e = Some(esz_top);
+                }
             } else if p.mt == 102 && izai == 1 {
                 // Neutron capture recoil: a straight-ahead distribution
                 // (`:9618-9641`).
@@ -662,11 +704,18 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
                 // through `pttab2`, with the two-body heating from each
                 // energy's mean cosine (`:9642-9850`). LTT = 0 and 3 write
                 // nothing: LANDH stays 0.
-                let Some((ltt, rows)) = mf4_rows(tape, mat, p.mt) else { return };
+                let Some((ltt, rows)) = mf4_rows(tape, mat, p.mt) else { return Ok(()) };
                 if ltt == 1 || ltt == 2 {
                     let aprime = mf4_awp(p.mt) / awi;
                     let heat = write_angular(&mut x, &mut next, landh + jp - 1, andh, &rows, ltt == 2, amass, aprime, q);
                     add_two_body_heating(&mut x, &heat, hpd, naa, it, nes, esz, k, iaa);
+                    // `ne=n2h`, `amass=awr/awi`, then the heating loop's
+                    // `e=xss(esz+ie-1)` (`:9662-9770`, `:9781-9875`).
+                    stale.ne = rows.len() as i64;
+                    stale.amass = Some(amass);
+                    if it <= nes {
+                        stale.e = Some(esz_top);
+                    }
                 }
             } else {
                 // MF=6: LANDH = -1 for the item's subsection; LAW = 2 writes
@@ -675,10 +724,10 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
                 // odd Legendre terms negated (`:9851-10070`).
                 x.n(landh + jp - 1, -1.0);
                 let sec = tape.section(mat, 6, p.mt).expect("checked");
-                let Some((_, law)) = nth_product(sec, p.l) else { return };
+                let Some((_, law)) = nth_product(sec, p.l) else { return Ok(()) };
                 let (lists, aprime, recoil) = match law {
                     2 => {
-                        let Some((_, awp, lists)) = nth_product_law2(sec, p.l) else { return };
+                        let Some((_, awp, lists)) = nth_product_law2(sec, p.l) else { return Ok(()) };
                         (Some(lists), awp / awi, false)
                     }
                     4 => {
@@ -700,7 +749,7 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
                                     }
                                 }
                             }
-                            let Ok((mu, pp)) = super::acensd::ptleg2(&a) else { return };
+                            let Ok((mu, pp)) = super::acensd::ptleg2(&a) else { return Ok(()) };
                             rows.push((l.head.c2, mu, pp, 2));
                         } else {
                             let pairs: Vec<(f64, f64)> = l.data.chunks_exact(2).take(nl).map(|c| (c[0], c[1])).collect();
@@ -710,6 +759,13 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
                     }
                     let heat = write_angular(&mut x, &mut next, landh + jp - 1, andh, &rows, true, amass, aprime, q);
                     add_two_body_heating(&mut x, &heat, hpd, naa, it, nes, esz, k, iaa);
+                    // `ne=nint(scr(ll+5))` (`:9929`), `amass=awr/awi`
+                    // (`:9944`), the heating loop's `e` (`:10042`).
+                    stale.ne = lists.len() as i64;
+                    stale.amass = Some(amass);
+                    if it <= nes {
+                        stale.e = Some(esz_top);
+                    }
                 }
             }
         }
@@ -734,7 +790,7 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
             x.n(next + 1, 0.0);
             x.n(next + 2, 0.0);
             next += 3;
-            let Some((k, iaa, q)) = find_sig(&x, p.mt) else { return };
+            let Some((k, iaa, q)) = find_sig(&x, p.mt) else { return Ok(()) };
             let amass = awr / awi;
             if p.mt == 102 && (izai == 1 || p.mf == 6) {
                 // Neutron capture recoil, law 33 (`:10153-10175`). `aprime`
@@ -768,10 +824,18 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
                     let h0 = x.get(hpd + 2 + naa + ie - it);
                     x.r(hpd + 2 + naa + ie - it, h0 + tt);
                 }
+                // `amass=awr/awi` (`:10167`, `:10298`); no `e`, no `ne`.
+                stale.amass = Some(amass);
             } else if p.mf == 4 {
                 let awp = mf4_awp(p.mt);
                 stale_awp = awp;
                 let ltt = mf4_ltt(tape, mat, p.mt).unwrap_or(0);
+                // `amass=awr/awi` (`:10196`); LTT = 0's heating loop sets `e`
+                // (`:10205`).
+                stale.amass = Some(amass);
+                if ltt == 0 && it <= nes {
+                    stale.e = Some(esz_top);
+                }
                 x.n(last + 1, 33.0);
                 x.n(next, 0.0);
                 x.n(next + 1, 2.0);
@@ -799,6 +863,30 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
                 let sec = tape.section(mat, 6, p.mt).expect("checked");
                 let (yt_l, law) = nth_product(sec, p.l).expect("checked");
                 stale_awp = yt_l.head.c2;
+                // What each law branch leaves in `e`, `ne` and `amass`
+                // (`:10318-10740`). LAW = 1's is set below, where its `amass`
+                // is computed. LAW = 0 and 5 have no branch: nothing is set,
+                // and upstream's loop reads on (for LAW = 5, the records of
+                // its own body: `awp` is the last one's `C2`).
+                match law {
+                    2 => {
+                        stale.ne = nth_product_law2(sec, p.l).map_or(0, |(_, _, l)| l.len() as i64); // :10334
+                        stale.amass = Some(amass); // :10529
+                    }
+                    3 | 4 => {
+                        stale.amass = Some(amass); // :10579
+                        if law == 3 && it <= nes {
+                            stale.e = Some(esz_top); // :10588
+                        }
+                    }
+                    6 if it <= nes => stale.e = Some(esz_top), // :10673
+                    5 => {
+                        if let Some(c2) = super::acelcp_recoil::law5_tail_last_c2(sec, p.l) {
+                            stale_awp = c2;
+                        }
+                    }
+                    _ => {}
+                }
                 if law != 1 {
                     // LAW = 2 two-body, LAW = 3 isotropic two-body and LAW = 4
                     // recoil: law 33 (`:10289-10330`, `:10506-10515`,
@@ -902,7 +990,9 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
                             }
                             next += 1 + 3 * nn;
                         }
-                        _ => {} // LAW = 0
+                        // LAW = 0, and LAW = 5 (gh:#1490): no branch upstream,
+                        // the entry stays `0 0 0`.
+                        _ => {}
                     }
                     continue;
                 }
@@ -1082,6 +1172,15 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
                     let h0 = x.get(hpd + 2 + naa + ie - it);
                     x.r(hpd + 2 + naa + ie - it, h0 + h * (y * ss));
                 }
+                // `ne=nint(scr(ll+5))` (`:10334`), `amass=awp*emc2` at each
+                // energy (`:10387`), the heating loops' `e` (`:10546-10556`).
+                stale.ne = ne as i64;
+                if ne >= 1 {
+                    stale.amass = Some(awp * emc2);
+                }
+                if it <= nes {
+                    stale.e = Some(esz_top);
+                }
             }
         }
 
@@ -1121,7 +1220,8 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
     }
 
     if izai > 1 {
-        recoil_heating(&mut x, tape, mat, izai, nes, esz, mtr, lqr, lsig, sig, ntr);
+        let blocks = super::acelcp_recoil::EszBlocks { nes, esz, mtr, lqr, lsig, sig, ntr };
+        super::acelcp_recoil::recoil_heating(&mut x, tape, mat, &blocks, awr, &mut stale)?;
     }
     let len2 = next - 1;
     table.xss.truncate(len2);
@@ -1131,6 +1231,7 @@ pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: 
     table.jxs[29] = ptype as i32;
     table.jxs[30] = ntro as i32;
     table.jxs[31] = ploct as i32;
+    Ok(())
 }
 
 /// AWP `acelcp` uses for a two-body charged-particle level given in MF=4
@@ -1295,19 +1396,25 @@ fn nth_product_law1(sec: &crate::endf::tape::Section, l: i32, text: bool) -> Opt
 }
 
 /// Whether a production item from MF=6 is a ported branch: `LAW = 1` with
-/// `LANG = 2` or `LANG >= 11`.
-fn mf6_supported(tape: &Tape, mat: i32, p: &Prod) -> bool {
+/// `LANG = 1`, `2` or `>= 11`; `LAW = 0`, `2`, `3`, `4` and `6`; and `LAW = 5`
+/// when what upstream does after it is translated
+/// ([`super::acelcp_recoil::law5_tail_is_harmless`]; `text` is the scratch
+/// tape's mode, see [`append_incident_mode`]).
+fn mf6_supported(tape: &Tape, mat: i32, p: &Prod, text: bool) -> bool {
     let Some(sec) = tape.section(mat, 6, p.mt) else { return false };
     match nth_product(sec, p.l).map(|x| x.1) {
         Some(1) => matches!(nth_product_law1(sec, p.l, true), Some((_, _, _, lang, _)) if lang == 1 || lang == 2 || lang >= 11),
         // LAW = 2 two-body with Legendre or lin-lin tabulated angles; LAW = 3
         // isotropic two-body; LAW = 4 recoil; LAW = 0 (unknown: upstream
-        // writes an empty law-0 entry, `:10289-10565`).
+        // writes an empty law-0 entry, `:10289-10565`, which `change` then
+        // stops on, `:13945`).
         Some(2) => nth_product_law2(sec, p.l).is_some_and(|(_, _, lists)| lists.iter().all(|l| l.head.l1 == 0 || l.head.l1 == 12)),
         Some(0 | 3 | 4) => true,
         // LAW = 6, phase space (`:10601-10742`).
         Some(6) => nth_product_law6(sec, p.l).is_some(),
-        // LAW = 5 is not ported.
+        // LAW = 5, a product other than the projectile (gh:#1490): upstream's
+        // energy pass has no branch for it (`:10318-10900`).
+        Some(5) => super::acelcp_recoil::law5_tail_is_harmless(sec, p.l, p.ip, p.mt, text),
         _ => false,
     }
 }
@@ -1382,91 +1489,4 @@ fn mf4_rows(tape: &Tape, mat: i32, mt: i32) -> Option<(i32, Vec<(f64, Vec<f64>, 
         }
     }
     Some((ltt, rows))
-}
-
-/// Heating from the heavy recoils (`ZAP > 2004`) of the MF=6 reactions, for an
-/// incident charged particle (`acelcp`, `acefc.f90:10962-11126`): each
-/// `LAW = 1` recoil's mean outgoing energy, weighted by its yield, is
-/// interpolated onto the ACE grid and added to ESZ's heating column.
-///
-/// Not ported (and refused by [`recoil_heating_supported`] before a table is
-/// built): `LAW = 4` recoils, whose two-body kinematics branch
-/// (`:11060-11110`) needs the first subsection re-read.
-#[allow(clippy::too_many_arguments)]
-fn recoil_heating(x: &mut Xss, tape: &Tape, mat: i32, _izai: i32, nes: usize, esz: usize, mtr: usize, _lqr: usize, lsig: usize, sig: usize, ntr: usize) {
-    for sec in tape.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == 6 && s.key.mt > 2) {
-        let mt = sec.key.mt;
-        let mut ir = 0usize;
-        let mut found = false;
-        for i in 1..=ntr {
-            if x.get(mtr + i - 1).round() as i32 == mt {
-                ir = i;
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            continue;
-        }
-        let k = x.get(lsig + ir - 1).round() as usize + sig - 1;
-        let iaa = x.get(k).round() as usize;
-        let mut cur = SectionCursor::new(&sec.rows);
-        let Ok(head) = cur.read_cont() else { continue };
-        for _ in 0..head.n1 {
-            let Ok(yt) = cur.read_tab1() else { break };
-            let izap = yt.head.c1.round() as i32;
-            let law = yt.head.l2;
-            if izap > 2004 && law == 1 {
-                let Ok(t2) = cur.read_tab2() else { break };
-                let ne = t2.head.n2 as usize;
-                let mut heat_tab: Vec<(f64, f64)> = Vec::with_capacity(ne);
-                for _ in 0..ne {
-                    let Ok(l) = cur.read_list() else { break };
-                    let e = l.head.c2;
-                    let np = l.head.n2 as usize;
-                    let (y, _, _) = terpa(&yt.interp, &yt.pairs, e);
-                    let (mut heat, mut epl, mut gl) = (0.0f64, 0.0f64, 0.0f64);
-                    for ipp in 1..=np {
-                        let ep = l.data.get(2 * (ipp - 1)).copied().unwrap_or(0.0);
-                        let g = l.data.get(2 * (ipp - 1) + 1).copied().unwrap_or(0.0);
-                        if ipp > 1 {
-                            heat += (ep - epl) * gl * (ep + epl) / 2.0;
-                        }
-                        epl = ep;
-                        gl = g;
-                    }
-                    heat_tab.push((e, y * heat));
-                }
-                let hint = vec![(heat_tab.len() as u32, 2)];
-                for ie in iaa..=nes {
-                    let e = x.get(esz + ie - 1) * EMEV;
-                    let (h, _, _) = terpa(&hint, &heat_tab, e);
-                    let h = (h / EMEV) * x.get(2 + k + ie - iaa) / x.get(esz + nes + ie - 1);
-                    let prev = x.get(esz + 4 * nes + ie - 1);
-                    x.r(esz + 4 * nes + ie - 1, sigfig(prev + h, 7, 0));
-                }
-            } else if super::energy::mf6::skip_mf6_subsection(&mut cur, law).is_err() {
-                break;
-            }
-        }
-    }
-}
-
-/// Whether [`recoil_heating`] covers every heavy recoil of the evaluation
-/// (`LAW = 1` only; a `LAW = 4` recoil needs the unported kinematics branch).
-pub fn recoil_heating_supported(tape: &Tape, mat: i32) -> bool {
-    for sec in tape.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == 6 && s.key.mt > 2) {
-        let mut cur = SectionCursor::new(&sec.rows);
-        let Ok(head) = cur.read_cont() else { return false };
-        for _ in 0..head.n1 {
-            let Ok(yt) = cur.read_tab1() else { return false };
-            if yt.head.c1.round() as i32 > 2004 && yt.head.l2 == 4 {
-                return false;
-            }
-            if super::energy::mf6::skip_mf6_subsection(&mut cur, yt.head.l2).is_err() {
-                return false;
-            }
-        }
-    }
-    true
 }

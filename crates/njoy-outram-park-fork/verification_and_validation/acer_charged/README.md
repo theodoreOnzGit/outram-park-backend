@@ -84,20 +84,74 @@ Predictions were posted on #1490 before any of these runs.
 walks every MF=6 subsection of the seven held charged-particle evaluations
 (`epn14`, `p-001_H_001/002/003`, `d-001_H_002`, `d-002_He_003`,
 `a-002_He_004`; `reference-data/endf/` holds only the same alpha + He-4
-tape) and pins what it finds:
+tape; deck 71's `d-078_Pt_184-TENDL2021` was added 2026-11-13, LTP = 12) and pins what it finds:
 
 | branch | held evaluations that reach it | status |
 |---|---|---|
 | `coul` with `LTP = 2` | none; but d + He-3's 100 eV record has `LTP = 0`, undefined in ENDF-6, which upstream's `if (ltp.eq.1) ... else` sends down the `LTP = 2` formula (values near 1e-238; deck 62's ACE is identical) | gated at function level on synthetic records, below |
 | `LTP >= 12` | `epn14`, p + H-2, alpha + He-4 | tabulated; used as given, gated by decks 14, 51, 50. Never passed to `coul` (`if (ltp.lt.12)`, `acefc.f90:6552`) |
-| LAW = 5 product other than the projectile | none | refused. ENDF-6 gives LAW = 5 to the scattered projectile only, and upstream `acelcp`'s product loop has no LAW = 5 branch (`:10318-10743`): such an item would be read past without a skip |
-| LAW = 4 recoil heating (`izap > 2004`, `:11036-11080`) | none (the heaviest LAW = 4 recoil held is ZAP 2004, which the branch excludes) | refused. The branch reads `ne` (in the interpolation header, before it is re-read), `e` (in `betasq`) and `amass`, all left over from earlier code, and adds `q` in MeV to `e` in eV; a port could only be checked on a synthetic tape |
+| LAW = 5 product other than the projectile | none | ~~refused. ENDF-6 gives LAW = 5 to the scattered projectile only, and upstream `acelcp`'s product loop has no LAW = 5 branch (`:10318-10743`): such an item would be read past without a skip~~ **translated 2026-11-13**: upstream stops in `change`; gated by synthetic differentials, next section |
+| LAW = 4 recoil heating (`izap > 2004`, `:11036-11080`) | none (the heaviest LAW = 4 recoil held above MT = 2 is ZAP 2004, which the branch excludes; Pt-184's ZAP 78184 is in MT = 2, outside the loop) | ~~refused. The branch reads `ne` (in the interpolation header, before it is re-read), `e` (in `betasq`) and `amass`, all left over from earlier code, and adds `q` in MeV to `e` in eV; a port could only be checked on a synthetic tape~~ **translated 2026-11-13**, quirks included; gated by synthetic differentials, next section |
 | elastic recoil (MT = 2) | deck 54 (p + H-3). Deck 62's recoil is never reached: its empty dictionary gives it no production | gated at function level, below |
 
 The full ENDF/B-VIII.0 charged-particle sublibraries are not held. Their
 hosts (NNDC, IAEA NDS) are refused by this environment's proxy, so whether a
 LAW = 4 recoil heavier than an alpha occurs there (likely, for p + Li-6/7
-and heavier targets) was **not checked**.
+and heavier targets) was **not checked** (gh:#1511).
+
+## gh:#1490, part 2: LAW = 5 non-projectile and LAW = 4 recoil heating, translated (2026-11-13)
+
+Maintainer direction (2026-11-12): "translate differentially first". Predictions
+were posted on #1490 before any code or run.
+
+**Method.** Neither branch is reached by a held tape, so each is driven by a
+minimal edit of MF=6/MT=50 of a held tape, made in a temp dir at test time and
+never committed (`tests/acer_charged_particle.rs`, `synthetic_tape`). The
+pristine NJOY2016.80 binary (`build/njoy`, gfortran 13.3) and `run_deck` run the
+same upstream deck (53 or 54, cut before `viewr`) on it. Pass: units 31-35
+identical line for line and unit 31 identical in every XSS word; for the
+LAW = 5 cases, the same stop with every word NJOY2016 wrote before it equal.
+
+| case | edit | upstream | port | result |
+|---|---|---|---|---|
+| (a) | d + H-2, subsection 2 (He-3, LAW 4) made LAW 5 with subsection 1's body | DLWH entry `0 0 0`, then `***error in change***Undefined law for dlwh block: 0`, STOP 77 | same error from `acefix_change::xss_lines` | 38 896 words written before the stop, all equal |
+| (b) | d + H-2, subsection 1 (neutron) `L2` 2 to 5 | as (a); the unskipped body's TAB2 record is read as a TAB1 (binary: ZAP 0, LAW 0, a no-op) | same | 10 560 words, all equal |
+| (c) | d + H-2, recoil ZAP 2003 to 2005 | LAW 4 heating, stale `ne = 67`, `e = 10` MeV, `amass = 1` | identical | units 31-35 identical, 38 663 XSS words |
+| (d) | p + H-3, recoil ZAP 2003 to 2005 | stale `ne = 52` (AND `NE`) < 67: table truncated to 52 points | identical | units 31-35 identical, 23 654 XSS words |
+| (e) | (c) + subsection 1 copied as subsection 3 | branch runs twice; second pass with `e = 1.0e7` (eV) | identical | units 31-35 identical, 47 855 XSS words |
+
+The stale values above were read from the port's branch in a temporary
+diagnostic run; they are the predicted sources (production pass, angular pass
+`:9929`/`:9558`, energy pass `:10579`; for (e) the first pass's `:11084`).
+**Ablation** (temporary, removed): using all 67 points in (d) changes 8 lines
+of unit 31, and putting (e)'s second-pass `e` back in MeV changes 26 lines. So
+both quirks are load-bearing and the gates can fail.
+
+**Predictions against results.** LAW = 4: as predicted, every word. LAW = 5:
+**half wrong**. The entry `0 0 0` (third word 0, from `xss=0`, `:113`) is as
+predicted, but NJOY2016 does not run to completion: `change` knows no law 0
+and stops. So upstream's behaviour for such a product is an error stop, and
+the port stops the same way. For that, `acefix_change`'s walk now reads past
+the table's end as upstream does: zeros up to `nxss`, where it used to error
+with a different message.
+
+**What the port refuses** (`NotPorted`), each a case where upstream reads
+scratch words that the branch did not write, or reads past a record:
+- `e` or `amass` never set (both are uninitialised in upstream);
+- stale `ne < 1`;
+- a TAB2 with fewer energies than the stale `ne`;
+- a first subsection that is not LAW 1, 2 or 5;
+- a LIST longer than `npage`;
+- a LAW = 5 item before the last subsection on a text scratch tape, or whose
+  misread records are not no-ops;
+- a heavy recoil of LAW 2, 5 or 6 before the last subsection (upstream does not
+  skip its body), and a heavy LAW 7.
+
+None of these is reached by a held tape or by (a)-(e).
+
+Also changed: `build_charged` passes the scratch-tape mode (`npend < 0`:
+binary) to `acelcp`, where it passed `text` always; held charged tapes have no
+LAW = 7, the only other reader of that flag, so decks 14-71 are unaffected.
 
 **`LTP >= 12` crash: the harness, not NJOY.** `ltp12_probe.f90` feeds the
 LTP = 12 records (`lists_ltp12.txt`, `extract_lists.py --ltp12`) to `coul`.
@@ -144,6 +198,8 @@ ACE and its heating in ESZ. An instrumented NJOY was read once for it: `e` and
 `ubar` matched to 17 figures at the first five energies, and `amass` did not,
 which is how the `awr` defect above was found; it was not re-compared after
 that fix, the deck-54 identity is the evidence.~~ **CORRECTED 2026-11-12
-(gh:#1490):** it has a function-level gate now (above). LAW=5 products other than the projectile, and the LAW=4
+(gh:#1490):** it has a function-level gate now (above). ~~LAW=5 products other than the projectile, and the LAW=4
 recoil heating of an incident charged particle, are still refused, and are
-not reachable from any held evaluation (above).
+not reachable from any held evaluation (above).~~ **CORRECTED 2026-11-13:**
+both are translated and gated on synthetic tapes (gh:#1490, part 2, above);
+neither is reached by a held evaluation.

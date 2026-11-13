@@ -38,6 +38,9 @@ struct Walk<'a> {
     l: usize,
 }
 
+/// `nxss` (`acecm.f90:10`): the length of upstream's `xss` array.
+const NXSS: usize = 50_000_000;
+
 fn err(msg: String) -> NjoyError {
     NjoyError::InvalidInput(format!("change: {msg}"))
 }
@@ -47,16 +50,23 @@ impl Walk<'_> {
         self.at(self.l)
     }
 
+    /// Word `i`. Past the table's last word, upstream reads on in its `xss`
+    /// array, which ACER zeroes at its start (`acefc.f90:113`) and which is
+    /// `nxss` words long (`acecm.f90:10`): 0 there (gh:#1490, a malformed
+    /// DLWH entry walked past the end before `change` stops on its law).
     fn at(&self, i: usize) -> Result<i64, NjoyError> {
-        if i == 0 || i > self.x.len() {
-            return Err(err(format!("xss index {i} outside 1..{}", self.x.len())));
+        if i == 0 || i > NXSS {
+            return Err(err(format!("xss index {i} outside 1..{NXSS}")));
         }
-        Ok(self.x[i - 1].round() as i64)
+        Ok(self.x.get(i - 1).map_or(0, |v| v.round() as i64))
     }
 
     fn put(&mut self, is_int: bool) -> Result<(), NjoyError> {
-        if self.l == 0 || self.l > self.x.len() {
-            return Err(err(format!("xss index {} outside 1..{}", self.l, self.x.len())));
+        if self.l == 0 || self.l > NXSS {
+            return Err(err(format!("xss index {} outside 1..{NXSS}", self.l)));
+        }
+        if self.l > self.kind.len() {
+            self.kind.resize(self.l, None);
         }
         self.kind[self.l - 1] = Some(is_int);
         self.l += 1;
@@ -343,9 +353,10 @@ pub fn xss_lines(xss: &[f64], idx: &AceIndex) -> Result<Vec<String>, NjoyError> 
     let mut cur = String::new();
     let end = w.l - 1;
     for p in 0..end {
+        let v = w.x.get(p).copied().unwrap_or(0.0);
         let s = match w.kind[p] {
-            Some(true) => format!("{:20}", w.x[p].round() as i64),
-            _ => fortran_e20(w.x[p]),
+            Some(true) => format!("{:20}", v.round() as i64),
+            _ => fortran_e20(v),
         };
         cur.push_str(&s);
         if p % 4 == 3 {

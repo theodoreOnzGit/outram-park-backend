@@ -612,10 +612,10 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
         xss,
         xss_is_int: is_int,
     };
-    if !super::acelcp::recoil_heating_supported(tape, mat) {
-        return Err(NjoyError::NotPorted("acelcp: LAW=4 recoil heating of an incident charged particle (acefc.f90:11060)"));
-    }
-    super::acelcp::append_incident(&mut table, tape, mat, &pendf, 1, izai, awi);
+    // `acelcp` reads `topfil`'s scratch tape `mscr`, binary when the PENDF
+    // unit is (`acefc.f90:176-178`); gh:#1490: its mode decides what a
+    // LAW = 5 product's unskipped body does, so pass it through.
+    super::acelcp::append_incident_mode(&mut table, tape, mat, &pendf, 1, izai, awi, text_pendf)?;
     Ok(table)
 }
 
