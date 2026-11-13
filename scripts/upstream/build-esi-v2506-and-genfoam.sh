@@ -17,7 +17,7 @@
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
 #   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers
-#           radiation fetch-genfoam genfoam fetch-cfmesh cfmesh verify
+#           radiation fetch-genfoam genfoam fetch-cfmesh cfmesh polydual verify
 #           (radiation, gh:#1379: libradiationModels, built by `closure` as well, plus
 #           the P1 differential driver radDump from the outram-foam-basic-lib V&V dir)
 #           (fetch-cfmesh and cfmesh: DAFoam cfMesh e944f6ba695f, gh:#1385; cfMesh
@@ -482,6 +482,36 @@ stage_cfmesh() {
   done
 }
 
+# --- stage: polyDualMesh and the checkMesh quality probe (gh:#1364, gh:#1460) ------
+# polyDualMesh is built from a scratch copy (as the 2026-11-11 build was): the
+# `processorMeshes` include is dropped by the committed patch and the link line loses
+# `genericPatchFields` (not built here); no upstream .C/.H is edited in the tree.
+# dumpQuality is the probe of the esi_v2506_differential_gh1364 V&V dir.
+PDM_V=$REPO/crates/outram-foam-mesh/verification_and_validation
+polydual_impl() {
+  local src=$OF/applications/utilities/mesh/manipulation/polyDualMesh
+  local w=$ROOT/polydual-scratch
+  rm -rf "$w"; mkdir -p "$w"; cp -r "$src/." "$w/"
+  cp "$PDM_V/poly_dual_mesh_upstream_gh1460/polyDualMesh.Make.options" "$w/Make/options"
+  (cd "$w" && patch -p0 polyDualMeshApp.C < "$PDM_V/poly_dual_mesh_upstream_gh1460/polyDualMeshApp.local.patch")
+  cd "$w"
+  wmake -j"$N" .
+  [ -x "$FOAM_APPBIN/polyDualMesh" ]
+  ls -l "$FOAM_APPBIN/polyDualMesh"
+}
+quality_probe_impl() {
+  local w=$ROOT/dumpQuality-scratch
+  rm -rf "$w"; mkdir -p "$w"; cp -r "$PDM_V/esi_v2506_differential_gh1364/dumpQuality/." "$w/"
+  cd "$w"
+  wmake .
+  [ -x "$FOAM_USER_APPBIN/dumpQuality" ]
+  ls -l "$FOAM_USER_APPBIN/dumpQuality"
+}
+stage_polydual() {
+  run_stage app-polyDualMesh polydual_impl
+  run_stage app-dumpQuality quality_probe_impl
+}
+
 # --- verification -------------------------------------------------------------
 verify_impl() {
   local V=$ROOT/runs/verify_cavity T=$OF/tutorials/incompressible/icoFoam/cavity/cavity
@@ -557,6 +587,7 @@ for s in "$@"; do
     genfoam)      load_env; stage_genfoam ;;
     fetch-cfmesh) stage_fetch_cfmesh ;;
     cfmesh)       load_env; stage_fetch_cfmesh; stage_cfmesh ;;
+    polydual)     load_env; stage_polydual ;;
     verify)       load_env; stage_verify ;;
     *) echo "unknown stage: $s"; exit 64 ;;
   esac

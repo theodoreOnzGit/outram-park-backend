@@ -255,6 +255,14 @@ fn boundary_face_skewness(
 
 /// Cell aspect ratio, OpenFOAM `checkClosedCells`:
 /// `(1/6) (Σ|Sf_x| + Σ|Sf_y| + Σ|Sf_z|) / V^(2/3)`; `0` for `V <= 0`.
+///
+/// ~~OpenFOAM's `checkClosedCells` aspect ratio~~ **CORRECTED 2026-11-13 (gh:#1364,
+/// checked against an OpenFOAM.com v2506 `checkMesh` run, `esi_v2506_differential_gh1364/`):**
+/// this is only the second term of ESI v2506's `primitiveMeshTools::cellClosedness`,
+/// which takes `max(maxCmpt/(minCmpt + rootVSmall), (1/6) Σ.../V^(2/3))` over the
+/// solved directions (T3A: 3232.46 in ESI, 74.12 here). OpenFOAM-dev's form was not
+/// re-checked (no dev source in this checkout). The ESI form is
+/// [`esi_quality_fields`] (`aspect_ratio`); this function is unchanged.
 pub fn cell_aspect_ratio_cmpt(sum_cmpt_mag: Vector3, volume: f64) -> f64 {
     if volume <= 0.0 {
         return 0.0;
@@ -1428,6 +1436,307 @@ pub fn esi_check_mesh(
     }
     let wrong_faces: Vec<usize> = (0..in_set.len()).filter(|&f| in_set[f]).collect();
     EsiCheckResult { wrong_faces, new_faces }
+}
+
+// ---------------------------------------------------------------------------
+// ESI v2506 `checkMesh` metric FIELDS (gh:#1364): the per-face / per-cell values
+// that `primitiveMesh::check*` reduce to the numbers `checkMesh` prints.
+// ---------------------------------------------------------------------------
+
+/// `polyMesh::geometricD()` for a mesh whose only direction-removing patches
+/// are `empty` ones (no wedges): `emptyDirVec` is the sum over the faces of the
+/// empty patches of `cmptMag(faceArea)`, normalised; a direction with a
+/// component above `1e-6` is `-1` (removed), else `1`.
+pub fn esi_geometric_d(face_areas: &[[f64; 3]], empty_faces: &[usize]) -> [i32; 3] {
+    let mut d = [1i32; 3];
+    if empty_faces.is_empty() {
+        return d;
+    }
+    let mut v = [0.0f64; 3];
+    for &f in empty_faces {
+        for k in 0..3 {
+            v[k] += face_areas[f][k].abs();
+        }
+    }
+    let n = esi_snap::div(v, esi_snap::mag(v));
+    for k in 0..3 {
+        if n[k] > 1e-6 {
+            d[k] = -1;
+        }
+    }
+    d
+}
+
+/// Every field `checkMesh` derives its geometry report from, evaluated the way
+/// ESI v2506's `primitiveMeshTools` does (see [`esi_quality_fields`]).
+#[derive(Debug, Clone)]
+pub struct EsiQualityFields {
+    /// `geometricD` the cell fields were evaluated with (1 = solved direction).
+    pub mesh_d: [i32; 3],
+    /// Face centres and area vectors, cell centres and volumes.
+    pub geometry: EsiGeometry,
+    /// `faceOrthogonality`: `d.S/(|d||S| + rootVSmall)` per internal face.
+    pub orthogonality: Vec<f64>,
+    /// `faceSkewness` per face (internal then boundary definition).
+    pub skewness: Vec<f64>,
+    /// `facePyramidVolume`, owner pyramids (every face).
+    pub own_pyramid: Vec<f64>,
+    /// `facePyramidVolume`, neighbour pyramids (internal faces).
+    pub nei_pyramid: Vec<f64>,
+    /// `cellClosedness` openness per cell.
+    pub openness: Vec<f64>,
+    /// `cellClosedness` aspect ratio per cell.
+    pub aspect_ratio: Vec<f64>,
+    /// `faceFlatness` per face (1 for triangles).
+    pub flatness: Vec<f64>,
+    /// `faceConcavity(sin(10 deg))` per face.
+    pub concavity: Vec<f64>,
+    /// `cellDeterminant` per cell (internal faces only).
+    pub determinant: Vec<f64>,
+}
+
+/// The ESI v2506 `checkMesh` fields of `mesh` (serial, no coupled patches):
+/// `primitiveMeshTools::faceOrthogonality`, `faceSkewness`, `facePyramidVolume`,
+/// `cellClosedness`, `faceFlatness`, `faceConcavity` and `cellDeterminant`, with
+/// `mesh_d` = `polyMesh::geometricD()` ([`esi_geometric_d`]).
+pub fn esi_quality_fields(mesh: &SnapMesh, mesh_d: [i32; 3]) -> EsiQualityFields {
+    use esi_snap::{add, cross, div, dot, mag, scale, sub};
+    let geom = esi_geometry(mesh);
+    let n_int = mesh.neighbour.len();
+    let n_faces = mesh.faces.len();
+    let n_cells = geom.cell_volumes.len();
+
+    // faceOrthogonality
+    let mut orthogonality = Vec::with_capacity(n_int);
+    for f in 0..n_int {
+        let d = sub(geom.cell_centres[mesh.neighbour[f]], geom.cell_centres[mesh.owner[f]]);
+        let s = geom.face_areas[f];
+        orthogonality.push(dot(d, s) / (mag(d) * mag(s) + ROOT_V_SMALL));
+    }
+
+    // faceSkewness
+    let mut skewness = Vec::with_capacity(n_faces);
+    for f in 0..n_faces {
+        let own_cc = geom.cell_centres[mesh.owner[f]];
+        let nei_cc = if f < n_int { Some(geom.cell_centres[mesh.neighbour[f]]) } else { None };
+        skewness.push(esi_face_skewness(mesh, &geom, f, own_cc, nei_cc));
+    }
+
+    // facePyramidVolume: -pyramid(face, ownCc).mag, +pyramid(face, neiCc).mag
+    let mut own_pyramid = Vec::with_capacity(n_faces);
+    let mut nei_pyramid = Vec::with_capacity(n_int);
+    for f in 0..n_faces {
+        let ring = &mesh.faces[f];
+        let area = esi_face_area_normal(&mesh.points, ring);
+        let centre = esi_snap::face_centre(&mesh.points, ring);
+        own_pyramid.push(-((1.0 / 3.0) * dot(area, sub(geom.cell_centres[mesh.owner[f]], centre))));
+        if f < n_int {
+            nei_pyramid.push((1.0 / 3.0) * dot(area, sub(geom.cell_centres[mesh.neighbour[f]], centre)));
+        }
+    }
+
+    // cellClosedness
+    let mut sum_closed = vec![[0.0f64; 3]; n_cells];
+    let mut sum_mag_closed = vec![[0.0f64; 3]; n_cells];
+    let cmpt_mag = |a: [f64; 3]| [a[0].abs(), a[1].abs(), a[2].abs()];
+    for f in 0..n_faces {
+        let o = mesh.owner[f];
+        sum_closed[o] = add(sum_closed[o], geom.face_areas[f]);
+        sum_mag_closed[o] = add(sum_mag_closed[o], cmpt_mag(geom.face_areas[f]));
+    }
+    for f in 0..n_int {
+        let n = mesh.neighbour[f];
+        sum_closed[n] = sub(sum_closed[n], geom.face_areas[f]);
+        sum_mag_closed[n] = add(sum_mag_closed[n], cmpt_mag(geom.face_areas[f]));
+    }
+    let n_dims = mesh_d.iter().filter(|&&d| d == 1).count();
+    let mut openness = Vec::with_capacity(n_cells);
+    let mut aspect_ratio = Vec::with_capacity(n_cells);
+    for c in 0..n_cells {
+        let mut max_openness = 0.0f64;
+        for k in 0..3 {
+            max_openness = max_openness.max(sum_closed[c][k].abs() / (sum_mag_closed[c][k] + ROOT_V_SMALL));
+        }
+        openness.push(max_openness);
+        let mut min_cmpt = ESI_VGREAT;
+        let mut max_cmpt = -ESI_VGREAT;
+        for k in 0..3 {
+            if mesh_d[k] == 1 {
+                min_cmpt = min_cmpt.min(sum_mag_closed[c][k]);
+                max_cmpt = max_cmpt.max(sum_mag_closed[c][k]);
+            }
+        }
+        let mut aspect = max_cmpt / (min_cmpt + ROOT_V_SMALL);
+        if n_dims == 3 {
+            let v = ROOT_V_SMALL.max(geom.cell_volumes[c]);
+            let s = sum_mag_closed[c];
+            aspect = aspect.max((1.0 / 6.0) * (s[0] + s[1] + s[2]) / v.r_powf(2.0 / 3.0));
+        }
+        aspect_ratio.push(aspect);
+    }
+
+    // faceFlatness
+    let mut flatness = vec![1.0f64; n_faces];
+    for f in 0..n_faces {
+        let ring = &mesh.faces[f];
+        let mag_area = mag(geom.face_areas[f]);
+        if ring.len() > 3 && mag_area > ROOT_V_SMALL {
+            let fc = geom.face_centres[f];
+            let mut sum_a = 0.0;
+            for fp in 0..ring.len() {
+                let this_point = mesh.points[ring[fp]];
+                let next_point = mesh.points[ring[(fp + 1) % ring.len()]];
+                let n = scale(0.5, cross(sub(next_point, this_point), sub(fc, this_point)));
+                sum_a += mag(n);
+            }
+            flatness[f] = mag_area / (sum_a + ROOT_V_SMALL);
+        }
+    }
+
+    // faceConcavity(sin(degToRad(10)))
+    let max_sin = (10.0 * std::f64::consts::PI / 180.0).r_sin();
+    let mut concavity = Vec::with_capacity(n_faces);
+    for f in 0..n_faces {
+        let ring = &mesh.faces[f];
+        let face_normal = div(geom.face_areas[f], mag(geom.face_areas[f]) + ROOT_V_SMALL);
+        let p = |i: usize| mesh.points[ring[i]];
+        let mut e_prev = sub(p(0), p(ring.len() - 1));
+        let mut mag_e_prev = mag(e_prev);
+        e_prev = div(e_prev, mag_e_prev + ROOT_V_SMALL);
+        let mut max_edge_sin = 0.0f64;
+        for fp0 in 0..ring.len() {
+            let mut e10 = sub(p((fp0 + 1) % ring.len()), p(fp0));
+            let mag_e10 = mag(e10);
+            e10 = div(e10, mag_e10 + ROOT_V_SMALL);
+            if mag_e_prev > ESI_SMALL && mag_e10 > ESI_SMALL {
+                let mut edge_normal = cross(e_prev, e10);
+                let mag_edge_normal = mag(edge_normal);
+                if !(mag_edge_normal < max_sin) {
+                    edge_normal = div(edge_normal, mag_edge_normal);
+                    if dot(edge_normal, face_normal) < ESI_SMALL {
+                        max_edge_sin = max_edge_sin.max(mag_edge_normal);
+                    }
+                }
+            }
+            e_prev = e10;
+            mag_e_prev = mag_e10;
+        }
+        concavity.push(max_edge_sin);
+    }
+
+    // cellDeterminant (internal faces only; serial)
+    let mut determinant = Vec::with_capacity(n_cells);
+    let two_d = mesh_d.iter().position(|&d| d != 1);
+    for c in 0..n_cells {
+        if n_dims == 1 {
+            determinant.push(1.0);
+            continue;
+        }
+        let mut avg_area = 0.0;
+        let mut n_internal = 0usize;
+        for &f in &geom.cell_faces[c] {
+            if f < n_int {
+                avg_area += mag(geom.face_areas[f]);
+                n_internal += 1;
+            }
+        }
+        if n_internal == 0 || avg_area < ROOT_V_SMALL {
+            determinant.push(0.0);
+            continue;
+        }
+        avg_area /= n_internal as f64;
+        // symmTensor (xx, xy, xz, yy, yz, zz) += sqr(S/avgArea)
+        let mut t = [0.0f64; 6];
+        for &f in &geom.cell_faces[c] {
+            if f < n_int {
+                let s = div(geom.face_areas[f], avg_area);
+                t[0] += s[0] * s[0];
+                t[1] += s[0] * s[1];
+                t[2] += s[0] * s[2];
+                t[3] += s[1] * s[1];
+                t[4] += s[1] * s[2];
+                t[5] += s[2] * s[2];
+            }
+        }
+        if n_dims == 2 {
+            match two_d {
+                Some(0) => t[0] = 1.0,
+                Some(1) => t[3] = 1.0,
+                _ => t[5] = 1.0,
+            }
+        }
+        let (xx, xy, xz, yy, yz, zz) = (t[0], t[1], t[2], t[3], t[4], t[5]);
+        let det = xx * yy * zz + xy * yz * xz + xz * xy * yz - xx * yz * yz - xy * xy * zz - xz * yy * xz;
+        determinant.push(det.abs() / 8.0);
+    }
+
+    EsiQualityFields {
+        mesh_d,
+        geometry: geom,
+        orthogonality,
+        skewness,
+        own_pyramid,
+        nei_pyramid,
+        openness,
+        aspect_ratio,
+        flatness,
+        concavity,
+        determinant,
+    }
+}
+
+/// The aggregate numbers `checkMesh` prints (6 significant digits in ESI's
+/// text) from [`EsiQualityFields`]: `Mesh non-orthogonality Max/average`,
+/// `Max skewness`, `Max cell openness`, `Max aspect ratio`, volumes, minimum
+/// face area, and the cell determinant minimum / average.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EsiCheckSummary {
+    /// `radToDeg(acos(min d.S/...))`.
+    pub max_non_orthogonality_deg: f64,
+    /// `radToDeg(acos(sum/nInternal))`.
+    pub avg_non_orthogonality_deg: f64,
+    /// Largest face skewness.
+    pub max_skewness: f64,
+    /// Largest cell openness.
+    pub max_openness: f64,
+    /// Largest cell aspect ratio.
+    pub max_aspect_ratio: f64,
+    /// Smallest cell volume.
+    pub min_volume: f64,
+    /// Largest cell volume.
+    pub max_volume: f64,
+    /// Sum of the cell volumes.
+    pub total_volume: f64,
+    /// Smallest face area magnitude.
+    pub min_face_area: f64,
+    /// Smallest cell determinant.
+    pub min_determinant: f64,
+    /// Average cell determinant.
+    pub avg_determinant: f64,
+}
+
+/// Reduce [`EsiQualityFields`] as `primitiveMesh::check*` do (`min`, `max`,
+/// `sum` in index order; angles with `rad*180.0/M_PI`).
+pub fn esi_check_summary(q: &EsiQualityFields) -> EsiCheckSummary {
+    let min = |v: &[f64]| v.iter().copied().fold(ESI_GREAT, f64::min);
+    let max = |v: &[f64]| v.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let sum = |v: &[f64]| v.iter().copied().fold(0.0, |a, b| a + b);
+    let to_deg = |rad: f64| rad * 180.0 / std::f64::consts::PI;
+    let n_int = q.orthogonality.len();
+    let mag_areas: Vec<f64> = q.geometry.face_areas.iter().map(|&a| esi_snap::mag(a)).collect();
+    EsiCheckSummary {
+        max_non_orthogonality_deg: to_deg(min(&q.orthogonality).r_acos()),
+        avg_non_orthogonality_deg: to_deg((sum(&q.orthogonality) / n_int as f64).r_acos()),
+        max_skewness: max(&q.skewness),
+        max_openness: max(&q.openness),
+        max_aspect_ratio: max(&q.aspect_ratio),
+        min_volume: min(&q.geometry.cell_volumes),
+        max_volume: q.geometry.cell_volumes.iter().copied().fold(-ESI_GREAT, f64::max),
+        total_volume: sum(&q.geometry.cell_volumes),
+        min_face_area: min(&mag_areas),
+        min_determinant: min(&q.determinant),
+        avg_determinant: sum(&q.determinant) / q.determinant.len() as f64,
+    }
 }
 
 #[cfg(test)]
