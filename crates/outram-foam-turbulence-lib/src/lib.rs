@@ -41,6 +41,13 @@
 //! and is unit-tested; none are `todo!()` scaffolds. **Unit-tested is not
 //! benchmark-validated** — the transport formulae, coefficients, and positivity
 //! are checked against the upstream OpenFOAM source and analytical values, but
+//! ~~the formulae match upstream~~ **CORRECTED 2026-11-13** (gh:#1362): measured
+//! against ESI v2506 on a frozen field, the default `correct()` arithmetic differs
+//! from upstream in `G` (no `-(2/3)(div U)^2`), the absent `div U` `SuSp` terms,
+//! SST gamma1/gamma2 and `GbyNu` limiter, SA sigma (2/3 against 0.66666) and the wall
+//! distance (nearest wall-face centre against `meshWave`); see
+//! `verification_and_validation/upstream_turb_gh1362/README.md` and the
+//! [`source_terms`] module (the ESI form is an option, not the default).
 //! no model has yet been validated end-to-end against a published turbulence
 //! benchmark, and all use zero-gradient (not wall-function) near-wall boundary
 //! conditions. See each module's "Honest scope" section and `README.md`.
@@ -65,6 +72,7 @@ pub mod k_omega_sst;
 pub mod laminar;
 pub mod les;
 pub mod prelude;
+pub mod source_terms;
 pub mod spalart_allmaras;
 pub mod traits;
 pub mod wall_functions;

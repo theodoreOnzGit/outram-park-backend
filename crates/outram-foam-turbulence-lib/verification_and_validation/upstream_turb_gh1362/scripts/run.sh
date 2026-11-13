@@ -20,9 +20,9 @@ for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky}; do
   cp $HERE/inputs/controlDict $HERE/inputs/fvSchemes $HERE/inputs/fvSolution $HERE/inputs/blockMeshDict $C/system/
   cp $HERE/inputs/transportProperties $C/constant/
   if [ $M = Smagorinsky ]; then
-    printf 'FoamFile { version 2.0; format ascii; class dictionary; object momentumTransport; }\nsimulationType LES;\nLES { model Smagorinsky; turbulence on; printCoeffs on; delta cubeRootVol; cubeRootVolCoeffs { deltaCoeff 1; } }\n' > $C/constant/momentumTransport
+    printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType LES;\nLES { model Smagorinsky; turbulence on; printCoeffs on; delta cubeRootVol; cubeRootVolCoeffs { deltaCoeff 1; } }\n' > $C/constant/turbulenceProperties
   else
-    printf 'FoamFile { version 2.0; format ascii; class dictionary; object momentumTransport; }\nsimulationType RAS;\nRAS { model %s; turbulence on; printCoeffs on; }\n' $M > $C/constant/momentumTransport
+    printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType RAS;\nRAS { model %s; turbulence on; printCoeffs on; }\n' $M > $C/constant/turbulenceProperties
   fi
   (cd $C && $WITH blockMesh >/dev/null && $WITH ../bin/turbDump -model $M > $C/log.out 2> $C/log.err; grep -E "^[A-Za-z_0-9]+ [0-9]+ |^#|^audit " $C/log.out | gzip -9n > $HERE/reference/ref_$M.txt.gz)
 done

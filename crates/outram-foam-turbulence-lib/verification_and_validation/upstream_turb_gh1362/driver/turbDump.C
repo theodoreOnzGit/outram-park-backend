@@ -117,7 +117,7 @@ static scalar feps(const point& p)
 static scalar fomega(const point& p)
 {
     const scalar d = 0.25 - sOf(p);
-    return 1.0 + 600.0*d*d*(1.0 + 0.1*p.x()) + 10.0*p.z();
+    return 0.5 + 200.0*d*d*(1.0 + 0.1*p.x()) + 5.0*p.x()*p.x() + 4.0*p.z();
 }
 
 static scalar fnuTilda(const point& p)
@@ -185,8 +185,17 @@ static void auditPart
     );
 }
 
-static void auditMatrix(const word& eq, fvScalarMatrix& m)
+// fvMatrix keeps its boundary-completion helpers protected; expose them.
+struct MatrixAccess : public fvScalarMatrix
 {
+    MatrixAccess(const fvScalarMatrix& m) : fvScalarMatrix(m) {}
+    using fvScalarMatrix::addBoundaryDiag;
+    using fvScalarMatrix::addBoundarySource;
+};
+
+static void auditMatrix(const word& eq, const fvScalarMatrix& mIn)
+{
+    MatrixAccess m(mIn);
     if (!dumpSolver::captured.found(eq))
     {
         std::printf("audit %s MISSING (real model did not solve it)\n", eq.c_str());
@@ -560,7 +569,7 @@ int main(int argc, char* argv[])
         const volScalarField chi3("chi3", pow3(chi));
         const volScalarField fv1(chi3/(chi3 + pow3(Cv1)));
         const volScalarField fv2(scalar(1) - chi/(scalar(1) + chi*fv1));
-        const volScalarField Omega(sqrt(2.0)*mag(skew(gradU)));
+        const volScalarField Omega(std::sqrt(2.0)*mag(skew(gradU)));
         const volScalarField dTilda(y);
         const volScalarField Stilda
         (
@@ -593,7 +602,8 @@ int main(int argc, char* argv[])
         dumpS("T_gradSqr", gradSqr.field());
         dumpS("T_nuTilda_E", prod.field());
         dumpS("T_nuTilda_Sp", spC.field());
-        dumpS("T_nut", (nuTilda*fv1).primitiveField());
+        const volScalarField nutSA(nuTilda*fv1);
+        dumpS("T_nut", nutSA.primitiveField());
         const volScalarField Dnt("DnuTildaEff", (nuTilda + nu)/sigmaNut);
         fvScalarMatrix ntEqn
         (
@@ -609,12 +619,13 @@ int main(int argc, char* argv[])
         // LESModels/Smagorinsky/Smagorinsky.C k(), correctNut(); delta from
         // LESdeltas/cubeRootVolDelta (deltaCoeff 1)
         const dimensionedScalar Ck("Ck", dimless, 0.094), Ce("Ce", dimless, 1.048);
-        const volScalarField delta
+        volScalarField delta
         (
             IOobject("delta", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE, IOobject::NO_REGISTER),
             mesh, dimensionedScalar(dimLength, 0), zeroGradientFvPatchScalarField::typeName
         );
-        const_cast<volScalarField&>(delta).primitiveFieldRef() = 1.0*cbrt(mesh.V());
+        delta.primitiveFieldRef() = 1.0*cbrt(mesh.V());
+        delta.correctBoundaryConditions();
         const volSymmTensorField D(symm(gradU));
         const volScalarField a(Ce/delta);
         const volScalarField b((2.0/3.0)*tr(D));

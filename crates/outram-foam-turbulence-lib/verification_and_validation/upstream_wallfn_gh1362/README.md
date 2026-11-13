@@ -34,6 +34,10 @@ Option added, old form kept: `wall_functions::{y_plus_lam, nu_t_wall_esi_v2506}`
 
 ## Not done in row 5 (ledger)
 
+**UPDATE 2026-11-13:** the model-level items below were done in
+`../upstream_turb_gh1362/README.md` (source terms and nut of all five models on a frozen
+duct); only the wall functions remain open.
+
 Read from the sources only, NOT run, so treat as hypotheses:
 
 - k-epsilon `correctNut`: upstream bounds `epsilon` at `epsilonMin = small` and
