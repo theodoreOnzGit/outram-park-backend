@@ -421,3 +421,42 @@ pinned (`launder_sharma_ke_vs_openfoam`, `launder_sharma_ke_low_re_vs_openfoam`)
 - Not covered: `correct()` (none yet; also needs the port's own `fvc::magSqrGradGrad` and
   `grad(sqrt k)`, compared with upstream under gh:#1489), wall functions, the non-isotropic
   `nut` boundary behaviour, `buoyantKEpsilon`.
+
+# Slice 7: LESfilter family (basic-lib) and dynamicKEqn (gh:#1544)
+
+## Predictions (written and committed BEFORE the driver was extended or run)
+
+Setup: `LESfilter` `simple`, `laplace` (`widthCoeff` 2), `anisotropic` (`widthCoeff` 2) of ESI v2506
+(`src/TurbulenceModels/turbulenceModels/LES/LESfilters/`) are ported into `outram-foam-basic-lib`
+(`fv_operators/les_filter.rs`), generic over scalar, vector, symmTensor and tensor fields, and compared
+per cell AND per boundary face against the real filter classes on the frozen 360-cell duct. Inputs:
+`k` (zeroGradient scalar), `U` (fixedValue vector), `sqr(U)` (symmTensor, calculated), `symm(grad U)`.
+
+1. **simple**: no libm, same accumulation order (`surfaceSum` over internal faces then boundary faces,
+   `lambda (P - N) + N` interpolation, division by the summed `magSf`): 360/360 bit-identical for scalar,
+   vector and symmTensor, cells and boundary faces. Confidence 85 %.
+2. **anisotropic**: coefficient `sqr(2 V / surfaceSum(mag(Sf_d)))/widthCoeff` has no libm; filtered scalar,
+   vector, symmTensor 360/360 identical. The boundary value of the filtered field equals the unfiltered
+   boundary value (the coefficient field has a zero boundary). Confidence 75 % (the `vector & tensor`
+   contraction order is the likely place to slip).
+3. **laplace**: `coeff = pow(V, 2/3)/widthCoeff` uses libm `pow`; the PETIR `r_powf` will differ from glibc
+   by 1 ulp in a MINORITY of the distinct cell volumes (the duct has about 10 distinct `V`), and the
+   filtered fields differ by at most a few ulp only in cells whose `coeff` differs. The interpolated
+   `gamma` has a ZERO boundary value (upstream `coeff_` is built with calculated patches at zero), so no
+   diffusive flux crosses the boundary: this is reproduced, not "fixed". If the coefficient is fed with
+   upstream's value, the filtered fields are 360/360 identical (confidence 80 %).
+4. **dynamicKEqn** (`Ck`, `Ce`, `KK`, `LL`, `MM`, `nut`, `G`, `k_SuSp`, `k_Sp`, with upstream `grad(U)`
+   cells AND boundary faces fed in): `KK`, `LL`, `MM`, `Ck` are libm-free and 360/360 identical for the
+   `simple` filter (confidence 60 %: ten chained operations in upstream order). `Ce` contains
+   `pow(KK, 1.5)` and differs by a few ulp in a minority of cells (PETIR `r_powf`).
+5. **The two `D` of upstream**: `correctNut()` (called by `validate()`) passes `symm(grad U)` while
+   `correct()` passes `devSymm(grad U)`. With `div U != 0` (up to 0.33 on this field) the two `Ck` differ
+   by O(`tr D / |D|`), so the real `nut` after `validate()` equals the `symm` form and NOT the `devSymm`
+   form. Predicted: the Rust `symm` form reproduces `nut_real`; the `devSymm` form does not (all cells
+   with `|div U| > 0`).
+6. **Boundary data matter**: the port's `fvc::grad_vec` leaves the boundary gradient zero-gradient
+   (extrapolated), while upstream `gaussGrad::correctBoundaryConditions` replaces the wall-normal
+   component. Feeding the port's extrapolated boundary instead of upstream's changes `filter(D)` in the
+   cells touching a wall; since the duct is only 3 cells thick in z and the `Ck` expression chains three
+   filter passes, predicted: `Ck` differs in more than 300 of 360 cells with the extrapolated boundary.
+7. **dynamicKEqn matrix**: the transcribed k equation reproduces the real matrix bit for bit (audit).
