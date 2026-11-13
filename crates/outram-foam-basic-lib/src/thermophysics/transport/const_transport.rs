@@ -122,6 +122,13 @@ impl<T: ThermoModel> TransportModel for ConstTransport<T> {
         let cp = self.thermo.cp(p, t).get::<joule_per_kilogram_kelvin>();
         ThermalConductivity::new::<watt_per_meter_kelvin>(cp * self.mu * self.rpr)
     }
+
+    /// `alphah = mu / Pr` directly, as upstream's `constTransport::alphah`
+    /// (`mu(p, T)*rPr_`); the trait default `kappa / Cp` equals it only up to
+    /// rounding (gh:#1362 row 4: 20/40 of the grid differed by 1 ulp).
+    fn alpha_h(&self, _p: Pressure, _t: ThermodynamicTemperature) -> DynamicViscosity {
+        DynamicViscosity::new::<pascal_second>(self.mu * self.rpr)
+    }
 }
 
 #[cfg(test)]
@@ -187,5 +194,34 @@ mod tests {
         let kappa = a.kappa(p, t).get::<watt_per_meter_kelvin>();
         let cp = a.cp(p, t).get::<joule_per_kilogram_kelvin>();
         assert_relative_eq!(alpha, kappa / cp, epsilon = 1e-10);
+    }
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+    use crate::thermophysics::eos::PerfectGas;
+    use crate::thermophysics::thermo::HConstThermo;
+    use uom::si::molar_mass::gram_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    #[test]
+    fn alpha_h_is_mu_over_pr() {
+        let th = HConstThermo::new(
+            PerfectGas::new(MolarMass::new::<gram_per_mole>(28.96)),
+            SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(1004.5),
+            AvailableEnergy::new::<joule_per_kilogram>(0.0),
+            ThermodynamicTemperature::new::<kelvin>(298.15),
+            AvailableEnergy::new::<joule_per_kilogram>(0.0),
+        );
+        let c = ConstTransport::new(
+            th,
+            DynamicViscosity::new::<pascal_second>(1.8e-5),
+            Ratio::new::<uom::si::ratio::ratio>(0.7),
+        );
+        let p = Pressure::new::<pascal>(1.0e5);
+        let t = ThermodynamicTemperature::new::<kelvin>(300.0);
+        assert_eq!(c.alpha_h(p, t).get::<pascal_second>(), 1.8e-5 * (1.0 / 0.7));
     }
 }

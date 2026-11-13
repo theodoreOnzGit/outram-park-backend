@@ -21,7 +21,7 @@
 
 use super::traits::EquationOfState;
 use crate::polynomial::Polynomial;
-use crate::thermophysics::constants::R_UNIVERSAL;
+use crate::thermophysics::constants::GasConstant;
 use crate::thermophysics::imports::*;
 
 /// Incompressible polynomial EOS: `rho(T) = poly(T)`.
@@ -45,13 +45,21 @@ use crate::thermophysics::imports::*;
 pub struct IcoPolynomial<const N: usize> {
     mol_weight: MolarMass,
     poly: Polynomial<N>,
+    gas_constant: GasConstant,
 }
 
 impl<const N: usize> IcoPolynomial<N> {
     /// `poly` coefficients give the density `[kg/m³]` as a polynomial in T `[K]`
     /// (upstream's `rhoCoeffs<N>`).
     pub fn new(mol_weight: MolarMass, poly: Polynomial<N>) -> Self {
-        Self { mol_weight, poly }
+        Self { mol_weight, poly, gas_constant: GasConstant::Codata2019 }
+    }
+
+    /// Select the universal gas constant (default [`GasConstant::Codata2019`];
+    /// [`GasConstant::EsiV2506`] reproduces OpenFOAM-v2506 bit for bit).
+    pub fn with_gas_constant(mut self, gas_constant: GasConstant) -> Self {
+        self.gas_constant = gas_constant;
+        self
     }
 }
 
@@ -62,7 +70,7 @@ impl<const N: usize> EquationOfState for IcoPolynomial<N> {
 
     fn r(&self) -> SpecificHeatCapacity {
         let w = self.mol_weight.get::<kilogram_per_mole>();
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(R_UNIVERSAL / w)
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.gas_constant.specific(w))
     }
 
     fn rho(&self, _p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
@@ -188,5 +196,21 @@ mod tests {
             rho1 > rho2,
             "rho should decrease with T for positive slope poly"
         );
+    }
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+    use uom::si::molar_mass::gram_per_mole;
+
+    #[test]
+    fn gas_constant_option_applies() {
+        let a = IcoPolynomial::<2>::new(
+            MolarMass::new::<gram_per_mole>(28.96),
+            Polynomial::<2>::new([1000.0, -0.5]),
+        );
+        let b = a.with_gas_constant(GasConstant::EsiV2506);
+        assert!(b.r().get::<joule_per_kilogram_kelvin>() > a.r().get::<joule_per_kilogram_kelvin>());
     }
 }

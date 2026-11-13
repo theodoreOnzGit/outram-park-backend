@@ -27,7 +27,12 @@
 
 using namespace Foam;
 
-static const double Ts[] = {250, 280, 300, 350, 400, 600, 900, 1100, 1500, 1900};
+static const double TsMain[] = {250, 280, 300, 350, 400, 600, 900, 1100, 1500, 1900};
+// outside every table and JANAF range: tables extrapolate, JANAF does not clamp
+static const double TsExtrap[] = {120, 150, 2400, 3000, 6500};
+static const double* Ts = TsMain;
+static int nTs = 10;
+static std::string tagPrefix;
 static const double Ps[] = {1e5, 1e6, 3e6, 8e6};
 
 static void hex(const char* tag, int it, int ip, const double* v, int n)
@@ -48,7 +53,7 @@ static void dumpMixture(const char* tag, const std::string& text)
     IStringStream is(text);
     dictionary dict(is);
     Mixture m(dict);
-    for (int it = 0; it < 10; it++)
+    for (int it = 0; it < nTs; it++)
     {
         for (int ip = 0; ip < 4; ip++)
         {
@@ -114,7 +119,7 @@ static void oneCombo()
     <
         species::thermo<typename Th::template type<typename Eos::template type<specie>>, sensibleEnthalpy>
     > Mixture;
-    const std::string tag = std::string(Th::name()) + "/" + Eos::name() + "/" + Tr::name();
+    const std::string tag = tagPrefix + std::string(Th::name()) + "/" + Eos::name() + "/" + Tr::name();
     const double W = (std::string(Eos::name()) == "PengRobinson") ? 44.01 : 28.96;
     char buf[64];
     std::snprintf(buf, sizeof buf, "specie { molWeight %.17g; }\n", W);
@@ -141,10 +146,18 @@ static void thermos()
 
 int main()
 {
-    std::printf("# thermoDump gh:#1362 row 4, ESI v2506; T grid 10 x p grid 4; fields: Cp Ha Hs Hc S rho psi Z CpMCv mu kappa alphah\n");
+    std::printf("# thermoDump gh:#1362 row 4, ESI v2506; T grid 10 x p grid 4, then an extrap/ block of 5 T x 4 p; fields: Cp Ha Hs Hc S rho psi Z CpMCv mu kappa alphah\n");
     thermos<EosPG>();
     thermos<EosRC>();
     thermos<EosIco>();
     thermos<EosPR>();
+    // extrapolation block: three thermos on a perfect gas, and one on PR
+    Ts = TsExtrap;
+    nTs = 5;
+    tagPrefix = "extrap/";
+    transports<EosPG, ThConst>();
+    transports<EosPG, ThJanaf>();
+    transports<EosPG, ThPoly>();
+    transports<EosPG, ThTab>();
     return 0;
 }
