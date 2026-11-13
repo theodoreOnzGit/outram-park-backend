@@ -200,6 +200,15 @@ pub struct QngOutcome {
     /// `Ok(())` for `GSL_SUCCESS`, `Err(Tolerance)` for `GSL_EBADTOL` or
     /// `GSL_ETOL`.
     pub status: Result<()>,
+    /// GSL's own integer status: 0 success, 13 `GSL_EBADTOL` (bad `epsabs`,
+    /// `epsrel` pair), 14 `GSL_ETOL` (the 87-point rule missed the
+    /// tolerance), 1 `GSL_EDOM` (non-finite limit, PETIR only).
+    ///
+    /// Present because [`PetirError`] has one `Tolerance` variant and the
+    /// integration routines use it for `GSL_EBADTOL` (as `qags` does); a
+    /// variant for `GSL_ETOL` would edit the kovan-reviewed enum, which is
+    /// deferred to the maintainer (gh:#1340).
+    pub gsl_status: i32,
 }
 
 /// Checked read; the indices below are loop constants, so `0.0` is unreachable.
@@ -255,9 +264,11 @@ where
         abserr: 0.0,
         neval: 0,
         status: Ok(()),
+        gsl_status: 0,
     };
     if !(a.is_finite() && b.is_finite()) {
         out.status = Err(PetirError::Domain);
+        out.gsl_status = 1;
         return out;
     }
     let mut fv1 = [0.0_f64; 5];
@@ -273,6 +284,7 @@ where
 
     if epsabs <= 0.0 && (epsrel < 50.0 * DBL_EPSILON || epsrel < 0.5e-28) {
         out.status = Err(PetirError::Tolerance);
+        out.gsl_status = 13;
         return out;
     }
 
@@ -368,6 +380,7 @@ where
     if !(err < epsabs || err < epsrel * result_kronrod.abs()) {
         // "failed to reach tolerance with highest-order rule" (GSL_ETOL).
         out.status = Err(PetirError::Tolerance);
+        out.gsl_status = 14;
     }
     out
 }
@@ -381,11 +394,12 @@ mod tests {
         // A cubic is exact in the 21-point rule.
         let r = qng(|x: f64| x * x * x, 0.0, 2.0, 0.0, 1e-10).unwrap();
         assert_eq!(r.neval, 21);
-        let o = qng_with_status(|x: f64| Real::sqrt(x), 0.0, 1.0, 0.0, 1e-14);
-        assert_eq!(o.neval, 87);
+        let o = qng_with_status(|x: f64| 1.0 / Real::sqrt(x), 0.0, 1.0, 0.0, 1e-8);
+        assert_eq!((o.neval, o.gsl_status), (87, 14));
         assert_eq!(o.status, Err(PetirError::Tolerance));
         let o = qng_with_status(|x: f64| x, 0.0, 1.0, 0.0, 0.0);
         assert_eq!((o.neval, o.status), (0, Err(PetirError::Tolerance)));
+        assert_eq!(o.gsl_status, 13);
         assert_eq!(
             qng_with_status(|x: f64| x, 0.0, f64::NAN, 0.0, 1e-8).status,
             Err(PetirError::Domain)

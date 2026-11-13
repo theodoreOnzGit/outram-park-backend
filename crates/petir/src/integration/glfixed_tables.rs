@@ -1,7 +1,7 @@
 //! Gauss-Legendre node and weight tables of GSL 2.8 `integration/glfixed.c`
 //! (lines 39-145 and 377), commit `cf180cd7`, copied from the file by script
-//! (never typed). Copyright (C) 2008 Brian Gough, Konstantin Holoborodko and
-//! Rhys Ulerich (glfixed.c), GPL-3.0-or-later. gh:#1340.
+//! (never typed). Copyright (c) 2007-2008 Pavel Holoborodko (glfixed.c;
+//! contributors Konstantin Holoborodko, Rhys Ulerich), GPL-3.0-or-later. gh:#1340.
 
 #![allow(clippy::excessive_precision)]
 

@@ -56,6 +56,82 @@ Parent: gh:#1340, epic gh:#1336. Research, education and V&V only
   exact-arithmetic-identical. Prediction: status, size and neval identical in
   every case, results identical in at least 80 %.
 
-## Results
+## Results (2026-11-13, Rust 1.99.1 release, GSL 2.8 `cf180cd7`, `gcc -O2`, glibc)
 
-(Filled in after the runs; see below.)
+Replay tests: `tests/gsl_qng_code_to_code.rs` (27 cases),
+`gsl_glfixed_code_to_code.rs` (40 table sizes), `gsl_qagp_code_to_code.rs`
+(31), `gsl_qawc_code_to_code.rs` (22). All pass with the counts below pinned.
+
+| family | cases | status / size / neval | result | abserr |
+|---|---|---|---|---|
+| QNG | 27 | 27/27 (GSL status, `*neval`, integrand calls) | 27/27 | **26/27** |
+| QAGP | 31 | 31/31 | 31/31 | 31/31 |
+| QAWC | 22 | 22/22 | 22/22 | 22/22 |
+| GLFIXED precomputed tables | 27 sizes, 2 430 entries | n/a | **2 430/2 430** | n/a |
+| GLFIXED generated tables | 13 sizes, 5 086 entries | n/a | **5 031/5 086**, worst 224 ulp (weights) | n/a |
+| GLFIXED integrals | 320 | n/a | 309/320, worst 22 ulp | n/a |
+| GLFIXED `glfixed_point` | 2 808 values, 40 `EINVAL` rows | n/a | 2 786/2 808, worst 88 ulp | n/a |
+
+- **P1 held** (status, size, neval identical in every case of every family).
+- **P2 (QNG) held**: results 27/27 (>= 90 % predicted), abserr 26/27 (>= 80 %).
+  The one miss, `log_0_1`, is 1 ulp: 3.599909489090861e-3 against GSL's
+  3.5999094890908604e-3. **Cause demonstrated, not assumed**: GSL's driver
+  relinked with PETIR's `pow` alone (diagnostic shim exporting only `pow`,
+  not committed) prints 3.59990948909086079e-03, PETIR's value. The `pow` is
+  the one in `rescale_error`.
+- **The `gauss` abserr miss of round 1 (qagi, 1e-13) is the same cause, now
+  demonstrated.** With the same `pow`-only shim, GSL's `qagi` driver prints
+  `gauss` abserr 1.03066608369450132e-12, exactly PETIR's
+  1.0306660836945013e-12 (it was 1.03066608369460472e-12 with glibc `pow`).
+  The shim also moves `x_m11_from1`, but that integrand itself calls `pow`,
+  so that row is not a test of `rescale_error` and is excluded.
+- **P3 (GLFIXED), partly FAILED.** The 27 precomputed tables are 100 %
+  bit-identical, as predicted. For the generated tables 5 031 of 5 086
+  entries (98.9 %) are bit-identical, which meets the ">= 95 %" half; the
+  "rest within 1 ulp" half **failed**: the worst difference is 224 ulp, in
+  **weights** of the large tables (n >= 513, weights ~1e-3, relative
+  differences ~1e-14), none in the abscissae. **Cause demonstrated**: GSL's
+  driver relinked with PETIR's `cos` alone makes all 5 086 generated entries
+  and all 2 808 `glfixed_point` values bit-identical to PETIR's. The Newton
+  start is `cos(pi (4i-1)/(4n+2)) t0`; a last-bit difference in `cos` changes
+  the iterate path, the loop stops at `eps = 1e-10`, and the weight
+  `2/((1-x^2) p'^2)` is evaluated at the pre-step iterate. Accepted per
+  `AGENTS.md` (platform libm differences are accepted, counted and pinned);
+  it is a larger spread than "1 ulp" because of that amplification, which I
+  had not predicted. The 11 integral differences are all in generated
+  tables, none in a precomputed one.
+- **`ltbl[k] == 1.0 - 1.0/k`** (the C comment): **holds**, bit for bit, for
+  every `k` in 2..=1023 (unit test `ltbl_is_one_minus_reciprocal`).
+- **Upstream accuracy of generated tables, measured** (unit test
+  `glfixed::tests`): the 1025-point rule integrates `x^2` over `[0, 3]` to
+  9.000000002742878 (3e-10 relative), because GSL stops Newton at
+  `eps = 1e-10`. PETIR reproduces that, being a port. Recorded, not changed.
+- **P4 (QAGP) held** (31/31 and 31/31, above the 90 %/80 % predicted), **with
+  a limit on what it shows**: the stale-index roundoff test
+  (`i > 10` where `i == nint`) is **not discriminated** by any case. A negative
+  control that replaced it by the iteration count still passed all 31 cases
+  (9 cases with 3 sub-ranges and 600 iterations, 4 noise-level integrands).
+  The prediction in this file that `wavy_12pts` / `sharp_12pts` exercise it
+  was therefore wrong: with `nint = 11` the upstream form is true from the
+  first iteration and the iteration-count form from the twelfth, and the
+  variant still passed (those runs apparently never count `roundoff_type3`
+  high enough to change a decision; I did not instrument that). The line
+  stands on reading `qagp.c`.
+- **P5 (QAWC) held** (22/22, above the 80 % predicted): both `qc25c` branches,
+  reversed limits, a roundoff status (`sqabs_cusp`, GSL 18), an
+  iteration-limit status and the argument errors are all in the reference.
+  Two cases I meant as roundoff cases (`limit1`, `tight_roundoff`) instead
+  hit `GSL_EBADTOL` (their `epsrel` is under `50 eps`); they still pass but do
+  not test what their names say.
+
+## Decisions deferred to the maintainer
+
+- `PetirError` has one `Tolerance` variant, documented as `GSL_ETOL` (14), but
+  `qags`/`qagi`/`qagp`/`qawc` return it for `GSL_EBADTOL` (13) (the test
+  mapping has always said 13). QNG needs both. A new variant would edit the
+  kovan-reviewed enum (`fn:08f93c13acb0345f`, in `src/review.md`), so
+  `QngOutcome::gsl_status` carries GSL's integer instead. A `ToleranceNotReached`
+  variant (or a doc correction on `Tolerance`) is the maintainer's call.
+- `qags.rs`: `Workspace`, `ExtrapolationTable` and their helpers became
+  `pub(super)` (visibility only, no body changed) so QAGP and QAWC re-use the
+  verified engine. No `review.md` in `src/integration/` holds a review block.

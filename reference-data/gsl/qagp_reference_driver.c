@@ -33,6 +33,16 @@ static double invsqx(double x, void *p) { (void) p; neval++; return 1.0 / sqrt(x
 static double sharp(double x, void *p)
 { (void) p; neval++; return exp(-1e4 * (x - 6.0) * (x - 6.0)) + exp(-1e4 * (x - 9.0) * (x - 9.0)); }
 
+static double fastosc(double x, void *p) { (void) p; neval++; return sin(5000.0 * x); }
+static double chirp(double x, void *p) { (void) p; neval++; return sin(1e5 * x * x); }
+static double absosc(double x, void *p) { (void) p; neval++; return fabs(sin(3000.0 * x)); }
+static double sininv(double x, void *p) { (void) p; neval++; return sin(1.0 / (x + 1e-9)); }
+
+static double noise1(double x, void *p) { (void) p; neval++; return 1.0 + 1e-12 * sin(1e12 * x); }
+static double noise2(double x, void *p) { (void) p; neval++; return sin(1e9 * x); }
+static double saw(double x, void *p) { (void) p; neval++; return 1e6 * x - floor(1e6 * x); }
+static double noise3(double x, void *p) { (void) p; neval++; return exp(-x) + 1e-13 * sin(7e13 * x); }
+
 typedef double (*fn_t)(double, void *);
 
 static void run(const char *name, fn_t fn, double *pts, size_t npts, double epsabs,
@@ -86,5 +96,16 @@ int main(void)
   run("zero_width", absk, pzero, 3, 0.0, 1e-10, 50);
   run("abs_only", absk, p2b, 2, 1e-9, 0.0, 50);
   run("limit2_two_pts", pw09, p2, 2, 0.0, 1e-12, 2);
+  /* Few break points but many iterations: the roundoff_type3 test of qagp.c
+     uses the stale loop index (== nint), not the iteration count. */
+  run("fastosc", fastosc, p3b, 3, 0.0, 1e-10, 600);
+  run("chirp", chirp, p3b, 3, 0.0, 1e-10, 600);
+  run("absosc", absosc, p3b, 3, 0.0, 1e-10, 600);
+  run("sininv", sininv, p3b, 3, 0.0, 1e-8, 600);
+  run("chirp_4pts", chirp, p4, 4, 0.0, 1e-10, 600);
+  run("noise1", noise1, p3b, 3, 0.0, 1e-13, 600);
+  run("noise2", noise2, p3b, 3, 0.0, 1e-10, 600);
+  run("saw", saw, p3b, 3, 0.0, 1e-10, 600);
+  run("noise3", noise3, p3b, 3, 0.0, 1e-13, 600);
   return 0;
 }

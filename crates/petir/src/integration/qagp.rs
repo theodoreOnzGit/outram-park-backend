@@ -25,6 +25,9 @@
 //!   `i`, the stale index of the earlier loops, which is `nint`, not the
 //!   iteration count that `qags.c` and QUADPACK use. It is kept, so for more
 //!   than ten sub-ranges `roundoff_type3` counts every error increase.
+//!   **Not discriminated by the compiled reference**: replacing it with the
+//!   iteration count left all 31 cases of `tests/gsl_qagp_code_to_code.rs`
+//!   passing, so it rests on reading `qagp.c`.
 //! - `if (result != 0 && area != 0)` (line 441) tests the *pointer* `result`,
 //!   which is never null, so only `area != 0` matters here, where `qags.c`
 //!   tests `*result`.
@@ -107,13 +110,7 @@ where
 }
 
 /// [`qagp`], keeping GSL's estimate when the status is an error.
-pub fn qagp_with_status<F>(
-    f: F,
-    pts: &[f64],
-    epsabs: f64,
-    epsrel: f64,
-    limit: usize,
-) -> QagsOutcome
+pub fn qagp_with_status<F>(f: F, pts: &[f64], epsabs: f64, epsrel: f64, limit: usize) -> QagsOutcome
 where
     F: Fn(f64) -> f64,
 {
@@ -140,13 +137,7 @@ where
 
 /// `qagp.c`, static `qagp` (lines 80-510) with the 21-point rule.
 #[allow(clippy::too_many_lines)]
-fn qagp_core<F>(
-    f: &F,
-    pts: &[f64],
-    epsabs: f64,
-    epsrel: f64,
-    limit: usize,
-) -> Option<QagsOutcome>
+fn qagp_core<F>(f: &F, pts: &[f64], epsabs: f64, epsrel: f64, limit: usize) -> Option<QagsOutcome>
 where
     F: Fn(f64) -> f64,
 {
@@ -205,7 +196,11 @@ where
         append_interval(&mut workspace, a1, b1, area1, error1)?;
 
         // ndin[i] aliases level[i].
-        let flag = if error1 == resasc1 && error1 != 0.0 { 1 } else { 0 };
+        let flag = if error1 == resasc1 && error1 != 0.0 {
+            1
+        } else {
+            0
+        };
         wru(&mut workspace.level, i, flag)?;
     }
 
@@ -489,7 +484,13 @@ mod tests {
         let r = qagp(|x: f64| (x - 1.0).abs(), &[0.0, 1.0, 3.0], 0.0, 1e-10, 50).unwrap();
         assert!((r.value - 2.5).abs() < 1e-10);
         // A log singularity at an interior break point.
-        let l = qagp(|x: f64| Real::ln((x - 1.0).abs()), &[0.0, 1.0, 2.0], 0.0, 1e-8, 200);
+        let l = qagp(
+            |x: f64| Real::ln((x - 1.0).abs()),
+            &[0.0, 1.0, 2.0],
+            0.0,
+            1e-8,
+            200,
+        );
         assert!(l.is_ok());
         assert_eq!(
             qagp_with_status(|x: f64| x, &[1.0, 0.0], 0.0, 1e-8, 10).status,

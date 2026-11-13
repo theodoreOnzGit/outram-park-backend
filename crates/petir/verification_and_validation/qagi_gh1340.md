@@ -45,8 +45,12 @@ Parent: gh:#1340, epic gh:#1336. Research, education and V&V only
   difference of larger numbers amplifying a last-ulp difference in
   `rescale_error`'s `pow(200 err / resasc, 1.5)`, which the engine evaluates
   with PETIR's `libm` and GSL with glibc. That is the mechanism measured for
-  QAGS (gsl_qags_code_to_code.rs); I did **not** re-test it for this case (by
-  nudging GSL's `pow`), so it is the likely cause, not a demonstrated one.
+  QAGS (gsl_qags_code_to_code.rs). ~~I did **not** re-test it for this case (by
+  nudging GSL's `pow`), so it is the likely cause, not a demonstrated one.~~
+  **CORRECTED 2026-11-13:** re-tested. GSL's `qagi` driver relinked with
+  PETIR's `pow` alone prints `gauss` abserr 1.03066608369450132e-12, exactly
+  PETIR's value, so the cause is demonstrated
+  (`integration_family_gh1340.md`).
   The result and evaluation count are identical, and the value is inside the
   1e-3 bar the QAGS test uses.
 - Still open in gh:#1340: `qng`, `qagp`, `qawc`, `qaws`, `qawo`, `qawf`,
