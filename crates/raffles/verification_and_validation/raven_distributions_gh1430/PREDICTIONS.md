@@ -22,3 +22,23 @@ the untruncated mean / standard deviation; 12 untruncated + 6 truncated cases.
 | D7 | Truncated variants | inherit the base route's difference, amplified by 1/(F(hi)-F(lo)) | same renormalisation formula |
 | D8 | mean / std of untruncated | bit-identical for closed forms; **RAVEN `LogNormal.std()` adds `low`** (`Distributions1D.py:295-303`), so a shifted LogNormal (low != 0) will DISAGREE by exactly `low` unless the crate copied that | read from source |
 | D9 | Endpoint conventions (pdf at the bound, cdf <= xMin, ppf(0), ppf(1)) | identical | read from source |
+
+## Case 3: RAVEN `BasicStatistics` vs `raffles::sensitivity` (appended before that run)
+
+Instrument: RAVEN's real `BasicStatistics._runLocal` (xarray + numpy), unweighted,
+`biased=False`, on a fixed 10^4 x 3 dataset built from exactly rounded IEEE
+operations only (so both sides hold the same bits). raffles side:
+`sample_mean`, `sample_variance`, `pearson_correlation`, `spearman_correlation`.
+Read from source before the run: RAVEN skewness, kurtosis, median, minimum,
+maximum and percentile exist; a grep of `crates/raffles/src` finds no
+sample-skewness, sample-kurtosis, percentile or median function (only the
+`normality` test's internal `z_from_*` helpers), so those are a **gap**, not a
+comparison.
+
+| # | Quantity | Prediction | Reason |
+|---|---|---|---|
+| S1 | mean | <= 2e-16 relative; probably NOT bit-identical | numpy sums pairwise; raffles' summation order is to be read |
+| S2 | variance (unbiased) | <= 1e-14 relative | RAVEN: `(x-mean).var() * n/(n-1)`; numpy var is `mean(abs(x-mean)**2)` |
+| S3 | Pearson, Spearman | <= 1e-13 | RAVEN's covariance goes through `np.dot` (BLAS) then divides by sqrt of the diagonal; summation order differs |
+| S4 | RAVEN `covariance` diagonal | equals `variance` exactly | `np.fill_diagonal(cov, variance)` |
+| S5 | skewness, kurtosis, median, percentile, min, max | not comparable | no raffles function; recorded as a gap and filed |

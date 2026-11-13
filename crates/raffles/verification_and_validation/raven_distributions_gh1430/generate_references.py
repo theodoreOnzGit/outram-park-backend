@@ -90,7 +90,7 @@ for kind, p, trunc in CASES:
         if np.isfinite(b):
             extra += [b, b - 0.25, b + 0.25]
     xs = sorted(set(xs + extra))
-    pdf = [float(d.pdf(np.float64(x))) for x in xs]
+    pdf = [fl(d.pdf(np.float64(x))) for x in xs]
     cdf = [float(d.cdf(np.float64(x))) for x in xs]
     ps = [0.0] + PS + [1.0]
     ppf = [float(d.inverseCdf(np.float64(q))) for q in ps]
