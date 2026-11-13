@@ -655,6 +655,97 @@ impl GranularSystem {
         self.setup_phase = false;
     }
 
+    /// **Begin a new `run`**, as every `run` command of a LIGGGHTS deck does
+    /// (`Run::command` -> `lmp->init()` -> `Verlet::setup()`; gh:#1510).
+    /// [`GranularSystem::run`] continues the current run; a deck with two
+    /// `run` commands is reproduced by `run(n1); begin_run()?; run(n2)`, and
+    /// differs from one continuous run even with nothing changed in between,
+    /// because the set-up evaluates the forces again at the full-step
+    /// velocities. A `run N pre no` is a plain [`GranularSystem::run`] (no
+    /// `init`, no set-up). Construction already performs the first run's
+    /// set-up.
+    ///
+    /// What is reset, read from LIGGGHTS-PUBLIC `3d5c00f2`:
+    ///
+    /// * **`init()`** of every fix (`Modify::init`): the servo re-sets
+    ///   `p_ref = xcm`, `vel_min_` from the present smallest radius and the
+    ///   torque servo's `rPaMax` from the present nodes, and re-checks its
+    ///   aborts ([`MovingBoundary::begin_run`]). The other fixes' `init()`
+    ///   only look up variables, properties and pointers.
+    /// * **`Verlet::setup()`**: the atom sort and neighbour build (under
+    ///   [`NeighborOrder::Liggghts`]: `nextsort` re-based, the half list,
+    ///   the primitive-wall lists, `xhold`); `FixMesh::setup_pre_force`
+    ///   (each mesh's geometry and original nodes from its present nodes);
+    ///   `FixNeighlistMesh::setup_pre_force` (the servo contact count and the
+    ///   massflow lists); the servo's `setup_pre_force` (`xcm_orig = xcm`,
+    ///   `totalPhi = 0`); the pair compute and every fix's `setup` with
+    ///   `shearupdate = 0` (the same evaluation construction does); and
+    ///   `FixMoveMesh::setup`, which zeroes a moved mesh's node velocities
+    ///   ([`MovingBoundary::move_mesh_setup`]).
+    ///
+    /// What **persists**, as upstream: pair, wall and mesh contact history;
+    /// the servo's integral term, last process value, velocity and node
+    /// velocities; the stress totals (`MeshModuleStress::pre_force` does not
+    /// run at set-up, so the set-up contributions add to the last step's,
+    /// which is what a `thermo` line printed at set-up shows); the wear
+    /// (`wear_step` is zero after the last step, so the set-up's wear enters
+    /// the next step); insertion schedules and counters
+    /// (`FixInsert::setup` acts on the first run only); massflow counters;
+    /// heat and liquid content; a mesh's pending re-neighbour request
+    /// (`next_reneighbor`); `step` and `time`.
+    ///
+    /// **Not modelled:** `ramp()` and other run-bounded quantities in
+    /// variables (the crate's variable contexts take `begin_step = 0`), the
+    /// reference point a superposed `move/mesh` resets
+    /// (`FixMoveMesh::reset_reference_point`), and the slot compaction of the
+    /// mesh contact history (`FixContactHistoryMesh::sort_contacts`), which
+    /// the port does not model at re-neighbouring either.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] where a fix's `init()` aborts (see
+    /// [`crate::mesh_stress::MeshServo::init_run`]).
+    pub fn begin_run(&mut self) -> Result<(), DemError> {
+        // lmp->init(): Modify::init -> fix->init(); then Verlet::setup's
+        // setup_pre_force of the meshes (no fix reads another in between)
+        for w in &mut self.moving_walls {
+            w.begin_run(&self.particles)?;
+        }
+        // neighbor->build (the LIGGGHTS-order rebuild in the set-up
+        // evaluation also does this) and the mesh neighbour lists
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.update_servo_contacts();
+        self.rebuild_massflow_lists();
+        // pair compute and modify->setup (wall/gran, gravity, force fixes)
+        self.compute_forces_setup();
+        // FixMoveMesh::setup, declared after its wall/gran
+        for w in &mut self.moving_walls {
+            w.move_mesh_setup();
+        }
+        Ok(())
+    }
+
+    /// `fix_modify <mesh> servo/<keyword> ...` on the servo of moving wall
+    /// `wall` (`MeshModuleStressServo::modify_param`, gh:#1510). Upstream
+    /// issues it between two `run` commands, and the values reach the
+    /// controller through the next `init()`, so call
+    /// [`GranularSystem::begin_run`] afterwards.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if `wall` has no servo, or where upstream
+    /// aborts (see [`crate::mesh_stress::MeshServo::modify_param`]).
+    pub fn fix_modify_servo(
+        &mut self,
+        wall: usize,
+        m: crate::mesh_stress::ServoModify,
+    ) -> Result<(), DemError> {
+        match self.moving_walls.get_mut(wall).and_then(|w| w.servo.as_mut()) {
+            Some((servo, _)) => servo.modify_param(m),
+            None => Err(DemError::InvalidInput(format!("moving wall {wall} has no servo"))),
+        }
+    }
+
     /// Recount the servo meshes' neighbour-list contacts
     /// (`getTotalNumContacts`, read by `mode auto`); done where upstream
     /// rebuilds its neighbour list.

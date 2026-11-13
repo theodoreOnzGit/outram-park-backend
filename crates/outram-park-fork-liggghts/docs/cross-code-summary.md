@@ -441,6 +441,8 @@ test's `///` doc):
 | `wear finnie` of `fix mesh/surface/stress` (gh:#1491) | `mesh_stress.rs` | `mesh_stress_cross_code.rs` (`in.mesh_wear`; wear from an instrumented scratch build) | **5 263 / 5 263** bit-identical, per-facet wear included |
 | `fix massflow/mesh point_at_outlet`, `inside_out` (gh:#1491) | `massflow.rs` | `massflow_options_cross_code.rs` (`in.massflow_outlet`) | **14 036 / 14 036** bit-identical |
 | servo `target_val v_name` (gh:#1491) | `mesh_stress.rs` | `mesh_servo_cross_code.rs` (`in.mesh_servo_var`) | 9 963 / 9 990; 27 trajectory values differ, cause PETIR `sin` vs glibc (A/B: 9 990 / 9 990 with glibc `sin`), pinned (V&V 4.13) |
+| multi-`run` decks: `init()` + `Verlet::setup()` at each `run` (`GranularSystem::begin_run`, gh:#1510) | `granular_system.rs`, `mesh_wall.rs`, `mesh_stress.rs` | `mesh_servo_cross_code.rs` (`in.mesh_servo_2run`, `in.mesh_servo_torque_2run`), `insertion_cross_code.rs` (`in.pour_pack_runs`), `rotating_mesh_cross_code.rs` (`in.rotating_plate_2run`), `mesh_movers_cross_code.rs` (`in.mover_wiggle_2run`) | all bit-identical: 2 x **10 002 / 10 002**, **9 / 9** frames, 2 x **2 259 / 2 259**; a continuous run misses each reference that can tell them apart (V&V 4.14) |
+| servo `fix_modify` `integrate`, `vel_max`, `target_val`, `ctrlParam`, `ratio` (gh:#1510) | `mesh_stress.rs` (`MeshServo::modify_param`) | `mesh_servo_cross_code.rs` (`in.mesh_servo_modify`, `in.mesh_servo_auto_modify`) | **10 014 / 10 014** and **10 002 / 10 002** bit-identical; without the `fix_modify` 2 394 and 1 608 values differ (V&V 4.14) |
 
 `tri_mesh_deform` has nothing to translate: upstream's `tri_mesh_deform.h` is
 the single line `typedef TriMesh TriMeshDeformable;` (style

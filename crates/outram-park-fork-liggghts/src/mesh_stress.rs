@@ -37,6 +37,7 @@
 
 use crate::particle::Vec3;
 use crate::variable::{Expr, VarContext};
+use crate::DemError;
 
 /// `fix mesh/surface/stress` state of one mesh.
 #[derive(Debug, Clone, PartialEq)]
@@ -192,6 +193,12 @@ impl MeshStress {
     #[must_use]
     pub fn wear(&self, i: usize) -> Option<f64> {
         self.wear.as_ref().map(|w| w.wear[i])
+    }
+
+    /// Replace the facet areas (`areaElem`), as `recalcLocalSurfProperties`
+    /// does when a run's set-up refreshes the mesh (gh:#1510).
+    pub fn refresh_area(&mut self, area: Vec<f64>) {
+        self.area = area;
     }
 
     /// `pre_force`: keep last step's totals, start a new sum.
@@ -359,9 +366,13 @@ pub enum ServoMove {
 /// ~~**Not ported:** a variable set point (`target_val v_name`),~~
 /// **A variable set point (`target_val v_name`, an equal-style variable) is
 /// ported since 2026-11-12 (gh:#1491):** [`MeshServo::with_target_variable`].
-/// **Not ported:** `fix_modify integrate/vel_max/target_val/ctrlParam/ratio`,
+/// ~~**Not ported:** `fix_modify integrate/vel_max/target_val/ctrlParam/ratio`,
 /// which only acts between two `run` commands, and the port has no emulation
-/// of a second `run`'s `init()`/`setup()` (gh:#1491).
+/// of a second `run`'s `init()`/`setup()` (gh:#1491).~~
+/// **PORTED 2026-11-13 (gh:#1510):** [`MeshServo::modify_param`] translates
+/// `MeshModuleStressServo::modify_param`, and a new `run` is emulated by
+/// [`crate::granular_system::GranularSystem::begin_run`], which calls
+/// [`MeshServo::init_run`] (`init()`) and [`MeshServo::setup_pre_force`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct MeshServo {
     ctrl: ServoCtrl,
@@ -394,6 +405,36 @@ pub struct MeshServo {
     /// `update->ntimestep` at the last `final_integrate` (counted from 0 at
     /// construction, one per step).
     step: i64,
+    /// `int_flag_`: the servo moves the mesh (`fix_modify ... integrate
+    /// start|stop`, default start).
+    int_flag: bool,
+    /// `ratio_` of `mode auto` (0 unless set), read by `init()`.
+    ratio: f64,
+    /// `neighbor->skin` `[m]`, for the `vel_max < skin/(2 dt)` check.
+    skin: f64,
+}
+
+/// One keyword of `fix_modify <mesh> servo/<keyword> ...`
+/// (`MeshModuleStressServo::modify_param`), for [`MeshServo::modify_param`].
+/// Upstream only acts on these between two `run` commands: the new values
+/// take effect through the next `init()` ([`MeshServo::init_run`]).
+#[derive(Debug, Clone, PartialEq)]
+pub enum ServoModify {
+    /// `integrate start` (`true`) or `integrate stop` (`false`): whether the
+    /// servo moves the mesh. Stopped, the mesh keeps its node velocities.
+    Integrate(bool),
+    /// `vel_max <v>` `[m/s]`.
+    VelMax(f64),
+    /// `target_val <value>`: a constant set point (`sp_mag = -value`); resets
+    /// the integral term.
+    TargetVal(f64),
+    /// `target_val v_name`: an equal-style variable set point; resets the
+    /// integral term.
+    TargetVariable(Expr),
+    /// `ctrlParam kp ki kd`; resets the integral term.
+    CtrlParam([f64; 3]),
+    /// `ratio <r>` of `mode auto` (upstream warns, and ignores it, in PID mode).
+    Ratio(f64),
 }
 
 fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
@@ -462,7 +503,141 @@ impl MeshServo {
             dtv: dt,
             sp_var: None,
             step: 0,
+            int_flag: true,
+            ratio: 0.0,
+            skin,
         }
+    }
+
+    /// `fix_modify <mesh> servo/<keyword>` (`MeshModuleStressServo::
+    /// modify_param`): `vel_max`, `target_val` and `ctrlParam` replace the
+    /// fix-line values (`target_val` and `ctrlParam` also zero the integral
+    /// term, `resetIntegrator`), `ratio` replaces `ratio_`, `integrate`
+    /// starts or stops the servo. As upstream, the new values enter the
+    /// controller through the next `init()`: call
+    /// [`crate::granular_system::GranularSystem::begin_run`] before stepping.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] where upstream aborts: `vel_max <= 0`, a
+    /// constant `target_val` of zero.
+    pub fn modify_param(&mut self, m: ServoModify) -> Result<(), DemError> {
+        match m {
+            ServoModify::Integrate(on) => self.int_flag = on,
+            ServoModify::VelMax(v) => {
+                if v <= 0.0 {
+                    return Err(DemError::InvalidInput("vel_max > 0 required".into()));
+                }
+                self.vel_max = v;
+            }
+            ServoModify::TargetVal(v) => {
+                // the resultant force/torque acts in the opposite direction
+                let sp_mag = -v;
+                if sp_mag == 0.0 {
+                    return Err(DemError::InvalidInput(
+                        "'target_val' (desired force/torque) has to be != 0.0".into(),
+                    ));
+                }
+                self.sp_mag = sp_mag;
+                self.sp_mag_inv = 1. / sp_mag.abs();
+                self.sp_var = None;
+                self.sum_err = 0.0;
+            }
+            ServoModify::TargetVariable(expr) => {
+                self.sp_var = Some(expr);
+                self.sum_err = 0.0;
+            }
+            ServoModify::CtrlParam([kp, ki, kd]) => {
+                self.kp = kp;
+                self.ki = ki;
+                self.kd = kd;
+                self.sum_err = 0.0;
+            }
+            ServoModify::Ratio(r) => self.ratio = r,
+        }
+        Ok(())
+    }
+
+    /// `init()` of a new `run` (`MeshModuleStressServo::init`, with
+    /// `error_checks`): `vel_min = ratio * r_min / dt` from the smallest
+    /// particle radius now in the system (`r_min`, `BIG = 1e6` when there is
+    /// none), `rPaMax` of the torque servo from the current `nodes`
+    /// (`getMaxRad`), and the upstream aborts re-checked. `p_ref = xcm` is set
+    /// by the caller on the stress module. `dtv_` is the system's fixed
+    /// timestep and does not change.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] where upstream's `init()` aborts:
+    /// `vel_max == 0`; `mode auto` with `ratio == 0`; in PID mode a negative
+    /// gain or all gains zero; every node on the torque axis;
+    /// `vel_max >= skin / (2 dt)`.
+    pub fn init_run(&mut self, r_min: f64, nodes: &[[[f64; 3]; 3]]) -> Result<(), DemError> {
+        let bad = |m: &str| Err(DemError::InvalidInput(m.into()));
+        if self.vel_max == 0.0 {
+            return bad("please define 'vel_max' for the mesh");
+        }
+        if self.is_auto() {
+            if self.ratio == 0.0 {
+                return bad("please define 'ratio' for the mesh, since you use the auto mode");
+            }
+        } else {
+            if self.kp < 0.0 || self.ki < 0.0 || self.kd < 0.0 {
+                return bad("kp, ki, and kd >= 0 required.");
+            }
+            if self.kp == 0.0 && self.ki == 0.0 && self.kd == 0.0 {
+                return bad("kp, ki, and kd are zero. Please set a valid configuration");
+            }
+        }
+        let r_pa_max = self.max_rad(nodes);
+        if self.is_auto() {
+            self.vel_min = Some(self.ratio * r_min / self.dtv);
+        }
+        if self.ctrl == ServoCtrl::Torque {
+            if r_pa_max == 0.0 {
+                return bad("All mesh nodes are located at the rotation axis.");
+            }
+            self.r_pa_max = r_pa_max;
+        }
+        if self.vel_max >= self.skin / (2. * self.dtv) {
+            return bad("vel_max < skin/(2.*dt) required");
+        }
+        Ok(())
+    }
+
+    /// `setup_pre_force` of a run: the mesh's present position becomes the
+    /// origin of the servo's total move (`xcm_orig = xcm`, `totalPhi = 0`);
+    /// the caller makes the present nodes the original nodes
+    /// (`FixMesh::setup_pre_force` -> `storeNodePosOrig`).
+    pub fn setup_pre_force(&mut self) {
+        self.xcm_orig = self.xcm;
+        self.total_phi = 0.0;
+    }
+
+    /// `int_flag_`: whether the servo moves the mesh this run.
+    #[must_use]
+    pub fn is_integrating(&self) -> bool {
+        self.int_flag
+    }
+
+    /// `getMaxRad`: the largest distance of a node from the axis through
+    /// `xcm`.
+    fn max_rad(&self, nodes: &[[[f64; 3]; 3]]) -> f64 {
+        let mut r_pa_max = 0.0_f64;
+        for nd in nodes {
+            for node in nd {
+                let r_pa = [
+                    node[0] - self.xcm[0],
+                    node[1] - self.xcm[1],
+                    node[2] - self.xcm[2],
+                ];
+                let m = mag3(cross3(self.axis, r_pa));
+                if m > r_pa_max {
+                    r_pa_max = m;
+                }
+            }
+        }
+        r_pa_max
     }
 
     /// `target_val v_name`: the set point is the equal-style variable `expr`,
@@ -488,20 +663,7 @@ impl MeshServo {
     /// As upstream aborts: every node on the rotation axis.
     #[must_use]
     pub fn with_torque(mut self, nodes: &[[[f64; 3]; 3]]) -> Self {
-        let mut r_pa_max = 0.0_f64;
-        for nd in nodes {
-            for node in nd {
-                let r_pa = [
-                    node[0] - self.xcm[0],
-                    node[1] - self.xcm[1],
-                    node[2] - self.xcm[2],
-                ];
-                let m = mag3(cross3(self.axis, r_pa));
-                if m > r_pa_max {
-                    r_pa_max = m;
-                }
-            }
-        }
+        let r_pa_max = self.max_rad(nodes);
         assert!(
             r_pa_max != 0.0,
             "All mesh nodes are located at the rotation axis."
@@ -524,6 +686,7 @@ impl MeshServo {
             ratio != 0.0,
             "please define 'ratio' for the mesh, since you use the auto mode"
         );
+        self.ratio = ratio;
         self.vel_min = Some(ratio * r_min / self.dtv);
         self
     }
@@ -611,6 +774,13 @@ impl MeshServo {
     /// fails to evaluate.
     pub fn final_integrate_pv(&mut self, pv: [f64; 3], num_contacts: usize) -> [f64; 3] {
         self.step += 1;
+        // only if the wall should move (`integrate stop`: nothing changes)
+        if !self.int_flag {
+            return match self.ctrl {
+                ServoCtrl::Force => self.vcm,
+                ServoCtrl::Torque => self.omegacm,
+            };
+        }
         if let Some(expr) = &self.sp_var {
             // variable force, wrap with clear/add
             let ctx = VarContext {

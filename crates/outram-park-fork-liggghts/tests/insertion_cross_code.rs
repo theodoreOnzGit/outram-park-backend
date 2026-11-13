@@ -254,11 +254,27 @@ fn frame_rows(csv: &str, step: u64) -> Vec<[f64; 10]> {
 /// Per-frame statistics: (particles, bit-identical particles, worst relative
 /// difference over all fields, worst absolute position difference).
 fn compare(deck: &str) -> Option<Vec<(u64, usize, usize, f64, f64)>> {
-    let csv = read(&format!("{deck}.csv"))?;
-    let mut sys = system(deck);
+    compare_with(deck, deck, false)
+}
+
+/// [`compare`] of the system built for deck `fix` against the reference
+/// `reference.csv`; with `runs`, every frame after the first ends a LIGGGHTS
+/// `run`, so `GranularSystem::begin_run` is called before stepping on (the
+/// reference deck uses plain `run` instead of `run N pre no`, gh:#1510).
+fn compare_with(
+    reference: &str,
+    fix: &str,
+    runs: bool,
+) -> Option<Vec<(u64, usize, usize, f64, f64)>> {
+    let deck = reference;
+    let csv = read(&format!("{reference}.csv"))?;
+    let mut sys = system(fix);
     let mut out = Vec::new();
     let mut at = 0u64;
     for &step in &FRAMES {
+        if runs && at > 0 {
+            sys.begin_run().expect("run set-up");
+        }
         sys.run((step - at) as usize);
         at = step;
         let rows = frame_rows(&csv, step);
@@ -363,4 +379,36 @@ fn pour_block_matches_liggghts() {
 #[test]
 fn pour_nocheck_matches_liggghts() {
     report("pour_nocheck");
+}
+
+/// **Multi-run pour** (gh:#1510): `in.pour_pack_runs` is `in.pour_pack` with
+/// every frame a plain `run` (so a LIGGGHTS `init()` + `Verlet::setup()` at
+/// steps 1, 1000, 1001, 6001, 10001, 20000, 24000 and 26000; the last three
+/// with pair and wall contacts in the bed). The port calls
+/// `GranularSystem::begin_run` at each. Exercises across a set-up: the atom
+/// sort and list build, the persistence of pair and primitive-wall shear
+/// history and of the insertion schedule (`FixInsert::setup` acts once), and
+/// the set-up force evaluation at full-step velocities.
+///
+/// **Prediction (2026-11-13, before the first run):** 9 / 9 frames
+/// bit-identical, every particle and field. **Result:** printed with
+/// `--nocapture`; asserted bit-identical.
+#[test]
+fn pour_pack_multi_run_matches_liggghts() {
+    let Some(stats) = compare_with("pour_pack_runs", "pour_pack", true) else {
+        eprintln!("skipping: reference-data/liggghts/pour_pack_runs.csv not present");
+        return;
+    };
+    println!("pour_pack_runs: step, particles, bit-identical, worst rel, worst |dx| [m]");
+    for (step, n, same, rel, pos) in &stats {
+        println!("  {step:6} {n:5} {same:5}  {rel:.3e}  {pos:.3e}");
+    }
+    for (step, n, same, _, _) in &stats {
+        assert_eq!(same, n, "pour_pack_runs step {step}: not bit-identical");
+    }
+    // control: the same system run continuously misses the multi-run deck
+    let control = compare_with("pour_pack_runs", "pour_pack", false).expect("reference present");
+    let missed = control.iter().filter(|(_, n, same, _, _)| same != n).count();
+    println!("pour_pack_runs continuous control: {missed} / 9 frames not bit-identical");
+    assert!(missed > 0, "a continuous run reproduced the multi-run deck");
 }
