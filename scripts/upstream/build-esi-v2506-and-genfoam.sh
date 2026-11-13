@@ -16,7 +16,7 @@
 # Usage:
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
-#   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers
+#   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers twophase
 #           radiation viewfactors fetch-genfoam genfoam fetch-cfmesh cfmesh polydual verify
 #           (radiation, gh:#1379: libradiationModels, built by `closure` as well, plus
 #           the P1 differential driver radDump from the outram-foam-basic-lib V&V dir)
@@ -375,6 +375,21 @@ stage_solvers() {
   run_stage solver-pimpleFoam     scratch_solver_impl pimpleFoam incompressible/pimpleFoam
 }
 
+# --- twophase (gh:#1363 row 5) --------------------------------------------------
+# ESI's legacy twoPhaseEulerFoam and ONLY the two libraries it needs
+# (compressibleTwoPhaseSystem 67 files, phaseCompressibleTurbulenceModels 25
+# files); the reactingEuler/multiphaseEuler families (280+ files) are not built.
+# thermoTools is pruned from the link line (the solver includes nothing from it).
+stage_twophase() {
+  local d
+  for d in phaseSystemModels/twoPhaseEuler/twoPhaseSystem phaseSystemModels/twoPhaseEuler/phaseCompressibleTurbulenceModels; do
+    ( cd "$OF/src/$d" && wmakeLnInclude -u . ) >>"$LOGS/twophase.log" 2>&1
+  done
+  wm_lib phaseSystemModels/twoPhaseEuler/twoPhaseSystem
+  wm_lib phaseSystemModels/twoPhaseEuler/phaseCompressibleTurbulenceModels
+  run_stage solver-twoPhaseEulerFoam scratch_solver_impl twoPhaseEulerFoam multiphase/twoPhaseEulerFoam
+}
+
 # --- radiation (gh:#1379) -------------------------------------------------------
 # libradiationModels is part of the `closure` stage (thermophysicalModels/radiation);
 # this stage makes sure of it (a no-op when stamped) and builds the P1 differential
@@ -615,6 +630,7 @@ for s in "$@"; do
     closure)      load_env; stage_closure ;;
     meshing)      load_env; stage_meshing ;;
     solvers)      load_env; stage_solvers ;;
+    twophase)     load_env; stage_twophase ;;
     radiation)    load_env; stage_radiation ;;
     viewfactors)  load_env; stage_viewfactors ;;
     fetch-genfoam) stage_fetch_genfoam ;;
