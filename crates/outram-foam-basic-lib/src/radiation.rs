@@ -20,7 +20,8 @@
 //! | `radiationModel::ST(T)`, `radiationModel::Sh(thermo, he)` | [`P1Solution::st_matrix`], [`P1Solution::sh_matrix`] |
 //! | `physicoChemical::sigma` from the `etc/controlDict` constants | [`stefan_boltzmann_esi_v2506`] |
 //!
-//! `viewFactor`, `fvDOM`, `solarLoad`, `opaqueSolid`, wavelength bands, soot,
+//! ~~`viewFactor`~~ **CORRECTED 2026-11-13 (gh:#1529): `viewFactor` is ported, see
+//! [`crate::view_factor_radiation`]**; `fvDOM`, `solarLoad`, `opaqueSolid`, wavelength bands, soot,
 //! scatter models and per-face emissivity models are NOT ported; the survey of
 //! what they would take is in
 //! `verification_and_validation/upstream_radiation_gh1379/README.md`.

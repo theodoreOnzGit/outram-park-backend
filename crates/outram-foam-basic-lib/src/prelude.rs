@@ -241,6 +241,12 @@ pub use crate::math::differentiate::{
     FIFTH_ROOT_EPSILON, JACOBIAN_BATCH_MIN_PROBLEMS, JACOBIAN_COLUMN_MIN_DIMENSION,
 };
 
+// --- viewFactor surface radiation (Layer 4, gh:#1529) ---
+pub use crate::view_factor_radiation::{
+    parse_label_list_list, parse_scalar_list_list, GreyDiffusiveViewFactorPatch, ViewFactorError,
+    ViewFactorModel, ViewFactorPatch, ViewFactorSolution,
+};
+
 // --- P1 thermal radiation (Layer 4, gh:#1379) ---
 pub use crate::radiation::{
     stefan_boltzmann_esi_v2506, ConstantAbsorptionEmission, P1Model, P1PatchModel, P1Solution,
