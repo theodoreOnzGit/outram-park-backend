@@ -277,6 +277,17 @@ impl LeaprDeck {
     /// positive where required, or if `iel`/`ncold` carry a code outside the set
     /// NJOY accepts.
     pub fn parse(text: &str) -> Result<Self, NjoyError> {
+        Self::parse_with_records_left(text).map(|(deck, _)| deck)
+    }
+
+    /// [`Self::parse`], also returning how many records of `text` (before its
+    /// `stop` line) the cards did not consume, so a caller reading a longer
+    /// NJOY input stream knows where LEAPR's cards end (the deck driver,
+    /// gh:#1369).
+    ///
+    /// # Errors
+    /// Those of [`Self::parse`].
+    pub fn parse_with_records_left(text: &str) -> Result<(Self, usize), NjoyError> {
         let mut cur = CardCursor::new(text);
 
         // --- card 1: nout (the module-name line, if present, is skipped by the
@@ -352,7 +363,7 @@ impl LeaprDeck {
             comments.push(line);
         }
 
-        Ok(LeaprDeck {
+        Ok((LeaprDeck {
             nout,
             title,
             iprint,
@@ -380,7 +391,7 @@ impl LeaprDeck {
             secondary_temperatures,
             constants_override: None,
             comments,
-        })
+        }, cur.records_left()))
     }
 
     /// The number of temperature blocks (NJOY `ntempr`).
@@ -811,7 +822,14 @@ impl CardCursor {
         if t.is_empty() || t.starts_with('/') {
             return Ok(None);
         }
-        Ok(Some(strip_text_card(&line)))
+        // `read(nsysi,*) text` into `character(66)` (`leapr.f90:2988`, `:3101`)
+        // is list-directed: a quoted card is its quoted text, but an UNQUOTED
+        // one ends at the first blank, comma or slash, so `* BEO  LANL ...*/`
+        // is read as `*` (upstream test 23's comment cards; gh:#1369). The
+        // deck driver's reader is the gfortran-checked one.
+        let mut slot = [crate::deck::cards::Slot::string(66, "$")];
+        crate::deck::cards::CardReader::new(&line).read(&mut slot)?;
+        Ok(Some(slot[0].text().to_string()))
     }
 
     /// The next record, advancing the cursor.
@@ -1031,7 +1049,11 @@ stop
         assert_eq!(t1.continuous, t0.continuous);
         assert_eq!(t1.oscillators, t0.oscillators);
 
-        assert_eq!(d.comments, vec![" a comment line "]);
+        // `text` is `character(66)` (`leapr.f90:2988`): trailing blanks are
+        // padding, not content, so the list-directed reader (2026-11-13,
+        // gh:#1369) returns the card without them; the written card is the
+        // same 66 columns either way.
+        assert_eq!(d.comments, vec![" a comment line"]);
         assert!(d.unsupported_features().is_empty());
     }
 

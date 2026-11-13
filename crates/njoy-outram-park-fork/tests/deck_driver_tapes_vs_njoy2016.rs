@@ -92,7 +92,11 @@ fn run_pair_decks_extra(
 ) -> Option<(PathBuf, PathBuf)> {
     let bin = root.join("build/njoy");
     let res = root.join("tests/resources").join(resource);
+    // An empty `resource`: the deck reads no tape20 (LEAPR-only decks).
     for p in [&bin, &res] {
+        if p == &res && resource.is_empty() {
+            continue;
+        }
         if !p.exists() {
             eprintln!("skip: {} not present (set NJOY2016_ROOT)", p.display());
             return None;
@@ -103,7 +107,9 @@ fn run_pair_decks_extra(
     std::fs::create_dir_all(&ours).unwrap();
     std::fs::create_dir_all(&theirs).unwrap();
     for d in [&ours, &theirs] {
-        std::fs::copy(&res, d.join("tape20")).unwrap();
+        if !resource.is_empty() {
+            std::fs::copy(&res, d.join("tape20")).unwrap();
+        }
         for (r, u) in extra {
             let src = root.join("tests/resources").join(r);
             if !src.exists() {
@@ -1587,7 +1593,9 @@ fn whole_deck_units(case: &str, resource: &str, extra: &[(&str, u32)], units: &[
             bad.push((u, d.len()));
         }
     }
-    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    if std::env::var_os("DECK_KEEP").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
     assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
     Some(())
 }
@@ -1727,4 +1735,137 @@ fn test_41_purr_moder_text_copy_unit34() {
 #[test]
 fn test_42_purr_moder_text_copy_unit34() {
     let _ = purr_moder_unit34("42", "n-030_Zn_067-ENDF8.0.endf");
+}
+
+/// **Deck 82 (Co-58, Co-58m1, Am-242, Am-242m1 ENDF/B-VIII.0), the whole deck**
+/// (gh:#1369): four `reconr -> broadr -> acer` chains, each ACER run twice,
+/// card 2's `izaopt = 0` then `1`. Every ACE and directory unit (26-29, 36-39,
+/// 46-49, 56-59) is compared line by line.
+///
+/// `izaopt = 1` changes only `acelod`'s ZAID (`acefc.f90:4951-4961`): a
+/// metastable target (`LISO > 0`) gets `za + 300 + 100 LISO`, and Am-242 swaps
+/// ground (`+400`) and first isomer (plain ZA). Prediction (before the change,
+/// gh:#1369): every unit identical, ZAIDs 27058, 27058, 27058, 27458, 95242,
+/// 95642, 95242, 95242 (`.01c`).
+///
+/// **Result (2026-11-12):** first run, 12 of 16 units identical; units 36, 38,
+/// 56 and 58 (the two isomers, both `izaopt` values) differed in one line,
+/// `NXS(9)`. That miss was not predicted: `aceout` writes `NXS(9) = is`
+/// (`acefc.f90:13019`), and the builder wrote 0. Isomers had not been reached
+/// before. With `NXS(9)` set from the same LISO, **0 differing lines on all 16
+/// units** (318 712 lines).
+///
+/// Units 21 (RECONR) and 22 (BROADR), coded and rewritten by each chain, hold
+/// the last material, Am-242m1, and are compared too. They differed in 1 and
+/// 1 063 lines. Unit 21: `recout` copies every MF=3 head after the last
+/// redundant reaction verbatim (`tofend`, `reconr.f90:5355-5365`), so MT=102
+/// keeps the evaluation's AWR `2.399800+2`, not MF=1's. Unit 22: BROADR copies
+/// MF=1's and MF=2's closers and everything after MF=3 with
+/// `tosend`/`tofend`/`tomend` (`broadr.f90:681`, `:868-876`, `:999`), which
+/// carry the running sequence number. Both predicted before the change
+/// (gh:#1369). **Result (2026-11-13): 0 differing lines on all 18 units.**
+#[test]
+fn test_82_whole_deck() {
+    let units = [21, 22, 26, 27, 28, 29, 36, 37, 38, 39, 46, 47, 48, 49, 56, 57, 58, 59];
+    let extra = [
+        ("n-027_Co_058m1-ENDF8.0.endf", 30),
+        ("n-095_Am_242-ENDF8.0.endf", 40),
+        ("n-095_Am_242m1-ENDF8.0.endf", 50),
+    ];
+    let _ = whole_deck_units("82", "n-027_Co_058-ENDF8.0.endf", &extra, &units);
+}
+
+/// **LEAPR from the deck driver, whole deck** (gh:#1369): decks 22 and 23
+/// (`leapr` alone, output on unit 20), 33 (two `leapr` runs, units 24 and 34)
+/// and 80 (unit 24). The cards are read by `leapr::deck::LeaprDeck`
+/// (`leapr.f90:216-372`, `endout`'s card-20 loop), the run is
+/// `leapr::run::run_deck` at NJOY2016.80's CODATA 2018 `bk` (`phys.f90:22`),
+/// and the tape is `LeaprRun::write_text`. Pass criterion: 0 differing lines.
+///
+/// Prediction (before the run, gh:#1369): the card stream stays in step;
+/// MF=1/MT=451 identical; MF=7 possibly differing in last digits, since the
+/// committed LEAPR oracle gates rows at 1e-5 only. **Result (2026-11-13):**
+/// deck 22 (4 636 lines) and deck 33 (2 x 53 151) identical on the first run.
+/// Deck 23 differed in 57 lines of MF=1/MT=451: its card-20 comments are
+/// unquoted (`* BEO  LANL  EVAL-APR93 ...*/`), and `read(nsysi,*) text`
+/// (`leapr.f90:3101`) is list-directed, so an unquoted card ends at the first
+/// blank and NJOY stores `*`. `LeaprDeck::read_comment` took the whole line;
+/// it now reads the card with the deck driver's gfortran-checked reader. Deck
+/// 23 is then identical (17 306 lines). Deck 80: see its test.
+#[test]
+fn test_22_leapr_whole_deck() {
+    let _ = whole_deck_units("22", "", &[], &[20]);
+}
+
+/// See [`test_22_leapr_whole_deck`].
+#[test]
+fn test_23_leapr_whole_deck() {
+    let _ = whole_deck_units("23", "", &[], &[20]);
+}
+
+/// See [`test_22_leapr_whole_deck`]; two LEAPR runs in one deck.
+#[test]
+fn test_33_leapr_whole_deck() {
+    let _ = whole_deck_units("33", "", &[], &[24, 34]);
+}
+
+/// Deck 80 (H in HF, `nphon = 108`, 200 alphas, 1 325 betas from 1e-13).
+/// **Result (2026-11-13): 17 369 of 91 453 lines differ**, all in MF=7/MT=4
+/// and all by one unit in the last printed (sixth) figure of S(alpha, beta),
+/// e.g. `1.30695-13` against NJOY's `1.30696-13`. The card stream and MF=1
+/// are identical. Cause not investigated (gh:#1369); ignored with that reason,
+/// not loosened.
+#[test]
+#[ignore = "deck 80: 17 369 lines of MF=7/MT=4 differ in the last printed figure; cause not investigated (gh:#1369)"]
+fn test_80_leapr_whole_deck() {
+    let _ = whole_deck_units("80", "", &[], &[24]);
+}
+
+/// **ACER `iopt = 4` (photo-atomic) from the deck driver** (gh:#1369): deck 48
+/// (U, ENDF/B-VIII.0 photo-atomic with the atomic-relaxation tape). Gated: the
+/// directory line (28, `phoout`, `acepa.f90:1023`), 0 differing lines.
+///
+/// **Not gated: the ACE (27).** Measured 2026-11-13: 36 of 17 964 lines differ,
+/// 45 of 71 807 words, all in the heating block LHNM (words 65 244-70 589),
+/// worst 8.7e-8 relative at 1.47 GeV; 16 words above 1e-8. This is the
+/// residual `verification_and_validation/acer_photoatomic_vs_njoy2016.md`
+/// records for this evaluation (`iheat`'s panel rule above ~300 MeV), not a
+/// deck-driver effect: every other block is identical.
+#[test]
+fn test_48_photoatomic_whole_deck() {
+    let _ = whole_deck_units("48", "photoat-092_U_000-ENDF8.0.endf", &[("atrelax-092_U_000-ENDF8.0.endf", 21)], &[28]);
+}
+
+/// **Deck 81 (Sr-88 ENDF/B-VIII.1), RECONR then MODER to text (unit 30)**
+/// (gh:#1369).
+///
+/// Both 81 and 88 are LRF=7 (R-matrix limited) evaluations. They differed in
+/// one line, MF=2/MT=151's `spin, ascat` record: `rdsammy` sets `ascat` to the
+/// `APE` of the last elastic channel (`samm.f90:1126`) and `recout` writes it
+/// (`reconr.f90:5200`); the port wrote 0. Predicted before the run (gh:#1369).
+/// **Result (2026-11-13): 0 differing lines** (45 372 and 97 905).
+#[test]
+fn test_81_whole_deck() {
+    let _ = whole_deck_units("81", "n-038_Sr_088-ENDF8.1.endf", &[], &[30]);
+}
+
+/// **Deck 88 (Ca-40 ENDF/B-VIII.0, RECONR's Coulomb wave function
+/// correction), RECONR then MODER to text (unit 50)** (gh:#1369).
+#[test]
+fn test_88_whole_deck() {
+    let _ = whole_deck_units("88", "n-020_Ca_040-ENDF8.0.endf", &[], &[50]);
+}
+
+/// **Deck 43 (H-1, BROADR at 0 K with `thnmax = -19.5 MeV`), MODER text copy
+/// of the BROADR tape (unit 35)** (gh:#1369).
+///
+/// **Measured 2026-11-13:** 320 lines differ; NJOY's tape has 151 lines and
+/// ours 337. At `tempef = tempk - tempin <= 0`, BROADR only thins
+/// (`thinb`, `broadr.f90:1218-1222`, `:1677-1760`), and `thinb` is not ported
+/// (`broadr::joint::broadr_joint` returns `None` there, gh:#619), so the
+/// deck driver passes RECONR's grid through unthinned.
+#[test]
+#[ignore = "deck 43: BROADR thinb (tempef <= 0) not ported, gh:#619; the driver now refuses it with NotPorted"]
+fn test_43_whole_deck() {
+    let _ = whole_deck_units("43", "n-001_H_001-ENDF8.0-Beta6.endf", &[], &[35]);
 }

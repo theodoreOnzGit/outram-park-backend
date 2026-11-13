@@ -319,9 +319,10 @@ NJOY's listing for deck 28 shows that `ismooth = 0` is exercised. The first two 
 and without it.
 
 The same changes closed decks 26 and 72. Their HEATR plot units (50 and 26) had not been
-written, and both are now `identical`. Deck 82's first ACER table (unit 26) is identical; the
+written, and both are now `identical`. Deck 82's first ACER table (unit 26) is identical; ~~the
 deck stops at `izaopt = 1` (not ported). Its tape21/22 rows compare the last material NJOY wrote
-against the first one this run wrote.
+against the first one this run wrote.~~ **CORRECTED 2026-11-13:** `izaopt` is ported and deck 82
+is `identical` on all 18 units (section 12).
 
 ## 11. The incident-charged-particle decks re-run (2026-11-12, gh:#1490)
 
@@ -333,3 +334,32 @@ lines, plot file and VIEWR's PostScript); tape21/22 are NJOY's blocked binary. T
 and `viewr` not ported) was stale: both landed under gh:#1492 and gh:#1369 (sections 9 and 10,
 `acer_iopt7_2026_11_12.md`). The branches the issue lists are recorded in
 `../acer_charged/README.md`, "gh:#1490".
+
+## 12. `izaopt`, LEAPR, ACER `iopt = 4/5`, and four PENDF writer details (2026-11-13, gh:#1369)
+
+Each cause was found by diffing against NJOY2016.80 and reading the upstream
+routine that writes the line. A prediction was posted on gh:#1369 before each
+change. Gates: `tests/deck_driver_tapes_vs_njoy2016.rs`.
+
+**Search first.** `src/` already had the whole of LEAPR (`leapr::deck::LeaprDeck`,
+`leapr::run::run_deck`, `LeaprRun::write_text`) and the photo-atomic and
+photo-nuclear ACE builders. Only the deck wiring was missing, so no second
+parser was written. ERRORR has `run_mf33` and `ErrorrResult::to_tape`, but
+every errorr deck also needs an unported piece: a GROUPR input tape (`ngout`),
+MF=31/34/35, or COVR's plot option. GAMINR's numeric engine is not ported.
+PLOTR is not ported at all (`src/plotr/mod.rs`). All three are left as large
+ports.
+
+| deck(s) | was | cause (upstream) | fix | result |
+|---|---|---|---|---|
+| 82 | `NotPorted`: ACER `izaopt` | `acelod` (`acefc.f90:4951-4961`): metastable ZAID `za+300+100*is`, Am-242's swap | `run_acer` rewrites the ZAID field (`izaopt_zaid`) | 16 ACE/directory units identical |
+| 82 | units 36, 38, 56, 58: 1 line each (not predicted) | `aceout` writes `NXS(9) = is`, LISO (`acefc.f90:13019`); the builder wrote 0 | the deck driver sets `NXS(9)` from the PENDF's LISO | identical |
+| 82 | tape21: 1 line | `recout` copies every MF=3 section after the last redundant reaction with `tofend`, its head included (`reconr.f90:5355-5365`); Am-242m1's MT=102 head carries AWR `2.399800+2`, MF=1 `2.399801+2` | `deck::pendf::recout_heads` | identical |
+| 82 | tape22: 1 063 lines (sequence numbers) | BROADR copies MF=1's closers, MF=2's sections and everything after MF=3 with `tosend`/`tofend`/`tomend` (`broadr.f90:681`, `:868-876`, `:999`), which carry the running count on a coded unit (`endf.f90:1150-1154`) | `deck::pendf::broadr_copied_closers` | identical |
+| 09, 22, 23, 33 | `leapr: card reader not yet translated` | none; the cards are read by `LeaprDeck` | `deck::leapr` (`read_leapr`, `run_leapr`); NJOY2016.80's `bk` is CODATA 2018 (`phys.f90:22`) | identical (22: 4 636 lines, 23: 17 306, 33: 2 x 53 151, 09 whole deck) |
+| 23 | 57 lines of MF=1/MT=451 | card-20 comments are unquoted, and `read(nsysi,*) text` is list-directed (`leapr.f90:3101`), so a card ends at the first blank (`* BEO ...` reads as `*`) | `LeaprDeck::read_comment` reads the card with `deck::cards::CardReader` | identical |
+| 81, 88 | 1 line each | LRF=7: `rdsammy` sets `ascat` to the last elastic channel's `APE` (`samm.f90:1126`), and `recout` writes it in MF=2/MT=151 (`reconr.f90:5200`); the port wrote 0 | `deck::pendf::rml_ascat` | identical |
+| 48, 59 | `NotPorted`: ACER `iopt = 4` | none | `deck::acer_photon` binds the units; the directory line follows `phoout` (`acepa.f90:1023`) | directory line identical; the ACE differs in 36 of 17 964 lines, all in the heating block (45 words, worst 8.7e-8). This is the residual already recorded in `../acer_photoatomic_vs_njoy2016.md`. |
+| 56, 57, 58, 66, 78 | `NotPorted`: ACER `iopt = 5` | none | as above | the builder refuses by name: MF=4 angular data (56), MF=6 `LCT != 1` (57, 58, 78), MT=18 nubar (66) |
+| 43 | `differs`: tape35 320 lines | at `tempef <= 0` BROADR only thins (`thinb`, `broadr.f90:1677-1760`), which is not ported (gh:#619); the driver passed RECONR's grid through | the driver now refuses it (`NotPorted`) | `NotPorted`, honestly |
+| 80 | `leapr: card reader not yet translated` | not investigated | none | runs; 17 369 of 91 453 lines of MF=7/MT=4 differ in the last printed figure (`test_80_leapr_whole_deck`, ignored with that reason) |

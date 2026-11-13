@@ -116,6 +116,23 @@ impl CardReader {
         self.lines.len().saturating_sub(self.pos)
     }
 
+    /// The records not yet consumed, one per line, for a module whose own
+    /// reader takes text (LEAPR's [`crate::leapr::deck::LeaprDeck`]).
+    pub fn rest(&self) -> String {
+        let mut s = String::new();
+        for l in self.lines.iter().skip(self.pos) {
+            s.push_str(l);
+            s.push('\n');
+        }
+        s
+    }
+
+    /// Mark the next `n` records consumed (after [`Self::rest`] was read by
+    /// another reader).
+    pub fn skip(&mut self, n: usize) {
+        self.pos = (self.pos + n).min(self.lines.len());
+    }
+
     /// The 1-based number of the next record, for messages.
     pub fn next_record_number(&self) -> usize {
         self.pos + 1

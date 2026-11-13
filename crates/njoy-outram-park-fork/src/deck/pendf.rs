@@ -295,12 +295,16 @@ pub fn reconr_tape(
         mf3.push(Section { key: EndfKey { mat, mf: 3, mt }, rows });
     }
     mf3.sort_by_key(|s| s.key.mt);
+    recout_heads(&mut mf3, endf, mat, &redundant);
 
     // MF=2.
     let mut body: Vec<Section> = Vec::new();
     if let Some(m2) = endf.section(mat, 2, 151) {
         let info = parse_resonance_info(m2)?;
-        let (spin, ascat) = info.ranges.last().map_or((0.0, 0.0), |r| (r.spi, r.ap));
+        let (spin, mut ascat) = info.ranges.last().map_or((0.0, 0.0), |r| (r.spi, r.ap));
+        if let Some(rml) = info.ranges.last().and_then(|r| r.rml.as_ref()) {
+            ascat = rml_ascat(&rml.section, ascat);
+        }
         let eh = res.resonance_upper_limit.unwrap_or(2.0e7);
         body.push(Section {
             key: EndfKey { mat, mf: 2, mt: 151 },
@@ -346,6 +350,82 @@ pub fn reconr_tape(
     tape.set_copied_closers(copied);
     let _ = zain;
     Ok(tape)
+}
+
+/// `ascat` after an LRF=7 range (`rdsammy`, `samm.f90:1114-1132`): the
+/// effective radius `APE` of the last channel, over every spin group in order,
+/// whose particle pair is elastic (`mt(ipp) = 2`); `recout` writes it in
+/// MF=2/MT=151's fourth record (`reconr.f90:5200`). An RML range's own record
+/// carries no `AP`, so without this the field was 0 (decks 81, 88; gh:#1369).
+fn rml_ascat(sec: &crate::samm::mf2::RmlSection, init: f64) -> f64 {
+    let mut ascat = init;
+    for g in &sec.spin_groups {
+        for ch in &g.channels {
+            let pair = ch.particle_pair.checked_sub(1).and_then(|i| sec.particle_pairs.get(i));
+            if pair.is_some_and(|p| p.mt == 2) {
+                ascat = ch.radius_eff;
+            }
+        }
+    }
+    ascat
+}
+
+/// The MF=3 HEAD records as `recout` writes them (`reconr.f90:5222-5365`):
+/// every head it writes itself carries `za`/`awr` from the first section on
+/// its scratch tape (the first non-redundant reaction's own ENDF head,
+/// `:5223-5224`); once the last redundant reaction is out (label 270) it
+/// writes one more head and `tofend` copies the rest of the scratch tape, so
+/// every later non-redundant head is the evaluation's own, verbatim (deck 82,
+/// Am-242m1 MT=102: AWR `2.399800+2` against MF=1's `2.399801+2`; gh:#1369).
+fn recout_heads(mf3: &mut [Section], endf: &Tape, mat: i32, redundant: &[i32]) {
+    let endf_head = |mt: i32| endf.section(mat, 3, mt).and_then(|s| s.rows.first().copied());
+    let Some(first) = mf3.iter().find(|s| !redundant.contains(&s.key.mt)).and_then(|s| endf_head(s.key.mt)) else {
+        return;
+    };
+    let (za, awr) = (first[0], first[1]);
+    let last_red = mf3.iter().filter(|s| redundant.contains(&s.key.mt)).map(|s| s.key.mt).max();
+    let mut after_270 = false;
+    for s in mf3.iter_mut() {
+        let mt = s.key.mt;
+        let beyond = last_red.is_some_and(|l| mt > l) && !redundant.contains(&mt);
+        if beyond && after_270 {
+            if let Some(h) = endf_head(mt) {
+                s.rows[0] = h;
+            }
+            continue;
+        }
+        s.rows[0][0] = za;
+        s.rows[0][1] = awr;
+        after_270 |= beyond;
+    }
+}
+
+/// The closing records BROADR *copies* on a coded output unit, which carry
+/// the running sequence number ([`Tape::set_copied_closers`]):
+/// - MF=1: its SEND and FEND (`tofend` after `dictio`, `broadr.f90:681`);
+/// - MF=2: each section's SEND (`tosend`, `:868`; MT=152 by `tofend`, `:876`),
+///   and the FEND when MT=152 ends the file (that `tofend` copies it);
+/// - every file after MF=3, closers and MEND included (`tomend`, `:999`).
+///
+/// MF=3's SENDs are `asend` (`:996`) and its FEND `contio`'s `afend`.
+pub fn broadr_copied_closers(tape: &Tape, mat: i32) -> Vec<EndfKey> {
+    let mut out = vec![EndfKey { mat, mf: 1, mt: 451 }, EndfKey { mat, mf: 1, mt: 0 }, EndfKey { mat, mf: 0, mt: 0 }];
+    let mut last_mf2 = 0;
+    for s in tape.sections().iter().filter(|s| s.key.mat == mat) {
+        let k = s.key;
+        if k.mf == 2 {
+            out.push(k);
+            last_mf2 = k.mt;
+        }
+        if k.mf > 3 {
+            out.push(k);
+            out.push(EndfKey { mat, mf: k.mf, mt: 0 });
+        }
+    }
+    if last_mf2 == 152 {
+        out.push(EndfKey { mat, mf: 2, mt: 0 });
+    }
+    out
 }
 
 /// BROADR's PENDF at one temperature from RECONR's tape `prev` and the
