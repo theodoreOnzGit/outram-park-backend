@@ -118,9 +118,82 @@ Accepted PETIR-libm differences: none in saturation values. Differences appear i
 
 **One number moved**: the distributed CG solution on 5 ranks changed at the bit level (iteration count and dot products unchanged). The magnitude was not measured (hash only); the distributed-versus-serial tests that bound it (1e-8) pass. The "after" column is pinned by the test.
 
+## Gold-file results, `default/infiltration1d` (gh:#1537; run 2026-11-13, `tests/regression_decks_gh1537.rs`)
+
+Method: `parse_regression_deck` reads the verbatim deck (`regression_decks/default/infiltration1d/`);
+`run_regression_deck` builds the crate's `RichardsProblem` (constant EOS 997.16 kg/m3, 1e-3 Pa s, `Linear`
+curves) and steps it with the translated PFLOTRAN time-step controller and SNES convergence test
+(`src/flow/regression_run.rs`, sources and line numbers in its header). Reference: the shipped
+`infiltration1d.regression.gold` (reproduced bit for bit by the round-1 upstream build). Bounds: P17-P24 above,
+committed in `ac0228be4` before any run and unchanged.
+
+| id | quantity | prediction | port | outcome |
+|---|---|---|---|---|
+| P17 | deck reader | reads the whole deck | 40 x 1 x 1, dx 0.005, 4 regions, 2 flow conditions, cells 5 15 25 35, times 0 864 5184 9504 | held |
+| P18 | `Sl(pc)`, `dSl/dP`, `kr` chain, `pc(Sl)`; 3 parameter sets | bit-identical | **405 / 405** Sl, dSl, kr and **147 / 147** `pc(Sl)` bit-identical to the verbatim Fortran (39 / 39 statements byte for byte, `check_verbatim_linear.sh`); `dpc/dSl` and the direct `kr(Sl)` grid are not exposed by the port and were not compared | held |
+| P19 | initial pressure | 93151.6 +- 0.1 Pa | 93151.8466 Pa | **MISSED by 0.25 Pa**: my hand arithmetic rounded `Se` to 0.1666 (exact 0.16660004167); the formula (`PatchUpdateCouplerSaturation` through `SFLinearCapillaryPressure`) was right, the closed form evaluated independently gives 93151.84660865767 and the port agrees. The ordering check (gold min above it) held |
+| P20 | time steps | 20; dt = 1,2,4,...,256,353,512,1000,1000,1000,808,1000,1000,1000,1000,320 s | 20 steps, exactly that dt sequence, final time 9504 s, 0 cuts | held (a consistency check of my reading of the controller, as stated) |
+| P21 | Newton iterations | 62 | **62** (per step 2,2,3,3,3,3,3,4,4,4,4,4,3,3,3,3,3,3,3,2; the gold file stores only the total) | held |
+| P22 | pressure at cells 5 15 25 35, max, min, mean | <= 1e-3 Pa | worst **5.4e-9 Pa** (cell 15); the others 3e-10 to 2.0e-9 | held, by five to six orders |
+| P22 | saturation, same quantities | <= 7e-8 | worst **3.5e-13** (cell 15) | held |
+| P23 | `Solution 2-Norm` 6.0421481158758E+05 | <= 6.4e-3 | 6.0421481158758E+05, difference 2.9e-9 | held |
+| P24 | residual 2-norm, linear iterations | not compared | not compared | - |
+
+Per-quantity differences (port minus gold; Pa and dimensionless):
+
+| quantity | port | gold | diff |
+|---|---|---|---|
+| P Max | 1.0116103227878e5 | 1.0116103227878e5 | -2.0e-9 |
+| P Min | 9.3152551889714e4 | 9.3152551889714e4 | 2.9e-10 |
+| P Mean | 9.5497616647453e4 | 9.5497616647454e4 | -5.7e-10 |
+| P cell 5 | 9.9772708306190e4 | 9.9772708306191e4 | -1.1e-9 |
+| P cell 15 | 9.5924158770541e4 | 9.5924158770536e4 | 5.4e-9 |
+| P cell 25 | 9.3419001381497e4 | 9.3419001381498e4 | -1.4e-9 |
+| P cell 35 | 9.3156150022515e4 | 9.3156150022514e4 | 8.3e-10 |
+| S Max / Min / Mean | 9.8885369433939e-1 / 4.4444794405981e-1 / 6.0386229945170e-1 | ...942e-1 / ...981e-1 / ...171e-1 | -3.1e-14 / 3.4e-15 / -6.9e-15 |
+| S cell 5 / 15 / 25 / 35 | 8.9447729367291e-1 / 6.3285806060293e-1 / 4.6256082296296e-1 / 4.4469254029926e-1 | ...295e-1 / ...258e-1 / ...303e-1 / ...924e-1 | -4.4e-14 / 3.5e-13 / -6.5e-14 / 2.5e-14 |
+| Solution 2-Norm | 6.0421481158758e5 | 6.0421481158758e5 | 2.9e-9 |
+
+**Interpretation.** The agreement is round-off level (relative 1e-14), far inside the bound derived from the
+Newton stopping tolerance, so the derived bound was very conservative: the two codes do not merely land in the same
+tolerance band, they take the same steps and the same Newton counts. It is NOT bit-identity: PFLOTRAN's own gold
+criterion is 1e-9 Pa, and the port exceeds that in 5 of the 9 pressure quantities (up to 5.4e-9 Pa, i.e. 5 times the
+criterion, cell 15). The remaining difference was not localised to a single operation: the candidates are the
+finite-difference Jacobian and the exact (ILU(0) on a tridiagonal) solve against upstream's analytic Jacobian and one
+BiCGStab iteration, and operation order in the flux (`Dq * ukvr * dphi * area * density` upstream). No ablation was run.
+Do not quote this as "matches to 1e-9"; quote "matches to 5.4e-9 Pa absolute, 6e-14 relative, same 20 steps and 62 Newton iterations".
+
+**Defects found (port, fixed by translating upstream).** None in the flow operator. Two missing pieces were added:
+`SATURATION_FUNCTION LINEAR` / `BURDINE_LINEAR_LIQ` (`properties::Linear`) and the deck reader. One latent mismatch
+fixed on the way: `Linear::d_se_d_pc` is the constant slope up to and including `pc = pcmax` (upstream truncates
+`pc` at `pcmax`, it does not zero the slope there).
+
+**Not translated, and what the run depends on.** (1) PETSc's backtracking line search: the runner accepts the full
+step when PETSc's first test passes and returns an error otherwise; the test never hit that error, so backtracking
+did not occur in this deck. (2) Waypoints at time 0 are dropped (upstream pop logic not read). (3) `ts_acceleration`,
+`pressure_dampening_factor`, `saturation_change_limit`, `ITOL_*` options and `NUMERICAL_METHODS` blocks are not read;
+decks that set them are refused.
+
+### Rows not measured (gh:#1537 ledger)
+
+| deck | why not run |
+|---|---|
+| `default/543/543_flow_eos_constant` | 3-D, 4 materials with anisotropic permeability and curves, hydrostatic initial condition, Neumann flux, `TS_ACCELERATION 8`, `KSP PREONLY / LU`: the port's `RichardsProblem` is homogeneous and isotropic with Dirichlet-only boundaries |
+| `default/capillarity/disable_capillarity_richards` | `DISABLE_CAPILLARITY`, hydrostatic IC, Neumann flux, default IFC67 water density (not translated; P11 shows the port's EOS differs by 4.4 %), `EXTERNAL_FILE` |
+| `default/steady/1d_steady` | `STEADY_STATE` option and IFC67 density (the gold pressures deviate 0.013 Pa from the linear profile because of it) |
+| `default/column/*` (reactive transport) | global-implicit reactive transport against the port's operator-split `reactive_transport`; needs `CHEMISTRY` reading, `MINERAL_KINETICS`, `TRANSPORT_CONDITION` |
+
+### Deferred decisions for the maintainer (gh:#1537)
+
+1. Licence of the committed copies: the deck and gold file are LGPL-3.0 PFLOTRAN files; they are committed verbatim with
+   `regression_decks/PROVENANCE.md`. If the maintainer prefers only extracted numbers, delete the two files and inline the constants.
+2. Whether to translate PETSc's backtracking line search (needed before any deck that fails the first decrease test).
+3. Whether to translate `EOSWaterDensityIFC67` / `EOSWaterViscosity1` (the PFLOTRAN default EOS) so that decks without an `EOS WATER` block can run: it unlocks `1d_steady` and `capillarity`.
+4. Whether `RichardsProblem` should grow heterogeneous materials and anisotropic permeability (unlocks `543`).
+
 ## Gaps recorded
 
 * `regression_tests/default/richards/`, named in gh:#1422 row 3, **does not exist** at 669fbce. The 1-D Richards decks are `infiltration1d`, `capillarity/*`; the 1-D reactive transport ones are `column/*`. Corrected on the issue.
-* The port cannot read any `regression_tests/default` deck (REGION, FLOW_CONDITION, BOUNDARY_CONDITION, STRATA unsupported) and has no `SATURATION_FUNCTION LINEAR` / `BURDINE_LINEAR_*`, which `infiltration1d` uses. Gold-file rows 3-5 of gh:#1422 therefore remain unmeasured; the built binary reproducing its gold is the groundwork. Child issue filed.
+* ~~The port cannot read any `regression_tests/default` deck (REGION, FLOW_CONDITION, BOUNDARY_CONDITION, STRATA unsupported) and has no `SATURATION_FUNCTION LINEAR` / `BURDINE_LINEAR_*`, which `infiltration1d` uses. Gold-file rows 3-5 of gh:#1422 therefore remain unmeasured; the built binary reproducing its gold is the groundwork. Child issue filed.~~ **CORRECTED 2026-11-13 (gh:#1537)**: the deck reader and the LINEAR/Burdine-linear curves exist and `infiltration1d` is compared against its gold (next section). Rows for `default/543` and `default/column` are still unmeasured.
 * `reactive_transport` is operator-split; upstream's default is global implicit.
 * Deferred decisions: see `lineage.md`.

@@ -17,6 +17,7 @@
 //! > validated against published PFLOTRAN reference cases. See the crate README
 //! > "Bookkeeping status" and `docs/ai-directed-decisions.md`.
 
+pub mod regression_run;
 pub mod richards;
 
 pub use richards::{

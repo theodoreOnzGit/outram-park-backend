@@ -26,7 +26,11 @@
 //! | `SUBSURFACE` / `END_SUBSURFACE` | (markers) | consumed and ignored |
 //! | `SKIP` / `NOSKIP` | (markers) | consumed and ignored (v1: no region skipping) |
 //!
-//! # NOT yet parsed (human-review flags)
+//! # NOT yet parsed by this parser (human-review flags)
+//!
+//! (The sibling [`regression`] module, gh:#1537, reads `REGION`, `FLOW_CONDITION`,
+//! `INITIAL_CONDITION`, `BOUNDARY_CONDITION`, `STRATA`, `EOS WATER`, `OUTPUT` and
+//! `DXYZ` for genuine regression decks; this parser still does not.)
 //!
 //! Everything else in the real format, including: unstructured / `DXYZ` grids,
 //! anisotropic / tensor permeability, `REGION` / `OBSERVATION` /
@@ -52,6 +56,8 @@
 //! - **Case-insensitive keywords**; blank lines; stray `:` tokens ignored.
 
 use crate::error::PflotranError;
+
+pub mod regression;
 
 /// A parsed (subset of a) real PFLOTRAN input deck.
 ///
