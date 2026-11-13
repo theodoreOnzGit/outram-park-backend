@@ -71,3 +71,131 @@ thermo		1000
 thermo_modify	lost ignore norm no
 EOF
 frames 1 200 400 600 800 1000 1200 1500 2000 3000; } > in.sq_collide
+# sq_vgroove.stl: a V-groove of four facets, crease along y at x = z = 0, flanks
+# rising with slope 1/2 to z = 7.5 mm at x = +-15 mm, y from -30 to 30 mm. Each
+# flank is two facets sharing an (inactive, coplanar) diagonal.
+facet() { printf '  facet normal 0 0 0\n    outer loop\n      vertex %s\n      vertex %s\n      vertex %s\n    endloop\n  endfacet\n' "$1" "$2" "$3"; }
+{ echo "solid vgroove"
+  facet "-0.015 -0.03 0.0075" "0 -0.03 0" "0 0.03 0"
+  facet "-0.015 -0.03 0.0075" "0 0.03 0" "-0.015 0.03 0.0075"
+  facet "0 -0.03 0" "0.015 -0.03 0.0075" "0.015 0.03 0.0075"
+  facet "0 -0.03 0" "0.015 0.03 0.0075" "0 0.03 0"
+  echo "endsolid vgroove"; } > sq_vgroove.stl
+# sq_mesh: the cube-like blob of sq_drop falls with spin onto one flank of the
+# V-groove mesh, slides into the crease and touches both flanks.
+{ header; cat <<'EOF'
+fix		cad all mesh/surface file sq_vgroove.stl type 1
+fix		meshwall all wall/gran model hertz tangential history surface superquadric mesh n_meshes 1 meshes cad
+fix		grav all gravity 9.81 vector 0 0 -1
+create_atoms	1 single -0.006 0.001 0.014 units box
+set		atom 1 shape 0.004 0.003 0.0025 blockiness 6 6 density 2500 quat_direct 0.9 0.3 0.2 0.1
+set		atom 1 vx 0.05 vy 0. vz -0.3 omegax 3. omegay -2. omegaz 5.
+fix		integr all nve/superquadric
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 500 1000 2000 3000 4000 6000 8000 10000 15000; } > in.sq_mesh
+# sq_cyl: the n1 = 4, n2 = 3 blob of sq_collide is thrown, spinning, inside a
+# zcylinder (radius 12 mm) above a zplane floor and bounces off both.
+{ header; cat <<'EOF'
+fix		cyl all wall/gran model hertz tangential history surface superquadric primitive type 1 zcylinder 0.012 0.0 0.0
+fix		zwall all wall/gran model hertz tangential history surface superquadric primitive type 1 zplane 0.0
+fix		grav all gravity 9.81 vector 0 0 -1
+create_atoms	1 single 0.003 0.001 0.007 units box
+set		atom 1 shape 0.0035 0.003 0.004 blockiness 4 3 density 1500 quat_direct 0.7 -0.2 0.5 0.4
+set		atom 1 vx 0.4 vy 0.15 vz -0.2 omegax 2. omegay 0. omegaz -3.
+fix		integr all nve/superquadric
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 500 1000 2000 3000 4000 6000 8000 10000 15000; } > in.sq_cyl
+# sq_roof.stl: the V-groove turned over, a ridge along y at x = 0, z = 6 mm,
+# flanks falling with slope 0.4 to z = 0 at x = +-15 mm, y from -30 to 30 mm.
+{ echo "solid roof"
+  facet "-0.015 -0.03 0" "0 -0.03 0.006" "0 0.03 0.006"
+  facet "-0.015 -0.03 0" "0 0.03 0.006" "-0.015 0.03 0"
+  facet "0 -0.03 0.006" "0.015 -0.03 0" "0.015 0.03 0"
+  facet "0 -0.03 0.006" "0.015 0.03 0" "0 0.03 0.006"
+  echo "endsolid roof"; } > sq_roof.stl
+# sq_ridge: the cube-like blob lands across the ridge, so the contact is resolved
+# on the (active) ridge edge and its corners, not only on the faces, then tips
+# off down one flank.
+{ header; cat <<'EOF'
+fix		cad all mesh/surface file sq_roof.stl type 1
+fix		meshwall all wall/gran model hertz tangential history surface superquadric mesh n_meshes 1 meshes cad
+fix		grav all gravity 9.81 vector 0 0 -1
+create_atoms	1 single -0.0005 0.0 0.0135 units box
+set		atom 1 shape 0.004 0.003 0.0025 blockiness 6 6 density 2500 quat_direct 0.9 0.3 0.2 0.1
+set		atom 1 vx 0. vy 0.02 vz -0.2 omegax 1. omegay 0. omegaz 2.
+fix		integr all nve/superquadric
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 500 1000 2000 3000 4000 6000 8000 10000 15000; } > in.sq_ridge
+# sq_curv_mean / sq_curv_gauss: the two blobs of sq_collide, now under gravity
+# above a zplane floor 1 cm below, with the curvature-limited contact radius
+# (curvatureLimitFactor 1.5, mean or Gaussian curvature) on the pair and the
+# wall. They collide, land and rock.
+curv() {
+{ header | sed "s/^pair_style.*/& curvatureLimitFactor 1.5 $1 yes/"; cat <<EOF
+fix		zwall all wall/gran model hertz tangential history surface superquadric primitive type 1 zplane 0.04 curvatureLimitFactor 1.5 $1 yes
+fix		grav all gravity 9.81 vector 0 0 -1
+create_atoms	1 single -0.006 0.0 0.05 units box
+create_atoms	1 single 0.006 0.0015 0.051 units box
+set		atom 1 shape 0.004 0.003 0.0025 blockiness 6 6 density 2500 quat_direct 0.9 0.3 0.2 0.1
+set		atom 2 shape 0.0035 0.003 0.004 blockiness 4 3 density 1500 quat_direct 0.7 -0.2 0.5 0.4
+set		atom 1 vx 0.4 vy 0. vz 0. omegax 0. omegay 4. omegaz 0.
+set		atom 2 vx -0.4 vy 0. vz 0. omegax 2. omegay 0. omegaz -3.
+fix		integr all nve/superquadric
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 500 1000 1500 2000 3000 4000 5000 6000 8000; } > "$2"
+}
+curv meanCurvature in.sq_curv_mean
+curv gaussianCurvature in.sq_curv_gauss
+# sq_pile_check / sq_pile_every: twelve superquadrics (the n = 6 and n1 = 4,
+# n2 = 3 blobs alternately), stacked 11.5 mm apart with lateral offsets of
+# +-2.5 mm and spin, fall into a zcylinder (radius 10 mm) onto a zplane floor and
+# settle into a pile two to three bodies deep, with several contacts per body.
+# The neighbour list is rebuilt on the half-skin check every step (check) or
+# every 4 steps unconditionally (every), so pair histories live across
+# separations between rebuilds, and the contacts of a body are summed in the
+# binned list order.
+pile() {
+{ header | sed "s/^neigh_modify.*/neigh_modify	delay 0 $1/"; cat <<'EOF'
+fix		cyl all wall/gran model hertz tangential history surface superquadric primitive type 1 zcylinder 0.010 0.0 0.0
+fix		zwall all wall/gran model hertz tangential history surface superquadric primitive type 1 zplane 0.0
+fix		grav all gravity 9.81 vector 0 0 -1
+EOF
+k=0
+for off in "-0.0025 0.0025" "0.0025 -0.0025" "0.0025 0.0025" "-0.0025 -0.0025"     "0 0.0025" "0.0025 0" "-0.0025 0" "0 -0.0025"     "-0.0025 0.0025" "0.0025 -0.0025" "0.0025 0.0025" "-0.0025 -0.0025"; do
+  z=$(awk -v k=$k 'BEGIN{printf "%.4f", 0.008 + 0.0115*k}')
+  echo "create_atoms	1 single $off $z units box"
+  k=$((k + 1))
+done
+a=1
+while [ $a -le 12 ]; do
+  if [ $((a % 2)) -eq 1 ]; then
+    echo "set		atom $a shape 0.004 0.003 0.0025 blockiness 6 6 density 2500 quat_direct 0.9 0.3 0.2 0.1"
+    echo "set		atom $a vx 0.05 vy -0.03 vz 0. omegax 2. omegay -1. omegaz 3."
+  else
+    echo "set		atom $a shape 0.0035 0.003 0.004 blockiness 4 3 density 1500 quat_direct 0.7 -0.2 0.5 0.4"
+    echo "set		atom $a vx -0.04 vy 0.02 vz 0. omegax -1. omegay 2. omegaz -2."
+  fi
+  a=$((a + 1))
+done
+cat <<'EOF'
+fix		integr all nve/superquadric
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 5000 10000 15000 20000 25000 30000 35000 40000 50000; } > "$2"
+}
+pile "every 1 check yes" in.sq_pile_check
+pile "every 4 check no" in.sq_pile_every

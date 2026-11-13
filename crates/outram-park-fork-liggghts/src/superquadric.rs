@@ -5,6 +5,9 @@
 //   Upstream project : LIGGGHTS-PUBLIC (DCS Computing GmbH / JKU Linz)
 //   Upstream files   : src/superquadric.cpp / superquadric.h (`set`,
 //                      `shape_function_*`, `plane_intersection`,
+//                      `line_intersection`, `edge_intersection`,
+//                      `surface_line_intersection1`,
+//                      `calc_curvature_coefficient`,
 //                      `surface_line_intersection`,
 //                      `ellipsoid_line_intersection_local`, `set_shape`,
 //                      `set_blockiness`, `calc_koef`, `tensor_quat_rotate`),
@@ -27,8 +30,17 @@
 //                      (`checkSurfaceIntersect`, `surfacesIntersect`),
 //                      src/fix_nve_asphere_base.cpp (`initial_integrate`,
 //                      `final_integrate`, integration scheme 1),
-//                      src/fix_wall_gran.cpp (`post_force_primitive`, the
-//                      SUPERQUADRIC_ACTIVE_FLAG branch), src/fix_wall_gran_base.h
+//                      src/fix_wall_gran.cpp (`post_force_primitive`,
+//                      `post_force_mesh`, the SUPERQUADRIC_ACTIVE_FLAG
+//                      branches), src/tri_mesh_I_superquadric.h
+//                      (`resolveTriSuperquadricContact`,
+//                      `superquadricTriangleIntersection`), src/tri_mesh_I.h
+//                      (`isInElement`), src/primitive_wall_definitions.h
+//                      (`Plane`, `Cylinder` `resolveContact`),
+//                      src/math_extra_liggghts_nonspherical.cpp
+//                      (`get_effective_radius`, `get_effective_radius_wall`),
+//                      src/neighbor.cpp (`decide`), src/neigh_gran.cpp
+//                      (history carried over a rebuild), src/fix_wall_gran_base.h
 //                      (`compute_force`), src/pair_gran_base.h (`compute_force`,
 //                      the SUPERQUADRIC_ACTIVE_FLAG branches),
 //                      src/normal_model_hertz.h and
@@ -72,9 +84,13 @@
 //! |---|---|
 //! | `create_atoms single` + `set shape/blockiness/density/quat_direct/omega` | [`SuperquadricParticle::new`] |
 //! | `bounding_sphere_radius_superquadric`, `volume_superquadric`, `inertia_superquadric` | private functions, run by [`SuperquadricParticle::new`] |
-//! | `fix nve/superquadric` (integration scheme 1, the default) | [`SuperquadricSystem::step`] |
+//! | `fix nve/superquadric` (integration scheme 1, the default) | [`SuperquadricSystem::run`] (~~`SuperquadricSystem::step`~~, no such method; corrected 2026-11-13) |
 //! | `pair gran model hertz tangential history surface superquadric` | [`SuperquadricSystem`] pair pass |
 //! | `fix wall/gran model hertz tangential history surface superquadric primitive xplane/yplane/zplane` | [`SuperquadricPlaneWall`] |
+//! | `... primitive xcylinder/ycylinder/zcylinder r c1 c2` | [`SuperquadricCylinderWall`], [`SuperquadricSystem::with_cylinder_wall`] |
+//! | `fix mesh/surface file F` + `fix wall/gran ... surface superquadric mesh` (static mesh) | [`SuperquadricSystem::with_mesh_wall`] |
+//! | `surface superquadric curvatureLimitFactor f meanCurvature/gaussianCurvature yes` | [`SuperquadricSystem::with_curvature_limit`] |
+//! | `neighbor <skin> bin` + `neigh_modify delay 0 every N check yes/no` | [`SuperquadricSystem::with_neighbor_list`] |
 //! | `fix gravity ... vector` | [`SuperquadricSystem::with_gravity`] |
 //!
 //! [`SuperquadricSystem`] is a separate driver beside
@@ -90,7 +106,17 @@
 //!   `Superquadric::plane_intersection` gives the point of maximal penetration
 //!   and the point of lowest shape-function value on the wall; contact if that
 //!   value is negative. The overlap is the distance of the penetration point
-//!   from the plane (`point_wall_projection`).
+//!   from the plane (`point_wall_projection`). A **cylinder** is handled the
+//!   same way with the tangent plane at the bounding sphere's contact point
+//!   (`Cylinder<dim>::resolveContact`): upstream has no cylinder-specific
+//!   superquadric code.
+//! * **Mesh facet** (`resolveTriSuperquadricContact`): bounding sphere against
+//!   the facet, `plane_intersection` with the facet plane, then the face
+//!   overlap if the point of lowest potential is on the facet (or the overlap
+//!   is under `0.001 a`), otherwise the edge or corner with the lowest
+//!   shape-function value (golden section, inactive edges and corners
+//!   skipped), with the overlap along the gradient normal
+//!   (`surface_line_intersection1`), whichever of the two is smaller.
 //! * **Pair** (iterative): bounding spheres, then an oriented-bounding-box
 //!   separating-axis test (15 inequalities, starting at the one that separated
 //!   last time), then the contact point: the point where `f_i = f_j` and the
@@ -105,7 +131,10 @@
 //! ## Forces
 //!
 //! Hertz with the volume-equivalent radius `r = cbrt(3 V / 4 pi)` (pair:
-//! `r_i r_j / (r_i + r_j)`; wall: the particle's own), tangential history, and
+//! `r_i r_j / (r_i + r_j)`; wall: the particle's own), or, with
+//! [`SuperquadricSystem::with_curvature_limit`], `1 / (k_i + k_j)` (`1 / k_i`
+//! at a wall) from the mean or Gaussian curvature at the surface points,
+//! capped at `f` times that radius; tangential history, and
 //! both normal and tangential forces applied at the contact point, so the
 //! normal force also makes a torque `(x_c - x) x F` (upstream's
 //! `NONSPHERICAL_ACTIVE_FLAG` branches).
@@ -119,21 +148,32 @@
 //!
 //! ## What is translated, and what is not
 //!
-//! Translated: the above, single process, fixed boundaries, neighbour list
-//! rebuilt every step (`neigh_modify every 1 check no`: a pair's contact
-//! history then lives exactly while the bounding spheres overlap), pairs in
-//! `i < j` index order (upstream's binned order coincides for two particles).
+//! Translated: the above, single process, fixed boundaries. **Neighbour list:**
+//! by default every pair `i < j` in index order, its contact history dropped
+//! when the bounding spheres part; that is upstream's `neigh_modify every 1
+//! check no` for two particles. With [`SuperquadricSystem::with_neighbor_list`]
+//! it is upstream's list for any number of particles: rebuilt by
+//! `Neighbor::decide`, pairs in `granular_bin_no_newton`'s binned order, and a
+//! history that persists between rebuilds and is kept at a rebuild only
+//! where the bounding spheres overlap (`neigh_gran.cpp`).
 //!
 //! **Not translated** (refused or absent, never silently approximated):
-//! `fix particletemplate/superquadric` and insertion of superquadrics, the
-//! curvature-limited radius (`curvatureLimitFactor`, `meanCurvature`,
-//! `gaussianCurvature`), rolling-friction models, mesh walls
-//! (`resolveTriSuperquadricContact`), `area_superquadric` (not used by the
-//! dynamics), `compute erotate/superquadric`, integration schemes 0, 2, 3 and
-//! 4, and the CFD-coupling torque terms. Convex hull, ellipsoid, line and tri
-//! particles are not ported.
+//! `fix particletemplate/superquadric` and insertion of superquadrics,
+//! ~~the curvature-limited radius~~ (ported 2026-11-13), rolling-friction
+//! models, ~~mesh walls (`resolveTriSuperquadricContact`)~~ (static meshes
+//! ported 2026-11-13; moving meshes and `mesh/surface/stress` are not),
+//! the superquadric atom sort (`atom_modify sort` must be `0 0`),
+//! `area_superquadric` (not used by the dynamics), `compute
+//! erotate/superquadric`, integration schemes 0, 2, 3 and 4, and the
+//! CFD-coupling torque terms. Convex hull, ellipsoid, line and tri particles
+//! are not ported.
+//!
+//! V&V: `docs/verification-and-validation.md` §§ 4.17 and 4.17.1.
 
 use crate::granular::{ContactKinematics, GranularMaterial, GranularNormalModel, MaterialTable};
+use crate::mesh_wall::MeshWall;
+use crate::neighbor_list::{self, LiggghtsNeighbor};
+use crate::tri_mesh::TriMeshState;
 use crate::particle::Vec3;
 use crate::DemError;
 use petir::mathf::RealMath;
@@ -146,6 +186,8 @@ const SCALE_KOEF: f64 = 1.0001;
 const PHI_INV: f64 = 0.61803398874989479;
 /// `M_PI`.
 const M_PI: f64 = std::f64::consts::PI;
+/// `SMALL_TRIMESH` of `tri_mesh.h`.
+const SMALL_TRIMESH: f64 = 1e-10;
 
 type V3 = [f64; 3];
 
@@ -1132,7 +1174,9 @@ impl Sq {
 
     /// `Superquadric::plane_intersection`: the point of maximal penetration and
     /// whether the particle and the plane intersect.
-    fn plane_intersection(&self, normal_global: &V3, x0_global: &V3) -> (bool, V3) {
+    /// Returns `(intersect, point_of_maximal_penetration,
+    /// point_of_lowest_potential)`, both points in the global frame.
+    fn plane_intersection(&self, normal_global: &V3, x0_global: &V3) -> (bool, V3, V3) {
         let mut normal_local = self.rotate_global2local(normal_global);
         let x0_local = self.global2local(x0_global);
         if dot3(&normal_local, &x0_local) < 0.0 {
@@ -1185,7 +1229,171 @@ impl Sq {
         }
         let ff = self.shape_function_local(&plp);
         let pmp_global = self.local2global(&pmp);
-        (ff < 0.0, pmp_global)
+        let plp_global = self.local2global(&plp);
+        (ff < 0.0, pmp_global, plp_global)
+    }
+
+    /// `Superquadric::shape_function_global`.
+    fn shape_function_global(&self, p: &V3) -> f64 {
+        let local = self.global2local(p);
+        self.shape_function_local(&local)
+    }
+
+    /// `Superquadric::shape_function_gradient_global`.
+    fn shape_function_gradient_global(&self, p: &V3) -> V3 {
+        let local = self.global2local(p);
+        let g = self.shape_function_gradient_local(&local);
+        self.rotate_local2global(&g)
+    }
+
+    /// The two golden-section probes of `line_intersection` /
+    /// `edge_intersection` at the bracket `[a, b]`.
+    fn golden_probes(&self, pa: &V3, pb: &V3, a: f64, b: f64) -> (V3, V3, f64, f64) {
+        let alpha1 = b - (b - a) * PHI_INV;
+        let alpha2 = a + (b - a) * PHI_INV;
+        let mut c1 = [0.0; 3];
+        let mut c2 = [0.0; 3];
+        for k in 0..3 {
+            c1[k] = pa[k] + alpha1 * (pb[k] - pa[k]);
+            c2[k] = pa[k] + alpha2 * (pb[k] - pa[k]);
+        }
+        let f1 = self.shape_function_local(&c1);
+        let f2 = self.shape_function_local(&c2);
+        (c1, c2, f1, f2)
+    }
+
+    /// `Superquadric::line_intersection`: the point of the segment `AB`
+    /// (corners included) with the lowest shape-function value, by golden
+    /// section to `1e-8`. Returns `(f, point)`.
+    fn line_intersection(&self, point_a: &V3, point_b: &V3) -> (f64, V3) {
+        let pa = self.global2local(point_a);
+        let pb = self.global2local(point_b);
+        let mut a: f64 = 0.0;
+        let mut b = 1.0;
+        let mut eps = (b - a).abs();
+        let (mut c1, mut c2, _, _) = self.golden_probes(&pa, &pb, a, b);
+        while eps > 1e-8 {
+            let (n1, n2, f1, f2) = self.golden_probes(&pa, &pb, a, b);
+            c1 = n1;
+            c2 = n2;
+            if f1 >= f2 {
+                a = b - (b - a) * PHI_INV;
+            } else {
+                b = a + (b - a) * PHI_INV;
+            }
+            eps = (b - a).abs();
+        }
+        let mut cl = [0.0; 3];
+        for k in 0..3 {
+            cl[k] = 0.5 * (c1[k] + c2[k]);
+        }
+        let mut f = self.shape_function_local(&cl);
+        let fa = self.shape_function_local(&pa);
+        let fb = self.shape_function_local(&pb);
+        let closest;
+        if fa < f {
+            closest = *point_a;
+            f = fa;
+        } else if fb < f {
+            closest = *point_b;
+            f = fb;
+        } else {
+            closest = self.local2global(&cl);
+        }
+        (f, closest)
+    }
+
+    /// `Superquadric::edge_intersection`: whether the segment `AB` enters the
+    /// particle (golden section to `1e-4`, stopping at the first probe inside).
+    fn edge_intersection(&self, point_a: &V3, point_b: &V3) -> bool {
+        let pa = self.global2local(point_a);
+        let pb = self.global2local(point_b);
+        let mut a: f64 = 0.0;
+        let mut b = 1.0;
+        let mut eps = (b - a).abs();
+        let (mut c1, mut c2, f1, f2) = self.golden_probes(&pa, &pb, a, b);
+        if f1 < 0.0 || f2 < 0.0 {
+            return true;
+        }
+        while eps > 1e-4 {
+            let (n1, n2, f1, f2) = self.golden_probes(&pa, &pb, a, b);
+            c1 = n1;
+            c2 = n2;
+            if f1 < 0.0 || f2 < 0.0 {
+                return true;
+            }
+            if f1 >= f2 {
+                a = b - (b - a) * PHI_INV;
+            } else {
+                b = a + (b - a) * PHI_INV;
+            }
+            eps = (b - a).abs();
+        }
+        let mut cl = [0.0; 3];
+        for k in 0..3 {
+            cl[k] = 0.5 * (c1[k] + c2[k]);
+        }
+        self.shape_function_local(&cl) < 0.0
+    }
+
+    /// `Superquadric::surface_line_intersection1`: up to 10 plain Newton
+    /// steps from `start` along `dir`; returns the parameter `alpha`.
+    fn surface_line_intersection1(&self, start: &V3, dir: &V3) -> f64 {
+        let sp_local = self.global2local(start);
+        let mut point = sp_local;
+        let dv_local = self.rotate_global2local(dir);
+        let mut alpha = 0.0;
+        let eps = 1e-16;
+        let mut f0 = self.shape_function_local(&sp_local);
+        for _ in 0..10 {
+            if f0.abs() < eps * self.koef {
+                break;
+            }
+            let grad_local = self.shape_function_gradient_local(&point);
+            let f_der = dot3(&grad_local, &dv_local);
+            let delta = -f0 / f_der;
+            alpha += delta;
+            point = yabx3(&point, delta, &dv_local);
+            if delta.abs() <= eps {
+                break;
+            }
+            f0 = self.shape_function_local(&point);
+        }
+        alpha
+    }
+
+    /// `Superquadric::calc_curvature_coefficient`: the mean (`gaussian =
+    /// false`) or Gaussian curvature of the surface at the point `p` mapped
+    /// onto it along the ray from the centre.
+    fn calc_curvature_coefficient(&self, gaussian: bool, p: &V3) -> f64 {
+        let mut local = self.global2local(p);
+        let f = self.shape_function_local(&local);
+        let alpha = 1.0 / pow_abs(f / self.koef + 1.0, 1.0 / self.blockiness[0]);
+        for v in &mut local {
+            *v *= alpha;
+        }
+        let ff = self.shape_function_gradient_local(&local);
+        let hessian = self.shape_function_hessian_local(&local);
+        let f_mag = mag3(&ff);
+        let n = [
+            ff[0] * (1.0 / f_mag),
+            ff[1] * (1.0 / f_mag),
+            ff[2] * (1.0 / f_mag),
+        ];
+        let temp = matvec(&hessian, &n);
+        if !gaussian {
+            return (dot3(&n, &temp) - (hessian[0] + hessian[4] + hessian[8])).abs()
+                / (2.0 * f_mag).abs();
+        }
+        let (fx, fy, fz) = (ff[0], ff[1], ff[2]);
+        let (fxx, fxy, fxz) = (hessian[0], hessian[1], hessian[2]);
+        let (fyy, fyz) = (hessian[4], hessian[5]);
+        let fzz = hessian[8];
+        let mat = [
+            fxx, fxy, fxz, fx, fxy, fyy, fyz, fy, fxz, fyz, fzz, fz, fx, fy, fz, 0.0,
+        ];
+        let k = -determinant_4x4(&mat) / (f_mag * f_mag * f_mag * f_mag);
+        k.abs().sqrt()
     }
 
     /// `Superquadric::ellipsoid_line_intersection_local`.
@@ -1617,7 +1825,7 @@ fn calc_contact_point(
                     converged = true;
                 }
             } else {
-                let mut a: f64 = 0.0;
+                let mut a = 0.0;
                 let mut b: f64 = 1.0;
                 let mut eps = (b - a).abs();
                 let mut res2b = 0.0;
@@ -1925,6 +2133,251 @@ pub struct SuperquadricPlaneWall {
     pub wall_type: usize,
 }
 
+/// A primitive cylinder wall, `fix wall/gran ... primitive type T
+/// xcylinder|ycylinder|zcylinder r c1 c2`: the axis is `axis` (0 = x, 1 = y,
+/// 2 = z) and passes through `(c1, c2)` on the axes `(axis + 1) % 3` and
+/// `(axis + 2) % 3` (upstream's `Dim<dim>`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SuperquadricCylinderWall {
+    /// Cylinder axis: 0 = x, 1 = y, 2 = z.
+    pub axis: usize,
+    /// Radius `[m]`.
+    pub radius: f64,
+    /// Axis position `(c1, c2)` on the two other axes, in upstream's order `[m]`.
+    pub center: [f64; 2],
+    /// Wall atom type, 0-based.
+    pub wall_type: usize,
+}
+
+/// Which curvature [`SuperquadricSystem::with_curvature_limit`] uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CurvatureKind {
+    /// `meanCurvature yes`.
+    Mean,
+    /// `gaussianCurvature yes`.
+    Gaussian,
+}
+
+/// `curvatureLimitFactor` with the curvature it applies to.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct CurvatureLimit {
+    factor: f64,
+    gaussian: bool,
+}
+
+/// One wall fix of a [`SuperquadricSystem`], in the order added.
+#[derive(Debug, Clone)]
+enum SqWall {
+    Plane(SuperquadricPlaneWall),
+    Cylinder(SuperquadricCylinderWall),
+    Mesh { mesh: MeshWall, wall_type: usize },
+}
+
+/// The primitive of a primitive wall, copied out of [`SqWall`].
+#[derive(Debug, Clone, Copy)]
+enum Primitive {
+    Plane(SuperquadricPlaneWall),
+    Cylinder(SuperquadricCylinderWall),
+}
+
+/// `Plane<dim>::resolveContact`: `(gap, delta)` with `delta` from the centre
+/// to the plane.
+fn plane_resolve_contact(wall: &SuperquadricPlaneWall, x: &V3, radi: f64) -> (f64, V3) {
+    let mut delta = [0.0; 3];
+    let gap = if x[wall.dim] > wall.coord {
+        delta[wall.dim] = wall.coord - x[wall.dim];
+        x[wall.dim] - wall.coord - radi
+    } else {
+        delta[wall.dim] = wall.coord - x[wall.dim];
+        wall.coord - x[wall.dim] - radi
+    };
+    (gap, delta)
+}
+
+/// `Cylinder<dim>::resolveContact` (`primitive_wall_definitions.h`):
+/// `(gap, delta)` with `delta` from the centre to the cylinder surface,
+/// radially. On the axis (`compDouble(dist, 0)`), `delta = 0` and the gap is
+/// 0, as upstream. [`crate::boundary::Boundary::cylinder_resolve`] is the
+/// same routine for sphere [`crate::particle::Particle`]s (with `delta`
+/// negated and its own axis guard), so it is not reused here.
+fn cylinder_resolve_contact(wall: &SuperquadricCylinderWall, x: &V3, radi: f64) -> (f64, V3) {
+    let ix = wall.axis;
+    let iy = (wall.axis + 1) % 3;
+    let iz = (wall.axis + 2) % 3;
+    let dy = x[iy] - wall.center[0];
+    let dz = x[iz] - wall.center[1];
+    let dist = (dy * dy + dz * dz).sqrt();
+    let mut delta = [0.0; 3];
+    if comp_double(dist, 0.0, 1e-13) {
+        return (0.0, delta);
+    }
+    let r = wall.radius;
+    delta[ix] = 0.0;
+    if dist > r {
+        let fact = (dist - r) / dist;
+        delta[iy] = -dy * fact;
+        delta[iz] = -dz * fact;
+        (dist - r - radi, delta)
+    } else {
+        let fact = (r - dist) / dist;
+        delta[iy] = dy * fact;
+        delta[iz] = dz * fact;
+        (r - dist - radi, delta)
+    }
+}
+
+/// `get_effective_radius` / `get_effective_radius_wall`: `1 / keff`, or
+/// `rmax` when `keff < 1 / rmax`.
+fn effective_radius_limited(keff: f64, rmax: f64) -> f64 {
+    if keff < 1.0 / rmax {
+        rmax
+    } else {
+        1.0 / keff
+    }
+}
+
+/// `TriMesh::isInElement`.
+fn is_in_element(nd: &[V3; 3], pos: &V3) -> bool {
+    let v0 = sub3(&nd[2], &nd[0]);
+    let v1 = sub3(&nd[1], &nd[0]);
+    let v2 = sub3(pos, &nd[0]);
+    let dot00 = dot3(&v0, &v0);
+    let dot01 = dot3(&v0, &v1);
+    let dot02 = dot3(&v0, &v2);
+    let dot11 = dot3(&v1, &v1);
+    let dot12 = dot3(&v1, &v2);
+    let inv_denom = 1. / (dot00 * dot11 - dot01 * dot01);
+    let u = (dot11 * dot02 - dot01 * dot12) * inv_denom;
+    let v = (dot00 * dot12 - dot01 * dot02) * inv_denom;
+    u > -SMALL_TRIMESH && v > -SMALL_TRIMESH && u + v < 1. + SMALL_TRIMESH
+}
+
+/// `TriMesh::superquadricTriangleIntersection`: 0 when the point of lowest
+/// potential lies on the facet, 1 when a node is inside the particle, 2 when
+/// an edge enters it, -1 otherwise.
+fn superquadric_triangle_intersection(nd: &[V3; 3], plp: &V3, sq: &Sq) -> i32 {
+    if is_in_element(nd, plp) {
+        return 0;
+    }
+    if sq.shape_function_global(&nd[0]) < 0.0
+        || sq.shape_function_global(&nd[1]) < 0.0
+        || sq.shape_function_global(&nd[2]) < 0.0
+    {
+        return 1;
+    }
+    if sq.edge_intersection(&nd[0], &nd[1])
+        || sq.edge_intersection(&nd[1], &nd[2])
+        || sq.edge_intersection(&nd[2], &nd[0])
+    {
+        2
+    } else {
+        -1
+    }
+}
+
+/// `TriMesh::resolveTriSuperquadricContact` (`tri_mesh_I_superquadric.h`):
+/// `Some((deltan, delta, contact_point))` with `deltan` negative on overlap
+/// and `delta` the unit direction from the particle to the facet, or `None`
+/// for upstream's `LARGE_TRIMESH` (no intersection, or an inactive edge or
+/// corner). The barycentric coordinates are not returned: they only weight
+/// the node velocities of a moving mesh, which is not supported here.
+fn resolve_tri_superquadric_contact(
+    state: &TriMeshState,
+    nd: &[V3; 3],
+    i_tri: usize,
+    sq: &Sq,
+) -> Option<(f64, V3, V3)> {
+    let mut surf_norm = state.surface_norm(i_tri);
+    let (intersect, pmp, plp) = sq.plane_intersection(&surf_norm, &nd[0]);
+    if !intersect {
+        return None;
+    }
+    let flag = superquadric_triangle_intersection(nd, &plp, sq);
+    if flag < 0 {
+        return None;
+    }
+    let f_node = [
+        sq.shape_function_global(&nd[0]),
+        sq.shape_function_global(&nd[1]),
+        sq.shape_function_global(&nd[2]),
+    ];
+    let (d_face, contact_point_face) = point_wall_projection(&surf_norm, &nd[0], &pmp);
+    let dist = sub3(&sq.center, &nd[0]);
+    if dot3(&dist, &surf_norm) > 0.0 {
+        surf_norm = [-surf_norm[0], -surf_norm[1], -surf_norm[2]];
+    }
+    if d_face < 0.001 * sq.shape[0] || flag == 0 {
+        return Some((-d_face, surf_norm, contact_point_face));
+    }
+    // particle-edge or particle-corner contact
+    let (f0, c0) = sq.line_intersection(&nd[0], &nd[1]);
+    let (f1, c1) = sq.line_intersection(&nd[1], &nd[2]);
+    let (f2, c2) = sq.line_intersection(&nd[2], &nd[0]);
+    let f_edge = [f0, f1, f2];
+    let closest_points = [c0, c1, c2];
+    if f_edge[0] > 0.0 && f_edge[1] > 0.0 && f_edge[2] > 0.0 {
+        return Some((-d_face, surf_norm, contact_point_face));
+    }
+    let i_edge = if f_edge[0] <= cmin(f_edge[1], f_edge[2]) {
+        0
+    } else if f_edge[1] <= cmin(f_edge[0], f_edge[2]) {
+        1
+    } else {
+        2
+    };
+    let ip = i_edge;
+    let ipp = (i_edge + 1) % 3;
+    let (edge_contact, contact_point_edge) = if f_node[ip] <= f_edge[i_edge] {
+        if !state.corner_active(i_tri, ip) {
+            return None;
+        }
+        (false, nd[ip])
+    } else if f_node[ipp] <= f_edge[i_edge] {
+        if !state.corner_active(i_tri, ipp) {
+            return None;
+        }
+        (false, nd[ipp])
+    } else {
+        if !state.edge_active(i_tri, i_edge) {
+            return None;
+        }
+        (true, closest_points[i_edge])
+    };
+    // (upstream's map_point here writes a point that
+    // surface_line_intersection1 overwrites unread)
+    let mut normal = sq.shape_function_gradient_global(&contact_point_edge);
+    normalize3(&mut normal);
+    if edge_contact {
+        let mut direction = sub3(&nd[ip], &nd[ipp]);
+        normalize3(&mut direction);
+        let cosa = dot3(&normal, &direction);
+        for i in 0..3 {
+            normal[i] -= cosa * direction[i];
+        }
+        normalize3(&mut normal);
+    }
+    let d_edge = sq.surface_line_intersection1(&contact_point_edge, &normal);
+    if d_edge < d_face {
+        Some((-d_edge, normal, contact_point_edge))
+    } else {
+        Some((-d_face, surf_norm, contact_point_face))
+    }
+}
+
+/// Upstream's neighbour list state for [`SuperquadricSystem::with_neighbor_list`].
+#[derive(Debug, Clone)]
+struct SqNeighbor {
+    cfg: LiggghtsNeighbor,
+    every: u64,
+    check: bool,
+    /// `Neighbor::ago`: steps since the last build.
+    ago: u64,
+    /// The half list, `(i, j)` with `i < j`, in upstream's order.
+    pairs: Vec<(u32, u32)>,
+    /// Positions at the last build.
+    xhold: Vec<Vec3>,
+}
+
 /// Per-pair contact history of `surface superquadric` + `tangential history`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 struct PairHistory {
@@ -1955,12 +2408,16 @@ pub struct SuperquadricSystem {
     particles: Vec<SuperquadricParticle>,
     materials: MaterialTable,
     normal: GranularNormalModel,
-    walls: Vec<SuperquadricPlaneWall>,
+    walls: Vec<SqWall>,
     gravity: Option<V3>,
+    curvature: Option<CurvatureLimit>,
     dt: f64,
     pair_history: Vec<PairHistory>,
-    wall_shear: Vec<V3>,
+    /// Tangential history per wall: one slot per particle (primitive walls)
+    /// or per (facet, particle) (mesh walls, `i_tri * n + ip`).
+    wall_shear: Vec<Vec<V3>>,
     is_setup: bool,
+    neigh: Option<SqNeighbor>,
     step: u64,
 }
 
@@ -1999,10 +2456,12 @@ impl SuperquadricSystem {
             normal,
             walls: Vec::new(),
             gravity: None,
+            curvature: None,
             dt,
             pair_history: vec![PairHistory::default(); n * n],
             wall_shear: Vec::new(),
             is_setup: false,
+            neigh: None,
             step: 0,
         })
     }
@@ -2017,9 +2476,70 @@ impl SuperquadricSystem {
         if wall.dim > 2 || wall.wall_type >= self.materials.n_types() {
             return Err(DemError::InvalidInput("invalid plane wall".into()));
         }
-        self.walls.push(wall);
-        self.wall_shear
-            .extend(std::iter::repeat_n([0.0; 3], self.particles.len()));
+        self.walls.push(SqWall::Plane(wall));
+        self.wall_shear.push(vec![[0.0; 3]; self.particles.len()]);
+        Ok(self)
+    }
+
+    /// Add a primitive cylinder wall, `fix wall/gran ... primitive type T
+    /// xcylinder|ycylinder|zcylinder r c1 c2` (applied in the order added,
+    /// after the pair forces).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for `axis > 2`, a non-positive radius or a
+    /// wall type outside the table.
+    pub fn with_cylinder_wall(mut self, wall: SuperquadricCylinderWall) -> Result<Self, DemError> {
+        if wall.axis > 2 || !(wall.radius > 0.0) || wall.wall_type >= self.materials.n_types() {
+            return Err(DemError::InvalidInput("invalid cylinder wall".into()));
+        }
+        self.walls.push(SqWall::Cylinder(wall));
+        self.wall_shear.push(vec![[0.0; 3]; self.particles.len()]);
+        Ok(self)
+    }
+
+    /// Add a static triangulated wall, `fix mesh/surface file F type T` with
+    /// `fix wall/gran ... mesh n_meshes 1 meshes F` (applied in the order
+    /// added, after the pair forces). The facets keep the order of `mesh`
+    /// (the STL order, as upstream reads it).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for a wall type outside the table.
+    pub fn with_mesh_wall(mut self, mesh: MeshWall, wall_type: usize) -> Result<Self, DemError> {
+        if wall_type >= self.materials.n_types() {
+            return Err(DemError::InvalidInput("invalid mesh wall type".into()));
+        }
+        let slots = mesh.triangles.len() * self.particles.len();
+        self.walls.push(SqWall::Mesh { mesh, wall_type });
+        self.wall_shear.push(vec![[0.0; 3]; slots]);
+        Ok(self)
+    }
+
+    /// The curvature-limited contact radius, `surface superquadric
+    /// curvatureLimitFactor f meanCurvature yes` (or `gaussianCurvature
+    /// yes`): Hertz uses `1 / (k_i + k_j)` (`1 / k_i` at a wall), the
+    /// curvatures at the two surface points, but at most `f` times the
+    /// volume-equivalent radius. Upstream's default is off (`f = 0`).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for a negative or non-finite factor
+    /// (upstream: "Curvature limiter cannot be negative!").
+    pub fn with_curvature_limit(
+        mut self,
+        factor: f64,
+        kind: CurvatureKind,
+    ) -> Result<Self, DemError> {
+        if !(factor >= 0.0) || !factor.is_finite() {
+            return Err(DemError::InvalidInput(
+                "Curvature limiter cannot be negative!".into(),
+            ));
+        }
+        self.curvature = (factor > 0.0).then_some(CurvatureLimit {
+            factor,
+            gaussian: kind == CurvatureKind::Gaussian,
+        });
         Ok(self)
     }
 
@@ -2058,15 +2578,118 @@ impl SuperquadricSystem {
     /// Advance `n` steps (the first call runs upstream's `Verlet::setup`).
     pub fn run(&mut self, n: u64) {
         if !self.is_setup {
+            if self.neigh.is_some() {
+                self.rebuild_neighbor_list();
+            }
             self.compute_forces(false);
             self.is_setup = true;
         }
         for _ in 0..n {
             self.initial_integrate();
+            if self.neighbor_decide() {
+                self.rebuild_neighbor_list();
+            }
             self.compute_forces(true);
             self.final_integrate();
             self.step += 1;
         }
+    }
+
+    /// Use upstream's neighbour list: `neighbor <skin> bin` over the box of
+    /// `cfg`, `neigh_modify delay 0 every <every> check <check>`. Pairs are
+    /// then visited in `granular_bin_no_newton`'s order (the binned order
+    /// that decides how several contacts of one particle are summed), and a
+    /// pair's contact history lives as upstream's does: it persists between
+    /// rebuilds whatever the separation, and a rebuild keeps it only for a
+    /// pair whose bounding spheres overlap (`neigh_gran.cpp`; a superquadric
+    /// pair's contact flag is always set once its bounding spheres have
+    /// overlapped, Hertz's `surfacesClose` setting it). Without this option
+    /// every pair `i < j` is visited in index order and the history is
+    /// dropped as soon as the bounding spheres part, which is the same thing
+    /// for `every 1 check no` and at most two particles.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for `every = 0`, an atom sort
+    /// (`cfg.sort_every != 0`: the superquadric atom sort is not ported, so
+    /// the deck must say `atom_modify sort 0 0`), or a contact distance
+    /// factor other than 1.
+    pub fn with_neighbor_list(
+        mut self,
+        cfg: LiggghtsNeighbor,
+        every: u64,
+        check: bool,
+    ) -> Result<Self, DemError> {
+        if every == 0 {
+            return Err(DemError::InvalidInput(
+                "neigh_modify every must be positive".into(),
+            ));
+        }
+        if cfg.sort_every != 0 {
+            return Err(DemError::InvalidInput(
+                "superquadric neighbour lists need the atom sort off (atom_modify sort 0 0)".into(),
+            ));
+        }
+        if cfg.contact_distance_factor != 1.0 {
+            return Err(DemError::InvalidInput(
+                "superquadric neighbour lists support a contact distance factor of 1 only".into(),
+            ));
+        }
+        self.neigh = Some(SqNeighbor {
+            cfg,
+            every,
+            check,
+            ago: 0,
+            pairs: Vec::new(),
+            xhold: Vec::new(),
+        });
+        Ok(self)
+    }
+
+    /// `Neighbor::decide` with `delay 0` and no fix-requested rebuilds.
+    fn neighbor_decide(&mut self) -> bool {
+        let Some(nb) = self.neigh.as_mut() else {
+            return false;
+        };
+        nb.ago += 1;
+        if nb.ago % nb.every != 0 {
+            return false;
+        }
+        if !nb.check {
+            return true;
+        }
+        let x: Vec<Vec3> = self.particles.iter().map(|p| p.x).collect();
+        neighbor_list::needs_rebuild(&x, &nb.xhold, nb.cfg.skin)
+    }
+
+    /// A neighbour rebuild: the history carry-over of `granular_bin_no_newton`
+    /// (kept only where the bounding spheres overlap), then the half list on
+    /// the bounding radii, `xhold`, and `ago = 0`.
+    fn rebuild_neighbor_list(&mut self) {
+        let n = self.particles.len();
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let (a, b) = (&self.particles[i], &self.particles[j]);
+                let delx = a.x.x - b.x.x;
+                let dely = a.x.y - b.x.y;
+                let delz = a.x.z - b.x.z;
+                let rsq = delx * delx + dely * dely + delz * delz;
+                let radsum = a.radius + b.radius;
+                if !(rsq < radsum * radsum) {
+                    self.pair_history[i * n + j] = PairHistory::default();
+                }
+            }
+        }
+        let x: Vec<Vec3> = self.particles.iter().map(|p| p.x).collect();
+        let r: Vec<f64> = self.particles.iter().map(|p| p.radius).collect();
+        let max_radius = r.iter().fold(0.0_f64, |m, &v| m.max(v));
+        let Some(nb) = self.neigh.as_mut() else {
+            return;
+        };
+        let cut = nb.cfg.cutneighmax(max_radius);
+        neighbor_list::half_bin_no_newton(&x, &r, &nb.cfg, cut, &mut nb.pairs);
+        nb.xhold = x;
+        nb.ago = 0;
     }
 
     /// `force_clear`, the pair pass, the walls, then gravity.
@@ -2075,14 +2698,24 @@ impl SuperquadricSystem {
             p.force = [0.0; 3];
             p.torque = [0.0; 3];
         }
-        let n = self.particles.len();
-        for i in 0..n {
-            for j in (i + 1)..n {
-                self.pair(i, j, shearupdate);
+        if let Some(nb) = &self.neigh {
+            let pairs = nb.pairs.clone();
+            for (i, j) in pairs {
+                self.pair(i as usize, j as usize, shearupdate);
+            }
+        } else {
+            let n = self.particles.len();
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    self.pair(i, j, shearupdate);
+                }
             }
         }
         for w in 0..self.walls.len() {
-            self.wall(w, shearupdate);
+            match self.walls[w] {
+                SqWall::Mesh { .. } => self.mesh_wall(w, shearupdate),
+                SqWall::Plane(_) | SqWall::Cylinder(_) => self.primitive_wall(w, shearupdate),
+            }
         }
         if let Some(acc) = self.gravity {
             for p in &mut self.particles {
@@ -2108,9 +2741,12 @@ impl SuperquadricSystem {
         let radsum = pi.radius + pj.radius;
         let hist = &mut self.pair_history[i * n + j];
         if !(rsq < radsum * radsum) {
-            // neighbour rebuild every step: the history of a pair whose
-            // bounding spheres do not overlap is dropped
-            *hist = PairHistory::default();
+            // Without a neighbour list (rebuild every step): the history of a
+            // pair whose bounding spheres do not overlap is dropped. With one,
+            // upstream calls nothing here and the rebuild decides.
+            if self.neigh.is_none() {
+                *hist = PairHistory::default();
+            }
             return;
         }
         let mut sq_i = pi.sq();
@@ -2183,15 +2819,20 @@ impl SuperquadricSystem {
                 normalize3(&mut en);
                 // extended_overlap_algorithm
                 let neg = [-en[0], -en[1], -en[2]];
-                let (a_i, _cp_i) =
-                    sq_i.surface_line_intersection(&contact_point, &neg, hist.alpha1);
+                let (a_i, cp_i) = sq_i.surface_line_intersection(&contact_point, &neg, hist.alpha1);
                 hist.alpha1 = a_i;
-                let (a_j, _cp_j) = sq_j.surface_line_intersection(&contact_point, &en, hist.alpha2);
+                let (a_j, cp_j) = sq_j.surface_line_intersection(&contact_point, &en, hist.alpha2);
                 hist.alpha2 = a_j;
                 deltan = a_i.abs() + a_j.abs();
                 let radi = pi.equivalent_radius();
                 let radj = pj.equivalent_radius();
                 reff = radi * radj / (radi + radj);
+                if let Some(curv) = self.curvature {
+                    // get_effective_radius
+                    let koefi = sq_i.calc_curvature_coefficient(curv.gaussian, &cp_i);
+                    let koefj = sq_j.calc_curvature_coefficient(curv.gaussian, &cp_j);
+                    reff = effective_radius_limited(koefi + koefj, reff * curv.factor);
+                }
                 hist.particles_were_in_contact = SURFACES_INTERSECT;
             } else {
                 hist.particles_were_in_contact = SURFACES_CLOSE;
@@ -2246,82 +2887,160 @@ impl SuperquadricSystem {
         }
     }
 
-    /// `FixWallGran::post_force_primitive` for one plane wall, superquadric
-    /// branch.
-    fn wall(&mut self, w: usize, shearupdate: bool) {
-        let wall = self.walls[w];
+    /// `FixWallGran::post_force_primitive` for one plane or cylinder wall,
+    /// superquadric branch: the bounding sphere is resolved against the
+    /// primitive, then the particle is cut by the tangent plane through
+    /// `x + delta` (for a cylinder too: upstream has no cylinder-specific
+    /// superquadric code).
+    fn primitive_wall(&mut self, w: usize, shearupdate: bool) {
+        let (wall_type, primitive) = match &self.walls[w] {
+            SqWall::Plane(p) => (p.wall_type, Primitive::Plane(*p)),
+            SqWall::Cylinder(c) => (c.wall_type, Primitive::Cylinder(*c)),
+            SqWall::Mesh { .. } => return,
+        };
         let n = self.particles.len();
         for ip in 0..n {
             let p = self.particles[ip];
             let x = p.xa();
             let radi = p.radius;
-            // Plane<dim>::resolveContact
-            let mut delta = [0.0; 3];
-            let mut gap = if x[wall.dim] > wall.coord {
-                delta[wall.dim] = wall.coord - x[wall.dim];
-                x[wall.dim] - wall.coord - radi
-            } else {
-                delta[wall.dim] = wall.coord - x[wall.dim];
-                wall.coord - x[wall.dim] - radi
+            let (mut gap, delta) = match primitive {
+                Primitive::Plane(wall) => plane_resolve_contact(&wall, &x, radi),
+                Primitive::Cylinder(wall) => cylinder_resolve_contact(&wall, &x, radi),
             };
-            let shear = &mut self.wall_shear[w * n + ip];
             if !(gap <= 0.0) {
-                *shear = [0.0; 3];
+                self.wall_shear[w][ip] = [0.0; 3];
                 continue;
             }
             let sphere_contact_point = [x[0] + delta[0], x[1] + delta[1], x[2] + delta[2]];
             let sq = p.sq();
-            let (intersect, closest) = sq.plane_intersection(&delta, &sphere_contact_point);
+            let (intersect, closest, _) = sq.plane_intersection(&delta, &sphere_contact_point);
             let (proj, _) = point_wall_projection(&delta, &sphere_contact_point, &closest);
             gap = -proj;
             if gap > 0.0 {
-                *shear = [0.0; 3];
+                self.wall_shear[w][ip] = [0.0; 3];
                 break;
             }
-            let sidata_deltan = -gap;
-            let sidata_delta = [-delta[0], -delta[1], -delta[2]];
-            // FixWallGranBase::compute_force
-            let delta_inv = 1.0 / mag3(&sidata_delta);
-            let en = [
-                sidata_delta[0] * delta_inv,
-                sidata_delta[1] * delta_inv,
-                sidata_delta[2] * delta_inv,
-            ];
             if !intersect {
                 // surfacesClose
-                *shear = [0.0; 3];
+                self.wall_shear[w][ip] = [0.0; 3];
                 continue;
             }
-            let reff = p.equivalent_radius();
-            let xci = sub3(&closest, &x);
-            let om = [p.omega.x, p.omega.y, p.omega.z];
-            let v_rot = cross3(&om, &xci);
-            let v_wall = [0.0; 3];
-            let v_rel = [
-                p.v.x - v_wall[0] + v_rot[0],
-                p.v.y - v_wall[1] + v_rot[1],
-                p.v.z - v_wall[2] + v_rot[2],
-            ];
-            let props = self.materials.pair_props(p.itype, wall.wall_type);
-            let (fd, _) = contact_forces(
-                &self.normal,
-                &props,
-                &en,
-                sidata_deltan,
-                reff,
-                p.mass,
-                &v_rel,
-                &xci,
-                None,
-                shear,
-                shearupdate,
-                self.dt,
-            );
-            let p = &mut self.particles[ip];
-            for k in 0..3 {
-                p.force[k] += fd.f[k];
-                p.torque[k] += fd.t[k];
+            self.wall_contact(w, ip, ip, wall_type, -gap, &delta, &closest, shearupdate);
+        }
+    }
+
+    /// `FixWallGran::post_force_mesh` for one mesh wall, superquadric branch:
+    /// facets in order, the particles passing each facet's bounding-sphere
+    /// test, `resolveTriSuperquadricContact`, and a per (particle, facet)
+    /// history that lives while `deltan <= 0` (`handleContact(...,
+    /// faceflag = false)`, so no coplanar copy).
+    fn mesh_wall(&mut self, w: usize, shearupdate: bool) {
+        let SqWall::Mesh { mesh, wall_type } = &self.walls[w] else {
+            return;
+        };
+        let wall_type = *wall_type;
+        let nodes = mesh.nodes();
+        let n = self.particles.len();
+        for (i_tri, nd) in nodes.iter().enumerate() {
+            for ip in 0..n {
+                let p = self.particles[ip];
+                let x = p.xa();
+                let SqWall::Mesh { mesh, .. } = &self.walls[w] else {
+                    return;
+                };
+                // sphereTriangleIntersection: pointToTriangleDistance with
+                // treatActiveFlag = false, against the bounding radius
+                let (d, _, _, _) = mesh
+                    .state
+                    .resolve_tri_sphere_contact_bary(nd, i_tri, 0.0, &x, false);
+                let mut resolved = None;
+                if d < p.radius {
+                    let sq = p.sq();
+                    resolved = resolve_tri_superquadric_contact(&mesh.state, nd, i_tri, &sq);
+                }
+                let slot = i_tri * n + ip;
+                match resolved {
+                    Some((deltan, delta, contact_point)) if deltan <= 0.0 => {
+                        self.wall_contact(
+                            w,
+                            slot,
+                            ip,
+                            wall_type,
+                            -deltan,
+                            &delta,
+                            &contact_point,
+                            shearupdate,
+                        );
+                    }
+                    _ => self.wall_shear[w][slot] = [0.0; 3],
+                }
             }
+        }
+    }
+
+    /// `FixWallGranBase::compute_force` (superquadric branch) on particle
+    /// `ip`, with history slot `slot` of wall `w`: `delta` is upstream's
+    /// wall-side `delta`, `sidata_deltan` the overlap, `contact_point` where
+    /// both forces act.
+    #[allow(clippy::too_many_arguments)]
+    fn wall_contact(
+        &mut self,
+        w: usize,
+        slot: usize,
+        ip: usize,
+        wall_type: usize,
+        sidata_deltan: f64,
+        delta: &V3,
+        contact_point: &V3,
+        shearupdate: bool,
+    ) {
+        let p = self.particles[ip];
+        let x = p.xa();
+        let sidata_delta = [-delta[0], -delta[1], -delta[2]];
+        let delta_inv = 1.0 / mag3(&sidata_delta);
+        let en = [
+            sidata_delta[0] * delta_inv,
+            sidata_delta[1] * delta_inv,
+            sidata_delta[2] * delta_inv,
+        ];
+        let radi = p.equivalent_radius();
+        let mut reff = radi;
+        if let Some(curv) = self.curvature {
+            // SurfaceModel<SURFACE_SUPERQUADRIC>::surfacesIntersect, wall:
+            // get_effective_radius_wall
+            let koefi = p
+                .sq()
+                .calc_curvature_coefficient(curv.gaussian, contact_point);
+            reff = effective_radius_limited(koefi, radi * curv.factor);
+        }
+        let xci = sub3(contact_point, &x);
+        let om = [p.omega.x, p.omega.y, p.omega.z];
+        let v_rot = cross3(&om, &xci);
+        let v_wall = [0.0; 3];
+        let v_rel = [
+            p.v.x - v_wall[0] + v_rot[0],
+            p.v.y - v_wall[1] + v_rot[1],
+            p.v.z - v_wall[2] + v_rot[2],
+        ];
+        let props = self.materials.pair_props(p.itype, wall_type);
+        let (fd, _) = contact_forces(
+            &self.normal,
+            &props,
+            &en,
+            sidata_deltan,
+            reff,
+            p.mass,
+            &v_rel,
+            &xci,
+            None,
+            &mut self.wall_shear[w][slot],
+            shearupdate,
+            self.dt,
+        );
+        let p = &mut self.particles[ip];
+        for k in 0..3 {
+            p.force[k] += fd.f[k];
+            p.torque[k] += fd.t[k];
         }
     }
 
@@ -2634,5 +3353,80 @@ mod tests {
         assert_eq!(s.particles()[0].force(), Vec3::zero());
         assert_eq!(s.particles()[0].torque(), Vec3::zero());
         assert_eq!(s.step_count(), 1000);
+    }
+
+    /// The new builders refuse what upstream refuses or what is not ported,
+    /// and the small geometry helpers give their closed-form answers.
+    #[test]
+    fn wall_curvature_and_neighbour_builders_and_helpers() {
+        let p = SuperquadricParticle::new(
+            [m(0.0), m(0.0), m(0.01)],
+            [m(0.004), m(0.003), m(0.0025)],
+            [6.0, 6.0],
+            MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+            [1.0, 0.0, 0.0, 0.0],
+            Vec3::zero(),
+            Vec3::zero(),
+            0,
+        )
+        .unwrap();
+        let mats = MaterialTable::new(&[(1.0e7, 0.3)], &[&[0.5]], &[&[0.4]]).unwrap();
+        let s = SuperquadricSystem::new(vec![p], mats, Time::new::<second>(1e-5)).unwrap();
+        let cyl = |axis, radius, wall_type| SuperquadricCylinderWall {
+            axis,
+            radius,
+            center: [0.0, 0.0],
+            wall_type,
+        };
+        assert!(s.clone().with_cylinder_wall(cyl(3, 0.01, 0)).is_err());
+        assert!(s.clone().with_cylinder_wall(cyl(2, 0.0, 0)).is_err());
+        assert!(s.clone().with_cylinder_wall(cyl(2, 0.01, 1)).is_err());
+        assert!(s
+            .clone()
+            .with_curvature_limit(-1.0, CurvatureKind::Mean)
+            .is_err());
+        let off = s
+            .clone()
+            .with_curvature_limit(0.0, CurvatureKind::Mean)
+            .unwrap();
+        assert!(off.curvature.is_none());
+        let lo = Vec3::new(-0.05, -0.05, -0.05);
+        let hi = Vec3::new(0.05, 0.05, 0.05);
+        let cfg = LiggghtsNeighbor::new(lo, hi, 0.002).unwrap();
+        // LIGGGHTS' default atom sort is on: refused for superquadrics
+        assert!(s.clone().with_neighbor_list(cfg, 1, true).is_err());
+        let mut cfg0 = cfg;
+        cfg0.sort_every = 0;
+        assert!(s.clone().with_neighbor_list(cfg0, 0, true).is_err());
+        let mut cfg2 = cfg0;
+        cfg2.contact_distance_factor = 1.1;
+        assert!(s.clone().with_neighbor_list(cfg2, 1, true).is_err());
+        assert!(s.clone().with_neighbor_list(cfg0, 1, true).is_ok());
+
+        // Cylinder<2>: inside at r = 3 mm of a 10 mm cylinder, gap 7 mm - radius
+        let w = cyl(2, 0.01, 0);
+        let (gap, delta) = cylinder_resolve_contact(&w, &[0.003, 0.0, 0.5], 0.001);
+        assert!((gap - 0.006).abs() < 1e-15);
+        assert!((delta[0] - 0.007).abs() < 1e-15 && delta[1] == 0.0 && delta[2] == 0.0);
+        // on the axis: upstream's zero-distance guard
+        assert_eq!(
+            cylinder_resolve_contact(&w, &[0.0, 0.0, 0.5], 0.001),
+            (0.0, [0.0; 3])
+        );
+        // isInElement on the unit right triangle
+        let nd = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
+        assert!(is_in_element(&nd, &[0.2, 0.2, 0.0]));
+        assert!(!is_in_element(&nd, &[0.8, 0.8, 0.0]));
+        // get_effective_radius: min(1 / keff, rmax), rmax for a flat surface
+        assert_eq!(effective_radius_limited(1.0, 0.5), 0.5);
+        assert_eq!(effective_radius_limited(4.0, 0.5), 0.25);
+        // a sphere (n = 2, a = b = c = r) has mean curvature 1/r and Gaussian
+        // curvature 1/r^2, whose square root the routine returns
+        let r = 0.002;
+        let sq = Sq::set([0.0; 3], &[1.0, 0.0, 0.0, 0.0], [r, r, r], [2.0, 2.0]);
+        let km = sq.calc_curvature_coefficient(false, &[0.003, 0.001, -0.001]);
+        let kg = sq.calc_curvature_coefficient(true, &[0.003, 0.001, -0.001]);
+        assert!((km * r - 1.0).abs() < 1e-12, "{km}");
+        assert!((kg * r - 1.0).abs() < 1e-12, "{kg}");
     }
 }

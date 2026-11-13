@@ -62,3 +62,9 @@ The `rm` matters: with the objects of the default build left in
 The build takes about 10 minutes on 3 cores, and the result lists
 `nve/superquadric`, `particletemplate/superquadric` and `erotate/superquadric`.
 The scratch copy was deleted once the references were committed.
+
+Rebuilt the same way on 2026-11-13 for the second superquadric pass
+(gh:#1415: `in.sq_cyl`, `in.sq_mesh`, `in.sq_ridge`, `in.sq_curv_mean`,
+`in.sq_curv_gauss`, `in.sq_pile_check`, `in.sq_pile_every`). As a check of the
+recipe, the rebuilt binary reproduced the committed `sq_drop.csv` byte for
+byte. The scratch copy was deleted again.

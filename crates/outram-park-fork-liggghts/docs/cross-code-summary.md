@@ -390,8 +390,9 @@ in `verification-and-validation.md` section 4.2.
   liquid-bridge models (pairs, and since gh:#1487 walls) are ported and
   cross-coded (`docs/verification-and-validation.md` § 4.11). ~~Superquadrics,
   fibres and CFD-DEM coupling are neither ported nor compared.~~ **CORRECTED
-  2026-11-13 (gh:#1415):** superquadrics (plane walls, pairs, `nve/superquadric`)
-  are ported and compared (§ 4.17); fibres and CFD-DEM coupling are neither
+  2026-11-13 (gh:#1415):** superquadrics (plane walls, pairs, `nve/superquadric`;
+  and, the same day, cylinder and mesh walls, the curvature-limited radius and
+  the neighbour list, § 4.17.1) are ported and compared (§ 4.17); fibres and CFD-DEM coupling are neither
   ported nor compared.
 - **Bookkeeping axes unsigned.** Both axes of the crate README's
   `## Bookkeeping status` block remain **not yet manually checked**. Nothing in
@@ -448,7 +449,8 @@ test's `///` doc):
 | servo `fix_modify` `integrate`, `vel_max`, `target_val`, `ctrlParam`, `ratio` (gh:#1510) | `mesh_stress.rs` (`MeshServo::modify_param`) | `mesh_servo_cross_code.rs` (`in.mesh_servo_modify`, `in.mesh_servo_auto_modify`) | **10 014 / 10 014** and **10 002 / 10 002** bit-identical; without the `fix_modify` 2 394 and 1 608 values differ (V&V 4.14) |
 | `wear finnie` and per-facet `sigma_n`/`sigma_t` on a ROTATING mesh: area refresh at re-neighbouring, per-step `clearReverse` of `f`/`wear_step` (gh:#1512) | `mesh_wall.rs` (`MovingBoundary::refresh_mesh`), `mesh_stress.rs` (`MeshStress::clear_reverse`) | `mesh_stress_cross_code.rs` (`in.mesh_wear_rot`; per-facet values from an instrumented scratch build) | **5 743 / 5 743** bit-identical, facet areas included; before the change 637 differ; control (stale areas) 217 / 5 583 differ (V&V 4.15) |
 | `fix multisphere` + `particletemplate/multisphere` rigid clumps (MC template, insertion, clump-wall and clump-clump contact, rigid-body integration) and the `massflow/mesh` volume weight (gh:#1415) | `multisphere.rs`, `insert.rs`, `granular_system.rs`, `massflow.rs` | `multisphere_cross_code.rs` (`in.ms_drop`, `in.ms_collide`, `in.ms_massflow`) | **27 / 27**, **70 / 70**, **98 / 98** atom-frames and **25 / 25** massflow totals bit-identical (V&V 4.16) |
-| superquadric particles: `set` mass properties, `nve/superquadric` (scheme 1), plane-wall and pair contact detection (OBB, Newton contact point, line-surface overlap), Hertz + history at the contact point (gh:#1415; upstream rebuilt with `-DSUPERQUADRIC_ACTIVE_FLAG`) | `superquadric.rs` | `superquadric_cross_code.rs` (`in.sq_drop`, `in.sq_collide`) | **36 / 130** and **116 / 260** values bit-identical, worst relative `3.5e-12` and `2.4e-10`; cause libm vs glibc `cbrt` (A/B: **130 / 130** and **260 / 260** with glibc maths), pinned (V&V 4.17) |
+| superquadric particles: `set` mass properties, `nve/superquadric` (scheme 1), plane-wall and pair contact detection (OBB, Newton contact point, line-surface overlap), Hertz + history at the contact point (gh:#1415; upstream rebuilt with `-DSUPERQUADRIC_ACTIVE_FLAG`) | `superquadric.rs` | `superquadric_cross_code.rs` (`in.sq_drop`, `in.sq_collide`) | **36 / 130** and **116 / 260** values bit-identical, worst relative `3.5e-12` and `2.4e-10`; cause libm vs glibc ~~`cbrt`~~ `cbrt` and `pow` (CORRECTED 2026-11-13: `cbrt` alone gives 83 / 130 on `sq_drop`) (A/B: **130 / 130** and **260 / 260** with glibc maths), pinned (V&V 4.17) |
+| superquadric cylinder and STL mesh walls (face, edge and corner contacts, inactive edges), curvature-limited radius (mean, Gaussian), upstream neighbour list (`every`/`check` rebuilds, binned pair order, history across separations) (gh:#1415) | `superquadric.rs` | `superquadric_cross_code.rs` (`in.sq_cyl`, `in.sq_mesh`, `in.sq_ridge`, `in.sq_curv_mean`, `in.sq_curv_gauss`, `in.sq_pile_check`, `in.sq_pile_every`) | with glibc maths **every value bit-identical** (130, 130, 130, 260, 260, 1 560, 1 560); committed PETIR maths **91, 41, 44, 65, 63, 379, 379** bit-identical, cause `pow` + `cbrt` (A/B), pinned. **Above the 1e-8 allowance** on `sq_mesh` (last frame, `4.3e-8`), `sq_ridge` (`7.6e-5`) and both piles (chaotic growth to O(1)): pinned exactly and flagged for the maintainer (V&V 4.17.1) |
 
 `tri_mesh_deform` has nothing to translate: upstream's `tri_mesh_deform.h` is
 the single line `typedef TriMesh TriMeshDeformable;` (style

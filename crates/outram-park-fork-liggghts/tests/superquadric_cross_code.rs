@@ -25,7 +25,8 @@
 //!   spin, no gravity, no walls; 10 frames to step 3 000.
 //!
 //! **Pass criterion.** The counts of bit-identical values below, pinned
-//! (gh:#1455), and every other value within `1e-8` relative.
+//! (gh:#1455), and every other value within `1e-8` relative (for the decks
+//! of the second section that exceed it, the worst value pinned exactly).
 //!
 //! **Results** (2026-11-13, Rust 1.99.1, PETIR `RealMath`):
 //!
@@ -40,18 +41,62 @@
 //! glibc's `cbrtf64` alias, because Rust's std `cbrt` resolves to
 //! compiler-builtins' libm, not glibc), both decks are **130 / 130 and
 //! 260 / 260 bit-identical**. With glibc for every call except `cbrt`, the
-//! counts are the PETIR counts above, so the whole residue enters through
-//! `cbrt` in the volume-equivalent radius `cbrt(3V / 4 pi)`, which the wall
-//! and pair Hertz radius use: libm returns `3.72342409315634237e-3` where
-//! glibc returns `3.72342409315634280e-3` (1 ulp) for this blob. The wall
-//! torque then differs in the last bit at the first contact step (734) and
-//! the difference grows through the contact. Pinned per the gh:#1455
+//! counts are the PETIR counts above, so ~~the whole residue enters through
+//! `cbrt`~~ `cbrt` is necessary (**CORRECTED 2026-11-13:** but not the whole
+//! residue: with glibc `cbrt` and libm `pow`, `sq_drop` is 83 / 130; `pow`
+//! and `cbrt` together are needed and suffice for every deck in this file).
+//! The `cbrt` enters in the volume-equivalent radius `cbrt(3V / 4 pi)`, which
+//! the wall and pair Hertz radius use: libm returns `3.72342409315634237e-3`
+//! where glibc returns `3.72342409315634280e-3` (1 ulp) for this blob. The
+//! wall torque then differs in the last bit at the first contact step (734)
+//! and the difference grows through the contact. Pinned per the gh:#1455
 //! decision (keep PETIR's maths).
+//!
+//! ## Walls, curvature and the neighbour list (2026-11-13, V&V 4.17.1)
+//!
+//! Same build, same conversion, same comparison; prediction posted on
+//! gh:#1415 before each first run.
+//!
+//! * `sq_cyl`: the `n1 = 4, n2 = 3` blob thrown, spinning, inside a
+//!   `zcylinder` (r = 12 mm) above a `zplane`; 10 frames to step 15 000.
+//! * `sq_mesh`: the `n = 6` blob onto one flank of the V-groove
+//!   `sq_vgroove.stl` (4 facets), sliding into the crease: face contacts and
+//!   the inactive coplanar diagonal.
+//! * `sq_ridge`: the `n = 6` blob across the ridge of `sq_roof.stl`, tipping
+//!   off: edge contacts (386 edge resolutions chosen over the face).
+//! * `sq_curv_mean`, `sq_curv_gauss`: `sq_collide`'s blobs under gravity above
+//!   a `zplane`, `curvatureLimitFactor 1.5` with mean or Gaussian curvature.
+//! * `sq_pile_check`, `sq_pile_every`: twelve blobs pile into a `zcylinder`
+//!   (r = 10 mm) with upstream's neighbour list, `every 1 check yes` and
+//!   `every 4 check no`; 10 frames to step 50 000.
+//!
+//! | deck | PETIR (pinned) | glibc swap | worst relative (PETIR) |
+//! |---|---|---|---|
+//! | `sq_cyl` | **91 / 130** | **130 / 130** | `3.27e-12` |
+//! | `sq_mesh` | **41 / 130** | **130 / 130** | `4.27e-8` (last frame) |
+//! | `sq_ridge` | **44 / 130** | **130 / 130** | `7.62e-5` |
+//! | `sq_curv_mean` | **65 / 260** | **260 / 260** | `2.19e-11` |
+//! | `sq_curv_gauss` | **63 / 260** | **260 / 260** | `1.63e-11` |
+//! | `sq_pile_check` | **379 / 1 560** | **1 560 / 1 560** | `1.88e3` |
+//! | `sq_pile_every` | **379 / 1 560** | **1 560 / 1 560** | `1.88e3` |
+//! | pile, default list, vs `sq_pile_check` | 379 / 1 560 | 624 / 1 560 | `1.88e3` |
+//!
+//! The swap routes `pow` and `cbrt` (both needed, both sufficient) to glibc;
+//! the last row shows the swap telling the default list from upstream's.
+//! **`sq_mesh`, `sq_ridge` and the piles exceed the 1e-8 allowance with
+//! PETIR's maths:** an unstable tip-over and a settling pile grow the 1-ulp
+//! seed exponentially (pile: `2e-12` at step 5 000, `2.5e-6` at 10 000).
+//! Their worst differences are pinned exactly as regressions and flagged on
+//! gh:#1415 for a maintainer decision. The late frames are verified only by
+//! the glibc swap, which this file does not run.
 
 use outram_park_fork_liggghts::granular::MaterialTable;
+use outram_park_fork_liggghts::mesh_wall::MeshWall;
+use outram_park_fork_liggghts::neighbor_list::LiggghtsNeighbor;
 use outram_park_fork_liggghts::particle::Vec3;
 use outram_park_fork_liggghts::superquadric::{
-    SuperquadricParticle, SuperquadricPlaneWall, SuperquadricSystem,
+    CurvatureKind, SuperquadricCylinderWall, SuperquadricParticle, SuperquadricPlaneWall,
+    SuperquadricSystem,
 };
 use uom::si::f64::{Length, MassDensity, Time};
 use uom::si::{length::meter, mass_density::kilogram_per_cubic_meter, time::second};
@@ -127,6 +172,7 @@ fn compare(
     for (k, chunk) in refs.chunks(np).enumerate() {
         let step = chunk[0].0;
         sys.run(step - sys.step_count());
+        let mut frame_worst: f64 = 0.0;
         for (ip, (_, want)) in chunk.iter().enumerate() {
             let got = values(&sys.particles()[ip]);
             for c in 0..13 {
@@ -136,6 +182,7 @@ fn compare(
                 } else {
                     let rel = (got[c] - want[c]).abs() / want[c].abs().max(1e-300);
                     worst = worst.max(rel);
+                    frame_worst = frame_worst.max(rel);
                     if k < 3 {
                         eprintln!(
                             "step {step} atom {ip} col {c}: {:e} vs {:e}",
@@ -145,6 +192,7 @@ fn compare(
                 }
             }
         }
+        eprintln!("  step {step}: worst relative difference {frame_worst:e}");
     }
     (same, total, worst)
 }
@@ -207,4 +255,309 @@ fn sq_collide_against_liggghts() {
     assert_eq!(total, 260);
     assert_eq!(same, COLLIDE_BIT_IDENTICAL);
     assert!(worst < 1e-8, "{worst:e}");
+}
+
+/// Bit-identical values of `sq_mesh` (of 10 frames x 13 values).
+const MESH_BIT_IDENTICAL: usize = 41;
+/// Worst relative difference of `sq_mesh`, pinned exactly: above the 1e-8
+/// allowance at the last frame only (step 15 000), flagged on gh:#1415.
+const MESH_WORST: f64 = 4.271630165689369e-8;
+/// Bit-identical values of `sq_cyl` (of 10 frames x 13 values).
+const CYL_BIT_IDENTICAL: usize = 91;
+
+fn blob2(x: [f64; 3], v: Vec3, omega: Vec3) -> SuperquadricParticle {
+    SuperquadricParticle::new(
+        [m(x[0]), m(x[1]), m(x[2])],
+        [m(0.0035), m(0.003), m(0.004)],
+        [4.0, 3.0],
+        rho(1500.0),
+        [0.7, -0.2, 0.5, 0.4],
+        v,
+        omega,
+        0,
+    )
+    .unwrap()
+}
+
+#[test]
+fn sq_mesh_against_liggghts() {
+    let (Some(text), Some(stl)) = (read("sq_mesh.csv"), read("sq_vgroove.stl")) else {
+        eprintln!("sq_mesh.csv or sq_vgroove.stl not found; skipping");
+        return;
+    };
+    let refs = reference(&text);
+    let p = blob1(
+        [-0.006, 0.001, 0.014],
+        Vec3::new(0.05, 0.0, -0.3),
+        Vec3::new(3.0, -2.0, 5.0),
+    );
+    let mesh = MeshWall::from_ascii_stl(&stl).unwrap();
+    assert_eq!(mesh.triangles.len(), 4);
+    let sys = SuperquadricSystem::new(vec![p], materials(), Time::new::<second>(1e-5))
+        .unwrap()
+        .with_mesh_wall(mesh, 0)
+        .unwrap()
+        .with_gravity(9.81, Vec3::new(0.0, 0.0, -1.0))
+        .unwrap();
+    let (same, total, worst) = compare(sys, &refs, 1);
+    eprintln!("sq_mesh: {same}/{total} bit-identical, worst relative difference {worst:e}");
+    assert_eq!(total, 130);
+    assert_eq!(same, MESH_BIT_IDENTICAL);
+    assert_eq!(worst.to_bits(), MESH_WORST.to_bits(), "{worst:e}");
+}
+
+#[test]
+fn sq_cyl_against_liggghts() {
+    let Some(text) = read("sq_cyl.csv") else {
+        eprintln!("sq_cyl.csv not found; skipping");
+        return;
+    };
+    let refs = reference(&text);
+    let p = blob2(
+        [0.003, 0.001, 0.007],
+        Vec3::new(0.4, 0.15, -0.2),
+        Vec3::new(2.0, 0.0, -3.0),
+    );
+    let sys = SuperquadricSystem::new(vec![p], materials(), Time::new::<second>(1e-5))
+        .unwrap()
+        .with_cylinder_wall(SuperquadricCylinderWall {
+            axis: 2,
+            radius: 0.012,
+            center: [0.0, 0.0],
+            wall_type: 0,
+        })
+        .unwrap()
+        .with_plane_wall(SuperquadricPlaneWall {
+            dim: 2,
+            coord: 0.0,
+            wall_type: 0,
+        })
+        .unwrap()
+        .with_gravity(9.81, Vec3::new(0.0, 0.0, -1.0))
+        .unwrap();
+    let (same, total, worst) = compare(sys, &refs, 1);
+    eprintln!("sq_cyl: {same}/{total} bit-identical, worst relative difference {worst:e}");
+    assert_eq!(total, 130);
+    assert_eq!(same, CYL_BIT_IDENTICAL);
+    assert!(worst < 1e-8, "{worst:e}");
+}
+
+/// Bit-identical values of `sq_ridge` (of 10 frames x 13 values).
+const RIDGE_BIT_IDENTICAL: usize = 44;
+/// Worst relative difference of `sq_ridge`, pinned exactly: above the 1e-8
+/// allowance from step 8 000 on (the tip-over off the ridge amplifies the
+/// 1-ulp seed), flagged on gh:#1415.
+const RIDGE_WORST: f64 = 7.621082287507768e-5;
+
+#[test]
+fn sq_ridge_against_liggghts() {
+    let (Some(text), Some(stl)) = (read("sq_ridge.csv"), read("sq_roof.stl")) else {
+        eprintln!("sq_ridge.csv or sq_roof.stl not found; skipping");
+        return;
+    };
+    let refs = reference(&text);
+    let p = blob1(
+        [-0.0005, 0.0, 0.0135],
+        Vec3::new(0.0, 0.02, -0.2),
+        Vec3::new(1.0, 0.0, 2.0),
+    );
+    let mesh = MeshWall::from_ascii_stl(&stl).unwrap();
+    let sys = SuperquadricSystem::new(vec![p], materials(), Time::new::<second>(1e-5))
+        .unwrap()
+        .with_mesh_wall(mesh, 0)
+        .unwrap()
+        .with_gravity(9.81, Vec3::new(0.0, 0.0, -1.0))
+        .unwrap();
+    let (same, total, worst) = compare(sys, &refs, 1);
+    eprintln!("sq_ridge: {same}/{total} bit-identical, worst relative difference {worst:e}");
+    assert_eq!(total, 130);
+    assert_eq!(same, RIDGE_BIT_IDENTICAL);
+    assert_eq!(worst.to_bits(), RIDGE_WORST.to_bits(), "{worst:e}");
+}
+
+/// Bit-identical values of `sq_curv_mean` (of 10 frames x 2 particles x 13 values).
+const CURV_MEAN_BIT_IDENTICAL: usize = 65;
+/// Bit-identical values of `sq_curv_gauss` (of 10 frames x 2 particles x 13 values).
+const CURV_GAUSS_BIT_IDENTICAL: usize = 63;
+
+/// The two blobs of `sq_collide` under gravity above a `zplane` at 4 cm, with
+/// the curvature-limited radius (`curvatureLimitFactor 1.5`).
+fn curvature_system(kind: CurvatureKind) -> SuperquadricSystem {
+    let a = blob1(
+        [-0.006, 0.0, 0.05],
+        Vec3::new(0.4, 0.0, 0.0),
+        Vec3::new(0.0, 4.0, 0.0),
+    );
+    let b = blob2(
+        [0.006, 0.0015, 0.051],
+        Vec3::new(-0.4, 0.0, 0.0),
+        Vec3::new(2.0, 0.0, -3.0),
+    );
+    SuperquadricSystem::new(vec![a, b], materials(), Time::new::<second>(1e-5))
+        .unwrap()
+        .with_curvature_limit(1.5, kind)
+        .unwrap()
+        .with_plane_wall(SuperquadricPlaneWall {
+            dim: 2,
+            coord: 0.04,
+            wall_type: 0,
+        })
+        .unwrap()
+        .with_gravity(9.81, Vec3::new(0.0, 0.0, -1.0))
+        .unwrap()
+}
+
+#[test]
+fn sq_curv_mean_against_liggghts() {
+    let Some(text) = read("sq_curv_mean.csv") else {
+        eprintln!("sq_curv_mean.csv not found; skipping");
+        return;
+    };
+    let refs = reference(&text);
+    let (same, total, worst) = compare(curvature_system(CurvatureKind::Mean), &refs, 2);
+    eprintln!("sq_curv_mean: {same}/{total} bit-identical, worst relative difference {worst:e}");
+    assert_eq!(total, 260);
+    assert_eq!(same, CURV_MEAN_BIT_IDENTICAL);
+    assert!(worst < 1e-8, "{worst:e}");
+}
+
+#[test]
+fn sq_curv_gauss_against_liggghts() {
+    let Some(text) = read("sq_curv_gauss.csv") else {
+        eprintln!("sq_curv_gauss.csv not found; skipping");
+        return;
+    };
+    let refs = reference(&text);
+    let (same, total, worst) = compare(curvature_system(CurvatureKind::Gaussian), &refs, 2);
+    eprintln!("sq_curv_gauss: {same}/{total} bit-identical, worst relative difference {worst:e}");
+    assert_eq!(total, 260);
+    assert_eq!(same, CURV_GAUSS_BIT_IDENTICAL);
+    assert!(worst < 1e-8, "{worst:e}");
+}
+
+/// Bit-identical values of `sq_pile_check` (of 10 frames x 12 particles x 13 values).
+const PILE_CHECK_BIT_IDENTICAL: usize = 379;
+/// Worst relative difference of `sq_pile_check`, pinned exactly (chaotic
+/// growth of the 1-ulp seed through the pile; flagged on gh:#1415).
+const PILE_CHECK_WORST: f64 = 1.8842629973807666e3;
+/// Bit-identical values of `sq_pile_every` (of 10 frames x 12 particles x 13 values).
+const PILE_EVERY_BIT_IDENTICAL: usize = 379;
+/// Worst relative difference of `sq_pile_every`, pinned exactly (as above).
+const PILE_EVERY_WORST: f64 = 1.8771254436714182e3;
+/// Bit-identical values of the pile through the default list, against
+/// `sq_pile_check.csv`, and its worst relative difference, pinned exactly.
+const PILE_DEFAULT_BIT_IDENTICAL: usize = 379;
+const PILE_DEFAULT_WORST: f64 = 1.884297229626523e3;
+
+/// The twelve stacked blobs of `sq_pile_*` in the cylinder, with upstream's
+/// neighbour list (`neighbor 0.002 bin` over the deck's box) rebuilt per
+/// `every` / `check`; `None` keeps the default list.
+fn pile_system(neigh: Option<(u64, bool)>) -> SuperquadricSystem {
+    let offsets = [
+        [-0.0025, 0.0025],
+        [0.0025, -0.0025],
+        [0.0025, 0.0025],
+        [-0.0025, -0.0025],
+        [0.0, 0.0025],
+        [0.0025, 0.0],
+        [-0.0025, 0.0],
+        [0.0, -0.0025],
+        [-0.0025, 0.0025],
+        [0.0025, -0.0025],
+        [0.0025, 0.0025],
+        [-0.0025, -0.0025],
+    ];
+    // the deck's heights, printed with %.4f from 0.008 + 0.0115 k
+    let z = [
+        0.008, 0.0195, 0.031, 0.0425, 0.054, 0.0655, 0.077, 0.0885, 0.1, 0.1115, 0.123, 0.1345,
+    ];
+    let particles: Vec<SuperquadricParticle> = offsets
+        .iter()
+        .zip(z)
+        .enumerate()
+        .map(|(k, (o, z))| {
+            let x = [o[0], o[1], z];
+            if k % 2 == 0 {
+                blob1(x, Vec3::new(0.05, -0.03, 0.0), Vec3::new(2.0, -1.0, 3.0))
+            } else {
+                blob2(x, Vec3::new(-0.04, 0.02, 0.0), Vec3::new(-1.0, 2.0, -2.0))
+            }
+        })
+        .collect();
+    let mut sys = SuperquadricSystem::new(particles, materials(), Time::new::<second>(1e-5))
+        .unwrap()
+        .with_cylinder_wall(SuperquadricCylinderWall {
+            axis: 2,
+            radius: 0.010,
+            center: [0.0, 0.0],
+            wall_type: 0,
+        })
+        .unwrap()
+        .with_plane_wall(SuperquadricPlaneWall {
+            dim: 2,
+            coord: 0.0,
+            wall_type: 0,
+        })
+        .unwrap()
+        .with_gravity(9.81, Vec3::new(0.0, 0.0, -1.0))
+        .unwrap();
+    if let Some((every, check)) = neigh {
+        let mut cfg = LiggghtsNeighbor::new(
+            Vec3::new(-0.05, -0.05, -0.005),
+            Vec3::new(0.05, 0.05, 0.15),
+            0.002,
+        )
+        .unwrap();
+        cfg.sort_every = 0;
+        sys = sys.with_neighbor_list(cfg, every, check).unwrap();
+    }
+    sys
+}
+
+#[test]
+fn sq_pile_check_against_liggghts() {
+    let Some(text) = read("sq_pile_check.csv") else {
+        eprintln!("sq_pile_check.csv not found; skipping");
+        return;
+    };
+    let refs = reference(&text);
+    let (same, total, worst) = compare(pile_system(Some((1, true))), &refs, 12);
+    eprintln!("sq_pile_check: {same}/{total} bit-identical, worst relative difference {worst:e}");
+    assert_eq!(total, 1560);
+    assert_eq!(same, PILE_CHECK_BIT_IDENTICAL);
+    assert_eq!(worst.to_bits(), PILE_CHECK_WORST.to_bits(), "{worst:e}");
+}
+
+#[test]
+fn sq_pile_every_against_liggghts() {
+    let Some(text) = read("sq_pile_every.csv") else {
+        eprintln!("sq_pile_every.csv not found; skipping");
+        return;
+    };
+    let refs = reference(&text);
+    let (same, total, worst) = compare(pile_system(Some((4, false))), &refs, 12);
+    eprintln!("sq_pile_every: {same}/{total} bit-identical, worst relative difference {worst:e}");
+    assert_eq!(total, 1560);
+    assert_eq!(same, PILE_EVERY_BIT_IDENTICAL);
+    assert_eq!(worst.to_bits(), PILE_EVERY_WORST.to_bits(), "{worst:e}");
+}
+
+/// The same pile through the default list (every pair `i < j` in index
+/// order, history dropped when the bounding spheres part): shows what the
+/// binned order and the history life of [`SuperquadricSystem::with_neighbor_list`]
+/// change on this deck.
+#[test]
+fn sq_pile_default_list_against_liggghts() {
+    let Some(text) = read("sq_pile_check.csv") else {
+        eprintln!("sq_pile_check.csv not found; skipping");
+        return;
+    };
+    let refs = reference(&text);
+    let (same, total, worst) = compare(pile_system(None), &refs, 12);
+    eprintln!(
+        "sq_pile default list: {same}/{total} bit-identical, worst relative difference {worst:e}"
+    );
+    assert_eq!(total, 1560);
+    assert_eq!(same, PILE_DEFAULT_BIT_IDENTICAL);
+    assert_eq!(worst.to_bits(), PILE_DEFAULT_WORST.to_bits(), "{worst:e}");
 }

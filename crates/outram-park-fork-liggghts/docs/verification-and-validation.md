@@ -1978,16 +1978,22 @@ glibc on every call, and bit-identical under a glibc swap.
 | `sq_drop` | **36 / 130** values bit-identical; frames 1 and 500 whole, the first differing frame is step 1000 (first wall contact at step 734) | **130 / 130** | `3.50e-12` |
 | `sq_collide` | **116 / 260**; frames 1, 200 and 400 whole, the first differing frame is step 600 | **260 / 260** | `2.39e-10` |
 
-**The translation is exact; the residue is `cbrt`.**
+**The translation is exact; the residue is ~~`cbrt`~~ `cbrt` and `pow`
+(CORRECTED 2026-11-13, see the second bullet).**
 - With `pow`, `sin`, `cos`, `exp` and `lgamma` routed to glibc by
   `extern "C"`, and `cbrt` to glibc's `cbrtf64` alias, both decks are
   bit-identical in every value. Rust's std `cbrt` resolves to
   compiler-builtins' libm, not glibc, so it cannot be used for the swap.
 - With glibc for every call except `cbrt`, the counts equal the PETIR counts.
-  The whole residue therefore enters through `cbrt` in the volume-equivalent
-  radius `cbrt(3V / 4 pi)` that the wall and pair Hertz use: libm gives
-  `3.72342409315634237e-3`, glibc `3.72342409315634280e-3` (1 ulp) for the
-  `n = 6` blob.
+  ~~The whole residue therefore enters through `cbrt`~~ **CORRECTED
+  2026-11-13:** `cbrt` is *necessary* but not the whole residue. With glibc
+  `cbrt` and libm `pow`, `sq_drop` gets 83 / 130, not 130 / 130 (`sq_collide`
+  does get 260 / 260). Only `pow` and `cbrt` together are needed: with both
+  routed to glibc every deck is bit-identical (§ 4.17.1). The `pow` ulp was
+  hidden behind the earlier `cbrt` one. The `cbrt` enters in the
+  volume-equivalent radius `cbrt(3V / 4 pi)` that the wall and pair Hertz
+  use: libm gives `3.72342409315634237e-3`, glibc `3.72342409315634280e-3`
+  (1 ulp) for the `n = 6` blob.
 - The first effect is in the last bits of the wall force (`fz`) and torque at
   the first contact step (734), where the state is still bit-identical. This
   was found by per-step dumps of both codes, with upstream's `Hertz` inputs
@@ -2005,24 +2011,161 @@ iterates by more than an ulp (the `sq_collide` worst is `2.4e-10`). Whether a
 longer or denser deck would amplify this into a visibly different trajectory
 was not tested.
 
-**Not ported** (refused or absent):
+**Not ported** (refused or absent) — **SUPERSEDED 2026-11-13** by the list at
+the end of § 4.17.1. The curvature-limited radius, mesh and cylinder walls,
+rebuild intervals and the binned pair order are now ported; they are struck
+through below.
 - `fix particletemplate/superquadric` and insertion of superquadrics
   (`particleToInsertSuperquadric`);
-- the curvature-limited radius (`curvatureLimitFactor`, `meanCurvature`,
-  `gaussianCurvature`; the default 0 is what is ported);
+- ~~the curvature-limited radius (`curvatureLimitFactor`, `meanCurvature`,
+  `gaussianCurvature`; the default 0 is what is ported)~~;
 - rolling-friction models with superquadrics;
-- mesh walls (`resolveTriSuperquadricContact`, `tri_mesh_I_superquadric.h`)
-  and cylinder primitive walls;
+- ~~mesh walls (`resolveTriSuperquadricContact`, `tri_mesh_I_superquadric.h`)
+  and cylinder primitive walls~~;
 - `area_superquadric` (not used by the dynamics) and
   `compute erotate/superquadric`;
 - integration schemes 0, 2, 3 and 4, and the CFD-coupling torque terms;
 - `common_normal` / `minimal_distance` (not called by the surface model);
-- neighbour-list rebuild intervals other than every step (the contact history
+- ~~neighbour-list rebuild intervals other than every step (the contact history
   of a pair is dropped exactly when its bounding spheres separate), and pair
   orders other than `i < j` (upstream's binned order coincides for the two
-  particles here);
+  particles here)~~ (the parenthesis holds for `every 1 check no` only:
+  between rebuilds upstream keeps the history through separations);
 - other normal and tangential models with superquadrics (only Hertz +
   tangential history);
+- convex hull, ellipsoid, line and tri particles.
+
+### 4.17.1 Mesh and cylinder walls, curvature-limited radius, neighbour list (2026-11-13, gh:#1415)
+
+**What is computed.** Three extensions of `SuperquadricSystem`, each a new
+builder; without them the decks above run exactly as before.
+
+- **Cylinder walls.** `with_cylinder_wall`, i.e. `fix wall/gran ... surface
+  superquadric primitive type T x|y|zcylinder r c1 c2`. Upstream has no
+  cylinder-specific superquadric code: `Cylinder<dim>::resolveContact` gives
+  the radial `delta` from the bounding radius, and the particle is cut by the
+  tangent plane through `x + delta`, as for a plane.
+- **STL mesh walls.** `with_mesh_wall` (`fix mesh/surface` + `wall/gran ...
+  mesh`). This is `post_force_mesh`'s superquadric branch: facets in order, a
+  bounding-sphere test against each facet (`sphereTriangleIntersection`, i.e.
+  `pointToTriangleDistance` without active flags), then
+  `resolveTriSuperquadricContact` (`tri_mesh_I_superquadric.h`). That routine
+  runs `plane_intersection` on the facet plane, then
+  `superquadricTriangleIntersection` (`isInElement`, the node test,
+  golden-section `edge_intersection`). It takes the face overlap
+  (`point_wall_projection`), or, when the face test is not decisive, an edge
+  or corner contact: `line_intersection` on the three edges, the
+  `edgeActive`/`cornerActive` check, the gradient normal made orthogonal to
+  the edge, and `surface_line_intersection1`. The history is kept per
+  (particle, facet) while `deltan <= 0` (`handleContact(..., faceflag =
+  false)`). Facet geometry and edge and corner activity are reused from
+  `tri_mesh.rs` (`TriMeshState`).
+- **Curvature-limited radius.** `with_curvature_limit(f, Mean | Gaussian)`
+  (`surface superquadric curvatureLimitFactor f meanCurvature|gaussianCurvature
+  yes`). `calc_curvature_coefficient` at the two surface points of
+  `extended_overlap_algorithm` (pair) or at the contact point (wall), then
+  `get_effective_radius` / `get_effective_radius_wall`. Upstream's default is
+  off, and so is this builder's.
+- **Neighbour list.** `with_neighbor_list(LiggghtsNeighbor, every, check)`.
+  It runs `Neighbor::decide` and `granular_bin_no_newton` on the bounding
+  radii (reusing `neighbor_list.rs`), and visits pairs in the binned list
+  order. Contact history follows upstream:
+  - Between rebuilds a pair's history persists whatever the separation. Only
+    the tangential spring is zeroed, by `surfacesClose`.
+  - A rebuild keeps a history only where the bounding spheres overlap
+    (`neigh_gran.cpp`). The contact flag that also gates this is always set
+    for a superquadric pair once its bounding spheres have overlapped, because
+    Hertz's `surfacesClose` sets it.
+
+  It refuses an atom sort (`sort_every != 0`, not ported for superquadrics)
+  and a contact distance factor other than 1.
+
+**Decks** (same build, settings as above unless stated; `make_superquadric_decks.sh`):
+
+| deck | what it exercises |
+|---|---|
+| `in.sq_cyl` | the `n1 = 4, n2 = 3` blob thrown, spinning, inside a `zcylinder` (r = 12 mm) above a `zplane` floor; 10 frames to step 15 000 |
+| `in.sq_mesh` | the `n = 6` blob falls onto one flank of a 4-facet V-groove (`sq_vgroove.stl`), slides into the crease and touches both flanks: face contacts and the inactive coplanar diagonal (counted: 4 397 face resolutions, 201 inactive-edge returns) |
+| `in.sq_ridge` | the `n = 6` blob lands across the ridge of `sq_roof.stl` and tips off: **edge contacts** (counted: 386 edge resolutions chosen over the face, 146 face resolutions with flag 2, 672 inactive-edge returns) |
+| `in.sq_curv_mean`, `in.sq_curv_gauss` | `sq_collide`'s two blobs under gravity above a `zplane` 1 cm below, `curvatureLimitFactor 1.5` with mean or Gaussian curvature on the pair and the wall; 10 frames to step 8 000 |
+| `in.sq_pile_check`, `in.sq_pile_every` | twelve blobs (both shapes, alternately) stacked with offsets fall into a `zcylinder` (r = 10 mm) and pile two to three bodies deep; `neigh_modify delay 0 every 1 check yes` (128 builds) and `every 4 check no` (12 500 builds); 10 frames to step 50 000 |
+
+The branch counts come from temporary counters in a scratch copy, which were
+not committed.
+
+**Predictions** were posted on gh:#1415 before each target's first run. For
+every deck: bit-identical under a glibc swap; with PETIR's maths, pinned
+counts, with the residue in the libm calls.
+
+**Results** (2026-11-13, Rust 1.99.1, `tests/superquadric_cross_code.rs`; values
+bit-identical / total; worst relative difference with PETIR's maths):
+
+| deck | PETIR `RealMath` (committed) | glibc swap (all six calls) | glibc `pow` + `cbrt` only | worst relative (PETIR) |
+|---|---|---|---|---|
+| `sq_cyl` | **91 / 130** | **130 / 130** | 130 / 130 | `3.27e-12` |
+| `sq_mesh` | **41 / 130** | **130 / 130** | 130 / 130 | `4.27e-8` (step 15 000 only; `1.5e-10` at step 10 000) |
+| `sq_ridge` | **44 / 130** | **130 / 130** | 130 / 130 | `7.62e-5` (`4e-12` at step 4 000, `3.2e-9` at 6 000, `7.5e-8` at 8 000) |
+| `sq_curv_mean` | **65 / 260** | **260 / 260** | 260 / 260 | `2.19e-11` |
+| `sq_curv_gauss` | **63 / 260** | **260 / 260** | 260 / 260 | `1.63e-11` |
+| `sq_pile_check` | **379 / 1 560** | **1 560 / 1 560** | 1 560 / 1 560 | `1.9e3` (`2.0e-12` at step 5 000, `2.5e-6` at 10 000, O(1) from 15 000) |
+| `sq_pile_every` | **379 / 1 560** | **1 560 / 1 560** | 1 560 / 1 560 | `1.9e3` (as above) |
+
+**Every deck is bit-identical under the glibc swap on its first run.** No
+arithmetic was changed after a comparison. That includes the edge-contact path
+of the mesh and the binned order with history kept across separations.
+
+**The swap discriminates the new list.** With glibc maths the pile run through
+the *default* list (every pair `i < j`, history dropped as the bounding spheres
+part) gets only **624 / 1 560** against `sq_pile_check.csv`, with a worst
+relative difference of `2.3`. Through `with_neighbor_list` it gets
+**1 560 / 1 560**. With PETIR's maths both give 379, because the libm seed
+dominates.
+
+**The residue is `pow` and `cbrt`, and it is amplified by the dynamics.**
+- Routing only `pow` and `cbrt` to glibc makes every deck bit-identical.
+- `cbrt` alone is not enough for most decks. With glibc `cbrt` but libm
+  `pow`: `sq_drop` 83 / 130, `sq_collide` 260 / 260, `sq_cyl` 91 / 130,
+  `sq_mesh` 96 / 130, `sq_ridge` 96 / 130, `sq_curv_mean` 77 / 260,
+  `sq_curv_gauss` 247 / 260.
+- `pow` enters wherever `pow_abs` has a fractional exponent: the `n1 = 4,
+  n2 = 3` blob's shape function and every `plane_intersection`.
+
+**The 1e-8 allowance is exceeded on three decks, and this needs a maintainer
+decision.**
+- **What happens.** `sq_mesh`'s last frame, `sq_ridge` from step 8 000, and
+  both piles from step 10 000 go past 1e-8. A ridge tip-over and a settling
+  pile are unstable, so the 1-ulp seed grows exponentially, as the per-frame
+  worst values above show.
+- **Why this is not a translation error.** The cause is understood and proved
+  by the swap, and the translation is bit-identical with the same maths.
+- **What the tests assert.** They pin these decks' counts and their worst
+  relative difference *exactly* (`to_bits`), as regression pins. They do not
+  claim agreement within 1e-8.
+- **What the PETIR-maths decks verify.** Only the early frames, before the
+  growth. The bit-identity evidence for the late frames is the glibc swap,
+  which is not part of the committed suite.
+- **Options for the maintainer:**
+  - accept these pins under gh:#1455;
+  - add a test-only glibc maths seam, so the swap result is gated;
+  - shorten the decks. This was not done: it would choose the instrument
+    after seeing the result.
+
+**Not ported** (refused or absent), replacing the list above:
+- `fix particletemplate/superquadric` and insertion of superquadrics
+  (`particleToInsertSuperquadric`);
+- rolling-friction models with superquadrics;
+- moving meshes with superquadrics (the barycentric wall velocity is not
+  computed: `with_mesh_wall` takes a static `MeshWall`), `fix
+  mesh/surface/stress` force accounting on the mesh, and coplanar history
+  copying (not used by `faceflag = false`);
+- the superquadric atom sort (`atom_modify sort` other than `0 0` is refused by
+  `with_neighbor_list`), `neigh_modify delay > 0`, a contact distance factor
+  other than 1, and fix-requested rebuilds;
+- `area_superquadric` (not used by the dynamics) and `compute
+  erotate/superquadric`;
+- integration schemes 0, 2, 3 and 4, and the CFD-coupling torque terms;
+- `common_normal` / `minimal_distance` (not called by the surface model);
+- other normal and tangential models with superquadrics;
 - convex hull, ellipsoid, line and tri particles.
 
 ## 5. What is still NOT validated
