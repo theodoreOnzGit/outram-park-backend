@@ -184,6 +184,7 @@ pub static N_DODECANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.94e-10,
             qd: 657894736.842,
             t_ref: -1.0,
+            p_reducing: 1817000.0,
         }),
     }),
 };

@@ -204,6 +204,7 @@ pub static R134A_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.94e-10,
             qd: 1892020000.0,
             t_ref: -1.0,
+            p_reducing: 4059280.0,
         }),
     }),
 };

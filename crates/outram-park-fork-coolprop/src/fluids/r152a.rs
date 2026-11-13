@@ -186,6 +186,7 @@ pub static R152A_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.894e-10,
             qd: 2288329519.45,
             t_ref: -1.0,
+            p_reducing: 4520000.0,
         }),
     }),
 };

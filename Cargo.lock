@@ -7561,6 +7561,7 @@ name = "outram-park-fork-coolprop"
 version = "0.1.4"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "petir",
  "uom",

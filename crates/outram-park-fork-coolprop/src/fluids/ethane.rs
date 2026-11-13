@@ -199,6 +199,7 @@ pub static ETHANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.9e-10,
             qd: 1834862385.3,
             t_ref: -1.0,
+            p_reducing: 4872200.0,
         }),
     }),
 };
