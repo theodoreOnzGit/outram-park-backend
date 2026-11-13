@@ -1088,6 +1088,7 @@ dependencies = [
  "indicatif",
  "itertools 0.15.0",
  "log",
+ "miniz_oxide 0.8.9",
  "openmc-endf-8-depletion-lib-b",
  "outram-mc-libs",
  "petir",

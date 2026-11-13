@@ -15,6 +15,17 @@ use rb::geometry::Mesh0D;
 use rb::particle::Particle;
 use rb::{BulkBindingModel, ElectronicStoppingMode, InteractionPotential, Options, ScatteringIntegral, SurfaceBindingModel};
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// When set, `cascade_lines` writes EVERY output particle and EVERY trajectory
+/// entry (about 63 MB for the whole run) instead of the committed reduced form.
+/// Used to localise a mismatch; the committed reference is the reduced form.
+static FULL: AtomicBool = AtomicBool::new(false);
+
+pub fn set_full(on: bool) {
+    FULL.store(on, Ordering::Relaxed);
+}
+
 fn h(v: f64) -> String {
     format!("{:016x}", v.to_bits())
 }
@@ -191,9 +202,10 @@ fn one_cascade_lines(case: usize, pi: usize, ti: usize, e: f64, mode: Electronic
         let lines = catch(|| {
             let particles = bca::single_ion_bca(p, &material, &options, &mut rng);
             let mut v = vec![format!("N {case} {ion} {}", particles.len())];
+            let mut digest: u64 = 0xcbf2_9ce4_8422_2325;
             for (k, q) in particles.iter().enumerate() {
                 let flags = (q.incident as u8) | ((q.left as u8) << 1) | ((q.stopped as u8) << 2) | ((q.backreflected as u8) << 3);
-                v.push(format!(
+                let line = format!(
                     "P {case} {ion} {k} {} {} {} {} {} {} {} {} {} {flags} {} {} {}",
                     h(q.Z),
                     h(q.m),
@@ -207,11 +219,34 @@ fn one_cascade_lines(case: usize, pi: usize, ti: usize, e: f64, mode: Electronic
                     q.number_collision_events,
                     q.trajectory.len(),
                     h(q.asymptotic_deflection)
-                ));
-                for (j, t) in q.trajectory.iter().enumerate() {
-                    v.push(format!("T {case} {ion} {k} {j} {} {} {} {}", h(t.E), h(t.x), h(t.y), h(t.z)));
+                );
+                // Every particle goes into the digest; only the incident ion and the
+                // particles that left (reflected, sputtered) are written out in full,
+                // which keeps the committed reference small (the full dump is ~63 MB).
+                for b in line.bytes() {
+                    digest ^= u64::from(b);
+                    digest = digest.wrapping_mul(0x0000_0100_0000_01b3);
+                }
+                if q.incident || q.left || FULL.load(Ordering::Relaxed) {
+                    v.push(line);
+                    // Collision-by-collision trajectory: digest of all entries, and the
+                    // first and last five in full.
+                    let n_t = q.trajectory.len();
+                    let mut tdigest: u64 = 0xcbf2_9ce4_8422_2325;
+                    for (j, t) in q.trajectory.iter().enumerate() {
+                        let tl = format!("T {case} {ion} {k} {j} {} {} {} {}", h(t.E), h(t.x), h(t.y), h(t.z));
+                        for b in tl.bytes() {
+                            tdigest ^= u64::from(b);
+                            tdigest = tdigest.wrapping_mul(0x0000_0100_0000_01b3);
+                        }
+                        if j < 5 || j + 5 >= n_t || FULL.load(Ordering::Relaxed) {
+                            v.push(tl);
+                        }
+                    }
+                    v.push(format!("U {case} {ion} {k} {n_t} {tdigest:016x}"));
                 }
             }
+            v.push(format!("D {case} {ion} {digest:016x}"));
             v
         });
         for l in lines {

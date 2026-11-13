@@ -6,7 +6,7 @@ re-exports it as `boon_lay::rustbca` (GitHub issue #876, item 7).
 | | |
 |---|---|
 | Upstream | `lcpp-org/RustBCA`, <https://github.com/lcpp-org/RustBCA> |
-| Version, commit | v3.0.0, `a356280d564bbdfbe74b97f32db0776444da58a5` (2026-10-02) |
+| Version, commit | ~~v3.0.0, `a356280d564bbdfbe74b97f32db0776444da58a5` (2026-10-02)~~ **CORRECTED 2026-11-13 (gh:#1426)** — `a356280d` is a commit on upstream `main` **17 commits after** the `v3.0.0` tag (`673bd3f2b907b14517a6b3cafa1c5372a5eb4ae2`; verified `git merge-base --is-ancestor v3.0.0 a356280d`). The two differ in `src/` only in `consts.rs`/`geometry.rs`/`sphere.rs`/`parry.rs` (a `MAX_DENSITY` check the copy has and the tag lacks) and `input.rs` (the tag multiplies sampled direction cosines by `length_unit`, upstream PR #345 removes that); `bca.rs`, `interactions.rs`, `material.rs`, `particle.rs`, `physics.rs`, `math.rs`, `structs.rs` and `enums.rs` are byte-identical. The copy is `a356280d564bbdfbe74b97f32db0776444da58a5` (2026-10-02), i.e. v3.0.0 plus 17 commits. |
 | Authors | "Jon Drobny <drobny2@illinois.edu>", "Jon Drobny <jdrobny@tae.com>" (upstream `Cargo.toml` `authors`). The paper's authors are Jon T. Drobny and Davide Curreli. Upstream states no copyright line. |
 | Paper | J. T. Drobny and D. Curreli, "RustBCA: A High-Performance Binary-Collision-Approximation Code for Ion-Material Interactions", *Journal of Open Source Software* 6(64), 3298 (2021), doi:10.21105/joss.03298 |
 | Licence | GNU GPL v3. Upstream's `LICENSE` is copied beside this file. |

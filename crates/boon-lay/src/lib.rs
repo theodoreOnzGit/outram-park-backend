@@ -20,8 +20,8 @@ pub mod prelude;
 
 /// **A copy of RustBCA, not boon-lay's own code** — the binary-collision
 /// Monte Carlo for ions and the recoils they knock on (fission fragments,
-/// alphas, recoil knock-ons), copied from `lcpp-org/RustBCA` v3.0.0
-/// (`a356280d`, GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
+/// alphas, recoil knock-ons), copied from `lcpp-org/RustBCA` ~~v3.0.0~~
+/// (`a356280d`, which is v3.0.0 plus 17 commits, gh:#1426; GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
 /// `alloc`. boon-lay re-exports it here (gh:#876, item 7). The module docs
 /// carry the attribution and every local change; fragment results are
 /// illustrative until V&V'd.

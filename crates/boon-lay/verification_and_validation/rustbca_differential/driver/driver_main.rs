@@ -18,6 +18,7 @@ pub fn make_rng(seed: u64, stream: u64) -> Rng8 {
 
 fn main() {
     std::panic::set_hook(Box::new(|_| {}));
+    shared::set_full(std::env::args().any(|a| a == "--full"));
     for l in shared::all_lines() {
         println!("{l}");
     }

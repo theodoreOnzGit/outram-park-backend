@@ -1,0 +1,17 @@
+[package]
+name = "libm_probe"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "libm_probe"
+path = "src/main.rs"
+
+[dependencies]
+libm = { version = "0.2", default-features = false }
+petir = { path = "/home/user/outram-park-backend/.claude/worktrees/agent-ac656867a589d50df/crates/petir" }
+
+[workspace]
+
+[profile.release]
+opt-level = 3
