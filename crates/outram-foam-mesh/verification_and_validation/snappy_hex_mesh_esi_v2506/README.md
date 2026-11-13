@@ -1566,3 +1566,21 @@ committed round 3-7 tests keep passing against their own fixtures).
 - A stricter `meshQualityControls` case: the base quality also drives the snap stage, so changing it
   moves the snapped mesh (a new 500 KB start fixture per case); not built.
 PETIR: the new code adds no transcendental function; 0 libm-dependent values.
+
+# Round 11 (2026-11-13): provenance of the 1-ulp shift, `nOuterIter > 1`
+
+## Task 1: provenance of the round-10 1-ulp shift (disclosed observation, then predictions)
+
+**Disclosed before any prediction (not a blind guess).** The ESI tree was rebuilt again for this round
+(`scripts/upstream/build-esi-v2506-and-genfoam.sh`; gcc 13.3.0 Ubuntu 24.04, glibc 2.39, `-O3`, no
+`-march`, so no FMA contraction in compiled code; CPU has FMA, so glibc's ifunc FMA `libm` variants are
+selected on this host). The base case `snappyHexMeshDict.layers` was run once on this build exactly as
+the round-8/9 recipe says (`blockMesh` with the **ASCII** `controlDict`, `writePrecision 16`, then
+`writeFormat binary`). Result: the time-81 points equal the **OLD** `layer_points_81.bin.gz`
+in 72933 of 72933 components, and differ from round 10's `layer_points_81_r10.bin.gz` in 16613. So the
+shift is **not** this build against the old build; it is round 10's run against this one.
+
+| # | prediction (written before the run) | how it can fail |
+|---|---|---|
+| P69 | Round 10's run used a **binary** `controlDict` when `blockMesh` ran (exact-double background points; round 3's note says this shifts every point by up to 7e-16). Running `blockMesh` with `writeFormat binary` on this build and then `snappyHexMesh` reproduces `layer_points_81_r10.bin.gz` in 72933 of 72933 components (differ count 0). | the shift has another cause (e.g. a different build then) |
+| P70 | Consequently the port, fed the 16-digit ASCII background (as in rounds 3-9), equals this build's time-81 points; fed exact-double background it equals `_r10`. The port is not at fault in either case. | the port's background construction is the same in both |
