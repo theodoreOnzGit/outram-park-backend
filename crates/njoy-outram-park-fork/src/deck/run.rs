@@ -528,13 +528,23 @@ fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         .to_string();
     let req = crate::acer::acefix::AcefixRequest { suff: c.suff, hk: c.hk.clone(), nxtra: c.nxtra, plot: c.ngend != 0 };
     // `acer.f90:508-535`: the class letter of the ZAID picks the fix routine.
-    let thermal = text.lines().next().and_then(|l| l.chars().nth(9)) == Some('t');
-    let out = if thermal { crate::acer::thrfix::thrfix_type1(&text, &req)? } else { crate::acer::acefix::acefix_type1(&text, &req)? };
+    let class = text.lines().next().and_then(|l| l.chars().nth(9));
+    let out = match class {
+        Some('t') => crate::acer::thrfix::thrfix_type1(&text, &req)?,
+        Some('u') => crate::acer::phnfix::phnfix_type1(&text, &req)?,
+        _ => crate::acer::acefix::acefix_type1(&text, &req)?,
+    };
     if c.nace > 0 {
         units.put_text(c.nace, out.ace);
         if c.ndir != 0 {
             units.put_text(c.ndir, out.xsdir);
         }
+    }
+    // `phnfix` writes the table (`phnout`) before it plots (`phnplo`,
+    // `acepn.f90:1952-1954`); the plot is not ported, so the deck stops here,
+    // by name, after the table and directory are on their units.
+    if class == Some('u') && c.ngend != 0 {
+        return Err(NjoyError::NotPorted("ACER iopt = 7 plot file for a photo-nuclear table (phnplo, acepn.f90:2830-3573)"));
     }
     if c.ngend != 0 {
         if let Some(p) = out.plot {

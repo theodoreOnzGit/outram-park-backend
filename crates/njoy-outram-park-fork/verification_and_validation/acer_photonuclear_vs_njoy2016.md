@@ -134,7 +134,30 @@ byte-verified. One description of the structure means the builder cannot
 disagree with the reader about where a locator is, and a table the walk cannot
 traverse is reported as a builder defect rather than written out.
 
-## What is ported, and what refuses
+## Real evaluations, through upstream's own decks (2026-11-13, gh:#1369)
+
+**CORRECTED 2026-11-13:** the table below and "Not covered" describe the
+builder as it was on 2026-09-22. `build.rs` is now a line-for-line translation
+of `acephn` (`acepn.f90:27-1853`). Run from upstream test decks 57 (Bi-209
+ENDF/B-VIII.0), 58 (Co-59 IAEA), 66 (Pu-239 IAEA) and 78 (He-3 IAEA) against
+the local NJOY2016.80, the ACE table (unit 31) and its directory line (32) are
+**identical line for line**: 57 803, 132 970, 259 515 and 3 488 lines. The
+`iopt = 7` rewrite (`phnfix`, units 34 and 35) is identical too. The synthetic
+Z6 gate below still holds byte for byte.
+
+Those tapes exercise what the synthetic one did not: `LCT = 2` and `3`,
+Kalbach-Mann (`LANG = 2`), Legendre `NA` up to 10, MF=6 `LAW = 2` (Co-59's
+discrete levels and He-3's deuteron), LAW=1 and LAW=0 recoils, MT=102 capture,
+the MF=1 nubar replacing MT=18's yield (Pu-239), and a PENDF from RECONR whose
+first section is the total relabelled MT=3. Gate:
+`tests/deck_driver_photonuclear_vs_njoy2016.rs`. Record:
+`deck_driver/README.md` section 21.
+
+Still refused by name: `ielas = 1`, MF=4 (U-235, deck 56), MF=5 for a
+production reaction, MF=6 `LAW = 4`. `phnplo` (the `iopt = 7` plot file) is not
+ported.
+
+## What is ported, and what refuses (as of 2026-09-22; see above)
 
 `src/acer/photonuclear/build.rs` covers the path a LANL-style photo-nuclear
 file takes. Everything else returns [`NjoyError::NotPorted`] **naming itself**:
@@ -168,8 +191,10 @@ implemented, and it is pinned against NJOY's own output: `mu = [-1, 0, 1]`,
 
 ## Not covered
 
-- **No real photo-nuclear evaluation has been processed**, only the synthetic
-  tape, for the reason above. Whether a production IAEA/ENDF photo-nuclear
+- ~~**No real photo-nuclear evaluation has been processed**, only the synthetic
+  tape, for the reason above.~~ **CORRECTED 2026-11-13:** four have been, from
+  NJOY2016's own `tests/resources` (see the section above); the rest of this
+  bullet is the 2026-09-22 position. Whether a production IAEA/ENDF photo-nuclear
   file exercises branches this tape does not is **unknown and untested** —
   in particular MF=4-only angular data, MT=18 fission with its MF=1/452
   nubar, discrete MT=600-849 charged-particle levels, and the `ielas = 1`

@@ -362,7 +362,7 @@ ports.
 | 23 | 57 lines of MF=1/MT=451 | card-20 comments are unquoted, and `read(nsysi,*) text` is list-directed (`leapr.f90:3101`), so a card ends at the first blank (`* BEO ...` reads as `*`) | `LeaprDeck::read_comment` reads the card with `deck::cards::CardReader` | identical |
 | 81, 88 | 1 line each | LRF=7: `rdsammy` sets `ascat` to the last elastic channel's `APE` (`samm.f90:1126`), and `recout` writes it in MF=2/MT=151 (`reconr.f90:5200`); the port wrote 0 | `deck::pendf::rml_ascat` | identical |
 | 48, 59 | `NotPorted`: ACER `iopt = 4` | none | `deck::acer_photon` binds the units; the directory line follows `phoout` (`acepa.f90:1023`) | directory line identical; the ACE differs in 36 of 17 964 lines, all in the heating block (45 words, worst 8.7e-8). This is the residual already recorded in `../acer_photoatomic_vs_njoy2016.md`. |
-| 56, 57, 58, 66, 78 | `NotPorted`: ACER `iopt = 5` | none | as above | the builder refuses by name: MF=4 angular data (56), MF=6 `LCT != 1` (57, 58, 78), MT=18 nubar (66) |
+| 56, 57, 58, 66, 78 | `NotPorted`: ACER `iopt = 5` | none | as above | ~~the builder refuses by name: MF=4 angular data (56), MF=6 `LCT != 1` (57, 58, 78), MT=18 nubar (66)~~ **CORRECTED 2026-11-13:** 57, 58, 66 and 78 build, ACE identical; 56 still stops at MF=4 (section 21) |
 | 43 | `differs`: tape35 320 lines | at `tempef <= 0` BROADR only thins (`thinb`, `broadr.f90:1677-1760`), which is not ported (gh:#619); the driver passed RECONR's grid through | the driver now refuses it (`NotPorted`) | `NotPorted`, honestly |
 | 80 | `leapr: card reader not yet translated` | not investigated | none | runs; 17 369 of 91 453 lines of MF=7/MT=4 differ in the last printed figure (`test_80_leapr_whole_deck`, ignored with that reason) |
 
@@ -948,3 +948,81 @@ and Markdown changed after the deck suite was built):**
 | `ace_five_route_parity` | 13 of 13 passed |
 | `errorr_mf33_golden`, `errorr_mf32_ar37_golden`, `covr_boxer_golden` | 12, 4, 18 passed |
 | `--lib` | 755 of 755 passed |
+
+## 21. Photo-nuclear: RECONR on a photo-nuclear tape, `acephn` translated, `phnfix` (2026-11-13, gh:#1369)
+
+Targets: decks 56, 57, 58, 66 and 78 (photo-nuclear ACER, `iopt = 5`, then two `iopt = 7`
+check passes and VIEWR). A prediction was posted on gh:#1369 before each of the three
+changes, and each held on the first run.
+
+**Search first.** `src/acer/photonuclear/build.rs` already built the LANL-style path
+byte for byte on the synthetic Z6 tape. `acer::acensd::{ptleg2, pttab2}`,
+`acer::acelf6::bachaa` and `acer::acelcp::eavl` (made `pub(crate)`) are reused, not
+rewritten. Nothing ported `phnfix` or `phnplo`. No `review.md` under `src/acer`,
+`src/reconr` or `src/deck` has a `kind = "review"` block.
+
+**1. RECONR on a tape with no MF=2 and no MT=1** (`reconr.f90`):
+- `anlyzd` makes MT=1 redundant as soon as there is any MF=3 (`:550-556`), and seeds
+  `mfs(2)=2, mts(2)=151` unless the tape has MF=23 (`:648-657`). `reconr::seed_redundant_total`
+  adds the MT=1 to be summed; `deck::pendf::default_mf2_stub` writes the stub with
+  `spin = ascat = 0` and `EH = ehigh = 2e7` (`LRP = -1`, `:301-317`).
+- `recout` writes the total as `mth = 3` when `awin = 0` (`:5283-5286`, dictionary
+  `:5103-5107`), closed by `asend` like any redundant sum
+  (`deck::pendf::relabel_photonuclear_total`).
+- Result: tape90 (RECONR's PENDF through MODER) identical on decks 58 (4 668 lines),
+  66 (124) and 78 (57). It had differed on nearly every line.
+
+**2. `acephn` translated line for line.** The old builder's passes were built around one
+MF=6 shape (`LCT = 1`, `LANG = 1`, `NA = 0`) and refused the rest. Its internals are now a
+line-for-line translation of `acepn.f90:27-1853` (`build.rs`, with the record helpers in
+`records.rs`): XSS 1-based and zero-filled, written at upstream's offsets in upstream's
+order with its `sigfig` calls; the integer/real split still comes from `layout::walk`.
+New on the way:
+- reactions are read from the **PENDF** (after the grid section, or from MT=5 when it is
+  first), with the MT=103-107 skips;
+- `LCT /= 1` → `TYRP = -1`; `LANG = 2` → law 44 (`bachaa` with `izai = 0`, `eavl`);
+  `NA > 0` → `ptleg2`;
+- MF=6 `LAW = 2` → ANDP tables (`ptleg2`/`pttab2`), law 33, and its two-body heating;
+- LAW=1 recoil heating (`nr6`), MT=102 `e+q` heating (`icapt`), `copynubar` for MT=18,
+  `NXS(9) = LISO`.
+
+Still refused by name: `ielas = 1`, MF=4, MF=5 for a production reaction, MF=6 `LAW = 4`.
+- Result: ACE unit 31 and directory 32 identical on decks 57 (57 803 lines), 58 (132 970),
+  66 (259 515) and 78 (3 488). The synthetic Z6 gate still holds byte for byte.
+- One deliberate divergence: a photo-atomic tape (`NSUB = 3`) passes upstream's
+  `NSUB/10 = 0` test; it is refused here as the wrong sublibrary.
+
+**3. `phnfix`** (`acer::phnfix::phnfix_type1`, `acepn.f90:1855-1959`): the table is read
+with `read::parse_type1`, `hk` replaced, and re-printed through `to_type1_string` (which is
+`phnout`'s layout); the directory line is `phnout`'s. `phnplo` (`:2830-3573`) is **not
+ported**; the deck driver writes the table and directory and then stops by name.
+- Result: units 34 and 35 identical on 57, 58, 66 and 78.
+
+**Gates** (`tests/deck_driver_photonuclear_vs_njoy2016.rs`, decks run as written against the
+local NJOY2016.80): units 90/31/32/34/35 have zero differing lines, and the run must stop at
+`phnplo` and nothing earlier.
+
+**Not done:**
+- `phnplo`, the `iopt = 7` plot file (units 33 and 36), so the second check pass (37, 38)
+  and VIEWR (43, 46) are not reached. It is the last step for decks 57, 58, 66 and 78.
+- Deck 56 (U-235 ENDF/B-VIII.0): MF=4/MT=18 and MF=5/MT=18, `acephn`'s MF=4/5 neutron
+  branches (`:742-818`, `:1166-1425`). Their multiplicities are keyed on `mth`, a header
+  variable left over from the last record read.
+- MF=6 `LAW = 4`, `ielas = 1`.
+
+**Survey:** decks 56, 57, 58, 66 and 78 were re-run alone (`SURVEY_CASES`) on develop
+7a3fd98b1 plus this work. **60 of 87 are identical** (unchanged): no whole deck closed.
+57, 58, 66 and 78 now have 4 or 5 identical tapes each and stop at `phnplo`; 56 stops at MF=4.
+
+**Tests** (release, on develop 7a3fd98b1 plus this work, run after the last code or test
+change; only Markdown changed afterwards):
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 124 passed, 0 failed, 2 ignored (43, 80), 1 518 s |
+| `deck_driver_photonuclear_vs_njoy2016` | 4 of 4 passed |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `acer_photonuclear_vs_njoy2016` | 5 of 5 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `--lib` | 756 of 756 passed |

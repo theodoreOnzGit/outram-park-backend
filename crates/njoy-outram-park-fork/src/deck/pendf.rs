@@ -296,6 +296,16 @@ pub fn reconr_tape(
     }
     mf3.sort_by_key(|s| s.key.mt);
     recout_heads(&mut mf3, endf, mat, &redundant);
+    // `recout` writes the first redundant sum, MT=1, as `mth = 3` when the
+    // incident particle has no mass (`awin = 0`, a photo-nuclear sublibrary;
+    // `reconr.f90:5283-5286`), and labels its dictionary entry the same way
+    // (`:5103-5107`). It is still a redundant sum: `asend` closes it.
+    let awin = crate::reconr::lunion_awin(mf1);
+    let mut redundant = redundant;
+    if awin == 0.0 {
+        relabel_photonuclear_total(&mut mf3);
+        redundant.push(3);
+    }
 
     // MF=2.
     let mut body: Vec<Section> = Vec::new();
@@ -319,6 +329,12 @@ pub fn reconr_tape(
         if let Some(u) = &res.unresolved_table {
             body.push(Section { key: EndfKey { mat, mf: 2, mt: 152 }, rows: u.clone() });
         }
+    } else if !endf.sections().iter().any(|s| s.key.mat == mat && s.key.mf == 23) {
+        // No MF=2 on the tape (a photo-nuclear evaluation, `LRP = -1`): `anlyzd`
+        // still seeds `mfs(2)=2, mts(2)=151` unless the tape has MF=23
+        // (`reconr.f90:648-657`), so `recout` writes the default stub with
+        // `spin = ascat = 0` and `EH = eresh = ehigh` (`:301-317`, `:5179-5202`).
+        body.push(default_mf2_stub(mat, za, awr, res.resonance_upper_limit.unwrap_or(2.0e7)));
     }
     let grid: Vec<f64> = res
         .sections
@@ -351,6 +367,29 @@ pub fn reconr_tape(
     tape.set_copied_closers(copied);
     let _ = zain;
     Ok(tape)
+}
+
+/// `recout`'s default MF=2/MT=151 (`reconr.f90:5179-5202`) for a tape with no
+/// MF=2: `spin = ascat = 0` (`LRP < 0`, `:314-316`) and `EH` the top of the
+/// resonance range, `ehigh` = 20 MeV when there is none (`:307-309`).
+fn default_mf2_stub(mat: i32, za: f64, awr: f64, eh: f64) -> Section {
+    Section {
+        key: EndfKey { mat, mf: 2, mt: 151 },
+        rows: vec![
+            [za, awr, 0.0, 0.0, 1.0, 0.0],
+            [za, 1.0, 0.0, 0.0, 1.0, 0.0],
+            [1.0e-5, eh, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        ],
+    }
+}
+
+/// MT=1 relabelled MT=3, as `recout` writes the total for `awin = 0`
+/// (`reconr.f90:5283-5286`). MT=1 is the first MF=3 section, so the order holds.
+fn relabel_photonuclear_total(mf3: &mut [Section]) {
+    for s in mf3.iter_mut().filter(|s| s.key.mt == 1) {
+        s.key.mt = 3;
+    }
 }
 
 /// `ascat` after an LRF=7 range (`rdsammy`, `samm.f90:1114-1132`): the

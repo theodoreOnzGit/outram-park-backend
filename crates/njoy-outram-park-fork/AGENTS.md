@@ -1078,10 +1078,16 @@ against `ANGLE_TOL = 5e-3` and a different bisection. Reusing it would have
 produced a different grid and lost parity. Only the isotropic case is
 implemented, pinned against NJOY's own output.
 
-**Everything unported refuses by name** (`NjoyError::NotPorted`): `ielas = 1`,
+**Everything unported refuses by name** (`NjoyError::NotPorted`): ~~`ielas = 1`,
 `LANG = 2`, `NA > 0`, `ND > 0`, `LCT /= 1`, recoil subsections, MF=4/MF=5,
-`LAW = 2`/`LAW = 4`, and MT=18's nubar substitution. A photo-nuclear table
+`LAW = 2`/`LAW = 4`, and MT=18's nubar substitution~~. A photo-nuclear table
 that silently omits an emitted particle still reads and still looks plausible.
+**CORRECTED 2026-11-13 (gh:#1369):** `build.rs` is now a line-for-line
+translation of `acephn`, and reproduces NJOY2016's ACE line for line on
+upstream decks 57, 58, 66 and 78 (Bi-209, Co-59, Pu-239, He-3): `LCT = 2/3`,
+Kalbach-Mann, `NA > 0`, `LAW = 2`, recoil heating and the MT=18 nubar are
+translated. Still refused: `ielas = 1`, MF=4, MF=5 for a production reaction,
+`LAW = 4`. Record: `verification_and_validation/deck_driver/README.md` §21.
 
 **The pair is archived, and the `hk` comment is the provenance.** Both tables
 — NJOY2016's and this port's — live in the `reference-data/ace` submodule as
