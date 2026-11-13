@@ -151,6 +151,18 @@ impl NuYield {
         Ok((NuYield::Tabulated(crate::groupr::continuum::pack(&t), 2, 1), dntc))
     }
 
+    /// `enext` of `getyld(e = 0)` (`:6602-6606`, `:6573`): the TAB1's first energy
+    /// (`tmp(7+2*nr)`), or `emax` for the LNU=1 polynomial.
+    pub fn first_energy(&self) -> f64 {
+        match self {
+            NuYield::Tabulated(t, _, _) => {
+                let nr = t[4].round() as usize;
+                t[6 + 2 * nr]
+            }
+            NuYield::Polynomial(_) => EMAX,
+        }
+    }
+
     /// `getyld(e > 0)`: `(yld, enext, idis)`.
     ///
     /// # Errors

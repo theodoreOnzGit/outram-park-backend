@@ -19,8 +19,14 @@
 //!
 //! **CORRECTED 2026-11-13 (gh:#1369):** the tabulated law 1 branch and analytic law 5
 //! are ported in [`PhotonSed`] (MF=15 and MF=5), used by the photon feed and the
-//! `mfd = 5` spectra (`groupr::spectrum`); [`ContinuumFeed`] (MF=6 continuum,
-//! `mfd = 6`) still reads law 9 only through [`SedFeed`].
+//! `mfd = 5` spectra (`groupr::spectrum`); ~~[`ContinuumFeed`] (MF=6 continuum,
+//! `mfd = 6`) still reads law 9 only through [`SedFeed`].~~
+//!
+//! **CORRECTED 2026-11-13 (gh:#1369, round 3):** [`ContinuumFeed`] reads law 9
+//! through [`SedFeed`] and `LF = 1/5` through [`PhotonSed`] on MF=5. It also carries
+//! fission (`MT = 18-21, 38`): `getyld`'s prompt nu (MF=1/MT=456) and the `econst`
+//! branch with `jconst`, its spectrum call and its yield-only calls. Still refused:
+//! `mfd = 6` for `MT = 102, 452, 455, 456`, and a fission spectrum given by law 9.
 
 use petir::mathf::RealMath;
 use crate::endf::records::{SectionCursor, Tab1};
@@ -176,48 +182,172 @@ impl SedFeed {
     }
 }
 
-/// `getff` label 200 for `mfd = 6` with `econst = 0`.
+/// The File-5 half of [`ContinuumFeed`]: `getsed`'s analytic law 9 ([`SedFeed`])
+/// or its tabulated `LF = 1` / general-evaporation `LF = 5` branch ([`PhotonSed`]
+/// on MF=5, which also carries `getsed`'s `econst` search).
+#[derive(Debug, Clone)]
+enum ContinuumSed {
+    Law9(SedFeed),
+    Tabulated(PhotonSed),
+}
+
+impl ContinuumSed {
+    /// `getsed(e > 0)` with `nk = 1`.
+    fn get(&self, e: f64, egn: &[f64]) -> Result<(Vec<f64>, f64, i32), NjoyError> {
+        match self {
+            ContinuumSed::Law9(s) => s.get(e, egn),
+            ContinuumSed::Tabulated(s) => s.get(e),
+        }
+    }
+}
+
+/// `getff` label 200 for `mfd = 6` (`groupr.f90:7132-7232`): `getfle` x `getsed`,
+/// times `getyld`'s prompt nu (MF=1/MT=456) for fission (`MT = 18-21, 38`), with the
+/// `econst` constant-spectrum branch (`econst = ebig` for `MT = 18, 19`,
+/// `:5831-5836`, lowered by `getsed` and snapped to a group bound by `jconst`).
 #[derive(Debug, Clone)]
 pub struct ContinuumFeed {
     ang: File4Angular,
-    sed: SedFeed,
+    sed: ContinuumSed,
     egn: Vec<f64>,
     mtd: i32,
     /// `nl` after `getff(e = 0)` (`nl = 1` when `getfle` finds isotropy).
     pub nl: usize,
+    /// `getyld` on MF=1/MT=456 for fission reactions.
+    nu: Option<crate::groupr::spectrum::NuYield>,
+    /// `econst` after initialisation (0: no constant-spectrum range).
+    econst: f64,
+    /// `jconst`, the last group of the constant-spectrum range.
+    jconst: usize,
+    /// `getff`'s saved `ifirst`.
+    ifirst: usize,
+    /// `en` of the initialisation call: the energy of the spectrum call (`:767`).
+    en0: f64,
 }
 
 impl ContinuumFeed {
     /// Read MF=4 and MF=5 of `mtd` from the ENDF tape and run `getff(e = 0)`.
+    /// `ismooth` is passed to `getsed` (it acts on `MT = 455` only).
     ///
     /// # Errors
-    /// [`NjoyError::NotPorted`] for reactions with `econst != 0` or a yield from
-    /// `getyld`; reading errors otherwise.
-    pub fn new(tape: &Tape, mat: i32, mtd: i32, egn: &[f64], nl_req: usize) -> Result<Self, NjoyError> {
-        if matches!(mtd, 18..=21 | 38 | 102 | 452 | 455 | 456) {
-            return Err(NjoyError::NotPorted("groupr getff label 200: fission/capture reactions (getyld, econst) are not translated"));
+    /// [`NjoyError::NotPorted`] for `MT = 102, 452, 455, 456` with `mfd = 6`, for a
+    /// fission reaction given by analytic law 9, and for laws `getsed` does not
+    /// translate; reading errors otherwise.
+    pub fn new(tape: &Tape, mat: i32, mtd: i32, egn: &[f64], nl_req: usize, ismooth: bool) -> Result<Self, NjoyError> {
+        if matches!(mtd, 102 | 452 | 455 | 456) {
+            return Err(NjoyError::NotPorted("groupr getff label 200: mfd = 6 for MT = 102, 452, 455 or 456"));
         }
+        let fission = matches!(mtd, 18..=21 | 38);
+        let mut econst = if matches!(mtd, 18 | 19) { EBIG } else { 0.0 };
+        let mut enext = EMAX;
+        // `getyld(e = 0)` (`:7146-7149`): `enext` is the TAB1's first energy (LNU = 2),
+        // `emax` for the polynomial.
+        let nu = if fission {
+            let (y, _) = crate::groupr::spectrum::NuYield::from_tape(tape, mat, 456)?;
+            let en = y.first_energy();
+            if en < enext * (1.0 - SMALL) {
+                enext = en;
+            }
+            Some(y)
+        } else {
+            None
+        };
         let ang = File4Angular::from_tape(tape, mat, mtd, crate::groupr::file4::NLD)?;
-        let (sed, _) = SedFeed::from_tape(tape, mat, mtd)?;
+        let en = ang.first_energy();
+        if en < enext * (1.0 - SMALL) {
+            enext = en;
+        }
+        // `getsed(e = 0)`: law 9 through `SedFeed`, `LF = 1/5` through `PhotonSed`.
+        let lf = {
+            let sec = tape.section(mat, 5, mtd).ok_or(NjoyError::SectionNotFound { mat, mf: 5, mt: mtd })?;
+            let mut cur = SectionCursor::new(&sec.rows);
+            let _ = cur.read_cont()?;
+            cur.read_tab1()?.head.l2
+        };
+        let (sed, en) = if lf == 9 {
+            if fission {
+                return Err(NjoyError::NotPorted("groupr getsed: fission spectrum given by analytic law 9 (its econst search)"));
+            }
+            let (s, en) = SedFeed::from_tape(tape, mat, mtd)?;
+            (ContinuumSed::Law9(s), en)
+        } else {
+            let (s, en, ec) = PhotonSed::from_tape_mf(tape, mat, 5, mtd, egn, econst, ismooth)?;
+            econst = ec;
+            (ContinuumSed::Tabulated(s), en)
+        };
+        if en < enext * (1.0 - SMALL) {
+            enext = en;
+        }
+        // `jconst` (`:7168-7175`), with `egn(ig)*(1+small)`.
+        let mut jconst = 0usize;
+        if econst != 0.0 {
+            let ngn1 = egn.len();
+            for ig in 1..=ngn1 {
+                if econst > egn[ig - 1] * (1.0 + SMALL) {
+                    jconst = ig - 1;
+                }
+            }
+            econst = egn[jconst];
+            if jconst <= 2 {
+                econst = 0.0;
+            }
+        }
         // `if (e.eq.0.and.nle.eq.1) nl=1` (`:7154`): isotropy gives nle = 1.
         let nl = if ang.isotropic { 1 } else { nl_req };
-        Ok(Self { ang, sed, egn: egn.to_vec(), mtd, nl })
+        Ok(Self { ang, sed, egn: egn.to_vec(), mtd, nl, nu, econst, jconst, ifirst: 0, en0: enext })
+    }
+
+    /// `jconst` when the constant-spectrum branch is active (`econst != 0`), else 0.
+    pub fn jconst(&self) -> usize {
+        if self.econst != 0.0 { self.jconst } else { 0 }
+    }
+
+    /// `en` of the initialisation call: the energy of the spectrum call (`:767`).
+    pub fn initial_energy(&self) -> f64 {
+        self.en0
     }
 
     /// `getff(e > 0)`: `(en, idisc, ff[il][ig], iglo)` with `nq = 0`.
     ///
+    /// The first call below `econst` is the spectrum (label 260: `sede` alone,
+    /// from the first nonzero group, or group 1 for `MT = 18`); later calls below
+    /// it return the yield alone with `en = econst`, a discontinuity (label 230).
+    ///
     /// # Errors
-    /// From `getfle` or `getsed`.
+    /// From `getyld`, `getfle` or `getsed`.
     pub fn at(&mut self, e: f64) -> Result<crate::groupr::njoy_panel::FeedOut, NjoyError> {
         let mut enext = EMAX;
         let mut idisc = 0;
-        let yld = match self.mtd {
+        self.ifirst += 1;
+        let below = e < self.econst * (1.0 - SMALL);
+        if below && self.ifirst == 1 {
+            // `go to 202`, then label 205 -> 230 -> 260: the spectrum.
+            let (sede, _, _) = self.sed.get(e, &self.egn)?;
+            const SMIN: f64 = 1.0e-9;
+            let ngn = sede.len();
+            let iglo = if self.mtd == 18 { 1 } else { (1..=ngn).find(|&ig| sede[ig - 1] > SMIN / 1000.0).unwrap_or(0) };
+            let (iglo, ff) = if iglo == 0 { (1, vec![0.0]) } else { (iglo, sede[iglo - 1..].to_vec()) };
+            return Ok(crate::groupr::njoy_panel::FeedOut { en: enext, idisc, nq: 0, ff: vec![ff], iglo: iglo as i32 });
+        }
+        let mut yld = match self.mtd {
             16 | 24 | 26 | 30 | 11 | 41 => 2.0,
             17 | 25 | 42 => 3.0,
             37 => 4.0,
             _ => 1.0,
         };
+        if let Some(nu) = &mut self.nu {
+            let (y, en, idis) = nu.at(e)?;
+            yld = y;
+            if en < enext * (1.0 - SMALL) {
+                idisc = idis;
+                enext = en;
+            }
+        }
         let fl = self.ang.coefficients_at(e, self.nl)?;
+        if below {
+            // label 230: yield only (`getfle` was still called, as upstream calls it).
+            return Ok(crate::groupr::njoy_panel::FeedOut { en: self.econst, idisc: 1, nq: 0, ff: vec![vec![yld]], iglo: 1 });
+        }
         let (en, idis) = (fl.enext, i32::from(fl.idis));
         if (en - enext).abs() < enext * SMALL && idis > idisc {
             idisc = idis;

@@ -18,7 +18,10 @@
 //! `LO = 1` multiplicities for any number of photons with isotropic MF=14,
 //! including the `econst` constant-spectrum branch (below `econst` the feed is
 //! the yield alone, `iglo = -1`, and the spectrum is written once as the
-//! `ig = 0` record). Not ported ([`NjoyError::NotPorted`]): MF=12 `LO = 2`,
+//! `ig = 0` record). Not ported ([`NjoyError::NotPorted`]): ~~MF=12 `LO = 2`~~
+//! (**CORRECTED 2026-11-13, gh:#1517:** the feed reads `nend2`, on which
+//! [`crate::groupr::conver::lo2_converted`] has made `LO = 2` into `LO = 1`, as
+//! upstream's `conver` does; given an unconverted tape it still refuses `LO = 2`),
 //! several photons with anisotropy (`getgfl`'s sort), `LTT = 2`, and analytic
 //! `LF > 1` `getsed` spectra. ~~`getsed` continuum photons~~ **CORRECTED 2026-11-11
 //! (gh:#1481)**: tabulated `LF = 1` File-15 photons (`EY = 0`, MT 3, 18, 102 of
@@ -168,6 +171,8 @@ impl PhotonFeed {
         // `lo=2` error is never reached in GROUPR: it reads `nend2`, the tape `conver`
         // writes, and `conver` converts a LO = 2 transition array to LO = 1 yields
         // (`groupr.f90:11190-11420`). NJOY2016 runs deck 08 (Ni-61, `16/`) to the end.
+        // The deck driver passes that tape (`groupr::conver::lo2_converted`), so this
+        // refusal is reached only with an unconverted tape.
         if head.l1 == 2 {
             return Err(NjoyError::NotPorted("groupr conver: MF=12 LO = 2 transition arrays converted to LO = 1 yields (groupr.f90:11190-11420)"));
         }

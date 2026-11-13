@@ -703,16 +703,16 @@ pub fn group_general(
     // `econst` constant-spectrum range (`groupr.f90:757-785`, `getff` label 300 with
     // `mfd = 16`): the spectrum is written first as the `ig = 0` record (`displa`
     // label 460), then groups `1..=jconst` carry only flux and yield (label 470).
-    let jconst = match &*feed {
-        PanelFeed::Photon(f) => f.jconst(),
-        _ => 0,
+    // `getff` label 200 (`mfd = 6`, fission) has the same range (`:7168-7175`).
+    let (jconst, en0) = match &*feed {
+        PanelFeed::Photon(f) => (f.jconst(), f.initial_energy()),
+        PanelFeed::Continuum(f) => (f.jconst(), f.initial_energy()),
+        _ => (0, 0.0),
     };
     if jconst > 0 {
         if nl != 1 {
             return Err(NjoyError::NotPorted("groupr: constant-spectrum range with nl > 1"));
         }
-        let PanelFeed::Photon(f) = &*feed else { unreachable!() };
-        let en0 = f.initial_energy();
         let fo = feed.at(en0)?;
         let data: Vec<f64> = fo.ff[0].iter().map(|&v| sigfig(v, 7, 0)).collect();
         out.push((0, data.len(), fo.iglo, data));

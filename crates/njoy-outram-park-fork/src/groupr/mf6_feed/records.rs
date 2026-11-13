@@ -243,7 +243,10 @@ pub(super) fn law1_low_energy_patch(
 /// The guard needs two records, as upstream reads none beyond them before the
 /// shift (corrected with [`ismooth_linlin`]'s, 2026-11-13, gh:#1369).
 pub(super) fn ismooth_histogram(buf: &mut Vec<f64>, messages: &mut Vec<String>) {
-    const FX: f64 = 0.8409;
+    // `fx=.8409` (`:7723`) is a default-real literal assigned to `real(kr)::fx`
+    // (`:7547`): the single-precision value widened (gh:#1517; the double 0.8409
+    // moved 28 lines of deck 08's GENDF in the 7th figure).
+    const FX: f64 = 0.8409f32 as f64;
     const EX: f64 = 40.0;
     let ncyc = (buf[3].round().max(0.0) as usize) + 2;
     if ncyc < 2 || buf.len() < 6 + 2 * ncyc {

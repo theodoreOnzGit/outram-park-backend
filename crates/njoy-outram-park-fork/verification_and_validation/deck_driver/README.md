@@ -455,9 +455,9 @@ not duplicated.
 | 18 | after the above: 948 of 968 lines differ, each MF=3 section holding only its top group | **a defect in the driver:** `emaxx` was the PENDF's second MF=1 record's C2 (`STA`, 1 on this Cf-252 decay tape). `:413-431` reads the third record of `nendf` (`EMAX`). | `emaxx` from `nendf`'s third record | identical (row above). Every earlier GROUPR gate still passes. |
 | 29 | `mfd = 5` refused | `5 455` on Pu-241: six **`LF = 5`** subsections (the prediction said `LF = 1`; the first run was refused there). `anased` law 5 (`:12355-12363`) is `intega` of `g(x)` times `theta`. `getsed` extends the lowest delayed bin when `ismooth` is on (`:11942-11965`). | `Lf5` in `PhotonSed`; `extend_lowest_delayed_bin` with `fx = .8409` as a single-precision literal | **whole deck identical**: units 35, 45 and 55, 635 lines each. Ablation: with `fx` as the double `0.8409`, the two `ismooth = 1` units differ in 8 lines each and the `ismooth = 0` unit in none. |
 | 15 | MT 452/455/456 refused | `getyld` on MF=1 (`:6521-6644`): the LNU=2 TAB1 by `terpa`, or the LNU=1 polynomial | `groupr::spectrum::NuYield`, `PanelFeed::Nu` | GENDF identical, 1 342 lines (unit 91) |
-| 76 | MT 452/455/456 refused | as 15, then `5 18` and `5 455`, whose `dntc` now comes from `3 455` | as above | GENDF identical, 7 203 lines, with `6 /` removed on both sides. As written, the deck stops at `6/` → MF=4/MT=18 (`getff` label 200 with `econst`, not ported), as deck 47 does. |
-| 08 | `getmf6` LAW=2..5 refused | Ni-61 MT=51-58 are LAW=3. `getmf6` hands them to `getdis` (`:7956`, `:8096-8099`), and `getfle` with `mft = 8` makes them isotropic in the CM (`iso = 1`, `:9733-9737`). | `TwoBodyFeed` over `File4Angular::isotropic_cm` | With `16/` removed on both sides, MT=51-58 (514 lines) and everything outside MF=6 MT=16/28/91 are identical. **28 of 2 272 lines differ**, all in those three LAW=1 sections (`Mf6Feed`, not changed here), in the 7th figure of words near 1e-8. They are `LANG = 1`, `LEP = 1` with an incident `INT = 12`. Cause not examined (gh:#1517). `16/` itself stops at MF=12 `LO = 2` (gh:#1517). |
-| 47 | `mfd = 5` refused | `5 18` now written; then `6/` reaches MF=4/MT=18 | none | stops at `getff` label 200 with `econst` (fission), as predicted |
+| 76 | MT 452/455/456 refused | as 15, then `5 18` and `5 455`, whose `dntc` now comes from `3 455` | as above | GENDF identical, 7 203 lines, with `6 /` removed on both sides. ~~As written, the deck stops at `6/` → MF=4/MT=18 (`getff` label 200 with `econst`, not ported), as deck 47 does.~~ **CORRECTED 2026-11-13 (section 15):** ported; the GENDF as written is identical. |
+| 08 | `getmf6` LAW=2..5 refused | Ni-61 MT=51-58 are LAW=3. `getmf6` hands them to `getdis` (`:7956`, `:8096-8099`), and `getfle` with `mft = 8` makes them isotropic in the CM (`iso = 1`, `:9733-9737`). | `TwoBodyFeed` over `File4Angular::isotropic_cm` | With `16/` removed on both sides, MT=51-58 (514 lines) and everything outside MF=6 MT=16/28/91 are identical. **28 of 2 272 lines differ**, all in those three LAW=1 sections (`Mf6Feed`, not changed here), in the 7th figure of words near 1e-8. They are `LANG = 1`, `LEP = 1` with an incident `INT = 12`. ~~Cause not examined (gh:#1517). `16/` itself stops at MF=12 `LO = 2` (gh:#1517).~~ **CORRECTED 2026-11-13 (section 15):** the cause was `getmf6`'s `ismooth` histogram `fx`, not `INT = 12`; `16/` runs through `conver`'s `LO = 2` conversion; the GENDF is identical. |
+| 47 | `mfd = 5` refused | `5 18` now written; then `6/` reaches MF=4/MT=18 | none | ~~stops at `getff` label 200 with `econst` (fission), as predicted~~ **CORRECTED 2026-11-13 (section 15):** the first GROUPR is identical; stops at the second (`nsigz = 2`) |
 
 **A false claim corrected.** `photon_prod.rs` refused MF=12 `LO = 2` with
 "(upstream errors too)". In GROUPR, `getgyl` reads `conver`'s output tape, and
@@ -486,7 +486,63 @@ the new one. Decks 15, 18, 27 and 34 now stop at ERRORR.
 | `--lib` | 730 of 730 passed |
 
 **Still refused at GROUPR:**
-- `getff` label 200 for fission with `econst` (decks 47, 76);
-- `conver`'s MF=12 LO=2 conversion (08);
-- the temperature loop with `genflx`/`getunr` (02, 11);
+- ~~`getff` label 200 for fission with `econst` (decks 47, 76);~~ (**CORRECTED 2026-11-13:** ported, section 15)
+- ~~`conver`'s MF=12 LO=2 conversion (08);~~ (**CORRECTED 2026-11-13:** ported, section 15)
+- the temperature loop with `genflx`/`getunr` (02, 11) (still refused; section 15);
 - deck 17's earlier differences.
+
+## 15. GROUPR fission `econst`, `getmf6`'s histogram `fx`, `conver`'s MF=12 `LO = 2`, card 9 per temperature (2026-11-13, gh:#1369, #1517)
+
+The targets were the GROUPR refusals left by section 14, in this order:
+1. `getff` label 200 with `econst` (decks 47, 76).
+2. Deck 08 (gh:#1517): `conver`'s MF=12 `LO = 2`, and the 28-line LAW=1 residual.
+3. The temperature loop (decks 02, 11).
+
+A prediction was posted on gh:#1369 (or gh:#1517) before each change.
+
+**Search first.**
+- `photon_prod::PhotonFeed` already had the `econst`/`jconst` branch for `mfd = 16`. `njoy_panel::group_general` already wrote its `ig = 0` and `ig <= jconst` records, but for `PanelFeed::Photon` only.
+- `continuum::PhotonSed::from_tape_mf` is `getsed` on MF=5 with the `econst` search.
+- `spectrum::NuYield` is `getyld` on MF=1.
+- `acer::photon_blocks::Lo2Cascade` is ACER's `convr`, the same algebra as GROUPR's `conver`.
+- `groupr::unresolved` and `urr_pendf` port `getunr` and `stounr`. Nothing ports `genflx` or the `nz > 1` paths of `panel` and `displa`.
+
+All of these were reused. None was duplicated.
+
+| deck(s) | was | cause (upstream) | fix | result |
+|---|---|---|---|---|
+| 76, 47 | `6/` → MF=4/MT=18 refused | `getff` label 200 (`groupr.f90:7132-7232`). `econst = ebig` for MT 18/19 (`:5831-5836`), lowered by `getsed`, snapped to a group bound by `jconst` with `egn(ig)*(1+small)`. First call (label 505, at the init `en`): `getyld`/`getfle` skipped, label 260 returns the bare `sede` (MT=18: `iglo = 1`, every group). Below `econst`: label 230, `ff = yld`, `enext = econst`, `idisc = 1`. Above: prompt nu (MF=1/MT=456) × `sede` × `fle`. | `ContinuumFeed` carries `getyld`, `PhotonSed` on MF=5 and `econst`/`jconst`; `group_general` takes the constant range from it too | **76: GENDF identical as written, 10 012 lines** (`test_76_groupr_gendf_whole_tape`). **47: first GROUPR's GENDF identical, 2 820 lines** (`test_47_groupr_gendfs_moder_copies`) |
+| 08 | 28 of 2 272 lines in MF=6 MT=16/28/91 (7th figure) | **Not `INT = 12`**: `f6lab`'s corresponding-point branch (`:9101-9298`) was compared line by line with `kinematics::lab1` and matches. These are `LEP = 1` neutron spectra with `ismooth` on, so `getmf6`'s histogram sqrt(E) extension (`:7722-7763`) runs. Its `fx=.8409` is a default-real literal assigned to `real(kr)::fx` (`:7547`, `:7723`): `0.8409f32` widened. The port used the double. Deck 46's lin-lin branch has `fx = 0.50`, exact either way. | `ismooth_histogram`'s `FX = 0.8409f32 as f64` | **identical, 2 272 lines** without `16/`; the gate is now the whole tape |
+| 08 | `16/` → MF=12 `LO = 2` refused | `conver` (`:10994-11007`, `:11188-11470`) writes `nend2`, which GROUPR's `getgyl`/`getgfl` read. It is text when `nendf > 0` (`:402`). Each `LO = 2` section becomes a `LO = 1` HEAD (`NK = l`), a total TAB1 constant at `ysum` over `[elow, emaxx]` when `l > 1`, and one TAB1 per line (`LF = 2`). `elow` is the MT's MF=3 threshold, `gety1(0)` on the ENDF tape. Once any `LO = 2` is seen, each level-series MF=14 becomes an isotropic HEAD with `NK = ngam(mt)`. | `groupr::conver::lo2_converted` (over `Lo2Cascade`), handed to `PhotonFeed` | **GENDF identical with `16/`, 2 972 lines** (`test_08_groupr_gendf_whole_tape`) |
+| 02, 11 (and 47's second GROUPR) | `several ... temperatures or sigma-zeros` | `read_groupr` read one card-9 list. Upstream reads one per temperature (label 590 loops to label 360, `:586-630`), so deck 02's second list was read as card 10. | one list per temperature (`GrouprJob::later_temperatures`) | cards read. The run is still refused: `nsigz > 1` (`genflx` `:5309-5684`, `getflx` `:6457-6520`, `getsig`'s `getunr` `:6787-6796`, `nz > 1` in `panel`/`displa`) and the temperature loop are not translated |
+| 17 | RECONR/BROADR differences, `iwt = 6` | not examined this round | none | unchanged |
+
+**Predictions.** Every one posted before a change held. The issue's own first
+pointer for deck 08 (`INT = 12`) was not the cause; reading `f6lab` first ruled it out,
+and the prediction named the `fx` literal instead. The survey outcomes (08 identical,
+76 to CCCCR, 47 to its second GROUPR, 02/11 at `nsigz > 1`) were predicted too.
+
+**Survey:** the 21 GROUPR decks were re-run (`SURVEY_CASES`, 657 s) on develop
+9d2e02800 plus this work. **49 of 87 are identical** (48 before); deck 08 is the new
+one.
+
+**Gates** (`tests/deck_driver_tapes_vs_njoy2016.rs`):
+- `test_76_groupr_gendf_whole_tape`;
+- `test_47_groupr_gendfs_moder_copies`;
+- `test_08_groupr_gendf_whole_tape`;
+- `test_08_groupr_gendf_without_auto_mf16`, now held to every line;
+- `deck::modules::tests::groupr_reads_one_card9_list_per_temperature`.
+
+**Tests (release, on develop 9d2e02800 plus this work):**
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` | 117 passed, 1 failed, 2 ignored (43, 80), 1 280 s. The failure was `test_47_...` in its first form, which also compared the second GROUPR (`nsigz = 2`, refused). It now gates the first GROUPR, and it passes alone (0 of 2 820 lines). |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `--lib` | 731 of 731 passed |
+
+**Still refused at GROUPR:**
+- `nsigz > 1` (`genflx`, `getflx`, `getunr`, `nz > 1` in `panel`/`displa`): decks 02, 11, and 47's second GROUPR;
+- the temperature loop: decks 02, 11;
+- deck 17's earlier RECONR/BROADR differences and `iwt = 6`.

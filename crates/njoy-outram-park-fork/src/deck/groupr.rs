@@ -40,6 +40,12 @@
 //! is read from `nendf`'s third MF=1 record, as `groupr.f90:413-431` does. Gated:
 //! decks 29 (whole), 15, 18, 27, 34 (GENDF), 76 and 08 (GENDF without one automatic
 //! card each).
+//! **CORRECTED 2026-11-13 (gh:#1369 round 3, gh:#1517):** fission through `getff`
+//! label 200 with `econst` (`groupr::continuum::ContinuumFeed`) and `conver`'s MF=12
+//! `LO = 2` conversion (`groupr::conver::lo2_converted`) are written too. Decks 76
+//! (GENDF as written), 47 (first GROUPR) and 08 (whole deck) are identical. Every
+//! temperature's card-9 list is read, but the run still refuses `nsigz > 1` and the
+//! temperature loop.
 //!
 //! Ported so far: the tape label, the MF=1/MT=451 head record of a material
 //! (`ZA, AWR, 0, nz, -1, ntw`; LIST `temp, 0, ngn, ngg, np, 0` with the title
@@ -167,8 +173,20 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     if u.ngout2 == 0 {
         return Err(NjoyError::NotPorted("groupr with no output unit (ngout2 = 0)"));
     }
-    if u.ngout1 != 0 || !job.more_materials.is_empty() || inp.temperatures.len() != 1 || inp.sigma_zeros.len() != 1 {
-        return Err(NjoyError::NotPorted("groupr input GENDF, several materials, temperatures or sigma-zeros"));
+    if u.ngout1 != 0 || !job.more_materials.is_empty() {
+        return Err(NjoyError::NotPorted("groupr input GENDF (ngout1) or several materials"));
+    }
+    // The cards of every temperature are read (`read_groupr`, one card-9 list each,
+    // gh:#1369 round 3), but the tape driver runs one temperature and one sigma-zero.
+    // Not translated here: the temperature loop (`:520-630`), and for `nsigz > 1`
+    // `genflx`'s Bondarenko flux table (`:5309-5684`), `getflx`'s interpolation in it
+    // (`:6457-6520`), `getsig`'s `getunr` call (`:6787-6796`) and `nz > 1` in `panel`
+    // and `displa`.
+    if inp.sigma_zeros.len() != 1 {
+        return Err(NjoyError::NotPorted("groupr nsigz > 1 (genflx, getflx and getunr with several sigma-zeros)"));
+    }
+    if inp.temperatures.len() != 1 {
+        return Err(NjoyError::NotPorted("groupr temperature loop (several temperatures)"));
     }
     units.openz(u.npend, 0)?;
     units.openz(u.nendf, 0)?;
@@ -210,6 +228,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     // list entry `-m` visits `mtd + 1 ..= m` (`:640-646`, `:731-732`).
     let mut mtd_run = 1;
     let lists = crate::deck::groupr_auto::conver_lists(&nend_tape, inp.matb)?;
+    // `nend2`, the tape `conver` writes (`:480-488`): its MF=12 `LO = 2` sections are
+    // `LO = 1` yields there, and the level MF=14 sections isotropic (gh:#1517). Text
+    // when `nendf` is (`:402`).
+    let nend2 = crate::groupr::conver::lo2_converted(&nend_tape, inp.matb, iverf, emaxx, u.nendf > 0)?;
     // Module state that `mfd = 5` reads without setting: `ndelg` (`conver`),
     // `dntc` (only `getyld` on MF=1/MT=455 sets it) and `lrflag` (the last `getsig`).
     // `lrflag_run` follows the `mfd = 3` branches only; an `mfd = 5` after a matrix
@@ -261,7 +283,11 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 continue;
             }
             if req.mfd == 17 || req.mfd == 16 {
-                write_mf16_photon(&mut g, inp, units, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
+                let nend2_tape = match &nend2 {
+                    Some(t) => t,
+                    None => &nend_tape,
+                };
+                write_mf16_photon(&mut g, inp, nend2_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
             if req.mfd == 8 || req.mfd == 18 {
@@ -587,7 +613,8 @@ fn write_mf6_continuum(
     let tab = cur.read_tab1()?;
     let lrflag = tab.head.l2;
     let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
-    let cf = crate::groupr::continuum::ContinuumFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, egn, inp.lord.max(0) as usize + 1)?;
+    let ismooth = inp.ismooth == crate::groupr::input::SmoothingOption::On;
+    let cf = crate::groupr::continuum::ContinuumFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, egn, inp.lord.max(0) as usize + 1, ismooth)?;
     let nl = cf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Continuum(cf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
@@ -640,7 +667,7 @@ fn write_mf6_thermal(
 fn write_mf16_photon(
     g: &mut GendfText,
     inp: &crate::groupr::input::GrouprInput,
-    units: &mut TapeUnits,
+    nend2: &crate::endf::tape::Tape,
     pend: &crate::endf::tape::Tape,
     za: f64,
     egn: &[f64],
@@ -658,7 +685,7 @@ fn write_mf16_photon(
     let tab = cur.read_tab1()?;
     let lrflag = if mfd == 16 { tab.head.l2 } else { 0 };
     let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
-    let pf = crate::groupr::photon_prod::PhotonFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, mfd, egn, egg, inp.lord.max(0) as usize + 1)?;
+    let pf = crate::groupr::photon_prod::PhotonFeed::new(nend2, inp.matb, mtd, mfd, egn, egg, inp.lord.max(0) as usize + 1)?;
     let nl = pf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Photon(pf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
