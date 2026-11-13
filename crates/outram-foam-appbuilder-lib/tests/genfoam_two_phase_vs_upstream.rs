@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::{
-    TwoPhaseCase, TwoPhaseSolver,
+    StepReport, TwoPhaseCase, TwoPhaseSolver,
 };
 
 /// One parsed reference file.
@@ -492,6 +492,9 @@ fn dump_first_step_cells() {
     if let Ok(k) = std::env::var("GH1361_NOUTER") {
         s.controls.n_outer = k.parse().expect("n_outer");
     }
+    if let Ok(k) = std::env::var("GH1361_NCORR") {
+        s.controls.n_corr = k.parse().expect("n_corr");
+    }
     let n_steps: usize = std::env::var("GH1361_STEPS").ok().map_or(1, |v| v.parse().expect("steps"));
     for _ in 1..n_steps {
         s.step().expect("step");
@@ -567,4 +570,121 @@ fn dump_pimple_flow() {
         ));
     }
     std::fs::write(out, text).expect("write");
+}
+
+// ───────────────────────── round 5: PIMPLE control flow ─────────────────────────
+
+/// One parsed line of a `scripts/extract_pimple_flow.sh` reference: iterations run and ending
+/// (`conv<N>`, `notconv`, `conv0` = the step was skipped because `converged_` was left set).
+struct FlowStep {
+    iterations: usize,
+    ending: String,
+}
+
+fn load_flow(name: &str) -> Vec<FlowStep> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("verification_and_validation/genfoam_vs_upstream_gh1361/refs")
+        .join(format!("{name}.ref.txt.gz"));
+    let bytes = std::fs::read(&path).expect("flow reference present");
+    let text = String::from_utf8(decompress_to_vec(&bytes[10..bytes.len() - 8]).expect("inflate")).expect("utf8");
+    text.lines()
+        .map(|l| {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            FlowStep { iterations: w[3].parse().expect("iterations"), ending: w[4].to_string() }
+        })
+        .collect()
+}
+
+/// The ending word the flow reference uses for one port step.
+fn port_ending(rep: &StepReport, n_outer: usize) -> String {
+    if rep.outer_iterations == 0 {
+        "conv0".to_string()
+    } else if rep.converged_at != 0 && rep.converged_at < n_outer {
+        format!("conv{}", rep.converged_at)
+    } else {
+        "notconv".to_string()
+    }
+}
+
+/// Round 5, control experiment C: `nOuterCorrectors 6` (upstream's `NOUTER` hook of `boiling_protocol.sh`),
+/// tight protocol, every step, the first 115 steps (to t = 1 s, single phase, where the fields agree to 1e-10
+/// in round 3). At six outer iterations the criteria are first met exactly in the last one at about every
+/// second step, so upstream skips 55 of 115 steps: the stale flag, its clearing and `calcCumulContErrs`
+/// are exercised on every other step, with the fields compared per step.
+#[test]
+fn one_d_boiling_skipped_steps_nouter6_vs_upstream() {
+    let r = load_reference("boiling_tight_nouter6");
+    let flow = load_flow("boiling_tight_nouter6_flow");
+    let dir = protocol_copy("nouter6", true, true);
+    let case = TwoPhaseCase::read(&dir).expect("read");
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    s.controls.n_outer = 6;
+    let mut skipped = Vec::new();
+    let mut worst: HashMap<&'static str, (f64, usize)> = HashMap::new();
+    let mut worst_skipped: HashMap<&'static str, f64> = HashMap::new();
+    let mut violations: Vec<String> = Vec::new();
+    for n in 1..=flow.len() {
+        let rep = s.step().expect("step");
+        let want = &flow[n - 1];
+        assert_eq!(rep.outer_iterations, want.iterations, "step {n}: outer iterations");
+        assert_eq!(port_ending(&rep, 6), want.ending, "step {n}: how the PIMPLE loop ended");
+        let dt_up = if n == 1 { 1e-3 } else { r.dt[n - 2] };
+        assert!((rep.dt - dt_up).abs() / dt_up <= 1e-12, "step {n}: dt");
+        if rep.outer_iterations == 0 {
+            skipped.push(n);
+        }
+        let tname = &r.times[n - r.first];
+        for (name, v) in port_fields(&s) {
+            if let Some(u) = r.fields.get(&(tname.clone(), name.to_string())) {
+                let w = worst_rel(&v, u);
+                let e = worst.entry(name).or_insert((0.0, 0));
+                if w > e.0 {
+                    *e = (w, n);
+                }
+                if rep.outer_iterations == 0 {
+                    let e = worst_skipped.entry(name).or_insert(0.0);
+                    *e = e.max(w);
+                }
+                let bound = match (name, n) {
+                    ("U.vapour", 1..=2) => 5e-5,
+                    (_, 1..=2) => 1e-10,
+                    ("p" | "p_rgh" | "T.liquid" | "T.fixedPower" | "U.liquid", _) => 1e-9,
+                    _ => 1e-7,
+                };
+                if w > bound {
+                    violations.push(format!("step {n} (outer iterations {}): {name} {w:.3e} > {bound:.1e}", rep.outer_iterations));
+                }
+            }
+        }
+    }
+    let want_skipped: Vec<usize> = flow.iter().enumerate().filter(|(_, f)| f.ending == "conv0").map(|(i, _)| i + 1).collect();
+    assert_eq!(skipped, want_skipped, "the skipped steps");
+    assert!(skipped.len() >= 5);
+    let mut keys: Vec<_> = worst.iter().collect();
+    keys.sort_by(|a, b| a.0.cmp(b.0));
+    for (k, (w, n)) in keys {
+        eprintln!("nOuter 6: {k:>20} worst {w:.2e} (step {n}); worst on a skipped step {:.2e}", worst_skipped.get(k).copied().unwrap_or(0.0));
+    }
+    eprintln!("nOuter 6: {} steps, {} skipped, port cumulative continuity error ({:.6e}, {:.6e}), upstream ({:.6e}, {:.6e})", flow.len(), skipped.len(), s.fluids[0].cumul_cont_err, s.fluids[1].cumul_cont_err, r.cum_err.0, r.cum_err.1);
+    eprintln!("nOuter 6: {} violations, first 12: {:?}", violations.len(), &violations[..violations.len().min(12)]);
+    assert!(violations.is_empty(), "fields differ from upstream beyond the committed bounds");
+}
+
+/// Round 5: `nOuterCorrectors 7`, tight protocol, 3 s (315 steps): a mix of `conv6` (flagged before the last
+/// iteration, cleared by the next `loop()` call: no skip), `notconv` and skipped steps. Flow only (the
+/// reference is the iteration count and ending of every step).
+#[test]
+fn one_d_boiling_pimple_flow_nouter7_vs_upstream() {
+    let flow = load_flow("boiling_tight_nouter7_flow");
+    let dir = protocol_copy("nouter7", true, true);
+    let case = TwoPhaseCase::read(&dir).expect("read");
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    s.controls.n_outer = 7;
+    for (i, want) in flow.iter().enumerate() {
+        let rep = s.step().expect("step");
+        assert_eq!(rep.outer_iterations, want.iterations, "step {}: outer iterations", i + 1);
+        assert_eq!(port_ending(&rep, 7), want.ending, "step {}: how the PIMPLE loop ended", i + 1);
+    }
 }

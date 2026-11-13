@@ -916,3 +916,30 @@ them (`notconv`), so both branches of the loop are exercised on a single-phase f
 | C1 | at `nOuterCorrectors 5` the port with the upstream option and upstream skip THE SAME steps (the same list of step numbers), at least 5 of them |
 | C2 | every field of every step, including the skipped ones, agrees as in round 3 (`p`, `p_rgh`, `T.liquid`, `U.liquid` <= 1e-9; `T.vapour`, `T.interface`, `U.vapour` <= 1e-7), with no growth across skipped steps |
 | C3 | the cumulative continuity errors, which the port now adds only in the iteration flagged converged, agree with upstream's final value to 1e-4 relative (round-off of the 1e-13 scale cancelling, as for onePhase 3e-10 absolute), where before this round they were a factor of a few off |
+
+### Item 4 (the `U.vapour` residual): localised before any fix, hypothesis committed before the fix
+
+`nOuterCorrectors 1`, `nCorrectors 1` (new `NCORR` knob of `boiling_protocol.sh`), step 1, port against the real binary,
+tight protocol (measured 2026-11-13): `U.liquid` agrees to 1.1e-13, `p` to 2e-7 of 1.4e5, `T.liquid` to 1e-13 and `U.vapour` in
+cells 1-39 to 9.4e-12, but **`U.vapour` in cell 0 (the inlet cell) is off by 2.07e-6** (relative 2.1e-6); the same cell with
+`nOuterCorrectors 2` (one corrector) is off by 8.2e-5 and cell 1 by 6.1e-6. Upstream's `phi.vapour` is uniform to 1e-15
+over all 39 internal faces AND the inlet face (-9.8058157811760707e-4), i.e. the vapour flux at the inlet face follows the same
+relation as at the interior faces. The port's inlet-cell velocity implies an inlet-face flux 4.2e-6 (relative) larger.
+
+Read: `alphaRhof2byDt = interpolate(max(alpha2, residualAlpha) rho2)/dt` and `alphaRhof20byDt` (same with the old
+time) enter `rAUf2` and `phiS2`; for an absent phase (alpha = 0) they are `residualAlpha rho2`, so the BOUNDARY value of `rho2` at the
+inlet decides the inlet-face flux. The port printed (temporary diagnostic, removed): at step 1, outer iteration 1,
+`p.b[inlet] = 1.4e5` (cell 1.0e5), vapour `rho.b = 0.7462` against the cell's `0.5330`, `rho_old_b = 0.7462`. Upstream: `p_` is
+`READ_IF_PRESENT` from `0/fluidRegion/p`, whose inlet patch is `calculated; value uniform 1e5`, and the thermo packages are
+constructed from it, so the vapour patch density is `rho(1e5, 652.15) = 0.5330` (equal to the cell) at construction, and the
+patch of `p` becomes `p_rgh + rho gh = 1.4e5` only at the first `p_ = max(p_rgh_ + rho_*gh_, pMin_)` (`updatePP_rghRho_2p.H`, after the first
+`p_rgh` solve). The port set `p`'s patches to `p_rgh`'s (`case.rs`) and again to `p_rgh + rho gh` after the thermo construction
+(`TwoPhaseSolver::new`), so its construction-time patch densities, and the old-time copies of them that `oldTime()` stores
+lazily, belong to 1.4e5.
+
+| id | prediction (committed before the fix) |
+|---|---|
+| U1 | `p`'s patch values are read from the case file (`calculated` + `value`) and NOT overwritten at construction; the first update is the existing one after the first `p_rgh` solve. `U.vapour` cell 0 at (1 outer, 1 corrector) moves from 2.07e-6 to below 1e-10, and the whole `U.vapour` field of steps 1 and 2 at the 24-outer-iteration protocol moves from 2.1e-5 and 5.7e-6 to below 1e-9 |
+| U2 | the other fields at steps 1 to 65 move by less than 1e-11 relative (they are insensitive to an absent phase's inlet density), so no recorded bound of the first-65-step gate needs touching; the `U.vapour` bound of steps 1-2 then tightens to the common one (the bound is tightened, never relaxed) |
+| U3 | onset window (steps 616-627) and the nOuter-6 control (item C2) keep passing at their bounds; the cumulative continuity errors of the control move by less than 1e-6 relative |
+| U4 | the old form stays callable: `TwoPhaseCase::without_p_patch_from_file()` reproduces 2.07e-6 / 2.1e-5 / 5.7e-6 |
