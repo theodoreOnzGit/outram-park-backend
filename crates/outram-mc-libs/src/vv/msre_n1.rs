@@ -435,7 +435,8 @@ fn zcyl(x0: f64, y0: f64, r: f64, bc: BoundaryType) -> SurfaceKind {
 
 /// Linear scale factors applied to the cold (as-drawn) dimensions: one for
 /// everything graphite, one for everything INOR-8. Both 1.0 is the cold
-/// geometry every N-1 and N-3 record used.
+/// geometry every N-1 and N-3 record used ~~.~~ before 2026-11-13; since
+/// then [`Dims::at`] is the default and [`Dims::COLD`] the ablation.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Dims {
     /// Graphite: stringer pitch and passages, core radius and height, the
@@ -465,6 +466,21 @@ impl Dims {
     pub fn hot(t_f: f64, graphite_per_f: f64, inor8_per_f: f64) -> Dims {
         let dt = t_f - COLD_TEMPERATURE_F;
         Dims { graphite: 1.0 + graphite_per_f * dt, inor8: 1.0 + inor8_per_f * dt }
+    }
+
+    /// **The default dimensions** (since 2026-11-13, maintainer: "have a
+    /// dimension dynamically shifting with temp"): each solid expanded from
+    /// [`COLD_TEMPERATURE_F`] to its own temperature, with TM-0728 §5.3's
+    /// coefficients. Graphite follows `graphite_f`. INOR-8 (core can,
+    /// vessel, heads, thimbles) follows `salt_f`, the salt it is wetted by.
+    /// Isothermal, this is `Dims::hot(t, ..)` exactly. [`Dims::COLD`] is the
+    /// ablation (`--cold-dims`). The shield is water-cooled and keeps its
+    /// drawn dimensions.
+    pub fn at(salt_f: f64, graphite_f: f64) -> Dims {
+        Dims {
+            graphite: 1.0 + GRAPHITE_EXPANSION_PER_F * (graphite_f - COLD_TEMPERATURE_F),
+            inor8: 1.0 + INOR8_EXPANSION_PER_F * (salt_f - COLD_TEMPERATURE_F),
+        }
     }
 }
 
@@ -762,11 +778,17 @@ pub fn geometry_with_ends(t_salt_k: f64, t_graphite_k: f64, d: Dims, ends: Ends)
     }
 }
 
-/// Whether the thermal shield is modelled (N-1 residual ablation, gh:#1128).
+/// Whether the thermal shield is modelled (gh:#1128).
+///
+/// **The default is [`Shield::Tm0728Full`]** since 2026-11-13 (maintainer:
+/// "Shields all in shld be default"; pinned by
+/// `tests::defaults_are_the_whole_shield_and_dims_at_temperature`).
+/// [`Shield::Omitted`] is the ablation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Shield {
-    /// Vacuum outside the vessel: every recorded N-1 and N-3 result.
-    #[default]
+    /// Vacuum outside the vessel: ~~every recorded N-1 and N-3 result~~
+    /// every N-1 and N-3 result recorded before 2026-11-13, and now the
+    /// ablation (`--shield none`).
     Omitted,
     /// The shield's cylindrical section, ORNL-TM-0728 §5.3.10.1 (report
     /// p. 128): 151 in high, 125 in OD and 93 in ID, two 1 in Type 304 walls
@@ -797,6 +819,7 @@ pub enum Shield {
     ///
     /// The 6 in insulation and the furnace annulus stay void. Their materials
     /// are not given.
+    #[default]
     Tm0728Full,
 }
 
@@ -1492,6 +1515,20 @@ mod tests {
         }
         assert_eq!((h, s.len()), (0x364611a9909b0605, 14517));
         assert_eq!(format!("{:?}", geometry_with_dims(911.0, 950.0, Dims::COLD)), s);
+    }
+
+    /// The defaults the maintainer set on 2026-11-13: the whole shield, and
+    /// dimensions that follow each solid's own temperature (isothermal: the
+    /// old `--hot-dims` exactly; split: graphite by its own temperature).
+    #[test]
+    fn defaults_are_the_whole_shield_and_dims_at_temperature() {
+        assert_eq!(Shield::default(), Shield::Tm0728Full);
+        let hot = Dims::hot(1181.0, GRAPHITE_EXPANSION_PER_F, INOR8_EXPANSION_PER_F);
+        assert_eq!(Dims::at(1181.0, 1181.0), hot);
+        let split = Dims::at(1231.0, 1131.0);
+        assert_eq!(split.inor8, Dims::hot(1231.0, GRAPHITE_EXPANSION_PER_F, INOR8_EXPANSION_PER_F).inor8);
+        assert_eq!(split.graphite, Dims::hot(1131.0, GRAPHITE_EXPANSION_PER_F, INOR8_EXPANSION_PER_F).graphite);
+        assert_eq!(Dims::at(COLD_TEMPERATURE_F, COLD_TEMPERATURE_F), Dims::COLD);
     }
 
     /// Hot dimensions reproduce TM-0728 §5.3's statement that heatup moves

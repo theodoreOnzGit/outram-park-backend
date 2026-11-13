@@ -4,6 +4,16 @@
 > unreviewed. **Validation** against a measurement, on a model with stated
 > simplifications.
 
+> **DEFAULTS CHANGED 2026-11-13 (maintainer, gh:#1128): "Have a dimension
+> dynamically shifting with temp. Shields all in shld be default … physical
+> realism without crippling the simulation."** The model now expands each
+> solid to its own temperature (`Dims::at`) and carries the whole TM-0728
+> shield (`Shield::Tm0728Full`). `--cold-dims` and `--shield none` are the
+> ablations. **Every number in the summary below was measured on the
+> previous default (cold, no shield)** and is being re-measured; the plan and
+> predictions are posted on gh:#1128. Until the new rows land, quote these as
+> the previous default's.
+
 ## Numbers to quote (summary, 2026-11-12)
 
 The default model is **arm C (natural Mo), RVS, 30P graphite, cold
