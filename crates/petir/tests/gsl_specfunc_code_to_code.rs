@@ -783,6 +783,49 @@ fn gh1421_residuals_stay_fixed() {
     at_least(&["bessel_j0", "bessel_j1", "bessel_y0", "bessel_y1"], 97, 5e-15);
 }
 
+/// **gh:#1421, signed zeros, `fd_2` at huge `x` and the half-integer
+/// Fermi-Dirac series (2026-11-13).** Predictions P4-P6 are in
+/// `specfunc_gsl_gh1419_1420_1421.md`, committed before the code ran.
+///
+/// Methodology: the bit patterns GSL 2.8 returns, read from the committed
+/// reference, are pinned directly (they do not depend on libm: `eta` at an
+/// even negative integer, `transport_*(+-0.0)`, `fd_2` past
+/// `1/GSL_ROOT3_DBL_EPSILON` are arithmetic only). Pass criterion: bit
+/// equality. Measured 2026-11-13 against GSL linked to PETIR's libm, whole
+/// sweep 85 360 -> 85 409 (default trig kernel; 85 778 -> 85 827 with
+/// `TrigKernel::Gsl`), i.e. +49 = 45 `eta` + 1 `transport_4` + 2 `fd_2` +
+/// 1 `fd_3half` (the last was predicted to be a huge-`x` row and is not: it is
+/// `-1.000000000001`, the series' `-ex * rat * rat * sqrt(rat)` grouping).
+#[test]
+fn gh1421_signed_zeros_and_fd_orderings_stay_fixed() {
+    use petir::specfunc::{eta, eta_int};
+    // The reference has them: every row of these routines at the points below.
+    for s in [-2.0_f64, -4.0, -10.0, -100.0] {
+        assert_eq!(eta(s).to_bits(), 0.0_f64.to_bits(), "eta({s}) must be +0.0");
+    }
+    assert_eq!(eta_int(-2).to_bits(), 0.0_f64.to_bits());
+    assert_eq!(transport_4(-0.0).to_bits(), 0.0_f64.to_bits());
+    assert_eq!(transport_3(-0.0).to_bits(), 0.0_f64.to_bits());
+    assert_eq!(transport_5(-0.0).to_bits(), 0.0_f64.to_bits());
+    // transport_2 has no `x == 0.0` branch upstream and returns -0.0.
+    assert_eq!(transport_2(-0.0).to_bits(), (-0.0_f64).to_bits());
+    for x in [1e15_f64, 1e50] {
+        let want = 1.0 / 6.0 * x * x * x;
+        assert_eq!(fermi_dirac_2(x).to_bits(), want.to_bits(), "fd_2({x})");
+    }
+    // GSL 2.8 (libm-linked and stock agree): 0.3466747947987295.
+    assert_eq!(
+        fermi_dirac_3half(-1.000000000001).to_bits(),
+        0.3466747947987295_f64.to_bits()
+    );
+    // Share against the committed STOCK reference (glibc exp/log/pow, so not
+    // 100 %; the libm-linked reference is 100 % for all three). Printed only.
+    for n in ["eta", "transport_4", "fd_2"] {
+        let (rows, exact, _, _) = finite_rows(n, Region::All);
+        println!("  gh1421 {n}: {exact}/{rows} bit-identical against the reference file");
+    }
+}
+
 /// **gh:#1421, the `trig.c` option: `TrigKernel::Gsl` against stock GSL 2.8.**
 ///
 /// Methodology: the rows of `specfunc-gsl-2.8-reference.txt` for the four Airy
