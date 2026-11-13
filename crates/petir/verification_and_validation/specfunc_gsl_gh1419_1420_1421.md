@@ -232,3 +232,41 @@ committed one (`cmp`).
   not the default. Choose it to match GSL; leave the default for accuracy.
 - Not 1-ulp libm noise: these two functions involve no libm in GSL, so no
   glibc-versus-PETIR ulp allowance was needed anywhere in the comparison.
+
+
+## gh:#1421, the last non-libm residuals: signed zeros and `fd_2` at huge `x` (2026-11-13)
+
+Written 2026-11-13 **before any of the changes below was run**. Starting point
+(comment of 2026-11-12 on gh:#1421): against GSL linked to PETIR's libm, with
+`TrigKernel::Gsl` on the five trig routines, 85 778 of 86 238 (99.47 %); the
+460 left are `erf`/`erfc` 403 (fdlibm substitution, not a port), `eta` 45,
+`ln_gamma*` 8 (flagged deviation), `fd_*` 3, `transport_4` 1.
+
+Reading the C (GSL `cf180cd7`) before measuring:
+
+- **`eta`.** `gsl_sf_eta_e` (zeta.c:1005) forms `1 - 2^(1-s)` and multiplies with
+  `gsl_sf_multiply_e` (elementary.c:36), which returns `+0.0` whenever either
+  factor is zero. At a negative even integer `zeta` is `+0.0` and `1 - p < 0`,
+  so PETIR's bare product is `-0.0`. `gsl_sf_eta_int_e` (zeta.c:971) the same
+  with `-p.val * z.val`.
+- **`transport_4(-0.0)`.** `x == 0.0` is its own branch in GSL (transport.c:250,
+  :327, :404) giving `+0.0`; PETIR sends `-0.0` into the small-`x` power
+  `(-0.0)^3 / 3 = -0.0`.
+- **`fd_2` at 1e15, 1e50.** GSL writes `1.0/6.0 * x*x*x` (fermi_dirac.c:1372),
+  i.e. `(((1/6) x) x) x`; PETIR writes `x*x*x/6.0`.
+- **`fd_3half` (one row).** Not explained by reading: the huge-`x` path is
+  `fd_asymp`, and I have not found a difference there. No prediction; to be
+  traced from the printed row.
+
+Predictions:
+
+- **P4.** The `eta` and `transport_4` signed-zero rows (45 + 1) become
+  bit-identical against both stock GSL and the libm-linked GSL.
+- **P5.** The two `fd_2` rows become bit-identical.
+- **P6.** Whole sweep against libm-linked GSL: 85 778 -> **85 826 (99.52 %)**
+  (+45 +1 +2) with the `Gsl` trig kernel; against stock GSL the same 48 rows
+  move (83 717 -> 83 765, 97.13 %, with the default trig kernel); the `fd_3half`
+  row and the 8 `ln_gamma*` rows are unchanged. If a row of these moves the
+  other way, the hypothesis is wrong.
+- **P7.** `std_shadowing_digest` moves (it pins specfunc values) and is
+  re-pinned with this reason; no other crate's tests change.
