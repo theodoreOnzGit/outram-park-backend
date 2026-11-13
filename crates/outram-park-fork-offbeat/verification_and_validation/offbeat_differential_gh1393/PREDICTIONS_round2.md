@@ -260,6 +260,10 @@ Predictions:
 3. Power law: `pow(sigma*1e-6/sigmaC, n)` against `x.r_powf(n)` with the same `x`: >= 90 % bit-identical.
 4. No port defect expected.
 
+(Scorecards for every section are in the per-family records `*_vs_offbeat.md`; round 2 found one port defect,
+Wright-Sham swelling, and wrong predictions are listed there, not here.  Remaining after round 2: Limback, Tobbe,
+Malygin, Routbort, PARFUME and Zhang creep, FRAPTRAN `Hp_`, case 2 (1D pellet), code_aster.)
+
 ## G. Corrosion: oxidation kinetics EPRI_KWU_CE, CathcartPawel and their low/high combination (before the driver)
 
 Compared: `correctOxideThickness(S, S0, Ti, phi, dt)` of `EPRI_KWU_CE`, `CathcartPawel` and the
