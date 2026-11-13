@@ -39,11 +39,19 @@ program tcdriver
         call ParseCSDataFile(cThermoFileName)
         if (INFOThermo /= 0) then
             write (*, '(A,I0,A,I0)') 'case ', icase, ' PARSE_INFO ', INFOThermo
-            call ResetThermo
+            call ResetThermoAll
             cycle
         end if
-        if (tol1 > 0D0) call SetToleranceOverrideValue(tol1)
-        call Thermochimica
+        ! `Thermochimica` calls InitThermo, which restores the default tolerances and does not
+        ! reapply an override.  The shipped coupling entry `ThermochimicaAPI` is the same
+        ! sequence with InitThermoAPI (= InitThermo + ApplyToleranceOverride), so a tightened
+        ! run goes through it; the default run goes through `Thermochimica` unchanged.
+        if (tol1 > 0D0) then
+            call SetToleranceOverrideValue(tol1)
+            call ThermochimicaAPI
+        else
+            call Thermochimica
+        end if
         write (*, '(A,I0,A,I0,A,I0,A,I0,A,I0)') 'case ', icase, ' INFO ', INFOThermo, ' iterGlobal ', iterGlobal, &
             ' nCon ', nConPhases, ' nSoln ', nSolnPhases
         write (*, '(A,ES25.17E3,A,ES25.17E3,A,ES25.17E3,A,ES25.17E3)') 'cond T ', dTemperature, ' P_atm ', dPressure, &
@@ -85,6 +93,6 @@ program tcdriver
                     iRegularParam(k,5), ' L ', dExcessGibbsParam(k)
             end do
         end do
-        call ResetThermo
+        call ResetThermoAll
     end do
 end program tcdriver
