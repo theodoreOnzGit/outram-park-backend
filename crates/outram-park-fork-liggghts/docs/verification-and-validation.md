@@ -1915,10 +1915,115 @@ partly across the plate counts as the volume-weight share of its member atoms
 - `sieveMultiSphereCanPass` of the sieve;
 - `compute ke/multisphere` and `erotate/multisphere`.
 
-**Not started (rest of gh:#1415):** superquadric (`atom_vec_superquadric`,
+~~**Not started (rest of gh:#1415):** superquadric (`atom_vec_superquadric`,
 `surface_model_superquadric`, `fix nve/superquadric`,
 `fix particletemplate/superquadric`), convex hull, ellipsoid, line and tri
-particles with their `nve/asphere*` and `nve/line` integrators.
+particles with their `nve/asphere*` and `nve/line` integrators.~~
+**CORRECTED 2026-11-13 (gh:#1415):** superquadric particles are ported, with
+primitive walls and pair contacts; see 4.17 for what is ported and what is not.
+Convex hull, ellipsoid, line and tri particles with their `nve/asphere*` and
+`nve/line` integrators are still not started.
+
+## 4.17 Superquadric particles (2026-11-13, gh:#1415)
+
+**What is computed.** `atom_style superquadric` particles (half-axes `a, b, c`,
+blockiness `n1, n2`), in `src/superquadric.rs`, a driver of its own
+(`SuperquadricSystem`) beside `GranularSystem`. No sphere or multisphere type
+gained a variant, so those paths are unchanged. Translated from upstream:
+
+- the particle set-up of `create_atoms single` + `set shape / blockiness /
+  density / quat_direct / v / omega`: `bounding_sphere_radius_superquadric`,
+  `volume_superquadric` and `inertia_superquadric` (libstdc++'s `std::beta` =
+  `exp(lgamma(x) + lgamma(y) - lgamma(x + y))`), and `omega_to_angmom`;
+- `fix nve/superquadric`, integration scheme 1 (the default): `calc_conjqm`,
+  the `no_squish_rotate` sequence 3-2-1-2-3, `invquatvec`;
+- primitive `wall/gran ... surface superquadric` plane walls:
+  `plane_intersection` and `point_wall_projection`, Hertz with the
+  volume-equivalent radius, tangential history, and both forces applied at
+  the contact point;
+- `pair gran ... surface superquadric`:
+  - the OBB separating-axis test (`obb_intersect`, 15 inequalities, restarted
+    from the last separating one);
+  - the contact point (`calc_contact_point`: Newton on the 4x4 system, by the
+    explicit inverse when `|det J| > 1` and `GMRES<4,4>` otherwise, with a
+    golden-section line search; with no previous point, the 10-step walk from
+    equal-volume spheres to the real shapes);
+  - the overlap (`extended_overlap_algorithm` -> `surface_line_intersection`);
+  - the contact-history life cycle under `neigh_modify every 1 check no`.
+
+**Upstream build.** The default `make serial` `lmp_serial` does **not**
+contain superquadrics: every superquadric source and branch sits behind
+`SUPERQUADRIC_ACTIVE_FLAG`. The reference came from a scratch rebuild with
+`make serial LMP_INC="-DSUPERQUADRIC_ACTIVE_FLAG -DNONSPHERICAL_ACTIVE_FLAG"`
+(recipe in `upstream_source/README.md`; deleted afterwards).
+
+**Decks** (`reference-data/liggghts/make_superquadric_decks.sh`, converted by
+`sq2csv.sh`). Common settings: `atom_modify sort 0 0`, `f f f`, neighbour list
+rebuilt every step, Hertz + history with `E = 1e7`, `nu = 0.3`, `e = 0.5`,
+`mu = 0.4`, `dt = 1e-5`, `%.17g` dumps of `x v omega quat`.
+
+| deck | what it exercises |
+|---|---|
+| `in.sq_drop` | one cube-like blob (`n1 = n2 = 6`, half-axes 4, 3, 2.5 mm, `rho = 2500`, `quat_direct 0.9 0.3 0.2 0.1`), `v = (0.1, 0, -0.5)`, `omega = (3, -2, 5)`, falls onto a `zplane` wall under gravity, bounces, rocks and slides; 10 frames to step 10 000 |
+| `in.sq_collide` | that blob and a `n1 = 4, n2 = 3` blob (half-axes 3.5, 3, 4 mm, `rho = 1500`, `quat_direct 0.7 -0.2 0.5 0.4`), both spinning, meet obliquely; no gravity, no walls; 10 frames to step 3 000 |
+
+**Prediction** (posted on gh:#1415 before the first run): free flight
+bit-identical; after contact, bit-identical only if PETIR's libm agrees with
+glibc on every call, and bit-identical under a glibc swap.
+
+**Results** (2026-11-13, Rust 1.99.1, `tests/superquadric_cross_code.rs`):
+
+| deck | PETIR `RealMath` (committed) | glibc swap | worst relative difference (PETIR) |
+|---|---|---|---|
+| `sq_drop` | **36 / 130** values bit-identical; frames 1 and 500 whole, the first differing frame is step 1000 (first wall contact at step 734) | **130 / 130** | `3.50e-12` |
+| `sq_collide` | **116 / 260**; frames 1, 200 and 400 whole, the first differing frame is step 600 | **260 / 260** | `2.39e-10` |
+
+**The translation is exact; the residue is `cbrt`.**
+- With `pow`, `sin`, `cos`, `exp` and `lgamma` routed to glibc by
+  `extern "C"`, and `cbrt` to glibc's `cbrtf64` alias, both decks are
+  bit-identical in every value. Rust's std `cbrt` resolves to
+  compiler-builtins' libm, not glibc, so it cannot be used for the swap.
+- With glibc for every call except `cbrt`, the counts equal the PETIR counts.
+  The whole residue therefore enters through `cbrt` in the volume-equivalent
+  radius `cbrt(3V / 4 pi)` that the wall and pair Hertz use: libm gives
+  `3.72342409315634237e-3`, glibc `3.72342409315634280e-3` (1 ulp) for the
+  `n = 6` blob.
+- The first effect is in the last bits of the wall force (`fz`) and torque at
+  the first contact step (734), where the state is still bit-identical. This
+  was found by per-step dumps of both codes, with upstream's `Hertz` inputs
+  printed from an instrumented scratch copy (`reff` was the one input that
+  differed). The difference then grows through the contact.
+- Both worst differences are below the 1e-8 round-off allowance, and the
+  cause is understood. The counts are pinned per the gh:#1455 decision (keep
+  PETIR's maths).
+
+**Interpretation.** The superquadric set-up, integrator, wall contact and the
+iterative pair contact detection reproduce upstream to the bit when they are
+given the same maths library. The iterative contact point converges to
+`merit < 1e-10`, not to a fixed point, so a libm difference changes the
+iterates by more than an ulp (the `sq_collide` worst is `2.4e-10`). Whether a
+longer or denser deck would amplify this into a visibly different trajectory
+was not tested.
+
+**Not ported** (refused or absent):
+- `fix particletemplate/superquadric` and insertion of superquadrics
+  (`particleToInsertSuperquadric`);
+- the curvature-limited radius (`curvatureLimitFactor`, `meanCurvature`,
+  `gaussianCurvature`; the default 0 is what is ported);
+- rolling-friction models with superquadrics;
+- mesh walls (`resolveTriSuperquadricContact`, `tri_mesh_I_superquadric.h`)
+  and cylinder primitive walls;
+- `area_superquadric` (not used by the dynamics) and
+  `compute erotate/superquadric`;
+- integration schemes 0, 2, 3 and 4, and the CFD-coupling torque terms;
+- `common_normal` / `minimal_distance` (not called by the surface model);
+- neighbour-list rebuild intervals other than every step (the contact history
+  of a pair is dropped exactly when its bounding spheres separate), and pair
+  orders other than `i < j` (upstream's binned order coincides for the two
+  particles here);
+- other normal and tangential models with superquadrics (only Hertz +
+  tangential history);
+- convex hull, ellipsoid, line and tri particles.
 
 ## 5. What is still NOT validated
 

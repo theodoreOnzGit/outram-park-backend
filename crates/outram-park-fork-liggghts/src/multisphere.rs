@@ -107,8 +107,10 @@
 //! deletion (`check_lost_atoms` / `delflag`), `fix multisphere/break`,
 //! `fix insert/stream` with clumps (`start_step`), heat transfer with clumps,
 //! restart, a second `run` set-up with clumps, and `orientation random`.
-//! Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
-//! gh:#1415) are not ported.
+//! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
+//! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
+//! particles are ported in [`crate::superquadric`]; convex hull, ellipsoid,
+//! line and tri particles are not.
 
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
@@ -130,12 +132,12 @@ const TOLERANCE_ORTHO: f64 = 1e-10;
 
 type V3 = [f64; 3];
 
-fn dot3(a: &V3, b: &V3) -> f64 {
+pub(crate) fn dot3(a: &V3, b: &V3) -> f64 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
 /// `vectorCross3D(v1, v2, res)`.
-fn cross3(a: &V3, b: &V3) -> V3 {
+pub(crate) fn cross3(a: &V3, b: &V3) -> V3 {
     [
         a[1] * b[2] - a[2] * b[1],
         a[2] * b[0] - a[0] * b[2],
@@ -239,7 +241,7 @@ fn jacobi(matrix: &mut [[f64; 3]; 3]) -> Option<(V3, [[f64; 3]; 3])> {
 }
 
 /// `MathExtra::qnormalize`.
-fn qnormalize(q: &mut [f64; 4]) {
+pub(crate) fn qnormalize(q: &mut [f64; 4]) {
     let norm = 1.0 / (q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]).sqrt();
     q[0] *= norm;
     q[1] *= norm;
