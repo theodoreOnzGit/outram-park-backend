@@ -386,11 +386,18 @@ impl SaturatingHardening {
         }
         let mut out = *resistance;
         for a in 0..n_systems {
-            let mut d = 0.0;
+            // Operation order is upstream's (RateDependentModel/
+            // calculatePlasticity.cc:698): the running resistance starts at
+            // `s_t` and each slipping system is ADDED to it in turn,
+            // `s = s + h_ab |dgamma|`.  The earlier "sum the increments, then
+            // add to s_t" is the same maths but rounded differently: 2894 of
+            // 4728 outputs (61 %) differed by 1-4 ulp where every `h` was
+            // already bit-identical (gh:#1434, 2026-11-13).
+            let mut s = resistance[a];
             for b in 0..n_systems {
-                d += q[a][b] * h[b] * slip_increments[b].abs();
+                s = s + q[a][b] * h[b] * slip_increments[b].abs();
             }
-            out[a] = (resistance[a] + d).min(self.saturation_resistance);
+            out[a] = s.min(self.saturation_resistance);
         }
         out
     }
