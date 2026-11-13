@@ -42,3 +42,28 @@ comparison.
 | S3 | Pearson, Spearman | <= 1e-13 | RAVEN's covariance goes through `np.dot` (BLAS) then divides by sqrt of the diagonal; summation order differs |
 | S4 | RAVEN `covariance` diagonal | equals `variance` exactly | `np.fill_diagonal(cov, variance)` |
 | S5 | skewness, kurtosis, median, percentile, min, max | not comparable | no raffles function; recorded as a gap and filed |
+
+## Case 2: RAVEN Grid and Stratified construction vs `GridSampler` / `LatinHypercube` (appended before that run)
+
+Read from source before the run (`GridEntities.py`, `Stratified.py`):
+
+* **Grid, `construction="equal"`** (`GridEntities.py:351-356`, `:307`, `:455-472`):
+  RAVEN builds `np.linspace(lower, upper, steps+1)`, then takes only its
+  first step, ROUNDED TO 14 DECIMALS (`round(g[1]-g[0], 14)`), and rebuilds the
+  levels as `np.concatenate((np.arange(lower, upper - 0.5*step, step),
+  [upper]))`. raffles' `equally_spaced` computes `lower + (upper-lower)*k/steps`.
+* **Grid, `construction="custom"`** (`:490-496`): levels are rebuilt as a
+  running sum `round(prev,14) + round(step,14)`, not taken as given.
+* **Stratified**: RAVEN draws one random permutation per dimension and
+  `lower + (upper-lower)*random()` per stratum, through numpy's MT19937 and
+  `utils.randomUtils`; raffles draws through `petir::rng::lcg`. The streams
+  cannot match and raffles' `generate` takes a seed, not uniforms, so there is
+  no replay entry point. Only the structural property (one point per stratum)
+  is comparable and that is already a crate test. Not run.
+
+| # | Quantity | Prediction | Reason |
+|---|---|---|---|
+| G1 | `equal` levels where the step is exactly representable to 14 decimals (e.g. 0.1..0.9 in 2 steps, 0..1 in 10) | same count; levels equal to <= 1 ulp-ish, not necessarily bit-identical | `arange` accumulates `lower + k*step` with the rounded step |
+| G2 | `equal` levels where the step is NOT a 14-decimal number (e.g. 0..1 in 3, 0.1..0.9 in 7) | same count, levels differ by up to ~1e-14 (the rounded step times k) | `round(step, 14)` discards up to 5e-15 per step; times k |
+| G3 | the level COUNT | equal for every case | `arange(lower, upper - step/2, step)` plus `upper` always yields `steps+1` while rounding error stays below half a step |
+| G4 | `custom` levels | RAVEN's levels equal the input only to ~1e-14 (running 14-decimal sum), raffles' are exact; so they differ by <= ~1e-14 for inputs with more than 14 decimals and are identical for short decimals | `:490-496` |
