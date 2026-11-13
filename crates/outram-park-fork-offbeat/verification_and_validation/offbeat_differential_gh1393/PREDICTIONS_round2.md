@@ -237,3 +237,25 @@ Predictions:
    `Prel` branch edges (0.003, 9e-6, 0.0087) agree.
 4. Mixture rules: no discrepancy for species sets without Ne/Rn.  A discrepancy is expected NOT.
 5. No port defect expected.
+
+## F. Creep: MATPRO UO2 fuel creep rate and Newton derivative, power law (before the driver)
+
+Compared: `MatproCreepModel::correctCreep` rate `fTrial = c1 + c2 + c3` (each already multiplied by
+`sigmaEff`) and, for `NewtonRaphsonMethod`, `fTrialDev`; `powerLaw::correctCreep` rate
+`B (sigmaEff 1e-6/sigmaC)^n` (per hour upstream; the port is per second, so the driver emits the value / 3600).
+Not compared: Limback, Tobbe, Malygin, Routbort, PARFUME, Zhang and the other creep classes (not ported or stateful
+in the strain history; listed), the implicit time-integration loop and relaxation.
+
+Fixed before the run:
+* The port does not reproduce upstream's lower clamp `sigmaEff >= 1e5 Pa` (documented in the port) and refuses
+  `D <= 90.5 %TD`; the grid uses `sigmaEff >= 1e5` and `D > 90.5`, so those do not enter.
+* `F = heatSource/312e-13` is the input `fission_rate` of the port (driver: `fission_rate = Q/312e-13`).
+* `D = rho/10970*100` upstream; the port takes `(1-p)*100`: the driver passes `rho = 10970*(1-p)`.
+
+Predictions:
+1. G1/G2 (scales: the sum of the three positive terms, `exp(-Q/R/T)` with `|Q/(R T)|` of 10-60 amplifying
+   the relative error of the exponent: scale = value x (3 + max |Q/(R T)|)) hold for the rate and the derivative.
+2. Association differences (`c2` ordering `(A4/(A6+D))*sigma^4.5*exp(..)` upstream vs `(A4/(A6+d)*exp(..))*q^4.5`
+   in the port; `-Q/R/T` vs `-q/(R t)`) give 1-3 ulp on a fraction of rows: bit-identity < 100 %, > 40 %.
+3. Power law: `pow(sigma*1e-6/sigmaC, n)` against `x.r_powf(n)` with the same `x`: >= 90 % bit-identical.
+4. No port defect expected.
