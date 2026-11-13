@@ -667,9 +667,15 @@ impl GridSampler {
     /// RAVEN's `equal` grid construction.
     ///
     /// `steps` is the number of *intervals*, so each dimension gets
-    /// `steps + 1` levels running from `lower` to `upper` inclusive, exactly
-    /// as upstream's `numpy.linspace(lower, upper, steps + 1)` does. The
-    /// resulting design has `(steps + 1)^dimensions` points.
+    /// `steps + 1` levels running from `lower` to `upper` inclusive, ~~exactly
+    /// as upstream's `numpy.linspace(lower, upper, steps + 1)` does~~
+    /// **CORRECTED 2026-11-13 (gh:#1430)**: these are `linspace`'s levels, but
+    /// RAVEN does not use `linspace`'s values: it keeps only the first step,
+    /// rounded to 14 decimals, and rebuilds the levels with `numpy.arange`.
+    /// That differs from this constructor by up to `k * 5e-15` (bit-identical
+    /// when the step is a 14-decimal number); use
+    /// [`equally_spaced_as_raven`](Self::equally_spaced_as_raven) for RAVEN's
+    /// own values. The resulting design has `(steps + 1)^dimensions` points.
     ///
     /// Both endpoints are included, so pick `lower` and `upper` as the
     /// cumulative probabilities you actually want sampled — for an unbounded
@@ -703,6 +709,35 @@ impl GridSampler {
                 }
             })
             .collect();
+        Self::with_levels(vec![axis; dimensions])
+    }
+
+    /// Builds the same grid as [`equally_spaced`](Self::equally_spaced) but
+    /// with the levels RAVEN itself computes, operation for operation
+    /// (gh:#1430).
+    ///
+    /// RAVEN's `equal` construction is NOT just `numpy.linspace`: the XML
+    /// reader takes `linspace(lower, upper, steps + 1)`, keeps only its first
+    /// step **rounded to 14 decimals** (`Samplers/Grid.py` /
+    /// `GridEntities.py:307`), and `GridEntity.initialize` (`:455-472`) then
+    /// rebuilds the levels as `numpy.arange(lower, upper - step / 2, step)`
+    /// followed by `upper`. Where the step is not a 14-decimal number the
+    /// levels differ from [`equally_spaced`](Self::equally_spaced) by up to
+    /// `k * 5e-15`; where it is, they are bit-identical (measured in
+    /// `verification_and_validation/raven_distributions_gh1430/`).
+    ///
+    /// `numpy.arange` fills `start`, `start + step`, then
+    /// `start + i * ((start + step) - start)`; that is reproduced here.
+    /// Errors are those of [`equally_spaced`](Self::equally_spaced).
+    pub fn equally_spaced_as_raven(
+        dimensions: usize,
+        steps: usize,
+        lower: f64,
+        upper: f64,
+    ) -> Result<Self> {
+        // Same argument checks, by building the plain grid first.
+        let _ = Self::equally_spaced(dimensions, steps, lower, upper)?;
+        let axis = raven_equal_axis(steps, lower, upper);
         Self::with_levels(vec![axis; dimensions])
     }
 
@@ -826,6 +861,42 @@ impl Sampler {
 // ---------------------------------------------------------------------------
 
 /// Rejects a zero count with a message naming the offending argument.
+/// Python's `round(x, 14)`: correctly rounded to 14 decimals. Rust's `{:.14}`
+/// rounds the exact binary value half-to-even, as CPython's `float.__round__`
+/// does, so the two agree.
+fn round_14_decimals(x: f64) -> f64 {
+    format!("{x:.14}").parse::<f64>().unwrap_or(x)
+}
+
+/// The levels RAVEN's `GridEntity` builds for an `equal` grid (see
+/// [`GridSampler::equally_spaced_as_raven`]). `steps >= 1`, `lower < upper`.
+fn raven_equal_axis(steps: usize, lower: f64, upper: f64) -> Vec<f64> {
+    // numpy.linspace(lower, upper, steps + 1): y = arange(num) * (delta / div)
+    // + start, last element pinned to `stop`. Only elements 0 and 1 are used.
+    let delta = upper - lower;
+    let lin_step = delta / steps as f64;
+    let first = 0.0 * lin_step + lower;
+    let second = if steps == 1 { upper } else { 1.0 * lin_step + lower };
+    let step = round_14_decimals(second - first);
+    // numpy.arange(lower, upper - 0.5 * step, step)
+    let stop = upper - step * 0.5;
+    let len = ((stop - lower) / step).ceil().max(0.0) as usize;
+    let mut axis = Vec::with_capacity(len + 1);
+    if len > 0 {
+        axis.push(lower);
+    }
+    if len > 1 {
+        let second_fill = lower + step;
+        let fill_delta = second_fill - lower;
+        axis.push(second_fill);
+        for i in 2..len {
+            axis.push(lower + i as f64 * fill_delta);
+        }
+    }
+    axis.push(upper);
+    axis
+}
+
 fn check_positive(value: usize, parameter: &str) -> Result<()> {
     if value == 0 {
         return Err(RafflesError::InvalidParameter {
@@ -1026,6 +1097,32 @@ mod tests {
         }
         assert_eq!(grid.levels()[0][0], 0.0);
         assert_eq!(grid.levels()[0][4], 0.8);
+    }
+
+    /// `equally_spaced_as_raven` keeps the level count and the exact `upper`,
+    /// and equals `equally_spaced` where the step is a 14-decimal number.
+    ///
+    /// **Methodology.** For `0.1..0.9` in 2 steps and `0.0..0.8` in 4 steps
+    /// the step (0.4, 0.2) is exactly representable to 14 decimals, so both
+    /// constructors must give the same bits; for `0.0..0.9` in 3 steps both
+    /// must give 4 levels ending on 0.9, differing by less than 1e-13.
+    /// Measured against RAVEN itself in `tests/raven_grid_gh1430.rs`.
+    #[test]
+    fn equally_spaced_as_raven_agrees_where_the_step_is_decimal() {
+        for (steps, lo, hi) in [(2, 0.1, 0.9), (4, 0.0, 0.8)] {
+            let plain = GridSampler::equally_spaced(1, steps, lo, hi).unwrap();
+            let raven = GridSampler::equally_spaced_as_raven(1, steps, lo, hi).unwrap();
+            assert_eq!(plain.levels(), raven.levels());
+        }
+        let plain = GridSampler::equally_spaced(1, 3, 0.0, 0.9).unwrap();
+        let raven = GridSampler::equally_spaced_as_raven(1, 3, 0.0, 0.9).unwrap();
+        assert_eq!(raven.levels()[0].len(), 4);
+        assert_eq!(raven.levels()[0][3], 0.9);
+        for (a, b) in plain.levels()[0].iter().zip(&raven.levels()[0]) {
+            assert!((a - b).abs() < 1e-13);
+        }
+        assert!(GridSampler::equally_spaced_as_raven(1, 0, 0.0, 0.9).is_err());
+        assert!(GridSampler::equally_spaced_as_raven(1, 3, 0.0, 1.0).is_err());
     }
 
     /// Every coordinate of every sampler lies in `[0, 1)`.
