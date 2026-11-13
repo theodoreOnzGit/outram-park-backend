@@ -30,6 +30,32 @@ port's `m'` can differ from upstream's `m` by up to 1 ulp.
 | P12 | viscosity: upstream default `EOSWaterViscosity1` (empirical) vs port `IapwsWater::viscosity` (IAPWS) | different models: <= 5 % over 5 to 300 C |
 | P13 | Debye-Huckel constants: upstream `reaction%debyeA/B/Bdot` vs port `DH_A/DH_B` | port 0.5085/0.3281 are textbook 25 C values; upstream defaults 0.5114/0.3288/0.0410. Predicted relative differences A: -5.7e-3, B: -2.1e-3 (port lower); consequently `log10 gamma` at small I differs by -5.7e-3 relative |
 
+### Addendum predictions, gold-file rows 3-5 (gh:#1537), written 2026-11-13 BEFORE any port run of a regression deck
+
+Candid ordering note: the upstream source files below (`richards.F90`, `richards_common.F90`,
+`richards_aux.F90`, `pm_richards.F90`, `timestepper_SNES.F90`, `timestepper_base.F90`,
+`convergence.F90`, `solver.F90`, `patch.F90`, `characteristic_curves_common.F90` at 669fbce)
+were READ before these were written, and the shipped `infiltration1d.regression.gold`
+(20 steps, 62 Newton iterations) was known from round 1. No port number existed. The step count is
+therefore a consistency check of my reading of the controller, not a blind prediction; the
+pressures are blind. Nothing below was tuned to a port result.
+
+Deck: `regression_tests/default/infiltration1d/infiltration1d.in` (40 x 1 x 1 cells, dx = 0.005 m,
+horizontal, `SATURATION_FUNCTION LINEAR` with Sr 0.3333333, alpha 1e30, pcmax 9807 Pa,
+`BURDINE_LINEAR_LIQ`, constant EOS 997.16 kg/m3 and 1e-3 Pa s, saturation 0.4444 initially,
+saturation 1 on the west face, no-flow east, `TIME` final 9504 s, max dt 1000 s, output times 0 864 5184 9504 s).
+
+| id | surface | prediction (fixed before running) |
+|---|---|---|
+| P17 | deck reader | parses the whole deck with no unsupported card: 40 x 1 x 1 cells, dx = 0.005 m, 4 regions, 2 flow conditions, regression cell ids 5 15 25 35 (1-based), output times 0 864 5184 9504 s |
+| P18 | `SFLinear*` saturation, `RPFBurdineLinearLiq` kr, built from the Fortran source | only `+ - * /` (no `pow`/`exp`), identical operation order, so BIT-IDENTICAL on every point of a grid (pc from -10 to 2 pcmax; Sl from 0 to 1.2), checked against the verbatim Fortran compiled with gfortran `-O2 -mno-fma` |
+| P19 | initial pressure from `LIQUID_SATURATION 0.4444` through `SFLinearCapillaryPressure` (`PatchUpdateCouplerSaturation`) | `p0 = 101325 - pc`, `pc = (1/alpha - pcmax) Se + pcmax`, `Se = (0.4444 - Sr)/(1 - Sr)`: `p0 = 93151.6 +- 0.1 Pa`; the gold minimum (93152.55 Pa) must lie ABOVE it, because the far cells have wetted slightly by 9504 s |
+| P20 | time-step sequence | `TIMESTEPPER` defaults: first dt 1 s, growth capped at 2 (Newton < 5 iterations, `PMRichardsUpdateTimestep` with `ts_acceleration` 5), `dt_max` 1000 s, output times forced and dt reverted afterwards. Derived by hand: dt = 1,2,4,...,256 (9 steps, t = 511), 353 (to 864), 512, 1000, 1000, 1000, 808 (to 5184), 1000, 1000, 1000, 1000, 320 (to 9504): **20 steps, final time exactly 9504 s** |
+| P21 | Newton iterations in total | **62**, the gold value, if the SNES test (`rtol` 1e-8 on the 2-norm of the residual, `stol` 1e-8, minimum one iteration, PETSc defaults because `newton_inf_*_tol` are UNINITIALIZED = -999 and `check_post_convergence` is off) is translated and the first full step satisfies the line-search decrease condition. Moderate confidence: the port uses a finite-difference Jacobian where upstream is analytic, and an exact tridiagonal solve where upstream does one BiCGStab/ILU iteration per Newton step (62 linear = 62 Newton in the gold). A different count is a FINDING to localise, not a number to tune |
+| P22 | gold pressures at cells 5, 15, 25, 35, max, min, mean; saturations likewise | with the same dt sequence, both codes converge to the same fixed point of the same backward-Euler equations and differ only by the Newton stopping residual. A step stops when `||F|| <= 1e-8 ||F0||` (or the update is below 1e-8 of `||x||`), so the error left in a step is at most `1e-8 x` (Newton step size of that step, at most the pressure change across the step, below ~3e3 Pa) = 3e-5 Pa; diffusion damps the accumulation over 20 steps, bound 20 x 3e-5 < **1e-3 Pa absolute (1e-8 relative)** per pressure. Saturation is `0.6667/9807 = 6.8e-5 /Pa` times that: **<= 7e-8**. If the step sequence differs the bound does not apply (backward Euler is first order in dt; the difference could then be 1e-3 relative) |
+| P23 | `Solution 2-Norm` (gold 6.0421481158758E+05 Pa) | same bound as P22 propagated: `<= 40^0.5 x 1e-3 = 6.4e-3` |
+| P24 | `Residual 2-Norm`, `Linear Solver Iterations` | NOT compared. The residual norm at exit depends on the last Newton overshoot (gold 3.6e-14 in kmol/s; the port is in kg/s, a factor 18.01534 larger), and the linear iteration count is a property of PETSc BiCGStab |
+
 Route, results and the lineage audit (`lineage.md`) follow the addendum.
 
 ### Addendum predictions, isotherms (written AFTER `isotherm_kernel` was first run, BEFORE any Rust comparison)
