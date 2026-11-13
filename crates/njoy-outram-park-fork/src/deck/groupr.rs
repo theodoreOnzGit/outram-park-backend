@@ -396,12 +396,24 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     write_head(&mut g, inp.matb, za, awr, tempin, &sigz, &egn, &egg);
     // This temperature's card-9 list (`:586-630`), and `mtd = 1` again (`:619`).
     let reactions = if itemp == 0 { inp.reactions.clone() } else { job.later_temperatures[itemp - 1].0.clone() };
+    let extended = if itemp == 0 { job.extended.clone() } else { job.later_temperatures[itemp - 1].1.clone() };
     let inp_t = crate::groupr::input::GrouprInput { temperatures: vec![tempin], reactions, ..inp.clone() };
     let inp = &inp_t;
     // The main loop's running `mtd` (`:619`, `mtd = 1`): a negative card-9 or
     // list entry `-m` visits `mtd + 1 ..= m` (`:640-646`, `:731-732`).
     let mut mtd_run = 1;
-    for req0 in &inp.reactions {
+    for card in card9_sequence(&inp.reactions, &extended) {
+        let req0 = match card {
+            Card9Item::Extended(e) => {
+                // Card 9a: one request, processed where it stands in the list.
+                let item = card9a_reaction(e, &mut mtd_run)?;
+                sh.set(item.mfd, item.mtd);
+                write_production(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, emaxx, &item)?;
+                continue;
+            }
+            Card9Item::Plain(r) => r,
+        };
+        let req0 = &req0;
         // `mtd = -1000` (no `mtd` on card 9): `iauto = 1`, the lists of `nextr`.
         let items: Vec<crate::deck::groupr_auto::AutoReaction> = if req0.mtd == crate::groupr::input::MTD_AUTO {
             crate::deck::groupr_auto::nextr_all(req0.mfd, &lists, &pend, inp.matb, &mut mtd_run)?
@@ -521,6 +533,49 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     Ok(())
 }
 
+/// One entry of a GROUPR card-9 list, in card order: a plain card 9
+/// request, or a card 9a extended one `(mfd, mtd, izar, lfs)`.
+#[derive(Debug, Clone, PartialEq)]
+enum Card9Item {
+    Plain(crate::groupr::input::ReactionRequest),
+    Extended([i32; 4]),
+}
+
+/// The card-9 list in the order it was read: each card 9a request goes before
+/// the plain request whose index it carries ([`crate::deck::modules::GrouprJob::extended`]).
+fn card9_sequence(plain: &[crate::groupr::input::ReactionRequest], extended: &[(usize, [i32; 4])]) -> Vec<Card9Item> {
+    let mut out = Vec::with_capacity(plain.len() + extended.len());
+    let mut ext = extended.iter().peekable();
+    for (i, r) in plain.iter().enumerate() {
+        while let Some((_, e)) = ext.next_if(|(at, _)| *at <= i) {
+            out.push(Card9Item::Extended(*e));
+        }
+        out.push(Card9Item::Plain(r.clone()));
+    }
+    out.extend(ext.map(|(_, e)| Card9Item::Extended(*e)));
+    out
+}
+
+/// Card 9a, down-converted as `groupr.f90:655-676` does: `mfd` 3/6/9/10 becomes
+/// `10/20/30/40 000 000 + 10*izar`, `lfs` and `isom` are the card's level, and
+/// `mtd = mtdp` (also the running `mtd`). A negative `mtdp` (a range through
+/// card 9a, `:731`) is refused by name, as is any other `mfd` (`illegal file`).
+fn card9a_reaction(e: [i32; 4], mtd_run: &mut i32) -> Result<crate::deck::groupr_auto::AutoReaction, NjoyError> {
+    let [mfd, mtdp, izar, lfs] = e;
+    let base = match mfd {
+        3 => 10_000_000,
+        6 => 20_000_000,
+        9 => 30_000_000,
+        10 => 40_000_000,
+        _ => return Err(NjoyError::InvalidInput(format!("groupr: illegal file ={mfd:3}"))),
+    };
+    if mtdp < 0 {
+        return Err(NjoyError::NotPorted("groupr card 9a with a negative mtd (a range)"));
+    }
+    *mtd_run = mtdp;
+    Ok(crate::deck::groupr_auto::AutoReaction { mfd: base + izar * 10, mtd: mtdp, lfs, isom: lfs, card9a: true })
+}
+
 /// One MF=3 vector section (`groupr.f90:840-905`): the head `za, 0, 1, 1, lrflag,
 /// ngn`, one LIST per written group, `asend`. Nothing is written when no group was
 /// (threshold above the top group: `ig1 = 0`, `asend` needs `ig1 /= 0`).
@@ -614,7 +669,7 @@ fn write_production(
         return Ok(());
     }
     g.begin(inp.matb, 3, r.mtd);
-    g.cont([za, f64::from(r.izam())], [1, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
+    g.cont([za, r.head_c2()], [1, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }

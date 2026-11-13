@@ -111,13 +111,19 @@ therefore the required result license, not merely a permitted one.
       per-file copyright lines — done; LGPL-3.0, not LGPL-2.1-or-later.
 - [x] Confirm GPL-3.0 compatibility of the confirmed license — done, above.
 - [x] Capture the clone's commit SHA and date accessed — done, above.
-- [ ] **Open (bead op-2nz):** `src/` holds 26,960 lines across 47 files, while
-      the crate `NOTICE` still claims no upstream source has been ported. No
-      file cites an upstream `.F90`. Audit whether that code is independent work
-      (state so precisely) or derived (add a provenance header to each derived
-      file naming the upstream file, commit, copyright holder and license, per
-      the workspace attribution rule). The clone above makes this comparison
-      possible for the first time.
+- [x] ~~**Open (bead op-2nz):** `src/` holds 26,960 lines across 47 files ...
+      Audit whether that code is independent work or derived.~~ **DONE
+      2026-11-13 (gh:#1422):** one translation (`src/decay/upstream.rs`,
+      already headed), independent implementations elsewhere; see
+      `verification_and_validation/upstream_differential_gh1422/lineage.md`.
+      `src/` is 28,446 lines in 49 files.
+
+**Re-clone note (2026-11-13).** The differential used a full-history blobless
+clone (`git clone --filter=blob:none --no-checkout`, then a sparse checkout of
+`src/pflotran` and `regression_tests/default` at 669fbce, 49 MB), not the
+shallow 203 MB clone above. A full-history clone reaches `2af572b8`;
+`git diff 2af572b8 669fbce -- src/pflotran/pm_ufd_decay.F90
+src/pflotran/utility.F90` is empty.
 
 ## Recommended citation
 

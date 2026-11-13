@@ -41,7 +41,7 @@ pub fn read_upstream(run: &str) -> PolyMesh {
 /// cfMesh writes `neighbour` for every face (-1 on a boundary face; internal
 /// faces first), OpenFOAM's reader wants the internal faces only. Keeps the
 /// header and rewrites the list up to the first -1.
-fn internal_neighbours_only(text: &str) -> String {
+pub fn internal_neighbours_only(text: &str) -> String {
     let open = text.find("\n(\n").expect("neighbour list");
     let before = &text[..open];
     let count_start = before.rfind('\n').unwrap() + 1;

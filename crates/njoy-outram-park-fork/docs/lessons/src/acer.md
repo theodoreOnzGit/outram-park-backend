@@ -88,8 +88,9 @@ by NJOY2016 `ac5adf5` with the same decks:
 
 There is no tolerance in that claim, including PURR's bands (rung 4) and the
 charged-particle blocks. The other classes have their own byte-level records:
-photo-atomic (byte-identical Type 1 on a synthetic Z = 6 tape; 71 781 of
-71 807 words at print precision on real uranium), dosimetry (byte-identical on
+photo-atomic (byte-identical Type 1 on a synthetic Z = 6 tape; ~~71 781 of
+71 807 words at print precision on real uranium~~ identical line for line on
+real uranium, **corrected 2026-11-13**, gh:#1369), dosimetry (byte-identical on
 H-1 and Mn-55), photo-nuclear (byte for byte on a synthetic tape, 556 781
 bytes), thermal in all three `IFENG` forms (point counts identical to NJOY's on
 Al-27 and graphite). Records: `verification_and_validation/acer_*_vs_njoy2016.md`.

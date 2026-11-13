@@ -9,13 +9,14 @@
 //! - a **relative-permeability** curve `k_r(S_e)` scaling intrinsic
 //!   permeability.
 //!
-//! Two closed-form model families are provided, dispatched by the
+//! ~~Two~~ **CORRECTED 2026-11-13 (gh:#1537): four** closed-form model families are provided, dispatched by the
 //! [`CharacteristicCurves`] enum (no trait objects, per the workspace rule):
 //!
 //! - [`VanGenuchten`] (van Genuchten 1980 retention + Mualem 1976 rel-perm),
 //! - [`BrooksCorey`] (Brooks & Corey 1964 retention + Burdine rel-perm), and
 //! - [`Haverkamp`] (Haverkamp et al. 1977 retention + conductivity — the Celia
-//!   1990 benchmark model).
+//!   1990 benchmark model), and
+//! - [`Linear`] (PFLOTRAN `SATURATION_FUNCTION LINEAR` + `BURDINE_LINEAR_LIQ`).
 //!
 //! # Conventions
 //!
@@ -81,6 +82,10 @@ pub enum CharacteristicCurves {
     /// Haverkamp et al. (1977) retention + conductivity — the constitutive model
     /// of the canonical Celia (1990) infiltration benchmark.
     Haverkamp(Haverkamp),
+    /// PFLOTRAN `SATURATION_FUNCTION LINEAR` + `PERMEABILITY_FUNCTION
+    /// BURDINE_LINEAR_LIQ` (gh:#1537), translated from `SFLinear*` and
+    /// `RPFBurdineLinearLiq*` in `characteristic_curves_common.F90`.
+    Linear(Linear),
 }
 
 impl CharacteristicCurves {
@@ -94,6 +99,7 @@ impl CharacteristicCurves {
             Self::VanGenuchten(m) => m.effective_saturation(pc_pa),
             Self::BrooksCorey(m) => m.effective_saturation(pc_pa),
             Self::Haverkamp(m) => m.effective_saturation(pc_pa),
+            Self::Linear(m) => m.effective_saturation(pc_pa),
         };
         Ratio::new::<ratio>(se.clamp(0.0, 1.0))
     }
@@ -106,6 +112,7 @@ impl CharacteristicCurves {
             Self::VanGenuchten(m) => m.d_se_d_pc(pc_pa),
             Self::BrooksCorey(m) => m.d_se_d_pc(pc_pa),
             Self::Haverkamp(m) => m.d_se_d_pc(pc_pa),
+            Self::Linear(m) => m.d_se_d_pc(pc_pa),
         }
     }
 
@@ -119,6 +126,7 @@ impl CharacteristicCurves {
             Self::VanGenuchten(m) => m.relative_permeability(se),
             Self::BrooksCorey(m) => m.relative_permeability(se),
             Self::Haverkamp(m) => m.relative_permeability(se),
+            Self::Linear(m) => m.relative_permeability(se),
         };
         Ratio::new::<ratio>(kr.clamp(0.0, 1.0))
     }
@@ -135,6 +143,7 @@ impl CharacteristicCurves {
             Self::VanGenuchten(m) => m.d_kr_d_se(se),
             Self::BrooksCorey(m) => m.d_kr_d_se(se),
             Self::Haverkamp(m) => m.d_kr_d_se(se),
+            Self::Linear(m) => m.d_kr_d_se(se),
         }
     }
 
@@ -144,6 +153,7 @@ impl CharacteristicCurves {
             Self::VanGenuchten(m) => m.residual_saturation(),
             Self::BrooksCorey(m) => m.residual_saturation(),
             Self::Haverkamp(m) => m.residual_saturation(),
+            Self::Linear(m) => m.residual_saturation(),
         }
     }
 }
@@ -233,14 +243,27 @@ impl VanGenuchten {
     }
 }
 
+/// Upstream PFLOTRAN's near-saturation guard in `SFVGSaturation`
+/// (`characteristic_curves_common.F90`, commit 669fbce): when
+/// `(alpha*pc)^n < 1e-15` the cell is treated as exactly saturated with zero
+/// slope, because `1 + (alpha*pc)^n` cannot resolve the perturbation. Added
+/// 2026-11-13 (gh:#1422) after the differential found the port returning
+/// `1 - m*x` and a non-zero slope of order 1e-12 there.
+const VG_PC_ALPHA_N_EPSILON: f64 = 1.0e-15;
+
 impl CharacteristicCurveModel for VanGenuchten {
     fn effective_saturation(&self, pc_pa: f64) -> f64 {
         if pc_pa <= 0.0 {
             return 1.0;
         }
         let ap = self.alpha * pc_pa; // > 0
-        let f = 1.0 + ap.r_powf(self.n);
-        f.r_powf(-self.m)
+        let ap_n = ap.r_powf(self.n);
+        // Upstream SFVGSaturation (669fbce): `pc_alpha_n < 1.d-15` returns
+        // exactly saturated (gh:#1422).
+        if ap_n < VG_PC_ALPHA_N_EPSILON {
+            return 1.0;
+        }
+        (1.0 + ap_n).r_powf(-self.m)
     }
 
     fn d_se_d_pc(&self, pc_pa: f64) -> f64 {
@@ -248,7 +271,12 @@ impl CharacteristicCurveModel for VanGenuchten {
             return 0.0;
         }
         let ap = self.alpha * pc_pa; // > 0
-        let f = 1.0 + ap.r_powf(self.n);
+        let ap_n = ap.r_powf(self.n);
+        // Same upstream guard as `effective_saturation`: slope 0 below it.
+        if ap_n < VG_PC_ALPHA_N_EPSILON {
+            return 0.0;
+        }
+        let f = 1.0 + ap_n;
         // dSe/dpc = -m * n * alpha * ap^(n-1) * f^(-m-1)
         -self.m * self.n * self.alpha * ap.r_powf(self.n - 1.0) * f.r_powf(-self.m - 1.0)
     }
@@ -301,10 +329,16 @@ impl CharacteristicCurveModel for VanGenuchten {
 ///
 /// $$ \frac{dS_e}{dp_c} = -\lambda \, \alpha \, (\alpha p_c)^{-\lambda - 1} \le 0, $$
 ///
-/// and `0` for `p_c <= 1/alpha`. **Note:** the curve has a *kink* at the
+/// and `0` for `p_c < 1/alpha`. **Note:** the curve has a *kink* at the
 /// air-entry pressure `p_c = 1/alpha` — `dS_e/dp_c` jumps from `0` (saturated
-/// side) to `-lambda*alpha` (unsaturated side). At exactly `p_c = 1/alpha` this
-/// implementation returns the saturated-side value `0`.
+/// side) to `-lambda*alpha` (unsaturated side). ~~At exactly `p_c = 1/alpha`
+/// this implementation returns the saturated-side value `0`.~~ **CORRECTED
+/// 2026-11-13 (gh:#1422)** — at exactly `p_c = 1/alpha` it returns the
+/// unsaturated-side slope `-lambda*alpha`, as upstream PFLOTRAN's
+/// `SFBCSaturation` does (`characteristic_curves_common.F90`, test
+/// `if (capillary_pressure < 1.d0/this%alpha)` at commit 669fbce). The
+/// differential against the linked upstream found the old branch returning `0`
+/// where upstream returns `-0.5e-4` (set 1, `pc = 1e4`, relative difference 1).
 ///
 /// # Relative permeability (Burdine)
 ///
@@ -363,21 +397,22 @@ impl BrooksCorey {
 
 impl CharacteristicCurveModel for BrooksCorey {
     fn effective_saturation(&self, pc_pa: f64) -> f64 {
-        let ap = self.alpha * pc_pa;
-        if ap <= 1.0 {
-            // At or below air-entry pressure (includes pc <= 0): saturated.
+        // Upstream SFBCSaturation: `capillary_pressure < 1.d0/this%alpha` is
+        // saturated (strict), so pc == 1/alpha takes the power-law branch.
+        if pc_pa < 1.0 / self.alpha {
+            // Below air-entry pressure (includes pc <= 0): saturated.
             1.0
         } else {
-            ap.r_powf(-self.lambda)
+            (self.alpha * pc_pa).r_powf(-self.lambda)
         }
     }
 
     fn d_se_d_pc(&self, pc_pa: f64) -> f64 {
-        let ap = self.alpha * pc_pa;
-        if ap <= 1.0 {
+        if pc_pa < 1.0 / self.alpha {
             0.0
         } else {
             // dSe/dpc = -lambda * alpha * (alpha pc)^(-lambda-1)
+            let ap = self.alpha * pc_pa;
             -self.lambda * self.alpha * ap.r_powf(-self.lambda - 1.0)
         }
     }
@@ -397,6 +432,146 @@ impl CharacteristicCurveModel for BrooksCorey {
             return 0.0;
         }
         (3.0 + 2.0 / self.lambda) * se.r_powf(2.0 + 2.0 / self.lambda)
+    }
+
+    fn residual_saturation(&self) -> f64 {
+        self.sr
+    }
+}
+
+/// PFLOTRAN's `SATURATION_FUNCTION LINEAR` retention with the
+/// `PERMEABILITY_FUNCTION BURDINE_LINEAR_LIQ` relative permeability
+/// (gh:#1537; translated from PFLOTRAN 669fbce
+/// `src/pflotran/characteristic_curves_common.F90`: `SFLinearSaturation` lines
+/// 2802-2841, `SFLinearCapillaryPressure` 2737-2798,
+/// `RPFBurdineLinearLiqRelPerm` 5191-5228).
+///
+/// # Retention curve
+///
+/// $$ S_e(p_c) = \frac{p_{c,\max} - p_c}{p_{c,\max} - 1/\alpha}, \qquad p_c > 0, $$
+///
+/// `S_e = 1` for `p_c <= 0` (upstream returns `Sl = 1` there). Upstream
+/// `RichardsAuxVarCompute` first truncates `p_c` at `p_{c,\max}`
+/// (richards_aux.F90 line 311), so `S_e` never goes below 0; the clamp in
+/// [`CharacteristicCurves::effective_saturation`] does the same. The
+/// derivative is the constant `-1/(p_cmax - 1/alpha)` (upstream
+/// `dSe_dpc`); it is `0` for `p_c <= 0`.
+///
+/// # Relative permeability (Burdine linear)
+///
+/// $$ k_r = S_e $$
+///
+/// Upstream recomputes `Se = (Sl - Sr)/(1 - Sr)` from the liquid saturation it
+/// is given (not from the retention `Se`); [`Linear`] reproduces that round
+/// trip so the composed chain `kr(pc)` rounds the same way. Upstream returns
+/// `1` for `Se >= 1` and `0` for `Se <= 0`, slope `1/(1 - Sr)` in `Sl`.
+///
+/// # Units and ranges
+///
+/// - `alpha` — 1/Pa, `> 0` (the deck uses `1e30`, i.e. a zero air-entry pressure).
+/// - `pcmax` — Pa, `MAX_CAPILLARY_PRESSURE`, must exceed `1/alpha`.
+/// - `sr` — residual liquid saturation in `[0, 1)`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Linear {
+    /// Inverse air-entry pressure `alpha`, 1/Pa.
+    pub alpha: f64,
+    /// Maximum capillary pressure `pcmax`, Pa.
+    pub pcmax: f64,
+    /// Residual liquid saturation `S_r`.
+    pub sr: f64,
+}
+
+impl Linear {
+    /// Construct a validated linear retention + Burdine-linear model.
+    ///
+    /// # Errors
+    ///
+    /// [`PflotranError::InvalidInput`] if a parameter is non-finite, `alpha`
+    /// is not positive, `pcmax <= 1/alpha`, or `sr` is outside `[0, 1)`.
+    pub fn new(alpha: f64, pcmax: f64, sr: f64) -> Result<Self, PflotranError> {
+        if !alpha.is_finite() || alpha <= 0.0 {
+            return Err(PflotranError::InvalidInput(format!(
+                "linear saturation function alpha must be finite and > 0 1/Pa, got {alpha}"
+            )));
+        }
+        if !pcmax.is_finite() || pcmax <= 1.0 / alpha {
+            return Err(PflotranError::InvalidInput(format!(
+                "linear saturation function pcmax must be finite and > 1/alpha, got {pcmax}"
+            )));
+        }
+        if !sr.is_finite() || !(0.0..1.0).contains(&sr) {
+            return Err(PflotranError::InvalidInput(format!(
+                "residual saturation sr must be finite and in [0, 1), got {sr}"
+            )));
+        }
+        Ok(Self { alpha, pcmax, sr })
+    }
+
+    /// Capillary pressure (Pa) at liquid saturation `sl`
+    /// (`SFLinearCapillaryPressure`): `pcmax` at or below `Sr`, `0` at or above
+    /// 1, else `(1/alpha - pcmax) Se + pcmax`.
+    ///
+    /// Used to turn a `LIQUID_SATURATION` initial/boundary condition into a
+    /// pressure (`PatchUpdateCouplerSaturation`, patch.F90 line 6121).
+    pub fn capillary_pressure(&self, sl: f64) -> f64 {
+        if sl <= self.sr {
+            return self.pcmax;
+        }
+        if sl >= 1.0 {
+            return 0.0;
+        }
+        let dse_dsatl = 1.0 / (1.0 - self.sr);
+        let se = (sl - self.sr) * dse_dsatl;
+        let one_over_alpha_minus_pcmax = 1.0 / self.alpha - self.pcmax;
+        let pc = one_over_alpha_minus_pcmax * se + self.pcmax;
+        if pc > self.pcmax {
+            self.pcmax
+        } else {
+            pc
+        }
+    }
+}
+
+impl CharacteristicCurveModel for Linear {
+    fn effective_saturation(&self, pc_pa: f64) -> f64 {
+        if pc_pa <= 0.0 {
+            return 1.0;
+        }
+        // RichardsAuxVarCompute truncates pc at pcmax before the call.
+        let pc = pc_pa.min(self.pcmax);
+        let se = (self.pcmax - pc) / (self.pcmax - 1.0 / self.alpha);
+        // Upstream forms Sl = Sr + (1-Sr) Se; the caller does the same.
+        se
+    }
+
+    fn d_se_d_pc(&self, pc_pa: f64) -> f64 {
+        if pc_pa <= 0.0 {
+            0.0
+        } else {
+            -1.0 / (self.pcmax - 1.0 / self.alpha)
+        }
+    }
+
+    fn relative_permeability(&self, se: f64) -> f64 {
+        // RPFBurdineLinearLiqRelPerm takes Sl and recomputes Se from it.
+        let sl = self.sr + (1.0 - self.sr) * se;
+        let se = (sl - self.sr) / (1.0 - self.sr);
+        if se >= 1.0 {
+            1.0
+        } else if se <= 0.0 {
+            0.0
+        } else {
+            se
+        }
+    }
+
+    fn d_kr_d_se(&self, se: f64) -> f64 {
+        // dkr/dSl = 1/(1-Sr); times dSl/dSe = (1-Sr).
+        if se >= 1.0 || se <= 0.0 {
+            0.0
+        } else {
+            1.0
+        }
     }
 
     fn residual_saturation(&self) -> f64 {
@@ -726,6 +901,31 @@ mod tests {
             let p = k as f64 * 1.0e3;
             assert!(c.d_se_d_pc(pc(p)) <= 0.0);
         }
+    }
+
+    #[test]
+    fn vg_near_saturation_guard_matches_upstream_gh1422() {
+        // Explicit curve, alpha = 1e-4, n = 2:
+        // (alpha*pc)^n = (1e-4*1e-4)^2 = 1e-16 < 1e-15 -> exactly saturated.
+        let c = CharacteristicCurves::VanGenuchten(VanGenuchten::new(1.0e-4, 2.0, 0.1).unwrap());
+        assert_eq!(se_val(&c, 1.0e-4), 1.0);
+        assert_eq!(c.d_se_d_pc(pc(1.0e-4)), 0.0);
+        // Just above the guard the curve is no longer exactly saturated.
+        assert!(se_val(&c, 1.0) < 1.0);
+        assert!(c.d_se_d_pc(pc(1.0)) < 0.0);
+    }
+
+    #[test]
+    fn bc_slope_at_exact_air_entry_matches_upstream_gh1422() {
+        // Upstream SFBCSaturation uses a strict `pc < 1/alpha` test, so at
+        // pc == 1/alpha the slope is -lambda*alpha, not 0. alpha = 1e-4 here,
+        // so 1/alpha = 1e4 Pa exactly representable as 1.0/1e-4.
+        let c = bc();
+        let a = 1.0e-4_f64;
+        let pc_exact = 1.0 / a;
+        let d = c.d_se_d_pc(pc(pc_exact));
+        assert!(d < 0.0, "slope at air entry must be the unsaturated-side value, got {d}");
+        assert_eq!(c.d_se_d_pc(pc(pc_exact * (1.0 - 1e-12))), 0.0);
     }
 
     #[test]

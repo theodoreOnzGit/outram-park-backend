@@ -965,10 +965,10 @@ preceded by a step whose criteria were first met in the 24th iteration. At the s
 
 | id | held? | measured |
 |---|---|---|
-| F1 | **held, and by more than predicted** | with the upstream option, the port's iteration count and ending equal upstream's at **every one of the first 723 steps**, The informative part is steps 1-636 (iteration counts 5 to 23 and 24, many different endings). In steps 637-723, where the two trajectories have already separated, all 87 steps are `notconv` in both codes, so equality there is weak evidence. First difference: step 724 (`tests: one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split`). Before the item-4 fix the first difference was step 752 |
+| F1 | **held, and by more than predicted** | with the upstream option, the port's iteration count and ending equal upstream's at **every one of the first ~~723~~ 758 steps** (**CORRECTED 2026-11-13**: 723 was the value before commit 9db557a69, see "Round 5 addendum"; re-measured: 758 steps equal, 129 of them `notconv` in both). The informative part is steps 1-636 (iteration counts 5 to 23 and 24, many different endings). In steps 637-~~723~~ 758, where the two trajectories have already separated, all ~~87~~ 122 steps are `notconv` in both codes, so equality there is weak evidence. First difference: step ~~724~~ **759** (`tests: one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split`). Before the item-4 fix the first difference was step 752 |
 | F2 | **MISSED in size** | the criteria residuals do not agree to 1e-6: over steps 1-617 the worst relative differences of entries above 1e-8 are 1.7e-4 (`p_rgh` first-PISO) and 3.7e-4 (`h.liquid`); by magnitude (`p_rgh`): 1.1e-5 at 1e-6..1e-5, 1.3e-5 at 1e-4..1e-3, 1.7e-4 at 1e-7..1e-6. Cause: the OpenFOAM-normalised initial residual divides by a norm built from `A x - A xRef` that is small for a near-uniform field, so field differences of 1e-11 (the linear-solver stopping difference, GAMG against the port's ILU-BiCGStab at 1e-14) show up at 1e-5..1e-4 in a residual of 1e-6..1e-4. No decision flipped: all 723 endings are equal |
-| F3 | **held in kind, missed in detail** | the first differing step (724) is after the onset (618). The deciding residual is NOT within a factor 2 of 1e-5 in both codes: at step 724 upstream's last printed `p_rgh` residual is 2.2e-4 and the port met the criteria. The reason is that the trajectories had already separated (residual lists first differ by 17 % at step 637, the clocks by 0.03 s at step 700: upstream 6.28394, port 6.33092), so the two codes are no longer at the same state, which is what the noise-floor section of round 3 predicts |
-| F4 | **held, for the pre-fix run** | step 751 of the first run (before the item-4 fix; after it the corresponding steps are 723/724): upstream's last `p_rgh` residual 1.5264e-5, the port's 9.737e-6, both within a factor 2 of 1e-5 |
+| F3 | **held in kind, missed in detail** | the first differing step (~~724~~ **759**, see the addendum) is after the onset (618). The deciding residual is NOT within a factor 2 of 1e-5 in both codes: ~~at step 724 upstream's last printed `p_rgh` residual is 2.2e-4 and the port met the criteria~~ **CORRECTED 2026-11-13** for the current code: at step 759 upstream meets the criteria at the start of iteration 23 (`conv23`), the port's last printed `p_rgh` residual is 2.73e-4 and it runs all 24 iterations (the 724 figures, upstream 2.2e-4 with the port meeting the criteria, belong to the code before 9db557a69; upstream's own residual at 759 is Not re-checked: the committed flow reference holds iterations and endings only and the upstream log was not kept). The reason is that the trajectories had already separated (~~residual lists first differ by 17 % at step 637~~ Not re-checked after the change, for the same reason; the clocks ~~by 0.03 s at step 700: upstream 6.28394, port 6.33092~~ **0.054 s at step 700: upstream 6.28394, port 6.33825** (the old pair differs by 0.047 s, not the 0.03 s the text said)), so the two codes are no longer at the same state, which is what the noise-floor section of round 3 predicts |
+| F4 | **held, for the pre-fix run** | step 751 of the first run (before the item-4 fix; after it the corresponding steps were 723/724, and are none after 9db557a69: the first port step flagged in its last iteration is then 1556): upstream's last `p_rgh` residual 1.5264e-5, the port's 9.737e-6, both within a factor 2 of 1e-5 |
 | F5 | **held** | no difference in the loop's control flow was found; the option "moving the run away from upstream" in round 4 was a trajectory effect (see "Moved numbers") |
 | C1 | **held** | `nOuterCorrectors 6`, tight, 115 steps (to t = 1 s): upstream skips **55 steps** (every second step from step 4), the port skips the same 55, every iteration count and ending equal |
 | C2 | **held after item 4, missed before it** | fields per step, port vs upstream, 115 steps including the 55 skipped ones, worst relative difference: `p` 4.2e-12 (step 1; 9.8e-13 on a skipped step), `p_rgh` 4.2e-12, `T.liquid` 2.5e-13, `T.fixedPower` 1.4e-13, `U.liquid` 9.3e-12, `T.vapour` 1.3e-10, `T.interface` 4.5e-10, `U.vapour` 2.5e-11, `alpha.vapour` and `dmdt` exactly 0 in both. The first run of this test failed at step 1 on `U.vapour` (8.9e-5, bound 5e-5): that was item 4. No growth across skipped steps |
@@ -996,8 +996,8 @@ Reproduced with the round-4 code (earlier `p` patch, the upstream option; `GH136
 then `dt` is 2.4e-7 at step 5036 (a factor 8000 down in one step, so the Courant number of step 5035 was about 8000 times the controller's target), and from step 5037 `dt` is below the resolution of t (9.95 has ulp 1.8e-15): the clock stops,
 `maxDeltaT` can only grow a zero step by a factor of zero, and the loop runs for ever (13804 steps and counting after 400 s, all at t = 9.949786127634228).
 It is **a collapsing time step in the port's own post-onset trajectory, not a stalled solve and not the loop**; the last reference time written was t = 9.5 s, as
-round 4 saw. It does not occur with the corrected `p` patch (item 4): the run with the option completes, 5292 steps (upstream 4401), 6 skipped steps (1716, 1779,
-2438, 4727, 4787, 4833; upstream 729, 731, 733, 753, 1140, 1150, 1322, 1969), 6.8 s of CPU. A zero or collapsed step is now an error
+round 4 saw. It does not occur with the corrected `p` patch (item 4): the run with the option completes, ~~5292 steps (upstream 4401), 6 skipped steps (1716, 1779,
+2438, 4727, 4787, 4833; upstream 729, 731, 733, 753, 1140, 1150, 1322, 1969)~~ **CORRECTED 2026-11-13** (after 9db557a69, see the addendum): 5473 steps (upstream 4401; the port's skipped steps are Not re-checked; upstream's are 729, 731, 733, 753, 1140, 1150, 1322, 1969), 6.8 s of CPU (not re-timed). A zero or collapsed step is now an error
 (`AppBuilderError::Diverged`, `one_d_boiling_a_collapsed_time_step_is_an_error`); upstream has no such guard and would spin the same way from such a state.
 The first count difference at the shipped tolerances is step 729 (upstream skips, the port had not been flagged at 728); the loose solvers have already moved the
 residual lists by 1 % at step 282.
@@ -1034,15 +1034,70 @@ The gate bound for steps 1-2 of `one_d_boiling_first_steps_tight_vs_upstream` wa
 | t = 12 s fields, option, worst relative: `p`, `T.liquid`, `T.fixedPower`, `U.liquid` | 4.8e-4, 1.5e-2, 1.6e-2, 3.2e-3 | 6.1e-4, 2.1e-2, 2.2e-2, 4.4e-3 | post-onset sensitivity |
 | same, default ending | 1.7e-5, 4.9e-4, 4.6e-4, 1.1e-4 | 4.5e-4, 1.5e-2, 1.6e-2, 3.3e-3 | post-onset sensitivity |
 | shipped-tolerance run with the option | stalled at step ~5036, t = 9.9498 s | completes, 5292 steps | item 4, plus the new guard |
+| first step whose PIMPLE iteration count or ending differs from upstream, tight, option | 724 | **759** | 9db557a69, perfectGas `psi = 1/(R T)` (addendum) |
+| full tight run, port steps, option (upstream: 6157) | 6555 | 5567 | same |
+| full tight run, port steps, default ending | 6548 | 5608 | same |
+| steps flagged in the last iteration, option | 16 steps (723, 725, 773, ...) | 10 steps (1556, 1756, 1931, 2416, 5037, 5039, 5041, 5167, 5272, 5339) | same |
+| same, default ending | | 9 steps (1556, 5049, 5050, 5051, 5219, 5279, 5337, 5339, 5418) | same |
+| cumulative continuity error, tight, option (upstream -2.296, 1.155e-3) | (-1.821, 8.15e-4) | (-1.449, 7.49e-4) | same |
+| same, default ending | (-1.446, 6.93e-4) | (-1.599, 7.02e-4) | same |
+| t = 12 s fields, option, worst relative: `p`, `p_rgh`, `T.liquid`, `T.fixedPower`, `U.liquid` | 6.1e-4, 7.8e-5, 2.1e-2, 2.2e-2, 4.4e-3 | 2.3e-4, 3.8e-5, 7.1e-3, 7.5e-3, 1.5e-3 | same; post-onset sensitivity, not evidence of closeness |
+| t = 12 s fields, default ending, `p`, `p_rgh`, `T.liquid`, `T.fixedPower`, `U.liquid` | 4.5e-4, (not recorded), 1.5e-2, 1.6e-2, 3.3e-3 | 2.8e-4, 5.0e-5, 8.5e-3, 9.0e-3, 1.8e-3 | same |
+| shipped-tolerance run with the option, port steps (upstream 4401), cumulative continuity error liquid, vapour (upstream -0.4466, 2.00e-4) | 5292, (-0.5570, 2.77e-4) | 5473, (-1.432, 7.74e-4) | same; the first port step flagged in its last iteration is now 763 |
 
 **On the 12 s numbers.** The default ending was the closer one to upstream at t = 12 s before this round (`p` 1.7e-5), and is 4.5e-4 now; the option's closeness flipped
 the other way. A fix confined to two steps at the inlet moved every post-onset number by up to two orders of magnitude, which is what the round-3 noise floor says: **no post-onset
 figure here is evidence about the flag or about the loop**, in either direction. The gated and quotable comparisons are the pre-onset rows, the onset window, and the
-control-flow comparisons above (steps 1-723 identical; the `nOuterCorrectors 6` and `7` controls on single-phase flow, where the trajectories do not separate).
+control-flow comparisons above (steps 1-~~723~~ 758 identical; the `nOuterCorrectors 6` and `7` controls on single-phase flow, where the trajectories do not separate).
 
 ### What remains (round 5)
 
-* The post-onset trajectory cannot be reproduced point-wise (round 3); the control-flow claim is therefore bounded by step 723 (tight) and by the controls.
+* The post-onset trajectory cannot be reproduced point-wise (round 3); the control-flow claim is therefore bounded by step ~~723~~ 758 (tight) and by the controls.
 * `*Final` fvSolution variants, `useFirstPISOInitialResidual false` and `stopIfFirstResRelChangeAboveRelTol` are not read (none is exercised by 1D_boiling).
 * Decision for the maintainer: should the corrected-ending default also make `calcCumulContErrs` run in every step? (see Item 3).
 * The cumulative continuity error is still a factor 1.25 (shipped) to 1.3 (tight) from upstream's after the onset: it integrates a cancelling quantity along a chaotic trajectory, so it is not expected to close.
+
+# Round 5 addendum (gh:#1361, #1362; 2026-11-13): why the first differing PIMPLE step moved from 724 to 759
+
+AI-written, not human-reviewed. Research, education and V&V only. The test `one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split`
+found 759 after commit 9db557a69 (gh:#1362 row 4, thermophysics against ESI v2506); its parent 5e42d5727 gives 724 (bisected by the coordinator).
+
+## Predictions (written BEFORE any run of this addendum)
+
+Read first (no run): the five changes of 9db557a69 against the code twoPhase calls (`solver/two_phase/thermo.rs`: vapour `PerfectGas` + `HConstThermo` +
+`ConstTransport`, liquid `IcoPolynomial` + `HPolynomialThermo` (Foundation form, `new`) + `PolynomialTransport`; it uses `rho`, `psi`, `cp`, `mu`, `kappa`, `hs`, `T(hs)`).
+
+| id | prediction | reason |
+|---|---|---|
+| M1 | the only change that reaches the solver is **perfectGas `psi = 1/(R T)`** (vapour). Reverting it alone restores 724; reverting any other piece alone leaves 759 | `P_REF` is read only by entropy (`S`), which twoPhase never calls; `alphah` is never called (twoPhase builds `kappa = Cp mu rPr` itself through `kappa`, unchanged); PengRobinson and `rhoConst` are not selected by any two-phase tutorial; `GasConstant` defaults to CODATA, so `r()` is unchanged; `hPolynomial` ESI form is opt-in (`new_esi_v2506`), the solver uses `new` |
+| M2 | the change in `psi` is at most 1 ulp (new `1/(R T)` against old `(p/(R T))/p`), so it is a move toward upstream's operations (v2506 `perfectGasI.H`) but of size ~1e-16 | arithmetic |
+| M3 | the field differences against upstream on steps 1-65 (<= 1e-9 gate) and in the onset window do not change measurably (all change by well under the 1e-11 linear-solver noise already there); they neither shrink nor grow beyond that | the dominant difference is the linear-solver stopping (GAMG against ILU-BiCGStab at 1e-14), 5 orders above 1 ulp |
+| M4 | therefore the step 724 -> 759 is not a measurable change in distance from upstream: after the onset round 3 showed 1e-6 perturbations growing to O(1) within 0.5 s, so a 1e-16 perturbation re-draws the threshold-crossing step. The change is correct in form (bit-identical operation to upstream) and the new step is a different draw of the same chaotic noise | round 3 noise floor |
+
+## Round 5 addendum results (measured 2026-11-13, release; scratch builds that edited one function of `outram-foam-basic-lib` at a time and were reverted, nothing of them is committed)
+
+Command for every row: the four tests `one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split`, `one_d_boiling_first_steps_tight_vs_upstream`,
+`one_d_boiling_boiling_onset_tight_vs_upstream`, `one_d_boiling_full_tight_vs_upstream`, `--nocapture`.
+
+| scratch build | first differing PIMPLE step |
+|---|---|
+| HEAD (all of 9db557a69) | 759 |
+| HEAD with only `PerfectGas::psi` back to `self.rho(p, t) / p` | **724** (parent's value) |
+| HEAD with only `P_REF` back to 101 325 Pa | 759 |
+| HEAD with only `ConstTransport::alpha_h` back to `kappa / Cp` | 759 |
+
+| id | held? | measured |
+|---|---|---|
+| M1 | **held** | the single piece is `PerfectGas::psi`. The others cannot reach twoPhase: no call of `s()`/`S` (P_REF), of `alpha_h` (the solver uses `kappa` from `props`), no PengRobinson or `rhoConst` in `thermo.rs`, `PolynomialStack` is built with `HPolynomialThermo::new` (the Foundation form, unchanged), `GasConstant` defaults to CODATA (unchanged). Only P_REF and `alpha_h` were run alone; the other three are by reading |
+| M2 | **held** | `1/(R T)` is exactly v2506 `perfectGasI.H`; the 9db557a69 dump test found the old form 1 ulp off upstream at 27 of 40 grid points |
+| M3 | **held, stronger than predicted** | steps 1-65 (10 fields, 65 steps), the 12 onset-window steps (616-627) and all 12 comparisons at 0.5 s to 6.0 s: every printed value (3 digits) is IDENTICAL before and after. Worst relative differences are the recorded ones (steps 1-65: `p` 9.55e-13, `T.interface` 7.59e-10; onset window: `alpha.vapour` 3.42e-6, `U.vapour` 1.86e-8). The reason is that `psi` of the vapour is multiplied by `alpha.vapour`, which is 0 until step 617, so nothing before the onset can see it. The field differences neither shrank nor grew where they can be measured |
+| M4 | **held** | from 6.5 s on, whole fields differ O(1) between the two builds (`alpha.vapour` against upstream at 6.5 s: 7.9e-2 new, 6.9e-1 old; at 7.0 s 2.1e-1 new, 1.5e-2 old; at 9.0 s 1.0e-1 new, 5.4e-2 old; at 12 s `p` 2.3e-4 new, 6.1e-4 old, `T.liquid` 7.1e-3 new, 2.1e-2 old), with no consistent sign per time or field: noise, not a trend. The port had 900 steps at t = 6.5 s new against 1406 old |
+
+**Decision: the change is a correct move toward upstream in form, and cannot be shown to be one in distance.** Form: the port now performs upstream's operation bit for bit. Distance: unmeasurable before the onset (identical), noise after it. The pin is moved to 759 with this cause. No tolerance was relaxed.
+
+**Claims re-checked.** Re-measured and corrected above: "identical through step 723" (now 758), "all 87 steps are `notconv`" (122 over 637-758), the clock difference at step 700 (0.054 s; the old text said 0.03 s while its own numbers gave 0.047 s), the flagged steps, port step counts, cumulative continuity errors and 12 s fields in "Moved numbers". Not re-checked: that the residual lists first differ by 17 % at step 637 and upstream's last residual at step 759 (needs upstream's log; the committed `boiling_tight_full_flow` reference holds iterations and endings only); the shipped-tolerance first count difference at step 729 (the port's first flagged step is now 763, so it is probably unchanged, but the steps before were not compared).
+
+### A finding about the upstream reference (not caused by this change)
+
+A fresh run of the upstream binary in this environment (`/home/user/upstream-build`, GeN-Foam binary of 2026-11-13 01:17, OpenFOAM built 2026-11-12 23:39), tight protocol, `scripts/boiling_protocol.sh`, is repeatable (two runs identical) and agrees with the committed
+`boiling_tight_full_flow` reference at steps 1-639 (iterations, endings, clocks). At step 640 it differs: dt 0.0101 s against the reference's 0.0008 s, and the run then aborts with SIGFPE (`Foam::divide`) at t = 6.35153, step 667, at both `endTime` 6.5 and 12. The committed reference run reached 12 s (6157 steps). So the reference of steps 640 onward was produced by a different build of upstream than the one now installed (the environment was rebuilt; the compiler or flags may differ), and it cannot be regenerated here. The comparison before the onset (steps 1-639) is unaffected; the steps 640-758 of this test's reference, and every post-onset reference number, are a record of one build's chaotic trajectory. Recorded on gh:#1361; not investigated further.

@@ -41,6 +41,13 @@ const C5: f64 = 20.607_44;
 const RNDOFF: f64 = 1.000_000_1;
 /// `big` (`:412`).
 const BIG: f64 = 1.0e10;
+/// `0.99999` in `if (unext.lt.0.99999)`: a **default-real** literal (no `_kr`), so
+/// single precision promoted to double, `0.99998998641967773…`, not `0.99999`.
+/// NJOY2016 is built without `-fdefault-real-8`. gh:#1369 (decks 48, 59).
+const UNEXT_LIMIT: f64 = 0.99999_f32 as f64;
+/// `-.9999` in `if (unow.lt.-.9999)`, the panel loop's end: single precision too,
+/// `-0.99989998340606689…`.
+const UNOW_LIMIT: f64 = -0.9999_f32 as f64;
 
 /// 10-point Lobatto abscissae, `qp10` (`:401-404`).
 const QP10: [f64; 10] = [
@@ -170,7 +177,9 @@ fn iheat_full(e: f64, sf: &Tab1, stable_rm2: bool, split: f64) -> IncoherentHeat
             if unext < -1.0 {
                 unext = -1.0;
             }
-            if unext < 0.99999 {
+            // `unext.lt.0.99999`: a default-real (single-precision) literal,
+            // promoted by gfortran (`acepa.f90`, `iheat`); gh:#1369, decks 48/59.
+            if unext < UNEXT_LIMIT {
                 break;
             }
             xnow = xnext * RNDOFF;
@@ -219,7 +228,8 @@ fn iheat_full(e: f64, sf: &Tab1, stable_rm2: bool, split: f64) -> IncoherentHeat
             siginc += wq * arg;
             ebar += wq * arg * pnow / C3;
         }
-        if unow < -0.9999 {
+        // `unow.lt.-.9999`: single precision too (see [`UNOW_LIMIT`]).
+        if unow < UNOW_LIMIT {
             break;
         }
     }

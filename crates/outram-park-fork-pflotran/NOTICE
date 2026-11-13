@@ -72,24 +72,37 @@ outram-park-mpi, all GPL-3.0-only.
 This is a provenance record, not legal advice.
 
 
-PROVENANCE OF THIS CRATE'S OWN SOURCE — AUDIT OPEN (bead op-2nz)
+PROVENANCE OF THIS CRATE'S OWN SOURCE
 
-src/ currently holds roughly 26,960 lines across 47 files. No file in it cites
-an upstream PFLOTRAN .F90 source. Whether that code is independent work written
-from the published theory and user manual, or is derived from upstream, has not
-been established, and until it is this file makes no claim either way. An
-earlier revision stated "No PFLOTRAN source has been ported into this crate yet
-— it is a documented scaffold"; that statement cannot be reconciled with the
-present contents of src/ and has been removed.
+~~AUDIT OPEN (bead op-2nz). src/ currently holds roughly 26,960 lines across 47
+files. No file in it cites an upstream PFLOTRAN .F90 source. Whether that code
+is independent work ... has not been established, and until it is this file
+makes no claim either way.~~ **CORRECTED 2026-11-13 (gh:#1422, audit record
+verification_and_validation/upstream_differential_gh1422/lineage.md).** src/ now
+holds 28,446 lines in 49 files (counted with wc -l). What the audit found, with
+its evidence:
 
-The reference clone vendored at upstream_source/PFLOTRAN (gitignored, never
-committed) makes that comparison possible for the first time — it was not
-reachable from the environment where the original record was written.
+- ONE translation: src/decay/upstream.rs (and its tests), of pm_ufd_decay.F90,
+  utility.F90 and reaction.F90 (RRadioactiveDecay). It carries its provenance
+  header; its masses are bit-identical to the upstream routines extracted and
+  compiled (gh:#1000), and both upstream files are byte-identical between the
+  extraction commit 2af572b8 and the pinned commit 669fbce.
+- Independent implementations of published models, shown by differential
+  against the REAL upstream objects built from 669fbce: van Genuchten and
+  Brooks-Corey characteristic curves (properties/curves.rs), IAPWS-IF97 water
+  properties (eos_real), linear/Langmuir/Freundlich isotherms (sorption),
+  Debye-Hückel constants (activity). Operation order, parameter conventions
+  and guards differ from upstream's.
+- No PFLOTRAN counterpart: pitzer, Haverkamp curves, io, the CRAM default of
+  decay, gpu, units, error.
+- Not yet compared (counterpart located, no differential): the remaining
+  modules; see the table in lineage.md. No identifier or comment of upstream
+  appears in them (whole-word search of 5242 upstream routine names).
 
-Where a Rust source file is found to be, or is written as, a translation of an
-upstream routine, it must carry a provenance header naming the upstream source
-file, version/commit, copyright holder and license, per the workspace
-attribution rule.
+This is evidence, not proof of clean-room authorship. Where a Rust source file
+is found to be, or is written as, a translation of an upstream routine, it must
+carry a provenance header naming the upstream source file, version/commit,
+copyright holder and license, per the workspace attribution rule.
 
 
 INDEPENDENCE

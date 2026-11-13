@@ -533,6 +533,9 @@ impl PimpleFoam {
     /// Whatever the flow or the energy solve returns.
     pub fn step(&mut self) -> Result<(), AppBuilderError> {
         let t_old = self.energy.as_ref().map(|e| e.t.clone());
+        if let Some(e) = self.energy.as_mut() {
+            e.begin_time_step();
+        }
         if !self.solution.pimple.frozen_flow {
             self.step_flow()?;
         }

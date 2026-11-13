@@ -28,6 +28,10 @@
 //!
 //! Recorded in
 //! `verification_and_validation/acer_photoatomic_vs_njoy2016.md`.
+//! **CORRECTED 2026-11-13 (gh:#1369):** the routine is well conditioned, and the
+//! 7e-5 disagreement was the real defect this program was meant to rule in: two
+//! single-precision literals in `iheat`'s branch tests, translated as doubles.
+//! The port now matches NJOY2016's U photo-atomic ACE line for line.
 
 use njoy_outram_park_fork::acer::photoatomic::incoherent_heating::{
     iheat, iheat_ablate_cancellation, iheat_refined,

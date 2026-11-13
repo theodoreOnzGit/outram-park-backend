@@ -96,6 +96,7 @@
 //! an aerodynamic benchmark.
 
 use petir::mathf::RealMath;
+use crate::source_terms::{self, FrozenState, SourceForm, SourceTerms};
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -272,6 +273,118 @@ impl SpalartAllmaras {
 }
 
 /// Build a `VolScalarField` from per-cell values with zero-gradient boundaries.
+impl SpalartAllmaras {
+    /// The wall distance y [m] the model uses (nearest wall-face CENTRE).
+    pub fn wall_distance(&self) -> &[f64] {
+        &self.y
+    }
+
+    /// Per-cell terms of the ν̃ equation on the CURRENT fields, without solving
+    /// (gh:#1362 row 5). `state` carries `grad_u`, `grad_nu_tilda` and optionally
+    /// a `wall_distance` override.
+    ///
+    /// Terms: `chi`, `fv1`, `fv2`, `Omega`, `Stilda`, `r`, `fw`, `gradSqr`,
+    /// `cb2_term` (`Cb2/σ |∇ν̃|²`), `nuTilda_E` (`Cb1 S̃ ν̃`), `nuTilda_Sp`
+    /// (`Cw1 fw ν̃/y²`), `nut`.
+    ///
+    /// * [`SourceForm::Port`]: `correct()`'s arithmetic: σ = 2/3, `ν` floored at
+    ///   1e-14 in χ, `y` floored through `(κy)² ≥ 1e-14`, `Ω = √2 √(skew:skew)`.
+    /// * [`SourceForm::EsiV2506`]: `SpalartAllmarasBase.C` v2506: σ = 0.66666
+    ///   (upstream's literal default, not 2/3), `Cw1 = Cb1/κ² + (1+Cb2)/σ`,
+    ///   `Ω = √2 mag(skew ∇U)`, `SMALL = 1e-15`, `ft2` off.
+    pub fn source_terms(&self, form: SourceForm, state: &FrozenState) -> SourceTerms {
+        let n = self.mesh.n_cells;
+        let nt = self.nu_tilde.internal.as_slice();
+        let nu = self.nu.internal.as_slice();
+        let y: &[f64] = match &state.wall_distance {
+            Some(v) => v.as_slice(),
+            None => &self.y,
+        };
+        let names = [
+            "chi",
+            "fv1",
+            "fv2",
+            "Omega",
+            "Stilda",
+            "r",
+            "fw",
+            "gradSqr",
+            "cb2_term",
+            "nuTilda_E",
+            "nuTilda_Sp",
+            "nut",
+        ];
+        let mut t: Vec<Vec<f64>> = (0..names.len()).map(|_| vec![0.0; n]).collect();
+        for c in 0..n {
+            match form {
+                SourceForm::Port => {
+                    let x = chi(nt[c], nu[c]);
+                    let f1 = fv1(x);
+                    let f2 = fv2(x, f1);
+                    let s = state.grad_u[c].skew();
+                    let om = std::f64::consts::SQRT_2 * s.double_inner(s).max(0.0).sqrt();
+                    let ky2 = (KAPPA * y[c]).r_powi(2).max(SMALL);
+                    let st = (om + f2 * nt[c] / ky2).max(CS * om);
+                    let r = (nt[c] / (st.max(SMALL) * ky2)).min(10.0);
+                    let gsq = state.grad_nu_tilda[c].mag().r_powi(2);
+                    let y2 = y[c].r_powi(2).max(SMALL);
+                    t[0][c] = x;
+                    t[1][c] = f1;
+                    t[2][c] = f2;
+                    t[3][c] = om;
+                    t[4][c] = st;
+                    t[5][c] = r;
+                    t[6][c] = fw(st, nt[c], y[c]);
+                    t[7][c] = gsq;
+                    t[8][c] = CB2 / SIGMA * gsq;
+                    t[9][c] = CB1 * st * nt[c];
+                    t[10][c] = CW1 * t[6][c] * nt[c] / y2;
+                    t[11][c] = (nt[c] * f1).max(0.0);
+                }
+                SourceForm::EsiV2506 => {
+                    let (sigma, kappa, cb1, cb2) = (0.66666_f64, 0.41_f64, 0.1355_f64, 0.622_f64);
+                    let (cw2, cw3, cv1, cs) = (0.3_f64, 2.0_f64, 7.1_f64, 0.3_f64);
+                    let cw1 = cb1 / (kappa * kappa) + (1.0 + cb2) / sigma;
+                    let sqr = |a: f64| a * a;
+                    let pow3 = |a: f64| a * (a * a);
+                    let pow6 = |a: f64| pow3(a * a);
+                    let x = nt[c] / nu[c];
+                    let chi3 = pow3(x);
+                    let f1 = chi3 / (chi3 + pow3(cv1));
+                    let f2 = 1.0 - x / (1.0 + x * f1);
+                    let om = std::f64::consts::SQRT_2 * source_terms::mag_skew(&state.grad_u[c]);
+                    let d = y[c];
+                    let st = source_terms::umax(om + (f2 * nt[c]) / sqr(kappa * d), cs * om);
+                    let r = source_terms::umin(
+                        nt[c] / (source_terms::umax(st, 1.0e-15) * sqr(kappa * d)),
+                        10.0,
+                    );
+                    let g = r + cw2 * (pow6(r) - r);
+                    let fwv = g * ((1.0 + pow6(cw3)) / (pow6(g) + pow6(cw3))).r_powf(1.0 / 6.0);
+                    let gsq = source_terms::mag_sqr(state.grad_nu_tilda[c]);
+                    t[0][c] = x;
+                    t[1][c] = f1;
+                    t[2][c] = f2;
+                    t[3][c] = om;
+                    t[4][c] = st;
+                    t[5][c] = r;
+                    t[6][c] = fwv;
+                    t[7][c] = gsq;
+                    t[8][c] = (cb2 / sigma) * gsq;
+                    t[9][c] = ((cb1 * st) * nt[c]) * (1.0 - 0.0);
+                    t[10][c] = ((cw1 * fwv - (cb1 / sqr(kappa)) * 0.0) * nt[c]) / sqr(d);
+                    t[11][c] = nt[c] * f1;
+                }
+            }
+        }
+        let mut out = SourceTerms::default();
+        for (name, v) in names.iter().zip(t) {
+            out.push(name, v);
+        }
+        out
+    }
+}
+
 fn scalar_field(name: &str, mesh: Arc<FvMesh>, vals: Vec<f64>) -> VolScalarField {
     let boundary = mesh
         .patches

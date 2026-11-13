@@ -72,7 +72,7 @@ electron/positron port, gh:#976). `outram-mc-libs` owns neutrons only.
 
 - **The first charged-particle code is RustBCA.** It is copied, not taken as a
   dependency, into its own module tree in this crate, with clear attribution:
-  upstream `lcpp-org/RustBCA` v3.0.0 `a356280d`, GPL-3.0, with a provenance
+  upstream `lcpp-org/RustBCA` ~~v3.0.0~~ `a356280d` (**CORRECTED 2026-11-13, gh:#1426:** v3.0.0 plus 17 commits; the tag is `673bd3f`), GPL-3.0, with a provenance
   header on every file and a list of local changes. Its `no_std` + `alloc`
   build is re-exported from here (gh:#876, item 7). It covers fission
   fragments, alphas and recoil knock-ons, all of which are in scope.
@@ -188,7 +188,7 @@ src/
     removal_rates.rs                      ← RemovalRates: k_plate / k_clean per transport group or per element (Z); ::upstream reproduces upstream's routing; per-cycle conversions; liu_cao_2002_htr10 table
     normal_operation.rs                   ← normal_operation_node_with_rates: the ported chain with the rates from a RemovalRates; bit-for-bit equal to the port under ::upstream (336 cases)
   chemistry/                              ← cited rate laws: graphite_air, graphite_steam, kernel_hydrolysis (gh:#401). Added to this map 2026-10-04 (gh:#531)
-  rustbca/                                ← **A COPY of RustBCA** v3.0.0 (lcpp-org, a356280d, GPL-3.0), no_std + alloc, re-exported by boon-lay (gh:#876 item 7). mod.rs holds the attribution and the numbered local-change list; tests.rs is upstream's; local_change_tests.rs is boon-lay's. Added 2026-10-16
+  rustbca/                                ← **A COPY of RustBCA** ~~v3.0.0~~ (lcpp-org, a356280d = v3.0.0 + 17 commits, gh:#1426; GPL-3.0), no_std + alloc, re-exported by boon-lay (gh:#876 item 7). mod.rs holds the attribution and the numbered local-change list; tests.rs is upstream's; local_change_tests.rs is boon-lay's. Added 2026-10-16
   compute.rs                              ← ComputeType / ThreadCount backend selector (CPU single, CPU rayon, wgpu). Added 2026-10-04
   gpu.rs                                  ← optional wgpu Walk-on-Spheres kernel, off Android and wasm; UNVERIFIED (CPU fallback only). Added 2026-10-04
   wasm_par.rs                             ← serial rayon stand-ins on wasm32. Added 2026-10-04

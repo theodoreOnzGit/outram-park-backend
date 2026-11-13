@@ -43,6 +43,7 @@
 //! tracked in `outram-foam-appbuilder-lib/TODO.md`.
 
 use petir::mathf::RealMath;
+use crate::source_terms::{self, FrozenState, SourceForm, SourceTerms};
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -200,6 +201,169 @@ impl KOmegaSST {
 }
 
 /// Build a `VolScalarField` from per-cell values with zero-gradient boundaries.
+impl KOmegaSST {
+    /// The wall distance y [m] the model uses (nearest wall-face CENTRE).
+    pub fn wall_distance(&self) -> &[f64] {
+        &self.y
+    }
+
+    /// Per-cell source terms of the ω and k equations on the CURRENT fields,
+    /// without solving (gh:#1362 row 5). `state` carries `grad_u`, `div_u`,
+    /// `grad_k`, `grad_omega`, and optionally a `wall_distance` override (upstream
+    /// uses `meshWave`, the port the nearest wall-face centre).
+    ///
+    /// Terms: `y`, `S2`, `CDkOmega`, `F1`, `F23`, `nut`, `GbyNu0`, `G`, `gamma`,
+    /// `beta`, `GbyNu`, `Pk`, `omega_E`, `omega_SuSp1`, `omega_Sp`,
+    /// `omega_SuSp2`, `omega_cross`, `k_E`, `k_SuSp`, `k_Sp`.
+    ///
+    /// * [`SourceForm::Port`]: `correct()`'s arithmetic: γ₁, γ₂ derived from
+    ///   β/β* − σκ²/√β*, `CDkω` clipped at 1e-10 in both F1 and the source,
+    ///   `ν_t` limited by `|S| F2` with `.max(SMALL)` guards, `E_ω = γ|S|²`,
+    ///   cross diffusion added explicitly as `(1−F1) CDkω` (`omega_cross`),
+    ///   `Pk = min(ν_t|S|², 10 β* k ω)`; `GbyNu0 = GbyNu = |S|²`, `SuSp = 0`.
+    /// * [`SourceForm::EsiV2506`]: `kOmegaSSTBase.C` v2506: γ₁ = 5/9, γ₂ = 0.44,
+    ///   `CDkω` unclipped (clipped copy only inside F1), `ν_t = a1 k/max(a1 ω,
+    ///   b1 F23 √S2)`, `GbyNu = min(GbyNu0, (c1/a1) β* ω max(a1 ω, b1 F23 √S2))`,
+    ///   `SuSp₂ = (F1−1) CDkω/ω`, `omega_cross = −SuSp₂ ω`, F3 off, decay control
+    ///   off.
+    pub fn source_terms(&self, form: SourceForm, state: &FrozenState) -> SourceTerms {
+        use crate::source_terms::{dot, umax, umin};
+        let n = self.mesh.n_cells;
+        let k = self.k.internal.as_slice();
+        let w = self.omega.internal.as_slice();
+        let nu = self.nu.internal.as_slice();
+        let y: &[f64] = match &state.wall_distance {
+            Some(v) => v.as_slice(),
+            None => &self.y,
+        };
+        let mut t: Vec<Vec<f64>> = (0..20).map(|_| vec![0.0; n]).collect();
+        for c in 0..n {
+            match form {
+                SourceForm::Port => {
+                    let s = state.grad_u[c].symm();
+                    let s2 = 2.0 * s.double_inner(s);
+                    let mag_s = s2.sqrt();
+                    let yy = y[c].max(SMALL);
+                    let kc = k[c].max(SMALL);
+                    let wc = w[c].max(SMALL);
+                    let nc = nu[c].max(SMALL);
+                    let cd = (2.0 * SIGMA_W2 / wc * state.grad_k[c].dot(state.grad_omega[c]))
+                        .max(1.0e-10);
+                    let arg1 = (kc.sqrt() / (BETA_STAR * wc * yy))
+                        .max(500.0 * nc / (yy * yy * wc))
+                        .min(4.0 * SIGMA_W2 * kc / (cd * yy * yy));
+                    let f1 = arg1.r_powi(4).r_tanh();
+                    let arg2 =
+                        (2.0 * kc.sqrt() / (BETA_STAR * wc * yy)).max(500.0 * nc / (yy * yy * wc));
+                    let f2 = (arg2 * arg2).r_tanh();
+                    let denom = (A1 * w[c]).max(mag_s * f2).max(SMALL);
+                    let nut = (A1 * k[c].max(0.0) / denom).max(0.0);
+                    let gamma = f1 * Self::gamma1() + (1.0 - f1) * Self::gamma2();
+                    let beta = f1 * BETA1 + (1.0 - f1) * BETA2;
+                    let g = nut * s2;
+                    let pk = g.min(10.0 * BETA_STAR * k[c].max(0.0) * w[c]);
+                    t[0][c] = y[c];
+                    t[1][c] = s2;
+                    t[2][c] = cd;
+                    t[3][c] = f1;
+                    t[4][c] = f2;
+                    t[5][c] = nut;
+                    t[6][c] = s2;
+                    t[7][c] = g;
+                    t[8][c] = gamma;
+                    t[9][c] = beta;
+                    t[10][c] = s2;
+                    t[11][c] = pk;
+                    t[12][c] = gamma * s2;
+                    t[14][c] = beta * w[c].max(SMALL);
+                    t[16][c] = (1.0 - f1) * cd;
+                    t[17][c] = pk;
+                    t[19][c] = BETA_STAR * w[c];
+                }
+                SourceForm::EsiV2506 => {
+                    let (a_k2, a_w2) = (1.0_f64, 0.856_f64);
+                    let _ = a_k2;
+                    let (g1, g2, b1c, b2c) = (5.0 / 9.0, 0.44, 0.075, 0.0828);
+                    let (bs, a1, bb1, c1) = (0.09_f64, 0.31_f64, 1.0_f64, 10.0_f64);
+                    let gr = &state.grad_u[c];
+                    let s2 = source_terms::two_mag_sqr_symm(gr);
+                    let gbn0 = source_terms::g_by_nu(gr);
+                    let cd = ((2.0 * a_w2) * dot(state.grad_k[c], state.grad_omega[c])) / w[c];
+                    let cdp = umax(cd, 1.0e-10);
+                    let yc = y[c];
+                    let b_term = (500.0 * nu[c]) / ((yc * yc) * w[c]);
+                    let a_term = ((1.0 / bs) * k[c].sqrt()) / (w[c] * yc);
+                    let c_term = ((4.0 * a_w2) * k[c]) / (cdp * (yc * yc));
+                    let arg1 = umin(umin(umax(a_term, b_term), c_term), 10.0);
+                    let sq = arg1 * arg1;
+                    let f1 = (sq * sq).r_tanh();
+                    let a2 = ((2.0 / bs) * k[c].sqrt()) / (w[c] * yc);
+                    let arg2 = umin(umax(a2, b_term), 100.0);
+                    let f23 = (arg2 * arg2).r_tanh();
+                    let sqrt_s2 = s2.sqrt();
+                    let nut = (a1 * k[c]) / umax(a1 * w[c], (bb1 * f23) * sqrt_s2);
+                    let gamma = f1 * (g1 - g2) + g2;
+                    let beta = f1 * (b1c - b2c) + b2c;
+                    let g = nut * gbn0;
+                    let pk = umin(g, ((c1 * bs) * k[c]) * w[c]);
+                    let gbn = umin(
+                        gbn0,
+                        (((c1 / a1) * bs) * w[c]) * umax(a1 * w[c], (bb1 * f23) * sqrt_s2),
+                    );
+                    let susp2 = ((f1 - 1.0) * cd) / w[c];
+                    t[0][c] = yc;
+                    t[1][c] = s2;
+                    t[2][c] = cd;
+                    t[3][c] = f1;
+                    t[4][c] = f23;
+                    t[5][c] = nut;
+                    t[6][c] = gbn0;
+                    t[7][c] = g;
+                    t[8][c] = gamma;
+                    t[9][c] = beta;
+                    t[10][c] = gbn;
+                    t[11][c] = pk;
+                    t[12][c] = gamma * gbn;
+                    t[13][c] = ((2.0 / 3.0) * gamma) * state.div_u[c];
+                    t[14][c] = beta * w[c];
+                    t[15][c] = susp2;
+                    t[16][c] = -susp2 * w[c];
+                    t[17][c] = pk;
+                    t[18][c] = (2.0 / 3.0) * state.div_u[c];
+                    t[19][c] = bs * w[c];
+                }
+            }
+        }
+        let names = [
+            "y",
+            "S2",
+            "CDkOmega",
+            "F1",
+            "F23",
+            "nut",
+            "GbyNu0",
+            "G",
+            "gamma",
+            "beta",
+            "GbyNu",
+            "Pk",
+            "omega_E",
+            "omega_SuSp1",
+            "omega_Sp",
+            "omega_SuSp2",
+            "omega_cross",
+            "k_E",
+            "k_SuSp",
+            "k_Sp",
+        ];
+        let mut out = SourceTerms::default();
+        for (name, v) in names.iter().zip(t) {
+            out.push(name, v);
+        }
+        out
+    }
+}
+
 fn scalar_field(name: &str, mesh: Arc<FvMesh>, vals: Vec<f64>) -> VolScalarField {
     let boundary = mesh
         .patches

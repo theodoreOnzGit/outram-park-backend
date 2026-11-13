@@ -74,6 +74,7 @@
 //! Consequently this model is verified (units, formulae, positivity — see the
 //! tests) but not yet validated against a published k-ω benchmark.
 
+use crate::source_terms::{self, FrozenState, SourceForm, SourceTerms};
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -198,6 +199,66 @@ impl KOmega {
             nut[c] = (k[c].max(0.0) / w[c].max(SMALL)).max(0.0);
         }
         self.nu_t.internal = Field::new(nut);
+    }
+}
+
+impl KOmega {
+    /// Per-cell source terms of the ω and k equations on the CURRENT fields,
+    /// without solving (gh:#1362 row 5). `state` carries `grad_u`, `div_u`.
+    ///
+    /// Terms (per unit volume): `nut`, `GbyNu`, `G`, `omega_E`, `omega_SuSp`,
+    /// `omega_Sp`, `k_E`, `k_SuSp`, `k_Sp`.
+    ///
+    /// * [`SourceForm::Port`]: `correct()`'s arithmetic: `G = ν_t 2 S:S`,
+    ///   `E_ω = γ G ω/k`, `Sp_ω = β ω`, `Sp_k = β* ω`, no `SuSp` (zeros).
+    /// * [`SourceForm::EsiV2506`]: `kOmega.C` v2506: `ν_t = k/ω`,
+    ///   `GbyNu = ∇U && devTwoSymm(∇U)`, `E_ω = γ·GbyNu`,
+    ///   `SuSp_ω = ((2/3)γ) div U`, `Sp_ω = β ω`, `Sp_k = C_μ ω`,
+    ///   `SuSp_k = (2/3) div U`.
+    pub fn source_terms(&self, form: SourceForm, state: &FrozenState) -> SourceTerms {
+        let n = self.mesh.n_cells;
+        let k = self.k.internal.as_slice();
+        let w = self.omega.internal.as_slice();
+        let mut out = SourceTerms::default();
+        let (mut nut, mut gbn, mut g) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+        let (mut we, mut wsp, mut wsu) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+        let (mut ke, mut ksp, mut ksu) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+        for c in 0..n {
+            match form {
+                SourceForm::Port => {
+                    let s = state.grad_u[c].symm();
+                    let s2 = 2.0 * s.double_inner(s);
+                    nut[c] = (k[c].max(0.0) / w[c].max(SMALL)).max(0.0);
+                    gbn[c] = s2;
+                    g[c] = nut[c] * s2;
+                    we[c] = GAMMA * g[c] * w[c] / k[c].max(SMALL);
+                    wsp[c] = BETA * w[c].max(SMALL);
+                    ke[c] = g[c];
+                    ksp[c] = BETA_STAR * w[c];
+                }
+                SourceForm::EsiV2506 => {
+                    nut[c] = k[c] / w[c];
+                    gbn[c] = source_terms::g_by_nu(&state.grad_u[c]);
+                    g[c] = nut[c] * gbn[c];
+                    we[c] = GAMMA * gbn[c];
+                    wsu[c] = ((2.0 / 3.0) * GAMMA) * state.div_u[c];
+                    wsp[c] = BETA * w[c];
+                    ke[c] = g[c];
+                    ksu[c] = (2.0 / 3.0) * state.div_u[c];
+                    ksp[c] = BETA_STAR * w[c];
+                }
+            }
+        }
+        out.push("nut", nut);
+        out.push("GbyNu", gbn);
+        out.push("G", g);
+        out.push("omega_E", we);
+        out.push("omega_SuSp", wsu);
+        out.push("omega_Sp", wsp);
+        out.push("k_E", ke);
+        out.push("k_SuSp", ksu);
+        out.push("k_Sp", ksp);
+        out
     }
 }
 

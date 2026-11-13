@@ -66,10 +66,14 @@ def build_viscosity(visc, ttriple, gas_constant, molar_mass):
     if not isinstance(visc, dict) or visc.get("hardcoded"):
         return None
     if visc.get("type") == "Chung":
-        # Generalized corresponding-states (Chung et al. 1988): needs only the
-        # dipole moment beyond what FluidEos already carries (Tc, rho_c,
-        # acentric, molar_mass) -- see transport::chung_viscosity.
-        return "ViscosityModel::Chung {{ dipole_moment_d: {!r} }}".format(float(visc["dipole_moment_D"]))
+        # Generalized corresponding-states (Chung et al. 1988). CoolProp keeps its OWN
+        # Tc, rho_c, acentric and molar_mass in this block, and they differ from the EOS's
+        # for some fluids (Cyclopentane), so all five constants are copied -- see
+        # transport::chung_viscosity (gh:#1349).
+        return ("ViscosityModel::Chung {{ dipole_moment_d: {!r}, t_critical: {!r}, "
+                "rhomolar_critical: {!r}, acentric: {!r}, molar_mass: {!r} }}").format(
+            float(visc["dipole_moment_D"]), float(visc["T_critical"]),
+            float(visc["rhomolar_critical"]), float(visc["acentric"]), float(visc["molar_mass"]))
     dil, ho = visc.get("dilute"), visc.get("higher_order")
     # Dilute: collision_integral, powers_of_T, or the CO2 Laesecke hardcoded form.
     dh = dil.get("hardcoded") if isinstance(dil, dict) else None
@@ -202,6 +206,11 @@ def build_conductivity(cond, has_viscosity):
     return "ConductivityModel::Correlation {{ dilute: {}, residual: {}, critical: {} }}".format(
         dilute, residual, critical)
 
+# The EOS reducing-state pressure of the fluid being generated (set in main()): CoolProp's
+# Olchowy-Sengers term uses `get_reducing_state().p`, which differs from the critical
+# pressure for Air, Methanol, R1234ze(E) (gh:#1349).
+_P_REDUCING = float("nan")
+
 def build_critical(crit):
     """A `Some(CriticalConductivity::…)` literal, or `None` (the string)."""
     if not isinstance(crit, dict):
@@ -214,10 +223,10 @@ def build_critical(crit):
         return "None"
     # JSON overrides; the rest fall back to CoolProp's defaults.
     return ("Some(CriticalConductivity::SimplifiedOlchowySengers {{ r0: {!r}, gamma: {!r}, "
-            "big_gamma: {!r}, zeta0: {!r}, qd: {!r}, t_ref: {!r} }})").format(
+            "big_gamma: {!r}, zeta0: {!r}, qd: {!r}, t_ref: {!r}, p_reducing: {!r} }})").format(
         float(crit.get("R0", 1.03)), float(crit.get("gamma", 1.239)),
         float(crit.get("GAMMA", 0.0496)), float(crit.get("zeta0", 1.94e-10)),
-        float(crit.get("qD", 2e9)), float(crit.get("T_ref", -1.0)))
+        float(crit.get("qD", 2e9)), float(crit.get("T_ref", -1.0)), _P_REDUCING)
 
 # Per-property hardcoded formulas implemented in src/transport.rs. Values are
 # templates formatted with `mm` (the fluid's molar mass, kg/mol).
@@ -283,6 +292,8 @@ def main():
     eos = d["EOS"][0]
     red = eos["STATES"]["reducing"]
     crit = d["STATES"]["critical"]
+    global _P_REDUCING
+    _P_REDUCING = float(red["p"])
     const_name = rust_const_ident(fluid)
 
     residual = []

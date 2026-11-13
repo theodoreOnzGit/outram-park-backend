@@ -49,7 +49,11 @@ Every model implements the full trait (`div_dev_rho_reff`, `correct`, `nu_t`,
 `alpha_eff`, `mu_eff_field`) and is unit-tested — none `todo!()`-panic. "Unit-tested"
 means the formulae/coefficients/positivity are checked against the upstream
 OpenFOAM source and analytical values; it does **not** mean benchmark-validated
-(see Limitations).
+(see Limitations). ~~The formulae match upstream.~~ **CORRECTED 2026-11-13** (gh:#1362):
+on a frozen field against ESI v2506 the default arithmetic differs in `G` (no
+`-(2/3)(div U)^2`), the `div U` `SuSp` terms, SST gamma/`GbyNu` limiter, SA sigma and the
+wall distance; the ESI form is available as `source_terms(SourceForm::EsiV2506, ..)`
+(`verification_and_validation/upstream_turb_gh1362/README.md`).
 
 ## Limitations
 

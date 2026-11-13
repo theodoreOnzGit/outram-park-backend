@@ -227,7 +227,13 @@ an AI assistant's.
 That is **verification** in this workspace's sense — "is the equation
 implemented correctly?" It is **not validation** — "does it represent physical
 reality well enough for its intended purpose?" No test in this crate may be
-cited as evidence that the port reproduces experiment or reproduces OFFBEAT.
+cited as evidence that the port reproduces experiment. ~~Nor that it reproduces OFFBEAT.~~
+**CORRECTED 2026-11-13 (gh:#1393)** - the material-correlation tests
+`tests/offbeat_differential_{conductivity,properties}.rs` do compare the port with
+OFFBEAT `80e84450`, but against C++ kernels *transcribed* from OFFBEAT's `.C` files,
+not against a run of the compiled OFFBEAT library, and only for the correlations listed in
+`verification_and_validation/{conductivity,properties}_vs_offbeat.md` (cite those, with
+that qualification).
 See `VERIFICATION_AND_VALIDATION.md`.
 
 ## Android / Termux
@@ -253,8 +259,11 @@ cargo test  -p outram-park-fork-offbeat --release --lib
 ## Provenance
 
 The upstream tree is **not** vendored here — porting is done from a read-only
-clone kept outside this working tree, and no OFFBEAT or OpenFOAM C++ source is
-copied into the repository. Every derived Rust file carries an attribution
+clone kept outside this working tree, and ~~no OFFBEAT or OpenFOAM C++ source is
+copied into the repository.~~ **CORRECTED 2026-11-13** - the differential dump drivers
+`verification_and_validation/offbeat_differential_gh1393/dump_*.cpp` copy the arithmetic
+statements of OFFBEAT's material-correlation `.C` kernels (GPL-3.0, headers kept);
+no other upstream source is copied. Every derived Rust file carries an attribution
 header naming its upstream source file, project, commit, copyright holder and
 license. Full detail, including the SCIANTIX license lineage, is in `NOTICE`.
 

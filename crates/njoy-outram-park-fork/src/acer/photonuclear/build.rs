@@ -1,6 +1,6 @@
 // Ported from NJOY2016 `src/acepn.f90` (subroutine `acephn`, lines 27-1853).
 // NJOY2016 is under a modified BSD 3-Clause (LANL/DOE) licence, GPL-compatible;
-// this derivative file is distributed under GPL-3.0-only. This is a modified,
+// this derivative file is distributed under AGPL-3.0-only. This is a modified,
 // non-LANL version, not endorsed by LANL/DOE. See crate root LICENSE.njoy + NOTICE.
 
 //! `acephn` — build a photo-nuclear ACE table from an ENDF photo-nuclear
@@ -8,24 +8,25 @@
 //!
 //! ## Scope, stated up front
 //!
-//! This is a **partial** port, and every path it does not take returns
-//! [`NjoyError::NotPorted`] naming itself rather than quietly producing a
-//! table that is missing something. What is here is the path a LANL-style
-//! photo-nuclear file takes — the one the verification tape exercises:
+//! ~~This is a **partial** port of the path a LANL-style photo-nuclear file
+//! takes (MF=6 `LAW=1`, `LANG=1`, `NA=0`, `LCT=1` only), refusing `LANG=2`,
+//! `NA > 0`, `LCT /= 1`, recoil subsections, `LAW=2` and the MT=18 nubar.~~
+//! **CORRECTED 2026-11-13 (gh:#1369):** the body is now a line-for-line
+//! translation of `acephn`, XSS written at upstream's offsets in upstream's
+//! order. Translated: reactions read from the PENDF, `LCT /= 1` (`TYRP = -1`),
+//! `LANG = 2` (ACE law 44, `bachaa`/`eavl`), `NA > 0` (`ptleg2`), MF=6
+//! `LAW = 2` (ANDP tables and ACE law 33), LAW=1 recoil heating, MT=102
+//! `e+q` heating and the MT=18 nubar (`copynubar`). It reproduces NJOY2016's
+//! ACE for upstream decks 57, 58, 66 and 78 line for line
+//! (`tests/deck_driver_photonuclear_vs_njoy2016.rs`).
 //!
-//! | supported | not ported (refused by name) |
-//! |---|---|
-//! | MF=3 reactions with `MT = 2` or `MT > 4` | `ielas = 1`, i.e. an MF=3/MT=2 elastic section |
-//! | MF=6 `LAW=1`, `LANG=1`, `NA=0`, `LCT=1` → ACE law 61 | `LANG=2` (Kalbach-Mann → law 44), `NA > 0` |
-//! | heating from the `e+q` fallback for MF=6 sections with no recoil | heating from an explicit recoil subsection |
-//! | | MF=4/MF=5 representations (neutron-only, → laws 33 and 4) |
-//! | | MF=6 `LAW=2` (→ law 33) and `LAW=4` two-body recoils |
-//! | | MT=18 fission with its MF=1/452 or /456 nubar substitution |
-//!
-//! Refusing is the point. A photo-nuclear table that silently omits an
-//! emitted particle or an angular law still *reads*, still looks plausible,
-//! and is wrong in a way no consumer can detect — which is the failure mode
-//! this crate's rules name explicitly.
+//! Still refused by name ([`NjoyError::NotPorted`]): an MF=3/MT=2 elastic
+//! section (`ielas = 1`), ~~MF=4 (deck 56), an MF=5 distribution for a
+//! production reaction,~~ and MF=6 `LAW = 4`. **CORRECTED 2026-11-13 (gh:#1369, deck 56):** the MF=4/MF=5
+//! neutron branches are translated in [`super::mf45`]; deck 56 is identical. **CORRECTED 2026-11-13
+//! (gh:#1369, deck 64):** `LAW = 4`'s recoil heating (`acepn.f90:507-584`) is translated; `LAW = 4`
+//! for an emitted light particle (`:975-990`, `:1774-1790`) is still refused. Refusing is the point: a table that
+//! silently omits an emitted particle still reads and looks plausible.
 //!
 //! ## Two inputs, and why
 //!
@@ -37,7 +38,12 @@
 
 use crate::acer::read::{AceClass, AceFileType, AceHeader, RawAceTable};
 use crate::endf::gety1::Gety1;
+use crate::acer::acelcp::eavl;
+use crate::acer::acelf6::bachaa;
+use crate::common::phys::{AMASSN_AMU, AMU_G, CLIGHT_CM_S, EV_ERG};
 use crate::endf::records::{SectionCursor, Tab1};
+use super::records::{copynubar, flat, read_mf6, terp, terp_lin, Mf6, Xss};
+use super::mf45::{law33_discrete, mf4_yields, mf5_distribution, Block, Reaction};
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;
 use crate::NjoyError;
@@ -50,18 +56,8 @@ const ETOP: f64 = 1.0e10;
 const EPS: f64 = 1.0e-10;
 /// `small` (`:73`) — the floor a positive density is held above.
 const SMALL: f64 = 1.0e-12;
-
-/// The MCNP particle number for each emitted `ZAP`, in the fixed order
-/// `acephn` assigns them (`acepn.f90:645-688`).
-const PARTICLE_ORDER: [(i32, i32); 7] = [
-    (1, 1),       // neutron
-    (0, 2),       // photon
-    (1001, 9),    // proton
-    (1002, 31),   // deuteron
-    (1003, 32),   // triton
-    (2003, 33),   // He-3
-    (2004, 34),   // alpha
-];
+/// `rmin` (`:75`) -- the floor below which an angular density is zeroed.
+const RMIN: f64 = 1.0e-30;
 
 /// Everything `acephn` needs that is not on the tapes.
 #[derive(Debug, Clone, Default)]
@@ -99,50 +95,55 @@ pub struct PhotonuclearAce {
     pub xss_is_int: Vec<bool>,
 }
 
-/// One `(MF, MT)` the MF=1/451 dictionary lists, with what the passes learn.
+/// A reaction as `MTR`/`LQR`/`LSIG` describe it: `k` is the 1-based XSS
+/// index of its `IE` word (so `xss(2+k+i-iaa)` is its cross section at grid
+/// point `i`).
 #[derive(Debug, Clone, Copy)]
-struct DictEntry {
-    mf: i32,
+struct Rx {
     mt: i32,
-    /// `nr6` — how many recoil subsections this MF=6 section carries.
-    nr6: usize,
+    q: f64,
+    k: usize,
+    iaa: usize,
 }
 
-/// A stored reaction: its MT, Q, threshold index and cross section.
-#[derive(Debug, Clone)]
-struct Reaction {
-    mt: i32,
-    q_mev: f64,
-    /// 1-based index into the energy grid of the first stored point.
-    ie: usize,
-    sigma: Vec<f64>,
-}
-
-/// Build the photo-nuclear ACE table.
+/// `acephn` (`acepn.f90:27-1853`): build the photo-nuclear ACE table from
+/// the evaluation `endf` and its PENDF `pendf`.
+///
+/// A line-for-line translation: XSS is filled at upstream's offsets, in its
+/// order, with its `sigfig` calls, and the integer/real split is taken from
+/// [`crate::acer::photonuclear::layout::walk`] afterwards.
 ///
 /// # Errors
-/// [`NjoyError::EndfParse`] for a malformed or non-photo-nuclear tape, and
-/// [`NjoyError::NotPorted`] for any representation this port does not cover —
-/// see the module header for the list.
+/// [`NjoyError::EndfParse`] for a tape that is not photo-nuclear or is
+/// malformed, and [`NjoyError::NotPorted`] for the branches not translated:
+/// an MF=3/MT=2 elastic section and MF=6 `LAW = 4` for an emitted light
+/// particle (its recoil heating is translated, 2026-11-13); `EndfParse` for a
+/// polynomial nubar (which upstream refuses too). MF=4/MF=5 are translated
+/// (`super::mf45`, 2026-11-13).
 pub fn photonuclear_ace(
     endf: &Tape,
     pendf: &Tape,
     mat: i32,
     opts: &PhotonuclearOptions,
 ) -> Result<PhotonuclearAce, NjoyError> {
-    // ── MF=1/451: confirm this is a photo-nuclear tape (`acepn.f90:112-129`) ─
-    let sec451 = endf.section(mat, 1, 451).ok_or_else(|| {
-        NjoyError::EndfParse(format!("acephn: no MF=1/MT=451 for MAT {mat}"))
-    })?;
+    let _ = opts;
+    let emc2 = AMASSN_AMU * AMU_G * CLIGHT_CM_S * CLIGHT_CM_S / EV_ERG / EMEV;
+    // ── MF=1/451 (`:89-138`) ──────────────────────────────────────────────
+    let sec451 = endf
+        .section(mat, 1, 451)
+        .ok_or_else(|| NjoyError::EndfParse(format!("acephn: no MF=1/MT=451 for MAT {mat}")))?;
     let mut c = SectionCursor::new(&sec451.rows);
     let head = c.read_cont()?;
     let za = head.c1.round() as i32;
     let awr = head.c2;
-    let _second = c.read_cont()?;
+    let second = c.read_cont()?;
+    let is = second.l2;
     let third = c.read_cont()?;
-    // `izai = NSUB/10`; a photo-nuclear tape has NSUB = 0, so `izai = 0`.
     let izai = third.n1 / 10;
-    if izai != 0 {
+    // Upstream tests only `NSUB/10` (`:126-129`), so a photo-ATOMIC tape
+    // (`NSUB = 3`) passes its check and is processed into a table with no
+    // MF=3 reactions. This port refuses it as the wrong sublibrary instead.
+    if izai != 0 || third.n1 != 0 {
         return Err(NjoyError::EndfParse(format!(
             "acephn: NSUB = {} means izai = {izai}; this is not a photonuclear \
              tape (acepn.f90:127-129)",
@@ -151,30 +152,35 @@ pub fn photonuclear_ace(
     }
 
     // ── the dictionary scan (`:139-176`) ────────────────────────────────────
-    let mut dict: Vec<DictEntry> = Vec::new();
-    let mut ntr = 0usize;
-    let (mut ielas, mut mf4, mut mf6) = (false, false, false);
-    for s in endf.sections() {
-        if s.key.mat != mat {
-            continue;
+    // (mf, mt, nr6)
+    let mut dict: Vec<(i32, i32, usize)> = Vec::new();
+    let (mut ntr, mut ielas, mut mf4, mut mf6) = (0usize, false, false, false);
+    let mut mt10x = [false; 5];
+    for s in endf.sections().iter().filter(|s| s.key.mat == mat) {
+        let (mfd, mtd) = (s.key.mf, s.key.mt);
+        if (3..30).contains(&mfd) && (mtd == 2 || mtd > 4) {
+            if mfd == 3 {
+                ntr += 1;
+                for (i, lo) in [600, 650, 700, 750, 800].iter().enumerate() {
+                    if mtd >= *lo && mtd <= lo + 49 {
+                        mt10x[i] = true;
+                    }
+                }
+            }
+            if mtd == 2 {
+                ielas = true;
+            }
+            if mfd == 6 && (201..=207).contains(&mtd) {
+                return Err(NjoyError::EndfParse("acephn: mf=6/mt=201-207 not supported".into()));
+            }
+            if mfd == 4 {
+                mf4 = true;
+            }
+            if mfd == 6 {
+                mf6 = true;
+            }
+            dict.push((mfd, mtd, 0));
         }
-        let (mf, mt) = (s.key.mf, s.key.mt);
-        if !((3..30).contains(&mf) && (mt == 2 || mt > 4)) {
-            continue;
-        }
-        if mf == 3 {
-            ntr += 1;
-        }
-        if mt == 2 {
-            ielas = true;
-        }
-        if mf == 4 {
-            mf4 = true;
-        }
-        if mf == 6 {
-            mf6 = true;
-        }
-        dict.push(DictEntry { mf, mt, nr6: 0 });
     }
     if ielas {
         return Err(NjoyError::NotPorted(
@@ -182,50 +188,47 @@ pub fn photonuclear_ace(
              and its separate NON accounting are not ported",
         ));
     }
-    if mf4 {
-        return Err(NjoyError::NotPorted(
-            "acephn: MF=4 angular data -- the MF=4/MF=5 neutron-only \
-             representation (ACE laws 33 and 4) is not ported",
-        ));
-    }
-    if !mf6 {
-        return Err(NjoyError::NotPorted(
-            "acephn: no MF=6 -- this port builds production blocks from MF=6 only",
-        ));
-    }
-    if endf.section(mat, 1, 452).is_some() || endf.section(mat, 1, 456).is_some() {
-        return Err(NjoyError::NotPorted(
-            "acephn: MF=1/MT=452 or /456 nubar -- the MT=18 fission yield \
-             substitution (acepn.f90:178-205, 469-475) is not ported",
-        ));
+    // ~~MF=4 refused (the MF=4/MF=5 neutron-only representation was not
+    // ported)~~ **CORRECTED 2026-11-13 (gh:#1369, deck 56):** translated in
+    // `super::mf45`.
+
+    // ── the nubar tabulation (`:178-205`) ──────────────────────────────────
+    let mut fnubar: Option<Tab1> = None;
+    for mt in [452, 456] {
+        if let Some(s) = endf.section(mat, 1, mt) {
+            let mut cur = SectionCursor::new(&s.rows);
+            let h = cur.read_cont()?;
+            if h.l2 == 1 {
+                return Err(NjoyError::EndfParse(format!(
+                    "acephn: mf=1/mt={mt} uses polynomial representation, which \
+                     upstream does not support for photonuclear ACE files"
+                )));
+            }
+            fnubar = Some(cur.read_tab1()?);
+        }
     }
 
-    // ── the energy grid, from the PENDF's FIRST MF=3 section (`:207-227`) ───
-    let first_mf3 = pendf
-        .sections()
-        .iter()
-        .find(|s| s.key.mat == mat && s.key.mf == 3)
-        .ok_or_else(|| {
-            NjoyError::EndfParse(format!("acephn: the PENDF has no MF=3 for MAT {mat}"))
-        })?;
-    let t_tot = tab1_of(&first_mf3.rows)?;
+    // ── the energy grid from the PENDF's first MF=3 section (`:207-227`) ───
+    let pendf3: Vec<&crate::endf::tape::Section> =
+        pendf.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == 3).collect();
+    let first = *pendf3
+        .first()
+        .ok_or_else(|| NjoyError::EndfParse(format!("acephn: the PENDF has no MF=3 for MAT {mat}")))?;
+    let mttot = first.key.mt;
+    let t_tot = tab1_of(&first.rows)?;
     let mut g = Gety1::new(&t_tot);
     let mut grid: Vec<f64> = Vec::new();
-    let mut v = g.get(0.0);
-    let mut enext = v.xnext;
+    let mut enext = g.get(0.0).xnext;
     while enext < ETOP {
         let e = enext;
-        v = g.get(e);
+        let v = g.get(e);
         enext = v.xnext;
         if grid.is_empty() && v.y != 0.0 {
-            // The one point below the threshold, so the grid brackets it.
             grid.push(sigfig(e, 7, -1));
         }
         grid.push(e);
         if grid.len() > 5_000_000 {
-            return Err(NjoyError::EndfParse(
-                "acephn: the MF=3 grid walk did not terminate".into(),
-            ));
+            return Err(NjoyError::EndfParse("acephn: the MF=3 grid walk did not terminate".into()));
         }
     }
     let nes = grid.len();
@@ -233,509 +236,712 @@ pub fn photonuclear_ace(
     // ── locators (`:236-256`) ───────────────────────────────────────────────
     let esz = 1usize;
     let tot = esz + nes;
-    // With no elastic, NON aliases TOT and THN follows it directly.
-    let non = tot;
-    let els = 0usize;
-    let thn = tot + nes;
-    let mtr = thn + nes;
+    let (non, els, thn) = (tot, 0usize, tot + nes);
+    let mut x = Xss(vec![0.0; 8 * nes + 1024]);
+    for (i, &e) in grid.iter().enumerate() {
+        x.set(esz + i, e);
+    }
+    let mut nex = thn + nes;
+    let mtr = nex;
     let lqr = mtr + ntr;
     let lsig = lqr + ntr;
     let sig = lsig + ntr;
+    nex = sig;
 
-    // ── MF=3: the partial cross sections, and TOT accumulated from them ─────
-    let mut totals = vec![0.0f64; nes];
-    let mut heating = vec![0.0f64; nes];
-    let mut reactions: Vec<Reaction> = Vec::new();
-    for s in endf.sections() {
-        if s.key.mat != mat || s.key.mf != 3 || !(s.key.mt == 2 || s.key.mt > 4) {
+    // ── the reaction cross sections, from the PENDF (`:258-327`) ───────────
+    let start = if mttot == 5 {
+        pendf3.iter().position(|s| s.key.mt == 5).unwrap_or(0)
+    } else {
+        1
+    };
+    let mut rxs: Vec<Rx> = Vec::new();
+    for s in &pendf3[start..] {
+        let mth = s.key.mt;
+        if !(mth == 2 || mth > 4) {
+            continue;
+        }
+        if (103..=107).contains(&mth) && mt10x[(mth - 103) as usize] {
             continue;
         }
         let t = tab1_of(&s.rows)?;
-        let q_mev = sigfig(t.head.c2 / EMEV, 7, 0);
         let mut gg = Gety1::new(&t);
-        // The reaction threshold: `gety1`'s second point, shaded down when the
-        // cross section is already non-zero there (`:272-277`).
-        let first = gg.get(0.0);
-        let mut e = first.xnext;
-        let at = gg.get(e);
-        if at.y != 0.0 {
+        let mut e = gg.get(0.0).xnext;
+        if gg.get(e).y != 0.0 {
             e = sigfig(e, 7, -1);
         }
-        // Walk the grid down to the first point at or below the threshold.
         let mut j = nes;
-        while j >= 1 && e <= (1.0 + EPS) * grid[j - 1] {
+        while j >= 1 && e <= (1.0 + EPS) * x.get(esz + j - 1) {
             j -= 1;
         }
         j += 1;
+        let ir = rxs.len();
+        x.set(mtr + ir, f64::from(mth));
+        x.set(lqr + ir, sigfig(t.head.c2 / EMEV, 7, 0));
+        x.set(lsig + ir, (nex - sig + 1) as f64);
+        x.set(nex, j as f64);
+        let nnex = nex + 1;
+        let k = nex;
+        nex += 2;
+        let mut n = 0usize;
         let mut gg = Gety1::new(&t);
-        let mut sigma = Vec::with_capacity(nes - j + 1);
-        for (i, &ei) in grid.iter().enumerate().skip(j - 1) {
-            let sv = sigfig(gg.get(ei).y, 7, 0);
-            totals[i] += sv;
-            sigma.push(sv);
+        for i in j..=nes {
+            let e = x.get(i);
+            let s = sigfig(gg.get(e).y, 7, 0);
+            *x.at(tot + i - 1) += s;
+            x.set(nex, s);
+            n += 1;
+            nex += 1;
         }
-        reactions.push(Reaction {
-            mt: s.key.mt,
-            q_mev,
-            ie: j,
-            sigma,
-        });
+        x.set(nnex, n as f64);
+        rxs.push(Rx { mt: mth, q: x.get(lqr + ir), k, iaa: j });
     }
-    if reactions.len() != ntr {
+    if rxs.len() != ntr {
         return Err(NjoyError::EndfParse(format!(
-            "acephn: the dictionary promised {ntr} MF=3 reactions and the tape \
-             has {}",
-            reactions.len()
+            "acephn: the dictionary promised {ntr} MF=3 reactions and the PENDF has {}",
+            rxs.len()
         )));
     }
+    let find_rx = |mt: i32| -> Result<Rx, NjoyError> {
+        rxs.iter()
+            .copied()
+            .find(|r| r.mt == mt)
+            .ok_or_else(|| NjoyError::EndfParse(format!("acephn: MT={mt} has no MF=3 cross section")))
+    };
 
-    // ── MF=6: count the emitted particles and find their thresholds ─────────
-    let mut counts: std::collections::BTreeMap<i32, usize> = Default::default();
-    let mut thresholds: std::collections::BTreeMap<i32, f64> = Default::default();
-    for d in dict.iter_mut().filter(|d| d.mf == 6) {
-        let sec = endf.section(mat, 6, d.mt).ok_or_else(|| {
-            NjoyError::EndfParse(format!("acephn: MF=6/MT={} vanished", d.mt))
-        })?;
-        let mut cur = SectionCursor::new(&sec.rows);
-        let h = cur.read_cont()?;
-        let lct = h.l2;
-        if lct != 1 {
-            return Err(NjoyError::NotPorted(
-                "acephn: MF=6 with LCT /= 1 -- only the laboratory frame is ported",
-            ));
+    // The MF=6 sections, in tape order.
+    let mut mf6s: Vec<Mf6> = Vec::new();
+    for s in endf.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == 6) {
+        mf6s.push(read_mf6(s.key.mt, &s.rows)?);
+    }
+    let mfs5: Vec<i32> = dict.iter().filter(|d| d.0 == 5).map(|d| d.1).collect();
+
+    // ── pass 1: count the particles, find the thresholds, recoil heating
+    // (`:329-605`) ───────────────────────────────────────────────────────────
+    let order = [1, 0, 1001, 1002, 1003, 2003, 2004];
+    let mut count = [0usize; 7];
+    let mut thr = [ETOP; 7];
+    // An MF=4 section is one neutron-producing reaction (`:348-366`).
+    let mf4_rxs: Vec<Reaction> = dict
+        .iter()
+        .filter(|d| d.0 == 4)
+        .map(|d| find_rx(d.1).map(|r| Reaction { mt: r.mt, q: r.q, k: r.k, iaa: r.iaa }))
+        .collect::<Result<_, _>>()?;
+    for rx in &mf4_rxs {
+        count[0] += 1;
+        let thresh = x.get(esz + rx.iaa - 1);
+        if thresh < thr[0] {
+            thr[0] = thresh;
         }
-        let nk = h.n1.max(0) as usize;
-        let rx = reactions
-            .iter()
-            .find(|r| r.mt == d.mt)
-            .ok_or_else(|| {
-                NjoyError::EndfParse(format!(
-                    "acephn: MF=6/MT={} has no MF=3 cross section",
-                    d.mt
-                ))
-            })?;
-        let thresh = grid[rx.ie - 1];
-        for _ in 0..nk {
-            let y = cur.read_tab1()?;
-            let izap = y.head.c1.round() as i32;
-            let law = y.head.l2;
-            if izap > 2004 {
-                // A recoil: upstream uses it for heating only. Not ported, and
-                // its presence changes the heating of the whole table, so it
-                // is refused rather than ignored.
-                return Err(NjoyError::NotPorted(
-                    "acephn: an MF=6 recoil subsection (ZAP > 2004) -- the \
-                     recoil heating path (acepn.f90:441-500) is not ported",
-                ));
+    }
+    for m in &mf6s {
+        let mth = m.mt;
+        for sub in &m.subs {
+            let mut y = sub.y.clone();
+            let izap = sub.izap();
+            let law = sub.law();
+            if let Some(slot) = order.iter().position(|&z| z == izap) {
+                count[slot] += 1;
             }
-            if law != 1 {
-                return Err(NjoyError::NotPorted(
-                    "acephn: MF=6 LAW /= 1 -- only the continuum energy-angle \
-                     law is ported",
-                ));
-            }
-            *counts.entry(izap).or_insert(0) += 1;
-            // The production threshold: the first energy whose yield is
-            // non-zero, floored at the reaction threshold (`:417-436`).
-            let mut e = thresh;
-            for w in y.pairs.windows(2) {
-                if w[1].1 > 0.0 {
-                    e = w[0].0;
-                    break;
+            if mth == 18 && izap == 1 {
+                if let Some(nu) = &fnubar {
+                    y = copynubar(&y, nu);
                 }
             }
-            if e < thresh {
-                e = thresh;
+            let rx = find_rx(mth)?;
+            let thresh = x.get(esz + rx.iaa - 1);
+            if izap <= 2004 {
+                // The first energy whose *next* yield is positive (`:417-424`).
+                let mut e = thresh;
+                let mut found = false;
+                for w in y.pairs.windows(2) {
+                    if w[1].1 > 0.0 {
+                        e = w[0].0;
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    // **Deliberate divergence on undefined behaviour** (gh:#1369,
+                    // upstream test 64, Ra-226 MT=11 photons): upstream's
+                    // `do while (ynext.le.zero)` has no bound and, on an all-zero
+                    // yield, reads past the TAB1 into stale `scr` words. Its `e`
+                    // only enters the `min` below, so an all-zero yield is taken
+                    // as giving no production threshold.
+                    continue;
+                }
+                if e < thresh {
+                    e = thresh;
+                }
+                if let Some(slot) = order.iter().position(|&z| z == izap) {
+                    if e < thr[slot] {
+                        thr[slot] = e;
+                    }
+                }
+            } else if law == 1 {
+                // Recoil heating from a LAW=1 recoil spectrum (`:441-504`).
+                let (Some(t2), lists) = (&sub.tab2, &sub.lists) else { unreachable!() };
+                let ne = t2.head.n2.max(0) as usize;
+                let mut htab: Vec<(f64, f64)> = Vec::with_capacity(ne);
+                for l in lists.iter().take(ne) {
+                    let e = l.head.c2;
+                    let na = l.head.l2.max(0) as usize;
+                    let np = l.head.n2.max(0) as usize;
+                    let yv = terp(&y, e);
+                    let mut heat = 0.0f64;
+                    let (mut epl, mut gl) = (0.0f64, 0.0f64);
+                    for ip in 1..=np {
+                        let ep = l.data[(na + 2) * (ip - 1)];
+                        let gg = l.data[1 + (na + 2) * (ip - 1)];
+                        if ip > 1 {
+                            heat += (ep - epl) * gl * (ep + epl) / 2.0;
+                        }
+                        epl = ep;
+                        gl = gg;
+                    }
+                    htab.push((e, yv * heat));
+                }
+                for ie in rx.iaa..=nes {
+                    let e = x.get(esz + ie - 1);
+                    let mut h = terp_lin(&htab, e);
+                    h = (h / EMEV) * x.get(2 + rx.k + ie - rx.iaa);
+                    if x.get(tot + ie - 1) != 0.0 {
+                        h /= x.get(tot + ie - 1);
+                    }
+                    let v = sigfig(x.get(thn + ie - 1) + h, 7, 0);
+                    x.set(thn + ie - 1, v);
+                }
+                for d in dict.iter_mut().filter(|d| d.0 == 6 && d.1 == mth) {
+                    d.2 += 1;
+                }
+            } else if law == 4 {
+                // Heating from a discrete recoil (`acepn.f90:507-584`, gh:#1369,
+                // upstream test 64): upstream backs up to the section's
+                // **first** subsection (`findf`, its TAB1 gives `awp`, its TAB2
+                // and LISTs the incident energies, read as a LAW=2 two-body
+                // distribution) and tabulates `awp*(e+q*emev)/(awr-awp)` at each
+                // LIST's `e`; `q` is this reaction's LQR (MeV).
+                let first = m.subs.first().ok_or_else(|| NjoyError::EndfParse(format!("acephn: MF=6/MT={mth} has no subsection")))?;
+                let awp = first.y.head.c2;
+                let ne = first.tab2.as_ref().map_or(0, |t| t.head.n2.max(0) as usize);
+                let htab: Vec<(f64, f64)> = first
+                    .lists
+                    .iter()
+                    .take(ne)
+                    .map(|l| {
+                        let e = l.head.c2;
+                        (e, awp * (e + rx.q * EMEV) / (awr - awp))
+                    })
+                    .collect();
+                for ie in rx.iaa..=nes {
+                    let e = x.get(esz + ie - 1);
+                    let mut h = terp_lin(&htab, e);
+                    h = (h / EMEV) * x.get(2 + rx.k + ie - rx.iaa);
+                    if x.get(tot + ie - 1) != 0.0 {
+                        h /= x.get(tot + ie - 1);
+                    }
+                    let v = sigfig(x.get(thn + ie - 1) + h, 7, 0);
+                    x.set(thn + ie - 1, v);
+                }
+                for d in dict.iter_mut().filter(|d| d.0 == 6 && d.1 == mth) {
+                    d.2 += 1;
+                }
             }
-            let slot = thresholds.entry(izap).or_insert(ETOP);
-            if e < *slot {
-                *slot = e;
-            }
-            skip_law1(&mut cur)?;
+            // Law 0 and the rest: upstream only prints a message (`:586-595`).
         }
     }
 
-    // ── heating: the `e+q` fallback for MF=6 sections with no recoil (`:626-641`)
-    for rx in &reactions {
-        let has_mf6_no_recoil = dict.iter().any(|d| d.mf == 6 && d.mt == rx.mt && d.nr6 == 0);
-        if !has_mf6_no_recoil {
-            continue;
+    // ── e+q heating for capture with no recoil, and for MF=6 sections with no
+    // recoil (`:607-641`) ────────────────────────────────────────────────────
+    let mut icapt = false;
+    for d in &dict {
+        if d.0 == 3 && d.1 == 102 {
+            icapt = true;
         }
-        for (k, &s) in rx.sigma.iter().enumerate() {
-            let i = rx.ie - 1 + k;
-            if totals[i] != 0.0 {
-                heating[i] += s * (grid[i] / EMEV + rx.q_mev) / totals[i];
+        if d.0 == 6 && d.1 == 102 && d.2 > 0 {
+            icapt = false;
+        }
+    }
+    for rx in &rxs {
+        if rx.mt == 102 && icapt {
+            for ie in rx.iaa..=nes {
+                let e = x.get(esz + ie - 1);
+                if x.get(tot + ie - 1) != 0.0 {
+                    let v = x.get(thn + ie - 1) + (e / EMEV) * x.get(2 + rx.k + ie - rx.iaa) / x.get(tot + ie - 1);
+                    x.set(thn + ie - 1, v);
+                }
+            }
+        }
+    }
+    for rx in &rxs {
+        for d in dict.iter().filter(|d| d.0 == 6 && d.1 == rx.mt && d.2 == 0) {
+            let _ = d;
+            for ie in rx.iaa..=nes {
+                let e = x.get(esz + ie - 1);
+                if x.get(tot + ie - 1) != 0.0 {
+                    let v = x.get(thn + ie - 1) + (e / EMEV + rx.q) * x.get(2 + rx.k + ie - rx.iaa) / x.get(tot + ie - 1);
+                    x.set(thn + ie - 1, v);
+                }
             }
         }
     }
 
     // ── the IXSA table (`:643-692`) ─────────────────────────────────────────
-    let types: Vec<(i32, i32, usize)> = PARTICLE_ORDER
-        .iter()
-        .filter_map(|&(zap, ipt)| counts.get(&zap).map(|&n| (zap, ipt, n)))
-        .collect();
-    let ntype = types.len();
     let npixs = 2usize;
     let neixs = 12usize;
-
-    Ok(assemble(
-        Assembly {
-            mat,
-            za,
-            awr,
-            grid,
-            totals,
-            heating,
-            reactions,
-            types,
-            thresholds,
-            ntr,
-            ntype,
-            npixs,
-            neixs,
-            locators: Locators {
-                esz,
-                tot,
-                non,
-                els,
-                thn,
-                mtr,
-                lqr,
-                lsig,
-                sig,
-            },
-        },
-        endf,
-        opts,
-    )?)
-}
-
-/// The fixed part of the layout, decided before any block is written.
-struct Locators {
-    esz: usize,
-    tot: usize,
-    non: usize,
-    els: usize,
-    thn: usize,
-    mtr: usize,
-    lqr: usize,
-    lsig: usize,
-    sig: usize,
-}
-
-/// Everything the first two passes learned, handed to the assembler.
-struct Assembly {
-    mat: i32,
-    za: i32,
-    awr: f64,
-    grid: Vec<f64>,
-    totals: Vec<f64>,
-    heating: Vec<f64>,
-    reactions: Vec<Reaction>,
-    types: Vec<(i32, i32, usize)>,
-    thresholds: std::collections::BTreeMap<i32, f64>,
-    ntr: usize,
-    ntype: usize,
-    npixs: usize,
-    neixs: usize,
-    locators: Locators,
-}
-
-/// Read a section's single TAB1 (after its HEAD).
-fn tab1_of(rows: &[[f64; 6]]) -> Result<Tab1, NjoyError> {
-    let mut c = SectionCursor::new(rows);
-    c.read_cont()?;
-    c.read_tab1()
-}
-
-/// Skip one MF=6 LAW=1 subsection's TAB2 and its LIST records.
-fn skip_law1(cur: &mut SectionCursor<'_>) -> Result<(), NjoyError> {
-    let t2 = cur.read_tab2()?;
-    for _ in 0..t2.head.n2.max(0) {
-        cur.read_list()?;
-    }
-    Ok(())
-}
-
-/// A growable XSS with the integer flags the writer needs.
-struct Xss {
-    v: Vec<f64>,
-    i: Vec<bool>,
-}
-
-impl Xss {
-    fn new() -> Self {
-        Xss {
-            v: Vec::new(),
-            i: Vec::new(),
+    let ipts = [1, 2, 9, 31, 32, 33, 34];
+    let ixsa = nex;
+    let mut ntype = 0usize;
+    let mut types: Vec<usize> = Vec::new();
+    for slot in 0..7 {
+        if count[slot] > 0 {
+            ntype += 1;
+            types.push(slot);
+            x.set(ixsa + neixs * (ntype - 1), f64::from(ipts[slot]));
+            x.set(ixsa + neixs * (ntype - 1) + 1, count[slot] as f64);
         }
     }
-    /// 1-based index of the next word.
-    fn next(&self) -> usize {
-        self.v.len() + 1
-    }
-    fn push_int(&mut self, x: f64) {
-        self.v.push(x);
-        self.i.push(true);
-    }
-    fn push_real(&mut self, x: f64) {
-        self.v.push(x);
-        self.i.push(false);
-    }
-    /// Grow with zeros (written as reals) up to and including 1-based `n`.
-    fn reserve_reals(&mut self, n: usize) {
-        while self.v.len() < n {
-            self.v.push(0.0);
-            self.i.push(false);
-        }
-    }
-    fn set(&mut self, one_based: usize, x: f64) {
-        self.v[one_based - 1] = x;
-    }
-    fn get(&self, one_based: usize) -> f64 {
-        self.v[one_based - 1]
-    }
-    fn mark_int(&mut self, one_based: usize) {
-        self.i[one_based - 1] = true;
-    }
-}
+    nex = ixsa + neixs * ntype;
+    let ixs = nex;
 
-/// Lay the blocks out and fill them (`acepn.f90:236-1800`).
-fn assemble(
-    a: Assembly,
-    endf: &Tape,
-    opts: &PhotonuclearOptions,
-) -> Result<PhotonuclearAce, NjoyError> {
-    let Assembly {
-        mat,
-        za,
-        awr,
-        grid,
-        mut totals,
-        mut heating,
-        reactions,
-        types,
-        thresholds,
-        ntr,
-        ntype,
-        npixs,
-        neixs,
-        locators,
-    } = a;
-    let nes = grid.len();
-    let l = locators;
-
-    let mut x = Xss::new();
-    // ESZ (energies, still in eV), TOT, THN.
-    x.reserve_reals(l.thn + nes - 1);
-    for (k, &e) in grid.iter().enumerate() {
-        x.set(l.esz + k, e);
-        x.set(l.tot + k, totals[k]);
-    }
-    // MTR (ints), LQR (reals), LSIG (ints), then SIG.
-    x.reserve_reals(l.sig - 1);
-    for (r, rx) in reactions.iter().enumerate() {
-        x.set(l.mtr + r, rx.mt as f64);
-        x.mark_int(l.mtr + r);
-        x.set(l.lqr + r, rx.q_mev);
-        x.mark_int(l.lsig + r);
-    }
-    for (r, rx) in reactions.iter().enumerate() {
-        x.set(l.lsig + r, (x.next() - l.sig + 1) as f64);
-        x.push_int(rx.ie as f64);
-        x.push_int(rx.sigma.len() as f64);
-        for &s in &rx.sigma {
-            x.push_real(s);
-        }
-    }
-
-    // The IXSA table: `NEIXS` locators for each of `NTYPE` particles.
-    let ixsa = x.next();
-    for &(_, ipt, n) in &types {
-        x.push_int(ipt as f64);
-        x.push_int(n as f64);
-        for _ in 2..neixs {
-            x.push_int(0.0);
-        }
-    }
-    let ixs = x.next();
-
-    // ── one production block per emitted particle (`:693-1800`) ─────────────
-    for (ti, &(zap, _ipt, ntrp)) in types.iter().enumerate() {
-        let row = ixsa + neixs * ti;
-        let thresh = thresholds.get(&zap).copied().unwrap_or(ETOP);
-        // `it`: the last grid point strictly below the production threshold.
+    // ── one production block per particle (`:696-1813`) ─────────────────────
+    for (itype0, &slot) in types.iter().enumerate() {
+        let row = ixsa + neixs * itype0;
+        let ip = order[slot];
+        let ntrp = count[slot];
+        let thresh = thr[slot];
         let mut it = 1usize;
-        while it < nes && grid[it - 1] < thresh {
+        while it < nes && x.get(esz + it - 1) < thresh {
             it += 1;
         }
         if it > 1 {
             it -= 1;
         }
-        let np = nes - it + 1;
-
-        let pxs = x.next();
+        let pxs = nex;
         x.set(row + 2, pxs as f64);
-        x.push_int(it as f64);
-        x.push_int(np as f64);
-        for _ in 0..np {
-            x.push_real(0.0);
-        }
-        let phn = x.next();
+        x.set(pxs, it as f64);
+        x.set(pxs + 1, (nes - it + 1) as f64);
+        let phn = pxs + 2 + nes - it + 1;
         x.set(row + 3, phn as f64);
-        x.push_int(it as f64);
-        x.push_int(np as f64);
-        for _ in 0..np {
-            x.push_real(0.0);
-        }
-        let mtrp = x.next();
+        x.set(phn, it as f64);
+        x.set(phn + 1, (nes - it + 1) as f64);
+        let mtrp = phn + 2 + nes - it + 1;
         x.set(row + 4, mtrp as f64);
-        for _ in 0..ntrp {
-            x.push_int(0.0);
-        }
-        let tyrp = x.next();
+        let tyrp = mtrp + ntrp;
         x.set(row + 5, tyrp as f64);
-        for _ in 0..ntrp {
-            x.push_int(0.0);
-        }
-        let lsigp = x.next();
+        let lsigp = tyrp + ntrp;
         x.set(row + 6, lsigp as f64);
-        for _ in 0..ntrp {
-            x.push_int(0.0);
-        }
-        let sigp = x.next();
+        let sigp = lsigp + ntrp;
         x.set(row + 7, sigp as f64);
+        nex = sigp;
 
-        // The production cross section and the SIGP yields (`:836-915`).
+        let blk = Block { esz, tot, thn, nes, it, pxs, phn, mtrp, tyrp, lsigp, sigp, ldlwp: 0, dlwp: 0 };
         let mut jp = 0usize;
-        let mut subsections: Vec<(i32, Tab1, usize)> = Vec::new(); // (mt, yield, reaction index)
-        for s in endf.sections() {
-            if s.key.mat != mat || s.key.mf != 6 {
-                continue;
-            }
-            let mut cur = SectionCursor::new(&s.rows);
-            let h = cur.read_cont()?;
-            let nk = h.n1.max(0) as usize;
-            let ri = reactions
-                .iter()
-                .position(|r| r.mt == s.key.mt)
-                .ok_or_else(|| {
-                    NjoyError::EndfParse(format!("acephn: MF=6/MT={} has no MF=3", s.key.mt))
-                })?;
-            for _ in 0..nk {
-                let y = cur.read_tab1()?;
-                let izap = y.head.c1.round() as i32;
-                if izap != zap {
-                    skip_law1(&mut cur)?;
+        // MF=4/5 representations, neutrons only (`:742-833`).
+        if mf4 && ip == 1 {
+            mf4_yields(&mut x, &blk, &mf4_rxs, fnubar.as_ref(), &mut jp, &mut nex)?;
+        }
+        // MF=6 production cross sections and yields (`:830-916`).
+        for m in &mf6s {
+            let mth = m.mt;
+            let rx = find_rx(mth)?;
+            for sub in &m.subs {
+                if sub.izap() != ip {
                     continue;
                 }
+                let mut y = sub.y.clone();
+                if mth == 18 && ip == 1 {
+                    if let Some(nu) = &fnubar {
+                        y = copynubar(&y, nu);
+                    }
+                }
                 jp += 1;
-                x.set(mtrp + jp - 1, s.key.mt as f64);
-                x.set(tyrp + jp - 1, 1.0); // LCT = 1 was checked above
-                x.set(lsigp + jp - 1, (x.next() - sigp + 1) as f64);
-                // PXS += yield * sigma, on the reaction's own grid span.
-                let rx = &reactions[ri];
-                for (k, &s_i) in rx.sigma.iter().enumerate() {
-                    let i = rx.ie + k; // 1-based grid index
-                    let yv = crate::endf::interp::terpa(&y.interp, &y.pairs, grid[i - 1]).0;
-                    let slot = pxs + 2 + i - it;
-                    let tt = x.get(slot) + yv * s_i;
-                    x.set(slot, sigfig(tt, 7, 0));
+                x.set(mtrp + jp - 1, f64::from(mth));
+                x.set(lsigp + jp - 1, (nex - sigp + 1) as f64);
+                x.set(tyrp + jp - 1, if m.lct == 1 { 1.0 } else { -1.0 });
+                for i in rx.iaa..=nes {
+                    let e = x.get(esz + i - 1);
+                    let yv = terp(&y, e);
+                    let ss = x.get(2 + rx.k + i - rx.iaa);
+                    let tt = x.get(pxs + 2 + i - it) + yv * ss;
+                    x.set(pxs + 2 + i - it, sigfig(tt, 7, 0));
                 }
-                // The SIGP entry: MFTYPE=6, MTMULT, NR=0, NE, then E and Y.
-                if y.interp.len() > 1 && y.interp.first().map(|&(_, i)| i) != Some(2) {
-                    return Err(NjoyError::NotPorted(
-                        "acephn: a multi-region non-lin-lin MF=6 multiplicity -- \
-                         upstream warns and this port refuses (acepn.f90:896-903)",
-                    ));
-                }
-                x.push_int(6.0);
-                x.push_int(s.key.mt as f64);
-                x.push_int(0.0);
+                // `scr(7+2*i)`: upstream assumes one interpolation region here.
+                let f = flat(&y);
+                x.set(nex, 6.0);
+                x.set(nex + 1, f64::from(mth));
+                x.set(nex + 2, 0.0);
                 let ne = y.pairs.len();
-                x.push_int(ne as f64);
-                for &(e, _) in &y.pairs {
-                    x.push_real(sigfig(e / EMEV, 7, 0));
+                x.set(nex + 3, ne as f64);
+                for i in 1..=ne {
+                    x.set(nex + 3 + i, sigfig(f[6 + 2 * i] / EMEV, 7, 0));
+                    x.set(nex + 3 + i + ne, sigfig(f[7 + 2 * i], 7, 0));
                 }
-                for &(_, yy) in &y.pairs {
-                    x.push_real(sigfig(yy, 7, 0));
-                }
-                subsections.push((s.key.mt, y, ri));
-                skip_law1(&mut cur)?;
+                nex += 4 + 2 * ne;
             }
         }
 
-        // LANDP / ANDP. With LAW=1 everywhere the angular data rides in the
-        // energy distribution, so LANDP is -1 and ANDP stays empty
-        // (`:925-930`, `:1477`).
-        let landp = x.next();
+        // LANDP / ANDP: MF=6 LAW=2 angular distributions (`:918-1150`).
+        let landp = nex;
         x.set(row + 8, landp as f64);
-        for _ in 0..ntrp {
-            x.push_int(0.0);
-        }
-        let andp = x.next();
+        let andp = landp + ntrp;
         x.set(row + 9, andp as f64);
-
-        // LDLWP / DLWP.
-        let ldlwp = x.next();
-        x.set(row + 10, ldlwp as f64);
-        for _ in 0..ntrp {
-            x.push_int(0.0);
-        }
-        let dlwp = x.next();
-        x.set(row + 11, dlwp as f64);
-
-        let mut phn_acc = vec![0.0f64; np];
-        for (jpi, (mt, yld, ri)) in subsections.iter().enumerate() {
-            let sec = endf.section(mat, 6, *mt).expect("checked above");
-            let mut cur = SectionCursor::new(&sec.rows);
-            cur.read_cont()?;
-            // Re-walk to this particle's subsection.
-            loop {
-                let y = cur.read_tab1()?;
-                if y.head.c1.round() as i32 == zap {
-                    break;
+        nex = andp;
+        for i in 1..=ntrp {
+            let mt = x.get(mtrp + i - 1).round() as i32;
+            let rx = find_rx(mt)?;
+            let Some(m) = mf6s.iter().find(|m| m.mt == mt) else { continue };
+            for sub in &m.subs {
+                if !(sub.izap() == ip && sub.law() == 2) {
+                    continue;
                 }
-                skip_law1(&mut cur)?;
+                let (Some(t2), lists) = (&sub.tab2, &sub.lists) else { unreachable!() };
+                let jp = i;
+                let awp = sub.y.head.c2;
+                x.set(landp + jp - 1, (nex - andp + 1) as f64);
+                let ne = t2.head.n2.max(0) as usize;
+                x.set(nex, ne as f64);
+                let ie0 = nex;
+                let il = ie0 + ne;
+                nex = il + ne + 1;
+                let mut htab: Vec<(f64, f64)> = Vec::with_capacity(ne);
+                for (iie, l) in lists.iter().enumerate().take(ne) {
+                    let iie = iie + 1;
+                    let lang = l.head.l1;
+                    let (mu, pdf) = if lang == 0 {
+                        let nl = l.head.n2.max(0) as usize;
+                        crate::acer::acensd::ptleg2(&l.data[..nl.min(l.data.len())])?
+                    } else {
+                        let nn = l.head.n2.max(0) as usize;
+                        let pairs: Vec<(f64, f64)> = (0..nn).map(|q| (l.data[2 * q], l.data[2 * q + 1])).collect();
+                        crate::acer::acensd::pttab2(&pairs)
+                    };
+                    x.set(ie0 + iie, sigfig(l.head.c2 / EMEV, 7, 0));
+                    let n = mu.len();
+                    x.set(il + iie, -((nex - andp + 1) as f64));
+                    x.set(nex, 2.0);
+                    x.set(nex + 1, n as f64);
+                    for ii in 1..=n {
+                        x.set(nex + 1 + ii, sigfig(mu[ii - 1], 7, 0));
+                        let mut p = sigfig(pdf[ii - 1], 7, 0);
+                        if p < RMIN {
+                            p = 0.0;
+                        }
+                        x.set(nex + 1 + n + ii, p);
+                        if ii == 1 {
+                            x.set(nex + 1 + 2 * n + ii, 0.0);
+                        } else {
+                            let sum = x.get(nex + 1 + 2 * n + ii - 1)
+                                + (x.get(nex + 1 + n + ii) + x.get(nex + 1 + n + ii - 1))
+                                    * (x.get(nex + 1 + ii) - x.get(nex + 1 + ii - 1))
+                                    / 2.0;
+                            x.set(nex + 1 + 2 * n + ii, sum);
+                        }
+                    }
+                    let renorm = 1.0 / x.get(nex + 1 + 3 * n);
+                    for ii in 1..=n {
+                        let p = sigfig(renorm * x.get(nex + 1 + n + ii), 7, 0);
+                        x.set(nex + 1 + n + ii, p);
+                        let c = sigfig(renorm * x.get(nex + 1 + 2 * n + ii), 9, 0);
+                        x.set(nex + 1 + 2 * n + ii, c);
+                    }
+                    nex += 2 + 3 * n;
+                    let e = x.get(ie0 + iie);
+                    htab.push((e, (awr - awp) * (e + rx.q) / awr));
+                }
+                // Heating from the two-body kinematics (`:1102-1137`).
+                for ie in it..=nes {
+                    let e = x.get(esz + ie - 1) / EMEV;
+                    let h0 = terp_lin(&htab, e);
+                    let yld = terp(&sub.y, e * EMEV);
+                    let h = yld * h0;
+                    let ss = if ie >= rx.iaa { x.get(2 + rx.k + ie - rx.iaa) } else { 0.0 };
+                    let v = x.get(phn + 2 + ie - it) + h * ss;
+                    x.set(phn + 2 + ie - it, v);
+                    if x.get(tot + ie - 1) != 0.0 {
+                        let v = x.get(thn + ie - 1) + h * ss / x.get(tot + ie - 1);
+                        x.set(thn + ie - 1, v);
+                    }
+                }
             }
-            law61(
-                &mut x, &mut cur, landp, dlwp, ldlwp, jpi, &grid, &reactions[*ri], yld,
-                &mut phn_acc, it, &mut heating, &totals,
-            )?;
         }
 
-        // Divide the heating by the total and fold it in (`:1802-1812`).
-        for k in 0..np {
-            let i = it + k; // 1-based grid index
-            let mut h = phn_acc[k];
-            if totals[i - 1] != 0.0 {
-                h /= totals[i - 1];
+        // LDLWP / DLWP (`:1152-1159`).
+        let ldlwp = nex;
+        x.set(row + 10, ldlwp as f64);
+        let dlwp = ldlwp + ntrp;
+        x.set(row + 11, dlwp as f64);
+        nex = dlwp;
+        let blk = Block { ldlwp, dlwp, ..blk };
+        let reaction = |mt: i32| find_rx(mt).map(|r| Reaction { mt: r.mt, q: r.q, k: r.k, iaa: r.iaa });
+        // ~~An MF=5 distribution refused~~ **CORRECTED 2026-11-13 (gh:#1369):**
+        // MF=4 discrete levels as ACE law 33 (`:1166-1212`), then MF=5
+        // (`:1214-1425`), in `super::mf45`.
+        for i in 1..=ntrp {
+            let mt = x.get(mtrp + i - 1).round() as i32;
+            if dict.iter().any(|d| d.0 == 4 && d.1 == mt) && (50..91).contains(&mt) {
+                law33_discrete(&mut x, &blk, reaction(mt)?, awr, i, &mut nex);
             }
-            // `acepn.f90:1809` guards this with `ip > 1`, and `ip` is the
-            // **ZAP**, not the MCNP particle number. So the neutron (ZAP 1)
-            // and the **photon** (ZAP 0) are both excluded; only the charged
-            // particles fold their production heating into the table total.
-            // Reading it as "everything but the neutron" puts the photon's
-            // whole contribution in twice.
-            if zap > 1 {
-                heating[i - 1] += h;
-            }
-            x.set(phn + 2 + k, sigfig(h, 7, 0));
         }
-        let _ = ntrp;
-    }
+        for i in 1..=ntrp {
+            let mt = x.get(mtrp + i - 1).round() as i32;
+            if mfs5.contains(&mt) {
+                let s = endf
+                    .section(mat, 5, mt)
+                    .ok_or_else(|| NjoyError::EndfParse(format!("acephn: no MF=5/MT={mt} for MAT {mat}")))?;
+                mf5_distribution(&mut x, &blk, reaction(mt)?, &s.rows, fnubar.as_ref(), i, &mut nex)?;
+            }
+        }
 
-    let lxs = x.v.len();
-    // The grid and the heating go to MeV and 7 figures last (`:1818-1821`).
-    for k in 0..nes {
-        let e = sigfig(grid[k] / EMEV, 7, 0);
-        x.set(l.esz + k, e);
-        x.set(l.thn + k, sigfig(heating[k], 7, 0));
+        // MF=6 energy distributions (`:1427-1800`).
+        let mut jp = 0usize;
+        for i in 1..=ntrp {
+            let mt = x.get(mtrp + i - 1).round() as i32;
+            let Some(m) = mf6s.iter().find(|m| m.mt == mt) else { continue };
+            jp = i;
+            let mth = m.mt;
+            let rx = find_rx(mth)?;
+            for sub in &m.subs {
+                if sub.izap() != ip {
+                    continue;
+                }
+                let mut y = sub.y.clone();
+                if mth == 18 && ip == 1 {
+                    if let Some(nu) = &fnubar {
+                        y = copynubar(&y, nu);
+                    }
+                }
+                let awp = y.head.c2;
+                let law = sub.law();
+                x.set(ldlwp + jp - 1, (nex - dlwp + 1) as f64);
+                let last = nex;
+                x.set(last, 0.0);
+                x.set(last + 1, 0.0);
+                x.set(last + 2, 0.0);
+                nex += 3;
+                if law == 1 {
+                    let (Some(t2), lists) = (&sub.tab2, &sub.lists) else { unreachable!() };
+                    let lang = t2.head.l1;
+                    let lep = t2.head.l2;
+                    let ne = t2.head.n2.max(0) as usize;
+                    match lang {
+                        1 => x.set(last + 1, 61.0),
+                        2 => x.set(last + 1, 44.0),
+                        _ => {
+                            return Err(NjoyError::EndfParse(format!(
+                                "acephn: lang={lang} not supported for law=1"
+                            )))
+                        }
+                    }
+                    x.set(landp + jp - 1, -1.0);
+                    x.set(nex, 0.0);
+                    let lee = nex;
+                    nex += 1;
+                    let nle = 2usize;
+                    x.set(nex, nle as f64);
+                    nex += 1 + 2 * nle;
+                    x.set(last + 2, (nex - dlwp + 1) as f64);
+                    x.set(nex, 0.0);
+                    nex += 1;
+                    x.set(nex, ne as f64);
+                    nex += 1;
+                    let lle = nex;
+                    nex = lle + 2 * ne;
+                    let mut htab: Vec<(f64, f64)> = Vec::with_capacity(ne);
+                    for (ie, l) in lists.iter().enumerate().take(ne) {
+                        let ie = ie + 1;
+                        let nd = l.head.l1.max(0) as usize;
+                        let na = l.head.l2.max(0) as usize;
+                        let ng = l.head.n2.max(0) as usize;
+                        let ncyc = na + 2;
+                        let d = |k: usize| l.data.get(k).copied().unwrap_or(0.0);
+                        let e_mev = sigfig(l.head.c2 / EMEV, 7, 0);
+                        if ie == 1 {
+                            x.set(lee + 2, e_mev);
+                            x.set(lee + 4, 1.0);
+                        } else if ie == ne {
+                            x.set(lee + 3, e_mev);
+                            x.set(lee + 5, 1.0);
+                        }
+                        x.set(lle + ie - 1, e_mev);
+                        let ee = x.get(lle + ie - 1);
+                        x.set(lle + ne + ie - 1, (nex - dlwp + 1) as f64);
+                        x.set(nex, f64::from(lep) + 10.0 * nd as f64);
+                        x.set(nex + 1, ng as f64);
+                        let mut nexc = nex + 2 + 4 * ng;
+                        let amass = awp * emc2;
+                        let avadd = ee / (awr * emc2);
+                        let mut avlab = 0.0f64;
+                        let mut avll = 0.0f64;
+                        for ig in 1..=ng {
+                            let epr = d(ncyc * (ig - 1));
+                            let gr = d(1 + ncyc * (ig - 1));
+                            x.set(nex + 1 + ig, sigfig(epr / EMEV, 7, 0));
+                            if ig <= nd {
+                                x.set(nex + 1 + ig + ng, sigfig(gr, 7, 0));
+                            } else {
+                                x.set(nex + 1 + ig + ng, sigfig(gr * EMEV, 7, 0));
+                            }
+                            let test = x.get(nex + 1 + ig + ng);
+                            if test > 0.0 && test < SMALL {
+                                x.set(nex + 1 + ig + ng, SMALL);
+                            }
+                            if ig == 1 {
+                                x.set(nex + 1 + ig + 2 * ng, if nd == 0 { 0.0 } else { gr });
+                            } else if ig <= nd {
+                                let v = x.get(nex + ig + 2 * ng) + gr;
+                                x.set(nex + 1 + ig + 2 * ng, v);
+                            } else if ig == nd + 1 {
+                                let v = x.get(nex + ig + 2 * ng);
+                                x.set(nex + 1 + ig + 2 * ng, v);
+                            }
+                            if ig > nd + 1 {
+                                let epp = d(ncyc * (ig - 2));
+                                let gp = d(1 + ncyc * (ig - 2));
+                                let v = if lep == 1 {
+                                    x.get(nex + ig + 2 * ng) + gp * (epr - epp)
+                                } else {
+                                    x.get(nex + ig + 2 * ng) + ((gp + gr) / 2.0) * (epr - epp)
+                                };
+                                if lep == 1 || lep == 2 {
+                                    x.set(nex + 1 + ig + 2 * ng, v);
+                                }
+                            }
+                            let (mut rkal, mut akal) = (0.0f64, 0.0f64);
+                            if lang == 2 {
+                                rkal = d(2 + ncyc * (ig - 1));
+                                let ep = x.get(nex + 1 + ig);
+                                akal = bachaa(izai, sub.izap(), za, ee, ep)?;
+                                x.set(nex + 1 + ig + 3 * ng, sigfig(rkal, 7, 0));
+                                x.set(nex + 1 + ig + 4 * ng, sigfig(akal, 7, 0));
+                            } else {
+                                x.set(nex + 1 + ig + 3 * ng, (nexc - dlwp + 1) as f64);
+                                let lll = 1 + ncyc * (ig - 1);
+                                let coeffs: Vec<f64> = (1..=na)
+                                    .map(|ib| if d(lll) != 0.0 { d(lll + ib) / d(lll) } else { 0.0 })
+                                    .collect();
+                                let (amu, apdf) = crate::acer::acensd::ptleg2(&coeffs)?;
+                                let nmu = amu.len();
+                                x.set(nexc, 2.0);
+                                x.set(nexc + 1, nmu as f64);
+                                for imu in 1..=nmu {
+                                    x.set(nexc + 1 + imu, sigfig(amu[imu - 1], 7, 0));
+                                    x.set(nexc + 1 + nmu + imu, sigfig(apdf[imu - 1], 7, 0));
+                                    if imu == 1 {
+                                        x.set(nexc + 1 + 2 * nmu + imu, 0.0);
+                                    } else if imu == nmu {
+                                        x.set(nexc + 1 + 2 * nmu + imu, 1.0);
+                                    } else {
+                                        let del = amu[imu - 1] - amu[imu - 2];
+                                        let av = (apdf[imu - 1] + apdf[imu - 2]) / 2.0;
+                                        let v = x.get(nexc + 1 + 2 * nmu + imu - 1) + del * av;
+                                        x.set(nexc + 1 + 2 * nmu + imu, sigfig(v, 7, 0));
+                                    }
+                                }
+                                nexc += 2 + 3 * nmu;
+                            }
+                            // The average laboratory energy (`:1671-1691`).
+                            if ig != 1 {
+                                let eavi = x.get(nex + 1 + ig);
+                                let avl = if lang != 2 || na == 0 {
+                                    eavi
+                                } else {
+                                    let avcm = (2.0 * eavi / amass).sqrt();
+                                    eavl(akal, amass, avcm, avadd, rkal, 1.0)
+                                };
+                                let dele = x.get(nex + 1 + ig) - x.get(nex + ig);
+                                let avav = if lep == 1 {
+                                    x.get(nex + ig + ng) * (avll + avl) / 2.0
+                                } else {
+                                    (x.get(nex + ig + ng) * avll + x.get(nex + ig + 1 + ng) * avl) / 2.0
+                                };
+                                avlab += avav * dele;
+                                avll = avl;
+                            }
+                        }
+                        let renorm = 1.0 / x.get(nex + 1 + 3 * ng);
+                        for ig in 1..=ng {
+                            let p = sigfig(renorm * x.get(nex + 1 + ng + ig), 7, 0);
+                            x.set(nex + 1 + ng + ig, p);
+                            let c = sigfig(renorm * x.get(nex + 1 + 2 * ng + ig), 9, 0);
+                            x.set(nex + 1 + 2 * ng + ig, c);
+                        }
+                        htab.push((ee, avlab));
+                        if lang == 1 {
+                            nex = nexc;
+                        } else {
+                            nex += 2 + (2 * na + 3) * ng;
+                        }
+                    }
+                    // Heating for this subsection (`:1716-1738`).
+                    let ys: Vec<f64> = (rx.iaa..=nes)
+                        .map(|ie| terp(&y, x.get(esz + ie - 1)) * x.get(2 + rx.k + ie - rx.iaa))
+                        .collect();
+                    let it2 = x.get(pxs).round() as usize;
+                    let no_recoil = dict.iter().filter(|d| d.0 == 6 && d.1 == mth && d.2 == 0).count();
+                    for ie in rx.iaa..=nes {
+                        let e = x.get(esz + ie - 1) / EMEV;
+                        let h = terp_lin(&htab, e);
+                        let hh = h * ys[ie - rx.iaa];
+                        let v = x.get(phn + 2 + ie - it2) + hh;
+                        x.set(phn + 2 + ie - it2, v);
+                        for _ in 0..no_recoil {
+                            if x.get(tot + ie - 1) != 0.0 {
+                                let v = x.get(thn + ie - 1) - hh / x.get(tot + ie - 1);
+                                x.set(thn + ie - 1, v);
+                            }
+                        }
+                    }
+                } else if law == 2 {
+                    // Discrete two-body: ACE law 33 (`:1740-1773`).
+                    let f = flat(&y);
+                    let nnr = f[4].round() as usize;
+                    let nnp = f[5].round() as usize;
+                    x.set(last + 1, 33.0);
+                    x.set(nex, 0.0);
+                    x.set(nex + 1, 2.0);
+                    x.set(nex + 2, sigfig(f[6 + 2 * nnr] / EMEV, 7, 0));
+                    x.set(nex + 3, sigfig(f[4 + 2 * nnr + 2 * nnp] / EMEV, 7, 0));
+                    x.set(nex + 4, 1.0);
+                    x.set(nex + 5, 1.0);
+                    nex += 6;
+                    x.set(last + 2, (nex - dlwp + 1) as f64);
+                    x.set(nex, sigfig(-rx.q, 7, 0));
+                    x.set(nex + 1, sigfig((awr - awp) / awr, 7, 0));
+                    nex += 2;
+                } else if law == 4 {
+                    return Err(NjoyError::NotPorted("acephn: MF=6 LAW=4 two-body recoil is not ported"));
+                }
+                // Other laws: upstream prints "can only do law=1, law=2, or law=4".
+            }
+        }
+        let _ = jp;
+
+        // Divide the heating by the total, fold it in (`:1802-1812`). `ip` is
+        // the ZAP, so the neutron (1) and the photon (0) are both excluded.
+        for ie in it..=nes {
+            if x.get(tot + ie - 1) != 0.0 {
+                let v = x.get(phn + 2 + ie - it) / x.get(tot + ie - 1);
+                x.set(phn + 2 + ie - it, v);
+            }
+            if ip > 1 {
+                let v = x.get(thn + ie - 1) + x.get(phn + 2 + ie - it);
+                x.set(thn + ie - 1, v);
+            }
+            let v = sigfig(x.get(phn + 2 + ie - it), 7, 0);
+            x.set(phn + 2 + ie - it, v);
+        }
     }
-    for k in 0..nes {
-        x.set(l.tot + k, totals[k]);
+    let _ = mf6;
+    let lxs = nex - 1;
+
+    // ── the grid to MeV, the heating to 7 figures (`:1817-1821`) ─────────────
+    for i in 1..=nes {
+        let e = sigfig(x.get(esz + i - 1) / EMEV, 7, 0);
+        x.set(esz + i - 1, e);
+        let h = sigfig(x.get(thn + i - 1), 7, 0);
+        x.set(thn + i - 1, h);
     }
-    totals.clear();
+    let xss: Vec<f64> = (1..=lxs).map(|k| x.get(k)).collect();
 
     let mut nxs = [0i32; 16];
     nxs[0] = lxs as i32;
@@ -745,269 +951,43 @@ fn assemble(
     nxs[4] = ntype as i32;
     nxs[5] = npixs as i32;
     nxs[6] = neixs as i32;
+    nxs[8] = is;
     nxs[9] = za / 1000;
     nxs[10] = za % 1000;
     nxs[15] = 1; // tvn
     let mut jxs = [0i32; 32];
-    jxs[0] = l.esz as i32;
-    jxs[1] = l.tot as i32;
-    jxs[2] = l.non as i32;
-    jxs[3] = l.els as i32;
-    jxs[4] = l.thn as i32;
-    jxs[5] = l.mtr as i32;
-    jxs[6] = l.lqr as i32;
-    jxs[7] = l.lsig as i32;
-    jxs[8] = l.sig as i32;
+    jxs[0] = esz as i32;
+    jxs[1] = tot as i32;
+    jxs[2] = non as i32;
+    jxs[3] = els as i32;
+    jxs[4] = thn as i32;
+    jxs[5] = mtr as i32;
+    jxs[6] = lqr as i32;
+    jxs[7] = lsig as i32;
+    jxs[8] = sig as i32;
     jxs[9] = ixsa as i32;
     jxs[10] = ixs as i32;
 
-    let _ = opts;
-    // The integer/real split comes from the **layout walk**, not from flags
-    // tracked while building. There is one description of a photo-nuclear
-    // table's structure in this crate (`layout::walk`, a port of `phnout`),
-    // it is already byte-verified against NJOY on the read side, and using it
-    // here means the builder cannot disagree with the reader about where a
-    // locator is. It doubles as a structural check: a table the walk cannot
-    // traverse is one this function built wrong.
-    let xss_is_int = crate::acer::photonuclear::layout::walk(&nxs, &jxs, &x.v)
+    // The integer/real split comes from the **layout walk**, a port of
+    // `phnout` already byte-verified on the read side, so the builder cannot
+    // disagree with the reader about where a locator is. A table the walk
+    // cannot traverse is one this function built wrong.
+    let xss_is_int = crate::acer::photonuclear::layout::walk(&nxs, &jxs, &xss)
         .map_err(|e| {
             NjoyError::EndfParse(format!(
-                "acephn: the table just built does not walk -- {e}. This is a                  defect in the builder, not in the input."
+                "acephn: the table just built does not walk -- {e}. This is a defect in the builder, not in the input."
             ))
         })?
         .is_int;
-    debug_assert_eq!(
-        xss_is_int.len(),
-        x.v.len(),
-        "the walk must classify every word"
-    );
-    Ok(PhotonuclearAce {
-        mat,
-        za,
-        awr,
-        nxs,
-        jxs,
-        xss: x.v,
-        xss_is_int,
-    })
+    Ok(PhotonuclearAce { mat, za, awr, nxs, jxs, xss, xss_is_int })
 }
 
-/// `ptleg2` for an **isotropic** Legendre list (`acecm.f90`, `NA = 0`).
-///
-/// With no coefficients upstream sets `nord = 1, fl(1) = 0`, so the density is
-/// the constant `1/2` and the adaptive reconstruction converges on the three
-/// points it primes the stack with. Measured against NJOY's own output:
-/// `mu = [-1, 0, 1]`, `pdf = [0.5, 0.5, 0.5]`.
-///
-/// **Only the isotropic case is ported.** `ptleg2`'s adaptive reconstruction
-/// (tolerances `2e-4`/`2e-3`, a 24-deep stack, a `1e-10` floor and a negative
-/// -lobe repair pass) is a different routine from this crate's
-/// [`crate::acer::angular::legendre_cosine_law`], which uses `ANGLE_TOL =
-/// 5e-3` and its own bisection — so reusing that would give a *different grid*
-/// and lose byte parity. Checked and rejected rather than assumed.
-fn ptleg2_isotropic() -> (Vec<f64>, Vec<f64>) {
-    (vec![-1.0, 0.0, 1.0], vec![0.5, 0.5, 0.5])
+/// Read a section's single TAB1 (after its HEAD).
+fn tab1_of(rows: &[[f64; 6]]) -> Result<Tab1, NjoyError> {
+    let mut c = SectionCursor::new(rows);
+    c.read_cont()?;
+    c.read_tab1()
 }
-
-/// MF=6 `LAW=1` with `LANG=1` → ACE law **61** (`acepn.f90:1487-1738`).
-#[allow(clippy::too_many_arguments)]
-fn law61(
-    x: &mut Xss,
-    cur: &mut SectionCursor<'_>,
-    landp: usize,
-    dlwp: usize,
-    ldlwp: usize,
-    jp0: usize,
-    grid: &[f64],
-    rx: &Reaction,
-    yld: &Tab1,
-    phn_acc: &mut [f64],
-    it: usize,
-    heating: &mut [f64],
-    totals: &[f64],
-) -> Result<(), NjoyError> {
-    let nes = grid.len();
-    x.set(ldlwp + jp0, (x.next() - dlwp + 1) as f64);
-    let last = x.next();
-    x.push_int(0.0); // LNW
-    x.push_int(0.0); // LAW, filled below
-    x.push_int(0.0); // IDAT, filled below
-
-    let t2 = cur.read_tab2()?;
-    let lang = t2.head.l1;
-    let lep = t2.head.l2;
-    let ne = t2.head.n2.max(0) as usize;
-    if lang != 1 {
-        return Err(NjoyError::NotPorted(
-            "acephn: MF=6 LAW=1 with LANG /= 1 -- Kalbach-Mann (LANG=2, ACE \
-             law 44) is not ported",
-        ));
-    }
-    x.set(last + 1, 61.0);
-    // The angular data rides in the energy distribution (`acepn.f90:1477`).
-    x.set(landp + jp0, -1.0);
-
-    // The law's own applicability table: NR=0, NE=2, then E(1:2), P(1:2).
-    let lee = x.next();
-    x.push_int(0.0); // NR
-    x.push_int(2.0); // NE
-    for _ in 0..4 {
-        x.push_real(0.0);
-    }
-    x.set(last + 2, (x.next() - dlwp + 1) as f64);
-    x.push_int(0.0); // LDAT NR
-    x.push_int(ne as f64); // LDAT NE
-    let lle = x.next();
-    for _ in 0..2 * ne {
-        x.push_real(0.0);
-    }
-
-    // Per incident energy: the outgoing law, then its angular tables.
-    let mut avlab_tab: Vec<(f64, f64)> = Vec::with_capacity(ne);
-    for ie in 1..=ne {
-        let rec = cur.read_list()?;
-        let e_in = rec.head.c2;
-        let nd = rec.head.l1.max(0) as usize;
-        let na = rec.head.l2.max(0) as usize;
-        let ng = rec.head.n2.max(0) as usize;
-        let ncyc = na + 2;
-        if na != 0 {
-            return Err(NjoyError::NotPorted(
-                "acephn: MF=6 LAW=1 LANG=1 with NA > 0 -- the Legendre angular \
-                 reconstruction (ptleg2) is ported for the isotropic case only",
-            ));
-        }
-        if nd != 0 {
-            return Err(NjoyError::NotPorted(
-                "acephn: MF=6 LAW=1 with discrete lines (ND > 0) is not ported",
-            ));
-        }
-        let e_mev = sigfig(e_in / EMEV, 7, 0);
-        if ie == 1 {
-            x.set(lee + 2, e_mev);
-            x.set(lee + 4, 1.0);
-        }
-        if ie == ne {
-            x.set(lee + 3, e_mev);
-            x.set(lee + 5, 1.0);
-        }
-        x.set(lle + ie - 1, e_mev);
-        x.set(lle + ne + ie - 1, (x.next() - dlwp + 1) as f64);
-
-        let base = x.next();
-        x.push_int((lep + 10 * rec.head.l1) as f64); // INTT
-        x.push_int(ng as f64); // NP
-        // E', pdf, cdf and the angular pointer, four parallel columns.
-        for _ in 0..4 * ng {
-            x.push_real(0.0);
-        }
-        let nexc0 = base + 2 + 4 * ng;
-        // The angular pointer column is a locator, hence an integer.
-        for k in 0..ng {
-            x.mark_int(base + 2 + 3 * ng + k);
-        }
-
-        let mut nexc = nexc0;
-        let mut avlab = 0.0f64;
-        let (mut avll, mut cdf_prev, mut ep_prev, mut f_prev) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
-        for ig in 1..=ng {
-            let ep = rec.data[ncyc * (ig - 1)];
-            let f = rec.data[1 + ncyc * (ig - 1)];
-            let ep_mev = sigfig(ep / EMEV, 7, 0);
-            let mut pdf = sigfig(f * EMEV, 7, 0);
-            if pdf > 0.0 && pdf < SMALL {
-                pdf = SMALL;
-            }
-            let cdf = if ig == 1 {
-                0.0
-            } else if lep == 1 {
-                cdf_prev + f_prev * (ep - ep_prev)
-            } else {
-                cdf_prev + (f_prev + f) / 2.0 * (ep - ep_prev)
-            };
-            x.set(base + 2 + (ig - 1), ep_mev);
-            x.set(base + 2 + ng + (ig - 1), pdf);
-            x.set(base + 2 + 2 * ng + (ig - 1), cdf);
-            x.set(base + 2 + 3 * ng + (ig - 1), (nexc - dlwp + 1) as f64);
-            // The isotropic angular table for this outgoing energy.
-            let (mu, apdf) = ptleg2_isotropic();
-            let nmu = mu.len();
-            x.reserve_reals(nexc + 1 + 3 * nmu);
-            x.set(nexc, 2.0); // INTMU, lin-lin
-            x.mark_int(nexc);
-            x.set(nexc + 1, nmu as f64);
-            x.mark_int(nexc + 1);
-            let mut acdf = 0.0f64;
-            for k in 0..nmu {
-                x.set(nexc + 2 + k, sigfig(mu[k], 7, 0));
-                x.set(nexc + 2 + nmu + k, sigfig(apdf[k], 7, 0));
-                let v = if k == 0 {
-                    0.0
-                } else if k == nmu - 1 {
-                    1.0
-                } else {
-                    let del = mu[k] - mu[k - 1];
-                    let av = (apdf[k] + apdf[k - 1]) / 2.0;
-                    sigfig(acdf + del * av, 7, 0)
-                };
-                x.set(nexc + 2 + 2 * nmu + k, v);
-                acdf = v;
-            }
-            nexc += 2 + 3 * nmu;
-            // The laboratory mean energy, trapezoid over E'·f (`:1673-1691`).
-            if ig > 1 {
-                let dele = ep_mev - sigfig(ep_prev / EMEV, 7, 0);
-                let pdf_prev = x.get(base + 2 + ng + (ig - 2));
-                let avav = if lep == 1 {
-                    pdf_prev * (avll + ep_mev) / 2.0
-                } else {
-                    (pdf_prev * avll + pdf * ep_mev) / 2.0
-                };
-                avlab += avav * dele;
-                // `avll` is updated **inside** this guard upstream
-                // (`acepn.f90:1690`), so the ig = 2 term uses `avll = 0`
-                // rather than E'(1). Hoisting it out adds
-                // `pdf(1)*E'(1)*dele/2` to every law's mean outgoing energy --
-                // about 4e-8 MeV here, which is invisible in the value and
-                // enough to flip `sigfig(.., 7, 0)` on the heating block.
-                avll = ep_mev;
-            }
-            cdf_prev = cdf;
-            ep_prev = ep;
-            f_prev = f;
-        }
-        // Renormalise by the last cumulative (`:1699-1706`).
-        let denom = x.get(base + 2 + 3 * ng - 1);
-        let renorm = if denom != 0.0 { 1.0 / denom } else { 1.0 };
-        for ig in 0..ng {
-            let p = x.get(base + 2 + ng + ig);
-            x.set(base + 2 + ng + ig, sigfig(renorm * p, 7, 0));
-            let cc = x.get(base + 2 + 2 * ng + ig);
-            x.set(base + 2 + 2 * ng + ig, sigfig(renorm * cc, 9, 0));
-        }
-        avlab_tab.push((e_mev, avlab));
-        // The next block starts after this energy's angular tables.
-        x.reserve_reals(nexc - 1);
-    }
-
-    // Heating: yield x sigma x mean outgoing energy (`:1716-1738`).
-    let avl_interp: Vec<(u32, u32)> = vec![(avlab_tab.len() as u32, 2)];
-    for (k, &s_i) in rx.sigma.iter().enumerate() {
-        let i = rx.ie + k; // 1-based grid index
-        if i > nes {
-            break;
-        }
-        let y = crate::endf::interp::terpa(&yld.interp, &yld.pairs, grid[i - 1]).0;
-        let h = crate::endf::interp::terpa(&avl_interp, &avlab_tab, grid[i - 1] / EMEV).0;
-        let hh = h * y * s_i;
-        phn_acc[i - it] += hh;
-        if totals[i - 1] != 0.0 {
-            heating[i - 1] -= hh / totals[i - 1];
-        }
-    }
-    Ok(())
-}
-
 
 impl PhotonuclearAce {
     /// Assemble the writable table (`acepn.f90:1823-1848`).

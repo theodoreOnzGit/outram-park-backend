@@ -37,3 +37,9 @@ petir = { workspace = true }
 uom.workspace = true
 thiserror.workspace = true
 
+# tests/thermochimica_differential.rs inflates the gzipped Thermochimica reference run
+# (verification_and_validation/thermochimica_differential/). Pure Rust, already a
+# workspace dependency.
+[dev-dependencies]
+miniz_oxide.workspace = true
+

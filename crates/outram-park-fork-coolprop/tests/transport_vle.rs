@@ -267,6 +267,14 @@ fn coverage_counts() {
         .filter(|f| f.ancillaries().is_some())
         .count();
     assert!(n_visc >= 42, "viscosity coverage regressed: {n_visc}");
-    assert!(n_cond >= 45, "conductivity coverage regressed: {n_cond}");
+    // ~~>= 45~~ **CHANGED 2026-11-13 (gh:#1349) to >= 41**, deliberately and not to make a
+    // run pass: the four fluids that fell out (R152A, R1234yf, R1234ze(E), EthylBenzene) had a
+    // conductivity that silently lacked its Olchowy-Sengers critical term (their viscosity
+    // model is not ported, and the term divides by it), up to 0.43 to 0.57 relative off
+    // CoolProp on the grid. Counting them as covered was the defect, so the thing gated was
+    // wrong, not the gate. DEFERRED to the maintainer: whether to prefer the old behaviour
+    // (a value without the term) for callers that need some number; reverting is a
+    // one-line change in `ConductivityModel::eval`.
+    assert!(n_cond >= 41, "conductivity coverage regressed: {n_cond}");
     assert!(n_anc >= 131, "ancillary coverage regressed: {n_anc}");
 }

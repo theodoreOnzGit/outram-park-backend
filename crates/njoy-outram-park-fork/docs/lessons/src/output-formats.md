@@ -27,10 +27,10 @@ much of NJOY's formatter family does this crate carry?**
 | **RESXSR** | pointwise resonance cross sections (RESXS) for 4–200 eV | intermediate-resonance self-shielding calculators | **ported**, `resxsr::run_resxs` | H-2 RESXS stream **byte-identical** to NJOY2016's (2 124 bytes) |
 | **MIXR** | a new PENDF of weighted sums (elements from isotopes, mixtures) | plotting, elemental data | **ported**, `mixr::run_mix` | H-2/Be-9 0.5/0.5 mix vs NJOY2016: 787 points per MT, **identical** (first recorded [2026-10-04](./remeasured.md)) |
 | **MATXSR** | MATXS generalised material cross-section files | TRANSX → many transport codes | **`NotPorted`** stub | none |
-| **CCCCR** | CCCC files ISOTXS, BRKOXS, DLAYXS | fast-reactor codes (US FBR programme) | **`NotPorted`** stub | none |
+| **CCCCR** | CCCC files ISOTXS, BRKOXS, DLAYXS | fast-reactor codes (US FBR programme) | ~~**`NotPorted`** stub~~ **CORRECTED 2026-11-13:** ported (`src/ccccr/`, gh:#1369) | ~~none~~ ISOTXS, BRKOXS and DLAYXS byte-identical to NJOY2016.80 on upstream decks 02 and 76 (`tests/deck_driver_tapes_vs_njoy2016.rs`) |
 | **POWR** | EPRI-CELL / EPRI-CPM libraries | EPRI lattice codes | **`NotPorted`** stub | none |
-| **PLOTR** | VIEWR input describing 2-D/3-D plots of ENDF/PENDF/GENDF data | plotting | ~~**`NotPorted`** stub~~ **CORRECTED 2026-11-13:** ported (`viewr`, 2026-11-12, gh:#1369) | PostScript identical to NJOY2016's line by line on whole upstream decks (`tests/deck_driver_tapes_vs_njoy2016.rs`, `tests/deck_driver_covr_vs_njoy2016.rs`) |
-| **VIEWR** | PostScript from plot commands (also used by COVR and DTFR) | plotting | **`NotPorted`** stub | none |
+| **PLOTR** | VIEWR input describing 2-D/3-D plots of ENDF/PENDF/GENDF data | plotting | ~~**`NotPorted`** stub~~ ~~**CORRECTED 2026-11-13:** ported (`viewr`, 2026-11-12, gh:#1369)~~ **CORRECTED again 2026-11-13:** that note described VIEWR; PLOTR itself is ported since 2026-11-13 (`src/plotr/`, gh:#1369) | plot-command files identical to NJOY2016.80's line by line on upstream decks 06 and 12 and on five further decks (`tests/deck_driver_plotr_vs_njoy2016.rs`); an MF=6 curve is refused (undefined upstream) |
+| **VIEWR** | PostScript from plot commands (also used by COVR and DTFR) | plotting | ~~**`NotPorted`** stub~~ **CORRECTED 2026-11-13:** ported (`src/viewr/`, 2026-11-12, gh:#1369) | ~~none~~ PostScript identical to NJOY2016's line by line on whole upstream decks (`tests/deck_driver_tapes_vs_njoy2016.rs`, `tests/deck_driver_covr_vs_njoy2016.rs`, `tests/deck_driver_plotr_vs_njoy2016.rs`) |
 
 **A correction made while writing this page.** The crate's `lib.rs` listed
 WIMSR among the `NotPorted` stubs. It was ported and verified on 2026-09-11;

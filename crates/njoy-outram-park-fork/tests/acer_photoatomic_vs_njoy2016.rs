@@ -37,10 +37,13 @@
 //! On the real evaluation `photoat-092_U_000-ENDF8.0.endf` (MAT 9200, Z = 92,
 //! 11,942 energies, 71,807 words) the same comparison leaves **26 words**
 //! outside the file's print precision, all in the heating block and all above
-//! 14 MeV, worst 8.7e-8 relative. That residual is upstream's own quadrature
-//! truncation, not a translation defect; see
-//! `verification_and_validation/acer_photoatomic_vs_njoy2016.md` for the
-//! measurement and the three hypotheses it killed.
+//! 14 MeV, worst 8.7e-8 relative. ~~That residual is upstream's own quadrature
+//! truncation, not a translation defect~~ **CORRECTED 2026-11-13 (gh:#1369):** it
+//! was a translation defect. `iheat`'s `unext.lt.0.99999` and `unow.lt.-.9999` are
+//! single-precision literals, which the port had as doubles; with them, NJOY2016's
+//! deck 48 and 59 ACE (this evaluation) is identical line for line
+//! (`tests/deck_driver_tapes_vs_njoy2016.rs::test_48_photoatomic_whole_deck`). See
+//! `verification_and_validation/acer_photoatomic_vs_njoy2016.md`.
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::photoatomic::{photoatomic_ace, PhotoatomicOptions};

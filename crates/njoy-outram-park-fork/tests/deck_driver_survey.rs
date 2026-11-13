@@ -9,7 +9,9 @@
 //! unmodified deck is run by `build/njoy` (300 s limit) and by `run_deck` in a
 //! second directory. Each tape file NJOY left is compared with ours: text tapes
 //! line by line, anything NJOY wrote in blocked-binary form by bytes (this crate
-//! writes no blocked-binary file). An input tape NJOY left byte-identical to the staged original is not compared ~~(this crate rewrites it through its tape parser, which is not an output)~~ (**CORRECTED 2026-11-12, gh:#1508:** this crate no longer writes back a unit it only read, so its copy is byte-identical too; it is an input, not an output). `SURVEY_CASES=01,13` limits the decks (and then the table goes to `SURVEY_OUT` or the temp directory, never over `survey.md`). Status per deck: `identical` (every NJOY tape
+//! writes no blocked-binary ENDF/GENDF file; ~~so none is comparable~~ **since
+//! 2026-11-13 (gh:#1369)** it writes CCCCR's unformatted files as raw bytes, and a
+//! binary file of ours that differs from NJOY's counts as `differs`). An input tape NJOY left byte-identical to the staged original is not compared ~~(this crate rewrites it through its tape parser, which is not an output)~~ (**CORRECTED 2026-11-12, gh:#1508:** this crate no longer writes back a unit it only read, so its copy is byte-identical too; it is an input, not an output). `SURVEY_CASES=01,13` limits the decks (and then the table goes to `SURVEY_OUT` or the temp directory, never over `survey.md`). Status per deck: `identical` (every NJOY tape
 //! present and equal, deck ran to its end), `differs` (tape, differing-line
 //! count), or `NotPorted` (module or card named by `DeckRun::blocked`; tapes ours
 //! did produce are still compared and listed). A panic in the port is reported
@@ -126,6 +128,10 @@ fn survey_case(root: &Path, case: &str) -> String {
             let (al, bl): (Vec<_>, Vec<_>) = (sa.lines().collect(), sb.lines().collect());
             let n = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).count();
             diff.push(format!("{t} {n}/{} lines", bl.len()));
+        } else if !is_text(&b) && !is_text(&a) {
+            // Both binary (a file this crate writes as raw bytes, e.g. CCCCR's):
+            // comparable, and they differ (gh:#1369).
+            diff.push(format!("{t} bytes"));
         } else if !is_text(&b) {
             binary.push(t); // NJOY blocked binary; ours is coded text: not comparable by lines
         } else {

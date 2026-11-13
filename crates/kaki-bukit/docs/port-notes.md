@@ -239,8 +239,11 @@ need it.
 
 ## What would close the biggest hole
 
-Nothing here has been compared against an actual Cyclus run. Every check is
-against a closed form or a hand-worked case. Building upstream Cyclus, running
+~~Nothing here has been compared against an actual Cyclus run.~~ **CORRECTED
+2026-11-13 (gh:#1431):** five exchange scenarios and the toolkit kernels have
+been compared with a CYCLUS 1.6.0 run (`verification_and_validation/cyclus_differential_gh1431/README.md`). The
+facility archetypes beyond Source and Sink have not, because they are not
+ported. The earlier checks are against a closed form or a hand-worked case. Building upstream Cyclus, running
 a simple simulation, committing its trade schedule under `reference-data/`, and
 diffing this port against it is the highest-value next step — and is exactly
 how `petir` and `outram-park-fork-liggghts` earned their cross-code evidence.

@@ -1,0 +1,150 @@
+# Thermophysics against OpenFOAM-v2506 (ESI), gh:#1362 row 4
+
+Upstream line: **ESI v2506** (`/home/user/upstream-build/OpenFOAM-v2506`, the
+runnable build). The Foundation line was not read or run. Maintainer
+direction "ESI preferred"; where the port follows Foundation the ESI form is
+added as a named option and both are recorded.
+
+Driver: `driver/thermoDump.C` (unmodified `libspecie` /
+`libthermophysicalProperties` templates, built from dictionaries as a case file
+would). Rebuild: `scripts/rebuild_reference.sh`. Reference:
+`reference/thermo_esi_v2506.txt.gz` (2560 rows: 64 combinations x 10 T x 4 p;
+Cp, Ha, Hs, Hc, S, rho, psi, Z, CpMCv, mu, kappa, alphah as hex bit patterns).
+Test: `tests/openfoam_thermo_code_to_code.rs`.
+
+Inputs (all literature-style values, none tuned): air `W = 28.96`, CO2
+`W = 44.01, Tc = 304.12 K, Pc = 7.374 MPa, omega = 0.2239` for Peng-Robinson;
+hConst `Cp = 1004.5, Hf = 2.5e5`; N2 JANAF coefficients; hPolynomial
+`CpCoeffs<8> (1000 0.1 -2e-5 3e-9 0 0 0 0), Hf = 1e5, Sf = 200`; Sutherland
+`As = 1.458e-6, Ts = 110.4`. Grid: T = 250..1900 K (10), p = 1e5..8e6 Pa (4).
+
+## Findings read from the source before any run
+
+- **Upstream cannot compile `hTabulatedThermo::S`** in v2506: it calls
+  `EquationOfState::Sp`, which no equation of state in
+  `specie/equationOfState/` defines (`hTabulatedThermoI.H:106`). The driver
+  prints 0 for S on those 16 combinations; the port's S for hTabulated is
+  therefore not comparable.
+- `hTabulatedThermo` upstream is one 1-D `Cp(T)` table with `Hs = int Cp dT`,
+  `Ha = Hs + Hf`; the port takes three independent tables (Cp, Ha, S).
+- `hPolynomialThermo` upstream: `hCoeffs` offset to `Href` at `Tref`
+  (defaults 0 and Tstd), `Ha = hCoeffs(T)`, `Hs = Ha - Hf`, `S = sCoeffs(T)`;
+  `Hf` and `Sf` are NOT added to Ha / S (v2506 reads `Sf` but only uses
+  `Sref`). The port follows the Foundation form (Hf added at Tstd).
+- `Pstd`: upstream `1e5` Pa (`etc/controlDict`, `standard`); port `P_REF = 101325`.
+
+## Predictions (written before the Rust side ran)
+
+Sign and size stated per group; wrong ones will be corrected in place.
+
+- P1: hConst x perfectGas: Cp, Hs, Ha, Hc bit-identical (no libm, same
+  operation order); rho, psi differ at ulp level (R = RR/W against R/(W/1000));
+  **S differs by `R ln(101325/1e5)` = +3.8 J/kg/K** from the `Pstd` value, so
+  not identical, relative size ~1e-2.
+- P2: janaf: Cp, Ha, Hs, Hc within a few ulp (coefficients scaled by a port R
+  that is ulp-different); S differs by the `Pstd` term.
+- P3: hPolynomial: Ha, Hs, S differ **structurally** (kJ/kg size), Cp identical.
+- P4: rhoConst: Z differs (upstream 0, port `p/(rho R T)`); rho identical;
+  icoPolynomial: rho identical, Z identical (0).
+- P5: sutherland / polynomial / tabulated / const transport: mu bit-identical
+  for polynomial and tabulated, ulp-level for sutherland (`sqrt` is exact);
+  kappa follows Cp/Cv so inherits their differences.
+- P6: PengRobinson: Z, rho, psi, Cp, H, S differ above ulp level (the port
+  solves the cubic with `CubicEqn`, upstream uses the trigonometric / cbrt
+  closed form and `RR/W` units); size unknown, predicted below 1e-10 relative
+  away from the three-root region and larger inside it.
+- P7: hTabulated: not comparable until an ESI-form table option exists.
+
+## Results (measured 2026-11-13, release; test `tests/openfoam_thermo_code_to_code.rs`)
+
+Three configurations of the port are compared with the 64 + 16 reference
+combinations (counts are bit-identical values; the full per-combination table
+is printed by `--nocapture`, the pinned subset is in the test).
+
+| configuration | outcome |
+|---|---|
+| port defaults (CODATA R, Foundation forms) | `rho`, `psi`, `CpMCv` 0/40 identical, rel 9.0e-7 (the gas constant); `kappa`/`alphah` through Cp; hPolynomial `Ha`, `Hs`, `S` 0/40 (structural); tabulated transport outside the table 0/8 (clamp against extrapolation); janaf outside [Tlow, Thigh] 0/20 (clamp) |
+| ESI forms, `W` from `gram_per_mole` | residual is only the unit-conversion ulp: `(28.96*0.001)*1e3 != 28.96`, so `R = RR/W` is 1 ulp off: hConst/perfectGas `rho` 4/40, `S` 11/40, `psi` 0/40 (1-2 ulp) |
+| ESI forms, exactly round-tripping `W` | **every non-PengRobinson combination is bit-identical in every quantity** (48 combinations x 40 + the extrap block), PengRobinson 10 of 40 points differ in `Z` by up to 2 ulp |
+
+### Causes, each localised to its first divergent operation
+
+1. **Gas constant (rel 9.0e-7).** v2506 `etc/controlDict` sets `NA = 6.0221417930e23`,
+   `k = 1.38065e-23`; `RR = 1e3 * NA * k = 8314.47006650545` J/(kmol K), which is
+   9.0e-7 above CODATA 2019 (8314.462618...). Every `R`-dependent quantity
+   (`rho`, `psi`, `CpMCv`, janaf coefficients scaled by `R`, Hc, S, kappa of
+   sutherland) carried it. **Option added:** `GasConstant::EsiV2506`
+   (`with_gas_constant` on `PerfectGas`, `RhoConst`, `IcoPolynomial`,
+   `PengRobinsonGas`); default stays CODATA 2019, which is the more accurate
+   constant (the case file's 6-digit `k` is the source of upstream's value).
+2. **`Pstd`: defect, fixed (default).** Port `P_REF = 101325`, upstream `Pstd = 1e5`.
+   Entropy shifted by `R ln(1.01325)` = 3.8 J/(kg K) for air. Now `1e5`.
+3. **`perfectGas::psi`: fixed.** Port `rho/p`, upstream `1/(R T)`: equal
+   mathematically, 27/40 points 1 ulp apart. Now upstream's form.
+4. **`constTransport::alphah`: fixed.** Port `kappa/Cp`, upstream `mu*rPr`.
+5. **`rhoConst::Z`: fixed.** Port `p/(rho R T)`, upstream (both lines) `0`. No
+   consumer in the workspace.
+6. **`PengRobinsonGas`: defect, fixed.** `ap = da/dT` and `app = d2a/dT2` were
+   built from `a*alpha(T)` where upstream uses `a` without `alpha` (the
+   `alpha` derivative is inside the bracket already). Effect on `Cp` departure
+   and `CpMCv`: up to **6.9e-2 / 1.0e-1** relative at T up to 1900 K on the
+   test grid (alpha falls to 3.5e-3 at 1900 K). The independent check added to
+   the unit tests: `Cp_dep = dH_dep/dT` by finite difference to 2e-3.
+7. **`PengRobinsonGas` forms.** `H`, `E`, `S` use the rounded `2.414` and
+   `0.414` in upstream; the port used the exact `1 +- sqrt(2)` (departure
+   1.2e-3 in H, 4e-5 in S); upstream `Cp`/`Cv` use the exact `sqrt(2)`. `Z`: the
+   port solves the cubic with `CubicEqn` (the Foundation reading), upstream the
+   closed trigonometric / cube-root form. **Option added:** `PengRobinsonForm::EsiV2506`
+   (a line-for-line translation in upstream's kmol basis); default `Port`.
+8. **`hPolynomialThermo`.** ESI offsets `hCoeffs`, `sCoeffs` to `Href`, `Sref` at
+   `Tref` and never adds `Hf`/`Sf`; the port follows the Foundation form
+   (`Ha(Tstd) = Hf`). **Option added:** `HPolynomialThermo::new_esi_v2506`; default
+   unchanged.
+9. **`hTabulatedThermo`.** ESI: one 1-D `Cp(T)` table, `Hs = int Cp dT`. Port: three
+   independent tables. **Type added:** `HTabulatedEsiThermo` (with
+   `thermophysics::table::{NonUniformTable, IntegratedNonUniformTable}`).
+   Upstream defect found: `S` calls `EquationOfState::Sp`, which no equation of
+   state defines, so `hTabulatedThermo::S` cannot be instantiated in v2506
+   (reference S is 0 and not compared). Second upstream defect:
+   `nonUniformTable::index()` for T above the last knot returns the last
+   *knot* index, so `f()` reads `values_[size]` one past the end (undefined
+   behaviour); those rows are not a reference and the port stops at the last
+   interval. Also: for T exactly equal to the last knot, `nd = 0` and the
+   interval 1 is used (reproduced).
+10. **`tabulatedTransport`.** ESI extrapolates linearly below the table, the port
+    clamps. **Option added:** `TabulatedTransport::new_esi_v2506`.
+11. **`janafThermo` T clamp.** The port clamps T into [Tlow, Thigh] in `cp`, `ha`,
+    `s`; ESI evaluates `coeffs(T)` unclamped (only `limit()` inside the T
+    inversions clamps). **Option added:** `with_temperature_clamp(false)`;
+    default stays clamped.
+12. **PengRobinson residual (ESI form).** 10/40 `Z` differ by 1-2 ulp, 0 other
+    quantity differs on a row where `Z` is identical (test
+    `peng_robinson_mismatches_follow_z`). `Z` is the only place with `acos`,
+    `cos`, `cbrt`: PETIR against glibc. A python replay of upstream's `Z` on
+    glibc reproduces all 40 reference values, so the translation is exact.
+    Accepted per the PETIR/glibc rule, pinned.
+
+### Not covered
+
+Temperature inversions (`THs`, `THa`, `TEs`: port Newton against upstream's
+`T()` with `limit`), `sutherland` constructed from two points, `PengRobinson`
+in the liquid root region (the grid has single-root and three-root points but
+upstream's choice of root there is the max root as ours), `Boussinesq`,
+`rPolynomial`, `perfectFluid`, `WLF`, `hPower` and the other upstream types the
+port lacks. Foundation (dev) was not read or run.
+
+### Predictions against the first run (port as it stood)
+
+- P1 half wrong: Cp, Hs, Ha, Hc identical as predicted, `S` differed by the
+  `Pstd` term as predicted (rel 6.1e-1 where S is near zero), but `rho`/`psi`
+  differed by **9.0e-7** (the gas constant), not at ulp level.
+- P2 wrong in size: janaf differed by 9.0e-7 (R scaling the coefficients), not
+  a few ulp.
+- P3 right (kJ/kg-size `Ha`, `Hs`, `S`; Cp identical). P4 right (rhoConst `Z`
+  differs, icoPolynomial identical). P5 right for `mu`; sutherland `kappa`
+  carried the gas constant (8e-8 to 2.5e-7).
+- P6 **wrong**: predicted below 1e-10, measured up to **6.9e-2** in Cp and
+  **1.0e-1** in CpMCv, from a port defect (the `alpha(T)` factor in `da/dT`),
+  not from the solver form; the solver form and the rounded constants gave
+  ~1e-3 in H and ~4e-5 in S.
+- P7: hTabulated needed a new type (done) and upstream cannot compile its `S`.

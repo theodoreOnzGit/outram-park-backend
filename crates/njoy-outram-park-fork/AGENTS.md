@@ -525,8 +525,9 @@ anything reading `elastic_mubar_cm` / `inelastic_mubar_cm`.
 `alax` and `phoout` from `acepa.f90`. The Type-1 output is **byte-identical**
 to NJOY2016's own file on `reference-data/endf/photoat-synthetic-Z6.endf`
 (9 950 bytes, gated by `tests/acer_photoatomic_vs_njoy2016.rs`); on U
-ENDF/B-VIII.0, **71 781 of 71 807 words** sit at the file's own print
-precision. Full record:
+ENDF/B-VIII.0, ~~**71 781 of 71 807 words** sit at the file's own print
+precision~~ **CORRECTED 2026-11-13 (gh:#1369):** every line is NJOY2016's
+(decks 48 and 59; see "A residual that was a literal's kind" below). Full record:
 [`verification_and_validation/acer_photoatomic_vs_njoy2016.md`](verification_and_validation/acer_photoatomic_vs_njoy2016.md).
 
 Three things are worth carrying forward.
@@ -572,18 +573,26 @@ a 12-digit text comparison sees nothing:
   `skip6`/`skip6a` split above: **read the upstream routine that owns the
   input format, not the one whose name matches.**
 
-### A residual that is upstream's convergence, not the port's arithmetic
+### ~~A residual that is upstream's convergence, not the port's arithmetic~~ A residual that was a literal's kind (CORRECTED 2026-11-13)
 
-The heating column disagrees with NJOY by up to 8.7e-8 at 26 of 11 942
+~~The heating column disagrees with NJOY by up to 8.7e-8 at 26 of 11 942
 energies, all above 14 MeV, and it attributes entirely to `iheat`. Three
 hypotheses were tested and killed (round-off amplification in the attribution;
 conditioning — 1.4e-16 under a 1-ulp input change; the `1 − unow`
 cancellation — worth 0.0). The cause is the fourth: **upstream's `pnow/2`
 panel rule stops converging above ~300 MeV**, carrying 4.9e-5 of its own
 truncation at 1.5 GeV and 9.9e-4 at 10 GeV, measured by refining the panel
-limit (`iheat_refined`). `iheat` keeps upstream's rule; the refined path
-exists as a control, not as the default. Above ~300 MeV *neither* code
-supplies photon heating to better than 1e-4, and that is the number to quote.
+limit (`iheat_refined`).~~ **CORRECTED 2026-11-13 (gh:#1369):** the cause was
+in the port. `iheat`'s `unext.lt.0.99999` and `unow.lt.-.9999` compare against
+**single-precision** literals (no `_kr`; NJOY2016 is built without
+`-fdefault-real-8`), which the port had as doubles. So the panel loop could end
+one panel apart. With them translated as gfortran promotes them, the U
+evaluation's ACE is NJOY2016's line for line (decks 48 and 59). The truncation
+measurement still stands: `iheat` keeps upstream's rule, the refined path is a
+control, and above ~300 MeV *neither* code supplies photon heating to better than
+1e-4. But truncation is common to two copies of one rule, so it cannot separate
+them; only a branch taken differently can. **Check the kind of every bare
+Fortran literal in a comparison.**
 
 ## Dosimetry (`acer iopt = 3`) landed too, and NJOY does not test it (2026-09-21)
 
@@ -1078,10 +1087,24 @@ against `ANGLE_TOL = 5e-3` and a different bisection. Reusing it would have
 produced a different grid and lost parity. Only the isotropic case is
 implemented, pinned against NJOY's own output.
 
-**Everything unported refuses by name** (`NjoyError::NotPorted`): `ielas = 1`,
+**Everything unported refuses by name** (`NjoyError::NotPorted`): ~~`ielas = 1`,
 `LANG = 2`, `NA > 0`, `ND > 0`, `LCT /= 1`, recoil subsections, MF=4/MF=5,
-`LAW = 2`/`LAW = 4`, and MT=18's nubar substitution. A photo-nuclear table
+`LAW = 2`/`LAW = 4`, and MT=18's nubar substitution~~. A photo-nuclear table
 that silently omits an emitted particle still reads and still looks plausible.
+**CORRECTED 2026-11-13 (gh:#1369):** `build.rs` is now a line-for-line
+translation of `acephn`, and reproduces NJOY2016's ACE line for line on
+upstream decks 57, 58, 66 and 78 (Bi-209, Co-59, Pu-239, He-3): `LCT = 2/3`,
+Kalbach-Mann, `NA > 0`, `LAW = 2`, recoil heating and the MT=18 nubar are
+translated. Still refused: `ielas = 1`, ~~MF=4, MF=5 for a production reaction,~~
+`LAW = 4`. Record: `verification_and_validation/deck_driver/README.md` §21.
+**CORRECTED 2026-11-13 (gh:#1369, deck 56):** MF=4/MF=5 (`photonuclear/mf45.rs`) and the
+`iopt = 7` plot file (`acer::phnplo`) are translated too, and decks 56, 57, 58, 66
+and 78 are NJOY2016's as whole decks (README §22).
+**CORRECTED 2026-11-13 (gh:#1369, deck 64):** "`LAW = 4`" is refused only in part
+now. Its recoil heating (`acepn.f90:507-584`) is translated, and deck 64 (Ra-226
+TENDL-2019) is NJOY2016's as a whole deck. Still refused by name: `LAW = 4` for a
+recoil that is itself an emitted light particle (ANDP `:975-990`, DLWP
+`:1774-1790`), and `ielas = 1`. README §23.
 
 **The pair is archived, and the `hk` comment is the provenance.** Both tables
 — NJOY2016's and this port's — live in the `reference-data/ace` submodule as

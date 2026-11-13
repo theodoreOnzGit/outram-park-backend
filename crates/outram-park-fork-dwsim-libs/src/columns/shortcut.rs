@@ -11,7 +11,10 @@
 //! > **⚠️ Untrusted AI-assisted draft — no human V&V.** Verified against hand
 //! > arithmetic and cross-checked against this crate's rigorous MESH solvers
 //! > (see the tests below), **not** validated against experimental data or
-//! > DWSIM's own output. Not for nuclear facility operation, reactor control,
+//! > ~~DWSIM's own output~~ **CORRECTED 2026-11-13 (gh:#1356):** the FUG algorithm is
+//! > compared with a verbatim transcription of upstream, seeded with this port's
+//! > K-values (`tests/upstream_shortcut_parity.rs`: 110/112 bit-identical); K-values,
+//! > q re-computation, temperatures and duties are not. Not for nuclear facility operation, reactor control,
 //! > safety-critical, or licensing decisions. Independent OUTRAM PARK fork,
 //! > not the official DWSIM.
 //!

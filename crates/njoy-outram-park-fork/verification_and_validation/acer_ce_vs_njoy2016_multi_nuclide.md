@@ -688,8 +688,10 @@ checks our MF=2/MT=152 against NJOY's committed 16-energy PENDF, and
 ACE classes (`acedo`/`acepa`/`acepn`) as unported, so there is no ACE table to
 difference.~~ **CORRECTED 2026-09-21** — `acepa` is now ported, and both
 photoatomic tapes **are** differenced as ACE tables against NJOY's own
-`acer iopt=4` output: byte-identical on the synthetic Z=6 tape, and 71 781 of
-71 807 words at print precision on U. See
+`acer iopt=4` output: byte-identical on the synthetic Z=6 tape, and ~~71 781 of
+71 807 words at print precision on U~~ (**CORRECTED 2026-11-13, gh:#1369:**
+identical line for line on U since `iheat`'s single-precision literals were
+fixed). See
 `acer_photoatomic_vs_njoy2016.md`. Dosimetry (`acedo`) and photonuclear
 (`acepn`) remain unported. The GAMINR comparison below stands as written and is
 now one of two independent routes through these tapes:

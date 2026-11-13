@@ -96,7 +96,7 @@ struct Prod {
 }
 
 /// `eavl` (`acecm.f90:558-583`).
-fn eavl(akal: f64, amass: f64, avcm: f64, avadd: f64, fmsd: f64, sign: f64) -> f64 {
+pub(crate) fn eavl(akal: f64, amass: f64, avcm: f64, avadd: f64, fmsd: f64, sign: f64) -> f64 {
     let fi1 = |aa: f64| if aa == 0.0 { 2.0 } else { (aa.r_exp() - (-aa).r_exp()) / aa };
     let fi2 = |aa: f64| {
         if aa == 0.0 {

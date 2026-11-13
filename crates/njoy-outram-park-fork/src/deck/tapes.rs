@@ -110,6 +110,9 @@ pub struct TapeUnits {
     /// Units a module opened new or stored a tape on (its outputs), gh:#1508.
     written: BTreeSet<i32>,
     workdir: Option<PathBuf>,
+    /// Files a module wrote as raw bytes (CCCCR's unformatted CCCC files,
+    /// gh:#1369), by unit.
+    bytes: BTreeMap<i32, Vec<u8>>,
 }
 
 fn unit_err(msg: String) -> NjoyError {
@@ -119,7 +122,25 @@ fn unit_err(msg: String) -> NjoyError {
 impl TapeUnits {
     /// Units backed by files `tape<n>` in `workdir` (`None`: memory only).
     pub fn new(workdir: Option<PathBuf>) -> Self {
-        Self { units: BTreeMap::new(), texts: BTreeMap::new(), gendf: BTreeMap::new(), written: BTreeSet::new(), workdir }
+        Self {
+            units: BTreeMap::new(),
+            texts: BTreeMap::new(),
+            gendf: BTreeMap::new(),
+            written: BTreeSet::new(),
+            workdir,
+            bytes: BTreeMap::new(),
+        }
+    }
+
+    /// Put a file of raw bytes on unit `lun` (a Fortran unformatted file a
+    /// module wrote, such as CCCCR's ISOTXS). It is written to `tape<n>` as is.
+    pub fn put_bytes(&mut self, lun: i32, bytes: Vec<u8>) {
+        self.bytes.insert(lun.abs(), bytes);
+    }
+
+    /// The raw-byte file on unit `lun`, if a module wrote one.
+    pub fn bytes(&self, lun: i32) -> Option<&[u8]> {
+        self.bytes.get(&lun.abs()).map(Vec::as_slice)
     }
 
     /// `openz(lun, new)`: open unit `lun`; with `new == 1` destroy any previous
@@ -331,8 +352,9 @@ impl TapeUnits {
     }
 
     /// Write every coded, non-scratch **output** unit (20 and above, plus 8-9)
-    /// to `tape<n>` in the work directory, and every text unit. Returns the
-    /// numbers written. Binary units are skipped (no blocked-binary writer),
+    /// to `tape<n>` in the work directory, every text unit, and every raw-byte
+    /// file ([`TapeUnits::put_bytes`], gh:#1369). Returns the
+    /// numbers written. Binary ENDF/GENDF units are skipped (no blocked-binary writer),
     /// and so is a unit only read from disk: NJOY never writes a unit it
     /// opened `old` (`openz`, `util.f90:199-212`; gh:#1508).
     pub fn write_coded_files(&self) -> Result<Vec<i32>, NjoyError> {
@@ -349,6 +371,10 @@ impl TapeUnits {
         }
         for (n, t) in &self.texts {
             std::fs::write(dir.join(format!("tape{n}")), t).map_err(NjoyError::Io)?;
+            done.push(*n);
+        }
+        for (n, b) in &self.bytes {
+            std::fs::write(dir.join(format!("tape{n}")), b).map_err(NjoyError::Io)?;
             done.push(*n);
         }
         Ok(done)
@@ -392,8 +418,11 @@ mod tests {
         t.store(21, tape, None).unwrap();
         t.openz(22, 1).unwrap();
         t.put_text(23, "text\n".into());
+        t.put_bytes(24, vec![4, 0, 0, 0, 9, 4, 0, 0, 0]);
+        assert_eq!(t.bytes(-24).map(<[u8]>::len), Some(9));
         let done = t.write_coded_files().unwrap();
-        assert_eq!(done, vec![21, 22, 23]);
+        assert_eq!(done, vec![21, 22, 23, 24]);
+        assert_eq!(std::fs::read(dir.join("tape24")).unwrap(), vec![4, 0, 0, 0, 9, 4, 0, 0, 0], "raw bytes as put");
         assert_eq!(std::fs::read_to_string(dir.join("tape20")).unwrap(), input, "input untouched");
         assert!(dir.join("tape21").exists() && dir.join("tape22").exists());
         std::fs::remove_dir_all(&dir).unwrap();

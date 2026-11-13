@@ -541,6 +541,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             sec.pairs = evaluate_on_union(t, &final_grid, first_res_for(sec.mt.number()));
         }
     }
+    seed_redundant_total(&mut sections, &final_grid);
     rebuild_total_as_sum_of_parts(&mut sections, &final_grid);
 
     // `emerge` writes each section from its last zero before the first
@@ -688,6 +689,29 @@ fn order(x: &mut Vec<f64>) {
 /// Build RECONR's union grid: `rdfil2`'s nodes folded with every section
 /// `lunion` reads (`reconr.f90:1871-1900`) -- MF=3 minus the redundant and
 /// derived MTs, then the first TAB1 of each MF=12 (`LO=1`) and MF=13 section.
+/// `lunion`'s grid for a tape with **no MF=3** (an IRDFF-II dosimetry file:
+/// MF=1, 2, 8, 10 and 40 only; upstream tests 30, 60 and 64, gh:#1369).
+/// [`reconr`]'s sections, and so its MT=1 energies, are empty then, but
+/// `emerge` still evaluates every MF=10/12/13 section on the union grid that
+/// `lunion` built from them (`reconr.f90:1866-2190`, `:4752-4790`). This is
+/// [`union_grid`] with no MF=3 inputs, as [`reconr`] calls it.
+///
+/// # Errors
+/// A tape without MF=1/MT=451, or a malformed MF=2/MF=10 section.
+pub(crate) fn union_grid_without_mf3(tape: &Tape, mat: i32, eps: f64) -> Result<Vec<f64>, NjoyError> {
+    let mf1_sec = tape.section(mat, 1, 451).ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
+    let material = mf1::parse_material_info(mf1_sec)?;
+    let res_info = match tape.section(mat, 2, 151) {
+        Some(s) => mf2::parse_resonance_info(s)?,
+        None => ResonanceInfo::default(),
+    };
+    let urr_ranges = match tape.section(mat, 2, 151) {
+        Some(sec) if sec.rows.len() > 1 => crate::unresr::mf2::parse_lru2_ranges(&sec.rows[1..])?,
+        _ => Vec::new(),
+    };
+    union_grid(tape, mat, &[], &res_info, &urr_ranges, eps, lunion_awin(mf1_sec), material.lrp)
+}
+
 fn union_grid(
     tape: &Tape,
     mat: i32,
@@ -1705,6 +1729,19 @@ const SUM_THRESHOLD_TEST: f64 = 1.0e-10;
 /// RECONR oracle: Si-30 (where it changes nothing) and Sr-88 (where it
 /// restores the missing 2.1629e-2 b). See
 /// `tests/reconr_mt1_is_the_sum_of_its_parts.rs`.
+/// `anlyzd` makes MT=1 a redundant reaction as soon as the tape has any MF=3
+/// section (`reconr.f90:550-556`), whether or not it carries an MT=1 of its
+/// own, and `emerge` sums it from the first grid point (`mtrt = 1`, `:624`).
+/// A photo-nuclear evaluation (He-3, Bi-209, Pu-239: MF=3 MT=5 and 18 only)
+/// has none, so seed an MT=1 on `egrid` for [`rebuild_total_as_sum_of_parts`]
+/// to fill. Nothing changes for a tape that has MT=1.
+fn seed_redundant_total(sections: &mut Vec<ReconrSection>, egrid: &[f64]) {
+    if sections.is_empty() || sections.iter().any(|s| s.mt == MtReaction::Mt1Total) {
+        return;
+    }
+    sections.insert(0, ReconrSection { lr: 0, mt: MtReaction::Mt1Total, qi: 0.0, pairs: egrid.iter().map(|&e| (e, 0.0)).collect() });
+}
+
 fn rebuild_total_as_sum_of_parts(sections: &mut [ReconrSection], egrid: &[f64]) {
     if egrid.is_empty() || !sections.iter().any(|s| s.mt == MtReaction::Mt1Total) {
         return;

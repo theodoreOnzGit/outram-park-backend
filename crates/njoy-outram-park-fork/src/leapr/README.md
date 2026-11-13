@@ -219,9 +219,14 @@ Outside the graphite MT=4 case above, these remain **verification**
    and the delta-function placement shares its `idone` flag with the inner
    nearest-β search so at most one delta is placed per α. These are ported
    as-is for line-traceability; verify they match the oracle's numeric output.
-3. **`trans` convolution grid** — `sbfill`'s underflow guard (`delta *= 10`) and
+3. ~~**`trans` convolution grid** — `sbfill`'s underflow guard (`delta *= 10`) and
    the Simpson weights should be diffed against `leapr.f90` on a real diffusion
-   case.
+   case.~~ **DONE 2026-11-13 (gh:#1369):** NJOY2016 test deck 80 (H in HF,
+   diffusion, `c = 49.54`) gives MF=7/MT=4 identical to NJOY2016.80 in all
+   91 453 lines (`test_80_leapr_whole_deck`). Getting there needed one defect
+   fixed: upstream keeps `sb` across the whole `trans` call (`leapr.f90:883`), and
+   a `sbfill` that stops one entry short leaves the convolution reading an
+   earlier call's value. The port had padded a fresh array with zero.
 
 ## Caveats
 

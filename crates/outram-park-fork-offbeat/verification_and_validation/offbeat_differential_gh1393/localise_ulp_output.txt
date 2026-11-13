@@ -1,0 +1,8 @@
+Young: 1-(1-p) != p on 4 porosities : 2
+SckCen (X*A)/B != X*(A/B) on 78 samples : 30
+Schumann pow(b,3) != b*b*b on 26 T : 8
+T grid points 26
+pow(T,3.0) != T*T*T : 1
+C*pow(T,-2.0) != C/(T*T) (C=1.5e9) : 3
+pow(T,2.0) != T*T : 0
+Bu*1e-3/9.5/100 != (Bu*1e-3)/950 on 6 burnups : 2

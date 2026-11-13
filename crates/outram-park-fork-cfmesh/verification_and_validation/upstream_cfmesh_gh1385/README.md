@@ -1232,3 +1232,138 @@ Not moved: Foam Studio pins, sphere pins, asmoOctree/elbow stage asserts.
   `refineBoundaryLayers`; pMesh/tetMesh final meshes with `boundaryLayers`
   dicts and `renameBoundary` not compared; ~140 `scale(1.0/x)`; 2D
   anisotropic cases not staged.
+
+## Round 5 (gh:#1385, 2026-11-13): environment rebuild, pin re-confirmation, `singleOrifice`
+
+**Research, education and V&V only.** AI-run; not reviewed by a human yet.
+The container was reset between rounds; this round first rebuilds upstream
+(ESI v2506 and cfMesh) with `scripts/upstream/build-esi-v2506-and-genfoam.sh
+cfmesh`, re-confirms an existing pin against the rebuilt upstream, then takes the
+next unrun row of the #1385 list: `tutorials/cartesianMesh/singleOrifice`
+(row 5, whole `cartesianMesh`).
+
+### Which OpenFOAM cfMesh e944f6ba695f was built against (decision record)
+
+ESI v2506 (OpenFOAM-ESI, GitHub mirror, tag `OpenFOAM-v2506`): see "Build" above
+and `logs/build-cfmesh.log.gz` (`-DOPENFOAM=2506`). The three-part API patch is the
+`is_contiguous` trait of v1906 and later, i.e. an ESI-line API. So **an ESI route
+exists and OpenFOAM-dev is not rebuilt**: a multi-hour rebuild would be justified
+only if no ESI route existed. The rebuilt ESI is the 2026-11-12/13 tree of
+`scripts/upstream/README.md` (tarball from SourceForge, not the earlier GitHub
+mirror clone), both `api=2506 patch=0`; whether the two trees are byte-identical
+is not checked here, which is why the pin re-confirmation below is run.
+
+### Predictions, written before any run (committed first)
+
+Re-confirmation. Prediction 70: re-running the recorded `sphere_cartesianMesh`
+(the committed `polyMesh.sha256`) on the rebuilt upstream gives the **same
+sha256 for points, faces, owner, neighbour and boundary**. If it does not, the
+difference is the build (a different tarball, compiler or libm), recorded as
+such and the pins not re-taken.
+
+`singleOrifice` (`singleOrifice.stl`, 9 solids -> 9 STL regions, `minCellSize
+0.5`, `maxCellSize 3`, `boundaryCellSize 1`, an `anisotropicSources` plane,
+`localRefinement` 0.2 on `orificeRegion.*`, `patchBoundaryLayers` (4 layers,
+`orificeRegion.*` first layer 0.2, `fixedWalls.*` 0.5, `allowDiscontinuity 0`),
+`renameBoundary`), stopped after each step, port (`run_cfmesh`, PETIR `pow`)
+against upstream:
+
+* Prediction 71: `templateGeneration` through `patchAssignment`
+  **bit-identical**. These stages held on asmoOctree and elbow; the only new
+  ingredient is the plane anisotropic source in the octree refinement, whose
+  distance arithmetic the port has checked only against a brute-force oracle
+  (#1279), not against upstream. If this fails, the first differing leaf/point
+  names an anisotropic-source expression (a division or an operation order).
+* Prediction 72: `edgeExtraction` identical (multi-region FUN/NonTopo ran in
+  asmoOctree, 10 patches).
+* Prediction 73: `boundaryLayerGeneration` is the likeliest first miss: the
+  per-patch `patchBoundaryLayers` with `allowDiscontinuity 0` and a
+  `maxFirstLayerThickness` per patch has not been compared with upstream
+  (elbow used the global `nLayers 5`). Expected: counts equal, first
+  difference in layer-point positions (thickness arithmetic), not in topology.
+* Prediction 74: any point difference left after `meshOptimisation` is the
+  pow ulp (a handful of points, worst below 1e-12 m, cascade bounded), as on
+  asmoOctree; **it is counted and pinned from above, not relaxed**.
+* Prediction 75: after `renameBoundary` (final mesh) patch names, types and
+  sizes equal upstream's.
+
+### Results of P70-P75 so far, and predictions 76-78 (written before the fix, committed first)
+
+Pin re-confirmation (P70) **held**: on the rebuilt ESI v2506 and the rebuilt cfMesh (`scripts/upstream/build-esi-v2506-and-genfoam.sh cfmesh`, 2 jobs, `nice`, 339 s for the library and four executables) the three recorded sphere runs (`cartesianMesh`, `tetMesh`, `pMesh`) reproduce the committed `polyMesh.sha256` of `points`, `faces`, `owner`, `neighbour` and `boundary` bit for bit. So the rebuilt upstream (SourceForge tarball, this container's compiler and libm) equals the earlier one on these cases, and no pin is re-taken.
+
+`singleOrifice`, port (PETIR `pow`) against upstream, stopped after each step (points bit-identical / total; faces index-identical with owner and neighbour / total), measured before any fix:
+
+| step | points | faces |
+|---|---|---|
+| templateGeneration | 29274/29274 | 65621/65621 |
+| surfaceTopology, surfaceProjection | 29173/29173 | 65413/65413 |
+| patchAssignment | 29173/29173 | 65413/65413 |
+| edgeExtraction | 29691/29691 | 72272/72272 |
+| boundaryLayerGeneration | 43283/43283 | 111722/111722 |
+| meshOptimisation | **1420/43283, worst 6.9e-2 m** | not matched |
+| boundaryLayerRefinement | 2050/82961 | 227372/227372 |
+
+P71, P72 held (identical through `edgeExtraction`); **P73 was wrong**: `patchBoundaryLayers` with `allowDiscontinuity 0` and per-patch thickness is bit-identical, the first miss is `meshOptimisation`. Localising it (instrumented upstream, `patches/gh1385-trace-instrumentation-6.patch`, `GH1385_DUMP`; the port writes the same dumps) with the same case and the `anisotropicSources` block removed from the `meshDict` on both sides: `meshOptimisation` is **43 283/43 283 bit-identical, no pow ulp**, so the cause is the anisotropic back-scaling, not the optimiser. With the sources:
+
+| point set | differing points (of 43283) | worst |
+|---|---|---|
+| after the first `optimiseFinalMesh` (modified space) | 32 | 4.6e-14 m |
+| after `revertGeometryModification` | 32 | 9.2e-14 m |
+| after `mapVerticesOntoSurface` of `projectSurfaceAfterBackScaling` | **8921** | 3.4e-11 m |
+| after the second `optimiseFinalMesh` | 41863 | 6.9e-2 m |
+
+Cause 1 (found by reading `cartesianMeshGenerator::projectSurfaceAfterBackScaling`): upstream builds a **new octree on the original surface** (`createOctreeWithRefinedBoundary(20, 30)`) and maps through `findNearestSurfacePoint`, then runs `optimiseFinalMesh` with that octree; the port mapped to the exact nearest point (`snap_to_surface_with`) and optimised with brute-force searches (`octree: None`). Fixed in the same change (`anisotropic::revert_and_project_octree`; `tetMesh` and `pMesh` still call `revert_and_project`, see "What remains"): after it the mapped points are the same 32 as before the revert.
+
+Prediction 76 (formed before the experiment but not committed before it; stated here after the fact): the 32 first-pass differences are the pow ulp. Swapping the platform `pow` in (experiment, **not committed**, PETIR's gate forbids it) must make the first optimisation, the revert and the map **identical in all 43283 points**. If 32 remain, they are not the pow.
+
+Result of P76: **held** (0 of 43283 differ after the first optimisation, the revert and the map, with the platform `pow`). After the second `optimiseFinalMesh` with the platform `pow`, **2** points still differ, by 6.9e-2 m (points 32452, 32455), identical to each other's cause: after `optimizeSurface` the mesh is identical (pass 2), `optimizeMeshFV` is where it parts. The traced `partTetMesh` states (`in`, `knupp`, `untangler`, `vopt`) of all six `untangleMeshFV` iterations are bit-identical, so the difference is in the boundary-move loop that follows them.
+
+Reading `tetMeshOptimisation.H`: `optimiseBoundaryVolumeOptimizer(const label nIterations = 3, const bool nonShrinking = false)`. `meshOptimizer::untangleMeshFV` calls **`tmo.optimiseBoundaryVolumeOptimizer(true)`** while `nGlobalIter < 2` and **`(false)`** from `nGlobalIter >= 5`. In C++ `true` binds to `nIterations` (`label`), so the first call is **one iteration, not non-shrinking**, and the last is **zero iterations** (nothing happens). The upstream comments ("the point stays in the plane determined by the point normal", "move boundary points without any constraints") describe an intent the code does not carry out. The port reads the booleans as the second argument and runs 3 iterations (`optimise_boundary_volume_optimizer(3, true)` / `(3, false)`).
+
+Prediction 77: with the boundary-move loop as upstream **calls** it (`(1, false)` for `nGlobalIter < 2`, `(0, false)` from 5), singleOrifice `meshOptimisation` with the platform `pow` is **43283/43283 bit-identical**, and with PETIR's `pow` the points that differ are only the pow cascade of the first pass: **at most 1313 points and worst below 1e-10 m** (the two 6.9e-2 m points are gone). Prediction 78: no existing bit-identical comparison moves (the sphere, asmoOctree, elbow, cutCube, hatOctree records and every committed pin), because none of them entered the boundary-move loop (they matched upstream before this change); a pin that does move is a case that did enter it, and is recorded old to new. The old form (3 iterations, `true`/`false` as documented) stays callable as `BoundaryMoveCalls::AsDocumented`; `Upstream` is the default, as upstream.
+
+### Round 5 results (2026-11-13, release)
+
+#### singleOrifice (`cartesianMesh`, whole tutorial): stage table after the two fixes
+
+Port with PETIR `pow` against upstream (points bit-identical / total; faces index-identical with owner and neighbour / total). `tests/cfmesh_vs_upstream_single_orifice.rs`; the committed upstream meshes are `runs/stages/single_cartesianMesh_boundaryLayerGeneration` and `runs/singleOrifice` (final).
+
+| step | before the fixes | after |
+|---|---|---|
+| templateGeneration | 29274/29274; 65621/65621 | same |
+| surfaceTopology, surfaceProjection, patchAssignment | 29173/29173; 65413/65413 | same |
+| edgeExtraction | 29691/29691; 72272/72272 | same |
+| boundaryLayerGeneration | 43283/43283; 111722/111722 | same |
+| meshOptimisation | ~~1420/43283, worst 6.924e-2 m; faces not matched~~ | **41968/43283, worst 1.776e-15 m; 111722/111722** |
+| final (`boundaryLayerRefinement`, `renumberMesh`, `renameBoundary`) | ~~2050/82961, worst 6.924e-2 m; 227372/227372~~ | **81184/82961, worst 1.776e-15 m; 227372/227372**, patch names, types and sizes equal (`orificeRegion` wall 1855, `inlet` patch 1358, `outlet` patch 1402, `fixedWalls` wall 11767) |
+
+With the platform `pow` swapped in (experiment, not committed; the maintainer's decision of 2026-11-11 stands: PETIR's `pow` stays): **43283/43283 after `meshOptimisation` and 82961/82961 in the final mesh, every face identical.** So the 1315 (stage) and 1777 (final) differing points are the `pow` ulp, counted and pinned from above (`<= 1777` points, worst `<= 1.8e-15` m).
+
+Predictions: **P70 held** (all three sphere pins reproduce on the rebuilt upstream). **P71, P72 held, P73 wrong** (the layer stage is bit-identical; the first miss was `meshOptimisation`), **P74 held** (after the fixes, what is left is the pow ulp: 1315 points, worst 1.776e-15 m, below the predicted 1e-12), **P75 held** (patch names, types, sizes). **P76 held** (see above). **P77 held**: with the platform `pow` 43283/43283, with PETIR's `pow` 1315 differing (the predicted bound was 1313 plus the two defect points; the count is 1315 = the 1313 `<1e-12` points of the earlier measurement + the 2, which the fix brings to the same ulp level) and worst 1.776e-15 m (predicted below 1e-10 m). **P78: see "Moved numbers" below.**
+
+#### The two defects, each traced to its first divergent operation
+
+1. **`projectSurfaceAfterBackScaling` (`anisotropic::revert_and_project`).** First divergent operation: the map after the revert, 8921 of 43283 points off by up to 3.4e-11 m. Upstream builds a new octree on the original surface, `createOctreeWithRefinedBoundary(20, 30)`, maps with its `findNearestSurfacePoint` and runs `optimiseFinalMesh` with that octree; the port snapped to the exact nearest point and optimised with brute-force searches. New: `anisotropic::revert_and_project_octree` and `pipeline::cartesian_mesh::create_octree_with_refined_boundary_for`; `cartesian_mesh` uses them. `tetMesh` and `pMesh` still call `revert_and_project` (deferred, see "What remains").
+2. **`untangleMeshFV`'s boundary loop.** First divergent operation: after `optimizeSurface` of the second pass the meshes are identical; after `optimizeMeshFV` two points (32452, 32455) differ by 6.9e-2 m, although the traced `partTetMesh` of all six untangle iterations is bit-identical. The boundary-move loop follows, and upstream calls `tmo.optimiseBoundaryVolumeOptimizer(true)` / `(false)` against `optimiseBoundaryVolumeOptimizer(const label nIterations = 3, const bool nonShrinking = false)`: the `bool` binds to `nIterations`, so the call is **one unconstrained iteration** below two global iterations and **zero iterations** from five on. The port read the bools as the second argument and ran three iterations (non-shrinking, then unconstrained). New: `mesh_optimizer::BoundaryMoveCalls` (`Upstream` default; `AsDocumented` keeps the old form callable), field `UntangleControls::boundary_calls`. The tet-dual pipeline's opt-in (`final_mesh`) and `boundary_layer_optimisation` keep `AsDocumented`, because Foam Studio's pins in `dhoby-ghaut` depend on them and cannot be run in this gate (deferred, "What remains"). Upstream's own comments next to those calls describe the intent ("the point stays in the plane determined by the point normal"), which the code does not carry out: an upstream defect, reproduced.
+
+#### Moved numbers (old -> new)
+
+Prediction 78 (no existing bit-identical comparison or pin moves) **held**: this crate's `--lib --tests` (247 lib tests and every integration test) passed with no fingerprint, count or tolerance changed. One test **configuration** moved: `mesh_optimizer::tests::boundary_moves_repair_a_dent_interior_moves_cannot` case (B) asserts the *non-shrinking* boundary smoother (flat-side points stay on their plane to 1e-12, measured 0 and, under the changed default, 2.008e-2); it now asks for `BoundaryMoveCalls::AsDocumented` explicitly (the assertion and its 1e-12 bound are unchanged), and a new case (B') runs upstream's calls (one unconstrained iteration): 3 -> 0 bad faces, the loop runs. Case (C) (default controls) is unchanged: 3 -> 0 bad faces, corners bit-identical. The sphere, asmoOctree, elbow, cutCube and hatOctree comparisons were not re-run in this round beyond the crate's own tests (the outram-foam-cli tests that hold them were not run: the gate shares the machine); the boundary-move loop is not entered in any of them (they matched upstream before this change), so no movement is expected. **Not re-measured, flagged:** `outram-foam-cli` `cfmesh_vs_upstream_stages.rs` and Foam Studio's headless pins.
+
+| number | old | new | cause |
+|---|---|---|---|
+| singleOrifice `meshOptimisation`, points bit-identical | 1420/43283 (6.924e-2 m) | 41968/43283 (1.776e-15 m) | the two defects above |
+| singleOrifice final mesh, points bit-identical | 2050/82961 (6.924e-2 m) | 81184/82961 (1.776e-15 m) | the same |
+
+#### Environment and build (decision record)
+
+* cfMesh `e944f6ba695f` was built against **ESI v2506** before the reset (`logs/build-cfmesh.log.gz`, `-DOPENFOAM=2506`; the patch is the `is_contiguous` trait of v1906+), so the rebuild uses the rebuilt ESI; **OpenFOAM-dev is not rebuilt** (an ESI route exists, which is the only condition under which a multi-hour dev rebuild would have been justified).
+* `scripts/upstream/build-esi-v2506-and-genfoam.sh cfmesh` (stages `fetch-cfmesh`, `cf-meshLibrary`, `cf-cartesianMesh`, `cf-cartesian2DMesh`, `cf-tetMesh`, `cf-pMesh`): clones `DAFoam/cfmesh` over git into `upstream_source/cfmesh_dafoam`, applies the committed v2506 patch idempotently (reverse-applies cleanly = already applied), builds with `nice -n 10` and 2 jobs, deletes objects after each link, stamps every stage; a second invocation is a no-op (1 s). Measured: library + four executables **339 s** (3247 compiler lines of upstream warnings, no error), `/` 13 GB free before and after. Executables land in `$FOAM_APPBIN` (inside the OpenFOAM tree) and the library in `$FOAM_LIBBIN`, not under `FOAM_USER_*`: found by running it (a first version of the stage checked the wrong directory and a failing `[ -x ]` inside `run_stage`'s `if` does not abort, so the checks now `return 1`). `/usr/bin/time` was missing after the reset; the `prereqs` stage now installs `time`.
+* `scripts/collect-case.sh` hard-coded the main checkout's path; it now resolves its own location.
+* Instrumentation for this round: `patches/gh1385-trace-instrumentation-6.patch` (`GH1385_DUMP=<dir>`: points at `A1_before_revert`, `B_after_revert`, `C_after_map`, `A2_second_optimisation`, `D_end`, and per `optimiseFinalMesh` pass `pass<N>_{surface,fv,lowq,bl,untangle}`; `GH1385_PASS_TAGS=1` enables the pass tags), `-7.patch` (the non-shrinking boundary smoother's tensors). Applied on top of the v2506 patch and of the `optimizeMeshFV.C` hunks of `-3.patch`. They only read; the instrumented `cartesianMesh` wrote the same `points` file as the uninstrumented one (cmp). The port writes the same dumps (`pipeline::cartesian_mesh::dump_points`, env `GH1385_DUMP`).
+
+#### What remains
+
+* `tetMesh` and `pMesh` call `anisotropic::revert_and_project` (exact nearest point, no new octree) where upstream's `tetMeshGenerator` / `voronoiMeshGenerator` do what `cartesianMeshGenerator` does; no staged upstream anisotropic run exists for them. Same for the 2D generator's back-scaling.
+* `BoundaryMoveCalls::Upstream` is the default for the four generators (`..UntangleControls::default()`); the tet-dual pipeline's opt-in and `boundary_layer_optimisation` keep `AsDocumented` until Foam Studio's pins (`dhoby-ghaut`, not runnable in this gate) are re-measured.
+* `multipleOrifices` (`cartesianMesh` and `pMesh`) and `ship5415Octree` are not run upstream yet (rows 5 and 7 of the #1385 list); `refineCornerHexCell` is still unreached by any case; the ~140 `scale(1.0/x)` sites.

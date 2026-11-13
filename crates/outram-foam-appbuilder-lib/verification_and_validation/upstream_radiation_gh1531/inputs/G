@@ -1,0 +1,10 @@
+FoamFile { version 2.0; format ascii; class volScalarField; object G; }
+dimensions [1 0 -3 0 0 0 0];
+internalField uniform 0;
+boundaryField
+{
+    left      { type MarshakRadiation; value uniform 0; }
+    interface { type MarshakRadiation; value uniform 0; }
+    walls     { type MarshakRadiation; value uniform 0; }
+    frontAndBack { type empty; }
+}

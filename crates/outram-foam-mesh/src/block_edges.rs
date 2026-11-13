@@ -62,7 +62,7 @@ use petir::mathf::RealMath;
 
 use outram_foam_basic_lib::primitives::Vector3;
 
-use crate::block_projection::{Geometry, ProjectEdge};
+use crate::block_projection::{Geometry, ProjectEdge, ProjectionFlavour};
 use crate::MeshError;
 
 /// OpenFOAM `vSmall` for `double` (`numeric_limits<double>::min()`).
@@ -167,6 +167,9 @@ impl BlockEdge {
         };
         Ok(match &self.kind {
             BlockEdgeKind::Line => EdgeCurve::Line { p0, p1 },
+            BlockEdgeKind::ArcThroughPoint(pa) if geometry.flavour == ProjectionFlavour::Esi => {
+                EdgeCurve::ArcEsi(ArcEdgeEsi::through_point(self.start, self.end, p0, p1, *pa)?)
+            }
             BlockEdgeKind::ArcThroughPoint(pa) => {
                 EdgeCurve::Arc(ArcEdge::through_point(self.start, self.end, p0, p1, *pa)?)
             }
@@ -179,6 +182,12 @@ impl BlockEdge {
                 normalised(*axis),
             )?),
             BlockEdgeKind::PolyLine(inner) => EdgeCurve::PolyLine(PolyLine::new(with_ends(inner))),
+            BlockEdgeKind::Spline(inner) if geometry.flavour == ProjectionFlavour::Esi => {
+                EdgeCurve::CatmullRomEsi(PolyLine::new(with_ends(inner)))
+            }
+            BlockEdgeKind::BSpline(inner) if geometry.flavour == ProjectionFlavour::Esi => {
+                EdgeCurve::BSplineEsi(PolyLine::new(with_ends(inner)))
+            }
             BlockEdgeKind::Spline(inner) => EdgeCurve::CatmullRom(with_ends(inner)),
             BlockEdgeKind::BSpline(inner) => EdgeCurve::BSpline(with_ends(inner)),
             BlockEdgeKind::Project(names) | BlockEdgeKind::ProjectCurve(names) => {
@@ -224,6 +233,19 @@ pub enum EdgeCurve {
     BSpline(Vec<Vector3>),
     /// `projectEdge` / `projectCurveEdge`.
     Project(ProjectEdge),
+    /// `splineEdge` as OpenFOAM.com v2506 evaluates it (gh:#1364): the raw
+    /// `CatmullRomSpline::position(mu)` on the `polyLine` chord-length
+    /// parameter, with no distance re-parameterisation. Chosen by
+    /// [`BlockEdgeKind::resolve_with`] when the geometry flavour is
+    /// [`ProjectionFlavour::Esi`]; the default (dev) form stays
+    /// [`EdgeCurve::CatmullRom`].
+    CatmullRomEsi(PolyLine),
+    /// `BSplineEdge` as OpenFOAM.com v2506 evaluates it (see
+    /// [`EdgeCurve::CatmullRomEsi`]).
+    BSplineEsi(PolyLine),
+    /// `arcEdge` through a mid point as OpenFOAM.com v2506 builds it (see
+    /// [`ArcEdgeEsi`]); the default (dev) form stays [`EdgeCurve::Arc`].
+    ArcEsi(ArcEdgeEsi),
 }
 
 impl EdgeCurve {
@@ -236,6 +258,9 @@ impl EdgeCurve {
             EdgeCurve::CatmullRom(k) => spline_position(k, SplineKind::CatmullRom, lambda),
             EdgeCurve::BSpline(k) => spline_position(k, SplineKind::BSpline, lambda),
             EdgeCurve::Project(p) => p.position(lambda),
+            EdgeCurve::CatmullRomEsi(p) => p.spline_position_esi(SplineKind::CatmullRom, lambda),
+            EdgeCurve::BSplineEsi(p) => p.spline_position_esi(SplineKind::BSpline, lambda),
+            EdgeCurve::ArcEsi(a) => a.position(lambda),
         }
     }
 
@@ -414,6 +439,99 @@ impl ArcEdge {
     }
 }
 
+/// OpenFOAM.com v2506 `SMALL` for `double`.
+const ESI_SMALL: f64 = 1e-15;
+/// OpenFOAM.com v2506 `ROOTVSMALL` for `double`.
+const ESI_ROOT_V_SMALL: f64 = 1e-150;
+
+/// `arcEdge` as OpenFOAM.com v2506 builds it from a mid point (gh:#1364):
+/// `calcFromMidPoint` (centre from the three points, `acos` angle, axis from
+/// `r1 ^ r3`) and a `coordSystem::cylindrical` whose rotation tensor has the
+/// columns `(ax2, ax1 ^ ax2, ax1)` (`coordinateRotations::axes::rotation`,
+/// `E3_E1`). The dev form ([`ArcEdge`], swept angle plus axis) is a different
+/// construction of the same circle: equal to round-off, not bit for bit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArcEdgeEsi {
+    p0: Vector3,
+    p1: Vector3,
+    centre: Vector3,
+    radius: f64,
+    angle: f64,
+    /// Rotation tensor of the cylindrical system (columns are the local axes).
+    rot: Tensor,
+}
+
+impl ArcEdgeEsi {
+    /// `arcEdge::calcFromMidPoint(p1, p3, p2)` of v2506.
+    ///
+    /// # Errors
+    /// [`MeshError::Construction`] when the three points are collinear
+    /// (`|denom| < rootVSmall`, upstream aborts).
+    pub fn through_point(
+        start: usize,
+        end: usize,
+        p1: Vector3,
+        p3: Vector3,
+        p2: Vector3,
+    ) -> Result<Self, MeshError> {
+        let a = p2 - p1;
+        let b = p3 - p1;
+        let asqr = a.dot(a);
+        let bsqr = b.dot(b);
+        let adotb = a.dot(b);
+        let denom = asqr * bsqr - adotb * adotb;
+        if denom.abs() < ESI_ROOT_V_SMALL {
+            return Err(MeshError::Construction(format!(
+                "arc ({start} {end}): the three points are collinear (denominator {denom})"
+            )));
+        }
+        let fact = 0.5 * (bsqr - adotb) / denom;
+        let centre = p1 + a * 0.5 + a.cross(b).cross(a) * fact;
+        let r1 = p1 - centre;
+        let r2 = p2 - centre;
+        let r3 = p3 - centre;
+        let mag1 = r1.mag();
+        let mag3 = r3.mag();
+        let mut arc_axis = r1.cross(r3);
+        let radius = r3.mag();
+        let mut angle = ((r1.dot(r3)) / (mag1 * mag3)).r_acos();
+        if r1.cross(r2).dot(r1.cross(r3)) < 0.0 {
+            angle = 2.0 * std::f64::consts::PI - angle;
+        }
+        if angle <= std::f64::consts::PI {
+            if arc_axis.mag() / (mag1 * mag3) < 0.001 {
+                arc_axis = r1.cross(r2);
+            }
+        } else {
+            arc_axis = -arc_axis;
+        }
+        // coordinateRotations::axes::rotation(axis, r1, E3_E1)
+        let mag_axis1 = arc_axis.mag();
+        let ax1 = arc_axis / mag_axis1;
+        let mut ax2 = r1;
+        ax2 = ax2 - ax1 * ax2.dot(ax1);
+        let mag_axis2 = ax2.mag();
+        let ax2 = ax2 / mag_axis2;
+        let ax3 = ax1.cross(ax2);
+        let rot: Tensor = [[ax2.x, ax3.x, ax1.x], [ax2.y, ax3.y, ax1.y], [ax2.z, ax3.z, ax1.z]];
+        Ok(ArcEdgeEsi { p0: p1, p1: p3, centre, radius, angle, rot })
+    }
+
+    /// `arcEdge::position(lambda)` of v2506: the end tests, then
+    /// `cs.globalPosition(vector(radius, lambda*angle, 0))` =
+    /// `(R & (r cos t, r sin t, 0)) + origin`.
+    pub fn position(&self, lambda: f64) -> Vector3 {
+        if lambda < ESI_SMALL {
+            return self.p0;
+        } else if lambda >= 1.0 - ESI_SMALL {
+            return self.p1;
+        }
+        let theta = lambda * self.angle;
+        let local = Vector3::new(self.radius * theta.r_cos(), self.radius * theta.r_sin(), 0.0);
+        tensor_dot(&self.rot, local) + self.centre
+    }
+}
+
 // ---------------------------------------------------------------------------
 //  polyLine
 // ---------------------------------------------------------------------------
@@ -459,6 +577,67 @@ impl PolyLine {
         segment -= 1;
         let lambda = (mu - self.param[segment]) / (self.param[segment + 1] - self.param[segment]);
         self.position_in_segment(segment, lambda)
+    }
+
+    /// OpenFOAM.com v2506 `CatmullRomSpline::position(mu)` /
+    /// `BSpline::position(mu)` (both derive from `polyLine`): the end-point
+    /// tests, `localParameter`, then the segment polynomial in v2506's
+    /// operation order. There is no distance iteration, so the parameter is the
+    /// chord-length fraction of the knot polygon, not the straight-line
+    /// distance fraction of the dev form ([`spline_position`]).
+    fn spline_position_esi(&self, kind: SplineKind, mu: f64) -> Vector3 {
+        let n = self.points.len();
+        if mu < ESI_SMALL {
+            return self.points[0];
+        } else if mu > 1.0 - ESI_SMALL {
+            return self.points[n - 1];
+        }
+        let (segment, lam) = self.local_parameter(mu);
+        let n_segments = n - 1;
+        let p0 = self.points[segment];
+        let p1 = self.points[segment + 1];
+        match kind {
+            SplineKind::CatmullRom => {
+                if lam <= 0.0 {
+                    return p0;
+                } else if lam >= 1.0 {
+                    return p1;
+                }
+            }
+            SplineKind::BSpline => {
+                if segment == 0 && lam <= 0.0 {
+                    return p0;
+                } else if segment == n_segments - 1 && lam >= 1.0 {
+                    return p1;
+                }
+            }
+        }
+        let e0 = if segment == 0 { p0 * 2.0 - p1 } else { self.points[segment - 1] };
+        let e1 = if segment + 1 == n_segments { p1 * 2.0 - p0 } else { self.points[segment + 2] };
+        let cubic = e0 * -1.0 + p0 * 3.0 - p1 * 3.0 + e1;
+        match kind {
+            SplineKind::CatmullRom => {
+                let t2 = (e0 * 2.0 - p0 * 5.0 + p1 * 4.0 - e1) + cubic * lam;
+                let t1 = (e0 * -1.0 + p1) + t2 * lam;
+                ((p0 * 2.0) + t1 * lam) * 0.5
+            }
+            SplineKind::BSpline => {
+                let t2 = (e0 * 3.0 - p0 * 6.0 + p1 * 3.0) + cubic * lam;
+                let t1 = (e0 * -3.0 + p1 * 3.0) + t2 * lam;
+                ((e0 + p0 * 4.0 + p1) + t1 * lam) * (1.0 / 6.0)
+            }
+        }
+    }
+
+    /// `polyLine::localParameter(lambda)`: the segment and the local `[0, 1]`
+    /// parameter (callers have excluded the end points).
+    fn local_parameter(&self, mu: f64) -> (usize, f64) {
+        let mut segment = 1usize;
+        while self.param[segment] < mu {
+            segment += 1;
+        }
+        segment -= 1;
+        (segment, (mu - self.param[segment]) / (self.param[segment + 1] - self.param[segment]))
     }
 
     fn position_in_segment(&self, segment: usize, mu: f64) -> Vector3 {

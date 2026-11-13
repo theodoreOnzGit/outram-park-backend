@@ -180,6 +180,7 @@ pub static HYDROGEN_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.5e-10,
             qd: 2500000000.0,
             t_ref: -1.0,
+            p_reducing: 1296400.0,
         }),
     }),
 };

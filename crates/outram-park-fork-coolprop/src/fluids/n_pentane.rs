@@ -170,6 +170,7 @@ pub static N_PENTANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 2.27e-10,
             qd: 1497005988.0239522,
             t_ref: -1.0,
+            p_reducing: 3367518.990389116,
         }),
     }),
 };

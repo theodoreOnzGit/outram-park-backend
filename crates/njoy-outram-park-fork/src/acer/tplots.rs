@@ -27,8 +27,9 @@ use super::read::RawAceTable;
 use crate::NjoyError;
 use petir::mathf::RealMath;
 
-/// `aceth.f90:2251`: adjust the limits of a log axis.
-fn ascll(amin: f64, amax: f64) -> (f64, f64) {
+/// `aceth.f90:2251`: adjust the limits of a log axis. Also `acepn.f90:3718`'s
+/// copy, which is the same routine (reused by [`super::phnplo`]).
+pub(crate) fn ascll(amin: f64, amax: f64) -> (f64, f64) {
     let (b1, b2, b3, b4, ohoh1, ten) = (0.0f64, 0.301f64, 0.699f64, 1.0f64, 0.001f64, 10.0f64);
     let top = amax.r_log10();
     let mut itop = top as i64;
