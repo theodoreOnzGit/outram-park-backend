@@ -10,7 +10,7 @@ DT=${1:-0.001}
 NSTEPS=${2:-10}
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 C=$HERE/bubble
-rm -rf $C; mkdir -p $C/system $C/constant $C/0
+rm -rf $C/system $C/constant $C/0; mkdir -p $C/system $C/constant $C/0   # reference/ is kept
 HDR() { printf 'FoamFile { version 2.0; format ascii; class %s; object %s; }\n' "$1" "$2"; }
 
 { HDR dictionary controlDict
@@ -94,7 +94,7 @@ EOF
 
 # Constant-density phases (rhoConst), laminar, tutorial viscosities.
 for ph in air water; do
-  if [ $ph = air ]; then RHO=1.2; CV=718; MU=1.84e-05; PR=0.7; MW=28.9; else RHO=1000; CV=4195; MU=1e-3; PR=7; MW=18; fi
+  if [ $ph = air ]; then RHO=1.2; CV=1e7; MU=1.84e-05; PR=0.7; MW=28.9; else RHO=1000; CV=4195; MU=1e-3; PR=7; MW=18; fi
   { HDR dictionary thermophysicalProperties.$ph
 cat <<EOF
 thermoType { type heRhoThermo; mixture pureMixture; transport const; thermo eConst; equationOfState rhoConst; specie specie; energy sensibleInternalEnergy; }

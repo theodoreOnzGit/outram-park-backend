@@ -4,6 +4,6 @@ mixture
 {
     specie { molWeight 28.9; }
     equationOfState { rho 1.2; }
-    thermodynamics { Cv 718; Hf 0; }
+    thermodynamics { Cv 1e7; Hf 0; }
     transport { mu 1.84e-05; Pr 0.7; }
 }
