@@ -77,26 +77,10 @@ if not isinstance(out, dict):
     out = {k: out[k] for k in out}
 
 
-def scalar_per_var(name):
-    v = out[name]
-    return {k: float(v[k].values) for k in VARS}
-
-
-def matrix(name):
-    da = out[name]
-    t = list(da.coords["targets"].values)
-    f = list(da.coords["features"].values)
-    return {"targets": t, "features": f, "values": da.values.tolist()}
-
-
 res = {"n": N, "vars": VARS}
-for k in ["expectedValue", "variance", "sigma", "skewness", "kurtosis", "median", "minimum", "maximum"]:
-    res[k] = scalar_per_var(k)
-for k in ["covariance", "pearson", "spearman"]:
-    res[k] = matrix(k)
-pc = out["percentile"]
-res["percentile"] = {k: {"percent": [float(p) for p in pc[k].coords["percent"].values],
-                         "values": [float(v) for v in pc[k].values]} for k in VARS}
+# RAVEN flat output dict: <prefix>_<var> and <prefix>_<target>_<feature>
+res["values"] = {k: float(np.atleast_1d(v)[0]) for k, v in out.items()}
+
 
 try:
     sha = subprocess.check_output(["git", "-C", os.environ["RAVEN_DIR"], "rev-parse", "HEAD"], text=True).strip()
@@ -104,8 +88,8 @@ except Exception as e:
     sha = "unknown: %s" % e
 res["meta"] = {"raven_commit": sha, "python": platform.python_version(), "numpy": np.__version__,
                "scipy": scipy.__version__, "xarray": xr.__version__,
-               "stubbed_imports": sorted(ravenimport.STUBBED_SEEN), "keys": sorted(out.keys())}
+               "stubbed_imports": sorted(ravenimport.STUBBED_SEEN), "n_keys": len(out)}
 with open(os.path.join(HERE, "references", "statistics.json"), "w") as fh:
     json.dump(res, fh, indent=1, allow_nan=False)
 print(res["meta"])
-print({k: res[k] for k in ["expectedValue", "variance", "skewness", "kurtosis"]})
+print({k: res["values"][k] for k in ["mean_x", "var_x", "skew_x", "kurt_x", "pear_x_y", "spear_x_y"]})
