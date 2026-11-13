@@ -140,7 +140,8 @@ impl MeshStress {
     }
 
     /// Start a set-up force evaluation: `wear_step` is zero (upstream's is,
-    /// after `zeroizeWear` or the last `calc_total_force`), so a set-up that
+    /// after `zeroizeWear`, the last `calc_total_force` or
+    /// `FixMesh::setup_pre_force`'s `clearReverse`), so a set-up that
     /// the port repeats does not count twice.
     pub fn begin_setup_wear(&mut self) {
         if let Some(w) = self.wear.as_mut() {
@@ -196,9 +197,34 @@ impl MeshStress {
     }
 
     /// Replace the facet areas (`areaElem`), as `recalcLocalSurfProperties`
-    /// does when a run's set-up refreshes the mesh (gh:#1510).
+    /// does when a run's set-up refreshes the mesh (gh:#1510) and when a
+    /// moving mesh is re-neighboured (gh:#1512; called from
+    /// [`crate::mesh_wall::MovingBoundary::refresh_mesh`]).
     pub fn refresh_area(&mut self, area: Vec<f64>) {
         self.area = area;
+    }
+
+    /// The area of facet `i` this module divides by `[m^2]` (upstream
+    /// `mesh->areaElem(i)`): the area at the mesh's last refresh, not one
+    /// recomputed from the incrementally rotated geometry since.
+    #[must_use]
+    pub fn area(&self, i: usize) -> f64 {
+        self.area[i]
+    }
+
+    /// `FixMesh::pre_force` -> `mesh_->clearReverse()` (`fix_mesh.cpp`,
+    /// LIGGGHTS-PUBLIC `3d5c00f2`), which runs every step before the module's
+    /// own `pre_force` and the force compute (and in `setup_pre_force`): every
+    /// `comm_reverse` element property is zeroed
+    /// (`GeneralContainer::clearReverse`). Of this module's properties those
+    /// are the per-facet force `f` and the Finnie `wear_step`, so each holds
+    /// one step's contributions only (gh:#1512). A set-up evaluation's
+    /// `wear_step` is therefore discarded at step 1, not added to it.
+    pub fn clear_reverse(&mut self) {
+        self.f_tri.iter_mut().for_each(|f| *f = [0.0; 3]);
+        if let Some(w) = self.wear.as_mut() {
+            w.wear_step.iter_mut().for_each(|x| *x = 0.0);
+        }
     }
 
     /// `pre_force`: keep last step's totals, start a new sum.
@@ -302,10 +328,17 @@ impl MeshStress {
         }
     }
 
-    /// Force on facet `i` `[N]`. **Cumulative over the run**: upstream zeroes
-    /// the per-facet `f` only in `post_create` (`zeroizeStress`), never per
-    /// step (read from `mesh_module_stress.cpp`; the per-facet values are not
-    /// cross-coded, only the totals are).
+    /// Force on facet `i` `[N]` from the last step's contacts.
+    /// ~~**Cumulative over the run**: upstream zeroes the per-facet `f` only in
+    /// `post_create` (`zeroizeStress`), never per step (read from
+    /// `mesh_module_stress.cpp`; the per-facet values are not cross-coded, only
+    /// the totals are).~~ **CORRECTED 2026-11-13 (gh:#1512):** `f` is a
+    /// `comm_reverse` element property, and `FixMesh::pre_force` zeroes those
+    /// every step (`clearReverse`, see [`MeshStress::clear_reverse`]); the
+    /// claim read `mesh_module_stress.cpp` alone. Measured: an instrumented
+    /// upstream prints `f` equal to that step's total, and the per-facet
+    /// `sigma_n`/`sigma_t` it gives are now cross-coded bit for bit
+    /// (`tests/mesh_stress_cross_code.rs`, `mesh_wear_rotating_matches_liggghts`).
     #[must_use]
     pub fn facet_force(&self, i: usize) -> Vec3 {
         Vec3::new(self.f_tri[i][0], self.f_tri[i][1], self.f_tri[i][2])

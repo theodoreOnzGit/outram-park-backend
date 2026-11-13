@@ -1516,11 +1516,28 @@ impl MovingBoundary {
             servo.setup_pre_force();
             *orig = m.nodes();
         }
+        self.refresh_mesh();
+        Ok(())
+    }
+
+    /// `pbcExchangeBorders` -> `SurfaceMesh::refreshOwned` ->
+    /// `recalcLocalSurfProperties` (`surface_mesh_I.h`, LIGGGHTS-PUBLIC
+    /// `3d5c00f2`) for this wall's mesh: the facet geometry (edge vectors and
+    /// lengths, normals, obtuse index) and the rebuild reference nodes from the
+    /// current nodes ([`MeshWall::refresh_geometry`]), and the facet areas the
+    /// stress module divides by (`area(i) = calcArea(i)`, read by
+    /// `MeshModuleStress` as `areaElem`). Upstream runs it at a run's set-up
+    /// and, for a moving mesh, at every re-neighbouring (`FixMesh::pre_force`
+    /// with `pOpFlag_`), before the force compute (gh:#1512). A no-op for an
+    /// analytic wall.
+    pub fn refresh_mesh(&mut self) {
+        let WallGeometry::Mesh(m) = &mut self.geometry else {
+            return;
+        };
         m.refresh_geometry();
         if let Some(st) = &mut self.stress {
             st.refresh_area((0..m.triangles.len()).map(|i| m.state.area(i)).collect());
         }
-        Ok(())
     }
 
     /// `FixMoveMesh::setup` of a new `run`: the node velocities of a mesh
