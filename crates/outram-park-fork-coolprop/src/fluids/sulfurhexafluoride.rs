@@ -239,6 +239,7 @@ pub static SULFURHEXAFLUORIDE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.9e-10,
             qd: 2857000000.0,
             t_ref: -1.0,
+            p_reducing: 3754983.0,
         }),
     }),
 };

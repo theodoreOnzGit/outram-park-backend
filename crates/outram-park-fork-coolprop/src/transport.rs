@@ -240,28 +240,49 @@ pub enum ViscosityModel {
     /// A whole-fluid hardcoded formula (Water, HeavyWater, the xylenes, …).
     Hardcoded(HardcodedViscosity),
     /// Chung et al. (1988) generalized corresponding-states viscosity — the
-    /// fallback for fluids with no dedicated correlation. Needs only the
-    /// dipole moment beyond what [`crate::eos::FluidEos`] already carries
-    /// (`T_critical`, `rho_critical`, `acentric`, `molar_mass`). See
-    /// [`chung_viscosity`].
+    /// fallback for fluids with no dedicated correlation. CoolProp carries its OWN copy of
+    /// the critical parameters, acentric factor and molar mass in the fluid's
+    /// `TRANSPORT.viscosity` block, and they differ from the EOS's for some fluids
+    /// (Cyclopentane: `rhomolar_critical` 3820 against the EOS's 3920, `acentric` 0.1521
+    /// against 0.2019). Using the EOS values here was a port defect of up to 23 %
+    /// (gh:#1349). See [`chung_viscosity`].
     Chung {
         /// Dipole moment \[Debye\].
         dipole_moment_d: f64,
+        /// Critical temperature of the Chung block \[K\].
+        t_critical: f64,
+        /// Critical molar density of the Chung block \[mol/m³\].
+        rhomolar_critical: f64,
+        /// Acentric factor of the Chung block \[-\].
+        acentric: f64,
+        /// Molar mass of the Chung block \[kg/mol\].
+        molar_mass: f64,
     },
 }
 
+/// The per-fluid constants of a Chung viscosity block.
+#[derive(Debug, Clone, Copy)]
+struct ChungBlock {
+    dipole_moment_d: f64,
+    t_critical: f64,
+    rhomolar_critical: f64,
+    acentric: f64,
+    molar_mass: f64,
+}
+
 /// Chung, Lee & Starling (1988) generalized viscosity correlation — CoolProp
-/// `TransportRoutines::viscosity_Chung`, pure/pseudo-pure only. Uses the
-/// fluid's own critical parameters and acentric factor (already carried by
-/// [`crate::eos::FluidEos`]) plus its dipole moment; the association
+/// `TransportRoutines::viscosity_Chung`, pure/pseudo-pure only. Uses the critical
+/// parameters, acentric factor and molar mass of the fluid's Chung block (NOT the EOS's:
+/// they differ for Cyclopentane) plus its dipole moment; the association
 /// parameter `κ` (hydrogen-bonding correction) is `0` for every fluid this
 /// crate uses Chung for (matching CoolProp, which does not populate it).
-fn chung_viscosity(fluid: Fluid, t: f64, rho: f64, dipole_moment_d: f64) -> f64 {
+fn chung_viscosity(fluid: Fluid, t: f64, rho: f64, block: ChungBlock) -> f64 {
     let eos = fluid.eos();
-    let vc_cm3mol = 1.0 / (eos.rho_critical / 1e6); // mol/m^3 -> cm^3/mol
-    let acentric = eos.acentric;
-    let m_gmol = eos.molar_mass * 1000.0; // kg/mol -> g/mol
-    let tc = eos.t_critical;
+    let dipole_moment_d = block.dipole_moment_d;
+    let vc_cm3mol = 1.0 / (block.rhomolar_critical / 1e6); // mol/m^3 -> cm^3/mol
+    let acentric = block.acentric;
+    let m_gmol = block.molar_mass * 1000.0; // kg/mol -> g/mol
+    let tc = block.t_critical;
     let kappa = 0.0;
 
     let mu_r = 131.3 * dipole_moment_d / (vc_cm3mol * tc).sqrt();
@@ -396,6 +417,12 @@ pub enum CriticalConductivity {
         /// Reference temperature `T_ref` \[K\]; when `≤ 0`, use `1.5·T_c`.
         /// (The critical exponent `ν = 0.63` and `k_B` are constants.)
         t_ref: f64,
+        /// The EOS reducing-state pressure \[Pa\] (`STATES.reducing.p` of the EOS block).
+        /// CoolProp's term uses `get_reducing_state().p`, NOT the critical pressure: they
+        /// differ for Air (3 785 020 against 3 786 000 Pa), Methanol (8.216 against
+        /// 8.090 MPa) and R1234ze(E), which made every Air and Methanol conductivity
+        /// 1e-5 to 7e-3 off (gh:#1349).
+        p_reducing: f64,
     },
     /// R123 critical term (CoolProp `conductivity_critical_hardcoded_R123`).
     R123,
@@ -751,8 +778,11 @@ fn methane_conductivity(fluid: Fluid, t: f64, rho: f64) -> f64 {
         .sum();
     let mut delta_sigma_star = 1.0;
     if t < eos.t_critical && rhomolar < eos.rho_critical {
-        if let Some(rho_l) = crate::ancillaries::saturated_liquid_density_ancillary(fluid, t) {
-            delta_sigma_star = (rho_l / eos.molar_mass) / eos.rho_critical;
+        // CoolProp: `saturation_ancillary(iDmolar, 1, iT, T) / rhomolar_critical`, Q = 1 is
+        // the saturated VAPOUR density. This port took the saturated LIQUID density, which
+        // made every sub-critical gas-side methane conductivity wrong (gh:#1349).
+        if let Some(rho_v) = crate::ancillaries::saturated_vapour_density_ancillary(fluid, t) {
+            delta_sigma_star = (rho_v / eos.molar_mass) / eos.rho_critical;
         }
     }
     let lambda_residual = 6.29638 * (summer + jl[7] * delta.r_powi(2) / delta_sigma_star);
@@ -1337,9 +1367,24 @@ impl ViscosityModel {
                     .unwrap_or(0.0);
                 eta_dilute + eta_initial + higher_order.eval(fluid, rho_molar, t)
             }
-            ViscosityModel::Chung { dipole_moment_d } => {
-                chung_viscosity(fluid, t, rho, *dipole_moment_d)
-            }
+            ViscosityModel::Chung {
+                dipole_moment_d,
+                t_critical,
+                rhomolar_critical,
+                acentric,
+                molar_mass,
+            } => chung_viscosity(
+                fluid,
+                t,
+                rho,
+                ChungBlock {
+                    dipole_moment_d: *dipole_moment_d,
+                    t_critical: *t_critical,
+                    rhomolar_critical: *rhomolar_critical,
+                    acentric: *acentric,
+                    molar_mass: *molar_mass,
+                },
+            ),
         }
     }
 
@@ -1365,6 +1410,7 @@ impl CriticalConductivity {
                 zeta0,
                 qd,
                 t_ref,
+                p_reducing,
             } => {
                 const NU: f64 = 0.63;
                 const K_B: f64 = 1.3806488e-23;
@@ -1373,7 +1419,7 @@ impl CriticalConductivity {
                 let r = eos.gas_constant;
                 let tc = eos.t_reducing;
                 let rhoc = eos.rho_reducing;
-                let pcrit = eos.p_critical;
+                let pcrit = *p_reducing;
                 let tref = if *t_ref > 0.0 { *t_ref } else { 1.5 * tc };
                 let rho_molar = rho / eos.molar_mass;
                 let delta = rho_molar / rhoc;
@@ -1502,7 +1548,12 @@ impl ConductivityModel {
                 let fint = 1.7104147 - 0.6936482 / tstar;
                 let att = eos.ideal_derivs(delta_eos, tau_eos).att; // ∂²α⁰/∂τ²
                 let eta0 = ViscosityDilute::Ethane.eval(t);
-                0.276505e-3 * (eta0 * 1e6) * (3.75 - fint * (tau_eos * tau_eos * att + 1.5))
+                // CoolProp's `conductivity_dilute_hardcoded_ethane` forms its own
+                // `tau = 305.33 / T` (the literature Tc), NOT the EOS reducing `305.322 / T`
+                // used inside `d2alpha0_dTau2`. Using the EOS tau here was a port defect of
+                // 5e-5 relative on every ethane conductivity (gh:#1349).
+                let tau_lit = 305.33 / t;
+                0.276505e-3 * (eta0 * 1e6) * (3.75 - fint * (tau_lit * tau_lit * att + 1.5))
             }
         };
 
@@ -1540,6 +1591,17 @@ impl ConductivityModel {
             }
         };
 
+        // The Olchowy-Sengers crossover divides by the viscosity. For a fluid with no
+        // viscosity model (R152A, R1234yf, R1234ze(E): rhosr-CS; EthylBenzene: ECS) this
+        // used to add 0.0 silently, so `conductivity` returned a value missing its critical
+        // enhancement (up to 6 % low near the critical point; the CoolProp differential,
+        // gh:#1349, measured 0.43 to 0.57 relative on the grid). A value without a term the
+        // model carries reads as complete, so there is none: `None`, like a missing model.
+        if matches!(critical_m, Some(CriticalConductivity::SimplifiedOlchowySengers { .. }))
+            && viscosity(fluid, t, rho).is_none()
+        {
+            return None;
+        }
         let lambda_critical = critical_m.map(|c| c.eval(fluid, t, rho)).unwrap_or(0.0);
         Some(lambda_dilute + lambda_residual + lambda_critical)
     }

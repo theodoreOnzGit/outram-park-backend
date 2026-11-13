@@ -23,6 +23,7 @@ use super::traits::TransportModel;
 use crate::interpolation::interpolate_xy;
 use crate::thermophysics::eos::EquationOfState;
 use crate::thermophysics::imports::*;
+use crate::thermophysics::table::NonUniformTable;
 use crate::thermophysics::thermo::ThermoModel;
 
 /// Tabulated transport model: μ(T) and κ(T) stored as (T, value) lookup tables.
@@ -39,6 +40,9 @@ pub struct TabulatedTransport<T: ThermoModel> {
     mu_vs: Vec<f64>,    // dynamic viscosity values [Pa·s]
     kappa_ts: Vec<f64>, // temperature knots for κ [K]
     kappa_vs: Vec<f64>, // thermal conductivity values [W/(m·K)]
+    /// ESI-form tables (`mu`, `kappa`); when set they replace the clamped
+    /// `interpolate_xy` lookup (see [`TabulatedTransport::new_esi_v2506`]).
+    esi: Option<(NonUniformTable, NonUniformTable)>,
 }
 
 impl<T: ThermoModel> TabulatedTransport<T> {
@@ -55,6 +59,25 @@ impl<T: ThermoModel> TabulatedTransport<T> {
             mu_vs: mu_table.1,
             kappa_ts: kappa_table.0,
             kappa_vs: kappa_table.1,
+            esi: None,
+        }
+    }
+
+    /// ESI v2506 form (gh:#1362 row 4): `(T, value)` pairs evaluated by upstream's
+    /// `nonUniformTable`, which **extrapolates linearly** outside the table
+    /// where [`TabulatedTransport::new`] clamps to the end value. Both are kept.
+    pub fn new_esi_v2506(
+        thermo: T,
+        mu_table: Vec<(f64, f64)>,
+        kappa_table: Vec<(f64, f64)>,
+    ) -> Self {
+        Self {
+            thermo,
+            mu_ts: Vec::new(),
+            mu_vs: Vec::new(),
+            kappa_ts: Vec::new(),
+            kappa_vs: Vec::new(),
+            esi: Some((NonUniformTable::new(mu_table), NonUniformTable::new(kappa_table))),
         }
     }
 }
@@ -118,6 +141,9 @@ impl<T: ThermoModel> ThermoModel for TabulatedTransport<T> {
 
 impl<T: ThermoModel> TransportModel for TabulatedTransport<T> {
     fn mu(&self, _p: Pressure, t: ThermodynamicTemperature) -> DynamicViscosity {
+        if let Some((mu, _)) = &self.esi {
+            return DynamicViscosity::new::<pascal_second>(mu.f(t.get::<kelvin>()));
+        }
         DynamicViscosity::new::<pascal_second>(interpolate_xy(
             t.get::<kelvin>(),
             &self.mu_ts,
@@ -126,6 +152,9 @@ impl<T: ThermoModel> TransportModel for TabulatedTransport<T> {
     }
 
     fn kappa(&self, _p: Pressure, t: ThermodynamicTemperature) -> ThermalConductivity {
+        if let Some((_, kappa)) = &self.esi {
+            return ThermalConductivity::new::<watt_per_meter_kelvin>(kappa.f(t.get::<kelvin>()));
+        }
         ThermalConductivity::new::<watt_per_meter_kelvin>(interpolate_xy(
             t.get::<kelvin>(),
             &self.kappa_ts,
@@ -214,5 +243,44 @@ mod tests {
         use uom::si::dynamic_viscosity::pascal_second;
         let alpha_actual = a.alpha_h(p, t).get::<pascal_second>();
         assert_relative_eq!(alpha_actual, kappa / cp, epsilon = 1e-12);
+    }
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+    use crate::thermophysics::eos::PerfectGas;
+    use crate::thermophysics::thermo::HConstThermo;
+    use uom::si::molar_mass::gram_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    #[test]
+    fn esi_form_extrapolates_where_default_clamps() {
+        let th = HConstThermo::new(
+            PerfectGas::new(MolarMass::new::<gram_per_mole>(28.96)),
+            SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(1004.5),
+            AvailableEnergy::new::<joule_per_kilogram>(0.0),
+            ThermodynamicTemperature::new::<kelvin>(298.15),
+            AvailableEnergy::new::<joule_per_kilogram>(0.0),
+        );
+        let pairs = vec![(200.0, 1.0e-5), (400.0, 2.0e-5), (800.0, 3.0e-5)];
+        let clamped = TabulatedTransport::new(
+            th.clone(),
+            (vec![200.0, 400.0, 800.0], vec![1.0e-5, 2.0e-5, 3.0e-5]),
+            (vec![200.0, 400.0, 800.0], vec![0.02, 0.03, 0.04]),
+        );
+        let esi = TabulatedTransport::new_esi_v2506(
+            th,
+            pairs,
+            vec![(200.0, 0.02), (400.0, 0.03), (800.0, 0.04)],
+        );
+        let p = Pressure::new::<pascal>(1.0e5);
+        let t_in = ThermodynamicTemperature::new::<kelvin>(300.0);
+        let t_lo = ThermodynamicTemperature::new::<kelvin>(100.0);
+        assert_eq!(clamped.mu(p, t_in).get::<pascal_second>(), esi.mu(p, t_in).get::<pascal_second>());
+        assert_eq!(clamped.mu(p, t_lo).get::<pascal_second>(), 1.0e-5);
+        assert!((esi.mu(p, t_lo).get::<pascal_second>() - 5.0e-6).abs() < 1e-18);
+        assert!((esi.kappa(p, t_lo).get::<watt_per_meter_kelvin>() - 0.015).abs() < 1e-15);
     }
 }

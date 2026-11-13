@@ -88,7 +88,10 @@
 //! sound to <0.1%), R32–R125 (a real `F ≠ 0` departure function, part of the
 //! R410A refrigerant blend), and a 840-pair smoke test. No flash/VLE.
 //!
-//! `rfluids` oracle verification is planned (bead op-kbc.3).
+//! ~~`rfluids` oracle verification is planned (bead op-kbc.3).~~ **CORRECTED 2026-11-13
+//! (gh:#1349):** pure-fluid terms, properties, saturation, the `(p, T)` flash and transport
+//! are checked against CoolProp's own output for all 137 fluids, not through `rfluids`: see
+//! `verification_and_validation/coolprop_differential/`. Mixtures remain unchecked against it.
 //!
 //! ## Example
 //!

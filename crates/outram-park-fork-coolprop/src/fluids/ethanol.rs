@@ -236,6 +236,7 @@ pub static ETHANOL_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.64296e-10,
             qd: 1880000000.0,
             t_ref: -1.0,
+            p_reducing: 6268000.0,
         }),
     }),
 };

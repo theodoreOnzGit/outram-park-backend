@@ -185,6 +185,7 @@ pub static BENZENE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 2.16e-10,
             qd: 1612903225.0,
             t_ref: -1.0,
+            p_reducing: 4894000.0,
         }),
     }),
 };

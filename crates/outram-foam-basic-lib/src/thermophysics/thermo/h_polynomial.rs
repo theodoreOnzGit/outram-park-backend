@@ -21,7 +21,7 @@
 
 use super::traits::ThermoModel;
 use crate::polynomial::Polynomial;
-use crate::thermophysics::constants::T_STD;
+use crate::thermophysics::constants::{P_REF, T_STD};
 use crate::thermophysics::eos::EquationOfState;
 use crate::thermophysics::imports::*;
 
@@ -42,12 +42,31 @@ use crate::thermophysics::imports::*;
 /// ```
 /// where `T_std = 298.15 K` and `cps.integral_minus1(0)` is the antiderivative
 /// of `Cp/T` (activating the `log_coeff·ln(T)` term).
+///
+/// # Two conventions, both kept (gh:#1362 row 4)
+/// [`HPolynomialThermo::new`] is the **Foundation** form (`Ha(Tstd) = hf`,
+/// `S(Tstd) = sf`). [`HPolynomialThermo::new_esi_v2506`] is the **ESI v2506**
+/// form, a translation of `hPolynomialThermo.C`: the enthalpy and entropy
+/// polynomials are offset to `Href` and `Sref` at `Tref`, `Ha = hCoeffs(T)`
+/// with **no** `Hf` added, `Hs = Ha - Hf`, and `Sf` is read but unused. In the
+/// ESI form `Hs(Tref) = Href - Hf`, not `Href`. Measured on the 10 x 4 grid,
+/// the two forms differ by `Hf` in `Ha` (`1e5 J/kg` on the test inputs).
 #[derive(Debug, Clone)]
 pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
     eos: E,
     cps: Polynomial<N>,
     hf: f64, // heat of formation [J/kg]
     sf: f64, // specific entropy at T_std [J/(kg·K)]
+    esi: Option<EsiOffsets<N>>,
+}
+
+/// The ESI-form enthalpy offset and entropy polynomial (see [`HPolynomialThermo`]).
+#[derive(Debug, Clone, Copy)]
+struct EsiOffsets<const N: usize> {
+    /// Constant term of `hCoeffs` (`integral()` of Cp with its `[0]` offset).
+    h0: f64,
+    /// `sCoeffs = integralMinus1()` of Cp with its `[0]` offset.
+    s_poly: Polynomial<N>,
 }
 
 impl<E: EquationOfState, const N: usize> HPolynomialThermo<E, N> {
@@ -60,6 +79,49 @@ impl<E: EquationOfState, const N: usize> HPolynomialThermo<E, N> {
             cps,
             hf: hf.get::<joule_per_kilogram>(),
             sf: sf.get::<joule_per_kilogram_kelvin>(),
+            esi: None,
+        }
+    }
+
+    /// Value of upstream's `hCoeffs = CpCoeffs.integral()` at `x` with constant
+    /// term `c0`: the operations of `Polynomial::value` on the shifted
+    /// coefficients `[c0, a0/1, a1/2, ...]`.
+    fn int_poly_value(cps: &Polynomial<N>, c0: f64, x: f64) -> f64 {
+        let mut val = c0;
+        let mut pow_x = x;
+        for (i, &a_i) in cps.coeffs().iter().enumerate() {
+            val += a_i / (i as f64 + 1.0) * pow_x;
+            pow_x *= x;
+        }
+        val
+    }
+
+    /// ESI v2506 convention (`hPolynomialThermo.C`, dictionary constructor):
+    /// `Cp` coefficients `cps`, heat of formation `hf`, and the reference state
+    /// `tref` (upstream default `Tstd`), `href` (default 0), `sref` (default 0).
+    /// `Sf` and `Pref` are read upstream but unused, so they are not parameters.
+    pub fn new_esi_v2506(
+        eos: E,
+        cps: Polynomial<N>,
+        hf: AvailableEnergy,
+        tref: ThermodynamicTemperature,
+        href: AvailableEnergy,
+        sref: SpecificHeatCapacity,
+    ) -> Self {
+        let tr = tref.get::<kelvin>();
+        let pstd = Pressure::new::<pascal>(P_REF);
+        let h_eos_ref = eos.h_eos(pstd, tref).get::<joule_per_kilogram>();
+        let s_eos_ref = eos.s_eos(pstd, tref).get::<joule_per_kilogram_kelvin>();
+        let h0 = 0.0
+            + (href.get::<joule_per_kilogram>() - Self::int_poly_value(&cps, 0.0, tr) - h_eos_ref);
+        let s_unshifted = cps.integral_minus1(0.0).value(tr);
+        let s0 = 0.0 + (sref.get::<joule_per_kilogram_kelvin>() - s_unshifted - s_eos_ref);
+        Self {
+            eos,
+            cps,
+            hf: hf.get::<joule_per_kilogram>(),
+            sf: 0.0,
+            esi: Some(EsiOffsets { h0, s_poly: cps.integral_minus1(s0) }),
         }
     }
 }
@@ -110,6 +172,10 @@ impl<E: EquationOfState, const N: usize> ThermoModel for HPolynomialThermo<E, N>
 
     fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
         let tv = t.get::<kelvin>();
+        if let Some(esi) = &self.esi {
+            let h = Self::int_poly_value(&self.cps, esi.h0, tv);
+            return AvailableEnergy::new::<joule_per_kilogram>(h) + self.eos.h_eos(p, t);
+        }
         let ha_val = self.hf + self.cps.integral(T_STD, tv);
         AvailableEnergy::new::<joule_per_kilogram>(ha_val) + self.eos.h_eos(p, t)
     }
@@ -124,6 +190,10 @@ impl<E: EquationOfState, const N: usize> ThermoModel for HPolynomialThermo<E, N>
 
     fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         let tv = t.get::<kelvin>();
+        if let Some(esi) = &self.esi {
+            return SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(esi.s_poly.value(tv))
+                + self.eos.s_eos(p, t);
+        }
         let cp_int = self.cps.integral_minus1(0.0);
         let s_poly = cp_int.value(tv) - cp_int.value(T_STD);
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.sf + s_poly)
@@ -211,5 +281,49 @@ mod tests {
         let s1 = a.s(p, t1).get::<joule_per_kilogram_kelvin>();
         let s2 = a.s(p, t2).get::<joule_per_kilogram_kelvin>();
         assert!(s2 > s1, "entropy must increase with T: s1={s1}, s2={s2}");
+    }
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+    use crate::thermophysics::eos::PerfectGas;
+    use uom::si::molar_mass::gram_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    #[test]
+    fn esi_form_offsets_to_href_and_leaves_hf_out_of_ha() {
+        let eos = PerfectGas::new(MolarMass::new::<gram_per_mole>(28.96));
+        let cps = Polynomial::<3>::new([1000.0, 0.1, -2.0e-5]);
+        let hf = AvailableEnergy::new::<joule_per_kilogram>(1.0e5);
+        let tstd = ThermodynamicTemperature::new::<kelvin>(298.15);
+        let found = HPolynomialThermo::new(
+            eos,
+            cps,
+            hf,
+            SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(200.0),
+        );
+        let esi = HPolynomialThermo::new_esi_v2506(
+            eos,
+            cps,
+            hf,
+            tstd,
+            AvailableEnergy::new::<joule_per_kilogram>(0.0),
+            SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(0.0),
+        );
+        let p = Pressure::new::<pascal>(1.0e5);
+        // Foundation: Ha(Tstd) = Hf.  ESI: Ha(Tstd) = Href = 0, so Hs(Tstd) = -Hf.
+        assert!((found.ha(p, tstd).get::<joule_per_kilogram>() - 1.0e5).abs() < 1e-6);
+        assert!(esi.ha(p, tstd).get::<joule_per_kilogram>().abs() < 1e-6);
+        assert!((esi.hs(p, tstd).get::<joule_per_kilogram>() + 1.0e5).abs() < 1e-6);
+        // the two differ by exactly Hf in Ha, and agree in Cp and in dHa/dT
+        let t2 = ThermodynamicTemperature::new::<kelvin>(500.0);
+        let d = found.ha(p, t2).get::<joule_per_kilogram>() - esi.ha(p, t2).get::<joule_per_kilogram>();
+        assert!((d - 1.0e5).abs() < 1e-6);
+        assert_eq!(found.cp(p, t2), esi.cp(p, t2));
+        // entropy: ESI zero at Tref (+ perfect-gas pressure part, zero at 1e5), Foundation sf
+        assert!(esi.s(p, tstd).get::<joule_per_kilogram_kelvin>().abs() < 1e-9);
+        assert!((found.s(p, tstd).get::<joule_per_kilogram_kelvin>() - 200.0).abs() < 1e-9);
     }
 }

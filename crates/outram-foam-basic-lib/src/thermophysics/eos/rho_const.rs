@@ -20,7 +20,7 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::traits::EquationOfState;
-use crate::thermophysics::constants::R_UNIVERSAL;
+use crate::thermophysics::constants::GasConstant;
 use crate::thermophysics::imports::*;
 
 /// Constant-density (incompressible) equation of state: ρ = const.
@@ -31,13 +31,21 @@ use crate::thermophysics::imports::*;
 pub struct RhoConst {
     mol_weight: MolarMass,
     rho0: MassDensity,
+    gas_constant: GasConstant,
 }
 
 impl RhoConst {
     /// Construct a constant-density EOS from molar mass W `[kg/mol]` and the fixed
     /// density ρ₀ `[kg/m³]` returned at every `(p, T)`.
     pub fn new(mol_weight: MolarMass, rho0: MassDensity) -> Self {
-        Self { mol_weight, rho0 }
+        Self { mol_weight, rho0, gas_constant: GasConstant::Codata2019 }
+    }
+
+    /// Select the universal gas constant (default [`GasConstant::Codata2019`];
+    /// [`GasConstant::EsiV2506`] reproduces OpenFOAM-v2506 bit for bit).
+    pub fn with_gas_constant(mut self, gas_constant: GasConstant) -> Self {
+        self.gas_constant = gas_constant;
+        self
     }
 }
 
@@ -48,7 +56,7 @@ impl EquationOfState for RhoConst {
 
     fn r(&self) -> SpecificHeatCapacity {
         let w = self.mol_weight.get::<kilogram_per_mole>();
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(R_UNIVERSAL / w)
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.gas_constant.specific(w))
     }
 
     fn rho(&self, _p: Pressure, _t: ThermodynamicTemperature) -> MassDensity {
@@ -60,9 +68,12 @@ impl EquationOfState for RhoConst {
         MassDensity::new::<kilogram_per_cubic_meter>(0.0) / Pressure::new::<pascal>(1.0)
     }
 
-    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
-        // Z = p·v / (R·T) = p / (ρ·R·T)
-        p / (self.rho0 * self.r() * t)
+    /// Upstream `rhoConst::Z` returns `0` (a placeholder, as `icoPolynomial`'s
+    /// does). ~~`p / (rho0 R T)`~~ **CORRECTED 2026-11-13 (gh:#1362 row 4):** the
+    /// physical `p v / (R T)` was a port invention; v2506 (and the Foundation
+    /// line) return 0. No consumer in the workspace reads it.
+    fn z(&self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio {
+        Ratio::new::<ratio>(0.0)
     }
 
     fn cp_m_cv(&self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity {
@@ -123,5 +134,26 @@ mod tests {
         let t = ThermodynamicTemperature::new::<kelvin>(300.0);
         let psi_times_p = (w.psi(p, t) * p).get::<kilogram_per_cubic_meter>();
         assert_relative_eq!(psi_times_p, 0.0, epsilon = 1e-10);
+    }
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+    use uom::si::molar_mass::gram_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    #[test]
+    fn z_is_zero_as_upstream_and_gas_constant_option_applies() {
+        let w = RhoConst::new(
+            MolarMass::new::<gram_per_mole>(18.015),
+            MassDensity::new::<kilogram_per_cubic_meter>(998.0),
+        );
+        let p = Pressure::new::<pascal>(1.0e5);
+        let t = ThermodynamicTemperature::new::<kelvin>(300.0);
+        assert_eq!(w.z(p, t).get::<ratio>(), 0.0);
+        let e = w.with_gas_constant(GasConstant::EsiV2506);
+        assert!(e.r().get::<joule_per_kilogram_kelvin>() > w.r().get::<joule_per_kilogram_kelvin>());
     }
 }

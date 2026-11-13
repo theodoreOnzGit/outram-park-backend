@@ -200,6 +200,7 @@ pub static OXYGEN_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 2.4e-10,
             qd: 1960784313.7,
             t_ref: 309.162,
+            p_reducing: 5043000.0,
         }),
     }),
 };

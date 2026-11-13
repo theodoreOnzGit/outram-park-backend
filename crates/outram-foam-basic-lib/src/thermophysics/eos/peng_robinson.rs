@@ -23,8 +23,30 @@ use petir::mathf::RealMath;
 use super::traits::EquationOfState;
 use crate::polynomial::cubic_eqn::CubicEqn;
 use crate::polynomial::roots::RootType;
-use crate::thermophysics::constants::{P_REF, R_UNIVERSAL};
+use crate::thermophysics::constants::{GasConstant, P_REF};
 use crate::thermophysics::imports::*;
+
+/// Which arithmetic a [`PengRobinsonGas`] uses (gh:#1362 row 4).
+///
+/// * `Port` (default): the Foundation-style reading the port was written from:
+///   the compressibility factor from [`CubicEqn`] roots, and the exact
+///   `1 +- sqrt(2)` in the logarithm of the enthalpy, internal-energy and
+///   entropy departures. More accurate as a Peng-Robinson EOS (the departure
+///   integrals have exactly `sqrt(2)`).
+/// * `EsiV2506`: OpenFOAM-v2506 (ESI) bit for bit. `Z` by the closed-form
+///   trigonometric / cube-root solution, the **rounded** `2.414` and `0.414`
+///   in `H`, `E`, `S` (while its `Cp` and `Cv` use exact `sqrt(2)`), and
+///   upstream's operation order. Upstream is the specification for
+///   reproducing ESI results; the departure from the exact integral is
+///   `~1.2e-3` in `H` and `~4e-5` in `S` on the test grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PengRobinsonForm {
+    /// The port's original arithmetic.
+    #[default]
+    Port,
+    /// OpenFOAM-v2506 (ESI) arithmetic.
+    EsiV2506,
+}
 
 /// Peng-Robinson (1976) equation of state.
 ///
@@ -51,6 +73,8 @@ pub struct PengRobinsonGas {
     tc: f64,               // critical temperature [K]
     pc: f64,               // critical pressure [Pa]
     omega: f64,            // acentric factor [-]
+    gas_constant: GasConstant,
+    form: PengRobinsonForm,
 }
 
 impl PengRobinsonGas {
@@ -68,13 +92,29 @@ impl PengRobinsonGas {
             tc: tc.get::<kelvin>(),
             pc: pc.get::<pascal>(),
             omega,
+            gas_constant: GasConstant::Codata2019,
+            form: PengRobinsonForm::Port,
         }
+    }
+
+    /// Select the arithmetic form (default [`PengRobinsonForm::Port`];
+    /// [`PengRobinsonForm::EsiV2506`] is a line-for-line translation of ESI v2506).
+    pub fn with_form(mut self, form: PengRobinsonForm) -> Self {
+        self.form = form;
+        self
+    }
+
+    /// Select the universal gas constant (default [`GasConstant::Codata2019`];
+    /// [`GasConstant::EsiV2506`] reproduces OpenFOAM-v2506's constant).
+    pub fn with_gas_constant(mut self, gas_constant: GasConstant) -> Self {
+        self.gas_constant = gas_constant;
+        self
     }
 
     // ── helper: shared intermediate variables ──────────────────────────────
 
     fn r_spec(&self) -> f64 {
-        R_UNIVERSAL / self.mol_weight.get::<kilogram_per_mole>()
+        self.gas_constant.specific(self.mol_weight.get::<kilogram_per_mole>())
     }
 
     /// Soave α function: `(1 + κ·(1 − √Tr))²`.
@@ -100,13 +140,14 @@ impl PengRobinsonGas {
     }
 
     /// Per-kg attraction parameter `a(T) = 0.45724·(R·Tc)²/Pc · α(T)`.
-    fn a_spec(&self, t: f64) -> f64 {
+    /// `a` without the temperature function: `0.45724 (R Tc)^2 / Pc`.
+    /// Upstream's `ap = da/dT` and `app = d2a/dT2` are written with this `a`
+    /// (the `alpha` factor is already differentiated inside them).
+    fn a_crit_spec(&self) -> f64 {
         let r = self.r_spec();
-        let tr = t / self.tc;
-        0.45724 * (r * self.tc).r_powi(2) / self.pc * self.alpha(tr)
+        0.45724 * (r * self.tc).r_powi(2) / self.pc
     }
 
-    /// Per-kg co-volume `b = 0.07780·R·Tc/Pc`.
     fn b_spec(&self) -> f64 {
         0.07780 * self.r_spec() * self.tc / self.pc
     }
@@ -155,6 +196,9 @@ impl EquationOfState for PengRobinsonGas {
     }
 
     fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
+        if self.form == PengRobinsonForm::EsiV2506 {
+            return MassDensity::new::<kilogram_per_cubic_meter>(self.esi_rho(p.get::<pascal>(), t.get::<kelvin>()));
+        }
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
         let z = self.z_vapour(pv, tv);
@@ -163,6 +207,9 @@ impl EquationOfState for PengRobinsonGas {
 
     /// ψ ≈ 1/(Z·R·T) — OpenFOAM's approximation treating Z as locally constant in p.
     fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+        if self.form == PengRobinsonForm::EsiV2506 {
+            return MassDensity::new::<kilogram_per_cubic_meter>(self.esi_psi(p.get::<pascal>(), t.get::<kelvin>())) / Pressure::new::<pascal>(1.0);
+        }
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
         let z = self.z_vapour(pv, tv);
@@ -171,6 +218,9 @@ impl EquationOfState for PengRobinsonGas {
     }
 
     fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
+        if self.form == PengRobinsonForm::EsiV2506 {
+            return Ratio::new::<ratio>(self.esi_z(p.get::<pascal>(), t.get::<kelvin>()));
+        }
         let z = self.z_vapour(p.get::<pascal>(), t.get::<kelvin>());
         Ratio::new::<ratio>(z)
     }
@@ -184,6 +234,9 @@ impl EquationOfState for PengRobinsonGas {
     /// CpMCv = R·(M−N)² / (M² − 2·A·(Z+B))
     /// ```
     fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        if self.form == PengRobinsonForm::EsiV2506 {
+            return SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.esi_cp_m_cv(p.get::<pascal>(), t.get::<kelvin>()));
+        }
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
         let r = self.r_spec();
@@ -192,7 +245,7 @@ impl EquationOfState for PengRobinsonGas {
         let b_dim = self.b_dim(pv, tv);
         let z = self.z_vapour(pv, tv);
 
-        let a_spec = self.a_spec(tv);
+        let a_spec = self.a_crit_spec();
         let b_spec = self.b_spec();
         let kappa = self.kappa();
         let tr = tv / self.tc;
@@ -216,6 +269,9 @@ impl EquationOfState for PengRobinsonGas {
     /// where `Cv_departure = app·T/(2√2·b)·ln(log_factor)` and
     /// `app = d²a/dT² = κ·a·(1+κ) / (2·√(T³·Tc))`.
     fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        if self.form == PengRobinsonForm::EsiV2506 {
+            return SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.esi_cp(p.get::<pascal>(), t.get::<kelvin>()));
+        }
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
         let r = self.r_spec();
@@ -223,7 +279,7 @@ impl EquationOfState for PengRobinsonGas {
         let b_dim = self.b_dim(pv, tv);
         let z = self.z_vapour(pv, tv);
 
-        let a_spec = self.a_spec(tv);
+        let a_spec = self.a_crit_spec();
         let b_spec = self.b_spec();
         let kappa = self.kappa();
 
@@ -243,6 +299,9 @@ impl EquationOfState for PengRobinsonGas {
     /// H_dep = R·Tc·(Tr·(Z−1) − 2.078·(1+κ)·√α·ln((Z+2.414B)/(Z−0.414B)))
     /// ```
     fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        if self.form == PengRobinsonForm::EsiV2506 {
+            return AvailableEnergy::new::<joule_per_kilogram>(self.esi_h(p.get::<pascal>(), t.get::<kelvin>()));
+        }
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
         let r = self.r_spec();
@@ -262,6 +321,9 @@ impl EquationOfState for PengRobinsonGas {
 
     /// Internal energy departure: `e_eos = h_eos − R·T·(Z−1)`.
     fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        if self.form == PengRobinsonForm::EsiV2506 {
+            return AvailableEnergy::new::<joule_per_kilogram>(self.esi_e(p.get::<pascal>(), t.get::<kelvin>()));
+        }
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
         let r = self.r_spec();
@@ -284,6 +346,9 @@ impl EquationOfState for PengRobinsonGas {
     /// S_dep = R·(−ln(p/p_ref) + ln(Z−B) − 2.078·κ·((1+κ)/√Tr − κ)·ln(log_factor))
     /// ```
     fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        if self.form == PengRobinsonForm::EsiV2506 {
+            return SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.esi_s(p.get::<pascal>(), t.get::<kelvin>()));
+        }
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
         let r = self.r_spec();
@@ -298,6 +363,153 @@ impl EquationOfState for PengRobinsonGas {
                 - 2.078 * kappa * ((1.0 + kappa) / tr.sqrt() - kappa) * self.log_factor(z, b_dim));
 
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(s)
+    }
+}
+
+/// OpenFOAM-v2506 (ESI) `PengRobinsonGas` arithmetic, line for line, in
+/// upstream's kmol basis (`RR` in J/(kmol K), `W` in kg/kmol, `R = RR/W`).
+/// Source: `src/thermophysicalModels/specie/equationOfState/PengRobinsonGas/
+/// PengRobinsonGasI.H`, v2506. Reached by the `EsiV2506` branch of every
+/// `EquationOfState` method and by `tests/openfoam_thermo_code_to_code.rs`.
+impl PengRobinsonGas {
+    fn esi_rr(&self) -> f64 {
+        self.gas_constant.universal_j_per_kmol_k()
+    }
+
+    fn esi_w(&self) -> f64 {
+        self.mol_weight.get::<kilogram_per_mole>() * 1.0e3
+    }
+
+    fn esi_r(&self) -> f64 {
+        self.esi_rr() / self.esi_w()
+    }
+
+    fn esi_kappa(&self) -> f64 {
+        0.37464 + 1.54226 * self.omega - 0.26992 * (self.omega * self.omega)
+    }
+
+    fn esi_z(&self, p: f64, t: f64) -> f64 {
+        let rr = self.esi_rr();
+        let tr = t / self.tc;
+        let a = 0.45724 * ((rr * self.tc) * (rr * self.tc)) / self.pc;
+        let b = 0.07780 * rr * self.tc / self.pc;
+        let kappa = self.esi_kappa();
+        let w = 1.0 + kappa * (1.0 - tr.sqrt());
+        let alpha = w * w;
+        let a_big = a * alpha * p / ((rr * t) * (rr * t));
+        let b_big = b * p / (rr * t);
+        let a2 = b_big - 1.0;
+        let a1 = a_big - 2.0 * b_big - 3.0 * (b_big * b_big);
+        let a0 = -a_big * b_big + (b_big * b_big) + b_big * (b_big * b_big);
+        let q = (3.0 * a1 - a2 * a2) / 9.0;
+        let rl = (9.0 * a2 * a1 - 27.0 * a0 - 2.0 * a2 * a2 * a2) / 54.0;
+        let q3 = q * q * q;
+        let d = q3 + rl * rl;
+        if d <= 0.0 {
+            let th = (rl / (-q3).sqrt()).r_acos();
+            let qm = 2.0 * (-q).sqrt();
+            let pi = std::f64::consts::PI;
+            let r1 = qm * (th / 3.0).r_cos() - a2 / 3.0;
+            let r2 = qm * ((th + 2.0 * pi) / 3.0).r_cos() - a2 / 3.0;
+            let r3 = qm * ((th + 4.0 * pi) / 3.0).r_cos() - a2 / 3.0;
+            r1.max(r2.max(r3))
+        } else {
+            let d05 = d.sqrt();
+            let s = (rl + d05).r_cbrt();
+            let tl = if d05 > rl {
+                -((rl - d05).abs().r_cbrt())
+            } else {
+                (rl - d05).r_cbrt()
+            };
+            s + tl - a2 / 3.0
+        }
+    }
+
+    fn esi_rho(&self, p: f64, t: f64) -> f64 {
+        let z = self.esi_z(p, t);
+        p / (z * self.esi_r() * t)
+    }
+
+    fn esi_psi(&self, p: f64, t: f64) -> f64 {
+        let z = self.esi_z(p, t);
+        1.0 / (z * self.esi_r() * t)
+    }
+
+    /// `H` and `E` share the rounded-constant logarithm; `with_z` adds the
+    /// `Tr (Z - 1)` term (enthalpy only).
+    fn esi_h_or_e(&self, p: f64, t: f64, with_z: bool) -> f64 {
+        let pr = p / self.pc;
+        let tr = t / self.tc;
+        let b = 0.07780 * pr / tr;
+        let kappa = self.esi_kappa();
+        let w = 1.0 + kappa * (1.0 - tr.sqrt());
+        let alpha = w * w;
+        let z = self.esi_z(p, t);
+        let lg = ((z + 2.414 * b) / (z - 0.414 * b)).r_ln();
+        let tail = 2.078 * (1.0 + kappa) * alpha.sqrt() * lg;
+        if with_z {
+            self.esi_r() * self.tc * (tr * (z - 1.0) - tail)
+        } else {
+            self.esi_r() * self.tc * (-tail)
+        }
+    }
+
+    fn esi_h(&self, p: f64, t: f64) -> f64 {
+        self.esi_h_or_e(p, t, true)
+    }
+
+    fn esi_e(&self, p: f64, t: f64) -> f64 {
+        self.esi_h_or_e(p, t, false)
+    }
+
+    fn esi_s(&self, p: f64, t: f64) -> f64 {
+        let pr = p / self.pc;
+        let tr = t / self.tc;
+        let b = 0.07780 * pr / tr;
+        let kappa = self.esi_kappa();
+        let z = self.esi_z(p, t);
+        self.esi_r()
+            * (-(p / P_REF).r_ln()
+                + ((z - b).r_ln()
+                    - 2.078
+                        * kappa
+                        * ((1.0 + kappa) / tr.sqrt() - kappa)
+                        * ((z + 2.414 * b) / (z - 0.414 * b)).r_ln()))
+    }
+
+    /// `(a, b, kappa, A, B, Z, ap, M, N)` shared by `Cp` and `CpMCv`.
+    fn esi_cp_terms(&self, p: f64, t: f64) -> [f64; 9] {
+        let rr = self.esi_rr();
+        let tr = t / self.tc;
+        let a = 0.45724 * ((rr * self.tc) * (rr * self.tc)) / self.pc;
+        let b = 0.07780 * rr * self.tc / self.pc;
+        let kappa = self.esi_kappa();
+        let w = 1.0 + kappa * (1.0 - tr.sqrt());
+        let alpha = w * w;
+        let a_big = a * alpha * p / ((rr * t) * (rr * t));
+        let b_big = b * p / (rr * t);
+        let z = self.esi_z(p, t);
+        let ap = kappa * a * (kappa / self.tc - (1.0 + kappa) / (t * self.tc).sqrt());
+        let m = ((z * z) + 2.0 * b_big * z - (b_big * b_big)) / (z - b_big);
+        let n = ap * b_big / (b * rr);
+        [a, b, kappa, a_big, b_big, z, ap, m, n]
+    }
+
+    fn esi_cp_m_cv(&self, p: f64, t: f64) -> f64 {
+        let [_a, _b, _k, a_big, b_big, z, _ap, m, n] = self.esi_cp_terms(p, t);
+        self.esi_r() * ((m - n) * (m - n)) / ((m * m) - 2.0 * a_big * (z + b_big))
+    }
+
+    fn esi_cp(&self, p: f64, t: f64) -> f64 {
+        let rr = self.esi_rr();
+        let [a, b, kappa, a_big, b_big, z, _ap, m, n] = self.esi_cp_terms(p, t);
+        let app = kappa * a * (1.0 + kappa) / (2.0 * (t * (t * t) * self.tc).sqrt());
+        let root2 = 2.0_f64.sqrt();
+        (app * (t / (2.0 * root2 * b))
+            * ((z + (root2 + 1.0) * b_big) / (z - (root2 - 1.0) * b_big)).r_ln()
+            + rr * ((m - n) * (m - n)) / ((m * m) - 2.0 * a_big * (z + b_big))
+            - rr)
+            / self.esi_w()
     }
 }
 
@@ -479,5 +691,68 @@ mod tests {
             rel_err < 0.05,
             "N₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}"
         );
+    }
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+    use uom::si::molar_mass::gram_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    fn co2(form: PengRobinsonForm) -> PengRobinsonGas {
+        PengRobinsonGas::new(
+            MolarMass::new::<gram_per_mole>(44.01),
+            ThermodynamicTemperature::new::<kelvin>(304.12),
+            Pressure::new::<pascal>(7.374e6),
+            0.2239,
+        )
+        .with_form(form)
+    }
+
+    /// `Cp_departure = dH_departure/dT` at constant p: this is independent of
+    /// upstream and fails if `da/dT`, `d2a/dT2` carry the `alpha(T)` factor
+    /// (the pre-2026-11-13 port did; it matters most at high T where alpha is small).
+    #[test]
+    fn cp_departure_is_derivative_of_enthalpy_departure() {
+        let eos = co2(PengRobinsonForm::Port);
+        let p = Pressure::new::<pascal>(3.0e6);
+        for t in [350.0, 600.0, 900.0, 1500.0] {
+            let h = |tk: f64| {
+                eos.h_eos(p, ThermodynamicTemperature::new::<kelvin>(tk))
+                    .get::<joule_per_kilogram>()
+            };
+            let dh = (h(t + 0.01) - h(t - 0.01)) / 0.02;
+            let cp = eos
+                .cp_eos(p, ThermodynamicTemperature::new::<kelvin>(t))
+                .get::<joule_per_kilogram_kelvin>();
+            assert!((dh - cp).abs() < 2e-3 * cp.abs().max(1.0), "T={t}: dH/dT={dh}, cp={cp}");
+        }
+    }
+
+    /// The ESI form differs from the port form only through the rounded
+    /// 2.414 / 0.414 and the root solver: a few parts in 1e3 in H and S.
+    #[test]
+    fn esi_form_is_close_to_port_form() {
+        let a = co2(PengRobinsonForm::Port);
+        let b = co2(PengRobinsonForm::EsiV2506).with_gas_constant(GasConstant::Codata2019);
+        let p = Pressure::new::<pascal>(3.0e6);
+        let t = ThermodynamicTemperature::new::<kelvin>(400.0);
+        let rel = |x: f64, y: f64| ((x - y) / y).abs();
+        assert!(rel(a.z(p, t).get::<ratio>(), b.z(p, t).get::<ratio>()) < 1e-12);
+        assert!(rel(a.rho(p, t).value, b.rho(p, t).value) < 1e-12);
+        assert!(rel(a.psi(p, t).value, b.psi(p, t).value) < 1e-12);
+        let ha = a.h_eos(p, t).get::<joule_per_kilogram>();
+        let hb = b.h_eos(p, t).get::<joule_per_kilogram>();
+        assert!(ha != hb && rel(ha, hb) < 5e-3);
+        let ea = a.e_eos(p, t).get::<joule_per_kilogram>();
+        let eb = b.e_eos(p, t).get::<joule_per_kilogram>();
+        assert!(rel(ea, eb) < 5e-3);
+        let sa = a.s_eos(p, t).get::<joule_per_kilogram_kelvin>();
+        let sb = b.s_eos(p, t).get::<joule_per_kilogram_kelvin>();
+        assert!(rel(sa, sb) < 5e-3);
+        assert!(rel(a.cp_eos(p, t).get::<joule_per_kilogram_kelvin>(), b.cp_eos(p, t).get::<joule_per_kilogram_kelvin>()) < 1e-9);
+        assert!(rel(a.cp_m_cv(p, t).get::<joule_per_kilogram_kelvin>(), b.cp_m_cv(p, t).get::<joule_per_kilogram_kelvin>()) < 1e-9);
     }
 }
