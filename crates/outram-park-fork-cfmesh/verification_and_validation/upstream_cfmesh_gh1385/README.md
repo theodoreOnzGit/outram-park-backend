@@ -1232,3 +1232,57 @@ Not moved: Foam Studio pins, sphere pins, asmoOctree/elbow stage asserts.
   `refineBoundaryLayers`; pMesh/tetMesh final meshes with `boundaryLayers`
   dicts and `renameBoundary` not compared; ~140 `scale(1.0/x)`; 2D
   anisotropic cases not staged.
+
+## Round 5 (gh:#1385, 2026-11-13): environment rebuild, pin re-confirmation, `singleOrifice`
+
+**Research, education and V&V only.** AI-run; not reviewed by a human yet.
+The container was reset between rounds; this round first rebuilds upstream
+(ESI v2506 and cfMesh) with `scripts/upstream/build-esi-v2506-and-genfoam.sh
+cfmesh`, re-confirms an existing pin against the rebuilt upstream, then takes the
+next unrun row of the #1385 list: `tutorials/cartesianMesh/singleOrifice`
+(row 5, whole `cartesianMesh`).
+
+### Which OpenFOAM cfMesh e944f6ba695f was built against (decision record)
+
+ESI v2506 (OpenFOAM-ESI, GitHub mirror, tag `OpenFOAM-v2506`): see "Build" above
+and `logs/build-cfmesh.log.gz` (`-DOPENFOAM=2506`). The three-part API patch is the
+`is_contiguous` trait of v1906 and later, i.e. an ESI-line API. So **an ESI route
+exists and OpenFOAM-dev is not rebuilt**: a multi-hour rebuild would be justified
+only if no ESI route existed. The rebuilt ESI is the 2026-11-12/13 tree of
+`scripts/upstream/README.md` (tarball from SourceForge, not the earlier GitHub
+mirror clone), both `api=2506 patch=0`; whether the two trees are byte-identical
+is not checked here, which is why the pin re-confirmation below is run.
+
+### Predictions, written before any run (committed first)
+
+Re-confirmation. Prediction 70: re-running the recorded `sphere_cartesianMesh`
+(the committed `polyMesh.sha256`) on the rebuilt upstream gives the **same
+sha256 for points, faces, owner, neighbour and boundary**. If it does not, the
+difference is the build (a different tarball, compiler or libm), recorded as
+such and the pins not re-taken.
+
+`singleOrifice` (`singleOrifice.stl`, 9 solids -> 9 STL regions, `minCellSize
+0.5`, `maxCellSize 3`, `boundaryCellSize 1`, an `anisotropicSources` plane,
+`localRefinement` 0.2 on `orificeRegion.*`, `patchBoundaryLayers` (4 layers,
+`orificeRegion.*` first layer 0.2, `fixedWalls.*` 0.5, `allowDiscontinuity 0`),
+`renameBoundary`), stopped after each step, port (`run_cfmesh`, PETIR `pow`)
+against upstream:
+
+* Prediction 71: `templateGeneration` through `patchAssignment`
+  **bit-identical**. These stages held on asmoOctree and elbow; the only new
+  ingredient is the plane anisotropic source in the octree refinement, whose
+  distance arithmetic the port has checked only against a brute-force oracle
+  (#1279), not against upstream. If this fails, the first differing leaf/point
+  names an anisotropic-source expression (a division or an operation order).
+* Prediction 72: `edgeExtraction` identical (multi-region FUN/NonTopo ran in
+  asmoOctree, 10 patches).
+* Prediction 73: `boundaryLayerGeneration` is the likeliest first miss: the
+  per-patch `patchBoundaryLayers` with `allowDiscontinuity 0` and a
+  `maxFirstLayerThickness` per patch has not been compared with upstream
+  (elbow used the global `nLayers 5`). Expected: counts equal, first
+  difference in layer-point positions (thickness arithmetic), not in topology.
+* Prediction 74: any point difference left after `meshOptimisation` is the
+  pow ulp (a handful of points, worst below 1e-12 m, cascade bounded), as on
+  asmoOctree; **it is counted and pinned from above, not relaxed**.
+* Prediction 75: after `renameBoundary` (final mesh) patch names, types and
+  sizes equal upstream's.
