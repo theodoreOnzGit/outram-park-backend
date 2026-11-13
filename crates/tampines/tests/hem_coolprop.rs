@@ -78,19 +78,24 @@ fn coolprop_rho_e_closure_works_inside_the_dome() {
 
 /// Run a superheated-steam shock tube with closure `eos`; return the cell
 /// pressures and the step count.
-fn steam_shock_tube(eos: HemEos) -> (Vec<f64>, usize) {
-    shock_tube(eos, 500.0, 0.2, 0.1, 5.0e-4)
+fn steam_shock_tube(eos: HemEos, wall_friction: bool) -> (Vec<f64>, usize) {
+    shock_tube(eos, 500.0, 0.2, 0.1, 5.0e-4, wall_friction)
 }
 
 /// Run a water shock tube (1 m, 40 cells, walls, one temperature `t_k` on both
 /// sides, pressures `p_left_mpa | p_right_mpa`) to `t_end` seconds with closure
-/// `eos`; return the cell pressures and the step count.
+/// `eos`; return the cell pressures and the step count. `wall_friction =
+/// false` is the explicit ablation `HemPipe::without_wall_friction` (gh:#1346:
+/// IF97 supplies a viscosity, so friction is on by default for it, while the
+/// CoolProp closure supplies none and is frictionless; a like-for-like
+/// cross-code comparison ablates it on the IF97 side).
 fn shock_tube(
     eos: HemEos,
     t_k: f64,
     p_left_mpa: f64,
     p_right_mpa: f64,
     t_end: f64,
+    wall_friction: bool,
 ) -> (Vec<f64>, usize) {
     let geo = HemPipeGeometry::new(
         Length::new::<meter>(1.0),
@@ -114,6 +119,9 @@ fn shock_tube(
         HemNumerics::default(),
     )
     .unwrap();
+    if !wall_friction {
+        pipe = pipe.without_wall_friction();
+    }
     let r = pipe.run_until(Time::new::<second>(t_end)).unwrap();
     (
         pipe.snapshot()
@@ -144,29 +152,59 @@ fn shock_tube(
 /// **CORRECTED 2026-11-13** (gh:#1349): it can now; the liquid case is
 /// `coolprop_and_if97_agree_on_a_compressed_liquid_water_shock_tube`.
 ///
-/// **Pass criterion:** `max_cells |p_IF97 − p_CoolProp| ≤ 5 %` of the jump, a
-/// sanity bound only. The measured value is printed and recorded.
+/// **Pass criteria:**
+/// 1. (unchanged since 2026-10-16) `max_cells |p_IF97 − p_CoolProp| ≤ 5 %` of
+///    the jump for the DEFAULT IF97 pipe, a sanity bound only;
+/// 2. (added 2026-11-13, gh:#1346, registered before the run) the like-for-like
+///    comparison, IF97 with `HemPipe::without_wall_friction` against CoolProp,
+///    `≤ 0.1 %` of the jump (the 2026-10-16 value was 8.7 Pa = 0.009 %);
+/// 3. wall friction raises the IF97 star pressure by 50 to 300 Pa (the moved
+///    number, below).
+///
+/// **The moved number (explained, gh:#1346).** The IF97 star pressure was
+/// 0.139940 MPa on 2026-10-16 and 0.140066 MPa from commit 1211cc9de
+/// (2026-11-01, gh:#1061): that commit made wall friction a DEFAULT of
+/// `HemPipe`, acting whenever the closure supplies a viscosity. IF97 does
+/// (`Iapws97Hem::dynamic_viscosity`); the CoolProp closure does not yet
+/// (`HemEos::CoolProp` returns `None`), so it is frictionless. The comparison
+/// of the default pipes was therefore no longer like for like. Ablated, the
+/// IF97 star pressure is 0.139940 MPa again, bit for bit as on 2026-10-16.
+/// The IF97 backward-equation fix of 7be8a7d24 (gh:#1346) plays no part: this
+/// state is Region 2a, which it does not touch.
 #[test]
 fn coolprop_and_if97_agree_on_a_single_phase_water_shock_tube() {
     let t0 = std::time::Instant::now();
-    let (p_if97, n_if97) = steam_shock_tube(HemEos::Iapws97);
+    let (p_if97, n_if97) = steam_shock_tube(HemEos::Iapws97, true);
     let t_if97 = t0.elapsed().as_secs_f64();
+    let (p_abl, n_abl) = steam_shock_tube(HemEos::Iapws97, false);
     let t1 = std::time::Instant::now();
-    let (p_cp, n_cp) = steam_shock_tube(HemEos::CoolProp(Fluid::Water));
+    let (p_cp, n_cp) = steam_shock_tube(HemEos::CoolProp(Fluid::Water), true);
     let t_cp = t1.elapsed().as_secs_f64();
-    let max_diff = p_if97
-        .iter()
-        .zip(&p_cp)
-        .map(|(a, b)| (a - b).abs())
-        .fold(0.0, f64::max);
+    let max_abs_diff = |a: &[f64], b: &[f64]| {
+        a.iter()
+            .zip(b)
+            .map(|(x, y)| (x - y).abs())
+            .fold(0.0, f64::max)
+    };
+    let max_diff = max_abs_diff(&p_if97, &p_cp);
+    let max_diff_abl = max_abs_diff(&p_abl, &p_cp);
     println!(
-        "steam shock tube: IF97 {n_if97} steps ({t_if97:.2} s), CoolProp {n_cp} steps ({t_cp:.2} s); star p IF97 {:.6} MPa, CoolProp {:.6} MPa; max |dp| = {:.1} Pa = {:.3} % of the jump",
+        "steam shock tube: IF97 {n_if97} steps ({t_if97:.2} s), IF97 no friction {n_abl} steps, CoolProp {n_cp} steps ({t_cp:.2} s); star p IF97 {:.6} MPa, IF97 no friction {:.6} MPa, CoolProp {:.6} MPa; max |dp| default {:.1} Pa = {:.3} % of the jump, no friction {:.1} Pa = {:.3} %",
         p_if97[20] / 1e6,
+        p_abl[20] / 1e6,
         p_cp[20] / 1e6,
         max_diff,
-        100.0 * max_diff / 0.1e6
+        100.0 * max_diff / 0.1e6,
+        max_diff_abl,
+        100.0 * max_diff_abl / 0.1e6
     );
     assert!(max_diff <= 0.05 * 0.1e6);
+    assert!(max_diff_abl <= 0.001 * 0.1e6);
+    let friction_shift = p_if97[20] - p_abl[20];
+    assert!(
+        (50.0..300.0).contains(&friction_shift),
+        "wall friction shifts the star pressure by {friction_shift} Pa"
+    );
 }
 
 /// **CoolProp compressed-liquid water is closed and matches IF97 (gh:#1349).**
@@ -267,10 +305,13 @@ fn coolprop_closes_compressed_liquid_water_and_matches_if97() {
 #[test]
 fn coolprop_and_if97_agree_on_a_compressed_liquid_water_shock_tube() {
     let t0 = std::time::Instant::now();
-    let (p_if97, n_if97) = shock_tube(HemEos::Iapws97, 350.0, 2.0, 1.0, 2.0e-4);
+    // Like for like (gh:#1346): IF97 supplies a viscosity and the CoolProp
+    // closure does not, so the IF97 pipe is ablated of wall friction.
+    let (p_if97, n_if97) = shock_tube(HemEos::Iapws97, 350.0, 2.0, 1.0, 2.0e-4, false);
     let t_if97 = t0.elapsed().as_secs_f64();
+    let (p_fr, _) = shock_tube(HemEos::Iapws97, 350.0, 2.0, 1.0, 2.0e-4, true);
     let t1 = std::time::Instant::now();
-    let (p_cp, n_cp) = shock_tube(HemEos::CoolProp(Fluid::Water), 350.0, 2.0, 1.0, 2.0e-4);
+    let (p_cp, n_cp) = shock_tube(HemEos::CoolProp(Fluid::Water), 350.0, 2.0, 1.0, 2.0e-4, true);
     let t_cp = t1.elapsed().as_secs_f64();
     let max_diff = p_if97
         .iter()
@@ -278,8 +319,9 @@ fn coolprop_and_if97_agree_on_a_compressed_liquid_water_shock_tube() {
         .map(|(a, b)| (a - b).abs())
         .fold(0.0, f64::max);
     println!(
-        "liquid shock tube: IF97 {n_if97} steps ({t_if97:.2} s), CoolProp {n_cp} steps ({t_cp:.2} s); star p IF97 {:.6} MPa, CoolProp {:.6} MPa; max |dp| = {:.1} Pa = {:.4} % of the jump",
+        "liquid shock tube: IF97 (no friction) {n_if97} steps ({t_if97:.2} s), CoolProp {n_cp} steps ({t_cp:.2} s); star p IF97 no friction {:.6} MPa, IF97 default (friction) {:.6} MPa, CoolProp {:.6} MPa; max |dp| (no friction) = {:.1} Pa = {:.4} % of the jump",
         p_if97[20] / 1e6,
+        p_fr[20] / 1e6,
         p_cp[20] / 1e6,
         max_diff,
         100.0 * max_diff / 1.0e6
