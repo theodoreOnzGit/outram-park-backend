@@ -140,3 +140,40 @@ Predictions:
 8. No port defect expected in this family.  Documented non-reproductions (NOT
    defects): `min(nominal, old)` / `max(old, new)` histories, recovery, PARFUME
    swelling, `intra/intergranularGasSwelling` additions.
+
+## C. Young/Poisson: MATPRO Zircaloy, PARFUME buffer/PyC/SiC, Snead SiC, constants (before the driver)
+
+Models: `YoungModulusMatproZy` (needs `oxC_`, `cW_`, fluence), `PoissonRatioMatproZy`
+(same fields, plus the Young's-modulus *field*), `YoungModulusPARFUMEBuffer/PyC/SiC`,
+`YoungModulusSneadSiC`, and the four constant Poisson classes.  Not compared: the
+isotropic-cracking branches (need the slice mapper and `lhgr`).
+
+Interface choices fixed before the run.  Upstream Young MatproZy scales the fluence
+field (n/cm^2) by `1e4` to n/m^2 before `exp(-phi/1e25)`; upstream Poisson MatproZy
+does NOT.  The port uses n/m^2 in both (documented divergence 3 in `poisson_ratio.rs`).
+The driver therefore emits two Poisson rows: `as written` (E with `phi*1e4`, G with the
+raw `phi`, exactly as the two classes compile) and `consistent` (G also with `phi*1e4`,
+which is what the port computes).
+
+Predictions:
+1. G1/G2 (section A form) hold for Young MatproZy, PARFUME buffer/PyC/SiC, Snead, the
+   constants, and for Poisson-`consistent`.
+2. Young MatproZy has the same operation order as the port (`(par7 - par8*Ti + K1 + K2)/K3`,
+   the same blend), so it is bit-identical wherever `exp(-phi/par6)` agrees between
+   glibc and PETIR (`phi = 0` gives `exp(-0) = 1` exactly): predicted 100 % bit-identical at
+   zero fluence and in the beta phase, >= 80 % at non-zero fluence.
+3. Poisson-`as written` differs from the port at non-zero fluence in the alpha phase
+   (`T < 1073 K`) by exactly the K3 mismatch: `(nu_up + 1)/(nu_port + 1) =
+   (0.88 + 0.12 exp(-phi_cm2/1e25)) / (0.88 + 0.12 exp(-phi_cm2*1e4/1e25))`, because the
+   fluence factor cancels between E and G in the port but not in the upstream pair.  For
+   `phi_cm2 = 1e21` that ratio is 1.0831 (8.3 %).  Predicted: the closed form matches the
+   observed ratio to <= 16 eps (condE + condG) (derived: each side's relative error is
+   <= 8 eps cond), and the difference is zero (at fluence 0) in the beta phase.  The port's
+   doc sentence "the choice is immaterial to nu in the alpha phase" is true only inside
+   the port's own consistent convention; against the upstream pair it is an 8 % effect at
+   1e21 n/cm^2.  If so that sentence needs a qualification (doc fix, not a model change).
+4. PARFUME PyC multiplies its factors in a different order from the port
+   (`par1*(..)*(BAF)*(Lc)*(phi)*(T)` upstream vs `common*(BAF)` last): not 100 %
+   bit-identical, within 8 eps.  Buffer: same order, 100 %.  SiC: identical operations,
+   100 %.  Snead SiC: 100 % except `exp`.
+5. No port defect expected.
