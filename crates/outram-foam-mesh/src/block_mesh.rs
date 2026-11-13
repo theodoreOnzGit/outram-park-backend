@@ -1588,7 +1588,10 @@ impl BlockMeshDict {
         let mut fast_merge = false;
         let mut check_face_correspondence = true;
         let mut check_block_face_orientation = true;
-        let mut geometry = Arc::new(Geometry::default());
+        // gh:#1364: the flavour must reach a dict WITHOUT a `geometry` section too
+        // (it was dropped: `Geometry::default()` is the dev flavour), or the ESI
+        // `lineDivide` pow and spline forms were never selected for such dicts.
+        let mut geometry = Arc::new(Geometry { surfaces: Vec::new(), flavour });
         let mut faces: Vec<BlockFace> = Vec::new();
         let mut vertex_projections: Vec<Option<Vec<String>>> = Vec::new();
 
