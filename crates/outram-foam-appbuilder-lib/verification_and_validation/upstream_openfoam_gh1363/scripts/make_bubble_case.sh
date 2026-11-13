@@ -75,12 +75,12 @@ cat <<'EOF'
 solvers
 {
     alpha.air { nAlphaCorr 1; nAlphaSubCycles 1; }
-    p_rgh { solver PCG; preconditioner DIC; tolerance 1e-15; relTol 0; maxIter 10000; }
+    p_rgh { solver PCG; preconditioner diagonal; tolerance 1e-12; relTol 0; maxIter 20000; }
     p_rghFinal { $p_rgh; }
     "U.*" { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-15; relTol 0; minIter 1; }
     "e.*" { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-15; relTol 0; minIter 1; }
 }
-PIMPLE { nOuterCorrectors 1; nCorrectors 1; nNonOrthogonalCorrectors 0; pRefCell 0; pRefValue 1e5; }
+PIMPLE { nOuterCorrectors 1; nCorrectors 1; nNonOrthogonalCorrectors 0; pRefCell 0; pRefValue 0; }
 relaxationFactors { equations { ".*" 1; } }
 EOF
 } > $C/system/fvSolution
@@ -133,7 +133,7 @@ heatTransfer
 lift ( );
 wallLubrication ( );
 turbulentDispersion ( );
-pMin 10000;
+pMin -1e9;
 EOF
 } > $C/constant/phaseProperties
 
@@ -161,11 +161,11 @@ for ph in air water; do
   } > $C/0/T.$ph
 done
 { HDR volScalarField p_rgh
-  echo "dimensions [1 -1 -2 0 0 0 0]; internalField uniform 1e5;"
-  echo "boundaryField { walls { type fixedFluxPressure; value uniform 1e5; } frontAndBack { type empty; } }"
+  echo "dimensions [1 -1 -2 0 0 0 0]; internalField uniform 0;"
+  echo "boundaryField { walls { type fixedFluxPressure; value uniform 0; } frontAndBack { type empty; } }"
 } > $C/0/p_rgh
 { HDR volScalarField p
-  echo "dimensions [1 -1 -2 0 0 0 0]; internalField uniform 1e5;"
-  echo "boundaryField { walls { type calculated; value uniform 1e5; } frontAndBack { type empty; } }"
+  echo "dimensions [1 -1 -2 0 0 0 0]; internalField uniform 0;"
+  echo "boundaryField { walls { type calculated; value uniform 0; } frontAndBack { type empty; } }"
 } > $C/0/p
 echo "wrote $C (deltaT $DT, $NSTEPS steps)"

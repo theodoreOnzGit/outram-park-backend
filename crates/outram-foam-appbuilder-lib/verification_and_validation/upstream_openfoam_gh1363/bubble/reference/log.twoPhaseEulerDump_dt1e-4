@@ -9,9 +9,9 @@ Build  : _615aae61d7-20250627 OPENFOAM=2506 version=v2506
 Arch   : "LSB;label=32;scalar=64"
 Exec   : twoPhaseEulerDump
 Date   : Nov 13 2026
-Time   : 20:20:12
+Time   : 20:44:35
 Host   : vm
-PID    : 31002
+PID    : 12137
 I/O    : uncollated
 Case   : /home/user/upstream-build/gh1363/bubble
 nProcs : 1
@@ -98,107 +98,107 @@ PIMPLE: iteration 1
 MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10000000000021805  Max(alpha.air) = 0.22609356150017584
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.0041615145639354971, Final residual = 4.6263421781486132e-16, No Iterations 98
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0041615145639166042, Final residual = 9.8608682835190091e-13, No Iterations 30
 ExecutionTime = 0.01 s  ClockTime = 0 s
 
-Courant Number mean: 3.3887578447586706e-07 max: 1.0181628894155662e-06
-Max Ur Courant Number = 3.8975982920397383e-05
+Courant Number mean: 3.3887578449064752e-07 max: 1.0181628893980136e-06
+Max Ur Courant Number = 3.8975982918105556e-05
 Time = 0.0002
 
 PIMPLE: iteration 1
 MULES: Solving for alpha.air
-alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10000000005640243  Max(alpha.air) = 0.22609290452522804
+alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10000000005640243  Max(alpha.air) = 0.22609290452522765
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.0026752313771313085, Final residual = 8.8816553321532488e-16, No Iterations 81
-ExecutionTime = 0.01 s  ClockTime = 0 s
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0026752313769779039, Final residual = 3.1749690029481586e-13, No Iterations 31
+ExecutionTime = 0.02 s  ClockTime = 0 s
 
-Courant Number mean: 6.7310005257637865e-07 max: 2.0335067307017483e-06
-Max Ur Courant Number = 7.6960670238374046e-05
+Courant Number mean: 6.7310005257449622e-07 max: 2.0335067303556341e-06
+Max Ur Courant Number = 7.6960670237733296e-05
 Time = 0.0003
 
 PIMPLE: iteration 1
 MULES: Solving for alpha.air
-alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10000000728536888  Max(alpha.air) = 0.22609160932769837
+alpha.air volume fraction = 0.11856613569403861  Min(alpha.air) = 0.10000000728536888  Max(alpha.air) = 0.2260916093276977
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.0035510914715157493, Final residual = 3.5118480739077557e-06, No Iterations 10000
-ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0035510914714350335, Final residual = 2.1952200066255231e-13, No Iterations 31
+ExecutionTime = 0.02 s  ClockTime = 0 s
 
-Courant Number mean: 1.0128662367575676e-06 max: 3.0759876094180956e-06
-Max Ur Courant Number = 0.0001141882006135861
+Courant Number mean: 1.0127299551453057e-06 max: 3.0747414532375803e-06
+Max Ur Courant Number = 0.00011418076473718293
 Time = 0.0004
 
 PIMPLE: iteration 1
 MULES: Solving for alpha.air
-alpha.air volume fraction = 0.11856613569153987  Min(alpha.air) = 0.10000046990697095  Max(alpha.air) = 0.22608968044530306
+alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10000046990697095  Max(alpha.air) = 0.22608967998934384
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.014227898678008511, Final residual = 1.7286888605352806e-10, No Iterations 10000
-ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0043881181104956646, Final residual = 1.91395633346871e-13, No Iterations 31
+ExecutionTime = 0.02 s  ClockTime = 0 s
 
-Courant Number mean: 1.3563091043389079e-06 max: 4.1325962256381616e-06
-Max Ur Courant Number = 0.0001506747993350893
+Courant Number mean: 1.35630550791547e-06 max: 4.1325550548472742e-06
+Max Ur Courant Number = 0.00015067464960085737
 Time = 0.0005
 
 PIMPLE: iteration 1
 MULES: Solving for alpha.air
-alpha.air volume fraction = 0.11856613569153959  Min(alpha.air) = 0.10000342156599087  Max(alpha.air) = 0.22608712022731062
+alpha.air volume fraction = 0.11856613569403861  Min(alpha.air) = 0.10000342156599103  Max(alpha.air) = 0.22608711976759049
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.0049911242531260093, Final residual = 5.9453149669994353e-16, No Iterations 285
-ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0049912942551460174, Final residual = 1.9105749484531909e-13, No Iterations 31
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
 
-Courant Number mean: 1.7011540369334795e-06 max: 5.1952610588443157e-06
-Max Ur Courant Number = 0.00018644667651610038
+Courant Number mean: 1.7011526024652137e-06 max: 5.1952444986524365e-06
+Max Ur Courant Number = 0.00018644657573625332
 Time = 0.0006
 
 PIMPLE: iteration 1
 MULES: Solving for alpha.air
-alpha.air volume fraction = 0.11856613569153966  Min(alpha.air) = 0.10000677054466024  Max(alpha.air) = 0.22608393314941536
+alpha.air volume fraction = 0.11856613569403868  Min(alpha.air) = 0.10000677054466041  Max(alpha.air) = 0.22608393268781907
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.0054557498368875542, Final residual = 7.1622411655561192e-12, No Iterations 10000
-ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0054557666831027149, Final residual = 1.5884200754923526e-13, No Iterations 31
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
 
-Courant Number mean: 2.0450523290819351e-06 max: 6.2546575174275216e-06
-Max Ur Courant Number = 0.00022148024512223265
+Courant Number mean: 2.0450519175970732e-06 max: 6.254651520681332e-06
+Max Ur Courant Number = 0.00022148018351277496
 Time = 0.0007
 
 PIMPLE: iteration 1
 MULES: Solving for alpha.air
-alpha.air volume fraction = 0.11856613569153963  Min(alpha.air) = 0.1000100729870126  Max(alpha.air) = 0.22608012388164489
+alpha.air volume fraction = 0.11856613569403861  Min(alpha.air) = 0.1000100734280612  Max(alpha.air) = 0.22608012341916656
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.0058406403483915181, Final residual = 1.7863883660791981e-10, No Iterations 10000
-ExecutionTime = 0.070000000000000007 s  ClockTime = 0 s
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0058406419975023738, Final residual = 1.8352341652019985e-13, No Iterations 31
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
 
-Courant Number mean: 2.3866014600516046e-06 max: 7.3061333345262838e-06
-Max Ur Courant Number = 0.0002557448458757255
+Courant Number mean: 2.3866012673324827e-06 max: 7.3061305694865548e-06
+Max Ur Courant Number = 0.00025574480062053072
 Time = 0.0008
 
 PIMPLE: iteration 1
 MULES: Solving for alpha.air
-alpha.air volume fraction = 0.11856613569153587  Min(alpha.air) = 0.10001377206612518  Max(alpha.air) = 0.22607569738848757
+alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.1000137720893314  Max(alpha.air) = 0.22607569692579474
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.0061736859294196948, Final residual = 2.5141991210942207e-06, No Iterations 10000
-ExecutionTime = 0.080000000000000002 s  ClockTime = 0 s
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0061736859256255189, Final residual = 1.9360116002146206e-13, No Iterations 31
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
 
-Courant Number mean: 2.7248980526155152e-06 max: 8.3484060378800039e-06
-Max Ur Courant Number = 0.00028922251035857561
+Courant Number mean: 2.7249910072367489e-06 max: 8.3473193489670296e-06
+Max Ur Courant Number = 0.00028921255653301516
 Time = 0.0009
 
 PIMPLE: iteration 1
 MULES: Solving for alpha.air
-alpha.air volume fraction = 0.11856613569621879  Min(alpha.air) = 0.1000198909169876  Max(alpha.air) = 0.22607065851878566
+alpha.air volume fraction = 0.11856613569403869  Min(alpha.air) = 0.10001989093284087  Max(alpha.air) = 0.22607065822379582
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.0064719859623210965, Final residual = 8.1864960512144876e-16, No Iterations 363
-ExecutionTime = 0.080000000000000002 s  ClockTime = 0 s
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0064717044073204074, Final residual = 4.0051788843876198e-13, No Iterations 31
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
 
-Courant Number mean: 3.0598001082356902e-06 max: 9.3770430844753813e-06
-Max Ur Courant Number = 0.00032185395962688239
+Courant Number mean: 3.0597984788997113e-06 max: 9.3770241394105346e-06
+Max Ur Courant Number = 0.00032185420040743283
 Time = 0.001
 
 PIMPLE: iteration 1
 MULES: Solving for alpha.air
-alpha.air volume fraction = 0.11856613569621488  Min(alpha.air) = 0.10002169383888482  Max(alpha.air) = 0.22606501257558675
+alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10002169434369258  Max(alpha.air) = 0.22606501227516237
 Constructing momentum equations
-DICPCG:  Solving for p_rgh, Initial residual = 0.049597762954939298, Final residual = 8.6247332991887481e-06, No Iterations 10000
-ExecutionTime = 0.10000000000000001 s  ClockTime = 0 s
+diagonalPCG:  Solving for p_rgh, Initial residual = 0.0067475475863328837, Final residual = 5.5904129021948515e-13, No Iterations 31
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
 
 End
 

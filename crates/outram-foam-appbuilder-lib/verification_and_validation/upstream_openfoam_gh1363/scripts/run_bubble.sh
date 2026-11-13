@@ -33,7 +33,7 @@ cp -r $HERE/bubble/system $HERE/bubble/constant $HERE/bubble/0 $W/bubble/
 rm -rf $W/bubble/constant/polyMesh
 (cd $W/bubble && $WITH blockMesh > blockMesh.log 2>&1 && $WITH twoPhaseEulerDump > log.run 2>&1)
 mkdir -p $HERE/bubble/reference
-gzip -9 -c $W/bubble/dump.txt > $HERE/bubble/reference/bubble_v2506_$TAG.txt.gz
+gzip -9 -n -c < $W/bubble/dump.txt > $HERE/bubble/reference/bubble_v2506_$TAG.txt.gz
 rm -rf $HERE/bubble/constant/polyMesh
 cp -r $W/bubble/constant/polyMesh $HERE/bubble/constant/polyMesh
 cp $W/bubble/log.run $HERE/bubble/reference/log.twoPhaseEulerDump_$TAG

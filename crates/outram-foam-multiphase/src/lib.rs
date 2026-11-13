@@ -85,6 +85,7 @@ pub mod heat_transfer;
 pub mod pimple;
 pub mod two_fluid;
 pub mod two_fluid_pimple;
+pub mod two_fluid_pimple_esi;
 pub mod wall_boiling;
 
 /// Errors produced by the multiphase solvers in this crate.

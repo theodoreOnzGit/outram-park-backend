@@ -19,4 +19,4 @@ heatTransfer
 lift ( );
 wallLubrication ( );
 turbulentDispersion ( );
-pMin 10000;
+pMin -1e9;
