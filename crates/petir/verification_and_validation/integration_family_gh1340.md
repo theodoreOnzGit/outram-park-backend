@@ -135,3 +135,16 @@ Replay tests: `tests/gsl_qng_code_to_code.rs` (27 cases),
 - `qags.rs`: `Workspace`, `ExtrapolationTable` and their helpers became
   `pub(super)` (visibility only, no body changed) so QAGP and QAWC re-use the
   verified engine. No `review.md` in `src/integration/` holds a review block.
+
+## Romberg (written 2026-11-13, prediction committed BEFORE the port is run)
+
+- **Port:** `src/integration/romberg.rs`, from `romberg.c` lines 41-164.
+  **Reference:** `reference-data/gsl/romberg_reference_driver.c` (20 cases).
+  **Replay:** `tests/gsl_romberg_code_to_code.rs`.
+- **P6.** Status, `*neval` and the integrand call count identical in 20 of 20;
+  result bit-identical in 20 of 20. The routine calls no libm function itself
+  (only `fabs`), and the test integrands are glibc on both sides, so no
+  platform allowance is expected to be needed. It fails if the row recurrence
+  grouping `(four_j*Rc[j-1] - Rp[j-1]) / (four_j - 1)`, the `a + j*h` abscissae
+  or the row swap is mis-transcribed. The `n > 30` cap is not observable
+  (a non-converging 30-row run is 5e8 evaluations) and is not tested.
