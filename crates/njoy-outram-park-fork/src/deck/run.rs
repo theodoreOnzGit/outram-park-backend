@@ -384,15 +384,25 @@ fn pass_through(nin: i32, nout: i32, units: &mut TapeUnits, edit: impl FnOnce(&m
     Ok(())
 }
 
-/// UNRESR (`unresr.f90`): **cards read, tape passed through.** UNRESR's
-/// self-shielded MF=2/MT=152 (`unresr.f90`'s `unresr`, `unresl`, the table
-/// writer) is not written onto the PENDF; ACER does not read it.
-fn run_unresr(c: &UnresrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
+/// UNRESR (`unresr.f90`). ~~**Cards read, tape passed through.** UNRESR's
+/// self-shielded MF=2/MT=152 is not written onto the PENDF; ACER does not read
+/// it.~~ **CORRECTED 2026-11-13 (gh:#1369 round 4):** each temperature's
+/// MF=2/MT=152 is rewritten with UNRESR's table
+/// ([`crate::unresr::tape::unresr_tape`]), which GROUPR's `stounr` reads for
+/// `nsigz > 1`. Everything else on the tape passes through.
+fn run_unresr(c: &UnresrCards, units: &mut TapeUnits, _notes: &mut Vec<String>) -> Result<(), NjoyError> {
     units.openz(c.nendf, 0)?;
     units.openz(c.nin, 0)?;
     units.openz(c.nout, 1)?;
-    notes.push("unresr: MF=2/MT=152 (self-shielded unresolved table) not written (tape writer not ported)".into());
-    pass_through(c.nin, c.nout, units, |m| m.unresr = true)
+    pass_through(c.nin, c.nout, units, |m| m.unresr = true)?;
+    let endf = units.get(c.nendf)?.tape.clone();
+    let mut u = units.get(c.nout)?.clone();
+    for m in &c.materials {
+        u.tape = crate::unresr::tape::unresr_tape(&endf, &u.tape, m.mat, &m.temps, &m.sigz)?;
+    }
+    units.store(c.nout, u.tape, u.pointwise)?;
+    units.set_meta(c.nout, u.meta);
+    Ok(())
 }
 
 /// PURR (`purr.f90`). The probability tables are made where ACER needs them

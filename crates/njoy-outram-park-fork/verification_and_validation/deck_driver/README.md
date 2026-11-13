@@ -543,6 +543,80 @@ one.
 | `--lib` | 731 of 731 passed |
 
 **Still refused at GROUPR:**
-- `nsigz > 1` (`genflx`, `getflx`, `getunr`, `nz > 1` in `panel`/`displa`): decks 02, 11, and 47's second GROUPR;
-- the temperature loop: decks 02, 11;
+- ~~`nsigz > 1` (`genflx`, `getflx`, `getunr`, `nz > 1` in `panel`/`displa`): decks 02, 11, and 47's second GROUPR;~~ **CORRECTED 2026-11-13:** translated (section 16); 47's second GROUPR is identical;
+- ~~the temperature loop: decks 02, 11;~~ **CORRECTED 2026-11-13:** translated (section 16); decks 02 and 11 now stop at `getwtf` `iwt = 4` and at `getsed` `LF = 7`;
+- deck 17's earlier RECONR/BROADR differences and `iwt = 6`.
+
+## 16. GROUPR `nsigz > 1`, the temperature loop, UNRESR's MT=152, `getco` CM to lab, `conver`'s MT=456 (2026-11-13, gh:#1369)
+
+The targets were the ones section 15 left: `nsigz > 1` (decks 02, 11, 47's second
+GROUPR), the temperature loop (02, 11), then deck 17 if time remained (it did not).
+A prediction was posted on gh:#1369 before any code changed.
+
+**Search first.**
+- `groupr::unresolved::UnresolvedTable::shield` (`getunr`, `iovl = 0`), `overlap_context`
+  and `urr_pendf::read_urr_table` (`stounr`) were reused. Only `getunr`'s `xtot`/`iovl`
+  word tests were added around them (`flux_table::getunr`).
+- `unresolved::genflx_bondarenko*` and the older `groupr::panel`/`matrix_panel` engine
+  (golden-validated at 1e-5 on 6 sigma-zeros, `groupr/README.md`) were checked and not
+  used. They evaluate the Bondarenko formula on a grid the caller gives. `genflx`'s
+  table has its own nodes: `getwtf` steps, MT=1 breaks and `getunr` energies, plus the
+  MT=261 P1 column. `getflx` interpolates between those nodes.
+- `njoy_panel::{panel, group_general}` and `displa` were generalised to `(il, iz)`.
+  `group_general` is now a wrapper over `group_general_nz` with `nz = 1`, so the
+  existing gates check it.
+- The multi-temperature PENDF is split into per-temperature blocks, as
+  `deck::thermr::thermr_tape` does.
+- `unresr::unresolved_cross_sections` (`unresl`) was reused for UNRESR's table. PURR's
+  `urr_energy_grid` is `rdf2un`, not `rdunf2`, so it was not reused (see below).
+
+| deck(s) | was | cause (upstream) | fix | result |
+|---|---|---|---|---|
+| 47 (second GROUPR), 02, 11 | refused: `nsigz > 1` | `genflx` Bondarenko branch (`:5380-5395`, `:5629-5671`), `getflx` `nsigz > 1` (`:6476-6510`, with the `ip` re-read after `scana`), `getsig` → `getunr` per `il`, MT=261 for MT=1's `il = 2` (`:6777-6797`), `init`'s `nz`/`nl` (`:5815-5838`), `panel` over `iz`, `displa` label 310 for every `nz > 1` | `groupr::flux_table` (`genflx`, `FluxCursor`, `getunr`, `stounr`); `njoy_panel::{FluxSource, group_general_nz}`, `SigFeed::get_nz`; `displa310` general in `(il, iz)`; the label 460 record rounds `iz = 1` only | first run of 47's unit 55: 65 of 2 980 lines differ, all in the URR groups (next row) |
+| 47 | UNRESR passed its input through | `unresr` (`:136-330`) rewrites each temperature's MF=2/MT=152: `rdunf2`'s grid (`:426-748`: primer 1 MeV, `egridu` with `enut > 1.01 et`, a `sigfig(.,7,2)` thinning pass, overlap sign), `rdunf3`'s File-3 background (`:783-840`), `unresl` at each sigma-zero, `sigfig(.,7,0)`. Deck 47's MT=152 was RECONR's one sigma-zero table, so `getunr` returned at `nsig0 <= 1`. | `unresr::tape` (`unresr_grid`, `background`, `mt152_rows`, `unresr_tape`), called by the deck driver's UNRESR; `new = 1` (no MT=152 yet) is refused by name | **UNRESR's PENDF identical, 150 428 lines** (`test_47_unresr_pendf_with_mt152`); **47's unit 55 identical, 2 980 lines** |
+| 02, 11 | refused: temperature loop | `:520-630`: per temperature, find the PENDF block (`1 + T/1e4` K), `stounr`, `genflx`, MF=1 head, that temperature's card-9 list with `mtd = 1`, `amend`; `atend` once | `run_groupr`'s temperature loop over `temperature_blocks` | deck 11 (next rows) |
+| 11 | `getfle`: MF=4/MT=16 lab data refused | `getff` label 200 asks `getfle` for `lcd = 1` (lab, `:7152`). Lab data needs nothing. CM data goes through `getco`'s 64-point quadrature with `xn = (1+awr x)/sqrt(1+awr^2+2awr x)` (`:10550`, `:10684-10686`). Pu-238's MT=91 is a CM-isotropic table, which becomes four lab moments. | `File4Angular::from_tape_lab` (`File4Options::cm_to_lab`, `getco_legendre_converted`) | first run without it: 31 lines (MF=6 MT=91 written isotropic) |
+| 11 | MF=1/MT=456 not found | `conver` adds MT=456 = MT=452 when MF=1 has neither 455 nor 456 (`:11473-11550`); `getyld` reads it from `nend3` | `groupr::conver::with_mt456` | **deck 11's GENDF without `6 18` identical, 10 019 lines** (3 temperatures × 7 sigma-zeros, `lord = 3`, MF=6 MT=221) (`test_11_groupr_gendf_without_mf6_mt18`) |
+| 11 | -- | `6 18`: Pu-238's MF=5/MT=18 is analytic `LF = 7`, `getsed` → `anased`/`hnab` (`:12281-12627`) with the `econst` search | not translated (refused by name) | deck 11 stops at GROUPR `6 18` |
+| 02 | -- | card 6 `iwt = 4` (thermal + 1/E + fission with `eb, tb, ec, tc`), `getwtf` | not translated (refused by name) | deck 02 stops at GROUPR `genflx` (`getwtf iwt = 4`); it also has `6 18` with `LF = 7` |
+| 17 | RECONR/BROADR differences, `iwt = 6` | not examined | none | unchanged |
+
+**Predictions.**
+- Deck 47's unit 55 identical: held, but only after the UNRESR writer. The posted
+  prediction placed a difference, if any, "inside the URR, from `getunr`'s node
+  insertion or `terpu`". The cause was upstream of GROUPR: the URR table on the tape
+  had one sigma-zero.
+- Deck 11 runs and is identical "unless the THERMR MT=221 matrix exposes something
+  new": it did not run at first. Three gaps outside `nsigz`/temperature were found:
+  `getco` CM to lab, `conver`'s MT=456 and `anased`. Two are closed. With `6 18`
+  removed, the GENDF is identical, and MT=221 is identical too.
+- Deck 02 stops at `getwtf iwt = 4`: held.
+
+**Survey:** the 21 GROUPR decks were re-run (`SURVEY_CASES`, 689 s) on develop b875f0ca0 plus this work. **49 of 87 are identical** (unchanged): no whole deck closed. Rows 02, 11, 47 and 86 changed. 47 now stops at ERRORR with both GENDFs identical; 11 stops at `6 18` (`anased`); 02 stops at `getwtf iwt = 4`; 86's tape25 went from 28 to 27 differing lines of 52 (not examined).
+
+**Gates** (`tests/deck_driver_tapes_vs_njoy2016.rs`):
+- `test_47_groupr_gendfs_moder_copies`, now always units 45 and 55 (`DECK47_BOTH` removed);
+- `test_47_unresr_pendf_with_mt152`;
+- `test_11_groupr_gendf_without_mf6_mt18`.
+
+Unit tests:
+- `flux_table::tests` (`getflx` interpolation, `getunr` without a table);
+- `unresr::tape::tests` (the `rdunf2` grid);
+- `conver::mt456_tests`;
+- `file4::tests::cm_isotropic_converts_to_forward_lab_moments`.
+
+**Tests (release, on develop b875f0ca0 plus this work):**
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 120 passed, 0 failed, 2 ignored (43, 80), 1 689 s |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `--lib` | 736 of 736 passed |
+
+**Still refused at GROUPR:**
+- `getsed` analytic spectra (`anased`/`hnab`, `LF = 7` here): decks 02, 11 (`6 18`);
+- `getwtf` `iwt = 4`: deck 02;
+- `genflx`'s slowing-down branch (`iwt < 0`) and `iwt = 0` (`getfwt`): no deck seen;
+- UNRESR on a PENDF with no MT=152 (`new = 1`): no deck seen;
 - deck 17's earlier RECONR/BROADR differences and `iwt = 6`.

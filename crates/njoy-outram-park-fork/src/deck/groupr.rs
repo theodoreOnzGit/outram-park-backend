@@ -44,8 +44,14 @@
 //! label 200 with `econst` (`groupr::continuum::ContinuumFeed`) and `conver`'s MF=12
 //! `LO = 2` conversion (`groupr::conver::lo2_converted`) are written too. Decks 76
 //! (GENDF as written), 47 (first GROUPR) and 08 (whole deck) are identical. Every
-//! temperature's card-9 list is read, but the run still refuses `nsigz > 1` and the
-//! temperature loop.
+//! temperature's card-9 list is read, ~~but the run still refuses `nsigz > 1` and the
+//! temperature loop~~.
+//! **CORRECTED 2026-11-13 (gh:#1369 round 4):** the temperature loop and `nsigz > 1`
+//! run: one MF=1 head, card-9 list and MEND per temperature on that temperature's
+//! PENDF block; `stounr` and `genflx` per temperature (`groupr::flux_table`);
+//! `init`'s `nz` and `nl` (MT=1 takes `nl = 2`); `getsig` with `getunr`; `panel`
+//! and `displa` over `(il, iz)` (`njoy_panel::group_general_nz`). Deck 47's second
+//! GROUPR and deck 11's GENDF without `6 18` are identical.
 //!
 //! Ported so far: the tape label, the MF=1/MT=451 head record of a material
 //! (`ZA, AWR, 0, nz, -1, ntw`; LIST `temp, 0, ngn, ngg, np, 0` with the title
@@ -128,7 +134,17 @@ impl GendfText {
 
     /// `amend` then `atend`: the material and tape ends.
     pub fn end_tape(&mut self) {
+        self.mend();
+        self.tend();
+    }
+
+    /// `amend`: the material end, written after each temperature (`:590-592`).
+    pub fn mend(&mut self) {
         self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", 0, 0, 0, 0));
+    }
+
+    /// `atend`: the tape end.
+    pub fn tend(&mut self) {
         self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", -1, 0, 0, 0));
     }
 
@@ -163,6 +179,94 @@ pub fn write_head(g: &mut GendfText, mat: i32, za: f64, awr: f64, tempin: f64, s
     g.fend();
 }
 
+/// One temperature's self-shielding state: `getflx`'s source, `stounr`'s table,
+/// the run's `sigz`, and the current reaction's `init` values `nz` and `nl`.
+struct Shield {
+    flux: crate::groupr::njoy_panel::FluxSource,
+    unr: Option<std::sync::Arc<crate::groupr::unresolved::UnresolvedTable>>,
+    sigz: Vec<f64>,
+    nz: usize,
+    nl: usize,
+    mtd: i32,
+}
+
+impl Shield {
+    /// `init`'s `nz` (`groupr.f90:5825-5838`) for `(mfd, mtd)`.
+    fn set(&mut self, mfd: i32, mtd: i32) {
+        let shielded = matches!((mfd, mtd), (3, 1 | 2 | 18 | 19 | 51 | 102 | 301 | 302 | 318 | 402 | 443 | 444) | (6, 2 | 18));
+        self.nz = if shielded { self.sigz.len() } else { 1 };
+        self.mtd = mtd;
+    }
+
+    /// The group loop for the current reaction: `getsig` with `getunr` when
+    /// `nz > 1`, `getflx` from this temperature's flux.
+    #[allow(clippy::too_many_arguments)]
+    fn group(
+        &mut self,
+        sig: &mut crate::groupr::njoy_panel::SigFeed,
+        pf: &mut crate::groupr::njoy_panel::PanelFeed,
+        egn: &[f64],
+        first: f64,
+        emaxx: f64,
+        irat: bool,
+        nl: usize,
+    ) -> Result<Vec<crate::groupr::njoy_panel::GroupRow>, NjoyError> {
+        self.nl = nl;
+        if self.nz > 1 {
+            *sig = sig.clone().with_unr(self.unr.clone(), &self.sigz, self.mtd);
+        }
+        crate::groupr::njoy_panel::group_general_nz(sig, pf, &mut self.flux, self.nz, egn, first, emaxx, irat, nl)
+    }
+}
+
+/// The blocks of material `mat` on a PENDF, one per temperature (an MF=1/MT=451
+/// and the sections that follow it), each as a tape of its own.
+fn temperature_blocks(pend: &crate::endf::tape::Tape, mat: i32) -> Vec<crate::endf::tape::Tape> {
+    let secs = pend.sections();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < secs.len() {
+        if secs[i].key.mat == mat && secs[i].key.mf == 1 && secs[i].key.mt == 451 {
+            let mut j = i + 1;
+            while j < secs.len() && secs[j].key.mat == mat && !(secs[j].key.mf == 1 && secs[j].key.mt == 451) {
+                j += 1;
+            }
+            out.push(crate::endf::tape::Tape::from_sections(pend.tpid.clone(), secs[i..j].to_vec()));
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+/// `groupr`'s search for `tempin` on the PENDF (`:521-536`), from block `*k` on:
+/// a block within `1 + tempin/1e4` K is taken; a hotter one first is an error.
+fn find_temperature_block(blocks: &[crate::endf::tape::Tape], k: &mut usize, mat: i32, tempin: f64) -> Result<crate::endf::tape::Tape, NjoyError> {
+    let eps = tempin / 10_000.0;
+    while *k < blocks.len() {
+        let b = &blocks[*k];
+        let rows = &b.section(mat, 1, 451).ok_or_else(|| NjoyError::InvalidInput("groupr: block without MF=1".into()))?.rows;
+        let iverf = crate::moder::layout::iverf_from_mf1(rows);
+        let thead = match iverf {
+            ..=4 => 1,
+            5 => 2,
+            _ => 3,
+        };
+        let t = rows.get(thead).map_or(0.0, |r| r[0]);
+        let diff = (t - tempin).abs();
+        if diff <= 1.0 + eps {
+            *k += 1;
+            return Ok(b.clone());
+        }
+        if t > tempin {
+            break;
+        }
+        *k += 1;
+    }
+    Err(NjoyError::InvalidInput(format!("groupr: unable to find mat={mat} t={tempin:.4e}")))
+}
+
 /// GROUPR (`groupr.f90`) on one material job: `nendf npend` in, GENDF out.
 ///
 /// # Errors
@@ -176,26 +280,23 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     if u.ngout1 != 0 || !job.more_materials.is_empty() {
         return Err(NjoyError::NotPorted("groupr input GENDF (ngout1) or several materials"));
     }
-    // The cards of every temperature are read (`read_groupr`, one card-9 list each,
-    // gh:#1369 round 3), but the tape driver runs one temperature and one sigma-zero.
-    // Not translated here: the temperature loop (`:520-630`), and for `nsigz > 1`
-    // `genflx`'s Bondarenko flux table (`:5309-5684`), `getflx`'s interpolation in it
-    // (`:6457-6520`), `getsig`'s `getunr` call (`:6787-6796`) and `nz > 1` in `panel`
-    // and `displa`.
-    if inp.sigma_zeros.len() != 1 {
-        return Err(NjoyError::NotPorted("groupr nsigz > 1 (genflx, getflx and getunr with several sigma-zeros)"));
-    }
-    if inp.temperatures.len() != 1 {
-        return Err(NjoyError::NotPorted("groupr temperature loop (several temperatures)"));
+    // ~~The tape driver runs one temperature and one sigma-zero~~ **CORRECTED
+    // 2026-11-13 (gh:#1369 round 4):** the temperature loop (`:520-630`) and
+    // `nsigz > 1` (`genflx`, `getflx`, `getsig`'s `getunr`, `nz > 1` in `panel` and
+    // `displa`) are translated; see `groupr::flux_table`.
+    // `ruinb` (`:1111`): `sigz(1) = 1e10` whatever card 6 says.
+    let mut sigz: Vec<f64> = inp.sigma_zeros.clone();
+    if let Some(s) = sigz.first_mut() {
+        *s = 1.0e10;
     }
     units.openz(u.npend, 0)?;
     units.openz(u.nendf, 0)?;
     units.openz(u.ngout2, 1)?;
-    let pend = units.get(u.npend)?.tape.clone();
-    let mf1 = pend
-        .section(inp.matb, 1, 451)
-        .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: unable to find mat={}", inp.matb)))?;
-    let (za, awr) = (mf1.rows[0][0], mf1.rows[0][1]);
+    let pend_all = units.get(u.npend)?.tape.clone();
+    let blocks = temperature_blocks(&pend_all, inp.matb);
+    if blocks.is_empty() {
+        return Err(NjoyError::InvalidInput(format!("groupr: unable to find mat={}", inp.matb)));
+    }
     let egn = match &inp.neutron_grid {
         Some(g) => g.clone(),
         None => inp.neutron_groups.boundaries()?,
@@ -205,16 +306,21 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         None => inp.photon_groups.boundaries()?,
     };
     let mut g = GendfText::label(&inp.title);
-    write_head(&mut g, inp.matb, za, awr, inp.temperatures[0], &inp.sigma_zeros, &egn, &egg);
-    // MF=3 vector reactions (card 9, `mfd = 3`), `groupr.f90:766-830` with `panel`.
     // `:413-431`: `iverf` and `emaxx` come from the first material of `nendf`: `tpidio`,
     // the head, the second record (`n1h`, `n2h` give `iverf`), and for ENDF-6 the
     // third record, whose C2 is `EMAX`.
     // ~~`emaxx` was the PENDF's `rows[1][1]`~~ **CORRECTED 2026-11-13 (gh:#1369):**
     // that is the second record's C2, `STA`; on Cf-252 decay data (deck 18, `STA = 1`)
     // it made `emaxx = 1` eV and skipped every group but the last.
-    let nend_tape = units.get(u.nendf)?.tape.clone();
-    let mf1e = nend_tape.sections().iter().find(|s| s.key.mf == 1 && s.key.mt == 451).unwrap_or(mf1);
+    // `conver` adds MF=1/MT=456 = MT=452 when neither 455 nor 456 is present (`:11473-11550`).
+    let nend_tape = {
+        let t = units.get(u.nendf)?.tape.clone();
+        crate::groupr::conver::with_mt456(&t, inp.matb).unwrap_or(t)
+    };
+    let mf1b = blocks[0]
+        .section(inp.matb, 1, 451)
+        .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: unable to find mat={}", inp.matb)))?;
+    let mf1e = nend_tape.sections().iter().find(|s| s.key.mf == 1 && s.key.mt == 451).unwrap_or(mf1b);
     let iverf = crate::moder::layout::iverf_from_mf1(&mf1e.rows);
     let emaxx = match iverf {
         ..=4 => 1.5e7,
@@ -224,9 +330,6 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             if c2 > 0.0 { c2 } else { 2.0e7 }
         }
     };
-    // The main loop's running `mtd` (`:619`, `mtd = 1`): a negative card-9 or
-    // list entry `-m` visits `mtd + 1 ..= m` (`:640-646`, `:731-732`).
-    let mut mtd_run = 1;
     let lists = crate::deck::groupr_auto::conver_lists(&nend_tape, inp.matb)?;
     // `nend2`, the tape `conver` writes (`:480-488`): its MF=12 `LO = 2` sections are
     // `LO = 1` yields there, and the level MF=14 sections isotropic (gh:#1517). Text
@@ -236,10 +339,36 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     // `dntc` (only `getyld` on MF=1/MT=455 sets it) and `lrflag` (the last `getsig`).
     // `lrflag_run` follows the `mfd = 3` branches only; an `mfd = 5` after a matrix
     // reaction (`mfd = 6/8/16/17/18` or production) would see that reaction's
-    // `lrflag` upstream, which no gated deck exercises.
+    // `lrflag` upstream, which no gated deck exercises. Both carry over from one
+    // temperature to the next, as module variables do.
     let ndelg = crate::groupr::spectrum::ndelg(&nend_tape, inp.matb)?;
     let mut dntc = [0.0f64; 8];
     let mut lrflag_run = 0i32;
+    let iblock = &mut 0usize;
+    for itemp in 0..inp.temperatures.len() {
+    let tempin = inp.temperatures[itemp];
+    let pend = find_temperature_block(&blocks, iblock, inp.matb, tempin)?;
+    let mf1 = pend
+        .section(inp.matb, 1, 451)
+        .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: unable to find mat={}", inp.matb)))?;
+    let (za, awr) = (mf1.rows[0][0], mf1.rows[0][1]);
+    // `stounr` (`:533`), then `genflx` when `nsigz > 1` (`:539-546`).
+    let unr = crate::groupr::flux_table::stounr(&pend, inp.matb, tempin)?.map(std::sync::Arc::new);
+    let flux = if sigz.len() > 1 {
+        let t = crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?;
+        crate::groupr::njoy_panel::FluxSource::Table(crate::groupr::flux_table::FluxCursor::new(std::sync::Arc::new(t)))
+    } else {
+        crate::groupr::njoy_panel::FluxSource::Wtf(inp.weight.iwt())
+    };
+    let mut sh = Shield { flux, unr, sigz: sigz.clone(), nz: 1, nl: 1, mtd: 0 };
+    write_head(&mut g, inp.matb, za, awr, tempin, &sigz, &egn, &egg);
+    // This temperature's card-9 list (`:586-630`), and `mtd = 1` again (`:619`).
+    let reactions = if itemp == 0 { inp.reactions.clone() } else { job.later_temperatures[itemp - 1].0.clone() };
+    let inp_t = crate::groupr::input::GrouprInput { temperatures: vec![tempin], reactions, ..inp.clone() };
+    let inp = &inp_t;
+    // The main loop's running `mtd` (`:619`, `mtd = 1`): a negative card-9 or
+    // list entry `-m` visits `mtd + 1 ..= m` (`:640-646`, `:731-732`).
+    let mut mtd_run = 1;
     for req0 in &inp.reactions {
         // `mtd = -1000` (no `mtd` on card 9): `iauto = 1`, the lists of `nextr`.
         let items: Vec<crate::deck::groupr_auto::AutoReaction> = if req0.mtd == crate::groupr::input::MTD_AUTO {
@@ -261,25 +390,26 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         for item in items {
             let mtd = item.mtd;
             let req = &crate::groupr::input::ReactionRequest { mfd: item.mfd, mtd, name: String::new() };
+            sh.set(req.mfd, mtd);
             if req.mfd >= 10_000_000 {
-                write_production(&mut g, inp, &nend_tape, &pend, za, &egn, emaxx, &item)?;
+                write_production(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, emaxx, &item)?;
                 continue;
             }
             // `getff`'s dispatch (`:7061-7073`).
             if req.mfd == 6 && (mtd == 2 || (51..=90).contains(&mtd)) {
-                write_mf6_two_body(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
+                write_mf6_two_body(&mut g, &mut sh, inp, units, &pend, za, &egn, emaxx, mtd)?;
                 continue;
             }
             if req.mfd == 6 && (6..=9).contains(&mtd) {
                 return Err(NjoyError::NotPorted("groupr getff label 400 for mfd = 6, MT = 6-9"));
             }
             if req.mfd == 6 && (221..=250).contains(&mtd) {
-                write_mf6_thermal(&mut g, inp, &pend, za, &egn, emaxx, mtd)?;
+                write_mf6_thermal(&mut g, &mut sh, inp, &pend, za, &egn, emaxx, mtd)?;
                 continue;
             }
             if req.mfd == 6 {
                 // label 200: `getfle` x `getsed` (`ContinuumFeed` refuses what it lacks by name).
-                write_mf6_continuum(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
+                write_mf6_continuum(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, emaxx, mtd)?;
                 continue;
             }
             if req.mfd == 17 || req.mfd == 16 {
@@ -287,11 +417,11 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                     Some(t) => t,
                     None => &nend_tape,
                 };
-                write_mf16_photon(&mut g, inp, nend2_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
+                write_mf16_photon(&mut g, &mut sh, inp, nend2_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
             if req.mfd == 8 || req.mfd == 18 {
-                write_getmf6(&mut g, inp, &nend_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
+                write_getmf6(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
             if req.mfd == 5 {
@@ -317,8 +447,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 }
                 let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
                 let mut pf = crate::groupr::njoy_panel::PanelFeed::Nu(nu);
-                let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), &egn, first, emaxx, true, 1)?;
-                write_vector_section(&mut g, inp, za, &egn, mtd, lrflag_run, rows);
+                let rows = sh.group(&mut feed, &mut pf, &egn, first, emaxx, true, 1)?;
+                write_vector_section(&mut g, &mut sh, inp, za, &egn, mtd, lrflag_run, rows);
                 continue;
             }
             if (257..=259).contains(&mtd) {
@@ -326,8 +456,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 // `getsig` init (`:6684-6690`): no PENDF section, `lrflag = 0`.
                 let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::non_cross_section(mtd);
                 let mut pf = crate::groupr::njoy_panel::PanelFeed::Vector;
-                let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), &egn, first, emaxx, false, 1)?;
-                write_vector_section(&mut g, inp, za, &egn, mtd, 0, rows);
+                let rows = sh.group(&mut feed, &mut pf, &egn, first, emaxx, false, 1)?;
+                write_vector_section(&mut g, &mut sh, inp, za, &egn, mtd, 0, rows);
                 continue;
             }
             // `getsig` reads MT 2 for the ratio reactions (`:6705`).
@@ -340,7 +470,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             let lrflag = tab.head.l2;
             lrflag_run = lrflag;
             let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
-            let iwt = inp.weight.iwt();
+            let nl1 = if mtd == 1 && sh.sigz.len() > 1 { 2 } else { 1 };
             let mut pf = if ratio {
                 let ang = crate::groupr::file4::File4Angular::from_tape(&units.get(u.nendf)?.tape, inp.matb, 2, crate::groupr::file4::NLD)?;
                 let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, &egn, head.c2, tab.head.c2, lrflag)?;
@@ -348,11 +478,13 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             } else {
                 crate::groupr::njoy_panel::PanelFeed::Vector
             };
-            let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, iwt, &egn, first, emaxx, ratio, 1)?;
-            write_vector_section(&mut g, inp, za, &egn, mtd, lrflag, rows);
+            let rows = sh.group(&mut feed, &mut pf, &egn, first, emaxx, ratio, nl1)?;
+            write_vector_section(&mut g, &mut sh, inp, za, &egn, mtd, lrflag, rows);
         }
     }
-    g.end_tape();
+    g.mend();
+    }
+    g.tend();
     units.put_text(u.ngout2, g.text());
     Ok(())
 }
@@ -362,6 +494,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
 /// (threshold above the top group: `ig1 = 0`, `asend` needs `ig1 /= 0`).
 fn write_vector_section(
     g: &mut GendfText,
+    sh: &mut Shield,
     inp: &crate::groupr::input::GrouprInput,
     za: f64,
     egn: &[f64],
@@ -373,7 +506,7 @@ fn write_vector_section(
         return;
     }
     g.begin(inp.matb, 3, mtd);
-    g.cont([za, 0.0], [1, 1, lrflag, (egn.len() - 1) as i32]);
+    g.cont([za, 0.0], [sh.nl as i32, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }
@@ -407,6 +540,7 @@ fn write_mf5_spectrum(
 #[allow(clippy::too_many_arguments)]
 fn write_production(
     g: &mut GendfText,
+    sh: &mut Shield,
     inp: &crate::groupr::input::GrouprInput,
     nend: &crate::endf::tape::Tape,
     pend: &crate::endf::tape::Tape,
@@ -443,12 +577,12 @@ fn write_production(
     } else {
         crate::groupr::njoy_panel::PanelFeed::Vector
     };
-    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, 1)?;
+    let rows = sh.group(&mut feed, &mut pf, egn, first, emaxx, false, 1)?;
     if rows.is_empty() {
         return Ok(());
     }
     g.begin(inp.matb, 3, r.mtd);
-    g.cont([za, f64::from(r.izam())], [1, 1, lrflag, (egn.len() - 1) as i32]);
+    g.cont([za, f64::from(r.izam())], [1, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }
@@ -466,6 +600,7 @@ fn write_production(
 #[allow(clippy::too_many_arguments)]
 fn write_getmf6(
     g: &mut GendfText,
+    sh: &mut Shield,
     inp: &crate::groupr::input::GrouprInput,
     nend: &crate::endf::tape::Tape,
     pend: &crate::endf::tape::Tape,
@@ -514,12 +649,12 @@ fn write_getmf6(
         crate::groupr::njoy_panel::PanelFeed::Mf6(f, eg, nl)
     };
     let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
-    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    let rows = sh.group(&mut feed, &mut pf, egn, first, emaxx, false, nl)?;
     if rows.is_empty() {
         return Ok(());
     }
     g.begin(inp.matb, if mfd == 18 { 16 } else { 6 }, mtd);
-    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
+    g.cont([za, 0.0], [nl as i32, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }
@@ -564,6 +699,7 @@ fn photon_line_awp(nend: &crate::endf::tape::Tape, mat: i32, mtd: i32) -> Result
 #[allow(clippy::too_many_arguments)]
 fn write_mf6_two_body(
     g: &mut GendfText,
+    sh: &mut Shield,
     inp: &crate::groupr::input::GrouprInput,
     units: &mut TapeUnits,
     pend: &crate::endf::tape::Tape,
@@ -582,12 +718,12 @@ fn write_mf6_two_body(
     let ang = crate::groupr::file4::File4Angular::from_tape(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, crate::groupr::file4::NLD)?;
     let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl);
-    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    let rows = sh.group(&mut feed, &mut pf, egn, first, emaxx, false, nl)?;
     if rows.is_empty() {
         return Ok(());
     }
     g.begin(inp.matb, 6, mtd);
-    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
+    g.cont([za, 0.0], [nl as i32, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }
@@ -599,8 +735,9 @@ fn write_mf6_two_body(
 #[allow(clippy::too_many_arguments)]
 fn write_mf6_continuum(
     g: &mut GendfText,
+    sh: &mut Shield,
     inp: &crate::groupr::input::GrouprInput,
-    units: &mut TapeUnits,
+    nend: &crate::endf::tape::Tape,
     pend: &crate::endf::tape::Tape,
     za: f64,
     egn: &[f64],
@@ -614,15 +751,15 @@ fn write_mf6_continuum(
     let lrflag = tab.head.l2;
     let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
     let ismooth = inp.ismooth == crate::groupr::input::SmoothingOption::On;
-    let cf = crate::groupr::continuum::ContinuumFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, egn, inp.lord.max(0) as usize + 1, ismooth)?;
+    let cf = crate::groupr::continuum::ContinuumFeed::new(nend, inp.matb, mtd, egn, inp.lord.max(0) as usize + 1, ismooth)?;
     let nl = cf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Continuum(cf);
-    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    let rows = sh.group(&mut feed, &mut pf, egn, first, emaxx, false, nl)?;
     if rows.is_empty() {
         return Ok(());
     }
     g.begin(inp.matb, 6, mtd);
-    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
+    g.cont([za, 0.0], [nl as i32, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }
@@ -633,6 +770,7 @@ fn write_mf6_continuum(
 /// `mfd = 6` thermal (`getff` label 700 = `getaed`, `MT = 221-250`).
 fn write_mf6_thermal(
     g: &mut GendfText,
+    sh: &mut Shield,
     inp: &crate::groupr::input::GrouprInput,
     pend: &crate::endf::tape::Tape,
     za: f64,
@@ -649,12 +787,12 @@ fn write_mf6_thermal(
     let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
     let tf = crate::groupr::thermal::ThermalFeed::new(pend, inp.matb, mtd, egn, nl)?;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Thermal(tf);
-    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    let rows = sh.group(&mut feed, &mut pf, egn, first, emaxx, false, nl)?;
     if rows.is_empty() {
         return Ok(());
     }
     g.begin(inp.matb, 6, mtd);
-    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
+    g.cont([za, 0.0], [nl as i32, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }
@@ -666,6 +804,7 @@ fn write_mf6_thermal(
 #[allow(clippy::too_many_arguments)]
 fn write_mf16_photon(
     g: &mut GendfText,
+    sh: &mut Shield,
     inp: &crate::groupr::input::GrouprInput,
     nend2: &crate::endf::tape::Tape,
     pend: &crate::endf::tape::Tape,
@@ -688,12 +827,12 @@ fn write_mf16_photon(
     let pf = crate::groupr::photon_prod::PhotonFeed::new(nend2, inp.matb, mtd, mfd, egn, egg, inp.lord.max(0) as usize + 1)?;
     let nl = pf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Photon(pf);
-    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    let rows = sh.group(&mut feed, &mut pf, egn, first, emaxx, false, nl)?;
     if rows.is_empty() {
         return Ok(());
     }
     g.begin(inp.matb, 16, mtd);
-    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
+    g.cont([za, 0.0], [nl as i32, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }
