@@ -125,7 +125,11 @@ mod qcheb;
 /// (gh:#1340).
 mod qawc;
 
+/// Romberg integration, GSL `integration/romberg.c` (gh:#1340).
+mod romberg;
+
 pub use qagp::{qagp, qagp_with_status};
+pub use romberg::{romberg, romberg_with_status, RombergOutcome};
 pub use qawc::{qawc, qawc_with_status};
 pub use qng::{qng, qng_with_status, QngOutcome};
 pub use qagi::{qagi, qagil, qagil_with_status, qagi_with_status, qagiu, qagiu_with_status};

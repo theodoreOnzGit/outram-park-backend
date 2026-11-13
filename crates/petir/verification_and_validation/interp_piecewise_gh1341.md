@@ -43,3 +43,28 @@ Parent: gh:#1341, epic gh:#1336. Research, education and V&V only
 - Not ported from gh:#1341 (still open): `cspline_periodic`, `polynomial`,
   `spline.c` convenience wrapper, and the 2-D family (`interp2d`, `bilinear`,
   `bicubic`, `spline2d`).
+
+## Periodic cubic spline and polynomial interpolation (written 2026-11-13, prediction committed BEFORE the port is run)
+
+- **Port:** `src/interp_cspline_poly.rs` (`PeriodicSpline`,
+  `PolynomialInterp`) from GSL 2.8 `interpolation/cspline.c`
+  (`cspline_init_periodic` and the shared kernels) and `poly.c`, on
+  `poly/dd.c` (`gsl_poly_dd_taylor`, ported line by line here because
+  `DividedDifference::to_taylor` is a different accumulation) and
+  `src/linalg/tridiag_cyc.rs` (`solve_cyc_tridiag`, ported with it).
+  `spline.c` is **not ported**: `gsl_spline` is `gsl_interp` plus an owned
+  copy of `x`, `y`, which `Interp` and the new types already own (checked
+  against `spline.c`).
+- **Reference:** `reference-data/gsl/interp_cspline_poly_reference_driver.c`;
+  6 periodic tables (including `per3`, the closed-form 2x2 branch, `nonper`,
+  where `y[0] != y[n-1]`, and `per2`, where GSL's init fails) and 5
+  polynomial tables. **Replay:** `tests/gsl_interp_cspline_poly_code_to_code.rs`.
+- **P7 (periodic spline).** `gsl_interp_init` status equal on all six tables
+  (nonzero only for `per2`), and every `E/D/D2/I` row bit-identical: no libm
+  function is called. It fails if the cyclic solver's grouping
+  (`-delta[i-1] * offdiag[i-1] / alpha[i]`, the corner sums) is wrong.
+- **P8 (polynomial).** `E` rows bit-identical (`gsl_poly_dd_init`/`_eval` were
+  already bit-identical in `tests/gsl_poly_code_to_code.rs`), `D`/`D2` rows
+  bit-identical (line-by-line `dd_taylor`), and `I` rows bit-identical on at
+  least 90 % (they call `pow(b, i+1)`, glibc in GSL against PETIR's `pow`
+  here; a 1-ulp difference is accepted, counted and pinned).

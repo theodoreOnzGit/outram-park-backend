@@ -85,6 +85,9 @@ COPYRIGHT HOLDERS
                            (contributors Konstantin Holoborodko, Rhys Ulerich)
       -> src/integration/glfixed.rs, glfixed_tables.rs (ported 2026-11-13,
          gh:#1340; the 27 tables and `ltbl` copied by script)
+    GSL integration/romberg.c
+                           Copyright (C) 2018 Patrick Alken
+      -> src/integration/romberg.rs (ported 2026-11-13, gh:#1340)
     GSL linalg/tridiag.c (solve_cyc_tridiag)
                            Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002,
                            2004, 2007 Gerard Jungman, Brian Gough, David Necas

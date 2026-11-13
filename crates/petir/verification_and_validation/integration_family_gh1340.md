@@ -148,3 +148,10 @@ Replay tests: `tests/gsl_qng_code_to_code.rs` (27 cases),
   grouping `(four_j*Rc[j-1] - Rp[j-1]) / (four_j - 1)`, the `a + j*h` abscissae
   or the row swap is mis-transcribed. The `n > 30` cap is not observable
   (a non-converging 30-row run is 5e8 evaluations) and is not tested.
+
+### Romberg results (2026-11-13)
+
+**P6 held.** 20 of 20 cases: GSL status (`EDOM` 1, `EMAXITER` 11), `*neval` and
+the integrand call count identical, and 20 of 20 results bit-identical
+(`tests/gsl_romberg_code_to_code.rs`; includes five non-converging runs, a
+reversed interval, a zero-width interval and the four argument errors).

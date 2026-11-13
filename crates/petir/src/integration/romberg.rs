@@ -1,5 +1,5 @@
 //! Romberg integration, ported from GSL 2.8 `integration/romberg.c` (lines
-//! 41-164), commit `cf180cd7`, read 2026-11-13. Copyright (C) 2019 Patrick
+//! 41-164), commit `cf180cd7`, read 2026-11-13. Copyright (C) 2018 Patrick
 //! Alken (GPL-3.0-or-later). gh:#1340. Research, education and V&V only.
 //!
 //! Richardson extrapolation of the composite trapezoid rule with `2^i + 1`
@@ -57,7 +57,14 @@ fn put(v: &mut [f64], i: usize, x: f64) {
 /// let r = romberg(|x: f64| x.exp(), 0.0, 1.0, 0.0, 1e-12, 20).unwrap();
 /// assert!((r.value - (core::f64::consts::E - 1.0)).abs() < 1e-12);
 /// ```
-pub fn romberg<F>(f: F, a: f64, b: f64, epsabs: f64, epsrel: f64, n: usize) -> Result<RombergOutcome>
+pub fn romberg<F>(
+    f: F,
+    a: f64,
+    b: f64,
+    epsabs: f64,
+    epsrel: f64,
+    n: usize,
+) -> Result<RombergOutcome>
 where
     F: Fn(f64) -> f64,
 {
