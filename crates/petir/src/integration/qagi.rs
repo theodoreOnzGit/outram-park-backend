@@ -192,7 +192,8 @@ mod tests {
         assert!(qagi(|x: f64| x, 0.0, 1e-8, 0).is_err());
         assert!(qagiu(|x: f64| x, f64::INFINITY, 0.0, 1e-8, 10).is_err());
         assert!(qagil(|x: f64| x, f64::NAN, 0.0, 1e-8, 10).is_err());
-        let o = qagi_with_status(|x: f64| x, 0.0, 1e-8, 10);
-        assert!(o.status.is_err(), "int x over R diverges");
+        // (An odd integrand like `x` would cancel to 0 and "converge".)
+        let o = qagi_with_status(|x: f64| 1.0 / Real::sqrt(1.0 + x * x), 0.0, 1e-8, 10);
+        assert!(o.status.is_err(), "int 1/sqrt(1+x^2) over R diverges");
     }
 }

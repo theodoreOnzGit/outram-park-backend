@@ -119,7 +119,7 @@
 //! | [`gamma_inc`] | ported | Regularised lower incomplete gamma, GSL's branch structure (see also the OpenFOAM-lifted `specfunc::inc_gamma`) |
 //! | [`depletion`] | ported (OpenMC, not GSL) | OpenMC's eight depletion time integrators, IPF CRAM and the dense burnup matrix; CRAM and the matrix moved here from `outram-mc-libs` 2026-10-17 |
 //! | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
-//! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags` |
+//! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags`, and `qagi`/`qagiu`/`qagil` for infinite ranges |
 //! | [`interp`] | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
 //! | [`interp_piecewise`] | ported | Steffen (monotone), Akima and periodic Akima interpolation with first and second derivative and integral (gh:#1341) |
 //! | [`interp_egs`] | ported (EGSnrc, not GSL; AGPL-3.0-or-later) | EGSnrc's `EGS_Interpolator`: precomputed linear interpolation on uniform bins, from a table, a function, existing coefficients, or adaptively; out-of-range clamped (gh:#1289) |
@@ -140,7 +140,7 @@
 //!
 //! The epic's original scope is now COVERED. What remains are deliberate
 //! subsets rather than gaps, and each is named where it matters: the
-//! infinite-range and weighted quadrature variants ([`integration`]; QAGS was
+//! ~~infinite-range~~ (**CORRECTED 2026-11-13, gh:#1340:** `qagi`, `qagiu`, `qagil` are ported) and weighted quadrature variants ([`integration`]; QAGS was
 //! ported 2026-09-28), ~~implicit
 //! and stiff ODE methods ([`ode`])~~ (**CORRECTED 2026-11-01**: backward
 //! Euler and BDF2 are now in [`ode::implicit`], gh:#1065; GSL's adaptive

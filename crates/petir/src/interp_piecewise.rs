@@ -47,6 +47,7 @@ use alloc::vec::Vec;
 use crate::real::Real;
 
 use crate::interp::integ_eval;
+use crate::zip::zip2;
 use crate::{PetirError, Result};
 
 /// Which piecewise cubic a [`PiecewiseInterp`] is.
@@ -101,6 +102,23 @@ pub struct PiecewiseInterp {
     d: Vec<f64>,
 }
 
+/// `v[i]`, or `NaN` if `i` is out of range.
+///
+/// Every call is in range by construction (lengths are validated in
+/// [`PiecewiseInterp::new`] and the loops stay inside them). The fallback
+/// exists so the crate's no-subscript gate (`tests/no_panic_gate.rs`) holds: a
+/// violated invariant would surface as `NaN`, not a panic.
+fn at(v: &[f64], i: usize) -> f64 {
+    v.get(i).copied().unwrap_or(f64::NAN)
+}
+
+/// `v[i] = x`, ignored if `i` is out of range (same invariant as [`at`]).
+fn put(v: &mut [f64], i: usize, x: f64) {
+    if let Some(slot) = v.get_mut(i) {
+        *slot = x;
+    }
+}
+
 /// `steffen_copysign` (steffen.c:317): flips `x` only when the signs differ
 /// strictly, so a zero `y` leaves `x` alone (unlike `copysign`).
 fn steffen_copysign(x: f64, y: f64) -> f64 {
@@ -141,8 +159,8 @@ impl PiecewiseInterp {
         if n < kind.min_size() {
             return Err(PetirError::Invalid);
         }
-        for i in 1..n {
-            if !(xa[i - 1] < xa[i]) {
+        for (&lo, &hi) in zip2(xa.iter(), xa.iter().skip(1)) {
+            if !(lo < hi) {
                 return Err(PetirError::Domain);
             }
         }
@@ -169,28 +187,37 @@ impl PiecewiseInterp {
         let x = &self.xa;
         let y = &self.ya;
         let mut y_prime = vec![0.0_f64; size];
-        let h0 = x[1] - x[0];
-        let s0 = (y[1] - y[0]) / h0;
-        y_prime[0] = s0;
+        let h0 = at(x, 1) - at(x, 0);
+        let s0 = (at(y, 1) - at(y, 0)) / h0;
+        put(&mut y_prime, 0, s0);
         for i in 1..(size - 1) {
-            let hi = x[i + 1] - x[i];
-            let him1 = x[i] - x[i - 1];
-            let si = (y[i + 1] - y[i]) / hi;
-            let sim1 = (y[i] - y[i - 1]) / him1;
+            let hi = at(x, i + 1) - at(x, i);
+            let him1 = at(x, i) - at(x, i - 1);
+            let si = (at(y, i + 1) - at(y, i)) / hi;
+            let sim1 = (at(y, i) - at(y, i - 1)) / him1;
             let pi = (sim1 * hi + si * him1) / (him1 + hi);
-            y_prime[i] = (steffen_copysign(1.0, sim1) + steffen_copysign(1.0, si))
-                * gsl_min(sim1.abs(), gsl_min(si.abs(), 0.5 * pi.abs()));
+            put(
+                &mut y_prime,
+                i,
+                (steffen_copysign(1.0, sim1) + steffen_copysign(1.0, si))
+                    * gsl_min(sim1.abs(), gsl_min(si.abs(), 0.5 * pi.abs())),
+            );
         }
-        y_prime[size - 1] = (y[size - 1] - y[size - 2]) / (x[size - 1] - x[size - 2]);
+        put(
+            &mut y_prime,
+            size - 1,
+            (at(y, size - 1) - at(y, size - 2)) / (at(x, size - 1) - at(x, size - 2)),
+        );
 
         let mut a = vec![0.0_f64; size];
         for i in 0..(size - 1) {
-            let hi = x[i + 1] - x[i];
-            let si = (y[i + 1] - y[i]) / hi;
-            a[i] = (y_prime[i] + y_prime[i + 1] - 2.0 * si) / hi / hi;
-            self.b[i] = (3.0 * si - 2.0 * y_prime[i] - y_prime[i + 1]) / hi;
-            self.c[i] = y_prime[i];
-            self.d[i] = y[i];
+            let hi = at(x, i + 1) - at(x, i);
+            let si = (at(y, i + 1) - at(y, i)) / hi;
+            let (yp0, yp1) = (at(&y_prime, i), at(&y_prime, i + 1));
+            put(&mut a, i, (yp0 + yp1 - 2.0 * si) / hi / hi);
+            put(&mut self.b, i, (3.0 * si - 2.0 * yp0 - yp1) / hi);
+            put(&mut self.c, i, yp0);
+            put(&mut self.d, i, at(y, i));
         }
         self.a = a;
     }
@@ -204,30 +231,38 @@ impl PiecewiseInterp {
         let y = &self.ya;
         let mut mm = vec![0.0_f64; size + 4];
         for i in 0..=(size - 2) {
-            mm[i + 2] = (y[i + 1] - y[i]) / (x[i + 1] - x[i]);
+            put(
+                &mut mm,
+                i + 2,
+                (at(y, i + 1) - at(y, i)) / (at(x, i + 1) - at(x, i)),
+            );
         }
+        // upstream m[0], m[1], m[size-3], m[size-2] (= mm[2], mm[3],
+        // mm[size-1], mm[size]).
+        let (m0, m1) = (at(&mm, 2), at(&mm, 3));
+        let (mn3, mn2) = (at(&mm, size - 1), at(&mm, size));
         if periodic {
-            mm[0] = mm[size - 1 - 2 + 2];
-            mm[1] = mm[size - 1 - 1 + 2];
-            mm[size - 1 + 2] = mm[2];
-            mm[size + 2] = mm[3];
+            put(&mut mm, 0, mn3);
+            put(&mut mm, 1, mn2);
+            put(&mut mm, size + 1, m0);
+            put(&mut mm, size + 2, m1);
         } else {
-            mm[0] = 3.0 * mm[2] - 2.0 * mm[3];
-            mm[1] = 2.0 * mm[2] - mm[3];
-            mm[size - 1 + 2] = 2.0 * mm[size - 2 + 2] - mm[size - 3 + 2];
-            mm[size + 2] = 3.0 * mm[size - 2 + 2] - 2.0 * mm[size - 3 + 2];
+            put(&mut mm, 0, 3.0 * m0 - 2.0 * m1);
+            put(&mut mm, 1, 2.0 * m0 - m1);
+            put(&mut mm, size + 1, 2.0 * mn2 - mn3);
+            put(&mut mm, size + 2, 3.0 * mn2 - 2.0 * mn3);
         }
-        // m(k) = upstream m[k], k in -2..=size.
-        let m = |k: isize| mm[(k + 2) as usize];
+        // m(k) = upstream m[k] for k in -2..=size.
+        let m = |k: isize| at(&mm, (k + 2) as usize);
         for i in 0..(size - 1) {
             let ii = i as isize;
             let ne = (m(ii + 1) - m(ii)).abs() + (m(ii - 1) - m(ii - 2)).abs();
             if ne == 0.0 {
-                self.b[i] = m(ii);
-                self.c[i] = 0.0;
-                self.d[i] = 0.0;
+                put(&mut self.b, i, m(ii));
+                put(&mut self.c, i, 0.0);
+                put(&mut self.d, i, 0.0);
             } else {
-                let h_i = x[i + 1] - x[i];
+                let h_i = at(x, i + 1) - at(x, i);
                 let ne_next = (m(ii + 2) - m(ii + 1)).abs() + (m(ii) - m(ii - 1)).abs();
                 let alpha_i = (m(ii - 1) - m(ii - 2)).abs() / ne;
                 let tl_ip1 = if ne_next == 0.0 {
@@ -236,9 +271,10 @@ impl PiecewiseInterp {
                     let alpha_ip1 = (m(ii) - m(ii - 1)).abs() / ne_next;
                     (1.0 - alpha_ip1) * m(ii) + alpha_ip1 * m(ii + 1)
                 };
-                self.b[i] = (1.0 - alpha_i) * m(ii - 1) + alpha_i * m(ii);
-                self.c[i] = (3.0 * m(ii) - 2.0 * self.b[i] - tl_ip1) / h_i;
-                self.d[i] = (self.b[i] + tl_ip1 - 2.0 * m(ii)) / (h_i * h_i);
+                let b_i = (1.0 - alpha_i) * m(ii - 1) + alpha_i * m(ii);
+                put(&mut self.b, i, b_i);
+                put(&mut self.c, i, (3.0 * m(ii) - 2.0 * b_i - tl_ip1) / h_i);
+                put(&mut self.d, i, (b_i + tl_ip1 - 2.0 * m(ii)) / (h_i * h_i));
             }
         }
     }
@@ -247,10 +283,10 @@ impl PiecewiseInterp {
     /// `xa[i] <= x < xa[i+1]` and `i <= n - 2`.
     fn bracket_index(&self, x: f64) -> usize {
         let mut ilo = 0usize;
-        let mut ihi = self.xa.len() - 1;
+        let mut ihi = self.xa.len().saturating_sub(1);
         while ihi > ilo + 1 {
             let i = (ihi + ilo) / 2;
-            if self.xa[i] > x {
+            if at(&self.xa, i) > x {
                 ihi = i;
             } else {
                 ilo = i;
@@ -260,12 +296,28 @@ impl PiecewiseInterp {
     }
 
     fn check_range(&self, x: f64) -> Result<()> {
-        let lo = self.xa[0];
-        let hi = self.xa[self.xa.len() - 1];
+        let (Some(&lo), Some(&hi)) = (self.xa.first(), self.xa.last()) else {
+            return Err(PetirError::Invalid);
+        };
         if !(x >= lo && x <= hi) {
             return Err(PetirError::Domain);
         }
         Ok(())
+    }
+
+    /// The segment index of `x` and its coefficients `(i, delx, a, b, c, d)`.
+    fn segment(&self, x: f64) -> Result<(usize, f64, f64, f64, f64, f64)> {
+        self.check_range(x)?;
+        let i = self.bracket_index(x);
+        let delx = x - at(&self.xa, i);
+        Ok((
+            i,
+            delx,
+            at(&self.a, i),
+            at(&self.b, i),
+            at(&self.c, i),
+            at(&self.d, i),
+        ))
     }
 
     /// Interpolate at `x`: `steffen_eval` (steffen.c:182-215) or `akima_eval`
@@ -275,14 +327,10 @@ impl PiecewiseInterp {
     ///
     /// [`PetirError::Domain`] if `x` is outside `[x[0], x[n-1]]` or `NaN`.
     pub fn eval(&self, x: f64) -> Result<f64> {
-        self.check_range(x)?;
-        let i = self.bracket_index(x);
-        let delx = x - self.xa[i];
+        let (i, delx, a, b, c, d) = self.segment(x)?;
         Ok(match self.kind {
-            PiecewiseKind::Steffen => {
-                self.d[i] + delx * (self.c[i] + delx * (self.b[i] + delx * self.a[i]))
-            }
-            _ => self.ya[i] + delx * (self.b[i] + delx * (self.c[i] + self.d[i] * delx)),
+            PiecewiseKind::Steffen => d + delx * (c + delx * (b + delx * a)),
+            _ => at(&self.ya, i) + delx * (b + delx * (c + d * delx)),
         })
     }
 
@@ -293,12 +341,10 @@ impl PiecewiseInterp {
     ///
     /// As [`Self::eval`].
     pub fn eval_deriv(&self, x: f64) -> Result<f64> {
-        self.check_range(x)?;
-        let i = self.bracket_index(x);
-        let delx = x - self.xa[i];
+        let (_, delx, a, b, c, d) = self.segment(x)?;
         Ok(match self.kind {
-            PiecewiseKind::Steffen => self.c[i] + delx * (2.0 * self.b[i] + delx * 3.0 * self.a[i]),
-            _ => self.b[i] + delx * (2.0 * self.c[i] + 3.0 * self.d[i] * delx),
+            PiecewiseKind::Steffen => c + delx * (2.0 * b + delx * 3.0 * a),
+            _ => b + delx * (2.0 * c + 3.0 * d * delx),
         })
     }
 
@@ -309,12 +355,10 @@ impl PiecewiseInterp {
     ///
     /// As [`Self::eval`].
     pub fn eval_deriv2(&self, x: f64) -> Result<f64> {
-        self.check_range(x)?;
-        let i = self.bracket_index(x);
-        let delx = x - self.xa[i];
+        let (_, delx, a, b, c, d) = self.segment(x)?;
         Ok(match self.kind {
-            PiecewiseKind::Steffen => 6.0 * self.a[i] * delx + 2.0 * self.b[i],
-            _ => 2.0 * self.c[i] + 6.0 * self.d[i] * delx,
+            PiecewiseKind::Steffen => 6.0 * a * delx + 2.0 * b,
+            _ => 2.0 * c + 6.0 * d * delx,
         })
     }
 
@@ -339,29 +383,32 @@ impl PiecewiseInterp {
         let index_b = self.bracket_index(b);
         let mut result = 0.0_f64;
         for i in index_a..=index_b {
-            let x_hi = self.xa[i + 1];
-            let x_lo = self.xa[i];
+            let x_hi = at(&self.xa, i + 1);
+            let x_lo = at(&self.xa, i);
             let dx = x_hi - x_lo;
+            let (ca, cb, cc, cd) = (
+                at(&self.a, i),
+                at(&self.b, i),
+                at(&self.c, i),
+                at(&self.d, i),
+            );
             match self.kind {
                 PiecewiseKind::Steffen => {
                     let x1 = if i == index_a { a - x_lo } else { 0.0 };
                     let x2 = if i == index_b { b - x_lo } else { x_hi - x_lo };
-                    result += (1.0 / 4.0) * self.a[i] * (x2 * x2 * x2 * x2 - x1 * x1 * x1 * x1)
-                        + (1.0 / 3.0) * self.b[i] * (x2 * x2 * x2 - x1 * x1 * x1)
-                        + (1.0 / 2.0) * self.c[i] * (x2 * x2 - x1 * x1)
-                        + self.d[i] * (x2 - x1);
+                    result += (1.0 / 4.0) * ca * (x2 * x2 * x2 * x2 - x1 * x1 * x1 * x1)
+                        + (1.0 / 3.0) * cb * (x2 * x2 * x2 - x1 * x1 * x1)
+                        + (1.0 / 2.0) * cc * (x2 * x2 - x1 * x1)
+                        + cd * (x2 - x1);
                 }
                 _ => {
-                    let y_lo = self.ya[i];
+                    let y_lo = at(&self.ya, i);
                     if i == index_a || i == index_b {
                         let x1 = if i == index_a { a } else { x_lo };
                         let x2 = if i == index_b { b } else { x_hi };
-                        result += integ_eval(y_lo, self.b[i], self.c[i], self.d[i], x_lo, x1, x2);
+                        result += integ_eval(y_lo, cb, cc, cd, x_lo, x1, x2);
                     } else {
-                        result += dx
-                            * (y_lo
-                                + dx * (0.5 * self.b[i]
-                                    + dx * (self.c[i] / 3.0 + 0.25 * self.d[i] * dx)));
+                        result += dx * (y_lo + dx * (0.5 * cb + dx * (cc / 3.0 + 0.25 * cd * dx)));
                     }
                 }
             }
