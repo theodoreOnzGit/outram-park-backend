@@ -1046,3 +1046,20 @@ control-flow comparisons above (steps 1-723 identical; the `nOuterCorrectors 6` 
 * `*Final` fvSolution variants, `useFirstPISOInitialResidual false` and `stopIfFirstResRelChangeAboveRelTol` are not read (none is exercised by 1D_boiling).
 * Decision for the maintainer: should the corrected-ending default also make `calcCumulContErrs` run in every step? (see Item 3).
 * The cumulative continuity error is still a factor 1.25 (shipped) to 1.3 (tight) from upstream's after the onset: it integrates a cancelling quantity along a chaotic trajectory, so it is not expected to close.
+
+# Round 5 addendum (gh:#1361, #1362; 2026-11-13): why the first differing PIMPLE step moved from 724 to 759
+
+AI-written, not human-reviewed. Research, education and V&V only. The test `one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split`
+found 759 after commit 9db557a69 (gh:#1362 row 4, thermophysics against ESI v2506); its parent 5e42d5727 gives 724 (bisected by the coordinator).
+
+## Predictions (written BEFORE any run of this addendum)
+
+Read first (no run): the five changes of 9db557a69 against the code twoPhase calls (`solver/two_phase/thermo.rs`: vapour `PerfectGas` + `HConstThermo` +
+`ConstTransport`, liquid `IcoPolynomial` + `HPolynomialThermo` (Foundation form, `new`) + `PolynomialTransport`; it uses `rho`, `psi`, `cp`, `mu`, `kappa`, `hs`, `T(hs)`).
+
+| id | prediction | reason |
+|---|---|---|
+| M1 | the only change that reaches the solver is **perfectGas `psi = 1/(R T)`** (vapour). Reverting it alone restores 724; reverting any other piece alone leaves 759 | `P_REF` is read only by entropy (`S`), which twoPhase never calls; `alphah` is never called (twoPhase builds `kappa = Cp mu rPr` itself through `kappa`, unchanged); PengRobinson and `rhoConst` are not selected by any two-phase tutorial; `GasConstant` defaults to CODATA, so `r()` is unchanged; `hPolynomial` ESI form is opt-in (`new_esi_v2506`), the solver uses `new` |
+| M2 | the change in `psi` is at most 1 ulp (new `1/(R T)` against old `(p/(R T))/p`), so it is a move toward upstream's operations (v2506 `perfectGasI.H`) but of size ~1e-16 | arithmetic |
+| M3 | the field differences against upstream on steps 1-65 (<= 1e-9 gate) and in the onset window do not change measurably (all change by well under the 1e-11 linear-solver noise already there); they neither shrink nor grow beyond that | the dominant difference is the linear-solver stopping (GAMG against ILU-BiCGStab at 1e-14), 5 orders above 1 ulp |
+| M4 | therefore the step 724 -> 759 is not a measurable change in distance from upstream: after the onset round 3 showed 1e-6 perturbations growing to O(1) within 0.5 s, so a 1e-16 perturbation re-draws the threshold-crossing step. The change is correct in form (bit-identical operation to upstream) and the new step is a different draw of the same chaotic noise | round 3 noise floor |
