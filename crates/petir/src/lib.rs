@@ -119,8 +119,10 @@
 //! | [`gamma_inc`] | ported | Regularised lower incomplete gamma, GSL's branch structure (see also the OpenFOAM-lifted `specfunc::inc_gamma`) |
 //! | [`depletion`] | ported (OpenMC, not GSL) | OpenMC's eight depletion time integrators, IPF CRAM and the dense burnup matrix; CRAM and the matrix moved here from `outram-mc-libs` 2026-10-17 |
 //! | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
-//! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags`, and `qagi`/`qagiu`/`qagil` for infinite ranges |
+//! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags`, `qagi`/`qagiu`/`qagil` for infinite ranges, `qagp` (break points), `qawc` (Cauchy principal value), `qaws` (algebraic-logarithmic weights), non-adaptive `qng`, Romberg, and fixed-order Gauss-Legendre (`glfixed`) (gh:#1340) |
 //! | [`interp`] | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
+//! | [`interp2d`] | ported | Bilinear and bicubic interpolation on a rectangular grid with first and second partial derivatives (gh:#1341) |
+//! | [`interp_cspline_poly`] | ported | Periodic cubic spline and the single interpolating polynomial, with first and second derivative and integral (gh:#1341) |
 //! | [`interp_piecewise`] | ported | Steffen (monotone), Akima and periodic Akima interpolation with first and second derivative and integral (gh:#1341) |
 //! | [`interp_egs`] | ported (EGSnrc, not GSL; AGPL-3.0-or-later) | EGSnrc's `EGS_Interpolator`: precomputed linear interpolation on uniform bins, from a table, a function, existing coefficients, or adaptively; out-of-range clamped (gh:#1289) |
 //! | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS, symmetric tridiagonal, and rectangular Householder QR with a least-squares solve |
@@ -144,8 +146,7 @@
 //! ported 2026-09-28), ~~implicit
 //! and stiff ODE methods ([`ode`])~~ (**CORRECTED 2026-11-01**: backward
 //! Euler and BDF2 are now in [`ode::implicit`], gh:#1065; GSL's adaptive
-//! stiff steppers `msbdf`, `bsimp`, `rk2imp`/`rk4imp` remain unported), ~~Akima and Steffen interpolation~~ **CORRECTED 2026-11-13 (gh:#1341):** Steffen and Akima (plain and periodic) are in [`interp_piecewise`]; the periodic *cubic* spline,
-//! polynomial and 2-D interpolation ([`interp`]) remain, general-degree complex polynomial roots
+//! stiff steppers `msbdf`, `bsimp`, `rk2imp`/`rk4imp` remain unported), ~~Akima and Steffen interpolation~~ **CORRECTED 2026-11-13 (gh:#1341):** Steffen and Akima (plain and periodic) are in [`interp_piecewise`], and the periodic *cubic* spline and polynomial are in [`interp_cspline_poly`] and the 2-D bilinear and bicubic in [`interp2d`], general-degree complex polynomial roots
 //! ([`poly`]), and rank-deficient least squares (`bn:op-4m4b` — the QR here
 //! is unpivoted, so a dependent design matrix is reported rather than solved).
 //! Each is tracked as a bead rather than stubbed, because an empty module that
@@ -224,6 +225,16 @@ pub mod interp_egs;
 /// Steffen (monotone) and Akima piecewise-cubic interpolation, ported from
 /// GSL 2.8 (gh:#1341).
 pub mod interp_piecewise;
+/// Periodic cubic spline and polynomial interpolation, ported from GSL 2.8
+/// (gh:#1341).
+pub mod interp_cspline_poly;
+/// Bilinear and bicubic interpolation on a rectangular grid, ported from GSL
+/// 2.8 (gh:#1341).
+pub mod interp2d;
+/// The bicubic polynomial sums of `interp2d`, generated from GSL's
+/// `bicubic.c` by `reference-data/gsl/gen_bicubic_rs.py`.
+#[rustfmt::skip]
+mod interp2d_bicubic;
 pub mod linalg;
 /// `f64` transcendentals as methods (the `RealMath` trait), so a crate can
 /// adopt the deterministic route by renaming rather than rewriting.
