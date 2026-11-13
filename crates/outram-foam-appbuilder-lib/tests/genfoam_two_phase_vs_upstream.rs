@@ -516,3 +516,55 @@ fn dump_first_step_cells() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Diagnostic (not a gate), gh:#1361 round 5: write the port's PIMPLE control flow of a whole run in the
+/// format of `scripts/extract_pimple_flow.sh` (one `STEP n time iterations ending p_rgh-list h-list` line
+/// per step) to `GH1361_FLOW_OUT`, so it can be compared with the upstream log step by step.
+/// `GH1361_TIGHT` (default 1), `GH1361_STALE` (default 1), `GH1361_NOUTER`, `GH1361_END` (end time, default 12).
+#[test]
+#[ignore]
+fn dump_pimple_flow() {
+    let out = std::env::var("GH1361_FLOW_OUT").expect("GH1361_FLOW_OUT");
+    let tight = std::env::var("GH1361_TIGHT").map_or(true, |v| v != "0");
+    let stale = std::env::var("GH1361_STALE").map_or(true, |v| v != "0");
+    let dir = protocol_copy("flow", tight, std::env::var("GH1361_EVERY_STEP").is_ok());
+    let mut s = TwoPhaseSolver::new(TwoPhaseCase::read(&dir).expect("read"));
+    let _ = std::fs::remove_dir_all(&dir);
+    if stale {
+        s = s.with_upstream_stale_pimple_converged_flag();
+    }
+    if let Ok(k) = std::env::var("GH1361_NOUTER") {
+        s.controls.n_outer = k.parse().expect("n_outer");
+    }
+    let end: f64 = std::env::var("GH1361_END").map_or_else(|_| 12.0, |v| v.parse().expect("end"));
+    let n_outer = s.controls.n_outer;
+    let mut text = String::new();
+    let mut n = 0usize;
+    while s.time < end - 1e-9 {
+        let rep = s.step().expect("step");
+        n += 1;
+        let ending = if rep.outer_iterations == 0 {
+            "conv0".to_string()
+        } else if rep.converged_at != 0 && rep.converged_at < n_outer {
+            format!("conv{}", rep.converged_at)
+        } else {
+            "notconv".to_string()
+        };
+        let k = s.pimple_trace.len().saturating_sub(1);
+        let join = |f: &dyn Fn(&(f64, f64)) -> f64| -> String {
+            if k == 0 {
+                "-".to_string()
+            } else {
+                s.pimple_trace[..k].iter().map(|t| format!("{:e}", f(t))).collect::<Vec<_>>().join(",")
+            }
+        };
+        text.push_str(&format!(
+            "STEP {n} {} {} {ending} {} {}\n",
+            rep.time,
+            rep.outer_iterations,
+            join(&|t| t.0),
+            join(&|t| t.1)
+        ));
+    }
+    std::fs::write(out, text).expect("write");
+}

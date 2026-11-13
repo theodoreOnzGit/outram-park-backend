@@ -495,6 +495,9 @@ pub struct StepReport {
     /// next step (the corrected behaviour, the default since the maintainer decision of 2026-11-12);
     /// this flag records where upstream would have, and is the same in both modes.
     pub upstream_would_skip_next_step: bool,
+    /// Outer iteration (1-based) at whose START the residual criteria were met, so that iteration
+    /// ran as the "final" one (`converged_` set); 0 when they were never met in this step.
+    pub converged_at: usize,
 }
 
 /// The two-phase solver. Build from a GeN-Foam case with
@@ -550,6 +553,11 @@ pub struct TwoPhaseSolver {
     /// `customPimpleControl::converged_`, kept across steps only when
     /// [`TwoPhaseControls::stale_pimple_converged_flag`] is set.
     pimple_converged: bool,
+    /// Per outer iteration of the LAST step: (first-PISO `p_rgh` initial residual, last `h.<fluid1>`
+    /// initial residual) at the end of that iteration, i.e. the two numbers
+    /// `customPimpleControl::criteriaSatisfied` prints as "abs tol" at the start of the next one
+    /// (diagnostic; gh:#1361 round 5).
+    pub pimple_trace: Vec<(f64, f64)>,
     /// ESI `Time::writeTimeIndex_` (`adjustableRunTime` only).
     write_time_index: i64,
     /// Interfacial area density [1/m].
@@ -642,6 +650,7 @@ impl TwoPhaseSolver {
             t_interface_raw0: vec![0.0; n],
             corr_in_step: 0,
             pimple_converged: false,
+            pimple_trace: Vec::new(),
             write_time_index: 0,
             interfacial_area: vec![0.0; n],
             dmdt: vec![0.0; n],
@@ -794,6 +803,7 @@ impl TwoPhaseSolver {
         };
         let n_outer = self.controls.n_outer.max(1);
         let mut corr = 0;
+        self.pimple_trace.clear();
         // customPimpleControl::loop(), call by call (as `OnePhaseFcSolver::step`)
         loop {
             corr += 1;
@@ -811,14 +821,25 @@ impl TwoPhaseSolver {
             if corr > 1 && self.criteria_satisfied(&report) {
                 self.pimple_converged = true;
                 report.upstream_would_skip_next_step = corr == n_outer;
+                report.converged_at = corr;
             }
             self.corr_in_step = corr;
             self.correct_models();
             let (p_res, n_piso) = self.correct_fluid_mechanics()?;
             let _ = n_piso;
             report.p_rgh_initial_residual = p_res;
+            // `twoPhase::calcCumulContErrs` is the last line of `correctFluidMechanics` and runs
+            // `if (pimple_.finalIter())`. That inherited `finalIter()` is `converged_ || corr_ ==
+            // nCorrPIMPLE` on the BASE class's `corr_`, which `customPimpleControl::loop` never
+            // advances (its own `corr_` shadows it), so it is true only in the iteration flagged as
+            // converged: a step that never meets its criteria, and a skipped step, add nothing.
+            // (Round 5; the port added in every step before. Same as `OnePhaseFcSolver::step`.)
+            if self.pimple_converged {
+                self.calc_cumul_cont_errs();
+            }
             report.h1_initial_residual = self.correct_energy();
             report.outer_iterations = corr;
+            self.pimple_trace.push((report.p_rgh_initial_residual, report.h1_initial_residual));
         }
         for k in 0..2 {
             if self.fluids[k].alpha.c.iter().any(|v| !v.is_finite())
@@ -830,7 +851,6 @@ impl TwoPhaseSolver {
                 });
             }
         }
-        self.calc_cumul_cont_errs();
         let _ = n;
         report.courant = self.courant();
         if self.time_controls.adjust_time_step {

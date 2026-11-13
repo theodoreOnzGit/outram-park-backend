@@ -857,3 +857,62 @@ nothing moved in its default behaviour; the option reproduces upstream's skip. R
   finding 3; the twoPhase port adds it every step), which is part of why the cumulative errors above are far off.
 * `one_d_boiling_default_is_the_corrected_pimple_ending` pins the twoPhase default (flag `false`, default run skips 0
   steps, upstream option skips 4, 1D_boiling reaches the condition 18 times).
+
+
+# Round 5 (gh:#1361, 2026-11-13): twoPhase PIMPLE control flow against the real binary, step by step
+
+AI-written, not human-reviewed. Research, education and V&V only. Upstream rebuilt (ESI v2506 and GeN-Foam 652b3da,
+`scripts/upstream/build-esi-v2506-and-genfoam.sh`); the numbers below are from that build. Predictions are committed
+BEFORE the port runs they concern.
+
+## What upstream's `customPimpleControl` does, read before any run (the specification)
+
+Read: `customPimpleControl.{C,H}`, `customPimpleControlI.H`, ESI `pimpleControl.{C,H}`, `pimpleControlI.H`,
+`solutionControl.H`, and every GeN-Foam call site of `finalIter`/`firstIter`/`isFinalIteration`.
+
+* `customPimpleControl` declares its OWN `int corr_` (public). `loop()` and `criteriaSatisfied()` advance and read
+  that one. The inline, NON-virtual `pimpleControl::finalIter()`, `firstIter()` and `storeInitialResiduals()` read
+  the BASE `solutionControl::corr_`, which is never advanced, so it stays 0. Consequences (all verified in the
+  upstream log, which prints `ini res = 0` in every "PIMPLE loop:" line):
+  1. `finalIter()` is `converged_` only. At `corr == nOuterCorrectors` without convergence it is false, so the
+     data flag `finalIteration` is NOT set for the last iteration (only the flagged iteration is "final").
+  2. `storeInitialResiduals()` is always false, so `residualControl_[f].initialResidual` stays 0, `relative =
+     last/(0 + SMALL)` is huge and `relCheck` is false for any `relTol` in these cases: the criterion is the
+     ABSOLUTE one, `residuals.last() < tolerance`, only.
+  3. `calcCumulContErrs` is under `if (pimple_.finalIter())` -> only in the iteration flagged converged.
+* The criteria use `previousPIMPLEFirstPISORes_.last()` for `p_rgh` (`useFirstPISOInitialResidual true`: the initial
+  residual of the first PISO corrector of the last outer iteration, stored by `updateFirstPISOPrevPIMPLE()` after each
+  `p_rgh` solve with `corrPISO_ == 1`) and `maxResidual().last()` for `h.liquid` (the last `h.liquid` initial residual).
+* Flag then run: criteria met at the START of outer iteration c (c >= 2) sets `converged_`, runs iteration c as the
+  final one; the next `loop()` prints "converged in c iterations" and clears it, EXCEPT c == nOuterCorrectors, where the
+  `corr == nCorr + 1` branch returns first and leaves `converged_` set (the stale flag, round 4).
+
+Where the port stood before this round (read, not run): the loop is the same call sequence; the cumulative continuity
+error was added after the loop in EVERY step, including a skipped one (item 3 of the task; the onePhase port had
+already moved it into the iteration flagged converged).
+
+## Predictions (written BEFORE the port flow run)
+
+The reference is a fresh upstream run: 1D_boiling, tight protocol, 12 s, default write control, `scripts/extract_pimple_flow.sh`
+on its log: one line per step with the iterations run, the ending (`conv<N>`, `notconv`, or `conv0` = skipped step) and the
+`p_rgh`/`h.liquid` residuals the criteria printed. Upstream: 6157 steps, 8 skipped steps (conv0), each preceded by a step
+flagged in its last iteration. The port is run with `with_upstream_stale_pimple_converged_flag()`.
+
+| id | prediction | reason |
+|---|---|---|
+| F1 | steps 1-617 (single phase): the port's iteration count and ending equal upstream's at EVERY step | the fields agree to 1e-10 there (round 3), so the criteria see the same numbers |
+| F2 | the residuals in the lists of F1 agree to better than 1e-6 relative wherever they exceed 1e-8 | same state; the first-PISO `p_rgh` initial residual and the `h.liquid` initial residual are computed on the same matrices. Entries at the 1e-14 noise floor are not compared |
+| F3 | the first step with a different iteration count is after the onset (> 618), and at that step the deciding residual (the one that crossed 1e-5 in one code and not in the other) is within a factor 2 of 1e-5 in BOTH codes | the two post-onset trajectories differ by 1e-6 in alpha at the onset and amplify (round 3 noise floor): a threshold crossing, not a control-flow difference |
+| F4 | step 751, flagged in the last iteration by the port, is not flagged by upstream: upstream's last printed `p_rgh` residual is 1.5264e-5 (read from the log), above 1e-5. I predict the port's value is also within a factor 2 of 1e-5 | same as F3 |
+| F5 | no code defect is found in the loop's control flow itself. The explanation of "the option moves the run away from upstream" is that after the onset a single threshold crossing changes the trajectory, not that the translation differs | the call sequence of `step()` equals `customPimpleControl::loop()` line by line (see above) |
+
+A control experiment that removes the chaos (the port's only possible failing is then the loop): the same case with
+`nOuterCorrectors 5` (upstream's `NOUTER` hook of `boiling_protocol.sh`), stopped before the onset (t <= 3 s, every step written).
+At 5 outer iterations many steps meet the criteria exactly at iteration 5 (stale flag, skipped next step) and others never meet
+them (`notconv`), so both branches of the loop are exercised on a single-phase flow whose fields agree to 1e-10.
+
+| id | prediction |
+|---|---|
+| C1 | at `nOuterCorrectors 5` the port with the upstream option and upstream skip THE SAME steps (the same list of step numbers), at least 5 of them |
+| C2 | every field of every step, including the skipped ones, agrees as in round 3 (`p`, `p_rgh`, `T.liquid`, `U.liquid` <= 1e-9; `T.vapour`, `T.interface`, `U.vapour` <= 1e-7), with no growth across skipped steps |
+| C3 | the cumulative continuity errors, which the port now adds only in the iteration flagged converged, agree with upstream's final value to 1e-4 relative (round-off of the 1e-13 scale cancelling, as for onePhase 3e-10 absolute), where before this round they were a factor of a few off |
