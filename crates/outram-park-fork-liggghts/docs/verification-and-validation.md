@@ -2015,11 +2015,11 @@ was not tested.
 the end of § 4.17.1. The curvature-limited radius, mesh and cylinder walls,
 rebuild intervals and the binned pair order are now ported; they are struck
 through below.
-- `fix particletemplate/superquadric` and insertion of superquadrics
-  (`particleToInsertSuperquadric`);
+- ~~`fix particletemplate/superquadric` and insertion of superquadrics
+  (`particleToInsertSuperquadric`)~~ (ported 2026-11-13, § 4.17.2);
 - ~~the curvature-limited radius (`curvatureLimitFactor`, `meanCurvature`,
   `gaussianCurvature`; the default 0 is what is ported)~~;
-- rolling-friction models with superquadrics;
+- ~~rolling-friction models with superquadrics~~ (CDT ported 2026-11-13, § 4.17.3; EPSD, EPSD2, EPSD3 and Luding are not);
 - ~~mesh walls (`resolveTriSuperquadricContact`, `tri_mesh_I_superquadric.h`)
   and cylinder primitive walls~~;
 - `area_superquadric` (not used by the dynamics) and
@@ -2151,9 +2151,9 @@ decision.**
     after seeing the result.
 
 **Not ported** (refused or absent), replacing the list above:
-- `fix particletemplate/superquadric` and insertion of superquadrics
-  (`particleToInsertSuperquadric`);
-- rolling-friction models with superquadrics;
+- ~~`fix particletemplate/superquadric` and insertion of superquadrics
+  (`particleToInsertSuperquadric`)~~ (ported 2026-11-13, § 4.17.2);
+- ~~rolling-friction models with superquadrics~~ (CDT ported 2026-11-13, § 4.17.3; EPSD, EPSD2, EPSD3 and Luding are not);
 - moving meshes with superquadrics (the barycentric wall velocity is not
   computed: `with_mesh_wall` takes a static `MeshWall`), `fix
   mesh/surface/stress` force accounting on the mesh, and coplanar history
@@ -2167,6 +2167,173 @@ decision.**
 - `common_normal` / `minimal_distance` (not called by the surface model);
 - other normal and tangential models with superquadrics;
 - convex hull, ellipsoid, line and tri particles.
+
+**Maintainer decision (2026-11-13, gh:#1415):** the pins above that exceed the
+1e-8 allowance are **accepted under gh:#1455** (option 1). No glibc test seam
+is added and no deck is shortened; the late frames rest on the recorded glibc
+swap.
+
+### 4.17.2 Superquadric insertion: `particletemplate/superquadric` + `insert/pack` (2026-11-13, gh:#1415)
+
+**Methodology.** Upstream LIGGGHTS-PUBLIC 3d5c00f2 was rebuilt in scratch with
+`-DSUPERQUADRIC_ACTIVE_FLAG -DNONSPHERICAL_ACTIVE_FLAG`
+(`upstream_source/README.md`). Two new decks from
+`reference-data/liggghts/make_superquadric_decks.sh` were run with it, and
+`sq2csv.sh` converted their `%.17g` dumps. `tests/superquadric_cross_code.rs`
+builds the same set-up through `SuperquadricSystem::without_particles`,
+`with_neighbor_list` and `with_insertion`. It compares every value (`x v omega
+quat`) of every atom at every frame on its IEEE-754 bits, and requires each
+frame's atom count to equal upstream's. The prediction was posted on gh:#1415
+before the first Rust run.
+
+**What upstream does, as ported:**
+- **Template.** `FixTemplateSuperquadric::randomize_ptilist` with `constant`
+  shape, blockiness and density, which draw nothing. Per entry it computes the
+  bounding radius, `volume_superquadric`, `mass = density * volume` and
+  `inertia_superquadric`. The expectancies come from the same functions, and
+  `max_rad` is the bounding radius.
+- **Overlap test.** The default is `check_obb yes` (`FixInsert`, under the
+  flag). `load_xnear` loads every body with its quaternion, shape and
+  blockiness. `hasOverlap_superquadric` reports an overlap only if all three
+  hold:
+  - the bounding spheres overlap;
+  - `capsules_intersect` holds (main-axis segments, capsule radius
+    `sqrt(r1^2 + r2^2)`, `line_segments_distance`);
+  - `obb_intersect` holds, starting from inequality 0.
+
+  The answer is a boolean, so a uniform grid replaces upstream's bins.
+- **Orientation.**
+  - `orientation random`: `random_unit_quat` (three `uniform()` draws, then
+    `sqrt`, `sin` and `cos`) on the insert fix's stream, once per trial and
+    after that trial's velocity. The quaternion is not normalised, and the atom
+    takes it as it is.
+  - `orientation constant`: a fixed quaternion.
+- **`ParticleToInsertSuperquadric::insert`.** `angmom = omega_to_angmom`.
+- **`calc_ninsert_this`.** Counts each body as its bounding sphere.
+- **Insertion step.** `Neighbor::decide` returns before `ago++`, `pre_exchange`
+  appends the bodies, and the list is rebuilt. The neighbour cut includes the
+  fix's `max_rad`. The pair and wall histories grow, with new slots zeroed.
+
+**Decks** (common settings: Hertz + history, `E = 1e7`, `nu = 0.3`, `e = 0.5`,
+`mu = 0.4`, `dt = 1e-5`, sort off, `neighbor 0.002 bin`):
+- `in.sq_pour`:
+  - templates: the `n = 6` blob (4, 3, 2.5 mm, 2500 kg/m^3) and the
+    `n1 = 4, n2 = 3` blob (3.5, 3, 4 mm, 1500 kg/m^3), 50/50 by mass;
+  - insertion: `orientation random`, `all_in yes`, `particles_in_region 6` in
+    a cylinder region (r = 11 mm, z 30 to 60 mm), `insert_every 4000`;
+  - walls: a `zcylinder` (r = 15 mm) above a `zplane`; `every 1 check yes`;
+  - upstream inserts 6, 4, 3, 5 and 4 bodies at steps 1, 4001, 8001, 12001 and
+    16001;
+  - 11 frames to step 20 000: 127 atom-frames, 1651 values.
+- `in.sq_pour_mesh`:
+  - five `n = 6` blobs, `orientation constant 0.5 0.5 0.5 0.5`,
+    `insert_every once`;
+  - inserted into a block (+-8 x +-12 x 15 to 35 mm) above the V-groove
+    `sq_vgroove.stl`; `every 1 check no`;
+  - 9 frames to step 15 000: 45 atom-frames, 585 values.
+
+**Results** (2026-11-13, Rust 1.99.1):
+
+| deck | PETIR `RealMath` (committed, pinned) | glibc swap | worst relative (PETIR) |
+|---|---|---|---|
+| `sq_pour` | **732 / 1651** | **1651 / 1651** | `1.57e1` at step 20 000 |
+| `sq_pour_mesh` | **245 / 585** | **585 / 585** | `1.77e-6` at step 15 000 |
+
+- **Atom counts.** Every frame of both decks has upstream's atom count, under
+  both maths libraries. So every batch size agrees, and so does every
+  accept/reject of the overlap test.
+- **The glibc swap.** All six transcendental calls go to glibc, as in 4.17.
+- **`sin`/`cos` are part of the residue.** With `sin` and `cos` left on libm
+  and the rest on glibc:
+  - `sq_pour` drops to **839 / 1651**;
+  - `sq_pour_mesh` stays at **585 / 585**, because `orientation constant`
+    calls neither.
+
+  `random_unit_quat` puts a 1-ulp difference into the first body's quaternion
+  at step 1 (`quat1 = 9.04964129337928e-2` against `9.049641293379279e-2`).
+  `omega`, recomputed from `angmom` through that quaternion, differs by up to
+  `8.9e-16` relative.
+- **How the PETIR residue grows.**
+  - `sq_pour`: within `9e-14` to step 4 001; `3.7e-10` at steps 8 000 and
+    8 001; `1.3e-7` at 10 000; `2.2e-5` at 12 000; `0.16` at 15 000; O(10) at
+    20 000, in the growing pile.
+  - `sq_pour_mesh`: frames 1, 1 000 and 2 000 whole; `1.9e-13` at 4 000;
+    `1.9e-8` at 12 000; `1.8e-6` at 15 000.
+- **What is pinned.** Both decks are within the 1e-8 allowance only in their
+  early frames. Their counts and worst values are pinned exactly and accepted
+  under gh:#1455 (maintainer decision 2026-11-13). The late frames rest on the
+  recorded glibc swap.
+
+**Interpretation.** Given the same maths library, superquadric insertion
+reproduces upstream to the bit. That covers the template, the expectancies that
+set the batch size, the `check_obb` overlap test, the per-trial random
+orientation, the insertion-step reneighbour and the growth of the history
+arrays.
+
+A unit test (`insertion_templates_overlap_list_and_refusals`) shows a case
+where `check_obb` changes the decision. Two boxes side by side have overlapping
+bounding spheres but separate boxes: the sphere-only test rejects the
+placement, and `check_obb` accepts it. How often this happens in the two decks
+was not counted.
+
+**Not ported** (refused or absent):
+- `shape` distributions other than `constant` (`gaussian`, `uniform`);
+- the template keywords `size`, `volume_limit`, `region`, `relative` and
+  `region_variable`;
+- superquadric insertion through `insert/stream`. `insert/rate/region` uses
+  the same `InsertFix`, but no deck exercises it;
+- `orientation random` for sphere and multisphere templates (refused);
+- distributions that mix superquadric and other templates (refused);
+- `area_superquadric` (stored by upstream, unused by the dynamics);
+- particle deletion with superquadrics.
+
+### 4.17.3 Rolling friction CDT with superquadrics (2026-11-13, gh:#1415)
+
+**Methodology.** The build, conversion and bit-pattern comparison are the same
+as in 4.17.2, and the prediction was posted on gh:#1415 before the first Rust
+run.
+
+The upstream behaviour ported is `rolling_model_cdt.h`, with
+`torsionTorque off` (the default):
+- For a superquadric contact, `reff` is the superquadric `sidata.reff`. That is
+  the volume-equivalent `r_i r_j / (r_i + r_j)`, or the curvature-limited
+  radius when the curvature limit is on.
+- **Wall.** `r_torque = mu_r (deltan kn) wr / |wr| reff`, where
+  `wr = omega_i`.
+- **Pair.** `r_torque = wr (mu_r kn deltan reff / |wr|)`, where
+  `wr = omega_i - omega_j`.
+- In both cases the normal part of the torque is removed. `i` loses the torque
+  and `j` gains it, after the tangential model.
+
+On the Rust side, `SuperquadricSystem::with_rolling_cdt(coeffRollFrict)`
+applies it. It is off by default, as upstream is.
+
+**Decks.** Both use `sq_collide`'s two blobs under gravity above a `zplane` at
+4 cm, with `rolling_friction cdt` and `coefficientRollingFriction 0.1` on the
+pair and the wall. Each has 10 frames to step 8 000 (260 values).
+- `in.sq_cdt`: as above.
+- `in.sq_cdt_curv`: adds `curvatureLimitFactor 1.5 meanCurvature yes` on both
+  the pair and the wall.
+
+**Results** (2026-11-13, Rust 1.99.1):
+
+| deck | PETIR (pinned) | glibc swap | worst relative (PETIR) |
+|---|---|---|---|
+| `sq_cdt` | **63 / 260** | **260 / 260** | `5.8e-12` |
+| `sq_cdt_curv` | **61 / 260** | **260 / 260** | `2.2e-10` |
+
+Both decks stay inside the 1e-8 allowance with PETIR maths.
+
+**Ablation.** The run was repeated once with `mu_r = 0`; this run is not
+committed. Against the same references, both decks fall to 26 / 260 (the first
+frame only), with worst differences of `9.2e1` and `4.3e3`. The decks therefore
+depend on the rolling torque, on the pair and on the wall.
+
+**Not ported:**
+- `torsionTorque on`;
+- the EPSD, EPSD2, EPSD3 and Luding rolling models with superquadrics;
+- CDT at mesh walls. The code path is shared with the primitive walls, but no
+  deck checks it.
 
 ## 5. What is still NOT validated
 

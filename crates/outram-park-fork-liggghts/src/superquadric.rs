@@ -47,7 +47,18 @@
 //                      src/tangential_model_history.h (NONSPHERICAL_ACTIVE_FLAG
 //                      torque branches), src/set.cpp (`shape`, `blockiness`,
 //                      `density`, `quat_direct`, `omega` keywords for atom style
-//                      superquadric), src/math_extra.h (`quatvec`, `invquatvec`)
+//                      superquadric), src/math_extra.h (`quatvec`, `invquatvec`),
+//                      src/fix_template_superquadric.cpp (`randomize_ptilist`,
+//                      expectancies, `max_rad`), src/particleToInsertSuperquadric.cpp
+//                      (`insert`, `check_near_set_x_v_omega`, `set_x_v_omega`),
+//                      src/region_neighbor_list_I.h (`hasOverlap_superquadric`,
+//                      `insert_superquadric`), src/fix_insert.cpp (`load_xnear`,
+//                      `check_obb`), src/fix_insert_pack.cpp (`x_v_omega`,
+//                      `orientation random`), src/math_extra_liggghts.h
+//                      (`random_unit_quat`), src/math_extra_liggghts_superquadric.cpp
+//                      (`capsules_intersect`), src/math_extra_liggghts_nonspherical.cpp
+//                      (`line_segments_distance`), src/rolling_model_cdt.h
+//                      (`surfacesIntersect`, SUPERQUADRIC_ACTIVE_FLAG `reff`)
 //   Upstream commit  : 3d5c00f20519e6bb6eb6756f51f1ad36564e649d (2024-06-07)
 //   Upstream licence : "GNU Public License, version 2 or later" -> used here
 //                      under the "or later" option as GPL-3.0. The superquadric
@@ -92,6 +103,9 @@
 //! | `surface superquadric curvatureLimitFactor f meanCurvature/gaussianCurvature yes` | [`SuperquadricSystem::with_curvature_limit`] |
 //! | `neighbor <skin> bin` + `neigh_modify delay 0 every N check yes/no` | [`SuperquadricSystem::with_neighbor_list`] |
 //! | `fix gravity ... vector` | [`SuperquadricSystem::with_gravity`] |
+//! | `fix particletemplate/superquadric` (`constant` shape, blockiness, density) | [`ParticleTemplateSuperquadric`] |
+//! | `rolling_friction cdt` (pair and walls, `torsionTorque off`) | [`SuperquadricSystem::with_rolling_cdt`] |
+//! | `fix insert/pack` (`check_obb yes`, `orientation constant/random`) | [`crate::insert::InsertFix`] + [`SuperquadricSystem::with_insertion`] |
 //!
 //! [`SuperquadricSystem`] is a separate driver beside
 //! [`crate::granular_system::GranularSystem`]: none of the sphere or
@@ -158,9 +172,13 @@
 //! where the bounding spheres overlap (`neigh_gran.cpp`).
 //!
 //! **Not translated** (refused or absent, never silently approximated):
-//! `fix particletemplate/superquadric` and insertion of superquadrics,
+//! ~~`fix particletemplate/superquadric` and insertion of superquadrics~~
+//! (ported 2026-11-13 for `constant` distributions and `insert/pack`;
+//! `gaussian`/`uniform` shapes, `size`, and `insert/stream` of superquadrics
+//! are not),
 //! ~~the curvature-limited radius~~ (ported 2026-11-13), rolling-friction
-//! models, ~~mesh walls (`resolveTriSuperquadricContact`)~~ (static meshes
+//! models other than CDT (~~rolling-friction models~~: CDT ported
+//! 2026-11-13, `torsionTorque off` only), ~~mesh walls (`resolveTriSuperquadricContact`)~~ (static meshes
 //! ported 2026-11-13; moving meshes and `mesh/surface/stress` are not),
 //! the superquadric atom sort (`atom_modify sort` must be `0 0`),
 //! `area_superquadric` (not used by the dynamics), `compute
@@ -168,7 +186,8 @@
 //! CFD-coupling torque terms. Convex hull, ellipsoid, line and tri particles
 //! are not ported.
 //!
-//! V&V: `docs/verification-and-validation.md` §§ 4.17 and 4.17.1.
+//! V&V: `docs/verification-and-validation.md` §§ 4.17, 4.17.1, 4.17.2 and
+//! 4.17.3.
 
 use crate::granular::{ContactKinematics, GranularMaterial, GranularNormalModel, MaterialTable};
 use crate::mesh_wall::MeshWall;
@@ -2419,6 +2438,12 @@ pub struct SuperquadricSystem {
     is_setup: bool,
     neigh: Option<SqNeighbor>,
     step: u64,
+    /// `fix insert/pack` over superquadric templates
+    /// ([`SuperquadricSystem::with_insertion`]).
+    inserters: Vec<crate::insert::InsertFix>,
+    /// `rolling_model cdt`: `coeffRollFrict` per type pair, row-major
+    /// ([`SuperquadricSystem::with_rolling_cdt`]).
+    rolling_cdt: Option<Vec<f64>>,
 }
 
 impl SuperquadricSystem {
@@ -2463,6 +2488,8 @@ impl SuperquadricSystem {
             is_setup: false,
             neigh: None,
             step: 0,
+            inserters: Vec::new(),
+            rolling_cdt: None,
         })
     }
 
@@ -2586,7 +2613,11 @@ impl SuperquadricSystem {
         }
         for _ in 0..n {
             self.initial_integrate();
-            if self.neighbor_decide() {
+            // `Neighbor::decide`: a fix's `next_reneighbor` forces the build
+            // before `ago++`; `pre_exchange` (insertion) runs on every build
+            let ntimestep = self.step + 1;
+            if self.insertion_due(ntimestep) || self.neighbor_decide() {
+                self.run_insertions(ntimestep);
                 self.rebuild_neighbor_list();
             }
             self.compute_forces(true);
@@ -2683,6 +2714,12 @@ impl SuperquadricSystem {
         let x: Vec<Vec3> = self.particles.iter().map(|p| p.x).collect();
         let r: Vec<f64> = self.particles.iter().map(|p| p.radius).collect();
         let max_radius = r.iter().fold(0.0_f64, |m, &v| m.max(v));
+        // the cut includes the largest body an insertion fix can still add
+        // (`PairGran::init_style`: `max_rad(type)` of fixes)
+        let max_radius = self
+            .inserters
+            .iter()
+            .fold(max_radius, |m, f| m.max(f.max_rad()));
         let Some(nb) = self.neigh.as_mut() else {
             return;
         };
@@ -2873,6 +2910,7 @@ impl SuperquadricSystem {
             &mut hist.shear,
             shearupdate,
             self.dt,
+            cdt_coeff(self.rolling_cdt.as_deref(), self.materials.n_types(), pi.itype, pj.itype).map(|rmu| (rmu, sub3(&om_i, &om_j))),
         );
         let fj_data = fj_data.unwrap_or_default();
         let p = &mut self.particles[i];
@@ -3036,6 +3074,7 @@ impl SuperquadricSystem {
             &mut self.wall_shear[w][slot],
             shearupdate,
             self.dt,
+            cdt_coeff(self.rolling_cdt.as_deref(), self.materials.n_types(), p.itype, wall_type).map(|rmu| (rmu, om)),
         );
         let p = &mut self.particles[ip];
         for k in 0..3 {
@@ -3145,6 +3184,7 @@ fn contact_forces(
     shear: &mut V3,
     shearupdate: bool,
     dt: f64,
+    rolling: Option<(f64, V3)>,
 ) -> (ForceData, Option<ForceData>) {
     let vn = dot3(v_rel, en);
     let vtr = [
@@ -3247,6 +3287,11 @@ fn contact_forces(
         ft[2] -= gammat * vtr[2];
     }
     let torque_ti = cross3(xci, &ft);
+    // `rolling_model cdt` (after the tangential model): `i` loses the torque,
+    // `j` gains it
+    let r_torque = rolling.map(|(rmu, wr)| {
+        cdt_rolling_torque(rmu, out.kn, deltan, reff, en, &wr, xcj.is_none())
+    });
     match xcj {
         None => {
             for c in 0..3 {
@@ -3254,6 +3299,11 @@ fn contact_forces(
             }
             for c in 0..3 {
                 fi.t[c] += torque_ti[c] * 1.0;
+            }
+            if let Some(r) = r_torque {
+                for c in 0..3 {
+                    fi.t[c] -= r[c];
+                }
             }
             (fi, None)
         }
@@ -3268,9 +3318,683 @@ fn contact_forces(
                 fi.t[c] += torque_ti[c];
                 fj.t[c] += torque_tj[c];
             }
+            if let Some(r) = r_torque {
+                for c in 0..3 {
+                    fi.t[c] -= r[c];
+                }
+                for c in 0..3 {
+                    fj.t[c] += r[c];
+                }
+            }
             (fi, Some(fj))
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Insertion: fix particletemplate/superquadric, ParticleToInsertSuperquadric,
+// RegionNeighborList::hasOverlap_superquadric (gh:#1415, third pass).
+// ---------------------------------------------------------------------------
+
+/// `fix particletemplate/superquadric SEED atom_type T density constant RHO
+/// shape constant a b c blockiness constant n1 n2`.
+///
+/// Only the `constant` distributions are ported. They draw nothing from the
+/// template's `random_insertion` stream (`rand_value<RANDOM_CONSTANT>`), so
+/// every entry of `randomize_ptilist` is the same body; the stream is kept for
+/// upstream's distinct-seeds rule.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParticleTemplateSuperquadric {
+    /// Seed of the template's `random_insertion` stream.
+    pub seed: i32,
+    /// `atom_type` (1-based, as in the deck).
+    pub atom_type: usize,
+    shape: V3,
+    blockiness: [f64; 2],
+    density: f64,
+    random_insertion: crate::insert::RanPark,
+}
+
+impl ParticleTemplateSuperquadric {
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for what upstream rejects: an invalid seed
+    /// (see [`crate::insert::RanPark::checked`]), `atom_type < 1`, a
+    /// non-positive half-axis or density, or a blockiness below 2.
+    pub fn new(
+        seed: i32,
+        atom_type: usize,
+        shape: [Length; 3],
+        blockiness: [f64; 2],
+        density: MassDensity,
+    ) -> Result<Self, DemError> {
+        let shape = [
+            shape[0].get::<meter>(),
+            shape[1].get::<meter>(),
+            shape[2].get::<meter>(),
+        ];
+        let density = density.get::<kilogram_per_cubic_meter>();
+        if atom_type < 1 {
+            return Err(DemError::InvalidInput(
+                "invalid atom type (must be >=1)".into(),
+            ));
+        }
+        if shape.iter().any(|s| !(*s > 0.0)) {
+            return Err(DemError::InvalidInput(
+                "Illegal fix particletemplate/superquadric command, shape parameters must be >= 0".into(),
+            ));
+        }
+        if blockiness[0] < 2.0 || blockiness[1] < 2.0 {
+            return Err(DemError::InvalidInput(
+                "Illegal fix particletemplate/superquadric command, blockiness parameters must >= 2"
+                    .into(),
+            ));
+        }
+        if !(density > 0.0) {
+            return Err(DemError::InvalidInput("density must be >= 0".into()));
+        }
+        Ok(Self {
+            seed,
+            atom_type,
+            shape,
+            blockiness,
+            density,
+            random_insertion: crate::insert::RanPark::checked(seed)?,
+        })
+    }
+
+    /// `volume_expect`: `volume_superquadric` of the expected shape `[m^3]`.
+    #[must_use]
+    pub fn volexpect(&self) -> f64 {
+        volume_superquadric(&self.shape, &self.blockiness)
+    }
+
+    /// `mass_expect = E[density] * volume_expect` `[kg]`.
+    #[must_use]
+    pub fn massexpect(&self) -> f64 {
+        self.density * self.volexpect()
+    }
+
+    /// `max_rad()` = `max_r_bound()`: the bounding-sphere radius `[m]`.
+    #[must_use]
+    pub fn r_bound(&self) -> f64 {
+        bounding_sphere_radius(&self.shape, &self.blockiness)
+    }
+
+    pub(crate) fn seed_state(&self) -> i32 {
+        self.random_insertion.state()
+    }
+
+    /// One entry of `randomize_ptilist`: bounding radius, density, volume,
+    /// `mass = density * volume` and principal moments, in upstream's order.
+    pub(crate) fn to_insert(&self) -> SuperquadricToInsert {
+        let radius = bounding_sphere_radius(&self.shape, &self.blockiness);
+        let density = self.density;
+        let volume = volume_superquadric(&self.shape, &self.blockiness);
+        let mass = density * volume;
+        let inertia = inertia_superquadric(&self.shape, &self.blockiness, density);
+        SuperquadricToInsert {
+            shape: self.shape,
+            blockiness: self.blockiness,
+            radius,
+            density,
+            volume,
+            mass,
+            inertia,
+            atom_type: self.atom_type,
+            x: [0.0; 3],
+            v: Vec3::zero(),
+            omega: Vec3::zero(),
+            quat: [1.0, 0.0, 0.0, 0.0],
+        }
+    }
+}
+
+/// `ParticleToInsertSuperquadric`: one superquadric to insert, placed by
+/// `fix insert/pack`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SuperquadricToInsert {
+    shape: V3,
+    blockiness: [f64; 2],
+    /// Bounding-sphere radius (`radius_ins[0] = r_bound_ins`) `[m]`.
+    pub(crate) radius: f64,
+    density: f64,
+    volume: f64,
+    /// `mass_ins` `[kg]`.
+    pub(crate) mass: f64,
+    inertia: V3,
+    atom_type: usize,
+    x: V3,
+    v: Vec3,
+    omega: Vec3,
+    quat: [f64; 4],
+}
+
+impl SuperquadricToInsert {
+    /// `set_x_v_omega` (no overlap check).
+    pub(crate) fn set_x_v_omega(&mut self, x: Vec3, v: Vec3, omega: Vec3, quat: [f64; 4]) {
+        self.x = [x.x, x.y, x.z];
+        self.v = v;
+        self.omega = omega;
+        self.quat = quat;
+    }
+
+    /// `check_near_set_x_v_omega`: refuse `x` if it overlaps a body of
+    /// `list` (`hasOverlap_superquadric`), else place it there and add it to
+    /// `list`.
+    pub(crate) fn check_near_set_x_v_omega(
+        &mut self,
+        x: Vec3,
+        v: Vec3,
+        omega: Vec3,
+        quat: [f64; 4],
+        list: &mut SqOverlapList,
+    ) -> bool {
+        let body = SqOverlapBody {
+            x: [x.x, x.y, x.z],
+            radius: self.radius,
+            quat,
+            shape: self.shape,
+            blockiness: self.blockiness,
+        };
+        if list.has_overlap(&body) {
+            return false;
+        }
+        self.set_x_v_omega(x, v, omega, quat);
+        list.insert(body);
+        true
+    }
+
+    /// `ParticleToInsertSuperquadric::insert`: the new atom, with the
+    /// quaternion copied as it is (not normalised) and `angmom` from
+    /// `omega_to_angmom`.
+    #[must_use]
+    pub fn into_particle(self) -> SuperquadricParticle {
+        let w = [self.omega.x, self.omega.y, self.omega.z];
+        let l = omega_to_angmom(&self.quat, &w, &self.inertia);
+        SuperquadricParticle {
+            x: Vec3::new(self.x[0], self.x[1], self.x[2]),
+            v: self.v,
+            omega: self.omega,
+            angmom: Vec3::new(l[0], l[1], l[2]),
+            quat: self.quat,
+            shape: self.shape,
+            blockiness: self.blockiness,
+            radius: self.radius,
+            volume: self.volume,
+            mass: self.mass,
+            inertia: self.inertia,
+            itype: self.atom_type - 1,
+            force: [0.0; 3],
+            torque: [0.0; 3],
+        }
+    }
+
+    /// The density `[kg/m^3]` (`density_ins`).
+    #[must_use]
+    pub fn density(&self) -> f64 {
+        self.density
+    }
+}
+
+/// `MathExtraLiggghts::random_unit_quat`: three draws from `random`, then
+/// `sqrt`, `sin` and `cos` (PETIR's `RealMath`, gh:#1455). Not normalised.
+pub(crate) fn random_unit_quat(random: &mut crate::insert::RanPark) -> [f64; 4] {
+    let u1 = random.uniform();
+    let u2 = random.uniform();
+    let u3 = random.uniform();
+    let h1 = (1.0 - u1).sqrt();
+    let h2 = u1.sqrt();
+    [
+        h1 * m_sin(2.0 * M_PI * u2),
+        h1 * m_cos(2.0 * M_PI * u2),
+        h2 * m_sin(2.0 * M_PI * u3),
+        h2 * m_cos(2.0 * M_PI * u3),
+    ]
+}
+
+/// `MathExtraLiggghtsNonspherical::line_segments_distance`: the closest
+/// points `C1` on `P1Q1` and `C2` on `P2Q2`.
+fn line_segments_distance(p1: &V3, q1: &V3, p2: &V3, q2: &V3) -> (V3, V3) {
+    let tol = 1e-14;
+    let d1 = sub3(q1, p1);
+    let d2 = sub3(q2, p2);
+    let r = sub3(p1, p2);
+    let a = dot3(&d1, &d1);
+    let e = dot3(&d2, &d2);
+    let f = dot3(&d2, &r);
+    let (s, t);
+    if a <= tol && e <= tol {
+        return (*p1, *p2);
+    }
+    if a <= tol {
+        s = 0.0;
+        t = clamp(f / e, 0.0, 1.0);
+    } else {
+        let c = dot3(&d1, &r);
+        if e <= tol {
+            t = 0.0;
+            s = clamp(-c / a, 0.0, 1.0);
+        } else {
+            let b = dot3(&d1, &d2);
+            let determinant = a * e - b * b;
+            if determinant >= tol * tol {
+                let mut s0 = clamp((b * f - c * e) / determinant, 0.0, 1.0);
+                let mut t0 = (b * s0 + f) / e;
+                if t0 < 0.0 {
+                    t0 = 0.0;
+                    s0 = clamp(-c / a, 0.0, 1.0);
+                } else if t0 > 1.0 {
+                    t0 = 1.0;
+                    s0 = clamp((b - c) / a, 0.0, 1.0);
+                }
+                s = s0;
+                t = t0;
+            } else {
+                let mut s1 = 0.0;
+                let mut s2 = 1.0;
+                let mut t1 = (f + s1 * b) / e;
+                let mut t2 = (f + s2 * b) / e;
+                if t1 < 0.0 {
+                    t1 = 0.0;
+                    s1 = clamp(-c / a, 0.0, 1.0);
+                } else if t1 > 1.0 {
+                    t1 = 1.0;
+                    s1 = clamp((b - c) / a, 0.0, 1.0);
+                }
+                if t2 < 0.0 {
+                    t2 = 0.0;
+                    s2 = clamp(-c / a, 0.0, 1.0);
+                } else if t2 > 1.0 {
+                    t2 = 1.0;
+                    s2 = clamp((b - c) / a, 0.0, 1.0);
+                }
+                s = 0.5 * (s1 + s2);
+                t = 0.5 * (t1 + t2);
+            }
+        }
+    }
+    (
+        [p1[0] + d1[0] * s, p1[1] + d1[1] * s, p1[2] + d1[2] * s],
+        [p2[0] + d2[0] * t, p2[1] + d2[1] * t, p2[2] + d2[2] * t],
+    )
+}
+
+impl Sq {
+    /// `Superquadric::isCylinder`, as `set` computes it.
+    fn is_cylinder(&self) -> bool {
+        !comp_double(self.blockiness[0], 2.0, 1e-2) && comp_double(self.blockiness[1], 2.0, 1e-2)
+    }
+}
+
+/// `MathExtraLiggghtsNonspherical::capsules_intersect`: whether the capsules
+/// around the two main axes intersect (the capsule contact point it also
+/// computes is unused by the insertion test).
+fn capsules_intersect(pa: &Sq, pb: &Sq) -> bool {
+    let main_axis = |p: &Sq| -> usize {
+        if p.is_cylinder() {
+            2
+        } else if p.shape[0] >= cmax(p.shape[1], p.shape[2]) {
+            0
+        } else if p.shape[1] >= cmax(p.shape[0], p.shape[2]) {
+            1
+        } else {
+            2
+        }
+    };
+    let main_axis_i = main_axis(pa);
+    let main_axis_j = main_axis(pb);
+    let l_i = pa.shape[main_axis_i];
+    let l_j = pb.shape[main_axis_j];
+    let r1_i = pa.shape[(main_axis_i + 1) % 3];
+    let r2_i = pa.shape[(main_axis_i + 2) % 3];
+    let r1_j = pb.shape[(main_axis_j + 1) % 3];
+    let r2_j = pb.shape[(main_axis_j + 2) % 3];
+    let mut r_i = cmax(r1_i, r2_i);
+    let mut r_j = cmax(r1_j, r2_j);
+    if !pa.is_cylinder() {
+        r_i = (r1_i * r1_i + r2_i * r2_i).sqrt();
+    }
+    if !pb.is_cylinder() {
+        r_j = (r1_j * r1_j + r2_j * r2_j).sqrt();
+    }
+    let radsum = r_i + r_j;
+    let mut pi = [0.0; 3];
+    let mut qi = [0.0; 3];
+    let mut pj = [0.0; 3];
+    let mut qj = [0.0; 3];
+    for k in 0..3 {
+        pi[k] = -pa.rotation_matrix[k * 3 + main_axis_i] * l_i + pa.center[k];
+        qi[k] = pa.rotation_matrix[k * 3 + main_axis_i] * l_i + pa.center[k];
+        pj[k] = -pb.rotation_matrix[k * 3 + main_axis_j] * l_j + pb.center[k];
+        qj[k] = pb.rotation_matrix[k * 3 + main_axis_j] * l_j + pb.center[k];
+    }
+    let (c1, c2) = line_segments_distance(&pi, &qi, &pj, &qj);
+    // `pointDistance`
+    let d = ((c1[0] - c2[0]) * (c1[0] - c2[0])
+        + (c1[1] - c2[1]) * (c1[1] - c2[1])
+        + (c1[2] - c2[2]) * (c1[2] - c2[2]))
+        .sqrt();
+    d < radsum
+}
+
+/// A body in the insertion overlap list (`RegionNeighborList::Particle` with
+/// the superquadric fields).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct SqOverlapBody {
+    x: V3,
+    radius: f64,
+    quat: [f64; 4],
+    shape: V3,
+    blockiness: [f64; 2],
+}
+
+impl SuperquadricParticle {
+    /// This particle as `load_xnear` loads it (`insert_superquadric`).
+    pub(crate) fn overlap_body(&self) -> SqOverlapBody {
+        SqOverlapBody {
+            x: self.xa(),
+            radius: self.radius,
+            quat: self.quat,
+            shape: self.shape,
+            blockiness: self.blockiness,
+        }
+    }
+}
+
+/// The insertion overlap list of `fix insert/pack` for superquadrics
+/// (`RegionNeighborList` with `insert_superquadric` /
+/// `hasOverlap_superquadric`). The answer is a boolean, so a uniform grid
+/// with the same predicate gives the same answers as upstream's bins.
+#[derive(Debug, Clone)]
+pub(crate) struct SqOverlapList {
+    check_obb: bool,
+    cell: f64,
+    cells: std::collections::BTreeMap<(i64, i64, i64), Vec<SqOverlapBody>>,
+}
+
+impl SqOverlapList {
+    /// An empty list of cell size `cell` (at least the largest bounding
+    /// diameter); `check_obb` is `fix insert ... check_obb yes|no`.
+    pub(crate) fn new(cell: f64, check_obb: bool) -> Self {
+        Self {
+            check_obb,
+            cell: if cell > 0.0 { cell } else { 1.0 },
+            cells: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn key(&self, p: &V3) -> (i64, i64, i64) {
+        (
+            (p[0] / self.cell).floor() as i64,
+            (p[1] / self.cell).floor() as i64,
+            (p[2] / self.cell).floor() as i64,
+        )
+    }
+
+    /// `insert_superquadric`.
+    pub(crate) fn insert(&mut self, b: SqOverlapBody) {
+        let k = self.key(&b.x);
+        self.cells.entry(k).or_default().push(b);
+    }
+
+    /// `hasOverlap_superquadric`: bounding spheres (`rsq <= radsum^2`), and
+    /// with `check_obb` also `capsules_intersect` and `obb_intersect`
+    /// (starting at inequality 0).
+    pub(crate) fn has_overlap(&self, b: &SqOverlapBody) -> bool {
+        let (cx, cy, cz) = self.key(&b.x);
+        let particle1 = Sq::set(b.x, &b.quat, b.shape, b.blockiness);
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                for dz in -1..=1 {
+                    let Some(v) = self.cells.get(&(cx + dx, cy + dy, cz + dz)) else {
+                        continue;
+                    };
+                    for p in v {
+                        let del = sub3(&b.x, &p.x);
+                        let rsq = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
+                        let radsum = b.radius + p.radius;
+                        if self.check_obb {
+                            let particle2 = Sq::set(p.x, &p.quat, p.shape, p.blockiness);
+                            let mut start = 0_u32;
+                            if rsq <= radsum * radsum
+                                && (capsules_intersect(&particle1, &particle2)
+                                    && obb_intersect(&particle1, &particle2, &mut start))
+                            {
+                                return true;
+                            }
+                        } else if rsq <= radsum * radsum {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+}
+
+impl SuperquadricSystem {
+    /// A system with no particles yet, for bodies that
+    /// [`SuperquadricSystem::with_insertion`] adds; otherwise as
+    /// [`SuperquadricSystem::new`].
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for a non-positive `dt`.
+    pub fn without_particles(materials: MaterialTable, dt: Time) -> Result<Self, DemError> {
+        let dt = dt.get::<second>();
+        if !(dt > 0.0) {
+            return Err(DemError::InvalidInput("time step must be positive".into()));
+        }
+        let normal = GranularNormalModel::hertz(GranularMaterial::new(1.0e7, 0.3, 0.5, 0.4)?);
+        Ok(Self {
+            particles: Vec::new(),
+            materials,
+            normal,
+            walls: Vec::new(),
+            gravity: None,
+            curvature: None,
+            dt,
+            pair_history: Vec::new(),
+            wall_shear: Vec::new(),
+            is_setup: false,
+            neigh: None,
+            step: 0,
+            inserters: Vec::new(),
+            rolling_cdt: None,
+        })
+    }
+
+    /// Attach a `fix insert/pack` (or `insert/rate/region`) over a
+    /// distribution of [`ParticleTemplateSuperquadric`]s, and run its set-up.
+    /// It acts at upstream's `pre_exchange` point: on its insertion step
+    /// `Neighbor::decide` returns at once (no `ago++`), the bodies are
+    /// appended with consecutive tags, and the list is rebuilt. The overlap
+    /// test sees every body present (`load_xnear`, with `check_obb`).
+    /// Call after [`SuperquadricSystem::with_neighbor_list`].
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] without upstream's neighbour list (the
+    /// default all-pairs list is exact for two bodies only), for a
+    /// distribution that is not all superquadric, for a template type
+    /// outside the material table, or whatever
+    /// [`crate::insert::InsertFix::setup`] reports.
+    pub fn with_insertion(mut self, mut fix: crate::insert::InsertFix) -> Result<Self, DemError> {
+        if self.neigh.is_none() {
+            return Err(DemError::InvalidInput(
+                "superquadric insertion needs upstream's neighbour list (with_neighbor_list)".into(),
+            ));
+        }
+        if !fix.is_superquadric() {
+            return Err(DemError::InvalidInput(
+                "SuperquadricSystem inserts particletemplate/superquadric distributions only".into(),
+            ));
+        }
+        if fix.max_atom_type() > self.materials.n_types() {
+            return Err(DemError::InvalidInput(
+                "template atom type outside the material table".into(),
+            ));
+        }
+        fix.setup()?;
+        self.inserters.push(fix);
+        Ok(self)
+    }
+
+    /// The `i`-th insertion fix.
+    #[must_use]
+    pub fn insertion(&self, i: usize) -> &crate::insert::InsertFix {
+        &self.inserters[i]
+    }
+
+    /// Whether an insertion fix asks for a rebuild on `step`
+    /// (`Neighbor::decide`'s `next_reneighbor` test, before `ago++`).
+    fn insertion_due(&self, step: u64) -> bool {
+        self.inserters
+            .iter()
+            .any(|f| f.next_insertion_step() == Some(step))
+    }
+
+    /// `FixInsert::pre_exchange` of every insertion fix (it acts only on its
+    /// own step), appending the new bodies and growing the histories.
+    ///
+    /// Errors upstream would abort the run on panic with its message, as
+    /// [`SuperquadricSystem::run`] has no error channel.
+    fn run_insertions(&mut self, step: u64) {
+        for k in 0..self.inserters.len() {
+            let atoms: Vec<crate::particle::Particle> = self
+                .particles
+                .iter()
+                .map(|p| crate::particle::Particle {
+                    position: p.x,
+                    velocity: p.v,
+                    angular_velocity: p.omega,
+                    mass: p.mass,
+                    radius: p.radius,
+                    temperature: 300.0,
+                })
+                .collect();
+            let bodies: Vec<SqOverlapBody> =
+                self.particles.iter().map(SuperquadricParticle::overlap_body).collect();
+            let new = match self.inserters[k].pre_exchange_superquadric(step, &atoms, &bodies) {
+                Ok(v) => v,
+                Err(e) => panic!("fix insert: {e}"),
+            };
+            if new.is_empty() {
+                continue;
+            }
+            let old_n = self.particles.len();
+            for s in new {
+                self.particles.push(s.into_particle());
+            }
+            self.grow_histories(old_n);
+        }
+    }
+
+    /// Re-index the pair history (`i * n + j`) and the wall histories (one
+    /// slot per particle, or `i_tri * n + ip` on a mesh) from `old_n` to the
+    /// current number of particles; new slots start empty, as upstream's
+    /// `set_arrays` zeroes a new atom's history.
+    fn grow_histories(&mut self, old_n: usize) {
+        let n = self.particles.len();
+        let mut pair = vec![PairHistory::default(); n * n];
+        for i in 0..old_n {
+            for j in 0..old_n {
+                pair[i * n + j] = self.pair_history[i * old_n + j];
+            }
+        }
+        self.pair_history = pair;
+        for w in 0..self.walls.len() {
+            let ntri = match &self.walls[w] {
+                SqWall::Mesh { mesh, .. } => mesh.triangles.len(),
+                SqWall::Plane(_) | SqWall::Cylinder(_) => 1,
+            };
+            let mut shear = vec![[0.0; 3]; ntri * n];
+            for t in 0..ntri {
+                for ip in 0..old_n {
+                    shear[t * n + ip] = self.wall_shear[w][t * old_n + ip];
+                }
+            }
+            self.wall_shear[w] = shear;
+        }
+    }
+}
+
+/// `RollingModel<ROLLING_CDT>::surfacesIntersect` with `torsionTorque off`
+/// (the default): the constant directional torque `i` loses. At a wall
+/// `Fn = deltan kn` and `wr` is the particle's angular velocity; for a pair
+/// `wr = omega_i - omega_j`. `reff` is the superquadric `sidata.reff` (the
+/// volume-equivalent or curvature-limited radius).
+fn cdt_rolling_torque(
+    rmu: f64,
+    kn: f64,
+    deltan: f64,
+    reff: f64,
+    en: &V3,
+    wr: &V3,
+    is_wall: bool,
+) -> V3 {
+    let mut r_torque = [0.0; 3];
+    let wrmag = (wr[0] * wr[0] + wr[1] * wr[1] + wr[2] * wr[2]).sqrt();
+    if !(wrmag > 0.0) {
+        return r_torque;
+    }
+    if is_wall {
+        let fn_ = deltan * kn;
+        r_torque[0] = rmu * fn_ * wr[0] / wrmag * reff;
+        r_torque[1] = rmu * fn_ * wr[1] / wrmag * reff;
+        r_torque[2] = rmu * fn_ * wr[2] / wrmag * reff;
+    } else {
+        let scale = rmu * kn * deltan * reff / wrmag;
+        r_torque = [scale * wr[0], scale * wr[1], scale * wr[2]];
+    }
+    let dot = r_torque[0] * en[0] + r_torque[1] * en[1] + r_torque[2] * en[2];
+    let r_n = [en[0] * dot, en[1] * dot, en[2] * dot];
+    [r_torque[0] - r_n[0], r_torque[1] - r_n[1], r_torque[2] - r_n[2]]
+}
+
+impl SuperquadricSystem {
+    /// `pair_style gran ... rolling_friction cdt` and the same on every
+    /// `fix wall/gran` (gh:#1415): the constant directional torque
+    /// `mu_r k_n delta_n r_eff` against the relative angular velocity, with
+    /// the torsional part removed (`torsionTorque off`, the default), using
+    /// the superquadric effective radius. `coeff_roll_frict[i][j]` is
+    /// `coeffRollFrict peratomtypepair`. Upstream's default is no rolling
+    /// model.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless the table is square over the
+    /// material types, symmetric, and non-negative.
+    pub fn with_rolling_cdt(mut self, coeff_roll_frict: &[&[f64]]) -> Result<Self, DemError> {
+        let n = self.materials.n_types();
+        if coeff_roll_frict.len() != n || coeff_roll_frict.iter().any(|r| r.len() != n) {
+            return Err(DemError::InvalidInput(
+                "coeffRollFrict must have one value per type pair".into(),
+            ));
+        }
+        let mut table = Vec::with_capacity(n * n);
+        for i in 0..n {
+            for j in 0..n {
+                let v = coeff_roll_frict[i][j];
+                if !(v >= 0.0) || v != coeff_roll_frict[j][i] {
+                    return Err(DemError::InvalidInput(
+                        "coeffRollFrict must be non-negative and symmetric".into(),
+                    ));
+                }
+                table.push(v);
+            }
+        }
+        self.rolling_cdt = Some(table);
+        Ok(self)
+    }
+}
+
+/// `coeffRollFrict[itype][jtype]` of an `n`-type table, when the CDT model
+/// is on.
+fn cdt_coeff(table: Option<&[f64]>, n: usize, itype: usize, jtype: usize) -> Option<f64> {
+    table.map(|t| t[itype * n + jtype])
 }
 
 #[cfg(test)]
@@ -3428,5 +4152,170 @@ mod tests {
         let kg = sq.calc_curvature_coefficient(true, &[0.003, 0.001, -0.001]);
         assert!((km * r - 1.0).abs() < 1e-12, "{km}");
         assert!((kg * r - 1.0).abs() < 1e-12, "{kg}");
+    }
+
+    #[test]
+    fn insertion_templates_overlap_list_and_refusals() {
+        use crate::insert::{
+            InsertFix, InsertMode, InsertRegion, PackTarget, ParticleDistributionDiscrete,
+            ParticleTemplateSphere, RanPark,
+        };
+        use crate::neighbor_list::LiggghtsNeighbor;
+        let rho = |v: f64| MassDensity::new::<kilogram_per_cubic_meter>(v);
+        let tpl = |seed: i32| {
+            ParticleTemplateSuperquadric::new(
+                seed,
+                1,
+                [m(0.004), m(0.003), m(0.0025)],
+                [6.0, 6.0],
+                rho(2500.0),
+            )
+            .unwrap()
+        };
+        // template refusals and the expectancies of the shape functions
+        assert!(ParticleTemplateSuperquadric::new(15485863, 0, [m(1.0); 3], [2.0, 2.0], rho(1.0)).is_err());
+        assert!(ParticleTemplateSuperquadric::new(15485863, 1, [m(0.0); 3], [2.0, 2.0], rho(1.0)).is_err());
+        assert!(ParticleTemplateSuperquadric::new(15485863, 1, [m(1.0); 3], [1.5, 2.0], rho(1.0)).is_err());
+        assert!(ParticleTemplateSuperquadric::new(15485863, 1, [m(1.0); 3], [2.0, 2.0], rho(0.0)).is_err());
+        let t = tpl(15485863);
+        let shape = [0.004, 0.003, 0.0025];
+        assert_eq!(t.volexpect(), volume_superquadric(&shape, &[6.0, 6.0]));
+        assert_eq!(t.massexpect(), 2500.0 * t.volexpect());
+        assert_eq!(t.r_bound(), bounding_sphere_radius(&shape, &[6.0, 6.0]));
+        let mut q = t.to_insert();
+        assert_eq!(q.density(), 2500.0);
+        assert_eq!(q.mass, 2500.0 * t.volexpect());
+        // a quaternion is copied, not normalised (`ParticleToInsertSuperquadric::insert`)
+        q.set_x_v_omega(Vec3::new(0.0, 0.0, 0.01), Vec3::zero(), Vec3::new(1.0, 0.0, 0.0), [2.0, 0.0, 0.0, 0.0]);
+        let p = q.clone().into_particle();
+        assert_eq!(p.quat, [2.0, 0.0, 0.0, 0.0]);
+        assert_eq!(p.itype, 0);
+        // random_unit_quat is a unit quaternion and draws three numbers
+        let mut r1 = RanPark::new(32452867).unwrap();
+        let mut r2 = r1.clone();
+        let rq = random_unit_quat(&mut r1);
+        let n2 = rq.iter().map(|v| v * v).sum::<f64>();
+        assert!((n2 - 1.0).abs() < 1e-14, "{n2}");
+        for _ in 0..3 {
+            r2.uniform();
+        }
+        assert_eq!(r1.state(), r2.state());
+        // line_segments_distance: crossing segments, parallel ones, points
+        let (c1, c2) = line_segments_distance(&[-1.0, 0.0, 0.0], &[1.0, 0.0, 0.0], &[0.0, -1.0, 1.0], &[0.0, 1.0, 1.0]);
+        assert_eq!((c1, c2), ([0.0, 0.0, 0.0], [0.0, 0.0, 1.0]));
+        let (c1, c2) = line_segments_distance(&[0.0; 3], &[1.0, 0.0, 0.0], &[0.0, 1.0, 0.0], &[1.0, 1.0, 0.0]);
+        assert_eq!((c1[1], c2[1]), (0.0, 1.0));
+        let (c1, c2) = line_segments_distance(&[0.0; 3], &[0.0; 3], &[0.0, 2.0, 0.0], &[0.0, 2.0, 0.0]);
+        assert_eq!((c1, c2), ([0.0; 3], [0.0, 2.0, 0.0]));
+        let (_, c2) = line_segments_distance(&[0.0; 3], &[0.0; 3], &[-1.0, 1.0, 0.0], &[1.0, 1.0, 0.0]);
+        assert_eq!(c2, [0.0, 1.0, 0.0]);
+        let (c1, _) = line_segments_distance(&[-1.0, 0.0, 0.0], &[1.0, 0.0, 0.0], &[3.0, 1.0, 0.0], &[3.0, 1.0, 0.0]);
+        assert_eq!(c1, [1.0, 0.0, 0.0]);
+        // overlap list: two boxes side by side along x whose bounding spheres
+        // overlap but whose boxes do not; only check_obb separates them
+        let id = [1.0, 0.0, 0.0, 0.0];
+        let a = SqOverlapBody { x: [0.0; 3], radius: 0.0055, quat: id, shape, blockiness: [6.0, 6.0] };
+        let b = SqOverlapBody { x: [0.0085, 0.0, 0.0], ..a };
+        let sa = Sq::set(a.x, &a.quat, a.shape, a.blockiness);
+        assert!(!sa.is_cylinder());
+        let cyl = Sq::set(a.x, &a.quat, a.shape, [6.0, 2.0]);
+        assert!(cyl.is_cylinder());
+        assert!(capsules_intersect(&sa, &cyl));
+        let mut obb = SqOverlapList::new(0.012, true);
+        obb.insert(a);
+        assert!(!obb.has_overlap(&b));
+        let mut spheres = SqOverlapList::new(0.012, false);
+        spheres.insert(a);
+        assert!(spheres.has_overlap(&b));
+        let c = SqOverlapBody { x: [0.006, 0.0, 0.0], ..a };
+        assert!(obb.has_overlap(&c));
+        // refusals around the insert fix and the system
+        let lo = Vec3::new(-0.05, -0.05, -0.005);
+        let hi = Vec3::new(0.05, 0.05, 0.15);
+        let region = InsertRegion::block(Vec3::new(-0.01, -0.01, 0.02), Vec3::new(0.01, 0.01, 0.04)).unwrap();
+        let sphere = ParticleTemplateSphere::new(15485867, 1, m(0.002), rho(2500.0)).unwrap();
+        assert!(ParticleDistributionDiscrete::from_templates(
+            32452843,
+            true,
+            vec![
+                (crate::insert::ParticleTemplate::Sphere(sphere.clone()), 0.5),
+                (crate::insert::ParticleTemplate::Superquadric(tpl(15485863)), 0.5),
+            ],
+        )
+        .is_err());
+        let sdist = ParticleDistributionDiscrete::new(32452843, true, vec![(sphere, 1.0)]).unwrap();
+        let pack = InsertMode::Pack(PackTarget::Particles(3));
+        let sfix = InsertFix::new(pack, 32452867, sdist, region, 0, lo, hi).unwrap();
+        assert!(sfix.clone().with_random_orientation().is_err());
+        let mats = MaterialTable::new(&[(1.0e7, 0.3)], &[&[0.5]], &[&[0.4]]).unwrap();
+        let dt = Time::new::<second>(1e-5);
+        let mut cfg = LiggghtsNeighbor::new(lo, hi, 0.002).unwrap();
+        cfg.sort_every = 0;
+        let empty = SuperquadricSystem::without_particles(mats.clone(), dt).unwrap();
+        assert!(SuperquadricSystem::without_particles(mats.clone(), Time::new::<second>(0.0)).is_err());
+        let with_list = empty.clone().with_neighbor_list(cfg, 1, false).unwrap();
+        assert!(with_list.clone().with_insertion(sfix).is_err());
+        let qdist = |seed| ParticleDistributionDiscrete::new_superquadric(seed, true, vec![(tpl(15485863), 1.0)]).unwrap();
+        let qfix = |overlap: bool| {
+            InsertFix::new(pack, 32452867, qdist(32452843), region, 0, lo, hi)
+                .unwrap()
+                .with_overlap_check(overlap)
+                .with_check_obb(false)
+                .with_random_orientation()
+                .unwrap()
+        };
+        assert!(empty.with_insertion(qfix(true)).is_err());
+        let mut f = qfix(true);
+        f.setup().unwrap();
+        assert!(f.pre_exchange_any(1, &[], &crate::insert::ClumpCensus::default()).is_err());
+        assert!(qdist(32452843).randomize_list_any(1, true).len() == 1);
+        // no overlap check: three bodies placed with random orientations,
+        // then the histories grow and the run goes on
+        let mut sys = with_list
+            .with_plane_wall(SuperquadricPlaneWall { dim: 2, coord: 0.0, wall_type: 0 })
+            .unwrap()
+            .with_insertion(qfix(false))
+            .unwrap();
+        assert_eq!(sys.insertion(0).next_insertion_step(), Some(1));
+        sys.run(2);
+        assert_eq!(sys.particles().len(), 3);
+        assert_eq!(sys.insertion(0).ninserted(), 3);
+        assert_eq!(sys.pair_history.len(), 9);
+        assert_eq!(sys.wall_shear[0].len(), 3);
+        for p in sys.particles() {
+            assert!(p.x.z > 0.02 && p.x.z < 0.04);
+            assert_ne!(p.quat, [1.0, 0.0, 0.0, 0.0]);
+        }
+    }
+
+    #[test]
+    fn rolling_cdt_builder_and_torque() {
+        let mats = MaterialTable::new(&[(1.0e7, 0.3)], &[&[0.5]], &[&[0.4]]).unwrap();
+        let p = SuperquadricParticle::new(
+            [m(0.0), m(0.0), m(0.01)],
+            [m(0.002); 3],
+            [2.0, 2.0],
+            MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+            [1.0, 0.0, 0.0, 0.0],
+            Vec3::zero(),
+            Vec3::zero(),
+            0,
+        )
+        .unwrap();
+        let sys = SuperquadricSystem::new(vec![p], mats, Time::new::<second>(1e-5)).unwrap();
+        assert!(sys.clone().with_rolling_cdt(&[]).is_err());
+        assert!(sys.clone().with_rolling_cdt(&[&[-0.1]]).is_err());
+        let sys = sys.with_rolling_cdt(&[&[0.1]]).unwrap();
+        assert_eq!(cdt_coeff(sys.rolling_cdt.as_deref(), 1, 0, 0), Some(0.1));
+        assert_eq!(cdt_coeff(None, 1, 0, 0), None);
+        let en = [0.0, 0.0, 1.0];
+        // no relative spin: no torque
+        assert_eq!(cdt_rolling_torque(0.1, 1e4, 1e-5, 1e-3, &en, &[0.0; 3], true), [0.0; 3]);
+        // spin about the normal only: the torsional part is removed
+        let t = cdt_rolling_torque(0.1, 1e4, 1e-5, 1e-3, &en, &[0.0, 0.0, 5.0], false);
+        assert_eq!(t, [0.0; 3]);
+        // rolling about x: |T| = mu_r kn deltan reff, along +x
+        let t = cdt_rolling_torque(0.1, 1e4, 1e-5, 1e-3, &en, &[3.0, 0.0, 0.0], true);
+        assert!((t[0] - 0.1 * 1e4 * 1e-5 * 1e-3).abs() < 1e-20 && t[1] == 0.0 && t[2] == 0.0);
     }
 }

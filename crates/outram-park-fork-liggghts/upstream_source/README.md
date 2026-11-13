@@ -68,3 +68,11 @@ Rebuilt the same way on 2026-11-13 for the second superquadric pass
 `in.sq_curv_gauss`, `in.sq_pile_check`, `in.sq_pile_every`). As a check of the
 recipe, the rebuilt binary reproduced the committed `sq_drop.csv` byte for
 byte. The scratch copy was deleted again.
+
+Rebuilt the same way a third time on 2026-11-13 for superquadric insertion
+(gh:#1415: `in.sq_pour`, `in.sq_pour_mesh`, `in.sq_cdt`, `in.sq_cdt_curv`). The build lists
+`particletemplate/superquadric`, and `fix insert` compiles its `check_obb`
+default (1) under the same flag. With glibc maths, the Rust port reproduced
+every value of the two new decks, and of every earlier `sq_*.csv` deck through
+the path it pins. The default-list pile, which is not upstream's list, stayed
+at 624 / 1560, as recorded in V&V 4.17.1. The scratch copy was deleted afterwards.
