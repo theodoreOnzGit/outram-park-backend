@@ -131,6 +131,7 @@ pub mod prelude;
 pub mod rdf;
 pub mod rolling;
 pub mod simulation;
+pub mod superquadric;
 pub mod thermal;
 pub mod thermal_radiation;
 pub mod timestep;

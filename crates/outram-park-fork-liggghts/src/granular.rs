@@ -108,7 +108,8 @@
 //!   `easo`/`washino` capillary cohesion models, the EPSD family and
 //!   multicontact are translated (checked: `GranularCohesion`,
 //!   `crate::capillary`, `tests/*_cross_code.rs`)**;
-//!   superquadrics,
+//!   ~~superquadrics,~~ (**CORRECTED 2026-11-13, gh:#1415:** superquadrics
+//!   are in [`crate::superquadric`], a separate driver),
 //!   the `limitForce`/`viscous`/`heating`/elastic-potential switches, and
 //!   ~~mixed-material property matrices~~ **(`MaterialTable` exists)**.
 //! - **Verified against upstream** — see `docs/verification-and-validation.md`
