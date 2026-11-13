@@ -1626,3 +1626,42 @@ started from the old (= this build's) time-81 points, with this build's digests 
 | # | prediction (committed before the new tests are run; the ESI digests were read first, disclosed) | how it can fail |
 |---|---|---|
 | P72 | The port started from `layer_points_81.bin.gz` equals this build's ESI in base, `layers3` (3 layers, expansion 1.2) and `relaxed`: every shrunk-points, layer-faces, layer-points and final-faces digest, and the `writeLayerData` fields of the last two. The **faces** digests equal round 10's (topology does not see 1 ulp); only point and field digests move. | the layer stage is sensitive to a 1-ulp start in a way round 10's own run hid |
+
+## Task 2: `nOuterIter > 1` (reference runs and predictions, committed before the port code exists)
+
+Upstream read first (`snappyLayerDriver::addLayers`, the outer overload, v2506 lines 4692-5372; the
+inner overload 3922-4690; `updatePatch`, `unmarkExtrusion`; `layerParameters::layerThickness`): per outer
+iteration it (1) breaks if `sum(deltaNLayers) == 0`, (2) takes `patchNLayers = deltaNLayers`,
+`extrudeStatus = baseExtrudeStatus`, `patchDisp = basePatchDisp`, and the slice thickness
+`layerThickness(basePatchNLayers, baseThickness, baseExpansionRatio, basePatchNLayers - nAddedLayers -
+patchNLayers, patchNLayers)`; (3) runs the inner loop (round 9) on the CURRENT mesh with a medial axis
+rebuilt on it; (4) breaks if nothing was added; (5) `nAddedLayers += patchNLayers`, points that got no
+layer are `unmarkExtrusion`-ed in the base arrays and `basePatchNLayers = nAddedLayers`, the others
+get `deltaNLayers = max(0, min(deltaNLayers, basePatchNLayers - nAddedLayers))`; (6) applies the layer
+mesh, accumulates `cellNLayers` / `faceRealThickness` through the face and cell maps (`+=` the slice's
+values), maps `faceWantedThickness`, prints the layer table; (7) `updatePatch` re-makes the layer
+patch from the new mesh and maps every per-point array through `newToOldPatchPoints`.
+`deltaNLayers = (basePatchNLayers + nOuterIter - 1) / nOuterIter`. Nothing else differs from the
+`nOuterIter 1` path, so the inner loop of round 9 is reused unchanged.
+
+**ESI reference runs** (this build, `snappyHexMeshDict.layers3` and a 2-layer variant with
+`nOuterIter` added, `debugFlags (mesh)`; the logs were read BEFORE the predictions, so the numbers are
+targets the port is held to):
+
+| case | dictionary change | ESI log |
+|---|---|---|
+| `o2` | `layers3` (3 layers, expansion 1.2) + `nOuterIter 2` | outer 0: "Layers to add 17042", 3 inner iterations, extruding 8732 / 8668 / 8660, removed 15 / 4 / 0, "Added 14728 out of 17042", `Mesh with layers : cells:32984 faces:104885 points:39033`, table layers 1.47 / 1.66 / 1.6 / 1.59, thickness 2.1e-4 / 2.55e-4 / 2.29e-4 / 2.2e-4 m, 40.7 / 50 / 44.6 / 40.5 %. Outer 1: "Layers to add 7364", **extruding 0 of 9747**, "Added 0 out of 7364", break. |
+| `p2` | `nSurfaceLayers 2`, `expansionRatio 1.0`, `nOuterIter 2` | outer 0: "Layers to add 8521", extruding 8724 / 8658 / 8642 (as the 1-layer case), "Added 7339 out of 8521". Outer 1: "Layers to add 7339", **16** inner iterations extruding 7892 / 7391 / 7133 / 7015 / 6931 / 6882 / 6838 / 6776 / 6750 / 6734 / 6716 / 6694 / 6678 / 6670 / 6666 / 6662 faces (removed 60 / 213 / 98 / 72 / 44 / 42 / 30 / 26 / 20 / 16 / 16 / 12 / 6 / 4 / 4 / 0), "Added 5666 out of 7339", `Mesh with layers : cells:33582 faces:104369 points:37310`, table 1.51 / 1.88 / 1.71 / 1.61, 2.69e-4 / 3.37e-4 / 2.84e-4 / 3.23e-4 m, 66.4 / 86.5 / 70.3 / 75 %. |
+
+`p2` is the real test of the outer loop (a second slice is extruded on a mesh that already has
+layers); `o2` is the case round 10 measured (the second slice is truncated away entirely). ESI times
+`o2`: 85-90 outer 0, 91 the layer mesh again (digest-equal to 90), 92 shrunk, 93 final (equal to 91 minus
+the empty patch). ESI times `p2`: 85-90 outer 0 (digest-equal to the 1-layer base case's 85-90),
+92-123 outer 1 (even = shrunk, odd = layer mesh), 124 final. References are FNV-1a digests as in round 10.
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P73 | **`o2`**: the port started from the old time-81 points reproduces the log counts above (17042; removed 15/4/0; extruded 8732/8668/8660; 14728 added; 32984 cells / 104885 faces / 39033 points; the table), meshes 85-90 digest-equal ESI, and outer 1 extrudes 0 of 9747 faces with its shrunk points digest-equal to the layer mesh's (the mover moves nothing), final mesh = the outer-0 layer mesh (faces digest `5e366de6f45a10ed` once the empty patch is removed, points `4ccdfe0327eae64e`). | slice thickness (`layer_thickness_slice` uses `pow`; PETIR vs glibc may differ by 1 ulp, which would move every later digest); the log of ESI shows the extrusion truncated to 0 by `minThickness`, which the port must reach by the same road |
+| P74 | **`p2`**, outer 0: meshes 85-90 digest-equal ESI's (they equal the 1-layer base case), "Layers to add 8521", 7339 added, per-point `deltaNLayers`/`nAddedLayers` after the update: 7339 points with `deltaNLayers 1`. | the base-case equality is only a prediction because the 2-layer slice thickness differs |
+| P75 | **`p2`**, outer 1: **I expect this to fail on the first run**, in the first inner iteration: it is the first time the medial axis, `getPatchDisplacement`, `determineSidePatches`, `truncateDisplacement` and `addPatchCellLayer` run on a mesh that already has layers, a patch whose points are the added points of the previous slice, and a non-trivial `newToOldPatchPoints`. If it does not fail: 16 inner iterations, removed/extruded as in the table, shrunk and layer meshes 92-123 digest-equal, final 124 (faces 936f440a7e533447 with patch offset 0, points 6bbdcca29ee1abde), 33582 cells / 104369 faces / 37310 points, the table equal to 3 figures. | any of those, or the cell/face map bookkeeping of `cellNLayers`/`faceRealThickness` (affects only the table and the fields, not the mesh) |
+| P76 | The accumulated `writeLayerData` fields (`nSurfaceLayers`, `thickness`, `thicknessFraction`) of `p2` and `o2` equal ESI's bit for bit. | accumulation order through the face map; `thickness` of faces that were boundary in slice 0 and are internal in slice 1 |

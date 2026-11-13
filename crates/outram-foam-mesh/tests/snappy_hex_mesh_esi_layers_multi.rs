@@ -121,7 +121,7 @@ fn dump(tag: &str, time: &str, faces: Option<&[u8]>, points: &[u8]) {
 
 /// ESI's snapped mesh of the rebuilt environment (time 81): faces as in round 9 (unchanged),
 /// points from `layer_points_81_r10.bin.gz`.
-fn mesh81() -> MergeMesh {
+fn mesh81(start: &str) -> MergeMesh {
     let mut faces = Vec::new();
     let mut owner = Vec::new();
     let mut neighbour = Vec::new();
@@ -132,7 +132,7 @@ fn mesh81() -> MergeMesh {
         }
         faces.push(v[2..].iter().map(|&p| p as usize).collect());
     }
-    let mesh = SnapMesh { points: vectors("layer_points_81_r10.bin.gz"), faces, owner, neighbour };
+    let mesh = SnapMesh { points: vectors(start), faces, owner, neighbour };
     MergeMesh::from_patch_starts(mesh, &[51058, 58275, 59449, 59689, 60813])
 }
 
@@ -141,8 +141,8 @@ fn feature_cos() -> f64 {
 }
 
 /// `doLayers`: `mergePatchFacesUndo` (concave limit 90 deg) then `mergeEdgesUndo`.
-fn mesh83() -> MergeMesh {
-    let m = mesh81();
+fn mesh83(start: &str) -> MergeMesh {
+    let m = mesh81(start);
     let controls = EsiQualityControls::default();
     let preserve = vec![false; m.mesh.faces.len()];
     let patches: Vec<usize> = (0..4).collect();
@@ -152,12 +152,18 @@ fn mesh83() -> MergeMesh {
     m2
 }
 
+const R10_START: &str = "layer_points_81_r10.bin.gz";
+/// Time-81 points of the rounds 3-9 fixtures; the round-11 ESI build reproduces them bit for bit.
+const OLD_START: &str = "layer_points_81.bin.gz";
+
 /// What differs between the three cases.
 struct Case {
     tag: &'static str,
     n_layers: i64,
     expansion: f64,
     n_relaxed_iter: usize,
+    /// fixture of the time-81 points: `layer_points_81_r10.bin.gz` (round 10) or `layer_points_81.bin.gz` (rounds 3-9, and the build of round 11)
+    start: &'static str,
 }
 
 struct Run {
@@ -168,7 +174,7 @@ struct Run {
 }
 
 fn run_case(c: &Case) -> Run {
-    let m = mesh83();
+    let m = mesh83(c.start);
     let cell_level: Vec<usize> = lines("layer_cell_level_81.txt.gz").iter().map(|v| v[0] as usize).collect();
     let patch_ids: Vec<usize> = (0..4).collect();
     let dict = LayerDict {
@@ -314,7 +320,7 @@ fn tail(c: &Case, run: &Run, final_faces: u64, fields: Option<u64>, wrong: &[usi
 /// P60: the round-9 case from the rebuilt ESI's snapped mesh.
 #[test]
 fn base_case_from_rebuilt_esi() {
-    let c = Case { tag: "base", n_layers: 1, expansion: 1.0, n_relaxed_iter: 20 };
+    let c = Case { tag: "base", n_layers: 1, expansion: 1.0, n_relaxed_iter: 20, start: R10_START };
     let run = run_case(&c);
     assert_eq!(run.n_layers_total, 8521);
     let refs = [
@@ -333,7 +339,7 @@ fn base_case_from_rebuilt_esi() {
 /// P61-P64: three layers, expansion ratio 1.2.
 #[test]
 fn three_layers_expansion_1p2_against_esi() {
-    let c = Case { tag: "layers3", n_layers: 3, expansion: 1.2, n_relaxed_iter: 20 };
+    let c = Case { tag: "layers3", n_layers: 3, expansion: 1.2, n_relaxed_iter: 20, start: R10_START };
     let run = run_case(&c);
     // P61: "Layers to add in current iteration : 25563" and the thickness table
     assert_eq!(run.n_layers_total, 25563, "P61 ESI: Layers to add in current iteration");
@@ -386,7 +392,7 @@ fn three_layers_expansion_1p2_against_esi() {
 /// P65: `nRelaxedIter 1`, iterations from 1 use `meshQualityControls.relaxed`.
 #[test]
 fn relaxed_quality_path_against_esi() {
-    let c = Case { tag: "relaxed", n_layers: 1, expansion: 1.0, n_relaxed_iter: 1 };
+    let c = Case { tag: "relaxed", n_layers: 1, expansion: 1.0, n_relaxed_iter: 1, start: R10_START };
     let run = run_case(&c);
     let removed: Vec<usize> = run.its.iter().map(|i| i.n_changed).collect();
     let extruded: Vec<usize> = run.its.iter().map(|i| i.n_extruded_faces).collect();
@@ -400,4 +406,57 @@ fn relaxed_quality_path_against_esi() {
     let bad = compare(&c, &run, &refs, 0x1fa36a7e47db0a38);
     assert!(bad.is_empty(), "{bad:?}");
     tail(&c, &run, 0x1fa36a7e47db0a38, Some(0xdb8997693ba42b73), &[20914, 44803]);
+}
+
+// ---- round 11 (P72): the same three cases from the rounds 3-9 time-81 points (`OLD_START`). The ESI
+// build of round 11 reproduces those points bit for bit, so these digests come from that build.
+// Faces digests equal round 10's; shrunk-points, layer-points and field digests are the moved ones
+// (round 10 -> round 11 in `verification_and_validation/snappy_hex_mesh_esi_v2506/README.md`).
+
+/// P72, base case from the old start.
+#[test]
+fn base_case_from_old_start() {
+    let c = Case { tag: "base_old", n_layers: 1, expansion: 1.0, n_relaxed_iter: 20, start: OLD_START };
+    let run = run_case(&c);
+    assert_eq!(run.n_layers_total, 8521);
+    let refs = [
+        Ref { shrunk_points: 0xab189caffc5da830, layer_faces: 0x8dcf90c292fdaf51, layer_points: 0x4fe8fe98546696cb },
+        Ref { shrunk_points: 0xe0ac6c3665d116c4, layer_faces: 0x0c7c2aa6517ef763, layer_points: 0xed45b0e95cae29d1 },
+        Ref { shrunk_points: 0x69c9d9df92f90df2, layer_faces: 0xb74d31243d7a99e7, layer_points: 0xedc9b810677dddf9 },
+    ];
+    assert_eq!(run.its.len(), 3);
+    let bad = compare(&c, &run, &refs, 0x915ab24c5e104db8);
+    assert!(bad.is_empty(), "{bad:?}");
+    tail(&c, &run, 0x915ab24c5e104db8, None, &[]);
+}
+
+/// P72, three layers with expansion 1.2 from the old start.
+#[test]
+fn three_layers_from_old_start() {
+    let c = Case { tag: "layers3_old", n_layers: 3, expansion: 1.2, n_relaxed_iter: 20, start: OLD_START };
+    let run = run_case(&c);
+    assert_eq!(run.n_layers_total, 25563);
+    let refs = [
+        Ref { shrunk_points: 0x88bd2e5b7c03e477, layer_faces: 0xd59160e6823bdfaf, layer_points: 0x8c5dcb8a687cd671 },
+        Ref { shrunk_points: 0x91aa2fd70cd6c175, layer_faces: 0x6657d6c941e7b8e4, layer_points: 0x31a702daf1396917 },
+        Ref { shrunk_points: 0xe9f410626cb3bf42, layer_faces: 0x98941e07d1293cbc, layer_points: 0x8ccc40d0d9f7fc9b },
+        Ref { shrunk_points: 0x577c09fe0be76503, layer_faces: 0x607c348fa0cb407d, layer_points: 0xf71d2d7581b8d8f5 },
+    ];
+    let bad = compare(&c, &run, &refs, 0xfe3b90ebac36bf2c);
+    assert!(bad.is_empty(), "{bad:?}");
+    tail(&c, &run, 0xfe3b90ebac36bf2c, Some(0xe1ee47ca2800ad5a), &[]);
+}
+
+/// P72, `nRelaxedIter 1` from the old start.
+#[test]
+fn relaxed_from_old_start() {
+    let c = Case { tag: "relaxed_old", n_layers: 1, expansion: 1.0, n_relaxed_iter: 1, start: OLD_START };
+    let run = run_case(&c);
+    let refs = [
+        Ref { shrunk_points: 0xab189caffc5da830, layer_faces: 0x8dcf90c292fdaf51, layer_points: 0x4fe8fe98546696cb },
+        Ref { shrunk_points: 0xe0ac6c3665d116c4, layer_faces: 0x0c7c2aa6517ef763, layer_points: 0xed45b0e95cae29d1 },
+    ];
+    let bad = compare(&c, &run, &refs, 0x1fa36a7e47db0a38);
+    assert!(bad.is_empty(), "{bad:?}");
+    tail(&c, &run, 0x1fa36a7e47db0a38, Some(0x4d6282e59593ad13), &[20914, 44803]);
 }
