@@ -260,7 +260,10 @@ Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
   ignore expansion over their ±50 °F swing (~~not measured~~ **measured 2026-11-11 as an ablation, N-3 section: −0.69 ± 0.54, not resolved**). If the +158 pcm over 1111 °F
   is linear, expansion adds about **+0.14 × 10⁻⁵ /°F** (14 pcm over the
   100 °F swing): about 2 % of α_iso, positive, and inside N-3's ±0.5–0.7
-  σ. Not measured at N-3's temperatures.
+  σ. ~~Not measured at N-3's temperatures.~~ **CORRECTED 2026-11-13:**
+  measured at 1131/1231 °F on 2026-11-11 (N-3 section, hot-dims
+  ablation): −0.69 ± 0.54 × 10⁻⁵ /°F, the opposite sign to this
+  estimate, but not resolved from zero.
 
 ### N-1 residual: graphite thermal-scattering law (2026-11-10, gh:#1128)
 
@@ -458,7 +461,9 @@ Linux, CPU only).
     implied by its 70 tons of balls);
   - the insulation, modelled as void;
   - the cylinder's elevation;
-  - the missing base and cover, which would add to the worth, not subtract.
+  - ~~the missing base and cover, which would add to the worth, not subtract.~~
+    **MEASURED 2026-11-12:** the whole shield (base, cylinder and cover, TM-0728
+    Fig. 5.2) is worth +1063 ± 39 pcm on the current default (section below).
 - **The default is not changed.** Whether the comparison should carry the
   shield is the maintainer's call. A real reactor had it, so the model
   without it is missing a positive term of this size.
