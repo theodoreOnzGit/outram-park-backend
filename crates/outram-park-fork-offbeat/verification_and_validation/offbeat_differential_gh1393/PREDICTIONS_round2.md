@@ -67,3 +67,76 @@ Predictions:
    LanningBeyer/Magni/Philipponneau).  If the crate's burnup module feeds
    `Bu/1000/0.881` to Lemehov the result differs by ~13 % in the burnup
    argument; that is an interface-basis question, listed not fixed.
+
+## B. Densification, relocation, swelling (written before the driver is compiled)
+
+Structure.  Upstream's densification and swelling classes are explicit
+*incremental* updates driven by `oldTime()` fields (and the min/max against
+the old value), the port's are stateless functions of burnup/fluence.  A
+comparison is only meaningful where the two coincide, and I fix those cases
+before running:
+
+* Single-step cases (old fields zero): densification Empirical/FRAPCON (the
+  `min(nominal, old)` with `old = 0` is the identity for a negative nominal;
+  `F = 1`, `delta = 0` defaults), swelling FRAPCON/Constant/FrCrAl (stateless
+  upstream), growth AIM1/Generalized1515Ti/WrightSham/BISON-Zy (`old` fluence 0 so
+  `pow(0, p) = 0`), swelling `PyroCarbonCorrelation` (stateless upstream).
+* Multi-step cases: swelling MATPRO UO2 (explicit right-endpoint time stepping at
+  fixed T and density vs the port's analytic integral), FBR-MOX (explicit steps
+  at a fixed gap state vs the port's piecewise-linear closed form), BISON-Zy
+  growth (non-linear in the increment).  Not bit comparisons; derived bounds below.
+* Not compared, with reasons: swelling PARFUME buffer/PyC (not ported: need flux,
+  timestep and interpolation tables, see the module doc of the port);
+  `swellingGrowthMatproZy` (checked 2026-11-13: absent from `Make/files`, so not
+  compiled upstream; the port doc's claim is right); relocation recovery
+  (`recoveryFraction` default 0 -> inactive; the port has no recovery state);
+  upstream's `min()`/`max()` against old-time fields (stateful).
+
+Gate form.  Every row carries a `scale`; gate G1: `|port - upstream| <= 8 eps *
+scale`; G2: relative < 1e-14 wherever `|value| >= 0.2 * scale`.  For a product of
+factors `scale = cond * |value|` with `cond = 1 + sum(|exponent| * |log-sensitivity|)`
+(a power `x^p` with a base that is rounded differently contributes `p`; an
+`exp(a)` contributes `|a|`), derived from relative-error propagation.  For sums of
+terms of mixed sign, `scale = sum |terms|`.
+
+Predictions:
+1. G1/G2 hold for relocation (modified and legacy), densification (Empirical and
+   FRAPCON), swelling Constant/FrCrAl/FRAPCON/AIM1/Generalized1515Ti/WrightSham/
+   BISON-Zy (one step)/PyroCarbonCorrelation.
+2. Bit-identity: Constant, FrCrAl, FRAPCON swelling (same operation order up to the
+   burnup conversion `Bu/0.881` vs `(Bu/1000/0.881)*1000`) mostly identical but not
+   100 %: 0.881 conversion costs <= 1 ulp.  Empirical densification: upstream's
+   `dLmax = -dc/(frac*100+dc)/3` applied as `dLmax*(1-exp)` vs the port's
+   `(asymptote*(1-exp))/3`: association difference, predicted bit-identity < 100 %.
+3. FRAPCON densification: the fixed-point iteration is the same recurrence; the
+   iteration count is predicted <= 10 for the whole grid (the port allows 10,
+   upstream 11; if any grid point needs the 11th, port returns zero and upstream
+   does not, which would be a port defect).  `abs(B - B0)` is assumed to be the
+   double overload (OpenFOAM's `mag` is `::fabs`, <cmath> supplies `std::abs`);
+   an `int abs` would stop the loop after one step and is not what this driver
+   models.  **Unverified assumption**, listed.
+4. Resintering route (`resintDensChange != 0`): upstream writes
+   `(0.0015*dc*10960/100)/100`, the port `(0.0015*dc*109.6)/100`; `0.0015*dc*10960`
+   is a different rounding from `0.0015*dc*109.6` (109.6 is not exact): predicted
+   1-2 ulp on those rows, not 100 % identical.
+5. Swelling MATPRO UO2 (stepwise vs analytic): upstream adds, per step, `par2*rho*dBu*
+   dT^p exp(par5 dT) exp(par6 rho Bu_k)` with `Bu_k` the END-of-step burnup, i.e. a
+   right-endpoint Riemann sum of a monotone integrand.  Exact bound:
+   `|sum - integral| <= h |g(b) - g(a)|` -> relative `<= |d| F / N` for `d = par6*rho`,
+   `F` the final FIMA, `N` steps, plus rounding `(N+8) eps`.  Predicted: gate holds
+   for every `N`; observed error scales ~1/N (slope -1 on a log-log of N from 1 to 4096).
+6. FBR-MOX: the port is the continuous limit at fixed gap state; explicit steps use
+   `par2` for a whole step that straddles `BuI = 1`.  Bound
+   `|sum - port| <= (par1 - par2) * dF + (N+8) eps * value` with `dF` the step in
+   %FIMA.  Predicted to hold, with exact agreement (rounding only) when no step
+   straddles 1 %FIMA.
+7. BISON-Zy growth is path dependent upstream: the radial/hoop increment
+   `-(1 - (1+d)^-0.5)` is non-linear in `d`, so summing `N` increments is not the
+   transform of the total.  Prediction (second-order expansion): for total axial
+   growth `S`, relative difference of the transverse strain between `N` equal steps
+   and the port's single cumulative form is `0.75 * S * (1 - 1/N)` (to first order in
+   `S`); axial component identical to rounding.  Gate: observed within 20 % of the
+   prediction for `S <= 0.02`.  N = 1 is predicted bit-/ulp-identical.
+8. No port defect expected in this family.  Documented non-reproductions (NOT
+   defects): `min(nominal, old)` / `max(old, new)` histories, recovery, PARFUME
+   swelling, `intra/intergranularGasSwelling` additions.
