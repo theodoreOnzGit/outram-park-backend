@@ -21,9 +21,10 @@
 
 //! Convenience re-exports: `use outram_foam_turbulence_lib::prelude::*;` brings
 //! the trait, the error type, every model struct, and the wall-function helpers
-//! into scope. Note that only [`KOmegaSST`] is a working model — the other
-//! structs are scaffolds whose trait methods `todo!()`-panic (see the
-//! crate-level status table).
+//! into scope. ~~Note that only `KOmegaSST` is a working model — the other
+//! structs are scaffolds whose trait methods `todo!()`-panic.~~ **CORRECTED
+//! 2026-11-13:** `grep todo!` finds none in `src/`; every model listed in the
+//! crate-level status table implements the trait (see its status column).
 
 pub use crate::error::TurbulenceError;
 pub use crate::traits::TurbulenceModel;
@@ -32,6 +33,9 @@ pub use crate::k_epsilon::KEpsilon;
 pub use crate::k_omega::KOmega;
 pub use crate::k_omega_sst::KOmegaSST;
 pub use crate::laminar::LaminarModel;
+pub use crate::les::wale::Wale;
 pub use crate::les::Smagorinsky;
+pub use crate::realizable_ke::RealizableKE;
+pub use crate::rng_k_epsilon::RngKEpsilon;
 pub use crate::spalart_allmaras::SpalartAllmaras;
 pub use crate::wall_functions::{nu_t_wall, y_plus};

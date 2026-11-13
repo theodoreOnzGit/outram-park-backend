@@ -214,7 +214,7 @@ static void auditMatrix(const word& eq, const fvScalarMatrix& mIn)
 
 int main(int argc, char* argv[])
 {
-    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky");
+    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE");
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
@@ -359,7 +359,7 @@ int main(int argc, char* argv[])
 
     // ---- the REAL correct(): matrices and local fields are printed by the
     //      dumpSolver instead of being solved ------------------------------
-    if (model != "Smagorinsky")
+    if (model != "Smagorinsky" && model != "WALE")
     {
         turbulence->correct();
     }
@@ -613,6 +613,157 @@ int main(int argc, char* argv[])
             prod - fvm::Sp(spC, ntP())
         );
         auditMatrix("nuTilda", ntEqn);
+    }
+    else if (model == "RNGkEpsilon")
+    {
+        // RASModels/RNGkEpsilon/RNGkEpsilon.C, correct()
+        const dimensionedScalar Cmu("Cmu", dimless, 0.0845), C1("C1", dimless, 1.42),
+            C2("C2", dimless, 1.68), C3("C3", dimless, 0), sigmak("sk", dimless, 0.71942),
+            sigmaEps("se", dimless, 0.71942), eta0("eta0", dimless, 4.38),
+            beta("beta", dimless, 0.012);
+        const volScalarField::Internal GbyNu(gradU.v() && devTwoSymm(gradU.v()));
+        const volScalarField::Internal G(nut()*GbyNu);
+        const volScalarField::Internal eta(sqrt(mag(GbyNu))*k()/epsilon());
+        const volScalarField::Internal eta3(eta*sqr(eta));
+        const volScalarField::Internal R
+        (
+            ((eta*(-eta/eta0 + scalar(1)))/(beta*eta3 + scalar(1)))
+        );
+        dumpS("T_GbyNu", GbyNu.field());
+        dumpS("T_G", G.field());
+        dumpS("T_eta", eta.field());
+        dumpS("T_R", R.field());
+        const volScalarField::Internal Eeps((C1 - R)*GbyNu*Cmu*k());
+        const volScalarField::Internal SuSpEps(((2.0/3.0)*C1 - C3)*divU);
+        const volScalarField::Internal SpEps(C2*epsilon()/k());
+        const volScalarField::Internal SuSpK((2.0/3.0)*divU);
+        const volScalarField::Internal SpK(epsilon()/k());
+        dumpS("T_eps_E", Eeps.field());
+        dumpS("T_eps_SuSp", SuSpEps.field());
+        dumpS("T_eps_Sp", SpEps.field());
+        dumpS("T_k_E", G.field());
+        dumpS("T_k_SuSp", SuSpK.field());
+        dumpS("T_k_Sp", SpK.field());
+        const volScalarField nutT(Cmu*sqr(k)/epsilon);
+        dumpS("T_nut", nutT.primitiveField());
+        const volScalarField Deps("DepsilonEff", nut/sigmaEps + nu);
+        const volScalarField Dk("DkEff", nut/sigmak + nu);
+        fvScalarMatrix epsEqn
+        (
+            fvm::ddt(epsP()) + fvm::div(phi, epsP()) - fvm::laplacian(Deps, epsP())
+         ==
+            Eeps - fvm::SuSp(SuSpEps, epsP()) - fvm::Sp(SpEps, epsP())
+        );
+        auditMatrix("epsilon", epsEqn);
+        fvScalarMatrix kEqn
+        (
+            fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
+         ==
+            G - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
+        );
+        auditMatrix("k", kEqn);
+    }
+    else if (model == "realizableKE")
+    {
+        // RASModels/realizableKE/realizableKE.C, rCmu() and correct()
+        const dimensionedScalar A0("A0", dimless, 4.0), C2("C2", dimless, 1.9),
+            sigmak("sk", dimless, 1.0), sigmaEps("se", dimless, 1.2);
+        const volScalarField S2(2*magSqr(devSymm(gradU)));
+        const volScalarField magS(sqrt(S2));
+        tmp<volSymmTensorField> tS = devSymm(gradU);
+        const volSymmTensorField& S = tS();
+        const volScalarField W
+        (
+            (2*Foam::sqrt(2.0))*((S&S)&&S)
+           /(
+                magS*S2
+              + dimensionedScalar("small", dimensionSet(0, 0, -3, 0, 0), SMALL)
+            )
+        );
+        const volScalarField phis
+        (
+            (1.0/3.0)*acos(clamp(Foam::sqrt(6.0)*W, scalarMinMax(-1, 1)))
+        );
+        const volScalarField As(Foam::sqrt(6.0)*cos(phis));
+        const volScalarField Us(sqrt(S2/2.0 + magSqr(skew(gradU))));
+        const volScalarField rCmu(1.0/(A0 + As*Us*k/epsilon));
+        const volScalarField nutT(rCmu*sqr(k)/epsilon);
+        const volScalarField eta(magS*k/epsilon);
+        const volScalarField C1(max(eta/(scalar(5) + eta), scalar(0.43)));
+        const volScalarField G(nut*(gradU && devTwoSymm(gradU)));
+        const volScalarField nuL(max(nu, dimensionedScalar(nu.dimensions(), Zero)));
+        const volScalarField::Internal Eeps(C1()*magS()*epsilon());
+        const volScalarField::Internal SpEps(C2*epsilon()/(k() + sqrt(nuL()*epsilon())));
+        const volScalarField::Internal SuSpK((2.0/3.0)*divU);
+        const volScalarField::Internal SpK(epsilon()/k());
+        dumpS("T_S2", S2.primitiveField());
+        dumpS("T_magS", magS.primitiveField());
+        dumpS("T_W", W.primitiveField());
+        dumpS("T_phis", phis.primitiveField());
+        dumpS("T_As", As.primitiveField());
+        dumpS("T_Us", Us.primitiveField());
+        dumpS("T_rCmu", rCmu.primitiveField());
+        dumpS("T_nut", nutT.primitiveField());
+        dumpS("T_eta", eta.primitiveField());
+        dumpS("T_C1", C1.primitiveField());
+        dumpS("T_G", G.primitiveField());
+        dumpS("T_eps_E", Eeps.field());
+        dumpS("T_eps_Sp", SpEps.field());
+        dumpS("T_k_E", G.primitiveField());
+        dumpS("T_k_SuSp", SuSpK.field());
+        dumpS("T_k_Sp", SpK.field());
+        const volScalarField Deps("DepsilonEff", nut/sigmaEps + nu);
+        const volScalarField Dk("DkEff", nut/sigmak + nu);
+        fvScalarMatrix epsEqn
+        (
+            fvm::ddt(epsP()) + fvm::div(phi, epsP()) - fvm::laplacian(Deps, epsP())
+         ==
+            Eeps - fvm::Sp(SpEps, epsP())
+        );
+        auditMatrix("epsilon", epsEqn);
+        fvScalarMatrix kEqn
+        (
+            fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
+         ==
+            G() - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
+        );
+        auditMatrix("k", kEqn);
+    }
+    else if (model == "WALE")
+    {
+        // LESModels/WALE/WALE.C k(), correctNut(); delta cubeRootVol (deltaCoeff 1)
+        const dimensionedScalar Ck("Ck", dimless, 0.094), Cw("Cw", dimless, 0.325);
+        volScalarField delta
+        (
+            IOobject("delta", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE, IOobject::NO_REGISTER),
+            mesh, dimensionedScalar(dimLength, 0), zeroGradientFvPatchScalarField::typeName
+        );
+        delta.primitiveFieldRef() = 1.0*cbrt(mesh.V());
+        delta.correctBoundaryConditions();
+        const volSymmTensorField Sd(devSymm(gradU & gradU));
+        const volScalarField magSqrSd(magSqr(Sd));
+        const volScalarField magSqrS(magSqr(symm(gradU)));
+        const volScalarField pw1(pow(magSqrS, 5.0/2.0));
+        const volScalarField pw2(pow(magSqrSd, 5.0/4.0));
+        const volScalarField kk
+        (
+            sqr(sqr(Cw)*delta/Ck)*
+            (
+                pow3(magSqrSd)
+               /(
+                   sqr(pw1 + pw2)
+                 + dimensionedScalar("SMALL", dimensionSet(0, 0, -10, 0, 0), SMALL)
+               )
+            )
+        );
+        const volScalarField nutT(Ck*delta*sqrt(kk));
+        dumpS("T_delta", delta.primitiveField());
+        dumpS("T_magSqrSd", magSqrSd.primitiveField());
+        dumpS("T_magSqrS", magSqrS.primitiveField());
+        dumpS("T_pow52", pw1.primitiveField());
+        dumpS("T_pow54", pw2.primitiveField());
+        dumpS("T_k", kk.primitiveField());
+        dumpS("T_nut", nutT.primitiveField());
     }
     else if (model == "Smagorinsky")
     {

@@ -29,6 +29,9 @@ use outram_foam_basic_lib::primitives::{Tensor, Vector3};
 use outram_foam_turbulence_lib::k_epsilon::KEpsilon;
 use outram_foam_turbulence_lib::k_omega::KOmega;
 use outram_foam_turbulence_lib::k_omega_sst::KOmegaSST;
+use outram_foam_turbulence_lib::les::wale::Wale;
+use outram_foam_turbulence_lib::realizable_ke::RealizableKE;
+use outram_foam_turbulence_lib::rng_k_epsilon::RngKEpsilon;
 use outram_foam_turbulence_lib::les::smagorinsky::Smagorinsky;
 use outram_foam_turbulence_lib::source_terms::{FrozenState, SourceForm, SourceTerms};
 use outram_foam_turbulence_lib::spalart_allmaras::SpalartAllmaras;
@@ -43,6 +46,12 @@ const REF_SST: &[u8] =
     include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_kOmegaSST.txt.gz");
 const REF_SA: &[u8] =
     include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_SpalartAllmaras.txt.gz");
+const REF_RNG: &[u8] =
+    include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_RNGkEpsilon.txt.gz");
+const REF_REALIZABLE: &[u8] =
+    include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_realizableKE.txt.gz");
+const REF_WALE: &[u8] =
+    include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_WALE.txt.gz");
 const REF_SMAG: &[u8] =
     include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_Smagorinsky.txt.gz");
 
@@ -678,4 +687,156 @@ const PINS_SMAG: &[(&str, usize)] = &[
     ("Smagorinsky port (esi delta) delta", 360),
     ("Smagorinsky port (esi delta) k", 360),
     ("Smagorinsky port (esi delta) nut", 360),
+];
+
+// ── gh:#1377: RNGkEpsilon, realizableKE, WALE (ESI arithmetic only) ─────────
+
+/// Largest ulp distance over the rows.
+fn max_ulp(rows: &Rows) -> u64 {
+    rows.iter().map(|(_, s)| s.max_ulp).max().unwrap_or(0)
+}
+
+#[test]
+fn rng_k_epsilon_vs_openfoam() {
+    let r = parse(REF_RNG);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = RngKEpsilon::new(mesh.clone());
+    m.k = r.zg(&mesh, "k", "k");
+    m.epsilon = r.zg(&mesh, "epsilon", "epsilon");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.u = r.velocity(&mesh);
+    m.phi = r.flux(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_nut", "nut"),
+        ("T_GbyNu", "GbyNu"),
+        ("T_G", "G"),
+        ("T_eta", "eta"),
+        ("T_R", "R"),
+        ("T_eps_E", "eps_E"),
+        ("T_eps_SuSp", "eps_SuSp"),
+        ("T_eps_Sp", "eps_Sp"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let rows = compare("RNGkEpsilon", &r, &m.source_terms(&r.state(false, false)), pairs);
+    all_identical(&rows);
+}
+
+#[test]
+fn realizable_ke_vs_openfoam() {
+    let r = parse(REF_REALIZABLE);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = RealizableKE::new(mesh.clone());
+    m.k = r.zg(&mesh, "k", "k");
+    m.epsilon = r.zg(&mesh, "epsilon", "epsilon");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.u = r.velocity(&mesh);
+    m.phi = r.flux(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_S2", "S2"),
+        ("T_magS", "magS"),
+        ("T_W", "W"),
+        ("T_phis", "phis"),
+        ("T_As", "As"),
+        ("T_Us", "Us"),
+        ("T_rCmu", "rCmu"),
+        ("T_nut", "nut"),
+        ("T_eta", "eta"),
+        ("T_C1", "C1"),
+        ("T_G", "G"),
+        ("T_eps_E", "eps_E"),
+        ("T_eps_Sp", "eps_Sp"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let rows = compare("realizableKE", &r, &m.source_terms(&r.state(false, false)), pairs);
+    // No libm before phis: these must be bit-identical.
+    for (l, s) in &rows {
+        if ["S2", "magS", " W"].iter().any(|t| l.ends_with(t)) {
+            assert_eq!(s.identical, s.n, "{l}");
+        }
+    }
+    assert!(max_ulp(&rows) <= REALIZABLE_MAX_ULP, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_REALIZABLE);
+}
+
+#[test]
+fn wale_vs_openfoam() {
+    let r = parse(REF_WALE);
+    assert!(r.has("T_delta") && r.audits.is_empty());
+    let mesh = r.mesh();
+    let mut m = Wale::new(mesh.clone());
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.u = r.velocity(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_delta", "delta"),
+        ("T_magSqrSd", "magSqrSd"),
+        ("T_magSqrS", "magSqrS"),
+        ("T_pow52", "pow52"),
+        ("T_pow54", "pow54"),
+        ("T_k", "k"),
+        ("T_nut", "nut"),
+    ];
+    let own = r.state(false, false);
+    let up = r.state(false, true);
+    let mut rows = compare("WALE (own delta)", &r, &m.source_terms(&own), pairs);
+    let esi_delta = compare("WALE (esi delta)", &r, &m.source_terms(&up), pairs);
+    for (l, s) in &esi_delta {
+        if l.ends_with("magSqrSd") || l.ends_with("magSqrS") {
+            assert_eq!(s.identical, s.n, "{l}");
+        }
+    }
+    assert!(max_ulp(&esi_delta) <= WALE_MAX_ULP, "max ulp {}", max_ulp(&esi_delta));
+    rows.extend(esi_delta);
+    assert!(max_ulp(&rows) <= 7, "own-delta max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_WALE);
+}
+
+const REALIZABLE_MAX_ULP: u64 = 4;
+const WALE_MAX_ULP: u64 = 1;
+const PINS_REALIZABLE: &[(&str, usize)] = &[
+    ("realizableKE nut", 346),
+    ("realizableKE S2", 360),
+    ("realizableKE magS", 360),
+    ("realizableKE W", 360),
+    ("realizableKE phis", 353),
+    ("realizableKE As", 344),
+    ("realizableKE Us", 360),
+    ("realizableKE rCmu", 346),
+    ("realizableKE nut", 346),
+    ("realizableKE eta", 360),
+    ("realizableKE C1", 360),
+    ("realizableKE G", 360),
+    ("realizableKE eps_E", 360),
+    ("realizableKE eps_Sp", 360),
+    ("realizableKE k_E", 360),
+    ("realizableKE k_SuSp", 360),
+    ("realizableKE k_Sp", 360),
+];
+const PINS_WALE: &[(&str, usize)] = &[
+    ("WALE (own delta) nut", 173),
+    ("WALE (own delta) delta", 156),
+    ("WALE (own delta) magSqrSd", 360),
+    ("WALE (own delta) magSqrS", 360),
+    ("WALE (own delta) pow52", 360),
+    ("WALE (own delta) pow54", 358),
+    ("WALE (own delta) k", 185),
+    ("WALE (own delta) nut", 173),
+    ("WALE (esi delta) nut", 360),
+    ("WALE (esi delta) delta", 360),
+    ("WALE (esi delta) magSqrSd", 360),
+    ("WALE (esi delta) magSqrS", 360),
+    ("WALE (esi delta) pow52", 360),
+    ("WALE (esi delta) pow54", 358),
+    ("WALE (esi delta) k", 360),
+    ("WALE (esi delta) nut", 360),
 ];

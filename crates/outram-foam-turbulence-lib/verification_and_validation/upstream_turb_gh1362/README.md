@@ -186,3 +186,50 @@ the table below counts identical cells per term.
 4. No cell is expected to differ by a formula error; any difference that is not
    explained by a libm function is a defect in the port, to be localised and fixed by
    translating upstream, not by a tolerance.
+
+## Slice 3 results (2026-11-13, release; same 360-cell duct, upstream `grad(U)`, `div(phi)` fed in)
+
+**Audit of the transcription: held.** For RNGkEpsilon and realizableKE the transcribed
+epsilon and k equations reproduce the matrices the REAL model assembled bit for bit (diag,
+source, upper, lower: 360/360 and 894/894; 8 audit lines each). WALE is algebraic (its
+transcription is checked against the real `nut`, below).
+
+| model / term | identical / 360 | max ulp | note |
+|---|---|---|---|
+| RNGkEpsilon: nut (real and transcribed), GbyNu, G, eta, R, eps E/SuSp/Sp, k E/SuSp/Sp | 360 each | 0 | no libm |
+| realizableKE: S2, magS, W, Us, eta, C1, G, eps E/Sp, k E/SuSp/Sp | 360 each | 0 | no libm |
+| realizableKE: phis (`acos`) | 353 | 2 | PETIR `acos` against glibc |
+| realizableKE: As (`cos`) | 344 | 1 | PETIR `cos` against glibc |
+| realizableKE: rCmu | 346 | 3 | inherited from `As` |
+| realizableKE: nut (real `validate()` and transcribed) | 346 | 4 | inherited from `rCmu` |
+| WALE, upstream delta fed in: magSqrSd, magSqrS, pow52, k, nut | 360 each | 0 | |
+| WALE, upstream delta fed in: pow54 (`pow(x, 5/4)`) | 358 | 1 | PETIR `powf` against glibc |
+| WALE, own delta (`cbrt`): delta / k / nut | 156 / 185 / 173 | 2 / 7 / 6 | same `cbrt` as Smagorinsky |
+
+All counts are pinned in `tests/openfoam_turbulence_code_to_code.rs` (both directions) with
+ulp ceilings (realizableKE 4, WALE with upstream delta 1, with own delta 7).
+
+### Predictions against results
+
+- Held: 1 (RNG 360/360 everywhere); 2 for the libm-free terms; the libm chain differs by at
+  most 3 ulp in `rCmu` and 96 % of cells are identical (>= 70 % predicted); 4 (every
+  difference is explained by a libm function; no formula defect found).
+- Off: 2 said "at most 3 ulp", but `nut` reaches 4 ulp (it multiplies `rCmu` by `k^2/epsilon`
+  and so inherits and adds one rounding). 3 predicted `pow(x, 5/2)` would differ in a
+  minority of cells; it is 360/360 identical on this field; only `pow(x, 5/4)` differs (2
+  cells, 1 ulp), and `k` and `nut` are 360/360 identical with upstream's delta, so the
+  predicted "same cells, up to 3 ulp" did not occur.
+
+### Defects found
+
+None in the formulas. Documentation defects fixed in the same change (strike-through in
+place): `src/prelude.rs` said only `KOmegaSST` works and the others `todo!()`-panic, and
+`src/les/mod.rs` said `Smagorinsky` is a scaffold; `grep todo! src/` finds neither.
+
+### Honest scope of the new models
+
+`source_terms` is compared with upstream; `correct()` is NOT. Known differences of
+`correct()` from upstream: no wall functions (zero-gradient walls), `bound()` is a plain
+floor at `small` (upstream averages neighbouring cells below the limit), no `fvOptions`,
+no relaxation, the port's own `SolverSettings`. The new models have a single arithmetic
+(upstream's); the older models' `SourceForm::Port` split is not repeated for them.

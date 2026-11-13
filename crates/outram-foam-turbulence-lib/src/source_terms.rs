@@ -41,7 +41,8 @@
 //! difference in a model formula is separated from a difference in the Gauss
 //! gradient ulp ordering (gh:#1489).
 
-use outram_foam_basic_lib::prelude::{Tensor, Vector3};
+use outram_foam_basic_lib::fv_operators::fvc;
+use outram_foam_basic_lib::prelude::{FvMesh, SurfaceScalarField, Tensor, Vector3, VolVectorField};
 
 /// Which arithmetic a source-term evaluation uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -180,6 +181,145 @@ pub fn umin(a: f64, b: f64) -> f64 {
     }
 }
 
+/// Symmetric tensor as `[xx, xy, xz, yy, yz, zz]` (upstream `SymmTensor` order).
+pub type Symm6 = [f64; 6];
+
+/// Upstream `devSymm(T)` (`TensorI.H` v2506): `sph = tr(T)/3.0` (a DIVISION, not
+/// `(1/3)*tr` as in `sph()`), diagonal `T_ii - sph`, off-diagonals `0.5*(T_ij + T_ji)`.
+pub fn dev_symm(t: &Tensor) -> Symm6 {
+    let sph = tr(t) / 3.0;
+    [
+        t.xx - sph,
+        0.5 * (t.xy + t.yx),
+        0.5 * (t.xz + t.zx),
+        t.yy - sph,
+        0.5 * (t.yz + t.zy),
+        t.zz - sph,
+    ]
+}
+
+/// Upstream `symm(T)`: diagonal unchanged, off-diagonals `0.5*(T_ij + T_ji)`.
+pub fn symm6(t: &Tensor) -> Symm6 {
+    [
+        t.xx,
+        0.5 * (t.xy + t.yx),
+        0.5 * (t.xz + t.zx),
+        t.yy,
+        0.5 * (t.yz + t.zy),
+        t.zz,
+    ]
+}
+
+/// Upstream `magSqr(SymmTensor)`: `xx^2 + 2 xy^2 + 2 xz^2 + yy^2 + 2 yz^2 + zz^2`,
+/// summed left to right.
+pub fn mag_sqr_symm6(s: &Symm6) -> f64 {
+    s[0] * s[0] + 2.0 * (s[1] * s[1]) + 2.0 * (s[2] * s[2]) + s[3] * s[3] + 2.0 * (s[4] * s[4])
+        + s[5] * s[5]
+}
+
+/// Upstream `Tensor & Tensor` (`Tensor::inner`), row-major result.
+pub fn tensor_inner(a: &Tensor, b: &Tensor) -> Tensor {
+    Tensor::new(
+        a.xx * b.xx + a.xy * b.yx + a.xz * b.zx,
+        a.xx * b.xy + a.xy * b.yy + a.xz * b.zy,
+        a.xx * b.xz + a.xy * b.yz + a.xz * b.zz,
+        a.yx * b.xx + a.yy * b.yx + a.yz * b.zx,
+        a.yx * b.xy + a.yy * b.yy + a.yz * b.zy,
+        a.yx * b.xz + a.yy * b.yz + a.yz * b.zz,
+        a.zx * b.xx + a.zy * b.yx + a.zz * b.zx,
+        a.zx * b.xy + a.zy * b.yy + a.zz * b.zy,
+        a.zx * b.xz + a.zy * b.yz + a.zz * b.zz,
+    )
+}
+
+/// Upstream `SymmTensor & SymmTensor` -> `Tensor` (`SymmTensorI.H` v2506).
+pub fn symm_inner_symm(a: &Symm6, b: &Symm6) -> Tensor {
+    let (axx, axy, axz, ayy, ayz, azz) = (a[0], a[1], a[2], a[3], a[4], a[5]);
+    let (bxx, bxy, bxz, byy, byz, bzz) = (b[0], b[1], b[2], b[3], b[4], b[5]);
+    Tensor::new(
+        axx * bxx + axy * bxy + axz * bxz,
+        axx * bxy + axy * byy + axz * byz,
+        axx * bxz + axy * byz + axz * bzz,
+        axy * bxx + ayy * bxy + ayz * bxz,
+        axy * bxy + ayy * byy + ayz * byz,
+        axy * bxz + ayy * byz + ayz * bzz,
+        axz * bxx + ayz * bxy + azz * bxz,
+        axz * bxy + ayz * byy + azz * byz,
+        axz * bxz + ayz * byz + azz * bzz,
+    )
+}
+
+/// Upstream `Tensor && SymmTensor` (`TensorI.H` v2506).
+pub fn tensor_ddot_symm(a: &Tensor, s: &Symm6) -> f64 {
+    a.xx * s[0]
+        + a.xy * s[1]
+        + a.xz * s[2]
+        + a.yx * s[1]
+        + a.yy * s[3]
+        + a.yz * s[4]
+        + a.zx * s[2]
+        + a.zy * s[4]
+        + a.zz * s[5]
+}
+
+/// Upstream `magSqr(skew(gradU))`: the nine components in row order (the
+/// squared form of [`mag_skew`], without the final square root).
+pub fn mag_sqr_skew(t: &Tensor) -> f64 {
+    let a = 0.5 * (t.xy - t.yx);
+    let b = 0.5 * (t.xz - t.zx);
+    let c = 0.5 * (t.yz - t.zy);
+    let mut ms = 0.0_f64;
+    ms += a * a;
+    ms += b * b;
+    ms += a * a;
+    ms += c * c;
+    ms += b * b;
+    ms += c * c;
+    ms
+}
+
+/// Cell-centred Gauss `grad(U)` (`T_ij = d_i U_j`), the construction the RAS
+/// models of this crate use: face-interpolated dyad `U_f (x) Sf` over owner and
+/// neighbour, divided by the cell volume.
+pub fn gauss_grad_u(mesh: &FvMesh, u: &VolVectorField) -> Vec<Tensor> {
+    let u_f = fvc::interpolate(u);
+    let mut g = vec![Tensor::ZERO; mesh.n_cells];
+    for f in 0..mesh.n_internal_faces {
+        let c = u_f.internal[f] * mesh.face_area_vectors[f];
+        g[mesh.owner[f]] = g[mesh.owner[f]] + c;
+        g[mesh.neighbour[f]] = g[mesh.neighbour[f]] - c;
+    }
+    for (pi, patch) in mesh.patches.iter().enumerate() {
+        for fi in 0..patch.size {
+            let gf = patch.start + fi;
+            g[mesh.owner[gf]] =
+                g[mesh.owner[gf]] + u_f.boundary[pi].values[fi] * mesh.face_area_vectors[gf];
+        }
+    }
+    for c in 0..mesh.n_cells {
+        g[c] = g[c] * (1.0 / mesh.cell_volumes[c]);
+    }
+    g
+}
+
+/// `fvc::div(phi)` per cell: `(sum_f +-phi_f) / V` (upstream `divU`, incompressible).
+pub fn div_phi(mesh: &FvMesh, phi: &SurfaceScalarField) -> Vec<f64> {
+    let mut d = vec![0.0_f64; mesh.n_cells];
+    for f in 0..mesh.n_internal_faces {
+        d[mesh.owner[f]] += phi.internal[f];
+        d[mesh.neighbour[f]] -= phi.internal[f];
+    }
+    for (pi, patch) in mesh.patches.iter().enumerate() {
+        for fi in 0..patch.size {
+            d[mesh.owner[patch.start + fi]] += phi.boundary[pi].values[fi];
+        }
+    }
+    for c in 0..mesh.n_cells {
+        d[c] /= mesh.cell_volumes[c];
+    }
+    d
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,5 +357,28 @@ mod tests {
         let v = Vector3::new(1.0, 2.0, 3.0);
         assert_eq!(dot(v, v), 14.0);
         assert_eq!(mag_sqr(v), 14.0);
+    }
+
+    #[test]
+    fn symmetric_tensor_helpers_agree_with_full_tensor_forms() {
+        let t = sample();
+        // devSymm has zero trace and equals symm minus a third of the trace.
+        let d = dev_symm(&t);
+        assert!((d[0] + d[3] + d[5]).abs() < 1e-14);
+        let s = symm6(&t);
+        let sph = tr(&t) / 3.0;
+        assert_eq!(d[1], s[1]);
+        assert_eq!(d[0], s[0] - sph);
+        // magSqr(symm) equals 0.5 * two_mag_sqr_symm.
+        assert!((mag_sqr_symm6(&s) - 0.5 * two_mag_sqr_symm(&t)).abs() < 1e-14);
+        // (S & S) && S for a diagonal S is the sum of cubes.
+        let diag: Symm6 = [2.0, 0.0, 0.0, -1.0, 0.0, 3.0];
+        let ss = symm_inner_symm(&diag, &diag);
+        assert_eq!(tensor_ddot_symm(&ss, &diag), 8.0 - 1.0 + 27.0);
+        // T & T on the identity-like sample: row 0 col 0.
+        let tt = tensor_inner(&t, &t);
+        assert_eq!(tt.xx, t.xx * t.xx + t.xy * t.yx + t.xz * t.zx);
+        // squared skew norm squared equals mag_skew squared.
+        assert!((mag_sqr_skew(&t) - mag_skew(&t) * mag_skew(&t)).abs() < 1e-14);
     }
 }
