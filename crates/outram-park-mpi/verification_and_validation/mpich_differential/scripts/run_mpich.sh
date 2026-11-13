@@ -1,7 +1,7 @@
 #!/bin/bash
 # Regenerate a refs/*.txt file by running the unmodified MPICH driver (gh:#1435).
 #
-# usage: run_mpich.sh <out.txt> [VAR=value ...]
+# usage: run_mpich.sh <out.txt> <wide|narrow> [VAR=value ...]
 #   VAR=value pairs are exported as MPICH CVARs, e.g.
 #   MPIR_CVAR_REDUCE_INTRA_ALGORITHM=binomial
 #
@@ -14,7 +14,8 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 out="$1"
-shift
+mode="$2"   # wide | narrow : which test-value set the driver uses
+shift 2
 for kv in "$@"; do export "$kv"; done
 tmp="$(mktemp -d)"
 mpicc.mpich -O1 -o "$tmp/mpich_driver" "$here/../upstream_driver/mpich_driver.c" -lm
@@ -25,7 +26,7 @@ for n in 2 3 4 5 6 7 8; do
   # the script from blocking. A retry writes the whole n-block again.
   ok=0
   for attempt in 1 2 3; do
-    if timeout 60 mpirun.openmpi --allow-run-as-root --oversubscribe -n "$n" "$tmp/mpich_driver" > "$tmp/out_$n.txt"; then
+    if timeout 60 mpirun.openmpi --allow-run-as-root --oversubscribe -n "$n" "$tmp/mpich_driver" "$mode" >"$tmp/out_$n.txt"; then
       ok=1
       break
     fi

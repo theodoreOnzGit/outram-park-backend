@@ -42,9 +42,11 @@ static uint64_t bits(double x) { uint64_t u; memcpy(&u, &x, 8); return u; }
 
 /* order-sensitive test value: sign alternates, magnitude spread over 2^-78..2^78 so that
  * every floating-point sum rounds and its association order shows in the bits */
+static int narrow; /* argv[1] == "narrow": exponents within +-3 (the order-sensitive set) */
+
 static double mk(int r, int j) {
     double m = 1.0 + (double)((r * 37 + j * 11) % 101) / 101.0;
-    int e = (((r * 13 + j * 29) % 53) - 26) * 3;
+    int e = narrow ? (((r * 13 + j * 29) % 7) - 3) : (((r * 13 + j * 29) % 53) - 26) * 3;
     double v = ldexp(m, e);
     return ((r + j) % 2) ? -v : v;
 }
@@ -55,6 +57,19 @@ static void cat(char *buf, const char *fmt, ...) {
     size_t l = strlen(buf);
     vsnprintf(buf + l, LINE - l, fmt, ap);
     va_end(ap);
+}
+
+/* FNV-1a over the little-endian bytes of each double's bit pattern */
+static uint64_t fnv(const double *v, int n) {
+    uint64_t h = 14695981039346656037ULL;
+    for (int i = 0; i < n; i++) {
+        uint64_t u = bits(v[i]);
+        for (int b = 0; b < 8; b++) {
+            h ^= (u >> (8 * b)) & 0xff;
+            h *= 1099511628211ULL;
+        }
+    }
+    return h;
 }
 
 static int pn(int x) { return x == MPI_PROC_NULL ? -1 : x; }
@@ -71,7 +86,11 @@ static void case_p2p(void) {
     int cnt;
     MPI_Get_count(&st, MPI_INT, &cnt);
     snprintf(f, LINE, "buf=%d,%d,%d src=%d tag=%d count=%d", rb[0], rb[1], rb[2], st.MPI_SOURCE, st.MPI_TAG, cnt);
-    emit("p2p_ring", f);
+    emit("p2p_ring", f); /* emit gathers on rank 0, but a barrier is what orders the ring's
+                            ANY_SOURCE/ANY_TAG receives before the next phase (a test race
+                            otherwise: rank 0's wildcard receive could take rank 1's tag-7
+                            message below; found as an n=8 hang, 2026-11-13) */
+    MPI_Barrier(MPI_COMM_WORLD);
 
     /* non-overtaking + selective matching: rank 1 -> rank 0 */
     if (world_r == 1) {
@@ -110,6 +129,16 @@ static void case_reduce(void) {
             emit("reduce_sum_f64", f[0] ? f : NULL);
         }
     }
+    {
+        double sb[40], rb[40];
+        for (int j = 0; j < 40; j++) sb[j] = mk(world_r, j);
+        MPI_Reduce(sb, rb, 40, MPI_DOUBLE, MPI_SUM, world_n - 1, MPI_COMM_WORLD);
+        char g[LINE];
+        g[0] = 0;
+        if (world_r == world_n - 1)
+            snprintf(g, LINE, "root=%d count=40 fnv=%016llx", world_n - 1, (unsigned long long)fnv(rb, 40));
+        emit("reduce_sum_f64_c40", g[0] ? g : NULL);
+    }
     int ia = world_r * 3 - 4, ib = 0;
     long long pa = 2 + world_r, pb = 0;
     double da = mk(world_r, 5), dmax, dmin;
@@ -141,6 +170,14 @@ static void case_allreduce(void) {
         snprintf(f, LINE, "count=%d", count);
         for (int j = 0; j < count; j++) cat(f, " %016llx", (unsigned long long)bits(rb[j]));
         emit("allreduce_sum_f64", f);
+    }
+    {
+        double sb40[40], rb40[40];
+        for (int j = 0; j < 40; j++) sb40[j] = mk(world_r, j);
+        MPI_Allreduce(sb40, rb40, 40, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        char g[LINE];
+        snprintf(g, LINE, "count=40 fnv=%016llx", (unsigned long long)fnv(rb40, 40));
+        emit("allreduce_sum_f64_c40", g);
     }
     float sb[2], rb[2];
     for (int j = 0; j < 2; j++) sb[j] = (float)mk(world_r, j);
@@ -323,6 +360,7 @@ static void case_cart(void) {
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
+    narrow = (argc > 1 && strcmp(argv[1], "narrow") == 0);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_r);
     MPI_Comm_size(MPI_COMM_WORLD, &world_n);
     case_p2p();

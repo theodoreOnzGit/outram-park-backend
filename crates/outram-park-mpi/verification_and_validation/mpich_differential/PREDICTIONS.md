@@ -45,3 +45,25 @@ algorithm), real multi-node transports.
 
 Any number outside these is reported as observed with its localisation. None of the
 bounds above will be edited after the run.
+
+---
+
+# Addendum, written after the first port run, BEFORE the runs it refers to (2026-11-13)
+
+**What the first run showed (recorded, not edited out).** With the `wide` value set
+(exponents over 2^-78..2^78) 100 % of lines were identical, including every
+`all_reduce`: that set is **insensitive** to association order (each sum is dominated by
+its largest term), so P3 could not have failed on it. A `narrow` set (exponents within
++-3) was added as the sensitive one; **both are kept and both are reported**. On the
+narrow set the port differs from MPICH in `allreduce_sum_f64` for 5 of 70 lines. P3
+predicted "a majority of the non power-of-two cases"; observed: only n = 5. Working the
+two trees by hand explains why, and it is a *prediction for n = 2..8 made before any
+further run*: the binomial reduce+bcast and recursive doubling associate identically for
+n = 2, 3, 4, 6, 7, 8 and differ only at n = 5 (`((x0+x1)+x2)+(x3+x4)` against
+`((x0+x1)+(x2+x3))+x4`). n = 9 and above would add more.
+
+| # | claim (new runs) | predicted outcome |
+|---|---|---|
+| P9 | add 40-lane `reduce`/`allreduce` sums (320 bytes, still under MPICH's 2 KiB short-message limit), compared by FNV-1a hash | `reduce` identical at all n; `allreduce` identical except n = 5 before the fix, identical everywhere after translating recursive doubling |
+| P10 | `MPI_MAX`/`MPI_MIN` on f64 with `+0.0`/`-0.0` and with a NaN, through `reduce` and `allreduce` | MPICH's built-in is `inoutvec = MAX(invec, inoutvec)` with `MAX(a,b) = a > b ? a : b`, so on ties and NaN the **accumulator** (`inout`) wins. This port calls `combine(op, acc, incoming)`, i.e. the **incoming** value wins. **Predicted: `reduce` differs at n = 2 for the zeros case (sign of zero) and for the NaN case**; fixing the operand order to `combine(op, incoming, acc)` removes it |
+| P11 | messages over 2 KiB (1024 doubles): MPICH's default switches from recursive doubling to `reduce_scatter_allgather`, whose per-element association is the *halving* butterfly, so even for n = 4 it differs from recursive doubling | recorded as a known remaining difference of the fix (not closed here), and filed as a child issue |
