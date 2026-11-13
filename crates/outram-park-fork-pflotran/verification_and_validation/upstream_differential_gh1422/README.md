@@ -31,3 +31,15 @@ port's `m'` can differ from upstream's `m` by up to 1 ulp.
 | P13 | Debye-Huckel constants: upstream `reaction%debyeA/B/Bdot` vs port `DH_A/DH_B` | port 0.5085/0.3281 are textbook 25 C values; upstream defaults 0.5114/0.3288/0.0410. Predicted relative differences A: -5.7e-3, B: -2.1e-3 (port lower); consequently `log10 gamma` at small I differs by -5.7e-3 relative |
 
 Route taken and the lineage audit are recorded below once the runs exist.
+
+### Addendum predictions, isotherms (written AFTER `isotherm_kernel` was first run, BEFORE any Rust comparison)
+
+Candid ordering note: the Fortran kernel output `isotherm_output.txt` was
+generated before these predictions were written down, but no port number had been
+compared to it. They follow from reading the two formulas only.
+
+| id | surface | prediction |
+|---|---|---|
+| P14 | linear `Kd*c` | bit-identical |
+| P15 | Langmuir `s = (K c) b/(1+K c)` vs port `s_max (k c)/(1+k c)` with `s_max=b`, `k=Kd`; slope upstream `res/m - res/(1+t) t/m` vs port `s_max k/(1+k c)^2` | `s` bit-identical (the multiplications commute); slope algebraically equal with cancellation factor `(1+t)`, `t = Kd*c <= 12.5`: relative <= 1e-14 |
+| P16 | Freundlich: the same number `n` given to both | NOT the same isotherm (upstream `c^(1/n)`, port `c^n`): relative difference large for every `n != 1`; with the port given `1/n` (new `new_freundlich_pflotran`): `s` relative <= 4.5e-16 and slope relative <= 1e-14 (libm `pow` only) |

@@ -21,6 +21,7 @@
 !   PS97  <T_C> <Pa>                      EOSWaterSaturationPressure, IF97
 !   VIS1  <T_C> <P> <PS> <Pa.s>           EOSWaterViscosity (default, Visc1)
 !   DHCONST <A> <B> <Bdot>                reaction%debyeA, debyeB, debyeBdot
+#include "petsc/finclude/petscsys.h"
 program gh1422_driver
   use petscsys
   use Option_module
@@ -64,9 +65,10 @@ program gh1422_driver
     bbc%lambda = lam(iset); bbc%Sr = sr(iset)
     write(*,'(a,i2,3(1x,Z16.16))') 'VGP', iset, alpha(iset), mm(iset), sr(iset)
     write(*,'(a,i2,3(1x,Z16.16))') 'BCP', iset, alpha(iset), lam(iset), sr(iset)
-    ! capillary pressure: -1 Pa (saturated), then 10^(k/8) Pa for k=0..80
-    do k = -1, 80
-      if (k < 0) then
+    ! capillary pressure: -1 Pa (saturated), then 10^(k/8) Pa for k=-48..80
+    ! (k<0 reaches the upstream pc_alpha_n < 1e-15 guard, prediction P3)
+    do k = -49, 80
+      if (k == -49) then
         pc = -1.0d0
       else
         pc = 10.0d0**(dble(k)/8.0d0)
