@@ -1534,3 +1534,28 @@ refuses `mfd = 21-36`.
   170 of 170 lines.**
 - Ablation (`mfchk` made to return its input): 96 of 170 lines differ, so the deck
   does exercise `mfchk`.
+
+## 29. ERRORR `iwt = 1`: card 13, read once per `egnwtf` call (2026-11-13, gh:#1371)
+
+`egnwtf` reads card 13 (`iwt = 1`) or 13b (`iwt = 4`) itself, each time it is called
+(`errorr.f90:9916-9962`). It is called once by `grpav` or by `colaps` (`:1028-1032`;
+`colaps` calls it whenever `iwt /= 0`, `:9122`, and does not use what it read), and a
+second time by `grpav4` for `mfcov = 34` (`:5467`).
+
+`deck::errorr::read_errorr` refused `iwt = 1`, and it read card 13b once even for
+`mfcov = 34`. It now reads either card once per call. `egnwtf_card13` keeps
+`win(1..iww)`, `iww` being the last non-zero word, as upstream does, and the TAB1 goes
+to `ErrorrWeight::Tabulated`.
+
+**Refused by name:**
+- two copies that differ (the port runs one weight for both passes);
+- a card 13 whose trailing zero would leave `wght` shorter than its TAB1, because
+  `terpa` would then read past it.
+
+**Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`; the predictions were posted on
+gh:#1371 first):
+
+| deck | what it is | result | control |
+|---|---|---|---|
+| `E1` | deck 05 with `iwt = 1` and a two-region TAB1 | 33, 34 and 35 identical (21 471, 78 796 and 199 652 lines) | NJOY's unit 33 differs from deck 05's in 210 162 bytes |
+| `E2` | deck 46 with `iwt = 1` and card 13 twice | 34 identical (8 002 lines) | NJOY's unit 34 equals deck 46's, so this deck checks only the card count |

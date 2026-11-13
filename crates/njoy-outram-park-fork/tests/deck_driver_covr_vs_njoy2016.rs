@@ -53,6 +53,12 @@ fn njoy_root() -> PathBuf {
 /// Run upstream deck `case` whole in NJOY2016.80 and in this crate, on `resource`
 /// as unit 20; compare `units` line by line. `None`: skipped.
 fn whole_deck_on(case: &str, resource: &str, unit_in: u32, units: &[u32]) -> Option<Vec<(u32, usize, usize)>> {
+    edited_deck_on(case, resource, unit_in, units, |d| d.to_string())
+}
+
+/// [`whole_deck_on`] on upstream deck `case` as rewritten by `edit` (a deck of our
+/// own built from it; gh:#1371).
+fn edited_deck_on(case: &str, resource: &str, unit_in: u32, units: &[u32], edit: impl Fn(&str) -> String) -> Option<Vec<(u32, usize, usize)>> {
     let root = njoy_root();
     let bin = root.join("build/njoy");
     let res = root.join("tests/resources").join(resource);
@@ -63,7 +69,7 @@ fn whole_deck_on(case: &str, resource: &str, unit_in: u32, units: &[u32]) -> Opt
             return None;
         }
     }
-    let deck = std::fs::read_to_string(&input).unwrap();
+    let deck = edit(&std::fs::read_to_string(&input).unwrap());
     let tmp = std::env::temp_dir().join(format!("njoy_deck_covr{case}_{}", std::process::id()));
     let (ours, theirs) = (tmp.join("ours"), tmp.join("njoy"));
     for d in [&ours, &theirs] {
@@ -140,6 +146,45 @@ fn test_47_covr_plot_and_viewr_whole_deck() {
 #[test]
 fn test_05_errorr_mf33_covr_viewr_whole_deck() {
     assert_identical("05", whole_deck_on("05", "t511", 30, &[33, 34, 35]));
+}
+
+/// A TAB1 weight for ERRORR's card 13: two regions (INT 2 to point 2, then INT 5),
+/// three points, no trailing zero.
+const CARD13: &str = " 0 0 0 0 2 3 2 2 3 5 1e-5 1. 1e5 2. 2e7 .5/\n";
+
+/// **`E1`: deck 05 with `iwt = 1`** (gh:#1371): ERRORR `mfcov = 33` from a PENDF,
+/// the weight read from card 13 by `egnwtf` (`errorr.f90:9916-9932`) and used by
+/// `grpav`. The ERRORR (33), COVR (34) and VIEWR (35) units are compared with
+/// NJOY2016.80 on the same deck. Prediction (gh:#1371, before the run): identical.
+/// **Result (2026-11-13): 33 (21 471 lines), 34 (78 796) and 35 (199 652)
+/// identical.** Control: NJOY's own unit 33 differs from deck 05's (`iwt = 2`) in
+/// 210 162 bytes, so the weight reaches the output.
+#[test]
+fn e1_deck_05_with_errorr_iwt1_card13() {
+    let r = edited_deck_on("05", "t511", 30, &[33, 34, 35], |d| {
+        let e = d.replacen(" 1306 -1 2 1/", " 1306 -1 1 1/", 1).replacen(" 1e-5 2e7/\n", &format!(" 1e-5 2e7/\n{CARD13}"), 1);
+        assert!(e.contains(" 1306 -1 1 1/") && e.contains(CARD13), "deck 05 was not edited");
+        e
+    });
+    assert_identical("e1", r);
+}
+
+/// **`E2`: deck 46 with `iwt = 1`** (gh:#1371): ERRORR `mfcov = 34` from a binary
+/// GENDF calls `egnwtf` twice, in `colaps` (`:9122`, which reads card 13 and does
+/// not use it) and in `grpav4` (`:5467`), so card 13 is given twice. Unit 34 is
+/// compared with NJOY2016.80 on the same deck. Prediction (gh:#1371): identical.
+/// **Result (2026-11-13): unit 34 identical, 8 002 lines.** What this checks is the
+/// card count only: NJOY's unit 34 here is byte-identical to deck 46's (`iwt = 2`),
+/// so the weight does not reach a GENDF-route MF=34 tape, but a single read would
+/// leave the second card for the deck reader and stop the run.
+#[test]
+fn e2_deck_46_with_errorr_iwt1_card13_twice() {
+    let r = edited_deck_on("46", "n-026_Fe_056-JEFF3.3.endf", 20, &[34], |d| {
+        let e = d.replacen("2631 1 2 0 1 /", "2631 1 1 0 1 /", 1).replacen("2.000E+07/\nstop", &format!("2.000E+07/\n{CARD13}{CARD13}stop"), 1);
+        assert!(e.contains("2631 1 1 0 1 /") && e.contains(&format!("{CARD13}{CARD13}stop")), "deck 46 was not edited");
+        e
+    });
+    assert_identical("e2", r);
 }
 
 /// **Deck 46 (Fe-56 JEFF-3.3, 238 groups): ERRORR `mfcov = 34` from a binary GENDF
