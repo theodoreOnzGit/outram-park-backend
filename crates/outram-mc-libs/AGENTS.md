@@ -1033,7 +1033,8 @@ the maintainer, 2026-10-03; protocols in
   `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Off by default**:
   it only builds a `WeightWindows`; transport changes only if a caller
   attaches it to a `VarianceReduction`, whose default stays analog. Source
-  biasing is not implemented.
+  biasing from the learned map is not implemented (CORRECTED 2026-11-14: OpenMC's
+  user-specified source `bias` is ported in `source::distribution`, opt-in).
 - `stats::uq` (#498) — `UqDesign::{sampled, sobol, evaluate}` with
   `raffles` distributions / samplers, `UqReport::analyse` (total sd, the runs'
   own MC-noise variance separated out, quantiles, Pearson / Spearman /

@@ -40,9 +40,14 @@
 //! - Too few resolved cells to identify the polynomial: the group is left as
 //!   MAGIC left it (unresolved = no window) and the report says so.
 //!
-//! **Source biasing** from the same importance map is NOT implemented here;
-//! the existing `physics/ufs.rs` uniform-fission-site weights remain the only
-//! source-side scheme.
+//! **Source biasing driven by this importance map** is NOT implemented here.
+//! ~~the existing `physics/ufs.rs` uniform-fission-site weights remain the only
+//! source-side scheme.~~ **CORRECTED 2026-11-14 (gh:#497):** OpenMC's own source
+//! `bias` (a distribution sampled from `q`, weight `p/q`) IS ported, opt-in, in
+//! `source::distribution` (`Distribution::with_bias`, bit-compared with compiled
+//! OpenMC in `tests/source_distributions_vs_openmc_code_to_code.rs`); its
+//! analog-vs-biased mean is pinned by `tests/source_biasing_unbiased_vs_analog.rs`.
+//! It is user-specified, not built from a learned map.
 //!
 //! # Why the mean cannot be biased in principle — and why that is still tested
 //!

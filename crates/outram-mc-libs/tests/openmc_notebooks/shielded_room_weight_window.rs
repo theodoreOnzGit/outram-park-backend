@@ -1102,3 +1102,209 @@ fn shielded_room_weight_window() {
          raise OUTRAM_WW_BUDGET_S or lower the MAGIC iteration count"
     );
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// #497 — learned importance versus analog and MAGIC, on this same room.
+// Protocol and prediction (written before any run):
+// `verification_and_validation/stats_epic_493/497_learned_importance.md`.
+// ════════════════════════════════════════════════════════════════════════════
+
+use outram_mc_libs::stats::learned_importance::{
+    learned_weight_windows, FomComparison, LearnedImportanceSettings, VrArm,
+};
+
+/// Mesh bins whose centre lies `lo..hi` cm (in x-y) from the source.
+fn band_bins(lo: f64, hi: f64) -> Vec<usize> {
+    let m = mesh();
+    let mut out = Vec::new();
+    for j in 0..m.dimension[1] {
+        for i in 0..m.dimension[0] {
+            let x = (i as f64 + 0.5) * 1550.0 / m.dimension[0] as f64;
+            let y = (j as f64 + 0.5) * 1900.0 / m.dimension[1] as f64;
+            let d = ((x - 550.0).powi(2) + (y - 825.0).powi(2)).sqrt();
+            if d >= lo && d < hi {
+                out.push(i + m.dimension[0] * j);
+            }
+        }
+    }
+    out
+}
+
+fn mean_and_sem(v: &[f64]) -> (f64, f64) {
+    let n = v.len() as f64;
+    let mean = v.iter().sum::<f64>() / n;
+    let var = v.iter().map(|x| (x - mean) * (x - mean)).sum::<f64>() / (n - 1.0);
+    (mean, (var / n).sqrt())
+}
+
+/// One arm: `n_seeds` independent runs of `n` particles. Returns per-seed
+/// per-bin flux per source particle, and the total wall-clock (transport only).
+fn run_arm(
+    label: &str,
+    n: usize,
+    n_seeds: usize,
+    seed0: u64,
+    vr: &VarianceReduction,
+    ctx: (&Geometry, &[Material], &[Nuclide]),
+) -> (Vec<Vec<f64>>, f64) {
+    let per_batch = (n / N_BATCHES) as f64;
+    let mut runs = Vec::new();
+    let mut total = 0.0;
+    for s in 0..n_seeds {
+        let mut t = flux_tally();
+        let t0 = Instant::now();
+        run_fixed_source(
+            ctx.0,
+            ctx.1,
+            ctx.2,
+            &source(),
+            &settings(n, seed0 + 1_000_003 * s as u64, vr.clone()),
+            Some(&mut t),
+        );
+        let dt = t0.elapsed().as_secs_f64();
+        total += dt;
+        println!("  {label} seed {s}: {n} particles in {dt:.1} s");
+        runs.push(
+            t.bins
+                .iter()
+                .map(|b| b.mean(N_BATCHES as u64) / per_batch)
+                .collect(),
+        );
+    }
+    (runs, total)
+}
+
+fn band_arm(runs: &[Vec<f64>], bins: &[usize], seconds: f64) -> VrArm {
+    let per_seed: Vec<f64> = runs.iter().map(|r| bins.iter().map(|&b| r[b]).sum()).collect();
+    let (mean, sigma) = mean_and_sem(&per_seed);
+    VrArm { mean, sigma, seconds, n_batches: runs.len() }
+}
+
+/// **Methodology.** Three arms on the shielded room (31 x 38 mesh, 8 nuclides
+/// from ENDF/B-VIII.0): analog; MAGIC windows (`update_magic`, threshold 1,
+/// ratio 5); learned windows (`learned_weight_windows`, same threshold and
+/// ratio). Both window sets are built once from the same early analog tally
+/// and held fixed. `N` seeds per arm (`OUTRAM_LI_SEEDS`, default 5); each seed
+/// one run; the estimate is the seed mean of the flux per source particle
+/// summed over a band of cells, sigma the seed-to-seed standard error.
+/// Bands (distance from source): 0-400, 400-900, 900-1450 cm; the last is the
+/// headline. FOM = 1/(R^2 T) with T the arm's total transport seconds.
+/// z against analog is reported for both |z| <= 1 and |z| <= 2; no band is
+/// chosen. The only assertion is a gross-defect guard (|z| <= 5, NOT a band).
+///
+/// **Results:** see `verification_and_validation/stats_epic_493/497_learned_importance.md`
+/// (measured 2026-11-14; printed here with `--nocapture`).
+#[test]
+#[ignore = "measurement (#497), single-threaded, tens of minutes; run explicitly with --ignored"]
+fn shielded_room_learned_importance() {
+    let Some(nucs) = load_nuclides() else { return };
+    let mats = materials();
+    let geom = geometry();
+    let env = |k: &str, d: usize| -> usize {
+        std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
+    };
+    let n_seeds = env("OUTRAM_LI_SEEDS", 5);
+    let n_analog = env("OUTRAM_LI_N_ANALOG", 40_000);
+    let n_vr = env("OUTRAM_LI_N_VR", 20_000);
+    let n_early = env("OUTRAM_LI_N_EARLY", 2_000);
+    // Fresh transport seeds for a replicate; the early tally (and so the windows) is unchanged.
+    let off = env("OUTRAM_LI_SEED_OFFSET", 0) as u64;
+    let ctx = (&geom, mats.as_slice(), nucs.as_slice());
+    println!("sizes: analog {n_analog}, vr {n_vr}, early {n_early}, seeds {n_seeds}");
+
+    // Early analog tally (seed distinct from every measured seed).
+    let m = mesh();
+    let n_m = m.n_bins();
+    let vol = (1550.0 / m.dimension[0] as f64) * (1900.0 / m.dimension[1] as f64) * 700.0;
+    let mut early = flux_tally();
+    let t0 = Instant::now();
+    run_fixed_source(
+        &geom,
+        &mats,
+        &nucs,
+        &source(),
+        &settings(n_early, 424_242, VarianceReduction::default()),
+        Some(&mut early),
+    );
+    let t_early = t0.elapsed().as_secs_f64();
+    let sum: Vec<f64> = early.bins.iter().map(|b| b.sum).collect();
+    let sum_sq: Vec<f64> = early.bins.iter().map(|b| b.sum_sq).collect();
+    let volumes = vec![vol; n_m];
+
+    let mut magic =
+        WeightWindows::new(m.clone(), vec![0.0, 2.0e7], vec![-1.0; n_m], vec![-1.0; n_m]).unwrap();
+    magic.update_magic(&sum, &sum_sq, &volumes, N_BATCHES, 1.0, 5.0).unwrap();
+    let lis = LearnedImportanceSettings { threshold: 1.0, ratio: 5.0, ..Default::default() };
+    let (learned, fills) =
+        learned_weight_windows(m, vec![0.0, 2.0e7], &sum, &sum_sq, &volumes, N_BATCHES, &lis).unwrap();
+    let nw = |w: &WeightWindows| w.lower.iter().filter(|&&l| l > 0.0).count();
+    println!(
+        "early tally: {t_early:.1} s; MAGIC windows {}/{n_m}; learned windows {}/{n_m}",
+        nw(&magic),
+        nw(&learned)
+    );
+    for f in &fills {
+        println!("learned fill: {f:?}");
+    }
+
+    let vr_magic = VarianceReduction::default().with_weight_windows(magic);
+    let vr_learned = VarianceReduction::default().with_weight_windows(learned);
+    let (a_runs, t_a) =
+        run_arm("analog", n_analog, n_seeds, 20_261_114 + off, &VarianceReduction::default(), ctx);
+    let (m_runs, t_m) = run_arm("MAGIC", n_vr, n_seeds, 30_261_114 + off, &vr_magic, ctx);
+    let (l_runs, t_l) = run_arm("learned", n_vr, n_seeds, 40_261_114 + off, &vr_learned, ctx);
+    println!("seconds: analog {t_a:.1}, MAGIC {t_m:.1}, learned {t_l:.1}, early {t_early:.1}");
+
+    let mut worst_z = 0.0f64;
+    for (name, lo, hi) in
+        [("0-400", 0.0, 400.0), ("400-900", 400.0, 900.0), ("900-1450 (HEADLINE)", 900.0, 1450.0)]
+    {
+        let bins = band_bins(lo, hi);
+        let a = band_arm(&a_runs, &bins, t_a);
+        for (arm_name, runs, t) in [("MAGIC", &m_runs, t_m), ("learned", &l_runs, t_l)] {
+            let v = band_arm(runs, &bins, t);
+            let c = FomComparison::new(a, v);
+            let c_gen = FomComparison::new(a, VrArm { seconds: t + t_early, ..v });
+            println!(
+                "band {name} ({} cells) {arm_name}: analog {:.4e} +- {:.2e} (R {:.3}); vr {:.4e} +- {:.2e} (R {:.3}); \
+                 z {:+.2} [|z|<=1: {}, |z|<=2: {}]; FOM analog {:.3e}, vr {:.3e}; FOM ratio {:.3} +- {:.3} \
+                 (generation charged: {:.3} +- {:.3})",
+                bins.len(), a.mean, a.sigma, a.sigma / a.mean, v.mean, v.sigma, v.sigma / v.mean,
+                c.z, c.z.abs() <= 1.0, c.z.abs() <= 2.0, a.fom(), v.fom(), c.fom_ratio, c.fom_ratio_sigma,
+                c_gen.fom_ratio, c_gen.fom_ratio_sigma,
+            );
+            worst_z = worst_z.max(c.z.abs());
+        }
+        let am = band_arm(&m_runs, &bins, t_m);
+        let al = band_arm(&l_runs, &bins, t_l);
+        let ratio = al.fom() / am.fom();
+        let rel = (al.fom_relative_sigma().powi(2) + am.fom_relative_sigma().powi(2)).sqrt();
+        println!("band {name}: FOM learned / MAGIC = {ratio:.3} +- {:.3}", ratio * rel);
+    }
+
+    // Per-cell z over cells scored in every seed of both arms.
+    for (arm_name, runs) in [("MAGIC", &m_runs), ("learned", &l_runs)] {
+        let (mut n_cells, mut n1, mut n2) = (0usize, 0usize, 0usize);
+        for b in 0..n_m {
+            let col = |r: &[Vec<f64>]| r.iter().map(|s| s[b]).collect::<Vec<f64>>();
+            let (ca, cv) = (col(&a_runs), col(runs));
+            if ca.iter().chain(cv.iter()).any(|&x| x <= 0.0) {
+                continue;
+            }
+            let (ma, sa) = mean_and_sem(&ca);
+            let (mv, sv) = mean_and_sem(&cv);
+            let z = (mv - ma) / (sa * sa + sv * sv).sqrt();
+            n_cells += 1;
+            n1 += (z.abs() > 1.0) as usize;
+            n2 += (z.abs() > 2.0) as usize;
+        }
+        println!(
+            "per-cell {arm_name}: {n_cells} cells scored in every seed of both arms; outside 1 sigma {n1} ({:.1} %), \
+             outside 2 sigma {n2} ({:.1} %)",
+            100.0 * n1 as f64 / n_cells.max(1) as f64,
+            100.0 * n2 as f64 / n_cells.max(1) as f64
+        );
+    }
+    // Asserted only after everything is printed, so a failure still leaves the table.
+    assert!(worst_z <= 5.0, "gross bias guard (not the band): worst |z| = {worst_z}");
+}
