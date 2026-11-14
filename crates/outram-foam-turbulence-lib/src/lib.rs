@@ -66,6 +66,7 @@
 //! | [`les::k_eqn`] | kEqn one-equation LES, gh:#1544 | AI draft; terms bit-compared with ESI v2506 (cbrt ulps pinned) |
 //! | [`k_omega_sst_lm`] | kOmegaSSTLM transition model, gh:#1544 | AI draft, terms only; every LM-specific term bit-identical with ESI v2506 |
 //! | [`les::deltas`] | LES widths maxDeltaxyz, IDDESDelta, vanDriest, gh:#1544 | AI draft; bit-identical with ESI v2506 except the nearest-wall-face map of vanDriest (see README slice 9) |
+//! | [`reynolds_stress`] | LRR and SSG Reynolds-stress models, gh:#1544 | AI draft; TERMS ONLY (no `correct()`), see README slice 10 |
 //! | [`launder_sharma_ke`] | Launder-Sharma low-Re k-epsilon, gh:#1544 | AI draft; TERMS ONLY (no `correct()`), bit-identical to ESI v2506 |
 //! | [`des`] | SpalartAllmaras DES/DDES/IDDES, kOmegaSSTDES, gh:#1545 | AI draft; TERMS ONLY (no `correct()`), bit-compared with ESI v2506 (libm ulps pinned) |
 //!
@@ -85,6 +86,7 @@ pub mod launder_sharma_ke;
 pub mod les;
 pub mod prelude;
 pub mod realizable_ke;
+pub mod reynolds_stress;
 pub mod rng_k_epsilon;
 pub mod source_terms;
 pub mod spalart_allmaras;
