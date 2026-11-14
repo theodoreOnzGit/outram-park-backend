@@ -97,15 +97,24 @@ Posted on gh:#1390 before the first run:
 
 - **The code-to-code allowance (1e-8) is not met by the fit coefficients**,
   and no change of instrument in the port can meet it: upstream does not meet
-  it against itself under a one-ulp perturbation. This is reported for the
+  it against itself under a one-ulp perturbation. ~~This is reported for the
   maintainer's decision, not resolved here. The prediction's 1e-8 gates are
   kept unchanged in the ignored test
-  `mg26_coefficients_within_code_to_code_allowance`, which fails.
+  `mg26_coefficients_within_code_to_code_allowance`, which fails.~~
+  **CORRECTED 2026-11-14 (gh:#1390): the maintainer accepted the residual**
+  ("as long as upstream behaviour is matched, I accept it ... ensure that it
+  is within this wider tolerance, don't ignore test"). The binding test
+  `mg26_coefficients_within_accepted_tolerance` gates each coefficient at its
+  measured value rounded up in the first figure: one `vectfit` call, poles
+  8e-8 and residues 9e-4; `_vectfit_xs`, poles 3e-3 and residues 1e-2; curve
+  fit 2e-7 (fixed windowing) and 3e-9 (search) of scale. A drift beyond
+  today's agreement fails it.
 - **A planned gate rested on a false premise.** "Every test point within
   `rtol`/`atol`" assumed OpenMC's search ends with its "ideal" fit. On Mg-26
   it does not: OpenMC's own poles leave 730 of 42 282 points outside (worst
   4.96e-3). The binding gate is therefore "the port's fit misses no more
-  points than OpenMC's"; the original form stays in the ignored test.
+  points than OpenMC's". ~~the original form stays in the ignored test.~~
+  **CORRECTED 2026-11-14:** the ignored test is gone; see the item above.
 - **Linear algebra.** An unblocked Householder QR (`DGEQR2` convention) in
   place of OpenBLAS's blocked DGEQRF; DGELSD's QR-then-SVD solve with PETIR's
   Golub-Reinsch SVD in place of divide and conquer; PETIR's balanced Francis

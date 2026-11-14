@@ -24,12 +24,16 @@
 //! | `_windowing` (100 windows, order 5) and `from_multipole` search | OpenMC's multipole data | windows, spacing, used poles; curve fit | identical; < 1e-8 of each coefficient vector's largest entry |
 //! | whole chain | the ENDF tape | sigma(E, T) of the port's library against OpenMC's | within `rtol` / `atol` |
 //!
-//! The 1e-8 gates and "every point within tolerance" are the prediction's;
+//! ~~The 1e-8 gates and "every point within tolerance" are the prediction's;
 //! they failed on the first run and are kept, unchanged, in the ignored test
-//! `mg26_coefficients_within_code_to_code_allowance`. The binding test holds
-//! the identities, the pole count, and the cross sections (`rtol`/`atol`,
-//! and "no worse than OpenMC" on upstream's own test, because OpenMC's own
-//! fit leaves 730 points outside).
+//! `mg26_coefficients_within_code_to_code_allowance`.~~ **CORRECTED
+//! 2026-11-14 (gh:#1390, maintainer):** the residual is accepted and the
+//! coefficients are now gated, not ignored, in
+//! `mg26_coefficients_within_accepted_tolerance`, at the measured values
+//! rounded up (its doc has the table). The other binding test holds the
+//! identities, the pole count, and the cross sections (`rtol`/`atol`, and "no
+//! worse than OpenMC" on upstream's own test, because OpenMC's own fit leaves
+//! 730 points outside).
 //!
 //! # Results (2026-11-14)
 //!
@@ -169,6 +173,10 @@ struct Measured {
     vf1_residue: f64,
     /// `_vectfit_xs` pole counts, port and OpenMC.
     n_poles: (usize, usize),
+    /// `_vectfit_xs` worst pole and residue relative difference (infinite
+    /// when the pole counts differ).
+    xs_pole: f64,
+    xs_residue: f64,
     /// Test-grid points outside `rtol`/`atol`: OpenMC's poles, the port's.
     bad_openmc: usize,
     bad_ours: usize,
@@ -233,6 +241,7 @@ fn run_stages() -> Option<Measured> {
     let ref_mp = fx.c("mp.poles");
     let ref_mpr = fx.crows("mp.residues", ref_mp.len());
     println!("vectfit_xs: {} poles (OpenMC {})", fit.poles.len(), ref_mp.len());
+    let (mut xs_pole, mut xs_residue) = (f64::INFINITY, f64::INFINITY);
     if fit.poles.len() == ref_mp.len() {
         let (map, wp) = match_poles(&fit.poles, &ref_mp);
         let mut wr = 0.0_f64;
@@ -242,6 +251,7 @@ fn run_stages() -> Option<Measured> {
             }
         }
         println!("vectfit_xs: worst pole {wp:.3e}, residue {wr:.3e} relative");
+        (xs_pole, xs_residue) = (wp, wr);
     }
     // sigma on upstream's 10x test grid, upstream's own acceptance test
     let check_sigma = |label: &str, poles: &[Cf64], res: &[Vec<Cf64>]| -> (usize, usize, f64) {
@@ -346,6 +356,8 @@ fn run_stages() -> Option<Measured> {
         vf1_pole: worst_p,
         vf1_residue: worst_r,
         n_poles: (fit.poles.len(), ref_mp.len()),
+        xs_pole,
+        xs_residue,
         bad_openmc,
         bad_ours,
         cf_fixed: w_fixed,
@@ -368,26 +380,48 @@ fn mg26_generation_matches_openmc_stage_by_stage() {
     // leave 730 of 42 282 outside (its order search ends without an "ideal"
     // fit), so that premise was false and the port is held to "no worse than
     // OpenMC". Recorded on gh:#1390; the original form is asserted, and
-    // fails, in the ignored test below.
+    // failed; the coefficient gates are in the test below.
     assert!(m.bad_ours <= m.bad_openmc, "port misses {} points, OpenMC {}", m.bad_ours, m.bad_openmc);
     assert!(m.sigma_fixed < 1e-3, "windowed sigma {:.3e}", m.sigma_fixed);
     assert_eq!(m.bad_chain, 0, "whole chain within rtol/atol of OpenMC's library");
 }
 
-/// The coefficient gates of the prediction posted on gh:#1390 before the
-/// first run, kept as written. They FAIL (measured 2026-11-14: one `vectfit`
-/// call residue 8.1e-4, curve fit 1.6e-7 of scale; OpenMC's own fit misses
-/// 730 test points). The cause is measured, not assumed: OpenMC moves itself
-/// by the same order when its input is perturbed by one ulp (see
-/// `verification_and_validation/wmp_generate/README.md`). Whether to accept
-/// that is the maintainer's call, so the gates stay here unchanged rather
-/// than loosened.
+/// **The coefficient gates, at the tolerance the maintainer accepted**
+/// (gh:#1390, 2026-11-14: "as long as upstream behaviour is matched, I accept
+/// it ... ensure that it is within this wider tolerance, don't ignore test").
+///
+/// ~~The prediction posted before the first run gated every coefficient at
+/// the 1e-8 code-to-code allowance; that test was `#[ignore]`d pending this
+/// decision.~~ **CORRECTED 2026-11-14:** it binds now, each bound the
+/// 2026-11-14 measurement rounded up in its first figure, so the test fails
+/// if the port drifts further from OpenMC than it is today:
+///
+/// | quantity | measured | gate | OpenMC against itself (input +-1 ulp) |
+/// |---|---|---|---|
+/// | one `vectfit` call, poles | 7.3e-8 | 8e-8 | 6e-9 |
+/// | one `vectfit` call, residues | 8.1e-4 | 9e-4 | 2e-5 |
+/// | `_vectfit_xs`, poles | 2.1e-3 | 3e-3 | 2.5e-4 |
+/// | `_vectfit_xs`, residues | 9.4e-3 | 1e-2 | 9.3e-4 |
+/// | curve fit, windowing n_win=100 n_cf=5 (of scale) | 1.6e-7 | 2e-7 | 3.2e-7 |
+/// | curve fit, `from_multipole` search (of scale) | 2.1e-9 | 3e-9 | -- |
+///
+/// Cause (measured, not assumed; `verification_and_validation/wmp_generate/README.md`):
+/// the fit is ill-conditioned, and the port's QR, SVD and eigensolver (petir)
+/// are not LAPACK/OpenBLAS's DGEQRF/DGELSD/DGEEV, nor numpy's SIMD `pow`.
+/// What upstream's behaviour fixes is matched exactly and asserted in
+/// [`mg26_generation_matches_openmc_stage_by_stage`]: the front end bit for
+/// bit, the pole count, windows, spacing and used poles, and sigma(E, T).
+/// "Every test point within rtol/atol" is not a gate here, because OpenMC's
+/// own fit leaves 730 points outside; the port is held to "no worse than
+/// OpenMC" in the binding test above.
 #[test]
-#[ignore = "fails: coefficient differences exceed 1e-8 (LAPACK path, ill-conditioned fit); maintainer decision on gh:#1390"]
-fn mg26_coefficients_within_code_to_code_allowance() {
+#[cfg_attr(not(feature = "long-tests"), ignore = "~10 min: two vector-fitting order searches and four windowings; runs by default")]
+fn mg26_coefficients_within_accepted_tolerance() {
     let Some(m) = run_stages() else { return };
-    assert!(m.vf1_pole < 1e-8 && m.vf1_residue < 1e-8, "one vectfit call: pole {:.3e}, residue {:.3e}", m.vf1_pole, m.vf1_residue);
-    assert_eq!(m.bad_openmc, 0, "OpenMC's own fit meets its ideal test");
-    assert_eq!(m.bad_ours, 0, "port's fit meets upstream's ideal test");
-    assert!(m.cf_fixed < 1e-8 && m.cf_search < 1e-8, "curve fit: {:.3e}, {:.3e}", m.cf_fixed, m.cf_search);
+    assert!(m.vf1_pole < 8e-8, "one vectfit call: pole {:.3e}", m.vf1_pole);
+    assert!(m.vf1_residue < 9e-4, "one vectfit call: residue {:.3e}", m.vf1_residue);
+    assert!(m.xs_pole < 3e-3, "vectfit_xs: pole {:.3e}", m.xs_pole);
+    assert!(m.xs_residue < 1e-2, "vectfit_xs: residue {:.3e}", m.xs_residue);
+    assert!(m.cf_fixed < 2e-7, "curve fit, fixed windowing: {:.3e}", m.cf_fixed);
+    assert!(m.cf_search < 3e-9, "curve fit, searched windowing: {:.3e}", m.cf_search);
 }
