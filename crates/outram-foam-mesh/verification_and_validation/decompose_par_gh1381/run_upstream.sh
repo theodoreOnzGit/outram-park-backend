@@ -6,6 +6,7 @@
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 work=${1:?workdir}
+export LD_LIBRARY_PATH=${UPSTREAM_BUILD_ROOT:-/home/user/upstream-build}/decomp-dummy:$LD_LIBRARY_PATH   # empty kahip/metis/scotch dummies
 mkdir -p "$work"
 # case  variant-name  method  nProcs  n  order  delta   ('-' = unset)
 variants=(
@@ -46,7 +47,7 @@ EOT
 FoamFile { version 2.0; format ascii; class dictionary; object decomposeParDict; }
 numberOfSubdomains $np;
 method $method;
-${method}Coeffs { n ($n); $extra }
+${method}Coeffs { n $n; $extra }
 EOT
   (cd "$d" && blockMesh >log.blockMesh 2>&1 && decomposePar -force >log.decomposePar 2>&1) || { echo "FAIL $d"; exit 1; }
   echo "ok $c $name"

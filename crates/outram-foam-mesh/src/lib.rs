@@ -85,6 +85,7 @@ pub mod section;
 pub mod driver;
 pub mod ideas_unv_to_foam;
 pub mod check_mesh;
+pub mod decompose;
 pub mod mesh_quality;
 pub mod poly_dual_mesh;
 pub mod poly_dual_mesh_upstream;

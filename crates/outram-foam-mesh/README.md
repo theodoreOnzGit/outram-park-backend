@@ -67,6 +67,7 @@ cells, meshed volume 59.8594 m^3 against the analytic box-minus-sphere
 | `snappy_hex_mesh` | `snappyHexMesh` | Split-hex meshing around STL surfaces (castellate → snap → layers) |
 | `ideas_unv_to_foam` | `ideasUnvToFoam` | Import an I-DEAS `.unv` mesh into `polyMesh` |
 | `poly_dual_mesh` | `polyDualMesh` | Polyhedral dual-mesh construction |
+| `decompose` | `decomposePar` (`simple`, `hierarchical`; processor patches, `processorN/constant/polyMesh`), libstdc++ `std::sort` tie order | gh:#1381; byte-identical to ESI v2506 on 1098 files, see `verification_and_validation/decompose_par_gh1381/README.md` |
 
 ### One mesh currency
 

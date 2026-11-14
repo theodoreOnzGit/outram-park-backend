@@ -313,6 +313,57 @@ impl PolyMesh {
         Ok(())
     }
 
+    /// [`PolyMesh::write_esi`] for a processor mesh of `decomposePar` (gh:#1381):
+    /// the same five files, but every [`PatchKind::Processor`] patch is written
+    /// with ESI's `processorPolyPatch::write` entries (`matchTolerance 0.0001`,
+    /// `transform unknown`, `myProcNo`, `neighbProcNo`). `neighbours[k]` is the
+    /// neighbour processor of the k-th processor patch, in patch order.
+    ///
+    /// # Errors
+    /// [`IoError`] if a file cannot be written, or if `neighbours` does not
+    /// have one entry per processor patch.
+    pub fn write_esi_processor(
+        &self,
+        dir: impl AsRef<Path>,
+        location: &str,
+        opts: &EsiWriteOptions,
+        my_proc_no: usize,
+        neighbours: &[usize],
+    ) -> Result<(), IoError> {
+        let n_proc = self.patches.iter().filter(|p| p.kind == PatchKind::Processor).count();
+        if n_proc != neighbours.len() {
+            return Err(IoError::parse(
+                "polyMesh",
+                format!("{n_proc} processor patches but {} neighbours", neighbours.len()),
+            ));
+        }
+        let dir = dir.as_ref();
+        self.write_esi(dir, location, opts)?;
+        let mut s = esi_header(opts, &[], "polyBoundaryMesh", location, "boundary");
+        s.push_str(&format!("\n{}\n(\n", self.patches.len()));
+        let mut k = 0;
+        for p in &self.patches {
+            s.push_str(&format!("    {}\n    {{\n", p.name));
+            s.push_str(&format!("        type            {};\n", type_word(p.kind)));
+            if let Some(g) = in_group(p.kind) {
+                s.push_str(&format!("        inGroups        1({g});\n"));
+            }
+            s.push_str(&format!("        nFaces          {};\n", p.size));
+            s.push_str(&format!("        startFace       {};\n", p.start));
+            if p.kind == PatchKind::Processor {
+                s.push_str("        matchTolerance  0.0001;\n        transform       unknown;\n");
+                s.push_str(&format!("        myProcNo        {my_proc_no};\n"));
+                s.push_str(&format!("        neighbProcNo    {};\n", neighbours[k]));
+                k += 1;
+            }
+            s.push_str("    }\n");
+        }
+        s.push_str(")\n\n");
+        s.push_str(FOOTER);
+        let path = dir.join("boundary");
+        std::fs::write(&path, s).map_err(|e| IoError::io(path.display().to_string(), e))
+    }
+
     fn mesh_note(&self) -> String {
         format!(
             "\"nPoints:{}  nCells:{}  nFaces:{}  nInternalFaces:{}\"",
@@ -390,6 +441,27 @@ impl PolyMesh {
         s.push_str(FOOTER);
         s
     }
+}
+
+/// Write a `labelList` file (`object`) as ESI's `IOList<label>::writeContents`
+/// does for the `*ProcAddressing` files of `decomposePar` (gh:#1381): header with
+/// no `note`, then the list in ESI's short/long layout. Values are signed
+/// because `faceProcAddressing` carries a turning index.
+///
+/// # Errors
+/// [`IoError`] if the file cannot be written.
+pub fn write_label_list_esi(
+    path: impl AsRef<Path>,
+    location: &str,
+    object: &str,
+    values: &[i64],
+    opts: &EsiWriteOptions,
+) -> Result<(), IoError> {
+    let path = path.as_ref();
+    let header = esi_header(opts, &[], "labelList", location, object);
+    let items: Vec<String> = values.iter().map(ToString::to_string).collect();
+    let text = finish_list(header, &items, true);
+    std::fs::write(path, text).map_err(|e| IoError::io(path.display().to_string(), e))
 }
 
 #[cfg(test)]
