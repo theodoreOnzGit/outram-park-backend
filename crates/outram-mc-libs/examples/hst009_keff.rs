@@ -170,6 +170,7 @@ use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::BoundaryType;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::fhr_pebble::fhr_pebble_geometry;
@@ -232,7 +233,7 @@ fn main() {
         load("U238", if std::env::var("OUTRAM_U238_ENDF7").is_ok() { "n-092_U_238-ENDF7.0.endf" } else { "n-092_U_238.endf" }),
         load("F19", "n-009_F_019-ENDF8.0.endf"),
         load("O16", "n-008_O_016-ENDF8.0.endf"),
-        load("H1", "n-001_H_001-ENDF8.0-Beta6.endf").with_thermal_scattering(sab),
+        load("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
         load("Al27", "n-013_Al_027-ENDF8.0.endf"),
         load("Si28", "n-014_Si_028-ENDF8.0.endf"),
         load("Si29", "n-014_Si_029-ENDF8.0.endf"),
@@ -294,6 +295,15 @@ fn main() {
             ]),
         },
     ];
+
+    // S(a,b) per material, as OpenMC does (gh:#462): H-1 is bound in the
+    // solution (material 0) and the water reflector (material 2); the tank
+    // (material 1) holds no H. The bound copy is appended to the nuclide
+    // array; the entries below are the old nuclide-level binding made
+    // explicit, with the same atom densities and component order.
+    let sab_entries = MaterialSab::for_materials_containing(&materials, nx::H1, 0, &[]);
+    let (materials, nuclides) =
+        assign_material_sab(&materials, &nuclides, &[sab], &sab_entries).expect("S(a,b) per material");
 
     // Three concentric spheres. `fhr_pebble_geometry` is named for the pebble but
     // is a general concentric-sphere builder: passing `r_inner = 0` drops the

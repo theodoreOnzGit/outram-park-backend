@@ -39,6 +39,7 @@
 //!   record.~~ **CORRECTED 2026-10-13** (gh:#859): Run k_eff and the pitch
 //!   view compute a `k`, so they process at NJOY's 0.001, the record's own
 //!   tolerance ([`DataBuilder::at`]).
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use super::spec;
 use crate::tapes::read_tape;

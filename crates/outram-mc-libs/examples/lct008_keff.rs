@@ -526,6 +526,7 @@
 //! obtained (bead filed 2026-09-18).
 //! Seed count follows the workspace standard of **32** (maintainer decision
 //! 2026-09-18; see `examples/godiva_keff_ensemble.rs`).
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf;

@@ -25,6 +25,7 @@
 //! and defers to the full evaluation. H-1 with `c_H_in_H2O` is included here
 //! precisely to exercise that path — on a thermal lattice, getting it wrong
 //! shifts `k` in the way that is hardest to notice.
+#![allow(deprecated)] // gh:#462: nuclide-level test or loader; it builds one bound nuclide and no material references it unbound (materials, if any, are built by the caller).
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf;

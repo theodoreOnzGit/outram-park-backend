@@ -25,6 +25,7 @@
 //! Research, education and V&V only. NOT VALIDATED: the model's N-1 k sits
 //! +1726 ± 23 pcm above ORNL-4233's (the record,
 //! `crates/outram-mc-libs/verification_and_validation/msre_n1_first_criticality/README.md`).
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use dhoby_ghaut::mc_web::keff::KeffConfig;
 use dhoby_ghaut::mc_web::pool::{csg_chunk, csg_source, PoolSource};

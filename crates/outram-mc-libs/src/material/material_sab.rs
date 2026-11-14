@@ -52,6 +52,30 @@ pub struct MaterialSab {
     pub fraction: f64,
 }
 
+impl MaterialSab {
+    /// OpenMC's `<thermal_scattering>` list for the common case "every
+    /// material that contains `nuclide` names `table`, at fraction 1, except
+    /// the materials in `except`" (GitHub #462). It is the explicit
+    /// replacement for the old nuclide-level binding: the caller names the
+    /// table and the exceptions, and the entries come back for
+    /// [`assign_material_sab`], which refuses anything inconsistent.
+    pub fn for_materials_containing(
+        materials: &[Material],
+        nuclide: usize,
+        table: usize,
+        except: &[usize],
+    ) -> Vec<MaterialSab> {
+        materials
+            .iter()
+            .enumerate()
+            .filter(|(i, m)| {
+                !except.contains(i) && m.components.iter().any(|c| c.nuclide_idx == nuclide)
+            })
+            .map(|(i, _)| MaterialSab { material: i, nuclide, table, fraction: 1.0 })
+            .collect()
+    }
+}
+
 /// Lower per-material S(α,β) associations onto the nuclide array (see the
 /// module docs). Returns new material and nuclide arrays; the input nuclides
 /// keep their indices, and bound copies are appended after them.
@@ -107,11 +131,13 @@ pub fn assign_material_sab(
             Some((_, i)) => *i,
             None => {
                 let i = out_nucs.len();
-                out_nucs.push(
-                    nuclides[s.nuclide]
-                        .clone()
-                        .with_thermal_scattering(tables[s.table].clone()),
-                );
+                // The one sanctioned binding site: a bound copy that only the
+                // materials naming this (nuclide, table) pair reference.
+                #[allow(deprecated)]
+                let bound_copy = nuclides[s.nuclide]
+                    .clone()
+                    .with_thermal_scattering(tables[s.table].clone());
+                out_nucs.push(bound_copy);
                 copies.push(((s.nuclide, s.table), i));
                 i
             }

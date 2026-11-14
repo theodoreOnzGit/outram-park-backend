@@ -126,6 +126,7 @@
 //! `k_eff` and nothing here is comparable to it. Not a validation -- both ends
 //! are this workspace's own codes. `k_inf` agreement says the condensation and
 //! the solvers are consistent; it says nothing yet about the HTR-10.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use std::sync::Arc;

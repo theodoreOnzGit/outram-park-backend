@@ -25,6 +25,7 @@
 //!   when #585 landed; the record used the example's local union-grid
 //!   construction, both are bounds. The audit of both arms on this rung's
 //!   data is in `the_fuel_zone_case_runs_both_arms`.)
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use crate::engine::Tier;
 use crate::tapes::read_tape;

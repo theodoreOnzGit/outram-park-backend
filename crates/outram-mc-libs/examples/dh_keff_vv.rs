@@ -324,6 +324,7 @@
 //! rather than to a smeared whole particle. On this problem that is worth
 //! **+3818 pcm** to CLS. The full account, with the regime sweep and the
 //! reproducibility check, is `docs/cls-scls-vv.md`.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use std::time::Instant;

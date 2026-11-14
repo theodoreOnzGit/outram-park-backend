@@ -77,6 +77,7 @@
 //!     [--particles 4000 --inactive 50 --active 150] [--seed 1] \
 //!     [--cheap-nuclides] [--no-soluble-boron] [--csv out.csv] [--plots DIR]
 //! ```
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::geometry::Geometry;

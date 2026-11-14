@@ -3,6 +3,7 @@
 //! The first full-core run (2026-09-17) returned `k = 0`, zero entropy and
 //! **2.82e9 virtual collisions** — 18,801 per history — with every history
 //! exhausting its budget and leaking. This measures why, rather than guessing.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use nee_soon::htr10_rmc::reflector::zone_composition;

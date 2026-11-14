@@ -22,6 +22,7 @@
 //! # Results (2026-11-14)
 //!
 //! Printed by the tests; the priced effect on k is in the issue comment.
+#![allow(deprecated)] // gh:#462: nuclide-level test or loader; it builds one bound nuclide and no material references it unbound (materials, if any, are built by the caller).
 
 use njoy_outram_park_fork::hdf5::nuclide_laws::{
     AngleDistribution, AngleEnergy, EmissionMode, EnergyDist, Function1D, Product, Tabulated1D,

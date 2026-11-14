@@ -77,6 +77,7 @@ fn each_material_scatters_with_its_own_law() {
 
     // Refusals: a nuclide already bound by the old per-nuclide API, a bad
     // fraction, a material without the nuclide.
+    #[allow(deprecated)]
     let bound = h1.clone().with_thermal_scattering(table.clone());
     assert!(assign_material_sab(&materials, &[bound], std::slice::from_ref(&table), &sab)
         .unwrap_err()

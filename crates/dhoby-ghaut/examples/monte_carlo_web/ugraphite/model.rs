@@ -19,6 +19,7 @@
 //!   (`outram-mc-libs/docs/profiling/speed_tiers_2026_09_27.md`).~~
 //!   **CORRECTED 2026-10-16** (maintainer, gh:#876 item 3): NJOY's 0.001,
 //!   as every demo.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use crate::tapes::read_tape;
 use outram_mc_libs::geometry::geometry::Geometry;

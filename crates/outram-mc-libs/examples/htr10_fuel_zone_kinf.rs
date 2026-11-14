@@ -123,6 +123,7 @@
 //! count per pebble (8335) come from the same document (Table 4-2 and its
 //! Monte Carlo modelling notes), and are mirrored as typed data in
 //! `outram_park_digital_twin_engine::htr10::neutronics`.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;

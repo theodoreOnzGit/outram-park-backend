@@ -768,7 +768,25 @@ impl Nuclide {
     /// without the law, each referenced by its own materials.
     /// **Since 2026-11-14** that is what
     /// [`crate::material::material_sab::assign_material_sab`] does from
-    /// OpenMC's per-material association (including `sab_frac`); prefer it.
+    /// OpenMC's per-material association (including `sab_frac`), and this
+    /// method is **deprecated** in its favour (GitHub #462). Each remaining
+    /// call site carries a `#![allow(deprecated)]` naming #462, pinned by
+    /// `tests/no_unmarked_nuclide_level_sab_462.rs`. The `Model` API is
+    /// unaffected: it keys nuclides by (isotope, law, temperature), which is
+    /// per-material by construction.
+    ///
+    /// **Migrating can change the random stream, not the physics.** The CSG
+    /// drivers advance the URR stream by `nuclides.len()` (OpenMC does the
+    /// same), and `assign_material_sab` appends a bound copy, so a model with
+    /// URR nuclides draws other URR numbers. Measured on `hst009_keff`: a
+    /// legacy model with one unreferenced nuclide appended gives the same
+    /// `k` as the migrated one, bit for bit.
+    #[deprecated(
+        since = "2026-11-14",
+        note = "binds the law to the nuclide entry, so every material referencing it scatters \
+                with the bound law (GitHub #462); associate it per material with \
+                outram_mc_libs::material::material_sab::assign_material_sab, as OpenMC does"
+    )]
     pub fn with_thermal_scattering(mut self, thermal: ThermalScattering) -> Self {
         self.thermal = Some(thermal);
         self

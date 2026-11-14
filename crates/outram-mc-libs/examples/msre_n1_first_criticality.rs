@@ -37,6 +37,7 @@
 //!
 //! CLI glue (`main` and argument parsing; the workspace's exception for
 //! `main` glue): the model itself is reached by `vv::msre_n1`'s tests.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use std::io::Write;
 use std::path::PathBuf;

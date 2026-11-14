@@ -8,6 +8,7 @@
 //!
 //! The Watch view needs none of this; only the k∞ view loads it (the full
 //! tier, like the `htr10` rung's fuel zone).
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use super::model::fhr;
 use crate::engine::Tier;

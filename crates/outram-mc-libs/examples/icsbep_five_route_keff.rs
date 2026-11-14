@@ -122,6 +122,7 @@
 //!
 //! Results by environment:
 //! `verification_and_validation/acceptance_testing/README.md`.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use std::collections::BTreeMap;
 use std::io::Write;

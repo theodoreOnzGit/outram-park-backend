@@ -37,6 +37,7 @@
 //!
 //! All identical; the counts are printed by the test. (i9-13900K, release,
 //! one thread, machine shared with other agents.)
+#![allow(deprecated)] // gh:#462: nuclide-level test or loader; it builds one bound nuclide and no material references it unbound (materials, if any, are built by the caller).
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;

@@ -601,7 +601,12 @@ impl NuclearData {
                     what: format!("thermal law {m:?} at {temperature_k} K"),
                     source,
                 })?;
-                Ok(nuc.with_thermal_scattering(sab))
+                // The Model path keys nuclides by (isotope, law, temperature), so each
+        // bound entry is referenced only by materials whose Moderator gives
+        // that law: per-material association by construction (GitHub #462).
+        #[allow(deprecated)]
+        let bound = nuc.with_thermal_scattering(sab);
+        Ok(bound)
             }
         }
     }

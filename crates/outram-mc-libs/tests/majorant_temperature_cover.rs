@@ -34,6 +34,7 @@
 //! material at a temperature between the tables, and the build time of each.
 //!
 //! Hardware: see the README section.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;

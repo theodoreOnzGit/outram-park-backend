@@ -162,6 +162,7 @@
 //!    existed that mattered.
 //!
 //! 8. Not a validated result — an AI-assisted code-to-code check.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 #[cfg(target_os = "android")]
 fn main() {

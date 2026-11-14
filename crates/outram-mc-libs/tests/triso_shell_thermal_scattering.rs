@@ -135,6 +135,7 @@
 //! TRISO transport case is `op-6tz.35`. The reference throughout is this
 //! workspace's own njoy port, so these are internal-consistency gates, not an
 //! independent NJOY/OpenMC-ACE oracle. AI-assisted draft, no human review.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::decks::{locate_deck, SabMaterial};

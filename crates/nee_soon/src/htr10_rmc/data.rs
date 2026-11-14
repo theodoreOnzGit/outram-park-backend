@@ -50,6 +50,7 @@
 //! error ([`Htr10DataError::NotInFolder`]), never a silent fall-back to the
 //! workspace copy; the one exception is the documented free-gas fall-back
 //! for a missing SiC law, which applies to either source.
+#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
