@@ -33,6 +33,8 @@ static double expmx(double x, void *p) { (void) p; neval++; return exp(-x); }
 static double expx(double x, void *p) { (void) p; neval++; return exp(x); }
 static double invsqrt(double x, void *p) { (void) p; neval++; return 1.0 / sqrt(x); }
 static double logx(double x, void *p) { (void) p; neval++; return log(x); }
+static double sqrtx(double x, void *p) { (void) p; neval++; return sqrt(x); }
+static double logshift(double x, void *p) { (void) p; neval++; return log(x + 0.001); }
 static double lorentz(double x, void *p) { (void) p; neval++; return 1.0 / (1.0 + x * x); }
 static double rec1p(double x, void *p) { (void) p; neval++; return 1.0 / (1.0 + x); }
 static double rec1(double x, void *p) { (void) p; neval++; return 1.0 / x; }
@@ -134,9 +136,9 @@ int main(void)
   run_qawo("x_sin40", lin, 0.0, 40.0, 1.0, 1, 25, 0.0, 1e-10, 100);
   run_qawo("one_cos_low", one, 0.0, 0.5, 1.0, 0, 10, 0.0, 1e-10, 100);
   run_qawo("one_sin_low", one, 0.0, 1.5, 1.0, 1, 10, 0.0, 1e-10, 100);
-  run_qawo("invsqrt_sin20", invsqrt, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-8, 200);
-  run_qawo("invsqrt_cos100", invsqrt, 0.0, 100.0, 2.0, 0, 30, 0.0, 1e-8, 300);
-  run_qawo("log_cos100", logx, 0.0, 100.0, 6.283185307179586, 0, 30, 0.0, 1e-8, 300);
+  run_qawo("invsqrt_nan_sin20", invsqrt, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-8, 200);
+  run_qawo("sqrt_cos100", sqrtx, 0.0, 100.0, 2.0, 0, 30, 0.0, 1e-8, 300);
+  run_qawo("logshift_cos100", logshift, 0.0, 100.0, 6.283185307179586, 0, 30, 0.0, 1e-8, 300);
   run_qawo("expx_sin1000", expx, 0.0, 1000.0, 1.0, 1, 25, 0.0, 1e-10, 100);
   run_qawo("big_par_cos", expmx, 0.0, 100.0, 1.0, 0, 25, 0.0, 1e-10, 100);
   run_qawo("big_par_sin", expmx, 0.0, 100.0, 1.0, 1, 25, 0.0, 1e-10, 100);
@@ -147,14 +149,14 @@ int main(void)
   run_qawo("omega_zero_sin", expmx, 0.0, 0.0, 1.0, 1, 5, 0.0, 1e-10, 100);
   run_qawo("zero_f", zero, 0.0, 30.0, 1.0, 0, 5, 0.0, 1e-10, 100);
   run_qawo("noise_sin", noise, 0.0, 50.0, 1.0, 1, 25, 0.0, 1e-12, 200);
-  run_qawo("hard_extrap", invsqrt, 0.0, 400.0, 1.0, 0, 40, 0.0, 1e-13, 500);
-  run_qawo("limit1", invsqrt, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-12, 1);
-  run_qawo("limit2", invsqrt, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-12, 2);
-  run_qawo("limit4", invsqrt, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-12, 4);
-  run_qawo("limit10", invsqrt, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-12, 10);
-  run_qawo("table_n1", invsqrt, 0.0, 200.0, 1.0, 0, 1, 0.0, 1e-12, 100);
-  run_qawo("table_n3", invsqrt, 0.0, 200.0, 1.0, 0, 3, 0.0, 1e-12, 100);
-  run_qawo("table_n6", invsqrt, 0.0, 200.0, 1.0, 0, 6, 0.0, 1e-12, 100);
+  run_qawo("hard_extrap", sqrtx, 0.0, 400.0, 1.0, 0, 40, 0.0, 1e-13, 500);
+  run_qawo("limit1", sqrtx, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-12, 1);
+  run_qawo("limit2", sqrtx, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-12, 2);
+  run_qawo("limit4", sqrtx, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-12, 4);
+  run_qawo("limit10", sqrtx, 0.0, 20.0, 1.0, 1, 25, 0.0, 1e-12, 10);
+  run_qawo("table_n1", sqrtx, 0.0, 200.0, 1.0, 0, 1, 0.0, 1e-12, 100);
+  run_qawo("table_n3", sqrtx, 0.0, 200.0, 1.0, 0, 3, 0.0, 1e-12, 100);
+  run_qawo("table_n6", sqrtx, 0.0, 200.0, 1.0, 0, 6, 0.0, 1e-12, 100);
   run_qawo("badtol", one, 0.0, 10.0, 1.0, 0, 5, 0.0, 1e-17, 10);
   run_qawo("abs_only", expmx, 0.0, 12.0, 3.0, 1, 25, 1e-9, 0.0, 100);
   run_qawo("long_interval", rec1p, 0.0, 3.0, 40.0, 0, 30, 0.0, 1e-10, 300);

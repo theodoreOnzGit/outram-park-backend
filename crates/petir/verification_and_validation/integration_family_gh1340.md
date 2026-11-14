@@ -257,3 +257,70 @@ reversed interval, a zero-width interval and the four argument errors).
   moments, results and error estimates become bit-identical to the port
   (100 %), so every difference from stock GSL is libm. If it does not, the
   port has a logic defect and the residual is not libm.
+
+### QAWO / QAWF results (2026-11-14, Rust 1.99.1 release, GSL 2.8 `cf180cd7`, `gcc -O2`, glibc, x86-64)
+
+`tests/gsl_qawo_code_to_code.rs`: 12 table rows, 28 QAWO integrations, 18 QAWF
+integrations; two tests, one against stock GSL and one against GSL relinked to
+PETIR's libm.
+
+| item | stock GSL (glibc) | GSL + PETIR `sin`/`cos`/`pow` |
+|---|---|---|
+| Chebyshev moments (1 000 values) | **959/1000** | **1000/1000** |
+| QAWO status, size, integrand calls (28) | 28/28 each | 28/28 each |
+| QAWO results / `abserr` (28) | **23/28**, **23/28**; worst result 1.13e-15 rel (`limit4`, `limit10`), worst `abserr` ratio 1.000008 | 28/28, 28/28 |
+| QAWF status, both workspace sizes (18) | 18/18 | 18/18 |
+| QAWF integrand calls (18) | **17/18** (`tiny_eps`: 2160 against GSL's 2070) | 18/18 |
+| QAWF results / `abserr` (18) | **15/18**, **16/18**; worst result 5.4e-16 rel (`omega50`), worst `abserr` ratio 32.5 (`tiny_eps`) | 18/18, 18/18 |
+
+- **P11a held** (28/28 on status, size and calls). **P11b held on the count**
+  (959/1000 = 95.9 %, 70 % predicted) **and failed on the size of the
+  difference**: the prediction that the rest differ by "a small multiple of an
+  ulp" is wrong for the `|par| <= 24` branch. The differing entries are at
+  `par = 2.5` (`mid_cos` level 1, `mid_sin` level 3) and `par = 0.875`
+  (`seq_set` level 1); the worst is `-4.115456182072121e-2` against GSL's
+  `-4.115456182062424e-2` (2.4e-12 relative), because the tridiagonal solve
+  amplifies the 1-ulp difference in `sin`/`cos` (`sin 2.5`: glibc
+  `0x1.326af0dcfcab1p-1`, `libm` crate `0x1.326af0dcfcabp-1`; `cos 0.875`:
+  `...eb3p-1` against `...eb4p-1`). **P11c held** (23 and 23 of 28; at least 17
+  and 14 predicted). **P12 held** (17/18 on calls, at least 16 predicted;
+  15/18 results, at least 9 predicted).
+- **P13 held: every difference from stock GSL is libm.** GSL relinked to
+  PETIR's `sin`, `cos` and `pow` gives 1000/1000 moments and 28/28 and 18/18
+  on every value. Two traps found while isolating it, both recorded in
+  `petir_sincos_shim.rs` and `build_gsl_nocfg.sh`: (1) `gcc -O2` fuses
+  `sin(x)` and `cos(x)` on one argument (`qmomof.c`, `qc25f.c`) into a single
+  `sincos` call, so a shim of `sin` and `cos` alone changed the QAWO results
+  but left every moment table at stock values (959/1000 for the wrong reason);
+  (2) a shim archive listed before `libgslnocfg.a` on the link line is never
+  pulled in, because nothing before it references `sin`. `pow` enters through
+  the `omega = 0` QAWF case, which calls `qagiu`, whose `rescale_error` uses
+  `pow` (the round-2 finding for QNG/QAGI): that case's `abserr` differs in
+  the last bit until `pow` is linked from PETIR. The shim-linked output is
+  committed as `reference-data/gsl/qawo-gsl-2.8-petir-sincos-pow-reference.txt`
+  and replayed as a bit-identity gate.
+- **Port detail checked by a case, not by reading:** `GSL_MAX_DBL(a, b)` is
+  `a > b ? a : b`, which returns `b` when either operand is NaN, whereas
+  Rust's `f64::max` returns the other operand. `invsqrt_nan_sin20`
+  (`1/sqrt(x)` from 0: the Chebyshev nodes include the endpoint, `inf * 0 = NaN`)
+  reaches `GSL_ETABLE` with a NaN `abserr` and matches. The port therefore
+  uses a `gsl_max` helper. **The earlier ports (`qags.rs`, `qagp.rs`,
+  `qawc.rs`, `qaws.rs`, `qng.rs`, `romberg.rs`) use `f64::max` where GSL uses
+  `GSL_MAX_DBL`**; no NaN-integrand case was in their references, so this
+  difference is unmeasured there (child issue filed; not changed here because
+  the `qags` engine is shared and its verified behaviour must not move without
+  a comparison).
+- **Process notes (what changed after the first run of the driver, and why).**
+  The first driver run used `1/sqrt(x)` on `[0, ...]` in 9 cases; `f(0) = inf`
+  poisons the Chebyshev expansion (NaN `abserr`), so those cases tested only
+  NaN propagation. Before the Rust test had ever run, I changed 8 of them to
+  `sqrt(x)` / `log(x + 0.001)` and kept one as `invsqrt_nan_sin20` (and
+  `invsqrt_cos3` in QAWF, which also starts at 0, stays). The predictions were
+  committed before the driver's first run and were not edited.
+- **Build:** GSL is built by `reference-data/gsl/build_gsl_nocfg.sh` without
+  running the cloned tree's `configure` (hand-written `config.h`, 20
+  `HAVE_DECL_*`/feature macros plus `RETURN_IF_NULL`). Not checked: that this
+  build matches an autoconf build bit for bit on the earlier families (the
+  earlier references were made with `build_gsl_family.sh`); the new
+  reference's integrand-independent parts, e.g. `qk15` arithmetic, agree with
+  the port at 100 % under the shim, which is the evidence available.

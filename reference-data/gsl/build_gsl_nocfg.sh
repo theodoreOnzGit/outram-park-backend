@@ -37,6 +37,7 @@ if [ ! -f "$B/libgslnocfg.a" ]; then
 #define HAVE_STRDUP 1
 #define HAVE_VPRINTF 1
 #define STDC_HEADERS 1
+#define RETURN_IF_NULL(x) if (!x) { return ; }
 CFG
   for d in integration err sys specfunc; do
     # the library's own source list from Makefile.am (some .c files are
@@ -51,7 +52,7 @@ fi
 if [ $# -ge 2 ]; then
   driver=$1; out=$2; shift 2
   exe=$(mktemp)
-  gcc -O2 -I"$B/inc" -I"$G" -o "$exe" "$driver" "$@" "$B/libgslnocfg.a" -lm
+  gcc -O2 -I"$B/inc" -I"$G" -o "$exe" "$driver" "$B/libgslnocfg.a" "$@" -lm
   "$exe" > "$out"
   rm -f "$exe"
 fi

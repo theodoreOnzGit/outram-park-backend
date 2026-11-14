@@ -58,6 +58,16 @@ fn s(v: &mut [f64], i: usize, x: f64) {
     }
 }
 
+/// `GSL_MAX_DBL`: `(a > b) ? a : b`, which returns `b` when either is NaN
+/// (`f64::max` would return the other operand).
+fn gsl_max(a: f64, b: f64) -> f64 {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
 /// `enum gsl_integration_qawo_enum`: the trigonometric weight.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QawoKind {
@@ -671,7 +681,7 @@ where
 
     workspace.set_initial_result(result0, abserr0)?;
 
-    let mut tolerance = epsabs.max(epsrel * result0.abs());
+    let mut tolerance = gsl_max(epsabs, epsrel * result0.abs());
 
     if abserr0 <= 100.0 * DBL_EPSILON * resabs0 && abserr0 > tolerance {
         return Some(out(result0, abserr0, &workspace, 18));
@@ -737,7 +747,7 @@ where
             errsum = errsum + error12 - e_i;
             area = area + area12 - r_i;
 
-            tolerance = epsabs.max(epsrel * area.abs());
+            tolerance = gsl_max(epsabs, epsrel * area.abs());
 
             if resasc1 != error1 && resasc2 != error2 {
                 let delta = r_i - area12;
@@ -867,7 +877,7 @@ where
                 err_ext = abseps;
                 res_ext = reseps;
                 correc = error_over_large_intervals;
-                ertest = epsabs.max(epsrel * reseps.abs());
+                ertest = gsl_max(epsabs, epsrel * reseps.abs());
                 if err_ext <= ertest {
                     iteration = usize::MAX;
                     break 'body;
@@ -933,7 +943,7 @@ where
             }
 
             // Test on divergence.
-            let max_area = res_ext.abs().max(area.abs());
+            let max_area = gsl_max(res_ext.abs(), area.abs());
 
             if !positive_integrand && max_area < 0.01 * resabs0 {
                 break 'ret;
@@ -1142,7 +1152,7 @@ where
         }
 
         if status != 0 {
-            eps = initial_eps.max(correc * (1.0 - p));
+            eps = gsl_max(initial_eps, correc * (1.0 - p));
         }
 
         if status != 0 && total_error < 10.0 * correc && iteration > 3 {
