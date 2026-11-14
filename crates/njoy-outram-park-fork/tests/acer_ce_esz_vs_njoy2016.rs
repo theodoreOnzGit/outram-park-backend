@@ -64,11 +64,28 @@
 //! and the full suite on `main`. `long-tests` is default-on, so an ordinary
 //! `cargo test` still runs them; `cargo quick-test` skips them.
 //!
-//! ~6–7 significant figures. **Gated at 1e-5**, a 6.5x margin over the worst
+//! ~~~6–7 significant figures. **Gated at 1e-5**, a 6.5x margin over the worst
 //! measured value — tight enough to catch a real regression, loose enough not
 //! to fail on an unrelated grid refinement. The measured numbers are recorded
 //! here so the margin is visible rather than implied; **do not widen the gate
-//! to absorb a failure.**
+//! to absorb a failure.**~~
+//!
+//! # Results (2026-11-14, develop `7ab655456`; gh:#1366 §2 item 3)
+//!
+//! | quantity | unprinted f64, worst relative | differing as printed (`1pE20.11`) |
+//! |---|---|---|
+//! | total | 1.001e-13 | **0 of 2 463** |
+//! | absorption | 1.002e-13 | **0 of 2 463** |
+//! | elastic | 1.002e-13 | **0 of 2 463** |
+//!
+//! The September residual was removed by the 2026-09-26 RECONR/ACER parity
+//! work (#340); the 1e-5 gate was never tightened. What remains in memory is
+//! exactly `sigfig`'s `bias = 1.0000000000001` (`util.f90:392`): this port's
+//! in-memory ESZ word carries it, and the oracle cannot, because it is read
+//! from NJOY's Type-1 file, whose 12-figure print drops it (the NU block below
+//! records the same mechanism, 2026-09-26). Predicted on gh:#1366 before the
+//! change, and held. **Gate: every ESZ word identical as printed**, plus an
+//! unprinted bound of 2e-13 so nothing but that bias can hide under the print.
 
 use njoy_outram_park_fork::{
     acer::{angular::parse_elastic_angular, energy::build_emissions, jxs, nxs, AceTable},
@@ -81,8 +98,13 @@ use njoy_outram_park_fork::{
 };
 
 const MAT: i32 = 9228;
-/// Gate. Worst measured 2026-09-20 was 1.527e-6 (absorption); see module docs.
-const TOL: f64 = 1.0e-5;
+/// Bound on the **unprinted** relative difference. ~~Gate 1e-5; worst measured
+/// 2026-09-20 was 1.527e-6 (absorption).~~ **CORRECTED 2026-11-14 (gh:#1366):**
+/// the gate is now exact equality as printed (`1pE20.11`); this bound only
+/// holds the in-memory word to `sigfig`'s bias. Measured 1.002e-13 that day,
+/// the bias `1.0000000000001 - 1` itself (`util.f90:392`); 2e-13 is the
+/// bias plus one f64 ulp of either side.
+const TOL: f64 = 2.0e-13;
 
 /// NJOY2016's own MTR block for this evaluation, ascending.
 ///
@@ -197,11 +219,15 @@ fn esz_cross_sections_match_njoy2016_at_shared_grid_energies() {
     );
 
     let ours = build_ours();
+    // As NJOY's Type-1 file prints a real word: `1pE20.11`, 12 figures.
+    let printed = |x: f64| format!("{x:.11e}");
     let nes = ours.nxs[nxs::NES] as usize;
     let base = (ours.jxs[jxs::ESZ] - 1) as usize;
     let e = &ours.xss[base..base + nes];
 
     let mut worst = [(0.0f64, 0.0f64); 3];
+    let mut differing = [0usize; 3];
+    let mut first_diff: [Option<(f64, f64, f64)>; 3] = [None; 3];
     let mut matched = 0usize;
     for r in &rows {
         // Equality of the value as an ACE file prints it (`1pE20.11`, 12
@@ -214,7 +240,6 @@ fn esz_cross_sections_match_njoy2016_at_shared_grid_energies() {
         // was made correctly rounded, `3.657000-5` eV stopped carrying the
         // old double-rounding's extra ulp and the point "left" the grid while
         // printing identically. The oracle's 17 digits keep that ulp too.
-        let printed = |x: f64| format!("{x:.11e}");
         let want_e = printed(r.e);
         let i = e
             .binary_search_by(|p| {
@@ -240,6 +265,13 @@ fn esz_cross_sections_match_njoy2016_at_shared_grid_energies() {
         .into_iter()
         .enumerate()
         {
+            // Exact, as the Type-1 file prints it: see "Results (2026-11-14)".
+            if printed(got) != printed(want) {
+                differing[k] += 1;
+                if first_diff[k].is_none() {
+                    first_diff[k] = Some((r.e, got, want));
+                }
+            }
             if want == 0.0 {
                 continue;
             }
@@ -254,15 +286,24 @@ fn esz_cross_sections_match_njoy2016_at_shared_grid_energies() {
     let names = ["total", "absorption", "elastic"];
     for (k, (d, at)) in worst.iter().enumerate() {
         println!(
-            "acer vs NJOY2016: {:<11} worst rel {d:.3e} at {at:.6e} MeV over {matched} energies",
-            names[k]
+            "acer vs NJOY2016: {:<11} worst rel {d:.3e} at {at:.6e} MeV (unprinted f64); \
+             {} of {matched} differ as printed (1pE20.11)",
+            names[k], differing[k]
+        );
+        assert_eq!(
+            differing[k],
+            0,
+            "{}: {} of {matched} ESZ words differ from NJOY2016's as its Type-1 file prints \
+             them (12 figures); first (E MeV, ours, NJOY) = {:?}. Identical on 2026-11-14. \
+             NJOY is the specification -- this is a defect in the port until shown otherwise.",
+            names[k],
+            differing[k],
+            first_diff[k]
         );
         assert!(
             *d < TOL,
-            "{} differs from NJOY2016 by {d:.3e} at {at:.6e} MeV, over the {TOL:.0e} gate. \
-             NJOY is the specification -- this is a defect in the port until shown otherwise. \
-             DO NOT widen the gate: the worst value measured when this was written was \
-             1.527e-6, so a failure here is a real change, not drift.",
+            "{}: unprinted relative difference {d:.3e} at {at:.6e} MeV exceeds {TOL:.0e}; \
+             only sigfig's 1e-13 bias may separate the in-memory word from NJOY's print.",
             names[k]
         );
     }
