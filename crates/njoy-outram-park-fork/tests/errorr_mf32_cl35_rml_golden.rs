@@ -257,6 +257,7 @@ fn config() -> Mf33Config {
         tempin: TEMP_K,
         irelco: IRELCO,
         dap: 0.0,
+        card8: None,
     }
 }
 

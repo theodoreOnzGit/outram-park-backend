@@ -130,6 +130,36 @@ impl EndfStream {
         Self { lines, pos: 0 }
     }
 
+    /// The tape's lines exactly as they stand in `text`, markers included
+    /// (gh:#1373, POWR). A GENDF ends its MF=1 section with a FEND and every
+    /// later section with a SEND and no FEND, which [`Self::from_tape`] does
+    /// not lay out; a reader that positions by cards (`skiprz`, `findf`) needs
+    /// the cards upstream wrote. The first line is the label (`tpidio` reads
+    /// only its MAT, MF and MT).
+    ///
+    /// # Errors
+    /// A numeric field after the label that does not parse.
+    pub fn from_text(text: &str) -> Result<Self, NjoyError> {
+        let mut lines = Vec::new();
+        for (k, t) in text.lines().enumerate() {
+            if k == 0 {
+                let col = |a: usize, b: usize| {
+                    t.get(a..b.min(t.len())).and_then(|s| s.trim().parse::<i32>().ok()).unwrap_or(0)
+                };
+                lines.push(Line { mat: col(66, 70), mf: col(70, 72), mt: col(72, 75), f: [0.0; 6] });
+                continue;
+            }
+            let r = parse_line(t)?;
+            lines.push(Line { mat: r.mat, mf: r.mf, mt: r.mt, f: r.fields });
+        }
+        Ok(Self { lines, pos: 0 })
+    }
+
+    /// `skiprz(nin, -n)`: back up `n` cards (gh:#1373, POWR's `gamxs`).
+    pub fn skiprz_back(&mut self, n: usize) {
+        self.back(n);
+    }
+
     /// `repoz`: rewind.
     pub fn rewind(&mut self) {
         self.pos = 0;

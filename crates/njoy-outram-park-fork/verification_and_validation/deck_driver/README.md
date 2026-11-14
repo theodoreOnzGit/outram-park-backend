@@ -176,7 +176,8 @@ Test 01's second THERMR (`26 -24 -23 / 1065 1306 8 1 2 1 0 1 229 2`, ENDF/B-V
 
 **Translated** (`thermr.f90`, NJOY2016.80): `gateff`/`gatef2`
 (`thermr/effective_temperature.rs`, tables read from the Fortran source by a
-script), `sigcoh` for `lat = 1..3` with `form` (`Sigcoh::builtin` in
+script; **CORRECTED 2026-11-14:** `gatef2` was translated but called by nothing, and
+the SCT kernel had no second-atom term, until §36), `sigcoh` for `lat = 1..3` with `form` (`Sigcoh::builtin` in
 `thermr/mf3_grid.rs`), `coh` generalised to any `Sigcoh` and to return the
 coherent column (`coh_with`), `tpend` MF=3 for `mtref+1`, MF=6 `mtref+1`
 (`LIP = -nbragg`, `LAW = 0`, `ncdse = 3` in the dictionary). The MF=7 reader
@@ -1764,7 +1765,8 @@ subsection with the existing `read_records`/`getco_legendre`; `deck::groupr::wri
 hands it to `TwoBodyFeed`.
 
 **Refused by name:** `LANG /= 0`; `LCT /= 2` (upstream rewrites `LCT = 1` to CM for MT
-51-90 with `AWR >= 10` and reads `LCT = 3` per particle); LAW 4 and 5 for a neutron.
+51-90 with `AWR >= 10` and reads `LCT = 3` per particle); ~~LAW 4 and 5 for a neutron.~~
+**CORRECTED 2026-11-14:** LAW 4 and LAW 5 (`LTP = 2`) for a neutron are written now (§35a).
 
 **Gate** (`tests/deck_driver_groupr_mf6_law2_vs_njoy2016.rs`, deck `L2`, prediction on
 gh:#1370 first): Si-30 ENDF/B-VIII.0, MF=6 MT 51-56 (`LAW = 2`, `LANG = 0`, `LCT = 2`);
@@ -1777,3 +1779,264 @@ RECONR, BROADR 293.6 K, GROUPR LANL-30 `iwt = 3`, `lord = 3`, `8 51/` to `8 56/`
 `lidp`, `wcut`, `spi` and `mft = 8` for `mfd = 3`. That is the incident charged-particle
 GROUPR path; the tape driver carries no `izap`/`izat`/`aprime` for it (it sets `izap = 1`
 for every MF=6 feed), so the term is not self-contained and was not started.
+
+### 35a. GROUPR `getmf6` LAW = 4 and LAW = 5 neutrons, on a synthetic tape (2026-11-14, gh:#1370)
+
+Maintainer decision (2026-11-14): no tape we hold has a neutron `LAW = 4` or `LAW = 5`
+subsection, so verify on a dummy input fed to both codes.
+
+**Upstream behaviour (read, then confirmed by running):**
+- **LAW 4** (`groupr.f90:7636-7653`): `getmf6` backs up to the *first* subsection of the
+  section, re-reads its TAB1 with the LAW-4 particle's `zap`/`awp`, and lets `getfle` read
+  that subsection's records. A first subsection with `LAW = 3` gives `law = -4`, so
+  `getfle` sets `iso = 1`. At normal entry `law` is 4 again, so `getdis` negates every
+  quadrature cosine (`:9519`) before both the angular probability and the lab cosine.
+- **LAW 5, neutron, `LTP = 2`**: `getco`'s `lang = 2` branch copies `a_0..a_NL` as given
+  (`a_0` is not set to 1, `:10563-10573`). `SPI` and `LIDP` reach only the Coulomb term
+  and `wcut`, which need `izap > 1` (`:9449`, `:9529`), so a neutron ignores them.
+- **LAW 5, neutron, `LTP > 2`**: GROUPR's `conver` (`:11572-11624`) rewrites each such
+  record on its scratch tape as `LTP = 2`, after multiplying `p(mu)` by `sig(E)(1-mu)`.
+  The `getsig` it calls reads the PENDF and leaves the ENDF header globals (`l1h`, `n2h`)
+  at that tape's last record, and `nm = n2h`, `getco`'s `lang = l1h` and `nmu = n2h` are
+  then read from them. Found by the first run (below) and an instrumented NJOY2016.80
+  (`write(77,…)` in `getfle` and `getco`, built in a scratch directory from the vendored
+  objects): on MT 54 (`LTP = 12`) and MT 55 (`LTP = 14`), the first two converted records
+  of each section came back `NW = 1`, `a_0 = 0`, and `getco`'s tabulated branch ran only
+  for each section's first record. **Refused by name** (`File4Angular::from_mf6_law5`).
+- **LAW 5, neutron, `LTP = 1`**: `getco` label 360 goes to 370 for `izap <= 1` with `y`
+  never set (uninitialised). **Refused by name.**
+
+**Code (reuse):** `File4Angular::from_mf6_law4` (the first subsection's records through the
+existing `read_records`, or `isotropic_cm`), `File4Angular::from_mf6_law5`
+(`getco_law5_legendre`), `TwoBodyFeed::with_law4_cosine_flip`; `deck::groupr::write_getmf6`
+dispatches LAW 2-5. Also refused by name: a LAW-4 section whose first subsection is not
+`LAW = 2/3`, a LAW-4 particle with `AWP /= 1` (the port's `getdis` holds `aprime = 1`),
+`LCT /= 2`, `LANG /= 0`.
+
+**Gate** (`tests/deck_driver_groupr_mf6_law45_vs_njoy2016.rs`, deck `L45`, prediction on
+gh:#1370 first). The test builds the tape from Si-30 ENDF/B-VIII.0 (MAT 1431), rewriting
+MF=6 MT 51-55 and the MF=1 directory counts: MT 51 Si-30 `LAW = 2` first and neutron
+`LAW = 4`; MT 52 Si-30 `LAW = 3` first and neutron `LAW = 4`; MT 53 `LAW = 5 LTP = 2`
+(`a_0 = 0.5, 0.45, 0.4`); MT 54 `LAW = 5 LTP = 2` with `SPI = 2.5`, `LIDP = 1`; MT 55
+`LAW = 5 LTP = 14`; MT 56 untouched (`LAW = 2` control). RECONR 0.005, BROADR 293.6 K,
+GROUPR LANL-30 `iwt = 3`, `lord = 3`, `3 1/ 3 51/ 8 51/ … 8 54/ 8 56/`.
+- **First run** (MT 54 then `LTP = 12`, deck with `8 55/`): 114 of 326 lines differed, all
+  in MT 54 and 55 (36 and 35 lines); MT 51, 52, 53, 56 identical. That is the `conver`
+  finding above; the prediction ("identical") missed on `LTP > 2`.
+- **Second run**: unit 25 identical, **295 of 295 lines**.
+- **Ablations** (one run, disjoint MTs): no LAW-4 cosine flip changes MT 51 in 34 of 44
+  lines and MT 52 in 32 of 41; `a_0` forced to 1 changes MT 53 in 30 of 37 and MT 54 in 29
+  of 37; MT 56 unchanged (0 of 37).
+- A deck asking for `8 55/` stops at GROUPR with the `LTP > 2` refusal
+  (`l45_deck_with_ltp14_is_refused_by_name`).
+
+## 36. THERMR's second SCT atom: `gatef2` wired (2026-11-14, gh:#1375)
+
+**Upstream.** For an ENDF-4/5 tape THERMR keys a mixed moderator's second
+short-collision-time atom on `matde` alone (`thermr.f90:218-238`): 1099 (BeO) gets
+`sz2 = 3.76`, `az2 = 15.86`, 1095 (benzene) `4.74`, `11.90`, and
+`sb2 = sz2*((az2+1)/az2)**2`. `gatef2` gives `teff2` (`:422`), and `sig` label 170
+adds `sigc*sb2*s2` with `a*az/az2` (`:2588-2594`).
+
+**Code.** `IncoherentInelastic::secondary_sct` (`None` from every parser), the
+label-170 term in `sct_double_differential`, and `deck::thermr::endf45_second_sct_atom`.
+`gatef2` was present (`thermr::effective_temperature`) but called by nothing.
+
+**Refused by name:** an ENDF-6 second SCT atom (`B(7) = 0` with `sb2 /= 0`; its
+`T_eff2` TAB1, `:1835-1854`, is not parsed), and a third SCT atom (upstream's "only 2
+sct atoms allowed"). No tsl tape held here has either.
+
+**Gate** (`tests/deck_driver_thermr_gatef2_vs_njoy2016.rs`, deck `G2`, prediction on
+gh:#1375 first). No BeO or benzene ENDF-4/5 tape is held anywhere, so `G2` is deck 01
+up to GROUPR with `t322` relabelled from MAT 1065 to 1099 in the test and the second
+THERMR's `matde = 1099`: a code-to-code device with no physical meaning.
+- Unit 31 identical, 32 897 lines, first run.
+- Control: NJOY's `G2` unit 31 differs from deck 01's in 11 222 lines.
+- Ablations: without the second term, 2 063 lines differ; with `teff2 = T` in place
+  of `gatef2`, 2 092.
+
+## 37. ERRORR `iread = 1`: cards 8-9 (2026-11-14, gh:#1371)
+
+**Upstream.** Cards 8-9 (`errorr.f90:862-905`) give `nmt nek`, the `nmt` MTs, `nek+1`
+bounds (`sigfig` to 6 figures) and `nek*nmt` lines of `akxy`. `gridd` skips every
+section not on card 8a and keeps the card-8a positions (`:1154-1157`); a subsection
+with `mat1 > 0` or an `mt1` not on card 8a has `iok = 0` (`:1220-1225`); an `LTY = 0`
+NC sub-subsection still merges its two energies into `eni` but its formula is dropped
+(`:1299`); at the end of the file `gridd` returns before rebuilding `akxy`
+(`:1166-1169`). `covcal` skips the same sections (`:1913-1918`).
+
+**Code.** `errorr::gridd::Card8` and `CovarianceReactions::card8`, those branches in
+`gridd` and `covcal`, `run_mf33`'s `za`/`awr` from the first card-8a section, and
+`deck::errorr::read_card8`.
+
+**Refused by name:** `iread = 1` on any route but `mfcov = 33` from a PENDF; with
+MF=32 on the tape (no deck exercises `resprx` with a card-8a list); `nmt <= 0` or
+`nek < 0`; a card 8a, 8b or 9 shorter than its count (upstream reads unset words).
+
+**Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`, prediction on gh:#1371 first), deck
+05 (`t511` carbon) with card 7 `1 33/`:
+
+| deck | cards 8-9 | 33 (ERRORR) | 34 (COVR) | 35 (VIEWR) |
+|---|---|---|---|---|
+| `I1` | `2 0/ 2 102/` | identical, 554 lines | identical, 2 223 | identical, 6 234 |
+| `I2` | `3 1/ 1 2 102/ 1e-5 2e7/ 0 1 1/ 0 1 0/ 0 0 1/` | identical, 5 148 | identical, 11 001 | identical, 21 393 |
+
+- Both identical on the first run (once the test's own deck edit was fixed: its first
+  version also rewrote card 1's ` 0 33/`, and NJOY2016 stopped).
+- Control: NJOY's unit 33 for deck 05 has 21 471 lines.
+- Ablation: `I2` with card 9 replaced by the identity makes 5 078 of unit 33's 5 148
+  lines differ.
+
+**`iverf = 4` (cards 4-6) is not done.** No ENDF/B-IV evaluation with MF=33 is held
+here or in NJOY2016's `tests/resources`.
+
+**MF=32 sub-cases, surveyed** (the first range of every MF=32 in
+`reference-data/endf/` and NJOY2016's `tests/resources`): every one has `NIS = 1`,
+`NRO = 0`, and `LCOMP` 1 or 2 with `LRF` 2, 3 or 7, and every `LCOMP = 1` range has
+`NLRS = 0`. So no held evaluation reaches:
+- `LCOMP = 0` (`rpxlc0`, with `ssslbw`/`ssmlbw`);
+- `NRO /= 0` (upstream stops, `:3120-3124`);
+- `NLRS > 0` (upstream stops in `rpxlc12`, "nlrs>0 not coded", `:4602-4620`);
+- `NIS > 1` with `LRF = 7`;
+- `KBK > 0` with MF=32 (only Sr-88 ENDF/B-VIII.1 has `KBK = 1`, and it has no MF=32);
+- `irespr = 0`: `resprp` stops on any `LCOMP /= 0` (`:8111-8117`), so it is reachable
+  only through `LCOMP = 0`.
+
+Ranges after the first were not surveyed (JENDL-3.3 U-238 has 11, Pu-239 4).
+
+## 38. ACER's unnamed routines, `chekit`, and RECONR `LRF = 6` (2026-11-14, gh:#1372, #1375)
+
+None of `chekit`, `tabize`, `cptab`, `fndar1`, `fndar2` or `terpc` appears in `src/` by
+name. By logic, and by what the held evaluations reach (the surveys cover
+`reference-data/endf/` and NJOY2016's `tests/resources`):
+- **`tabize`** (`acefc.f90:813-1059`): present inline. It copies an `LNU = 1`
+  polynomial unchanged (`:848-856`; deck 10, `t404`, is identical whole). Its
+  linearization of a tabulated nubar with `INT > 2` is reached by nothing: every
+  MF=1/MT=452/455/456 held is `INT = 2`.
+- **`cptab`** (`:2868-2975`): a copy. Its one call (`:2438`) runs with `mfh = 6`, where
+  it sets `nr = 1, int = 2`, so its linearization branch is dead upstream.
+- **`terpc`** (`:15181-15213`): feeds only `consis`' listing (`nsyso`) check of the
+  photon-production sum. Not translated: nothing reaches a tape.
+- **`fndar1`, `fndar2`** (`:9019-9156`): not translated. `acelf6` calls them for
+  `lang = 1, newfor /= 1` and `lang > 2, newfor = 0` (`:7722-7795`), but with
+  `newfor = 0` `topfil` first turns every neutron `LAW = 1, LANG /= 2` subsection into
+  `LAW = 7` (`fix6`, `:2233-2290`). No deck reaches them. Left open on gh:#1372, since
+  `:7495` suggests a route not found here.
+- **`chekit`** (`:3283-3314`): **translated** (`acer::photon_angular::chekit`). `pttab`
+  refused `NR > 1`; upstream stops for `NR > 2` and sends `NR = 2` to `chekit`, which
+  folds a last-interval step to zero into one histogram region. No held evaluation has
+  such a table, so it is pinned by the unit test
+  `chekit_folds_a_two_region_step_into_one_histogram` only (prediction on gh:#1372 first).
+- **Listings** `acepdd`, `aceppp`, `acepcp` (`:11710-12986`): they write to `nsyso` only,
+  not to a compared unit. Not written.
+
+**RECONR `LRF = 6`** (`rdf2hy`, `cshybr`, `reconr.f90:1116-1224`, `:3609-3824`). Every
+MF=2/MT=151 line held was scanned for a range CONT `(EL, EH, 1, 6, NRO, NAPS)`: there is
+none in 133 materials. The first ranges are `LRU,LRF` = `(1,1)` ×10, `(1,2)` ×37,
+`(1,3)` ×37, `(1,7)` ×12, `(2,1)` ×1, and 36 with no resonances. `parse_lru1` now
+refuses `LRF = 6` by name (it was "unknown resolved-resonance LRF"); unit test
+`reconr::mf2::lrf6_tests::lrf6_is_refused_by_name`.
+## 39. POWR translated, `lib = 1` and `lib = 2` (2026-11-14, gh:#1373)
+
+Maintainer decision (2026-11-14): "POWR to translate, unit test verification with
+upstream". `src/powr/` translates `powr.f90`'s `lib = 1` (EPRI-CELL fast library:
+`fast`, `gamll`, `gamxs`, `gamff`, `mergt`) and `lib = 2` (thermal: `therm`,
+`packa`) line for line, with `icgrp`. `run_deck` runs it (`deck/powr.rs`). Gate:
+`tests/deck_driver_powr_vs_njoy2016.rs`.
+
+**Method.** No upstream deck runs POWR, so the decks are our own. Each runs
+NJOY2016's deck-11 chain (MODER, RECONR, BROADR 300/900/2100 K, UNRESR 7 sigma
+zeroes, THERMR for the thermal decks) to a **coded** GENDF, then POWR. The whole
+deck is run by `NJOY2016_ROOT/build/njoy` and by `run_deck`; the GENDF and the
+POWR library are compared as strings, line for line, trailing blanks included.
+Because the GENDF is identical first, the POWR comparison is a module-level
+comparison of the translation against upstream's compiled `powr.f90` on
+identical input. Pass: no differing line, the run reaches `stop`. Predictions
+were posted on gh:#1373 before the first run of each deck.
+
+| deck | tape (MAT) | GROUPR | POWR | GENDF lines | library lines (words) | result |
+|---|---|---|---|---|---|---|
+| A | t404 Pu-238 (1050) | ign 6, P1 | lib 1, 3 T, 7 sig0, f-factors | 4 535 | 577 (3 325) | identical |
+| C | t404 (1050) + MF6 MT16 | ign 6 | lib 1, (n,2n) | 4 559 | 600 (3 459) | identical |
+| D | t404 Th-232 (1296) + MT455 | ign 6 | lib 1, 6 delayed chi | 4 362 | 725 (4 179) | identical |
+| E1 | t404 (1050) | ign 1, 185 groups | lib 1 collapsed (`igf`) | 11 983 | 559 (3 205) | identical |
+| B | t404 (1050) + free gas | ign 8 | lib 2, 3 cards, `itrc` 0/1 | 2 557 | 413 (2 585) | identical |
+| E2 | t404 (1050) + free gas | ign 1, 185 groups | lib 2 collapsed (`igt`) | 12 632 | 687 (4 229) | identical |
+| F | t511 C-nat (1306) + t322 graphite | ign 8 | lib 2, `mti 229`, `mtc 230` | 716 | 120 (755) | identical |
+
+Ablations (the gate can fail): A's library with trailing blanks trimmed differs
+on all 577 lines; our A run at `izref = 2` against NJOY's `izref = 1` differs on
+46; our B run with `itrc = 1` against NJOY's `itrc = 0` differs on 404.
+
+**Where the prediction was wrong.**
+- Deck C: predicted that NJOY would stop on `gamll`'s (n,2n) branch, which goes to
+  label 250 instead of 300 in the middle of a section. It does not: `contio` reads
+  a LIST data line with `6e11.0` and `nint`s it, so the rest of the section is
+  read as CONT records without error. The refusal written for it was removed.
+- Deck B, first version: NJOY stopped (`Bad value during floating point read`).
+  `therm` reads the GENDF label with `contio`, so GROUPR's title `'94-pu-238'`
+  stops it. The crate's ENDF float parser reads text as 0, so the port would have
+  written a library NJOY never writes. The port now checks the label with a
+  strict `e11.0` grammar (`powr::reader::e_field_reads`) and stops; pinned by
+  `powr_thermal_text_label_stops_as_upstream` (NJOY exits non-zero there too).
+
+**Upstream quirks kept:** `mergt` pads every fast-library line to 80 columns;
+`matd < 0` ends a `lib = 1` run (the absorption-only card-6 branch is
+unreachable); `gamxs`'s spectrum-part chi index `ngnd-ig2c-1` and its delayed
+`a(jgt+locb)`; `gamff` not resetting `l` after paging; `packa`'s `ng = 2` on an
+empty row; the thermal group bounds taken from the first material only.
+
+**Refused by name:** `lib = 3` (EPRI-CPM, `powr.f90:1992-4902`, not translated;
+the run stops at POWR); a blocked-binary GENDF (`ngendf < 0`: NJOY reads
+full-precision records and positions by record); delayed nu with no MF=5 MT455
+(`nldla` undefined upstream); a GENDF record past `scr(5000)`.
+
+**Not done:** ~~`lib = 3`;~~ (**CORRECTED 2026-11-14:** `lib = 3` stays refused because
+upstream writes no library, §39a) the listing (`nsyso`, with `pgam`, `pgamff`, `tprnt`);
+a stand-alone gfortran build of `powr.f90` (the whole-deck comparison above
+compares upstream's compiled POWR on an identical GENDF, which is the same
+check at module level).
+
+### 39a. POWR `lib = 3` (EPRI-CPM): upstream writes no library (2026-11-14, gh:#1373)
+
+**Question** (raised by the agent that translated `lib = 1/2`): `cpm` reads card 5 into
+locals but fills the per-material values from `scr`. Is card 5 lost? Answered by running
+upstream before porting anything.
+
+**Reading.** `cpm` (`powr.f90:2075-2105`) reads `nina, ntemp, nsigz, sgref, ires, sigp, mti,
+mtc, ip1opt, norf, ipos, iposr` into local variables and uses them only for the listing and
+for `nnina`/`nres`. `:2212-2234` then fill `ninat`, `ntmp`, `nszt`, `s0rf`, `irest`, `sigpt`,
+`mtit`, `mtct`, `ip1tab`, `norft`, `ipost`, `iposrt` from `scr(1..12*newmat)`, which nothing in
+`cpm` writes. Card 6 goes to `scr(2+12*newmat..)`, just above. Only the last material's local
+`ntemp` reaches `sfile3/4/6`, as an argument.
+
+**Measured** (NJOY2016.80, 69-group Pu-238 GENDF from `t404`, GROUPR `ign = 9`; POWR
+`3 1 1/ 1 1 1 0 0 0 1/ 1050/`, card 5 `nina 3 7 1.e10 ires 10.0 0 0 0 0 1 1/`):
+- An instrumented build (one `write` after the fill, relinked from the vendored objects in a
+  scratch directory) prints every per-material value as 0; `scr(1..13) = 0`,
+  `scr(14..26)` = card 6.
+- The unmodified binary on eight card-5 variants:
+
+| `nina` | `ires` | NJOY2016 | unit 27 |
+|---|---|---|---|
+| 0, 3 | 0, 1 | stops in `sfile2`: "reference sigma zero not found" (`s0rf = 0`), exit 77 | empty |
+| 1, 2 | 0 | "Attempt to DEALLOCATE unallocated 'glamt'" (`sfile3`, `:3032`), exit 2 | empty |
+| 1, 2 | 1 | SIGSEGV, exit 139 | empty |
+
+- **Ablation** (a scratch NJOY whose `cpm` stores card 5 into `scr`): the `sfile2` stop
+  disappears for `nina = 0, ires = 0` and the run stops later, in `sfile6` ("no required p1
+  matrices found"). So the card-5 loss is what stops `sfile2`. The other variants still end in
+  an error or SIGSEGV, and no variant writes a library. So `lib = 3` has failure points past
+  card 5 too, which were not chased.
+
+**Decision.** There is no upstream output to reproduce. What upstream does depends on what
+`scr` holds: zeros in a fresh run, or an earlier POWR's GENDF words. So `lib = 3` stays
+refused by name, now with this reason in the message (`powr::run_powr`). The 2 900 lines
+(`powr.f90:1992-4902`) were not translated: nothing could verify them against upstream.
+Repairing `cpm` would be a change to NJOY, which is the maintainer's call.
+
+**Gate:** `tests/deck_driver_powr_vs_njoy2016.rs::powr_cpm_lib3_upstream_writes_no_library`
+(prediction on gh:#1373 first; as predicted). It runs the `nina = 0`, `nina = 1` and
+`nina = 1, ires = 1` variants through both codes. It asserts that NJOY2016 exits non-zero
+with unit 27 empty and the recorded stop message, and that the port refuses `lib = 3` at
+POWR. If upstream ever wrote a `lib = 3` library, this test would fail and point here.

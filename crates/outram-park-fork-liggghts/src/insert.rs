@@ -100,9 +100,12 @@
 //! trial on the fix's stream) are translated; their bodies are placed by
 //! [`crate::superquadric::SuperquadricSystem::with_insertion`] with
 //! upstream's `check_obb` overlap test ([`InsertFix::with_check_obb`]).
-//! `orientation random` is refused for sphere and clump distributions (there
-//! it would only consume the stream, which is not checked against upstream),
-//! and a distribution mixing superquadric and other templates is refused.
+//! ~~`orientation random` is refused for sphere and clump distributions (there
+//! it would only consume the stream, which is not checked against upstream)~~
+//! **CORRECTED 2026-11-14 (gh:#1415):** `orientation random` also rotates
+//! multisphere clumps (V&V 4.16.1). It is refused for sphere templates only,
+//! where it would only consume the stream, which is not checked against
+//! upstream. A distribution mixing superquadric and other templates is refused.
 //! Not translated: `set_property`, dynamic
 //! regions, `side out`, `insert/stream/predefined` (`insert/stream` is [`crate::insert_stream`]).
 //!
@@ -866,8 +869,31 @@ impl ParticleDistributionDiscrete {
     }
 
     /// Whether the templates are superquadrics (a distribution never mixes).
-    fn is_superquadric(&self) -> bool {
+    pub(crate) fn is_superquadric(&self) -> bool {
         matches!(self.templates.first(), Some(ParticleTemplate::Superquadric(_)))
+    }
+
+    /// Whether a multisphere template of this distribution created
+    /// `fix property/atom bond_random_id` (`bonded yes`, gh:#1415).
+    pub(crate) fn creates_bond_random_id(&self) -> bool {
+        self.templates.iter().any(|t| match t {
+            ParticleTemplate::Multisphere(m) => m.creates_bond_random_id(),
+            ParticleTemplate::Sphere(_) | ParticleTemplate::Superquadric(_) => false,
+        })
+    }
+
+    /// Whether any template is a multisphere clump (gh:#1415).
+    pub(crate) fn has_clump(&self) -> bool {
+        self.templates
+            .iter()
+            .any(|t| matches!(t, ParticleTemplate::Multisphere(_)))
+    }
+
+    /// Whether any template is a plain sphere (`particletemplate/sphere`).
+    pub(crate) fn has_sphere(&self) -> bool {
+        self.templates
+            .iter()
+            .any(|t| matches!(t, ParticleTemplate::Sphere(_)))
     }
 
     /// The shared constructor of [`ParticleDistributionDiscrete::new`] and
@@ -1212,6 +1238,12 @@ pub struct InsertFix {
 }
 
 impl InsertFix {
+    /// Whether this fix's distribution has a template that created
+    /// `fix property/atom bond_random_id` (gh:#1415).
+    pub(crate) fn creates_bond_random_id(&self) -> bool {
+        self.distribution.creates_bond_random_id()
+    }
+
     /// `fix ID all insert/pack|insert/rate/region seed S distributiontemplate D
     /// insert_every E region R <target> ...`, including upstream's set-up
     /// (`calc_insertion_properties`): the region's stream is reset to `seed +
@@ -1346,15 +1378,17 @@ impl InsertFix {
     /// `orientation random` (gh:#1415): each trial position gets a quaternion
     /// from `random_unit_quat` on this fix's own stream, drawn after the
     /// trial's velocity. The last one drawn stays in `quat_insert`.
+    /// Superquadric and multisphere distributions take it.
     ///
     /// # Errors
     ///
-    /// [`DemError::InvalidInput`] unless the distribution is superquadric:
-    /// only that combination is checked against upstream.
+    /// [`DemError::InvalidInput`] if any template is a plain sphere: upstream
+    /// draws the quaternions for spheres too (shifting the stream) but no
+    /// deck checks that combination, so it is refused by name.
     pub fn with_random_orientation(mut self) -> Result<Self, DemError> {
-        if !self.distribution.is_superquadric() {
+        if self.distribution.has_sphere() {
             return Err(DemError::InvalidInput(
-                "orientation random is ported for superquadric templates only".into(),
+                "orientation random is ported for superquadric and multisphere templates only".into(),
             ));
         }
         self.quat_random = true;

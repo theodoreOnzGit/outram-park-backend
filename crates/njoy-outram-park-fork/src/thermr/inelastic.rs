@@ -93,6 +93,7 @@ impl IncoherentInelastic {
             temperature_bracket: None,
             teff_request_k: None,
             free_gas: true,
+            secondary_sct: None,
         }
     }
 
@@ -317,9 +318,14 @@ impl IncoherentInelastic {
     /// A tabulated *secondary* SCT scatterer (`B(7)=0`, e.g. some polyethylene
     /// evaluations) would add a second such term with its own `σ_b2`, mass ratio
     /// and `T_eff2`; H-in-H₂O sets `B(7)=1` (free-gas oxygen, handled outside
-    /// THERMR) so `σ_b2 = 0` and only the principal term contributes. Because the
+    /// THERMR) so `σ_b2 = 0` and only the principal term contributes. ~~Because the
     /// secondary `T_eff2` table is not retained, a nonzero secondary term is
-    /// skipped with its share dropped — see the module caveats.
+    /// skipped with its share dropped — see the module caveats.~~
+    /// **CORRECTED 2026-11-14 (gh:#1375):** the second term is added when
+    /// [`secondary_sct`](super::mf7::IncoherentInelastic::secondary_sct) is set,
+    /// which THERMR's NJOY-deck path does for an ENDF-4/5 BeO (1099) or benzene
+    /// (1095) from `gatef2`. An ENDF-6 tape's own second atom is still not read
+    /// (its `T_eff2` TAB1); the deck path refuses it by name.
     ///
     /// `a_tab`, `b_tab` are the table variables the caller looked up with (α
     /// floored at `amin`, and scaled by `kT/kT₀` when `LAT = 1`); label 170
@@ -348,6 +354,18 @@ impl IncoherentInelastic {
         if -arg > SABFLG {
             let s = (-arg).r_exp() / (c * (a * teff * rtev).sqrt());
             sig += sigc * self.sigma_bound(natom) * s;
+        }
+        // The second SCT atom of a mixed moderator (`thermr.f90:2588-2594`):
+        // `a=a*az/az2`, `tfff2=teff2` (in eV, `:1926`), `sig=sig+sigc*sb2*s2`
+        // (gh:#1375).
+        if let Some(s2) = self.secondary_sct {
+            if s2.sb2 > 0.0 {
+                let a2 = a * self.mass_ratio() / s2.az2;
+                let tfff2 = s2.teff2_k * BK_EV_PER_K;
+                let arg2 = (a2 - b).r_powi(2) * tev / (4.0 * a2 * tfff2) + (b + bb) / 2.0;
+                let s2v = if -arg2 > SABFLG { (-arg2).r_exp() / (c * (a2 * tfff2 * rtev).sqrt()) } else { 0.0 };
+                sig = sig + sigc * s2.sb2 * s2v;
+            }
         }
         if sig.is_finite() && sig > 0.0 {
             sig

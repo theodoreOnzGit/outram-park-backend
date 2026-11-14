@@ -102,7 +102,39 @@
 //! corrected, divergence-free flux, as `MeltFoam` does, so `div(φ T)`
 //! conserves energy cell by cell.
 //!
+//! ## Radiative flux: `qr`/`qrNbr` of `turbulentTemperatureRadCoupledMixed` (gh:#1531)
+//!
+//! ESI v2506's `compressible::turbulentTemperatureRadCoupledMixed` (read 2026-11-14,
+//! `src/thermoTools/derivedFvPatchFields/turbulentTemperatureRadCoupledMixed/`) is the same
+//! mixed condition with two more entries, `qr` (this patch's radiative flux field) and `qrNbr`
+//! (the neighbour patch's), each a field name or `none`:
+//!
+//! ```text
+//! KDeltaC = GREAT                                    // no layers
+//! alpha   = kappaTp*(1 + KDeltaNbr/KDeltaC)*deltaCoeffs
+//! valueFraction = KDeltaNbr/(KDeltaNbr + alpha);     refValue = TcNbr;
+//! refGrad       = (qr + qrNbr)/kappaTp;              // was 0 above
+//! ```
+//!
+//! `qr` is the radiation model's `qr` field, whose wall values are `-gamma snGrad(G)` (P1.C),
+//! and ESI's tutorial `solarBeamWithTrees` sets the fluid side `qr qr; qrNbr none;` and the solid
+//! side `qr none; qrNbr qr;`. Here [`InterfaceRadiation::Auto`] (the default) does exactly that
+//! for every fluid that has [`EnergyEquation::with_radiation`](crate::solvers::energy::EnergyEquation::with_radiation)
+//! attached: [`CoupledTemperature::update_coeffs_with_flux`] adds `(qr + qrNbr)/kappa` as `refGrad`,
+//! with `qr` the radiation state of the fluid's last `correct()` (lagged, as upstream's field is when the
+//! matrix is assembled; for the solid, after the fluid's `correct()` of the same pass). Ablation:
+//! [`CoupledTemperature::without_radiative_flux`] / [`ChtMultiRegionFoam::without_radiative_flux_coupling`].
+//! Without radiation in either region `refGrad` stays exactly 0 and nothing changes.
+//!
+//! **Layers.** With `thicknessLayers`/`kappaLayers`, `RadCoupledMixed` uses `KDeltaC = 1/(sum(t/k) + SMALL)` inside
+//! `alpha` and the neighbour *cell* value, while `turbulentTemperatureCoupledBaffleMixed` (what
+//! [`InterfaceMode::CoupledWithLayers`] follows) uses the contact conductance in place of the neighbour's
+//! `kappa deltaCoeffs` and the neighbour *face* value. The two differ, so layers combined with the radiative flux
+//! are not claimed to match `RadCoupledMixed` (gh:#1531 follow-up); without layers the two conditions are the
+//! same to round-off (gh:#1363 compares the port with `RadCoupledMixed` itself, bit for bit).
+//!
 //! ## Physics on by default; the ablation
+//!
 //!
 //! Every interface is coupled unless the caller asks otherwise:
 //! [`ChtMultiRegionFoam::without_interface_coupling`] turns each interface
@@ -184,9 +216,46 @@ pub enum InterfaceMode {
     Adiabatic,
 }
 
+/// Which radiative-flux fields enter one side's `refGrad` (gh:#1531): ESI
+/// `turbulentTemperatureRadCoupledMixed`'s `qr` (this side's own patch field)
+/// and `qrNbr` (the neighbour side's), each either a field name or `none`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RadiativeFluxTerms {
+    /// `qr qr;` (true) or `qr none;`: this side's own radiative flux.
+    pub own: bool,
+    /// `qrNbr qr;` (true) or `qrNbr none;`: the neighbour side's radiative flux.
+    pub neighbour: bool,
+}
+
+/// How an interface takes the radiative flux `qr` of a P1 fluid (gh:#1531). Upstream's
+/// `refGrad = (qr + qrNbr)/kappa` (module docs, "Radiative flux").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InterfaceRadiation {
+    /// **The default, physics on.** Each side takes `qr` from its own region when that region is a
+    /// fluid with radiation attached (`qr qr; qrNbr none;`, the fluid side of ESI's
+    /// `solarBeamWithTrees`) and `qrNbr` from the neighbour region under the same condition (the
+    /// solid side: `qr none; qrNbr qr;`). With no radiation in either region this is bit for bit
+    /// the interface without the term.
+    #[default]
+    Auto,
+    /// The case states per side which fields enter (upstream's `qr`/`qrNbr` entries). Naming a
+    /// field the region does not have is an error at [`ChtMultiRegionFoam::new`] (upstream:
+    /// `lookupPatchField` fails).
+    Explicit {
+        /// Terms on side A.
+        a: RadiativeFluxTerms,
+        /// Terms on side B.
+        b: RadiativeFluxTerms,
+    },
+    /// The ablation ([`CoupledTemperature::without_radiative_flux`]): `qr none; qrNbr none;`
+    /// on both sides, the interface of gh:#1531's first slice.
+    Ablated,
+}
+
 /// A coupled-temperature interface between two regions: a port of
 /// `compressible::turbulentTemperatureCoupledBaffleMixed`, with the pairing
-/// of faces from [`RegionInterface`].
+/// of faces from [`RegionInterface`]. Without layers it is also
+/// `turbulentTemperatureRadCoupledMixed` (module docs, "Radiative flux").
 #[derive(Debug, Clone)]
 pub struct CoupledTemperature {
     /// Side A (the pairing's mesh A).
@@ -197,6 +266,8 @@ pub struct CoupledTemperature {
     pub pairing: RegionInterface,
     /// Coupled (default), coupled through layers, or the adiabatic ablation.
     pub mode: InterfaceMode,
+    /// The radiative flux `qr`/`qrNbr` in `refGrad` (gh:#1531); default [`InterfaceRadiation::Auto`].
+    pub radiation: InterfaceRadiation,
 }
 
 impl CoupledTemperature {
@@ -212,7 +283,23 @@ impl CoupledTemperature {
             b: InterfaceSide { region: b, patch: patch_b },
             pairing,
             mode: InterfaceMode::Coupled,
+            radiation: InterfaceRadiation::Auto,
         }
+    }
+
+    /// State per side which radiative-flux fields enter `refGrad` (upstream's `qr`/`qrNbr`
+    /// entries), instead of the default [`InterfaceRadiation::Auto`].
+    #[must_use]
+    pub fn with_radiative_flux(mut self, a: RadiativeFluxTerms, b: RadiativeFluxTerms) -> Self {
+        self.radiation = InterfaceRadiation::Explicit { a, b };
+        self
+    }
+
+    /// The ablation: `qr none; qrNbr none;` on both sides, whatever the regions radiate.
+    #[must_use]
+    pub fn without_radiative_flux(mut self) -> Self {
+        self.radiation = InterfaceRadiation::Ablated;
+        self
     }
 
     /// Upstream `thicknessLayers` / `kappaLayers`: a contact layer stack
@@ -264,6 +351,28 @@ impl CoupledTemperature {
         nbr_k: ThermalConductivity,
         nbr_mode: fvm::DeltaCoeff,
     ) -> BoundaryCondition<f64> {
+        self.update_coeffs_with_flux(my_is_a, my_t, my_k, my_mode, nbr_t, nbr_k, nbr_mode, None, None)
+    }
+
+    /// [`Self::update_coeffs`] with the radiative flux of `turbulentTemperatureRadCoupledMixed`
+    /// (gh:#1531): `refGrad = (qr + qrNbr)/kappaTp` per face, the other two coefficients
+    /// unchanged. `qr` is this side's patch field `qr` in this side's face order, `qr_nbr` the
+    /// neighbour patch's `qr` in the **neighbour's** face order (it is paired through the face map,
+    /// upstream's `distribute`); `None` is upstream's `none` (zero). `(None, None)` leaves
+    /// `refGrad` exactly 0, as before.
+    #[must_use]
+    pub fn update_coeffs_with_flux(
+        &self,
+        my_is_a: bool,
+        my_t: &VolScalarField,
+        my_k: ThermalConductivity,
+        my_mode: fvm::DeltaCoeff,
+        nbr_t: &VolScalarField,
+        nbr_k: ThermalConductivity,
+        nbr_mode: fvm::DeltaCoeff,
+        qr: Option<&[f64]>,
+        qr_nbr: Option<&[f64]>,
+    ) -> BoundaryCondition<f64> {
         let (my_k, nbr_k) = (my_k.get::<watt_per_meter_kelvin>(), nbr_k.get::<watt_per_meter_kelvin>());
         let (my_patch, nbr_patch) = if my_is_a { (self.pairing.patch_a, self.pairing.patch_b) } else { (self.pairing.patch_b, self.pairing.patch_a) };
         let (my_mesh, nbr_mesh) = (&my_t.mesh, &nbr_t.mesh);
@@ -285,6 +394,7 @@ impl CoupledTemperature {
         let nbr_start = nbr_mesh.patches[nbr_patch].start;
         let mut w = Vec::with_capacity(n);
         let mut r = Vec::with_capacity(n);
+        let mut g = Vec::with_capacity(n);
         for (fi, &fj) in nbr_face.iter().enumerate() {
             let my_kd = my_k / my_mode.boundary_delta(my_mesh, my_start + fi);
             let (nbr_val, nbr_kd) = match self.mode {
@@ -293,8 +403,9 @@ impl CoupledTemperature {
             };
             r.push(nbr_val);
             w.push(nbr_kd / (nbr_kd + my_kd));
+            g.push(if qr.is_none() && qr_nbr.is_none() { 0.0 } else { (qr.map_or(0.0, |q| q[fi]) + qr_nbr.map_or(0.0, |q| q[fj])) / my_k });
         }
-        BoundaryCondition::MixedField { value_fraction: Field::new(w), ref_value: Field::new(r), ref_grad: Field::new(vec![0.0; n]) }
+        BoundaryCondition::MixedField { value_fraction: Field::new(w), ref_value: Field::new(r), ref_grad: Field::new(g) }
     }
 }
 
@@ -363,6 +474,7 @@ impl ChtMultiRegionFoam {
                 }
             }
         }
+        s.check_radiative_fluxes()?;
         Ok(s)
     }
 
@@ -395,6 +507,74 @@ impl ChtMultiRegionFoam {
         }
     }
 
+    /// Whether region `r` carries a radiative flux `qr` (a fluid with P1 attached).
+    fn has_radiative_flux(&self, r: RegionId) -> bool {
+        match r {
+            RegionId::Fluid(i) => self.fluids[i].energy.as_ref().is_some_and(|e| e.radiation.is_some() || e.view_factor.is_some()),
+            RegionId::Solid(_) => false,
+        }
+    }
+
+    /// The radiative wall flux `qr` of region `side.region` on `side.patch`, from the radiation
+    /// state of its last `correct()`; `None` if the region has none.
+    fn radiative_flux_on(&self, side: InterfaceSide) -> Option<Vec<f64>> {
+        match side.region {
+            RegionId::Fluid(i) => {
+                let e = self.fluids[i].energy.as_ref()?;
+                match (e.radiation.as_ref(), e.view_factor.as_ref()) {
+                    (Some(r), _) => Some(r.state.qr[side.patch].as_slice().to_vec()),
+                    (None, Some(v)) => Some(v.qr[side.patch].as_slice().to_vec()),
+                    (None, None) => None,
+                }
+            }
+            RegionId::Solid(_) => None,
+        }
+    }
+
+    /// Which of `qr`/`qrNbr` enter side `my` of interface `c` (the [`InterfaceRadiation`] rule).
+    fn radiative_terms(&self, c: &CoupledTemperature, my_is_a: bool) -> RadiativeFluxTerms {
+        let (my, nbr) = if my_is_a { (c.a, c.b) } else { (c.b, c.a) };
+        match c.radiation {
+            InterfaceRadiation::Ablated => RadiativeFluxTerms::default(),
+            InterfaceRadiation::Explicit { a, b } => {
+                if my_is_a {
+                    a
+                } else {
+                    b
+                }
+            }
+            InterfaceRadiation::Auto => RadiativeFluxTerms { own: self.has_radiative_flux(my.region), neighbour: self.has_radiative_flux(nbr.region) },
+        }
+    }
+
+    /// Refuse an [`InterfaceRadiation::Explicit`] interface that names a flux its region does not
+    /// have (upstream: `lookupPatchField` of a missing `qr` is fatal).
+    ///
+    /// # Errors
+    /// [`AppBuilderError::Case`] naming the interface side.
+    pub fn check_radiative_fluxes(&self) -> Result<(), AppBuilderError> {
+        for (k, c) in self.interfaces.iter().enumerate() {
+            if let InterfaceRadiation::Explicit { a, b } = c.radiation {
+                for (name, terms, my, nbr) in [("A", a, c.a, c.b), ("B", b, c.b, c.a)] {
+                    if (terms.own && !self.has_radiative_flux(my.region)) || (terms.neighbour && !self.has_radiative_flux(nbr.region)) {
+                        return Err(config_error(format!("interface {k} side {name} names a radiative flux qr that its region does not have")));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The ablation of gh:#1531: every interface `qr none; qrNbr none;`. The default takes the
+    /// radiative flux of every P1 fluid ([`InterfaceRadiation::Auto`]).
+    #[must_use]
+    pub fn without_radiative_flux_coupling(mut self) -> Self {
+        for c in &mut self.interfaces {
+            c.radiation = InterfaceRadiation::Ablated;
+        }
+        self
+    }
+
     fn temperature_mut(&mut self, r: RegionId) -> &mut VolScalarField {
         match r {
             RegionId::Fluid(i) => &mut self.fluids[i].energy.as_mut().expect("checked in new").t,
@@ -414,7 +594,10 @@ impl ChtMultiRegionFoam {
                 let (mk, mm) = self.kappa_and_mode(my.region);
                 let (nk, nm) = self.kappa_and_mode(nbr.region);
                 let w = ThermalConductivity::new::<watt_per_meter_kelvin>;
-                let bc = c.update_coeffs(my_is_a, self.temperature(my.region), w(mk), mm, self.temperature(nbr.region), w(nk), nm);
+                let terms = self.radiative_terms(c, my_is_a);
+                let qr = if terms.own { self.radiative_flux_on(my) } else { None };
+                let qr_nbr = if terms.neighbour { self.radiative_flux_on(nbr) } else { None };
+                let bc = c.update_coeffs_with_flux(my_is_a, self.temperature(my.region), w(mk), mm, self.temperature(nbr.region), w(nk), nm, qr.as_deref(), qr_nbr.as_deref());
                 updates.push((my.patch, bc));
             }
         }

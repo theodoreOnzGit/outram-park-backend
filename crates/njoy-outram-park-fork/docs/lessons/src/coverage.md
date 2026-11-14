@@ -44,7 +44,7 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 | `mixr` | [Output formats](./output-formats.md) | listed by hand | `tests/mixr_h2_be9_njoy_golden.rs` (exact, first recorded [2026-10-04](./remeasured.md)) | V |
 | `matxsr` | [Output formats](./output-formats.md) | — | — | **N** |
 | `ccccr` | [Output formats](./output-formats.md) | `ccccr` (deck) | `tests/deck_driver_tapes_vs_njoy2016.rs` (`test_02_ccccr_whole_deck`, `test_76_ccccr_whole_deck`) | ~~**N**~~ **CORRECTED 2026-11-13:** ported (gh:#1369); byte-identical to NJOY2016.80 on decks 02 and 76 |
-| `powr` | [Output formats](./output-formats.md) | — | — | **N** |
+| `powr` | [Output formats](./output-formats.md) | `powr` (deck, `lib` 1 and 2) | `tests/deck_driver_powr_vs_njoy2016.rs` | ~~**N**~~ **CORRECTED 2026-11-14:** `lib` 1 and 2 translated (gh:#1373); identical to NJOY2016.80 line by line on seven decks; `lib = 3` refused |
 | `plotr` | [Output formats](./output-formats.md) | `plotr::Plotr::run` (deck) | `tests/deck_driver_plotr_vs_njoy2016.rs` | ~~**N**~~ **CORRECTED 2026-11-13:** ported (gh:#1369); identical to NJOY2016.80 line by line on decks 06 and 12 |
 | `viewr` | [Output formats](./output-formats.md) | `viewr::viewr_postscript` | `tests/deck_driver_tapes_vs_njoy2016.rs` (`test_*_viewr_*`), `tests/deck_driver_covr_vs_njoy2016.rs` | ~~**N**~~ **CORRECTED 2026-11-13:** ported 2026-11-12 (gh:#1369); PostScript identical to NJOY2016's line by line on whole decks |
 | `hdf5` | [OpenMC interchange](./openmc-interchange.md) | `write_nuclide` | `hdf5_nuclide_write/`, `nuclide_h5_fissile/`, `nuclide_h5_read/`, `depletion_chain_xml/` | P; fissile `k` comparison and read-side `k` comparison not yet run |
@@ -96,3 +96,4 @@ Each is tracked as a GitHub issue, filed 2026-10-04 by this track:
 5. **Not ported by design** (visible, no issue needed unless the maintainer
    wants them): MATXSR, ~~CCCCR~~, POWR, ~~PLOTR~~, ~~VIEWR~~, every card-deck `run()`.
    **CORRECTED 2026-11-13 (gh:#1369):** CCCCR, PLOTR and VIEWR are ported and run from decks.
+   **CORRECTED 2026-11-14 (gh:#1373):** POWR `lib` 1 and 2 are translated and run from decks.

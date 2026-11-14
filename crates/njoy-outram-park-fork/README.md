@@ -80,13 +80,18 @@ precision; keep CPU for the reference/validated result. (Beads `op-0m5`,
 > distributions, 4e heating column, 4f thermal S(α,β) tables, 4g Windowed
 > Multipole import). The **WMP** evaluator (`src/wmp/`, independent MIT CRPG
 > work — not NJOY) is a ~1276-line port with a 125-nuclide CORE library baked in.
+> **Since 2026-11-14 (gh:#1390) the crate also generates WMP data from an ENDF
+> tape:** `wmp::generate::from_endf` translates OpenMC's
+> `WindowedMultipole.from_endf` (vector fitting, windowing, curve fit; OpenMC
+> `8f79d9d`, MIT) on this crate's own RECONR/GASPR/ACER. Checked against
+> OpenMC's generator on Mg-26: `verification_and_validation/wmp_generate/`.
 > The Phase-5 multigroup/covariance set is also ported: **GROUPR** (~9.4k lines),
 > **GAMINR**, **ERRORR**, **COVR**, and **LEAPR**; plus the Phase-6 formatters
 > **DTFR**, **RESXSR**, and **MIXR**. The `NuclearDataLibrary` OOP API supports the
 > `from_file → reconstruct → broaden` pipeline with uom-typed cross-section
 > queries and a `ContinuousEnergyData` export. The remaining `NjoyError::NotPorted`
-> stubs are only **~~CCCCR,~~ ~~MATXSR,~~ POWR, ~~PLOTR~~, ~~VIEWR~~, ~~and WIMSR~~** (output formats
-> OUTRAM PARK does not target). **CORRECTED 2026-11-13 (gh:#1369):** MATXSR is translated (`src/matxsr/`); the MATXS files of upstream decks 03 and 30 are NJOY2016.80's line for line (`tests/deck_driver_photon_vs_njoy2016.rs`). **CORRECTED 2026-11-13 (gh:#1369):** PLOTR is translated (`src/plotr/`) and runs from a deck; upstream decks 06 and 12 are identical to NJOY2016.80 line for line (`tests/deck_driver_plotr_vs_njoy2016.rs`). Only its card-less `plotr::run()` still returns `NotPorted`. **CORRECTED 2026-11-13 (gh:#1369):** CCCCR is ported (`src/ccccr/`; ISOTXS, BRKOXS and DLAYXS byte-identical to NJOY2016.80 on upstream decks 02 and 76). **CORRECTED 2026-11-10 (gh:#1365):** WIMSR *is*
+> stubs are only **~~CCCCR,~~ ~~MATXSR,~~ ~~POWR,~~ ~~PLOTR~~, ~~VIEWR~~, ~~and WIMSR~~** (output formats
+> OUTRAM PARK does not target). **CORRECTED 2026-11-14 (gh:#1373):** POWR `lib = 1` (fast) and `lib = 2` (thermal) are translated (`src/powr/`) and run from a deck; their libraries are NJOY2016.80's line for line on seven decks of our own (`tests/deck_driver_powr_vs_njoy2016.rs`). `lib = 3` (EPRI-CPM) is not translated and is refused by name. **CORRECTED 2026-11-13 (gh:#1369):** MATXSR is translated (`src/matxsr/`); the MATXS files of upstream decks 03 and 30 are NJOY2016.80's line for line (`tests/deck_driver_photon_vs_njoy2016.rs`). **CORRECTED 2026-11-13 (gh:#1369):** PLOTR is translated (`src/plotr/`) and runs from a deck; upstream decks 06 and 12 are identical to NJOY2016.80 line for line (`tests/deck_driver_plotr_vs_njoy2016.rs`). Only its card-less `plotr::run()` still returns `NotPorted`. **CORRECTED 2026-11-13 (gh:#1369):** CCCCR is ported (`src/ccccr/`; ISOTXS, BRKOXS and DLAYXS byte-identical to NJOY2016.80 on upstream decks 02 and 76). **CORRECTED 2026-11-10 (gh:#1365):** WIMSR *is*
 > ported: `wimsr::run_gendf` (2,053 lines under `src/wimsr/`), checked by
 > `tests/wimsr_u238_njoy_golden.rs`. Only the argument-less `wimsr::run()` deck
 > entry point still returns `NotPorted`. **CORRECTED 2026-11-12 (gh:#1369):** VIEWR

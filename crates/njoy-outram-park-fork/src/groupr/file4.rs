@@ -322,6 +322,24 @@ fn getco_legendre_converted(a: &[f64], nl_max: usize, toler: f64, awr: f64) -> V
     fl
 }
 
+/// `getco` with `lang = 2` and `lcd = lct` (`groupr.f90:10563-10573`): `np = c(5)`
+/// (the LIST's `NW`), `fl(il) = c(il+6)` for `il <= np`, else 0, for `il = 1..nl`;
+/// `nl = nlz`, the last non-zero (at least 1). `a_0` is not renormalised.
+fn getco_law5_legendre(c: &[f64], np: usize, nl_max: usize) -> Vec<f64> {
+    let mut fl = vec![0.0f64; nl_max];
+    let mut nlz = 1;
+    for il in 1..=nl_max {
+        if il <= np {
+            fl[il - 1] = c.get(il - 1).copied().unwrap_or(0.0);
+            if fl[il - 1] != 0.0 {
+                nlz = il;
+            }
+        }
+    }
+    fl.truncate(nlz);
+    fl
+}
+
 /// Read one TAB2's worth of angular records (`ne` of them, each a LIST for
 /// `ltt = 1` or a TAB1 for `ltt = 2`) into [`EnergyPoint`]s. `awr_lab` is
 /// `Some(awr)` when CM data is wanted in the lab ([`File4Options::cm_to_lab`]).
@@ -529,6 +547,145 @@ impl File4Angular {
             let isotropic = points.len() == 2 && points.iter().all(|p| p.fl.len() == 1);
             let lo_fl = carried_lo(&points, nl_max);
             return Ok(Self { lct, isotropic, points, lo_fl, log_sign_fallback: false });
+        }
+        Err(NjoyError::EndfParse(format!("getfle: MF=6/MT={mt} of mat {mat} has no subsection with ZAP = {zap}")))
+    }
+
+    /// `getmf6`'s `LAW = 4` (discrete two-body recoil) for the subsection whose
+    /// `ZAP` is `zap` (gh:#1370, `groupr.f90:7636-7653`): upstream backs up to the
+    /// **first** subsection of `MF=6/MT=mt` ("assumed to be the first subsection"),
+    /// re-reads its TAB1 and lets `getfle` (`mfd = 8`) read that subsection's angular
+    /// records. When the first subsection is `LAW = 3`, `law = -4` and `getfle` makes
+    /// the distribution CM-isotropic (`:9733-9734`); when it is `LAW = 2`, its
+    /// Legendre records are read as [`File4Angular::from_mf6_law2`] reads them. The
+    /// caller must also flip the CM cosine in `getdis` (`if (law.eq.4) wqp=-wqp`,
+    /// `:9519`): [`crate::groupr::two_body::TwoBodyFeed::with_law4_cosine_flip`].
+    ///
+    /// # Errors
+    /// [`NjoyError::SectionNotFound`] without the section; [`NjoyError::NotPorted`],
+    /// by name, when the `zap` subsection is not `LAW = 4`; when the first subsection
+    /// is neither `LAW = 2` nor `LAW = 3` (upstream's `getfle` would read its records
+    /// as `LAW = 2` Legendre lists, which they are not: undefined); when the `zap`
+    /// subsection's `AWP` is not 1 (the port's `getdis` holds `aprime = 1`); for
+    /// `LANG /= 0` and `LCT /= 2` as in `from_mf6_law2`.
+    pub fn from_mf6_law4(tape: &Tape, mat: i32, mt: i32, zap: i32, nl_max: usize) -> Result<Self, NjoyError> {
+        let sec = tape.section(mat, 6, mt).ok_or(NjoyError::SectionNotFound { mat, mf: 6, mt })?;
+        let mut cur = SectionCursor::new(&sec.rows);
+        let head = cur.read_cont()?;
+        let mut first_law = None;
+        let mut found = None;
+        for _ in 0..head.n1.max(0) {
+            let t = cur.read_tab1()?;
+            let law = t.head.l2;
+            first_law.get_or_insert(law);
+            if t.head.c1.round() as i32 == zap {
+                found = Some((law, t.head.c2));
+                break;
+            }
+            crate::acer::energy::mf6::skip_mf6_subsection(&mut cur, law)?;
+        }
+        let Some((law, awp)) = found else {
+            return Err(NjoyError::EndfParse(format!("getmf6: MF=6/MT={mt} of mat {mat} has no subsection with ZAP = {zap}")));
+        };
+        if law != 4 {
+            return Err(NjoyError::NotPorted("groupr getmf6 law 4: the requested File-6 subsection is not LAW = 4"));
+        }
+        if awp != 1.0 {
+            return Err(NjoyError::NotPorted("groupr getmf6 law 4: AWP /= 1 for the outgoing neutron (getdis aprime = awp/awrp)"));
+        }
+        if head.l2 != 2 {
+            return Err(NjoyError::NotPorted("groupr getfle mfd = 8: File-6 LAW = 4 with LCT /= 2 (getmf6's LCT = 1/3 handling)"));
+        }
+        match first_law {
+            Some(2) => {
+                // `tmp(l)=zap`, `tmp(l+1)=awp` only relabel the re-read TAB1; `getfle`
+                // then reads the first subsection's TAB2 and LISTs.
+                let mut cur = SectionCursor::new(&sec.rows);
+                let _ = cur.read_cont()?;
+                let _ = cur.read_tab1()?;
+                let mut points = Vec::new();
+                read_records(&mut cur, 1, nl_max, TOLER, None, &mut points)?;
+                if points.iter().any(|p| p.lang != 0) {
+                    return Err(NjoyError::NotPorted("groupr getfle mfd = 8: File-6 LAW = 4 partner with LANG /= 0 (getco reads the record as Legendre coefficients)"));
+                }
+                let isotropic = points.len() == 2 && points.iter().all(|p| p.fl.len() == 1);
+                let lo_fl = carried_lo(&points, nl_max);
+                Ok(Self { lct: 2, isotropic, points, lo_fl, log_sign_fallback: false })
+            }
+            // `if (lf.eq.3) law=-4`, then `getfle` sets `iso = 1` (`:9734`).
+            Some(3) => Ok(Self::isotropic_cm()),
+            _ => Err(NjoyError::NotPorted("groupr getmf6 law 4: first File-6 subsection is not LAW = 2 or 3 (getfle would misread it)")),
+        }
+    }
+
+    /// `getfle` with `mfd = 8` on a File-6 `LAW = 5` subsection for a **neutron**
+    /// (gh:#1370, `groupr.f90:9733-9760` with `getco`, `:10462-10704`). The TAB2 is
+    /// `[SPI, 0, LIDP, 0, NR, NE]`; upstream stores `LIDP` into each LIST's L2
+    /// (`fls(iraw+3)=lidp`), which only `getco`'s Coulomb branch reads. Each LIST
+    /// `[0, E, LTP, 0, NW, NL]` with `LTP = 2` (nuclear Legendre coefficients
+    /// `a_0..a_NL`) goes through `getco` with `lang = 2` (`l1h`) and `lcd = lct = 2`:
+    /// `fl(il) = c(il+6)` for `il <= NW` (`:10563-10573`); `a_0` is kept as given (no
+    /// `fl(1) = 1`), trimmed to the last non-zero, unrounded. GROUPR's `conver`
+    /// copies such a record to its scratch tape unchanged (`:11590-11596`).
+    ///
+    /// For a neutron (`izap = 1`) `getdis` adds no Coulomb term (`:9529`, `mtd = 2`
+    /// and `izap > 1` only) and keeps `wmin = -1`, `wmax = 1` (`:9449-9452`), so
+    /// `SPI` and `LIDP` have no effect.
+    ///
+    /// # Errors
+    /// [`NjoyError::SectionNotFound`] without the section; [`NjoyError::NotPorted`]
+    /// by name for: `LCT /= 2`; a subsection that is not `LAW = 5`; `LTP = 1`
+    /// (`getco` label 360 jumps to 370 for `izap <= 1` with `y` never set, so
+    /// upstream uses an uninitialised value: undefined); and `LTP > 2`. For
+    /// `LTP > 2` upstream's `conver` (`:11597-11621`) rewrites the record on its
+    /// scratch tape as `LTP = 2` after multiplying `p(mu)` by `sig(E)*(1-mu)`, with
+    /// `sig` from a `getsig` call that reads the PENDF and leaves the ENDF header
+    /// globals (`l1h`, `n2h`) at that tape's last record; `nm = n2h` and `getco`'s
+    /// `lang = l1h`, `nmu = n2h` are then taken from it. Measured 2026-11-14 with an
+    /// instrumented NJOY2016.80 on a synthetic Si-30 tape (gh:#1370, MT 54 `LTP = 12`
+    /// and MT 55 `LTP = 14`, three records each): the first two converted records of
+    /// each section read back as `NW = 1`, `a_0 = 0`, and `getco`'s tabulated branch
+    /// ran only for the first record of each section. That is not a defined computation, so it
+    /// is refused rather than reproduced.
+    pub fn from_mf6_law5(tape: &Tape, mat: i32, mt: i32, zap: i32, nl_max: usize) -> Result<Self, NjoyError> {
+        let sec = tape.section(mat, 6, mt).ok_or(NjoyError::SectionNotFound { mat, mf: 6, mt })?;
+        let mut cur = SectionCursor::new(&sec.rows);
+        let head = cur.read_cont()?;
+        if head.l2 != 2 {
+            return Err(NjoyError::NotPorted("groupr getfle mfd = 8: File-6 LAW = 5 with LCT /= 2 (getmf6's LCT = 1/3 handling)"));
+        }
+        for _ in 0..head.n1.max(0) {
+            let t = cur.read_tab1()?;
+            let law = t.head.l2;
+            if t.head.c1.round() as i32 != zap {
+                crate::acer::energy::mf6::skip_mf6_subsection(&mut cur, law)?;
+                continue;
+            }
+            if law != 5 {
+                return Err(NjoyError::NotPorted("groupr getfle mfd = 8: File-6 subsection is not LAW = 5"));
+            }
+            let tab2 = cur.read_tab2()?;
+            let ne = tab2.head.n2.max(0) as usize;
+            let regions = &tab2.interp;
+            let mut ir = 0usize;
+            let mut points = Vec::with_capacity(ne);
+            for nne in 1..=ne {
+                while ir + 1 < regions.len() && nne as u32 > regions[ir].0 {
+                    ir += 1;
+                }
+                let elaw = regions.get(ir).map(|r| r.1).unwrap_or(2);
+                let list = cur.read_list()?;
+                let ltp = list.head.l1;
+                let fl = match ltp {
+                    1 => return Err(NjoyError::NotPorted("groupr getco: File-6 LAW = 5 LTP = 1 for a neutron (label 360 goes to 370 with y unset: undefined upstream)")),
+                    2 => getco_law5_legendre(&list.data, list.head.n1.max(0) as usize, nl_max),
+                    _ => return Err(NjoyError::NotPorted("groupr conver: File-6 LAW = 5 LTP > 2 for a neutron (conver's getsig leaves l1h/n2h stale: undefined upstream)")),
+                };
+                points.push(EnergyPoint { energy: list.head.c2, fl, law: elaw, lang: ltp });
+            }
+            let isotropic = points.len() == 2 && points.iter().all(|p| p.fl.len() == 1);
+            let lo_fl = carried_lo(&points, nl_max);
+            return Ok(Self { lct: 2, isotropic, points, lo_fl, log_sign_fallback: false });
         }
         Err(NjoyError::EndfParse(format!("getfle: MF=6/MT={mt} of mat {mat} has no subsection with ZAP = {zap}")))
     }

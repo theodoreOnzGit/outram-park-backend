@@ -1,0 +1,6 @@
+# gh:#1415 clump file for in.ms_file: the type 1 template of in.ms_drop in mm
+# (x y z r per line; read with `spheres file ms_clump1.txt scale 0.0011`)
+
+0 0 0 4
+5 0 1 3.5   # second sphere
+2 4 -1 3

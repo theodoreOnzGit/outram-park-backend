@@ -34,3 +34,35 @@ Derivations (from the equations, before data):
    (the new field is None; no arithmetic is added to the off path).
 7. `solverFreq 3` ablation: G recomputed only on steps 3,6,... (and the first call): the port reproduces ESI's
    `timeIndex % solverFreq` rule (unit test, ESI not re-run for it).
+
+---
+
+# Addendum, written 2026-11-14 BEFORE any ESI run with `qr`/`qrNbr` and BEFORE any test of the new code (gh:#1531, qr coupling)
+
+Case: the same case and parameters as above (a = e = 50 /m, 50 steps, dt 0.1 s), with the interface condition
+switched to ESI's tutorial convention (`solarBeamWithTrees`): the FLUID interface patch `qr qr; qrNbr none`, the
+SOLID interface patch `qr none; qrNbr qr`. ESI's `turbulentTemperatureRadCoupledMixed::updateCoeffs` (read,
+v2506) then sets `refGrad = (qr + qrNbr)/kappaTp` on each side and leaves `valueFraction = KDeltaNbr/(KDeltaNbr+alpha)`,
+`refValue = TcNbr` unchanged. `qr` is the radiation model's volScalarField `qr`, boundary values
+`-gamma snGrad(G)` (P1.C:244). No `qrRelaxation` exists in this BC in v2506 (it is only in `thermalBaffle1D`).
+
+1. Q1 (default-on wiring): `refGrad` on the fluid side is `qr_fluid[face]/kappa_f` and on the solid side the paired
+   face's `qr_fluid/kappa_s`; `valueFraction` and `refValue` are bit-unchanged from the qr-less port.
+2. Q2 (bit identity): port with qr vs ESI with qr, worst fluid T <= 5e-11 K and solid T <= 2e-11 K at every step, G rel
+   <= 1e-9, qr rel <= 1e-8 of max|qr| (same floors as the qr-less run, 1.07e-11 K / 3.6e-12 K / 1.5e-13 / 2.8e-10).
+   Risk named in advance: if upstream evaluates the BC again after `rad.correct()` the lag differs and a step-1 or
+   step-2 divergence of order |dqr|/kappa appears (I expect NOT: in EEqn.H `thermo.correct()` precedes `rad.correct()`).
+   If so, the order of evaluation, not the formula, is the suspect.
+3. Q3 (the term matters): ESI-with-qr vs ESI-without-qr (the committed gh:#1531 reference) fluid cell T differs by
+   >= 1e-3 K at the interface-adjacent cells at step 50 (the interface wall is hotter than the medium, so G at the wall
+   exceeds G in the cell, `snGrad G > 0`, `qr < 0`). Sign: the interface-adjacent fluid cell is LOWER with qr than
+   without. Size: an interface radiative flux bounded by epsilon sigma (360^4 - 300^4) ~ 3.8e2 W/m2 acting for 5 s on a
+   water cell row 0.1 m deep gives <= 4.5e-3 K, so I expect 1e-3 .. 1e-2 K, not more.
+4. Q4 (ablation discriminates): the port with the qr coupling ablated (`without_radiative_flux`) differs from ESI-with-qr
+   by >= 1e-3 K (it must, if Q3 holds), and the port WITH the ablation equals the committed qr-less ESI reference to the
+   same 1.07e-11 K floor (so the old record is reproduced by an explicit ablation, not by the default).
+5. Q5 (default): constructing through `ChtMultiRegionFoam::new` with a radiating fluid applies qr on both sides with no
+   extra call; with a fluid without radiation nothing changes bit for bit (every gh:#1363 pin).
+6. Q6 (not covered, stated before measuring): `thicknessLayers`/`kappaLayers` with qr. The port's layered mode follows
+   `turbulentTemperatureCoupledBaffleMixed`; `RadCoupledMixed` combines the layers differently
+   (`alpha = kappa (1 + KDeltaNbr/KDeltaC) deltaCoeffs`), so I predict they do NOT agree and do not test them.

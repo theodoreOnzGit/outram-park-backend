@@ -108,3 +108,31 @@ fn fluid_at_rest_couples_to_a_solid() {
     let qf = cht.interface_heat_in(cht.interfaces[0].a).get::<watt>();
     assert!((qs / want - 1.0).abs() < 1e-9 && (qf / -want - 1.0).abs() < 1e-9, "{qs} {qf} {want}");
 }
+
+/// gh:#1531: `refGrad = (qr + qrNbr)/kappa` with `qrNbr` paired through the face map; `valueFraction`
+/// and `refValue` are those of the flux-free condition, and `(None, None)` leaves `refGrad` exactly 0.
+#[test]
+fn radiative_flux_enters_ref_grad_only() {
+    let s = two_slabs();
+    let c = &s.interfaces[0];
+    let (ta, tb) = (&s.solids[0].energy.t, &s.solids[1].energy.t);
+    let k = |v: f64| ThermalConductivity::new::<watt_per_meter_kelvin>(v);
+    let mode = fvm::DeltaCoeff::default();
+    let plain = c.update_coeffs(true, ta, k(1.0), mode, tb, k(4.0), mode);
+    let with = c.update_coeffs_with_flux(true, ta, k(1.0), mode, tb, k(4.0), mode, Some(&[-8.0]), Some(&[-2.0]));
+    let none = c.update_coeffs_with_flux(true, ta, k(1.0), mode, tb, k(4.0), mode, None, None);
+    match (plain, with, none) {
+        (
+            BoundaryCondition::MixedField { value_fraction: w0, ref_value: r0, ref_grad: g0 },
+            BoundaryCondition::MixedField { value_fraction: w1, ref_value: r1, ref_grad: g1 },
+            BoundaryCondition::MixedField { ref_grad: g2, .. },
+        ) => {
+            assert_eq!(w0.as_slice(), w1.as_slice());
+            assert_eq!(r0.as_slice(), r1.as_slice());
+            assert_eq!(g0.as_slice(), &[0.0]);
+            assert_eq!(g2.as_slice(), &[0.0]);
+            assert_eq!(g1.as_slice(), &[(-8.0 + -2.0) / 1.0]);
+        }
+        _ => panic!("expected MixedField"),
+    }
+}

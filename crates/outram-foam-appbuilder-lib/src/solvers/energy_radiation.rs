@@ -51,10 +51,17 @@
 //!
 //! ## Not here
 //!
-//! The radiative wall flux `qr` is computed and stored (`state.qr`) but is **not** fed to
+//! ~~The radiative wall flux `qr` is computed and stored (`state.qr`) but is **not** fed to
 //! the coupled interface condition (upstream's `turbulentTemperatureRadCoupledMixed`
 //! `qr`/`qrNbr` terms): [`crate::solvers::cht_multi_region_foam::CoupledTemperature`] has
-//! none. Variable properties, `fvDOM`, `viewFactor`, scattering and a non-orthogonal
+//! none.~~ **CORRECTED 2026-11-14 (gh:#1531, qr slice):** `qr` (`state.qr`) now enters the coupled
+//! interface condition as `refGrad = (qr + qrNbr)/kappa` on both sides, by default whenever a
+//! fluid region has radiation attached
+//! ([`crate::solvers::cht_multi_region_foam::InterfaceRadiation`]); ablate with
+//! `without_radiative_flux`. Bit-identical to ESI v2506 on the gh:#1531 case with `qr`/`qrNbr`
+//! (`verification_and_validation/upstream_radiation_gh1531/README.md`, "qr coupling").
+//! Not here: variable properties, `fvDOM`, ~~`viewFactor`~~ **CORRECTED 2026-11-14 (gh:#1541):** `viewFactor` is
+//! coupled by [`crate::solvers::energy_view_factor`] (exclusive with P1 on one equation), scattering and a non-orthogonal
 //! correction of the `G` Laplacian are not ported (gh:#1379).
 
 use crate::error::AppBuilderError;

@@ -48,7 +48,9 @@
 //! so there is nothing to translate or compare.
 //!
 //! Single process, orthogonal fixed box. Not translated: `parallel yes`,
-//! `duration_time`, multi-sphere templates, restart,
+//! `duration_time`, ~~multi-sphere templates~~ (**CORRECTED 2026-11-14,
+//! gh:#1415:** clumps are streamed, with a constant velocity, the identity
+//! orientation and no sphere/clump mix; V&V 4.16.3), restart,
 //! a moving or scaling face (upstream rejects
 //! those too). `is_nearby`'s second filter (`isInBoundingBox`) is implied for a
 //! planar face by its first two tests and is not repeated.
@@ -182,7 +184,15 @@ impl InsertStreamFix {
     /// [`DemError::InvalidInput`] for the errors upstream raises: an invalid
     /// seed or equal seeds, a non-planar face, a velocity that is too low or
     /// not into the face, both or neither of `insert_every`/`extrude_length`,
-    /// an extrusion that is too small, no total or no rate.
+    /// an extrusion that is too small, no total or no rate; and, not ported
+    /// (gh:#1415), a distribution holding ~~multisphere or~~ superquadric
+    /// templates. **CORRECTED 2026-11-14 (gh:#1415, fourth pass):** multisphere
+    /// templates are streamed (`FixMultisphere`'s per-body `start_step` and
+    /// `v_integrate`; see [`crate::granular_system::GranularSystem::add_stream_insertion`]).
+    /// With clumps it also refuses what upstream refuses, a velocity that is
+    /// not `constant` ("Currently only fix insert/stream with multisphere
+    /// particles only supports constant velocity"), and, not ported, a
+    /// distribution mixing spheres and clumps.
     pub fn new(
         seed: i32,
         distribution: ParticleDistributionDiscrete,
@@ -195,6 +205,25 @@ impl InsertStreamFix {
         box_lo: Vec3,
         box_hi: Vec3,
     ) -> Result<Self, DemError> {
+        if distribution.is_superquadric() {
+            return Err(DemError::InvalidInput(
+                "fix insert/stream with superquadric templates is not ported (gh:#1415)".into(),
+            ));
+        }
+        if distribution.has_clump() {
+            if distribution.has_sphere() {
+                return Err(DemError::InvalidInput(
+                    "fix insert/stream with a distribution mixing spheres and multisphere clumps is not ported (gh:#1415)"
+                        .into(),
+                ));
+            }
+            if !matches!(velocity, InsertVelocity::Constant(_)) {
+                return Err(DemError::InvalidInput(
+                    "Currently only fix insert/stream with multisphere particles only supports constant velocity"
+                        .into(),
+                ));
+            }
+        }
         let random = RanPark::checked(seed)?;
         let nodes: Vec<Nodes> = face
             .triangles
@@ -673,8 +702,28 @@ impl InsertStreamFix {
             particles: Vec::new(),
             release: Vec::new(),
         };
-        if self.next_reneighbor != Some(step) || self.most_recent_ins_step == Some(step) {
+        if self.distribution.has_clump() {
+            return Err(DemError::InvalidInput(
+                "fix insert/stream with clumps: insert through GranularSystem::add_stream_insertion".into(),
+            ));
+        }
+        let Some(n_local) = self.begin_insertion(step)? else {
             return Ok(empty);
+        };
+        let list = self.distribution.randomize_list(n_local, self.exact_number);
+        if list.is_empty() {
+            self.schedule_after_empty_list();
+            return Ok(empty);
+        }
+        self.insert_spheres(step, atoms, &list)
+    }
+
+    /// The front of `FixInsert::pre_exchange`: on the scheduled step,
+    /// `calc_ninsert_this` and `distribute_ninsert_this` (one process).
+    /// `None` when this is not an insertion step.
+    fn begin_insertion(&mut self, step: u64) -> Result<Option<usize>, DemError> {
+        if self.next_reneighbor != Some(step) || self.most_recent_ins_step == Some(step) {
+            return Ok(None);
         }
         self.most_recent_ins_step = Some(step);
         // calc_ninsert_this
@@ -701,17 +750,162 @@ impl InsertStreamFix {
             }
             ((fraction_local / fraction_local) * ninsert_this as f64) as i64
         };
-        let list = self
-            .distribution
-            .randomize_list(ninsert_this_local.max(0) as usize, self.exact_number);
-        if list.is_empty() {
-            if self.insert_every != 0 && (!self.ninsert_exists || self.ninserted < self.ninsert) {
-                self.next_reneighbor = self.next_reneighbor.map(|n| n + self.insert_every);
-            } else if self.insert_every == 0 {
-                self.next_reneighbor = None;
+        Ok(Some(ninsert_this_local.max(0) as usize))
+    }
+
+    /// Whether this fix streams multisphere clumps (gh:#1415).
+    pub(crate) fn has_clumps(&self) -> bool {
+        self.distribution.has_clump()
+    }
+
+    /// `FixInsert::pre_exchange` for clumps (gh:#1415, fourth pass):
+    /// `FixInsertStream::x_v_omega` places each list entry at
+    /// `generate_random(pos, r_bound_ins)` with
+    /// `check_near_set_x_v_omega(pos, v_normal, omega = 0, quat_insert)` (or
+    /// `set_x_v_omega` without the overlap check), `quat_insert` being the
+    /// identity (`orientation` is not ported for this fix). The caller
+    /// inserts the clumps in order (atoms, then `add_body`), runs
+    /// `add_body_finalize`, and then builds each new atom's release data with
+    /// [`InsertStreamFix::clump_release`] (`FixInsertStream::finalize_insertion`).
+    pub(crate) fn pre_exchange_clumps(
+        &mut self,
+        step: u64,
+        atoms: &[Particle],
+    ) -> Result<Vec<crate::multisphere::ClumpToInsert>, DemError> {
+        let Some(n_local) = self.begin_insertion(step)? else {
+            return Ok(Vec::new());
+        };
+        let mut list: Vec<crate::multisphere::ClumpToInsert> = Vec::with_capacity(n_local);
+        for p in self.distribution.randomize_list_any(n_local, self.exact_number) {
+            match p {
+                crate::insert::Pti::Clump(c) => list.push(c),
+                crate::insert::Pti::Sphere(_) | crate::insert::Pti::Superquadric(_) => {
+                    return Err(DemError::InvalidInput(
+                        "fix insert/stream: a clump distribution produced a non-clump entry".into(),
+                    ))
+                }
             }
-            return Ok(empty);
         }
+        if list.is_empty() {
+            self.schedule_after_empty_list();
+            return Ok(Vec::new());
+        }
+        let v = vec3(self.v_normal);
+        let omega = Vec3::zero();
+        let quat = [1.0, 0.0, 0.0, 0.0];
+        let n_local = list.len();
+        let maxtry = n_local as i64 * self.maxattempt;
+        let mut ntry: i64 = 0;
+        let mut placed: Vec<crate::multisphere::ClumpToInsert> = Vec::with_capacity(n_local);
+        if !self.overlap_check {
+            for _ in 0..n_local {
+                let rad = list[placed.len()].r_bound;
+                let pos = loop {
+                    let pos = self.generate_random(rad)?;
+                    ntry += 1;
+                    if !(ntry < maxtry && !self.in_subdomain(&pos)) {
+                        break pos;
+                    }
+                };
+                if ntry < maxtry {
+                    let mut c = list[placed.len()].clone();
+                    c.set_x_v_omega(vec3(pos), v, omega, quat);
+                    placed.push(c);
+                }
+            }
+        } else {
+            let mut grid = OverlapGrid::new(
+                2.0 * self
+                    .distribution
+                    .max_r_bound()
+                    .max(atoms.iter().fold(0.0, |m, a| a.radius.max(m))),
+            );
+            for a in atoms {
+                if self.is_nearby(&arr(a.position)) {
+                    grid.insert(a.position, a.radius);
+                }
+            }
+            while ntry < maxtry && placed.len() < n_local {
+                let mut c = list[placed.len()].clone();
+                let rad = c.r_bound;
+                let mut nins = 0;
+                while nins == 0 && ntry < maxtry {
+                    let pos = loop {
+                        let pos = self.generate_random(rad)?;
+                        ntry += 1;
+                        if !(ntry < maxtry
+                            && (!self.in_subdomain(&pos) || self.dist_subbox_borders(&pos) < rad))
+                        {
+                            break pos;
+                        }
+                    };
+                    if ntry < maxtry {
+                        if let Some(spheres) =
+                            c.check_near_set_x_v_omega(vec3(pos), v, omega, quat, |p, r| grid.has_overlap(p, r))
+                        {
+                            for (p, r) in spheres {
+                                grid.insert(p, r);
+                            }
+                            nins = 1;
+                        }
+                    }
+                }
+                if nins > 0 {
+                    placed.push(c);
+                }
+            }
+        }
+        let mut mass_inserted_this = 0.0;
+        for c in &placed {
+            mass_inserted_this += c.mass;
+        }
+        self.ninserted += placed.len() as i64;
+        self.massinserted += mass_inserted_this;
+        self.schedule_next(false);
+        Ok(placed)
+    }
+
+    /// `FixInsertStream::finalize_insertion` for one new member atom at `x`
+    /// whose body was given `n_steps` by `Multisphere::calc_n_steps`: the
+    /// release data (`x`, `step`, `step + n_steps`, `v_normal`,
+    /// `generate_random_velocity(v_insert)`, `omega_insert` = 0).
+    pub(crate) fn clump_release(&mut self, x: Vec3, step: u64, n_steps: i64) -> Release {
+        let v_insert = self.v_insert();
+        let v_to_insert = self.generate_random_velocity(&v_insert);
+        Release {
+            x_ins: x,
+            ins_step: step,
+            release_step: (step as i64 + n_steps) as u64,
+            v_integrate: vec3(self.v_normal),
+            v_release: vec3(v_to_insert),
+            omega_release: Vec3::zero(),
+        }
+    }
+
+    /// `p_ref`, the face normal and `v_normal` (`calc_n_steps` arguments).
+    pub(crate) fn stream_geometry(&self) -> (V3, V3, V3) {
+        (self.p_ref, self.normalvec, self.v_normal)
+    }
+
+    /// The schedule of `FixInsert::pre_exchange` when the list to insert is
+    /// empty.
+    fn schedule_after_empty_list(&mut self) {
+        if self.insert_every != 0 && (!self.ninsert_exists || self.ninserted < self.ninsert) {
+            self.next_reneighbor = self.next_reneighbor.map(|n| n + self.insert_every);
+        } else if self.insert_every == 0 {
+            self.next_reneighbor = None;
+        }
+    }
+
+    /// `FixInsert::pre_exchange` for spheres, after
+    /// [`InsertStreamFix::begin_insertion`]: place `list` and build the
+    /// particles and their release data.
+    fn insert_spheres(
+        &mut self,
+        step: u64,
+        atoms: &[Particle],
+        list: &[crate::insert::ParticleToInsert],
+    ) -> Result<StreamInsertion, DemError> {
         // load xnear, x_v_omega
         let mut grid = OverlapGrid::new(
             2.0 * self

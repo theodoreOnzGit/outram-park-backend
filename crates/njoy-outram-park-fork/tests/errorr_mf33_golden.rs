@@ -423,6 +423,7 @@ fn config(case: &Case) -> Mf33Config {
         tempin: TEMP_K,
         irelco: case.irelco,
         dap: 0.0,
+        card8: None,
     }
 }
 

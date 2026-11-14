@@ -1,0 +1,6 @@
+# gh:#1415 clump file for in.ms_dtypes: ms_clump1.txt (mm) with a per-sphere
+# atom type (x y z r type; `spheres_different_types file ... scale 0.0011`)
+
+0 0 0 4 2
+5 0 1 3.5 1   # second sphere
+2 4 -1 3 2
