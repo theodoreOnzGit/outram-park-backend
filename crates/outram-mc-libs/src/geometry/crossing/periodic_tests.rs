@@ -27,16 +27,25 @@ fn periodic_box(yz_periodic: bool) -> Geometry {
         SurfaceKind::ZPlane(ZPlane { z0: -1.0, bc: yz(5) }),
         SurfaceKind::ZPlane(ZPlane { z0: 1.0, bc: yz(4) }),
     ];
-    let mut region = Vec::new();
+    // RPN: an `Intersection` after every token past the first (without them
+    // `Cell::contains` tests only the last token; fixed 2026-11-14).
+    let mut region = vec![RegionToken::HalfSpace {
+        surface_idx: 0,
+        sense: HalfSpaceSense::Outside,
+    }];
     for k in 0..3 {
-        region.push(RegionToken::HalfSpace {
-            surface_idx: 2 * k,
-            sense: HalfSpaceSense::Outside,
-        });
+        if k > 0 {
+            region.push(RegionToken::HalfSpace {
+                surface_idx: 2 * k,
+                sense: HalfSpaceSense::Outside,
+            });
+            region.push(RegionToken::Intersection);
+        }
         region.push(RegionToken::HalfSpace {
             surface_idx: 2 * k + 1,
             sense: HalfSpaceSense::Inside,
         });
+        region.push(RegionToken::Intersection);
     }
     Geometry {
         surfaces,
@@ -123,7 +132,8 @@ fn free_streaming_is_a_straight_line_in_the_unfolded_lattice() {
 }
 
 /// Refused by name: a partner that does not name this surface back, a
-/// non-parallel pair (upstream's ROTATIONAL case, not ported), a non-plane,
+/// rotational pair whose planes miss the origin (the rotational case is
+/// ported since 2026-11-14, see `rotational_periodic_tests`), a non-plane,
 /// and a periodic surface with no partner.
 #[test]
 fn non_translational_pairs_are_refused() {
@@ -133,7 +143,7 @@ fn non_translational_pairs_are_refused() {
 
     let mut g = periodic_box(false);
     g.surfaces[1] = SurfaceKind::YPlane(YPlane { y0: 1.0, bc: BoundaryType::PeriodicWith(0) });
-    assert!(g.validate_boundary_conditions().unwrap_err().contains("ROTATIONAL"));
+    assert!(g.validate_boundary_conditions().unwrap_err().contains("does not intersect the origin"));
 
     let mut g = periodic_box(false);
     g.surfaces[1] = SurfaceKind::Sphere(Sphere {

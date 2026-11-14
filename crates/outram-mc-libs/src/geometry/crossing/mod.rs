@@ -24,7 +24,8 @@
 //! | [`SurfaceKindExt`] | [`SurfaceKind`] | `diffuse_reflect`, `sphere_centre_radius`, `overlaps_voxel` |
 //! | [`GeometryExt`] | [`Geometry`] | `cross_surface`, `cross_surface_in_frame`, `distance_out_of_level`, `sigma_t_at`, `validate_boundary_conditions` |
 
-use outram_blender::csg::cell::{HalfSpaceSense, SurfaceToken};
+use outram_blender::csg::cell::{HalfSpaceSense, RegionToken, SurfaceToken};
+use petir::mathf::RealMath;
 use outram_blender::csg::geometry::{Geometry, GeometryPath};
 use outram_blender::csg::position::{stream, Direction, Position};
 use outram_blender::csg::surface::{BoundaryType, FP_COINCIDENT};
@@ -312,7 +313,12 @@ pub trait GeometryExt {
     /// **CORRECTED 2026-11-14:** a translational periodic pair
     /// (`BoundaryType::PeriodicWith`, parallel planes) is ported and checked
     /// here by [`translational_periodic_translation`]; an unpaired `Periodic`
-    /// and a rotational pair are refused here rather than aliased.
+    /// is refused here rather than aliased. ~~A rotational pair is refused.~~
+    /// **CORRECTED 2026-11-14 (later):** a rotational pair about a coordinate
+    /// axis through the origin is ported too ([`periodic_transform`],
+    /// `RotationalPeriodicBC`); only a malformed pair (not planes, no common
+    /// zero normal component, off the origin, angle not dividing 360 degrees,
+    /// no cell using the surface) is refused.
     ///
     /// # What it does not check
     ///
@@ -366,7 +372,10 @@ pub trait GeometryExt {
     /// here, and [`Self::validate_boundary_conditions`] refuses it before a run.
     /// **Since 2026-11-14** a translational periodic pair
     /// (`BoundaryType::PeriodicWith`) is ported (`TranslationalPeriodicBC`);
-    /// only an unpaired or rotational periodic surface still panics.
+    /// ~~only an unpaired or rotational periodic surface still panics~~
+    /// **CORRECTED 2026-11-14 (later):** rotational pairs are ported
+    /// (`RotationalPeriodicBC`); only an unpaired or malformed periodic
+    /// surface still panics.
     fn cross_surface(
         &self,
         i_surf: usize,
@@ -462,7 +471,7 @@ impl GeometryExt for Geometry {
     fn validate_boundary_conditions(&self) -> Result<(), String> {
         for (i, surf) in self.surfaces.iter().enumerate() {
             if let BoundaryType::PeriodicWith(j) = surf.bc() {
-                translational_periodic_translation(self, i, j)?;
+                periodic_transform(self, i, j)?;
                 continue;
             }
             if surf.bc() == BoundaryType::Periodic {
@@ -525,30 +534,36 @@ impl GeometryExt for Geometry {
                 // particle on the partner surface on the side it was heading
                 // to (`new_surface = p.surface() > 0 ? j+1 : -(j+1)`; the
                 // partner's normal is parallel, so that is the sign of
-                // `u . n_j`). Albedo is not ported (no albedo field here).
+                // `u . n_j`). A ROTATIONAL pair (`RotationalPeriodicBC::
+                // handle_particle`, `:227`) also rotates the position and the
+                // direction about the axis, by [`PeriodicTransform::apply`];
+                // its `flip_sense_` bookkeeping is replaced by the same
+                // `u_out . n_j` sign, which is the side the particle enters
+                // on by construction. Albedo is not ported (no albedo field here).
                 // Upstream then relocates from the root
                 // (`Particle::cross_periodic_bc`); the caller's `locate`
                 // after this crossing does the same.
-                let t = translational_periodic_translation(self, i_surf, j)
+                let transform = periodic_transform(self, i_surf, j)
                     .unwrap_or_else(|e| panic!("{e}"));
                 let partner = &self.surfaces[j];
-                let r_new = r + t;
-                let p = nudge_across(partner, r_new, u, u, true);
+                let (r_new, u_new) = transform.apply(r, u);
+                let p = nudge_across(partner, r_new, u_new, u_new, true);
                 SurfaceCrossing {
                     r: p,
-                    u,
+                    u: u_new,
                     alive: true,
-                    on_surface: outgoing_side(partner, r_new, u, j),
+                    on_surface: outgoing_side(partner, r_new, u_new, j),
                 }
             }
             BoundaryType::Periodic => {
                 // A loud failure, on purpose. Periodic needs a PARTNER surface
                 // and a translation or rotation between the two
                 // (`TranslationalPeriodicBC` / `RotationalPeriodicBC`,
-                // `include/openmc/boundary_condition.h:124`, `:141`), and
-                // `BoundaryType` carries no partner today. Until it does there
-                // is no honest behaviour available here: reflecting is a
-                // different problem and so is vacuum.
+                // `include/openmc/boundary_condition.h:124`, `:141`), and a
+                // plain `Periodic` carries no partner (a named one is
+                // `PeriodicWith`, handled above). With none there is no honest
+                // behaviour available here: reflecting is a different problem
+                // and so is vacuum.
                 //
                 // ~~[`Geometry::validate_boundary_conditions`] rejects these at
                 // construction so a run cannot reach this point.~~ **CORRECTED
@@ -722,27 +737,118 @@ fn compose_corner_reflection(
 /// `FP_PRECISION` (`include/openmc/constants.h`).
 const FP_PRECISION: f64 = 1.0e-14;
 
-/// Translation carrying a particle from periodic surface `i_surf` to its
-/// partner `j_surf`.
+/// What a periodic pair does to a particle crossing from `i_surf` to its
+/// partner: the **translational** shift of `TranslationalPeriodicBC`, or the
+/// **rotation about a coordinate axis** of `RotationalPeriodicBC`
+/// (GitHub #259). Chosen by upstream's own test in
+/// `prepare_boundary_conditions` (`src/surface.cpp:1405-1430`): parallel
+/// normals give a translation, anything else a rotation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PeriodicTransform {
+    /// Shift the position by this vector; the direction is untouched.
+    Translation(Position),
+    /// Rotate position and direction about the coordinate axis through the
+    /// origin whose index is `axis` (0 = x, 1 = y, 2 = z) by `angle` \[rad\].
+    Rotation {
+        /// `zero_axis_idx_` upstream: the axis the planes are parallel to.
+        axis: usize,
+        /// Signed rotation angle \[rad\], right-handed about `axis`.
+        angle: f64,
+    },
+}
+
+impl PeriodicTransform {
+    /// Apply the transform to a crossing at `r` with direction `u`, returning
+    /// the new position and (unit) direction.
+    ///
+    /// Translation: `(r + t, u)`, with `u` returned bit for bit. Rotation:
+    /// `RotationalPeriodicBC::handle_particle` (`src/boundary_condition.cpp:
+    /// 227-262`, OpenMC `8f79d9d`), i.e. for the axis triple
+    /// `(zero, a1, a2)` (x: y, z; y: z, x; z: x, y) the zero component is
+    /// kept and `a1' = cos a1 - sin a2`, `a2' = sin a1 + cos a2`, then the
+    /// direction is renormalised. `cos`/`sin` go through petir's `RealMath`
+    /// (GitHub #1504), not the platform libm.
+    pub fn apply(&self, r: Position, u: Direction) -> (Position, Direction) {
+        match *self {
+            Self::Translation(t) => (r + t, u),
+            Self::Rotation { axis, angle } => {
+                let (c, s) = (angle.r_cos(), angle.r_sin());
+                let a1 = (axis + 1) % 3;
+                let a2 = (axis + 2) % 3;
+                let rotate = |v: [f64; 3]| {
+                    let mut o = [0.0; 3];
+                    o[axis] = v[axis];
+                    o[a1] = c * v[a1] - s * v[a2];
+                    o[a2] = s * v[a1] + c * v[a2];
+                    o
+                };
+                let ro = rotate([r.x, r.y, r.z]);
+                let uo = rotate([u.u, u.v, u.w]);
+                let n = (uo[0] * uo[0] + uo[1] * uo[1] + uo[2] * uo[2]).sqrt();
+                (
+                    Position::new(ro[0], ro[1], ro[2]),
+                    Direction::new(uo[0] / n, uo[1] / n, uo[2] / n),
+                )
+            }
+        }
+    }
+}
+
+/// The sense (+1 outside / -1 inside) in which `surf` first appears in a cell
+/// region: upstream's `periodic_sense_map` fill (`prepare_boundary_conditions`,
+/// `src/surface.cpp:1347-1360`). The sign is read off the raw token, ignoring
+/// operators, exactly as `Cell::surfaces()` does upstream.
+fn periodic_surface_sense(geom: &Geometry, surf: usize) -> Option<f64> {
+    for cell in &geom.cells {
+        for tok in &cell.region {
+            if let RegionToken::HalfSpace { surface_idx, sense } = tok {
+                if *surface_idx == surf {
+                    return Some(match sense {
+                        HalfSpaceSense::Outside => 1.0,
+                        HalfSpaceSense::Inside => -1.0,
+                    });
+                }
+            }
+        }
+    }
+    None
+}
+
+/// The transform carrying a particle from periodic surface `i_surf` to its
+/// partner `j_surf`, with every upstream pairing check applied.
 ///
-/// Port of the `TranslationalPeriodicBC` constructor
-/// (`src/boundary_condition.cpp:73-131`, OpenMC `8f79d9d`) and of the pairing
-/// checks in `prepare_boundary_conditions` (`src/surface.cpp:1411-1430`):
-/// both surfaces must be planes, and their normals at the origin must be
-/// parallel (`|1 - n1 . n2| < FP_PRECISION`). Upstream treats any other pair
-/// as **rotational** periodic, which is not ported and is refused here by
-/// name (GitHub #259). The partner must name `i_surf` back: upstream stores
-/// the pair once, so it cannot disagree; here each surface carries its own
-/// index, so that check is new.
+/// Ports the `TranslationalPeriodicBC` constructor
+/// (`src/boundary_condition.cpp:73-131`), the `RotationalPeriodicBC`
+/// constructor (`:152-225`) and the pairing logic of
+/// `prepare_boundary_conditions` (`src/surface.cpp:1411-1470`), OpenMC
+/// `8f79d9d`. Both surfaces must be planes and the partner must name
+/// `i_surf` back (new here: upstream stores the pair once). If the unit
+/// normals at the origin are parallel (`|1 - n1 . n2| < FP_PRECISION`) the pair
+/// is translational. Otherwise it is rotational, and then:
+///
+/// * each normal needs a component that is zero, and the two must share one:
+///   the first of x, y, z that is zero in both is the rotation axis;
+/// * both planes must pass through the origin (`|evaluate(0)| <= FP_COINCIDENT`),
+///   since only rotations about the origin are supported;
+/// * the angle is `atan2((n1 x n2) . a, n1 . n2)` with `n1 = s_i n_i` and
+///   `n2 = -s_j n_j`, where `s` is the sense with which the surface bounds a
+///   cell. `n1` is the normal pointing into that cell at surface `i`, `n2`
+///   the one pointing out of it at surface `j`, so the rotation takes a
+///   particle leaving through `i` to one entering through `j`. Surface `j`'s
+///   own transform gets the opposite angle.
+///
+/// Upstream warns when the angle does not divide 360 degrees; this port
+/// refuses, because a wedge that does not tile the circle cannot be a
+/// periodic cell and a warning is easy to miss.
 ///
 /// # Errors
 ///
 /// A description of the first violated condition.
-pub fn translational_periodic_translation(
+pub fn periodic_transform(
     geom: &Geometry,
     i_surf: usize,
     j_surf: usize,
-) -> Result<Position, String> {
+) -> Result<PeriodicTransform, String> {
     let n = geom.surfaces.len();
     if j_surf >= n || j_surf == i_surf {
         return Err(format!(
@@ -768,7 +874,7 @@ pub fn translational_periodic_translation(
                 | SurfaceKind::Plane(_)
         ) {
             return Err(format!(
-                "Surface {k} is an invalid type for translational periodic BCs. Only \
+                "Surface {k} is an invalid type for periodic BCs. Only \
                  planes are supported for these BCs."
             ));
         }
@@ -777,18 +883,95 @@ pub fn translational_periodic_translation(
     let n1 = unit_direction(surf1.normal(origin));
     let n2 = unit_direction(surf2.normal(origin));
     let dot = n1.u * n2.u + n1.v * n2.v + n1.w * n2.w;
-    if (1.0 - dot).abs() >= FP_PRECISION {
+    if (1.0 - dot).abs() < FP_PRECISION {
+        // Signed distance from the origin to each plane along surf1's normal,
+        // computed exactly as upstream does.
+        let u = surf1.normal(origin);
+        let d = signed_plane_offset(surf2, u) - signed_plane_offset(surf1, u);
+        return Ok(PeriodicTransform::Translation(Position::new(u.u * d, u.v * d, u.w * d)));
+    }
+
+    // Rotational pair.
+    for (k, nk) in [(i_surf, n1), (j_surf, n2)] {
+        if nk.u.abs() > FP_PRECISION && nk.v.abs() > FP_PRECISION && nk.w.abs() > FP_PRECISION {
+            return Err(format!(
+                "The normal ({}, {}, {}) of the periodic surface ({k}) does not contain any \
+                 component with a zero value. A rotational periodic BC requires one \
+                 component which is zero for both plane normals (GitHub #259).",
+                nk.u, nk.v, nk.w
+            ));
+        }
+    }
+    let zero = |d: Direction| {
+        [d.u.abs() <= FP_PRECISION, d.v.abs() <= FP_PRECISION, d.w.abs() <= FP_PRECISION]
+    };
+    let (z1, z2) = (zero(n1), zero(n2));
+    let Some(axis) = (0..3).find(|&k| z1[k] && z2[k]) else {
         return Err(format!(
-            "surfaces {i_surf} and {j_surf} are a periodic pair whose normals are not \
-             parallel (n1 . n2 = {dot}); OpenMC treats that as a ROTATIONAL periodic \
-             boundary, which is not ported (GitHub #259). Reflective is not a substitute."
+            "surfaces {i_surf} and {j_surf} are a periodic pair with no component that is \
+             0.0 in both normals: the planes are not periodic about the X, Y or Z axis, \
+             which is not supported (GitHub #259)."
+        ));
+    };
+    for (k, s) in [(i_surf, surf1), (j_surf, surf2)] {
+        if s.evaluate(origin).abs() > FP_COINCIDENT {
+            return Err(format!(
+                "Rotational periodic BCs are only supported for rotations about the origin, \
+                 but surface {k} does not intersect the origin (GitHub #259)."
+            ));
+        }
+    }
+    let (Some(s_i), Some(s_j)) =
+        (periodic_surface_sense(geom, i_surf), periodic_surface_sense(geom, j_surf))
+    else {
+        return Err(format!(
+            "periodic surfaces {i_surf} and {j_surf} must both bound a cell: a rotational \
+             pair takes its orientation from the sense the cell uses (OpenMC's \
+             periodic_sense_map) (GitHub #259)."
+        ));
+    };
+    let a = Direction::new(n1.u * s_i, n1.v * s_i, n1.w * s_i);
+    let b = Direction::new(-n2.u * s_j, -n2.v * s_j, -n2.w * s_j);
+    let cross = [
+        a.v * b.w - a.w * b.v,
+        a.w * b.u - a.u * b.w,
+        a.u * b.v - a.v * b.u,
+    ];
+    let angle = cross[axis].r_atan2(a.u * b.u + a.v * b.v + a.w * b.w);
+    // Upstream only warns here; a wedge that does not tile the circle is not
+    // a periodic cell, so this port refuses.
+    let turns = std::f64::consts::TAU / angle;
+    if (turns.round() - turns).abs() > 1.0e-10 {
+        return Err(format!(
+            "rotational periodic pair ({i_surf}, {j_surf}) has a rotation angle of {} degrees, \
+             which does not evenly divide 360 degrees (OpenMC warns, this port refuses; \
+             GitHub #259).",
+            angle.to_degrees()
         ));
     }
-    // Signed distance from the origin to each plane along surf1's normal,
-    // computed exactly as upstream does.
-    let u = surf1.normal(origin);
-    let d = signed_plane_offset(surf2, u) - signed_plane_offset(surf1, u);
-    Ok(Position::new(u.u * d, u.v * d, u.w * d))
+    Ok(PeriodicTransform::Rotation { axis, angle })
+}
+
+/// Translation carrying a particle from periodic surface `i_surf` to its
+/// partner `j_surf`: [`periodic_transform`] restricted to the translational
+/// case (parallel planes).
+///
+/// # Errors
+///
+/// Any error of [`periodic_transform`], or a description saying the pair is
+/// rotational.
+pub fn translational_periodic_translation(
+    geom: &Geometry,
+    i_surf: usize,
+    j_surf: usize,
+) -> Result<Position, String> {
+    match periodic_transform(geom, i_surf, j_surf)? {
+        PeriodicTransform::Translation(t) => Ok(t),
+        PeriodicTransform::Rotation { angle, .. } => Err(format!(
+            "surfaces {i_surf} and {j_surf} are a ROTATIONAL periodic pair (angle {angle} rad), \
+             not a translational one (GitHub #259); use periodic_transform."
+        )),
+    }
 }
 
 /// `d1`/`d2` of the `TranslationalPeriodicBC` constructor
@@ -851,5 +1034,7 @@ fn nudge_across(
 
 #[cfg(test)]
 mod periodic_tests;
+#[cfg(test)]
+mod rotational_periodic_tests;
 #[cfg(test)]
 mod tests;

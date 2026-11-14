@@ -75,8 +75,10 @@ pub enum BoundaryType {
     /// Periodic, paired with the surface at this index in the geometry's
     /// surface array (OpenMC's `periodic_surface_id`). The partner must name
     /// this surface back. Added 2026-11-14 (GitHub #259); outram-mc-libs ports
-    /// the translational case (`TranslationalPeriodicBC`, parallel planes) and
-    /// refuses the rotational one by name.
+    /// the translational case (`TranslationalPeriodicBC`, parallel planes) and,
+    /// since the same day, the rotational one (`RotationalPeriodicBC`, planes
+    /// through the origin sharing a coordinate axis). ~~refuses the rotational
+    /// one by name~~ **CORRECTED 2026-11-14.**
     PeriodicWith(usize),
     White,
 }
