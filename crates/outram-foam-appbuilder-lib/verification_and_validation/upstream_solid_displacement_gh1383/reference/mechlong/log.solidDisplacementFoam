@@ -1,0 +1,2929 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _615aae61d7-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : /home/user/upstream-build/gh1363/bin/solidDisplacementFoam
+Date   : Nov 14 2026
+Time   : 02:43:36
+Host   : vm
+PID    : 7639
+I/O    : uncollated
+Case   : /home/user/upstream-build/gh1383/run_mechlong
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+Reading mechanical properties
+
+Normalising E : E/rho
+
+Calculating Lame's coefficients
+
+Plane Strain
+
+Reading thermal properties
+
+Reading field D
+
+Calculating stress field sigmaD
+
+Calculating explicit part of div(sigma) divSigmaExp
+
+
+Calculating displacement field
+
+Iteration: 1000
+
+DICPCG:  Solving for Dx, Initial residual = 1, Final residual = 2.7704190337752706e-13, No Iterations 15
+DICPCG:  Solving for Dy, Initial residual = 1, Final residual = 2.7704221112592554e-13, No Iterations 15
+DICPCG:  Solving for Dz, Initial residual = 1, Final residual = 2.7704194809756018e-13, No Iterations 15
+DICPCG:  Solving for Dx, Initial residual = 0.15017711047494273, Final residual = 6.8005351131683751e-13, No Iterations 14
+DICPCG:  Solving for Dy, Initial residual = 0.42188514498291296, Final residual = 1.4721339610113556e-13, No Iterations 15
+DICPCG:  Solving for Dz, Initial residual = 0.42188514498292468, Final residual = 1.4721339957373216e-13, No Iterations 15
+DICPCG:  Solving for Dx, Initial residual = 6.0444392963457962e-13, Final residual = 6.0444392963457962e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.10233669045145127, Final residual = 4.182040576532755e-13, No Iterations 14
+DICPCG:  Solving for Dz, Initial residual = 0.10233669045152048, Final residual = 4.1820404986410675e-13, No Iterations 14
+DICPCG:  Solving for Dx, Initial residual = 6.0062397444982462e-13, Final residual = 6.0062397444982462e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.056647889745433999, Final residual = 2.0312329399907591e-13, No Iterations 14
+DICPCG:  Solving for Dz, Initial residual = 0.05664788974540122, Final residual = 2.0312329642778799e-13, No Iterations 14
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 2000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9979432120147312e-13, Final residual = 5.9979432120147312e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.03264792804096163, Final residual = 1.0386570328334228e-13, No Iterations 14
+DICPCG:  Solving for Dz, Initial residual = 0.032647928040931501, Final residual = 1.0386570873031571e-13, No Iterations 14
+DICPCG:  Solving for Dx, Initial residual = 5.9944867257427678e-13, Final residual = 5.9944867257427678e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.021673992801035942, Final residual = 8.4812466044973389e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.021673992800990475, Final residual = 8.4812466019710695e-13, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 6.0012613912380884e-13, Final residual = 6.0012613912380884e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.014504931525805821, Final residual = 5.1166406578604636e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.014504931525764082, Final residual = 5.1166406623058616e-13, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 5.9967721761730776e-13, Final residual = 5.9967721761730776e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.010076175701706764, Final residual = 3.2058704439254098e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.010076175701675179, Final residual = 3.2058704395323108e-13, No Iterations 13
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 3000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9923972738368746e-13, Final residual = 5.9923972738368746e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0070227907320742347, Final residual = 2.0673870584086462e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.0070227907320650727, Final residual = 2.0673870657111435e-13, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 5.9899002874432035e-13, Final residual = 5.9899002874432035e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0049535709882735377, Final residual = 1.3632636910128012e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.00495357098827281, Final residual = 1.3632637000206989e-13, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 5.988736517767221e-13, Final residual = 5.988736517767221e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0034958657456180178, Final residual = 9.1096322786742231e-14, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.0034958657456222284, Final residual = 9.1096322364732671e-14, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 5.9885390435474863e-13, Final residual = 5.9885390435474863e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0024848193284029018, Final residual = 9.9454707776805831e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.0024848193284137824, Final residual = 9.9454707952905636e-13, No Iterations 12
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 4000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9772282063530376e-13, Final residual = 5.9772282063530376e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0017695787385264476, Final residual = 6.7574050157450598e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.0017695787385564679, Final residual = 6.7574050404826553e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9710616703998167e-13, Final residual = 5.9710616703998167e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0012614002105877182, Final residual = 4.6250117647085746e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.0012614002106082014, Final residual = 4.6250117565063296e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9721842227064866e-13, Final residual = 5.9721842227064866e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00089973332745998122, Final residual = 3.1851922811282877e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.00089973332747166209, Final residual = 3.1851922740454593e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9755944504180299e-13, Final residual = 5.9755944504180299e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00064204394354305328, Final residual = 2.2006243357548176e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.00064204394354883652, Final residual = 2.2006243329631755e-13, No Iterations 12
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 5000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9783714367744113e-13, Final residual = 5.9783714367744113e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00045829597920482687, Final residual = 1.5277232969871109e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.00045829597920701311, Final residual = 1.5277232960435163e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9807690849287907e-13, Final residual = 5.9807690849287907e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00032720276964930004, Final residual = 1.0627520500399145e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.0003272027696493955, Final residual = 1.062752051351471e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9829486625879074e-13, Final residual = 5.9829486625879074e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00023364132502417723, Final residual = 8.1489389344713557e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 0.00023364132502325647, Final residual = 8.1489389306686352e-13, No Iterations 11
+DICPCG:  Solving for Dx, Initial residual = 5.9568460602313125e-13, Final residual = 5.9568460602313125e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00016684953232336483, Final residual = 5.6771211483418062e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 0.00016684953236254784, Final residual = 5.6771211492024355e-13, No Iterations 11
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 6000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9623144837341961e-13, Final residual = 5.9623144837341961e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00011915981467801026, Final residual = 3.9617904377743629e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 0.00011915981471805904, Final residual = 3.9617904401603625e-13, No Iterations 11
+DICPCG:  Solving for Dx, Initial residual = 5.9694365144521041e-13, Final residual = 5.9694365144521041e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.510499950172374e-05, Final residual = 2.7696708522041606e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 8.5104999525170303e-05, Final residual = 2.7696708562089451e-13, No Iterations 11
+DICPCG:  Solving for Dx, Initial residual = 5.9753450149466251e-13, Final residual = 5.9753450149466251e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 6.0784731063900293e-05, Final residual = 1.941853368768235e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 6.0784731070554964e-05, Final residual = 1.9418533694465135e-13, No Iterations 11
+DICPCG:  Solving for Dx, Initial residual = 5.9797277742670791e-13, Final residual = 5.9797277742670791e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 4.3415396344828468e-05, Final residual = 1.3635748982039982e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 4.3415396339909999e-05, Final residual = 1.3635748977310558e-13, No Iterations 11
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 7000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9829056518423127e-13, Final residual = 5.9829056518423127e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 3.1009865909760122e-05, Final residual = 9.6004951198620225e-14, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 3.1009865898178708e-05, Final residual = 9.600495106950625e-14, No Iterations 11
+DICPCG:  Solving for Dx, Initial residual = 5.9849327240158627e-13, Final residual = 5.9849327240158627e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.21493392747476e-05, Final residual = 7.7410854375804359e-13, No Iterations 10
+DICPCG:  Solving for Dz, Initial residual = 2.2149339260337557e-05, Final residual = 7.7410854293780021e-13, No Iterations 10
+DICPCG:  Solving for Dx, Initial residual = 5.9853946686543517e-13, Final residual = 5.9853946686543517e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.5820674228157121e-05, Final residual = 5.4877627196478866e-13, No Iterations 10
+DICPCG:  Solving for Dz, Initial residual = 1.5820674217565076e-05, Final residual = 5.4877627370510235e-13, No Iterations 10
+DICPCG:  Solving for Dx, Initial residual = 5.9837557764518556e-13, Final residual = 5.9837557764518556e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.1300340291801048e-05, Final residual = 3.8920114816482227e-13, No Iterations 10
+DICPCG:  Solving for Dz, Initial residual = 1.1300340281369016e-05, Final residual = 3.89201148761837e-13, No Iterations 10
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 8000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9835735716639664e-13, Final residual = 5.9835735716639664e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.0716008609407445e-06, Final residual = 2.7613590822859531e-13, No Iterations 10
+DICPCG:  Solving for Dz, Initial residual = 8.0716008517254377e-06, Final residual = 2.7613590760511181e-13, No Iterations 10
+DICPCG:  Solving for Dx, Initial residual = 5.9843940788103829e-13, Final residual = 5.9843940788103829e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 5.7653936999175696e-06, Final residual = 1.9616347280468965e-13, No Iterations 10
+DICPCG:  Solving for Dz, Initial residual = 5.7653936915891842e-06, Final residual = 1.9616347174078377e-13, No Iterations 10
+DICPCG:  Solving for Dx, Initial residual = 5.9854439691365929e-13, Final residual = 5.9854439691365929e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 4.1181205474683615e-06, Final residual = 1.3955790621073933e-13, No Iterations 10
+DICPCG:  Solving for Dz, Initial residual = 4.1181205396470261e-06, Final residual = 1.3955790524534582e-13, No Iterations 10
+DICPCG:  Solving for Dx, Initial residual = 5.9864499988450261e-13, Final residual = 5.9864499988450261e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.9415057302276104e-06, Final residual = 9.9399574725409565e-14, No Iterations 10
+DICPCG:  Solving for Dz, Initial residual = 2.9415057231000831e-06, Final residual = 9.9399573838697482e-14, No Iterations 10
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 9000
+
+DICPCG:  Solving for Dx, Initial residual = 5.987315137356926e-13, Final residual = 5.987315137356926e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.1010710232350454e-06, Final residual = 7.3965800302194206e-13, No Iterations 9
+DICPCG:  Solving for Dz, Initial residual = 2.1010710166827598e-06, Final residual = 7.3965800108824451e-13, No Iterations 9
+DICPCG:  Solving for Dx, Initial residual = 6.0076566663919381e-13, Final residual = 6.0076566663919381e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.5007627470011227e-06, Final residual = 5.2610136505211425e-13, No Iterations 9
+DICPCG:  Solving for Dz, Initial residual = 1.5007627419224051e-06, Final residual = 5.2610137408925025e-13, No Iterations 9
+DICPCG:  Solving for Dx, Initial residual = 6.0075463831715902e-13, Final residual = 6.0075463831715902e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.0719722439067694e-06, Final residual = 3.7445629789894866e-13, No Iterations 9
+DICPCG:  Solving for Dz, Initial residual = 1.0719722390034581e-06, Final residual = 3.7445628964850383e-13, No Iterations 9
+DICPCG:  Solving for Dx, Initial residual = 6.0032961658827213e-13, Final residual = 6.0032961658827213e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 7.6569388129674017e-07, Final residual = 2.6656216847044458e-13, No Iterations 9
+DICPCG:  Solving for Dz, Initial residual = 7.6569387702909882e-07, Final residual = 2.6656216114643188e-13, No Iterations 9
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 10000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9994380775915331e-13, Final residual = 5.9994380775915331e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 5.4692390886159209e-07, Final residual = 1.8984416268709573e-13, No Iterations 9
+DICPCG:  Solving for Dz, Initial residual = 5.4692390492789728e-07, Final residual = 1.898441577735204e-13, No Iterations 9
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 11000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9964178544960412e-13, Final residual = 5.9964178544960412e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 3.906597872584693e-07, Final residual = 1.3524818763719131e-13, No Iterations 9
+DICPCG:  Solving for Dz, Initial residual = 3.9065978405304299e-07, Final residual = 1.3524818529649593e-13, No Iterations 9
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 12000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9944094609562174e-13, Final residual = 5.9944094609562174e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.7904263060355068e-07, Final residual = 9.8296586229961977e-13, No Iterations 8
+DICPCG:  Solving for Dz, Initial residual = 2.7904262778518751e-07, Final residual = 9.8296584561366965e-13, No Iterations 8
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 13000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0471373003576105e-13, Final residual = 6.0471373003576105e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.9931609882029624e-07, Final residual = 6.9836290347071659e-13, No Iterations 8
+DICPCG:  Solving for Dz, Initial residual = 1.993160433795843e-07, Final residual = 6.9836332080928811e-13, No Iterations 8
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 14000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0489034453800763e-13, Final residual = 6.0489034453800763e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.4236861141000772e-07, Final residual = 4.9610937361005762e-13, No Iterations 8
+DICPCG:  Solving for Dz, Initial residual = 1.4236856938884212e-07, Final residual = 4.9610940286901209e-13, No Iterations 8
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 15000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0389204210147047e-13, Final residual = 6.0389204210147047e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.0169185301719203e-07, Final residual = 3.5239775653449617e-13, No Iterations 8
+DICPCG:  Solving for Dz, Initial residual = 1.0169183164094868e-07, Final residual = 3.5239769562878205e-13, No Iterations 8
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 16000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0274792311235763e-13, Final residual = 6.0274792311235763e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 7.2637033534316659e-08, Final residual = 2.502963191206431e-13, No Iterations 8
+DICPCG:  Solving for Dz, Initial residual = 7.2637028392502613e-08, Final residual = 2.5029625698813168e-13, No Iterations 8
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 17000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0176238026750867e-13, Final residual = 6.0176238026750867e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 5.188359415273524e-08, Final residual = 1.7776575389209077e-13, No Iterations 8
+DICPCG:  Solving for Dz, Initial residual = 5.1883599449993993e-08, Final residual = 1.7776570448814571e-13, No Iterations 8
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 18000
+
+DICPCG:  Solving for Dx, Initial residual = 6.009954276963135e-13, Final residual = 6.009954276963135e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 3.705971023650479e-08, Final residual = 8.3999907584266776e-13, No Iterations 7
+DICPCG:  Solving for Dz, Initial residual = 3.7059721034729604e-08, Final residual = 8.399998376865611e-13, No Iterations 7
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 19000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9957943129262174e-13, Final residual = 5.9957943129262174e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.6471212520202714e-08, Final residual = 5.900890082302518e-13, No Iterations 7
+DICPCG:  Solving for Dz, Initial residual = 2.6471202686577776e-08, Final residual = 5.9008415238947025e-13, No Iterations 7
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 20000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9934386100390962e-13, Final residual = 5.9934386100390962e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.8908009947827683e-08, Final residual = 4.1489286150510433e-13, No Iterations 7
+DICPCG:  Solving for Dz, Initial residual = 1.8907998468675842e-08, Final residual = 4.1488981916253609e-13, No Iterations 7
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 21000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9920825418236869e-13, Final residual = 5.9920825418236869e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.3505723452565682e-08, Final residual = 2.9186542405655955e-13, No Iterations 7
+DICPCG:  Solving for Dz, Initial residual = 1.3505720578540161e-08, Final residual = 2.9186417227057971e-13, No Iterations 7
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 22000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9908837480812762e-13, Final residual = 5.9908837480812762e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 9.6469466866973805e-09, Final residual = 2.0540506330195065e-13, No Iterations 7
+DICPCG:  Solving for Dz, Initial residual = 9.646952848356451e-09, Final residual = 2.0540522538704275e-13, No Iterations 7
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 23000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9900213102621674e-13, Final residual = 5.9900213102621674e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 6.8906770694038538e-09, Final residual = 7.3473658819813368e-13, No Iterations 6
+DICPCG:  Solving for Dz, Initial residual = 6.8906891351256999e-09, Final residual = 7.3473508115174256e-13, No Iterations 6
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 24000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9741592606555521e-13, Final residual = 5.9741592606555521e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 4.9219183263793851e-09, Final residual = 5.205535991940897e-13, No Iterations 6
+DICPCG:  Solving for Dz, Initial residual = 4.9219268584573403e-09, Final residual = 5.2051152193458269e-13, No Iterations 6
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 25000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9705322449776981e-13, Final residual = 5.9705322449776981e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 3.5156614957307847e-09, Final residual = 3.6897200824379405e-13, No Iterations 6
+DICPCG:  Solving for Dz, Initial residual = 3.5156829564242061e-09, Final residual = 3.689529019098719e-13, No Iterations 6
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 26000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9717858258640275e-13, Final residual = 5.9717858258640275e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.5111913086412985e-09, Final residual = 2.616510179352237e-13, No Iterations 6
+DICPCG:  Solving for Dz, Initial residual = 2.5112149755464326e-09, Final residual = 2.6164882917847876e-13, No Iterations 6
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 27000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9747607432800618e-13, Final residual = 5.9747607432800618e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.7937114945078221e-09, Final residual = 1.8562866845550305e-13, No Iterations 6
+DICPCG:  Solving for Dz, Initial residual = 1.7937314560622452e-09, Final residual = 1.8563499903127055e-13, No Iterations 6
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 28000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9774922053373149e-13, Final residual = 5.9774922053373149e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.2812249430946131e-09, Final residual = 1.3175023239761223e-13, No Iterations 6
+DICPCG:  Solving for Dz, Initial residual = 1.2812395655091959e-09, Final residual = 1.3175998683174313e-13, No Iterations 6
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 29000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9796900535799219e-13, Final residual = 5.9796900535799219e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 9.1516252015232782e-10, Final residual = 7.4141247142868878e-13, No Iterations 5
+DICPCG:  Solving for Dz, Initial residual = 9.1517214235028066e-10, Final residual = 7.4133394970789406e-13, No Iterations 5
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 30000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9744193812947226e-13, Final residual = 5.9744193812947226e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 6.5369015289023233e-10, Final residual = 5.2788290971791395e-13, No Iterations 5
+DICPCG:  Solving for Dz, Initial residual = 6.5370593211411129e-10, Final residual = 5.2792091706905556e-13, No Iterations 5
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 31000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9780533341253273e-13, Final residual = 5.9780533341253273e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 4.6691817319480034e-10, Final residual = 3.7598228871675702e-13, No Iterations 5
+DICPCG:  Solving for Dz, Initial residual = 4.669209935508425e-10, Final residual = 3.7599998435416176e-13, No Iterations 5
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 32000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9810429991799755e-13, Final residual = 5.9810429991799755e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 3.3351078410532827e-10, Final residual = 2.6790910761476799e-13, No Iterations 5
+DICPCG:  Solving for Dz, Initial residual = 3.3350658877304556e-10, Final residual = 2.678938800361281e-13, No Iterations 5
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 33000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9833281936573888e-13, Final residual = 5.9833281936573888e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.3822119081223502e-10, Final residual = 1.909273447539464e-13, No Iterations 5
+DICPCG:  Solving for Dz, Initial residual = 2.3821522445648222e-10, Final residual = 1.9088851733189503e-13, No Iterations 5
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 34000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9852748371483337e-13, Final residual = 5.9852748371483337e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.7015791124235066e-10, Final residual = 7.8856135069431371e-13, No Iterations 4
+DICPCG:  Solving for Dz, Initial residual = 1.701527696179159e-10, Final residual = 7.8797311547202935e-13, No Iterations 4
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 35000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9761226625482181e-13, Final residual = 5.9761226625482181e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.2152301492566986e-10, Final residual = 5.5395452456439203e-13, No Iterations 4
+DICPCG:  Solving for Dz, Initial residual = 1.2149355457407403e-10, Final residual = 5.5409356689392601e-13, No Iterations 4
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 36000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9768417328259233e-13, Final residual = 5.9768417328259233e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.6795856524727281e-11, Final residual = 3.9062048155519807e-13, No Iterations 4
+DICPCG:  Solving for Dz, Initial residual = 8.6774208548660306e-11, Final residual = 3.9003689402553969e-13, No Iterations 4
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 37000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9790579380737931e-13, Final residual = 5.9790579380737931e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 6.1994047059666813e-11, Final residual = 2.7581930695164412e-13, No Iterations 4
+DICPCG:  Solving for Dz, Initial residual = 6.1983373235543535e-11, Final residual = 2.7503472051926899e-13, No Iterations 4
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 38000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9814089415093847e-13, Final residual = 5.9814089415093847e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 4.4279520731122696e-11, Final residual = 9.6275048994519819e-13, No Iterations 3
+DICPCG:  Solving for Dz, Initial residual = 4.4277810080065568e-11, Final residual = 9.6188757926495118e-13, No Iterations 3
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 39000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0018325247283476e-13, Final residual = 6.0018325247283476e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 3.1687736219425175e-11, Final residual = 6.6860772834167711e-13, No Iterations 3
+DICPCG:  Solving for Dz, Initial residual = 3.1734168431628962e-11, Final residual = 6.7172327120919974e-13, No Iterations 3
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 40000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0028911307773219e-13, Final residual = 6.0028911307773219e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.2663143211002912e-11, Final residual = 4.6973620110075435e-13, No Iterations 3
+DICPCG:  Solving for Dz, Initial residual = 2.2710519316545523e-11, Final residual = 4.7284066142598252e-13, No Iterations 3
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 41000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0007330792372078e-13, Final residual = 6.0007330792372078e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.6204786861309293e-11, Final residual = 3.3180362075319484e-13, No Iterations 3
+DICPCG:  Solving for Dz, Initial residual = 1.623824719933399e-11, Final residual = 3.3321753971339765e-13, No Iterations 3
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 42000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9984211136362742e-13, Final residual = 5.9984211136362742e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.1585329542110165e-11, Final residual = 2.3485332580449394e-13, No Iterations 3
+DICPCG:  Solving for Dz, Initial residual = 1.1603195461270181e-11, Final residual = 2.3486929809692604e-13, No Iterations 3
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 43000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9964790754544085e-13, Final residual = 5.9964790754544085e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.2819353603456274e-12, Final residual = 1.6644514248943325e-13, No Iterations 3
+DICPCG:  Solving for Dz, Initial residual = 8.2876005283540654e-12, Final residual = 1.6560087039166336e-13, No Iterations 3
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 44000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9946343817590796e-13, Final residual = 5.9946343817590796e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 5.9199849980472552e-12, Final residual = 8.2516191144702431e-13, No Iterations 2
+DICPCG:  Solving for Dz, Initial residual = 5.9173946931347474e-12, Final residual = 8.2214287575991979e-13, No Iterations 2
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 45000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0172183984217365e-13, Final residual = 6.0172183984217365e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 4.2140802326105139e-12, Final residual = 6.167824182777862e-13, No Iterations 2
+DICPCG:  Solving for Dz, Initial residual = 4.1709488441951488e-12, Final residual = 5.9148112526932581e-13, No Iterations 2
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 46000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0095388014851985e-13, Final residual = 6.0095388014851985e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.9739783872234039e-12, Final residual = 3.9953290750765903e-13, No Iterations 2
+DICPCG:  Solving for Dz, Initial residual = 2.9105775578291624e-12, Final residual = 3.8001355962123562e-13, No Iterations 2
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 47000
+
+DICPCG:  Solving for Dx, Initial residual = 6.0019177047902761e-13, Final residual = 6.0019177047902761e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 2.1020398326078625e-12, Final residual = 2.5664212519370175e-13, No Iterations 2
+DICPCG:  Solving for Dz, Initial residual = 2.05226640350088e-12, Final residual = 2.4324843809853086e-13, No Iterations 2
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 48000
+
+DICPCG:  Solving for Dx, Initial residual = 5.997082489593072e-13, Final residual = 5.997082489593072e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.4883293001154458e-12, Final residual = 1.6829689249724806e-13, No Iterations 2
+DICPCG:  Solving for Dz, Initial residual = 1.4618661847811423e-12, Final residual = 1.6217597935876707e-13, No Iterations 2
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 49000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9940000949495467e-13, Final residual = 5.9940000949495467e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 1.0545098484796368e-12, Final residual = 9.2978684152683519e-13, No Iterations 1
+DICPCG:  Solving for Dz, Initial residual = 1.0469711472957945e-12, Final residual = 8.9731199164863558e-13, No Iterations 1
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 50000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 51000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 52000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 53000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 54000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 55000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 56000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 57000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 58000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 59000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 60000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 61000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 62000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 63000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 64000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 65000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 66000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 67000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 68000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 69000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 70000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 71000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 72000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 73000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 74000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 75000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 76000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 77000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 78000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 79000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 80000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 81000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 82000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 83000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 84000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 85000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 86000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 87000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 88000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 89000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 90000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 91000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 92000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 93000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 94000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 95000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 96000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 97000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 98000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 99000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 100000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 101000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 102000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 103000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 104000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 105000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 106000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 107000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 108000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 109000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 110000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 111000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 112000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 113000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 114000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 115000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 116000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 117000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 118000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 119000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 120000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 121000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 122000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.02 s  ClockTime = 0 s
+
+Iteration: 123000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 124000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 125000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 126000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 127000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 128000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 129000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 130000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 131000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 132000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 133000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 134000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 135000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 136000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 137000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 138000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 139000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 140000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 141000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 142000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 143000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 144000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 145000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 146000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 147000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 148000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 149000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 150000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 151000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 152000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 153000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 154000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 155000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 156000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 157000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 158000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 159000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 160000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 161000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 162000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 163000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 164000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 165000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 166000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 167000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 168000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 169000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 170000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 171000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 172000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 173000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 174000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 175000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 176000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 177000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 178000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 179000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 180000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 181000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 182000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 183000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 184000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 185000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 186000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 187000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 188000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 189000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 190000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 191000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 192000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 193000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 194000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 195000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 196000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 197000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 198000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 199000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 200000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 201000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 202000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 203000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 204000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 205000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+
+Iteration: 206000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 207000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 208000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 209000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 210000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 211000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 212000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 213000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 214000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 215000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 216000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 217000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 218000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 219000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 220000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 221000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 222000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 223000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 224000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 225000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 226000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 227000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 228000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 229000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 230000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 231000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 232000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 233000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 234000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 235000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 236000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 237000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 238000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 239000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 240000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 241000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 242000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 243000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 244000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 245000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 246000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 247000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 248000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 249000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 250000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 251000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 252000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 253000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 254000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 255000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 256000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 257000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 258000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 259000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 260000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 261000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 262000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 263000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 264000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 265000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 266000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 267000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 268000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 269000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 270000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 271000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 272000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 273000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 274000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 275000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 276000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+
+Iteration: 277000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 278000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 279000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 280000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 281000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 282000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 283000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 284000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 285000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 286000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 287000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 288000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 289000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 290000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 291000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 292000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 293000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 294000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 295000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 296000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 297000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 298000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 299000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 300000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 301000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 302000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 303000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 304000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 305000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 306000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 307000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 308000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 309000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 310000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 311000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 312000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 313000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 314000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 315000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 316000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 317000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 318000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 319000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 320000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 321000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 322000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 323000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 324000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 325000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 326000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 327000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 328000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 329000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 330000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 331000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 332000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 333000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 334000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 335000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 336000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 337000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 338000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 339000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 340000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 341000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 342000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 343000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 344000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 345000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 346000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 347000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 348000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 349000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 350000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 351000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 352000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 353000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 354000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 355000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 356000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 357000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 358000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 359000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 360000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 361000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+
+Iteration: 362000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 363000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 364000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 365000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 366000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 367000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 368000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 369000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 370000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 371000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 372000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 373000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 374000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 375000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 376000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 377000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 378000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 379000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 380000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 381000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 382000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 383000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 384000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 385000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 386000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 387000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 388000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 389000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 390000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 391000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 392000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 393000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 394000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 395000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 396000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 397000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 398000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 399000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+Iteration: 400000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9798230017938304e-13, Final residual = 5.9798230017938304e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.4741581425178834e-13, Final residual = 8.4741581425178834e-13, No Iterations 0
+DICPCG:  Solving for Dz, Initial residual = 8.5085589557498098e-13, Final residual = 8.5085589557498098e-13, No Iterations 0
+Max sigmaEq = 26117370.240417551
+ExecutionTime = 0.059999999999999998 s  ClockTime = 0 s
+
+End
+
