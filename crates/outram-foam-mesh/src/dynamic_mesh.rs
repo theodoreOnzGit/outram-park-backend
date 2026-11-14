@@ -43,6 +43,7 @@
 use crate::check_mesh::{esi_geometry, EsiGeometry};
 use crate::snappy_hex_mesh::esi_snap::{self, SnapMesh, V};
 use outram_foam_basic_lib::io::dict::{FoamDict, FoamEntry, FoamValue};
+use petir::mathf::RealMath;
 
 const SMALL: f64 = 1e-15;
 const VSMALL: f64 = 1e-300;
@@ -93,8 +94,8 @@ impl Quaternion {
     /// `quaternion(d, theta)`: rotation by `theta` radians about direction `d`.
     pub fn from_axis_angle(d: V, theta: f64) -> Self {
         Quaternion {
-            w: (0.5 * theta).cos(),
-            v: esi_snap::scale((0.5 * theta).sin(), normalised_vector(d)),
+            w: (0.5 * theta).r_cos(),
+            v: esi_snap::scale((0.5 * theta).r_sin(), normalised_vector(d)),
         }
     }
 
@@ -316,7 +317,7 @@ impl SolidBodyMotion {
                 rotation_about(*origin, r)
             }
             SolidBodyMotion::OscillatingLinear { amplitude, omega, phase_shift, vertical_shift } => {
-                let s = (omega * (t + phase_shift)).sin();
+                let s = (omega * (t + phase_shift)).r_sin();
                 let displacement = esi_snap::add(esi_snap::scale(s, *amplitude), *vertical_shift);
                 Septernion::from_translation(neg(displacement)).mul_quaternion(Quaternion::identity())
             }
