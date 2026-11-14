@@ -385,7 +385,14 @@ impl Cell {
                 }
             }
         }
-        stack.pop().unwrap_or(false)
+        // Implicit intersection (GitHub #1576): operands left on the stack with
+        // no operator between them are ANDed, as upstream inserts an
+        // `OP_INTERSECTION` between adjacent operands when it parses an
+        // expression (`src/cell.cpp:626`, `Region::Region`, OpenMC `8f79d9d0`).
+        // ~~Until 2026-11-14 this returned only the last token's value~~
+        // **CORRECTED 2026-11-14**: a region of bare half-spaces was judged by
+        // its final half-space alone.
+        !stack.is_empty() && stack.iter().all(|&b| b)
     }
 
     /// Whether the region has no union or complement, i.e. it is a pure
@@ -712,5 +719,45 @@ mod tests {
         let r = Position::new(2.0, 0.0, 0.0);
         let (d, i) = union_cell.distance_to_boundary(r, u, &surfaces, on_a);
         assert_eq!((d, i), (2.0, 1));
+    }
+
+    /// **GitHub #1576: bare half-spaces are an implicit intersection.**
+    ///
+    /// Upstream inserts `OP_INTERSECTION` between adjacent operands
+    /// (`src/cell.cpp:626`). A shell written as `outside(0) inside(1)` with no
+    /// operator must contain only the points between the spheres; the old
+    /// last-token rule accepted everything inside sphere 1. Also checks the
+    /// region-tree (plot bounds) route builds the same intersection.
+    #[test]
+    fn bare_halfspaces_are_an_implicit_intersection() {
+        let sphere = |r: f64| {
+            SurfaceKind::Sphere(Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r,
+                bc: BoundaryType::Transmissive,
+            })
+        };
+        let surfaces = vec![sphere(1.0), sphere(2.0)];
+        let outside = |i| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Outside };
+        let inside = |i| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
+        let implicit = Cell::material(1, vec![outside(0), inside(1)], 0, 293.6);
+        let explicit = Cell::material(
+            2,
+            vec![outside(0), inside(1), RegionToken::Intersection],
+            0,
+            293.6,
+        );
+        let u = Direction::new(0.0, 0.0, 1.0);
+        for x in [0.0, 0.5, 1.5, 2.5, -1.5] {
+            let r = Position::new(x, 0.0, 0.0);
+            let want = x.abs() > 1.0 && x.abs() < 2.0;
+            assert_eq!(explicit.contains(r, u, &surfaces, SurfaceToken::NONE), want);
+            assert_eq!(implicit.contains(r, u, &surfaces, SurfaceToken::NONE), want, "x = {x}");
+        }
+        let (nodes, root) =
+            crate::csg::plot::model_plot::bounds::region_tree(&implicit.region).unwrap();
+        assert!(matches!(nodes[root], crate::csg::plot::model_plot::bounds::Node::And(..)));
     }
 }

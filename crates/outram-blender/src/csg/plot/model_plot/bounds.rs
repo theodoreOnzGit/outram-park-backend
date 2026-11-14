@@ -225,7 +225,13 @@ pub(crate) fn region_tree(region: &[RegionToken]) -> Option<(Vec<Node>, usize)> 
         nodes.push(n);
         stack.push(nodes.len() - 1);
     }
-    let root = stack.pop()?;
+    // Operands left with no operator between them are implicitly intersected
+    // (OpenMC `src/cell.cpp:626`, GitHub #1576).
+    let mut root = stack.pop()?;
+    while let Some(a) = stack.pop() {
+        nodes.push(Node::And(a, root));
+        root = nodes.len() - 1;
+    }
     Some((nodes, root))
 }
 

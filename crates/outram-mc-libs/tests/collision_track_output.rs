@@ -64,7 +64,7 @@ fn model() -> (Geometry, Vec<Material>, Vec<Nuclide>) {
         surfaces: vec![sphere(R_CORE, BoundaryType::Transmissive), sphere(R_OUT, BoundaryType::Vacuum)],
         cells: vec![
             Cell::material(22, vec![inside(0)], 0, 293.6),
-            Cell::material(33, vec![outside(0), inside(1)], 1, 293.6),
+            Cell::material(33, vec![outside(0), inside(1), RegionToken::Intersection], 1, 293.6),
         ],
         universes: vec![Universe { id: 77, cell_indices: vec![0, 1] }],
         lattices: vec![],

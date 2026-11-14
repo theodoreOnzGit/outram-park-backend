@@ -791,6 +791,7 @@ mod tests {
                     vec![
                         hs(0, HalfSpaceSense::Outside),
                         hs(1, HalfSpaceSense::Inside),
+                        RegionToken::Intersection,
                     ],
                     1,
                     TEMP,

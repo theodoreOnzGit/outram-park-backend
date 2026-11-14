@@ -94,7 +94,7 @@ use crate::csg::geometry::Geometry;
 
 use super::slice::{PlotBasis, SliceHit, SlicePlot};
 
-mod bounds;
+pub(crate) mod bounds;
 mod svg;
 
 pub use bounds::*;
