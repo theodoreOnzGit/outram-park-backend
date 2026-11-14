@@ -697,10 +697,40 @@ fn fmt_vector(st: NumStyle, v: Vector3) -> String {
     )
 }
 
+
+/// ESI v2506's layout of a nonuniform list entry (`UList::writeList` after
+/// `nonuniform List<T> `, gh:#1384): up to 10 elements on one line as
+/// `N(a b c)`, more in the long form (`\nN\n(\n` one per line `)\n`).
+/// `end` follows the list (`;\n`, or `;\n\n` for the internal field).
+fn esi_nonuniform(s: &mut String, head: &str, type_name: &str, items: &[String], end: &str) {
+    s.push_str(&format!("{head}nonuniform List<{type_name}> "));
+    match super::esi::inline_list(items, true) {
+        Some(t) => s.push_str(&t),
+        None => {
+            s.push_str(&format!("\n{}\n(\n", items.len()));
+            for it in items {
+                s.push_str(it);
+                s.push('\n');
+            }
+            s.push(')');
+            s.push('\n');
+        }
+    }
+    s.push_str(end);
+}
+
+fn is_esi(st: NumStyle) -> bool {
+    matches!(st, NumStyle::G(_))
+}
+
 fn write_internal_scalar(st: NumStyle, s: &mut String, v: &[f64]) {
     match all_equal_scalar(v) {
         Some(u) => {
             s.push_str(&format!("internalField   uniform {};\n\n", fs(st, u)));
+        }
+        None if is_esi(st) => {
+            let items: Vec<String> = v.iter().map(|x| fs(st, *x)).collect();
+            esi_nonuniform(s, "internalField   ", "scalar", &items, ";\n\n");
         }
         None => {
             s.push_str(&format!(
@@ -720,6 +750,10 @@ fn write_internal_vector(st: NumStyle, s: &mut String, v: &[Vector3]) {
     match all_equal_vector(v) {
         Some(u) => {
             s.push_str(&format!("internalField   uniform {};\n\n", fmt_vector(st, u)));
+        }
+        None if is_esi(st) => {
+            let items: Vec<String> = v.iter().map(|x| fmt_vector(st, *x)).collect();
+            esi_nonuniform(s, "internalField   ", "vector", &items, ";\n\n");
         }
         None => {
             s.push_str(&format!(
@@ -1023,6 +1057,11 @@ fn write_value_scalar(st: NumStyle, s: &mut String, v: &[f64]) {
         ));
         return;
     }
+    if is_esi(st) {
+        let items: Vec<String> = v.iter().map(|x| fs(st, *x)).collect();
+        esi_nonuniform(s, "        value           ", "scalar", &items, ";\n");
+        return;
+    }
     s.push_str(&format!(
         "        value           nonuniform List<scalar> {} (",
         v.len()
@@ -1042,6 +1081,11 @@ fn write_value_vector(st: NumStyle, s: &mut String, v: &[Vector3]) {
             "        value           uniform {};\n",
             fmt_vector(st, u)
         ));
+        return;
+    }
+    if is_esi(st) {
+        let items: Vec<String> = v.iter().map(|x| fmt_vector(st, *x)).collect();
+        esi_nonuniform(s, "        value           ", "vector", &items, ";\n");
         return;
     }
     s.push_str(&format!(

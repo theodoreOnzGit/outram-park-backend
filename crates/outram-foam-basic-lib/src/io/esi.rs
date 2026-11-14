@@ -205,7 +205,7 @@ pub fn write_time_file_esi(
 /// - otherwise the long form (one element per line).
 ///
 /// `contiguous` is false for lists of lists (faces).
-fn inline_list(items: &[String], contiguous: bool) -> Option<String> {
+pub(crate) fn inline_list(items: &[String], contiguous: bool) -> Option<String> {
     let n = items.len();
     if n > 1 && contiguous && items.iter().all(|x| *x == items[0]) {
         return Some(format!("{n}{{{}}}", items[0]));

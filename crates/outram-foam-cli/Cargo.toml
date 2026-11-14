@@ -108,3 +108,7 @@ path = "src/bin/p_mesh.rs"
 [[bin]]
 name = "cartesian2DMesh"
 path = "src/bin/cartesian_2d_mesh.rs"
+
+[[bin]]
+name = "setFields"
+path = "src/bin/set_fields.rs"
