@@ -27,12 +27,14 @@
 //! [`PerfectGas`], constant-density [`RhoConst`], incompressible specific-volume
 //! polynomial [`IcoPolynomial`], and real-gas [`PengRobinsonGas`].
 
+pub mod esi_simple_eos;
 pub mod ico_polynomial;
 pub mod peng_robinson;
 pub mod perfect_gas;
 pub mod rho_const;
 pub(crate) mod traits;
 
+pub use esi_simple_eos::*;
 pub use ico_polynomial::*;
 pub use peng_robinson::*;
 pub use perfect_gas::*;

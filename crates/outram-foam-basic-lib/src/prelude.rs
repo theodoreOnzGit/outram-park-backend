@@ -81,6 +81,7 @@ pub use crate::thermophysics::constants::GasConstant;
 pub use crate::thermophysics::eos::*;
 pub use crate::thermophysics::error::ThermoError;
 pub use crate::thermophysics::quantities::Compressibility;
+pub use crate::thermophysics::reaction_rate::*;
 pub use crate::thermophysics::table::{IntegratedNonUniformTable, NonUniformTable};
 pub use crate::thermophysics::thermo::*;
 pub use crate::thermophysics::transport::*;
