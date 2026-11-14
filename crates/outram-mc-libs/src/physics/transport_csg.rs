@@ -902,10 +902,14 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
     // cell whose declared temperature differs from its material's is pointed at
     // a copy of that material at the cell's temperature, as OpenMC's per-cell
     // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
-    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
-    let (geom, materials): (&Geometry, &[Material]) = match &bound {
-        Some((g, m)) => (g, m.as_slice()),
-        None => (geom, materials),
+    // The majorants are widened over the rebound copies, so they bound what
+    // transport reads (GitHub #1577).
+    let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+        geom, materials, nuclides, majorants,
+    );
+    let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+        Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+        None => (geom, materials, majorants),
     };
     let mut seed = settings.seed;
 
@@ -1239,10 +1243,14 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     // cell whose declared temperature differs from its material's is pointed at
     // a copy of that material at the cell's temperature, as OpenMC's per-cell
     // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
-    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
-    let (geom, materials): (&Geometry, &[Material]) = match &bound {
-        Some((g, m)) => (g, m.as_slice()),
-        None => (geom, materials),
+    // The majorants are widened over the rebound copies, so they bound what
+    // transport reads (GitHub #1577).
+    let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+        geom, materials, nuclides, majorants,
+    );
+    let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+        Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+        None => (geom, materials, majorants),
     };
     #[cfg(target_arch = "wasm32")]
     use crate::wasm_par as rayon;
@@ -4115,10 +4123,14 @@ impl CsgPowerIteration {
         // cell whose declared temperature differs from its material's is pointed at
         // a copy of that material at the cell's temperature, as OpenMC's per-cell
         // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
-        let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
-        let (geom, materials): (&Geometry, &[Material]) = match &bound {
-            Some((g, m)) => (g, m.as_slice()),
-            None => (geom, materials),
+        // The majorants are widened over the rebound copies, so they bound what
+        // transport reads (GitHub #1577).
+        let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+            geom, materials, nuclides, &self.majorants,
+        );
+        let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+            Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+            None => (geom, materials, &self.majorants),
         };
         let n = self.settings.n_particles;
         let mut next_bank: Vec<Site> = Vec::with_capacity(n);
@@ -4152,7 +4164,7 @@ impl CsgPowerIteration {
                 geom,
                 materials,
                 nuclides,
-                &self.majorants,
+                majorants,
                 self.k_running,
                 &mut next_bank,
                 &mut hseed,
@@ -4232,17 +4244,21 @@ impl CsgPowerIteration {
         // cell whose declared temperature differs from its material's is pointed at
         // a copy of that material at the cell's temperature, as OpenMC's per-cell
         // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
-        let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
-        let (geom, materials): (&Geometry, &[Material]) = match &bound {
-            Some((g, m)) => (g, m.as_slice()),
-            None => (geom, materials),
+        // The majorants are widened over the rebound copies, so they bound what
+        // transport reads (GitHub #1577).
+        let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+            geom, materials, nuclides, &self.majorants,
+        );
+        let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+            Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+            None => (geom, materials, &self.majorants),
         };
         let chunks = transport_generation_par(
             &self.source,
             geom,
             materials,
             nuclides,
-            &self.majorants,
+            majorants,
             self.k_running,
             self.settings.seed,
             self.generation,
