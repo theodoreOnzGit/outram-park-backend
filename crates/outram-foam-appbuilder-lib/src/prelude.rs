@@ -85,6 +85,7 @@ pub use crate::genfoam::thermal_hydraulics::solver::PorousConductivity;
 pub use crate::solvers::cht_multi_region_foam::{ChtMultiRegionFoam, CoupledTemperature, InterfaceMode, InterfaceRadiation, RadiativeFluxTerms, RegionId, SolidRegion};
 pub use crate::solvers::energy::{EnergyEquation, IncompressibleThermo};
 pub use crate::solvers::energy_radiation::RadiationCoupling;
+pub use crate::solvers::energy_view_factor::ViewFactorCoupling;
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
 pub use crate::solvers::melt_foam::MeltFoam;
 pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver, SolveRecord};
