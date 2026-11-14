@@ -207,6 +207,13 @@ pub struct Cell {
     /// bit-identical (`tests/temperature_precedence.rs`). Kept as the cell's
     /// declared temperature for callers and a future per-cell treatment (OpenMC
     /// has one); see `docs/temperatures.md`.
+    ///
+    /// **Honoured through `outram_mc_libs::material::cell_temperature::bind_cell_temperatures`**
+    /// (GitHub #313, 2026-11-14), which points a cell whose temperature
+    /// differs from its material's at a copy of that material at the cell's
+    /// temperature, as OpenMC's per-cell `sqrtkT`. `run_keff_csg*` does not
+    /// call it, because this field cannot say "unset" (every constructor fills
+    /// it, many with a literal 293.6).
     pub temperature: f64,
     /// Rigid translation \[cm\] applied to a fill universe's local frame
     /// (`coord.r -= translation`). Zero for material cells and untranslated fills.
