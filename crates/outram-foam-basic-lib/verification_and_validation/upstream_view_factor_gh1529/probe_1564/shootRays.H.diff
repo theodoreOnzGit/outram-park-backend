@@ -1,0 +1,2 @@
+95a96
+>     forAll(hitInfo, rayI) { std::printf("RAY %d %d  s %.17g %.17g %.17g e %.17g %.17g %.17g hit %d idx %d agg %d p %.17g %.17g %.17g\n", int(startIndex[rayI]), int(endIndex[rayI]), start[rayI].x(),start[rayI].y(),start[rayI].z(), end[rayI].x(),end[rayI].y(),end[rayI].z(), int(hitInfo[rayI].hit()), int(hitInfo[rayI].index()), int(aggHitIndex[rayI]), hitInfo[rayI].point().x(), hitInfo[rayI].point().y(), hitInfo[rayI].point().z()); }
