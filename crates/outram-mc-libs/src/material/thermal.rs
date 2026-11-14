@@ -1025,6 +1025,19 @@ impl ThermalScattering {
         self.cutoff_ev
     }
 
+    /// Whether `e` is past the S(α,β) treatment. OpenMC drops the table only
+    /// when `E > energy_max` (`src/material.cpp:866`), so a neutron at exactly
+    /// the cutoff is still scattered by it; `>=` (the rule before 2026-11-14,
+    /// still selectable with `OUTRAM_MC_LEGACY_XS_DETAILS`) dropped it one
+    /// energy early. GitHub #463 item 7.
+    fn beyond_cutoff(&self, e: f64) -> bool {
+        if crate::material::nuclide::legacy_xs_details() {
+            e >= self.cutoff_ev
+        } else {
+            e > self.cutoff_ev
+        }
+    }
+
     /// Every energy \[eV\] at which [`Self::total_xs`] changes form: the
     /// inelastic grid, the incoherent-elastic grid, every Bragg edge and the
     /// cutoff. Unsorted, possibly with duplicates.
@@ -1091,12 +1104,12 @@ impl ThermalScattering {
     }
 
     /// Thermal-elastic cross section σ_el(E) **per principal atom** \[barn\] at
-    /// incident energy `e` \[eV\]. Zero at or above the thermal cutoff, and
+    /// incident energy `e` \[eV\]. Zero above the thermal cutoff (~~at or above~~ **CORRECTED 2026-11-14**, gh:#463 item 7), and
     /// zero at every energy for a scatterer with no elastic law.
     ///
     /// For graphite this is the **dominant** thermal channel below ~0.1 eV.
     pub fn elastic_xs(&self, e: f64) -> f64 {
-        if e >= self.cutoff_ev {
+        if self.beyond_cutoff(e) {
             return 0.0;
         }
         self.elastic.cross_section(e)
@@ -1107,17 +1120,17 @@ impl ThermalScattering {
     ///
     /// This is the quantity that **replaces** the free-gas elastic channel
     /// below the cutoff (see [`crate::material::nuclide::Nuclide::xs_at_energy`]);
-    /// zero at or above the cutoff, where free-gas takes over again.
+    /// zero above the cutoff (~~at or above~~, **CORRECTED 2026-11-14**), where free-gas takes over again.
     pub fn total_xs(&self, e: f64) -> f64 {
         self.inelastic_xs(e) + self.elastic_xs(e)
     }
 
     /// Incoherent-inelastic cross section σ_inel(E) **per principal atom**
     /// \[barn\] at incident energy `e` \[eV\], by linear interpolation on the
-    /// pre-tabulated grid. Zero at or above the cutoff (the caller reverts to
+    /// pre-tabulated grid. Zero above the cutoff (~~at or above~~ **CORRECTED 2026-11-14**) (the caller reverts to
     /// free-gas there); clamped to the grid endpoints below it.
     pub fn inelastic_xs(&self, e: f64) -> f64 {
-        if e >= self.cutoff_ev {
+        if self.beyond_cutoff(e) {
             return 0.0;
         }
         interp_linear(&self.xs_e, &self.xs_sigma, e)
@@ -1125,7 +1138,7 @@ impl ThermalScattering {
 
     /// Sample a thermal scatter at incident energy `e` \[eV\], returning
     /// `Some((e_out, mu_lab))` — a laboratory-frame outgoing energy \[eV\] and
-    /// scattering cosine — or `None` at or above the cutoff.
+    /// scattering cosine — or `None` above the cutoff (~~at or above~~ **CORRECTED 2026-11-14**).
     ///
     /// **Channel choice.** Elastic scattering is chosen with probability
     /// σ_el(E)/σ_thermal(E) and inelastic otherwise, mirroring OpenMC's
@@ -1149,7 +1162,7 @@ impl ThermalScattering {
     /// applies `mu_lab` directly with `rotate_direction`, with no CM→lab
     /// transform.
     pub fn sample(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)> {
-        if e >= self.cutoff_ev {
+        if self.beyond_cutoff(e) {
             return None;
         }
         // Elastic / inelastic split, in proportion to the two cross sections.
@@ -1175,7 +1188,7 @@ impl ThermalScattering {
     /// elastic. It is public so the verification tests exercise exactly the
     /// transport path. `None` above the cutoff or with no inelastic tables.
     pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)> {
-        if e >= self.cutoff_ev {
+        if self.beyond_cutoff(e) {
             return None;
         }
         if !self.continuous.is_empty() {
