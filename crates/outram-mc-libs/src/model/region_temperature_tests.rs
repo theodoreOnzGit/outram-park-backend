@@ -48,7 +48,7 @@ fn cell_temperatures(a: &super::AssembledModel) -> Vec<Option<f64>> {
         .map(|c| match c.fill {
             CellFill::Material(m) => {
                 assert_eq!(
-                    c.temperature, a.materials[m].temperature,
+                    c.temperature, Some(a.materials[m].temperature),
                     "cell and material agree"
                 );
                 Some(a.materials[m].temperature)
@@ -174,7 +174,7 @@ fn every_shape_at_the_model_temperature_changes_nothing() {
     }
     for (x, y) in plain.geometry.cells.iter().zip(&explicit.geometry.cells) {
         assert_eq!((&x.region, &x.fill), (&y.region, &y.fill));
-        assert_eq!(x.temperature.to_bits(), y.temperature.to_bits());
+        assert_eq!(x.temperature.map(f64::to_bits), y.temperature.map(f64::to_bits));
     }
     assert_eq!(plain.temperatures_k(), vec![293.6]);
 }

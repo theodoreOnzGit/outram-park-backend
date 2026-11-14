@@ -513,7 +513,7 @@ fn build_lwr_cell() -> Result<BuiltCase, String> {
             RegionToken::Intersection,
         ],
         fill: outram_mc_libs::geometry::cell::CellFill::Void,
-        temperature: T,
+        temperature: Some(T),
         translation: Position::ZERO,
         tracking: None,
     };

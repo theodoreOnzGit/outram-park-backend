@@ -195,26 +195,27 @@ pub struct Cell {
     pub region: Vec<RegionToken>,
     /// What the cell is filled with.
     pub fill: CellFill,
-    /// Temperature of this cell in Kelvin.
+    /// Declared temperature of this cell in Kelvin, or `None` to **use the
+    /// material's temperature**, as OpenMC does (`assign_temperatures`,
+    /// `src/geometry_aux.cpp:170-198`: a cell with no `temperature` takes its
+    /// material's; `Cell::sqrtkT_` is what every lookup reads).
     ///
     /// ~~(passed to the Doppler XS lookup)~~ **CORRECTED 2026-09-27: transport
-    /// does not read this field.** Cross sections are looked up at the
-    /// material's temperature and broadened at the nuclide's build
-    /// temperature; free-gas kinematics use ~~the run's
-    /// `KeffSettings::temperature_k`~~ the nuclide's data temperature (the
-    /// material's for a multipole nuclide; GitHub #313, 2026-09-30).
-    /// Changing it to 1200 K leaves `k`
-    /// bit-identical (`tests/temperature_precedence.rs`). Kept as the cell's
-    /// declared temperature for callers and a future per-cell treatment (OpenMC
-    /// has one); see `docs/temperatures.md`.
+    /// did not read this field.** ~~Changing it to 1200 K leaves `k`
+    /// bit-identical (`tests/temperature_precedence.rs`).~~ **CHANGED
+    /// 2026-11-14 (GitHub #313, maintainer direction): cell temperature is the
+    /// transport default.** The `run_keff_csg*` drivers and `CsgPowerIteration`
+    /// lower it through
+    /// `outram_mc_libs::material::cell_temperature::bind_cell_temperatures`:
+    /// a material cell whose `Some(t)` differs from its material's points at a
+    /// copy of that material at `t`. `None` (the type of "unset", which
+    /// `f64` could not express) changes nothing. The explicit ablation is
+    /// `Geometry::without_cell_temperatures`.
     ///
-    /// **Honoured through `outram_mc_libs::material::cell_temperature::bind_cell_temperatures`**
-    /// (GitHub #313, 2026-11-14), which points a cell whose temperature
-    /// differs from its material's at a copy of that material at the cell's
-    /// temperature, as OpenMC's per-cell `sqrtkT`. `run_keff_csg*` does not
-    /// call it, because this field cannot say "unset" (every constructor fills
-    /// it, many with a literal 293.6).
-    pub temperature: f64,
+    /// Constructors take `impl Into<Option<f64>>`, so a bare `293.6` is an
+    /// explicit declaration (`Some`) and `None` is "unset". Fill cells carry
+    /// `None`; only material cells are read.
+    pub temperature: Option<f64>,
     /// Rigid translation \[cm\] applied to a fill universe's local frame
     /// (`coord.r -= translation`). Zero for material cells and untranslated fills.
     /// Mirrors `Cell::translation_` in `src/cell.cpp`.
@@ -239,13 +240,13 @@ impl Cell {
         id: i32,
         region: Vec<RegionToken>,
         material_idx: usize,
-        temperature: f64,
+        temperature: impl Into<Option<f64>>,
     ) -> Self {
         Self {
             id,
             region,
             fill: CellFill::Material(material_idx),
-            temperature,
+            temperature: temperature.into(),
             translation: Position::ZERO,
             tracking: None,
         }
@@ -257,7 +258,7 @@ impl Cell {
             id,
             region,
             fill,
-            temperature: 293.6,
+            temperature: None,
             translation,
             tracking: None,
         }

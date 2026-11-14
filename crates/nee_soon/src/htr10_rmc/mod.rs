@@ -167,8 +167,11 @@
 //!   withdrawn and panics on entry (it cuts pebbles). `htr10_mgxs_genfoam`
 //!   still calls it (checked: `examples/htr10_mgxs_genfoam.rs`), so that
 //!   example now panics too.
-//! - gh:#313 — `Cell::temperature` is never read by transport and every cell
-//!   hardcodes 293.6 K; the material temperature (300.15 K) is what is used.
+//! - ~~gh:#313 — `Cell::temperature` is never read by transport and every cell
+//!   hardcodes 293.6 K; the material temperature (300.15 K) is what is used.~~
+//!   **CORRECTED 2026-11-14:** cell temperature is now the transport default
+//!   and the HTR-10 cells are `None` (the material's temperature), so the
+//!   hardcoded 293.6 K is gone and cannot override a 300.15 K material.
 //! - gh:#312 — the control-rod smeared composition drops the steel sections
 //!   (not exercised by the rods-out benchmark).
 //!

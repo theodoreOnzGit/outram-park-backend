@@ -306,6 +306,12 @@ pub fn run_fixed_source_traced(
     // cell its tally is about.
     distribcell: Option<&crate::geometry::distribcell::DistribcellOffsets>,
 ) -> FixedSourceResult {
+    // Cell temperatures are the default (GitHub #313): see `run_keff_csg_par_progress`.
+    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+    let (geom, materials): (&Geometry, &[Material]) = match &bound {
+        Some((g, m)) => (g, m.as_slice()),
+        None => (geom, materials),
+    };
     let mut seed = settings.seed;
     let n_bins = tally.as_ref().map(|t| t.n_bins()).unwrap_or(0);
     let mut batch = vec![0.0; n_bins];

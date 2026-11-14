@@ -1417,7 +1417,7 @@ pub fn to_csg_geometry(mesh: &Mesh) -> Result<crate::csg::geometry::Geometry, Ex
         id: 1,
         region,
         fill: CellFill::Void,
-        temperature: 293.6,
+        temperature: None,
         translation: Position::ZERO,
         tracking: None,
     };

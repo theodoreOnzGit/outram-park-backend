@@ -170,7 +170,7 @@ mod tests {
             id,
             region,
             fill: CellFill::Void,
-            temperature: 300.0,
+            temperature: Some(300.0),
             translation: Default::default(),
             tracking: None,
         }

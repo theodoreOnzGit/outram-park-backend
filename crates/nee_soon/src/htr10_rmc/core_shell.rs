@@ -65,7 +65,7 @@ pub(crate) fn shell(inner: usize, outer: usize, m: usize, id: i32) -> Cell {
         id,
         vec![out(inner), ins(outer), RegionToken::Intersection],
         m,
-        293.6,
+        None,
     )
 }
 
@@ -446,7 +446,7 @@ impl CoreShell {
                 5,
                 Rgn::ins(7).and(Rgn::out(9)).and(Rgn::ins(16)).0,
                 mat::HELIUM,
-                293.6,
+                None,
             ));
             // TECDOC zone 0: between the cone and r = 90 cm, from the conus top to
             // the conus floor (Fig. 4.10) -- the bottom reflector with its hot
@@ -459,7 +459,7 @@ impl CoreShell {
                     .and(Rgn::out(18))
                     .0,
                 zone_material(0),
-                293.6,
+                None,
             ));
             if !explicit_tube {
                 // ABLATION: the smeared discharge tube, conus floor to model bottom.
@@ -467,7 +467,7 @@ impl CoreShell {
                     17,
                     Rgn::ins(21).and(Rgn::ins(18)).and(Rgn::out(11)).0,
                     mat::HOMOG_DUMMY,
-                    293.6,
+                    None,
                 ));
             }
         }
@@ -745,12 +745,12 @@ impl TrisoBuild {
         vec![
             // 7..12: the TRISO particle's shells, then matrix beyond it
             // (universe TRISO_PARTICLE_UNIVERSE)
-            Cell::material(8, vec![ins(s0)], mat::KERNEL, 293.6),
+            Cell::material(8, vec![ins(s0)], mat::KERNEL, None),
             shell(s0, s0 + 1, mat::BUFFER, 9),
             shell(s0 + 1, s0 + 2, mat::IPYC, 10),
             shell(s0 + 2, s0 + 3, mat::SIC, 11),
             shell(s0 + 3, s0 + 4, mat::OPYC, 12),
-            Cell::material(13, vec![out(s0 + 4)], mat::GRAPHITE, 293.6),
+            Cell::material(13, vec![out(s0 + 4)], mat::GRAPHITE, None),
             // 13, 14: pure matrix, the TRISO lattice's `outer` universe
             // (TRISO_MATRIX_UNIVERSE).
             //
@@ -760,8 +760,8 @@ impl TrisoBuild {
             // non-particle tile, where `locate` finds no cell and the history is
             // lost. Splitting it into inside/outside the same surface covers the
             // tile completely with one material.
-            Cell::material(14, vec![out(s0 + 4)], mat::GRAPHITE, 293.6),
-            Cell::material(15, vec![ins(s0 + 4)], mat::GRAPHITE, 293.6),
+            Cell::material(14, vec![out(s0 + 4)], mat::GRAPHITE, None),
+            Cell::material(15, vec![ins(s0 + 4)], mat::GRAPHITE, None),
         ]
     }
 

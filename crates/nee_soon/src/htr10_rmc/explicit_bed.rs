@@ -725,7 +725,7 @@ pub fn assemble_explicit_triso_from_centres_with(
                 [pitch; 3],
                 [TILES; 3],
                 mat::GRAPHITE,
-                293.6,
+                None,
                 outram_mc_libs::pebble_beds::triso_lattice::TrisoLatticeBase {
                     surface: surfaces.len(),
                     cell: cells.len(),
@@ -765,7 +765,7 @@ pub fn assemble_explicit_triso_from_centres_with(
             TILE_HELIUM_CELL_ID,
             rg.0,
             mat::HELIUM,
-            293.6,
+            None,
         ));
     }
     universes.push(Universe {
@@ -860,7 +860,7 @@ pub fn assemble_explicit_triso_from_centres_with(
                     TILE_FUEL_SHELL_CELL_ID + id,
                     clip(Rgn::out(fz).and(Rgn::ins(pb))).0,
                     mat::GRAPHITE,
-                    293.6,
+                    None,
                 ));
             } else {
                 idx.push(cells.len());
@@ -868,7 +868,7 @@ pub fn assemble_explicit_triso_from_centres_with(
                     TILE_DUMMY_BALL_CELL_ID + id,
                     clip(Rgn::ins(pb)).0,
                     moderator_slot,
-                    293.6,
+                    None,
                 ));
             }
             helium = Some(match helium {
@@ -882,7 +882,7 @@ pub fn assemble_explicit_triso_from_centres_with(
             TILE_HELIUM_CELL_ID + base,
             helium.0,
             mat::HELIUM,
-            293.6,
+            None,
         ));
         let u = universes.len();
         universes.push(Universe {

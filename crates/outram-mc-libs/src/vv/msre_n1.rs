@@ -1508,13 +1508,45 @@ mod tests {
     #[test]
     fn cold_dims_build_the_recorded_geometry() {
         let s = format!("{:?}", geometry_at_split(911.0, 950.0));
+        // `Cell::temperature` became `Option<f64>` on 2026-11-14 (GitHub #313):
+        // `Some(t)` prints as `t` and an unset fill cell's `None` as the
+        // `293.6` it used to carry, so the recorded hash is checked on the
+        // text rewritten back to that form (the pin itself is unchanged).
+        let s = legacy_cell_temperature_text(&s);
         let mut h: u64 = 0xcbf29ce484222325;
         for b in s.bytes() {
             h ^= b as u64;
             h = h.wrapping_mul(0x100000001b3);
         }
         assert_eq!((h, s.len()), (0x364611a9909b0605, 14517));
-        assert_eq!(format!("{:?}", geometry_with_dims(911.0, 950.0, Dims::COLD)), s);
+        assert_eq!(
+            legacy_cell_temperature_text(&format!("{:?}", geometry_with_dims(911.0, 950.0, Dims::COLD))),
+            s
+        );
+    }
+
+    /// `Debug` text of a geometry with `temperature: Some(t)` rewritten to
+    /// `temperature: t` and `temperature: None` to `temperature: 293.6`: the
+    /// form the recorded hash was printed from (before GitHub #313).
+    fn legacy_cell_temperature_text(s: &str) -> String {
+        let mut out = String::with_capacity(s.len());
+        let mut rest = s;
+        while let Some(i) = rest.find("temperature: ") {
+            let (head, tail) = rest.split_at(i + "temperature: ".len());
+            out.push_str(head);
+            if let Some(t) = tail.strip_prefix("Some(") {
+                let close = t.find(')').expect("closing paren");
+                out.push_str(&t[..close]);
+                rest = &t[close + 1..];
+            } else if let Some(t) = tail.strip_prefix("None") {
+                out.push_str("293.6");
+                rest = t;
+            } else {
+                rest = tail;
+            }
+        }
+        out.push_str(rest);
+        out
     }
 
     /// The defaults the maintainer set on 2026-11-13: the whole shield, and
@@ -1837,7 +1869,7 @@ mod tests {
         // The split geometry puts only the stringer graphite at its own
         // temperature.
         let g = geometry_at_split(900.0, 950.0);
-        let hot: Vec<i32> = g.cells.iter().filter(|c| c.temperature == 950.0).map(|c| c.id).collect();
+        let hot: Vec<i32> = g.cells.iter().filter(|c| c.temperature == Some(950.0)).map(|c| c.id).collect();
         assert_eq!(hot, vec![102]);
         assert_eq!(basket_mix(MoTreatment::Omitted), materials(MoTreatment::Omitted)[BASKET_IDX].1);
         // Every tape the model names exists (the first run died on a wrong

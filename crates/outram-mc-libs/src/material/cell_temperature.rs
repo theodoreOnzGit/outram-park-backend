@@ -40,17 +40,21 @@
 //! [`crate::material::temperature_interpolation`] (GitHub #947), which is a
 //! per-collision draw and is not on a transport path.
 //!
-//! # Not the default, and why
+//! # The default of every `run_keff_csg*` driver (GitHub #313, 2026-11-14)
 //!
-//! `Cell::temperature` is a plain `f64` that every constructor fills (the
-//! HTR-10 cells and many examples with a literal `293.6`), so "unset, take the
-//! material's" (OpenMC's rule) cannot be told from "set to 293.6". Making this
-//! the default of `run_keff_csg*` needs `Cell::temperature: Option<f64>` in
-//! `outram-blender` and an edit to the reviewed `run_keff_csg_par_progress`;
-//! until then callers whose cells carry a real temperature call this function
-//! first. The model layer (`model::lower`) already writes each cell's material
-//! temperature into the cell, so a model lowered from a [`crate::model`]
-//! description is unchanged by it (bit-identical, pinned by the test).
+//! `Cell::temperature` is `Option<f64>` since 2026-11-14: `None` is "unset,
+//! take the material's" (OpenMC's rule), `Some(t)` a declaration. The k
+//! drivers (`run_keff_csg_seq_progress`, `run_keff_csg_par_progress` and the
+//! `CsgPowerIteration` steps) call [`bind_cell_temperatures`] themselves, so
+//! the cell temperature is applied unless the caller ablates it with
+//! `Geometry::without_cell_temperatures`. ~~Not the default, because
+//! `Cell::temperature` was a plain `f64` that every constructor filled with a
+//! literal `293.6`.~~ A cell whose `Some(t)` equals its material's, and every
+//! `None` cell, is unchanged by a bit (pinned by the test); the model layer
+//! (`model::lower`) writes each cell's material temperature into the cell, so a
+//! lowered model is unchanged. Pinned by `tests/cell_temperature_is_default.rs`.
+//! The binding clones the geometry and material array only when some cell
+//! disagrees with its material.
 
 use crate::geometry::cell::CellFill;
 use crate::geometry::geometry::Geometry;
@@ -81,13 +85,16 @@ pub fn cell_temperature_mismatches(
     for (i, c) in geometry.cells.iter().enumerate() {
         if let CellFill::Material(m) = c.fill {
             if let Some(mat) = materials.get(m) {
-                if c.temperature.to_bits() != mat.temperature.to_bits() {
-                    out.push(CellTemperatureMismatch {
-                        cell: i,
-                        material: m,
-                        cell_k: c.temperature,
-                        material_k: mat.temperature,
-                    });
+                // `None` is "unset": the cell takes its material's temperature.
+                if let Some(t) = c.temperature {
+                    if t.to_bits() != mat.temperature.to_bits() {
+                        out.push(CellTemperatureMismatch {
+                            cell: i,
+                            material: m,
+                            cell_k: t,
+                            material_k: mat.temperature,
+                        });
+                    }
                 }
             }
         }
@@ -115,11 +122,13 @@ pub fn bind_cell_temperatures(
             if m >= materials.len() {
                 return Err(format!("cell {i} references material {m}, out of range"));
             }
-            if !(c.temperature.is_finite() && c.temperature >= 0.0) {
-                return Err(format!(
-                    "cell {i} (id {}) has temperature {} K; it must be finite and >= 0",
-                    c.id, c.temperature
-                ));
+            if let Some(t) = c.temperature {
+                if !(t.is_finite() && t >= 0.0) {
+                    return Err(format!(
+                        "cell {i} (id {}) has temperature {} K; it must be finite and >= 0",
+                        c.id, t
+                    ));
+                }
             }
         }
     }
@@ -146,4 +155,16 @@ pub fn bind_cell_temperatures(
         geom.cells[mm.cell].fill = CellFill::Material(idx);
     }
     Ok(Some((geom, mats)))
+}
+
+/// The geometry and materials a driver should transport through: the cell
+/// temperatures applied ([`bind_cell_temperatures`]), or the caller's own
+/// when nothing disagrees. Panics with upstream's message on an invalid cell
+/// temperature (OpenMC `fatal_error`s there).
+#[must_use]
+pub fn with_cell_temperatures(
+    geometry: &Geometry,
+    materials: &[Material],
+) -> Option<(Geometry, Vec<Material>)> {
+    bind_cell_temperatures(geometry, materials).unwrap_or_else(|e| panic!("{e}"))
 }

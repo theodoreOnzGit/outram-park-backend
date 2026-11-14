@@ -425,7 +425,7 @@ pub fn set_cell_temperatures(geometry: &mut Geometry, mats: &[Material]) {
     for c in &mut geometry.cells {
         if let CellFill::Material(m) = c.fill {
             if let Some(mm) = mats.get(m) {
-                c.temperature = mm.temperature;
+                c.temperature = Some(mm.temperature);
             }
         }
     }

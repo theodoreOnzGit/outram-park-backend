@@ -741,8 +741,8 @@ pub(super) fn build_reflector(
         let he = mats.helium;
         // Everything outside the outer sleeve (the channel gap and beyond),
         // and the rod bore.
-        idx.push(push(cells, Cell::material(new_id(), Rgn::out(c550).0, he, 293.6)));
-        idx.push(push(cells, Cell::material(new_id(), Rgn::ins(c275).0, he, 293.6)));
+        idx.push(push(cells, Cell::material(new_id(), Rgn::out(c550).0, he, None)));
+        idx.push(push(cells, Cell::material(new_id(), Rgn::ins(c275).0, he, None)));
         // Sections from the lower end up: z_T of each section's lower end.
         let mut zt_lo = rod_lower_end_zt_cm;
         let wall = Rgn::out(c275).and(Rgn::ins(c550));
@@ -750,7 +750,7 @@ pub(super) fn build_reflector(
         let p_end = zplane(s, frame.lz(zt_lo));
         idx.push(push(
             cells,
-            Cell::material(new_id(), wall.clone().and(Rgn::ins(p_end)).0, he, 293.6),
+            Cell::material(new_id(), wall.clone().and(Rgn::ins(p_end)).0, he, None),
         ));
         for (&len, &is_b4c) in AXIAL_SECTIONS_CM.iter().zip(AXIAL_IS_B4C.iter()) {
             let zt_hi = zt_lo - len;
@@ -776,11 +776,11 @@ pub(super) fn build_reflector(
                 ];
                 for (a, b, m) in shells {
                     let reg = Rgn::out(a).and(Rgn::ins(b)).and(slab.clone());
-                    idx.push(push(cells, Cell::material(new_id(), reg.0, m, 293.6)));
+                    idx.push(push(cells, Cell::material(new_id(), reg.0, m, None)));
                 }
             } else {
                 let reg = wall.clone().and(slab);
-                idx.push(push(cells, Cell::material(new_id(), reg.0, mats.iron, 293.6)));
+                idx.push(push(cells, Cell::material(new_id(), reg.0, mats.iron, None)));
             }
             zt_lo = zt_hi;
             if last {
@@ -793,7 +793,7 @@ pub(super) fn build_reflector(
             let top = zplane(s, frame.lz(zt_lo));
             idx.push(push(
                 cells,
-                Cell::material(new_id(), wall.clone().and(Rgn::out(top)).0, he, 293.6),
+                Cell::material(new_id(), wall.clone().and(Rgn::out(top)).0, he, None),
             ));
         }
         universes.push(Universe {
@@ -828,7 +828,7 @@ pub(super) fn build_reflector(
                     (KLAK_SLOT_ZT_CM.1, zt1, Rgn::ins(b.round)),
                 ] {
                     let r = reg.and(frame.slab(s, a, c));
-                    root.push(push(cells, Cell::material(new_id(), r.0, mats.helium, 293.6)));
+                    root.push(push(cells, Cell::material(new_id(), r.0, mats.helium, None)));
                 }
             }
             ChannelKind::ControlRod if rod_universes.is_some() => {
@@ -847,7 +847,7 @@ pub(super) fn build_reflector(
             }
             _ => {
                 let r = Rgn::ins(b.round).and(frame.slab(s, zt0, zt1));
-                root.push(push(cells, Cell::material(new_id(), r.0, mats.helium, 293.6)));
+                root.push(push(cells, Cell::material(new_id(), r.0, mats.helium, None)));
             }
         }
     }
@@ -856,7 +856,7 @@ pub(super) fn build_reflector(
         let r = duct()
             .and(Rgn::out(zcyl(s, 0.0, 0.0, HOT_GAS_DUCT_RHO_CM.0)))
             .and(Rgn::ins(zcyl(s, 0.0, 0.0, HOT_GAS_DUCT_RHO_CM.1)));
-        root.push(push(cells, Cell::material(new_id(), r.0, mats.helium, 293.6)));
+        root.push(push(cells, Cell::material(new_id(), r.0, mats.helium, None)));
     }
 
     // --- zone boxes, each minus the borings it contains -------------------
@@ -919,7 +919,7 @@ pub(super) fn build_reflector(
             reg = reg.and(duct().not());
         }
         let m = zone_material(zb);
-        root.push(push(cells, Cell::material(new_id(), reg.0, m, 293.6)));
+        root.push(push(cells, Cell::material(new_id(), reg.0, m, None)));
     }
     root
 }

@@ -176,6 +176,21 @@ pub struct Geometry {
 }
 
 impl Geometry {
+    /// **Ablate cell temperatures** (GitHub #313): a copy in which every cell
+    /// is "unset" (`temperature: None`), so every material cell takes its
+    /// material's temperature and `bind_cell_temperatures` changes nothing.
+    ///
+    /// Cell temperature is the transport default, as in OpenMC; this is the
+    /// explicit, visible way to run without it.
+    #[must_use]
+    pub fn without_cell_temperatures(&self) -> Self {
+        let mut g = self.clone();
+        for c in &mut g.cells {
+            c.temperature = None;
+        }
+        g
+    }
+
     /// Locate the particle at global position `r` moving along `u`.
     ///
     /// Descends from the root universe: at each level it finds the containing
