@@ -60,6 +60,9 @@
 //!   (`polyDualMesh`).
 //! - [`dynamic_mesh`] — solid-body mesh motion and `meshPhi` (gh:#1380),
 //!   bit-identical to OpenFOAM.com v2506 on the ported motions.
+//! - [`particle_tracking`] — barycentric particle tracking on a static `polyMesh`
+//!   (`tetBasePtIs`, `locate`, `track`, `trackToFace`; gh:#1382), bit-identical to
+//!   OpenFOAM.com v2506 `Foam::particle` on a hex and a polyhedral mesh.
 //!
 //! Solver loops, turbulence models, and thermophysics do **not** belong here —
 //! they live in the solver crates and `outram-foam-basic-lib`.
