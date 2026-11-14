@@ -1139,6 +1139,10 @@ pub struct Multisphere {
     displace: Vec<[f64; 3]>,
     /// Per atom: volume weight (`volumeweight_ms`).
     volumeweight: Vec<f64>,
+    /// Per atom: marked for deletion by `check_lost_atoms` (`delflag`).
+    delflag: Vec<bool>,
+    /// `next_reneighbor` of the fix (a forced list rebuild step).
+    next_reneighbor: Option<u64>,
     dt: f64,
 }
 
@@ -1151,6 +1155,8 @@ impl Multisphere {
             body_of: Vec::new(),
             displace: Vec::new(),
             volumeweight: Vec::new(),
+            delflag: Vec::new(),
+            next_reneighbor: None,
             dt,
         }
     }
@@ -1359,6 +1365,164 @@ impl Multisphere {
             b.omega = angmom_to_omega(&b.angmom, &b.ex, &b.ey, &b.ez, &b.inertia);
         }
         self.set_v(particles);
+    }
+
+    /// `Multisphere::extract_ke`, the scalar of `compute ke/multisphere`: the
+    /// translational kinetic energy `1/2 sum M vcm^2` of the bodies `[J]`,
+    /// summed in local body order (`mvv2e = 1` in SI units).
+    #[must_use]
+    pub fn extract_ke(&self) -> f64 {
+        let mvv2e = 1.0;
+        let mut ke = 0.0;
+        for b in &self.bodies {
+            ke += b.mass * (b.vcm[0] * b.vcm[0] + b.vcm[1] * b.vcm[1] + b.vcm[2] * b.vcm[2]);
+        }
+        0.5 * mvv2e * ke
+    }
+
+    /// `Multisphere::extract_rke`, the scalar of `compute erotate/multisphere`:
+    /// `1/2 sum I wbody^2` `[J]`, with the body-frame angular velocity
+    /// `wbody = R(q)^T L / I` (0 on a zero principal moment).
+    #[must_use]
+    pub fn extract_rke(&self) -> f64 {
+        let mut rke = 0.0;
+        for b in &self.bodies {
+            let rot = quat_to_mat(&b.quat);
+            let m = &b.angmom;
+            // MathExtra::transpose_matvec(rot, angmom, wbody)
+            let mut wbody = [
+                rot[0][0] * m[0] + rot[1][0] * m[1] + rot[2][0] * m[2],
+                rot[0][1] * m[0] + rot[1][1] * m[1] + rot[2][1] * m[2],
+                rot[0][2] * m[0] + rot[1][2] * m[1] + rot[2][2] * m[2],
+            ];
+            for k in 0..3 {
+                if b.inertia[k] == 0.0 {
+                    wbody[k] = 0.0;
+                } else {
+                    wbody[k] /= b.inertia[k];
+                }
+            }
+            let i = &b.inertia;
+            rke += i[0] * wbody[0] * wbody[0] + i[1] * wbody[1] * wbody[1] + i[2] * wbody[2] * wbody[2];
+        }
+        0.5 * rke
+    }
+
+    /// Grow the per-atom arrays to `n` atoms (free atoms appended after the
+    /// last clump are not members).
+    fn pad_atoms(&mut self, n: usize) {
+        while self.body_of.len() < n {
+            self.body_of.push(None);
+            self.displace.push([0.0; 3]);
+            self.volumeweight.push(1.0);
+        }
+        while self.delflag.len() < n {
+            self.delflag.push(false);
+        }
+    }
+
+    /// `AtomVec::copy(nlocal-1, i, 1)` for this fix's per-atom data
+    /// (`FixMultisphere::copy_arrays`: `body_`, `displace_`; the
+    /// `property/atom`s `volumeweight_ms` and `delflag`): atom `i` of `n` is
+    /// removed and the last atom takes its slot, as the particle arrays'
+    /// `swap_remove` does (gh:#1415).
+    pub(crate) fn swap_remove_atom(&mut self, i: usize, n: usize) {
+        self.pad_atoms(n);
+        self.body_of.truncate(n);
+        self.displace.truncate(n);
+        self.volumeweight.truncate(n);
+        self.delflag.truncate(n);
+        self.body_of.swap_remove(i);
+        self.displace.swap_remove(i);
+        self.volumeweight.swap_remove(i);
+        self.delflag.swap_remove(i);
+    }
+
+    /// Whether atom `i` is marked for deletion (`delflag`).
+    pub(crate) fn delflag(&self, i: usize) -> bool {
+        self.delflag.get(i).copied().unwrap_or(false)
+    }
+
+    /// The step this fix asks the neighbour list to be rebuilt on
+    /// (`next_reneighbor`), if any.
+    #[must_use]
+    pub fn next_reneighbor(&self) -> Option<u64> {
+        self.next_reneighbor
+    }
+
+    /// The start of `FixMultisphere::pre_exchange`: `next_reneighbor = -1`.
+    /// The caller then deletes the atoms with [`Multisphere::delflag`] set.
+    pub(crate) fn pre_exchange_reset(&mut self) {
+        self.next_reneighbor = None;
+    }
+
+    /// `FixMultisphere::pre_neighbor` on one process: `delflag` is zeroed,
+    /// then `Multisphere::check_lost_atoms`. A body that has lost member atoms
+    /// (`nrigid_current != nrigid`) is deleted (`remove_body`, the last body
+    /// taking its slot), and its remaining atoms are freed: `body = -1`,
+    /// `delflag = 1`, `rmass *= volumeweight`. If any atom is marked, a
+    /// rebuild is requested at `step + 5` (the `existflag` merge cannot mark
+    /// more atoms on one process). Returns whether any atom was marked.
+    ///
+    /// # Panics
+    ///
+    /// If a body holds more atoms than it was built with ("Internal error in
+    /// multisphere method", upstream's `error->one`).
+    pub(crate) fn pre_neighbor(&mut self, particles: &mut [Particle], step: u64) -> bool {
+        let n = particles.len();
+        self.pad_atoms(n);
+        for d in self.delflag.iter_mut() {
+            *d = false;
+        }
+        let nbody = self.bodies.len();
+        let mut nrigid_current = vec![0usize; nbody];
+        for i in 0..n {
+            if let Some(ib) = self.body_of[i] {
+                nrigid_current[ib] += 1;
+            }
+        }
+        let mut del = vec![false; nbody];
+        for ib in 0..nbody {
+            assert!(
+                nrigid_current[ib] <= self.bodies[ib].nrigid,
+                "Internal error in multisphere method"
+            );
+            if nrigid_current[ib] != self.bodies[ib].nrigid {
+                del[ib] = true;
+            }
+        }
+        let mut deleted = false;
+        for i in 0..n {
+            let Some(ib) = self.body_of[i] else { continue };
+            if del[ib] {
+                self.delflag[i] = true;
+                self.body_of[i] = None;
+                deleted = true;
+                particles[i].mass *= self.volumeweight[i];
+            }
+        }
+        let mut ib = 0;
+        while ib < self.bodies.len() {
+            if del[ib] {
+                let last = self.bodies.len() - 1;
+                del[ib] = del[last];
+                del.pop();
+                self.bodies.swap_remove(ib);
+                if ib != last {
+                    for b in self.body_of.iter_mut() {
+                        if *b == Some(last) {
+                            *b = Some(ib);
+                        }
+                    }
+                }
+            } else {
+                ib += 1;
+            }
+        }
+        if deleted {
+            self.next_reneighbor = Some(step + 5);
+        }
+        deleted
     }
 }
 

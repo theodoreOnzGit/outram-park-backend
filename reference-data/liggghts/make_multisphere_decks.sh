@@ -88,3 +88,50 @@ thermo_modify	lost ignore norm no format float %.17g
 thermo		500
 EOF
 frames 1 2000 4000 6000 8000 10000 12000; } > in.ms_massflow
+# --- gh:#1415 second multisphere pass (2026-11-14) ---------------------------
+PTS1='fix		pts1 all particletemplate/multisphere 15485863 atom_type 1 density constant 2500 nspheres 3 ntry 100000 spheres 0. 0. 0. 0.004 0.005 0. 0.001 0.0035 0.002 0.004 -0.001 0.003 type 1'
+PTS2='fix		pts2 all particletemplate/multisphere 49979687 atom_type 2 density constant 1500 nspheres 4 ntry 100000 spheres 0. 0. 0. 0.003 0.004 0.001 0. 0.003 -0.003 0.003 0.002 0.0025 0.001 -0.002 0.004 0.002 type 2'
+COLLIDE_INS='fix		pdd1 all particledistribution/discrete 15485867 1 pts1 1.0
+fix		pdd2 all particledistribution/discrete 32452867 1 pts2 1.0
+region		ins1 block -0.035 -0.025 -0.004 0.004 0.06 0.068 units box
+region		ins2 block 0.025 0.035 -0.004 0.004 0.06 0.068 units box
+fix		ins1 all insert/pack seed 32452843 distributiontemplate pdd1 insert_every once overlapcheck yes vel constant 0.6 0. 0. omega constant 0. 4. 0. region ins1 particles_in_region 1
+fix		ins2 all insert/pack seed 86028121 distributiontemplate pdd2 insert_every once overlapcheck yes vel constant -0.6 0. 0. omega constant 2. 0. -3. orientation constant 0.5 0.5 -0.5 0.5 region ins2 particles_in_region 1
+fix		ms all multisphere'
+# ms_ke: in.ms_collide with `compute ke/multisphere` and `erotate/multisphere`
+# on every 250th thermo line (%.17g). Reference ms_ke_thermo.txt, the first
+# thermo line of each step:
+#   awk '$1 ~ /^[0-9]+$/ && NF==4 && !seen[$1]++' log.txt > ms_ke_thermo.txt
+{ header; echo "$PTS1"; echo "$PTS2"; echo "$COLLIDE_INS"; cat <<'EOF'
+compute		ke all ke/multisphere
+compute		er all erotate/multisphere
+thermo_style	custom step atoms c_ke c_er
+thermo_modify	lost ignore norm no format float %.17g
+thermo		250
+run		15000
+EOF
+} > in.ms_ke
+# ms_lost: a type 1 clump slides off the +x face of the `f f f` box.
+# Comm::exchange drops each member atom that leaves; FixMultisphere::pre_neighbor
+# (check_lost_atoms) then frees the clump's other atoms (body -1, rmass *=
+# volumeweight) and deletes the body; FixMultisphere::pre_exchange deletes the
+# freed atoms at the next re-neighbouring (forced within 5 steps). `fix
+# nve/sphere`, defined before fix multisphere, integrates the freed atoms, as
+# the Rust port does for every atom. A type 2 clump stays in the box. Thermo
+# every step (%.17g): ms_lost_thermo.txt, extracted as for ms_ke.
+{ header; echo "$PTS1"; echo "$PTS2"; cat <<'EOF'
+fix		pdd1 all particledistribution/discrete 15485867 1 pts1 1.0
+fix		pdd2 all particledistribution/discrete 32452867 1 pts2 1.0
+region		ins1 block 0.022 0.03 -0.004 0.004 0.008 0.016 units box
+region		ins2 block -0.02 -0.01 -0.004 0.004 0.01 0.02 units box
+fix		ins1 all insert/pack seed 32452843 distributiontemplate pdd1 insert_every once overlapcheck yes vel constant 0.6 0. 0. omega constant 0. 0. 0. region ins1 particles_in_region 1
+fix		ins2 all insert/pack seed 86028121 distributiontemplate pdd2 insert_every once overlapcheck yes vel constant 0. 0. 0. omega constant 0. 0. 0. region ins2 particles_in_region 1
+fix		integr all nve/sphere
+fix		ms all multisphere
+compute		ke all ke/multisphere
+compute		er all erotate/multisphere
+thermo_style	custom step atoms c_ke c_er
+thermo_modify	lost ignore norm no format float %.17g
+thermo		1
+EOF
+frames 1 1000 2000 3000 4000 5000 6000; } > in.ms_lost
