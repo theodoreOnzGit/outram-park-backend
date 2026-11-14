@@ -1,0 +1,149 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _615aae61d7-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : /home/user/upstream-build/gh1363/bin/solidDisplacementFoam
+Date   : Nov 14 2026
+Time   : 02:35:00
+Host   : vm
+PID    : 5026
+I/O    : uncollated
+Case   : /home/user/upstream-build/gh1383/run_mech
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+Reading mechanical properties
+
+Normalising E : E/rho
+
+Calculating Lame's coefficients
+
+Plane Strain
+
+Reading thermal properties
+
+Reading field D
+
+Calculating stress field sigmaD
+
+Calculating explicit part of div(sigma) divSigmaExp
+
+
+Calculating displacement field
+
+Iteration: 1000
+
+DICPCG:  Solving for Dx, Initial residual = 1, Final residual = 2.7704190337752706e-13, No Iterations 15
+DICPCG:  Solving for Dy, Initial residual = 1, Final residual = 2.7704221112592554e-13, No Iterations 15
+DICPCG:  Solving for Dz, Initial residual = 1, Final residual = 2.7704194809756018e-13, No Iterations 15
+DICPCG:  Solving for Dx, Initial residual = 0.15017711047494273, Final residual = 6.8005351131683751e-13, No Iterations 14
+DICPCG:  Solving for Dy, Initial residual = 0.42188514498291296, Final residual = 1.4721339610113556e-13, No Iterations 15
+DICPCG:  Solving for Dz, Initial residual = 0.42188514498292468, Final residual = 1.4721339957373216e-13, No Iterations 15
+DICPCG:  Solving for Dx, Initial residual = 6.0444392963457962e-13, Final residual = 6.0444392963457962e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.10233669045145127, Final residual = 4.182040576532755e-13, No Iterations 14
+DICPCG:  Solving for Dz, Initial residual = 0.10233669045152048, Final residual = 4.1820404986410675e-13, No Iterations 14
+DICPCG:  Solving for Dx, Initial residual = 6.0062397444982462e-13, Final residual = 6.0062397444982462e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.056647889745433999, Final residual = 2.0312329399907591e-13, No Iterations 14
+DICPCG:  Solving for Dz, Initial residual = 0.05664788974540122, Final residual = 2.0312329642778799e-13, No Iterations 14
+Max sigmaEq = 29111314.000603534
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 2000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9979432120147312e-13, Final residual = 5.9979432120147312e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.03264792804096163, Final residual = 1.0386570328334228e-13, No Iterations 14
+DICPCG:  Solving for Dz, Initial residual = 0.032647928040931501, Final residual = 1.0386570873031571e-13, No Iterations 14
+DICPCG:  Solving for Dx, Initial residual = 5.9944867257427678e-13, Final residual = 5.9944867257427678e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.021673992801035942, Final residual = 8.4812466044973389e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.021673992800990475, Final residual = 8.4812466019710695e-13, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 6.0012613912380884e-13, Final residual = 6.0012613912380884e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.014504931525805821, Final residual = 5.1166406578604636e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.014504931525764082, Final residual = 5.1166406623058616e-13, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 5.9967721761730776e-13, Final residual = 5.9967721761730776e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.010076175701706764, Final residual = 3.2058704439254098e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.010076175701675179, Final residual = 3.2058704395323108e-13, No Iterations 13
+Max sigmaEq = 26585857.314650204
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 3000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9923972738368746e-13, Final residual = 5.9923972738368746e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0070227907320742347, Final residual = 2.0673870584086462e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.0070227907320650727, Final residual = 2.0673870657111435e-13, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 5.9899002874432035e-13, Final residual = 5.9899002874432035e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0049535709882735377, Final residual = 1.3632636910128012e-13, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.00495357098827281, Final residual = 1.3632637000206989e-13, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 5.988736517767221e-13, Final residual = 5.988736517767221e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0034958657456180178, Final residual = 9.1096322786742231e-14, No Iterations 13
+DICPCG:  Solving for Dz, Initial residual = 0.0034958657456222284, Final residual = 9.1096322364732671e-14, No Iterations 13
+DICPCG:  Solving for Dx, Initial residual = 5.9885390435474863e-13, Final residual = 5.9885390435474863e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0024848193284029018, Final residual = 9.9454707776805831e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.0024848193284137824, Final residual = 9.9454707952905636e-13, No Iterations 12
+Max sigmaEq = 26216203.195313949
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 4000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9772282063530376e-13, Final residual = 5.9772282063530376e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0017695787385264476, Final residual = 6.7574050157450598e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.0017695787385564679, Final residual = 6.7574050404826553e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9710616703998167e-13, Final residual = 5.9710616703998167e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.0012614002105877182, Final residual = 4.6250117647085746e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.0012614002106082014, Final residual = 4.6250117565063296e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9721842227064866e-13, Final residual = 5.9721842227064866e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00089973332745998122, Final residual = 3.1851922811282877e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.00089973332747166209, Final residual = 3.1851922740454593e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9755944504180299e-13, Final residual = 5.9755944504180299e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00064204394354305328, Final residual = 2.2006243357548176e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.00064204394354883652, Final residual = 2.2006243329631755e-13, No Iterations 12
+Max sigmaEq = 26140774.946707856
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 5000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9783714367744113e-13, Final residual = 5.9783714367744113e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00045829597920482687, Final residual = 1.5277232969871109e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.00045829597920701311, Final residual = 1.5277232960435163e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9807690849287907e-13, Final residual = 5.9807690849287907e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00032720276964930004, Final residual = 1.0627520500399145e-13, No Iterations 12
+DICPCG:  Solving for Dz, Initial residual = 0.0003272027696493955, Final residual = 1.062752051351471e-13, No Iterations 12
+DICPCG:  Solving for Dx, Initial residual = 5.9829486625879074e-13, Final residual = 5.9829486625879074e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00023364132502417723, Final residual = 8.1489389344713557e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 0.00023364132502325647, Final residual = 8.1489389306686352e-13, No Iterations 11
+DICPCG:  Solving for Dx, Initial residual = 5.9568460602313125e-13, Final residual = 5.9568460602313125e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00016684953232336483, Final residual = 5.6771211483418062e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 0.00016684953236254784, Final residual = 5.6771211492024355e-13, No Iterations 11
+Max sigmaEq = 26123135.902886864
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+Iteration: 6000
+
+DICPCG:  Solving for Dx, Initial residual = 5.9623144837341961e-13, Final residual = 5.9623144837341961e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 0.00011915981467801026, Final residual = 3.9617904377743629e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 0.00011915981471805904, Final residual = 3.9617904401603625e-13, No Iterations 11
+DICPCG:  Solving for Dx, Initial residual = 5.9694365144521041e-13, Final residual = 5.9694365144521041e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 8.510499950172374e-05, Final residual = 2.7696708522041606e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 8.5104999525170303e-05, Final residual = 2.7696708562089451e-13, No Iterations 11
+DICPCG:  Solving for Dx, Initial residual = 5.9753450149466251e-13, Final residual = 5.9753450149466251e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 6.0784731063900293e-05, Final residual = 1.941853368768235e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 6.0784731070554964e-05, Final residual = 1.9418533694465135e-13, No Iterations 11
+DICPCG:  Solving for Dx, Initial residual = 5.9797277742670791e-13, Final residual = 5.9797277742670791e-13, No Iterations 0
+DICPCG:  Solving for Dy, Initial residual = 4.3415396344828468e-05, Final residual = 1.3635748982039982e-13, No Iterations 11
+DICPCG:  Solving for Dz, Initial residual = 4.3415396339909999e-05, Final residual = 1.3635748977310558e-13, No Iterations 11
+Max sigmaEq = 26118814.698478196
+ExecutionTime = 0.01 s  ClockTime = 0 s
+
+End
+

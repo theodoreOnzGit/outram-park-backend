@@ -375,6 +375,13 @@ stage_solvers() {
   run_stage solver-pimpleFoam     scratch_solver_impl pimpleFoam incompressible/pimpleFoam
 }
 
+# --- stress (gh:#1383) ----------------------------------------------------------
+# ESI's real solidDisplacementFoam (stressAnalysis; needs only finiteVolume and
+# meshTools, built in `core`), with its tractionDisplacement boundary condition.
+stage_stress() {
+  run_stage solver-solidDisplacementFoam scratch_solver_impl solidDisplacementFoam stressAnalysis/solidDisplacementFoam
+}
+
 # --- twophase (gh:#1363 row 5) --------------------------------------------------
 # ESI's legacy twoPhaseEulerFoam and ONLY the two libraries it needs
 # (compressibleTwoPhaseSystem 67 files, phaseCompressibleTurbulenceModels 25
@@ -630,6 +637,7 @@ for s in "$@"; do
     closure)      load_env; stage_closure ;;
     meshing)      load_env; stage_meshing ;;
     solvers)      load_env; stage_solvers ;;
+    stress)       load_env; stage_stress ;;
     twophase)     load_env; stage_twophase ;;
     radiation)    load_env; stage_radiation ;;
     viewfactors)  load_env; stage_viewfactors ;;
