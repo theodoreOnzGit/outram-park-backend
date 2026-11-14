@@ -104,6 +104,8 @@ pub mod symmtd;
 #[allow(missing_docs)]
 pub mod square_matrix;
 pub mod tridiag;
+/// Symmetric cyclic tridiagonal solver, GSL `tridiag.c` (gh:#1341).
+pub mod tridiag_cyc;
 
 pub use blas1::{asum, axpy, dot, iamax, nrm2, scal, swap};
 pub use cholesky::Cholesky;
@@ -119,4 +121,5 @@ pub use matrix::Matrix;
 pub use octave::Norm;
 pub use qr::{LeastSquares, QrDecomposition};
 pub use tridiag::solve_symm_tridiag;
+pub use tridiag_cyc::{solve_symm_cyc_tridiag, solve_symm_cyc_tridiag_with_status};
 pub use square_matrix::{MatrixError, SquareMatrix};

@@ -37,4 +37,6 @@ pub mod fvc;
 /// Usage mirrors `Foam::fvm::` from `src/finiteVolume/finiteVolume/fvm/`.
 pub mod fvm;
 
+pub mod les_filter;
+
 pub use adjust_phi::adjust_phi;
