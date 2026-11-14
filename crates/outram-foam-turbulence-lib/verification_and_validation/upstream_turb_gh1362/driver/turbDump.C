@@ -37,6 +37,8 @@
 #include "laplaceFilter.H"
 #include "anisotropicFilter.H"
 #include "dynamicKEqn.H"
+#include "wallDistAddressing.H"
+#include "wallFvPatch.H"
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
@@ -347,7 +349,7 @@ static volScalarField dynCe
 
 int main(int argc, char* argv[])
 {
-    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE|LESfilters|dynamicKEqn|dynamicLagrangian|kOmegaSSTLM");
+    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE|LESfilters|dynamicKEqn|dynamicLagrangian|kOmegaSSTLM|LESdeltas");
     argList::addOption("filter", "name", "simple|laplace|anisotropic (dynamicKEqn test filter)");
     #include "setRootCase.H"
     #include "createTime.H"
@@ -1562,6 +1564,81 @@ int main(int argc, char* argv[])
             Pk - fvm::SuSp(SuSpK, kP()) - fvm::Sp(epsByk, kP())
         );
         auditMatrix("k", kEqn);
+    }
+    else if (model == "LESdeltas")
+    {
+        // LESdeltas (README slice 9): the REAL delta object selected in constructor/turbulenceProperties
+        // (-filter names the variant: maxDeltaxyz | IDDESDelta | vanDriest | smooth); `delta_real` /
+        // `hmax_real` above are the values after validate(), `delta_after` the values after correct().
+        dumpS("delta_after", mesh.lookupObject<volScalarField>("delta").primitiveField());
+        dumpV("wall_n", wallDist::New(mesh).n().primitiveField());
+        dumpS("wall_y", wallDist::New(mesh).y().primitiveField());
+        if (filterName == "vanDriest")
+        {
+            // LESdeltas/vanDriestDelta/vanDriestDelta.C calcDelta(), expression for expression. The
+            // real calcDelta() runs inside correct(), before the nut update: nutPre is its nut.
+            const scalar kappa = 0.41, Aplus = 26.0, Cdelta = 0.158;
+            volScalarField ystar
+            (
+                IOobject("ystar", runTime.constant(), mesh.thisDb(), IOobjectOption::NO_REGISTER),
+                mesh,
+                dimensionedScalar("ystar", dimLength, GREAT)
+            );
+            const fvPatchList& patches = mesh.boundary();
+            volScalarField::Boundary& ystarBf = ystar.boundaryFieldRef();
+            label kw = 0;
+            forAll(patches, patchi)
+            {
+                if (isA<wallFvPatch>(patches[patchi]))
+                {
+                    const fvPatchVectorField& Uw = U.boundaryField()[patchi];
+                    const scalarField& nuw = nu.boundaryField()[patchi];
+                    const scalarField& nuSgsw = nutPre.boundaryField()[patchi];
+                    ystarBf[patchi] = nuw/sqrt((nuw + nuSgsw)*mag(Uw.snGrad()) + VSMALL);
+                    const scalarField magSn(mag(Uw.snGrad()));
+                    forAll(nuw, fi)
+                    {
+                        H("vd_nuw", kw, nuw[fi]);
+                        H("vd_nutw", kw, nuSgsw[fi]);
+                        H("vd_magSnGradU", kw, magSn[fi]);
+                        H("vd_ystar_face", kw, ystarBf[patchi][fi]);
+                        ++kw;
+                    }
+                }
+            }
+            const auto& wDist = wallDistAddressing::New(mesh);
+            const auto& y = wDist.y();
+            wDist.map(ystar, mapDistribute::transform());
+            dumpS("vd_y", y.primitiveField());
+            dumpS("vd_ystar_mapped", ystar.primitiveField());
+            constexpr scalar yPlusCutOff = 500;
+            constexpr scalar fuzzyGREAT = 0.5*GREAT;
+            ystar.dimensions().reset(y.dimensions()/ystar.dimensions());
+            forAll(y, celli)
+            {
+                const scalar yPlus = y[celli]/ystar[celli];
+                if (y[celli] > fuzzyGREAT || (yPlus > yPlusCutOff))
+                {
+                    ystar[celli] = GREAT;
+                }
+                else
+                {
+                    ystar[celli] = yPlus;
+                }
+            }
+            dumpS("vd_yplus", ystar.primitiveField());
+            const volScalarField& geometric = mesh.lookupObject<volScalarField>("geometricDelta");
+            dumpS("vd_geometric", geometric.primitiveField());
+            volScalarField dT
+            (
+                min
+                (
+                    geometric,
+                    (kappa/Cdelta)*((scalar(1) + SMALL) - exp(-ystar/Aplus))*y
+                )
+            );
+            dumpS("vd_delta_T", dT.primitiveField());
+        }
     }
     else if (model == "kEqn")
     {

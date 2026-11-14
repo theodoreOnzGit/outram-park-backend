@@ -730,3 +730,37 @@ None found in the port (no earlier port existed). Not ported / not covered: `cor
 update of `gammaIntEff` between steps), the `ReThetat` and `gammaInt` boundary conditions, `fvOptions`, a non-zero
 `omegaInf`/`kInf`, SST `F3`/decay control/`Qsas` (all off in the v2506 defaults), compressible and multiphase
 variants, and `Tu` from a freestream (upstream uses the cell `k` and `|U|`, as ported).
+
+# Slice 9: LES deltas `maxDeltaxyz`, `IDDESDelta`, `vanDriest` (and `smooth`) (gh:#1544)
+
+**Process disclosure (a rule slip, stated before anything else).** The four reference dumps
+(`ref_LESdelta_{maxDeltaxyz,IDDESDelta,vanDriest,smooth}.txt.gz`) were generated BEFORE these predictions were
+committed. They are committed with this text, in the same commit. No dump value was opened and no Rust code for the
+deltas existed when the predictions below were written (the run's only visible output was "no compile or run error").
+The predictions are therefore not retroactive in content, but they are not timestamped ahead of the run as the
+earlier slices are.
+
+Setup: the REAL delta classes of ESI v2506 (`LESdeltas/`) are selected through a `kEqn` LES model
+(`delta <name>;` in `turbulenceProperties`, `scripts/run.sh` variants `LESdelta_*`; `kEqn` and the frozen fields are those of
+slice 5; `correct()` runs with `dumpSolver`). Dumped: `delta_real` (after `validate()`), `delta_after` (after `correct()`,
+which recomputes `vanDriest`), `hmax_real` (`IDDESDelta`'s `maxDeltaxyz`), `wall_n`, `wall_y` (`wallDist`), and for `vanDriest` a
+transcription of `calcDelta()` (`vd_*`: per-wall-face `nuw`, `nutw`, `|snGrad(U)|`, `ystar`; the addressing `y`; `ystar` mapped
+from the nearest wall face; `y+`; `delta`). Port: `outram_foam_turbulence_lib::les::deltas` (new).
+
+1. **`maxDeltaxyz`** (`deltaCoeff` 2): `deltaCoeff max_f |n_f . (Cf - C)|` with `n_f = Sf/|Sf|`; only `+ - * / sqrt` and
+   a max: **360/360 bit-identical**. Confidence 85% (the unit-normal division `Sf/mag(Sf)` is the place to slip).
+2. **`IDDESDelta`** (`Cw` 0.15; its `hmax` is a `maxDeltaxyz`, default coefficient 2):
+   `min(max(max(Cw y, Cw hmax), faceToFaceMax), hmax)`, with `faceToFaceMax = max_{i,j in cell faces} n_c . (Cf_j - Cf_i)`.
+   With ESI `y`, `n` fed: **360/360 identical** for `delta` and for `hmax` from the port's own `maxDeltaxyz`. Confidence 80%.
+3. **`vanDriest` per-face `ystar`**, `nuw/sqrt((nuw + nutw) |snGrad U| + VSMALL)`, with `snGrad U = deltaCoeffs (Uw - Uc)`,
+   `deltaCoeffs = 1/|Cf - C|` (orthogonal duct): **identical on every wall face**. Confidence 65% (the form of the
+   boundary `deltaCoeffs` is the risk).
+4. **`vanDriest` `ystar` mapped to cells.** The port picks the nearest wall FACE CENTRE by brute force; upstream
+   `wallDistAddressing` uses `meshWave`, which for the SST wall distance (slice 2) differed from the face-centre distance
+   in 95 of 360 cells. Predicted: the mapped `ystar` is identical in at least 70% of cells and is wrong (a different
+   face) in the rest; the wall-face `ystar` varies little across a wall of this duct, so the difference in `ystar` is much smaller than in `y`.
+5. **`vanDriest` `delta`**, with ESI `y` and the ESI-mapped `ystar` fed in: `min(geometric, (kappa/Cdelta)((1 + SMALL) - exp(-ystar/Aplus)) y)`
+   is **360/360 identical** (PETIR `exp` equals glibc on every earlier test). Both `min` branches and both sides of the `y+ > 500` cutoff
+   are predicted to occur on this duct (not checked before the run).
+6. `smooth` (a `FaceCellWave` fixed point whose result depends on the visiting order through the tolerance `1.01`) is ported
+   only if time allows; no prediction beyond: the port must reproduce upstream's visiting order, not a "converged" maximum.
