@@ -1069,7 +1069,7 @@ pub fn esi_check_face_pyramids(
 }
 
 /// `polyMeshTetDecomposition::minQuality(mesh, cC, fI, isOwner, faceBasePtI)`.
-fn esi_tet_decomposition_min_quality(
+pub(crate) fn esi_tet_decomposition_min_quality(
     mesh: &SnapMesh,
     c_c: [f64; 3],
     f: usize,

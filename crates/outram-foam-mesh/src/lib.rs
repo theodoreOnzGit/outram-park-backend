@@ -90,6 +90,7 @@ pub mod check_mesh;
 pub mod decompose;
 pub mod dynamic_mesh;
 pub mod mesh_quality;
+pub mod particle_tracking;
 pub mod poly_dual_mesh;
 pub mod poly_dual_mesh_upstream;
 pub mod snappy_hex_mesh;

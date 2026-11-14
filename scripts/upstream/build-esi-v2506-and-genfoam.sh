@@ -17,7 +17,9 @@
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
 #   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers twophase
-#           radiation viewfactors utilities fetch-genfoam genfoam fetch-cfmesh cfmesh polydual decompose verify
+#           radiation viewfactors utilities lagrangian fetch-genfoam genfoam fetch-cfmesh cfmesh polydual decompose verify
+#           (lagrangian, gh:#1382: liblagrangian = src/lagrangian/basic, and the trackParticles
+#           probe of the outram-foam-mesh particle_tracking_gh1382 V&V dir)
 #           (decompose, gh:#1381: faDecompose, faReconstruct, decomposePar, reconstructPar;
 #           scotch/metis/kahip are NOT available (no headers/libs), linked as empty dummies)
 #           (radiation, gh:#1379: libradiationModels, built by `closure` as well, plus
@@ -461,6 +463,25 @@ stage_dynmesh() {
   wm_app utilities/mesh/manipulation/moveDynamicMesh moveDynamicMesh
 }
 
+# --- stage: Lagrangian particle tracking (gh:#1382) -----------------------------
+# liblagrangian (src/lagrangian/basic: particle, Cloud, passiveParticle) links meshTools only.
+# The probe trackParticles (outram-foam-mesh V&V dir) calls Foam::particle and prints its
+# state at %.17g; it is built from a scratch copy into $FOAM_USER_APPBIN.
+LAGV=$REPO/crates/outram-foam-mesh/verification_and_validation/particle_tracking_gh1382
+lagr_probe_impl() {
+  local w=$ROOT/gh1382/src
+  rm -rf "$w"; mkdir -p "$w"; cp -r "$LAGV/trackParticles/." "$w/"
+  cd "$w"
+  wmake -j"$N" .
+  [ -x "$FOAM_USER_APPBIN/trackParticles" ]
+  ls -l "$FOAM_USER_APPBIN/trackParticles"
+}
+stage_lagrangian() {
+  ( cd "$OF/src/lagrangian/basic" && wmakeLnInclude -u . ) >>"$LOGS/lagrangian.log" 2>&1
+  wm_lib lagrangian/basic
+  run_stage app-trackParticles lagr_probe_impl
+}
+
 # --- GeN-Foam -----------------------------------------------------------------
 gf_fetch_impl() {
   if [ "$(git -C "$GF" rev-parse HEAD 2>/dev/null)" = "$GF_SHA" ]; then echo "GeN-Foam already at $GF_SHA"; return 0; fi
@@ -683,6 +704,7 @@ for s in "$@"; do
     viewfactors)  load_env; stage_viewfactors ;;
     utilities)    load_env; stage_utilities ;;
     dynmesh)      load_env; stage_dynmesh ;;
+    lagrangian)   load_env; stage_lagrangian ;;
     fetch-genfoam) stage_fetch_genfoam ;;
     genfoam)      load_env; stage_genfoam ;;
     fetch-cfmesh) stage_fetch_cfmesh ;;
