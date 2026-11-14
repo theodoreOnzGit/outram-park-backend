@@ -391,6 +391,16 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     };
     let mut fehi = card8a.map_or(0.0, |p| p.fehi_ev);
     let mut ninwt_file = crate::groupr::flux_table::NinwtFile::default();
+    // `iwt = 0` (card 8d): `getfwt` reads the `ninwt` file a flux calculation wrote.
+    let mut fwt = match &inp.weight {
+        crate::groupr::WeightSelection::ReadResonanceFlux { ninwt } if sigz.len() > 1 => {
+            let b = units
+                .bytes_or_file(*ninwt)
+                .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: ninwt unit {ninwt} holds no file")))?;
+            Some(crate::groupr::flux_table::FwtReader::from_bytes(&b)?)
+        }
+        _ => None,
+    };
     for itemp in 0..inp.temperatures.len() {
     let tempin = inp.temperatures[itemp];
     // `jtemp = itemp` (`:497`): `getwtf` reads `temp(jtemp)` for `iwt = 7, 10, 12`.
@@ -417,7 +427,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 tempin,
                 &mut ninwt_file,
             )?,
-            None => crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?,
+            None => match fwt.as_mut() {
+                Some(f) => crate::groupr::flux_table::genflx_fwt(&pend, inp.matb, inp.lord, &sigz, egn[0], unr.as_deref(), f, tempin, itemp + 1)?,
+                None => crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?,
+            },
         };
         crate::groupr::njoy_panel::FluxSource::Table(crate::groupr::flux_table::FluxCursor::new(std::sync::Arc::new(t)))
     } else {

@@ -31,7 +31,7 @@
 //! Bondarenko branch with card 8a's `sigpot` (`nflmax = 0`), and the
 //! slowing-down branch (`nflmax > 0`, solved by
 //! [`crate::groupr::slowing_down::solve_flux`]) with its `ninwt` file. `iwt = 0`
-//! (`getfwt`, the flux read back from `ninwt`) is still refused by name.
+//! is [`genflx_fwt`]: `getfwt` ([`FwtReader`]) reads that file back.
 
 use crate::endf::gety1::Gety1;
 use crate::endf::interp::{terp1, IntLaw};
@@ -118,7 +118,7 @@ pub struct FluxTable {
 /// [`NjoyError::InvalidInput`] when MT=1 is missing or starts above `egn1`.
 pub fn genflx(block: &Tape, mat: i32, iwt: i32, lord: i32, sigz: &[f64], egn1: f64, unr: Option<&UnresolvedTable>) -> Result<FluxTable, NjoyError> {
     if iwt <= 0 {
-        return Err(NjoyError::NotPorted("groupr genflx with iwt = 0 (getfwt)"));
+        return Err(NjoyError::NotPorted("groupr genflx with iwt <= 0 here: use genflx_card8a or genflx_fwt"));
     }
     let nl = table_nl(lord, sigz.len());
     let (mut g, _awr) = mt1_reader(block, mat)?;
@@ -128,8 +128,187 @@ pub fn genflx(block: &Tape, mat: i32, iwt: i32, lord: i32, sigz: &[f64], egn1: f
     }
     crate::groupr::njoy_panel::getwtf(iwt, 0.0)?;
     let mut rows = Vec::new();
-    complete_nr(&mut rows, &mut g, enext, iwt, nl, sigz, 0.0, unr, None, 0.0)?;
+    complete_nr(&mut rows, &mut g, enext, iwt, nl, sigz, 0.0, unr, None, 0.0, None)?;
     Ok(FluxTable { nl, rows })
+}
+
+/// `genflx`'s Bondarenko branch for `iwt = 0` (`:5380-5395`, `:5622-5677`): the
+/// weight and `xc` come from `getfwt` on `fwt` (the `ninwt` file a flux
+/// calculation wrote), and each sigma-zero's factor is `sigz*xc/(sigz*xc+tt)`.
+/// `temp` is `temp(jtemp)`, `jtemp` 1-based.
+///
+/// # Errors
+/// As [`genflx`], and those of [`FwtReader`].
+#[allow(clippy::too_many_arguments)]
+pub fn genflx_fwt(
+    block: &Tape,
+    mat: i32,
+    lord: i32,
+    sigz: &[f64],
+    egn1: f64,
+    unr: Option<&UnresolvedTable>,
+    fwt: &mut FwtReader,
+    temp: f64,
+    jtemp: usize,
+) -> Result<FluxTable, NjoyError> {
+    let nl = table_nl(lord, sigz.len());
+    let (mut g, _awr) = mt1_reader(block, mat)?;
+    let enext = g.get(0.0).xnext;
+    if enext > 1.001 * egn1 {
+        return Err(NjoyError::InvalidInput("genflx: total not defined over energy range.".into()));
+    }
+    fwt.init(temp, jtemp)?;
+    let mut rows = Vec::new();
+    complete_nr(&mut rows, &mut g, enext, 0, nl, sigz, 0.0, unr, None, 0.0, Some(fwt))?;
+    Ok(FluxTable { nl, rows })
+}
+
+/// `getfwt` (`groupr.f90:5686-5775`): the weight function and `xc` read back
+/// from the `ninwt` file, with its `save`d `el, en, wl, wn, xl, xn` and the
+/// file position, which persists from one temperature to the next.
+#[derive(Debug, Clone)]
+pub struct FwtReader {
+    recs: Vec<Vec<f64>>,
+    pos: usize,
+    el: f64,
+    en: f64,
+    wl: f64,
+    wn: f64,
+    xl: f64,
+    xn: f64,
+    templ: f64,
+}
+
+impl FwtReader {
+    /// The records of a Fortran unformatted file of 8-byte reals.
+    ///
+    /// # Errors
+    /// A record whose length words disagree, or are not a multiple of 8.
+    pub fn from_bytes(b: &[u8]) -> Result<Self, NjoyError> {
+        let bad = || NjoyError::InvalidInput("getfwt: ninwt is not a file of real records".into());
+        let mut recs = Vec::new();
+        let mut i = 0;
+        while i < b.len() {
+            let n = u32::from_le_bytes(b.get(i..i + 4).ok_or_else(bad)?.try_into().map_err(|_| bad())?) as usize;
+            let body = b.get(i + 4..i + 4 + n).ok_or_else(bad)?;
+            let tail = b.get(i + 4 + n..i + 8 + n).ok_or_else(bad)?;
+            if n % 8 != 0 || u32::from_le_bytes(tail.try_into().map_err(|_| bad())?) as usize != n {
+                return Err(bad());
+            }
+            recs.push(body.chunks(8).map(|c| f64::from_le_bytes(c.try_into().unwrap_or([0; 8]))).collect());
+            i += n + 8;
+        }
+        Ok(Self { recs, pos: 0, el: 0.0, en: 0.0, wl: 0.0, wn: 0.0, xl: 0.0, xn: 0.0, templ: 1.0e10 })
+    }
+
+    /// `read(ninwt)` of `n` words; `None` at the end of the file. A record
+    /// shorter than `n` is upstream's runtime stop, refused by name.
+    fn read(&mut self, n: usize) -> Result<Option<Vec<f64>>, NjoyError> {
+        let Some(r) = self.recs.get(self.pos) else { return Ok(None) };
+        if r.len() < n {
+            return Err(NjoyError::InvalidInput("getfwt: ninwt record shorter than the read (Fortran runtime stop)".into()));
+        }
+        self.pos += 1;
+        Ok(Some(r[..n].to_vec()))
+    }
+
+    /// `getfwt(0, ...)` (`:5706-5734`): position on the block of `temp`.
+    ///
+    /// # Errors
+    /// `getfwt`'s "temperature" stop when the file has no block for `temp`.
+    pub fn init(&mut self, temp: f64, jtemp: usize) -> Result<(), NjoyError> {
+        const EPS: f64 = 1.0e-6;
+        if jtemp == 1 || temp < self.templ {
+            self.pos = 0;
+        }
+        self.el = 0.0;
+        self.wl = 0.0;
+        self.xl = 0.0;
+        self.en = 0.0;
+        self.wn = 0.0;
+        self.xn = 0.0;
+        let missing = || NjoyError::InvalidInput(format!("getfwt: temperature {temp:.4e}"));
+        let mut skip_first = jtemp != 1;
+        loop {
+            if skip_first {
+                // `:5713-5716`: the record at the position is a flag or a temperature.
+                skip_first = false;
+                let flag = self.read(1)?.ok_or_else(missing)?[0];
+                if flag >= 0.0 {
+                    if (temp - flag).abs() <= EPS {
+                        self.templ = flag;
+                        return Ok(());
+                    }
+                    self.skip_block()?;
+                }
+            }
+            // `110`: read a temperature.
+            let tempn = self.read(1)?.ok_or_else(missing)?[0];
+            if (tempn - temp).abs() <= EPS {
+                self.templ = tempn;
+                return Ok(());
+            }
+            self.skip_block()?;
+        }
+    }
+
+    /// `130`: read records until a negative flag.
+    fn skip_block(&mut self) -> Result<(), NjoyError> {
+        loop {
+            let flag = self.read(1)?.ok_or_else(|| NjoyError::InvalidInput("getfwt: temperature not on ninwt".into()))?[0];
+            if flag < 0.0 {
+                return Ok(());
+            }
+        }
+    }
+
+    /// `getfwt(e > 0)` (`:5736-5773`): `(w, xc, enext)`.
+    ///
+    /// # Errors
+    /// `getfwt`'s stops: "requested e is out of order", "e outside range of
+    /// data".
+    pub fn get(&mut self, e: f64) -> Result<(f64, f64, f64), NjoyError> {
+        const SMALL: f64 = 1.0e-10;
+        const EMAX: f64 = 1.0e10;
+        if (e - self.el).abs() < self.el * SMALL && self.en < 0.0 {
+            return Ok((self.wl, self.xl, self.en));
+        }
+        let mut exact = (e - self.en).abs() < self.en * SMALL;
+        let mut inside = !exact && e > self.el * (1.0 - SMALL) && e < self.en * (1.0 + SMALL);
+        if !exact && !inside {
+            if e < self.el * (1.0 - SMALL) {
+                return Err(NjoyError::InvalidInput("getfwt: requested e is out of order".into()));
+            }
+            loop {
+                self.el = self.en;
+                self.wl = self.wn;
+                self.xl = self.xn;
+                let r = self.read(3)?.ok_or_else(|| NjoyError::InvalidInput("getfwt: e outside range of data".into()))?;
+                (self.en, self.wn, self.xn) = (r[0], r[1], r[2]);
+                exact = (e - self.en).abs() < self.en * SMALL;
+                if exact {
+                    break;
+                }
+                inside = e > self.el * (1.0 - SMALL) && e < self.en * (1.0 + SMALL);
+                if inside {
+                    break;
+                }
+            }
+        }
+        if inside && !exact {
+            let w = terp1(self.el, self.wl, self.en, self.wn, e, IntLaw::LinLin)?;
+            let xc = terp1(self.el, self.xl, self.en, self.xn, e, IntLaw::LinLin)?;
+            return Ok((w, xc, self.en));
+        }
+        // `240`: an exact match; the next record is read, and `enext = emax`.
+        let (w, xc) = (self.wn, self.xn);
+        self.el = self.en;
+        self.wl = self.wn;
+        self.xl = self.xn;
+        let r = self.read(3)?.ok_or_else(|| NjoyError::InvalidInput("getfwt: end of ninwt after an exact match (Fortran runtime stop)".into()))?;
+        (self.en, self.wn, self.xn) = (r[0], r[1], r[2]);
+        Ok((w, xc, EMAX))
+    }
 }
 
 /// `nl` of `genflx`'s table: `lord + 1`, and 2 when that is 1 with `nsigz > 1`
@@ -185,6 +364,7 @@ fn complete_nr(
     unr: Option<&UnresolvedTable>,
     mut ninwt: Option<&mut NinwtFile>,
     xc: f64,
+    mut fwt: Option<&mut FwtReader>,
 ) -> Result<(), NjoyError> {
     const DN: f64 = 0.999;
     const ETOP: f64 = 1.0e10;
@@ -192,7 +372,17 @@ fn complete_nr(
     let nfv = 1 + nl * nsigz + 1;
     loop {
         let e = enext;
-        let (wtf, en_w, _) = crate::groupr::njoy_panel::getwtf(iwt, e)?;
+        // `:5626-5627`: `getwtf` for `iwt /= 0`, `getfwt` (with its `xc`) for 0.
+        let (wtf, en_w, xc_e) = match fwt.as_mut() {
+            Some(f) => {
+                let (w, xc_f, en) = f.get(e)?;
+                (w, en, xc_f)
+            }
+            None => {
+                let (w, en, _) = crate::groupr::njoy_panel::getwtf(iwt, e)?;
+                (w, en, xc)
+            }
+        };
         enext = en_w;
         let v = g.get(e);
         let en = v.xnext;
@@ -214,7 +404,11 @@ fn complete_nr(
                 enext = en;
             }
             for iz in 0..nsigz {
-                let fac = (sigpot + sigz[iz]) / (tot[iz] + sigz[iz]);
+                let fac = if fwt.is_some() {
+                    sigz[iz] * xc_e / (sigz[iz] * xc_e + tot[iz])
+                } else {
+                    (sigpot + sigz[iz]) / (tot[iz] + sigz[iz])
+                };
                 let l = il + nl * iz; // `1+il+nl*(iz-1)`, 0-based
                 fout[l] = if il == 1 { wtf * fac } else { fout[l - 1] * fac };
             }
@@ -287,7 +481,7 @@ pub fn genflx_card8a(
         }
         crate::groupr::njoy_panel::getwtf(iwt, 0.0)?;
         let mut rows = Vec::new();
-        complete_nr(&mut rows, &mut g, enext, iwt, nl, sigz, p.sigpot_barns, unr, None, 0.0)?;
+        complete_nr(&mut rows, &mut g, enext, iwt, nl, sigz, p.sigpot_barns, unr, None, 0.0, None)?;
         return Ok(FluxTable { nl, rows });
     }
     // `:5396-5416`.
@@ -399,7 +593,7 @@ pub fn genflx_card8a(
     }
     let first_nr = rows.len();
     let out = if write { Some(ninwt) } else { None };
-    complete_nr(&mut rows, &mut g, enext, iwt, nl, sigz, p.sigpot_barns, unr, out, xc)?;
+    complete_nr(&mut rows, &mut g, enext, iwt, nl, sigz, p.sigpot_barns, unr, out, xc, None)?;
     if let Some(t) = unr {
         let lowest = t.points().first().map_or(f64::INFINITY, |x| x.energy_ev);
         if lowest < rows[first_nr][0] {

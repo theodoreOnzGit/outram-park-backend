@@ -1660,3 +1660,27 @@ RECONR on `t404` (Pu-238, ENDF/B-IV) and hand the tape straight to BROADR.
 - Before the fix: 1 line differed, line 3 (the TEMP record), as predicted.
 - After the fix: 0 lines differ.
 - Decks 02, 10 and 11 still pass.
+
+### 32a. `iwt = 0`: `getfwt` reads the flux back (2026-11-14, gh:#1370)
+
+- **`flux_table::FwtReader` is `getfwt`** (`groupr.f90:5686-5775`). It keeps the
+  `save`d bracket and the file position from one temperature to the next. The
+  exact-match branch reads one record ahead and returns `enext = emax`, as upstream
+  does.
+- **`flux_table::genflx_fwt`** is the Bondarenko branch with `getfwt`'s weight and
+  `fac = sigz*xc/(sigz*xc+tt)`.
+- **Refused by name:** a read past a short record or past the end of the file (a
+  Fortran runtime stop upstream).
+- **Divergence:** upstream keeps `getfwt`'s `templ` across GROUPR runs; here it is kept
+  per run.
+
+**Deck `FW1`** (prediction posted on gh:#1370 first): `SD2`'s chain writes
+`ninwt = 30`. A second GROUPR with `iwt = 0` and card 8d `-30/` then reads it back at
+the same two temperatures.
+- **Result:** units 26 and 27 are identical (820 lines each) and unit 30 is identical
+  byte for byte.
+- **Control:** NJOY's unit 27 differs from its unit 26 in 479 lines.
+- **Ablation:** with `xc` left out of `fac`, 478 lines of unit 27 differ.
+- **Defect found on the way:** the first run never finished. The caller read
+  `getfwt`'s `(w, xc, enext)` in the wrong order, so `enext` was `xc` and the energy
+  stalled. The 12 GB address-space cap stopped the run. Fixed before any comparison.

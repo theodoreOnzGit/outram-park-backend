@@ -89,7 +89,7 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
   `rndoff`/`delta` shading and the `ig1`/`iglo`/`igt` bookkeeping is ported
   statement for statement in `matrix_panel.rs`; `matrix.rs` keeps the
   earlier trapezoid reduction for its isotropic kernel);
-- flux calculator & URR self-shielding: `getfwt`; ~~the slowing-down branch of
+- flux calculator & URR self-shielding: ~~`getfwt`~~ (`flux_table::FwtReader`, 2026-11-14); ~~the slowing-down branch of
   `genflx` (`nflmax > 0`)~~ (**CORRECTED 2026-11-14, gh:#1370:** in the tape
   driver as `flux_table::genflx_card8a`, `ninwt` included) — the Bondarenko branch and `getunr`/`stounr` are
   ported, see `unresolved.rs`/`urr_pendf.rs`;
@@ -108,7 +108,8 @@ refuses cards 8a, 8b, 8d and 9a, but the deck driver reads all four
 The tape driver's `njoy_panel::getwtf` evaluates every `iwt` from 1 to 12, the
 tabulated ones by `terpa` (decks 07 and 11 for `iwt = 9, 5`;
 `tests/deck_driver_groupr_weights_vs_njoy2016.rs` for 1, 7, 8, 10, 11, 12 and for
-`iwt = -3` with one sigma-zero). Still refused: `iwt = 0` (`getfwt`), ~~the
+`iwt = -3` with one sigma-zero). Still refused: ~~`iwt = 0` (`getfwt`)~~ (**CORRECTED
+2026-11-14, gh:#1370:** `flux_table::genflx_fwt` with `FwtReader`, deck `FW1`), ~~the
 slowing-down flux (`iwt < 0` with `nsigz > 1`; `slowing_down.rs` exists but is not
 wired)~~, and a card 9a with a negative `mtd`. **CORRECTED 2026-11-14 (gh:#1370):**
 `iwt < 0` with `nsigz > 1` is `flux_table::genflx_card8a`, whose solve is

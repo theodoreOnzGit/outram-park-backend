@@ -174,6 +174,16 @@ impl TapeUnits {
         self.bytes.get(&lun.abs()).map(Vec::as_slice)
     }
 
+    /// The raw bytes of unit `lun`: what a module wrote with [`Self::put_bytes`],
+    /// else `tape<n>` in the work directory (GROUPR's `ninwt`, gh:#1370).
+    pub fn bytes_or_file(&self, lun: i32) -> Option<Vec<u8>> {
+        if let Some(b) = self.bytes(lun) {
+            return Some(b.to_vec());
+        }
+        let dir = self.workdir.as_ref()?;
+        std::fs::read(dir.join(format!("tape{}", lun.abs()))).ok()
+    }
+
     /// `openz(lun, new)`: open unit `lun`; with `new == 1` destroy any previous
     /// content. Units 0 and 5-7 are no-ops; above 999 is an error.
     ///

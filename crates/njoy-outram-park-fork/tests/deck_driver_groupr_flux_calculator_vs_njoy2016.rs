@@ -42,7 +42,12 @@
 //! - Ablations: zero elastic in the solve, 63 of `SD1`'s 411 lines differ;
 //!   `sigpot = 0` in `SD0`, 213 of 411.
 //!
-//! Record: deck-driver README §32; predictions and results on gh:#1370.
+//! - `FW1` (`iwt = 0`, `getfwt`; predicted separately on gh:#1370): units 26
+//!   and 27 identical (820 lines each), unit 30 identical. Control: NJOY's unit
+//!   27 differs from its unit 26 in 479 lines; ablation (`xc` left out of the
+//!   factor): 478 lines of unit 27 differ.
+//!
+//! Record: deck-driver README §32 and §32a; predictions and results on gh:#1370.
 
 use std::path::{Path, PathBuf};
 
@@ -71,10 +76,10 @@ fn deck(temps: &[f64], card8a: &str) -> String {
     )
 }
 
-/// Run `deck` in NJOY2016.80 and here on `t404`; compare text unit 26 line for
-/// line and each unit of `binary` byte for byte. Returns the number of
-/// differing lines of unit 26, or `None` (skipped).
-fn differences(tag: &str, deck: &str, binary: &[u32]) -> Option<usize> {
+/// Run `deck` in NJOY2016.80 and here on `t404`; compare each text unit of `text`
+/// line for line and each unit of `binary` byte for byte. Returns the number of
+/// differing text lines over `text`, or `None` (skipped).
+fn differences(tag: &str, deck: &str, text: &[u32], binary: &[u32]) -> Option<usize> {
     let root = njoy_root();
     let bin = root.join("build/njoy");
     let res = root.join("tests/resources/t404");
@@ -93,15 +98,19 @@ fn differences(tag: &str, deck: &str, binary: &[u32]) -> Option<usize> {
     assert!(ok, "NJOY2016 binary failed on {tag}");
     let run = run_deck(deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false, run_date: Some(date) }).unwrap();
     assert_eq!(run.blocked, None, "{tag} must run to its end");
-    let read = |d: &Path| std::fs::read_to_string(d.join("tape26")).unwrap_or_default();
-    let (a, b) = (read(&ours), read(&theirs));
-    let (al, bl): (Vec<&str>, Vec<&str>) = (a.lines().collect(), b.lines().collect());
-    let d: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
-    println!("{tag} unit 26: {} differing lines of {}", d.len(), bl.len());
-    for &i in d.iter().take(6) {
-        println!("  line {}\n  ours: {:?}\n  njoy: {:?}", i + 1, al.get(i), bl.get(i));
+    let mut nd = 0;
+    for u in text {
+        let read = |d: &Path| std::fs::read_to_string(d.join(format!("tape{u}"))).unwrap_or_default();
+        let (a, b) = (read(&ours), read(&theirs));
+        let (al, bl): (Vec<&str>, Vec<&str>) = (a.lines().collect(), b.lines().collect());
+        let d: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
+        println!("{tag} unit {u}: {} differing lines of {}", d.len(), bl.len());
+        for &i in d.iter().take(6) {
+            println!("  line {}\n  ours: {:?}\n  njoy: {:?}", i + 1, al.get(i), bl.get(i));
+        }
+        assert!(!b.is_empty(), "{tag}: NJOY2016 wrote no unit {u}");
+        nd += d.len();
     }
-    assert!(!b.is_empty(), "{tag}: NJOY2016 wrote no unit 26");
     for u in binary {
         let rd = |d: &Path| std::fs::read(d.join(format!("tape{u}"))).unwrap_or_default();
         let (x, y) = (rd(&ours), rd(&theirs));
@@ -113,13 +122,13 @@ fn differences(tag: &str, deck: &str, binary: &[u32]) -> Option<usize> {
     if std::env::var_os("KEEP_DECK_DIRS").is_none() {
         let _ = std::fs::remove_dir_all(&tmp);
     }
-    Some(d.len())
+    Some(nd)
 }
 
 /// `SD1`: the homogeneous slowing-down flux (`nalph = 1`), 300 K.
 #[test]
 fn sd1_groupr_slowing_down_flux() {
-    if let Some(n) = differences("sd1", &deck(&[300.0], "150. 10. 2000 0 1/"), &[]) {
+    if let Some(n) = differences("sd1", &deck(&[300.0], "150. 10. 2000 0 1/"), &[26], &[]) {
         assert_eq!(n, 0, "sd1: unit 26 differs from NJOY2016.80");
     }
 }
@@ -128,7 +137,7 @@ fn sd1_groupr_slowing_down_flux() {
 #[test]
 fn sd2_groupr_slowing_down_heterogeneous_ninwt_two_temperatures() {
     let d = deck(&[300.0, 900.0], "150. 10. 2000 -30 2 0.7768 0.5 0.3 0.7143 0.4/");
-    if let Some(n) = differences("sd2", &d, &[30]) {
+    if let Some(n) = differences("sd2", &d, &[26], &[30]) {
         assert_eq!(n, 0, "sd2: unit 26 differs from NJOY2016.80");
     }
 }
@@ -136,7 +145,7 @@ fn sd2_groupr_slowing_down_heterogeneous_ninwt_two_temperatures() {
 /// `SD3`: `SD1` (one moderator) with the `ninwt` file at `jsigz = 3`.
 #[test]
 fn sd3_groupr_slowing_down_ninwt() {
-    if let Some(n) = differences("sd3", &deck(&[300.0], "150. 10. 2000 -30 3/"), &[30]) {
+    if let Some(n) = differences("sd3", &deck(&[300.0], "150. 10. 2000 -30 3/"), &[26], &[30]) {
         assert_eq!(n, 0, "sd3: unit 26 differs from NJOY2016.80");
     }
 }
@@ -144,7 +153,23 @@ fn sd3_groupr_slowing_down_ninwt() {
 /// `SD0`: `nflmax = 0`, the Bondarenko branch with card 8a's `sigpot = 10`.
 #[test]
 fn sd0_groupr_bondarenko_with_sigpot() {
-    if let Some(n) = differences("sd0", &deck(&[300.0], "150. 10. 0 0 1/"), &[]) {
+    if let Some(n) = differences("sd0", &deck(&[300.0], "150. 10. 0 0 1/"), &[26], &[]) {
         assert_eq!(n, 0, "sd0: unit 26 differs from NJOY2016.80");
+    }
+}
+
+/// `FW1` (gh:#1370): `SD2`'s chain, whose GROUPR writes `ninwt = 30`, then a second
+/// GROUPR with `iwt = 0` (card 8d `-30/`) that reads it back through `getfwt`
+/// (`groupr.f90:5686-5775`), its GENDF on unit 27, at the same two temperatures.
+#[test]
+fn fw1_groupr_iwt0_reads_the_flux_back() {
+    let first = deck(&[300.0, 900.0], "150. 10. 2000 -30 2 0.7768 0.5 0.3 0.7143 0.4/");
+    let list = "3 1/\n3 2/\n3 18/\n3 102/\n6 2/\n0/\n";
+    let second = format!(
+        "groupr\n-21 -24 0 27/\n1050 3 0 0 1 2 3 1/\n'pu238 iwt 0'/\n300.0 900.0/\n1.e10 100. 10./\n-30/\n{list}{list}0/\nstop\n"
+    );
+    let d = first.replace("stop\n", &second);
+    if let Some(n) = differences("fw1", &d, &[26, 27], &[30]) {
+        assert_eq!(n, 0, "fw1: units 26 and 27 differ from NJOY2016.80");
     }
 }
