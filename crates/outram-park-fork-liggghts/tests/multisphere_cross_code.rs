@@ -391,8 +391,9 @@ fn ms_massflow_matches_liggghts() {
 /// The clump bookkeeping the cross-code comparison does not show directly:
 /// gravity acts on the body, not on its atoms; the two clumps are separate
 /// bodies; no intra-clump pair is in the list (the atoms overlap by
-/// construction and would otherwise blow the clump apart); a second run set-up
-/// is refused.
+/// construction and would otherwise blow the clump apart). ~~A second run
+/// set-up is refused.~~ **CORRECTED 2026-11-14 (gh:#1415):** a second run
+/// set-up is ported (`ms_rerun_matches_liggghts`).
 #[test]
 fn clump_bookkeeping() {
     let mut sys = system("ms_collide");
@@ -412,7 +413,7 @@ fn clump_bookkeeping() {
     sys.run(3000);
     let d1 = sys.particles()[0].position.sub(sys.particles()[1].position).norm();
     assert!((d0 - d1).abs() < 1e-12, "{d0} {d1}");
-    assert!(sys.begin_run().is_err());
+    sys.begin_run().unwrap();
 }
 
 // ---------------------------------------------------------------------------
@@ -458,6 +459,16 @@ fn collide_system(t1: ParticleTemplateMultisphere, t2: ParticleTemplateMultisphe
 /// and compare `x v omega` on bit patterns. Returns
 /// `(atom-frames, bit-identical atom-frames, worst relative difference)`.
 fn compare_by_tag(deck: &str, sys: &mut GranularSystem, frames: &[u64]) -> Option<(usize, usize, f64)> {
+    compare_by_tag_from(deck, sys, 0, frames)
+}
+
+/// [`compare_by_tag`] for a system already at step `start`.
+fn compare_by_tag_from(
+    deck: &str,
+    sys: &mut GranularSystem,
+    start: u64,
+    frames: &[u64],
+) -> Option<(usize, usize, f64)> {
     let csv = read(&format!("{deck}.csv"))?;
     let rows: Vec<Vec<f64>> = csv
         .lines()
@@ -465,7 +476,7 @@ fn compare_by_tag(deck: &str, sys: &mut GranularSystem, frames: &[u64]) -> Optio
         .map(|l| l.split(',').map(|x| x.parse().unwrap()).collect())
         .collect();
     let (mut total, mut same, mut worst) = (0, 0, 0.0f64);
-    let mut at = 0;
+    let mut at = start;
     for &step in frames {
         sys.run((step - at) as usize);
         at = step;
@@ -879,4 +890,270 @@ fn clump_file_refusals() {
     assert!(f(2, "0 0 0\n5 0 1 3.5\n", 0.001).is_err(), "a line without a radius");
     assert!(f(2, "0 0 0 -4\n5 0 1 3.5\n", 0.001).is_err(), "a negative radius");
     assert!(f(2, "0 0 0 4x\n5 0 1 3.5\n", 0.001).is_err(), "not a number");
+}
+
+// --- third pass (2026-11-14) ------------------------------------------------
+
+const COLLIDE_FRAMES: [u64; 10] = [1, 2000, 4000, 5000, 6000, 7000, 8000, 10000, 12000, 15000];
+
+/// `[Ixx, Ixy, Ixz, Iyy, Iyz, Izz]` in `kg m^2`.
+fn moi6(v: [f64; 6]) -> [uom::si::f64::MomentOfInertia; 6] {
+    v.map(uom::si::f64::MomentOfInertia::new::<uom::si::moment_of_inertia::kilogram_square_meter>)
+}
+
+/// The `in.ms_mass` templates: type 1 with `mass 1.5e-3 inertia_tensor ...
+/// use_volume`, type 2 with `mass 5.0e-4 inertia_tensor ... use_density`.
+fn mass_templates() -> (ParticleTemplateMultisphere, ParticleTemplateMultisphere) {
+    use outram_park_fork_liggghts::multisphere::MassSource;
+    use uom::si::{f64::Mass, mass::kilogram};
+    let t1 = ParticleTemplateMultisphere::new_with_mass_inertia(
+        15485863,
+        1,
+        MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+        100_000,
+        &[
+            (Vec3::new(0.0, 0.0, 0.0), m(0.004)),
+            (Vec3::new(0.005, 0.0, 0.001), m(0.0035)),
+            (Vec3::new(0.002, 0.004, -0.001), m(0.003)),
+        ],
+        1,
+        Mass::new::<kilogram>(1.5e-3),
+        moi6([1.3e-8, 2.0e-10, -1.0e-9, 1.6e-8, 1.5e-9, 1.9e-8]),
+        MassSource::UseVolume,
+    )
+    .unwrap();
+    let t2 = ParticleTemplateMultisphere::new_with_mass_inertia(
+        49979687,
+        2,
+        MassDensity::new::<kilogram_per_cubic_meter>(1500.0),
+        100_000,
+        &[
+            (Vec3::new(0.0, 0.0, 0.0), m(0.003)),
+            (Vec3::new(0.004, 0.001, 0.0), m(0.003)),
+            (Vec3::new(-0.003, 0.003, 0.002), m(0.0025)),
+            (Vec3::new(0.001, -0.002, 0.004), m(0.002)),
+        ],
+        2,
+        Mass::new::<kilogram>(5.0e-4),
+        moi6([3.5e-9, 5.0e-10, 6.0e-10, 6.0e-9, 1.0e-10, 6.2e-9]),
+        MassSource::UseDensity,
+    )
+    .unwrap();
+    (t1, t2)
+}
+
+/// **Template `mass` + `inertia_tensor` with `use_volume` / `use_density`**
+/// (`in.ms_mass`): `ms_collide` with both clumps' mass and inertia tensor
+/// given ([`ParticleTemplateMultisphere::new_with_mass_inertia`]). Type 1
+/// (`use_volume`) keeps the Monte-Carlo volume and centre of mass and takes
+/// `density = mass / volume`; type 2 (`use_density`) skips the Monte-Carlo
+/// volume and the centre-of-mass shift (its body centre is the template
+/// origin) and takes `volume = mass / density`. Every atom at the ten
+/// `ms_collide` frames, on bit patterns. **Ablation:** the Monte-Carlo
+/// templates (`clump1`, `clump2`) must miss.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** 70/70 bit-identical;
+/// the ablation misses from step 1.
+#[test]
+fn ms_mass_matches_liggghts() {
+    let (t1, t2) = mass_templates();
+    assert_eq!(t1.massexpect(), 1.5e-3);
+    assert_eq!(t1.density(), 1.5e-3 / t1.volexpect());
+    assert_eq!(t2.volexpect(), 5.0e-4 / 1500.0);
+    let mut sys = collide_system(t1, t2);
+    let Some((total, same, worst)) = compare_by_tag("ms_mass", &mut sys, &COLLIDE_FRAMES) else {
+        eprintln!("skipping: reference-data/liggghts/ms_mass.csv not present");
+        return;
+    };
+    println!("ms_mass: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
+    let mut mc = collide_system(clump1(), clump2());
+    let (_, mc_same, _) = compare_by_tag("ms_mass", &mut mc, &COLLIDE_FRAMES).unwrap();
+    println!("ms_mass ablation (Monte-Carlo mass and inertia): {mc_same}/{total}");
+    assert_eq!(total, 70);
+    assert_eq!(same, total, "ms_mass: not bit-identical (worst relative {worst:e})");
+    assert_eq!(mc_same, 0, "the Monte-Carlo templates also match: the deck does not see the option");
+}
+
+/// The frames of `in.ms_rerun` / `in.ms_refl` before and after the second
+/// `run` (a new set-up at step 10100).
+const RERUN_FIRST: [u64; 7] = [1, 2000, 4000, 6000, 8000, 10000, 10100];
+const RERUN_SECOND: [u64; 6] = [10200, 11000, 12000, 13000, 14000, 15000];
+
+/// Run `ms_collide`'s system through `deck`'s frames with the second `run`
+/// at 10100: `modify` (the `fix_modify` lines), then
+/// [`GranularSystem::begin_run`] unless `begin` is false (the ablation).
+/// Returns `(atom-frames, bit-identical)` over all 13 frames.
+fn rerun_compare(
+    deck: &str,
+    modify: &[outram_park_fork_liggghts::multisphere::MultisphereModify],
+    begin: bool,
+) -> Option<(usize, usize)> {
+    let mut sys = collide_system(clump1(), clump2());
+    let (t1, s1, _) = compare_by_tag(deck, &mut sys, &RERUN_FIRST)?;
+    for &m in modify {
+        sys.fix_modify_multisphere(m);
+    }
+    if begin {
+        sys.begin_run().unwrap();
+    }
+    let (t2, s2, w) = compare_by_tag_from(deck, &mut sys, 10100, &RERUN_SECOND)?;
+    println!(
+        "{deck} (begin_run {begin}, {} fix_modify): {}/{} atom-frames bit-identical, worst rel {w:.3e}",
+        modify.len(),
+        s1 + s2,
+        t1 + t2
+    );
+    Some((t1 + t2, s1 + s2))
+}
+
+/// **A second `run` with clumps** (`in.ms_rerun`): `ms_collide` split into
+/// two runs at step 10100, where a clump touches the floor. The new set-up
+/// re-evaluates the forces at the full-step velocities, and
+/// `FixMultisphere::setup` re-sums each body's force and torque from them
+/// (`calc_force(true)`); [`GranularSystem::begin_run`]. Every atom at 13
+/// frames, on bit patterns. **Ablation:** one continuous run (no
+/// `begin_run`) must miss after the split.
+///
+/// The split was first at 4800, between contacts. Upstream's own run was then
+/// byte-identical to one continuous run, so the gate could not fail: a set-up
+/// with no active contact recomputes the same forces. A scan of upstream's
+/// splits at 4500, 4600, ..., 14900 found that only 9900, 10100, 14400 and
+/// 14500 change the step-15000 state; the deck uses 10100.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** 91/91 bit-identical.
+#[test]
+fn ms_rerun_matches_liggghts() {
+    let Some((total, same)) = rerun_compare("ms_rerun", &[], true) else {
+        eprintln!("skipping: reference-data/liggghts/ms_rerun.csv not present");
+        return;
+    };
+    let (_, cont) = rerun_compare("ms_rerun", &[], false).unwrap();
+    assert_eq!(total, 91);
+    assert_eq!(same, total, "ms_rerun: not bit-identical");
+    assert!(cont < total, "one continuous run also matches: {cont}/91");
+}
+
+/// **`fix_modify <ms> fflag|tflag`** (`in.ms_refl`): `ms_rerun` with
+/// `fix_modify ms fflag off on on` and `fix_modify ms tflag on off on`
+/// before the second run; every existing body takes the flags
+/// ([`GranularSystem::fix_modify_multisphere`]). Every atom at 13 frames.
+/// **Ablation:** without the `fix_modify` the run must miss after the split.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** 91/91 bit-identical.
+#[test]
+fn ms_refl_matches_liggghts() {
+    use outram_park_fork_liggghts::multisphere::MultisphereModify;
+    let m = [
+        MultisphereModify::Fflag([false, true, true]),
+        MultisphereModify::Tflag([true, false, true]),
+    ];
+    let Some((total, same)) = rerun_compare("ms_refl", &m, true) else {
+        eprintln!("skipping: reference-data/liggghts/ms_refl.csv not present");
+        return;
+    };
+    let (_, unmodified) = rerun_compare("ms_refl", &[], true).unwrap();
+    assert_eq!(total, 91);
+    assert_eq!(same, total, "ms_refl: not bit-identical");
+    assert!(unmodified < total, "ms_refl passes without the fix_modify: {unmodified}/91");
+}
+
+/// **`fix multisphere/nointegration`** (`in.ms_noint`): `ms_collide` with
+/// `fix nve/sphere` and `fix multisphere/nointegration`
+/// ([`GranularSystem::with_multisphere_nointegration`]). The bodies are not
+/// integrated; the member atoms fly as free spheres carrying the clump mass,
+/// with no gravity (`FixGravity` still finds the fix) and no intra-clump
+/// pairs. Every atom leaves the `+-x` faces between steps 12000 and 14000, so
+/// the lost-atom path runs too ([`GranularSystem::with_lost_atoms`]). Every
+/// atom at the ten `ms_collide` frames (63 atom-frames; none at 15000), on
+/// bit patterns. **Ablation:** the integrating `fix multisphere` misses
+/// every atom at step 1.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** bit-identical.
+#[test]
+fn ms_noint_matches_liggghts() {
+    let mut sys = collide_system(clump1(), clump2())
+        .with_multisphere_nointegration()
+        .unwrap()
+        .with_lost_atoms()
+        .unwrap();
+    let Some((total, same, worst)) = compare_by_tag("ms_noint", &mut sys, &COLLIDE_FRAMES) else {
+        eprintln!("skipping: reference-data/liggghts/ms_noint.csv not present");
+        return;
+    };
+    println!("ms_noint: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
+    let mut integrated = collide_system(clump1(), clump2());
+    let (_, int_same, _) = compare_by_tag("ms_noint", &mut integrated, &[1]).unwrap();
+    println!("ms_noint ablation (integrating fix multisphere) at step 1: {int_same}/7");
+    assert_eq!(total, 63);
+    assert_eq!(same, total, "ms_noint: not bit-identical (worst relative {worst:e})");
+    assert_eq!(int_same, 0, "the integrating fix also matches at step 1");
+    // the style is fixed once a clump exists
+    assert!(sys.with_multisphere_nointegration().is_err());
+}
+
+/// **`spheres_different_types file <f> scale <s>`** (`in.ms_dtypes`):
+/// `ms_file` with the type 1 template read from `ms_clump1_types.txt`
+/// (sphere types 2 1 2). Upstream gives every member atom the template's
+/// `atom_type` all the same
+/// ([`ParticleTemplateMultisphere::from_clump_file_different_types`]), so
+/// there are two gates:
+/// * the trajectory, every atom at the 9 frames on bit patterns (upstream's
+///   `ms_dtypes.csv` is byte-identical to `ms_file.csv`: the types change
+///   nothing, and both types have the same materials in this header, so this
+///   gate **cannot** fail on the types);
+/// * the atom types upstream dumps at step 15000 (`ms_dtypes_types.txt`:
+///   every atom type 1). **Ablation:** the per-sphere types (2 1 2) fail it.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** 27/27 bit-identical,
+/// every atom type 1.
+#[test]
+fn ms_dtypes_matches_liggghts() {
+    let (Some(text), Some(types)) = (read("ms_clump1_types.txt"), read("ms_dtypes_types.txt")) else {
+        eprintln!("skipping: reference-data/liggghts/ms_clump1_types.txt not present");
+        return;
+    };
+    let tpl = ParticleTemplateMultisphere::from_clump_file_different_types(
+        15485863,
+        1,
+        MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+        100_000,
+        3,
+        &text,
+        0.0011,
+        1,
+    )
+    .unwrap();
+    assert_eq!((tpl.min_type(), tpl.max_type()), (1, 2));
+    assert_eq!((clump1().min_type(), clump1().max_type()), (1, 1));
+    let frames = [1, 1000, 4000, 5000, 6000, 8000, 10000, 12000, 15000];
+    let mut sys = drop_system(tpl);
+    let (total, same, worst) = compare_by_tag("ms_dtypes", &mut sys, &frames).expect("ms_dtypes.csv");
+    // upstream's `id type` dump, LIGGGHTS types (1-based), in id order
+    let mut lines = types.lines().skip_while(|l| !l.starts_with("ITEM: ATOMS")).skip(1);
+    let theirs: Vec<usize> = lines
+        .by_ref()
+        .map(|l| l.split_whitespace().nth(1).unwrap().parse().unwrap())
+        .collect();
+    let ours: Vec<usize> = sys.atom_types().iter().map(|t| t + 1).collect();
+    let per_sphere = vec![2, 1, 2];
+    println!("ms_dtypes: {same}/{total} atom-frames bit-identical; types ours {ours:?}, upstream {theirs:?}");
+    assert_eq!(total, 27);
+    assert_eq!(same, total, "ms_dtypes: not bit-identical (worst relative {worst:e})");
+    assert_eq!(ours, theirs, "atom types differ from upstream");
+    assert_ne!(per_sphere, theirs, "ablation: the per-sphere types would also pass");
+}
+
+/// What `from_clump_file_different_types` refuses, as `clmpfile` does, plus
+/// the type words `atoi` would misread.
+#[test]
+fn clump_file_different_types_refusals() {
+    let rho = MassDensity::new::<kilogram_per_cubic_meter>(2500.0);
+    let f = |text: &str| {
+        ParticleTemplateMultisphere::from_clump_file_different_types(15485863, 1, rho, 100_000, 2, text, 0.001, 1)
+    };
+    assert!(f("0 0 0 4 2\n5 0 1 3.5 1\n").is_ok());
+    assert!(f("0 0 0 4\n5 0 1 3.5 1\n").is_err(), "a line without a type");
+    assert!(f("0 0 0 4 0\n5 0 1 3.5 1\n").is_err(), "type 0");
+    assert!(f("0 0 0 4 2.5\n5 0 1 3.5 1\n").is_err(), "a non-integer type");
+    assert!(f("0 0 0 4 2\n").is_err(), "fewer lines than nspheres");
 }

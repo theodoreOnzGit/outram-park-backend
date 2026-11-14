@@ -873,6 +873,14 @@ impl ParticleDistributionDiscrete {
         matches!(self.templates.first(), Some(ParticleTemplate::Superquadric(_)))
     }
 
+    /// Whether any template is not a plain sphere (a clump or a
+    /// superquadric): `fix insert/stream` refuses those (gh:#1415).
+    pub(crate) fn has_non_sphere(&self) -> bool {
+        self.templates
+            .iter()
+            .any(|t| !matches!(t, ParticleTemplate::Sphere(_)))
+    }
+
     /// Whether any template is a plain sphere (`particletemplate/sphere`).
     fn has_sphere(&self) -> bool {
         self.templates

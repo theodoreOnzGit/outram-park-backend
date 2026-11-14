@@ -171,3 +171,63 @@ thermo_modify	lost ignore norm no format float %.17g
 thermo		1
 EOF
 frames 1 1000 2000 3000 4000 5000 6000; } > in.ms_lost
+# --- gh:#1415 third multisphere pass (2026-11-14) ----------------------------
+COLLIDE_THERMO='thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no'
+# ms_mass: in.ms_collide with the clump mass and inertia tensor given:
+# type 1 `mass ... inertia_tensor ... use_volume` (MC volume and COM, density
+# = mass/volume), type 2 `... use_density` (no MC volume, no COM shift).
+{ header
+  echo "$PTS1 mass 1.5e-3 inertia_tensor 1.3e-8 2.0e-10 -1.0e-9 1.6e-8 1.5e-9 1.9e-8 use_volume"
+  echo "$PTS2 mass 5.0e-4 inertia_tensor 3.5e-9 5.0e-10 6.0e-10 6.0e-9 1.0e-10 6.2e-9 use_density"
+  echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"
+  frames 1 2000 4000 5000 6000 7000 8000 10000 12000 15000; } > in.ms_mass
+# The ms_collide set-up with a second `run` (a new set-up: FixMultisphere's
+# setup_pre_exchange / pre_neighbor / pre_force and setup -> calc_force(true))
+# at step 10100, while a clump touches the floor. A split at a step with no
+# active contact recomputes the same forces and cannot change the run: of the
+# splits 4500, 4600, ..., 14900 only 9900, 10100, 14400 and 14500 changed
+# upstream's step-15000 state (4800, the first choice, did not). $1: commands
+# issued between the two runs.
+rerun() {
+  echo "run 1"; echo "write_dump all custom dump.F1 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  prev=1
+  for s in 2000 4000 6000 8000 10000 10100; do
+    echo "run $((s - prev)) pre no"
+    echo "write_dump all custom dump.F$s id x y z vx vy vz omegax omegay omegaz modify sort id"
+    prev=$s
+  done
+  [ -n "$1" ] && echo "$1"
+  echo "run 100"
+  echo "write_dump all custom dump.F10200 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  prev=10200
+  for s in 11000 12000 13000 14000 15000; do
+    echo "run $((s - prev)) pre no"
+    echo "write_dump all custom dump.F$s id x y z vx vy vz omegax omegay omegaz modify sort id"
+    prev=$s
+  done
+}
+# ms_rerun: ms_collide with the second run set-up at step 10100.
+{ header; echo "$PTS1"; echo "$PTS2"; echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"; rerun ""; } > in.ms_rerun
+# ms_refl: ms_rerun with `fix_modify ms fflag off on on` and
+# `fix_modify ms tflag on off on` (every existing body) before the second run.
+{ header; echo "$PTS1"; echo "$PTS2"; echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"
+  rerun "fix_modify	ms fflag off on on
+fix_modify	ms tflag on off on"; } > in.ms_refl
+# ms_noint: ms_collide with `fix multisphere/nointegration` and `fix nve/sphere`
+# (defined first): the bodies are frozen, the member atoms fly as free spheres
+# with the clump mass, no gravity and no intra-clump pairs.
+{ header; echo "$PTS1"; echo "$PTS2"
+  echo "$COLLIDE_INS" | sed 's|^fix		ms all multisphere$|fix		integr all nve/sphere\
+fix		ms all multisphere/nointegration|'
+  echo "$COLLIDE_THERMO"
+  frames 1 2000 4000 5000 6000 7000 8000 10000 12000 15000; } > in.ms_noint
+# ms_dtypes: in.ms_file with `spheres_different_types file ms_clump1_types.txt`
+# (sphere types 2 1 2, template atom_type 1). Upstream gives every member atom
+# the template's atom_type (FixTemplateMultisphere::randomize_ptilist does not
+# copy the sphere types; ParticleToInsertMultisphere::insert uses atom_type):
+# dump.types (id type at step 15000) is the second reference,
+# ms_dtypes_types.txt. Copy ms_clump1_types.txt into the run directory.
+sed 's/spheres file ms_clump1.txt scale 0.0011/spheres_different_types file ms_clump1_types.txt scale 0.0011/' in.ms_file > in.ms_dtypes
+echo "write_dump all custom dump.types id type modify sort id" >> in.ms_dtypes

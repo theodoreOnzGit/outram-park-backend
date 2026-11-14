@@ -109,17 +109,31 @@
 //! **Not translated** (each rejected or documented, never silently ignored):
 //! ~~`spheres file` (the inline list only)~~ (**CORRECTED 2026-11-14:**
 //! `spheres file <f> scale <s>` is [`ParticleTemplateMultisphere::from_clump_file`]),
-//! `spheres_different_types`, `bonded`,
-//! `mass`/`inertia_tensor`/`use_volume`/`use_density`, ~~`fflag`/`tflag` off,~~
-//! `fix_modify <ms> fflag|tflag`,
-//! `fix multisphere/nointegration`, `concave`, `CAddRhoFluid`,
+//! ~~`spheres_different_types`,~~ `bonded`,
+//! ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`,~~ ~~`fflag`/`tflag` off,~~
+//! ~~`fix_modify <ms> fflag|tflag`,~~
+//! ~~`fix multisphere/nointegration`,~~ `concave`, `CAddRhoFluid`,
 //! `allow_heatsource`; periodic images of bodies (`remap_bodies`), ~~lost-atom
 //! deletion (`check_lost_atoms` / `delflag`),~~ `fix remove`'s
 //! `delete_bodies`, `fix multisphere/break`,
-//! `fix insert/stream` with clumps (`start_step`), heat transfer with clumps,
-//! restart, a second `run` set-up with clumps~~, and `orientation random`~~.
+//! `fix insert/stream` with clumps (`start_step`; refused by
+//! [`crate::insert_stream::InsertStreamFix::new`]), heat transfer with clumps,
+//! restart, ~~a second `run` set-up with clumps~~~~, and `orientation random`~~.
 //! **CORRECTED 2026-11-14 (gh:#1415):** `fflag`/`tflag`, lost-atom deletion
 //! and `orientation random` are translated (V&V 4.16.1).
+//! **CORRECTED 2026-11-14 (gh:#1415, third pass):** `mass` + `inertia_tensor`
+//! with `use_volume` / `use_density` is
+//! [`ParticleTemplateMultisphere::new_with_mass_inertia`]; a second `run`
+//! set-up with clumps is
+//! [`crate::granular_system::GranularSystem::begin_run`], and
+//! `fix_modify <ms> fflag|tflag` is
+//! [`crate::granular_system::GranularSystem::fix_modify_multisphere`];
+//! `spheres_different_types` is
+//! [`ParticleTemplateMultisphere::from_clump_file_different_types`] (the
+//! types do not reach the atoms, as upstream);
+//! `fix multisphere/nointegration` is [`Multisphere::without_integration`]
+//! ([`crate::granular_system::GranularSystem::with_multisphere_nointegration`])
+//! (V&V 4.16.2).
 //! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
 //! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
 //! particles are ported in [`crate::superquadric`]; convex hull, ellipsoid,
@@ -127,8 +141,34 @@
 
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
-use uom::si::f64::{Length, MassDensity};
-use uom::si::{length::meter, mass_density::kilogram_per_cubic_meter};
+use uom::si::f64::{Length, Mass, MassDensity, MomentOfInertia};
+use uom::si::{
+    length::meter, mass::kilogram, mass_density::kilogram_per_cubic_meter,
+    moment_of_inertia::kilogram_square_meter,
+};
+
+/// A `fix_modify <ms> ...` keyword of `fix multisphere`
+/// (`FixMultisphere::modify_param`; see
+/// [`crate::granular_system::GranularSystem::fix_modify_multisphere`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MultisphereModify {
+    /// `fflag x y z` (`true` = `on`).
+    Fflag([bool; 3]),
+    /// `tflag x y z` (`true` = `on`).
+    Tflag([bool; 3]),
+}
+
+/// How a template given `mass` and `inertia_tensor` gets its volume and
+/// density (`use_volume` / `use_density` of `fix particletemplate/multisphere`;
+/// see [`ParticleTemplateMultisphere::new_with_mass_inertia`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MassSource {
+    /// `use_volume`: the Monte-Carlo volume; density = mass / volume.
+    UseVolume,
+    /// `use_density`: the template density; volume = mass / density, no
+    /// centre-of-mass shift.
+    UseDensity,
+}
 
 /// `MAXJACOBI` of `math_extra.cpp`.
 const MAXJACOBI: usize = 50;
@@ -526,6 +566,10 @@ pub struct ParticleTemplateMultisphere {
     fflag: [bool; 3],
     /// `tflag x y z` (default all on).
     tflag: [bool; 3],
+    /// `spheres_different_types`: each sphere's atom type (1-based). Only
+    /// `max_type` / `min_type` read it, as upstream (see
+    /// [`ParticleTemplateMultisphere::from_clump_file_different_types`]).
+    atom_type_sphere: Option<Vec<usize>>,
 }
 
 impl ParticleTemplateMultisphere {
@@ -551,8 +595,96 @@ impl ParticleTemplateMultisphere {
         spheres: &[(Vec3, Length)],
         clump_type: usize,
     ) -> Result<Self, DemError> {
+        let (mut t, mut random_mc, mut x_min, mut x_max) =
+            Self::parse(seed, atom_type, density, ntry, spheres, clump_type)?;
+        // FixTemplateMultisphere::post_create, no `mass`/`inertia_tensor` given
+        t.calc_bounding_sphere(&mut random_mc)?;
+        t.calc_center_of_mass(&mut random_mc, &mut x_min, &mut x_max);
+        t.check_overlap();
+        let mut moi = t.calc_inertia(&mut random_mc, &x_min, &x_max)?;
+        t.calc_eigensystem(&mut moi)?;
+        t.calc_displace_xcm_x_body()?;
+        t.calc_volumeweight(&mut random_mc, &x_min, &x_max);
+        Ok(t)
+    }
+
+    /// The template keywords `mass M inertia_tensor Ixx Ixy Ixz Iyy Iyz Izz`
+    /// with `use_volume` or `use_density` (gh:#1415): the clump's mass and
+    /// inertia tensor are given, not integrated. Upstream needs both or neither
+    /// (`FixTemplateMultisphere` ctor), and one of the two modes; this
+    /// constructor takes all three, so neither error can arise.
+    ///
+    /// `FixTemplateMultisphere::post_create` (LIGGGHTS-PUBLIC `3d5c00f2`):
+    /// * [`MassSource::UseVolume`]: the bounding sphere, the Monte-Carlo volume
+    ///   and centre of mass (the spheres shift to it), the overlap check; then
+    ///   the given mass replaces `volume * density`, and the density becomes
+    ///   `mass / volume` (`pdf_density->set_params`), which each member atom
+    ///   then carries.
+    /// * [`MassSource::UseDensity`]: the bounding sphere and the overlap check
+    ///   only. No Monte-Carlo volume and **no shift to a centre of mass**: the
+    ///   template origin is the body's centre. The volume is `mass / density`.
+    ///
+    /// Both then diagonalise the given tensor (`calc_eigensystem`), compute the
+    /// body-frame displacements and the volume weights, in that order and on
+    /// the template's one `random_mc` stream, so the stream is consumed as
+    /// upstream consumes it. `inertia_tensor` is `[Ixx, Ixy, Ixz, Iyy, Iyz,
+    /// Izz]`, mirrored to the lower triangle as upstream does.
+    ///
+    /// # Errors
+    ///
+    /// Everything [`ParticleTemplateMultisphere::new`] rejects except the
+    /// Monte-Carlo inertia symmetry check, which does not run here.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_mass_inertia(
+        seed: i32,
+        atom_type: usize,
+        density: MassDensity,
+        ntry: usize,
+        spheres: &[(Vec3, Length)],
+        clump_type: usize,
+        mass: Mass,
+        inertia_tensor: [MomentOfInertia; 6],
+        source: MassSource,
+    ) -> Result<Self, DemError> {
+        let (mut t, mut random_mc, mut x_min, mut x_max) =
+            Self::parse(seed, atom_type, density, ntry, spheres, clump_type)?;
+        let mass = mass.get::<kilogram>();
+        let i = inertia_tensor.map(|v| v.get::<kilogram_square_meter>());
+        let mut moi = [[i[0], i[1], i[2]], [i[1], i[3], i[4]], [i[2], i[4], i[5]]];
+        match source {
+            MassSource::UseVolume => {
+                t.calc_bounding_sphere(&mut random_mc)?;
+                t.calc_center_of_mass(&mut random_mc, &mut x_min, &mut x_max);
+                t.check_overlap();
+                t.mass_expect = mass;
+                t.density = t.mass_expect / t.volume_expect;
+            }
+            MassSource::UseDensity => {
+                t.calc_bounding_sphere(&mut random_mc)?;
+                t.check_overlap();
+                t.mass_expect = mass;
+                t.volume_expect = t.mass_expect / t.density;
+            }
+        }
+        t.calc_eigensystem(&mut moi)?;
+        t.calc_displace_xcm_x_body()?;
+        t.calc_volumeweight(&mut random_mc, &x_min, &x_max);
+        Ok(t)
+    }
+
+    /// The constructor's argument checks and sphere list (the template frame,
+    /// before any shift), the `random_mc` stream, and the sphere bounding box
+    /// `(x_min, x_max)` (`FixTemplateMultiplespheres` ctor).
+    fn parse(
+        seed: i32,
+        atom_type: usize,
+        density: MassDensity,
+        ntry: usize,
+        spheres: &[(Vec3, Length)],
+        clump_type: usize,
+    ) -> Result<(Self, crate::insert::RanPark, V3, V3), DemError> {
         let random_insertion = crate::insert::RanPark::checked(seed)?;
-        let mut random_mc = crate::insert::RanPark::checked(seed)?;
+        let random_mc = crate::insert::RanPark::checked(seed)?;
         let density = density.get::<kilogram_per_cubic_meter>();
         if atom_type < 1 {
             return Err(DemError::InvalidInput("invalid atom type (must be >=1)".into()));
@@ -593,7 +725,7 @@ impl ParticleTemplateMultisphere {
             x_sphere.push(x);
             r_sphere.push(r);
         }
-        let mut t = Self {
+        let t = Self {
             seed,
             atom_type,
             clump_type,
@@ -617,16 +749,9 @@ impl ParticleTemplateMultisphere {
             random_insertion_state: random_insertion.state(),
             fflag: [true; 3],
             tflag: [true; 3],
+            atom_type_sphere: None,
         };
-        // FixTemplateMultisphere::post_create, no `mass`/`inertia_tensor` given
-        t.calc_bounding_sphere(&mut random_mc)?;
-        t.calc_center_of_mass(&mut random_mc, &mut x_min, &mut x_max);
-        t.check_overlap();
-        let mut moi = t.calc_inertia(&mut random_mc, &x_min, &x_max)?;
-        t.calc_eigensystem(&mut moi)?;
-        t.calc_displace_xcm_x_body()?;
-        t.calc_volumeweight(&mut random_mc, &x_min, &x_max);
-        Ok(t)
+        Ok((t, random_mc, x_min, x_max))
     }
 
     /// `spheres file <f> scale <s>` (gh:#1415): the template's spheres read
@@ -658,10 +783,83 @@ impl ParticleTemplateMultisphere {
         scale: f64,
         clump_type: usize,
     ) -> Result<Self, DemError> {
+        let (spheres, _) = Self::read_clump_file(nspheres, text, scale, false)?;
+        Self::new(seed, atom_type, density, ntry, &spheres, clump_type)
+    }
+
+    /// `spheres_different_types file <f> scale <s>` (gh:#1415): as
+    /// [`ParticleTemplateMultisphere::from_clump_file`], with a fifth word per
+    /// line, the sphere's atom type (`atoi(arg[4])` in
+    /// `InputMultisphere::clmpfile`; a line with fewer than 5 words is an
+    /// error).
+    ///
+    /// **Upstream gives every member atom of a clump the template's
+    /// `atom_type` all the same** (LIGGGHTS-PUBLIC `3d5c00f2`):
+    /// `FixTemplateMultisphere::randomize_ptilist` does not copy the sphere
+    /// types into `pti->atom_type_vector`, and
+    /// `ParticleToInsertMultisphere::insert` calls `create_atom(atom_type,
+    /// ...)` for each sphere. The sphere types only set
+    /// [`ParticleTemplateMultisphere::max_type`] / `min_type` (`maxtype()`,
+    /// `mintype()`; `FixInsert`'s `type_max` / `type_min` for its material
+    /// checks). The port does the same; `in.ms_dtypes` confirms upstream's
+    /// atom types.
+    ///
+    /// # Errors
+    ///
+    /// Everything [`ParticleTemplateMultisphere::from_clump_file`] rejects;
+    /// a line with fewer than 5 words; a type word that is not an integer,
+    /// or is < 1 (refused rather than guessed: `atoi` would read `2.5` as 2
+    /// and `x` as 0).
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_clump_file_different_types(
+        seed: i32,
+        atom_type: usize,
+        density: MassDensity,
+        ntry: usize,
+        nspheres: usize,
+        text: &str,
+        scale: f64,
+        clump_type: usize,
+    ) -> Result<Self, DemError> {
+        let (spheres, types) = Self::read_clump_file(nspheres, text, scale, true)?;
+        let mut t = Self::new(seed, atom_type, density, ntry, &spheres, clump_type)?;
+        t.atom_type_sphere = Some(types);
+        Ok(t)
+    }
+
+    /// `maxtype()`: the largest sphere type of a `spheres_different_types`
+    /// template, else `atom_type`.
+    #[must_use]
+    pub fn max_type(&self) -> usize {
+        match &self.atom_type_sphere {
+            Some(t) => t.iter().copied().fold(0, usize::max),
+            None => self.atom_type,
+        }
+    }
+
+    /// `mintype()`: the smallest sphere type, else `atom_type`.
+    #[must_use]
+    pub fn min_type(&self) -> usize {
+        match &self.atom_type_sphere {
+            Some(t) => t.iter().copied().fold(usize::MAX, usize::min),
+            None => self.atom_type,
+        }
+    }
+
+    /// `InputMultisphere::clmpfile` and the scaling of
+    /// `FixTemplateMultiplespheres` (`cg = 1`): the scaled spheres and, with
+    /// `with_types`, each line's fifth word as a type.
+    fn read_clump_file(
+        nspheres: usize,
+        text: &str,
+        scale: f64,
+        with_types: bool,
+    ) -> Result<(Vec<(Vec3, Length)>, Vec<usize>), DemError> {
         if !(scale > 0.0) {
             return Err(DemError::InvalidInput("scale factor must be >0".into()));
         }
         let mut raw: Vec<(V3, f64)> = Vec::with_capacity(nspheres);
+        let mut types = Vec::new();
         for line in text.lines() {
             let line = line.split('#').next().unwrap_or("");
             let words: Vec<&str> = line.split_whitespace().collect();
@@ -673,9 +871,15 @@ impl ParticleTemplateMultisphere {
                     "Number of clumps in file larger than number specified".into(),
                 ));
             }
-            if words.len() < 4 {
+            if !with_types && words.len() < 4 {
                 return Err(DemError::InvalidInput(
                     "Not enough arguments in one line of clump file, need to specify [xcoo ycoo zcoo radius] in each line"
+                        .into(),
+                ));
+            }
+            if with_types && words.len() < 5 {
+                return Err(DemError::InvalidInput(
+                    "Not enough arguments in one line of clump file, need to specify [xcoo ycoo zcoo radius type] in each line"
                         .into(),
                 ));
             }
@@ -684,6 +888,12 @@ impl ParticleTemplateMultisphere {
                 v[k] = words[k].parse::<f64>().map_err(|_| {
                     DemError::InvalidInput(format!("clump file: '{}' is not a number", words[k]))
                 })?;
+            }
+            if with_types {
+                let t = words[4].parse::<usize>().ok().filter(|&t| t >= 1).ok_or_else(|| {
+                    DemError::InvalidInput(format!("clump file: '{}' is not an atom type >= 1", words[4]))
+                })?;
+                types.push(t);
             }
             raw.push(([v[0], v[1], v[2]], v[3]));
         }
@@ -703,7 +913,7 @@ impl ParticleTemplateMultisphere {
             let x = [x[0] * f, x[1] * f, x[2] * f];
             spheres.push((vec3(x), Length::new::<meter>(r)));
         }
-        Self::new(seed, atom_type, density, ntry, &spheres, clump_type)
+        Ok((spheres, types))
     }
 
     /// `calc_bounding_sphere`: 200 randomised Ritter passes, keep the smallest.
@@ -1266,6 +1476,8 @@ pub struct Multisphere {
     /// `next_reneighbor` of the fix (a forced list rebuild step).
     next_reneighbor: Option<u64>,
     dt: f64,
+    /// `false` for `fix multisphere/nointegration`.
+    integrate: bool,
 }
 
 impl Multisphere {
@@ -1280,7 +1492,22 @@ impl Multisphere {
             delflag: Vec::new(),
             next_reneighbor: None,
             dt,
+            integrate: true,
         }
+    }
+
+    /// `fix multisphere/nointegration` (gh:#1415): `initial_integrate`
+    /// returns at once (no kick, no drift, no `set_xv`) and `final_integrate`
+    /// returns after `calc_force` (no kick, no `set_v`), as upstream's
+    /// `strstr(style,"nointegration")` branches do. The bodies stay as
+    /// inserted; their member atoms move only by the atom integrator
+    /// (`fix nve/sphere`), carrying the clump mass, still without gravity
+    /// (`FixGravity` finds the fix by its `multisphere` prefix) and without
+    /// intra-clump pairs.
+    #[must_use]
+    pub fn without_integration(mut self) -> Self {
+        self.integrate = false;
+        self
     }
 
     /// The bodies, in local order.
@@ -1352,6 +1579,17 @@ impl Multisphere {
         self.set_xv(particles);
     }
 
+    /// `FixMultisphere::modify_param`: `set_fflag` / `set_tflag` on every
+    /// body.
+    pub(crate) fn modify_param(&mut self, m: MultisphereModify) {
+        for b in &mut self.bodies {
+            match m {
+                MultisphereModify::Fflag(f) => b.fflag = f,
+                MultisphereModify::Tflag(t) => b.tflag = t,
+            }
+        }
+    }
+
     /// `Multisphere::reset_forces(extflag)`.
     pub(crate) fn reset_forces(&mut self, extflag: bool) {
         for b in &mut self.bodies {
@@ -1367,6 +1605,9 @@ impl Multisphere {
     /// `FixMultisphere::initial_integrate` (the body loop; `fflag`/`tflag` on,
     /// no added mass, no `insert/stream`), then `set_xv`.
     pub(crate) fn initial_integrate(&mut self, particles: &mut [Particle]) {
+        if !self.integrate {
+            return;
+        }
         let dtv = self.dt;
         let dtf = 0.5 * self.dt * 1.0;
         let dtq = 0.5 * self.dt;
@@ -1479,6 +1720,9 @@ impl Multisphere {
     /// `FixMultisphere::final_integrate` after `calc_force`: the second
     /// half-kick, `omega` from `angmom`, then `set_v`.
     pub(crate) fn final_integrate(&mut self, particles: &mut [Particle]) {
+        if !self.integrate {
+            return;
+        }
         let dtf = 0.5 * self.dt * 1.0;
         for b in &mut self.bodies {
             let add_mass_term = 1.0 + 0.0 * 0.0 / b.density;

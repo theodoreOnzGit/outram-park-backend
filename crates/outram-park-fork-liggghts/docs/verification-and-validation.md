@@ -1899,9 +1899,10 @@ partly across the plate counts as the volume-weight share of its member atoms
 
 **Not ported** (each rejected with an error or documented in
 `multisphere.rs`):
-- ~~`spheres file`,~~ `spheres_different_types`, `bonded`;
-- `mass`/`inertia_tensor`/`use_volume`/`use_density`;
-- ~~`fflag`/`tflag` off,~~ `multisphere/nointegration`, `concave`,
+- ~~`spheres file`,~~ ~~`spheres_different_types`~~ (**CORRECTED 2026-11-14:**
+  ported, 4.16.2), `bonded`;
+- ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`~~ (**CORRECTED 2026-11-14:** ported, 4.16.2);
+- ~~`fflag`/`tflag` off,~~ ~~`multisphere/nointegration`~~ (**CORRECTED 2026-11-14:** ported, 4.16.2), `concave`,
   `CAddRhoFluid`;
 - periodic images of bodies (`remap_bodies`) ~~and lost-atom/body deletion. The
   decks end before a clump leaves the box, and removing particles from a
@@ -1910,7 +1911,8 @@ partly across the plate counts as the volume-weight share of its member atoms
 - clumps from `insert/stream`;
 - heat transfer with clumps;
 - restart;
-- a second `run` set-up with clumps (`begin_run` refuses it);
+- ~~a second `run` set-up with clumps (`begin_run` refuses it);~~
+  (**CORRECTED 2026-11-14:** ported, 4.16.2);
 - ~~`orientation random`~~;
 - `sieveMultiSphereCanPass` of the sieve;
 - ~~`compute ke/multisphere` and `erotate/multisphere`~~.
@@ -2026,23 +2028,117 @@ misses when the option it tests is switched off, so each gate can fail:
   integrated by `nve/sphere`), and the forced rebuild 5 steps later.
 
 **Not ported** (refused by name, or documented):
-- `fix_modify <ms> fflag|tflag`, which acts between runs; a second `run` with
-  clumps is refused;
+- ~~`fix_modify <ms> fflag|tflag`, which acts between runs; a second `run` with
+  clumps is refused;~~ (**CORRECTED 2026-11-14:** both ported, 4.16.2);
 - `orientation random` with sphere templates;
 - lost atoms with the atom sort on, or without the LIGGGHTS neighbour order;
 - `delete_atoms yes` on `massflow/mesh` with clumps (upstream's own error);
 - `fix remove`'s `delete_bodies` callback; periodic bodies;
-- `spheres_different_types`, `bonded`, `mass`/`inertia_tensor`;
-- `multisphere/nointegration`, `concave`, `multisphere/break`;
-- clumps from `insert/stream`; restart; a second `run` set-up with clumps.
+- ~~`spheres_different_types`~~, `bonded`, ~~`mass`/`inertia_tensor`~~
+  (**CORRECTED 2026-11-14:** ported, 4.16.2);
+- ~~`multisphere/nointegration`,~~ `concave`, `multisphere/break`
+  (**CORRECTED 2026-11-14:** `nointegration` ported, 4.16.2);
+- clumps from `insert/stream`; restart; ~~a second `run` set-up with clumps~~
+  (**CORRECTED 2026-11-14:** ported, 4.16.2).
 
 Upstream prints "Energy calculated for multisphere particles is currently not
 correct" (`FixMultisphere::dof`). That warning is about the `thermo` `ke`/`pe`
 normalisation, not about these computes.
 
-**Found on the way, not fixed (outside this task):** with the atom sort on, a
+~~**Found on the way, not fixed (outside this task):** with the atom sort on, a
 system that has no particles and no insertion fix panics in
-`neighbor_list::atom_sort_permutation`, because its cut radius is 0.
+`neighbor_list::atom_sort_permutation`, because its cut radius is 0.~~
+**CORRECTED 2026-11-14 (gh:#1568):** fixed. The panic was an i64 overflow of
+the bin count (`bininv = inf`). Upstream refuses this run set-up in
+`Atom::setup_sort_bins` ("Atom sorting has bin size = 0.0"). The port now
+does the same in `GranularSystem::try_with_liggghts_neighbor_order` and
+`begin_run` (`neighbor_list::sort_bin_size`). `atom_sort_permutation` returns
+the empty permutation for zero atoms, so the infallible builder no longer
+panics. Test: `granular_system::tests::empty_system_sort_on_refuses_like_upstream`,
+which panicked with "attempt to multiply with overflow" before the guard.
+
+### 4.16.2 Multisphere, third pass (2026-11-14, gh:#1415)
+
+**Reference and inputs.** LIGGGHTS-PUBLIC `3d5c00f2`, the same `lmp_serial`
+as 4.16.1. The decks come from `make_multisphere_decks.sh`, below the
+"third multisphere pass" line, and use the 4.16 header. Each prediction was
+posted on gh:#1415 before the deck ran. **Pass criterion:** bit-identical,
+every value. Each gate is shown to fail with its option ablated.
+
+| deck | what it exercises | result (Rust 1.99.1, 2026-11-14) | ablation |
+|---|---|---|---|
+| `ms_mass` | `ms_collide` with type 1 `mass 1.5e-3 inertia_tensor ... use_volume` and type 2 `mass 5.0e-4 inertia_tensor ... use_density` (`ParticleTemplateMultisphere::new_with_mass_inertia`) | **70 / 70** atom-frames bit-identical (630 values) | Monte-Carlo templates: **0 / 70** |
+| `ms_rerun` | `ms_collide` with a second `run` (a new set-up) at step 10100 (`GranularSystem::begin_run`); 13 frames | **91 / 91** atom-frames bit-identical (819 values) | one continuous run: **73 / 91**; `begin_run` without the body re-sum: **73 / 91** |
+| `ms_noint` | `ms_collide` with `fix nve/sphere` and `fix multisphere/nointegration` (`GranularSystem::with_multisphere_nointegration`): frozen bodies, member atoms fly as free spheres without gravity; every atom leaves the box between steps 12000 and 14000 (lost-atom path) | **63 / 63** atom-frames bit-identical, and the empty step-15000 frame | the integrating `fix multisphere`: **0 / 7** at step 1 |
+| `ms_dtypes` | `ms_file` with `spheres_different_types file ms_clump1_types.txt` (sphere types 2 1 2, `atom_type 1`; `ParticleTemplateMultisphere::from_clump_file_different_types`), plus upstream's `id type` dump at step 15000 | **27 / 27** atom-frames bit-identical; atom types `[1, 1, 1]`, as upstream's | per-sphere types `[2, 1, 2]` fail the type gate. The trajectory gate **cannot** fail on the types (see below) |
+| `ms_refl` | `ms_rerun` with `fix_modify ms fflag off on on` and `fix_modify ms tflag on off on` before the second run (`GranularSystem::fix_modify_multisphere`) | **91 / 91** atom-frames bit-identical | without the `fix_modify`: **69 / 91** |
+
+**`mass` / `inertia_tensor` (`FixTemplateMultisphere::post_create`).**
+- `use_volume` keeps the Monte-Carlo volume and the centre-of-mass shift,
+  replaces the mass, and sets the density to `mass / volume`.
+- `use_density` runs only the bounding sphere and the overlap check. It does
+  no Monte-Carlo volume and **no centre-of-mass shift**, so the body centre is
+  the template origin. The volume is `mass / density`.
+- Both diagonalise the given tensor and then draw the volume weights from the
+  same `random_mc` stream. With `use_density` the stream is at a different
+  point, because the centre-of-mass pass was skipped.
+
+`tests/multisphere_cross_code.rs::ms_mass_matches_liggghts`.
+
+**`spheres_different_types`: the sphere types do not reach the atoms.**
+`InputMultisphere::clmpfile` reads `x y z r type` per line, and the types set
+`maxtype()` / `mintype()`, which `FixInsert` uses for its material checks.
+But `FixTemplateMultisphere::randomize_ptilist` never copies them into the
+particle to insert, and `ParticleToInsertMultisphere::insert` creates every
+member atom with the template's `atom_type`. Upstream's dump confirms this:
+all three atoms have type 1. Upstream's `ms_dtypes.csv` is byte-identical to
+`ms_file.csv`, because both types have the same materials in this header. The
+trajectory gate therefore checks only the 5-column parser, and the type gate
+is what checks the behaviour. The port reproduces it: the types are parsed
+and kept for `max_type` / `min_type`, and every atom is inserted with
+`atom_type`.
+
+**Refused by name, added in this pass.** `InsertStreamFix::new` now refuses a
+distribution with multisphere or superquadric templates ("not ported"). Before
+this, the port accepted it and panicked at the first insertion
+(`randomize_list`). Upstream streams clumps with a per-body `start_step` and
+`v_integrate`, which are not ported. Test:
+`insert_stream_cross_code.rs::insert_stream_refuses_clumps`.
+
+**Still not ported after this pass** (each has no API in the port, or is
+refused by name):
+- `bonded`;
+- `fix multisphere` `concave`;
+- `fix multisphere/break`;
+- `CAddRhoFluid` / `allow_heatsource`;
+- heat transfer with clumps;
+- periodic images of bodies (`remap_bodies`);
+- clumps from `insert/stream` (refused);
+- `fix remove` with its `delete_bodies` callback (the port has no
+  `fix remove`);
+- restart;
+- `sieveMultiSphereCanPass`.
+
+**A second `run` (`Verlet::setup`).** With clumps, `begin_run` now does
+what upstream's set-up does, in its order:
+- `FixMultisphere::pre_exchange`;
+- `Comm::exchange`;
+- `pre_neighbor`;
+- the set-up force evaluation;
+- `setup_pre_force` (`reset_forces`) and `setup` (`calc_force(true)`), which
+  re-sum each body's force and torque from the set-up forces.
+
+`fix_modify <ms> fflag|tflag` sets the flags on every existing body.
+
+**A prediction of mine that was wrong, and the protocol fix.** The split was
+first placed at step 4800, which I took to be inside the clump-clump
+collision. Upstream's `ms_rerun` was then byte-identical to the continuous
+`ms_collide` at every common frame, so the gate could not fail. A set-up with
+no active contact recomputes the same forces. A scan of upstream with the
+split at 4500, 4600, ..., 14900 found that only 9900, 10100, 14400 and 14500
+change the step-15000 state, so the deck splits at 10100. The prediction
+(91 / 91) stood for the new split, and both decks met it on the first port
+run. `ms_rerun_matches_liggghts`, `ms_refl_matches_liggghts`.
 
 ## 4.17 Superquadric particles (2026-11-13, gh:#1415)
 
