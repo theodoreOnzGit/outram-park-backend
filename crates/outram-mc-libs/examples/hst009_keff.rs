@@ -102,6 +102,19 @@
 //! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 //!
+//! ## MIGRATED to per-material S(a,b) 2026-11-14 (gh:#462)
+//!
+//! H-1 is no longer bound in its nuclide entry; `assign_material_sab` names
+//! H in H2O for the solution and the water reflector (the tank has no H).
+//! One seed at 1000 x [10+30] moved from k 0.99397 +/- 0.00763 to
+//! 0.99277 +/- 0.00670, because the URR stream advances by `nuclides.len()`
+//! (as OpenMC's does) and the bound copy lengthens the array: a legacy model
+//! with one unreferenced nuclide appended gives the new k bit for bit. Same
+//! physics, another realisation. Re-measured, 32 seeds, 5000 x [40+120]:
+//! **+80 pcm, sem +/-22** against +80 +/- 13 (128 seeds) below: difference
+//! 0 +/- 26 pcm. Hardware: 4 shared logical cores (2 threads used), RAM not
+//! recorded.
+//!
 //! ## RE-MEASURED 2026-11-12 — 128 seeds, `OUTRAM_BENCH_SEEDS=128` (gh:#1386)
 //!
 //! **Current value: `+80 pcm, sem ±13, seed-to-seed sd 146` (128 seeds)**
