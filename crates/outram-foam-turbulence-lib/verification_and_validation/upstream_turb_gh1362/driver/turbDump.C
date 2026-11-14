@@ -1608,6 +1608,25 @@ int main(int argc, char* argv[])
             }
             const auto& wDist = wallDistAddressing::New(mesh);
             const auto& y = wDist.y();
+            {
+                // diagnostic: which wall face does the real map take each cell's value from?
+                // (boundary value of the wall faces = the face's index within the wall patch)
+                volScalarField idx
+                (
+                    IOobject("idx", runTime.constant(), mesh.thisDb(), IOobjectOption::NO_REGISTER),
+                    mesh, dimensionedScalar("idx", dimLength, -1.0)
+                );
+                volScalarField::Boundary& idxBf = idx.boundaryFieldRef();
+                forAll(patches, patchi)
+                {
+                    if (isA<wallFvPatch>(patches[patchi]))
+                    {
+                        forAll(idxBf[patchi], fi) idxBf[patchi][fi] = scalar(fi);
+                    }
+                }
+                wDist.map(idx, mapDistribute::transform());
+                dumpS("vd_idx_mapped", idx.primitiveField());
+            }
             wDist.map(ystar, mapDistribute::transform());
             dumpS("vd_y", y.primitiveField());
             dumpS("vd_ystar_mapped", ystar.primitiveField());

@@ -29,6 +29,7 @@
 //! `TurbulenceModel` method and has unit tests and a code-to-code test
 //! (`tests/openfoam_turbulence_code_to_code.rs`).
 
+pub mod deltas;
 pub mod dynamic_k_eqn;
 pub mod dynamic_lagrangian;
 pub mod k_eqn;

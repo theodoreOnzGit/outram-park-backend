@@ -308,12 +308,12 @@ impl KOmegaSstLm {
 mod tests {
     use super::*;
 
-    /// `ReThetac` second branch is exact; the first stays near `ReThetat`.
+    /// `ReThetac` second branch is exact; the first is the published polynomial (662.28 at 1000).
     #[test]
     fn re_thetac_branches() {
         assert_eq!(KOmegaSstLm::re_thetac(2000.0), 2000.0 - 593.11 - 0.482 * (2000.0 - 1870.0));
         let r = KOmegaSstLm::re_thetac(1000.0);
-        assert!(r > 900.0 && r < 1100.0, "{r}");
+        assert!((r - 662.28).abs() < 0.01, "{r}");
     }
 
     /// `Flength` takes the sub-layer value 40 where `y^2 omega/(200 nu)` is small and the

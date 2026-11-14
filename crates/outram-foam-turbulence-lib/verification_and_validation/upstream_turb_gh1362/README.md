@@ -764,3 +764,52 @@ from the nearest wall face; `y+`; `delta`). Port: `outram_foam_turbulence_lib::l
    are predicted to occur on this duct (not checked before the run).
 6. `smooth` (a `FaceCellWave` fixed point whose result depends on the visiting order through the tolerance `1.01`) is ported
    only if time allows; no prediction beyond: the port must reproduce upstream's visiting order, not a "converged" maximum.
+
+## Slice 9 results (2026-11-14, release; same 360-cell duct, ESI `y`, `n`, `hmax` fed where stated)
+
+Port: `outram_foam_turbulence_lib::les::deltas` (new). Tests: `max_delta_xyz_vs_openfoam`, `iddes_delta_vs_openfoam`,
+`van_driest_delta_vs_openfoam` (13 rows pinned, `PINS_D_*`).
+
+| row | identical / n | max ulp |
+|---|---|---|
+| maxDeltaxyz `delta` (after `validate()` and after `correct()`) | 360/360, 360/360 | 0 |
+| IDDESDelta `hmax` (own `maxDeltaxyz`, `deltaCoeff` 2) | 360/360 | 0 |
+| IDDESDelta `delta` (ESI `hmax`, `n`, `y`) / (own `hmax`, ESI `n`, `y`) | 360/360, 360/360 | 0 |
+| vanDriest geometric `delta` (= `cubeRootVol`, from the dump) against `delta_real` | 360/360 | 0 |
+| vanDriest `ystar` on the 312 wall faces (port: `nu/sqrt((nu + nut)|deltaCoeffs (Uw - Uc)| + VSMALL)`) | 312/312 | 0 |
+| vanDriest `y+` and `delta` from the ESI-mapped `ystar` and ESI `y`, against the transcription and the real `delta` | 360/360 (4 rows) | 0 |
+| vanDriest `ystar` mapped with the port's NEAREST wall face | **91/360** | huge (relative difference up to 1.1) |
+| vanDriest `delta` with the port's mapped `ystar` | **228/360** (max relative difference 0.41) | |
+
+Predictions: 1 (maxDeltaxyz identical), 2 (IDDESDelta identical), 3 (`ystar` on wall faces identical), 5 (`delta` from ESI inputs
+identical) held. **Prediction 4 was wrong**: I predicted at least 70% of cells map to the same `ystar`; only 91 do. Cause below.
+
+### Finding in ESI v2506: `wallDistAddressing::map` does not take the value from the nearest wall face (not fixed, deferred)
+
+The driver maps a test field whose wall-face values are the face's index within the wall patch through the real
+`wallDistAddressing::map` (`vd_idx_mapped`). In **263 of 360 cells the face it takes the value from is not the wall face
+nearest to the cell**, although `wallDistAddressing::y()` (the distance) is the true nearest distance: e.g. cell 1, 0.022 m above
+the wall, takes the value of the wall face 0.334 m away (index 6 for cells 1..5, then 73, 93, 113, ...). The real
+`vanDriestDelta` therefore uses `ystar` of an unrelated face in most cells of this duct, and the driver's transcription of
+`calcDelta()` (which calls the same `map`) reproduces the real `delta` 360/360, so this is the behaviour of the library
+call, not of the driver's arrangement of it. Not established: whether this is an upstream defect in v2506
+(wrong index order in the map's addressing) or a consequence of this case (serial run, one `wall` patch listed after `inlet` and
+`outlet`, wall faces numbered z-fastest). Not reproduced in the port: the port maps `ystar` from the nearest
+wall-face centre, which is what the class intends; bit-identity with ESI for `vanDriest` therefore needs the mapped `ystar`
+as an input ([`van_driest_yplus`] takes it), and the two rows above are pinned as the measured disagreement. **Decision for the
+maintainer (deferred):** follow the intent (nearest face, as now) or reproduce the library; and whether to report it upstream.
+Not checked: the Foundation (dev) `vanDriestDelta`, which uses a different addressing code.
+
+### `smooth` not ported
+
+The real `smooth` delta with the case's `maxDeltaRatio 1.15` returns `cubeRootVol` unchanged on this duct (max relative
+difference from `cbrt(V)` 5.5e-16, 0 cells beyond 1e-12): the neighbouring cell volumes differ by too little for the wave
+to start. The dump (`ref_LESdelta_smooth.txt.gz`) therefore cannot test a port. The port would also need upstream's
+`FaceCellWave` visiting order (the tolerance 1.01 in `deltaData::update` makes the fixed point order-dependent). Deferred; a
+useful case needs `maxDeltaRatio` of about 1.02 on this mesh (chosen from the graded cell sizes, not yet run).
+
+### Not covered
+
+Coupled patches, non-orthogonal meshes (`vanDriest`'s boundary `deltaCoeffs` is `1/|Cf - C|` only for orthogonal faces), 2D cases
+(`nGeometricD` warning branch), `PrandtlDelta`, `SLADelta`, `DeltaOmegaTildeDelta`, `maxDeltaxyzCubeRootLESDelta`, `cubeRootVol` itself
+(the earlier slices use it as `1.0 cbrt(V)`).

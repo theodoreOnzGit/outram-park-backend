@@ -33,6 +33,10 @@ use outram_foam_turbulence_lib::k_omega::KOmega;
 use outram_foam_turbulence_lib::k_omega_sst::KOmegaSST;
 use outram_foam_turbulence_lib::k_omega_sst_lm::KOmegaSstLm;
 use outram_foam_turbulence_lib::launder_sharma_ke::LaunderSharmaKe;
+use outram_foam_turbulence_lib::les::deltas::{
+    iddes_delta, max_delta_xyz, nearest_wall_face, van_driest_delta, van_driest_ystar_faces,
+    van_driest_yplus, wall_faces,
+};
 use outram_foam_turbulence_lib::les::k_eqn::KEqn;
 use outram_foam_turbulence_lib::les::wale::Wale;
 use outram_foam_turbulence_lib::realizable_ke::RealizableKE;
@@ -1976,4 +1980,106 @@ const PINS_SST_LM: &[(&str, usize)] = &[
     ("kOmegaSSTLM (esi y) gammaSep", 360),
     ("kOmegaSSTLM (esi y) gammaIntEff", 360),
     ("kOmegaSSTLM (esi y) gammaIntEff", 360),
+];
+
+// ── LES deltas (gh:#1544, README slice 9) ──────────────────────────────────
+
+const REF_D_MAX: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LESdelta_maxDeltaxyz.txt.gz"
+);
+const REF_D_IDDES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LESdelta_IDDESDelta.txt.gz"
+);
+const REF_D_VD: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LESdelta_vanDriest.txt.gz"
+);
+
+fn row(label: &str, rust: &[f64], up: &[f64]) -> (String, Stat) {
+    (label.to_string(), cmp(label, rust, up))
+}
+
+#[test]
+fn max_delta_xyz_vs_openfoam() {
+    let r = parse(REF_D_MAX);
+    let mesh = r.mesh();
+    let rows = vec![
+        row("maxDeltaxyz delta (after validate)", &max_delta_xyz(&mesh, 2.0), &r.s("delta_real")),
+        row("maxDeltaxyz delta (after correct)", &max_delta_xyz(&mesh, 2.0), &r.s("delta_after")),
+    ];
+    pin(&rows, PINS_D_MAX);
+}
+
+#[test]
+fn iddes_delta_vs_openfoam() {
+    let r = parse(REF_D_IDDES);
+    let mesh = r.mesh();
+    let own_hmax = max_delta_xyz(&mesh, 2.0);
+    let esi_hmax = r.s("hmax_real");
+    let n = r.v("wall_n");
+    let y = r.s("wall_y");
+    let rows = vec![
+        row("IDDESDelta hmax (own maxDeltaxyz)", &own_hmax, &esi_hmax),
+        row("IDDESDelta delta (esi hmax, n, y)", &iddes_delta(&mesh, &esi_hmax, &n, &y, 0.15), &r.s("delta_real")),
+        row("IDDESDelta delta (own hmax, esi n, y)", &iddes_delta(&mesh, &own_hmax, &n, &y, 0.15), &r.s("delta_real")),
+    ];
+    pin(&rows, PINS_D_IDDES);
+}
+
+#[test]
+fn van_driest_delta_vs_openfoam() {
+    let r = parse(REF_D_VD);
+    let mesh = r.mesh();
+    let u = r.velocity(&mesh);
+    let ystar_face = van_driest_ystar_faces(&mesh, &u, &r.s("vd_nuw"), &r.s("vd_nutw"));
+    let near = nearest_wall_face(&mesh);
+    let own_mapped: Vec<f64> = near.iter().map(|&i| ystar_face[i]).collect();
+    let esi_y = r.s("vd_y");
+    let geo = r.s("vd_geometric");
+    let own_yplus = van_driest_yplus(&esi_y, &own_mapped);
+    let esi_yplus = van_driest_yplus(&esi_y, &r.s("vd_ystar_mapped"));
+    let delta_esi = van_driest_delta(&geo, &esi_y, &esi_yplus, 0.41, 26.0, 0.158);
+    let delta_own = van_driest_delta(&geo, &esi_y, &own_yplus, 0.41, 26.0, 0.158);
+    let rows = vec![
+        row("vanDriest geometric delta == delta_real", &geo, &r.s("delta_real")),
+        row("vanDriest ystar on wall faces", &ystar_face, &r.s("vd_ystar_face")),
+        row("vanDriest ystar mapped (own nearest face)", &own_mapped, &r.s("vd_ystar_mapped")),
+        row("vanDriest y+ (esi mapped ystar)", &esi_yplus, &r.s("vd_yplus")),
+        row("vanDriest y+ (own mapped ystar)", &own_yplus, &r.s("vd_yplus")),
+        row("vanDriest delta transcription (esi mapped)", &delta_esi, &r.s("vd_delta_T")),
+        row("vanDriest delta (esi y, esi mapped ystar)", &delta_esi, &r.s("delta_after")),
+        row("vanDriest delta (esi y, own mapped ystar)", &delta_own, &r.s("delta_after")),
+    ];
+    pin(&rows, PINS_D_VD);
+    // Diagnostic (real map applied to a field holding each wall face's index): in how many cells is the
+    // face the REAL map takes the value from the nearest wall face (its centre at distance y)?
+    let wf = wall_faces(&mesh);
+    let from_nearest = (0..mesh.n_cells)
+        .filter(|&c| {
+            let f = wf[r.s("vd_idx_mapped")[c] as usize];
+            ((mesh.face_centres[f] - mesh.cell_centres[c]).mag() - esi_y[c]).abs() <= 1e-12
+        })
+        .count();
+    assert_eq!(from_nearest, 97, "cells where upstream's map uses the nearest wall face");
+}
+
+const PINS_D_MAX: &[(&str, usize)] = &[
+    ("maxDeltaxyz delta (after validate)", 360),
+    ("maxDeltaxyz delta (after correct)", 360),
+];
+const PINS_D_IDDES: &[(&str, usize)] = &[
+    ("IDDESDelta hmax (own maxDeltaxyz)", 360),
+    ("IDDESDelta delta (esi hmax, n, y)", 360),
+    ("IDDESDelta delta (own hmax, esi n, y)", 360),
+];
+/// The two "own mapped ystar" rows are NOT bit-identical by design: the real `wallDistAddressing::map`
+/// takes the value of a wall face that is not the nearest one in most cells (README slice 9).
+const PINS_D_VD: &[(&str, usize)] = &[
+    ("vanDriest geometric delta == delta_real", 360),
+    ("vanDriest ystar on wall faces", 312),
+    ("vanDriest ystar mapped (own nearest face)", 91),
+    ("vanDriest y+ (esi mapped ystar)", 360),
+    ("vanDriest y+ (own mapped ystar)", 92),
+    ("vanDriest delta transcription (esi mapped)", 360),
+    ("vanDriest delta (esi y, esi mapped ystar)", 360),
+    ("vanDriest delta (esi y, own mapped ystar)", 228),
 ];
