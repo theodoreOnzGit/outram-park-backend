@@ -15,6 +15,7 @@
 //! ```text
 //! cargo run --release -p outram-park-digital-twin-engine --example msre_web
 //! cargo run --release -p outram-park-digital-twin-engine --example msre_web -- --headless [end_s] [every_s]
+//! cargo run --release -p outram-park-digital-twin-engine --example msre_web -- --prepare-web-data <dir>   # the k_eff tab's tapes
 //! crates/outram-park-digital-twin-engine/web/msre/build.sh   # the browser demo, into dist/
 //! ```
 //!
@@ -41,6 +42,11 @@
 mod app;
 #[cfg(not(target_os = "android"))]
 mod engine;
+// The Core k_eff tab (gh:#1571): its workers and its page.
+#[cfg(not(target_os = "android"))]
+mod keff;
+#[cfg(not(target_os = "android"))]
+mod keff_tab;
 
 /// Android stub: windowing GUIs are out of scope on Termux.
 #[cfg(target_os = "android")]
@@ -54,6 +60,10 @@ fn main() {
 fn main() -> Result<(), String> {
     use outram_park_digital_twin_engine::msre::session::{demo_script, headless_csv, SessionConfig};
     let args: Vec<String> = std::env::args().collect();
+    if let Some(i) = args.iter().position(|a| a == "--prepare-web-data") {
+        let dir = args.get(i + 1).ok_or("--prepare-web-data needs an output directory")?;
+        return keff::prepare_web_data(std::path::Path::new(dir));
+    }
     if let Some(i) = args.iter().position(|a| a == "--headless") {
         let num = |k: usize, d: f64| args.get(i + k).and_then(|s| s.parse().ok()).unwrap_or(d);
         let csv = headless_csv(SessionConfig::default(), &demo_script(), num(1, 1200.0), num(2, 10.0)).map_err(|e| e.to_string())?;

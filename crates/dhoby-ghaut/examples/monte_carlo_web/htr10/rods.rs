@@ -387,7 +387,7 @@ impl LiveSweep {
             return SweepStep::Done;
         }
         if let Some(epoch) = self.started {
-            let Some(run) = s.run.as_ref().filter(|r| r.epoch == epoch) else {
+            let Some(run) = s.keff.run.as_ref().filter(|r| r.epoch == epoch) else {
                 self.failed = Some("the run was replaced by another one".into());
                 return SweepStep::Failed(self.failed.clone().unwrap_or_default());
             };
@@ -415,7 +415,7 @@ impl LiveSweep {
                 _ => "the nuclear data are not ready yet".into(),
             });
         }
-        if s.run.as_ref().is_some_and(|r| r.going()) {
+        if s.keff.run.as_ref().is_some_and(|r| r.going()) {
             return SweepStep::Waiting("another run is going".into());
         }
         let want = self.targets[self.next];
@@ -430,7 +430,7 @@ impl LiveSweep {
         }
         match s.start_run(self.cfg, now_s) {
             Ok(()) => {
-                self.started = s.run.as_ref().map(|r| r.epoch);
+                self.started = s.keff.run.as_ref().map(|r| r.epoch);
                 SweepStep::Running { i: self.next, n }
             }
             Err(e) => {
@@ -518,7 +518,7 @@ pub fn recorded_ui(ui: &mut egui::Ui, curves: &[RecordedCurve], rods: &[f64; N])
 pub fn sweeps_ui(ui: &mut egui::Ui, core: &mut super::core::screen::CoreScreen) {
     ui.weak("Several runs one after another on the worker pool, each at the statistics above: the workers rebuild the core with each position's rods first.");
     let ready = core.pool.as_ref().is_some_and(|p| p.state.phase == super::core::pool::PoolPhase::Ready);
-    let busy = core.sweep.is_some() || core.pool.as_ref().and_then(|p| p.state.run.as_ref()).is_some_and(|r| r.going());
+    let busy = core.sweep.is_some() || core.pool.as_ref().and_then(|p| p.state.keff.run.as_ref()).is_some_and(|r| r.going());
     let sel = core.rods.selected;
     ui.add_enabled_ui(ready && !busy, |ui| {
         if ui.button("Worth curve: all ten rods (9 positions)").clicked() {
@@ -533,7 +533,7 @@ pub fn sweeps_ui(ui: &mut egui::Ui, core: &mut super::core::screen::CoreScreen) 
     }
     if let Some(sw) = core.sweep.as_ref() {
         let (d, n) = sw.progress();
-        let gen = core.pool.as_ref().and_then(|p| p.state.run.as_ref()).map(|r| (r.gens.len(), r.cfg.n_inactive + r.cfg.n_active));
+        let gen = core.pool.as_ref().and_then(|p| p.state.keff.run.as_ref()).map(|r| (r.gens.len(), r.cfg.n_inactive + r.cfg.n_active));
         ui.label(format!("{d} of {n} positions done · {}", core.sweep_status));
         if let Some((g, t)) = gen {
             ui.add(egui::ProgressBar::new((d as f32 + g as f32 / t.max(1) as f32) / n as f32).text(format!("generation {g} of {t}")));

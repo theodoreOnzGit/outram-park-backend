@@ -119,6 +119,14 @@
 #[cfg(not(target_os = "android"))]
 pub use bugis::web_demo;
 
+/// **The browser Monte Carlo pipeline** (gh:#1572, feature `mc_web`):
+/// ENDF tapes for the browser, the processed-data cache, the k_eff settings
+/// and summary, and the worker-pool protocol, promoted from the
+/// `monte_carlo_web` example so the HTR-10 rung and the MSRE simulator
+/// (`outram-park-digital-twin-engine`'s `msre_web`) call the same code.
+#[cfg(all(feature = "mc_web", not(target_os = "android")))]
+pub mod mc_web;
+
 // The guided high-fidelity workbench's library half (gh:#561): catalogue,
 // steps and the kovan-markdown recipe. Off wasm32 because `kovan` is.
 #[cfg(not(target_arch = "wasm32"))]

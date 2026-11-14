@@ -38,7 +38,7 @@ const STEP_S: f64 = 0.01;
 pub const MAX_ADVANCE_S: f64 = 10.0;
 
 /// Which fuel and graphite temperature coefficients the plant uses.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Coefficients {
     /// ORNL-TM-1070 Table 1's 1965 predictions: fuel −4.84, graphite
     /// −3.7 × 10⁻⁵ /°F (`MsreConfig::tm1070`'s default).
@@ -50,6 +50,12 @@ pub enum Coefficients {
     /// `crates/outram-mc-libs/verification_and_validation/msre_n1_first_criticality/README.md`).
     /// The high-fidelity level feeding the low-fidelity one.
     MonteCarloN3,
+    /// Measured in this browser session on the simulator's k_eff tab
+    /// (gh:#1574): the same split as [`Coefficients::MonteCarloN3`] (salt
+    /// and graphite each 100 °F up from 1131 °F), run by the reader, with
+    /// each coefficient's σ, [1/°F]. Sent to the plant only by the reader's
+    /// own button, never automatically.
+    Measured { fuel_per_f: f64, fuel_sigma: f64, graphite_per_f: f64, graphite_sigma: f64 },
 }
 
 impl Coefficients {
@@ -58,8 +64,42 @@ impl Coefficients {
         match self {
             Coefficients::Ornl1965 => (ORNL_1965_FUEL_PER_F, ORNL_1965_GRAPHITE_PER_F),
             Coefficients::MonteCarloN3 => (MC_N3_FUEL_PER_F, MC_N3_GRAPHITE_PER_F),
+            Coefficients::Measured { fuel_per_f, graphite_per_f, .. } => (fuel_per_f, graphite_per_f),
         }
     }
+
+    /// Where they come from, for the plant's status line.
+    pub fn describe(self) -> String {
+        match self {
+            Coefficients::Ornl1965 => "ORNL 1965 predictions (TM-1070)".into(),
+            Coefficients::MonteCarloN3 => "precomputed Monte Carlo N-3 (this workspace)".into(),
+            Coefficients::Measured { fuel_per_f, fuel_sigma, graphite_per_f, graphite_sigma } => format!(
+                "measured in this browser: fuel {:.2} ± {:.2}, graphite {:.2} ± {:.2} (×1e-5 /°F)",
+                fuel_per_f * 1e5,
+                fuel_sigma * 1e5,
+                graphite_per_f * 1e5,
+                graphite_sigma * 1e5
+            ),
+        }
+    }
+}
+
+/// The N-3 split's temperatures, °F: the base (salt and graphite), and the
+/// step each component is raised by (ORNL-4233's 1131 / 1231 °F as the
+/// N-3 record runs them).
+pub const SPLIT_BASE_F: f64 = 1131.0;
+pub const SPLIT_STEP_F: f64 = 100.0;
+
+/// The fuel or graphite coefficient from two eigenvalues and their σ: the
+/// reactivity ρ = (k − 1)/k at the base and with one component raised by
+/// `dt_f`, α = (ρ_raised − ρ_base)/dt_f [1/°F], with σ by first-order
+/// propagation of the two independent runs' σ (σ_ρ = σ_k/k²). The N-3
+/// record's arithmetic (its fuel −3.79 is 1.02232 → 1.01837 over 100 °F).
+pub fn coefficient_from_pair(k_base: f64, s_base: f64, k_raised: f64, s_raised: f64, dt_f: f64) -> (f64, f64) {
+    let a = (1.0 / k_base - 1.0 / k_raised) / dt_f;
+    let (b, r) = (s_base / (k_base * k_base), s_raised / (k_raised * k_raised));
+    let s = (b * b + r * r).sqrt() / dt_f;
+    (a, s)
 }
 
 /// The Monte Carlo fuel coefficient on the current N-1 default, [1/°F]

@@ -1,3 +1,8 @@
+//! **Since gh:#1572 the two halves of the protocol are the library's**
+//! (`dhoby_ghaut::mc_web::pool`: `DataRelay` and `KeffPool`, moved from
+//! here); [`PoolState`] wraps them with the core's bed, rods, zone
+//! temperatures and pour, and its tests below still pin the whole.
+//!
 //! **The page side of the core's worker pool** (gh:#786): deal the jobs, relay
 //! every product to every other worker, start the assembly, then run the
 //! power iteration and deal each generation's chunks to idle workers.
@@ -38,22 +43,25 @@
 //! request outstanding, and a restart leaves it marked busy until that reply
 //! (stale) arrives, so the new run never gives it a second request meanwhile.
 
-use super::{schedule, AssemblyReport, CoreEv, CoreReq};
+use super::{AssemblyReport, CoreEv, CoreReq};
 use crate::keff::KeffConfig;
-use dhoby_ghaut::web_demo::data_cache::Source;
-use dhoby_ghaut::web_demo::link::{Floats, BAD_MESSAGE};
-use outram_mc_libs::physics::transport_csg::distributed::{
-    ChunkResult, DistributedGeneration, DistributedPowerIteration, GenerationChunk, SourceSite,
+use dhoby_ghaut::mc_web::pool::{DataOut, DataRelay, KeffPool, RunReq};
+pub use dhoby_ghaut::mc_web::pool::{
+    GenSummary, Note, RestartKind, RunOrigin, RELAY_WORDS_PER_FRAME,
 };
-use outram_mc_libs::tally::mesh::RegularMesh;
-use std::collections::VecDeque;
 
-/// At most this many `f64`s are relayed per frame (8 MB): one large product
-/// (U-235's or U-238's, millions of words) still goes whole, but never two.
-pub const RELAY_WORDS_PER_FRAME: usize = 1 << 20;
-/// Chunks per worker per generation (more than one, so a worker that draws
-/// short histories takes another chunk instead of idling).
-pub const CHUNKS_PER_WORKER: usize = 3;
+/// The model a run started on: the bed's layers and the rods the core held
+/// (the pool may be rebuilt with others after it ends; what the run's k is
+/// compared with follows these, not the pool's).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HtrRun {
+    pub layers: usize,
+    pub rods: [f64; super::random_bed::N_RODS],
+}
+
+/// A run in progress on the core (the library's, gh:#1572, carrying the
+/// bed and rods it started on).
+pub type RunState = dhoby_ghaut::mc_web::pool::RunState<HtrRun>;
 
 /// Where the pool is.
 #[derive(Clone, Debug, PartialEq)]
@@ -68,188 +76,13 @@ pub enum PoolPhase {
     Failed(String),
 }
 
-/// One finished generation as the page shows it.
-#[derive(Clone, Debug)]
-pub struct GenSummary {
-    pub gen: DistributedGeneration,
-    /// Wall time of the generation, s, and the workers' summed busy time.
-    pub wall_s: f64,
-    pub busy_s: f64,
-}
-
-impl GenSummary {
-    /// The same generation with no traced tracks: what a run keeps per
-    /// generation (a few hundred bytes, against the tracks' tens to
-    /// hundreds of kB).
-    pub fn without_tracks(&self) -> Self {
-        let g = &self.gen;
-        Self {
-            gen: DistributedGeneration {
-                index: g.index,
-                active: g.active,
-                k: g.k,
-                k_mean: g.k_mean,
-                entropy: g.entropy,
-                bank_size: g.bank_size,
-                counts: g.counts,
-                tracks: Vec::new(),
-            },
-            wall_s: self.wall_s,
-            busy_s: self.busy_s,
-        }
-    }
-}
-
-/// How a failed run is started again (gh:#817). Both give the same `k` in
-/// every generation, bit for bit: the reduction does not depend on how the
-/// histories were dealt out.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RestartKind {
-    /// On every live worker.
-    Parallel,
-    /// Every chunk to one worker (the first live one): slower, and nothing
-    /// is ever in flight on two workers at once.
-    Serial,
-}
-
-/// Where a run came from: what its summary records.
-#[derive(Clone, Debug, PartialEq)]
-pub enum RunOrigin {
-    /// Started by the reader (or `?autostart`).
-    Fresh,
-    /// A restart of a failed run: how, on how many workers, and the failure
-    /// it replaced.
-    Restart {
-        kind: RestartKind,
-        workers: usize,
-        after: String,
-    },
-}
-
-/// A run in progress.
-pub struct RunState {
-    pub cfg: KeffConfig,
-    pub it: Option<DistributedPowerIteration>,
-    mesh: Option<RegularMesh>,
-    queue: VecDeque<GenerationChunk>,
-    expected: usize,
-    results: Vec<ChunkResult>,
-    pub gens: Vec<GenSummary>,
-    pub paused: bool,
-    pub started_s: f64,
-    gen_started_s: f64,
-    gen_busy_s: f64,
-    /// Waiting for the initial source.
-    asked_source: bool,
-    /// The run's epoch: requests carry it and replies echo it.
-    pub epoch: u32,
-    /// Why the run stopped, if it failed. The pool is still ready.
-    pub failed: Option<String>,
-    pub origin: RunOrigin,
-    /// The one worker every request goes to, for a serial run.
-    pub serial: Option<usize>,
-    /// Stopped by the reader: not going, not failed.
-    pub stopped: bool,
-    /// The bed's layers and the rods the core held when the run started
-    /// (the pool may be rebuilt with others after it ends; what the run's
-    /// k is compared with follows these, not the pool's).
-    pub layers: usize,
-    pub rods: [f64; super::random_bed::N_RODS],
-}
-
-impl RunState {
-    /// Bins of the run's entropy mesh, once the source has set it: the
-    /// entropy's ceiling is `log2` of this.
-    pub fn entropy_bins(&self) -> Option<usize> {
-        self.mesh.as_ref().map(|m| m.dimension.iter().product())
-    }
-    fn new(cfg: KeffConfig, now_s: f64, epoch: u32, origin: RunOrigin, serial: Option<usize>) -> Self {
-        Self {
-            cfg,
-            it: None,
-            mesh: None,
-            queue: VecDeque::new(),
-            expected: 0,
-            results: Vec::new(),
-            gens: Vec::new(),
-            paused: false,
-            started_s: now_s,
-            gen_started_s: now_s,
-            gen_busy_s: 0.0,
-            asked_source: false,
-            epoch,
-            failed: None,
-            origin,
-            serial,
-            stopped: false,
-            layers: 0,
-            rods: [0.0; super::random_bed::N_RODS],
-        }
-    }
-
-    pub fn finished(&self) -> bool {
-        self.it
-            .as_ref()
-            .is_some_and(DistributedPowerIteration::finished)
-    }
-
-    /// Going: started, neither finished, failed nor stopped (including while
-    /// the initial source is sampled, a8b9ad7833).
-    pub fn going(&self) -> bool {
-        !self.finished() && self.failed.is_none() && !self.stopped
-    }
-
-    /// What kind of run this is, for its summary and the console.
-    pub fn describe(&self) -> String {
-        match &self.origin {
-            RunOrigin::Fresh => format!("run {}", self.epoch),
-            RunOrigin::Restart {
-                kind: RestartKind::Parallel,
-                workers,
-                ..
-            } => format!("run {}, a restart in parallel on {workers} workers", self.epoch),
-            RunOrigin::Restart {
-                kind: RestartKind::Serial,
-                ..
-            } => format!("run {}, a serial restart on 1 worker", self.epoch),
-        }
-    }
-
-    /// Stop the run: it cuts no more chunks; replies still in flight for it
-    /// are discarded when they arrive (it is not going).
-    fn fail(&mut self, why: String) {
-        log::error!("worker pool: {} failed: {why}", self.describe());
-        self.failed = Some(why);
-        self.queue.clear();
-        self.results.clear();
-        self.expected = 0;
-    }
-}
-
-/// What the screen hears from the pool.
-pub enum Note {
-    Generation(GenSummary),
-    /// The run's last generation is in.
-    RunDone,
-}
-
-/// The pool's protocol (module docs).
+/// The pool's protocol (module docs): the library's data relay and k_eff
+/// run (gh:#1572), with the HTR-10 core's bed, rods, zone temperatures and
+/// pour.
 pub struct PoolState {
     pub workers: usize,
-    pub labels: Vec<String>,
-    pub costs: Vec<f64>,
-    pub assignment: Vec<Vec<usize>>,
-    /// Per job: the worker doing it, whether it started, its seconds once done.
-    pub owner: Vec<usize>,
-    pub started: Vec<bool>,
-    pub secs: Vec<Option<f64>>,
-    /// Per job: processed now, or read from the browser's cache (gh:#818).
-    pub sources: Vec<Option<Source>>,
-    /// Products awaiting relay, dropped once relayed to every other worker.
-    products: Vec<Option<(Floats, usize)>>,
-    relay: VecDeque<(usize, usize)>,
-    process_sent: bool,
-    assemble_sent: Vec<bool>,
+    /// Processing and relaying the jobs (the library's).
+    pub data: DataRelay,
     pub assembled: Vec<Option<AssemblyReport>>,
     pub layers: usize,
     /// Each control rod's insertion the workers' core is built with (gh:#1025),
@@ -262,57 +95,21 @@ pub struct PoolState {
     pub phase: PoolPhase,
     pub started_s: f64,
     pub data_ready_s: Option<f64>,
-    pub run: Option<RunState>,
-    busy: Vec<bool>,
-    /// Per worker: alive, or why it died (gh:#817).
-    pub alive: Vec<bool>,
-    pub died: Vec<Option<String>>,
-    /// The last run epoch handed out (0: none yet).
-    epoch: u32,
-    /// Stale replies discarded so far (each also in the console).
-    pub stale_discarded: usize,
-    /// What the pool did that the reader should be able to see: restarts,
-    /// discarded replies, dead workers (also in the console). Newest last.
-    pub log: Vec<String>,
+    /// The k_eff run on the workers (the library's): its run, the workers
+    /// alive, the log of what the reader should see.
+    pub keff: KeffPool<HtrRun>,
     /// Requests waiting to go out.
     out: Vec<(usize, CoreReq)>,
-    /// What each worker holds, for the message when one stops ("about 545
-    /// MB of nuclear data" for the HTR-10 core).
-    pub per_worker: String,
 }
 
 impl PoolState {
     /// A pool of `workers` for jobs with these labels and costs, the core
     /// built at `layers`.
-    pub fn new(
-        workers: usize,
-        labels: Vec<String>,
-        costs: Vec<f64>,
-        layers: usize,
-        now_s: f64,
-    ) -> Self {
+    pub fn new(workers: usize, labels: Vec<String>, costs: Vec<f64>, layers: usize, now_s: f64) -> Self {
         let workers = workers.max(1);
-        let assignment = schedule(&costs, workers);
-        let mut owner = vec![0; costs.len()];
-        for (w, js) in assignment.iter().enumerate() {
-            for &j in js {
-                owner[j] = w;
-            }
-        }
-        let n = costs.len();
         Self {
             workers,
-            labels,
-            costs,
-            assignment,
-            owner,
-            started: vec![false; n],
-            secs: vec![None; n],
-            sources: vec![None; n],
-            products: (0..n).map(|_| None).collect(),
-            relay: VecDeque::new(),
-            process_sent: false,
-            assemble_sent: vec![false; workers],
+            data: DataRelay::new(workers, labels, costs),
             assembled: vec![None; workers],
             layers,
             rods: super::random_bed::WITHDRAWN,
@@ -320,15 +117,8 @@ impl PoolState {
             phase: PoolPhase::Processing,
             started_s: now_s,
             data_ready_s: None,
-            run: None,
-            busy: vec![false; workers],
-            alive: vec![true; workers],
-            died: vec![None; workers],
-            epoch: 0,
-            stale_discarded: 0,
-            log: Vec::new(),
+            keff: KeffPool::new(workers, "about 545 MB of nuclear data".into(), super::run_settings, super::TRACED_PER_GENERATION),
             out: Vec::new(),
-            per_worker: "about 545 MB of nuclear data".into(),
         }
     }
 
@@ -349,10 +139,10 @@ impl PoolState {
     /// worker holds, for the message if one stops.
     pub fn ready(workers: usize, per_worker: String, now_s: f64) -> Self {
         let mut s = Self::new(workers, Vec::new(), Vec::new(), 0, now_s);
-        s.process_sent = true;
+        s.data = DataRelay::none(s.workers);
         s.phase = PoolPhase::Ready;
         s.data_ready_s = Some(now_s);
-        s.per_worker = per_worker;
+        s.keff.per_worker = per_worker;
         s
     }
 
@@ -360,63 +150,39 @@ impl PoolState {
     /// page shows it): how many products were read from this browser's
     /// cache and how many processed now.
     pub fn data_source(&self) -> String {
-        Source::summarize(self.sources.iter().flatten())
+        self.data.data_source()
     }
 
     /// Workers still alive.
     pub fn live_workers(&self) -> usize {
-        self.alive.iter().filter(|&&a| a).count()
+        self.keff.live_workers()
     }
 
     /// Fraction of the data work done, by cost (assembly counts as the last 15 %).
     pub fn progress(&self) -> f64 {
-        let total: f64 = self.costs.iter().sum::<f64>().max(1e-9);
-        let done: f64 = self
-            .costs
-            .iter()
-            .zip(&self.secs)
-            .filter(|(_, s)| s.is_some())
-            .map(|(c, _)| c)
-            .sum();
-        let built =
-            self.assembled.iter().filter(|a| a.is_some()).count() as f64 / self.workers as f64;
-        0.85 * done / total + 0.15 * built
+        let built = self.assembled.iter().filter(|a| a.is_some()).count() as f64 / self.workers as f64;
+        0.85 * self.data.processed() + 0.15 * built
     }
 
-    /// Record something the reader should see, in the panel and the console.
-    fn note(&mut self, line: String) {
-        log::warn!("worker pool: {line}");
-        self.log.push(line);
-        if self.log.len() > 40 {
-            self.log.remove(0);
-        }
+    /// Why the current run failed, if it did.
+    pub fn keff_failed(&self) -> Option<String> {
+        self.keff.run.as_ref().and_then(|r| r.failed.clone())
     }
 
-    /// Discard a reply no going run is waiting for, visibly.
-    fn discard(&mut self, w: usize, what: &str, epoch: u32) {
-        self.stale_discarded += 1;
-        let now = self.run.as_ref().map_or(0, |r| r.epoch);
-        self.note(format!(
-            "discarded {what} from worker {} for run {epoch} (current run {now}): no run is \
-             waiting for it (it was in flight when its run stopped, or is a duplicate)",
-            w + 1
-        ));
+    /// The model a run starting now is on.
+    fn model(&self) -> HtrRun {
+        HtrRun { layers: self.layers, rods: self.rods }
     }
 
-    /// The run a reply tagged `epoch` belongs to, if it is still going;
-    /// otherwise the reply is stale: discarded and logged.
-    fn current_run(&mut self, epoch: u32, w: usize, what: &str) -> Option<&mut RunState> {
-        if !self.run.as_ref().is_some_and(|r| r.epoch == epoch && r.going()) {
-            self.discard(w, what, epoch);
-            return None;
-        }
-        self.run.as_mut()
+    /// The data are still being processed or assembled.
+    fn data_phase(&self) -> bool {
+        matches!(self.phase, PoolPhase::Processing | PoolPhase::Assembling)
     }
 
     /// The live workers whose models are all at `layers`: ready.
     fn check_ready(&mut self, now_s: f64) {
         let all = (0..self.workers)
-            .filter(|&v| self.alive[v])
+            .filter(|&v| self.keff.alive[v])
             .all(|v| self.assembled[v].is_some_and(|a| a.layers == self.layers));
         if all && self.live_workers() > 0 {
             self.phase = PoolPhase::Ready;
@@ -431,34 +197,9 @@ impl PoolState {
             return notes;
         }
         match ev {
-            CoreEv::JobStarted { job } => {
-                if let Some(s) = self.started.get_mut(job) {
-                    *s = true;
-                }
-            }
-            CoreEv::DataNote(m) => self.note(format!("worker {}: {m}", w + 1)),
-            CoreEv::Product {
-                job,
-                secs,
-                data,
-                source,
-            } => {
-                if job < self.secs.len() {
-                    self.secs[job] = Some(secs);
-                    log::info!(
-                        "worker pool: {} {} ({secs:.1} s, worker {})",
-                        self.labels.get(job).map_or("?", String::as_str),
-                        source.describe(),
-                        w + 1
-                    );
-                    self.sources[job] = Some(source);
-                    let others: Vec<usize> = (0..self.workers).filter(|&v| v != w).collect();
-                    for &v in &others {
-                        self.relay.push_back((v, job));
-                    }
-                    self.products[job] = (!others.is_empty()).then_some((data, others.len()));
-                }
-            }
+            CoreEv::JobStarted { job } => self.data.on_started(job),
+            CoreEv::DataNote(m) => self.keff.note(format!("worker {}: {m}", w + 1)),
+            CoreEv::Product { job, secs, data, source } => self.data.on_product(w, job, secs, data, source),
             CoreEv::Assembled(r) => {
                 // One console line per assembly, for an unattended browser
                 // check of time and memory (gh:#1141).
@@ -476,121 +217,22 @@ impl PoolState {
                 self.assembled[w] = Some(r);
                 self.check_ready(now_s);
             }
-            CoreEv::Source {
-                sites,
-                seed,
-                mesh,
-                epoch,
-            } => {
-                // The worker that sampled it is idle again.
-                self.busy[w] = false;
-                let waiting = self
-                    .run
-                    .as_ref()
-                    .is_some_and(|r| r.epoch == epoch && r.going() && r.it.is_none());
-                let live = self.live_workers();
-                if !waiting {
-                    // A duplicate (a8b9ad7833) or one for a replaced run.
-                    self.discard(w, "an initial source", epoch);
-                } else if let Some(run) = self.run.as_mut() {
-                    match SourceSite::decode(&sites.to_vec()) {
-                        Ok(s) => {
-                            run.it = Some(DistributedPowerIteration::from_initial_source(
-                                &super::run_settings(&run.cfg),
-                                &s,
-                                seed,
-                            ));
-                            run.mesh = Some(super::mesh_from_words(&mesh));
-                            run.gen_started_s = now_s;
-                            let n = Self::dealing(run, live);
-                            Self::cut(run, n);
-                        }
-                        Err(e) => run.fail(unreadable("the initial source", w, &e)),
-                    }
-                }
-            }
-            CoreEv::ChunkDone { data, secs, epoch } => {
-                self.busy[w] = false;
-                let workers = self.live_workers();
-                let Some(run) = self.current_run(epoch, w, "a chunk result") else {
-                    return notes;
-                };
-                match ChunkResult::from_f64s(&data.to_vec()) {
-                    Ok(r) => {
-                        run.results.push(r);
-                        run.gen_busy_s += secs;
-                    }
-                    Err(e) => {
-                        run.fail(unreadable("a chunk result", w, &e));
-                        return notes;
-                    }
-                }
-                if run.expected > 0 && run.results.len() == run.expected {
-                    let got = run.results.len();
-                    let results = std::mem::take(&mut run.results);
-                    let mesh = run.mesh.clone();
-                    let (label, deal) = (run.describe(), Self::dealing(run, workers));
-                    let Some(it) = run.it.as_mut() else {
-                        return notes;
-                    };
-                    let reduced = it.finish_generation(results, mesh.as_ref());
-                    let (done, mean, at) = (it.finished(), it.k_mean(), it.generations_done());
-                    match reduced {
-                        Ok(gen) => {
-                            let s = GenSummary {
-                                gen,
-                                wall_s: now_s - run.gen_started_s,
-                                busy_s: run.gen_busy_s,
-                            };
-                            // Kept for the plot and the console WITHOUT its
-                            // traced tracks: those go to the view once, in
-                            // the note. Kept, they grew the page's memory by
-                            // every generation's tracks (up to 5000 of them
-                            // since 2026-10-15).
-                            run.gens.push(s.without_tracks());
-                            // Full precision in the console, so runs on
-                            // different pool sizes can be compared bit for bit.
-                            log::info!(
-                                "worker pool: {label}: generation {} k = {:e} ({deal} workers)",
-                                s.gen.index,
-                                s.gen.k,
-                            );
-                            notes.push(Note::Generation(s));
-                            run.expected = 0;
-                            run.gen_busy_s = 0.0;
-                            run.gen_started_s = now_s;
-                            if done {
-                                if let Some((m, e)) = mean {
-                                    log::info!("worker pool: {label} done: k = {m:.6} ± {e:.6}");
-                                }
-                                notes.push(Note::RunDone);
-                            } else if !run.paused {
-                                Self::cut(run, deal);
-                            }
-                        }
-                        Err(e) => run.fail(not_added_up(at, &e, got, workers)),
-                    }
-                }
-            }
+            CoreEv::Source { sites, seed, mesh, epoch } => self.keff.on_source(w, &sites, seed, &mesh, epoch, now_s),
+            CoreEv::ChunkDone { data, secs, epoch } => notes = self.keff.on_chunk_done(w, &data, secs, epoch, now_s),
             // Pool members never pour (the page's own worker does).
             CoreEv::Pour(_) | CoreEv::PourDiagnostics(_) => {}
             CoreEv::Failed { message, epoch } => {
-                self.busy[w] = false;
-                if matches!(self.phase, PoolPhase::Processing | PoolPhase::Assembling) {
+                if self.data_phase() {
                     // Its data are incomplete: the pool cannot be ready.
+                    self.keff.idle(w);
                     self.phase = PoolPhase::Failed(format!(
                         "Worker {} could not build its data: {message}. Reload the page to \
-                         start again, and please report this message at {REPORT}.",
-                        w + 1
+                         start again, and please report this message at {}.",
+                        w + 1,
+                        dhoby_ghaut::mc_web::pool::REPORT
                     ));
-                } else if epoch == super::NO_RUN {
-                    self.note(format!("worker {}: {message}", w + 1));
-                } else if let Some(run) = self.current_run(epoch, w, "a failure") {
-                    run.fail(format!(
-                        "Run stopped: worker {} could not finish its request ({message}). It \
-                         still holds its data: restart the run below.",
-                        w + 1
-                    ));
+                } else {
+                    self.keff.on_failed(w, &message, epoch);
                 }
             }
         }
@@ -601,82 +243,10 @@ impl PoolState {
     /// worker is alive; the run it belonged to fails) or the worker itself
     /// failing (its data are gone: it is marked dead, gh:#817).
     pub fn on_error(&mut self, w: usize, msg: String) {
-        if w >= self.workers || !self.alive[w] {
-            return;
+        let data_phase = self.data_phase();
+        if let Some(why) = self.keff.on_error(w, msg, data_phase) {
+            self.phase = PoolPhase::Failed(why);
         }
-        if msg.starts_with(BAD_MESSAGE) {
-            // Its one outstanding reply was lost: it is idle again.
-            self.busy[w] = false;
-            if let Some(run) = self.run.as_mut().filter(|r| r.going()) {
-                run.fail(unreadable("a reply", w, &msg));
-            } else {
-                self.note(format!("an unreadable reply from worker {}: {msg}", w + 1));
-            }
-            return;
-        }
-        let was_busy = self.busy[w];
-        self.alive[w] = false;
-        self.busy[w] = false;
-        let why = format!(
-            "{msg}. On a phone this is usually the browser reclaiming memory (each worker \
-             holds {})",
-            self.per_worker
-        );
-        self.died[w] = Some(why.clone());
-        let left = self.live_workers();
-        self.note(format!("worker {} of {} stopped ({left} left): {why}", w + 1, self.workers));
-        if left == 0 || matches!(self.phase, PoolPhase::Processing | PoolPhase::Assembling) {
-            self.phase = PoolPhase::Failed(format!(
-                "Worker {} of {} stopped: {why}. {} The nuclear data must be processed again: \
-                 close other tabs, or open the page with ?workers=1, then press Reprocess \
-                 (data already in this browser's cache are read back, not processed).",
-                w + 1,
-                self.workers,
-                if left == 0 {
-                    "No worker is left."
-                } else {
-                    "Its share of the data was not finished."
-                }
-            ));
-            return;
-        }
-        if let Some(run) = self.run.as_mut().filter(|r| r.going()) {
-            // Its chunk (or the source it was sampling) is lost with it; a
-            // serial run on it has no worker.
-            if was_busy || run.serial == Some(w) {
-                run.fail(format!(
-                    "Run stopped: worker {} of {} stopped while it held part of the run ({why}). \
-                     {left} worker{} still hold{} the data: restart the run below.",
-                    w + 1,
-                    self.workers,
-                    if left == 1 { "" } else { "s" },
-                    if left == 1 { "s" } else { "" },
-                ));
-            }
-        }
-    }
-
-    /// How many workers a run deals to.
-    fn dealing(run: &RunState, live: usize) -> usize {
-        if run.serial.is_some() {
-            1
-        } else {
-            live.max(1)
-        }
-    }
-
-    /// Queue the current generation's chunks for `workers` workers.
-    fn cut(run: &mut RunState, workers: usize) {
-        let Some(it) = run.it.as_ref() else { return };
-        let chunks = it.chunks(workers * CHUNKS_PER_WORKER, super::TRACED_PER_GENERATION);
-        run.expected = chunks.len();
-        run.queue.extend(chunks);
-    }
-
-    /// A new run's epoch.
-    fn next_epoch(&mut self) -> u32 {
-        self.epoch += 1;
-        self.epoch
     }
 
     /// Start a run (the pool must be ready, with no run going).
@@ -684,19 +254,8 @@ impl PoolState {
         if self.phase != PoolPhase::Ready {
             return Err("the data are not ready".into());
         }
-        // A run is going from the moment it starts, including while worker 1
-        // samples its initial source (`it` is still None then). Accepting a
-        // second start in that window sent two source requests, and each reply
-        // queued generation 0's chunks: the duplicates came back while
-        // generation 1 was being reduced (seen on a phone, 2026-10-09).
-        if self.run.as_ref().is_some_and(RunState::going) {
-            return Err("a run is already going (it may still be sampling its initial source); wait for it to finish".into());
-        }
-        let epoch = self.next_epoch();
-        let mut run = RunState::new(cfg, now_s, epoch, RunOrigin::Fresh, None);
-        (run.layers, run.rods) = (self.layers, self.rods);
-        self.run = Some(run);
-        Ok(())
+        let model = self.model();
+        self.keff.start_run(cfg, model, now_s)
     }
 
     /// **Restart a failed run** (gh:#817) with the same settings, in parallel
@@ -707,67 +266,21 @@ impl PoolState {
         if self.phase != PoolPhase::Ready {
             return Err("the data are not ready".into());
         }
-        let Some(old) = self.run.as_ref() else {
-            return Err("there is no run to restart".into());
-        };
-        let Some(after) = old.failed.clone() else {
-            return Err("the run has not failed".into());
-        };
-        let cfg = old.cfg;
-        let first = (0..self.workers).find(|&v| self.alive[v]).ok_or("no worker is alive")?;
-        let (serial, workers) = match kind {
-            RestartKind::Parallel => (None, self.live_workers()),
-            RestartKind::Serial => (Some(first), 1),
-        };
-        let epoch = self.next_epoch();
-        let busy = (0..self.workers).filter(|&v| self.busy[v]).count();
-        let mut run = RunState::new(
-            cfg,
-            now_s,
-            epoch,
-            RunOrigin::Restart {
-                kind,
-                workers,
-                after,
-            },
-            serial,
-        );
-        (run.layers, run.rods) = (self.layers, self.rods);
-        let line = format!(
-            "{} (replacing run {}); {busy} worker{} still busy with the old run: their replies will be discarded",
-            run.describe(),
-            epoch - 1,
-            if busy == 1 { " is" } else { "s are" }
-        );
-        self.note(line);
-        self.run = Some(run);
-        Ok(())
+        let model = self.model();
+        self.keff.restart_run(kind, model, now_s)
     }
 
     /// **Stop the run** the reader started: no more chunks are cut, replies
     /// still in flight are discarded as they arrive (it is no longer going),
     /// and a new run may start. Its generations so far stay on screen.
     pub fn stop_run(&mut self) {
-        if let Some(run) = self.run.as_mut().filter(|r| r.going()) {
-            run.stopped = true;
-            run.queue.clear();
-            run.results.clear();
-            run.expected = 0;
-        }
+        self.keff.stop_run();
     }
 
     /// Pause or resume: a paused run finishes the generation in flight and
     /// cuts no more.
     pub fn set_paused(&mut self, paused: bool) {
-        let workers = self.live_workers();
-        if let Some(run) = self.run.as_mut().filter(|r| r.going()) {
-            let was = run.paused;
-            run.paused = paused;
-            if was && !paused && run.expected == 0 {
-                let n = Self::dealing(run, workers);
-                Self::cut(run, n);
-            }
-        }
+        self.keff.set_paused(paused);
     }
 
     /// Rebuild the core at another layer count (only between runs).
@@ -775,14 +288,14 @@ impl PoolState {
         if self.phase != PoolPhase::Ready {
             return Err("the data are not ready".into());
         }
-        if self.run.as_ref().is_some_and(RunState::going) {
+        if self.keff.going() {
             return Err("a run is going".into());
         }
         if layers != self.layers {
             self.layers = layers;
             self.phase = PoolPhase::Assembling;
-            self.run = None;
-            for w in (0..self.workers).filter(|&w| self.alive[w]) {
+            self.keff.run = None;
+            for w in (0..self.workers).filter(|&w| self.keff.alive[w]) {
                 self.out.push((w, CoreReq::Layers { layers }));
             }
         }
@@ -799,14 +312,14 @@ impl PoolState {
         if self.phase != PoolPhase::Ready {
             return Err("the data are not ready".into());
         }
-        if self.run.as_ref().is_some_and(RunState::going) {
+        if self.keff.going() {
             return Err("a run is going".into());
         }
         let layers = super::random_bed::USER_POUR;
         self.layers = layers;
         self.phase = PoolPhase::Assembling;
-        self.run = None;
-        for w in (0..self.workers).filter(|&w| self.alive[w]) {
+        self.keff.run = None;
+        for w in (0..self.workers).filter(|&w| self.keff.alive[w]) {
             self.out.push((w, CoreReq::pour_bed(b)));
             self.out.push((w, CoreReq::Layers { layers }));
         }
@@ -833,7 +346,7 @@ impl PoolState {
         if self.phase != PoolPhase::Ready {
             return Err("the data are not ready".into());
         }
-        if self.run.as_ref().is_some_and(RunState::going) {
+        if self.keff.going() {
             return Err("a run is going".into());
         }
         if let Some(f) = rods.iter().find(|f| !(0.0..=1.0).contains(*f)) {
@@ -845,7 +358,7 @@ impl PoolState {
             for v in 0..self.workers {
                 self.assembled[v] = None;
             }
-            for w in (0..self.workers).filter(|&w| self.alive[w]) {
+            for w in (0..self.workers).filter(|&w| self.keff.alive[w]) {
                 self.out.push((w, CoreReq::Rods { rods }));
             }
         }
@@ -861,125 +374,27 @@ impl PoolState {
         if matches!(self.phase, PoolPhase::Failed(_)) {
             return out;
         }
-        if !self.process_sent {
-            self.process_sent = true;
-            for (w, js) in self.assignment.iter().enumerate() {
-                out.push((
-                    w,
-                    CoreReq::Process {
-                        jobs: js.clone(),
-                        temps: self.temps,
-                    },
-                ));
-            }
+        let (data, all_assembling) = self.data.outbox(word_budget, self.phase == PoolPhase::Processing);
+        for d in data {
+            out.push(match d {
+                DataOut::Process { worker, jobs } => (worker, CoreReq::Process { jobs, temps: self.temps }),
+                DataOut::Relay { worker, job, data } => (worker, CoreReq::Product { job, data }),
+                DataOut::Assemble { worker } => (worker, CoreReq::Assemble { layers: self.layers, temps: self.temps }),
+            });
         }
-        let mut words = 0usize;
-        while let Some(&(v, job)) = self.relay.front() {
-            let Some((data, _)) = self.products[job].as_ref() else {
-                self.relay.pop_front();
-                continue;
-            };
-            if words > 0 && words + data.len() > word_budget {
-                break;
-            }
-            words += data.len();
-            out.push((
-                v,
-                CoreReq::Product {
-                    job,
-                    data: data.clone(),
-                },
-            ));
-            self.relay.pop_front();
-            if let Some((_, left)) = self.products[job].as_mut() {
-                *left -= 1;
-                if *left == 0 {
-                    self.products[job] = None;
-                }
-            }
-        }
-        if self.phase == PoolPhase::Processing && self.secs.iter().all(Option::is_some) {
-            for v in 0..self.workers {
-                if !self.assemble_sent[v] && !self.relay.iter().any(|(w, _)| *w == v) {
-                    self.assemble_sent[v] = true;
-                    out.push((
-                        v,
-                        CoreReq::Assemble {
-                            layers: self.layers,
-                            temps: self.temps,
-                        },
-                    ));
-                }
-            }
-            if self.assemble_sent.iter().all(|&s| s) {
-                self.phase = PoolPhase::Assembling;
-            }
+        if all_assembling {
+            self.phase = PoolPhase::Assembling;
         }
         if self.phase == PoolPhase::Ready {
-            let (alive, busy) = (&self.alive, &mut self.busy);
-            if let Some(run) = self.run.as_mut().filter(|r| r.going()) {
-                let serial = run.serial;
-                let usable = |w: usize| alive[w] && serial.is_none_or(|s| s == w);
-                if !run.asked_source {
-                    // The first usable idle worker samples it; a worker still
-                    // busy with a replaced run's chunk is waited for.
-                    if let Some(w) = (0..alive.len()).find(|&w| usable(w) && !busy[w]) {
-                        run.asked_source = true;
-                        busy[w] = true;
-                        out.push((
-                            w,
-                            CoreReq::Source {
-                                cfg: run.cfg,
-                                epoch: run.epoch,
-                            },
-                        ));
-                    }
-                } else {
-                    for w in 0..alive.len() {
-                        if usable(w) && !busy[w] {
-                            let Some(c) = run.queue.pop_front() else {
-                                break;
-                            };
-                            busy[w] = true;
-                            out.push((
-                                w,
-                                CoreReq::Chunk {
-                                    cfg: run.cfg,
-                                    data: Floats::from_vec(c.to_f64s()),
-                                    epoch: run.epoch,
-                                },
-                            ));
-                        }
-                    }
-                }
+            for (w, r) in self.keff.outbox() {
+                out.push(match r {
+                    RunReq::Source { cfg, epoch } => (w, CoreReq::Source { cfg, epoch }),
+                    RunReq::Chunk { cfg, data, epoch } => (w, CoreReq::Chunk { cfg, data, epoch }),
+                });
             }
         }
         out
     }
-}
-
-/// Where a failure the reader cannot fix should be reported.
-const REPORT: &str = "github.com/theodoreOnzGit/outram-park-backend/issues";
-
-/// The message when a generation's results cannot be added up: what
-/// happened, that it is the demo's bookkeeping and not the physics, and what
-/// to do (maintainer, 2026-10-09: errors must be informative in the browser).
-fn not_added_up(generation: usize, e: &str, got: usize, workers: usize) -> String {
-    format!(
-        "Run stopped at generation {generation}: the {got} results the {workers} workers sent \
-         back could not be added up ({e}). This is a bug in the demo's bookkeeping, not in \
-         the physics, and the workers still hold their data: restart the run below (serially \
-         rules out a race between workers), and please report this message at {REPORT}."
-    )
-}
-
-/// The message when a worker's reply cannot be decoded.
-fn unreadable(what: &str, w: usize, e: &str) -> String {
-    format!(
-        "Run stopped: {what} from worker {} could not be read ({e}). The workers still hold \
-         their data: restart the run below, and please report this message at {REPORT}.",
-        w + 1
-    )
 }
 
 // ─── Wired to links ──────────────────────────────────────────────────────────
@@ -1046,7 +461,7 @@ impl CorePool {
                     crate::engine::Event::Core(ev) => notes.extend(self.state.on_event(w, ev, now)),
                     crate::engine::Event::Error(m) => {
                         self.state.on_error(w, m);
-                        if !self.state.alive[w] {
+                        if !self.state.keff.alive[w] {
                             // Its state cannot be trusted and its memory is
                             // what a phone needs back.
                             link.terminate();
@@ -1166,7 +581,7 @@ mod tests {
             for (v, r) in p.outbox(3) {
                 match r {
                     CoreReq::Product { job, data } => {
-                        assert_ne!(p.owner[job], v, "a product went back to its maker");
+                        assert_ne!(p.data.owner[job], v, "a product went back to its maker");
                         assert_eq!(data.to_vec(), vec![job as f64; 4]);
                         assert!(!data.is_empty());
                         assert!(assembled_after[v].is_none(), "a product after the assembly");
@@ -1237,7 +652,7 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
-        assert!(!p.alive[1] && p.died[1].is_some());
+        assert!(!p.keff.alive[1] && p.keff.died[1].is_some());
         let m = not_added_up(1, "a result for generation 0 while reducing 1", 6, 2);
         assert!(
             m.contains("generation 1") && m.contains("not in the physics") && m.contains(REPORT),
@@ -1502,8 +917,8 @@ mod tests {
             let (ks, _, done) = b.drive(&mut p, &mut inflight, |_| false);
             assert!(done, "{workers} workers: the run did not finish");
             assert_eq!(ks, reference, "{workers} workers");
-            assert_eq!(p.stale_discarded, 1, "the duplicate source is discarded, visibly");
-            assert!(p.run.as_ref().is_some_and(RunState::finished));
+            assert_eq!(p.keff.stale_discarded, 1, "the duplicate source is discarded, visibly");
+            assert!(p.keff.run.as_ref().is_some_and(RunState::finished));
             // Pausing a finished run does nothing; a run that has not failed
             // cannot be restarted; a new run can start.
             p.set_paused(true);
@@ -1539,11 +954,11 @@ mod tests {
         };
         assert!(p.on_event(w0, bad, 1.0).is_empty());
         assert_eq!(p.phase, PoolPhase::Ready, "a run failure is not a pool failure");
-        let why = p.run.as_ref().and_then(|r| r.failed.clone()).expect("failed");
+        let why = p.keff.run.as_ref().and_then(|r| r.failed.clone()).expect("failed");
         assert!(why.contains("could not be read") && why.contains("restart"), "{why}");
         assert!(p.outbox(1 << 20).is_empty(), "a failed run deals nothing");
         p.restart_run(RestartKind::Parallel, 1.0).expect("restart");
-        let run = p.run.as_ref().expect("run");
+        let run = p.keff.run.as_ref().expect("run");
         assert_eq!(run.epoch, 2);
         assert!(
             run.describe().contains("restart in parallel on 3 workers"),
@@ -1551,19 +966,19 @@ mod tests {
             run.describe()
         );
         assert!(
-            p.log.iter().any(|l| l.contains("restart in parallel") && l.contains("still busy")),
+            p.keff.log.iter().any(|l| l.contains("restart in parallel") && l.contains("still busy")),
             "{:?}",
-            p.log
+            p.keff.log
         );
         // The old run's replies are still queued ahead of the new run's.
-        let before = p.stale_discarded;
+        let before = p.keff.stale_discarded;
         let (ks, _, done) = b.drive(&mut p, &mut inflight, |_| false);
         assert!(done);
-        assert!(p.stale_discarded >= before + 2, "{} discarded", p.stale_discarded - before);
+        assert!(p.keff.stale_discarded >= before + 2, "{} discarded", p.keff.stale_discarded - before);
         assert!(
-            p.log.iter().any(|l| l.contains("discarded a chunk result")),
+            p.keff.log.iter().any(|l| l.contains("discarded a chunk result")),
             "{:?}",
-            p.log
+            p.keff.log
         );
         assert_eq!(ks, reference, "the restarted run");
     }
@@ -1591,7 +1006,7 @@ mod tests {
             .and_then(|r| r.failed.as_deref())
             .is_some_and(|m| m.contains("out of memory")));
         p.restart_run(RestartKind::Serial, 1.0).expect("restart");
-        assert!(p.run.as_ref().is_some_and(|r| r.describe().contains("serial restart")));
+        assert!(p.keff.run.as_ref().is_some_and(|r| r.describe().contains("serial restart")));
         // The old run's replies arrive first: all stale.
         while let Some((w, ev)) = inflight.pop_front() {
             assert!(p.on_event(w, ev, 1.0).is_empty());
@@ -1620,15 +1035,15 @@ mod tests {
         inflight.retain(|(w, _)| *w != 1);
         p.on_error(1, "physics worker: out of memory".into());
         assert_eq!(p.phase, PoolPhase::Ready);
-        assert_eq!(p.alive, vec![true, false, true]);
+        assert_eq!(p.keff.alive, vec![true, false, true]);
         assert_eq!(p.live_workers(), 2);
-        let why = p.run.as_ref().and_then(|r| r.failed.clone()).expect("failed");
+        let why = p.keff.run.as_ref().and_then(|r| r.failed.clone()).expect("failed");
         assert!(
             why.contains("worker 2 of 3 stopped") && why.contains("2 workers still hold"),
             "{why}"
         );
         p.restart_run(RestartKind::Parallel, 1.0).expect("restart");
-        assert!(p.run.as_ref().is_some_and(|r| r.describe().contains("on 2 workers")));
+        assert!(p.keff.run.as_ref().is_some_and(|r| r.describe().contains("on 2 workers")));
         let (ks, asked, done) = b.drive(&mut p, &mut inflight, |_| false);
         assert!(done);
         assert!(!asked.contains(&1), "a dead worker was asked: {asked:?}");
@@ -1637,8 +1052,8 @@ mod tests {
         p.start_run(b.cfg, 2.0).expect("start");
         let _ = p.outbox(1 << 20);
         p.on_error(0, format!("{BAD_MESSAGE}: garbled"));
-        assert!(p.alive[0]);
-        assert!(p.run.as_ref().is_some_and(|r| r.failed.is_some()));
+        assert!(p.keff.alive[0]);
+        assert!(p.keff.run.as_ref().is_some_and(|r| r.failed.is_some()));
         // No survivor: the data must be processed again.
         p.on_error(0, "physics worker panicked: x".into());
         assert_eq!(p.phase, PoolPhase::Ready);
@@ -1684,18 +1099,18 @@ mod tests {
         }
         assert_eq!(noted.len(), 2);
         assert!(noted.iter().all(|&t| t > 0), "the view still gets the tracks: {noted:?}");
-        let run = p.run.as_ref().expect("run");
+        let run = p.keff.run.as_ref().expect("run");
         assert_eq!(run.gens.len(), 2);
         assert!(run.gens.iter().all(|g| g.gen.tracks.is_empty()), "the run keeps no tracks");
         assert!(super::super::screen::run_eta(run).is_some_and(|l| l.contains("left on this device")));
         p.stop_run();
-        let run = p.run.as_ref().expect("run");
+        let run = p.keff.run.as_ref().expect("run");
         assert!(!run.going() && run.stopped && run.failed.is_none());
         b.send_due(&mut p, &mut inflight);
         while let Some((w, ev)) = inflight.pop_front() {
             assert!(p.on_event(w, ev, 2.0).is_empty(), "a reply of the stopped run is discarded");
         }
-        assert_eq!(p.run.as_ref().map(|r| r.gens.len()), Some(2));
+        assert_eq!(p.keff.run.as_ref().map(|r| r.gens.len()), Some(2));
         assert!(p.restart_run(RestartKind::Parallel, 3.0).is_err(), "a stopped run is not a failed one");
         assert!(p.start_run(b.cfg, 3.0).is_ok());
     }
@@ -1773,8 +1188,45 @@ mod tests {
         };
         let pool = CorePool::start(&egui::Context::default(), plan, 12, &nee_soon::htr10_rmc::zones::ZoneTemperatures::record()).expect("start");
         assert_eq!(pool.links.len(), 2);
-        assert_eq!(pool.state.labels.len(), 36);
+        assert_eq!(pool.state.data.labels.len(), 36);
         pool.terminate();
         assert!(pool.links.iter().all(|l| l.drain().is_empty()));
+    }
+
+    /// **gh:#1572: the real core's pool k on a fixed seed**, for comparing
+    /// the pool before and after its protocol moved to the library: all 36
+    /// HTR-10 jobs processed on two worker threads at the record's 300.15 K,
+    /// the N = 12 lattice core, then 300 × [2 + 3] on the record seed. Prints
+    /// every generation's k as bits (`HTR10_POOL_K`).
+    #[test]
+    #[ignore = "processes all 36 HTR-10 jobs on two threads and runs k (minutes); run with --ignored --nocapture"]
+    fn the_real_core_pool_k_on_a_fixed_seed() {
+        let plan = dhoby_ghaut::web_demo::pool::Plan { workers: 2, reason: "test".into() };
+        let mut pool = CorePool::start(&egui::Context::default(), plan, 12, &nee_soon::htr10_rmc::zones::ZoneTemperatures::record()).expect("start");
+        let t0 = std::time::Instant::now();
+        while pool.state.phase != PoolPhase::Ready {
+            pool.pump();
+            if let PoolPhase::Failed(m) = &pool.state.phase {
+                panic!("{m}");
+            }
+            assert!(t0.elapsed().as_secs() < 3600, "not ready in an hour");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let cfg = KeffConfig { n_particles: 300, n_inactive: 2, n_active: 3, seed: super::super::RECORD_SEED, point_source: false, want_sites: false };
+        pool.state.start_run(cfg, dhoby_ghaut::web_demo::platform::now_s()).expect("start run");
+        let mut ks = Vec::new();
+        'run: loop {
+            for n in pool.pump() {
+                match n {
+                    Note::Generation(g) => ks.push(g.gen.k),
+                    Note::RunDone => break 'run,
+                }
+            }
+            assert!(pool.state.keff_failed().is_none(), "{:?}", pool.state.keff_failed());
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        pool.terminate();
+        println!("HTR10_POOL_K {:?}", ks.iter().map(|k| format!("{k:.17e}={:016x}", k.to_bits())).collect::<Vec<_>>());
+        assert_eq!(ks.len(), 5);
     }
 }

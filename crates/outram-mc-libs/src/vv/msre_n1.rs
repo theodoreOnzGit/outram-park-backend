@@ -1434,6 +1434,168 @@ pub fn source_box() -> SourceBox {
     }
 }
 
+// ─── The default model as one call (gh:#1571) ───────────────────────────────
+
+/// **The N-1 model as the V&V record runs it, as a library call** (gh:#1571,
+/// for the museum MSRE simulator's in-browser k_eff tab). Until then the
+/// default was assembled inside the `msre_n1_first_criticality` example's
+/// `main`, where no other program could reach it.
+///
+/// This adds no model of its own: [`Study::plan`] and [`Study::geometry`]
+/// call the functions above in the same order as the example's `main` does
+/// for its defaults, so the recorded default is reproduced:
+/// - natural Mo ([`MoTreatment::Natural`], arm C);
+/// - the volume-equivalent end plenums ([`Ends::VolumeEquivalent`]);
+/// - dimensions following each solid's temperature ([`Dims::at`]);
+/// - the whole thermal shield ([`Shield::Tm0728Full`]) or none
+///   ([`Study::shield`] false, the ablation);
+/// - the default salt with U-234/U-236 ([`default_salt`]);
+/// - rods out;
+/// - reactor graphite 30P S(α,β) on C-12 and C-13 at the graphite's
+///   temperature;
+/// - the shield water's H-1 bound in H₂O at [`SHIELD_TEMPERATURE_K`].
+///
+/// Note the example's `--mo` flag defaults to `omitted`; the record's
+/// default (README, "arm C") is run with `--mo natural`, which this is.
+///
+/// **The example's nuclide temperatures are by name, and so are these**: a
+/// nuclide is loaded once, at the graphite's temperature if it is graphite's
+/// (C-12, C-13, B-10, B-11), at [`SHIELD_TEMPERATURE_K`] if it is one of
+/// [`SHIELD_NUCLIDES`] (named apart, `Fe56s` and so on, on the same tapes as
+/// INOR-8's, so INOR-8's own iron stays at the salt's), and at the salt's
+/// otherwise.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Study {
+    /// Fuel-salt temperature, °F (sets its density and the dimensions of
+    /// INOR-8).
+    pub salt_f: f64,
+    /// Graphite temperature, °F.
+    pub graphite_f: f64,
+    /// The salt's U-235 as a multiple of the default, by ORNL-4233's
+    /// enriching salt ([`salt_with_enriching_salt`]); 1 changes nothing.
+    pub u235_scale: f64,
+    /// The whole TM-0728 shield (`true`, the default) or vacuum outside the
+    /// vessel (the ablation).
+    pub shield: bool,
+}
+
+impl Default for Study {
+    fn default() -> Self {
+        Self { salt_f: REFERENCE_TEMPERATURE_F, graphite_f: REFERENCE_TEMPERATURE_F, u235_scale: 1.0, shield: true }
+    }
+}
+
+/// One nuclide to load: its name, its tape (relative to
+/// `reference-data/endf/`) and the temperature it is processed at, K.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NuclideJob {
+    pub name: &'static str,
+    pub tape: &'static str,
+    pub temperature_k: f64,
+}
+
+/// What [`Study::plan`] gives: the materials (name and atom densities, in
+/// the geometry's material order), each one's temperature, and the
+/// nuclides to load (in the order the materials' indices refer to).
+#[derive(Debug, Clone, PartialEq)]
+pub struct StudyPlan {
+    pub materials: Vec<(&'static str, Vec<(&'static str, f64)>)>,
+    pub material_temperatures_k: Vec<f64>,
+    pub nuclides: Vec<NuclideJob>,
+    /// Salt and graphite temperatures, K.
+    pub salt_k: f64,
+    pub graphite_k: f64,
+}
+
+/// The ENDF/B-VIII.0 thermal-scattering tape of the shield water's H-1.
+pub const H_IN_H2O_TAPE: &str = "tsl-HinH2O.endf";
+
+impl Study {
+    /// The materials, temperatures and nuclides (see [`Study`]).
+    ///
+    /// # Panics
+    /// Never for the tapes this module lists (a nuclide without a tape
+    /// would be a defect in the lists above).
+    pub fn plan(&self) -> StudyPlan {
+        let (t_k, t_g) = (kelvin_from_f(self.salt_f), kelvin_from_f(self.graphite_f));
+        let dims = Dims::at(self.salt_f, self.graphite_f);
+        let mut mats = materials_with_dims(MoTreatment::Natural, self.salt_f, dims);
+        let base = mats.len();
+        if self.shield {
+            mats.extend(full_shield_materials());
+        }
+        let after_shield = mats.len();
+        if self.u235_scale != 1.0 {
+            mats[SALT_IDX].1 = salt_with_enriching_salt(&mats[SALT_IDX].1, self.u235_scale);
+        }
+        let mut names: Vec<&'static str> = Vec::new();
+        for (_, comps) in &mats {
+            for (n, _) in comps {
+                if !names.contains(n) {
+                    names.push(n);
+                }
+            }
+        }
+        let mo = mo_tapes(MoTreatment::Natural);
+        let tape_of = |n: &str| -> &'static str {
+            NUCLIDES
+                .iter()
+                .chain(mo.iter())
+                .chain(SHIELD_NUCLIDES.iter())
+                .chain(ROD_NUCLIDES.iter())
+                .chain(MINOR_U_NUCLIDES.iter())
+                .find(|(k, _)| *k == n)
+                .unwrap_or_else(|| panic!("no tape for {n}"))
+                .1
+        };
+        let temp_of = |n: &str| {
+            if GRAPHITE_NUCLIDES.contains(&n) {
+                t_g
+            } else if SHIELD_NUCLIDES.iter().any(|(k, _)| *k == n) {
+                SHIELD_TEMPERATURE_K
+            } else {
+                t_k
+            }
+        };
+        let nuclides = names.iter().map(|&n| NuclideJob { name: n, tape: tape_of(n), temperature_k: temp_of(n) }).collect();
+        let material_temperatures_k = (0..mats.len())
+            .map(|i| if i == GRAPHITE_IDX { t_g } else if i >= base && i < after_shield { SHIELD_TEMPERATURE_K } else { t_k })
+            .collect();
+        StudyPlan { materials: mats, material_temperatures_k, nuclides, salt_k: t_k, graphite_k: t_g }
+    }
+
+    /// The assembled geometry, in [`StudyPlan::materials`]' order.
+    pub fn geometry(&self) -> Geometry {
+        let (t_k, t_g) = (kelvin_from_f(self.salt_f), kelvin_from_f(self.graphite_f));
+        let dims = Dims::at(self.salt_f, self.graphite_f);
+        if self.shield {
+            let base = materials_with_dims(MoTreatment::Natural, self.salt_f, dims).len();
+            geometry_with_full_shield(t_k, t_g, dims, Ends::VolumeEquivalent, base)
+        } else {
+            geometry_with_ends(t_k, t_g, dims, Ends::VolumeEquivalent)
+        }
+    }
+}
+
+impl StudyPlan {
+    /// The transport materials, each component pointing at its nuclide's
+    /// position in [`StudyPlan::nuclides`].
+    pub fn transport_materials(&self) -> Vec<crate::material::material::Material> {
+        use crate::material::material::{Material, NuclideComponent};
+        let idx = |n: &str| self.nuclides.iter().position(|j| j.name == n).expect("planned nuclide");
+        self.materials
+            .iter()
+            .enumerate()
+            .map(|(i, (name, comps))| Material {
+                id: i as i32 + 1,
+                name: (*name).into(),
+                temperature: self.material_temperatures_k[i],
+                components: comps.iter().map(|(n, d)| NuclideComponent { nuclide_idx: idx(n), atom_density: *d }).collect(),
+            })
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1850,5 +2012,47 @@ mod tests {
             assert!(njoy_outram_park_fork::reference_data::reference_endf(file).is_some(), "{n}: {file}");
         }
     }
-}
 
+    /// gh:#1571: the default study is the record's default (natural Mo,
+    /// whole shield, U-234/U-236, hot dimensions at 1181 °F); every
+    /// nuclide is planned once with a tape; shield nuclides are at the
+    /// shield temperature, graphite's at the graphite's; the shield-off
+    /// ablation drops the shield's materials and the nuclides only they
+    /// carry; a U-235 scale of 1 changes nothing; the transport materials
+    /// point at the planned nuclides, in the geometry's material order.
+    #[test]
+    fn the_study_plans_the_recorded_default() {
+        let d = Study::default().plan();
+        let off = Study { shield: false, ..Study::default() }.plan();
+        assert_eq!(d.materials.len(), off.materials.len() + full_shield_materials().len());
+        assert_eq!(d.materials[SALT_IDX].1, materials_with_dims(MoTreatment::Natural, REFERENCE_TEMPERATURE_F, Dims::at(1181.0, 1181.0))[SALT_IDX].1);
+        for n in ["U234", "U236", "Mo92", "Mo100", "H1"] {
+            assert!(d.nuclides.iter().any(|j| j.name == n), "{n} missing");
+        }
+        assert!(!off.nuclides.iter().any(|j| j.name == "H1"), "no water without the shield");
+        assert!(off.nuclides.len() < d.nuclides.len());
+        let names: std::collections::BTreeSet<&str> = d.nuclides.iter().map(|j| j.name).collect();
+        assert_eq!(names.len(), d.nuclides.len(), "each nuclide once");
+        for j in &d.nuclides {
+            let expect = if GRAPHITE_NUCLIDES.contains(&j.name) {
+                d.graphite_k
+            } else if SHIELD_NUCLIDES.iter().any(|(k, _)| *k == j.name) {
+                SHIELD_TEMPERATURE_K
+            } else {
+                d.salt_k
+            };
+            assert_eq!(j.temperature_k, expect, "{}", j.name);
+        }
+        assert_eq!(Study { u235_scale: 1.0, ..Study::default() }.plan(), d);
+        let more = Study { u235_scale: 1.05, ..Study::default() }.plan();
+        let u5 = |p: &StudyPlan| p.materials[SALT_IDX].1.iter().find(|e| e.0 == "U235").map(|e| e.1).unwrap();
+        assert!((u5(&more) / u5(&d) - 1.05).abs() < 1e-9, "{}", u5(&more) / u5(&d));
+        let m = d.transport_materials();
+        assert_eq!(m.len(), d.materials.len());
+        assert!(m.iter().all(|x| x.components.iter().all(|c| c.nuclide_idx < d.nuclides.len())));
+        assert_eq!(m[GRAPHITE_IDX].temperature, d.graphite_k);
+        println!("MSRE_STUDY nuclides: default {} (shield off {})", d.nuclides.len(), off.nuclides.len());
+        let _ = Study::default().geometry();
+        let _ = Study { shield: false, ..Study::default() }.geometry();
+    }
+}

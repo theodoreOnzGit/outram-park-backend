@@ -2398,6 +2398,7 @@ dependencies = [
  "buangkok",
  "bugis",
  "changi",
+ "dhoby-ghaut",
  "eframe",
  "egui",
  "egui-file-dialog",

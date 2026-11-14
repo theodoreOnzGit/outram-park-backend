@@ -425,7 +425,7 @@ pub const RODS_SETTLE_S: f64 = 1.5;
 pub fn rods_resync_due(s: &PoolState, want: &[f64; 10], sweeping: bool, changed_s: f64, now: f64) -> bool {
     !sweeping
         && s.phase == PoolPhase::Ready
-        && !s.run.as_ref().is_some_and(RunState::going)
+        && !s.keff.run.as_ref().is_some_and(RunState::going)
         && want.map(f64::to_bits) != s.rods.map(f64::to_bits)
         && now - changed_s >= RODS_SETTLE_S
 }
@@ -573,7 +573,7 @@ impl CoreScreen {
             }
             // Autostart goes through the same door as the Start button, so
             // it too runs on the reader's rods (a URL may set them).
-            autostart_now = self.autostart && p.state.phase == PoolPhase::Ready && p.state.run.is_none() && self.sweep.is_none();
+            autostart_now = self.autostart && p.state.phase == PoolPhase::Ready && p.state.keff.run.is_none() && self.sweep.is_none();
             // Rods (gh:#1025): a sweep drives the pool itself; otherwise the
             // pool's core follows the reader's rods once they rest.
             if let Some(sw) = self.sweep.as_mut() {
@@ -727,7 +727,7 @@ impl CoreScreen {
     /// The run's console: one row per generation, as the side panel's table
     /// (`gen  k  H  mean ± σ  wall`).
     pub fn console(&self) -> Vec<String> {
-        let Some(run) = self.pool.as_ref().and_then(|p| p.state.run.as_ref()) else { return Vec::new() };
+        let Some(run) = self.pool.as_ref().and_then(|p| p.state.keff.run.as_ref()) else { return Vec::new() };
         let mut v = vec![format!("{} ({})", run.describe(), crate::keff::settings_line(&run.cfg)), " gen   k        H      mean ± σ             wall".to_string()];
         v.extend(run.gens.iter().map(|g| {
             let mean = g.gen.k_mean.map_or(String::new(), |(m, e)| format!("  {m:.5} ± {e:.5}"));
@@ -740,7 +740,7 @@ impl CoreScreen {
     /// Whether a run or a sweep is going (the bed and the rods the pool
     /// holds cannot change under it).
     pub fn busy(&self) -> bool {
-        self.sweep.is_some() || self.pool.as_ref().and_then(|p| p.state.run.as_ref()).is_some_and(RunState::going)
+        self.sweep.is_some() || self.pool.as_ref().and_then(|p| p.state.keff.run.as_ref()).is_some_and(RunState::going)
     }
 
     /// Start k_eff at the reader's setting: straight away when the pool's
@@ -1169,7 +1169,7 @@ impl CoreScreen {
             text = Some(note(format!("Preparing the data: {:.0} %", 100.0 * s.progress()), grey));
         }
         if text.is_none() {
-            let run = s.run.as_ref();
+            let run = s.keff.run.as_ref();
             let going = run.is_some_and(RunState::going);
             if self.sweep.is_some() && !going {
                 text = Some(note(format!("Rebuilding the core: {}", self.sweep_status), grey));
@@ -1211,13 +1211,13 @@ impl CoreScreen {
     pub fn keff_body(&self, ui: &mut egui::Ui, painter: &egui::Painter, rect: Rect, text: f32, curves: &[crate::htr10::rods::RecordedCurve]) {
         use crate::keffplot::{self, GenPoint, RefLine, RunShape};
         let rect = rect.shrink2(Vec2::new(8.0, 4.0));
-        let run = self.pool.as_ref().and_then(|p| p.state.run.as_ref());
+        let run = self.pool.as_ref().and_then(|p| p.state.keff.run.as_ref());
         let cfg = run.map_or(self.cfg, |r| r.cfg);
         let pts: Vec<GenPoint> = run.map(|r| r.gens.iter().map(|g| GenPoint::from(&g.gen)).collect()).unwrap_or_default();
         let shape = RunShape { n_inactive: cfg.n_inactive, total: cfg.n_inactive + cfg.n_active };
         // What the run ran (the pool may have been rebuilt since), else what
         // the next run will: its references follow that.
-        let (built, layers) = run.map_or((self.pool_rods(), self.layers as usize), |r| (r.rods, r.layers));
+        let (built, layers) = run.map_or((self.pool_rods(), self.layers as usize), |r| (r.model.rods, r.model.layers));
         let dem = layers == super::random_bed::DEM_BED;
         // The reader's pour has no recorded reference (`record_row(0)` is none).
         let n = if dem { super::super::LADDER_N as usize } else if layers == super::random_bed::USER_POUR { 0 } else { layers };
@@ -1369,13 +1369,13 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
                 format!(
                     "Processing nuclear data in {} workers: {}/{} jobs, {:.0} % · {el:.0} s",
                     s.workers,
-                    s.secs.iter().filter(|x| x.is_some()).count(),
-                    s.secs.len(),
+                    s.data.secs.iter().filter(|x| x.is_some()).count(),
+                    s.data.secs.len(),
                     100.0 * s.progress()
                 ),
                 white,
             ));
-            if s.sources.iter().any(Option::is_some) {
+            if s.data.sources.iter().any(Option::is_some) {
                 v.push((format!("So far: {}", s.data_source()), white));
             }
         }
@@ -1414,7 +1414,7 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
             if s.live_workers() < s.workers {
                 v.push((dead_line(s), amber));
             }
-            if let Some(run) = &s.run {
+            if let Some(run) = &s.keff.run {
                 let total = run.cfg.n_inactive + run.cfg.n_active;
                 if let RunOrigin::Restart { .. } = run.origin {
                     v.push((format!("This is {}.", run.describe()), amber));
@@ -1457,7 +1457,7 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
 /// Which workers have stopped, and why (gh:#817).
 fn dead_line(s: &PoolState) -> String {
     let dead: Vec<String> = (0..s.workers)
-        .filter_map(|w| s.died[w].as_ref().map(|why| format!("worker {} ({why})", w + 1)))
+        .filter_map(|w| s.keff.died[w].as_ref().map(|why| format!("worker {} ({why})", w + 1)))
         .collect();
     format!(
         "{} of {} workers left; their data are intact. Stopped: {}.",
@@ -1488,7 +1488,7 @@ fn restart(s: &mut PoolState, kind: RestartKind) {
 
 /// The run failed and the data are intact: offer the restarts.
 fn restart_wanted(s: &PoolState) -> bool {
-    s.phase == PoolPhase::Ready && s.run.as_ref().is_some_and(|r| r.failed.is_some())
+    s.phase == PoolPhase::Ready && s.keff.run.as_ref().is_some_and(|r| r.failed.is_some())
 }
 
 /// What a button asked of the screen that the pool cannot do itself.
@@ -1526,7 +1526,7 @@ fn pool_panel(
         ui.colored_label(amber, dead_line(s));
     }
     if restart_wanted(s) {
-        if let Some(e) = s.run.as_ref().and_then(|r| r.failed.clone()) {
+        if let Some(e) = s.keff.run.as_ref().and_then(|r| r.failed.clone()) {
             ui.colored_label(red, e);
         }
         for (kind, label) in restart_labels(s) {
@@ -1538,15 +1538,15 @@ fn pool_panel(
             }
         }
     }
-    if !s.log.is_empty() {
+    if !s.keff.log.is_empty() {
         egui::CollapsingHeader::new(format!(
             "Pool log ({} entries, {} stale replies discarded)",
-            s.log.len(),
-            s.stale_discarded
+            s.keff.log.len(),
+            s.keff.stale_discarded
         ))
         .default_open(false)
         .show(ui, |ui| {
-            for l in &s.log {
+            for l in &s.keff.log {
                 ui.weak(l);
             }
         });
@@ -1555,15 +1555,15 @@ fn pool_panel(
     egui::CollapsingHeader::new(format!("Data: {:.0} % ({} workers)", 100.0 * s.progress(), s.workers)).default_open(!ready).show(ui, |ui| {
         ui.label(format!("Nuclear data: {}", s.data_source()));
         egui::Grid::new("core_jobs").num_columns(4).striped(true).show(ui, |ui| {
-            for (j, l) in s.labels.iter().enumerate() {
+            for (j, l) in s.data.labels.iter().enumerate() {
                 ui.label(l);
-                ui.label(format!("w{}", s.owner[j] + 1));
-                ui.label(match (s.secs[j], s.started[j]) {
+                ui.label(format!("w{}", s.data.owner[j] + 1));
+                ui.label(match (s.data.secs[j], s.data.started[j]) {
                     (Some(t), _) => format!("{t:.1} s"),
                     (None, true) => "…".into(),
                     (None, false) => "queued".into(),
                 });
-                ui.label(match &s.sources[j] {
+                ui.label(match &s.data.sources[j] {
                     Some(dhoby_ghaut::web_demo::data_cache::Source::Cached { .. }) => "cached",
                     Some(_) => "processed",
                     None => "",
@@ -1591,7 +1591,7 @@ fn pool_panel(
     // Going from the moment it starts, including while the initial source is
     // sampled: a second Start in that window queued generation 0 twice. A
     // failed run is not going (gh:#817).
-    let running = s.run.as_ref().is_some_and(|r| r.going());
+    let running = s.keff.run.as_ref().is_some_and(|r| r.going());
     // Held to the demo's caps (keff::MAX_PARTICLES, MAX_GENERATIONS in all;
     // 2026-10-15, were 20 000 and 50 + 200 here).
     egui::Grid::new("core_cfg").num_columns(2).show(ui, |ui| {
@@ -1633,7 +1633,7 @@ fn pool_panel(
         if !running && ui.button("▶ Start").clicked() {
             action = Some(PoolAction::Start);
         }
-        if let Some(r) = s.run.as_ref().filter(|_| running) {
+        if let Some(r) = s.keff.run.as_ref().filter(|_| running) {
             let paused = r.paused;
             if ui
                 .button(if paused { "▶ Resume" } else { "⏸ Pause" })
@@ -1646,7 +1646,7 @@ fn pool_panel(
             }
         }
     });
-    match s.run.as_ref().filter(|_| running) {
+    match s.keff.run.as_ref().filter(|_| running) {
         Some(run) => {
             if let Some(l) = run_eta(run) {
                 ui.label(l);
@@ -1656,7 +1656,7 @@ fn pool_panel(
             ui.weak(plan_line(cfg, None));
         }
     }
-    if let Some(run) = &s.run {
+    if let Some(run) = &s.keff.run {
         // What kind of run this is (a restart says how, gh:#817).
         let mut what = format!("{} ({})", run.describe(), crate::keff::settings_line(&run.cfg));
         if let RunOrigin::Restart { after, .. } = &run.origin {

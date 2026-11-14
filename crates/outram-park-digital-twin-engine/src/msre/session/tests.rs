@@ -296,3 +296,22 @@ fn the_pacer_turns_wall_time_into_plant_time() {
     p.speed = f64::NAN;
     assert_eq!(p.plant_seconds(129.7), 0.0);
 }
+
+/// gh:#1574: the measured split reaches the model like the others, and the
+/// pair arithmetic reproduces the N-3 record's coefficients from its own
+/// eigenvalues (fuel −3.79, graphite −3.26 × 10⁻⁵ /°F; record README).
+#[test]
+fn a_measured_split_reaches_the_plant_and_the_arithmetic_is_the_records() {
+    let (f, sf) = coefficient_from_pair(1.02232, 0.00026, 1.01837, 0.00029, SPLIT_STEP_F);
+    let (g, _) = coefficient_from_pair(1.02232, 0.00026, 1.01892, 0.00022, SPLIT_STEP_F);
+    assert!((f * 1e5 + 3.79).abs() < 0.02, "{}", f * 1e5);
+    assert!((g * 1e5 + 3.26).abs() < 0.02, "{}", g * 1e5);
+    assert!(sf > 0.0 && sf * 1e5 < 0.6, "{}", sf * 1e5);
+    let m = Coefficients::Measured { fuel_per_f: f, fuel_sigma: sf, graphite_per_f: g, graphite_sigma: 0.0 };
+    assert_eq!(m.per_f(), (f, g));
+    assert!(m.describe().contains("measured in this browser"));
+    let s = Session::new(SessionConfig { coefficients: m, ..Default::default() }).unwrap();
+    let c = s.config().model_config();
+    assert_eq!(c.fuel_temperature_coefficient, crate::msre::design::per_f(f));
+    assert_eq!(c.graphite_temperature_coefficient, crate::msre::design::per_f(g));
+}

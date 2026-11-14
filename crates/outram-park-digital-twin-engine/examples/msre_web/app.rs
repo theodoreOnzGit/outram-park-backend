@@ -54,6 +54,8 @@ enum Tab {
     Trends,
     Periods,
     Loop,
+    /// The full-core Monte Carlo (gh:#1571).
+    Keff,
 }
 
 pub struct App {
@@ -71,6 +73,11 @@ pub struct App {
     periods: Vec<[f64; 3]>,
     /// The salt freeze the engine is holding the plant at (gh:#1573).
     freeze: Option<Freeze>,
+    /// The Core k_eff tab (gh:#1571).
+    keff: crate::keff_tab::KeffTab,
+    /// The coefficients the running plant was reset with (the panel's
+    /// choice applies on Reset; gh:#1574 shows which the plant uses).
+    plant_coefficients: Coefficients,
     running: bool,
     speed: f64,
     config: SessionConfig,
@@ -101,6 +108,8 @@ impl App {
             drift_history: Vec::new(),
             periods: Vec::new(),
             freeze: None,
+            keff: crate::keff_tab::KeffTab::default(),
+            plant_coefficients: SessionConfig::default().coefficients,
             // The plant runs from page load (gh:#1573); `?paused` opens it
             // paused.
             running: !q.iter().any(|(k, _)| k == "paused"),
@@ -135,6 +144,7 @@ impl App {
         self.rods_pcm = 0.0;
         self.servo = false;
         self.freeze = None;
+        self.plant_coefficients = self.config.coefficients;
         self.air = self.config.power_mw / 10.0;
         self.send(Request::Reset(self.config));
     }
@@ -174,6 +184,8 @@ impl App {
                     self.periods = f.to_vec().chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect();
                 }
                 Event::Frozen(f) => self.freeze = freeze_from_slice(&f.to_vec()),
+                Event::Keff(crate::keff::KEv::Raster { view, w, h, ids }) => self.keff.on_raster(view, w, h, ids),
+                Event::Keff(_) => {}
                 Event::Error(m) => self.error = Some(m),
             }
         }
@@ -213,6 +225,10 @@ impl App {
     }
 
     fn side_panel(&mut self, ui: &mut egui::Ui) {
+        if self.tab == Tab::Keff {
+            self.keff.panel(ui);
+            ui.separator();
+        }
         ui.label(RichText::new("Museum · historical reactors").strong());
         ui.label("The Molten-Salt Reactor Experiment (ORNL, critical 1965, shut down 1969): an 8 MW graphite-moderated reactor whose fuel was a molten fluoride salt, pumped through the core and a heat exchanger.");
         ui.label(RichText::new("The author's hobby project, built out of curiosity in holidays and free time; not particularly related to their work, which is on LWRs and HTGRs. Good for learning; an AI-assisted draft, NOT validated. Research and education only; never for operation, licensing or safety decisions.").small().color(ui.visuals().warn_fg_color));
@@ -279,16 +295,20 @@ impl App {
             .selected_text(match self.config.coefficients {
                 Coefficients::Ornl1965 => "ORNL 1965 (TM-1070)",
                 Coefficients::MonteCarloN3 => "Monte Carlo N-3 (this workspace)",
+                Coefficients::Measured { .. } => "measured in this browser (k_eff tab)",
             })
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut self.config.coefficients, Coefficients::Ornl1965, "ORNL 1965 (TM-1070)");
                 ui.selectable_value(&mut self.config.coefficients, Coefficients::MonteCarloN3, "Monte Carlo N-3 (this workspace)");
+                if let Some(m) = self.keff.measured() {
+                    ui.selectable_value(&mut self.config.coefficients, m, "measured in this browser (k_eff tab)");
+                }
             });
         ui.checkbox(&mut self.config.line_model, "TM-1626 line model for the circulating fuel");
 
         ui.separator();
         ui.heading("Fidelity levels");
-        ui.label(RichText::new("1. Frequency response: ORNL-TM-1070's linear model, solved in the frequency domain (the Frequency tab).\n2. Plant transient: the same equations in time, with ORNL-TM-1626's circulating precursors, pumps and radiator (the Plant and Trends tabs).\n3. Full-core Monte Carlo (this workspace's MSRE N-1/N-3 model): supplies the 'Monte Carlo N-3' coefficients; an in-browser tab is planned (gh:#1571).").small());
+        ui.label(RichText::new("1. Frequency response: ORNL-TM-1070's linear model, solved in the frequency domain (the Frequency tab).\n2. Plant transient: the same equations in time, with ORNL-TM-1626's circulating precursors, pumps and radiator (the Plant and Trends tabs).\n3. Full-core Monte Carlo (this workspace's MSRE N-1/N-3 model): supplies the 'Monte Carlo N-3' coefficients, and runs in your browser on the k_eff tab.").small());
         ui.label(RichText::new("Sources: ORNL-TM-0728, TM-1070, TM-1626, TM-1647, ORNL-4233 (public reports). Code: outram_park_digital_twin_engine::msre.").small());
     }
 
@@ -331,6 +351,7 @@ impl App {
         MsrePlantSchematic::new(scalars).paint(&ui.painter().with_clip_rect(rect), at);
         // Readouts the drawing does not carry.
         let lines = [
+            format!("coefficients: {}", self.plant_coefficients.describe()),
             format!("{:.2} MW · ρ {:+.1} pcm: rods {:+.1}{}, feedback {:+.1}", s.power_mw, s.reactivity_pcm, s.rod_pcm, if s.servo != 0.0 { " (servo)" } else { "" }, s.feedback_pcm),
             format!("fuel {:.0} °F, graphite {:.0} °F; flows: fuel {:.0} %, coolant {:.0} %", s.fuel_f, s.graphite_f, 100.0 * s.fuel_flow, 100.0 * s.coolant_flow),
         ];
@@ -512,6 +533,12 @@ impl eframe::App for App {
         // Each engine event repaints the page (the link's callback), so the
         // page needs no timer of its own.
         self.handle();
+        let _finished = self.keff.pump(&ctx, &self.link);
+        // "Send to plant" (gh:#1574): only the reader's button does this.
+        if let Some(c) = self.keff.take_send() {
+            self.config.coefficients = c;
+            self.reset();
+        }
         let title = match &self.snap {
             Some(s) => format!("MSRE · {:.0} s · {:.2} MW", s.time_s, s.power_mw),
             None => "MSRE · starting".into(),
@@ -525,7 +552,7 @@ impl eframe::App for App {
         self.panel = panel;
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().extreme_bg_color)).show(ui, |ui| {
             let rect = ui.max_rect();
-            let bar = Rect::from_min_size(Pos2::new(rect.center().x - 184.0, rect.bottom() - 48.0), Vec2::new(368.0, 40.0));
+            let bar = Rect::from_min_size(Pos2::new(rect.center().x - 230.0, rect.bottom() - 48.0), Vec2::new(460.0, 40.0));
             match self.tab {
                 Tab::Plant => {
                     let resp = ui.interact(rect, ui.id().with("plant"), egui::Sense::click_and_drag());
@@ -555,6 +582,11 @@ impl eframe::App for App {
                     let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, top), rect.max - Vec2::new(8.0, 56.0));
                     ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.loop_view(ui, inner));
                 }
+                Tab::Keff => {
+                    let top = if rect.width() < 700.0 { 84.0 } else { 40.0 };
+                    let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, top), rect.max - Vec2::new(8.0, 56.0));
+                    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.keff.view_ui(ui, inner));
+                }
                 Tab::Periods => {
                     let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, 56.0), rect.max - Vec2::new(8.0, 56.0));
                     ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
@@ -577,7 +609,7 @@ impl eframe::App for App {
             }
             ui.scope_builder(egui::UiBuilder::new().max_rect(bar), |ui| {
                 ui.horizontal(|ui| {
-                    for (t, l) in [(Tab::Plant, "Plant"), (Tab::Trends, "Trends"), (Tab::Periods, "Freq."), (Tab::Loop, "Moltres")] {
+                    for (t, l) in [(Tab::Plant, "Plant"), (Tab::Trends, "Trends"), (Tab::Periods, "Freq."), (Tab::Loop, "Moltres"), (Tab::Keff, "k_eff")] {
                         if ui.add(egui::Button::selectable(self.tab == t, RichText::new(l).size(17.0)).min_size(Vec2::new(84.0, 38.0))).clicked() {
                             self.tab = t;
                         }

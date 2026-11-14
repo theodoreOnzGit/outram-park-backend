@@ -57,7 +57,7 @@ the offline example simulators built on it (`htgr_sim_v1`, `fhr_sim_v2`,
 `distillation_sim_v1`, plus the `widget_studio` example and the
 `ciet_educational_simulator_v2` / `ciet_v2_opcua_client` binaries, and since
 2026-10-17 the `ciet_web` example: CIET v2's own stepper as wasm for the
-browser demo in `web/ciet/`, gh:#924), and since 2026-11-14 the `msre_web` example: the museum MSRE simulator in `web/msre/`, `msre::session` and `msre::moltres_drift::LoopDrift` on a Web Worker, gh:#1569/#1570/#1575). It
+browser demo in `web/ciet/`, gh:#924), and since 2026-11-14 the `msre_web` example: the museum MSRE simulator in `web/msre/`, `msre::session` and `msre::moltres_drift::LoopDrift` on a Web Worker, gh:#1569/#1570/#1575; the plant paces itself on the worker's clock with a salt-freeze guard, gh:#1573; a Core k_eff tab runs `vv::msre_n1::Study` on a pool of workers through `dhoby_ghaut::mc_web`, gh:#1571/#1572, and measures the fuel and graphite coefficients the reader can send to the plant, gh:#1574). It
 turns physics state into on-screen process objects: cell count drives displayed
 cells, temperature drives cell colour, mass flow drives tracer direction,
 residence time drives tracer travel time.

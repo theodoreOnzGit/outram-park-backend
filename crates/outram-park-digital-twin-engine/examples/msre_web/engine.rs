@@ -31,7 +31,7 @@ use outram_park_digital_twin_engine::msre::session::{
 /// Arcs the drift's emission profile is averaged into for the page.
 pub const DRIFT_BINS: usize = 126;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub enum Request {
     /// The wall clock now, [s]: run the plant time the pacer gives for it
     /// and post a frame (nothing while paused or held frozen).
@@ -47,6 +47,9 @@ pub enum Request {
     Reset(SessionConfig),
     /// The T-1 natural-period table at these coefficients, [1/°F].
     Periods(f64, f64),
+    /// The Core k_eff tab's pool (gh:#1571): a k_eff worker's request. A
+    /// worker that only ever gets these never starts the plant's clock.
+    Keff(crate::keff::KReq),
 }
 
 #[derive(Clone)]
@@ -65,6 +68,8 @@ pub enum Event {
     /// held-at plant time s]` (`session::Freeze`). Sent once per freeze,
     /// beside the held frame.
     Frozen(Floats),
+    /// A k_eff worker's event (gh:#1571).
+    Keff(crate::keff::KEv),
     /// A refused command or a failed step.
     Error(String),
 }
@@ -83,6 +88,8 @@ pub fn freeze_from_slice(v: &[f64]) -> Option<Freeze> {
 pub struct Runner {
     session: Option<Session>,
     drift: Option<LoopDrift>,
+    /// The k_eff worker's state, used only by the tab's pool workers.
+    keff: crate::keff::KeffWorker,
     pacer: Pacer,
     /// The browser worker's timer loop has been started (`web`).
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -96,7 +103,7 @@ impl Default for Runner {
     fn default() -> Self {
         let session = Session::new(SessionConfig::default()).ok();
         let drift = session.as_ref().and_then(|s| drift_for(&s.snapshot()));
-        Self { session, drift, pacer: Pacer::new(DEFAULT_SPEED, false), ticking: false }
+        Self { session, drift, keff: crate::keff::KeffWorker::default(), pacer: Pacer::new(DEFAULT_SPEED, false), ticking: false }
     }
 }
 
@@ -118,6 +125,18 @@ impl Runner {
     /// native thread and the worker, so the tests below cover both.
     pub fn answer(&mut self, req: Request) -> Vec<Event> {
         match req {
+            Request::Keff(k) => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let mut out = Vec::new();
+                    self.keff.answer_native(k, &mut |e| out.push(Event::Keff(e)));
+                    out
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    self.keff.answer_now(k).into_iter().map(Event::Keff).collect()
+                }
+            }
             Request::Reset(c) => match Session::new(c) {
                 Ok(s) => {
                     let snap = s.snapshot();
@@ -229,28 +248,36 @@ impl bugis::web_demo::link::NativeEngine for Runner {
     type Req = Request;
     type Ev = Event;
     fn handle(&mut self, req: Request, post: &mut impl FnMut(Event)) {
-        for e in self.answer(req) {
-            post(e);
+        match req {
+            // Posted as each job finishes, for the page's progress.
+            Request::Keff(k) => self.keff.answer_native(k, &mut |e| post(Event::Keff(e))),
+            r => {
+                for e in self.answer(r) {
+                    post(e);
+                }
+            }
         }
     }
 }
 
 /// Coefficient presets as wire codes.
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
-pub fn coefficients_code(c: Coefficients) -> f64 {
+pub fn coefficients_code(c: Coefficients) -> [f64; 5] {
     match c {
-        Coefficients::Ornl1965 => 0.0,
-        Coefficients::MonteCarloN3 => 1.0,
+        Coefficients::Ornl1965 => [0.0; 5],
+        Coefficients::MonteCarloN3 => [1.0, 0.0, 0.0, 0.0, 0.0],
+        Coefficients::Measured { fuel_per_f, fuel_sigma, graphite_per_f, graphite_sigma } => [2.0, fuel_per_f, fuel_sigma, graphite_per_f, graphite_sigma],
     }
 }
 
 /// The inverse of [`coefficients_code`].
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
-pub fn coefficients_from_code(x: f64) -> Coefficients {
-    if x == 1.0 {
-        Coefficients::MonteCarloN3
-    } else {
-        Coefficients::Ornl1965
+pub fn coefficients_from_code(v: &[f64]) -> Coefficients {
+    let g = |i: usize| v.get(i).copied().unwrap_or(0.0);
+    match g(0) as i64 {
+        1 => Coefficients::MonteCarloN3,
+        2 => Coefficients::Measured { fuel_per_f: g(1), fuel_sigma: g(2), graphite_per_f: g(3), graphite_sigma: g(4) },
+        _ => Coefficients::Ornl1965,
     }
 }
 
@@ -295,8 +322,12 @@ pub mod web {
 
     impl Message for Request {
         fn to_js(&self) -> JsValue {
+            if let Request::Keff(k) = self {
+                return keff_req_to_js(k);
+            }
             let o = js::object();
             let (kind, a, b, c) = match *self {
+                Request::Keff(_) => ("", 0.0, 0.0, 0.0),
                 Request::Tick(w) => ("tick", w, 0.0, 0.0),
                 Request::Pace(speed, paused) => ("pace", speed, paused as u8 as f64, 0.0),
                 Request::Thaw => ("thaw", 0.0, 0.0, 0.0),
@@ -304,12 +335,10 @@ pub mod web {
                     let (k, x) = command_code(cmd);
                     ("cmd", k, x, 0.0)
                 }
-                Request::Reset(cfg) => (
-                    "reset",
-                    cfg.power_mw,
-                    coefficients_code(cfg.coefficients),
-                    cfg.line_model as u8 as f64,
-                ),
+                Request::Reset(cfg) => {
+                    js::set(&o, "coef", js::f64s(&coefficients_code(cfg.coefficients)));
+                    ("reset", cfg.power_mw, 0.0, cfg.line_model as u8 as f64)
+                }
                 Request::Periods(f, g) => ("periods", f, g, 0.0),
             };
             js::set(&o, "kind", kind);
@@ -320,14 +349,18 @@ pub mod web {
         }
         fn from_js(v: &JsValue) -> Result<Self, String> {
             let g = |k: &str| js::get_f64(v, k).unwrap_or(0.0);
-            Ok(match js::get_str(v, "kind").as_str() {
+            let kind = js::get_str(v, "kind");
+            if kind.starts_with("k_") {
+                return keff_req_from_js(&kind, v).map(Request::Keff);
+            }
+            Ok(match kind.as_str() {
                 "tick" => Request::Tick(g("a")),
                 "pace" => Request::Pace(g("a"), g("b") != 0.0),
                 "thaw" => Request::Thaw,
                 "cmd" => Request::Cmd(command_from_code(g("a"), g("b")).ok_or("bad command")?),
                 "reset" => Request::Reset(SessionConfig {
                     power_mw: g("a"),
-                    coefficients: coefficients_from_code(g("b")),
+                    coefficients: coefficients_from_code(&js::get_f64s(v, "coef")),
                     line_model: g("c") != 0.0,
                 }),
                 "periods" => Request::Periods(g("a"), g("b")),
@@ -356,6 +389,7 @@ pub mod web {
                     js::set(&o, "kind", "frozen");
                     js::set(&o, "v", f.js());
                 }
+                Event::Keff(e) => return keff_ev_to_js(e),
                 Event::Error(m) => {
                     js::set(&o, "kind", "error");
                     js::set(&o, "message", m.as_str());
@@ -369,6 +403,7 @@ pub mod web {
                 "periods" => Ok(Event::Periods(Floats::get(v, "v").ok_or("no periods")?)),
                 "drift" => Ok(Event::Drift(Floats::get(v, "v").ok_or("no drift")?)),
                 "frozen" => Ok(Event::Frozen(Floats::get(v, "v").ok_or("no freeze")?)),
+                k if k.starts_with("k_") => keff_ev_from_js(k, v).map(Event::Keff),
                 "error" => Ok(Event::Error(js::get_str(v, "message"))),
                 k => Err(format!("unknown event '{k}'")),
             }
@@ -379,6 +414,10 @@ pub mod web {
         type Req = Request;
         type Ev = Event;
         fn handle(state: &Arc<RwLock<Self>>, req: Request, post: Poster<Event>) {
+            // A k_eff pool worker never starts the plant's clock.
+            if let Request::Keff(k) = req {
+                return keff_handle(state, k, post);
+            }
             let (events, start) = match state.write() {
                 Ok(mut r) => {
                     let start = !r.ticking;
@@ -397,6 +436,246 @@ pub mod web {
         fn error(message: String) -> Event {
             Event::Error(message)
         }
+    }
+
+    // ─── The k_eff pool's messages (gh:#1571) ──────────────────────────────
+
+    use crate::keff::{cfg_from_slice, cfg_to_vec, study_from_slice, study_to_vec, tape_url, Job, KEv, KReq, View};
+
+    fn keff_req_to_js(k: &KReq) -> JsValue {
+        let o = js::object();
+        let kind = match k {
+            KReq::Process { study, jobs } => {
+                js::set(&o, "study", js::f64s(&study_to_vec(study)));
+                js::set(&o, "jobs", js::f64s(&jobs.iter().map(|&j| j as f64).collect::<Vec<_>>()));
+                "k_process"
+            }
+            KReq::Product { job, data } => {
+                js::set(&o, "job", *job as f64);
+                js::set(&o, "data", data.js());
+                "k_product"
+            }
+            KReq::Assemble { study } => {
+                js::set(&o, "study", js::f64s(&study_to_vec(study)));
+                "k_assemble"
+            }
+            KReq::Source { cfg, epoch } => {
+                js::set(&o, "cfg", js::f64s(&cfg_to_vec(cfg)));
+                js::set(&o, "epoch", *epoch as f64);
+                "k_source"
+            }
+            KReq::Chunk { cfg, data, epoch } => {
+                js::set(&o, "cfg", js::f64s(&cfg_to_vec(cfg)));
+                js::set(&o, "data", data.js());
+                js::set(&o, "epoch", *epoch as f64);
+                "k_chunk"
+            }
+            KReq::Raster { study, view, px } => {
+                js::set(&o, "study", js::f64s(&study_to_vec(study)));
+                js::set(&o, "view", view.code());
+                js::set(&o, "px", *px as f64);
+                "k_raster"
+            }
+        };
+        js::set(&o, "kind", kind);
+        o.into()
+    }
+
+    fn keff_req_from_js(kind: &str, v: &JsValue) -> Result<KReq, String> {
+        let g = |k: &str| js::get_f64(v, k).unwrap_or(0.0);
+        Ok(match kind {
+            "k_process" => KReq::Process { study: study_from_slice(&js::get_f64s(v, "study")), jobs: js::get_f64s(v, "jobs").iter().map(|&x| x as usize).collect() },
+            "k_product" => KReq::Product { job: g("job") as usize, data: Floats::get(v, "data").ok_or("no product")? },
+            "k_assemble" => KReq::Assemble { study: study_from_slice(&js::get_f64s(v, "study")) },
+            "k_source" => KReq::Source { cfg: cfg_from_slice(&js::get_f64s(v, "cfg")), epoch: g("epoch") as u32 },
+            "k_chunk" => KReq::Chunk { cfg: cfg_from_slice(&js::get_f64s(v, "cfg")), data: Floats::get(v, "data").ok_or("no chunk")?, epoch: g("epoch") as u32 },
+            "k_raster" => KReq::Raster { study: study_from_slice(&js::get_f64s(v, "study")), view: View::from_code(g("view")), px: g("px") as usize },
+            k => return Err(format!("unknown k_eff request '{k}'")),
+        })
+    }
+
+    fn keff_ev_to_js(e: &KEv) -> JsValue {
+        let o = js::object();
+        let kind = match e {
+            KEv::Started { job } => {
+                js::set(&o, "job", *job as f64);
+                "k_started"
+            }
+            KEv::Product { job, secs, data, cached_ms } => {
+                js::set(&o, "job", *job as f64);
+                js::set(&o, "secs", *secs);
+                js::set(&o, "data", data.js());
+                js::set(&o, "cached", cached_ms.unwrap_or(f64::NAN));
+                "k_product"
+            }
+            KEv::Assembled(a) => {
+                js::set(&o, "nuclides", a.nuclides as f64);
+                js::set(&o, "materials", a.materials as f64);
+                js::set(&o, "secs", a.secs);
+                "k_assembled"
+            }
+            KEv::Source { sites, seed, mesh, epoch } => {
+                js::set(&o, "sites", sites.js());
+                // A u64 stream state: exact as a string, not as a JS number.
+                js::set(&o, "seed", seed.to_string());
+                js::set(&o, "mesh", js::f64s(mesh));
+                js::set(&o, "epoch", *epoch as f64);
+                "k_source"
+            }
+            KEv::ChunkDone { data, secs, epoch } => {
+                js::set(&o, "data", data.js());
+                js::set(&o, "secs", *secs);
+                js::set(&o, "epoch", *epoch as f64);
+                "k_chunk_done"
+            }
+            KEv::Failed { message, epoch } => {
+                js::set(&o, "message", message.as_str());
+                js::set(&o, "epoch", *epoch as f64);
+                "k_failed"
+            }
+            KEv::Raster { view, w, h, ids } => {
+                js::set(&o, "view", view.code());
+                js::set(&o, "w", *w as f64);
+                js::set(&o, "h", *h as f64);
+                js::set(&o, "ids", js::u8s(ids));
+                "k_raster"
+            }
+        };
+        js::set(&o, "kind", kind);
+        o.into()
+    }
+
+    fn keff_ev_from_js(kind: &str, v: &JsValue) -> Result<KEv, String> {
+        let g = |k: &str| js::get_f64(v, k).unwrap_or(0.0);
+        Ok(match kind {
+            "k_started" => KEv::Started { job: g("job") as usize },
+            "k_product" => KEv::Product {
+                job: g("job") as usize,
+                secs: g("secs"),
+                data: Floats::get(v, "data").ok_or("no product")?,
+                cached_ms: js::get_f64(v, "cached").filter(|x| x.is_finite()),
+            },
+            "k_assembled" => KEv::Assembled(crate::keff::Assembly { nuclides: g("nuclides") as usize, materials: g("materials") as usize, secs: g("secs") }),
+            "k_source" => {
+                let m = js::get_f64s(v, "mesh");
+                let mut mesh = [0.0; 9];
+                for (d, x) in mesh.iter_mut().zip(m) {
+                    *d = x;
+                }
+                KEv::Source {
+                    sites: Floats::get(v, "sites").ok_or("no sites")?,
+                    seed: js::get_str(v, "seed").parse().map_err(|e| format!("source seed: {e}"))?,
+                    mesh,
+                    epoch: g("epoch") as u32,
+                }
+            }
+            "k_chunk_done" => KEv::ChunkDone { data: Floats::get(v, "data").ok_or("no chunk")?, secs: g("secs"), epoch: g("epoch") as u32 },
+            "k_failed" => KEv::Failed { message: js::get_str(v, "message"), epoch: g("epoch") as u32 },
+            "k_raster" => KEv::Raster { view: View::from_code(g("view")), w: g("w") as usize, h: g("h") as usize, ids: js::get_u8s(v, "ids") },
+            k => return Err(format!("unknown k_eff event '{k}'")),
+        })
+    }
+
+    /// A k_eff request in the browser worker. Processing and assembly
+    /// download tapes (`data/<wire name>`), so they run as async tasks that
+    /// post as they go; the processed-data cache is the browser's IndexedDB
+    /// (`processed_cache::web`), read before each job and written after.
+    fn keff_handle(state: &Arc<RwLock<Runner>>, k: KReq, post: Poster<Event>) {
+        match k {
+            KReq::Process { study, jobs } => {
+                let state = state.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    if let Err(message) = keff_process(&state, study, &jobs, post).await {
+                        post.post(Event::Keff(KEv::Failed { message, epoch: 0 }));
+                    }
+                });
+            }
+            KReq::Assemble { study } => {
+                let state = state.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let e = match keff_assemble(&state, study).await {
+                        Ok(a) => KEv::Assembled(a),
+                        Err(message) => KEv::Failed { message, epoch: 0 },
+                    };
+                    post.post(Event::Keff(e));
+                });
+            }
+            other => {
+                let events = match state.write() {
+                    Ok(mut r) => r.keff.answer_now(other),
+                    Err(_) => vec![KEv::Failed { message: "engine state poisoned".into(), epoch: 0 }],
+                };
+                for e in events {
+                    post.post(Event::Keff(e));
+                }
+            }
+        }
+    }
+
+    /// A tape's stripped bytes, downloaded beside the page.
+    async fn tape_bytes(path: &str) -> Result<Vec<u8>, String> {
+        let url = tape_url(path);
+        let z = bugis::web_demo::link::fetch_bytes(&url).await?;
+        dhoby_ghaut::mc_web::tapes::decompress(&z)
+    }
+
+    /// Take the worker's store out of its state for an `await` (no lock is
+    /// held across one), and put it back.
+    fn take_store(state: &Arc<RwLock<Runner>>) -> dhoby_ghaut::mc_web::processed_cache::DataStore {
+        state.write().map(|mut r| std::mem::replace(&mut r.keff.store, dhoby_ghaut::mc_web::processed_cache::DataStore::browser())).unwrap_or_else(|_| dhoby_ghaut::mc_web::processed_cache::DataStore::browser())
+    }
+    fn put_store(state: &Arc<RwLock<Runner>>, store: dhoby_ghaut::mc_web::processed_cache::DataStore) {
+        if let Ok(mut r) = state.write() {
+            r.keff.store = store;
+        }
+    }
+
+    async fn keff_process(state: &Arc<RwLock<Runner>>, study: outram_park_digital_twin_engine::msre::first_criticality::Study, jobs: &[usize], post: Poster<Event>) -> Result<(), String> {
+        use dhoby_ghaut::mc_web::processed_cache::{tape_prefix, web as cache};
+        let list = crate::keff::jobs(&study);
+        let mut health = cache::Health::default();
+        for &j in jobs {
+            post.post(Event::Keff(KEv::Started { job: j }));
+            let t = bugis::web_demo::platform::now_s();
+            let job = list.get(j).copied().ok_or_else(|| format!("no job {j}"))?;
+            let bytes = match job.tape() {
+                Some(tp) => tape_bytes(tp).await?,
+                None => Vec::new(),
+            };
+            let mut store = take_store(state);
+            match job {
+                Job::Graphite(_) => cache::before_prefix(&mut store, &tape_prefix(&dhoby_ghaut::mc_web::tapes::generated_source(crate::keff::LEAPR_GRAPHITE_30P)), &mut health).await,
+                _ => cache::before_step(&mut store, &bytes, &mut health).await,
+            }
+            put_store(state, store);
+            let (words, src) = state.write().map_err(|_| "engine state poisoned".to_string())?.keff.process(&study, j, &bytes)?;
+            let mut store = take_store(state);
+            cache::after_step(&mut store, &mut health).await;
+            put_store(state, store);
+            post.post(Event::Keff(KEv::Product {
+                job: j,
+                secs: bugis::web_demo::platform::now_s() - t,
+                data: Floats::from_vec(words),
+                cached_ms: match src {
+                    dhoby_ghaut::web_demo::data_cache::Source::Cached { created_ms, .. } => Some(created_ms),
+                    dhoby_ghaut::web_demo::data_cache::Source::Processed => None,
+                },
+            }));
+        }
+        Ok(())
+    }
+
+    async fn keff_assemble(state: &Arc<RwLock<Runner>>, study: outram_park_digital_twin_engine::msre::first_criticality::Study) -> Result<crate::keff::Assembly, String> {
+        let mut tapes = std::collections::BTreeMap::new();
+        for j in crate::keff::jobs(&study) {
+            if let Some(tp) = j.tape() {
+                if !tapes.contains_key(tp) {
+                    tapes.insert(tp, tape_bytes(tp).await?);
+                }
+            }
+        }
+        let mut r = state.write().map_err(|_| "engine state poisoned".to_string())?;
+        r.keff.assemble(&study, |p| tapes.get(p).cloned().ok_or_else(|| format!("{p}: not downloaded")), bugis::web_demo::platform::now_s)
     }
 
     /// The worker's own clock (gh:#1573): every [`TICK_MS`] it reads the wall
@@ -473,7 +752,7 @@ mod tests {
         let mut r = Runner::default();
         assert!(matches!(r.answer(Request::Cmd(Command::AirFraction(0.0)))[0], Event::Error(_)));
         assert!(matches!(r.run(1.0)[0], Event::Frame(_)));
-        let mut empty = Runner { session: None, drift: None, pacer: Pacer::new(1.0, false), ticking: false };
+        let mut empty = Runner { session: None, drift: None, keff: crate::keff::KeffWorker::default(), pacer: Pacer::new(1.0, false), ticking: false };
         assert!(empty.run(1.0).is_empty());
         assert!(matches!(empty.answer(Request::Cmd(Command::Servo(true)))[0], Event::Error(_)));
         assert!(matches!(empty.answer(Request::Thaw)[0], Event::Error(_)));
@@ -545,8 +824,12 @@ mod tests {
             assert_eq!(command_from_code(k, x), Some(c));
         }
         assert_eq!(command_from_code(99.0, 0.0), None);
-        for c in [Coefficients::Ornl1965, Coefficients::MonteCarloN3] {
-            assert_eq!(coefficients_from_code(coefficients_code(c)), c);
+        for c in [
+            Coefficients::Ornl1965,
+            Coefficients::MonteCarloN3,
+            Coefficients::Measured { fuel_per_f: -3.8e-5, fuel_sigma: 0.4e-5, graphite_per_f: -3.3e-5, graphite_sigma: 0.3e-5 },
+        ] {
+            assert_eq!(coefficients_from_code(&coefficients_code(c)), c);
         }
     }
 
