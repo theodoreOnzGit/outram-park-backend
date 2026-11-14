@@ -1885,3 +1885,62 @@ none in 133 materials. The first ranges are `LRU,LRF` = `(1,1)` ×10, `(1,2)` ×
 `(1,3)` ×37, `(1,7)` ×12, `(2,1)` ×1, and 36 with no resonances. `parse_lru1` now
 refuses `LRF = 6` by name (it was "unknown resolved-resonance LRF"); unit test
 `reconr::mf2::lrf6_tests::lrf6_is_refused_by_name`.
+## 39. POWR translated, `lib = 1` and `lib = 2` (2026-11-14, gh:#1373)
+
+Maintainer decision (2026-11-14): "POWR to translate, unit test verification with
+upstream". `src/powr/` translates `powr.f90`'s `lib = 1` (EPRI-CELL fast library:
+`fast`, `gamll`, `gamxs`, `gamff`, `mergt`) and `lib = 2` (thermal: `therm`,
+`packa`) line for line, with `icgrp`. `run_deck` runs it (`deck/powr.rs`). Gate:
+`tests/deck_driver_powr_vs_njoy2016.rs`.
+
+**Method.** No upstream deck runs POWR, so the decks are our own. Each runs
+NJOY2016's deck-11 chain (MODER, RECONR, BROADR 300/900/2100 K, UNRESR 7 sigma
+zeroes, THERMR for the thermal decks) to a **coded** GENDF, then POWR. The whole
+deck is run by `NJOY2016_ROOT/build/njoy` and by `run_deck`; the GENDF and the
+POWR library are compared as strings, line for line, trailing blanks included.
+Because the GENDF is identical first, the POWR comparison is a module-level
+comparison of the translation against upstream's compiled `powr.f90` on
+identical input. Pass: no differing line, the run reaches `stop`. Predictions
+were posted on gh:#1373 before the first run of each deck.
+
+| deck | tape (MAT) | GROUPR | POWR | GENDF lines | library lines (words) | result |
+|---|---|---|---|---|---|---|
+| A | t404 Pu-238 (1050) | ign 6, P1 | lib 1, 3 T, 7 sig0, f-factors | 4 535 | 577 (3 325) | identical |
+| C | t404 (1050) + MF6 MT16 | ign 6 | lib 1, (n,2n) | 4 559 | 600 (3 459) | identical |
+| D | t404 Th-232 (1296) + MT455 | ign 6 | lib 1, 6 delayed chi | 4 362 | 725 (4 179) | identical |
+| E1 | t404 (1050) | ign 1, 185 groups | lib 1 collapsed (`igf`) | 11 983 | 559 (3 205) | identical |
+| B | t404 (1050) + free gas | ign 8 | lib 2, 3 cards, `itrc` 0/1 | 2 557 | 413 (2 585) | identical |
+| E2 | t404 (1050) + free gas | ign 1, 185 groups | lib 2 collapsed (`igt`) | 12 632 | 687 (4 229) | identical |
+| F | t511 C-nat (1306) + t322 graphite | ign 8 | lib 2, `mti 229`, `mtc 230` | 716 | 120 (755) | identical |
+
+Ablations (the gate can fail): A's library with trailing blanks trimmed differs
+on all 577 lines; our A run at `izref = 2` against NJOY's `izref = 1` differs on
+46; our B run with `itrc = 1` against NJOY's `itrc = 0` differs on 404.
+
+**Where the prediction was wrong.**
+- Deck C: predicted that NJOY would stop on `gamll`'s (n,2n) branch, which goes to
+  label 250 instead of 300 in the middle of a section. It does not: `contio` reads
+  a LIST data line with `6e11.0` and `nint`s it, so the rest of the section is
+  read as CONT records without error. The refusal written for it was removed.
+- Deck B, first version: NJOY stopped (`Bad value during floating point read`).
+  `therm` reads the GENDF label with `contio`, so GROUPR's title `'94-pu-238'`
+  stops it. The crate's ENDF float parser reads text as 0, so the port would have
+  written a library NJOY never writes. The port now checks the label with a
+  strict `e11.0` grammar (`powr::reader::e_field_reads`) and stops; pinned by
+  `powr_thermal_text_label_stops_as_upstream` (NJOY exits non-zero there too).
+
+**Upstream quirks kept:** `mergt` pads every fast-library line to 80 columns;
+`matd < 0` ends a `lib = 1` run (the absorption-only card-6 branch is
+unreachable); `gamxs`'s spectrum-part chi index `ngnd-ig2c-1` and its delayed
+`a(jgt+locb)`; `gamff` not resetting `l` after paging; `packa`'s `ng = 2` on an
+empty row; the thermal group bounds taken from the first material only.
+
+**Refused by name:** `lib = 3` (EPRI-CPM, `powr.f90:1992-4902`, not translated;
+the run stops at POWR); a blocked-binary GENDF (`ngendf < 0`: NJOY reads
+full-precision records and positions by record); delayed nu with no MF=5 MT455
+(`nldla` undefined upstream); a GENDF record past `scr(5000)`.
+
+**Not done:** `lib = 3`; the listing (`nsyso`, with `pgam`, `pgamff`, `tprnt`);
+a stand-alone gfortran build of `powr.f90` (the whole-deck comparison above
+compares upstream's compiled POWR on an identical GENDF, which is the same
+check at module level).
