@@ -184,7 +184,7 @@
 //! treatment shares one transport path rather than each needing its own.
 
 use petir::mathf::RealMath;
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use crate::geometry::position::Position;
 use crate::material::material::Material;
@@ -775,11 +775,14 @@ enum DhGeometry {
         particle_material: usize,
         matrix_material: usize,
     },
-    /// Chord-length sampling — no stored particles. The `Mutex` is what lets a
-    /// stateful sampler satisfy the `Sync` point-query seam the k-eff drivers
-    /// expect; on the single-threaded reference path it is uncontended.
+    /// Chord-length sampling — no stored particles. The `RwLock` holds the
+    /// **prototype** medium and sampler seed: read once per run or history to
+    /// build a [`DhQueryState`] (and written once, to size the SCLS window).
+    /// No point query takes it; the sampler's mutable state lives in the
+    /// driver-owned [`DhQueryState`] (GitHub #205), where a global `Mutex`
+    /// used to sit on every query.
     Cls {
-        medium: Mutex<(ClsMedium, u64)>,
+        medium: RwLock<(ClsMedium, u64)>,
         particle_material: usize,
         matrix_material: usize,
         outer: OuterShells,
@@ -792,7 +795,7 @@ enum DhGeometry {
     /// `window_set` guards the one-time sizing of the retention radius, which
     /// needs cross sections and so cannot happen at construction.
     Scls {
-        medium: Mutex<(SclsMedium, u64)>,
+        medium: RwLock<(SclsMedium, u64)>,
         window_set: std::sync::atomic::AtomicBool,
         particle_material: usize,
         matrix_material: usize,
@@ -1003,7 +1006,7 @@ impl DhUniverse {
                 return Ok(Self {
                     treatment,
                     geometry: DhGeometry::Cls {
-                        medium: Mutex::new((medium, params.seed | 1)),
+                        medium: RwLock::new((medium, params.seed | 1)),
                         particle_material: particle_idx,
                         matrix_material: MATRIX_IDX,
                         outer,
@@ -1026,7 +1029,7 @@ impl DhUniverse {
                 return Ok(Self {
                     treatment,
                     geometry: DhGeometry::Cls {
-                        medium: Mutex::new((medium, params.seed | 1)),
+                        medium: RwLock::new((medium, params.seed | 1)),
                         particle_material: KERNEL_IDX,
                         matrix_material: matrix_idx,
                         outer,
@@ -1053,7 +1056,7 @@ impl DhUniverse {
                 return Ok(Self {
                     treatment,
                     geometry: DhGeometry::Scls {
-                        medium: Mutex::new((medium, params.seed | 1)),
+                        medium: RwLock::new((medium, params.seed | 1)),
                         window_set: std::sync::atomic::AtomicBool::new(false),
                         particle_material: KERNEL_IDX,
                         matrix_material: matrix_idx,
@@ -1085,7 +1088,7 @@ impl DhUniverse {
                 return Ok(Self {
                     treatment,
                     geometry: DhGeometry::Scls {
-                        medium: Mutex::new((medium, params.seed | 1)),
+                        medium: RwLock::new((medium, params.seed | 1)),
                         window_set: std::sync::atomic::AtomicBool::new(false),
                         particle_material: particle_idx,
                         matrix_material: MATRIX_IDX,
@@ -1233,7 +1236,7 @@ impl DhUniverse {
                 );
                 (
                     DhGeometry::Cls {
-                        medium: Mutex::new((medium, params.seed | 1)),
+                        medium: RwLock::new((medium, params.seed | 1)),
                         particle_material: PARTICLE,
                         matrix_material: MATRIX,
                         outer: OuterShells::none(),
@@ -1267,7 +1270,7 @@ impl DhUniverse {
                 let medium = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
                 (
                     DhGeometry::Scls {
-                        medium: Mutex::new((medium, params.seed | 1)),
+                        medium: RwLock::new((medium, params.seed | 1)),
                         window_set: std::sync::atomic::AtomicBool::new(false),
                         particle_material: PARTICLE,
                         matrix_material: MATRIX,
@@ -1375,7 +1378,15 @@ impl DhUniverse {
     /// For [`DhTreatment::ChordLength`] this call is **stateful and not pure** —
     /// repeated queries at the same point may differ, because the medium is
     /// being sampled rather than read.
-    pub fn material_at(&self, p: Position) -> Option<usize> {
+    ///
+    /// `state` is the sampler state from [`Self::query_state`] (or
+    /// [`MaterialQuery::new_state`]): the CLS / SCLS random stream and
+    /// retained inclusions. It is ignored by the stateless treatments.
+    ///
+    /// # Panics
+    ///
+    /// If `state` was built for a different treatment than this universe's.
+    pub fn material_at(&self, state: &mut DhQueryState, p: Position) -> Option<usize> {
         match &self.geometry {
             DhGeometry::Pebble(pebble) => pebble.material_at(p),
             DhGeometry::Dispersed {
@@ -1390,23 +1401,6 @@ impl DhUniverse {
                 }
             }
             DhGeometry::Cls {
-                medium,
-                particle_material,
-                matrix_material,
-                outer,
-            } => {
-                if let Some(m) = outer.at(p.norm()) {
-                    return Some(m);
-                }
-                let mut guard = medium.lock().ok()?;
-                let (cls, seed) = &mut *guard;
-                match cls.material_at(p, seed) {
-                    Ok(id) if id.index() == *particle_material => Some(*particle_material),
-                    _ => Some(*matrix_material),
-                }
-            }
-            DhGeometry::Scls {
-                medium,
                 particle_material,
                 matrix_material,
                 outer,
@@ -1415,8 +1409,26 @@ impl DhUniverse {
                 if let Some(m) = outer.at(p.norm()) {
                     return Some(m);
                 }
-                let mut guard = medium.lock().ok()?;
-                let (scls, seed) = &mut *guard;
+                let DhQueryState::Cls(cls, seed) = state else {
+                    panic!("{WRONG_STATE}");
+                };
+                match cls.material_at(p, seed) {
+                    Ok(id) if id.index() == *particle_material => Some(*particle_material),
+                    _ => Some(*matrix_material),
+                }
+            }
+            DhGeometry::Scls {
+                particle_material,
+                matrix_material,
+                outer,
+                ..
+            } => {
+                if let Some(m) = outer.at(p.norm()) {
+                    return Some(m);
+                }
+                let DhQueryState::Scls(scls, seed) = state else {
+                    panic!("{WRONG_STATE}");
+                };
                 match scls.material_at(p, seed) {
                     Ok(id) if id.index() == *particle_material => Some(*particle_material),
                     _ => Some(*matrix_material),
@@ -1467,17 +1479,18 @@ impl DhUniverse {
     /// [`KeffSettings::seed`] gives the same eigenvalue every run, on either the
     /// single- or multi-threaded backend.
     ///
-    /// **[`DhTreatment::ChordLength`] is different and you need to know how.**
-    /// Its point query *samples*, consuming from a stream seeded by
-    /// [`PebbleParams::seed`]. On
+    /// [`DhTreatment::ChordLength`] and [`DhTreatment::Scls`] *sample* the point
+    /// query, consuming a stream seeded by [`PebbleParams::seed`]. On
     /// [`ComputeType::CpuSingleThread`](crate::physics::compute::ComputeType)
-    /// the queries are ordered, so a fixed pair of seeds reproduces exactly. On
-    /// the multi-threaded backend they are **not** — threads take the sampler's
-    /// lock in whatever order they arrive, so the stream is consumed in a
-    /// different order each run and the eigenvalue moves by of order its own
-    /// statistical error. Use the single-thread backend when a chord-length
-    /// result has to be reproducible, and treat any multi-threaded CLS number as
-    /// one draw rather than *the* answer.
+    /// one [`DhQueryState`] is threaded through the run in order, so a fixed
+    /// pair of seeds reproduces exactly. ~~On the multi-threaded backend they
+    /// are **not** reproducible: threads took the sampler's lock in arrival
+    /// order, so any multi-threaded CLS number was one draw rather than the
+    /// answer.~~ **CORRECTED 2026-11-14 (GitHub #205):** there is no lock now.
+    /// On the multi-threaded backend each history builds its own state from
+    /// `(generation, history)`, so the eigenvalue is identical on any thread
+    /// count (`tests/cls_scls_keff_pin_205.rs`). The price: SCLS's retained
+    /// inclusions are per history there, not shared across them.
     pub fn keff(&self, nuclides: &[Nuclide], settings: &KeffSettings) -> KeffResult {
         // Same bounding grid the ring-RPT V&V deck uses: 4096 log bins over
         // 1e-4 eV .. 20 MeV with refinement, 30 % margin. An under-bound
@@ -1528,8 +1541,16 @@ impl DhUniverse {
         let reachable = self.reachable_materials();
         let majorant = Majorant::bounding(&reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
         self.size_scls_window(nuclides);
-        let it = DeltaPowerIteration::new(self.domain, &self.materials, nuclides, &self, settings);
-        DhPowerIteration { majorant, it }
+        let mut state = MaterialQuery::new_state(&self, None);
+        let it = DeltaPowerIteration::new_with_state(
+            self.domain,
+            &self.materials,
+            nuclides,
+            &self,
+            &mut state,
+            settings,
+        );
+        DhPowerIteration { majorant, it, state }
     }
 }
 
@@ -1539,6 +1560,8 @@ impl DhUniverse {
 pub struct DhPowerIteration {
     majorant: Majorant,
     it: DeltaPowerIteration,
+    /// The run's sampler state, threaded through every step (GitHub #205).
+    state: DhQueryState,
 }
 
 impl DhPowerIteration {
@@ -1548,8 +1571,13 @@ impl DhPowerIteration {
         universe: &DhUniverse,
         nuclides: &[Nuclide],
     ) -> Option<DeltaGenerationReport> {
-        self.it
-            .step(&universe.materials, nuclides, &self.majorant, &universe)
+        self.it.step_with_state(
+            &universe.materials,
+            nuclides,
+            &self.majorant,
+            &universe,
+            &mut self.state,
+        )
     }
 
     pub fn finished(&self) -> bool {
@@ -1711,7 +1739,7 @@ impl DhUniverse {
         if !(sigma_t > 0.0) {
             return; // a void matrix has no transport length to speak of
         }
-        let Ok(mut guard) = medium.lock() else { return };
+        let Ok(mut guard) = medium.write() else { return };
         let r_largest = guard.0.cls().inclusion_radius();
         let window = 1.0 / sigma_t + r_largest;
 
@@ -1735,12 +1763,18 @@ impl DhUniverse {
 /// [`DhTreatment::Scls`] throw away its retention window at each history
 /// boundary, which is what makes it SCLS rather than CLS with a leak.
 impl MaterialQuery for &DhUniverse {
-    #[inline]
-    fn material_at(&self, p: Position) -> Option<usize> {
-        DhUniverse::material_at(self, p)
+    type State = DhQueryState;
+
+    fn new_state(&self, history: Option<(usize, usize)>) -> DhQueryState {
+        DhUniverse::state_for(self, history)
     }
 
-    fn begin_history(&self) {
+    #[inline]
+    fn material_at(&self, state: &mut DhQueryState, p: Position) -> Option<usize> {
+        DhUniverse::material_at(self, state, p)
+    }
+
+    fn begin_history(&self, state: &mut DhQueryState) {
         // Only SCLS carries per-history state, and the distinction between the
         // two kinds of state is the whole method.
         //
@@ -1756,10 +1790,76 @@ impl MaterialQuery for &DhUniverse {
         // This function did exactly that until 2026-09-14 (it restored a
         // pristine clone), which is why SCLS and CLS measured within statistics
         // of each other -- see the correction on [`DhTreatment::Scls`].
-        if let DhGeometry::Scls { medium, .. } = &self.geometry {
-            if let Ok(mut guard) = medium.lock() {
-                guard.0.begin_flight();
+        if let DhQueryState::Scls(scls, _) = state {
+            scls.begin_flight();
+        }
+    }
+}
+
+const WRONG_STATE: &str = "DhQueryState was built for a different treatment than this \
+     DhUniverse's: create it with DhUniverse::query_state";
+
+/// The mutable state of a [`DhUniverse`]'s point query, owned by whoever runs
+/// the queries (GitHub #205): the chord-length sampler with its random
+/// stream, and for SCLS its retained inclusions. The stateless treatments
+/// carry [`Self::Stateless`].
+///
+/// ~~This state sat behind a global `Mutex` inside the universe, locked on
+/// every point query.~~ **CORRECTED 2026-11-14:** the universe holds only the
+/// prototype; every run (sequential drivers) or history (parallel drivers)
+/// clones its own, so nothing is shared and nothing is locked.
+#[derive(Debug, Clone)]
+pub enum DhQueryState {
+    /// The treatment answers from stored data or from radius alone.
+    Stateless,
+    /// Chord-length sampling: the medium's flight state and the stream.
+    Cls(ClsMedium, u64),
+    /// Semi-implicit CLS: the medium with its retained inclusions, and the stream.
+    Scls(SclsMedium, u64),
+}
+
+impl DhQueryState {
+    /// Inclusions an SCLS state currently retains; `None` for any other
+    /// treatment.
+    pub fn retained_inclusions(&self) -> Option<usize> {
+        match self {
+            Self::Scls(scls, _) => Some(scls.histories().len()),
+            _ => None,
+        }
+    }
+}
+
+impl DhUniverse {
+    /// The run-level query state, for calling [`Self::material_at`] directly:
+    /// [`MaterialQuery::new_state`] with `None`. Call it **after** anything
+    /// that sizes the SCLS window (`keff` does), because the state is a copy
+    /// of the prototype at this moment.
+    pub fn query_state(&self) -> DhQueryState {
+        self.state_for(None)
+    }
+
+    /// A fresh [`DhQueryState`]: `None` is the run's own stream (the
+    /// prototype's seed, unchanged); `Some((generation, history))` is that
+    /// history's stream, a pure function of the two indices (a jump of
+    /// `generation * 2^40 + history * 2^20` draws from the prototype seed).
+    fn state_for(&self, history: Option<(usize, usize)>) -> DhQueryState {
+        let stream = |seed: u64| match history {
+            None => seed,
+            Some((g, h)) => crate::rng::lcg::future_seed(
+                ((g as u64) << 40).wrapping_add((h as u64) << 20),
+                seed,
+            ),
+        };
+        match &self.geometry {
+            DhGeometry::Cls { medium, .. } => {
+                let guard = medium.read().unwrap_or_else(|e| e.into_inner());
+                DhQueryState::Cls(guard.0.clone(), stream(guard.1))
             }
+            DhGeometry::Scls { medium, .. } => {
+                let guard = medium.read().unwrap_or_else(|e| e.into_inner());
+                DhQueryState::Scls(guard.0.clone(), stream(guard.1))
+            }
+            _ => DhQueryState::Stateless,
         }
     }
 }
@@ -2343,7 +2443,7 @@ mod tests {
             let u = DhUniverse::pebble(params(), t).unwrap();
             // Deep inside the fuel zone.
             assert!(
-                u.material_at(Position {
+                u.material_at(&mut u.query_state(), Position {
                     x: 0.0,
                     y: 0.0,
                     z: 0.0
@@ -2354,7 +2454,7 @@ mod tests {
             );
             // In the fuel-free shell (fuel zone 1.9, pebble 2.0).
             assert_eq!(
-                u.material_at(Position {
+                u.material_at(&mut u.query_state(), Position {
                     x: 0.0,
                     y: 0.0,
                     z: 1.95
@@ -2444,7 +2544,7 @@ mod tests {
                 (true, Ok(u)) => {
                     assert_eq!(u.treatment(), t);
                     assert!(
-                        u.material_at(Position {
+                        u.material_at(&mut u.query_state(), Position {
                             x: 0.0,
                             y: 0.0,
                             z: 0.0
@@ -2507,13 +2607,12 @@ mod tests {
     #[test]
     fn ring_rpt_is_radially_structured_and_naive_homogenisation_is_not() {
         let at = |t: DhTreatment, r: f64| {
-            DhUniverse::pebble(params(), t)
-                .unwrap()
-                .material_at(Position {
-                    x: 0.0,
-                    y: 0.0,
-                    z: r,
-                })
+            let u = DhUniverse::pebble(params(), t).unwrap();
+            u.material_at(&mut u.query_state(), Position {
+                x: 0.0,
+                y: 0.0,
+                z: r,
+            })
         };
         let rpt = DhTreatment::RingRpt {
             inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
@@ -2567,7 +2666,7 @@ mod tests {
         let u = DhUniverse::pebble(eight, DhTreatment::Homogenised).expect("unit cell builds");
         // Coolant fills 2.0 < r < 3.0 for every treatment.
         assert_eq!(
-            u.material_at(Position {
+            u.material_at(&mut u.query_state(), Position {
                 x: 0.0,
                 y: 0.0,
                 z: 2.5
@@ -2575,7 +2674,7 @@ mod tests {
             Some(7)
         );
         assert_eq!(
-            u.material_at(Position {
+            u.material_at(&mut u.query_state(), Position {
                 x: 0.0,
                 y: 0.0,
                 z: 1.95
@@ -2611,6 +2710,7 @@ mod tests {
             .unwrap_or_else(|e| panic!("{} failed to build: {e}", t.name()));
 
             let declared = u.reachable_material_indices();
+            let mut state = u.query_state();
             let r_max = 3.0;
             for _ in 0..200_000 {
                 // Uniform in the ball by rejection — cheap and unbiased.
@@ -2624,7 +2724,7 @@ mod tests {
                         break c;
                     }
                 };
-                if let Some(m) = u.material_at(p) {
+                if let Some(m) = u.material_at(&mut state, p) {
                     assert!(
                         declared.contains(&m),
                         "{}: material_at returned index {m} at r = {:.4}, which is NOT in the \
@@ -3018,11 +3118,6 @@ mod tests {
         )
         .expect("SCLS pebble builds");
 
-        let retained = || match &u.geometry {
-            DhGeometry::Scls { medium, .. } => medium.lock().unwrap().0.histories().len(),
-            _ => unreachable!("built as SCLS"),
-        };
-
         // Size the retention window exactly as `keff` does. Without this the
         // window is still the construction-time placeholder, and a walk longer
         // than it culls everything — which is precisely the second defect, and
@@ -3030,17 +3125,22 @@ mod tests {
         let nucs = vec![Nuclide::from_core("C0").expect("embedded carbon")];
         u.size_scls_window(&nucs);
 
+        // The run's state, built after the window is sized: it is a copy of the
+        // prototype at this moment (GitHub #205).
+        let mut state = u.query_state();
+        let retained = |s: &DhQueryState| s.retained_inclusions().expect("built as SCLS");
+
         // Walk a line through the fuel zone so the sampler meets inclusions.
-        let walk = |z0: f64| {
+        let walk = |state: &mut DhQueryState, z0: f64| {
             for i in 0..400 {
                 let z = z0 + 0.002 * i as f64;
-                let _ = u.material_at(Position { x: 0.0, y: 0.0, z });
+                let _ = u.material_at(state, Position { x: 0.0, y: 0.0, z });
             }
         };
 
-        MaterialQuery::begin_history(&&u);
-        walk(-1.0);
-        let after_first = retained();
+        MaterialQuery::begin_history(&&u, &mut state);
+        walk(&mut state, -1.0);
+        let after_first = retained(&state);
         assert!(
             after_first > 0,
             "SCLS remembered nothing at all during a history — the sampler is not \
@@ -3048,8 +3148,8 @@ mod tests {
         );
 
         // The boundary that used to wipe everything.
-        MaterialQuery::begin_history(&&u);
-        let after_boundary = retained();
+        MaterialQuery::begin_history(&&u, &mut state);
+        let after_boundary = retained(&state);
         assert_eq!(
             after_boundary,
             after_first,
@@ -3059,11 +3159,11 @@ mod tests {
         );
 
         // And a second history keeps accumulating rather than starting over.
-        walk(-1.0);
+        walk(&mut state, -1.0);
         assert!(
-            retained() >= after_first,
+            retained(&state) >= after_first,
             "memory shrank across a second pass: {} < {after_first}",
-            retained()
+            retained(&state)
         );
     }
 
@@ -3083,7 +3183,7 @@ mod tests {
         .unwrap();
 
         let radius = || match &u.geometry {
-            DhGeometry::Scls { medium, .. } => medium.lock().unwrap().0.sphere().radius,
+            DhGeometry::Scls { medium, .. } => medium.read().unwrap().0.sphere().radius,
             _ => unreachable!(),
         };
         let before = radius();
