@@ -73,6 +73,7 @@
 //!   [`crate::wmp::WmpLibrary`]).
 
 mod blob;
+pub mod generate;
 mod evaluate;
 mod h5;
 mod h5_write;
