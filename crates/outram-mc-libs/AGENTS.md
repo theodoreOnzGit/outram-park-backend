@@ -1005,8 +1005,15 @@ the maintainer, 2026-10-03; protocols in
 - `stats::correlated_sigma` (#495) — `KeffUncertainty::from_result`: batch
   means and `τ_int`/ESS over the active generations, reported **beside** the
   run's own `k_std`, which is carried bit for bit and never replaced.
-  `TallyBatchRecorder` differences a `Tally`'s running sums per batch; no
-  driver exposes a per-batch hook yet, so it serves caller-stepped loops only.
+  `TallyBatchRecorder` differences a `Tally`'s running sums per batch; ~~no
+  driver exposes a per-batch hook yet, so it serves caller-stepped loops only.~~
+  **CORRECTED 2026-11-14 (gh:#506):** `KeffSettings::tally_batch_log` and
+  `FixedSourceSettings::tally_batch_log` take an optional `TallyBatchLog`
+  (default `None`) that the CSG eigenvalue and fixed-source drivers fill with
+  each batch's tally bin sums before the flush; `TallyBatchRecorder::from_log`
+  reads it. Report-only: `tests/tally_batch_log_506.rs` pins `k` and the tally
+  bit-identical with and without it. Extra tallies of `CsgPowerIteration` are
+  not logged.
 - `stats::convergence` (#496) — `SourceConvergence::from_result`: MSER-5,
   Geweke and change-point on the entropy and `k` traces (all generations);
   recommends an inactive count only when every analysed trace has settled,

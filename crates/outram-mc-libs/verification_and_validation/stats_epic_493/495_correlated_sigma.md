@@ -41,8 +41,10 @@ correlation length comparable to the run cannot be seen; a `τ_int` with
 
 No driver exposes per-batch tally realisations yet, so the tally half of #495
 cannot be measured on the shipped drivers. `TallyBatchRecorder` is ready for a
-caller-stepped loop; a report-only per-batch hook in the drivers is a
-follow-up issue.
+caller-stepped loop; ~~a report-only per-batch hook in the drivers is a
+follow-up issue.~~ **CORRECTED 2026-11-14 (gh:#506):** the CSG eigenvalue and
+fixed-source drivers take an optional `TallyBatchLog` in their settings
+(`TallyBatchRecorder::from_log`); the HTR-10 gate above is still NOT MEASURED.
 
 ## Results
 

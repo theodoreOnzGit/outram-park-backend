@@ -197,6 +197,9 @@ pub struct FixedSourceSettings {
     /// `STREAM_TRACKING`, the URR bands from `STREAM_URR_PTABLE`
     /// (gh:#1386, `initialize_history`, `src/simulation.cpp`).
     pub seeding: crate::rng::openmc_seeding::SeedingMode,
+    /// Report-only log of each batch's tally bin sums (GitHub #506); `None`
+    /// (the default) records nothing. Never read by transport.
+    pub tally_batch_log: Option<crate::stats::correlated_sigma::TallyBatchLog>,
 }
 
 impl FixedSourceSettings {
@@ -217,6 +220,7 @@ impl Default for FixedSourceSettings {
             seed: 1,
             max_secondaries: 10_000,
             seeding: Default::default(),
+            tally_batch_log: None,
         }
     }
 }
@@ -412,6 +416,10 @@ pub fn run_fixed_source_traced(
         done += this_batch;
         // Close this batch as one tally realization.
         if let Some(t) = tally.as_deref_mut() {
+            // Report-only per-batch log (GitHub #506): reads, draws nothing.
+            if let Some(log) = &settings.tally_batch_log {
+                log.push(&batch);
+            }
             flush_batch(t, &mut batch);
         }
     }

@@ -1006,6 +1006,10 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
         // tally as one realization (mean/variance are over active generations).
         if active {
             if let Some(t) = tally.as_deref_mut() {
+                // Report-only per-batch log (GitHub #506): reads, draws nothing.
+                if let Some(log) = &settings.tally_batch_log {
+                    log.push(&batch);
+                }
                 flush_batch(t, &mut batch);
             }
             if let Some(lb) = leak_bins.as_deref_mut() {
@@ -1346,6 +1350,10 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             // tally as one realization (mean/variance over active generations).
             if active {
                 if let Some(t) = tally.as_deref_mut() {
+                    // Report-only per-batch log (GitHub #506): reads, draws nothing.
+                    if let Some(log) = &settings.tally_batch_log {
+                        log.push(&batch);
+                    }
                     flush_batch(t, &mut batch);
                 }
                 if leak_this_gen {
