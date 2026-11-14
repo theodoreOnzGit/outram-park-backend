@@ -1852,3 +1852,36 @@ here or in NJOY2016's `tests/resources`.
   only through `LCOMP = 0`.
 
 Ranges after the first were not surveyed (JENDL-3.3 U-238 has 11, Pu-239 4).
+
+## 38. ACER's unnamed routines, `chekit`, and RECONR `LRF = 6` (2026-11-14, gh:#1372, #1375)
+
+None of `chekit`, `tabize`, `cptab`, `fndar1`, `fndar2` or `terpc` appears in `src/` by
+name. By logic, and by what the held evaluations reach (the surveys cover
+`reference-data/endf/` and NJOY2016's `tests/resources`):
+- **`tabize`** (`acefc.f90:813-1059`): present inline. It copies an `LNU = 1`
+  polynomial unchanged (`:848-856`; deck 10, `t404`, is identical whole). Its
+  linearization of a tabulated nubar with `INT > 2` is reached by nothing: every
+  MF=1/MT=452/455/456 held is `INT = 2`.
+- **`cptab`** (`:2868-2975`): a copy. Its one call (`:2438`) runs with `mfh = 6`, where
+  it sets `nr = 1, int = 2`, so its linearization branch is dead upstream.
+- **`terpc`** (`:15181-15213`): feeds only `consis`' listing (`nsyso`) check of the
+  photon-production sum. Not translated: nothing reaches a tape.
+- **`fndar1`, `fndar2`** (`:9019-9156`): not translated. `acelf6` calls them for
+  `lang = 1, newfor /= 1` and `lang > 2, newfor = 0` (`:7722-7795`), but with
+  `newfor = 0` `topfil` first turns every neutron `LAW = 1, LANG /= 2` subsection into
+  `LAW = 7` (`fix6`, `:2233-2290`). No deck reaches them. Left open on gh:#1372, since
+  `:7495` suggests a route not found here.
+- **`chekit`** (`:3283-3314`): **translated** (`acer::photon_angular::chekit`). `pttab`
+  refused `NR > 1`; upstream stops for `NR > 2` and sends `NR = 2` to `chekit`, which
+  folds a last-interval step to zero into one histogram region. No held evaluation has
+  such a table, so it is pinned by the unit test
+  `chekit_folds_a_two_region_step_into_one_histogram` only (prediction on gh:#1372 first).
+- **Listings** `acepdd`, `aceppp`, `acepcp` (`:11710-12986`): they write to `nsyso` only,
+  not to a compared unit. Not written.
+
+**RECONR `LRF = 6`** (`rdf2hy`, `cshybr`, `reconr.f90:1116-1224`, `:3609-3824`). Every
+MF=2/MT=151 line held was scanned for a range CONT `(EL, EH, 1, 6, NRO, NAPS)`: there is
+none in 133 materials. The first ranges are `LRU,LRF` = `(1,1)` ×10, `(1,2)` ×37,
+`(1,3)` ×37, `(1,7)` ×12, `(2,1)` ×1, and 36 with no resonances. `parse_lru1` now
+refuses `LRF = 6` by name (it was "unknown resolved-resonance LRF"); unit test
+`reconr::mf2::lrf6_tests::lrf6_is_refused_by_name`.
