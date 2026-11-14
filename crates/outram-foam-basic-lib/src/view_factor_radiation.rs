@@ -18,9 +18,12 @@
 //! | `Foam::LUDecompose` / `LUBacksubstitute` (`LUsolve`) | `matrix::SquareMatrix::lu_decompose` / `lu_back_substitute` (existing, unchanged) |
 //! | the ASCII `F`, `globalFaceFaces`, `finalAgglom` files written by `viewFactorsGen` / `faceAgglomerate` | [`parse_scalar_list_list`], [`parse_label_list_list`] |
 //!
-//! NOT ported (gh:#1529 ledger): the view-factor GENERATOR (`viewFactorsGen`,
+//! NOT ported (gh:#1529 ledger): ~~the view-factor GENERATOR (`viewFactorsGen`,
 //! `faceAgglomerate`, `singleCellFvMesh`: ~1,555 + 600 lines on `distributedTriSurfaceMesh`;
-//! this module reads their output), the iterative `useDirectSolver false` branch
+//! this module reads their output)~~ **CORRECTED 2026-11-14 (gh:#1540)**: `viewFactorsGen` (serial, 3-D, no
+//! agglomeration) IS ported, see [`crate::view_factor_generation`]; `faceAgglomerate`,
+//! `singleCellFvMesh` and `pairPatchAgglomeration` are still not (this module reads their
+//! output). Also not ported: the iterative `useDirectSolver false` branch
 //! (needs `lduPrimitiveMesh`/processor interfaces; serial runs use the direct branch by
 //! default), several bands (`nBands > 1`), `solarLoad`, and parallel (`mapDistribute`).
 //! The Rust solver takes `nBands = 1`.

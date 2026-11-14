@@ -82,6 +82,8 @@ pub mod prelude;
 pub mod radiation;
 /// `viewFactor` surface-to-surface radiation (ESI v2506), serial direct solver, reading `viewFactorsGen` output (gh:#1529).
 pub mod view_factor_radiation;
+/// `viewFactorsGen` view-factor generator (ESI v2506), serial, no agglomeration (gh:#1540).
+pub mod view_factor_generation;
 /// Layer 1a — dimensionless scalar constants and the tensor-algebra
 /// primitives (`Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`).
 pub mod primitives;

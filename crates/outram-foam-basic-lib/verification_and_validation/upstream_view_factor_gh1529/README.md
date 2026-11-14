@@ -23,7 +23,7 @@ added in `d2c476cea` after the cube/plate runs and before the cylinder run, flag
 * **Driver** `driver/vfDump.C` (calls upstream only) and `scripts/run.sh` (builds the cases with
   upstream `blockMesh`, `faceAgglomerate`, `viewFactorsGen`, then dumps).
 
-### Decision: `viewFactorsGen` is NOT ported (recorded, with line counts)
+### ~~Decision: `viewFactorsGen` is NOT ported (recorded, with line counts)~~ **SUPERSEDED 2026-11-14 (gh:#1540)**: the serial, un-agglomerated generator IS ported, see "viewFactorsGen port" at the end. Line counts below are for the whole family; `faceAgglomerate`, `pairPatchAgglomeration` and `singleCellFvMesh` remain unported.
 
 | piece | lines |
 |---|---|
@@ -76,7 +76,7 @@ bit for bit (prediction 4: cached-LU and variable path agree). Pinned by
 
 **Unit cube** (Modest, Radiative Heat Transfer, 3rd ed., catalogue; exact via Howell C-11
 `parallel_squares_f(1,1)` = 0.199825): numbers in row 6 above. These are the mesh-dependent
-`viewFactorsGen` errors for a 4x4 face grid (Gauss tolerance 0.1, defaults): +0.11 % opposite,
+`viewFactorsGen` errors for a 4x4 face grid (~~Gauss tolerance 0.1~~ **CORRECTED 2026-11-14** the CODE default is `GaussQuadTol 0.01` (`viewFactorsGen.C`: `getOrDefault<scalar>("GaussQuadTol", 0.01)`); the 0.1 is only in upstream's header comment; these runs used the 0.01 default): +0.11 % opposite,
 +1.2 % adjacent, +1.0 % row sum.
 
 **Parallel plates** (1 m square plates at distance d in a closed box, four black sides at 0 K,
@@ -128,7 +128,7 @@ from 33 % to 0.012 % at N=16.
 
 ## Not done / follow-ups
 
-* Port of `viewFactorsGen` + `faceAgglomerate` + `singleCellFvMesh` (3,800 lines): follow-up issue.
+* ~~Port of `viewFactorsGen` + `faceAgglomerate` + `singleCellFvMesh` (3,800 lines): follow-up issue.~~ **PARTLY DONE 2026-11-14 (gh:#1540)**: `viewFactorsGen` ported (serial, 3-D, no agglomeration); `faceAgglomerate` + `pairPatchAgglomeration` + `singleCellFvMesh`, the 2-D branch and parallel remain.
 * Iterative `useDirectSolver false` branch, `nBands > 1`, `solarLoad`, parallel `mapDistribute`.
 * The appbuilder coupling (`with_view_factor_radiation` beside the P1 option) is NOT done: it
   needs a cavity-surface-to-patch mapping and a per-face emissivity source, which is not small.
@@ -154,9 +154,59 @@ from 33 % to 0.012 % at N=16.
 `nice -n 10 crates/outram-foam-basic-lib/verification_and_validation/upstream_view_factor_gh1529/scripts/run.sh`;
 then `cargo test --release -p outram-foam-basic-lib --test view_factor_vs_openfoam --test view_factor_concentric_cylinders`.
 
+## viewFactorsGen port (gh:#1540), 2026-11-14
+
+Module `outram_foam_basic_lib::view_factor_generation`; test `tests/view_factor_generation_vs_openfoam.rs`;
+predictions `PREDICTIONS_viewFactorsGen.md` (commit `f6cdb522f`, before any comparison). Upstream: ESI
+v2506 `viewFactorsGen` built `-DNO_CGAL` (octree ray engine), serial, no `finalAgglom`, code defaults
+(`GaussQuadTol 0.01`, `distTol 8`, `alpha 0.21`), `writePrecision 17`. Reference = the files upstream
+wrote (`F`, `globalFaceFaces`, `mapDist`) plus its `polyMesh`, committed gzipped in `reference/vfgen/`.
+Rust regenerates them from the mesh alone. Rust 1.99.1, glibc 2.39, CPU with FMA.
+
+| case | faces | pairs (upstream) | visible lists equal | F entries bit-identical | F / globalFaceFaces / mapDist bytes |
+|---|---|---|---|---|---|
+| cubeA 4x4x4 unit cube | 96 | 7,680 | 96/96 | 7,680/7,680 | identical / identical / identical |
+| plate4, plate8, plate16 (8x8x1 plates, closed box; 2AI far pairs) | 160 each | 17,152 each | 160/160 each | 17,152/17,152 each | identical x3 |
+| boxE 2x1x0.5, 5x3x2 (non-square faces) | 62 | 3,132 | 62/62 | 3,132/3,132 | identical x3 |
+| lshape (L enclosure, 3 blocks of 3x3x3, rays blocked at the re-entrant corner) | 126 | 10,886 | **119/126** | 10,879/10,879 of the pairs both list | `mapDist` identical; F and globalFaceFaces differ (7 upstream-only pairs, 1 Rust-only) |
+
+Worst relative difference of any common `F` entry: **0**. The `log` of `petir::mathf::RealMath::r_ln` (ARM
+optimized-routines port) agreed with glibc's FMA-ifunc `log` on every argument in these runs
+(prediction 3's feared 1-ulp residual did not occur; not a proof for other arguments).
+
+Prediction scorecard (`PREDICTIONS_viewFactorsGen.md`):
+
+| # | prediction | result |
+|---|---|---|
+| 1 | visible lists identical, 100 % of rows | **wrong first time**: boxE 60/62 rows. Cause (found by reading upstream, not by tuning): the candidate rays use the coarse-face centre `uindirectPrimitivePatch::faceCentres()` = `face::centre`, which differs in the last bit from the mesh's `makeFaceCentresAndAreas` centre; faces on the same plane then pass or fail `(d & fA) < 0` on rounding noise. After using `face::centre`: 100 % on all convex cases. lshape: see below |
+| 2 | 2AI bit-identical | yes (plates) |
+| 3 | >= 99.5 % F bit-identical, 60 % on exactly 100 % | yes, exactly 100 % |
+| 4 | quadrature order same | implied by 3 |
+| 5 | files byte-identical | yes on all convex cases, after fixing my row separator (each row ends with a blank line) |
+| 6 | reciprocity within 2 % | not measured |
+| 7 | boxE as the others | yes, after the face-centre fix |
+
+**lshape residual (not fixed, reported).** Visibility of 119/126 rows matches, after the following were
+read from upstream and ported: the hit test is `triangle::intersection(HALF_RAY)` with tolerance
+`planarTol = 10*SMALL` (`indexedOctreeBase::perturbTol_`), parallel test `|det| < ROOTVSMALL`,
+`face::triangles` quad split from the most concave angle. The first Rust version (no tolerance, fan split)
+matched 102/126. What remains: 7 pairs listed only by upstream and 1 only by Rust, ALL between two
+faces in the SAME plane (top plane, x = 2 plane) whose candidacy and hit test are decided by
+rounding noise of order 1e-16 (`d & fA` of order 1e-17). I did not find which arithmetic step differs
+(the octree traversal, not the triangle test, is not ported: brute force replaces it). Such pairs
+have `F` of exactly the noise level and no physical meaning, but a bit-comparable port must settle it.
+Deferred (child issue).
+
+Caveats: (1) the coarse-face `Sf` is taken as the fine `Sf` (true for un-agglomerated faces: the
+`edgeLoops` of a single face keep the face's vertex order, checked in `PrimitivePatchEdgeLoops.C`);
+(2) the octree search is replaced by brute force over all triangles; (3) 2-D (`nSolutionD == 2`),
+agglomeration, parallel, `dumpRays`, `viewFactorField` are not ported; (4) geometry images for boxE and
+lshape were NOT drawn (AGENTS.md rule): the meshes are `inputs/blockMeshDict`, `inputs/blockMeshDictL`;
+(5) `docs/outram-foam-basic-lib-api.md` not regenerated.
+
 ## Bookkeeping status
 
 | axis | status |
 |---|---|
-| Implementation | [x] direct-solver path ported; [ ] generator, iterative path, appbuilder coupling |
+| Implementation | [x] direct-solver path ported; [x] serial un-agglomerated generator (gh:#1540); [ ] agglomeration, 2-D, parallel, iterative path, appbuilder coupling |
 | Review | [ ] none (AI-assisted draft, untrusted until a human reviews it) |
