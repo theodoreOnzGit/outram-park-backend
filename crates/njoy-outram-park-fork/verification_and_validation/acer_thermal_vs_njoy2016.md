@@ -84,7 +84,7 @@ position would repeat the 1753× artefact that shaped the CE comparator.
 
 | tape | MAT | T₀ (K) | NXS | inelastic σ, worst rel | coherent-elastic cumulative `S`, worst rel |
 |---|---|---|---|---|---|
-| Al-27 ENDF/B-VIII.0 | 53 | 20 | **ok** | 2.238e-2 | **3.253e-6** |
+| Al-27 ENDF/B-VIII.0 | 53 | 20 | **ok** | ~~2.238e-2~~ 1.081e-3 (2026-11-14) | ~~**3.253e-6**~~ 0 of 309 differ as printed (2026-11-14) |
 | C in SiC | 44 | 300 | **ok** | 7.790e-3 | **4.697e-7** |
 | Si in SiC | 43 | 300 | **ok** | 5.985e-3 | **4.697e-7** |
 | crystalline graphite | 30 | 296 | **ok** | 7.166e-3 | **4.809e-7** |
@@ -96,6 +96,20 @@ position would repeat the 1753× artefact that shaped the CE comparator.
 
 `NXS` covers `IDPNI`, `NIL`, `NIEB`, `IDPNC`, `NCL` and `IFENG`: **all six
 match on all nine tapes.**
+
+**CORRECTED 2026-11-14 (gh:#1366 §2 item 3), Al-27 row only; the other
+rows were not re-run.** `tests/acer_thermal_vs_njoy2016.rs` re-measured on
+develop `7ab655456`. The CSV oracle is NJOY's tol 0.05 table (106/106 ITIX
+and 309/309 Bragg values equal to `al27_20k_thermal_tol0p05_njoy2016.ace.gz`
+at the CSV's 10 figures). Coherent `S` on the no-PENDF route: 4.381e-10
+unprinted, which is the CSV's own 10-figure print, and **0 of 309 differ**
+compared as the CSV was made (12 figures, then 10). A one-stage 10-figure
+print differs at one double-rounding tie. Inelastic sigma on the no-PENDF
+route: 1.081e-3. The same table on the incident PENDF gives **0 of 106**
+differing ITIX values, so that residual is entirely the missing PENDF grid
+(ACER's `gety1` of THERMR's MF=3, `aceth.f90:355`). Gates are now
+inelastic ~~5e-2~~ 1.1e-3 (this route has no NJOY2016 counterpart), and
+`S` equal as printed with a 5.05e-10 unprinted bound (was 1e-4).
 
 ### Coherent elastic is essentially exact
 

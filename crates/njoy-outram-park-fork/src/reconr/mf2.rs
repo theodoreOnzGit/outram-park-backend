@@ -51,10 +51,11 @@ pub enum ResonanceFormalism {
     ///
     /// Sr-88 (MAT 3837, ~~the only LRF=7 evaluation in `reference-data/endf/`~~
     /// **CORRECTED 2026-10-01**: one of seven there; see `crate::samm`'s doc)
-    /// reproduces NJOY2016 2016.79 to within the reconstruction tolerance over
+    /// reproduces NJOY2016 2016.79 ~~to within the reconstruction tolerance~~ over
     /// **all 44,326 points of NJOY's own grid** inside the resolved range:
-    /// worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,
-    /// `2.39e-3`. Full record:
+    /// ~~worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,
+    /// `2.39e-3`~~ **CORRECTED 2026-11-14 (gh:#1366): every pair bit-identical**
+    /// after PENDF text, MT=1/2/102. Full record:
     /// `verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; gate:
     /// `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`.
     ///

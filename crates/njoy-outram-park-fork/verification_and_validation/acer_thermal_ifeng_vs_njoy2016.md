@@ -46,6 +46,24 @@ assumes one.
 
 ## Results
 
+> **CORRECTED 2026-11-14 (gh:#1366 §2 item 3).** The `IFENG = 2` Al-27 row
+> below is superseded. NJOY2016's `iwt = 2` table was regenerated from this
+> record's deck (`thermal_decks/al27_20k_tol0p05_iwt2.njoy`, NJOY2016 2016.80
+> `ab27c64`, whose `thermr.f90` and `aceth.f90` are 2016.79's). Its ITXE
+> locator/count table equals the committed 2016.79 CSV in all 106 rows, so it
+> is the same table. Against it, the port's ITXE block (`thermal_from_mf7`, no
+> incident PENDF) is **identical in all 200 054 words as printed**,
+> `E'`, pdf, cdf and cosines, **endpoints included**
+> (`ifeng2_itxe_block_is_njoy2016s_in_every_word`). The whole table built on
+> the incident PENDF is NJOY's in every word
+> (`acer_thermal_word_parity.rs::al27_continuous_iwt2_at_20k_tol_0p05_is_njoy2016s_table`).
+> The 6.517e-6 CDF and the 106 endpoint `E'` differences were removed by the
+> 2026-10-14 `tpend`/`acesix` fixes (#865); this record was not re-run then.
+> The graphite and `IFENG = 1` rows were not re-measured here. `IFENG = 1` on
+> Al-27 at tol 0.001 is word for word NJOY's since 2026-10-14
+> (`al27_skewed_bins_iwt0_are_njoy2016s_table`). Prediction and result:
+> gh:#1366 comments of 2026-11-14.
+
 | form | tape, T | stored values | agreement |
 |---|---|---|---|
 | `IFENG = 1` | Al-27, 20 K | 106 × 16 × 17 = 28 832 | `E'` worst **2.358e-3** rel · cosines worst **2.643e-4** abs |
@@ -89,10 +107,10 @@ after seeing the result is the failure the root `CLAUDE.md` names by name, and
 an "interior-only" figure would read a thousand times better while hiding
 where the two codes actually differ.
 
-No cause is established for the endpoint difference. It sits at the top of the
+~~No cause is established for the endpoint difference. It sits at the top of the
 `calcem` outgoing-energy range, which is suggestive and is not evidence, and it
 is the same boundary the `IFENG = 0` record already flags for the inelastic
-cross section.
+cross section.~~ **CORRECTED 2026-11-14:** gone, see the note under Results.
 
 ### A density may be negative, and upstream's is
 
@@ -121,10 +139,11 @@ against a table NJOY wrote.
 
 ## Not covered
 
-- **The full-value `IFENG = 2` comparison is not gated**, only documented and
+- ~~**The full-value `IFENG = 2` comparison is not gated**, only documented and
   reproducible in one command: the reference files are 4.0 MB (Al-27) and
   13.9 MB (graphite). What *is* gated is the layout, which is what a port
-  gets wrong.
+  gets wrong.~~ **CORRECTED 2026-11-14:** Al-27 is gated word for word; its
+  table is committed gzipped (1.09 MB). Graphite `IFENG = 2` is still not.
 - **`IFENG = 1` has no committed value oracle** either — its 2.358e-3 / 2.643e-4
   come from the run above. The gate covers the flag, the layout and the fact
   that the weighting bites.

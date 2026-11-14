@@ -58,14 +58,20 @@
 //! On those two channels this port reproduces NJOY2016 as closely as the
 //! reference file can express.
 //!
-//! **The `total` residual is attributable, and not to the ported kernel.**
+//! ~~**The `total` residual is attributable, and not to the ported kernel.**
 //! `total = elastic + capture + fission + competition-background`, and the three
 //! partials agree to 1e-7, so the whole 8e-4 sits in the background term. That
 //! term is supplied by this *test* via `lssf1_background`, a reimplementation of
 //! `purr.f90:1195-1230`'s `sb()` rule including its round-off tolerance, because
 //! the crate has no PENDF driver to supply it. The likeliest cause is that
 //! tolerance branch, not the physics. Stated rather than smoothed: it is a known
-//! residual in the comparison harness, bounded at 8.2e-4.
+//! residual in the comparison harness, bounded at 8.2e-4.~~ **CORRECTED
+//! 2026-11-14 (gh:#1366):** the cause is named now, and it is the harness.
+//! `lssf1_background` below is the crate's pre-2026-09-26 rule (`TOL = 1e-3`,
+//! no competition or `ecomp` test). The port's `lssf_reduced_background`
+//! (`purr/tables.rs`) was corrected that day to `purr.f90`'s `tol = 1e-6` with
+//! both tests, which keeps the competition remainder at U-238's 13 energies
+//! 45.1-45.8 keV. The worst total, 8.202e-4 at 4.58e4 eV, is one of them.
 //!
 //! **Stream-sensitive — the per-bin probability table (MT=153):**
 //!
@@ -74,14 +80,40 @@
 //! | bin probability | 1.411e-3 | 2.387e-4 |
 //! | cross-section ratio | 2.692e-1 (elastic) | 4.939e-3 |
 //!
-//! These are **not** bit-identical and are not expected to be. PURR seeds `rann`
+//! ~~These are **not** bit-identical and are not expected to be. PURR seeds `rann`
 //! once and every energy point draws from that one continuous stream, so
 //! reproducing a bin requires consuming exactly NJOY's variate count at every
 //! preceding energy — which this port does not. The bins are therefore samples
 //! from the *same distribution* rather than the same samples, and the rms
 //! figures are what independent sampling at 64 ladders x 10000 samples gives.
 //! The worst ratio (27 %) is a low-probability bin where a handful of samples
-//! decide the average; the rms of 4.9e-3 is the honest summary.
+//! decide the average; the rms of 4.9e-3 is the honest summary.~~
+//! **CORRECTED 2026-11-14:** `rann` and its seed are ported (2026-09-26), so
+//! the bands are NJOY's samples, not samples from the same distribution.
+//!
+//! # Results (2026-11-14, develop `7ab655456`; gh:#1366 §2 item 3)
+//!
+//! **The gate on agreement is now [`purr_deck_mt152_mt153_are_njoy2016s_word_for_word`]:**
+//! the reference deck through the deck driver, whose tape 23 has MF=2/MT=152
+//! (516 words) and MF=2/MT=153 (10 056 words) **identical in every word** to
+//! NJOY2016's, as predicted on gh:#1366 before the run. The 8.2e-4 does not
+//! exist in the port.
+//!
+//! This file's original harness, re-run the same day, is kept as a control
+//! on the kernel entry points it drives directly:
+//!
+//! | quantity | 2026-09-16 | 2026-11-14 | gate |
+//! |---|---|---|---|
+//! | Bondarenko elastic | 4.212e-7 | 4.215e-7 | |
+//! | Bondarenko capture | 3.038e-7 | 3.054e-7 | |
+//! | Bondarenko fission | 0 | 0 | |
+//! | Bondarenko total | 8.202e-4 | 8.202e-4 (the harness's own `sb()` rule, above) | ~~5e-2~~ 8.3e-4, all four |
+//! | bin probability, worst abs | 1.411e-3 | 5.000e-8 (NJOY's 7-figure print) | ~~1e-2~~ 1e-7 |
+//! | bin probability, rms | 2.387e-4 | 4.951e-9 | ~~2e-3~~ 1e-8 |
+//! | xs ratio, worst | 2.692e-1 | 2.770e-3 (total at 4.58e4 eV, the same `sb()`) | not gated |
+//!
+//! The probability column moved because the stream is now NJOY's; the total
+//! keeps the harness's outdated background rule, and nothing else.
 //!
 //! # What this test does and does not establish
 //!
@@ -90,12 +122,12 @@
 //! on a real evaluation, to the reference's own precision on elastic and
 //! capture.
 //!
-//! **Does not:** bit-for-bit reproduction of NJOY's probability tables. Getting
+//! ~~**Does not:** bit-for-bit reproduction of NJOY's probability tables. Getting
 //! that would require replicating `rann`'s call order exactly across the whole
 //! sweep, and nothing in this crate needs it — a Monte Carlo code samples from
 //! the table, and two statistically equivalent tables give statistically
 //! equivalent transport. If bit-exactness is ever wanted, this file is where the
-//! gate would tighten.
+//! gate would tighten.~~ **CORRECTED 2026-11-14:** bit-for-bit reproduction is established now, through the deck driver (below).
 
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -395,11 +427,13 @@ fn purr_probability_tables_match_njoy2016() {
     // the ladder statistics, the Doppler line shape, the fluctuation integrals
     // and the renormalisation.
     for i in 0..4 {
+        // ~~5e-2~~ CORRECTED 2026-11-14 (gh:#1366): 8.3e-4, the measured worst
+        // (8.202e-4, total, from this harness's own pre-2026-09-26 `sb()` rule;
+        // the others are at NJOY's 7-figure print, <= 4.3e-7).
         assert!(
-            bond_worst[i] < 5.0e-2,
+            bond_worst[i] < 8.3e-4,
             "converged Bondarenko {} disagrees with NJOY2016 by {:.3e} relative (at {:.4e} eV), \
-             above the 5e-2 gate. This is a stream-INSENSITIVE quantity, so it cannot be \
-             explained by RNG divergence -- it would be a physics defect in the port.",
+             above the 8.3e-4 gate (measured 8.202e-4 on the total, 2026-11-14).",
             names[i],
             bond_worst[i],
             bond_worst_at[i]
@@ -408,21 +442,111 @@ fn purr_probability_tables_match_njoy2016() {
 
     // --- What the per-bin tables can and cannot show ----------------------
     //
-    // These are NOT gated tightly, deliberately. PURR seeds `rann` once
+    // (2026-09-16, superseded by the CORRECTED note below) These were NOT gated tightly. PURR seeds `rann` once
     // (purr.f90:166) and every energy point draws from that one stream, so
     // reproducing a bin requires having consumed exactly NJOY's variate count
     // at every preceding energy. This port does not (see the file header), so
     // the bins are samples from the same distribution rather than the same
     // samples. The gate below is a sanity bound -- it catches a table that is
     // not even the right distribution, which is what it is for.
+    // ~~1e-2 and 2e-3 (rms)~~ CORRECTED 2026-11-14 (gh:#1366): the stream is
+    // NJOY's since 2026-09-26, so the only difference left is NJOY's 7-figure
+    // print of a probability below 1 (at most 5e-8 absolute; measured worst
+    // 5.000e-8, rms 4.951e-9).
     assert!(
-        worst_prob < 1.0e-2,
-        "worst bin-probability difference is {worst_prob:.3e}, above the 1e-2 sanity bound. \
-         At 64 ladders x 10000 samples, independent sampling of the SAME distribution should \
-         stay well inside this; exceeding it means the distributions differ."
+        worst_prob < 1.0e-7,
+        "worst bin-probability difference is {worst_prob:.3e}, above 1e-7; measured \
+         5.000e-8 (NJOY's print) on 2026-11-14."
     );
     assert!(
-        prob_rms < 2.0e-3,
-        "rms bin-probability difference is {prob_rms:.3e}, above the 2e-3 bound."
+        prob_rms < 1.0e-8,
+        "rms bin-probability difference is {prob_rms:.3e}, above the 1e-8 bound \
+         (measured 4.951e-9 on 2026-11-14)."
     );
+}
+
+/// The reference's own NJOY deck (`reference-data/purr/README.md`), card for
+/// card, for [`njoy_outram_park_fork::deck::run_deck`].
+const REFERENCE_DECK: &str = "reconr\n20 21/\n'U238 pendf'/\n9237 0/\n.001/\n0/\n\
+broadr\n20 21 22/\n9237 1 0 0 0./\n.001/\n293.6/\n0/\n\
+purr\n20 22 23/\n9237 1 1 20 64 1/\n293.6/\n1.e10/\n0/\nstop\n";
+
+/// All words of MF=2/MT=`mt`: the CONT head, the LIST head and the body
+/// (with the last row's padding), as parsed f64.
+fn section_words(tape: &Tape, mt: i32) -> Vec<f64> {
+    let sec = tape
+        .section(MAT, 2, mt)
+        .unwrap_or_else(|| panic!("tape carries MF=2/MT={mt}"));
+    sec.rows.iter().flat_map(|r| r.iter().copied()).collect()
+}
+
+/// **PURR's MT=152 and MT=153 through the deck driver are NJOY2016's, word for
+/// word** (gh:#1366 §2 item 3).
+///
+/// # Methodology
+///
+/// The reference deck (`reconr` 0.001, `broadr` 293.6 K, `purr` nbin 20,
+/// nladr 64, one `sigma_0 = 1e10`, NJOY's default `nsamp = 10 000`) runs
+/// through [`njoy_outram_park_fork::deck::run_deck`] on
+/// `reference-data/endf/n-092_U_238.endf` mounted as `tape20`. Tape 23's
+/// MF=2/MT=152 and MF=2/MT=153 are compared with
+/// `reference-data/purr/u238-purr-mt152-mt153.pendf` (NJOY2016 2016.79) as
+/// parsed numbers, position by position: CONT head, LIST head and every body
+/// word. No tolerance.
+///
+/// This replaces the 2026-09-16 harness above as the gate on agreement. That
+/// harness re-implemented `sb()` in the test (`lssf1_background`) and did not
+/// draw `rann` in NJOY's order; its 8.2e-4 on the MT=152 total and its
+/// MT=153 residuals belong to the harness, not the port.
+///
+/// # Result (2026-11-14, develop `7ab655456`)
+///
+/// Predicted on gh:#1366 before the run: every word identical. Measured: see
+/// the module doc's "Results (2026-11-14)".
+#[test]
+fn purr_deck_mt152_mt153_are_njoy2016s_word_for_word() {
+    use njoy_outram_park_fork::deck::{run_deck, DeckOptions};
+    let Some(endf) = reference_endf_or_skip("n-092_U_238.endf", "U-238 (PURR deck vs NJOY)") else {
+        return;
+    };
+    let Some(ref_pendf) = reference_file_or_skip(
+        "purr",
+        "u238-purr-mt152-mt153.pendf",
+        "NJOY2016 PURR probability tables (U-238)",
+    ) else {
+        return;
+    };
+    let dir = std::env::temp_dir().join(format!("purr_u238_deck_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("work directory");
+    std::fs::copy(&endf, dir.join("tape20")).expect("mount tape20");
+    let run = run_deck(
+        REFERENCE_DECK,
+        &DeckOptions { workdir: Some(dir.clone()), ..DeckOptions::default() },
+    )
+    .expect("the reference deck runs");
+    assert!(run.blocked.is_none(), "deck stopped: {:?}", run.blocked);
+    let ours = Tape::read_file(&dir.join("tape23")).expect("tape23 parses");
+    let theirs = Tape::read_file(&ref_pendf).expect("reference parses");
+    for mt in [152, 153] {
+        let (o, t) = (section_words(&ours, mt), section_words(&theirs, mt));
+        let differing: Vec<usize> = (0..o.len().min(t.len())).filter(|&i| o[i] != t[i]).collect();
+        println!(
+            "  MF=2/MT={mt}: ours {} words, NJOY {}; {} differing",
+            o.len(),
+            t.len(),
+            differing.len()
+        );
+        assert_eq!(o.len(), t.len(), "MT={mt}: word count");
+        if let Some(&i) = differing.first() {
+            panic!(
+                "MT={mt}: {} of {} words differ from NJOY2016's; first at word {i}: ours {:e} NJOY {:e}",
+                differing.len(),
+                t.len(),
+                o[i],
+                t[i]
+            );
+        }
+    }
+    // Only this test's own directory, by its exact name.
+    std::fs::remove_dir_all(&dir).expect("remove work directory");
 }

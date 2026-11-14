@@ -24,11 +24,14 @@
 //! | crystalline graphite (MAT 30) | C-12 (625) | 296 | 0.001 | 1 | yes |
 //! | Al-27, `iwt = 0` (skewed bins, IFENG = 1) | Al-27 | 20 | 0.001 | 1 | yes |
 //! | H in ZrH (MAT 7), incoherent elastic (`IDPNC = 3`) | H-1 (125) | 296 | 0.001 | 1 | no |
+//! | Al-27, `iwt = 2` (continuous, IFENG = 2), added 2026-11-14 (gh:#1366) | Al-27 | 20 | 0.05 | 1 | yes |
 //!
-//! All `iwt = 1` (IFENG = 0) except the skewed Al-27 case. `iwt = 2` (IFENG = 2, OpenMC's
-//! default) was measured identical too, on Al-27 at 16 bins and on H in H₂O
-//! at 64, but its tables (2-7 MB gzipped) are not committed here; see the
-//! V&V record.
+//! All `iwt = 1` (IFENG = 0) except the skewed Al-27 case and, since
+//! 2026-11-14, the continuous Al-27 case at tol 0.05, whose table is committed
+//! (1.09 MB gzipped; NJOY2016 2016.80, see its test). `iwt = 2` (IFENG = 2,
+//! OpenMC's default) was measured identical too, on Al-27 at 16 bins and on
+//! H in H₂O at 64; ~~but its tables (2-7 MB gzipped) are not committed here~~
+//! those tol 0.001 tables are not committed here; see the V&V record.
 //!
 //! Pass criterion: identical in every compared word and every byte outside
 //! the date and comment fields. No tolerance.
@@ -179,6 +182,31 @@ fn crystalline_graphite_at_296k_is_njoy2016s_table() {
         name: "grph",
         za: 6012,
         form: InelasticForm::Equiprobable,
+    });
+}
+
+/// The continuous form, `iwt = 2` (`IFENG = 2`, OpenMC's default), on the
+/// deck of `al27_20k_tol0p05.njoy` with card 9's `iwt` set to 2 (gh:#1366 §2
+/// item 3). The reference was made 2026-11-14 with NJOY2016 2016.80 (`ab27c64`),
+/// whose `thermr.f90` and `aceth.f90` are 2016.79's (#1366's upstream diff
+/// touches only `samm.f90` and `acefc.f90`); its ITXE locator/count table is
+/// the 2016.79 table's of 2026-09-22 in all 106 rows
+/// (`al27_20k_thermal_ifeng2_njoy2016.csv`). Predicted identical in every word
+/// before the run, on gh:#1366.
+#[test]
+fn al27_continuous_iwt2_at_20k_tol_0p05_is_njoy2016s_table() {
+    check(Case {
+        njoy: "al27_20k_thermal_tol0p05_iwt2_njoy2016.ace.gz",
+        incident: "n-013_Al_027-ENDF8.0.endf",
+        mat: 1325,
+        tsl: "tsl-013_Al_027-ENDF8.0.endf",
+        tmat: 53,
+        temp_k: 20.0,
+        tol: 0.05,
+        natom: 1.0,
+        name: "al27",
+        za: 13027,
+        form: InelasticForm::Continuous,
     });
 }
 

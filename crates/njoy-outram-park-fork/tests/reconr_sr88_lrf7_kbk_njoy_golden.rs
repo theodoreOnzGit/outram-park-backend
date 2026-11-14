@@ -28,10 +28,19 @@
 //! where the reference chose to place points, not where it placed its own.
 //! Duplicate energies (NJOY writes them at MF=3 discontinuities) keep the first.
 //!
-//! **Pass criterion.** Worst relative deviation `\<= 2e-2` per MT at the deck's
+//! **Pass criterion.** ~~Worst relative deviation `\<= 2e-2` per MT at the deck's
 //! own `err = 0.001`. That gate is deliberately loose, and the reason is in the
 //! results below: what remains is linearisation, not physics, and this test
-//! exists to catch the *physics* regressing.
+//! exists to catch the *physics* regressing.~~ **CORRECTED 2026-11-14 (gh:#1366
+//! §2 item 3):** every `(E, sigma)` pair NJOY writes inside the window is
+//! **bit-identical** to the port's, after the port's result has been through
+//! PENDF text ([`ReconrResult::through_pendf_text`], NJOY's `a11`), with the same
+//! pair count, duplicates included. No tolerance. The September residual was a
+//! grid difference that the 2026-09-26 RECONR fixes (#340) removed;
+//! `pendf_stages_vs_njoy2016` has been word-identical on this deck since then,
+//! but this gate was never tightened.
+//!
+//! [`ReconrResult::through_pendf_text`]: njoy_outram_park_fork::reconr::ReconrResult::through_pendf_text
 //!
 //! # Why this test exists — the defect it pins
 //!
@@ -69,8 +78,20 @@
 //! | 2 (elastic) | 1.04e1 | 1.00e-2 | 9.97e-4 |
 //! | 102 (capture) | 1.38e0 | 9.98e-3 | 1.00e-3 |
 //!
-//! **The residual is linearisation, not physics, and that was measured rather
-//! than assumed.** Tightening the reconstruction tolerance tenfold shrank the
+//! # Results (2026-11-14, develop `7ab655456`, same NJOY tape)
+//!
+//! | MT | old instrument: unrounded `eval_mt` vs NJOY text, worst relative | new instrument: pairs through `a11`, differing |
+//! |---|---|---|
+//! | 1 (total) | 6.88e-8 | **0 of 44 326** |
+//! | 2 (elastic) | 9.30e-8 | **0 of 44 326** |
+//! | 102 (capture) | 1.70e-7 | **0 of 44 326** |
+//!
+//! The old instrument's 1e-7 residual was NJOY's own 7-figure print rounding
+//! (at most 5e-7 relative); predicted on gh:#1366 before the change, together
+//! with the 0-differing result, and both held.
+//!
+//! ~~**The residual is linearisation, not physics, and that was measured rather
+//! than assumed.**~~ (2026-09-14, superseded: no residual is left.) Tightening the reconstruction tolerance tenfold shrank the
 //! worst deviation by very close to tenfold on MT=2 and MT=102 — the signature
 //! of a grid/linearisation envelope. A physics error does not scale with `err`.
 //!
@@ -94,7 +115,7 @@
 //! or the eliminated channel appearing anywhere but first. Those remain open on
 //! `bn:op-cjw.2`, and a second LRF=7 tape is what would close them.
 //!
-//! **One divergence is left standing deliberately, and is not this test's
+//! ~~**One divergence is left standing deliberately, and is not this test's
 //! gate.** NJOY's MT=1 is the sum of all partials (`reconr.f90:73`), whereas
 //! this crate builds MT=1 as its own MF=3 background plus the resonance total.
 //! At 1e-5 eV NJOY's total (9.047157 b) equals *this crate's own*
@@ -102,7 +123,9 @@
 //! 9.025528 b — short by 2.1629e-2 b, which is precisely the MF=3 MT=102
 //! background it leaves out of the total. That is a separate, smaller defect
 //! with its own bead; it is visible in the MT=1 column above as the one entry
-//! that does not scale cleanly with `err`.
+//! that does not scale cleanly with `err`.~~ **CORRECTED 2026-11-14:** gone. The
+//! port's MT=1 is NJOY's in every one of the 44 326 pairs (table above), so it
+//! is the sum of the partials as `reconr.f90` builds it.
 
 use njoy_outram_park_fork::endf::mt::MtReaction;
 use njoy_outram_park_fork::endf::records::SectionCursor;
@@ -114,10 +137,9 @@ const MAT: i32 = 3837;
 const EL: f64 = 1.0e-5;
 const EH: f64 = 9.5e5;
 
-/// Worst relative deviation accepted per MT at `err = 0.001`.
-const GATE: f64 = 2.0e-2;
-
-/// Recorded worst deviations on 2026-09-14 (see the module doc).
+/// Worst relative deviations recorded on 2026-09-14 (see the module doc),
+/// printed beside today's count for the record. ~~Gated at `2e-2`~~ **CORRECTED
+/// 2026-11-14**: the gate is now bit-identity of every pair.
 const RECORDED: [(i32, f64); 3] = [(1, 9.80e-3), (2, 1.00e-2), (102, 9.98e-3)];
 
 fn njoy_pairs(tape: &Tape, mt: i32) -> Vec<(f64, f64)> {
@@ -155,56 +177,57 @@ fn sr88_lrf7_background_rmatrix_reproduces_njoy2016() {
     .expect("LRF=7 reconstruction runs");
     let njoy = Tape::read_file(&pendf).expect("NJOY PENDF parses");
 
+    // Through PENDF text: NJOY's modules talk through tapes, and every value
+    // NJOY writes passes through `a11` (7 significant figures). Comparing the
+    // unrounded in-memory result against NJOY's text measured that rounding
+    // (worst 1.70e-7 on 2026-11-14), not the reconstruction.
+    let ours = ours.through_pendf_text();
     for (mt, recorded) in RECORDED {
         let rx = MtReaction::from_any(mt);
-        let pairs = njoy_pairs(&njoy, mt);
-
-        let mut worst = 0.0_f64;
-        let mut worst_e = 0.0_f64;
-        let mut worst_vals = (0.0_f64, 0.0_f64);
-        let mut n = 0_usize;
-        let mut prev = f64::NAN;
-        for &(e, reference) in &pairs {
-            // NJOY writes duplicate energies at MF=3 discontinuities; keep the first.
-            if e == prev {
-                continue;
-            }
-            prev = e;
-            if !(EL..=EH).contains(&e) {
-                continue;
-            }
-            let mine = ours.eval_mt(rx, e);
-            if reference.abs() > 0.0 {
-                let dev = (mine - reference).abs() / reference.abs();
-                if dev > worst {
-                    worst = dev;
-                    worst_e = e;
-                    worst_vals = (mine, reference);
-                }
-            }
-            n += 1;
-        }
+        let in_window = |p: &&(f64, f64)| (EL..=EH).contains(&p.0);
+        let theirs: Vec<(f64, f64)> = njoy_pairs(&njoy, mt).iter().filter(in_window).copied().collect();
+        let sec = ours
+            .sections
+            .iter()
+            .find(|s| s.mt == rx)
+            .unwrap_or_else(|| panic!("MT={mt} missing from the port's result"));
+        let mine: Vec<(f64, f64)> = sec.pairs.iter().filter(in_window).copied().collect();
 
         assert!(
-            n > 40_000,
-            "MT={mt}: only {n} NJOY grid points inside the resolved range -- \
-             the oracle or the range is wrong"
+            theirs.len() > 40_000,
+            "MT={mt}: only {} NJOY grid points inside the resolved range -- \
+             the oracle or the range is wrong",
+            theirs.len()
         );
+        let differing: Vec<usize> = (0..theirs.len().min(mine.len()))
+            .filter(|&i| theirs[i] != mine[i])
+            .collect();
         println!(
-            "  MT={mt:3}: {n} points, worst rel dev {worst:.4e} at E={worst_e:.5e} \
-             (ours {:.6e} vs NJOY {:.6e}); recorded {recorded:.2e} on 2026-09-14",
-            worst_vals.0, worst_vals.1
+            "  MT={mt:3}: NJOY {} pairs, ours {}; {} differing (E or sigma, bitwise); \
+             recorded {recorded:.2e} worst relative on 2026-09-14",
+            theirs.len(),
+            mine.len(),
+            differing.len()
         );
-        assert!(
-            worst <= GATE,
-            "MT={mt}: worst relative deviation {worst:.4e} at E={worst_e:.5e} \
-             (ours {:.6e} vs NJOY {:.6e}) exceeds the {GATE:.0e} gate. Recorded \
-             {recorded:.2e} on 2026-09-14. A deviation back at O(1) means the \
-             LRF=7 background R-matrix (KBK) has stopped being applied -- see \
-             this file's module doc, gh:#202, bn:op-hb9l.",
-            worst_vals.0,
-            worst_vals.1
+        assert_eq!(
+            mine.len(),
+            theirs.len(),
+            "MT={mt}: ours carries {} pairs in the resolved range, NJOY {}",
+            mine.len(),
+            theirs.len()
         );
+        if let Some(&i) = differing.first() {
+            panic!(
+                "MT={mt}: {} of {} pairs differ from NJOY2016's; first at index {i}: \
+                 ours {:?} vs NJOY {:?}. A deviation at O(1) means the LRF=7 \
+                 background R-matrix (KBK) has stopped being applied -- see this \
+                 file's module doc, gh:#202, bn:op-hb9l.",
+                differing.len(),
+                theirs.len(),
+                mine[i],
+                theirs[i]
+            );
+        }
     }
 }
 
