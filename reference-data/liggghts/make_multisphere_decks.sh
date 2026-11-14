@@ -231,3 +231,89 @@ fix		ms all multisphere/nointegration|'
 # ms_dtypes_types.txt. Copy ms_clump1_types.txt into the run directory.
 sed 's/spheres file ms_clump1.txt scale 0.0011/spheres_different_types file ms_clump1_types.txt scale 0.0011/' in.ms_file > in.ms_dtypes
 echo "write_dump all custom dump.types id type modify sort id" >> in.ms_dtypes
+# --- gh:#1415 fourth multisphere pass (2026-11-14) ---------------------------
+# ms_bonded: in.ms_drop with the template keyword `bonded yes` (after `spheres`,
+# before `type`: the base parser stops its loop after `bonded`). Upstream's
+# FixTemplateMultiplespheres::post_create creates `fix property/atom
+# bond_random_id` (default -1); FixTemplateMultisphere::randomize_ptilist never
+# sets it, so every atom keeps -1 and the run is byte-identical to ms_drop.
+# dump.bond (id f_bond_random_id at step 15000) is ms_bonded_bond.txt.
+sed 's/ -0\.001 0\.003 type 1$/ -0.001 0.003 bonded yes type 1/' in.ms_drop > in.ms_bonded
+echo "write_dump all custom dump.bond id f_bond_random_id modify sort id" >> in.ms_bonded
+# ms_bonded_density: in.ms_mass with `bonded yes` on the type 2 (`use_density`)
+# template only. FixTemplateMultisphere::post_create does not call the base
+# post_create on this path, so no bond_random_id exists and upstream stops at
+# the final dump with "ERROR: Could not find dump custom fix ID".
+sed 's/ 0\.004 0\.002 type 2 mass 5\.0e-4/ 0.004 0.002 bonded yes type 2 mass 5.0e-4/' in.ms_mass > in.ms_bonded_density
+echo "write_dump all custom dump.bond id f_bond_random_id modify sort id" >> in.ms_bonded_density
+# ms_concave: in.ms_drop with `fix ms all concave`. Upstream stops at `run`:
+# "Fix concave (id ms): concave particles can not be combined with spheres,
+# multispheres etc" (FixMultisphere::init). The default lmp_serial has no
+# particletemplate/concave, so `fix concave` has nothing to integrate there.
+sed 's/^fix\t\tms all multisphere$/fix\t\tms all concave/' in.ms_drop > in.ms_concave
+# ms_heat: the ms_collide clumps with `fix heat/gran/conduction` defined before
+# the templates (so its transport equation integrates T before
+# FixMultisphere::calc_force aggregates it). The type 1 clump is set to 400 K
+# after its insertion; the second run's set-up (calc_force(true)) makes each
+# body's temperature sum(volumeweight * T). `set` with clumps needs
+# `allow_group_and_set yes` (set.cpp: "Set command may not be used together
+# with fix multisphere"). ONE continuous run with a periodic
+# dump: `run N pre no` re-runs FixMultisphere::setup (Verlet::setup_minimal),
+# whose temperature branch is not idempotent. dump.heat (frames 1, 1000, ...,
+# 15000; id x y z vx vy vz omegax omegay omegaz f_Temp f_heatFlux) is
+# ms_heat_dump.txt.
+{ header; cat <<'EOF'
+fix		ftco all property/global thermalConductivity peratomtype 50. 20.
+fix		ftca all property/global thermalCapacity peratomtype 500. 800.
+fix		heat all heat/gran/conduction initial_temperature 300.
+EOF
+  echo "$PTS1"; echo "$PTS2"
+  echo "$COLLIDE_INS" | sed 's/^fix\t\tms all multisphere$/fix\t\tms all multisphere allow_group_and_set yes/'
+  echo "$COLLIDE_THERMO"; cat <<'EOF'
+run		1
+set		type 1 property/atom Temp 400.
+dump		d1 all custom 1000 dump.heat id x y z vx vy vz omegax omegay omegaz f_Temp f_heatFlux
+dump_modify	d1 sort id
+run		14999
+EOF
+} > in.ms_heat
+# ms_stream: both templates (mass-based 60/40) from `insert/stream` through
+# ms_stream_face.stl (0.04 m square at z = 0.10; copy it into the run
+# directory), `vel constant 0.1 0. -0.5`, extrude_length 0.03 (insert_every
+# 6000). Each body rides its rail (FixMultisphere::initial_integrate with
+# start_step, FixInsertStream::end_of_step on its atoms) until its release
+# step, when Multisphere::release gives it vcm = (0.1, 0, -0.5).
+{ header; echo "$PTS1"; echo "$PTS2"; cat <<'EOF'
+fix		face all mesh/surface file ms_stream_face.stl type 1
+fix		pdd1 all particledistribution/discrete 15485867 2 pts1 0.6 pts2 0.4
+fix		ins all insert/stream seed 32452843 distributiontemplate pdd1 nparticles 6 particlerate 50 overlapcheck yes vel constant 0.1 0. -0.5 insertion_face face extrude_length 0.03
+fix		ms all multisphere
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 2 1000 3000 5000 6000 6001 6002 8000 10000 12000 15000 20000; } > in.ms_stream
+# ms_break: ms_collide with `fix multisphere/break` triggered by a
+# `fix property/atom trig` that `set` puts to 1 on the type 1 atoms after the
+# insertion step (allow_group_and_set yes); trigger_timeStep 6000, so the type
+# 1 clump breaks at step 6001 (FixMultisphereBreak::final_integrate): its
+# atoms are freed with rmass = r^3 * 4.18879020479 * density, and `fix
+# nve/sphere` (defined first) integrates them. The body stays with nrigid 0.
+# The freed spheres push apart at the first list rebuild after the break and
+# three leave the box by step 8000 (the lost-atom path). dump.mass (id mass
+# at step 6002) is ms_break_mass.txt.
+{ header; echo "$PTS1"; echo "$PTS2"
+  echo "fix		trig all property/atom trig scalar no no no 0."
+  echo "$COLLIDE_INS" | sed 's/^fix\t\tms all multisphere$/fix\t\tintegr all nve\/sphere\
+fix\t\tms all multisphere\/break allow_group_and_set yes trigger_name f_trig trigger_threshold 0.5 trigger_timeStep 6000/'
+  echo "$COLLIDE_THERMO"
+  echo "run 1"; echo "write_dump all custom dump.F1 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  echo "set		type 1 property/atom trig 1."
+  echo "run 1999"; echo "write_dump all custom dump.F2000 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  prev=2000
+  for s in 4000 6000 6001 6002 6100 7000 8000 10000 12000 15000; do
+    echo "run $((s - prev)) pre no"
+    echo "write_dump all custom dump.F$s id x y z vx vy vz omegax omegay omegaz modify sort id"
+    [ "$s" -eq 6002 ] && echo "write_dump all custom dump.mass id mass modify sort id"
+    prev=$s
+  done; } > in.ms_break

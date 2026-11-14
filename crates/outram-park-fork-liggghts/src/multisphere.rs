@@ -109,15 +109,15 @@
 //! **Not translated** (each rejected or documented, never silently ignored):
 //! ~~`spheres file` (the inline list only)~~ (**CORRECTED 2026-11-14:**
 //! `spheres file <f> scale <s>` is [`ParticleTemplateMultisphere::from_clump_file`]),
-//! ~~`spheres_different_types`,~~ `bonded`,
+//! ~~`spheres_different_types`,~~ ~~`bonded`,~~
 //! ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`,~~ ~~`fflag`/`tflag` off,~~
 //! ~~`fix_modify <ms> fflag|tflag`,~~
 //! ~~`fix multisphere/nointegration`,~~ `concave`, `CAddRhoFluid`,
 //! `allow_heatsource`; periodic images of bodies (`remap_bodies`), ~~lost-atom
 //! deletion (`check_lost_atoms` / `delflag`),~~ `fix remove`'s
-//! `delete_bodies`, `fix multisphere/break`,
-//! `fix insert/stream` with clumps (`start_step`; refused by
-//! [`crate::insert_stream::InsertStreamFix::new`]), heat transfer with clumps,
+//! `delete_bodies`, ~~`fix multisphere/break`~~,
+//! ~~`fix insert/stream` with clumps (`start_step`; refused by
+//! [`crate::insert_stream::InsertStreamFix::new`])~~, ~~heat transfer with clumps~~,
 //! restart, ~~a second `run` set-up with clumps~~~~, and `orientation random`~~.
 //! **CORRECTED 2026-11-14 (gh:#1415):** `fflag`/`tflag`, lost-atom deletion
 //! and `orientation random` are translated (V&V 4.16.1).
@@ -134,6 +134,26 @@
 //! `fix multisphere/nointegration` is [`Multisphere::without_integration`]
 //! ([`crate::granular_system::GranularSystem::with_multisphere_nointegration`])
 //! (V&V 4.16.2).
+//! **CORRECTED 2026-11-14 (gh:#1415, fourth pass):** template `bonded` is
+//! [`ParticleTemplateMultisphere::with_bonded`] (the `bond_random_id`
+//! property, `-1` on every atom, as upstream). `concave` stays untranslated
+//! and has nothing to translate in the default `lmp_serial`: upstream's
+//! `FixMultisphere::init` refuses `fix concave` with any multisphere
+//! template, and `particletemplate/concave` is not in that build.
+//! `fix remove` (and so `delete_bodies`) is not in that build either: its
+//! header is a stub there (V&V 4.16.3).
+//! Heat transfer with clumps (the `fix heat/gran` branch of
+//! `FixMultisphere::calc_force`) is [`Multisphere::with_heat_transfer`] /
+//! [`Multisphere::heat_transfer`], switched on by
+//! [`crate::granular_system::GranularSystem::with_heat_conduction`]
+//! (V&V 4.16.3).
+//! Clumps from `fix insert/stream` (`start_step`, `v_integrate`,
+//! [`Multisphere::calc_n_steps`], [`Multisphere::release`]) are streamed
+//! through [`crate::granular_system::GranularSystem::add_stream_insertion`]
+//! (V&V 4.16.3). `fix multisphere/break` with a `fix property/atom` trigger
+//! is [`Multisphere::with_break`] / [`Multisphere::break_bodies`]
+//! ([`crate::granular_system::GranularSystem::with_multisphere_break`];
+//! V&V 4.16.3); an atom-style variable trigger is not ported.
 //! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
 //! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
 //! particles are ported in [`crate::superquadric`]; convex hull, ellipsoid,
@@ -169,6 +189,11 @@ pub enum MassSource {
     /// centre-of-mass shift.
     UseDensity,
 }
+
+/// The temperature `[K]` every inserted atom carries (the port has no
+/// per-insertion `initial_temperature`; a `fix heat/gran` deck compared with
+/// it uses `initial_temperature 300`).
+pub(crate) const INSERTED_TEMPERATURE: f64 = 300.0;
 
 /// `MAXJACOBI` of `math_extra.cpp`.
 const MAXJACOBI: usize = 50;
@@ -570,6 +595,12 @@ pub struct ParticleTemplateMultisphere {
     /// `max_type` / `min_type` read it, as upstream (see
     /// [`ParticleTemplateMultisphere::from_clump_file_different_types`]).
     atom_type_sphere: Option<Vec<usize>>,
+    /// `bonded yes|no` (default `no`; see [`ParticleTemplateMultisphere::with_bonded`]).
+    bonded: bool,
+    /// Whether `post_create` ran `FixTemplateMultiplespheres::post_create`,
+    /// where `bonded` creates `fix property/atom bond_random_id`: every path
+    /// except `use_density`.
+    base_post_create: bool,
 }
 
 impl ParticleTemplateMultisphere {
@@ -660,6 +691,8 @@ impl ParticleTemplateMultisphere {
                 t.density = t.mass_expect / t.volume_expect;
             }
             MassSource::UseDensity => {
+                // no `FixTemplateMultiplespheres::post_create` on this path
+                t.base_post_create = false;
                 t.calc_bounding_sphere(&mut random_mc)?;
                 t.check_overlap();
                 t.mass_expect = mass;
@@ -750,6 +783,8 @@ impl ParticleTemplateMultisphere {
             fflag: [true; 3],
             tflag: [true; 3],
             atom_type_sphere: None,
+            bonded: false,
+            base_post_create: true,
         };
         Ok((t, random_mc, x_min, x_max))
     }
@@ -1297,6 +1332,34 @@ impl ParticleTemplateMultisphere {
         self.tflag = tflag;
         self
     }
+
+    /// The template keyword `bonded yes|no` (gh:#1415, fourth pass).
+    ///
+    /// Upstream (`FixTemplateMultiplespheres`, LIGGGHTS-PUBLIC `3d5c00f2`)
+    /// parses it in the base class, and its `post_create` then creates
+    /// `fix property/atom bond_random_id` (scalar, default `-1.`). For a clump
+    /// that is all it does: `FixTemplateMultisphere::randomize_ptilist`, the
+    /// multisphere override, never sets the property and draws no random
+    /// number for it, so every member atom keeps `-1` and the dynamics do not
+    /// change. With `use_density` the base `post_create` is not called and
+    /// the property is never created. Read it with
+    /// [`crate::granular_system::GranularSystem::bond_random_id`].
+    ///
+    /// (Upstream's parser stops its base loop after `bonded` (no `hasargs`),
+    /// so in a deck it must follow `spheres` and precede `type`.)
+    #[must_use]
+    pub fn with_bonded(mut self, bonded: bool) -> Self {
+        self.bonded = bonded;
+        self
+    }
+
+    /// Whether this template created `fix property/atom bond_random_id`:
+    /// `bonded yes` on any path but `use_density` (see
+    /// [`ParticleTemplateMultisphere::with_bonded`]).
+    #[must_use]
+    pub fn creates_bond_random_id(&self) -> bool {
+        self.bonded && self.base_post_create
+    }
 }
 
 /// One clump to insert (`ParticleToInsertMultisphere`).
@@ -1392,7 +1455,7 @@ impl ClumpToInsert {
                 angular_velocity: Vec3::zero(),
                 mass: self.mass,
                 radius: self.radius[j],
-                temperature: 300.0,
+                temperature: INSERTED_TEMPERATURE,
             })
             .collect()
     }
@@ -1448,6 +1511,18 @@ pub struct ClumpBody {
     pub tflag: [bool; 3],
     dragforce: [f64; 3],
     hdtorque: [f64; 3],
+    /// Body temperature `[K]` (`temp_`): `T0` of `fix heat/gran` at
+    /// insertion, `0` without one (`Multisphere::add_body`); see
+    /// [`Multisphere::with_heat_transfer`].
+    pub temp: f64,
+    /// `temp_old_`: the body temperature before this step's update.
+    temp_old: f64,
+    /// `start_step_` (upstream `-1` = `None`): a body inserted by
+    /// `fix insert/stream` rides its rail until this step
+    /// ([`Multisphere::calc_n_steps`], [`Multisphere::release`]).
+    pub start_step: Option<i64>,
+    /// `v_integrate_`: the rail velocity `[m/s]`.
+    v_integrate: [f64; 3],
 }
 
 impl ClumpBody {
@@ -1478,6 +1553,18 @@ pub struct Multisphere {
     dt: f64,
     /// `false` for `fix multisphere/nointegration`.
     integrate: bool,
+    /// `T0` of the attached `fix heat/gran`, if any (the heat-transfer branch
+    /// of `calc_force`; gh:#1415).
+    heat_t0: Option<f64>,
+    /// `has_stream`: an `insert/stream` fix exists (`n_fixes_style`).
+    has_stream: bool,
+    /// `update->ntimestep` of the step being integrated.
+    timestep: i64,
+    /// `fix multisphere/break` (gh:#1415): `pre_neighbor` forces the rebuild
+    /// 100 steps after a lost atom, not 5 ([`Multisphere::with_break`]).
+    break_style: bool,
+    /// `mapTagMax_`: the largest body id ever given (ids are never reused).
+    map_tag_max: usize,
 }
 
 impl Multisphere {
@@ -1493,6 +1580,212 @@ impl Multisphere {
             next_reneighbor: None,
             dt,
             integrate: true,
+            heat_t0: None,
+            has_stream: false,
+            timestep: 0,
+            break_style: false,
+            map_tag_max: 0,
+        }
+    }
+
+    /// `fix multisphere/break` (gh:#1415, fourth pass): the integration is
+    /// `FixMultisphere`'s, [`Multisphere::break_bodies`] runs after
+    /// `final_integrate`, and `pre_neighbor` forces the rebuild 100 steps
+    /// after a lost atom (`FixMultisphereBreak::pre_neighbor`) instead of 5.
+    #[must_use]
+    pub fn with_break(mut self) -> Self {
+        self.break_style = true;
+        self
+    }
+
+    /// `FixMultisphereBreak::final_integrate` after
+    /// `FixMultisphere::final_integrate`, once `step > trigger_timeStep`
+    /// (gh:#1415, fourth pass; LIGGGHTS-PUBLIC `3d5c00f2`). `trigger[i]` is
+    /// atom `i`'s trigger value, `local_order` the atoms in local order.
+    ///
+    /// * Every member atom with `trigger >= threshold` whose body has
+    ///   `nrigid >= 2` tag-resets the body (`Multisphere::tagReset`).
+    /// * Every atom of a tag-reset body is freed: `body = -1`, the body's
+    ///   `nrigid` becomes 0, and its mass becomes
+    ///   `r*r*r*4.18879020479*density` (the body density; upstream's
+    ///   truncated `4 pi / 3`), not the volume-weighted share.
+    /// * If any atom was freed, `add_body_finalize`: each tag-reset body gets
+    ///   a **new** id (`id_extend_body_extend` treats `id = -1` as a new body)
+    ///   and **stays** with `nrigid = 0` and no atoms. Upstream keeps it
+    ///   (`check_lost_atoms` finds 0 of 0), integrates it and counts it in
+    ///   the computes; so does the port.
+    ///
+    /// Returns the number of atoms freed.
+    pub(crate) fn break_bodies(
+        &mut self,
+        particles: &mut [Particle],
+        trigger: &[f64],
+        local_order: &[usize],
+        threshold: f64,
+    ) -> usize {
+        let nbody = self.bodies.len();
+        let mut tag_reset = vec![false; nbody];
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            if trigger[i] < threshold {
+                continue;
+            }
+            if self.bodies[ib].nrigid < 2 {
+                continue;
+            }
+            tag_reset[ib] = true;
+        }
+        // existflag = 0 for the atoms of a tag-reset body with nrigid >= 2,
+        // then those atoms are freed
+        let mut existflag0 = vec![false; particles.len()];
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            if self.bodies[ib].nrigid < 2 {
+                continue;
+            }
+            if tag_reset[ib] {
+                existflag0[i] = true;
+            }
+        }
+        let four_over_three_pi = 4.18879020479;
+        let mut removed = 0;
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            if tag_reset[ib] && existflag0[i] {
+                self.body_of[i] = None;
+                if self.bodies[ib].nrigid > 1 {
+                    self.bodies[ib].nrigid = 0;
+                }
+                let r = particles[i].radius;
+                particles[i].mass = r * r * r * four_over_three_pi * self.bodies[ib].density;
+                removed += 1;
+            }
+        }
+        if removed > 0 {
+            // `id_extend_body_extend`: the tag-reset bodies take new ids
+            self.map_tag_max = self.map_tag_max.max(self.bodies.iter().map(|b| b.id).max().unwrap_or(0));
+            for (ib, b) in self.bodies.iter_mut().enumerate() {
+                if tag_reset[ib] {
+                    self.map_tag_max += 1;
+                    b.id = self.map_tag_max;
+                }
+            }
+            self.add_body_finalize(particles);
+        }
+        removed
+    }
+
+    /// Whether a `fix insert/stream` exists (`has_stream` of
+    /// `FixMultisphere::initial_integrate` / `final_integrate`), and the
+    /// current step (`update->ntimestep`); set by the system every step.
+    pub(crate) fn set_stream_step(&mut self, has_stream: bool, step: u64) {
+        self.has_stream = has_stream;
+        self.timestep = step as i64;
+    }
+
+    /// Whether body `b` still rides its `insert/stream` rail
+    /// (`has_stream && timestep < start_step`).
+    fn on_rail(has_stream: bool, timestep: i64, b: &ClumpBody) -> bool {
+        has_stream && b.start_step.is_some_and(|s| timestep < s)
+    }
+
+    /// `Multisphere::calc_n_steps` (gh:#1415, fourth pass), called by
+    /// `FixInsertStream::finalize_insertion` for each new atom `i`. `None` for
+    /// an atom in no body (the stream then uses its sphere formula). For a
+    /// body with a `start_step` it returns `start_step - step`; otherwise it
+    /// sets `start_step = step + n` and `v_integrate = v_normal`, with
+    /// `n = int(((p_ref - xcm) . normal) / (|v_normal| dt))` (no
+    /// `FIX_INSERT_STREAM_TINY`, unlike the sphere formula), and returns `n`.
+    pub(crate) fn calc_n_steps(
+        &mut self,
+        i: usize,
+        p_ref: &V3,
+        normal: &V3,
+        v_normal: &V3,
+        step: u64,
+    ) -> Option<i64> {
+        let ib = self.body_of(i)?;
+        let dt = self.dt;
+        let b = &mut self.bodies[ib];
+        let timestep = step as i64;
+        if let Some(s) = b.start_step {
+            return Some(s - timestep);
+        }
+        let pos_rel = [p_ref[0] - b.xcm[0], p_ref[1] - b.xcm[1], p_ref[2] - b.xcm[2]];
+        let dist_normal = dot3(&pos_rel, normal);
+        let vmag = (v_normal[0] * v_normal[0] + v_normal[1] * v_normal[1] + v_normal[2] * v_normal[2]).sqrt();
+        // static_cast<int>: truncation toward zero
+        let n_steps = (dist_normal / (vmag * dt)) as i32 as i64;
+        b.start_step = Some(n_steps + timestep);
+        b.v_integrate = *v_normal;
+        Some(n_steps)
+    }
+
+    /// `Multisphere::release` (gh:#1415, fourth pass), called by
+    /// `FixInsertStream::end_of_step` on a member atom `i` at its release
+    /// step: if the body has a `start_step` and `step >= start_step`, it takes
+    /// `vcm = v` and `omega = omega` and its `start_step` is cleared. Its
+    /// angular momentum is **not** changed, as upstream; the atom itself is
+    /// left as it is.
+    pub(crate) fn release(&mut self, i: usize, v: Vec3, omega: Vec3, step: u64) {
+        let Some(ib) = self.body_of(i) else { return };
+        let b = &mut self.bodies[ib];
+        if b.start_step.is_some_and(|s| step as i64 >= s) {
+            b.vcm = v3(v);
+            b.omega = v3(omega);
+            b.start_step = None;
+        }
+    }
+
+    /// A `fix heat/gran` with initial temperature `t0` `[K]` exists
+    /// (`FixMultisphere::init` finds it; gh:#1415, fourth pass). A body
+    /// inserted from now on starts at `temp = temp_old = t0`
+    /// (`Multisphere::add_body`), and [`Multisphere::heat_transfer`] runs.
+    ///
+    /// Upstream: `FixMultisphere::calc_force(setupflag)`, after the force and
+    /// torque sum (LIGGGHTS-PUBLIC `3d5c00f2`). The port models a deck that
+    /// defines `heat/gran` **before** `fix multisphere`, so the transport
+    /// equation has advanced the atom temperatures when the bodies aggregate
+    /// them; the other order lags by a step and is not modelled. Heat sources
+    /// are zero here (upstream refuses them without `allow_heatsource`).
+    #[must_use]
+    pub fn with_heat_transfer(mut self, t0: f64) -> Self {
+        self.heat_t0 = Some(t0);
+        self
+    }
+
+    /// The heat-transfer branch of `FixMultisphere::calc_force(setupflag)`
+    /// (gh:#1415, fourth pass; no-op without a heat fix). Over the bodies,
+    /// `temp_old = temp`; at a `run` set-up (`setup`) `temp = 0`. Then over
+    /// the member atoms in local order, `temp += T_i - temp_old` (a step) or
+    /// `temp += volumeweight_i * T_i` (set-up); then every member atom takes
+    /// `T_i = temp`.
+    pub(crate) fn heat_transfer(&mut self, particles: &mut [Particle], local_order: &[usize], setup: bool) {
+        if self.heat_t0.is_none() {
+            return;
+        }
+        for b in &mut self.bodies {
+            b.temp_old = b.temp;
+        }
+        if setup {
+            for b in &mut self.bodies {
+                b.temp = 0.0;
+            }
+        }
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            let t_i = particles[i].temperature;
+            let w = self.volume_weight(i);
+            let b = &mut self.bodies[ib];
+            if setup {
+                b.temp += w * t_i;
+            } else {
+                b.temp += t_i - b.temp_old;
+            }
+        }
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            particles[i].temperature = self.bodies[ib].temp;
         }
     }
 
@@ -1565,6 +1858,10 @@ impl Multisphere {
             tflag: c.tflag,
             dragforce: [0.0; 3],
             hdtorque: [0.0; 3],
+            temp: self.heat_t0.unwrap_or(0.0),
+            temp_old: self.heat_t0.unwrap_or(0.0),
+            start_step: None,
+            v_integrate: [0.0; 3],
         });
         for j in 0..c.radius.len() {
             self.body_of.push(Some(n));
@@ -1602,8 +1899,11 @@ impl Multisphere {
         }
     }
 
-    /// `FixMultisphere::initial_integrate` (the body loop; `fflag`/`tflag` on,
-    /// no added mass, no `insert/stream`), then `set_xv`.
+    /// `FixMultisphere::initial_integrate` (the body loop; ~~`fflag`/`tflag` on,~~
+    /// no added mass, ~~no `insert/stream`~~), then `set_xv`. **CORRECTED
+    /// 2026-11-14 (gh:#1415):** the template `fflag`/`tflag` apply, and a body
+    /// on its `insert/stream` rail (`has_stream && step < start_step`) takes
+    /// `vcm = v_integrate` and drifts, with no kick and no rotation.
     pub(crate) fn initial_integrate(&mut self, particles: &mut [Particle]) {
         if !self.integrate {
             return;
@@ -1611,7 +1911,16 @@ impl Multisphere {
         let dtv = self.dt;
         let dtf = 0.5 * self.dt * 1.0;
         let dtq = 0.5 * self.dt;
+        let (has_stream, timestep) = (self.has_stream, self.timestep);
         for b in &mut self.bodies {
+            if Self::on_rail(has_stream, timestep, b) {
+                // `insert/stream`: the body drifts with v_integrate, no kick
+                b.vcm = b.v_integrate;
+                for k in 0..3 {
+                    b.xcm[k] += dtv * b.vcm[k];
+                }
+                continue;
+            }
             let add_mass_term = 1.0 + 0.0 * 0.0 / b.density;
             let dtfm = dtf / (b.mass * add_mass_term);
             for k in 0..3 {
@@ -1724,7 +2033,11 @@ impl Multisphere {
             return;
         }
         let dtf = 0.5 * self.dt * 1.0;
+        let (has_stream, timestep) = (self.has_stream, self.timestep);
         for b in &mut self.bodies {
+            if Self::on_rail(has_stream, timestep, b) {
+                continue;
+            }
             let add_mass_term = 1.0 + 0.0 * 0.0 / b.density;
             let dtfm = dtf / (b.mass * add_mass_term);
             for k in 0..3 {
@@ -1896,7 +2209,8 @@ impl Multisphere {
             }
         }
         if deleted {
-            self.next_reneighbor = Some(step + 5);
+            // `FixMultisphereBreak::pre_neighbor` waits 100 steps
+            self.next_reneighbor = Some(step + if self.break_style { 100 } else { 5 });
         }
         deleted
     }

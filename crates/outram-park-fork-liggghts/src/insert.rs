@@ -869,20 +869,28 @@ impl ParticleDistributionDiscrete {
     }
 
     /// Whether the templates are superquadrics (a distribution never mixes).
-    fn is_superquadric(&self) -> bool {
+    pub(crate) fn is_superquadric(&self) -> bool {
         matches!(self.templates.first(), Some(ParticleTemplate::Superquadric(_)))
     }
 
-    /// Whether any template is not a plain sphere (a clump or a
-    /// superquadric): `fix insert/stream` refuses those (gh:#1415).
-    pub(crate) fn has_non_sphere(&self) -> bool {
+    /// Whether a multisphere template of this distribution created
+    /// `fix property/atom bond_random_id` (`bonded yes`, gh:#1415).
+    pub(crate) fn creates_bond_random_id(&self) -> bool {
+        self.templates.iter().any(|t| match t {
+            ParticleTemplate::Multisphere(m) => m.creates_bond_random_id(),
+            ParticleTemplate::Sphere(_) | ParticleTemplate::Superquadric(_) => false,
+        })
+    }
+
+    /// Whether any template is a multisphere clump (gh:#1415).
+    pub(crate) fn has_clump(&self) -> bool {
         self.templates
             .iter()
-            .any(|t| !matches!(t, ParticleTemplate::Sphere(_)))
+            .any(|t| matches!(t, ParticleTemplate::Multisphere(_)))
     }
 
     /// Whether any template is a plain sphere (`particletemplate/sphere`).
-    fn has_sphere(&self) -> bool {
+    pub(crate) fn has_sphere(&self) -> bool {
         self.templates
             .iter()
             .any(|t| matches!(t, ParticleTemplate::Sphere(_)))
@@ -1230,6 +1238,12 @@ pub struct InsertFix {
 }
 
 impl InsertFix {
+    /// Whether this fix's distribution has a template that created
+    /// `fix property/atom bond_random_id` (gh:#1415).
+    pub(crate) fn creates_bond_random_id(&self) -> bool {
+        self.distribution.creates_bond_random_id()
+    }
+
     /// `fix ID all insert/pack|insert/rate/region seed S distributiontemplate D
     /// insert_every E region R <target> ...`, including upstream's set-up
     /// (`calc_insertion_properties`): the region's stream is reset to `seed +

@@ -309,6 +309,15 @@ pub struct GranularSystem {
     multisphere: Option<crate::multisphere::Multisphere>,
     /// The clump fix is `fix multisphere/nointegration` (gh:#1415).
     ms_nointegration: bool,
+    /// `fix multisphere ... allow_group_and_set yes` (gh:#1415): `set` may
+    /// change atoms while clumps exist.
+    ms_allow_group_and_set: bool,
+    /// `fix multisphere/break ... trigger_threshold T trigger_timeStep S`:
+    /// `(T, S)` (gh:#1415).
+    ms_break: Option<(f64, i64)>,
+    /// The break trigger (`fix property/atom`, default 0) of each atom, by
+    /// tag.
+    break_trigger: std::collections::BTreeMap<u64, f64>,
     /// `boundary f f f` with `thermo_modify lost ignore`: the box whose
     /// leavers `Comm::exchange` drops at a rebuild
     /// ([`GranularSystem::with_lost_atoms`], gh:#1415).
@@ -476,6 +485,9 @@ impl GranularSystem {
             capillary: None,
             multisphere: None,
             ms_nointegration: false,
+            ms_allow_group_and_set: false,
+            ms_break: None,
+            break_trigger: std::collections::BTreeMap::new(),
             lost_atoms_box: None,
         };
         s.compute_forces_setup();
@@ -770,6 +782,11 @@ impl GranularSystem {
     /// [`DemError::InvalidInput`] if a clump already exists (upstream's fix
     /// style is fixed when the fix is defined).
     pub fn with_multisphere_nointegration(mut self) -> Result<Self, DemError> {
+        if self.ms_break.is_some() {
+            return Err(DemError::InvalidInput(
+                "multisphere/nointegration and multisphere/break are two styles of one fix".into(),
+            ));
+        }
         if self.multisphere.is_some() {
             return Err(DemError::InvalidInput(
                 "multisphere/nointegration must be chosen before the first clump is inserted".into(),
@@ -792,7 +809,122 @@ impl GranularSystem {
         if let Some(ms) = self.multisphere.as_mut() {
             ms.reset_forces(false);
             ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
+            // the heat branch of `calc_force(true)` (no-op without heat/gran)
+            ms.heat_transfer(&mut self.particles, &order, true);
         }
+    }
+
+    /// `fix multisphere/break ... trigger_name f_<trig> trigger_threshold
+    /// <threshold> trigger_timeStep <trigger_time_step>` (gh:#1415, fourth
+    /// pass; `FixMultisphereBreak`, LIGGGHTS-PUBLIC `3d5c00f2`). The clumps
+    /// integrate as under `fix multisphere`; after `final_integrate` on every
+    /// step after `trigger_time_step`, a clump with a member atom whose
+    /// trigger ([`GranularSystem::set_type_break_trigger`], a `fix
+    /// property/atom` defaulting to 0) is `>= threshold` breaks into free
+    /// spheres ([`crate::multisphere::Multisphere::break_bodies`]). The freed
+    /// spheres move by the atom integrator (upstream needs `fix nve/sphere`
+    /// for them). Call before the first clump is inserted.
+    ///
+    /// Only the `f_` trigger is ported; an atom-style variable (`v_`) is not.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a clump already exists, for a
+    /// non-finite threshold, or together with
+    /// [`GranularSystem::with_multisphere_nointegration`] (another style of
+    /// the same fix).
+    pub fn with_multisphere_break(mut self, threshold: f64, trigger_time_step: i64) -> Result<Self, DemError> {
+        if self.multisphere.is_some() {
+            return Err(DemError::InvalidInput(
+                "multisphere/break must be chosen before the first clump is inserted".into(),
+            ));
+        }
+        if self.ms_nointegration {
+            return Err(DemError::InvalidInput(
+                "multisphere/nointegration and multisphere/break are two styles of one fix".into(),
+            ));
+        }
+        if !threshold.is_finite() {
+            return Err(DemError::InvalidInput("trigger_threshold must be finite".into()));
+        }
+        self.ms_break = Some((threshold, trigger_time_step));
+        Ok(self)
+    }
+
+    /// `set type T property/atom <trig> v` for the break trigger of
+    /// [`GranularSystem::with_multisphere_break`] (gh:#1415): every atom of
+    /// LIGGGHTS type `liggghts_type` (1-based) takes trigger `v`.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for type 0, a non-finite value, no
+    /// `multisphere/break`, or clumps without
+    /// [`GranularSystem::with_multisphere_allow_group_and_set`] (upstream:
+    /// "Set command may not be used together with fix multisphere").
+    pub fn set_type_break_trigger(&mut self, liggghts_type: usize, v: f64) -> Result<(), DemError> {
+        if liggghts_type == 0 {
+            return Err(DemError::InvalidInput("set: atom types are 1-based".into()));
+        }
+        if !v.is_finite() {
+            return Err(DemError::InvalidInput(format!("set: trigger {v} must be finite")));
+        }
+        if self.ms_break.is_none() {
+            return Err(DemError::InvalidInput("set: no fix multisphere/break trigger exists".into()));
+        }
+        if self.multisphere.is_some() && !self.ms_allow_group_and_set {
+            return Err(DemError::InvalidInput(
+                "Set command may not be used together with fix multisphere (use allow_group_and_set)".into(),
+            ));
+        }
+        for (k, &ty) in self.types.iter().enumerate() {
+            if ty + 1 == liggghts_type {
+                self.break_trigger.insert(self.tags[k], v);
+            }
+        }
+        Ok(())
+    }
+
+    /// `fix multisphere ... allow_group_and_set yes` (gh:#1415, fourth pass):
+    /// [`GranularSystem::set_type_temperature`] may change atoms while clumps
+    /// exist. Upstream reads the keyword only in `set.cpp` and `variable.cpp`;
+    /// it changes nothing else.
+    #[must_use]
+    pub fn with_multisphere_allow_group_and_set(mut self) -> Self {
+        self.ms_allow_group_and_set = true;
+        self
+    }
+
+    /// `set type T property/atom Temp v` (`Set::command`; gh:#1415): every
+    /// atom of LIGGGHTS type `liggghts_type` (1-based, as the deck writes it)
+    /// takes temperature `t` `[K]`. A clump's body temperature follows at the
+    /// next `run` set-up ([`GranularSystem::begin_run`], the set-up branch of
+    /// `FixMultisphere::calc_force`).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for type 0, a non-positive or non-finite
+    /// `t` (a [`Particle`] temperature is strictly positive), or clumps
+    /// without [`GranularSystem::with_multisphere_allow_group_and_set`]
+    /// (upstream: "Set command may not be used together with fix
+    /// multisphere").
+    pub fn set_type_temperature(&mut self, liggghts_type: usize, t: f64) -> Result<(), DemError> {
+        if liggghts_type == 0 {
+            return Err(DemError::InvalidInput("set: atom types are 1-based".into()));
+        }
+        if !(t.is_finite() && t > 0.0) {
+            return Err(DemError::InvalidInput(format!("set: temperature {t} must be finite and > 0")));
+        }
+        if self.multisphere.is_some() && !self.ms_allow_group_and_set {
+            return Err(DemError::InvalidInput(
+                "Set command may not be used together with fix multisphere (use allow_group_and_set)".into(),
+            ));
+        }
+        for (p, &ty) in self.particles.iter_mut().zip(&self.types) {
+            if ty + 1 == liggghts_type {
+                p.temperature = t;
+            }
+        }
+        Ok(())
     }
 
     /// `fix_modify <ms> fflag x y z` / `tflag x y z`
@@ -1086,8 +1218,15 @@ impl GranularSystem {
     /// # Errors
     ///
     /// [`DemError::InvalidInput`] if a particle's atom type has no entry in
-    /// the fix's per-type properties.
+    /// the fix's per-type properties, or if a clump already exists: with
+    /// clumps, attach the fix before the first one is inserted, so each body
+    /// starts at `T0` (gh:#1415; `Multisphere::with_heat_transfer`).
     pub fn with_heat_conduction(mut self, heat: HeatGranConduction) -> Result<Self, DemError> {
+        if self.multisphere.is_some() {
+            return Err(DemError::InvalidInput(
+                "attach fix heat/gran/conduction before the first clump is inserted".into(),
+            ));
+        }
         if let Some(bad) = self.types.iter().find(|&&t| t >= heat.n_types()) {
             return Err(DemError::InvalidInput(format!(
                 "atom type {bad} has no thermal properties ({} given)",
@@ -1911,6 +2050,10 @@ impl GranularSystem {
     fn run_insertions(&mut self) {
         let step = self.step_count as u64;
         for k in 0..self.stream_inserters.len() {
+            if self.stream_inserters[k].has_clumps() {
+                self.run_stream_clump_insertion(k, step);
+                continue;
+            }
             let ins = match self.stream_inserters[k].pre_exchange(step, &self.particles) {
                 Ok(v) => v,
                 Err(e) => panic!("fix insert/stream: {e}"),
@@ -1943,24 +2086,7 @@ impl GranularSystem {
                         self.push_inserted_atom(ip.particle, ip.atom_type);
                     }
                     crate::insert::Inserted::Clump(c) => {
-                        // `ParticleToInsertMultisphere::insert`: the member atoms
-                        // first, then `Multisphere::add_body`
-                        let first = self.particles.len();
-                        for p in c.atoms() {
-                            self.push_inserted_atom(p, c.atom_type());
-                        }
-                        let dt = self.dt;
-                        let noint = self.ms_nointegration;
-                        self.multisphere
-                            .get_or_insert_with(|| {
-                                let ms = crate::multisphere::Multisphere::new(dt);
-                                if noint {
-                                    ms.without_integration()
-                                } else {
-                                    ms
-                                }
-                            })
-                            .add_body(&c, first);
+                        self.insert_clump(&c);
                         clumps_added = true;
                     }
                 }
@@ -1971,6 +2097,72 @@ impl GranularSystem {
                     ms.add_body_finalize(&mut self.particles);
                 }
             }
+        }
+    }
+
+    /// `ParticleToInsertMultisphere::insert`: the member atoms first, then
+    /// `Multisphere::add_body` (creating the clump fix on the first clump).
+    fn insert_clump(&mut self, c: &crate::multisphere::ClumpToInsert) {
+        let first = self.particles.len();
+        for p in c.atoms() {
+            self.push_inserted_atom(p, c.atom_type());
+        }
+        let dt = self.dt;
+        let noint = self.ms_nointegration;
+        let brk = self.ms_break.is_some();
+        // `FixMultisphere::init` finds `fix heat/gran`; its
+        // T0 is the port's inserted-atom temperature
+        let heat = self.heat.is_some();
+        self.multisphere
+            .get_or_insert_with(|| {
+                let mut ms = crate::multisphere::Multisphere::new(dt);
+                if heat {
+                    ms = ms.with_heat_transfer(crate::multisphere::INSERTED_TEMPERATURE);
+                }
+                if brk {
+                    ms = ms.with_break();
+                }
+                if noint {
+                    ms.without_integration()
+                } else {
+                    ms
+                }
+            })
+            .add_body(c, first);
+    }
+
+    /// `FixInsert::pre_exchange` of `fix insert/stream` with clumps (gh:#1415,
+    /// fourth pass): `x_v_omega`, the clumps' insertion (atoms, `add_body`),
+    /// the template's `finalize_insertion` (`add_body_finalize`), then
+    /// `FixInsertStream::finalize_insertion`: per new atom,
+    /// `Multisphere::calc_n_steps` and the release data.
+    fn run_stream_clump_insertion(&mut self, k: usize, step: u64) {
+        let clumps = match self.stream_inserters[k].pre_exchange_clumps(step, &self.particles) {
+            Ok(v) => v,
+            Err(e) => panic!("fix insert/stream: {e}"),
+        };
+        if clumps.is_empty() {
+            return;
+        }
+        let ilo = self.particles.len();
+        for c in &clumps {
+            self.insert_clump(c);
+        }
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.add_body_finalize(&mut self.particles);
+        }
+        let (p_ref, normal, v_normal) = self.stream_inserters[k].stream_geometry();
+        for i in ilo..self.particles.len() {
+            let n_steps = match self.multisphere.as_mut() {
+                Some(ms) => ms.calc_n_steps(i, &p_ref, &normal, &v_normal, step),
+                None => None,
+            };
+            let Some(n_steps) = n_steps else {
+                panic!("fix insert/stream: a streamed clump atom is in no body");
+            };
+            let x = self.particles[i].position;
+            let rel = self.stream_inserters[k].clump_release(x, step, n_steps);
+            self.stream_release.insert(self.tags[i], rel);
         }
     }
 
@@ -2006,6 +2198,22 @@ impl GranularSystem {
     #[must_use]
     pub fn atom_types(&self) -> &[usize] {
         &self.types
+    }
+
+    /// `f_bond_random_id`, the per-atom property a multisphere template with
+    /// `bonded yes` creates
+    /// ([`crate::multisphere::ParticleTemplateMultisphere::with_bonded`];
+    /// gh:#1415), in particle order; `None` when no attached insertion fix
+    /// has such a template (upstream: no such property, and a dump of it is
+    /// an error). Clump insertion never sets it, so every atom holds the
+    /// property's default, `-1`, as upstream's dump shows.
+    #[must_use]
+    pub fn bond_random_id(&self) -> Option<Vec<f64>> {
+        if self.inserters.iter().any(crate::insert::InsertFix::creates_bond_random_id) {
+            Some(vec![-1.0; self.particles.len()])
+        } else {
+            None
+        }
     }
 
     /// The `fix multisphere` state, once a clump has been inserted (gh:#1415).
@@ -2410,7 +2618,9 @@ impl GranularSystem {
             .initial_integrate(&mut self.particles, &f, &t);
         // `FixMultisphere::initial_integrate`: the bodies move and `set_xv`
         // overwrites their member atoms' x, v, omega (gh:#1415)
+        let has_stream = !self.stream_inserters.is_empty();
         if let Some(ms) = self.multisphere.as_mut() {
+            ms.set_stream_step(has_stream, self.step_count as u64);
             ms.initial_integrate(&mut self.particles);
         }
         // Walls drift with the particles (upstream advances mesh nodes in the
@@ -2497,6 +2707,19 @@ impl GranularSystem {
                 ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
                 ms.final_integrate(&mut self.particles);
             }
+            // `FixMultisphereBreak::final_integrate` (gh:#1415)
+            if let Some((threshold, trigger_step)) = self.ms_break {
+                if self.step_count as i64 > trigger_step {
+                    let trigger: Vec<f64> = self
+                        .tags
+                        .iter()
+                        .map(|t| self.break_trigger.get(t).copied().unwrap_or(0.0))
+                        .collect();
+                    if let Some(ms) = self.multisphere.as_mut() {
+                        ms.break_bodies(&mut self.particles, &trigger, &order, threshold);
+                    }
+                }
+            }
         }
         // `MeshModuleStress::final_integrate` (calc_total_force)
         for w in &mut self.moving_walls {
@@ -2514,6 +2737,16 @@ impl GranularSystem {
         if let Some(heat) = &self.heat {
             // final_integrate of the scalar transport equation
             heat.advance(&mut self.particles, &self.types, &self.heat_flux, self.dt);
+        }
+        // the heat branch of `FixMultisphere::calc_force(false)` (gh:#1415):
+        // with `heat/gran` defined before `fix multisphere`, it follows the
+        // transport equation's update; the rigid-body part above reads no
+        // temperature, so running it here keeps upstream's order
+        if self.heat.is_some() && self.multisphere.is_some() {
+            let order = self.local_order_indices();
+            if let Some(ms) = self.multisphere.as_mut() {
+                ms.heat_transfer(&mut self.particles, &order, false);
+            }
         }
         if let Some(c) = self.capillary.as_mut() {
             // final_integrate of `liquidtransfer`: L += flux * dt
@@ -2540,8 +2773,16 @@ impl GranularSystem {
             let Some(rel) = self.stream_release.get(&tag) else {
                 continue;
             };
+            let member = self.multisphere.as_ref().is_some_and(|ms| ms.body_of(i).is_some());
             match crate::insert_stream::end_of_step_state(rel, step, self.dt) {
                 None => finished.push(tag),
+                Some((_, v, w, true)) if member => {
+                    // `fix_multisphere->release`: the body takes the release
+                    // velocity; the atom is left as it is (gh:#1415)
+                    if let Some(ms) = self.multisphere.as_mut() {
+                        ms.release(i, v, w, step);
+                    }
+                }
                 Some((x, v, w, _released)) => {
                     self.particles[i].position = x;
                     self.particles[i].velocity = v;
