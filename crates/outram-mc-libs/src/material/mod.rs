@@ -2,6 +2,8 @@
 //!
 //! - [`nuclide`]: one nuclide's cross sections and secondary-particle laws
 //!   ([`Nuclide`](nuclide::Nuclide)), from embedded, ENDF, ACE or HDF5 data.
+//! - [`cell_temperature`]: a cell's temperature selects its material's
+//!   lookup temperature, as OpenMC (GitHub #313).
 //! - [`material`]: a mixture of nuclides at atom densities, and the
 //!   macroscopic cross sections of that mixture.
 //! - [`processed`]: a nuclide's RECONR/BROADR/PURR products as plain
@@ -15,6 +17,7 @@
 //!
 //! Geometry, sources and tallies live in their own modules; transport itself
 //! is in [`crate::physics`].
+pub mod cell_temperature;
 pub mod material;
 pub mod material_sab;
 pub mod nuclide;
