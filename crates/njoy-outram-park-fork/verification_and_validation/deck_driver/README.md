@@ -1803,3 +1803,52 @@ THERMR's `matde = 1099`: a code-to-code device with no physical meaning.
 - Control: NJOY's `G2` unit 31 differs from deck 01's in 11 222 lines.
 - Ablations: without the second term, 2 063 lines differ; with `teff2 = T` in place
   of `gatef2`, 2 092.
+
+## 37. ERRORR `iread = 1`: cards 8-9 (2026-11-14, gh:#1371)
+
+**Upstream.** Cards 8-9 (`errorr.f90:862-905`) give `nmt nek`, the `nmt` MTs, `nek+1`
+bounds (`sigfig` to 6 figures) and `nek*nmt` lines of `akxy`. `gridd` skips every
+section not on card 8a and keeps the card-8a positions (`:1154-1157`); a subsection
+with `mat1 > 0` or an `mt1` not on card 8a has `iok = 0` (`:1220-1225`); an `LTY = 0`
+NC sub-subsection still merges its two energies into `eni` but its formula is dropped
+(`:1299`); at the end of the file `gridd` returns before rebuilding `akxy`
+(`:1166-1169`). `covcal` skips the same sections (`:1913-1918`).
+
+**Code.** `errorr::gridd::Card8` and `CovarianceReactions::card8`, those branches in
+`gridd` and `covcal`, `run_mf33`'s `za`/`awr` from the first card-8a section, and
+`deck::errorr::read_card8`.
+
+**Refused by name:** `iread = 1` on any route but `mfcov = 33` from a PENDF; with
+MF=32 on the tape (no deck exercises `resprx` with a card-8a list); `nmt <= 0` or
+`nek < 0`; a card 8a, 8b or 9 shorter than its count (upstream reads unset words).
+
+**Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`, prediction on gh:#1371 first), deck
+05 (`t511` carbon) with card 7 `1 33/`:
+
+| deck | cards 8-9 | 33 (ERRORR) | 34 (COVR) | 35 (VIEWR) |
+|---|---|---|---|---|
+| `I1` | `2 0/ 2 102/` | identical, 554 lines | identical, 2 223 | identical, 6 234 |
+| `I2` | `3 1/ 1 2 102/ 1e-5 2e7/ 0 1 1/ 0 1 0/ 0 0 1/` | identical, 5 148 | identical, 11 001 | identical, 21 393 |
+
+- Both identical on the first run (once the test's own deck edit was fixed: its first
+  version also rewrote card 1's ` 0 33/`, and NJOY2016 stopped).
+- Control: NJOY's unit 33 for deck 05 has 21 471 lines.
+- Ablation: `I2` with card 9 replaced by the identity makes 5 078 of unit 33's 5 148
+  lines differ.
+
+**`iverf = 4` (cards 4-6) is not done.** No ENDF/B-IV evaluation with MF=33 is held
+here or in NJOY2016's `tests/resources`.
+
+**MF=32 sub-cases, surveyed** (the first range of every MF=32 in
+`reference-data/endf/` and NJOY2016's `tests/resources`): every one has `NIS = 1`,
+`NRO = 0`, and `LCOMP` 1 or 2 with `LRF` 2, 3 or 7, and every `LCOMP = 1` range has
+`NLRS = 0`. So no held evaluation reaches:
+- `LCOMP = 0` (`rpxlc0`, with `ssslbw`/`ssmlbw`);
+- `NRO /= 0` (upstream stops, `:3120-3124`);
+- `NLRS > 0` (upstream stops in `rpxlc12`, "nlrs>0 not coded", `:4602-4620`);
+- `NIS > 1` with `LRF = 7`;
+- `KBK > 0` with MF=32 (only Sr-88 ENDF/B-VIII.1 has `KBK = 1`, and it has no MF=32);
+- `irespr = 0`: `resprp` stops on any `LCOMP /= 0` (`:8111-8117`), so it is reachable
+  only through `LCOMP = 0`.
+
+Ranges after the first were not surveyed (JENDL-3.3 U-238 has 11, Pu-239 4).

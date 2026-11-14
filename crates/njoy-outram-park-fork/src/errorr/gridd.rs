@@ -28,7 +28,9 @@
 //! 2026-11-14** (checked against the code): [`gridd`] also reads MF=31
 //! (`CovarianceReactions::mfcov`), MF=40 with one final state
 //! ([`mf40_final_state`], gh:#1371) and card 10's `iread = 2` pairs; MF=34 and
-//! MF=35 have their own readers (`mf34`, `mf35`). `iread = 1` is not ported.
+//! MF=35 have their own readers (`mf34`, `mf35`). ~~`iread = 1` is not ported.~~
+//! **CORRECTED 2026-11-14 (gh:#1371):** `iread = 1` is read too
+//! ([`CovarianceReactions::card8`]).
 //!
 //! All energies go through `sigfig(x, ndig = 6)` ([`NDIG`], `errorr.f90:116`)
 //! exactly as upstream, so the union grid matches the Fortran listing to the
@@ -96,6 +98,53 @@ pub struct CovarianceReactions {
     /// The `nstan` tape and card 11 (gh:#1371); `None` for `nstan = 0`, when an
     /// NC-type sub-subsection with `LTY` 1-3 stops `gridd` as upstream does.
     pub standards: Option<super::standards::Standards>,
+    /// Cards 8-9 (`iread = 1`, `errorr.f90:862-905`, gh:#1371): the user's
+    /// reaction list and derivation coefficients. `None` for `iread = 0/2`.
+    /// [`gridd`] then takes `mts` from here instead of from the file, skips
+    /// every other section, and keeps these coefficients (`:1154-1157`,
+    /// `:1166-1169`, `:1300`); [`super::covcal::covcal`] skips the same sections
+    /// (`:1913-1918`).
+    pub card8: Option<Card8>,
+}
+
+/// ERRORR's cards 8-9 (`iread = 1`, `errorr.f90:862-905`): `mts(1:nmt)` and
+/// `akxy`/`ek`, which replace what [`gridd`] would derive from the file.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Card8 {
+    /// Card 8a: `mts(1:nmt)`, with `mats = 0`.
+    pub mts: Vec<i32>,
+    /// Cards 8b and 9: `ek(1:nek+1)` (`sigfig`'d to [`NDIG`]) and `akxy`;
+    /// with `nek = 0`, `ek = (small, big)` and the identity (`:883-891`).
+    pub derived: DerivedCoefficients,
+}
+
+impl Card8 {
+    /// Build cards 8-9 as `errorr.f90:862-905` stores them. `ek` is card 8b as
+    /// read (`nek+1` bounds; empty for `nek = 0`), `rows[i][j]` card 9's line for
+    /// range `i` and reaction `j`, whose `k`-th word is `akxy(k, j, i)`.
+    ///
+    /// # Errors
+    /// [`NjoyError::InvalidInput`] when the shapes disagree with `nmt`/`nek`.
+    pub fn from_cards(mts: Vec<i32>, ek: &[f64], rows: &[Vec<Vec<f64>>]) -> Result<Self, NjoyError> {
+        let nmt = mts.len();
+        if ek.is_empty() {
+            return Ok(Card8 { mts, derived: DerivedCoefficients::identity(vec![SMALL, BIG], nmt) });
+        }
+        let nek = ek.len() - 1;
+        if nek == 0 || rows.len() != nek || rows.iter().any(|r| r.len() != nmt || r.iter().any(|w| w.len() != nmt)) {
+            return Err(NjoyError::InvalidInput(format!("errorr cards 8b/9: {} bounds and {} ranges for nmt = {nmt}", ek.len(), rows.len())));
+        }
+        let ek: Vec<f64> = ek.iter().map(|&e| sigfig(e, NDIG, 0)).collect();
+        let mut derived = DerivedCoefficients { ek, nmt1: nmt, akxy: vec![0.0; nek * nmt * nmt] };
+        for (i, range) in rows.iter().enumerate() {
+            for (j, row) in range.iter().enumerate() {
+                for (k, &v) in row.iter().enumerate() {
+                    derived.set(k, j, i, v);
+                }
+            }
+        }
+        Ok(Card8 { mts, derived })
+    }
 }
 
 impl CovarianceReactions {
@@ -343,6 +392,13 @@ pub fn gridd(
 
     let mfcov = reactions.mf();
     let standards = reactions.standards.clone();
+    // iread = 1 (errorr.f90:877-881, gh:#1371): `mts` is card 8a, `mats = 0`.
+    let card8 = reactions.card8.clone();
+    if let Some(c8) = &card8 {
+        reactions.mts = c8.mts.clone();
+        reactions.mats = vec![0; c8.mts.len()];
+        reactions.mzap = vec![0; c8.mts.len()];
+    }
     for sec in tape
         .sections()
         .iter()
@@ -357,11 +413,20 @@ pub fn gridd(
         if nsub == 0 {
             continue; // component of a lumped reaction (errorr.f90:1149)
         }
-        // errorr.f90:1154-1165 — append this reaction.
-        reactions.mts.push(mth);
-        reactions.mats.push(0);
-        reactions.mzap.push(izap);
-        let nmt = reactions.mts.len() - 1;
+        // iread = 1 (errorr.f90:1154-1157): a section not on card 8a is skipped
+        // (`tosend`); one that is keeps its card-8a position.
+        let nmt = if let Some(c8) = &card8 {
+            match c8.mts.iter().position(|&m| m == mth) {
+                Some(i) => i,
+                None => continue,
+            }
+        } else {
+            // errorr.f90:1154-1165 — append this reaction.
+            reactions.mts.push(mth);
+            reactions.mats.push(0);
+            reactions.mzap.push(izap);
+            reactions.mts.len() - 1
+        };
 
         for _ in 0..nsub {
             let sub = cur.read_cont()?; // errorr.f90:1187
@@ -374,9 +439,11 @@ pub fn gridd(
             }
             // iread=0: mat1>0 -> iok=0 (errorr.f90:1207-1208, 1224-1226).
             // iread=2 (gh:#1369): mat1=0, or a card-10 pair (`:1213-1219`).
-            let iok = match &reactions.card10 {
-                None => mat1 <= 0,
-                Some(pairs) => mat1 == 0 || pairs.contains(&(mat1, mt1)),
+            // iread=1 (gh:#1371): mat1 <= 0 and mt1 on card 8a (`:1220-1225`).
+            let iok = match (&card8, &reactions.card10) {
+                (Some(c8), _) => mat1 <= 0 && c8.mts.contains(&mt1),
+                (None, None) => mat1 <= 0,
+                (None, Some(pairs)) => mat1 == 0 || pairs.contains(&(mat1, mt1)),
             };
             let nc = sub.n1;
             let ni = sub.n2;
@@ -411,6 +478,10 @@ pub fn gridd(
                         2 => super::standards::grist(std, mfcov, list.head.l1, list.head.l2, 0.0, 0.0, &mut eni)?,
                         _ => {}
                     }
+                    continue;
+                }
+                // errorr.f90:1299: iread = 1 takes its formulas from card 9.
+                if card8.is_some() {
                     continue;
                 }
                 // errorr.f90:1300-1318 — save the derivation formula.
@@ -469,6 +540,11 @@ pub fn gridd(
         }
     }
 
+    // iread = 1 (errorr.f90:1166-1169): the end of the file returns before the
+    // coefficients are rebuilt; card 9's stand.
+    if let Some(c8) = card8 {
+        return Ok(GriddResult { eni, derived: c8.derived });
+    }
     // errorr.f90:1406-1420 — a default range 1e-5 .. ek(1) if needed.
     let mut neki = ek.len();
     if neki > 0 && SMALL5 + SMALL5 / 1000.0 < ek[0] {

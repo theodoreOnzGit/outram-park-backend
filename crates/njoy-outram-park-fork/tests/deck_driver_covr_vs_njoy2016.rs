@@ -183,6 +183,37 @@ fn e2_deck_46_with_errorr_iwt1_card13_twice() {
     assert_identical("e2", r);
 }
 
+/// Deck 05 with card 7 `iread = 1` and `cards` (8, 8a, 8b, 9) after it.
+fn deck_05_iread1(d: &str, cards: &str) -> String {
+    let e = d.replacen("\n 0 33/\n", &format!("\n 1 33/\n{cards}"), 1);
+    assert!(e.contains(&format!("\n 1 33/\n{cards}")) && e.contains(" -31 -32 0 33/"), "deck 05 was not edited");
+    e
+}
+
+/// **`I1`: deck 05 with `iread = 1`, card 8a `2 102`, `nek = 0`** (gh:#1371).
+/// `gridd` and `covcal` skip every MF=33 section not on card 8a
+/// (`errorr.f90:1154-1157`, `:1913-1918`); a subsection whose `mt1` is not on it
+/// has `iok = 0` (`:1220-1225`); `akxy` is the identity (`:883-891`). Units 33
+/// (ERRORR), 34 (COVR) and 35 (VIEWR) against NJOY2016.80 on the same deck.
+/// Prediction (gh:#1371, before the run): identical. Results: see the
+/// deck-driver README §37.
+#[test]
+fn i1_deck_05_with_errorr_iread1() {
+    let r = edited_deck_on("05", "t511", 30, &[33, 34, 35], |d| deck_05_iread1(d, " 2 0/\n 2 102/\n"));
+    assert_identical("i1", r);
+}
+
+/// **`I2`: deck 05 with `iread = 1`, card 8a `1 2 102`, `nek = 1`**, card 9
+/// making MT 1 the sum of MT 2 and MT 102 over `1e-5..2e7` eV (gh:#1371): cards
+/// 8b and 9 (`errorr.f90:892-901`) replace the file's `LTY = 0` formulas, which
+/// `gridd` reads past (`:1299`). Prediction (gh:#1371): identical. Results: see
+/// the deck-driver README §37.
+#[test]
+fn i2_deck_05_with_errorr_iread1_card9() {
+    let r = edited_deck_on("05", "t511", 30, &[33, 34, 35], |d| deck_05_iread1(d, " 3 1/\n 1 2 102/\n 1e-5 2e7/\n 0 1 1/\n 0 1 0/\n 0 0 1/\n"));
+    assert_identical("i2", r);
+}
+
 /// **Deck 46 (Fe-56 JEFF-3.3, 238 groups): ERRORR `mfcov = 34` from a binary GENDF
 /// (unit 34: MF=1, MF=3/MT=251 mubar, MF=34/MT=251), whole deck.**
 #[test]
