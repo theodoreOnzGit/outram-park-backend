@@ -1057,8 +1057,17 @@ without crippling the simulation."
   previous default's 0.234 from its stored rows. On the overlapping k range
   (about 1.006–1.017), the previous default's upper half-interval gives
   0.229 and this default's lower half 0.209. **So the drop is the model
-  change, not the higher k.** Its mechanism is not identified. Against the
+  change, not the higher k.** ~~Its mechanism is not identified.~~ Against the
   measured 0.223, the model went from 0.012 high to 0.015 low.
+  **Located 2026-11-14:** U-235 ×0.95 / ×1.05 at hot dimensions with
+  `--shield none` (seeds 1–3 each: 0.99593 ± 0.00030 / 1.01855 ± 0.00033)
+  gives **0.223 ± 0.004**, inside the 0.220–0.245 posted on gh:#1128 for
+  "the shield causes the drop". Both changes lower the coefficient. Hot
+  dimensions take it 0.235 → 0.223 (−0.012 ± 0.007, 1.7σ), and the shield
+  0.223 → 0.208 (−0.015 ± 0.006, 2.6σ), the larger step. The hot-dims,
+  no-shield value lands on the measured 0.223. That is noted, not used:
+  the shield stays the default by the maintainer's choice, and a coefficient
+  is not a reason to drop physics the reactor had.
 - **N-3 improved:** α_iso is now 0.07 from the measurement, where it was
   0.45. The fuel term moved from −4.18 to −3.79, further from the measured
   −4.7 ± 0.7, though still inside 1.1σ.

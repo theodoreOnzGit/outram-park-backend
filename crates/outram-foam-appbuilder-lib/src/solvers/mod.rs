@@ -45,6 +45,7 @@ pub(crate) mod bc_util;
 pub mod cht_multi_region_foam;
 pub mod energy;
 pub mod energy_radiation;
+pub mod energy_view_factor;
 pub mod hrm_foam;
 pub mod melt_foam;
 pub mod non_orthogonal;

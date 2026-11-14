@@ -252,6 +252,14 @@ pub use crate::view_factor_radiation::{
     ViewFactorModel, ViewFactorPatch, ViewFactorSolution,
 };
 
+// --- viewFactorsGen generator (Layer 4, gh:#1540) ---
+pub use crate::view_factor_generation::{
+    format_g17, generate_view_factors, trace_candidate_rays, write_label_list_list_file,
+    write_map_dist_file, write_scalar_list_list_file, GeneratedViewFactors, RayFirstHit,
+    ViewFactorGenInput, ViewFactorGenSettings,
+};
+pub use crate::esi_octree::{LineHit, LineShapes, NearestShapes, Octree, OctreeShapes, TreeBox};
+
 // --- P1 thermal radiation (Layer 4, gh:#1379) ---
 pub use crate::radiation::{
     stefan_boltzmann_esi_v2506, ConstantAbsorptionEmission, P1Model, P1PatchModel, P1Solution,

@@ -309,16 +309,20 @@ int main(int argc, char *argv[])
         dumpScalar("s", "Tf", faceT(sthermo.T(), spi));
         if (rad.radiation())
         {
-            const volScalarField& G = mesh.lookupObject<volScalarField>("G");
+            // gh:#1541: a viewFactor fluid has no G; the P1 output is unchanged when G exists
+            const bool hasG = mesh.foundObject<volScalarField>("G");
             const volScalarField& qr = mesh.lookupObject<volScalarField>("qr");
-            dumpScalar("f", "G", G.primitiveField());
+            if (hasG) dumpScalar("f", "G", mesh.lookupObject<volScalarField>("G").primitiveField());
             forAll(mesh.boundaryMesh(), pi)
             {
                 const polyPatch& pp = mesh.boundaryMesh()[pi];
                 if (isA<emptyPolyPatch>(pp)) continue;
                 const word nm(pp.name());
                 dumpScalar("f", ("qr_" + nm).c_str(), qr.boundaryField()[pi]);
-                dumpScalar("f", ("Gb_" + nm).c_str(), G.boundaryField()[pi]);
+                if (hasG)
+                {
+                    dumpScalar("f", ("Gb_" + nm).c_str(), mesh.lookupObject<volScalarField>("G").boundaryField()[pi]);
+                }
             }
         }
         {

@@ -5,13 +5,16 @@
 # Writes the committed gzipped reference reference/<tag>_v2506.txt.gz:
 # S/C lines of the gh:#1363 driver plus G, qr_*, Gb_* per step, plus
 # "I <step> <PCG iterations of the G solve>" lines parsed from the log.
-#   usage: run_cht_rad.sh [absorptivity] [nSteps] [solverFreq] [tag]
+#   usage: run_cht_rad.sh [absorptivity] [nSteps] [solverFreq] [tag] [qr]
+#   qr=1 (2026-11-14): the interface T condition carries the radiative flux as in ESI's
+#   solarBeamWithTrees: fluid `qr qr; qrNbr none`, solid `qr none; qrNbr qr`. Default 0: both `none`.
 #   env: NOREF=1 leaves the committed reference untouched
 set -e
 A=${1:-50}
 NSTEPS=${2:-50}
 FREQ=${3:-1}
 TAG=${4:-cht_rad}
+QR=${5:-0}
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 SRC13=$HERE/../upstream_openfoam_gh1363
 W=/home/user/upstream-build/gh1531
@@ -33,6 +36,10 @@ sed "s/@A@/$A/;s/@E@/$A/;s/@EE@/0/;s/solverFreq 1/solverFreq $FREQ/" \
   > $C/constant/fluid/radiationProperties
 cp $HERE/inputs/boundaryRadiationProperties $C/constant/fluid/boundaryRadiationProperties
 cp $HERE/inputs/G $C/0/fluid/G
+if [ "$QR" = 1 ]; then
+  sed -i 's/ qr none;/ qr qr;/' $C/0/fluid/T
+  sed -i 's/qrNbr none;/qrNbr qr;/' $C/0/solid/T
+fi
 # the G solver and its Laplacian scheme (the port's P1 is the uncorrected one)
 sed -i '/^solvers/,/^}/ s|^}|    \"G.*\" { solver PCG; preconditioner DIC; tolerance 1e-15; relTol 0; maxIter 1000; }\n}|' $C/system/fluid/fvSolution
 sed -i 's|laplacianSchemes { default Gauss linear corrected; }|laplacianSchemes { default Gauss linear corrected; laplacian(gammaRad,G) Gauss linear uncorrected; }|' $C/system/fluid/fvSchemes
