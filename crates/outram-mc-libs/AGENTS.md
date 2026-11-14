@@ -1030,7 +1030,9 @@ the maintainer, 2026-10-03; protocols in
   the early tally resolves the flux, a RAFFLES polynomial in `ln φ(x,y,z)`
   filling the cells MAGIC leaves without a window (extrapolation clamped,
   leave-one-out error reported); `VrArm` / `FomComparison` for
-  `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Off by default**:
+  `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Measured 2026-11-14:** no
+  resolvable bias, but FOM about 0.2x of analog and of MAGIC on the shielded room
+  (`stats_epic_493/497_learned_importance.md`). **Off by default**:
   it only builds a `WeightWindows`; transport changes only if a caller
   attaches it to a `VarianceReduction`, whose default stays analog. Source
   biasing from the learned map is not implemented (CORRECTED 2026-11-14: OpenMC's

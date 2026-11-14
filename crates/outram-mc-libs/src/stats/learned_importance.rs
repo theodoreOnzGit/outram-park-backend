@@ -69,7 +69,12 @@
 //! 1σ, which a correct estimator fails 32 % of the time — **flagged for the
 //! maintainer to confirm, not decided after seeing a result.**
 //!
-//! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
+//! ~~**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**~~
+//! **MEASURED 2026-11-14 (gh:#497, N = 5 seeds, two replicates):** learned windows
+//! show no resolvable bias on the far-field band (z +0.30, -0.12) but **lose on
+//! FOM**: about 0.18 +- 0.12 of analog and 0.17 +- 0.11 of MAGIC (pooled N = 10).
+//! Plain MAGIC showed a repeatable -4.8 % shift there (z about -3). The
+//! `|z|` band is still the maintainer's to choose; both readings are tabulated.
 //! Protocol: `verification_and_validation/stats_epic_493/497_learned_importance.md`.
 
 use petir::mathf::RealMath;
