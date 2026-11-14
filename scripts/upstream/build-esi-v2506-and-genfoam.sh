@@ -17,7 +17,7 @@
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
 #   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers twophase
-#           radiation viewfactors fetch-genfoam genfoam fetch-cfmesh cfmesh polydual decompose verify
+#           radiation viewfactors utilities fetch-genfoam genfoam fetch-cfmesh cfmesh polydual decompose verify
 #           (decompose, gh:#1381: faDecompose, faReconstruct, decomposePar, reconstructPar;
 #           scotch/metis/kahip are NOT available (no headers/libs), linked as empty dummies)
 #           (radiation, gh:#1379: libradiationModels, built by `closure` as well, plus
@@ -443,6 +443,24 @@ stage_viewfactors() {
   run_stage app-viewFactorsGen vf_viewfactorsgen_impl
 }
 
+# --- stage: pre-processing / mesh-manipulation utilities (gh:#1384) ---------------
+# setFields, topoSet, extrudeMesh: the libraries they link (sampling, extrudeModel,
+# meshTools, finiteVolume) are already built by core/closure.
+# setFields also links libfiniteArea and libgenericPatchFields (built here first).
+stage_utilities() {
+  wm_lib finiteArea
+  wm_lib genericPatchFields
+  wm_app utilities/preProcessing/setFields setFields
+  wm_app utilities/mesh/manipulation/topoSet topoSet
+  wm_app utilities/mesh/generation/extrude/extrudeMesh extrudeMesh
+}
+
+# --- stage: dynamic mesh (gh:#1380): moveDynamicMesh and the libraries it loads ----
+stage_dynmesh() {
+  # libdynamicFvMesh and libfvMotionSolvers are built by the solvers stage
+  wm_app utilities/mesh/manipulation/moveDynamicMesh moveDynamicMesh
+}
+
 # --- GeN-Foam -----------------------------------------------------------------
 gf_fetch_impl() {
   if [ "$(git -C "$GF" rev-parse HEAD 2>/dev/null)" = "$GF_SHA" ]; then echo "GeN-Foam already at $GF_SHA"; return 0; fi
@@ -663,6 +681,8 @@ for s in "$@"; do
     twophase)     load_env; stage_twophase ;;
     radiation)    load_env; stage_radiation ;;
     viewfactors)  load_env; stage_viewfactors ;;
+    utilities)    load_env; stage_utilities ;;
+    dynmesh)      load_env; stage_dynmesh ;;
     fetch-genfoam) stage_fetch_genfoam ;;
     genfoam)      load_env; stage_genfoam ;;
     fetch-cfmesh) stage_fetch_cfmesh ;;

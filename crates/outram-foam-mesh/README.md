@@ -119,6 +119,15 @@ OpenFOAM-dev C++, with upstream `File.C:line` provenance in the module docs).
     non-orthogonality is 16.7° mean, 47.7° max, and its boundary follows
     upstream (one face per point per feature-bounded sector, patch seams are
     features, `FeaturePoints` rule). Not compared against an OpenFOAM run.
+- **`dynamic_mesh`** (gh:#1380) — solid-body mesh motion
+  (`linearMotion`, `rotatingMotion`, `axisRotationMotion`,
+  `oscillatingLinearMotion` with constant coefficients) and the mesh motion flux
+  `meshPhi` (`face::sweptVol`). Compared with OpenFOAM.com v2506
+  (`dynamicMotionSolverFvMesh` through a `dumpMeshMotion` probe): 245,180 values
+  (points, `meshPhi`, face and cell geometry; 2 meshes x 4 motions x 5 steps)
+  **bit-identical**. Not ported: `displacementLaplacian` and the other solver
+  based motion solvers, motion boundary conditions, topology changers, 6-DoF.
+  Record: `verification_and_validation/dynamic_mesh_gh1380/README.md`.
 
 **Unit-tested ≠ validated.** These are AI-assisted translations checked against
 the upstream source and analytical geometry, not yet validated against OpenFOAM

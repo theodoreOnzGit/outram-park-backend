@@ -58,6 +58,8 @@
 //!   (`ideasUnvToFoam`).
 //! - [`poly_dual_mesh`] — construct the polyhedral dual of a mesh
 //!   (`polyDualMesh`).
+//! - [`dynamic_mesh`] — solid-body mesh motion and `meshPhi` (gh:#1380),
+//!   bit-identical to OpenFOAM.com v2506 on the ported motions.
 //!
 //! Solver loops, turbulence models, and thermophysics do **not** belong here —
 //! they live in the solver crates and `outram-foam-basic-lib`.
@@ -86,10 +88,12 @@ pub mod driver;
 pub mod ideas_unv_to_foam;
 pub mod check_mesh;
 pub mod decompose;
+pub mod dynamic_mesh;
 pub mod mesh_quality;
 pub mod poly_dual_mesh;
 pub mod poly_dual_mesh_upstream;
 pub mod snappy_hex_mesh;
+pub mod topo_set;
 
 // The high-level entry points, re-exported at the crate root so they are the
 // first thing a new user meets.
