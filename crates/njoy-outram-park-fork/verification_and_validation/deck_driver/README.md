@@ -1593,6 +1593,57 @@ without `run_date` gets the UTC date in the header between local midnight and UT
 midnight. Matching local time would need a time-zone dependency, which this crate does
 not have.
 
+## 32. GROUPR's flux calculator, `iwt < 0` with `nsigz > 1` (2026-11-14, gh:#1370)
+
+The tape driver refused `iwt < 0` with several sigma-zeros. No upstream deck uses it.
+`flux_table::genflx_card8a` now translates `genflx` (`groupr.f90:5309-5684`) for card 8a:
+- `nflmax = 0`: the Bondarenko branch with card 8a's `sigpot`.
+- `nflmax > 0`: the slowing-down flux.
+  - The grid comes from `gety1` on MT=1 and `gety2` on MT=2, from
+    `felo = max(egn(1), 0.1)` to `fehi`.
+  - `alpha(1)` comes from MT=1's AWR.
+  - The solve is `slowing_down::solve_flux`. These are steps 2-4 of the existing
+    `genflx_slowing_down`, moved out unchanged so that both routes share them.
+  - Then the weight shape below `felo`, the computed rows with their `nl` moments, and
+    the narrow-resonance completion.
+- `fehi` is the module variable that `genflx` rewrites, so it carries to the next
+  temperature.
+- `ninwt` is written as Fortran unformatted records. The narrow-resonance rows carry the
+  last computed row's `xc`, as upstream writes them.
+
+**Refused by name** (upstream reads values it never set):
+- an unresolved range below the first narrow-resonance row: the computed rows' `xtot`
+  word is never set;
+- `ninwt` with `nflmax = 0`: `xc` is never set;
+- `gety2` on an MT=2 that starts at zero.
+
+**Gates** (`tests/deck_driver_groupr_flux_calculator_vs_njoy2016.rs`). All decks use
+Pu-238 ENDF/B-IV `t404` and run RECONR, BROADR, UNRESR, then GROUPR (LANL-30,
+`iwt = -3`, `lord = 1`, `sigz = 1e10 100 10`). The prediction was posted on gh:#1370
+before the first run.
+
+| deck | card 8a | unit 26 (GENDF) | unit 30 (`ninwt`) |
+|---|---|---|---|
+| `SD0` | `nflmax = 0`, `sigpot = 10` | identical, 411 lines | - |
+| `SD1` | `fehi = 150`, one moderator | identical, 411 lines | - |
+| `SD2` | three moderators, `beta`, `ninwt = 30`, `jsigz = 2`, 300 and 900 K | identical, 820 lines | identical, 233 440 bytes |
+| `SD3` | `SD1` with `ninwt = 30`, `jsigz = 3` | identical, 411 lines | identical, 122 064 bytes |
+
+**The first run of `SD2` was not identical.** Unit 26 matched, but 19 of the 7 296
+`ninwt` records differed in the last bit.
+- Localised with an instrumented NJOY2016 build: a scratch copy of `groupr.f90` that
+  dumps `b` before and after the solve, built with the same `-O3`.
+- The cause: step 3's third-moderator term. Upstream writes it without parentheses,
+  `f1*beta*(1-gamma)*(sigz(iz)-sam)`, which evaluates as
+  `((f1*beta)*(1-gamma))*(sigz-sam)`. The library computed `f1*s_k3`.
+- Fixed in `solve_flux`, so `genflx_slowing_down` changes in the last bit too.
+  `groupr_u238_gendf_golden` (tier 5, `nalph = 3`) still passes.
+
+**Ablations:**
+- `solve_flux` given a zero elastic cross section: 63 of 411 lines of `SD1` differ, and
+  `SD2` differs in 126 lines and in its `ninwt` file.
+- `SD0` with `sigpot` set to 0: 213 of 411 lines differ.
+
 ## 31. RECONR's ENDF-4 TEMP record carries the entry count (2026-11-14, gh:#1546)
 
 For an ENDF-4 evaluation (`iverf = 4`, second MF=1/MT=451 record `N1 ≠ 0`,
