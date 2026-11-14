@@ -126,6 +126,18 @@ record's fuel −3.79 and graphite −3.26 × 10⁻⁵ /°F from its own eigenva
   resolves them.
 - The plant takes measured coefficients only from the reader's
   "Send to plant" button, and states which coefficients it uses.
+- ~~The button resets the plant with them.~~ **CHANGED 2026-11-14
+  (maintainer: "Send to plant should tune the plant online, not after
+  restart"):** the running plant switches to them with its state kept, as
+  `htgr_sim_v1`'s kinetics rebuild their feedback split in place
+  (`MsreModel::set_temperature_coefficients`, `session::Command::Coefficients`).
+  The reference temperatures stay, so a plant away from them sees its
+  reactivity step by Δα·(T − T_ref) at the switch; at the initial steady
+  state the step is zero. Pinned by
+  `session::tests::coefficients_switch_online_and_keep_the_state`: the state
+  is unchanged bit for bit at the switch, the plant then steps exactly as one
+  built with the new coefficients, and the step's sign after a cooling is
+  checked.
 
 ### `msre::moltres_drift` (gh:#1575, 2026-11-14)
 

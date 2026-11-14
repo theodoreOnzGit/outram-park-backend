@@ -315,3 +315,52 @@ fn a_measured_split_reaches_the_plant_and_the_arithmetic_is_the_records() {
     assert_eq!(c.fuel_temperature_coefficient, crate::msre::design::per_f(f));
     assert_eq!(c.graphite_temperature_coefficient, crate::msre::design::per_f(g));
 }
+
+/// gh:#1574, "send to plant" online: the switch keeps the plant's state
+/// (bit for bit at the moment of the switch), reports the new coefficients,
+/// leaves the reactivity unchanged at the reference state, and from then on
+/// the plant steps exactly as one built with those coefficients from the
+/// same state. Away from the reference temperatures the reactivity steps by
+/// Δα·(T − T_ref), which is checked by its sign after a cooling.
+#[test]
+fn coefficients_switch_online_and_keep_the_state() {
+    let new = Coefficients::Measured { fuel_per_f: -6.0e-5, fuel_sigma: 0.5e-5, graphite_per_f: -2.0e-5, graphite_sigma: 0.5e-5 };
+    // At the initial steady state: no reactivity step, the state kept.
+    let mut a = Session::new(SessionConfig::default()).unwrap();
+    let before = a.snapshot();
+    a.apply(Command::Coefficients(new)).unwrap();
+    let after = a.snapshot();
+    assert_eq!(before, after, "the state is kept at the switch");
+    assert_eq!(a.config().coefficients, new);
+    let (f, g) = new.per_f();
+    assert_eq!(a.model.fuel_temperature_coefficient(), crate::msre::design::per_f(f));
+    assert_eq!(a.model.graphite_temperature_coefficient(), crate::msre::design::per_f(g));
+    // Then it steps as a plant built with the new set from the start does
+    // (both at the same steady state, so the same state).
+    let mut b = Session::new(SessionConfig { coefficients: new, ..Default::default() }).unwrap();
+    a.apply(Command::RodsPcm(15.0)).unwrap();
+    b.apply(Command::RodsPcm(15.0)).unwrap();
+    for _ in 0..6 {
+        assert_eq!(a.advance(5.0).unwrap(), b.advance(5.0).unwrap());
+    }
+    // Away from the reference: cool the salt, switch to a more negative
+    // fuel coefficient; the fuel is colder than its reference, so the
+    // feedback becomes more positive at the switch.
+    let mut c = Session::new(SessionConfig::default()).unwrap();
+    c.apply(Command::AirFraction(1.0)).unwrap();
+    for _ in 0..6 {
+        c.advance(10.0).unwrap();
+    }
+    let s0 = c.snapshot();
+    assert!(s0.fuel_f < at_reference_fuel_f(), "the salt cooled: {}", s0.fuel_f);
+    c.apply(Command::Coefficients(new)).unwrap();
+    let s1 = c.snapshot();
+    assert!(s1.feedback_pcm > s0.feedback_pcm, "{} -> {}", s0.feedback_pcm, s1.feedback_pcm);
+    assert_eq!((s1.time_s, s1.fuel_f, s1.power_mw), (s0.time_s, s0.fuel_f, s0.power_mw));
+    assert!(c.apply(Command::Coefficients(Coefficients::Measured { fuel_per_f: f64::NAN, fuel_sigma: 0.0, graphite_per_f: 0.0, graphite_sigma: 0.0 })).is_err());
+}
+
+/// The default plant's fuel lump temperature at its steady state, °F.
+fn at_reference_fuel_f() -> f64 {
+    Session::new(SessionConfig::default()).unwrap().snapshot().fuel_f
+}
