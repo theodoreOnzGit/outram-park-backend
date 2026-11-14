@@ -2083,3 +2083,172 @@ const PINS_D_VD: &[(&str, usize)] = &[
     ("vanDriest delta (esi y, esi mapped ystar)", 360),
     ("vanDriest delta (esi y, own mapped ystar)", 228),
 ];
+
+// ── gh:#1544 slice 10: LRR and SSG Reynolds-stress models (terms only; upstream grad(U), y, n fed in) ──
+
+use outram_foam_basic_lib::primitives::SymmTensor as SymmT;
+use outram_foam_turbulence_lib::reynolds_stress::lrr::Lrr;
+use outram_foam_turbulence_lib::reynolds_stress::ssg::Ssg;
+use outram_foam_turbulence_lib::reynolds_stress::{wall_face_cells, wall_face_stress, ReynoldsStressFrozen};
+
+const REF_LRR: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LRR.txt.gz"
+);
+const REF_SSG: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_SSG.txt.gz"
+);
+
+const SYMM_C: [&str; 6] = ["xx", "xy", "xz", "yy", "yz", "zz"];
+
+impl Ref {
+    fn symm(&self, k: &str) -> Vec<SymmT> {
+        self.cols[k]
+            .iter()
+            .map(|v| SymmT::new(v[0], v[1], v[2], v[3], v[4], v[5]))
+            .collect()
+    }
+}
+
+fn rs_frozen(r: &Ref) -> ReynoldsStressFrozen {
+    ReynoldsStressFrozen { grad_u: r.t("gradU"), wall_distance: r.s("y"), wall_normal: r.v("n_real") }
+}
+
+/// Compare the six components of a symmetric term (`<name>_xx`...) with the dump column `key`.
+fn compare_symm_term(label: &str, r: &Ref, st: &SourceTerms, key: &str, name: &str) -> Rows {
+    SYMM_C
+        .iter()
+        .enumerate()
+        .map(|(j, c)| {
+            let l = format!("{label} {name}_{c}");
+            let up: Vec<f64> = r.cols[key].iter().map(|v| v[j]).collect();
+            (l.clone(), cmp(&l, st.get(&format!("{name}_{c}")).unwrap(), &up))
+        })
+        .collect()
+}
+
+/// Terms shared by both models plus the post-`correct()` state.
+fn rs_common(label: &str, r: &Ref, st: &SourceTerms, k: &[f64], nut: &[f64]) -> Rows {
+    let mut rows = compare(
+        label,
+        r,
+        st,
+        &[("T_k", "k"), ("T_nut", "nut"), ("T_G", "G"), ("T_eps_E", "eps_E"), ("T_eps_Sp", "eps_Sp"), ("T_R_Sp", "R_Sp")],
+    );
+    for (key, name) in [("T_P", "P"), ("T_DepsEff", "DepsEff"), ("T_DREff", "DREff"), ("T_Pw", "Pw"), ("T_R_Su", "R_Su")] {
+        rows.extend(compare_symm_term(label, r, st, key, name));
+    }
+    // the real model: k and nut as validate() and correct() left them
+    for (name, key, vals) in [
+        ("k after correct()", "k_after", k.to_vec()),
+        ("nut after validate()", "nut_validate", nut.to_vec()),
+        ("nut after correct()", "nut_after", nut.to_vec()),
+    ] {
+        let l = format!("{label} {name}");
+        rows.push((l.clone(), cmp(&l, &vals, &r.s(key))));
+    }
+    // dumpSolver does not solve: epsilon is unchanged by correct()
+    let l = format!("{label} epsilon after correct() == input");
+    rows.push((l.clone(), cmp(&l, &r.s("epsilon_after"), &r.s("epsilon"))));
+    rows
+}
+
+/// Wall-face Reynolds stress after `correctWallShearStress` against the real `R_after` boundary.
+fn rs_wall_faces(label: &str, r: &Ref, mesh: &Arc<FvMesh>, nut_cells: &[f64]) -> (String, Stat) {
+    let sn = r.v("snGradU_wall");
+    let sf = r.v("Sf");
+    let rb = r.cols["R_after_b"].clone();
+    let nutb = r.s("nut_after_b");
+    let mut mine = Vec::new();
+    let mut up = Vec::new();
+    let mut k = 0;
+    for p in &mesh.patches {
+        if !matches!(p.kind, PatchKind::Wall) {
+            continue;
+        }
+        for f in p.start..p.start + p.size {
+            let b = f - mesh.n_internal_faces;
+            // the wall-face nut is the owner-cell value (calculated patch of zeroGradient k, epsilon)
+            assert_eq!(nutb[b].to_bits(), nut_cells[mesh.owner[f]].to_bits(), "wall nut");
+            let w = wall_face_stress(nutb[b], sf[f], sn[k]);
+            mine.extend([w.xx, w.xy, w.xz, w.yy, w.yz, w.zz]);
+            up.extend(rb[b].iter().cloned());
+            k += 1;
+        }
+    }
+    assert_eq!(k, sn.len());
+    let l = format!("{label} wall-face R after correct()");
+    (l.clone(), cmp(&l, &mine, &up))
+}
+
+#[test]
+fn lrr_vs_openfoam() {
+    let r = parse(REF_LRR);
+    check_audits(&r, 28);
+    let mesh = r.mesh();
+    let mut m = Lrr::new(mesh.clone());
+    assert!(m.wall_reflection, "wall reflection is the upstream default");
+    m.r = r.symm("R_in");
+    m.epsilon = r.s("epsilon");
+    m.nu = r.s("nu");
+    let st = m.source_terms(&rs_frozen(&r));
+    let (k, nut) = (m.k(), m.nut());
+    let mut rows = rs_common("LRR", &r, &st, &k, &nut);
+    rows.push(rs_wall_faces("LRR", &r, &mesh, &nut));
+    for (key, name) in [("T_reflect", "reflect"), ("T_refl", "refl")] {
+        rows.extend(compare_symm_term("LRR", &r, &st, key, name));
+    }
+    rows.extend(compare("LRR", &r, &st, &[("T_refl_coef", "refl_coef")]));
+    check_registered(&r, "reg_epsilon_LRR_G", "T_G");
+    all_identical(&rows);
+    // the wall-reflection term is non-trivial; the explicit ablation removes exactly it
+    // (n is axis-aligned on this duct, so the reflection acts on the yy and zz components)
+    let (ry, rz) = (st.get("refl_yy").unwrap(), st.get("refl_zz").unwrap());
+    let active = (0..mesh.n_cells).filter(|&c| ry[c] != 0.0 || rz[c] != 0.0).count();
+    println!("LRR cells with a non-zero wall-reflection term: {active}");
+    assert!(active > 340);
+    m.wall_reflection = false;
+    assert!(m.source_terms(&rs_frozen(&r)).get("refl_xy").is_none());
+    assert!(!Lrr::new(mesh.clone()).without_wall_reflection().wall_reflection);
+    // prediction 4: the wall rescaling changes P in the wall cells and only there
+    let wall: std::collections::HashSet<usize> = wall_face_cells(&mesh).into_iter().collect();
+    let (p, pw) = (st.get("P_xy").unwrap(), st.get("Pw_xy").unwrap());
+    let changed = (0..mesh.n_cells).filter(|&c| p[c] != pw[c]).count();
+    println!("LRR cells with Pw != P: {changed} of {} wall cells", wall.len());
+    assert!((0..mesh.n_cells).all(|c| p[c] == pw[c] || wall.contains(&c)));
+    assert!(changed > 0);
+    println!("LRR rows: {}, all identical", rows.len());
+}
+
+#[test]
+fn ssg_vs_openfoam() {
+    let r = parse(REF_SSG);
+    check_audits(&r, 28);
+    let mesh = r.mesh();
+    let mut m = Ssg::new(mesh.clone());
+    m.r = r.symm("R_in");
+    m.epsilon = r.s("epsilon");
+    m.nu = r.s("nu");
+    let st = m.source_terms(&rs_frozen(&r));
+    let (k, nut) = (m.k(), m.nut());
+    let mut rows = rs_common("SSG", &r, &st, &k, &nut);
+    rows.push(rs_wall_faces("SSG", &r, &mesh, &nut));
+    for (key, name) in [("T_b", "b"), ("T_S", "S"), ("T_t1", "t1"), ("T_t2", "t2")] {
+        rows.extend(compare_symm_term("SSG", &r, &st, key, name));
+    }
+    rows.extend(compare("SSG", &r, &st, &[("T_magb", "magb")]));
+    let om = r.cols["T_Omega"].clone();
+    for (j, c) in ["xx", "xy", "xz", "yx", "yy", "yz", "zx", "zy", "zz"].iter().enumerate() {
+        let l = format!("SSG Omega_{c}");
+        let up: Vec<f64> = om.iter().map(|v| v[j]).collect();
+        rows.push((l.clone(), cmp(&l, st.get(&format!("Omega_{c}")).unwrap(), &up)));
+    }
+    check_registered(&r, "reg_epsilon_SSG_G", "T_G");
+    all_identical(&rows);
+    // negative control for prediction 3: basic-lib `SymmTensor::dev` (tr/3) against upstream's
+    // `(1.0/3.0)*tr` form, measured on the real `b_xx`; the count is recorded, not asserted to be 0
+    let up_bxx: Vec<f64> = r.cols["T_b"].iter().map(|v| v[0]).collect();
+    let alt: Vec<f64> = m.r.iter().zip(&k).map(|(rr, k)| (rr.dev() / (2.0 * k)).xx).collect();
+    let s = cmp("SSG negative control: basic-lib dev (tr/3) b_xx", &alt, &up_bxx);
+    println!("negative control identical {} of {}", s.identical, s.n);
+    println!("SSG rows: {}, all identical", rows.len());
+}
