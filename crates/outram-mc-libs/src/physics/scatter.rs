@@ -428,7 +428,14 @@ pub struct DbrcTable {
     cdf: Vec<f64>,
     /// Which resonance-scattering sampler the window uses.
     method: ResonanceScatteringMethod,
+    /// Lower energy \[eV\] of the resonance-scattering treatment: OpenMC's
+    /// `res_scat_energy_min` (`settings.cpp:126`, default 0.01 eV). Below it
+    /// the constant-cross-section sampler is used (GitHub #463 item 4).
+    e_min: f64,
 }
+
+/// OpenMC's default `res_scat_energy_min` \[eV\] (`src/settings.cpp:126`).
+pub const DBRC_DEFAULT_E_MIN_EV: f64 = 0.01;
 
 /// How a resonant nuclide's target velocity is sampled inside the window
 /// `E_red ± 4` (OpenMC's `ResScatMethod`, `src/physics.cpp`
@@ -484,6 +491,7 @@ impl DbrcTable {
             e_max: e_max_ev,
             cdf,
             method: ResonanceScatteringMethod::default(),
+            e_min: DBRC_DEFAULT_E_MIN_EV,
         })
     }
 
@@ -491,6 +499,20 @@ impl DbrcTable {
     pub fn with_method(mut self, method: ResonanceScatteringMethod) -> Self {
         self.method = method;
         self
+    }
+
+    /// The same table with `e_min_ev` as its lower bound, OpenMC's
+    /// `<resonance_scattering><energy_min>` (default
+    /// [`DBRC_DEFAULT_E_MIN_EV`]; a deck that sets 1e-5 eV is reproduced with
+    /// `with_energy_min(1.0e-5)`).
+    pub fn with_energy_min(mut self, e_min_ev: f64) -> Self {
+        self.e_min = e_min_ev;
+        self
+    }
+
+    /// The lower bound of the treatment \[eV\].
+    pub fn energy_min(&self) -> f64 {
+        self.e_min
     }
 
     /// The sampler this table uses.
@@ -674,8 +696,7 @@ fn sample_target_velocity_dbrc(
     // DBRC applies at and above OpenMC's `res_scat_energy_min` (0.01 eV); below
     // it, and in the degenerate case where the window holds no grid point,
     // the constant-cross-section sampler is used, as upstream.
-    const RES_SCAT_ENERGY_MIN: f64 = 0.01;
-    let window = dbrc.filter(|t| t.method == ResonanceScatteringMethod::Dbrc && t.applies(e) && e >= RES_SCAT_ENERGY_MIN).and_then(|t| {
+    let window = dbrc.filter(|t| t.method == ResonanceScatteringMethod::Dbrc && t.applies(e) && e >= t.e_min).and_then(|t| {
         let e_low = (beta_vn - 4.0).max(0.0).r_powi(2) * kt_ev / awr;
         let e_up = (beta_vn + 4.0).r_powi(2) * kt_ev / awr;
         t.has_point_inside(e_low, e_up).then(|| (t, e_up, t.xs_max_over(e_low, e_up)))
@@ -684,7 +705,7 @@ fn sample_target_velocity_dbrc(
     // RVS (the default method): its own window arithmetic and degenerate
     // test, as upstream's `ResScatMethod::rvs` branch. The result is already
     // in √E units, so it returns here.
-    if let Some(t) = dbrc.filter(|t| t.method == ResonanceScatteringMethod::Rvs && t.applies(e) && e >= RES_SCAT_ENERGY_MIN) {
+    if let Some(t) = dbrc.filter(|t| t.method == ResonanceScatteringMethod::Rvs && t.applies(e) && e >= t.e_min) {
         if let Some((vt_sq, mu)) = t.sample_rvs(e, awr, kt_ev, seed) {
             let vt = vt_sq.sqrt();
             let u_t = rotate_direction(u, mu, seed);
@@ -1788,7 +1809,6 @@ fn sample_target_velocity_openmc(
     kt: f64,
     seed: &mut u64,
 ) -> [f64; 3] {
-    const RES_SCAT_ENERGY_MIN: f64 = 0.01;
     let mut method;
     match resonant {
         Some(t) => {
@@ -1800,7 +1820,7 @@ fn sample_target_velocity_openmc(
             if e > t.e_max {
                 return [0.0; 3];
                 // lower resonance scattering energy bound (should be no resonances below)
-            } else if e < RES_SCAT_ENERGY_MIN {
+            } else if e < t.e_min {
                 method = TargetMethod::Cxs;
             }
         }
