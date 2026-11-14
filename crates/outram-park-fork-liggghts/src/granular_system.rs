@@ -307,6 +307,10 @@ pub struct GranularSystem {
     capillary: Option<crate::capillary::CapillaryState>,
     /// `fix multisphere`: created when the first clump is inserted (gh:#1415).
     multisphere: Option<crate::multisphere::Multisphere>,
+    /// `boundary f f f` with `thermo_modify lost ignore`: the box whose
+    /// leavers `Comm::exchange` drops at a rebuild
+    /// ([`GranularSystem::with_lost_atoms`], gh:#1415).
+    lost_atoms_box: Option<(Vec3, Vec3)>,
 }
 
 /// Where a capillary mesh-facet `surfacesClose` happens (gh:#1487): the
@@ -469,6 +473,7 @@ impl GranularSystem {
             massflow: Vec::new(),
             capillary: None,
             multisphere: None,
+            lost_atoms_box: None,
         };
         s.compute_forces_setup();
         Ok(s)
@@ -781,7 +786,13 @@ impl GranularSystem {
             return;
         }
         let triggersq = 0.25 * skin * skin;
-        let mut rebuild = self.mesh_rebuild_pending;
+        // `Neighbor::decide`: a fix's `next_reneighbor` (fix multisphere after
+        // freeing a lost clump's atoms, gh:#1415) forces the rebuild
+        let ms_forced = self
+            .multisphere
+            .as_ref()
+            .is_some_and(|m| m.next_reneighbor() == Some(self.step_count));
+        let mut rebuild = self.mesh_rebuild_pending || ms_forced;
         if !rebuild {
             for (p, h) in self.particles.iter().zip(&self.xhold) {
                 let d = p.position.sub(*h);
@@ -1745,6 +1756,9 @@ impl GranularSystem {
             self.torques.swap_remove(i);
         }
         if !removed.is_empty() {
+            // a clump that lost a member is freed as at a rebuild's
+            // `FixMultisphere::pre_neighbor` (gh:#1415); no-op without clumps
+            self.multisphere_pre_neighbor();
             self.compute_forces();
         }
         removed
@@ -1903,6 +1917,102 @@ impl GranularSystem {
         }
     }
 
+    /// `boundary f f f` + `thermo_modify lost ignore` (gh:#1415): at every
+    /// neighbour-list rebuild, `Comm::exchange` drops each atom outside the
+    /// box `[box_lo, box_hi)` of the LIGGGHTS neighbour configuration,
+    /// dimension by dimension (x, then y, then z), the last local atom taking
+    /// the hole. A clump that loses an atom this way is freed and deleted by
+    /// `fix multisphere` ([`crate::multisphere::Multisphere`]). Opt-in, since
+    /// the port does not otherwise know the deck's boundary style; without it
+    /// an atom that leaves the box is kept, which no upstream run with `f`
+    /// boundaries does.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless the system is under
+    /// [`NeighborOrder::Liggghts`] with the atom sort off (`sort_every == 0`):
+    /// the deletion walks the local order, which only that set-up keeps equal
+    /// to the particle order.
+    pub fn with_lost_atoms(mut self) -> Result<Self, DemError> {
+        match self.neighbor_order {
+            NeighborOrder::Liggghts(cfg) if cfg.sort_every == 0 => {
+                self.lost_atoms_box = Some((cfg.box_lo, cfg.box_hi));
+                Ok(self)
+            }
+            _ => Err(DemError::InvalidInput(
+                "lost atoms are ported with the LIGGGHTS neighbour order and 'atom_modify sort 0 0' only"
+                    .into(),
+            )),
+        }
+    }
+
+    /// Remove atom `i` the way `AtomVec::copy(nlocal-1, i, 1)` does: the last
+    /// atom takes slot `i` in every per-atom array.
+    fn swap_remove_atom(&mut self, i: usize) -> Particle {
+        self.note_removed(i);
+        let p = self.particles.swap_remove(i);
+        self.tags.swap_remove(i);
+        self.types.swap_remove(i);
+        self.forces.swap_remove(i);
+        self.torques.swap_remove(i);
+        p
+    }
+
+    /// `FixMultisphere::pre_exchange`: `next_reneighbor = -1`, then delete the
+    /// atoms marked by `check_lost_atoms`, walking the local order with the
+    /// last atom filling each hole. No-op without clumps.
+    fn multisphere_pre_exchange(&mut self) {
+        let Some(ms) = self.multisphere.as_mut() else { return };
+        ms.pre_exchange_reset();
+        let mut any = false;
+        let mut i = 0;
+        while i < self.particles.len() {
+            if self.multisphere.as_ref().is_some_and(|m| m.delflag(i)) {
+                self.swap_remove_atom(i);
+                any = true;
+            } else {
+                i += 1;
+            }
+        }
+        if any {
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+        }
+    }
+
+    /// `Comm::exchange` on one process with `f` boundaries: per dimension,
+    /// drop every atom with `x < lo || x >= hi`. No-op unless
+    /// [`GranularSystem::with_lost_atoms`] was called.
+    fn exchange_lost_atoms(&mut self) {
+        let Some((lo, hi)) = self.lost_atoms_box else { return };
+        let (lo, hi) = ([lo.x, lo.y, lo.z], [hi.x, hi.y, hi.z]);
+        let mut any = false;
+        for dim in 0..3 {
+            let mut i = 0;
+            while i < self.particles.len() {
+                let p = self.particles[i].position;
+                let x = [p.x, p.y, p.z][dim];
+                if x < lo[dim] || x >= hi[dim] {
+                    self.swap_remove_atom(i);
+                    any = true;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+        if any {
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+        }
+    }
+
+    /// `FixMultisphere::pre_neighbor` (`check_lost_atoms`); no-op without
+    /// clumps.
+    fn multisphere_pre_neighbor(&mut self) {
+        let step = self.step_count;
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.pre_neighbor(&mut self.particles, step);
+        }
+    }
+
     /// Keep the LIGGGHTS local order in step with an insertion: the new atom
     /// takes the last local slot (`nlocal++`) and the list is rebuilt.
     fn note_inserted(&mut self) {
@@ -1917,12 +2027,15 @@ impl GranularSystem {
     /// the hole (`AtomVec::copy(nlocal-1, i)`), and the particle array's own
     /// `swap_remove` moves its last particle into slot `i`.
     fn note_removed(&mut self, i: usize) {
-        // the per-atom body arrays of `fix multisphere` are not compacted
-        // (lost-atom/body deletion is not ported, gh:#1415)
-        assert!(
-            self.multisphere.is_none(),
-            "removing particles from a system with multisphere clumps is not ported"
-        );
+        // ~~the per-atom body arrays of `fix multisphere` are not compacted
+        // (lost-atom/body deletion is not ported, gh:#1415)~~ CORRECTED
+        // 2026-11-14 (gh:#1415): they are compacted as `AtomVec::copy` does
+        // (`FixMultisphere::copy_arrays`); a clump that lost an atom is freed
+        // at the next `pre_neighbor` (`Multisphere::pre_neighbor`).
+        let n = self.particles.len();
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.swap_remove_atom(i, n);
+        }
         if let Some(c) = self.capillary.as_mut() {
             // the removed atom's liquid and bridges leave with it; the last
             // atom takes its slot (`swap_remove`, as the particle array does)
@@ -2220,6 +2333,14 @@ impl GranularSystem {
             self.delete_massflow_marked();
         }
         self.run_insertions();
+        // a rebuild step: `FixMultisphere::pre_exchange` (deletes the atoms of
+        // lost clumps), `Comm::exchange` (drops atoms that left an `f` box),
+        // `FixMultisphere::pre_neighbor` (`check_lost_atoms`); gh:#1415
+        if self.rebuild_now || self.neigh_skin <= 0.0 {
+            self.multisphere_pre_exchange();
+            self.exchange_lost_atoms();
+            self.multisphere_pre_neighbor();
+        }
         // the mesh neighbour lists rebuild when the neighbour list does (every
         // step when no skin was given)
         if self.rebuild_now || self.neigh_skin <= 0.0 {
