@@ -1009,6 +1009,29 @@ level; dividing again by the atom ratio removes the composition:
     the Hf tapes, which wait on the maintainer like the Gd ones. What is
     left is the 1960s Zr and F cross sections themselves.
 
+**Salt absorption re-measured on the 2026-11-13 default (hot dimensions
++ whole shield), 2026-11-14.** Same instrument (`--salt-spectrum-csv` with
+energy bands), seeds 1–3; k bit-identical to the default's rows.
+Prediction posted on gh:#1128 before the run: per-atom ratios to U-235
+within ±5 % of the previous default's. Data: `data/salt_bands.csv`, label
+`…+hot-dims+shield-tm0728-full`.
+
+| element | absorption / U-235's, new ÷ previous default | share above 0.625 eV, previous → new |
+|---|---|---|
+| Zr | 1.017 | 70.7 % → 71.3 % |
+| F | 1.002 | 59.4 % → 59.7 % |
+| Be | 1.003 | 75.6 % → 75.8 % |
+| Li-7 | 0.998 | 12.9 % → 13.2 % |
+| U-234/236/238 | 1.017 | 95.5 % → 95.6 % |
+
+- **Inside the prediction; every element moves by under 2 %.** The salt's
+  spectrum barely moves with the new default. The returned shield neutrons
+  are absorbed mostly in the vessel wall (balance above), not in the core
+  salt.
+- **The Zr and F gaps against TM-0730 stand:** about **2.46×** and
+  **1.82×** per atom (from 2.50 and 1.82). They remain the leading open
+  explanation of the +1726 pcm, pending BNL-325 / CF-60-3-35.
+
 ### N-1 residual: U-234 and U-236 in the salt (2026-11-12, gh:#1128)
 
 **Ablation:** `--minor-uranium tm0730` (`salt_with_tm0730_minor_uranium`). It
