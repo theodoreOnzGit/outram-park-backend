@@ -1830,6 +1830,68 @@ GROUPR LANL-30 `iwt = 3`, `lord = 3`, `3 1/ 3 51/ 8 51/ … 8 54/ 8 56/`.
 - A deck asking for `8 55/` stops at GROUPR with the `LTP > 2` refusal
   (`l45_deck_with_ltp14_is_refused_by_name`).
 
+### 35b. GROUPR with several materials (card 10) and an input GENDF (`ngout1`) (2026-11-14, gh:#1370)
+
+No upstream deck uses either. Translated from `groupr.f90:433-470` (label 120), `:480-488`
+(label 170), `:549-604` (the head), `:405-432` (label 410), `:590-630` (labels 590-620) and
+`:990-1006` (card 10, label 650):
+- **Card 10** is read after the material's `ntemp` card-9 lists, and each further material
+  reads its own `ntemp` lists. ~~`read_groupr` read card 10 "until 0" straight after the
+  first material~~ **CORRECTED 2026-11-14**: that read a second material's card 9 as card 10.
+  `iverf`/`emaxx` stay those of `nendf`'s first material; `lrflag`, `dntc`, `fehi`, the
+  `ninwt` file and `getfwt`'s position carry on as module state.
+- **`ngout1`** (`deck/groupr/gout.rs`): a read position in lines (coded) or records
+  (binary). `tpidio` copies the label. Label 120 copies earlier materials, skips one
+  MEND-block of `matb`, and backs up at a later MAT. `totend` copies the rest. With
+  `iaddmt = 1` (card-10 `-matb`), the head is copied (`contio` + `tofend`), label 410 copies
+  old sections up to the one replaced, and label 600 copies the remainder.
+- **Sequence numbers.** A coded copy (`tomend` and the rest) writes the running `nsh` and
+  never resets it on the END lines it copies, so a new section after a copy continues the
+  count. `conver` sets `nsh = 0` (`:10965`), and the `atend` after it leaves 1 for a coded
+  `nendf`. Only a copied head shows this; `write_head` sets `nsh = 1` (`:554`).
+- **Refused by name:**
+  - a negative first `matb`. With `ngout1 /= 0`, `ruinb` keeps the sign and `findf` stops.
+    With `ngout1 = 0`, label 170 reads `nendf`'s label as a head, and NJOY2016 loops for
+    good (run: killed after 2 minutes at 100 % CPU);
+  - a card-10 `-matb` with `ngout1 = 0`, for the same reason;
+  - `ngout1`/`ngout2` of different modes (the copy routines' "mode conversion");
+  - `iaddmt = 1` with the flux calculator, whose `genflx` moves `nsh` (`:5423`);
+  - a binary `ngout1` that no module of the run wrote.
+- **A run off the end of `ngout1`** is an error, as NJOY2016's Fortran runtime "End of
+  file" is. NJOY2016 does this whenever a card-10 `-matb` is itself on `ngout1`: label 120
+  skips its block, and the head copy reads the TEND (run).
+
+**Found on the way (pre-existing, single material):** `getdis` with `mft = 4` (MF=4
+two-body, the MT 251-253 ratios) used the PENDF MF=3 head's AWR. Upstream `getfle` sets
+`awr` from the MF=4 head (`:9713`). Be-9 ENDF/B-VIII.0 has 8.934780 against 8.934760, and is
+the only tape held here, in `tests/resources` or `reference-data/endf`, where the two differ
+(checked by script over all of them). So no gated deck moves.
+- Be-9 alone at 0 K: MF=6 MT=2 differed in 39 of 395 lines; with the fix, 6.
+- The 6 remaining lines are in the 7th figure, at the energies where Be-9's Legendre
+  order changes. They are **not resolved**; `be9_alone_control` is `#[ignore]`d with that
+  reason.
+
+**Gates** (`tests/deck_driver_groupr_materials_vs_njoy2016.rs`; predictions posted on
+gh:#1370 before each run). The tapes are ENDF/B-VIII.0 H-2 (128) + Li-6 (325), joined in
+the test, with C-12 (625) added for `NG3`. RECONR 0.005, then GROUPR at 0 K: LANL-30,
+`iwt = 3`, `lord = 1`.
+
+| deck | what | units | result |
+|---|---|---|---|
+| `MM1` | 128 and card-10 325, `3/ 6 2/` each | 24 | identical, 1062 lines |
+| `NG` | `MM1`, then replace 325 (unit 25), then replace 128 (unit 26) from `ngout1 = 24` | 24, 25, 26 | identical, 1062 / 455 / 877 |
+| `NGB` | `NG`'s first replacement, blocked binary, MODER to text | 34, 35 | identical, 1062 / 455 |
+| `NG3` | `iaddmt = 1` for 325, not on `ngout1` (128, 625): 625's head and sections are copied around 325's | 24, 25 | identical, 716 / 470 |
+
+- The first run missed in two ways: the Be-9 AWR above (Be-9 was then the second
+  material), and `NG3`'s `nsh` after `conver`. Then an END writer that did not leave
+  `nsh = 1` for a following text copy made `NG` differ in its TEND line and in 325's copied
+  block. All three are fixed.
+- **Ablations:**
+  - label 410 skipping instead of copying: `NG3` unit 25 differs in 387 of 470 lines;
+  - the text copy resetting `nsh` on copied END lines: `NG` unit 25 differs in 310 lines,
+    unit 26 in 733, and `NG3` unit 25 in 369. `NGB` (binary) is unchanged, as it must be.
+
 ## 36. THERMR's second SCT atom: `gatef2` wired (2026-11-14, gh:#1375)
 
 **Upstream.** For an ENDF-4/5 tape THERMR keys a mixed moderator's second
