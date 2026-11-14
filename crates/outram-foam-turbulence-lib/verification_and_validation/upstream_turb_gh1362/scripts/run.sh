@@ -13,7 +13,7 @@ cp -r $SOLV $W/lib/dumpSolver
 rm -rf $W/src/turbDump
 cp -r $HERE/driver $W/src/turbDump
 (cd $W/src/turbDump && WM_NCOMPPROCS=1 $WITH wmake)
-for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEpsilon realizableKE WALE SpalartAllmarasDES SpalartAllmarasDDES SpalartAllmarasIDDES kOmegaSSTDES kEqn LaunderSharmaKE LaunderSharmaKE_lowRe LESfilters dynamicKEqn_simple dynamicKEqn_laplace dynamicKEqn_anisotropic dynamicLagrangian_simple dynamicLagrangian_laplace dynamicLagrangian_anisotropic}; do
+for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEpsilon realizableKE WALE SpalartAllmarasDES SpalartAllmarasDDES SpalartAllmarasIDDES kOmegaSSTDES kEqn LaunderSharmaKE LaunderSharmaKE_lowRe LESfilters dynamicKEqn_simple dynamicKEqn_laplace dynamicKEqn_anisotropic dynamicLagrangian_simple dynamicLagrangian_laplace dynamicLagrangian_anisotropic kOmegaSSTLM}; do
   C=$W/case_$M
   MODEL=${M%_lowRe}
   FILT=simple

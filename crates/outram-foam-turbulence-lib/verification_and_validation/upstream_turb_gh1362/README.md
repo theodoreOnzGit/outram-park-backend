@@ -630,7 +630,7 @@ ONLY the driver therefore uses its own polynomials (the other models' fields are
 * `k_LM = 2.0e-5 + 3.0e-4 s (1 + 0.1 x) + 2.0e-5 z` (2e-5 to ~1.1e-4 m^2/s^2; the shared `omega`, `U`, `nu = 1e-5` are kept)
 * `ReThetat = 120 + 6400 s (1 + 0.1 x) + 400 z` (about 120 to 2560, to straddle the `Flength` breaks at 400, 596, 1200 and the `ReThetac` break at 1870)
 * `gammaInt = 0.01 + 3.0 s (1 + 0.05 x) + 0.05 z` (0.01 to ~0.94)
-* `gammaIntEff` (the model's own field, set before `correct()` through the registry, so the first `correct()` does not run with the constructor's zero) `= 0.03 + 5.2 s (1 + 0.1 x) + 0.1 z` (0.03 to ~1.9, so the `clamp(gammaIntEff, 0.1, 1)` of `epsilonByk` is active on both sides)
+* `gammaIntEff` (the model's own field, set before `correct()` through the registry, so the first `correct()` does not run with the constructor's zero) `= 0.02 + 24 s^2 (1 + 0.1 x) + 0.1 z` (so the `clamp(gammaIntEff, 0.1, 1)` of `epsilonByk` is active on both sides; see "changed once" below)
 
 Chosen from the ranges of the dimensionless groups (`RT`, `Tu`, `Ry`, `Rev`) alone, before any run of this
 model; the polynomials contain no libm. `scripts/lm_coverage_stats.py` counts how many cells fall in each
@@ -662,7 +662,7 @@ the frozen `ReThetat`, `gammaInt` are fed in.
    `|lambda - lambda0| > 1e-6` is not within ulps of its threshold). A difference there is libm, not a formula error.
 5. **Downstream of `tanh`** (`F1_SST`, hence `F1`, `gamma`, `beta`, the omega terms): as in slice 2 (PETIR `tanh`
    against glibc, a few percent of cells, at most 3 ulp). Where `F3 > F1_SST` the LM `F1` takes `F3` and hides it.
-6. **Upstream behaviours to reproduce, not fix**: (a) `Pk` multiplies by the UNCLAMPED `gammaIntEff` (up to 1.9
+6. **Upstream behaviours to reproduce, not fix**: (a) `Pk` multiplies by the UNCLAMPED `gammaIntEff` (up to ~2
    here) while `epsilonByk` uses the CLAMPED one; (b) the first `correct()` of a real run has `gammaIntEff = 0`
    (so `Pk = 0` in the first step; not exercised, the driver sets it); (c) the `ReThetat0`
    `do ... while (lambdaErr > lambdaErr_)` has no iteration cap (`maxLambdaIter` only warns); the port must not cap
