@@ -29,8 +29,12 @@
 //! Neutron-in / neutron-out (`izap = 1`, `aprime = 1`) two-body reactions
 //! from File 4 in the CM frame: elastic (`MT = 2`) and the discrete levels
 //! (`MT = 51-90`, through `q`/`thresh`). Not ported here: the charged-particle
-//! Coulomb term (`:9529-9548`), `MT = 251-253` (`mubar` etc.), the `law = 4`
-//! sign flip of ENDF-5 lab-frame data, and File-6 two-body data (`mft = 8`).
+//! Coulomb term (`:9529-9548`), ~~`MT = 251-253` (`mubar` etc.),~~ the `law = 4`
+//! sign flip of ENDF-5 lab-frame data~~, and File-6 two-body data (`mft = 8`)~~.
+//! **CORRECTED 2026-11-14** (checked against the code): `MT = 251-253` is
+//! [`TwoBodyFeed::for_mf3_ratio`]; File-6 two-body data reaches this feed through
+//! `File4Angular::isotropic_cm` (LAW = 3) and `File4Angular::from_mf6_law2`
+//! (LAW = 2, gh:#1370).
 
 use petir::mathf::RealMath;
 use crate::groupr::file4::{File4Angular, NLD};

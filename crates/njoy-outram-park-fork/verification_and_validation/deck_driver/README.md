@@ -1750,3 +1750,30 @@ gh:#1371 first). JENDL-3.3 U-235 (`J33U235`): MF=33 MT 102 refers to `(9228, 18)
 - **Not exercised by these decks:** the windows. Ignoring them changes nothing, because
   the standard's covariance is zero in its only bin outside the `LTY = 1` window.
   `StandardWindow::admits` is pinned by a unit test only.
+
+## 35. GROUPR `getmf6` LAW = 2 neutrons (2026-11-14, gh:#1370)
+
+`getmf6` sends LAW 2-5 to `getdis` (`groupr.f90:8096-8099`), which calls `getfle` with
+`mft = 8`. For LAW = 2, `getfle` reads the subsection's TAB2 with `ltt = 1` and one LIST
+`[0, E, LANG, 0, NW, NL]` per incident energy (`:9733-9760`), each through `getco`'s
+Legendre branch, as MF=4 `LTT = 1`. Everything after that is the `getdis` path LAW = 3
+already used (section 14).
+
+**Code (reuse):** `groupr::file4::File4Angular::from_mf6_law2` reads the `ZAP = 1`
+subsection with the existing `read_records`/`getco_legendre`; `deck::groupr::write_getmf6`
+hands it to `TwoBodyFeed`.
+
+**Refused by name:** `LANG /= 0`; `LCT /= 2` (upstream rewrites `LCT = 1` to CM for MT
+51-90 with `AWR >= 10` and reads `LCT = 3` per particle); LAW 4 and 5 for a neutron.
+
+**Gate** (`tests/deck_driver_groupr_mf6_law2_vs_njoy2016.rs`, deck `L2`, prediction on
+gh:#1370 first): Si-30 ENDF/B-VIII.0, MF=6 MT 51-56 (`LAW = 2`, `LANG = 0`, `LCT = 2`);
+RECONR, BROADR 293.6 K, GROUPR LANL-30 `iwt = 3`, `lord = 3`, `8 51/` to `8 56/`.
+- Unit 25 identical, 332 of 332 lines, first run.
+- Ablation: with CM isotropy in place of the records, 181 of 332 lines differ.
+
+**Not done:** `getdis`'s Coulomb term (`:9529-9548`). It runs only for `mtd = 2` with
+`izap > 1` (an incident charged particle's elastic, File-6 `LAW = 5`), together with
+`lidp`, `wcut`, `spi` and `mft = 8` for `mfd = 3`. That is the incident charged-particle
+GROUPR path; the tape driver carries no `izap`/`izat`/`aprime` for it (it sets `izap = 1`
+for every MF=6 feed), so the term is not self-contained and was not started.
