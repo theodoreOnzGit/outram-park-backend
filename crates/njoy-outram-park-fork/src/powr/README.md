@@ -64,6 +64,14 @@ tables, `packa`, the edit descriptors, the `e11.0` label check.
 
 - **`lib = 3` (EPRI-CPM) is not translated** and is refused by name
   (`powr.f90:1992-4902`: `cpm`, `pinit`, `sfile2`-`sfile6`, `cpmout`).
+  **2026-11-14 (gh:#1373): upstream writes no `lib = 3` library.** `cpm` reads
+  card 5 into locals and fills the per-material arrays from `scr`, which nothing
+  wrote (an instrumented NJOY2016 printed zeros for every card-5 field). On eight
+  card-5 variants NJOY2016.80 stopped in `sfile2` ("reference sigma zero not
+  found"), on `DEALLOCATE` of `glamt`, or with SIGSEGV, and the library unit was
+  empty each time. There is no output to reproduce, so the refusal stays; the
+  upstream behaviour is pinned by `powr_cpm_lib3_upstream_writes_no_library`.
+  Record: `verification_and_validation/deck_driver/README.md` §39a.
 - A **blocked-binary GENDF** (`ngendf < 0`) is refused: convert it with MODER.
 - `lib = 2` stops, as upstream does, when the GENDF label (GROUPR's title) does
   not read as six `e11.0` numbers: `therm` reads it with `contio`.

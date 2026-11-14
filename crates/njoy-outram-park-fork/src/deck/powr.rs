@@ -13,7 +13,8 @@
 //! Upstream reads each material's cards inside `fast` and `therm`, between
 //! GENDF passes; reading them all first gives the same values, because no
 //! card depends on the tape. Refused by name: `lib = 3` (EPRI-CPM is not
-//! translated; its cards are not read, so the run stops at POWR) and a
+//! translated, because NJOY2016 writes no library for it: `cpm` loses card 5,
+//! gh:#1373; its cards are not read, so the run stops at POWR) and a
 //! blocked-binary GENDF (`ngendf < 0`: NJOY then reads full-precision binary
 //! records and positions by record, which the card-by-card reader does not
 //! model; convert it with MODER first).

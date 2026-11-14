@@ -38,7 +38,10 @@
 //! `MT = 452-456` (`groupr::spectrum::NuYield`, `getyld` on MF=1) and `getdis` with
 //! `mft = 8` for MF=6 LAW=3 are written now; ~~LAW = 2, 4, 5 are still refused.~~ **CORRECTED
 //! 2026-11-14 (gh:#1370):** LAW = 2 neutrons are written too
-//! (`File4Angular::from_mf6_law2`); LAW = 4 and 5 are still refused. `emaxx`
+//! (`File4Angular::from_mf6_law2`); ~~LAW = 4 and 5 are still refused.~~ **CORRECTED
+//! 2026-11-14 (gh:#1370):** LAW = 4 (`File4Angular::from_mf6_law4` with
+//! `TwoBodyFeed::with_law4_cosine_flip`) and LAW = 5 (`File4Angular::from_mf6_law5`) for
+//! neutrons are written too; their named refusals are on those functions. `emaxx`
 //! is read from `nendf`'s third MF=1 record, as `groupr.f90:413-431` does. Gated:
 //! decks 29 (whole), 15, 18, 27, 34 (GENDF), 76 and 08 (GENDF without one automatic
 //! card each).
@@ -775,16 +778,20 @@ fn write_getmf6(
     // LAW=2 reads its Legendre records through `getfle` with `mft = 8` (`:9733-9760`,
     // gh:#1370, `File4Angular::from_mf6_law2`).
     let neutron_law = if mfd == 8 { mf6_subsection_law(nend, inp.matb, mtd, 1)? } else { None };
-    if matches!(neutron_law, Some(4 | 5)) {
-        return Err(NjoyError::NotPorted("groupr getmf6 LAW = 4 or 5 for a neutron (getdis with mft = 8: law 4's cosine flip, law 5's lidp and Coulomb term)"));
-    }
-    let mut pf = if matches!(neutron_law, Some(2 | 3)) {
-        let ang = if neutron_law == Some(2) {
-            crate::groupr::file4::File4Angular::from_mf6_law2(nend, inp.matb, mtd, 1, crate::groupr::file4::NLD)?
-        } else {
-            crate::groupr::file4::File4Angular::isotropic_cm()
+    // LAW=4 backs up to the first subsection and flips the CM cosine (`:7636-7653`,
+    // `:9519`); LAW=5 for a neutron reads `getco`'s `lang = LTP` branches with no
+    // Coulomb term (`:9529`, `izap = 1`), gh:#1370.
+    let mut pf = if matches!(neutron_law, Some(2..=5)) {
+        let ang = match neutron_law {
+            Some(2) => crate::groupr::file4::File4Angular::from_mf6_law2(nend, inp.matb, mtd, 1, crate::groupr::file4::NLD)?,
+            Some(4) => crate::groupr::file4::File4Angular::from_mf6_law4(nend, inp.matb, mtd, 1, crate::groupr::file4::NLD)?,
+            Some(5) => crate::groupr::file4::File4Angular::from_mf6_law5(nend, inp.matb, mtd, 1, crate::groupr::file4::NLD)?,
+            _ => crate::groupr::file4::File4Angular::isotropic_cm(),
         };
-        let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
+        let mut tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
+        if neutron_law == Some(4) {
+            tb = tb.with_law4_cosine_flip();
+        }
         crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl)
     } else if let Some(d) = disc102 {
         crate::groupr::njoy_panel::PanelFeed::Gam102(crate::groupr::njoy_panel::Gam102 { disc102: d, awr: head.c2, egg: egg.to_vec(), nl, iglo: 0 })

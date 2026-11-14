@@ -1765,7 +1765,8 @@ subsection with the existing `read_records`/`getco_legendre`; `deck::groupr::wri
 hands it to `TwoBodyFeed`.
 
 **Refused by name:** `LANG /= 0`; `LCT /= 2` (upstream rewrites `LCT = 1` to CM for MT
-51-90 with `AWR >= 10` and reads `LCT = 3` per particle); LAW 4 and 5 for a neutron.
+51-90 with `AWR >= 10` and reads `LCT = 3` per particle); ~~LAW 4 and 5 for a neutron.~~
+**CORRECTED 2026-11-14:** LAW 4 and LAW 5 (`LTP = 2`) for a neutron are written now (§35a).
 
 **Gate** (`tests/deck_driver_groupr_mf6_law2_vs_njoy2016.rs`, deck `L2`, prediction on
 gh:#1370 first): Si-30 ENDF/B-VIII.0, MF=6 MT 51-56 (`LAW = 2`, `LANG = 0`, `LCT = 2`);
@@ -1778,6 +1779,56 @@ RECONR, BROADR 293.6 K, GROUPR LANL-30 `iwt = 3`, `lord = 3`, `8 51/` to `8 56/`
 `lidp`, `wcut`, `spi` and `mft = 8` for `mfd = 3`. That is the incident charged-particle
 GROUPR path; the tape driver carries no `izap`/`izat`/`aprime` for it (it sets `izap = 1`
 for every MF=6 feed), so the term is not self-contained and was not started.
+
+### 35a. GROUPR `getmf6` LAW = 4 and LAW = 5 neutrons, on a synthetic tape (2026-11-14, gh:#1370)
+
+Maintainer decision (2026-11-14): no tape we hold has a neutron `LAW = 4` or `LAW = 5`
+subsection, so verify on a dummy input fed to both codes.
+
+**Upstream behaviour (read, then confirmed by running):**
+- **LAW 4** (`groupr.f90:7636-7653`): `getmf6` backs up to the *first* subsection of the
+  section, re-reads its TAB1 with the LAW-4 particle's `zap`/`awp`, and lets `getfle` read
+  that subsection's records. A first subsection with `LAW = 3` gives `law = -4`, so
+  `getfle` sets `iso = 1`. At normal entry `law` is 4 again, so `getdis` negates every
+  quadrature cosine (`:9519`) before both the angular probability and the lab cosine.
+- **LAW 5, neutron, `LTP = 2`**: `getco`'s `lang = 2` branch copies `a_0..a_NL` as given
+  (`a_0` is not set to 1, `:10563-10573`). `SPI` and `LIDP` reach only the Coulomb term
+  and `wcut`, which need `izap > 1` (`:9449`, `:9529`), so a neutron ignores them.
+- **LAW 5, neutron, `LTP > 2`**: GROUPR's `conver` (`:11572-11624`) rewrites each such
+  record on its scratch tape as `LTP = 2`, after multiplying `p(mu)` by `sig(E)(1-mu)`.
+  The `getsig` it calls reads the PENDF and leaves the ENDF header globals (`l1h`, `n2h`)
+  at that tape's last record, and `nm = n2h`, `getco`'s `lang = l1h` and `nmu = n2h` are
+  then read from them. Found by the first run (below) and an instrumented NJOY2016.80
+  (`write(77,…)` in `getfle` and `getco`, built in a scratch directory from the vendored
+  objects): on MT 54 (`LTP = 12`) and MT 55 (`LTP = 14`), the first two converted records
+  of each section came back `NW = 1`, `a_0 = 0`, and `getco`'s tabulated branch ran only
+  for each section's first record. **Refused by name** (`File4Angular::from_mf6_law5`).
+- **LAW 5, neutron, `LTP = 1`**: `getco` label 360 goes to 370 for `izap <= 1` with `y`
+  never set (uninitialised). **Refused by name.**
+
+**Code (reuse):** `File4Angular::from_mf6_law4` (the first subsection's records through the
+existing `read_records`, or `isotropic_cm`), `File4Angular::from_mf6_law5`
+(`getco_law5_legendre`), `TwoBodyFeed::with_law4_cosine_flip`; `deck::groupr::write_getmf6`
+dispatches LAW 2-5. Also refused by name: a LAW-4 section whose first subsection is not
+`LAW = 2/3`, a LAW-4 particle with `AWP /= 1` (the port's `getdis` holds `aprime = 1`),
+`LCT /= 2`, `LANG /= 0`.
+
+**Gate** (`tests/deck_driver_groupr_mf6_law45_vs_njoy2016.rs`, deck `L45`, prediction on
+gh:#1370 first). The test builds the tape from Si-30 ENDF/B-VIII.0 (MAT 1431), rewriting
+MF=6 MT 51-55 and the MF=1 directory counts: MT 51 Si-30 `LAW = 2` first and neutron
+`LAW = 4`; MT 52 Si-30 `LAW = 3` first and neutron `LAW = 4`; MT 53 `LAW = 5 LTP = 2`
+(`a_0 = 0.5, 0.45, 0.4`); MT 54 `LAW = 5 LTP = 2` with `SPI = 2.5`, `LIDP = 1`; MT 55
+`LAW = 5 LTP = 14`; MT 56 untouched (`LAW = 2` control). RECONR 0.005, BROADR 293.6 K,
+GROUPR LANL-30 `iwt = 3`, `lord = 3`, `3 1/ 3 51/ 8 51/ … 8 54/ 8 56/`.
+- **First run** (MT 54 then `LTP = 12`, deck with `8 55/`): 114 of 326 lines differed, all
+  in MT 54 and 55 (36 and 35 lines); MT 51, 52, 53, 56 identical. That is the `conver`
+  finding above; the prediction ("identical") missed on `LTP > 2`.
+- **Second run**: unit 25 identical, **295 of 295 lines**.
+- **Ablations** (one run, disjoint MTs): no LAW-4 cosine flip changes MT 51 in 34 of 44
+  lines and MT 52 in 32 of 41; `a_0` forced to 1 changes MT 53 in 30 of 37 and MT 54 in 29
+  of 37; MT 56 unchanged (0 of 37).
+- A deck asking for `8 55/` stops at GROUPR with the `LTP > 2` refusal
+  (`l45_deck_with_ltp14_is_refused_by_name`).
 
 ## 36. THERMR's second SCT atom: `gatef2` wired (2026-11-14, gh:#1375)
 
@@ -1940,7 +1991,52 @@ the run stops at POWR); a blocked-binary GENDF (`ngendf < 0`: NJOY reads
 full-precision records and positions by record); delayed nu with no MF=5 MT455
 (`nldla` undefined upstream); a GENDF record past `scr(5000)`.
 
-**Not done:** `lib = 3`; the listing (`nsyso`, with `pgam`, `pgamff`, `tprnt`);
+**Not done:** ~~`lib = 3`;~~ (**CORRECTED 2026-11-14:** `lib = 3` stays refused because
+upstream writes no library, §39a) the listing (`nsyso`, with `pgam`, `pgamff`, `tprnt`);
 a stand-alone gfortran build of `powr.f90` (the whole-deck comparison above
 compares upstream's compiled POWR on an identical GENDF, which is the same
 check at module level).
+
+### 39a. POWR `lib = 3` (EPRI-CPM): upstream writes no library (2026-11-14, gh:#1373)
+
+**Question** (raised by the agent that translated `lib = 1/2`): `cpm` reads card 5 into
+locals but fills the per-material values from `scr`. Is card 5 lost? Answered by running
+upstream before porting anything.
+
+**Reading.** `cpm` (`powr.f90:2075-2105`) reads `nina, ntemp, nsigz, sgref, ires, sigp, mti,
+mtc, ip1opt, norf, ipos, iposr` into local variables and uses them only for the listing and
+for `nnina`/`nres`. `:2212-2234` then fill `ninat`, `ntmp`, `nszt`, `s0rf`, `irest`, `sigpt`,
+`mtit`, `mtct`, `ip1tab`, `norft`, `ipost`, `iposrt` from `scr(1..12*newmat)`, which nothing in
+`cpm` writes. Card 6 goes to `scr(2+12*newmat..)`, just above. Only the last material's local
+`ntemp` reaches `sfile3/4/6`, as an argument.
+
+**Measured** (NJOY2016.80, 69-group Pu-238 GENDF from `t404`, GROUPR `ign = 9`; POWR
+`3 1 1/ 1 1 1 0 0 0 1/ 1050/`, card 5 `nina 3 7 1.e10 ires 10.0 0 0 0 0 1 1/`):
+- An instrumented build (one `write` after the fill, relinked from the vendored objects in a
+  scratch directory) prints every per-material value as 0; `scr(1..13) = 0`,
+  `scr(14..26)` = card 6.
+- The unmodified binary on eight card-5 variants:
+
+| `nina` | `ires` | NJOY2016 | unit 27 |
+|---|---|---|---|
+| 0, 3 | 0, 1 | stops in `sfile2`: "reference sigma zero not found" (`s0rf = 0`), exit 77 | empty |
+| 1, 2 | 0 | "Attempt to DEALLOCATE unallocated 'glamt'" (`sfile3`, `:3032`), exit 2 | empty |
+| 1, 2 | 1 | SIGSEGV, exit 139 | empty |
+
+- **Ablation** (a scratch NJOY whose `cpm` stores card 5 into `scr`): the `sfile2` stop
+  disappears for `nina = 0, ires = 0` and the run stops later, in `sfile6` ("no required p1
+  matrices found"). So the card-5 loss is what stops `sfile2`. The other variants still end in
+  an error or SIGSEGV, and no variant writes a library. So `lib = 3` has failure points past
+  card 5 too, which were not chased.
+
+**Decision.** There is no upstream output to reproduce. What upstream does depends on what
+`scr` holds: zeros in a fresh run, or an earlier POWR's GENDF words. So `lib = 3` stays
+refused by name, now with this reason in the message (`powr::run_powr`). The 2 900 lines
+(`powr.f90:1992-4902`) were not translated: nothing could verify them against upstream.
+Repairing `cpm` would be a change to NJOY, which is the maintainer's call.
+
+**Gate:** `tests/deck_driver_powr_vs_njoy2016.rs::powr_cpm_lib3_upstream_writes_no_library`
+(prediction on gh:#1373 first; as predicted). It runs the `nina = 0`, `nina = 1` and
+`nina = 1, ires = 1` variants through both codes. It asserts that NJOY2016 exits non-zero
+with unit 27 empty and the recorded stop message, and that the port refuses `lib = 3` at
+POWR. If upstream ever wrote a `lib = 3` library, this test would fail and point here.
