@@ -36,9 +36,15 @@ use outram_mc_libs::material::processed::ProcessedEvaluation;
 
 const U234: &[u8] = include_bytes!("../../../reference-data/endf/n-092_U_234-ENDF8.0.endf");
 
-/// The fingerprint the native run printed (x86_64 Linux, release,
-/// 2026-10-17).
-const NATIVE_FINGERPRINT: u64 = 0x871c_dd4d_51d2_06f2;
+/// The fingerprint the native run printed (x86_64 Linux, release).
+///
+/// ~~`0x871c_dd4d_51d2_06f2` (2026-10-17)~~ **RE-PINNED 2026-11-14**: GitHub
+/// #463 items 5 and 6 made OpenMC's `nu_fission` interpolation and grid
+/// extrapolation the default in `xs_at_energy`, which this fingerprint
+/// samples. `OUTRAM_MC_LEGACY_XS_DETAILS=1` still gives the old value bit for
+/// bit, and the product-word count (380182) is unchanged, so the move is that
+/// change alone. Not re-checked: the `wasm32-wasip1` run against the new pin.
+const NATIVE_FINGERPRINT: u64 = 0x3d0f_096f_6352_6343;
 
 /// FNV-1a over 64-bit words.
 fn fnv(words: impl Iterator<Item = u64>, mut h: u64) -> u64 {
