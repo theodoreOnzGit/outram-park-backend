@@ -16,6 +16,7 @@
 //! Geometry, sources and tallies live in their own modules; transport itself
 //! is in [`crate::physics`].
 pub mod material;
+pub mod material_sab;
 pub mod nuclide;
 pub mod processed;
 pub mod reaction;

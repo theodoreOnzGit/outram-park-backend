@@ -289,9 +289,11 @@ const N_INC_ELASTIC_COSINES: usize = 16;
 #[derive(Debug, Clone)]
 /// The bound-atom thermal **elastic** channel of one scatterer, if it has one.
 ///
-/// An ENDF `tsl` evaluation carries at most one MF=7/MT=2 elastic law, so this
-/// is an enum rather than a set (and enum dispatch is the workspace rule — no
-/// trait objects). Both elastic laws share the defining property that the
+/// ~~An ENDF `tsl` evaluation carries at most one MF=7/MT=2 elastic law, so this
+/// is an enum rather than a set~~ **CORRECTED 2026-11-14 (GitHub #634):** an
+/// ENDF `tsl` evaluation carries one or both MF=7/MT=2 elastic laws
+/// (`LTHR = 1, 2, 3`); the enum names each case, `Mixed` for both (enum
+/// dispatch is the workspace rule — no trait objects). Both elastic laws share the defining property that the
 /// neutron **keeps its energy** (`E_out = E_in`, ENDF-102 Eq. 7-1) and only its
 /// direction changes; they differ in how μ is distributed.
 ///
@@ -1503,9 +1505,17 @@ fn continuous_equiprobable_energy(e_out: &[f64], xi: f64) -> f64 {
 /// Detect and build the scatterer's thermal elastic channel from an
 /// already-parsed ENDF tape.
 ///
-/// The two elastic laws are mutually exclusive in an ENDF `tsl` evaluation, so
+/// ~~The two elastic laws are mutually exclusive in an ENDF `tsl` evaluation, so
 /// this tries coherent first, then incoherent, and returns
-/// [`ThermalElastic::None`] when neither is present.
+/// [`ThermalElastic::None`] when neither is present.~~ **CORRECTED 2026-11-14
+/// (GitHub #634):** they are not exclusive. ENDF-6 `LTHR = 3` carries both,
+/// and upstream processes both (`thermr.f90:432-434`, `icoh > 20` calls `coh`
+/// then `iel`; OpenMC's `thermal.py` `from_endf` builds `MixedElasticAE`).
+/// This builds each part that is present and returns
+/// [`ThermalElastic::Mixed`] when both are, [`ThermalElastic::Coherent`] or
+/// [`ThermalElastic::Incoherent`] when one is, and [`ThermalElastic::None`]
+/// when neither is. Until this change the coherent part was returned alone
+/// and an `LTHR = 3` tape lost its incoherent elastic silently.
 ///
 /// A [`NjoyError::NotPorted`] from a channel constructor means *"this evaluation
 /// has no such section"* (that is the error the njoy surface documents for an
@@ -1525,7 +1535,7 @@ fn build_elastic_channel(
     use njoy_outram_park_fork::units::NeutronEnergy;
     use uom::si::{area::barn, energy::electronvolt};
 
-    match CoherentElasticScattering::from_tape(tape, mat, t) {
+    let coherent = match CoherentElasticScattering::from_tape(tape, mat, t) {
         Ok(ce) => {
             // Store the sawtooth exactly: (E_i, σ_i) ⇒ cumulative structure
             // factor S_i/natom = σ_i·E_i [eV·barn], from which σ(E) = S_i/E.
@@ -1537,16 +1547,13 @@ fn build_elastic_channel(
                 edges_ev.push(e_ev);
                 s_cum.push(sigma.get::<barn>() * e_ev);
             }
-            return Ok(ThermalElastic::Coherent(CoherentElasticTable {
-                edges_ev,
-                s_cum,
-            }));
+            Some(CoherentElasticTable { edges_ev, s_cum })
         }
-        Err(NjoyError::NotPorted(_)) => {}
+        Err(NjoyError::NotPorted(_)) => None,
         Err(e) => return Err(e),
-    }
+    };
 
-    match IncoherentElasticScattering::from_tape(tape, mat, t) {
+    let incoherent = match IncoherentElasticScattering::from_tape(tape, mat, t) {
         Ok(ie) => {
             let e_grid = log_grid(E_MIN_GRID_EV, cutoff_ev, N_INC_ELASTIC_GRID);
             let mut sigma = Vec::with_capacity(e_grid.len());
@@ -1559,16 +1566,23 @@ fn build_elastic_channel(
                     cosines.push(mus.get(j).copied().unwrap_or(0.0));
                 }
             }
-            Ok(ThermalElastic::Incoherent(IncoherentElasticTable {
+            Some(IncoherentElasticTable {
                 e_grid,
                 sigma,
                 cosines,
                 n_mu: N_INC_ELASTIC_COSINES,
-            }))
+            })
         }
-        Err(NjoyError::NotPorted(_)) => Ok(ThermalElastic::None),
-        Err(e) => Err(e),
-    }
+        Err(NjoyError::NotPorted(_)) => None,
+        Err(e) => return Err(e),
+    };
+
+    Ok(match (coherent, incoherent) {
+        (Some(c), Some(i)) => ThermalElastic::Mixed(c, i),
+        (Some(c), None) => ThermalElastic::Coherent(c),
+        (None, Some(i)) => ThermalElastic::Incoherent(i),
+        (None, None) => ThermalElastic::None,
+    })
 }
 
 

@@ -59,7 +59,8 @@ pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
 };
 pub use crate::physics::transport_csg::{
-    run_keff_csg, run_keff_csg_reactor_physics, DeltaTallyEstimator, SourceBox,
+    run_keff_csg, run_keff_csg_reactor_physics, try_run_keff_csg, DeltaTallyEstimator,
+    EmptyFissionBank, SourceBox,
 };
 pub use crate::physics::transport_csg::distributed::{
     transport_chunk, ChunkResult, DistributedPowerIteration, GenerationChunk, SourceSite,

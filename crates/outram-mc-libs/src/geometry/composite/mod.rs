@@ -175,7 +175,10 @@ impl CompositeRegion {
     /// 46-53). [`BoundaryType::Periodic`] is refused: upstream pairs periodic
     /// planes by reference, which these surface types do not carry.
     pub fn with_boundary(mut self, bc: BoundaryType) -> Result<Self, CompositeError> {
-        if bc == BoundaryType::Periodic {
+        // `PeriodicWith(j)` names ONE partner; stamping it on every surface of
+        // the composite would pair them all with `j`. Refused too (2026-11-14,
+        // GitHub #259).
+        if matches!(bc, BoundaryType::Periodic | BoundaryType::PeriodicWith(_)) {
             return Err(CompositeError::new(
                 "CompositeSurface",
                 "periodic boundaries are not supported on composite surfaces here",
