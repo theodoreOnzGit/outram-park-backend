@@ -785,6 +785,35 @@ table, which closes at exactly 10⁵, folds that gain the same way.
   because the tally has no nuclide filter. That split is the next measurement.
 - **Not a validation, and the default is not changed.**
 
+**Re-measured on the 2026-11-13 default (hot dimensions + whole shield),
+2026-11-14.** Same instrument, seeds 1–3; k is bit-identical to the
+default's rows with the tally on. Predictions posted on gh:#1128 before the
+run. Per-seed sums: `data/balance.csv`, label
+`…+hot-dims+shield-tm0728-full`.
+
+| per 10⁵ neutrons produced | new default | previous default | ORNL fuel C | predicted | |
+|---|---|---|---|---|---|
+| salt | 65,510 ± 10 | 64,957 ± 19 | 65,826 | 64,800–66,200 | inside |
+| graphite | 1,212 ± 0 | 1,244 ± 1 | 796 | 1,150–1,350 | inside |
+| INOR-8 | **9,747 ± 12** | 8,304 ± 4 | 9,682 | 8,400–9,300 | **miss, high** |
+| sample baskets | 783 ± 2 | 817 ± 2 | — | — | |
+| shield: 304 plates / balls + water / base / cover | 4,657 / 12,112 / 2,281 / 1,788 (20,838) | — | — | — | |
+| escape to vacuum, with (n,2n) gain | 143 ± 27 | 23,771 ± 33 | 23,696 | — | |
+| **leaving the vessel (shield + escape)** | **20,981** | 23,771 | 23,696 | 19,500–22,500 | inside |
+| total losses (10⁵/k) | 98,232 ± 26 | 99,092 ± 32 | 100,000 | 98,226 | |
+
+- **The shield absorbs almost everything that leaves the vessel.** Only
+  143 per 10⁵ escape the model. Neutrons leaving the vessel fall by 2,790
+  per 10⁵; that drop is the shield's worth.
+- **INOR-8 rose by 1,443, more than predicted.** The shield returns thermal
+  neutrons to the vessel wall, the same mechanism the Mo test located
+  (ablation section). INOR-8 now sits within 65 of ORNL's 9,682. That
+  agreement is **not evidence**: TM-0730's model ended at the vessel,
+  so the two numbers come from different boundary treatments.
+- The previous default's leakage agreement with ORNL (0.3 %) compared two
+  shield-less models. With the reactor's shield in, the vessel's leakage
+  is no longer comparable to TM-0730's.
+
 ### N-1: the salt's absorption by nuclide (2026-11-12, gh:#1128)
 
 **Question:** the balance above puts the excess in the salt. Which salt
@@ -979,6 +1008,29 @@ level; dividing again by the atom ratio removes the composition:
     carried any. This is an estimate, not a run. A Hf ablation would need
     the Hf tapes, which wait on the maintainer like the Gd ones. What is
     left is the 1960s Zr and F cross sections themselves.
+
+**Salt absorption re-measured on the 2026-11-13 default (hot dimensions
++ whole shield), 2026-11-14.** Same instrument (`--salt-spectrum-csv` with
+energy bands), seeds 1–3; k bit-identical to the default's rows.
+Prediction posted on gh:#1128 before the run: per-atom ratios to U-235
+within ±5 % of the previous default's. Data: `data/salt_bands.csv`, label
+`…+hot-dims+shield-tm0728-full`.
+
+| element | absorption / U-235's, new ÷ previous default | share above 0.625 eV, previous → new |
+|---|---|---|
+| Zr | 1.017 | 70.7 % → 71.3 % |
+| F | 1.002 | 59.4 % → 59.7 % |
+| Be | 1.003 | 75.6 % → 75.8 % |
+| Li-7 | 0.998 | 12.9 % → 13.2 % |
+| U-234/236/238 | 1.017 | 95.5 % → 95.6 % |
+
+- **Inside the prediction; every element moves by under 2 %.** The salt's
+  spectrum barely moves with the new default. The returned shield neutrons
+  are absorbed mostly in the vessel wall (balance above), not in the core
+  salt.
+- **The Zr and F gaps against TM-0730 stand:** about **2.46×** and
+  **1.82×** per atom (from 2.50 and 1.82). They remain the leading open
+  explanation of the +1726 pcm, pending BNL-325 / CF-60-3-35.
 
 ### N-1 residual: U-234 and U-236 in the salt (2026-11-12, gh:#1128)
 
