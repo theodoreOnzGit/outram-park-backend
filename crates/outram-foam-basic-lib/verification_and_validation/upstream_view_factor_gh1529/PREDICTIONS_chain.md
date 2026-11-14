@@ -18,7 +18,7 @@ The chain is NOT given upstream's F, globalFaceFaces or magSf.
    area differs, the miss will be at the 1e-16 level and I will report it, not patch around it.
    Face counts: 96 + 96 + 96 + 3 x 160 + 62 = 830 faces, x 2 calls = 1,660 values.
 2. lshape (non-convex): F has 8 pair differences (#1540) between faces in a common plane, F at
-   rounding-noise level. Prediction: qr is NOT bit-identical on every face (probability ~70 % that
+   rounding-noise level (ASSUMPTION later found wrong, see README). Prediction: qr is NOT bit-identical on every face (probability ~70 % that
    fewer than 100 % match), but the worst relative difference is < 1e-10. No gate on bit-identity
    for lshape; the measured numbers are recorded and the worst difference is gated at 1e-8.
 3. A mismatch in 1 would be a defect in the chain glue (patch order, area), not in either port. I will

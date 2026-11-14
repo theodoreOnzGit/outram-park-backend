@@ -194,7 +194,7 @@ matched 102/126. What remains: 7 pairs listed only by upstream and 1 only by Rus
 faces in the SAME plane (top plane, x = 2 plane) whose candidacy and hit test are decided by
 rounding noise of order 1e-16 (`d & fA` of order 1e-17). I did not find which arithmetic step differs
 (the octree traversal, not the triangle test, is not ported: brute force replaces it). Such pairs
-have `F` of exactly the noise level and no physical meaning, but a bit-comparable port must settle it.
+~~have `F` of exactly the noise level and no physical meaning, but a bit-comparable port must settle it.~~ **CORRECTED 2026-11-14 (gh:#1541)**: the 8 pairs do NOT all have noise-level `F`. Printed from the committed upstream `F` / `globalFaceFaces`: upstream-only (27,34) 9.2e-10, (99,112) -3.9e-13, (101,108) 1.6e-12, (101,124) -3.9e-11, (105,113) -3.9e-11, (111,110) 9.2e-10, and **(106,108) = -1.3878e-4**; Rust-only (112,100) 5.6e-13. One entry is a negative 1.4e-4 quadrature artefact, large enough to move `qr` by 2.1e-5 relative (section "viewFactor chain" below). A bit-comparable port must still settle it (gh:#1564).
 Deferred (child issue).
 
 Caveats: (1) the coarse-face `Sf` is taken as the fine `Sf` (true for un-agglomerated faces: the
@@ -210,3 +210,35 @@ lshape were NOT drawn (AGENTS.md rule): the meshes are `inputs/blockMeshDict`, `
 |---|---|
 | Implementation | [x] direct-solver path ported; [x] serial un-agglomerated generator (gh:#1540); [ ] agglomeration, 2-D, parallel, iterative path, appbuilder coupling |
 | Review | [ ] none (AI-assisted draft, untrusted until a human reviews it) |
+
+## viewFactor chain: Rust generator -> Rust solve -> qr vs ESI (gh:#1541), 2026-11-14
+
+Test `tests/view_factor_chain_vs_openfoam.rs`; predictions `PREDICTIONS_chain.md` (commit `29b51d01d`, before
+the first run). Start from the upstream polyMesh only; `generate_view_factors` makes F / globalFaceFaces,
+`|Sf|` is the Rust face area (`face_centre_and_area(..).mag()`), `ViewFactorModel::solve` (direct LU) runs
+twice (T, then T x 1.1) exactly as `vfDump.C`; compared with the upstream `qr1` / `qr2` bit for bit. T,
+emissivity and qro are the case inputs (read from the upstream dump, where they were set; not tuned).
+Rust 1.99.1, release.
+
+| case | faces | options | qr call 1 | qr call 2 | worst rel. diff |
+|---|---|---|---|---|---|
+| cubeA | 96 | variable e, qro 1000 on zmax | 96/96 | 96/96 | 0 |
+| cubeC (cubeA mesh) | 96 | constantEmissivity | 96/96 | 96/96 | 0 |
+| cubeD (cubeA mesh) | 96 | qro 0 | 96/96 | 96/96 | 0 |
+| plate4, plate8, plate16 | 160 each | variable e | 160/160 | 160/160 | 0 |
+| boxE | 62 | non-square faces | 62/62 | 62/62 | 0 |
+| lshape (non-convex) | 126 | | **0/126** | **0/126** | **2.0902e-5** |
+
+**1,660 of 1,660 convex-case values bit-identical** (prediction 1 held; the area risk did not occur: the Rust
+`|Sf|` is bit-identical to `mesh.magSf()`). Not run in this chain: the agglomerated cubeB (needs
+`faceAgglomerate`, not ported).
+
+Scorecard: prediction 1 (convex 100 %) **held**; prediction 3 (no glue defect) held. Prediction 2 (lshape: not
+all identical AND worst < 1e-10) **half right, half wrong**: not identical, yes (0/126), but the worst
+difference is **2.09e-5, not < 1e-10**, because the "noise-level" assumption about the 8 differing F pairs
+was wrong (the (106,108) entry is -1.39e-4, see the correction above). The lshape test therefore pins the
+known residual (0 identical; worst between 1e-6 and 1e-4) instead of gating at 1e-8; it fails when gh:#1564
+is fixed. No tolerance was relaxed.
+
+Scope: fixed wall T (500-1000 K), emissivity 0.5-1.0, closed convex enclosures; no coupling to a conduction
+solve in this slice.
