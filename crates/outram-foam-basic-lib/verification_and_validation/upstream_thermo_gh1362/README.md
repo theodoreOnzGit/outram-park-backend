@@ -229,3 +229,46 @@ and the four pre-existing transports do not forward `cv_eos`; the trait default
 is exact for gases and wrong for a liquid-like EOS if one of them is ever
 placed under `EConstThermo` (they are not: `EConstThermo` wraps the EOS
 directly).
+
+---
+
+## gh:#1378 family 2: reaction-rate classes
+
+Ported (`thermophysics/reaction_rate.rs`, read from `specie/reaction/reactionRate/**/*I.H`
+of v2506, keeping operation order and every `mag(x) > VSMALL` guard):
+`ArrheniusReactionRate`, `thirdBodyArrheniusReactionRate`,
+`LandauTellerReactionRate`, `powerSeriesReactionRate`, `JanevReactionRate`,
+`LangmuirHinshelwoodReactionRate`, `infiniteReactionRate`,
+`thirdBodyEfficiencies`, `Lindemann`/`Troe`/`SRI` fall-off functions,
+`FallOffReactionRate<Arrhenius, F>`, `ChemicallyActivatedReactionRate<Arrhenius, F>`.
+Search before writing: grep for `Arrhenius`, `reaction`, `chemistry`, `species`,
+`mixture` over `crates/` found only unrelated domain code (`outram-park-fork-dwsim-libs`
+`reactions.rs` is a process-unit kinetics layer with a different interface;
+`outram-park-fork-offbeat` corrosion/creep Arrhenius laws are material models;
+`outram-park-fork-thermochimica` is Gibbs minimisation); none implements the
+OpenFOAM `reactionRate` classes, so this is new.
+
+Driver `driver_rates_gh1378/rateDump1378.C`, reference
+`reference/rates_esi_v2506_gh1378.txt.gz` (one hex double per line:
+`tag iT ic bits`), test `tests/openfoam_rates_gh1378.rs`. Grid: T = 250, 300,
+500, 800, 1000, 1500, 2000, 3000 K (8) x four concentration vectors of three
+species (kmol/m^3: (1e-2, 2e-2, 5e-3), (1e-4, 3e-4, 2e-4), (1, 0.5, 0.25),
+(1e-8, 1e-8, 1e-8)); third-body efficiencies (1.0, 2.5, 0.4); `p = 1e5` (unused
+by every class, as upstream). Inputs are typical combustion-kinetics magnitudes
+(H2/O2 mechanism style: Arrhenius `A 3.5e15 beta -0.406 Ta 8353`; Troe `alpha 0.5
+Tsss 1e-30 Ts 1e30 Tss 1e100`), none tuned; no measurement is claimed.
+
+### Predictions (written before the Rust side ran)
+
+- R1: Arrhenius, third-body Arrhenius, LandauTeller, powerSeries, Janev,
+  LangmuirHinshelwood, infinite, Lindemann fall-off use only `pow`, `exp`, `ln`,
+  `cbrt`, `+ - * /`. Given family 1 (PETIR = glibc on every `pow`/`exp`/`ln` point
+  tried) I predict **bit-identical, every point**, allowing 1-ulp points in the
+  `cbrt` (LandauTeller) and Janev `pow(lnT, n)` cases.
+- R2: Troe and SRI add `log10` and `pow(10, x)`: predict **at least one 1-ulp
+  difference** among the 32 points of a rate, and that `FallOff` and
+  `ChemicallyActivated` built on them inherit it through `F`.
+- R3: the Troe `max(.., SMALL)` branch is not active on the main inputs
+  (`Fcent` ~ 0.5), so a missing guard would be invisible there; one extra Troe
+  row with `alpha 1, Ts 1e-30` (argument underflows to 0) exercises the
+  `SMALL` branch; predicted identical.

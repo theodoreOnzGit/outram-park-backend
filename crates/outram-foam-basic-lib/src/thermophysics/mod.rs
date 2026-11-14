@@ -40,6 +40,7 @@ pub mod eos;
 pub mod error;
 pub mod imports;
 pub mod quantities;
+pub mod reaction_rate;
 pub mod table;
 pub mod thermo;
 pub mod transport;
