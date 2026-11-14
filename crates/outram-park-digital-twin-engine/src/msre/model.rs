@@ -229,7 +229,10 @@ impl MsreConfig {
     /// coefficients (fuel −4.84, graphite −3.7 × 10⁻⁵ /°F), the radiator air
     /// flow proportional to power, and the 100 °F air inlet of TM-0728
     /// Table 8.2. For the workspace's own Monte Carlo coefficients (MSRE N-3,
-    /// gh:#1129: fuel −3.82 ± 0.44, graphite −3.77 ± 0.65 × 10⁻⁵ /°F), set the
+    /// gh:#1129: ~~fuel −3.82 ± 0.44, graphite −3.77 ± 0.65 × 10⁻⁵ /°F~~
+    /// **CORRECTED 2026-11-14:** on the N-1 model's current default, fuel
+    /// −3.79 ± 0.37, graphite −3.26 ± 0.33 × 10⁻⁵ /°F, the values in
+    /// [`super::session::Coefficients::MonteCarloN3`]), set the
     /// two coefficient fields with [`super::design::per_f`].
     ///
     /// The circulating-fuel kinetics are ORNL-TM-1626's importance-weighted

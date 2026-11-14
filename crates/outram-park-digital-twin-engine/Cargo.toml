@@ -399,6 +399,14 @@ path = "examples/ciet_web/main.rs"
 name = "fukushima_web"
 path = "examples/fukushima_web/main.rs"
 
+# The MSRE simulator for the demos page's "Museum - historical reactors"
+# section (gh:#1569, #1570): msre::session (MsreModel) in a Web Worker, the
+# T-1 frequency response, gated like the plant simulators. Native builds
+# carry its engine tests; `--headless [end_s] [every_s]` prints the CSV.
+[[example]]
+name = "msre_web"
+path = "examples/msre_web/main.rs"
+
 # The double-pipe high-fidelity -> low-fidelity twin (gh:#1182, rung 5 of
 # epic gh:#1177): the TUAS 1-D double pipe evaluated live in a Web Worker
 # (this crate's `one_d::ua`), beside the committed Kennedy-O'Hagan predictive
