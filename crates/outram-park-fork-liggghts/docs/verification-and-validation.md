@@ -2098,6 +2098,27 @@ is what checks the behaviour. The port reproduces it: the types are parsed
 and kept for `max_type` / `min_type`, and every atom is inserted with
 `atom_type`.
 
+**Refused by name, added in this pass.** `InsertStreamFix::new` now refuses a
+distribution with multisphere or superquadric templates ("not ported"). Before
+this, the port accepted it and panicked at the first insertion
+(`randomize_list`). Upstream streams clumps with a per-body `start_step` and
+`v_integrate`, which are not ported. Test:
+`insert_stream_cross_code.rs::insert_stream_refuses_clumps`.
+
+**Still not ported after this pass** (each has no API in the port, or is
+refused by name):
+- `bonded`;
+- `fix multisphere` `concave`;
+- `fix multisphere/break`;
+- `CAddRhoFluid` / `allow_heatsource`;
+- heat transfer with clumps;
+- periodic images of bodies (`remap_bodies`);
+- clumps from `insert/stream` (refused);
+- `fix remove` with its `delete_bodies` callback (the port has no
+  `fix remove`);
+- restart;
+- `sieveMultiSphereCanPass`.
+
 **A second `run` (`Verlet::setup`).** With clumps, `begin_run` now does
 what upstream's set-up does, in its order:
 - `FixMultisphere::pre_exchange`;
