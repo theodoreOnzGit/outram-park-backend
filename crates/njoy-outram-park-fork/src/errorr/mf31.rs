@@ -31,6 +31,7 @@ use super::groups::neutron_group_structure;
 use super::grpav::{UnionGroupRecords, UnionGroupXs};
 use super::mf33::{endf_version, Mf33Config};
 use super::resprx::resprx;
+use super::standards::Standards;
 
 /// `colaps`'s tape as the `ngout` that `rdgout` reads: per MF=3 section, the flux
 /// (word 1) and `rdsig`'s word 2 of each union-group record, 0 where none.
@@ -63,6 +64,17 @@ pub fn union_group_xs(u: &UnionGendf, un: &[f64]) -> UnionGroupXs {
 /// argument (`errorr.f90:2755-2786`), so each reaction's cross section is MF=3's
 /// for that MT, not the MF=10 production cross section of the product.
 pub fn run_cov_gendf(endf: &Tape, gendf: &GendfTape, cfg: &Mf33Config, mfcov: i32) -> Result<ErrorrResult, NjoyError> {
+    run_cov_gendf_nstan(endf, gendf, cfg, mfcov, None)
+}
+
+/// [`run_cov_gendf`] with the `nstan` tape and card 11 ([`Standards`], gh:#1371):
+/// NC-type sub-subsections with `LTY` 1-3 take the standard's energies (`grist`)
+/// and covariance records (`stand`) from it. `None` is `nstan = 0`.
+///
+/// # Errors
+/// As [`run_cov_gendf`], and the standards' ([`super::standards::grist`],
+/// [`super::standards::stand`]).
+pub fn run_cov_gendf_nstan(endf: &Tape, gendf: &GendfTape, cfg: &Mf33Config, mfcov: i32, standards: Option<Standards>) -> Result<ErrorrResult, NjoyError> {
     if mfcov != 31 && mfcov != 33 && mfcov != 40 {
         return Err(NjoyError::InvalidInput(format!("errorr run_cov_gendf: mfcov = {mfcov}")));
     }
@@ -73,6 +85,7 @@ pub fn run_cov_gendf(endf: &Tape, gendf: &GendfTape, cfg: &Mf33Config, mfcov: i3
     }
     let cg = ngchk(gendf, matd, cfg.tempin)?;
     let mut reactions = scan_reactions_mf(endf, matd, mfcov)?;
+    reactions.standards = standards;
     let g = gridd(endf, matd, &mut reactions)?;
     lumpmt(endf, matd, &mut reactions)?;
     let raw = if cfg.ign.abs() == 1 {

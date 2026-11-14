@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! **ERRORR `mfcov = 40` from a deck, against NJOY2016.80** (gh:#1371).
+//! **ERRORR `mfcov = 40` and `nstan` from a deck, against NJOY2016.80** (gh:#1371).
 //!
-//! # Methodology
+//! The `nstan` decks (`N1`, `N2`) are described at [`nstan_deck`]; their results
+//! are in the next section's last items.
+//!
+//! # Methodology (`M40`)
 //!
 //! No upstream deck runs ERRORR on MF=40. Upstream deck 60 (IRDFF-II Fe) was cut
 //! before its ERRORR. Every MF=40 evaluation in the repository or in NJOY2016's
@@ -43,6 +46,14 @@
 //! - **Ablation:** with AWR in place of `izap` in the section HEADs and `-11` in
 //!   the MF=1 HEAD, 3 of unit 24's 32 lines differ.
 //! - The unedited Ar-37 is refused by name, as predicted.
+//! - **`nstan`** (prediction posted on gh:#1371 first: unit 27 identical in both):
+//!   `N1` (8 654 lines) and `N2` (8 588 lines) identical on the first run. Control:
+//!   NJOY's own `N1` and `N2` unit 27 differ in 177 lines, so card 11 reaches the
+//!   output. Ablation: without `stand`'s records, 5 981 of `N1`'s 8 654 lines
+//!   differ. **Not exercised:** ignoring the windows changes nothing, because the
+//!   standard's (U-235 MT 18) covariance is zero in its first bin, the only one
+//!   outside MT 102's `LTY = 1` window `[3e4, 2e7)`; `StandardWindow::admits` has a
+//!   unit test only.
 
 use std::path::{Path, PathBuf};
 
@@ -94,6 +105,11 @@ moder\n-23 25/\nerrorr\n-21 0 -23 24 0 0 /\n1828 1 2 1 1 /\n0 0. /\n0 40 /\n6 /\
 /// units `units` line by line. Returns `(unit, differing lines, NJOY's lines)` per
 /// unit, or `None` (skipped).
 fn compare(tag: &str, deck: &str, tape: &str, units: &[u32]) -> Option<Vec<(u32, usize, usize)>> {
+    compare_on(tag, deck, &[(20, tape.to_string())], units)
+}
+
+/// [`compare`] with each `(unit, text)` of `tapes` mounted as `tape<unit>`.
+fn compare_on(tag: &str, deck: &str, tapes: &[(u32, String)], units: &[u32]) -> Option<Vec<(u32, usize, usize)>> {
     let bin = njoy_root().join("build/njoy");
     if !bin.exists() {
         eprintln!("skip: {} not present (set NJOY2016_ROOT)", bin.display());
@@ -103,7 +119,9 @@ fn compare(tag: &str, deck: &str, tape: &str, units: &[u32]) -> Option<Vec<(u32,
     let (ours, theirs) = (tmp.join("ours"), tmp.join("njoy"));
     for d in [&ours, &theirs] {
         std::fs::create_dir_all(d).unwrap();
-        std::fs::write(d.join("tape20"), tape).unwrap();
+        for (u, t) in tapes {
+            std::fs::write(d.join(format!("tape{u}")), t).unwrap();
+        }
     }
     std::fs::write(theirs.join("deck"), deck).unwrap();
     let (ok, date) = common::run_njoy_dated(&bin, &theirs);
@@ -165,4 +183,47 @@ fn m40_two_final_states_are_refused_by_name() {
     let (module, why) = run.blocked.expect("NS = 2 must stop the run");
     assert_eq!(module, "errorr");
     assert!(why.contains("NS /= 1"), "refusal names NS: {why}");
+}
+
+/// ERRORR with `nstan` on JENDL-3.3 U-235 (MAT 9228), card 11 `card11`: RECONR,
+/// BROADR to 300 K, GROUPR (LANL 30, `iwt = 6`) to unit 92, then ERRORR
+/// `mfcov = 33` from that GENDF with the same tape mounted again as `nstan = 24`.
+fn nstan_deck(card11: &str) -> String {
+    format!(
+        "reconr\n 22 42 /\n 'u235'/\n 9228 0 0 /\n 0.005 /\n 0 /\n\
+         broadr\n 22 42 32 /\n 9228 1 0 0 0 /\n 0.001 /\n 300. /\n 0 /\n\
+         groupr\n 22 32 0 92 /\n 9228 3 0 6 1 1 1 0 /\n 'u-235' /\n 300. /\n 1.0e10 /\n 3 /\n 0 /\n 0 /\n\
+         errorr\n 22 0 92 27 0 24 /\n 9228 3 6 1 /\n 1 300./\n 0 33 1 1 -1 /\n{card11}stop\n"
+    )
+}
+
+/// Run an `nstan` deck; `None` when skipped. Returns unit 27's differing lines.
+fn nstan_case(tag: &str, card11: &str) -> Option<usize> {
+    let p = njoy_root().join("tests/resources/J33U235");
+    let Ok(t) = std::fs::read_to_string(&p) else {
+        eprintln!("skip: {} not present", p.display());
+        return None;
+    };
+    let r = compare_on(tag, &nstan_deck(card11), &[(22, t.clone()), (24, t)], &[27])?;
+    let (_, d, n) = r[0];
+    assert!(n > 1000, "{tag}: NJOY's unit 27 has only {n} lines");
+    Some(d)
+}
+
+/// **`N1`: `nstan` with card 11 `0/`.** U-235's MF=33 MT 102 refers to the
+/// standard (9228, 18) with `LTY = 1` (MT1 102) and `LTY = 2` (MT1 18); `grist`
+/// and `stand` read it from unit 24. Unit 27 is compared with NJOY2016.80.
+#[test]
+fn n1_errorr_nstan_u235_fission_standard() {
+    if let Some(d) = nstan_case("n1", " 0 /\n") {
+        assert_eq!(d, 0, "n1: unit 27 differs from NJOY2016.80");
+    }
+}
+
+/// **`N2`: card 11 `9228 18 9228 102/`**: the standard redefined to MT 102.
+#[test]
+fn n2_errorr_nstan_card11_redefines_the_standard() {
+    if let Some(d) = nstan_case("n2", " 9228 18 9228 102 /\n 0 /\n") {
+        assert_eq!(d, 0, "n2: unit 27 differs from NJOY2016.80");
+    }
 }

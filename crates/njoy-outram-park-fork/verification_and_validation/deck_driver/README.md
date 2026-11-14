@@ -1716,3 +1716,37 @@ to 30 MeV, `3 1/ 3 11/ 3 33/ 10/`, binary GENDF), MODER of the GENDF to text, ER
 - After the fix: units 25 (GENDF, 492 lines) and 24 (32 lines) identical.
 - Ablation: AWR in the HEADs and `-11` in MF=1 make 3 of the 32 lines differ.
 - The unedited tape is refused by name at `mf40_final_state`.
+
+## 34. ERRORR `nstan`: `grist` and `stand` (2026-11-14, gh:#1371)
+
+**Upstream.** An NC-type sub-subsection with `LTY` 1-3 names a standard `(MATS, MTS)`.
+`gridd` calls `grist` (`errorr.f90:1559-1679`) for `LTY = 1` (energies inside `(E1, E2)`)
+and `LTY = 2` (all), not for 3. With `nas = 0` or `matb(1) >= 0`, `grist` reads only the
+standard's first subsection. `covcal` calls `stand` (`:2939-3009`), which stages the
+standard's first-subsection NI records ahead of the reaction's own, each with the window
+`(sigfig(E1), sigfig(E2))` and its `LTY`; the window tests are `:2101-2118`. Card 11
+redefines a standard; the first match wins.
+
+**Code.** `errorr::standards` (`Standards`, `grist`, `stand`, `StandardWindow`),
+`CovarianceReactions::standards`, `mf31::run_cov_gendf_nstan`, and card 11 in
+`deck::errorr::read_errorr`.
+
+**Refused by name:** a negative `matb(1)` (the third-reaction mode: `kmtb`, the `ety`
+window, `grist`'s later subsections); `nstan` on the PENDF route (`mfcov = 33`,
+`ngout = 0`); `nstan` with `iread = 2`.
+
+**Gates** (`tests/deck_driver_errorr_mf40_nstan_vs_njoy2016.rs`; prediction posted on
+gh:#1371 first). JENDL-3.3 U-235 (`J33U235`): MF=33 MT 102 refers to `(9228, 18)` with
+`LTY = 1` and `LTY = 2`. RECONR 0.005, BROADR 300 K, GROUPR LANL-30 `iwt = 6`, then ERRORR
+`mfcov = 33` from the GENDF with `J33U235` again on `nstan = 24`.
+
+| deck | card 11 | unit 27 |
+|---|---|---|
+| `N1` | `0/` | identical, 8 654 lines, first run |
+| `N2` | `9228 18 9228 102/ 0/` | identical, 8 588 lines, first run |
+
+- Control: NJOY's `N1` and `N2` differ in 177 lines.
+- Ablation: dropping `stand`'s records, 5 981 of `N1`'s lines differ.
+- **Not exercised by these decks:** the windows. Ignoring them changes nothing, because
+  the standard's covariance is zero in its only bin outside the `LTY = 1` window.
+  `StandardWindow::admits` is pinned by a unit test only.

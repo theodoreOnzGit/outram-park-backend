@@ -44,7 +44,7 @@
 //! MF=32 branches listed in [`resprx`] (~~`LRF=7` SAMM,~~ `LCOMP=0`, `LRF=1/3`
 //! sensitivities, INTG correlations, `irespr=0`), ~~MF=31/34/~~35~~/40~~ ~~MF=40~~ (MF=40 with
 //! `NS = NL = 1` runs since 2026-11-14, gh:#1371; `NS`/`NL /= 1` are refused),
-//! `iread` 1/2, `nstan`, ~~`nin`,~~ ~~GENDF input (`colaps`), `covadd`,~~ ENDF/B-IV.
+//! `iread` 1/2, ~~`nstan`~~ (ported 2026-11-14 for card 11's `matb > 0`, [`standards`]), ~~`nin`,~~ ~~GENDF input (`colaps`), `covadd`,~~ ENDF/B-IV.
 //! See `README.md` in this directory.
 //!
 //! **CORRECTED 2026-11-13 (gh:#1369):** `LRF=7` goes through `rpxsamm`
@@ -75,6 +75,7 @@ pub mod mf33;
 pub mod mf34;
 pub mod mf35;
 pub mod resprx;
+pub mod standards;
 pub mod weight;
 
 pub use covariance::{

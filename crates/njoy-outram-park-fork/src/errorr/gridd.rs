@@ -93,6 +93,9 @@ pub struct CovarianceReactions {
     /// `None` for `iread = 0`. [`gridd`] appends them after the reactions it finds,
     /// as upstream keeps them at `mts(nmt+1:nmt1)` (`:1202-1209`).
     pub card10: Option<Vec<(i32, i32)>>,
+    /// The `nstan` tape and card 11 (gh:#1371); `None` for `nstan = 0`, when an
+    /// NC-type sub-subsection with `LTY` 1-3 stops `gridd` as upstream does.
+    pub standards: Option<super::standards::Standards>,
 }
 
 impl CovarianceReactions {
@@ -322,8 +325,11 @@ pub struct GriddResult {
 /// do not enter the union grid (`errorr.f90:1200-1218`).
 ///
 /// # Errors
-/// - [`NjoyError::NotPorted`] for an NC-type sub-subsection with `LTY > 0`
-///   (needs the `nstan` standards tape, `errorr.f90:1274-1297`).
+/// - ~~[`NjoyError::NotPorted`] for an NC-type sub-subsection with `LTY > 0`
+///   (needs the `nstan` standards tape, `errorr.f90:1274-1297`).~~ **CORRECTED
+///   2026-11-14 (gh:#1371):** with `reactions.standards` set, `LTY` 1 and 2 merge
+///   the standard's energies ([`super::standards::grist`]); without it,
+///   [`NjoyError::InvalidInput`], as upstream stops with `nstan = 0`.
 /// - [`NjoyError::EndfParse`] for `MT1 = 0`, `LTY > 3`, a formula that
 ///   references an `MT` absent from MF=33, or a malformed record.
 pub fn gridd(
@@ -336,6 +342,7 @@ pub fn gridd(
     let mut formulas: Vec<Formula> = Vec::new();
 
     let mfcov = reactions.mf();
+    let standards = reactions.standards.clone();
     for sec in tape
         .sections()
         .iter()
@@ -391,10 +398,20 @@ pub fn gridd(
                 let elh = sigfig(list.head.c1, NDIG, 0);
                 let ehh = sigfig(list.head.c2, NDIG, 0);
                 if lty != 0 {
-                    // errorr.f90:1274-1297: needs nstan.
-                    return Err(NjoyError::NotPorted(
-                        "errorr::gridd: NC-type sub-subsection with lty>0 (ratio-to-standard, needs nstan)",
-                    ));
+                    // errorr.f90:1274-1300: the standard's energies come from nstan
+                    // (`grist`, gh:#1371); upstream stops when nstan = 0.
+                    let Some(std) = &standards else {
+                        return Err(NjoyError::InvalidInput(format!(
+                            "errorr::gridd: cannot calculate covariances of reaction mt={mth} with mt1={mt1} because nstan=0 (standard mat {} mt {})",
+                            list.head.l1, list.head.l2
+                        )));
+                    };
+                    match lty {
+                        1 => super::standards::grist(std, mfcov, list.head.l1, list.head.l2, elh, ehh, &mut eni)?,
+                        2 => super::standards::grist(std, mfcov, list.head.l1, list.head.l2, 0.0, 0.0, &mut eni)?,
+                        _ => {}
+                    }
+                    continue;
                 }
                 // errorr.f90:1300-1318 — save the derivation formula.
                 let n2h = list.head.n2 as usize; // number of MTs in the formula
