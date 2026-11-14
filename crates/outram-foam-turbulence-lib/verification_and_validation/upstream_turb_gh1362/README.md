@@ -615,3 +615,56 @@ values of `L && M`, never the matrices), so the stale-boundary rules of part 2 a
 the `filter(U)` face values that the gradient of `Uf` interpolates. Not covered: the transport solves, the
 `bound` of `flm`/`fmm` below zero, `fvOptions`, non-orthogonal meshes, coupled patches, `widthCoeff` other
 than 2.
+
+# Slice 8: kOmegaSSTLM (Langtry-Menter transition on SST) (gh:#1544)
+
+## Frozen field for this model (a disclosed change, decided before any run)
+
+The shared duct fields cannot exercise the transition model: with `k` in (0.02, 0.45) and
+`nu = 1e-5`, `RT = k/(nu omega)` is at least ~40 everywhere, so `Fonset3 = max(1 - (RT/2.5)^3, 0)`
+is exactly 0, `Fturb = exp(-(0.25 RT)^4)` and `Freattach = exp(-(RT/20)^4)` underflow to 0, and
+`Tu = 100 sqrt(2k/3)/|U|` is above 1.3 in every cell (the `Tu <= 1.3` branch of `ReThetat0` is
+never entered). The same trap as `LaunderSharmaKE` at `nu = 1e-5` (slice 6). For `-model kOmegaSSTLM`
+ONLY the driver therefore uses its own polynomials (the other models' fields are untouched):
+
+* `k_LM = 2.0e-5 + 3.0e-4 s (1 + 0.1 x) + 2.0e-5 z` (2e-5 to ~1.1e-4 m^2/s^2; the shared `omega`, `U`, `nu = 1e-5` are kept)
+* `ReThetat = 120 + 6400 s (1 + 0.1 x) + 400 z` (about 120 to 2560, to straddle the `Flength` breaks at 400, 596, 1200 and the `ReThetac` break at 1870)
+* `gammaInt = 0.01 + 3.0 s (1 + 0.05 x) + 0.05 z` (0.01 to ~0.94)
+* `gammaIntEff` (the model's own field, set before `correct()` through the registry, so the first `correct()` does not run with the constructor's zero) `= 0.03 + 5.2 s (1 + 0.1 x) + 0.1 z` (0.03 to ~1.9, so the `clamp(gammaIntEff, 0.1, 1)` of `epsilonByk` is active on both sides)
+
+Chosen from the ranges of the dimensionless groups (`RT`, `Tu`, `Ry`, `Rev`) alone, before any run of this
+model; the polynomials contain no libm. `scripts/lm_coverage_stats.py` counts how many cells fall in each
+branch from the dumped INPUTS. `gammaIntEff` is overwritten by `correct()` at its end
+(`max(gammaInt, gammaSep)`); the post-`correct()` value is dumped and compared as `gammaIntEff_real`.
+
+## Predictions (written and committed BEFORE the driver was extended or run)
+
+Setup: the Rust `KOmegaSstLm` reuses `KOmegaSST::source_terms(EsiV2506)` for every SST term the LM model does
+not change (`y`, `S2`, `CDkOmega`, base `F1`, `F23`, `nut`, `GbyNu0`, `G`, `GbyNu`, base `Pk`, `k_SuSp`) and
+recomputes what the LM overrides change: `F1 = max(F1_SST, F3)` (so `gamma`, `beta`, the omega terms, the
+cross-diffusion), `Pk = gammaIntEff Pk_SST`, `epsilonByk = clamp(gammaIntEff, 0.1, 1) betaStar omega`, and the new
+`Fthetat`, `ReThetac`, `Flength`, `ReThetat0` (with the `lambda` iteration), `Fonset`, `Fturb`, `Freattach`,
+`gammaSep`, `gammaIntEff`, `Pthetat`, `Pgamma`, `Egamma`. The upstream gradients, `y`, the `gammaIntEff` input and
+the frozen `ReThetat`, `gammaInt` are fed in.
+
+1. **Audit**: the four transcribed equations (`omega`, `k` with the LM overrides, `ReThetat`, `gammaInt`)
+   reproduce the matrices the REAL model assembled bit for bit (diag, source, upper, lower). Confidence 85%.
+   The omega and k audits also confirm that the real model calls the LM overrides of `F1`, `Pk`, `epsilonByk`.
+2. **Libm-free terms 360/360 identical** (given identical inputs): `ReThetac`, `Fonset`, `Rev`, `RT`, `Omega`, `S`,
+   `Us`, `dUsds`, `Pk`, `epsilonByk`. Confidence 85% (the risk is the order of the 9-component
+   `magSqr(skew)` sum and of the `U & (U & gradU)` contraction).
+3. **`exp`-only terms** (`Fturb`, `Freattach`, `Fwake`, `Fthetat`, `Fsublayer`, `Flength`): PETIR `exp` agreed with glibc
+   on every argument of `LaunderSharmaKE` (slice 6), so predicted 360/360 identical, at most 1 ulp where not.
+   Confidence 60%. `Fturb` and `Freattach` are mostly in (0, 1), not saturated, by the field choice above.
+4. **`pow` terms**: `F3` (`pow(Ry/120, 8)`) identical in at least 95% of cells. `ReThetat0` (`pow(Tu/1.5, 1.5)`,
+   `pow(Tu - 0.5658, -0.671)`, `exp`, and a fixed-point iteration) is the weakest term: at least 70% of cells
+   identical and at most 8 ulp elsewhere, with the same iteration count in every cell (the stopping test
+   `|lambda - lambda0| > 1e-6` is not within ulps of its threshold). A difference there is libm, not a formula error.
+5. **Downstream of `tanh`** (`F1_SST`, hence `F1`, `gamma`, `beta`, the omega terms): as in slice 2 (PETIR `tanh`
+   against glibc, a few percent of cells, at most 3 ulp). Where `F3 > F1_SST` the LM `F1` takes `F3` and hides it.
+6. **Upstream behaviours to reproduce, not fix**: (a) `Pk` multiplies by the UNCLAMPED `gammaIntEff` (up to 1.9
+   here) while `epsilonByk` uses the CLAMPED one; (b) the first `correct()` of a real run has `gammaIntEff = 0`
+   (so `Pk = 0` in the first step; not exercised, the driver sets it); (c) the `ReThetat0`
+   `do ... while (lambdaErr > lambdaErr_)` has no iteration cap (`maxLambdaIter` only warns); the port must not cap
+   either to stay bit-identical; the iteration count per cell is reported.
+7. No cell is expected to differ by a formula error; anything not explained by a libm function is a defect in the port.
