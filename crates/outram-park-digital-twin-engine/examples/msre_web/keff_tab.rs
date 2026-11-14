@@ -271,6 +271,8 @@ pub struct KeffTab {
     custom: Option<KeffConfig>,
     /// `?krun`: start a run on load (an unattended browser check).
     autorun: bool,
+    /// `?kmeasure`: start the measured split on load (the same check).
+    automeasure: bool,
 }
 
 impl Default for KeffTab {
@@ -293,6 +295,7 @@ impl Default for KeffTab {
                 (n.len() == 4).then(|| KeffConfig { n_particles: n[0] as usize, n_inactive: n[1] as usize, n_active: n[2] as usize, seed: n[3], point_source: false, want_sites: false })
             }),
             autorun: query("krun").is_some(),
+            automeasure: query("kmeasure").is_some(),
         }
     }
 }
@@ -384,6 +387,10 @@ impl KeffTab {
             let (s, c) = (self.study, self.cfg());
             self.run(ctx, s, c);
         }
+        if self.automeasure {
+            self.automeasure = false;
+            self.measure(ctx);
+        }
         if self.asked != Some((self.study, self.view)) && self.raster.as_ref().map(|r| (r.0, r.1)) != Some((self.study, self.view)) {
             plant.send(Request::Keff(KReq::Raster { study: self.study, view: self.view, px: 480 }));
             self.asked = Some((self.study, self.view));
@@ -397,6 +404,9 @@ impl KeffTab {
                     Note::RunDone => {
                         if let Some((k, s)) = p.keff.run.as_ref().and_then(|r| r.it.as_ref()).and_then(|it| it.k_mean()) {
                             let f = Finished { study: p.study, cfg: p.keff.run.as_ref().map_or(preset, |r| r.cfg), k, sigma: s };
+                            // The console line an unattended browser check reads.
+                            #[cfg(target_arch = "wasm32")]
+                            log::info!("msre k_eff run done: salt {} F, graphite {} F: k = {k:e} +- {s:e}", f.study.salt_f, f.study.graphite_f);
                             self.finished.push(f);
                             done = Some(f);
                         }
@@ -413,6 +423,10 @@ impl KeffTab {
         if let (Some(f), Some(sp)) = (done, self.split.as_mut()) {
             if sp.runs.len() < 3 && f.study == sp.study(sp.runs.len()) {
                 sp.runs.push(f);
+                #[cfg(target_arch = "wasm32")]
+                if let Some(c) = sp.coefficients() {
+                    log::info!("msre measured split: {}", c.describe());
+                }
                 if sp.runs.len() < 3 {
                     let (s, c) = (sp.study(sp.runs.len()), sp.cfg);
                     self.run(ctx, s, c);
