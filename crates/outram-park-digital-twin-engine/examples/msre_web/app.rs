@@ -2,13 +2,18 @@
 //!
 //! Built on `bugis::web_demo` (the folding side panel, the main view's zoom
 //! buttons, the link to the engine) and the digital-twin engine's hot-to-cold
-//! colour map. Three views: the plant schematic, the trends, and the T-1
-//! frequency response.
+//! colour map. Four views: the plant, the trends, the T-1 frequency
+//! response, and the fuel loop's precursors from Moltres (gh:#1575).
 //!
-//! **The schematic's layout is an indicative drawing, not plant geometry**:
-//! boxes placed to read left to right as the salt flows. Colours and numbers
-//! are the model's; nothing on it moves, so the animation rule has nothing
-//! to derive (flows are shown as numbers).
+//! ~~**The schematic's layout is an indicative drawing, not plant geometry**:
+//! boxes placed to read left to right as the salt flows.~~ **CHANGED
+//! 2026-11-14:** the plant view is `bugis::components::MsrePlantSchematic`,
+//! an elevation view drawn from TM-0728's stated sizes and elevations (its
+//! module docs list what is dimensioned and what is indicative). Colours and
+//! numbers are the model's; nothing on it moves, so the animation rule has
+//! nothing to derive (flows are shown as numbers and arrows). The Moltres
+//! ring's colours are the drift's emission, so they move only as the
+//! physics moves them.
 //!
 //! GUI drawing code: reached by no test (needs a window), per the workspace
 //! exception for GUI code. What it draws is tested in `msre::session` and
@@ -20,7 +25,9 @@ use bugis::web_demo::panel::Panel;
 use bugis::web_demo::platform::{query_pairs, set_title};
 use bugis::web_demo::view::{apply_zoom, zoom_buttons, View};
 use bugis::components::{MsreLayout, MsrePlantScalars, MsrePlantSchematic};
-use egui::{Align2, FontId, Pos2, Rect, RichText, Vec2};
+use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, Vec2};
+use outram_park_digital_twin_engine::msre::moltres_drift::{LoopDrift, LOOP_DRIFT_CELLS};
+use petir::mathf::RealMath;
 use uom::si::f64::{Power, Ratio, ThermodynamicTemperature};
 use uom::si::power::megawatt;
 use uom::si::ratio::ratio;
@@ -46,6 +53,7 @@ enum Tab {
     Plant,
     Trends,
     Periods,
+    Loop,
 }
 
 pub struct App {
@@ -56,6 +64,10 @@ pub struct App {
     tab: Tab,
     snap: Option<Snapshot>,
     history: Vec<Snapshot>,
+    /// The latest Moltres drift event (`engine::Event::Drift`'s layout).
+    drift: Option<Vec<f64>>,
+    /// `[time s, loss %]` from the drift, for its trend.
+    drift_history: Vec<[f64; 2]>,
     periods: Vec<[f64; 3]>,
     pending: u32,
     running: bool,
@@ -84,6 +96,8 @@ impl App {
             tab: Tab::Plant,
             snap: None,
             history: Vec::new(),
+            drift: None,
+            drift_history: Vec::new(),
             periods: Vec::new(),
             pending: 0,
             running: q.iter().any(|(k, _)| k == "run"),
@@ -109,6 +123,7 @@ impl App {
 
     fn reset(&mut self) {
         self.history.clear();
+        self.drift_history.clear();
         self.rods_pcm = 0.0;
         self.servo = false;
         self.air = self.config.power_mw / 10.0;
@@ -117,8 +132,22 @@ impl App {
 
     fn handle(&mut self, dt_wall: f64) {
         for e in self.link.drain() {
-            self.pending = self.pending.saturating_sub(1);
+            // One reply per request: a frame, a period table or an error. A
+            // drift event rides beside a frame and is not counted.
+            if !matches!(e, Event::Drift(_)) {
+                self.pending = self.pending.saturating_sub(1);
+            }
             match e {
+                Event::Drift(f) => {
+                    let v = f.to_vec();
+                    if v.len() >= 2 && v[1].is_finite() && self.drift_history.last().map_or(true, |h| v[0] > h[0]) {
+                        self.drift_history.push([v[0], 100.0 * v[1]]);
+                        if self.drift_history.len() > HISTORY_MAX {
+                            self.drift_history = self.drift_history.iter().step_by(2).copied().collect();
+                        }
+                    }
+                    self.drift = Some(v);
+                }
                 Event::Frame(f) => {
                     if let Some(s) = Snapshot::from_slice(&f.to_vec()) {
                         if self.history.last().map_or(true, |h| s.time_s > h.time_s) {
@@ -286,6 +315,85 @@ impl App {
         ui.painter().text(k.right_bottom() + Vec2::new(0.0, 2.0), Align2::RIGHT_TOP, format!("{T_HOT_F:.0} °F"), FontId::proportional(12.0), ui.visuals().text_color());
     }
 
+    /// The Moltres tab: delayed-neutron emission around the fuel loop as a
+    /// coloured ring (gh:#1575), the loss now against the steady and the
+    /// measured values, and its trend. GUI drawing code (needs a window).
+    fn loop_view(&self, ui: &mut egui::Ui, rect: Rect) {
+        let text = ui.visuals().text_color();
+        let muted = ui.visuals().weak_text_color();
+        ui.label(RichText::new("Delayed neutrons around the fuel loop: Moltres's precursor drift (finite volumes, 504 cells) stepped with the plant at its fuel flow and power. Trip the fuel pump to watch the precursors stay in the core.").small());
+        let Some(d) = self.drift.as_ref() else {
+            ui.label("Waiting for the drift…");
+            return;
+        };
+        let bins = &d[3.min(d.len())..];
+        // On a phone the readouts go under the ring (they are wider than its
+        // hole) and the region names are shortened to stay on screen.
+        let narrow = rect.width() < 600.0;
+        let top = ui.cursor().top() + 8.0;
+        let plot_h = (rect.height() * 0.28).clamp(110.0, 220.0);
+        let text_h = if narrow { 84.0 } else { 0.0 };
+        let ring_area = Rect::from_min_max(Pos2::new(rect.left(), top), Pos2::new(rect.right(), rect.bottom() - plot_h - 24.0 - text_h));
+        let r = if narrow { (0.27 * rect.width()).min(0.36 * ring_area.height()) } else { 0.36 * ring_area.width().min(ring_area.height()) };
+        let c = ring_area.center();
+        let painter = ui.painter().with_clip_rect(rect);
+        let at = |f: f64, rad: f32| {
+            let a = (-0.5 * std::f64::consts::PI + 2.0 * std::f64::consts::PI * f) as f32;
+            c + Vec2::new(a.r_cos(), a.r_sin()) * rad
+        };
+        if bins.is_empty() {
+            painter.text(c, Align2::CENTER_CENTER, "Moltres drift stopped (check the console)", FontId::proportional(15.0), ui.visuals().error_fg_color);
+            return;
+        }
+        // The ring: each arc coloured by its emission on the shared map,
+        // scaled to the hottest arc.
+        let max = bins.iter().copied().fold(0.0_f64, f64::max).max(1e-300);
+        let n = bins.len();
+        for (i, e) in bins.iter().enumerate() {
+            let col = hot_to_cold_colour_mark_1((e / max).clamp(0.0, 1.0) as f32);
+            let seg: Vec<Pos2> = (0..=4).map(|k| at((i as f64 + k as f64 / 4.0) / n as f64, r)).collect();
+            painter.add(egui::Shape::line(seg, Stroke::new(0.22 * r, col)));
+        }
+        // Region boundaries and names (TM-1626 Table 1's residence times).
+        let starts = LoopDrift::region_starts();
+        let names = if narrow {
+            ["lower plenum", "core", "upper plenum", "ext. loop"]
+        } else {
+            ["lower plenum", "core (graphite)", "upper plenum", "external loop: pump, heat exchanger"]
+        };
+        for (k, s0) in starts.iter().enumerate() {
+            painter.line_segment([at(*s0, 0.8 * r), at(*s0, 1.2 * r)], Stroke::new(2.0, text));
+            let s1 = if k + 1 < starts.len() { starts[k + 1] } else { 1.0 };
+            let mid = at(0.5 * (s0 + s1), if narrow { 1.25 } else { 1.32 } * r);
+            let align = if mid.x < c.x - 0.2 * r { Align2::RIGHT_CENTER } else if mid.x > c.x + 0.2 * r { Align2::LEFT_CENTER } else { Align2::CENTER_CENTER };
+            painter.text(mid, align, names[k], FontId::proportional(13.0), text);
+        }
+        // Flow direction: an arrowhead on the ring, by the fuel flow's sign.
+        if d[2] > 1e-6 {
+            let (p0, p1) = (at(0.0, 0.62 * r), at(0.03, 0.62 * r));
+            painter.arrow(p0, p1 - p0, Stroke::new(2.0, muted));
+        }
+        let loss = if d[1].is_finite() { format!("{:.4} % δk/k", 100.0 * d[1]) } else { "no power".to_owned() };
+        for (k, (s, size)) in [
+            (format!("lost to circulation: {loss}"), 15.0),
+            (format!("fuel flow {:.0} %", 100.0 * d[2]), 13.0),
+            (format!("steady, full flow: {:.4} % (Moltres, {LOOP_DRIFT_CELLS} cells)", 0.229218), 12.0),
+            ("measured (TM-1626): 0.212 ± 0.004 %".to_owned(), 12.0),
+        ]
+        .iter()
+        .enumerate()
+        {
+            let anchor = if narrow { Pos2::new(c.x, c.y + 1.45 * r + 10.0) } else { c + Vec2::new(0.0, -1.5 * 19.0) };
+            painter.text(anchor + Vec2::new(0.0, k as f32 * 19.0), Align2::CENTER_CENTER, s, FontId::proportional(*size), if k == 0 { text } else { muted });
+        }
+        let plot_rect = Rect::from_min_max(Pos2::new(rect.left(), rect.bottom() - plot_h), rect.max);
+        ui.scope_builder(egui::UiBuilder::new().max_rect(plot_rect), |ui| {
+            Plot::new("drift_loss").height(plot_h - 4.0).include_y(0.0).show(ui, |p| {
+                p.line(Line::new("loss, % δk/k", PlotPoints::from_iter(self.drift_history.iter().copied())).color(Color32::from_rgb(214, 93, 14)));
+            });
+        });
+    }
+
     fn trends(&self, ui: &mut egui::Ui) {
         let h = &self.history;
         let line = |f: fn(&Snapshot) -> f64, name: &str| Line::new(name, PlotPoints::from_iter(h.iter().map(|s| [s.time_s, f(s)])));
@@ -376,7 +484,7 @@ impl eframe::App for App {
         self.panel = panel;
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().extreme_bg_color)).show(ui, |ui| {
             let rect = ui.max_rect();
-            let bar = Rect::from_min_size(Pos2::new(rect.center().x - 165.0, rect.bottom() - 48.0), Vec2::new(330.0, 40.0));
+            let bar = Rect::from_min_size(Pos2::new(rect.center().x - 184.0, rect.bottom() - 48.0), Vec2::new(368.0, 40.0));
             match self.tab {
                 Tab::Plant => {
                     let resp = ui.interact(rect, ui.id().with("plant"), egui::Sense::click_and_drag());
@@ -400,6 +508,12 @@ impl eframe::App for App {
                     let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, 56.0), rect.max - Vec2::new(8.0, 56.0));
                     ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.trends(ui));
                 }
+                Tab::Loop => {
+                    // Below the phone's Controls button and clock.
+                    let top = if rect.width() < 700.0 { 84.0 } else { 56.0 };
+                    let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, top), rect.max - Vec2::new(8.0, 56.0));
+                    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.loop_view(ui, inner));
+                }
                 Tab::Periods => {
                     let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, 56.0), rect.max - Vec2::new(8.0, 56.0));
                     ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
@@ -413,8 +527,8 @@ impl eframe::App for App {
             }
             ui.scope_builder(egui::UiBuilder::new().max_rect(bar), |ui| {
                 ui.horizontal(|ui| {
-                    for (t, l) in [(Tab::Plant, "Plant"), (Tab::Trends, "Trends"), (Tab::Periods, "Frequency")] {
-                        if ui.add(egui::Button::selectable(self.tab == t, RichText::new(l).size(17.0)).min_size(Vec2::new(104.0, 38.0))).clicked() {
+                    for (t, l) in [(Tab::Plant, "Plant"), (Tab::Trends, "Trends"), (Tab::Periods, "Freq."), (Tab::Loop, "Moltres")] {
+                        if ui.add(egui::Button::selectable(self.tab == t, RichText::new(l).size(17.0)).min_size(Vec2::new(84.0, 38.0))).clicked() {
                             self.tab = t;
                         }
                     }

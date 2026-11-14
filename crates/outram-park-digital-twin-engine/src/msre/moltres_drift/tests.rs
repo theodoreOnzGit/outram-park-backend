@@ -50,3 +50,80 @@ fn the_line_model_agrees_with_moltres() {
     assert_eq!(tm1626_families().len(), 6);
     assert!((tm1626_loop_time() - 25.2).abs() < 1e-12);
 }
+
+/// **The plant-coupled drift ([`LoopDrift`]), gh:#1575.**
+///
+/// Methodology: [`LoopDrift`] on [`LOOP_DRIFT_CELLS`] cells, from the
+/// steady loop at full flow and 8 MW. (1) Held at full flow for 30 s in
+/// 0.1 s advances: the loss stays at [`line_loss`] on the same mesh.
+/// (2) The fuel pump stops (flow 0) and the plant holds 8 MW: the loss falls
+/// towards zero as the precursors stop leaving the core.
+///
+/// Prediction (posted on gh:#1575 before running, 2026-11-14): (1) within
+/// 1e-9 δk/k; (2) below 5 % of its starting value after 600 s, the longest
+/// group (λ = 0.0124 /s) setting the tail.
+///
+/// Result (2026-11-14, release): (1) steady 0.229218 %, worst drift over
+/// 30 s **5.1e-15 δk/k**. (2) Loss every 60 s after the pump stops, %:
+/// 0.0195, 0.0050, 0.0017, 0.00071, 0.00032, 0.00015, 7.1e-5, 3.4e-5,
+/// 1.6e-5, **8.0e-6**: monotone, and **0.0035 %** of the starting value at
+/// 600 s. Both inside the prediction. The fall is far faster than the
+/// longest group alone suggests (e^(-0.0124 × 600) = 6e-4 of its own
+/// share): that group carries a small share of β, and the fast groups
+/// refill the core within seconds.
+#[test]
+fn the_loop_drift_holds_steady_and_relaxes_when_the_pump_stops() {
+    let mut d = LoopDrift::new(LOOP_DRIFT_CELLS, 1.0, 8.0).expect("drift");
+    let steady = line_loss(LOOP_DRIFT_CELLS, 1.0).expect("line loss");
+    let l0 = d.loss().expect("loss");
+    for _ in 0..300 {
+        d.advance(0.1, 1.0, 8.0).expect("advance");
+    }
+    let l30 = d.loss().expect("loss");
+    let worst_hold = (l0 - steady).abs().max((l30 - steady).abs());
+    // Pump off.
+    let mut trace = Vec::new();
+    for k in 0..600 {
+        d.advance(1.0, 0.0, 8.0).expect("advance");
+        if k % 60 == 59 {
+            trace.push(d.loss().expect("loss"));
+        }
+    }
+    println!(
+        "loop drift: steady {:.6} %, held 30 s {:.6} % (worst {:.1e}); pump off, loss every 60 s, %: {:?}",
+        100.0 * steady,
+        100.0 * l30,
+        worst_hold,
+        trace.iter().map(|x| (1e6 * 100.0 * x).round() / 1e6).collect::<Vec<_>>()
+    );
+    assert!(worst_hold < 1e-9, "{worst_hold:e}");
+    assert!(trace.windows(2).all(|w| w[1] <= w[0] + 1e-12), "not monotone: {trace:?}");
+    assert!(*trace.last().unwrap() < 0.05 * steady, "{trace:?}");
+    assert!((d.time() - 630.0).abs() < 1e-9);
+}
+
+/// The bookkeeping: binned emission keeps the mean, zero power has no loss,
+/// bad inputs are refused, a long advance is capped at
+/// [`MAX_STEPS_PER_ADVANCE`] steps and still conserves the time, and the
+/// region starts are TM-1626's.
+#[test]
+fn the_loop_drift_bookkeeping() {
+    let mut d = LoopDrift::new(LOOP_DRIFT_CELLS, 1.0, 8.0).expect("drift");
+    let e = d.emission();
+    let b = d.emission_binned(126);
+    assert_eq!(e.len(), LOOP_DRIFT_CELLS);
+    assert_eq!(b.len(), 126);
+    let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len() as f64;
+    assert!((mean(&e) - mean(&b)).abs() < 1e-12 * mean(&e).abs().max(1.0));
+    d.advance(10.0, 1.0, 8.0).expect("long advance");
+    assert!((d.time() - 10.0).abs() < 1e-12);
+    assert!(d.advance(1.0, -0.1, 8.0).is_err());
+    assert!(d.advance(1.0, 1.0, f64::NAN).is_err());
+    assert!(d.advance(-1.0, 1.0, 8.0).is_err());
+    d.advance(0.0, 1.0, 8.0).expect("zero advance");
+    let z = LoopDrift::new(LOOP_DRIFT_CELLS, 1.0, 0.0).expect("zero power");
+    assert_eq!(z.loss(), None);
+    let r = LoopDrift::region_starts();
+    assert_eq!(r[0], 0.0);
+    assert!((r[1] - 3.8 / 25.2).abs() < 1e-12 && (r[3] - 17.1 / 25.2).abs() < 1e-12);
+}

@@ -181,8 +181,11 @@ this change could be made without re-running the ICSBEP or ring-RPT sets.
 
 ## Still open on this issue
 
-`TranslationalPeriodicBC` and `RotationalPeriodicBC` are not ported. Until they
-are, periodic is refused rather than approximated, which is the minimum the
+~~`TranslationalPeriodicBC` and `RotationalPeriodicBC` are not ported.~~
+**CORRECTED 2026-11-14:** both are ported (`BoundaryType::PeriodicWith`;
+`verification_and_validation/rotational_periodic/README.md`); an unpaired
+`Periodic` is still refused. At the time of this record, until they
+were, periodic was refused rather than approximated, which is the minimum the
 issue asks for. The acceptance item *"a non-mirror-symmetric lattice gives
 different `k` under periodic than under reflective"* is therefore **not met**
 and is not claimed.

@@ -87,14 +87,15 @@ pub fn raster(u: &DhUniverse, req: &RasterReq) -> Vec<u8> {
     let plot = SlicePlot::new(req.basis.plot(), req.basis.origin(req.centre, req.depth), req.width, req.px);
     let r_out = boundary_radius();
     let mut out = Vec::with_capacity(req.px[0] * req.px[1]);
+    let mut state = u.query_state();
     for y in 0..req.px[1] {
-        (&u).begin_history();
+        (&u).begin_history(&mut state);
         for x in 0..req.px[0] {
             let p = plot.pixel_centre(x, y);
             out.push(if p.norm() > r_out {
                 OUTSIDE
             } else {
-                u.material_at(p).map_or(OUTSIDE, |m| m.min(252) as u8)
+                u.material_at(&mut state, p).map_or(OUTSIDE, |m| m.min(252) as u8)
             });
         }
     }

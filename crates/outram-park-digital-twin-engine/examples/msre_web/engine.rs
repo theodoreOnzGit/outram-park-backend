@@ -1,15 +1,22 @@
 //! The engine: the MSRE operator session on a background thread natively,
 //! in a Web Worker in the browser (the no-lag rule: the page only draws).
 //!
-//! It holds one `msre::session::Session` and answers requests one at a time.
+//! It holds one `msre::session::Session` and, beside it, Moltres's
+//! precursor drift around the loop (`msre::moltres_drift::LoopDrift`, gh:#1575),
+//! stepped with the plant at its fuel flow and fission power. It answers
+//! requests one at a time.
 //! The page asks for the next stretch of plant time only after the last
 //! frame arrived, so at most one request is in flight and each is short
 //! (`session::MAX_ADVANCE_S`).
 
 use bugis::web_demo::link::Floats;
+use outram_park_digital_twin_engine::msre::moltres_drift::{LoopDrift, LOOP_DRIFT_CELLS};
 use outram_park_digital_twin_engine::msre::session::{
-    natural_periods, Coefficients, Command, Session, SessionConfig,
+    natural_periods, Coefficients, Command, Session, SessionConfig, Snapshot,
 };
+
+/// Arcs the drift's emission profile is averaged into for the page.
+pub const DRIFT_BINS: usize = 126;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Request {
@@ -30,19 +37,40 @@ pub enum Event {
     /// `[power, measured, model]` rows; the model is NaN where it has no
     /// resonance.
     Periods(Floats),
+    /// The loop drift after a step: `[time s, loss δk/k (NaN at zero
+    /// power), fuel flow fraction, DRIFT_BINS emission values]`; only the
+    /// first three if the drift failed and stopped. Sent BESIDE a frame, so
+    /// it is not a reply: the page counts frames, period tables and errors.
+    Drift(Floats),
     /// A refused command or a failed step.
     Error(String),
 }
 
-/// The engine's state: the plant.
+/// The engine's state: the plant and the loop's precursor drift.
 pub struct Runner {
     session: Option<Session>,
+    drift: Option<LoopDrift>,
 }
 
 impl Default for Runner {
     fn default() -> Self {
-        Self { session: Session::new(SessionConfig::default()).ok() }
+        let session = Session::new(SessionConfig::default()).ok();
+        let drift = session.as_ref().and_then(|s| drift_for(&s.snapshot()));
+        Self { session, drift }
     }
+}
+
+/// The steady drift at a snapshot's flow and power, or `None` if Moltres
+/// refuses them (the page then shows no drift).
+fn drift_for(s: &Snapshot) -> Option<LoopDrift> {
+    LoopDrift::new(LOOP_DRIFT_CELLS, s.fuel_flow.max(0.0), s.power_mw.max(0.0)).ok()
+}
+
+/// The drift as a page event.
+fn drift_event(d: &LoopDrift, flow: f64) -> Event {
+    let mut v = vec![d.time(), d.loss().unwrap_or(f64::NAN), flow];
+    v.extend(d.emission_binned(DRIFT_BINS));
+    Event::Drift(Floats::from_vec(v))
 }
 
 impl Runner {
@@ -52,9 +80,14 @@ impl Runner {
         match req {
             Request::Reset(c) => match Session::new(c) {
                 Ok(s) => {
-                    let f = Event::Frame(Floats::from_vec(s.snapshot().to_vec()));
+                    let snap = s.snapshot();
+                    let mut out = vec![Event::Frame(Floats::from_vec(snap.to_vec()))];
+                    self.drift = drift_for(&snap);
+                    if let Some(d) = &self.drift {
+                        out.push(drift_event(d, snap.fuel_flow));
+                    }
                     self.session = Some(s);
-                    vec![f]
+                    out
                 }
                 Err(e) => vec![Event::Error(e.to_string())],
             },
@@ -67,7 +100,21 @@ impl Runner {
             }
             Request::Advance(dt) => match self.session.as_mut() {
                 Some(s) => match s.advance(dt) {
-                    Ok(snap) => vec![Event::Frame(Floats::from_vec(snap.to_vec()))],
+                    Ok(snap) => {
+                        let mut out = vec![Event::Frame(Floats::from_vec(snap.to_vec()))];
+                        if let Some(d) = self.drift.as_mut() {
+                            match d.advance(dt, snap.fuel_flow.max(0.0), snap.power_mw.max(0.0)) {
+                                Ok(()) => out.push(drift_event(d, snap.fuel_flow)),
+                                Err(_) => {
+                                    // Reported as a drift with no profile, not an
+                                    // Error: the page counts one reply per request.
+                                    out.push(Event::Drift(Floats::from_vec(vec![d.time(), f64::NAN, snap.fuel_flow])));
+                                    self.drift = None;
+                                }
+                            }
+                        }
+                        out
+                    }
                     Err(e) => vec![Event::Error(e.to_string())],
                 },
                 None => vec![Event::Error("no plant: reset it".into())],
@@ -203,6 +250,10 @@ pub mod web {
                     js::set(&o, "kind", "periods");
                     js::set(&o, "v", f.js());
                 }
+                Event::Drift(f) => {
+                    js::set(&o, "kind", "drift");
+                    js::set(&o, "v", f.js());
+                }
                 Event::Error(m) => {
                     js::set(&o, "kind", "error");
                     js::set(&o, "message", m.as_str());
@@ -214,6 +265,7 @@ pub mod web {
             match js::get_str(v, "kind").as_str() {
                 "frame" => Ok(Event::Frame(Floats::get(v, "v").ok_or("no frame")?)),
                 "periods" => Ok(Event::Periods(Floats::get(v, "v").ok_or("no periods")?)),
+                "drift" => Ok(Event::Drift(Floats::get(v, "v").ok_or("no drift")?)),
                 "error" => Ok(Event::Error(js::get_str(v, "message"))),
                 k => Err(format!("unknown event '{k}'")),
             }
@@ -270,9 +322,40 @@ mod tests {
         let mut r = Runner::default();
         assert!(matches!(r.answer(Request::Cmd(Command::AirFraction(0.0)))[0], Event::Error(_)));
         assert!(matches!(r.answer(Request::Advance(1.0))[0], Event::Frame(_)));
-        let mut empty = Runner { session: None };
+        let mut empty = Runner { session: None, drift: None };
         assert!(matches!(empty.answer(Request::Advance(1.0))[0], Event::Error(_)));
         assert!(matches!(empty.answer(Request::Cmd(Command::Servo(true)))[0], Event::Error(_)));
+    }
+
+    /// Moltres's drift rides with the plant: a reset sends the steady loop,
+    /// each advance a stepped one at the plant's clock, and a fuel-pump trip
+    /// shrinks the circulation loss as the precursors stop leaving the core.
+    #[test]
+    fn the_drift_follows_the_plant() {
+        let drift = |e: &[Event]| -> Vec<f64> {
+            e.iter()
+                .find_map(|x| match x {
+                    Event::Drift(f) => Some(f.to_vec()),
+                    _ => None,
+                })
+                .expect("a drift event")
+        };
+        let mut r = Runner::default();
+        let d0 = drift(&r.answer(Request::Reset(SessionConfig::default())));
+        assert_eq!(d0.len(), 3 + DRIFT_BINS);
+        assert_eq!(d0[0], 0.0);
+        assert!((d0[1] - 0.00229218).abs() < 2e-7, "steady loss {}", d0[1]);
+        let d1 = drift(&r.answer(Request::Advance(2.0)));
+        assert!((d1[0] - 2.0).abs() < 1e-12);
+        r.answer(Request::Cmd(Command::TripFuelPump));
+        let before = d1[1];
+        let mut last = d1;
+        for _ in 0..30 {
+            last = drift(&r.answer(Request::Advance(10.0)));
+        }
+        assert_eq!(last.len(), 3 + DRIFT_BINS);
+        assert!(last[2] < 0.5, "fuel flow {}", last[2]);
+        assert!(last[1] < 0.5 * before, "loss {before} -> {}", last[1]);
     }
 
     /// The period table arrives as seven `[power, measured, model]` rows.

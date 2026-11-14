@@ -17,8 +17,8 @@ use super::{
     and, flip_normal, neg, not, or, plane_from_points, pos, remap, Axis, Builder, CompositeError,
     CompositeRegion, T,
 };
-use petir::mathf::RealMath;
 use crate::geometry::surface::{SurfaceKind, XCylinder, XPlane, YCylinder, YPlane, ZCylinder, ZPlane};
+use petir::mathf::RealMath;
 
 /// An axis-aligned plane `coord = value` on `axis` (upstream `_plane`, line 1457).
 pub(super) fn axis_plane(axis: Axis, value: f64) -> SurfaceKind {
