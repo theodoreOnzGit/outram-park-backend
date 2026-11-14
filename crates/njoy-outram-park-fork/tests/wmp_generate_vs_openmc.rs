@@ -43,7 +43,7 @@
 //! | whole chain from the tape | same shape as OpenMC's library; sigma(E, T) at 0, 293.6, 1200 K within `atol` at all 2400 values |
 //!
 //! Causes and the self-sensitivity instrument:
-//! `verification_and_validation/wmp_generate/README.md`. Runtime ~7.5 min.
+//! `verification_and_validation/wmp_generate/README.md`. Runtime ~10 min.
 //!
 //! Skips (passes, printing `SKIP`) when the ENDF tape is absent.
 
@@ -53,7 +53,7 @@ use std::path::PathBuf;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use njoy_outram_park_fork::wmp::generate::vectfit::{evaluate, vectfit};
 use njoy_outram_park_fork::wmp::generate::{
-    pointwise_from_endf, search_windowing, vectfit_xs, windowing, MultipoleData, SearchOptions, VectfitOptions,
+    from_endf, pointwise_from_endf, search_windowing, vectfit_xs, windowing, MultipoleData, SearchOptions, VectfitOptions,
     WindowingOptions, WmpGenerated,
 };
 use njoy_outram_park_fork::wmp::Cf64;
@@ -302,8 +302,8 @@ fn run_stages() -> Option<Measured> {
     let w_search = compare_wmp("from_multipole search", &searched, &ref_search);
 
     // ---- 5. whole chain sigma(E, T): port's library vs OpenMC's
-    let ours_mp = MultipoleData { poles: vec![fit.poles.clone()], residues: vec![fit.residues.clone()], ..mp.clone() };
-    let ours_lib = search_windowing(&ours_mp, &SearchOptions::default()).expect("search on port's fit").to_windowed_multipole();
+    // the port's own `from_endf`, tape to library, upstream defaults
+    let ours_lib = from_endf(&endf).expect("from_endf").to_windowed_multipole();
     let ref_lib = ref_search.to_windowed_multipole();
     println!(
         "whole chain: port {} poles / {} windows / order {}, OpenMC {} / {} / {}",
@@ -359,7 +359,7 @@ fn run_stages() -> Option<Measured> {
 /// (the second gate the gh:#1390 brief asks for when coefficients cannot
 /// reach the code-to-code allowance).
 #[test]
-#[cfg_attr(not(feature = "long-tests"), ignore = "~7.5 min: a full vector-fitting order search and three windowings; runs by default")]
+#[cfg_attr(not(feature = "long-tests"), ignore = "~10 min: two vector-fitting order searches and four windowings; runs by default")]
 fn mg26_generation_matches_openmc_stage_by_stage() {
     let Some(m) = run_stages() else { return };
     assert_eq!(m.n_poles.0, m.n_poles.1, "vectfit_xs pole count");

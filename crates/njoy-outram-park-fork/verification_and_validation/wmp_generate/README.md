@@ -72,7 +72,8 @@ with itself under a one-ulp change.
 
 Run time on this machine (4 cores, one used): OpenMC 51.7 s for
 `vectfit_nuclide` and 149.5 s for the search; the port's whole test, which
-fits once and windows three times, ~7.5 min.
+fits twice (OpenMC's input, then its own `from_endf` from the tape) and
+runs two searches and a fixed windowing, ~10 min.
 
 ### Predictions against results
 
