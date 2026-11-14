@@ -28,6 +28,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 pub mod cfmesh;
+pub mod set_fields;
 
 use clap::Parser;
 

@@ -89,6 +89,7 @@ pub mod mesh_quality;
 pub mod poly_dual_mesh;
 pub mod poly_dual_mesh_upstream;
 pub mod snappy_hex_mesh;
+pub mod topo_set;
 
 // The high-level entry points, re-exported at the crate root so they are the
 // first thing a new user meets.

@@ -17,7 +17,7 @@
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
 #   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers twophase
-#           radiation viewfactors fetch-genfoam genfoam fetch-cfmesh cfmesh polydual verify
+#           radiation viewfactors utilities fetch-genfoam genfoam fetch-cfmesh cfmesh polydual verify
 #           (radiation, gh:#1379: libradiationModels, built by `closure` as well, plus
 #           the P1 differential driver radDump from the outram-foam-basic-lib V&V dir)
 #           (fetch-cfmesh and cfmesh: DAFoam cfMesh e944f6ba695f, gh:#1385; cfMesh
@@ -441,6 +441,18 @@ stage_viewfactors() {
   run_stage app-viewFactorsGen vf_viewfactorsgen_impl
 }
 
+# --- stage: pre-processing / mesh-manipulation utilities (gh:#1384) ---------------
+# setFields, topoSet, extrudeMesh: the libraries they link (sampling, extrudeModel,
+# meshTools, finiteVolume) are already built by core/closure.
+# setFields also links libfiniteArea and libgenericPatchFields (built here first).
+stage_utilities() {
+  wm_lib finiteArea
+  wm_lib genericPatchFields
+  wm_app utilities/preProcessing/setFields setFields
+  wm_app utilities/mesh/manipulation/topoSet topoSet
+  wm_app utilities/mesh/generation/extrude/extrudeMesh extrudeMesh
+}
+
 # --- GeN-Foam -----------------------------------------------------------------
 gf_fetch_impl() {
   if [ "$(git -C "$GF" rev-parse HEAD 2>/dev/null)" = "$GF_SHA" ]; then echo "GeN-Foam already at $GF_SHA"; return 0; fi
@@ -633,6 +645,7 @@ for s in "$@"; do
     twophase)     load_env; stage_twophase ;;
     radiation)    load_env; stage_radiation ;;
     viewfactors)  load_env; stage_viewfactors ;;
+    utilities)    load_env; stage_utilities ;;
     fetch-genfoam) stage_fetch_genfoam ;;
     genfoam)      load_env; stage_genfoam ;;
     fetch-cfmesh) stage_fetch_cfmesh ;;
