@@ -45,9 +45,10 @@
 //!   output depends on an undefined variable and this port refuses the curve.
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use njoy_outram_park_fork::deck::{run_deck, DeckOptions};
+
+mod common;
 
 fn njoy_root() -> PathBuf {
     std::env::var("NJOY2016_ROOT")
@@ -94,18 +95,14 @@ fn run_both(tag: &str, deck: &str, resources: &[(&str, u32)]) -> Option<Pair> {
         }
     }
     std::fs::write(theirs.join("deck"), deck).unwrap();
-    let st = Command::new("sh")
-        .arg("-c")
-        .arg(format!("{} < deck > log 2>&1", bin.display()))
-        .current_dir(&theirs)
-        .status()
-        .unwrap();
-    assert!(st.success(), "NJOY2016 binary failed on {tag}");
+    let (ok, date) = common::run_njoy_dated(&bin, &theirs); // gh:#1549
+    assert!(ok, "NJOY2016 binary failed on {tag}");
     let run = run_deck(
         deck,
         &DeckOptions {
             workdir: Some(ours.clone()),
             parse_only: false,
+            run_date: Some(date.clone()),
         },
     )
     .unwrap();

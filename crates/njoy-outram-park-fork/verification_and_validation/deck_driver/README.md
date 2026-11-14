@@ -1559,3 +1559,36 @@ gh:#1371 first):
 |---|---|---|---|
 | `E1` | deck 05 with `iwt = 1` and a two-region TAB1 | 33, 34 and 35 identical (21 471, 78 796 and 199 652 lines) | NJOY's unit 33 differs from deck 05's in 210 162 bytes |
 | `E2` | deck 46 with `iwt = 1` and card 13 twice | 34 identical (8 002 lines) | NJOY's unit 34 equals deck 46's, so this deck checks only the card count |
+
+## 30. One run date for both sides (2026-11-14, gh:#1549)
+
+`test_25_thermal_ace_and_directory` failed once, on a run that crossed midnight. The
+cause:
+- NJOY2016's `dater` (`util.f90:72-94`) stamps the clock's local date into each ACE
+  header (`aceth.f90:669-670` and the other ACER classes) and into DTFR's edit title
+  (`dtfr.f90:813`).
+- The port did the same, from its own clock, after NJOY's run had finished.
+- The line comparison includes the header line, so the two dates could differ.
+
+**Fix, with the comparison unchanged:**
+- `DeckOptions::run_date` (`mm/dd/yy`) fixes `dater` for a run, through
+  `TapeUnits::set_run_date`, `dater` and `fixed_dater`. `None` keeps the clock at each
+  call, as upstream.
+- `tests/common::run_njoy_dated` runs NJOY between two reads of the local date. It runs
+  NJOY again if the date changed during the run, and passes NJOY's date to this crate.
+- Used by every harness that runs NJOY and then this crate: tapes, photonuclear,
+  photon, plotr, covr and groupr_weights.
+
+`faketime` is not installed here, and installing it was refused. So the reproduction is
+an ablation, not a faked clock.
+- `test_25_a_different_date_differs_in_the_header_only` dates this crate's run
+  `01/01/99`.
+- Predicted on gh:#1549 before the run: line 1 differs on units 70, 71 and 72, and unit
+  75 (the directory, which has no date) is identical.
+- **Measured: exactly that.** With the shared date, all four units are identical.
+
+**Divergence, not changed:** the port's clock date (`deck::run::dater`) is UTC, while
+upstream's is local time. Tests never use it now. A user outside UTC who runs a deck
+without `run_date` gets the UTC date in the header between local midnight and UTC
+midnight. Matching local time would need a time-zone dependency, which this crate does
+not have.

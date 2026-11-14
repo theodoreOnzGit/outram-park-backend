@@ -113,6 +113,9 @@ pub struct TapeUnits {
     /// Files a module wrote as raw bytes (CCCCR's unformatted CCCC files,
     /// gh:#1369), by unit.
     bytes: BTreeMap<i32, Vec<u8>>,
+    /// `dater`'s `mm/dd/yy` for this run ([`crate::deck::DeckOptions::run_date`]);
+    /// `None`: the clock's, at each call.
+    run_date: Option<String>,
 }
 
 fn unit_err(msg: String) -> NjoyError {
@@ -129,7 +132,35 @@ impl TapeUnits {
             written: BTreeSet::new(),
             workdir,
             bytes: BTreeMap::new(),
+            run_date: None,
         }
+    }
+
+    /// Fix the date `dater` returns for the rest of the run to `mm/dd/yy`
+    /// (gh:#1549).
+    ///
+    /// # Errors
+    /// A date that is not eight characters `dd/dd/dd` (digits and slashes).
+    pub fn set_run_date(&mut self, mmddyy: &str) -> Result<(), NjoyError> {
+        let b = mmddyy.as_bytes();
+        let ok = b.len() == 8
+            && b.iter().enumerate().all(|(i, c)| if i == 2 || i == 5 { *c == b'/' } else { c.is_ascii_digit() });
+        if !ok {
+            return Err(NjoyError::InvalidInput(format!("run date {mmddyy:?} is not mm/dd/yy")));
+        }
+        self.run_date = Some(mmddyy.to_string());
+        Ok(())
+    }
+
+    /// `'  '//dater()` (`util.f90:72-94`): the run date fixed by
+    /// [`Self::set_run_date`], else today's from the clock.
+    pub fn dater(&self) -> String {
+        self.fixed_dater().unwrap_or_else(crate::deck::run::dater)
+    }
+
+    /// `'  mm/dd/yy'` of the date fixed by [`Self::set_run_date`], if any.
+    pub fn fixed_dater(&self) -> Option<String> {
+        self.run_date.as_ref().map(|d| format!("  {d}"))
     }
 
     /// Put a file of raw bytes on unit `lun` (a Fortran unformatted file a
@@ -426,5 +457,22 @@ mod tests {
         assert_eq!(std::fs::read_to_string(dir.join("tape20")).unwrap(), input, "input untouched");
         assert!(dir.join("tape21").exists() && dir.join("tape22").exists());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// gh:#1549: a fixed run date is `dater`'s for the rest of the run, in
+    /// `'  '//hdate` form; without one, the clock's date in the same form.
+    #[test]
+    fn run_date_is_fixed_or_the_clocks() {
+        let mut t = TapeUnits::new(None);
+        assert_eq!(t.fixed_dater(), None);
+        assert_eq!(t.dater().len(), 10);
+        assert!(t.dater().starts_with("  "));
+        t.set_run_date("11/13/26").unwrap();
+        assert_eq!(t.dater(), "  11/13/26");
+        assert_eq!(t.fixed_dater().as_deref(), Some("  11/13/26"));
+        for bad in ["11-13-26", "1/13/26", "11/13/2026", "ab/cd/ef"] {
+            assert!(t.set_run_date(bad).is_err(), "{bad}");
+        }
+        assert_eq!(t.dater(), "  11/13/26", "a refused date leaves the fixed one");
     }
 }

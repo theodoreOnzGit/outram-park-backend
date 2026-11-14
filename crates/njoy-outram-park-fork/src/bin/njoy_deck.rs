@@ -19,7 +19,7 @@ fn main() {
         std::process::exit(2)
     });
     let workdir = args.get(2).map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("."));
-    match run_deck(&text, &DeckOptions { workdir: Some(workdir), parse_only: false }) {
+    match run_deck(&text, &DeckOptions { workdir: Some(workdir), parse_only: false, run_date: None }) {
         Ok(run) => {
             println!("modules run: {:?}", run.modules);
             print!("{}", run.listing);
