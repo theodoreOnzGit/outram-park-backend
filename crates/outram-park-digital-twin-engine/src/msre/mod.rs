@@ -8,6 +8,7 @@
 //! |---|---|---|
 //! | [`design`] | Cited plant constants (TM-0728 design point, TM-1070 kinetics and lumps, TM-1626 measured circulation loss) | here, re-exporting `nee_soon`'s where they exist |
 //! | [`model::MsreModel`] | A stepping simulator: circulating-fuel kinetics with fuel and graphite feedback, heat exchanger, coolant loop, radiator, piping lags, and (since gh:#1332) fuel- and coolant-pump trips and start-ups | here; TM-1070's equations, ~~composes `teh_o_prke`~~ kinetics from [`circulation`] (equal to `teh_o_prke`'s at full flow) |
+//! | [`moltres_drift`] | Moltres's finite-volume precursor drift (`outram_park_fork_moltres::precursors`) on TM-1626's flow path: the circulation loss solved spatially, checked against [`circulation`]'s line model | `outram_park_fork_moltres`, re-exported |
 //! | [`circulation`] | Circulating-fuel kinetics at variable flow: ~~TM-1070's well-stirred core (default) or TM-1626's importance-weighted line model~~ TM-1626's importance-weighted line model (the default since 2026-11-11, gh:#1330) or TM-1070's well-stirred core (the ablation `MsreConfig::without_line_model`) (gh:#1330, gh:#1332) | here |
 //! | [`session::Session`] | An operator session in plain numbers: commands (rods, ideal flux servo, radiator air, pump trips and starts), a flat [`session::Snapshot`] in °F / MW / pcm, the deterministic [`session::headless_csv`] and the T-1 [`session::natural_periods`] table, for GUIs and web workers (the museum MSRE simulator, gh:#1570). No physics of its own | here |
 //! | [`pumps`] | Pump flow schedules: ORNL-4233 Fig. 23's measured coast-downs, TM-0728's start-up, caller tables, `tampines`' inertial coast-down | here |
@@ -54,6 +55,7 @@
 pub mod circulation;
 pub mod design;
 pub mod model;
+pub mod moltres_drift;
 pub mod pumps;
 pub mod session;
 

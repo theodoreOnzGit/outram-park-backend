@@ -121,6 +121,16 @@ outram-foam-basic-lib.workspace = true
 # in this crate's tree through `tampines -> raffles`, so it adds no build work.
 raffles.workspace = true
 
+# REAL (non-dev) dependency for `msre::moltres_drift` (maintainer, 2026-11-14:
+# "wire Moltres into the digital twin lib as an explicit dependency"): the
+# MSRE simulator's circulating-fuel line model is checked against Moltres's
+# finite-volume precursor drift live, and the drift solver is re-exported for
+# a spatial fidelity level. No cycle: moltres depends on petir, uom,
+# thiserror, serde_json and outram-foam-basic-lib, already in this crate's
+# tree (checked in its Cargo.toml, 2026-11-14); dhoby-ghaut does not depend
+# on moltres, so there was no re-export to go through.
+outram-park-fork-moltres.workspace = true
+
 # The central GUI crate (gh:#1112). Untargeted, unlike the egui stack below,
 # because `animation` (re-exported from `bugis::animation`) is this crate's
 # Android-building module; `animation` is egui-free and pulls only uom, and
