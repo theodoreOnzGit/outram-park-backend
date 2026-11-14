@@ -312,6 +312,12 @@ pub struct GranularSystem {
     /// `fix multisphere ... allow_group_and_set yes` (gh:#1415): `set` may
     /// change atoms while clumps exist.
     ms_allow_group_and_set: bool,
+    /// `fix multisphere/break ... trigger_threshold T trigger_timeStep S`:
+    /// `(T, S)` (gh:#1415).
+    ms_break: Option<(f64, i64)>,
+    /// The break trigger (`fix property/atom`, default 0) of each atom, by
+    /// tag.
+    break_trigger: std::collections::BTreeMap<u64, f64>,
     /// `boundary f f f` with `thermo_modify lost ignore`: the box whose
     /// leavers `Comm::exchange` drops at a rebuild
     /// ([`GranularSystem::with_lost_atoms`], gh:#1415).
@@ -480,6 +486,8 @@ impl GranularSystem {
             multisphere: None,
             ms_nointegration: false,
             ms_allow_group_and_set: false,
+            ms_break: None,
+            break_trigger: std::collections::BTreeMap::new(),
             lost_atoms_box: None,
         };
         s.compute_forces_setup();
@@ -774,6 +782,11 @@ impl GranularSystem {
     /// [`DemError::InvalidInput`] if a clump already exists (upstream's fix
     /// style is fixed when the fix is defined).
     pub fn with_multisphere_nointegration(mut self) -> Result<Self, DemError> {
+        if self.ms_break.is_some() {
+            return Err(DemError::InvalidInput(
+                "multisphere/nointegration and multisphere/break are two styles of one fix".into(),
+            ));
+        }
         if self.multisphere.is_some() {
             return Err(DemError::InvalidInput(
                 "multisphere/nointegration must be chosen before the first clump is inserted".into(),
@@ -799,6 +812,76 @@ impl GranularSystem {
             // the heat branch of `calc_force(true)` (no-op without heat/gran)
             ms.heat_transfer(&mut self.particles, &order, true);
         }
+    }
+
+    /// `fix multisphere/break ... trigger_name f_<trig> trigger_threshold
+    /// <threshold> trigger_timeStep <trigger_time_step>` (gh:#1415, fourth
+    /// pass; `FixMultisphereBreak`, LIGGGHTS-PUBLIC `3d5c00f2`). The clumps
+    /// integrate as under `fix multisphere`; after `final_integrate` on every
+    /// step after `trigger_time_step`, a clump with a member atom whose
+    /// trigger ([`GranularSystem::set_type_break_trigger`], a `fix
+    /// property/atom` defaulting to 0) is `>= threshold` breaks into free
+    /// spheres ([`crate::multisphere::Multisphere::break_bodies`]). The freed
+    /// spheres move by the atom integrator (upstream needs `fix nve/sphere`
+    /// for them). Call before the first clump is inserted.
+    ///
+    /// Only the `f_` trigger is ported; an atom-style variable (`v_`) is not.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a clump already exists, for a
+    /// non-finite threshold, or together with
+    /// [`GranularSystem::with_multisphere_nointegration`] (another style of
+    /// the same fix).
+    pub fn with_multisphere_break(mut self, threshold: f64, trigger_time_step: i64) -> Result<Self, DemError> {
+        if self.multisphere.is_some() {
+            return Err(DemError::InvalidInput(
+                "multisphere/break must be chosen before the first clump is inserted".into(),
+            ));
+        }
+        if self.ms_nointegration {
+            return Err(DemError::InvalidInput(
+                "multisphere/nointegration and multisphere/break are two styles of one fix".into(),
+            ));
+        }
+        if !threshold.is_finite() {
+            return Err(DemError::InvalidInput("trigger_threshold must be finite".into()));
+        }
+        self.ms_break = Some((threshold, trigger_time_step));
+        Ok(self)
+    }
+
+    /// `set type T property/atom <trig> v` for the break trigger of
+    /// [`GranularSystem::with_multisphere_break`] (gh:#1415): every atom of
+    /// LIGGGHTS type `liggghts_type` (1-based) takes trigger `v`.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for type 0, a non-finite value, no
+    /// `multisphere/break`, or clumps without
+    /// [`GranularSystem::with_multisphere_allow_group_and_set`] (upstream:
+    /// "Set command may not be used together with fix multisphere").
+    pub fn set_type_break_trigger(&mut self, liggghts_type: usize, v: f64) -> Result<(), DemError> {
+        if liggghts_type == 0 {
+            return Err(DemError::InvalidInput("set: atom types are 1-based".into()));
+        }
+        if !v.is_finite() {
+            return Err(DemError::InvalidInput(format!("set: trigger {v} must be finite")));
+        }
+        if self.ms_break.is_none() {
+            return Err(DemError::InvalidInput("set: no fix multisphere/break trigger exists".into()));
+        }
+        if self.multisphere.is_some() && !self.ms_allow_group_and_set {
+            return Err(DemError::InvalidInput(
+                "Set command may not be used together with fix multisphere (use allow_group_and_set)".into(),
+            ));
+        }
+        for (k, &ty) in self.types.iter().enumerate() {
+            if ty + 1 == liggghts_type {
+                self.break_trigger.insert(self.tags[k], v);
+            }
+        }
+        Ok(())
     }
 
     /// `fix multisphere ... allow_group_and_set yes` (gh:#1415, fourth pass):
@@ -2026,6 +2109,7 @@ impl GranularSystem {
         }
         let dt = self.dt;
         let noint = self.ms_nointegration;
+        let brk = self.ms_break.is_some();
         // `FixMultisphere::init` finds `fix heat/gran`; its
         // T0 is the port's inserted-atom temperature
         let heat = self.heat.is_some();
@@ -2034,6 +2118,9 @@ impl GranularSystem {
                 let mut ms = crate::multisphere::Multisphere::new(dt);
                 if heat {
                     ms = ms.with_heat_transfer(crate::multisphere::INSERTED_TEMPERATURE);
+                }
+                if brk {
+                    ms = ms.with_break();
                 }
                 if noint {
                     ms.without_integration()
@@ -2619,6 +2706,19 @@ impl GranularSystem {
                 ms.reset_forces(false);
                 ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
                 ms.final_integrate(&mut self.particles);
+            }
+            // `FixMultisphereBreak::final_integrate` (gh:#1415)
+            if let Some((threshold, trigger_step)) = self.ms_break {
+                if self.step_count as i64 > trigger_step {
+                    let trigger: Vec<f64> = self
+                        .tags
+                        .iter()
+                        .map(|t| self.break_trigger.get(t).copied().unwrap_or(0.0))
+                        .collect();
+                    if let Some(ms) = self.multisphere.as_mut() {
+                        ms.break_bodies(&mut self.particles, &trigger, &order, threshold);
+                    }
+                }
             }
         }
         // `MeshModuleStress::final_integrate` (calc_total_force)

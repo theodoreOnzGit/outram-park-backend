@@ -1907,7 +1907,7 @@ partly across the plate counts as the volume-weight share of its member atoms
 - periodic images of bodies (`remap_bodies`) ~~and lost-atom/body deletion. The
   decks end before a clump leaves the box, and removing particles from a
   system with clumps panics~~;
-- `fix multisphere/break`;
+- ~~`fix multisphere/break`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - ~~clumps from `insert/stream`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - ~~heat transfer with clumps~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - restart;
@@ -2036,8 +2036,9 @@ misses when the option it tests is switched off, so each gate can fail:
 - `fix remove`'s `delete_bodies` callback; periodic bodies;
 - ~~`spheres_different_types`~~, ~~`bonded`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3), ~~`mass`/`inertia_tensor`~~
   (**CORRECTED 2026-11-14:** ported, 4.16.2);
-- ~~`multisphere/nointegration`,~~ `concave`, `multisphere/break`
-  (**CORRECTED 2026-11-14:** `nointegration` ported, 4.16.2);
+- ~~`multisphere/nointegration`,~~ `concave`, ~~`multisphere/break`~~
+  (**CORRECTED 2026-11-14:** `nointegration` ported, 4.16.2; `break`
+  ported, 4.16.3);
 - ~~clumps from `insert/stream`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3); restart; ~~a second `run` set-up with clumps~~
   (**CORRECTED 2026-11-14:** ported, 4.16.2).
 
@@ -2113,7 +2114,7 @@ refused by name):
 - ~~`bonded`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - `fix multisphere` `concave` (**2026-11-14:** nothing to translate in the
   default build, 4.16.3);
-- `fix multisphere/break`;
+- ~~`fix multisphere/break`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - `CAddRhoFluid` / `allow_heatsource`;
 - ~~heat transfer with clumps~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - periodic images of bodies (`remap_bodies`);
@@ -2169,6 +2170,7 @@ ablated, or the reason it cannot is stated.
 | deck | what it exercises | result (Rust 1.99.1, 2026-11-14) | ablation |
 |---|---|---|---|
 | `ms_stream` | both templates (mass-based 60/40) from `insert/stream` through `ms_stream_face.stl` (0.04 m square at z = 0.10), `vel constant 0.1 0 -0.5`, `extrude_length 0.03` (`insert_every` 6000), 6 clumps at 50/s: three inserted at step 1, three at 6001; clump 1 leaves through `+x` before step 20000 (`with_lost_atoms`). 13 frames | **217 / 217** atom-frames bit-identical (1953 values) | no `Multisphere::release`: **95 / 198** to step 15000, then the atom count differs; no rail (`has_stream` off): **95 / 217**. Both first miss at step 5000, after the first release |
+| `ms_break` | `ms_collide` with `fix nve/sphere` and `fix multisphere/break allow_group_and_set yes trigger_name f_trig trigger_threshold 0.5 trigger_timeStep 6000` (`GranularSystem::with_multisphere_break`); after the insertion step `set type 1 property/atom trig 1.` (`set_type_break_trigger`) and a new `run` set-up. Clump 1 breaks at step 6001; its freed spheres push apart at the next list rebuild and three leave the box by step 8000 (`with_lost_atoms`). 12 frames, plus upstream's `id mass` dump at step 6002 | **71 / 71** atom-frames bit-identical (639 values); masses **7 / 7** | no break: **35 / 49** to step 6100, every atom missing from step 6002 (asserted in the test) |
 | `ms_heat` | `ms_collide` with `heat/gran/conduction initial_temperature 300` (`k = 50, 20`, `cp = 500, 800`) defined first; after the insertion step `set type 1 property/atom Temp 400.` (`GranularSystem::set_type_temperature`, needs `allow_group_and_set yes`), then one continuous `run 14999` (a full set-up) dumping `x v omega f_Temp f_heatFlux` every 1000 steps (`Multisphere::with_heat_transfer`) | **105 / 105** atom-frames bit-identical (1155 values) | no set-up branch: **16 / 105**; no step aggregation: **50 / 105** |
 | `ms_bonded` | `ms_drop` with template `bonded yes` (`ParticleTemplateMultisphere::with_bonded`), plus upstream's `id f_bond_random_id` dump at step 15000 | **27 / 27** atom-frames bit-identical; `bond_random_id` `[-1, -1, -1]`, as upstream's | `bonded no`: no property (upstream: the dump is an error). The trajectory gate **cannot** fail on `bonded` (see below) |
 
@@ -2209,6 +2211,30 @@ mixing spheres and clumps (not ported). `orientation` is not ported for
 (between steps 3000 and 5000): before it, the dumped atoms are on their rails whatever
 the body does. `ms_stream_matches_liggghts`; the prediction held on the first
 run.
+
+**`fix multisphere/break` (`FixMultisphereBreak`).** After
+`FixMultisphere::final_integrate`, on every step after `trigger_timeStep`:
+every member atom whose trigger is `>= trigger_threshold` tag-resets its body
+(`id = -1`) if the body has at least 2 atoms; every atom of such a body is
+freed (`body = -1`), the body's `nrigid` becomes 0, and the atom's mass
+becomes `r*r*r*4.18879020479*density`, upstream's truncated `4 pi / 3` with
+the clump density (not the volume-weighted share that the lost-atom path
+uses). `add_body_finalize` then gives the tag-reset body a **new** id
+(`id_extend_body_extend` treats `id = -1` as new) and keeps it with no atoms;
+`check_lost_atoms` finds 0 of 0 and leaves it, so it is still integrated and
+still counted by `ke/multisphere`. The port keeps it the same way (two bodies
+after the break, ids 1 and 3). The freed spheres keep their excluded pairs
+until the next list rebuild, then push apart. `FixMultisphereBreak::
+pre_neighbor` forces the rebuild 100 steps after a lost member atom (the base
+uses 5): ported (`Multisphere::with_break`), but no deck here loses a member
+atom, so that difference is untested. Only the `f_` (`fix property/atom`)
+trigger is ported; the `v_` atom-style variable and the deprecated
+`trigger_fixName` are not. Refused by name: `break` with `nointegration` (two
+styles of one fix) or after the first clump, and a trigger `set` on clumps
+without `allow_group_and_set`. `ms_break_matches_liggghts`; the prediction
+held on the first run. The deck was amended once before the port ran: the
+mass dump was moved from the end of the run (where the freed atoms had left
+the box) to step 6002.
 
 **Heat transfer with clumps (`FixMultisphere::calc_force`, heat branch).**
 A body starts at `T0` of `heat/gran` (`Multisphere::add_body`). After the

@@ -115,7 +115,7 @@
 //! ~~`fix multisphere/nointegration`,~~ `concave`, `CAddRhoFluid`,
 //! `allow_heatsource`; periodic images of bodies (`remap_bodies`), ~~lost-atom
 //! deletion (`check_lost_atoms` / `delflag`),~~ `fix remove`'s
-//! `delete_bodies`, `fix multisphere/break`,
+//! `delete_bodies`, ~~`fix multisphere/break`~~,
 //! ~~`fix insert/stream` with clumps (`start_step`; refused by
 //! [`crate::insert_stream::InsertStreamFix::new`])~~, ~~heat transfer with clumps~~,
 //! restart, ~~a second `run` set-up with clumps~~~~, and `orientation random`~~.
@@ -150,7 +150,10 @@
 //! Clumps from `fix insert/stream` (`start_step`, `v_integrate`,
 //! [`Multisphere::calc_n_steps`], [`Multisphere::release`]) are streamed
 //! through [`crate::granular_system::GranularSystem::add_stream_insertion`]
-//! (V&V 4.16.3).
+//! (V&V 4.16.3). `fix multisphere/break` with a `fix property/atom` trigger
+//! is [`Multisphere::with_break`] / [`Multisphere::break_bodies`]
+//! ([`crate::granular_system::GranularSystem::with_multisphere_break`];
+//! V&V 4.16.3); an atom-style variable trigger is not ported.
 //! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
 //! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
 //! particles are ported in [`crate::superquadric`]; convex hull, ellipsoid,
@@ -1557,6 +1560,11 @@ pub struct Multisphere {
     has_stream: bool,
     /// `update->ntimestep` of the step being integrated.
     timestep: i64,
+    /// `fix multisphere/break` (gh:#1415): `pre_neighbor` forces the rebuild
+    /// 100 steps after a lost atom, not 5 ([`Multisphere::with_break`]).
+    break_style: bool,
+    /// `mapTagMax_`: the largest body id ever given (ids are never reused).
+    map_tag_max: usize,
 }
 
 impl Multisphere {
@@ -1575,7 +1583,96 @@ impl Multisphere {
             heat_t0: None,
             has_stream: false,
             timestep: 0,
+            break_style: false,
+            map_tag_max: 0,
         }
+    }
+
+    /// `fix multisphere/break` (gh:#1415, fourth pass): the integration is
+    /// `FixMultisphere`'s, [`Multisphere::break_bodies`] runs after
+    /// `final_integrate`, and `pre_neighbor` forces the rebuild 100 steps
+    /// after a lost atom (`FixMultisphereBreak::pre_neighbor`) instead of 5.
+    #[must_use]
+    pub fn with_break(mut self) -> Self {
+        self.break_style = true;
+        self
+    }
+
+    /// `FixMultisphereBreak::final_integrate` after
+    /// `FixMultisphere::final_integrate`, once `step > trigger_timeStep`
+    /// (gh:#1415, fourth pass; LIGGGHTS-PUBLIC `3d5c00f2`). `trigger[i]` is
+    /// atom `i`'s trigger value, `local_order` the atoms in local order.
+    ///
+    /// * Every member atom with `trigger >= threshold` whose body has
+    ///   `nrigid >= 2` tag-resets the body (`Multisphere::tagReset`).
+    /// * Every atom of a tag-reset body is freed: `body = -1`, the body's
+    ///   `nrigid` becomes 0, and its mass becomes
+    ///   `r*r*r*4.18879020479*density` (the body density; upstream's
+    ///   truncated `4 pi / 3`), not the volume-weighted share.
+    /// * If any atom was freed, `add_body_finalize`: each tag-reset body gets
+    ///   a **new** id (`id_extend_body_extend` treats `id = -1` as a new body)
+    ///   and **stays** with `nrigid = 0` and no atoms. Upstream keeps it
+    ///   (`check_lost_atoms` finds 0 of 0), integrates it and counts it in
+    ///   the computes; so does the port.
+    ///
+    /// Returns the number of atoms freed.
+    pub(crate) fn break_bodies(
+        &mut self,
+        particles: &mut [Particle],
+        trigger: &[f64],
+        local_order: &[usize],
+        threshold: f64,
+    ) -> usize {
+        let nbody = self.bodies.len();
+        let mut tag_reset = vec![false; nbody];
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            if trigger[i] < threshold {
+                continue;
+            }
+            if self.bodies[ib].nrigid < 2 {
+                continue;
+            }
+            tag_reset[ib] = true;
+        }
+        // existflag = 0 for the atoms of a tag-reset body with nrigid >= 2,
+        // then those atoms are freed
+        let mut existflag0 = vec![false; particles.len()];
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            if self.bodies[ib].nrigid < 2 {
+                continue;
+            }
+            if tag_reset[ib] {
+                existflag0[i] = true;
+            }
+        }
+        let four_over_three_pi = 4.18879020479;
+        let mut removed = 0;
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            if tag_reset[ib] && existflag0[i] {
+                self.body_of[i] = None;
+                if self.bodies[ib].nrigid > 1 {
+                    self.bodies[ib].nrigid = 0;
+                }
+                let r = particles[i].radius;
+                particles[i].mass = r * r * r * four_over_three_pi * self.bodies[ib].density;
+                removed += 1;
+            }
+        }
+        if removed > 0 {
+            // `id_extend_body_extend`: the tag-reset bodies take new ids
+            self.map_tag_max = self.map_tag_max.max(self.bodies.iter().map(|b| b.id).max().unwrap_or(0));
+            for (ib, b) in self.bodies.iter_mut().enumerate() {
+                if tag_reset[ib] {
+                    self.map_tag_max += 1;
+                    b.id = self.map_tag_max;
+                }
+            }
+            self.add_body_finalize(particles);
+        }
+        removed
     }
 
     /// Whether a `fix insert/stream` exists (`has_stream` of
@@ -2112,7 +2209,8 @@ impl Multisphere {
             }
         }
         if deleted {
-            self.next_reneighbor = Some(step + 5);
+            // `FixMultisphereBreak::pre_neighbor` waits 100 steps
+            self.next_reneighbor = Some(step + if self.break_style { 100 } else { 5 });
         }
         deleted
     }

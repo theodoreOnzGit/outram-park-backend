@@ -293,3 +293,27 @@ thermo		1000
 thermo_modify	lost ignore norm no
 EOF
 frames 1 2 1000 3000 5000 6000 6001 6002 8000 10000 12000 15000 20000; } > in.ms_stream
+# ms_break: ms_collide with `fix multisphere/break` triggered by a
+# `fix property/atom trig` that `set` puts to 1 on the type 1 atoms after the
+# insertion step (allow_group_and_set yes); trigger_timeStep 6000, so the type
+# 1 clump breaks at step 6001 (FixMultisphereBreak::final_integrate): its
+# atoms are freed with rmass = r^3 * 4.18879020479 * density, and `fix
+# nve/sphere` (defined first) integrates them. The body stays with nrigid 0.
+# The freed spheres push apart at the first list rebuild after the break and
+# three leave the box by step 8000 (the lost-atom path). dump.mass (id mass
+# at step 6002) is ms_break_mass.txt.
+{ header; echo "$PTS1"; echo "$PTS2"
+  echo "fix		trig all property/atom trig scalar no no no 0."
+  echo "$COLLIDE_INS" | sed 's/^fix\t\tms all multisphere$/fix\t\tintegr all nve\/sphere\
+fix\t\tms all multisphere\/break allow_group_and_set yes trigger_name f_trig trigger_threshold 0.5 trigger_timeStep 6000/'
+  echo "$COLLIDE_THERMO"
+  echo "run 1"; echo "write_dump all custom dump.F1 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  echo "set		type 1 property/atom trig 1."
+  echo "run 1999"; echo "write_dump all custom dump.F2000 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  prev=2000
+  for s in 4000 6000 6001 6002 6100 7000 8000 10000 12000 15000; do
+    echo "run $((s - prev)) pre no"
+    echo "write_dump all custom dump.F$s id x y z vx vy vz omegax omegay omegaz modify sort id"
+    [ "$s" -eq 6002 ] && echo "write_dump all custom dump.mass id mass modify sort id"
+    prev=$s
+  done; } > in.ms_break

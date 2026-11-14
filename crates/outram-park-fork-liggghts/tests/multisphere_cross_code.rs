@@ -1418,3 +1418,107 @@ fn ms_stream_matches_liggghts() {
     println!("ms_stream: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
     assert_eq!(same, total, "ms_stream: not bit-identical (worst relative {worst:e})");
 }
+
+/// Run the start of the `in.ms_break` sequence on `sys`: frame 1, then (with
+/// `brk`) `set type 1 property/atom trig 1.`, a new `run` set-up, and the
+/// frames to step 6002. Returns `(atom-frames, bit-identical, worst
+/// relative)`.
+fn break_run(sys: &mut GranularSystem, brk: bool) -> (usize, usize, f64) {
+    let (t1, s1, w1) = compare_by_tag_from("ms_break", sys, 0, &[1]).expect("ms_break.csv");
+    if brk {
+        sys.set_type_break_trigger(1, 1.0).unwrap();
+    }
+    sys.begin_run().unwrap();
+    let (t2, s2, w2) = compare_by_tag_from("ms_break", sys, 1, &[2000, 4000, 6000, 6001, 6002]).unwrap();
+    (t1 + t2, s1 + s2, w1.max(w2))
+}
+
+/// **`fix multisphere/break`** (`in.ms_break`, gh:#1415 fourth pass):
+/// `ms_collide` with `fix nve/sphere` and `fix multisphere/break
+/// allow_group_and_set yes trigger_name f_trig trigger_threshold 0.5
+/// trigger_timeStep 6000` ([`GranularSystem::with_multisphere_break`]); after
+/// the insertion step `set type 1 property/atom trig 1.`
+/// ([`GranularSystem::set_type_break_trigger`]) and a new `run` set-up. The
+/// type 1 clump breaks at step 6001: its three atoms are freed with
+/// `rmass = r^3 * 4.18879020479 * 2500`, fly ballistically (their pairs stay
+/// excluded) until the next list rebuild, then push apart and leave the box
+/// by step 8000 (`with_lost_atoms`). The broken body stays with `nrigid = 0`
+/// and a new id. Every atom at 12 frames, matched by id, on bit patterns,
+/// plus upstream's `id mass` dump at step 6002.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** every atom-frame
+/// bit-identical; the freed masses `r^3 * 4.18879020479 * 2500`; two bodies
+/// remain, one empty with a new id. **Ablation** (asserted here): the same
+/// system without the break must miss after step 6001.
+#[test]
+fn ms_break_matches_liggghts() {
+    let Some(mass) = read("ms_break_mass.txt") else {
+        eprintln!("skipping: reference-data/liggghts/ms_break_mass.txt not present");
+        return;
+    };
+    let mk = |brk: bool| {
+        let sys = collide_system(clump1(), clump2()).with_multisphere_allow_group_and_set();
+        let sys = if brk { sys.with_multisphere_break(0.5, 6000).unwrap() } else { sys };
+        sys.with_lost_atoms().unwrap()
+    };
+    let mut sys = mk(true);
+    let (t_a, s_a, w_a) = break_run(&mut sys, true);
+    // upstream's `id mass` at step 6002
+    let theirs: Vec<(u64, f64)> = mass
+        .lines()
+        .skip_while(|l| !l.starts_with("ITEM: ATOMS"))
+        .skip(1)
+        .map(|l| {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            (w[0].parse().unwrap(), w[1].parse().unwrap())
+        })
+        .collect();
+    let mut mass_same = 0;
+    for (id, m) in &theirs {
+        let i = sys.tags().iter().position(|&t| t + 1 == *id).unwrap();
+        mass_same += usize::from(sys.particles()[i].mass.to_bits() == m.to_bits());
+    }
+    let ms = sys.multisphere().unwrap();
+    assert_eq!(ms.bodies().len(), 2, "the broken body stays");
+    assert_eq!(ms.bodies().iter().filter(|b| b.nrigid == 0).count(), 1);
+    assert_eq!(ms.bodies().iter().map(|b| b.id).max(), Some(3), "the broken body takes a new id");
+    let frames = [6100, 7000, 8000, 10000, 12000, 15000];
+    let (t_b, s_b, w_b) = compare_by_tag_from("ms_break", &mut sys, 6002, &frames).unwrap();
+    let (total, same, worst) = (t_a + t_b, s_a + s_b, w_a.max(w_b));
+    println!("ms_break: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}; masses at 6002 {mass_same}/7");
+    // ablation: no break
+    let mut plain = mk(false);
+    let (pt_a, ps_a, _) = break_run(&mut plain, false);
+    let (pt_b, ps_b, _) = compare_by_tag_from("ms_break", &mut plain, 6002, &[6100]).unwrap_or((0, 0, 0.0));
+    println!("ms_break ablation (no break): {}/{} to step 6100", ps_a + ps_b, pt_a + pt_b);
+    assert_eq!(total, 71);
+    assert_eq!(same, total, "ms_break: not bit-identical (worst relative {worst:e})");
+    assert_eq!(mass_same, 7, "freed masses differ from upstream");
+    assert!(ps_a + ps_b < pt_a + pt_b, "ablation: no break would also pass");
+}
+
+/// What the fourth pass refuses by name: `multisphere/break` together with
+/// `nointegration` (two styles of one fix) or after the first clump; a break
+/// trigger without `multisphere/break`, on type 0, or on clumps without
+/// `allow_group_and_set`; `heat/gran` attached after the first clump.
+#[test]
+fn fourth_pass_refusals() {
+    use outram_park_fork_liggghts::heat_gran::HeatGranConduction;
+    let base = || collide_system(clump1(), clump2());
+    assert!(base().with_multisphere_nointegration().unwrap().with_multisphere_break(0.5, 0).is_err());
+    assert!(base().with_multisphere_break(0.5, 0).unwrap().with_multisphere_nointegration().is_err());
+    assert!(base().with_multisphere_break(f64::NAN, 0).is_err());
+    let mut started = base().with_multisphere_break(0.5, 0).unwrap();
+    started.run(1);
+    assert!(started.clone().with_multisphere_break(0.5, 0).is_err(), "after the first clump");
+    assert!(started.set_type_break_trigger(1, 1.0).is_err(), "clumps without allow_group_and_set");
+    let mut allowed = started.with_multisphere_allow_group_and_set();
+    assert!(allowed.set_type_break_trigger(0, 1.0).is_err());
+    assert!(allowed.set_type_break_trigger(1, f64::INFINITY).is_err());
+    assert!(allowed.set_type_break_trigger(1, 1.0).is_ok());
+    let mut plain = base();
+    plain.run(1);
+    assert!(plain.set_type_break_trigger(1, 1.0).is_err(), "no multisphere/break");
+    let heat = HeatGranConduction::new(vec![50.0, 20.0], vec![500.0, 800.0]).unwrap();
+    assert!(plain.with_heat_conduction(heat).is_err(), "heat/gran after the first clump");
+}
