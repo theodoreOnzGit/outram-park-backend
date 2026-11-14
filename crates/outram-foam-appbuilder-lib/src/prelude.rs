@@ -97,6 +97,7 @@ pub use crate::solvers::reacting_two_phase_euler_foam::{
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
 pub use crate::solvers::rho_pimple_foam::esi::RhoPimpleFoamEsi;
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
+pub use crate::solvers::solid_displacement_foam::SolidDisplacementFoamEsi;
 pub use crate::solvers::sonic_foam::esi::SonicFoamEsi;
 pub use crate::solvers::sonic_foam::SonicFoam;
 

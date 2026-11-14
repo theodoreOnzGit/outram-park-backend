@@ -214,14 +214,15 @@ fn with_directory(mat: i32, iverf: i32, head_rows: Vec<[f64; 6]>, text: &[String
     let nentries = entries.len() + 1; // MT=451 itself
     let mut rows = head_rows;
     let n = rows.len();
-    // ENDF-4 keeps the entry count in the head record (`recout` :5036) and
-    // zero in the TEMP record; later formats the other way round (:5071).
+    // ~~ENDF-4 keeps the entry count in the head record (`recout` :5036) and
+    // zero in the TEMP record~~ **CORRECTED 2026-11-14 (gh:#1546):** ENDF-4
+    // has the entry count in the head record (`recout` :5036) **and** in the
+    // TEMP record, which `:5094` sets again just before `hdatio` for every
+    // format; later formats have it in the TEMP record only (:5071).
     if iverf == 4 {
         rows[0][5] = nentries as f64;
-        rows[n - 1][5] = 0.0;
-    } else {
-        rows[n - 1][5] = nentries as f64;
     }
+    rows[n - 1][5] = nentries as f64;
     rows[n - 1][4] = ncards as f64;
     let mut raw = vec![String::new(); n];
     for t in text {

@@ -45,8 +45,10 @@
 //! (`verification_and_validation/upstream_turb_gh1362/README.md`, slice 4). There is NO
 //! `correct()` (no transport solve) and no [`crate::traits::TurbulenceModel`] impl yet.
 //! Not ported: `useSigma true` (the `Ssigma` invariants branch), `shielding ZDES2020`
-//! (needs `wallDist::n()` and `fvc::curl`), `ft2 true`, and the `IDDESDelta` / `maxDeltaxyz`
-//! classes themselves: the IDDES width `delta` and `hmax` are INPUTS (`delta`, `h_max`).
+//! (needs `wallDist::n()` and `fvc::curl`), `ft2 true`, and ~~the `IDDESDelta` / `maxDeltaxyz`
+//! classes themselves: the IDDES width `delta` and `hmax` are INPUTS (`delta`, `h_max`)~~ **CORRECTED
+//! 2026-11-14:** `IDDESDelta` and `maxDeltaxyz` are ported in [`crate::les::deltas`] (0 ulp against ESI
+//! v2506, README slice 9); this model still takes `delta` and `hmax` as INPUTS (`delta`, `h_max`).
 
 use crate::source_terms::{self, FrozenState, SourceTerms};
 use crate::spalart_allmaras::compute_wall_distance;

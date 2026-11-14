@@ -225,3 +225,19 @@ mod gh1362_tests {
         assert_eq!(c.alpha_h(p, t).get::<pascal_second>(), 1.8e-5 * (1.0 / 0.7));
     }
 }
+
+/// Upstream `constTransport::operator+=`: `mu_` linear, `rPr_ = 1/(Y1/rPr_ + Y2/other.rPr_)`
+/// (gh:#1378).
+impl<T: ThermoModel + crate::thermophysics::mixture::Mixable> crate::thermophysics::mixture::Mixable
+    for ConstTransport<T>
+{
+    fn set_mol_weight(&mut self, w: MolarMass) {
+        self.thermo.set_mol_weight(w);
+    }
+
+    fn mix_params(&mut self, y1: f64, y2: f64, other: &Self) {
+        self.thermo.mix_params(y1, y2, &other.thermo);
+        self.mu = y1 * self.mu + y2 * other.mu;
+        self.rpr = 1.0 / (y1 / self.rpr + y2 / other.rpr);
+    }
+}

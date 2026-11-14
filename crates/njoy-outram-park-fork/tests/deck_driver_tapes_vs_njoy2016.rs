@@ -42,6 +42,8 @@ use std::process::Command;
 
 use njoy_outram_park_fork::deck::{run_deck, DeckOptions};
 
+mod common;
+
 fn njoy_root() -> PathBuf {
     std::env::var("NJOY2016_ROOT")
         .map(PathBuf::from)
@@ -90,6 +92,20 @@ fn run_pair_decks_extra(
     deck_njoy: &str,
     deck_ours: &str,
 ) -> Option<(PathBuf, PathBuf)> {
+    run_pair_decks_dated(root, tag, resource, extra, deck_njoy, deck_ours, None)
+}
+
+/// [`run_pair_decks_extra`]; this crate's run is dated `date` when given (an
+/// ablation, gh:#1549), else with NJOY's own date.
+fn run_pair_decks_dated(
+    root: &Path,
+    tag: &str,
+    resource: &str,
+    extra: &[(&str, u32)],
+    deck_njoy: &str,
+    deck_ours: &str,
+    date: Option<&str>,
+) -> Option<(PathBuf, PathBuf)> {
     let bin = root.join("build/njoy");
     let res = root.join("tests/resources").join(resource);
     // An empty `resource`: the deck reads no tape20 (LEAPR-only decks).
@@ -120,14 +136,12 @@ fn run_pair_decks_extra(
         }
     }
     std::fs::write(theirs.join("deck"), deck_njoy).unwrap();
-    let st = Command::new("sh")
-        .arg("-c")
-        .arg(format!("{} < deck > log 2>&1", bin.display()))
-        .current_dir(&theirs)
-        .status()
-        .unwrap();
-    assert!(st.success(), "NJOY2016 binary failed on {tag}");
-    let run = run_deck(deck_ours, &DeckOptions { workdir: Some(ours.clone()), parse_only: false }).unwrap();
+    // NJOY's own date goes to this crate, so a run across midnight cannot
+    // stamp the two sides differently (gh:#1549).
+    let (ok, njoy_date) = common::run_njoy_dated(&bin, &theirs);
+    assert!(ok, "NJOY2016 binary failed on {tag}");
+    let date = date.map_or(njoy_date, str::to_string);
+    let run = run_deck(deck_ours, &DeckOptions { workdir: Some(ours.clone()), parse_only: false, run_date: Some(date) }).unwrap();
     assert_eq!(run.blocked, None, "{tag}: the deck must run to its end");
     Some((ours, theirs))
 }
@@ -228,6 +242,29 @@ fn test_10_ace_and_pendf_are_identical() {
     for dir in [&ours, &o2] {
         let _ = std::fs::remove_dir_all(dir.parent().unwrap());
     }
+}
+
+/// **Deck `R4` (gh:#1546): RECONR's PENDF of an ENDF-4 neutron evaluation**,
+/// line by line against NJOY2016.80. Upstream deck 02 (Pu-238 from ENDF/B-IV
+/// `t404`, MAT 1050) cut before BROADR, with `moder -22 28` added. No upstream
+/// deck compares this tape: decks 02, 10 and 11 hand it on to BROADR.
+///
+/// For `iverf = 4`, `recout` writes the entry count in the head record (`:5036`)
+/// and again in the TEMP record (`scr(6)=nxcc+nmtr+i152` just before `hdatio`,
+/// `:5092-5094`). Predicted before the run (gh:#1546): before the fix, exactly 1
+/// line differs (MF=1/MT=451's TEMP record, `N2` 0 against the count); after
+/// it, 0. **Measured (2026-11-14, release, NJOY2016.80): before the fix 1 line
+/// (line 3, `1050 1451`), after it 0 of the tape's lines.** The pre-fix run is
+/// the ablation: the old branch fails this gate.
+#[test]
+fn test_r4_reconr_endf4_pendf_is_identical() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "02", Some("broadr"), "moder\n -22 28/\n") else { return };
+    let Some((ours, njoy)) = run_pair(&root, "r4", "t404", &deck) else { return };
+    let d = differing_lines(&ours.join("tape28"), &njoy.join("tape28"));
+    println!("deck R4 unit 28: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+    assert!(d.is_empty(), "deck R4 unit 28: {} lines differ from NJOY2016", d.len());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
 
 /// **Test 19 (Pu-241 ENDF/B-VI.3): `moder; reconr; broadr; unresr; heatr; purr;
@@ -869,7 +906,7 @@ fn acer_check_deck(case: &str, resource: &str, extra: &[(&str, u32)], units: &[u
         let name = format!("tape{unit}");
         let d = differing_lines(&ours.join(&name), &njoy.join(&name));
         println!("deck {case} unit {unit}: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
-        // The date field of the ACE header is the run's own date on both sides.
+        // The date field of the ACE header is NJOY's run date on both sides (gh:#1549).
         assert!(d.is_empty(), "deck {case} unit {unit}: {} lines differ from NJOY2016", d.len());
     }
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
@@ -1340,33 +1377,60 @@ fn deck_first_acers(root: &Path, case: &str, n: usize) -> Option<String> {
 
 /// ACER `iopt = 2` (gh:#1369): the first `n` ACER modules of upstream deck `case`
 /// run by NJOY2016.80 and by this crate; each listed unit (the thermal ACE files
-/// and the directory) is compared line by line, the date line included (both
-/// sides stamp the run's own date).
+/// and the directory) is compared line by line, the date line included ~~(both
+/// sides stamp the run's own date)~~ **CORRECTED 2026-11-14 (gh:#1549):** both
+/// sides stamp NJOY's date, which this crate is given through
+/// `DeckOptions::run_date`; stamping each side's own date failed once on a run
+/// that crossed midnight.
 fn thermal_acer_deck(case: &str, n: usize, res: &[(&str, u32)], units: &[u32]) -> Option<()> {
+    let bad = thermal_acer_differences(case, n, res, units, None)?;
+    assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
+    Some(())
+}
+
+/// The differing lines `(unit, line numbers)` of [`thermal_acer_deck`]'s run,
+/// with this crate's run dated `date` when given (else NJOY's).
+fn thermal_acer_differences(case: &str, n: usize, res: &[(&str, u32)], units: &[u32], date: Option<&str>) -> Option<Vec<(u32, Vec<usize>)>> {
     let root = njoy_root();
     let deck = deck_first_acers(&root, case, n)?;
     let (r0, rest) = res.split_first().unwrap();
-    let (ours, njoy) = run_pair_decks_extra(&root, &format!("ta{case}"), r0.0, rest, &deck, &deck)?;
+    let tag = format!("ta{case}{}", if date.is_some() { "d" } else { "" });
+    let (ours, njoy) = run_pair_decks_dated(&root, &tag, r0.0, rest, &deck, &deck, date)?;
     let mut bad = Vec::new();
     for &u in units {
         let name = format!("tape{u}");
         let d = differing_lines(&ours.join(&name), &njoy.join(&name));
         println!("deck {case} unit {u}: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
         if !d.is_empty() {
-            bad.push((u, d.len()));
+            bad.push((u, d.iter().map(|x| x.0).collect()));
         }
     }
     if std::env::var_os("KEEP_DECK_DIRS").is_none() {
         let _ = std::fs::remove_dir_all(ours.parent().unwrap());
     }
-    assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
-    Some(())
+    Some(bad)
 }
 
 /// Deck 25 (H in H2O, three temperatures, `iwt` 0/1/2): ACE units 70, 71, 72 and directory unit 75.
 #[test]
 fn test_25_thermal_ace_and_directory() {
     thermal_acer_deck("25", 3, &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[70, 71, 72, 75]);
+}
+
+/// **Ablation of gh:#1549's fix**: deck 25 with this crate's run dated
+/// `01/01/99`, not NJOY's date. Exactly the header line (line 1) of each ACE
+/// unit differs, and the directory unit does not (it carries no date), so the
+/// date line is compared and a run across midnight would fail
+/// `test_25_thermal_ace_and_directory` without the shared date.
+///
+/// Predicted before the run (2026-11-14, gh:#1549): `[(70, [1]), (71, [1]),
+/// (72, [1])]`. Measured (release, NJOY2016.80): the same; with NJOY's date
+/// shared, all four units are identical.
+#[test]
+fn test_25_a_different_date_differs_in_the_header_only() {
+    let res = [("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)];
+    let Some(bad) = thermal_acer_differences("25", 3, &res, &[70, 71, 72, 75], Some("01/01/99")) else { return };
+    assert_eq!(bad, vec![(70, vec![1]), (71, vec![1]), (72, vec![1])]);
 }
 
 /// Deck 49 (Zr in ZrH, `LTHR = 2`, `iwt = 2`): ACE unit 61 and directory unit 71.

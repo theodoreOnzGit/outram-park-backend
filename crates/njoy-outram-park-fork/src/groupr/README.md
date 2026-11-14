@@ -89,8 +89,9 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
   `rndoff`/`delta` shading and the `ig1`/`iglo`/`igt` bookkeeping is ported
   statement for statement in `matrix_panel.rs`; `matrix.rs` keeps the
   earlier trapezoid reduction for its isotropic kernel);
-- flux calculator & URR self-shielding: `getfwt`; the slowing-down branch of
-  `genflx` (`nflmax > 0`) — the Bondarenko branch and `getunr`/`stounr` are
+- flux calculator & URR self-shielding: ~~`getfwt`~~ (`flux_table::FwtReader`, 2026-11-14); ~~the slowing-down branch of
+  `genflx` (`nflmax > 0`)~~ (**CORRECTED 2026-11-14, gh:#1370:** in the tape
+  driver as `flux_table::genflx_card8a`, `ninwt` included) — the Bondarenko branch and `getunr`/`stounr` are
   ported, see `unresolved.rs`/`urr_pendf.rs`;
 - kinematics / matrix machinery: `cm2lab`, `f6cm`, `f6lab`, `ll2lab`, `getaed`,
   `aedi`, ~~`getaed`~~, ~~`aedi`~~ (ported 2026-11-11 in `thermal.rs`: inelastic, incoherent and coherent elastic; test 01 MT 221/229/230 identical), `getco`, ~~`gam102`~~ (LAW=2 ported 2026-11-13; LAW=4 recoil not), ~~`conver`~~ (the reaction lists only, 2026-11-13; its MF=12 LO=2 conversion and MT=456 insertion are not), `hnab`;
@@ -107,9 +108,14 @@ refuses cards 8a, 8b, 8d and 9a, but the deck driver reads all four
 The tape driver's `njoy_panel::getwtf` evaluates every `iwt` from 1 to 12, the
 tabulated ones by `terpa` (decks 07 and 11 for `iwt = 9, 5`;
 `tests/deck_driver_groupr_weights_vs_njoy2016.rs` for 1, 7, 8, 10, 11, 12 and for
-`iwt = -3` with one sigma-zero). Still refused: `iwt = 0` (`getfwt`), the
+`iwt = -3` with one sigma-zero). Still refused: ~~`iwt = 0` (`getfwt`)~~ (**CORRECTED
+2026-11-14, gh:#1370:** `flux_table::genflx_fwt` with `FwtReader`, deck `FW1`), ~~the
 slowing-down flux (`iwt < 0` with `nsigz > 1`; `slowing_down.rs` exists but is not
-wired), and a card 9a with a negative `mtd`. The `run()` entry point returns
+wired)~~, and a card 9a with a negative `mtd`. **CORRECTED 2026-11-14 (gh:#1370):**
+`iwt < 0` with `nsigz > 1` is `flux_table::genflx_card8a`, whose solve is
+`slowing_down::solve_flux` (shared with `genflx_slowing_down`); decks `SD0`-`SD3`
+in `tests/deck_driver_groupr_flux_calculator_vs_njoy2016.rs` are identical to
+NJOY2016's GENDF and `ninwt` file. The `run()` entry point returns
 `NotPorted("groupr")`; decks go through `deck::run_deck`.
 
 ## Testing (V&V — methodology + results, 2026-07-15, commit `ac5adf5`)

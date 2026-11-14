@@ -40,9 +40,10 @@
 //!   (`diff` treats a file with NUL bytes as binary).
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use njoy_outram_park_fork::deck::{run_deck, DeckOptions};
+
+mod common;
 
 fn njoy_root() -> PathBuf {
     std::env::var("NJOY2016_ROOT")
@@ -79,9 +80,9 @@ fn compare(tag: &str, deck: &str, resources: &[(&str, u32)], units: &[u32], refs
         }
     }
     std::fs::write(theirs.join("deck"), deck).unwrap();
-    let st = Command::new("sh").arg("-c").arg(format!("{} < deck > log 2>&1", bin.display())).current_dir(&theirs).status().unwrap();
-    assert!(st.success(), "NJOY2016 binary failed on {tag}");
-    let run = run_deck(deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false }).unwrap();
+    let (ok, date) = common::run_njoy_dated(&bin, &theirs); // gh:#1549
+    assert!(ok, "NJOY2016 binary failed on {tag}");
+    let run = run_deck(deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false, run_date: Some(date.clone()) }).unwrap();
     assert_eq!(run.blocked, None, "{tag} must run to its end");
     let read = |d: &Path, u: u32| std::fs::read_to_string(d.join(format!("tape{u}"))).unwrap_or_default();
     let mut bad = Vec::new();
@@ -189,7 +190,7 @@ fn x2_mt501_after_another_reaction_is_refused() {
     std::fs::create_dir_all(&tmp).unwrap();
     std::fs::copy(root.join("tests/resources/photoat-001_H_000-ENDF8.0.endf"), tmp.join("tape40")).unwrap();
     let deck = "moder\n40 -41\nreconr\n-41 -42\n'photo H'/\n100 0/\n0.001 0. 0.003/\n0/\ngaminr\n-41 -42 0 43/\n100 1 2 1 0/\n'arbitrary groups'/\n4/\n1.e4 1.e5 1.e6 1.e7 1.e8/\n23 502/\n26 504/\n23 501/\n0/\n0/\nmatxsr\n0 43 44/\n1 'x2'/\n1 1 1 1\n'own deck x2'/\n'g'/\n4/\n'gscat'/\n1/\n1/\n'h' 100 100/\nstop\n";
-    let run = run_deck(deck, &DeckOptions { workdir: Some(tmp.clone()), parse_only: false }).unwrap();
+    let run = run_deck(deck, &DeckOptions { workdir: Some(tmp.clone()), parse_only: false, run_date: None }).unwrap();
     let _ = std::fs::remove_dir_all(&tmp);
     let (module, why) = run.blocked.expect("refused");
     assert_eq!(module, "matxsr");

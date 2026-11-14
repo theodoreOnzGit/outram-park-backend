@@ -81,6 +81,11 @@ impl EquationOfState for RhoConst {
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(0.0)
     }
 
+    /// Upstream `Cv` departure is `0` (the liquid-like EOS has no `R` in `CpMCv`).
+    fn cv_eos(&self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(0.0)
+    }
+
     fn cp_eos(&self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(0.0)
     }
@@ -155,5 +160,16 @@ mod gh1362_tests {
         assert_eq!(w.z(p, t).get::<ratio>(), 0.0);
         let e = w.with_gas_constant(GasConstant::EsiV2506);
         assert!(e.r().get::<joule_per_kilogram_kelvin>() > w.r().get::<joule_per_kilogram_kelvin>());
+    }
+}
+
+/// Upstream `rhoConst::operator+=`: `rho_ = Y1*rho_ + Y2*other.rho_` (gh:#1378).
+impl crate::thermophysics::mixture::Mixable for RhoConst {
+    fn set_mol_weight(&mut self, w: MolarMass) {
+        self.mol_weight = w;
+    }
+
+    fn mix_params(&mut self, y1: f64, y2: f64, other: &Self) {
+        self.rho0 = y1 * self.rho0 + y2 * other.rho0;
     }
 }

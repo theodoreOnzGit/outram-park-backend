@@ -45,9 +45,10 @@
 //! Record: deck-driver README §28; predictions and results on gh:#1370.
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use njoy_outram_park_fork::deck::{run_deck, DeckOptions};
+
+mod common;
 
 fn njoy_root() -> PathBuf {
     std::env::var("NJOY2016_ROOT")
@@ -94,9 +95,9 @@ fn compare_on(tag: &str, deck: &str, tape: &str) -> Option<()> {
         std::fs::copy(&res, d.join("tape20")).unwrap();
     }
     std::fs::write(theirs.join("deck"), deck).unwrap();
-    let st = Command::new("sh").arg("-c").arg(format!("{} < deck > log 2>&1", bin.display())).current_dir(&theirs).status().unwrap();
-    assert!(st.success(), "NJOY2016 binary failed on {tag}");
-    let run = run_deck(deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false }).unwrap();
+    let (ok, date) = common::run_njoy_dated(&bin, &theirs); // gh:#1549
+    assert!(ok, "NJOY2016 binary failed on {tag}");
+    let run = run_deck(deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false, run_date: Some(date.clone()) }).unwrap();
     assert_eq!(run.blocked, None, "{tag} must run to its end");
     let read = |d: &Path| std::fs::read_to_string(d.join("tape24")).unwrap_or_default();
     let (a, b) = (read(&ours), read(&theirs));

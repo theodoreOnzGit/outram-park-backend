@@ -86,6 +86,15 @@
 //! - **Scalar-coefficient Laplacian only.** `fvm::laplacian_vec` takes an
 //!   isotropic scalar `2μ+λ`; an anisotropic stiffness tensor is not expressible
 //!   and would need a new operator.
+//! - **Measured 2026-11-14 (gh:#1383):** against the real ESI `solidDisplacementFoam`
+//!   (converged fixed point, 6x4x3 graded block) this solver agrees to 1.5e-11 of the
+//!   displacement amplitude on a one-dimensional field, where the boundary gradient
+//!   cancels, and differs by **9.6 %** of the amplitude (worst cell 20 %) once the field
+//!   is three-dimensional. Removing only upstream's patch-normal boundary-gradient
+//!   correction from an ESI-form port reproduces this solver to 1.6e-15 m, so that
+//!   correction is the whole cause. Record: `outram-foam-appbuilder-lib`
+//!   `verification_and_validation/upstream_solid_displacement_gh1383/README.md`;
+//!   the upstream-faithful solver is `solvers::solid_displacement_foam`.
 //! - **Single Gauss gradient, no non-orthogonal correction.** `fvc::grad_vec`
 //!   sets a *zero-gradient* output boundary, so the explicit `divSigmaExp`
 //!   correction carries no boundary-gradient information; near a boundary it is

@@ -36,7 +36,9 @@
 //! **CORRECTED 2026-11-13 (gh:#1369, round 2):** of the "Still `NotPorted`" list above,
 //! `mfd = 5` (`groupr::spectrum::mf5_spectrum`, `getsed` `LF = 1` and `LF = 5`), MF=3
 //! `MT = 452-456` (`groupr::spectrum::NuYield`, `getyld` on MF=1) and `getdis` with
-//! `mft = 8` for MF=6 LAW=3 are written now; LAW = 2, 4, 5 are still refused. `emaxx`
+//! `mft = 8` for MF=6 LAW=3 are written now; ~~LAW = 2, 4, 5 are still refused.~~ **CORRECTED
+//! 2026-11-14 (gh:#1370):** LAW = 2 neutrons are written too
+//! (`File4Angular::from_mf6_law2`); LAW = 4 and 5 are still refused. `emaxx`
 //! is read from `nendf`'s third MF=1 record, as `groupr.f90:413-431` does. Gated:
 //! decks 29 (whole), 15, 18, 27, 34 (GENDF), 76 and 08 (GENDF without one automatic
 //! card each).
@@ -383,6 +385,24 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     let mut dntc = [0.0f64; 8];
     let mut lrflag_run = 0i32;
     let iblock = &mut 0usize;
+    // Card 8a (`iwt < 0`): `fehi` is a module variable `genflx` rewrites (`:5452`),
+    // and `ninwt` the binary unit it writes (`:4989`, `openz(-ninwt,1)`), gh:#1370.
+    let card8a = match &inp.weight {
+        crate::groupr::WeightSelection::ComputeFlux { params, .. } => *params,
+        _ => None,
+    };
+    let mut fehi = card8a.map_or(0.0, |p| p.fehi_ev);
+    let mut ninwt_file = crate::groupr::flux_table::NinwtFile::default();
+    // `iwt = 0` (card 8d): `getfwt` reads the `ninwt` file a flux calculation wrote.
+    let mut fwt = match &inp.weight {
+        crate::groupr::WeightSelection::ReadResonanceFlux { ninwt } if sigz.len() > 1 => {
+            let b = units
+                .bytes_or_file(*ninwt)
+                .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: ninwt unit {ninwt} holds no file")))?;
+            Some(crate::groupr::flux_table::FwtReader::from_bytes(&b)?)
+        }
+        _ => None,
+    };
     for itemp in 0..inp.temperatures.len() {
     let tempin = inp.temperatures[itemp];
     // `jtemp = itemp` (`:497`): `getwtf` reads `temp(jtemp)` for `iwt = 7, 10, 12`.
@@ -395,7 +415,25 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     // `stounr` (`:533`), then `genflx` when `nsigz > 1` (`:539-546`).
     let unr = crate::groupr::flux_table::stounr(&pend, inp.matb, tempin)?.map(std::sync::Arc::new);
     let flux = if sigz.len() > 1 {
-        let t = crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?;
+        let t = match &card8a {
+            Some(p) => crate::groupr::flux_table::genflx_card8a(
+                &pend,
+                inp.matb,
+                inp.weight.iwt(),
+                inp.lord,
+                &sigz,
+                egn[0],
+                unr.as_deref(),
+                p,
+                &mut fehi,
+                tempin,
+                &mut ninwt_file,
+            )?,
+            None => match fwt.as_mut() {
+                Some(f) => crate::groupr::flux_table::genflx_fwt(&pend, inp.matb, inp.lord, &sigz, egn[0], unr.as_deref(), f, tempin, itemp + 1)?,
+                None => crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?,
+            },
+        };
         crate::groupr::njoy_panel::FluxSource::Table(crate::groupr::flux_table::FluxCursor::new(std::sync::Arc::new(t)))
     } else {
         crate::groupr::njoy_panel::FluxSource::Wtf(inp.weight.iwt())
@@ -543,6 +581,9 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     }
     g.tend();
     units.put_gendf(u.ngout2, g.text(), crate::errorr::gendf::GendfTape { tpid: inp.title.clone(), records: g.records.clone() });
+    if let Some(p) = card8a.filter(|p| p.ninwt != 0) {
+        units.put_bytes(-p.ninwt.abs(), ninwt_file.bytes);
+    }
     Ok(())
 }
 
@@ -731,12 +772,19 @@ fn write_getmf6(
     let disc102 = if mfd == 18 { photon_line_awp(nend, inp.matb, mtd)? } else { None };
     // `getmf6` sends LAW 2-5 to `getdis` (`:7956`, `:8096-8099`), with `mft = 8`;
     // `getfle` makes LAW=3 isotropic in the CM (`iso = 1`, `:9733-9737`).
+    // LAW=2 reads its Legendre records through `getfle` with `mft = 8` (`:9733-9760`,
+    // gh:#1370, `File4Angular::from_mf6_law2`).
     let neutron_law = if mfd == 8 { mf6_subsection_law(nend, inp.matb, mtd, 1)? } else { None };
-    if matches!(neutron_law, Some(2 | 4 | 5)) {
-        return Err(NjoyError::NotPorted("groupr getmf6 LAW = 2, 4 or 5 (getdis with mft = 8 on File-6 angular data)"));
+    if matches!(neutron_law, Some(4 | 5)) {
+        return Err(NjoyError::NotPorted("groupr getmf6 LAW = 4 or 5 for a neutron (getdis with mft = 8: law 4's cosine flip, law 5's lidp and Coulomb term)"));
     }
-    let mut pf = if neutron_law == Some(3) {
-        let tb = crate::groupr::two_body::TwoBodyFeed::new(crate::groupr::file4::File4Angular::isotropic_cm(), egn, head.c2, tab.head.c2, lrflag)?;
+    let mut pf = if matches!(neutron_law, Some(2 | 3)) {
+        let ang = if neutron_law == Some(2) {
+            crate::groupr::file4::File4Angular::from_mf6_law2(nend, inp.matb, mtd, 1, crate::groupr::file4::NLD)?
+        } else {
+            crate::groupr::file4::File4Angular::isotropic_cm()
+        };
+        let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
         crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl)
     } else if let Some(d) = disc102 {
         crate::groupr::njoy_panel::PanelFeed::Gam102(crate::groupr::njoy_panel::Gam102 { disc102: d, awr: head.c2, egg: egg.to_vec(), nl, iglo: 0 })

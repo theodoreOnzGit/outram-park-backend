@@ -9,6 +9,8 @@ This crate provides:
    (gh:#1156) an incompressible energy equation for `PimpleFoam`
    (`solvers::energy`) with chtMultiRegionFoam's fluid/solid region coupling
    (`solvers::cht_multi_region_foam`).
+   Since 2026-11-14 (gh:#1383) also `solvers::solid_displacement_foam` (ESI v2506
+   `solidDisplacementFoam`, bit-identical to the real binary on the V&V block).
 2. **Case I/O** — polyMesh and field readers. **The
    controlDict/fvSchemes/fvSolution parsers and every OpenFOAM/VTK writer are
    `todo!()`** — cases are configured by constructing the structs in Rust and

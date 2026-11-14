@@ -158,6 +158,9 @@ struct EnergyPoint {
     /// Interpolation law for `[previous energy, this energy]`
     /// (`int = fls(6+2*ir)` after `nne` advances, `getfle:9807-9808`).
     law: u32,
+    /// The record's L1: `LT` of an MF=4 LIST, `LANG` of a File-6 `LAW = 2` LIST
+    /// (checked by [`File4Angular::from_mf6_law2`]); 0 for a TAB1.
+    lang: i32,
 }
 
 /// A File-4 angular distribution ready to answer `getfle` queries.
@@ -350,6 +353,7 @@ fn read_records(
                         None => getco_legendre(&list.data, nl_max),
                     },
                     law,
+                    lang: list.head.l1,
                 }
             }
             2 => {
@@ -358,6 +362,7 @@ fn read_records(
                     energy: t.head.c2,
                     fl: getco_tabulated(&t.interp, &t.pairs, nl_max, toler, awr_lab)?,
                     law,
+                    lang: 0,
                 }
             }
             other => {
@@ -482,6 +487,50 @@ impl File4Angular {
             lo_fl,
             log_sign_fallback: opts.log_sign_fallback,
         })
+    }
+
+    /// `getfle` with `mfd = 8` on a File-6 `LAW = 2` subsection (gh:#1370): the
+    /// subsection of `MF=6/MT=mt` whose `ZAP` is `zap` (the first, as `getmf6`'s
+    /// search, `groupr.f90:7588-7615`), its TAB2 and one LIST per incident energy
+    /// `[0, E, LANG, 0, NW, NL]` read with `ltt = 1` (`:9733-9760`), each through
+    /// `getco`'s Legendre branch. The frame is the MF=6 HEAD's `LCT` (`getmf6`,
+    /// `:7581`).
+    ///
+    /// # Errors
+    /// [`NjoyError::SectionNotFound`] without the section; [`NjoyError::NotPorted`],
+    /// by name, for `LANG /= 0` (`getco` would read a tabulated record as Legendre
+    /// coefficients), for `LCT /= 2` (upstream rewrites `LCT = 1` to CM for
+    /// MT=51-90 with `AWR >= 10`, and reads `LCT = 3` per particle; neither is
+    /// translated), and for a subsection that is not `LAW = 2`;
+    /// [`NjoyError::EndfParse`] when no subsection has that `ZAP`.
+    pub fn from_mf6_law2(tape: &Tape, mat: i32, mt: i32, zap: i32, nl_max: usize) -> Result<Self, NjoyError> {
+        let sec = tape.section(mat, 6, mt).ok_or(NjoyError::SectionNotFound { mat, mf: 6, mt })?;
+        let mut cur = SectionCursor::new(&sec.rows);
+        let head = cur.read_cont()?;
+        let lct = head.l2;
+        if lct != 2 {
+            return Err(NjoyError::NotPorted("groupr getfle mfd = 8: File-6 LAW = 2 with LCT /= 2 (getmf6's LCT = 1/3 handling)"));
+        }
+        for _ in 0..head.n1.max(0) {
+            let t = cur.read_tab1()?;
+            let law = t.head.l2;
+            if t.head.c1.round() as i32 != zap {
+                crate::acer::energy::mf6::skip_mf6_subsection(&mut cur, law)?;
+                continue;
+            }
+            if law != 2 {
+                return Err(NjoyError::NotPorted("groupr getfle mfd = 8: File-6 subsection is not LAW = 2"));
+            }
+            let mut points = Vec::new();
+            read_records(&mut cur, 1, nl_max, TOLER, None, &mut points)?;
+            if points.iter().any(|p| p.lang != 0) {
+                return Err(NjoyError::NotPorted("groupr getfle mfd = 8: File-6 LAW = 2 with LANG /= 0 (getco reads the record as Legendre coefficients)"));
+            }
+            let isotropic = points.len() == 2 && points.iter().all(|p| p.fl.len() == 1);
+            let lo_fl = carried_lo(&points, nl_max);
+            return Ok(Self { lct, isotropic, points, lo_fl, log_sign_fallback: false });
+        }
+        Err(NjoyError::EndfParse(format!("getfle: MF=6/MT={mt} of mat {mat} has no subsection with ZAP = {zap}")))
     }
 
     /// An isotropic centre-of-mass distribution with no records: what `getfle`

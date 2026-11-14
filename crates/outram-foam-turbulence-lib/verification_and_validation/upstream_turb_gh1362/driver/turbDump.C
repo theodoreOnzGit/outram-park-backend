@@ -36,12 +36,24 @@
 #include "simpleFilter.H"
 #include "laplaceFilter.H"
 #include "anisotropicFilter.H"
+#include "dynamicKEqn.H"
+#include "wallDistAddressing.H"
+#include "wallFvPatch.H"
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
 #include <string>
 
 using namespace Foam;
+
+// The REAL protected Ck(D, KK) and Ce(D, KK) of dynamicKEqn, reached through a using-declaration
+// (the symbols are exported by libincompressibleTurbulenceModels).
+typedef LESModels::dynamicKEqn<IncompressibleTurbulenceModel<transportModel>> RealDynK;
+struct RealDynKAccess : public RealDynK
+{
+    using RealDynK::Ck;
+    using RealDynK::Ce;
+};
 
 static void H(const std::string& key, label i, scalar a)
 {
@@ -157,7 +169,44 @@ static scalar fnuTilda(const point& p)
     return 5.0e-5 + 4.0e-4*sOf(p)*(1.0 + 0.2*p.x()) + 1.0e-5*p.z();
 }
 
+static scalar fflm(const point& p)
+{
+    return 0.02 + 0.3*sOf(p)*(1.0 + 0.1*p.x()) + 0.01*p.z();
+}
+
+static scalar ffmm(const point& p)
+{
+    return 0.05 + 0.2*sOf(p)*(1.0 + 0.05*p.x()) + 0.02*p.z();
+}
+
 static scalar fzero(const point&) { return 0.0; }
+
+static volScalarField::Internal mkInt(const fvMesh& mesh, const Time& runTime, const scalarField& f)
+{
+    return volScalarField::Internal
+    (
+        IOobject("tmpInt", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE, IOobject::NO_REGISTER),
+        mesh, dimless, f
+    );
+}
+
+// kOmegaSSTLM only (README slice 8): fields that put the transition model's branches in play.
+static scalar fkLM(const point& p)
+{
+    return 2.0e-5 + 3.0e-4*sOf(p)*(1.0 + 0.1*p.x()) + 2.0e-5*p.z();
+}
+static scalar fReThetat(const point& p)
+{
+    return 120.0 + 6400.0*sOf(p)*(1.0 + 0.1*p.x()) + 400.0*p.z();
+}
+static scalar fgammaInt(const point& p)
+{
+    return 0.01 + 3.0*sOf(p)*(1.0 + 0.05*p.x()) + 0.05*p.z();
+}
+static scalar fgammaIntEff(const point& p)
+{
+    return 0.02 + 24.0*sOf(p)*sOf(p)*(1.0 + 0.1*p.x()) + 0.1*p.z();
+}
 
 static autoPtr<volScalarField> mkScalar
 (
@@ -238,21 +287,77 @@ static void auditMatrix(const word& eq, const fvScalarMatrix& mIn)
     m.addBoundaryDiag(d, 0);
     scalarField src(m.source());
     m.addBoundarySource(src, false);
+    dumpS("TM_" + std::string(eq.c_str()) + "_diag", d);
     auditPart(eq, "diag", real[0], d);
     auditPart(eq, "source", real[3], src);
     if (m.hasUpper()) auditPart(eq, "upper", real[1], m.upper());
     if (m.hasLower()) auditPart(eq, "lower", real[2], m.lower());
 }
 
+
+// dynamicKEqn.C, transcribed expression for expression (Ck(D, KK), Ce(D, KK)).
+static volScalarField dynCk
+(
+    const simpleFilter& sF, const LESfilter& F, const volVectorField& U,
+    const volScalarField& delta, const volSymmTensorField& D, const volScalarField& KK,
+    autoPtr<volSymmTensorField>& LLout, autoPtr<volSymmTensorField>& MMout
+)
+{
+    const volSymmTensorField LL
+    (
+        sF(dev(F(sqr(U)) - (sqr(F(U)))))
+    );
+    const volSymmTensorField MM
+    (
+        sF
+        (
+            -2.0*delta*sqrt
+            (
+                max(KK, dimensionedScalar(KK.dimensions(), Zero))
+            )*F(D)
+        )
+    );
+    const volScalarField Ck
+    (
+        sF(0.5*(LL && MM))
+       /(
+            sF(magSqr(MM))
+          + dimensionedScalar("small", sqr(MM.dimensions()), VSMALL)
+        )
+    );
+    LLout.reset(new volSymmTensorField("LL", LL));
+    MMout.reset(new volSymmTensorField("MM", MM));
+    tmp<volScalarField> tfld = 0.5*(mag(Ck) + Ck);
+    return tfld();
+}
+
+static volScalarField dynCe
+(
+    const simpleFilter& sF, const LESfilter& F, const volScalarField& nut,
+    const volScalarField& nu, const volScalarField& delta, const volSymmTensorField& D,
+    const volScalarField& KK
+)
+{
+    const volScalarField Ce
+    (
+        sF(volScalarField::New("nuEff", nut + nu)*(F(magSqr(D)) - magSqr(F(D))))
+       /sF(pow(KK, 1.5)/(2.0*delta))
+    );
+    tmp<volScalarField> tfld = 0.5*(mag(Ce) + Ce);
+    return tfld();
+}
+
 int main(int argc, char* argv[])
 {
-    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE|LESfilters|dynamicKEqn|dynamicLagrangian");
+    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE|LESfilters|dynamicKEqn|dynamicLagrangian|kOmegaSSTLM|LESdeltas");
+    argList::addOption("filter", "name", "simple|laplace|anisotropic (dynamicKEqn test filter)");
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
     dimensionSet::checking(false);
 
     const word model(args.get<word>("model"));
+    const word filterName(args.getOrDefault<word>("filter", "simple"));
     const vectorField& Cf = mesh.Cf().primitiveField();
     const vectorField& C = mesh.C().primitiveField();
     const label nInt = mesh.nInternalFaces();
@@ -327,11 +432,21 @@ int main(int argc, char* argv[])
     }
 
     const word zg(zeroGradientFvPatchScalarField::typeName);
-    autoPtr<volScalarField> kP = mkScalar(mesh, runTime, "k", dimensionSet(0, 2, -2, 0, 0), fk, zg);
+    const bool isLM = (model == "kOmegaSSTLM");
+    autoPtr<volScalarField> kP = mkScalar(mesh, runTime, "k", dimensionSet(0, 2, -2, 0, 0), isLM ? fkLM : fk, zg);
+    autoPtr<volScalarField> reThetatP, gammaIntP, gEffInP;
+    if (isLM)
+    {
+        reThetatP = mkScalar(mesh, runTime, "ReThetat", dimless, fReThetat, zg);
+        gammaIntP = mkScalar(mesh, runTime, "gammaInt", dimless, fgammaInt, zg);
+        gEffInP = mkScalar(mesh, runTime, "gammaIntEffIn", dimless, fgammaIntEff, zg);
+    }
     autoPtr<volScalarField> epsP = mkScalar(mesh, runTime, "epsilon", dimensionSet(0, 2, -3, 0, 0), feps, zg);
     autoPtr<volScalarField> omP = mkScalar(mesh, runTime, "omega", dimensionSet(0, 0, -1, 0, 0), fomega, zg);
     autoPtr<volScalarField> ntP = mkScalar(mesh, runTime, "nuTilda", dimensionSet(0, 2, -1, 0, 0), fnuTilda, zg);
     mkScalar(mesh, runTime, "nut", dimensionSet(0, 2, -1, 0, 0), fzero, word(calculatedFvPatchScalarField::typeName));
+    mkScalar(mesh, runTime, "flm", dimensionSet(0, 4, -4, 0, 0), fflm, zg);
+    mkScalar(mesh, runTime, "fmm", dimensionSet(0, 4, -4, 0, 0), ffmm, zg);
     const volScalarField& k = kP();
     const volScalarField& epsilon = epsP();
     const volScalarField& omega = omP();
@@ -357,6 +472,12 @@ int main(int argc, char* argv[])
     dumpS("epsilon", epsilon.primitiveField());
     dumpS("omega", omega.primitiveField());
     dumpS("nuTilda", nuTilda.primitiveField());
+    if (isLM)
+    {
+        dumpS("ReThetat", reThetatP().primitiveField());
+        dumpS("gammaInt", gammaIntP().primitiveField());
+        dumpS("gammaIntEff_in", gEffInP().primitiveField());
+    }
 
     // ---- the REAL model ----------------------------------------------------
     singlePhaseTransportModel laminarTransport(U, phi);
@@ -404,11 +525,47 @@ int main(int argc, char* argv[])
     dumpV("gradomega", tgradom().primitiveField());
     dumpV("gradnuTilda", tgradnt().primitiveField());
 
+    // nut as validate() left it (the model's nut_ is overwritten by correct())
+    const volScalarField nutPre("nutPre", nut);
+    if (model == "dynamicKEqn")
+    {
+        // the REAL Ck and Ce of the model object on the same frozen state, called before
+        // correct() changes nut; KK is formed with the same filter class as the model's
+        const RealDynKAccess& rm =
+            static_cast<const RealDynKAccess&>(dynamic_cast<const RealDynK&>(turbulence()));
+        autoPtr<LESfilter> F0p;
+        if (filterName == "simple") F0p.reset(new simpleFilter(mesh));
+        else if (filterName == "laplace") F0p.reset(new laplaceFilter(mesh, 2.0));
+        else F0p.reset(new anisotropicFilter(mesh, 2.0));
+        const LESfilter& F0 = F0p();
+        const volSymmTensorField Dsymm0(symm(gradU));
+        const volSymmTensorField Ddev0(devSymm(gradU));
+        const volScalarField KKnut0(0.5*(F0(magSqr(U)) - magSqr(F0(U))));
+        volScalarField KK0(0.5*(F0(magSqr(U)) - magSqr(F0(U))));
+        KK0.clamp_min(SMALL);
+        dumpVF("R_Ck_symm", rm.Ck(Dsymm0, KKnut0));
+        dumpVF("R_Ck_dev", rm.Ck(Ddev0, KK0));
+        dumpVF("R_Ce", rm.Ce(Ddev0, KK0));
+    }
+
     // ---- the REAL correct(): matrices and local fields are printed by the
     //      dumpSolver instead of being solved ------------------------------
+    if (isLM)
+    {
+        // the model's own gammaIntEff (zero from its constructor) is set to the frozen input so
+        // the first correct() exercises the Pk / epsilonByk overrides (README slice 8)
+        volScalarField::Internal& gE = mesh.lookupObjectRef<volScalarField::Internal>("gammaIntEff");
+        gE.field() = gEffInP().primitiveField();
+    }
     if (model != "Smagorinsky" && model != "WALE" && model != "LESfilters")
     {
         turbulence->correct();
+    }
+    if (isLM)
+    {
+        dumpS("gammaIntEff_real", mesh.lookupObject<volScalarField::Internal>("gammaIntEff").field());
+        dumpS("ReThetat_after", mesh.lookupObject<volScalarField>("ReThetat").primitiveField());
+        dumpS("gammaInt_after", mesh.lookupObject<volScalarField>("gammaInt").primitiveField());
     }
 
     // ---- transcribed source terms (see the upstream file named per model) ---
@@ -602,6 +759,336 @@ int main(int argc, char* argv[])
             Pk - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
         );
         auditMatrix("k", kEqn);
+    }
+    else if (model == "kOmegaSSTLM")
+    {
+        // RASModels/kOmegaSSTLM/kOmegaSSTLM.C on Base/kOmegaSST/kOmegaSSTBase.C (v2506 defaults)
+        const dimensionedScalar alphaK1("aK1", dimless, 0.85), alphaK2("aK2", dimless, 1.0),
+            alphaOmega1("aO1", dimless, 0.5), alphaOmega2("aO2", dimless, 0.856),
+            gamma1("g1", dimless, 5.0/9.0), gamma2("g2", dimless, 0.44),
+            beta1("b1", dimless, 0.075), beta2("b2", dimless, 0.0828),
+            betaStar("bs", dimless, 0.09), a1("a1", dimless, 0.31),
+            b1("bb1", dimless, 1.0), c1("c1", dimless, 10.0);
+        const dimensionedScalar ca1_("ca1", dimless, 2), ca2_("ca2", dimless, 0.06),
+            ce1_("ce1", dimless, 1), ce2_("ce2", dimless, 50), cThetat_("cThetat", dimless, 0.03),
+            sigmaThetat_("sigmaThetat", dimless, 2);
+        const scalar lambdaErr_ = 1e-6;
+        const dimensionedScalar deltaU_("deltaU", dimVelocity, SMALL);
+        const volScalarField& y = wallDist::New(mesh).y();
+        const volScalarField& ReThetat_ = reThetatP();
+        const volScalarField& gammaInt_ = gammaIntP();
+        const volScalarField::Internal& gammaIntEff_ = gEffInP().internalField();
+
+        const volScalarField S2(2*magSqr(symm(gradU)));
+        volScalarField::Internal GbyNu0(gradU && devTwoSymm(gradU));
+        const volScalarField::Internal G(nut*GbyNu0);
+
+        const volScalarField CDkOmega
+        (
+            (2*alphaOmega2)*(fvc::grad(k) & fvc::grad(omega))/omega
+        );
+        // F1 = max(SST F1, F3)
+        const volScalarField CDkOmegaPlus
+        (
+            max(CDkOmega, dimensionedScalar(dimless/sqr(dimTime), 1.0e-10))
+        );
+        const volScalarField arg1
+        (
+            min
+            (
+                min
+                (
+                    max
+                    (
+                        (scalar(1)/betaStar)*sqrt(k)/(omega*y),
+                        scalar(500)*nu/(sqr(y)*omega)
+                    ),
+                    (4*alphaOmega2)*k/(CDkOmegaPlus*sqr(y))
+                ),
+                scalar(10)
+            )
+        );
+        const volScalarField F1sst(tanh(pow4(arg1)));
+        const volScalarField Ry(y*sqrt(k)/nu);
+        const volScalarField F3(exp(-pow(Ry/120.0, 8)));
+        const volScalarField F1(max(F1sst, F3));
+        const volScalarField arg2
+        (
+            min
+            (
+                max
+                (
+                    (scalar(2)/betaStar)*sqrt(k)/(omega*y),
+                    scalar(500)*nu/(sqr(y)*omega)
+                ),
+                scalar(100)
+            )
+        );
+        const volScalarField F23(tanh(sqr(arg2)));
+
+        const volScalarField::Internal gamma(F1()*(gamma1 - gamma2) + gamma2);
+        const volScalarField::Internal beta(F1()*(beta1 - beta2) + beta2);
+        const volScalarField::Internal GbyNu
+        (
+            min(GbyNu0, (c1/a1)*betaStar*omega()*max(a1*omega(), b1*F23()*sqrt(S2())))
+        );
+        const volScalarField::Internal PkSst(min(G, (c1*betaStar)*k()*omega()));
+        const volScalarField::Internal Pk(gammaIntEff_*PkSst);
+        const volScalarField::Internal epsByk
+        (
+            clamp(gammaIntEff_, scalarMinMax(0.1, 1))*(betaStar*omega())
+        );
+        const volScalarField::Internal Eom(gamma*GbyNu);
+        const volScalarField::Internal SuSpOm1(((2.0/3.0)*gamma)*divU);
+        const volScalarField::Internal SpOm(beta*omega());
+        const volScalarField::Internal SuSpOm2((F1() - scalar(1))*CDkOmega()/omega());
+        const volScalarField::Internal SuSpK((2.0/3.0)*divU);
+        dumpS("T_S2", S2.primitiveField());
+        dumpS("T_CDkOmega", CDkOmega.primitiveField());
+        dumpS("T_F1sst", F1sst.primitiveField());
+        dumpS("T_F3", F3.primitiveField());
+        dumpS("T_F1", F1.primitiveField());
+        dumpS("T_F23", F23.primitiveField());
+        dumpS("T_GbyNu0", GbyNu0.field());
+        dumpS("T_G", G.field());
+        dumpS("T_gamma", gamma.field());
+        dumpS("T_beta", beta.field());
+        dumpS("T_GbyNu", GbyNu.field());
+        dumpS("T_PkSst", PkSst.field());
+        dumpS("T_Pk", Pk.field());
+        dumpS("T_omega_E", Eom.field());
+        dumpS("T_omega_SuSp1", SuSpOm1.field());
+        dumpS("T_omega_Sp", SpOm.field());
+        dumpS("T_omega_SuSp2", SuSpOm2.field());
+        dumpS("T_k_E", Pk.field());
+        dumpS("T_k_SuSp", SuSpK.field());
+        dumpS("T_k_Sp", epsByk.field());
+
+        // --- the LM-specific terms, kOmegaSSTLM::correctReThetatGammaInt() and helpers ---
+        const volScalarField::Internal& yI = y();
+        const volScalarField::Internal omegaI(omega());
+        const volScalarField::Internal& nuI = nu();
+        const volScalarField::Internal Omega(sqrt(2*magSqr(skew(gradU()))));
+        const volScalarField::Internal S(sqrt(2*magSqr(symm(gradU()))));
+        const volScalarField::Internal Us(max(mag(U()), deltaU_));
+        const volScalarField::Internal dUsds((U() & (U() & gradU()))/sqr(Us));
+        dumpS("T_Omega", Omega.field());
+        dumpS("T_S", S.field());
+        dumpS("T_Us", Us.field());
+        dumpS("T_dUsds", dUsds.field());
+
+        // Fthetat
+        dimensionedScalar deltaMin("deltaMin", dimLength, SMALL);
+        volScalarField::Internal delta
+        (
+            max(375*Omega*nuI*ReThetat_()*yI/sqr(Us), deltaMin)
+        );
+        const volScalarField::Internal ReOmega(sqr(yI)*omegaI/nuI);
+        const volScalarField::Internal Fwake(exp(-sqr(ReOmega/1e5)));
+        const volScalarField::Internal Fthetat
+        (
+            min
+            (
+                max
+                (
+                    Fwake*exp(-pow4((yI/delta))),
+                    (1 - sqr((gammaInt_() - 1.0/ce2_)/(1 - 1.0/ce2_)))
+                ),
+                scalar(1)
+            )
+        );
+        dumpS("T_delta", delta.field());
+        dumpS("T_Fwake", Fwake.field());
+        dumpS("T_Fthetat", Fthetat.field());
+
+        // ReThetac, Flength, ReThetat0 (explicit loops, as upstream)
+        scalarField ReThetac(mesh.nCells()), Flength(mesh.nCells()), ReThetat0(mesh.nCells());
+        scalarField lamIters(mesh.nCells());
+        forAll(ReThetac, celli)
+        {
+            const scalar ReThetat = ReThetat_[celli];
+            ReThetac[celli] =
+                ReThetat <= 1870
+              ?
+                ReThetat
+              - 396.035e-2
+              + 120.656e-4*ReThetat
+              - 868.230e-6*sqr(ReThetat)
+              + 696.506e-9*pow3(ReThetat)
+              - 174.105e-12*pow4(ReThetat)
+              :
+                ReThetat - 593.11 - 0.482*(ReThetat - 1870);
+        }
+        forAll(ReThetat_, celli)
+        {
+            const scalar ReThetat = ReThetat_[celli];
+            if (ReThetat < 400)
+            {
+                Flength[celli] =
+                    398.189e-1
+                  - 119.270e-4*ReThetat
+                  - 132.567e-6*sqr(ReThetat);
+            }
+            else if (ReThetat < 596)
+            {
+                Flength[celli] =
+                    263.404
+                  - 123.939e-2*ReThetat
+                  + 194.548e-5*sqr(ReThetat)
+                  - 101.695e-8*pow3(ReThetat);
+            }
+            else if (ReThetat < 1200)
+            {
+                Flength[celli] = 0.5 - 3e-4*(ReThetat - 596);
+            }
+            else
+            {
+                Flength[celli] = 0.3188;
+            }
+            const scalar Fsublayer =
+                ::exp(-sqr(sqr(yI[celli])*omegaI[celli]/(200*nuI[celli])));
+            Flength[celli] = Flength[celli]*(1 - Fsublayer) + 40*Fsublayer;
+        }
+        forAll(ReThetat0, celli)
+        {
+            const scalar Tu
+            (
+                max(100*::sqrt((2.0/3.0)*k[celli])/Us[celli], scalar(0.027))
+            );
+            scalar lambda = 0;
+            scalar lambdaErr;
+            scalar thetat;
+            label iter = 0;
+            do
+            {
+                const scalar lambda0 = lambda;
+                if (Tu <= 1.3)
+                {
+                    const scalar Flambda =
+                        dUsds[celli] <= 0
+                      ?
+                        1
+                      - (
+                         - 12.986*lambda
+                         - 123.66*sqr(lambda)
+                         - 405.689*pow3(lambda)
+                        )*::exp(-::pow(Tu/1.5, 1.5))
+                      :
+                        1
+                      + 0.275*(1 - ::exp(-35*lambda))
+                       *::exp(-Tu/0.5);
+                    thetat =
+                        (1173.51 - 589.428*Tu + 0.2196/sqr(Tu))
+                       *Flambda*nuI[celli]
+                       /Us[celli];
+                }
+                else
+                {
+                    const scalar Flambda =
+                        dUsds[celli] <= 0
+                      ?
+                        1
+                      - (
+                          -12.986*lambda
+                          -123.66*sqr(lambda)
+                          -405.689*pow3(lambda)
+                        )*::exp(-::pow(Tu/1.5, 1.5))
+                      :
+                        1
+                      + 0.275*(1 - ::exp(-35*lambda))
+                       *::exp(-2*Tu);
+                    thetat =
+                        331.50*::pow((Tu - 0.5658), -0.671)
+                       *Flambda*nuI[celli]/Us[celli];
+                }
+                lambda = sqr(thetat)/nuI[celli]*dUsds[celli];
+                lambda = clamp(lambda, scalar(-0.1), scalar(0.1));
+                lambdaErr = mag(lambda - lambda0);
+                ++iter;
+            } while (lambdaErr > lambdaErr_);
+            ReThetat0[celli] = max(thetat*Us[celli]/nuI[celli], scalar(20));
+            lamIters[celli] = scalar(iter);
+        }
+        dumpS("T_ReThetac", ReThetac);
+        dumpS("T_Flength", Flength);
+        dumpS("T_ReThetat0", ReThetat0);
+        dumpS("T_lambdaIters", lamIters);
+
+        // ReThetat equation
+        const volScalarField::Internal tt(500*nuI/sqr(Us));
+        const volScalarField::Internal Pthetat((cThetat_/tt)*(1 - Fthetat));
+        dumpS("T_Pthetat", Pthetat.field());
+        const volScalarField::Internal ReThetatE(Pthetat*mkInt(mesh, runTime, ReThetat0));
+        dumpS("T_ReThetat_E", ReThetatE.field());
+        // gammaInt equation
+        const volScalarField::Internal Rev(sqr(yI)*S/nuI);
+        const volScalarField::Internal RT(k()/(nuI*omegaI));
+        const volScalarField::Internal ReThetacI(mkInt(mesh, runTime, ReThetac));
+        const volScalarField::Internal FlengthI(mkInt(mesh, runTime, Flength));
+        const volScalarField::Internal Fonset1(Rev/(2.193*ReThetacI));
+        const volScalarField::Internal Fonset2(min(max(Fonset1, pow4(Fonset1)), scalar(2)));
+        const volScalarField::Internal Fonset3(max(1 - pow3(RT/2.5), scalar(0)));
+        const volScalarField::Internal Fonset(max(Fonset2 - Fonset3, scalar(0)));
+        const volScalarField::Internal Pgamma(ca1_*FlengthI*S*sqrt(gammaInt_()*Fonset));
+        const volScalarField::Internal Fturb(exp(-pow4(0.25*RT)));
+        const volScalarField::Internal Egamma(ca2_*Omega*Fturb*gammaInt_());
+        const volScalarField::Internal Freattach(exp(-pow4(RT/20.0)));
+        const volScalarField::Internal gammaSep
+        (
+            min(2*max(Rev/(3.235*ReThetacI) - 1, scalar(0))*Freattach, scalar(2))
+           *Fthetat
+        );
+        const volScalarField::Internal gammaIntEffNew(max(gammaInt_(), gammaSep));
+        dumpS("T_Rev", Rev.field());
+        dumpS("T_RT", RT.field());
+        dumpS("T_Fonset", Fonset.field());
+        dumpS("T_Pgamma", Pgamma.field());
+        dumpS("T_Fturb", Fturb.field());
+        dumpS("T_Egamma", Egamma.field());
+        dumpS("T_Freattach", Freattach.field());
+        dumpS("T_gammaSep", gammaSep.field());
+        dumpS("T_gammaIntEff", gammaIntEffNew.field());
+
+        const volScalarField alphaKF(F1*(alphaK1 - alphaK2) + alphaK2);
+        const volScalarField alphaOF(F1*(alphaOmega1 - alphaOmega2) + alphaOmega2);
+        const volScalarField Dk("DkEff", alphaKF*nut + nu);
+        const volScalarField Dom("DomegaEff", alphaOF*nut + nu);
+        fvScalarMatrix omEqn
+        (
+            fvm::ddt(omP()) + fvm::div(phi, omP()) - fvm::laplacian(Dom, omP())
+         ==
+            Eom
+          - fvm::SuSp(SuSpOm1, omP())
+          - fvm::Sp(SpOm, omP())
+          - fvm::SuSp(SuSpOm2, omP())
+        );
+        auditMatrix("omega", omEqn);
+        fvScalarMatrix kEqn
+        (
+            fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
+         ==
+            Pk - fvm::SuSp(SuSpK, kP()) - fvm::Sp(epsByk, kP())
+        );
+        auditMatrix("k", kEqn);
+        const volScalarField DRe("DReThetatEff", sigmaThetat_*(nut + nu));
+        const volScalarField Dg("DgammaIntEff", nut + nu);
+        volScalarField reT("ReThetat", ReThetat_);
+        volScalarField gaI("gammaInt", gammaInt_);
+        fvScalarMatrix reEqn
+        (
+            fvm::ddt(reT) + fvm::div(phi, reT) - fvm::laplacian(DRe, reT)
+         ==
+            ReThetatE - fvm::Sp(Pthetat, reT)
+        );
+        auditMatrix("ReThetat", reEqn);
+        fvScalarMatrix gaEqn
+        (
+            fvm::ddt(gaI) + fvm::div(phi, gaI) - fvm::laplacian(Dg, gaI)
+         ==
+            Pgamma - fvm::Sp(ce1_*Pgamma, gaI)
+          + Egamma - fvm::Sp(ce2_*Egamma, gaI)
+        );
+        auditMatrix("gammaInt", gaEqn);
     }
     else if (model == "SpalartAllmaras")
     {
@@ -1078,6 +1565,100 @@ int main(int argc, char* argv[])
         );
         auditMatrix("k", kEqn);
     }
+    else if (model == "LESdeltas")
+    {
+        // LESdeltas (README slice 9): the REAL delta object selected in constructor/turbulenceProperties
+        // (-filter names the variant: maxDeltaxyz | IDDESDelta | vanDriest | smooth); `delta_real` /
+        // `hmax_real` above are the values after validate(), `delta_after` the values after correct().
+        dumpS("delta_after", mesh.lookupObject<volScalarField>("delta").primitiveField());
+        dumpV("wall_n", wallDist::New(mesh).n().primitiveField());
+        dumpS("wall_y", wallDist::New(mesh).y().primitiveField());
+        if (filterName == "vanDriest")
+        {
+            // LESdeltas/vanDriestDelta/vanDriestDelta.C calcDelta(), expression for expression. The
+            // real calcDelta() runs inside correct(), before the nut update: nutPre is its nut.
+            const scalar kappa = 0.41, Aplus = 26.0, Cdelta = 0.158;
+            volScalarField ystar
+            (
+                IOobject("ystar", runTime.constant(), mesh.thisDb(), IOobjectOption::NO_REGISTER),
+                mesh,
+                dimensionedScalar("ystar", dimLength, GREAT)
+            );
+            const fvPatchList& patches = mesh.boundary();
+            volScalarField::Boundary& ystarBf = ystar.boundaryFieldRef();
+            label kw = 0;
+            forAll(patches, patchi)
+            {
+                if (isA<wallFvPatch>(patches[patchi]))
+                {
+                    const fvPatchVectorField& Uw = U.boundaryField()[patchi];
+                    const scalarField& nuw = nu.boundaryField()[patchi];
+                    const scalarField& nuSgsw = nutPre.boundaryField()[patchi];
+                    ystarBf[patchi] = nuw/sqrt((nuw + nuSgsw)*mag(Uw.snGrad()) + VSMALL);
+                    const scalarField magSn(mag(Uw.snGrad()));
+                    forAll(nuw, fi)
+                    {
+                        H("vd_nuw", kw, nuw[fi]);
+                        H("vd_nutw", kw, nuSgsw[fi]);
+                        H("vd_magSnGradU", kw, magSn[fi]);
+                        H("vd_ystar_face", kw, ystarBf[patchi][fi]);
+                        ++kw;
+                    }
+                }
+            }
+            const auto& wDist = wallDistAddressing::New(mesh);
+            const auto& y = wDist.y();
+            {
+                // diagnostic: which wall face does the real map take each cell's value from?
+                // (boundary value of the wall faces = the face's index within the wall patch)
+                volScalarField idx
+                (
+                    IOobject("idx", runTime.constant(), mesh.thisDb(), IOobjectOption::NO_REGISTER),
+                    mesh, dimensionedScalar("idx", dimLength, -1.0)
+                );
+                volScalarField::Boundary& idxBf = idx.boundaryFieldRef();
+                forAll(patches, patchi)
+                {
+                    if (isA<wallFvPatch>(patches[patchi]))
+                    {
+                        forAll(idxBf[patchi], fi) idxBf[patchi][fi] = scalar(fi);
+                    }
+                }
+                wDist.map(idx, mapDistribute::transform());
+                dumpS("vd_idx_mapped", idx.primitiveField());
+            }
+            wDist.map(ystar, mapDistribute::transform());
+            dumpS("vd_y", y.primitiveField());
+            dumpS("vd_ystar_mapped", ystar.primitiveField());
+            constexpr scalar yPlusCutOff = 500;
+            constexpr scalar fuzzyGREAT = 0.5*GREAT;
+            ystar.dimensions().reset(y.dimensions()/ystar.dimensions());
+            forAll(y, celli)
+            {
+                const scalar yPlus = y[celli]/ystar[celli];
+                if (y[celli] > fuzzyGREAT || (yPlus > yPlusCutOff))
+                {
+                    ystar[celli] = GREAT;
+                }
+                else
+                {
+                    ystar[celli] = yPlus;
+                }
+            }
+            dumpS("vd_yplus", ystar.primitiveField());
+            const volScalarField& geometric = mesh.lookupObject<volScalarField>("geometricDelta");
+            dumpS("vd_geometric", geometric.primitiveField());
+            volScalarField dT
+            (
+                min
+                (
+                    geometric,
+                    (kappa/Cdelta)*((scalar(1) + SMALL) - exp(-ystar/Aplus))*y
+                )
+            );
+            dumpS("vd_delta_T", dT.primitiveField());
+        }
+    }
     else if (model == "kEqn")
     {
         // LESModels/kEqn/kEqn.C correct(), correctNut(); delta cubeRootVol; Ce from LESModel
@@ -1150,6 +1731,126 @@ int main(int argc, char* argv[])
             G - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
         );
         auditMatrix("k", kEqn);
+    }
+    else if (model == "dynamicKEqn")
+    {
+        // LESModels/dynamicKEqn/dynamicKEqn.C: Ck, Ce, correctNut(), correct(); delta cubeRootVol.
+        const scalar widthCoeff = 2.0;
+        const simpleFilter sF(mesh);
+        autoPtr<LESfilter> Fp;
+        if (filterName == "simple") Fp.reset(new simpleFilter(mesh));
+        else if (filterName == "laplace") Fp.reset(new laplaceFilter(mesh, widthCoeff));
+        else Fp.reset(new anisotropicFilter(mesh, widthCoeff));
+        const LESfilter& F = Fp();
+        const volScalarField& delta = mesh.lookupObject<volScalarField>("delta");
+        dumpS("T_delta", delta.primitiveField());
+        dumpVF("nutpre", nutPre);
+        dumpVF("nut_after", nut);
+        dumpVF("nu_f", nu);
+        dumpVF("delta_f", delta);
+        // correctNut(): D = symm(grad U), KK unclamped
+        const volSymmTensorField Dsymm(symm(gradU));
+        const volScalarField KKnut(0.5*(F(magSqr(U)) - magSqr(F(U))));
+        autoPtr<volSymmTensorField> LLs, MMs;
+        const volScalarField CkSymm(dynCk(sF, F, U, delta, Dsymm, KKnut, LLs, MMs));
+        const volScalarField nutValidate(CkSymm*sqrt(k)*delta);
+        // correct(): D = devSymm(grad U), KK clamped
+        const volSymmTensorField Ddev(devSymm(gradU));
+        volScalarField KK(0.5*(F(magSqr(U)) - magSqr(F(U))));
+        KK.clamp_min(SMALL);
+        autoPtr<volSymmTensorField> LLd, MMd;
+        const volScalarField CkDev(dynCk(sF, F, U, delta, Ddev, KK, LLd, MMd));
+        const volScalarField CeF(dynCe(sF, F, nutPre, nu, delta, Ddev, KK));
+        const volScalarField nutAfter(CkDev*sqrt(k)*delta);
+        const volScalarField G("G", 2.0*nutPre*(gradU && Ddev));
+        const volScalarField::Internal SuSpK((2.0/3.0)*divU);
+        const volScalarField SpK(CeF*sqrt(k)/delta);
+        dumpVF("T_D_symm", Dsymm);
+        dumpVF("T_m_dev", volScalarField(-2.0*delta*sqrt(max(KK, dimensionedScalar(KK.dimensions(), Zero)))));
+        dumpVF("T_FD_dev", volSymmTensorField(F(Ddev)));
+        dumpVF("T_D_dev", Ddev);
+        dumpVF("T_KK_nut", KKnut);
+        dumpVF("T_KK", KK);
+        dumpVF("T_LL", LLd());
+        dumpVF("T_MM_symm", MMs());
+        dumpVF("T_MM_dev", MMd());
+        dumpVF("T_Ck_symm", CkSymm);
+        dumpVF("T_Ck_dev", CkDev);
+        dumpVF("T_Ce", CeF);
+        dumpS("T_nut_validate", nutValidate.primitiveField());
+        dumpS("T_nut_after", nutAfter.primitiveField());
+        dumpS("T_G", G.primitiveField());
+        dumpS("T_k_SuSp", SuSpK.field());
+        dumpS("T_k_Sp", SpK.primitiveField());
+        const volScalarField Dk("DkEff", nutPre + nu);
+        fvScalarMatrix kEqn
+        (
+            fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
+         ==
+            G - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
+        );
+        auditMatrix("k", kEqn);
+    }
+    else if (model == "dynamicLagrangian")
+    {
+        // LESModels/dynamicLagrangian/dynamicLagrangian.C correct(), correctNut(gradU);
+        // delta cubeRootVol, theta 1.5 (the default), alpha = rho = 1 (geometricOneField)
+        const scalar widthCoeff = 2.0;
+        autoPtr<LESfilter> Fp;
+        if (filterName == "simple") Fp.reset(new simpleFilter(mesh));
+        else if (filterName == "laplace") Fp.reset(new laplaceFilter(mesh, widthCoeff));
+        else Fp.reset(new anisotropicFilter(mesh, widthCoeff));
+        const LESfilter& F = Fp();
+        const volScalarField& delta = mesh.lookupObject<volScalarField>("delta");
+        const volScalarField& flm = mesh.lookupObject<volScalarField>("flm");
+        const volScalarField& fmm = mesh.lookupObject<volScalarField>("fmm");
+        const scalar theta = 1.5;
+        volSymmTensorField S(devSymm(gradU));
+        volScalarField magS(mag(S));
+        volVectorField Uf(F(U));
+        volSymmTensorField Sf(devSymm(fvc::grad(Uf)));
+        volScalarField magSf(mag(Sf));
+        volSymmTensorField L(dev(F(sqr(U)) - (sqr(F(U)))));
+        volSymmTensorField M
+        (
+            2.0*sqr(delta)*(F(magS*S) - 4.0*magSf*Sf)
+        );
+        volScalarField invT
+        (
+            (1.0/(theta*delta))*pow(flm*fmm, 1.0/8.0)
+        );
+        volScalarField LM(L && M);
+        fvScalarMatrix flmEqn
+        (
+            fvm::ddt(flm) + fvm::div(phi, flm)
+         ==
+            invT*LM - fvm::Sp(invT, flm)
+        );
+        auditMatrix("flm", flmEqn);
+        volScalarField MMf(M && M);
+        fvScalarMatrix fmmEqn
+        (
+            fvm::ddt(fmm) + fvm::div(phi, fmm)
+         ==
+            invT*MMf - fvm::Sp(invT, fmm)
+        );
+        auditMatrix("fmm", fmmEqn);
+        const volScalarField nutT((flm/fmm)*sqr(delta)*mag(devSymm(gradU)));
+        dumpVF("T_S", S);
+        dumpVF("T_magS", magS);
+        dumpVF("T_Uf", Uf);
+        dumpVF("T_Sf", Sf);
+        dumpVF("T_magSf", magSf);
+        dumpVF("T_L", L);
+        dumpVF("T_M", M);
+        dumpVF("T_invT", invT);
+        dumpVF("T_LM", LM);
+        dumpVF("T_MM", MMf);
+        dumpS("T_nut", nutT.primitiveField());
+        dumpS("T_flm", flm.primitiveField());
+        dumpS("T_fmm", fmm.primitiveField());
+        dumpS("T_delta", delta.primitiveField());
+        dumpVF("nut_after", nut);
     }
     else if (model == "LESfilters")
     {

@@ -34,6 +34,7 @@
 //! | [`rho_pimple_foam`] | rhoPimpleFoam | Compressible transient PIMPLE |
 //! | [`sonic_foam`] | sonicFoam | Transonic/supersonic compressible |
 //! | [`rho_central_foam`] | rhoCentralFoam | Density-based central-upwind (Kurganov-Tadmor) |
+//! | [`solid_displacement_foam`] | solidDisplacementFoam (ESI v2506, compactNormalStress) | Linear-elastic small-strain solid with thermal stress |
 //! | [`hrm_foam`] | HRMFoam | Homogeneous relaxation two-phase flashing flow |
 //! | [`reacting_two_phase_euler_foam`] | reactingTwoPhaseEulerFoam | Two-fluid Euler-Euler with reacting mass/heat transfer |
 //!
@@ -54,4 +55,5 @@ pub mod rho_pimple_foam;
 /// Applying `fvSchemes` selections (ddt / div) to an assembled equation.
 /// See [`schemes::ddt_vec_scheme`] and [`schemes::div_vec_scheme`].
 pub mod schemes;
+pub mod solid_displacement_foam;
 pub mod sonic_foam;
