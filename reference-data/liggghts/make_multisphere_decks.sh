@@ -251,3 +251,29 @@ echo "write_dump all custom dump.bond id f_bond_random_id modify sort id" >> in.
 # multispheres etc" (FixMultisphere::init). The default lmp_serial has no
 # particletemplate/concave, so `fix concave` has nothing to integrate there.
 sed 's/^fix\t\tms all multisphere$/fix\t\tms all concave/' in.ms_drop > in.ms_concave
+# ms_heat: the ms_collide clumps with `fix heat/gran/conduction` defined before
+# the templates (so its transport equation integrates T before
+# FixMultisphere::calc_force aggregates it). The type 1 clump is set to 400 K
+# after its insertion; the second run's set-up (calc_force(true)) makes each
+# body's temperature sum(volumeweight * T). `set` with clumps needs
+# `allow_group_and_set yes` (set.cpp: "Set command may not be used together
+# with fix multisphere"). ONE continuous run with a periodic
+# dump: `run N pre no` re-runs FixMultisphere::setup (Verlet::setup_minimal),
+# whose temperature branch is not idempotent. dump.heat (frames 1, 1000, ...,
+# 15000; id x y z vx vy vz omegax omegay omegaz f_Temp f_heatFlux) is
+# ms_heat_dump.txt.
+{ header; cat <<'EOF'
+fix		ftco all property/global thermalConductivity peratomtype 50. 20.
+fix		ftca all property/global thermalCapacity peratomtype 500. 800.
+fix		heat all heat/gran/conduction initial_temperature 300.
+EOF
+  echo "$PTS1"; echo "$PTS2"
+  echo "$COLLIDE_INS" | sed 's/^fix\t\tms all multisphere$/fix\t\tms all multisphere allow_group_and_set yes/'
+  echo "$COLLIDE_THERMO"; cat <<'EOF'
+run		1
+set		type 1 property/atom Temp 400.
+dump		d1 all custom 1000 dump.heat id x y z vx vy vz omegax omegay omegaz f_Temp f_heatFlux
+dump_modify	d1 sort id
+run		14999
+EOF
+} > in.ms_heat

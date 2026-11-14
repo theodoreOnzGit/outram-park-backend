@@ -117,7 +117,7 @@
 //! deletion (`check_lost_atoms` / `delflag`),~~ `fix remove`'s
 //! `delete_bodies`, `fix multisphere/break`,
 //! `fix insert/stream` with clumps (`start_step`; refused by
-//! [`crate::insert_stream::InsertStreamFix::new`]), heat transfer with clumps,
+//! [`crate::insert_stream::InsertStreamFix::new`]), ~~heat transfer with clumps~~,
 //! restart, ~~a second `run` set-up with clumps~~~~, and `orientation random`~~.
 //! **CORRECTED 2026-11-14 (gh:#1415):** `fflag`/`tflag`, lost-atom deletion
 //! and `orientation random` are translated (V&V 4.16.1).
@@ -142,6 +142,11 @@
 //! template, and `particletemplate/concave` is not in that build.
 //! `fix remove` (and so `delete_bodies`) is not in that build either: its
 //! header is a stub there (V&V 4.16.3).
+//! Heat transfer with clumps (the `fix heat/gran` branch of
+//! `FixMultisphere::calc_force`) is [`Multisphere::with_heat_transfer`] /
+//! [`Multisphere::heat_transfer`], switched on by
+//! [`crate::granular_system::GranularSystem::with_heat_conduction`]
+//! (V&V 4.16.3).
 //! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
 //! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
 //! particles are ported in [`crate::superquadric`]; convex hull, ellipsoid,
@@ -177,6 +182,11 @@ pub enum MassSource {
     /// centre-of-mass shift.
     UseDensity,
 }
+
+/// The temperature `[K]` every inserted atom carries (the port has no
+/// per-insertion `initial_temperature`; a `fix heat/gran` deck compared with
+/// it uses `initial_temperature 300`).
+pub(crate) const INSERTED_TEMPERATURE: f64 = 300.0;
 
 /// `MAXJACOBI` of `math_extra.cpp`.
 const MAXJACOBI: usize = 50;
@@ -1438,7 +1448,7 @@ impl ClumpToInsert {
                 angular_velocity: Vec3::zero(),
                 mass: self.mass,
                 radius: self.radius[j],
-                temperature: 300.0,
+                temperature: INSERTED_TEMPERATURE,
             })
             .collect()
     }
@@ -1494,6 +1504,12 @@ pub struct ClumpBody {
     pub tflag: [bool; 3],
     dragforce: [f64; 3],
     hdtorque: [f64; 3],
+    /// Body temperature `[K]` (`temp_`): `T0` of `fix heat/gran` at
+    /// insertion, `0` without one (`Multisphere::add_body`); see
+    /// [`Multisphere::with_heat_transfer`].
+    pub temp: f64,
+    /// `temp_old_`: the body temperature before this step's update.
+    temp_old: f64,
 }
 
 impl ClumpBody {
@@ -1524,6 +1540,9 @@ pub struct Multisphere {
     dt: f64,
     /// `false` for `fix multisphere/nointegration`.
     integrate: bool,
+    /// `T0` of the attached `fix heat/gran`, if any (the heat-transfer branch
+    /// of `calc_force`; gh:#1415).
+    heat_t0: Option<f64>,
 }
 
 impl Multisphere {
@@ -1539,6 +1558,59 @@ impl Multisphere {
             next_reneighbor: None,
             dt,
             integrate: true,
+            heat_t0: None,
+        }
+    }
+
+    /// A `fix heat/gran` with initial temperature `t0` `[K]` exists
+    /// (`FixMultisphere::init` finds it; gh:#1415, fourth pass). A body
+    /// inserted from now on starts at `temp = temp_old = t0`
+    /// (`Multisphere::add_body`), and [`Multisphere::heat_transfer`] runs.
+    ///
+    /// Upstream: `FixMultisphere::calc_force(setupflag)`, after the force and
+    /// torque sum (LIGGGHTS-PUBLIC `3d5c00f2`). The port models a deck that
+    /// defines `heat/gran` **before** `fix multisphere`, so the transport
+    /// equation has advanced the atom temperatures when the bodies aggregate
+    /// them; the other order lags by a step and is not modelled. Heat sources
+    /// are zero here (upstream refuses them without `allow_heatsource`).
+    #[must_use]
+    pub fn with_heat_transfer(mut self, t0: f64) -> Self {
+        self.heat_t0 = Some(t0);
+        self
+    }
+
+    /// The heat-transfer branch of `FixMultisphere::calc_force(setupflag)`
+    /// (gh:#1415, fourth pass; no-op without a heat fix). Over the bodies,
+    /// `temp_old = temp`; at a `run` set-up (`setup`) `temp = 0`. Then over
+    /// the member atoms in local order, `temp += T_i - temp_old` (a step) or
+    /// `temp += volumeweight_i * T_i` (set-up); then every member atom takes
+    /// `T_i = temp`.
+    pub(crate) fn heat_transfer(&mut self, particles: &mut [Particle], local_order: &[usize], setup: bool) {
+        if self.heat_t0.is_none() {
+            return;
+        }
+        for b in &mut self.bodies {
+            b.temp_old = b.temp;
+        }
+        if setup {
+            for b in &mut self.bodies {
+                b.temp = 0.0;
+            }
+        }
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            let t_i = particles[i].temperature;
+            let w = self.volume_weight(i);
+            let b = &mut self.bodies[ib];
+            if setup {
+                b.temp += w * t_i;
+            } else {
+                b.temp += t_i - b.temp_old;
+            }
+        }
+        for &i in local_order {
+            let Some(ib) = self.body_of(i) else { continue };
+            particles[i].temperature = self.bodies[ib].temp;
         }
     }
 
@@ -1611,6 +1683,8 @@ impl Multisphere {
             tflag: c.tflag,
             dragforce: [0.0; 3],
             hdtorque: [0.0; 3],
+            temp: self.heat_t0.unwrap_or(0.0),
+            temp_old: self.heat_t0.unwrap_or(0.0),
         });
         for j in 0..c.radius.len() {
             self.body_of.push(Some(n));

@@ -1209,3 +1209,136 @@ fn ms_bonded_matches_liggghts() {
     assert!(t1.with_bonded(true).creates_bond_random_id(), "use_volume runs the base post_create");
     assert!(clump1().with_bonded(true).creates_bond_random_id());
 }
+
+/// The `in.ms_heat` system: [`collide_system`] with `fix heat/gran/conduction`
+/// (`thermalConductivity 50 20`, `thermalCapacity 500 800`), attached before
+/// any clump exists, and `allow_group_and_set yes`.
+fn heat_system() -> GranularSystem {
+    use outram_park_fork_liggghts::heat_gran::HeatGranConduction;
+    let heat = HeatGranConduction::new(vec![50.0, 20.0], vec![500.0, 800.0]).unwrap();
+    collide_system(clump1(), clump2())
+        .with_heat_conduction(heat)
+        .unwrap()
+        .with_multisphere_allow_group_and_set()
+}
+
+/// Upstream's `dump.heat` frames: `step -> [(id, [x y z vx vy vz wx wy wz T q])]`.
+fn heat_frames(text: &str) -> Vec<(u64, Vec<(u64, [f64; 11])>)> {
+    let mut out: Vec<(u64, Vec<(u64, [f64; 11])>)> = Vec::new();
+    let mut lines = text.lines();
+    while let Some(l) = lines.next() {
+        if l.starts_with("ITEM: TIMESTEP") {
+            let step = lines.next().unwrap().trim().parse().unwrap();
+            out.push((step, Vec::new()));
+        } else if let Some(last) = out.last_mut() {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            if w.len() == 12 && !l.starts_with("ITEM") {
+                let mut v = [0.0; 11];
+                for k in 0..11 {
+                    v[k] = w[k + 1].parse().unwrap();
+                }
+                last.1.push((w[0].parse().unwrap(), v));
+            }
+        }
+    }
+    out
+}
+
+/// **Heat transfer with clumps** (`in.ms_heat`, gh:#1415 fourth pass):
+/// `ms_collide` with `fix heat/gran/conduction initial_temperature 300`
+/// defined first. After the insertion step, `set type 1 property/atom Temp
+/// 400.` ([`GranularSystem::set_type_temperature`]; upstream needs
+/// `allow_group_and_set yes`), then one continuous `run 14999` (a full set-up
+/// at step 1, [`GranularSystem::begin_run`]) dumping every 1000 steps. Every
+/// atom at the 15 frames, `x v omega T heatFlux`, on bit patterns.
+///
+/// Upstream `FixMultisphere::calc_force`: at the set-up each body's
+/// temperature becomes `sum(volumeweight * T)` (clump 1:
+/// `400.00000000000017`, the weights do not sum to exactly 1; clump 2:
+/// exactly `300`); every step it adds its atoms' increments `T_i - temp_old`
+/// and writes the sum back to every atom. One continuous run, because `run N
+/// pre no` re-runs that set-up branch (`Verlet::setup_minimal`).
+///
+/// **Ablations** (run 2026-11-14 by removing each call, then restored).
+/// (1) No set-up branch (the `heat_transfer(.., true)` call in
+/// `multisphere_setup_force` removed): **16/105**, clump 1 misses from step
+/// 1000 (the plain `400` also differs from upstream's clump 1 value at every
+/// frame, asserted below on upstream's numbers). (2) No step aggregation (the
+/// `heat_transfer(.., false)` call in `GranularSystem::step` removed):
+/// **50/105**, every atom-frame after the collision (step ~4700) with a
+/// temperature off by up to `4.4e-5` relative. V&V 4.16.3.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** all atom-frames
+/// bit-identical; clump 1 at `400 * sum(vw)` after the set-up; each clump
+/// one temperature after the collision.
+///
+/// **Result (2026-11-14, Rust 1.99.1, LIGGGHTS-PUBLIC 3d5c00f2):** **105/105**
+/// atom-frames bit-identical (1155 values) on the first port run; clump 1 at
+/// `400.00000000000017` until the collision, then `399.99221354436719`;
+/// clump 2 from `300` to `300.01311980522854`. The `heatFlux` column is 0 at
+/// every frame (no frame falls inside the contact); the temperatures carry
+/// the conduction.
+#[test]
+fn ms_heat_matches_liggghts() {
+    let Some(text) = read("ms_heat_dump.txt") else {
+        eprintln!("skipping: reference-data/liggghts/ms_heat_dump.txt not present");
+        return;
+    };
+    let frames = heat_frames(&text);
+    assert_eq!(frames.len(), 15);
+    let mut sys = heat_system();
+    sys.run(1);
+    // `set` on clumps is refused without allow_group_and_set, as upstream
+    let mut refused = collide_system(clump1(), clump2());
+    refused.run(1);
+    assert!(refused.set_type_temperature(1, 400.0).is_err());
+    assert!(sys.set_type_temperature(0, 400.0).is_err());
+    sys.set_type_temperature(1, 400.0).unwrap();
+    sys.begin_run().unwrap();
+    let (mut total, mut same, mut at) = (0usize, 0usize, 1u64);
+    let mut worst = 0.0f64;
+    for (step, atoms) in &frames {
+        sys.run((step - at) as usize);
+        at = *step;
+        assert_eq!(sys.particles().len(), atoms.len(), "ms_heat step {step}: atom count");
+        for (id, theirs) in atoms {
+            let i = sys.tags().iter().position(|&t| t + 1 == *id).unwrap();
+            let p = &sys.particles()[i];
+            let mine = [
+                p.position.x,
+                p.position.y,
+                p.position.z,
+                p.velocity.x,
+                p.velocity.y,
+                p.velocity.z,
+                p.angular_velocity.x,
+                p.angular_velocity.y,
+                p.angular_velocity.z,
+                p.temperature,
+                sys.heat_flux()[i],
+            ];
+            let ok = (0..11).all(|k| mine[k].to_bits() == theirs[k].to_bits());
+            if !ok {
+                for k in 0..11 {
+                    if mine[k].to_bits() != theirs[k].to_bits() {
+                        worst = worst.max((mine[k] - theirs[k]).abs() / theirs[k].abs().max(1e-300));
+                    }
+                }
+            }
+            total += 1;
+            same += usize::from(ok);
+        }
+        println!("ms_heat step {step}: {same}/{total} bit-identical so far, worst rel {worst:.3e}");
+    }
+    let t1: Vec<f64> = frames[0].1.iter().filter(|(id, _)| *id <= 3).map(|(_, v)| v[9]).collect();
+    println!("ms_heat: {same}/{total} atom-frames bit-identical; clump 1 T at step 1000 {:?}", t1);
+    assert_eq!(total, 105);
+    assert_eq!(same, total, "ms_heat: not bit-identical (worst relative {worst:e})");
+    // ablation (1): the set-up's weighted sum is not a plain 400
+    assert!(frames.iter().all(|(_, a)| a.iter().filter(|(id, _)| *id <= 3).all(|(_, v)| v[9] != 400.0)));
+    // each clump holds one temperature at every frame
+    for (_, a) in &frames {
+        assert!(a[..3].iter().all(|(_, v)| v[9].to_bits() == a[0].1[9].to_bits()));
+        assert!(a[3..].iter().all(|(_, v)| v[9].to_bits() == a[3].1[9].to_bits()));
+    }
+}

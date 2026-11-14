@@ -1909,7 +1909,7 @@ partly across the plate counts as the volume-weight share of its member atoms
   system with clumps panics~~;
 - `fix multisphere/break`;
 - clumps from `insert/stream`;
-- heat transfer with clumps;
+- ~~heat transfer with clumps~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - restart;
 - ~~a second `run` set-up with clumps (`begin_run` refuses it);~~
   (**CORRECTED 2026-11-14:** ported, 4.16.2);
@@ -2112,7 +2112,7 @@ refused by name):
   default build, 4.16.3);
 - `fix multisphere/break`;
 - `CAddRhoFluid` / `allow_heatsource`;
-- heat transfer with clumps;
+- ~~heat transfer with clumps~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - periodic images of bodies (`remap_bodies`);
 - clumps from `insert/stream` (refused);
 - `fix remove` with its `delete_bodies` callback (the port has no
@@ -2165,6 +2165,7 @@ ablated, or the reason it cannot is stated.
 
 | deck | what it exercises | result (Rust 1.99.1, 2026-11-14) | ablation |
 |---|---|---|---|
+| `ms_heat` | `ms_collide` with `heat/gran/conduction initial_temperature 300` (`k = 50, 20`, `cp = 500, 800`) defined first; after the insertion step `set type 1 property/atom Temp 400.` (`GranularSystem::set_type_temperature`, needs `allow_group_and_set yes`), then one continuous `run 14999` (a full set-up) dumping `x v omega f_Temp f_heatFlux` every 1000 steps (`Multisphere::with_heat_transfer`) | **105 / 105** atom-frames bit-identical (1155 values) | no set-up branch: **16 / 105**; no step aggregation: **50 / 105** |
 | `ms_bonded` | `ms_drop` with template `bonded yes` (`ParticleTemplateMultisphere::with_bonded`), plus upstream's `id f_bond_random_id` dump at step 15000 | **27 / 27** atom-frames bit-identical; `bond_random_id` `[-1, -1, -1]`, as upstream's | `bonded no`: no property (upstream: the dump is an error). The trajectory gate **cannot** fail on `bonded` (see below) |
 
 **`bonded`: a property and nothing else, for clumps.**
@@ -2181,6 +2182,33 @@ created: deck `in.ms_bonded_density` (`ms_mass` with `bonded yes` on the
 dump custom fix ID". The port reproduces both
 (`GranularSystem::bond_random_id`, `creates_bond_random_id`).
 `ms_bonded_matches_liggghts`.
+
+**Heat transfer with clumps (`FixMultisphere::calc_force`, heat branch).**
+A body starts at `T0` of `heat/gran` (`Multisphere::add_body`). After the
+force and torque sum, `calc_force` sets `temp_old = temp`; at a set-up it
+zeroes `temp` and sums `volumeweight_i * T_i` over the member atoms in local
+order, at a step it adds `T_i - temp_old`; then every member atom takes the
+body temperature. The weights of the type 1 template do not sum to exactly 1,
+so the set-up turns 400 into `400.00000000000017`; type 2 stays exactly 300.
+The collision (~step 4700) then moves them to `399.99221354436719` and
+`300.01311980522854`, the same value on every atom of a clump.
+Two upstream facts shaped the deck:
+- `set` with clumps needs `fix multisphere ... allow_group_and_set yes`
+  ("Set command may not be used together with fix multisphere"); the keyword
+  is read only by `set.cpp` and `variable.cpp`. The port refuses
+  `set_type_temperature` on clumps without
+  `GranularSystem::with_multisphere_allow_group_and_set`.
+- `run N pre no` still calls `modify->setup` (`Verlet::setup_minimal`), so
+  the set-up branch would re-run at every `write_dump` frame boundary, and it
+  is not idempotent. The deck is one continuous run with a periodic `dump`.
+
+Modelled: `heat/gran` defined **before** `fix multisphere` (the transport
+equation advances `T` before the bodies aggregate it; the port calls the
+aggregation after `heat.advance`). Not modelled: the reverse order (a
+one-step lag), heat sources (zero here; upstream refuses them without
+`allow_heatsource`), and an inserted-atom `T0` other than 300 K (the port
+inserts every atom at 300 K). `with_heat_conduction` is refused once a clump
+exists. `ms_heat_matches_liggghts`; the prediction held on the first run.
 
 ## 4.17 Superquadric particles (2026-11-13, gh:#1415)
 

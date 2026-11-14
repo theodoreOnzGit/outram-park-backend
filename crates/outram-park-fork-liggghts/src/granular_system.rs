@@ -309,6 +309,9 @@ pub struct GranularSystem {
     multisphere: Option<crate::multisphere::Multisphere>,
     /// The clump fix is `fix multisphere/nointegration` (gh:#1415).
     ms_nointegration: bool,
+    /// `fix multisphere ... allow_group_and_set yes` (gh:#1415): `set` may
+    /// change atoms while clumps exist.
+    ms_allow_group_and_set: bool,
     /// `boundary f f f` with `thermo_modify lost ignore`: the box whose
     /// leavers `Comm::exchange` drops at a rebuild
     /// ([`GranularSystem::with_lost_atoms`], gh:#1415).
@@ -476,6 +479,7 @@ impl GranularSystem {
             capillary: None,
             multisphere: None,
             ms_nointegration: false,
+            ms_allow_group_and_set: false,
             lost_atoms_box: None,
         };
         s.compute_forces_setup();
@@ -792,7 +796,52 @@ impl GranularSystem {
         if let Some(ms) = self.multisphere.as_mut() {
             ms.reset_forces(false);
             ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
+            // the heat branch of `calc_force(true)` (no-op without heat/gran)
+            ms.heat_transfer(&mut self.particles, &order, true);
         }
+    }
+
+    /// `fix multisphere ... allow_group_and_set yes` (gh:#1415, fourth pass):
+    /// [`GranularSystem::set_type_temperature`] may change atoms while clumps
+    /// exist. Upstream reads the keyword only in `set.cpp` and `variable.cpp`;
+    /// it changes nothing else.
+    #[must_use]
+    pub fn with_multisphere_allow_group_and_set(mut self) -> Self {
+        self.ms_allow_group_and_set = true;
+        self
+    }
+
+    /// `set type T property/atom Temp v` (`Set::command`; gh:#1415): every
+    /// atom of LIGGGHTS type `liggghts_type` (1-based, as the deck writes it)
+    /// takes temperature `t` `[K]`. A clump's body temperature follows at the
+    /// next `run` set-up ([`GranularSystem::begin_run`], the set-up branch of
+    /// `FixMultisphere::calc_force`).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for type 0, a non-positive or non-finite
+    /// `t` (a [`Particle`] temperature is strictly positive), or clumps
+    /// without [`GranularSystem::with_multisphere_allow_group_and_set`]
+    /// (upstream: "Set command may not be used together with fix
+    /// multisphere").
+    pub fn set_type_temperature(&mut self, liggghts_type: usize, t: f64) -> Result<(), DemError> {
+        if liggghts_type == 0 {
+            return Err(DemError::InvalidInput("set: atom types are 1-based".into()));
+        }
+        if !(t.is_finite() && t > 0.0) {
+            return Err(DemError::InvalidInput(format!("set: temperature {t} must be finite and > 0")));
+        }
+        if self.multisphere.is_some() && !self.ms_allow_group_and_set {
+            return Err(DemError::InvalidInput(
+                "Set command may not be used together with fix multisphere (use allow_group_and_set)".into(),
+            ));
+        }
+        for (p, &ty) in self.particles.iter_mut().zip(&self.types) {
+            if ty + 1 == liggghts_type {
+                p.temperature = t;
+            }
+        }
+        Ok(())
     }
 
     /// `fix_modify <ms> fflag x y z` / `tflag x y z`
@@ -1086,8 +1135,15 @@ impl GranularSystem {
     /// # Errors
     ///
     /// [`DemError::InvalidInput`] if a particle's atom type has no entry in
-    /// the fix's per-type properties.
+    /// the fix's per-type properties, or if a clump already exists: with
+    /// clumps, attach the fix before the first one is inserted, so each body
+    /// starts at `T0` (gh:#1415; `Multisphere::with_heat_transfer`).
     pub fn with_heat_conduction(mut self, heat: HeatGranConduction) -> Result<Self, DemError> {
+        if self.multisphere.is_some() {
+            return Err(DemError::InvalidInput(
+                "attach fix heat/gran/conduction before the first clump is inserted".into(),
+            ));
+        }
         if let Some(bad) = self.types.iter().find(|&&t| t >= heat.n_types()) {
             return Err(DemError::InvalidInput(format!(
                 "atom type {bad} has no thermal properties ({} given)",
@@ -1951,9 +2007,15 @@ impl GranularSystem {
                         }
                         let dt = self.dt;
                         let noint = self.ms_nointegration;
+                        // `FixMultisphere::init` finds `fix heat/gran`; its
+                        // T0 is the port's inserted-atom temperature
+                        let heat = self.heat.is_some();
                         self.multisphere
                             .get_or_insert_with(|| {
-                                let ms = crate::multisphere::Multisphere::new(dt);
+                                let mut ms = crate::multisphere::Multisphere::new(dt);
+                                if heat {
+                                    ms = ms.with_heat_transfer(crate::multisphere::INSERTED_TEMPERATURE);
+                                }
                                 if noint {
                                     ms.without_integration()
                                 } else {
@@ -2530,6 +2592,16 @@ impl GranularSystem {
         if let Some(heat) = &self.heat {
             // final_integrate of the scalar transport equation
             heat.advance(&mut self.particles, &self.types, &self.heat_flux, self.dt);
+        }
+        // the heat branch of `FixMultisphere::calc_force(false)` (gh:#1415):
+        // with `heat/gran` defined before `fix multisphere`, it follows the
+        // transport equation's update; the rigid-body part above reads no
+        // temperature, so running it here keeps upstream's order
+        if self.heat.is_some() && self.multisphere.is_some() {
+            let order = self.local_order_indices();
+            if let Some(ms) = self.multisphere.as_mut() {
+                ms.heat_transfer(&mut self.particles, &order, false);
+            }
         }
         if let Some(c) = self.capillary.as_mut() {
             // final_integrate of `liquidtransfer`: L += flux * dt
