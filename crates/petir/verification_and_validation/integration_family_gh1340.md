@@ -202,3 +202,58 @@ reversed interval, a zero-width interval and the four argument errors).
   out-of-bounds write. PETIR returns `Invalid` for `limit < 2` and, for
   `limit = 2`, when the third write fails. `limit = 3` and above are
   compared.
+
+## QAWO and QAWF (round 3, 2026-11-14; predictions committed BEFORE the comparison is run)
+
+- **Port:** `src/integration/qawo.rs` (`QawoTable`, `qawo`, `qawf`) from GSL
+  2.8 `qawo.c`, `qawf.c`, `qc25f.c`, `qmomof.c` (`ampl/gsl@cf180cd7`, read
+  2026-11-14). Re-uses the QAGS engine (`Workspace`, `ExtrapolationTable`,
+  `qelg`, `qpsrt`, `update`, `increase_nrmax`, `large_interval`), `qcheb`,
+  `append_interval` (QAGP), `kronrod(Qk15)` and `qagiu` (for QAWF with
+  `omega = 0`). No body of a reviewed function changed.
+- **Reference:** `reference-data/gsl/qawo_reference_driver.c` against GSL 2.8
+  built **without running `configure`** (`reference-data/gsl/build_gsl_nocfg.sh`:
+  a hand-written `config.h`, headers linked, `gcc -O2` over the `Makefile.am`
+  source lists of `integration/ err/ sys/ specfunc/`). Replay:
+  `tests/gsl_qawo_code_to_code.rs`. Cases: 12 moment-table rows (the `|par|
+  <= 24` boundary-value branch, the `> 24` recursion branch, tables that cross
+  24 as the level halves `par`, a negative `omega`, and a `set_length` /
+  `set` sequence), 28 QAWO integrations (both `qc25f` branches, extrapolation,
+  `limit` 1/2/4/10, `GSL_ETABLE` with 1/3/6 levels, `EBADTOL`, `omega = 0`,
+  zero integrand, noise) and 18 QAWF integrations (cos/sin, negative and zero
+  `omega`, `EBADTOL`, small `limit`, a `cycle_limit` below `limit`, a
+  non-decaying integrand).
+- **Design choice that makes the cause testable:** the test integrands call
+  no `sin`/`cos` (only `exp`, `ln`, `sqrt`, rational), so the only `sin`/`cos`
+  in either program are GSL's weights in `qmomof.c` and `qc25f.c`. A GSL
+  relink with PETIR's `sin`/`cos` alone (`petir_sincos_shim.rs`, diagnostic,
+  not committed as a result) then isolates exactly the libm difference.
+- **Pass criteria:** GSL's integer status, workspace size(s) and the number
+  of integrand calls **exactly**; moments, results and `abserr` counted
+  bit-identical and the counts pinned (1-ulp libm differences accepted,
+  counted and pinned per `AGENTS.md`); a non-identical result must be within
+  1e-8 relative.
+
+**Predictions (P11 QAWO / tables, P12 QAWF), written before any run:**
+
+- **P11a.** Status, workspace size and integrand-call count identical in
+  28 of 28 QAWO cases. They are decided by comparisons of error estimates
+  that a last-bit `sin`/`cos` change could flip only in a marginal case; I
+  expect none.
+- **P11b.** Moments: libm's `sin`/`cos` (fdlibm lineage) and glibc's differ in
+  the last bit on a few percent of arguments, and every moment of a level
+  depends on `sin(par)` and `cos(par)`. Prediction: at least 70 % of the 1 000
+  table entries bit-identical, the rest different by a small multiple of an
+  ulp for `|par| > 24` (forward recursion is mildly unstable) and larger for
+  the `|par| <= 24` tridiagonal solve.
+- **P11c.** QAWO results bit-identical in at least 17 of 28, `abserr`
+  identical in at least 14 of 28; every non-identical result within 1e-8
+  relative.
+- **P12.** QAWF: status, both workspace sizes and call count identical in at
+  least 16 of 18; results bit-identical in at least 9 of 18 (it sums many QAWO
+  calls at different `omega`-cycle lengths, so more `sin`/`cos` arguments).
+  `cycle_lt_limit` gives `EINVAL` from every inner call, as in GSL.
+- **P13 (cause).** With GSL relinked to PETIR's `sin`/`cos` alone, **all**
+  moments, results and error estimates become bit-identical to the port
+  (100 %), so every difference from stock GSL is libm. If it does not, the
+  port has a logic defect and the residual is not libm.

@@ -128,6 +128,10 @@ mod qawc;
 /// QAWS: algebraic-logarithmic end-point weights, GSL `integration/qaws.c`,
 /// `qc25s.c`, `qmomo.c` (gh:#1340).
 mod qaws;
+
+/// QAWO and QAWF: trigonometric-weight and Fourier integrals, GSL
+/// `integration/qawo.c`, `qawf.c`, `qc25f.c`, `qmomof.c` (gh:#1340).
+mod qawo;
 /// Romberg integration, GSL `integration/romberg.c` (gh:#1340).
 mod romberg;
 
@@ -135,6 +139,7 @@ pub use qagp::{qagp, qagp_with_status};
 pub use qaws::{qaws, qaws_with_status, QawsTable};
 pub use romberg::{romberg, romberg_with_status, RombergOutcome};
 pub use qawc::{qawc, qawc_with_status};
+pub use qawo::{qawf, qawf_with_status, qawo, qawo_with_status, QawoKind, QawoOutcome, QawoTable};
 pub use qng::{qng, qng_with_status, QngOutcome};
 pub use qagi::{qagi, qagil, qagil_with_status, qagi_with_status, qagiu, qagiu_with_status};
 pub use qags::{qags, qags_with_status, QagsOutcome};
