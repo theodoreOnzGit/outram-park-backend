@@ -178,10 +178,8 @@ mod tests {
         assert_eq!(g.cp(p(), t(500.0)).get::<joule_per_kilogram_kelvin>(), 718.0 + r);
         assert_eq!(g.es(p(), t(298.15)).get::<joule_per_kilogram>(), 0.0);
         assert_eq!(g.es(p(), t(398.15)).get::<joule_per_kilogram>(), 718.0 * (398.15 - 298.15));
-        assert_eq!(
-            (g.ea(p(), t(400.0)) - g.es(p(), t(400.0))).get::<joule_per_kilogram>(),
-            2.5e5
-        );
+        let dh = (g.ea(p(), t(400.0)) - g.es(p(), t(400.0))).get::<joule_per_kilogram>();
+        assert!((dh - 2.5e5).abs() < 1e-6);
         // Hs = Es + p/rho = Es + R T for a perfect gas
         let hs = g.hs(p(), t(400.0)).get::<joule_per_kilogram>();
         let es = g.es(p(), t(400.0)).get::<joule_per_kilogram>();

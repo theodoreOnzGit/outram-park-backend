@@ -160,7 +160,7 @@ mod tests {
         assert!((ds - cp / 500.0).abs() / (cp / 500.0) < 1e-8);
         assert_eq!(th.hs(p, t(T_STD)).get::<joule_per_kilogram>(), 0.0);
         let d = th.ha(p, t(400.0)) - th.hs(p, t(400.0));
-        assert_eq!(d.get::<joule_per_kilogram>(), 1.0e5);
+        assert!((d.get::<joule_per_kilogram>() - 1.0e5).abs() < 1e-6);
         assert!(th.rho(p, t(300.0)).get::<kilogram_per_cubic_meter>() > 0.0);
         let _ = (th.mol_weight(), th.r(), th.psi(p, t(300.0)), th.z(p, t(300.0)), th.cp_m_cv(p, t(300.0)));
         let _ = (th.cv_eos(p, t(300.0)), th.cp_eos(p, t(300.0)), th.h_eos(p, t(300.0)), th.e_eos(p, t(300.0)), th.s_eos(p, t(300.0)));

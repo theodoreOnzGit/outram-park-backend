@@ -196,3 +196,36 @@ n0 0.7, Tref 300, Hf 1e5`; `eConst Cv 718, Hf 2.5e5`; WLF `mu0 1e3, Tr 300, C1
 - Q8: wherever a value differs, the first divergence is the `pow`/`exp`/`log` call
   and nothing downstream of it: the rows with identical libm argument and
   differing result localise it.
+
+### Results (measured 2026-11-14, release; `tests/openfoam_thermo_gh1378.rs`)
+
+**56 of 56 combinations are bit-identical in every quantity, 56 x 12 x 40 =
+26 880 values, 0 ulp**: {perfectGas, rhoConst, incompressiblePerfectGas,
+Boussinesq, adiabaticPerfectFluid, perfectFluid, rPolynomial, linear} x
+{hConst, hPower} x {const, WLF, logPolynomial} (48), plus the eight `eConst`
+rows (`Cv`, `Ea`, `Es`, `Hc`, `rho`, `psi`, `Z`, `CpMCv`). The check can fail:
+perturbing `beta` of the Boussinesq test input by 5e-7 relative drops 7
+combinations to `rho` 4/40 at once (mutation run, reverted).
+
+Predictions against the run:
+
+- Q1 right (bit-identical; also `perfectFluid` `S`, the `log` case of Q2).
+- Q2, Q3, Q4, Q5, Q6 **wrong in the direction of "more differences"**: I expected
+  1-ulp to 4-ulp differences from PETIR `pow`, `exp`, `ln` against glibc;
+  there are none. Calls compared: `pow` with exponent 1/7.15, 0.7, 1.7 (adiabatic
+  `rho`, `psi`, `S`; hPower `Cp`, `Hs`, `S`), `exp` (WLF, whose argument reaches
+  ~ -545 at 250 K, and logPolynomial), `ln` (logPolynomial, linear `S`,
+  perfectFluid `S`), 40 points each, all identical. This is a statement about
+  these arguments, not a proof that PETIR equals glibc everywhere (the
+  gh:#1362 PengRobinson `acos`/`cos`/`cbrt` rows do differ).
+- Q7 right. Q8 vacuous (nothing diverges).
+
+Not compared, by construction: `eConst` `Cp`, `Hs`, `Ha`, `S` (undefined in
+v2506, Foundation reading in the port, see `thermo/e_const.rs`).
+
+Documented follow-up (not a defect of the new code): the four pre-existing
+wrappers `HConstThermo`, `JanafThermo`, `HPolynomialThermo`, `HTabulated*Thermo`
+and the four pre-existing transports do not forward `cv_eos`; the trait default
+is exact for gases and wrong for a liquid-like EOS if one of them is ever
+placed under `EConstThermo` (they are not: `EConstThermo` wraps the EOS
+directly).
