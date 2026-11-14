@@ -97,11 +97,20 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
 - the GENDF matrix-record writer is ported (see `matrix.rs`/`gendf.rs`); the
   vector-record writer was already ported before this note.
 
-Also `NotPorted` in the input layer: the flux-calculator card 8a (`iwt < 0`),
+~~Also `NotPorted` in the input layer: the flux-calculator card 8a (`iwt < 0`),
 the TAB1 weight card 8b (`iwt = 1`), the resonance-flux card 8d (`iwt = 0`), the
 card-9a extended residual format (`mfd = -1`), and *evaluation* of the built-in
 tabulated weights (`iwt = 5, 8, 9`) which needs the ENDF TAB1 (`terpa`)
-interpolator. The `run()` entry point returns `NotPorted("groupr")`.
+interpolator.~~ **CORRECTED 2026-11-13 (gh:#1370):** `GrouprInput::parse` still
+refuses cards 8a, 8b, 8d and 9a, but the deck driver reads all four
+(`deck::modules::read_groupr`, `card9a_reaction`; upstream deck 86 is identical).
+The tape driver's `njoy_panel::getwtf` evaluates every `iwt` from 1 to 12, the
+tabulated ones by `terpa` (decks 07 and 11 for `iwt = 9, 5`;
+`tests/deck_driver_groupr_weights_vs_njoy2016.rs` for 1, 7, 8, 10, 11, 12 and for
+`iwt = -3` with one sigma-zero). Still refused: `iwt = 0` (`getfwt`), the
+slowing-down flux (`iwt < 0` with `nsigz > 1`; `slowing_down.rs` exists but is not
+wired), and a card 9a with a negative `mtd`. The `run()` entry point returns
+`NotPorted("groupr")`; decks go through `deck::run_deck`.
 
 ## Testing (V&V — methodology + results, 2026-07-15, commit `ac5adf5`)
 

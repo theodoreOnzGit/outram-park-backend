@@ -81,6 +81,7 @@ pub mod fission_matrix;
 pub mod gaminr_matrix;
 pub mod flux_table;
 pub mod gendf;
+pub mod genwtf;
 pub mod input;
 pub mod kinematics;
 pub mod matrix;

@@ -29,6 +29,7 @@ use crate::gaminr::gtff::{
 };
 use crate::gaminr::weights::WeightTab1;
 use crate::groupr::gendf::{GendfGroupRecord, GendfSection};
+use crate::endf::gety1::Gety1;
 use crate::groupr::panel::PointwiseXs;
 use crate::NjoyError;
 
@@ -217,33 +218,23 @@ impl TotalHeating {
     }
 }
 
-/// `getsig`'s value / next point / duplicate flag for a lin-lin PENDF
-/// section (`gety1`): zero below the first point with `enext = x_1`.
-fn gety1(pairs: &[(f64, f64)], e: f64) -> (f64, f64, bool) {
-    let n = pairs.len();
-    if n == 0 || e < pairs[0].0 {
-        return (0.0, pairs.first().map(|p| p.0).unwrap_or(EMAX), false);
-    }
-    if e >= pairs[n - 1].0 {
-        return (pairs[n - 1].1, EMAX, false);
-    }
-    let idx = pairs.partition_point(|&(x, _)| x <= e);
-    let (x1, y1) = pairs[idx - 1];
-    let (x2, y2) = pairs[idx];
-    let y = if x2 == x1 {
-        y1
-    } else {
-        y1 + (y2 - y1) * (e - x1) / (x2 - x1)
-    };
-    let idis = idx + 1 < n && pairs[idx + 1].0 == x2;
-    (y, x2, idis)
+/// `gtsig` (`:1133-1160`): `gety1` on the MF=23 section of the PENDF.
+/// ~~A local lin-lin lookup (zero below the first point, `enext = x_1`)~~
+/// **CORRECTED 2026-11-13 (gh:#1369):** upstream's `gety1`
+/// ([`crate::endf::gety1::Gety1`]), with its zero-extension skip, its
+/// `0.999999` shade of the first non-zero abscissa and its `1e12` hold; the
+/// local lookup differed at the threshold.
+fn gety1(sigma: &mut Gety1, e: f64) -> (f64, f64, bool) {
+    let v = sigma.get(e);
+    (v.y, v.xnext, v.idis)
 }
 
-/// `ans(il, 1, it)` as `ans[it][il]`.
-type Ans = Vec<Vec<Vec<f64>>>;
+/// `ans(il, 1, it)` as `ans[it][0][il]`.
+pub(crate) type Ans = Vec<Vec<Vec<f64>>>;
 
-/// `gpanel`'s `save`d state (`:911-916`).
-struct PanelState {
+/// `gpanel`'s `save`d state (`:911-916`). Upstream keeps it for the whole
+/// run, across reactions and materials; [`gaminr_reaction`] starts a fresh one.
+pub(crate) struct PanelState {
     nq: usize,
     nqp: usize,
     enext: f64,
@@ -268,9 +259,9 @@ fn merge(en: f64, idiscf: bool, enext: &mut f64, idisc: &mut bool) {
 
 /// One `gpanel` call (`:874-1011`).
 #[allow(clippy::too_many_arguments)]
-fn gpanel(
+pub(crate) fn gpanel(
     st: &mut PanelState,
-    sigma: &[(f64, f64)],
+    sigma: &mut Gety1,
     flux: &PhotonFlux,
     reaction: &PhotonReaction,
     egg: &[f64],
@@ -408,7 +399,7 @@ fn gpanel(
 /// `small` (or a zero flux) is left as it is; for `mfd = 26` sink groups
 /// `igt <= ig` are normalised for every order, later slots for `il = 1`
 /// only.
-fn dspla(
+pub(crate) fn dspla(
     mfd: i32,
     mtd: i32,
     ig: usize,
@@ -478,45 +469,129 @@ pub fn gaminr_reaction(
             "gaminr_reaction: the MF=23 cross section must be tabulated lin-lin".into(),
         ));
     };
-    let pairs: &[(f64, f64)] = pairs;
+    let tab = crate::endf::records::Tab1 {
+        head: crate::endf::records::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: pairs.len() as i32 },
+        interp: vec![(pairs.len() as u32, 2)],
+        pairs: pairs.to_vec(),
+    };
+    let nl = if reaction.mf_mt().0 == 26 && reaction.mf_mt().1 != 516 { lord + 1 } else { 1 };
+    let mut st = PanelState::new(nl);
+    let run = ReactionRun { egg: egg.to_vec(), lord, za, awr, ig2pp: ig2pp(egg) };
+    let mut akn = AknCache::default();
+    Ok(reaction_groups(&run, reaction, &tab, flux, &mut st, heating, &mut akn, 0.0)?.0)
+}
+
+impl PanelState {
+    /// The state before any panel (`elast = 0`, `idisc = 0`).
+    pub(crate) fn new(nl: usize) -> Self {
+        PanelState { nq: 0, nqp: 0, enext: EMAX, elast: 0.0, idisc: false, ng1: 0, ig1: 0, slst: 0.0, flst: vec![0.0; nl], ff: Vec::new() }
+    }
+}
+
+/// What every reaction of one material shares.
+pub(crate) struct ReactionRun {
+    pub egg: Vec<f64>,
+    pub lord: usize,
+    pub za: f64,
+    pub awr: f64,
+    pub ig2pp: usize,
+}
+
+/// The incoherent-matrix cache `akn`, `ng2s`, `ig2s` (`gaminr.f90:319-350`):
+/// the un-normalised `ans` of the lowest-Z material seen so far, per group,
+/// divided by `Z` above the first slot.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct AknCache {
+    pub akn: Vec<Option<Ans>>,
+    pub ng2s: Vec<usize>,
+    pub ig2s: Vec<usize>,
+}
+
+/// The group loop of one reaction (`gaminr.f90:286-395`): `gtsig`'s
+/// threshold, `gpanel` over each group, the `akn` cache, `dspla`, the
+/// total-heating accumulation and the records written.
+///
+/// `znow` is `gaminr`'s: `0` except for `mfd = 26, mtd = 504`, where it is
+/// `-Z` when this material fills the cache and `+Z` when it reads it for the
+/// groups with `elo >= Z * 12.4 keV` (`:303-308`, `:315`).
+///
+/// Returns the section and whether any group was computed (`ig1 /= 0`: the
+/// HEAD is written; otherwise upstream prints `threshold above highest
+/// energy bound` and writes nothing, `:389-390`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn reaction_groups(
+    run: &ReactionRun,
+    reaction: &PhotonReaction,
+    sigma: &crate::endf::records::Tab1,
+    flux: &PhotonFlux,
+    st: &mut PanelState,
+    heating: &mut TotalHeating,
+    akn: &mut AknCache,
+    znow: f64,
+) -> Result<(GendfSection, bool), NjoyError> {
+    const EKN: f64 = 12.4e3;
+    let egg: &[f64] = &run.egg;
     let (mfd, mtd) = reaction.mf_mt();
     let ngg = egg.len() - 1;
-    let nl = if mfd == 26 && mtd != 516 { lord + 1 } else { 1 };
-    let thresh = pairs.first().map(|p| p.0).unwrap_or(EMAX);
-    let ig2pp = ig2pp(egg);
-    let mut st = PanelState {
-        nq: 0,
-        nqp: 0,
-        enext: EMAX,
-        elast: 0.0,
-        idisc: false,
-        ng1: 0,
-        ig1: 0,
-        slst: 0.0,
-        flst: vec![0.0; nl],
-        ff: Vec::new(),
-    };
+    let nl = if mfd == 26 && mtd != 516 { run.lord + 1 } else { 1 };
+    let mut sig = Gety1::new(sigma);
+    let thresh = sig.get(0.0).xnext;
+    if znow < 0.0 {
+        akn.akn = vec![None; ngg];
+        akn.ng2s = vec![0; ngg];
+        akn.ig2s = vec![0; ngg];
+    }
     let mut records = Vec::new();
+    let mut computed = false;
     for ig in 1..=ngg {
         let mut elo = egg[ig - 1];
         let ehi = egg[ig];
         let mut ig2lo = 0usize;
         let mut ng2 = 2usize;
-        if ehi <= thresh {
-            continue;
-        }
-        let mut enext = ehi;
-        let mut ans: Ans = vec![vec![vec![0.0; nl]]; ngg + 3];
-        loop {
-            gpanel(
-                &mut st, pairs, flux, reaction, egg, nl, ig2pp, elo, &mut enext, &mut ans,
-                &mut ng2, &mut ig2lo,
-            )?;
-            if enext == ehi {
-                break;
+        let mut ans: Ans;
+        if znow > 0.0 && elo >= znow * EKN {
+            // `:325-332`: the cached matrix scaled by this material's Z.
+            let cached = akn.akn.get(ig - 1).and_then(|a| a.as_ref()).ok_or_else(|| {
+                NjoyError::InvalidInput(format!("gaminr: akn cache has no group {ig}"))
+            })?;
+            ans = cached.clone();
+            for (i, slot) in ans.iter_mut().enumerate() {
+                if i > 0 {
+                    for v in slot[0].iter_mut() {
+                        *v *= znow;
+                    }
+                }
             }
-            elo = enext;
-            enext = ehi;
+            ng2 = akn.ng2s[ig - 1];
+            ig2lo = akn.ig2s[ig - 1];
+        } else {
+            if ehi <= thresh {
+                continue;
+            }
+            let mut enext = ehi;
+            ans = vec![vec![vec![0.0; nl]]; ngg + 3];
+            loop {
+                gpanel(st, &mut sig, flux, reaction, egg, nl, run.ig2pp, elo, &mut enext, &mut ans, &mut ng2, &mut ig2lo)?;
+                if enext == ehi {
+                    break;
+                }
+                elo = enext;
+                enext = ehi;
+            }
+        }
+        computed = true;
+        if znow < 0.0 {
+            let mut c = ans.clone();
+            for (i, slot) in c.iter_mut().enumerate() {
+                if i > 0 {
+                    for v in slot[0].iter_mut() {
+                        *v /= znow.abs();
+                    }
+                }
+            }
+            akn.akn[ig - 1] = Some(c);
+            akn.ng2s[ig - 1] = ng2;
+            akn.ig2s[ig - 1] = ig2lo;
         }
         let igzero = dspla(mfd, mtd, ig, &mut ans, nl, ng2, ig2lo);
         // Accumulate total heating (`:353-359`).
@@ -533,24 +608,20 @@ pub fn gaminr_reaction(
             for slot in ans.iter().take(ng2) {
                 data.extend_from_slice(&slot[0]);
             }
-            records.push(GendfGroupRecord {
-                ig: ig as i32,
-                ig2lo: ig2lo as i32,
-                ng2: ng2 as i32,
-                data,
-            });
+            records.push(GendfGroupRecord { ig: ig as i32, ig2lo: ig2lo as i32, ng2: ng2 as i32, data });
         }
     }
-    Ok(GendfSection {
+    let section = GendfSection {
         mf: mfd,
         mt: mtd,
-        za,
-        zam: awr,
+        za: run.za,
+        zam: run.awr,
         nl: nl as i32,
         nz: 1,
         lrflag: 0,
         num_groups: ngg as i32,
         temperature_k: 0.0,
         records,
-    })
+    };
+    Ok((section, computed))
 }

@@ -317,6 +317,12 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         let p = inp.thermal_fission_params.ok_or_else(|| NjoyError::InvalidInput("groupr: iwt = 4 without card 8c".into()))?;
         crate::groupr::njoy_panel::genwtf_iwt4(&p);
     }
+    // `iwt = 1` stores card 8b's TAB1 (`:5011-5025`, gh:#1370); it is the last card
+    // `read_groupr` keeps (after card 8a for `iwt = -1`).
+    if inp.weight.iwt().abs() == 1 {
+        let tab = job.weight_cards.last().ok_or_else(|| NjoyError::InvalidInput("groupr: iwt = 1 without card 8b".into()))?;
+        crate::groupr::genwtf::genwtf_iwt1(tab)?;
+    }
     let mut sigz: Vec<f64> = inp.sigma_zeros.clone();
     if let Some(s) = sigz.first_mut() {
         *s = 1.0e10;
@@ -379,6 +385,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     let iblock = &mut 0usize;
     for itemp in 0..inp.temperatures.len() {
     let tempin = inp.temperatures[itemp];
+    // `jtemp = itemp` (`:497`): `getwtf` reads `temp(jtemp)` for `iwt = 7, 10, 12`.
+    crate::groupr::genwtf::getwtf_set_temperature(tempin);
     let pend = find_temperature_block(&blocks, iblock, inp.matb, tempin)?;
     let mf1 = pend
         .section(inp.matb, 1, 451)
@@ -418,10 +426,14 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         let items: Vec<crate::deck::groupr_auto::AutoReaction> = if req0.mtd == crate::groupr::input::MTD_AUTO {
             crate::deck::groupr_auto::nextr_all(req0.mfd, &lists, &pend, inp.matb, &mut mtd_run)?
         } else if req0.mtd < 0 {
+            // `mfchk` (`:716`) rewrites `mfd` in place, so once a range switches
+            // (16 to 17, 13 to 12) its later MTs keep the new file (gh:#1370).
+            let mut mfd_run = req0.mfd;
             let mut v = Vec::new();
             loop {
                 mtd_run += 1;
-                v.push(crate::deck::groupr_auto::AutoReaction::plain(req0.mfd, mtd_run));
+                mfd_run = crate::deck::groupr_auto::mfchk(mfd_run, mtd_run, &lists);
+                v.push(crate::deck::groupr_auto::AutoReaction::plain(mfd_run, mtd_run));
                 if mtd_run + req0.mtd >= 0 {
                     break;
                 }
@@ -429,7 +441,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             v
         } else {
             mtd_run = req0.mtd;
-            vec![crate::deck::groupr_auto::AutoReaction::plain(req0.mfd, req0.mtd)]
+            let mfd = crate::deck::groupr_auto::mfchk(req0.mfd, req0.mtd, &lists);
+            vec![crate::deck::groupr_auto::AutoReaction::plain(mfd, req0.mtd)]
         };
         for item in items {
             let mtd = item.mtd;

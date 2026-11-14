@@ -26,9 +26,16 @@ use outram_foam_basic_lib::fields::surface_field::SurfaceScalarField;
 use outram_foam_basic_lib::fields::vol_field::{VolScalarField, VolVectorField};
 use outram_foam_basic_lib::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use outram_foam_basic_lib::primitives::{Tensor, Vector3};
+use outram_foam_turbulence_lib::des::spalart_allmaras_des::{SaDesVariant, SpalartAllmarasDes};
+use outram_foam_turbulence_lib::des::KOmegaSstDes;
 use outram_foam_turbulence_lib::k_epsilon::KEpsilon;
 use outram_foam_turbulence_lib::k_omega::KOmega;
 use outram_foam_turbulence_lib::k_omega_sst::KOmegaSST;
+use outram_foam_turbulence_lib::launder_sharma_ke::LaunderSharmaKe;
+use outram_foam_turbulence_lib::les::k_eqn::KEqn;
+use outram_foam_turbulence_lib::les::wale::Wale;
+use outram_foam_turbulence_lib::realizable_ke::RealizableKE;
+use outram_foam_turbulence_lib::rng_k_epsilon::RngKEpsilon;
 use outram_foam_turbulence_lib::les::smagorinsky::Smagorinsky;
 use outram_foam_turbulence_lib::source_terms::{FrozenState, SourceForm, SourceTerms};
 use outram_foam_turbulence_lib::spalart_allmaras::SpalartAllmaras;
@@ -43,6 +50,12 @@ const REF_SST: &[u8] =
     include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_kOmegaSST.txt.gz");
 const REF_SA: &[u8] =
     include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_SpalartAllmaras.txt.gz");
+const REF_RNG: &[u8] =
+    include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_RNGkEpsilon.txt.gz");
+const REF_REALIZABLE: &[u8] =
+    include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_realizableKE.txt.gz");
+const REF_WALE: &[u8] =
+    include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_WALE.txt.gz");
 const REF_SMAG: &[u8] =
     include_bytes!("../verification_and_validation/upstream_turb_gh1362/reference/ref_Smagorinsky.txt.gz");
 
@@ -212,6 +225,12 @@ impl Ref {
             grad_nu_tilda: self.v("gradnuTilda"),
             wall_distance: if with_y { Some(self.s("y")) } else { None },
             cell_length: if with_delta { Some(self.s("T_delta")) } else { None },
+            mag_sqr_grad_grad_u: if self.has("magSqrGradGradU") {
+                self.s("magSqrGradGradU")
+            } else {
+                vec![]
+            },
+            grad_sqrt_k: if self.has("gradSqrtk") { self.v("gradSqrtk") } else { vec![] },
         }
     }
 }
@@ -261,7 +280,7 @@ type Pairs = &'static [(&'static str, &'static str)];
 
 type Rows = Vec<(String, Stat)>;
 
-fn compare(label: &str, r: &Ref, st: &SourceTerms, pairs: Pairs) -> Rows {
+fn compare(label: &str, r: &Ref, st: &SourceTerms, pairs: &[(&str, &str)]) -> Rows {
     pairs
         .iter()
         .map(|(rk, term)| {
@@ -678,4 +697,788 @@ const PINS_SMAG: &[(&str, usize)] = &[
     ("Smagorinsky port (esi delta) delta", 360),
     ("Smagorinsky port (esi delta) k", 360),
     ("Smagorinsky port (esi delta) nut", 360),
+];
+
+// ── gh:#1377: RNGkEpsilon, realizableKE, WALE (ESI arithmetic only) ─────────
+
+/// Largest ulp distance over the rows.
+fn max_ulp(rows: &Rows) -> u64 {
+    rows.iter().map(|(_, s)| s.max_ulp).max().unwrap_or(0)
+}
+
+#[test]
+fn rng_k_epsilon_vs_openfoam() {
+    let r = parse(REF_RNG);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = RngKEpsilon::new(mesh.clone());
+    m.k = r.zg(&mesh, "k", "k");
+    m.epsilon = r.zg(&mesh, "epsilon", "epsilon");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.u = r.velocity(&mesh);
+    m.phi = r.flux(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_nut", "nut"),
+        ("T_GbyNu", "GbyNu"),
+        ("T_G", "G"),
+        ("T_eta", "eta"),
+        ("T_R", "R"),
+        ("T_eps_E", "eps_E"),
+        ("T_eps_SuSp", "eps_SuSp"),
+        ("T_eps_Sp", "eps_Sp"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let rows = compare("RNGkEpsilon", &r, &m.source_terms(&r.state(false, false)), pairs);
+    all_identical(&rows);
+}
+
+#[test]
+fn realizable_ke_vs_openfoam() {
+    let r = parse(REF_REALIZABLE);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = RealizableKE::new(mesh.clone());
+    m.k = r.zg(&mesh, "k", "k");
+    m.epsilon = r.zg(&mesh, "epsilon", "epsilon");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.u = r.velocity(&mesh);
+    m.phi = r.flux(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_S2", "S2"),
+        ("T_magS", "magS"),
+        ("T_W", "W"),
+        ("T_phis", "phis"),
+        ("T_As", "As"),
+        ("T_Us", "Us"),
+        ("T_rCmu", "rCmu"),
+        ("T_nut", "nut"),
+        ("T_eta", "eta"),
+        ("T_C1", "C1"),
+        ("T_G", "G"),
+        ("T_eps_E", "eps_E"),
+        ("T_eps_Sp", "eps_Sp"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let rows = compare("realizableKE", &r, &m.source_terms(&r.state(false, false)), pairs);
+    // No libm before phis: these must be bit-identical.
+    for (l, s) in &rows {
+        if ["S2", "magS", " W"].iter().any(|t| l.ends_with(t)) {
+            assert_eq!(s.identical, s.n, "{l}");
+        }
+    }
+    assert!(max_ulp(&rows) <= REALIZABLE_MAX_ULP, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_REALIZABLE);
+}
+
+#[test]
+fn wale_vs_openfoam() {
+    let r = parse(REF_WALE);
+    assert!(r.has("T_delta") && r.audits.is_empty());
+    let mesh = r.mesh();
+    let mut m = Wale::new(mesh.clone());
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.u = r.velocity(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_delta", "delta"),
+        ("T_magSqrSd", "magSqrSd"),
+        ("T_magSqrS", "magSqrS"),
+        ("T_pow52", "pow52"),
+        ("T_pow54", "pow54"),
+        ("T_k", "k"),
+        ("T_nut", "nut"),
+    ];
+    let own = r.state(false, false);
+    let up = r.state(false, true);
+    let mut rows = compare("WALE (own delta)", &r, &m.source_terms(&own), pairs);
+    let esi_delta = compare("WALE (esi delta)", &r, &m.source_terms(&up), pairs);
+    for (l, s) in &esi_delta {
+        if l.ends_with("magSqrSd") || l.ends_with("magSqrS") {
+            assert_eq!(s.identical, s.n, "{l}");
+        }
+    }
+    assert!(max_ulp(&esi_delta) <= WALE_MAX_ULP, "max ulp {}", max_ulp(&esi_delta));
+    rows.extend(esi_delta);
+    assert!(max_ulp(&rows) <= 7, "own-delta max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_WALE);
+}
+
+const REALIZABLE_MAX_ULP: u64 = 4;
+const WALE_MAX_ULP: u64 = 1;
+const PINS_REALIZABLE: &[(&str, usize)] = &[
+    ("realizableKE nut", 346),
+    ("realizableKE S2", 360),
+    ("realizableKE magS", 360),
+    ("realizableKE W", 360),
+    ("realizableKE phis", 353),
+    ("realizableKE As", 344),
+    ("realizableKE Us", 360),
+    ("realizableKE rCmu", 346),
+    ("realizableKE nut", 346),
+    ("realizableKE eta", 360),
+    ("realizableKE C1", 360),
+    ("realizableKE G", 360),
+    ("realizableKE eps_E", 360),
+    ("realizableKE eps_Sp", 360),
+    ("realizableKE k_E", 360),
+    ("realizableKE k_SuSp", 360),
+    ("realizableKE k_Sp", 360),
+];
+const PINS_WALE: &[(&str, usize)] = &[
+    ("WALE (own delta) nut", 173),
+    ("WALE (own delta) delta", 156),
+    ("WALE (own delta) magSqrSd", 360),
+    ("WALE (own delta) magSqrS", 360),
+    ("WALE (own delta) pow52", 360),
+    ("WALE (own delta) pow54", 358),
+    ("WALE (own delta) k", 185),
+    ("WALE (own delta) nut", 173),
+    ("WALE (esi delta) nut", 360),
+    ("WALE (esi delta) delta", 360),
+    ("WALE (esi delta) magSqrSd", 360),
+    ("WALE (esi delta) magSqrS", 360),
+    ("WALE (esi delta) pow52", 360),
+    ("WALE (esi delta) pow54", 358),
+    ("WALE (esi delta) k", 360),
+    ("WALE (esi delta) nut", 360),
+];
+
+// ── gh:#1545: DES family (ESI arithmetic only; upstream y, delta, hmax fed in) ─────────
+
+const REF_SA_DES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_SpalartAllmarasDES.txt.gz"
+);
+const REF_SA_DDES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_SpalartAllmarasDDES.txt.gz"
+);
+const REF_SA_IDDES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_SpalartAllmarasIDDES.txt.gz"
+);
+const REF_SST_DES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_kOmegaSSTDES.txt.gz"
+);
+
+const SA_DES_COMMON: Pairs = &[
+    ("nut_real", "nut"),
+    ("T_nut", "nut"),
+    ("T_delta", "delta"),
+    ("T_chi", "chi"),
+    ("T_fv1", "fv1"),
+    ("T_fv2", "fv2"),
+    ("T_psi", "psi"),
+    ("T_lLES", "lLES"),
+    ("T_fd", "fd"),
+    ("T_dTilda", "dTilda"),
+    ("T_Omega", "Omega"),
+    ("T_Stilda", "Stilda"),
+    ("T_r", "r"),
+    ("T_fw", "fw"),
+    ("T_gradSqr", "gradSqr"),
+    ("T_nuTilda_E", "nuTilda_E"),
+    ("T_nuTilda_Sp", "nuTilda_Sp"),
+    ("T_LESRegion", "LESRegion"),
+];
+const SA_DDES_EXTRA: Pairs = &[("T_r_fd", "r_fd")];
+const SA_IDDES_EXTRA: Pairs = &[
+    ("T_alpha", "alpha"),
+    ("T_fB", "fB"),
+    ("T_fdt", "fdt"),
+    ("T_ft", "ft"),
+    ("T_fl", "fl"),
+    ("T_fe1", "fe1"),
+    ("T_fe", "fe"),
+];
+
+fn sa_des_case(
+    name: &str,
+    gz: &[u8],
+    variant: SaDesVariant,
+    extra: Pairs,
+    own_delta: bool,
+) -> Rows {
+    let r = parse(gz);
+    check_audits(&r, 4);
+    assert!(r.has("delta_real") && (variant != SaDesVariant::Iddes || r.has("hmax_real")));
+    let mesh = r.mesh();
+    let mut m = SpalartAllmarasDes::new(mesh.clone(), variant);
+    m.nu_tilde = r.zg(&mesh, "nuTilda", "nuTilda");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    if variant == SaDesVariant::Iddes {
+        m.h_max = Some(r.s("hmax_real"));
+    }
+    let mut pairs: Vec<(&str, &str)> = SA_DES_COMMON.to_vec();
+    pairs.extend_from_slice(extra);
+    let mut rows = compare(
+        &format!("{name} (esi y, esi delta)"),
+        &r,
+        &m.source_terms(&r.state(true, true)),
+        &pairs,
+    );
+    if own_delta {
+        rows.extend(compare(
+            &format!("{name} (esi y, own delta)"),
+            &r,
+            &m.source_terms(&r.state(true, false)),
+            &pairs,
+        ));
+    }
+    rows
+}
+
+#[test]
+fn sa_des_vs_openfoam() {
+    let rows = sa_des_case("SA-DES", REF_SA_DES, SaDesVariant::Des, &[], true);
+    // no libm before fw's pow(x, 1/6): every term is identical with upstream y and delta
+    for (l, st) in rows.iter().filter(|(l, _)| l.contains("esi delta")) {
+        assert_eq!(st.identical, st.n, "{l}");
+    }
+    assert!(max_ulp(&rows) <= 10, "max ulp {}", max_ulp(&rows)); // own cbrt delta
+    pin(&rows, PINS_SA_DES);
+}
+
+#[test]
+fn sa_ddes_vs_openfoam() {
+    let rows = sa_des_case("SA-DDES", REF_SA_DDES, SaDesVariant::Ddes, SA_DDES_EXTRA, true);
+    // pow and tanh in fd (a glibc replay reproduces upstream fd 360/360, README)
+    assert!(max_ulp(&rows) <= 14, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_SA_DDES);
+}
+
+#[test]
+fn sa_iddes_vs_openfoam() {
+    let rows = sa_des_case("SA-IDDES", REF_SA_IDDES, SaDesVariant::Iddes, SA_IDDES_EXTRA, false);
+    assert!(max_ulp(&rows) <= 2, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_SA_IDDES);
+}
+
+#[test]
+fn k_omega_sst_des_vs_openfoam() {
+    let r = parse(REF_SST_DES);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = KOmegaSstDes::new(mesh.clone());
+    m.sst.k = r.zg(&mesh, "k", "k");
+    m.sst.omega = r.zg(&mesh, "omega", "omega");
+    m.sst.nu = r.zg(&mesh, "nu", "nu");
+    m.sst.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.sst.u = r.velocity(&mesh);
+    m.sst.phi = r.flux(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_delta", "delta"),
+        ("T_S2", "S2"),
+        ("T_CDkOmega", "CDkOmega"),
+        ("T_F1", "F1"),
+        ("T_F23", "F23"),
+        ("T_nut", "nut"),
+        ("T_CDES", "CDES"),
+        ("T_lRAS", "lRAS"),
+        ("T_lLES", "lLES"),
+        ("T_dTilda", "dTilda"),
+        ("T_epsByk", "epsByk"),
+        ("T_LESRegion", "LESRegion"),
+        ("T_GbyNu0", "GbyNu0"),
+        ("T_G", "G"),
+        ("T_gamma", "gamma"),
+        ("T_beta", "beta"),
+        ("T_GbyNu", "GbyNu"),
+        ("T_Pk", "Pk"),
+        ("T_omega_E", "omega_E"),
+        ("T_omega_SuSp1", "omega_SuSp1"),
+        ("T_omega_Sp", "omega_Sp"),
+        ("T_omega_SuSp2", "omega_SuSp2"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let rows = compare("kOmegaSSTDES (esi y, esi delta)", &r, &m.source_terms(&r.state(true, true)), pairs);
+    assert!(max_ulp(&rows) <= 3, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_SST_DES);
+}
+
+const PINS_SA_DES: &[(&str, usize)] = &[
+    ("SA-DES (esi y, esi delta) nut", 360),
+    ("SA-DES (esi y, esi delta) nut", 360),
+    ("SA-DES (esi y, esi delta) delta", 360),
+    ("SA-DES (esi y, esi delta) chi", 360),
+    ("SA-DES (esi y, esi delta) fv1", 360),
+    ("SA-DES (esi y, esi delta) fv2", 360),
+    ("SA-DES (esi y, esi delta) psi", 360),
+    ("SA-DES (esi y, esi delta) lLES", 360),
+    ("SA-DES (esi y, esi delta) fd", 360),
+    ("SA-DES (esi y, esi delta) dTilda", 360),
+    ("SA-DES (esi y, esi delta) Omega", 360),
+    ("SA-DES (esi y, esi delta) Stilda", 360),
+    ("SA-DES (esi y, esi delta) r", 360),
+    ("SA-DES (esi y, esi delta) fw", 360),
+    ("SA-DES (esi y, esi delta) gradSqr", 360),
+    ("SA-DES (esi y, esi delta) nuTilda_E", 360),
+    ("SA-DES (esi y, esi delta) nuTilda_Sp", 360),
+    ("SA-DES (esi y, esi delta) LESRegion", 360),
+    ("SA-DES (esi y, own delta) nut", 360),
+    ("SA-DES (esi y, own delta) nut", 360),
+    ("SA-DES (esi y, own delta) delta", 156),
+    ("SA-DES (esi y, own delta) chi", 360),
+    ("SA-DES (esi y, own delta) fv1", 360),
+    ("SA-DES (esi y, own delta) fv2", 360),
+    ("SA-DES (esi y, own delta) psi", 360),
+    ("SA-DES (esi y, own delta) lLES", 186),
+    ("SA-DES (esi y, own delta) fd", 360),
+    ("SA-DES (esi y, own delta) dTilda", 335),
+    ("SA-DES (esi y, own delta) Omega", 360),
+    ("SA-DES (esi y, own delta) Stilda", 360),
+    ("SA-DES (esi y, own delta) r", 336),
+    ("SA-DES (esi y, own delta) fw", 337),
+    ("SA-DES (esi y, own delta) gradSqr", 360),
+    ("SA-DES (esi y, own delta) nuTilda_E", 360),
+    ("SA-DES (esi y, own delta) nuTilda_Sp", 335),
+    ("SA-DES (esi y, own delta) LESRegion", 360),
+];
+const PINS_SA_DDES: &[(&str, usize)] = &[
+    ("SA-DDES (esi y, esi delta) nut", 360),
+    ("SA-DDES (esi y, esi delta) nut", 360),
+    ("SA-DDES (esi y, esi delta) delta", 360),
+    ("SA-DDES (esi y, esi delta) chi", 360),
+    ("SA-DDES (esi y, esi delta) fv1", 360),
+    ("SA-DDES (esi y, esi delta) fv2", 360),
+    ("SA-DDES (esi y, esi delta) psi", 360),
+    ("SA-DDES (esi y, esi delta) lLES", 360),
+    ("SA-DDES (esi y, esi delta) fd", 355),
+    ("SA-DDES (esi y, esi delta) dTilda", 360),
+    ("SA-DDES (esi y, esi delta) Omega", 360),
+    ("SA-DDES (esi y, esi delta) Stilda", 360),
+    ("SA-DDES (esi y, esi delta) r", 360),
+    ("SA-DDES (esi y, esi delta) fw", 360),
+    ("SA-DDES (esi y, esi delta) gradSqr", 360),
+    ("SA-DDES (esi y, esi delta) nuTilda_E", 360),
+    ("SA-DDES (esi y, esi delta) nuTilda_Sp", 360),
+    ("SA-DDES (esi y, esi delta) LESRegion", 360),
+    ("SA-DDES (esi y, esi delta) r_fd", 360),
+    ("SA-DDES (esi y, own delta) nut", 360),
+    ("SA-DDES (esi y, own delta) nut", 360),
+    ("SA-DDES (esi y, own delta) delta", 156),
+    ("SA-DDES (esi y, own delta) chi", 360),
+    ("SA-DDES (esi y, own delta) fv1", 360),
+    ("SA-DDES (esi y, own delta) fv2", 360),
+    ("SA-DDES (esi y, own delta) psi", 360),
+    ("SA-DDES (esi y, own delta) lLES", 186),
+    ("SA-DDES (esi y, own delta) fd", 355),
+    ("SA-DDES (esi y, own delta) dTilda", 341),
+    ("SA-DDES (esi y, own delta) Omega", 360),
+    ("SA-DDES (esi y, own delta) Stilda", 360),
+    ("SA-DDES (esi y, own delta) r", 341),
+    ("SA-DDES (esi y, own delta) fw", 341),
+    ("SA-DDES (esi y, own delta) gradSqr", 360),
+    ("SA-DDES (esi y, own delta) nuTilda_E", 360),
+    ("SA-DDES (esi y, own delta) nuTilda_Sp", 341),
+    ("SA-DDES (esi y, own delta) LESRegion", 360),
+    ("SA-DDES (esi y, own delta) r_fd", 360),
+];
+const PINS_SA_IDDES: &[(&str, usize)] = &[
+    ("SA-IDDES (esi y, esi delta) nut", 360),
+    ("SA-IDDES (esi y, esi delta) nut", 360),
+    ("SA-IDDES (esi y, esi delta) delta", 360),
+    ("SA-IDDES (esi y, esi delta) chi", 360),
+    ("SA-IDDES (esi y, esi delta) fv1", 360),
+    ("SA-IDDES (esi y, esi delta) fv2", 360),
+    ("SA-IDDES (esi y, esi delta) psi", 360),
+    ("SA-IDDES (esi y, esi delta) lLES", 360),
+    ("SA-IDDES (esi y, esi delta) fd", 360),
+    ("SA-IDDES (esi y, esi delta) dTilda", 360),
+    ("SA-IDDES (esi y, esi delta) Omega", 360),
+    ("SA-IDDES (esi y, esi delta) Stilda", 360),
+    ("SA-IDDES (esi y, esi delta) r", 360),
+    ("SA-IDDES (esi y, esi delta) fw", 360),
+    ("SA-IDDES (esi y, esi delta) gradSqr", 360),
+    ("SA-IDDES (esi y, esi delta) nuTilda_E", 360),
+    ("SA-IDDES (esi y, esi delta) nuTilda_Sp", 360),
+    ("SA-IDDES (esi y, esi delta) LESRegion", 360),
+    ("SA-IDDES (esi y, esi delta) alpha", 360),
+    ("SA-IDDES (esi y, esi delta) fB", 360),
+    ("SA-IDDES (esi y, esi delta) fdt", 343),
+    ("SA-IDDES (esi y, esi delta) ft", 360),
+    ("SA-IDDES (esi y, esi delta) fl", 360),
+    ("SA-IDDES (esi y, esi delta) fe1", 360),
+    ("SA-IDDES (esi y, esi delta) fe", 360),
+];
+const PINS_SST_DES: &[(&str, usize)] = &[
+    ("kOmegaSSTDES (esi y, esi delta) nut", 360),
+    ("kOmegaSSTDES (esi y, esi delta) delta", 360),
+    ("kOmegaSSTDES (esi y, esi delta) S2", 360),
+    ("kOmegaSSTDES (esi y, esi delta) CDkOmega", 360),
+    ("kOmegaSSTDES (esi y, esi delta) F1", 334),
+    ("kOmegaSSTDES (esi y, esi delta) F23", 339),
+    ("kOmegaSSTDES (esi y, esi delta) nut", 360),
+    ("kOmegaSSTDES (esi y, esi delta) CDES", 356),
+    ("kOmegaSSTDES (esi y, esi delta) lRAS", 360),
+    ("kOmegaSSTDES (esi y, esi delta) lLES", 357),
+    ("kOmegaSSTDES (esi y, esi delta) dTilda", 359),
+    ("kOmegaSSTDES (esi y, esi delta) epsByk", 359),
+    ("kOmegaSSTDES (esi y, esi delta) LESRegion", 360),
+    ("kOmegaSSTDES (esi y, esi delta) GbyNu0", 360),
+    ("kOmegaSSTDES (esi y, esi delta) G", 360),
+    ("kOmegaSSTDES (esi y, esi delta) gamma", 356),
+    ("kOmegaSSTDES (esi y, esi delta) beta", 358),
+    ("kOmegaSSTDES (esi y, esi delta) GbyNu", 360),
+    ("kOmegaSSTDES (esi y, esi delta) Pk", 360),
+    ("kOmegaSSTDES (esi y, esi delta) omega_E", 357),
+    ("kOmegaSSTDES (esi y, esi delta) omega_SuSp1", 358),
+    ("kOmegaSSTDES (esi y, esi delta) omega_Sp", 358),
+    ("kOmegaSSTDES (esi y, esi delta) omega_SuSp2", 343),
+    ("kOmegaSSTDES (esi y, esi delta) k_E", 360),
+    ("kOmegaSSTDES (esi y, esi delta) k_SuSp", 360),
+    ("kOmegaSSTDES (esi y, esi delta) k_Sp", 359),
+];
+
+// ── gh:#1544: kEqn (ESI arithmetic only; upstream delta fed in for the bit-identical rows) ──
+
+const REF_KEQN: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_kEqn.txt.gz"
+);
+
+#[test]
+fn k_eqn_vs_openfoam() {
+    let r = parse(REF_KEQN);
+    check_audits(&r, 4);
+    let mesh = r.mesh();
+    let mut m = KEqn::new(mesh.clone());
+    m.k = r.zg(&mesh, "k", "k");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.u = r.velocity(&mesh);
+    m.phi = r.flux(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_delta", "delta"),
+        ("T_nut", "nut"),
+        ("T_GbyNu", "GbyNu"),
+        ("T_G", "G"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let esi = compare("kEqn (esi delta)", &r, &m.source_terms(&r.state(false, true)), pairs);
+    all_identical(&esi);
+    let mut rows = esi;
+    rows.extend(compare("kEqn (own delta)", &r, &m.source_terms(&r.state(false, false)), pairs));
+    assert!(max_ulp(&rows) <= 7, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_KEQN);
+}
+
+const PINS_KEQN: &[(&str, usize)] = &[
+    ("kEqn (esi delta) nut", 360),
+    ("kEqn (esi delta) delta", 360),
+    ("kEqn (esi delta) nut", 360),
+    ("kEqn (esi delta) GbyNu", 360),
+    ("kEqn (esi delta) G", 360),
+    ("kEqn (esi delta) k_SuSp", 360),
+    ("kEqn (esi delta) k_Sp", 360),
+    ("kEqn (own delta) nut", 158),
+    ("kEqn (own delta) delta", 156),
+    ("kEqn (own delta) nut", 158),
+    ("kEqn (own delta) GbyNu", 360),
+    ("kEqn (own delta) G", 360),
+    ("kEqn (own delta) k_SuSp", 360),
+    ("kEqn (own delta) k_Sp", 156),
+];
+
+// ── gh:#1544: LaunderSharmaKE (ESI arithmetic only; upstream gradients fed in) ─────────
+
+const REF_LS: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LaunderSharmaKE.txt.gz"
+);
+
+const REF_LS_LOW: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LaunderSharmaKE_lowRe.txt.gz"
+);
+
+#[test]
+fn launder_sharma_ke_vs_openfoam() {
+    let rows = launder_sharma_case("LaunderSharmaKE", REF_LS);
+    pin(&rows, PINS_LS);
+}
+
+/// nu = 1e-2 (README slice 6): fMu in (0.03, 0.13) and f2 in (0.76, 1), so both `exp`
+/// calls see varied arguments (at nu = 1e-5 fMu >= 0.97 and f2 is exactly 1 everywhere).
+#[test]
+fn launder_sharma_ke_low_re_vs_openfoam() {
+    let rows = launder_sharma_case("LaunderSharmaKE lowRe", REF_LS_LOW);
+    pin(&rows, PINS_LS_LOW);
+}
+
+fn launder_sharma_case(name: &str, gz: &[u8]) -> Rows {
+    let r = parse(gz);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = LaunderSharmaKe::new(mesh.clone());
+    m.k = r.zg(&mesh, "k", "k");
+    m.epsilon = r.zg(&mesh, "epsilon", "epsilon");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_fMu", "fMu"),
+        ("T_f2", "f2"),
+        ("T_nut", "nut"),
+        ("T_E", "E"),
+        ("T_D", "D"),
+        ("T_G", "G"),
+        ("T_eps_E1", "eps_E1"),
+        ("T_eps_SuSp", "eps_SuSp"),
+        ("T_eps_Sp", "eps_Sp"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let rows = compare(name, &r, &m.source_terms(&r.state(false, false)), pairs);
+    assert!(max_ulp(&rows) <= 3, "max ulp {}", max_ulp(&rows));
+    rows
+}
+
+const PINS_LS: &[(&str, usize)] = &[
+    ("LaunderSharmaKE nut", 360),
+    ("LaunderSharmaKE fMu", 360),
+    ("LaunderSharmaKE f2", 360),
+    ("LaunderSharmaKE nut", 360),
+    ("LaunderSharmaKE E", 360),
+    ("LaunderSharmaKE D", 360),
+    ("LaunderSharmaKE G", 360),
+    ("LaunderSharmaKE eps_E1", 360),
+    ("LaunderSharmaKE eps_SuSp", 360),
+    ("LaunderSharmaKE eps_Sp", 360),
+    ("LaunderSharmaKE k_E", 360),
+    ("LaunderSharmaKE k_SuSp", 360),
+    ("LaunderSharmaKE k_Sp", 360),
+];
+const PINS_LS_LOW: &[(&str, usize)] = &[
+    ("LaunderSharmaKE lowRe nut", 360),
+    ("LaunderSharmaKE lowRe fMu", 360),
+    ("LaunderSharmaKE lowRe f2", 360),
+    ("LaunderSharmaKE lowRe nut", 360),
+    ("LaunderSharmaKE lowRe E", 360),
+    ("LaunderSharmaKE lowRe D", 360),
+    ("LaunderSharmaKE lowRe G", 360),
+    ("LaunderSharmaKE lowRe eps_E1", 360),
+    ("LaunderSharmaKE lowRe eps_SuSp", 360),
+    ("LaunderSharmaKE lowRe eps_Sp", 360),
+    ("LaunderSharmaKE lowRe k_E", 360),
+    ("LaunderSharmaKE lowRe k_SuSp", 360),
+    ("LaunderSharmaKE lowRe k_Sp", 360),
+];
+
+// ── gh:#1544 slice 7: the LESfilter family (basic-lib) against the real ESI classes ───
+
+use outram_foam_basic_lib::fields::vol_field::VolField;
+use outram_foam_basic_lib::fv_operators::les_filter::{
+    AnisotropicFilter, FilterValue, LaplaceFilter, LesFilter,
+};
+use outram_foam_basic_lib::primitives::SymmTensor;
+
+const REF_LESFILTERS: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LESfilters.txt.gz"
+);
+
+/// Component access for flattening and for building fields from the dump.
+trait Comps: FilterValue {
+    fn comps(&self) -> Vec<f64>;
+    fn make(a: &[f64]) -> Self;
+}
+
+impl Comps for f64 {
+    fn comps(&self) -> Vec<f64> {
+        vec![*self]
+    }
+    fn make(a: &[f64]) -> Self {
+        a[0]
+    }
+}
+
+impl Comps for Vector3 {
+    fn comps(&self) -> Vec<f64> {
+        vec![self.x, self.y, self.z]
+    }
+    fn make(a: &[f64]) -> Self {
+        Vector3::new(a[0], a[1], a[2])
+    }
+}
+
+impl Comps for SymmTensor {
+    fn comps(&self) -> Vec<f64> {
+        vec![self.xx, self.xy, self.xz, self.yy, self.yz, self.zz]
+    }
+    fn make(a: &[f64]) -> Self {
+        SymmTensor::new(a[0], a[1], a[2], a[3], a[4], a[5])
+    }
+}
+
+impl Comps for Tensor {
+    fn comps(&self) -> Vec<f64> {
+        vec![self.xx, self.xy, self.xz, self.yx, self.yy, self.yz, self.zx, self.zy, self.zz]
+    }
+    fn make(a: &[f64]) -> Self {
+        Tensor::new(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8])
+    }
+}
+
+/// A field from the dump: cell values under `cell_key`, boundary faces (patch order) under
+/// `bnd_key`; `zero_gradient` gives the patches the ZeroGradient BC (upstream's `k`).
+fn ref_field<T: Comps>(
+    r: &Ref,
+    mesh: &Arc<FvMesh>,
+    cell_key: &str,
+    bnd_key: Option<&str>,
+    zero_gradient: bool,
+) -> VolField<T> {
+    let cells: Vec<T> = r.cols[cell_key].iter().map(|v| T::make(v)).collect();
+    let faces: Vec<T> = match bnd_key {
+        Some(k) => r.cols[k].iter().map(|v| T::make(v)).collect(),
+        None => mesh
+            .patches
+            .iter()
+            .flat_map(|p| (p.start..p.start + p.size).map(|f| cells[mesh.owner[f]].clone()))
+            .collect(),
+    };
+    let boundary = mesh
+        .patches
+        .iter()
+        .map(|p| {
+            let b0 = p.start - mesh.n_internal_faces;
+            let vals = Field::new(faces[b0..b0 + p.size].to_vec());
+            PatchField {
+                bc: if zero_gradient {
+                    BoundaryCondition::ZeroGradient
+                } else {
+                    BoundaryCondition::Calculated(vals.clone())
+                },
+                values: vals,
+            }
+        })
+        .collect();
+    VolField::new(cell_key, mesh.clone(), Field::new(cells), boundary)
+}
+
+fn flat<T: Comps>(v: &[T]) -> Vec<f64> {
+    v.iter().flat_map(|x| x.comps()).collect()
+}
+
+fn ref_flat(r: &Ref, key: &str) -> Vec<f64> {
+    r.cols[key].iter().flatten().copied().collect()
+}
+
+/// Cell and boundary-face rows of one filtered field against the dump.
+fn compare_filtered<T: Comps>(label: &str, r: &Ref, out: &VolField<T>, key: &str) -> Rows {
+    let l = format!("{label} {key} cells");
+    let a = cmp(&l, &flat(out.internal.as_slice()), &ref_flat(r, key));
+    let bnd: Vec<T> = out.boundary.iter().flat_map(|p| p.values.iter().cloned()).collect();
+    let lb = format!("{label} {key} faces");
+    let b = cmp(&lb, &flat(&bnd), &ref_flat(r, &format!("{key}_b")));
+    vec![(l, a), (lb, b)]
+}
+
+fn filter_rows(label: &str, r: &Ref, mesh: &Arc<FvMesh>, f: &LesFilter, tag: &str) -> Rows {
+    let k: VolScalarField = ref_field(r, mesh, "k", None, true);
+    let mag: VolScalarField = ref_field(r, mesh, "in_magSqrU", Some("in_magSqrU_b"), false);
+    let u: VolVectorField = ref_field(r, mesh, "U", Some("Ub"), false);
+    let sqr_u: VolField<SymmTensor> = ref_field(r, mesh, "in_sqrU", Some("in_sqrU_b"), false);
+    let dsym: VolField<SymmTensor> = ref_field(r, mesh, "in_Dsym", Some("in_Dsym_b"), false);
+    // `gradU` is extrapolatedCalculated: the filter's `correctBoundaryConditions` re-extrapolates
+    // its boundary to the owner-cell value, so THAT is what the real filter sees (the dumped
+    // `gradU_b` is the corrected-normal boundary before that call; using it was this test's
+    // first-run error, README slice 7).
+    let gu: VolField<Tensor> = ref_field(r, mesh, "gradU", None, false);
+    let mut rows = Rows::new();
+    rows.extend(compare_filtered(label, r, &f.apply(&k), &format!("F_{tag}_k")));
+    rows.extend(compare_filtered(label, r, &f.apply(&mag), &format!("F_{tag}_magSqrU")));
+    rows.extend(compare_filtered(label, r, &f.apply(&u), &format!("F_{tag}_U")));
+    rows.extend(compare_filtered(label, r, &f.apply(&sqr_u), &format!("F_{tag}_sqrU")));
+    rows.extend(compare_filtered(label, r, &f.apply(&dsym), &format!("F_{tag}_Dsym")));
+    rows.extend(compare_filtered(label, r, &f.apply(&gu), &format!("F_{tag}_gradU")));
+    rows
+}
+
+#[test]
+fn les_filters_vs_openfoam() {
+    let r = parse(REF_LESFILTERS);
+    let mesh = r.mesh();
+    let mut rows = Rows::new();
+    rows.extend(filter_rows("simple", &r, &mesh, &LesFilter::Simple, "simple"));
+    let lap = LaplaceFilter::new(mesh.clone(), 2.0);
+    let c = cmp("laplace coeff (PETIR pow)", lap.coeff(), &r.s("T_laplaceCoeff"));
+    rows.push(("laplace coeff (PETIR pow)".to_string(), c));
+    rows.extend(filter_rows("laplace (own coeff)", &r, &mesh, &LesFilter::Laplace(lap), "laplace"));
+    let lap_up = LaplaceFilter::with_coeff(mesh.clone(), 2.0, r.s("T_laplaceCoeff"));
+    rows.extend(filter_rows(
+        "laplace (esi coeff)",
+        &r,
+        &mesh,
+        &LesFilter::Laplace(lap_up),
+        "laplace",
+    ));
+    let an = AnisotropicFilter::new(mesh.clone(), 2.0);
+    let c = cmp("aniso coeff", &flat(an.coeff()), &ref_flat(&r, "T_anisoCoeff"));
+    rows.push(("aniso coeff".to_string(), c));
+    rows.extend(filter_rows("aniso", &r, &mesh, &LesFilter::Anisotropic(an), "aniso"));
+    all_identical(&rows);
+    pin(&rows, PINS_LES_FILTERS);
+}
+
+const PINS_LES_FILTERS: &[(&str, usize)] = &[
+    ("simple F_simple_k cells", 360),
+    ("simple F_simple_k faces", 372),
+    ("simple F_simple_magSqrU cells", 360),
+    ("simple F_simple_magSqrU faces", 372),
+    ("simple F_simple_U cells", 1080),
+    ("simple F_simple_U faces", 1116),
+    ("simple F_simple_sqrU cells", 2160),
+    ("simple F_simple_sqrU faces", 2232),
+    ("simple F_simple_Dsym cells", 2160),
+    ("simple F_simple_Dsym faces", 2232),
+    ("simple F_simple_gradU cells", 3240),
+    ("simple F_simple_gradU faces", 3348),
+    ("laplace coeff (PETIR pow)", 360),
+    ("laplace (own coeff) F_laplace_k cells", 360),
+    ("laplace (own coeff) F_laplace_k faces", 372),
+    ("laplace (own coeff) F_laplace_magSqrU cells", 360),
+    ("laplace (own coeff) F_laplace_magSqrU faces", 372),
+    ("laplace (own coeff) F_laplace_U cells", 1080),
+    ("laplace (own coeff) F_laplace_U faces", 1116),
+    ("laplace (own coeff) F_laplace_sqrU cells", 2160),
+    ("laplace (own coeff) F_laplace_sqrU faces", 2232),
+    ("laplace (own coeff) F_laplace_Dsym cells", 2160),
+    ("laplace (own coeff) F_laplace_Dsym faces", 2232),
+    ("laplace (own coeff) F_laplace_gradU cells", 3240),
+    ("laplace (own coeff) F_laplace_gradU faces", 3348),
+    ("laplace (esi coeff) F_laplace_k cells", 360),
+    ("laplace (esi coeff) F_laplace_k faces", 372),
+    ("laplace (esi coeff) F_laplace_magSqrU cells", 360),
+    ("laplace (esi coeff) F_laplace_magSqrU faces", 372),
+    ("laplace (esi coeff) F_laplace_U cells", 1080),
+    ("laplace (esi coeff) F_laplace_U faces", 1116),
+    ("laplace (esi coeff) F_laplace_sqrU cells", 2160),
+    ("laplace (esi coeff) F_laplace_sqrU faces", 2232),
+    ("laplace (esi coeff) F_laplace_Dsym cells", 2160),
+    ("laplace (esi coeff) F_laplace_Dsym faces", 2232),
+    ("laplace (esi coeff) F_laplace_gradU cells", 3240),
+    ("laplace (esi coeff) F_laplace_gradU faces", 3348),
+    ("aniso coeff", 1080),
+    ("aniso F_aniso_k cells", 360),
+    ("aniso F_aniso_k faces", 372),
+    ("aniso F_aniso_magSqrU cells", 360),
+    ("aniso F_aniso_magSqrU faces", 372),
+    ("aniso F_aniso_U cells", 1080),
+    ("aniso F_aniso_U faces", 1116),
+    ("aniso F_aniso_sqrU cells", 2160),
+    ("aniso F_aniso_sqrU faces", 2232),
+    ("aniso F_aniso_Dsym cells", 2160),
+    ("aniso F_aniso_Dsym faces", 2232),
+    ("aniso F_aniso_gradU cells", 3240),
+    ("aniso F_aniso_gradU faces", 3348),
 ];

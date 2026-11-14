@@ -733,7 +733,22 @@ pub fn eta(s: f64) -> f64 {
     }
     let z = zeta(s);
     let p = Real::exp((1.0 - s) * LN_2);
-    (1.0 - p) * z
+    gsl_multiply(1.0 - p, z)
+}
+
+/// `gsl_sf_multiply_e`'s value (specfunc/elementary.c:31): a product with a
+/// zero factor is `+0.0` whatever the signs, otherwise `x * y`.
+///
+/// ~~`(1.0 - p) * z`~~ **CORRECTED 2026-11-13 (gh:#1421):** at the negative
+/// even integers `zeta` is `+0.0` and `1 - p < 0`, so the bare product was
+/// `-0.0` where GSL's `eta` returns `+0.0` (45 rows of the sweep). The
+/// overflow branch of upstream (an error, value `+inf`) is not reproduced.
+fn gsl_multiply(x: f64, y: f64) -> f64 {
+    if x == 0.0 || y == 0.0 {
+        0.0
+    } else {
+        x * y
+    }
 }
 
 /// `eta(n)` for integer `n`, from a table where one exists.
@@ -768,7 +783,7 @@ pub fn eta_int(n: i32) -> f64 {
     }
     let z = zeta_int(n);
     let p = Real::exp((1.0 - n as f64) * LN_2);
-    -p * z
+    gsl_multiply(-p, z)
 }
 
 #[cfg(test)]

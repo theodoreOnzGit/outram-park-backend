@@ -62,7 +62,10 @@ const CLOSE: f64 = 0.99999;
 /// `epair` (`phys.f90:49`): the electron rest energy `m_e c^2` \[eV\],
 /// `amasse * amu * c^2 / ev` with `amasse = 5.48579909065e-4` amu and
 /// `amu = 931.49410242e6` eV.
-pub const EPAIR: f64 = 5.485_799_090_65e-4 * 931.494_102_42e6;
+/// ~~`5.48579909065e-4 * 931.49410242e6`~~ **CORRECTED 2026-11-13 (gh:#1369):**
+/// upstream's own expression, `amasse*amu*clight*clight/ev` with `amu` in grams
+/// ([`crate::common::phys::EPAIR_EV`]); the shortcut can differ in the last bit.
+pub const EPAIR: f64 = crate::common::phys::EPAIR_EV;
 
 /// One MF=27 TAB1 (form factor `F(x, Z)` for MT=502, scattering function
 /// `S(x, Z)` for MT=504): `x` in inverse Angstroms ascending, the value, and
