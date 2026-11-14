@@ -31,6 +31,7 @@ use outram_foam_turbulence_lib::des::KOmegaSstDes;
 use outram_foam_turbulence_lib::k_epsilon::KEpsilon;
 use outram_foam_turbulence_lib::k_omega::KOmega;
 use outram_foam_turbulence_lib::k_omega_sst::KOmegaSST;
+use outram_foam_turbulence_lib::k_omega_sst_lm::KOmegaSstLm;
 use outram_foam_turbulence_lib::launder_sharma_ke::LaunderSharmaKe;
 use outram_foam_turbulence_lib::les::k_eqn::KEqn;
 use outram_foam_turbulence_lib::les::wale::Wale;
@@ -1851,4 +1852,128 @@ const PINS_LAG_ANISO: &[(&str, usize)] = &[
     ("dynamicLagrangian[aniso] nut vs real nut after validate()", 360),
     ("dynamicLagrangian[aniso] nut vs real nut after correct()", 360),
     ("dynamicLagrangian[aniso] nut with the port's own cbrt delta vs real nut", 157),
+];
+
+// ── kOmegaSSTLM (gh:#1544, README slice 8) ─────────────────────────────────
+
+const REF_SST_LM: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_kOmegaSSTLM.txt.gz"
+);
+
+/// `kOmegaSSTLM` on the frozen duct with its own transition-relevant fields (README slice 8),
+/// ESI `y` and upstream gradients fed in. 16 audit parts (omega, k, ReThetat, gammaInt matrices).
+#[test]
+fn k_omega_sst_lm_vs_openfoam() {
+    let r = parse(REF_SST_LM);
+    check_audits(&r, 16);
+    let mesh = r.mesh();
+    let mut m = KOmegaSstLm::new(mesh.clone());
+    m.sst.k = r.zg(&mesh, "k", "k");
+    m.sst.omega = r.zg(&mesh, "omega", "omega");
+    m.sst.nu = r.zg(&mesh, "nu", "nu");
+    m.sst.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.sst.u = r.velocity(&mesh);
+    m.sst.phi = r.flux(&mesh);
+    m.re_thetat = r.s("ReThetat");
+    m.gamma_int = r.s("gammaInt");
+    m.gamma_int_eff = r.s("gammaIntEff_in");
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_S2", "S2"),
+        ("T_CDkOmega", "CDkOmega"),
+        ("T_F1sst", "F1sst"),
+        ("T_F3", "F3"),
+        ("T_F1", "F1"),
+        ("T_F23", "F23"),
+        ("T_GbyNu0", "GbyNu0"),
+        ("T_G", "G"),
+        ("T_gamma", "gamma"),
+        ("T_beta", "beta"),
+        ("T_GbyNu", "GbyNu"),
+        ("T_PkSst", "PkSst"),
+        ("T_Pk", "Pk"),
+        ("T_omega_E", "omega_E"),
+        ("T_omega_SuSp1", "omega_SuSp1"),
+        ("T_omega_Sp", "omega_Sp"),
+        ("T_omega_SuSp2", "omega_SuSp2"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+        ("T_Omega", "Omega"),
+        ("T_S", "S"),
+        ("T_Us", "Us"),
+        ("T_dUsds", "dUsds"),
+        ("T_delta", "delta"),
+        ("T_Fwake", "Fwake"),
+        ("T_Fthetat", "Fthetat"),
+        ("T_ReThetac", "ReThetac"),
+        ("T_Flength", "Flength"),
+        ("T_ReThetat0", "ReThetat0"),
+        ("T_lambdaIters", "lambdaIters"),
+        ("T_Pthetat", "Pthetat"),
+        ("T_ReThetat_E", "ReThetat_E"),
+        ("T_Rev", "Rev"),
+        ("T_RT", "RT"),
+        ("T_Fonset", "Fonset"),
+        ("T_Pgamma", "Pgamma"),
+        ("T_Fturb", "Fturb"),
+        ("T_Egamma", "Egamma"),
+        ("T_Freattach", "Freattach"),
+        ("T_gammaSep", "gammaSep"),
+        ("T_gammaIntEff", "gammaIntEff"),
+        ("gammaIntEff_real", "gammaIntEff"),
+    ];
+    let rows = compare("kOmegaSSTLM (esi y)", &r, &m.source_terms(&r.state(true, false)), pairs);
+    assert!(max_ulp(&rows) <= LM_MAX_ULP, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_SST_LM);
+}
+
+/// PETIR `tanh` against glibc (inherited from the SST blending functions, README slice 2).
+const LM_MAX_ULP: u64 = 3;
+
+const PINS_SST_LM: &[(&str, usize)] = &[
+    ("kOmegaSSTLM (esi y) nut", 354),
+    ("kOmegaSSTLM (esi y) S2", 360),
+    ("kOmegaSSTLM (esi y) CDkOmega", 360),
+    ("kOmegaSSTLM (esi y) F1sst", 351),
+    ("kOmegaSSTLM (esi y) F3", 360),
+    ("kOmegaSSTLM (esi y) F1", 360),
+    ("kOmegaSSTLM (esi y) F23", 343),
+    ("kOmegaSSTLM (esi y) GbyNu0", 360),
+    ("kOmegaSSTLM (esi y) G", 354),
+    ("kOmegaSSTLM (esi y) gamma", 360),
+    ("kOmegaSSTLM (esi y) beta", 360),
+    ("kOmegaSSTLM (esi y) GbyNu", 359),
+    ("kOmegaSSTLM (esi y) PkSst", 355),
+    ("kOmegaSSTLM (esi y) Pk", 355),
+    ("kOmegaSSTLM (esi y) omega_E", 359),
+    ("kOmegaSSTLM (esi y) omega_SuSp1", 360),
+    ("kOmegaSSTLM (esi y) omega_Sp", 360),
+    ("kOmegaSSTLM (esi y) omega_SuSp2", 360),
+    ("kOmegaSSTLM (esi y) k_E", 355),
+    ("kOmegaSSTLM (esi y) k_SuSp", 360),
+    ("kOmegaSSTLM (esi y) k_Sp", 360),
+    ("kOmegaSSTLM (esi y) Omega", 360),
+    ("kOmegaSSTLM (esi y) S", 360),
+    ("kOmegaSSTLM (esi y) Us", 360),
+    ("kOmegaSSTLM (esi y) dUsds", 360),
+    ("kOmegaSSTLM (esi y) delta", 360),
+    ("kOmegaSSTLM (esi y) Fwake", 360),
+    ("kOmegaSSTLM (esi y) Fthetat", 360),
+    ("kOmegaSSTLM (esi y) ReThetac", 360),
+    ("kOmegaSSTLM (esi y) Flength", 360),
+    ("kOmegaSSTLM (esi y) ReThetat0", 360),
+    ("kOmegaSSTLM (esi y) lambdaIters", 360),
+    ("kOmegaSSTLM (esi y) Pthetat", 360),
+    ("kOmegaSSTLM (esi y) ReThetat_E", 360),
+    ("kOmegaSSTLM (esi y) Rev", 360),
+    ("kOmegaSSTLM (esi y) RT", 360),
+    ("kOmegaSSTLM (esi y) Fonset", 360),
+    ("kOmegaSSTLM (esi y) Pgamma", 360),
+    ("kOmegaSSTLM (esi y) Fturb", 360),
+    ("kOmegaSSTLM (esi y) Egamma", 360),
+    ("kOmegaSSTLM (esi y) Freattach", 360),
+    ("kOmegaSSTLM (esi y) gammaSep", 360),
+    ("kOmegaSSTLM (esi y) gammaIntEff", 360),
+    ("kOmegaSSTLM (esi y) gammaIntEff", 360),
 ];

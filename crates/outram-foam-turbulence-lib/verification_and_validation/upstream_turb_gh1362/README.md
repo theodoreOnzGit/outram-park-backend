@@ -668,3 +668,65 @@ the frozen `ReThetat`, `gammaInt` are fed in.
    `do ... while (lambdaErr > lambdaErr_)` has no iteration cap (`maxLambdaIter` only warns); the port must not cap
    either to stay bit-identical; the iteration count per cell is reported.
 7. No cell is expected to differ by a formula error; anything not explained by a libm function is a defect in the port.
+
+## Slice 8 results (2026-11-14, release; same 360-cell duct, model-specific fields above, ESI `y` and upstream gradients fed in)
+
+Port: `outram_foam_turbulence_lib::k_omega_sst_lm::KOmegaSstLm` (new; terms only, no `correct()`).
+Test: `k_omega_sst_lm_vs_openfoam`, 44 rows pinned (`PINS_SST_LM`), max 3 ulp allowed.
+
+**Audit (prediction 1: held).** All 16 parts (diag, source, upper, lower of the `omega`, `k`, `ReThetat` and
+`gammaInt` matrices) of the transcribed equations equal the matrices the REAL model assembled, bit for bit
+(360/360 and 894/894). The `omega` and `k` audits include the LM overrides (`F1 = max(F1_SST, F3)`,
+`Pk = gammaIntEff Pk_SST`, `epsilonByk = clamp(gammaIntEff, 0.1, 1) betaStar omega`), so the real model does
+call them as transcribed.
+
+**Every LM-specific term is 360/360 bit-identical, max 0 ulp**: `F3`, `F1`, `gamma`, `beta`, `Omega`, `S`, `Us`,
+`dUsds`, `delta`, `Fwake`, `Fthetat`, `ReThetac`, `Flength`, `ReThetat0` and its iteration count, `Pthetat`,
+`ReThetat_E`, `Rev`, `RT`, `Fonset`, `Pgamma`, `Fturb`, `Egamma`, `Freattach`, `gammaSep`, `gammaIntEff` (against
+both the transcription and the value the real `correct()` left in the model, `gammaIntEff_real`), `k_Sp`,
+`omega_Sp`, `omega_SuSp1`, `omega_SuSp2`, `k_SuSp`, `S2`, `CDkOmega`, `GbyNu0`.
+
+The only differences are inherited from the SST blending functions (PETIR `tanh` against glibc, slice 2), at most
+3 ulp: `nut` 354, `F1sst` 351, `F23` 343, `G` 354, `GbyNu` 359, `PkSst` 355, `Pk` 355, `omega_E` 359, `k_E` 355
+of 360. The LM `F1 = max(F1_SST, F3)` is 360/360: all nine cells where `F1_SST` differs have `F3 > F1_SST`
+(`F3` is the larger in 310 of 360 cells), which hides the `tanh` ulp there.
+
+### Predictions that held, and the ones that did not
+
+- Held: 1 (audit), 2 (libm-free terms), 3 (`exp`-only terms: PETIR `exp` equals glibc on every argument, 360/360, again),
+  4 for `F3` (360/360, at least 95% predicted), 5 (the `tanh` cells), 6 (a) and (c).
+- **Wrong, in the favourable direction: 4 for `ReThetat0`.** I predicted at least 70% identical and up to 8 ulp
+  (`pow` with non-integer exponents, `exp`, an iteration); all 360 are identical, and so are the 360 iteration counts.
+  PETIR `pow` equals glibc `pow` on these arguments, as it did for `laplaceFilter` (slice 7).
+- Not predicted, a limitation of the field set (disclosed, not tuned afterwards): the `lambda` iteration stops after 2 passes
+  in 340 of 360 cells (`dUsds` is nearly zero, so `lambda` stays near 0); only 20 cells run 3 to 11 passes, so the
+  coupling of `lambda` into `thetat` is exercised by 20 cells, and the clamp `lambda in [-0.1, 0.1]` was not checked
+  to be reached. `Freattach` lies in (0.946, 1) (`RT` at most 9.7, so `exp(-(RT/20)^4)` hardly varies), and `Fonset` is 0 in 72
+  cells, 2 in 16 and in [1, 2) in 272 (never in (0, 1)), so the lower part of the `Fonset2` ramp is not exercised;
+  `Pgamma > 0` in 288 cells. The `Tu <= 1.3` branch has 152 cells, `Tu > 1.3` 208;
+  `dUsds <= 0` 92, `> 0` 268; `ReThetat` in the four `Flength` bands 42/30/106/182 and above 1870 in 70.
+
+### Fields: changed once, from INPUT coverage only (disclosed)
+
+The first dump used `gammaIntEff = 0.03 + 5.2 s (1 + 0.1 x) + 0.1 z`; `scripts/lm_coverage_stats.py` on the dumped inputs
+showed it never fell below 0.1 (0 cells), so the lower side of `clamp(gammaIntEff, 0.1, 1)` was not exercised. It was
+changed to `0.02 + 24 s^2 (1 + 0.1 x) + 0.1 z` (72 / 158 / 130 cells below 0.1 / within / above 1), and the reference
+re-dumped. No model output had been compared: the Rust side did not exist yet. The predictions were committed before the
+first dump with the first polynomial; the README text above names the final one.
+
+### Upstream behaviours noted (reproduced, nothing changed)
+
+1. `Pk` multiplies by the UNCLAMPED `gammaIntEff` (up to 1.98 here; `Pk > Pk_SST` in 130 cells, `<` in 230) while
+   `epsilonByk` clamps to [0.1, 1]. `gammaSep` can reach 2 times `Fthetat`, so `Pk` can exceed the SST limiter
+   `10 betaStar k omega`.
+2. `gammaIntEff_` is a `volScalarField::Internal` (no boundary), zero after construction: in a real run the first
+   `correct()` has `Pk = 0` and `epsilonByk = 0.1 betaStar omega`. Not exercised here (the driver sets it first).
+3. The `ReThetat0` loop is `do ... while (lambdaErr > lambdaErr_)` with no iteration cap (the `maxLambdaIter` warning is
+   after the loop). The port guards at 1e6 passes with a panic. Maximum observed: 11.
+
+### Defects
+
+None found in the port (no earlier port existed). Not ported / not covered: `correct()` (the two solves, `bound`, the
+update of `gammaIntEff` between steps), the `ReThetat` and `gammaInt` boundary conditions, `fvOptions`, a non-zero
+`omegaInf`/`kInf`, SST `F3`/decay control/`Qsas` (all off in the v2506 defaults), compressible and multiphase
+variants, and `Tu` from a freestream (upstream uses the cell `k` and `|U|`, as ported).

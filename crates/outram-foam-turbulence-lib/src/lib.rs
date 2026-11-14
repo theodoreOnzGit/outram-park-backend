@@ -77,6 +77,7 @@ pub mod k_epsilon;
 pub(crate) mod k_epsilon_step;
 pub mod k_omega;
 pub mod k_omega_sst;
+pub mod k_omega_sst_lm;
 pub mod laminar;
 pub mod launder_sharma_ke;
 pub mod les;
