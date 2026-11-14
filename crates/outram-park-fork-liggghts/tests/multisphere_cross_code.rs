@@ -556,6 +556,37 @@ fn ms_ke_matches_liggghts() {
     assert_eq!(same, n, "ms_ke: thermo not bit-identical");
 }
 
+/// **Template `fflag` / `tflag`** (`in.ms_flags`): `ms_collide` with the type 1
+/// template `fflag off on on tflag on off on` and the type 2 template
+/// `tflag off off on`. Every atom at steps 1, 2000, 4000, 5000, 6000, 7000,
+/// 8000 and 10000, on bit patterns. The type 1 clump takes no x force, so
+/// after the collision it pushes the type 2 clump through the `+x` face of the
+/// box between steps 8000 and 9000 (upstream's thermo: 7 atoms, then 3); the
+/// last frame holds 3 atoms, so the deck also runs the lost-atom path
+/// ([`GranularSystem::with_lost_atoms`]): 52 atom-frames.
+///
+/// **Prediction (gh:#1415, 2026-11-14):** bit-identical (the prediction said
+/// 56 atom-frames; upstream's run then lost the type 2 clump, see above).
+/// **Result:** 52/52 bit-identical.
+#[test]
+fn ms_flags_matches_liggghts() {
+    let mut sys = collide_system(
+        clump1().with_fflag([false, true, true]).with_tflag([true, false, true]),
+        clump2().with_tflag([false, false, true]),
+    )
+    .with_lost_atoms()
+    .unwrap();
+    let Some((total, same, worst)) =
+        compare_by_tag("ms_flags", &mut sys, &[1, 2000, 4000, 5000, 6000, 7000, 8000, 10000])
+    else {
+        eprintln!("skipping: reference-data/liggghts/ms_flags.csv not present");
+        return;
+    };
+    println!("ms_flags: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
+    assert_eq!(total, 52);
+    assert_eq!(same, total, "ms_flags: not bit-identical (worst relative {worst:e})");
+}
+
 /// The `ms_lost` system: a type 1 clump slides off the `+x` face of the
 /// `f f f` box; a type 2 clump stays. Lost atoms are on
 /// (`GranularSystem::with_lost_atoms`) unless `lost` is false (the ablation).

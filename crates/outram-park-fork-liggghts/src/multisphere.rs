@@ -509,6 +509,10 @@ pub struct ParticleTemplateMultisphere {
     no_overlap: bool,
     overlap_slightly: bool,
     random_insertion_state: i32,
+    /// `fflag x y z` (default all on).
+    fflag: [bool; 3],
+    /// `tflag x y z` (default all on).
+    tflag: [bool; 3],
 }
 
 impl ParticleTemplateMultisphere {
@@ -598,6 +602,8 @@ impl ParticleTemplateMultisphere {
             no_overlap: true,
             overlap_slightly: true,
             random_insertion_state: random_insertion.state(),
+            fflag: [true; 3],
+            tflag: [true; 3],
         };
         // FixTemplateMultisphere::post_create, no `mass`/`inertia_tensor` given
         t.calc_bounding_sphere(&mut random_mc)?;
@@ -969,7 +975,27 @@ impl ParticleTemplateMultisphere {
             xcm: [0.0; 3],
             v: [0.0; 3],
             omega: [0.0; 3],
+            fflag: self.fflag,
+            tflag: self.tflag,
         }
+    }
+
+    /// The template keyword `fflag x y z` (`on` = `true`; default all on):
+    /// a clump of this template takes no force half-kick on an `off` axis of
+    /// `vcm` (`FixMultisphere::initial_integrate` / `final_integrate`), so it
+    /// keeps its velocity component there (gh:#1415).
+    #[must_use]
+    pub fn with_fflag(mut self, fflag: [bool; 3]) -> Self {
+        self.fflag = fflag;
+        self
+    }
+
+    /// The template keyword `tflag x y z` (default all on): no torque
+    /// half-kick on an `off` axis of the space-frame angular momentum.
+    #[must_use]
+    pub fn with_tflag(mut self, tflag: [bool; 3]) -> Self {
+        self.tflag = tflag;
+        self
     }
 }
 
@@ -995,6 +1021,8 @@ pub struct ClumpToInsert {
     xcm: V3,
     v: V3,
     omega: V3,
+    fflag: [bool; 3],
+    tflag: [bool; 3],
 }
 
 impl ClumpToInsert {
@@ -1114,6 +1142,10 @@ pub struct ClumpBody {
     pub xcm_to_xbound: [f64; 3],
     /// Number of member atoms (`nrigid`).
     pub nrigid: usize,
+    /// `fflag` (from the template; `true` = on).
+    pub fflag: [bool; 3],
+    /// `tflag` (from the template; `true` = on).
+    pub tflag: [bool; 3],
     dragforce: [f64; 3],
     hdtorque: [f64; 3],
 }
@@ -1212,6 +1244,8 @@ impl Multisphere {
             r_bound: c.r_bound,
             xcm_to_xbound: c.xcm_to_xbound,
             nrigid: c.radius.len(),
+            fflag: c.fflag,
+            tflag: c.tflag,
             dragforce: [0.0; 3],
             hdtorque: [0.0; 3],
         });
@@ -1250,14 +1284,18 @@ impl Multisphere {
             let add_mass_term = 1.0 + 0.0 * 0.0 / b.density;
             let dtfm = dtf / (b.mass * add_mass_term);
             for k in 0..3 {
-                b.vcm[k] += dtfm * b.fcm[k];
+                if b.fflag[k] {
+                    b.vcm[k] += dtfm * b.fcm[k];
+                }
             }
             for k in 0..3 {
                 b.xcm[k] += dtv * b.vcm[k];
             }
             let dtt = dtf / add_mass_term;
             for k in 0..3 {
-                b.angmom[k] += dtt * b.torque[k];
+                if b.tflag[k] {
+                    b.angmom[k] += dtt * b.torque[k];
+                }
             }
             b.omega = angmom_to_omega(&b.angmom, &b.ex, &b.ey, &b.ez, &b.inertia);
             let angmom = b.angmom;
@@ -1356,11 +1394,15 @@ impl Multisphere {
             let add_mass_term = 1.0 + 0.0 * 0.0 / b.density;
             let dtfm = dtf / (b.mass * add_mass_term);
             for k in 0..3 {
-                b.vcm[k] += dtfm * b.fcm[k];
+                if b.fflag[k] {
+                    b.vcm[k] += dtfm * b.fcm[k];
+                }
             }
             let dtt = dtf / add_mass_term;
             for k in 0..3 {
-                b.angmom[k] += dtt * b.torque[k];
+                if b.tflag[k] {
+                    b.angmom[k] += dtt * b.torque[k];
+                }
             }
             b.omega = angmom_to_omega(&b.angmom, &b.ex, &b.ey, &b.ez, &b.inertia);
         }

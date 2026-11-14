@@ -111,6 +111,15 @@ thermo		250
 run		15000
 EOF
 } > in.ms_ke
+# ms_flags: in.ms_collide with the template keywords `fflag off on on tflag on
+# off on` (type 1) and `tflag off off on` (type 2). Frames to step 10000 (the
+# type 1 clump keeps vx = 0.6 and would leave the box later).
+{ header; echo "$PTS1 fflag off on on tflag on off on"; echo "$PTS2 tflag off off on"; echo "$COLLIDE_INS"; cat <<'EOF'
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 2000 4000 5000 6000 7000 8000 10000; } > in.ms_flags
 # ms_lost: a type 1 clump slides off the +x face of the `f f f` box.
 # Comm::exchange drops each member atom that leaves; FixMultisphere::pre_neighbor
 # (check_lost_atoms) then frees the clump's other atoms (body -1, rmass *=
