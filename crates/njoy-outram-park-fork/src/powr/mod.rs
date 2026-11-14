@@ -22,7 +22,17 @@
 //! LIBRAR input: `therm`, `packa`) are translated line for line and run from a
 //! deck by [`run_powr`] (`crate::deck::powr` reads the cards). `lib = 3`
 //! (EPRI-CPM, `cpm` and its `sfile*` routines, `powr.f90:1992-4902`) is
-//! **not translated** and is refused by name. The listing (unit `nsyso`) is
+//! **not translated** and is refused by name. **2026-11-14 (gh:#1373):** run
+//! first, upstream writes no `lib = 3` library at all. `cpm` reads card 5 into
+//! local variables and then fills `ninat`, `ntmp`, `nszt`, `s0rf`, `irest`,
+//! `sigpt`, `mtit`, `mtct`, `ip1tab`, `norft`, `ipost` and `iposrt` from
+//! `scr(1..12*newmat)`, which nothing in `cpm` writes (an instrumented NJOY2016
+//! printed all zeros for card 5 `0 3 7 1.e10 1 10.0 0 0 0 0 1 1`). On eight card-5
+//! variants NJOY2016.80 stopped in `sfile2` ("reference sigma zero not found"),
+//! failed to `DEALLOCATE` `glamt`, or segfaulted, and its library unit was empty
+//! every time. With an earlier POWR in the same deck, `scr` would instead hold
+//! that run's GENDF words. Nothing defined is left to reproduce, so the refusal
+//! stays. Record: deck-driver README §39a. The listing (unit `nsyso`) is
 //! not written; only the library on `nout` is. See `README.md` in this
 //! directory for what was verified and how.
 //!
@@ -164,7 +174,8 @@ pub fn icgrp(ig: i32, ngn: i32, ngnd: i32, lib: i32) -> i32 {
 /// library text upstream writes on `nout`.
 ///
 /// # Errors
-/// `lib = 3` (not translated) and any other `lib` (upstream's "illegal
+/// `lib = 3` (refused: upstream writes no library, see the module doc) and any
+/// other `lib` (upstream's "illegal
 /// library requested."); the errors and refusals of [`fast::fast`] and
 /// [`therm::therm`].
 pub fn run_powr(cards: &PowrCards, gendf: &str) -> Result<String, NjoyError> {
@@ -172,7 +183,10 @@ pub fn run_powr(cards: &PowrCards, gendf: &str) -> Result<String, NjoyError> {
     match cards.lib {
         1 => fast::fast(&mut r, &cards.fast),
         2 => therm::therm(&mut r, &cards.therm),
-        3 => Err(NjoyError::NotPorted("POWR lib = 3 (EPRI-CPM: cpm, pinit, sfile2-6, cpmout; powr.f90:1992-4902)")),
+        // Measured 2026-11-14 (gh:#1373): upstream's `cpm` reads card 5 into locals
+        // and fills the per-material arrays from `scr`, which nothing wrote, so
+        // NJOY2016 writes no library: it stops in `sfile2` or dies at run time.
+        3 => Err(NjoyError::NotPorted("POWR lib = 3 (EPRI-CPM, powr.f90:1992-4902): upstream cpm fills card 5 from an unwritten scr and writes no library")),
         _ => Err(NjoyError::InvalidInput("powr: illegal library requested.".into())),
     }
 }

@@ -478,6 +478,52 @@ fn powr_thermal_graphite_whole_deck() {
     assert!(bad.is_empty(), "graphite: (unit, differing, lines) {bad:?}");
 }
 
+/// The fast chain with GROUPR `ign = 9` (EPRI-CPM 69 groups) and a POWR
+/// `lib = 3` (`iclaps = 1`) for MAT 1050 with card 5 `card5` and, when given,
+/// card 6 `card6`.
+fn cpm_deck(card5: &str, card6: Option<&str>) -> String {
+    let fast = fast_deck_with("", 1, "", "9", "");
+    let head = &fast[..fast.find("powr\n").unwrap()];
+    let six = card6.map(|c| format!("{c}\n")).unwrap_or_default();
+    format!("{head}powr\n 26 27/\n 3 1 1/\n 1 1 1 0 0 0 1/\n 1050/\n{card5}\n{six}stop\n")
+}
+
+/// **`lib = 3` upstream (gh:#1373).** `cpm` reads card 5 into local variables
+/// and fills the per-material arrays from `scr`, which nothing wrote
+/// (`powr.f90:2075-2234`). Methodology: NJOY2016.80 and `run_deck` run three of
+/// the eight card-5 variants probed on 2026-11-14 (`nina` 0, 1 and 1 with
+/// `ires = 1`) on a 69-group Pu-238 GENDF. Pass: NJOY2016 exits non-zero with
+/// the library unit empty, stopping as recorded; the port refuses `lib = 3` by
+/// name. Results (2026-11-14): `nina = 0` stops in `sfile2` ("reference sigma
+/// zero not found", `s0rf = 0`), `nina = 1` fails to `DEALLOCATE` `glamt`,
+/// `nina = 1, ires = 1` segfaults (exit 139); all three write no library.
+#[test]
+fn powr_cpm_lib3_upstream_writes_no_library() {
+    let cases = [
+        ("cpm_n0", " 0 3 7 1.e10 1 10.0 0 0 0 0 1 1/", Some(" 1 1 1 1 1 1 1 1 1 1 1 1 1/"), Some("reference sigma zero not found")),
+        ("cpm_n1", " 1 3 7 1.e10 0 10.0 0 0 0 0 1 1/", None, Some("DEALLOCATE")),
+        ("cpm_n1r", " 1 3 7 1.e10 1 10.0 0 0 0 0 1 1/", Some(" 1 1 1 1 1 1 1 1 1 1 1 1 1/"), None),
+    ];
+    for (tag, card5, card6, why) in cases {
+        let Some((ours, theirs, ok, run)) = run_both(tag, &cpm_deck(card5, card6), T404) else { return };
+        assert!(!ok, "{tag}: NJOY2016 finished a lib = 3 run");
+        assert!(read(&theirs, 26).lines().count() > 1000, "{tag}: NJOY's GENDF is missing");
+        assert!(read(&theirs, 27).is_empty(), "{tag}: NJOY wrote a lib = 3 library");
+        if let Some(w) = why {
+            let said = format!(
+                "{}{}",
+                std::fs::read_to_string(theirs.join("log")).unwrap_or_default(),
+                std::fs::read_to_string(theirs.join("output")).unwrap_or_default()
+            );
+            assert!(said.contains(w), "{tag}: NJOY did not stop on {w:?}");
+        }
+        let blocked = run.unwrap().blocked.expect("lib = 3 must be refused");
+        assert_eq!(blocked.0, "powr");
+        assert!(blocked.1.contains("lib = 3"), "{blocked:?}");
+        cleanup(&ours);
+    }
+}
+
 /// **`lib = 3` (EPRI-CPM)**: not translated; the deck stops at POWR with the
 /// refusal named.
 #[test]

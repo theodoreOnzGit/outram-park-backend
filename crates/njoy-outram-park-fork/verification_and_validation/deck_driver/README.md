@@ -1991,7 +1991,52 @@ the run stops at POWR); a blocked-binary GENDF (`ngendf < 0`: NJOY reads
 full-precision records and positions by record); delayed nu with no MF=5 MT455
 (`nldla` undefined upstream); a GENDF record past `scr(5000)`.
 
-**Not done:** `lib = 3`; the listing (`nsyso`, with `pgam`, `pgamff`, `tprnt`);
+**Not done:** ~~`lib = 3`;~~ (**CORRECTED 2026-11-14:** `lib = 3` stays refused because
+upstream writes no library, §39a) the listing (`nsyso`, with `pgam`, `pgamff`, `tprnt`);
 a stand-alone gfortran build of `powr.f90` (the whole-deck comparison above
 compares upstream's compiled POWR on an identical GENDF, which is the same
 check at module level).
+
+### 39a. POWR `lib = 3` (EPRI-CPM): upstream writes no library (2026-11-14, gh:#1373)
+
+**Question** (raised by the agent that translated `lib = 1/2`): `cpm` reads card 5 into
+locals but fills the per-material values from `scr`. Is card 5 lost? Answered by running
+upstream before porting anything.
+
+**Reading.** `cpm` (`powr.f90:2075-2105`) reads `nina, ntemp, nsigz, sgref, ires, sigp, mti,
+mtc, ip1opt, norf, ipos, iposr` into local variables and uses them only for the listing and
+for `nnina`/`nres`. `:2212-2234` then fill `ninat`, `ntmp`, `nszt`, `s0rf`, `irest`, `sigpt`,
+`mtit`, `mtct`, `ip1tab`, `norft`, `ipost`, `iposrt` from `scr(1..12*newmat)`, which nothing in
+`cpm` writes. Card 6 goes to `scr(2+12*newmat..)`, just above. Only the last material's local
+`ntemp` reaches `sfile3/4/6`, as an argument.
+
+**Measured** (NJOY2016.80, 69-group Pu-238 GENDF from `t404`, GROUPR `ign = 9`; POWR
+`3 1 1/ 1 1 1 0 0 0 1/ 1050/`, card 5 `nina 3 7 1.e10 ires 10.0 0 0 0 0 1 1/`):
+- An instrumented build (one `write` after the fill, relinked from the vendored objects in a
+  scratch directory) prints every per-material value as 0; `scr(1..13) = 0`,
+  `scr(14..26)` = card 6.
+- The unmodified binary on eight card-5 variants:
+
+| `nina` | `ires` | NJOY2016 | unit 27 |
+|---|---|---|---|
+| 0, 3 | 0, 1 | stops in `sfile2`: "reference sigma zero not found" (`s0rf = 0`), exit 77 | empty |
+| 1, 2 | 0 | "Attempt to DEALLOCATE unallocated 'glamt'" (`sfile3`, `:3032`), exit 2 | empty |
+| 1, 2 | 1 | SIGSEGV, exit 139 | empty |
+
+- **Ablation** (a scratch NJOY whose `cpm` stores card 5 into `scr`): the `sfile2` stop
+  disappears for `nina = 0, ires = 0` and the run stops later, in `sfile6` ("no required p1
+  matrices found"). So the card-5 loss is what stops `sfile2`. The other variants still end in
+  an error or SIGSEGV, and no variant writes a library. So `lib = 3` has failure points past
+  card 5 too, which were not chased.
+
+**Decision.** There is no upstream output to reproduce. What upstream does depends on what
+`scr` holds: zeros in a fresh run, or an earlier POWR's GENDF words. So `lib = 3` stays
+refused by name, now with this reason in the message (`powr::run_powr`). The 2 900 lines
+(`powr.f90:1992-4902`) were not translated: nothing could verify them against upstream.
+Repairing `cpm` would be a change to NJOY, which is the maintainer's call.
+
+**Gate:** `tests/deck_driver_powr_vs_njoy2016.rs::powr_cpm_lib3_upstream_writes_no_library`
+(prediction on gh:#1373 first; as predicted). It runs the `nina = 0`, `nina = 1` and
+`nina = 1, ires = 1` variants through both codes. It asserts that NJOY2016 exits non-zero
+with unit 27 empty and the recorded stop message, and that the port refuses `lib = 3` at
+POWR. If upstream ever wrote a `lib = 3` library, this test would fail and point here.
