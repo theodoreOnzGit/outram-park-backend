@@ -573,13 +573,17 @@ fn regenerated_graphite_thermal_scattering_has_the_expected_shape() {
         "coherent-elastic should dominate graphite's thermal cross section at 0.0253 eV \
          (measured elsewhere: ~4.55 b elastic vs ~0.49 b inelastic) -- got el={el}, inel={inel}"
     );
-    let cutoff = t.cutoff_ev();
+    // OpenMC drops the S(a,b) table only when `E > energy_max`
+    // (`src/material.cpp:866`, GitHub #463 item 7), so the channels vanish just
+    // ABOVE the cutoff. ~~At the cutoff~~ **CORRECTED 2026-11-14**: this test
+    // asserted zero at exactly the cutoff, the former `>=` rule.
+    let above = t.cutoff_ev().next_up();
     assert_eq!(
-        t.elastic_xs(cutoff),
+        t.elastic_xs(above),
         0.0,
-        "elastic must vanish at the cutoff"
+        "elastic must vanish above the cutoff"
     );
-    assert_eq!(t.total_xs(cutoff), 0.0, "total must vanish at the cutoff");
+    assert_eq!(t.total_xs(above), 0.0, "total must vanish above the cutoff");
 }
 
 /// DIAGNOSTIC (not a pass/fail gate): does a fission-born neutron in this

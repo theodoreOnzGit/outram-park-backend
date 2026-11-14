@@ -241,7 +241,14 @@ fn triso_carbon_coatings_bind_graphite_sab() {
         "coherent-elastic must dominate graphite at 0.0253 eV (measured elsewhere ~4.55 b vs \
          ~0.49 b), got elastic {el} vs inelastic {inel}"
     );
-    assert_eq!(law.total_xs(cutoff), 0.0, "law must vanish at its cutoff");
+    // Zero just ABOVE the cutoff: OpenMC keeps S(a,b) in force at exactly
+    // `energy_max` (`src/material.cpp:866`, GitHub #463 item 7).
+    // ~~at its cutoff~~ **CORRECTED 2026-11-14** (the former `>=` rule).
+    assert_eq!(
+        law.total_xs(cutoff.next_up()),
+        0.0,
+        "law must vanish above its cutoff"
+    );
 
     let (free, bound) = free_and_bound(law, "C0");
     assert!(

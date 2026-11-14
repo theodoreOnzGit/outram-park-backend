@@ -115,12 +115,17 @@ fn shells(r_out: f64, middle: Middle, delta: bool) -> Geometry {
             sphere(3.0, BoundaryType::Transmissive),
         ],
         cells: vec![
-            Cell::material(10, vec![hs(1, HalfSpaceSense::Inside)], 0, T_COLD),
+            // Cell temperatures are unset (`None`): every test here sets the
+            // temperature on the MATERIAL. Since GitHub #313 a declared cell
+            // temperature overrides the material's, so the former literal 293.6 K
+            // turned the hot-material runs cold while the majorant was still built
+            // over the hot materials (2432 violations, 2026-11-14).
+            Cell::material(10, vec![hs(1, HalfSpaceSense::Inside)], 0, None),
             match middle {
-                Middle::Graphite => Cell::material(11, shell, 1, T_COLD),
+                Middle::Graphite => Cell::material(11, shell, 1, None),
                 Middle::Void => Cell::fill(11, shell, CellFill::Void, Position::ZERO),
             },
-            Cell::material(12, vec![hs(2, HalfSpaceSense::Outside)], 2, T_COLD),
+            Cell::material(12, vec![hs(2, HalfSpaceSense::Outside)], 2, None),
             if delta { root.delta_tracked(0) } else { root },
         ],
         universes: vec![
