@@ -62,6 +62,33 @@
 //! a `sig` kernel that differed from upstream's; the remaining 1.1e-3 is the
 //! ITIX interpolation on the incident PENDF grid, which this test does not
 //! supply. The gates were not moved.
+//!
+//! # Results (2026-11-14, gh:#1366 §2 item 3)
+//!
+//! **The oracle is NJOY's `tol = 0.05` table.** Every ITIE/ITIX/ITCE/ITCX
+//! value in `al27_20k_thermal_njoy2016.csv` equals
+//! `al27_20k_thermal_tol0p05_njoy2016.ace.gz`'s at the CSV's 10 figures
+//! (106/106, 309/309; against the tol 0.001 table 106 of 106 ITIX differ),
+//! the table `acer_thermal_word_parity` holds identical in every word.
+//!
+//! | quantity | route | measured | gate |
+//! |---|---|---|---|
+//! | coherent `S`, 309 edges | no incident PENDF | 4.381e-10 unprinted; **0 differing as printed** | equality as printed; ~~1e-4~~ 5.05e-10 unprinted |
+//! | inelastic `sigma`, 106 points | no incident PENDF | 1.081e-3 | ~~5e-2~~ **1.1e-3** |
+//! | inelastic `sigma`, 106 points | on the incident PENDF, `tol = 0.05` | **0 differing as printed** | equality as printed |
+//!
+//! Causes, each checked: the coherent `S` residual is the CSV's own print (a
+//! 10-figure value is within 5e-10 of the number it rounds); compared as the
+//! CSV was made (the ACE file's 12 figures, then 10, see `csv_printed`)
+//! nothing differs. Compared in one stage, straight to 10 figures, 1 of 309
+//! differed, at a double-rounding tie (1.503608e-7 MeV); that was not in the
+//! prediction. The inelastic residual is the route: without the
+//! incident PENDF, ITIX is `calcem`'s value at each energy through `tpend`'s
+//! text, where ACER takes `gety1` of THERMR's MF=3 on the PENDF grid
+//! (`aceth.f90:355`). Supplying the PENDF removes all of it (third row), so the
+//! cause predicts the size exactly. The no-PENDF route has no NJOY2016
+//! counterpart (`thermr::on_pendf`'s module doc), so its gate stays at the
+//! measured value. Predicted on gh:#1366 before the run, and held.
 
 use std::fs::File;
 
@@ -78,12 +105,34 @@ const MAT: i32 = 53;
 const T0_K: f64 = 20.0;
 const EMEV: f64 = 1.0e6;
 
-/// Worst relative difference permitted on the inelastic cross section.
-/// Measured 2.238e-2 on 2026-09-20.
-const INEL_TOL: f64 = 5.0e-2;
-/// Worst relative difference permitted on the coherent-elastic cumulative `S`.
-/// Measured 3.253e-6 on 2026-09-20.
-const BRAGG_TOL: f64 = 1.0e-4;
+/// Worst relative difference permitted on the inelastic cross section **on
+/// the route without the incident PENDF**. Measured 2.238e-2 on 2026-09-20,
+/// 1.081e-3 on 2026-10-14 and 2026-11-14. ~~5e-2~~ **CORRECTED 2026-11-14
+/// (gh:#1366):** 1.1e-3, the measured value rounded up in its second figure.
+/// The cause is the route (see "Results (2026-11-14)" in the module doc); the
+/// same table on the incident PENDF is gated exactly by
+/// [`al27_thermal_table_on_the_incident_pendf_is_the_oracles`].
+const INEL_TOL: f64 = 1.1e-3;
+/// Bound on the **unprinted** coherent-elastic cumulative `S`. Measured
+/// 3.253e-6 on 2026-09-20 and 4.381e-10 on 2026-10-14 and 2026-11-14.
+/// ~~1e-4~~ **CORRECTED 2026-11-14 (gh:#1366):** 5.05e-10, what may separate
+/// a value from its print in the oracle: half a unit in the tenth figure
+/// (5e-10 relative at most) plus half a unit in the ACE file's twelfth
+/// (5e-12), see [`csv_printed`]. The gate itself is equality as printed.
+const BRAGG_TOL: f64 = 5.05e-10;
+
+/// A value as the oracle CSV holds it: printed by NJOY's Type-1 ACE writer
+/// (`1pE20.11`, 12 figures), read back, and printed again as `%.9e`
+/// (10 figures). The two stages are both needed: rounding straight to 10
+/// figures differs at one Bragg edge, `E = 1.503608e-7` MeV, where this
+/// port's `S` is `1.4070659915048e-7`, NJOY's file holds `1.40706599150E-07`,
+/// and the CSV `1.407065991e-07` (the 12-figure value sits just below the
+/// 10-figure tie as an f64). Found 2026-11-14, after the prediction on
+/// gh:#1366 had said "0 differing as printed" with the one-stage print.
+fn csv_printed(x: f64) -> String {
+    let ace: f64 = format!("{x:.11e}").parse().expect("a printed f64 parses");
+    format!("{ace:.9e}")
+}
 
 struct Oracle {
     inel: Vec<(f64, f64)>,
@@ -205,6 +254,7 @@ fn al27_thermal_table_matches_njoy2016() {
     let ours_e: Vec<f64> = (0..nee_ours).map(|k| ace.xss[itce + 1 + k]).collect();
 
     let mut matched = 0usize;
+    let mut s_differing = 0usize;
     let mut worst_s = (0.0f64, 0.0f64);
     for &(e, want) in &oracle.bragg {
         let Some((j, _)) = ours_e
@@ -218,6 +268,10 @@ fn al27_thermal_table_matches_njoy2016() {
         };
         matched += 1;
         let got = ace.xss[itcx + j];
+        if csv_printed(got) != csv_printed(want) {
+            s_differing += 1;
+            println!("[al27-thermal] S differs as printed at E={e:e} MeV: ours {got:.17e}, oracle {want:.17e}");
+        }
         if want != 0.0 {
             let d = ((got - want) / want).abs();
             if d > worst_s.0 {
@@ -226,7 +280,7 @@ fn al27_thermal_table_matches_njoy2016() {
         }
     }
     println!(
-        "[al27-thermal] inelastic worst {:.3e} at {:.6e} MeV; {matched} of {} NJOY edges found, ours {nee_ours}; cumulative S worst {:.3e}",
+        "[al27-thermal] inelastic worst {:.3e} at {:.6e} MeV; {matched} of {} NJOY edges found, ours {nee_ours}; cumulative S worst {:.3e}, {s_differing} differing as the CSV prints",
         worst.0,
         worst.1,
         oracle.bragg.len(),
@@ -241,11 +295,84 @@ fn al27_thermal_table_matches_njoy2016() {
          a MISSING edge was never acceptable.",
         oracle.bragg.len()
     );
-    assert!(
-        worst_s.0 <= BRAGG_TOL,
-        "coherent-elastic cumulative S drifted from NJOY2016: worst {:.3e} at \
-         {:.6e} MeV (recorded 3.253e-6 on 2026-09-20, gate {BRAGG_TOL:.0e})",
+    assert_eq!(
+        s_differing, 0,
+        "coherent-elastic cumulative S: {s_differing} of {matched} values differ from \
+         NJOY2016's as the oracle prints them (10 figures); worst unprinted {:.3e} at \
+         {:.6e} MeV. Identical on 2026-11-14 (gh:#1366).",
         worst_s.0,
         worst_s.1
     );
+    assert!(
+        worst_s.0 <= BRAGG_TOL,
+        "coherent-elastic cumulative S drifted from NJOY2016: worst {:.3e} at \
+         {:.6e} MeV (recorded 3.253e-6 on 2026-09-20, 4.381e-10 on 2026-10-14, \
+         gate {BRAGG_TOL:.0e})",
+        worst_s.0,
+        worst_s.1
+    );
+}
+
+/// **The same table on the incident PENDF reproduces the oracle exactly**
+/// (gh:#1366 §2 item 3): the check that the 1.081e-3 inelastic residual of
+/// [`al27_thermal_table_matches_njoy2016`] is entirely the missing PENDF grid.
+///
+/// Ours: RECONR (0.001) + BROADR (20 K) of `n-013_Al_027-ENDF8.0.endf`, then
+/// `thermal_from_mf7_on_pendf` at `tol = 0.05` (the oracle's deck, see the
+/// module doc) on the oracle's own incident grid. Every ITIX value and every
+/// matched Bragg edge's `S` is compared as the CSV prints it (`%.9e`).
+/// No tolerance. Result 2026-11-14: 0 of 106 and 0 of 309 differ.
+#[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "reference-data tier (NJOY2016 oracles); runs by default, skipped under --no-default-features"
+)]
+fn al27_thermal_table_on_the_incident_pendf_is_the_oracles() {
+    use njoy_outram_park_fork::acer::thermal::IncidentPendf;
+    use njoy_outram_park_fork::broadr::broaden_result;
+    use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
+    use njoy_outram_park_fork::reference_data::{reference_data_required, reference_endf};
+    let (Some(oracle), Some(tsl), Some(inc)) = (
+        oracle(),
+        reference_endf("tsl-013_Al_027-ENDF8.0.endf"),
+        reference_endf("n-013_Al_027-ENDF8.0.endf"),
+    ) else {
+        assert!(!reference_data_required(), "[al27-thermal-pendf] reference data absent");
+        return;
+    };
+    let inc_tape = Tape::read_file(&inc).expect("incident tape");
+    let r0 = reconr(&inc_tape, &ReconrConfig { mat: 1325, tolerance: 1.0e-3, temperature: 0.0 }).expect("RECONR");
+    let r = broaden_result(&r0, T0_K);
+    let elastic = r.sections.iter().find(|s| s.mt.number() == 2).expect("MT=2").pairs.clone();
+    let incident = IncidentPendf { mat: 1325, awr: r.material.awr, moderator_za: vec![13027], elastic };
+    let mf7 = parse_mf7(&Tape::read_file(&tsl).expect("tsl"), MAT).expect("MF=7");
+    let grid_ev: Vec<f64> = oracle.inel.iter().map(|&(e, _)| e * EMEV).collect();
+    let opts = ThermalAceOptions { n_outgoing: 16, n_cosines: 16, natom: 1.0, emax_ev: 4.0, ..Default::default() };
+    let ace = AceTable::thermal_from_mf7_on_pendf(&mf7, T0_K, "al27", 0, &grid_ev, opts, 0.05, &incident)
+        .expect("thermal ACE on the PENDF");
+    let itix = (ace.jxs[jxs::ITIX] - 1) as usize;
+    let inel_diff = oracle
+        .inel
+        .iter()
+        .enumerate()
+        .filter(|&(k, &(_, want))| csv_printed(ace.xss[itix + k]) != csv_printed(want))
+        .count();
+    let itce = (ace.jxs[jxs::ITCE] - 1) as usize;
+    let itcx = (ace.jxs[jxs::ITCX] - 1) as usize;
+    let ne = ace.xss[itce] as usize;
+    assert_eq!(ne, oracle.bragg.len(), "Bragg edge count");
+    let bragg_diff = oracle
+        .bragg
+        .iter()
+        .enumerate()
+        .filter(|&(k, &(e, s))| {
+            csv_printed(ace.xss[itce + 1 + k]) != csv_printed(e) || csv_printed(ace.xss[itcx + k]) != csv_printed(s)
+        })
+        .count();
+    println!(
+        "[al27-thermal-pendf] ITIX {inel_diff} of {} differ, Bragg (E, S) {bragg_diff} of {ne} differ, as printed",
+        oracle.inel.len()
+    );
+    assert_eq!(inel_diff, 0, "ITIX on the incident PENDF must be the oracle's as printed");
+    assert_eq!(bragg_diff, 0, "the Bragg table must be the oracle's as printed");
 }

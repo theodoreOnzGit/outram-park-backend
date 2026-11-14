@@ -130,7 +130,10 @@ defects below are known one by one, rather than as one residual.
   - edges 568 → 309;
   - cumulative `S` worst 3.253e-6 → 4.4e-10.
 
-  Its gates were not moved.
+  Its gates were not moved. ~~(2026-10-14)~~ **CORRECTED 2026-11-14
+  (gh:#1366):** they are now, to inelastic 1.1e-3 and `S` equal as printed,
+  with the 4.4e-10 explained as the oracle CSV's 10-figure print; see that
+  test's module doc.
 - **Not re-measured:** the five-route ICSBEP `k` values with thermal
   scattering. The one thermal cross section checked here moved by 1e-5
   relative; what that does to `k` has not been measured.
