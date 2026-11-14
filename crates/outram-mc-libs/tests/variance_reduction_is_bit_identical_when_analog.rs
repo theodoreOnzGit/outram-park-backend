@@ -280,10 +280,21 @@ const TEMP: f64 = 293.6;
 // last 1.014228: +643 pcm, 1.10 sigma (quadrature of the two k_std), so
 // re-pinned, not a finding. OUTRAM_MC_LEGACY_FISSION_BANKING=1 reproduces the old
 // values (verified 2026-11-11, 5.9 min, passes against the previous pin).
-const K_MEAN_PRE_258: f64 = 9.942_984_087_246_982_13e-1;
-const K_STD_PRE_258: f64 = 3.728_545_886_689_060_49e-3;
-const K_GEN_FIRST_PRE_258: f64 = 9.109_570_513_333_912_21e-1;
-const K_GEN_LAST_PRE_258: f64 = 1.014_228_059_342_313_19e0;
+// Re-pinned again 2026-11-14 (gh:#463 items 5, 6, 7, 11: nu_fission as the
+// interpolated product nu(E_i) sigma_f(E_i), grid extrapolation, S(a,b) cutoff
+// and S(a,b) total, all as OpenMC; this test uses only item 5, a bare U sphere).
+// Before: k_mean 0.994298 (k_std 3.73e-3), first 0.910957051, last 1.014228.
+// After: k_mean 0.986678 (k_std 3.08e-3), first 0.910960078, last 0.996303:
+// -762 pcm, 1.57 sigma (quadrature of the two k_std), so re-pinned, not a
+// finding. The first generation moves in the sixth digit (nu_fission shifts by
+// ~1e-5 relative) and the streams split from there, exactly as at #931.
+// OUTRAM_MC_LEGACY_XS_DETAILS=1 reproduces the old four values bit for bit
+// (verified 2026-11-14, 305 s). The worth is priced by a paired ensemble in
+// the issue: Godiva +125 +- 38 (new) vs +65 +- 31 (legacy), 16 seeds, +60 +- 49 pcm.
+const K_MEAN_PRE_258: f64 = 9.866_778_269_174_408_81e-1;
+const K_STD_PRE_258: f64 = 3.084_243_839_167_062_19e-3;
+const K_GEN_FIRST_PRE_258: f64 = 9.109_600_775_102_070_22e-1;
+const K_GEN_LAST_PRE_258: f64 = 9.963_026_755_611_674_72e-1;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
