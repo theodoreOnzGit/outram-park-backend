@@ -132,12 +132,20 @@ mod qaws;
 /// QAWO and QAWF: trigonometric-weight and Fourier integrals, GSL
 /// `integration/qawo.c`, `qawf.c`, `qc25f.c`, `qmomof.c` (gh:#1340).
 mod qawo;
+/// CQUAD constants, copied from GSL `integration/cquad_const.c` by script
+/// (gh:#1340).
+mod cquad_tables;
+
+/// CQUAD: doubly-adaptive Clenshaw-Curtis quadrature, GSL
+/// `integration/cquad.c` (gh:#1340).
+mod cquad;
 /// Romberg integration, GSL `integration/romberg.c` (gh:#1340).
 mod romberg;
 
 pub use qagp::{qagp, qagp_with_status};
 pub use qaws::{qaws, qaws_with_status, QawsTable};
 pub use romberg::{romberg, romberg_with_status, RombergOutcome};
+pub use cquad::{cquad, cquad_with_status, CquadOutcome};
 pub use qawc::{qawc, qawc_with_status};
 pub use qawo::{qawf, qawf_with_status, qawo, qawo_with_status, QawoKind, QawoOutcome, QawoTable};
 pub use qng::{qng, qng_with_status, QngOutcome};

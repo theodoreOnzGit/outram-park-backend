@@ -311,10 +311,11 @@ PETIR's libm.
   the `qags` engine is shared and its verified behaviour must not move without
   a comparison).
 - **Process notes (what changed after the first run of the driver, and why).**
-  The first driver run used `1/sqrt(x)` on `[0, ...]` in 9 cases; `f(0) = inf`
-  poisons the Chebyshev expansion (NaN `abserr`), so those cases tested only
-  NaN propagation. Before the Rust test had ever run, I changed 8 of them to
-  `sqrt(x)` / `log(x + 0.001)` and kept one as `invsqrt_nan_sin20` (and
+  The first driver run used `1/sqrt(x)` or `log(x)` on `[0, ...]` in 11 QAWO
+  cases; `f(0) = inf` poisons the Chebyshev expansion (NaN `abserr`), so those
+  cases tested only NaN propagation. Before the Rust test had ever run, I
+  changed 10 of them to `sqrt(x)` / `log(x + 0.001)` and kept one as
+  `invsqrt_nan_sin20` (and
   `invsqrt_cos3` in QAWF, which also starts at 0, stays). The predictions were
   committed before the driver's first run and were not edited.
 - **Build:** GSL is built by `reference-data/gsl/build_gsl_nocfg.sh` without
@@ -324,3 +325,39 @@ PETIR's libm.
   earlier references were made with `build_gsl_family.sh`); the new
   reference's integrand-independent parts, e.g. `qk15` arithmetic, agree with
   the port at 100 % under the shim, which is the evidence available.
+
+## CQUAD (round 3, 2026-11-14; predictions committed BEFORE the comparison is run)
+
+- **Port:** `src/integration/cquad.rs` from `cquad.c` (lines 30-683), tables
+  `cquad_tables.rs` copied from `cquad_const.c` by
+  `reference-data/gsl/gen_cquad_tables_rs.py` (10 tables, 3 807 values, never
+  typed). Copyright (C) 2010 Pedro Gonnet. **Reference:**
+  `reference-data/gsl/cquad_reference_driver.c` (59 rows: the 25 test
+  integrands of GSL's own `test.c`, tolerance sweeps, workspaces of 3-10
+  intervals, NaN/inf-valued integrands, divergent integrals, refusals,
+  degenerate intervals; 57 integrations and 2 refused workspaces).
+  **Replay:** `tests/gsl_cquad_code_to_code.rs`.
+- **What differs from stock-GSL arithmetic:** nothing is expected. `cquad.c`
+  calls only `sqrt`, which is correctly rounded on both sides, and the
+  integrands call glibc in the driver and in the Rust test alike.
+- **Pass criteria:** GSL's status, `*nevals` and the integrand-call count
+  exactly; result and `abserr` bit-identical (the counts are pinned at 100 %;
+  no libm allowance is invoked).
+
+**Predictions, written before any run:**
+
+- **P14a.** Status, `nevals` and integrand calls identical in 57 of 57
+  `CQUAD` rows; result and `abserr` bit-identical in 57 of 57. A miss would be
+  a logic defect (heap fix-up order, the downdating recurrence) or a mismatch
+  between the C and Rust copies of an integrand, not libm.
+- **P14b.** GSL's own acceptance test (`test.c:2437-2442`: relative error
+  below 1e-12, actual error below 5 `abserr`, status 0) holds for 25 of 25
+  integrands in the port, as it does in GSL.
+- **P14c.** The downdating path is exercised: `sqrt_signed`, `log_signed`,
+  `nan_band`, `nan_mid`, `recip_*` and `inf_at_1` return status 0 or
+  `GSL_EDIVERGE`; `1/x` over `(0, 1]` returns status 0 in the port (seen in a
+  first unit test, which had assumed the opposite) and GSL must agree.
+  `1/x^2` over `(0, 1]` returns `GSL_EDIVERGE` (22) in GSL.
+- **P14d.** `GSL_EBADTOL` (13) for the four refused-tolerance rows, with no
+  output written (result, `abserr`, `nevals` all 0). A workspace below 3
+  intervals is refused (`WSALLOC ... 0`, two rows).
