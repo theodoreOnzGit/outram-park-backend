@@ -109,7 +109,7 @@
 //! **Not translated** (each rejected or documented, never silently ignored):
 //! ~~`spheres file` (the inline list only)~~ (**CORRECTED 2026-11-14:**
 //! `spheres file <f> scale <s>` is [`ParticleTemplateMultisphere::from_clump_file`]),
-//! `spheres_different_types`, `bonded`,
+//! ~~`spheres_different_types`,~~ `bonded`,
 //! ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`,~~ ~~`fflag`/`tflag` off,~~
 //! ~~`fix_modify <ms> fflag|tflag`,~~
 //! ~~`fix multisphere/nointegration`,~~ `concave`, `CAddRhoFluid`,
@@ -127,6 +127,9 @@
 //! [`crate::granular_system::GranularSystem::begin_run`], and
 //! `fix_modify <ms> fflag|tflag` is
 //! [`crate::granular_system::GranularSystem::fix_modify_multisphere`];
+//! `spheres_different_types` is
+//! [`ParticleTemplateMultisphere::from_clump_file_different_types`] (the
+//! types do not reach the atoms, as upstream);
 //! `fix multisphere/nointegration` is [`Multisphere::without_integration`]
 //! ([`crate::granular_system::GranularSystem::with_multisphere_nointegration`])
 //! (V&V 4.16.2).
@@ -562,6 +565,10 @@ pub struct ParticleTemplateMultisphere {
     fflag: [bool; 3],
     /// `tflag x y z` (default all on).
     tflag: [bool; 3],
+    /// `spheres_different_types`: each sphere's atom type (1-based). Only
+    /// `max_type` / `min_type` read it, as upstream (see
+    /// [`ParticleTemplateMultisphere::from_clump_file_different_types`]).
+    atom_type_sphere: Option<Vec<usize>>,
 }
 
 impl ParticleTemplateMultisphere {
@@ -741,6 +748,7 @@ impl ParticleTemplateMultisphere {
             random_insertion_state: random_insertion.state(),
             fflag: [true; 3],
             tflag: [true; 3],
+            atom_type_sphere: None,
         };
         Ok((t, random_mc, x_min, x_max))
     }
@@ -774,10 +782,83 @@ impl ParticleTemplateMultisphere {
         scale: f64,
         clump_type: usize,
     ) -> Result<Self, DemError> {
+        let (spheres, _) = Self::read_clump_file(nspheres, text, scale, false)?;
+        Self::new(seed, atom_type, density, ntry, &spheres, clump_type)
+    }
+
+    /// `spheres_different_types file <f> scale <s>` (gh:#1415): as
+    /// [`ParticleTemplateMultisphere::from_clump_file`], with a fifth word per
+    /// line, the sphere's atom type (`atoi(arg[4])` in
+    /// `InputMultisphere::clmpfile`; a line with fewer than 5 words is an
+    /// error).
+    ///
+    /// **Upstream gives every member atom of a clump the template's
+    /// `atom_type` all the same** (LIGGGHTS-PUBLIC `3d5c00f2`):
+    /// `FixTemplateMultisphere::randomize_ptilist` does not copy the sphere
+    /// types into `pti->atom_type_vector`, and
+    /// `ParticleToInsertMultisphere::insert` calls `create_atom(atom_type,
+    /// ...)` for each sphere. The sphere types only set
+    /// [`ParticleTemplateMultisphere::max_type`] / `min_type` (`maxtype()`,
+    /// `mintype()`; `FixInsert`'s `type_max` / `type_min` for its material
+    /// checks). The port does the same; `in.ms_dtypes` confirms upstream's
+    /// atom types.
+    ///
+    /// # Errors
+    ///
+    /// Everything [`ParticleTemplateMultisphere::from_clump_file`] rejects;
+    /// a line with fewer than 5 words; a type word that is not an integer,
+    /// or is < 1 (refused rather than guessed: `atoi` would read `2.5` as 2
+    /// and `x` as 0).
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_clump_file_different_types(
+        seed: i32,
+        atom_type: usize,
+        density: MassDensity,
+        ntry: usize,
+        nspheres: usize,
+        text: &str,
+        scale: f64,
+        clump_type: usize,
+    ) -> Result<Self, DemError> {
+        let (spheres, types) = Self::read_clump_file(nspheres, text, scale, true)?;
+        let mut t = Self::new(seed, atom_type, density, ntry, &spheres, clump_type)?;
+        t.atom_type_sphere = Some(types);
+        Ok(t)
+    }
+
+    /// `maxtype()`: the largest sphere type of a `spheres_different_types`
+    /// template, else `atom_type`.
+    #[must_use]
+    pub fn max_type(&self) -> usize {
+        match &self.atom_type_sphere {
+            Some(t) => t.iter().copied().fold(0, usize::max),
+            None => self.atom_type,
+        }
+    }
+
+    /// `mintype()`: the smallest sphere type, else `atom_type`.
+    #[must_use]
+    pub fn min_type(&self) -> usize {
+        match &self.atom_type_sphere {
+            Some(t) => t.iter().copied().fold(usize::MAX, usize::min),
+            None => self.atom_type,
+        }
+    }
+
+    /// `InputMultisphere::clmpfile` and the scaling of
+    /// `FixTemplateMultiplespheres` (`cg = 1`): the scaled spheres and, with
+    /// `with_types`, each line's fifth word as a type.
+    fn read_clump_file(
+        nspheres: usize,
+        text: &str,
+        scale: f64,
+        with_types: bool,
+    ) -> Result<(Vec<(Vec3, Length)>, Vec<usize>), DemError> {
         if !(scale > 0.0) {
             return Err(DemError::InvalidInput("scale factor must be >0".into()));
         }
         let mut raw: Vec<(V3, f64)> = Vec::with_capacity(nspheres);
+        let mut types = Vec::new();
         for line in text.lines() {
             let line = line.split('#').next().unwrap_or("");
             let words: Vec<&str> = line.split_whitespace().collect();
@@ -789,9 +870,15 @@ impl ParticleTemplateMultisphere {
                     "Number of clumps in file larger than number specified".into(),
                 ));
             }
-            if words.len() < 4 {
+            if !with_types && words.len() < 4 {
                 return Err(DemError::InvalidInput(
                     "Not enough arguments in one line of clump file, need to specify [xcoo ycoo zcoo radius] in each line"
+                        .into(),
+                ));
+            }
+            if with_types && words.len() < 5 {
+                return Err(DemError::InvalidInput(
+                    "Not enough arguments in one line of clump file, need to specify [xcoo ycoo zcoo radius type] in each line"
                         .into(),
                 ));
             }
@@ -800,6 +887,12 @@ impl ParticleTemplateMultisphere {
                 v[k] = words[k].parse::<f64>().map_err(|_| {
                     DemError::InvalidInput(format!("clump file: '{}' is not a number", words[k]))
                 })?;
+            }
+            if with_types {
+                let t = words[4].parse::<usize>().ok().filter(|&t| t >= 1).ok_or_else(|| {
+                    DemError::InvalidInput(format!("clump file: '{}' is not an atom type >= 1", words[4]))
+                })?;
+                types.push(t);
             }
             raw.push(([v[0], v[1], v[2]], v[3]));
         }
@@ -819,7 +912,7 @@ impl ParticleTemplateMultisphere {
             let x = [x[0] * f, x[1] * f, x[2] * f];
             spheres.push((vec3(x), Length::new::<meter>(r)));
         }
-        Self::new(seed, atom_type, density, ntry, &spheres, clump_type)
+        Ok((spheres, types))
     }
 
     /// `calc_bounding_sphere`: 200 randomised Ritter passes, keep the smallest.

@@ -2001,6 +2001,13 @@ impl GranularSystem {
         }
     }
 
+    /// Each particle's atom type, **0-based** (LIGGGHTS type `t` is `t - 1`
+    /// here), in particle order.
+    #[must_use]
+    pub fn atom_types(&self) -> &[usize] {
+        &self.types
+    }
+
     /// The `fix multisphere` state, once a clump has been inserted (gh:#1415).
     #[must_use]
     pub fn multisphere(&self) -> Option<&crate::multisphere::Multisphere> {

@@ -1090,3 +1090,70 @@ fn ms_noint_matches_liggghts() {
     // the style is fixed once a clump exists
     assert!(sys.with_multisphere_nointegration().is_err());
 }
+
+/// **`spheres_different_types file <f> scale <s>`** (`in.ms_dtypes`):
+/// `ms_file` with the type 1 template read from `ms_clump1_types.txt`
+/// (sphere types 2 1 2). Upstream gives every member atom the template's
+/// `atom_type` all the same
+/// ([`ParticleTemplateMultisphere::from_clump_file_different_types`]), so
+/// there are two gates:
+/// * the trajectory, every atom at the 9 frames on bit patterns (upstream's
+///   `ms_dtypes.csv` is byte-identical to `ms_file.csv`: the types change
+///   nothing, and both types have the same materials in this header, so this
+///   gate **cannot** fail on the types);
+/// * the atom types upstream dumps at step 15000 (`ms_dtypes_types.txt`:
+///   every atom type 1). **Ablation:** the per-sphere types (2 1 2) fail it.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** 27/27 bit-identical,
+/// every atom type 1.
+#[test]
+fn ms_dtypes_matches_liggghts() {
+    let (Some(text), Some(types)) = (read("ms_clump1_types.txt"), read("ms_dtypes_types.txt")) else {
+        eprintln!("skipping: reference-data/liggghts/ms_clump1_types.txt not present");
+        return;
+    };
+    let tpl = ParticleTemplateMultisphere::from_clump_file_different_types(
+        15485863,
+        1,
+        MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+        100_000,
+        3,
+        &text,
+        0.0011,
+        1,
+    )
+    .unwrap();
+    assert_eq!((tpl.min_type(), tpl.max_type()), (1, 2));
+    assert_eq!((clump1().min_type(), clump1().max_type()), (1, 1));
+    let frames = [1, 1000, 4000, 5000, 6000, 8000, 10000, 12000, 15000];
+    let mut sys = drop_system(tpl);
+    let (total, same, worst) = compare_by_tag("ms_dtypes", &mut sys, &frames).expect("ms_dtypes.csv");
+    // upstream's `id type` dump, LIGGGHTS types (1-based), in id order
+    let mut lines = types.lines().skip_while(|l| !l.starts_with("ITEM: ATOMS")).skip(1);
+    let theirs: Vec<usize> = lines
+        .by_ref()
+        .map(|l| l.split_whitespace().nth(1).unwrap().parse().unwrap())
+        .collect();
+    let ours: Vec<usize> = sys.atom_types().iter().map(|t| t + 1).collect();
+    let per_sphere = vec![2, 1, 2];
+    println!("ms_dtypes: {same}/{total} atom-frames bit-identical; types ours {ours:?}, upstream {theirs:?}");
+    assert_eq!(total, 27);
+    assert_eq!(same, total, "ms_dtypes: not bit-identical (worst relative {worst:e})");
+    assert_eq!(ours, theirs, "atom types differ from upstream");
+    assert_ne!(per_sphere, theirs, "ablation: the per-sphere types would also pass");
+}
+
+/// What `from_clump_file_different_types` refuses, as `clmpfile` does, plus
+/// the type words `atoi` would misread.
+#[test]
+fn clump_file_different_types_refusals() {
+    let rho = MassDensity::new::<kilogram_per_cubic_meter>(2500.0);
+    let f = |text: &str| {
+        ParticleTemplateMultisphere::from_clump_file_different_types(15485863, 1, rho, 100_000, 2, text, 0.001, 1)
+    };
+    assert!(f("0 0 0 4 2\n5 0 1 3.5 1\n").is_ok());
+    assert!(f("0 0 0 4\n5 0 1 3.5 1\n").is_err(), "a line without a type");
+    assert!(f("0 0 0 4 0\n5 0 1 3.5 1\n").is_err(), "type 0");
+    assert!(f("0 0 0 4 2.5\n5 0 1 3.5 1\n").is_err(), "a non-integer type");
+    assert!(f("0 0 0 4 2\n").is_err(), "fewer lines than nspheres");
+}

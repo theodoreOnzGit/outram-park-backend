@@ -223,3 +223,11 @@ fix_modify	ms tflag on off on"; } > in.ms_refl
 fix		ms all multisphere/nointegration|'
   echo "$COLLIDE_THERMO"
   frames 1 2000 4000 5000 6000 7000 8000 10000 12000 15000; } > in.ms_noint
+# ms_dtypes: in.ms_file with `spheres_different_types file ms_clump1_types.txt`
+# (sphere types 2 1 2, template atom_type 1). Upstream gives every member atom
+# the template's atom_type (FixTemplateMultisphere::randomize_ptilist does not
+# copy the sphere types; ParticleToInsertMultisphere::insert uses atom_type):
+# dump.types (id type at step 15000) is the second reference,
+# ms_dtypes_types.txt. Copy ms_clump1_types.txt into the run directory.
+sed 's/spheres file ms_clump1.txt scale 0.0011/spheres_different_types file ms_clump1_types.txt scale 0.0011/' in.ms_file > in.ms_dtypes
+echo "write_dump all custom dump.types id type modify sort id" >> in.ms_dtypes
