@@ -117,7 +117,7 @@ and one is validated:
   (`run()` stays `NotPorted`, callers build a `WimsrInput`).
 - **Ported (🟡):** `dtfr.f90` (`src/dtfr/`), `resxsr.f90` (`src/resxsr/`),
   `mixr.f90` (`src/mixr/`).
-- **Still `NotPorted` stubs (⬜):** ~~`ccccr.f90`,~~ (**CORRECTED 2026-11-13, gh:#1369:** `ccccr.f90` is ported, `src/ccccr/`, 🟡: byte-identical on decks 02 and 76) ~~`matxsr.f90`,~~ (**CORRECTED 2026-11-13, gh:#1369:** `matxsr.f90` is translated, `src/matxsr/`, 🟡: MATXS identical on decks 03 and 30) `powr.f90`,
+- **Still `NotPorted` stubs (⬜):** ~~`ccccr.f90`,~~ (**CORRECTED 2026-11-13, gh:#1369:** `ccccr.f90` is ported, `src/ccccr/`, 🟡: byte-identical on decks 02 and 76) ~~`matxsr.f90`,~~ (**CORRECTED 2026-11-13, gh:#1369:** `matxsr.f90` is translated, `src/matxsr/`, 🟡: MATXS identical on decks 03 and 30) ~~`powr.f90`,~~ (**CORRECTED 2026-11-14, gh:#1373:** `powr.f90` `lib = 1` and `lib = 2` are translated, `src/powr/`, 🟡: libraries identical to NJOY2016.80 on seven decks of our own; `lib = 3` (CPM) is not translated and is refused by name)
   `plotr.f90`. ~~`viewr.f90`, and `graph.f90`~~ **CORRECTED 2026-11-12 (gh:#1369):** `viewr.f90`
   and `graph.f90` are ported (`src/viewr/`, 🟡: PostScript identical to NJOY2016.80 on 17 upstream decks;
   `plotr`/`covr` can reuse `viewr::Graph`).
