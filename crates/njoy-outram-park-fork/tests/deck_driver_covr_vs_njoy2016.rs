@@ -71,7 +71,12 @@ fn edited_deck_on(case: &str, resource: &str, unit_in: u32, units: &[u32], edit:
         }
     }
     let deck = edit(&std::fs::read_to_string(&input).unwrap());
-    let tmp = std::env::temp_dir().join(format!("njoy_deck_covr{case}_{}", std::process::id()));
+    // One directory per call: edited decks of the same upstream `case` (I1, I2
+    // both edit deck 05) run in parallel threads of one process, so `case` and
+    // the pid alone collide.
+    static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let run_id = RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let tmp = std::env::temp_dir().join(format!("njoy_deck_covr{case}_{}_{run_id}", std::process::id()));
     let (ours, theirs) = (tmp.join("ours"), tmp.join("njoy"));
     for d in [&ours, &theirs] {
         std::fs::create_dir_all(d).unwrap();
