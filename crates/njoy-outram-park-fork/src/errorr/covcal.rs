@@ -26,8 +26,10 @@
 //!
 //! **Scope:** `mfcov = 33`, and since 2026-11-13 `mfcov = 31` (`covcal` reads the file
 //! [`CovarianceReactions::mf`] names) and `mfcov = 34` ([`super::mf34`] calls
-//! [`contribution`] with `alp` in place of `sig`), `nstan = 0` (an NC-type record with `LTY` 1–3
-//! is `NotPorted`), no `matb`/`matc` standards redefinition, ENDF-5/6. The
+//! [`contribution`] with `alp` in place of `sig`), ~~`nstan = 0` (an NC-type record with `LTY` 1–3
+//! is `NotPorted`), no `matb`/`matc` standards redefinition,~~ **CORRECTED 2026-11-14
+//! (gh:#1371):** `nstan` with card 11's `matb > 0` (an NC-type record with `LTY` 1–3
+//! stages the standard's records through [`super::standards::stand`]), ENDF-5/6. The
 //! `LB = 7` law belongs to MF=35 and is rejected here as upstream does.
 
 use crate::endf::records::SectionCursor;
@@ -316,7 +318,14 @@ pub fn covcal(
         let mth = sec.key.mt;
         let mut cur = SectionCursor::new(&sec.rows);
         let head = cur.read_cont()?;
-        let nl = head.n2;
+        // MF=40 (errorr.f90:1889-1907, gh:#1371): `nl = NS`, then the final
+        // state's CONT; `za`/`awr` come from the HEAD (`run_cov_gendf`).
+        let nl = if reactions.mf() == 40 {
+            super::gridd::mf40_final_state(&head, &mut cur)?;
+            1
+        } else {
+            head.n2
+        };
         if nl == 0 {
             continue; // component of a lumped reaction (errorr.f90:1922)
         }
@@ -354,20 +363,26 @@ pub fn covcal(
                 .position(|(&m, &a)| m == mt1 && a == mat1);
             let iok = kmt1.is_some();
 
-            // NC-type sub-subsections (errorr.f90:2017-2030): read and skip
-            // (lty=0 carries no matrix); lty 1..3 would need `stand`/nstan.
+            // NC-type sub-subsections (errorr.f90:2017-2030): lty=0 carries no matrix.
+            // With lty 1..3 `stand` stages the standard's NI records first, each with
+            // its window (errorr.f90:2017-2030, `nstan`, gh:#1371).
+            let mut recs: Vec<NiRecord> = Vec::with_capacity(ni.max(0) as usize);
+            let mut windows: Vec<Option<super::standards::StandardWindow>> = Vec::new();
             for _ in 0..nc {
                 let lty_cont = cur.read_cont()?;
                 let lty = lty_cont.l2;
-                let _list = cur.read_list()?;
+                let list = cur.read_list()?;
                 if iok && (1..=3).contains(&lty) {
-                    return Err(NjoyError::NotPorted(
-                        "errorr::covcal: NC-type sub-subsection with lty 1..3 (ratio-to-standard, needs nstan)",
-                    ));
+                    let std = reactions.standards.as_ref().ok_or_else(|| {
+                        NjoyError::InvalidInput("errorr::covcal: NC-type sub-subsection with lty 1..3 and nstan = 0".into())
+                    })?;
+                    for (r, w) in super::standards::stand(std, reactions.mf(), &list.head, lty)? {
+                        recs.push(r);
+                        windows.push(Some(w));
+                    }
                 }
             }
             // NI-type sub-subsections (errorr.f90:2058-2081)
-            let mut recs: Vec<NiRecord> = Vec::with_capacity(ni.max(0) as usize);
             for _ in 0..ni {
                 let list = cur.read_list()?;
                 recs.push(NiRecord::from_list(
@@ -392,12 +407,17 @@ pub fn covcal(
             for r in &recs {
                 r.validate(mth, mt1)?;
             }
+            for w in windows.iter().flatten() {
+                w.validate()?;
+            }
+            windows.resize(recs.len(), None);
             // sigma for mt1 (errorr.f90:2103-2114)
             let sig1: Vec<f64> = if kmt1 != Some(nmts) {
                 if (851..=870).contains(&mt1) {
                     lumped_sigma(groups, reactions, mt1)
                 } else {
-                    groups.sigma_for(mt1)
+                    // `rdsig(mat1,mt1,…)`: another material's for a card-10 pair (gh:#1369)
+                    groups.sigma_for_mat(mat1, mt1)
                 }
             } else {
                 sig.clone()
@@ -412,7 +432,11 @@ pub fn covcal(
                 for jh in 0..nunion {
                     let ehr = un[jh];
                     let mut c = 0.0;
-                    for r in &recs {
+                    for (r, w) in recs.iter().zip(&windows) {
+                        // errorr.f90:2101-2118: a standard's record only inside its window
+                        if w.is_some_and(|w| !w.admits(eg, ehr)) {
+                            continue;
+                        }
                         c += contribution(r, jg, jh, eg, ehr, dun, sig[jg], sig1[jh]);
                     }
                     cov[jh] = c;

@@ -18,7 +18,10 @@
 //!
 //! **Pass criterion.** Two, and the first is the one that matters:
 //! 1. **no zeros** — not one NJOY grid point in the URR may come back `0.0`;
-//! 2. worst relative deviation `<= 2e-2` per MT.
+//! 2. ~~worst relative deviation `<= 2e-2` per MT.~~ **CORRECTED 2026-11-14
+//!    (gh:#1366 §2 item 3):** every `(E, sigma)` pair NJOY writes inside the
+//!    URR is **bit-identical** to the port's after PENDF text
+//!    (`ReconrResult::through_pendf_text`, NJOY's `a11`), same pair count.
 //!
 //! # The defect this pins (`bn:op-12lu`)
 //!
@@ -52,7 +55,23 @@
 //! | 18 (fission) | zero | **5.77e-3** |
 //! | 102 (capture) | zero | **4.21e-3** |
 //!
-//! # Interpretation, and an honest note on the residual
+//! # Results (2026-11-14, develop `7ab655456`, same NJOY tape)
+//!
+//! | MT | old instrument: unrounded `eval_mt` vs NJOY text, worst relative | pairs through `a11`, differing |
+//! |---|---|---|
+//! | 1 | 2.76e-8 | **0 of 34** |
+//! | 2 | 2.05e-8 | **0 of 34** |
+//! | 18 | 7.48e-8 | **0 of 34** |
+//! | 102 | 7.46e-8 | **0 of 34** |
+//!
+//! The old instrument's residual was NJOY's 7-figure print rounding. The
+//! September 4.8e-4 / 4.2e-3 residual was removed by the 2026-09-26 RECONR
+//! fixes (#340), which ported `genunr`'s MT=152 table and `sigunr`'s
+//! interpolation of it (`reconr::urr`, `reconr.f90:1628-1769`), so the port now
+//! interpolates the same 8 points NJOY interpolates. Predicted on gh:#1366
+//! before the change; held.
+//!
+//! # Interpretation (2026-09-14), superseded
 //!
 //! Total and elastic land inside the deck's own `err = 0.001`. Fission and
 //! capture do not — and **the residual is now explained: it is NJOY's own
@@ -69,16 +88,22 @@
 //! test's worst-deviation energies — 4.36875e4 here, and 7.0e3, 4.518e4,
 //! 5.25e4, 7.0e4, 8.0e4, 9.0e4 — is in that interpolated set.
 //!
-//! **Where the two differ, this port evaluates the physics at the point and
+//! ~~**Where the two differ, this port evaluates the physics at the point and
 //! NJOY interpolates to it, so ours is the more accurate value.** Three other
 //! explanations were tested and refuted first (a different ENDF interpolation
 //! law; a difference in how the unresolved *parameters* are interpolated;
 //! parameter energies being special) — the refutations are recorded in that
-//! file's module doc.
+//! file's module doc.~~
 //!
-//! The gate stays at 2e-2 — well above the measured 5.8e-3 — because it exists
+//! ~~The gate stays at 2e-2 — well above the measured 5.8e-3 — because it exists
 //! to catch the zero-cross-section defect returning, and the residual it would
-//! otherwise pin is a property of the reference rather than of this code.
+//! otherwise pin is a property of the reference rather than of this code.~~
+//!
+//! **CORRECTED 2026-11-14:** the port no longer evaluates the physics at those
+//! 8 points; since 2026-09-26 it interpolates the `eunr` table as `sigunr`
+//! does, and agrees with NJOY in every word. The kernel-level finding in
+//! `reconr_urr_kernel_vs_njoy2016.rs` (NJOY interpolates, the raw kernel does
+//! not) still stands; it is about the kernel, not about this port's MF=3.
 //!
 //! # What this does NOT establish
 //!
@@ -87,8 +112,9 @@
 //!   energy-independent Case B — a log-spaced fill, the one part of
 //!   `reconr::urr` that is not a literal translation of upstream — is
 //!   **unverified**, because no held evaluation reaches it.
-//! - **MF=2/MT=152 is not written.** `genunr` also emits that section; this
-//!   port does not, and any consumer expecting it will not find it.
+//! - ~~**MF=2/MT=152 is not written.** `genunr` also emits that section; this
+//!   port does not, and any consumer expecting it will not find it.~~
+//!   **CORRECTED 2026-11-14:** it is, as `ReconrResult::unresolved_table`.
 //! - **`LSSF = 1` is verified only as a no-op**, by the second test here.
 //! - Verification against NJOY2016, not validation against measurement.
 
@@ -101,9 +127,8 @@ use njoy_outram_park_fork::reference_data::{reference_file, reference_file_or_sk
 const MAT: i32 = 9225;
 const URR_LO: f64 = 1.5e3;
 const URR_HI: f64 = 1.0e5;
-/// Deliberately loose — see the interpretation note in this file's module doc.
-const GATE: f64 = 2.0e-2;
-/// Worst relative deviations recorded on 2026-09-14.
+/// Worst relative deviations recorded on 2026-09-14, printed for the record.
+/// ~~Gated at `2e-2`~~ **CORRECTED 2026-11-14**: the gate is now bit-identity.
 const RECORDED: [(i32, f64); 4] = [(1, 4.81e-4), (2, 3.88e-4), (18, 5.77e-3), (102, 4.21e-3)];
 
 fn njoy_pairs(t: &Tape, mt: i32) -> Option<Vec<(f64, f64)>> {
@@ -141,44 +166,51 @@ fn unresolved_range_reproduces_njoy2016_and_is_never_zero() {
         return;
     };
     let njoy = Tape::read_file(&pendf).expect("NJOY PENDF parses");
+    // The zero check reads the unrounded result, the bit-identity check reads
+    // it through PENDF text (`a11`, 7 figures), as every downstream NJOY
+    // module sees it. Before 2026-11-14 the deviation compared the unrounded
+    // result with NJOY's text and so measured NJOY's print rounding (worst
+    // 7.48e-8 that day).
+    let ours_text = ours.through_pendf_text();
 
     for (mt, recorded) in RECORDED {
         let Some(pairs) = njoy_pairs(&njoy, mt) else {
             continue;
         };
         let rx = MtReaction::from_any(mt);
+        let in_urr = |p: &&(f64, f64)| (URR_LO..=URR_HI).contains(&p.0);
+        let theirs: Vec<(f64, f64)> = pairs.iter().filter(in_urr).copied().collect();
+        let mine: Vec<(f64, f64)> = ours_text
+            .sections
+            .iter()
+            .find(|s| s.mt == rx)
+            .map(|s| s.pairs.iter().filter(in_urr).copied().collect())
+            .unwrap_or_default();
 
-        let (mut worst, mut worst_e, mut worst_vals) = (0.0_f64, 0.0_f64, (0.0_f64, 0.0_f64));
-        let (mut n, mut zeros) = (0usize, 0usize);
+        let mut zeros = 0usize;
         let mut prev = f64::NAN;
-        for &(e, reference) in &pairs {
+        let mut n = 0usize;
+        for &(e, reference) in &theirs {
             if e == prev {
                 continue;
             }
             prev = e;
-            if !(URR_LO..=URR_HI).contains(&e) {
-                continue;
-            }
-            let mine = ours.eval_mt(rx, e);
-            if mine == 0.0 && reference > 1.0e-12 {
+            if ours.eval_mt(rx, e) == 0.0 && reference > 1.0e-12 {
                 zeros += 1;
-            }
-            if reference.abs() > 0.0 {
-                let dev = (mine - reference).abs() / reference.abs();
-                if dev > worst {
-                    worst = dev;
-                    worst_e = e;
-                    worst_vals = (mine, reference);
-                }
             }
             n += 1;
         }
+        let differing: Vec<usize> = (0..theirs.len().min(mine.len()))
+            .filter(|&i| theirs[i] != mine[i])
+            .collect();
 
         assert!(n > 20, "MT={mt}: only {n} NJOY points inside the URR");
         println!(
-            "  MT={mt:3}: {n} pts, {zeros} zero, worst {worst:.4e} at E={worst_e:.5e} \
-             (ours {:.6e} vs NJOY {:.6e}); recorded {recorded:.2e}",
-            worst_vals.0, worst_vals.1
+            "  MT={mt:3}: NJOY {} pairs, ours {}; {zeros} zero; {} differing \
+             (E or sigma, bitwise); recorded {recorded:.2e} worst relative on 2026-09-14",
+            theirs.len(),
+            mine.len(),
+            differing.len()
         );
 
         // The defect itself.
@@ -189,14 +221,23 @@ fn unresolved_range_reproduces_njoy2016_and_is_never_zero() {
              LRU=2 contribution is not reaching MF=3. A zero total cross section \
              is an infinite flight in transport."
         );
-        assert!(
-            worst <= GATE,
-            "MT={mt}: worst relative deviation {worst:.4e} at E={worst_e:.5e} \
-             (ours {:.6e} vs NJOY {:.6e}) exceeds the {GATE:.0e} gate; \
-             {recorded:.2e} was recorded on 2026-09-14.",
-            worst_vals.0,
-            worst_vals.1
+        assert_eq!(
+            mine.len(),
+            theirs.len(),
+            "MT={mt}: ours carries {} pairs in the URR, NJOY {}",
+            mine.len(),
+            theirs.len()
         );
+        if let Some(&i) = differing.first() {
+            panic!(
+                "MT={mt}: {} of {} URR pairs differ from NJOY2016's; first at index \
+                 {i}: ours {:?} vs NJOY {:?}",
+                differing.len(),
+                theirs.len(),
+                mine[i],
+                theirs[i]
+            );
+        }
     }
 }
 

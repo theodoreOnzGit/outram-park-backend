@@ -27229,10 +27229,11 @@ LRF=7: R-Matrix Limited. **Parsed** via
 
 Sr-88 (MAT 3837, ~~the only LRF=7 evaluation in `reference-data/endf/`~~
 **CORRECTED 2026-10-01**: one of seven there; see `crate::samm`'s doc)
-reproduces NJOY2016 2016.79 to within the reconstruction tolerance over
+reproduces NJOY2016 2016.79 ~~to within the reconstruction tolerance~~ over
 **all 44,326 points of NJOY's own grid** inside the resolved range:
-worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,
-`2.39e-3`. Full record:
+~~worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,
+`2.39e-3`~~ **CORRECTED 2026-11-14 (gh:#1366): every pair bit-identical**
+after PENDF text, MT=1/2/102. Full record:
 `verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; gate:
 `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`.
 
@@ -52352,6 +52353,8 @@ pub use crate::errorr::groups::NeutronGroupStructure;
 ## Module `gaminr`
 
 `GAMINR` — multigroup photon-interaction (photoatomic) cross sections and
+
+> **Note 2026-11-13 (gh:#1369):** new public items `gaminr::tape` (`GaminrCards`, `run_gaminr_tape`: the tape control flow of `gaminr.f90:133-536`) and `deck::gaminr` (`read_gaminr`, `run_gaminr`); `gaminr::matrix::gaminr_reaction` now uses upstream's `gety1` for `gtsig`. `gaminr::gtff::EPAIR` is upstream's expression. **Not re-generated:** `kovan-cli` was not available in the session that wrote this, so this mirror is hand-corrected; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
 matrices.
 
 Produces multigroup **photoatomic** data from ENDF photon-interaction
@@ -71111,6 +71114,8 @@ pub fn moment_check(sab: &crate::leapr::SabMatrix, beta: &[f64], ialpha: usize, 
 
 ## Module `deck`
 
+> **Note 2026-11-13 (gh:#1369):** new public modules `deck::gaminr` and `deck::pendf_photon` (`is_photoatomic`, `photon_material`, `photon_tape`, `PhotonPendf`: RECONR on a photo-atomic tape); `run_deck` now runs GAMINR, DTFR and MATXSR. **Not re-generated:** `kovan-cli` was not available in the session that wrote this, so this mirror is hand-corrected; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
+
 LEAPR **card-deck reader** — parse a `.leapr` text deck into [`LeaprDeck`].
 
 [`crate::leapr::input::LeaprInput`] models one LEAPR job *by value*, which is
@@ -82444,8 +82449,9 @@ evaluation in `reference-data/endf/`~~ **CORRECTED 2026-10-01**: one of seven
 there, with Cl-35, Fe-54, Fe-57, Cu-63, Cu-65 and Mo-95; Fe-57 and Mo-95 are
 word-for-word NJOY's in `tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs`)
 across all 44,326 points of NJOY's own
-grid inside the resolved range — worst relative deviation MT=1 `9.80e-3`, and
-`2.39e-3` at `err = 0.0001`. Record:
+grid inside the resolved range — ~~worst relative deviation MT=1 `9.80e-3`, and
+`2.39e-3` at `err = 0.0001`~~ **CORRECTED 2026-11-14 (gh:#1366): every pair
+bit-identical** after PENDF text, MT=1/2/102. Record:
 `verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; gate:
 `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`.
 
@@ -82462,6 +82468,8 @@ pub fn run() -> Result<(), crate::NjoyError> { /* ... */ }
 ```
 
 ## Module `dtfr`
+
+> **Note 2026-11-13 (gh:#1369):** new public items `dtfr::deck` (`DtfrCards`, `read_dtfr`, `run_dtfr_tape`, `run_dtfr`: `dtfr`, `ruin`, `dtfout`) and `dtfr::plots` (crate-internal `ploted`, `plotnn`, `plotnp`); the plotting is no longer out of scope. **Not re-generated:** `kovan-cli` was not available in the session that wrote this, so this mirror is hand-corrected; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
 
 `DTFR` — DTF-IV format libraries for discrete-ordinates (Sₙ) codes.
 
@@ -85253,7 +85261,10 @@ time dependence — from GROUPR/GAMINR GENDF output. MATXS libraries are the
 input to the TRANSX code, which builds effective cross sections for transport.
 
 **Upstream:** `matxsr.f90`. **Manual:** LA-UR-17-20093 §MATXSR.
-**Status:** not yet ported — [`crate::NjoyError::NotPorted`] placeholder.
+~~**Status:** not yet ported — [`crate::NjoyError::NotPorted`] placeholder.~~
+**CORRECTED 2026-11-13 (gh:#1369):** translated routine by routine (`cards`,
+`data`, `matrix`, `hname`, `output`); upstream decks 03 and 30 give the MATXS
+file line for line (`tests/deck_driver_photon_vs_njoy2016.rs`). **Not re-generated:** `kovan-cli` was not available in the session that wrote this, so this mirror is hand-corrected; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
 See `README.md` in this directory for theory, plan, and caveats.
 
 ```rust
@@ -85264,11 +85275,34 @@ pub mod matxsr { /* ... */ }
 
 #### Function `run`
 
-Run MATXSR. Placeholder until ported (Phase 6; see `docs/porting-plan.md`).
+Run MATXSR with no cards: the module registry entry (still `NotPorted`). A deck
+runs it with `run_matxsr`.
 
 ```rust
 pub fn run() -> Result<(), crate::NjoyError> { /* ... */ }
 ```
+
+#### Function `run_matxsr`
+
+Run MATXSR (`matxsr`, `cmatxs`) on the GENDF tapes (by unit number): the coded
+MATXS file. (Added 2026-11-13; hand-written entry.)
+
+```rust
+pub fn run_matxsr(c: &MatxsrCards, tapes: Vec<(i32, crate::errorr::gendf::GendfTape)>) -> Result<String, crate::NjoyError> { /* ... */ }
+```
+
+#### Function `run_matxsr_deck`
+
+MATXSR on a deck's tape units. (Added 2026-11-13; hand-written entry.)
+
+```rust
+pub fn run_matxsr_deck(c: &MatxsrCards, units: &mut crate::deck::tapes::TapeUnits) -> Result<(), crate::NjoyError> { /* ... */ }
+```
+
+#### Function `cards::read_matxsr`, struct `cards::MatxsrCards`, function `hname::hname`
+
+MATXSR's card reader and cards, and `hname` (the reaction names). (Added
+2026-11-13; hand-written entry.)
 
 ## Module `resxsr`
 
@@ -87520,7 +87554,12 @@ lin/log axes, ranges, labels) and 3-D plots, which VIEWR then renders to
 PostScript. PLOTR chooses *what* to plot; VIEWR draws it.
 
 **Upstream:** `plotr.f90`. **Manual:** LA-UR-17-20093 §PLOTR.
-**Status:** not yet ported — [`crate::NjoyError::NotPorted`] placeholder.
+~~**Status:** not yet ported — [`crate::NjoyError::NotPorted`] placeholder.~~
+**CORRECTED 2026-11-13 (gh:#1369):** translated (`cards`, `stream`, `run`, `mf7`,
+`gendf`, `plot3d`, `getters`, `rname`) and run from a deck (`deck::plotr`); see
+the module's own doc comment. **Not re-generated:** `kovan-cli` was not available
+in the session that ported PLOTR, so this mirror lists only the module header
+and `run`; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
 See `README.md` in this directory for theory, plan, and caveats.
 
 ```rust
@@ -87531,7 +87570,10 @@ pub mod plotr { /* ... */ }
 
 #### Function `run`
 
-Run PLOTR. Placeholder until ported (Phase 6; see `docs/porting-plan.md`).
+Run PLOTR. ~~Placeholder until ported (Phase 6; see `docs/porting-plan.md`).~~
+**CORRECTED 2026-11-13 (gh:#1369):** PLOTR is ported and runs from a deck
+(`Plotr::run` on `read_plotr`'s cards); this card-less entry point
+still returns `NotPorted`.
 
 ```rust
 pub fn run() -> Result<(), crate::NjoyError> { /* ... */ }

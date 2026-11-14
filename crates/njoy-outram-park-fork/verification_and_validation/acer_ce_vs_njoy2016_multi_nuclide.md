@@ -184,7 +184,7 @@ All in the unbroadened region (see above).
 
 | nuclide, T | total | absorption | elastic |
 |---|---|---|---|
-| U-235, 0 K | 4.697e-7 | 1.527e-6 | 8.058e-7 |
+| U-235, 0 K | ~~4.697e-7~~ | ~~1.527e-6~~ | ~~8.058e-7~~ |
 | U-235, 293.6 K | 4.657e-7 | 1.527e-6 | 8.058e-7 |
 | U-238, 293.6 K | 4.484e-7 | 4.659e-7 | 0.0 |
 | **U-234, 293.6 K** | **1.912e-3** | **4.212e-3** | 3.178e-4 |
@@ -198,6 +198,18 @@ unresolved-range treatment (the `LSSF` flag, as in `op-mzvp.2.12`) and PURR's
 effect on the reference's MF=3. **Neither has been checked** — recorded as a
 hypothesis, not a cause, per this workspace's own rule about that exact
 mistake.
+
+**CORRECTED 2026-11-14 (gh:#1366 §2 item 3).** Re-measured on develop
+`7ab655456` with `tests/acer_ce_esz_vs_njoy2016.rs`, U-235 at 0 K, the 2 463
+shared energies: worst unprinted relative difference total 1.001e-13,
+absorption 1.002e-13, elastic 1.002e-13, which is exactly `sigfig`'s
+`bias = 1.0000000000001` (`util.f90:392`), which a Type-1 print drops. As printed
+(`1pE20.11`), **0 of 2 463 words differ** in each column, and that is now the
+gate (it was 1e-5). The other rows of this table were not re-run here. The
+five-route record (`ace_five_route_parity_2026_10_14.md`) has U-234, U-235
+and U-238 at 293.6 K and 0 K identical to NJOY2016 in every word since
+2026-10-14, so the U-234 outlier above no longer stands (#340, 2026-09-26:
+`genunr`/`sigunr` ported).
 
 ## Results — fission secondaries (χ), and what the NR gap actually was
 
@@ -688,8 +700,10 @@ checks our MF=2/MT=152 against NJOY's committed 16-energy PENDF, and
 ACE classes (`acedo`/`acepa`/`acepn`) as unported, so there is no ACE table to
 difference.~~ **CORRECTED 2026-09-21** — `acepa` is now ported, and both
 photoatomic tapes **are** differenced as ACE tables against NJOY's own
-`acer iopt=4` output: byte-identical on the synthetic Z=6 tape, and 71 781 of
-71 807 words at print precision on U. See
+`acer iopt=4` output: byte-identical on the synthetic Z=6 tape, and ~~71 781 of
+71 807 words at print precision on U~~ (**CORRECTED 2026-11-13, gh:#1369:**
+identical line for line on U since `iheat`'s single-precision literals were
+fixed). See
 `acer_photoatomic_vs_njoy2016.md`. Dosimetry (`acedo`) and photonuclear
 (`acepn`) remain unported. The GAMINR comparison below stands as written and is
 now one of two independent routes through these tapes:
@@ -836,4 +850,4 @@ zcat reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz > /tmp/U
 RECONR-only 0 K tables under `reference-njoy/endf-b-viii.0/0K/`. The gate that
 runs in the ordinary test suite is
 `cargo test --release -p njoy-outram-park-fork --test acer_ce_esz_vs_njoy2016`
-(U-235 at 0 K, ~136 s).
+(U-235 at 0 K, ~136 s; 26 s for both tests on 2026-11-14).

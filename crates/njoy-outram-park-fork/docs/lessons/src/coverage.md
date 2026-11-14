@@ -43,9 +43,9 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 | `resxsr` | [Output formats](./output-formats.md) | listed by hand | `tests/resxsr_h2_njoy_golden.rs` (byte-identical) | V |
 | `mixr` | [Output formats](./output-formats.md) | listed by hand | `tests/mixr_h2_be9_njoy_golden.rs` (exact, first recorded [2026-10-04](./remeasured.md)) | V |
 | `matxsr` | [Output formats](./output-formats.md) | — | — | **N** |
-| `ccccr` | [Output formats](./output-formats.md) | — | — | **N** |
+| `ccccr` | [Output formats](./output-formats.md) | `ccccr` (deck) | `tests/deck_driver_tapes_vs_njoy2016.rs` (`test_02_ccccr_whole_deck`, `test_76_ccccr_whole_deck`) | ~~**N**~~ **CORRECTED 2026-11-13:** ported (gh:#1369); byte-identical to NJOY2016.80 on decks 02 and 76 |
 | `powr` | [Output formats](./output-formats.md) | — | — | **N** |
-| `plotr` | [Output formats](./output-formats.md) | — | — | **N** |
+| `plotr` | [Output formats](./output-formats.md) | `plotr::Plotr::run` (deck) | `tests/deck_driver_plotr_vs_njoy2016.rs` | ~~**N**~~ **CORRECTED 2026-11-13:** ported (gh:#1369); identical to NJOY2016.80 line by line on decks 06 and 12 |
 | `viewr` | [Output formats](./output-formats.md) | `viewr::viewr_postscript` | `tests/deck_driver_tapes_vs_njoy2016.rs` (`test_*_viewr_*`), `tests/deck_driver_covr_vs_njoy2016.rs` | ~~**N**~~ **CORRECTED 2026-11-13:** ported 2026-11-12 (gh:#1369); PostScript identical to NJOY2016's line by line on whole decks |
 | `hdf5` | [OpenMC interchange](./openmc-interchange.md) | `write_nuclide` | `hdf5_nuclide_write/`, `nuclide_h5_fissile/`, `nuclide_h5_read/`, `depletion_chain_xml/` | P; fissile `k` comparison and read-side `k` comparison not yet run |
 | `wmp` | [Windowed multipole](./wmp.md) | `XsProvider::micro` → `evaluate` | `wmp_h5_write_2026_09_24.md`, `tests/wmp_arbitrary_temperature.rs` | P; WMP vs direct BROADR not done; ~~pole-count discrepancy (602 vs 4 062) between two records, not re-checked~~ pole count re-checked 2026-10-05: **4 062** (602 was a KB size, [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)) |
@@ -94,4 +94,5 @@ Each is tracked as a GitHub issue, filed 2026-10-04 by this track:
    `docs/wmp-nuclide-manifest.md`, copied into the GPU benchmark's docs as a
    pole count. Corrected with strike-throughs there. [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)
 5. **Not ported by design** (visible, no issue needed unless the maintainer
-   wants them): MATXSR, CCCCR, POWR, PLOTR, VIEWR, every card-deck `run()`.
+   wants them): MATXSR, ~~CCCCR~~, POWR, ~~PLOTR~~, ~~VIEWR~~, every card-deck `run()`.
+   **CORRECTED 2026-11-13 (gh:#1369):** CCCCR, PLOTR and VIEWR are ported and run from decks.

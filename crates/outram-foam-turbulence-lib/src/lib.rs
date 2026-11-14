@@ -60,18 +60,32 @@
 //! | [`k_omega`] | Wilcox k-ω | Implemented + unit-tested |
 //! | [`spalart_allmaras`] | Spalart-Allmaras (1992) | Implemented + unit-tested |
 //! | [`les`] | Smagorinsky (1963) LES | Implemented + unit-tested |
+//! | [`les::wale`] | WALE (Nicoud & Ducros 1999) LES, gh:#1377 | AI draft; terms bit-compared with ESI v2506 (libm ulps pinned) |
+//! | [`realizable_ke`] | Realizable k-epsilon (Shih et al. 1995), gh:#1377 | AI draft; terms bit-compared with ESI v2506 (libm ulps pinned) |
+//! | [`rng_k_epsilon`] | RNG k-epsilon (Yakhot et al. 1992), gh:#1377 | AI draft; terms bit-identical to ESI v2506 |
+//! | [`les::k_eqn`] | kEqn one-equation LES, gh:#1544 | AI draft; terms bit-compared with ESI v2506 (cbrt ulps pinned) |
+//! | [`k_omega_sst_lm`] | kOmegaSSTLM transition model, gh:#1544 | AI draft, terms only; every LM-specific term bit-identical with ESI v2506 |
+//! | [`les::deltas`] | LES widths maxDeltaxyz, IDDESDelta, vanDriest, gh:#1544 | AI draft; bit-identical with ESI v2506 except the nearest-wall-face map of vanDriest (see README slice 9) |
+//! | [`launder_sharma_ke`] | Launder-Sharma low-Re k-epsilon, gh:#1544 | AI draft; TERMS ONLY (no `correct()`), bit-identical to ESI v2506 |
+//! | [`des`] | SpalartAllmaras DES/DDES/IDDES, kOmegaSSTDES, gh:#1545 | AI draft; TERMS ONLY (no `correct()`), bit-compared with ESI v2506 (libm ulps pinned) |
 //!
 //! [`wall_functions`] provides standalone log-law helpers (`y_plus`, `u_tau`,
 //! `nu_t_wall`); they are not yet wired into any model as boundary conditions.
 //! See `README.md` ("Limitations") for the full scope/validation caveats.
 
+pub mod des;
 pub mod error;
 pub mod k_epsilon;
+pub(crate) mod k_epsilon_step;
 pub mod k_omega;
 pub mod k_omega_sst;
+pub mod k_omega_sst_lm;
 pub mod laminar;
+pub mod launder_sharma_ke;
 pub mod les;
 pub mod prelude;
+pub mod realizable_ke;
+pub mod rng_k_epsilon;
 pub mod source_terms;
 pub mod spalart_allmaras;
 pub mod traits;

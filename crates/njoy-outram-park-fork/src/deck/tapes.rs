@@ -110,6 +110,12 @@ pub struct TapeUnits {
     /// Units a module opened new or stored a tape on (its outputs), gh:#1508.
     written: BTreeSet<i32>,
     workdir: Option<PathBuf>,
+    /// Files a module wrote as raw bytes (CCCCR's unformatted CCCC files,
+    /// gh:#1369), by unit.
+    bytes: BTreeMap<i32, Vec<u8>>,
+    /// `dater`'s `mm/dd/yy` for this run ([`crate::deck::DeckOptions::run_date`]);
+    /// `None`: the clock's, at each call.
+    run_date: Option<String>,
 }
 
 fn unit_err(msg: String) -> NjoyError {
@@ -119,7 +125,63 @@ fn unit_err(msg: String) -> NjoyError {
 impl TapeUnits {
     /// Units backed by files `tape<n>` in `workdir` (`None`: memory only).
     pub fn new(workdir: Option<PathBuf>) -> Self {
-        Self { units: BTreeMap::new(), texts: BTreeMap::new(), gendf: BTreeMap::new(), written: BTreeSet::new(), workdir }
+        Self {
+            units: BTreeMap::new(),
+            texts: BTreeMap::new(),
+            gendf: BTreeMap::new(),
+            written: BTreeSet::new(),
+            workdir,
+            bytes: BTreeMap::new(),
+            run_date: None,
+        }
+    }
+
+    /// Fix the date `dater` returns for the rest of the run to `mm/dd/yy`
+    /// (gh:#1549).
+    ///
+    /// # Errors
+    /// A date that is not eight characters `dd/dd/dd` (digits and slashes).
+    pub fn set_run_date(&mut self, mmddyy: &str) -> Result<(), NjoyError> {
+        let b = mmddyy.as_bytes();
+        let ok = b.len() == 8
+            && b.iter().enumerate().all(|(i, c)| if i == 2 || i == 5 { *c == b'/' } else { c.is_ascii_digit() });
+        if !ok {
+            return Err(NjoyError::InvalidInput(format!("run date {mmddyy:?} is not mm/dd/yy")));
+        }
+        self.run_date = Some(mmddyy.to_string());
+        Ok(())
+    }
+
+    /// `'  '//dater()` (`util.f90:72-94`): the run date fixed by
+    /// [`Self::set_run_date`], else today's from the clock.
+    pub fn dater(&self) -> String {
+        self.fixed_dater().unwrap_or_else(crate::deck::run::dater)
+    }
+
+    /// `'  mm/dd/yy'` of the date fixed by [`Self::set_run_date`], if any.
+    pub fn fixed_dater(&self) -> Option<String> {
+        self.run_date.as_ref().map(|d| format!("  {d}"))
+    }
+
+    /// Put a file of raw bytes on unit `lun` (a Fortran unformatted file a
+    /// module wrote, such as CCCCR's ISOTXS). It is written to `tape<n>` as is.
+    pub fn put_bytes(&mut self, lun: i32, bytes: Vec<u8>) {
+        self.bytes.insert(lun.abs(), bytes);
+    }
+
+    /// The raw-byte file on unit `lun`, if a module wrote one.
+    pub fn bytes(&self, lun: i32) -> Option<&[u8]> {
+        self.bytes.get(&lun.abs()).map(Vec::as_slice)
+    }
+
+    /// The raw bytes of unit `lun`: what a module wrote with [`Self::put_bytes`],
+    /// else `tape<n>` in the work directory (GROUPR's `ninwt`, gh:#1370).
+    pub fn bytes_or_file(&self, lun: i32) -> Option<Vec<u8>> {
+        if let Some(b) = self.bytes(lun) {
+            return Some(b.to_vec());
+        }
+        let dir = self.workdir.as_ref()?;
+        std::fs::read(dir.join(format!("tape{}", lun.abs()))).ok()
     }
 
     /// `openz(lun, new)`: open unit `lun`; with `new == 1` destroy any previous
@@ -331,8 +393,9 @@ impl TapeUnits {
     }
 
     /// Write every coded, non-scratch **output** unit (20 and above, plus 8-9)
-    /// to `tape<n>` in the work directory, and every text unit. Returns the
-    /// numbers written. Binary units are skipped (no blocked-binary writer),
+    /// to `tape<n>` in the work directory, every text unit, and every raw-byte
+    /// file ([`TapeUnits::put_bytes`], gh:#1369). Returns the
+    /// numbers written. Binary ENDF/GENDF units are skipped (no blocked-binary writer),
     /// and so is a unit only read from disk: NJOY never writes a unit it
     /// opened `old` (`openz`, `util.f90:199-212`; gh:#1508).
     pub fn write_coded_files(&self) -> Result<Vec<i32>, NjoyError> {
@@ -349,6 +412,10 @@ impl TapeUnits {
         }
         for (n, t) in &self.texts {
             std::fs::write(dir.join(format!("tape{n}")), t).map_err(NjoyError::Io)?;
+            done.push(*n);
+        }
+        for (n, b) in &self.bytes {
+            std::fs::write(dir.join(format!("tape{n}")), b).map_err(NjoyError::Io)?;
             done.push(*n);
         }
         Ok(done)
@@ -392,10 +459,30 @@ mod tests {
         t.store(21, tape, None).unwrap();
         t.openz(22, 1).unwrap();
         t.put_text(23, "text\n".into());
+        t.put_bytes(24, vec![4, 0, 0, 0, 9, 4, 0, 0, 0]);
+        assert_eq!(t.bytes(-24).map(<[u8]>::len), Some(9));
         let done = t.write_coded_files().unwrap();
-        assert_eq!(done, vec![21, 22, 23]);
+        assert_eq!(done, vec![21, 22, 23, 24]);
+        assert_eq!(std::fs::read(dir.join("tape24")).unwrap(), vec![4, 0, 0, 0, 9, 4, 0, 0, 0], "raw bytes as put");
         assert_eq!(std::fs::read_to_string(dir.join("tape20")).unwrap(), input, "input untouched");
         assert!(dir.join("tape21").exists() && dir.join("tape22").exists());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// gh:#1549: a fixed run date is `dater`'s for the rest of the run, in
+    /// `'  '//hdate` form; without one, the clock's date in the same form.
+    #[test]
+    fn run_date_is_fixed_or_the_clocks() {
+        let mut t = TapeUnits::new(None);
+        assert_eq!(t.fixed_dater(), None);
+        assert_eq!(t.dater().len(), 10);
+        assert!(t.dater().starts_with("  "));
+        t.set_run_date("11/13/26").unwrap();
+        assert_eq!(t.dater(), "  11/13/26");
+        assert_eq!(t.fixed_dater().as_deref(), Some("  11/13/26"));
+        for bad in ["11-13-26", "1/13/26", "11/13/2026", "ab/cd/ef"] {
+            assert!(t.set_run_date(bad).is_err(), "{bad}");
+        }
+        assert_eq!(t.dater(), "  11/13/26", "a refused date leaves the fixed one");
     }
 }

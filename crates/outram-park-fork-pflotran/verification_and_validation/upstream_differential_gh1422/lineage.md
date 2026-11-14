@@ -52,12 +52,12 @@ counterpart; `?` = counterpart located, comparison not done.
 | `sorption` (Gaines-Thomas exchange), `surface_complexation` | `reaction_sorption`/`reaction_surf_complex.F90` | `?` | not compared |
 | `kinetics`, `microbial`, `geochemistry` | `reaction_mineral.F90`, `reaction_microbial.F90`, `reaction.F90` | `?` | not compared |
 | `reactive_transport` | `reactive_transport.F90`, `pm_rt.F90` | **I** | the port's header says operator-split (SNIA); upstream's default is global implicit (GIA) with an operator-split option, so even matched models take different steps |
-| `flow/richards.rs`, `flow` | `pm_richards.F90`, `richards.F90`, `richards_common.F90` | `?` | not compared; upstream 1-D case in `regression_tests/default/infiltration1d` needs `SATURATION_FUNCTION LINEAR`, which the port lacks |
+| `flow/richards.rs`, `flow` | `pm_richards.F90`, `richards.F90`, `richards_common.F90` | **I** (one case) | ~~not compared; upstream 1-D case in `regression_tests/default/infiltration1d` needs `SATURATION_FUNCTION LINEAR`, which the port lacks~~ **CORRECTED 2026-11-13 (gh:#1537)**: `Linear` curves added and `infiltration1d` compared against its gold: 20/20 steps, 62/62 Newton iterations, all pressures within 5.4e-9 Pa (README, "Gold-file results"). Only that one homogeneous 1-D Dirichlet case; heterogeneous, gravity, Neumann and hydrostatic cases are not compared |
 | `general_mode`, `multiphase` | `general.F90`, `general_aux.F90`, `pm_general.F90` | **I** | headers say "deliberately simplified rendering", air-water-energy, quadratic Corey gas rel-perm |
 | `transport` | `transport.F90` | `?` | not compared |
 | `wells` | `pm_well.F90`, `well_grid` | `?` | not compared |
 | `grid`, `unstructured` | `grid_structured.F90`, `grid_unstructured*.F90` | `?` | not compared |
-| `deck`, `io` | `input_aux.F90`, `pflotran_input` | **I** / **O** | `deck` parses a subset of public syntax (cannot read any `regression_tests/default` deck: REGION, FLOW_CONDITION, BOUNDARY_CONDITION unsupported); `io` is stated in its own header to be an invented format |
+| `deck`, `io` | `input_aux.F90`, `pflotran_input` | **I** / **O** | `deck` parses a subset of public syntax (~~cannot read any `regression_tests/default` deck: REGION, FLOW_CONDITION, BOUNDARY_CONDITION unsupported~~ **CORRECTED 2026-11-13**: `deck::regression::parse_regression_deck` reads `default/infiltration1d/infiltration1d.in` completely, REGION/FLOW_CONDITION/BOUNDARY_CONDITION/INITIAL_CONDITION/STRATA/EOS WATER/OUTPUT included; the older `parse_pflotran_deck` still reads none of them; every other regression deck is untested); `io` is stated in its own header to be an invented format |
 | `hdf5_io` | `hdf5_aux.F90`, `output_hdf5.F90` | **I** | pure-Rust `hdf5-pure`, not libhdf5 |
 | `solver`, `decomposition` | PETSc SNES/KSP/DMDA | **O** | PETSc is replaced; `decomposition` runs over `outram-park-mpi` |
 | `units`, `error`, `gpu` | none | **O** | |

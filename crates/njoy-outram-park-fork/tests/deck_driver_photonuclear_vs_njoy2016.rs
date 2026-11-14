@@ -38,9 +38,10 @@
 //! refusal and is not gated here.
 
 use std::path::PathBuf;
-use std::process::Command;
 
 use njoy_outram_park_fork::deck::{run_deck, DeckOptions};
+
+mod common;
 
 fn njoy_root() -> PathBuf {
     std::env::var("NJOY2016_ROOT")
@@ -74,14 +75,9 @@ fn photonuclear_deck(case: &str, resource: &str, expect: &[u32]) -> Option<Vec<(
         std::fs::copy(&res, d.join("tape20")).unwrap();
     }
     std::fs::write(theirs.join("deck"), &deck).unwrap();
-    let st = Command::new("sh")
-        .arg("-c")
-        .arg(format!("{} < deck > log 2>&1", bin.display()))
-        .current_dir(&theirs)
-        .status()
-        .unwrap();
-    assert!(st.success(), "NJOY2016 binary failed on deck {case}");
-    let run = run_deck(&deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false }).unwrap();
+    let (ok, date) = common::run_njoy_dated(&bin, &theirs); // gh:#1549
+    assert!(ok, "NJOY2016 binary failed on deck {case}");
+    let run = run_deck(&deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false, run_date: Some(date.clone()) }).unwrap();
     assert!(run.blocked.is_none(), "deck {case} must run to its end, stopped at {:?}", run.blocked);
     let staged = std::fs::read(&res).unwrap();
     let mut names: Vec<String> = std::fs::read_dir(&theirs)
@@ -157,4 +153,18 @@ fn test_58_photonuclear_whole_deck() {
 #[test]
 fn test_56_photonuclear_whole_deck() {
     assert_identical("56", photonuclear_deck("56", "g-092_U_235-ENDF8.0.endf", &[31, 32, 33, 34, 35, 36, 37, 38, 43, 46]));
+}
+
+/// **Deck 64 (Ra-226 TENDL-2019, gh:#1369):** MF=6 recoils given as `LAW = 4`,
+/// whose heating `acephn` takes from the section's first (two-body)
+/// subsection, `awp*(e+q)/(awr-awp)` (`acepn.f90:507-584`), and an MT=11 photon
+/// yield that is zero everywhere. Upstream's first-positive-yield scan
+/// (`:417-424`) has no bound there; this crate takes the all-zero yield as
+/// giving no production threshold (a divergence on undefined behaviour,
+/// commented in `photonuclear/build.rs`). Prediction (posted on gh:#1369
+/// before the run): units 31-38, 43 and 46 identical; the `LAW = 4` refusal
+/// met next was not foreseen. **Result (2026-11-13): every unit identical.**
+#[test]
+fn test_64_photonuclear_whole_deck() {
+    assert_identical("64", photonuclear_deck("64", "g-088_Ra226-tendl2019.endf", &[31, 32, 33, 34, 35, 36, 37, 38, 43, 46]));
 }

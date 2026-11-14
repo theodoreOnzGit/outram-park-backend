@@ -215,6 +215,15 @@ pub fn transport(n: u32, x: f64) -> f64 {
     }
     let nf = o.n as f64;
 
+    if x == 0.0 && o.n >= 3 {
+        // `x == 0.0` is its own branch upstream for orders 3, 4 and 5
+        // (transport.c:250, :327, :404), returning `+0.0`; order 2 has none
+        // and keeps `-0.0` (a first attempt that included it broke
+        // `transport_2(-0.0)`). Without it `-0.0` reached the small-`x` power
+        // and `transport_4(-0.0)` came out `-0.0` (gh:#1421).
+        return 0.0;
+    }
+
     if x < 3.0 * SQRT_DBL_EPSILON {
         // J(n, x) ~ x^{n-1} / (n-1) as x -> 0.
         let mut p = 1.0;

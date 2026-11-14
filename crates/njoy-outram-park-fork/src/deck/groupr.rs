@@ -36,7 +36,9 @@
 //! **CORRECTED 2026-11-13 (gh:#1369, round 2):** of the "Still `NotPorted`" list above,
 //! `mfd = 5` (`groupr::spectrum::mf5_spectrum`, `getsed` `LF = 1` and `LF = 5`), MF=3
 //! `MT = 452-456` (`groupr::spectrum::NuYield`, `getyld` on MF=1) and `getdis` with
-//! `mft = 8` for MF=6 LAW=3 are written now; LAW = 2, 4, 5 are still refused. `emaxx`
+//! `mft = 8` for MF=6 LAW=3 are written now; ~~LAW = 2, 4, 5 are still refused.~~ **CORRECTED
+//! 2026-11-14 (gh:#1370):** LAW = 2 neutrons are written too
+//! (`File4Angular::from_mf6_law2`); LAW = 4 and 5 are still refused. `emaxx`
 //! is read from `nendf`'s third MF=1 record, as `groupr.f90:413-431` does. Gated:
 //! decks 29 (whole), 15, 18, 27, 34 (GENDF), 76 and 08 (GENDF without one automatic
 //! card each).
@@ -317,6 +319,12 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         let p = inp.thermal_fission_params.ok_or_else(|| NjoyError::InvalidInput("groupr: iwt = 4 without card 8c".into()))?;
         crate::groupr::njoy_panel::genwtf_iwt4(&p);
     }
+    // `iwt = 1` stores card 8b's TAB1 (`:5011-5025`, gh:#1370); it is the last card
+    // `read_groupr` keeps (after card 8a for `iwt = -1`).
+    if inp.weight.iwt().abs() == 1 {
+        let tab = job.weight_cards.last().ok_or_else(|| NjoyError::InvalidInput("groupr: iwt = 1 without card 8b".into()))?;
+        crate::groupr::genwtf::genwtf_iwt1(tab)?;
+    }
     let mut sigz: Vec<f64> = inp.sigma_zeros.clone();
     if let Some(s) = sigz.first_mut() {
         *s = 1.0e10;
@@ -377,8 +385,28 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     let mut dntc = [0.0f64; 8];
     let mut lrflag_run = 0i32;
     let iblock = &mut 0usize;
+    // Card 8a (`iwt < 0`): `fehi` is a module variable `genflx` rewrites (`:5452`),
+    // and `ninwt` the binary unit it writes (`:4989`, `openz(-ninwt,1)`), gh:#1370.
+    let card8a = match &inp.weight {
+        crate::groupr::WeightSelection::ComputeFlux { params, .. } => *params,
+        _ => None,
+    };
+    let mut fehi = card8a.map_or(0.0, |p| p.fehi_ev);
+    let mut ninwt_file = crate::groupr::flux_table::NinwtFile::default();
+    // `iwt = 0` (card 8d): `getfwt` reads the `ninwt` file a flux calculation wrote.
+    let mut fwt = match &inp.weight {
+        crate::groupr::WeightSelection::ReadResonanceFlux { ninwt } if sigz.len() > 1 => {
+            let b = units
+                .bytes_or_file(*ninwt)
+                .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: ninwt unit {ninwt} holds no file")))?;
+            Some(crate::groupr::flux_table::FwtReader::from_bytes(&b)?)
+        }
+        _ => None,
+    };
     for itemp in 0..inp.temperatures.len() {
     let tempin = inp.temperatures[itemp];
+    // `jtemp = itemp` (`:497`): `getwtf` reads `temp(jtemp)` for `iwt = 7, 10, 12`.
+    crate::groupr::genwtf::getwtf_set_temperature(tempin);
     let pend = find_temperature_block(&blocks, iblock, inp.matb, tempin)?;
     let mf1 = pend
         .section(inp.matb, 1, 451)
@@ -387,7 +415,25 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     // `stounr` (`:533`), then `genflx` when `nsigz > 1` (`:539-546`).
     let unr = crate::groupr::flux_table::stounr(&pend, inp.matb, tempin)?.map(std::sync::Arc::new);
     let flux = if sigz.len() > 1 {
-        let t = crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?;
+        let t = match &card8a {
+            Some(p) => crate::groupr::flux_table::genflx_card8a(
+                &pend,
+                inp.matb,
+                inp.weight.iwt(),
+                inp.lord,
+                &sigz,
+                egn[0],
+                unr.as_deref(),
+                p,
+                &mut fehi,
+                tempin,
+                &mut ninwt_file,
+            )?,
+            None => match fwt.as_mut() {
+                Some(f) => crate::groupr::flux_table::genflx_fwt(&pend, inp.matb, inp.lord, &sigz, egn[0], unr.as_deref(), f, tempin, itemp + 1)?,
+                None => crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?,
+            },
+        };
         crate::groupr::njoy_panel::FluxSource::Table(crate::groupr::flux_table::FluxCursor::new(std::sync::Arc::new(t)))
     } else {
         crate::groupr::njoy_panel::FluxSource::Wtf(inp.weight.iwt())
@@ -396,20 +442,36 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     write_head(&mut g, inp.matb, za, awr, tempin, &sigz, &egn, &egg);
     // This temperature's card-9 list (`:586-630`), and `mtd = 1` again (`:619`).
     let reactions = if itemp == 0 { inp.reactions.clone() } else { job.later_temperatures[itemp - 1].0.clone() };
+    let extended = if itemp == 0 { job.extended.clone() } else { job.later_temperatures[itemp - 1].1.clone() };
     let inp_t = crate::groupr::input::GrouprInput { temperatures: vec![tempin], reactions, ..inp.clone() };
     let inp = &inp_t;
     // The main loop's running `mtd` (`:619`, `mtd = 1`): a negative card-9 or
     // list entry `-m` visits `mtd + 1 ..= m` (`:640-646`, `:731-732`).
     let mut mtd_run = 1;
-    for req0 in &inp.reactions {
+    for card in card9_sequence(&inp.reactions, &extended) {
+        let req0 = match card {
+            Card9Item::Extended(e) => {
+                // Card 9a: one request, processed where it stands in the list.
+                let item = card9a_reaction(e, &mut mtd_run)?;
+                sh.set(item.mfd, item.mtd);
+                write_production(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, emaxx, &item)?;
+                continue;
+            }
+            Card9Item::Plain(r) => r,
+        };
+        let req0 = &req0;
         // `mtd = -1000` (no `mtd` on card 9): `iauto = 1`, the lists of `nextr`.
         let items: Vec<crate::deck::groupr_auto::AutoReaction> = if req0.mtd == crate::groupr::input::MTD_AUTO {
             crate::deck::groupr_auto::nextr_all(req0.mfd, &lists, &pend, inp.matb, &mut mtd_run)?
         } else if req0.mtd < 0 {
+            // `mfchk` (`:716`) rewrites `mfd` in place, so once a range switches
+            // (16 to 17, 13 to 12) its later MTs keep the new file (gh:#1370).
+            let mut mfd_run = req0.mfd;
             let mut v = Vec::new();
             loop {
                 mtd_run += 1;
-                v.push(crate::deck::groupr_auto::AutoReaction::plain(req0.mfd, mtd_run));
+                mfd_run = crate::deck::groupr_auto::mfchk(mfd_run, mtd_run, &lists);
+                v.push(crate::deck::groupr_auto::AutoReaction::plain(mfd_run, mtd_run));
                 if mtd_run + req0.mtd >= 0 {
                     break;
                 }
@@ -417,7 +479,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             v
         } else {
             mtd_run = req0.mtd;
-            vec![crate::deck::groupr_auto::AutoReaction::plain(req0.mfd, req0.mtd)]
+            let mfd = crate::deck::groupr_auto::mfchk(req0.mfd, req0.mtd, &lists);
+            vec![crate::deck::groupr_auto::AutoReaction::plain(mfd, req0.mtd)]
         };
         for item in items {
             let mtd = item.mtd;
@@ -518,7 +581,53 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     }
     g.tend();
     units.put_gendf(u.ngout2, g.text(), crate::errorr::gendf::GendfTape { tpid: inp.title.clone(), records: g.records.clone() });
+    if let Some(p) = card8a.filter(|p| p.ninwt != 0) {
+        units.put_bytes(-p.ninwt.abs(), ninwt_file.bytes);
+    }
     Ok(())
+}
+
+/// One entry of a GROUPR card-9 list, in card order: a plain card 9
+/// request, or a card 9a extended one `(mfd, mtd, izar, lfs)`.
+#[derive(Debug, Clone, PartialEq)]
+enum Card9Item {
+    Plain(crate::groupr::input::ReactionRequest),
+    Extended([i32; 4]),
+}
+
+/// The card-9 list in the order it was read: each card 9a request goes before
+/// the plain request whose index it carries ([`crate::deck::modules::GrouprJob::extended`]).
+fn card9_sequence(plain: &[crate::groupr::input::ReactionRequest], extended: &[(usize, [i32; 4])]) -> Vec<Card9Item> {
+    let mut out = Vec::with_capacity(plain.len() + extended.len());
+    let mut ext = extended.iter().peekable();
+    for (i, r) in plain.iter().enumerate() {
+        while let Some((_, e)) = ext.next_if(|(at, _)| *at <= i) {
+            out.push(Card9Item::Extended(*e));
+        }
+        out.push(Card9Item::Plain(r.clone()));
+    }
+    out.extend(ext.map(|(_, e)| Card9Item::Extended(*e)));
+    out
+}
+
+/// Card 9a, down-converted as `groupr.f90:655-676` does: `mfd` 3/6/9/10 becomes
+/// `10/20/30/40 000 000 + 10*izar`, `lfs` and `isom` are the card's level, and
+/// `mtd = mtdp` (also the running `mtd`). A negative `mtdp` (a range through
+/// card 9a, `:731`) is refused by name, as is any other `mfd` (`illegal file`).
+fn card9a_reaction(e: [i32; 4], mtd_run: &mut i32) -> Result<crate::deck::groupr_auto::AutoReaction, NjoyError> {
+    let [mfd, mtdp, izar, lfs] = e;
+    let base = match mfd {
+        3 => 10_000_000,
+        6 => 20_000_000,
+        9 => 30_000_000,
+        10 => 40_000_000,
+        _ => return Err(NjoyError::InvalidInput(format!("groupr: illegal file ={mfd:3}"))),
+    };
+    if mtdp < 0 {
+        return Err(NjoyError::NotPorted("groupr card 9a with a negative mtd (a range)"));
+    }
+    *mtd_run = mtdp;
+    Ok(crate::deck::groupr_auto::AutoReaction { mfd: base + izar * 10, mtd: mtdp, lfs, isom: lfs, card9a: true })
 }
 
 /// One MF=3 vector section (`groupr.f90:840-905`): the head `za, 0, 1, 1, lrflag,
@@ -614,7 +723,7 @@ fn write_production(
         return Ok(());
     }
     g.begin(inp.matb, 3, r.mtd);
-    g.cont([za, f64::from(r.izam())], [1, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
+    g.cont([za, r.head_c2()], [1, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }
@@ -663,12 +772,19 @@ fn write_getmf6(
     let disc102 = if mfd == 18 { photon_line_awp(nend, inp.matb, mtd)? } else { None };
     // `getmf6` sends LAW 2-5 to `getdis` (`:7956`, `:8096-8099`), with `mft = 8`;
     // `getfle` makes LAW=3 isotropic in the CM (`iso = 1`, `:9733-9737`).
+    // LAW=2 reads its Legendre records through `getfle` with `mft = 8` (`:9733-9760`,
+    // gh:#1370, `File4Angular::from_mf6_law2`).
     let neutron_law = if mfd == 8 { mf6_subsection_law(nend, inp.matb, mtd, 1)? } else { None };
-    if matches!(neutron_law, Some(2 | 4 | 5)) {
-        return Err(NjoyError::NotPorted("groupr getmf6 LAW = 2, 4 or 5 (getdis with mft = 8 on File-6 angular data)"));
+    if matches!(neutron_law, Some(4 | 5)) {
+        return Err(NjoyError::NotPorted("groupr getmf6 LAW = 4 or 5 for a neutron (getdis with mft = 8: law 4's cosine flip, law 5's lidp and Coulomb term)"));
     }
-    let mut pf = if neutron_law == Some(3) {
-        let tb = crate::groupr::two_body::TwoBodyFeed::new(crate::groupr::file4::File4Angular::isotropic_cm(), egn, head.c2, tab.head.c2, lrflag)?;
+    let mut pf = if matches!(neutron_law, Some(2 | 3)) {
+        let ang = if neutron_law == Some(2) {
+            crate::groupr::file4::File4Angular::from_mf6_law2(nend, inp.matb, mtd, 1, crate::groupr::file4::NLD)?
+        } else {
+            crate::groupr::file4::File4Angular::isotropic_cm()
+        };
+        let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
         crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl)
     } else if let Some(d) = disc102 {
         crate::groupr::njoy_panel::PanelFeed::Gam102(crate::groupr::njoy_panel::Gam102 { disc102: d, awr: head.c2, egg: egg.to_vec(), nl, iglo: 0 })

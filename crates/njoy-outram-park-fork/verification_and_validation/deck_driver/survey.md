@@ -74,29 +74,58 @@ The prediction posted before the change: every COVR plot file identical, all fou
 
 **Re-run 2026-11-13, `phnplo` and `acephn`'s MF=4/MF=5 neutron branches (gh:#1369):** decks 56, 57, 58, 66 and 78 were re-run alone (`SURVEY_CASES`, 27 s) on develop 43eadde45 plus this work. Their rows are replaced; every other row is as before. **Identical: 65 of 87** (60 before). ~~Each stops by name at `phnplo`~~ (the note above): `phnplo` is ported (`acer::phnplo`), so decks 57, 58, 66 and 78 run to the end, both `iopt = 7` check passes and VIEWR included. Deck 56 (U-235) passes the MF=4/MF=5 neutron representation (`acer::photonuclear::mf45`) and is identical too. Both predictions were posted before the runs and held on the first run. Gate: `tests/deck_driver_photonuclear_vs_njoy2016.rs`, now whole decks. Record: `README.md` section 22.
 
+**Re-run 2026-11-13, the remaining decks ranked and eight closed (gh:#1369):** first, the 22 rows that were not `identical` were re-run alone (`SURVEY_CASES`) on develop `fe6a8230d`. Decks 31 and 87 were already `identical`; their rows predated recent merges. That made **67 of 87**, not the 65 the note above gives. The other twenty rows were unchanged except 10, 21, 64 and 75, which are replaced below anyway. After this work, rows 10, 19, 21, 30, 31, 60, 61, 64, 75, 86 and 87 were re-run alone (`SURVEY_CASES`, 184 s) on develop a4a799b8d plus this work. Their rows are replaced; every other row is as before. **Identical: 75 of 87.** The newly identical decks:
+- 61: ACER `iopt = 7` on an input ACE file, `newsuff`.
+- 86: GROUPR card 9a.
+- 21: HEATR's and PURR's coded-tape numbering, and PURR's writer after HEATR.
+- 75: BROADR's second temperature numbering, and `gamsum`'s MF=3 from the next block.
+- 10 and 19: PURR's MT=152/153 at several temperatures and sigma-zeros, with `rdheat`.
+- 60: RECONR on a tape with no MF=3, and BROADR `temp1`.
+- 64: `acephn`'s `LAW = 4` recoil heating.
+
+Deck 30 now passes its first RECONR and stops at the photo-atomic one (the same message, a genuine `ith = 0` on MF=23). A prediction was posted before each run except deck 61's. Record: `README.md` section 23.
+
+**Re-run 2026-11-13, five one-deck blockers closed (gh:#1369):** rows 11, 17, 43, 48 and 59 were re-run alone (`SURVEY_CASES`, 230 s) on develop 16330e9f6 plus this work. Their rows are replaced; every other row is as before. **Identical: 80 of 87** (75 before). Causes:
+- 11: WIMSR's card reader, and a binary GENDF read at full precision.
+- 17: ERRORR `iread = 2` (card 10's cross-material pairs).
+- 43: BROADR `thinb` (gh:#619).
+- 48 and 59: `iheat`'s two single-precision literals. ~~The residual recorded in `../acer_photoatomic_vs_njoy2016.md`~~ was a port defect, not upstream's convergence (the notes above that call it a residual are superseded).
+
+A prediction was posted on gh:#1369 before each run, and all five held on the first run. Remaining: ~~02 and 76 (CCCCR)~~, 06 and 12 (PLOTR), ~~03 and 30 (GAMINR, MATXSR)~~ (closed, note below), ~~80 (LEAPR, last figure)~~. Record: `README.md` section 24. **UPDATE 2026-11-13:** 02, 76 and 80 are closed, as in the note below.
+
+**Re-run 2026-11-13, decks 80, 02 and 76 closed (gh:#1369):** rows 02, 76 and 80 were re-run alone (`SURVEY_CASES`, 537 s) on develop 60675b0f0 plus this work. Their rows are replaced; every other row is as before. **Identical: 83 of 87** (80 before). The causes:
+- 80: LEAPR `trans` keeps `sb` across its loops, and a `sbfill` that stops one entry short reads an earlier call's value. The port padded with zero. ~~"last figure"~~: most of its 24 264 differing values were off by more than 3e-5.
+- 02 and 76: CCCCR translated (`src/ccccr/`). ISOTXS (02 unit 26), BRKOXS (02 unit 27) and DLAYXS (76 unit 30) are byte-identical, and are counted in "tapes identical".
+
+From this run on, the survey counts a binary file of ours that differs from NJOY's as `differs`. Before, it was listed in the last column and could not fail. Remaining: ~~06 and 12 (PLOTR),~~ ~~03 and 30 (GAMINR, MATXSR)~~ (closed, note below). Record: `README.md` section 25.
+
+**Re-run 2026-11-13, decks 06 and 12 closed (gh:#1369):** rows 06 and 12 were re-run alone (`SURVEY_CASES=06,12`, 1.3 s) on develop 0ad98bc5d plus this work. Their rows are replaced; every other row is as before. **Identical: 85 of 87** (83 before). PLOTR is translated (`src/plotr/`): deck 06's plot file and PostScript (31, 32) and deck 12's 21-24 are NJOY2016.80's line for line. Remaining: ~~03 and 30 (GAMINR, MATXSR)~~ (closed, note below). Record: `README.md` section 26.
+
+**Re-run 2026-11-13, decks 03 and 30 closed (gh:#1369):** rows 03 and 30 were re-run alone (`SURVEY_CASES=03,30`, 6.4 s) on develop 1a81b9422 plus this work. Their rows are replaced; every other row is as before. **Identical: 87 of 87** (85 before). Translated: RECONR's photo-atomic path (`deck/pendf_photon.rs`; the deck PENDF had built its union grid without MF=23, so deck 30's "no positive point" was an empty grid, not a genuine `ith = 0`, and deck 03's tape31 differed in all 2180 lines), GAMINR's tape control flow (`gaminr/tape.rs`, the `akn` cache, `gety1` in `gtsig`), DTFR from a deck with its plots (`dtfr/deck.rs`, `dtfr/plots.rs`) and MATXSR (`src/matxsr/`). Deck 03's units 31, 33-37 and deck 30's 31, 43-45 are NJOY2016.80's line for line, and upstream's committed `referenceTape37` (03) and `referenceTape43/44/45` (30) byte for byte (`tests/deck_driver_photon_vs_njoy2016.rs`). Remaining: none. Record: `README.md` section 27.
+
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
-| 02 | NotPorted (ccccr: card reader not yet translated) | 1 |  | tape28 tape29 | tape21 tape22 tape23 tape24 tape25 tape26 tape27 |
-| 03 | NotPorted (gaminr: card reader not yet translated) | 0 | tape31 2180/2180 lines | tape33 tape34 tape35 tape36 tape37 |  |
+| 02 | identical | 5 |  |  | tape21 tape22 tape23 tape24 tape25 |
+| 03 | identical | 6 |  |  |  |
 | 04 | identical | 3 |  |  | tape21 tape22 |
 | 05 | identical | 3 |  |  | tape31 tape32 |
-| 06 | NotPorted (plotr: card reader not yet translated) | 0 |  | tape31 tape32 |  |
+| 06 | identical | 2 |  |  |  |
 | 07 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 08 | identical | 3 |  |  | tape21 tape22 tape23 tape24 |
 | 09 | identical | 1 |  |  | tape21 tape22 tape23 tape25 |
-| 10 | differs | 2 | tape28 15270/15277 lines |  | tape21 tape22 tape23 tape24 tape25 |
-| 11 | NotPorted (wimsr: card reader not yet translated) | 0 |  | tape27 tape28 | tape21 tape22 tape23 tape24 tape25 tape26 |
-| 12 | NotPorted (plotr: card reader not yet translated) | 2 |  | tape23 tape24 |  |
+| 10 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
+| 11 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape26 |
+| 12 | identical | 4 |  |  |  |
 | 13 | identical | 7 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 14 | identical | 6 |  |  |  |
 | 15 | identical | 10 |  |  | tape21 tape22 tape23 |
 | 16 | identical | 6 |  |  | tape21 tape22 tape23 |
-| 17 | NotPorted (errorr: not yet ported from NJOY2016: errorr iread = 1/2 (cards 8-10)) | 10 |  | tape26 |  |
+| 17 | identical | 11 |  |  |  |
 | 18 | identical | 4 |  |  | tape21 tape22 tape23 |
-| 19 | differs | 2 | tape29 44559/44568 lines |  | tape21 tape22 tape23 tape24 tape25 tape26 |
+| 19 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 20 | identical | 7 |  |  |  |
-| 21 | differs | 2 | tape22 10609/34851 lines; tape23 66506/66600 lines; tape24 66859/66867 lines | tape26 |  |
+| 21 | identical | 6 |  |  |  |
 | 22 | identical | 1 |  |  |  |
 | 23 | identical | 1 |  |  |  |
 | 24 | identical | 9 |  |  | tape21 tape22 tape23 tape24 tape25 tape27 tape28 |
@@ -105,8 +134,8 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 27 | identical | 6 |  |  | tape21 tape22 tape23 tape25 |
 | 28 | identical | 18 |  |  | tape21 tape22 tape23 |
 | 29 | identical | 3 |  |  | tape21 tape22 tape23 tape25 |
-| 30 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 1 |  | tape43 tape44 tape45 | tape21 tape22 tape23 tape41 tape42 |
-| 31 | differs | 0 | tape30 221729/221737 lines |  | tape21 tape22 tape23 tape24 |
+| 30 | identical | 4 |  |  | tape21 tape22 tape23 tape41 tape42 |
+| 31 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
 | 32 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
 | 33 | identical | 2 |  |  |  |
 | 34 | identical | 2 |  |  | tape21 tape22 tape30 tape31 |
@@ -118,12 +147,12 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 40 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 41 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 42 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
-| 43 | NotPorted (broadr: not yet ported from NJOY2016: BROADR thinning only (tempef <= 0, thinb)) | 0 |  | tape35 | tape21 tape22 tape23 |
+| 43 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 44 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 45 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 46 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 47 | identical | 8 |  |  | tape21 tape22 tape25 tape35 |
-| 48 | differs | 1 | tape27 36/17964 lines |  |  |
+| 48 | identical | 2 |  |  |  |
 | 49 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
 | 50 | identical | 6 |  |  | tape21 tape22 |
 | 51 | identical | 6 |  |  | tape21 tape22 |
@@ -134,12 +163,12 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 56 | identical | 10 |  |  | tape21 tape30 |
 | 57 | identical | 10 |  |  | tape21 tape30 |
 | 58 | identical | 11 |  |  | tape21 tape30 |
-| 59 | differs | 3 | tape27 36/17964 lines |  | tape30 tape31 |
-| 60 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 0 |  | tape31 tape32 | tape21 tape22 tape23 |
-| 61 | Err: invalid input: acer: unit 61 holds no ACE file | 0 |  | tape71 tape72 |  |
+| 59 | identical | 4 |  |  | tape30 tape31 |
+| 60 | identical | 2 |  |  | tape21 tape22 tape23 |
+| 61 | identical | 2 |  |  |  |
 | 62 | identical | 6 |  |  | tape21 tape22 |
 | 63 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
-| 64 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 0 |  | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
+| 64 | identical | 10 |  |  | tape21 tape30 |
 | 65 | identical | 4 |  |  | tape21 tape22 tape23 |
 | 66 | identical | 11 |  |  | tape21 tape30 |
 | 67 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
@@ -150,16 +179,16 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 72 | identical | 8 |  |  | tape21 tape22 tape23 tape24 tape25 tape27 tape28 |
 | 73 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 74 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
-| 75 | differs | 1 | tape22 32176/98721 lines; tape26 12648/153152 lines | tape27 |  |
-| 76 | NotPorted (ccccr: card reader not yet translated) | 1 |  |  | tape21 tape22 tape23 tape24 tape30 |
+| 75 | identical | 4 |  |  |  |
+| 76 | identical | 2 |  |  | tape21 tape22 tape23 tape24 |
 | 78 | identical | 7 |  |  | tape21 tape30 |
 | 79 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
-| 80 | differs | 0 | tape24 17369/91453 lines |  |  |
+| 80 | identical | 1 |  |  |  |
 | 81 | identical | 1 |  |  | tape21 tape22 |
 | 82 | identical | 18 |  |  |  |
 | 83 | identical | 1 |  |  | tape21 tape30 |
 | 84 | identical | 1 |  |  |  |
 | 85 | identical | 1 |  |  | tape21 tape30 |
-| 86 | differs | 0 | tape25 27/52 lines |  | tape21 tape22 tape24 |
-| 87 | differs | 0 | tape34 130347/130372 lines; tape41 99988/272570 lines | tape42 | tape21 tape22 tape23 tape24 |
+| 86 | identical | 1 |  |  | tape21 tape22 tape24 |
+| 87 | identical | 3 |  |  | tape21 tape22 tape23 tape24 |
 | 88 | identical | 1 |  |  | tape21 tape22 |

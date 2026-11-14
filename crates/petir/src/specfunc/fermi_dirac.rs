@@ -728,7 +728,10 @@ pub fn fermi_dirac_2(x: f64) -> f64 {
     } else if x < 1.0 / ROOT3_DBL_EPSILON {
         cheb(60.0 / x - 1.0, &FD_2_E) * x * x * x
     } else if x < ROOT3_DBL_MAX {
-        x * x * x / 6.0
+        // Upstream writes `1.0/6.0 * x*x*x`, i.e. `(((1/6) x) x) x`
+        // (fermi_dirac.c:1372); ~~`x*x*x/6.0`~~ **CORRECTED 2026-11-13
+        // (gh:#1421)** rounds differently at huge `x`.
+        1.0 / 6.0 * x * x * x
     } else {
         f64::INFINITY
     }
@@ -751,11 +754,13 @@ fn fd_series(x: f64, p: u32) -> f64 {
     let mut sum = term;
     for n in 2..100 {
         let rat = (n as f64 - 1.0) / n as f64;
-        let mut r = 1.0_f64;
+        // Left to right as upstream's `-ex * rat * rat` (fermi_dirac.c:1276,
+        // :1336), not `-ex * (rat*rat)`.
+        let mut f = -ex;
         for _ in 0..p {
-            r *= rat;
+            f *= rat;
         }
-        term *= -ex * r;
+        term *= f;
         sum += term;
         if (term / sum).abs() < DBL_EPSILON {
             break;
@@ -779,11 +784,16 @@ fn fd_series_half(x: f64, whole: u32) -> f64 {
     // is harmless for all three because the break is on convergence.
     for n in 2..200 {
         let rat = (n as f64 - 1.0) / n as f64;
-        let mut r = Real::sqrt(rat);
+        // Upstream: `-ex * rat * rat * sqrt(rat)`, left to right
+        // (fermi_dirac.c:1439, :1487, :1535). ~~`-ex * (sqrt(rat)*rat*rat)`~~
+        // **CORRECTED 2026-11-13 (gh:#1421):** that grouping differs in the
+        // last bit (`fd_3half(-1.000000000001)`).
+        let mut f = -ex;
         for _ in 0..whole {
-            r *= rat;
+            f *= rat;
         }
-        term *= -ex * r;
+        f *= Real::sqrt(rat);
+        term *= f;
         sum += term;
         if (term / sum).abs() < DBL_EPSILON {
             break;

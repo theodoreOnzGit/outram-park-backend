@@ -40,9 +40,15 @@
 //! a **hybrid** — an analytic thermal segment below the break plus a tabulated
 //! tail. The built-in point tables for `iwt = 5, 8, 9` are preserved verbatim
 //! here (see [`epri_cell_lwr_tab1`], [`fast_reactor_tab1`], [`claw_tab1`]) so no
-//! data is lost, but their *evaluation* needs the TAB1 machinery and is left as
+//! data is lost, ~~but their *evaluation* needs the TAB1 machinery and is left as
 //! [`AnalyticWeight`]-unavailable; call sites should treat these `iwt` values as
-//! [`crate::NjoyError::NotPorted`] until the TAB1 weight evaluator lands.
+//! [`crate::NjoyError::NotPorted`] until the TAB1 weight evaluator lands.~~
+//! **CORRECTED 2026-11-13 (gh:#1370):** the tape driver evaluates every `iwt` from 1
+//! to 12 in [`crate::groupr::njoy_panel::getwtf`] (`terpa` for 1, 5, 8, 9 and the
+//! tail of 10; [`getwtf_iwt67`] and [`getwtf_iwt1112`] for 7, 11 and 12, written
+//! statement for statement because [`AnalyticWeight`] takes `e**2` for `exp(2)` and
+//! `sqrt` for `e**half`). [`AnalyticWeight`] itself still covers the analytic ones only.
+//! Gated against NJOY2016.80 by `tests/deck_driver_groupr_weights_vs_njoy2016.rs`.
 
 use petir::mathf::RealMath;
 
@@ -280,6 +286,125 @@ pub(crate) fn getwtf_iwt6(e: f64) -> (f64, f64) {
     (wtf, enext)
 }
 
+/// `getwtf`'s `iwt = 6/7` branch (`groupr.f90:5226-5249`) statement for statement, with
+/// `temp(jtemp)` as `temp_k` (read only for `iwt = 7`). Beside [`getwtf_iwt6`] (kept)
+/// because upstream writes `exp(two)` where [`thermal_fission_fusion`] has `e**2`, and
+/// these can differ in the last bit. Returns `(wtf, enext)` before `getwtf`'s final
+/// `sigfig(enext, 6, 1)` (gh:#1370).
+pub(crate) fn getwtf_iwt67(iwtt: i32, e: f64, temp_k: f64) -> (f64, f64) {
+    const S101: f64 = 1.01;
+    const S1002: f64 = 1.002;
+    const S1005: f64 = 1.005;
+    const WT6A: f64 = 0.054;
+    const WT6B: f64 = 1.578551e-3;
+    const WT6C: f64 = 2.1e6;
+    const WT6D: f64 = 2.32472e-12;
+    const WT6E: f64 = 1.4e6;
+    const WT6F: f64 = 2.5e4;
+    const WT6G: f64 = 1.407e7;
+    const WT6H: f64 = 2.51697e-11;
+    const WT6I: f64 = 1.6e6;
+    const WT6J: f64 = 3.3e5;
+    const EXMIN: f64 = -89.0;
+    const TWO: f64 = 2.0;
+    let mut tt = WT6A;
+    if iwtt > 6 {
+        tt = temp_k * crate::common::phys::BK_EV_PER_K;
+    }
+    let bb = 2.0 * tt;
+    let mut cc = 1.0;
+    if iwtt > 6 {
+        cc = WT6B * TWO.r_exp() / bb.r_powi(2);
+    }
+    if e <= bb {
+        (cc * e * (-e / tt).r_exp(), S101 * e)
+    } else if e <= WT6C {
+        (WT6B / e, S101 * e)
+    } else {
+        let mut wtf = WT6D * e.sqrt() * (-e / WT6E).r_exp();
+        let pow = -((e / WT6F).sqrt() - (WT6G / WT6F).sqrt()).r_powi(2) / 2.0;
+        if pow > EXMIN {
+            wtf += WT6H * pow.r_exp();
+        }
+        let mut enext = S101 * e;
+        if (e - WT6G).abs() <= WT6I {
+            enext = S1005 * e;
+        }
+        if (e - WT6G).abs() <= WT6J {
+            enext = S1002 * e;
+        }
+        (wtf, enext)
+    }
+}
+
+/// `getwtf`'s `iwt = 11/12` branch (`groupr.f90:5278-5300`) statement for statement:
+/// VITAMIN-E, with `temp(jtemp)` as `temp_k` for `iwt = 12`. Upstream's `e**half` is a
+/// real power (`pow`), kept here as [`RealMath::r_powf`], where [`vitamin_e`] (kept) takes
+/// a square root. Returns `(wtf, enext)` before `sigfig(enext, 6, 1)` (gh:#1370).
+pub(crate) fn getwtf_iwt1112(iwtt: i32, e: f64, temp_k: f64) -> (f64, f64) {
+    const S101: f64 = 1.01;
+    const S1002: f64 = 1.002;
+    const CON1: f64 = 7.45824e7;
+    const CON2: f64 = 1.0;
+    const CON3: f64 = 1.44934e-9;
+    const CON4: f64 = 3.90797e-2;
+    const CON5: f64 = 2.64052e-5;
+    const CON6: f64 = 6.76517e-2;
+    const EN1: f64 = 0.414;
+    const EN2: f64 = 2.12e6;
+    const EN3: f64 = 1.0e7;
+    const EN4: f64 = 1.252e7;
+    const EN5: f64 = 1.568e7;
+    const THERM: f64 = 0.0253;
+    const THETA: f64 = 1.415e6;
+    const FUSION: f64 = 2.5e4;
+    const EP: f64 = 1.407e7;
+    const VEB: f64 = 5.0e5;
+    const HALF: f64 = 0.5;
+    let mut enext = S101 * e;
+    let wtf;
+    if e < EN1 {
+        let mut tt = THERM;
+        if iwtt > 11 {
+            tt = temp_k * crate::common::phys::BK_EV_PER_K;
+        }
+        let mut cc = CON1;
+        if iwtt > 11 {
+            cc = CON2 * (EN1 / tt).r_exp() / EN1.r_powi(2);
+        }
+        wtf = cc * e * (-e / tt).r_exp();
+        if enext > EN1 {
+            enext = EN1;
+        }
+    } else if e < EN2 {
+        wtf = CON2 / e;
+        if enext > EN2 {
+            enext = EN2;
+        }
+    } else if e < EN3 {
+        wtf = CON3 * e.r_powf(HALF) * (-e / THETA).r_exp();
+        if enext > EN3 {
+            enext = EN3;
+        }
+    } else if e < EN4 {
+        wtf = CON4 / e;
+        if enext > EN4 {
+            enext = EN4;
+        }
+    } else if e < EN5 {
+        wtf = CON5 * (-5.0 * (e.r_powf(HALF) - EP.r_powf(HALF)).r_powi(2) / FUSION).r_exp();
+        if (e - EP).abs() <= VEB {
+            enext = S1002 * e;
+        }
+        if enext > EN5 {
+            enext = EN5;
+        }
+    } else {
+        wtf = CON6 / e;
+    }
+    (wtf, enext)
+}
+
 // ---------------------------------------------------------------------------
 // iwt = 11 / 12: VITAMIN-E weight function (ORNL-5505/5510)
 // getwtf constants at groupr.f90:5136-5147.
@@ -332,7 +457,7 @@ fn vitamin_e(e: f64, t_dependent: bool, temperature_kelvin: f64) -> f64 {
 }
 
 // ---------------------------------------------------------------------------
-// Built-in tabulated weight point tables (data preserved; evaluation NotPorted).
+// Built-in tabulated weight point tables (data preserved; ~~evaluation NotPorted~~ evaluated by `njoy_panel::getwtf`, CORRECTED 2026-11-13, gh:#1370).
 //
 // These are ENDF TAB1-format arrays: the first 6 reals are the record header
 // (c1, c2, l1, l2, nr, np), followed by `nr` interpolation pairs
@@ -341,8 +466,8 @@ fn vitamin_e(e: f64, t_dependent: bool, temperature_kelvin: f64) -> f64 {
 
 /// EPRI-CELL LWR weight (`iwt = 5`), the concatenation of Fortran `w1` (92) and
 /// `w2` (92) (`groupr.f90:4900-4938`). TAB1 header: `np = 88`, one region with
-/// `INT = 5` (log-log). x in eV, y = phi(E). Preserved verbatim; not yet
-/// evaluable (needs the TAB1 weight evaluator).
+/// `INT = 5` (log-log). x in eV, y = phi(E). Preserved verbatim; ~~not yet
+/// evaluable (needs the TAB1 weight evaluator).~~ Evaluated by `getwtf` (CORRECTED 2026-11-13).
 pub fn epri_cell_lwr_tab1() -> Vec<f64> {
     let mut v = Vec::with_capacity(184);
     v.extend_from_slice(&W1);
@@ -352,14 +477,14 @@ pub fn epri_cell_lwr_tab1() -> Vec<f64> {
 
 /// Fast-reactor weight thermal--1/E--fast-reactor--fission+fusion (`iwt = 8`),
 /// Fortran `w8` (66) (`groupr.f90:4939-4954`). TAB1 header: `np = 29`, one
-/// region with `INT = 5` (log-log). Preserved verbatim; evaluation NotPorted.
+/// region with `INT = 5` (log-log). Preserved verbatim; ~~evaluation NotPorted~~ evaluated by `getwtf` (CORRECTED 2026-11-13).
 pub fn fast_reactor_tab1() -> Vec<f64> {
     W8.to_vec()
 }
 
 /// CLAW weight (`iwt = 9`), Fortran `w9` (106) (`groupr.f90:4955-4976`). TAB1
 /// header: `np = 49`, one region with `INT = 5` (log-log). Preserved verbatim;
-/// evaluation NotPorted (also the tabulated tail of the hybrid `iwt = 10`).
+/// ~~evaluation NotPorted~~ evaluated by `getwtf` (CORRECTED 2026-11-13), also as the tabulated tail of the hybrid `iwt = 10`.
 pub fn claw_tab1() -> Vec<f64> {
     W9.to_vec()
 }

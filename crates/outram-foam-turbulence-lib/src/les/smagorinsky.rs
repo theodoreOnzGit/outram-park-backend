@@ -79,11 +79,13 @@
 //!
 //! ## Honest scope — what is NOT modelled
 //!
-//! * **Only the `cubeRootVol` delta** (`Δ = V^(1/3)`) is implemented. No
-//!   `maxDeltaxyz`, no `smooth`, and in particular **no van Driest near-wall
-//!   damping** — so the raw model over-predicts `ν_sgs` in the viscous
-//!   sublayer, exactly as unmodified OpenFOAM Smagorinsky does. Wall damping
-//!   would require a wall-distance field and the `vanDriest` delta wrapper.
+//! * **Only the `cubeRootVol` delta** (`Δ = V^(1/3)`) is used by this model.
+//!   ~~No `maxDeltaxyz`, no `smooth`, and in particular no van Driest near-wall
+//!   damping~~ **CORRECTED 2026-11-14:** `maxDeltaxyz`, `IDDESDelta` and the
+//!   `vanDriest` pieces exist as functions in [`super::deltas`] (README slice 9;
+//!   `smooth` does not), but this model does not call them, so the raw model
+//!   over-predicts `ν_sgs` in the viscous sublayer, exactly as unmodified
+//!   OpenFOAM Smagorinsky does without a wrapper.
 //! * The compressible / two-phase `alpha`, `rho`, `alphaRhoPhi` weighting from
 //!   the templated base class is not carried; this is the incompressible
 //!   (`ν`-based) specialisation, matching the rest of this crate.

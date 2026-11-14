@@ -14,6 +14,7 @@
 use crate::dtfr::gendf::GendfGroupRecord;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
+use crate::errorr::gendf::{GendfKind, GendfTape};
 use crate::NjoyError;
 
 /// One reaction section of a temperature block.
@@ -158,4 +159,83 @@ pub fn read_material(tape: &Tape, mat: i32, ngnd: usize) -> Result<GendfMaterial
         egb,
         blocks,
     })
+}
+
+/// [`read_material`] on a GENDF held as records ([`GendfTape`]), gh:#1369: what
+/// `wminit` reads from a **blocked-binary** GENDF unit (`ngendf < 0`), GROUPR's
+/// words at full precision, where [`read_material`] reads a coded tape's printed
+/// values. The walk is `wminit`'s (`wimsr.f90:246-421`): every MF=1/MT=451 of
+/// `mat` starts a temperature block, and every later section with MF >= 3 is
+/// added to it. [`read_material`] is left as it was.
+///
+/// # Errors
+/// As [`read_material`].
+pub fn read_material_records(tape: &GendfTape, mat: i32, ngnd: usize) -> Result<GendfMaterial, NjoyError> {
+    let mut blocks: Vec<TempBlock> = Vec::new();
+    let mut iza = 0i32;
+    let mut awr = 0.0f64;
+    let recs = &tape.records;
+    let mut i = 0usize;
+    while i < recs.len() {
+        let head = &recs[i];
+        if head.kind != GendfKind::Cont || head.mat != mat {
+            i += 1;
+            continue;
+        }
+        // A section: its CONT head, then the LISTs up to the SEND.
+        let mut j = i + 1;
+        let mut lists = Vec::new();
+        while j < recs.len() && recs[j].kind == GendfKind::List {
+            lists.push(&recs[j]);
+            j += 1;
+        }
+        i = j;
+        if head.mf == 1 && head.mt == 451 {
+            let Some(list) = lists.first() else {
+                return Err(NjoyError::EndfParse("wimsr::wminit: MF=1/MT=451 without its LIST".into()));
+            };
+            if blocks.is_empty() {
+                iza = head.c[0].round() as i32;
+                awr = head.c[1];
+            }
+            let nz = head.n[1];
+            let ntw = head.n[3];
+            let ngn = list.n[0];
+            let off = ntw.max(0) as usize;
+            let nzu = nz.max(0) as usize;
+            let sigz = list.data.get(off..off + nzu).map(|s| s.to_vec()).unwrap_or_default();
+            let ngn1 = (ngn.max(0) as usize) + 1;
+            let egn = list
+                .data
+                .get(off + nzu..off + nzu + ngn1)
+                .map(|s| s.to_vec())
+                .ok_or_else(|| NjoyError::EndfParse("wimsr::wminit: header LIST truncated".into()))?;
+            blocks.push(TempBlock { temp: list.c[0], nz, ntw, sigz, ngn, egn, sections: Vec::new() });
+            continue;
+        }
+        let Some(block) = blocks.last_mut() else {
+            continue;
+        };
+        if head.mf < 3 || head.mt == 0 {
+            continue;
+        }
+        let (nl, nz) = (head.n[0], head.n[1]);
+        let records = lists
+            .iter()
+            .map(|l| GendfGroupRecord { nl, nz, ng2: l.n[0], ig2lo: l.n[1], ig: l.n[3], data: l.data.clone() })
+            .collect();
+        block.sections.push(GendfSection { mf: head.mf, mt: head.mt, nl, nz, records });
+    }
+    let Some(first) = blocks.first() else {
+        return Err(NjoyError::EndfParse("wimsr::wminit: desired material is not on gendf tape".into()));
+    };
+    if first.ngn != ngnd as i32 {
+        return Err(NjoyError::EndfParse(format!(
+            "wimsr::wminit: incorrect group structure (gendf has {} groups, deck says {ngnd})",
+            first.ngn
+        )));
+    }
+    let mut egb = first.egn.clone();
+    egb.reverse();
+    Ok(GendfMaterial { iza, iznum: iza / 1000, awr, egb, blocks })
 }

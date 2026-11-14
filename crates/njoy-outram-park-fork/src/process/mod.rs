@@ -183,6 +183,7 @@ impl NuclearCrossSections {
             endf_binary: false,
             iopp: true,
             ismooth: true,
+            gamsum_pendf: None,
         };
         crate::acer::assemble(&self.tape, self.mat, &self.pendf, K_B_MEV * t_k, self.settings.ace_suffix, &modules)
     }

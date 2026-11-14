@@ -45,13 +45,9 @@ const QW10: [f64; 10] = [
 ];
 
 /// The `save`d state of `getwtf`'s tabulated branch (`save ip,ir,ipl,step`, `:5173`).
-#[derive(Debug, Clone)]
-struct WtfState {
-    ip: usize,
-    ir: usize,
-    ipl: usize,
-    step: f64,
-}
+/// ~~A struct here~~ Since 2026-11-13 (gh:#1370) the one in [`crate::groupr::genwtf`],
+/// which `iwt = 1` and `10` update too.
+type WtfState = crate::groupr::genwtf::TabState;
 
 thread_local! {
     static WTF: std::cell::RefCell<WtfState> = const { std::cell::RefCell::new(WtfState { ip: 2, ir: 1, ipl: 0, step: 1.10 }) };
@@ -81,11 +77,15 @@ pub fn getwtf_init() {
 /// fission, after [`genwtf_iwt4`]), `iwt = 6` (thermal -- `1/E` -- fission + fusion;
 /// both since 2026-11-13, gh:#1369 round 5) and the built-in
 /// tabulated weights `iwt = 5, 8, 9` (`terpa` over `wght`, `:5186-5196`):
-/// `(wtf, enext, idis)`.
+/// `(wtf, enext, idis)`. **Since 2026-11-13 (gh:#1370)** also `iwt = 1` (card 8b, after
+/// [`crate::groupr::genwtf::genwtf_iwt1`]), `iwt = 7` and `12` (at `temp(jtemp)`,
+/// [`crate::groupr::genwtf::getwtf_set_temperature`]),
+/// `iwt = 10` (CLAW with a thermal Maxwellian below `0.15 T/300`) and `iwt = 11`.
 ///
 /// # Errors
-/// [`NjoyError::NotPorted`] for the other `iwt`; [`NjoyError::InvalidInput`] for
-/// `iwt = 4` before [`genwtf_iwt4`].
+/// [`NjoyError::NotPorted`] for `iwt = 0`, where upstream's `getwtf` sets no `wtf`;
+/// [`NjoyError::InvalidInput`] for `iwt = 4` before [`genwtf_iwt4`], `iwt = 1` before
+/// `genwtf_iwt1`, or `iwt = 7, 10, 12` before `getwtf_set_temperature`.
 pub fn getwtf(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
     if e == 0.0 {
         getwtf_init();
@@ -130,7 +130,16 @@ pub fn getwtf(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
             None => return Err(NjoyError::InvalidInput("groupr getwtf: iwt = 4 without genwtf's card 8c (eb, tb, ec, tc)".into())),
         },
         6 => crate::groupr::weights::getwtf_iwt6(e),
-        _ => return Err(NjoyError::NotPorted("groupr getwtf for iwt other than 2, 3, 4, 5, 6, 8 and 9 in the tape driver")),
+        // gh:#1370: `iwt = 1` (card 8b), 7, 10, 11 and 12 (`:5186-5300`).
+        n @ (1 | 10) => {
+            let (wtf, enext, id) = WTF.with(|w| crate::groupr::genwtf::getwtf_iwt1_or_10(&mut w.borrow_mut(), n, e))?;
+            idis = id;
+            (wtf, enext)
+        }
+        7 => crate::groupr::weights::getwtf_iwt67(7, e, crate::groupr::genwtf::temp_jtemp()?),
+        11 => crate::groupr::weights::getwtf_iwt1112(11, e, 0.0),
+        12 => crate::groupr::weights::getwtf_iwt1112(12, e, crate::groupr::genwtf::temp_jtemp()?),
+        _ => return Err(NjoyError::NotPorted("groupr getwtf for iwt = 0 (wtf is never set upstream) in the tape driver")),
     };
     if matches!(iwt.abs(), 2 | 3) {
         enext = 1.01 * e;

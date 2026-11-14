@@ -63,6 +63,8 @@
 //! - [`pimple`] — drift-flux **mixture** PISO/PIMPLE: a Rhie-Chow
 //!   pressure-correction loop on the single mixture-momentum field, advancing
 //!   `U_m`–`p`–`α` together.
+//! - [`two_fluid_pimple_esi`] — the ESI v2506 `twoPhaseEulerFoam` step (gh:#1363
+//!   row 5), verified against the real solver on a reduced bubbleColumn.
 //! - [`two_fluid_pimple`] — **shared-pressure Euler-Euler** PISO: two per-phase
 //!   momentum predictors coupled through one mixture-continuity pressure
 //!   equation, advancing `U_d`–`U_c`–`p`–`α_d` together.
@@ -85,6 +87,7 @@ pub mod heat_transfer;
 pub mod pimple;
 pub mod two_fluid;
 pub mod two_fluid_pimple;
+pub mod two_fluid_pimple_esi;
 pub mod wall_boiling;
 
 /// Errors produced by the multiphase solvers in this crate.

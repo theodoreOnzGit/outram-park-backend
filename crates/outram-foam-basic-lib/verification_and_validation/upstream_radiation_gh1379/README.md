@@ -111,7 +111,7 @@ Sizes are ESI v2506 lines (`.C` + `.H`) under `src/thermophysicalModels/radiatio
 
 | piece | lines | what it needs | verdict |
 |---|---|---|---|
-| `viewFactor` | 1,470 (+ `viewFactorsGen`, `createViewFactors` ray-shooting/Hottel/2AI/2LI generators) | coarse-face agglomeration (`singleCellFvMesh`, `faceAgglomerate`), dense LU solve of the radiosity system, a precomputed view-factor matrix (file or generator), `greyDiffusiveViewFactor` BC, serial path only needed here (the parallel gather code is skipped) | medium-large: child issue |
+| `viewFactor` | 1,470 (+ `viewFactorsGen`, `createViewFactors` ray-shooting/Hottel/2AI/2LI generators) | coarse-face agglomeration (`singleCellFvMesh`, `faceAgglomerate`), dense LU solve of the radiosity system, a precomputed view-factor matrix (file or generator), `greyDiffusiveViewFactor` BC, serial path only needed here (the parallel gather code is skipped) | medium-large: child issue **CORRECTED 2026-11-13: ported in gh:#1529 (direct solver; reads `viewFactorsGen` output, which is not ported); record `../upstream_view_factor_gh1529/README.md`** |
 | `fvDOM` | 2,668 | `radiativeIntensityRay` per direction (nPhi x nTheta), per-ray transport equation with `fvm::div` upwind and a `GaussSeidel` ray-coupling loop, `blackBodyEmission`, `greyDiffusiveRadiation` BC, wide-band `absorptionCoeffs` | large: child issue |
 | `solarLoad`, `solarCalculator` | 2,903 | ray-casting onto surfaces (searchableSurface), sky models | out of scope for HTGR |
 | `opaqueSolid` | 238 | trivial wrapper | with viewFactor |
@@ -119,7 +119,7 @@ Sizes are ESI v2506 lines (`.C` + `.H`) under `src/thermophysicalModels/radiatio
 | scatter / soot | 590 / 911 | `constantScatter`, `sootModel` | small, not needed for gray P1 |
 | `boundaryRadiationProperties` | 2,737 | per-face / mixed / wavelength-dependent wall properties | `lookup` constant is done |
 
-Remaining for HTGR relevance: `viewFactor` (surface cavities such as RPV to RCCS) is the
+Remaining for HTGR relevance (~~`viewFactor` not yet ported~~ **CORRECTED 2026-11-13: `viewFactor` is ported, gh:#1529; the appbuilder coupling is not**): `viewFactor` (surface cavities such as RPV to RCCS) is the
 better test of the htr10_rz effective-conductivity assumption than P1, which models a
 participating medium. Children are filed on the issue (see its comments).
 
@@ -132,9 +132,9 @@ participating medium. Children are filed on the issue (see its comments).
 
 ## Remaining / deferred
 
-- Coupling of `P1Solution::st_matrix`/`sh_matrix` into `outram-foam-appbuilder-lib` (`solvers::energy`,
+- ~~Coupling of `P1Solution::st_matrix`/`sh_matrix` into `outram-foam-appbuilder-lib` (`solvers::energy`,
   `cht_multi_region_foam`, `htr10_rz`) is NOT done: wiring touches solver loops and needs its own
-  V&V against a radiation tutorial (`buoyantSimpleFoam/hotRadiationRoom`). Deferred, recorded on the issue.
+  V&V against a radiation tutorial (`buoyantSimpleFoam/hotRadiationRoom`). Deferred, recorded on the issue.~~ **DONE 2026-11-13 (gh:#1531):** `solvers::energy` and the fluid regions of `cht_multi_region_foam` carry opt-in P1 (`EnergyEquation::with_radiation`), compared with ESI `chtMultiRegionFoam` + P1 on the gh:#1363 two-region case (a reduced coupled case, not `hotRadiationRoom`): `outram-foam-appbuilder-lib/verification_and_validation/upstream_radiation_gh1531/README.md`. `htr10_rz` is not coupled (same record, section "htr10_rz").
 - Coupled (cyclic/AMI/processor) and wedge patches are not exercised: upstream skips `qr` on `coupled()` patches; the port's `P1Model` has no coupled-patch variant and treats every non-Marshak patch via `ZeroGradient` only when asked.
 - Non-orthogonal correction (`corrected`) of the G Laplacian is not used; `uncorrected` was the
   scheme compared.

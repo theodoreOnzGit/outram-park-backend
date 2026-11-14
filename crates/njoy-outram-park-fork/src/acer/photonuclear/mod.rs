@@ -26,7 +26,9 @@
 //! for byte on the synthetic Z6 tape and line for line on upstream decks 57,
 //! 58, 66 and 78 (Bi-209, Co-59, Pu-239, He-3). It refuses `ielas = 1`, ~~MF=4,
 //! MF=5 for a production reaction~~ and MF=6 `LAW = 4` by name (**CORRECTED 2026-11-13 (gh:#1369, deck 56):**
-//! MF=4/MF=5 are translated in `mf45`, and deck 56, U-235, is identical); the list is in
+//! MF=4/MF=5 are translated in `mf45`, and deck 56, U-235, is identical; **CORRECTED 2026-11-13
+//! (gh:#1369, deck 64):** `LAW = 4`'s recoil heating is translated, only `LAW = 4` for an emitted
+//! light particle is refused); the list is in
 //! `verification_and_validation/acer_photonuclear_vs_njoy2016.md`.
 //!
 //! ## Reference data

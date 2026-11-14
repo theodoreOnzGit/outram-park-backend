@@ -43,12 +43,15 @@ pub struct AutoReaction {
     pub lfs: i32,
     /// `isom`, the isomer count of `conver` (`mlfs8`), 0 otherwise.
     pub isom: i32,
+    /// Read from card 9a (`mfd = -1`, `groupr.f90:655-676`): `izam` and the
+    /// head's C2 are built from `izar` and `lfs` there ([`Self::head_c2`]).
+    pub card9a: bool,
 }
 
 impl AutoReaction {
     /// A plain `(mfd, mtd)`.
     pub fn plain(mfd: i32, mtd: i32) -> Self {
-        Self { mfd, mtd, lfs: 0, isom: 0 }
+        Self { mfd, mtd, lfs: 0, isom: 0, card9a: false }
     }
 
     /// `izam` (`:705-711`): the product written in the section head's C2;
@@ -66,6 +69,21 @@ impl AutoReaction {
         } else {
             10 * m + self.lfs
         }
+    }
+
+    /// The production section head's C2 (`:871-878`): `scr(2) = izam`, then
+    /// `fzam` when it is non-zero. Only card 9a sets `fzam`, to
+    /// `real(izar) + real(lfs)/1000` (`:674`), the `ZZZAAA.SSS` form; every
+    /// other request leaves it 0 (`:620`) and writes `izam`.
+    pub fn head_c2(&self) -> f64 {
+        if self.card9a {
+            let fzam = f64::from(self.izar()) + f64::from(self.lfs) / 1000.0;
+            if fzam != 0.0 {
+                return fzam;
+            }
+            return f64::from(self.izar() * 1000 + self.lfs);
+        }
+        f64::from(self.izam())
     }
 
     /// `izar` (`:704-708`): the product `ZA`, `-1` for `mfd = 40 000 000`.
@@ -209,6 +227,33 @@ pub fn conver_lists(nend: &Tape, mat: i32) -> Result<ConverLists, NjoyError> {
     Ok(l)
 }
 
+/// `mfchk` (`groupr.f90:1526-1573`), called for a card-9 request that is not
+/// automatic (`iauto = 0`, `:716`): `mfd = 13` becomes 12 when `mt` is in MF=12's
+/// list, and `mfd = 16` becomes 17 when `mt` is in MF=13's. A list entry `-m` after
+/// `n` covers `n ..= m`. Any other `mf` is returned unchanged (gh:#1370).
+///
+/// `mfchk2` (`:1575-1597`, `mfd = 21-26` to `31-36` for MF=4 recoils) is not
+/// translated: the tape driver refuses `mfd = 21-36` before it would matter.
+pub fn mfchk(mf: i32, mt: i32, lists: &ConverLists) -> i32 {
+    let (list, to) = match mf {
+        13 => (&lists.mf12, 12),
+        16 => (&lists.mf13, 17),
+        _ => return mf,
+    };
+    for (i, &m) in list.iter().enumerate() {
+        if m == 0 {
+            return mf;
+        }
+        if m == mt {
+            return to;
+        }
+        if i > 0 && m <= 0 && list[i - 1] <= mt && -m >= mt {
+            return to;
+        }
+    }
+    mf
+}
+
 /// Expand a range-compressed list from `mtd` (the last MT visited): a negative
 /// entry `-m` visits `mtd + 1 ..= m` (at least once, as `:731-732` does).
 fn expand(list: &[i32], mtd: &mut i32, mfd: i32, out: &mut Vec<AutoReaction>) {
@@ -276,7 +321,7 @@ pub fn nextr_all(mfd: i32, lists: &ConverLists, pend: &Tape, mat: i32, mtd: &mut
                     _ => return Err(NjoyError::NotPorted("groupr auto mode: MF=8 LMF other than 3, 6, 9 and 10")),
                 };
                 *mtd = e.mt;
-                out.push(AutoReaction { mfd: base + e.izan10, mtd: e.mt, lfs: e.lfs, isom: e.isom });
+                out.push(AutoReaction { mfd: base + e.izan10, mtd: e.mt, lfs: e.lfs, isom: e.isom, card9a: false });
             }
         }
         _ => return Err(NjoyError::NotPorted("groupr auto mode for this mfd (charged-particle lists)")),
@@ -340,11 +385,21 @@ mod tests {
         assert_eq!(l, vec![16, -17, 22, 28]);
     }
 
+    /// `mfchk` on a list `[4, 51, -53, 103]`: an exact entry, the inside of a range
+    /// and its ends switch the file; an MT outside the list or another `mf` does not.
+    #[test]
+    fn mfchk_switches_on_an_entry_or_inside_a_range() {
+        let l = ConverLists { mf13: vec![4, 51, -53, 103], mf12: vec![102], ..ConverLists::default() };
+        for (mf, mt, want) in [(16, 4, 17), (16, 52, 17), (16, 51, 17), (16, 53, 17), (16, 54, 16), (16, 102, 16), (13, 102, 12), (13, 4, 13), (3, 4, 3)] {
+            assert_eq!(mfchk(mf, mt, &l), want, "mfchk({mf}, {mt})");
+        }
+    }
+
     #[test]
     fn production_izam_and_izar() {
-        let r = AutoReaction { mfd: 20_000_000 + 10 * 76183, mtd: 5, lfs: 2, isom: 1 };
+        let r = AutoReaction { mfd: 20_000_000 + 10 * 76183, mtd: 5, lfs: 2, isom: 1, card9a: false };
         assert_eq!((r.izam(), r.izar()), (761832, 76183));
-        let f = AutoReaction { mfd: 40_000_000, mtd: 18, lfs: 0, isom: 0 };
+        let f = AutoReaction { mfd: 40_000_000, mtd: 18, lfs: 0, isom: 0, card9a: false };
         assert_eq!((f.izam(), f.izar()), (-1, -1));
     }
 }

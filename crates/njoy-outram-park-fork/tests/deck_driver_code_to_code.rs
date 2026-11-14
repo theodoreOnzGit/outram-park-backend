@@ -270,7 +270,7 @@ fn upstream_test_01_front_half_through_deck_driver() {
     let full = std::fs::read_to_string(&deck_path).unwrap();
 
     // (a) every card of the real deck is read, to `stop`
-    let parsed = run_deck(&full, &DeckOptions { workdir: None, parse_only: true }).unwrap();
+    let parsed = run_deck(&full, &DeckOptions { workdir: None, parse_only: true, run_date: None }).unwrap();
     println!("test 01 modules parsed: {:?}", parsed.modules);
 
     // (b) front half: the real deck's cards up to THERMR, plus MODER conversions
@@ -293,7 +293,7 @@ fn upstream_test_01_front_half_through_deck_driver() {
         .unwrap();
     assert!(status.success(), "NJOY2016 binary failed");
 
-    let run = run_deck(&deck, &DeckOptions { workdir: Some(ours_dir.clone()), parse_only: false }).unwrap();
+    let run = run_deck(&deck, &DeckOptions { workdir: Some(ours_dir.clone()), parse_only: false, run_date: None }).unwrap();
     assert_eq!(run.blocked, None);
     assert_eq!(run.modules.iter().filter(|m| *m == "heatr").count(), 1);
 
@@ -306,7 +306,7 @@ fn upstream_test_01_front_half_through_deck_driver() {
     assert!(all.is_empty(), "{}", all.join("\n"));
 
     // (c) the whole deck stops at THERMR, naming it
-    let full_run = run_deck(&full, &DeckOptions { workdir: None, parse_only: false });
+    let full_run = run_deck(&full, &DeckOptions { workdir: None, parse_only: false, run_date: None });
     // without tape20 on disk the first MODER cannot load; the block is the front half only
     assert!(full_run.is_err() || full_run.unwrap().blocked.is_some());
     let _ = std::fs::remove_dir_all(&tmp);

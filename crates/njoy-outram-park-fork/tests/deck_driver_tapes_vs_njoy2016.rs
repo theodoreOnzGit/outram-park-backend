@@ -42,6 +42,8 @@ use std::process::Command;
 
 use njoy_outram_park_fork::deck::{run_deck, DeckOptions};
 
+mod common;
+
 fn njoy_root() -> PathBuf {
     std::env::var("NJOY2016_ROOT")
         .map(PathBuf::from)
@@ -90,6 +92,20 @@ fn run_pair_decks_extra(
     deck_njoy: &str,
     deck_ours: &str,
 ) -> Option<(PathBuf, PathBuf)> {
+    run_pair_decks_dated(root, tag, resource, extra, deck_njoy, deck_ours, None)
+}
+
+/// [`run_pair_decks_extra`]; this crate's run is dated `date` when given (an
+/// ablation, gh:#1549), else with NJOY's own date.
+fn run_pair_decks_dated(
+    root: &Path,
+    tag: &str,
+    resource: &str,
+    extra: &[(&str, u32)],
+    deck_njoy: &str,
+    deck_ours: &str,
+    date: Option<&str>,
+) -> Option<(PathBuf, PathBuf)> {
     let bin = root.join("build/njoy");
     let res = root.join("tests/resources").join(resource);
     // An empty `resource`: the deck reads no tape20 (LEAPR-only decks).
@@ -120,14 +136,12 @@ fn run_pair_decks_extra(
         }
     }
     std::fs::write(theirs.join("deck"), deck_njoy).unwrap();
-    let st = Command::new("sh")
-        .arg("-c")
-        .arg(format!("{} < deck > log 2>&1", bin.display()))
-        .current_dir(&theirs)
-        .status()
-        .unwrap();
-    assert!(st.success(), "NJOY2016 binary failed on {tag}");
-    let run = run_deck(deck_ours, &DeckOptions { workdir: Some(ours.clone()), parse_only: false }).unwrap();
+    // NJOY's own date goes to this crate, so a run across midnight cannot
+    // stamp the two sides differently (gh:#1549).
+    let (ok, njoy_date) = common::run_njoy_dated(&bin, &theirs);
+    assert!(ok, "NJOY2016 binary failed on {tag}");
+    let date = date.map_or(njoy_date, str::to_string);
+    let run = run_deck(deck_ours, &DeckOptions { workdir: Some(ours.clone()), parse_only: false, run_date: Some(date) }).unwrap();
     assert_eq!(run.blocked, None, "{tag}: the deck must run to its end");
     Some((ours, theirs))
 }
@@ -228,6 +242,29 @@ fn test_10_ace_and_pendf_are_identical() {
     for dir in [&ours, &o2] {
         let _ = std::fs::remove_dir_all(dir.parent().unwrap());
     }
+}
+
+/// **Deck `R4` (gh:#1546): RECONR's PENDF of an ENDF-4 neutron evaluation**,
+/// line by line against NJOY2016.80. Upstream deck 02 (Pu-238 from ENDF/B-IV
+/// `t404`, MAT 1050) cut before BROADR, with `moder -22 28` added. No upstream
+/// deck compares this tape: decks 02, 10 and 11 hand it on to BROADR.
+///
+/// For `iverf = 4`, `recout` writes the entry count in the head record (`:5036`)
+/// and again in the TEMP record (`scr(6)=nxcc+nmtr+i152` just before `hdatio`,
+/// `:5092-5094`). Predicted before the run (gh:#1546): before the fix, exactly 1
+/// line differs (MF=1/MT=451's TEMP record, `N2` 0 against the count); after
+/// it, 0. **Measured (2026-11-14, release, NJOY2016.80): before the fix 1 line
+/// (line 3, `1050 1451`), after it 0 of the tape's lines.** The pre-fix run is
+/// the ablation: the old branch fails this gate.
+#[test]
+fn test_r4_reconr_endf4_pendf_is_identical() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "02", Some("broadr"), "moder\n -22 28/\n") else { return };
+    let Some((ours, njoy)) = run_pair(&root, "r4", "t404", &deck) else { return };
+    let d = differing_lines(&ours.join("tape28"), &njoy.join("tape28"));
+    println!("deck R4 unit 28: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+    assert!(d.is_empty(), "deck R4 unit 28: {} lines differ from NJOY2016", d.len());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
 
 /// **Test 19 (Pu-241 ENDF/B-VI.3): `moder; reconr; broadr; unresr; heatr; purr;
@@ -869,7 +906,7 @@ fn acer_check_deck(case: &str, resource: &str, extra: &[(&str, u32)], units: &[u
         let name = format!("tape{unit}");
         let d = differing_lines(&ours.join(&name), &njoy.join(&name));
         println!("deck {case} unit {unit}: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
-        // The date field of the ACE header is the run's own date on both sides.
+        // The date field of the ACE header is NJOY's run date on both sides (gh:#1549).
         assert!(d.is_empty(), "deck {case} unit {unit}: {} lines differ from NJOY2016", d.len());
     }
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
@@ -1340,33 +1377,60 @@ fn deck_first_acers(root: &Path, case: &str, n: usize) -> Option<String> {
 
 /// ACER `iopt = 2` (gh:#1369): the first `n` ACER modules of upstream deck `case`
 /// run by NJOY2016.80 and by this crate; each listed unit (the thermal ACE files
-/// and the directory) is compared line by line, the date line included (both
-/// sides stamp the run's own date).
+/// and the directory) is compared line by line, the date line included ~~(both
+/// sides stamp the run's own date)~~ **CORRECTED 2026-11-14 (gh:#1549):** both
+/// sides stamp NJOY's date, which this crate is given through
+/// `DeckOptions::run_date`; stamping each side's own date failed once on a run
+/// that crossed midnight.
 fn thermal_acer_deck(case: &str, n: usize, res: &[(&str, u32)], units: &[u32]) -> Option<()> {
+    let bad = thermal_acer_differences(case, n, res, units, None)?;
+    assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
+    Some(())
+}
+
+/// The differing lines `(unit, line numbers)` of [`thermal_acer_deck`]'s run,
+/// with this crate's run dated `date` when given (else NJOY's).
+fn thermal_acer_differences(case: &str, n: usize, res: &[(&str, u32)], units: &[u32], date: Option<&str>) -> Option<Vec<(u32, Vec<usize>)>> {
     let root = njoy_root();
     let deck = deck_first_acers(&root, case, n)?;
     let (r0, rest) = res.split_first().unwrap();
-    let (ours, njoy) = run_pair_decks_extra(&root, &format!("ta{case}"), r0.0, rest, &deck, &deck)?;
+    let tag = format!("ta{case}{}", if date.is_some() { "d" } else { "" });
+    let (ours, njoy) = run_pair_decks_dated(&root, &tag, r0.0, rest, &deck, &deck, date)?;
     let mut bad = Vec::new();
     for &u in units {
         let name = format!("tape{u}");
         let d = differing_lines(&ours.join(&name), &njoy.join(&name));
         println!("deck {case} unit {u}: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
         if !d.is_empty() {
-            bad.push((u, d.len()));
+            bad.push((u, d.iter().map(|x| x.0).collect()));
         }
     }
     if std::env::var_os("KEEP_DECK_DIRS").is_none() {
         let _ = std::fs::remove_dir_all(ours.parent().unwrap());
     }
-    assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
-    Some(())
+    Some(bad)
 }
 
 /// Deck 25 (H in H2O, three temperatures, `iwt` 0/1/2): ACE units 70, 71, 72 and directory unit 75.
 #[test]
 fn test_25_thermal_ace_and_directory() {
     thermal_acer_deck("25", 3, &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[70, 71, 72, 75]);
+}
+
+/// **Ablation of gh:#1549's fix**: deck 25 with this crate's run dated
+/// `01/01/99`, not NJOY's date. Exactly the header line (line 1) of each ACE
+/// unit differs, and the directory unit does not (it carries no date), so the
+/// date line is compared and a run across midnight would fail
+/// `test_25_thermal_ace_and_directory` without the shared date.
+///
+/// Predicted before the run (2026-11-14, gh:#1549): `[(70, [1]), (71, [1]),
+/// (72, [1])]`. Measured (release, NJOY2016.80): the same; with NJOY's date
+/// shared, all four units are identical.
+#[test]
+fn test_25_a_different_date_differs_in_the_header_only() {
+    let res = [("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)];
+    let Some(bad) = thermal_acer_differences("25", 3, &res, &[70, 71, 72, 75], Some("01/01/99")) else { return };
+    assert_eq!(bad, vec![(70, vec![1]), (71, vec![1]), (72, vec![1])]);
 }
 
 /// Deck 49 (Zr in ZrH, `LTHR = 2`, `iwt = 2`): ACE unit 61 and directory unit 71.
@@ -1809,31 +1873,116 @@ fn test_33_leapr_whole_deck() {
     let _ = whole_deck_units("33", "", &[], &[24, 34]);
 }
 
-/// Deck 80 (H in HF, `nphon = 108`, 200 alphas, 1 325 betas from 1e-13).
-/// **Result (2026-11-13): 17 369 of 91 453 lines differ**, all in MF=7/MT=4
+/// Deck 80 (H in HF, ~~`nphon = 108`~~ **CORRECTED 2026-11-13:** `mat = 8`,
+/// `za = 108` (card 4), `nphon` the default 100; 200 alphas, 1 325 betas from
+/// 1e-13; a diffusive translational term, `twt = 6.3e-3`, `c = 49.54`).
+/// ~~**Result (2026-11-13): 17 369 of 91 453 lines differ**, all in MF=7/MT=4
 /// and all by one unit in the last printed (sixth) figure of S(alpha, beta),
 /// e.g. `1.30695-13` against NJOY's `1.30696-13`. The card stream and MF=1
 /// are identical. Cause not investigated (gh:#1369); ignored with that reason,
-/// not loosened.
+/// not loosened.~~
+/// **CORRECTED 2026-11-13 (gh:#1369):** the 17 369 lines were 24 264 values,
+/// and only 4 742 differed in the last figure. 19 522 differed by more than
+/// 3e-5 relative, and in **every** one NJOY's value was the larger: a missing
+/// positive term. Cause, read upstream: `trans` allocates `sb` once and keeps
+/// it across the alpha and beta loops (`leapr.f90:883`). When `sbfill` stops
+/// one entry short of `2*nbt-1`, the convolution reads the value an earlier
+/// call left there. The port padded a fresh array with zero. Fix:
+/// `leapr::translation::sbfill` writes one persistent buffer in place.
+/// Prediction (posted before the change): identical. **Result: 0 differing
+/// lines of 91 453.**
 #[test]
-#[ignore = "deck 80: 17 369 lines of MF=7/MT=4 differ in the last printed figure; cause not investigated (gh:#1369)"]
 fn test_80_leapr_whole_deck() {
     let _ = whole_deck_units("80", "", &[], &[24]);
+}
+
+/// The whole deck `case`: text units compared line by line, binary units (files
+/// this crate writes as raw bytes, such as CCCCR's) byte for byte.
+fn whole_deck_text_and_bytes(case: &str, resource: &str, text: &[u32], binary: &[u32]) -> Option<()> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, None, "")?;
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("wb{case}"), resource, &[], &full, &full)?;
+    let mut bad = Vec::new();
+    for &u in text {
+        let name = format!("tape{u}");
+        let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+        let n = std::fs::read_to_string(njoy.join(&name)).unwrap().lines().count();
+        println!("deck {case} unit {u}: {} differing lines of {n}", d.len());
+        if !d.is_empty() {
+            bad.push(u);
+        }
+    }
+    for &u in binary {
+        let name = format!("tape{u}");
+        let a = std::fs::read(ours.join(&name)).unwrap_or_default();
+        let b = std::fs::read(njoy.join(&name)).unwrap();
+        let first = a.iter().zip(&b).position(|(x, y)| x != y);
+        println!("deck {case} unit {u}: {} bytes ours, {} NJOY's, first differing byte {first:?}", a.len(), b.len());
+        if a != b || b.is_empty() {
+            bad.push(u);
+        }
+    }
+    if std::env::var_os("DECK_KEEP").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
+    Some(())
+}
+
+/// **Deck 02 (Pu-238 ENDF/B-IV), the whole deck, CCCCR included** (gh:#1369):
+/// ISOTXS (26) and BRKOXS (27), gfortran unformatted files, byte for byte, and
+/// MODER's text copies of the PENDF (28) and GENDF (29) line by line.
+///
+/// CCCCR is `ccccr.f90` translated (`crate::ccccr`): 50 groups, `maxord = 4`,
+/// `ifopt = 1`, `nsblok = 1`, `ichix = -1` (chi vector from the GROUPR flux);
+/// BRKOXS at 3 temperatures and 6 sigma-zeros from the binary GENDF (unit -25).
+/// Prediction (gh:#1369, posted before the code ran): both files byte-identical.
+/// **Result (2026-11-13): 42 128 and 23 164 bytes, identical; 28 and 29
+/// identical.**
+#[test]
+fn test_02_ccccr_whole_deck() {
+    let _ = whole_deck_text_and_bytes("02", "t404", &[28, 29], &[26, 27]);
+}
+
+/// **Deck 76 (U-235 ENDF/B-VIII.0), the whole deck, CCCCR included** (gh:#1369):
+/// the GROUPR GENDF (25, text) line by line and DLAYXS (30) byte for byte.
+///
+/// DLAYXS from a coded GENDF (`nin = 25`): 69 groups, 6 delayed families
+/// (`dldata`'s MF=3 and MF=5 MT=455). Prediction (gh:#1369, before the code
+/// ran): byte-identical. **Result (2026-11-13): 3 732 bytes, identical; 25
+/// identical.** NJOY2016 takes about 90 s on this deck.
+#[test]
+fn test_76_ccccr_whole_deck() {
+    let _ = whole_deck_text_and_bytes("76", "n-092_U_235-ENDF8.0.endf", &[25], &[30]);
 }
 
 /// **ACER `iopt = 4` (photo-atomic) from the deck driver** (gh:#1369): deck 48
 /// (U, ENDF/B-VIII.0 photo-atomic with the atomic-relaxation tape). Gated: the
 /// directory line (28, `phoout`, `acepa.f90:1023`), 0 differing lines.
 ///
-/// **Not gated: the ACE (27).** Measured 2026-11-13: 36 of 17 964 lines differ,
+/// ~~**Not gated: the ACE (27).** Measured 2026-11-13: 36 of 17 964 lines differ,
 /// 45 of 71 807 words, all in the heating block LHNM (words 65 244-70 589),
 /// worst 8.7e-8 relative at 1.47 GeV; 16 words above 1e-8. This is the
 /// residual `verification_and_validation/acer_photoatomic_vs_njoy2016.md`
 /// records for this evaluation (`iheat`'s panel rule above ~300 MeV), not a
-/// deck-driver effect: every other block is identical.
+/// deck-driver effect: every other block is identical.~~
+/// **CORRECTED 2026-11-13 (gh:#1369): the ACE (27) is gated too, and identical.**
+/// The residual was a port defect, not upstream's convergence: `iheat` compares
+/// against two **single-precision** literals (`unext.lt.0.99999`,
+/// `unow.lt.-.9999`), which the port had as doubles, so a panel loop could end
+/// one panel apart. Prediction (gh:#1369, before the change): tape27 identical.
+/// **Result: 0 differing lines of 17 964.**
 #[test]
 fn test_48_photoatomic_whole_deck() {
-    let _ = whole_deck_units("48", "photoat-092_U_000-ENDF8.0.endf", &[("atrelax-092_U_000-ENDF8.0.endf", 21)], &[28]);
+    let _ = whole_deck_units("48", "photoat-092_U_000-ENDF8.0.endf", &[("atrelax-092_U_000-ENDF8.0.endf", 21)], &[27, 28]);
+}
+
+/// **Deck 59, the whole deck**: deck 48's ACER from blocked-binary copies of the
+/// two tapes, and MODER's text copies of them (40, 41) (gh:#1369). Same fix and
+/// prediction as [`test_48_photoatomic_whole_deck`].
+#[test]
+fn test_59_photoatomic_whole_deck() {
+    let _ = whole_deck_units("59", "photoat-092_U_000-ENDF8.0.endf", &[("atrelax-092_U_000-ENDF8.0.endf", 21)], &[27, 28, 40, 41]);
 }
 
 /// **Deck 81 (Sr-88 ENDF/B-VIII.1), RECONR then MODER to text (unit 30)**
@@ -1859,13 +2008,16 @@ fn test_88_whole_deck() {
 /// **Deck 43 (H-1, BROADR at 0 K with `thnmax = -19.5 MeV`), MODER text copy
 /// of the BROADR tape (unit 35)** (gh:#1369).
 ///
-/// **Measured 2026-11-13:** 320 lines differ; NJOY's tape has 151 lines and
+/// ~~**Measured 2026-11-13:** 320 lines differ; NJOY's tape has 151 lines and
 /// ours 337. At `tempef = tempk - tempin <= 0`, BROADR only thins
 /// (`thinb`, `broadr.f90:1218-1222`, `:1677-1760`), and `thinb` is not ported
 /// (`broadr::joint::broadr_joint` returns `None` there, gh:#619), so the
-/// deck driver passes RECONR's grid through unthinned.
+/// deck driver passes RECONR's grid through unthinned.~~
+/// **CORRECTED 2026-11-13 (gh:#619):** `thinb` is ported
+/// (`broadr::joint::broadr_joint_thinb`) and the deck driver runs it at
+/// `tempef <= 0`. Prediction (gh:#1369, before the run): tape35 identical.
+/// **Result: see README §24.**
 #[test]
-#[ignore = "deck 43: BROADR thinb (tempef <= 0) not ported, gh:#619; the driver now refuses it with NotPorted"]
 fn test_43_whole_deck() {
     let _ = whole_deck_units("43", "n-001_H_001-ENDF8.0-Beta6.endf", &[], &[35]);
 }
@@ -1885,8 +2037,9 @@ fn test_73_whole_deck() {
 }
 
 /// **Deck 30 (H-1 ENDF/B-VIII.0), the GROUPR GENDF (unit 31, text)**: the deck
-/// up to the photo-atomic RECONR, which feeds GAMINR and MATXSR (not ported)
-/// (gh:#1369).
+/// up to the photo-atomic RECONR, which feeds GAMINR and MATXSR (~~not ported~~
+/// **CORRECTED 2026-11-13:** translated; the whole deck is gated in
+/// `tests/deck_driver_photon_vs_njoy2016.rs`) (gh:#1369).
 ///
 /// Exercises `3 259` (`getsig`'s average inverse velocity, `:6762-6766`), the
 /// automatic `6/` (`conver`'s MF=4 list: MT=2) and `16/` (`mf18`: MF=6 MT=102's
@@ -2017,7 +2170,7 @@ fn test_15_groupr_gendf_whole_tape() {
 }
 
 /// **Deck 76 (U-235 ENDF/B-VIII.0), the GROUPR GENDF (unit 25, text) as written,
-/// `6 /` included** (gh:#1369, round 3): the deck up to CCCCR (not ported).
+/// `6 /` included** (gh:#1369, round 3): the deck up to CCCCR (~~not ported~~ **CORRECTED 2026-11-13:** ported; the whole deck is `test_76_ccccr_whole_deck`).
 ///
 /// `6 /` reaches MF=4/MT=18: `getff` label 200 with `econst` (`groupr.f90:7132-7232`),
 /// prompt nu from `getyld` on MF=1/MT=456, `getsed` on the tabulated `LF = 1`
@@ -2170,7 +2323,7 @@ fn test_17_through_moder_merge() {
 }
 
 /// **Deck 02 (Pu-238 ENDF/B-IV), the GROUPR GENDF (MODER copy, unit 29) and UNRESR's
-/// PENDF (unit 28)**, the deck up to CCCCR (not ported) with its own two MODER steps
+/// PENDF (unit 28)**, the deck up to CCCCR (~~not ported~~ **CORRECTED 2026-11-13:** ported, `test_02_ccccr_whole_deck`) with its own two MODER steps
 /// (gh:#1369 round 5). GROUPR: `iwt = 4` (`genwtf`/`getwtf`'s thermal + `1/E` +
 /// fission with `eb, tb, ec, tc = .1, .025, 8.208e5, 1.4e6`), `lord = 3`, three
 /// temperatures × seven sigma-zeros, MT 251-253 and 259, and `6 18` (`anased` law 7).
@@ -2199,7 +2352,7 @@ fn test_02_groupr_gendf_and_unresr_pendf() {
 
 /// **Deck 76 (U-235 ENDF/B-VIII.0), the GROUPR GENDF (unit 25, text) with the
 /// automatic `6 /` card removed on both sides** (gh:#1369): the deck up to CCCCR
-/// (not ported).
+/// (~~not ported~~ **CORRECTED 2026-11-13:** ported, `test_76_ccccr_whole_deck`).
 ///
 /// `6 /` reaches MF=4/MT=18, `getff` label 200 with `econst` (fission, `getyld`
 /// on MT=456), ~~which is not translated, so the deck as written stops there~~
@@ -2373,4 +2526,150 @@ fn test_18_27_47_errorr_mf35_covariance_tapes() {
             let _ = std::fs::remove_dir_all(ours.parent().unwrap());
         }
     }
+}
+
+/// **Deck 86 (Hf-177 TENDL-2021, GROUPR card 9a), the whole deck** (gh:#1369):
+/// MODER's text copy (unit 25) of GROUPR's GENDF: one MF=3 request, three
+/// card-9a extended requests (`mfd = -1`, then `10 4 72177 lfs` with `lfs` =
+/// 0, 29, 30) and one plain `40721770` between them.
+///
+/// The deck driver read card 9a and then dropped it, so unit 25 lacked three of
+/// its five sections (27 of 52 lines differed). GROUPR down-converts card 9a
+/// to `mfd = 40000000 + 10*izar` with the card's `lfs`, processes it where it
+/// stands in the list, and writes `fzam = izar + lfs/1000` in the head's C2
+/// (`groupr.f90:655-676`, `:871-878`). Prediction (posted on gh:#1369 before the
+/// run): unit 25 identical, C2 `72177.0290` included. **Result (2026-11-13): 0
+/// differing lines of 52.**
+#[test]
+fn test_86_groupr_card9a_whole_deck() {
+    let _ = whole_deck_units("86", "n-072_Hf_177-TENDL2021.endf", &[], &[25]);
+}
+
+/// **Deck 61 (H in H2O thermal ACE, `iopt = 7` with a suffix), the whole deck**
+/// (gh:#1369): the input is an ACE file staged as `tape61`, not a module's
+/// output, and card 2 asks for the suffix `.90` (`suff = 0.90`).
+///
+/// Two refusals stood in the way: ACER `iopt = 7` looked only at text written
+/// earlier in the run ("unit 61 holds no ACE file"), and `thrfix` refused
+/// `suff >= 0`. The fix reads `tape61` from the work directory and ports
+/// `newsuff` (`acecm.f90:619-684`). This ran before a prediction was posted
+/// (recorded on gh:#1369). **Result (2026-11-13): units 71 (ACE) and 72
+/// (directory) have 0 differing lines.**
+/// **Deck 21 (Fe-58 ENDF/B-VIII.0 Beta4, every unit coded), the whole deck**
+/// (gh:#1369): RECONR 21, BROADR 22, HEATR 23 (partials 302, 402), PURR 24, and
+/// ACER's ACE 25 and directory 26.
+///
+/// Two causes, both upstream's numbering of a coded tape: HEATR's `hout`
+/// copies every closer (`tofend`/`tosend`/`tomend`, `heatr.f90:5961-6029`), so
+/// its tape counts from 1 to the MEND unbroken (tape23 differed only in columns
+/// 76-80, 66 506 lines); PURR copies all but MT=152/153's SENDs and MF=2's FEND
+/// (`purr.f90:327-570`). And PURR's MT=152/153 writer was refused with HEATR on
+/// its input; its tables now come from the computation that already gives
+/// this deck's ACE (`acer::deck_modules`). Prediction (posted on gh:#1369
+/// before the run): units 23 and 24 identical, the deck closes. **Result
+/// (2026-11-13): 0 differing lines on all six units.**
+#[test]
+fn test_21_heatr_purr_coded_whole_deck() {
+    let _ = whole_deck_units("21", "n-026_Fe_058-ENDF8.0-Beta4.endf", &[], &[21, 22, 23, 24, 25, 26]);
+}
+
+/// **Deck 75 (Ag-109 ENDF/B-VII.1), the whole deck** (gh:#1369): RECONR 21,
+/// BROADR at 293.6 and 600 K on coded unit 22, ACER at 293.6 K (26 ACE, 27
+/// directory).
+///
+/// Two causes. (1) After the first temperature's MEND, which BROADR copies
+/// (`tomend`, seq 1), the second temperature's MF=1 continues the count at 2;
+/// the writer restarted at 1 (15 229 lines differed in columns 76-80 alone).
+/// A different material still restarts at 1 (RECONR, upstream test 03).
+/// (2) The ACE's GPD block (50 590 words, ~1.3e-4): `gamsum` finds MF=3 with
+/// `findf` from where `unionx` left `npend`, past MF=3's FEND; the block ends at
+/// MF=3, so `findf` skips the MEND and searches forward into the 600 K block.
+/// NJOY2016 run with BROADR at 293.6 K only gives this port's old GPD word for
+/// word. Predictions (posted on gh:#1369 before each run): unit 22 identical;
+/// then, with GPD's MF=3 from the next block, unit 26 identical. **Result
+/// (2026-11-13): 0 differing lines on all four units.** Upstream test 19
+/// (Pu-241, three temperatures, MF=12/13 after MF=3) keeps its own block and
+/// stays identical.
+#[test]
+fn test_75_broadr_two_temperatures_gamsum_whole_deck() {
+    let _ = whole_deck_units("75", "n-047_Ag_109-ENDF7.1.endf", &[], &[21, 22, 26, 27]);
+}
+
+/// **Decks 10 and 19, the whole decks** (gh:#1369): PURR at three
+/// temperatures and seven sigma-zeros. Deck 10 is Pu-238 ENDF/B-IV (`t404`,
+/// no HEATR); deck 19 is Pu-241 ENDF/B-VI.3 (`e6pu241c`, HEATR with partials
+/// 302/318/402 before PURR). Units: ACE and directory (26/27, 27/28) and MODER's
+/// text copy of PURR's binary PENDF (28, 29).
+///
+/// The deck driver passed PURR's input through for more than one temperature
+/// or sigma-zero, so MT=152 was UNRESR's and MT=153 was missing.
+/// `purr::tables::multi` runs `unrest` once per energy over every temperature
+/// and sigma-zero (`purr.f90:300-302`) and writes each temperature's
+/// MT=152/153 (`:415-570`), dividing by the first temperature's `sigu(·,1,1)`
+/// as upstream does, with `rdheat`'s per-temperature heating (`:1237-1289`)
+/// for deck 19. Predictions (posted on gh:#1369 before each run): both
+/// identical. Deck 10's first run differed in 3 lines (ENDF-4 TEMP record
+/// `N2`, `:343-349`), fixed. **Result (2026-11-13): 0 differing lines on
+/// all six units.**
+#[test]
+fn test_10_19_purr_several_temperatures_whole_decks() {
+    let _ = whole_deck_units("10", "t404", &[], &[26, 27, 28]);
+    let _ = whole_deck_units("19", "e6pu241c", &[], &[27, 28, 29]);
+}
+
+/// **Deck 60 (Fe IRDFF-II, no MF=3), the whole deck** (gh:#1369): RECONR,
+/// BROADR from `temp1 = 293.6` to 300 K, and two GROUPRs to 60 MeV (unit 31:
+/// MF=10 automatic; unit 32: four `4zzzaaa0` production requests).
+///
+/// The tape carries MF=1, 2, 8, 10 and 40 only. Three causes, each read
+/// upstream: the deck PENDF evaluated MF=10 on MT=1's energies, which do not
+/// exist here, where `emerge` uses `lunion`'s union grid
+/// (`reconr::union_grid_without_mf3`); `recout` writes a dummy MF=3/MT=1
+/// (`L2 = 99`) and its dictionary drops the last real entry
+/// (`reconr.f90:5017-5026`, `:5091-5169`, `:5231-5255`); and BROADR's card-2
+/// `temp1` (`broadr.f90:334-412`, `:605-610`) was refused. Prediction (posted
+/// on gh:#1369 before the deck ran): units 31 and 32 identical, deck closes;
+/// the BROADR refusal was not foreseen. **Result (2026-11-13): 0 differing
+/// lines on both units.**
+#[test]
+fn test_60_irdff_no_mf3_whole_deck() {
+    let _ = whole_deck_units("60", "n-026_Fe_000-IRDFF-II.endf", &[], &[31, 32]);
+}
+
+#[test]
+fn test_61_thermal_acefix_with_suffix_whole_deck() {
+    let _ = whole_deck_units("61", "", &[("thermalscattering.ace", 61)], &[71, 72]);
+}
+
+/// **Deck 11 (Pu-238 ENDF/B-IV), the whole deck: the WIMS library (unit 27) and
+/// MODER's GENDF copy (unit 28)** (gh:#1369).
+///
+/// WIMSR's cards are read by `deck::wimsr::read_wimsr` (`wimsr.f90:165-268`), and
+/// the binary GENDF unit -26 by `wimsr::gendf::read_material_records` at GROUPR's
+/// full precision. The engine itself was gated before on one temperature with
+/// `ip1opt = 0`. This deck adds `ip1opt = 1` (the P0 in-group correction),
+/// `ntemp = 3` thermal blocks, `ires = 3` resonance tables over 3 temperatures and
+/// 7 sigma-zeros, and the default 69-group structure. Prediction (gh:#1369, before
+/// the run): both units identical. **Result: see README §24.**
+#[test]
+fn test_11_wimsr_whole_deck() {
+    let _ = whole_deck_units("11", "t404", &[], &[27, 28]);
+}
+
+/// **Deck 17 (JENDL-3.3 U-238 with U-235 and Pu-239), the whole deck: ERRORR
+/// `iread = 2` (unit 26) and every tape before it** (gh:#1369).
+///
+/// ERRORR on U-238 from MODER's merged GENDF (unit 99) with card 10's
+/// cross-material pairs `9228 18` and `9437 18`: `ngchk`/`colaps` per material,
+/// `gridd`'s `iread = 2` subsection rule and the pairs after U-238's reactions,
+/// `rdsig(mat1,…)` in `covcal` and `sigc`, and `covout`'s `nmt` against `nmt1`
+/// (`errorr.f90:907-919`, `:1202-1226`, `:2071`, `:7068-7254`, `:7893-7908`,
+/// `:11113-11135`). Prediction (gh:#1369, before the run): see README §24.
+/// **Result: see README §24.** NJOY2016 takes several minutes on this deck,
+/// so the case is behind `long-tests`.
+#[cfg(feature = "long-tests")]
+#[test]
+fn test_17_errorr_iread2_whole_deck() {
+    let extra = [("J33U238", 21u32), ("J33U235", 22u32), ("J33Pu239", 23u32)];
+    let _ = whole_deck_units("17", "", &extra, &[41, 42, 43, 31, 32, 33, 91, 92, 93, 99, 26]);
 }

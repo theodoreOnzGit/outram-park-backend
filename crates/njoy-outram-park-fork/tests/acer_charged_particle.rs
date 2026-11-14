@@ -345,7 +345,7 @@ fn synthetic_run(tag: &str, case: &str, resource: &str, edit: Edit) -> Option<Sy
         .status()
         .unwrap();
     let njoy_log = std::fs::read_to_string(njoy.join("log")).unwrap_or_default();
-    let ours_result = match run_deck(&deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false }) {
+    let ours_result = match run_deck(&deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false, run_date: None }) {
         Ok(run) => match run.blocked {
             None => Ok(()),
             Some((m, why)) => Err(format!("{m}: {why}")),

@@ -476,6 +476,11 @@ impl Tape {
         let mut seq: i32 = 1;
         let mut iverf = 6;
         let mut group_material = false;
+        // The material whose last MEND was a copy (`tomend`): the count goes
+        // on into that material's next occurrence, a further temperature
+        // (BROADR on a coded unit, upstream test 75, gh:#1369). A different
+        // material restarts at 1, as RECONR's tape does (upstream test 03).
+        let mut after_copied_mend: Option<i32> = None;
         let mut iter = self.sections.iter().peekable();
         while let Some(sec) = iter.next() {
             let k = sec.key;
@@ -483,7 +488,10 @@ impl Tape {
                 // `moder.f90:184-195`: the format version, and `nsh = 1`.
                 iverf = iverf_from_mf1(&sec.rows);
                 group_material = is_group_material(&sec.rows);
-                seq = 1;
+                if after_copied_mend != Some(k.mat) {
+                    seq = 1;
+                }
+                after_copied_mend = None;
             }
             let layout = if group_material {
                 None
@@ -555,6 +563,7 @@ impl Tape {
                 if self.copied_closers.contains(&EndfKey { mat: k.mat, mf: 0, mt: 0 }) {
                     writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, seq).map_err(io)?;
                     seq = if seq >= 99_999 { 1 } else { seq + 1 };
+                    after_copied_mend = Some(k.mat);
                 } else {
                     writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, 0).map_err(io)?;
                     seq = 1;

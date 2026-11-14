@@ -80,6 +80,8 @@ pub mod prelude;
 
 /// P1 thermal radiation (ESI v2506): `G` equation, Marshak BCs, `Ru`/`Rp` (gh:#1379).
 pub mod radiation;
+/// `viewFactor` surface-to-surface radiation (ESI v2506), serial direct solver, reading `viewFactorsGen` output (gh:#1529).
+pub mod view_factor_radiation;
 /// Layer 1a — dimensionless scalar constants and the tensor-algebra
 /// primitives (`Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`).
 pub mod primitives;

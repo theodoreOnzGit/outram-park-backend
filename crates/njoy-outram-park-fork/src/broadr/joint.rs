@@ -52,6 +52,9 @@ use crate::{
 
 use super::BroadnTolerances;
 
+mod thinb;
+pub use thinb::broadr_joint_thinb;
+
 // ── SLATEC erfc (mathm.f90:447-634) ──────────────────────────────────────────
 
 #[allow(clippy::excessive_precision, clippy::unreadable_literal)]

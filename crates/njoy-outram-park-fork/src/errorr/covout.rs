@@ -87,8 +87,8 @@ pub fn sigc(
         let sig = if (851..=870).contains(&mt) {
             lumped_sigma(groups, reactions, mt)
         } else {
-            let _ = reactions.mats[ix];
-            groups.sigma_for(mt)
+            // `rdsig(mats(ix),mts(ix),…)`: a card-10 pair reads its own material (gh:#1369)
+            groups.sigma_for_mat(reactions.mats[ix], mt)
         };
         let mut row = vec![0.0; ngn];
         for (ig, c) in row.iter_mut().enumerate() {
@@ -191,8 +191,14 @@ impl ErrorrResult {
         let mut sections = Vec::new();
         let key = |mf: i32, mt: i32| EndfKey { mat, mf, mt };
 
+        // MF=40 (gh:#1371): `sigc` writes -14 in the MF=1 HEAD (errorr.f90:7824), and
+        // `covout` heads each section MF=40 with `izap` in place of `awr` (:7219-7241).
+        let mf40 = self.reactions.mf() == 40;
+        let mfout = if mf40 { 40 } else { 33 };
+        let head2 = |ix: usize| if mf40 { f64::from(self.reactions.mzap[ix]) } else { self.awr };
         // MF=1/MT=451: HEAD (za, awr, iverf, 0, -11, 0) + LIST (tempin, 0, ngn, 0, ngn+1, 0) egn.
-        let mut rows = vec![[self.za, self.awr, f64::from(self.iverf), 0.0, -11.0, 0.0]];
+        let n1 = if mf40 { -14.0 } else { -11.0 };
+        let mut rows = vec![[self.za, self.awr, f64::from(self.iverf), 0.0, n1, 0.0]];
         rows.push([self.tempin, 0.0, ngn as f64, 0.0, (ngn + 1) as f64, 0.0]);
         pack_rows(&mut rows, &self.egn);
         sections.push(Section {
@@ -229,19 +235,21 @@ impl ErrorrResult {
             }
         }
         let mut next_lump = 0usize;
-        let nmt = self.reactions.mts.len();
-        let nmts = nmt;
+        // nmt: this material's reactions; nmts = nmt1, with card 10's pairs
+        // (errorr.f90:7068, :7225, gh:#1369).
+        let nmt = self.reactions.nmt();
+        let nmts = self.reactions.mts.len();
         let mut block_iter = self.blocks.iter();
-        for (ix, &mt) in self.reactions.mts.iter().enumerate() {
+        for (ix, &mt) in self.reactions.mts.iter().enumerate().take(nmt) {
             while next_lump < lump_components.len() && lump_components[next_lump].0 < mt {
                 let (c, mtl) = lump_components[next_lump];
                 sections.push(Section {
-                    key: key(33, c),
-                    rows: vec![[self.za, self.awr, 0.0, f64::from(mtl), 0.0, 0.0]],
+                    key: key(mfout, c),
+                    rows: vec![[self.za, head2(ix), 0.0, f64::from(mtl), 0.0, 0.0]],
                 });
                 next_lump += 1;
             }
-            let mut rows = vec![[self.za, self.awr, 0.0, 0.0, 0.0, (nmts - ix) as f64]];
+            let mut rows = vec![[self.za, head2(ix), 0.0, 0.0, 0.0, (nmts - ix) as f64]];
             for ixp in ix..nmts {
                 let b = block_iter
                     .next()
@@ -279,7 +287,7 @@ impl ErrorrResult {
                 }
             }
             sections.push(Section {
-                key: key(33, mt),
+                key: key(mfout, mt),
                 rows,
             });
         }
@@ -405,8 +413,10 @@ pub fn covout(
     resonance: Option<&ResonanceCovariance>,
 ) -> Vec<CoarseCovariance> {
     let ngn = egn.len() - 1;
-    let nmt = reactions.mts.len();
-    let nmts = nmt;
+    // nmt: this material's reactions; nmts = nmt1, with card 10's pairs
+    // (errorr.f90:7068, :7225, :7254, gh:#1369).
+    let nmt = reactions.nmt();
+    let nmts = reactions.mts.len();
     let index_of = |mat: i32, mt: i32| {
         reactions
             .mts

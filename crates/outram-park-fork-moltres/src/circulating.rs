@@ -82,6 +82,7 @@ use crate::materials::{
     scalar_field, DelayedFamily, FaceFluxField, NeutronFluxField, PrecursorField, TemperatureField,
     XsFields,
 };
+use crate::terms::prompt_fission_source;
 use crate::precursors::PrecursorDrift;
 
 /// Coupled flux + advected-precursor k-eigenvalue model (see module docs).
@@ -226,7 +227,11 @@ impl CirculatingFuelSolver {
                 let sf = s_fis.internal.as_slice();
                 let sd = s_delayed.internal.as_slice();
                 let q_vals: Vec<f64> = (0..n)
-                    .map(|c| chi_p[c] * (1.0 - beta) / k * sf[c] + chi_d[c] * sd[c] + scat[c])
+                    .map(|c| {
+                        prompt_fission_source(sf[c], beta, chi_p[c], k)
+                            + chi_d[c] * sd[c]
+                            + scat[c]
+                    })
                     .collect();
                 let q = scalar_field(&self.mesh, "q", q_vals);
 

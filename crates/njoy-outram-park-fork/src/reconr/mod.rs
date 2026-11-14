@@ -689,6 +689,29 @@ fn order(x: &mut Vec<f64>) {
 /// Build RECONR's union grid: `rdfil2`'s nodes folded with every section
 /// `lunion` reads (`reconr.f90:1871-1900`) -- MF=3 minus the redundant and
 /// derived MTs, then the first TAB1 of each MF=12 (`LO=1`) and MF=13 section.
+/// `lunion`'s grid for a tape with **no MF=3** (an IRDFF-II dosimetry file:
+/// MF=1, 2, 8, 10 and 40 only; upstream tests 30, 60 and 64, gh:#1369).
+/// [`reconr`]'s sections, and so its MT=1 energies, are empty then, but
+/// `emerge` still evaluates every MF=10/12/13 section on the union grid that
+/// `lunion` built from them (`reconr.f90:1866-2190`, `:4752-4790`). This is
+/// [`union_grid`] with no MF=3 inputs, as [`reconr`] calls it.
+///
+/// # Errors
+/// A tape without MF=1/MT=451, or a malformed MF=2/MF=10 section.
+pub(crate) fn union_grid_without_mf3(tape: &Tape, mat: i32, eps: f64) -> Result<Vec<f64>, NjoyError> {
+    let mf1_sec = tape.section(mat, 1, 451).ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
+    let material = mf1::parse_material_info(mf1_sec)?;
+    let res_info = match tape.section(mat, 2, 151) {
+        Some(s) => mf2::parse_resonance_info(s)?,
+        None => ResonanceInfo::default(),
+    };
+    let urr_ranges = match tape.section(mat, 2, 151) {
+        Some(sec) if sec.rows.len() > 1 => crate::unresr::mf2::parse_lru2_ranges(&sec.rows[1..])?,
+        _ => Vec::new(),
+    };
+    union_grid(tape, mat, &[], &res_info, &urr_ranges, eps, lunion_awin(mf1_sec), material.lrp)
+}
+
 fn union_grid(
     tape: &Tape,
     mat: i32,

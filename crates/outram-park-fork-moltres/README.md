@@ -57,10 +57,32 @@ numbers live in each test's doc comment (`src/*.rs`):
 This is **verification only** (correct implementation of the equations), not
 validation against MSRE benchmark data.
 
+### Differential against Moltres 3dd2ce7 (gh:#1400, added 2026-11-13)
+
+Kernel level (C++ transcription of the Moltres kernels + MOOSE
+`LinearInterpolation`, bits compared) and solution level (values from
+Moltres' committed gold files; MOOSE+Moltres was **not** rebuilt). Full
+record: `verification_and_validation/moltres_differential_gh1400/RESULTS.md`.
+Headline: table interpolation, `InScatter`, `DelayedNeutronSource`,
+`PrecursorDecay`, prompt-fission term 100 % bit-identical; `k_inf` from the
+Moltres property tables within `6e-14` relative of Moltres' `k_eff`
+(`gmm_none`, `gmm_linear`); Marshak/Mark/Milne vacuum right-edge values
+within `5e-14` absolute of the FE gold values.
+
+Round 2 (gh:#1538): MOOSE `SplineInterpolation`, `MonotoneCubicInterpolation`
+and `BicubicSplineInterpolation` (`moose_interpolation`), the least-squares
+branch and bicubic tables (`tables_multivar`) and `MoltresJsonMaterial`
+(`MoltresTables::from_json`) are translated. Spline, monotone-cubic, bicubic and
+least-squares kernels are 100 % bit-identical to the C++ transcription; the
+spline and monotone-cubic `k_inf` match the `gmm_*` and `mjm_*` gold `k_eff`
+within `3.1e-14` relative. Bicubic and least-squares have no Moltres test input,
+so they are kernel-level only. The `peak_power_density` controller is not
+translated.
+
 ## Run the tests
 
 ```bash
-cargo test -p outram-park-fork-moltres --lib --release
+cargo test -p outram-park-fork-moltres --lib --tests --release
 ```
 
 ## Bookkeeping status

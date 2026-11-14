@@ -27,8 +27,12 @@
 //! thermal `MT=221`, `ires = 1`, `isof = 1`, `ip1opt = 0`):
 //! `tests/wimsr_u238_njoy_golden.rs`. See `README.md`. [`run`] is the
 //! whole-module entry point; the card-deck `run()` of the module table
-//! (`crate::modules`) stays [`crate::NjoyError::NotPorted`] because the
-//! deck reader is not written — callers build a [`WimsrInput`].
+//! (`crate::modules`) stays [`crate::NjoyError::NotPorted`] ~~because the
+//! deck reader is not written~~ — callers build a [`WimsrInput`].
+//! **CORRECTED 2026-11-13 (gh:#1369):** the deck reader is written
+//! (`crate::deck::wimsr`), and upstream deck 11 (`ntemp = 3`, `ires = 3`,
+//! `ip1opt = 1`, 69 groups, a binary GENDF read by [`run_gendf_records`]) is
+//! NJOY2016's line for line; `run()` here is the module table's, unchanged.
 
 pub mod gendf;
 pub mod input;
@@ -102,6 +106,37 @@ pub fn run_gendf(tape: &Tape, inp: &WimsrInput) -> Result<WimsrOutput, NjoyError
         iznum: mat.iznum,
         egb: mat.egb,
     })
+}
+
+/// [`run_gendf`] on a GENDF held as records at full precision
+/// ([`crate::errorr::gendf::GendfTape`]): a blocked-binary `ngendf` in a deck
+/// (gh:#1369, deck 11). Only the reader differs
+/// ([`gendf::read_material_records`]); the stages after `wminit` are called as
+/// [`run_gendf`] calls them.
+///
+/// # Errors
+/// As [`run_gendf`].
+pub fn run_gendf_records(tape: &crate::errorr::gendf::GendfTape, inp: &WimsrInput) -> Result<WimsrOutput, NjoyError> {
+    if inp.glam.len() < inp.nrg {
+        return Err(NjoyError::EndfParse(format!(
+            "wimsr: {} goldstein lambdas given, nrg = {}",
+            inp.glam.len(),
+            inp.nrg
+        )));
+    }
+    let mat = gendf::read_material_records(tape, inp.mat, inp.ngnd)?;
+    let cnt = xsecs::counts(inp, &mat);
+    let xs = xsecs::xsecs(inp, &mat, &cnt)?;
+    if xs.ntemp == 0 {
+        return Err(NjoyError::EndfParse(format!(
+            "wimsr::xsecs: use only 0 temps for mat {} — mti missing from higher temps",
+            inp.mat
+        )));
+    }
+    let ri = resint::resint(inp, &mat, &cnt, &xs);
+    let p1 = p1scat::p1scat(inp, &mat, &cnt, &xs)?;
+    let lines = wimout::wimout(inp, mat.awr, mat.iznum, &xs, ri.as_ref(), p1.as_deref());
+    Ok(WimsrOutput { lines, xsecs: xs, resint: ri, p1, awr: mat.awr, iznum: mat.iznum, egb: mat.egb })
 }
 
 /// The module-table entry point: WIMSR's card deck reader is not written,

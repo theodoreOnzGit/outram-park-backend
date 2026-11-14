@@ -81,6 +81,7 @@
 //! ```
 
 pub mod acefix;
+pub mod newsuff;
 pub mod phnfix;
 pub mod phnplo;
 pub mod thrfix;
@@ -690,6 +691,10 @@ pub(crate) struct DeckModules {
     pub(crate) iopp: bool,
     /// ACER card 6's `ismooth` ([`AceDeck::with_ismooth`]).
     pub(crate) ismooth: bool,
+    /// The PENDF block whose MF=3 sections `gamsum` reads for GPD, when it is
+    /// not the table's own temperature (`None`: the table's). Set by the deck
+    /// driver for a multi-temperature PENDF (gh:#1369, upstream test 75).
+    pub(crate) gamsum_pendf: Option<crate::reconr::ReconrResult>,
 }
 
 /// Run the deck's PURR and HEATR on `pendf` (a result already through
@@ -786,7 +791,7 @@ pub(crate) fn deck_modules(
         }),
         _ => kerma,
     };
-    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone(), gas: deck.gas.clone(), pendf_binary: deck.pendf_binary, endf_binary: deck.endf_binary, iopp: deck.iopp, ismooth: deck.ismooth })
+    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone(), gas: deck.gas.clone(), pendf_binary: deck.pendf_binary, endf_binary: deck.endf_binary, iopp: deck.iopp, ismooth: deck.ismooth, gamsum_pendf: None })
 }
 
 /// ACER proper: the continuous-energy table from the PENDF and what
@@ -864,7 +869,17 @@ pub(crate) fn assemble(
         delayed.as_ref(),
         &crate::acer::photon_blocks::gamma_discontinuities(tape, mat),
     );
-    let gpd = if modules.iopp { crate::acer::photon_blocks::gpd_with_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary) } else { None };
+    let gpd = if modules.iopp {
+        // GPD is evaluated on this table's grid (`gpd_on_grid_units`); only the
+        // MF=3 sections it multiplies may come from another block.
+        match &modules.gamsum_pendf {
+            None => crate::acer::photon_blocks::gpd_with_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary),
+            Some(other) => crate::acer::build::esz_grid(recon, &crate::acer::photon_blocks::gamma_discontinuities(tape, mat))
+                .and_then(|grid| crate::acer::photon_blocks::gpd_on_grid_units(tape, mat, other, &grid, !modules.endf_binary, !modules.pendf_binary)),
+        }
+    } else {
+        None
+    };
     if let Some(mut g) = gpd {
         // `acelod`: the 30 x 20 photon matrix follows GPD when ACER had an `ngend` GENDF.
         if let Some(m) = &modules.photon_matrix {

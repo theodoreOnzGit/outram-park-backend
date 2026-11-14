@@ -97,7 +97,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | Rust module | Fortran file | LOC | Status |
 |---|---|---|---|
 | `modules::groupr` | `groupr.f90` | 12.7k | 🟡 multigroup neutron/photon XS — ported (~9.4k Rust lines across `src/groupr/`); translation-level; **vector path + Bondarenko self-shielding golden-validated vs an NJOY2016 GENDF on U-238, 2026-09-10** (`tests/groupr_u238_gendf_golden.rs`: 2.65e-6 on NJOY's own PENDF with and without a MT=152 URR table and for the `iwt<0` flux calculator, 9.2e-4 end-to-end; the URR-flux `getunr` total and three `genflx` slowing-down grid/source details were found and ported from it); matrix path / GAMINR / `lord>0` / heterogeneous flux calculator V&V still pending |
-| `modules::gaminr` | `gaminr.f90` | ~2k | 🟡 multigroup photon interaction — ported (`src/gaminr/`); translation-level, V&V pending |
+| `modules::gaminr` | `gaminr.f90` | ~2k | 🟡 multigroup photon interaction — ported (`src/gaminr/`); translation-level, ~~V&V pending~~ **CORRECTED 2026-11-13 (gh:#1369):** the tape control flow is translated (`gaminr/tape.rs`) and the gamout tapes of upstream decks 03 and 30 are NJOY2016.80's line for line |
 | `modules::errorr` | `errorr.f90` | 11.2k | 🟢 **MF=33 path ported and validated** (`src/errorr/mf33.rs` `run_mf33`: `gridd`/`uniong`, `grpav`/`epanel`/`gety1`, `covcal` `LB` 0–6/8, `sigc`/`covout` + output tape) — element-for-element against nine NJOY2016 ERRORR tapes (H-2 ×2, Be-9, Li-6, C-12, F-19, Si-30, U-234, U-238 with lumped MTs) at the tape printing precision (worst 4.9e-7), `tests/errorr_mf33_golden.rs`, golden data in `reference-data/errorr/`. 🟢 MF=32 `resprx` chain (2026-09-10/11): MLBW `LCOMP=1/2` + `LRU=2` validated on TENDL Ar-37 (`tests/errorr_mf32_ar37_golden.rs`), `LRF=7` `rpxsamm` with the SAMM derivatives validated on ENDF/B-VII.1 Cl-35 to 4.8e-7 (`tests/errorr_mf32_cl35_rml_golden.rs`), `covadd` (999 option). 🟢 `LRF=3` ERRORJ sensitivities (`ggrmat`) + `LCOMP=1` validated on JENDL-3.3 U-238 to 4.95e-7 (`tests/errorr_mf32_j33u238_lrf3_golden.rs`, 2026-09-11). 🟡 Not ported: `LCOMP=0`, `LRF=1` ERRORJ sensitivities, `NRO≠0`, `NLRS>0`, INTG in the ERRORJ branch, `resprp`, MF=31/34/35/40, `iread` 1/2, `nstan`/`nin`, `colaps` (GENDF input) |
 | `modules::covr` | `covr.f90` | ~3k | 🟢 library option (ERRORR tape → BOXER) ported and byte-identical to NJOY on 9 materials × 2 matrix types (`tests/covr_boxer_golden.rs`); PostScript plotting out of scope |
 | `modules::leapr` | `leapr.f90` | 3.6k | 🟡 *generate* MF=7 S(α,β) (upstream of THERMR) — ported (`src/leapr/`); translation-level, V&V pending |
@@ -117,7 +117,7 @@ and one is validated:
   (`run()` stays `NotPorted`, callers build a `WimsrInput`).
 - **Ported (🟡):** `dtfr.f90` (`src/dtfr/`), `resxsr.f90` (`src/resxsr/`),
   `mixr.f90` (`src/mixr/`).
-- **Still `NotPorted` stubs (⬜):** `ccccr.f90`, `matxsr.f90`, `powr.f90`,
+- **Still `NotPorted` stubs (⬜):** ~~`ccccr.f90`,~~ (**CORRECTED 2026-11-13, gh:#1369:** `ccccr.f90` is ported, `src/ccccr/`, 🟡: byte-identical on decks 02 and 76) ~~`matxsr.f90`,~~ (**CORRECTED 2026-11-13, gh:#1369:** `matxsr.f90` is translated, `src/matxsr/`, 🟡: MATXS identical on decks 03 and 30) `powr.f90`,
   `plotr.f90`. ~~`viewr.f90`, and `graph.f90`~~ **CORRECTED 2026-11-12 (gh:#1369):** `viewr.f90`
   and `graph.f90` are ported (`src/viewr/`, 🟡: PostScript identical to NJOY2016.80 on 17 upstream decks;
   `plotr`/`covr` can reuse `viewr::Graph`).

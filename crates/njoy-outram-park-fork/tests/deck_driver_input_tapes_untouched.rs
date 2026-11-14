@@ -65,7 +65,7 @@ fn input_tape_bytes_are_unchanged_and_outputs_are_written() {
     Tape::read_file(&dir.join("tape20")).unwrap().write(&mut rewritten).unwrap();
     assert_ne!(rewritten, before, "a rewrite through Tape::write leaves this tape unchanged, so the test could not fail");
 
-    let run = run_deck(DECK, &DeckOptions { workdir: Some(dir.clone()), parse_only: false }).unwrap();
+    let run = run_deck(DECK, &DeckOptions { workdir: Some(dir.clone()), parse_only: false, run_date: None }).unwrap();
     assert!(run.blocked.is_none(), "deck blocked: {:?}", run.blocked);
 
     let after = std::fs::read(dir.join("tape20")).unwrap();

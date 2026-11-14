@@ -527,7 +527,11 @@ Still open (878 values against the libm-linked GSL): `airy_*` and `ci`, where
 GSL uses its own `gsl_sf_cos_e`/`sin_e` (trig.c) and PETIR calls libm
 (the decision recorded above; ~~still open~~ **CLOSED 2026-11-12 as an opt-in**,
 gh:#1421: 418 of these 878 rows are bit-identical with `TrigKernel::Gsl`, see
-`trig-sincos-gsl-2.8-reference.txt` and `trig_sincos_reference_driver.c`); `erf`/`erfc` (not ports); signed zeros in `eta`
-and `transport_4`; three `fd_2`/`fd_3half` rows at x >= 1e15; and `ln_gamma`
-at +-1e-310, 5e-324 (DEVIATION in `lngamma_sgn_0`).
+`trig-sincos-gsl-2.8-reference.txt` and `trig_sincos_reference_driver.c`); `erf`/`erfc` (not ports); ~~signed zeros in `eta`
+and `transport_4`; three `fd_2`/`fd_3half` rows at x >= 1e15~~ **FIXED 2026-11-13
+(gh:#1421, +49 rows: 45 `eta`, 1 `transport_4`, 2 `fd_2`, and 1 `fd_3half` that
+was a series-grouping row, not a huge-x one; libm-linked sweep 85 360 -> 85 409,
+99.04 %; with `TrigKernel::Gsl` 99.52 %; record in
+`crates/petir/verification_and_validation/specfunc_gsl_gh1419_1420_1421.md`)**;
+and `ln_gamma` at +-1e-310, 5e-324 (DEVIATION in `lngamma_sgn_0`).
 

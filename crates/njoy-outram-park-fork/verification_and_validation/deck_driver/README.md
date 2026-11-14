@@ -348,9 +348,11 @@ parser was written. ERRORR has `run_mf33` and `ErrorrResult::to_tape`, but
 every errorr deck also needs an unported piece: a GROUPR input tape (`ngout`),
 MF=31/34/35, or COVR's plot option (~~all~~ **CORRECTED 2026-11-13:** MF=35 from a GENDF,
 section 18, and COVR's plot option and MF=33 from a deck, section 19, are ported now).
-GAMINR's numeric engine is not ported.
-PLOTR is not ported at all (`src/plotr/mod.rs`). All three are left as large
-ports.
+~~GAMINR's numeric engine is not ported.~~ **CORRECTED 2026-11-13 (§27):** the engine was
+ported (`src/gaminr/matrix.rs`); its tape control flow is translated now and decks 03 and 30 are identical.
+~~PLOTR is not ported at all (`src/plotr/mod.rs`).~~ **CORRECTED 2026-11-13 (§26):**
+PLOTR is translated (`src/plotr/`) and decks 06 and 12 are identical. ~~All three are left as large
+ports.~~
 
 | deck(s) | was | cause (upstream) | fix | result |
 |---|---|---|---|---|
@@ -364,7 +366,7 @@ ports.
 | 48, 59 | `NotPorted`: ACER `iopt = 4` | none | `deck::acer_photon` binds the units; the directory line follows `phoout` (`acepa.f90:1023`) | directory line identical; the ACE differs in 36 of 17 964 lines, all in the heating block (45 words, worst 8.7e-8). This is the residual already recorded in `../acer_photoatomic_vs_njoy2016.md`. |
 | 56, 57, 58, 66, 78 | `NotPorted`: ACER `iopt = 5` | none | as above | ~~the builder refuses by name: MF=4 angular data (56), MF=6 `LCT != 1` (57, 58, 78), MT=18 nubar (66)~~ **CORRECTED 2026-11-13:** 57, 58, 66 and 78 build, ACE identical; ~~56 still stops at MF=4 (section 21)~~ **CORRECTED 2026-11-13:** all five are identical whole decks (section 22) |
 | 43 | `differs`: tape35 320 lines | at `tempef <= 0` BROADR only thins (`thinb`, `broadr.f90:1677-1760`), which is not ported (gh:#619); the driver passed RECONR's grid through | the driver now refuses it (`NotPorted`) | `NotPorted`, honestly |
-| 80 | `leapr: card reader not yet translated` | not investigated | none | runs; 17 369 of 91 453 lines of MF=7/MT=4 differ in the last printed figure (`test_80_leapr_whole_deck`, ignored with that reason) |
+| 80 | `leapr: card reader not yet translated` | not investigated | none | ~~runs; 17 369 of 91 453 lines of MF=7/MT=4 differ in the last printed figure (`test_80_leapr_whole_deck`, ignored with that reason)~~ **CORRECTED 2026-11-13 (§25):** 24 264 values differed, most by more than 3e-5, all low (LEAPR `sbfill`'s persistent `sb`); now identical, gate un-ignored |
 
 ## 13. GROUPR automatic lists, nuclide production, `getmf6` and `gam102` (2026-11-13, gh:#1369)
 
@@ -987,7 +989,8 @@ New on the way:
   `NXS(9) = LISO`.
 
 Still refused by name: `ielas = 1`, ~~MF=4, MF=5 for a production reaction,~~ MF=6 `LAW = 4`
-(**CORRECTED 2026-11-13:** MF=4/MF=5 translated, section 22).
+(**CORRECTED 2026-11-13:** MF=4/MF=5 translated, section 22; `LAW = 4`'s recoil heating,
+section 23).
 - Result: ACE unit 31 and directory 32 identical on decks 57 (57 803 lines), 58 (132 970),
   66 (259 515) and 78 (3 488). The synthetic Z6 gate still holds byte for byte.
 - One deliberate divergence: a photo-atomic tape (`NSUB = 3`) passes upstream's
@@ -1010,7 +1013,8 @@ local NJOY2016.80): units 90/31/32/34/35 have zero differing lines, and the run 
 - ~~Deck 56 (U-235 ENDF/B-VIII.0): MF=4/MT=18 and MF=5/MT=18, `acephn`'s MF=4/5 neutron
   branches (`:742-818`, `:1166-1425`). Their multiplicities are keyed on `mth`, a header
   variable left over from the last record read.~~
-- MF=6 `LAW = 4`, `ielas = 1`.
+- MF=6 `LAW = 4` (**CORRECTED 2026-11-13:** its recoil heating is translated, section 23),
+  `ielas = 1`.
 
 **Survey:** decks 56, 57, 58, 66 and 78 were re-run alone (`SURVEY_CASES`) on develop
 7a3fd98b1 plus this work. **60 of 87 are identical** (unchanged): no whole deck closed.
@@ -1074,9 +1078,12 @@ it, in upstream's order; its MF=4 and MF=5 refusals are removed):
 unchanged input and MODER's blocked-binary unit 30) to have zero differing lines, and the run
 to reach `stop`.
 
-**Not done:** MF=6 `LAW = 4` and `ielas = 1` are still refused by name. No upstream deck
+**Not done:** MF=6 `LAW = 4` and `ielas = 1` are still refused by name. ~~No upstream deck
 reaches either: the five photo-nuclear decks are the only `iopt = 5` decks, and all five are
-identical.
+identical.~~ **CORRECTED 2026-11-13 (gh:#1369):** deck 64 (Ra-226 TENDL-2019) is a sixth
+`iopt = 5` deck, and it reaches `LAW = 4`. That recoil heating is translated now and deck 64 is
+identical (section 23). `LAW = 4` for an emitted light particle and `ielas = 1` are still
+refused, and no upstream deck reaches them.
 
 **Survey:** decks 56, 57, 58, 66 and 78 re-run alone (`SURVEY_CASES`) on develop 43eadde45 plus
 this work: all five `identical`. **65 of 87 identical** (60 before).
@@ -1093,3 +1100,680 @@ change; only Markdown changed afterwards):
 | `pendf_stages_vs_njoy2016` | 9 of 9 passed |
 | `ace_five_route_parity` | 13 of 13 passed |
 | `--lib` | 759 of 759 passed |
+
+## 23. The remaining decks ranked; 61, 86, 21, 75, 10, 19, 60 and 64 closed (2026-11-13, gh:#1369)
+
+**Re-run first.** The 22 rows that were not `identical` were re-run alone (`SURVEY_CASES`) on
+develop `fe6a8230d`. Decks **31 and 87 were already `identical`**: their rows predated
+recent merges. That made 67 of 87.
+
+**The ranking.** It was posted on gh:#1369 before any new code. Each deck's first blocker
+was found by running NJOY2016.80 and `njoy-deck` side by side and diffing tapes.
+- PURR's writer for several T/σ0 and for HEATR input: 10, 19, 21.
+- CCCCR: 02, 76.
+- PLOTR: 06, 12.
+- Photo-atomic heating residual: 48, 59.
+- GAMINR + MATXSR: 03, 30.
+- One deck each: 86 (GROUPR card 9a), 61 (`newsuff`), 75 (coded numbering, then GPD), 60
+  (RECONR), 11 (WIMSR cards), 17 (ERRORR `iread = 2`), 43 (`thinb`), 64 (`acephn`) and
+  80 (LEAPR).
+
+A prediction was posted before each run, with one exception: **deck 61 ran before its
+prediction** (recorded on the issue).
+
+| deck | cause, read upstream | fix | result |
+|---|---|---|---|
+| 61 | ACER `iopt = 7` read only text written earlier in the run; `thrfix` refused `suff >= 0` | `run_acer_fix` reads `tape61` (`text_or_file`); `acer::newsuff` (`acecm.f90:619-684`) | 71, 72 identical; whole deck |
+| 86 | card 9a (`mfd = -1`) was read, then dropped | down-converted as `groupr.f90:655-676`, processed in card order, C2 = `fzam` (`:871-878`): `Card9Item`, `card9a_reaction`, `AutoReaction::head_c2` | 25 identical (52 lines); whole deck |
+| 21 | HEATR's coded tape counts 1 to its MEND unbroken (`hout` copies every closer, `heatr.f90:5961-6029`); PURR's breaks only at MT=152/153's SENDs and MF=2's FEND (`purr.f90:327-570`); PURR's writer refused HEATR input | `heatr_copied_closers`, `purr_copied_closers`; PURR's tables from `acer::deck_modules` (`purr_tables_after_heatr`) | 21-26 identical; whole deck |
+| 75 | BROADR's second temperature goes on counting after its copied MEND; GPD's MF=3 comes from the **next** temperature block | `Tape::write`: same MAT after a copied MEND keeps the count (a new MAT restarts: RECONR, test 03); `gamsum_block` (below) | 21, 22, 26, 27 identical; whole deck |
+| 10 | PURR at 3 T and 7 σ0 passed the tape through | `purr::tables::multi`: one `unrest` call per energy over every T and σ0 (`purr.f90:300-302`), MT=152 with every `sigu(ix,is,it)`, MT=153 divided by temperature 1's `sigu(·,1,1)` (`:516-523`); `purr_tape_multi`; ENDF-4 TEMP `N2` copied (`:343-349`) | first run: 3 lines (that `N2`); then 26-28 identical |
+| 19 | as 10, with HEATR's partials on the input | `rdheat` per temperature (`:1237-1289`; `ihave` from the last temperature), the `ihave = 1/2` heating column (`:525-560`) | 27-29 identical, first run |
+| 60 | IRDFF-II has **no MF=3**: MF=10 was evaluated on MT=1's (empty) energies; `recout`'s dummy MF=3/MT=1 (`L2 = 99`) and its dictionary, which drops the last real entry (`reconr.f90:5017-5026`, `:5091-5169`, `:5231-5255`); BROADR's `temp1` (`broadr.f90:334-412`, `:605-610`) | `reconr::union_grid_without_mf3`, `dummy_mt1_directory`, BROADR `temp1 != 0` | 31, 32 identical; the BROADR step was not foreseen |
+| 64 | MF=6/MT=11's photon yield is zero everywhere; MF=6 `LAW = 4` recoil heating refused | `LAW = 4` heating `awp*(e+q)/(awr-awp)` on the first subsection's LISTs (`acepn.f90:507-584`); an all-zero yield gives no threshold (below) | 31-38, 43, 46 identical; the `LAW = 4` step was not foreseen |
+
+**`gamsum`'s block (deck 75), established by measurement and then traced.**
+- NJOY2016's 293.6 K GPD differed from ours in all 50 590 words, by about 1.3e-4.
+- With BROADR at 293.6 K **only**, NJOY2016's ACE equals ours word for word (612 558 words).
+- The mechanism: `unionx` leaves `npend` just past MF=3's FEND. Ag-109's blocks end at MF=3, so `gamsum`'s first `findf` (`acefc.f90:3652`) reads the MEND, skips it (`math = 0`, `endf.f90:1504`), meets the next block's MF=1 and searches forward (`:1516`).
+- With a file after MF=3, or no further block, it searches backward into its own block.
+- `deck::run::gamsum_block` codes exactly that. Both branches are checked:
+  - deck 75 (forward);
+  - deck 19, whose blocks carry MF=12/13 after MF=3 (backward). An unconditional "next block" broke deck 19's ACE, which is how the condition was found.
+
+**Deliberate divergence on undefined behaviour (deck 64).** `acephn`'s scan for the first positive yield (`acepn.f90:417-424`) has no bound. On an all-zero yield it reads stale `scr` words. Its result only enters a `min()` of thresholds, so an all-zero yield is taken as giving none. The deck matches NJOY2016.80 on every unit. The divergence is commented at the site.
+
+**Gates:**
+- `tests/deck_driver_tapes_vs_njoy2016.rs`: `test_61_...`, `test_86_...`, `test_21_heatr_purr_coded_whole_deck`, `test_75_broadr_two_temperatures_gamsum_whole_deck`, `test_10_19_purr_several_temperatures_whole_decks`, `test_60_irdff_no_mf3_whole_deck`;
+- `tests/deck_driver_photonuclear_vs_njoy2016.rs`: `test_64_photonuclear_whole_deck`;
+- unit tests in `acer::newsuff`.
+
+**Not done.** The order is the ranking above:
+- ~~CCCCR (02, 76) and PLOTR (06, 12): large ports with nothing in `src/`.~~ **CORRECTED
+  2026-11-13:** both translated and closed (§25, §26).
+- ~~03 and 30: GAMINR's driver and MATXSR. Deck 03 first needs RECONR on DLC-7e's old photon format; deck 30 needs a genuine `ith = 0` on its photo-atomic MF=23.~~ **CORRECTED 2026-11-13 (§27):** closed. Deck 30's `ith = 0` was not genuine: the deck PENDF writer built its union grid without MF=23, so every MF=23 section was empty.
+- ~~11: WIMSR's card reader. The engine is byte-identical on U-238.~~
+- ~~17: ERRORR `iread = 2`.~~
+- ~~43: BROADR `thinb`, gh:#619.~~
+- ~~48 and 59: the photo-atomic `iheat` residual.~~
+- 80: LEAPR, last figure.
+
+**CORRECTED 2026-11-13:** 11, 17, 43, 48 and 59 are closed (§24). Deck 48/59's
+"residual" was a port defect (two single-precision literals), not upstream's
+convergence.
+
+**Survey.** Rows 10, 19, 21, 30, 31, 60, 61, 64, 75, 86 and 87 were re-run alone
+(`SURVEY_CASES`, 184 s) on develop a4a799b8d plus this work. **75 of 87 are identical** (65
+before; 67 once the stale rows of 31 and 87 were re-run). Remaining: 02, 03, 06, 11, 12, 17,
+30, 43, 48, 59, 76, 80.
+
+**Tests** (release, on develop a4a799b8d plus this work). Run after the last code or test
+change, with one exception: doc comments in `src/acer/photonuclear/{build,mod}.rs` and
+`src/deck/run.rs`, and Markdown, changed while the deck suite was running. Every other suite
+below was built after those edits.
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 130 passed, 0 failed, 2 ignored (43, 80), 1 642 s |
+| `deck_driver_photonuclear_vs_njoy2016` (whole decks 56, 57, 58, 64, 66, 78) | 6 of 6 passed |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `acer_photonuclear_vs_njoy2016` | 5 of 5 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `--lib` | 761 of 761 passed |
+
+## 24. Decks 11, 17, 43, 48 and 59 closed: WIMSR's cards, ERRORR `iread = 2`, BROADR `thinb`, `iheat`'s literals (2026-11-13, gh:#1369)
+
+The smaller one-deck blockers of §23's ranking, in order. For each, the existing
+code was searched first, upstream was read, and a prediction was posted on gh:#1369
+**before** any new code ran. All five held on the first run. No folder touched has
+a kovan `kind = "review"` block.
+
+| deck | cause, read upstream | fix | result |
+|---|---|---|---|
+| 11 | WIMSR's engine was ported (`src/wimsr/`) but had no card reader, and read only a coded GENDF | `deck::wimsr::{read_wimsr, run_wimsr}` (`wimsr.f90:165-268`: presets, `igroup = 0` → `69 14 13 14`, `nfid = nint(rdfid)`, `nout = iabs(nout)`); `wimsr::gendf::read_material_records` and `run_gendf_records`, GROUPR's full-precision records for binary unit -26 | 27 (1 169 lines) and 28 identical; first comparison of `ntemp = 3`, `ires = 3` × 7 σ0, `ip1opt = 1`, `isof = 0`, the 69-group default |
+| 17 | ERRORR `iread = 2` refused: card 10's cross-material pairs | card 10 read (`:907-919`); `ngchk`/`colaps` per material (`:11113-11135`, `:9097-9532`); `gridd`'s `iread = 2` subsection rule and the pairs after `nmt` (`:1202-1226`); `rdsig(mat1,…)` in `covcal` and `sigc` (`:2071`, `:7893`); `covout`'s `ix <= nmt`, `ixp <= nmt1` (`:7068`, `:7225`, `:7254`). New `errorr::mf31::run_cov_gendf_card10` beside `run_cov_gendf` | every tape identical: 41-43, 31-33, 91-93, 99 and ERRORR's 26 (6 420 lines) |
+| 43 | BROADR at `tempef <= 0` only thins (`thinb`), not ported (gh:#619) | `broadr::joint::broadr_joint_thinb` (`broadr.f90:1218-1222`, `:1677-1760`), beside `broadr_joint`, which is unchanged | 35 identical (151 lines) |
+| 48, 59 | the photo-atomic heating residual: `iheat` compares against `0.99999` and `-.9999`, **default-real** literals (NJOY2016 has no `-fdefault-real-8`); the port used doubles, so a panel loop could end one panel apart | `incoherent_heating::{UNEXT_LIMIT, UNOW_LIMIT}` = the `f32` literals promoted | 27 identical (17 964 lines), and 28, 40, 41 |
+
+**Two places where upstream's behaviour is undefined (deck 43's `thinb`), refused by
+name and not guessed.** Neither occurs on deck 43:
+- `thinb`'s `tt` has no `save` (`:1691`). On every page after the first, it is read
+  before it is written (`:1712-1717`). So a table longer than one page
+  (`mpage = 1.5e7/(4(nreac+1))` points) thins from whatever that stack slot holds.
+- A walk that ends below `thnmax` never writes its last point, and `bfile3` never
+  sets `nj < 0`, so its paging does not end.
+
+`istrap` with a thinned pass is refused too; upstream's bootstrap tape for it was not
+read.
+
+**The photo-atomic residual (decks 48, 59) was misattributed.**
+`acer_photoatomic_vs_njoy2016.md` blamed the `pnow/2` panel rule's truncation above
+~300 MeV. The truncation measurement stands. But truncation is common to two copies
+of one rule, so it cannot separate them. The record's own conditioning test
+(1.4e-16 per ulp) already pointed to a **branch** taken differently. Corrected in
+place, with strike-through, in that record, AGENTS.md and the docs that quoted
+"71 781 of 71 807 words".
+
+**Gates:**
+- `tests/deck_driver_tapes_vs_njoy2016.rs`:
+  - `test_11_wimsr_whole_deck`;
+  - `test_17_errorr_iread2_whole_deck` (behind `long-tests`; 235 s with NJOY2016);
+  - `test_43_whole_deck` (no longer `#[ignore]`d);
+  - `test_48_photoatomic_whole_deck` (now including the ACE, unit 27);
+  - `test_59_photoatomic_whole_deck`;
+- unit tests in `broadr::joint::thinb` (a hand-worked line, and the refusal of a walk below `thnmax`).
+
+**Not done.** The large ports (CCCCR: 02, 76; PLOTR: 06, 12; GAMINR/MATXSR: 03, 30)
+were out of scope this round. **UPDATE 2026-11-13 (§26):** PLOTR (06, 12) is closed. Deck 80 (LEAPR, the last printed figure of MF=7/MT=4)
+was not attempted. **UPDATE 2026-11-13 (§25):** CCCCR (02, 76) and deck 80 are closed; ~~"the last printed figure"~~ was a mis-description (most values differed by more than 3e-5).
+
+**Survey.** Rows 11, 17, 43, 48 and 59 were re-run alone (`SURVEY_CASES`, 230 s) on
+develop 16330e9f6 plus this work. All five are `identical`. **80 of 87 are identical**
+(75 before). Remaining: 02, 03, 06, 12, 30, 76, 80.
+
+**Tests** (release, on develop 16330e9f6 plus this work, all run after the last code
+or test change):
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 134 passed, 0 failed, 1 ignored (80), 1 886 s |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `deck_driver_photonuclear_vs_njoy2016` | 6 of 6 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `acer_photoatomic_vs_njoy2016` | 4 of 4 passed |
+| `--lib` | 763 of 763 passed |
+
+## 25. Decks 80, 02 and 76 closed: LEAPR's persistent `sb`, and CCCCR translated (2026-11-13, gh:#1369)
+
+The last of §23's one-deck items (80) and the CCCCR port (02, 76). I searched the
+existing code first and read upstream. For each, a prediction was posted on
+gh:#1369 **before** any new code ran, and each held on the first run. No folder
+I touched has a kovan `kind = "review"` block.
+
+| deck | cause, read upstream | fix | result |
+|---|---|---|---|
+| 80 | ~~"17 369 lines differ in the last printed figure"~~ **CORRECTED:** 24 264 values differed, and 19 522 of them by more than 3e-5. In **every** one, NJOY's was the larger. `trans` allocates `sb(ndmax)` once per call and keeps it across the alpha and beta loops (`leapr.f90:883`). When `sbfill`'s `bet += delta` rounding stops it one entry short of `2*nbt-1`, the convolution reads (`:935-937`) the value an earlier `sbfill` left there. The port built a fresh array per call and padded it with zero | `leapr::translation::sbfill` writes one persistent buffer in place, and never-written entries read zero. Also `s=s*delta/3` is now `(s*delta)/3` (`:939`), where the port had `s*(delta/3)` | tape24 identical, 91 453 lines |
+| 02 | CCCCR not ported (`ccccr.f90`, 3 526 lines) | `src/ccccr/`, a line-for-line translation: `core`, `state`, `isotxs`, `brkoxs`, `dlayxs`; `deck::ccccr` for the cards; `TapeUnits::put_bytes` | ISOTXS (26, 42 128 bytes) and BRKOXS (27, 23 164 bytes) byte-identical; 28 and 29 identical |
+| 76 | the same | the same (DLAYXS from a coded GENDF) | DLAYXS (30, 3 732 bytes) byte-identical; 25 identical |
+
+**Deck 80, the stale record.** The `#[ignore]` reason on `test_80_leapr_whole_deck`
+said every difference was one unit in the sixth figure. That was never measured
+value by value. Counting values shows otherwise: 4 742 differed in the last figure,
+and 19 522 by 3e-5 or more (`6.87804e-17` against `6.87827e-17`), with a few tail
+values `0` where NJOY has `5.7e-58`. The fact that every difference had one sign
+is what pointed at a missing term. Corrected with strike-through in the test doc.
+Decks 09, 22, 23 and 33 also run `trans`, and they stay identical.
+
+**CCCCR: how byte identity was reached.**
+- The port keeps upstream's equivalenced container as 100 000 four-byte words,
+  indexed 1-based as upstream indexes it.
+- It keeps the mixed precision. `a` is `real(4)`, so `a(locn)/a(locd)`,
+  `a(locsg)/a(locsg0)`, `abs(a(noloc)-1.0)` and `a(mdex)-273.16` are single
+  precision.
+- It writes gfortran's 4-byte record markers.
+
+Record: `src/ccccr/README.md`.
+
+**Divergences and undefined behaviour, by name.**
+- LEAPR `sbfill`: an `sb` entry that no earlier call wrote is **undefined** in
+  Fortran. The port reads zero, which is what gfortran with glibc gives for a fresh
+  8 MB `allocate`. A stale entry that an earlier call wrote is defined (an
+  allocatable keeps its values), and the port reproduces it.
+- CCCCR `prinxs`: with MT=455 before any MT=18, it indexes `dnorm(0)`, which is
+  undefined. The port refuses this.
+- CCCCR `ruinis` (`ichix = 1`): `spec` is read through `real(8)` and rounded,
+  where upstream converts the decimal straight to `real(4)`. These can differ only
+  at an `f32` midpoint. No deck reads `spec`.
+- Refused by name, and run by no upstream deck:
+  - ISOTXS `ifopt = 2`;
+  - `nsblok = ngroup`;
+  - a chi matrix (`ichix > 1`);
+  - BRKOXS `nsblk = nreact`.
+
+  The listing (`lprint = 1`) is not written.
+
+**Survey.** The survey now counts a binary file of ours that differs from NJOY's
+as `differs`. Before, it was listed as "binary" and could not fail.
+
+**Gates** (`tests/deck_driver_tapes_vs_njoy2016.rs`):
+- `test_80_leapr_whole_deck` (no longer `#[ignore]`d);
+- `test_02_ccccr_whole_deck`;
+- `test_76_ccccr_whole_deck`;
+- `ccccr::core::tests`;
+- `deck::tapes::tests::only_output_units_are_written_back` (raw bytes).
+
+**Survey.** Rows 02, 76 and 80 were re-run alone (`SURVEY_CASES`, 537 s) on
+develop 60675b0f0 plus this work, and all three are `identical`. **83 of 87 are
+identical** (80 before). Remaining: ~~06 and 12 (PLOTR),~~ ~~03 and 30 (GAMINR, MATXSR)~~ (closed, §27).
+**UPDATE 2026-11-13:** 06 and 12 are closed in §26.
+
+**Tests** (release, on develop 60675b0f0 plus this work, all run after the last
+code or test change):
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 137 passed, 0 failed, 0 ignored, 2 036 s |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `deck_driver_photonuclear_vs_njoy2016` | 6 of 6 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `acer_photoatomic_vs_njoy2016` | 4 of 4 passed |
+| the 14 `leapr_*` oracle test files | 48 passed, 0 failed, 1 ignored (`leapr_coher_general_self_consistency`, ignored before this work) |
+| `--lib` | 764 of 764 passed |
+
+## 26. Decks 06 and 12 closed: PLOTR translated (2026-11-13, gh:#1369)
+
+PLOTR was a stub (`src/plotr/mod.rs`). It is now translated line for line from
+`plotr.f90` (3 149 lines) into `src/plotr/`, and wired into the deck driver
+(`deck::plotr`). Record of the translation, its reuse and its divergences:
+`src/plotr/README.md`.
+
+**What I checked first.** VIEWR (`src/viewr/`) was already translated, and on
+NJOY2016.80's own plot files of decks 06 (tape31) and 12 (tape23) it gives
+NJOY's PostScript byte for byte. So the decks only needed PLOTR's plot-command
+file. I reused, rather than wrote: `endf::gety1::Gety1`, `endf::interp::terp1`,
+`errorr::weight::terpa` (flat, stateful), `acer::fortran_fmt::fortran_e`,
+`viewr::fmt`, `deck::cards::CardReader` and `deck::covr::tape_from_records`.
+PLOTR walks its tapes card by card and positions them with `findf`, which reads
+up as well as down. No line-level ENDF reader existed in the crate (the `Tape`
+type is parsed sections), so `plotr::stream` holds a tape as its lines rebuilt
+from `Tape` with SEND/FEND/MEND/TEND, and translates `contio` ... `findf` with
+`npage` paging. No folder I touched has a kovan `kind = "review"` block (`src/plotr`,
+`src/deck`, `src/endf`, `src/errorr`, `src/acer`, `src/viewr`, `src/lib.rs`'s folder).
+
+**Prediction** (posted on gh:#1369 before the first run): both decks identical;
+the named risk was a 1-ulp step in the walk's thinning, or a last figure of
+`1p,2e16.8`.
+
+| deck | first run | cause, read upstream | fix | result |
+|---|---|---|---|---|
+| 12 | identical | — | — | units 21, 22, 23 (5 278 lines), 24 (6 467) identical; 22 and 24 are upstream's `referenceTape22`/`referenceTape24` |
+| 06 | stopped at curve 2 (MT=107, "illegal TAB1, nr<=0") | after the frame search (x axis automatic), `findf` searches up from the SEND. At its label 300 it backs up a card at a time until the card before the HEAD (`if (mth.gt.0) go to 300`, `endf.f90:1575-1577`). The port backed up once | `stream::EndfStream::found` loops as upstream | units 31 (17 344 lines) and 32 (22 422) identical; 32 is `referenceTape32` |
+
+So the prediction held for 12 and not for 06. The miss was control flow (a missing
+loop in a positioning routine), not arithmetic.
+
+**Branches the two decks do not reach.** Upstream has no other PLOTR deck, so I
+wrote five more and judged them against NJOY2016.80 run on the same deck. **They
+were run before a prediction was posted for them**; that is said on gh:#1369.
+
+| deck (in `tests/deck_driver_plotr_vs_njoy2016.rs`) | reaches | result |
+|---|---|---|
+| `DECK_GETY4_GETZ` (Fe-56 JEFF-3.3) | `gety4`; ratio plot from two units (`getz`) | plot 9 241 lines, PostScript 10 275: identical |
+| `DECK_AUTO` (C-12 ENDF/B-V, `mtd = 0`) | automatic loop, passes, `rname`, `findf` up | plot 6 591, PostScript 28 075: identical |
+| `DECK_MF7` (H in H2O) | MF=7 against alpha and beta | plot 153: identical. VIEWR not compared: this port's VIEWR panics on NJOY's own plot file of it, gh:#1543 |
+| deck 01 + `DECK_GENDF_TAIL` | GENDF MF=3 (coded and binary unit), flux per lethargy, MF=6 spectrum, `gg3d` | plot 172, MODER copy 1 330: identical |
+| `DECK_MF6` (Al-27 ENDF/B-VIII.0 MT=16) | `gety6` | **refused**: undefined upstream (below) |
+
+**Undefined upstream, refused by name.** `gety6`'s `ylast` is not in its `save`
+list (`plotr.f90:2803`), and the first interpolation of every MF=6 curve reads it
+unset. NJOY2016.80 plots `8.245559e-8` there, a value of an earlier LIST, where
+the panel's own value is `5.462661e-8`. The port stops at PLOTR with the reason.
+The other refusals (reads of `lf`, `lep`, `l2`, `iauto`, `nr`, card 7, `sigig`
+before anything set them; `rname` past its table, MT=229-236 among them;
+`egrid(200)`/`ex3(200)` overflows; `ad3d`'s `intmu` on MF=6) are listed in
+`src/plotr/README.md`.
+
+**Not written:** PLOTR's listing (`nsyso`) and `mess` lines.
+
+**Gates:** `tests/deck_driver_plotr_vs_njoy2016.rs` (7 tests); unit tests in
+`plotr::{stream, cards, getters, rname}`.
+
+**Survey.** Rows 06 and 12 were re-run alone (`SURVEY_CASES=06,12`) on develop
+0ad98bc5d plus this work: both `identical` (06: 2 tapes, 12: 4). **85 of 87 are
+identical** (83 before). Remaining: ~~03 and 30 (GAMINR, MATXSR)~~ none (§27).
+
+**Tests** (release, `ulimit -v 12582912`, all run after the last code change):
+
+| suite | result |
+|---|---|
+| `deck_driver_plotr_vs_njoy2016 --test-threads=2` | 7 of 7 passed, 3.2 s |
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` | 137 passed, 0 failed, 0 ignored, 2 134 s |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `deck_driver_photonuclear_vs_njoy2016` | 6 of 6 passed |
+| `deck_driver_survey` (`SURVEY_CASES=06,12`, `--ignored`) | 06 and 12 `identical` |
+| `--lib` | 772 of 772 passed |
+
+## 27. Decks 03 and 30 closed: photo-atomic RECONR, GAMINR's tape driver, DTFR from a deck, MATXSR translated (2026-11-13, gh:#1369)
+
+The last two of 87. Both decks now run to `stop` and every coded unit NJOY2016.80
+writes is identical line for line. Gate: `tests/deck_driver_photon_vs_njoy2016.rs`.
+
+**Method.** Each deck is run whole by `NJOY2016_ROOT/build/njoy` and by `run_deck`
+on the same tapes (03: `gam23` on 30, `gam27` on 32; 30: the H-1 neutron and
+photo-atomic ENDF/B-VIII.0 tapes on 20 and 40). Every coded unit is compared as a
+string, line for line, and the units upstream commits are compared byte for byte.
+Pass: no differing line, no differing byte, the run reaches `stop`. A prediction
+was posted on gh:#1369 before each first run (photo-atomic RECONR, GAMINR, DTFR,
+MATXSR, and the two decks of our own).
+
+| deck | unit | module | lines | result |
+|---|---|---|---|---|
+| 03 | 31 | RECONR (H, U; ENDF-4) | 2 180 | identical |
+| 03 | 33 | GAMINR (LANL 12) | 604 | identical |
+| 03 | 34 | DTFR tables | 340 | identical |
+| 03 | 35 | MATXSR | 211 | identical |
+| 03 | 36 | DTFR plot commands | 1 711 | identical |
+| 03 | 37 | VIEWR | 9 274 | identical; `referenceTape37` byte for byte |
+| 30 | 31 | GROUPR | 21 249 | identical (as before) |
+| 30 | 43 | GAMINR (VITAMIN-J 42) | 1 477 | identical; `referenceTape43` byte for byte |
+| 30 | 44 | MATXSR (`nscat`, `ng`, `gscat`) | 18 924 | identical; `referenceTape44` byte for byte |
+| 30 | 45 | MODER of the photo-atomic PENDF | 4 408 | identical; `referenceTape45` byte for byte |
+| X1 | 50, 51, 52 | DTFR photon table, `ifilm = 2`; VIEWR | 3 858, 35 730, 40 988 | identical |
+| X2 | 43, 44 | GAMINR `igg = 1`, `iwt = 2`; MATXSR | 39, 20 | identical (MT=501 listed first, below) |
+
+**What was missing, read upstream:**
+- **Photo-atomic RECONR** (`deck/pendf_photon.rs`). The deck PENDF writer built
+  its union grid from MF=3/10/12/13 only, so on a tape with only MF=23 the grid
+  was empty and every section had no point. Deck 30's "MF=10-23 section with no
+  positive point" was that, not a genuine `ith = 0`; deck 03's tape31 differed
+  in all 2180 lines. Translated: `anlyzd`'s MT=501 (and MT=522 when 534-572 are
+  present) as redundant reactions and no MF=2 (`reconr.f90:599-657`), `lunion`'s
+  MF=23 skips and no threshold raise (`:1866-1914`), `emerge`'s MF=23 sums
+  (`:4896-4915`) and `recout`'s order and heads (`:5222-5345`; the first
+  redundant head keeps `scr(5:6)` of the first scratch head, the ENDF-4 TEMP
+  record carries the entry count, because `scr(6)` is set again just before
+  `hdatio`).
+- **GAMINR's control flow** (`gaminr/tape.rs`): the ENDF-format probe from
+  `nendf`, the gamout MF=1 head, the standard or listed reactions, the
+  total-heating edit and the `akn` cache (`gaminr.f90:133-536`). The head's title
+  word is `rt(1)` after `tt(1) = ''` through the `tt`/`rt` equivalence: four
+  blanks and columns 5-8 of the PENDF's first card, printed `1.7514+190` (03) and
+  `6.0135-154` (30). Two engine defects were fixed: `gtsig` used a local lookup
+  instead of `gety1` (the threshold differs), and `EPAIR` was not upstream's
+  expression.
+- **DTFR from a deck** (`dtfr/deck.rs`, `dtfr/plots.rs`): `dtfr`, `ruin`,
+  `dtfout`, `ploted`, `histod`, `dpend`, `plotnn`, `plotnp`. The plots had been
+  called "permanently out of scope"; deck 03 compares them.
+- **MATXSR** (`src/matxsr/`): every routine of `matxsr.f90`. The container is
+  `real(k4)`, so every number on the file is an `f32`; `hname` hard-wires
+  `iverf = 6`, so ENDF-4 MT=602/621 are `p02`/`p21`; a list that ends exactly at
+  a `/` in a format writes an empty line (checked with gfortran 13).
+
+**Refused by name (undefined or not ported):**
+- RECONR: an MF=23 section with no positive point (`istart = 0` reads an undefined
+  buffer word); photo-atomic and other materials in one run; MF=3/10/12/13 on a
+  photo-atomic material.
+- GAMINR: `ngam1 /= 0` (old-tape merge), `ngam2 = 0`, `iwt = 1`, a PENDF with no
+  description card (`rt(1)` is then a stale scratch word), `mfd/mtd` outside
+  MF=23 and MF=26 MT=502/504/516, a heating edit with `mfd /= 23`.
+- MATXSR: a binary MATXS (`nmatx < 0`); `shufl` when one band does not fit
+  (`imax` undefined); a vector MT=1/501 (or charged-particle MT=2) after another
+  vector reaction.
+
+**A prediction that failed, and a check that hid it.** X2 as first written listed
+23/501 after 23/502. `vector` names the first section `hvps(1)`, then MT=501
+writes `hvps(1:2)` unconditionally and moves `n1i` past a slot it never set, so
+NJOY prints eight zero bytes as the third name (unit 44, line 11) and the 502 data
+is overwritten. A first check with `diff` reported 0 differing lines: `diff` treats
+a file with NUL bytes as binary and printed no `>` lines. The gate's string
+comparison found it. The port now refuses that order
+(`x2_mt501_after_another_reaction_is_refused`); with MT=501 first X2 is identical.
+Every comparison in this section was then re-made by the gate's string comparison.
+
+**Not exercised by any deck:** MATXSR's reference subtraction (`iref`: several
+temperatures or sigma-zeros), its constant sub-blocks (`jconst`) and charged
+particles; DTFR `iedit = 1` (CLAW, dated header), thermal corrections and the
+fission branches through a deck; GAMINR with several materials of decreasing Z
+other than 03's H then U.
+
+**Survey.** Rows 03 and 30 were re-run alone (`SURVEY_CASES=03,30`) on develop
+1a81b9422 plus this work: both `identical` (03: 6 tapes, 30: 4). **87 of 87 are
+identical** (85 before). Remaining: none.
+
+**Tests** (release, all run after the last code change):
+
+| suite | result |
+|---|---|
+| `deck_driver_photon_vs_njoy2016` (new) | 5 of 5 passed, 6.7 s |
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` | 137 passed, 0 failed, 0 ignored, 1 964 s |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed, 221 s |
+| `deck_driver_photonuclear_vs_njoy2016` | 6 of 6 passed |
+| `deck_driver_plotr_vs_njoy2016` | 7 of 7 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `gaminr_vs_njoy2016` | 2 of 2 passed |
+| `deck_driver_survey` (`SURVEY_CASES=03,30`, `--ignored`) | 03 and 30 `identical` |
+| `--lib` | 774 of 774 passed |
+
+## 28. GROUPR `getwtf` for `iwt = 1, 7, 10, 11, 12`, and `mfchk` (2026-11-13, gh:#1370)
+
+No upstream deck uses these weights (the 87 decks use `iwt` 2-6 and 9), so the tape
+driver refused them. Translated from `groupr.f90:5011-5025` (`genwtf`, card 8b) and
+`:5186-5300` (`getwtf`):
+- `groupr::genwtf`: card 8b's TAB1 (`genwtf_iwt1`), `temp(jtemp)`
+  (`getwtf_set_temperature`, set per temperature from `jtemp = itemp`, `:497`), the
+  tabulated branch with its saved `ip, ir, ipl, step`, and `iwt = 10`;
+- `groupr::weights::getwtf_iwt67` and `getwtf_iwt1112`, beside `getwtf_iwt6` and
+  `vitamin_e` (kept), because upstream writes `exp(two)` and `e**half` (a real
+  power) where those take `e**2` and `sqrt`.
+
+**Refused by name:** a card 8b that gives fewer words than its own `6 + 2 nr + 2 np`
+(upstream reads unset words of an `allocate`d `tmp`; the deck reader marks unread
+words `NaN`); `iwt = 0` in `getwtf` (no branch sets `wtf`).
+
+**Gates** (`tests/deck_driver_groupr_weights_vs_njoy2016.rs`): decks of our own on
+H-2 ENDF/B-VIII.0 (MODER, RECONR, BROADR to 293.6 K, GROUPR LANL-30 with `3/` and
+`6 2/`). The prediction was posted on gh:#1370 before the first run: every line of
+the GENDF identical. **Result: identical in all seven, 321 of 321 lines each,
+compared as strings,** for `iwt = 1` (a two-region TAB1), 7, 8, 10, 11, 12, and
+`iwt = -3` with one sigma-zero (upstream then takes `getwtf` with `|iwt|`,
+`:6505-6512`). Control: NJOY's own GENDFs for these decks differ from one another
+(3 090 bytes between `iwt = 7` and `8`, 59 between 11 and 12), so the gate can fail.
+
+**`mfchk`** (`groupr.f90:1526-1573`): `deck::groupr_auto::mfchk` now runs on every
+non-automatic card-9 request, as `:716` does. `16 mt` with `mt` in MF=13 becomes
+`mfd = 17`, and `13 mt` with `mt` in MF=12 becomes 12. In a `-m` range the switched
+`mfd` carries on to the range's later MTs, because upstream rewrites `mfd` in place.
+`mfchk2` (`:1575-1597`, `mfd = 21-26`) is not translated, because the tape driver
+refuses `mfd = 21-36`.
+- The first deck, on B-10, stopped at `getgyl`'s refusal of several MF=13 photons
+  (`NK = 16` and 9), the refusal its prediction named. It was replaced by `MF2`.
+- `MF2`: Pu-240 ENDF/B-VIII.0, card 9 `16 3`, `16 102`. **The GENDF is identical,
+  170 of 170 lines.**
+- Ablation (`mfchk` made to return its input): 96 of 170 lines differ, so the deck
+  does exercise `mfchk`.
+
+## 29. ERRORR `iwt = 1`: card 13, read once per `egnwtf` call (2026-11-13, gh:#1371)
+
+`egnwtf` reads card 13 (`iwt = 1`) or 13b (`iwt = 4`) itself, each time it is called
+(`errorr.f90:9916-9962`). It is called once by `grpav` or by `colaps` (`:1028-1032`;
+`colaps` calls it whenever `iwt /= 0`, `:9122`, and does not use what it read), and a
+second time by `grpav4` for `mfcov = 34` (`:5467`).
+
+`deck::errorr::read_errorr` refused `iwt = 1`, and it read card 13b once even for
+`mfcov = 34`. It now reads either card once per call. `egnwtf_card13` keeps
+`win(1..iww)`, `iww` being the last non-zero word, as upstream does, and the TAB1 goes
+to `ErrorrWeight::Tabulated`.
+
+**Refused by name:**
+- two copies that differ (the port runs one weight for both passes);
+- a card 13 whose trailing zero would leave `wght` shorter than its TAB1, because
+  `terpa` would then read past it.
+
+**Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`; the predictions were posted on
+gh:#1371 first):
+
+| deck | what it is | result | control |
+|---|---|---|---|
+| `E1` | deck 05 with `iwt = 1` and a two-region TAB1 | 33, 34 and 35 identical (21 471, 78 796 and 199 652 lines) | NJOY's unit 33 differs from deck 05's in 210 162 bytes |
+| `E2` | deck 46 with `iwt = 1` and card 13 twice | 34 identical (8 002 lines) | NJOY's unit 34 equals deck 46's, so this deck checks only the card count |
+
+## 30. One run date for both sides (2026-11-14, gh:#1549)
+
+`test_25_thermal_ace_and_directory` failed once, on a run that crossed midnight. The
+cause:
+- NJOY2016's `dater` (`util.f90:72-94`) stamps the clock's local date into each ACE
+  header (`aceth.f90:669-670` and the other ACER classes) and into DTFR's edit title
+  (`dtfr.f90:813`).
+- The port did the same, from its own clock, after NJOY's run had finished.
+- The line comparison includes the header line, so the two dates could differ.
+
+**Fix, with the comparison unchanged:**
+- `DeckOptions::run_date` (`mm/dd/yy`) fixes `dater` for a run, through
+  `TapeUnits::set_run_date`, `dater` and `fixed_dater`. `None` keeps the clock at each
+  call, as upstream.
+- `tests/common::run_njoy_dated` runs NJOY between two reads of the local date. It runs
+  NJOY again if the date changed during the run, and passes NJOY's date to this crate.
+- Used by every harness that runs NJOY and then this crate: tapes, photonuclear,
+  photon, plotr, covr and groupr_weights.
+
+`faketime` is not installed here, and installing it was refused. So the reproduction is
+an ablation, not a faked clock.
+- `test_25_a_different_date_differs_in_the_header_only` dates this crate's run
+  `01/01/99`.
+- Predicted on gh:#1549 before the run: line 1 differs on units 70, 71 and 72, and unit
+  75 (the directory, which has no date) is identical.
+- **Measured: exactly that.** With the shared date, all four units are identical.
+
+**Divergence, not changed:** the port's clock date (`deck::run::dater`) is UTC, while
+upstream's is local time. Tests never use it now. A user outside UTC who runs a deck
+without `run_date` gets the UTC date in the header between local midnight and UTC
+midnight. Matching local time would need a time-zone dependency, which this crate does
+not have.
+
+## 32. GROUPR's flux calculator, `iwt < 0` with `nsigz > 1` (2026-11-14, gh:#1370)
+
+The tape driver refused `iwt < 0` with several sigma-zeros. No upstream deck uses it.
+`flux_table::genflx_card8a` now translates `genflx` (`groupr.f90:5309-5684`) for card 8a:
+- `nflmax = 0`: the Bondarenko branch with card 8a's `sigpot`.
+- `nflmax > 0`: the slowing-down flux.
+  - The grid comes from `gety1` on MT=1 and `gety2` on MT=2, from
+    `felo = max(egn(1), 0.1)` to `fehi`.
+  - `alpha(1)` comes from MT=1's AWR.
+  - The solve is `slowing_down::solve_flux`. These are steps 2-4 of the existing
+    `genflx_slowing_down`, moved out unchanged so that both routes share them.
+  - Then the weight shape below `felo`, the computed rows with their `nl` moments, and
+    the narrow-resonance completion.
+- `fehi` is the module variable that `genflx` rewrites, so it carries to the next
+  temperature.
+- `ninwt` is written as Fortran unformatted records. The narrow-resonance rows carry the
+  last computed row's `xc`, as upstream writes them.
+
+**Refused by name** (upstream reads values it never set):
+- an unresolved range below the first narrow-resonance row: the computed rows' `xtot`
+  word is never set;
+- `ninwt` with `nflmax = 0`: `xc` is never set;
+- `gety2` on an MT=2 that starts at zero.
+
+**Gates** (`tests/deck_driver_groupr_flux_calculator_vs_njoy2016.rs`). All decks use
+Pu-238 ENDF/B-IV `t404` and run RECONR, BROADR, UNRESR, then GROUPR (LANL-30,
+`iwt = -3`, `lord = 1`, `sigz = 1e10 100 10`). The prediction was posted on gh:#1370
+before the first run.
+
+| deck | card 8a | unit 26 (GENDF) | unit 30 (`ninwt`) |
+|---|---|---|---|
+| `SD0` | `nflmax = 0`, `sigpot = 10` | identical, 411 lines | - |
+| `SD1` | `fehi = 150`, one moderator | identical, 411 lines | - |
+| `SD2` | three moderators, `beta`, `ninwt = 30`, `jsigz = 2`, 300 and 900 K | identical, 820 lines | identical, 233 440 bytes |
+| `SD3` | `SD1` with `ninwt = 30`, `jsigz = 3` | identical, 411 lines | identical, 122 064 bytes |
+
+**The first run of `SD2` was not identical.** Unit 26 matched, but 19 of the 7 296
+`ninwt` records differed in the last bit.
+- Localised with an instrumented NJOY2016 build: a scratch copy of `groupr.f90` that
+  dumps `b` before and after the solve, built with the same `-O3`.
+- The cause: step 3's third-moderator term. Upstream writes it without parentheses,
+  `f1*beta*(1-gamma)*(sigz(iz)-sam)`, which evaluates as
+  `((f1*beta)*(1-gamma))*(sigz-sam)`. The library computed `f1*s_k3`.
+- Fixed in `solve_flux`, so `genflx_slowing_down` changes in the last bit too.
+  `groupr_u238_gendf_golden` (tier 5, `nalph = 3`) still passes.
+
+**Ablations:**
+- `solve_flux` given a zero elastic cross section: 63 of 411 lines of `SD1` differ, and
+  `SD2` differs in 126 lines and in its `ninwt` file.
+- `SD0` with `sigpot` set to 0: 213 of 411 lines differ.
+
+## 31. RECONR's ENDF-4 TEMP record carries the entry count (2026-11-14, gh:#1546)
+
+For an ENDF-4 evaluation (`iverf = 4`, second MF=1/MT=451 record `N1 ≠ 0`,
+`reconr.f90:226-230`), `recout` writes the dictionary's entry count in the head record
+(`:5036`). It writes it **again** in the TEMP record: `scr(6)=nxcc+nmtr+i152` is set just
+before `hdatio` (`:5092-5094`) for every format. `deck::pendf::with_directory` wrote 0
+there.
+
+No upstream deck compares RECONR's PENDF of an ENDF-4 tape. Decks 02, 10 and 11 run
+RECONR on `t404` (Pu-238, ENDF/B-IV) and hand the tape straight to BROADR.
+
+**Gate** `test_r4_reconr_endf4_pendf_is_identical`: deck 02 cut before `broadr`, plus
+`moder -22 28`. The prediction was posted on gh:#1546 before the run.
+- Before the fix: 1 line differed, line 3 (the TEMP record), as predicted.
+- After the fix: 0 lines differ.
+- Decks 02, 10 and 11 still pass.
+
+### 32a. `iwt = 0`: `getfwt` reads the flux back (2026-11-14, gh:#1370)
+
+- **`flux_table::FwtReader` is `getfwt`** (`groupr.f90:5686-5775`). It keeps the
+  `save`d bracket and the file position from one temperature to the next. The
+  exact-match branch reads one record ahead and returns `enext = emax`, as upstream
+  does.
+- **`flux_table::genflx_fwt`** is the Bondarenko branch with `getfwt`'s weight and
+  `fac = sigz*xc/(sigz*xc+tt)`.
+- **Refused by name:** a read past a short record or past the end of the file (a
+  Fortran runtime stop upstream).
+- **Divergence:** upstream keeps `getfwt`'s `templ` across GROUPR runs; here it is kept
+  per run.
+
+**Deck `FW1`** (prediction posted on gh:#1370 first): `SD2`'s chain writes
+`ninwt = 30`. A second GROUPR with `iwt = 0` and card 8d `-30/` then reads it back at
+the same two temperatures.
+- **Result:** units 26 and 27 are identical (820 lines each) and unit 30 is identical
+  byte for byte.
+- **Control:** NJOY's unit 27 differs from its unit 26 in 479 lines.
+- **Ablation:** with `xc` left out of `fac`, 478 lines of unit 27 differ.
+- **Defect found on the way:** the first run never finished. The caller read
+  `getfwt`'s `(w, xc, enext)` in the wrong order, so `enext` was `xc` and the energy
+  stalled. The 12 GB address-space cap stopped the run. Fixed before any comparison.
+
+## 33. ERRORR `mfcov = 40` (2026-11-14, gh:#1371)
+
+**Upstream, read first.** `gridd` (`errorr.f90:1184-1191`) and `covcal` (`:1889-1907`)
+read an MF=40 section's HEAD (`NS` in N1) and its **first** final state's CONT
+`[QM, QI, L1, LFS, 0, NL]`, set `izap = 10*L1 + LFS`, and then read one sub-subsection
+per state. Neither reads a second state's CONT. With `NS = 2` (TENDL-2023 Ar-37) NJOY2016.80
+stops in `covcal` with "mfcov mt found not equal to input mt". Every MF=40 evaluation held
+here or in NJOY2016's `tests/resources` (Ar-37, Fe IRDFF-II, Hf-177, Pb-208, Pt-184 TENDL)
+has `NS > 1` in most sections. `rdsig` ignores its `izap` argument (`:2755-2786`), so the
+cross section is MF=3's for the MT, not MF=10's. The output differs from MF=33's in the
+MF=1 HEAD (`-14`, `sigc` `:7824`), MF=3's word 2 (`mzap`), and each MF=40 HEAD, which
+carries `izap` in place of AWR (`covout` `:7219-7241`).
+
+**Code.** `gridd::mf40_final_state` (shared by `gridd` and `covcal`); `scan_reactions_mf`
+counts MF=40; `mf31::run_cov_gendf` accepts 40 (`za`, `awr` from the last MF=40 HEAD);
+`ErrorrResult::to_tape` writes the MF=40 form; `deck::errorr` routes `mfcov = 40` there.
+
+**Refused by name:** `NS /= 1`, `NL /= 1`, and `iread = 2` with `mfcov = 40`.
+
+**Gate** (`tests/deck_driver_errorr_mf40_nstan_vs_njoy2016.rs`, deck `M40`, prediction
+posted on gh:#1371 first): Ar-37 TENDL-2023 edited in the test to one final state per MF=40
+section (`NS = 1`, the `LFS = 1` state's 4 lines removed); MODER, RECONR, GROUPR (6 groups
+to 30 MeV, `3 1/ 3 11/ 3 33/ 10/`, binary GENDF), MODER of the GENDF to text, ERRORR
+`mfcov = 40`.
+- First run: 2 of unit 24's 32 lines differed (MF=3 coarse cross sections). The cause
+  was older than MF=40: GROUPR's `10/` writes each production as another MF=3/`mt`
+  section with `C2 = izap`; `rdgout` takes the first (`:2889-2891`), and
+  `mf31::union_group_xs` kept the last. Fixed.
+- After the fix: units 25 (GENDF, 492 lines) and 24 (32 lines) identical.
+- Ablation: AWR in the HEADs and `-11` in MF=1 make 3 of the 32 lines differ.
+- The unedited tape is refused by name at `mf40_final_state`.
+
+## 34. ERRORR `nstan`: `grist` and `stand` (2026-11-14, gh:#1371)
+
+**Upstream.** An NC-type sub-subsection with `LTY` 1-3 names a standard `(MATS, MTS)`.
+`gridd` calls `grist` (`errorr.f90:1559-1679`) for `LTY = 1` (energies inside `(E1, E2)`)
+and `LTY = 2` (all), not for 3. With `nas = 0` or `matb(1) >= 0`, `grist` reads only the
+standard's first subsection. `covcal` calls `stand` (`:2939-3009`), which stages the
+standard's first-subsection NI records ahead of the reaction's own, each with the window
+`(sigfig(E1), sigfig(E2))` and its `LTY`; the window tests are `:2101-2118`. Card 11
+redefines a standard; the first match wins.
+
+**Code.** `errorr::standards` (`Standards`, `grist`, `stand`, `StandardWindow`),
+`CovarianceReactions::standards`, `mf31::run_cov_gendf_nstan`, and card 11 in
+`deck::errorr::read_errorr`.
+
+**Refused by name:** a negative `matb(1)` (the third-reaction mode: `kmtb`, the `ety`
+window, `grist`'s later subsections); `nstan` on the PENDF route (`mfcov = 33`,
+`ngout = 0`); `nstan` with `iread = 2`.
+
+**Gates** (`tests/deck_driver_errorr_mf40_nstan_vs_njoy2016.rs`; prediction posted on
+gh:#1371 first). JENDL-3.3 U-235 (`J33U235`): MF=33 MT 102 refers to `(9228, 18)` with
+`LTY = 1` and `LTY = 2`. RECONR 0.005, BROADR 300 K, GROUPR LANL-30 `iwt = 6`, then ERRORR
+`mfcov = 33` from the GENDF with `J33U235` again on `nstan = 24`.
+
+| deck | card 11 | unit 27 |
+|---|---|---|
+| `N1` | `0/` | identical, 8 654 lines, first run |
+| `N2` | `9228 18 9228 102/ 0/` | identical, 8 588 lines, first run |
+
+- Control: NJOY's `N1` and `N2` differ in 177 lines.
+- Ablation: dropping `stand`'s records, 5 981 of `N1`'s lines differ.
+- **Not exercised by these decks:** the windows. Ignoring them changes nothing, because
+  the standard's covariance is zero in its only bin outside the `LTY = 1` window.
+  `StandardWindow::admits` is pinned by a unit test only.
+
+## 35. GROUPR `getmf6` LAW = 2 neutrons (2026-11-14, gh:#1370)
+
+`getmf6` sends LAW 2-5 to `getdis` (`groupr.f90:8096-8099`), which calls `getfle` with
+`mft = 8`. For LAW = 2, `getfle` reads the subsection's TAB2 with `ltt = 1` and one LIST
+`[0, E, LANG, 0, NW, NL]` per incident energy (`:9733-9760`), each through `getco`'s
+Legendre branch, as MF=4 `LTT = 1`. Everything after that is the `getdis` path LAW = 3
+already used (section 14).
+
+**Code (reuse):** `groupr::file4::File4Angular::from_mf6_law2` reads the `ZAP = 1`
+subsection with the existing `read_records`/`getco_legendre`; `deck::groupr::write_getmf6`
+hands it to `TwoBodyFeed`.
+
+**Refused by name:** `LANG /= 0`; `LCT /= 2` (upstream rewrites `LCT = 1` to CM for MT
+51-90 with `AWR >= 10` and reads `LCT = 3` per particle); LAW 4 and 5 for a neutron.
+
+**Gate** (`tests/deck_driver_groupr_mf6_law2_vs_njoy2016.rs`, deck `L2`, prediction on
+gh:#1370 first): Si-30 ENDF/B-VIII.0, MF=6 MT 51-56 (`LAW = 2`, `LANG = 0`, `LCT = 2`);
+RECONR, BROADR 293.6 K, GROUPR LANL-30 `iwt = 3`, `lord = 3`, `8 51/` to `8 56/`.
+- Unit 25 identical, 332 of 332 lines, first run.
+- Ablation: with CM isotropy in place of the records, 181 of 332 lines differ.
+
+**Not done:** `getdis`'s Coulomb term (`:9529-9548`). It runs only for `mtd = 2` with
+`izap > 1` (an incident charged particle's elastic, File-6 `LAW = 5`), together with
+`lidp`, `wcut`, `spi` and `mft = 8` for `mfd = 3`. That is the incident charged-particle
+GROUPR path; the tape driver carries no `izap`/`izat`/`aprime` for it (it sets `izap = 1`
+for every MF=6 feed), so the term is not self-contained and was not started.

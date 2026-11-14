@@ -13,7 +13,9 @@
 //! already parses an entire tape's data rows into [`Section`]s regardless of
 //! "file type", with no NJOY blocked-binary concept to convert *from* (see
 //! `src/moder/README.md` for why a blocked-binary reader/writer is not
-//! planned). So the piece of MODER worth porting is (2), **material
+//! planned; **CORRECTED 2026-11-13, gh:#1375:** the deck driver does keep a
+//! negative unit's full-precision values in memory, `crate::deck::tapes`; only the
+//! on-disk format is not ported). So the piece of MODER worth porting is (2), **material
 //! selection**: [`select_materials`] below, faithfully mirroring the card-3
 //! loop's logic (ascending-MAT-order check, "not found" is a warning that
 //! skips the request rather than a fatal error — see its doc comment for the

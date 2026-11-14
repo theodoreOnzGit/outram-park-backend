@@ -569,7 +569,7 @@ impl Interp {
 /// Translates GSL's `integ_eval` (`interpolation/integ_eval.h` lines 24-36)
 /// term for term; the grouping is upstream's and is kept so the rounding
 /// matches compiled GSL.
-fn integ_eval(ai: f64, bi: f64, ci: f64, di: f64, xi: f64, a: f64, b: f64) -> f64 {
+pub(crate) fn integ_eval(ai: f64, bi: f64, ci: f64, di: f64, xi: f64, a: f64, b: f64) -> f64 {
     let r1 = a - xi;
     let r2 = b - xi;
     let r12 = r1 + r2;
