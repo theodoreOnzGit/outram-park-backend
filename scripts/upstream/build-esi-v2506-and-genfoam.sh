@@ -17,7 +17,9 @@
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
 #   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers twophase
-#           radiation viewfactors fetch-genfoam genfoam fetch-cfmesh cfmesh polydual verify
+#           radiation viewfactors fetch-genfoam genfoam fetch-cfmesh cfmesh polydual decompose verify
+#           (decompose, gh:#1381: faDecompose, faReconstruct, decomposePar, reconstructPar;
+#           scotch/metis/kahip are NOT available (no headers/libs), linked as empty dummies)
 #           (radiation, gh:#1379: libradiationModels, built by `closure` as well, plus
 #           the P1 differential driver radDump from the outram-foam-basic-lib V&V dir)
 #           (fetch-cfmesh and cfmesh: DAFoam cfMesh e944f6ba695f, gh:#1385; cfMesh
@@ -560,6 +562,34 @@ stage_polydual() {
   run_stage app-dumpQuality quality_probe_impl
 }
 
+# --- stage: decomposePar / reconstructPar (gh:#1381) --------------------------
+# libdecompositionMethods, libdecompose and libreconstruct come from `prereq-libs`.
+# scotch, metis and kahip are not installed: the apps are built in scratch copies whose
+# link line takes empty libkahipDecomp/libmetisDecomp/libscotchDecomp from $ROOT/decomp-dummy
+# (the same arrangement as ESI's own `dummy` dir). No upstream .C/.H is edited.
+decomp_dummy_impl() {
+  mkdir -p "$ROOT/decomp-dummy"; cd "$ROOT/decomp-dummy"
+  echo 'int foamDecompDummy_ = 0;' >dummy.c
+  for l in kahipDecomp metisDecomp scotchDecomp; do gcc -shared -fPIC -o "lib$l.so" dummy.c; done
+}
+decomp_app_impl() {
+  local e=$1 src=$OF/applications/utilities/parallelProcessing/$1 w=$ROOT/decomp-scratch-$1
+  rm -rf "$w"; mkdir -p "$w"; cp -r "$src/." "$w/"
+  sed -i "s#-L\$(FOAM_LIBBIN)/dummy#-L$ROOT/decomp-dummy#" "$w/Make/options"
+  cd "$w"
+  wmake -j"$N" .
+  [ -x "$FOAM_APPBIN/$e" ]
+  ls -l "$FOAM_APPBIN/$e"
+  rm -rf "$w"
+}
+stage_decompose() {
+  wm_lib parallel/decompose/faDecompose
+  wm_lib parallel/reconstruct/faReconstruct
+  run_stage decomp-dummy decomp_dummy_impl
+  run_stage app-decomposePar decomp_app_impl decomposePar
+  run_stage app-reconstructPar decomp_app_impl reconstructPar
+}
+
 # --- verification -------------------------------------------------------------
 verify_impl() {
   local V=$ROOT/runs/verify_cavity T=$OF/tutorials/incompressible/icoFoam/cavity/cavity
@@ -638,6 +668,7 @@ for s in "$@"; do
     fetch-cfmesh) stage_fetch_cfmesh ;;
     cfmesh)       load_env; stage_fetch_cfmesh; stage_cfmesh ;;
     polydual)     load_env; stage_polydual ;;
+    decompose)    load_env; stage_decompose ;;
     verify)       load_env; stage_verify ;;
     *) echo "unknown stage: $s"; exit 64 ;;
   esac
