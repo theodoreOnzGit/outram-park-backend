@@ -159,8 +159,8 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 let c = crate::matxsr::read_matxsr(&mut r)?;
                 if opts.parse_only { Ok(()) } else { crate::matxsr::run_matxsr_deck(&c, &mut units) }
             }
-            "resxsr"
-            | "powr" | "mixr" => {
+            "powr" => crate::deck::powr::run_powr_deck(&mut r, &mut units, opts.parse_only),
+            "resxsr" | "mixr" => {
                 // The card readers of these modules are a later part of gh:#1369.
                 blocked = Some((name.clone(), "card reader not yet translated".to_string()));
                 break;

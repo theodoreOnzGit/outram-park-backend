@@ -70,6 +70,7 @@ pub mod modules;
 pub mod pendf;
 pub mod pendf_photon;
 pub mod plotr;
+pub mod powr;
 pub mod run;
 pub mod tapes;
 pub mod thermr;
