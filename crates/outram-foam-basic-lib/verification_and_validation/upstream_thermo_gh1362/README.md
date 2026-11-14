@@ -272,3 +272,50 @@ Tsss 1e-30 Ts 1e30 Tss 1e100`), none tuned; no measurement is claimed.
   (`Fcent` ~ 0.5), so a missing guard would be invisible there; one extra Troe
   row with `alpha 1, Ts 1e-30` (argument underflows to 0) exercises the
   `SMALL` branch; predicted identical.
+
+### Results (measured 2026-11-14, release; `tests/openfoam_rates_gh1378.rs`)
+
+21 rate configurations x 32 points = 672 values. **15 configurations are
+bit-identical (480 values)**: all four Arrhenius, thirdBody, powerSeries, Janev,
+infinite, LandauTeller/plain, FallOff Lindemann, FallOff Troe (`alpha 0.5`),
+FallOff Troe/small (the `max(.., SMALL)` branch, R3), FallOff SRI,
+ChemicallyActivated Lindemann and SRI. **Six configurations differ at 1 to 6 ulp
+(192 values, of which 15 differ; 657 of 672 values are bit-identical overall)**:
+
+| configuration | identical | worst ulp |
+|---|---|---|
+| LandauTeller/full | 28/32 | 6 |
+| LandauTeller/noTa | 28/32 | 5 |
+| LangmuirHinshelwood | 30/32 | 2 |
+| FallOff/Troe/finite | 30/32 | 1 |
+| ChemicallyActivated/Troe | 30/32 | 1 |
+| FallOff/SRI/e | 31/32 | 1 |
+
+**Cause, localised to the first divergent operation.** A Python replay of the
+same formulas (`scripts/replay_rates_glibc.py`; `math.*` and `**` are glibc)
+reproduces **all 672 reference values**, so every translation is exact. The 569
+distinct libm calls it makes are listed in `reference/libm_calls_rates_gh1378.txt`;
+PETIR against glibc on those exact arguments (test `libm_localisation_report_and_pins`):
+
+| function | calls | PETIR differs | worst ulp |
+|---|---|---|---|
+| `cbrt` | 8 | 2 | 1 |
+| `exp` | 163 | 1 | 1 |
+| `log10` | 42 | 2 | 1 |
+| `pow` | 348 | 1 | 1 |
+| `log` | 8 | 0 | 0 |
+
+The LandauTeller 5-6 ulp comes from a 1-ulp `cbrt`, amplified by `exp` of an
+argument near 3.7. The `cbrt` case was checked against the true value
+(`T = 800`: PETIR and Rust `std` return the correctly rounded
+`0x402290fca9c761f8`, error 8.1e-16; glibc returns the neighbour
+`...61f7`, error 9.7e-16), so these residuals are glibc's last bit, not a PETIR
+defect. Accepted per the PETIR/glibc rule, pinned both ways. Rust `std`'s
+`cbrt` is therefore not a stand-in for glibc here and is not used as one.
+
+Predictions against the run: R1 **partly wrong**: LandauTeller (`cbrt`, allowed for)
+and LangmuirHinshelwood (one `exp` or `pow` call, not predicted) differ; the other
+eight classes are identical as predicted. R2 **partly right**: Troe/finite and its
+ChemicallyActivated use differ at 1 ulp from `log10` (2 of 42 calls) as predicted,
+but `FallOff/Troe` (`alpha 0.5`) and both SRI/`e = 0` rows are identical, and
+the SRI difference is in the `e != 0` row (a `pow`). R3 right (identical).
