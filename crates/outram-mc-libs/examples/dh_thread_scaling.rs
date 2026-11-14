@@ -14,6 +14,12 @@
 //! program, and (b) destroys reproducibility there, because threads take the
 //! lock in arrival order and consume the RNG stream differently every run.
 //!
+//! **UPDATE 2026-11-14 (GitHub #205):** this is the record of the measurement
+//! on the `Mutex` version. That wiring is gone: the sampler state is owned by
+//! the driver and each parallel history builds its own from (generation,
+//! history), so (b) is fixed (`tests/cls_scls_keff_pin_205.rs`) and the
+//! scaling numbers below were not re-measured.
+//!
 //! Neither had been measured. The single-threaded timings that prompted the
 //! issue cannot show it: **on one thread the lock is uncontended**, so it costs
 //! an atomic compare-exchange and nothing else.

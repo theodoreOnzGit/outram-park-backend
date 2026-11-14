@@ -724,6 +724,7 @@ fn the_random_pebble_is_dh_universes_pebble_point_for_point() {
         (seed >> 11) as f64 / (1u64 << 53) as f64
     };
     let (mut agree, mut in_particles) = (0, 0);
+    let mut dh_state = dh.query_state();
     for _ in 0..20_000 {
         let p = loop {
             let p = [2.0 * next() - 1.0, 2.0 * next() - 1.0, 2.0 * next() - 1.0];
@@ -735,7 +736,7 @@ fn the_random_pebble_is_dh_universes_pebble_point_for_point() {
             .geometry
             .locate(p, Direction::new(1.0, 0.0, 0.0), SurfaceToken::NONE)
             .and_then(|q| q.material);
-        let dh = dh.material_at(p).map(|i| dh_to_low[i]);
+        let dh = dh.material_at(&mut dh_state, p).map(|i| dh_to_low[i]);
         assert_eq!(csg, dh, "material at {p:?}");
         agree += 1;
         if !matches!(csg, Some(4) | Some(5)) {

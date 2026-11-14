@@ -115,6 +115,9 @@
 //!   would be a different measurement — and for CLS and SCLS, a badly
 //!   distorted one, because their point query serialises on a mutex (GitHub
 //!   issue #205). That is the measurement that has not been made.
+//!   **UPDATE 2026-11-14 (GitHub #205):** there is no mutex on the point query
+//!   any more (the sampler state is driver-owned, `DhQueryState`); the runs
+//!   below predate that and still read as recorded.
 //! - **The L3 is 260 MiB and the delta arm's packing is far smaller than that.**
 //!   25 856 spheres at a few tens of bytes each is well under a megabyte, so the
 //!   explicit geometry is cache-resident here and its lookup cost is close to
@@ -261,6 +264,10 @@
 //! lock is **uncontended** on the single-threaded backend these numbers were
 //! taken on, so it is probably a small part of what is left; its real damage
 //! shows up when threads are turned on, which has not been run.
+//! **UPDATE 2026-11-14 (GitHub #205):** the wiring described here is gone (no
+//! mutex, no per-history clone of the window); single-thread `k` is
+//! bit-identical to the version these numbers were taken on
+//! (`tests/cls_scls_keff_pin_205.rs`). The timings were not re-measured.
 //!
 //! # Settings
 //!
