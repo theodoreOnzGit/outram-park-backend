@@ -83,6 +83,50 @@ Found on the way: with the radiator doors left open after a fuel-pump trip,
 the coolant reaches its liquidus within a few hundred seconds. The drift
 test now closes the doors after the trip, as ORNL did.
 
+### The Core k_eff tab and the measured split (gh:#1571, #1572, #1574, 2026-11-14)
+
+**What it runs.** `outram_mc_libs::vv::msre_n1::Study` is the N-1 V&V
+default as one library call:
+- natural Mo;
+- the whole TM-0728 shield;
+- dimensions following temperature;
+- U-234/U-236 in the salt;
+- graphite 30P S(α,β) by LEAPR;
+- the shield water's H in H₂O.
+
+That is 52 nuclides, or 37 with the shield off. It composes the same
+functions in the same order as the `msre_n1_first_criticality` example's
+`main`. The tab runs it on a pool of workers through
+`dhoby_ghaut::mc_web` (gh:#1572):
+- `DataRelay` deals the 54 processing jobs and relays every product.
+- Each worker builds the model through the shared processed-data cache.
+- `KeffPool` runs the power iteration in chunks.
+
+The worker is `examples/msre_web/keff.rs` and the page is `keff_tab.rs`;
+moving them into this library is gh:#1578.
+
+**Methodology and results (2026-11-14, CPU only, 4 cores, Intel Xeon @
+2.30 GHz, 15.7 GiB RAM, Linux; the machine was shared with other builds):**
+
+| check | settings | result |
+|---|---|---|
+| native pool vs `run_keff_csg_par` on the real model (`keff_tab::tests::a_pooled_run_is_run_keff_csg_par_bit_for_bit`, ignored) | default study, 500 × [2 + 3], seed 7, 2 workers / 2 threads | **all 5 generations bit-identical** (k 0.828348478555774426 … 1.07203981664989678; mean 1.03750 ± 0.02557); pool from tapes to k 266 s |
+| browser vs native (headless Chromium, `?workers=2&kcfg=500,2,3,7&krun`) | the same | **all 5 generations equal** to the native values (0.8283484785557744, 1.0209114745691594, 1.0528981026713053, 0.9875693732678972, 1.0720398166498968); data processed and built in about 705 s on 2 Web Workers |
+| the measured split in the browser (`?kmeasure`) | 500 × [2 + 3] for each run | A (1131/1131 °F) k = 1.0503 ± 0.0261, C (salt 1231) 0.9713 ± 0.0291, D (graphite 1231) 0.9909 ± 0.0091; fuel −77 ± 39, graphite −57 ± 25 × 10⁻⁵ /°F. These are statistical noise at 500 histories (the pipeline check, not a measurement). Run D took 69 s against about 450 s for each other run: the salt's products were read back from the browser's cache |
+
+Pair arithmetic (`session::coefficient_from_pair`): reproduces the N-3
+record's fuel −3.79 and graphite −3.26 × 10⁻⁵ /°F from its own eigenvalues
+(`session::tests`).
+
+**What the reader sees.**
+- The tab shows the model's default at +1726 ± 23 pcm, outside the
+  ±1000 pcm band, as the record does.
+- The accuracy presets' σ are estimates scaled from the record. Quick
+  gives each coefficient about ±2 × 10⁻⁵ /°F; only Careful (about ±0.6)
+  resolves them.
+- The plant takes measured coefficients only from the reader's
+  "Send to plant" button, and states which coefficients it uses.
+
 ### `msre::moltres_drift` (gh:#1575, 2026-11-14)
 
 `outram-park-fork-moltres` is a direct dependency of this crate. The module
