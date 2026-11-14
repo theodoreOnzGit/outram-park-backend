@@ -20,6 +20,10 @@ pub struct NuclideComponent {
 use crate::material::nuclide::Nuclide;
 use crate::rng::lcg::prn;
 
+/// Upper bound on tabulated precursor groups per [`MacroXs`]; OpenMC's
+/// `MAX_DELAYED_GROUPS` (`include/openmc/constants.h`).
+pub const MAX_DELAYED_GROUPS: usize = 8;
+
 /// Macroscopic cross sections of a material at one energy \[cm⁻¹\].
 ///
 /// Each channel is Σ_x(E) = Σ_i N_i · σ_x,i(E), with N_i the atom density
@@ -46,6 +50,20 @@ pub struct MacroXs {
     /// \[cm⁻¹ s⁻¹\] — upstream's `SCORE_DECAY_RATE`
     /// (`src/tallies/tally_scoring.cpp:773`), summed over groups.
     pub decay_rate: f64,
+    /// **Per precursor group** delayed production `ν̄_d,k·Σ_f` \[cm⁻¹\], with
+    /// `ν̄_d,k = ν̄_d(E)·p_k(E)` — the quantity upstream's analytic
+    /// `delayed-nu-fission` route deposits into each `DelayedGroupFilter` bin
+    /// (`src/tallies/tally_scoring.cpp:705`, `nu(E, delayed, d)`).
+    /// Indexed by the **0-based** group (upstream's `d` is 1-based). Groups at
+    /// or beyond [`MAX_DELAYED_GROUPS`] are not tabulated here (upstream stops
+    /// at the same constant, `include/openmc/constants.h`); the totals above
+    /// still include them. GitHub #262.
+    pub nu_fission_delayed_group: [f64; MAX_DELAYED_GROUPS],
+    /// **Per precursor group** `λ_k·ν̄_d,k·Σ_f` \[cm⁻¹ s⁻¹\] — what upstream's
+    /// `SCORE_DECAY_RATE` deposits into each delayed-group bin
+    /// (`tally_scoring.cpp:773`, `yield * rate`). `Σ_k` of this equals
+    /// [`Self::decay_rate`]. 0-based group index.
+    pub decay_rate_group: [f64; MAX_DELAYED_GROUPS],
     /// Absorption Σ_a \[cm⁻¹\] — **radiative capture + fission** (i.e. every
     /// reaction with no neutron in the exit channel, plus fission), aggregated
     /// from each nuclide's [`crate::material::nuclide::MicroXS::absorption`].
@@ -129,11 +147,13 @@ impl Material {
                     let nu_d = d.nu_delayed_at(e);
                     m.nu_fission_delayed += c.atom_density * x.fission * nu_d;
                     for k in 0..d.n_groups() {
-                        m.decay_rate += c.atom_density
-                            * x.fission
-                            * nu_d
-                            * d.group_fraction(k, e)
-                            * d.lambda[k];
+                        let nu_dk = nu_d * d.group_fraction(k, e);
+                        m.decay_rate += c.atom_density * x.fission * nu_dk * d.lambda[k];
+                        if k < MAX_DELAYED_GROUPS {
+                            m.nu_fission_delayed_group[k] += c.atom_density * x.fission * nu_dk;
+                            m.decay_rate_group[k] +=
+                                c.atom_density * x.fission * nu_dk * d.lambda[k];
+                        }
                     }
                 }
             }

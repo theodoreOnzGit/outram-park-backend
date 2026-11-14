@@ -1503,6 +1503,15 @@ impl Nuclide {
         self
     }
 
+    /// Set the lower energy bound \[eV\] of the resonance-scattering
+    /// treatment, OpenMC's `<resonance_scattering><energy_min>`; the default is
+    /// upstream's 0.01 eV (GitHub #463 item 4). Does nothing on a nuclide
+    /// without 0 K data.
+    pub fn with_resonance_scattering_energy_min(mut self, e_min_ev: f64) -> Self {
+        self.dbrc = self.dbrc.map(|t| t.with_energy_min(e_min_ev));
+        self
+    }
+
     /// **Ablation control for V&V: remove the DBRC correction**, returning the
     /// nuclide to the constant-cross-section free-gas kernel.
     ///
