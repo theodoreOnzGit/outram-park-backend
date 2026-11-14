@@ -329,6 +329,10 @@ pub fn covcal(
         if nl == 0 {
             continue; // component of a lumped reaction (errorr.f90:1922)
         }
+        // iread = 1 (errorr.f90:1913-1918, gh:#1371): a section not on card 8a is skipped.
+        if reactions.card8.as_ref().is_some_and(|c8| !c8.mts.contains(&mth)) {
+            continue;
+        }
         let nmts = out.nmts; // 0-based index of this section in mts
         out.nmts += 1;
         if reactions.mts.get(nmts).copied() != Some(mth) {

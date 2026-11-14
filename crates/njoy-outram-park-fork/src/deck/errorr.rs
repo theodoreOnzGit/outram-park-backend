@@ -11,7 +11,8 @@
 //!
 //! The cards are read in upstream's order: card 1 (`nendf npend ngout nout nin
 //! nstan`), card 2 (`matd ign iwt iprint irelco`), card 3 (`mprint tempin`), card 7
-//! (`iread mfcov irespr legord ifissp efmean dap`, ENDF-5/6 only), card 10 for
+//! (`iread mfcov irespr legord ifissp efmean dap`, ENDF-5/6 only), cards 8-9 for
+//! `iread = 1` (PENDF route, `mfcov = 33`, gh:#1371), card 10 for
 //! `iread = 2`, card 11 for `nstan /= 0` (gh:#1371), card 12 for
 //! `ign = +-1` (`egngpn`), card 13b for `iwt = 4` (`egnwtf`). `iverf` is taken from
 //! the ENDF unit before card 7, as upstream reads the tape between cards 1 and 2.
@@ -37,6 +38,7 @@ use crate::errorr::mf31::{run_cov_gendf, run_cov_gendf_card10, run_cov_gendf_nst
 use crate::errorr::standards::Standards;
 use crate::errorr::mf34::{run_mf34_gendf, Mf34Config};
 use crate::errorr::mf35::{run_mf35, Mf35Config};
+use crate::errorr::gridd::Card8;
 use crate::errorr::weight::ErrorrWeight;
 use crate::errorr::{run_mf33, Mf33Config};
 use crate::NjoyError;
@@ -71,13 +73,16 @@ pub struct ErrorrCards {
     /// Card 11 (`nstan /= 0`): `(matb, mtb, matc, mtc)` up to `matb = 0`
     /// (`errorr.f90:922-938`), gh:#1371. Empty for `nstan = 0`.
     pub card11: Vec<[i32; 4]>,
+    /// Cards 8-9 (`iread = 1`, `errorr.f90:862-905`), gh:#1371. `None` otherwise.
+    pub card8: Option<Card8>,
 }
 
 /// Read ERRORR's cards (`iverf > 4`), up to the point a refusal would come.
 ///
 /// # Errors
 /// A malformed card; [`NjoyError::NotPorted`] for the `nendf = 999` (`covadd`)
-/// option, ENDF/B-IV cards, `iread = 1` ~~`iread = 1/2`~~ (card 10, `iread = 2`,
+/// option, ENDF/B-IV cards, ~~`iread = 1`~~ (cards 8-9 are read since 2026-11-14,
+/// gh:#1371) ~~`iread = 1/2`~~ (card 10, `iread = 2`,
 /// is read since 2026-11-13, gh:#1369), ~~`nstan /= 0`~~ (card 11 is read since
 /// 2026-11-14, gh:#1371; a negative `matb(1)` is refused) ~~and `iwt = 1`~~ (card 13 is
 /// read since 2026-11-13, gh:#1371), whose further cards are not read here; and
@@ -105,9 +110,8 @@ pub fn read_errorr(r: &mut CardReader, iverf: i32) -> Result<ErrorrCards, NjoyEr
     ];
     r.read(&mut s7)?;
     let card7 = [s7[0].int(), s7[1].int(), s7[2].int(), s7[3].int(), s7[4].int()];
-    if card7[0] == 1 {
-        return Err(NjoyError::NotPorted("errorr iread = 1 (cards 8-9)"));
-    }
+    // Cards 8-9 (`iread = 1`, `errorr.f90:862-905`, gh:#1371).
+    let card8 = if card7[0] == 1 { Some(read_card8(r)?) } else { None };
     // Card 10 (`iread = 2`, `errorr.f90:907-919`): `ii1 = 0` is preset, so a
     // card `0/` or `/` ends the list; `ii2` keeps its last value (gh:#1369).
     let mut card10 = Vec::new();
@@ -191,7 +195,62 @@ pub fn read_errorr(r: &mut CardReader, iverf: i32) -> Result<ErrorrCards, NjoyEr
         tab1,
         card10,
         card11,
+        card8,
     })
+}
+
+/// Cards 8, 8a, 8b and 9 (`iread = 1`, `errorr.f90:862-905`): `nmt nek` (`nek`
+/// preset 0; `nmt` is 0 from the dictionary scan of an ENDF-5/6 tape), the `nmt`
+/// MTs, `nek+1` bounds when `nek > 0` (`ek(1) = small`, `ek(2) = big` preset), and
+/// `nek*nmt` lines of `nmt` coefficients, one `read` each.
+///
+/// # Errors
+/// [`NjoyError::InvalidInput`] for `nmt > nmtmax = 150` (upstream's "too many
+/// reaction types"); [`NjoyError::NotPorted`], by name, for `nmt <= 0` or `nek < 0`
+/// and for a card that stops short of a word upstream never presets (`temp`,
+/// `ek(3:)` and `akxy` are allocated or kept without a value, so upstream would
+/// read whatever is there).
+fn read_card8(r: &mut CardReader) -> Result<Card8, NjoyError> {
+    let c8 = r.read_ints(&[0, 0])?;
+    let (nmt, nek) = (c8[0], c8[1]);
+    if nmt > 150 {
+        return Err(NjoyError::InvalidInput("errorr: too many reaction types.".into()));
+    }
+    if nmt <= 0 || nek < 0 {
+        return Err(NjoyError::NotPorted("errorr iread = 1 with nmt <= 0 or nek < 0 on card 8"));
+    }
+    let unset = |v: &[f64]| v.iter().any(|x| x.is_nan());
+    let short = NjoyError::NotPorted("errorr iread = 1: card 8a, 8b or 9 shorter than its count (upstream reads an unset word)");
+    let n = nmt as usize;
+    let t = r.read_reals(&vec![f64::NAN; n])?;
+    if unset(&t) {
+        return Err(short);
+    }
+    let mts: Vec<i32> = t.iter().map(|&x| x.round() as i32).collect();
+    let mut ek = Vec::new();
+    let mut rows = Vec::new();
+    if nek > 0 {
+        let k = nek as usize;
+        let mut d = vec![f64::NAN; k + 1];
+        d[0] = 1.0e-10;
+        d[1] = 1.0e10;
+        ek = r.read_reals(&d)?;
+        if unset(&ek) {
+            return Err(short);
+        }
+        for _ in 0..k {
+            let mut range = Vec::with_capacity(n);
+            for _ in 0..n {
+                let row = r.read_reals(&vec![f64::NAN; n])?;
+                if unset(&row) {
+                    return Err(short);
+                }
+                range.push(row);
+            }
+            rows.push(range);
+        }
+    }
+    Card8::from_cards(mts, &ek, &rows)
 }
 
 /// `egnwtf`'s `iwt = 1` read (`errorr.f90:9916-9932`): 10 000 words preset to zero,
@@ -254,6 +313,9 @@ pub fn run_errorr(r: &mut CardReader, units: &mut TapeUnits, parse_only: bool) -
     }
     if c.card7[0] == 2 {
         return Err(NjoyError::NotPorted("errorr iread = 2 other than mfcov = 31/33 from a GENDF"));
+    }
+    if c.card8.is_some() && mfcov != 33 {
+        return Err(NjoyError::NotPorted("errorr iread = 1 other than mfcov = 33 from a PENDF"));
     }
     if mfcov == 33 {
         return run_errorr_mf33(&c, units);
@@ -465,6 +527,9 @@ fn run_errorr_cov_gendf(c: &ErrorrCards, units: &mut TapeUnits, mfcov: i32) -> R
     if mfcov == 33 && c.card7[2] != 1 {
         return Err(NjoyError::NotPorted("errorr irespr = 0 (MF=32 by finite differences)"));
     }
+    if c.card8.is_some() {
+        return Err(NjoyError::NotPorted("errorr iread = 1 other than mfcov = 33 from a PENDF"));
+    }
     units.openz(nendf, 0)?;
     let endf = units.get(nendf)?.tape.clone();
     let gendf = units
@@ -478,6 +543,7 @@ fn run_errorr_cov_gendf(c: &ErrorrCards, units: &mut TapeUnits, mfcov: i32) -> R
         tempin: c.tempin,
         irelco: c.card2[4],
         dap: c.dap,
+        card8: None,
     };
     let nstan = c.units[5];
     let res = if c.card7[0] == 2 {
@@ -576,7 +642,11 @@ fn run_errorr_mf33(c: &ErrorrCards, units: &mut TapeUnits) -> Result<(), NjoyErr
         tempin: c.tempin,
         irelco: c.card2[4],
         dap: c.dap,
+        card8: c.card8.clone(),
     };
+    if cfg.card8.is_some() && endf.sections().iter().any(|s| s.key.mat == cfg.matd && s.key.mf == 32) {
+        return Err(NjoyError::NotPorted("errorr iread = 1 with MF=32 on the tape (resprx with a card-8a reaction list; no deck exercises it)"));
+    }
     let res = run_mf33(&endf, &pendf, &cfg)?;
     if nout != 0 {
         units.openz(nout, 1)?;
@@ -728,5 +798,28 @@ mod tests {
         assert!(matches!(read_errorr(&mut CardReader::new(&format!(" -21 0 -22 34/\n 2631 3 1 0 1/\n 0 293.6/\n 0 34/\n{tab}{other}")), 6), Err(NjoyError::NotPorted(_))));
         let zero_end = " 0 0 0 0 1 2 2 2 1e-5 1. 2e7 0./\n";
         assert!(matches!(read_errorr(&mut CardReader::new(&format!(" -21 -22 0 33/\n 1306 3 1 1/\n 0 0/\n 0 33/\n{zero_end}")), 6), Err(NjoyError::NotPorted(_))));
+    }
+
+    /// Cards 8-9 (`iread = 1`, `errorr.f90:862-905`, gh:#1371): `nek = 0` gives the
+    /// identity on `(small, big)`; `nek = 1` keeps card 8b `sigfig`'d and card 9's
+    /// line `j` as `akxy(:, j, 0)`; short cards and `nmt <= 0` are refused by name.
+    #[test]
+    fn reads_cards_8_and_9_for_iread1() {
+        let head = " -31 -32 0 33/\n 1306 -1 2 1/\n 0 0/\n 1 33/\n";
+        let c = read_errorr(&mut CardReader::new(&format!("{head} 2 0/\n 2 102/\n 1/\n 1e-5 2e7/\n")), 6).unwrap();
+        let c8 = c.card8.unwrap();
+        assert_eq!(c8.mts, vec![2, 102]);
+        assert_eq!(c8.derived.ek, vec![1.0e-10, 1.0e10]);
+        assert_eq!((c8.derived.get(0, 0, 0), c8.derived.get(1, 0, 0)), (1.0, 0.0));
+        assert_eq!(c.egn, Some(vec![1.0e-5, 2.0e7]));
+        let c = read_errorr(&mut CardReader::new(&format!("{head} 3 1/\n 1 2 102/\n 1.0000004e-5 2e7/\n 0 1 1/\n 0 1 0/\n 0 0 1/\n 1/\n 1e-5 2e7/\n")), 6).unwrap();
+        let d = c.card8.unwrap().derived;
+        // `sigfig(.,6,0)` with its `bias` (`errorr.f90:894-896`).
+        assert_eq!(d.ek, vec![crate::mixr::mix::sigfig(1.0e-5, 6, 0), crate::mixr::mix::sigfig(2.0e7, 6, 0)]);
+        assert_eq!((d.get(0, 0, 0), d.get(1, 0, 0), d.get(2, 0, 0)), (0.0, 1.0, 1.0));
+        assert!(!d.is_directly_evaluated(0) && d.is_directly_evaluated(1));
+        for bad in [" 2 0/\n 2/\n", " 0 0/\n", " 2 1/\n 2 102/\n 1e-5 2e7/\n 1 0/\n 0/\n"] {
+            assert!(matches!(read_errorr(&mut CardReader::new(&format!("{head}{bad} 1/\n 1e-5 2e7/\n")), 6), Err(NjoyError::NotPorted(_))), "{bad}");
+        }
     }
 }

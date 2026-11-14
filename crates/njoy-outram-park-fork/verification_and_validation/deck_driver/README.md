@@ -176,7 +176,8 @@ Test 01's second THERMR (`26 -24 -23 / 1065 1306 8 1 2 1 0 1 229 2`, ENDF/B-V
 
 **Translated** (`thermr.f90`, NJOY2016.80): `gateff`/`gatef2`
 (`thermr/effective_temperature.rs`, tables read from the Fortran source by a
-script), `sigcoh` for `lat = 1..3` with `form` (`Sigcoh::builtin` in
+script; **CORRECTED 2026-11-14:** `gatef2` was translated but called by nothing, and
+the SCT kernel had no second-atom term, until §36), `sigcoh` for `lat = 1..3` with `form` (`Sigcoh::builtin` in
 `thermr/mf3_grid.rs`), `coh` generalised to any `Sigcoh` and to return the
 coherent column (`coh_with`), `tpend` MF=3 for `mtref+1`, MF=6 `mtref+1`
 (`LIP = -nbragg`, `LAW = 0`, `ncdse = 3` in the dictionary). The MF=7 reader
@@ -1777,3 +1778,110 @@ RECONR, BROADR 293.6 K, GROUPR LANL-30 `iwt = 3`, `lord = 3`, `8 51/` to `8 56/`
 `lidp`, `wcut`, `spi` and `mft = 8` for `mfd = 3`. That is the incident charged-particle
 GROUPR path; the tape driver carries no `izap`/`izat`/`aprime` for it (it sets `izap = 1`
 for every MF=6 feed), so the term is not self-contained and was not started.
+
+## 36. THERMR's second SCT atom: `gatef2` wired (2026-11-14, gh:#1375)
+
+**Upstream.** For an ENDF-4/5 tape THERMR keys a mixed moderator's second
+short-collision-time atom on `matde` alone (`thermr.f90:218-238`): 1099 (BeO) gets
+`sz2 = 3.76`, `az2 = 15.86`, 1095 (benzene) `4.74`, `11.90`, and
+`sb2 = sz2*((az2+1)/az2)**2`. `gatef2` gives `teff2` (`:422`), and `sig` label 170
+adds `sigc*sb2*s2` with `a*az/az2` (`:2588-2594`).
+
+**Code.** `IncoherentInelastic::secondary_sct` (`None` from every parser), the
+label-170 term in `sct_double_differential`, and `deck::thermr::endf45_second_sct_atom`.
+`gatef2` was present (`thermr::effective_temperature`) but called by nothing.
+
+**Refused by name:** an ENDF-6 second SCT atom (`B(7) = 0` with `sb2 /= 0`; its
+`T_eff2` TAB1, `:1835-1854`, is not parsed), and a third SCT atom (upstream's "only 2
+sct atoms allowed"). No tsl tape held here has either.
+
+**Gate** (`tests/deck_driver_thermr_gatef2_vs_njoy2016.rs`, deck `G2`, prediction on
+gh:#1375 first). No BeO or benzene ENDF-4/5 tape is held anywhere, so `G2` is deck 01
+up to GROUPR with `t322` relabelled from MAT 1065 to 1099 in the test and the second
+THERMR's `matde = 1099`: a code-to-code device with no physical meaning.
+- Unit 31 identical, 32 897 lines, first run.
+- Control: NJOY's `G2` unit 31 differs from deck 01's in 11 222 lines.
+- Ablations: without the second term, 2 063 lines differ; with `teff2 = T` in place
+  of `gatef2`, 2 092.
+
+## 37. ERRORR `iread = 1`: cards 8-9 (2026-11-14, gh:#1371)
+
+**Upstream.** Cards 8-9 (`errorr.f90:862-905`) give `nmt nek`, the `nmt` MTs, `nek+1`
+bounds (`sigfig` to 6 figures) and `nek*nmt` lines of `akxy`. `gridd` skips every
+section not on card 8a and keeps the card-8a positions (`:1154-1157`); a subsection
+with `mat1 > 0` or an `mt1` not on card 8a has `iok = 0` (`:1220-1225`); an `LTY = 0`
+NC sub-subsection still merges its two energies into `eni` but its formula is dropped
+(`:1299`); at the end of the file `gridd` returns before rebuilding `akxy`
+(`:1166-1169`). `covcal` skips the same sections (`:1913-1918`).
+
+**Code.** `errorr::gridd::Card8` and `CovarianceReactions::card8`, those branches in
+`gridd` and `covcal`, `run_mf33`'s `za`/`awr` from the first card-8a section, and
+`deck::errorr::read_card8`.
+
+**Refused by name:** `iread = 1` on any route but `mfcov = 33` from a PENDF; with
+MF=32 on the tape (no deck exercises `resprx` with a card-8a list); `nmt <= 0` or
+`nek < 0`; a card 8a, 8b or 9 shorter than its count (upstream reads unset words).
+
+**Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`, prediction on gh:#1371 first), deck
+05 (`t511` carbon) with card 7 `1 33/`:
+
+| deck | cards 8-9 | 33 (ERRORR) | 34 (COVR) | 35 (VIEWR) |
+|---|---|---|---|---|
+| `I1` | `2 0/ 2 102/` | identical, 554 lines | identical, 2 223 | identical, 6 234 |
+| `I2` | `3 1/ 1 2 102/ 1e-5 2e7/ 0 1 1/ 0 1 0/ 0 0 1/` | identical, 5 148 | identical, 11 001 | identical, 21 393 |
+
+- Both identical on the first run (once the test's own deck edit was fixed: its first
+  version also rewrote card 1's ` 0 33/`, and NJOY2016 stopped).
+- Control: NJOY's unit 33 for deck 05 has 21 471 lines.
+- Ablation: `I2` with card 9 replaced by the identity makes 5 078 of unit 33's 5 148
+  lines differ.
+
+**`iverf = 4` (cards 4-6) is not done.** No ENDF/B-IV evaluation with MF=33 is held
+here or in NJOY2016's `tests/resources`.
+
+**MF=32 sub-cases, surveyed** (the first range of every MF=32 in
+`reference-data/endf/` and NJOY2016's `tests/resources`): every one has `NIS = 1`,
+`NRO = 0`, and `LCOMP` 1 or 2 with `LRF` 2, 3 or 7, and every `LCOMP = 1` range has
+`NLRS = 0`. So no held evaluation reaches:
+- `LCOMP = 0` (`rpxlc0`, with `ssslbw`/`ssmlbw`);
+- `NRO /= 0` (upstream stops, `:3120-3124`);
+- `NLRS > 0` (upstream stops in `rpxlc12`, "nlrs>0 not coded", `:4602-4620`);
+- `NIS > 1` with `LRF = 7`;
+- `KBK > 0` with MF=32 (only Sr-88 ENDF/B-VIII.1 has `KBK = 1`, and it has no MF=32);
+- `irespr = 0`: `resprp` stops on any `LCOMP /= 0` (`:8111-8117`), so it is reachable
+  only through `LCOMP = 0`.
+
+Ranges after the first were not surveyed (JENDL-3.3 U-238 has 11, Pu-239 4).
+
+## 38. ACER's unnamed routines, `chekit`, and RECONR `LRF = 6` (2026-11-14, gh:#1372, #1375)
+
+None of `chekit`, `tabize`, `cptab`, `fndar1`, `fndar2` or `terpc` appears in `src/` by
+name. By logic, and by what the held evaluations reach (the surveys cover
+`reference-data/endf/` and NJOY2016's `tests/resources`):
+- **`tabize`** (`acefc.f90:813-1059`): present inline. It copies an `LNU = 1`
+  polynomial unchanged (`:848-856`; deck 10, `t404`, is identical whole). Its
+  linearization of a tabulated nubar with `INT > 2` is reached by nothing: every
+  MF=1/MT=452/455/456 held is `INT = 2`.
+- **`cptab`** (`:2868-2975`): a copy. Its one call (`:2438`) runs with `mfh = 6`, where
+  it sets `nr = 1, int = 2`, so its linearization branch is dead upstream.
+- **`terpc`** (`:15181-15213`): feeds only `consis`' listing (`nsyso`) check of the
+  photon-production sum. Not translated: nothing reaches a tape.
+- **`fndar1`, `fndar2`** (`:9019-9156`): not translated. `acelf6` calls them for
+  `lang = 1, newfor /= 1` and `lang > 2, newfor = 0` (`:7722-7795`), but with
+  `newfor = 0` `topfil` first turns every neutron `LAW = 1, LANG /= 2` subsection into
+  `LAW = 7` (`fix6`, `:2233-2290`). No deck reaches them. Left open on gh:#1372, since
+  `:7495` suggests a route not found here.
+- **`chekit`** (`:3283-3314`): **translated** (`acer::photon_angular::chekit`). `pttab`
+  refused `NR > 1`; upstream stops for `NR > 2` and sends `NR = 2` to `chekit`, which
+  folds a last-interval step to zero into one histogram region. No held evaluation has
+  such a table, so it is pinned by the unit test
+  `chekit_folds_a_two_region_step_into_one_histogram` only (prediction on gh:#1372 first).
+- **Listings** `acepdd`, `aceppp`, `acepcp` (`:11710-12986`): they write to `nsyso` only,
+  not to a compared unit. Not written.
+
+**RECONR `LRF = 6`** (`rdf2hy`, `cshybr`, `reconr.f90:1116-1224`, `:3609-3824`). Every
+MF=2/MT=151 line held was scanned for a range CONT `(EL, EH, 1, 6, NRO, NAPS)`: there is
+none in 133 materials. The first ranges are `LRU,LRF` = `(1,1)` ×10, `(1,2)` ×37,
+`(1,3)` ×37, `(1,7)` ×12, `(2,1)` ×1, and 36 with no resonances. `parse_lru1` now
+refuses `LRF = 6` by name (it was "unknown resolved-resonance LRF"); unit test
+`reconr::mf2::lrf6_tests::lrf6_is_refused_by_name`.
