@@ -231,3 +231,23 @@ fix		ms all multisphere/nointegration|'
 # ms_dtypes_types.txt. Copy ms_clump1_types.txt into the run directory.
 sed 's/spheres file ms_clump1.txt scale 0.0011/spheres_different_types file ms_clump1_types.txt scale 0.0011/' in.ms_file > in.ms_dtypes
 echo "write_dump all custom dump.types id type modify sort id" >> in.ms_dtypes
+# --- gh:#1415 fourth multisphere pass (2026-11-14) ---------------------------
+# ms_bonded: in.ms_drop with the template keyword `bonded yes` (after `spheres`,
+# before `type`: the base parser stops its loop after `bonded`). Upstream's
+# FixTemplateMultiplespheres::post_create creates `fix property/atom
+# bond_random_id` (default -1); FixTemplateMultisphere::randomize_ptilist never
+# sets it, so every atom keeps -1 and the run is byte-identical to ms_drop.
+# dump.bond (id f_bond_random_id at step 15000) is ms_bonded_bond.txt.
+sed 's/ -0\.001 0\.003 type 1$/ -0.001 0.003 bonded yes type 1/' in.ms_drop > in.ms_bonded
+echo "write_dump all custom dump.bond id f_bond_random_id modify sort id" >> in.ms_bonded
+# ms_bonded_density: in.ms_mass with `bonded yes` on the type 2 (`use_density`)
+# template only. FixTemplateMultisphere::post_create does not call the base
+# post_create on this path, so no bond_random_id exists and upstream stops at
+# the final dump with "ERROR: Could not find dump custom fix ID".
+sed 's/ 0\.004 0\.002 type 2 mass 5\.0e-4/ 0.004 0.002 bonded yes type 2 mass 5.0e-4/' in.ms_mass > in.ms_bonded_density
+echo "write_dump all custom dump.bond id f_bond_random_id modify sort id" >> in.ms_bonded_density
+# ms_concave: in.ms_drop with `fix ms all concave`. Upstream stops at `run`:
+# "Fix concave (id ms): concave particles can not be combined with spheres,
+# multispheres etc" (FixMultisphere::init). The default lmp_serial has no
+# particletemplate/concave, so `fix concave` has nothing to integrate there.
+sed 's/^fix\t\tms all multisphere$/fix\t\tms all concave/' in.ms_drop > in.ms_concave

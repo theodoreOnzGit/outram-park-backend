@@ -1900,7 +1900,7 @@ partly across the plate counts as the volume-weight share of its member atoms
 **Not ported** (each rejected with an error or documented in
 `multisphere.rs`):
 - ~~`spheres file`,~~ ~~`spheres_different_types`~~ (**CORRECTED 2026-11-14:**
-  ported, 4.16.2), `bonded`;
+  ported, 4.16.2), ~~`bonded`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`~~ (**CORRECTED 2026-11-14:** ported, 4.16.2);
 - ~~`fflag`/`tflag` off,~~ ~~`multisphere/nointegration`~~ (**CORRECTED 2026-11-14:** ported, 4.16.2), `concave`,
   `CAddRhoFluid`;
@@ -2034,7 +2034,7 @@ misses when the option it tests is switched off, so each gate can fail:
 - lost atoms with the atom sort on, or without the LIGGGHTS neighbour order;
 - `delete_atoms yes` on `massflow/mesh` with clumps (upstream's own error);
 - `fix remove`'s `delete_bodies` callback; periodic bodies;
-- ~~`spheres_different_types`~~, `bonded`, ~~`mass`/`inertia_tensor`~~
+- ~~`spheres_different_types`~~, ~~`bonded`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3), ~~`mass`/`inertia_tensor`~~
   (**CORRECTED 2026-11-14:** ported, 4.16.2);
 - ~~`multisphere/nointegration`,~~ `concave`, `multisphere/break`
   (**CORRECTED 2026-11-14:** `nointegration` ported, 4.16.2);
@@ -2107,8 +2107,9 @@ this, the port accepted it and panicked at the first insertion
 
 **Still not ported after this pass** (each has no API in the port, or is
 refused by name):
-- `bonded`;
-- `fix multisphere` `concave`;
+- ~~`bonded`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
+- `fix multisphere` `concave` (**2026-11-14:** nothing to translate in the
+  default build, 4.16.3);
 - `fix multisphere/break`;
 - `CAddRhoFluid` / `allow_heatsource`;
 - heat transfer with clumps;
@@ -2139,6 +2140,47 @@ split at 4500, 4600, ..., 14900 found that only 9900, 10100, 14400 and 14500
 change the step-15000 state, so the deck splits at 10100. The prediction
 (91 / 91) stood for the new split, and both decks met it on the first port
 run. `ms_rerun_matches_liggghts`, `ms_refl_matches_liggghts`.
+
+### 4.16.3 Multisphere, fourth pass (2026-11-14, gh:#1415)
+
+**Reference and inputs.** LIGGGHTS-PUBLIC `3d5c00f2`, the same `lmp_serial`
+as 4.16.1. The decks come from `make_multisphere_decks.sh`, below the
+"fourth multisphere pass" line, and use the 4.16 header. Each prediction was
+posted on gh:#1415 before the deck or the new code ran. **Pass criterion:**
+bit-identical, every value. Each gate is shown to fail with its option
+ablated, or the reason it cannot is stated.
+
+**First, what the default build contains** (its fix style list):
+- `fix remove` is **not** in it. `src/fix_remove.h` is a one-line stub
+  (`class FixRemove { void delete_bodies(){} }`) that lets the multisphere
+  sources compile, and there is no `fix_remove.cpp`. `delete_bodies` is never
+  called upstream either. Not ported, nothing to compare against.
+- `concave` is in it only as a style alias of `FixMultisphere`. Its particles
+  come from `particletemplate/concave`, which is not in the build, and
+  `FixMultisphere::init` refuses `concave` with any template whose style
+  contains "sphere". Deck `in.ms_concave` (`ms_drop` with `fix ms all
+  concave`) stops at `run` with "Fix concave (id ms): concave particles can
+  not be combined with spheres, multispheres etc", as predicted. The port has
+  no `concave` API; there is nothing in this build for one to do.
+
+| deck | what it exercises | result (Rust 1.99.1, 2026-11-14) | ablation |
+|---|---|---|---|
+| `ms_bonded` | `ms_drop` with template `bonded yes` (`ParticleTemplateMultisphere::with_bonded`), plus upstream's `id f_bond_random_id` dump at step 15000 | **27 / 27** atom-frames bit-identical; `bond_random_id` `[-1, -1, -1]`, as upstream's | `bonded no`: no property (upstream: the dump is an error). The trajectory gate **cannot** fail on `bonded` (see below) |
+
+**`bonded`: a property and nothing else, for clumps.**
+`FixTemplateMultiplespheres` parses `bonded` (and, unlike its other branches,
+does not set `hasargs`, so in a deck it must follow `spheres` and precede
+`type`). Its `post_create` creates `fix property/atom bond_random_id`
+(default `-1`). The multisphere override of `randomize_ptilist` never sets the
+property and draws no random number for it, so every member atom keeps `-1`
+and the dynamics are unchanged: upstream's `ms_bonded.csv` is byte-identical
+to `ms_drop.csv` (`cmp`). With `use_density`, `FixTemplateMultisphere::
+post_create` does not call the base `post_create`, so the property is never
+created: deck `in.ms_bonded_density` (`ms_mass` with `bonded yes` on the
+`use_density` template only) stops at the final dump with "Could not find
+dump custom fix ID". The port reproduces both
+(`GranularSystem::bond_random_id`, `creates_bond_random_id`).
+`ms_bonded_matches_liggghts`.
 
 ## 4.17 Superquadric particles (2026-11-13, gh:#1415)
 

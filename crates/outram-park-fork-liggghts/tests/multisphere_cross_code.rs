@@ -1157,3 +1157,55 @@ fn clump_file_different_types_refusals() {
     assert!(f("0 0 0 4 2.5\n5 0 1 3.5 1\n").is_err(), "a non-integer type");
     assert!(f("0 0 0 4 2\n").is_err(), "fewer lines than nspheres");
 }
+
+/// **Template `bonded yes`** (`in.ms_bonded`, gh:#1415 fourth pass):
+/// `ms_drop` with `bonded yes` on the template
+/// ([`ParticleTemplateMultisphere::with_bonded`]).
+///
+/// Upstream: `FixTemplateMultiplespheres::post_create` creates
+/// `fix property/atom bond_random_id` (default `-1`), and
+/// `FixTemplateMultisphere::randomize_ptilist` never sets it, so the run is
+/// byte-identical to `ms_drop` and every atom dumps `-1`. **The trajectory
+/// gate cannot fail on `bonded`**; the property gate can. **Ablation:**
+/// `bonded no` (the ordinary template) has no property (upstream's dump of it
+/// is an error), and so does a `use_density` template with `bonded yes`
+/// (`in.ms_bonded_density`: upstream stops with "Could not find dump custom
+/// fix ID", because that path skips the base `post_create`).
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** 27/27; the
+/// upstream CSV byte-identical to `ms_drop.csv`; `bond_random_id = -1` on
+/// every atom; none with `use_density`.
+///
+/// **Result (2026-11-14, Rust 1.99.1, LIGGGHTS-PUBLIC 3d5c00f2):** 27/27
+/// atom-frames bit-identical (`ms_bonded.csv` is byte-identical to
+/// `ms_drop.csv`, `cmp`); upstream and the port both give `[-1, -1, -1]`.
+#[test]
+fn ms_bonded_matches_liggghts() {
+    let (Some(_), Some(dump)) = (read("ms_bonded.csv"), read("ms_bonded_bond.txt")) else {
+        eprintln!("skipping: reference-data/liggghts/ms_bonded*.csv not present");
+        return;
+    };
+    let frames = [1, 1000, 4000, 5000, 6000, 8000, 10000, 12000, 15000];
+    let mut sys = drop_system(clump1().with_bonded(true));
+    let (total, same, worst) = compare_by_tag("ms_bonded", &mut sys, &frames).expect("ms_bonded.csv");
+    let theirs: Vec<f64> = dump
+        .lines()
+        .skip_while(|l| !l.starts_with("ITEM: ATOMS"))
+        .skip(1)
+        .map(|l| l.split_whitespace().nth(1).unwrap().parse().unwrap())
+        .collect();
+    let ours = sys.bond_random_id().expect("bonded yes creates bond_random_id");
+    println!("ms_bonded: {same}/{total} atom-frames bit-identical; bond_random_id ours {ours:?}, upstream {theirs:?}");
+    assert_eq!(total, 27);
+    assert_eq!(same, total, "ms_bonded: not bit-identical (worst relative {worst:e})");
+    let bits = |v: &[f64]| v.iter().map(|x| x.to_bits()).collect::<Vec<u64>>();
+    assert_eq!(bits(&ours), bits(&theirs), "bond_random_id differs from upstream");
+    // ablations: `bonded no`, and `bonded yes` on a `use_density` template
+    let mut plain = drop_system(clump1());
+    plain.run(1);
+    assert!(plain.bond_random_id().is_none(), "ablation: bonded no has no property");
+    let (t1, t2) = mass_templates();
+    assert!(!t2.with_bonded(true).creates_bond_random_id(), "use_density skips the base post_create");
+    assert!(t1.with_bonded(true).creates_bond_random_id(), "use_volume runs the base post_create");
+    assert!(clump1().with_bonded(true).creates_bond_random_id());
+}

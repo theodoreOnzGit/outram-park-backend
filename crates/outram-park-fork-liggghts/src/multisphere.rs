@@ -109,7 +109,7 @@
 //! **Not translated** (each rejected or documented, never silently ignored):
 //! ~~`spheres file` (the inline list only)~~ (**CORRECTED 2026-11-14:**
 //! `spheres file <f> scale <s>` is [`ParticleTemplateMultisphere::from_clump_file`]),
-//! ~~`spheres_different_types`,~~ `bonded`,
+//! ~~`spheres_different_types`,~~ ~~`bonded`,~~
 //! ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`,~~ ~~`fflag`/`tflag` off,~~
 //! ~~`fix_modify <ms> fflag|tflag`,~~
 //! ~~`fix multisphere/nointegration`,~~ `concave`, `CAddRhoFluid`,
@@ -134,6 +134,14 @@
 //! `fix multisphere/nointegration` is [`Multisphere::without_integration`]
 //! ([`crate::granular_system::GranularSystem::with_multisphere_nointegration`])
 //! (V&V 4.16.2).
+//! **CORRECTED 2026-11-14 (gh:#1415, fourth pass):** template `bonded` is
+//! [`ParticleTemplateMultisphere::with_bonded`] (the `bond_random_id`
+//! property, `-1` on every atom, as upstream). `concave` stays untranslated
+//! and has nothing to translate in the default `lmp_serial`: upstream's
+//! `FixMultisphere::init` refuses `fix concave` with any multisphere
+//! template, and `particletemplate/concave` is not in that build.
+//! `fix remove` (and so `delete_bodies`) is not in that build either: its
+//! header is a stub there (V&V 4.16.3).
 //! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
 //! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
 //! particles are ported in [`crate::superquadric`]; convex hull, ellipsoid,
@@ -570,6 +578,12 @@ pub struct ParticleTemplateMultisphere {
     /// `max_type` / `min_type` read it, as upstream (see
     /// [`ParticleTemplateMultisphere::from_clump_file_different_types`]).
     atom_type_sphere: Option<Vec<usize>>,
+    /// `bonded yes|no` (default `no`; see [`ParticleTemplateMultisphere::with_bonded`]).
+    bonded: bool,
+    /// Whether `post_create` ran `FixTemplateMultiplespheres::post_create`,
+    /// where `bonded` creates `fix property/atom bond_random_id`: every path
+    /// except `use_density`.
+    base_post_create: bool,
 }
 
 impl ParticleTemplateMultisphere {
@@ -660,6 +674,8 @@ impl ParticleTemplateMultisphere {
                 t.density = t.mass_expect / t.volume_expect;
             }
             MassSource::UseDensity => {
+                // no `FixTemplateMultiplespheres::post_create` on this path
+                t.base_post_create = false;
                 t.calc_bounding_sphere(&mut random_mc)?;
                 t.check_overlap();
                 t.mass_expect = mass;
@@ -750,6 +766,8 @@ impl ParticleTemplateMultisphere {
             fflag: [true; 3],
             tflag: [true; 3],
             atom_type_sphere: None,
+            bonded: false,
+            base_post_create: true,
         };
         Ok((t, random_mc, x_min, x_max))
     }
@@ -1296,6 +1314,34 @@ impl ParticleTemplateMultisphere {
     pub fn with_tflag(mut self, tflag: [bool; 3]) -> Self {
         self.tflag = tflag;
         self
+    }
+
+    /// The template keyword `bonded yes|no` (gh:#1415, fourth pass).
+    ///
+    /// Upstream (`FixTemplateMultiplespheres`, LIGGGHTS-PUBLIC `3d5c00f2`)
+    /// parses it in the base class, and its `post_create` then creates
+    /// `fix property/atom bond_random_id` (scalar, default `-1.`). For a clump
+    /// that is all it does: `FixTemplateMultisphere::randomize_ptilist`, the
+    /// multisphere override, never sets the property and draws no random
+    /// number for it, so every member atom keeps `-1` and the dynamics do not
+    /// change. With `use_density` the base `post_create` is not called and
+    /// the property is never created. Read it with
+    /// [`crate::granular_system::GranularSystem::bond_random_id`].
+    ///
+    /// (Upstream's parser stops its base loop after `bonded` (no `hasargs`),
+    /// so in a deck it must follow `spheres` and precede `type`.)
+    #[must_use]
+    pub fn with_bonded(mut self, bonded: bool) -> Self {
+        self.bonded = bonded;
+        self
+    }
+
+    /// Whether this template created `fix property/atom bond_random_id`:
+    /// `bonded yes` on any path but `use_density` (see
+    /// [`ParticleTemplateMultisphere::with_bonded`]).
+    #[must_use]
+    pub fn creates_bond_random_id(&self) -> bool {
+        self.bonded && self.base_post_create
     }
 }
 

@@ -2008,6 +2008,22 @@ impl GranularSystem {
         &self.types
     }
 
+    /// `f_bond_random_id`, the per-atom property a multisphere template with
+    /// `bonded yes` creates
+    /// ([`crate::multisphere::ParticleTemplateMultisphere::with_bonded`];
+    /// gh:#1415), in particle order; `None` when no attached insertion fix
+    /// has such a template (upstream: no such property, and a dump of it is
+    /// an error). Clump insertion never sets it, so every atom holds the
+    /// property's default, `-1`, as upstream's dump shows.
+    #[must_use]
+    pub fn bond_random_id(&self) -> Option<Vec<f64>> {
+        if self.inserters.iter().any(crate::insert::InsertFix::creates_bond_random_id) {
+            Some(vec![-1.0; self.particles.len()])
+        } else {
+            None
+        }
+    }
+
     /// The `fix multisphere` state, once a clump has been inserted (gh:#1415).
     #[must_use]
     pub fn multisphere(&self) -> Option<&crate::multisphere::Multisphere> {
