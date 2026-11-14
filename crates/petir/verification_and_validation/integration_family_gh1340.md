@@ -361,3 +361,31 @@ PETIR's libm.
 - **P14d.** `GSL_EBADTOL` (13) for the four refused-tolerance rows, with no
   output written (result, `abserr`, `nevals` all 0). A workspace below 3
   intervals is refused (`WSALLOC ... 0`, two rows).
+
+### CQUAD results (2026-11-14, Rust 1.99.1 release, GSL 2.8 `cf180cd7`, `gcc -O2`, glibc, x86-64)
+
+`tests/gsl_cquad_code_to_code.rs`: 57 integrations and 2 refused workspaces.
+
+| item | identical |
+|---|---|
+| status (57) | **57/57** |
+| `*nevals` and integrand calls (57) | **57/57** each |
+| result (57) | **57/57 bit-identical** |
+| `abserr` (57) | **57/57 bit-identical** |
+| GSL's own `test.c` acceptance, 25 integrands (rel < 1e-12, error < 5 `abserr`, status 0) | 25/25 |
+
+- **P14a, P14b, P14c, P14d held, all of them.** No libm allowance was needed:
+  `cquad.c` calls only `sqrt`. The matrices of 1 089 coefficients, the heap
+  fix-ups, the interval dropping at workspace sizes 3, 4, 5, 6, 8 and 10 (with
+  `abserr` between 5e-4 and 1.35), and the downdating recurrence (`sqrt_signed`
+  has NaN on half the range, `nan_band`, `nan_mid`, `log_signed`, `recip_*`
+  with infinite nodes) all reproduce GSL's bits and its evaluation counts.
+- **Behaviours of GSL worth knowing, now pinned** (they are in the reference, not
+  in the port): `1/x` over `(0, 1]` and over `[-1, 1]` return status 0 with
+  `abserr = inf` after 196 729 and 197 131 evaluations (the "success" is
+  hollow: check `abserr`); `1/x^2` over `(0, 1]` is `GSL_EDIVERGE` after 240
+  evaluations, with `result = +inf` and `abserr` unwritten (0 in the driver);
+  `1/(1-x)` on `[0, 1]` returns `36.5` with `abserr 7.29` (status 0).
+- **Deviation not exercised by any case:** upstream's `int nans[32]` overflows if
+  all 33 nodes of an interval are non-finite (undefined behaviour); the port
+  uses a `Vec`. Not compared, by construction.
