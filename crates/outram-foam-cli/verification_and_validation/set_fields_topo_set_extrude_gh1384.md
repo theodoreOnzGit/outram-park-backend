@@ -68,3 +68,16 @@ then add, which forces a re-read of an 8-label sparse column: labels 0, 12,
   collide modulo 16 and the write order is bucket order, NOT ascending. The
   model's order is the prediction; agreement with ESI on c4 is the test of the
   model. If it differs the model is wrong, not the file.
+
+## topoSet: results (2026-11-14, release)
+
+| prediction | outcome |
+|---|---|
+| T1 sizes equal ESI after every action | held: 12 of 12 log sizes equal |
+| T2 c0..c3 byte-identical | held: 4 of 4 |
+| T3 c5 ascending `8(0 12 ... 84)` | held: 1 of 1 |
+| T4 c4 in hash order | held: ESI wrote `8(48 0 84 36 72 24 60 12)`, the model reproduced it byte for byte on the first run, so the `LabelHashSet` model (written from `HashTable.C`, not fitted) is confirmed on this case |
+
+Total: **6 of 6 set files byte-identical** to ESI v2506 `topoSet`. Only one
+sparse case was checked; the capacity/growth path past the 0.8 load factor with
+colliding chains is exercised only by the unit tests, not by an ESI comparison.

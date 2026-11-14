@@ -116,3 +116,75 @@ fn set_fields_esi_flavour_small_lists_are_written_inline_like_esi() {
         assert!(got == want, "{name} differs from ESI v2506 at {}", first_diff(&got, &want));
     }
 }
+
+// ---------------------------------------------------------------------------
+// topoSet (gh:#1384): the cellSets ESI v2506 `topoSet` wrote from
+// `case/system/topoSetDict` (c0..c5), gzipped under `topo_set_sets/`.
+// ---------------------------------------------------------------------------
+
+fn topo_ref(name: &str) -> String {
+    gunzip(&refs().parent().unwrap().join(format!("topo_set_sets/{name}.gz")))
+}
+
+#[test]
+fn topo_set_log_sizes_match_the_esi_run() {
+    let case = scratch_case("topo_sizes");
+    let r = outram_foam_cli::topo_set::run_topo_set(&case, WriteFlavour::Esi).expect("topoSet");
+    let sizes: Vec<&str> = r
+        .log
+        .iter()
+        .filter(|l| l.contains("now size"))
+        .map(String::as_str)
+        .collect();
+    // ESI v2506 printed these (read from its log, 2026-11-14).
+    let want = [
+        "    cellSet c0 now size 32",
+        "    cellSet c0 now size 80",
+        "    cellSet c0 now size 68",
+        "    cellSet c1 now size 32",
+        "    cellSet c1 now size 160",
+        "    cellSet c2 now size 80",
+        "    cellSet c2 now size 40",
+        "    cellSet c3 now size 2",
+        "    cellSet c3 now size 0",
+        "    cellSet c4 now size 8",
+        "    cellSet c4 now size 8",
+        "    cellSet c5 now size 8",
+    ];
+    assert_eq!(sizes, want);
+}
+
+#[test]
+fn topo_set_sets_are_byte_identical_to_esi_including_the_hash_order_of_a_sparse_set() {
+    let case = scratch_case("topo_files");
+    outram_foam_cli::topo_set::run_topo_set(&case, WriteFlavour::Esi).expect("topoSet");
+    for s in ["c0", "c1", "c2", "c3", "c4", "c5"] {
+        let got = fs::read_to_string(case.join("constant/polyMesh/sets").join(s)).unwrap();
+        let want = topo_ref(s);
+        assert!(got == want, "cellSet {s} differs from ESI v2506 at {}", first_diff(&got, &want));
+    }
+    // The sparse set is written in hash order, not ascending.
+    let c4 = fs::read_to_string(case.join("constant/polyMesh/sets/c4")).unwrap();
+    assert!(c4.contains("8(48 0 84 36 72 24 60 12)"));
+}
+
+#[test]
+fn topo_set_remove_and_unsupported_set_types() {
+    let case = scratch_case("topo_remove");
+    fs::write(
+        case.join("system/topoSetDict"),
+        "FoamFile { version 2.0; format ascii; class dictionary; object topoSetDict; }\n\
+         actions ( { name a; type cellSet; action new; source boxToCell; box (0 0 0) (3 2 0.5); } \
+         { name a; type cellSet; action remove; } );",
+    )
+    .unwrap();
+    outram_foam_cli::topo_set::run_topo_set(&case, WriteFlavour::Esi).expect("topoSet");
+    assert!(!case.join("constant/polyMesh/sets/a").exists());
+    fs::write(
+        case.join("system/topoSetDict"),
+        "FoamFile { version 2.0; format ascii; class dictionary; object topoSetDict; }\n\
+         actions ( { name f; type faceSet; action new; source patchToFace; patch left; } );",
+    )
+    .unwrap();
+    assert!(outram_foam_cli::topo_set::run_topo_set(&case, WriteFlavour::Esi).is_err());
+}

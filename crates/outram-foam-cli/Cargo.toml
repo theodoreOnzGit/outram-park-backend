@@ -112,3 +112,7 @@ path = "src/bin/cartesian_2d_mesh.rs"
 [[bin]]
 name = "setFields"
 path = "src/bin/set_fields.rs"
+
+[[bin]]
+name = "topoSet"
+path = "src/bin/topo_set.rs"
