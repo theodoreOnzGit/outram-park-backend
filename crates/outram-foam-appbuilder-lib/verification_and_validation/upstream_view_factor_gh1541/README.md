@@ -60,17 +60,30 @@ Scorecard (PREDICTIONS.md):
 
 | # | prediction | result |
 |---|---|---|
-| 1 | Rust F byte-identical to ESI on this box (65 %) | **wrong**: 209 / 250 visible lists equal; upstream lists 86 pairs Rust does not (largest \|F\| 3.5e-6), Rust lists 44 pairs upstream does not (largest \|F\| **1.62e-4**); on the 41,853 common pairs F is bit-identical (worst 0). Same family as gh:#1564 (coplanar candidacy), but one Rust-only entry is not noise-sized |
-| 2 | T <= 5e-11 / 2e-11 K, qr <= 1e-9, no bit-identity | **held with ESI's F**; **missed with Rust F** (1.7e-8 K, 2.5e-3): the F residual of row 1 propagates |
+| 1 | Rust F byte-identical to ESI on this box (65 %) | **wrong first time** (209 / 250 visible lists equal; upstream-only 86 pairs, Rust-only 44, largest \|F\| 1.62e-4; cause: brute-force ray search, gh:#1564), **~~wrong~~ CORRECTED 2026-11-14 held after the fix**: 250 / 250 rows, 41,939 = 41,939 pairs, all bit-identical (worst 0) |
+| 2 | T <= 5e-11 / 2e-11 K, qr <= 1e-9, no bit-identity | **held with ESI's F**; ~~**missed with Rust F** (1.7e-8 K, 2.5e-3): the F residual of row 1 propagates~~ **CORRECTED 2026-11-14 (gh:#1564)**: held with Rust F after the generator fix, identical to the ESI-F numbers: fluid T 1.08e-11 K, solid 3.81e-12 K, qr 3.66e-12 relative (re-measured) |
 | 3 | ablation (no qr term) differs from ESI by 1e-5 .. 1 K | held: 5.41e-3 K fluid, 1.94e-2 K solid |
 | 4 | ESI qr energy balance within 3 % | **wrong**: 0.2859. ESI's own F row sums are 0.9989 to 1.0586 and F is not reciprocal on this thin graded box; with `qro = 0` an exact F would give 0. The port reproduces that F, so this is upstream's discretisation error on thin cells, not a port defect. Pinned to the recorded value |
 | 5 | off by default, existing differentials unchanged | held (see test runs in the commit message / issue comment) |
 | 6 | P1 and viewFactor mutually exclusive | held, both orders refused |
 
-**Known residual (not fixed, reported).** The Rust generator misses/adds visible pairs on this thin box; the
+~~**Known residual (not fixed, reported).** The Rust generator misses/adds visible pairs on this thin box; the
 three pinned tests assert the measured residual (209 rows, 41,939 vs 41,897 pairs; coupled T 5e-11..1e-6 K) and
-fail when gh:#1564 is fixed, at which point they must take the strict bounds of the ESI-F test. No tolerance was
-relaxed to make anything pass.
+fail when gh:#1564 is fixed, at which point they must take the strict bounds of the ESI-F test.~~ **FIXED
+2026-11-14 (gh:#1564).** The residual came from the brute-force ray search; the Rust `viewFactorsGen` now
+runs its rays through the port of upstream's `indexedOctree::findLine` (`outram_foam_basic_lib::esi_octree`),
+see the basic-lib record `upstream_view_factor_gh1529/README.md`, "gh:#1564". Second finding on this box: upstream
+lists self-hit-continued rays AFTER the rays that missed on the first `findLine`, so a row is not ascending
+(1 row of 250 differed in order only). Re-measured 2026-11-14 (Rust 1.99.1, release):
+
+| quantity | before | after |
+|---|---|---|
+| visible lists equal | 209 / 250 | **250 / 250** |
+| pairs upstream / Rust / common / bit-identical | 41,939 / 41,897 / 41,853 / 41,853 | **41,939 / 41,939 / 41,939 / 41,939**, worst 0 |
+| coupled step, Rust F: fluid T / solid T / qr (rel.) vs ESI | 1.7e-8 K / 3.9e-8 K / 2.5e-3 | **1.08e-11 K / 3.81e-12 K / 3.66e-12**, equal to the ESI-F run |
+
+The three formerly pinned tests (`generated_f_for_the_fluid_box_matches_viewfactorsgen`,
+`coupled_view_factor_with_rust_f_...`) now carry the strict bounds. No tolerance was relaxed or tuned.
 
 ## Not done
 

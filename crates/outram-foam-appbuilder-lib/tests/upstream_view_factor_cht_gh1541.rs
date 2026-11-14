@@ -208,10 +208,14 @@ fn verbose() -> bool {
     std::env::var("RAD_VERBOSE").is_ok()
 }
 
-/// Prediction 1 (WRONG, kept as a pinned known residual, gh:#1564): the Rust `viewFactorsGen` does NOT reproduce
-/// every visible list of the fluid box. Measured 2026-11-14: 209/250 rows equal; upstream lists 86 pairs Rust does
-/// not (largest |F| 3.5e-6), Rust lists 44 pairs upstream does not (largest |F| 1.62e-4); on the 41,853 pairs both
-/// list, F is bit-identical (worst 0). The pin fails when gh:#1564 is fixed, and must then become strict equality.
+/// Prediction 1 (WRONG first time, ~~kept as a pinned known residual, gh:#1564~~ **CORRECTED 2026-11-14
+/// (gh:#1564)**: fixed). With brute-force ray visibility the Rust `viewFactorsGen` did not reproduce every
+/// visible list of the fluid box: 209/250 rows equal, upstream listed 86 pairs Rust did not (largest |F|
+/// 3.5e-6), Rust listed 44 pairs upstream did not (largest |F| 1.62e-4); on the 41,853 common pairs F was
+/// bit-identical. Cause: upstream's `indexedOctree::findLine` hands the triangle test a different
+/// (start, end) per leaf (README of the basic-lib V&V record, "gh:#1564"); ported. Re-measured 2026-11-14:
+/// 250/250 rows equal (after also reproducing upstream's row ORDER: self-hit-continued rays are listed
+/// after the rays that missed on the first `findLine`), 41,939 = 41,939 pairs, 41,939 bit-identical.
 #[test]
 fn generated_f_for_the_fluid_box_matches_viewfactorsgen() {
     let fdir = vf_root().join("fluid/polyMesh");
@@ -266,7 +270,7 @@ fn generated_f_for_the_fluid_box_matches_viewfactorsgen() {
         sums.iter().cloned().fold(f64::MIN, f64::max)
     );
     assert_eq!(identical, common, "F on the common pairs must stay bit-identical");
-    assert_eq!((lists_equal, n_up, n_rs, common), (209, 41939, 41897, 41853), "known residual changed: gh:#1564 progress?");
+    assert_eq!((lists_equal, n_up, n_rs, common), (250, 41939, 41939, 41939));
 }
 
 /// The coupled case with ESI's own `F`: isolates the coupling (qr into the interface, boundary-T lag, order
@@ -283,20 +287,21 @@ fn coupled_view_factor_with_esi_f_matches_upstream_chtmultiregionfoam() {
     assert!(w.qr_rel < 1e-9, "{w:?}");
 }
 
-/// The whole chain: Rust-generated `F` + coupling, against ESI. KNOWN RESIDUAL (prediction 2 missed for this
-/// variant): the 130 differing visible pairs of `generated_f_for_the_fluid_box_matches_viewfactorsgen` move the
-/// fluid T by 1.7e-8 K, the solid by 3.9e-8 K and `qr` by 2.5e-3 of its patch maximum (measured 2026-11-14).
-/// Pinned between a floor and a ceiling; it fails when gh:#1564 is fixed and must then use the strict bounds of
-/// the ESI-`F` test.
+/// The whole chain: Rust-generated `F` + coupling, against ESI. ~~KNOWN RESIDUAL (prediction 2 missed for this
+/// variant): the 130 differing visible pairs moved the fluid T by 1.7e-8 K, the solid by 3.9e-8 K and `qr` by
+/// 2.5e-3 of its patch maximum (measured 2026-11-14), pinned between a floor and a ceiling~~ **CORRECTED
+/// 2026-11-14 (gh:#1564)**: with the generator fixed, the Rust-F chain meets the SAME strict bounds as the
+/// ESI-F test (measured: see the README of this record).
 #[test]
 fn coupled_view_factor_with_rust_f_matches_upstream_chtmultiregionfoam() {
     let reference = read_reference();
     let mut cht = build_port(&reference, Rad::ViewFactor, true);
     let w = run(&mut cht, &reference, N_STEPS, verbose());
     eprintln!("cht+viewFactor, Rust F, default qr coupling vs ESI v2506: {w:?}");
-    assert!(w.t_fluid > 5e-11 && w.t_fluid < 1e-6, "{w:?}");
-    assert!(w.t_solid > 2e-11 && w.t_solid < 1e-6, "{w:?}");
-    assert!(w.qr_rel > 1e-9 && w.qr_rel < 1e-1, "{w:?}");
+    assert!(w.max_abs_qr > 1.0, "qr must be resolved by the case: {w:?}");
+    assert!(w.t_fluid < 5e-11, "{w:?}");
+    assert!(w.t_solid < 2e-11, "{w:?}");
+    assert!(w.qr_rel < 1e-9, "{w:?}");
 }
 
 /// Prediction 3 (ablation): without the qr term the port differs from ESI-with-viewFactor by more than

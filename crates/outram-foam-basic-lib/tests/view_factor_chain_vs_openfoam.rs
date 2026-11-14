@@ -10,9 +10,11 @@
 //! from the case `0/qr`: 1000 W/m2 on zmax for cubeA/cubeC, else 0). Two `solve` calls (second after
 //! T x 1.1), exactly as `vfDump.C`. The chain is NOT given upstream's F, globalFaceFaces or magSf.
 //! The reference is upstream's `qr1` / `qr2`. cubeC and cubeD share cubeA's mesh.
-//! Pass criterion: bit-identical on every face for the convex cases (pinned counts); the non-convex
-//! lshape (F differs at 8 pairs, one of them -1.4e-4, gh:#1564) is a pinned known residual; the
-//! identical count and worst difference are printed.
+//! Pass criterion: bit-identical on every face (pinned counts), for the convex cases AND for the
+//! non-convex lshape. ~~lshape (F differs at 8 pairs, one of them -1.4e-4, gh:#1564) is a pinned
+//! known residual~~ **CORRECTED 2026-11-14 (gh:#1564)**: the residual came from the brute-force
+//! ray search; with the `indexedOctree::findLine` port lshape is 126/126 bit-identical in both
+//! calls. The identical count and worst difference are printed.
 //!
 //! # Results
 //! `verification_and_validation/upstream_view_factor_gh1529/README.md`, section "viewFactor chain
@@ -222,19 +224,18 @@ fn convex_chain_is_bit_identical_to_esi_qr() {
     assert_eq!(total, 1660);
 }
 
-/// Non-convex lshape: KNOWN RESIDUAL, pinned (not a pass). Upstream lists the coplanar pair (106, 108)
-/// with `F = -1.3878e-4` (a quadrature artefact, NOT rounding noise as gh:#1540 first recorded); the
-/// Rust generator does not list it (gh:#1564), so `qr` differs on every face by up to ~2.1e-5 relative
-/// (measured 2026-11-14: 0/126 bit-identical in both calls, worst 2.0902e-5). The test asserts the
-/// residual is present and bounded; when gh:#1564 is fixed it fails and must be changed to the
-/// bit-identity gate of the convex cases. The threshold was NOT chosen to make a gate pass: the
-/// prediction (worst < 1e-10) was wrong and is recorded as wrong.
+/// Non-convex lshape. ~~KNOWN RESIDUAL, pinned: upstream lists the coplanar pair (106, 108) with
+/// `F = -1.3878e-4`, the Rust generator did not, `qr` differed on every face by up to 2.09e-5
+/// (0/126 bit-identical)~~ **CORRECTED 2026-11-14 (gh:#1564)**: after porting upstream's octree
+/// `findLine` (the arguments it hands the triangle test differ from the brute force's) the generator
+/// lists the same pairs, and the chain is bit-identical on all 126 faces in both calls (re-measured
+/// 2026-11-14: 126/126, worst 0). The prediction made before the fix (PREDICTIONS_1564.md, #3) held.
 #[test]
-fn lshape_chain_known_residual_is_pinned() {
+fn lshape_chain_is_bit_identical_to_esi_qr() {
     let r = run_chain("lshape", "lshape", false, 0.0);
     println!("lshape: call1 {}/{} worst {:e}; call2 {}/{} worst {:e}", r[0].0, r[0].1, r[0].2, r[1].0, r[1].1, r[1].2);
     for c in r {
-        assert_eq!(c.0, 0, "lshape now has bit-identical faces: gh:#1564 progress, update this pin");
-        assert!(c.2 > 1e-6 && c.2 < 1e-4, "lshape worst {:e}", c.2);
+        assert_eq!((c.0, c.1), (126, 126), "lshape: not bit-identical (worst {:e})", c.2);
+        assert_eq!(c.2, 0.0);
     }
 }

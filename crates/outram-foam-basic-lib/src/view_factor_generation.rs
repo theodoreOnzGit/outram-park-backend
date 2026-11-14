@@ -106,7 +106,7 @@ pub struct ViewFactorGenInput {
 pub struct GeneratedViewFactors {
     /// `F`: per face, the view factors to its visible faces.
     pub f: Vec<Vec<f64>>,
-    /// `globalFaceFaces`: per face, the (global) indices of its visible faces, ascending.
+    /// `globalFaceFaces`: per face, the (global) indices of its visible faces in upstream's row order: ~~ascending~~ **CORRECTED 2026-11-14 (gh:#1564)** ascending among the rays that missed on the first `findLine`, then the self-hit-continued rays by pass, each ascending.
     pub global_face_faces: Vec<Vec<usize>>,
 }
 
@@ -410,14 +410,20 @@ fn nearest_hit(start: Vector3, end: Vector3, tree: &Octree<WallShapes>) -> Optio
     })
 }
 
-/// `shootRays.H` for one candidate ray: is `target` visible from `source`?
+/// `shootRays.H` for one candidate ray: is `target` visible from `source`, and in which pass?
+///
+/// `Some(0)`: the first `findLine` missed (appended to `rayStartFace`/`rayEndFace` straight away);
+/// `Some(p)`, `p > 0`: found after `p` self-hit continuations (appended in the continuation loop,
+/// after every pass-0 ray and after every earlier pass). Upstream's row order is
+/// ray order within a pass, passes in order, so a continued ray's target is listed AFTER
+/// larger-index pass-0 targets of the same row (gh:#1564, found on the #1541 thin box).
 fn ray_is_visible(
     source: usize,
     target: usize,
     start: Vector3,
     end: Vector3,
     tris: &Octree<WallShapes>,
-) -> bool {
+) -> Option<usize> {
     let mut cur_start = start;
     let mut cur_end = end;
     // pass 1 handles the first trace; each continuation is one more pass, at most 10
@@ -426,7 +432,7 @@ fn ray_is_visible(
             None => {
                 // a continued ray that hits nothing is dropped (upstream: only hits are kept),
                 // the very first trace that hits nothing is a visible pair
-                return pass == 0;
+                return if pass == 0 { Some(0) } else { None };
             }
             Some((face, p)) => {
                 if face == source {
@@ -434,12 +440,12 @@ fn ray_is_visible(
                     cur_start = p + d * 0.01;
                     cur_end = p + d * 1.01;
                 } else {
-                    return face == target && pass > 0;
+                    return if face == target && pass > 0 { Some(pass) } else { None };
                 }
             }
         }
     }
-    false
+    None
 }
 
 /// Everything `viewFactorsGen` builds before it shoots rays.
@@ -551,7 +557,7 @@ pub fn generate_view_factors(
     let Prepared { face_verts, cf_mesh, sf, cf, tree: tris } = prepare_wall(input)?;
     let n = face_verts.len();
     // candidate rays and visibility, row by row, ascending target
-    let mut visible: Vec<Vec<usize>> = vec![Vec::new(); n];
+    let mut visible_pass: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
     for i in 0..n {
         let fc = cf[i];
         for j in 0..n {
@@ -562,12 +568,20 @@ pub fn generate_view_factors(
             if d.dot(sf[i]) < 0.0 && d.dot(sf[j]) > 0.0 {
                 let start = fc + d * 0.001;
                 let end = fc + d * 0.999;
-                if ray_is_visible(i, j, start, end, &tris) {
-                    visible[i].push(j);
+                if let Some(pass) = ray_is_visible(i, j, start, end, &tris) {
+                    visible_pass[i].push((pass, j));
                 }
             }
         }
     }
+    // row order of upstream: by pass, then ray order (stable sort keeps ascending j in a pass)
+    let visible: Vec<Vec<usize>> = visible_pass
+        .into_iter()
+        .map(|mut row| {
+            row.sort_by_key(|&(pass, _)| pass);
+            row.into_iter().map(|(_, j)| j).collect()
+        })
+        .collect();
 
     let (gp, gw) = gauss_tables();
     let mut f_out: Vec<Vec<f64>> = vec![Vec::new(); n];
