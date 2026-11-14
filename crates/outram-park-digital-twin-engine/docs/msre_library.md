@@ -52,6 +52,36 @@ numbers (°F, MW, pcm). It adds no physics:
 It is used by the `msre_web` example, published (gated) at `demos/msre/`
 in the demos page's "Museum – historical reactors" section.
 
+### `msre::moltres_drift` (gh:#1575, 2026-11-14)
+
+`outram-park-fork-moltres` is a direct dependency of this crate. The module
+runs Moltres's finite-volume precursor drift (`PrecursorDrift` on a
+`RingMesh`) around TM-1626's flow path. It uses the same Table 1 families
+and Fig. 4 source and importance as the line model.
+
+- `line_loss(cells, flow)` is the steady circulation loss. Checked live
+  against the simulator's line model, with the prediction (|diff| < 5e-6
+  δk/k) written before the run:
+
+  | Model | Circulation loss |
+  |---|---|
+  | Line model | 0.229140 % |
+  | Moltres, 2520 cells | 0.229290 % |
+  | Moltres, 10 080 cells | 0.229303 % |
+
+- `LoopDrift` steps the drift beside the plant at the plant's fuel flow and
+  fission power. It uses 504 cells, measured at −8.5e-7 δk/k from the
+  10 080-cell value. It is fast enough to run in the plant's worker:
+  1008 cells step 10 s of plant time in 0.145 s natively. Results, both
+  predicted on gh:#1575 before running:
+  - Held at full flow, it stays steady to 5.1e-15 δk/k.
+  - After the fuel pump stops, the loss falls monotonically, from 0.2292 %
+    to 0.0195 % at 60 s and 8.0e-6 % at 600 s.
+
+  `msre_web` draws it in its Moltres tab.
+- Only the 1-D loop drift runs live. Moltres's 2-D R-Z diffusion core is
+  much heavier, has not been timed, and is not in the demo.
+
 What its tests found, recorded because it is physics the GUI now warns of:
 - **The salt freezes after a trip if nothing is done.** After a fuel pump
   trip with the radiator left at full air, the coolant cools toward the
