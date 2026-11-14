@@ -453,6 +453,12 @@ stage_utilities() {
   wm_app utilities/mesh/generation/extrude/extrudeMesh extrudeMesh
 }
 
+# --- stage: dynamic mesh (gh:#1380): moveDynamicMesh and the libraries it loads ----
+stage_dynmesh() {
+  # libdynamicFvMesh and libfvMotionSolvers are built by the solvers stage
+  wm_app utilities/mesh/manipulation/moveDynamicMesh moveDynamicMesh
+}
+
 # --- GeN-Foam -----------------------------------------------------------------
 gf_fetch_impl() {
   if [ "$(git -C "$GF" rev-parse HEAD 2>/dev/null)" = "$GF_SHA" ]; then echo "GeN-Foam already at $GF_SHA"; return 0; fi
@@ -646,6 +652,7 @@ for s in "$@"; do
     radiation)    load_env; stage_radiation ;;
     viewfactors)  load_env; stage_viewfactors ;;
     utilities)    load_env; stage_utilities ;;
+    dynmesh)      load_env; stage_dynmesh ;;
     fetch-genfoam) stage_fetch_genfoam ;;
     genfoam)      load_env; stage_genfoam ;;
     fetch-cfmesh) stage_fetch_cfmesh ;;
