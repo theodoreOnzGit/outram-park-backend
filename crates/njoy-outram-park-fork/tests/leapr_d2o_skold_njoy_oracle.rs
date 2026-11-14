@@ -17,8 +17,23 @@
 //! Without the correction the law is off by O(`cfrac`) wherever
 //! `S(kappa) != 1`; a wrong bracket or interpolation law shows up as
 //! scattered 1e-3..1e-1 deviations at the alphas where `alpha / S(kappa)`
-//! falls between grid points.
+//! falls between grid points. (That last sentence describes a failure mode;
+//! it was never a measured residual, although gh:#1366 §2 item 3 listed it
+//! as one.)
+//!
+//! # Results (2026-11-14, develop `7ab655456`; gh:#1366 §2 item 3)
+//!
+//! 60 322 tabulated points. Unprinted relative: worst 1.003e-13 for
+//! S > 1e-12, 1.002e-13 for the tail, T_eff 865.5610000000866 against 865.561.
+//! That is `sigfig`'s `bias = 1.0000000000001` (`util.f90:392`), which the
+//! port's in-memory values keep and NJOY's ENDF text cannot carry. **As ENDF's
+//! `a11` prints them** (`format_endf_float`), **0 of 60 322 differ**, and T_eff
+//! is identical. Predicted on gh:#1366 before the change. Gate:
+//! ~~`S_TOL = 1e-5` (S > 1e-12) and 1e-3 (tail)~~ equality as printed, every
+//! point and T_eff, plus an unprinted bound of 2e-13 so nothing but the bias
+//! can sit under the print.
 
+use njoy_outram_park_fork::endf::parse::format_endf_float;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::decks::{locate_deck, SabMaterial};
@@ -31,7 +46,9 @@ use uom::si::thermodynamic_temperature::kelvin;
 
 const MAT: i32 = 11;
 const T_K: f64 = 293.6;
-const S_TOL: f64 = 1e-5;
+/// Bound on the unprinted relative difference: `sigfig`'s 1e-13 bias plus an
+/// ulp. ~~1e-5 (S > 1e-12), 1e-3 (tail)~~ CORRECTED 2026-11-14 (gh:#1366).
+const S_TOL: f64 = 2e-13;
 const TEFF_NJOY_K: f64 = 865.561;
 
 #[test]
@@ -82,6 +99,8 @@ fn d_in_d2o_with_skold_reproduces_njoy_leapr_at_293_6_k() {
 
     assert_eq!(oracle.beta.len(), ours.beta.len(), "beta grid");
     let mut total = 0usize;
+    let mut printed_differ = 0usize;
+    let mut first_printed_diff = String::new();
     let mut worst = (0.0f64, String::new());
     let mut tail_worst = (0.0f64, String::new());
     for (bo, br) in oracle.s_tables.iter().zip(&ours.s_tables) {
@@ -97,6 +116,15 @@ fn d_in_d2o_with_skold_reproduces_njoy_leapr_at_293_6_k() {
                 continue;
             }
             total += 1;
+            if format_endf_float(s_ours) != format_endf_float(s_njoy) {
+                printed_differ += 1;
+                if first_printed_diff.is_empty() {
+                    first_printed_diff = format!(
+                        "S(alpha={}, beta={}): ours {s_ours:e} njoy {s_njoy:e}",
+                        bo.alpha[ia], bo.beta
+                    );
+                }
+            }
             let rel = (s_ours - s_njoy).abs() / s_njoy;
             let slot = if s_njoy > 1e-12 {
                 &mut worst
@@ -128,13 +156,19 @@ fn d_in_d2o_with_skold_reproduces_njoy_leapr_at_293_6_k() {
         (teff_njoy - TEFF_NJOY_K).abs() < 1e-3,
         "oracle tape T_eff vs listing"
     );
-    assert!(
-        (teff_ours - teff_njoy).abs() < 1e-3,
-        "T_eff ours {teff_ours} njoy {teff_njoy}"
+    eprintln!("[D2O] {printed_differ} of {total} differ as ENDF prints them");
+    assert_eq!(
+        format_endf_float(teff_ours),
+        format_endf_float(teff_njoy),
+        "T_eff as printed: ours {teff_ours} njoy {teff_njoy}"
+    );
+    assert_eq!(
+        printed_differ, 0,
+        "{printed_differ} of {total} S(alpha,beta) differ from NJOY2016's as printed; first {first_printed_diff}"
     );
     assert!(worst.0 < S_TOL, "worst {:.3e} at {}", worst.0, worst.1);
     assert!(
-        tail_worst.0 < 1e-3,
+        tail_worst.0 < S_TOL,
         "tail worst {:.3e} at {}",
         tail_worst.0,
         tail_worst.1
