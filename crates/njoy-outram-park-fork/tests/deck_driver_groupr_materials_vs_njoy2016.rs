@@ -54,6 +54,11 @@
 //!   387 of 470 lines. Resetting `nsh` on copied END lines makes `NG` units 25 and 26
 //!   differ in 310 and 733 lines, and `NG3` unit 25 in 369; `NGB`, which is binary,
 //!   is unchanged.
+//! - `PB` (F-19, explicit `mfd = 21` and `25`): identical, 235 lines, on the first
+//!   run. NJOY's GENDF holds MF=21 MT 28 and 103 (36 and 44 lines) and MF=25 MT 22
+//!   and 107 (70 and 53). Ablation: with `mfd = 21` selecting the neutron
+//!   (`zad = 1`), the run stops in `getmf6` ("desired particle not found"; MT 103 has
+//!   only a proton subsection).
 //!
 //! Record: deck-driver README §35b; predictions and results on gh:#1370.
 
@@ -228,6 +233,17 @@ fn negative_first_matb_without_ngout1_is_refused() {
     let _ = std::fs::remove_dir_all(&dir);
     let (_, msg) = run.blocked.expect("must be refused");
     assert!(msg.contains("does not terminate"), "{msg}");
+}
+
+/// `PB`: explicit `mfd = 21` and `25` (proton and alpha production matrices from
+/// MF=6, `getff` label 800, written as MF=21 and MF=25) on F-19 ENDF/B-VIII.0 (MAT
+/// 925): protons on MT 28 and 103, alphas on MT 22 and 107, all LAW = 1 (gh:#1370).
+#[test]
+fn pb_groupr_charged_particle_production_from_mf6() {
+    let deck = "moder\n20 -21/\nreconr\n-21 -22/\n'f19'/\n925 0/\n0.005/\n0/\n\
+                groupr\n-21 -22 0 24/\n925 3 0 3 1 1 1 1/\n'f19 charged'/\n0.0/\n1.0e10/\n\
+                3 103/\n21 103/\n21 28/\n25 22/\n25 107/\n0/\n0/\nstop\n";
+    assert_identical("pb", run_both("pb", deck, &[reference("n-009_F_019-ENDF8.0.endf")], &[24]));
 }
 
 /// Control, Be-9 (MAT 425) alone in its GROUPR: MF=6 MT=2 still differs in 6

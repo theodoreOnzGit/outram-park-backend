@@ -1892,6 +1892,36 @@ the test, with C-12 (625) added for `NG3`. RECONR 0.005, then GROUPR at 0 K: LAN
   - the text copy resetting `nsh` on copied END lines: `NG` unit 25 differs in 310 lines,
     unit 26 in 733, and `NG3` unit 25 in 369. `NGB` (binary) is unchanged, as it must be.
 
+### 35c. GROUPR `mfd = 21-26` from MF=6; `mfchk2` and the Coulomb term deferred (2026-11-14, gh:#1370)
+
+`getff` sends `mfd = 21-26` to label 800, which is `getmf6` on `egn` as for `mfd = 8`
+(`groupr.f90:7389`). `getmf6` picks the subsection whose `ZAP` is 1001, 1002, 1003, 2003,
+2004, or the residual for 26 (`:7584-7592`; `Mf6Feed::new` already carried this). The
+section is written as `MF = mfd` (`:820-826`). The deck driver now routes those requests
+there. A charged subsection with LAW 2-5 is refused by `Mf6Feed`, because the port's
+`getdis` holds `aprime = 1`.
+
+**Gate** (`pb_groupr_charged_particle_production_from_mf6`; prediction on gh:#1370 first).
+F-19 ENDF/B-VIII.0 (MAT 925), RECONR 0.005, GROUPR at 0 K, LANL-30, `iwt = 3`, `lord = 1`,
+with `3 103/ 21 103/ 21 28/ 25 22/ 25 107/`.
+- Unit 24 is identical, 235 lines, on the first run.
+- NJOY's GENDF holds MF=21 MT 28 (36 lines) and MT 103 (44), and MF=25 MT 22 (70) and
+  MT 107 (53).
+- Ablation: with `mfd = 21` selecting the neutron, the run stops in `getmf6` ("desired
+  particle not found"). F-19's MT 103 has only a proton subsection.
+
+**Deferred, and why:**
+- **`mfchk2`** switches `mfd = 21-26` to 31-36 for an MT in `conver`'s `mf4r` list, i.e. an
+  MT whose charged particle is given by MF=4 two-body data. That needs `getdis` with
+  `aprime /= 1` and the `mf4r` lists (`conver`, `:11000-11150`). Neither is translated, so
+  an `mfd = 21-26` request for an MT with no MF=6 section is refused by name instead of
+  reaching `getmf6`. `mfd = 31-36` stay refused.
+- **`getdis`'s Coulomb term** (`:9529-9548`) runs for an incident charged particle only
+  (`izap > 1`, `mtd = 2`, `mft = 8` with `mfd = 3`). The tape driver fixes `izap = 1`,
+  `aprime = 1` and the neutron `izat`, so the incident-charged sublibrary (#1511) has to
+  come first.
+- The automatic lists `21/`-`26/` (`nextr`'s charged lists) stay refused.
+
 ## 36. THERMR's second SCT atom: `gatef2` wired (2026-11-14, gh:#1375)
 
 **Upstream.** For an ENDF-4/5 tape THERMR keys a mixed moderator's second

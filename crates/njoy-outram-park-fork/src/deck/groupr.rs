@@ -25,7 +25,8 @@
 //! ~~`MT = 257-259, 452-456`~~ `MT = 452-456` (**CORRECTED 2026-11-13**: 257-259 are
 //! written; 452-456 used to be skipped silently and are now refused by name), `mfd = 5`,
 //! analytic `LF > 1` photon spectra, ~~and the automatic lists for `mfd` other than 3 and
-//! 16/17 (and MF=18)~~ the charged-particle automatic lists (`mfd = 21-26`), `getdis`
+//! 16/17 (and MF=18)~~ the charged-particle automatic lists (`mfd = 21-26`; an explicit
+//! `21 mt` to `26 mt` from MF=6 is written since 2026-11-14, gh:#1370), `mfd = 31-36`, `getdis`
 //! with `mft = 8` (MF=6 LAW 2-5) and `getmf6` for fission.
 //! ~~the automatic reaction lists (`mtd = 0`, `nextr`)~~ **CORRECTED 2026-11-11**: `auto_reactions`.
 //! **CORRECTED 2026-11-13 (gh:#1369):** `auto_reactions` is replaced by
@@ -628,7 +629,9 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 write_mf16_photon(&mut g, &mut sh, inp, nend2_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
-            if req.mfd == 8 || req.mfd == 18 {
+            // `getff` label 800 for `mfd = 8` and the charged-particle `mfd = 21-26`
+            // (`:7389`), label 810 for `mfd = 18`.
+            if req.mfd == 8 || req.mfd == 18 || (21..=26).contains(&req.mfd) {
                 write_getmf6(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
@@ -889,6 +892,12 @@ fn write_getmf6(
         return Err(NjoyError::NotPorted("groupr getff label 800 for fission (getyld on MT=456, nl = 1)"));
     }
     let Some(sec) = pend.section(inp.matb, 3, mtd) else { return Ok(()) };
+    // `mfd = 21-26` for an MT whose particle is given in MF=4: upstream's `mfchk2`
+    // (`:1575-1597`) would have made it `mfd = 31-36`, `getdis` with a charged
+    // outgoing particle; neither is translated (gh:#1370).
+    if (21..=26).contains(&mfd) && nend.section(inp.matb, 6, mtd).is_none() {
+        return Err(NjoyError::NotPorted("groupr mfd = 21-26 without MF=6 (mfchk2 and mfd = 31-36, getdis with aprime /= 1)"));
+    }
     let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
     let head = cur.read_cont()?;
     let tab = cur.read_tab1()?;
@@ -938,7 +947,13 @@ fn write_getmf6(
     if rows.is_empty() {
         return Ok(());
     }
-    g.begin(inp.matb, if mfd == 18 { 16 } else { 6 }, mtd);
+    // `mfh` (`:820-826`): 8 to 6, 18 to 16; `mfd = 21-26` are their own files.
+    let mfh = match mfd {
+        18 => 16,
+        21..=26 => mfd,
+        _ => 6,
+    };
+    g.begin(inp.matb, mfh, mtd);
     g.cont([za, 0.0], [nl as i32, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
