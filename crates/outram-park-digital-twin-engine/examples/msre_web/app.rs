@@ -19,7 +19,12 @@ use bugis::web_demo::link::Link;
 use bugis::web_demo::panel::Panel;
 use bugis::web_demo::platform::{query_pairs, set_title};
 use bugis::web_demo::view::{apply_zoom, zoom_buttons, View};
-use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, StrokeKind, Vec2};
+use bugis::components::{MsreLayout, MsreOrientation, MsrePlantScalars, MsrePlantSchematic};
+use egui::{Align2, FontId, Pos2, Rect, RichText, Vec2};
+use uom::si::f64::{Power, Ratio, ThermodynamicTemperature};
+use uom::si::power::megawatt;
+use uom::si::ratio::ratio;
+use uom::si::thermodynamic_temperature::degree_fahrenheit;
 use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
 use outram_park_digital_twin_engine::color_maps::hot_to_cold_colour_mark_1;
 use outram_park_digital_twin_engine::msre::session::{
@@ -72,8 +77,9 @@ impl App {
             theme: bugis::Theme::default(),
             link,
             panel: Panel::default(),
-            // The schematic spans x = -10..10, y = -5..5 (drawing units).
-            view: View::new(10.5).with_home([0.0, 0.0]),
+            // The schematic (bugis MsrePlantSchematic) spans 17 x 10 drawing units,
+            // centred on the origin.
+            view: View::new(9.0).with_home([0.0, 0.0]),
             tab: Tab::Plant,
             snap: None,
             history: Vec::new(),
@@ -217,95 +223,47 @@ impl App {
         ui.label(RichText::new("Sources: ORNL-TM-0728, TM-1070, TM-1626, TM-1647, ORNL-4233 (public reports). Code: outram_park_digital_twin_engine::msre.").small());
     }
 
-    fn to_screen(&self, rect: Rect, x: f64, y: f64) -> Pos2 {
-        self.view.to_screen(rect, x, y)
-    }
-
-    fn hot(t_f: f64) -> Color32 {
-        hot_to_cold_colour_mark_1(((t_f - T_COLD_F) / (T_HOT_F - T_COLD_F)).clamp(0.0, 1.0) as f32)
-    }
-
-    fn block(&self, ui: &egui::Ui, rect: Rect, (x0, y0, x1, y1): (f64, f64, f64, f64), fill: Color32, title: &str, lines: &[String]) {
-        let p = ui.painter();
-        let r = Rect::from_two_pos(self.to_screen(rect, x0, y0), self.to_screen(rect, x1, y1));
-        p.rect(r, 6.0, fill, Stroke::new(2.0, ui.visuals().text_color()), StrokeKind::Inside);
-        // A font that fits: the longest line across the width, every line
-        // (plus the title) down the height.
-        let longest = lines.iter().map(|l| l.chars().count()).chain([title.chars().count()]).max().unwrap_or(1) as f32;
-        let s = (r.width() / (0.56 * longest + 1.0)).min(r.height() / (1.45 * (lines.len() as f32 + 1.6))).clamp(7.0, 20.0);
-        p.text(r.center_top() + Vec2::new(0.0, 0.3 * s), Align2::CENTER_TOP, title, FontId::proportional(s * 1.1), Color32::BLACK);
-        for (i, l) in lines.iter().enumerate() {
-            p.text(r.center_top() + Vec2::new(0.0, 0.5 * s + s * 1.4 * (i as f32 + 1.0)), Align2::CENTER_TOP, l, FontId::proportional(s), Color32::BLACK);
-        }
-    }
-
-    /// A pipe through `pts`, coloured by `t_f`, labelled beside its longest
-    /// run on the side `out` points to (a unit screen direction).
-    fn pipe(&self, ui: &egui::Ui, rect: Rect, pts: &[(f64, f64)], t_f: f64, label: &str, out: Vec2) {
-        let w = (self.view.fit_scale(rect) as f32 * 0.35).clamp(3.0, 14.0);
-        let screen: Vec<Pos2> = pts.iter().map(|&(x, y)| self.to_screen(rect, x, y)).collect();
-        ui.painter().add(egui::Shape::line(screen.clone(), Stroke::new(w, Self::hot(t_f))));
-        let longest = screen.windows(2).max_by(|a, b| a[0].distance(a[1]).total_cmp(&b[0].distance(b[1])));
-        if let Some(seg) = longest {
-            let mid = Pos2::new((seg[0].x + seg[1].x) / 2.0, (seg[0].y + seg[1].y) / 2.0) + out * (w + 4.0);
-            let align = if out.x > 0.5 {
-                Align2::LEFT_CENTER
-            } else if out.x < -0.5 {
-                Align2::RIGHT_CENTER
-            } else if out.y < 0.0 {
-                Align2::CENTER_BOTTOM
-            } else {
-                Align2::CENTER_TOP
-            };
-            ui.painter().text(mid, align, label, FontId::proportional(13.0), ui.visuals().text_color());
-        }
-    }
-
     fn plant(&self, ui: &egui::Ui, rect: Rect) {
         let Some(s) = self.snap else {
             ui.painter().text(rect.center(), Align2::CENTER_CENTER, "Starting the plant…", FontId::proportional(18.0), ui.visuals().text_color());
             return;
         };
-        let (up, down, left, right) = (Vec2::new(0.0, -1.0), Vec2::new(0.0, 1.0), Vec2::new(-1.0, 0.0), Vec2::new(1.0, 0.0));
-        let fuel_hot = format!("{:.0} °F", s.core_outlet_f);
-        let fuel_cold = format!("{:.0} °F", s.hx_fuel_out_f);
-        let cool_hot = format!("{:.0} °F", s.hx_coolant_out_f);
-        let cool_cold = format!("{:.0} °F", s.radiator_coolant_out_f);
-        // Indicative drawing layout (not plant geometry): left to right on a
-        // wide screen, top to bottom on a tall one. World y points up.
-        let portrait = rect.height() > rect.width() * 1.2;
-        let (core, hx, rad) = if portrait {
-            self.pipe(ui, rect, &[(4.5, 6.0), (6.0, 6.0), (6.0, 0.0), (3.2, 0.0)], s.hx_fuel_in_f, &fuel_hot, right);
-            self.pipe(ui, rect, &[(-3.2, 0.0), (-6.0, 0.0), (-6.0, 6.0), (-4.5, 6.0)], s.core_inlet_f, &fuel_cold, left);
-            self.pipe(ui, rect, &[(1.5, -2.0), (1.5, -4.5)], s.hx_coolant_out_f, &cool_hot, right);
-            self.pipe(ui, rect, &[(-1.5, -4.5), (-1.5, -2.0)], s.hx_coolant_in_f, &cool_cold, left);
-            ((-4.5, 2.8, 4.5, 9.4), (-3.2, -2.0, 3.2, 2.0), (-4.5, -9.4, 4.5, -4.5))
-        } else {
-            self.pipe(ui, rect, &[(-5.0, 3.5), (-5.0, 4.8), (0.0, 4.8), (0.0, 2.5)], s.hx_fuel_in_f, &fuel_hot, up);
-            self.pipe(ui, rect, &[(0.0, -2.5), (0.0, -4.8), (-5.0, -4.8), (-5.0, -3.5)], s.core_inlet_f, &fuel_cold, down);
-            self.pipe(ui, rect, &[(1.5, 1.2), (6.5, 1.2), (6.5, 2.5)], s.hx_coolant_out_f, &cool_hot, up);
-            self.pipe(ui, rect, &[(6.5, -2.5), (6.5, -1.2), (1.5, -1.2)], s.hx_coolant_in_f, &cool_cold, down);
-            ((-8.5, -3.5, -2.5, 3.5), (-1.5, -2.5, 1.5, 2.5), (4.0, -2.5, 9.5, 2.5))
+        // The plant schematic from the widget library (bugis), after
+        // ORNL-TM-0728 Fig. 2.1, transposed on a tall screen.
+        let orientation = if rect.height() > rect.width() * 1.2 { MsreOrientation::Portrait } else { MsreOrientation::Landscape };
+        let ext = MsreLayout::extent(orientation);
+        let (hw, hh) = (0.5 * ext.x as f64, 0.5 * ext.y as f64);
+        let at = Rect::from_two_pos(self.view.to_screen(rect, -hw, hh), self.view.to_screen(rect, hw, -hh));
+        let f = ThermodynamicTemperature::new::<degree_fahrenheit>;
+        let (fuel_frozen, coolant_frozen) = s.below_liquidus();
+        let scalars = MsrePlantScalars {
+            power: Power::new::<megawatt>(s.power_mw),
+            core_fuel: f(s.fuel_f),
+            core_outlet: f(s.core_outlet_f),
+            core_inlet: f(s.core_inlet_f),
+            graphite: f(s.graphite_f),
+            coolant_hot: f(s.hx_coolant_out_f),
+            coolant_cold: f(s.radiator_coolant_out_f),
+            radiator_air_out: f(s.radiator_air_out_f),
+            fuel_flow: Ratio::new::<ratio>(s.fuel_flow),
+            coolant_flow: Ratio::new::<ratio>(s.coolant_flow),
+            air_flow: Ratio::new::<ratio>(s.air_flow),
+            fuel_frozen,
+            coolant_frozen,
+            freeze_valve_frozen: true,
+            cold: f(T_COLD_F),
+            hot: f(T_HOT_F),
         };
-        self.block(ui, rect, core, Self::hot(s.fuel_f), "Reactor core", &[
-            format!("{:.3} MW", s.power_mw),
-            format!("fuel {:.0} °F", s.fuel_f),
-            format!("graphite {:.0} °F", s.graphite_f),
-            format!("ρ {:+.1} pcm", s.reactivity_pcm),
-            format!("rods {:+.1} pcm{}", s.rod_pcm, if s.servo != 0.0 { " (servo)" } else { "" }),
-            format!("feedback {:+.1} pcm", s.feedback_pcm),
-            format!("fuel flow {:.0} %", 100.0 * s.fuel_flow),
-        ]);
-        self.block(ui, rect, hx, Self::hot(0.5 * (s.hx_fuel_in_f + s.hx_fuel_out_f)), "Heat exchanger", &[
-            format!("fuel {:.0} to {:.0} °F", s.hx_fuel_in_f, s.hx_fuel_out_f),
-            format!("coolant {:.0} to {:.0} °F", s.hx_coolant_in_f, s.hx_coolant_out_f),
-            format!("coolant flow {:.0} %", 100.0 * s.coolant_flow),
-        ]);
-        self.block(ui, rect, rad, Self::hot(s.radiator_coolant_out_f), "Radiator", &[
-            format!("air {:.0} % of design", 100.0 * s.air_flow),
-            format!("air out {:.0} °F", s.radiator_air_out_f),
-            format!("coolant out {:.0} °F", s.radiator_coolant_out_f),
-        ]);
+        MsrePlantSchematic::new(scalars).with_orientation(orientation).paint(&ui.painter().with_clip_rect(rect), at);
+        // Readouts the drawing does not carry.
+        let lines = [
+            format!("ρ {:+.1} pcm: rods {:+.1}{}, feedback {:+.1}", s.reactivity_pcm, s.rod_pcm, if s.servo != 0.0 { " (servo)" } else { "" }, s.feedback_pcm),
+            format!("fuel {:.0} °F, graphite {:.0} °F; flows: fuel {:.0} %, coolant {:.0} %", s.fuel_f, s.graphite_f, 100.0 * s.fuel_flow, 100.0 * s.coolant_flow),
+        ];
+        let top = rect.top() + if rect.width() < 700.0 { 80.0 } else { 40.0 };
+        for (k, l) in lines.iter().enumerate() {
+            ui.painter().text(Pos2::new(rect.center().x, top + 18.0 * k as f32), Align2::CENTER_TOP, l, FontId::proportional(13.0), ui.visuals().text_color());
+        }
         // Status on the main view (shown with the panel folded).
         let (fuel_frozen, coolant_frozen) = s.below_liquidus();
         let mut y = rect.bottom() - 90.0;
