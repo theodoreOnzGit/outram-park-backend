@@ -392,6 +392,7 @@ pub struct Nuclide {
     multipole: Option<std::sync::Arc<WindowedMultipole>>,
 }
 
+mod hdf5_read;
 mod multipole;
 pub use multipole::{MultipoleAttachError, MultipoleConsistency, MULTIPOLE_EVALUATION_TOLERANCE};
 

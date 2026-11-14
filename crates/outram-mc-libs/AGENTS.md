@@ -617,10 +617,17 @@ a translation of it.
   `.h5` **reader** exists too, `njoy_outram_park_fork::hdf5::nuclide_read::
   read_nuclide` (landed 2026-09-24, gh:#303), exercised by
   `njoy-outram-park-fork/tests/nuclide_h5_vs_openmc.rs` and, from this crate,
-  `tests/band_xs_from_hdf5_reader.rs`. What does not exist is a
+  `tests/band_xs_from_hdf5_reader.rs`. ~~What does not exist is a
   `ReadNuclide` -> `Nuclide` conversion, so transport still cannot start from
   an OpenMC `.h5` library. Verified by `grep`: no use of `ReadNuclide` in
-  `src/` here.
+  `src/` here.~~ **CORRECTED 2026-11-14 (gh:#303):** `Nuclide::from_hdf5`
+  (`src/material/nuclide/hdf5_read.rs`) converts a `ReadNuclide`. It reproduces
+  `Nuclide::from_ace`'s cross sections bit for bit
+  (`tests/nuclide_from_hdf5.rs`) and transports elastic, MT=51..90 `level` and
+  Watt/Maxwell/evaporation fission. It **refuses by name** every other
+  neutron-emitting law, URR tables, delayed products and polynomial nu, so a
+  real OpenMC U-235 library (continuous and correlated laws) is still refused.
+  Verified: `ReadNuclide` is used in `src/material/nuclide/hdf5_read.rs`.
 
   **The part that still holds for this crate:** it takes its data pre-loaded,
   captures run state (`physics::state_point`) and hands it to that codec at

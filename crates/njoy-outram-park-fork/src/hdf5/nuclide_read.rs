@@ -46,6 +46,7 @@ use std::path::Path;
 use hdf5_pure::{AttrValue, File};
 
 use crate::error::NjoyError;
+use crate::hdf5::nuclide_laws::{AngleDistribution, EnergyDist, Function1D, Polynomial, Tabulated1D};
 
 /// A reaction as read back from a nuclide file.
 #[derive(Debug, Clone, PartialEq)]
@@ -69,6 +70,13 @@ pub struct ReadReaction {
     pub product_laws: Vec<String>,
     /// Each product's particle name.
     pub product_particles: Vec<String>,
+    /// Each product decoded as far as this reader supports (GitHub #303):
+    /// yield, emission mode and the **uncorrelated** laws (`level`, `watt`,
+    /// `maxwell`, `evaporation`, `madland-nix`, `discrete_photon`) with their
+    /// angle distributions. Every other law is carried as
+    /// [`ReadDistribution::Undecoded`], naming its type, so a consumer can
+    /// refuse it by name rather than sample something else.
+    pub products: Vec<ReadProduct>,
 }
 
 impl ReadReaction {
@@ -105,6 +113,10 @@ pub struct ReadNuclide {
     pub reactions: BTreeMap<i32, ReadReaction>,
     /// Total ν̄ as `(x, y)` if the file carries `total_nu`, plus its `type`.
     pub total_nu: Option<(String, Vec<f64>, Vec<f64>)>,
+    /// `(breakpoint, interpolation)` regions of a tabulated `total_nu`, as the
+    /// file states them (1-based breakpoints, ENDF interpolation codes). Empty
+    /// for a polynomial or when the file carries none.
+    pub total_nu_regions: Vec<(i64, i64)>,
     /// Temperature labels carrying URR probability tables.
     pub urr_temperatures: Vec<String>,
 }
@@ -188,6 +200,242 @@ fn attr_str(attrs: &BTreeMap<String, AttrValue>, k: &str) -> Option<String> {
 
 fn sorted(m: std::collections::HashMap<String, AttrValue>) -> BTreeMap<String, AttrValue> {
     m.into_iter().collect()
+}
+
+/// A product as read back: see [`ReadReaction::products`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReadProduct {
+    /// `"neutron"`, `"photon"`, ...
+    pub particle: String,
+    /// `"prompt"`, `"delayed"` or `"total"`.
+    pub emission_mode: String,
+    /// Precursor decay constant \[1/s\], 0 when the file has none.
+    pub decay_rate: f64,
+    /// The yield as a function of incident energy, when the file has one.
+    pub yield_fn: Option<Function1D>,
+    /// The distributions, in `distribution_<i>` order.
+    pub distributions: Vec<ReadDistribution>,
+    /// Per-distribution applicability `p_k(E)`; empty when the file has none.
+    pub applicability: Vec<Tabulated1D>,
+}
+
+/// One secondary distribution as read back.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReadDistribution {
+    /// `uncorrelated`: an angle part and/or an energy part. Either may be
+    /// absent (elastic carries an angle only, an isotropic continuum an energy
+    /// only).
+    Uncorrelated {
+        /// Outgoing cosine, independent of the outgoing energy.
+        angle: Option<AngleDistribution>,
+        /// The cumulative row the file stores beside each density, one vector
+        /// per incident energy, aligned with `angle.mu`. Kept as stored, not
+        /// rebuilt, so a consumer samples the file's own distribution.
+        angle_cdf: Vec<Vec<f64>>,
+        /// Outgoing energy, for the laws this reader decodes.
+        energy: Option<EnergyDist>,
+    },
+    /// Anything this reader does not unpack into samplable form: `correlated`,
+    /// `kalbach-mann`, `nbody`, or an uncorrelated law with a `continuous`
+    /// energy part. Holds the `type` string (and, for an uncorrelated law, the
+    /// energy part's type after a colon) so a refusal can name it.
+    Undecoded(String),
+}
+
+fn attr_vec_i64(a: &BTreeMap<String, AttrValue>, k: &str) -> Vec<i64> {
+    match a.get(k) {
+        Some(AttrValue::I64Array(v)) => v.clone(),
+        Some(AttrValue::I64(v)) => vec![*v],
+        Some(AttrValue::I32(v)) => vec![i64::from(*v)],
+        _ => Vec::new(),
+    }
+}
+
+fn attr_regions(a: &BTreeMap<String, AttrValue>) -> Vec<(i64, i64)> {
+    attr_vec_i64(a, "breakpoints")
+        .into_iter()
+        .zip(attr_vec_i64(a, "interpolation"))
+        .collect()
+}
+
+/// A `Tabulated1D` or `Polynomial` dataset `name` in group `path`, if present.
+fn read_function(f: &File, path: &str, name: &str) -> Result<Option<Function1D>, NjoyError> {
+    let g = f.group(path).map_err(|x| e(format!("{path}: {x}")))?;
+    let Ok(d) = g.dataset(name) else {
+        return Ok(None);
+    };
+    let raw = d
+        .read_f64()
+        .map_err(|x| e(format!("{path}/{name}: {x}")))?;
+    let da = sorted(d.attrs().unwrap_or_default());
+    let kind = attr_str(&da, "type").unwrap_or_else(|| "Tabulated1D".into());
+    if kind == "Polynomial" {
+        return Ok(Some(Function1D::Polynomial(Polynomial { coef: raw })));
+    }
+    // Stored as vstack([x, y]), so the first half is x.
+    let half = raw.len() / 2;
+    Ok(Some(Function1D::Tabulated(Tabulated1D {
+        x: raw[..half].to_vec(),
+        y: raw[half..].to_vec(),
+        breakpoints: attr_vec_i64(&da, "breakpoints"),
+        interpolation: attr_vec_i64(&da, "interpolation"),
+    })))
+}
+
+fn read_tabulated(f: &File, path: &str, name: &str) -> Result<Option<Tabulated1D>, NjoyError> {
+    match read_function(f, path, name)? {
+        Some(Function1D::Tabulated(t)) => Ok(Some(t)),
+        Some(Function1D::Polynomial(_)) => Err(e(format!(
+            "{path}/{name} is a Polynomial where a Tabulated1D is required"
+        ))),
+        None => Ok(None),
+    }
+}
+
+fn need_tabulated(f: &File, path: &str, name: &str) -> Result<Tabulated1D, NjoyError> {
+    read_tabulated(f, path, name)?.ok_or_else(|| e(format!("{path} has no '{name}' dataset")))
+}
+
+/// An `angle` group: `energy`, and `mu` of shape `(3, n_pairs)` holding the
+/// cosine, density and cumulative rows, split per incident energy by the
+/// `offsets` attribute. The cumulative row is returned beside the distribution
+/// as stored.
+fn read_angle(f: &File, path: &str) -> Result<(AngleDistribution, Vec<Vec<f64>>), NjoyError> {
+    let g = f.group(path).map_err(|x| e(format!("{path}: {x}")))?;
+    let energy = g
+        .dataset("energy")
+        .and_then(|d| d.read_f64())
+        .map_err(|x| e(format!("{path}/energy: {x}")))?;
+    let d = g.dataset("mu").map_err(|x| e(format!("{path}/mu: {x}")))?;
+    let flat = d.read_f64().map_err(|x| e(format!("{path}/mu: {x}")))?;
+    let da = sorted(d.attrs().unwrap_or_default());
+    let offsets = attr_vec_i64(&da, "offsets");
+    let interpolation = attr_vec_i64(&da, "interpolation");
+    let n_pairs = flat.len() / 3;
+    if flat.len() % 3 != 0 || offsets.len() != energy.len() {
+        return Err(e(format!(
+            "{path}: {} energies but {} offsets over {} values; an angle table is \
+             (3, n_pairs)",
+            energy.len(),
+            offsets.len(),
+            flat.len()
+        )));
+    }
+    let (mu_row, rest) = flat.split_at(n_pairs);
+    let (p_row, c_row) = rest.split_at(n_pairs);
+    let mut mu = Vec::with_capacity(energy.len());
+    let mut p = Vec::with_capacity(energy.len());
+    let mut cdf = Vec::with_capacity(energy.len());
+    for i in 0..energy.len() {
+        let lo = offsets[i] as usize;
+        let hi = offsets.get(i + 1).map_or(n_pairs, |&o| o as usize);
+        if lo > hi || hi > n_pairs {
+            return Err(e(format!("{path}: offsets are not ascending within the table")));
+        }
+        mu.push(mu_row[lo..hi].to_vec());
+        p.push(p_row[lo..hi].to_vec());
+        cdf.push(c_row[lo..hi].to_vec());
+    }
+    Ok((
+        AngleDistribution {
+            energy,
+            mu,
+            p,
+            interpolation,
+        },
+        cdf,
+    ))
+}
+
+/// The `energy` group of an uncorrelated distribution, for the laws this
+/// reader decodes; the inner `Err(type)` carries the type of one it does not.
+fn read_energy(f: &File, path: &str) -> Result<Result<EnergyDist, String>, NjoyError> {
+    let g = f.group(path).map_err(|x| e(format!("{path}: {x}")))?;
+    let ga = sorted(g.attrs().unwrap_or_default());
+    let kind = attr_str(&ga, "type").unwrap_or_else(|| "unknown".into());
+    let u = attr_f64(&ga, "u").unwrap_or(0.0);
+    Ok(Ok(match kind.as_str() {
+        "maxwell" => EnergyDist::Maxwell {
+            u,
+            theta: need_tabulated(f, path, "theta")?,
+        },
+        "evaporation" => EnergyDist::Evaporation {
+            u,
+            theta: need_tabulated(f, path, "theta")?,
+        },
+        "watt" => EnergyDist::Watt {
+            u,
+            a: need_tabulated(f, path, "a")?,
+            b: need_tabulated(f, path, "b")?,
+        },
+        "madland-nix" => EnergyDist::MadlandNix {
+            efl: attr_f64(&ga, "efl").unwrap_or(0.0),
+            efh: attr_f64(&ga, "efh").unwrap_or(0.0),
+            tm: need_tabulated(f, path, "xy")?,
+        },
+        "discrete_photon" => EnergyDist::DiscretePhoton {
+            primary_flag: attr_i64(&ga, "primary_flag").unwrap_or(0) as i32,
+            energy: attr_f64(&ga, "energy").unwrap_or(0.0),
+            atomic_weight_ratio: attr_f64(&ga, "atomic_weight_ratio").unwrap_or(0.0),
+        },
+        "level" => EnergyDist::Level {
+            threshold: attr_f64(&ga, "threshold").unwrap_or(0.0),
+            mass_ratio: attr_f64(&ga, "mass_ratio").unwrap_or(0.0),
+        },
+        other => return Ok(Err(other.to_string())),
+    }))
+}
+
+fn read_product(f: &File, path: &str) -> Result<ReadProduct, NjoyError> {
+    let pg = f.group(path).map_err(|x| e(format!("{path}: {x}")))?;
+    let pa = sorted(pg.attrs().unwrap_or_default());
+    let n_dist = attr_i64(&pa, "n_distribution").unwrap_or(0).max(0) as usize;
+    let mut distributions = Vec::with_capacity(n_dist);
+    let mut applicability = Vec::new();
+    for k in 0..n_dist {
+        let dpath = format!("{path}/distribution_{k}");
+        let dg = f.group(&dpath).map_err(|x| e(format!("{dpath}: {x}")))?;
+        let da = sorted(dg.attrs().unwrap_or_default());
+        let kind = attr_str(&da, "type").unwrap_or_else(|| "unknown".into());
+        if let Some(t) = read_tabulated(f, &dpath, "applicability")? {
+            applicability.push(t);
+        }
+        if kind != "uncorrelated" {
+            distributions.push(ReadDistribution::Undecoded(kind));
+            continue;
+        }
+        let groups = dg.groups().unwrap_or_default();
+        let (angle, angle_cdf) = if groups.iter().any(|g| g == "angle") {
+            let (a, c) = read_angle(f, &format!("{dpath}/angle"))?;
+            (Some(a), c)
+        } else {
+            (None, Vec::new())
+        };
+        let energy = if groups.iter().any(|g| g == "energy") {
+            match read_energy(f, &format!("{dpath}/energy"))? {
+                Ok(d) => Some(d),
+                Err(t) => {
+                    distributions.push(ReadDistribution::Undecoded(format!("uncorrelated:{t}")));
+                    continue;
+                }
+            }
+        } else {
+            None
+        };
+        distributions.push(ReadDistribution::Uncorrelated {
+            angle,
+            angle_cdf,
+            energy,
+        });
+    }
+    Ok(ReadProduct {
+        particle: attr_str(&pa, "particle").unwrap_or_else(|| "unknown".into()),
+        emission_mode: attr_str(&pa, "emission_mode").unwrap_or_else(|| "prompt".into()),
+        decay_rate: attr_f64(&pa, "decay_rate").unwrap_or(0.0),
+        yield_fn: read_function(f, path, "yield")?,
+        distributions,
+        applicability,
+    })
 }
 
 /// Read an OpenMC neutron `.h5`.
@@ -298,6 +546,7 @@ pub fn read_nuclide<P: AsRef<Path>>(path: P) -> Result<ReadNuclide, NjoyError> {
 
             let mut product_laws = Vec::new();
             let mut product_particles = Vec::new();
+            let mut products = Vec::new();
             let mut i = 0usize;
             while let Ok(pg) = f.group(&format!("{path}/product_{i}")) {
                 let pa = sorted(pg.attrs().unwrap_or_default());
@@ -315,6 +564,7 @@ pub fn read_nuclide<P: AsRef<Path>>(path: P) -> Result<ReadNuclide, NjoyError> {
                     })
                     .unwrap_or_else(|| "none".into());
                 product_laws.push(law);
+                products.push(read_product(&f, &format!("{path}/product_{i}"))?);
                 i += 1;
             }
 
@@ -329,6 +579,7 @@ pub fn read_nuclide<P: AsRef<Path>>(path: P) -> Result<ReadNuclide, NjoyError> {
                     threshold_idx,
                     product_laws,
                     product_particles,
+                    products,
                 },
             );
         }
@@ -336,6 +587,7 @@ pub fn read_nuclide<P: AsRef<Path>>(path: P) -> Result<ReadNuclide, NjoyError> {
 
     // total_nu is a Product group whose `yield` dataset carries nu-bar.
     let mut total_nu = None;
+    let mut total_nu_regions = Vec::new();
     if let Ok(tg) = f.group(&format!("/{name}/total_nu")) {
         if let Ok(d) = tg.dataset("yield") {
             let raw = d.read_f64().map_err(|x| e(format!("total_nu/yield: {x}")))?;
@@ -346,6 +598,7 @@ pub fn read_nuclide<P: AsRef<Path>>(path: P) -> Result<ReadNuclide, NjoyError> {
             } else {
                 // Stored as vstack([x, y]), so the first half is x.
                 let half = raw.len() / 2;
+                total_nu_regions = attr_regions(&da);
                 total_nu = Some((kind, raw[..half].to_vec(), raw[half..].to_vec()));
             }
         }
@@ -367,6 +620,7 @@ pub fn read_nuclide<P: AsRef<Path>>(path: P) -> Result<ReadNuclide, NjoyError> {
         energy,
         reactions,
         total_nu,
+        total_nu_regions,
         urr_temperatures,
     })
 }
@@ -521,6 +775,7 @@ mod tests {
                 vec![1.0e-5, 1.0e6, 2.0e7],
                 vec![2.4, 2.6, 4.0],
             )),
+            total_nu_regions: vec![],
             urr_temperatures: vec![],
         };
         assert!((n.nu_total(1.0e-5).unwrap() - 2.4).abs() < 1e-12);
@@ -537,5 +792,107 @@ mod tests {
         };
         // 2 + 3E + 4E^2 at E = 2
         assert!((p.nu_total(2.0).unwrap() - 24.0).abs() < 1e-12);
+    }
+
+    /// **Products decode as the laws that were written**: the elastic angle
+    /// table (with its stored cumulative row), a `level` law, a Watt spectrum,
+    /// and the `total_nu` interpolation regions (GitHub #303).
+    #[test]
+    fn products_read_back_as_the_laws_that_were_written() {
+        use crate::hdf5::nuclide_laws::{
+            AngleEnergy, EmissionMode, EnergyDist, Function1D, Product,
+        };
+        use crate::hdf5::nuclide_write::{write_nuclide, NuclideData, ReactionData};
+
+        let energy = vec![1.0e-5, 1.0e6, 2.0e6, 2.0e7];
+        let (lo, hi) = (energy[0], energy[3]);
+        let angle = AngleDistribution {
+            energy: vec![lo, hi],
+            mu: vec![vec![-1.0, 0.0, 1.0], vec![-1.0, 1.0]],
+            p: vec![vec![0.25, 0.5, 0.75], vec![0.5, 0.5]],
+            interpolation: vec![2, 2],
+        };
+        let watt = Product::prompt_neutron(
+            AngleEnergy::Uncorrelated {
+                angle: None,
+                energy: Some(EnergyDist::Watt {
+                    u: -2.0e7,
+                    a: Tabulated1D::constant(0.988e6, lo, hi).unwrap(),
+                    b: Tabulated1D::constant(2.249e-6, lo, hi).unwrap(),
+                }),
+            },
+            lo,
+            hi,
+        )
+        .unwrap();
+        let nu = Product {
+            particle: "neutron".into(),
+            emission_mode: EmissionMode::Total,
+            decay_rate: 0.0,
+            yield_: Function1D::Tabulated(
+                Tabulated1D::lin_lin(vec![lo, hi], vec![2.0, 4.0]).unwrap(),
+            ),
+            distribution: vec![AngleEnergy::Uncorrelated {
+                angle: Some(AngleDistribution::isotropic(vec![lo, hi])),
+                energy: None,
+            }],
+            applicability: vec![],
+        };
+        let d = NuclideData {
+            name: "RtN3".into(),
+            z: 92,
+            a: 233,
+            metastable: 0,
+            atomic_weight_ratio: 233.0,
+            temperature: "294K".into(),
+            kt_ev: 2.5e-2,
+            energy: energy.clone(),
+            reactions: vec![
+                ReactionData::elastic(vec![5.0; 4], angle.clone(), lo, hi).unwrap(),
+                ReactionData::capture(6.0e6, vec![1.0; 4]),
+                ReactionData {
+                    mt: 18,
+                    q_value: 2.0e8,
+                    center_of_mass: false,
+                    xs: vec![2.0; 4],
+                    threshold_idx: 0,
+                    redundant: false,
+                    products: vec![watt],
+                },
+            ],
+            total_nu: Some(nu),
+            urr: vec![],
+        };
+        let p = std::env::temp_dir().join("njoy_nuclide_read_products.h5");
+        write_nuclide(&p, &d).unwrap();
+        let r = read_nuclide(&p).unwrap();
+        let _ = std::fs::remove_file(&p);
+
+        let el = &r.reactions[&2].products[0];
+        assert_eq!(el.particle, "neutron");
+        let ReadDistribution::Uncorrelated {
+            angle: Some(a),
+            angle_cdf,
+            energy: None,
+        } = &el.distributions[0]
+        else {
+            panic!("elastic must read back as an angle-only uncorrelated law");
+        };
+        assert_eq!(a, &angle);
+        // The stored cumulative row: trapezoid of the density, normalised to 1.
+        assert_eq!(angle_cdf[0].first().copied(), Some(0.0));
+        assert!((angle_cdf[0].last().unwrap() - 1.0).abs() < 1e-12);
+
+        let ReadDistribution::Uncorrelated {
+            energy: Some(EnergyDist::Watt { u, a, .. }),
+            ..
+        } = &r.reactions[&18].products[0].distributions[0]
+        else {
+            panic!("fission must read back as a Watt law");
+        };
+        assert_eq!(*u, -2.0e7);
+        assert_eq!(a.y, vec![0.988e6, 0.988e6]);
+        assert_eq!(r.total_nu_regions, vec![(2, 2)]);
+        assert!(r.reactions[&102].products.is_empty());
     }
 }
