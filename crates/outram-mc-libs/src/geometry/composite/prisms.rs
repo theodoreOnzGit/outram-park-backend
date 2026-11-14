@@ -17,6 +17,7 @@ use super::{
     and, flip_normal, neg, not, or, plane_from_points, pos, remap, Axis, Builder, CompositeError,
     CompositeRegion, T,
 };
+use petir::mathf::RealMath;
 use crate::geometry::surface::{SurfaceKind, XCylinder, XPlane, YCylinder, YPlane, ZCylinder, ZPlane};
 
 /// An axis-aligned plane `coord = value` on `axis` (upstream `_plane`, line 1457).
@@ -104,23 +105,23 @@ impl CylinderSector {
 
         let p1 = [center[0], center[1], 1.0];
         let p2_plane1 = [
-            r1 * phi1.cos() + center[0],
-            r1 * phi1.sin() + center[1],
+            r1 * phi1.r_cos() + center[0],
+            r1 * phi1.r_sin() + center[1],
             0.0,
         ];
         let p3_plane1 = [
-            r2 * phi1.cos() + center[0],
-            r2 * phi1.sin() + center[1],
+            r2 * phi1.r_cos() + center[0],
+            r2 * phi1.r_sin() + center[1],
             0.0,
         ];
         let p2_plane2 = [
-            r1 * phi2.cos() + center[0],
-            r1 * phi2.sin() + center[1],
+            r1 * phi2.r_cos() + center[0],
+            r1 * phi2.r_sin() + center[1],
             0.0,
         ];
         let p3_plane2 = [
-            r2 * phi2.cos() + center[0],
-            r2 * phi2.sin() + center[1],
+            r2 * phi2.r_cos() + center[0],
+            r2 * phi2.r_sin() + center[1],
             0.0,
         ];
 

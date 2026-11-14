@@ -11,6 +11,7 @@
 use super::fast::Locs;
 use super::reader::{Reader, NWSCR};
 use crate::NjoyError;
+use petir::mathf::RealMath;
 
 fn err(sub: &str, msg: &str) -> NjoyError {
     NjoyError::InvalidInput(format!("{sub}: {msg}"))
@@ -163,7 +164,7 @@ pub(super) fn gamff(r: &mut Reader, ngmin: usize, ngmax: usize, mut o: Locs, a: 
                 if (1.0 - a[loc]).abs() > toler && iglo == ngmin {
                     iglo = ig;
                 }
-                a[loc] = r.sigz[jz].ln() - 2.0 * a[loc].ln();
+                a[loc] = r.sigz[jz].r_ln() - 2.0 * a[loc].r_ln();
                 if r.jwf != 0 {
                     let loc = o.locsf + iadd;
                     if sf0 == 0.0 {
@@ -175,7 +176,7 @@ pub(super) fn gamff(r: &mut Reader, ngmin: usize, ngmax: usize, mut o: Locs, a: 
                     if a[loc] <= 0.0 {
                         a[loc] = 1.0;
                     }
-                    a[loc] = r.sigz[jz].ln() - 2.0 * a[loc].ln();
+                    a[loc] = r.sigz[jz].r_ln() - 2.0 * a[loc].r_ln();
                 }
             }
         }
