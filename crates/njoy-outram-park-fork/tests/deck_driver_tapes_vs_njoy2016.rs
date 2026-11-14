@@ -244,6 +244,29 @@ fn test_10_ace_and_pendf_are_identical() {
     }
 }
 
+/// **Deck `R4` (gh:#1546): RECONR's PENDF of an ENDF-4 neutron evaluation**,
+/// line by line against NJOY2016.80. Upstream deck 02 (Pu-238 from ENDF/B-IV
+/// `t404`, MAT 1050) cut before BROADR, with `moder -22 28` added. No upstream
+/// deck compares this tape: decks 02, 10 and 11 hand it on to BROADR.
+///
+/// For `iverf = 4`, `recout` writes the entry count in the head record (`:5036`)
+/// and again in the TEMP record (`scr(6)=nxcc+nmtr+i152` just before `hdatio`,
+/// `:5092-5094`). Predicted before the run (gh:#1546): before the fix, exactly 1
+/// line differs (MF=1/MT=451's TEMP record, `N2` 0 against the count); after
+/// it, 0. **Measured (2026-11-14, release, NJOY2016.80): before the fix 1 line
+/// (line 3, `1050 1451`), after it 0 of the tape's lines.** The pre-fix run is
+/// the ablation: the old branch fails this gate.
+#[test]
+fn test_r4_reconr_endf4_pendf_is_identical() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "02", Some("broadr"), "moder\n -22 28/\n") else { return };
+    let Some((ours, njoy)) = run_pair(&root, "r4", "t404", &deck) else { return };
+    let d = differing_lines(&ours.join("tape28"), &njoy.join("tape28"));
+    println!("deck R4 unit 28: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+    assert!(d.is_empty(), "deck R4 unit 28: {} lines differ from NJOY2016", d.len());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
 /// **Test 19 (Pu-241 ENDF/B-VI.3): `moder; reconr; broadr; unresr; heatr; purr;
 /// acer`**, ACE unit 27 against NJOY2016.80, and the PENDF after BROADR.
 ///

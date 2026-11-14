@@ -1592,3 +1592,20 @@ upstream's is local time. Tests never use it now. A user outside UTC who runs a 
 without `run_date` gets the UTC date in the header between local midnight and UTC
 midnight. Matching local time would need a time-zone dependency, which this crate does
 not have.
+
+## 31. RECONR's ENDF-4 TEMP record carries the entry count (2026-11-14, gh:#1546)
+
+For an ENDF-4 evaluation (`iverf = 4`, second MF=1/MT=451 record `N1 ≠ 0`,
+`reconr.f90:226-230`), `recout` writes the dictionary's entry count in the head record
+(`:5036`). It writes it **again** in the TEMP record: `scr(6)=nxcc+nmtr+i152` is set just
+before `hdatio` (`:5092-5094`) for every format. `deck::pendf::with_directory` wrote 0
+there.
+
+No upstream deck compares RECONR's PENDF of an ENDF-4 tape. Decks 02, 10 and 11 run
+RECONR on `t404` (Pu-238, ENDF/B-IV) and hand the tape straight to BROADR.
+
+**Gate** `test_r4_reconr_endf4_pendf_is_identical`: deck 02 cut before `broadr`, plus
+`moder -22 28`. The prediction was posted on gh:#1546 before the run.
+- Before the fix: 1 line differed, line 3 (the TEMP record), as predicted.
+- After the fix: 0 lines differ.
+- Decks 02, 10 and 11 still pass.
