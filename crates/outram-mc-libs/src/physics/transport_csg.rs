@@ -306,7 +306,71 @@ pub fn run_keff_csg(
     settings: &KeffSettings,
     tally: Option<&mut Tally>,
 ) -> KeffResult {
-    run_keff_csg_inner(
+    // ~~Returned `k = 0 ± 0` when the fission bank died before the active
+    // generations.~~ **CORRECTED 2026-11-14 (GitHub #467):** that is now a
+    // panic carrying upstream's fatal message, as OpenMC aborts there
+    // (`synchronize_bank`, `src/eigenvalue.cpp:122`). Use
+    // [`try_run_keff_csg`] to get it as an error value instead.
+    try_run_keff_csg(geom, materials, nuclides, source_box, settings, tally)
+        .unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// The fission bank was empty before the requested generations completed
+/// (GitHub #467): OpenMC's `fatal_error("No fission sites banked ...")` in
+/// `synchronize_bank` (`src/eigenvalue.cpp:122`).
+#[derive(Debug, Clone)]
+pub struct EmptyFissionBank {
+    /// Generations that completed before the bank (or the initial source)
+    /// was empty.
+    pub generations_completed: usize,
+    /// Generations asked for, `n_inactive + n_active`.
+    pub generations_requested: usize,
+    /// The run as far as it got, for diagnosis. Its `k_mean` is NOT an
+    /// eigenvalue: it averages the active generations that ran, or is 0 when
+    /// none did.
+    pub partial: KeffResult,
+}
+
+impl std::fmt::Display for EmptyFissionBank {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "No fission sites banked: the fission bank was empty after {} of {} \
+             generations (OpenMC aborts here, src/eigenvalue.cpp:122; GitHub #467). \
+             The system is too subcritical, or too few histories were run, for a \
+             power iteration; run more particles per generation.",
+            self.generations_completed, self.generations_requested
+        )
+    }
+}
+
+impl std::error::Error for EmptyFissionBank {}
+
+/// [`run_keff_csg`], returning an empty fission bank as an error rather than
+/// a `k` (GitHub #467).
+///
+/// NEW WORK beside the kovan-reviewed drivers, which are closed to
+/// modification: the drivers stop on an empty bank and report what ran. A
+/// run stopped early for any other reason can only be its `k` trigger
+/// (`keff_trigger_met`); so a run with fewer generations than asked for and
+/// no trigger met had an empty bank (or an empty initial source).
+///
+/// Not detected: a bank that empties in the LAST requested generation (the
+/// driver ends normally there; upstream would still abort in that
+/// generation's `synchronize_bank`).
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`] as described.
+pub fn try_run_keff_csg(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let result = run_keff_csg_inner(
         geom,
         materials,
         nuclides,
@@ -315,7 +379,34 @@ pub fn run_keff_csg(
         source_box,
         settings,
         tally,
-    )
+    );
+    check_fission_bank_survived(settings, result)
+}
+
+/// The check behind [`try_run_keff_csg`], on a finished run's result.
+fn check_fission_bank_survived(
+    settings: &KeffSettings,
+    result: KeffResult,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let requested = settings.n_inactive + settings.n_active;
+    let completed = result.k_by_generation.len();
+    if completed >= requested {
+        return Ok(result);
+    }
+    let active_k: Vec<f64> = result
+        .k_by_generation
+        .iter()
+        .skip(settings.n_inactive)
+        .copied()
+        .collect();
+    if keff_trigger_met(settings, !active_k.is_empty(), &active_k) {
+        return Ok(result);
+    }
+    Err(EmptyFissionBank {
+        generations_completed: completed,
+        generations_requested: requested,
+        partial: result,
+    })
 }
 
 /// **One surface-tracked history, step by step** (gh:#784): the neutron at
