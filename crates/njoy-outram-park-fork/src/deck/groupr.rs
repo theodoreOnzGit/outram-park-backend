@@ -383,6 +383,24 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     let mut dntc = [0.0f64; 8];
     let mut lrflag_run = 0i32;
     let iblock = &mut 0usize;
+    // Card 8a (`iwt < 0`): `fehi` is a module variable `genflx` rewrites (`:5452`),
+    // and `ninwt` the binary unit it writes (`:4989`, `openz(-ninwt,1)`), gh:#1370.
+    let card8a = match &inp.weight {
+        crate::groupr::WeightSelection::ComputeFlux { params, .. } => *params,
+        _ => None,
+    };
+    let mut fehi = card8a.map_or(0.0, |p| p.fehi_ev);
+    let mut ninwt_file = crate::groupr::flux_table::NinwtFile::default();
+    // `iwt = 0` (card 8d): `getfwt` reads the `ninwt` file a flux calculation wrote.
+    let mut fwt = match &inp.weight {
+        crate::groupr::WeightSelection::ReadResonanceFlux { ninwt } if sigz.len() > 1 => {
+            let b = units
+                .bytes_or_file(*ninwt)
+                .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: ninwt unit {ninwt} holds no file")))?;
+            Some(crate::groupr::flux_table::FwtReader::from_bytes(&b)?)
+        }
+        _ => None,
+    };
     for itemp in 0..inp.temperatures.len() {
     let tempin = inp.temperatures[itemp];
     // `jtemp = itemp` (`:497`): `getwtf` reads `temp(jtemp)` for `iwt = 7, 10, 12`.
@@ -395,7 +413,25 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     // `stounr` (`:533`), then `genflx` when `nsigz > 1` (`:539-546`).
     let unr = crate::groupr::flux_table::stounr(&pend, inp.matb, tempin)?.map(std::sync::Arc::new);
     let flux = if sigz.len() > 1 {
-        let t = crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?;
+        let t = match &card8a {
+            Some(p) => crate::groupr::flux_table::genflx_card8a(
+                &pend,
+                inp.matb,
+                inp.weight.iwt(),
+                inp.lord,
+                &sigz,
+                egn[0],
+                unr.as_deref(),
+                p,
+                &mut fehi,
+                tempin,
+                &mut ninwt_file,
+            )?,
+            None => match fwt.as_mut() {
+                Some(f) => crate::groupr::flux_table::genflx_fwt(&pend, inp.matb, inp.lord, &sigz, egn[0], unr.as_deref(), f, tempin, itemp + 1)?,
+                None => crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?,
+            },
+        };
         crate::groupr::njoy_panel::FluxSource::Table(crate::groupr::flux_table::FluxCursor::new(std::sync::Arc::new(t)))
     } else {
         crate::groupr::njoy_panel::FluxSource::Wtf(inp.weight.iwt())
@@ -543,6 +579,9 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     }
     g.tend();
     units.put_gendf(u.ngout2, g.text(), crate::errorr::gendf::GendfTape { tpid: inp.title.clone(), records: g.records.clone() });
+    if let Some(p) = card8a.filter(|p| p.ninwt != 0) {
+        units.put_bytes(-p.ninwt.abs(), ninwt_file.bytes);
+    }
     Ok(())
 }
 

@@ -104,7 +104,7 @@ fn survey_case(root: &Path, case: &str) -> String {
     }
     let text = std::fs::read_to_string(ours.join("deck")).unwrap();
     let o2 = ours.clone();
-    let res = std::panic::catch_unwind(move || run_deck(&text, &DeckOptions { workdir: Some(o2), parse_only: false }));
+    let res = std::panic::catch_unwind(move || run_deck(&text, &DeckOptions { workdir: Some(o2), parse_only: false, run_date: None }));
     let (blocked, err) = match res {
         Ok(Ok(r)) => (r.blocked, None),
         Ok(Err(e)) => (None, Some(format!("Err: {e}"))),

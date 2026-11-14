@@ -38,9 +38,10 @@
 //! refusal and is not gated here.
 
 use std::path::PathBuf;
-use std::process::Command;
 
 use njoy_outram_park_fork::deck::{run_deck, DeckOptions};
+
+mod common;
 
 fn njoy_root() -> PathBuf {
     std::env::var("NJOY2016_ROOT")
@@ -74,14 +75,9 @@ fn photonuclear_deck(case: &str, resource: &str, expect: &[u32]) -> Option<Vec<(
         std::fs::copy(&res, d.join("tape20")).unwrap();
     }
     std::fs::write(theirs.join("deck"), &deck).unwrap();
-    let st = Command::new("sh")
-        .arg("-c")
-        .arg(format!("{} < deck > log 2>&1", bin.display()))
-        .current_dir(&theirs)
-        .status()
-        .unwrap();
-    assert!(st.success(), "NJOY2016 binary failed on deck {case}");
-    let run = run_deck(&deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false }).unwrap();
+    let (ok, date) = common::run_njoy_dated(&bin, &theirs); // gh:#1549
+    assert!(ok, "NJOY2016 binary failed on deck {case}");
+    let run = run_deck(&deck, &DeckOptions { workdir: Some(ours.clone()), parse_only: false, run_date: Some(date.clone()) }).unwrap();
     assert!(run.blocked.is_none(), "deck {case} must run to its end, stopped at {:?}", run.blocked);
     let staged = std::fs::read(&res).unwrap();
     let mut names: Vec<String> = std::fs::read_dir(&theirs)

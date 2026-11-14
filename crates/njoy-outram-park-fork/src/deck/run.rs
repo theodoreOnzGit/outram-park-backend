@@ -31,6 +31,12 @@ pub struct DeckOptions {
     pub workdir: Option<PathBuf>,
     /// Read the cards of every module but run none (checks the card stream).
     pub parse_only: bool,
+    /// The date `dater` (`util.f90:72-94`) returns for this run, as its eight
+    /// characters `mm/dd/yy`. `None`: the clock's date at each call, as upstream
+    /// (ACER and DTFR call `dater` when they write). A comparison against an
+    /// NJOY2016 run gives NJOY's date here, so a run that crosses midnight
+    /// stamps both sides alike (gh:#1549).
+    pub run_date: Option<String>,
 }
 
 /// What a deck run produced.
@@ -64,6 +70,9 @@ pub struct DeckRun {
 pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
     let mut r = CardReader::new(text);
     let mut units = TapeUnits::new(opts.workdir.clone());
+    if let Some(d) = &opts.run_date {
+        units.set_run_date(d)?;
+    }
     let mut modules = Vec::new();
     let mut listing = String::new();
     let mut notes: Vec<String> = Vec::new();
@@ -702,7 +711,10 @@ fn gamsum_block(meta: &PendfMeta, tape: &Tape, mat: i32, tempd: f64) -> Option<R
     (!after_mf3).then_some(next)
 }
 
-/// `dater` (`util.f90:72-94`): `' mm/dd/yy'` of today (UTC).
+/// `dater` (`util.f90:72-94`): `'  mm/dd/yy'` of today (UTC). Upstream's is the
+/// local date (`date_and_time`); this crate has no time-zone source, so the two
+/// differ outside UTC between the two midnights (gh:#1549). A comparison fixes
+/// the date through [`DeckOptions::run_date`].
 pub(crate) fn dater() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -778,10 +790,12 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         return run_acer_fix(c, units);
     }
     if c.iopt == 2 {
-        return crate::deck::acer_thermal::run_acer_thermal(c, units, dater());
+        let date = units.dater();
+        return crate::deck::acer_thermal::run_acer_thermal(c, units, date);
     }
     if c.iopt == 4 || c.iopt == 5 {
-        return crate::deck::acer_photon::run_acer_photon(c, units, dater());
+        let date = units.dater();
+        return crate::deck::acer_photon::run_acer_photon(c, units, date);
     }
     if c.iopt != 1 {
         return Err(NjoyError::NotPorted("ACER iopt 3 or 8 from a deck (typed API exists: acer::dosimetry)"));
@@ -814,7 +828,7 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         let suffix = (c.suff * 100.0).round() as u32;
         let mut table = crate::acer::charged::build_charged(&endf, c.matd, kt_mev, suffix, c.npend > 0, c.nendf > 0)?;
         table.comment = c.hk.clone();
-        table.date = dater();
+        table.date = units.dater();
         apply_acelod_isomer(&mut table, c, &endf, &pend.tape);
         // `aceout` prints XSS through `change` (`acefc.f90:13024`) for a
         // charged-particle table too; `acelcp`'s rewrite before an HPD block
@@ -894,7 +908,7 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         }
     };
     table.comment = c.hk.clone();
-    table.date = dater();
+    table.date = units.dater();
     apply_acelod_isomer(&mut table, c, &endf, &pend.tape);
     // `aceout` prints XSS through `change` (`acefc.f90:13024`), gh:#1498.
     let ace = crate::acer::acefix_change::type1_text(&table)?;

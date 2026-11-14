@@ -1559,3 +1559,128 @@ gh:#1371 first):
 |---|---|---|---|
 | `E1` | deck 05 with `iwt = 1` and a two-region TAB1 | 33, 34 and 35 identical (21 471, 78 796 and 199 652 lines) | NJOY's unit 33 differs from deck 05's in 210 162 bytes |
 | `E2` | deck 46 with `iwt = 1` and card 13 twice | 34 identical (8 002 lines) | NJOY's unit 34 equals deck 46's, so this deck checks only the card count |
+
+## 30. One run date for both sides (2026-11-14, gh:#1549)
+
+`test_25_thermal_ace_and_directory` failed once, on a run that crossed midnight. The
+cause:
+- NJOY2016's `dater` (`util.f90:72-94`) stamps the clock's local date into each ACE
+  header (`aceth.f90:669-670` and the other ACER classes) and into DTFR's edit title
+  (`dtfr.f90:813`).
+- The port did the same, from its own clock, after NJOY's run had finished.
+- The line comparison includes the header line, so the two dates could differ.
+
+**Fix, with the comparison unchanged:**
+- `DeckOptions::run_date` (`mm/dd/yy`) fixes `dater` for a run, through
+  `TapeUnits::set_run_date`, `dater` and `fixed_dater`. `None` keeps the clock at each
+  call, as upstream.
+- `tests/common::run_njoy_dated` runs NJOY between two reads of the local date. It runs
+  NJOY again if the date changed during the run, and passes NJOY's date to this crate.
+- Used by every harness that runs NJOY and then this crate: tapes, photonuclear,
+  photon, plotr, covr and groupr_weights.
+
+`faketime` is not installed here, and installing it was refused. So the reproduction is
+an ablation, not a faked clock.
+- `test_25_a_different_date_differs_in_the_header_only` dates this crate's run
+  `01/01/99`.
+- Predicted on gh:#1549 before the run: line 1 differs on units 70, 71 and 72, and unit
+  75 (the directory, which has no date) is identical.
+- **Measured: exactly that.** With the shared date, all four units are identical.
+
+**Divergence, not changed:** the port's clock date (`deck::run::dater`) is UTC, while
+upstream's is local time. Tests never use it now. A user outside UTC who runs a deck
+without `run_date` gets the UTC date in the header between local midnight and UTC
+midnight. Matching local time would need a time-zone dependency, which this crate does
+not have.
+
+## 32. GROUPR's flux calculator, `iwt < 0` with `nsigz > 1` (2026-11-14, gh:#1370)
+
+The tape driver refused `iwt < 0` with several sigma-zeros. No upstream deck uses it.
+`flux_table::genflx_card8a` now translates `genflx` (`groupr.f90:5309-5684`) for card 8a:
+- `nflmax = 0`: the Bondarenko branch with card 8a's `sigpot`.
+- `nflmax > 0`: the slowing-down flux.
+  - The grid comes from `gety1` on MT=1 and `gety2` on MT=2, from
+    `felo = max(egn(1), 0.1)` to `fehi`.
+  - `alpha(1)` comes from MT=1's AWR.
+  - The solve is `slowing_down::solve_flux`. These are steps 2-4 of the existing
+    `genflx_slowing_down`, moved out unchanged so that both routes share them.
+  - Then the weight shape below `felo`, the computed rows with their `nl` moments, and
+    the narrow-resonance completion.
+- `fehi` is the module variable that `genflx` rewrites, so it carries to the next
+  temperature.
+- `ninwt` is written as Fortran unformatted records. The narrow-resonance rows carry the
+  last computed row's `xc`, as upstream writes them.
+
+**Refused by name** (upstream reads values it never set):
+- an unresolved range below the first narrow-resonance row: the computed rows' `xtot`
+  word is never set;
+- `ninwt` with `nflmax = 0`: `xc` is never set;
+- `gety2` on an MT=2 that starts at zero.
+
+**Gates** (`tests/deck_driver_groupr_flux_calculator_vs_njoy2016.rs`). All decks use
+Pu-238 ENDF/B-IV `t404` and run RECONR, BROADR, UNRESR, then GROUPR (LANL-30,
+`iwt = -3`, `lord = 1`, `sigz = 1e10 100 10`). The prediction was posted on gh:#1370
+before the first run.
+
+| deck | card 8a | unit 26 (GENDF) | unit 30 (`ninwt`) |
+|---|---|---|---|
+| `SD0` | `nflmax = 0`, `sigpot = 10` | identical, 411 lines | - |
+| `SD1` | `fehi = 150`, one moderator | identical, 411 lines | - |
+| `SD2` | three moderators, `beta`, `ninwt = 30`, `jsigz = 2`, 300 and 900 K | identical, 820 lines | identical, 233 440 bytes |
+| `SD3` | `SD1` with `ninwt = 30`, `jsigz = 3` | identical, 411 lines | identical, 122 064 bytes |
+
+**The first run of `SD2` was not identical.** Unit 26 matched, but 19 of the 7 296
+`ninwt` records differed in the last bit.
+- Localised with an instrumented NJOY2016 build: a scratch copy of `groupr.f90` that
+  dumps `b` before and after the solve, built with the same `-O3`.
+- The cause: step 3's third-moderator term. Upstream writes it without parentheses,
+  `f1*beta*(1-gamma)*(sigz(iz)-sam)`, which evaluates as
+  `((f1*beta)*(1-gamma))*(sigz-sam)`. The library computed `f1*s_k3`.
+- Fixed in `solve_flux`, so `genflx_slowing_down` changes in the last bit too.
+  `groupr_u238_gendf_golden` (tier 5, `nalph = 3`) still passes.
+
+**Ablations:**
+- `solve_flux` given a zero elastic cross section: 63 of 411 lines of `SD1` differ, and
+  `SD2` differs in 126 lines and in its `ninwt` file.
+- `SD0` with `sigpot` set to 0: 213 of 411 lines differ.
+
+## 31. RECONR's ENDF-4 TEMP record carries the entry count (2026-11-14, gh:#1546)
+
+For an ENDF-4 evaluation (`iverf = 4`, second MF=1/MT=451 record `N1 ≠ 0`,
+`reconr.f90:226-230`), `recout` writes the dictionary's entry count in the head record
+(`:5036`). It writes it **again** in the TEMP record: `scr(6)=nxcc+nmtr+i152` is set just
+before `hdatio` (`:5092-5094`) for every format. `deck::pendf::with_directory` wrote 0
+there.
+
+No upstream deck compares RECONR's PENDF of an ENDF-4 tape. Decks 02, 10 and 11 run
+RECONR on `t404` (Pu-238, ENDF/B-IV) and hand the tape straight to BROADR.
+
+**Gate** `test_r4_reconr_endf4_pendf_is_identical`: deck 02 cut before `broadr`, plus
+`moder -22 28`. The prediction was posted on gh:#1546 before the run.
+- Before the fix: 1 line differed, line 3 (the TEMP record), as predicted.
+- After the fix: 0 lines differ.
+- Decks 02, 10 and 11 still pass.
+
+### 32a. `iwt = 0`: `getfwt` reads the flux back (2026-11-14, gh:#1370)
+
+- **`flux_table::FwtReader` is `getfwt`** (`groupr.f90:5686-5775`). It keeps the
+  `save`d bracket and the file position from one temperature to the next. The
+  exact-match branch reads one record ahead and returns `enext = emax`, as upstream
+  does.
+- **`flux_table::genflx_fwt`** is the Bondarenko branch with `getfwt`'s weight and
+  `fac = sigz*xc/(sigz*xc+tt)`.
+- **Refused by name:** a read past a short record or past the end of the file (a
+  Fortran runtime stop upstream).
+- **Divergence:** upstream keeps `getfwt`'s `templ` across GROUPR runs; here it is kept
+  per run.
+
+**Deck `FW1`** (prediction posted on gh:#1370 first): `SD2`'s chain writes
+`ninwt = 30`. A second GROUPR with `iwt = 0` and card 8d `-30/` then reads it back at
+the same two temperatures.
+- **Result:** units 26 and 27 are identical (820 lines each) and unit 30 is identical
+  byte for byte.
+- **Control:** NJOY's unit 27 differs from its unit 26 in 479 lines.
+- **Ablation:** with `xc` left out of `fac`, 478 lines of unit 27 differ.
+- **Defect found on the way:** the first run never finished. The caller read
+  `getfwt`'s `(w, xc, enext)` in the wrong order, so `enext` was `xc` and the energy
+  stalled. The 12 GB address-space cap stopped the run. Fixed before any comparison.

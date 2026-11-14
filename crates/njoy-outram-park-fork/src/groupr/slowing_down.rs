@@ -80,9 +80,16 @@
 //! beta = 0.3, alpha3 = 0.7143, gamma = 0.4`, every group flux within 3.9e-7
 //! and every `sigma_g` within 2.7e-6 of NJOY (its 7-figure storage floor).
 //!
-//! **NOT ported (feeder concern):** reading the total/elastic cross sections off
-//! a PENDF tape (`findf`/`contio`/`gety1`/`gety2`, `groupr.f90:5420-5442`). This
-//! port takes already-parsed [`PointwiseXs`] the way the Bondarenko branch does.
+//! ~~**NOT ported (feeder concern):** reading the total/elastic cross sections off
+//! a PENDF tape (`findf`/`contio`/`gety1`/`gety2`, `groupr.f90:5420-5442`).~~ This
+//! function takes already-parsed [`PointwiseXs`] the way the Bondarenko branch does.
+//! **CORRECTED 2026-11-14 (gh:#1370):** the tape driver reads them off the PENDF
+//! (`crate::groupr::flux_table::genflx_card8a`) and shares steps 2-4 through
+//! [`solve_flux`]. Its decks are NJOY2016's GENDF line for line and its `ninwt`
+//! file byte for byte. One rounding came out of that: the third moderator's
+//! step-3 term is `((f1*beta)*(1-gamma))*(sigz-sam)` as upstream writes it, not
+//! `f1*(beta*(1-gamma)*(sigz-sam))`. The 2026-09-10 `nalph = 3` figures below
+//! were measured before that change; the tier-5 golden test still passes.
 //!
 //! # Verification
 //!
@@ -267,26 +274,6 @@ pub fn genflx_slowing_down(
         }
         alphas.push(params.alpha3);
     }
-    // Moderator scattering sources per dilution for k = 2 (admixed + the
-    // admixed fraction of the external moderator) and k = 3 (the rest of the
-    // external moderator) (groupr.f90:5496-5499). Both are energy independent,
-    // so s1 == s2 for those k; k = 1 uses the absorber's own elastic ss(e).
-    let s_k2: Vec<f64> = dilutions
-        .iter()
-        .map(|&sz| sam + beta * gamma * (sz - sam))
-        .collect();
-    let s_k3: Vec<f64> = dilutions
-        .iter()
-        .map(|&sz| beta * (1.0 - gamma) * (sz - sam))
-        .collect();
-    // (s1, s2) for moderator k at panel [p, p+1] and dilution iz.
-    let mod_source = |k: usize, p: usize, iz: usize, ss: &[f64]| -> (f64, f64) {
-        match k {
-            0 => (ss[p], ss[p + 1]),
-            1 => (s_k2[iz], s_k2[iz]),
-            _ => (s_k3[iz], s_k3[iz]),
-        }
-    };
 
     // --- Step 1: build the energy grid felo..fehi. --------------------------
     // March the total-xs break points from felo up to fehi, capped at nemax
@@ -320,6 +307,126 @@ pub fn genflx_slowing_down(
     let tt: Vec<f64> = energies.iter().map(|&e| sigma_t.value(e)).collect();
     let ss: Vec<f64> = energies.iter().map(|&e| sigma_el.value(e)).collect();
     let wtf: Vec<f64> = energies.iter().map(|&e| weight.value(e)).collect();
+
+    let flux = solve_flux(&energies, &tt, &ss, &wtf, dilutions, sigpot, &alphas, sam, beta, gamma);
+
+    // --- Step 5: below felo, extend with the weight-function shape. ----------
+    // factor(iz) = phi(felo)/C(felo) (groupr.f90:5558-5560).
+    let factor: Vec<f64> = (0..nsigz)
+        .map(|iz| {
+            if wtf[0] != 0.0 {
+                flux[0][iz] / wtf[0]
+            } else {
+                0.0
+            }
+        })
+        .collect();
+
+    // --- Steps 6 + 7: assemble the tabulated flux per dilution. -------------
+    let mut fluxes = Vec::with_capacity(nsigz);
+    for iz in 0..nsigz {
+        let mut tab: Vec<(f64, f64)> = Vec::with_capacity(ne + 4);
+
+        // Low-energy tail below the clamped felo (groupr.f90:5563-5577): NJOY
+        // walks `getwtf`'s own ladder from ebot -- `enxt = 1.01*e` for the
+        // analytic weights, the table breaks capped at 1.01*e for tabulated
+        // ones -- storing factor*wtf at every step while enxt < felo. A single
+        // point at ebot would make the lin-lin flux between 1e-5 eV and felo
+        // grossly wrong for a 1/E-shaped weight (measured 2026-09-10 against
+        // NJOY's flux-calculator GENDF: see tests/groupr_u238_gendf_golden.rs).
+        if ebot < felo {
+            let mut e = ebot;
+            while e < felo {
+                tab.push((e, factor[iz] * weight.value(e)));
+                let nxt = weight.next_break(e).min(GETWTF_STEP * e);
+                if !(nxt > e) {
+                    break;
+                }
+                e = nxt;
+            }
+        }
+
+        // Solved region felo..fehi (groupr.f90:5596-5615, P0 only).
+        for p in 0..ne {
+            tab.push((energies[p], flux[p][iz]));
+        }
+
+        // Narrow-resonance extension above fehi (groupr.f90:5623-5665). Unlike
+        // the solved region (driven by gety1's enext alone, :5434-5447), this
+        // loop steps by min(getwtf's enext = 1.01*e, gety1's en) (:5626-5631),
+        // so the 1/E weight is re-sampled every 1 % wherever the PENDF grid is
+        // coarser than that, and it stops at the top of the total-xs table.
+        {
+            let mut e = sigma_t.next_break(fehi);
+            let mut guard = 0usize;
+            while e < NO_NEXT_BREAK_EV && guard < nemax {
+                let st = sigma_t.value(e);
+                let c = weight.value(e);
+                tab.push((e, bondarenko_flux_value(st, c, sigpot, dilutions[iz])));
+                let sig_next = sigma_t.next_break(e);
+                if sig_next >= NO_NEXT_BREAK_EV {
+                    break; // e is the last total-xs point (etop)
+                }
+                let nxt = sig_next.min(weight.next_break(e)).min(GETWTF_STEP * e);
+                if !(nxt > e) {
+                    break;
+                }
+                e = nxt;
+                guard += 1;
+            }
+        }
+
+        fluxes.push(GroupFlux::Tabulated(Arc::new(tab)));
+    }
+
+    Ok(SelfShieldedFluxSet {
+        dilutions: dilutions.to_vec(),
+        fluxes,
+    })
+}
+
+/// Steps 2-4 of [`genflx_slowing_down`] (`groupr.f90:5449-5550`): the flux
+/// `b(iz+3+li)` at each point of `energies` (`felo..fehi`, `fehi` last) and each
+/// dilution, from the total `tt`, elastic `ss` and weight `wtf` at those points.
+/// `alphas` is `alpha(1..nalph)`. Shared by the library route and GROUPR's tape
+/// driver ([`crate::groupr::flux_table::genflx_slowing_down_table`], gh:#1370),
+/// which builds its grid with `gety1`/`gety2` on the PENDF.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn solve_flux(
+    energies: &[f64],
+    tt: &[f64],
+    ss: &[f64],
+    wtf: &[f64],
+    dilutions: &[f64],
+    sigpot: f64,
+    alphas: &[f64],
+    sam: f64,
+    beta: f64,
+    gamma: f64,
+) -> Vec<Vec<f64>> {
+    let ne = energies.len();
+    let fehi = energies[ne - 1];
+    let nsigz = dilutions.len();
+    // Moderator scattering sources per dilution for k = 2 (admixed + the
+    // admixed fraction of the external moderator) and k = 3 (the rest of the
+    // external moderator) (groupr.f90:5496-5499). Both are energy independent,
+    // so s1 == s2 for those k; k = 1 uses the absorber's own elastic ss(e).
+    let s_k2: Vec<f64> = dilutions
+        .iter()
+        .map(|&sz| sam + beta * gamma * (sz - sam))
+        .collect();
+    let s_k3: Vec<f64> = dilutions
+        .iter()
+        .map(|&sz| beta * (1.0 - gamma) * (sz - sam))
+        .collect();
+    // (s1, s2) for moderator k at panel [p, p+1] and dilution iz.
+    let mod_source = |k: usize, p: usize, iz: usize, ss: &[f64]| -> (f64, f64) {
+        match k {
+            0 => (ss[p], ss[p + 1]),
+            1 => (s_k2[iz], s_k2[iz]),
+            _ => (s_k3[iz], s_k3[iz]),
+        }
+    };
 
     // flux[p][iz] == b(iz+3+li) in NJOY.
     let mut flux: Vec<Vec<f64>> = vec![vec![0.0; nsigz]; ne];
@@ -358,12 +465,14 @@ pub fn genflx_slowing_down(
                 for iz in 0..nsigz {
                     // k=1: f1*sigpot; k=2: f1*(sam+beta*gamma*(sigz-sam));
                     // k=3: f1*beta*(1-gamma)*(sigz-sam) (groupr.f90:5467-5471).
-                    let src = match k {
-                        0 => sigpot,
-                        1 => s_k2[iz],
-                        _ => s_k3[iz],
+                    // k=3 has no parentheses upstream, so it is evaluated left to
+                    // right, `((f1*beta)*(1-gamma))*(sigz-sam)`, not `f1*s_k3`
+                    // (gh:#1370: 1 ulp at 19 of SD2's 7 296 `ninwt` records).
+                    flux[p][iz] += match k {
+                        0 => f1 * sigpot,
+                        1 => f1 * s_k2[iz],
+                        _ => f1 * beta * (1.0 - gamma) * (dilutions[iz] - sam),
                     };
-                    flux[p][iz] += f1 * src;
                 }
             }
         }
@@ -448,79 +557,7 @@ pub fn genflx_slowing_down(
 
         p_signed -= 1;
     }
-    // --- Step 5: below felo, extend with the weight-function shape. ----------
-    // factor(iz) = phi(felo)/C(felo) (groupr.f90:5558-5560).
-    let factor: Vec<f64> = (0..nsigz)
-        .map(|iz| {
-            if wtf[0] != 0.0 {
-                flux[0][iz] / wtf[0]
-            } else {
-                0.0
-            }
-        })
-        .collect();
-
-    // --- Steps 6 + 7: assemble the tabulated flux per dilution. -------------
-    let mut fluxes = Vec::with_capacity(nsigz);
-    for iz in 0..nsigz {
-        let mut tab: Vec<(f64, f64)> = Vec::with_capacity(ne + 4);
-
-        // Low-energy tail below the clamped felo (groupr.f90:5563-5577): NJOY
-        // walks `getwtf`'s own ladder from ebot -- `enxt = 1.01*e` for the
-        // analytic weights, the table breaks capped at 1.01*e for tabulated
-        // ones -- storing factor*wtf at every step while enxt < felo. A single
-        // point at ebot would make the lin-lin flux between 1e-5 eV and felo
-        // grossly wrong for a 1/E-shaped weight (measured 2026-09-10 against
-        // NJOY's flux-calculator GENDF: see tests/groupr_u238_gendf_golden.rs).
-        if ebot < felo {
-            let mut e = ebot;
-            while e < felo {
-                tab.push((e, factor[iz] * weight.value(e)));
-                let nxt = weight.next_break(e).min(GETWTF_STEP * e);
-                if !(nxt > e) {
-                    break;
-                }
-                e = nxt;
-            }
-        }
-
-        // Solved region felo..fehi (groupr.f90:5596-5615, P0 only).
-        for p in 0..ne {
-            tab.push((energies[p], flux[p][iz]));
-        }
-
-        // Narrow-resonance extension above fehi (groupr.f90:5623-5665). Unlike
-        // the solved region (driven by gety1's enext alone, :5434-5447), this
-        // loop steps by min(getwtf's enext = 1.01*e, gety1's en) (:5626-5631),
-        // so the 1/E weight is re-sampled every 1 % wherever the PENDF grid is
-        // coarser than that, and it stops at the top of the total-xs table.
-        {
-            let mut e = sigma_t.next_break(fehi);
-            let mut guard = 0usize;
-            while e < NO_NEXT_BREAK_EV && guard < nemax {
-                let st = sigma_t.value(e);
-                let c = weight.value(e);
-                tab.push((e, bondarenko_flux_value(st, c, sigpot, dilutions[iz])));
-                let sig_next = sigma_t.next_break(e);
-                if sig_next >= NO_NEXT_BREAK_EV {
-                    break; // e is the last total-xs point (etop)
-                }
-                let nxt = sig_next.min(weight.next_break(e)).min(GETWTF_STEP * e);
-                if !(nxt > e) {
-                    break;
-                }
-                e = nxt;
-                guard += 1;
-            }
-        }
-
-        fluxes.push(GroupFlux::Tabulated(Arc::new(tab)));
-    }
-
-    Ok(SelfShieldedFluxSet {
-        dilutions: dilutions.to_vec(),
-        fluxes,
-    })
+    flux
 }
 
 #[cfg(test)]

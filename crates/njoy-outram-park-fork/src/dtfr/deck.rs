@@ -172,6 +172,8 @@ pub(crate) struct Dtfr {
     pub pendf: Option<crate::endf::tape::Tape>,
     pub out: String,
     pub plot: String,
+    /// `'  '//dater()` fixed for the run (gh:#1549); `None`: the clock's at each call.
+    pub hdat: Option<String>,
 }
 
 const NEDMAX: usize = 50;
@@ -227,6 +229,7 @@ impl Dtfr {
             pendf: None,
             out: String::new(),
             plot: String::new(),
+            hdat: None,
         };
         let t = c.tables;
         let nedpos;
@@ -333,13 +336,21 @@ fn nint(x: f64) -> i32 {
 }
 
 /// Run DTFR (`dtfr.f90:51-588`) on the GENDF `gendf`: the DTF tables text and
-/// the plot-command text.
+/// the plot-command text. `hdat` fixes the date `dater` returns
+/// (`'  mm/dd/yy'`, [`crate::deck::TapeUnits::fixed_dater`]); `None`: the
+/// clock's, at each call, as upstream (gh:#1549).
 ///
 /// # Errors
 /// The upstream `error` stops (group counts, storage), a missing PENDF
 /// section, or a malformed GENDF.
-pub fn run_dtfr_tape(c: &DtfrCards, gendf: &GendfTape, pendf: Option<&crate::endf::tape::Tape>) -> Result<(String, String), NjoyError> {
+pub fn run_dtfr_tape(
+    c: &DtfrCards,
+    gendf: &GendfTape,
+    pendf: Option<&crate::endf::tape::Tape>,
+    hdat: Option<String>,
+) -> Result<(String, String), NjoyError> {
     let mut d = Dtfr::from_cards(c);
+    d.hdat = hdat;
     d.pendf = pendf.cloned();
     // `:166-168`.
     let mut csz = 0.30f64;
@@ -863,7 +874,7 @@ fn dtfout(d: &mut Dtfr, sig: &mut [f64], il: i32, ip: i32, ilmax: i32, ipmax: i3
         }
     } else if il != 0 {
         if il <= 1 {
-            let hdat = crate::deck::run::dater();
+            let hdat = d.hdat.clone().unwrap_or_else(crate::deck::run::dater);
             let hdat = hdat.trim_start();
             if d.nout > 0 {
                 d.out.push_str(&format!("{:<6.6}     edit xsec ({:3}x{:3}) proc by njoy   on {:<8.8}\n", d.hisnam, ng, d.ned, hdat));
@@ -998,7 +1009,7 @@ pub fn run_dtfr(c: &DtfrCards, units: &mut crate::deck::tapes::TapeUnits) -> Res
     } else {
         None
     };
-    let (out, plot) = run_dtfr_tape(c, &g, pendf.as_ref())?;
+    let (out, plot) = run_dtfr_tape(c, &g, pendf.as_ref(), units.fixed_dater())?;
     if nout != 0 {
         units.openz(nout, 1)?;
         units.put_text(nout, out);
