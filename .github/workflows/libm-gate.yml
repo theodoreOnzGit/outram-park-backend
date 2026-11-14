@@ -1,0 +1,56 @@
+# No platform libm in any crate's src/ (gh:#985), on ubuntu / windows / macos.
+#
+# Maintainer, 2026-11-14: "the libm check can be in develop CI cross
+# platform". `crates/petir/tests/no_platform_libm.rs` is a source scan: a raw
+# `.exp(` / `.ln(` / `.cos(` ... in library code resolves to the target's own
+# libm (glibc, MSVC, Apple), compiles, and runs silently, so nothing numerical
+# catches it on one host; the workspace routes every transcendental through
+# `petir::mathf::RealMath` instead. Added after two such calls reached develop
+# unnoticed (njoy POWR `gamff`, outram-mc-libs composite `prisms`; fixed in
+# the same change, 5c2c8b257). It builds only petir, so it is cheap; running
+# on each OS also exercises its path handling (it normalises `\` on Windows).
+#
+# Its own small workflow, not a job of `fast-tests.yml`: that workflow is
+# `disabled_manually` (2026-09-29), so a job there would never run. The same
+# reason `wasm-demos.yml` is separate.
+
+name: libm gate
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 2
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Supersede only pull-request runs; every develop push keeps its verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  libm-gate:
+    name: libm gate / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false # one platform's failure must not hide the others'
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: libm-gate-${{ matrix.os }}
+          cache-on-failure: true
+
+      - name: No platform libm in any crate's src/
+        shell: bash
+        run: cargo test --release -p petir --test no_platform_libm
