@@ -258,7 +258,7 @@ impl App {
         MsrePlantSchematic::new(scalars).paint(&ui.painter().with_clip_rect(rect), at);
         // Readouts the drawing does not carry.
         let lines = [
-            format!("ρ {:+.1} pcm: rods {:+.1}{}, feedback {:+.1}", s.reactivity_pcm, s.rod_pcm, if s.servo != 0.0 { " (servo)" } else { "" }, s.feedback_pcm),
+            format!("{:.2} MW · ρ {:+.1} pcm: rods {:+.1}{}, feedback {:+.1}", s.power_mw, s.reactivity_pcm, s.rod_pcm, if s.servo != 0.0 { " (servo)" } else { "" }, s.feedback_pcm),
             format!("fuel {:.0} °F, graphite {:.0} °F; flows: fuel {:.0} %, coolant {:.0} %", s.fuel_f, s.graphite_f, 100.0 * s.fuel_flow, 100.0 * s.coolant_flow),
         ];
         let top = rect.top() + if rect.width() < 700.0 { 80.0 } else { 40.0 };
@@ -381,8 +381,12 @@ impl eframe::App for App {
                 Tab::Plant => {
                     let resp = ui.interact(rect, ui.id().with("plant"), egui::Sense::click_and_drag());
                     let fit_rect = rect.shrink2(Vec2::new(0.0, 56.0));
-                    // The whole elevation view fits, wide screen or phone.
-                    self.view.half_extent = MsreLayout::half_extent_to_fit(fit_rect.size());
+                    // The whole elevation view fits fit_rect, wide screen or
+                    // phone. `View::handle_input` refits against the full
+                    // `rect`, so scale the half-extent to give the same
+                    // scale there.
+                    let min_side = |r: Rect| r.width().min(r.height()).max(1.0) as f64;
+                    self.view.half_extent = MsreLayout::half_extent_to_fit(fit_rect.size()) * min_side(rect) / min_side(fit_rect);
                     if !self.view.fitted || (!self.view.touched && self.view.fit_size != fit_rect.size()) {
                         self.view.fit(fit_rect);
                     }

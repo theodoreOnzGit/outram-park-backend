@@ -223,9 +223,9 @@ impl MsreLayout {
             fans: [re(59.2, 62.2, 840.3, 843.3), re(59.2, 62.2, 836.6, 839.6)],
             drain_tanks: [tank(tank_x[0]), tank(tank_x[1])],
             flush_tank: tank(tank_x[2]),
-            coolant_drain_tank: re(51.75, 55.75, COOLANT_DRAIN_EL, COOLANT_DRAIN_EL + 5.0),
+            coolant_drain_tank: re(54.5, 58.5, COOLANT_DRAIN_EL, COOLANT_DRAIN_EL + 5.0),
             drain_freeze_valve: pe(17.0, header_el),
-            coolant_freeze_valve: pe(53.75, 829.0),
+            coolant_freeze_valve: pe(56.5, 829.0),
             fuel_hot: vec![pe(VESSEL_X, v_hi), pe(VESSEL_X, bowl_lo + 0.4), pe(41.0, bowl_lo + 0.4), pe(41.0, HX_EL + 0.5 * HX_D)],
             fuel_cold: vec![pe(HX_X0, HX_EL - 0.1), pe(VESSEL_X + 0.5 * VESSEL_OD, HX_EL - 0.1)],
             coolant_hot: vec![pe(hx_right, HX_EL + 0.3), pe(44.4, HX_EL + 0.3), pe(44.4, rad_top_el + 1.0), pe(52.0, rad_top_el + 1.0), pe(52.0, rad_top_el)],
@@ -244,7 +244,7 @@ impl MsreLayout {
                 vec![pe(tank_cx[1], header_el), pe(tank_cx[1], tank_top)],
                 vec![pe(tank_cx[2], header_el), pe(tank_cx[2], tank_top)],
             ],
-            coolant_drain: vec![vec![pe(53.75, RADIATOR_BOTTOM_EL), pe(53.75, COOLANT_DRAIN_EL + 5.0)]],
+            coolant_drain: vec![vec![pe(56.5, RADIATOR_BOTTOM_EL), pe(56.5, COOLANT_DRAIN_EL + 5.0)]],
         }
     }
 
@@ -490,30 +490,40 @@ impl MsrePlantSchematic {
             };
             let f_ = |t: ThermodynamicTemperature| format!("{:.0} °F", t.get::<degree_fahrenheit>());
             let small = 0.9;
+            // Below ~10 points per foot (a phone) the smallest legible font
+            // is wider than the gaps: keep only the component names, which
+            // the readouts above the drawing complement.
+            let compact = k < COMPACT_BELOW_POINTS_PER_FT;
             txt(l.containment.left_top() + Vec2::new(0.6, 0.5), Align2::LEFT_TOP, "reactor cell", 1.0);
             txt(l.drain_cell.left_top() + Vec2::new(0.6, 0.5), Align2::LEFT_TOP, "drain tank cell", 1.0);
-            txt(l.core.center(), Align2::CENTER_CENTER, &format!("{:.2} MW", s.power.get::<megawatt>()), 1.1);
             txt(l.fuel_pump.left_center() + Vec2::new(-1.2, 0.0), Align2::RIGHT_CENTER, "fuel pump", small);
             txt(l.heat_exchanger.center_bottom() + Vec2::new(0.0, 0.3), Align2::CENTER_TOP, "heat exchanger", small);
-            txt(l.coolant_pump.right_center() + Vec2::new(1.4, -1.6), Align2::LEFT_BOTTOM, "coolant pump", small);
-            txt(l.radiator.center_top() + Vec2::new(0.0, -1.3), Align2::CENTER_BOTTOM, "radiator", 1.0);
-            txt(l.fans[0].center_top() + Vec2::new(0.0, -0.2), Align2::CENTER_BOTTOM, &format!("blowers, air {}", f_(s.radiator_air_out)), 0.8);
-            txt(l.fans[1].center_bottom() + Vec2::new(0.0, 0.3), Align2::CENTER_TOP, &format!("doors {:.0} %", 100.0 * open), 0.8);
+            txt(l.coolant_pump.right_bottom() + Vec2::new(0.2, 0.4), Align2::LEFT_TOP, "coolant pump", small);
+            txt(l.radiator.left_bottom() + Vec2::new(1.7, 0.3), Align2::LEFT_TOP, "radiator", small);
+            txt(l.coolant_drain_tank.center_bottom() + Vec2::new(0.0, 0.3), Align2::CENTER_TOP, "coolant drain tank", 0.8);
             for (t, name) in [(l.drain_tanks[0], "FD1"), (l.drain_tanks[1], "FD2"), (l.flush_tank, "FFT")] {
                 txt(t.center(), Align2::CENTER_CENTER, name, small);
             }
-            txt(l.coolant_drain_tank.right_center() + Vec2::new(0.5, 0.0), Align2::LEFT_CENTER, "coolant drain tank", 0.8);
-            let fv = if s.freeze_valve_frozen { "freeze valve (frozen)" } else { "freeze valve (thawed)" };
-            txt(l.drain_freeze_valve + Vec2::new(0.0, -0.9), Align2::RIGHT_BOTTOM, fv, 0.75);
-            // Temperatures on the runs.
-            txt(l.fuel_hot[2] + Vec2::new(-0.3, -0.5), Align2::RIGHT_BOTTOM, &f_(s.core_outlet), small);
-            txt(l.fuel_cold[0] + Vec2::new(-0.3, 0.4), Align2::RIGHT_TOP, &f_(s.core_inlet), small);
-            txt(l.coolant_hot[3] + Vec2::new(-1.0, -0.5), Align2::RIGHT_BOTTOM, &f_(s.coolant_hot), small);
-            txt(l.coolant_cold[4] + Vec2::new(1.0, 0.5), Align2::LEFT_TOP, &f_(s.coolant_cold), small);
-            txt(Pos2::new(0.6, EXTENT_FT.1 - 0.3), Align2::LEFT_BOTTOM, "elevation view, roughly to scale (TM-0728 sizes)", 0.7);
+            if !compact {
+                txt(l.core.center(), Align2::CENTER_CENTER, &format!("{:.2} MW", s.power.get::<megawatt>()), 1.1);
+                txt(l.fans[0].center_top() + Vec2::new(0.0, -0.2), Align2::CENTER_BOTTOM, &format!("air {}", f_(s.radiator_air_out)), 0.8);
+                txt(l.fans[1].center_bottom() + Vec2::new(0.0, 0.3), Align2::CENTER_TOP, &format!("doors {:.0} %", 100.0 * open), 0.8);
+                let fv = if s.freeze_valve_frozen { "freeze valve (frozen)" } else { "freeze valve (thawed)" };
+                txt(l.drain_freeze_valve + Vec2::new(0.0, -0.9), Align2::RIGHT_BOTTOM, fv, 0.75);
+                // Temperatures on the runs.
+                txt(l.fuel_hot[2] + Vec2::new(-0.3, -0.5), Align2::RIGHT_BOTTOM, &f_(s.core_outlet), small);
+                txt(l.fuel_cold[0] + Vec2::new(-0.3, 0.4), Align2::RIGHT_TOP, &f_(s.core_inlet), small);
+                txt(l.coolant_hot[3] + Vec2::new(-1.0, -0.5), Align2::RIGHT_BOTTOM, &f_(s.coolant_hot), small);
+                txt(l.coolant_cold[4] + Vec2::new(1.0, 0.5), Align2::LEFT_TOP, &f_(s.coolant_cold), small);
+                txt(Pos2::new(EXTENT_FT.0 - 0.3, EXTENT_FT.1 - 0.3), Align2::RIGHT_BOTTOM, "elevation view, roughly to scale (TM-0728 sizes)", 0.7);
+            }
         }
     }
 }
+
+/// Below this many points per foot the widget shows only component names
+/// ([`MsrePlantSchematic::paint`]).
+pub const COMPACT_BELOW_POINTS_PER_FT: f32 = 10.0;
 
 /// Arrowheads at each segment's midpoint, pointing along the run for
 /// `sign = 1`, against it for `-1`.
