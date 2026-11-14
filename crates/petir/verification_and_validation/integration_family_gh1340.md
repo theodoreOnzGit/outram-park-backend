@@ -389,3 +389,46 @@ PETIR's libm.
 - **Deviation not exercised by any case:** upstream's `int nans[32]` overflows if
   all 33 nodes of an interval are non-finite (undefined behaviour); the port
   uses a `Vec`. Not compared, by construction.
+
+## FIXED (`gsl_integration_fixed`, round 3, 2026-11-14; predictions committed BEFORE the comparison is run)
+
+- **Port:** `src/integration/fixed.rs` (`FixedType`, `FixedWorkspace`) from
+  `fixed.c` (alloc, `fixed_compute`, `imtqlx`) and the nine type files
+  `legendre.c chebyshev.c chebyshev2.c gegenbauer.c jacobi.c laguerre.c
+  hermite.c exponential.c rational.c`. `gsl_sf_gamma` is PETIR's
+  `specfunc::gamma` (already compared with GSL); `pow` is `Real::powf`. GSL's
+  `eigen_symmv` is **not** involved: `fixed.c` has its own EISPACK/IQPACK
+  `imtqlx` (the round-2 note that `fixed` "needs eigen_symmv" was wrong,
+  **CORRECTED 2026-11-14**; checked by reading `fixed.c` and grepping the nine
+  type files for `gsl_eigen`/`gsl_linalg`: no hit).
+- **Reference:** `reference-data/gsl/fixed_reference_driver.c`: 270 accepted
+  rules (9 types, 2-3 parameter sets each, orders 1, 2, 3, 4, 5, 8, 10, 16, 25,
+  40; Legendre also with reversed limits) and 18 refused parameter sets. Per
+  rule: every node and weight, and four integrals (`1`, `x^2`, `x^5`,
+  `1/(1+x^2)`; no libm function in the integrands). **Replay:**
+  `tests/gsl_fixed_code_to_code.rs`.
+- **Pass criteria:** accept/refuse identical in all 288 rows; nodes, weights
+  and integrals counted bit-identical per type and pinned. Libm functions in
+  GSL's path: `pow` (`fixed_compute`: `pow(slp, al + be + 1)`; `jacobi.c`:
+  `pow(2, absum + 1)`, `pow(.., 2.0)`) and `gsl_sf_gamma` (all types but
+  Legendre, Chebyshev, Chebyshev2, Exponential).
+
+**Predictions, written before any run:**
+
+- **P15a.** Accept/refuse identical in 288 of 288.
+- **P15b.** Nodes bit-identical in every row of every type: `x = shft + slp *
+  eigenvalue`, and the eigenvalues depend on `sqrt` (exact) and arithmetic
+  only. The one exception I can foresee is Jacobi, whose Jacobi matrix calls
+  `pow(y, 2.0)`: `gcc -O2` rewrites that to `y * y` while the port calls
+  `powf(y, 2.0)`; I predict they agree on every `y` in these rows, and if a
+  Jacobi node differs this is the cause to check first.
+- **P15c.** Weights: Legendre (`pow(slp, 1)`) and Chebyshev (`pow(slp, 0)`)
+  bit-identical in 100 %; Exponential and Chebyshev2 in at least 95 % (a
+  square, and `zemu` is exact). The gamma-using types (Gegenbauer, Jacobi,
+  Laguerre, Hermite, Rational): at least 50 % of weights bit-identical, worst
+  relative difference at most 1e-12.
+- **P15d.** Integrals are bit-identical wherever the nodes and weights of the
+  rule are.
+- **P15e (cause).** With GSL relinked to PETIR's `exp`, `log`, `pow`, `sin`,
+  `cos` (`petir_libm_shim.rs`), **all** nodes, weights and integrals are
+  bit-identical (100 %), except possibly Jacobi's `pow(y, 2.0)` as in P15b.
