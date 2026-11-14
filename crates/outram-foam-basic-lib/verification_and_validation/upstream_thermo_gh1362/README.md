@@ -319,3 +319,49 @@ eight classes are identical as predicted. R2 **partly right**: Troe/finite and i
 ChemicallyActivated use differ at 1 ulp from `log10` (2 of 42 calls) as predicted,
 but `FallOff/Troe` (`alpha 0.5`) and both SRI/`e = 0` rows are identical, and
 the SRI difference is in the `e != 0` row (a `pow`). R3 right (identical).
+
+---
+
+## gh:#1378 family 3: multicomponent mixture rules
+
+Ported (`thermophysics/mixture.rs`, plus an additive `impl Mixable` next to each
+type): `specie::operator*`/`+=` (`Y`, `W = sumY/(Y/W + Y2/W2)`), the per-model
+`operator+=` parameter mixing for `perfectGas`, `rhoConst`, `hConstThermo`,
+`constTransport`, `sutherlandTransport`, and the three `multiComponentMixture`
+routines `cellMixture`, `cellVolMixture`, `correctMassFractions`. Deferred
+(same pattern, other `*I.H` files): the remaining EOS/thermo/transport models;
+`janafThermo` (range intersection and `Tcommon` check). `coefficientMulticomponentMixture`
+and `valueMulticomponentMixture` of OpenFOAM-dev are not in v2506 (v2506 has
+`multiComponentMixture`, `reactingMixture`, `egrMixture`, ...); not ported.
+Search before writing: `crates/` has no species-mixture algebra of this form
+(grep `mixture`, `species` found `outram-foam-multiphase`, `dover`, `sembawang`
+and `thermochimica` domain code only).
+
+Driver `driver_mix_gh1378/mixDump1378.C` evaluates, with the REAL
+`species::thermo<transport<hConstThermo<eos<specie>>>>` classes, the exact loops
+of `multiComponentMixture::cellMixture`/`cellVolMixture` (a mesh is needed for
+the class itself, so the three-line loops are copied from
+`multiComponentMixture.C` v2506; the operators `*` and `+=` they call are the
+real ones) and `correctMassFractions` (copied). Species: W 28.0, 44.01, 18.015
+kg/kmol; Cp 1040, 850, 1900; Hf 0, -8.94e6, -1.34e7; mu 1.8e-5, 1.5e-5, 1.2e-5;
+Pr 0.7, 0.8, 0.9; As 1.46e-6, 1.5e-6, 1.2e-6; Ts 110, 240, 150; rho (rhoConst)
+800, 1000, 998. Mass-fraction sets: (0.5,0.3,0.2), (0.9,0.05,0.05), (1/3 x3),
+(0.7,0.3,0), the un-normalised (0.4,0.4,0.4) before and after
+`correctMassFractions`. Grid: T 300, 600, 1200 K x p 1e5, 5e6 Pa. Output per row:
+`Cp Ha Hs Hc S rho psi Z CpMCv mu kappa alphah W`. Reference
+`reference/mix_esi_v2506_gh1378.txt.gz`, test `tests/openfoam_mixture_gh1378.rs`.
+
+### Predictions (written before the Rust side ran)
+
+- M1: mixing is `+ - * /` only. With the ESI gas constant, every quantity of
+  every mixture is **bit-identical**, apart from one risk I can name: the port
+  holds `W` in kg/mol, upstream in kg/kmol, and a mixture `W` is an arbitrary
+  double for which `cand * 1e3 == W` may have no solution among the
+  neighbouring doubles (`molar_mass_from_kg_per_kmol` then falls back to
+  `W * 1e-3`). I predict that happens for a minority (<= 30 %) of the
+  mixtures and shows as 1-ulp differences in `rho`, `psi`, `CpMCv`, `S` only
+  (everything through `R`), not in `Cp`, `Hc`, `mu`, `W`.
+- M2: `cellVolMixture` agrees as `cellMixture` does (same operators; the weights
+  are computed in the same order).
+- M3: `correctMassFractions` of (0.4, 0.4, 0.4): `Yt = 1.2`, warns; normalised
+  fractions bit-identical.

@@ -171,3 +171,12 @@ mod gh1362_tests {
         assert_eq!(a.s_eos(p, t).get::<joule_per_kilogram_kelvin>(), 0.0);
     }
 }
+
+/// Upstream `perfectGas::operator+=` only updates the `specie` base (gh:#1378).
+impl crate::thermophysics::mixture::Mixable for PerfectGas {
+    fn set_mol_weight(&mut self, w: MolarMass) {
+        self.mol_weight = w;
+    }
+
+    fn mix_params(&mut self, _y1: f64, _y2: f64, _other: &Self) {}
+}

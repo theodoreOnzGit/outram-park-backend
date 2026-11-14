@@ -162,3 +162,14 @@ mod gh1362_tests {
         assert!(e.r().get::<joule_per_kilogram_kelvin>() > w.r().get::<joule_per_kilogram_kelvin>());
     }
 }
+
+/// Upstream `rhoConst::operator+=`: `rho_ = Y1*rho_ + Y2*other.rho_` (gh:#1378).
+impl crate::thermophysics::mixture::Mixable for RhoConst {
+    fn set_mol_weight(&mut self, w: MolarMass) {
+        self.mol_weight = w;
+    }
+
+    fn mix_params(&mut self, y1: f64, y2: f64, other: &Self) {
+        self.rho0 = y1 * self.rho0 + y2 * other.rho0;
+    }
+}

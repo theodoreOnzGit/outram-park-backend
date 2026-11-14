@@ -39,6 +39,7 @@ pub mod constants;
 pub mod eos;
 pub mod error;
 pub mod imports;
+pub mod mixture;
 pub mod quantities;
 pub mod reaction_rate;
 pub mod table;
