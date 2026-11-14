@@ -1901,19 +1901,24 @@ partly across the plate counts as the volume-weight share of its member atoms
 `multisphere.rs`):
 - `spheres file`, `spheres_different_types`, `bonded`;
 - `mass`/`inertia_tensor`/`use_volume`/`use_density`;
-- `fflag`/`tflag` off, `multisphere/nointegration`, `concave`,
+- ~~`fflag`/`tflag` off,~~ `multisphere/nointegration`, `concave`,
   `CAddRhoFluid`;
-- periodic images of bodies (`remap_bodies`) and lost-atom/body deletion. The
+- periodic images of bodies (`remap_bodies`) ~~and lost-atom/body deletion. The
   decks end before a clump leaves the box, and removing particles from a
-  system with clumps panics;
+  system with clumps panics~~;
 - `fix multisphere/break`;
 - clumps from `insert/stream`;
 - heat transfer with clumps;
 - restart;
 - a second `run` set-up with clumps (`begin_run` refuses it);
-- `orientation random`;
+- ~~`orientation random`~~;
 - `sieveMultiSphereCanPass` of the sieve;
-- `compute ke/multisphere` and `erotate/multisphere`.
+- ~~`compute ke/multisphere` and `erotate/multisphere`~~.
+
+**CORRECTED 2026-11-14 (gh:#1415):** template `fflag`/`tflag`, lost-atom and
+lost-body deletion (the removal panic is fixed), `orientation random` and the
+`ke`/`erotate/multisphere` computes are now ported and cross-coded; see 4.16.1.
+The rest of the list stands.
 
 ~~**Not started (rest of gh:#1415):** superquadric (`atom_vec_superquadric`,
 `surface_model_superquadric`, `fix nve/superquadric`,
@@ -1923,6 +1928,110 @@ particles with their `nve/asphere*` and `nve/line` integrators.~~
 primitive walls and pair contacts; see 4.17 for what is ported and what is not.
 Convex hull, ellipsoid, line and tri particles with their `nve/asphere*` and
 `nve/line` integrators are still not started.
+
+### 4.16.1 Multisphere, second pass: computes, `fflag`/`tflag`, `orientation random`, lost atoms (2026-11-14, gh:#1415)
+
+**What is computed.**
+- `compute ke/multisphere` and `compute erotate/multisphere`
+  (`Multisphere::extract_ke`, `extract_rke`): `1/2 sum M |vcm|^2` and
+  `1/2 sum I_k wbody_k^2` with `wbody = R(q)^T L / I`, summed in local body
+  order.
+- The template keywords `fflag x y z` / `tflag x y z`
+  (`ParticleTemplateMultisphere::with_fflag`, `with_tflag`). They are copied
+  into each body by `randomize_ptilist` / `add_body`, and
+  `FixMultisphere::initial_integrate` and `final_integrate` skip the force
+  (torque) half-kick on an `off` component.
+- `orientation random` for clump distributions
+  (`InsertFix::with_random_orientation`): `random_unit_quat` per trial after
+  the velocity draw, the same `FixInsertPack::x_v_omega` path the
+  superquadrics use.
+- Lost atoms and bodies (`GranularSystem::with_lost_atoms`, opt-in; LIGGGHTS
+  neighbour order with the sort off). On a rebuild step, after the
+  insertions:
+  - `FixMultisphere::pre_exchange` deletes the atoms marked `delflag` and
+    clears `next_reneighbor`;
+  - `Comm::exchange` drops every atom with `x < lo || x >= hi`, per dimension
+    (x, y, z), the last local atom filling each hole;
+  - `FixMultisphere::pre_neighbor` zeroes `delflag` and runs
+    `check_lost_atoms`. A body that has lost atoms is removed (`remove_body`,
+    the last body taking its slot). Its remaining atoms become free
+    (`body = -1`, so `exclude molecule` no longer drops their pairs), take
+    `rmass *= volumeweight` and are marked. `next_reneighbor = step + 5`,
+    which `Neighbor::decide` honours.
+- `remove_particles` with clumps now compacts the body arrays
+  (`FixMultisphere::copy_arrays`) and frees a broken clump the same way,
+  where it used to panic.
+
+**Reference and inputs.** LIGGGHTS-PUBLIC `3d5c00f2`, the default `lmp_serial`
+(the multisphere package is in it). The decks come from
+`make_multisphere_decks.sh` and use the 4.16 header (Hertz + history,
+`E = 1e7`, `nu = 0.3`, `e = 0.5`, `mu = 0.4`, `dt = 1e-5`, sort off, `f f f`,
+`%.17g`):
+
+| deck | what it exercises |
+|---|---|
+| `ms_ke` | `ms_collide` with both computes; thermo `step atoms c_ke c_er` every 250 steps to 15 000 |
+| `ms_flags` | `ms_collide` with type 1 `fflag off on on tflag on off on` and type 2 `tflag off off on`; frames at 1, 2000, 4000 to 8000, and 10000 |
+| `ms_orient` | four clumps (both templates, mass-based 60/40), `orientation random`, `all_in yes`, onto `zplane 0`; 7 frames to 10 000 |
+| `ms_lost` | a type 1 clump slides off the `+x` face, a type 2 clump stays. `fix nve/sphere`, defined before `fix multisphere`, integrates the freed atoms, as the port integrates every atom. Thermo every step to 6000, and 7 frames |
+
+In upstream's `ms_flags` run, the type 1 clump, which takes no x force, pushes
+the type 2 clump through the `+x` face between steps 8000 and 9000. That deck
+therefore also runs the lost-atom path (its last frame has 3 atoms). This was
+not designed in. It was found in upstream's output before the Rust run, and
+the deck was kept as generated.
+
+**Pass criterion:** bit-identical, every value. The prediction was posted on
+gh:#1415 before any of this ran.
+
+**Results** (Rust 1.99.1, 2026-11-14; `tests/multisphere_cross_code.rs`):
+
+| deck | result |
+|---|---|
+| `ms_ke` | **61 / 61** thermo lines bit-identical (atoms, `c_ke`, `c_er`) |
+| `ms_flags` | **52 / 52** atom-frames bit-identical (468 values) |
+| `ms_orient` | **98 / 98** atom-frames bit-identical (882 values) |
+| `ms_lost` | **6001 / 6001** thermo lines and **43 / 43** atom-frames bit-identical. One atom leaves at step 4241 (7 to 6 atoms); the two freed atoms are deleted at the forced rebuild at step 4246 (to 4) |
+
+Every deck agreed on its first run. The prediction hedged on `ms_orient`:
+PETIR's `sin`/`cos` in `random_unit_quat` could differ from glibc by an ulp,
+as they did for `sq_pour`. They did not on the arguments drawn here, so no
+glibc swap was needed and nothing is pinned under #1455.
+
+**Ablations** (`second_pass_gates_fail_when_ablated`, committed). Each deck
+misses when the option it tests is switched off, so each gate can fail:
+- `ms_flags` with all flags on;
+- `ms_orient` with the identity orientation (0 / 14 at step 1);
+- `ms_lost` without `with_lost_atoms` (7 atoms kept past step 4246);
+- `ms_ke` with the templates swapped (only the empty step-0 line agrees).
+
+**Interpretation.** In these cases the port reproduces upstream exactly for:
+- the body energies;
+- the per-axis integration switches;
+- the random insertion orientation;
+- the whole lost-atom life cycle: the exchange, the body deletion with the
+  swap of the last body, the freed atoms (scaled mass, no exclusion,
+  integrated by `nve/sphere`), and the forced rebuild 5 steps later.
+
+**Not ported** (refused by name, or documented):
+- `fix_modify <ms> fflag|tflag`, which acts between runs; a second `run` with
+  clumps is refused;
+- `orientation random` with sphere templates;
+- lost atoms with the atom sort on, or without the LIGGGHTS neighbour order;
+- `delete_atoms yes` on `massflow/mesh` with clumps (upstream's own error);
+- `fix remove`'s `delete_bodies` callback; periodic bodies;
+- `spheres file`, `spheres_different_types`, `bonded`,
+  `mass`/`inertia_tensor`;
+- `multisphere/nointegration`, `concave`, `multisphere/break`;
+- clumps from `insert/stream`; restart; a second `run` set-up with clumps.
+
+Upstream prints "Energy calculated for multisphere particles is currently not
+correct" (`FixMultisphere::dof`). That warning is about the `thermo` `ke`/`pe`
+normalisation, not about these computes.
+
+**Found on the way, not fixed (outside this task):** with the atom sort on, a
+system that has no particles and no insertion fix panics in
+`neighbor_list::atom_sort_permutation`, because its cut radius is 0.
 
 ## 4.17 Superquadric particles (2026-11-13, gh:#1415)
 

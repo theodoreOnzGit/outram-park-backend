@@ -36,7 +36,10 @@ files **byte-identical** to the committed `oblique_hertz.csv`,
 `particletemplate/multisphere` and `particletemplate/multiplespheres` among
 its fix styles. No package switch and no rebuild are needed for `in.ms_drop`,
 `in.ms_collide` and `in.ms_massflow`
-(`reference-data/liggghts/make_multisphere_decks.sh`).
+(`reference-data/liggghts/make_multisphere_decks.sh`). The same binary also
+ran the second-pass decks `in.ms_ke`, `in.ms_flags`, `in.ms_orient` and
+`in.ms_lost` on 2026-11-14. `compute ke/multisphere` and
+`erotate/multisphere` are in its default build.
 
 **Superquadric package (gh:#1415, checked 2026-11-13).** The default
 `make serial` build does **not** compile superquadrics. `atom_vec_superquadric.cpp`,

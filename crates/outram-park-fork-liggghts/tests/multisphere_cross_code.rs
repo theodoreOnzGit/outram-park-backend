@@ -59,7 +59,14 @@
 //! `ms_collide`: 70 / 70 atom-frames (630 values). Both include the Monte-Carlo
 //! template, the insertion, the wall contacts, the clump-clump contacts and
 //! the rigid-body integration. Asserted bit-identical.
-
+//!
+//! ## Second pass (2026-11-14)
+//!
+//! `in.ms_ke` (`compute ke/multisphere`, `erotate/multisphere`), `in.ms_flags`
+//! (template `fflag`/`tflag`), `in.ms_orient` (`orientation random`) and
+//! `in.ms_lost` (lost atoms and bodies). Every one is bit-identical; each test
+//! states its numbers, and `second_pass_gates_fail_when_ablated` shows that
+//! each gate misses with its option switched off. V&V 4.16.1.
 
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
@@ -587,6 +594,56 @@ fn ms_flags_matches_liggghts() {
     assert_eq!(same, total, "ms_flags: not bit-identical (worst relative {worst:e})");
 }
 
+/// The `ms_orient` system: four clumps of both templates (mass-based 60/40)
+/// with `orientation random` (or, for the ablation, the identity),
+/// `all_in yes`, falling onto `zplane 0`.
+fn orient_system(random: bool) -> GranularSystem {
+    let material = GranularMaterial::new(1.0e7, 0.3, 0.5, 0.4).unwrap();
+    let boundaries = vec![Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap()];
+    let mut sys = GranularSystem::new(
+        Vec::new(),
+        boundaries,
+        GranularContactModel::hertz_history(material),
+        Vec3::new(0.0, 0.0, -9.81),
+        1e-5,
+    )
+    .unwrap();
+    let dist = ParticleDistributionDiscrete::new_multisphere(15485867, true, vec![(clump1(), 0.6), (clump2(), 0.4)])
+        .unwrap();
+    let reg = InsertRegion::block(Vec3::new(-0.03, -0.03, 0.03), Vec3::new(0.03, 0.03, 0.08)).unwrap();
+    let fix = InsertFix::new(InsertMode::Pack(PackTarget::Particles(4)), 32452843, dist, reg, 0, BOX_LO, BOX_HI)
+        .unwrap()
+        .with_all_in(true)
+        .with_velocity(outram_park_fork_liggghts::insert::InsertVelocity::Constant(Vec3::new(0.0, 0.0, -0.5)))
+        .with_omega(Vec3::new(1.0, 2.0, 3.0));
+    let fix = if random { fix.with_random_orientation().unwrap() } else { fix };
+    sys.add_insertion(fix).unwrap();
+    let mut cfg = LiggghtsNeighbor::new(BOX_LO, BOX_HI, 0.002).unwrap();
+    cfg.sort_every = 0;
+    sys.with_liggghts_neighbor_order(cfg)
+}
+
+/// **`orientation random` with clumps** (`in.ms_orient`): every atom at steps
+/// 1, 1000, 2000, 4000, 6000, 8000 and 10000, on bit patterns.
+///
+/// **Prediction (gh:#1415, 2026-11-14):** possibly not bit-identical, through
+/// PETIR's `sin`/`cos` in `random_unit_quat`. **Result:** bit-identical, 98/98
+/// atom-frames: PETIR's `sin`/`cos` agree with glibc on every argument drawn
+/// here.
+#[test]
+fn ms_orient_matches_liggghts() {
+    let mut sys = orient_system(true);
+    let Some((total, same, worst)) =
+        compare_by_tag("ms_orient", &mut sys, &[1, 1000, 2000, 4000, 6000, 8000, 10000])
+    else {
+        eprintln!("skipping: reference-data/liggghts/ms_orient.csv not present");
+        return;
+    };
+    println!("ms_orient: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
+    assert_eq!(total, 98);
+    assert_eq!(same, total, "ms_orient: not bit-identical (worst relative {worst:e})");
+}
+
 /// The `ms_lost` system: a type 1 clump slides off the `+x` face of the
 /// `f f f` box; a type 2 clump stays. Lost atoms are on
 /// (`GranularSystem::with_lost_atoms`) unless `lost` is false (the ablation).
@@ -644,6 +701,35 @@ fn ms_lost_matches_liggghts() {
     println!("ms_lost: {same}/{n} thermo lines, {fsame}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
     assert_eq!(same, n, "ms_lost: thermo not bit-identical");
     assert_eq!(fsame, total, "ms_lost: atoms not bit-identical (worst relative {worst:e})");
+}
+
+/// **Ablations: the four new gates can fail.** Each deck is re-run with the
+/// option it tests switched off, and must then miss the reference:
+/// * `ms_flags` with every `fflag`/`tflag` on;
+/// * `ms_orient` with the identity orientation in place of `orientation random`;
+/// * `ms_lost` without [`GranularSystem::with_lost_atoms`] (the clump that
+///   leaves the box is kept, so the atom count stays 7);
+/// * `ms_ke` with the templates swapped between the two insertion fixes
+///   (different bodies, so different energies).
+#[test]
+fn second_pass_gates_fail_when_ablated() {
+    let frames = [1, 2000, 4000, 5000, 6000, 7000, 8000];
+    let mut sys = collide_system(clump1(), clump2().with_tflag([true; 3]));
+    if let Some((total, same, _)) = compare_by_tag("ms_flags", &mut sys, &frames) {
+        assert!(same < total, "ms_flags passes with the flags on: {same}/{total}");
+    }
+    let mut sys = orient_system(false);
+    if let Some((total, same, _)) = compare_by_tag("ms_orient", &mut sys, &[1]) {
+        assert_eq!(same, 0, "ms_orient frame 1 passes with the identity orientation");
+        assert_eq!(total, 14);
+    }
+    let mut kept = lost_system(false);
+    kept.run(4246);
+    assert_eq!(kept.particles().len(), 7, "the clump that left the box is kept");
+    let mut sys = collide_system(clump2(), clump1());
+    if let Some((n, same)) = compare_ke_thermo("ms_ke", &mut sys) {
+        assert_eq!(same, 1, "only the empty step-0 line can agree: {same}/{n}");
+    }
 }
 
 /// **Removing a clump member no longer panics** (gh:#1415). Before

@@ -120,6 +120,18 @@ thermo		1000
 thermo_modify	lost ignore norm no
 EOF
 frames 1 2000 4000 5000 6000 7000 8000 10000; } > in.ms_flags
+# ms_orient: four clumps of both templates (mass-based 60/40) inserted with
+# `orientation random`, falling onto the zplane.
+{ header; echo "$PTS1"; echo "$PTS2"; cat <<'EOF'
+fix		pdd1 all particledistribution/discrete 15485867 2 pts1 0.6 pts2 0.4
+region		ins block -0.03 0.03 -0.03 0.03 0.03 0.08 units box
+fix		ins all insert/pack seed 32452843 distributiontemplate pdd1 insert_every once overlapcheck yes all_in yes vel constant 0. 0. -0.5 omega constant 1. 2. 3. orientation random region ins particles_in_region 4
+fix		ms all multisphere
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 1000 2000 4000 6000 8000 10000; } > in.ms_orient
 # ms_lost: a type 1 clump slides off the +x face of the `f f f` box.
 # Comm::exchange drops each member atom that leaves; FixMultisphere::pre_neighbor
 # (check_lost_atoms) then frees the clump's other atoms (body -1, rmass *=

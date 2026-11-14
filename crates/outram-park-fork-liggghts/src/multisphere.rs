@@ -95,18 +95,29 @@
 //!
 //! ## What is translated, and what is not
 //!
-//! Translated: the above, `fflag`/`tflag` (all on), insertion with
-//! `orientation constant|template`, `vel`, `omega`, with or without the overlap
-//! check, single process, fixed (`f`/`m`) boundaries.
+//! Translated: the above, ~~`fflag`/`tflag` (all on)~~ the template's
+//! `fflag`/`tflag` ([`ParticleTemplateMultisphere::with_fflag`],
+//! [`ParticleTemplateMultisphere::with_tflag`]), insertion with
+//! `orientation constant|template|random`, `vel`, `omega`, with or without the
+//! overlap check, single process, fixed (`f`/`m`) boundaries; lost atoms and
+//! bodies (`check_lost_atoms`, `delflag`, `FixMultisphere::pre_exchange`;
+//! `Multisphere::pre_neighbor`, with
+//! [`crate::granular_system::GranularSystem::with_lost_atoms`] for the box);
+//! `compute ke/multisphere` and `erotate/multisphere`
+//! ([`Multisphere::extract_ke`], [`Multisphere::extract_rke`]).
 //!
 //! **Not translated** (each rejected or documented, never silently ignored):
 //! `spheres file` (the inline list only), `spheres_different_types`, `bonded`,
-//! `mass`/`inertia_tensor`/`use_volume`/`use_density`, `fflag`/`tflag` off,
+//! `mass`/`inertia_tensor`/`use_volume`/`use_density`, ~~`fflag`/`tflag` off,~~
+//! `fix_modify <ms> fflag|tflag`,
 //! `fix multisphere/nointegration`, `concave`, `CAddRhoFluid`,
-//! `allow_heatsource`; periodic images of bodies (`remap_bodies`), lost-atom
-//! deletion (`check_lost_atoms` / `delflag`), `fix multisphere/break`,
+//! `allow_heatsource`; periodic images of bodies (`remap_bodies`), ~~lost-atom
+//! deletion (`check_lost_atoms` / `delflag`),~~ `fix remove`'s
+//! `delete_bodies`, `fix multisphere/break`,
 //! `fix insert/stream` with clumps (`start_step`), heat transfer with clumps,
-//! restart, a second `run` set-up with clumps, and `orientation random`.
+//! restart, a second `run` set-up with clumps~~, and `orientation random`~~.
+//! **CORRECTED 2026-11-14 (gh:#1415):** `fflag`/`tflag`, lost-atom deletion
+//! and `orientation random` are translated (V&V 4.16.1).
 //! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
 //! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
 //! particles are ported in [`crate::superquadric`]; convex hull, ellipsoid,
