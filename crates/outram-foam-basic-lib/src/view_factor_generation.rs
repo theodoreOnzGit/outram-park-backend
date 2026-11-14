@@ -14,7 +14,7 @@
 //! |---|---|
 //! | coarse `Cf`/`Sf` of an un-agglomerated patch (`singleCellFvMesh` face, nearest fine centre/vertex snap) | the fine face centre and area vector, [`crate::io::poly_mesh::face_centre_and_area`] |
 //! | candidate rays `(d & fA) < 0 && (d & remA) > 0`, `start = fc + 0.001 d`, `end = fc + 0.999 d` (`shootRays.H`) | [`generate_view_factors`] |
-//! | visibility by `distributedTriSurfaceMesh::findLine` and the self-hit continuation loop (`shootRays.H`) | brute-force nearest segment/triangle hit, same loop (see "Visibility") |
+//! | visibility by `distributedTriSurfaceMesh::findLine` (serial: `indexedOctree::findLine`) and the self-hit continuation loop (`shootRays.H`) | ~~brute-force nearest segment/triangle hit~~ **CORRECTED 2026-11-14 (gh:#1564)** the octree itself, [`crate::esi_octree::Octree::find_line`], same loop (see "Visibility") |
 //! | `calculateViewFactorFij2AI`, far test, `GaussQuad`, the Gauss tables, `GaussQuadTol`/`distTol`/`alpha` | private functions, same operation order |
 //! | `F` (`scalarListIOList`), `globalFaceFaces` (`labelListIOList`), `mapDist` (`IOmapDistribute`, one processor) | [`write_scalar_list_list_file`], [`write_label_list_list_file`], [`write_map_dist_file`] |
 //!
@@ -37,13 +37,22 @@
 //!
 //! # Visibility
 //!
-//! A candidate ray is a hit if it intersects any wall triangle (nearest hit, Moller-Trumbore,
-//! no tolerance). A hit on a triangle of the ray's own coarse face is continued from the hit
-//! point (`+0.01 d`, `+1.01 d`, at most 10 passes), a hit on the target face counts as
-//! visible, anything else blocks the ray, as in `shootRays.H`. Upstream finds the hit with an
-//! octree and `triangle::intersection`; the two agree whenever no ray grazes a triangle
-//! edge, which is true of the V&V cases but is not a proof for arbitrary geometry. Triangles
-//! are `face::triangles` (a quad starts at its most concave angle, as upstream).
+//! ~~A candidate ray is a hit if it intersects any wall triangle (nearest hit, Moller-Trumbore,
+//! no tolerance) ... brute force over all triangles ... the two agree whenever no ray grazes a
+//! triangle edge.~~ **CORRECTED 2026-11-14 (gh:#1564)**: the brute force did NOT agree with
+//! upstream on rays lying in the plane of a wall triangle (coplanar faces, the non-convex L case,
+//! the thin graded box): `indexedOctree::findLine` does not test the ray's own (start, end) against
+//! each triangle. It walks the octree leaves in ray order and, in each leaf, calls the triangle
+//! test with the point where the ray ENTERED the leaf (pushed onto the leaf face) and the
+//! nearest hit so far as end point, accepting a hit only if it lies inside that leaf. For an
+//! in-plane ray `det`, `u`, `v`, `t` are ~1e-17 noise that depends on those arguments. The visibility
+//! therefore runs on a port of the octree (`crate::esi_octree`, built as `triSurfaceSearch::tree()`:
+//! depth 10, leaf size 10, duplicity 3, bounds inflated by `Random(65431)`), with the unchanged
+//! upstream triangle test (`triangle::intersection(HALF_RAY)`, `planarTol = 10*SMALL`, `|det| <
+//! ROOTVSMALL`, `distance() <= 1`). A hit on a triangle of the ray's own face is continued from the
+//! hit point (`+0.01 d`, `+1.01 d`, at most 10 passes), a hit on the target face counts as visible,
+//! anything else blocks the ray, as in `shootRays.H`. Triangles are `face::triangles` (a quad
+//! starts at its most concave angle, as upstream).
 //!
 //! # Transcendentals
 //!
@@ -53,6 +62,7 @@
 //!
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`).
 
+use crate::esi_octree::{LineShapes, Octree, OctreeShapes, TreeBox, V};
 use crate::io::poly_mesh::face_centre_and_area;
 use crate::primitives::{Vector3, GREAT, ROOT_VSMALL, SMALL, VSMALL};
 use petir::mathf::RealMath;
@@ -339,21 +349,65 @@ fn segment_triangle_hit(
     Some((t, tri.a + edge1 * u + edge2 * v))
 }
 
-/// Nearest hit of a segment with the wall: `(face index, hit point)`.
-fn nearest_hit(start: Vector3, end: Vector3, tris: &[WallTriangle]) -> Option<(usize, Vector3)> {
-    let mut best: Option<(f64, usize, Vector3)> = None;
-    for t in tris {
-        if let Some((par, pt)) = segment_triangle_hit(start, end, t) {
-            let better = match best {
-                Some((bp, _, _)) => par < bp,
-                None => true,
-            };
-            if better {
-                best = Some((par, t.face, pt));
+/// The wall triangles as the shapes of an `indexedOctree<treeDataTriSurface>`.
+struct WallShapes {
+    tris: Vec<WallTriangle>,
+}
+
+fn arr(p: Vector3) -> V {
+    [p.x, p.y, p.z]
+}
+
+impl OctreeShapes for WallShapes {
+    fn len(&self) -> usize {
+        self.tris.len()
+    }
+
+    /// `treeDataPrimitivePatch::overlaps(index, searchBox)`: quick bound-box rejection, then the
+    /// triangle/box test.
+    fn overlaps_box(&self, index: usize, bb: &TreeBox) -> bool {
+        let t = &self.tris[index];
+        let (a, b, c) = (arr(t.a), arr(t.b), arr(t.c));
+        for d in 0..3 {
+            let lo = a[d].min(b[d]).min(c[d]);
+            let hi = a[d].max(b[d]).max(c[d]);
+            if !(bb.min[d] <= hi && lo <= bb.max[d]) {
+                return false;
             }
         }
+        bb.intersects_triangle(a, b, c)
     }
-    best.map(|(_, face, pt)| (face, pt))
+}
+
+impl LineShapes for WallShapes {
+    /// `treeDataPrimitivePatch::findIntersection`.
+    fn find_intersection(&self, index: usize, start: V, end: V) -> Option<V> {
+        let s = Vector3::new(start[0], start[1], start[2]);
+        let e = Vector3::new(end[0], end[1], end[2]);
+        segment_triangle_hit(s, e, &self.tris[index]).map(|(_, p)| arr(p))
+    }
+}
+
+/// The `triSurfaceSearch::tree()` of the wall surface: `maxTreeDepth 10`, leaf size 10, duplicity
+/// 3, bounds of the used points inflated by `Random(65431)` (1e-4, ROOTVSMALL).
+fn wall_tree(tris: Vec<WallTriangle>) -> Octree<WallShapes> {
+    let mut pts: Vec<V> = Vec::with_capacity(3 * tris.len());
+    for t in &tris {
+        pts.push(arr(t.a));
+        pts.push(arr(t.b));
+        pts.push(arr(t.c));
+    }
+    let bb = TreeBox::search_domain(&pts);
+    Octree::new(WallShapes { tris }, bb, 10, 10, 3.0)
+}
+
+/// `distributedTriSurfaceMesh::findLine` of one ray (serial: `triSurfaceMesh::findLine`, i.e.
+/// `indexedOctree::findLine`): the face and point of the first hit.
+fn nearest_hit(start: Vector3, end: Vector3, tree: &Octree<WallShapes>) -> Option<(usize, Vector3)> {
+    tree.find_line(arr(start), arr(end)).map(|h| {
+        let p = h.point;
+        (tree.shapes().tris[h.index].face, Vector3::new(p[0], p[1], p[2]))
+    })
 }
 
 /// `shootRays.H` for one candidate ray: is `target` visible from `source`?
@@ -362,7 +416,7 @@ fn ray_is_visible(
     target: usize,
     start: Vector3,
     end: Vector3,
-    tris: &[WallTriangle],
+    tris: &Octree<WallShapes>,
 ) -> bool {
     let mut cur_start = start;
     let mut cur_end = end;
@@ -388,23 +442,29 @@ fn ray_is_visible(
     false
 }
 
-/// Generate `F` and `globalFaceFaces` for un-agglomerated wall patches (3-D).
-///
-/// `viewFactorsGen` with no `finalAgglom` in `constant/`, serial, `-DNO_CGAL`.
-///
-/// # Errors
-/// Returns a message when a face has fewer than 3 vertices or a vertex index is out of range.
-pub fn generate_view_factors(
-    input: &ViewFactorGenInput,
-    settings: ViewFactorGenSettings,
-) -> Result<GeneratedViewFactors, String> {
-    let mut face_verts: Vec<&Vec<usize>> = Vec::new();
+/// Everything `viewFactorsGen` builds before it shoots rays.
+struct Prepared {
+    /// Vertex loops of the wall faces, patch by patch.
+    face_verts: Vec<Vec<usize>>,
+    /// Mesh `Cf` (`primitiveMesh::makeFaceCentresAndAreas`): used by the quadrature.
+    cf_mesh: Vec<Vector3>,
+    /// Face area vectors `Sf`.
+    sf: Vec<Vector3>,
+    /// `face::centre`: the coarse-face centre used by the candidate rays.
+    cf: Vec<Vector3>,
+    /// The octree over the wall triangles.
+    tree: Octree<WallShapes>,
+}
+
+/// Validate the input, compute the face geometry and build the wall octree.
+fn prepare_wall(input: &ViewFactorGenInput) -> Result<Prepared, String> {
+    let mut face_verts: Vec<Vec<usize>> = Vec::new();
     for patch in &input.patch_faces {
         for f in patch {
             if f.len() < 3 || f.iter().any(|&v| v >= input.points.len()) {
                 return Err(format!("bad face {f:?}"));
             }
-            face_verts.push(f);
+            face_verts.push(f.clone());
         }
     }
     let n = face_verts.len();
@@ -419,10 +479,10 @@ pub fn generate_view_factors(
         sf.push(s);
         cf.push(face_centre_of(&input.points, f));
     }
-    let mut tris = Vec::new();
+    let mut tri_list = Vec::new();
     for (k, f) in face_verts.iter().enumerate() {
         for t in face_triangles(&input.points, f) {
-            tris.push(WallTriangle {
+            tri_list.push(WallTriangle {
                 a: input.points[t[0]],
                 b: input.points[t[1]],
                 c: input.points[t[2]],
@@ -431,6 +491,65 @@ pub fn generate_view_factors(
         }
     }
 
+    let tree = wall_tree(tri_list);
+    Ok(Prepared { face_verts, cf_mesh, sf, cf, tree })
+}
+
+/// One candidate ray of `shootRays.H` with the result of its first `findLine`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RayFirstHit {
+    /// Source face (local index).
+    pub source: usize,
+    /// Target face.
+    pub target: usize,
+    /// Ray start `fc + 0.001 d`.
+    pub start: Vector3,
+    /// Ray end `fc + 0.999 d`.
+    pub end: Vector3,
+    /// First hit of the segment with the wall: `(face, point)`, `None` for a miss.
+    pub hit: Option<(usize, Vector3)>,
+}
+
+/// Every candidate ray (`(d & fA) < 0 && (d & remA) > 0`), in upstream's order (source ascending,
+/// target ascending), with its first `findLine` result. Diagnostic for comparing with
+/// upstream's `findLine` ray by ray (gh:#1564).
+///
+/// # Errors
+/// As [`generate_view_factors`].
+pub fn trace_candidate_rays(input: &ViewFactorGenInput) -> Result<Vec<RayFirstHit>, String> {
+    let w = prepare_wall(input)?;
+    let n = w.face_verts.len();
+    let mut out = Vec::new();
+    for i in 0..n {
+        let fc = w.cf[i];
+        for j in 0..n {
+            if i == j {
+                continue;
+            }
+            let d = w.cf[j] - fc;
+            if d.dot(w.sf[i]) < 0.0 && d.dot(w.sf[j]) > 0.0 {
+                let start = fc + d * 0.001;
+                let end = fc + d * 0.999;
+                let hit = nearest_hit(start, end, &w.tree);
+                out.push(RayFirstHit { source: i, target: j, start, end, hit });
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Generate `F` and `globalFaceFaces` for un-agglomerated wall patches (3-D).
+///
+/// `viewFactorsGen` with no `finalAgglom` in `constant/`, serial, `-DNO_CGAL`.
+///
+/// # Errors
+/// Returns a message when a face has fewer than 3 vertices or a vertex index is out of range.
+pub fn generate_view_factors(
+    input: &ViewFactorGenInput,
+    settings: ViewFactorGenSettings,
+) -> Result<GeneratedViewFactors, String> {
+    let Prepared { face_verts, cf_mesh, sf, cf, tree: tris } = prepare_wall(input)?;
+    let n = face_verts.len();
     // candidate rays and visibility, row by row, ascending target
     let mut visible: Vec<Vec<usize>> = vec![Vec::new(); n];
     for i in 0..n {

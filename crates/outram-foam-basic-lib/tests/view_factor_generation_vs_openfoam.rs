@@ -19,7 +19,7 @@
 
 use outram_foam_basic_lib::primitives::Vector3;
 use outram_foam_basic_lib::view_factor_generation::{
-    generate_view_factors, write_label_list_list_file, write_map_dist_file,
+    generate_view_factors, trace_candidate_rays, write_label_list_list_file, write_map_dist_file,
     write_scalar_list_list_file, ViewFactorGenInput, ViewFactorGenSettings,
 };
 use outram_foam_basic_lib::view_factor_radiation::{parse_label_list_list, parse_scalar_list_list};
@@ -215,18 +215,92 @@ fn convex_cases_are_bit_and_byte_identical_to_viewfactorsgen() {
     }
 }
 
-/// Non-convex L enclosure (rays blocked at the re-entrant corner): the visible lists of 119 of
-/// 126 rows equal upstream's; the others differ only by pairs of PARALLEL faces whose
-/// candidacy is rounding noise (V&V record). F on every pair both sides list is bit-identical.
+/// Non-convex L enclosure (rays blocked at the re-entrant corner, in-plane faces whose candidacy
+/// is rounding noise). ~~gh:#1564: 119/126 rows, 7 upstream-only pairs + 1 Rust-only, with
+/// brute-force visibility~~ **CORRECTED 2026-11-14** - with the octree `findLine` port
+/// (`outram_foam_basic_lib::esi_octree`) all 126 visible lists, all 10,886 `F` entries and all
+/// three files are identical to upstream's, byte for byte. Cause and numbers:
+/// `verification_and_validation/upstream_view_factor_gh1529/README.md`, "gh:#1564".
 #[test]
-fn lshape_obstruction_case_pinned_residual() {
+fn lshape_non_convex_case_is_bit_and_byte_identical_to_viewfactorsgen() {
     let o = run("lshape");
     println!(
         "lshape: rows {} lists-equal {} pairs up {} rust {} common {} bit-identical {} worst-rel {:e}",
         o.rows, o.lists_equal, o.pairs_up, o.pairs_rust, o.pairs_common, o.common_identical, o.worst_rel
     );
     assert_eq!(o.rows, 126);
-    assert_eq!(o.lists_equal, 119);
-    assert_eq!(o.common_identical, o.pairs_common);
-    assert!(o.map_bytes_equal);
+    assert_eq!(o.lists_equal, 126);
+    assert_eq!(o.pairs_up, 10886);
+    assert_eq!(o.pairs_rust, 10886);
+    assert_eq!(o.common_identical, 10886);
+    assert!(o.f_bytes_equal && o.gff_bytes_equal && o.map_bytes_equal);
+}
+
+fn gunzip_probe(name: &str) -> String {
+    let path = format!(
+        "{}/verification_and_validation/upstream_view_factor_gh1529/reference/probe_1564/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        name
+    );
+    let data = std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
+    let body = &data[10..data.len() - 8];
+    String::from_utf8(miniz_oxide::inflate::decompress_to_vec(body).expect("inflate")).unwrap()
+}
+
+/// Ray-by-ray differential against upstream's own `findLine` (gh:#1564). `lshape_rays.txt.gz` is
+/// the `RAY` output of a printf-instrumented ESI `viewFactorsGen` (`probe_1564/`): for each of the
+/// 12,278 candidate rays the start, end, hit flag, hit face and hit point at `%.17g`. All must
+/// equal `trace_candidate_rays` bit for bit. (The brute-force search of the first version
+/// differed on 161 rays.)
+#[test]
+fn lshape_every_candidate_ray_first_hit_equals_upstream_find_line() {
+    let points = parse_points(&gunzip_file("lshape", "points"));
+    let faces = parse_faces(&gunzip_file("lshape", "faces"));
+    let patches = parse_patches(&gunzip_file("lshape", "boundary"));
+    let patch_faces: Vec<Vec<Vec<usize>>> = patches
+        .iter()
+        .map(|&(start, n)| faces[start..start + n].to_vec())
+        .collect();
+    let rays = trace_candidate_rays(&ViewFactorGenInput {
+        points,
+        patch_faces,
+    })
+    .expect("trace");
+    let text = gunzip_probe("lshape_rays.txt.gz");
+    let lines: Vec<&str> = text.lines().filter(|l| l.starts_with("RAY ")).collect();
+    assert_eq!(lines.len(), rays.len());
+    assert_eq!(rays.len(), 12278);
+    let f = |t: &str| t.parse::<f64>().unwrap().to_bits();
+    let mut bad = 0;
+    for (line, r) in lines.iter().zip(&rays) {
+        // RAY i j s x y z e x y z hit H idx I agg A p x y z
+        let t: Vec<&str> = line.split_whitespace().collect();
+        assert_eq!(
+            (t[1].parse::<usize>().unwrap(), t[2].parse::<usize>().unwrap()),
+            (r.source, r.target)
+        );
+        let same_ends = f(t[4]) == r.start.x.to_bits()
+            && f(t[5]) == r.start.y.to_bits()
+            && f(t[6]) == r.start.z.to_bits()
+            && f(t[8]) == r.end.x.to_bits()
+            && f(t[9]) == r.end.y.to_bits()
+            && f(t[10]) == r.end.z.to_bits();
+        assert!(same_ends, "ray {} -> {} start/end", r.source, r.target);
+        let up_hit = t[12] == "1";
+        let same_hit = match r.hit {
+            None => !up_hit,
+            Some((face, p)) => {
+                up_hit
+                    && t[16].parse::<usize>().unwrap() == face
+                    && f(t[18]) == p.x.to_bits()
+                    && f(t[19]) == p.y.to_bits()
+                    && f(t[20]) == p.z.to_bits()
+            }
+        };
+        if !same_hit {
+            bad += 1;
+        }
+    }
+    println!("lshape rays: {} compared, {} differ", rays.len(), bad);
+    assert_eq!(bad, 0);
 }

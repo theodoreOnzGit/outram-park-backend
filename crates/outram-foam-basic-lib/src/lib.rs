@@ -84,6 +84,9 @@ pub mod radiation;
 pub mod view_factor_radiation;
 /// `viewFactorsGen` view-factor generator (ESI v2506), serial, no agglomeration (gh:#1540).
 pub mod view_factor_generation;
+
+/// `indexedOctree` of ESI v2506 (build, `findNearest`, `findLine`), moved here from `outram-foam-mesh` for gh:#1564.
+pub mod esi_octree;
 /// Layer 1a — dimensionless scalar constants and the tensor-algebra
 /// primitives (`Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`).
 pub mod primitives;
