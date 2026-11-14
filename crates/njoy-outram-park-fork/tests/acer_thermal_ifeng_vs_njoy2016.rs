@@ -37,6 +37,19 @@
 //! **5.0e-5** / **3.9e-5**. The headline numbers above are the worst over the
 //! whole block, including the endpoints — the breakdown is reported beside
 //! them, never instead of them.
+//!
+//! ## Results (2026-11-14, gh:#1366 §2 item 3)
+//!
+//! The 2026-09-22 `IFENG = 2` Al-27 numbers above are superseded. Against
+//! NJOY2016's `iwt = 2` table regenerated from the same deck
+//! (`reference-data/acer/al27_20k_thermal_tol0p05_iwt2_njoy2016.ace.gz`,
+//! NJOY2016 2016.80; its ITXE layout equals the 2016.79 CSV's in all 106 rows),
+//! **all 200 054 ITXE words are identical as printed** (`1pE20.11`): the
+//! 6.517e-6 CDF and the 106 endpoint `E'` differences are gone. The 2026-10-14
+//! `tpend`/`acesix` fixes (#865) removed them; this file was not re-measured
+//! then. Predicted on gh:#1366 before the run. Gate:
+//! `ifeng2_itxe_block_is_njoy2016s_in_every_word`, no tolerance. The graphite
+//! row and `IFENG = 1` were not re-measured here.
 
 use njoy_outram_park_fork::acer::thermal::{nxs, InelasticForm, ThermalAceOptions};
 use njoy_outram_park_fork::acer::AceTable;
@@ -256,4 +269,62 @@ fn ifeng1_is_skewed_and_declares_itself() {
          of {n} ITXE words differ from the equiprobable build"
     );
     eprintln!("[ifeng1] {differing} of {n} ITXE words differ from the IFENG=0 build");
+}
+
+/// **The continuous form's whole emission block (ITXE) against NJOY2016's, word
+/// for word, on the route without the incident PENDF** (gh:#1366 §2 item 3).
+///
+/// Reference: `reference-data/acer/al27_20k_thermal_tol0p05_iwt2_njoy2016.ace.gz`,
+/// NJOY2016 2016.80 on the deck `thermal_decks/al27_20k_tol0p05_iwt2.njoy`
+/// (THERMR `tol = 0.05`, this route's [`CALCEM_TOL`]). Every ITXE word, locators,
+/// counts, `E'`, pdf, cdf and the 16 cosines of each of the 10 518 points, is
+/// compared as NJOY's Type-1 file prints it (`1pE20.11`). No tolerance.
+///
+/// ITXE does not depend on the PENDF: at a tabulated temperature and the same
+/// `tol` both routes run the same `calcem` and `acesix`, so this is the whole
+/// of what the 2026-09-22 "CDF 6.5e-6, 106 endpoint `E'`" measurement compared.
+/// Result 2026-11-14: identical, predicted on gh:#1366 before the run.
+///
+/// [`CALCEM_TOL`]: njoy_outram_park_fork::acer::thermal::CALCEM_TOL
+#[test]
+fn ifeng2_itxe_block_is_njoy2016s_in_every_word() {
+    use njoy_outram_park_fork::acer::read;
+    use njoy_outram_park_fork::acer::thermal::{jxs, CALCEM_TOL};
+    use njoy_outram_park_fork::reference_data::reference_data_dir;
+    const TABLE: &str = "al27_20k_thermal_tol0p05_iwt2_njoy2016.ace.gz";
+    let path = reference_data_dir("acer").join(TABLE);
+    let Ok(bytes) = std::fs::read(&path) else {
+        assert!(!reference_data_required(), "[ifeng2-words] {TABLE} absent");
+        return;
+    };
+    assert_eq!(CALCEM_TOL, 0.05, "the reference deck's THERMR tol");
+    let njoy = read::read_library_from_bytes(bytes, TABLE).expect("parse").pop().expect("one table");
+    let itie = (njoy.jxs[jxs::ITIE] - 1) as usize;
+    let nei = njoy.xss[itie] as usize;
+    let grid_ev: Vec<f64> = njoy.xss[itie + 1..itie + 1 + nei].iter().map(|e| e * EMEV).collect();
+    let Some(ace) = build(InelasticForm::Continuous, &grid_ev) else {
+        assert!(!reference_data_required(), "[ifeng2-words] tsl tape absent");
+        return;
+    };
+    // ITXE runs to the next block, ITCE (Al-27 is coherent elastic).
+    let span = |jx: &[i32]| ((jx[jxs::ITXE] - 1) as usize, (jx[jxs::ITCE] - 1) as usize);
+    let (n0, n1) = span(&njoy.jxs);
+    let (o0, o1) = span(&ace.jxs);
+    assert_eq!((o0, o1), (n0, n1), "ITXE start and end, as XSS indices");
+    let printed = |x: f64| format!("{x:.11e}");
+    let differing: Vec<usize> = (n0..n1).filter(|&k| printed(ace.xss[k]) != printed(njoy.xss[k])).collect();
+    println!(
+        "[ifeng2-words] ITXE {} words, {} differing as printed (1pE20.11)",
+        n1 - n0,
+        differing.len()
+    );
+    if let Some(&k) = differing.first() {
+        panic!(
+            "{} of {} ITXE words differ from NJOY2016's; first at XSS {k}: ours {:e} NJOY {:e}",
+            differing.len(),
+            n1 - n0,
+            ace.xss[k],
+            njoy.xss[k]
+        );
+    }
 }

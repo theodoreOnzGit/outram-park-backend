@@ -649,7 +649,14 @@ about the algorithm rather than about the data. It also makes a **positional**
 comparison legitimate, and taken that way the disagreement is **exactly one
 point per incident energy** — the last one, where the two codes' outgoing
 ranges end. The 10 412 interior points agree to **4.2e-7** in `E'` and 5e-5 in
-cosine; the CDF agrees to 6.5e-6 everywhere.
+cosine; the CDF agrees to 6.5e-6 everywhere. ~~(2026-09-22)~~ **CORRECTED
+2026-11-14 (gh:#1366):** none of that difference is left. Re-measured against
+an NJOY2016 `iwt = 2` table regenerated from the same deck
+(`reference-data/acer/al27_20k_thermal_tol0p05_iwt2_njoy2016.ace.gz`), all
+200 054 ITXE words are identical as printed, endpoints included
+(`ifeng2_itxe_block_is_njoy2016s_in_every_word`), and the table on the incident
+PENDF is NJOY's in every word (`acer_thermal_word_parity.rs`). The #865
+`tpend`/`acesix` fixes removed it.
 
 **A stored density may be negative, and upstream's is.** The gate bounds the
 magnitude, not the sign, because **NJOY's own Al-27 table carries 7 negative
