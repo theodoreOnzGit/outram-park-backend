@@ -19,7 +19,7 @@ use bugis::web_demo::link::Link;
 use bugis::web_demo::panel::Panel;
 use bugis::web_demo::platform::{query_pairs, set_title};
 use bugis::web_demo::view::{apply_zoom, zoom_buttons, View};
-use bugis::components::{MsreLayout, MsreOrientation, MsrePlantScalars, MsrePlantSchematic};
+use bugis::components::{MsreLayout, MsrePlantScalars, MsrePlantSchematic};
 use egui::{Align2, FontId, Pos2, Rect, RichText, Vec2};
 use uom::si::f64::{Power, Ratio, ThermodynamicTemperature};
 use uom::si::power::megawatt;
@@ -77,9 +77,10 @@ impl App {
             theme: bugis::Theme::default(),
             link,
             panel: Panel::default(),
-            // The schematic (bugis MsrePlantSchematic) spans 17 x 10 drawing units,
-            // centred on the origin.
-            view: View::new(9.0).with_home([0.0, 0.0]),
+            // The plant drawing (bugis MsrePlantSchematic) spans 63 x 40 ft,
+            // centred on the origin; the half-extent is refitted to the
+            // screen's aspect before each fit.
+            view: View::new(0.5 * bugis::components::msre_plant::EXTENT_FT.0 as f64).with_home([0.0, 0.0]),
             tab: Tab::Plant,
             snap: None,
             history: Vec::new(),
@@ -228,10 +229,10 @@ impl App {
             ui.painter().text(rect.center(), Align2::CENTER_CENTER, "Starting the plant…", FontId::proportional(18.0), ui.visuals().text_color());
             return;
         };
-        // The plant schematic from the widget library (bugis), after
-        // ORNL-TM-0728 Fig. 2.1, transposed on a tall screen.
-        let orientation = if rect.height() > rect.width() * 1.2 { MsreOrientation::Portrait } else { MsreOrientation::Landscape };
-        let ext = MsreLayout::extent(orientation);
+        // The plant elevation view from the widget library (bugis), drawn
+        // from TM-0728's stated dimensions; the same landscape layout on
+        // every screen, so the drain tanks stay below the reactor.
+        let ext = MsreLayout::extent();
         let (hw, hh) = (0.5 * ext.x as f64, 0.5 * ext.y as f64);
         let at = Rect::from_two_pos(self.view.to_screen(rect, -hw, hh), self.view.to_screen(rect, hw, -hh));
         let f = ThermodynamicTemperature::new::<degree_fahrenheit>;
@@ -254,7 +255,7 @@ impl App {
             cold: f(T_COLD_F),
             hot: f(T_HOT_F),
         };
-        MsrePlantSchematic::new(scalars).with_orientation(orientation).paint(&ui.painter().with_clip_rect(rect), at);
+        MsrePlantSchematic::new(scalars).paint(&ui.painter().with_clip_rect(rect), at);
         // Readouts the drawing does not carry.
         let lines = [
             format!("ρ {:+.1} pcm: rods {:+.1}{}, feedback {:+.1}", s.reactivity_pcm, s.rod_pcm, if s.servo != 0.0 { " (servo)" } else { "" }, s.feedback_pcm),
@@ -380,6 +381,8 @@ impl eframe::App for App {
                 Tab::Plant => {
                     let resp = ui.interact(rect, ui.id().with("plant"), egui::Sense::click_and_drag());
                     let fit_rect = rect.shrink2(Vec2::new(0.0, 56.0));
+                    // The whole elevation view fits, wide screen or phone.
+                    self.view.half_extent = MsreLayout::half_extent_to_fit(fit_rect.size());
                     if !self.view.fitted || (!self.view.touched && self.view.fit_size != fit_rect.size()) {
                         self.view.fit(fit_rect);
                     }
