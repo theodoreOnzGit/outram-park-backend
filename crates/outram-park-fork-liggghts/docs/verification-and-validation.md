@@ -1901,7 +1901,7 @@ partly across the plate counts as the volume-weight share of its member atoms
 `multisphere.rs`):
 - ~~`spheres file`,~~ `spheres_different_types`, `bonded`;
 - ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`~~ (**CORRECTED 2026-11-14:** ported, 4.16.2);
-- ~~`fflag`/`tflag` off,~~ `multisphere/nointegration`, `concave`,
+- ~~`fflag`/`tflag` off,~~ ~~`multisphere/nointegration`~~ (**CORRECTED 2026-11-14:** ported, 4.16.2), `concave`,
   `CAddRhoFluid`;
 - periodic images of bodies (`remap_bodies`) ~~and lost-atom/body deletion. The
   decks end before a clump leaves the box, and removing particles from a
@@ -2035,7 +2035,8 @@ misses when the option it tests is switched off, so each gate can fail:
 - `fix remove`'s `delete_bodies` callback; periodic bodies;
 - `spheres_different_types`, `bonded`, ~~`mass`/`inertia_tensor`~~
   (**CORRECTED 2026-11-14:** ported, 4.16.2);
-- `multisphere/nointegration`, `concave`, `multisphere/break`;
+- ~~`multisphere/nointegration`,~~ `concave`, `multisphere/break`
+  (**CORRECTED 2026-11-14:** `nointegration` ported, 4.16.2);
 - clumps from `insert/stream`; restart; ~~a second `run` set-up with clumps~~
   (**CORRECTED 2026-11-14:** ported, 4.16.2).
 
@@ -2067,6 +2068,7 @@ every value. Each gate is shown to fail with its option ablated.
 |---|---|---|---|
 | `ms_mass` | `ms_collide` with type 1 `mass 1.5e-3 inertia_tensor ... use_volume` and type 2 `mass 5.0e-4 inertia_tensor ... use_density` (`ParticleTemplateMultisphere::new_with_mass_inertia`) | **70 / 70** atom-frames bit-identical (630 values) | Monte-Carlo templates: **0 / 70** |
 | `ms_rerun` | `ms_collide` with a second `run` (a new set-up) at step 10100 (`GranularSystem::begin_run`); 13 frames | **91 / 91** atom-frames bit-identical (819 values) | one continuous run: **73 / 91**; `begin_run` without the body re-sum: **73 / 91** |
+| `ms_noint` | `ms_collide` with `fix nve/sphere` and `fix multisphere/nointegration` (`GranularSystem::with_multisphere_nointegration`): frozen bodies, member atoms fly as free spheres without gravity; every atom leaves the box between steps 12000 and 14000 (lost-atom path) | **63 / 63** atom-frames bit-identical, and the empty step-15000 frame | the integrating `fix multisphere`: **0 / 7** at step 1 |
 | `ms_refl` | `ms_rerun` with `fix_modify ms fflag off on on` and `fix_modify ms tflag on off on` before the second run (`GranularSystem::fix_modify_multisphere`) | **91 / 91** atom-frames bit-identical | without the `fix_modify`: **69 / 91** |
 
 **`mass` / `inertia_tensor` (`FixTemplateMultisphere::post_create`).**

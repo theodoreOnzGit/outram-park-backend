@@ -215,3 +215,11 @@ rerun() {
 { header; echo "$PTS1"; echo "$PTS2"; echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"
   rerun "fix_modify	ms fflag off on on
 fix_modify	ms tflag on off on"; } > in.ms_refl
+# ms_noint: ms_collide with `fix multisphere/nointegration` and `fix nve/sphere`
+# (defined first): the bodies are frozen, the member atoms fly as free spheres
+# with the clump mass, no gravity and no intra-clump pairs.
+{ header; echo "$PTS1"; echo "$PTS2"
+  echo "$COLLIDE_INS" | sed 's|^fix		ms all multisphere$|fix		integr all nve/sphere\
+fix		ms all multisphere/nointegration|'
+  echo "$COLLIDE_THERMO"
+  frames 1 2000 4000 5000 6000 7000 8000 10000 12000 15000; } > in.ms_noint

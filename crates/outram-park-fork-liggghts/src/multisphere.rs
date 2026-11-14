@@ -112,7 +112,7 @@
 //! `spheres_different_types`, `bonded`,
 //! ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`,~~ ~~`fflag`/`tflag` off,~~
 //! ~~`fix_modify <ms> fflag|tflag`,~~
-//! `fix multisphere/nointegration`, `concave`, `CAddRhoFluid`,
+//! ~~`fix multisphere/nointegration`,~~ `concave`, `CAddRhoFluid`,
 //! `allow_heatsource`; periodic images of bodies (`remap_bodies`), ~~lost-atom
 //! deletion (`check_lost_atoms` / `delflag`),~~ `fix remove`'s
 //! `delete_bodies`, `fix multisphere/break`,
@@ -126,7 +126,9 @@
 //! set-up with clumps is
 //! [`crate::granular_system::GranularSystem::begin_run`], and
 //! `fix_modify <ms> fflag|tflag` is
-//! [`crate::granular_system::GranularSystem::fix_modify_multisphere`]
+//! [`crate::granular_system::GranularSystem::fix_modify_multisphere`];
+//! `fix multisphere/nointegration` is [`Multisphere::without_integration`]
+//! ([`crate::granular_system::GranularSystem::with_multisphere_nointegration`])
 //! (V&V 4.16.2).
 //! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
 //! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
@@ -1380,6 +1382,8 @@ pub struct Multisphere {
     /// `next_reneighbor` of the fix (a forced list rebuild step).
     next_reneighbor: Option<u64>,
     dt: f64,
+    /// `false` for `fix multisphere/nointegration`.
+    integrate: bool,
 }
 
 impl Multisphere {
@@ -1394,7 +1398,22 @@ impl Multisphere {
             delflag: Vec::new(),
             next_reneighbor: None,
             dt,
+            integrate: true,
         }
+    }
+
+    /// `fix multisphere/nointegration` (gh:#1415): `initial_integrate`
+    /// returns at once (no kick, no drift, no `set_xv`) and `final_integrate`
+    /// returns after `calc_force` (no kick, no `set_v`), as upstream's
+    /// `strstr(style,"nointegration")` branches do. The bodies stay as
+    /// inserted; their member atoms move only by the atom integrator
+    /// (`fix nve/sphere`), carrying the clump mass, still without gravity
+    /// (`FixGravity` finds the fix by its `multisphere` prefix) and without
+    /// intra-clump pairs.
+    #[must_use]
+    pub fn without_integration(mut self) -> Self {
+        self.integrate = false;
+        self
     }
 
     /// The bodies, in local order.
@@ -1492,6 +1511,9 @@ impl Multisphere {
     /// `FixMultisphere::initial_integrate` (the body loop; `fflag`/`tflag` on,
     /// no added mass, no `insert/stream`), then `set_xv`.
     pub(crate) fn initial_integrate(&mut self, particles: &mut [Particle]) {
+        if !self.integrate {
+            return;
+        }
         let dtv = self.dt;
         let dtf = 0.5 * self.dt * 1.0;
         let dtq = 0.5 * self.dt;
@@ -1604,6 +1626,9 @@ impl Multisphere {
     /// `FixMultisphere::final_integrate` after `calc_force`: the second
     /// half-kick, `omega` from `angmom`, then `set_v`.
     pub(crate) fn final_integrate(&mut self, particles: &mut [Particle]) {
+        if !self.integrate {
+            return;
+        }
         let dtf = 0.5 * self.dt * 1.0;
         for b in &mut self.bodies {
             let add_mass_term = 1.0 + 0.0 * 0.0 / b.density;

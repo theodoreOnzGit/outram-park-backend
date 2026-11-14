@@ -1056,3 +1056,37 @@ fn ms_refl_matches_liggghts() {
     assert_eq!(same, total, "ms_refl: not bit-identical");
     assert!(unmodified < total, "ms_refl passes without the fix_modify: {unmodified}/91");
 }
+
+/// **`fix multisphere/nointegration`** (`in.ms_noint`): `ms_collide` with
+/// `fix nve/sphere` and `fix multisphere/nointegration`
+/// ([`GranularSystem::with_multisphere_nointegration`]). The bodies are not
+/// integrated; the member atoms fly as free spheres carrying the clump mass,
+/// with no gravity (`FixGravity` still finds the fix) and no intra-clump
+/// pairs. Every atom leaves the `+-x` faces between steps 12000 and 14000, so
+/// the lost-atom path runs too ([`GranularSystem::with_lost_atoms`]). Every
+/// atom at the ten `ms_collide` frames (63 atom-frames; none at 15000), on
+/// bit patterns. **Ablation:** the integrating `fix multisphere` misses
+/// every atom at step 1.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** bit-identical.
+#[test]
+fn ms_noint_matches_liggghts() {
+    let mut sys = collide_system(clump1(), clump2())
+        .with_multisphere_nointegration()
+        .unwrap()
+        .with_lost_atoms()
+        .unwrap();
+    let Some((total, same, worst)) = compare_by_tag("ms_noint", &mut sys, &COLLIDE_FRAMES) else {
+        eprintln!("skipping: reference-data/liggghts/ms_noint.csv not present");
+        return;
+    };
+    println!("ms_noint: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
+    let mut integrated = collide_system(clump1(), clump2());
+    let (_, int_same, _) = compare_by_tag("ms_noint", &mut integrated, &[1]).unwrap();
+    println!("ms_noint ablation (integrating fix multisphere) at step 1: {int_same}/7");
+    assert_eq!(total, 63);
+    assert_eq!(same, total, "ms_noint: not bit-identical (worst relative {worst:e})");
+    assert_eq!(int_same, 0, "the integrating fix also matches at step 1");
+    // the style is fixed once a clump exists
+    assert!(sys.with_multisphere_nointegration().is_err());
+}

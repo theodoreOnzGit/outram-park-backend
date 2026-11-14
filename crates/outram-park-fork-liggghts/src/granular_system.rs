@@ -307,6 +307,8 @@ pub struct GranularSystem {
     capillary: Option<crate::capillary::CapillaryState>,
     /// `fix multisphere`: created when the first clump is inserted (gh:#1415).
     multisphere: Option<crate::multisphere::Multisphere>,
+    /// The clump fix is `fix multisphere/nointegration` (gh:#1415).
+    ms_nointegration: bool,
     /// `boundary f f f` with `thermo_modify lost ignore`: the box whose
     /// leavers `Comm::exchange` drops at a rebuild
     /// ([`GranularSystem::with_lost_atoms`], gh:#1415).
@@ -473,6 +475,7 @@ impl GranularSystem {
             massflow: Vec::new(),
             capillary: None,
             multisphere: None,
+            ms_nointegration: false,
             lost_atoms_box: None,
         };
         s.compute_forces_setup();
@@ -755,6 +758,25 @@ impl GranularSystem {
             w.move_mesh_setup();
         }
         Ok(())
+    }
+
+    /// Make this system's clump fix `fix multisphere/nointegration`
+    /// ([`crate::multisphere::Multisphere::without_integration`]; gh:#1415):
+    /// the bodies are not integrated, and their member atoms move by the atom
+    /// integrator alone. Call before the first clump is inserted.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a clump already exists (upstream's fix
+    /// style is fixed when the fix is defined).
+    pub fn with_multisphere_nointegration(mut self) -> Result<Self, DemError> {
+        if self.multisphere.is_some() {
+            return Err(DemError::InvalidInput(
+                "multisphere/nointegration must be chosen before the first clump is inserted".into(),
+            ));
+        }
+        self.ms_nointegration = true;
+        Ok(self)
     }
 
     /// `FixMultisphere::setup` at a `run` set-up: the bodies' force and torque
@@ -1928,8 +1950,16 @@ impl GranularSystem {
                             self.push_inserted_atom(p, c.atom_type());
                         }
                         let dt = self.dt;
+                        let noint = self.ms_nointegration;
                         self.multisphere
-                            .get_or_insert_with(|| crate::multisphere::Multisphere::new(dt))
+                            .get_or_insert_with(|| {
+                                let ms = crate::multisphere::Multisphere::new(dt);
+                                if noint {
+                                    ms.without_integration()
+                                } else {
+                                    ms
+                                }
+                            })
                             .add_body(&c, first);
                         clumps_added = true;
                     }
