@@ -7,7 +7,10 @@ license.workspace = true
 # `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
 # write-ups. Excluded so it never ships to crates.io (size, and it is
 # not part of the published API surface).
-exclude = ["docs"]
+# Packaging: verification_and_validation/ ships only the two folders the
+# library include_str!s (multifidelity/double_pipe/{dataset,lf_grid}.rs);
+# examples and kovan's generated index are development-only.
+exclude = ["docs", "examples", "kovan_links.json", "verification_and_validation/*.md", "verification_and_validation/ciet_web", "verification_and_validation/double_pipe_filtering_gh1191", "verification_and_validation/double_pipe_koh_gh1180", "verification_and_validation/double_pipe_twin_web_gh1182"]
 description = "Reusable visualization framework for OUTRAM PARK digital twins -- visual process objects whose rendering derives directly from physics state"
 homepage.workspace = true
 repository.workspace = true

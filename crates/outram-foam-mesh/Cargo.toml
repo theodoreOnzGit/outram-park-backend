@@ -11,7 +11,7 @@ categories.workspace = true
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate. `docs/` (incl. the generated
 # docs/api.md rustdoc mirror) isn't crate content either.
-exclude = ["verification_and_validation/*.csv", "docs"]
+exclude = ["verification_and_validation", "tests/fixtures", "docs", "kovan_links.json"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and

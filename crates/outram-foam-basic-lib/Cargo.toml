@@ -15,7 +15,7 @@ categories.workspace = true
 # openfoam` is the reference OpenFOAM C++ clone kept in-repo for provenance
 # only — it is not crate content and must not be packaged (the small
 # `upstream_source/README.md` provenance record stays in the package).
-exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/openfoam"]
+exclude = ["verification_and_validation", "docs", "upstream_source/openfoam", "kovan_links.json"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
