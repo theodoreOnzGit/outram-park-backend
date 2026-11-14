@@ -634,7 +634,7 @@ mod tests {
                     if let Some(r) = mat::region_of_regional(x) {
                         regional[r] += 1;
                     }
-                    assert_eq!(a.temperature, study.temperatures.kelvin(zone_of_slot(x)));
+                    assert_eq!(a.temperature, Some(study.temperatures.kelvin(zone_of_slot(x))));
                 }
                 (fa, fb) => assert_eq!(format!("{fa:?}"), format!("{fb:?}")),
             }
@@ -677,7 +677,7 @@ mod tests {
         for c in &core.geometry.cells {
             if let CellFill::Material(x) = c.fill {
                 let want = if x == mat::GRAPHITE { 900.0 } else { 300.15 };
-                assert_eq!(c.temperature, want, "cell {}", c.id);
+                assert_eq!(c.temperature, Some(want), "cell {}", c.id);
                 moved += usize::from(x == mat::GRAPHITE);
             }
         }

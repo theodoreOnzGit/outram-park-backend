@@ -14,6 +14,7 @@
 //! Result (2026-11-14, release): all pass; see the issue comment for numbers.
 
 use super::*;
+use petir::mathf::RealMath;
 use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken, SurfaceToken};
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{Direction, Position};
@@ -34,8 +35,8 @@ fn wedge(theta_deg: f64) -> Geometry {
         // Line through the origin at polar angle `th`; normal (sin, -cos, 0)
         // is positive on the side of the angle-0 face.
         SurfaceKind::Plane(Plane {
-            a: th.sin(),
-            b: -th.cos(),
+            a: th.r_sin(),
+            b: -th.r_cos(),
             c: 0.0,
             d: 0.0,
             bc: BoundaryType::PeriodicWith(0),
@@ -132,8 +133,8 @@ fn sixty_degree_crossing_rotates_position_and_direction_together() {
     let th = 60.0_f64.to_radians();
     let rho = (c.r.x * c.r.x + c.r.y * c.r.y).sqrt();
     assert!((rho - 2.5).abs() < 1e-8, "radius {rho}");
-    assert!((c.r.y.atan2(c.r.x) - th).abs() < 1e-8, "polar angle");
-    let (s, co) = (th.sin(), th.cos());
+    assert!((c.r.y.r_atan2(c.r.x) - th).abs() < 1e-8, "polar angle");
+    let (s, co) = (th.r_sin(), th.r_cos());
     assert!((c.u.u - (co * u.u - s * u.v)).abs() < 1e-15);
     assert!((c.u.v - (s * u.u + co * u.v)).abs() < 1e-15);
     assert_eq!(c.u.w, u.w);
@@ -157,8 +158,8 @@ fn there_and_back_is_the_identity() {
         // the reverse of entering, so reflect the direction and cross back.
         let rev = Direction::new(-a.u.u, -a.u.v, -a.u.w);
         let on1 = Position::new(
-            3.0 * theta.to_radians().cos(),
-            3.0 * theta.to_radians().sin(),
+            3.0 * theta.to_radians().r_cos(),
+            3.0 * theta.to_radians().r_sin(),
             0.1,
         );
         let b = g.cross_surface(1, on1, rev, &mut 1_u64);
@@ -190,11 +191,11 @@ fn folded_straight_lines_stay_consistent_over_many_crossings() {
         for _ in 0..200 {
             let rho0 = 0.5 + 4.5 * crate::rng::lcg::prn(&mut seed);
             let phi0 = th * (0.05 + 0.9 * crate::rng::lcg::prn(&mut seed));
-            let r0 = Position::new(rho0 * phi0.cos(), rho0 * phi0.sin(), 0.0);
+            let r0 = Position::new(rho0 * phi0.r_cos(), rho0 * phi0.r_sin(), 0.0);
             let az = std::f64::consts::TAU * crate::rng::lcg::prn(&mut seed);
             let mu = 0.4 * (2.0 * crate::rng::lcg::prn(&mut seed) - 1.0);
             let sin_t = (1.0 - mu * mu).sqrt();
-            let u0 = Direction::new(sin_t * az.cos(), sin_t * az.sin(), mu);
+            let u0 = Direction::new(sin_t * az.r_cos(), sin_t * az.r_sin(), mu);
             let mut r = r0;
             let mut u = u0;
             let mut path = g.locate(r, u, SurfaceToken::NONE).unwrap();
@@ -227,8 +228,8 @@ fn folded_straight_lines_stay_consistent_over_many_crossings() {
                 let rho_big = (big.x * big.x + big.y * big.y).sqrt();
                 let rho = (r.x * r.x + r.y * r.y).sqrt();
                 assert!((rho - rho_big).abs() < 1e-6, "{theta_deg}: |r| {rho} vs {rho_big}");
-                let fold = big.y.atan2(big.x).rem_euclid(th);
-                let got = r.y.atan2(r.x).rem_euclid(th);
+                let fold = big.y.r_atan2(big.x).rem_euclid(th);
+                let got = r.y.r_atan2(r.x).rem_euclid(th);
                 let dphi = (fold - got).abs().min(th - (fold - got).abs());
                 assert!(dphi * rho < 1e-6, "{theta_deg}: polar angle {got} vs folded {fold}");
                 let radial = u.u * r.x + u.v * r.y;

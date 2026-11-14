@@ -558,6 +558,12 @@ pub fn trace_csg_history<O: FnMut(TraceEvent)>(
     seed: &mut u64,
     mut observe: O,
 ) -> f64 {
+    // Cell temperatures are the default (GitHub #313): see `run_keff_csg_par_progress`.
+    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+    let (geom, materials): (&Geometry, &[Material]) = match &bound {
+        Some((g, m)) => (g, m.as_slice()),
+        None => (geom, materials),
+    };
     let (mut bank, mut batch, mut leak_batch) = (Vec::new(), Vec::new(), Vec::new());
     transport_history_vr(
         Site::new(r, u, e),
@@ -892,6 +898,15 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
     mut leak_bins: Option<&mut Vec<TallyBin>>,
     on_generation: &mut G,
 ) -> KeffResult {
+    // Cell temperatures are the default (GitHub #313, 2026-11-14): a material
+    // cell whose declared temperature differs from its material's is pointed at
+    // a copy of that material at the cell's temperature, as OpenMC's per-cell
+    // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
+    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+    let (geom, materials): (&Geometry, &[Material]) = match &bound {
+        Some((g, m)) => (g, m.as_slice()),
+        None => (geom, materials),
+    };
     let mut seed = settings.seed;
 
     let mut source = initial_source(
@@ -991,6 +1006,10 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
         // tally as one realization (mean/variance are over active generations).
         if active {
             if let Some(t) = tally.as_deref_mut() {
+                // Report-only per-batch log (GitHub #506): reads, draws nothing.
+                if let Some(log) = &settings.tally_batch_log {
+                    log.push(&batch);
+                }
                 flush_batch(t, &mut batch);
             }
             if let Some(lb) = leak_bins.as_deref_mut() {
@@ -1216,6 +1235,15 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     thread_count: ThreadCount,
     on_generation: &mut G,
 ) -> KeffResult {
+    // Cell temperatures are the default (GitHub #313, 2026-11-14): a material
+    // cell whose declared temperature differs from its material's is pointed at
+    // a copy of that material at the cell's temperature, as OpenMC's per-cell
+    // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
+    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+    let (geom, materials): (&Geometry, &[Material]) = match &bound {
+        Some((g, m)) => (g, m.as_slice()),
+        None => (geom, materials),
+    };
     #[cfg(target_arch = "wasm32")]
     use crate::wasm_par as rayon;
 
@@ -1322,6 +1350,10 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             // tally as one realization (mean/variance over active generations).
             if active {
                 if let Some(t) = tally.as_deref_mut() {
+                    // Report-only per-batch log (GitHub #506): reads, draws nothing.
+                    if let Some(log) = &settings.tally_batch_log {
+                        log.push(&batch);
+                    }
                     flush_batch(t, &mut batch);
                 }
                 if leak_this_gen {
@@ -4079,6 +4111,15 @@ impl CsgPowerIteration {
         if self.finished {
             return None;
         }
+        // Cell temperatures are the default (GitHub #313, 2026-11-14): a material
+        // cell whose declared temperature differs from its material's is pointed at
+        // a copy of that material at the cell's temperature, as OpenMC's per-cell
+        // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
+        let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+        let (geom, materials): (&Geometry, &[Material]) = match &bound {
+            Some((g, m)) => (g, m.as_slice()),
+            None => (geom, materials),
+        };
         let n = self.settings.n_particles;
         let mut next_bank: Vec<Site> = Vec::with_capacity(n);
         let mut next_lineage: Vec<IfpLineage> = Vec::new();
@@ -4187,6 +4228,15 @@ impl CsgPowerIteration {
         if self.finished {
             return None;
         }
+        // Cell temperatures are the default (GitHub #313, 2026-11-14): a material
+        // cell whose declared temperature differs from its material's is pointed at
+        // a copy of that material at the cell's temperature, as OpenMC's per-cell
+        // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
+        let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+        let (geom, materials): (&Geometry, &[Material]) = match &bound {
+            Some((g, m)) => (g, m.as_slice()),
+            None => (geom, materials),
+        };
         let chunks = transport_generation_par(
             &self.source,
             geom,

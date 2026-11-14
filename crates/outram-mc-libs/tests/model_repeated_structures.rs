@@ -173,8 +173,8 @@ fn assert_same_geometry(ours: &Geometry, hand: &Geometry) {
         assert_eq!(a.region, b.region, "cell {i} region");
         assert_eq!(a.fill, b.fill, "cell {i} fill");
         assert_eq!(
-            a.temperature.to_bits(),
-            b.temperature.to_bits(),
+            a.temperature.map(f64::to_bits),
+            b.temperature.map(f64::to_bits),
             "cell {i} T"
         );
         assert_eq!(

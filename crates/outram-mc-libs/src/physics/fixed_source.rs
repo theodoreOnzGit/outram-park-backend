@@ -197,6 +197,9 @@ pub struct FixedSourceSettings {
     /// `STREAM_TRACKING`, the URR bands from `STREAM_URR_PTABLE`
     /// (gh:#1386, `initialize_history`, `src/simulation.cpp`).
     pub seeding: crate::rng::openmc_seeding::SeedingMode,
+    /// Report-only log of each batch's tally bin sums (GitHub #506); `None`
+    /// (the default) records nothing. Never read by transport.
+    pub tally_batch_log: Option<crate::stats::correlated_sigma::TallyBatchLog>,
 }
 
 impl FixedSourceSettings {
@@ -217,6 +220,7 @@ impl Default for FixedSourceSettings {
             seed: 1,
             max_secondaries: 10_000,
             seeding: Default::default(),
+            tally_batch_log: None,
         }
     }
 }
@@ -306,6 +310,12 @@ pub fn run_fixed_source_traced(
     // cell its tally is about.
     distribcell: Option<&crate::geometry::distribcell::DistribcellOffsets>,
 ) -> FixedSourceResult {
+    // Cell temperatures are the default (GitHub #313): see `run_keff_csg_par_progress`.
+    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+    let (geom, materials): (&Geometry, &[Material]) = match &bound {
+        Some((g, m)) => (g, m.as_slice()),
+        None => (geom, materials),
+    };
     let mut seed = settings.seed;
     let n_bins = tally.as_ref().map(|t| t.n_bins()).unwrap_or(0);
     let mut batch = vec![0.0; n_bins];
@@ -406,6 +416,10 @@ pub fn run_fixed_source_traced(
         done += this_batch;
         // Close this batch as one tally realization.
         if let Some(t) = tally.as_deref_mut() {
+            // Report-only per-batch log (GitHub #506): reads, draws nothing.
+            if let Some(log) = &settings.tally_batch_log {
+                log.push(&batch);
+            }
             flush_batch(t, &mut batch);
         }
     }

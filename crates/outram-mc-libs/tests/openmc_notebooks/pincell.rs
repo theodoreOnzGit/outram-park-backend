@@ -677,7 +677,7 @@ fn uo2_pincell_geometry() -> Geometry {
             RegionToken::Intersection,
         ],
         fill: CellFill::Void,
-        temperature: T,
+        temperature: Some(T),
         translation: Position::ZERO,
         tracking: None,
     };

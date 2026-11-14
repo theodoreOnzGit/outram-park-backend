@@ -218,7 +218,7 @@ fn assert_same_geometry(ours: &Geometry, hand: &Geometry) {
     for (i, (a, b)) in ours.cells.iter().zip(&hand.cells).enumerate() {
         assert_eq!(a.region, b.region, "cell {i} region");
         assert_eq!(a.fill, b.fill, "cell {i} fill");
-        assert_eq!(a.temperature.to_bits(), b.temperature.to_bits());
+        assert_eq!(a.temperature.map(f64::to_bits), b.temperature.map(f64::to_bits));
         assert_eq!(
             format!("{:?}", a.translation),
             format!("{:?}", b.translation),

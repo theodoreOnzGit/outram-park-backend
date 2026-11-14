@@ -865,16 +865,16 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 
     // Universe 1 -- fuelled pebble. Universe 2 -- dummy pebble. Both sit in
     // tile-local coordinates, so the spheres are shared.
-    let fuel_zone = Cell::material(10, vec![ins(1)], mat::FUEL, 293.6);
+    let fuel_zone = Cell::material(10, vec![ins(1)], mat::FUEL, None);
     let fuel_shell = Cell::material(
         11,
         vec![out(1), ins(0), RegionToken::Intersection],
         mat::GRAPHITE,
-        293.6,
+        None,
     );
-    let fuel_helium = Cell::material(12, vec![out(0)], mat::HELIUM, 293.6);
-    let dummy_ball = Cell::material(13, vec![ins(0)], mat::GRAPHITE, 293.6);
-    let dummy_helium = Cell::material(14, vec![out(0)], mat::HELIUM, 293.6);
+    let fuel_helium = Cell::material(12, vec![out(0)], mat::HELIUM, None);
+    let dummy_ball = Cell::material(13, vec![ins(0)], mat::GRAPHITE, None);
+    let dummy_helium = Cell::material(14, vec![out(0)], mat::HELIUM, None);
 
     // The bed: a cylinder, DELTA-tracked, filled by the hex lattice.
     let bed_region = vec![
@@ -902,7 +902,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     refl_region.extend(bed_region);
     refl_region.push(RegionToken::Complement);
     refl_region.push(RegionToken::Intersection);
-    let reflector = Cell::material(2, refl_region, mat::REFLECTOR, 293.6);
+    let reflector = Cell::material(2, refl_region, mat::REFLECTOR, None);
 
     // OUTRAM_HTR10_ALLFUEL=1 makes EVERY tile a fuelled pebble. Not physical --
     // the first critical core is 57 % fuel / 43 % graphite dummies -- but it is
@@ -1502,7 +1502,7 @@ pub(crate) fn build_tile_universes(
                     TILE_DUMMY_BALL_CELL_ID + id,
                     vec![ins(pb)],
                     moderator_slot,
-                    293.6,
+                    None,
                 ));
             }
             helium_region = Some(match helium_region {
@@ -1513,7 +1513,7 @@ pub(crate) fn build_tile_universes(
         match helium_region {
             Some(r) => {
                 idx.push(cells.len());
-                cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
+                cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, None));
             }
             None => {
                 // Every ball of the tile rejected: all helium. Two cells,
@@ -1521,7 +1521,7 @@ pub(crate) fn build_tile_universes(
                 let (_, pb) = site_surfaces[0];
                 for r in [Rgn::ins(pb), Rgn::out(pb)] {
                     idx.push(cells.len());
-                    cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
+                    cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, None));
                 }
             }
         }

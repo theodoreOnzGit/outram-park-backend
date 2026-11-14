@@ -426,6 +426,12 @@ pub fn transport_chunk(
     settings: &KeffSettings,
     chunk: &GenerationChunk,
 ) -> ChunkResult {
+    // Cell temperatures are the default (GitHub #313): see `run_keff_csg_par_progress`.
+    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+    let (geom, materials): (&Geometry, &[Material]) = match &bound {
+        Some((g, m)) => (g, m.as_slice()),
+        None => (geom, materials),
+    };
     let gen_base_seed = future_seed(
         (chunk.generation as u64).wrapping_mul(GEN_STRIDE),
         chunk.run_seed,
@@ -791,6 +797,7 @@ mod tests {
                     vec![
                         hs(0, HalfSpaceSense::Outside),
                         hs(1, HalfSpaceSense::Inside),
+                        RegionToken::Intersection,
                     ],
                     1,
                     TEMP,

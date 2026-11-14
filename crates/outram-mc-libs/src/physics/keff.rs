@@ -205,6 +205,11 @@ pub struct KeffSettings {
     /// (gh:#1386). See `crate::rng::openmc_seeding` for what it does and does
     /// not make identical to OpenMC.
     pub seeding: crate::rng::openmc_seeding::SeedingMode,
+    /// Report-only log of each active batch's tally bin sums (GitHub #506);
+    /// `None` (the default) records nothing. See
+    /// [`crate::stats::correlated_sigma::TallyBatchLog`]. Never read by
+    /// transport, so `k` is bit-identical with or without it.
+    pub tally_batch_log: Option<crate::stats::correlated_sigma::TallyBatchLog>,
 }
 
 impl Default for KeffSettings {
@@ -225,6 +230,7 @@ impl Default for KeffSettings {
             keff_trigger: None,
             delta_tally_estimator: Default::default(),
             seeding: Default::default(),
+            tally_batch_log: None,
         }
     }
 }
@@ -234,6 +240,16 @@ impl KeffSettings {
     /// (gh:#1386); the default is [`crate::rng::openmc_seeding::SeedingMode::Outram`].
     pub fn with_seeding(mut self, seeding: crate::rng::openmc_seeding::SeedingMode) -> Self {
         self.seeding = seeding;
+        self
+    }
+
+    /// Return a copy of these settings that records each active batch's tally
+    /// bin sums into `log` (GitHub #506); keep a clone of `log` to read it.
+    pub fn with_tally_batch_log(
+        mut self,
+        log: crate::stats::correlated_sigma::TallyBatchLog,
+    ) -> Self {
+        self.tally_batch_log = Some(log);
         self
     }
 
