@@ -143,7 +143,10 @@
 //! ablation arm landing back on a number pooled by a different program checks
 //! the instrument rather than restating it.
 //!
-//! **A consequence for `RECORDED_PCM`.** That constant is `16.0`, measured
+//! **A consequence for `RECORDED_PCM`.** ~~That constant is `16.0`~~ **CORRECTED
+//! 2026-11-14** (the constant is `-6.0` +/- 5 since 2026-10-05, 1024 seeds,
+//! `godiva_keff_endf_local.rs:328`; the text below is the 2026-09-26 reasoning,
+//! kept as written): that constant was `16.0`, measured
 //! pre-`op-og56`. This says the post-`op-og56` mean is lower by `38 ± 23 pcm`,
 //! i.e. near `−22`. It has **not** been re-measured at 256 seeds and the
 //! constant is **not** changed on a 1.6 sigma shift. The drift gate that uses it
