@@ -1765,7 +1765,8 @@ subsection with the existing `read_records`/`getco_legendre`; `deck::groupr::wri
 hands it to `TwoBodyFeed`.
 
 **Refused by name:** `LANG /= 0`; `LCT /= 2` (upstream rewrites `LCT = 1` to CM for MT
-51-90 with `AWR >= 10` and reads `LCT = 3` per particle); LAW 4 and 5 for a neutron.
+51-90 with `AWR >= 10` and reads `LCT = 3` per particle); ~~LAW 4 and 5 for a neutron.~~
+**CORRECTED 2026-11-14:** LAW 4 and LAW 5 (`LTP = 2`) for a neutron are written now (§35a).
 
 **Gate** (`tests/deck_driver_groupr_mf6_law2_vs_njoy2016.rs`, deck `L2`, prediction on
 gh:#1370 first): Si-30 ENDF/B-VIII.0, MF=6 MT 51-56 (`LAW = 2`, `LANG = 0`, `LCT = 2`);
@@ -1778,6 +1779,56 @@ RECONR, BROADR 293.6 K, GROUPR LANL-30 `iwt = 3`, `lord = 3`, `8 51/` to `8 56/`
 `lidp`, `wcut`, `spi` and `mft = 8` for `mfd = 3`. That is the incident charged-particle
 GROUPR path; the tape driver carries no `izap`/`izat`/`aprime` for it (it sets `izap = 1`
 for every MF=6 feed), so the term is not self-contained and was not started.
+
+### 35a. GROUPR `getmf6` LAW = 4 and LAW = 5 neutrons, on a synthetic tape (2026-11-14, gh:#1370)
+
+Maintainer decision (2026-11-14): no tape we hold has a neutron `LAW = 4` or `LAW = 5`
+subsection, so verify on a dummy input fed to both codes.
+
+**Upstream behaviour (read, then confirmed by running):**
+- **LAW 4** (`groupr.f90:7636-7653`): `getmf6` backs up to the *first* subsection of the
+  section, re-reads its TAB1 with the LAW-4 particle's `zap`/`awp`, and lets `getfle` read
+  that subsection's records. A first subsection with `LAW = 3` gives `law = -4`, so
+  `getfle` sets `iso = 1`. At normal entry `law` is 4 again, so `getdis` negates every
+  quadrature cosine (`:9519`) before both the angular probability and the lab cosine.
+- **LAW 5, neutron, `LTP = 2`**: `getco`'s `lang = 2` branch copies `a_0..a_NL` as given
+  (`a_0` is not set to 1, `:10563-10573`). `SPI` and `LIDP` reach only the Coulomb term
+  and `wcut`, which need `izap > 1` (`:9449`, `:9529`), so a neutron ignores them.
+- **LAW 5, neutron, `LTP > 2`**: GROUPR's `conver` (`:11572-11624`) rewrites each such
+  record on its scratch tape as `LTP = 2`, after multiplying `p(mu)` by `sig(E)(1-mu)`.
+  The `getsig` it calls reads the PENDF and leaves the ENDF header globals (`l1h`, `n2h`)
+  at that tape's last record, and `nm = n2h`, `getco`'s `lang = l1h` and `nmu = n2h` are
+  then read from them. Found by the first run (below) and an instrumented NJOY2016.80
+  (`write(77,…)` in `getfle` and `getco`, built in a scratch directory from the vendored
+  objects): on MT 54 (`LTP = 12`) and MT 55 (`LTP = 14`), the first two converted records
+  of each section came back `NW = 1`, `a_0 = 0`, and `getco`'s tabulated branch ran only
+  for each section's first record. **Refused by name** (`File4Angular::from_mf6_law5`).
+- **LAW 5, neutron, `LTP = 1`**: `getco` label 360 goes to 370 for `izap <= 1` with `y`
+  never set (uninitialised). **Refused by name.**
+
+**Code (reuse):** `File4Angular::from_mf6_law4` (the first subsection's records through the
+existing `read_records`, or `isotropic_cm`), `File4Angular::from_mf6_law5`
+(`getco_law5_legendre`), `TwoBodyFeed::with_law4_cosine_flip`; `deck::groupr::write_getmf6`
+dispatches LAW 2-5. Also refused by name: a LAW-4 section whose first subsection is not
+`LAW = 2/3`, a LAW-4 particle with `AWP /= 1` (the port's `getdis` holds `aprime = 1`),
+`LCT /= 2`, `LANG /= 0`.
+
+**Gate** (`tests/deck_driver_groupr_mf6_law45_vs_njoy2016.rs`, deck `L45`, prediction on
+gh:#1370 first). The test builds the tape from Si-30 ENDF/B-VIII.0 (MAT 1431), rewriting
+MF=6 MT 51-55 and the MF=1 directory counts: MT 51 Si-30 `LAW = 2` first and neutron
+`LAW = 4`; MT 52 Si-30 `LAW = 3` first and neutron `LAW = 4`; MT 53 `LAW = 5 LTP = 2`
+(`a_0 = 0.5, 0.45, 0.4`); MT 54 `LAW = 5 LTP = 2` with `SPI = 2.5`, `LIDP = 1`; MT 55
+`LAW = 5 LTP = 14`; MT 56 untouched (`LAW = 2` control). RECONR 0.005, BROADR 293.6 K,
+GROUPR LANL-30 `iwt = 3`, `lord = 3`, `3 1/ 3 51/ 8 51/ … 8 54/ 8 56/`.
+- **First run** (MT 54 then `LTP = 12`, deck with `8 55/`): 114 of 326 lines differed, all
+  in MT 54 and 55 (36 and 35 lines); MT 51, 52, 53, 56 identical. That is the `conver`
+  finding above; the prediction ("identical") missed on `LTP > 2`.
+- **Second run**: unit 25 identical, **295 of 295 lines**.
+- **Ablations** (one run, disjoint MTs): no LAW-4 cosine flip changes MT 51 in 34 of 44
+  lines and MT 52 in 32 of 41; `a_0` forced to 1 changes MT 53 in 30 of 37 and MT 54 in 29
+  of 37; MT 56 unchanged (0 of 37).
+- A deck asking for `8 55/` stops at GROUPR with the `LTP > 2` refusal
+  (`l45_deck_with_ltp14_is_refused_by_name`).
 
 ## 36. THERMR's second SCT atom: `gatef2` wired (2026-11-14, gh:#1375)
 
