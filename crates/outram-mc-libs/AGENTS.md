@@ -613,7 +613,14 @@ a translation of it.
   when written and is no longer.** `njoy-outram-park-fork::hdf5` now has
   `mgxs.h5` and nuclide `.h5` writers (both verified by **OpenMC reading them
   back and transporting**), a `cross_sections.xml` reader, and
-  statepoint/summary/source writers.
+  statepoint/summary/source writers. **CORRECTED 2026-11-14:** a nuclide
+  `.h5` **reader** exists too, `njoy_outram_park_fork::hdf5::nuclide_read::
+  read_nuclide` (landed 2026-09-24, gh:#303), exercised by
+  `njoy-outram-park-fork/tests/nuclide_h5_vs_openmc.rs` and, from this crate,
+  `tests/band_xs_from_hdf5_reader.rs`. What does not exist is a
+  `ReadNuclide` -> `Nuclide` conversion, so transport still cannot start from
+  an OpenMC `.h5` library. Verified by `grep`: no use of `ReadNuclide` in
+  `src/` here.
 
   **The part that still holds for this crate:** it takes its data pre-loaded,
   captures run state (`physics::state_point`) and hands it to that codec at
