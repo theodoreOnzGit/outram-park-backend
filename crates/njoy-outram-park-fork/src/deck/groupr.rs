@@ -19,11 +19,14 @@
 //! (verified by the whole-tape test). **Test 07 (U-235, card 9 `16 /` automatic
 //! lists, `iwt = 9`, MF=15 continuum photons) is also identical, 467 of 467 lines
 //! (2026-11-11, `test_07_groupr_gendf_whole_tape`; gh:#1481).** Still `NotPorted` here:
-//! several temperatures, sigma-zeros or materials, an input GENDF (`ngout1`), MF=3
+//! several temperatures, sigma-zeros ~~or materials, an input GENDF (`ngout1`)~~
+//! (**CORRECTED 2026-11-14, gh:#1370:** several materials (card 10) and the input GENDF
+//! run: labels 120, 410, 600 and `totend` in `groupr/gout.rs`; deck-driver README §35b), MF=3
 //! ~~`MT = 257-259, 452-456`~~ `MT = 452-456` (**CORRECTED 2026-11-13**: 257-259 are
 //! written; 452-456 used to be skipped silently and are now refused by name), `mfd = 5`,
 //! analytic `LF > 1` photon spectra, ~~and the automatic lists for `mfd` other than 3 and
-//! 16/17 (and MF=18)~~ the charged-particle automatic lists (`mfd = 21-26`), `getdis`
+//! 16/17 (and MF=18)~~ the charged-particle automatic lists (`mfd = 21-26`; an explicit
+//! `21 mt` to `26 mt` from MF=6 is written since 2026-11-14, gh:#1370), `mfd = 31-36`, `getdis`
 //! with `mft = 8` (MF=6 LAW 2-5) and `getmf6` for fission.
 //! ~~the automatic reaction lists (`mtd = 0`, `nextr`)~~ **CORRECTED 2026-11-11**: `auto_reactions`.
 //! **CORRECTED 2026-11-13 (gh:#1369):** `auto_reactions` is replaced by
@@ -70,146 +73,13 @@
 
 use crate::deck::modules::GrouprJob;
 use crate::deck::tapes::TapeUnits;
-use crate::endf::parse::format_endf_float;
-use crate::errorr::gendf::{GendfKind, GendfRecord};
 use crate::errorr::groups::NeutronGroupStructure;
 use crate::NjoyError;
 
-/// A GENDF being written, one 80-column line per entry.
-#[derive(Debug, Clone, Default)]
-pub struct GendfText {
-    /// The lines written so far (no newline).
-    pub lines: Vec<String>,
-    /// The same records at the precision they were written with (what NJOY's
-    /// blocked-binary GENDF carries; ERRORR reads it, gh:#1369).
-    pub records: Vec<crate::errorr::gendf::GendfRecord>,
-    mat: i32,
-    mf: i32,
-    mt: i32,
-    seq: i32,
-}
+mod gendf_text;
+mod gout;
 
-fn i11(x: i32) -> String {
-    format!("{x:>11}")
-}
-
-impl GendfText {
-    /// The tape label (`tpidio`): `title` in 66 columns, `MAT = MF = MT = 0`.
-    pub fn label(title: &str) -> Self {
-        let mut g = Self::default();
-        g.lines.push(format!("{:<66.66}{:4}{:2}{:3}{:5}", title, 0, 0, 0, 0));
-        g
-    }
-
-    /// Start section `(mat, mf, mt)`: sequence numbers restart at 1.
-    pub fn begin(&mut self, mat: i32, mf: i32, mt: i32) {
-        self.mat = mat;
-        self.mf = mf;
-        self.mt = mt;
-        self.seq = 1;
-    }
-
-    /// Start section `(mat, mf, mt)` with sequence number `seq` on its first line:
-    /// NJOY's `nsh` is one counter for every coded unit, so text written to a
-    /// scratch unit since the last SEND/FEND carries over (ERRORR's `rdumrd2`,
-    /// gh:#1369).
-    pub fn begin_at(&mut self, mat: i32, mf: i32, mt: i32, seq: usize) {
-        self.begin(mat, mf, mt);
-        self.seq = i32::try_from(seq).unwrap_or(1);
-    }
-
-    fn push_body(&mut self, body: String) {
-        self.lines.push(format!("{body:<66.66}{:4}{:2}{:3}{:5}", self.mat, self.mf, self.mt, self.seq));
-        self.seq += 1;
-    }
-
-    /// `contio`: a CONT record `c1 c2 l1 l2 n1 n2`.
-    pub fn cont(&mut self, c: [f64; 2], n: [i32; 4]) {
-        self.records.push(GendfRecord { kind: GendfKind::Cont, mat: self.mat, mf: self.mf, mt: self.mt, c, n, data: Vec::new() });
-        self.cont_line(c, n);
-    }
-
-    fn cont_line(&mut self, c: [f64; 2], n: [i32; 4]) {
-        let mut b = format_endf_float(c[0]);
-        b.push_str(&format_endf_float(c[1]));
-        for x in n {
-            b.push_str(&i11(x));
-        }
-        self.push_body(b);
-    }
-
-    /// `listio`: a LIST record, head `c1 c2 l1 l2 npl n2`, then `data` six to a line.
-    pub fn list(&mut self, c: [f64; 2], l1: i32, l2: i32, n2: i32, data: &[f64]) {
-        let n = [l1, l2, data.len() as i32, n2];
-        self.records.push(GendfRecord { kind: GendfKind::List, mat: self.mat, mf: self.mf, mt: self.mt, c, n, data: data.to_vec() });
-        self.cont_line(c, n);
-        for ch in data.chunks(6) {
-            let mut b: String = ch.iter().map(|&x| format_endf_float(x)).collect();
-            b.push_str(&" ".repeat(11 * (6 - ch.len())));
-            self.push_body(b);
-        }
-    }
-
-    /// `asend`: the section end, sequence 99999.
-    pub fn send(&mut self) {
-        self.records.push(GendfRecord::marker(GendfKind::Send, self.mat, self.mf));
-        self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", self.mat, self.mf, 0, 99_999));
-    }
-
-    /// `afend`: the file end.
-    pub fn fend(&mut self) {
-        self.records.push(GendfRecord::marker(GendfKind::Fend, self.mat, 0));
-        self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", self.mat, 0, 0, 0));
-    }
-
-    /// `amend` then `atend`: the material and tape ends.
-    pub fn end_tape(&mut self) {
-        self.mend();
-        self.tend();
-    }
-
-    /// `amend`: the material end, written after each temperature (`:590-592`).
-    pub fn mend(&mut self) {
-        self.records.push(GendfRecord::marker(GendfKind::Mend, 0, 0));
-        self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", 0, 0, 0, 0));
-    }
-
-    /// `atend`: the tape end.
-    pub fn tend(&mut self) {
-        self.records.push(GendfRecord::marker(GendfKind::Tend, -1, 0));
-        self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", -1, 0, 0, 0));
-    }
-
-    /// The text, newline-terminated.
-    pub fn text(&self) -> String {
-        let mut s = self.lines.join("\n");
-        s.push('\n');
-        s
-    }
-}
-
-/// The MF=1/MT=451 head of material `mat` (`groupr.f90:540-604`) followed by `afend`.
-///
-/// `za`/`awr` come from the PENDF's MF=1; `tempin` is the temperature; `egn`
-/// and `egg` are the neutron and photon group boundaries (`egg` empty when
-/// `ngg = 0`, then one word 0 is written as `:588` does).
-pub fn write_head(g: &mut GendfText, mat: i32, za: f64, awr: f64, tempin: f64, sigz: &[f64], egn: &[f64], egg: &[f64]) {
-    g.begin(mat, 1, 451);
-    let nz = sigz.len() as i32;
-    g.cont([za, awr], [0, nz, -1, 1]);
-    // `rtitle(1) = 0`, `sigz`, `egn(1..ngn+1)`, `egg(1..ngg+1)`.
-    let mut data = vec![0.0];
-    data.extend_from_slice(sigz);
-    data.extend_from_slice(egn);
-    data.extend_from_slice(egg);
-    let ngn = (egn.len() - 1) as i32;
-    let ngg = egg.len().saturating_sub(1) as i32;
-    if egg.is_empty() {
-        data.push(0.0);
-    }
-    g.list([tempin, 0.0], ngn, ngg, 0, &data);
-    g.fend();
-}
+pub use gendf_text::{write_head, GendfText};
 
 /// One temperature's self-shielding state: `getflx`'s source, `stounr`'s table,
 /// the run's `sigz`, and the current reaction's `init` values `nz` and `nl`.
@@ -309,8 +179,21 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     if u.ngout2 == 0 {
         return Err(NjoyError::NotPorted("groupr with no output unit (ngout2 = 0)"));
     }
-    if u.ngout1 != 0 || !job.more_materials.is_empty() {
-        return Err(NjoyError::NotPorted("groupr input GENDF (ngout1) or several materials"));
+    // ~~input GENDF (`ngout1`) or several materials: `NotPorted`~~ **CORRECTED
+    // 2026-11-14 (gh:#1370):** both are translated (card 10, labels 120, 410, 600
+    // and `totend`; `gout`).
+    // `ruinb` keeps a negative first `matb` (`:1070-1073`): with `ngout1 /= 0`,
+    // `findf` stops on it; with `ngout1 = 0` (`iaddmt = -1`), label 170 reads
+    // `nendf`'s label as the next head and NJOY2016 never returns (run, gh:#1370).
+    if inp.matb < 0 {
+        if u.ngout1 != 0 {
+            return Err(NjoyError::InvalidInput(format!("groupr findf: mat{} mf 1 mt451 not on tape (a negative first matb)", inp.matb)));
+        }
+        return Err(NjoyError::NotPorted("groupr matb < 0 with ngout1 = 0: upstream reads nendf's label as a material head and does not terminate"));
+    }
+    // `tosend`/`tofend`/`tomend`/`totend` refuse a coded unit copied to a binary one.
+    if u.ngout1 != 0 && (u.ngout1 < 0) != (u.ngout2 < 0) {
+        return Err(NjoyError::InvalidInput("groupr: mode conversion not allowed (ngout1 and ngout2 of different modes)".into()));
     }
     // ~~The tape driver runs one temperature and one sigma-zero~~ **CORRECTED
     // 2026-11-13 (gh:#1369 round 4):** the temperature loop (`:520-630`) and
@@ -336,10 +219,6 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     units.openz(u.nendf, 0)?;
     units.openz(u.ngout2, 1)?;
     let pend_all = units.get(u.npend)?.tape.clone();
-    let blocks = temperature_blocks(&pend_all, inp.matb);
-    if blocks.is_empty() {
-        return Err(NjoyError::InvalidInput(format!("groupr: unable to find mat={}", inp.matb)));
-    }
     let egn = match &inp.neutron_grid {
         Some(g) => g.clone(),
         None => inp.neutron_groups.boundaries()?,
@@ -348,7 +227,6 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         Some(g) => g.clone(),
         None => inp.photon_groups.boundaries()?,
     };
-    let mut g = GendfText::label(&inp.title);
     // `:413-431`: `iverf` and `emaxx` come from the first material of `nendf`: `tpidio`,
     // the head, the second record (`n1h`, `n2h` give `iverf`), and for ENDF-6 the
     // third record, whose C2 is `EMAX`.
@@ -356,14 +234,14 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     // that is the second record's C2, `STA`; on Cf-252 decay data (deck 18, `STA = 1`)
     // it made `emaxx = 1` eV and skipped every group but the last.
     // `conver` adds MF=1/MT=456 = MT=452 when neither 455 nor 456 is present (`:11473-11550`).
-    let nend_tape = {
-        let t = units.get(u.nendf)?.tape.clone();
-        crate::groupr::conver::with_mt456(&t, inp.matb).unwrap_or(t)
-    };
-    let mf1b = blocks[0]
-        .section(inp.matb, 1, 451)
+    let nendf_raw = units.get(u.nendf)?.tape.clone();
+    let is_mf1 = |s: &&crate::endf::tape::Section| s.key.mf == 1 && s.key.mt == 451;
+    let mf1e = nendf_raw
+        .sections()
+        .iter()
+        .find(is_mf1)
+        .or_else(|| pend_all.sections().iter().find(is_mf1))
         .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: unable to find mat={}", inp.matb)))?;
-    let mf1e = nend_tape.sections().iter().find(|s| s.key.mf == 1 && s.key.mt == 451).unwrap_or(mf1b);
     let iverf = crate::moder::layout::iverf_from_mf1(&mf1e.rows);
     let emaxx = match iverf {
         ..=4 => 1.5e7,
@@ -373,21 +251,14 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             if c2 > 0.0 { c2 } else { 2.0e7 }
         }
     };
-    let lists = crate::deck::groupr_auto::conver_lists(&nend_tape, inp.matb)?;
-    // `nend2`, the tape `conver` writes (`:480-488`): its MF=12 `LO = 2` sections are
-    // `LO = 1` yields there, and the level MF=14 sections isotropic (gh:#1517). Text
-    // when `nendf` is (`:402`).
-    let nend2 = crate::groupr::conver::lo2_converted(&nend_tape, inp.matb, iverf, emaxx, u.nendf > 0)?;
     // Module state that `mfd = 5` reads without setting: `ndelg` (`conver`),
     // `dntc` (only `getyld` on MF=1/MT=455 sets it) and `lrflag` (the last `getsig`).
     // `lrflag_run` follows the `mfd = 3` branches only; an `mfd = 5` after a matrix
     // reaction (`mfd = 6/8/16/17/18` or production) would see that reaction's
     // `lrflag` upstream, which no gated deck exercises. Both carry over from one
     // temperature to the next, as module variables do.
-    let ndelg = crate::groupr::spectrum::ndelg(&nend_tape, inp.matb)?;
     let mut dntc = [0.0f64; 8];
     let mut lrflag_run = 0i32;
-    let iblock = &mut 0usize;
     // Card 8a (`iwt < 0`): `fehi` is a module variable `genflx` rewrites (`:5452`),
     // and `ninwt` the binary unit it writes (`:4989`, `openz(-ninwt,1)`), gh:#1370.
     let card8a = match &inp.weight {
@@ -406,6 +277,77 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         }
         _ => None,
     };
+    // The output label (`:443`), or `ngout1`'s copied (`:451`).
+    let mut gin = match u.ngout1 {
+        0 => None,
+        n if n > 0 => {
+            let t = units.text_or_file(n).ok_or_else(|| NjoyError::InvalidInput(format!("groupr: ngout1 unit {n} holds no GENDF")))?;
+            Some(gout::GoutIn::from_text(&t))
+        }
+        n => {
+            let t = units
+                .binary_gendf(n)
+                .ok_or(NjoyError::NotPorted("groupr: a blocked-binary input GENDF no module of this run wrote"))?;
+            Some(gout::GoutIn::from_records(t.records))
+        }
+    };
+    let (mut g, tpid) = match gin.as_mut() {
+        None => (GendfText::label(&inp.title), inp.title.clone()),
+        Some(gi) => {
+            let tpid = match u.ngout1 {
+                n if n < 0 => units.binary_gendf(n).map(|t| t.tpid).unwrap_or_default(),
+                n => units
+                    .text_or_file(n)
+                    .and_then(|t| t.lines().next().map(|l| l.chars().take(66).collect::<String>().trim_end().to_string()))
+                    .unwrap_or_default(),
+            };
+            (gi.copy_label(&tpid)?, tpid)
+        }
+    };
+    // The first material's card-9 lists, then card 10's (`:990-1001`).
+    let mut first_lists = vec![(inp.reactions.clone(), job.extended.clone())];
+    first_lists.extend(job.later_temperatures.iter().cloned());
+    let mut materials = vec![(inp.matb, first_lists)];
+    materials.extend(job.material_lists.iter().cloned());
+    let mut itend = false;
+    for (mat_signed, mat_lists) in materials {
+    // `iaddmt` (`:994-997`); `matb = iabs(matb)`.
+    let iaddmt = match (mat_signed < 0, u.ngout1 != 0) {
+        (false, _) => 0,
+        (true, true) => 1,
+        (true, false) => {
+            return Err(NjoyError::NotPorted(
+                "groupr card 10 matb < 0 with ngout1 = 0: upstream reads nendf's label as a material head and does not terminate",
+            ));
+        }
+    };
+    let matb = mat_signed.abs();
+    // Label 120: place `ngout1` (`:453-469`).
+    if let Some(gi) = gin.as_mut() {
+        gi.label120(&mut g, matb)?;
+    }
+    // Label 170: `conver` sets `nsh = 0` (`:10965`), and the `atend(nend2, nend3)`
+    // after it (`:487`) leaves `nsh = 1` when `nend2` is coded. Only a copied head
+    // (`iaddmt /= 0`) shows it; `write_head` sets `nsh = 1` (`:554`).
+    g.set_nsh(i32::from(u.nendf > 0));
+    if iaddmt > 0 && inp.weight.iwt() < 0 && sigz.len() > 1 {
+        // `genflx` sets `nsh = 1` and copies MF=3 to a scratch unit (`:5423-5424`).
+        return Err(NjoyError::NotPorted("groupr iaddmt = 1 with the flux calculator (genflx's nsh is not followed)"));
+    }
+    let inp_m = crate::groupr::input::GrouprInput { matb, ..inp.clone() };
+    let inp = &inp_m;
+    let blocks = temperature_blocks(&pend_all, inp.matb);
+    if blocks.is_empty() {
+        return Err(NjoyError::InvalidInput(format!("groupr: unable to find mat={}", inp.matb)));
+    }
+    let nend_tape = crate::groupr::conver::with_mt456(&nendf_raw, inp.matb).unwrap_or_else(|| nendf_raw.clone());
+    let lists = crate::deck::groupr_auto::conver_lists(&nend_tape, inp.matb)?;
+    // `nend2`, the tape `conver` writes (`:480-488`): its MF=12 `LO = 2` sections are
+    // `LO = 1` yields there, and the level MF=14 sections isotropic (gh:#1517). Text
+    // when `nendf` is (`:402`).
+    let nend2 = crate::groupr::conver::lo2_converted(&nend_tape, inp.matb, iverf, emaxx, u.nendf > 0)?;
+    let ndelg = crate::groupr::spectrum::ndelg(&nend_tape, inp.matb)?;
+    let iblock = &mut 0usize;
     for itemp in 0..inp.temperatures.len() {
     let tempin = inp.temperatures[itemp];
     // `jtemp = itemp` (`:497`): `getwtf` reads `temp(jtemp)` for `iwt = 7, 10, 12`.
@@ -442,10 +384,15 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         crate::groupr::njoy_panel::FluxSource::Wtf(inp.weight.iwt())
     };
     let mut sh = Shield { flux, unr, sigz: sigz.clone(), nz: 1, nl: 1, mtd: 0 };
-    write_head(&mut g, inp.matb, za, awr, tempin, &sigz, &egn, &egg);
+    match gin.as_mut() {
+        Some(gi) if iaddmt != 0 => gi.copy_head(&mut g)?,
+        _ => write_head(&mut g, inp.matb, za, awr, tempin, &sigz, &egn, &egg),
+    }
     // This temperature's card-9 list (`:586-630`), and `mtd = 1` again (`:619`).
-    let reactions = if itemp == 0 { inp.reactions.clone() } else { job.later_temperatures[itemp - 1].0.clone() };
-    let extended = if itemp == 0 { job.extended.clone() } else { job.later_temperatures[itemp - 1].1.clone() };
+    let (reactions, extended) = mat_lists
+        .get(itemp)
+        .cloned()
+        .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: no card-9 list for mat {matb} temperature {}", itemp + 1)))?;
     let inp_t = crate::groupr::input::GrouprInput { temperatures: vec![tempin], reactions, ..inp.clone() };
     let inp = &inp_t;
     // The main loop's running `mtd` (`:619`, `mtd = 1`): a negative card-9 or
@@ -456,6 +403,9 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             Card9Item::Extended(e) => {
                 // Card 9a: one request, processed where it stands in the list.
                 let item = card9a_reaction(e, &mut mtd_run)?;
+                if let Some(gi) = gin.as_mut().filter(|_| iaddmt > 0) {
+                    gi.label410(&mut g, item.mfd, item.mtd)?;
+                }
                 sh.set(item.mfd, item.mtd);
                 write_production(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, emaxx, &item)?;
                 continue;
@@ -488,6 +438,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         for item in items {
             let mtd = item.mtd;
             let req = &crate::groupr::input::ReactionRequest { mfd: item.mfd, mtd, name: String::new() };
+            // Label 410 (`iaddmt > 0`): the old sections before this one.
+            if let Some(gi) = gin.as_mut().filter(|_| iaddmt > 0) {
+                gi.label410(&mut g, item.mfd, mtd)?;
+            }
             sh.set(req.mfd, mtd);
             if req.mfd >= 10_000_000 {
                 write_production(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, emaxx, &item)?;
@@ -518,7 +472,9 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 write_mf16_photon(&mut g, &mut sh, inp, nend2_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
-            if req.mfd == 8 || req.mfd == 18 {
+            // `getff` label 800 for `mfd = 8` and the charged-particle `mfd = 21-26`
+            // (`:7389`), label 810 for `mfd = 18`.
+            if req.mfd == 8 || req.mfd == 18 || (21..=26).contains(&req.mfd) {
                 write_getmf6(&mut g, &mut sh, inp, &nend_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
@@ -570,8 +526,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
             let nl1 = if mtd == 1 && sh.sigz.len() > 1 { 2 } else { 1 };
             let mut pf = if ratio {
-                let ang = crate::groupr::file4::File4Angular::from_tape(&units.get(u.nendf)?.tape, inp.matb, 2, crate::groupr::file4::NLD)?;
-                let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, &egn, head.c2, tab.head.c2, lrflag)?;
+                let nend = &units.get(u.nendf)?.tape;
+                let ang = crate::groupr::file4::File4Angular::from_tape(nend, inp.matb, 2, crate::groupr::file4::NLD)?;
+                let awr = getfle_mf4_awr(nend, inp.matb, 2).unwrap_or(head.c2);
+                let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, &egn, awr, tab.head.c2, lrflag)?;
                 crate::groupr::njoy_panel::PanelFeed::TwoBody(tb.for_mf3_ratio(mtd, inp.lord.max(0) as usize))
             } else {
                 crate::groupr::njoy_panel::PanelFeed::Vector
@@ -580,14 +538,32 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             write_vector_section(&mut g, &mut sh, inp, za, &egn, mtd, lrflag, rows);
         }
     }
-    g.mend();
+    // Label 590: `amend`, or for `iaddmt > 0` label 600's copy.
+    match gin.as_mut() {
+        Some(gi) if iaddmt > 0 => itend |= gi.label600(&mut g, inp.matb)?,
+        _ => g.mend(),
     }
-    g.tend();
-    units.put_gendf(u.ngout2, g.text(), crate::errorr::gendf::GendfTape { tpid: inp.title.clone(), records: g.records.clone() });
+    }
+    }
+    // Label 650: `atend`, or `totend` from `ngout1` unless its TEND was copied.
+    match gin.as_mut() {
+        None => g.tend(),
+        Some(gi) if !itend => gi.totend(Some(&mut g))?,
+        Some(_) => {}
+    }
+    units.put_gendf(u.ngout2, g.text(), crate::errorr::gendf::GendfTape { tpid, records: g.records.clone() });
     if let Some(p) = card8a.filter(|p| p.ninwt != 0) {
         units.put_bytes(-p.ninwt.abs(), ninwt_file.bytes);
     }
     Ok(())
+}
+
+/// The AWR `getdis` uses with `mft = 4`: `getfle` sets the module `awr` to the
+/// MF=4 head's C2 (`groupr.f90:9711-9713`), which can differ from the MF=3 head's
+/// (Be-9 ENDF/B-VIII.0: 8.934760 against 8.934780; gh:#1370). `None` when the
+/// section is absent (then `from_tape` has already said so, or it is isotropic).
+fn getfle_mf4_awr(nend: &crate::endf::tape::Tape, mat: i32, mt: i32) -> Option<f64> {
+    nend.section(mat, 4, mt).and_then(|s| s.rows.first()).map(|r| r[1])
 }
 
 /// One entry of a GROUPR card-9 list, in card order: a plain card 9
@@ -759,6 +735,12 @@ fn write_getmf6(
         return Err(NjoyError::NotPorted("groupr getff label 800 for fission (getyld on MT=456, nl = 1)"));
     }
     let Some(sec) = pend.section(inp.matb, 3, mtd) else { return Ok(()) };
+    // `mfd = 21-26` for an MT whose particle is given in MF=4: upstream's `mfchk2`
+    // (`:1575-1597`) would have made it `mfd = 31-36`, `getdis` with a charged
+    // outgoing particle; neither is translated (gh:#1370).
+    if (21..=26).contains(&mfd) && nend.section(inp.matb, 6, mtd).is_none() {
+        return Err(NjoyError::NotPorted("groupr mfd = 21-26 without MF=6 (mfchk2 and mfd = 31-36, getdis with aprime /= 1)"));
+    }
     let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
     let head = cur.read_cont()?;
     let tab = cur.read_tab1()?;
@@ -808,7 +790,13 @@ fn write_getmf6(
     if rows.is_empty() {
         return Ok(());
     }
-    g.begin(inp.matb, if mfd == 18 { 16 } else { 6 }, mtd);
+    // `mfh` (`:820-826`): 8 to 6, 18 to 16; `mfd = 21-26` are their own files.
+    let mfh = match mfd {
+        18 => 16,
+        21..=26 => mfd,
+        _ => 6,
+    };
+    g.begin(inp.matb, mfh, mtd);
     g.cont([za, 0.0], [nl as i32, sh.nz as i32, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
@@ -870,8 +858,10 @@ fn write_mf6_two_body(
     let lrflag = tab.head.l2;
     let nl = inp.lord.max(0) as usize + 1;
     let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
-    let ang = crate::groupr::file4::File4Angular::from_tape(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, crate::groupr::file4::NLD)?;
-    let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
+    let nend = &units.get(inp.units.nendf)?.tape;
+    let ang = crate::groupr::file4::File4Angular::from_tape(nend, inp.matb, mtd, crate::groupr::file4::NLD)?;
+    let awr = getfle_mf4_awr(nend, inp.matb, mtd).unwrap_or(head.c2);
+    let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, awr, tab.head.c2, lrflag)?;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl);
     let rows = sh.group(&mut feed, &mut pf, egn, first, emaxx, false, nl)?;
     if rows.is_empty() {

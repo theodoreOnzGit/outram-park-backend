@@ -382,7 +382,17 @@ pub struct GrouprJob {
     /// Further materials requested by card 10, each with its own sign
     /// (negative = add/replace); the terminating `0` is not stored.
     pub more_materials: Vec<i32>,
+    /// Each card-10 material with its own card-9 lists, one per temperature
+    /// (`groupr.f90:990-1001` goes back to label 120, and the card-9 reads at
+    /// label 360 run again for every temperature), gh:#1370. ~~Card 10 was read
+    /// "until 0" straight after the first material~~ **CORRECTED 2026-11-14**: that
+    /// read a second material's card 9 as card 10.
+    pub material_lists: Vec<(i32, Vec<GrouprCard9List>)>,
 }
+
+/// One GROUPR card-9 list (ended by `mfd = 0`): the plain requests, and the
+/// card-9a extended ones with their positions.
+pub type GrouprCard9List = (Vec<ReactionRequest>, Vec<(usize, [i32; 4])>);
 
 /// Read GROUPR's cards: `ruinb` (`groupr.f90:1061-1125`), the group structure
 /// and weight readers (`gengpn`, `gengpg`, `genwtf`), card 9 until `mfd = 0`,
@@ -473,29 +483,48 @@ pub fn read_groupr(r: &mut CardReader) -> Result<GrouprJob, NjoyError> {
         }
         _ => {}
     }
+    // A negative first `matb` stops upstream before any card 9 is read: with
+    // `ngout1 /= 0`, `findf` finds no MAT `matb` (`ruinb` keeps the sign); with
+    // `ngout1 = 0`, label 170 reads `nendf`'s label as a head and never returns
+    // (gh:#1370). `run_groupr` refuses both by name.
+    if matb < 0 {
+        return Ok(GrouprJob { input, weight_cards, extended: Vec::new(), later_temperatures: Vec::new(), more_materials: Vec::new(), material_lists: Vec::new() });
+    }
     // card 9, once per temperature (`:586-630`)
+    let ntemp = input.temperatures.len();
     let (reactions, extended) = read_groupr_card9(r)?;
     input.reactions = reactions;
     let mut later_temperatures = Vec::new();
-    for _ in 1..input.temperatures.len() {
+    for _ in 1..ntemp {
         later_temperatures.push(read_groupr_card9(r)?);
     }
-    // card 10
+    // card 10 (`:993`), then that material's card-9 lists, until `matb = 0`.
     let mut more = Vec::new();
+    let mut material_lists = Vec::new();
     loop {
         let m = ints(r, &[0])?[0];
         if m == 0 {
             break;
         }
         more.push(m);
+        if m < 0 && units.ngout1 == 0 {
+            // `iaddmt = -1`: label 170 never returns (see above); nothing more is read.
+            material_lists.push((m, Vec::new()));
+            break;
+        }
+        let mut lists = Vec::with_capacity(ntemp);
+        for _ in 0..ntemp {
+            lists.push(read_groupr_card9(r)?);
+        }
+        material_lists.push((m, lists));
     }
     input.next_material = more.first().copied();
-    Ok(GrouprJob { input, weight_cards, extended, later_temperatures, more_materials: more })
+    Ok(GrouprJob { input, weight_cards, extended, later_temperatures, more_materials: more, material_lists })
 }
 
 /// One GROUPR card-9 list, until `mfd = 0` (`groupr.f90:365-383`): the plain
 /// requests and the card-9a extended ones (`mfd = -1`).
-fn read_groupr_card9(r: &mut CardReader) -> Result<(Vec<ReactionRequest>, Vec<(usize, [i32; 4])>), NjoyError> {
+fn read_groupr_card9(r: &mut CardReader) -> Result<GrouprCard9List, NjoyError> {
     let mut reactions = Vec::new();
     let mut extended = Vec::new();
     loop {

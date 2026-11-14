@@ -233,7 +233,11 @@ pub fn conver_lists(nend: &Tape, mat: i32) -> Result<ConverLists, NjoyError> {
 /// `n` covers `n ..= m`. Any other `mf` is returned unchanged (gh:#1370).
 ///
 /// `mfchk2` (`:1575-1597`, `mfd = 21-26` to `31-36` for MF=4 recoils) is not
-/// translated: the tape driver refuses `mfd = 21-36` before it would matter.
+/// translated: ~~the tape driver refuses `mfd = 21-36` before it would matter~~
+/// **CORRECTED 2026-11-14 (gh:#1370):** the tape driver writes `mfd = 21-26` from MF=6
+/// now, and refuses an `mfd = 21-26` request for an MT with no MF=6 section, which is
+/// where `mfchk2` would have switched to `31-36` (still refused: `getdis` with a
+/// charged outgoing particle).
 pub fn mfchk(mf: i32, mt: i32, lists: &ConverLists) -> i32 {
     let (list, to) = match mf {
         13 => (&lists.mf12, 12),
