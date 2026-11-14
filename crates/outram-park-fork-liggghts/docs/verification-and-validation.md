@@ -2040,9 +2040,17 @@ Upstream prints "Energy calculated for multisphere particles is currently not
 correct" (`FixMultisphere::dof`). That warning is about the `thermo` `ke`/`pe`
 normalisation, not about these computes.
 
-**Found on the way, not fixed (outside this task):** with the atom sort on, a
+~~**Found on the way, not fixed (outside this task):** with the atom sort on, a
 system that has no particles and no insertion fix panics in
-`neighbor_list::atom_sort_permutation`, because its cut radius is 0.
+`neighbor_list::atom_sort_permutation`, because its cut radius is 0.~~
+**CORRECTED 2026-11-14 (gh:#1568):** fixed. The panic was an i64 overflow of
+the bin count (`bininv = inf`). Upstream refuses this run set-up in
+`Atom::setup_sort_bins` ("Atom sorting has bin size = 0.0"). The port now
+does the same in `GranularSystem::try_with_liggghts_neighbor_order` and
+`begin_run` (`neighbor_list::sort_bin_size`). `atom_sort_permutation` returns
+the empty permutation for zero atoms, so the infallible builder no longer
+panics. Test: `granular_system::tests::empty_system_sort_on_refuses_like_upstream`,
+which panicked with "attempt to multiply with overflow" before the guard.
 
 ## 4.17 Superquadric particles (2026-11-13, gh:#1415)
 

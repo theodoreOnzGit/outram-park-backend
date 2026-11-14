@@ -712,7 +712,9 @@ impl GranularSystem {
     /// # Errors
     ///
     /// [`DemError::InvalidInput`] where a fix's `init()` aborts (see
-    /// [`crate::mesh_stress::MeshServo::init_run`]).
+    /// [`crate::mesh_stress::MeshServo::init_run`]), or where
+    /// `Atom::setup_sort_bins` does (the sort on with a zero cut; see
+    /// [`GranularSystem::try_with_liggghts_neighbor_order`]).
     pub fn begin_run(&mut self) -> Result<(), DemError> {
         if self.multisphere.is_some() {
             // `FixMultisphere::setup` (`calc_force(true)` at the set-up) is
@@ -721,6 +723,8 @@ impl GranularSystem {
                 "a second run set-up with multisphere clumps is not ported".into(),
             ));
         }
+        // Verlet::setup -> Atom::setup -> setup_sort_bins (gh:#1568)
+        self.check_sort_setup()?;
         // lmp->init(): Modify::init -> fix->init(); then Verlet::setup's
         // setup_pre_force of the meshes (no fix reads another in between)
         for w in &mut self.moving_walls {
@@ -846,6 +850,22 @@ impl GranularSystem {
         self.mesh_rebuild_pending = false;
         self.compute_forces_setup();
         self
+    }
+
+    /// [`GranularSystem::with_liggghts_neighbor_order`], refusing the set-up
+    /// where upstream does (gh:#1568): with the atom sort on
+    /// (`sort_every > 0`) and `cutneighmax = 0` (no atoms and no insertion
+    /// fix), `Atom::setup_sort_bins` stops with "Atom sorting has bin size =
+    /// 0.0" (LIGGGHTS-PUBLIC `3d5c00f2`, `atom.cpp`). The infallible form
+    /// does not refuse: it sorts the zero atoms, which does nothing.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] with upstream's message in that case.
+    pub fn try_with_liggghts_neighbor_order(self, cfg: LiggghtsNeighbor) -> Result<Self, DemError> {
+        let sys = self.with_liggghts_neighbor_order(cfg);
+        sys.check_sort_setup()?;
+        Ok(sys)
     }
 
     /// Enable the multicontact surface model and `fix multicontact/halfspace`
@@ -1364,16 +1384,11 @@ impl GranularSystem {
         self.neighbor_order
     }
 
-    /// Sort (if due) and rebuild the LIGGGHTS-order half list from the current
-    /// positions: `Atom::sort` then `Neighbor::build`.
-    fn rebuild_liggghts_list(&mut self, cfg: LiggghtsNeighbor) {
-        let n = self.particles.len();
-        if self.perm.len() != n {
-            self.perm = (0..n).collect();
-        }
+    /// `neighbor->cutneighmax` for `cfg`: the largest radius present, or that a
+    /// `fix insert` can still add (`PairGran::init_style`: `max_rad(type)` of
+    /// fixes), through [`LiggghtsNeighbor::cutneighmax`].
+    fn liggghts_cutneighmax(&self, cfg: &LiggghtsNeighbor) -> f64 {
         let max_radius = self.particles.iter().fold(0.0_f64, |m, p| m.max(p.radius));
-        // upstream's cut radius includes the largest particle a `fix insert`
-        // can still add (`PairGran::init_style`: `max_rad(type)` of fixes)
         let max_radius = self
             .inserters
             .iter()
@@ -1382,7 +1397,28 @@ impl GranularSystem {
             .stream_inserters
             .iter()
             .fold(max_radius, |m, f| m.max(f.max_rad()));
-        let cut = cfg.cutneighmax(max_radius);
+        cfg.cutneighmax(max_radius)
+    }
+
+    /// `Atom::setup()` at a run set-up under [`NeighborOrder::Liggghts`]: with
+    /// the sort on, `setup_sort_bins` refuses a zero bin size (gh:#1568).
+    fn check_sort_setup(&self) -> Result<(), DemError> {
+        if let NeighborOrder::Liggghts(cfg) = self.neighbor_order {
+            if cfg.sort_every > 0 {
+                neighbor_list::sort_bin_size(self.liggghts_cutneighmax(&cfg))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Sort (if due) and rebuild the LIGGGHTS-order half list from the current
+    /// positions: `Atom::sort` then `Neighbor::build`.
+    fn rebuild_liggghts_list(&mut self, cfg: LiggghtsNeighbor) {
+        let n = self.particles.len();
+        if self.perm.len() != n {
+            self.perm = (0..n).collect();
+        }
+        let cut = self.liggghts_cutneighmax(&cfg);
         if cfg.sort_every > 0 && (self.setup_phase || self.step_count >= self.next_sort) {
             let x: Vec<Vec3> = self
                 .perm
@@ -3757,6 +3793,49 @@ mod tests {
             ThermodynamicTemperature::new::<kelvin>(300.0),
         )
         .unwrap()
+    }
+
+    /// gh:#1568. An empty system with the atom sort on and nothing to insert
+    /// has `cutneighmax = 0`. Upstream refuses the run set-up
+    /// (`Atom::setup_sort_bins`: "Atom sorting has bin size = 0.0"); the port
+    /// used to panic on an integer overflow in `atom_sort_permutation`.
+    /// `try_with_liggghts_neighbor_order` and `begin_run` refuse as upstream;
+    /// the infallible builder sorts the zero atoms (a no-op) and runs.
+    #[test]
+    fn empty_system_sort_on_refuses_like_upstream() {
+        let model = GranularContactModel::hertz_history(mat(0.4));
+        let cfg = LiggghtsNeighbor::new(
+            Vec3::new(-0.05, -0.05, 0.0),
+            Vec3::new(0.05, 0.05, 0.1),
+            0.002,
+        )
+        .unwrap();
+        assert_eq!(cfg.sort_every, 1000, "the sort is on by default");
+        let empty = GranularSystem::new(Vec::new(), vec![], model, Vec3::zero(), 1e-5).unwrap();
+        let err = empty.clone().try_with_liggghts_neighbor_order(cfg).unwrap_err();
+        assert!(err.to_string().contains("Atom sorting has bin size = 0.0"), "{err}");
+        let mut sys = empty.with_liggghts_neighbor_order(cfg);
+        sys.run(10);
+        assert_eq!(sys.particles().len(), 0);
+        let err = sys.begin_run().unwrap_err();
+        assert!(err.to_string().contains("Atom sorting has bin size = 0.0"), "{err}");
+        // with the sort off, upstream never calls setup_sort_bins
+        let mut off = cfg;
+        off.sort_every = 0;
+        let mut sys = GranularSystem::new(Vec::new(), vec![], model, Vec3::zero(), 1e-5)
+            .unwrap()
+            .try_with_liggghts_neighbor_order(off)
+            .unwrap();
+        sys.run(10);
+        sys.begin_run().unwrap();
+        // one atom gives a positive cut, and the set-up goes through
+        let one = vec![sphere(Vec3::new(0.0, 0.0, 0.05), Vec3::zero())];
+        let mut sys = GranularSystem::new(one, vec![], model, Vec3::zero(), 1e-5)
+            .unwrap()
+            .try_with_liggghts_neighbor_order(cfg)
+            .unwrap();
+        sys.run(10);
+        sys.begin_run().unwrap();
     }
 
     /// **Methodology.** Head-on elastic collision, `e = 1` (no dissipation), two
