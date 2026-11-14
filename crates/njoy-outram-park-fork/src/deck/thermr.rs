@@ -55,10 +55,11 @@ use crate::endf::EndfKey;
 use crate::mixr::mix::sigfig;
 use crate::thermr::calcem::types::{Iform0Table, Iform1Table};
 use crate::thermr::calcem::{compute_iform0, compute_iform1};
-use crate::thermr::effective_temperature::gateff;
+use crate::thermr::effective_temperature::{gateff, gatef2};
 use crate::thermr::mf3_grid::{coh_with, sigcoh_from_endf6, Sigcoh};
-use crate::thermr::mf7::{calcem_temperature_k, parse_mf7, parse_mf7_at_temperature, IncoherentElastic, IncoherentInelastic, Mf7};
+use crate::thermr::mf7::{calcem_temperature_k, SecondarySct, parse_mf7, parse_mf7_at_temperature, IncoherentElastic, IncoherentInelastic, Mf7};
 use crate::NjoyError;
+use petir::mathf::RealMath;
 
 const SMALL: f64 = 1.0e-10;
 const UP: f64 = 1.00001;
@@ -75,6 +76,48 @@ fn nint(x: f64) -> i32 {
 /// `tpend`'s value rounding (`:3217-3221`).
 fn round_xs(z: f64) -> f64 {
     if z >= EM9 { sigfig(z, 7, 0) } else { sigfig(z, 6, 0) }
+}
+
+/// The second short-collision-time atom THERMR supplies for an ENDF-4/5 tape
+/// (`thermr.f90:218-238`, `:422`, gh:#1375): `matde = 1099` (BeO) or `1095`
+/// (benzene) get `sz2`, `az2` from the built-in constants, `sb2 =
+/// sz2*((az2+1)/az2)**2`, and `teff2 = gatef2(T)`. Any other `matde` has
+/// `sz2 = 0`: `None`.
+pub(crate) fn endf45_second_sct_atom(matde: i32, temp: f64) -> Option<SecondarySct> {
+    const S1099: f64 = 3.76;
+    const A1099: f64 = 15.86;
+    const S1095: f64 = 4.74;
+    const A1095: f64 = 11.90;
+    let (sz2, az2) = match matde {
+        1099 => (S1099, A1099),
+        1095 => (S1095, A1095),
+        _ => return None,
+    };
+    let r = (az2 + 1.0) / az2;
+    Some(SecondarySct { sb2: sz2 * (r * r), az2, teff2_k: gatef2(temp, matde) })
+}
+
+/// An ENDF-6 tape's own second SCT atom (`calcem`, `thermr.f90:1678-1690`):
+/// with `NI > 6` and `B(7) = 0`, `az2 = B(9)` and `sb2 = B(8)*((az2+1)/az2)**2
+/// /B(12)/natom`. A non-zero `sb2` needs the second `T_eff` TAB1
+/// (`:1835-1854`), which the MF=7 parser does not keep: refused by name. A
+/// third SCT atom (`NI > 12`, `B(13) = 0`) stops upstream ("only 2 sct atoms
+/// allowed"). No tape held here has either (gh:#1375).
+pub(crate) fn refuse_endf6_second_sct_atom(b: &[f64]) -> Result<(), NjoyError> {
+    if b.len() <= 6 {
+        return Ok(());
+    }
+    let az2 = if b[6] == 0.0 { b.get(8).copied().unwrap_or(0.0) } else { 0.0 };
+    let sb2 = if az2 != 0.0 { b.get(7).copied().unwrap_or(0.0) * ((az2 + 1.0) / az2).r_powi(2) } else { 0.0 };
+    if b.len() > 12 && b[12] == 0.0 {
+        return Err(NjoyError::InvalidInput("thermr: calcem: only 2 sct atoms allowed.".into()));
+    }
+    if sb2 != 0.0 {
+        return Err(NjoyError::NotPorted(
+            "THERMR on an ENDF-6 tape with a second SCT atom (B(7) = 0): its T_eff2 TAB1, thermr.f90:1835-1854",
+        ));
+    }
+    Ok(())
 }
 
 fn rows_of_pairs(pairs: &[(f64, f64)]) -> Vec<[f64; 6]> {
@@ -429,10 +472,13 @@ fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: 
                 });
             }
             ii.teff_request_k = Some(calcem_temp);
+            refuse_endf6_second_sct_atom(&ii.b)?;
         } else {
             // `thermr.f90:145-157, 214-221`: ENDF-4/5 has no T_eff record; `gateff`.
             let eft = if c.matde == 0 { temp } else { gateff(temp, c.matde) };
             ii.teff_table = vec![(temp, eft)];
+            // `:218-238`, `:422`: the second atom of BeO or benzene, `gatef2`.
+            ii.secondary_sct = endf45_second_sct_atom(c.matde, temp);
         }
         mf7 = Some(parsed);
         ii
@@ -689,5 +735,32 @@ mod tests {
         let ii = IncoherentInelastic::free_gas(11.898, 296.0, 2.0);
         let s = ii.double_differential(0.0253, 0.0253, 0.0, 296.0, 2.0);
         assert!(s > 0.0 && s.is_finite());
+    }
+
+    /// `thermr.f90:218-238` and `gatef2`: BeO at 296 K gets `sz2 = 3.76`,
+    /// `az2 = 15.86`, `teff2 = 427.8`; graphite gets none (gh:#1375).
+    #[test]
+    fn endf45_second_atom_is_thermr_f90_218_238() {
+        let s = endf45_second_sct_atom(1099, 296.0).unwrap();
+        let r = (15.86 + 1.0) / 15.86;
+        assert_eq!((s.sb2, s.az2, s.teff2_k), (3.76 * (r * r), 15.86, 427.8));
+        assert_eq!(endf45_second_sct_atom(1095, 1000.0).unwrap().teff2_k, 1182.3);
+        assert_eq!(endf45_second_sct_atom(1095, 700.0).unwrap().teff2_k, 700.0);
+        assert_eq!(endf45_second_sct_atom(1065, 296.0), None);
+    }
+
+    /// An ENDF-6 second SCT atom is refused by name; H in H2O's free-gas
+    /// oxygen (`B(7) = 1`) and a six-word `B` pass (gh:#1375).
+    #[test]
+    fn endf6_second_sct_atom_is_refused_by_name() {
+        let h2o = [40.87216, 395.26, 0.9991673, 10.00008, 0.0, 2.0, 1.0, 3.7939, 15.85751, 0.0, 0.0, 1.0];
+        assert!(refuse_endf6_second_sct_atom(&h2o).is_ok());
+        assert!(refuse_endf6_second_sct_atom(&h2o[..6]).is_ok());
+        let mut sct = h2o;
+        sct[6] = 0.0;
+        assert!(matches!(refuse_endf6_second_sct_atom(&sct), Err(NjoyError::NotPorted(_))));
+        let mut three = h2o.to_vec();
+        three.extend([0.0, 1.0, 1.0, 0.0, 0.0, 1.0]);
+        assert!(matches!(refuse_endf6_second_sct_atom(&three), Err(NjoyError::InvalidInput(_))));
     }
 }

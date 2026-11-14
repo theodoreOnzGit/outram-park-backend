@@ -176,7 +176,8 @@ Test 01's second THERMR (`26 -24 -23 / 1065 1306 8 1 2 1 0 1 229 2`, ENDF/B-V
 
 **Translated** (`thermr.f90`, NJOY2016.80): `gateff`/`gatef2`
 (`thermr/effective_temperature.rs`, tables read from the Fortran source by a
-script), `sigcoh` for `lat = 1..3` with `form` (`Sigcoh::builtin` in
+script; **CORRECTED 2026-11-14:** `gatef2` was translated but called by nothing, and
+the SCT kernel had no second-atom term, until §36), `sigcoh` for `lat = 1..3` with `form` (`Sigcoh::builtin` in
 `thermr/mf3_grid.rs`), `coh` generalised to any `Sigcoh` and to return the
 coherent column (`coh_with`), `tpend` MF=3 for `mtref+1`, MF=6 `mtref+1`
 (`LIP = -nbragg`, `LAW = 0`, `ncdse = 3` in the dictionary). The MF=7 reader
@@ -1777,3 +1778,28 @@ RECONR, BROADR 293.6 K, GROUPR LANL-30 `iwt = 3`, `lord = 3`, `8 51/` to `8 56/`
 `lidp`, `wcut`, `spi` and `mft = 8` for `mfd = 3`. That is the incident charged-particle
 GROUPR path; the tape driver carries no `izap`/`izat`/`aprime` for it (it sets `izap = 1`
 for every MF=6 feed), so the term is not self-contained and was not started.
+
+## 36. THERMR's second SCT atom: `gatef2` wired (2026-11-14, gh:#1375)
+
+**Upstream.** For an ENDF-4/5 tape THERMR keys a mixed moderator's second
+short-collision-time atom on `matde` alone (`thermr.f90:218-238`): 1099 (BeO) gets
+`sz2 = 3.76`, `az2 = 15.86`, 1095 (benzene) `4.74`, `11.90`, and
+`sb2 = sz2*((az2+1)/az2)**2`. `gatef2` gives `teff2` (`:422`), and `sig` label 170
+adds `sigc*sb2*s2` with `a*az/az2` (`:2588-2594`).
+
+**Code.** `IncoherentInelastic::secondary_sct` (`None` from every parser), the
+label-170 term in `sct_double_differential`, and `deck::thermr::endf45_second_sct_atom`.
+`gatef2` was present (`thermr::effective_temperature`) but called by nothing.
+
+**Refused by name:** an ENDF-6 second SCT atom (`B(7) = 0` with `sb2 /= 0`; its
+`T_eff2` TAB1, `:1835-1854`, is not parsed), and a third SCT atom (upstream's "only 2
+sct atoms allowed"). No tsl tape held here has either.
+
+**Gate** (`tests/deck_driver_thermr_gatef2_vs_njoy2016.rs`, deck `G2`, prediction on
+gh:#1375 first). No BeO or benzene ENDF-4/5 tape is held anywhere, so `G2` is deck 01
+up to GROUPR with `t322` relabelled from MAT 1065 to 1099 in the test and the second
+THERMR's `matde = 1099`: a code-to-code device with no physical meaning.
+- Unit 31 identical, 32 897 lines, first run.
+- Control: NJOY's `G2` unit 31 differs from deck 01's in 11 222 lines.
+- Ablations: without the second term, 2 063 lines differ; with `teff2 = T` in place
+  of `gatef2`, 2 092.
