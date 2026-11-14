@@ -22,7 +22,7 @@ mkcase() {
   rm -rf $d; mkdir -p $d/system $d/constant $d/0
   cp $HERE/inputs/{controlDict,fvSchemes,fvSolution} $d/system/
   sed "s/@LX@/$lx/g;s/@LY@/$ly/g;s/@LZ@/$lz/g;s/@NX@/$nx/;s/@NY@/$ny/;s/@NZ@/$nz/" \
-      $HERE/inputs/blockMeshDict > $d/system/blockMeshDict
+      $HERE/inputs/${BMD:-blockMeshDict} > $d/system/blockMeshDict
   sed "s/@SMOOTH@/$sm/;s/@CONSTE@/$ce/" $HERE/inputs/radiationProperties.tmpl > $d/constant/radiationProperties
   {
     echo 'FoamFile { version 2.0; format ascii; class dictionary; object boundaryRadiationProperties; }'
@@ -78,4 +78,18 @@ mkcase $W/plate16 1 1 0.0625 8 8 1 none false false 1.1 "$TP" "$EP" "$Q0"
 dump $W/plate4 ref_plate4.txt
 dump $W/plate8 ref_plate8.txt
 dump $W/plate16 ref_plate16.txt
+# gh:#1540: non-square faces (2 x 1 x 0.5 m, 5x3x2 cells), same settings as cubeA with qro = 0
+mkcase $W/boxE 2 1 0.5 5 3 2 none false false 1.1 "$T6" "$E6" "$Q0"
+dump $W/boxE ref_boxE.txt
+# gh:#1540: non-convex L-shaped enclosure (rays across the re-entrant corner are blocked)
+PATCHES="sides bottom top"
+BMD=blockMeshDictL mkcase $W/lshape 1 1 1 3 3 3 none false false 1.1 "900 700 500" "0.8 0.6 1.0" "0 0 0"
+dump $W/lshape ref_lshape.txt
+PATCHES="xmin xmax ymin ymax zmin zmax"
+# gh:#1540: upstream polyMesh + the three files viewFactorsGen writes, for the Rust generator test
+for c in cubeA plate4 plate8 plate16 boxE lshape; do
+  o=$REF/vfgen/$c; mkdir -p $o
+  for f in points faces boundary; do gzip -n -9 -c $W/$c/constant/polyMesh/$f > $o/$f.gz; done
+  for f in F globalFaceFaces mapDist; do gzip -n -9 -c $W/$c/constant/$f > $o/$f.gz; done
+done
 echo done

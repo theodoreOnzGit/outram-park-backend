@@ -813,3 +813,80 @@ useful case needs `maxDeltaRatio` of about 1.02 on this mesh (chosen from the gr
 Coupled patches, non-orthogonal meshes (`vanDriest`'s boundary `deltaCoeffs` is `1/|Cf - C|` only for orthogonal faces), 2D cases
 (`nGeometricD` warning branch), `PrandtlDelta`, `SLADelta`, `DeltaOmegaTildeDelta`, `maxDeltaxyzCubeRootLESDelta`, `cubeRootVol` itself
 (the earlier slices use it as `1.0 cbrt(V)`).
+
+### Slice 10 results (2026-11-14, release; 360-cell duct, ESI v2506 `grad(U)`, meshWave `y` and `n` fed in; `ref_LRR.txt.gz`, `ref_SSG.txt.gz`)
+
+**Audit (prediction 1: held).** For both models the transcribed equation reproduces the real matrices bit for bit:
+`epsilon` and the six `R` components (`Rxx..Rzz`), diag/source (360/360) and upper/lower (894/894): 28/28 parts each. For LRR
+this includes the wall-reflection term added with `fvMatrix::operator+=`.
+
+**Terms against the transcription and the real model (predictions 2, 3, 5: held). Every row 0 ulp, identical = n:**
+LRR (54 rows): `k`, `nut` (after `validate()` and after `correct()`), `P` (6 components), `G`, `DepsilonEff` and `DREff` (6 each),
+`epsilon` `E` and `Sp`, `R` `Sp`, wall-rescaled `P`, explicit `R` source (6), `reflect` (6), reflection coefficient, reflection term
+(6), the wall-face `R` written by `correctWallShearStress` (312 faces x 6 = 1872 values), `epsilon` unchanged by `correct()`.
+SSG (75 rows): the same set without reflection, plus `b`, `S`, `Omega` (9), `|b|`, `t1`, `t2`, and the total explicit source.
+The real registered `G` (`LRR:G`, `SSG:G`) equals the transcription. PETIR `r_powf(0.09, 0.75)` equals glibc `pow` (the only
+transcendental), as predicted. No libm ulp anywhere.
+
+**Negative control for prediction 3 (the named trap).** Using basic-lib `SymmTensor::dev` (`tr/3`) for `b = dev(R)/(2k)`
+gives 252 of 360 `b_xx` identical, up to 5 ulp, against upstream's `(1.0/3.0)*tr`. The port therefore carries a local
+`reynolds_stress::dev_symm_tensor`; basic-lib `dev` is not changed (shared). `Tensor::dev_symm`, `dev_two_symm`, `two_symm`,
+`skew`, `symm`, `SymmTensor * Tensor`, `SymmTensor * SymmTensor`, `inner_sqr`, `mag_sqr` were reused unchanged and match upstream.
+
+**Prediction 4 (held).** `Pw != P` in wall cells: 264 cells carry at least one of the 312 wall faces; corner cells are rescaled
+once per face. As predicted the "limiter" is `1 - O(1e-15/G)` everywhere (`G = 0.5|tr P|` by construction), so it never limits.
+
+**Prediction 6 (held).** `boundNormalStress` and `bound(epsilon)` were inactive: the real `R_after`, `epsilon_after`, `k_after`
+cell values equal the inputs. The port does not implement either clamp (they matter only after a solve).
+
+### What slice 10 does NOT show
+
+- No `correct()`: the `epsilon` and `R` solves, `boundNormalStress`, `bound` and the evolution over several `correct()` calls are
+  not ported or compared (`dumpSolver` does not solve). Child issue filed.
+- One mesh, orthogonal, `n` axis-aligned (nearest wall normal, so the reflection acts on `yy`/`zz` only), `nu = 1e-5`, wall-cell
+  limiter inactive in effect, zero-gradient `R` and `epsilon` everywhere (no wall functions on `epsilon`), `couplingFactor = 0`,
+  no `fvOptions`, no non-default coefficients, `wallReflection false` is only checked for absence of the term.
+- The port's own wall distance is not meshWave's (slice 2): `y` and `n` are inputs here, so the reflection term is NOT
+  bit-identical when the port's `y` is used.
+- Disclosure: the `R` polynomial was fixed before the first run and not changed; the driver compiled on the first attempt.
+
+## Slice 10: LRR and SSG Reynolds-stress models (gh:#1544, under #1336)
+
+Upstream: `RASModels/LRR/LRR.C`, `RASModels/SSG/SSG.C`, base `ReynoldsStress.C` (ESI v2506). Searched before building: no
+`ReynoldsStress`, `LRR`, `SSG` or R-transport code exists in `crates/outram-foam-*` (grep of `.rs`, `.md`, `.sh`); the
+primitives (`SymmTensor`, `Tensor` products, `dev`, `innerSqr`, `skew`) exist in basic-lib and are reused.
+
+### Method (same pattern as slices 2-9)
+
+`turbDump -model LRR|SSG` on the same 12x10x3 duct. New frozen input: a polynomial symmetric `R` (no libm, written to
+`0/R`, zeroGradient), the existing `epsilon` polynomial, polynomial `U`. The REAL model runs `validate()` and one
+`correct()` with `dumpSolver` standing in for every linear solve, so every assembled matrix is printed instead of solved:
+`epsilon` (scalar) and `R` (six components `Rxx..Rzz`, exactly as `fvMatrix<symmTensor>::solveSegregated` hands them to the
+scalar solver). The driver transcribes `correct()` expression for expression and audits the transcription against all of
+those matrices. The Rust test compares the port's per-cell terms with the transcription, with the UPSTREAM `grad(U)`,
+meshWave `y` and meshWave `n` fed in (the port's own wall distance is not meshWave's, slice 2).
+
+**What is NOT compared:** the evolution of R, epsilon, nut over several `correct()` calls. `dumpSolver` does not solve, so
+repeated `correct()` calls would reproduce the same matrices; a real solve needs the port's own FV assembly and solver and
+is not bit-identical with upstream even for kEpsilon (gh:#1489). Recorded as a child issue, not claimed.
+
+### Predictions (written and committed BEFORE the driver was built or run; Rust side not yet written)
+
+1. **Audit:** the transcription reproduces the real `epsilon` matrix and all six `R` component matrices (diag, source, upper,
+   lower) bit for bit for LRR and SSG. Risk: the wall-reflection term enters through `fvMatrix::operator+=`, which subtracts
+   `V*su` from the source; I transcribe it with the same operator, so I expect identity.
+2. **LRR terms, 0 ulp (360/360)** for: `k`, `nut`, `P`, `G`, `DepsilonEff`, `DREff`, epsilon `E`/`Sp`, `R` `Sp`, the wall-corrected
+   `P`, the explicit `R` source, `reflect`, the wall-reflection coefficient and term. No transcendental is evaluated except
+   `pow(Cmu, 0.75)`, which PETIR `r_pow` will return equal to glibc (slices 7 and 8 found PETIR `exp`/`pow` equal to glibc on every
+   tested argument). I expect NO libm ulp.
+3. **SSG terms, 0 ulp (360/360)** for `b`, `S`, `Omega`, `|b|`, `Sp`, both explicit pieces `t1`, `t2` and the total source. The
+   one trap I can name: basic-lib `SymmTensor::dev` uses `tr/3` while upstream `dev(SymmTensor)` uses `(1.0/3.0)*tr`, so a
+   port that calls the basic-lib `dev` would differ by ulps; the port uses a local faithful `dev`.
+4. **Wall-cell trace limiter** `min(G/(0.5|tr P| + SMALL), 1)`: since `G = 0.5|tr P|` by construction, the ratio is `1 - O(1e-15/G)`
+   and always selects the ratio branch: `P` in wall cells is rescaled by about `1 - 1e-13`, never by a physical limiter. I
+   predict `P_wall != P` in every wall cell and that corner cells (two or three wall faces) compound.
+5. **After `correct()` with unsolved psi:** `R`, `epsilon`, `k` cell values equal the inputs; `nut` equals `Cmu k^2/epsilon`
+   of the inputs; the wall-face values of `R` are rewritten to `-nutw 2 devSymm(n (x) snGradU)`, which the port reproduces from
+   the dumped `snGradU` (algebra only; the `snGrad` itself is an input).
+6. **Prediction that could fail:** `boundNormalStress` and `bound` are inactive on these fields (all normal stresses above `SMALL`);
+   if any cell clamps, the port (which does not implement the clamp) will differ there.

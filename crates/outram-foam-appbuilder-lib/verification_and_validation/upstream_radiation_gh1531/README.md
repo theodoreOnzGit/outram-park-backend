@@ -46,9 +46,13 @@ wall, dt 0.1 s, 50 steps, with P1 in the fluid: a = e = 50 /m, E = 0, `G` starti
 0.9 (left) / 0.8 (interface) / 0.5 (walls), `laplacian(gammaRad,G) Gauss linear uncorrected` (the only G
 Laplacian the port has), G solved by PCG/DIC to 1e-15 by ESI; the port replays ESI's per-step PCG iteration
 count with tolerance 0 (arithmetic compared, not the stopping rule). Energy solves: ESI 1e-15, port 1e-16.
-A second reference re-runs ESI with `solverFreq 3`. The interface condition has `qr none` on both sides
+A second reference re-runs ESI with `solverFreq 3`. ~~The interface condition has `qr none` on both sides
 (the port's `CoupledTemperature` has no radiative flux term): radiation heats and cools the fluid, and the wall
-flux `qr` is computed and compared, but does not enter the interface balance.
+flux `qr` is computed and compared, but does not enter the interface balance.~~ **CORRECTED 2026-11-14:** that
+describes the three references above (`cht_rad`, `cht_rad_f3`), which are `qr none` on both sides and are compared
+with the port's explicit ablation `without_radiative_flux_coupling`. Since 2026-11-14 `CoupledTemperature` carries
+the flux term and the port applies it by default; the fourth reference `cht_rad_qr` has `qr qr; qrNbr none` (fluid)
+and `qr none; qrNbr qr` (solid). See "qr coupling" below.
 
 `tests/upstream_radiation_cht_gh1531.rs` compares per step: fluid and solid cell T, fluid cell `G`, `qr` and `G`
 on the three patches.
@@ -140,13 +144,68 @@ What coupling P1 there would mean, and why it is not done:
 
 - Flowing fluid, buoyancy, the compressible solve, `hotRadiationRoom` itself; `nOuterCorrectors > 1` with
   radiation (the port calls `correct` once per energy pass as `EEqn.H` does, but ESI is only run with one pass).
-- Radiative flux into the interface condition (`qr`/`qrNbr` of `turbulentTemperatureRadCoupledMixed`): needs a
-  `CoupledTemperature` extension. Filed as a follow-up on the issue.
+- ~~Radiative flux into the interface condition (`qr`/`qrNbr` of `turbulentTemperatureRadCoupledMixed`): needs a
+  `CoupledTemperature` extension. Filed as a follow-up on the issue.~~ **DONE 2026-11-14**, see "qr coupling".
+  Still open: `thicknessLayers`/`kappaLayers` together with `qr` (the port's layered mode is `baffleMixed`'s, which
+  differs from `RadCoupledMixed`'s, not compared), `thermalInertia`, `useImplicit`.
 - Non-orthogonal (`corrected`) G Laplacian; per-patch emissivity models; variable properties (Cp(T)): the
   `he -> T` conversion assumes constant Cp.
 - `docs/outram-foam-appbuilder-lib-api.md` mirror not regenerated (`kovan-cli api-docs`).
 
+## qr coupling (2026-11-14, predictions Q1-Q6 in the PREDICTIONS.md addendum, committed in b8c30833e before any run)
+
+**Upstream, read (ESI v2506 `turbulentTemperatureRadCoupledMixedFvPatchScalarField.C`, `updateCoeffs`).** `qr` is looked up
+on this patch (`qrName_`, default `none` = 0), `qrNbr` on the neighbour patch (`qrNbrName_`, default `none`), paired
+by `distribute`. Without `thermalInertia`: `valueFraction = KDeltaNbr/(KDeltaNbr + alpha)`, `refValue = TcNbr`,
+`refGrad = (qr + qrNbr)/kappaTp`, with `alpha = kappaTp (1 + KDeltaNbr/KDeltaC) deltaCoeffs` and `KDeltaC = GREAT` without
+layers. There is no `qrRelaxation` in this condition in v2506 (the name occurs only in `thermalBaffle1D`); the field is
+used as it stands. `qr` is the radiation model's field, wall values `-gamma snGrad(G)` (`P1.C:244`), so it is the value
+of the last `rad.correct()`; the fluid sees the previous pass's, the solid (solved after the fluid in the pass) the new one.
+
+**Port.** `CoupledTemperature::update_coeffs_with_flux` (new; `update_coeffs` calls it with `None, None`) adds the
+`refGrad` term, leaving `valueFraction` and `refValue` untouched (unit test `radiative_flux_enters_ref_grad_only`).
+`InterfaceRadiation::Auto` is the default: a fluid with `with_radiation` supplies `qr` to its own side and `qrNbr` to the
+neighbour, the ESI tutorial convention. `with_radiative_flux` states the terms per side (a flux the region does not have is
+refused at `ChtMultiRegionFoam::new`, as upstream's failed lookup); `without_radiative_flux` /
+`ChtMultiRegionFoam::without_radiative_flux_coupling` is the ablation. No kovan review stamp covers
+`cht_multi_region_foam` (checked: no `review.md` there), so the existing functions were edited, not wrapped.
+
+**Method.** ESI v2506 run as above with only the two interface `T` entries changed (`scripts/run_cht_rad.sh 50 50 1
+cht_rad_qr 1`, reference `reference/cht_rad_qr_v2506.txt.gz`), compared per step by `tests/upstream_radiation_cht_gh1531.rs`
+`default_qr_coupling_matches_upstream_rad_coupled_mixed` (default port, nothing asked for).
+
+**Results, 2026-11-14, 50 steps, max over steps:**
+
+| quantity | port (default, qr on) vs ESI with qr | prediction | held |
+|---|---|---|---|
+| fluid cell T | 1.04e-11 K | <= 5e-11 K | yes |
+| solid cell T | 3.8e-12 K | <= 2e-11 K | yes |
+| G (cells), relative | 1.49e-13 | <= 1e-9 | yes |
+| G (patches), relative | 1.60e-13 | <= 1e-9 | yes |
+| qr on patches, relative to max | 2.8e-10 | <= 1e-8 | yes |
+
+Not bit-identical: the floor is the same T-form (port) versus h-form (ESI) round-off as the gh:#1363 record (1.05e-11 K) and as
+the qr-less run above (1.07e-11 K); the qr term did not raise it.
+The ablated port reproduces the qr-less ESI reference at 1.07e-11 K, so the old record stands as an explicit
+ablation. **Q2's named risk (ESI re-evaluating the condition after `rad.correct()`) did not occur**: the lag the port uses
+agrees with ESI's to this floor.
+
+Does the term matter (Q3, Q4)? Yes, measurably: ESI with `qr` versus ESI without, fluid T, step 50: **8.47e-3 K**
+(prediction 1e-3 .. 1e-2 K, held), the interface-adjacent cells lower with `qr` (asserted for every interface cell, held).
+`qr` on the interface is -350 .. -352 W/m2 at step 50 (negative as predicted; bound 3.8e2 W/m2 held). The port with `qr`
+ablated differs from ESI-with-qr by 8.4674e-3 K, i.e. by the whole ESI shift, so the case discriminates. Q5 (default, and
+nothing changes without radiation: `explicit_terms_equal_auto_and_a_missing_flux_is_refused`) held. Q6 (layers with qr) was
+not tested, as stated beforehand.
+
+**Interpretation.** The port reproduces ESI's `qr`/`qrNbr` handling in `turbulentTemperatureRadCoupledMixed` on a
+frozen-flow fluid at rest with P1; it says nothing about flowing, buoyant or compressible CHT, layers, or the
+`viewFactor`/`fvDOM` models. Research and V&V only.
+
+**Doc claims struck through in this change (code contradicted them):** the "does not enter the interface balance" paragraph above;
+the "Not covered" item on `qr`; `energy_radiation.rs` module docs ("Not here"); the crate README rows for `energy` and
+`cht_multi_region_foam`.
+
 ## Files
 `driver/chtRadDump.C`, `driver/Make/options`, `inputs/`, `scripts/run_cht_rad.sh`,
-`reference/cht_rad_v2506.txt.gz`, `reference/cht_rad_f3_v2506.txt.gz`, `PREDICTIONS.md`;
+`reference/cht_rad_v2506.txt.gz`, `reference/cht_rad_f3_v2506.txt.gz`, `reference/cht_rad_qr_v2506.txt.gz`, `PREDICTIONS.md`;
 tests `tests/upstream_radiation_cht_gh1531.rs` and the unit tests in `src/solvers/energy_radiation.rs`.

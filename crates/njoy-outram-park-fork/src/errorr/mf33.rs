@@ -81,6 +81,8 @@ pub struct Mf33Config {
     /// as a fraction of `AP` for every MF=32 range (`isru`); `0` takes
     /// `DAP` from the file. Ignored without MF=32.
     pub dap: f64,
+    /// Cards 8-9 (`iread = 1`, gh:#1371); `None` for `iread = 0`.
+    pub card8: Option<super::gridd::Card8>,
 }
 
 /// `iverf` of a material from its MF=1/MT=451 header
@@ -170,6 +172,7 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
 
     // dictionary + covariance energies + derivation coefficients
     let mut reactions = scan_reactions(endf, matd)?;
+    reactions.card8 = cfg.card8.clone();
     let g = gridd(endf, matd, &mut reactions)?;
     lumpmt(endf, matd, &mut reactions)?;
 
@@ -191,11 +194,13 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
     // covcal: absolute covariances on the union grid
     let fine = covcal(endf, matd, &reactions, &groups, &flx)?;
 
-    // za/awr from the first MF=33 section with NL > 0 (covcal, errorr.f90:1935-1938)
+    // za/awr from the first MF=33 section with NL > 0 (covcal, errorr.f90:1935-1938);
+    // with iread = 1, the first one on card 8a, as covcal skips the rest (gh:#1371).
     let (za, awr) = endf
         .sections()
         .iter()
         .filter(|s| s.key.mat == matd && s.key.mf == 33)
+        .filter(|s| reactions.card8.as_ref().is_none_or(|c8| c8.mts.contains(&s.key.mt)))
         .find_map(|s| {
             let r = s.rows.first()?;
             (r[5] != 0.0).then_some((r[0], r[1]))

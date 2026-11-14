@@ -12,13 +12,19 @@
 //! step, and the PCG iteration count of each `G` solve. The port replays those counts
 //! with tolerance 0 so the comparison is of arithmetic, not of the stopping rule.
 //! Predictions: `upstream_radiation_gh1531/PREDICTIONS.md`; results: `README.md` there.
+//!
+//! **qr coupling (2026-11-14).** `reference/cht_rad_qr_v2506.txt.gz` is the same case with the interface
+//! temperature conditions carrying the radiative flux as in ESI's `solarBeamWithTrees` (fluid `qr qr;
+//! qrNbr none;`, solid `qr none; qrNbr qr;`, `scripts/run_cht_rad.sh 50 50 1 cht_rad_qr 1`). The port takes
+//! `qr` by default (`InterfaceRadiation::Auto`); the qr-less references are compared with the explicit
+//! ablation `without_radiative_flux_coupling`.
 
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::io::control_dict::ControlDict;
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;
 use outram_foam_appbuilder_lib::io::fv_solution::FvSolution;
 use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
-use outram_foam_appbuilder_lib::solvers::cht_multi_region_foam::{ChtMultiRegionFoam, CoupledTemperature, RegionId, SolidRegion};
+use outram_foam_appbuilder_lib::solvers::cht_multi_region_foam::{ChtMultiRegionFoam, CoupledTemperature, InterfaceRadiation, RegionId, SolidRegion};
 use outram_foam_appbuilder_lib::solvers::energy::{EnergyEquation, IncompressibleThermo};
 use outram_foam_appbuilder_lib::solvers::pimple_foam::PimpleFoam;
 use outram_foam_basic_lib::prelude::*;
@@ -91,7 +97,7 @@ fn p1_model(mesh: &FvMesh, a: f64) -> P1Model {
     P1Model::new(ConstantAbsorptionEmission { absorptivity: a, emissivity: a, emission_source: 0.0 }, patches)
 }
 
-fn build_port(reference: &Reference, radiation: bool, solver_freq: usize) -> ChtMultiRegionFoam {
+fn build_port(reference: &Reference, radiation: bool, solver_freq: usize, qr_coupling: bool) -> ChtMultiRegionFoam {
     let k = &reference.scalars[&0];
     let mf = read_poly_mesh(&case_root().join("constant/fluid/polyMesh")).expect("fluid polyMesh");
     let ms = read_poly_mesh(&case_root().join("constant/solid/polyMesh")).expect("solid polyMesh");
@@ -115,7 +121,11 @@ fn build_port(reference: &Reference, radiation: bool, solver_freq: usize) -> Cht
     let mut cht = ChtMultiRegionFoam::new(vec![f], vec![s], vec![c]).expect("port");
     cht.solid_delta_t = uom::si::f64::Time::new::<uom::si::time::second>(DT);
     cht.energy_outer_correctors = 1;
-    cht
+    if qr_coupling {
+        cht
+    } else {
+        cht.without_radiative_flux_coupling()
+    }
 }
 
 fn worst_abs(port: &[f64], up: &[f64]) -> (f64, usize) {
@@ -198,9 +208,9 @@ fn verbose() -> bool {
 #[test]
 fn coupled_p1_matches_upstream_chtmultiregionfoam() {
     let reference = read_reference("cht_rad_v2506.txt.gz");
-    let mut cht = build_port(&reference, true, 1);
+    let mut cht = build_port(&reference, true, 1, false);
     let w = run(&mut cht, &reference, N_STEPS, verbose());
-    eprintln!("cht+P1 vs ESI v2506: {w:?}");
+    eprintln!("cht+P1 (qr ablated) vs ESI v2506 qr none: {w:?}");
     // Prediction 1: the mean step-1 fluid dT is -2.197e-3 K within 2 % (derived before the run).
     assert!((w.mean_dt_step1 / -2.197e-3 - 1.0).abs() < 0.02, "{w:?}");
     assert!(w.t_fluid < 5e-11, "{w:?}");
@@ -215,7 +225,7 @@ fn coupled_p1_matches_upstream_chtmultiregionfoam() {
 #[test]
 fn radiation_off_differs_from_radiation_on_by_the_radiation() {
     let reference = read_reference("cht_rad_v2506.txt.gz");
-    let mut cht = build_port(&reference, false, 1);
+    let mut cht = build_port(&reference, false, 1, false);
     assert!(cht.fluids[0].energy.as_ref().unwrap().radiation.is_none());
     let mut worst = 0.0_f64;
     for step in 1..=N_STEPS {
@@ -233,9 +243,81 @@ fn radiation_off_differs_from_radiation_on_by_the_radiation() {
 fn solver_freq_three_matches_upstream() {
     let reference = read_reference("cht_rad_f3_v2506.txt.gz");
     assert_eq!(reference.g_iterations.keys().take(4).copied().collect::<Vec<_>>(), vec![1, 3, 6, 9]);
-    let mut cht = build_port(&reference, true, 3);
+    let mut cht = build_port(&reference, true, 3, false);
     let w = run(&mut cht, &reference, N_STEPS, verbose());
     eprintln!("cht+P1 solverFreq 3 vs ESI v2506: {w:?}");
     assert!(w.t_fluid < 5e-11 && w.t_solid < 2e-11, "{w:?}");
     assert!(w.g_rel < 1e-9 && w.gb_rel < 1e-9 && w.qr_rel < 1e-8, "{w:?}");
+}
+
+/// qr coupling (2026-11-14): the DEFAULT port (nothing asked for) against ESI with `qr qr` / `qrNbr qr` on the
+/// interface. Predictions Q1, Q2 of `PREDICTIONS.md` (addendum).
+#[test]
+fn default_qr_coupling_matches_upstream_rad_coupled_mixed() {
+    let reference = read_reference("cht_rad_qr_v2506.txt.gz");
+    let mut cht = build_port(&reference, true, 1, true);
+    assert_eq!(cht.interfaces[0].radiation, InterfaceRadiation::Auto);
+    let w = run(&mut cht, &reference, N_STEPS, verbose());
+    eprintln!("cht+P1 with qr/qrNbr (default) vs ESI v2506: {w:?}");
+    assert!(w.t_fluid < 5e-11, "{w:?}");
+    assert!(w.t_solid < 2e-11, "{w:?}");
+    assert!(w.g_rel < 1e-9 && w.gb_rel < 1e-9, "{w:?}");
+    assert!(w.qr_rel < 1e-8, "{w:?}");
+}
+
+/// Ablation (Q3, Q4): ESI itself moves by the qr term (>= 1e-3 K, lower in the interface cells), and the port with
+/// the term ablated differs from ESI-with-qr by the same amount, so the case discriminates.
+#[test]
+fn qr_term_is_resolved_by_the_case_and_the_ablation_discriminates() {
+    let with_qr = read_reference("cht_rad_qr_v2506.txt.gz");
+    let without = read_reference("cht_rad_v2506.txt.gz");
+    let interface_cells: Vec<usize> = {
+        let mf = read_poly_mesh(&case_root().join("constant/fluid/polyMesh")).expect("fluid polyMesh");
+        let p = &mf.patches[patch_index(&mf, "interface")];
+        (0..p.size).map(|i| mf.owner[p.start + i]).collect()
+    };
+    let (a, b) = (&with_qr.steps[&N_STEPS]["f T"], &without.steps[&N_STEPS]["f T"]);
+    let esi_shift = worst_abs(a, b).0;
+    eprintln!("ESI with qr vs ESI without qr, step {N_STEPS}: worst fluid T {esi_shift:.4e} K");
+    assert!(esi_shift > 1e-3 && esi_shift < 2.0, "{esi_shift}");
+    assert!(interface_cells.iter().all(|&c| a[c] <= b[c]), "interface cells must be lower with qr");
+
+    let mut ablated = build_port(&with_qr, true, 1, false);
+    assert_eq!(ablated.interfaces[0].radiation, InterfaceRadiation::Ablated);
+    let w = run(&mut ablated, &with_qr, N_STEPS, false);
+    eprintln!("port with qr ablated vs ESI with qr: worst fluid T {:.4e} K", w.t_fluid);
+    assert!(w.t_fluid > 1e-3, "{w:?}");
+}
+
+/// Wiring: explicit terms equal the default on a radiating fluid; naming a flux a region lacks is refused;
+/// without radiation in either region the term is absent (`refGrad` exactly 0).
+#[test]
+fn explicit_terms_equal_auto_and_a_missing_flux_is_refused() {
+    use outram_foam_appbuilder_lib::solvers::cht_multi_region_foam::RadiativeFluxTerms;
+    let reference = read_reference("cht_rad_qr_v2506.txt.gz");
+    let on = RadiativeFluxTerms { own: true, neighbour: false };
+    let nbr = RadiativeFluxTerms { own: false, neighbour: true };
+    let mut auto = build_port(&reference, true, 1, true);
+    let mut explicit = build_port(&reference, true, 1, true);
+    explicit.interfaces[0] = explicit.interfaces[0].clone().with_radiative_flux(on, nbr);
+    for _ in 0..3 {
+        auto.step().unwrap();
+        explicit.step().unwrap();
+    }
+    assert_eq!(auto.fluids[0].energy.as_ref().unwrap().t.internal.as_slice(), explicit.fluids[0].energy.as_ref().unwrap().t.internal.as_slice());
+    assert_eq!(auto.solids[0].energy.t.internal.as_slice(), explicit.solids[0].energy.t.internal.as_slice());
+
+    // The solid has no qr of its own: `qr qr` on the solid side is an error, as upstream's failed lookup.
+    let mut bad = build_port(&reference, true, 1, true);
+    bad.interfaces[0] = bad.interfaces[0].clone().with_radiative_flux(on, on);
+    assert!(bad.check_radiative_fluxes().is_err());
+
+    // No radiation anywhere: Auto adds nothing, bit for bit the ablated solver.
+    let mut plain = build_port(&reference, false, 1, true);
+    let mut plain_off = build_port(&reference, false, 1, false);
+    for _ in 0..3 {
+        plain.step().unwrap();
+        plain_off.step().unwrap();
+    }
+    assert_eq!(plain.fluids[0].energy.as_ref().unwrap().t.internal.as_slice(), plain_off.fluids[0].energy.as_ref().unwrap().t.internal.as_slice());
 }

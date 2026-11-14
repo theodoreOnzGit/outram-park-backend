@@ -175,6 +175,24 @@ fn c_int(v: f64) -> i32 {
     v as i32
 }
 
+/// The sort bin size, `0.5 * cutneighmax`, with `Atom::setup_sort_bins`'
+/// guard (LIGGGHTS-PUBLIC `3d5c00f2`, `atom.cpp`; no user bin size, no CUDA,
+/// no `lmp->wb`).
+///
+/// # Errors
+///
+/// [`DemError::InvalidInput`] "Atom sorting has bin size = 0.0" when
+/// `cutneighmax` is 0, as upstream's `error->all` (gh:#1568).
+pub fn sort_bin_size(cutneighmax: f64) -> Result<f64, DemError> {
+    let binsize = 0.5 * cutneighmax;
+    if binsize == 0.0 {
+        return Err(DemError::InvalidInput(
+            "Atom sorting has bin size = 0.0 (LIGGGHTS Atom::setup_sort_bins)".into(),
+        ));
+    }
+    Ok(binsize)
+}
+
 /// The permutation `Atom::sort` applies: element `n` is the old local index of
 /// the atom that becomes local atom `n`. `x` are the local atoms' positions in
 /// their current local order. Returns the identity when there is a single sort
@@ -186,9 +204,18 @@ fn c_int(v: f64) -> i32 {
 /// (at least 1), `bininv = nbin / extent`, atoms binned by
 /// `int((x - lo) * bininv)` clamped to `[0, nbin - 1]`, ordered by
 /// `iz*nbiny*nbinx + iy*nbinx + ix` and, inside a bin, by ascending old index.
+///
+/// With no atoms the permutation is empty whatever the bins: upstream's
+/// binning and copy loops run over `nlocal = 0` atoms (gh:#1568; a zero
+/// `cutneighmax`, which only an empty system without an insertion fix has,
+/// used to overflow the bin count here). Upstream refuses a zero bin size at
+/// the run set-up instead; see [`sort_bin_size`].
 #[must_use]
 pub fn atom_sort_permutation(x: &[Vec3], cfg: &LiggghtsNeighbor, cutneighmax: f64) -> Vec<usize> {
     let n = x.len();
+    if n == 0 {
+        return Vec::new();
+    }
     let binsize = 0.5 * cutneighmax;
     let bininv = 1.0 / binsize;
     let ext = cfg.box_hi.sub(cfg.box_lo);

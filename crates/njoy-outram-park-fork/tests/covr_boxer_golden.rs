@@ -342,6 +342,7 @@ fn tier2(case: &Case) {
         tempin: TEMP_K,
         irelco: case.irelco,
         dap: 0.0,
+        card8: None,
     };
     let result = run_mf33(&endf, &pendf, &cfg).expect("run_mf33");
     // The real tape byte path: write the ERRORR tape, read it back.

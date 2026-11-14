@@ -88,3 +88,146 @@ thermo_modify	lost ignore norm no format float %.17g
 thermo		500
 EOF
 frames 1 2000 4000 6000 8000 10000 12000; } > in.ms_massflow
+# --- gh:#1415 second multisphere pass (2026-11-14) ---------------------------
+PTS1='fix		pts1 all particletemplate/multisphere 15485863 atom_type 1 density constant 2500 nspheres 3 ntry 100000 spheres 0. 0. 0. 0.004 0.005 0. 0.001 0.0035 0.002 0.004 -0.001 0.003 type 1'
+PTS2='fix		pts2 all particletemplate/multisphere 49979687 atom_type 2 density constant 1500 nspheres 4 ntry 100000 spheres 0. 0. 0. 0.003 0.004 0.001 0. 0.003 -0.003 0.003 0.002 0.0025 0.001 -0.002 0.004 0.002 type 2'
+COLLIDE_INS='fix		pdd1 all particledistribution/discrete 15485867 1 pts1 1.0
+fix		pdd2 all particledistribution/discrete 32452867 1 pts2 1.0
+region		ins1 block -0.035 -0.025 -0.004 0.004 0.06 0.068 units box
+region		ins2 block 0.025 0.035 -0.004 0.004 0.06 0.068 units box
+fix		ins1 all insert/pack seed 32452843 distributiontemplate pdd1 insert_every once overlapcheck yes vel constant 0.6 0. 0. omega constant 0. 4. 0. region ins1 particles_in_region 1
+fix		ins2 all insert/pack seed 86028121 distributiontemplate pdd2 insert_every once overlapcheck yes vel constant -0.6 0. 0. omega constant 2. 0. -3. orientation constant 0.5 0.5 -0.5 0.5 region ins2 particles_in_region 1
+fix		ms all multisphere'
+# ms_ke: in.ms_collide with `compute ke/multisphere` and `erotate/multisphere`
+# on every 250th thermo line (%.17g). Reference ms_ke_thermo.txt, the first
+# thermo line of each step:
+#   awk '$1 ~ /^[0-9]+$/ && NF==4 && !seen[$1]++' log.txt > ms_ke_thermo.txt
+{ header; echo "$PTS1"; echo "$PTS2"; echo "$COLLIDE_INS"; cat <<'EOF'
+compute		ke all ke/multisphere
+compute		er all erotate/multisphere
+thermo_style	custom step atoms c_ke c_er
+thermo_modify	lost ignore norm no format float %.17g
+thermo		250
+run		15000
+EOF
+} > in.ms_ke
+# ms_flags: in.ms_collide with the template keywords `fflag off on on tflag on
+# off on` (type 1) and `tflag off off on` (type 2). Frames to step 10000 (the
+# type 1 clump keeps vx = 0.6 and would leave the box later).
+{ header; echo "$PTS1 fflag off on on tflag on off on"; echo "$PTS2 tflag off off on"; echo "$COLLIDE_INS"; cat <<'EOF'
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 2000 4000 5000 6000 7000 8000 10000; } > in.ms_flags
+# ms_orient: four clumps of both templates (mass-based 60/40) inserted with
+# `orientation random`, falling onto the zplane.
+{ header; echo "$PTS1"; echo "$PTS2"; cat <<'EOF'
+fix		pdd1 all particledistribution/discrete 15485867 2 pts1 0.6 pts2 0.4
+region		ins block -0.03 0.03 -0.03 0.03 0.03 0.08 units box
+fix		ins all insert/pack seed 32452843 distributiontemplate pdd1 insert_every once overlapcheck yes all_in yes vel constant 0. 0. -0.5 omega constant 1. 2. 3. orientation random region ins particles_in_region 4
+fix		ms all multisphere
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 1000 2000 4000 6000 8000 10000; } > in.ms_orient
+# ms_file: in.ms_drop with the type 1 template read from ms_clump1.txt (mm,
+# with a comment and a blank line) by `spheres file ... scale 0.0011` (a 1.1x
+# clump: with 0.001 every product rounds to the inline metre literal). Copy
+# ms_clump1.txt into the run directory.
+{ header; cat <<'EOF'
+fix		pts1 all particletemplate/multisphere 15485863 atom_type 1 density constant 2500 nspheres 3 ntry 100000 spheres file ms_clump1.txt scale 0.0011 type 1
+fix		pdd1 all particledistribution/discrete 15485867 1 pts1 1.0
+region		ins block -0.01 0.01 -0.01 0.01 0.03 0.05 units box
+fix		ins all insert/pack seed 32452843 distributiontemplate pdd1 insert_every once overlapcheck yes all_in yes vel constant 0.1 0. -0.5 omega constant 3. -2. 5. orientation constant 0.5 0.5 0.5 0.5 region ins particles_in_region 1
+fix		ms all multisphere
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 1000 4000 5000 6000 8000 10000 12000 15000; } > in.ms_file
+# ms_lost: a type 1 clump slides off the +x face of the `f f f` box.
+# Comm::exchange drops each member atom that leaves; FixMultisphere::pre_neighbor
+# (check_lost_atoms) then frees the clump's other atoms (body -1, rmass *=
+# volumeweight) and deletes the body; FixMultisphere::pre_exchange deletes the
+# freed atoms at the next re-neighbouring (forced within 5 steps). `fix
+# nve/sphere`, defined before fix multisphere, integrates the freed atoms, as
+# the Rust port does for every atom. A type 2 clump stays in the box. Thermo
+# every step (%.17g): ms_lost_thermo.txt, extracted as for ms_ke.
+{ header; echo "$PTS1"; echo "$PTS2"; cat <<'EOF'
+fix		pdd1 all particledistribution/discrete 15485867 1 pts1 1.0
+fix		pdd2 all particledistribution/discrete 32452867 1 pts2 1.0
+region		ins1 block 0.022 0.03 -0.004 0.004 0.008 0.016 units box
+region		ins2 block -0.02 -0.01 -0.004 0.004 0.01 0.02 units box
+fix		ins1 all insert/pack seed 32452843 distributiontemplate pdd1 insert_every once overlapcheck yes vel constant 0.6 0. 0. omega constant 0. 0. 0. region ins1 particles_in_region 1
+fix		ins2 all insert/pack seed 86028121 distributiontemplate pdd2 insert_every once overlapcheck yes vel constant 0. 0. 0. omega constant 0. 0. 0. region ins2 particles_in_region 1
+fix		integr all nve/sphere
+fix		ms all multisphere
+compute		ke all ke/multisphere
+compute		er all erotate/multisphere
+thermo_style	custom step atoms c_ke c_er
+thermo_modify	lost ignore norm no format float %.17g
+thermo		1
+EOF
+frames 1 1000 2000 3000 4000 5000 6000; } > in.ms_lost
+# --- gh:#1415 third multisphere pass (2026-11-14) ----------------------------
+COLLIDE_THERMO='thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no'
+# ms_mass: in.ms_collide with the clump mass and inertia tensor given:
+# type 1 `mass ... inertia_tensor ... use_volume` (MC volume and COM, density
+# = mass/volume), type 2 `... use_density` (no MC volume, no COM shift).
+{ header
+  echo "$PTS1 mass 1.5e-3 inertia_tensor 1.3e-8 2.0e-10 -1.0e-9 1.6e-8 1.5e-9 1.9e-8 use_volume"
+  echo "$PTS2 mass 5.0e-4 inertia_tensor 3.5e-9 5.0e-10 6.0e-10 6.0e-9 1.0e-10 6.2e-9 use_density"
+  echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"
+  frames 1 2000 4000 5000 6000 7000 8000 10000 12000 15000; } > in.ms_mass
+# The ms_collide set-up with a second `run` (a new set-up: FixMultisphere's
+# setup_pre_exchange / pre_neighbor / pre_force and setup -> calc_force(true))
+# at step 10100, while a clump touches the floor. A split at a step with no
+# active contact recomputes the same forces and cannot change the run: of the
+# splits 4500, 4600, ..., 14900 only 9900, 10100, 14400 and 14500 changed
+# upstream's step-15000 state (4800, the first choice, did not). $1: commands
+# issued between the two runs.
+rerun() {
+  echo "run 1"; echo "write_dump all custom dump.F1 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  prev=1
+  for s in 2000 4000 6000 8000 10000 10100; do
+    echo "run $((s - prev)) pre no"
+    echo "write_dump all custom dump.F$s id x y z vx vy vz omegax omegay omegaz modify sort id"
+    prev=$s
+  done
+  [ -n "$1" ] && echo "$1"
+  echo "run 100"
+  echo "write_dump all custom dump.F10200 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  prev=10200
+  for s in 11000 12000 13000 14000 15000; do
+    echo "run $((s - prev)) pre no"
+    echo "write_dump all custom dump.F$s id x y z vx vy vz omegax omegay omegaz modify sort id"
+    prev=$s
+  done
+}
+# ms_rerun: ms_collide with the second run set-up at step 10100.
+{ header; echo "$PTS1"; echo "$PTS2"; echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"; rerun ""; } > in.ms_rerun
+# ms_refl: ms_rerun with `fix_modify ms fflag off on on` and
+# `fix_modify ms tflag on off on` (every existing body) before the second run.
+{ header; echo "$PTS1"; echo "$PTS2"; echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"
+  rerun "fix_modify	ms fflag off on on
+fix_modify	ms tflag on off on"; } > in.ms_refl
+# ms_noint: ms_collide with `fix multisphere/nointegration` and `fix nve/sphere`
+# (defined first): the bodies are frozen, the member atoms fly as free spheres
+# with the clump mass, no gravity and no intra-clump pairs.
+{ header; echo "$PTS1"; echo "$PTS2"
+  echo "$COLLIDE_INS" | sed 's|^fix		ms all multisphere$|fix		integr all nve/sphere\
+fix		ms all multisphere/nointegration|'
+  echo "$COLLIDE_THERMO"
+  frames 1 2000 4000 5000 6000 7000 8000 10000 12000 15000; } > in.ms_noint
+# ms_dtypes: in.ms_file with `spheres_different_types file ms_clump1_types.txt`
+# (sphere types 2 1 2, template atom_type 1). Upstream gives every member atom
+# the template's atom_type (FixTemplateMultisphere::randomize_ptilist does not
+# copy the sphere types; ParticleToInsertMultisphere::insert uses atom_type):
+# dump.types (id type at step 15000) is the second reference,
+# ms_dtypes_types.txt. Copy ms_clump1_types.txt into the run directory.
+sed 's/spheres file ms_clump1.txt scale 0.0011/spheres_different_types file ms_clump1_types.txt scale 0.0011/' in.ms_file > in.ms_dtypes
+echo "write_dump all custom dump.types id type modify sort id" >> in.ms_dtypes

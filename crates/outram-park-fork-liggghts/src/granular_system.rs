@@ -307,6 +307,12 @@ pub struct GranularSystem {
     capillary: Option<crate::capillary::CapillaryState>,
     /// `fix multisphere`: created when the first clump is inserted (gh:#1415).
     multisphere: Option<crate::multisphere::Multisphere>,
+    /// The clump fix is `fix multisphere/nointegration` (gh:#1415).
+    ms_nointegration: bool,
+    /// `boundary f f f` with `thermo_modify lost ignore`: the box whose
+    /// leavers `Comm::exchange` drops at a rebuild
+    /// ([`GranularSystem::with_lost_atoms`], gh:#1415).
+    lost_atoms_box: Option<(Vec3, Vec3)>,
 }
 
 /// Where a capillary mesh-facet `surfacesClose` happens (gh:#1487): the
@@ -469,6 +475,8 @@ impl GranularSystem {
             massflow: Vec::new(),
             capillary: None,
             multisphere: None,
+            ms_nointegration: false,
+            lost_atoms_box: None,
         };
         s.compute_forces_setup();
         Ok(s)
@@ -685,6 +693,14 @@ impl GranularSystem {
     ///   `shearupdate = 0` (the same evaluation construction does); and
     ///   `FixMoveMesh::setup`, which zeroes a moved mesh's node velocities
     ///   ([`MovingBoundary::move_mesh_setup`]).
+    /// * **With clumps** (gh:#1415, added 2026-11-14): `FixMultisphere`'s
+    ///   `setup_pre_exchange` (delete the atoms of lost clumps),
+    ///   `Comm::exchange` (under [`GranularSystem::with_lost_atoms`]),
+    ///   `setup_pre_neighbor` (`check_lost_atoms`), and after the set-up
+    ///   forces `setup_pre_force` + `setup`: each body's `fcm` and `torque`
+    ///   are re-summed from them (`calc_force(true)`). ~~A second run with
+    ///   clumps is refused.~~ **CORRECTED 2026-11-14:** ported, bit-identical
+    ///   (`tests/multisphere_cross_code.rs`, `ms_rerun`).
     ///
     /// What **persists**, as upstream: pair, wall and mesh contact history;
     /// the servo's integral term, last process value, velocity and node
@@ -707,20 +723,25 @@ impl GranularSystem {
     /// # Errors
     ///
     /// [`DemError::InvalidInput`] where a fix's `init()` aborts (see
-    /// [`crate::mesh_stress::MeshServo::init_run`]).
+    /// [`crate::mesh_stress::MeshServo::init_run`]), or where
+    /// `Atom::setup_sort_bins` does (the sort on with a zero cut; see
+    /// [`GranularSystem::try_with_liggghts_neighbor_order`]).
     pub fn begin_run(&mut self) -> Result<(), DemError> {
-        if self.multisphere.is_some() {
-            // `FixMultisphere::setup` (`calc_force(true)` at the set-up) is
-            // not ported (gh:#1415)
-            return Err(DemError::InvalidInput(
-                "a second run set-up with multisphere clumps is not ported".into(),
-            ));
-        }
         // lmp->init(): Modify::init -> fix->init(); then Verlet::setup's
-        // setup_pre_force of the meshes (no fix reads another in between)
+        // setup_pre_force of the meshes (no fix reads another in between).
+        // Not modelled: a mesh's setup_pre_force follows the exchange below
+        // upstream; no deck here has both a servo mesh and lost atoms.
         for w in &mut self.moving_walls {
             w.begin_run(&self.particles)?;
         }
+        // Verlet::setup -> Atom::setup -> setup_sort_bins (gh:#1568)
+        self.check_sort_setup()?;
+        // modify->setup_pre_exchange (`FixMultisphere::pre_exchange`),
+        // comm->exchange, modify->setup_pre_neighbor (`check_lost_atoms`);
+        // each a no-op without clumps / lost atoms (gh:#1415)
+        self.multisphere_pre_exchange();
+        self.exchange_lost_atoms();
+        self.multisphere_pre_neighbor();
         // neighbor->build (the LIGGGHTS-order rebuild in the set-up
         // evaluation also does this) and the mesh neighbour lists
         self.xhold = self.particles.iter().map(|p| p.position).collect();
@@ -728,11 +749,62 @@ impl GranularSystem {
         self.rebuild_massflow_lists();
         // pair compute and modify->setup (wall/gran, gravity, force fixes)
         self.compute_forces_setup();
+        // `FixMultisphere::setup_pre_force` -> `reset_forces(false)`, then
+        // `FixMultisphere::setup` -> `calc_force(true)` on the set-up forces
+        // (gh:#1415); the next step's first half-kick uses them
+        self.multisphere_setup_force();
         // FixMoveMesh::setup, declared after its wall/gran
         for w in &mut self.moving_walls {
             w.move_mesh_setup();
         }
         Ok(())
+    }
+
+    /// Make this system's clump fix `fix multisphere/nointegration`
+    /// ([`crate::multisphere::Multisphere::without_integration`]; gh:#1415):
+    /// the bodies are not integrated, and their member atoms move by the atom
+    /// integrator alone. Call before the first clump is inserted.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a clump already exists (upstream's fix
+    /// style is fixed when the fix is defined).
+    pub fn with_multisphere_nointegration(mut self) -> Result<Self, DemError> {
+        if self.multisphere.is_some() {
+            return Err(DemError::InvalidInput(
+                "multisphere/nointegration must be chosen before the first clump is inserted".into(),
+            ));
+        }
+        self.ms_nointegration = true;
+        Ok(self)
+    }
+
+    /// `FixMultisphere::setup` at a `run` set-up: the bodies' force and torque
+    /// reset (`setup_pre_force`) and summed from the set-up forces in local
+    /// atom order, plus `m g` (`calc_force(true)`; no heat transfer, so the
+    /// `setupflag` branch does not arise). No-op without clumps.
+    fn multisphere_setup_force(&mut self) {
+        if self.multisphere.is_none() {
+            return;
+        }
+        let order = self.local_order_indices();
+        let gravity = self.gravity;
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.reset_forces(false);
+            ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
+        }
+    }
+
+    /// `fix_modify <ms> fflag x y z` / `tflag x y z`
+    /// (`FixMultisphere::modify_param`, gh:#1415): the flags of **every
+    /// existing body** are replaced; a clump inserted later takes its
+    /// template's flags. Upstream issues it between two `run` commands, so
+    /// call [`GranularSystem::begin_run`] afterwards. Before the first clump
+    /// exists it changes nothing, as upstream's loop over zero bodies does.
+    pub fn fix_modify_multisphere(&mut self, m: crate::multisphere::MultisphereModify) {
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.modify_param(m);
+        }
     }
 
     /// `fix_modify <mesh> servo/<keyword> ...` on the servo of moving wall
@@ -781,7 +853,13 @@ impl GranularSystem {
             return;
         }
         let triggersq = 0.25 * skin * skin;
-        let mut rebuild = self.mesh_rebuild_pending;
+        // `Neighbor::decide`: a fix's `next_reneighbor` (fix multisphere after
+        // freeing a lost clump's atoms, gh:#1415) forces the rebuild
+        let ms_forced = self
+            .multisphere
+            .as_ref()
+            .is_some_and(|m| m.next_reneighbor() == Some(self.step_count));
+        let mut rebuild = self.mesh_rebuild_pending || ms_forced;
         if !rebuild {
             for (p, h) in self.particles.iter().zip(&self.xhold) {
                 let d = p.position.sub(*h);
@@ -835,6 +913,22 @@ impl GranularSystem {
         self.mesh_rebuild_pending = false;
         self.compute_forces_setup();
         self
+    }
+
+    /// [`GranularSystem::with_liggghts_neighbor_order`], refusing the set-up
+    /// where upstream does (gh:#1568): with the atom sort on
+    /// (`sort_every > 0`) and `cutneighmax = 0` (no atoms and no insertion
+    /// fix), `Atom::setup_sort_bins` stops with "Atom sorting has bin size =
+    /// 0.0" (LIGGGHTS-PUBLIC `3d5c00f2`, `atom.cpp`). The infallible form
+    /// does not refuse: it sorts the zero atoms, which does nothing.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] with upstream's message in that case.
+    pub fn try_with_liggghts_neighbor_order(self, cfg: LiggghtsNeighbor) -> Result<Self, DemError> {
+        let sys = self.with_liggghts_neighbor_order(cfg);
+        sys.check_sort_setup()?;
+        Ok(sys)
     }
 
     /// Enable the multicontact surface model and `fix multicontact/halfspace`
@@ -1353,16 +1447,11 @@ impl GranularSystem {
         self.neighbor_order
     }
 
-    /// Sort (if due) and rebuild the LIGGGHTS-order half list from the current
-    /// positions: `Atom::sort` then `Neighbor::build`.
-    fn rebuild_liggghts_list(&mut self, cfg: LiggghtsNeighbor) {
-        let n = self.particles.len();
-        if self.perm.len() != n {
-            self.perm = (0..n).collect();
-        }
+    /// `neighbor->cutneighmax` for `cfg`: the largest radius present, or that a
+    /// `fix insert` can still add (`PairGran::init_style`: `max_rad(type)` of
+    /// fixes), through [`LiggghtsNeighbor::cutneighmax`].
+    fn liggghts_cutneighmax(&self, cfg: &LiggghtsNeighbor) -> f64 {
         let max_radius = self.particles.iter().fold(0.0_f64, |m, p| m.max(p.radius));
-        // upstream's cut radius includes the largest particle a `fix insert`
-        // can still add (`PairGran::init_style`: `max_rad(type)` of fixes)
         let max_radius = self
             .inserters
             .iter()
@@ -1371,7 +1460,28 @@ impl GranularSystem {
             .stream_inserters
             .iter()
             .fold(max_radius, |m, f| m.max(f.max_rad()));
-        let cut = cfg.cutneighmax(max_radius);
+        cfg.cutneighmax(max_radius)
+    }
+
+    /// `Atom::setup()` at a run set-up under [`NeighborOrder::Liggghts`]: with
+    /// the sort on, `setup_sort_bins` refuses a zero bin size (gh:#1568).
+    fn check_sort_setup(&self) -> Result<(), DemError> {
+        if let NeighborOrder::Liggghts(cfg) = self.neighbor_order {
+            if cfg.sort_every > 0 {
+                neighbor_list::sort_bin_size(self.liggghts_cutneighmax(&cfg))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Sort (if due) and rebuild the LIGGGHTS-order half list from the current
+    /// positions: `Atom::sort` then `Neighbor::build`.
+    fn rebuild_liggghts_list(&mut self, cfg: LiggghtsNeighbor) {
+        let n = self.particles.len();
+        if self.perm.len() != n {
+            self.perm = (0..n).collect();
+        }
+        let cut = self.liggghts_cutneighmax(&cfg);
         if cfg.sort_every > 0 && (self.setup_phase || self.step_count >= self.next_sort) {
             let x: Vec<Vec3> = self
                 .perm
@@ -1745,6 +1855,9 @@ impl GranularSystem {
             self.torques.swap_remove(i);
         }
         if !removed.is_empty() {
+            // a clump that lost a member is freed as at a rebuild's
+            // `FixMultisphere::pre_neighbor` (gh:#1415); no-op without clumps
+            self.multisphere_pre_neighbor();
             self.compute_forces();
         }
         removed
@@ -1837,8 +1950,16 @@ impl GranularSystem {
                             self.push_inserted_atom(p, c.atom_type());
                         }
                         let dt = self.dt;
+                        let noint = self.ms_nointegration;
                         self.multisphere
-                            .get_or_insert_with(|| crate::multisphere::Multisphere::new(dt))
+                            .get_or_insert_with(|| {
+                                let ms = crate::multisphere::Multisphere::new(dt);
+                                if noint {
+                                    ms.without_integration()
+                                } else {
+                                    ms
+                                }
+                            })
                             .add_body(&c, first);
                         clumps_added = true;
                     }
@@ -1880,6 +2001,13 @@ impl GranularSystem {
         }
     }
 
+    /// Each particle's atom type, **0-based** (LIGGGHTS type `t` is `t - 1`
+    /// here), in particle order.
+    #[must_use]
+    pub fn atom_types(&self) -> &[usize] {
+        &self.types
+    }
+
     /// The `fix multisphere` state, once a clump has been inserted (gh:#1415).
     #[must_use]
     pub fn multisphere(&self) -> Option<&crate::multisphere::Multisphere> {
@@ -1903,6 +2031,102 @@ impl GranularSystem {
         }
     }
 
+    /// `boundary f f f` + `thermo_modify lost ignore` (gh:#1415): at every
+    /// neighbour-list rebuild, `Comm::exchange` drops each atom outside the
+    /// box `[box_lo, box_hi)` of the LIGGGHTS neighbour configuration,
+    /// dimension by dimension (x, then y, then z), the last local atom taking
+    /// the hole. A clump that loses an atom this way is freed and deleted by
+    /// `fix multisphere` ([`crate::multisphere::Multisphere`]). Opt-in, since
+    /// the port does not otherwise know the deck's boundary style; without it
+    /// an atom that leaves the box is kept, which no upstream run with `f`
+    /// boundaries does.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless the system is under
+    /// [`NeighborOrder::Liggghts`] with the atom sort off (`sort_every == 0`):
+    /// the deletion walks the local order, which only that set-up keeps equal
+    /// to the particle order.
+    pub fn with_lost_atoms(mut self) -> Result<Self, DemError> {
+        match self.neighbor_order {
+            NeighborOrder::Liggghts(cfg) if cfg.sort_every == 0 => {
+                self.lost_atoms_box = Some((cfg.box_lo, cfg.box_hi));
+                Ok(self)
+            }
+            _ => Err(DemError::InvalidInput(
+                "lost atoms are ported with the LIGGGHTS neighbour order and 'atom_modify sort 0 0' only"
+                    .into(),
+            )),
+        }
+    }
+
+    /// Remove atom `i` the way `AtomVec::copy(nlocal-1, i, 1)` does: the last
+    /// atom takes slot `i` in every per-atom array.
+    fn swap_remove_atom(&mut self, i: usize) -> Particle {
+        self.note_removed(i);
+        let p = self.particles.swap_remove(i);
+        self.tags.swap_remove(i);
+        self.types.swap_remove(i);
+        self.forces.swap_remove(i);
+        self.torques.swap_remove(i);
+        p
+    }
+
+    /// `FixMultisphere::pre_exchange`: `next_reneighbor = -1`, then delete the
+    /// atoms marked by `check_lost_atoms`, walking the local order with the
+    /// last atom filling each hole. No-op without clumps.
+    fn multisphere_pre_exchange(&mut self) {
+        let Some(ms) = self.multisphere.as_mut() else { return };
+        ms.pre_exchange_reset();
+        let mut any = false;
+        let mut i = 0;
+        while i < self.particles.len() {
+            if self.multisphere.as_ref().is_some_and(|m| m.delflag(i)) {
+                self.swap_remove_atom(i);
+                any = true;
+            } else {
+                i += 1;
+            }
+        }
+        if any {
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+        }
+    }
+
+    /// `Comm::exchange` on one process with `f` boundaries: per dimension,
+    /// drop every atom with `x < lo || x >= hi`. No-op unless
+    /// [`GranularSystem::with_lost_atoms`] was called.
+    fn exchange_lost_atoms(&mut self) {
+        let Some((lo, hi)) = self.lost_atoms_box else { return };
+        let (lo, hi) = ([lo.x, lo.y, lo.z], [hi.x, hi.y, hi.z]);
+        let mut any = false;
+        for dim in 0..3 {
+            let mut i = 0;
+            while i < self.particles.len() {
+                let p = self.particles[i].position;
+                let x = [p.x, p.y, p.z][dim];
+                if x < lo[dim] || x >= hi[dim] {
+                    self.swap_remove_atom(i);
+                    any = true;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+        if any {
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+        }
+    }
+
+    /// `FixMultisphere::pre_neighbor` (`check_lost_atoms`); no-op without
+    /// clumps.
+    fn multisphere_pre_neighbor(&mut self) {
+        let step = self.step_count;
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.pre_neighbor(&mut self.particles, step);
+        }
+    }
+
     /// Keep the LIGGGHTS local order in step with an insertion: the new atom
     /// takes the last local slot (`nlocal++`) and the list is rebuilt.
     fn note_inserted(&mut self) {
@@ -1917,12 +2141,15 @@ impl GranularSystem {
     /// the hole (`AtomVec::copy(nlocal-1, i)`), and the particle array's own
     /// `swap_remove` moves its last particle into slot `i`.
     fn note_removed(&mut self, i: usize) {
-        // the per-atom body arrays of `fix multisphere` are not compacted
-        // (lost-atom/body deletion is not ported, gh:#1415)
-        assert!(
-            self.multisphere.is_none(),
-            "removing particles from a system with multisphere clumps is not ported"
-        );
+        // ~~the per-atom body arrays of `fix multisphere` are not compacted
+        // (lost-atom/body deletion is not ported, gh:#1415)~~ CORRECTED
+        // 2026-11-14 (gh:#1415): they are compacted as `AtomVec::copy` does
+        // (`FixMultisphere::copy_arrays`); a clump that lost an atom is freed
+        // at the next `pre_neighbor` (`Multisphere::pre_neighbor`).
+        let n = self.particles.len();
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.swap_remove_atom(i, n);
+        }
         if let Some(c) = self.capillary.as_mut() {
             // the removed atom's liquid and bridges leave with it; the last
             // atom takes its slot (`swap_remove`, as the particle array does)
@@ -2220,6 +2447,14 @@ impl GranularSystem {
             self.delete_massflow_marked();
         }
         self.run_insertions();
+        // a rebuild step: `FixMultisphere::pre_exchange` (deletes the atoms of
+        // lost clumps), `Comm::exchange` (drops atoms that left an `f` box),
+        // `FixMultisphere::pre_neighbor` (`check_lost_atoms`); gh:#1415
+        if self.rebuild_now || self.neigh_skin <= 0.0 {
+            self.multisphere_pre_exchange();
+            self.exchange_lost_atoms();
+            self.multisphere_pre_neighbor();
+        }
         // the mesh neighbour lists rebuild when the neighbour list does (every
         // step when no skin was given)
         if self.rebuild_now || self.neigh_skin <= 0.0 {
@@ -3636,6 +3871,49 @@ mod tests {
             ThermodynamicTemperature::new::<kelvin>(300.0),
         )
         .unwrap()
+    }
+
+    /// gh:#1568. An empty system with the atom sort on and nothing to insert
+    /// has `cutneighmax = 0`. Upstream refuses the run set-up
+    /// (`Atom::setup_sort_bins`: "Atom sorting has bin size = 0.0"); the port
+    /// used to panic on an integer overflow in `atom_sort_permutation`.
+    /// `try_with_liggghts_neighbor_order` and `begin_run` refuse as upstream;
+    /// the infallible builder sorts the zero atoms (a no-op) and runs.
+    #[test]
+    fn empty_system_sort_on_refuses_like_upstream() {
+        let model = GranularContactModel::hertz_history(mat(0.4));
+        let cfg = LiggghtsNeighbor::new(
+            Vec3::new(-0.05, -0.05, 0.0),
+            Vec3::new(0.05, 0.05, 0.1),
+            0.002,
+        )
+        .unwrap();
+        assert_eq!(cfg.sort_every, 1000, "the sort is on by default");
+        let empty = GranularSystem::new(Vec::new(), vec![], model, Vec3::zero(), 1e-5).unwrap();
+        let err = empty.clone().try_with_liggghts_neighbor_order(cfg).unwrap_err();
+        assert!(err.to_string().contains("Atom sorting has bin size = 0.0"), "{err}");
+        let mut sys = empty.with_liggghts_neighbor_order(cfg);
+        sys.run(10);
+        assert_eq!(sys.particles().len(), 0);
+        let err = sys.begin_run().unwrap_err();
+        assert!(err.to_string().contains("Atom sorting has bin size = 0.0"), "{err}");
+        // with the sort off, upstream never calls setup_sort_bins
+        let mut off = cfg;
+        off.sort_every = 0;
+        let mut sys = GranularSystem::new(Vec::new(), vec![], model, Vec3::zero(), 1e-5)
+            .unwrap()
+            .try_with_liggghts_neighbor_order(off)
+            .unwrap();
+        sys.run(10);
+        sys.begin_run().unwrap();
+        // one atom gives a positive cut, and the set-up goes through
+        let one = vec![sphere(Vec3::new(0.0, 0.0, 0.05), Vec3::zero())];
+        let mut sys = GranularSystem::new(one, vec![], model, Vec3::zero(), 1e-5)
+            .unwrap()
+            .try_with_liggghts_neighbor_order(cfg)
+            .unwrap();
+        sys.run(10);
+        sys.begin_run().unwrap();
     }
 
     /// **Methodology.** Head-on elastic collision, `e = 1` (no dissipation), two

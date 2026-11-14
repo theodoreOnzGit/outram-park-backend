@@ -206,16 +206,54 @@ fn summer(x: &[f64], y: &[f64], int: u32) -> Result<f64, NjoyError> {
     Ok(area)
 }
 
-/// `pttab`: 33 equiprobable cosine-bin edges from a tabulated `(mu, p)` law
-/// with one interpolation region (`acefc.f90:2977-3281`); `None` for the
-/// two-point isotropic table.
+/// `chekit` (`acefc.f90:3283-3314`, gh:#1372): a two-region table whose second
+/// region is its last interval, a vertical step to zero, becomes one histogram
+/// region. Upstream requires `NBT2 = NBT1 + 1`, `INT1 = 1`, `y(np) = 0`,
+/// `x(np) = x(np-1)` and `y(np-1) = y(np-2)`; it then drops the last point,
+/// sets the new last `y` to 0, and writes `NR = 1`, `NBT = np - 1`, keeping
+/// `INT1`.
 ///
 /// # Errors
-/// As upstream: more than one interpolation region, or `INT = 3, 5`.
-pub fn pttab(interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> Result<Option<[f64; NPT]>, NjoyError> {
-    if interp.len() > 1 {
-        return Err(NjoyError::NotPorted("pttab: a tabulated photon angular law with more than one interpolation region"));
+/// [`NjoyError::EndfParse`] ("wrong type of nr=2 file 5 mt") when a check
+/// fails, as upstream stops.
+pub fn chekit(interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> Result<(Vec<(u32, u32)>, Vec<(f64, f64)>), NjoyError> {
+    let bad = || NjoyError::EndfParse("chekit: wrong type of nr=2 file 5 mt.".into());
+    let np = pairs.len();
+    if interp.len() != 2 || np < 3 {
+        return Err(bad());
     }
+    let ((nbt1, int1), (nbt2, _)) = (interp[0], interp[1]);
+    if nbt2 != nbt1 + 1 || int1 != 1 {
+        return Err(bad());
+    }
+    if pairs[np - 1].1 != 0.0 || pairs[np - 1].0 != pairs[np - 2].0 || pairs[np - 2].1 != pairs[np - 3].1 {
+        return Err(bad());
+    }
+    let mut out = pairs[..np - 1].to_vec();
+    out[np - 2].1 = 0.0;
+    Ok((vec![((np - 1) as u32, int1)], out))
+}
+
+/// `pttab`: 33 equiprobable cosine-bin edges from a tabulated `(mu, p)` law
+/// with one interpolation region (`acefc.f90:2977-3281`), or two that
+/// [`chekit`] folds into one; `None` for the two-point isotropic table.
+///
+/// # Errors
+/// As upstream: more than two interpolation regions, a two-region table
+/// [`chekit`] rejects, or `INT = 3, 5`.
+pub fn pttab(interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> Result<Option<[f64; NPT]>, NjoyError> {
+    // `acefc.f90:3016-3018`: more than two regions stop the run; two go through
+    // `chekit` (~~refused~~ **CORRECTED 2026-11-14, gh:#1372:** translated).
+    if interp.len() > 2 {
+        return Err(NjoyError::EndfParse("pttab: tab ang dist has more than one terp range.".into()));
+    }
+    let checked;
+    let (interp, pairs) = if interp.len() == 2 {
+        checked = chekit(interp, pairs)?;
+        (&checked.0[..], &checked.1[..])
+    } else {
+        (interp, pairs)
+    };
     let int = interp.first().map_or(2, |&(_, i)| i);
     if int == 3 || int == 5 {
         return Err(NjoyError::EndfParse("pttab: tab ang dist not allowed for (INT = 3 or 5)".into()));
@@ -358,5 +396,30 @@ mod tests {
             assert!(w[1] > w[0]);
             assert!((cdf(w[1]) - cdf(w[0]) - 1.0 / 32.0).abs() < 2e-4, "{w:?}");
         }
+    }
+
+    /// `chekit` (`acefc.f90:3283-3314`, gh:#1372): an `NR = 2` table whose last
+    /// interval steps to zero becomes the histogram `pttab` then reads; each of
+    /// upstream's three checks stops the run, and so does `NR = 3`.
+    #[test]
+    fn chekit_folds_a_two_region_step_into_one_histogram() {
+        let pairs = [(-1.0, 0.2), (0.0, 0.6), (1.0, 0.6), (1.0, 0.0)];
+        let interp = [(3, 1), (4, 2)];
+        let (i, p) = chekit(&interp, &pairs).unwrap();
+        assert_eq!(i, vec![(3, 1)]);
+        assert_eq!(p, vec![(-1.0, 0.2), (0.0, 0.6), (1.0, 0.0)]);
+        assert_eq!(pttab(&interp, &pairs).unwrap(), pttab(&i, &p).unwrap());
+        assert!(pttab(&interp, &pairs).unwrap().is_some());
+        let bad: [(Vec<(u32, u32)>, Vec<(f64, f64)>); 5] = [
+            (vec![(2, 1), (4, 2)], pairs.to_vec()),
+            (vec![(3, 2), (4, 2)], pairs.to_vec()),
+            (interp.to_vec(), vec![(-1.0, 0.2), (0.0, 0.6), (1.0, 0.6), (1.0, 0.1)]),
+            (interp.to_vec(), vec![(-1.0, 0.2), (0.0, 0.6), (0.9, 0.6), (1.0, 0.0)]),
+            (interp.to_vec(), vec![(-1.0, 0.2), (0.0, 0.5), (1.0, 0.6), (1.0, 0.0)]),
+        ];
+        for (bi, bp) in bad.iter() {
+            assert!(matches!(pttab(bi, bp), Err(NjoyError::EndfParse(_))), "{bi:?} {bp:?}");
+        }
+        assert!(matches!(pttab(&[(1, 1), (2, 1), (4, 2)], &pairs), Err(NjoyError::EndfParse(_))));
     }
 }

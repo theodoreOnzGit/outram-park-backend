@@ -181,6 +181,7 @@ static scalar ffmm(const point& p)
 
 static scalar fzero(const point&) { return 0.0; }
 
+
 static volScalarField::Internal mkInt(const fvMesh& mesh, const Time& runTime, const scalarField& f)
 {
     return volScalarField::Internal
@@ -295,6 +296,86 @@ static void auditMatrix(const word& eq, const fvScalarMatrix& mIn)
 }
 
 
+
+// ---- Reynolds-stress models (LRR, SSG; README slice 10): polynomial R, no libm ----
+static symmTensor fR(const point& p)
+{
+    const scalar x = p.x(), z = p.z();
+    const scalar s = sOf(p);
+    return symmTensor
+    (
+        0.10 + 0.40*s*(1.0 + 0.1*x) + 0.01*z,
+        0.05*(0.5 - p.y())*(1.0 + 0.1*x),
+        0.01*(0.5 - p.y())*(1.0 + 0.2*x),
+        0.05 + 0.20*s*(1.0 + 0.05*x) + 0.02*z,
+        0.008*(z - 0.25),
+        0.07 + 0.25*s + 0.01*z
+    );
+}
+
+static autoPtr<volSymmTensorField> mkR(const fvMesh& mesh, const Time& runTime)
+{
+    wordList bt(mesh.boundary().size(), zeroGradientFvPatchSymmTensorField::typeName);
+    autoPtr<volSymmTensorField> p
+    (
+        new volSymmTensorField
+        (
+            IOobject
+            (
+                "R", runTime.timeName(), mesh,
+                IOobject::NO_READ, IOobject::NO_WRITE, IOobject::NO_REGISTER
+            ),
+            mesh, dimensionedSymmTensor(sqr(dimVelocity), Zero), bt
+        )
+    );
+    const vectorField& C = mesh.C().primitiveField();
+    forAll(C, c) p->primitiveFieldRef()[c] = fR(C[c]);
+    p->correctBoundaryConditions();
+    p->write();
+    return p;
+}
+
+// cell values only
+static void dumpSymmCells(const std::string& key, const symmTensorField& s)
+{
+    forAll(s, i) H6(key, i, s[i]);
+}
+
+// fvMatrix<symmTensor> keeps its boundary-completion helpers protected; expose them.
+struct MatrixAccessR : public fvSymmTensorMatrix
+{
+    MatrixAccessR(const fvSymmTensorMatrix& m) : fvSymmTensorMatrix(m) {}
+    using fvSymmTensorMatrix::addBoundaryDiag;
+    using fvSymmTensorMatrix::addBoundarySource;
+};
+
+// Audit of a symmTensor matrix, component by component, as fvMatrix::solveSegregated hands it to the
+// scalar solver: diag + addBoundaryDiag(cmpt), source after addBoundarySource (couples = true).
+static void auditMatrixSymm(const word& eq, const fvSymmTensorMatrix& mIn)
+{
+    MatrixAccessR m(mIn);
+    const char* names[6] = {"xx", "xy", "xz", "yy", "yz", "zz"};
+    symmTensorField source(m.source());
+    m.addBoundarySource(source);
+    for (int c = 0; c < 6; ++c)
+    {
+        const word fn(eq + names[c]);
+        if (!dumpSolver::captured.found(fn))
+        {
+            std::printf("audit %s MISSING (real model did not solve it)\n", fn.c_str());
+            continue;
+        }
+        const List<scalarField>& real = dumpSolver::captured[fn];
+        scalarField d(m.diag());
+        m.addBoundaryDiag(d, c);
+        scalarField src(source.component(c));
+        auditPart(fn, "diag", real[0], d);
+        auditPart(fn, "source", real[3], src);
+        if (m.hasUpper()) auditPart(fn, "upper", real[1], m.upper());
+        if (m.hasLower()) auditPart(fn, "lower", real[2], m.lower());
+    }
+}
+
 // dynamicKEqn.C, transcribed expression for expression (Ck(D, KK), Ce(D, KK)).
 static volScalarField dynCk
 (
@@ -349,7 +430,7 @@ static volScalarField dynCe
 
 int main(int argc, char* argv[])
 {
-    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE|LESfilters|dynamicKEqn|dynamicLagrangian|kOmegaSSTLM|LESdeltas");
+    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE|LESfilters|dynamicKEqn|dynamicLagrangian|kOmegaSSTLM|LESdeltas|LRR|SSG");
     argList::addOption("filter", "name", "simple|laplace|anisotropic (dynamicKEqn test filter)");
     #include "setRootCase.H"
     #include "createTime.H"
@@ -433,6 +514,9 @@ int main(int argc, char* argv[])
 
     const word zg(zeroGradientFvPatchScalarField::typeName);
     const bool isLM = (model == "kOmegaSSTLM");
+    const bool isRS = (model == "LRR" || model == "SSG");
+    autoPtr<volSymmTensorField> RP;
+    if (isRS) RP = mkR(mesh, runTime);
     autoPtr<volScalarField> kP = mkScalar(mesh, runTime, "k", dimensionSet(0, 2, -2, 0, 0), isLM ? fkLM : fk, zg);
     autoPtr<volScalarField> reThetatP, gammaIntP, gEffInP;
     if (isLM)
@@ -472,6 +556,11 @@ int main(int argc, char* argv[])
     dumpS("epsilon", epsilon.primitiveField());
     dumpS("omega", omega.primitiveField());
     dumpS("nuTilda", nuTilda.primitiveField());
+    if (isRS)
+    {
+        dumpVF("R_in", RP());
+        dumpV("n_real", wallDist::New(mesh).n().primitiveField());
+    }
     if (isLM)
     {
         dumpS("ReThetat", reThetatP().primitiveField());
@@ -560,6 +649,27 @@ int main(int argc, char* argv[])
     if (model != "Smagorinsky" && model != "WALE" && model != "LESfilters")
     {
         turbulence->correct();
+    }
+    if (isRS)
+    {
+        // the model's state after ONE correct() (dumpSolver does not solve, so psi is unchanged: R and epsilon equal
+        // their inputs apart from the wall-face values correctWallShearStress writes into R)
+        tmp<volSymmTensorField> tR = turbulence->R();
+        dumpVF("R_after", tR());
+        dumpS("epsilon_after", mesh.lookupObject<volScalarField>("epsilon").primitiveField());
+        dumpS("k_after", mesh.lookupObject<volScalarField>("k").primitiveField());
+        tmp<volScalarField> tn2 = turbulence->nut();
+        dumpVF("nut_after", tn2());
+        dumpVF("nut_validate", nutPre);
+        label kb = 0;
+        forAll(U.boundaryField(), pi)
+        {
+            if (isA<wallFvPatch>(mesh.boundary()[pi]))
+            {
+                const vectorField sn(U.boundaryField()[pi].snGrad());
+                forAll(sn, fi) H3("snGradU_wall", kb++, sn[fi]);
+            }
+        }
     }
     if (isLM)
     {
@@ -1929,6 +2039,142 @@ int main(int argc, char* argv[])
             dumpVF("F_aniso_Dsym", c2());
             tmp<volTensorField> d = af(gU);
             dumpVF("F_aniso_gradU", d());
+        }
+    }
+    else if (model == "LRR" || model == "SSG")
+    {
+        // RASModels/LRR/LRR.C and RASModels/SSG/SSG.C, correct(), transcribed expression for expression on the INPUT R
+        // (dumpSolver does not solve, so the model's own R and epsilon are the inputs too). alpha = rho = 1 elided.
+        const bool lrr = (model == "LRR");
+        const dimensionedScalar Cmu("Cmu", dimless, 0.09), Ceps1("Ceps1", dimless, 1.44),
+            Ceps2("Ceps2", dimless, 1.92), Cs("Cs", dimless, 0.25), Ceps("Ceps", dimless, 0.15),
+            C1("C1", dimless, lrr ? 1.8 : 3.4), C2("C2", dimless, lrr ? 0.6 : 4.2),
+            C1s("C1s", dimless, 1.8), C3("C3", dimless, 0.8), C3s("C3s", dimless, 1.3),
+            C4("C4", dimless, 1.25), C5("C5", dimless, 0.4),
+            kappa("kappa", dimless, 0.41), Cref1("Cref1", dimless, 0.5), Cref2("Cref2", dimless, 0.3);
+        const volSymmTensorField Rin("Rin", RP());
+        const volScalarField kT("kT", 0.5*tr(Rin));
+        const volScalarField nutT("nutT", Cmu*sqr(kT)/epsilon);
+        volSymmTensorField P(-twoSymm(Rin & gradU));
+        const volScalarField G("GT", 0.5*mag(tr(P)));
+        dumpS("T_k", kT.primitiveField());
+        dumpS("T_nut", nutT.primitiveField());
+        dumpSymmCells("T_P", P.primitiveField());
+        dumpS("T_G", G.primitiveField());
+        const volSymmTensorField DepsEff("DepsilonEff", (Ceps*(kT/epsilon))*Rin + I*nu);
+        const volSymmTensorField DREff("DREff", (Cs*(kT/epsilon))*Rin + I*nu);
+        dumpSymmCells("T_DepsEff", DepsEff.primitiveField());
+        dumpSymmCells("T_DREff", DREff.primitiveField());
+        const volScalarField epsE("epsE", Ceps1*G*epsilon/kT);
+        const volScalarField epsSp("epsSp", Ceps2*epsilon/kT);
+        dumpS("T_eps_E", epsE.primitiveField());
+        dumpS("T_eps_Sp", epsSp.primitiveField());
+        fvScalarMatrix epsEqn
+        (
+            fvm::ddt(epsP()) + fvm::div(phi, epsP()) - fvm::laplacian(DepsEff, epsP())
+         ==
+            Ceps1*G*epsilon/kT - fvm::Sp(Ceps2*epsilon/kT, epsP())
+        );
+        auditMatrix("epsilon", epsEqn);
+
+        // wall-cell trace correction of P (cell values only, face by face, compounding in corner cells)
+        forAll(mesh.boundary(), patchi)
+        {
+            const fvPatch& curPatch = mesh.boundary()[patchi];
+            if (isA<wallFvPatch>(curPatch))
+            {
+                forAll(curPatch, facei)
+                {
+                    label celli = curPatch.faceCells()[facei];
+                    P[celli] *= min(G[celli]/(0.5*mag(tr(P[celli])) + SMALL), 1.0);
+                }
+            }
+        }
+        dumpSymmCells("T_Pw", P.primitiveField());
+
+        if (lrr)
+        {
+            const volScalarField RSp("RSp", C1*epsilon/kT);
+            dumpS("T_R_Sp", RSp.primitiveField());
+            const volSymmTensorField Su
+            (
+                "Su",
+                P - (2.0/3.0*(1 - C1)*I)*epsilon - C2*dev(P)
+            );
+            dumpSymmCells("T_R_Su", Su.primitiveField());
+            fvSymmTensorMatrix REqn
+            (
+                fvm::ddt(RP()) + fvm::div(phi, RP()) - fvm::laplacian(DREff, RP())
+              + fvm::Sp(C1*epsilon/kT, RP())
+             ==
+                P - (2.0/3.0*(1 - C1)*I)*epsilon - C2*dev(P)
+            );
+            const volVectorField& n_(wallDist::New(mesh).n());
+            const volScalarField& y_(wallDist::New(mesh).y());
+            const volSymmTensorField reflect(Cref1*Rin - ((Cref2*C2)*(kT/epsilon))*dev(P));
+            const volScalarField refCoef("refCoef", (3*pow(Cmu, 0.75)/kappa)*(sqrt(kT)/y_));
+            const volSymmTensorField refl("refl", refCoef*devSymm((n_ & reflect)*n_));
+            dumpSymmCells("T_reflect", reflect.primitiveField());
+            dumpS("T_refl_coef", refCoef.primitiveField());
+            dumpSymmCells("T_refl", refl.primitiveField());
+            REqn += ((3*pow(Cmu, 0.75)/kappa)*(sqrt(kT)/y_))*devSymm((n_ & reflect)*n_);
+            auditMatrixSymm("R", REqn);
+        }
+        else
+        {
+            const volSymmTensorField b("b", dev(Rin)/(2*kT));
+            const volSymmTensorField S("S", symm(gradU));
+            const volTensorField Omega("Omega", skew(gradU));
+            dumpSymmCells("T_b", b.primitiveField());
+            dumpSymmCells("T_S", S.primitiveField());
+            dumpT("T_Omega", Omega.primitiveField());
+            const volScalarField RSp("RSp", ((C1/2)*epsilon + (C1s/2)*G)/kT);
+            dumpS("T_R_Sp", RSp.primitiveField());
+            const volScalarField magb("magb", mag(b));
+            dumpS("T_magb", magb.primitiveField());
+            const volSymmTensorField t1("t1", (C2*epsilon)*dev(innerSqr(b)));
+            const volSymmTensorField t2
+            (
+                "t2",
+                kT
+               *(
+                    (C3 - C3s*mag(b))*dev(S)
+                  + C4*devTwoSymm(b & S)
+                  + C5*twoSymm(b & Omega)
+                )
+            );
+            dumpSymmCells("T_t1", t1.primitiveField());
+            dumpSymmCells("T_t2", t2.primitiveField());
+            const volSymmTensorField Su
+            (
+                "Su",
+                P
+              - ((1.0/3.0)*I)*(((2.0 - C1)*epsilon - C1s*G))
+              + (C2*(epsilon))*dev(innerSqr(b))
+              + kT
+               *(
+                    (C3 - C3s*mag(b))*dev(S)
+                  + C4*devTwoSymm(b & S)
+                  + C5*twoSymm(b & Omega)
+                )
+            );
+            dumpSymmCells("T_R_Su", Su.primitiveField());
+            fvSymmTensorMatrix REqn
+            (
+                fvm::ddt(RP()) + fvm::div(phi, RP()) - fvm::laplacian(DREff, RP())
+              + fvm::Sp(((C1/2)*epsilon + (C1s/2)*G)/kT, RP())
+             ==
+                P
+              - ((1.0/3.0)*I)*(((2.0 - C1)*epsilon - C1s*G))
+              + (C2*(epsilon))*dev(innerSqr(b))
+              + kT
+               *(
+                    (C3 - C3s*mag(b))*dev(S)
+                  + C4*devTwoSymm(b & S)
+                  + C5*twoSymm(b & Omega)
+                )
+            );
+            auditMatrixSymm("R", REqn);
         }
     }
     else if (model == "Smagorinsky")

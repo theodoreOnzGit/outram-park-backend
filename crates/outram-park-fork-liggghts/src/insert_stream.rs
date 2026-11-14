@@ -182,7 +182,11 @@ impl InsertStreamFix {
     /// [`DemError::InvalidInput`] for the errors upstream raises: an invalid
     /// seed or equal seeds, a non-planar face, a velocity that is too low or
     /// not into the face, both or neither of `insert_every`/`extrude_length`,
-    /// an extrusion that is too small, no total or no rate.
+    /// an extrusion that is too small, no total or no rate; and, not ported
+    /// (gh:#1415), a distribution holding multisphere or superquadric
+    /// templates (upstream streams clumps with a per-body `start_step` and
+    /// `v_integrate` in `FixMultisphere::initial_integrate`; the port used to
+    /// panic at the first insertion instead).
     pub fn new(
         seed: i32,
         distribution: ParticleDistributionDiscrete,
@@ -195,6 +199,11 @@ impl InsertStreamFix {
         box_lo: Vec3,
         box_hi: Vec3,
     ) -> Result<Self, DemError> {
+        if distribution.has_non_sphere() {
+            return Err(DemError::InvalidInput(
+                "fix insert/stream with multisphere or superquadric templates is not ported (gh:#1415)".into(),
+            ));
+        }
         let random = RanPark::checked(seed)?;
         let nodes: Vec<Nodes> = face
             .triangles

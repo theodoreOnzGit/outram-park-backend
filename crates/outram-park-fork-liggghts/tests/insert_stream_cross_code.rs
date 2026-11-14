@@ -227,3 +227,39 @@ fn insert_stream_rejects_bad_setups() {
     assert!(mk(StreamExtent::ExtrudeLength(0.005), down).is_err());
     assert!(mk(StreamExtent::InsertEvery { every: 10, duration: Some(20) }, down).is_err());
 }
+
+/// Clumps from `insert/stream` are not ported (gh:#1415): the constructor
+/// refuses a multisphere distribution by name, where the port used to panic
+/// at the first insertion (`randomize_list`).
+#[test]
+fn insert_stream_refuses_clumps() {
+    use outram_park_fork_liggghts::multisphere::ParticleTemplateMultisphere;
+    let face = MeshWall::from_ascii_stl(&read("stream_face.stl").unwrap()).unwrap();
+    let clump = ParticleTemplateMultisphere::new(
+        15485863,
+        1,
+        MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+        10_000,
+        &[
+            (Vec3::new(0.0, 0.0, 0.0), Length::new::<meter>(0.003)),
+            (Vec3::new(0.003, 0.0, 0.0), Length::new::<meter>(0.003)),
+        ],
+        1,
+    )
+    .unwrap();
+    let dist = ParticleDistributionDiscrete::new_multisphere(15485867, true, vec![(clump, 1.0)]).unwrap();
+    let err = InsertStreamFix::new(
+        32452843,
+        dist,
+        &face,
+        StreamExtent::ExtrudeLength(0.05),
+        Some(RateTotal::Particles(5)),
+        Rate::Particles(100.0),
+        InsertVelocity::Constant(Vec3::new(0.0, 0.0, -1.0)),
+        5e-6,
+        BOX_LO,
+        BOX_HI,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("not ported"), "{err}");
+}

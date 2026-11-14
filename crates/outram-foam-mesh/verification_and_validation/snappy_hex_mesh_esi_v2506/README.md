@@ -1074,7 +1074,7 @@ traversal reaches wins (`distSqr < nearestDistSqr`). The port searched in index 
 
 ## Port change (written after the evidence above, before the stage runs below)
 
-`src/snappy_hex_mesh/esi_octree.rs` (new, opt-in): `indexedOctree` build and `findNearest`,
+`src/snappy_hex_mesh/esi_octree.rs` (new, opt-in; **MOVED 2026-11-14 (gh:#1564)**: the generic `indexedOctree`/`treeBoundBox`/`Random` part now lives in `outram_foam_basic_lib::esi_octree` and is re-exported here, with `findLine` added there; `EdgeShapes`, `TriShapes`, `surface_tree`, `edge_tree` stay in this file; results unchanged, the 34 `esi_*` lib tests and `snappy_hex_mesh_esi_feature`/`_flange` re-run green): `indexedOctree` build and `findNearest`,
 `treeBoundBox` (`subBbox`, `searchOrder`, sphere and box `subOverlaps`, segment `intersects`,
 the separating-axis triangle test), `Random` (`Rand48` + libstdc++ `generate_canonical`)
 for `inflate`, `treeDataEdge`, `treeDataTriSurface`. `FeatureSet::new` builds the edge and

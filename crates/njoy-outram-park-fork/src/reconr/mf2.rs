@@ -553,6 +553,11 @@ fn parse_lru1(
         3 => parse_reich_moore(cur, el, eh, naps),
         4 => parse_adler_adler(cur, el, eh, naps),
         7 => parse_rml(cur, el, eh, naps, awr),
+        // gh:#1375: no evaluation held here or in NJOY2016's tests/resources uses
+        // LRF = 6 (surveyed 2026-11-14), so it is refused by name, not translated.
+        6 => Err(NjoyError::NotPorted(
+            "RECONR LRU = 1, LRF = 6 hybrid R-function (rdf2hy, cshybr: reconr.f90:1116-1224, 3609-3824)",
+        )),
         other => Err(NjoyError::EndfParse(format!(
             "unknown resolved-resonance LRF={other}"
         ))),
@@ -936,4 +941,19 @@ fn parse_lru2_header(
         nro: 0,
         ap_table: None,
     })
+}
+
+#[cfg(test)]
+mod lrf6_tests {
+    use super::*;
+
+    /// gh:#1375: `LRF = 6` (hybrid R-function, `rdf2hy`/`cshybr`) is refused by
+    /// name before any record is read; no held evaluation uses it.
+    #[test]
+    fn lrf6_is_refused_by_name() {
+        let rows: Vec<[f64; 6]> = Vec::new();
+        let mut cur = SectionCursor::new(&rows);
+        let r = parse_lru1(&mut cur, 1.0, 1.0e3, 6, 0, 1.0);
+        assert!(matches!(r, Err(NjoyError::NotPorted(m)) if m.contains("rdf2hy")));
+    }
 }
