@@ -690,6 +690,14 @@ impl GranularSystem {
     ///   `shearupdate = 0` (the same evaluation construction does); and
     ///   `FixMoveMesh::setup`, which zeroes a moved mesh's node velocities
     ///   ([`MovingBoundary::move_mesh_setup`]).
+    /// * **With clumps** (gh:#1415, added 2026-11-14): `FixMultisphere`'s
+    ///   `setup_pre_exchange` (delete the atoms of lost clumps),
+    ///   `Comm::exchange` (under [`GranularSystem::with_lost_atoms`]),
+    ///   `setup_pre_neighbor` (`check_lost_atoms`), and after the set-up
+    ///   forces `setup_pre_force` + `setup`: each body's `fcm` and `torque`
+    ///   are re-summed from them (`calc_force(true)`). ~~A second run with
+    ///   clumps is refused.~~ **CORRECTED 2026-11-14:** ported, bit-identical
+    ///   (`tests/multisphere_cross_code.rs`, `ms_rerun`).
     ///
     /// What **persists**, as upstream: pair, wall and mesh contact history;
     /// the servo's integral term, last process value, velocity and node
@@ -716,20 +724,21 @@ impl GranularSystem {
     /// `Atom::setup_sort_bins` does (the sort on with a zero cut; see
     /// [`GranularSystem::try_with_liggghts_neighbor_order`]).
     pub fn begin_run(&mut self) -> Result<(), DemError> {
-        if self.multisphere.is_some() {
-            // `FixMultisphere::setup` (`calc_force(true)` at the set-up) is
-            // not ported (gh:#1415)
-            return Err(DemError::InvalidInput(
-                "a second run set-up with multisphere clumps is not ported".into(),
-            ));
-        }
-        // Verlet::setup -> Atom::setup -> setup_sort_bins (gh:#1568)
-        self.check_sort_setup()?;
         // lmp->init(): Modify::init -> fix->init(); then Verlet::setup's
-        // setup_pre_force of the meshes (no fix reads another in between)
+        // setup_pre_force of the meshes (no fix reads another in between).
+        // Not modelled: a mesh's setup_pre_force follows the exchange below
+        // upstream; no deck here has both a servo mesh and lost atoms.
         for w in &mut self.moving_walls {
             w.begin_run(&self.particles)?;
         }
+        // Verlet::setup -> Atom::setup -> setup_sort_bins (gh:#1568)
+        self.check_sort_setup()?;
+        // modify->setup_pre_exchange (`FixMultisphere::pre_exchange`),
+        // comm->exchange, modify->setup_pre_neighbor (`check_lost_atoms`);
+        // each a no-op without clumps / lost atoms (gh:#1415)
+        self.multisphere_pre_exchange();
+        self.exchange_lost_atoms();
+        self.multisphere_pre_neighbor();
         // neighbor->build (the LIGGGHTS-order rebuild in the set-up
         // evaluation also does this) and the mesh neighbour lists
         self.xhold = self.particles.iter().map(|p| p.position).collect();
@@ -737,11 +746,43 @@ impl GranularSystem {
         self.rebuild_massflow_lists();
         // pair compute and modify->setup (wall/gran, gravity, force fixes)
         self.compute_forces_setup();
+        // `FixMultisphere::setup_pre_force` -> `reset_forces(false)`, then
+        // `FixMultisphere::setup` -> `calc_force(true)` on the set-up forces
+        // (gh:#1415); the next step's first half-kick uses them
+        self.multisphere_setup_force();
         // FixMoveMesh::setup, declared after its wall/gran
         for w in &mut self.moving_walls {
             w.move_mesh_setup();
         }
         Ok(())
+    }
+
+    /// `FixMultisphere::setup` at a `run` set-up: the bodies' force and torque
+    /// reset (`setup_pre_force`) and summed from the set-up forces in local
+    /// atom order, plus `m g` (`calc_force(true)`; no heat transfer, so the
+    /// `setupflag` branch does not arise). No-op without clumps.
+    fn multisphere_setup_force(&mut self) {
+        if self.multisphere.is_none() {
+            return;
+        }
+        let order = self.local_order_indices();
+        let gravity = self.gravity;
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.reset_forces(false);
+            ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
+        }
+    }
+
+    /// `fix_modify <ms> fflag x y z` / `tflag x y z`
+    /// (`FixMultisphere::modify_param`, gh:#1415): the flags of **every
+    /// existing body** are replaced; a clump inserted later takes its
+    /// template's flags. Upstream issues it between two `run` commands, so
+    /// call [`GranularSystem::begin_run`] afterwards. Before the first clump
+    /// exists it changes nothing, as upstream's loop over zero bodies does.
+    pub fn fix_modify_multisphere(&mut self, m: crate::multisphere::MultisphereModify) {
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.modify_param(m);
+        }
     }
 
     /// `fix_modify <mesh> servo/<keyword> ...` on the servo of moving wall

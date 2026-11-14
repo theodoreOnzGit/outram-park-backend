@@ -111,18 +111,23 @@
 //! `spheres file <f> scale <s>` is [`ParticleTemplateMultisphere::from_clump_file`]),
 //! `spheres_different_types`, `bonded`,
 //! ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`,~~ ~~`fflag`/`tflag` off,~~
-//! `fix_modify <ms> fflag|tflag`,
+//! ~~`fix_modify <ms> fflag|tflag`,~~
 //! `fix multisphere/nointegration`, `concave`, `CAddRhoFluid`,
 //! `allow_heatsource`; periodic images of bodies (`remap_bodies`), ~~lost-atom
 //! deletion (`check_lost_atoms` / `delflag`),~~ `fix remove`'s
 //! `delete_bodies`, `fix multisphere/break`,
 //! `fix insert/stream` with clumps (`start_step`), heat transfer with clumps,
-//! restart, a second `run` set-up with clumps~~, and `orientation random`~~.
+//! restart, ~~a second `run` set-up with clumps~~~~, and `orientation random`~~.
 //! **CORRECTED 2026-11-14 (gh:#1415):** `fflag`/`tflag`, lost-atom deletion
 //! and `orientation random` are translated (V&V 4.16.1).
 //! **CORRECTED 2026-11-14 (gh:#1415, third pass):** `mass` + `inertia_tensor`
 //! with `use_volume` / `use_density` is
-//! [`ParticleTemplateMultisphere::new_with_mass_inertia`] (V&V 4.16.2).
+//! [`ParticleTemplateMultisphere::new_with_mass_inertia`]; a second `run`
+//! set-up with clumps is
+//! [`crate::granular_system::GranularSystem::begin_run`], and
+//! `fix_modify <ms> fflag|tflag` is
+//! [`crate::granular_system::GranularSystem::fix_modify_multisphere`]
+//! (V&V 4.16.2).
 //! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
 //! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
 //! particles are ported in [`crate::superquadric`]; convex hull, ellipsoid,
@@ -135,6 +140,17 @@ use uom::si::{
     length::meter, mass::kilogram, mass_density::kilogram_per_cubic_meter,
     moment_of_inertia::kilogram_square_meter,
 };
+
+/// A `fix_modify <ms> ...` keyword of `fix multisphere`
+/// (`FixMultisphere::modify_param`; see
+/// [`crate::granular_system::GranularSystem::fix_modify_multisphere`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MultisphereModify {
+    /// `fflag x y z` (`true` = `on`).
+    Fflag([bool; 3]),
+    /// `tflag x y z` (`true` = `on`).
+    Tflag([bool; 3]),
+}
 
 /// How a template given `mass` and `inertia_tensor` gets its volume and
 /// density (`use_volume` / `use_density` of `fix particletemplate/multisphere`;
@@ -1448,6 +1464,17 @@ impl Multisphere {
     pub(crate) fn add_body_finalize(&mut self, particles: &mut [Particle]) {
         self.reset_forces(true);
         self.set_xv(particles);
+    }
+
+    /// `FixMultisphere::modify_param`: `set_fflag` / `set_tflag` on every
+    /// body.
+    pub(crate) fn modify_param(&mut self, m: MultisphereModify) {
+        for b in &mut self.bodies {
+            match m {
+                MultisphereModify::Fflag(f) => b.fflag = f,
+                MultisphereModify::Tflag(t) => b.tflag = t,
+            }
+        }
     }
 
     /// `Multisphere::reset_forces(extflag)`.

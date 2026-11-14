@@ -183,3 +183,35 @@ thermo_modify	lost ignore norm no'
   echo "$PTS2 mass 5.0e-4 inertia_tensor 3.5e-9 5.0e-10 6.0e-10 6.0e-9 1.0e-10 6.2e-9 use_density"
   echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"
   frames 1 2000 4000 5000 6000 7000 8000 10000 12000 15000; } > in.ms_mass
+# The ms_collide set-up with a second `run` (a new set-up: FixMultisphere's
+# setup_pre_exchange / pre_neighbor / pre_force and setup -> calc_force(true))
+# at step 10100, while a clump touches the floor. A split at a step with no
+# active contact recomputes the same forces and cannot change the run: of the
+# splits 4500, 4600, ..., 14900 only 9900, 10100, 14400 and 14500 changed
+# upstream's step-15000 state (4800, the first choice, did not). $1: commands
+# issued between the two runs.
+rerun() {
+  echo "run 1"; echo "write_dump all custom dump.F1 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  prev=1
+  for s in 2000 4000 6000 8000 10000 10100; do
+    echo "run $((s - prev)) pre no"
+    echo "write_dump all custom dump.F$s id x y z vx vy vz omegax omegay omegaz modify sort id"
+    prev=$s
+  done
+  [ -n "$1" ] && echo "$1"
+  echo "run 100"
+  echo "write_dump all custom dump.F10200 id x y z vx vy vz omegax omegay omegaz modify sort id"
+  prev=10200
+  for s in 11000 12000 13000 14000 15000; do
+    echo "run $((s - prev)) pre no"
+    echo "write_dump all custom dump.F$s id x y z vx vy vz omegax omegay omegaz modify sort id"
+    prev=$s
+  done
+}
+# ms_rerun: ms_collide with the second run set-up at step 10100.
+{ header; echo "$PTS1"; echo "$PTS2"; echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"; rerun ""; } > in.ms_rerun
+# ms_refl: ms_rerun with `fix_modify ms fflag off on on` and
+# `fix_modify ms tflag on off on` (every existing body) before the second run.
+{ header; echo "$PTS1"; echo "$PTS2"; echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"
+  rerun "fix_modify	ms fflag off on on
+fix_modify	ms tflag on off on"; } > in.ms_refl

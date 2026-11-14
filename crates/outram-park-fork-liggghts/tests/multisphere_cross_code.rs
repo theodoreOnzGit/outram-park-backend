@@ -391,8 +391,9 @@ fn ms_massflow_matches_liggghts() {
 /// The clump bookkeeping the cross-code comparison does not show directly:
 /// gravity acts on the body, not on its atoms; the two clumps are separate
 /// bodies; no intra-clump pair is in the list (the atoms overlap by
-/// construction and would otherwise blow the clump apart); a second run set-up
-/// is refused.
+/// construction and would otherwise blow the clump apart). ~~A second run
+/// set-up is refused.~~ **CORRECTED 2026-11-14 (gh:#1415):** a second run
+/// set-up is ported (`ms_rerun_matches_liggghts`).
 #[test]
 fn clump_bookkeeping() {
     let mut sys = system("ms_collide");
@@ -412,7 +413,7 @@ fn clump_bookkeeping() {
     sys.run(3000);
     let d1 = sys.particles()[0].position.sub(sys.particles()[1].position).norm();
     assert!((d0 - d1).abs() < 1e-12, "{d0} {d1}");
-    assert!(sys.begin_run().is_err());
+    sys.begin_run().unwrap();
 }
 
 // ---------------------------------------------------------------------------
@@ -458,6 +459,16 @@ fn collide_system(t1: ParticleTemplateMultisphere, t2: ParticleTemplateMultisphe
 /// and compare `x v omega` on bit patterns. Returns
 /// `(atom-frames, bit-identical atom-frames, worst relative difference)`.
 fn compare_by_tag(deck: &str, sys: &mut GranularSystem, frames: &[u64]) -> Option<(usize, usize, f64)> {
+    compare_by_tag_from(deck, sys, 0, frames)
+}
+
+/// [`compare_by_tag`] for a system already at step `start`.
+fn compare_by_tag_from(
+    deck: &str,
+    sys: &mut GranularSystem,
+    start: u64,
+    frames: &[u64],
+) -> Option<(usize, usize, f64)> {
     let csv = read(&format!("{deck}.csv"))?;
     let rows: Vec<Vec<f64>> = csv
         .lines()
@@ -465,7 +476,7 @@ fn compare_by_tag(deck: &str, sys: &mut GranularSystem, frames: &[u64]) -> Optio
         .map(|l| l.split(',').map(|x| x.parse().unwrap()).collect())
         .collect();
     let (mut total, mut same, mut worst) = (0, 0, 0.0f64);
-    let mut at = 0;
+    let mut at = start;
     for &step in frames {
         sys.run((step - at) as usize);
         at = step;
@@ -961,4 +972,87 @@ fn ms_mass_matches_liggghts() {
     assert_eq!(total, 70);
     assert_eq!(same, total, "ms_mass: not bit-identical (worst relative {worst:e})");
     assert_eq!(mc_same, 0, "the Monte-Carlo templates also match: the deck does not see the option");
+}
+
+/// The frames of `in.ms_rerun` / `in.ms_refl` before and after the second
+/// `run` (a new set-up at step 10100).
+const RERUN_FIRST: [u64; 7] = [1, 2000, 4000, 6000, 8000, 10000, 10100];
+const RERUN_SECOND: [u64; 6] = [10200, 11000, 12000, 13000, 14000, 15000];
+
+/// Run `ms_collide`'s system through `deck`'s frames with the second `run`
+/// at 10100: `modify` (the `fix_modify` lines), then
+/// [`GranularSystem::begin_run`] unless `begin` is false (the ablation).
+/// Returns `(atom-frames, bit-identical)` over all 13 frames.
+fn rerun_compare(
+    deck: &str,
+    modify: &[outram_park_fork_liggghts::multisphere::MultisphereModify],
+    begin: bool,
+) -> Option<(usize, usize)> {
+    let mut sys = collide_system(clump1(), clump2());
+    let (t1, s1, _) = compare_by_tag(deck, &mut sys, &RERUN_FIRST)?;
+    for &m in modify {
+        sys.fix_modify_multisphere(m);
+    }
+    if begin {
+        sys.begin_run().unwrap();
+    }
+    let (t2, s2, w) = compare_by_tag_from(deck, &mut sys, 10100, &RERUN_SECOND)?;
+    println!(
+        "{deck} (begin_run {begin}, {} fix_modify): {}/{} atom-frames bit-identical, worst rel {w:.3e}",
+        modify.len(),
+        s1 + s2,
+        t1 + t2
+    );
+    Some((t1 + t2, s1 + s2))
+}
+
+/// **A second `run` with clumps** (`in.ms_rerun`): `ms_collide` split into
+/// two runs at step 10100, where a clump touches the floor. The new set-up
+/// re-evaluates the forces at the full-step velocities, and
+/// `FixMultisphere::setup` re-sums each body's force and torque from them
+/// (`calc_force(true)`); [`GranularSystem::begin_run`]. Every atom at 13
+/// frames, on bit patterns. **Ablation:** one continuous run (no
+/// `begin_run`) must miss after the split.
+///
+/// The split was first at 4800, between contacts. Upstream's own run was then
+/// byte-identical to one continuous run, so the gate could not fail: a set-up
+/// with no active contact recomputes the same forces. A scan of upstream's
+/// splits at 4500, 4600, ..., 14900 found that only 9900, 10100, 14400 and
+/// 14500 change the step-15000 state; the deck uses 10100.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** 91/91 bit-identical.
+#[test]
+fn ms_rerun_matches_liggghts() {
+    let Some((total, same)) = rerun_compare("ms_rerun", &[], true) else {
+        eprintln!("skipping: reference-data/liggghts/ms_rerun.csv not present");
+        return;
+    };
+    let (_, cont) = rerun_compare("ms_rerun", &[], false).unwrap();
+    assert_eq!(total, 91);
+    assert_eq!(same, total, "ms_rerun: not bit-identical");
+    assert!(cont < total, "one continuous run also matches: {cont}/91");
+}
+
+/// **`fix_modify <ms> fflag|tflag`** (`in.ms_refl`): `ms_rerun` with
+/// `fix_modify ms fflag off on on` and `fix_modify ms tflag on off on`
+/// before the second run; every existing body takes the flags
+/// ([`GranularSystem::fix_modify_multisphere`]). Every atom at 13 frames.
+/// **Ablation:** without the `fix_modify` the run must miss after the split.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** 91/91 bit-identical.
+#[test]
+fn ms_refl_matches_liggghts() {
+    use outram_park_fork_liggghts::multisphere::MultisphereModify;
+    let m = [
+        MultisphereModify::Fflag([false, true, true]),
+        MultisphereModify::Tflag([true, false, true]),
+    ];
+    let Some((total, same)) = rerun_compare("ms_refl", &m, true) else {
+        eprintln!("skipping: reference-data/liggghts/ms_refl.csv not present");
+        return;
+    };
+    let (_, unmodified) = rerun_compare("ms_refl", &[], true).unwrap();
+    assert_eq!(total, 91);
+    assert_eq!(same, total, "ms_refl: not bit-identical");
+    assert!(unmodified < total, "ms_refl passes without the fix_modify: {unmodified}/91");
 }

@@ -1910,7 +1910,8 @@ partly across the plate counts as the volume-weight share of its member atoms
 - clumps from `insert/stream`;
 - heat transfer with clumps;
 - restart;
-- a second `run` set-up with clumps (`begin_run` refuses it);
+- ~~a second `run` set-up with clumps (`begin_run` refuses it);~~
+  (**CORRECTED 2026-11-14:** ported, 4.16.2);
 - ~~`orientation random`~~;
 - `sieveMultiSphereCanPass` of the sieve;
 - ~~`compute ke/multisphere` and `erotate/multisphere`~~.
@@ -2026,8 +2027,8 @@ misses when the option it tests is switched off, so each gate can fail:
   integrated by `nve/sphere`), and the forced rebuild 5 steps later.
 
 **Not ported** (refused by name, or documented):
-- `fix_modify <ms> fflag|tflag`, which acts between runs; a second `run` with
-  clumps is refused;
+- ~~`fix_modify <ms> fflag|tflag`, which acts between runs; a second `run` with
+  clumps is refused;~~ (**CORRECTED 2026-11-14:** both ported, 4.16.2);
 - `orientation random` with sphere templates;
 - lost atoms with the atom sort on, or without the LIGGGHTS neighbour order;
 - `delete_atoms yes` on `massflow/mesh` with clumps (upstream's own error);
@@ -2035,7 +2036,8 @@ misses when the option it tests is switched off, so each gate can fail:
 - `spheres_different_types`, `bonded`, ~~`mass`/`inertia_tensor`~~
   (**CORRECTED 2026-11-14:** ported, 4.16.2);
 - `multisphere/nointegration`, `concave`, `multisphere/break`;
-- clumps from `insert/stream`; restart; a second `run` set-up with clumps.
+- clumps from `insert/stream`; restart; ~~a second `run` set-up with clumps~~
+  (**CORRECTED 2026-11-14:** ported, 4.16.2).
 
 Upstream prints "Energy calculated for multisphere particles is currently not
 correct" (`FixMultisphere::dof`). That warning is about the `thermo` `ke`/`pe`
@@ -2064,6 +2066,8 @@ every value. Each gate is shown to fail with its option ablated.
 | deck | what it exercises | result (Rust 1.99.1, 2026-11-14) | ablation |
 |---|---|---|---|
 | `ms_mass` | `ms_collide` with type 1 `mass 1.5e-3 inertia_tensor ... use_volume` and type 2 `mass 5.0e-4 inertia_tensor ... use_density` (`ParticleTemplateMultisphere::new_with_mass_inertia`) | **70 / 70** atom-frames bit-identical (630 values) | Monte-Carlo templates: **0 / 70** |
+| `ms_rerun` | `ms_collide` with a second `run` (a new set-up) at step 10100 (`GranularSystem::begin_run`); 13 frames | **91 / 91** atom-frames bit-identical (819 values) | one continuous run: **73 / 91**; `begin_run` without the body re-sum: **73 / 91** |
+| `ms_refl` | `ms_rerun` with `fix_modify ms fflag off on on` and `fix_modify ms tflag on off on` before the second run (`GranularSystem::fix_modify_multisphere`) | **91 / 91** atom-frames bit-identical | without the `fix_modify`: **69 / 91** |
 
 **`mass` / `inertia_tensor` (`FixTemplateMultisphere::post_create`).**
 - `use_volume` keeps the Monte-Carlo volume and the centre-of-mass shift,
@@ -2076,6 +2080,27 @@ every value. Each gate is shown to fail with its option ablated.
   point, because the centre-of-mass pass was skipped.
 
 `tests/multisphere_cross_code.rs::ms_mass_matches_liggghts`.
+
+**A second `run` (`Verlet::setup`).** With clumps, `begin_run` now does
+what upstream's set-up does, in its order:
+- `FixMultisphere::pre_exchange`;
+- `Comm::exchange`;
+- `pre_neighbor`;
+- the set-up force evaluation;
+- `setup_pre_force` (`reset_forces`) and `setup` (`calc_force(true)`), which
+  re-sum each body's force and torque from the set-up forces.
+
+`fix_modify <ms> fflag|tflag` sets the flags on every existing body.
+
+**A prediction of mine that was wrong, and the protocol fix.** The split was
+first placed at step 4800, which I took to be inside the clump-clump
+collision. Upstream's `ms_rerun` was then byte-identical to the continuous
+`ms_collide` at every common frame, so the gate could not fail. A set-up with
+no active contact recomputes the same forces. A scan of upstream with the
+split at 4500, 4600, ..., 14900 found that only 9900, 10100, 14400 and 14500
+change the step-15000 state, so the deck splits at 10100. The prediction
+(91 / 91) stood for the new split, and both decks met it on the first port
+run. `ms_rerun_matches_liggghts`, `ms_refl_matches_liggghts`.
 
 ## 4.17 Superquadric particles (2026-11-13, gh:#1415)
 
