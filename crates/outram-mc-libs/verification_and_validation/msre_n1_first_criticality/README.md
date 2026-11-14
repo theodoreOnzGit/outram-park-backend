@@ -37,6 +37,35 @@ adds no number of its own.
 | graphite coefficient | **−3.26 ± 0.33** (~~−3.08 ± 0.35~~) | not measured | same |
 | T-1 natural periods, with this split | **−9 % to +21 %** of TM-1647 (~~−11 % to +12 %~~) | — | nee_soon T-1 README |
 
+**Ablations on the 2026-11-13 default** (hot dimensions + whole shield; three
+seeds each, against the new default's 1.01807 ± 0.00023, same σ
+convention as below; predictions posted on gh:#1128 before the runs; wall
+times inflated by a concurrent release suite, not recorded as timings):
+
+| change | effect on N-1 k | predicted (posted) | on the previous default | N-1 against the band |
+|---|---|---|---|---|
+| `--minor-uranium none` | **+414 ± 41 pcm** | +200 to +450 | +326 ± 83 | +2139, fails |
+| 99.9926 % Li-7 | **+755 ± 40 pcm** | +600 to +830 | +714 ± 39 | +2480, fails |
+| INOR-8's Mo omitted | **+632 ± 38 pcm** | +300 to +530 | +418 ± 39 | +2357, fails — **miss** |
+| TM-0730 end regions | **+45 ± 40 pcm** | −80 to +150 | +36 ± 46 | +1770, fails |
+| 10P graphite law | **−9 ± 39 pcm** | −170 to +70 | −52 ± 48 | +1716, fails |
+| crystalline graphite law | **−52 ± 39 pcm** | −170 to +60 | −58 ± 38 | +1674, fails |
+| `--cold-dims` / `--shield none` | −224 / −1063 (measured on the previous default; additive, interaction −24 ± 63) | — | — | — |
+
+- **Five of six inside their predictions**; each within 1.3σ of its
+  previous-default value except Mo.
+- **Mo is a miss: +632 against +418 on the previous default, 214 ± 54
+  pcm (4σ) more.** `--mo` changes only the INOR-8 (vessel, can, thimbles,
+  heads) and the sample basket. **Hypothesis, untested at this writing:**
+  the whole shield returns thermal neutrons to the vessel wall, so its Mo
+  absorbs more. A test (Mo omitted, hot dims, shield none) is posted on
+  gh:#1128.
+- On this default every ablation fails the band; none brings N-1 inside it.
+
+Data: `data/keff.csv`, labels `…+hot-dims…+shield-tm0728-full`.
+
+The table below is the previous default's record.
+
 **Ablations** (~~None of these is in the default~~ hot dimensions and the whole shield became the default on 2026-11-13; the rest remain ablations). Each is the maintainer's
 call. ~~Measured on the previous default salt (without U-234/U-236); the
 shifts are differences and were not re-run. The last column adds each
