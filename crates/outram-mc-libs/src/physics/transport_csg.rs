@@ -355,9 +355,8 @@ impl std::error::Error for EmptyFissionBank {}
 /// (`keff_trigger_met`); so a run with fewer generations than asked for and
 /// no trigger met had an empty bank (or an empty initial source).
 ///
-/// Not detected: a bank that empties in the LAST requested generation (the
-/// driver ends normally there; upstream would still abort in that
-/// generation's `synchronize_bank`).
+/// A bank that empties in the LAST requested generation is detected too (see
+/// [`check_fission_bank_survived`]).
 ///
 /// # Errors
 ///
@@ -383,14 +382,139 @@ pub fn try_run_keff_csg(
     check_fission_bank_survived(settings, result)
 }
 
-/// The check behind [`try_run_keff_csg`], on a finished run's result.
-fn check_fission_bank_survived(
+/// [`run_keff_csg_seq`] returning an empty fission bank as an error rather
+/// than a partial result (GitHub #467, the entry points the first fix left).
+///
+/// NEW WORK beside the driver: same arguments, same run (so `Ok` is
+/// bit-identical to [`run_keff_csg_seq`]), then [`check_fission_bank_survived`].
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`], as [`try_run_keff_csg`].
+#[allow(clippy::too_many_arguments)]
+pub fn try_run_keff_csg_seq(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+    leak_edges: &[f64],
+    leak_bins: Option<&mut Vec<TallyBin>>,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let result = run_keff_csg_seq(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+        leak_edges,
+        leak_bins,
+    );
+    check_fission_bank_survived(settings, result)
+}
+
+/// [`run_keff_csg_par`] returning an empty fission bank as an error rather
+/// than a partial result (GitHub #467). See [`try_run_keff_csg_seq`].
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`], as [`try_run_keff_csg`].
+#[allow(clippy::too_many_arguments)]
+pub fn try_run_keff_csg_par(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+    leak_edges: &[f64],
+    leak_bins: Option<&mut Vec<TallyBin>>,
+    thread_count: ThreadCount,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let result = run_keff_csg_par(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+        leak_edges,
+        leak_bins,
+        thread_count,
+    );
+    check_fission_bank_survived(settings, result)
+}
+
+/// [`run_keff_csg_hybrid`] returning an empty fission bank as an error rather
+/// than a partial result (GitHub #467). See [`try_run_keff_csg_seq`].
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`], as [`try_run_keff_csg`].
+pub fn try_run_keff_csg_hybrid(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let result = run_keff_csg_hybrid(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+    );
+    check_fission_bank_survived(settings, result)
+}
+
+/// The check behind [`try_run_keff_csg`] and its `_seq` / `_par` / `_hybrid`
+/// siblings, on a finished run's result; use it directly on the result of a
+/// `_progress` driver.
+///
+/// A run is an empty-bank failure when
+///
+/// * it stopped before `n_inactive + n_active` generations without its `k`
+///   trigger being met (the drivers `break` on an empty bank), or
+/// * it ran all generations but the LAST banked nothing. That generation's
+///   `k` is then exactly `0.0` (`production / n_particles` with no site
+///   banked), where upstream still aborts in that generation's
+///   `synchronize_bank`. ~~Not detected~~ **CORRECTED 2026-11-14:** detected
+///   here, with `generations_completed` one short of the requested count.
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`] as described.
+pub fn check_fission_bank_survived(
     settings: &KeffSettings,
     result: KeffResult,
 ) -> Result<KeffResult, EmptyFissionBank> {
     let requested = settings.n_inactive + settings.n_active;
     let completed = result.k_by_generation.len();
     if completed >= requested {
+        if requested > 0 && result.k_by_generation[requested - 1] == 0.0 {
+            return Err(EmptyFissionBank {
+                generations_completed: requested - 1,
+                generations_requested: requested,
+                partial: result,
+            });
+        }
         return Ok(result);
     }
     let active_k: Vec<f64> = result
