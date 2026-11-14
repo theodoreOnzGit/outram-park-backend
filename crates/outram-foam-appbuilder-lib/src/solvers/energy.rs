@@ -80,6 +80,7 @@ use crate::error::AppBuilderError;
 use crate::io::fv_schemes::DdtScheme;
 use crate::solvers::bc_util::capture_bcs;
 use crate::solvers::energy_radiation::RadiationCoupling;
+use crate::solvers::energy_view_factor::ViewFactorCoupling;
 use outram_foam_basic_lib::radiation::P1Model;
 use crate::solvers::non_orthogonal::{self, LaplacianCorrection};
 use outram_foam_basic_lib::prelude::*;
@@ -162,6 +163,10 @@ pub struct EnergyEquation {
     /// Opt-in P1 thermal radiation (gh:#1531, [`crate::solvers::energy_radiation`]); `None` by
     /// default, which leaves the equation exactly as it was.
     pub radiation: Option<RadiationCoupling>,
+    /// Opt-in `viewFactor` surface-to-surface radiation (gh:#1541,
+    /// [`crate::solvers::energy_view_factor`]); `None` by default. Exclusive with `radiation`
+    /// (ESI has one `radiationModel` per region).
+    pub view_factor: Option<ViewFactorCoupling>,
 }
 
 /// What one energy solve did.
@@ -188,6 +193,7 @@ impl EnergyEquation {
             ddt: DdtScheme::Euler,
             solver: SolverSettings { tolerance: 1e-12, max_iter: 2_000 },
             radiation: None,
+            view_factor: None,
         }
     }
 
@@ -199,7 +205,30 @@ impl EnergyEquation {
     /// # Errors
     /// [`AppBuilderError::Case`] if `model` has not one patch entry per mesh patch.
     pub fn with_radiation(mut self, model: P1Model, g0: f64) -> Result<Self, AppBuilderError> {
+        if self.view_factor.is_some() {
+            return Err(AppBuilderError::Case {
+                case: std::path::PathBuf::from("energy radiation"),
+                msg: "viewFactor radiation is already attached; a region has one radiation model".to_string(),
+            });
+        }
         self.radiation = Some(RadiationCoupling::new(model, &self.t, g0)?);
+        Ok(self)
+    }
+
+    /// Opt in to `viewFactor` surface radiation (gh:#1541): after each solve `rad.correct()` computes
+    /// the wall flux `qr` from the boundary temperatures; there is no volumetric source. See
+    /// [`crate::solvers::energy_view_factor`].
+    ///
+    /// # Errors
+    /// [`AppBuilderError::Case`] if P1 radiation is already attached (one radiation model per region).
+    pub fn with_view_factor_radiation(mut self, coupling: ViewFactorCoupling) -> Result<Self, AppBuilderError> {
+        if self.radiation.is_some() {
+            return Err(AppBuilderError::Case {
+                case: std::path::PathBuf::from("energy view-factor radiation"),
+                msg: "P1 radiation is already attached; a region has one radiation model".to_string(),
+            });
+        }
+        self.view_factor = Some(coupling);
         Ok(self)
     }
 
@@ -207,6 +236,9 @@ impl EnergyEquation {
     pub fn begin_time_step(&mut self) {
         if let Some(r) = self.radiation.as_mut() {
             r.begin_time_step();
+        }
+        if let Some(v) = self.view_factor.as_mut() {
+            v.begin_time_step();
         }
     }
 
@@ -251,8 +283,8 @@ impl EnergyEquation {
         // `rad.Sh(thermo, he)`: assembled once, from the lagged G and the T at entry, as in EEqn.H.
         // FvMatrix is not Clone, so it is rebuilt per pass from the entry temperature.
         let t_entry = self.radiation.as_ref().map(|_| self.t.clone());
-        let pre_boundary: Option<Vec<Field<f64>>> =
-            self.radiation.as_ref().map(|_| self.t.boundary.iter().map(|p| p.values.clone()).collect());
+        let pre_boundary: Option<Vec<Field<f64>>> = (self.radiation.is_some() || self.view_factor.is_some())
+            .then(|| self.t.boundary.iter().map(|p| p.values.clone()).collect());
         for _ in 0..=n_non_orth {
             let mut eqn = fvm::laplacian_with_delta(&alpha_f, &self.t, lap.delta_coeff());
             if lap.is_explicit() {
@@ -291,14 +323,19 @@ impl EnergyEquation {
         // T boundary value, which on a mixed (coupled) patch is the one the condition gave at
         // assembly, from this step's coefficients and the OLD cell, not re-evaluated after the
         // solve (gh:#1531, measured against ESI's dumped `Tb`).
-        if let (Some(r), Some(pre)) = (self.radiation.as_mut(), pre_boundary) {
+        if let Some(pre) = pre_boundary {
             let mut t_rad = self.t.clone();
             for (pf, old) in t_rad.boundary.iter_mut().zip(pre) {
                 if matches!(pf.bc, BoundaryCondition::Mixed { .. } | BoundaryCondition::MixedField { .. }) {
                     pf.values = old;
                 }
             }
-            r.correct(&t_rad);
+            if let Some(r) = self.radiation.as_mut() {
+                r.correct(&t_rad);
+            }
+            if let Some(v) = self.view_factor.as_mut() {
+                v.correct(&t_rad)?;
+            }
         }
         let max_change = before.iter().zip(self.t.internal.as_slice()).fold(0.0_f64, |a, (b, c)| a.max((c - b).abs()));
         Ok(EnergySolve { max_change, iterations: perf.n_iterations, residual: perf.final_residual })

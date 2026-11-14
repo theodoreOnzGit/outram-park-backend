@@ -130,8 +130,8 @@ from 33 % to 0.012 % at N=16.
 
 * ~~Port of `viewFactorsGen` + `faceAgglomerate` + `singleCellFvMesh` (3,800 lines): follow-up issue.~~ **PARTLY DONE 2026-11-14 (gh:#1540)**: `viewFactorsGen` ported (serial, 3-D, no agglomeration); `faceAgglomerate` + `pairPatchAgglomeration` + `singleCellFvMesh`, the 2-D branch and parallel remain.
 * Iterative `useDirectSolver false` branch, `nBands > 1`, `solarLoad`, parallel `mapDistribute`.
-* The appbuilder coupling (`with_view_factor_radiation` beside the P1 option) is NOT done: it
-  needs a cavity-surface-to-patch mapping and a per-face emissivity source, which is not small.
+* ~~The appbuilder coupling (`with_view_factor_radiation` beside the P1 option) is NOT done: it
+  needs a cavity-surface-to-patch mapping and a per-face emissivity source, which is not small.~~ **CORRECTED 2026-11-14 (gh:#1541)**: `EnergyEquation::with_view_factor_radiation` exists (`outram_foam_appbuilder_lib::solvers::energy_view_factor`), per-patch emissivity and `qro`, F from the Rust generator; coupled differential in `outram-foam-appbuilder-lib/verification_and_validation/upstream_view_factor_gh1541/`. Still not done: the htr10_rz cavity itself (needs a cavity mapping and a 2-D/axisymmetric generator).
 * The 2-D `htr10_rz` cavity test the issue is for (RPV to RCCS) was not run: needs the generator
   (or ESI's `viewFactorsGen` on the HTR-10 cavity mesh) and the coupling.
 * Geometry: `images/geometry.svg`, drawn by `scripts/draw_geometry.py` from the upstream

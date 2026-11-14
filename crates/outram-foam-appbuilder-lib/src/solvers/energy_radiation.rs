@@ -60,7 +60,8 @@
 //! ([`crate::solvers::cht_multi_region_foam::InterfaceRadiation`]); ablate with
 //! `without_radiative_flux`. Bit-identical to ESI v2506 on the gh:#1531 case with `qr`/`qrNbr`
 //! (`verification_and_validation/upstream_radiation_gh1531/README.md`, "qr coupling").
-//! Not here: variable properties, `fvDOM`, `viewFactor`, scattering and a non-orthogonal
+//! Not here: variable properties, `fvDOM`, ~~`viewFactor`~~ **CORRECTED 2026-11-14 (gh:#1541):** `viewFactor` is
+//! coupled by [`crate::solvers::energy_view_factor`] (exclusive with P1 on one equation), scattering and a non-orthogonal
 //! correction of the `G` Laplacian are not ported (gh:#1379).
 
 use crate::error::AppBuilderError;

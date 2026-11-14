@@ -510,7 +510,7 @@ impl ChtMultiRegionFoam {
     /// Whether region `r` carries a radiative flux `qr` (a fluid with P1 attached).
     fn has_radiative_flux(&self, r: RegionId) -> bool {
         match r {
-            RegionId::Fluid(i) => self.fluids[i].energy.as_ref().is_some_and(|e| e.radiation.is_some()),
+            RegionId::Fluid(i) => self.fluids[i].energy.as_ref().is_some_and(|e| e.radiation.is_some() || e.view_factor.is_some()),
             RegionId::Solid(_) => false,
         }
     }
@@ -519,7 +519,14 @@ impl ChtMultiRegionFoam {
     /// state of its last `correct()`; `None` if the region has none.
     fn radiative_flux_on(&self, side: InterfaceSide) -> Option<Vec<f64>> {
         match side.region {
-            RegionId::Fluid(i) => self.fluids[i].energy.as_ref()?.radiation.as_ref().map(|r| r.state.qr[side.patch].as_slice().to_vec()),
+            RegionId::Fluid(i) => {
+                let e = self.fluids[i].energy.as_ref()?;
+                match (e.radiation.as_ref(), e.view_factor.as_ref()) {
+                    (Some(r), _) => Some(r.state.qr[side.patch].as_slice().to_vec()),
+                    (None, Some(v)) => Some(v.qr[side.patch].as_slice().to_vec()),
+                    (None, None) => None,
+                }
+            }
             RegionId::Solid(_) => None,
         }
     }
