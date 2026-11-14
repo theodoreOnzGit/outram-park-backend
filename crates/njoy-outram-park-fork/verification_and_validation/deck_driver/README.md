@@ -1496,3 +1496,66 @@ identical** (85 before). Remaining: none.
 | `gaminr_vs_njoy2016` | 2 of 2 passed |
 | `deck_driver_survey` (`SURVEY_CASES=03,30`, `--ignored`) | 03 and 30 `identical` |
 | `--lib` | 774 of 774 passed |
+
+## 28. GROUPR `getwtf` for `iwt = 1, 7, 10, 11, 12`, and `mfchk` (2026-11-13, gh:#1370)
+
+No upstream deck uses these weights (the 87 decks use `iwt` 2-6 and 9), so the tape
+driver refused them. Translated from `groupr.f90:5011-5025` (`genwtf`, card 8b) and
+`:5186-5300` (`getwtf`):
+- `groupr::genwtf`: card 8b's TAB1 (`genwtf_iwt1`), `temp(jtemp)`
+  (`getwtf_set_temperature`, set per temperature from `jtemp = itemp`, `:497`), the
+  tabulated branch with its saved `ip, ir, ipl, step`, and `iwt = 10`;
+- `groupr::weights::getwtf_iwt67` and `getwtf_iwt1112`, beside `getwtf_iwt6` and
+  `vitamin_e` (kept), because upstream writes `exp(two)` and `e**half` (a real
+  power) where those take `e**2` and `sqrt`.
+
+**Refused by name:** a card 8b that gives fewer words than its own `6 + 2 nr + 2 np`
+(upstream reads unset words of an `allocate`d `tmp`; the deck reader marks unread
+words `NaN`); `iwt = 0` in `getwtf` (no branch sets `wtf`).
+
+**Gates** (`tests/deck_driver_groupr_weights_vs_njoy2016.rs`): decks of our own on
+H-2 ENDF/B-VIII.0 (MODER, RECONR, BROADR to 293.6 K, GROUPR LANL-30 with `3/` and
+`6 2/`). The prediction was posted on gh:#1370 before the first run: every line of
+the GENDF identical. **Result: identical in all seven, 321 of 321 lines each,
+compared as strings,** for `iwt = 1` (a two-region TAB1), 7, 8, 10, 11, 12, and
+`iwt = -3` with one sigma-zero (upstream then takes `getwtf` with `|iwt|`,
+`:6505-6512`). Control: NJOY's own GENDFs for these decks differ from one another
+(3 090 bytes between `iwt = 7` and `8`, 59 between 11 and 12), so the gate can fail.
+
+**`mfchk`** (`groupr.f90:1526-1573`): `deck::groupr_auto::mfchk` now runs on every
+non-automatic card-9 request, as `:716` does. `16 mt` with `mt` in MF=13 becomes
+`mfd = 17`, and `13 mt` with `mt` in MF=12 becomes 12. In a `-m` range the switched
+`mfd` carries on to the range's later MTs, because upstream rewrites `mfd` in place.
+`mfchk2` (`:1575-1597`, `mfd = 21-26`) is not translated, because the tape driver
+refuses `mfd = 21-36`.
+- The first deck, on B-10, stopped at `getgyl`'s refusal of several MF=13 photons
+  (`NK = 16` and 9), the refusal its prediction named. It was replaced by `MF2`.
+- `MF2`: Pu-240 ENDF/B-VIII.0, card 9 `16 3`, `16 102`. **The GENDF is identical,
+  170 of 170 lines.**
+- Ablation (`mfchk` made to return its input): 96 of 170 lines differ, so the deck
+  does exercise `mfchk`.
+
+## 29. ERRORR `iwt = 1`: card 13, read once per `egnwtf` call (2026-11-13, gh:#1371)
+
+`egnwtf` reads card 13 (`iwt = 1`) or 13b (`iwt = 4`) itself, each time it is called
+(`errorr.f90:9916-9962`). It is called once by `grpav` or by `colaps` (`:1028-1032`;
+`colaps` calls it whenever `iwt /= 0`, `:9122`, and does not use what it read), and a
+second time by `grpav4` for `mfcov = 34` (`:5467`).
+
+`deck::errorr::read_errorr` refused `iwt = 1`, and it read card 13b once even for
+`mfcov = 34`. It now reads either card once per call. `egnwtf_card13` keeps
+`win(1..iww)`, `iww` being the last non-zero word, as upstream does, and the TAB1 goes
+to `ErrorrWeight::Tabulated`.
+
+**Refused by name:**
+- two copies that differ (the port runs one weight for both passes);
+- a card 13 whose trailing zero would leave `wght` shorter than its TAB1, because
+  `terpa` would then read past it.
+
+**Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`; the predictions were posted on
+gh:#1371 first):
+
+| deck | what it is | result | control |
+|---|---|---|---|
+| `E1` | deck 05 with `iwt = 1` and a two-region TAB1 | 33, 34 and 35 identical (21 471, 78 796 and 199 652 lines) | NJOY's unit 33 differs from deck 05's in 210 162 bytes |
+| `E2` | deck 46 with `iwt = 1` and card 13 twice | 34 identical (8 002 lines) | NJOY's unit 34 equals deck 46's, so this deck checks only the card count |

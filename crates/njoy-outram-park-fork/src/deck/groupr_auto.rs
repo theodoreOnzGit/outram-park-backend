@@ -227,6 +227,33 @@ pub fn conver_lists(nend: &Tape, mat: i32) -> Result<ConverLists, NjoyError> {
     Ok(l)
 }
 
+/// `mfchk` (`groupr.f90:1526-1573`), called for a card-9 request that is not
+/// automatic (`iauto = 0`, `:716`): `mfd = 13` becomes 12 when `mt` is in MF=12's
+/// list, and `mfd = 16` becomes 17 when `mt` is in MF=13's. A list entry `-m` after
+/// `n` covers `n ..= m`. Any other `mf` is returned unchanged (gh:#1370).
+///
+/// `mfchk2` (`:1575-1597`, `mfd = 21-26` to `31-36` for MF=4 recoils) is not
+/// translated: the tape driver refuses `mfd = 21-36` before it would matter.
+pub fn mfchk(mf: i32, mt: i32, lists: &ConverLists) -> i32 {
+    let (list, to) = match mf {
+        13 => (&lists.mf12, 12),
+        16 => (&lists.mf13, 17),
+        _ => return mf,
+    };
+    for (i, &m) in list.iter().enumerate() {
+        if m == 0 {
+            return mf;
+        }
+        if m == mt {
+            return to;
+        }
+        if i > 0 && m <= 0 && list[i - 1] <= mt && -m >= mt {
+            return to;
+        }
+    }
+    mf
+}
+
 /// Expand a range-compressed list from `mtd` (the last MT visited): a negative
 /// entry `-m` visits `mtd + 1 ..= m` (at least once, as `:731-732` does).
 fn expand(list: &[i32], mtd: &mut i32, mfd: i32, out: &mut Vec<AutoReaction>) {
@@ -356,6 +383,16 @@ mod tests {
             push_range_dedup(&mut l, m);
         }
         assert_eq!(l, vec![16, -17, 22, 28]);
+    }
+
+    /// `mfchk` on a list `[4, 51, -53, 103]`: an exact entry, the inside of a range
+    /// and its ends switch the file; an MT outside the list or another `mf` does not.
+    #[test]
+    fn mfchk_switches_on_an_entry_or_inside_a_range() {
+        let l = ConverLists { mf13: vec![4, 51, -53, 103], mf12: vec![102], ..ConverLists::default() };
+        for (mf, mt, want) in [(16, 4, 17), (16, 52, 17), (16, 51, 17), (16, 53, 17), (16, 54, 16), (16, 102, 16), (13, 102, 12), (13, 4, 13), (3, 4, 3)] {
+            assert_eq!(mfchk(mf, mt, &l), want, "mfchk({mf}, {mt})");
+        }
     }
 
     #[test]

@@ -60,6 +60,9 @@ pub struct ErrorrCards {
     pub egn: Option<Vec<f64>>,
     /// Card 13b (`iwt = 4`): `eb, tb, ec, tc`.
     pub wght: Option<(f64, f64, f64, f64)>,
+    /// Card 13 (`iwt = 1`): the TAB1 weight as `egnwtf` keeps it, `win(1..iww)`
+    /// (gh:#1371).
+    pub tab1: Option<Vec<f64>>,
     /// Card 10 (`iread = 2`): the `mat1 mt1` pairs up to `mat1 = 0`
     /// (`errorr.f90:907-919`), gh:#1369. Empty for `iread = 0`.
     pub card10: Vec<(i32, i32)>,
@@ -70,8 +73,10 @@ pub struct ErrorrCards {
 /// # Errors
 /// A malformed card; [`NjoyError::NotPorted`] for the `nendf = 999` (`covadd`)
 /// option, ENDF/B-IV cards, `iread = 1` ~~`iread = 1/2`~~ (card 10, `iread = 2`,
-/// is read since 2026-11-13, gh:#1369), `nstan /= 0` and `iwt = 1`, whose
-/// further cards are not read here.
+/// is read since 2026-11-13, gh:#1369), `nstan /= 0` ~~and `iwt = 1`~~ (card 13 is
+/// read since 2026-11-13, gh:#1371), whose further cards are not read here; and
+/// for `iwt = 1` a card 13 that `egnwtf` would cut short, or (`mfcov = 34`) two
+/// copies of card 13 or 13b that differ.
 pub fn read_errorr(r: &mut CardReader, iverf: i32) -> Result<ErrorrCards, NjoyError> {
     let u = r.read_ints(&[0, 0, 0, 0, 0, 0])?;
     if u[0] == 999 {
@@ -120,14 +125,36 @@ pub fn read_errorr(r: &mut CardReader, iverf: i32) -> Result<ErrorrCards, NjoyEr
     } else {
         None
     };
-    let wght = match c2[2].abs() {
-        1 => return Err(NjoyError::NotPorted("errorr iwt = 1 (card 13 TAB1)")),
-        4 => {
-            let w = r.read_reals(&[0.0; 4])?;
-            Some((w[0], w[1], w[2], w[3]))
+    // Card 13 (`iwt = 1`) and 13b (`iwt = 4`) are read by `egnwtf` itself
+    // (`errorr.f90:9915-9962`), once per call: by `grpav` or `colaps` (`:1028-1032`;
+    // `colaps` calls it for `iwt /= 0`, `:9122`), and again by `grpav4` when
+    // `mfcov = 34` (`:1038-1040`, `:5467`). ~~One read~~ **CORRECTED 2026-11-13
+    // (gh:#1371):** the card is read as often as upstream reads it, so a second copy
+    // is not left for the next module's reader. Each call rebuilds `wght`; this port
+    // runs one weight for both passes, so two copies that differ are refused by name.
+    let reads = if card7[1] == 34 { 2 } else { 1 };
+    let mut tab1: Option<Vec<f64>> = None;
+    let mut wght: Option<(f64, f64, f64, f64)> = None;
+    for _ in 0..reads {
+        match c2[2].abs() {
+            1 => {
+                let t = egnwtf_card13(r)?;
+                if tab1.as_ref().is_some_and(|p| *p != t) {
+                    return Err(NjoyError::NotPorted("errorr iwt = 1 with mfcov = 34: two different card 13 TAB1s (grpav/colaps and grpav4 would weight differently)"));
+                }
+                tab1 = Some(t);
+            }
+            4 => {
+                let w = r.read_reals(&[0.0; 4])?;
+                let w = (w[0], w[1], w[2], w[3]);
+                if wght.is_some_and(|p| p != w) {
+                    return Err(NjoyError::NotPorted("errorr iwt = 4 with mfcov = 34: two different cards 13b (grpav/colaps and grpav4 would weight differently)"));
+                }
+                wght = Some(w);
+            }
+            _ => {}
         }
-        _ => None,
-    };
+    }
     Ok(ErrorrCards {
         units: [u[0], u[1], u[2], u[3], u[4], u[5]],
         card2: [c2[0], c2[1], c2[2], c2[3], c2[4]],
@@ -138,8 +165,26 @@ pub fn read_errorr(r: &mut CardReader, iverf: i32) -> Result<ErrorrCards, NjoyEr
         dap: s7[6].real(),
         egn,
         wght,
+        tab1,
         card10,
     })
+}
+
+/// `egnwtf`'s `iwt = 1` read (`errorr.f90:9916-9932`): 10 000 words preset to zero,
+/// then `wght` is `win(1..iww)`, `iww` the last non-zero word.
+///
+/// # Errors
+/// A malformed card; [`NjoyError::NotPorted`] when `iww` stops short of the TAB1's
+/// own `6 + 2 nr + 2 np` words (a TAB1 ending in a zero weight): `terpa` would read
+/// past `wght`, which is undefined upstream.
+fn egnwtf_card13(r: &mut CardReader) -> Result<Vec<f64>, NjoyError> {
+    let win = r.read_reals(&vec![0.0; 10000])?;
+    let iww = win.iter().rposition(|&x| x != 0.0).map_or(0, |i| i + 1);
+    let need = if iww >= 6 { 6 + 2 * (win[4].round() as i64) + 2 * (win[5].round() as i64) } else { i64::MAX };
+    if (iww as i64) < need {
+        return Err(NjoyError::NotPorted("errorr iwt = 1: card 13 TAB1 shorter than its nr/np once trailing zeros are dropped (egnwtf keeps win up to its last non-zero word)"));
+    }
+    Ok(win[..iww].to_vec())
 }
 
 /// The `iverf` of material `matd`'s ENDF on unit `nendf`, 6 when it cannot be told
@@ -354,7 +399,7 @@ fn run_errorr_mf34(c: &ErrorrCards, units: &mut TapeUnits) -> Result<(), NjoyErr
         }
         units.openz(npend, 0)?;
         let pendf = units.get(npend)?.tape.clone();
-        let weight = ErrorrWeight::from_iwt(c.card2[2], None, c.wght)?;
+        let weight = ErrorrWeight::from_iwt(c.card2[2], c.tab1.clone(), c.wght)?;
         let res = crate::errorr::mf34::run_mf34_pendf(&endf, &pendf, &cfg, &weight)?;
         return put_mf34(units, nout, res);
     }
@@ -399,7 +444,7 @@ fn run_errorr_cov_gendf(c: &ErrorrCards, units: &mut TapeUnits, mfcov: i32) -> R
         matd: c.card2[0],
         ign: c.card2[1],
         user_egn: c.egn.clone(),
-        weight: ErrorrWeight::from_iwt(c.card2[2], None, c.wght)?,
+        weight: ErrorrWeight::from_iwt(c.card2[2], c.tab1.clone(), c.wght)?,
         tempin: c.tempin,
         irelco: c.card2[4],
         dap: c.dap,
@@ -489,7 +534,7 @@ fn run_errorr_mf33(c: &ErrorrCards, units: &mut TapeUnits) -> Result<(), NjoyErr
         matd: c.card2[0],
         ign: c.card2[1],
         user_egn: c.egn.clone(),
-        weight: ErrorrWeight::from_iwt(c.card2[2], None, c.wght)?,
+        weight: ErrorrWeight::from_iwt(c.card2[2], c.tab1.clone(), c.wght)?,
         tempin: c.tempin,
         irelco: c.card2[4],
         dap: c.dap,
@@ -616,5 +661,22 @@ mod tests {
         assert_eq!(c.egn, Some(vec![1e-5, 1e5, 2e7]));
         assert_eq!(c.efmean, 1.23e6);
         assert!(read_errorr(&mut CardReader::new(" 999 /\n"), 6).is_err());
+    }
+
+    /// Card 13 (`iwt = 1`, gh:#1371): kept to its last non-zero word; read twice for
+    /// `mfcov = 34` (two `egnwtf` calls), and refused when the copies differ or a
+    /// trailing zero would cut the TAB1 short.
+    #[test]
+    fn reads_card13_once_per_egnwtf_call() {
+        let tab = " 0 0 0 0 1 2 2 2 1e-5 1. 2e7 3./\n";
+        let c = read_errorr(&mut CardReader::new(&format!(" -21 -22 0 33/\n 1306 -1 1 1/\n 0 0/\n 0 33/\n 1/\n 1e-5 2e7/\n{tab}")), 6).unwrap();
+        assert_eq!(c.tab1, Some(vec![0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 2.0, 2.0, 1e-5, 1.0, 2e7, 3.0]));
+        let mut r = CardReader::new(&format!(" -21 0 -22 34/\n 2631 3 1 0 1/\n 0 293.6/\n 0 34/\n{tab}{tab}next/\n"));
+        assert!(read_errorr(&mut r, 6).unwrap().tab1.is_some());
+        assert_eq!(r.read_string(4).unwrap(), "next");
+        let other = " 0 0 0 0 1 2 2 2 1e-5 1. 2e7 4./\n";
+        assert!(matches!(read_errorr(&mut CardReader::new(&format!(" -21 0 -22 34/\n 2631 3 1 0 1/\n 0 293.6/\n 0 34/\n{tab}{other}")), 6), Err(NjoyError::NotPorted(_))));
+        let zero_end = " 0 0 0 0 1 2 2 2 1e-5 1. 2e7 0./\n";
+        assert!(matches!(read_errorr(&mut CardReader::new(&format!(" -21 -22 0 33/\n 1306 3 1 1/\n 0 0/\n 0 33/\n{zero_end}")), 6), Err(NjoyError::NotPorted(_))));
     }
 }
