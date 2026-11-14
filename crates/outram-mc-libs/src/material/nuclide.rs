@@ -651,6 +651,13 @@ impl Nuclide {
         self
     }
 
+    /// Whether this nuclide entry carries a bound-atom S(α,β) law
+    /// ([`Self::with_thermal_scattering`]). Used by
+    /// [`crate::material::material_sab::assign_material_sab`] (GitHub #462).
+    pub fn has_thermal_scattering(&self) -> bool {
+        self.thermal.is_some()
+    }
+
     /// Whether [`Self::with_legacy_thermal_sampling`] is in force. `false` by
     /// default, and pinned by `tests/correct_physics_is_default.rs`.
     pub fn uses_legacy_thermal_sampling(&self) -> bool {
@@ -680,6 +687,9 @@ impl Nuclide {
     /// law. A model with the same isotope both bound and free (water and a
     /// hydride, graphite and a carbonate) needs two entries, one with and one
     /// without the law, each referenced by its own materials.
+    /// **Since 2026-11-14** that is what
+    /// [`crate::material::material_sab::assign_material_sab`] does from
+    /// OpenMC's per-material association (including `sab_frac`); prefer it.
     pub fn with_thermal_scattering(mut self, thermal: ThermalScattering) -> Self {
         self.thermal = Some(thermal);
         self
