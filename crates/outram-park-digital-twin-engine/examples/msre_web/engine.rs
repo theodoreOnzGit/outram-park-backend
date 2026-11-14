@@ -5,14 +5,27 @@
 //! precursor drift around the loop (`msre::moltres_drift::LoopDrift`, gh:#1575),
 //! stepped with the plant at its fuel flow and fission power. It answers
 //! requests one at a time.
-//! The page asks for the next stretch of plant time only after the last
-//! frame arrived, so at most one request is in flight and each is short
-//! (`session::MAX_ADVANCE_S`).
+//!
+//! **The plant paces itself (gh:#1573).** ~~The page asks for the next
+//! stretch of plant time only after the last frame arrived.~~ A clock outside
+//! the page sends [`Request::Tick`] about ten times a second (in the browser a
+//! timer loop inside the worker, [`web`]; natively a ticker thread, `main`),
+//! and the engine's `session::Pacer` turns the wall time into plant time at
+//! the chosen speed. So the plant runs from page load, whichever tab is open
+//! and however the page's frames are throttled; the page sends only the
+//! speed and pause ([`Request::Pace`]), commands, resets and thaws.
+//!
+//! **Salt freeze.** Every stretch runs through
+//! `session::Session::advance_guarded`: a stretch that would take a salt below
+//! its liquidus is refused, the plant is held at the last liquid state and
+//! [`Event::Frozen`] is posted once; [`Request::Thaw`] (a cheat, said so on the
+//! page) restarts it hot.
 
 use bugis::web_demo::link::Floats;
 use outram_park_digital_twin_engine::msre::moltres_drift::{LoopDrift, LOOP_DRIFT_CELLS};
 use outram_park_digital_twin_engine::msre::session::{
-    natural_periods, Coefficients, Command, Session, SessionConfig, Snapshot,
+    natural_periods, Advance, Coefficients, Command, Freeze, FreezeLocation, Pacer, Session, SessionConfig, Snapshot,
+    MAX_ADVANCE_S,
 };
 
 /// Arcs the drift's emission profile is averaged into for the page.
@@ -20,8 +33,14 @@ pub const DRIFT_BINS: usize = 126;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Request {
-    /// Run this many seconds of plant time and post a frame.
-    Advance(f64),
+    /// The wall clock now, [s]: run the plant time the pacer gives for it
+    /// and post a frame (nothing while paused or held frozen).
+    Tick(f64),
+    /// The speed (plant seconds per wall second) and whether paused.
+    Pace(f64, bool),
+    /// Thaw a frozen plant: back to the configured hot steady state (a
+    /// cheat; `session::Session::thaw`).
+    Thaw,
     /// An operator command.
     Cmd(Command),
     /// Start over from a fresh steady state with this configuration.
@@ -42,21 +61,42 @@ pub enum Event {
     /// first three if the drift failed and stopped. Sent BESIDE a frame, so
     /// it is not a reply: the page counts frames, period tables and errors.
     Drift(Floats),
+    /// A salt would have frozen: `[location code, refused temperature °F,
+    /// held-at plant time s]` (`session::Freeze`). Sent once per freeze,
+    /// beside the held frame.
+    Frozen(Floats),
     /// A refused command or a failed step.
     Error(String),
+}
+
+/// A freeze as the wire carries it.
+pub fn freeze_to_vec(f: &Freeze) -> Vec<f64> {
+    vec![f.location.code(), f.temperature_f, f.held_at_s]
+}
+
+/// The inverse of [`freeze_to_vec`].
+pub fn freeze_from_slice(v: &[f64]) -> Option<Freeze> {
+    Some(Freeze { location: FreezeLocation::from_code(*v.first()?)?, temperature_f: *v.get(1)?, held_at_s: *v.get(2)? })
 }
 
 /// The engine's state: the plant and the loop's precursor drift.
 pub struct Runner {
     session: Option<Session>,
     drift: Option<LoopDrift>,
+    pacer: Pacer,
+    /// The browser worker's timer loop has been started (`web`).
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    ticking: bool,
 }
+
+/// The speed the plant starts at: 5 plant seconds per wall second.
+pub const DEFAULT_SPEED: f64 = 5.0;
 
 impl Default for Runner {
     fn default() -> Self {
         let session = Session::new(SessionConfig::default()).ok();
         let drift = session.as_ref().and_then(|s| drift_for(&s.snapshot()));
-        Self { session, drift }
+        Self { session, drift, pacer: Pacer::new(DEFAULT_SPEED, false), ticking: false }
     }
 }
 
@@ -98,20 +138,29 @@ impl Runner {
                 }
                 vec![Event::Periods(Floats::from_vec(v))]
             }
-            Request::Advance(dt) => match self.session.as_mut() {
-                Some(s) => match s.advance(dt) {
-                    Ok(snap) => {
+            Request::Pace(speed, paused) => {
+                self.pacer.speed = speed;
+                self.pacer.paused = paused;
+                Vec::new()
+            }
+            Request::Tick(wall_s) => {
+                let dt = self.pacer.plant_seconds(wall_s);
+                if dt > 0.0 {
+                    self.run(dt)
+                } else {
+                    Vec::new()
+                }
+            }
+            Request::Thaw => match self.session.as_mut() {
+                Some(s) => match s.thaw() {
+                    Ok(_) => {
+                        // Thawed or not, the page gets the plant as it is.
+                        // The drift restarts steady at the thawed plant.
+                        let snap = s.snapshot();
                         let mut out = vec![Event::Frame(Floats::from_vec(snap.to_vec()))];
-                        if let Some(d) = self.drift.as_mut() {
-                            match d.advance(dt, snap.fuel_flow.max(0.0), snap.power_mw.max(0.0)) {
-                                Ok(()) => out.push(drift_event(d, snap.fuel_flow)),
-                                Err(_) => {
-                                    // Reported as a drift with no profile, not an
-                                    // Error: the page counts one reply per request.
-                                    out.push(Event::Drift(Floats::from_vec(vec![d.time(), f64::NAN, snap.fuel_flow])));
-                                    self.drift = None;
-                                }
-                            }
+                        self.drift = drift_for(&snap);
+                        if let Some(d) = &self.drift {
+                            out.push(drift_event(d, snap.fuel_flow));
                         }
                         out
                     }
@@ -127,6 +176,51 @@ impl Runner {
                 None => vec![Event::Error("no plant: reset it".into())],
             },
         }
+    }
+}
+
+impl Runner {
+    /// Run `dt` seconds of plant time guarded, in `MAX_ADVANCE_S` stretches,
+    /// stepping the drift beside each, and post one frame (and the drift)
+    /// at the end; a freeze stops the run, posts [`Event::Frozen`] once and
+    /// the held frame. Nothing while held frozen.
+    fn run(&mut self, dt: f64) -> Vec<Event> {
+        let Some(s) = self.session.as_mut() else { return Vec::new() };
+        if s.frozen().is_some() {
+            return Vec::new();
+        }
+        let mut left = dt;
+        let mut out = Vec::new();
+        while left > 1e-12 {
+            let chunk = left.min(MAX_ADVANCE_S);
+            left -= chunk;
+            match s.advance_guarded(chunk) {
+                Ok(Advance::Ran(snap)) => {
+                    if let Some(d) = self.drift.as_mut() {
+                        if d.advance(chunk, snap.fuel_flow.max(0.0), snap.power_mw.max(0.0)).is_err() {
+                            // Reported as a drift with no profile, not an
+                            // Error (the drift stops; the plant goes on).
+                            out.push(Event::Drift(Floats::from_vec(vec![d.time(), f64::NAN, snap.fuel_flow])));
+                            self.drift = None;
+                        }
+                    }
+                }
+                Ok(Advance::Frozen(f)) => {
+                    out.push(Event::Frozen(Floats::from_vec(freeze_to_vec(&f))));
+                    break;
+                }
+                Err(e) => {
+                    out.push(Event::Error(e.to_string()));
+                    return out;
+                }
+            }
+        }
+        let snap = s.snapshot();
+        out.push(Event::Frame(Floats::from_vec(snap.to_vec())));
+        if let Some(d) = &self.drift {
+            out.push(drift_event(d, snap.fuel_flow));
+        }
+        out
     }
 }
 
@@ -203,7 +297,9 @@ pub mod web {
         fn to_js(&self) -> JsValue {
             let o = js::object();
             let (kind, a, b, c) = match *self {
-                Request::Advance(dt) => ("advance", dt, 0.0, 0.0),
+                Request::Tick(w) => ("tick", w, 0.0, 0.0),
+                Request::Pace(speed, paused) => ("pace", speed, paused as u8 as f64, 0.0),
+                Request::Thaw => ("thaw", 0.0, 0.0, 0.0),
                 Request::Cmd(cmd) => {
                     let (k, x) = command_code(cmd);
                     ("cmd", k, x, 0.0)
@@ -225,7 +321,9 @@ pub mod web {
         fn from_js(v: &JsValue) -> Result<Self, String> {
             let g = |k: &str| js::get_f64(v, k).unwrap_or(0.0);
             Ok(match js::get_str(v, "kind").as_str() {
-                "advance" => Request::Advance(g("a")),
+                "tick" => Request::Tick(g("a")),
+                "pace" => Request::Pace(g("a"), g("b") != 0.0),
+                "thaw" => Request::Thaw,
                 "cmd" => Request::Cmd(command_from_code(g("a"), g("b")).ok_or("bad command")?),
                 "reset" => Request::Reset(SessionConfig {
                     power_mw: g("a"),
@@ -254,6 +352,10 @@ pub mod web {
                     js::set(&o, "kind", "drift");
                     js::set(&o, "v", f.js());
                 }
+                Event::Frozen(f) => {
+                    js::set(&o, "kind", "frozen");
+                    js::set(&o, "v", f.js());
+                }
                 Event::Error(m) => {
                     js::set(&o, "kind", "error");
                     js::set(&o, "message", m.as_str());
@@ -266,6 +368,7 @@ pub mod web {
                 "frame" => Ok(Event::Frame(Floats::get(v, "v").ok_or("no frame")?)),
                 "periods" => Ok(Event::Periods(Floats::get(v, "v").ok_or("no periods")?)),
                 "drift" => Ok(Event::Drift(Floats::get(v, "v").ok_or("no drift")?)),
+                "frozen" => Ok(Event::Frozen(Floats::get(v, "v").ok_or("no freeze")?)),
                 "error" => Ok(Event::Error(js::get_str(v, "message"))),
                 k => Err(format!("unknown event '{k}'")),
             }
@@ -276,19 +379,62 @@ pub mod web {
         type Req = Request;
         type Ev = Event;
         fn handle(state: &Arc<RwLock<Self>>, req: Request, post: Poster<Event>) {
-            let events = match state.write() {
-                Ok(mut r) => r.answer(req),
-                Err(_) => vec![Event::Error("engine state poisoned".into())],
+            let (events, start) = match state.write() {
+                Ok(mut r) => {
+                    let start = !r.ticking;
+                    r.ticking = true;
+                    (r.answer(req), start)
+                }
+                Err(_) => (vec![Event::Error("engine state poisoned".into())], false),
             };
             for e in events {
                 post.post(e);
+            }
+            if start {
+                start_ticking(state.clone(), post);
             }
         }
         fn error(message: String) -> Event {
             Event::Error(message)
         }
     }
+
+    /// The worker's own clock (gh:#1573): every [`TICK_MS`] it reads the wall
+    /// time and answers a [`Request::Tick`] itself, posting what it gives.
+    /// Started by the first request the page sends (the page's opening
+    /// reset), so the plant runs from page load; the page never steps it.
+    /// A tick is awaited after the last one's work, so a slow tick delays
+    /// the next rather than queueing behind it, and the pacer's wall gap
+    /// absorbs the delay.
+    fn start_ticking(state: Arc<RwLock<Runner>>, post: Poster<Event>) {
+        wasm_bindgen_futures::spawn_local(async move {
+            loop {
+                sleep_ms(TICK_MS).await;
+                let wall_s = js_sys::Date::now() / 1000.0;
+                let events = match state.write() {
+                    Ok(mut r) => r.answer(Request::Tick(wall_s)),
+                    Err(_) => vec![Event::Error("engine state poisoned".into())],
+                };
+                for e in events {
+                    post.post(e);
+                }
+            }
+        });
+    }
+
+    /// Resolve after `ms` milliseconds (the worker scope's `setTimeout`).
+    async fn sleep_ms(ms: i32) {
+        use wasm_bindgen::JsCast as _;
+        let p = js_sys::Promise::new(&mut |resolve, _| {
+            let scope: web_sys::DedicatedWorkerGlobalScope = js_sys::global().unchecked_into();
+            let _ = scope.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms);
+        });
+        let _ = wasm_bindgen_futures::JsFuture::from(p).await;
+    }
 }
+
+/// The plant clock's period, [ms]: about ten frames a second.
+pub const TICK_MS: i32 = 100;
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
@@ -302,12 +448,17 @@ mod tests {
         }
     }
 
-    /// The engine runs the session: an advance moves the clock, a command
-    /// is applied and echoed as a frame, a reset starts over at its power.
+    /// The last frame among some events.
+    fn last_frame(e: &[Event]) -> Snapshot {
+        e.iter().rev().find(|x| matches!(x, Event::Frame(_))).map(frame).expect("a frame")
+    }
+
+    /// The engine runs the session: a run moves the clock, a command is
+    /// applied and echoed as a frame, a reset starts over at its power.
     #[test]
     fn the_engine_runs_the_session() {
         let mut r = Runner::default();
-        assert!((frame(&r.answer(Request::Advance(2.5))[0]).time_s - 2.5).abs() < 1e-9);
+        assert!((last_frame(&r.run(2.5)).time_s - 2.5).abs() < 1e-9);
         let f = frame(&r.answer(Request::Cmd(Command::RodsPcm(5.0)))[0]);
         assert!((f.rod_pcm - 5.0).abs() < 1e-9);
         let cfg = SessionConfig { power_mw: 1.0, ..Default::default() };
@@ -321,15 +472,17 @@ mod tests {
     fn a_bad_command_is_an_error_event() {
         let mut r = Runner::default();
         assert!(matches!(r.answer(Request::Cmd(Command::AirFraction(0.0)))[0], Event::Error(_)));
-        assert!(matches!(r.answer(Request::Advance(1.0))[0], Event::Frame(_)));
-        let mut empty = Runner { session: None, drift: None };
-        assert!(matches!(empty.answer(Request::Advance(1.0))[0], Event::Error(_)));
+        assert!(matches!(r.run(1.0)[0], Event::Frame(_)));
+        let mut empty = Runner { session: None, drift: None, pacer: Pacer::new(1.0, false), ticking: false };
+        assert!(empty.run(1.0).is_empty());
         assert!(matches!(empty.answer(Request::Cmd(Command::Servo(true)))[0], Event::Error(_)));
+        assert!(matches!(empty.answer(Request::Thaw)[0], Event::Error(_)));
     }
 
     /// Moltres's drift rides with the plant: a reset sends the steady loop,
     /// each advance a stepped one at the plant's clock, and a fuel-pump trip
-    /// shrinks the circulation loss as the precursors stop leaving the core.
+    /// (radiator doors then closed, as ORNL did) shrinks the circulation
+    /// loss as the precursors stop leaving the core.
     #[test]
     fn the_drift_follows_the_plant() {
         let drift = |e: &[Event]| -> Vec<f64> {
@@ -345,13 +498,16 @@ mod tests {
         assert_eq!(d0.len(), 3 + DRIFT_BINS);
         assert_eq!(d0[0], 0.0);
         assert!((d0[1] - 0.00229218).abs() < 2e-7, "steady loss {}", d0[1]);
-        let d1 = drift(&r.answer(Request::Advance(2.0)));
+        let d1 = drift(&r.run(2.0));
         assert!((d1[0] - 2.0).abs() < 1e-12);
         r.answer(Request::Cmd(Command::TripFuelPump));
+        // ORNL closed the radiator doors after a trip so the coolant would
+        // not freeze; with them open the guard (gh:#1573) holds the plant.
+        r.answer(Request::Cmd(Command::AirFraction(0.01)));
         let before = d1[1];
         let mut last = d1;
         for _ in 0..30 {
-            last = drift(&r.answer(Request::Advance(10.0)));
+            last = drift(&r.run(10.0));
         }
         assert_eq!(last.len(), 3 + DRIFT_BINS);
         assert!(last[2] < 0.5, "fuel flow {}", last[2]);
@@ -392,5 +548,55 @@ mod tests {
         for c in [Coefficients::Ornl1965, Coefficients::MonteCarloN3] {
             assert_eq!(coefficients_from_code(coefficients_code(c)), c);
         }
+    }
+
+    /// gh:#1573: the plant runs on wall-clock ticks with no page request
+    /// for its steps: the first tick only reads the clock, then each runs
+    /// speed × the wall gap (the default 5×); paused, ticks run nothing and
+    /// post nothing; a 40 s gap at 300× is capped by the pacer to 300 plant
+    /// seconds, run in MAX_ADVANCE_S stretches and posted as one frame.
+    #[test]
+    fn ticks_drive_the_plant_at_the_chosen_speed() {
+        let mut r = Runner::default();
+        assert!(r.answer(Request::Tick(1000.0)).is_empty(), "the first tick reads the clock");
+        let f = last_frame(&r.answer(Request::Tick(1000.1)));
+        assert!((f.time_s - 0.5).abs() < 1e-9, "{}", f.time_s);
+        assert!(r.answer(Request::Pace(DEFAULT_SPEED, true)).is_empty());
+        assert!(r.answer(Request::Tick(1000.2)).is_empty(), "paused");
+        r.answer(Request::Pace(300.0, false));
+        let e = r.answer(Request::Tick(1040.2));
+        assert_eq!(e.iter().filter(|x| matches!(x, Event::Frame(_))).count(), 1);
+        assert!((last_frame(&e).time_s - 300.5).abs() < 1e-6, "{}", last_frame(&e).time_s);
+    }
+
+    /// gh:#1573: a fuel-pump trip with the radiator doors open freezes the
+    /// coolant. The engine posts Frozen once (location, refused temperature,
+    /// held time) with the held frame, then stays silent while held; a thaw
+    /// brings the plant back hot at the same clock, and it runs again.
+    #[test]
+    fn a_freeze_is_posted_once_and_a_thaw_restarts_the_plant() {
+        let mut r = Runner::default();
+        r.answer(Request::Cmd(Command::TripFuelPump));
+        let mut froze = None;
+        for _ in 0..200 {
+            let e = r.run(10.0);
+            if let Some(v) = e.iter().find_map(|x| match x {
+                Event::Frozen(f) => Some(f.to_vec()),
+                _ => None,
+            }) {
+                froze = Some((freeze_from_slice(&v).expect("a freeze"), last_frame(&e)));
+                break;
+            }
+        }
+        let (f, held) = froze.expect("the coolant froze within 2000 s");
+        assert!(!f.location.is_fuel());
+        assert_eq!(f.held_at_s, held.time_s);
+        assert_eq!(held.below_liquidus(), (false, false), "held liquid: {held:?}");
+        assert!(r.run(10.0).is_empty(), "silent while held");
+        let thawed = last_frame(&r.answer(Request::Thaw));
+        assert_eq!(thawed.time_s, held.time_s);
+        assert!((thawed.power_mw - 8.0).abs() < 1e-9 && thawed.fuel_flow == 1.0, "{thawed:?}");
+        assert!((last_frame(&r.run(2.0)).time_s - held.time_s - 2.0).abs() < 1e-9);
+        assert_eq!(freeze_from_slice(&freeze_to_vec(&f)), Some(f));
     }
 }

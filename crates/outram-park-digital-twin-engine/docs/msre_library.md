@@ -52,6 +52,37 @@ numbers (°F, MW, pcm). It adds no physics:
 It is used by the `msre_web` example, published (gated) at `demos/msre/`
 in the demos page's "Museum – historical reactors" section.
 
+### The live plant: self-paced worker and salt-freeze guard (gh:#1573, 2026-11-14)
+
+~~The page drives each step.~~ The plant now paces itself:
+- `session::Pacer` turns wall-clock readings into plant seconds at the
+  chosen speed, with pause. A wall gap is capped at 1 s, so a late tick
+  slows the plant instead of leaping.
+- In the browser, a timer loop in the worker sends itself a tick every
+  100 ms. Natively, a ticker thread does. The page sends only the speed
+  and pause, commands, resets and thaws, so the plant runs from page load
+  whichever tab is open.
+
+`Session::advance_guarded` is the salt-freeze guard, after `fhr_sim_v2`'s
+`salt_freeze_guard`. The model has no freezing, so each stretch runs on the
+live state with a copy kept beside it:
+- If a salt ends the stretch below its liquidus, the copy is put back.
+  The plant is held at the last state with every salt liquid, and the
+  freeze is reported once: the salt, its coldest lump and the refused
+  temperature.
+- `Session::thaw` is a cheat, and the modal says so. It rebuilds the
+  configured hot steady state with the clock running on, and it works
+  once per freeze.
+
+Tests: `msre::session::tests` checks the hold at the last liquid state, that
+the guard leaves a liquid plant bit-identical, that the thaw is consumed once,
+and the pacer. `msre_web`'s `engine::tests` checks the ticks and that the
+freeze is posted once. These are harness checks, not V&V.
+
+Found on the way: with the radiator doors left open after a fuel-pump trip,
+the coolant reaches its liquidus within a few hundred seconds. The drift
+test now closes the doors after the trip, as ORNL did.
+
 ### `msre::moltres_drift` (gh:#1575, 2026-11-14)
 
 `outram-park-fork-moltres` is a direct dependency of this crate. The module

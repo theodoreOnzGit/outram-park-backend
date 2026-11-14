@@ -11,7 +11,10 @@
 //! `nee_soon`'s frequency-response model. The only logic here is
 //! bookkeeping: applying commands, the optional ideal flux servo
 //! ([`MsreModel::critical_rod_reactivity`] applied every internal step) and
-//! formatting.
+//! formatting. Since gh:#1573 also the live plant's
+//! bookkeeping: a salt-freeze guard ([`Session::advance_guarded`], which
+//! holds the plant at its last state above the liquidus and offers a thaw
+//! stated as a cheat) and a wall-clock [`Pacer`] for a self-paced worker.
 //!
 //! Research, education and V&V only. NOT VALIDATED. AI draft (gh:#1570).
 
@@ -259,12 +262,18 @@ pub struct Session {
     model: MsreModel,
     config: SessionConfig,
     servo: bool,
+    /// The salt freeze the guarded advance stopped at, until a thaw
+    /// ([`Session::advance_guarded`], [`Session::thaw`]).
+    frozen: Option<Freeze>,
+    /// Plant time before the last thaw, [s]: a thaw builds a new model
+    /// (its clock starts at zero) and the session's clock carries on.
+    time_offset_s: f64,
 }
 
 impl Session {
     /// A plant in steady state at `config.power_mw`, rods critical, servo off.
     pub fn new(config: SessionConfig) -> Result<Self, MsreModelError> {
-        Ok(Self { model: MsreModel::new(config.model_config())?, config, servo: false })
+        Ok(Self { model: MsreModel::new(config.model_config())?, config, servo: false, frozen: None, time_offset_s: 0.0 })
     }
 
     /// The configuration this session started from.
@@ -320,7 +329,7 @@ impl Session {
         let f = |t: uom::si::f64::ThermodynamicTemperature| t.get::<degree_fahrenheit>();
         let pcm = |r: Ratio| r.get::<ratio>() * 1e5;
         Snapshot {
-            time_s: m.time().get::<second>(),
+            time_s: self.time_offset_s + m.time().get::<second>(),
             power_mw: m.power().get::<megawatt>(),
             heat_mw: m.heat_deposition().get::<megawatt>(),
             reactivity_pcm: pcm(m.reactivity()),
@@ -357,6 +366,234 @@ pub fn demo_script() -> Vec<(f64, Command)> {
 /// The radiator air inlet, [°F] (TM-0728 Table 8.2, `MsreConfig::tm1070`):
 /// the coldest heat sink, so no lump can fall below it (second law).
 pub const AIR_INLET_F: f64 = 100.0;
+
+// ─── The live plant: salt-freeze guard and wall-clock pacing (gh:#1573) ─────
+
+/// The coldest lump of a salt, where a freeze is reported.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FreezeLocation {
+    /// Fuel salt entering the core.
+    CoreInlet,
+    /// Fuel salt leaving the primary heat exchanger.
+    HxFuelOutlet,
+    /// Coolant salt leaving the radiator.
+    RadiatorCoolantOutlet,
+    /// Coolant salt entering the primary heat exchanger.
+    HxCoolantInlet,
+}
+
+impl FreezeLocation {
+    /// Every location, in [`FreezeLocation::code`]'s order.
+    pub const ALL: [FreezeLocation; 4] = [
+        FreezeLocation::CoreInlet,
+        FreezeLocation::HxFuelOutlet,
+        FreezeLocation::RadiatorCoolantOutlet,
+        FreezeLocation::HxCoolantInlet,
+    ];
+
+    /// Where, in words.
+    pub fn name(self) -> &'static str {
+        match self {
+            FreezeLocation::CoreInlet => "the core inlet",
+            FreezeLocation::HxFuelOutlet => "the heat exchanger's fuel outlet",
+            FreezeLocation::RadiatorCoolantOutlet => "the radiator's coolant outlet",
+            FreezeLocation::HxCoolantInlet => "the heat exchanger's coolant inlet",
+        }
+    }
+
+    /// `true` for the fuel salt, `false` for the coolant salt.
+    pub fn is_fuel(self) -> bool {
+        matches!(self, FreezeLocation::CoreInlet | FreezeLocation::HxFuelOutlet)
+    }
+
+    /// Which salt, in words.
+    pub fn salt_name(self) -> &'static str {
+        if self.is_fuel() {
+            "fuel salt (LiF-BeF2-ZrF4-UF4)"
+        } else {
+            "coolant salt (LiF-BeF2)"
+        }
+    }
+
+    /// That salt's liquidus, [°F] ([`FUEL_LIQUIDUS_F`], [`COOLANT_LIQUIDUS_F`]).
+    pub fn liquidus_f(self) -> f64 {
+        if self.is_fuel() {
+            FUEL_LIQUIDUS_F
+        } else {
+            COOLANT_LIQUIDUS_F
+        }
+    }
+
+    /// A wire code (the index in [`FreezeLocation::ALL`]).
+    pub fn code(self) -> f64 {
+        Self::ALL.iter().position(|&l| l == self).unwrap_or(0) as f64
+    }
+
+    /// The inverse of [`FreezeLocation::code`].
+    pub fn from_code(x: f64) -> Option<Self> {
+        Self::ALL.get(x as usize).copied().filter(|_| x >= 0.0 && x.fract() == 0.0)
+    }
+}
+
+/// A salt that went below its liquidus: what the guard stopped at.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Freeze {
+    pub location: FreezeLocation,
+    /// The temperature the step that was refused would have reached there, [°F].
+    pub temperature_f: f64,
+    /// The plant time the session is held at: the last state with every salt
+    /// above its liquidus, [s].
+    pub held_at_s: f64,
+}
+
+impl Freeze {
+    /// One line for the operator: which salt, where, how cold.
+    pub fn headline(&self) -> String {
+        format!(
+            "The {} would freeze at {}: {:.0} °F, below its {:.0} °F liquidus.",
+            self.location.salt_name(),
+            self.location.name(),
+            self.temperature_f,
+            self.location.liquidus_f()
+        )
+    }
+}
+
+impl Snapshot {
+    /// The salt below its liquidus, if one is, at its coldest lump; the fuel
+    /// salt is reported first. The same test as [`Snapshot::below_liquidus`],
+    /// with the place named.
+    pub fn freeze(&self) -> Option<Freeze> {
+        let fuel = if self.core_inlet_f <= self.hx_fuel_out_f {
+            (FreezeLocation::CoreInlet, self.core_inlet_f)
+        } else {
+            (FreezeLocation::HxFuelOutlet, self.hx_fuel_out_f)
+        };
+        let coolant = if self.radiator_coolant_out_f <= self.hx_coolant_in_f {
+            (FreezeLocation::RadiatorCoolantOutlet, self.radiator_coolant_out_f)
+        } else {
+            (FreezeLocation::HxCoolantInlet, self.hx_coolant_in_f)
+        };
+        [fuel, coolant]
+            .into_iter()
+            .find(|(l, t)| *t < l.liquidus_f())
+            .map(|(location, temperature_f)| Freeze { location, temperature_f, held_at_s: self.time_s })
+    }
+}
+
+/// What a guarded advance did.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Advance {
+    /// The plant ran; the snapshot after it.
+    Ran(Snapshot),
+    /// A salt would have gone below its liquidus: the plant is held at the
+    /// last state above it, and stays held until [`Session::thaw`] (or a new
+    /// session). Reported again on every advance while held.
+    Frozen(Freeze),
+}
+
+impl Session {
+    /// [`Session::advance`] with the salt-freeze guard, after `fhr_sim_v2`'s
+    /// `salt_freeze_guard` (detect from state, stop at a known-good state,
+    /// say which salt and where, offer a thaw).
+    ///
+    /// **Why a guard.** [`MsreModel`] has no freezing: below a liquidus its
+    /// numbers describe a salt the real plant would have frozen. So the
+    /// stretch is run on a copy of the plant's state kept beside it, and if
+    /// any salt ends below its liquidus the copy is put back: the plant is
+    /// held at the start of the refused stretch, every salt still liquid.
+    /// The freeze is therefore found to within one stretch (a page's tick,
+    /// at most [`MAX_ADVANCE_S`] of plant time), and nothing past it is ever
+    /// shown. A plant that starts below a liquidus is held at once.
+    pub fn advance_guarded(&mut self, seconds: f64) -> Result<Advance, MsreModelError> {
+        if let Some(f) = self.frozen {
+            return Ok(Advance::Frozen(f));
+        }
+        let now = self.snapshot();
+        if let Some(f) = now.freeze() {
+            self.frozen = Some(f);
+            return Ok(Advance::Frozen(f));
+        }
+        let saved = self.model.clone();
+        let snap = self.advance(seconds)?;
+        match snap.freeze() {
+            Some(f) => {
+                self.model = saved;
+                let f = Freeze { held_at_s: now.time_s, ..f };
+                self.frozen = Some(f);
+                Ok(Advance::Frozen(f))
+            }
+            None => Ok(Advance::Ran(snap)),
+        }
+    }
+
+    /// The freeze the plant is held at, if any.
+    pub fn frozen(&self) -> Option<Freeze> {
+        self.frozen
+    }
+
+    /// **The thaw: a cheat, and it says so.** A real frozen salt loop is
+    /// thawed by trace heating over hours to days, with a real risk of
+    /// plugs and of never recovering the loop; none of that is modelled.
+    /// This puts the plant back in the hot steady state it started in (the
+    /// session's [`SessionConfig`]: its power, both pumps running, rods
+    /// critical, servo off), keeping the plant clock running on. Returns
+    /// `true` if a freeze was thawed; `false`, changing nothing, if none
+    /// was held: one freeze, one thaw.
+    pub fn thaw(&mut self) -> Result<bool, MsreModelError> {
+        if self.frozen.is_none() {
+            return Ok(false);
+        }
+        let elapsed = self.snapshot().time_s;
+        self.model = MsreModel::new(self.config.model_config())?;
+        self.time_offset_s = elapsed;
+        self.servo = false;
+        self.frozen = None;
+        Ok(true)
+    }
+}
+
+/// The longest wall-clock gap one tick of [`Pacer`] turns into plant time,
+/// [s]. A page in a background tab, or a tick that came late because the
+/// last one computed slowly, runs on at this rate rather than leaping: the
+/// plant slows down instead of jumping a stretch nobody saw.
+pub const MAX_WALL_GAP_S: f64 = 1.0;
+
+/// The live plant's clock: turns wall-clock readings into plant seconds at
+/// the chosen speed (plant seconds per wall second), with pause. No physics
+/// and no clock of its own: the caller passes the wall time it read, so a
+/// test drives it with any numbers.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Pacer {
+    pub speed: f64,
+    pub paused: bool,
+    last_wall_s: Option<f64>,
+}
+
+impl Pacer {
+    pub fn new(speed: f64, paused: bool) -> Self {
+        Self { speed, paused, last_wall_s: None }
+    }
+
+    /// The plant seconds to run for a tick at wall time `wall_s` [s]: the
+    /// wall time since the last tick (at most [`MAX_WALL_GAP_S`]) times the
+    /// speed; zero on the first tick, while paused, for a clock that went
+    /// backwards, or for a non-finite or negative speed.
+    pub fn plant_seconds(&mut self, wall_s: f64) -> f64 {
+        let gap = match self.last_wall_s {
+            Some(last) if wall_s.is_finite() => (wall_s - last).clamp(0.0, MAX_WALL_GAP_S),
+            _ => 0.0,
+        };
+        if wall_s.is_finite() {
+            self.last_wall_s = Some(wall_s);
+        }
+        if self.paused || !(self.speed.is_finite() && self.speed > 0.0) {
+            0.0
+        } else {
+            gap * self.speed
+        }
+    }
+}
 
 /// Run `config` with `script`'s commands (each at its time, [s]) for
 /// `end_s` seconds and return a CSV sampled every `every_s`: a header of

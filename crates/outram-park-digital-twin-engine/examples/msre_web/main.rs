@@ -67,10 +67,34 @@ fn main() -> Result<(), String> {
             bugis::Theme::default().apply(&cc.egui_ctx);
             let ctx = cc.egui_ctx.clone();
             let link = bugis::web_demo::link::start_native(engine::Runner::default(), move || ctx.request_repaint());
+            start_ticker(&link);
             Ok(Box::new(app::App::new(link)))
         }),
     )
     .map_err(|e| e.to_string())
+}
+
+/// The native plant clock (gh:#1573): a thread that sends the engine a
+/// `Request::Tick` with the wall time every `engine::TICK_MS`, as the browser
+/// worker's own timer loop does (`engine::web`), so the plant paces itself
+/// and the window only draws. It shares the link's mailbox and exits when
+/// the link is closed.
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+fn start_ticker(link: &bugis::web_demo::link::Link<engine::Request, engine::Event>) {
+    use bugis::web_demo::link::Link;
+    let Link::Native(mailbox) = link;
+    let ticks = Link::Native(mailbox.clone());
+    let mailbox = mailbox.clone();
+    std::thread::spawn(move || {
+        let t0 = std::time::Instant::now();
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(engine::TICK_MS as u64));
+            if mailbox.read().map_or(true, |m| m.closed) {
+                return;
+            }
+            ticks.send(engine::Request::Tick(t0.elapsed().as_secs_f64()));
+        }
+    });
 }
 
 /// In the browser the same module starts twice: on the page (the egui app)
