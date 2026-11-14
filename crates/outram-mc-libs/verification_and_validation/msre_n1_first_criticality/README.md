@@ -56,10 +56,17 @@ times inflated by a concurrent release suite, not recorded as timings):
   previous-default value except Mo.
 - **Mo is a miss: +632 against +418 on the previous default, 214 ± 54
   pcm (4σ) more.** `--mo` changes only the INOR-8 (vessel, can, thimbles,
-  heads) and the sample basket. **Hypothesis, untested at this writing:**
-  the whole shield returns thermal neutrons to the vessel wall, so its Mo
-  absorbs more. A test (Mo omitted, hot dims, shield none) is posted on
-  gh:#1128.
+  heads) and the sample basket. ~~Hypothesis, untested at this writing:~~
+  **Tested 2026-11-14 and supported:** the whole shield returns thermal
+  neutrons to the vessel wall, so its Mo absorbs more. Test: Mo omitted
+  at hot dimensions with `--shield none`, seeds 1–3: 1.01287, 1.01155,
+  1.01274, mean **1.01239 ± 0.00042**. Against hot dims, no shield,
+  natural Mo (1.00760 ± 0.00022, 6 seeds), that is **+479 ± 47 pcm**.
+  It falls inside the +330 to +510 posted before the run for "the shield
+  is the cause", and is consistent with the previous default's +418
+  (61 ± 61). **The shield adds 153 ± 60 pcm (2.5σ) to the Mo's worth.**
+  That is supported but not resolved beyond 2.5σ. Its location (vessel
+  wall rather than the core can) is not separated.
 - On this default every ablation fails the band; none brings N-1 inside it.
 
 Data: `data/keff.csv`, labels `…+hot-dims…+shield-tm0728-full`.
