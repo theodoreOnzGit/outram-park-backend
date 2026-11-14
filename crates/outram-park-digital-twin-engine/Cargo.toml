@@ -438,17 +438,6 @@ path = "examples/double_pipe_twin_web/main.rs"
 # through bugis's own wasm32 table.
 [target.'cfg(not(target_os = "android"))'.dev-dependencies]
 bugis = { workspace = true, features = ["web_demo"] }
-
-[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-wasm-bindgen = { workspace = true }
-# The browser demos' Web Worker plumbing (htgr_sim_v1 on the web, gh:#986).
-# Example-only: the library has no browser face, and a consumer of the crate
-# pays nothing for these.
-wasm-bindgen-futures = { workspace = true }
-js-sys = { workspace = true }
-serde_json = { workspace = true }
-postcard = { workspace = true }
-log = { workspace = true }
 # The mobile-first layer of every OUTRAM PARK browser demo: the side panel
 # that folds (opens folded under 700 px) and its "Controls »" button. Reused,
 # not copied, per dhoby-ghaut's CLAUDE.md ("Build on it; do not copy").
@@ -461,7 +450,24 @@ log = { workspace = true }
 # A PATH dependency, not `workspace = true`: dhoby-ghaut is deliberately kept
 # out of the root [workspace.dependencies] (as kovan is) so no crate picks it
 # up by accident, and this follows that boundary rather than widening it.
-dhoby-ghaut = { path = "../dhoby-ghaut" }
+# CHANGED 2026-11-14 (gh:#1571, #1572): no longer wasm32-only. The MSRE
+# simulator's k_eff tab runs the browser Monte Carlo pipeline
+# (`dhoby_ghaut::mc_web`, feature `mc_web`) natively too, so its pool can be
+# checked against the browser's on the same seed. Natively this brings
+# dhoby-ghaut's kovan stack into the example and test builds (not the
+# library's).
+dhoby-ghaut = { path = "../dhoby-ghaut", features = ["mc_web"] }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen = { workspace = true }
+# The browser demos' Web Worker plumbing (htgr_sim_v1 on the web, gh:#986).
+# Example-only: the library has no browser face, and a consumer of the crate
+# pays nothing for these.
+wasm-bindgen-futures = { workspace = true }
+js-sys = { workspace = true }
+serde_json = { workspace = true }
+postcard = { workspace = true }
+log = { workspace = true }
 web-sys = { workspace = true, features = [
   "Window", "Document", "Element", "HtmlCanvasElement",
   "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",

@@ -11,6 +11,10 @@
 //!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--cold-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield tm0728-full|none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path] [--salt-spectrum-csv path] [--minor-uranium tm0730|none]
 //! ```
 //!
+//! - **`--mo` defaults to `omitted`, but the V&V record's default model is arm
+//!   C, `--mo natural`** (README). Pass it to reproduce a recorded default
+//!   number. The library form of that default is `vv::msre_n1::Study`
+//!   (gh:#1571), which the MSRE simulator's k_eff tab runs.
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
 //!   material. Five slices: the whole core (x-y) at mid-height, the centre
 //!   openings, one stringer, an x-z section through two thimbles, and the

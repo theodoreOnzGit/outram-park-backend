@@ -19,7 +19,7 @@
 //! exception for GUI code. What it draws is tested in `msre::session` and
 //! `engine::tests`.
 
-use crate::engine::{Event, Request};
+use crate::engine::{freeze_from_slice, Event, Request, DEFAULT_SPEED};
 use bugis::web_demo::link::Link;
 use bugis::web_demo::panel::Panel;
 use bugis::web_demo::platform::{query_pairs, set_title};
@@ -35,7 +35,7 @@ use uom::si::thermodynamic_temperature::degree_fahrenheit;
 use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
 use outram_park_digital_twin_engine::color_maps::hot_to_cold_colour_mark_1;
 use outram_park_digital_twin_engine::msre::session::{
-    Coefficients, Command, SessionConfig, Snapshot, COOLANT_LIQUIDUS_F, FUEL_LIQUIDUS_F, MAX_ADVANCE_S,
+    Coefficients, Command, Freeze, SessionConfig, Snapshot, COOLANT_LIQUIDUS_F, FUEL_LIQUIDUS_F,
     MC_N3_FUEL_PER_F, MC_N3_GRAPHITE_PER_F,
 };
 use outram_park_digital_twin_engine::msre::design::{ORNL_1965_FUEL_PER_F, ORNL_1965_GRAPHITE_PER_F};
@@ -54,6 +54,8 @@ enum Tab {
     Trends,
     Periods,
     Loop,
+    /// The full-core Monte Carlo (gh:#1571).
+    Keff,
 }
 
 pub struct App {
@@ -69,7 +71,13 @@ pub struct App {
     /// `[time s, loss %]` from the drift, for its trend.
     drift_history: Vec<[f64; 2]>,
     periods: Vec<[f64; 3]>,
-    pending: u32,
+    /// The salt freeze the engine is holding the plant at (gh:#1573).
+    freeze: Option<Freeze>,
+    /// The Core k_eff tab (gh:#1571).
+    keff: crate::keff_tab::KeffTab,
+    /// The coefficients the running plant was reset with (the panel's
+    /// choice applies on Reset; gh:#1574 shows which the plant uses).
+    plant_coefficients: Coefficients,
     running: bool,
     speed: f64,
     config: SessionConfig,
@@ -99,9 +107,13 @@ impl App {
             drift: None,
             drift_history: Vec::new(),
             periods: Vec::new(),
-            pending: 0,
-            running: q.iter().any(|(k, _)| k == "run"),
-            speed: 5.0,
+            freeze: None,
+            keff: crate::keff_tab::KeffTab::default(),
+            plant_coefficients: SessionConfig::default().coefficients,
+            // The plant runs from page load (gh:#1573); `?paused` opens it
+            // paused.
+            running: !q.iter().any(|(k, _)| k == "paused"),
+            speed: DEFAULT_SPEED,
             config: SessionConfig::default(),
             rods_pcm: 0.0,
             air: 0.8,
@@ -113,11 +125,16 @@ impl App {
         };
         app.send(Request::Reset(app.config));
         app.send(Request::Periods(app.freq_fuel * 1e-5, app.freq_graphite * 1e-5));
+        app.send_pace();
         app
     }
 
+    /// Tell the engine the speed and whether paused: it keeps its own clock.
+    fn send_pace(&mut self) {
+        self.send(Request::Pace(self.speed, !self.running));
+    }
+
     fn send(&mut self, r: Request) {
-        self.pending += 1;
         self.link.send(r);
     }
 
@@ -126,17 +143,16 @@ impl App {
         self.drift_history.clear();
         self.rods_pcm = 0.0;
         self.servo = false;
+        self.freeze = None;
+        self.plant_coefficients = self.config.coefficients;
         self.air = self.config.power_mw / 10.0;
         self.send(Request::Reset(self.config));
     }
 
-    fn handle(&mut self, dt_wall: f64) {
+    /// Take what the engine posted. The engine paces the plant itself
+    /// (gh:#1573): the page never asks for a step, it only draws frames.
+    fn handle(&mut self) {
         for e in self.link.drain() {
-            // One reply per request: a frame, a period table or an error. A
-            // drift event rides beside a frame and is not counted.
-            if !matches!(e, Event::Drift(_)) {
-                self.pending = self.pending.saturating_sub(1);
-            }
             match e {
                 Event::Drift(f) => {
                     let v = f.to_vec();
@@ -167,16 +183,52 @@ impl App {
                 Event::Periods(f) => {
                     self.periods = f.to_vec().chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect();
                 }
+                Event::Frozen(f) => self.freeze = freeze_from_slice(&f.to_vec()),
+                Event::Keff(crate::keff::KEv::Raster { view, w, h, ids }) => self.keff.on_raster(view, w, h, ids),
+                Event::Keff(_) => {}
                 Event::Error(m) => self.error = Some(m),
             }
         }
-        if self.running && self.pending == 0 {
-            let dt = (dt_wall.min(0.1) * self.speed).min(MAX_ADVANCE_S);
-            self.send(Request::Advance(dt));
+    }
+
+    /// The freeze modal (gh:#1573, after `fhr_sim_v2`'s): which salt, where,
+    /// how cold, and a thaw stated plainly as a cheat. GUI drawing code
+    /// (needs a window); the freeze it shows is tested in `msre::session`.
+    fn freeze_modal(&mut self, ctx: &egui::Context) {
+        let Some(f) = self.freeze else { return };
+        let mut thaw = false;
+        let mut reset = false;
+        egui::Window::new("Salt freeze: the plant is held")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
+            .show(ctx, |ui| {
+                ui.set_max_width(420.0);
+                ui.label(RichText::new(f.headline()).strong());
+                ui.label(format!("The simulation stopped at t = {:.0} s, the last moment every salt was still liquid, and is held there. The model has no freezing, so it cannot go on past this point honestly.", f.held_at_s));
+                ui.label(RichText::new("A frozen salt loop is a real molten-salt-reactor hazard: the MSRE's operators closed the radiator doors after a pump trip so the coolant would not freeze.").small());
+                ui.separator();
+                ui.label(RichText::new("The thaw button is a CHEAT. It puts the plant back in its hot starting state at once. A real loop is thawed by trace heating over hours to days, with a real risk of plugs and of never recovering it; none of that is modelled.").color(ui.visuals().warn_fg_color));
+                ui.horizontal(|ui| {
+                    thaw = ui.add(egui::Button::new(RichText::new("Thaw (a cheat)").size(17.0)).min_size(Vec2::new(150.0, 38.0))).clicked();
+                    reset = ui.add(egui::Button::new(RichText::new("Reset").size(17.0)).min_size(Vec2::new(100.0, 38.0))).clicked();
+                });
+            });
+        if thaw {
+            self.freeze = None;
+            self.servo = false;
+            self.rods_pcm = 0.0;
+            self.send(Request::Thaw);
+        } else if reset {
+            self.reset();
         }
     }
 
     fn side_panel(&mut self, ui: &mut egui::Ui) {
+        if self.tab == Tab::Keff {
+            self.keff.panel(ui);
+            ui.separator();
+        }
         ui.label(RichText::new("Museum · historical reactors").strong());
         ui.label("The Molten-Salt Reactor Experiment (ORNL, critical 1965, shut down 1969): an 8 MW graphite-moderated reactor whose fuel was a molten fluoride salt, pumped through the core and a heat exchanger.");
         ui.label(RichText::new("The author's hobby project, built out of curiosity in holidays and free time; not particularly related to their work, which is on LWRs and HTGRs. Good for learning; an AI-assisted draft, NOT validated. Research and education only; never for operation, licensing or safety decisions.").small().color(ui.visuals().warn_fg_color));
@@ -191,6 +243,7 @@ impl App {
             let label = if self.running { "⏸ Pause" } else { "▶ Run" };
             if ui.add(egui::Button::new(RichText::new(label).size(18.0)).min_size(Vec2::new(110.0, 40.0))).clicked() {
                 self.running = !self.running;
+                self.send_pace();
             }
             if ui.add(egui::Button::new(RichText::new("Reset").size(18.0)).min_size(Vec2::new(90.0, 40.0))).clicked() {
                 self.reset();
@@ -200,7 +253,9 @@ impl App {
             .selected_text(SPEEDS.iter().find(|s| s.0 == self.speed).map_or("?", |s| s.1))
             .show_ui(ui, |ui| {
                 for (v, l) in SPEEDS {
-                    ui.selectable_value(&mut self.speed, v, l);
+                    if ui.selectable_value(&mut self.speed, v, l).changed() {
+                        self.send_pace();
+                    }
                 }
             });
 
@@ -240,16 +295,20 @@ impl App {
             .selected_text(match self.config.coefficients {
                 Coefficients::Ornl1965 => "ORNL 1965 (TM-1070)",
                 Coefficients::MonteCarloN3 => "Monte Carlo N-3 (this workspace)",
+                Coefficients::Measured { .. } => "measured in this browser (k_eff tab)",
             })
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut self.config.coefficients, Coefficients::Ornl1965, "ORNL 1965 (TM-1070)");
                 ui.selectable_value(&mut self.config.coefficients, Coefficients::MonteCarloN3, "Monte Carlo N-3 (this workspace)");
+                if let Some(m) = self.keff.measured() {
+                    ui.selectable_value(&mut self.config.coefficients, m, "measured in this browser (k_eff tab)");
+                }
             });
         ui.checkbox(&mut self.config.line_model, "TM-1626 line model for the circulating fuel");
 
         ui.separator();
         ui.heading("Fidelity levels");
-        ui.label(RichText::new("1. Frequency response: ORNL-TM-1070's linear model, solved in the frequency domain (the Frequency tab).\n2. Plant transient: the same equations in time, with ORNL-TM-1626's circulating precursors, pumps and radiator (the Plant and Trends tabs).\n3. Full-core Monte Carlo (this workspace's MSRE N-1/N-3 model): supplies the 'Monte Carlo N-3' coefficients; an in-browser tab is planned (gh:#1571).").small());
+        ui.label(RichText::new("1. Frequency response: ORNL-TM-1070's linear model, solved in the frequency domain (the Frequency tab).\n2. Plant transient: the same equations in time, with ORNL-TM-1626's circulating precursors, pumps and radiator (the Plant and Trends tabs).\n3. Full-core Monte Carlo (this workspace's MSRE N-1/N-3 model): supplies the 'Monte Carlo N-3' coefficients, and runs in your browser on the k_eff tab.").small());
         ui.label(RichText::new("Sources: ORNL-TM-0728, TM-1070, TM-1626, TM-1647, ORNL-4233 (public reports). Code: outram_park_digital_twin_engine::msre.").small());
     }
 
@@ -265,7 +324,12 @@ impl App {
         let (hw, hh) = (0.5 * ext.x as f64, 0.5 * ext.y as f64);
         let at = Rect::from_two_pos(self.view.to_screen(rect, -hw, hh), self.view.to_screen(rect, hw, -hh));
         let f = ThermodynamicTemperature::new::<degree_fahrenheit>;
-        let (fuel_frozen, coolant_frozen) = s.below_liquidus();
+        // The engine never shows a salt below its liquidus (it holds the
+        // plant first, gh:#1573): the drawing marks the salt that froze.
+        let (fuel_frozen, coolant_frozen) = match self.freeze {
+            Some(f) => (f.location.is_fuel(), !f.location.is_fuel()),
+            None => s.below_liquidus(),
+        };
         let scalars = MsrePlantScalars {
             power: Power::new::<megawatt>(s.power_mw),
             core_fuel: f(s.fuel_f),
@@ -287,6 +351,7 @@ impl App {
         MsrePlantSchematic::new(scalars).paint(&ui.painter().with_clip_rect(rect), at);
         // Readouts the drawing does not carry.
         let lines = [
+            format!("coefficients: {}", self.plant_coefficients.describe()),
             format!("{:.2} MW · ρ {:+.1} pcm: rods {:+.1}{}, feedback {:+.1}", s.power_mw, s.reactivity_pcm, s.rod_pcm, if s.servo != 0.0 { " (servo)" } else { "" }, s.feedback_pcm),
             format!("fuel {:.0} °F, graphite {:.0} °F; flows: fuel {:.0} %, coolant {:.0} %", s.fuel_f, s.graphite_f, 100.0 * s.fuel_flow, 100.0 * s.coolant_flow),
         ];
@@ -295,11 +360,10 @@ impl App {
             ui.painter().text(Pos2::new(rect.center().x, top + 18.0 * k as f32), Align2::CENTER_TOP, l, FontId::proportional(13.0), ui.visuals().text_color());
         }
         // Status on the main view (shown with the panel folded).
-        let (fuel_frozen, coolant_frozen) = s.below_liquidus();
         let mut y = rect.bottom() - 90.0;
         for (on, what, liq) in [(fuel_frozen, "fuel", FUEL_LIQUIDUS_F), (coolant_frozen, "coolant", COOLANT_LIQUIDUS_F)] {
             if on {
-                ui.painter().text(Pos2::new(rect.center().x, y), Align2::CENTER_CENTER, format!("⚠ {what} salt below its {liq:.0} °F liquidus: the real plant would freeze here (the model does not)"), FontId::proportional(14.0), ui.visuals().error_fg_color);
+                ui.painter().text(Pos2::new(rect.center().x, y), Align2::CENTER_CENTER, format!("⚠ {what} salt at its {liq:.0} °F liquidus: the plant is held (it would freeze)"), FontId::proportional(14.0), ui.visuals().error_fg_color);
                 y -= 20.0;
             }
         }
@@ -466,10 +530,14 @@ impl App {
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
-        let dt = ctx.input(|i| i.stable_dt) as f64;
-        self.handle(dt);
-        if self.running || self.pending > 0 {
-            ctx.request_repaint_after(std::time::Duration::from_millis(30));
+        // Each engine event repaints the page (the link's callback), so the
+        // page needs no timer of its own.
+        self.handle();
+        let _finished = self.keff.pump(&ctx, &self.link);
+        // "Send to plant" (gh:#1574): only the reader's button does this.
+        if let Some(c) = self.keff.take_send() {
+            self.config.coefficients = c;
+            self.reset();
         }
         let title = match &self.snap {
             Some(s) => format!("MSRE · {:.0} s · {:.2} MW", s.time_s, s.power_mw),
@@ -484,7 +552,7 @@ impl eframe::App for App {
         self.panel = panel;
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().extreme_bg_color)).show(ui, |ui| {
             let rect = ui.max_rect();
-            let bar = Rect::from_min_size(Pos2::new(rect.center().x - 184.0, rect.bottom() - 48.0), Vec2::new(368.0, 40.0));
+            let bar = Rect::from_min_size(Pos2::new(rect.center().x - 230.0, rect.bottom() - 48.0), Vec2::new(460.0, 40.0));
             match self.tab {
                 Tab::Plant => {
                     let resp = ui.interact(rect, ui.id().with("plant"), egui::Sense::click_and_drag());
@@ -514,6 +582,11 @@ impl eframe::App for App {
                     let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, top), rect.max - Vec2::new(8.0, 56.0));
                     ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.loop_view(ui, inner));
                 }
+                Tab::Keff => {
+                    let top = if rect.width() < 700.0 { 84.0 } else { 40.0 };
+                    let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, top), rect.max - Vec2::new(8.0, 56.0));
+                    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| self.keff.view_ui(ui, inner));
+                }
                 Tab::Periods => {
                     let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, 56.0), rect.max - Vec2::new(8.0, 56.0));
                     ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
@@ -523,11 +596,20 @@ impl eframe::App for App {
             }
             if let Some(s) = &self.snap {
                 let at = if rect.width() < 700.0 { Vec2::new(10.0, 58.0) } else { Vec2::new(if self.panel.open { 8.0 } else { 156.0 }, 14.0) };
-                ui.painter().text(rect.left_top() + at, Align2::LEFT_TOP, format!("t = {:.0} s{}", s.time_s, if self.running { "" } else { " (paused)" }), FontId::proportional(15.0), ui.visuals().text_color());
+                // The status strip, on every tab: time, power, run state.
+                let state = if self.freeze.is_some() {
+                    " · HELD: salt freeze"
+                } else if self.running {
+                    ""
+                } else {
+                    " (paused)"
+                };
+                let colour = if self.freeze.is_some() { ui.visuals().error_fg_color } else { ui.visuals().text_color() };
+                ui.painter().text(rect.left_top() + at, Align2::LEFT_TOP, format!("t = {:.0} s · {:.2} MW{state}", s.time_s, s.power_mw), FontId::proportional(15.0), colour);
             }
             ui.scope_builder(egui::UiBuilder::new().max_rect(bar), |ui| {
                 ui.horizontal(|ui| {
-                    for (t, l) in [(Tab::Plant, "Plant"), (Tab::Trends, "Trends"), (Tab::Periods, "Freq."), (Tab::Loop, "Moltres")] {
+                    for (t, l) in [(Tab::Plant, "Plant"), (Tab::Trends, "Trends"), (Tab::Periods, "Freq."), (Tab::Loop, "Moltres"), (Tab::Keff, "k_eff")] {
                         if ui.add(egui::Button::selectable(self.tab == t, RichText::new(l).size(17.0)).min_size(Vec2::new(84.0, 38.0))).clicked() {
                             self.tab = t;
                         }
@@ -536,5 +618,6 @@ impl eframe::App for App {
             });
             self.panel.reopen_button(ui, rect);
         });
+        self.freeze_modal(&ctx);
     }
 }

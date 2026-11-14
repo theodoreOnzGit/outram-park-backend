@@ -15,6 +15,7 @@
 //! ```text
 //! cargo run --release -p outram-park-digital-twin-engine --example msre_web
 //! cargo run --release -p outram-park-digital-twin-engine --example msre_web -- --headless [end_s] [every_s]
+//! cargo run --release -p outram-park-digital-twin-engine --example msre_web -- --prepare-web-data <dir>   # the k_eff tab's tapes
 //! crates/outram-park-digital-twin-engine/web/msre/build.sh   # the browser demo, into dist/
 //! ```
 //!
@@ -41,6 +42,11 @@
 mod app;
 #[cfg(not(target_os = "android"))]
 mod engine;
+// The Core k_eff tab (gh:#1571): its workers and its page.
+#[cfg(not(target_os = "android"))]
+mod keff;
+#[cfg(not(target_os = "android"))]
+mod keff_tab;
 
 /// Android stub: windowing GUIs are out of scope on Termux.
 #[cfg(target_os = "android")]
@@ -54,6 +60,10 @@ fn main() {
 fn main() -> Result<(), String> {
     use outram_park_digital_twin_engine::msre::session::{demo_script, headless_csv, SessionConfig};
     let args: Vec<String> = std::env::args().collect();
+    if let Some(i) = args.iter().position(|a| a == "--prepare-web-data") {
+        let dir = args.get(i + 1).ok_or("--prepare-web-data needs an output directory")?;
+        return keff::prepare_web_data(std::path::Path::new(dir));
+    }
     if let Some(i) = args.iter().position(|a| a == "--headless") {
         let num = |k: usize, d: f64| args.get(i + k).and_then(|s| s.parse().ok()).unwrap_or(d);
         let csv = headless_csv(SessionConfig::default(), &demo_script(), num(1, 1200.0), num(2, 10.0)).map_err(|e| e.to_string())?;
@@ -67,10 +77,34 @@ fn main() -> Result<(), String> {
             bugis::Theme::default().apply(&cc.egui_ctx);
             let ctx = cc.egui_ctx.clone();
             let link = bugis::web_demo::link::start_native(engine::Runner::default(), move || ctx.request_repaint());
+            start_ticker(&link);
             Ok(Box::new(app::App::new(link)))
         }),
     )
     .map_err(|e| e.to_string())
+}
+
+/// The native plant clock (gh:#1573): a thread that sends the engine a
+/// `Request::Tick` with the wall time every `engine::TICK_MS`, as the browser
+/// worker's own timer loop does (`engine::web`), so the plant paces itself
+/// and the window only draws. It shares the link's mailbox and exits when
+/// the link is closed.
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+fn start_ticker(link: &bugis::web_demo::link::Link<engine::Request, engine::Event>) {
+    use bugis::web_demo::link::Link;
+    let Link::Native(mailbox) = link;
+    let ticks = Link::Native(mailbox.clone());
+    let mailbox = mailbox.clone();
+    std::thread::spawn(move || {
+        let t0 = std::time::Instant::now();
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(engine::TICK_MS as u64));
+            if mailbox.read().map_or(true, |m| m.closed) {
+                return;
+            }
+            ticks.send(engine::Request::Tick(t0.elapsed().as_secs_f64()));
+        }
+    });
 }
 
 /// In the browser the same module starts twice: on the page (the egui app)

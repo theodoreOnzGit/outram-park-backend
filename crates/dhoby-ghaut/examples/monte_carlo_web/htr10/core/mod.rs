@@ -62,11 +62,12 @@ use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
 use outram_mc_libs::physics::keff::KeffSettings;
-use outram_mc_libs::physics::track_output::TrackEvent;
 use outram_mc_libs::physics::transport_csg::distributed::{
-    transport_chunk, ChunkResult, DistributedPowerIteration, GenerationChunk,
+    transport_chunk, DistributedPowerIteration, GenerationChunk,
 };
-use outram_mc_libs::tally::mesh::RegularMesh;
+// Promoted to the library (gh:#1572): the job dealer, the entropy-mesh
+// words, track thinning and the no-run epoch, shared with the MSRE simulator.
+pub use dhoby_ghaut::mc_web::pool::{mesh_from_words, mesh_words, schedule, thin_tracks, NO_RUN};
 
 /// The transport settings' run-wide temperature, K (the recorded runs').
 /// ~~Temperature of every material and nuclide~~ **CORRECTED 2026-11-03
@@ -165,24 +166,6 @@ pub fn job_cost(job: &TemperedJob) -> f64 {
     }
 }
 
-/// Deal jobs (by `costs`) to `workers`: longest first, each to the least
-/// loaded worker so far (LPT). Ties go to the lower worker index.
-pub fn schedule(costs: &[f64], workers: usize) -> Vec<Vec<usize>> {
-    let workers = workers.max(1);
-    let mut order: Vec<usize> = (0..costs.len()).collect();
-    order.sort_by(|&a, &b| costs[b].total_cmp(&costs[a]).then(a.cmp(&b)));
-    let mut load = vec![0.0_f64; workers];
-    let mut out = vec![Vec::new(); workers];
-    for j in order {
-        let w = (0..workers)
-            .min_by(|&a, &b| load[a].total_cmp(&load[b]).then(a.cmp(&b)))
-            .unwrap_or(0);
-        load[w] += costs[j];
-        out[w].push(j);
-    }
-    out
-}
-
 /// The transport settings of a run (as the recorded runs': analog, the
 /// default delta-region estimator; the thread count is not used here).
 pub fn run_settings(cfg: &KeffConfig) -> KeffSettings {
@@ -277,8 +260,6 @@ impl CoreReq {
     }
 }
 
-/// The epoch of a request that belongs to no run (processing, assembly).
-pub const NO_RUN: u32 = 0;
 
 /// What a worker built, and what it cost.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -497,14 +478,6 @@ pub fn run_job(i: usize, temps: &ZoneTemperatures, tape: Option<&[u8]>) -> Resul
     Ok(Floats::from_vec(p.to_f64s()))
 }
 
-/// Thin a result's tracks to what is drawn: surface crossings removed (the
-/// flight is straight between collisions), the rest kept.
-pub fn thin_tracks(r: &mut ChunkResult) {
-    for (_, t) in &mut r.tracks {
-        t.states.retain(|s| s.event != TrackEvent::SurfaceCrossing);
-    }
-}
-
 impl CoreWorker {
     /// Store a product (own or relayed).
     pub fn store(&mut self, job: usize, data: Floats) {
@@ -640,27 +613,6 @@ impl CoreWorker {
         );
         thin_tracks(&mut r);
         Ok(r.to_f64s())
-    }
-}
-
-/// An entropy mesh as a [`CoreEv::Source`]'s words
-/// (`[lower×3, upper×3, dims×3]`); [`mesh_from_words`] reads them back.
-pub fn mesh_words(mesh: &RegularMesh) -> [f64; 9] {
-    let mut w = [0.0; 9];
-    w[..3].copy_from_slice(&mesh.lower_left);
-    w[3..6].copy_from_slice(&mesh.upper_right);
-    for k in 0..3 {
-        w[6 + k] = mesh.dimension[k] as f64;
-    }
-    w
-}
-
-/// The entropy mesh from a [`CoreEv::Source`]'s words.
-pub fn mesh_from_words(w: &[f64; 9]) -> RegularMesh {
-    RegularMesh {
-        lower_left: [w[0], w[1], w[2]],
-        upper_right: [w[3], w[4], w[5]],
-        dimension: [w[6] as usize, w[7] as usize, w[8] as usize],
     }
 }
 

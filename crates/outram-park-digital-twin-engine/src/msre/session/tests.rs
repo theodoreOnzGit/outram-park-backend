@@ -182,3 +182,136 @@ fn the_period_table_is_complete() {
         assert!(model > 0.5 && model < 100.0, "{model} min at {p} MW");
     }
 }
+
+// ─── gh:#1573: the salt-freeze guard and the pacer ──────────────────────────
+
+/// A plant tripped with the radiator doors open, run guarded in 2 s ticks.
+/// The guard trips on the coolant salt, and returns the freeze it held at.
+fn freeze_a_tripped_plant() -> (Session, Freeze, Snapshot) {
+    let mut s = Session::new(SessionConfig::default()).unwrap();
+    s.apply(Command::TripFuelPump).unwrap();
+    let mut last = s.snapshot();
+    for _ in 0..600 {
+        match s.advance_guarded(2.0).unwrap() {
+            Advance::Ran(snap) => last = snap,
+            Advance::Frozen(f) => return (s, f, last),
+        }
+    }
+    panic!("no freeze within 1200 s; last {last:?}");
+}
+
+/// The guard finds the freeze from the state, names the coolant salt at its
+/// coldest lump, and holds the plant at the last state with every salt above
+/// its liquidus: the snapshot is the last one the page saw, bit for bit,
+/// and it is liquid. The refused temperature is below the liquidus.
+#[test]
+fn the_guard_holds_the_plant_at_the_last_liquid_state() {
+    let (s, f, last) = freeze_a_tripped_plant();
+    assert!(!f.location.is_fuel(), "{f:?}");
+    assert!(matches!(f.location, FreezeLocation::RadiatorCoolantOutlet | FreezeLocation::HxCoolantInlet));
+    assert!(f.temperature_f < COOLANT_LIQUIDUS_F, "{f:?}");
+    let held = s.snapshot();
+    assert_eq!(held, last, "held at the last state shown");
+    assert_eq!(held.freeze(), None, "every salt above its liquidus: {held:?}");
+    assert_eq!(held.below_liquidus(), (false, false));
+    assert_eq!(f.held_at_s, held.time_s);
+    assert!(f.headline().contains("coolant salt"), "{}", f.headline());
+}
+
+/// Held means held: more guarded advances report the same freeze and move
+/// nothing.
+#[test]
+fn a_frozen_plant_does_not_move() {
+    let (mut s, f, _) = freeze_a_tripped_plant();
+    let held = s.snapshot();
+    for _ in 0..3 {
+        assert_eq!(s.advance_guarded(5.0).unwrap(), Advance::Frozen(f));
+    }
+    assert_eq!(s.snapshot(), held);
+    assert_eq!(s.frozen(), Some(f));
+}
+
+/// The thaw is consumed once: it returns the plant to the configured hot
+/// steady state (8 MW, both pumps, rods critical, no salt near freezing)
+/// with the clock running on; a second thaw does nothing, and the plant
+/// then runs.
+#[test]
+fn the_thaw_is_consumed_once_and_the_clock_runs_on() {
+    let (mut s, _, _) = freeze_a_tripped_plant();
+    let t = s.snapshot().time_s;
+    assert!(s.thaw().unwrap());
+    let a = s.snapshot();
+    assert_eq!(a.time_s, t, "the clock carries on");
+    assert!((a.power_mw - 8.0).abs() < 1e-9 && a.fuel_flow == 1.0 && a.coolant_flow == 1.0, "{a:?}");
+    assert_eq!(a.rod_pcm, 0.0);
+    assert_eq!(s.frozen(), None);
+    assert!(!s.thaw().unwrap(), "nothing left to thaw");
+    assert_eq!(s.snapshot(), a, "a second thaw changes nothing");
+    match s.advance_guarded(2.0).unwrap() {
+        Advance::Ran(b) => assert!((b.time_s - t - 2.0).abs() < 1e-9, "{} vs {t}", b.time_s),
+        Advance::Frozen(f) => panic!("refroze at once: {f:?}"),
+    }
+}
+
+/// An untouched plant runs guarded exactly as unguarded: the guard changes
+/// nothing until a salt is about to freeze (bit-identical snapshots).
+#[test]
+fn the_guard_is_transparent_while_the_salt_is_liquid() {
+    let mut a = Session::new(SessionConfig::default()).unwrap();
+    let mut b = Session::new(SessionConfig::default()).unwrap();
+    for c in [&mut a, &mut b] {
+        c.apply(Command::RodsPcm(10.0)).unwrap();
+    }
+    for _ in 0..10 {
+        let x = a.advance(3.0).unwrap();
+        assert_eq!(b.advance_guarded(3.0).unwrap(), Advance::Ran(x));
+    }
+}
+
+/// Every freeze location survives its wire code, and a bad code is refused.
+#[test]
+fn freeze_locations_round_trip() {
+    for l in FreezeLocation::ALL {
+        assert_eq!(FreezeLocation::from_code(l.code()), Some(l));
+    }
+    assert_eq!(FreezeLocation::from_code(4.0), None);
+    assert_eq!(FreezeLocation::from_code(-1.0), None);
+    assert_eq!(FreezeLocation::from_code(0.5), None);
+}
+
+/// The pacer: nothing on the first tick, speed × wall gap after it, the
+/// gap capped at MAX_WALL_GAP_S (a late tick does not leap), nothing while
+/// paused or for a clock that ran backwards, and pausing does not bank time.
+#[test]
+fn the_pacer_turns_wall_time_into_plant_time() {
+    let mut p = Pacer::new(5.0, false);
+    assert_eq!(p.plant_seconds(100.0), 0.0);
+    assert!((p.plant_seconds(100.1) - 0.5).abs() < 1e-9);
+    assert!((p.plant_seconds(130.0) - 5.0 * MAX_WALL_GAP_S).abs() < 1e-12, "a long gap is capped");
+    assert_eq!(p.plant_seconds(129.0), 0.0, "backwards");
+    p.paused = true;
+    assert_eq!(p.plant_seconds(129.5), 0.0);
+    p.paused = false;
+    assert!((p.plant_seconds(129.6) - 0.5).abs() < 1e-9, "the pause banked nothing");
+    p.speed = f64::NAN;
+    assert_eq!(p.plant_seconds(129.7), 0.0);
+}
+
+/// gh:#1574: the measured split reaches the model like the others, and the
+/// pair arithmetic reproduces the N-3 record's coefficients from its own
+/// eigenvalues (fuel −3.79, graphite −3.26 × 10⁻⁵ /°F; record README).
+#[test]
+fn a_measured_split_reaches_the_plant_and_the_arithmetic_is_the_records() {
+    let (f, sf) = coefficient_from_pair(1.02232, 0.00026, 1.01837, 0.00029, SPLIT_STEP_F);
+    let (g, _) = coefficient_from_pair(1.02232, 0.00026, 1.01892, 0.00022, SPLIT_STEP_F);
+    assert!((f * 1e5 + 3.79).abs() < 0.02, "{}", f * 1e5);
+    assert!((g * 1e5 + 3.26).abs() < 0.02, "{}", g * 1e5);
+    assert!(sf > 0.0 && sf * 1e5 < 0.6, "{}", sf * 1e5);
+    let m = Coefficients::Measured { fuel_per_f: f, fuel_sigma: sf, graphite_per_f: g, graphite_sigma: 0.0 };
+    assert_eq!(m.per_f(), (f, g));
+    assert!(m.describe().contains("measured in this browser"));
+    let s = Session::new(SessionConfig { coefficients: m, ..Default::default() }).unwrap();
+    let c = s.config().model_config();
+    assert_eq!(c.fuel_temperature_coefficient, crate::msre::design::per_f(f));
+    assert_eq!(c.graphite_temperature_coefficient, crate::msre::design::per_f(g));
+}

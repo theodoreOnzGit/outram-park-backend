@@ -54,6 +54,11 @@ backronym = "Digital High-fidelity Orchestration by GUI for a Human-friendly Aut
 name = "dhoby-ghaut"
 path = "src/bin/dhoby-ghaut/main.rs"
 
+[features]
+default = []
+# The browser Monte Carlo pipeline (gh:#1572): `dhoby_ghaut::mc_web`.
+mc_web = ["dep:outram-mc-libs", "dep:njoy-outram-park-fork", "dep:miniz_oxide", "dep:log", "dep:uom"]
+
 [dependencies]
 
 # `kovan`: the workbench's recipes (input decks) and every file it writes are
@@ -91,6 +96,17 @@ bugis = { workspace = true, features = ["web_demo"] }
 # Added 2026-10-21: without it `cargo check -p dhoby-ghaut --lib --target
 # wasm32-unknown-unknown` failed with "cannot find crate `petir`".
 petir = { workspace = true }
+# `mc_web` (gh:#1572): the browser Monte Carlo pipeline as a library
+# (`src/mc_web/`: tapes, the processed-data cache, the k_eff settings and
+# summary, and the worker-pool protocol), promoted from the
+# `monte_carlo_web` example so the MSRE simulator can call it too. Optional:
+# a demo that runs no Monte Carlo builds none of this. Wasm-safe (the
+# example already builds all of it for wasm32).
+outram-mc-libs = { workspace = true, optional = true }
+njoy-outram-park-fork = { workspace = true, optional = true }
+miniz_oxide = { workspace = true, optional = true }
+log = { workspace = true, optional = true }
+uom = { workspace = true, optional = true }
 
 # The `dhoby-ghaut` BINARY (src/bin/dhoby-ghaut/): the guided high-fidelity
 # workbench (gh:#561). Maintainer, 2026-10-05: "dhoby-ghaut is to be a
@@ -157,6 +173,9 @@ web-sys = { workspace = true, features = [
 # Android (the workspace's single windowing exemption): eframe pulls in
 # android-activity. Nothing else in the workspace should carry these.
 [target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# The examples call this crate's own `mc_web` library module (gh:#1572):
+# a dev-dependency on itself switches the feature on for them alone.
+dhoby-ghaut = { path = ".", features = ["mc_web"] }
 eframe = { workspace = true }
 egui = { workspace = true }
 # The TRISO pebble demo, which ALSO builds for wasm32: continuous-energy

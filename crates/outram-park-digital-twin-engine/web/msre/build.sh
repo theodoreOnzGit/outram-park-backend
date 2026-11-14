@@ -37,5 +37,7 @@ mkdir -p "$dist"
 wasm-bindgen --target web --no-typescript --out-dir "$dist" --out-name msre_web \
   "$root/target/wasm32-unknown-unknown/release/examples/msre_web.wasm"
 cp "$here/index.html" "$here/msre_worker.js" "$dist/"
+# The k_eff tab's tapes (gh:#1571), stripped and compressed, beside the page.
+cargo run --release -p outram-park-digital-twin-engine --example msre_web -- --prepare-web-data "$dist/data"
 cp "$root/crates/outram-park-digital-twin-engine/web/gate.js" "$dist/"
 echo "MSRE demo built in $dist"
