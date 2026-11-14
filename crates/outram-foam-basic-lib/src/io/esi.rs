@@ -233,6 +233,32 @@ fn finish_list(mut header: String, items: &[String], contiguous: bool) -> String
     header
 }
 
+/// Write a `topoSet` file (`cellSet`, `faceSet`, `pointSet`) as ESI's
+/// `topoSet::writeData` does (gh:#1384): the ESI header (class `class`,
+/// `location`, object `name`) and the labels **in the order given**, which
+/// must be the iteration order of upstream's `labelHashSet` (see
+/// `outram_foam_mesh::topo_set::LabelHashSet`). Up to 10 labels go on one line
+/// as `N(a b c)`, more in the long form; keys are never written as `N{v}`.
+///
+/// # Errors
+/// [`IoError`] if the directory or file cannot be written.
+pub fn write_label_set_esi(
+    dir: impl AsRef<Path>,
+    class: &str,
+    location: &str,
+    name: &str,
+    labels: &[usize],
+    opts: &EsiWriteOptions,
+) -> Result<(), IoError> {
+    let dir = dir.as_ref();
+    std::fs::create_dir_all(dir).map_err(|e| IoError::io(dir.display().to_string(), e))?;
+    let header = esi_header(opts, &[], class, location, name);
+    let items: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
+    let s = finish_list(header, &items, true);
+    let path = dir.join(name);
+    std::fs::write(&path, s).map_err(|e| IoError::io(path.display().to_string(), e))
+}
+
 /// Write `<dir>/cellZones` as ESI's `blockMesh` does (the zone names are also
 /// listed in a `meta` entry of the header). Nothing is written for no zones.
 ///

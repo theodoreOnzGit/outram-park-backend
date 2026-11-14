@@ -48,3 +48,23 @@ short log).
 
 Not covered: face sources, tensor fields, finite-area, field BC types the
 reader does not support (it errors, it does not guess).
+
+## topoSet: predictions (written 2026-11-14 BEFORE the port's topoSet output was compared)
+
+ESI `topoSet` was run once on `tests/cases/esi_v2506/set_fields/case/system/topoSetDict`
+(cellSets c0..c3 = new/add/subtract/invert/subset/clear; ESI log read: sizes
+32, 80, 68, 32 then 160 (invert), 80 then 40 (subset), 2 then 0 (clear)). The
+port's `LabelHashSet` was written from the ESI `HashTable.C` source, NOT
+fitted to those files. Two actions were added after that first run: c4 (new,
+then add, which forces a re-read of an 8-label sparse column: labels 0, 12,
+24, ..., 84) and c5 (new only). Predictions:
+
+- T1. Set sizes after every action equal ESI's.
+- T2. c0..c3 files byte-identical (dense, labels below the capacity, so the
+  write order is ascending).
+- T3. c5 (written straight from the 16384-bucket new set) is ascending:
+  `8(0 12 24 36 48 60 72 84)`.
+- T4. c4 after the re-read has 16 buckets (reserve 8 gives 16), so labels
+  collide modulo 16 and the write order is bucket order, NOT ascending. The
+  model's order is the prediction; agreement with ESI on c4 is the test of the
+  model. If it differs the model is wrong, not the file.

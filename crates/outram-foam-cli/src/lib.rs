@@ -29,6 +29,7 @@ use std::path::PathBuf;
 
 pub mod cfmesh;
 pub mod set_fields;
+pub mod topo_set;
 
 use clap::Parser;
 

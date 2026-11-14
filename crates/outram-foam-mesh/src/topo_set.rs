@@ -315,6 +315,297 @@ fn check_radii(kind: &str, radius: f64, inner: f64) -> Result<(), MeshError> {
     Ok(())
 }
 
+/// Upstream's `HashTableCore::maxTableSize` (2^30).
+const MAX_TABLE_SIZE: usize = 1 << 30;
+
+/// `HashTableCore::canonicalSize`: 0 for `< 1`, a power of two `>= 8`, capped.
+fn canonical_size(requested: usize) -> usize {
+    if requested < 1 {
+        return 0;
+    }
+    if requested >= MAX_TABLE_SIZE {
+        return MAX_TABLE_SIZE;
+    }
+    let mut p = 8usize;
+    while p < requested {
+        p <<= 1;
+    }
+    p
+}
+
+/// A model of OpenFOAM's `labelHashSet`, kept for **one** reason: the order
+/// in which `topoSet` writes a set is the hash-table iteration order
+/// (`HashTable::writeKeys`), and that order is not ascending in general.
+///
+/// Translated from ESI v2506 `HashTable.C` / `HashTableCore.C`: `Hash<label>`
+/// is the identity (`static_cast<unsigned>`), the bucket is `key & (capacity-1)`
+/// with a power-of-two capacity; a new key is linked at the **head** of its
+/// chain; after an insertion `0.8*capacity < size` doubles the capacity
+/// (`setCapacity`, which re-links every node at the head of its new bucket,
+/// scanning old buckets in order); `clear()` keeps the capacity; `reserve(n)`
+/// requests `2n` when `n > size`; a table that is `std::move`d from has
+/// capacity 0 and takes 128 on its first insertion.
+///
+/// Only the operations `topoSet` and the cell sources use are ported:
+/// construct, `insert`, `remove`, `clear`, `reserve`, `invert`, `retain_in`
+/// (`&=`) and iteration.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LabelHashSet {
+    cap: usize,
+    size: usize,
+    /// `buckets[i][0]` is the head of chain `i`.
+    buckets: Vec<Vec<usize>>,
+}
+
+impl LabelHashSet {
+    /// `labelHashSet(initialCapacity)`: `topoSet::New(.., 16384)` uses 16384.
+    pub fn with_capacity(initial: usize) -> Self {
+        let cap = canonical_size(initial);
+        Self {
+            cap,
+            size: 0,
+            buckets: vec![Vec::new(); cap],
+        }
+    }
+
+    /// Number of labels.
+    pub fn len(&self) -> usize {
+        self.size
+    }
+
+    /// True when the set holds no label.
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+
+    /// Current bucket count (a power of two, or 0 for an unallocated table).
+    pub fn capacity(&self) -> usize {
+        self.cap
+    }
+
+    /// Membership.
+    pub fn contains(&self, label: usize) -> bool {
+        self.cap > 0 && self.buckets[label & (self.cap - 1)].contains(&label)
+    }
+
+    fn set_capacity(&mut self, new_cap: usize) {
+        let new_cap = canonical_size(new_cap);
+        if new_cap == self.cap {
+            return;
+        }
+        if self.size == 0 {
+            self.cap = new_cap;
+            self.buckets = vec![Vec::new(); new_cap];
+            return;
+        }
+        if new_cap == 0 {
+            return;
+        }
+        let old = std::mem::replace(&mut self.buckets, vec![Vec::new(); new_cap]);
+        self.cap = new_cap;
+        for chain in &old {
+            for &key in chain {
+                self.buckets[key & (new_cap - 1)].insert(0, key);
+            }
+        }
+    }
+
+    /// `HashSet::insert` (`setEntry`): initial capacity 128 when unallocated,
+    /// head insertion, resize after the 0.8 load factor. Returns whether the
+    /// label was new.
+    pub fn insert(&mut self, label: usize) -> bool {
+        if self.cap == 0 {
+            self.set_capacity(128);
+        }
+        if self.contains(label) {
+            return false;
+        }
+        self.buckets[label & (self.cap - 1)].insert(0, label);
+        self.size += 1;
+        if 0.8 * (self.cap as f64) < (self.size as f64) && self.cap < MAX_TABLE_SIZE {
+            self.set_capacity(2 * self.cap);
+        }
+        true
+    }
+
+    /// `HashSet::erase` / `unset`: removes the label, never shrinks.
+    pub fn remove(&mut self, label: usize) -> bool {
+        if self.cap == 0 {
+            return false;
+        }
+        let chain = &mut self.buckets[label & (self.cap - 1)];
+        match chain.iter().position(|&k| k == label) {
+            Some(p) => {
+                chain.remove(p);
+                self.size -= 1;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// `clear()`: remove every label, keep the capacity.
+    pub fn clear(&mut self) {
+        for c in &mut self.buckets {
+            c.clear();
+        }
+        self.size = 0;
+    }
+
+    /// `reserve(n)`: when `n > size`, request capacity `2n`.
+    pub fn reserve(&mut self, n: usize) {
+        if n > self.size {
+            let want = 2 * n;
+            if want > self.cap {
+                self.set_capacity(want);
+            }
+        }
+    }
+
+    /// The labels in upstream's iteration order (buckets ascending, each
+    /// chain from its head): the order `topoSet` writes them in.
+    pub fn iter_in_write_order(&self) -> Vec<usize> {
+        self.buckets.iter().flat_map(|c| c.iter().copied()).collect()
+    }
+
+    /// The set as `topoSet` re-reads it from a file (`readTable`): `clear()`,
+    /// `reserve(len)`, then the labels inserted in file order, into a table
+    /// that was default constructed (capacity 0).
+    pub fn read_back(written_order: &[usize]) -> Self {
+        let mut s = Self::default();
+        s.clear();
+        s.reserve(written_order.len());
+        for &l in written_order {
+            s.insert(l);
+        }
+        s
+    }
+
+    /// `topoSet::invert(maxLen)`: keep a copy, leave `self` moved-from
+    /// (capacity 0), `clear()`, `reserve(max(64, maxLen - original.size()))`,
+    /// then insert every id in `0..maxLen` that the original lacked.
+    pub fn invert(&mut self, max_len: usize) {
+        let original = std::mem::take(self);
+        self.clear();
+        self.reserve(std::cmp::max(64, max_len.saturating_sub(original.len())));
+        for id in 0..max_len {
+            if !original.contains(id) {
+                self.insert(id);
+            }
+        }
+    }
+
+    /// `topoSet::subset(set)`, upstream's `HashSet &= set`: keep only labels
+    /// also in `other`; capacity and chain order are untouched.
+    pub fn retain_in(&mut self, other: &LabelHashSet) {
+        for l in self.iter_in_write_order() {
+            if !other.contains(l) {
+                self.remove(l);
+            }
+        }
+    }
+}
+
+impl CellSource {
+    /// The cell labels the source selects, ascending (`combine` visits cells
+    /// in order, which is the order `topoSet` inserts them in).
+    pub fn selected(&self, centres: &[Vector3]) -> Vec<usize> {
+        centres
+            .iter()
+            .enumerate()
+            .filter(|(_, &c)| self.selects(c))
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    /// [`CellSource::apply`] on a [`LabelHashSet`] (the set `topoSet` holds):
+    /// `New`/`Add` insert, `Subtract` removes, in ascending cell order.
+    pub fn apply_to_hash_set(
+        &self,
+        action: SetAction,
+        centres: &[Vector3],
+        set: &mut LabelHashSet,
+    ) {
+        for c in self.selected(centres) {
+            if matches!(action, SetAction::Subtract) {
+                set.remove(c);
+            } else {
+                set.insert(c);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod hash_set_tests {
+    use super::*;
+
+    #[test]
+    fn canonical_sizes_follow_upstream() {
+        assert_eq!(canonical_size(0), 0);
+        assert_eq!(canonical_size(1), 8);
+        assert_eq!(canonical_size(8), 8);
+        assert_eq!(canonical_size(9), 16);
+        assert_eq!(canonical_size(16384), 16384);
+        assert_eq!(canonical_size(136), 256);
+    }
+
+    #[test]
+    fn dense_small_labels_iterate_ascending_and_sparse_wrap_by_capacity() {
+        let mut s = LabelHashSet::with_capacity(16384);
+        for l in [5usize, 1, 3] {
+            s.insert(l);
+        }
+        assert_eq!(s.iter_in_write_order(), vec![1, 3, 5]);
+        // A re-read 2-element set has capacity 8: label 9 lands in bucket 1.
+        let r = LabelHashSet::read_back(&[3, 9]);
+        assert_eq!(r.capacity(), 8);
+        assert_eq!(r.iter_in_write_order(), vec![9, 3]);
+    }
+
+    #[test]
+    fn growth_rehashes_and_chains_link_at_the_head() {
+        let mut s = LabelHashSet::with_capacity(8);
+        // 0 and 8 collide in bucket 0; 8 was inserted later so it heads the chain.
+        s.insert(0);
+        s.insert(8);
+        assert_eq!(s.iter_in_write_order(), vec![8, 0]);
+        for l in 1..7 {
+            s.insert(l);
+        }
+        assert!(s.capacity() >= 16);
+        assert_eq!(s.len(), 8);
+    }
+
+    #[test]
+    fn invert_subset_remove_and_clear() {
+        let mut s = LabelHashSet::with_capacity(16384);
+        for l in [1usize, 2] {
+            s.insert(l);
+        }
+        s.invert(5);
+        assert_eq!(s.iter_in_write_order(), vec![0, 3, 4]);
+        let mut o = LabelHashSet::with_capacity(16);
+        o.insert(3);
+        s.retain_in(&o);
+        assert_eq!(s.iter_in_write_order(), vec![3]);
+        assert!(s.remove(3) && !s.remove(3) && s.is_empty());
+        s.insert(1);
+        s.clear();
+        assert!(s.is_empty());
+        let src = CellSource::Sphere {
+            origin: Vector3::new(0.0, 0.0, 0.0),
+            radius: 1.0,
+            inner_radius: 0.0,
+        };
+        let ctrs = [Vector3::new(0.1, 0.0, 0.0), Vector3::new(5.0, 0.0, 0.0)];
+        src.apply_to_hash_set(SetAction::Add, &ctrs, &mut s);
+        assert_eq!(s.iter_in_write_order(), vec![0]);
+        src.apply_to_hash_set(SetAction::Subtract, &ctrs, &mut s);
+        assert!(s.is_empty());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
