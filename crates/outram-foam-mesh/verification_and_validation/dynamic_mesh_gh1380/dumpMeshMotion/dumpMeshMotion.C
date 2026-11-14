@@ -10,6 +10,7 @@
 #include "Time.H"
 #include "dynamicFvMesh.H"
 #include "pimpleControl.H"
+#include "surfaceFields.H"
 #include "OSspecific.H"
 #include <cstdio>
 
