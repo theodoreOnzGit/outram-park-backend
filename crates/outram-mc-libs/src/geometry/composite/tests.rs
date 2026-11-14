@@ -95,6 +95,11 @@ fn boundary_skips_the_disambiguation_planes_and_refuses_periodic() {
         .clone()
         .with_boundary(BoundaryType::Periodic)
         .is_err());
+    assert!(v
+        .region()
+        .clone()
+        .with_boundary(BoundaryType::PeriodicWith(0))
+        .is_err());
     // Every surface kind a composite can produce takes a boundary.
     for mut s in r.surfaces.clone() {
         set_bc(&mut s, BoundaryType::White);

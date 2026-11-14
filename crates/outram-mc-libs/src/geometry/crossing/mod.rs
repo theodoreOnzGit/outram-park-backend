@@ -27,7 +27,7 @@
 use outram_blender::csg::cell::{HalfSpaceSense, SurfaceToken};
 use outram_blender::csg::geometry::{Geometry, GeometryPath};
 use outram_blender::csg::position::{stream, Direction, Position};
-use outram_blender::csg::surface::BoundaryType;
+use outram_blender::csg::surface::{BoundaryType, FP_COINCIDENT};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use outram_blender::csg::surface::SurfaceKind;
@@ -308,7 +308,11 @@ pub trait GeometryExt {
     /// as a physics result.
     ///
     /// `White` is now implemented ([`SurfaceKind::diffuse_reflect`]), so it
-    /// passes. `Periodic` is not, so it is refused here rather than aliased.
+    /// passes. ~~`Periodic` is not, so it is refused here rather than aliased.~~
+    /// **CORRECTED 2026-11-14:** a translational periodic pair
+    /// (`BoundaryType::PeriodicWith`, parallel planes) is ported and checked
+    /// here by [`translational_periodic_translation`]; an unpaired `Periodic`
+    /// and a rotational pair are refused here rather than aliased.
     ///
     /// # What it does not check
     ///
@@ -360,6 +364,9 @@ pub trait GeometryExt {
     /// implements, which are vacuum, reflective, transmissive and **white**
     /// (diffuse re-emission, since GitHub #259); a **periodic** surface panics
     /// here, and [`Self::validate_boundary_conditions`] refuses it before a run.
+    /// **Since 2026-11-14** a translational periodic pair
+    /// (`BoundaryType::PeriodicWith`) is ported (`TranslationalPeriodicBC`);
+    /// only an unpaired or rotational periodic surface still panics.
     fn cross_surface(
         &self,
         i_surf: usize,
@@ -454,12 +461,15 @@ impl GeometryExt for Geometry {
 
     fn validate_boundary_conditions(&self) -> Result<(), String> {
         for (i, surf) in self.surfaces.iter().enumerate() {
+            if let BoundaryType::PeriodicWith(j) = surf.bc() {
+                translational_periodic_translation(self, i, j)?;
+                continue;
+            }
             if surf.bc() == BoundaryType::Periodic {
                 return Err(format!(
-                    "surface {i} declares a Periodic boundary condition, which is not \
-                     implemented (GitHub #259). Periodic needs a partner surface and the \
-                     translation or rotation between the pair; `BoundaryType` carries no \
-                     partner. Reflective is NOT a substitute -- the two differ on any \
+                    "surface {i} declares a Periodic boundary condition with no partner \
+                     (GitHub #259). Name the partner with BoundaryType::PeriodicWith(j); \
+                     OpenMC's search for an unnamed partner is not ported. Reflective is NOT a substitute -- the two differ on any \
                      lattice without mirror symmetry, which is the case periodic exists \
                      for. Use Reflective only if that is genuinely the problem you mean."
                 ));
@@ -506,6 +516,29 @@ impl GeometryExt for Geometry {
                     u: u_new,
                     alive: true,
                     on_surface: outgoing_side(surf, r, u_new, i_surf),
+                }
+            }
+            BoundaryType::PeriodicWith(j) => {
+                // `TranslationalPeriodicBC::handle_particle`
+                // (`src/boundary_condition.cpp:133-145`): shift the position by
+                // the pair's translation, keep the direction, and put the
+                // particle on the partner surface on the side it was heading
+                // to (`new_surface = p.surface() > 0 ? j+1 : -(j+1)`; the
+                // partner's normal is parallel, so that is the sign of
+                // `u . n_j`). Albedo is not ported (no albedo field here).
+                // Upstream then relocates from the root
+                // (`Particle::cross_periodic_bc`); the caller's `locate`
+                // after this crossing does the same.
+                let t = translational_periodic_translation(self, i_surf, j)
+                    .unwrap_or_else(|e| panic!("{e}"));
+                let partner = &self.surfaces[j];
+                let r_new = r + t;
+                let p = nudge_across(partner, r_new, u, u, true);
+                SurfaceCrossing {
+                    r: p,
+                    u,
+                    alive: true,
+                    on_surface: outgoing_side(partner, r_new, u, j),
                 }
             }
             BoundaryType::Periodic => {
@@ -686,6 +719,99 @@ fn compose_corner_reflection(
     u_new
 }
 
+/// `FP_PRECISION` (`include/openmc/constants.h`).
+const FP_PRECISION: f64 = 1.0e-14;
+
+/// Translation carrying a particle from periodic surface `i_surf` to its
+/// partner `j_surf`.
+///
+/// Port of the `TranslationalPeriodicBC` constructor
+/// (`src/boundary_condition.cpp:73-131`, OpenMC `8f79d9d`) and of the pairing
+/// checks in `prepare_boundary_conditions` (`src/surface.cpp:1411-1430`):
+/// both surfaces must be planes, and their normals at the origin must be
+/// parallel (`|1 - n1 . n2| < FP_PRECISION`). Upstream treats any other pair
+/// as **rotational** periodic, which is not ported and is refused here by
+/// name (GitHub #259). The partner must name `i_surf` back: upstream stores
+/// the pair once, so it cannot disagree; here each surface carries its own
+/// index, so that check is new.
+///
+/// # Errors
+///
+/// A description of the first violated condition.
+pub fn translational_periodic_translation(
+    geom: &Geometry,
+    i_surf: usize,
+    j_surf: usize,
+) -> Result<Position, String> {
+    let n = geom.surfaces.len();
+    if j_surf >= n || j_surf == i_surf {
+        return Err(format!(
+            "surface {i_surf} is periodic with partner {j_surf}, which is not another \
+             surface of this geometry ({n} surfaces) (GitHub #259)"
+        ));
+    }
+    let surf1 = &geom.surfaces[i_surf];
+    let surf2 = &geom.surfaces[j_surf];
+    if surf2.bc() != BoundaryType::PeriodicWith(i_surf) {
+        return Err(format!(
+            "surface {i_surf} is periodic with partner {j_surf}, but surface {j_surf} \
+             declares {:?}, not PeriodicWith({i_surf}) (GitHub #259)",
+            surf2.bc()
+        ));
+    }
+    for (k, s) in [(i_surf, surf1), (j_surf, surf2)] {
+        if !matches!(
+            s,
+            SurfaceKind::XPlane(_)
+                | SurfaceKind::YPlane(_)
+                | SurfaceKind::ZPlane(_)
+                | SurfaceKind::Plane(_)
+        ) {
+            return Err(format!(
+                "Surface {k} is an invalid type for translational periodic BCs. Only \
+                 planes are supported for these BCs."
+            ));
+        }
+    }
+    let origin = Position::new(0.0, 0.0, 0.0);
+    let n1 = unit_direction(surf1.normal(origin));
+    let n2 = unit_direction(surf2.normal(origin));
+    let dot = n1.u * n2.u + n1.v * n2.v + n1.w * n2.w;
+    if (1.0 - dot).abs() >= FP_PRECISION {
+        return Err(format!(
+            "surfaces {i_surf} and {j_surf} are a periodic pair whose normals are not \
+             parallel (n1 . n2 = {dot}); OpenMC treats that as a ROTATIONAL periodic \
+             boundary, which is not ported (GitHub #259). Reflective is not a substitute."
+        ));
+    }
+    // Signed distance from the origin to each plane along surf1's normal,
+    // computed exactly as upstream does.
+    let u = surf1.normal(origin);
+    let d = signed_plane_offset(surf2, u) - signed_plane_offset(surf1, u);
+    Ok(Position::new(u.u * d, u.v * d, u.w * d))
+}
+
+/// `d1`/`d2` of the `TranslationalPeriodicBC` constructor
+/// (`src/boundary_condition.cpp:108-129`): the signed distance from the
+/// origin to plane `s` along `u`.
+fn signed_plane_offset(s: &SurfaceKind, u: Direction) -> f64 {
+    let origin = Position::new(0.0, 0.0, 0.0);
+    let e = s.evaluate(origin);
+    if e > FP_COINCIDENT {
+        -s.distance(origin, Direction::new(-u.u, -u.v, -u.w), false)
+    } else if e < -FP_COINCIDENT {
+        s.distance(origin, u, false)
+    } else {
+        0.0
+    }
+}
+
+/// `norm1 /= norm1.norm()` in `prepare_boundary_conditions`.
+fn unit_direction(d: Direction) -> Direction {
+    let m = (d.u * d.u + d.v * d.v + d.w * d.w).sqrt();
+    Direction::new(d.u / m, d.v / m, d.w / m)
+}
+
 /// Move a particle sitting on surface `surf` (at `r`) decisively onto the
 /// correct side of it, then along its outgoing direction.
 ///
@@ -723,5 +849,7 @@ fn nudge_across(
     stream(p, across, NUDGE)
 }
 
+#[cfg(test)]
+mod periodic_tests;
 #[cfg(test)]
 mod tests;

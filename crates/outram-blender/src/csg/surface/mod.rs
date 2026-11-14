@@ -67,7 +67,17 @@ pub enum BoundaryType {
     Transmissive,
     Vacuum,
     Reflective,
+    /// Periodic with **no partner named**. outram-mc-libs refuses it: OpenMC
+    /// resolves an unpaired periodic surface by searching for one other
+    /// unpaired surface (`prepare_boundary_conditions`, `src/surface.cpp:1374`),
+    /// which this crate does not do. Use [`Self::PeriodicWith`].
     Periodic,
+    /// Periodic, paired with the surface at this index in the geometry's
+    /// surface array (OpenMC's `periodic_surface_id`). The partner must name
+    /// this surface back. Added 2026-11-14 (GitHub #259); outram-mc-libs ports
+    /// the translational case (`TranslationalPeriodicBC`, parallel planes) and
+    /// refuses the rotational one by name.
+    PeriodicWith(usize),
     White,
 }
 
