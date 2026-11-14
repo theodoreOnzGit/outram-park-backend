@@ -1086,7 +1086,7 @@ mod tests {
         assert_eq!(s.phase, PoolPhase::Ready);
         // Withdrawn is what the pool holds: the run starts at once.
         assert_eq!(sw.step(&mut s, 1.0), SweepStep::Running { i: 0, n: 9 });
-        assert!(s.run.as_ref().is_some_and(|r| r.going()));
+        assert!(s.keff.run.as_ref().is_some_and(|r| r.going()));
         s.stop_run();
         assert!(matches!(sw.step(&mut s, 2.0), SweepStep::Failed(m) if m == "stopped"));
         // A one-off at another setting rebuilds first.
@@ -1103,10 +1103,10 @@ mod tests {
         // The run remembers the core it ran on (2026-10-25): rebuilding the
         // pool with other rods afterwards does not change what its k is
         // compared with.
-        assert_eq!(s.run.as_ref().map(|r| (r.layers, r.rods)), Some((12, [0.5; N])));
+        assert_eq!(s.keff.run.as_ref().map(|r| (r.model.layers, r.model.rods)), Some((12, [0.5; N])));
         s.stop_run();
         s.set_rods([1.0; N]).expect("between runs");
         assert_eq!(s.rods, [1.0; N]);
-        assert_eq!(s.run.as_ref().map(|r| r.rods), Some([0.5; N]));
+        assert_eq!(s.keff.run.as_ref().map(|r| r.model.rods), Some([0.5; N]));
     }
 }

@@ -1827,7 +1827,7 @@ mod tests {
         };
         let mut p = CorePool::start(&ctx, plan, 12, &ZoneTemperatures::record()).expect("pool");
         // Data ready without processing anything (the protocol is scripted).
-        let n = p.state.labels.len();
+        let n = p.state.data.labels.len();
         for j in 0..n {
             let ev = CoreEv::Product {
                 job: j,
@@ -1880,7 +1880,7 @@ mod tests {
         screen.reprocess(&ctx);
         let fresh = screen.pool.as_ref().expect("a new pool");
         assert_eq!(fresh.state.phase, PoolPhase::Processing);
-        assert!(fresh.state.log.is_empty());
+        assert!(fresh.state.keff.log.is_empty());
         if let Some(p) = screen.pool.take() {
             p.terminate();
         }

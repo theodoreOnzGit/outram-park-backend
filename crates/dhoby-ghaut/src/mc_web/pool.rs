@@ -870,7 +870,7 @@ pub const REPORT: &str = "github.com/theodoreOnzGit/outram-park-backend/issues";
 /// The message when a generation's results cannot be added up: what
 /// happened, that it is the demo's bookkeeping and not the physics, and what
 /// to do (maintainer, 2026-10-09: errors must be informative in the browser).
-fn not_added_up(generation: usize, e: &str, got: usize, workers: usize) -> String {
+pub fn not_added_up(generation: usize, e: &str, got: usize, workers: usize) -> String {
     format!(
         "Run stopped at generation {generation}: the {got} results the {workers} workers sent \
          back could not be added up ({e}). This is a bug in the demo's bookkeeping, not in \
@@ -880,7 +880,7 @@ fn not_added_up(generation: usize, e: &str, got: usize, workers: usize) -> Strin
 }
 
 /// The message when a worker's reply cannot be decoded.
-fn unreadable(what: &str, w: usize, e: &str) -> String {
+pub fn unreadable(what: &str, w: usize, e: &str) -> String {
     format!(
         "Run stopped: {what} from worker {} could not be read ({e}). The workers still hold \
          their data: restart the run below, and please report this message at {REPORT}.",

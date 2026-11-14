@@ -494,6 +494,13 @@ impl CorePool {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    // What the protocol used to import here, before it moved to the
+    // library (gh:#1572).
+    use dhoby_ghaut::mc_web::pool::{not_added_up, unreadable, CHUNKS_PER_WORKER, REPORT};
+    use dhoby_ghaut::web_demo::data_cache::Source;
+    use dhoby_ghaut::web_demo::link::{Floats, BAD_MESSAGE};
+    use outram_mc_libs::physics::transport_csg::distributed::{DistributedPowerIteration, GenerationChunk, SourceSite};
+    use std::collections::VecDeque;
     use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
     use outram_mc_libs::geometry::geometry::Geometry;
     use outram_mc_libs::geometry::position::Position;
@@ -1001,7 +1008,7 @@ mod tests {
         p.on_event(2, failed, 1.0);
         assert_eq!(p.phase, PoolPhase::Ready);
         assert!(p
-            .run
+            .keff.run
             .as_ref()
             .and_then(|r| r.failed.as_deref())
             .is_some_and(|m| m.contains("out of memory")));
