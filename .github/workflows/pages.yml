@@ -14,8 +14,10 @@
 # build jobs on any branch (to test a change to this workflow or to the build
 # before merging) but the `deploy` job runs only from `web-deploy`, and the
 # `github-pages` environment only accepts that branch (and develop/main).
-# Breakage is caught earlier, at push to develop, by the `wasm-demos` job of
-# `fast tests` (scripts/check-wasm-demos.sh, gh:#1304).
+# Breakage is caught earlier, at push to develop, by ~~the `wasm-demos` job of
+# `fast tests`~~ **CORRECTED 2026-11-14:** the separate `wasm demos` workflow
+# (`wasm-demos.yml`; `fast tests` has been `disabled_manually` since
+# 2026-09-29) (scripts/check-wasm-demos.sh, gh:#1304).
 #
 # What it builds: `scripts/build-pages.sh`, ~~the tabbed main menu~~ the
 # landing page, its three pathways and the search index (docs/site/; the
