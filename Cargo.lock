@@ -7525,6 +7525,7 @@ dependencies = [
  "outram-mc-libs",
  "outram-park-fork-coolprop",
  "outram-park-fork-dwsim-libs",
+ "outram-park-fork-moltres",
  "outram-park-fork-offbeat",
  "petir",
  "postcard",

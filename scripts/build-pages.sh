@@ -317,6 +317,14 @@ bash crates/outram-park-digital-twin-engine/web/fukushima/build.sh "$OUT/demos/f
 for f in index.html fukushima_worker.js gate.js fukushima_web.js fukushima_web_bg.wasm; do
   [[ -f "$OUT/demos/fukushima/$f" ]] || { echo "missing demos/fukushima/$f" >&2; exit 1; }
 done
+# The MSRE simulator (gh:#1569, #1570): the digital-twin engine's msre_web
+# example, msre::session on a Web Worker, in the demos page's "Museum -
+# historical reactors" section. Gated by the same gate.js as the plant
+# simulators above (maintainer, 2026-11-14).
+bash crates/outram-park-digital-twin-engine/web/msre/build.sh "$OUT/demos/msre"
+for f in index.html msre_worker.js gate.js msre_web.js msre_web_bg.wasm; do
+  [[ -f "$OUT/demos/msre/$f" ]] || { echo "missing demos/msre/$f" >&2; exit 1; }
+done
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
@@ -445,6 +453,7 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   demos/dispersion/index.html demos/dispersion/dispersion_web_bg.wasm \
   demos/htgr/index.html demos/htgr/htgr_sim_v1_bg.wasm \
   demos/fukushima/index.html demos/fukushima/fukushima_web_bg.wasm \
+  demos/msre/index.html demos/msre/msre_web_bg.wasm \
   api/sembawang/index.html \
   deep-dives/nuclear-data/index.html api/njoy_outram_park_fork/index.html \
   demos/nuclear-data/index.html demos/nuclear-data/nuclear_data_web_bg.wasm \

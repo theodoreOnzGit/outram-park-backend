@@ -11,6 +11,9 @@
 #
 # ── What each push runs, on ubuntu / windows / macos ────────────────────────
 #
+# 0. LIBM GATE (gh:#985; added 2026-11-14): `petir`'s `no_platform_libm`
+#    source scan, its own job (`libm-gate`) on all three OSes.
+#
 # 1. COMPILE GATE (#414). One `cargo test --release --no-run --lib --tests`
 #    over only the TOP crates, the members no other member depends on,
 #    computed each run by `kovan-cli ci top-crates` so a new crate cannot be
@@ -125,6 +128,37 @@ jobs:
       - name: Smoke set (Godiva HIGH, Edwards, cavity, Sod)
         shell: bash
         run: ./target/release/kovan-cli ci smoke --run
+
+  # ── No platform libm in any crate's src/ (gh:#985), on the three OSes ──────
+  # Maintainer, 2026-11-14: "the libm check can be in develop CI cross
+  # platform". `crates/petir/tests/no_platform_libm.rs` is a source scan: a raw
+  # `.exp(` / `.ln(` / `.cos(` ... in library code compiles and runs silently
+  # on the platform's own libm, so nothing numerical catches it on one host.
+  # It builds only petir, so it is cheap; running it on each OS also checks
+  # its path handling (it normalises `\` on Windows). Added after two such
+  # calls reached develop unnoticed (njoy POWR gamff, mc-libs composite
+  # prisms; fixed in the same change).
+  libm-gate:
+    name: libm gate / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: libm-gate-${{ matrix.os }}
+          cache-on-failure: true
+
+      - name: No platform libm in any crate's src/
+        shell: bash
+        run: cargo test --release -p petir --test no_platform_libm
 
   # ── Tests left failing on purpose; allowed to fail ────────────────────────
   known-failures:

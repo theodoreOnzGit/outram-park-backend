@@ -36,6 +36,40 @@ crate's "no new physics in the library" rule, on the `htr10` pattern.
 | `msre::circulating_kinetics` | MSRE T-C1 circulating point kinetics | `teh-o-prke` re-export |
 | `msre::salts` | MSRE TH-6 fuel and coolant salts | `tuas_boussinesq_solver` re-export |
 
+## The operator session and the museum simulator (2026-11-14, gh:#1570)
+
+`msre::session` drives `MsreModel` for GUIs and web workers, in plain
+numbers (°F, MW, pcm). It adds no physics:
+- commands: rods, the ideal flux servo (`critical_rod_reactivity` applied
+  every 0.01 s step), radiator air, pump trips (ORNL-4233 Fig. 23) and
+  starts (TM-0728);
+- a snapshot of the getters;
+- `below_liquidus` against the cited liquidus temperatures: fuel 840 °F,
+  TM-0728 Table 2.1; coolant 458 °C (856.4 °F), TM-2316;
+- a deterministic `headless_csv`;
+- the T-1 `natural_periods` table.
+
+It is used by the `msre_web` example, published (gated) at `demos/msre/`
+in the demos page's "Museum – historical reactors" section.
+
+What its tests found, recorded because it is physics the GUI now warns of:
+- **The salt freezes after a trip if nothing is done.** After a fuel pump
+  trip with the radiator left at full air, the coolant cools toward the
+  100 °F air inlet, well below its 856 °F liquidus. The model has no
+  freezing, so it continues past that point. ORNL closed the radiator
+  doors to prevent it. The headless demo does the same: air to 1 % of
+  design 10 s after the trip.
+- **Second-law floor:** no lump is ever below the 100 °F air inlet,
+  asserted at every sample of the demo.
+- **Shutdown by feedback:** with the fuel stagnant after the trip, the core
+  fuel heats to about 1241 °F and its negative feedback takes the power
+  from 8 MW to under 1 kW within 10 minutes (headless run, 2026-11-14).
+- **The power oscillates:** at 8 MW, +10 pcm of rods gives a power
+  oscillation with a period of about 2 min (TM-1647's measured 1.71 min at
+  7.3 MW). The power peaks above 8 MW, then settles about 0.1 % higher.
+
+Harness checks, not validation; NOT VALIDATED.
+
 ## Methodology
 
 ### The model
