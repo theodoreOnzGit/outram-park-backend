@@ -132,6 +132,21 @@ thermo		1000
 thermo_modify	lost ignore norm no
 EOF
 frames 1 1000 2000 4000 6000 8000 10000; } > in.ms_orient
+# ms_file: in.ms_drop with the type 1 template read from ms_clump1.txt (mm,
+# with a comment and a blank line) by `spheres file ... scale 0.0011` (a 1.1x
+# clump: with 0.001 every product rounds to the inline metre literal). Copy
+# ms_clump1.txt into the run directory.
+{ header; cat <<'EOF'
+fix		pts1 all particletemplate/multisphere 15485863 atom_type 1 density constant 2500 nspheres 3 ntry 100000 spheres file ms_clump1.txt scale 0.0011 type 1
+fix		pdd1 all particledistribution/discrete 15485867 1 pts1 1.0
+region		ins block -0.01 0.01 -0.01 0.01 0.03 0.05 units box
+fix		ins all insert/pack seed 32452843 distributiontemplate pdd1 insert_every once overlapcheck yes all_in yes vel constant 0.1 0. -0.5 omega constant 3. -2. 5. orientation constant 0.5 0.5 0.5 0.5 region ins particles_in_region 1
+fix		ms all multisphere
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 1000 4000 5000 6000 8000 10000 12000 15000; } > in.ms_file
 # ms_lost: a type 1 clump slides off the +x face of the `f f f` box.
 # Comm::exchange drops each member atom that leaves; FixMultisphere::pre_neighbor
 # (check_lost_atoms) then frees the clump's other atoms (body -1, rmass *=

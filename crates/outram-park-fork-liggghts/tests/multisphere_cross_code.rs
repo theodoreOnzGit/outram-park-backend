@@ -790,3 +790,93 @@ fn lost_atoms_needs_unsorted_liggghts_order() {
     let cfg = LiggghtsNeighbor::new(BOX_LO, BOX_HI, 0.002).unwrap();
     assert!(sys.clone().with_liggghts_neighbor_order(cfg).with_lost_atoms().is_err());
 }
+
+/// The `ms_drop` system with the type 1 template given by `tpl`.
+fn drop_system(tpl: ParticleTemplateMultisphere) -> GranularSystem {
+    let material = GranularMaterial::new(1.0e7, 0.3, 0.5, 0.4).unwrap();
+    let boundaries = vec![Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap()];
+    let mut sys = GranularSystem::new(
+        Vec::new(),
+        boundaries,
+        GranularContactModel::hertz_history(material),
+        Vec3::new(0.0, 0.0, -9.81),
+        1e-5,
+    )
+    .unwrap();
+    let dist = ParticleDistributionDiscrete::new_multisphere(15485867, true, vec![(tpl, 1.0)]).unwrap();
+    let reg = InsertRegion::block(Vec3::new(-0.01, -0.01, 0.03), Vec3::new(0.01, 0.01, 0.05)).unwrap();
+    let fix = InsertFix::new(InsertMode::Pack(PackTarget::Particles(1)), 32452843, dist, reg, 0, BOX_LO, BOX_HI)
+        .unwrap()
+        .with_all_in(true)
+        .with_velocity(outram_park_fork_liggghts::insert::InsertVelocity::Constant(Vec3::new(0.1, 0.0, -0.5)))
+        .with_omega(Vec3::new(3.0, -2.0, 5.0))
+        .with_orientation([0.5, 0.5, 0.5, 0.5])
+        .unwrap();
+    sys.add_insertion(fix).unwrap();
+    let mut cfg = LiggghtsNeighbor::new(BOX_LO, BOX_HI, 0.002).unwrap();
+    cfg.sort_every = 0;
+    sys.with_liggghts_neighbor_order(cfg)
+}
+
+/// **`spheres file <f> scale <s>`** (`in.ms_file`): `ms_drop` with the type 1
+/// template read from `ms_clump1.txt`, in millimetres with a comment and a
+/// blank line, and `scale 0.0011` (a 1.1x clump). Every atom at the 9
+/// `ms_drop` frames, on bit patterns. **Ablation:** the inline template
+/// (`clump1`, metres) must miss `ms_file.csv`.
+///
+/// The deck first used `scale 0.001`. That was 27/27 bit-identical, but every
+/// product `k*0.001` in this file rounds to the inline metre literal, so
+/// `ms_file.csv` was byte-identical to `ms_drop.csv` and the gate could not
+/// fail on the scaling. The deck was changed to `0.0011`, and the prediction
+/// was re-posted on gh:#1415 before the re-run.
+///
+/// **Result (2026-11-14, Rust 1.99.1, LIGGGHTS-PUBLIC 3d5c00f2):** 27/27
+/// atom-frames bit-identical; the inline metre template scores 0/27.
+#[test]
+fn ms_file_matches_liggghts() {
+    let Some(text) = read("ms_clump1.txt") else {
+        eprintln!("skipping: reference-data/liggghts/ms_clump1.txt not present");
+        return;
+    };
+    let tpl = ParticleTemplateMultisphere::from_clump_file(
+        15485863,
+        1,
+        MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+        100_000,
+        3,
+        &text,
+        0.0011,
+        1,
+    )
+    .unwrap();
+    let frames = [1, 1000, 4000, 5000, 6000, 8000, 10000, 12000, 15000];
+    let mut sys = drop_system(tpl);
+    let Some((total, same, worst)) = compare_by_tag("ms_file", &mut sys, &frames) else {
+        eprintln!("skipping: reference-data/liggghts/ms_file.csv not present");
+        return;
+    };
+    println!("ms_file: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
+    let mut inline = drop_system(clump1());
+    let (_, inline_same, _) = compare_by_tag("ms_file", &mut inline, &frames).unwrap();
+    println!("ms_file ablation (inline metres template): {inline_same}/{total}");
+    assert_eq!(total, 27);
+    assert_eq!(same, total, "ms_file: not bit-identical (worst relative {worst:e})");
+    assert!(inline_same < total, "the inline template also passes: the deck does not see the scaling");
+}
+
+/// What `from_clump_file` refuses, as `clmpfile` and the template do.
+#[test]
+fn clump_file_refusals() {
+    let rho = MassDensity::new::<kilogram_per_cubic_meter>(2500.0);
+    let f = |n: usize, text: &str, scale: f64| {
+        ParticleTemplateMultisphere::from_clump_file(15485863, 1, rho, 100_000, n, text, scale, 1)
+    };
+    let ok = "0 0 0 4\n5 0 1 3.5\n";
+    assert!(f(2, ok, 0.001).is_ok());
+    assert!(f(2, ok, 0.0).is_err(), "scale must be > 0");
+    assert!(f(3, ok, 0.001).is_err(), "fewer lines than nspheres");
+    assert!(f(1, ok, 0.001).is_err(), "more lines than nspheres");
+    assert!(f(2, "0 0 0\n5 0 1 3.5\n", 0.001).is_err(), "a line without a radius");
+    assert!(f(2, "0 0 0 -4\n5 0 1 3.5\n", 0.001).is_err(), "a negative radius");
+    assert!(f(2, "0 0 0 4x\n5 0 1 3.5\n", 0.001).is_err(), "not a number");
+}

@@ -107,7 +107,9 @@
 //! ([`Multisphere::extract_ke`], [`Multisphere::extract_rke`]).
 //!
 //! **Not translated** (each rejected or documented, never silently ignored):
-//! `spheres file` (the inline list only), `spheres_different_types`, `bonded`,
+//! ~~`spheres file` (the inline list only)~~ (**CORRECTED 2026-11-14:**
+//! `spheres file <f> scale <s>` is [`ParticleTemplateMultisphere::from_clump_file`]),
+//! `spheres_different_types`, `bonded`,
 //! `mass`/`inertia_tensor`/`use_volume`/`use_density`, ~~`fflag`/`tflag` off,~~
 //! `fix_modify <ms> fflag|tflag`,
 //! `fix multisphere/nointegration`, `concave`, `CAddRhoFluid`,
@@ -625,6 +627,83 @@ impl ParticleTemplateMultisphere {
         t.calc_displace_xcm_x_body()?;
         t.calc_volumeweight(&mut random_mc, &x_min, &x_max);
         Ok(t)
+    }
+
+    /// `spheres file <f> scale <s>` (gh:#1415): the template's spheres read
+    /// from the text of a clump file, as `InputMultisphere::clmpfile` reads it,
+    /// then built as [`ParticleTemplateMultisphere::new`] builds an inline list.
+    ///
+    /// Each line is `x y z r`, read with `atof`. A `#` starts a comment
+    /// (`Input::parse_nonlammps`), empty and comment-only lines are skipped,
+    /// and words after the fourth are ignored. Each radius is checked `> 0`,
+    /// then `r *= scale*cg` and `x *= scale*cg` (`cg = 1`, no coarse
+    /// graining), in `FixTemplateMultiplespheres`' order. The bounding box
+    /// comparison that follows is the inline path's.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for what upstream rejects: `scale <= 0`,
+    /// a line with fewer than 4 words, a number of lines other than
+    /// `nspheres`, a radius `<= 0`; for a word `atof` would read as a number
+    /// but Rust cannot parse (refused rather than guessed), and everything
+    /// [`ParticleTemplateMultisphere::new`] rejects.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_clump_file(
+        seed: i32,
+        atom_type: usize,
+        density: MassDensity,
+        ntry: usize,
+        nspheres: usize,
+        text: &str,
+        scale: f64,
+        clump_type: usize,
+    ) -> Result<Self, DemError> {
+        if !(scale > 0.0) {
+            return Err(DemError::InvalidInput("scale factor must be >0".into()));
+        }
+        let mut raw: Vec<(V3, f64)> = Vec::with_capacity(nspheres);
+        for line in text.lines() {
+            let line = line.split('#').next().unwrap_or("");
+            let words: Vec<&str> = line.split_whitespace().collect();
+            if words.is_empty() {
+                continue;
+            }
+            if raw.len() >= nspheres {
+                return Err(DemError::InvalidInput(
+                    "Number of clumps in file larger than number specified".into(),
+                ));
+            }
+            if words.len() < 4 {
+                return Err(DemError::InvalidInput(
+                    "Not enough arguments in one line of clump file, need to specify [xcoo ycoo zcoo radius] in each line"
+                        .into(),
+                ));
+            }
+            let mut v = [0.0; 4];
+            for k in 0..4 {
+                v[k] = words[k].parse::<f64>().map_err(|_| {
+                    DemError::InvalidInput(format!("clump file: '{}' is not a number", words[k]))
+                })?;
+            }
+            raw.push(([v[0], v[1], v[2]], v[3]));
+        }
+        if raw.len() != nspheres {
+            return Err(DemError::InvalidInput(
+                "Number of clumps in file does not match number of clumps that were specified".into(),
+            ));
+        }
+        let cg = 1.0;
+        let mut spheres = Vec::with_capacity(nspheres);
+        for (x, r) in raw {
+            if r <= 0.0 {
+                return Err(DemError::InvalidInput("radius must be > 0".into()));
+            }
+            let f = scale * cg;
+            let r = r * f;
+            let x = [x[0] * f, x[1] * f, x[2] * f];
+            spheres.push((vec3(x), Length::new::<meter>(r)));
+        }
+        Self::new(seed, atom_type, density, ntry, &spheres, clump_type)
     }
 
     /// `calc_bounding_sphere`: 200 randomised Ritter passes, keep the smallest.

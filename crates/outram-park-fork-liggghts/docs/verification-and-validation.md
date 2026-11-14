@@ -1899,7 +1899,7 @@ partly across the plate counts as the volume-weight share of its member atoms
 
 **Not ported** (each rejected with an error or documented in
 `multisphere.rs`):
-- `spheres file`, `spheres_different_types`, `bonded`;
+- ~~`spheres file`,~~ `spheres_different_types`, `bonded`;
 - `mass`/`inertia_tensor`/`use_volume`/`use_density`;
 - ~~`fflag`/`tflag` off,~~ `multisphere/nointegration`, `concave`,
   `CAddRhoFluid`;
@@ -1916,8 +1916,9 @@ partly across the plate counts as the volume-weight share of its member atoms
 - ~~`compute ke/multisphere` and `erotate/multisphere`~~.
 
 **CORRECTED 2026-11-14 (gh:#1415):** template `fflag`/`tflag`, lost-atom and
-lost-body deletion (the removal panic is fixed), `orientation random` and the
-`ke`/`erotate/multisphere` computes are now ported and cross-coded; see 4.16.1.
+lost-body deletion (the removal panic is fixed), `orientation random`,
+`spheres file ... scale` and the `ke`/`erotate/multisphere` computes are now
+ported and cross-coded; see 4.16.1.
 The rest of the list stands.
 
 ~~**Not started (rest of gh:#1415):** superquadric (`atom_vec_superquadric`,
@@ -1929,7 +1930,7 @@ primitive walls and pair contacts; see 4.17 for what is ported and what is not.
 Convex hull, ellipsoid, line and tri particles with their `nve/asphere*` and
 `nve/line` integrators are still not started.
 
-### 4.16.1 Multisphere, second pass: computes, `fflag`/`tflag`, `orientation random`, lost atoms (2026-11-14, gh:#1415)
+### 4.16.1 Multisphere, second pass: computes, `fflag`/`tflag`, `orientation random`, lost atoms, `spheres file` (2026-11-14, gh:#1415)
 
 **What is computed.**
 - `compute ke/multisphere` and `compute erotate/multisphere`
@@ -1974,6 +1975,7 @@ Convex hull, ellipsoid, line and tri particles with their `nve/asphere*` and
 | `ms_flags` | `ms_collide` with type 1 `fflag off on on tflag on off on` and type 2 `tflag off off on`; frames at 1, 2000, 4000 to 8000, and 10000 |
 | `ms_orient` | four clumps (both templates, mass-based 60/40), `orientation random`, `all_in yes`, onto `zplane 0`; 7 frames to 10 000 |
 | `ms_lost` | a type 1 clump slides off the `+x` face, a type 2 clump stays. `fix nve/sphere`, defined before `fix multisphere`, integrates the freed atoms, as the port integrates every atom. Thermo every step to 6000, and 7 frames |
+| `ms_file` | `ms_drop` with the type 1 template read by `spheres file ms_clump1.txt scale 0.0011` (millimetres, a comment and a blank line; `ParticleTemplateMultisphere::from_clump_file`); the 9 `ms_drop` frames |
 
 In upstream's `ms_flags` run, the type 1 clump, which takes no x force, pushes
 the type 2 clump through the `+x` face between steps 8000 and 9000. That deck
@@ -1992,6 +1994,16 @@ gh:#1415 before any of this ran.
 | `ms_flags` | **52 / 52** atom-frames bit-identical (468 values) |
 | `ms_orient` | **98 / 98** atom-frames bit-identical (882 values) |
 | `ms_lost` | **6001 / 6001** thermo lines and **43 / 43** atom-frames bit-identical. One atom leaves at step 4241 (7 to 6 atoms); the two freed atoms are deleted at the forced rebuild at step 4246 (to 4) |
+| `ms_file` | **27 / 27** atom-frames bit-identical; the inline metre template scores 0 / 27 against it |
+
+**`ms_file`: a prediction of mine that was wrong, and the protocol fix.** The
+deck first used `scale 0.001`. It was 27 / 27 bit-identical, but I had
+predicted that `3.5*0.001` and `3*0.001` would not round to the inline
+literals `0.0035` and `0.003`. They do, as does every other product in the
+file, so `ms_file.csv` was byte-identical to `ms_drop.csv`, and a gate that
+cannot fail on the scaling checks only the parser. The scale was changed to
+`0.0011`, and the new prediction (27 / 27, inline template misses) was posted
+on gh:#1415 before the re-run; both held.
 
 Every deck agreed on its first run. The prediction hedged on `ms_orient`:
 PETIR's `sin`/`cos` in `random_unit_quat` could differ from glibc by an ulp,
@@ -2020,8 +2032,7 @@ misses when the option it tests is switched off, so each gate can fail:
 - lost atoms with the atom sort on, or without the LIGGGHTS neighbour order;
 - `delete_atoms yes` on `massflow/mesh` with clumps (upstream's own error);
 - `fix remove`'s `delete_bodies` callback; periodic bodies;
-- `spheres file`, `spheres_different_types`, `bonded`,
-  `mass`/`inertia_tensor`;
+- `spheres_different_types`, `bonded`, `mass`/`inertia_tensor`;
 - `multisphere/nointegration`, `concave`, `multisphere/break`;
 - clumps from `insert/stream`; restart; a second `run` set-up with clumps.
 
