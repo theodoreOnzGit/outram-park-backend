@@ -191,8 +191,14 @@ impl ErrorrResult {
         let mut sections = Vec::new();
         let key = |mf: i32, mt: i32| EndfKey { mat, mf, mt };
 
+        // MF=40 (gh:#1371): `sigc` writes -14 in the MF=1 HEAD (errorr.f90:7824), and
+        // `covout` heads each section MF=40 with `izap` in place of `awr` (:7219-7241).
+        let mf40 = self.reactions.mf() == 40;
+        let mfout = if mf40 { 40 } else { 33 };
+        let head2 = |ix: usize| if mf40 { f64::from(self.reactions.mzap[ix]) } else { self.awr };
         // MF=1/MT=451: HEAD (za, awr, iverf, 0, -11, 0) + LIST (tempin, 0, ngn, 0, ngn+1, 0) egn.
-        let mut rows = vec![[self.za, self.awr, f64::from(self.iverf), 0.0, -11.0, 0.0]];
+        let n1 = if mf40 { -14.0 } else { -11.0 };
+        let mut rows = vec![[self.za, self.awr, f64::from(self.iverf), 0.0, n1, 0.0]];
         rows.push([self.tempin, 0.0, ngn as f64, 0.0, (ngn + 1) as f64, 0.0]);
         pack_rows(&mut rows, &self.egn);
         sections.push(Section {
@@ -238,12 +244,12 @@ impl ErrorrResult {
             while next_lump < lump_components.len() && lump_components[next_lump].0 < mt {
                 let (c, mtl) = lump_components[next_lump];
                 sections.push(Section {
-                    key: key(33, c),
-                    rows: vec![[self.za, self.awr, 0.0, f64::from(mtl), 0.0, 0.0]],
+                    key: key(mfout, c),
+                    rows: vec![[self.za, head2(ix), 0.0, f64::from(mtl), 0.0, 0.0]],
                 });
                 next_lump += 1;
             }
-            let mut rows = vec![[self.za, self.awr, 0.0, 0.0, 0.0, (nmts - ix) as f64]];
+            let mut rows = vec![[self.za, head2(ix), 0.0, 0.0, 0.0, (nmts - ix) as f64]];
             for ixp in ix..nmts {
                 let b = block_iter
                     .next()
@@ -281,7 +287,7 @@ impl ErrorrResult {
                 }
             }
             sections.push(Section {
-                key: key(33, mt),
+                key: key(mfout, mt),
                 rows,
             });
         }

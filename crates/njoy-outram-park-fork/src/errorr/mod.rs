@@ -42,7 +42,8 @@
 //!
 //! **Not ported** (refused with `NotPorted`, never approximated): the
 //! MF=32 branches listed in [`resprx`] (~~`LRF=7` SAMM,~~ `LCOMP=0`, `LRF=1/3`
-//! sensitivities, INTG correlations, `irespr=0`), ~~MF=31/34/~~35~~/40~~ MF=40,
+//! sensitivities, INTG correlations, `irespr=0`), ~~MF=31/34/~~35~~/40~~ ~~MF=40~~ (MF=40 with
+//! `NS = NL = 1` runs since 2026-11-14, gh:#1371; `NS`/`NL /= 1` are refused),
 //! `iread` 1/2, `nstan`, ~~`nin`,~~ ~~GENDF input (`colaps`), `covadd`,~~ ENDF/B-IV.
 //! See `README.md` in this directory.
 //!

@@ -1684,3 +1684,35 @@ the same two temperatures.
 - **Defect found on the way:** the first run never finished. The caller read
   `getfwt`'s `(w, xc, enext)` in the wrong order, so `enext` was `xc` and the energy
   stalled. The 12 GB address-space cap stopped the run. Fixed before any comparison.
+
+## 33. ERRORR `mfcov = 40` (2026-11-14, gh:#1371)
+
+**Upstream, read first.** `gridd` (`errorr.f90:1184-1191`) and `covcal` (`:1889-1907`)
+read an MF=40 section's HEAD (`NS` in N1) and its **first** final state's CONT
+`[QM, QI, L1, LFS, 0, NL]`, set `izap = 10*L1 + LFS`, and then read one sub-subsection
+per state. Neither reads a second state's CONT. With `NS = 2` (TENDL-2023 Ar-37) NJOY2016.80
+stops in `covcal` with "mfcov mt found not equal to input mt". Every MF=40 evaluation held
+here or in NJOY2016's `tests/resources` (Ar-37, Fe IRDFF-II, Hf-177, Pb-208, Pt-184 TENDL)
+has `NS > 1` in most sections. `rdsig` ignores its `izap` argument (`:2755-2786`), so the
+cross section is MF=3's for the MT, not MF=10's. The output differs from MF=33's in the
+MF=1 HEAD (`-14`, `sigc` `:7824`), MF=3's word 2 (`mzap`), and each MF=40 HEAD, which
+carries `izap` in place of AWR (`covout` `:7219-7241`).
+
+**Code.** `gridd::mf40_final_state` (shared by `gridd` and `covcal`); `scan_reactions_mf`
+counts MF=40; `mf31::run_cov_gendf` accepts 40 (`za`, `awr` from the last MF=40 HEAD);
+`ErrorrResult::to_tape` writes the MF=40 form; `deck::errorr` routes `mfcov = 40` there.
+
+**Refused by name:** `NS /= 1`, `NL /= 1`, and `iread = 2` with `mfcov = 40`.
+
+**Gate** (`tests/deck_driver_errorr_mf40_nstan_vs_njoy2016.rs`, deck `M40`, prediction
+posted on gh:#1371 first): Ar-37 TENDL-2023 edited in the test to one final state per MF=40
+section (`NS = 1`, the `LFS = 1` state's 4 lines removed); MODER, RECONR, GROUPR (6 groups
+to 30 MeV, `3 1/ 3 11/ 3 33/ 10/`, binary GENDF), MODER of the GENDF to text, ERRORR
+`mfcov = 40`.
+- First run: 2 of unit 24's 32 lines differed (MF=3 coarse cross sections). The cause
+  was older than MF=40: GROUPR's `10/` writes each production as another MF=3/`mt`
+  section with `C2 = izap`; `rdgout` takes the first (`:2889-2891`), and
+  `mf31::union_group_xs` kept the last. Fixed.
+- After the fix: units 25 (GENDF, 492 lines) and 24 (32 lines) identical.
+- Ablation: AWR in the HEADs and `-11` in MF=1 make 3 of the 32 lines differ.
+- The unedited tape is refused by name at `mf40_final_state`.

@@ -316,7 +316,14 @@ pub fn covcal(
         let mth = sec.key.mt;
         let mut cur = SectionCursor::new(&sec.rows);
         let head = cur.read_cont()?;
-        let nl = head.n2;
+        // MF=40 (errorr.f90:1889-1907, gh:#1371): `nl = NS`, then the final
+        // state's CONT; `za`/`awr` come from the HEAD (`run_cov_gendf`).
+        let nl = if reactions.mf() == 40 {
+            super::gridd::mf40_final_state(&head, &mut cur)?;
+            1
+        } else {
+            head.n2
+        };
         if nl == 0 {
             continue; // component of a lumped reaction (errorr.f90:1922)
         }

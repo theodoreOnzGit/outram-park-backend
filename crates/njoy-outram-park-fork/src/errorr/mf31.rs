@@ -39,22 +39,31 @@ pub fn union_group_xs(u: &UnionGendf, un: &[f64]) -> UnionGroupXs {
     let mut records = BTreeMap::new();
     for (mt, recs) in &u.mf3 {
         let get = |k: usize| (0..nunion).map(|i| recs.get(i).copied().flatten().map_or(0.0, |r| r[k])).collect();
-        records.insert(*mt, UnionGroupRecords { flux: get(0), sigma: get(1) });
+        // `rdgout` takes the first MF=3/`mt` section it meets (`:2889-2891`, `jzap`
+        // is 0 for `izap = 0`); GROUPR's nuclide productions (`mfd = 10`) follow it as
+        // further MF=3/`mt` sections with `C2 = izap`, and must not replace it
+        // (gh:#1371; before 2026-11-14 the last one won).
+        records.entry(*mt).or_insert(UnionGroupRecords { flux: get(0), sigma: get(1) });
     }
     UnionGroupXs { un: un.to_vec(), records, messages: Vec::new() }
 }
 
-/// ERRORR `mfcov = 31` or `33` on an ENDF tape and an input GENDF.
+/// ERRORR `mfcov = 31`, `33` or `40` on an ENDF tape and an input GENDF.
 ///
 /// `cfg.tempin` selects the GENDF block (`ngchk`); the MF=1 temperature written is
 /// the GENDF's (`colaps`'s `tempin = c1h`).
 ///
 /// # Errors
 /// [`NjoyError::NotPorted`] for ENDF/B-IV and what the MF=33 chain refuses
-/// ([`super::run_mf33`]); [`NjoyError::InvalidInput`] for an `mfcov` other than 31
-/// or 33; parse errors for malformed records.
+/// ([`super::run_mf33`]), and for an MF=40 section with `NS /= 1` or `NL /= 1`
+/// ([`super::gridd::mf40_final_state`]); [`NjoyError::InvalidInput`] for an `mfcov`
+/// other than 31, 33 or 40; parse errors for malformed records.
+///
+/// `mfcov = 40` (gh:#1371) runs the same chain on MF=40. `rdsig` ignores its `izap`
+/// argument (`errorr.f90:2755-2786`), so each reaction's cross section is MF=3's
+/// for that MT, not the MF=10 production cross section of the product.
 pub fn run_cov_gendf(endf: &Tape, gendf: &GendfTape, cfg: &Mf33Config, mfcov: i32) -> Result<ErrorrResult, NjoyError> {
-    if mfcov != 31 && mfcov != 33 {
+    if mfcov != 31 && mfcov != 33 && mfcov != 40 {
         return Err(NjoyError::InvalidInput(format!("errorr run_cov_gendf: mfcov = {mfcov}")));
     }
     let matd = cfg.matd;
@@ -83,7 +92,8 @@ pub fn run_cov_gendf(endf: &Tape, gendf: &GendfTape, cfg: &Mf33Config, mfcov: i3
     let groups = union_group_xs(&u, &un);
     let flx = groups.flux_vector();
     let fine = covcal(endf, matd, &reactions, &groups, &flx)?;
-    let (za, awr) = endf
+    let (za, awr) = if mfcov == 40 { mf40_za_awr(endf, matd) } else {
+        endf
         .sections()
         .iter()
         .filter(|s| s.key.mat == matd && s.key.mf == mfcov)
@@ -91,7 +101,8 @@ pub fn run_cov_gendf(endf: &Tape, gendf: &GendfTape, cfg: &Mf33Config, mfcov: i3
             let r = s.rows.first()?;
             (r[5] != 0.0).then_some((r[0], r[1]))
         })
-        .unwrap_or((0.0, 0.0));
+        .unwrap_or((0.0, 0.0))
+    };
     let coarse = sigc(&egn, &groups, &flx, &reactions);
     let resonance = if mfcov == 33 && reactions.mf32_present {
         let ctx = super::resprx::sammy::SammyContext { mts: &reactions.mts, derived: &g.derived, coarse: &coarse };
@@ -116,6 +127,18 @@ pub fn run_cov_gendf(endf: &Tape, gendf: &GendfTape, cfg: &Mf33Config, mfcov: i3
         messages: groups.messages,
         resonance,
     })
+}
+
+/// `za`, `awr` as `covcal` leaves them for `mfcov = 40` (`errorr.f90:1890-1891`):
+/// taken from every MF=40 section's HEAD in turn, so the last section's; `(0, 0)`
+/// with no MF=40 section (gh:#1371).
+fn mf40_za_awr(endf: &Tape, matd: i32) -> (f64, f64) {
+    endf.sections()
+        .iter()
+        .filter(|s| s.key.mat == matd && s.key.mf == 40)
+        .filter_map(|s| s.rows.first().map(|r| (r[0], r[1])))
+        .last()
+        .unwrap_or((0.0, 0.0))
 }
 
 /// [`run_cov_gendf`] with `iread = 2`: card 10's cross-material `(mat1, mt1)`
@@ -146,6 +169,9 @@ pub fn run_cov_gendf_card10(
     mfcov: i32,
     pairs: &[(i32, i32)],
 ) -> Result<ErrorrResult, NjoyError> {
+    if mfcov == 40 {
+        return Err(NjoyError::NotPorted("errorr iread = 2 with mfcov = 40 (card 10 pairs on MF=40)"));
+    }
     if mfcov != 31 && mfcov != 33 {
         return Err(NjoyError::InvalidInput(format!("errorr run_cov_gendf: mfcov = {mfcov}")));
     }
@@ -189,7 +215,8 @@ pub fn run_cov_gendf_card10(
         groups.insert_other(*m, &union_group_xs(&uo, &un));
     }
     let fine = covcal(endf, matd, &reactions, &groups, &flx)?;
-    let (za, awr) = endf
+    let (za, awr) = if mfcov == 40 { mf40_za_awr(endf, matd) } else {
+        endf
         .sections()
         .iter()
         .filter(|s| s.key.mat == matd && s.key.mf == mfcov)
@@ -197,7 +224,8 @@ pub fn run_cov_gendf_card10(
             let r = s.rows.first()?;
             (r[5] != 0.0).then_some((r[0], r[1]))
         })
-        .unwrap_or((0.0, 0.0));
+        .unwrap_or((0.0, 0.0))
+    };
     let coarse = sigc(&egn, &groups, &flx, &reactions);
     let resonance = if mfcov == 33 && reactions.mf32_present {
         let ctx = super::resprx::sammy::SammyContext { mts: &reactions.mts, derived: &g.derived, coarse: &coarse };

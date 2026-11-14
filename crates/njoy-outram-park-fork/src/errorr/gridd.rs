@@ -23,8 +23,12 @@
 //! **Scope of this port (honest):** `mfcov = 33`, `iread = 0` (reaction list
 //! taken from the file), `nstan = 0` (no ratio-to-standard tape: an NC-type
 //! sub-subsection with `LTY > 0` is an error here exactly as it is in
-//! upstream with `nstan = 0`), ENDF-5/6 format (`iverf > 4`). MF=31/34/35/40
-//! and the `iread = 1/2` user-list branches are not ported.
+//! upstream with `nstan = 0`), ENDF-5/6 format (`iverf > 4`). ~~MF=31/34/35/40
+//! and the `iread = 1/2` user-list branches are not ported.~~ **CORRECTED
+//! 2026-11-14** (checked against the code): [`gridd`] also reads MF=31
+//! (`CovarianceReactions::mfcov`), MF=40 with one final state
+//! ([`mf40_final_state`], gh:#1371) and card 10's `iread = 2` pairs; MF=34 and
+//! MF=35 have their own readers (`mf34`, `mf35`). `iread = 1` is not ported.
 //!
 //! All energies go through `sigfig(x, ndig = 6)` ([`NDIG`], `errorr.f90:116`)
 //! exactly as upstream, so the union grid matches the Fortran listing to the
@@ -71,7 +75,8 @@ pub struct CovarianceReactions {
     /// `mats(1:nmt1)` — companion material of each entry (`0` = this
     /// material; `-1` marks a negated lumped component).
     pub mats: Vec<i32>,
-    /// `mzap(1:nmt1)` — always `0` for MF=33.
+    /// `mzap(1:nmt1)` — `0` for MF=31/33; for MF=40, `10*L1 + LFS` of the
+    /// final state's CONT (`errorr.f90:1190`, gh:#1371).
     pub mzap: Vec<i32>,
     /// `iga(1:nga)` — the `MT`s `grpav` group-averages (every MF=33 `MT`
     /// that is neither a lump nor ignored).
@@ -82,7 +87,7 @@ pub struct CovarianceReactions {
     pub mf32_present: bool,
     /// `mf33 == 1` — the dictionary lists an MF=33 file.
     pub mf33_present: bool,
-    /// `mfcov`: the covariance file read, 31 or 33; `0` (the default) means 33.
+    /// `mfcov`: the covariance file read, 31, 33 or 40; `0` (the default) means 33.
     pub mfcov: i32,
     /// Card 10's `mat1 mt1` pairs when `iread = 2` (`errorr.f90:907-919`), gh:#1369;
     /// `None` for `iread = 0`. [`gridd`] appends them after the reactions it finds,
@@ -140,7 +145,8 @@ pub fn scan_reactions_mf(tape: &Tape, matd: i32, mfcov: i32) -> Result<Covarianc
         if mf == 33 {
             r.mf33_present = true;
         }
-        if (mfcov == 33 && (mf == 32 || mf == 33)) || (mfcov == 31 && mf == 31) {
+        // errorr.f90:757-761; `mfcov = 40` counts MF=40 (gh:#1371).
+        if (mfcov == 33 && (mf == 32 || mf == 33)) || ((mfcov == 31 || mfcov == 40) && mf == mfcov) {
             icov += 1;
         }
         if mf != mfcov {
@@ -338,14 +344,16 @@ pub fn gridd(
         let mth = sec.key.mt;
         let mut cur = SectionCursor::new(&sec.rows);
         let head = cur.read_cont()?; // errorr.f90:1167
-        let nsub = head.n2; // NL (errorr.f90:1181)
+        // MF=40 (errorr.f90:1184-1191, gh:#1371): one final state, read past its
+        // subsection CONT, which gives `izap`; then one sub-subsection.
+        let (nsub, izap) = if mfcov == 40 { (1, mf40_final_state(&head, &mut cur)?) } else { (head.n2, 0) };
         if nsub == 0 {
             continue; // component of a lumped reaction (errorr.f90:1149)
         }
         // errorr.f90:1154-1165 — append this reaction.
         reactions.mts.push(mth);
         reactions.mats.push(0);
-        reactions.mzap.push(0);
+        reactions.mzap.push(izap);
         let nmt = reactions.mts.len() - 1;
 
         for _ in 0..nsub {
@@ -493,6 +501,36 @@ pub fn gridd(
         }
     }
     Ok(GriddResult { eni, derived })
+}
+
+/// MF=40's level between the section HEAD and the sub-subsections, as `gridd`
+/// and `covcal` read it (`errorr.f90:1184-1191`, `:1889-1907`), gh:#1371: the
+/// HEAD's `N1` is `NS`, the number of final states; the first subsection CONT
+/// `[QM, QI, IZAP, LFS, 0, NL]` gives `izap = 10*L1 + LFS`. Upstream's `L1` is
+/// the product's ZA (ENDF-6 leaves it 0, and `covcal` then warns that a COVR
+/// title will be ambiguous). Returns `izap`.
+///
+/// Upstream then reads exactly one sub-subsection per final state (`gridd`'s
+/// `nsub = 1`, `covcal`'s `nl = NS`) and never reads a second state's CONT.
+///
+/// # Errors
+/// [`NjoyError::NotPorted`], by name, for `NS /= 1` or `NL /= 1`: upstream reads
+/// the next state's CONT (or the next sub-subsection's) as a sub-subsection header
+/// and loses its place in the section. On TENDL-2023 Ar-37 (`NS = 2`) NJOY2016.80
+/// stops in `covcal` with "mfcov mt found not equal to input mt".
+pub(super) fn mf40_final_state(head: &crate::endf::records::Cont, cur: &mut SectionCursor<'_>) -> Result<i32, NjoyError> {
+    if head.n1 != 1 {
+        return Err(NjoyError::NotPorted(
+            "errorr mfcov = 40: NS /= 1 final states (gridd/covcal read the second state's CONT as a sub-subsection header, errorr.f90:1184-1191, 1889-1907)",
+        ));
+    }
+    let sub = cur.read_cont()?;
+    if sub.n2 != 1 {
+        return Err(NjoyError::NotPorted(
+            "errorr mfcov = 40: NL /= 1 sub-subsections in a final state (gridd reads one, errorr.f90:1186)",
+        ));
+    }
+    Ok(10 * sub.l1 + sub.l2)
 }
 
 /// Form the union of the user's group boundaries with the MF=33 energy grid

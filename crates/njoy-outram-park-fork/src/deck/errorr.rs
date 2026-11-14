@@ -21,7 +21,7 @@
 //!   tape by [`mf33_text`]);
 //! - `mfcov = 31`, and `33` with `ngout /= 0`, from a GENDF
 //!   ([`crate::errorr::mf31::run_cov_gendf`]), with `nin /= 0` copied ahead
-//!   ([`copy_nin_ahead`]);
+//!   ([`copy_nin_ahead`]); `mfcov = 40` the same way (2026-11-14, gh:#1371);
 //! - `mfcov = 34` from a GENDF or a PENDF ([`crate::errorr::mf34`]);
 //! - `nendf = 999` ([`covadd_text`]).
 //!
@@ -219,7 +219,7 @@ pub fn run_errorr(r: &mut CardReader, units: &mut TapeUnits, parse_only: bool) -
     }
     let [nendf, npend, ngout, nout, nin, _] = c.units;
     let mfcov = c.card7[1];
-    if mfcov == 31 || (mfcov == 33 && ngout != 0) {
+    if mfcov == 31 || mfcov == 40 || (mfcov == 33 && ngout != 0) {
         return run_errorr_cov_gendf(&c, units, mfcov);
     }
     if c.card7[0] == 2 {
@@ -420,7 +420,7 @@ fn put_mf34(units: &mut TapeUnits, nout: i32, res: crate::errorr::mf34::Mf34Resu
     Ok(())
 }
 
-/// ERRORR `mfcov = 31`, or `33` with `ngout /= 0`, from an input GENDF
+/// ERRORR `mfcov = 31` or `40`, or `33` with `ngout /= 0`, from an input GENDF
 /// ([`run_cov_gendf`]); with `nin /= 0` the input covariance tape is copied ahead
 /// of it on `nout` ([`copy_nin_ahead`]).
 ///
