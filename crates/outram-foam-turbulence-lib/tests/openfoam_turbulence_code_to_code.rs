@@ -1692,3 +1692,163 @@ const PINS_DYN_ANISO: &[(&str, usize)] = &[
     ("dynamicKEqn[aniso] k_Sp", 360),
     ("dynamicKEqn[aniso] Ck_dev with EXTRAPOLATED grad(U) boundary vs real Ck", 203),
 ];
+
+// ── gh:#1544 slice 7: dynamicLagrangian terms against the real ESI model ─────────────
+
+use outram_foam_basic_lib::fv_operators::fvc::grad_vec_corrected;
+use outram_foam_turbulence_lib::les::dynamic_lagrangian::DynamicLagrangian;
+
+const REF_LAG_SIMPLE: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicLagrangian_simple.txt.gz"
+);
+const REF_LAG_LAPLACE: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicLagrangian_laplace.txt.gz"
+);
+const REF_LAG_ANISO: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicLagrangian_anisotropic.txt.gz"
+);
+
+fn lag_rows(label: &str, gz: &[u8], kind: &str) -> Rows {
+    let r = parse(gz);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = DynamicLagrangian::new(mesh.clone(), dyn_filter(kind, &mesh));
+    m.flm = ref_field(&r, &mesh, "T_flm", None, false);
+    m.fmm = ref_field(&r, &mesh, "T_fmm", None, false);
+    m.u = ref_field(&r, &mesh, "U", Some("Ub"), false);
+    let mut rows = Rows::new();
+    // the port's own Gauss gradient WITH upstream's boundary correction, against the real one
+    let g = grad_vec_corrected(&m.u);
+    rows.extend(compare_filtered(label, &r, &g, "gradU"));
+    let t = m.terms(&Some(r.s("T_delta")));
+    rows.extend(compare_filtered(label, &r, &t.s, "T_S"));
+    rows.extend(compare_filtered(label, &r, &t.mag_s, "T_magS"));
+    rows.extend(compare_filtered(label, &r, &t.uf, "T_Uf"));
+    rows.extend(compare_filtered(label, &r, &t.sf, "T_Sf"));
+    rows.extend(compare_filtered(label, &r, &t.mag_sf, "T_magSf"));
+    rows.extend(compare_filtered(label, &r, &t.l, "T_L"));
+    rows.extend(compare_filtered(label, &r, &t.m, "T_M"));
+    rows.extend(compare_filtered(label, &r, &t.inv_t, "T_invT"));
+    rows.extend(compare_filtered(label, &r, &t.lm, "T_LM"));
+    rows.extend(compare_filtered(label, &r, &t.mm, "T_MM"));
+    for (name, key) in [("nut vs transcription", "T_nut"), ("nut vs real nut after validate()", "nut_real"),
+                        ("nut vs real nut after correct()", "nut_after")] {
+        let l = format!("{label} {name}");
+        let s = cmp(&l, &t.nut, &r.s(key));
+        rows.push((l, s));
+    }
+    // PETIR cbrt against the upstream `pow(V, 1/3)` delta: separate row, libm only
+    let own = m.terms(&None);
+    let l = format!("{label} nut with the port's own cbrt delta vs real nut");
+    let s = cmp(&l, &own.nut, &r.s("nut_after"));
+    rows.push((l, s));
+    for (l, st) in &rows {
+        if !l.contains("own cbrt") {
+            assert_eq!(st.identical, st.n, "{l}");
+        }
+    }
+    rows
+}
+
+#[test]
+fn dynamic_lagrangian_simple_vs_openfoam() {
+    let rows = lag_rows("dynamicLagrangian[simple]", REF_LAG_SIMPLE, "simple");
+    pin(&rows, PINS_LAG_SIMPLE);
+}
+
+#[test]
+fn dynamic_lagrangian_laplace_vs_openfoam() {
+    let rows = lag_rows("dynamicLagrangian[laplace]", REF_LAG_LAPLACE, "laplace");
+    pin(&rows, PINS_LAG_LAPLACE);
+}
+
+#[test]
+fn dynamic_lagrangian_anisotropic_vs_openfoam() {
+    let rows = lag_rows("dynamicLagrangian[aniso]", REF_LAG_ANISO, "anisotropic");
+    pin(&rows, PINS_LAG_ANISO);
+}
+
+const PINS_LAG_SIMPLE: &[(&str, usize)] = &[
+    ("dynamicLagrangian[simple] gradU cells", 3240),
+    ("dynamicLagrangian[simple] gradU faces", 3348),
+    ("dynamicLagrangian[simple] T_S cells", 2160),
+    ("dynamicLagrangian[simple] T_S faces", 2232),
+    ("dynamicLagrangian[simple] T_magS cells", 360),
+    ("dynamicLagrangian[simple] T_magS faces", 372),
+    ("dynamicLagrangian[simple] T_Uf cells", 1080),
+    ("dynamicLagrangian[simple] T_Uf faces", 1116),
+    ("dynamicLagrangian[simple] T_Sf cells", 2160),
+    ("dynamicLagrangian[simple] T_Sf faces", 2232),
+    ("dynamicLagrangian[simple] T_magSf cells", 360),
+    ("dynamicLagrangian[simple] T_magSf faces", 372),
+    ("dynamicLagrangian[simple] T_L cells", 2160),
+    ("dynamicLagrangian[simple] T_L faces", 2232),
+    ("dynamicLagrangian[simple] T_M cells", 2160),
+    ("dynamicLagrangian[simple] T_M faces", 2232),
+    ("dynamicLagrangian[simple] T_invT cells", 360),
+    ("dynamicLagrangian[simple] T_invT faces", 372),
+    ("dynamicLagrangian[simple] T_LM cells", 360),
+    ("dynamicLagrangian[simple] T_LM faces", 372),
+    ("dynamicLagrangian[simple] T_MM cells", 360),
+    ("dynamicLagrangian[simple] T_MM faces", 372),
+    ("dynamicLagrangian[simple] nut vs transcription", 360),
+    ("dynamicLagrangian[simple] nut vs real nut after validate()", 360),
+    ("dynamicLagrangian[simple] nut vs real nut after correct()", 360),
+    ("dynamicLagrangian[simple] nut with the port's own cbrt delta vs real nut", 157),
+];
+const PINS_LAG_LAPLACE: &[(&str, usize)] = &[
+    ("dynamicLagrangian[laplace] gradU cells", 3240),
+    ("dynamicLagrangian[laplace] gradU faces", 3348),
+    ("dynamicLagrangian[laplace] T_S cells", 2160),
+    ("dynamicLagrangian[laplace] T_S faces", 2232),
+    ("dynamicLagrangian[laplace] T_magS cells", 360),
+    ("dynamicLagrangian[laplace] T_magS faces", 372),
+    ("dynamicLagrangian[laplace] T_Uf cells", 1080),
+    ("dynamicLagrangian[laplace] T_Uf faces", 1116),
+    ("dynamicLagrangian[laplace] T_Sf cells", 2160),
+    ("dynamicLagrangian[laplace] T_Sf faces", 2232),
+    ("dynamicLagrangian[laplace] T_magSf cells", 360),
+    ("dynamicLagrangian[laplace] T_magSf faces", 372),
+    ("dynamicLagrangian[laplace] T_L cells", 2160),
+    ("dynamicLagrangian[laplace] T_L faces", 2232),
+    ("dynamicLagrangian[laplace] T_M cells", 2160),
+    ("dynamicLagrangian[laplace] T_M faces", 2232),
+    ("dynamicLagrangian[laplace] T_invT cells", 360),
+    ("dynamicLagrangian[laplace] T_invT faces", 372),
+    ("dynamicLagrangian[laplace] T_LM cells", 360),
+    ("dynamicLagrangian[laplace] T_LM faces", 372),
+    ("dynamicLagrangian[laplace] T_MM cells", 360),
+    ("dynamicLagrangian[laplace] T_MM faces", 372),
+    ("dynamicLagrangian[laplace] nut vs transcription", 360),
+    ("dynamicLagrangian[laplace] nut vs real nut after validate()", 360),
+    ("dynamicLagrangian[laplace] nut vs real nut after correct()", 360),
+    ("dynamicLagrangian[laplace] nut with the port's own cbrt delta vs real nut", 157),
+];
+const PINS_LAG_ANISO: &[(&str, usize)] = &[
+    ("dynamicLagrangian[aniso] gradU cells", 3240),
+    ("dynamicLagrangian[aniso] gradU faces", 3348),
+    ("dynamicLagrangian[aniso] T_S cells", 2160),
+    ("dynamicLagrangian[aniso] T_S faces", 2232),
+    ("dynamicLagrangian[aniso] T_magS cells", 360),
+    ("dynamicLagrangian[aniso] T_magS faces", 372),
+    ("dynamicLagrangian[aniso] T_Uf cells", 1080),
+    ("dynamicLagrangian[aniso] T_Uf faces", 1116),
+    ("dynamicLagrangian[aniso] T_Sf cells", 2160),
+    ("dynamicLagrangian[aniso] T_Sf faces", 2232),
+    ("dynamicLagrangian[aniso] T_magSf cells", 360),
+    ("dynamicLagrangian[aniso] T_magSf faces", 372),
+    ("dynamicLagrangian[aniso] T_L cells", 2160),
+    ("dynamicLagrangian[aniso] T_L faces", 2232),
+    ("dynamicLagrangian[aniso] T_M cells", 2160),
+    ("dynamicLagrangian[aniso] T_M faces", 2232),
+    ("dynamicLagrangian[aniso] T_invT cells", 360),
+    ("dynamicLagrangian[aniso] T_invT faces", 372),
+    ("dynamicLagrangian[aniso] T_LM cells", 360),
+    ("dynamicLagrangian[aniso] T_LM faces", 372),
+    ("dynamicLagrangian[aniso] T_MM cells", 360),
+    ("dynamicLagrangian[aniso] T_MM faces", 372),
+    ("dynamicLagrangian[aniso] nut vs transcription", 360),
+    ("dynamicLagrangian[aniso] nut vs real nut after validate()", 360),
+    ("dynamicLagrangian[aniso] nut vs real nut after correct()", 360),
+    ("dynamicLagrangian[aniso] nut with the port's own cbrt delta vs real nut", 157),
+];

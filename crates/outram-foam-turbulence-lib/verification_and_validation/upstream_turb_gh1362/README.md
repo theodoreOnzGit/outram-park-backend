@@ -576,3 +576,42 @@ patches are not covered. The unused `T_m_dev`/`T_FD_dev` dumps exist only in the
 (added while locating the `delta` boundary).
 
 **Disclosure: a script bug in the first dynamicKEqn runs.** `run.sh` applied the `*_lowRe` viscosity (`nu = 1e-2`) to every case whose model name differed from its case name, which included the new `dynamicKEqn_*` cases; the audit numbers quoted for the failed transcription (laplace 205/360, worst 0.12) were taken at `nu = 1e-2`. The condition is now `case $M in *_lowRe)`; all committed references are at `nu = 1e-5` (checked: `nu_f` = 1e-5 in all three).
+
+## Slice 7 results, part 3: dynamicLagrangian and the corrected Gauss gradient (2026-11-14, release; same duct)
+
+**No predictions were committed for this model before its driver ran** (the rule of this directory
+is broken here and the table below is a record, not a test of foresight). What I expected, from reading
+`dynamicLagrangian.C` and the part 2 findings: terms 0 ulp for all three filters, the `Sf` boundary
+correction irrelevant to the cell results, the explicit `pow(flm*fmm, 1/8)` the only libm exposure.
+
+Driver: `-model dynamicLagrangian -filter ...` (cases `dynamicLagrangian_*`; `flm` and `fmm` are
+frozen polynomials `0.02 + 0.3 s (1 + 0.1 x) + 0.01 z` and `0.05 + 0.2 s (1 + 0.05 x) + 0.02 z`,
+zeroGradient, both positive so `bound` is the identity; `theta` the default 1.5). The transcription of
+`correct()` reproduces the REAL `flm` and `fmm` matrices in all three filters (diag/source 360/360,
+upper/lower 894/894), first time. Port: `les::dynamic_lagrangian::DynamicLagrangian::terms` (terms only:
+no transport solve, no `bound`, no `correct()`).
+
+**Every term is bit-identical, max 0 ulp, in all three filters, cells and boundary faces:** `S`, `|S|`,
+`filter(U)`, `Sf`, `|Sf|`, `L`, `M`, `invT`, `L && M`, `M && M`, and `nut` against the transcription and
+against the real `nut` after `validate()` and after `correct()`. 26 rows per filter pinned
+(`PINS_LAG_*`). PETIR `pow(x, 1/8)` agrees with glibc on every argument here. The one libm row: with the
+port's own `cbrt(V)` delta instead of upstream's `pow(V, 1/3)`, `nut` is bit-identical in 157 of 360
+cells and within 8 ulp in the rest (1.03e-15 relative), the same figure as the kEqn row.
+
+### New operator: `fvc::grad_vec_corrected` (basic-lib)
+
+A port of `gaussGrad<vector>::calcGrad` WITH `correctBoundaryConditions` (owner-cell value, then
+`g_b += n (sn(U) - n . g_b)` on non-coupled patches). Against the real `fvc::grad(U)`: 3240/3240 cell
+components and 3348/3348 boundary-face components bit-identical, in all three runs (`gradU` rows). It does
+not replace `fvc::grad_vec` (which leaves the boundary extrapolated, part 2 defect 1: left unchanged
+because `grad_vec` is shared): callers that need upstream's boundary gradient can use the new one.
+~~Part 2, defect 1: "NOT fixed"~~ **UPDATE 2026-11-14:** the missing operator now exists; `grad_vec`
+itself is still the extrapolated form.
+
+### What the Lagrangian model's results do NOT cover
+
+The cell results do not depend on the `Sf` and `M` boundary values at all (they enter only the boundary
+values of `L && M`, never the matrices), so the stale-boundary rules of part 2 are exercised only through
+the `filter(U)` face values that the gradient of `Uf` interpolates. Not covered: the transport solves, the
+`bound` of `flm`/`fmm` below zero, `fvOptions`, non-orthogonal meshes, coupled patches, `widthCoeff` other
+than 2.

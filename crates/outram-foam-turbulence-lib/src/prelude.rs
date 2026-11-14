@@ -35,6 +35,7 @@ pub use crate::k_omega_sst::KOmegaSST;
 pub use crate::laminar::LaminarModel;
 pub use crate::les::wale::Wale;
 pub use crate::les::DynamicKEqn;
+pub use crate::les::DynamicLagrangian;
 pub use crate::les::Smagorinsky;
 pub use crate::realizable_ke::RealizableKE;
 pub use crate::rng_k_epsilon::RngKEpsilon;

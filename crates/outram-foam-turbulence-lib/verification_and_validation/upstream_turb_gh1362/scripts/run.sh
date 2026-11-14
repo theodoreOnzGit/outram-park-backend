@@ -13,11 +13,11 @@ cp -r $SOLV $W/lib/dumpSolver
 rm -rf $W/src/turbDump
 cp -r $HERE/driver $W/src/turbDump
 (cd $W/src/turbDump && WM_NCOMPPROCS=1 $WITH wmake)
-for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEpsilon realizableKE WALE SpalartAllmarasDES SpalartAllmarasDDES SpalartAllmarasIDDES kOmegaSSTDES kEqn LaunderSharmaKE LaunderSharmaKE_lowRe LESfilters dynamicKEqn_simple dynamicKEqn_laplace dynamicKEqn_anisotropic}; do
+for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEpsilon realizableKE WALE SpalartAllmarasDES SpalartAllmarasDDES SpalartAllmarasIDDES kOmegaSSTDES kEqn LaunderSharmaKE LaunderSharmaKE_lowRe LESfilters dynamicKEqn_simple dynamicKEqn_laplace dynamicKEqn_anisotropic dynamicLagrangian_simple dynamicLagrangian_laplace dynamicLagrangian_anisotropic}; do
   C=$W/case_$M
   MODEL=${M%_lowRe}
   FILT=simple
-  case $MODEL in dynamicKEqn_*) FILT=${MODEL#dynamicKEqn_}; MODEL=dynamicKEqn;; esac
+  case $MODEL in dynamicKEqn_*) FILT=${MODEL#dynamicKEqn_}; MODEL=dynamicKEqn;; dynamicLagrangian_*) FILT=${MODEL#dynamicLagrangian_}; MODEL=dynamicLagrangian;; esac
   rm -rf $C
   mkdir -p $C/system $C/constant $C/0
   cp $HERE/inputs/controlDict $HERE/inputs/fvSchemes $HERE/inputs/fvSolution $HERE/inputs/blockMeshDict $C/system/
@@ -26,7 +26,7 @@ for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEps
   case $M in *_lowRe) sed -i "s/^nu .*/nu 1e-02;/" $C/constant/transportProperties;; esac
   if [ $MODEL = SpalartAllmarasIDDES ]; then
     printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType LES;\nLES { model %s; turbulence on; printCoeffs on; delta IDDESDelta; }\n' $MODEL > $C/constant/turbulenceProperties
-  elif [ $MODEL = Smagorinsky ] || [ $MODEL = WALE ] || [ $MODEL = SpalartAllmarasDES ] || [ $MODEL = SpalartAllmarasDDES ] || [ $MODEL = kOmegaSSTDES ] || [ $MODEL = kEqn ] || [ $MODEL = LESfilters ] || [ $MODEL = dynamicKEqn ]; then
+  elif [ $MODEL = Smagorinsky ] || [ $MODEL = WALE ] || [ $MODEL = SpalartAllmarasDES ] || [ $MODEL = SpalartAllmarasDDES ] || [ $MODEL = kOmegaSSTDES ] || [ $MODEL = kEqn ] || [ $MODEL = LESfilters ] || [ $MODEL = dynamicKEqn ] || [ $MODEL = dynamicLagrangian ]; then
     printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType LES;\nLES { model %s; turbulence on; printCoeffs on; delta cubeRootVol; cubeRootVolCoeffs { deltaCoeff 1; } filter %s; laplaceCoeffs { widthCoeff 2; } anisotropicCoeffs { widthCoeff 2; } }\n' ${MODEL/LESfilters/kEqn} $FILT > $C/constant/turbulenceProperties
   else
     printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType RAS;\nRAS { model %s; turbulence on; printCoeffs on; }\n' $MODEL > $C/constant/turbulenceProperties

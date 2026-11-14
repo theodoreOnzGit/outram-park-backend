@@ -167,6 +167,16 @@ static scalar fnuTilda(const point& p)
     return 5.0e-5 + 4.0e-4*sOf(p)*(1.0 + 0.2*p.x()) + 1.0e-5*p.z();
 }
 
+static scalar fflm(const point& p)
+{
+    return 0.02 + 0.3*sOf(p)*(1.0 + 0.1*p.x()) + 0.01*p.z();
+}
+
+static scalar ffmm(const point& p)
+{
+    return 0.05 + 0.2*sOf(p)*(1.0 + 0.05*p.x()) + 0.02*p.z();
+}
+
 static scalar fzero(const point&) { return 0.0; }
 
 static autoPtr<volScalarField> mkScalar
@@ -398,6 +408,8 @@ int main(int argc, char* argv[])
     autoPtr<volScalarField> omP = mkScalar(mesh, runTime, "omega", dimensionSet(0, 0, -1, 0, 0), fomega, zg);
     autoPtr<volScalarField> ntP = mkScalar(mesh, runTime, "nuTilda", dimensionSet(0, 2, -1, 0, 0), fnuTilda, zg);
     mkScalar(mesh, runTime, "nut", dimensionSet(0, 2, -1, 0, 0), fzero, word(calculatedFvPatchScalarField::typeName));
+    mkScalar(mesh, runTime, "flm", dimensionSet(0, 4, -4, 0, 0), fflm, zg);
+    mkScalar(mesh, runTime, "fmm", dimensionSet(0, 4, -4, 0, 0), ffmm, zg);
     const volScalarField& k = kP();
     const volScalarField& epsilon = epsP();
     const volScalarField& omega = omP();
@@ -1298,6 +1310,67 @@ int main(int argc, char* argv[])
             G - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
         );
         auditMatrix("k", kEqn);
+    }
+    else if (model == "dynamicLagrangian")
+    {
+        // LESModels/dynamicLagrangian/dynamicLagrangian.C correct(), correctNut(gradU);
+        // delta cubeRootVol, theta 1.5 (the default), alpha = rho = 1 (geometricOneField)
+        const scalar widthCoeff = 2.0;
+        autoPtr<LESfilter> Fp;
+        if (filterName == "simple") Fp.reset(new simpleFilter(mesh));
+        else if (filterName == "laplace") Fp.reset(new laplaceFilter(mesh, widthCoeff));
+        else Fp.reset(new anisotropicFilter(mesh, widthCoeff));
+        const LESfilter& F = Fp();
+        const volScalarField& delta = mesh.lookupObject<volScalarField>("delta");
+        const volScalarField& flm = mesh.lookupObject<volScalarField>("flm");
+        const volScalarField& fmm = mesh.lookupObject<volScalarField>("fmm");
+        const scalar theta = 1.5;
+        volSymmTensorField S(devSymm(gradU));
+        volScalarField magS(mag(S));
+        volVectorField Uf(F(U));
+        volSymmTensorField Sf(devSymm(fvc::grad(Uf)));
+        volScalarField magSf(mag(Sf));
+        volSymmTensorField L(dev(F(sqr(U)) - (sqr(F(U)))));
+        volSymmTensorField M
+        (
+            2.0*sqr(delta)*(F(magS*S) - 4.0*magSf*Sf)
+        );
+        volScalarField invT
+        (
+            (1.0/(theta*delta))*pow(flm*fmm, 1.0/8.0)
+        );
+        volScalarField LM(L && M);
+        fvScalarMatrix flmEqn
+        (
+            fvm::ddt(flm) + fvm::div(phi, flm)
+         ==
+            invT*LM - fvm::Sp(invT, flm)
+        );
+        auditMatrix("flm", flmEqn);
+        volScalarField MMf(M && M);
+        fvScalarMatrix fmmEqn
+        (
+            fvm::ddt(fmm) + fvm::div(phi, fmm)
+         ==
+            invT*MMf - fvm::Sp(invT, fmm)
+        );
+        auditMatrix("fmm", fmmEqn);
+        const volScalarField nutT((flm/fmm)*sqr(delta)*mag(devSymm(gradU)));
+        dumpVF("T_S", S);
+        dumpVF("T_magS", magS);
+        dumpVF("T_Uf", Uf);
+        dumpVF("T_Sf", Sf);
+        dumpVF("T_magSf", magSf);
+        dumpVF("T_L", L);
+        dumpVF("T_M", M);
+        dumpVF("T_invT", invT);
+        dumpVF("T_LM", LM);
+        dumpVF("T_MM", MMf);
+        dumpS("T_nut", nutT.primitiveField());
+        dumpS("T_flm", flm.primitiveField());
+        dumpS("T_fmm", fmm.primitiveField());
+        dumpS("T_delta", delta.primitiveField());
+        dumpVF("nut_after", nut);
     }
     else if (model == "LESfilters")
     {

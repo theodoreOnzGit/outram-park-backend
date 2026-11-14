@@ -21,7 +21,7 @@
 
 //! Large-Eddy Simulation (LES) sub-grid-scale closures.
 //!
-//! Holds [`Smagorinsky`], [`wale::Wale`], [`KEqn`] and [`DynamicKEqn`] (gh:#1377, #1544).
+//! Holds [`Smagorinsky`], [`wale::Wale`], [`KEqn`], [`DynamicKEqn`] and [`DynamicLagrangian`] (gh:#1377, #1544).
 //!
 //! ~~Currently holds only the `Smagorinsky` model, which is a **scaffold** (its
 //! trait methods `todo!()`-panic).~~ **CORRECTED 2026-11-13:** no `todo!()`
@@ -30,10 +30,12 @@
 //! (`tests/openfoam_turbulence_code_to_code.rs`).
 
 pub mod dynamic_k_eqn;
+pub mod dynamic_lagrangian;
 pub mod k_eqn;
 pub mod pointwise;
 pub mod smagorinsky;
 pub mod wale;
 pub use dynamic_k_eqn::DynamicKEqn;
+pub use dynamic_lagrangian::DynamicLagrangian;
 pub use k_eqn::KEqn;
 pub use smagorinsky::Smagorinsky;

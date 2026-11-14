@@ -251,7 +251,7 @@ fn extrapolated<T: Clone>(mesh: &FvMesh, cells: &[T]) -> Vec<Vec<T>> {
 /// `fvc::snGrad(vf)` with the default `uncorrected` scheme: `nonOrthDeltaCoeffs*(N - P)` on
 /// internal faces; on a boundary face the patch's own `snGrad()` (`deltaCoeffs*(b - P)` unless
 /// zeroGradient or fixedGradient). Returns (internal faces, boundary faces per patch).
-fn sn_grad_uncorrected<T: FilterValue>(vf: &VolField<T>) -> (Vec<T>, Vec<Vec<T>>) {
+pub(crate) fn sn_grad_uncorrected<T: FilterValue>(vf: &VolField<T>) -> (Vec<T>, Vec<Vec<T>>) {
     let mesh = &vf.mesh;
     let face_vals = interpolate(vf);
     let internal = (0..mesh.n_internal_faces)
