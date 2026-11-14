@@ -55,6 +55,11 @@
 //! build); re-bake it with the `bake_wmp` example. See
 //! `docs/wmp-nuclide-manifest.md`.
 //!
+//! **Generation** (gh:#1390, 2026-11-14): [`generate`] makes a WMP library
+//! from an ENDF tape, a translation of OpenMC's `WindowedMultipole.from_endf`
+//! (OpenMC is MIT; not MIT CRPG's library data, not NJOY). Until then this
+//! module could only read and evaluate WMP data.
+//!
 //! # Layout
 //!
 //! Split by responsibility (crate file-size rule, `docs/porting-plan.md` §5):

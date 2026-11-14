@@ -80,6 +80,11 @@ precision; keep CPU for the reference/validated result. (Beads `op-0m5`,
 > distributions, 4e heating column, 4f thermal S(α,β) tables, 4g Windowed
 > Multipole import). The **WMP** evaluator (`src/wmp/`, independent MIT CRPG
 > work — not NJOY) is a ~1276-line port with a 125-nuclide CORE library baked in.
+> **Since 2026-11-14 (gh:#1390) the crate also generates WMP data from an ENDF
+> tape:** `wmp::generate::from_endf` translates OpenMC's
+> `WindowedMultipole.from_endf` (vector fitting, windowing, curve fit; OpenMC
+> `8f79d9d`, MIT) on this crate's own RECONR/GASPR/ACER. Checked against
+> OpenMC's generator on Mg-26: `verification_and_validation/wmp_generate/`.
 > The Phase-5 multigroup/covariance set is also ported: **GROUPR** (~9.4k lines),
 > **GAMINR**, **ERRORR**, **COVR**, and **LEAPR**; plus the Phase-6 formatters
 > **DTFR**, **RESXSR**, and **MIXR**. The `NuclearDataLibrary` OOP API supports the
