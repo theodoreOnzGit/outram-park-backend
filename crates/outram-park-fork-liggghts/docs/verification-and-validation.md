@@ -1900,7 +1900,7 @@ partly across the plate counts as the volume-weight share of its member atoms
 **Not ported** (each rejected with an error or documented in
 `multisphere.rs`):
 - ~~`spheres file`,~~ `spheres_different_types`, `bonded`;
-- `mass`/`inertia_tensor`/`use_volume`/`use_density`;
+- ~~`mass`/`inertia_tensor`/`use_volume`/`use_density`~~ (**CORRECTED 2026-11-14:** ported, 4.16.2);
 - ~~`fflag`/`tflag` off,~~ `multisphere/nointegration`, `concave`,
   `CAddRhoFluid`;
 - periodic images of bodies (`remap_bodies`) ~~and lost-atom/body deletion. The
@@ -2032,7 +2032,8 @@ misses when the option it tests is switched off, so each gate can fail:
 - lost atoms with the atom sort on, or without the LIGGGHTS neighbour order;
 - `delete_atoms yes` on `massflow/mesh` with clumps (upstream's own error);
 - `fix remove`'s `delete_bodies` callback; periodic bodies;
-- `spheres_different_types`, `bonded`, `mass`/`inertia_tensor`;
+- `spheres_different_types`, `bonded`, ~~`mass`/`inertia_tensor`~~
+  (**CORRECTED 2026-11-14:** ported, 4.16.2);
 - `multisphere/nointegration`, `concave`, `multisphere/break`;
 - clumps from `insert/stream`; restart; a second `run` set-up with clumps.
 
@@ -2051,6 +2052,30 @@ does the same in `GranularSystem::try_with_liggghts_neighbor_order` and
 the empty permutation for zero atoms, so the infallible builder no longer
 panics. Test: `granular_system::tests::empty_system_sort_on_refuses_like_upstream`,
 which panicked with "attempt to multiply with overflow" before the guard.
+
+### 4.16.2 Multisphere, third pass (2026-11-14, gh:#1415)
+
+**Reference and inputs.** LIGGGHTS-PUBLIC `3d5c00f2`, the same `lmp_serial`
+as 4.16.1. The decks come from `make_multisphere_decks.sh`, below the
+"third multisphere pass" line, and use the 4.16 header. Each prediction was
+posted on gh:#1415 before the deck ran. **Pass criterion:** bit-identical,
+every value. Each gate is shown to fail with its option ablated.
+
+| deck | what it exercises | result (Rust 1.99.1, 2026-11-14) | ablation |
+|---|---|---|---|
+| `ms_mass` | `ms_collide` with type 1 `mass 1.5e-3 inertia_tensor ... use_volume` and type 2 `mass 5.0e-4 inertia_tensor ... use_density` (`ParticleTemplateMultisphere::new_with_mass_inertia`) | **70 / 70** atom-frames bit-identical (630 values) | Monte-Carlo templates: **0 / 70** |
+
+**`mass` / `inertia_tensor` (`FixTemplateMultisphere::post_create`).**
+- `use_volume` keeps the Monte-Carlo volume and the centre-of-mass shift,
+  replaces the mass, and sets the density to `mass / volume`.
+- `use_density` runs only the bounding sphere and the overlap check. It does
+  no Monte-Carlo volume and **no centre-of-mass shift**, so the body centre is
+  the template origin. The volume is `mass / density`.
+- Both diagonalise the given tensor and then draw the volume weights from the
+  same `random_mc` stream. With `use_density` the stream is at a different
+  point, because the centre-of-mass pass was skipped.
+
+`tests/multisphere_cross_code.rs::ms_mass_matches_liggghts`.
 
 ## 4.17 Superquadric particles (2026-11-13, gh:#1415)
 

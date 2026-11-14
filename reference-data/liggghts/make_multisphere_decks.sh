@@ -171,3 +171,15 @@ thermo_modify	lost ignore norm no format float %.17g
 thermo		1
 EOF
 frames 1 1000 2000 3000 4000 5000 6000; } > in.ms_lost
+# --- gh:#1415 third multisphere pass (2026-11-14) ----------------------------
+COLLIDE_THERMO='thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no'
+# ms_mass: in.ms_collide with the clump mass and inertia tensor given:
+# type 1 `mass ... inertia_tensor ... use_volume` (MC volume and COM, density
+# = mass/volume), type 2 `... use_density` (no MC volume, no COM shift).
+{ header
+  echo "$PTS1 mass 1.5e-3 inertia_tensor 1.3e-8 2.0e-10 -1.0e-9 1.6e-8 1.5e-9 1.9e-8 use_volume"
+  echo "$PTS2 mass 5.0e-4 inertia_tensor 3.5e-9 5.0e-10 6.0e-10 6.0e-9 1.0e-10 6.2e-9 use_density"
+  echo "$COLLIDE_INS"; echo "$COLLIDE_THERMO"
+  frames 1 2000 4000 5000 6000 7000 8000 10000 12000 15000; } > in.ms_mass

@@ -880,3 +880,85 @@ fn clump_file_refusals() {
     assert!(f(2, "0 0 0 -4\n5 0 1 3.5\n", 0.001).is_err(), "a negative radius");
     assert!(f(2, "0 0 0 4x\n5 0 1 3.5\n", 0.001).is_err(), "not a number");
 }
+
+// --- third pass (2026-11-14) ------------------------------------------------
+
+const COLLIDE_FRAMES: [u64; 10] = [1, 2000, 4000, 5000, 6000, 7000, 8000, 10000, 12000, 15000];
+
+/// `[Ixx, Ixy, Ixz, Iyy, Iyz, Izz]` in `kg m^2`.
+fn moi6(v: [f64; 6]) -> [uom::si::f64::MomentOfInertia; 6] {
+    v.map(uom::si::f64::MomentOfInertia::new::<uom::si::moment_of_inertia::kilogram_square_meter>)
+}
+
+/// The `in.ms_mass` templates: type 1 with `mass 1.5e-3 inertia_tensor ...
+/// use_volume`, type 2 with `mass 5.0e-4 inertia_tensor ... use_density`.
+fn mass_templates() -> (ParticleTemplateMultisphere, ParticleTemplateMultisphere) {
+    use outram_park_fork_liggghts::multisphere::MassSource;
+    use uom::si::{f64::Mass, mass::kilogram};
+    let t1 = ParticleTemplateMultisphere::new_with_mass_inertia(
+        15485863,
+        1,
+        MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+        100_000,
+        &[
+            (Vec3::new(0.0, 0.0, 0.0), m(0.004)),
+            (Vec3::new(0.005, 0.0, 0.001), m(0.0035)),
+            (Vec3::new(0.002, 0.004, -0.001), m(0.003)),
+        ],
+        1,
+        Mass::new::<kilogram>(1.5e-3),
+        moi6([1.3e-8, 2.0e-10, -1.0e-9, 1.6e-8, 1.5e-9, 1.9e-8]),
+        MassSource::UseVolume,
+    )
+    .unwrap();
+    let t2 = ParticleTemplateMultisphere::new_with_mass_inertia(
+        49979687,
+        2,
+        MassDensity::new::<kilogram_per_cubic_meter>(1500.0),
+        100_000,
+        &[
+            (Vec3::new(0.0, 0.0, 0.0), m(0.003)),
+            (Vec3::new(0.004, 0.001, 0.0), m(0.003)),
+            (Vec3::new(-0.003, 0.003, 0.002), m(0.0025)),
+            (Vec3::new(0.001, -0.002, 0.004), m(0.002)),
+        ],
+        2,
+        Mass::new::<kilogram>(5.0e-4),
+        moi6([3.5e-9, 5.0e-10, 6.0e-10, 6.0e-9, 1.0e-10, 6.2e-9]),
+        MassSource::UseDensity,
+    )
+    .unwrap();
+    (t1, t2)
+}
+
+/// **Template `mass` + `inertia_tensor` with `use_volume` / `use_density`**
+/// (`in.ms_mass`): `ms_collide` with both clumps' mass and inertia tensor
+/// given ([`ParticleTemplateMultisphere::new_with_mass_inertia`]). Type 1
+/// (`use_volume`) keeps the Monte-Carlo volume and centre of mass and takes
+/// `density = mass / volume`; type 2 (`use_density`) skips the Monte-Carlo
+/// volume and the centre-of-mass shift (its body centre is the template
+/// origin) and takes `volume = mass / density`. Every atom at the ten
+/// `ms_collide` frames, on bit patterns. **Ablation:** the Monte-Carlo
+/// templates (`clump1`, `clump2`) must miss.
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** 70/70 bit-identical;
+/// the ablation misses from step 1.
+#[test]
+fn ms_mass_matches_liggghts() {
+    let (t1, t2) = mass_templates();
+    assert_eq!(t1.massexpect(), 1.5e-3);
+    assert_eq!(t1.density(), 1.5e-3 / t1.volexpect());
+    assert_eq!(t2.volexpect(), 5.0e-4 / 1500.0);
+    let mut sys = collide_system(t1, t2);
+    let Some((total, same, worst)) = compare_by_tag("ms_mass", &mut sys, &COLLIDE_FRAMES) else {
+        eprintln!("skipping: reference-data/liggghts/ms_mass.csv not present");
+        return;
+    };
+    println!("ms_mass: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
+    let mut mc = collide_system(clump1(), clump2());
+    let (_, mc_same, _) = compare_by_tag("ms_mass", &mut mc, &COLLIDE_FRAMES).unwrap();
+    println!("ms_mass ablation (Monte-Carlo mass and inertia): {mc_same}/{total}");
+    assert_eq!(total, 70);
+    assert_eq!(same, total, "ms_mass: not bit-identical (worst relative {worst:e})");
+    assert_eq!(mc_same, 0, "the Monte-Carlo templates also match: the deck does not see the option");
+}
