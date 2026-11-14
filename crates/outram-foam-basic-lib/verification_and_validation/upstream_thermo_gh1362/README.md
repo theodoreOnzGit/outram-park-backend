@@ -365,3 +365,26 @@ Pr 0.7, 0.8, 0.9; As 1.46e-6, 1.5e-6, 1.2e-6; Ts 110, 240, 150; rho (rhoConst)
   are computed in the same order).
 - M3: `correctMassFractions` of (0.4, 0.4, 0.4): `Yt = 1.2`, warns; normalised
   fractions bit-identical.
+
+### Results (measured 2026-11-14, release; `tests/openfoam_mixture_gh1378.rs`)
+
+48 mixtures (2 EOS x 2 transports x 6 `Y` sets x {cell, vol}) x 6 (T, p) rows x
+13 quantities = 3744 values. **46 of 48 mixtures are bit-identical in every
+quantity** (including `W`, `Cp`, `Hc`, `mu`, `kappa`). The two others,
+`perfectGas/{const,sutherland}/cell/3` (`Y = (0.7, 0.3, 0)`), differ only in the
+quantities that pass through the gas constant: `rho` 0/6 (1 ulp), `psi` 0/6
+(2 ulp), `CpMCv` 0/6 (1 ulp), `S` 3/6 (4 ulp). Cause: the mixture `W` is
+bit-identical in kg/kmol, but no double `w` in kg/mol has `w * 1e3 == W`
+exactly, so the port's `R = RR/(w*1e3)` starts from a `W` one unit-conversion
+ulp away (the same mechanism as the `gram_per_mole` finding of gh:#1362;
+test `residuals_are_the_kg_per_mol_unit_round_trip` checks that this `W` has no
+round-tripping neighbour and that the other `Y` sets do). Not an arithmetic
+difference of the mixing rules; fixing it needs the EOS to hold `W` in kg/kmol,
+which is a public-API change deferred to the maintainer (decision recorded on the issue).
+
+Predictions: M1 right (a minority, 2/48 = 4 %, <= 30 %, only the `R`-dependent
+quantities `rho`, `psi`, `CpMCv`, `S`; I had not predicted `W`, `Cp`, `Hc`, `mu`
+to be unaffected, and they are). M2 right. M3 right (`correct_mass_fractions`
+of (0.4, 0.4, 0.4): `Yt = 1.2`, normalised fractions bit-identical, set 5).
+Upstream behaviour worth recording: `correctMassFractions` warns only when the
+sum EXCEEDS one (`diff = |Yt| - 1 > ROOTVSMALL`), not when it is below one.
