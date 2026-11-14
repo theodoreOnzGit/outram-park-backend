@@ -148,3 +148,51 @@ port lacks. Foundation (dev) was not read or run.
   not from the solver form; the solver form and the rounded constants gave
   ~1e-3 in H and ~4e-5 in S.
 - P7: hTabulated needed a new type (done) and upstream cannot compile its `S`.
+
+---
+
+## gh:#1378 family 1: six more EOS, `hPower`, `eConst`, `WLF`, `logPolynomial`
+
+Ported (additive, all read from the v2506 `*I.H` before writing):
+EOS `incompressiblePerfectGas`, `Boussinesq`, `adiabaticPerfectFluid`,
+`perfectFluid`, `rPolynomial`, `linear` (`eos/esi_simple_eos.rs`); thermo
+`hPower` (`thermo/h_power.rs`), `eConst` (`thermo/e_const.rs`); transport `WLF`
+(`transport/wlf.rs`), `logPolynomial` (`transport/log_polynomial.rs`). New trait
+method `EquationOfState::cv_eos` (upstream `EquationOfState::Cv`, needed by
+`eConst`; default `Cp_eos - (CpMCv - R)`, overridden to 0 for the liquid-like EOS).
+Not in v2506 at all (checked by listing the directories): `ePower`,
+`eIcoTabulated`, `hIcoTabulated`. The `icoTabulated` EOS exists in v2506 and is
+deferred (needs a T-table EOS; filed as a child).
+
+Driver `driver_gh1378/thermoDump1378.C`, reference
+`reference/thermo_esi_v2506_gh1378.txt.gz`, test
+`tests/openfoam_thermo_gh1378.rs`. Inputs (literature-style, none tuned): air
+`W = 28.96` (exactly round-tripping `W` and the ESI gas constant, the
+2026-11-13 bit-identical configuration); `incompressiblePerfectGas pRef 1e5`;
+`Boussinesq rho0 1000, T0 300, beta 2e-4`; `adiabaticPerfectFluid p0 1e5, rho0
+1000, gamma 7.15, B 3e8`; `perfectFluid R 3000, rho0 900`; `rPolynomial C
+(1e-3 2e-7 1e-9 4e-13 1e-16)`; `linear psi 4.5e-7, rho0 998`; `hPower C0 1000,
+n0 0.7, Tref 300, Hf 1e5`; `eConst Cv 718, Hf 2.5e5`; WLF `mu0 1e3, Tr 300, C1
+17.44, C2 51.6, Pr 10`; logPolynomial `muLogCoeffs<8> (-13.1 0.7 0 ..)`,
+`kappaLogCoeffs<8> (-9.2 0.8 0 ..)`. Same T x p grid as above.
+
+### Predictions (written before the Rust side ran)
+
+- Q1: incompressiblePerfectGas, Boussinesq, rPolynomial and perfectFluid (except
+  `S`) carry only `+ - * /` and squares: with the ESI gas constant and exact `W`,
+  **bit-identical, 40/40** in every quantity.
+- Q2: `linear` `S` and `perfectFluid` `S` use one `log`: PETIR against glibc, a few
+  1-ulp differences (<= 10 % of points), worst <= 2 ulp.
+- Q3: `adiabaticPerfectFluid` `rho`, `psi`, `S` use `pow` with exponent 1/7.15:
+  1-ulp differences on some points (up to 30 %), worst <= 2 ulp; `S` may
+  amplify by cancellation in `pow(p+B,n) - pow(Pstd+B,n)`.
+- Q4: `hPower` (n0 = 0.7, `pow`): 1-ulp differences in `Cp`, `Hs`, `Ha`, `S` on some
+  points; `Ha` follows `Hs`; `Hc` identical.
+- Q5: `WLF` `mu` (one `exp`): 1-ulp on some points; `kappa`, `alphah` follow `mu`.
+- Q6: `logPolynomial` `mu`, `kappa` (`log` then `exp` of a polynomial of size ~ -9):
+  the absolute error of `log` (1 ulp of ~6) becomes a few ulp after `exp`; up
+  to 4 ulp, many points differing.
+- Q7: `eConst` `Cv`, `Es`, `Ea`, `Hc` (no libm): **bit-identical** on every EOS.
+- Q8: wherever a value differs, the first divergence is the `pow`/`exp`/`log` call
+  and nothing downstream of it: the rows with identical libm argument and
+  differing result localise it.

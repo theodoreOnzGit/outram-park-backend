@@ -81,6 +81,11 @@ impl EquationOfState for RhoConst {
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(0.0)
     }
 
+    /// Upstream `Cv` departure is `0` (the liquid-like EOS has no `R` in `CpMCv`).
+    fn cv_eos(&self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(0.0)
+    }
+
     fn cp_eos(&self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(0.0)
     }
