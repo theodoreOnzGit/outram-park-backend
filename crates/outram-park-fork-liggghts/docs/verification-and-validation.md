@@ -1908,7 +1908,7 @@ partly across the plate counts as the volume-weight share of its member atoms
   decks end before a clump leaves the box, and removing particles from a
   system with clumps panics~~;
 - `fix multisphere/break`;
-- clumps from `insert/stream`;
+- ~~clumps from `insert/stream`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - ~~heat transfer with clumps~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - restart;
 - ~~a second `run` set-up with clumps (`begin_run` refuses it);~~
@@ -2038,7 +2038,7 @@ misses when the option it tests is switched off, so each gate can fail:
   (**CORRECTED 2026-11-14:** ported, 4.16.2);
 - ~~`multisphere/nointegration`,~~ `concave`, `multisphere/break`
   (**CORRECTED 2026-11-14:** `nointegration` ported, 4.16.2);
-- clumps from `insert/stream`; restart; ~~a second `run` set-up with clumps~~
+- ~~clumps from `insert/stream`~~ (**CORRECTED 2026-11-14:** ported, 4.16.3); restart; ~~a second `run` set-up with clumps~~
   (**CORRECTED 2026-11-14:** ported, 4.16.2).
 
 Upstream prints "Energy calculated for multisphere particles is currently not
@@ -2104,6 +2104,9 @@ this, the port accepted it and panicked at the first insertion
 (`randomize_list`). Upstream streams clumps with a per-body `start_step` and
 `v_integrate`, which are not ported. Test:
 `insert_stream_cross_code.rs::insert_stream_refuses_clumps`.
+~~(clumps refused)~~ **CORRECTED 2026-11-14:** clumps are streamed (4.16.3); the
+constructor still refuses superquadrics, and now a non-constant velocity
+with clumps (upstream's own error) and a sphere/clump mix.
 
 **Still not ported after this pass** (each has no API in the port, or is
 refused by name):
@@ -2114,7 +2117,7 @@ refused by name):
 - `CAddRhoFluid` / `allow_heatsource`;
 - ~~heat transfer with clumps~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - periodic images of bodies (`remap_bodies`);
-- clumps from `insert/stream` (refused);
+- ~~clumps from `insert/stream` (refused)~~ (**CORRECTED 2026-11-14:** ported, 4.16.3);
 - `fix remove` with its `delete_bodies` callback (the port has no
   `fix remove`);
 - restart;
@@ -2165,6 +2168,7 @@ ablated, or the reason it cannot is stated.
 
 | deck | what it exercises | result (Rust 1.99.1, 2026-11-14) | ablation |
 |---|---|---|---|
+| `ms_stream` | both templates (mass-based 60/40) from `insert/stream` through `ms_stream_face.stl` (0.04 m square at z = 0.10), `vel constant 0.1 0 -0.5`, `extrude_length 0.03` (`insert_every` 6000), 6 clumps at 50/s: three inserted at step 1, three at 6001; clump 1 leaves through `+x` before step 20000 (`with_lost_atoms`). 13 frames | **217 / 217** atom-frames bit-identical (1953 values) | no `Multisphere::release`: **95 / 198** to step 15000, then the atom count differs; no rail (`has_stream` off): **95 / 217**. Both first miss at step 5000, after the first release |
 | `ms_heat` | `ms_collide` with `heat/gran/conduction initial_temperature 300` (`k = 50, 20`, `cp = 500, 800`) defined first; after the insertion step `set type 1 property/atom Temp 400.` (`GranularSystem::set_type_temperature`, needs `allow_group_and_set yes`), then one continuous `run 14999` (a full set-up) dumping `x v omega f_Temp f_heatFlux` every 1000 steps (`Multisphere::with_heat_transfer`) | **105 / 105** atom-frames bit-identical (1155 values) | no set-up branch: **16 / 105**; no step aggregation: **50 / 105** |
 | `ms_bonded` | `ms_drop` with template `bonded yes` (`ParticleTemplateMultisphere::with_bonded`), plus upstream's `id f_bond_random_id` dump at step 15000 | **27 / 27** atom-frames bit-identical; `bond_random_id` `[-1, -1, -1]`, as upstream's | `bonded no`: no property (upstream: the dump is an error). The trajectory gate **cannot** fail on `bonded` (see below) |
 
@@ -2182,6 +2186,29 @@ created: deck `in.ms_bonded_density` (`ms_mass` with `bonded yes` on the
 dump custom fix ID". The port reproduces both
 (`GranularSystem::bond_random_id`, `creates_bond_random_id`).
 `ms_bonded_matches_liggghts`.
+
+**Clumps from `insert/stream`.** `FixInsertStream::x_v_omega` places each
+clump at `generate_random(pos, r_bound_ins)` with
+`check_near_set_x_v_omega(pos, v_normal, 0, quat_insert)`
+(`InsertStreamFix::pre_exchange_clumps`; the identity orientation). After the
+atoms, `add_body` and `add_body_finalize`, `FixInsertStream::finalize_insertion`
+calls `Multisphere::calc_n_steps` per new atom: the body's first atom sets
+`start_step = step + int(((p_ref - xcm) . n) / (|v_normal| dt))`, **without**
+the `FIX_INSERT_STREAM_TINY` the sphere formula adds, and `v_integrate =
+v_normal`. Until `start_step`, `FixMultisphere::initial_integrate` sets `vcm =
+v_integrate` and drifts the body with no kick and no rotation, and
+`final_integrate` skips the kicks; `FixInsertStream::end_of_step` meanwhile
+puts the member atoms on their rails (`x = x_ins + v_integrate (step - i_step)
+dt`, `v = v_integrate`, zero spin, force and torque). At the release step,
+`Multisphere::release` gives the body `vcm = v_insert` and `omega =
+omega_insert` and clears `start_step`, but leaves its angular momentum and
+the atoms alone. Refused by name: a non-constant velocity with clumps
+(upstream's own error, "only supports constant velocity") and a distribution
+mixing spheres and clumps (not ported). `orientation` is not ported for
+`insert/stream`. Both ablations agree with upstream until the first release
+(between steps 3000 and 5000): before it, the dumped atoms are on their rails whatever
+the body does. `ms_stream_matches_liggghts`; the prediction held on the first
+run.
 
 **Heat transfer with clumps (`FixMultisphere::calc_force`, heat branch).**
 A body starts at `T0` of `heat/gran` (`Multisphere::add_body`). After the

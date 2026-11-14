@@ -869,16 +869,8 @@ impl ParticleDistributionDiscrete {
     }
 
     /// Whether the templates are superquadrics (a distribution never mixes).
-    fn is_superquadric(&self) -> bool {
+    pub(crate) fn is_superquadric(&self) -> bool {
         matches!(self.templates.first(), Some(ParticleTemplate::Superquadric(_)))
-    }
-
-    /// Whether any template is not a plain sphere (a clump or a
-    /// superquadric): `fix insert/stream` refuses those (gh:#1415).
-    pub(crate) fn has_non_sphere(&self) -> bool {
-        self.templates
-            .iter()
-            .any(|t| !matches!(t, ParticleTemplate::Sphere(_)))
     }
 
     /// Whether a multisphere template of this distribution created
@@ -890,8 +882,15 @@ impl ParticleDistributionDiscrete {
         })
     }
 
+    /// Whether any template is a multisphere clump (gh:#1415).
+    pub(crate) fn has_clump(&self) -> bool {
+        self.templates
+            .iter()
+            .any(|t| matches!(t, ParticleTemplate::Multisphere(_)))
+    }
+
     /// Whether any template is a plain sphere (`particletemplate/sphere`).
-    fn has_sphere(&self) -> bool {
+    pub(crate) fn has_sphere(&self) -> bool {
         self.templates
             .iter()
             .any(|t| matches!(t, ParticleTemplate::Sphere(_)))

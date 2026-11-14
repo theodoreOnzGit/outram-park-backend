@@ -116,8 +116,8 @@
 //! `allow_heatsource`; periodic images of bodies (`remap_bodies`), ~~lost-atom
 //! deletion (`check_lost_atoms` / `delflag`),~~ `fix remove`'s
 //! `delete_bodies`, `fix multisphere/break`,
-//! `fix insert/stream` with clumps (`start_step`; refused by
-//! [`crate::insert_stream::InsertStreamFix::new`]), ~~heat transfer with clumps~~,
+//! ~~`fix insert/stream` with clumps (`start_step`; refused by
+//! [`crate::insert_stream::InsertStreamFix::new`])~~, ~~heat transfer with clumps~~,
 //! restart, ~~a second `run` set-up with clumps~~~~, and `orientation random`~~.
 //! **CORRECTED 2026-11-14 (gh:#1415):** `fflag`/`tflag`, lost-atom deletion
 //! and `orientation random` are translated (V&V 4.16.1).
@@ -146,6 +146,10 @@
 //! `FixMultisphere::calc_force`) is [`Multisphere::with_heat_transfer`] /
 //! [`Multisphere::heat_transfer`], switched on by
 //! [`crate::granular_system::GranularSystem::with_heat_conduction`]
+//! (V&V 4.16.3).
+//! Clumps from `fix insert/stream` (`start_step`, `v_integrate`,
+//! [`Multisphere::calc_n_steps`], [`Multisphere::release`]) are streamed
+//! through [`crate::granular_system::GranularSystem::add_stream_insertion`]
 //! (V&V 4.16.3).
 //! ~~Superquadric, convex hull, ellipsoid, line and tri particles (the rest of
 //! gh:#1415) are not ported.~~ **CORRECTED 2026-11-13 (gh:#1415):** superquadric
@@ -1510,6 +1514,12 @@ pub struct ClumpBody {
     pub temp: f64,
     /// `temp_old_`: the body temperature before this step's update.
     temp_old: f64,
+    /// `start_step_` (upstream `-1` = `None`): a body inserted by
+    /// `fix insert/stream` rides its rail until this step
+    /// ([`Multisphere::calc_n_steps`], [`Multisphere::release`]).
+    pub start_step: Option<i64>,
+    /// `v_integrate_`: the rail velocity `[m/s]`.
+    v_integrate: [f64; 3],
 }
 
 impl ClumpBody {
@@ -1543,6 +1553,10 @@ pub struct Multisphere {
     /// `T0` of the attached `fix heat/gran`, if any (the heat-transfer branch
     /// of `calc_force`; gh:#1415).
     heat_t0: Option<f64>,
+    /// `has_stream`: an `insert/stream` fix exists (`n_fixes_style`).
+    has_stream: bool,
+    /// `update->ntimestep` of the step being integrated.
+    timestep: i64,
 }
 
 impl Multisphere {
@@ -1559,6 +1573,70 @@ impl Multisphere {
             dt,
             integrate: true,
             heat_t0: None,
+            has_stream: false,
+            timestep: 0,
+        }
+    }
+
+    /// Whether a `fix insert/stream` exists (`has_stream` of
+    /// `FixMultisphere::initial_integrate` / `final_integrate`), and the
+    /// current step (`update->ntimestep`); set by the system every step.
+    pub(crate) fn set_stream_step(&mut self, has_stream: bool, step: u64) {
+        self.has_stream = has_stream;
+        self.timestep = step as i64;
+    }
+
+    /// Whether body `b` still rides its `insert/stream` rail
+    /// (`has_stream && timestep < start_step`).
+    fn on_rail(has_stream: bool, timestep: i64, b: &ClumpBody) -> bool {
+        has_stream && b.start_step.is_some_and(|s| timestep < s)
+    }
+
+    /// `Multisphere::calc_n_steps` (gh:#1415, fourth pass), called by
+    /// `FixInsertStream::finalize_insertion` for each new atom `i`. `None` for
+    /// an atom in no body (the stream then uses its sphere formula). For a
+    /// body with a `start_step` it returns `start_step - step`; otherwise it
+    /// sets `start_step = step + n` and `v_integrate = v_normal`, with
+    /// `n = int(((p_ref - xcm) . normal) / (|v_normal| dt))` (no
+    /// `FIX_INSERT_STREAM_TINY`, unlike the sphere formula), and returns `n`.
+    pub(crate) fn calc_n_steps(
+        &mut self,
+        i: usize,
+        p_ref: &V3,
+        normal: &V3,
+        v_normal: &V3,
+        step: u64,
+    ) -> Option<i64> {
+        let ib = self.body_of(i)?;
+        let dt = self.dt;
+        let b = &mut self.bodies[ib];
+        let timestep = step as i64;
+        if let Some(s) = b.start_step {
+            return Some(s - timestep);
+        }
+        let pos_rel = [p_ref[0] - b.xcm[0], p_ref[1] - b.xcm[1], p_ref[2] - b.xcm[2]];
+        let dist_normal = dot3(&pos_rel, normal);
+        let vmag = (v_normal[0] * v_normal[0] + v_normal[1] * v_normal[1] + v_normal[2] * v_normal[2]).sqrt();
+        // static_cast<int>: truncation toward zero
+        let n_steps = (dist_normal / (vmag * dt)) as i32 as i64;
+        b.start_step = Some(n_steps + timestep);
+        b.v_integrate = *v_normal;
+        Some(n_steps)
+    }
+
+    /// `Multisphere::release` (gh:#1415, fourth pass), called by
+    /// `FixInsertStream::end_of_step` on a member atom `i` at its release
+    /// step: if the body has a `start_step` and `step >= start_step`, it takes
+    /// `vcm = v` and `omega = omega` and its `start_step` is cleared. Its
+    /// angular momentum is **not** changed, as upstream; the atom itself is
+    /// left as it is.
+    pub(crate) fn release(&mut self, i: usize, v: Vec3, omega: Vec3, step: u64) {
+        let Some(ib) = self.body_of(i) else { return };
+        let b = &mut self.bodies[ib];
+        if b.start_step.is_some_and(|s| step as i64 >= s) {
+            b.vcm = v3(v);
+            b.omega = v3(omega);
+            b.start_step = None;
         }
     }
 
@@ -1685,6 +1763,8 @@ impl Multisphere {
             hdtorque: [0.0; 3],
             temp: self.heat_t0.unwrap_or(0.0),
             temp_old: self.heat_t0.unwrap_or(0.0),
+            start_step: None,
+            v_integrate: [0.0; 3],
         });
         for j in 0..c.radius.len() {
             self.body_of.push(Some(n));
@@ -1722,8 +1802,11 @@ impl Multisphere {
         }
     }
 
-    /// `FixMultisphere::initial_integrate` (the body loop; `fflag`/`tflag` on,
-    /// no added mass, no `insert/stream`), then `set_xv`.
+    /// `FixMultisphere::initial_integrate` (the body loop; ~~`fflag`/`tflag` on,~~
+    /// no added mass, ~~no `insert/stream`~~), then `set_xv`. **CORRECTED
+    /// 2026-11-14 (gh:#1415):** the template `fflag`/`tflag` apply, and a body
+    /// on its `insert/stream` rail (`has_stream && step < start_step`) takes
+    /// `vcm = v_integrate` and drifts, with no kick and no rotation.
     pub(crate) fn initial_integrate(&mut self, particles: &mut [Particle]) {
         if !self.integrate {
             return;
@@ -1731,7 +1814,16 @@ impl Multisphere {
         let dtv = self.dt;
         let dtf = 0.5 * self.dt * 1.0;
         let dtq = 0.5 * self.dt;
+        let (has_stream, timestep) = (self.has_stream, self.timestep);
         for b in &mut self.bodies {
+            if Self::on_rail(has_stream, timestep, b) {
+                // `insert/stream`: the body drifts with v_integrate, no kick
+                b.vcm = b.v_integrate;
+                for k in 0..3 {
+                    b.xcm[k] += dtv * b.vcm[k];
+                }
+                continue;
+            }
             let add_mass_term = 1.0 + 0.0 * 0.0 / b.density;
             let dtfm = dtf / (b.mass * add_mass_term);
             for k in 0..3 {
@@ -1844,7 +1936,11 @@ impl Multisphere {
             return;
         }
         let dtf = 0.5 * self.dt * 1.0;
+        let (has_stream, timestep) = (self.has_stream, self.timestep);
         for b in &mut self.bodies {
+            if Self::on_rail(has_stream, timestep, b) {
+                continue;
+            }
             let add_mass_term = 1.0 + 0.0 * 0.0 / b.density;
             let dtfm = dtf / (b.mass * add_mass_term);
             for k in 0..3 {

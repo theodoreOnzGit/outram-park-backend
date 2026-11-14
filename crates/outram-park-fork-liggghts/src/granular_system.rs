@@ -1967,6 +1967,10 @@ impl GranularSystem {
     fn run_insertions(&mut self) {
         let step = self.step_count as u64;
         for k in 0..self.stream_inserters.len() {
+            if self.stream_inserters[k].has_clumps() {
+                self.run_stream_clump_insertion(k, step);
+                continue;
+            }
             let ins = match self.stream_inserters[k].pre_exchange(step, &self.particles) {
                 Ok(v) => v,
                 Err(e) => panic!("fix insert/stream: {e}"),
@@ -1999,30 +2003,7 @@ impl GranularSystem {
                         self.push_inserted_atom(ip.particle, ip.atom_type);
                     }
                     crate::insert::Inserted::Clump(c) => {
-                        // `ParticleToInsertMultisphere::insert`: the member atoms
-                        // first, then `Multisphere::add_body`
-                        let first = self.particles.len();
-                        for p in c.atoms() {
-                            self.push_inserted_atom(p, c.atom_type());
-                        }
-                        let dt = self.dt;
-                        let noint = self.ms_nointegration;
-                        // `FixMultisphere::init` finds `fix heat/gran`; its
-                        // T0 is the port's inserted-atom temperature
-                        let heat = self.heat.is_some();
-                        self.multisphere
-                            .get_or_insert_with(|| {
-                                let mut ms = crate::multisphere::Multisphere::new(dt);
-                                if heat {
-                                    ms = ms.with_heat_transfer(crate::multisphere::INSERTED_TEMPERATURE);
-                                }
-                                if noint {
-                                    ms.without_integration()
-                                } else {
-                                    ms
-                                }
-                            })
-                            .add_body(&c, first);
+                        self.insert_clump(&c);
                         clumps_added = true;
                     }
                 }
@@ -2033,6 +2014,68 @@ impl GranularSystem {
                     ms.add_body_finalize(&mut self.particles);
                 }
             }
+        }
+    }
+
+    /// `ParticleToInsertMultisphere::insert`: the member atoms first, then
+    /// `Multisphere::add_body` (creating the clump fix on the first clump).
+    fn insert_clump(&mut self, c: &crate::multisphere::ClumpToInsert) {
+        let first = self.particles.len();
+        for p in c.atoms() {
+            self.push_inserted_atom(p, c.atom_type());
+        }
+        let dt = self.dt;
+        let noint = self.ms_nointegration;
+        // `FixMultisphere::init` finds `fix heat/gran`; its
+        // T0 is the port's inserted-atom temperature
+        let heat = self.heat.is_some();
+        self.multisphere
+            .get_or_insert_with(|| {
+                let mut ms = crate::multisphere::Multisphere::new(dt);
+                if heat {
+                    ms = ms.with_heat_transfer(crate::multisphere::INSERTED_TEMPERATURE);
+                }
+                if noint {
+                    ms.without_integration()
+                } else {
+                    ms
+                }
+            })
+            .add_body(c, first);
+    }
+
+    /// `FixInsert::pre_exchange` of `fix insert/stream` with clumps (gh:#1415,
+    /// fourth pass): `x_v_omega`, the clumps' insertion (atoms, `add_body`),
+    /// the template's `finalize_insertion` (`add_body_finalize`), then
+    /// `FixInsertStream::finalize_insertion`: per new atom,
+    /// `Multisphere::calc_n_steps` and the release data.
+    fn run_stream_clump_insertion(&mut self, k: usize, step: u64) {
+        let clumps = match self.stream_inserters[k].pre_exchange_clumps(step, &self.particles) {
+            Ok(v) => v,
+            Err(e) => panic!("fix insert/stream: {e}"),
+        };
+        if clumps.is_empty() {
+            return;
+        }
+        let ilo = self.particles.len();
+        for c in &clumps {
+            self.insert_clump(c);
+        }
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.add_body_finalize(&mut self.particles);
+        }
+        let (p_ref, normal, v_normal) = self.stream_inserters[k].stream_geometry();
+        for i in ilo..self.particles.len() {
+            let n_steps = match self.multisphere.as_mut() {
+                Some(ms) => ms.calc_n_steps(i, &p_ref, &normal, &v_normal, step),
+                None => None,
+            };
+            let Some(n_steps) = n_steps else {
+                panic!("fix insert/stream: a streamed clump atom is in no body");
+            };
+            let x = self.particles[i].position;
+            let rel = self.stream_inserters[k].clump_release(x, step, n_steps);
+            self.stream_release.insert(self.tags[i], rel);
         }
     }
 
@@ -2488,7 +2531,9 @@ impl GranularSystem {
             .initial_integrate(&mut self.particles, &f, &t);
         // `FixMultisphere::initial_integrate`: the bodies move and `set_xv`
         // overwrites their member atoms' x, v, omega (gh:#1415)
+        let has_stream = !self.stream_inserters.is_empty();
         if let Some(ms) = self.multisphere.as_mut() {
+            ms.set_stream_step(has_stream, self.step_count as u64);
             ms.initial_integrate(&mut self.particles);
         }
         // Walls drift with the particles (upstream advances mesh nodes in the
@@ -2628,8 +2673,16 @@ impl GranularSystem {
             let Some(rel) = self.stream_release.get(&tag) else {
                 continue;
             };
+            let member = self.multisphere.as_ref().is_some_and(|ms| ms.body_of(i).is_some());
             match crate::insert_stream::end_of_step_state(rel, step, self.dt) {
                 None => finished.push(tag),
+                Some((_, v, w, true)) if member => {
+                    // `fix_multisphere->release`: the body takes the release
+                    // velocity; the atom is left as it is (gh:#1415)
+                    if let Some(ms) = self.multisphere.as_mut() {
+                        ms.release(i, v, w, step);
+                    }
+                }
                 Some((x, v, w, _released)) => {
                     self.particles[i].position = x;
                     self.particles[i].velocity = v;

@@ -1342,3 +1342,79 @@ fn ms_heat_matches_liggghts() {
         assert!(a[3..].iter().all(|(_, v)| v[9].to_bits() == a[3].1[9].to_bits()));
     }
 }
+
+/// The `in.ms_stream` system: both templates (mass-based 60/40) from
+/// `insert/stream` through `ms_stream_face.stl`, `vel constant 0.1 0 -0.5`,
+/// `extrude_length 0.03`, 6 clumps at 50/s; lost atoms on (clump 1 leaves
+/// through `+x` between steps 19000 and 20000).
+fn stream_system() -> GranularSystem {
+    use outram_park_fork_liggghts::insert::{Rate, RateTotal};
+    use outram_park_fork_liggghts::insert_stream::{InsertStreamFix, StreamExtent};
+    use outram_park_fork_liggghts::mesh_wall::MeshWall;
+    let material = GranularMaterial::new(1.0e7, 0.3, 0.5, 0.4).unwrap();
+    let boundaries = vec![Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap()];
+    let mut sys = GranularSystem::new(
+        Vec::new(),
+        boundaries,
+        GranularContactModel::hertz_history(material),
+        Vec3::new(0.0, 0.0, -9.81),
+        1e-5,
+    )
+    .unwrap();
+    let face = MeshWall::from_ascii_stl(&read("ms_stream_face.stl").unwrap()).unwrap();
+    let dist = ParticleDistributionDiscrete::new_multisphere(15485867, true, vec![(clump1(), 0.6), (clump2(), 0.4)])
+        .unwrap();
+    let fix = InsertStreamFix::new(
+        32452843,
+        dist,
+        &face,
+        StreamExtent::ExtrudeLength(0.03),
+        Some(RateTotal::Particles(6)),
+        Rate::Particles(50.0),
+        outram_park_fork_liggghts::insert::InsertVelocity::Constant(Vec3::new(0.1, 0.0, -0.5)),
+        1e-5,
+        BOX_LO,
+        BOX_HI,
+    )
+    .unwrap();
+    sys.add_stream_insertion(fix);
+    let mut cfg = LiggghtsNeighbor::new(BOX_LO, BOX_HI, 0.002).unwrap();
+    cfg.sort_every = 0;
+    sys.with_liggghts_neighbor_order(cfg).with_lost_atoms().unwrap()
+}
+
+/// **Clumps from `insert/stream`** (`in.ms_stream`, gh:#1415 fourth pass):
+/// every atom at 13 frames (1, 2, 1000, 3000, 5000, 6000, 6001, 6002, 8000,
+/// 10000, 12000, 15000, 20000), matched by id, on bit patterns.
+///
+/// Upstream: each clump is placed with `v_normal` and no spin; its body gets
+/// `start_step = step + int(((p_ref - xcm) . n) / (|v_normal| dt))`
+/// (`Multisphere::calc_n_steps`, no `TINY`) and drifts with `v_integrate`
+/// without kicks or rotation (`FixMultisphere::initial_integrate`), while
+/// `FixInsertStream::end_of_step` puts its atoms on their rails; at the
+/// release step `Multisphere::release` gives the body `vcm = (0.1, 0, -0.5)`.
+/// Three clumps are inserted at step 1 and three at step 6001; clump 1 leaves
+/// the box between steps 19000 and 20000 (the lost-atom path).
+///
+/// **Prediction (gh:#1415, 2026-11-14, before the run):** every atom-frame
+/// bit-identical; ignoring the release must fail.
+///
+/// **Result (2026-11-14, Rust 1.99.1, LIGGGHTS-PUBLIC 3d5c00f2):** **217/217**
+/// atom-frames bit-identical on the first port run. **Ablations** (run by
+/// editing the call out, then restored): without `Multisphere::release`,
+/// 95/198 to step 15000 and then a different atom count at 20000; without
+/// the rail (`has_stream` off), 95/217. Both first miss at step 5000, after
+/// the first release: before it the dumped atoms are on their rails whatever
+/// the body does.
+#[test]
+fn ms_stream_matches_liggghts() {
+    if read("ms_stream.csv").is_none() {
+        eprintln!("skipping: reference-data/liggghts/ms_stream.csv not present");
+        return;
+    }
+    let frames = [1, 2, 1000, 3000, 5000, 6000, 6001, 6002, 8000, 10000, 12000, 15000, 20000];
+    let mut sys = stream_system();
+    let (total, same, worst) = compare_by_tag("ms_stream", &mut sys, &frames).expect("ms_stream.csv");
+    println!("ms_stream: {same}/{total} atom-frames bit-identical, worst rel {worst:.3e}");
+    assert_eq!(same, total, "ms_stream: not bit-identical (worst relative {worst:e})");
+}

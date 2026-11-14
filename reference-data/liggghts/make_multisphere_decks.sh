@@ -277,3 +277,19 @@ dump_modify	d1 sort id
 run		14999
 EOF
 } > in.ms_heat
+# ms_stream: both templates (mass-based 60/40) from `insert/stream` through
+# ms_stream_face.stl (0.04 m square at z = 0.10; copy it into the run
+# directory), `vel constant 0.1 0. -0.5`, extrude_length 0.03 (insert_every
+# 6000). Each body rides its rail (FixMultisphere::initial_integrate with
+# start_step, FixInsertStream::end_of_step on its atoms) until its release
+# step, when Multisphere::release gives it vcm = (0.1, 0, -0.5).
+{ header; echo "$PTS1"; echo "$PTS2"; cat <<'EOF'
+fix		face all mesh/surface file ms_stream_face.stl type 1
+fix		pdd1 all particledistribution/discrete 15485867 2 pts1 0.6 pts2 0.4
+fix		ins all insert/stream seed 32452843 distributiontemplate pdd1 nparticles 6 particlerate 50 overlapcheck yes vel constant 0.1 0. -0.5 insertion_face face extrude_length 0.03
+fix		ms all multisphere
+thermo_style	custom step atoms
+thermo		1000
+thermo_modify	lost ignore norm no
+EOF
+frames 1 2 1000 3000 5000 6000 6001 6002 8000 10000 12000 15000 20000; } > in.ms_stream
