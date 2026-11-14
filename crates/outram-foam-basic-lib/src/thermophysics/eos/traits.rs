@@ -51,6 +51,17 @@ pub trait EquationOfState {
     /// EOS contribution to Cp  `[J/(kg·K)]`.  Zero for perfect/incompressible gas.
     fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
 
+    /// EOS contribution to Cv  `[J/(kg·K)]` (upstream `EquationOfState::Cv`).
+    ///
+    /// Default: `Cp_eos - (CpMCv - R)`, i.e. the Cp departure less the real-gas
+    /// part of `Cp - Cv` (upstream: ideal gas `Cp - Cv = R` is not in either
+    /// departure). Exact for `perfectGas` and `PengRobinson`; the liquid-like
+    /// equations of state, whose `CpMCv` carries no `R`, override it.
+    /// Added for gh:#1378 (`eConstThermo`).
+    fn cv_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.cp_eos(p, t) - (self.cp_m_cv(p, t) - self.r())
+    }
+
     /// Enthalpy departure from ideal gas  `[J/kg]`.
     fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy;
 

@@ -31,7 +31,12 @@ use outram_foam_turbulence_lib::des::KOmegaSstDes;
 use outram_foam_turbulence_lib::k_epsilon::KEpsilon;
 use outram_foam_turbulence_lib::k_omega::KOmega;
 use outram_foam_turbulence_lib::k_omega_sst::KOmegaSST;
+use outram_foam_turbulence_lib::k_omega_sst_lm::KOmegaSstLm;
 use outram_foam_turbulence_lib::launder_sharma_ke::LaunderSharmaKe;
+use outram_foam_turbulence_lib::les::deltas::{
+    iddes_delta, max_delta_xyz, nearest_wall_face, van_driest_delta, van_driest_ystar_faces,
+    van_driest_yplus, wall_faces,
+};
 use outram_foam_turbulence_lib::les::k_eqn::KEqn;
 use outram_foam_turbulence_lib::les::wale::Wale;
 use outram_foam_turbulence_lib::realizable_ke::RealizableKE;
@@ -1481,4 +1486,600 @@ const PINS_LES_FILTERS: &[(&str, usize)] = &[
     ("aniso F_aniso_Dsym faces", 2232),
     ("aniso F_aniso_gradU cells", 3240),
     ("aniso F_aniso_gradU faces", 3348),
+];
+
+// ── gh:#1544 slice 7: dynamicKEqn terms against the real ESI model ───────────────────
+
+use outram_foam_turbulence_lib::les::dynamic_k_eqn::DynamicKEqn;
+
+const REF_DYN_SIMPLE: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicKEqn_simple.txt.gz"
+);
+const REF_DYN_LAPLACE: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicKEqn_laplace.txt.gz"
+);
+const REF_DYN_ANISO: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicKEqn_anisotropic.txt.gz"
+);
+
+fn dyn_filter(kind: &str, mesh: &Arc<FvMesh>) -> LesFilter {
+    match kind {
+        "simple" => LesFilter::Simple,
+        "laplace" => LesFilter::Laplace(LaplaceFilter::new(mesh.clone(), 2.0)),
+        _ => LesFilter::Anisotropic(AnisotropicFilter::new(mesh.clone(), 2.0)),
+    }
+}
+
+/// The model on the dumped state: `k`, `nut` (with boundary, as `validate()` left it), `nu`, `U`.
+fn dyn_model(r: &Ref, mesh: &Arc<FvMesh>, kind: &str) -> DynamicKEqn {
+    let mut m = DynamicKEqn::new(mesh.clone(), dyn_filter(kind, mesh));
+    m.k = r.zg(mesh, "k", "k");
+    m.nu_t = ref_field(r, mesh, "nutpre", Some("nutpre_b"), false);
+    m.nu = ref_field(r, mesh, "nu_f", Some("nu_f_b"), false);
+    m.u = ref_field(r, mesh, "U", Some("Ub"), false);
+    m
+}
+
+fn dyn_state(r: &Ref, own_delta: bool) -> FrozenState {
+    FrozenState {
+        grad_u: r.t("gradU"),
+        div_u: r.s("divU"),
+        cell_length: if own_delta { None } else { Some(r.s("T_delta")) },
+        ..FrozenState::default()
+    }
+}
+
+fn dyn_rows(label: &str, gz: &[u8], kind: &str) -> Rows {
+    let r = parse(gz);
+    check_audits(&r, 4);
+    let mesh = r.mesh();
+    let m = dyn_model(&r, &mesh, kind);
+    let grad_faces: Vec<Tensor> = r.cols["gradU_b"].iter().map(|v| Tensor::make(v)).collect();
+    let st = dyn_state(&r, false);
+    let t = m.terms(&st, &grad_faces);
+    let mut rows = Rows::new();
+    rows.extend(compare_filtered(label, &r, &t.d_symm, "T_D_symm"));
+    rows.extend(compare_filtered(label, &r, &t.d_dev, "T_D_dev"));
+    rows.extend(compare_filtered(label, &r, &t.kk_nut, "T_KK_nut"));
+    rows.extend(compare_filtered(label, &r, &t.kk, "T_KK"));
+    rows.extend(compare_filtered(label, &r, &t.ll, "T_LL"));
+    rows.extend(compare_filtered(label, &r, &t.mm_symm, "T_MM_symm"));
+    rows.extend(compare_filtered(label, &r, &t.mm_dev, "T_MM_dev"));
+    // the REAL protected Ck and Ce of the model object (cells)
+    let cells = |f: &VolScalarField| -> Vec<f64> { f.internal.iter().cloned().collect() };
+    for (name, key, vals) in [
+        ("Ck_symm vs real Ck", "R_Ck_symm", cells(&t.ck_symm)),
+        ("Ck_dev vs real Ck", "R_Ck_dev", cells(&t.ck_dev)),
+        ("Ce vs real Ce", "R_Ce", cells(&t.ce)),
+        ("Ck_symm vs transcription", "T_Ck_symm", cells(&t.ck_symm)),
+        ("Ck_dev vs transcription", "T_Ck_dev", cells(&t.ck_dev)),
+        ("Ce vs transcription", "T_Ce", cells(&t.ce)),
+        ("nut after validate() vs real nut", "nut_real", t.nut_validate.clone()),
+        ("nut after correct() vs real nut", "nut_after", t.nut_after.clone()),
+    ] {
+        let l = format!("{label} {name}");
+        let s = cmp(&l, &vals, &r.s(key));
+        rows.push((l, s));
+    }
+    // the other D: the dev form against the validate()-time nut (prediction 5: they differ)
+    let l = format!("{label} nut(devSymm form) vs nut after validate()");
+    let s = cmp(&l, &t.nut_after, &r.s("nut_real"));
+    rows.push((l, s));
+    let terms = m.source_terms(&st, &grad_faces);
+    for (term, key) in [("G", "T_G"), ("k_SuSp", "T_k_SuSp"), ("k_Sp", "T_k_Sp")] {
+        let l = format!("{label} {term}");
+        let s = cmp(&l, terms.get(term).unwrap(), &r.s(key));
+        rows.push((l, s));
+    }
+    check_registered(&r, "reg_k_dynamicKEqn_G", "T_G");
+    // prediction 6: the port's own gradient boundary (extrapolated to the owner cell)
+    let owner_faces: Vec<Tensor> = mesh
+        .patches
+        .iter()
+        .flat_map(|p| (p.start..p.start + p.size).map(|f| st.grad_u[mesh.owner[f]]))
+        .collect();
+    let te = m.terms(&st, &owner_faces);
+    let l = format!("{label} Ck_dev with EXTRAPOLATED grad(U) boundary vs real Ck");
+    let s = cmp(&l, &cells(&te.ck_dev), &r.s("R_Ck_dev"));
+    rows.push((l, s));
+    // every row is bit-identical except the two negative controls (the wrong `D` and the
+    // extrapolated gradient boundary), which are expected to differ and are pinned below
+    for (l, st) in &rows {
+        if !l.contains("EXTRAPOLATED") && !l.contains("devSymm form") {
+            assert_eq!(st.identical, st.n, "{l}");
+        }
+    }
+    rows
+}
+
+#[test]
+fn dynamic_k_eqn_simple_vs_openfoam() {
+    let rows = dyn_rows("dynamicKEqn[simple]", REF_DYN_SIMPLE, "simple");
+    pin(&rows, PINS_DYN_SIMPLE);
+}
+
+#[test]
+fn dynamic_k_eqn_laplace_vs_openfoam() {
+    let rows = dyn_rows("dynamicKEqn[laplace]", REF_DYN_LAPLACE, "laplace");
+    pin(&rows, PINS_DYN_LAPLACE);
+}
+
+#[test]
+fn dynamic_k_eqn_anisotropic_vs_openfoam() {
+    let rows = dyn_rows("dynamicKEqn[aniso]", REF_DYN_ANISO, "anisotropic");
+    pin(&rows, PINS_DYN_ANISO);
+}
+
+const PINS_DYN_SIMPLE: &[(&str, usize)] = &[
+    ("dynamicKEqn[simple] T_D_symm cells", 2160),
+    ("dynamicKEqn[simple] T_D_symm faces", 2232),
+    ("dynamicKEqn[simple] T_D_dev cells", 2160),
+    ("dynamicKEqn[simple] T_D_dev faces", 2232),
+    ("dynamicKEqn[simple] T_KK_nut cells", 360),
+    ("dynamicKEqn[simple] T_KK_nut faces", 372),
+    ("dynamicKEqn[simple] T_KK cells", 360),
+    ("dynamicKEqn[simple] T_KK faces", 372),
+    ("dynamicKEqn[simple] T_LL cells", 2160),
+    ("dynamicKEqn[simple] T_LL faces", 2232),
+    ("dynamicKEqn[simple] T_MM_symm cells", 2160),
+    ("dynamicKEqn[simple] T_MM_symm faces", 2232),
+    ("dynamicKEqn[simple] T_MM_dev cells", 2160),
+    ("dynamicKEqn[simple] T_MM_dev faces", 2232),
+    ("dynamicKEqn[simple] Ck_symm vs real Ck", 360),
+    ("dynamicKEqn[simple] Ck_dev vs real Ck", 360),
+    ("dynamicKEqn[simple] Ce vs real Ce", 360),
+    ("dynamicKEqn[simple] Ck_symm vs transcription", 360),
+    ("dynamicKEqn[simple] Ck_dev vs transcription", 360),
+    ("dynamicKEqn[simple] Ce vs transcription", 360),
+    ("dynamicKEqn[simple] nut after validate() vs real nut", 360),
+    ("dynamicKEqn[simple] nut after correct() vs real nut", 360),
+    ("dynamicKEqn[simple] nut(devSymm form) vs nut after validate()", 280),
+    ("dynamicKEqn[simple] G", 360),
+    ("dynamicKEqn[simple] k_SuSp", 360),
+    ("dynamicKEqn[simple] k_Sp", 360),
+    ("dynamicKEqn[simple] Ck_dev with EXTRAPOLATED grad(U) boundary vs real Ck", 280),
+];
+const PINS_DYN_LAPLACE: &[(&str, usize)] = &[
+    ("dynamicKEqn[laplace] T_D_symm cells", 2160),
+    ("dynamicKEqn[laplace] T_D_symm faces", 2232),
+    ("dynamicKEqn[laplace] T_D_dev cells", 2160),
+    ("dynamicKEqn[laplace] T_D_dev faces", 2232),
+    ("dynamicKEqn[laplace] T_KK_nut cells", 360),
+    ("dynamicKEqn[laplace] T_KK_nut faces", 372),
+    ("dynamicKEqn[laplace] T_KK cells", 360),
+    ("dynamicKEqn[laplace] T_KK faces", 372),
+    ("dynamicKEqn[laplace] T_LL cells", 2160),
+    ("dynamicKEqn[laplace] T_LL faces", 2232),
+    ("dynamicKEqn[laplace] T_MM_symm cells", 2160),
+    ("dynamicKEqn[laplace] T_MM_symm faces", 2232),
+    ("dynamicKEqn[laplace] T_MM_dev cells", 2160),
+    ("dynamicKEqn[laplace] T_MM_dev faces", 2232),
+    ("dynamicKEqn[laplace] Ck_symm vs real Ck", 360),
+    ("dynamicKEqn[laplace] Ck_dev vs real Ck", 360),
+    ("dynamicKEqn[laplace] Ce vs real Ce", 360),
+    ("dynamicKEqn[laplace] Ck_symm vs transcription", 360),
+    ("dynamicKEqn[laplace] Ck_dev vs transcription", 360),
+    ("dynamicKEqn[laplace] Ce vs transcription", 360),
+    ("dynamicKEqn[laplace] nut after validate() vs real nut", 360),
+    ("dynamicKEqn[laplace] nut after correct() vs real nut", 360),
+    ("dynamicKEqn[laplace] nut(devSymm form) vs nut after validate()", 248),
+    ("dynamicKEqn[laplace] G", 360),
+    ("dynamicKEqn[laplace] k_SuSp", 360),
+    ("dynamicKEqn[laplace] k_Sp", 360),
+    ("dynamicKEqn[laplace] Ck_dev with EXTRAPOLATED grad(U) boundary vs real Ck", 360),
+];
+const PINS_DYN_ANISO: &[(&str, usize)] = &[
+    ("dynamicKEqn[aniso] T_D_symm cells", 2160),
+    ("dynamicKEqn[aniso] T_D_symm faces", 2232),
+    ("dynamicKEqn[aniso] T_D_dev cells", 2160),
+    ("dynamicKEqn[aniso] T_D_dev faces", 2232),
+    ("dynamicKEqn[aniso] T_KK_nut cells", 360),
+    ("dynamicKEqn[aniso] T_KK_nut faces", 372),
+    ("dynamicKEqn[aniso] T_KK cells", 360),
+    ("dynamicKEqn[aniso] T_KK faces", 372),
+    ("dynamicKEqn[aniso] T_LL cells", 2160),
+    ("dynamicKEqn[aniso] T_LL faces", 2232),
+    ("dynamicKEqn[aniso] T_MM_symm cells", 2160),
+    ("dynamicKEqn[aniso] T_MM_symm faces", 2232),
+    ("dynamicKEqn[aniso] T_MM_dev cells", 2160),
+    ("dynamicKEqn[aniso] T_MM_dev faces", 2232),
+    ("dynamicKEqn[aniso] Ck_symm vs real Ck", 360),
+    ("dynamicKEqn[aniso] Ck_dev vs real Ck", 360),
+    ("dynamicKEqn[aniso] Ce vs real Ce", 360),
+    ("dynamicKEqn[aniso] Ck_symm vs transcription", 360),
+    ("dynamicKEqn[aniso] Ck_dev vs transcription", 360),
+    ("dynamicKEqn[aniso] Ce vs transcription", 360),
+    ("dynamicKEqn[aniso] nut after validate() vs real nut", 360),
+    ("dynamicKEqn[aniso] nut after correct() vs real nut", 360),
+    ("dynamicKEqn[aniso] nut(devSymm form) vs nut after validate()", 203),
+    ("dynamicKEqn[aniso] G", 360),
+    ("dynamicKEqn[aniso] k_SuSp", 360),
+    ("dynamicKEqn[aniso] k_Sp", 360),
+    ("dynamicKEqn[aniso] Ck_dev with EXTRAPOLATED grad(U) boundary vs real Ck", 203),
+];
+
+// ── gh:#1544 slice 7: dynamicLagrangian terms against the real ESI model ─────────────
+
+use outram_foam_basic_lib::fv_operators::fvc::grad_vec_corrected;
+use outram_foam_turbulence_lib::les::dynamic_lagrangian::DynamicLagrangian;
+
+const REF_LAG_SIMPLE: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicLagrangian_simple.txt.gz"
+);
+const REF_LAG_LAPLACE: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicLagrangian_laplace.txt.gz"
+);
+const REF_LAG_ANISO: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_dynamicLagrangian_anisotropic.txt.gz"
+);
+
+fn lag_rows(label: &str, gz: &[u8], kind: &str) -> Rows {
+    let r = parse(gz);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = DynamicLagrangian::new(mesh.clone(), dyn_filter(kind, &mesh));
+    m.flm = ref_field(&r, &mesh, "T_flm", None, false);
+    m.fmm = ref_field(&r, &mesh, "T_fmm", None, false);
+    m.u = ref_field(&r, &mesh, "U", Some("Ub"), false);
+    let mut rows = Rows::new();
+    // the port's own Gauss gradient WITH upstream's boundary correction, against the real one
+    let g = grad_vec_corrected(&m.u);
+    rows.extend(compare_filtered(label, &r, &g, "gradU"));
+    let t = m.terms(&Some(r.s("T_delta")));
+    rows.extend(compare_filtered(label, &r, &t.s, "T_S"));
+    rows.extend(compare_filtered(label, &r, &t.mag_s, "T_magS"));
+    rows.extend(compare_filtered(label, &r, &t.uf, "T_Uf"));
+    rows.extend(compare_filtered(label, &r, &t.sf, "T_Sf"));
+    rows.extend(compare_filtered(label, &r, &t.mag_sf, "T_magSf"));
+    rows.extend(compare_filtered(label, &r, &t.l, "T_L"));
+    rows.extend(compare_filtered(label, &r, &t.m, "T_M"));
+    rows.extend(compare_filtered(label, &r, &t.inv_t, "T_invT"));
+    rows.extend(compare_filtered(label, &r, &t.lm, "T_LM"));
+    rows.extend(compare_filtered(label, &r, &t.mm, "T_MM"));
+    for (name, key) in [("nut vs transcription", "T_nut"), ("nut vs real nut after validate()", "nut_real"),
+                        ("nut vs real nut after correct()", "nut_after")] {
+        let l = format!("{label} {name}");
+        let s = cmp(&l, &t.nut, &r.s(key));
+        rows.push((l, s));
+    }
+    // PETIR cbrt against the upstream `pow(V, 1/3)` delta: separate row, libm only
+    let own = m.terms(&None);
+    let l = format!("{label} nut with the port's own cbrt delta vs real nut");
+    let s = cmp(&l, &own.nut, &r.s("nut_after"));
+    rows.push((l, s));
+    for (l, st) in &rows {
+        if !l.contains("own cbrt") {
+            assert_eq!(st.identical, st.n, "{l}");
+        }
+    }
+    rows
+}
+
+#[test]
+fn dynamic_lagrangian_simple_vs_openfoam() {
+    let rows = lag_rows("dynamicLagrangian[simple]", REF_LAG_SIMPLE, "simple");
+    pin(&rows, PINS_LAG_SIMPLE);
+}
+
+#[test]
+fn dynamic_lagrangian_laplace_vs_openfoam() {
+    let rows = lag_rows("dynamicLagrangian[laplace]", REF_LAG_LAPLACE, "laplace");
+    pin(&rows, PINS_LAG_LAPLACE);
+}
+
+#[test]
+fn dynamic_lagrangian_anisotropic_vs_openfoam() {
+    let rows = lag_rows("dynamicLagrangian[aniso]", REF_LAG_ANISO, "anisotropic");
+    pin(&rows, PINS_LAG_ANISO);
+}
+
+const PINS_LAG_SIMPLE: &[(&str, usize)] = &[
+    ("dynamicLagrangian[simple] gradU cells", 3240),
+    ("dynamicLagrangian[simple] gradU faces", 3348),
+    ("dynamicLagrangian[simple] T_S cells", 2160),
+    ("dynamicLagrangian[simple] T_S faces", 2232),
+    ("dynamicLagrangian[simple] T_magS cells", 360),
+    ("dynamicLagrangian[simple] T_magS faces", 372),
+    ("dynamicLagrangian[simple] T_Uf cells", 1080),
+    ("dynamicLagrangian[simple] T_Uf faces", 1116),
+    ("dynamicLagrangian[simple] T_Sf cells", 2160),
+    ("dynamicLagrangian[simple] T_Sf faces", 2232),
+    ("dynamicLagrangian[simple] T_magSf cells", 360),
+    ("dynamicLagrangian[simple] T_magSf faces", 372),
+    ("dynamicLagrangian[simple] T_L cells", 2160),
+    ("dynamicLagrangian[simple] T_L faces", 2232),
+    ("dynamicLagrangian[simple] T_M cells", 2160),
+    ("dynamicLagrangian[simple] T_M faces", 2232),
+    ("dynamicLagrangian[simple] T_invT cells", 360),
+    ("dynamicLagrangian[simple] T_invT faces", 372),
+    ("dynamicLagrangian[simple] T_LM cells", 360),
+    ("dynamicLagrangian[simple] T_LM faces", 372),
+    ("dynamicLagrangian[simple] T_MM cells", 360),
+    ("dynamicLagrangian[simple] T_MM faces", 372),
+    ("dynamicLagrangian[simple] nut vs transcription", 360),
+    ("dynamicLagrangian[simple] nut vs real nut after validate()", 360),
+    ("dynamicLagrangian[simple] nut vs real nut after correct()", 360),
+    ("dynamicLagrangian[simple] nut with the port's own cbrt delta vs real nut", 157),
+];
+const PINS_LAG_LAPLACE: &[(&str, usize)] = &[
+    ("dynamicLagrangian[laplace] gradU cells", 3240),
+    ("dynamicLagrangian[laplace] gradU faces", 3348),
+    ("dynamicLagrangian[laplace] T_S cells", 2160),
+    ("dynamicLagrangian[laplace] T_S faces", 2232),
+    ("dynamicLagrangian[laplace] T_magS cells", 360),
+    ("dynamicLagrangian[laplace] T_magS faces", 372),
+    ("dynamicLagrangian[laplace] T_Uf cells", 1080),
+    ("dynamicLagrangian[laplace] T_Uf faces", 1116),
+    ("dynamicLagrangian[laplace] T_Sf cells", 2160),
+    ("dynamicLagrangian[laplace] T_Sf faces", 2232),
+    ("dynamicLagrangian[laplace] T_magSf cells", 360),
+    ("dynamicLagrangian[laplace] T_magSf faces", 372),
+    ("dynamicLagrangian[laplace] T_L cells", 2160),
+    ("dynamicLagrangian[laplace] T_L faces", 2232),
+    ("dynamicLagrangian[laplace] T_M cells", 2160),
+    ("dynamicLagrangian[laplace] T_M faces", 2232),
+    ("dynamicLagrangian[laplace] T_invT cells", 360),
+    ("dynamicLagrangian[laplace] T_invT faces", 372),
+    ("dynamicLagrangian[laplace] T_LM cells", 360),
+    ("dynamicLagrangian[laplace] T_LM faces", 372),
+    ("dynamicLagrangian[laplace] T_MM cells", 360),
+    ("dynamicLagrangian[laplace] T_MM faces", 372),
+    ("dynamicLagrangian[laplace] nut vs transcription", 360),
+    ("dynamicLagrangian[laplace] nut vs real nut after validate()", 360),
+    ("dynamicLagrangian[laplace] nut vs real nut after correct()", 360),
+    ("dynamicLagrangian[laplace] nut with the port's own cbrt delta vs real nut", 157),
+];
+const PINS_LAG_ANISO: &[(&str, usize)] = &[
+    ("dynamicLagrangian[aniso] gradU cells", 3240),
+    ("dynamicLagrangian[aniso] gradU faces", 3348),
+    ("dynamicLagrangian[aniso] T_S cells", 2160),
+    ("dynamicLagrangian[aniso] T_S faces", 2232),
+    ("dynamicLagrangian[aniso] T_magS cells", 360),
+    ("dynamicLagrangian[aniso] T_magS faces", 372),
+    ("dynamicLagrangian[aniso] T_Uf cells", 1080),
+    ("dynamicLagrangian[aniso] T_Uf faces", 1116),
+    ("dynamicLagrangian[aniso] T_Sf cells", 2160),
+    ("dynamicLagrangian[aniso] T_Sf faces", 2232),
+    ("dynamicLagrangian[aniso] T_magSf cells", 360),
+    ("dynamicLagrangian[aniso] T_magSf faces", 372),
+    ("dynamicLagrangian[aniso] T_L cells", 2160),
+    ("dynamicLagrangian[aniso] T_L faces", 2232),
+    ("dynamicLagrangian[aniso] T_M cells", 2160),
+    ("dynamicLagrangian[aniso] T_M faces", 2232),
+    ("dynamicLagrangian[aniso] T_invT cells", 360),
+    ("dynamicLagrangian[aniso] T_invT faces", 372),
+    ("dynamicLagrangian[aniso] T_LM cells", 360),
+    ("dynamicLagrangian[aniso] T_LM faces", 372),
+    ("dynamicLagrangian[aniso] T_MM cells", 360),
+    ("dynamicLagrangian[aniso] T_MM faces", 372),
+    ("dynamicLagrangian[aniso] nut vs transcription", 360),
+    ("dynamicLagrangian[aniso] nut vs real nut after validate()", 360),
+    ("dynamicLagrangian[aniso] nut vs real nut after correct()", 360),
+    ("dynamicLagrangian[aniso] nut with the port's own cbrt delta vs real nut", 157),
+];
+
+// ── kOmegaSSTLM (gh:#1544, README slice 8) ─────────────────────────────────
+
+const REF_SST_LM: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_kOmegaSSTLM.txt.gz"
+);
+
+/// `kOmegaSSTLM` on the frozen duct with its own transition-relevant fields (README slice 8),
+/// ESI `y` and upstream gradients fed in. 16 audit parts (omega, k, ReThetat, gammaInt matrices).
+#[test]
+fn k_omega_sst_lm_vs_openfoam() {
+    let r = parse(REF_SST_LM);
+    check_audits(&r, 16);
+    let mesh = r.mesh();
+    let mut m = KOmegaSstLm::new(mesh.clone());
+    m.sst.k = r.zg(&mesh, "k", "k");
+    m.sst.omega = r.zg(&mesh, "omega", "omega");
+    m.sst.nu = r.zg(&mesh, "nu", "nu");
+    m.sst.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.sst.u = r.velocity(&mesh);
+    m.sst.phi = r.flux(&mesh);
+    m.re_thetat = r.s("ReThetat");
+    m.gamma_int = r.s("gammaInt");
+    m.gamma_int_eff = r.s("gammaIntEff_in");
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_S2", "S2"),
+        ("T_CDkOmega", "CDkOmega"),
+        ("T_F1sst", "F1sst"),
+        ("T_F3", "F3"),
+        ("T_F1", "F1"),
+        ("T_F23", "F23"),
+        ("T_GbyNu0", "GbyNu0"),
+        ("T_G", "G"),
+        ("T_gamma", "gamma"),
+        ("T_beta", "beta"),
+        ("T_GbyNu", "GbyNu"),
+        ("T_PkSst", "PkSst"),
+        ("T_Pk", "Pk"),
+        ("T_omega_E", "omega_E"),
+        ("T_omega_SuSp1", "omega_SuSp1"),
+        ("T_omega_Sp", "omega_Sp"),
+        ("T_omega_SuSp2", "omega_SuSp2"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+        ("T_Omega", "Omega"),
+        ("T_S", "S"),
+        ("T_Us", "Us"),
+        ("T_dUsds", "dUsds"),
+        ("T_delta", "delta"),
+        ("T_Fwake", "Fwake"),
+        ("T_Fthetat", "Fthetat"),
+        ("T_ReThetac", "ReThetac"),
+        ("T_Flength", "Flength"),
+        ("T_ReThetat0", "ReThetat0"),
+        ("T_lambdaIters", "lambdaIters"),
+        ("T_Pthetat", "Pthetat"),
+        ("T_ReThetat_E", "ReThetat_E"),
+        ("T_Rev", "Rev"),
+        ("T_RT", "RT"),
+        ("T_Fonset", "Fonset"),
+        ("T_Pgamma", "Pgamma"),
+        ("T_Fturb", "Fturb"),
+        ("T_Egamma", "Egamma"),
+        ("T_Freattach", "Freattach"),
+        ("T_gammaSep", "gammaSep"),
+        ("T_gammaIntEff", "gammaIntEff"),
+        ("gammaIntEff_real", "gammaIntEff"),
+    ];
+    let rows = compare("kOmegaSSTLM (esi y)", &r, &m.source_terms(&r.state(true, false)), pairs);
+    assert!(max_ulp(&rows) <= LM_MAX_ULP, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_SST_LM);
+}
+
+/// PETIR `tanh` against glibc (inherited from the SST blending functions, README slice 2).
+const LM_MAX_ULP: u64 = 3;
+
+const PINS_SST_LM: &[(&str, usize)] = &[
+    ("kOmegaSSTLM (esi y) nut", 354),
+    ("kOmegaSSTLM (esi y) S2", 360),
+    ("kOmegaSSTLM (esi y) CDkOmega", 360),
+    ("kOmegaSSTLM (esi y) F1sst", 351),
+    ("kOmegaSSTLM (esi y) F3", 360),
+    ("kOmegaSSTLM (esi y) F1", 360),
+    ("kOmegaSSTLM (esi y) F23", 343),
+    ("kOmegaSSTLM (esi y) GbyNu0", 360),
+    ("kOmegaSSTLM (esi y) G", 354),
+    ("kOmegaSSTLM (esi y) gamma", 360),
+    ("kOmegaSSTLM (esi y) beta", 360),
+    ("kOmegaSSTLM (esi y) GbyNu", 359),
+    ("kOmegaSSTLM (esi y) PkSst", 355),
+    ("kOmegaSSTLM (esi y) Pk", 355),
+    ("kOmegaSSTLM (esi y) omega_E", 359),
+    ("kOmegaSSTLM (esi y) omega_SuSp1", 360),
+    ("kOmegaSSTLM (esi y) omega_Sp", 360),
+    ("kOmegaSSTLM (esi y) omega_SuSp2", 360),
+    ("kOmegaSSTLM (esi y) k_E", 355),
+    ("kOmegaSSTLM (esi y) k_SuSp", 360),
+    ("kOmegaSSTLM (esi y) k_Sp", 360),
+    ("kOmegaSSTLM (esi y) Omega", 360),
+    ("kOmegaSSTLM (esi y) S", 360),
+    ("kOmegaSSTLM (esi y) Us", 360),
+    ("kOmegaSSTLM (esi y) dUsds", 360),
+    ("kOmegaSSTLM (esi y) delta", 360),
+    ("kOmegaSSTLM (esi y) Fwake", 360),
+    ("kOmegaSSTLM (esi y) Fthetat", 360),
+    ("kOmegaSSTLM (esi y) ReThetac", 360),
+    ("kOmegaSSTLM (esi y) Flength", 360),
+    ("kOmegaSSTLM (esi y) ReThetat0", 360),
+    ("kOmegaSSTLM (esi y) lambdaIters", 360),
+    ("kOmegaSSTLM (esi y) Pthetat", 360),
+    ("kOmegaSSTLM (esi y) ReThetat_E", 360),
+    ("kOmegaSSTLM (esi y) Rev", 360),
+    ("kOmegaSSTLM (esi y) RT", 360),
+    ("kOmegaSSTLM (esi y) Fonset", 360),
+    ("kOmegaSSTLM (esi y) Pgamma", 360),
+    ("kOmegaSSTLM (esi y) Fturb", 360),
+    ("kOmegaSSTLM (esi y) Egamma", 360),
+    ("kOmegaSSTLM (esi y) Freattach", 360),
+    ("kOmegaSSTLM (esi y) gammaSep", 360),
+    ("kOmegaSSTLM (esi y) gammaIntEff", 360),
+    ("kOmegaSSTLM (esi y) gammaIntEff", 360),
+];
+
+// ── LES deltas (gh:#1544, README slice 9) ──────────────────────────────────
+
+const REF_D_MAX: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LESdelta_maxDeltaxyz.txt.gz"
+);
+const REF_D_IDDES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LESdelta_IDDESDelta.txt.gz"
+);
+const REF_D_VD: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LESdelta_vanDriest.txt.gz"
+);
+
+fn row(label: &str, rust: &[f64], up: &[f64]) -> (String, Stat) {
+    (label.to_string(), cmp(label, rust, up))
+}
+
+#[test]
+fn max_delta_xyz_vs_openfoam() {
+    let r = parse(REF_D_MAX);
+    let mesh = r.mesh();
+    let rows = vec![
+        row("maxDeltaxyz delta (after validate)", &max_delta_xyz(&mesh, 2.0), &r.s("delta_real")),
+        row("maxDeltaxyz delta (after correct)", &max_delta_xyz(&mesh, 2.0), &r.s("delta_after")),
+    ];
+    pin(&rows, PINS_D_MAX);
+}
+
+#[test]
+fn iddes_delta_vs_openfoam() {
+    let r = parse(REF_D_IDDES);
+    let mesh = r.mesh();
+    let own_hmax = max_delta_xyz(&mesh, 2.0);
+    let esi_hmax = r.s("hmax_real");
+    let n = r.v("wall_n");
+    let y = r.s("wall_y");
+    let rows = vec![
+        row("IDDESDelta hmax (own maxDeltaxyz)", &own_hmax, &esi_hmax),
+        row("IDDESDelta delta (esi hmax, n, y)", &iddes_delta(&mesh, &esi_hmax, &n, &y, 0.15), &r.s("delta_real")),
+        row("IDDESDelta delta (own hmax, esi n, y)", &iddes_delta(&mesh, &own_hmax, &n, &y, 0.15), &r.s("delta_real")),
+    ];
+    pin(&rows, PINS_D_IDDES);
+}
+
+#[test]
+fn van_driest_delta_vs_openfoam() {
+    let r = parse(REF_D_VD);
+    let mesh = r.mesh();
+    let u = r.velocity(&mesh);
+    let ystar_face = van_driest_ystar_faces(&mesh, &u, &r.s("vd_nuw"), &r.s("vd_nutw"));
+    let near = nearest_wall_face(&mesh);
+    let own_mapped: Vec<f64> = near.iter().map(|&i| ystar_face[i]).collect();
+    let esi_y = r.s("vd_y");
+    let geo = r.s("vd_geometric");
+    let own_yplus = van_driest_yplus(&esi_y, &own_mapped);
+    let esi_yplus = van_driest_yplus(&esi_y, &r.s("vd_ystar_mapped"));
+    let delta_esi = van_driest_delta(&geo, &esi_y, &esi_yplus, 0.41, 26.0, 0.158);
+    let delta_own = van_driest_delta(&geo, &esi_y, &own_yplus, 0.41, 26.0, 0.158);
+    let rows = vec![
+        row("vanDriest geometric delta == delta_real", &geo, &r.s("delta_real")),
+        row("vanDriest ystar on wall faces", &ystar_face, &r.s("vd_ystar_face")),
+        row("vanDriest ystar mapped (own nearest face)", &own_mapped, &r.s("vd_ystar_mapped")),
+        row("vanDriest y+ (esi mapped ystar)", &esi_yplus, &r.s("vd_yplus")),
+        row("vanDriest y+ (own mapped ystar)", &own_yplus, &r.s("vd_yplus")),
+        row("vanDriest delta transcription (esi mapped)", &delta_esi, &r.s("vd_delta_T")),
+        row("vanDriest delta (esi y, esi mapped ystar)", &delta_esi, &r.s("delta_after")),
+        row("vanDriest delta (esi y, own mapped ystar)", &delta_own, &r.s("delta_after")),
+    ];
+    pin(&rows, PINS_D_VD);
+    // Diagnostic (real map applied to a field holding each wall face's index): in how many cells is the
+    // face the REAL map takes the value from the nearest wall face (its centre at distance y)?
+    let wf = wall_faces(&mesh);
+    let from_nearest = (0..mesh.n_cells)
+        .filter(|&c| {
+            let f = wf[r.s("vd_idx_mapped")[c] as usize];
+            ((mesh.face_centres[f] - mesh.cell_centres[c]).mag() - esi_y[c]).abs() <= 1e-12
+        })
+        .count();
+    assert_eq!(from_nearest, 97, "cells where upstream's map uses the nearest wall face");
+}
+
+const PINS_D_MAX: &[(&str, usize)] = &[
+    ("maxDeltaxyz delta (after validate)", 360),
+    ("maxDeltaxyz delta (after correct)", 360),
+];
+const PINS_D_IDDES: &[(&str, usize)] = &[
+    ("IDDESDelta hmax (own maxDeltaxyz)", 360),
+    ("IDDESDelta delta (esi hmax, n, y)", 360),
+    ("IDDESDelta delta (own hmax, esi n, y)", 360),
+];
+/// The two "own mapped ystar" rows are NOT bit-identical by design: the real `wallDistAddressing::map`
+/// takes the value of a wall face that is not the nearest one in most cells (README slice 9).
+const PINS_D_VD: &[(&str, usize)] = &[
+    ("vanDriest geometric delta == delta_real", 360),
+    ("vanDriest ystar on wall faces", 312),
+    ("vanDriest ystar mapped (own nearest face)", 91),
+    ("vanDriest y+ (esi mapped ystar)", 360),
+    ("vanDriest y+ (own mapped ystar)", 92),
+    ("vanDriest delta transcription (esi mapped)", 360),
+    ("vanDriest delta (esi y, esi mapped ystar)", 360),
+    ("vanDriest delta (esi y, own mapped ystar)", 228),
 ];

@@ -490,3 +490,326 @@ anisotropic per-direction coefficient (1080/1080). 50 rows pinned (`PINS_LES_FIL
 - Not covered: coupled (cyclic/AMI) patches, `Mixed`/`fixedGradient` boundary conditions on the
   filtered field, non-orthogonal meshes (the duct is orthogonal; the uncorrected `snGrad` uses
   `nonOrthDeltaCoeffs` as upstream, but only the orthogonal case was compared).
+
+## Slice 7 results, part 2: dynamicKEqn (2026-11-13, release; same duct; upstream `grad(U)` cells AND boundary faces, `div(phi)`, `delta` fed in)
+
+Driver: `-model dynamicKEqn -filter simple|laplace|anisotropic` (cases `dynamicKEqn_*`). The real model
+runs (`validate()`, `correct()` into `dumpSolver`); the driver transcribes `Ck(D, KK)` and `Ce(D, KK)`
+and ALSO calls the REAL protected `Ck` and `Ce` of the model object (a `using`-declaration on a derived
+struct reaches the symbols `libincompressibleTurbulenceModels` exports; dumped as `R_Ck_symm`, `R_Ck_dev`,
+`R_Ce`). Port: `outram_foam_turbulence_lib::les::dynamic_k_eqn::DynamicKEqn::{terms, source_terms}`
+(terms only, no `correct()`) on top of `les_filter` and `les::pointwise`.
+
+**Audit held** (transcribed k equation against the real matrix, all three filters: diag/source 360/360,
+upper/lower 894/894) and **the transcription equals the REAL `Ck`/`Ce` members 360/360** (after the two
+corrections below).
+
+**Every term is bit-identical, max 0 ulp, in all three filters** (cells and boundary faces where dumped):
+`D = symm(grad U)`, `D = devSymm(grad U)`, `KK` (unclamped and clamped), `LL`, `MM` (both `D`),
+`Ck(symm)`, `Ck(devSymm)` against the real member and the transcription, `Ce` against the real member
+and the transcription, `nut` after `validate()` and after `correct()` against the real model's `nut`,
+`G`, `k_SuSp`, `k_Sp`. The registered `dynamicKEqn:G` equals the transcribed `G`. 27 rows per filter
+pinned (`PINS_DYN_*`). PETIR `pow` (in `Ce`) agrees with glibc on every argument that occurs.
+
+### Two upstream behaviours that decided the result (both were wrong in my first runs)
+
+1. **`tmp` reuse gives an expression the PATCH TYPE of an operand, and the next filter's
+   `correctBoundaryConditions` then rewrites the boundary.** Same-type `tmp` operators
+   (`+`, `-`, `*`, `dev`, `pow`...) reuse the first (or, for `scalar*symmTensor`, the second) `tmp`
+   operand's storage and patch types. A `simple` or `laplace` result is `extrapolatedCalculated`
+   (it comes from `surfaceSum`/`surfaceIntegrate`), so `MM` and `LL`'s argument carries stale boundary
+   values (`D_b + lap`) that `simpleFilter_`'s `correctBoundaryConditions` replaces with the owner-cell
+   values; an `anisotropic` result is `calculated` and keeps them. In `Ce`, `this->nuEff()*(...)` is
+   `tmp*tmp` and reuses `nuEff`'s calculated type, so there is NO re-extrapolation. My first C++
+   transcription passed `nuEff` as a named `const` field, which hands the product the filtered
+   difference's (extrapolated) type: its audit failed (laplace 205/360 diag cells, worst 0.12) and
+   `Ce` differed from the real member by up to 33 %. Found by calling the real `Ce` and diffing, fixed
+   by forming `nuEff` as a `tmp` in the transcription; the port's `DynamicKEqn::sf_entry` applies the
+   re-extrapolation exactly where upstream does.
+2. **`delta` is a `calculated` field whose boundary is `small = 1e-15`, not the owner-cell value**
+   (`LESdelta.C`: constructed with `calculatedFvPatchScalarField` at `small`; `correctBoundaryConditions`
+   does nothing to it). It only matters where a boundary value of `delta` reaches a filter
+   (`-2 delta sqrt(KK) filter(D)` in `MM`, `2 delta` in `Ce`'s denominator): the anisotropic `MM`
+   with `D = devSymm` differed in 1680 of 2160 components until the port used `small`.
+
+### Negative controls (rows expected NOT to be identical, pinned)
+
+| row | simple | laplace | anisotropic |
+|---|---|---|---|
+| `nut` formed with `devSymm` `D` against the real `nut` after `validate()` (prediction 5) | 280/360 | 248/360 | 203/360 |
+| `Ck_dev` with the port-style EXTRAPOLATED `grad(U)` boundary against the real `Ck` (prediction 6) | 280/360 | 360/360 | 203/360 |
+
+### Predictions against results
+
+- 1, 2: held (simple, anisotropic 0 ulp). 3: structure held, libm half WRONG (see part 1).
+- 4: HELD, and better than predicted: `Ce` is also 360/360 (I predicted a few ulp from `pow`).
+- 5: held in direction, WRONG in extent. The real `nut` after `validate()` is reproduced 360/360 by the
+  `symm` form, and the `devSymm` form differs, but in 80 / 112 / 157 of 360 cells (simple / laplace /
+  anisotropic), not "all cells with `div U != 0`": `Ck` is clipped to zero in 248 of 360 cells, where
+  both forms give `nut = 0`.
+- 6: WRONG. I predicted the extrapolated boundary would change `Ck` in more than 300 cells: it changes 80
+  (simple), 0 (laplace), 157 (anisotropic). The chained `simple` passes after `LL`/`MM` re-extrapolate
+  their own boundaries, which hides most of the boundary gradient for `simple` and `laplace`.
+- 7: held after the correction above.
+
+### Defects (port against ESI v2506)
+
+1. `fvc::grad_vec` leaves the boundary gradient extrapolated (zero-gradient), while upstream
+   `gaussGrad::correctBoundaryConditions` replaces its wall-normal component
+   (`grad(U)` boundary dumped as `gradU_b`). It matters to `dynamicKEqn` through `D`'s boundary values
+   (anisotropic filter: 157 cells of `Ck` change). NOT fixed (`grad_vec` is shared and was not
+   changed): the dynamic models take the gradient with its boundary faces as an input, as the kEqn and
+   LaunderSharma ports take theirs. Recorded for gh:#1489. Not re-verified against `gaussGrad.C` line by
+   line in this slice; the evidence is the dump (`gradU_b` differs from the owner-cell value).
+2. `dynamicKEqn` has no `correct()` in the port (the k equation assembly, `bound`, and `correctNut` after
+   the solve are not ported); `nut` after `correct()` is checked with `k` unchanged, as the dump solver
+   does not solve.
+3. Upstream's own inconsistency, reproduced: `correctNut()` uses `symm(grad U)` and an unclamped `KK`
+   while `correct()` uses `devSymm(grad U)` and `KK` clamped at `SMALL`.
+
+### Honest scope
+
+One 360-cell orthogonal duct, one set of frozen polynomial fields: `Ck` is clipped to zero in 248 cells,
+so the positive-`Ck` branch is exercised in 112 cells only; `KK` is at the `SMALL` clamp in the cells
+nearest the walls. `laplace`/`anisotropic` with `widthCoeff` 2 only. Non-orthogonal meshes and coupled
+patches are not covered. The unused `T_m_dev`/`T_FD_dev` dumps exist only in the anisotropic reference
+(added while locating the `delta` boundary).
+
+**Disclosure: a script bug in the first dynamicKEqn runs.** `run.sh` applied the `*_lowRe` viscosity (`nu = 1e-2`) to every case whose model name differed from its case name, which included the new `dynamicKEqn_*` cases; the audit numbers quoted for the failed transcription (laplace 205/360, worst 0.12) were taken at `nu = 1e-2`. The condition is now `case $M in *_lowRe)`; all committed references are at `nu = 1e-5` (checked: `nu_f` = 1e-5 in all three).
+
+## Slice 7 results, part 3: dynamicLagrangian and the corrected Gauss gradient (2026-11-14, release; same duct)
+
+**No predictions were committed for this model before its driver ran** (the rule of this directory
+is broken here and the table below is a record, not a test of foresight). What I expected, from reading
+`dynamicLagrangian.C` and the part 2 findings: terms 0 ulp for all three filters, the `Sf` boundary
+correction irrelevant to the cell results, the explicit `pow(flm*fmm, 1/8)` the only libm exposure.
+
+Driver: `-model dynamicLagrangian -filter ...` (cases `dynamicLagrangian_*`; `flm` and `fmm` are
+frozen polynomials `0.02 + 0.3 s (1 + 0.1 x) + 0.01 z` and `0.05 + 0.2 s (1 + 0.05 x) + 0.02 z`,
+zeroGradient, both positive so `bound` is the identity; `theta` the default 1.5). The transcription of
+`correct()` reproduces the REAL `flm` and `fmm` matrices in all three filters (diag/source 360/360,
+upper/lower 894/894), first time. Port: `les::dynamic_lagrangian::DynamicLagrangian::terms` (terms only:
+no transport solve, no `bound`, no `correct()`).
+
+**Every term is bit-identical, max 0 ulp, in all three filters, cells and boundary faces:** `S`, `|S|`,
+`filter(U)`, `Sf`, `|Sf|`, `L`, `M`, `invT`, `L && M`, `M && M`, and `nut` against the transcription and
+against the real `nut` after `validate()` and after `correct()`. 26 rows per filter pinned
+(`PINS_LAG_*`). PETIR `pow(x, 1/8)` agrees with glibc on every argument here. The one libm row: with the
+port's own `cbrt(V)` delta instead of upstream's `pow(V, 1/3)`, `nut` is bit-identical in 157 of 360
+cells and within 8 ulp in the rest (1.03e-15 relative), the same figure as the kEqn row.
+
+### New operator: `fvc::grad_vec_corrected` (basic-lib)
+
+A port of `gaussGrad<vector>::calcGrad` WITH `correctBoundaryConditions` (owner-cell value, then
+`g_b += n (sn(U) - n . g_b)` on non-coupled patches). Against the real `fvc::grad(U)`: 3240/3240 cell
+components and 3348/3348 boundary-face components bit-identical, in all three runs (`gradU` rows). It does
+not replace `fvc::grad_vec` (which leaves the boundary extrapolated, part 2 defect 1: left unchanged
+because `grad_vec` is shared): callers that need upstream's boundary gradient can use the new one.
+~~Part 2, defect 1: "NOT fixed"~~ **UPDATE 2026-11-14:** the missing operator now exists; `grad_vec`
+itself is still the extrapolated form.
+
+### What the Lagrangian model's results do NOT cover
+
+The cell results do not depend on the `Sf` and `M` boundary values at all (they enter only the boundary
+values of `L && M`, never the matrices), so the stale-boundary rules of part 2 are exercised only through
+the `filter(U)` face values that the gradient of `Uf` interpolates. Not covered: the transport solves, the
+`bound` of `flm`/`fmm` below zero, `fvOptions`, non-orthogonal meshes, coupled patches, `widthCoeff` other
+than 2.
+
+# Slice 8: kOmegaSSTLM (Langtry-Menter transition on SST) (gh:#1544)
+
+## Frozen field for this model (a disclosed change, decided before any run)
+
+The shared duct fields cannot exercise the transition model: with `k` in (0.02, 0.45) and
+`nu = 1e-5`, `RT = k/(nu omega)` is at least ~40 everywhere, so `Fonset3 = max(1 - (RT/2.5)^3, 0)`
+is exactly 0, `Fturb = exp(-(0.25 RT)^4)` and `Freattach = exp(-(RT/20)^4)` underflow to 0, and
+`Tu = 100 sqrt(2k/3)/|U|` is above 1.3 in every cell (the `Tu <= 1.3` branch of `ReThetat0` is
+never entered). The same trap as `LaunderSharmaKE` at `nu = 1e-5` (slice 6). For `-model kOmegaSSTLM`
+ONLY the driver therefore uses its own polynomials (the other models' fields are untouched):
+
+* `k_LM = 2.0e-5 + 3.0e-4 s (1 + 0.1 x) + 2.0e-5 z` (2e-5 to ~1.1e-4 m^2/s^2; the shared `omega`, `U`, `nu = 1e-5` are kept)
+* `ReThetat = 120 + 6400 s (1 + 0.1 x) + 400 z` (about 120 to 2560, to straddle the `Flength` breaks at 400, 596, 1200 and the `ReThetac` break at 1870)
+* `gammaInt = 0.01 + 3.0 s (1 + 0.05 x) + 0.05 z` (0.01 to ~0.94)
+* `gammaIntEff` (the model's own field, set before `correct()` through the registry, so the first `correct()` does not run with the constructor's zero) `= 0.02 + 24 s^2 (1 + 0.1 x) + 0.1 z` (so the `clamp(gammaIntEff, 0.1, 1)` of `epsilonByk` is active on both sides; see "changed once" below)
+
+Chosen from the ranges of the dimensionless groups (`RT`, `Tu`, `Ry`, `Rev`) alone, before any run of this
+model; the polynomials contain no libm. `scripts/lm_coverage_stats.py` counts how many cells fall in each
+branch from the dumped INPUTS. `gammaIntEff` is overwritten by `correct()` at its end
+(`max(gammaInt, gammaSep)`); the post-`correct()` value is dumped and compared as `gammaIntEff_real`.
+
+## Predictions (written and committed BEFORE the driver was extended or run)
+
+Setup: the Rust `KOmegaSstLm` reuses `KOmegaSST::source_terms(EsiV2506)` for every SST term the LM model does
+not change (`y`, `S2`, `CDkOmega`, base `F1`, `F23`, `nut`, `GbyNu0`, `G`, `GbyNu`, base `Pk`, `k_SuSp`) and
+recomputes what the LM overrides change: `F1 = max(F1_SST, F3)` (so `gamma`, `beta`, the omega terms, the
+cross-diffusion), `Pk = gammaIntEff Pk_SST`, `epsilonByk = clamp(gammaIntEff, 0.1, 1) betaStar omega`, and the new
+`Fthetat`, `ReThetac`, `Flength`, `ReThetat0` (with the `lambda` iteration), `Fonset`, `Fturb`, `Freattach`,
+`gammaSep`, `gammaIntEff`, `Pthetat`, `Pgamma`, `Egamma`. The upstream gradients, `y`, the `gammaIntEff` input and
+the frozen `ReThetat`, `gammaInt` are fed in.
+
+1. **Audit**: the four transcribed equations (`omega`, `k` with the LM overrides, `ReThetat`, `gammaInt`)
+   reproduce the matrices the REAL model assembled bit for bit (diag, source, upper, lower). Confidence 85%.
+   The omega and k audits also confirm that the real model calls the LM overrides of `F1`, `Pk`, `epsilonByk`.
+2. **Libm-free terms 360/360 identical** (given identical inputs): `ReThetac`, `Fonset`, `Rev`, `RT`, `Omega`, `S`,
+   `Us`, `dUsds`, `Pk`, `epsilonByk`. Confidence 85% (the risk is the order of the 9-component
+   `magSqr(skew)` sum and of the `U & (U & gradU)` contraction).
+3. **`exp`-only terms** (`Fturb`, `Freattach`, `Fwake`, `Fthetat`, `Fsublayer`, `Flength`): PETIR `exp` agreed with glibc
+   on every argument of `LaunderSharmaKE` (slice 6), so predicted 360/360 identical, at most 1 ulp where not.
+   Confidence 60%. `Fturb` and `Freattach` are mostly in (0, 1), not saturated, by the field choice above.
+4. **`pow` terms**: `F3` (`pow(Ry/120, 8)`) identical in at least 95% of cells. `ReThetat0` (`pow(Tu/1.5, 1.5)`,
+   `pow(Tu - 0.5658, -0.671)`, `exp`, and a fixed-point iteration) is the weakest term: at least 70% of cells
+   identical and at most 8 ulp elsewhere, with the same iteration count in every cell (the stopping test
+   `|lambda - lambda0| > 1e-6` is not within ulps of its threshold). A difference there is libm, not a formula error.
+5. **Downstream of `tanh`** (`F1_SST`, hence `F1`, `gamma`, `beta`, the omega terms): as in slice 2 (PETIR `tanh`
+   against glibc, a few percent of cells, at most 3 ulp). Where `F3 > F1_SST` the LM `F1` takes `F3` and hides it.
+6. **Upstream behaviours to reproduce, not fix**: (a) `Pk` multiplies by the UNCLAMPED `gammaIntEff` (up to ~2
+   here) while `epsilonByk` uses the CLAMPED one; (b) the first `correct()` of a real run has `gammaIntEff = 0`
+   (so `Pk = 0` in the first step; not exercised, the driver sets it); (c) the `ReThetat0`
+   `do ... while (lambdaErr > lambdaErr_)` has no iteration cap (`maxLambdaIter` only warns); the port must not cap
+   either to stay bit-identical; the iteration count per cell is reported.
+7. No cell is expected to differ by a formula error; anything not explained by a libm function is a defect in the port.
+
+## Slice 8 results (2026-11-14, release; same 360-cell duct, model-specific fields above, ESI `y` and upstream gradients fed in)
+
+Port: `outram_foam_turbulence_lib::k_omega_sst_lm::KOmegaSstLm` (new; terms only, no `correct()`).
+Test: `k_omega_sst_lm_vs_openfoam`, 44 rows pinned (`PINS_SST_LM`), max 3 ulp allowed.
+
+**Audit (prediction 1: held).** All 16 parts (diag, source, upper, lower of the `omega`, `k`, `ReThetat` and
+`gammaInt` matrices) of the transcribed equations equal the matrices the REAL model assembled, bit for bit
+(360/360 and 894/894). The `omega` and `k` audits include the LM overrides (`F1 = max(F1_SST, F3)`,
+`Pk = gammaIntEff Pk_SST`, `epsilonByk = clamp(gammaIntEff, 0.1, 1) betaStar omega`), so the real model does
+call them as transcribed.
+
+**Every LM-specific term is 360/360 bit-identical, max 0 ulp**: `F3`, `F1`, `gamma`, `beta`, `Omega`, `S`, `Us`,
+`dUsds`, `delta`, `Fwake`, `Fthetat`, `ReThetac`, `Flength`, `ReThetat0` and its iteration count, `Pthetat`,
+`ReThetat_E`, `Rev`, `RT`, `Fonset`, `Pgamma`, `Fturb`, `Egamma`, `Freattach`, `gammaSep`, `gammaIntEff` (against
+both the transcription and the value the real `correct()` left in the model, `gammaIntEff_real`), `k_Sp`,
+`omega_Sp`, `omega_SuSp1`, `omega_SuSp2`, `k_SuSp`, `S2`, `CDkOmega`, `GbyNu0`.
+
+The only differences are inherited from the SST blending functions (PETIR `tanh` against glibc, slice 2), at most
+3 ulp: `nut` 354, `F1sst` 351, `F23` 343, `G` 354, `GbyNu` 359, `PkSst` 355, `Pk` 355, `omega_E` 359, `k_E` 355
+of 360. The LM `F1 = max(F1_SST, F3)` is 360/360: all nine cells where `F1_SST` differs have `F3 > F1_SST`
+(`F3` is the larger in 310 of 360 cells), which hides the `tanh` ulp there.
+
+### Predictions that held, and the ones that did not
+
+- Held: 1 (audit), 2 (libm-free terms), 3 (`exp`-only terms: PETIR `exp` equals glibc on every argument, 360/360, again),
+  4 for `F3` (360/360, at least 95% predicted), 5 (the `tanh` cells), 6 (a) and (c).
+- **Wrong, in the favourable direction: 4 for `ReThetat0`.** I predicted at least 70% identical and up to 8 ulp
+  (`pow` with non-integer exponents, `exp`, an iteration); all 360 are identical, and so are the 360 iteration counts.
+  PETIR `pow` equals glibc `pow` on these arguments, as it did for `laplaceFilter` (slice 7).
+- Not predicted, a limitation of the field set (disclosed, not tuned afterwards): the `lambda` iteration stops after 2 passes
+  in 340 of 360 cells (`dUsds` is nearly zero, so `lambda` stays near 0); only 20 cells run 3 to 11 passes, so the
+  coupling of `lambda` into `thetat` is exercised by 20 cells, and the clamp `lambda in [-0.1, 0.1]` was not checked
+  to be reached. `Freattach` lies in (0.946, 1) (`RT` at most 9.7, so `exp(-(RT/20)^4)` hardly varies), and `Fonset` is 0 in 72
+  cells, 2 in 16 and in [1, 2) in 272 (never in (0, 1)), so the lower part of the `Fonset2` ramp is not exercised;
+  `Pgamma > 0` in 288 cells. The `Tu <= 1.3` branch has 152 cells, `Tu > 1.3` 208;
+  `dUsds <= 0` 92, `> 0` 268; `ReThetat` in the four `Flength` bands 42/30/106/182 and above 1870 in 70.
+
+### Fields: changed once, from INPUT coverage only (disclosed)
+
+The first dump used `gammaIntEff = 0.03 + 5.2 s (1 + 0.1 x) + 0.1 z`; `scripts/lm_coverage_stats.py` on the dumped inputs
+showed it never fell below 0.1 (0 cells), so the lower side of `clamp(gammaIntEff, 0.1, 1)` was not exercised. It was
+changed to `0.02 + 24 s^2 (1 + 0.1 x) + 0.1 z` (72 / 158 / 130 cells below 0.1 / within / above 1), and the reference
+re-dumped. No model output had been compared: the Rust side did not exist yet. The predictions were committed before the
+first dump with the first polynomial; the README text above names the final one.
+
+### Upstream behaviours noted (reproduced, nothing changed)
+
+1. `Pk` multiplies by the UNCLAMPED `gammaIntEff` (up to 1.98 here; `Pk > Pk_SST` in 130 cells, `<` in 230) while
+   `epsilonByk` clamps to [0.1, 1]. `gammaSep` can reach 2 times `Fthetat`, so `Pk` can exceed the SST limiter
+   `10 betaStar k omega`.
+2. `gammaIntEff_` is a `volScalarField::Internal` (no boundary), zero after construction: in a real run the first
+   `correct()` has `Pk = 0` and `epsilonByk = 0.1 betaStar omega`. Not exercised here (the driver sets it first).
+3. The `ReThetat0` loop is `do ... while (lambdaErr > lambdaErr_)` with no iteration cap (the `maxLambdaIter` warning is
+   after the loop). The port guards at 1e6 passes with a panic. Maximum observed: 11.
+
+### Defects
+
+None found in the port (no earlier port existed). Not ported / not covered: `correct()` (the two solves, `bound`, the
+update of `gammaIntEff` between steps), the `ReThetat` and `gammaInt` boundary conditions, `fvOptions`, a non-zero
+`omegaInf`/`kInf`, SST `F3`/decay control/`Qsas` (all off in the v2506 defaults), compressible and multiphase
+variants, and `Tu` from a freestream (upstream uses the cell `k` and `|U|`, as ported).
+
+# Slice 9: LES deltas `maxDeltaxyz`, `IDDESDelta`, `vanDriest` (and `smooth`) (gh:#1544)
+
+**Process disclosure (a rule slip, stated before anything else).** The four reference dumps
+(`ref_LESdelta_{maxDeltaxyz,IDDESDelta,vanDriest,smooth}.txt.gz`) were generated BEFORE these predictions were
+committed. They are committed with this text, in the same commit. No dump value was opened and no Rust code for the
+deltas existed when the predictions below were written (the run's only visible output was "no compile or run error").
+The predictions are therefore not retroactive in content, but they are not timestamped ahead of the run as the
+earlier slices are.
+
+Setup: the REAL delta classes of ESI v2506 (`LESdeltas/`) are selected through a `kEqn` LES model
+(`delta <name>;` in `turbulenceProperties`, `scripts/run.sh` variants `LESdelta_*`; `kEqn` and the frozen fields are those of
+slice 5; `correct()` runs with `dumpSolver`). Dumped: `delta_real` (after `validate()`), `delta_after` (after `correct()`,
+which recomputes `vanDriest`), `hmax_real` (`IDDESDelta`'s `maxDeltaxyz`), `wall_n`, `wall_y` (`wallDist`), and for `vanDriest` a
+transcription of `calcDelta()` (`vd_*`: per-wall-face `nuw`, `nutw`, `|snGrad(U)|`, `ystar`; the addressing `y`; `ystar` mapped
+from the nearest wall face; `y+`; `delta`). Port: `outram_foam_turbulence_lib::les::deltas` (new).
+
+1. **`maxDeltaxyz`** (`deltaCoeff` 2): `deltaCoeff max_f |n_f . (Cf - C)|` with `n_f = Sf/|Sf|`; only `+ - * / sqrt` and
+   a max: **360/360 bit-identical**. Confidence 85% (the unit-normal division `Sf/mag(Sf)` is the place to slip).
+2. **`IDDESDelta`** (`Cw` 0.15; its `hmax` is a `maxDeltaxyz`, default coefficient 2):
+   `min(max(max(Cw y, Cw hmax), faceToFaceMax), hmax)`, with `faceToFaceMax = max_{i,j in cell faces} n_c . (Cf_j - Cf_i)`.
+   With ESI `y`, `n` fed: **360/360 identical** for `delta` and for `hmax` from the port's own `maxDeltaxyz`. Confidence 80%.
+3. **`vanDriest` per-face `ystar`**, `nuw/sqrt((nuw + nutw) |snGrad U| + VSMALL)`, with `snGrad U = deltaCoeffs (Uw - Uc)`,
+   `deltaCoeffs = 1/|Cf - C|` (orthogonal duct): **identical on every wall face**. Confidence 65% (the form of the
+   boundary `deltaCoeffs` is the risk).
+4. **`vanDriest` `ystar` mapped to cells.** The port picks the nearest wall FACE CENTRE by brute force; upstream
+   `wallDistAddressing` uses `meshWave`, which for the SST wall distance (slice 2) differed from the face-centre distance
+   in 95 of 360 cells. Predicted: the mapped `ystar` is identical in at least 70% of cells and is wrong (a different
+   face) in the rest; the wall-face `ystar` varies little across a wall of this duct, so the difference in `ystar` is much smaller than in `y`.
+5. **`vanDriest` `delta`**, with ESI `y` and the ESI-mapped `ystar` fed in: `min(geometric, (kappa/Cdelta)((1 + SMALL) - exp(-ystar/Aplus)) y)`
+   is **360/360 identical** (PETIR `exp` equals glibc on every earlier test). Both `min` branches and both sides of the `y+ > 500` cutoff
+   are predicted to occur on this duct (not checked before the run).
+6. `smooth` (a `FaceCellWave` fixed point whose result depends on the visiting order through the tolerance `1.01`) is ported
+   only if time allows; no prediction beyond: the port must reproduce upstream's visiting order, not a "converged" maximum.
+
+## Slice 9 results (2026-11-14, release; same 360-cell duct, ESI `y`, `n`, `hmax` fed where stated)
+
+Port: `outram_foam_turbulence_lib::les::deltas` (new). Tests: `max_delta_xyz_vs_openfoam`, `iddes_delta_vs_openfoam`,
+`van_driest_delta_vs_openfoam` (13 rows pinned, `PINS_D_*`).
+
+| row | identical / n | max ulp |
+|---|---|---|
+| maxDeltaxyz `delta` (after `validate()` and after `correct()`) | 360/360, 360/360 | 0 |
+| IDDESDelta `hmax` (own `maxDeltaxyz`, `deltaCoeff` 2) | 360/360 | 0 |
+| IDDESDelta `delta` (ESI `hmax`, `n`, `y`) / (own `hmax`, ESI `n`, `y`) | 360/360, 360/360 | 0 |
+| vanDriest geometric `delta` (= `cubeRootVol`, from the dump) against `delta_real` | 360/360 | 0 |
+| vanDriest `ystar` on the 312 wall faces (port: `nu/sqrt((nu + nut)|deltaCoeffs (Uw - Uc)| + VSMALL)`) | 312/312 | 0 |
+| vanDriest `y+` and `delta` from the ESI-mapped `ystar` and ESI `y`, against the transcription and the real `delta` | 360/360 (4 rows) | 0 |
+| vanDriest `ystar` mapped with the port's NEAREST wall face | **91/360** | huge (relative difference up to 1.1) |
+| vanDriest `delta` with the port's mapped `ystar` | **228/360** (max relative difference 0.41) | |
+
+Predictions: 1 (maxDeltaxyz identical), 2 (IDDESDelta identical), 3 (`ystar` on wall faces identical), 5 (`delta` from ESI inputs
+identical) held. **Prediction 4 was wrong**: I predicted at least 70% of cells map to the same `ystar`; only 91 do. Cause below.
+
+### Finding in ESI v2506: `wallDistAddressing::map` does not take the value from the nearest wall face (not fixed, deferred)
+
+The driver maps a test field whose wall-face values are the face's index within the wall patch through the real
+`wallDistAddressing::map` (`vd_idx_mapped`). In **263 of 360 cells the face it takes the value from is not the wall face
+nearest to the cell**, although `wallDistAddressing::y()` (the distance) is the true nearest distance: e.g. cell 1, 0.022 m above
+the wall, takes the value of the wall face 0.334 m away (index 6 for cells 1..5, then 73, 93, 113, ...). The real
+`vanDriestDelta` therefore uses `ystar` of an unrelated face in most cells of this duct, and the driver's transcription of
+`calcDelta()` (which calls the same `map`) reproduces the real `delta` 360/360, so this is the behaviour of the library
+call, not of the driver's arrangement of it. Not established: whether this is an upstream defect in v2506
+(wrong index order in the map's addressing) or a consequence of this case (serial run, one `wall` patch listed after `inlet` and
+`outlet`, wall faces numbered z-fastest). Not reproduced in the port: the port maps `ystar` from the nearest
+wall-face centre, which is what the class intends; bit-identity with ESI for `vanDriest` therefore needs the mapped `ystar`
+as an input ([`van_driest_yplus`] takes it), and the two rows above are pinned as the measured disagreement. **Decision for the
+maintainer (deferred):** follow the intent (nearest face, as now) or reproduce the library; and whether to report it upstream.
+Not checked: the Foundation (dev) `vanDriestDelta`, which uses a different addressing code.
+
+### `smooth` not ported
+
+The real `smooth` delta with the case's `maxDeltaRatio 1.15` returns `cubeRootVol` unchanged on this duct (max relative
+difference from `cbrt(V)` 5.5e-16, 0 cells beyond 1e-12): the neighbouring cell volumes differ by too little for the wave
+to start. The dump (`ref_LESdelta_smooth.txt.gz`) therefore cannot test a port. The port would also need upstream's
+`FaceCellWave` visiting order (the tolerance 1.01 in `deltaData::update` makes the fixed point order-dependent). Deferred; a
+useful case needs `maxDeltaRatio` of about 1.02 on this mesh (chosen from the graded cell sizes, not yet run).
+
+### Not covered
+
+Coupled patches, non-orthogonal meshes (`vanDriest`'s boundary `deltaCoeffs` is `1/|Cf - C|` only for orthogonal faces), 2D cases
+(`nGeometricD` warning branch), `PrandtlDelta`, `SLADelta`, `DeltaOmegaTildeDelta`, `maxDeltaxyzCubeRootLESDelta`, `cubeRootVol` itself
+(the earlier slices use it as `1.0 cbrt(V)`).

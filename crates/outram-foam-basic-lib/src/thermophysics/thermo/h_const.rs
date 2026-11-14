@@ -190,3 +190,20 @@ mod tests {
         assert_relative_eq!(ha, hs_hc, epsilon = 1e-6);
     }
 }
+
+/// Upstream `hConstThermo::operator+=`: `Cp_`, `Hf_`, `Hsref_` mixed; `Tref_`
+/// is left as it is (gh:#1378).
+impl<E: EquationOfState + crate::thermophysics::mixture::Mixable> crate::thermophysics::mixture::Mixable
+    for HConstThermo<E>
+{
+    fn set_mol_weight(&mut self, w: MolarMass) {
+        self.eos.set_mol_weight(w);
+    }
+
+    fn mix_params(&mut self, y1: f64, y2: f64, other: &Self) {
+        self.eos.mix_params(y1, y2, &other.eos);
+        self.cp = y1 * self.cp + y2 * other.cp;
+        self.hf = y1 * self.hf + y2 * other.hf;
+        self.hsref = y1 * self.hsref + y2 * other.hsref;
+    }
+}
