@@ -66,7 +66,9 @@ pub mod field;
 pub mod poly_mesh;
 
 pub use case::FoamCase;
-pub use esi::{format_g, write_cell_zones_esi, write_time_file_esi, EsiWriteOptions};
+pub use esi::{
+    format_g, write_cell_zones_esi, write_label_list_esi, write_time_file_esi, EsiWriteOptions,
+};
 pub use dict::{Dimensioned, FoamDict, FoamEntry, FoamHeader, FoamValue};
 pub use field::{
     read_vol_scalar_field, read_vol_vector_field, write_vol_scalar_field,

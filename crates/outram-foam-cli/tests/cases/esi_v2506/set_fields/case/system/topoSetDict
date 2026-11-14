@@ -1,0 +1,16 @@
+FoamFile { version 2.0; format ascii; class dictionary; object topoSetDict; }
+actions
+(
+    { name c0; type cellSet; action new; source boxToCell; box (0 0 0) (1 1 0.5); }
+    { name c0; type cellSet; action add; source sphereToCell; sourceInfo { origin (2 1 0.25); radius 0.7; } }
+    { name c0; type cellSet; action subtract; source cylinderToCell; p1 (1.5 0 0.25); p2 (1.5 2 0.25); radius 0.3; }
+    { name c1; type cellSet; action new; source boxToCell; min (2.5 0 0); span (0.5 2 0.5); }
+    { name c1; type cellSet; action invert; }
+    { name c2; type cellSet; action new; source sphereToCell; origin (1.5 1 0.25); radius 1; innerRadius 0.5; }
+    { name c2; type cellSet; action subset; source boxToCell; box (0 0 0) (1.5 2 0.5); }
+    { name c3; type cellSet; action new; source boxToCell; box (0 0 0) (0.2 0.2 0.5); }
+    { name c3; type cellSet; action clear; }
+    { name c4; type cellSet; action new; source boxToCell; box (0 0 0) (0.25 2 0.25); }
+    { name c4; type cellSet; action add; source sphereToCell; origin (0.125 0.125 0.125); radius 0.01; }
+    { name c5; type cellSet; action new; source boxToCell; box (0 0 0) (0.25 2 0.25); }
+);

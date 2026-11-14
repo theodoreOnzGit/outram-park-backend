@@ -1,0 +1,25 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+
+scale 1;
+vertices
+(
+    (0 0 0) (0.6 0 0) (0.6 0.4 0) (0 0.4 0)
+    (0 0 0.3) (0.6 0 0.3) (0.6 0.4 0.3) (0 0.4 0.3)
+);
+blocks ( hex (0 1 2 3 4 5 6 7) (6 4 3) simpleGrading (2 1 0.5) );
+edges ();
+boundary
+(
+    left   { type patch; faces ((0 4 7 3)); }
+    right  { type patch; faces ((1 2 6 5)); }
+    bottom { type patch; faces ((0 1 5 4)); }
+    top    { type patch; faces ((3 7 6 2)); }
+    back   { type patch; faces ((0 3 2 1)); }
+    front  { type patch; faces ((4 5 6 7)); }
+);

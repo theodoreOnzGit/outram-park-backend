@@ -17,7 +17,11 @@
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
 #   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers twophase
-#           radiation viewfactors fetch-genfoam genfoam fetch-cfmesh cfmesh polydual verify
+#           radiation viewfactors utilities lagrangian fetch-genfoam genfoam fetch-cfmesh cfmesh polydual decompose verify
+#           (lagrangian, gh:#1382: liblagrangian = src/lagrangian/basic, and the trackParticles
+#           probe of the outram-foam-mesh particle_tracking_gh1382 V&V dir)
+#           (decompose, gh:#1381: faDecompose, faReconstruct, decomposePar, reconstructPar;
+#           scotch/metis/kahip are NOT available (no headers/libs), linked as empty dummies)
 #           (radiation, gh:#1379: libradiationModels, built by `closure` as well, plus
 #           the P1 differential driver radDump from the outram-foam-basic-lib V&V dir)
 #           (fetch-cfmesh and cfmesh: DAFoam cfMesh e944f6ba695f, gh:#1385; cfMesh
@@ -375,6 +379,13 @@ stage_solvers() {
   run_stage solver-pimpleFoam     scratch_solver_impl pimpleFoam incompressible/pimpleFoam
 }
 
+# --- stress (gh:#1383) ----------------------------------------------------------
+# ESI's real solidDisplacementFoam (stressAnalysis; needs only finiteVolume and
+# meshTools, built in `core`), with its tractionDisplacement boundary condition.
+stage_stress() {
+  run_stage solver-solidDisplacementFoam scratch_solver_impl solidDisplacementFoam stressAnalysis/solidDisplacementFoam
+}
+
 # --- twophase (gh:#1363 row 5) --------------------------------------------------
 # ESI's legacy twoPhaseEulerFoam and ONLY the two libraries it needs
 # (compressibleTwoPhaseSystem 67 files, phaseCompressibleTurbulenceModels 25
@@ -439,6 +450,43 @@ stage_viewfactors() {
   wm_lib fvAgglomerationMethods/pairPatchAgglomeration
   wm_app utilities/preProcessing/faceAgglomerate faceAgglomerate
   run_stage app-viewFactorsGen vf_viewfactorsgen_impl
+}
+
+# --- stage: pre-processing / mesh-manipulation utilities (gh:#1384) ---------------
+# setFields, topoSet, extrudeMesh: the libraries they link (sampling, extrudeModel,
+# meshTools, finiteVolume) are already built by core/closure.
+# setFields also links libfiniteArea and libgenericPatchFields (built here first).
+stage_utilities() {
+  wm_lib finiteArea
+  wm_lib genericPatchFields
+  wm_app utilities/preProcessing/setFields setFields
+  wm_app utilities/mesh/manipulation/topoSet topoSet
+  wm_app utilities/mesh/generation/extrude/extrudeMesh extrudeMesh
+}
+
+# --- stage: dynamic mesh (gh:#1380): moveDynamicMesh and the libraries it loads ----
+stage_dynmesh() {
+  # libdynamicFvMesh and libfvMotionSolvers are built by the solvers stage
+  wm_app utilities/mesh/manipulation/moveDynamicMesh moveDynamicMesh
+}
+
+# --- stage: Lagrangian particle tracking (gh:#1382) -----------------------------
+# liblagrangian (src/lagrangian/basic: particle, Cloud, passiveParticle) links meshTools only.
+# The probe trackParticles (outram-foam-mesh V&V dir) calls Foam::particle and prints its
+# state at %.17g; it is built from a scratch copy into $FOAM_USER_APPBIN.
+LAGV=$REPO/crates/outram-foam-mesh/verification_and_validation/particle_tracking_gh1382
+lagr_probe_impl() {
+  local w=$ROOT/gh1382/src
+  rm -rf "$w"; mkdir -p "$w"; cp -r "$LAGV/trackParticles/." "$w/"
+  cd "$w"
+  wmake -j"$N" .
+  [ -x "$FOAM_USER_APPBIN/trackParticles" ]
+  ls -l "$FOAM_USER_APPBIN/trackParticles"
+}
+stage_lagrangian() {
+  ( cd "$OF/src/lagrangian/basic" && wmakeLnInclude -u . ) >>"$LOGS/lagrangian.log" 2>&1
+  wm_lib lagrangian/basic
+  run_stage app-trackParticles lagr_probe_impl
 }
 
 # --- GeN-Foam -----------------------------------------------------------------
@@ -560,6 +608,34 @@ stage_polydual() {
   run_stage app-dumpQuality quality_probe_impl
 }
 
+# --- stage: decomposePar / reconstructPar (gh:#1381) --------------------------
+# libdecompositionMethods, libdecompose and libreconstruct come from `prereq-libs`.
+# scotch, metis and kahip are not installed: the apps are built in scratch copies whose
+# link line takes empty libkahipDecomp/libmetisDecomp/libscotchDecomp from $ROOT/decomp-dummy
+# (the same arrangement as ESI's own `dummy` dir). No upstream .C/.H is edited.
+decomp_dummy_impl() {
+  mkdir -p "$ROOT/decomp-dummy"; cd "$ROOT/decomp-dummy"
+  echo 'int foamDecompDummy_ = 0;' >dummy.c
+  for l in kahipDecomp metisDecomp scotchDecomp; do gcc -shared -fPIC -o "lib$l.so" dummy.c; done
+}
+decomp_app_impl() {
+  local e=$1 src=$OF/applications/utilities/parallelProcessing/$1 w=$ROOT/decomp-scratch-$1
+  rm -rf "$w"; mkdir -p "$w"; cp -r "$src/." "$w/"
+  sed -i "s#-L\$(FOAM_LIBBIN)/dummy#-L$ROOT/decomp-dummy#" "$w/Make/options"
+  cd "$w"
+  wmake -j"$N" .
+  [ -x "$FOAM_APPBIN/$e" ]
+  ls -l "$FOAM_APPBIN/$e"
+  rm -rf "$w"
+}
+stage_decompose() {
+  wm_lib parallel/decompose/faDecompose
+  wm_lib parallel/reconstruct/faReconstruct
+  run_stage decomp-dummy decomp_dummy_impl
+  run_stage app-decomposePar decomp_app_impl decomposePar
+  run_stage app-reconstructPar decomp_app_impl reconstructPar
+}
+
 # --- verification -------------------------------------------------------------
 verify_impl() {
   local V=$ROOT/runs/verify_cavity T=$OF/tutorials/incompressible/icoFoam/cavity/cavity
@@ -630,14 +706,19 @@ for s in "$@"; do
     closure)      load_env; stage_closure ;;
     meshing)      load_env; stage_meshing ;;
     solvers)      load_env; stage_solvers ;;
+    stress)       load_env; stage_stress ;;
     twophase)     load_env; stage_twophase ;;
     radiation)    load_env; stage_radiation ;;
     viewfactors)  load_env; stage_viewfactors ;;
+    utilities)    load_env; stage_utilities ;;
+    dynmesh)      load_env; stage_dynmesh ;;
+    lagrangian)   load_env; stage_lagrangian ;;
     fetch-genfoam) stage_fetch_genfoam ;;
     genfoam)      load_env; stage_genfoam ;;
     fetch-cfmesh) stage_fetch_cfmesh ;;
     cfmesh)       load_env; stage_fetch_cfmesh; stage_cfmesh ;;
     polydual)     load_env; stage_polydual ;;
+    decompose)    load_env; stage_decompose ;;
     verify)       load_env; stage_verify ;;
     *) echo "unknown stage: $s"; exit 64 ;;
   esac
