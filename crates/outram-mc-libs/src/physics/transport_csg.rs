@@ -1746,6 +1746,13 @@ fn collision_track_group_mt(group: crate::physics::scatter::ReactionGroup) -> i3
 /// it anywhere would double-count the weight the survivors already carry.
 /// On `Survived` / `Split` the weight `w` is updated in place; a split pushes
 /// `copies - 1` daughters onto `stack`.
+///
+/// `set_born_one` is true for the two call sites that go through upstream's
+/// `apply_weight_windows` (surface checkpoint and birth), which sets
+/// `wgt_ww_born = 1` when no valid window is found; the collision checkpoint
+/// calls `apply_weight_window` directly and does not (`physics.cpp:67-76`).
+/// Callers pass `VarianceReduction::weight_window_no_window_born_one` there
+/// (gh:#1582).
 #[allow(clippy::too_many_arguments)]
 fn weight_window_checkpoint(
     vr: &VarianceReduction,
@@ -1758,6 +1765,7 @@ fn weight_window_checkpoint(
     my_group: Option<usize>,
     time_s: f64,
     stack: &mut Vec<(Site, f64, Option<u64>, WindowState, f64)>,
+    set_born_one: bool,
 ) -> bool {
     /// Jump-ahead distance between a weight-window split child's stream and
     /// its parent's. `DEFAULT_STRIDE` is the per-particle stride the crate
@@ -1766,7 +1774,16 @@ fn weight_window_checkpoint(
     /// are of each other.
     const SPLIT_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
     if let Some(ww) = vr.weight_windows.as_ref() {
-        if let Some(window) = ww.look_up(r, e) {
+        let found = ww.look_up(r, e).filter(|w| w.is_valid());
+        if found.is_none() && ww_state.ww_born == -1.0 && set_born_one {
+            // `apply_weight_windows` (`weight_windows.cpp:965-967`): no valid
+            // window sets `wgt_ww_born = 1` while it is still unset. Skipped
+            // for a dead or zero-energy particle, as upstream (`:952`).
+            if e > 0.0 && *w > 0.0 {
+                ww_state.ww_born = 1.0;
+            }
+        }
+        if let Some(window) = found {
             match apply_window(window, ww_state, *w, seed) {
                 WindowOutcome::Unchanged => {}
                 WindowOutcome::Killed => return true,
@@ -1796,7 +1813,16 @@ fn weight_window_checkpoint(
                             // birth anchors, so the cascade is
                             // bounded and the window they see is
                             // the window the parent saw.
-                            *ww_state,
+                            WindowState {
+                                // Upstream's `split` does not bank
+                                // `ww_factor` (`particle.cpp:122-145`).
+                                ww_factor: if vr.weight_window_split_keeps_ww_factor {
+                                    ww_state.ww_factor
+                                } else {
+                                    0.0
+                                },
+                                ..*ww_state
+                            },
                             // A split daughter is the SAME particle
                             // continuing, so its clock is the
                             // parent's reading, not zero.
@@ -2084,6 +2110,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
     // 100k events is far beyond any physical history (mean ~tens of collisions).
     const MAX_EVENTS: u32 = 100_000;
 
+    // The first pop is the SOURCE particle; every later pop is a split
+    // daughter or an (n,2n) / multiplicity secondary, which upstream restores
+    // from the bank without a birth window (`is_secondary`,
+    // `simulation.cpp:757-761`).
+    let mut source_pop = true;
     while let Some((start, start_wgt, own_seed, start_ww, start_time)) = stack.pop() {
         ct_pops += 1;
         time_s = start_time;
@@ -2140,6 +2171,32 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     event: TrackEvent::Born,
                 });
             }
+        }
+
+        // gh:#1582 item 2. Upstream sets `wgt_ww_born = -1` and plays the window
+        // game on a source particle BEFORE its first flight
+        // (`initialize_history`, `simulation.cpp:757-761`), so `ww_born`
+        // anchors at the source, not at the first surface or collision. A
+        // secondary or daughter keeps the anchors it was banked with.
+        if std::mem::take(&mut source_pop)
+            && vr.weight_window_at_birth
+            && vr.weight_windows.is_some()
+            && weight_window_checkpoint(
+                vr,
+                r,
+                u,
+                e,
+                &mut w,
+                &mut ww_state,
+                seed,
+                my_group,
+                time_s,
+                &mut stack,
+                vr.weight_window_no_window_born_one,
+            )
+        {
+            record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, usize::MAX, None);
+            continue;
         }
 
         'history: loop {
@@ -3023,6 +3080,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     my_group,
                     time_s,
                     &mut stack,
+                    false,
                 ) {
                     record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, cell_idx, Some(m));
                     break 'history;
@@ -3111,6 +3169,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             my_group,
                             time_s,
                             &mut stack,
+                            vr.weight_window_no_window_born_one,
                         ) {
                             record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, cell_idx, path.material);
                             break 'history;
@@ -4673,5 +4732,114 @@ mod scored_step_tests {
             tot1.iter().map(|t| t.histories).sum::<u64>(),
             300 * 4 + 450 * 4
         );
+    }
+}
+
+/// gh:#1582: the checkpoint-level parity knobs, reached through
+/// `weight_window_checkpoint`. The end-to-end birth anchor is exercised in
+/// `tests/variance_reduction_parallel_and_weighted_fission.rs`.
+#[cfg(test)]
+mod weight_window_parity_tests {
+    use super::*;
+    use crate::physics::weight_windows::WeightWindows;
+    use crate::tally::mesh::RegularMesh;
+
+    fn windows(max_lb_ratio: f64) -> WeightWindows {
+        let mesh = RegularMesh {
+            lower_left: [0.0, 0.0, 0.0],
+            upper_right: [1.0, 1.0, 1.0],
+            dimension: [1, 1, 1],
+        };
+        // The one cell has a valid window only above 1 MeV; below it the
+        // lower bound is -1, i.e. "no window here".
+        let mut ww = WeightWindows::new(
+            mesh,
+            vec![0.0, 1.0e6, 2.0e7],
+            vec![-1.0, 0.25],
+            vec![-1.0, 1.0],
+        )
+        .unwrap();
+        ww.max_lb_ratio = max_lb_ratio;
+        ww
+    }
+
+    fn call(
+        vr: &VarianceReduction,
+        e: f64,
+        w: &mut f64,
+        st: &mut WindowState,
+        stack: &mut Vec<(Site, f64, Option<u64>, WindowState, f64)>,
+        born_one: bool,
+    ) -> bool {
+        let mut seed = 7u64;
+        weight_window_checkpoint(
+            vr,
+            Position::new(0.5, 0.5, 0.5),
+            Direction::new(0.0, 0.0, 1.0),
+            e,
+            w,
+            st,
+            &mut seed,
+            None,
+            0.0,
+            stack,
+            born_one,
+        )
+    }
+
+    /// Item 4: no valid window sets `ww_born = 1` where upstream goes through
+    /// `apply_weight_windows` (surface, birth) and not at the collision
+    /// checkpoint, only while `ww_born` is still unset, and a window-less call
+    /// afterwards leaves that anchor alone.
+    #[test]
+    fn a_window_less_checkpoint_sets_ww_born_to_one_only_where_upstream_does() {
+        let vr = VarianceReduction::default().with_weight_windows(windows(1.0));
+        let mut stack = Vec::new();
+        // Collision call (born_one = false): untouched.
+        let mut st = WindowState::default();
+        let mut w = 1.0;
+        assert!(!call(&vr, 1.0e5, &mut w, &mut st, &mut stack, false));
+        assert_eq!(st.ww_born, -1.0);
+        // Surface / birth call: anchored at 1.
+        assert!(!call(&vr, 1.0e5, &mut w, &mut st, &mut stack, true));
+        assert_eq!(st.ww_born, 1.0);
+        // Already anchored: a later window-less call does not move it.
+        st.ww_born = 0.625;
+        assert!(!call(&vr, 1.0e5, &mut w, &mut st, &mut stack, true));
+        assert_eq!(st.ww_born, 0.625);
+        // An out-of-energy-range call is also "no window".
+        let mut st = WindowState::default();
+        assert!(!call(&vr, 3.0e7, &mut w, &mut st, &mut stack, true));
+        assert_eq!(st.ww_born, 1.0);
+        // A dead particle is skipped, as `apply_weight_windows` does.
+        let mut st = WindowState::default();
+        let mut dead = 0.0;
+        assert!(!call(&vr, 1.0e5, &mut dead, &mut st, &mut stack, true));
+        assert_eq!(st.ww_born, -1.0);
+        assert!(stack.is_empty());
+    }
+
+    /// Item 3: a split daughter does not carry `ww_factor` (upstream's
+    /// `Particle::split`), unless the legacy knob asks for it; the parent
+    /// keeps its own factor, and `ww_born` / `n_split` are inherited either way.
+    #[test]
+    fn a_split_daughter_does_not_inherit_ww_factor_unless_asked() {
+        for keeps in [false, true] {
+            let vr = VarianceReduction::default()
+                .with_weight_windows(windows(2.0))
+                .with_weight_window_split_keeps_ww_factor(keeps);
+            let mut stack = Vec::new();
+            let mut st = WindowState { ww_born: 0.625, ..WindowState::default() };
+            let mut w = 10.0; // far above lb * max_lb_ratio = 0.5: sets ww_factor
+            assert!(!call(&vr, 5.0e6, &mut w, &mut st, &mut stack, true));
+            assert!(st.ww_factor > 1.0, "the parent keeps its factor");
+            assert!(!stack.is_empty(), "the particle must split");
+            for (_, dw, _, dst, _) in &stack {
+                assert_eq!(dst.ww_factor, if keeps { st.ww_factor } else { 0.0 });
+                assert_eq!(dst.ww_born, st.ww_born);
+                assert_eq!(dst.n_split, st.n_split);
+                assert_eq!(*dw, w, "every copy carries the same weight");
+            }
+        }
     }
 }

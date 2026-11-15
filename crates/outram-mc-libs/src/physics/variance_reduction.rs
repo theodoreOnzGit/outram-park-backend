@@ -57,8 +57,8 @@ pub struct VarianceReduction {
     /// Scale the cutoff and survival weight by the particle's **birth** weight
     /// rather than using them absolutely. `settings::survival_normalization`.
     pub survival_normalization: bool,
-    /// Mesh weight windows, applied at the surface-crossing and collision
-    /// checkpoints. `None` plays no window game, which is the default.
+    /// Mesh weight windows, applied at birth and at the collision checkpoint
+    /// (and the surface checkpoint when switched on, gh:#1582). `None` plays no window game, which is the default.
     ///
     /// `Arc` rather than an owned value: the bounds are one array shared by
     /// every history in a run and must not be cloned per particle. Read-only
@@ -66,8 +66,39 @@ pub struct VarianceReduction {
     pub weight_windows: Option<std::sync::Arc<crate::physics::weight_windows::WeightWindows>>,
     /// Play the window game after a surface crossing too
     /// (`settings::weight_window_checkpoint_surface`). The collision
-    /// checkpoint is always on. gh:#1579.
+    /// checkpoint is always on. Default OFF as upstream (gh:#1582; ON before).
     pub weight_window_checkpoint_surface: bool,
+    /// Apply the window to a source particle at birth, before its first
+    /// flight (`simulation.cpp:757-761`), so `ww_born` anchors at the source
+    /// and not at the first checkpoint. gh:#1582 item 2.
+    pub weight_window_at_birth: bool,
+    /// A split daughter copies the parent's `ww_factor`. Upstream's
+    /// `Particle::split` does NOT (`particle.cpp:122-145`; daughters restart
+    /// at 0), so the upstream behaviour is `false`. No effect while
+    /// `max_lb_ratio = 1`. gh:#1582 item 3.
+    pub weight_window_split_keeps_ww_factor: bool,
+    /// When the surface checkpoint (or birth) finds no valid window, set
+    /// `ww_born = 1` if it is still unset (`weight_windows.cpp:965-967`).
+    /// gh:#1582 item 4.
+    pub weight_window_no_window_born_one: bool,
+}
+
+/// `OUTRAM_MC_LEGACY_WW_GAME=1` makes [`VarianceReduction::default`] carry the
+/// pre-2026-11-15 weight-window game ([`VarianceReduction::with_legacy_weight_window_game`]).
+/// Cached on first use, like `OUTRAM_MC_LEGACY_XS_DETAILS`. gh:#1582.
+fn legacy_weight_window_game() -> bool {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    if cached != u8::MAX {
+        return cached == 1;
+    }
+    let on = match std::env::var("OUTRAM_MC_LEGACY_WW_GAME") {
+        Ok(v) => !v.is_empty() && v != "0",
+        Err(_) => false,
+    };
+    FLAG.store(on as u8, Ordering::Relaxed);
+    on
 }
 
 impl Default for VarianceReduction {
@@ -75,7 +106,7 @@ impl Default for VarianceReduction {
     /// estimator, and why that is not in tension with the "correct physics is
     /// the default" rule.
     fn default() -> Self {
-        Self {
+        let base = Self {
             survival_biasing: false,
             // Upstream's defaults, carried even when inactive so that turning
             // survival biasing on gives upstream's behaviour rather than
@@ -84,7 +115,18 @@ impl Default for VarianceReduction {
             weight_survive: 1.0,
             survival_normalization: false,
             weight_windows: None,
-            weight_window_checkpoint_surface: true,
+            // OpenMC `8f79d9d0` defaults (gh:#1582): collision checkpoint
+            // only, window at birth, no `ww_factor` on a daughter, and
+            // `ww_born = 1` when a surface checkpoint finds no window.
+            weight_window_checkpoint_surface: false,
+            weight_window_at_birth: true,
+            weight_window_split_keeps_ww_factor: false,
+            weight_window_no_window_born_one: true,
+        };
+        if legacy_weight_window_game() {
+            base.with_legacy_weight_window_game()
+        } else {
+            base
         }
     }
 }
@@ -107,8 +149,42 @@ impl VarianceReduction {
         self
     }
 
+    /// The weight-window game as this crate played it before 2026-11-15
+    /// (gh:#1582): both checkpoints, no window at birth, `ww_factor` copied
+    /// onto split daughters, no `ww_born = 1` for a window-less surface
+    /// checkpoint. Kept so a paired run can price the parity change.
+    pub fn with_legacy_weight_window_game(mut self) -> Self {
+        self.weight_window_checkpoint_surface = true;
+        self.weight_window_at_birth = false;
+        self.weight_window_split_keeps_ww_factor = true;
+        self.weight_window_no_window_born_one = false;
+        self
+    }
+
+    /// Apply the window at birth (upstream, default) or first at the first
+    /// checkpoint (legacy). gh:#1582 item 2.
+    pub fn with_weight_window_at_birth(mut self, on: bool) -> Self {
+        self.weight_window_at_birth = on;
+        self
+    }
+
+    /// Whether a split daughter inherits `ww_factor` (legacy `true`; upstream
+    /// `false`). gh:#1582 item 3.
+    pub fn with_weight_window_split_keeps_ww_factor(mut self, on: bool) -> Self {
+        self.weight_window_split_keeps_ww_factor = on;
+        self
+    }
+
+    /// Whether a window-less surface checkpoint or birth sets `ww_born = 1`
+    /// (upstream, default `true`). gh:#1582 item 4.
+    pub fn with_weight_window_no_window_born_one(mut self, on: bool) -> Self {
+        self.weight_window_no_window_born_one = on;
+        self
+    }
+
     /// Switch the surface-crossing window checkpoint on or off. Upstream's
-    /// default is OFF (`src/settings.cpp:89`); see gh:#1579.
+    /// default is OFF (`src/settings.cpp:89`), and so is this crate's since
+    /// gh:#1582 (it was ON before); see also gh:#1579.
     pub fn with_weight_window_checkpoint_surface(mut self, on: bool) -> Self {
         self.weight_window_checkpoint_surface = on;
         self
@@ -391,15 +467,34 @@ mod tests {
         assert!(noop.validate().unwrap_err().contains("no effect"));
     }
 
-    /// gh:#1579: the surface checkpoint is on by default (behaviour unchanged
-    /// by the knob's introduction; upstream's own default is off), the builder
-    /// flips it, and it does not make a run analog or non-analog by itself.
+    /// gh:#1582: the defaults are OpenMC `8f79d9d0`'s (collision checkpoint
+    /// only, window at birth, no `ww_factor` on a daughter, `ww_born = 1` for
+    /// a window-less surface checkpoint); each builder flips its own knob and
+    /// `with_legacy_weight_window_game` restores all four old behaviours.
+    /// None of them makes a run analog or non-analog by itself.
     #[test]
-    fn the_surface_checkpoint_knob_defaults_on_and_flips() {
+    fn the_weight_window_game_defaults_to_upstream_and_each_knob_flips() {
         let vr = VarianceReduction::default();
-        assert!(vr.weight_window_checkpoint_surface);
-        let off = vr.clone().with_weight_window_checkpoint_surface(false);
-        assert!(!off.weight_window_checkpoint_surface);
-        assert!(off.is_analog());
+        assert!(!vr.weight_window_checkpoint_surface);
+        assert!(vr.weight_window_at_birth);
+        assert!(!vr.weight_window_split_keeps_ww_factor);
+        assert!(vr.weight_window_no_window_born_one);
+        let on = vr.clone().with_weight_window_checkpoint_surface(true);
+        assert!(on.weight_window_checkpoint_surface);
+        assert!(on.is_analog());
+        assert!(!vr.clone().with_weight_window_at_birth(false).weight_window_at_birth);
+        assert!(vr
+            .clone()
+            .with_weight_window_split_keeps_ww_factor(true)
+            .weight_window_split_keeps_ww_factor);
+        assert!(!vr
+            .clone()
+            .with_weight_window_no_window_born_one(false)
+            .weight_window_no_window_born_one);
+        let legacy = vr.with_legacy_weight_window_game();
+        assert!(legacy.weight_window_checkpoint_surface);
+        assert!(!legacy.weight_window_at_birth);
+        assert!(legacy.weight_window_split_keeps_ww_factor);
+        assert!(!legacy.weight_window_no_window_born_one);
     }
 }
