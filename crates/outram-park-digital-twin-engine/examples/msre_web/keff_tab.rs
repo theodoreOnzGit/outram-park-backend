@@ -280,7 +280,7 @@ impl KeffTab {
         }
         if let Some(p) = &self.pool {
             let line = match &p.phase {
-                Phase::Processing => format!("Nuclear data: {:.0} % on {} workers ({})", 100.0 * p.data.processed(), p.links.len(), p.data.data_source()),
+                Phase::Processing => processing_line(p),
                 Phase::Assembling => format!("Building the model on {} workers", p.links.len()),
                 Phase::Ready => format!("{} workers hold the model ({}); data ready in {:.0} s", p.keff.live_workers(), p.data.data_source(), p.ready_s.unwrap_or(p.started_s) - p.started_s),
                 Phase::Failed(m) => format!("Failed: {m}"),
@@ -330,12 +330,31 @@ impl KeffTab {
                 ui.selectable_value(&mut self.view, View::Elevation, "Elevation (x-z)");
             });
         });
-        let area = Rect::from_min_max(rect.min + Vec2::new(0.0, 34.0), rect.max - Vec2::new(0.0, 70.0));
         let Some((s, v, w, h, ids)) = &self.raster else {
+            let area = Rect::from_min_max(rect.min + Vec2::new(0.0, 34.0), rect.max);
             ui.painter().text(area.center(), Align2::CENTER_CENTER, "Drawing the geometry…", FontId::proportional(15.0), ui.visuals().text_color());
             return;
         };
         let plan = s.plan();
+        // Legend first: the materials present, wrapped by each label's own
+        // width, so the drawing gets what is left (on a phone it wraps to
+        // five rows, which a fixed allowance let the caption overlap).
+        let mut items = Vec::new();
+        let (mut x, mut row) = (0.0_f32, 0_usize);
+        for (i, (name, _)) in plan.materials.iter().enumerate() {
+            let galley = ui.painter().layout_no_wrap(name.to_string(), FontId::proportional(11.0), ui.visuals().text_color());
+            let wdt = 14.0 + galley.size().x + 10.0;
+            if x + wdt > rect.width() && x > 0.0 {
+                x = 0.0;
+                row += 1;
+            }
+            items.push((x, row, colour(i as u8 + 1), galley));
+            x += wdt;
+        }
+        let legend_h = 15.0 * (row + 1) as f32;
+        let legend_top = rect.bottom() - legend_h;
+        // 34 px of view buttons above, 20 px of caption below the drawing.
+        let area = Rect::from_min_max(rect.min + Vec2::new(0.0, 34.0), Pos2::new(rect.right(), (legend_top - 20.0).max(rect.top() + 60.0)));
         if self.texture.as_ref().map(|t| (t.1, t.2)) != Some((*s, *v)) {
             let px: Vec<Color32> = ids.iter().map(|&i| colour(i)).collect();
             let img = egui::ColorImage { size: [*w, *h], pixels: px, source_size: Vec2::new(*w as f32, *h as f32) };
@@ -347,22 +366,12 @@ impl KeffTab {
             let r = Rect::from_center_size(area.center(), Vec2::new(side, side * aspect));
             ui.painter().image(t.id(), r, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
             let (_, _, width) = v.frame(s);
-            ui.painter().text(r.left_bottom() + Vec2::new(0.0, 4.0), Align2::LEFT_TOP, format!("{:.0} cm across · drawn from the assembled CSG", width[0]), FontId::proportional(12.0), ui.visuals().text_color());
+            ui.painter().text(r.left_bottom() + Vec2::new(0.0, 3.0), Align2::LEFT_TOP, format!("{:.0} cm across · drawn from the assembled CSG", width[0]), FontId::proportional(12.0), ui.visuals().text_color());
         }
-        // Legend: the materials present, wrapped by each label's own width.
-        let mut y = rect.bottom() - 64.0;
-        let mut x = rect.left();
-        for (i, (name, _)) in plan.materials.iter().enumerate() {
-            let c = colour(i as u8 + 1);
-            let galley = ui.painter().layout_no_wrap(name.to_string(), FontId::proportional(11.0), ui.visuals().text_color());
-            let wdt = 14.0 + galley.size().x + 10.0;
-            if x + wdt > rect.right() && x > rect.left() {
-                x = rect.left();
-                y += 15.0;
-            }
+        for (x, row, c, galley) in items {
+            let (x, y) = (rect.left() + x, legend_top + 15.0 * row as f32);
             ui.painter().rect_filled(Rect::from_min_size(Pos2::new(x, y + 2.0), Vec2::splat(10.0)), 1.0, c);
             ui.painter().galley(Pos2::new(x + 14.0, y), galley, ui.visuals().text_color());
-            x += wdt;
         }
     }
 
@@ -390,6 +399,25 @@ impl KeffTab {
             p.points(Points::new("k per generation", PlotPoints::from(k)).radius(2.0));
             p.line(Line::new("running mean (active)", PlotPoints::from(means)).width(2.0));
         });
+    }
+}
+
+/// The pool's line while the nuclear data are processed (gh:#1578: the
+/// first version read "Nuclear data: −0 % (no nuclear data)" for the
+/// minutes before the first job finished, which looked like missing data).
+/// GUI text.
+fn processing_line(p: &Pool) -> String {
+    let n = p.data.labels.len();
+    let done = p.data.secs.iter().filter(|s| s.is_some()).count();
+    let now: Vec<&str> = (0..n).filter(|&j| p.data.started[j] && p.data.secs[j].is_none()).map(|j| p.data.labels[j].as_str()).collect();
+    let now_text = if now.is_empty() { "starting".to_string() } else { now.iter().take(4).copied().collect::<Vec<_>>().join(", ") + if now.len() > 4 { ", ..." } else { "" } };
+    if done == 0 {
+        format!(
+            "Processing the nuclear data on {} workers: 0 of {n} jobs done, now {now_text}. A first visit processes ENDF/B-VIII.0 in this browser and takes several minutes (U-235 and U-238 are the longest); a later visit reads the results back from this browser's cache.",
+            p.links.len()
+        )
+    } else {
+        format!("Nuclear data: {:.0} % by cost, {done} of {n} jobs, on {} workers ({}); now {now_text}", 100.0 * p.data.processed(), p.links.len(), p.data.data_source())
     }
 }
 

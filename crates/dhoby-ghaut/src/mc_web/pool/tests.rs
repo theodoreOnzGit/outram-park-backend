@@ -35,6 +35,9 @@ fn a_mesh_survives_its_words() {
 #[test]
 fn every_product_reaches_every_other_worker_before_assembly() {
     let mut d = DataRelay::new(3, vec!["a".into(), "b".into(), "c".into(), "d".into()], vec![4.0, 3.0, 2.0, 1.0]);
+    // Nothing done yet is +0, not the −0.0 an empty `sum` gives (a page
+    // printed "−0 %", gh:#1578).
+    assert!(d.processed() == 0.0 && d.processed().is_sign_positive());
     let (first, all) = d.outbox(RELAY_WORDS_PER_FRAME, true);
     assert!(!all);
     let dealt: Vec<(usize, Vec<usize>)> = first
