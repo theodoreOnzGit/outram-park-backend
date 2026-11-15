@@ -4829,8 +4829,10 @@ mod weight_window_parity_tests {
                 .with_weight_windows(windows(2.0))
                 .with_weight_window_split_keeps_ww_factor(keeps);
             let mut stack = Vec::new();
-            let mut st = WindowState { ww_born: 0.625, ..WindowState::default() };
-            let mut w = 10.0; // far above lb * max_lb_ratio = 0.5: sets ww_factor
+            // A factor set earlier in the history (2.0) scales the window to
+            // [0.8, 3.2]; weight 10 is still above it, so the particle splits.
+            let mut st = WindowState { ww_born: 0.625, ww_factor: 2.0, ..WindowState::default() };
+            let mut w = 10.0;
             assert!(!call(&vr, 5.0e6, &mut w, &mut st, &mut stack, true));
             assert!(st.ww_factor > 1.0, "the parent keeps its factor");
             assert!(!stack.is_empty(), "the particle must split");

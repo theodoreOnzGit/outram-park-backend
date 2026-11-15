@@ -199,3 +199,37 @@ fn analog_fission_under_weight_windows_is_unbiased() {
          by weight (GitHub #461)"
     );
 }
+
+/// gh:#1582. The upstream-parity game (window at birth, collision checkpoint
+/// only) and the legacy game are different games on a window that varies with
+/// energy (the source is born in the upper energy bin, the first collision may
+/// land in the lower one, so `ww_born` anchors differently), and both are
+/// fair: each agrees with analog. The bit difference proves the knobs reach
+/// the kernel; the z gates prove neither game biases fission.
+#[test]
+fn birth_window_parity_game_differs_from_legacy_and_both_are_unbiased() {
+    let mesh = RegularMesh {
+        lower_left: [-R, -R, -R],
+        upper_right: [R, R, R],
+        dimension: [1, 1, 1],
+    };
+    let ww = WeightWindows::new(mesh, vec![1.0e-5, 1.0e5, 2.0e7], vec![0.05, 0.5], vec![0.15, 1.5])
+        .expect("valid windows");
+    let seq = ComputeType::CpuSingleThread;
+    let analog = run(&base(seq));
+    let mut ks = Vec::new();
+    for vr in [
+        VarianceReduction::default().with_weight_windows(ww.clone()),
+        VarianceReduction::default().with_weight_windows(ww).with_legacy_weight_window_game(),
+    ] {
+        let r = run(&KeffSettings { variance_reduction: vr, ..base(seq) });
+        let z = (r.k_mean - analog.k_mean) / (analog.k_std.r_powi(2) + r.k_std.r_powi(2)).sqrt();
+        println!(
+            "analog {:.5} +/- {:.5}; windowed {:.5} +/- {:.5}; z {z:+.2}",
+            analog.k_mean, analog.k_std, r.k_mean, r.k_std
+        );
+        assert!(z.abs() < 4.0, "windowed k differs from analog by {z:+.2} sigma");
+        ks.push(r.k_mean);
+    }
+    assert_ne!(ks[0].to_bits(), ks[1].to_bits(), "birth/parity knobs did not reach the kernel");
+}

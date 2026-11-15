@@ -1314,7 +1314,7 @@ fn shielded_room_learned_importance() {
 // bias or a heavy tail? Hypothesis and prediction were posted on the issue
 // before any run. Record: `verification_and_validation/stats_epic_493/497_learned_importance.md`.
 //
-// One process per arm (`OUTRAM_MB_ARM` = analog | magic | magic_collision),
+// One process per arm (`OUTRAM_MB_ARM` = analog | magic | magic_legacy | magic_collision; since gh:#1582 `magic` is the upstream-parity game),
 // each writing one line per chunk of histories to `OUTRAM_MB_OUT`; then
 // `shielded_room_magic_bias_report` reads the files. A chunk is a separate
 // one-batch `run_fixed_source` call of `OUTRAM_MB_CHUNK` histories, so the
@@ -1362,6 +1362,14 @@ fn shielded_room_magic_bias_hunt_arm() {
     let (vr, base) = match arm.as_str() {
         "analog" => (VarianceReduction::default(), 20_261_114u64),
         "magic" => (VarianceReduction::default().with_weight_windows(magic), 30_261_114),
+        // gh:#1582: the pre-parity game (both checkpoints, no birth window, ...);
+        // same seeds as the #1579 "magic" arm, so it must reproduce that record.
+        "magic_legacy" => (
+            VarianceReduction::default()
+                .with_weight_windows(magic)
+                .with_legacy_weight_window_game(),
+            30_261_114,
+        ),
         "magic_collision" => (
             VarianceReduction::default()
                 .with_weight_windows(magic)
