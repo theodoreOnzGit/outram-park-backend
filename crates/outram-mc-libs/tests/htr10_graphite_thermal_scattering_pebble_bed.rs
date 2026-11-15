@@ -183,7 +183,7 @@
 //! workspace's own njoy port, so these are **internal-consistency** gates, not
 //! an independent NJOY/OpenMC-ACE oracle. The geometry is a packed cube, not
 //! HTR-10. AI-assisted draft, not human-reviewed.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. The one carbon slot is referenced only by the graphite matrix; the free-gas arm builds the array with no law. The file mixes nuclide-level cross-section checks with the k run through one `nuclides(thermal)` helper, so a migration is a rewrite of its helpers; left for a change that can re-run its k pins.
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;

@@ -128,7 +128,7 @@
 //! ```text
 //! cargo test --release -p outram-mc-libs --test elastic_xi_h1_o16 -- --nocapture
 //! ```
-#![allow(deprecated)] // gh:#462: nuclide-level test or loader; it builds one bound nuclide and no material references it unbound (materials, if any, are built by the caller).
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): nuclide-level test or probe; it builds one bound nuclide and no material references it, so there is no free material that could receive the bound law. Not migrated: the nuclide-level binding is what it exercises.
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;

@@ -181,7 +181,7 @@
 //!     five energies. This is the invariant that catches what a pinned number
 //!     cannot: the pre-`op-55lj` interpolation passed item 8 at 0.0253 eV while
 //!     sitting 4.17 % outside the bracket at 3.9 eV.
-#![allow(deprecated)] // gh:#462: nuclide-level test or loader; it builds one bound nuclide and no material references it unbound (materials, if any, are built by the caller).
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): nuclide-level test or probe; it builds one bound nuclide and no material references it, so there is no free material that could receive the bound law. Not migrated: the nuclide-level binding is what it exercises.
 
 use outram_mc_libs::material::thermal::{ThermalElastic, ThermalScattering};
 use outram_mc_libs::prelude::Nuclide;

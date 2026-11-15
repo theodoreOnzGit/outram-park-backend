@@ -32,6 +32,8 @@ use outram_mc_libs::geometry::universe::Universe;
 #[allow(unused_imports)]
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 #[allow(unused_imports)]
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
+#[allow(unused_imports)]
 use outram_mc_libs::material::nuclide::Nuclide;
 #[allow(unused_imports)]
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -370,6 +372,39 @@ pub fn build_materials(
         })
         .collect();
     (materials, clad_idx)
+}
+
+/// Attach `H(H2O)` per material, as the model's own `<sab>` cards say
+/// (GitHub #462, #1581): a material whose card names `c_H_in_H2O` and that
+/// holds H-1 gets a bound copy of H-1; every other material keeps the free
+/// entry. `nuclides` must hold H-1 **free** (the loaders no longer bind it).
+/// The bound copy is appended to the returned array. With no table or no H-1
+/// loaded, both inputs come back unchanged.
+///
+/// Audited 2026-11-14 on the three committed cases: only the water carries H-1
+/// and only the water has a `<sab>` card, so no free material references the
+/// bound copy.
+pub fn assign_spec_sab(
+    spec: &[MaterialSpec],
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    slots: &BTreeMap<String, usize>,
+    sab: Option<&ThermalScattering>,
+) -> (Vec<Material>, Vec<Nuclide>) {
+    let (Some(table), Some(&h1)) = (sab, slots.get("H1")) else {
+        return (materials.to_vec(), nuclides.to_vec());
+    };
+    let entries: Vec<MaterialSab> = spec
+        .iter()
+        .enumerate()
+        .filter(|(i, m)| {
+            m.sab.as_deref() == Some("c_H_in_H2O")
+                && materials[*i].components.iter().any(|c| c.nuclide_idx == h1)
+        })
+        .map(|(i, _)| MaterialSab { material: i, nuclide: h1, table: 0, fraction: 1.0 })
+        .collect();
+    assign_material_sab(materials, nuclides, std::slice::from_ref(table), &entries)
+        .expect("per-material H(H2O)")
 }
 
 pub fn report_omissions(spec: &[MaterialSpec], omitted: &BTreeMap<String, f64>) {
