@@ -24,10 +24,15 @@
 //!
 //! # Where the two checkpoints sit
 //!
-//! Upstream applies windows at two points, `weight_window_checkpoint_surface`
-//! and `weight_window_checkpoint_collision`. Both are honoured here:
-//! [`WeightWindows::look_up`] is called after a surface crossing and after a
-//! collision, and [`apply`] plays the game.
+//! Upstream applies windows at birth (`simulation.cpp:757-761`) and at two
+//! checkpoints, `weight_window_checkpoint_surface` (default OFF,
+//! `settings.cpp:89`) and `weight_window_checkpoint_collision` (default ON).
+//! All three are honoured here with upstream's defaults (since 2026-11-15,
+//! gh:#1582; before that the surface checkpoint was ON and there was no birth
+//! window): [`WeightWindows::look_up`] is called at birth, after a collision
+//! and, when switched on, after a surface crossing, and [`apply`] plays the
+//! game. `VarianceReduction::with_legacy_weight_window_game` restores the old
+//! behaviour.
 
 use crate::geometry::position::Position;
 use crate::physics::variance_reduction::russian_roulette;
