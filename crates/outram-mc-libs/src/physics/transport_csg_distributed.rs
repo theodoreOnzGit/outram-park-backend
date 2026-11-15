@@ -427,10 +427,14 @@ pub fn transport_chunk(
     chunk: &GenerationChunk,
 ) -> ChunkResult {
     // Cell temperatures are the default (GitHub #313): see `run_keff_csg_par_progress`.
-    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
-    let (geom, materials): (&Geometry, &[Material]) = match &bound {
-        Some((g, m)) => (g, m.as_slice()),
-        None => (geom, materials),
+    // The majorants are widened over the rebound copies, so they bound what
+    // transport reads (GitHub #1577).
+    let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+        geom, materials, nuclides, majorants,
+    );
+    let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+        Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+        None => (geom, materials, majorants),
     };
     let gen_base_seed = future_seed(
         (chunk.generation as u64).wrapping_mul(GEN_STRIDE),

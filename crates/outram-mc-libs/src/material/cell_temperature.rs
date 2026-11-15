@@ -55,10 +55,19 @@
 //! lowered model is unchanged. Pinned by `tests/cell_temperature_is_default.rs`.
 //! The binding clones the geometry and material array only when some cell
 //! disagrees with its material.
+//!
+//! **Delta-tracking majorants follow the binding (GitHub #1577, 2026-11-14).**
+//! The drivers that take majorants call
+//! [`with_cell_temperatures_and_majorants`], which widens each majorant over
+//! the appended copies (`Majorant::widened_over`), so a majorant the caller
+//! built over the original materials still bounds what transport reads. With no
+//! mismatching cell nothing is widened and the run is bit for bit what it was.
 
 use crate::geometry::cell::CellFill;
 use crate::geometry::geometry::Geometry;
 use crate::material::material::Material;
+use crate::material::nuclide::Nuclide;
+use crate::physics::delta_tracking::Majorant;
 
 /// One material cell whose declared temperature differs from its material's.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -167,4 +176,47 @@ pub fn with_cell_temperatures(
     materials: &[Material],
 ) -> Option<(Geometry, Vec<Material>)> {
     bind_cell_temperatures(geometry, materials).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// Margin on the rebound copies' `Σ_t` when widening a majorant
+/// ([`with_cell_temperatures_and_majorants`]): 0.1, the margin every
+/// `Majorant::over_indices` in `tests/delta_tracking_audit.rs` and the
+/// reproducer of gh #1577 use. **Not derived**: the caller's own margin is not
+/// recoverable from a built majorant, so the copies get the common one. The
+/// first choice, 0.05 (the D3 audit's `bounding` margin), was measured to leave
+/// **2 violations in ~35e6 tentative sites** on seed 31 while its 200 001-point
+/// audit read 0.9893, i.e. multipole structure between nodes; 0.1 was then
+/// adopted as the workspace's standard, not searched for the smallest value that
+/// passes. The result is never below the caller's majorant.
+pub const REBOUND_MAJORANT_MARGIN: f64 = 0.1;
+
+/// [`with_cell_temperatures`] **and the majorants that bound what it binds**
+/// (GitHub #1577). Delta tracking samples against `majorants[i]`, which the
+/// caller built over the ORIGINAL materials; the binding makes transport read
+/// rebound copies at the cells' temperatures, which such a majorant need not
+/// bound (2432 violations, `tests/delta_tracking_audit.rs`). So when the
+/// binding appended copies and `majorants` is non-empty, each majorant is
+/// widened over the appended copies ([`Majorant::widened_over`]), so it is
+/// never below the original. A copy of a material used by a non-delta cell
+/// widens a majorant that does not need it: that costs virtual collisions,
+/// never a bias.
+///
+/// `None` when no cell disagrees with its material: the caller keeps
+/// everything and nothing changes by a bit. With no majorants the third
+/// element is empty. Panics on an invalid cell temperature, as
+/// [`with_cell_temperatures`].
+#[must_use]
+pub fn with_cell_temperatures_and_majorants(
+    geometry: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+) -> Option<(Geometry, Vec<Material>, Vec<Majorant>)> {
+    let (g, m) = with_cell_temperatures(geometry, materials)?;
+    let copies = &m[materials.len()..];
+    let widened = majorants
+        .iter()
+        .map(|mj| mj.widened_over(copies, nuclides, REBOUND_MAJORANT_MARGIN))
+        .collect();
+    Some((g, m, widened))
 }

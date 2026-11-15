@@ -534,10 +534,13 @@ impl eframe::App for App {
         // page needs no timer of its own.
         self.handle();
         let _finished = self.keff.pump(&ctx, &self.link);
-        // "Send to plant" (gh:#1574): only the reader's button does this.
+        // "Send to plant" (gh:#1574): only the reader's button does this. The
+        // running plant switches to them with its state kept (the htgr_sim_v1
+        // way, `MsreModel::set_temperature_coefficients`); no reset.
         if let Some(c) = self.keff.take_send() {
             self.config.coefficients = c;
-            self.reset();
+            self.plant_coefficients = c;
+            self.send(Request::Cmd(Command::Coefficients(c)));
         }
         let title = match &self.snap {
             Some(s) => format!("MSRE · {:.0} s · {:.2} MW", s.time_s, s.power_mw),

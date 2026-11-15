@@ -18,6 +18,7 @@ use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
 use outram_mc_libs::geometry::universe::Universe;
+use outram_mc_libs::material::cell_temperature::REBOUND_MAJORANT_MARGIN;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
@@ -87,6 +88,11 @@ enum Middle {
 /// `delta` decides whether the root cell declares delta tracking against
 /// majorant 0; the geometry is otherwise identical.
 fn shells(r_out: f64, middle: Middle, delta: bool) -> Geometry {
+    shells_at(r_out, middle, delta, None)
+}
+
+/// [`shells`] with every material cell declaring `cell_t` (`None`: unset).
+fn shells_at(r_out: f64, middle: Middle, delta: bool, cell_t: Option<f64>) -> Geometry {
     let sphere = |r, bc| {
         SurfaceKind::Sphere(Sphere {
             x0: 0.0,
@@ -120,12 +126,12 @@ fn shells(r_out: f64, middle: Middle, delta: bool) -> Geometry {
             // temperature overrides the material's, so the former literal 293.6 K
             // turned the hot-material runs cold while the majorant was still built
             // over the hot materials (2432 violations, 2026-11-14).
-            Cell::material(10, vec![hs(1, HalfSpaceSense::Inside)], 0, None),
+            Cell::material(10, vec![hs(1, HalfSpaceSense::Inside)], 0, cell_t),
             match middle {
-                Middle::Graphite => Cell::material(11, shell, 1, None),
+                Middle::Graphite => Cell::material(11, shell, 1, cell_t),
                 Middle::Void => Cell::fill(11, shell, CellFill::Void, Position::ZERO),
             },
-            Cell::material(12, vec![hs(2, HalfSpaceSense::Outside)], 2, None),
+            Cell::material(12, vec![hs(2, HalfSpaceSense::Outside)], 2, cell_t),
             if delta { root.delta_tracked(0) } else { root },
         ],
         universes: vec![
@@ -607,4 +613,156 @@ fn majorant_violations_are_counted_not_hidden() {
         b.majorant_violations > 0,
         "a cold majorant on hot multipole materials should be violated somewhere"
     );
+}
+
+/// **A delta-tracked cell that declares a temperature is bounded by its
+/// majorant** (gh:#1577). Since gh:#313 the drivers transport a rebound copy
+/// of the material at the cell's temperature; a majorant built by the caller
+/// over the ORIGINAL materials need not bound it.
+///
+/// Methodology: the three-shell reflective sphere, materials at 1200 K
+/// (LOW-tier), every material cell declaring 293.6 K, the whole sphere
+/// delta-tracked against `Majorant::over_indices` over the 1200 K materials
+/// (1024 log points, margin 0.1: the reproducer of the issue). Part 1 audits
+/// that majorant (`Majorant::audit`, 200 001 energies + breakpoints) against
+/// the 293.6 K copies, with and without `Majorant::widened_over`. Part 2 runs
+/// the hybrid driver and the surface-tracking driver on the same geometry,
+/// 1000 x [5 + 20], seeds 31..=35 (5 seeds), and compares k per seed and
+/// pooled. Pass: widened audit <= 1 and the original's > 1 (the hazard is
+/// real); 0 violations and 0 delta-lost on every seed; pooled |z| <= 2.
+///
+/// Prediction (before running): original majorant under-bounds the cold copy
+/// (Doppler peaks are higher cold); widened 0 violations, 0 delta-lost, and
+/// k agreeing with surface tracking, ~68 % of seeds within 1 sigma, pooled
+/// |z| < 2. Before the fix: 2432 violations on the issue's 500 x [2 + 5] run.
+///
+/// Results: see the gh:#1577 comment (printed by this test).
+#[test]
+fn declared_cell_temperature_is_bounded_by_the_majorant() {
+    let nucs = nuclides();
+    let hot = materials(T_HOT);
+    let cold = materials(T_COLD);
+    let maj = Majorant::over_indices(&hot, &[0, 1, 2], &nucs, &log_grid(1024), 0.1);
+    let wide = maj.widened_over(&cold, &nucs, REBOUND_MAJORANT_MARGIN);
+    let a_orig = maj.audit(&cold, &nucs, 1.0e-5, 2.0e7, 200_000);
+    let a_wide = wide.audit(&cold, &nucs, 1.0e-5, 2.0e7, 200_000);
+    let a_hot = wide.audit(&hot, &nucs, 1.0e-5, 2.0e7, 200_000);
+    println!(
+        "audit vs 293.6 K copies: original worst {:.4} at {:.4e} eV; widened worst {:.4}; widened vs the 1200 K originals worst {:.4}",
+        a_orig.worst_ratio, a_orig.energy_ev, a_wide.worst_ratio, a_hot.worst_ratio
+    );
+    assert!(
+        a_orig.worst_ratio > 1.0,
+        "the 1200 K majorant should under-bound the 293.6 K copies somewhere"
+    );
+    assert!(a_wide.worst_ratio <= 1.0, "widened majorant under-bounds the copies");
+    assert!(a_hot.worst_ratio <= 1.0, "widening lowered the original bound");
+
+    let (mut within1, mut within2) = (0, 0);
+    let (mut dk_sum, mut var_sum) = (0.0, 0.0);
+    for seed in 31..=35_u64 {
+        let s = settings(1000, 5, 20, T_HOT, seed);
+        let surf = run_keff_csg(
+            &shells_at(5.0, Middle::Graphite, false, Some(T_COLD)),
+            &hot,
+            &nucs,
+            cube(5.0),
+            &s,
+            None,
+        );
+        let hyb = run_keff_csg_hybrid(
+            &shells_at(5.0, Middle::Graphite, true, Some(T_COLD)),
+            &hot,
+            &nucs,
+            std::slice::from_ref(&maj),
+            None,
+            cube(5.0),
+            &s,
+            None,
+        );
+        let (dk, zz) = z(&hyb, &surf);
+        println!(
+            "seed {seed}: surface k = {:.6} ± {:.6}; hybrid k = {:.6} ± {:.6}; {dk:+.0} pcm ({zz:.2} σ); {} violations, {} delta-lost, {} virtual",
+            surf.k_mean, surf.k_std, hyb.k_mean, hyb.k_std,
+            hyb.majorant_violations, hyb.delta_lost, hyb.virtual_collisions
+        );
+        assert_eq!(hyb.majorant_violations, 0, "seed {seed}");
+        assert_eq!(hyb.delta_lost, 0, "seed {seed}");
+        assert!(hyb.virtual_collisions > 0, "the delta region was never entered");
+        within1 += usize::from(zz <= 1.0);
+        within2 += usize::from(zz <= 2.0);
+        dk_sum += dk;
+        var_sum += (surf.k_std.r_powi(2) + hyb.k_std.r_powi(2)) * 1.0e10;
+    }
+    let pooled = (dk_sum / 5.0).abs() / (var_sum.sqrt() / 5.0);
+    println!("5 seeds: |z| <= 1 on {within1}, <= 2 on {within2}; pooled |z| = {pooled:.2}");
+    assert!(pooled <= 2.0, "pooled |z| = {pooled:.2}");
+}
+
+/// **No cell declares a temperature: the driver is bit for bit what it was**
+/// (gh:#1577). Methodology: the delta-tracked three-shell sphere at 1200 K,
+/// cells unset (`None`) or declaring 1200 K (equal to the material, so the
+/// binding returns `None` too), hybrid driver, 500 x [2 + 5], seed 13,
+/// majorant over the 1200 K materials. Pass: the two arms are bit-identical
+/// and equal the k recorded from the pre-fix build (`PRE_FIX_K_BITS`).
+#[test]
+fn unbound_cells_leave_the_delta_driver_bit_identical() {
+    let nucs = nuclides();
+    let hot = materials(T_HOT);
+    let maj = Majorant::over_indices(&hot, &[0, 1, 2], &nucs, &log_grid(1024), 0.1);
+    let s = settings(500, 2, 5, T_HOT, 13);
+    let run = |cell_t: Option<f64>| {
+        run_keff_csg_hybrid(
+            &shells_at(5.0, Middle::Graphite, true, cell_t),
+            &hot,
+            &nucs,
+            std::slice::from_ref(&maj),
+            None,
+            cube(5.0),
+            &s,
+            None,
+        )
+    };
+    let (a, b) = (run(None), run(Some(T_HOT)));
+    println!(
+        "k bits: unset {:#018x} ({:.6}), 1200 K {:#018x}; virtual {} / {}",
+        a.k_mean.to_bits(), a.k_mean, b.k_mean.to_bits(), a.virtual_collisions, b.virtual_collisions
+    );
+    assert_eq!(a.k_mean.to_bits(), b.k_mean.to_bits());
+    assert_eq!(a.virtual_collisions, b.virtual_collisions);
+    assert_eq!(a.k_mean.to_bits(), PRE_FIX_K_BITS, "k moved from the pre-#1577 build");
+    assert_eq!(a.virtual_collisions, PRE_FIX_VIRTUAL);
+}
+
+const PRE_FIX_K_BITS: u64 = 0x3ff1_0a44_7f99_fca8;
+const PRE_FIX_VIRTUAL: u64 = 1_894_512;
+
+/// **Control for gh:#1577: the violation rate of an ordinary majorant with no
+/// rebinding.** Materials at 293.6 K, cells unset, majorant built over those
+/// same materials as the caller does (`over_indices`, 1024 log points, margin
+/// 0.1), seeds 31..=35, 1000 x [5 + 20]. This is the baseline against which
+/// the rebound arm of [`declared_cell_temperature_is_bounded_by_the_majorant`]
+/// is read: a violation count the rebinding did not cause is not the
+/// rebinding's. Prints only; asserts nothing.
+#[test]
+fn control_ordinary_majorant_violation_rate() {
+    let nucs = nuclides();
+    let cold = materials(T_COLD);
+    let maj = Majorant::over_indices(&cold, &[0, 1, 2], &nucs, &log_grid(1024), 0.1);
+    for seed in 31..=35_u64 {
+        let hyb = run_keff_csg_hybrid(
+            &shells_at(5.0, Middle::Graphite, true, None),
+            &cold,
+            &nucs,
+            std::slice::from_ref(&maj),
+            None,
+            cube(5.0),
+            &settings(1000, 5, 20, T_COLD, seed),
+            None,
+        );
+        println!(
+            "control seed {seed}: k = {:.6} ± {:.6}, {} violations, {} delta-lost, {} virtual",
+            hyb.k_mean, hyb.k_std, hyb.majorant_violations, hyb.delta_lost, hyb.virtual_collisions
+        );
+    }
 }

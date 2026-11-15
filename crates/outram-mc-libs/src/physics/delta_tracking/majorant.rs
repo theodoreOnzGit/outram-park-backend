@@ -540,6 +540,65 @@ impl Majorant {
     }
 }
 
+impl Majorant {
+    /// **This majorant, widened to also bound `extra` materials** (GitHub
+    /// #1577): at every node of the union of this majorant's nodes and those
+    /// of [`Self::bounding`] over `extra` (4096 bins x 16 subsamples, the
+    /// settings of the D3 audit, factor `1 + margin`), the larger of the two.
+    /// It is never below `self` at any energy, and is a bound on `extra` to
+    /// the extent [`Self::bounding`] is: by construction on pointwise and
+    /// S(a,b) data, sampled on multipole and URR parts.
+    ///
+    /// Why it exists: the CSG drivers transport a rebound copy of a material
+    /// in every cell that declares a different temperature
+    /// ([`crate::material::cell_temperature`], gh #313), and a majorant built
+    /// by the caller over the original materials does not bound that copy
+    /// (`tests/delta_tracking_audit.rs`: 2432 violations).
+    ///
+    /// Details a caller must know:
+    /// - A Chebyshev cover ([`Self::chebyshev_cover`]) is **dropped**: the
+    ///   result is the underlying table, widened. The table is what the cover
+    ///   was proven to lie above, so the bound is kept; only the cover's
+    ///   cheapness is lost. Re-cover the result if that matters.
+    /// - On a flat [`Self::uniform`] majorant (nodes at 0 and infinity) the
+    ///   extra term covers `[1e-5, 2e7]` eV only.
+    /// - `extra` empty gives a clone.
+    ///
+    /// ~~First attempt, margin 0 on breakpoint nodes alone~~ **measured
+    /// 2026-11-14 to under-bound the 293.6 K copies by 3.9 %** (audit worst
+    /// 1.0388 against 1.6805 unwidened): multipole data between its nodes is
+    /// only sampled, so the sampled envelope is what [`Self::bounding`] adds.
+    pub fn widened_over(&self, extra: &[Material], nuclides: &[Nuclide], margin: f64) -> Majorant {
+        if extra.is_empty() || self.energy.is_empty() {
+            return self.clone();
+        }
+        let base = Majorant {
+            energy: self.energy.clone(),
+            sigma: self.sigma.clone(),
+            cover: Vec::new(),
+        };
+        let first = self.energy[0];
+        let last = self.energy[self.energy.len() - 1];
+        let lo = if first > 0.0 { first } else { 1.0e-5 };
+        let hi = if last.is_finite() { last } else { 2.0e7 };
+        let ext = Majorant::bounding(extra, nuclides, lo, hi, 4096, 16, margin);
+        let mut grid = self.energy.clone();
+        grid.extend(ext.energy.iter().copied());
+        grid.retain(|&e| !e.is_nan() && e >= 0.0);
+        grid.sort_by(|a, b| a.partial_cmp(b).expect("no NaN"));
+        grid.dedup();
+        let sigma = grid
+            .iter()
+            .map(|&e| base.at(e).max(ext.at(e)))
+            .collect();
+        Majorant {
+            energy: grid,
+            sigma,
+            cover: Vec::new(),
+        }
+    }
+}
+
 /// The result of [`Majorant::audit`]: the worst `Σ_t / Σ_maj` found and where.
 #[derive(Debug, Clone, Copy)]
 pub struct MajorantAudit {

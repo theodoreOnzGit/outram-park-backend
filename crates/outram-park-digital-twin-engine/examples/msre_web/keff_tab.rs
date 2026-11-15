@@ -498,9 +498,10 @@ impl KeffTab {
         if let Some(c) = self.measured() {
             ui.label(RichText::new(c.describe()).strong());
             ui.label(RichText::new("The precomputed N-3 split (6 seeds each) is fuel −3.79 ± 0.37, graphite −3.26 ± 0.33 (×1e-5 /°F); measured at the MSRE: fuel −4.7 ± 0.7 (ORNL-4233).").small());
-            if ui.add(egui::Button::new("Send to plant (resets it with these)").min_size(Vec2::new(0.0, 36.0))).clicked() {
+            if ui.add(egui::Button::new("Send to plant (switches the running plant to these)").min_size(Vec2::new(0.0, 36.0))).clicked() {
                 self.send = Some(c);
             }
+            ui.label(RichText::new("The plant keeps its state; feedback is α(T − T_ref), so a plant away from its starting temperatures steps in reactivity at the switch (a change of model, not something an operator could do).").small());
         }
         if let Some(p) = &self.pool {
             let line = match &p.phase {

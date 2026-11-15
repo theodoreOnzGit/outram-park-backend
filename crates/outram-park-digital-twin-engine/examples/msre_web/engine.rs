@@ -281,24 +281,31 @@ pub fn coefficients_from_code(v: &[f64]) -> Coefficients {
     }
 }
 
-/// A command as `(code, value)`, for the wire.
+/// A command as wire numbers `[code, values...]` (a coefficient set,
+/// gh:#1574, carries five: its `coefficients_code`).
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
-pub fn command_code(c: Command) -> (f64, f64) {
+pub fn command_code(c: Command) -> Vec<f64> {
     match c {
-        Command::RodsPcm(x) => (0.0, x),
-        Command::Servo(on) => (1.0, on as u8 as f64),
-        Command::AirFraction(x) => (2.0, x),
-        Command::TripFuelPump => (3.0, 0.0),
-        Command::TripCoolantPump => (4.0, 0.0),
-        Command::StartFuelPump => (5.0, 0.0),
-        Command::StartCoolantPump => (6.0, 0.0),
+        Command::RodsPcm(x) => vec![0.0, x],
+        Command::Servo(on) => vec![1.0, on as u8 as f64],
+        Command::AirFraction(x) => vec![2.0, x],
+        Command::TripFuelPump => vec![3.0],
+        Command::TripCoolantPump => vec![4.0],
+        Command::StartFuelPump => vec![5.0],
+        Command::StartCoolantPump => vec![6.0],
+        Command::Coefficients(k) => {
+            let mut v = vec![7.0];
+            v.extend(coefficients_code(k));
+            v
+        }
     }
 }
 
 /// The inverse of [`command_code`].
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
-pub fn command_from_code(code: f64, x: f64) -> Option<Command> {
-    Some(match code as i64 {
+pub fn command_from_code(v: &[f64]) -> Option<Command> {
+    let x = v.get(1).copied().unwrap_or(0.0);
+    Some(match *v.first()? as i64 {
         0 => Command::RodsPcm(x),
         1 => Command::Servo(x != 0.0),
         2 => Command::AirFraction(x),
@@ -306,6 +313,7 @@ pub fn command_from_code(code: f64, x: f64) -> Option<Command> {
         4 => Command::TripCoolantPump,
         5 => Command::StartFuelPump,
         6 => Command::StartCoolantPump,
+        7 => Command::Coefficients(coefficients_from_code(v.get(1..)?)),
         _ => return None,
     })
 }
@@ -332,8 +340,8 @@ pub mod web {
                 Request::Pace(speed, paused) => ("pace", speed, paused as u8 as f64, 0.0),
                 Request::Thaw => ("thaw", 0.0, 0.0, 0.0),
                 Request::Cmd(cmd) => {
-                    let (k, x) = command_code(cmd);
-                    ("cmd", k, x, 0.0)
+                    js::set(&o, "v", js::f64s(&command_code(cmd)));
+                    ("cmd", 0.0, 0.0, 0.0)
                 }
                 Request::Reset(cfg) => {
                     js::set(&o, "coef", js::f64s(&coefficients_code(cfg.coefficients)));
@@ -357,7 +365,7 @@ pub mod web {
                 "tick" => Request::Tick(g("a")),
                 "pace" => Request::Pace(g("a"), g("b") != 0.0),
                 "thaw" => Request::Thaw,
-                "cmd" => Request::Cmd(command_from_code(g("a"), g("b")).ok_or("bad command")?),
+                "cmd" => Request::Cmd(command_from_code(&js::get_f64s(v, "v")).ok_or("bad command")?),
                 "reset" => Request::Reset(SessionConfig {
                     power_mw: g("a"),
                     coefficients: coefficients_from_code(&js::get_f64s(v, "coef")),
@@ -820,10 +828,12 @@ mod tests {
             Command::StartFuelPump,
             Command::StartCoolantPump,
         ] {
-            let (k, x) = command_code(c);
-            assert_eq!(command_from_code(k, x), Some(c));
+            assert_eq!(command_from_code(&command_code(c)), Some(c));
         }
-        assert_eq!(command_from_code(99.0, 0.0), None);
+        let k = Coefficients::Measured { fuel_per_f: -3.8e-5, fuel_sigma: 0.4e-5, graphite_per_f: -3.3e-5, graphite_sigma: 0.3e-5 };
+        assert_eq!(command_from_code(&command_code(Command::Coefficients(k))), Some(Command::Coefficients(k)));
+        assert_eq!(command_from_code(&[99.0, 0.0]), None);
+        assert_eq!(command_from_code(&[]), None);
         for c in [
             Coefficients::Ornl1965,
             Coefficients::MonteCarloN3,

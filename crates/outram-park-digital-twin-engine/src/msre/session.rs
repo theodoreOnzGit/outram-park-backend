@@ -161,6 +161,11 @@ pub enum Command {
     /// Coolant pump start, on the same start-up schedule (no coolant one is
     /// published).
     StartCoolantPump,
+    /// Switch the running plant to these temperature coefficients (gh:#1574,
+    /// "send to plant"): the state and the reference temperatures are kept
+    /// (`MsreModel::set_temperature_coefficients`, which says what a switch
+    /// away from the reference temperatures does to the reactivity).
+    Coefficients(Coefficients),
 }
 
 /// The fuel salt's liquidus, [°F]: ORNL-TM-0728 Table 2.1, as cited in
@@ -340,6 +345,15 @@ impl Session {
             }
             Command::StartFuelPump => self.model.start_fuel_pump(FlowSchedule::tm0728_fuel_flow_startup()),
             Command::StartCoolantPump => self.model.start_coolant_pump(FlowSchedule::tm0728_fuel_flow_startup()),
+            Command::Coefficients(c) => {
+                let (f, g) = c.per_f();
+                if !(f.is_finite() && g.is_finite()) {
+                    return Err(MsreModelError::InvalidInput(format!("coefficients must be finite, got {f}, {g} /°F")));
+                }
+                self.model.set_temperature_coefficients(per_f(f), per_f(g));
+                // The session now runs on these: a thaw rebuilds with them.
+                self.config.coefficients = c;
+            }
         }
         Ok(())
     }
