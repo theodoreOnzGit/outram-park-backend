@@ -325,7 +325,13 @@ impl KeffTab {
         if self.loading.as_ref().map(|l| l.0) != Some(p.study) {
             let list = jobs(&p.study);
             let labels = list.iter().map(job_label).collect();
-            self.loading = Some((p.study, Loading::new(labels, list.iter().map(Job::cost).collect())));
+            // The card reads each weight as the job's expected seconds. The
+            // costs are desktop estimates (U-235 58 s); on a phone U-235
+            // took about 500 s (the maintainer, 2026-11-15), so a phone's
+            // are scaled by that ratio (an ESTIMATE from one measurement),
+            // and the bar does not race to a third and stall.
+            let slow = if bugis::web_demo::pool::Device::probe().phone { PHONE_SLOWDOWN } else { 1.0 };
+            self.loading = Some((p.study, Loading::new(labels, list.iter().map(|j| j.cost() * slow).collect())));
         }
         if let Some((_, l)) = self.loading.as_mut() {
             for j in 0..p.data.started.len().min(l.labels.len()) {
@@ -356,9 +362,9 @@ impl KeffTab {
         if let (Some(p), Some((_, l))) = (self.pool.as_ref(), self.loading.as_ref()) {
             if p.data_phase() {
                 let note = if p.data.secs.iter().any(Option::is_some) {
-                    format!("First visit: several minutes in this browser (U-235 and U-238 are the longest); a later visit reads the results from this browser's cache. So far: {}.", p.data.data_source())
+                    format!("First visit: several minutes in this browser; U-235 and U-238 are the longest (U-235 alone took about 500 s on a phone, measured by the maintainer, 2026-11-15). A later visit reads the results from this browser's cache. So far: {}.", p.data.data_source())
                 } else {
-                    "First visit: several minutes in this browser (U-235 and U-238 are the longest); a later visit reads the results from this browser's cache.".to_string()
+                    "First visit: several minutes in this browser; U-235 and U-238 are the longest (U-235 alone took about 500 s on a phone, measured by the maintainer, 2026-11-15). A later visit reads the results from this browser's cache.".to_string()
                 };
                 let title = format!("Processing ENDF/B-VIII.0 on {} workers", p.links.len());
                 l.card(ui.painter(), plot, &title, Some(&note));
@@ -463,6 +469,11 @@ fn processing_line(p: &Pool) -> String {
         format!("Nuclear data: {:.0} % by cost, {done} of {n} jobs, on {} workers ({}); now {now_text}", 100.0 * p.data.processed(), p.links.len(), p.data.data_source())
     }
 }
+
+/// How much longer a phone takes than the desktop cost estimates: U-235
+/// about 500 s on the maintainer's phone (2026-11-15) against the 58 s
+/// estimate. An ESTIMATE from one measurement; only the progress bar uses it.
+const PHONE_SLOWDOWN: f64 = 500.0 / 58.0;
 
 /// A job's name for the loading card (its nuclide, or its law).
 fn job_label(j: &Job) -> &'static str {
