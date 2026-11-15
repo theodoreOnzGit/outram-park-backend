@@ -187,7 +187,7 @@ headline band under either reading. The existing **MAGIC arm (the
 `weight_windows.rs` path, not new code) shows a repeatable negative shift** in
 the far field, -5.8 % in A and -3.7 % in B, pooled -4.8 % at about 3 sigma;
 it also fails 2 sigma at 400-900 cm in run A (-2.41) and passes there in B.
-This is **not explained**. It is either a real bias in the windowed transport
+~~This is **not explained**.~~ **UPDATED 2026-11-15 (gh:#1579): see "MAGIC shift investigation" below; the -4.8 % did not reproduce (40 fresh seeds: -1.8 %, z -1.5) and no code defect was found.** It was either a real bias in the windowed transport
 or windowed scoring (the 2026-09-24 record showed +2.21 % in total flux with
 a 25 % bound, which could not see this), or a heavy tail that 5-seed sigmas
 underestimate: weight windows make rare large scores rarer, and a sample sigma
@@ -268,3 +268,114 @@ is wrong. Pinned by `non_integer_power_law_bias_weight_is_upstreams_defect`.
 The port copies upstream (the bit-comparison covers integer `n` only), so
 fixing it would diverge from OpenMC: **maintainer decision**; whether current
 OpenMC still has this was not checked here (no upstream source available).
+
+
+## MAGIC shift investigation (2026-11-15, gh:#1579)
+
+**Question.** Is the far-field (900-1450 cm) MAGIC shift of -4.8 % (z -3.1 at
+5 + 5 seeds) a real bias in the windowed path, or a heavy tail that 5-seed
+sigmas underestimate? Hypotheses and predictions were posted on #1579 before
+any run (H1 heavy tail, about 60 %: 20+ seed MAGIC/analog within |z| <= 2 of 1;
+H2 about 35 %: a real bias from the surface checkpoint, sign negative, -3 to
+-6 %, persisting at 20 seeds and vanishing with the surface checkpoint off).
+
+### Step 1: the port read against upstream (OpenMC `8f79d9d0`, `upstream_source/OpenMC`)
+
+Compared: `apply_weight_window(s)`, `get_weight_window`, `search_weight_window`,
+`Particle::split`, `initialize_history` (`simulation.cpp:735-760`), the call
+sites in `physics.cpp:67` and `particle.cpp:385`, and `settings.cpp:89-90`
+against `src/physics/weight_windows.rs` and `weight_window_checkpoint` in
+`transport_csg.rs`.
+
+**Matches line for line:** the cutoff kill; `ww_born` anchoring and
+`scale(wgt_born / wgt_ww_born)`; `max_lb_ratio` / `ww_factor`; the dead-banded
+split count `max(2, ceil(w / ((1+tol) ub)))` capped at `max_split` with
+`weight / n_split` to every copy; `weight_survive = min(w * max_split,
+survival_weight)`; roulette `survive * prn < w`; `max_history_splits`;
+energy-bin lookup and no window outside the mesh or energy range.
+
+**Differences (none is a weight-bookkeeping error; each game is fair):**
+
+| # | upstream | port | status |
+|---|---|---|---|
+| 1 | surface checkpoint default OFF (`settings.cpp:89`), collision only | plays the window at both | knob added, default left ON (`with_weight_window_checkpoint_surface`); measured below |
+| 2 | window applied at birth (`simulation.cpp:759`) | first applied at the first surface/collision, so `ww_born` anchors there | not changed, not measured |
+| 3 | `split()` banks `wgt_born`, `wgt_ww_born`, `n_split`, not `ww_factor` | daughters copy `ww_factor` too | no effect while `max_lb_ratio = 1` (this test); not changed |
+| 4 | daughter banked with `surf_id` | daughter at a surface re-located with `on_surface = NONE` | measured via 1 (surface checkpoint off removes it) |
+| 5 | no window at a surface checkpoint sets `wgt_ww_born = 1` | left at -1 | not changed |
+
+### Step 2: measurement
+
+Test `shielded_room_magic_bias_hunt_arm` + `shielded_room_magic_bias_report`
+(`tests/openmc_notebooks/shielded_room_weight_window.rs`). Same windows as the
+2026-11-14 run (early analog tally 2000 histories, seed 424 242, threshold 1,
+ratio 5). Arms: analog (40 000 histories per seed), MAGIC (20 000), MAGIC with
+the surface checkpoint OFF (20 000, the upstream default). 20 seeds per arm per
+replicate, two replicates with fresh transport seeds (offset 0 and
+500 000 000) = 40 seeds per arm. Each seed is split into one-batch chunks of
+200 histories, so the chunk-score spread is a tail diagnostic.
+**Hardware:** Intel Xeon @ 2.80 GHz, 4 logical cores, 15 GB RAM, Linux
+6.18.44, CPU only; three single-threaded processes at once on a **shared and
+loaded box** (load average 4-9), so no timings are quoted. **Sizes** were set
+to fit about an hour on this box.
+
+Headline band, flux per source particle summed over 317 cells, mean +- seed-to-seed sem:
+
+| replicate | analog | MAGIC | z | MAGIC, surface checkpoint OFF | z |
+|---|---|---|---|---|---|
+| C (seeds 0-19) | 4.7623 +- 0.0686 | 4.6328 +- 0.0598 (0.9728) | -1.42 | 4.6406 +- 0.0758 (0.9744) | -1.19 |
+| D (seeds 20-39) | 4.7217 +- 0.0552 | 4.6828 +- 0.0438 (0.9917) | -0.55 | 4.6828 +- 0.0742 (0.9918) | -0.42 |
+| C + D, 40 seeds | 4.7420 +- 0.0436 (0.92 %) | 4.6578 +- 0.0368 (0.9822, **-1.8 %**) | **-1.48** | 4.6617 +- 0.0524 (0.9831) | -1.18 |
+
+Tail diagnostics (chunk of 200 histories; C + D pooled; for a Gaussian the
+relative VOV is about 2 / n_chunks = 0.0005 analog, 0.0010 MAGIC):
+
+| arm | chunk VOV | skew | largest chunk / mean chunk | top-5 chunks' share of the total |
+|---|---|---|---|---|
+| analog | 0.0007 | 1.49 | 7.6x | 0.43 % (uniform 0.06 %) |
+| MAGIC | 0.0024 | 1.90 | 7.3x | 0.70 % (uniform 0.125 %) |
+| MAGIC, surface OFF | 0.0031 | 2.20 | 7.4x | 0.81 % |
+
+### Verdict
+
+1. **No code defect found, and nothing was changed to move the number.** The
+   game matches upstream where it matters (above); the five differences are
+   fair games. The surface checkpoint (differences 1 and 4) is **not** the
+   cause: with it off, MAGIC reads 0.9831 against 0.9822 (H2's prediction,
+   that the shift vanishes with it off, **missed**).
+2. **The -4.8 % did not reproduce.** On 40 fresh seeds the shift is **-1.8 %,
+   z -1.48** (replicates -2.7 % z -1.42 and -0.8 % z -0.55), so the
+   original pair was a selected outlier (run A, z -3.43, was the one that
+   prompted the replicate). H1's prediction (|z| <= 2 of 1.00) **hit**.
+3. **A small negative residual is not excluded.** All four runs (A, B, C, D)
+   have a negative z. Pooling every run by inverse variance gives about -3.3 %,
+   z about -3.7, but that includes the selected run A and is not a clean
+   estimate; B, C, D alone give Stouffer z about -2.0. The honest reading is
+   **MAGIC reads between 0 and -3 % low in the far field, unresolved at this
+   precision**. Resolving 1.8 % at 3 sigma needs the sem on the ratio down to
+   0.6 %, about 9 times the histories of this run (several hours here).
+4. **The tail is real and heavier under MAGIC.** MAGIC's chunk VOV is 3.4x
+   analog's (2.4x and 5x the Gaussian expectation), skew 1.9 against 1.5. The
+   largest chunk is about 7x the mean for both arms, so the sampled tail is
+   similar; what a chunk of 200 histories cannot show is a rarer, larger event
+   that none of 400 000 histories drew. A right-skewed score with an unsampled
+   far tail gives sample means that sit **below** the truth in most
+   replicates, which is the sign seen, but this was **not tested** (it needs a
+   per-history maximum-weight diagnostic in the transport loop).
+5. **Which numbers to quote:** the 40-fresh-seed ratio 0.982 (about -1.8 %,
+   z -1.5, sem on the ratio about 1.2 %), with the statement above; not the
+   -4.8 %.
+
+### Reviewed functions edited
+
+`outram_mc_libs::physics::transport_csg` history kernel: one line in the
+surface-crossing checkpoint (`if vr.weight_window_checkpoint_surface && ...`),
+default behaviour unchanged. `review.md` was not touched. Added
+`VarianceReduction::with_weight_window_checkpoint_surface` and the field
+`weight_window_checkpoint_surface` (default `true`).
+
+### Open follow-ups
+
+Upstream parity for differences 2, 3 and 5, and whether the default for 1
+should become upstream's (OFF), would change every recorded window V&V number
+and are left to the maintainer.

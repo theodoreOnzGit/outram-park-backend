@@ -3091,7 +3091,8 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             }
                         }
                         // `weight_window_checkpoint_surface`.
-                        if weight_window_checkpoint(
+                        if vr.weight_window_checkpoint_surface
+                            && weight_window_checkpoint(
                             vr,
                             r,
                             u,

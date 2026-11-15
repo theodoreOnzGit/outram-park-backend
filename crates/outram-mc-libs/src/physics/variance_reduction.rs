@@ -64,6 +64,10 @@ pub struct VarianceReduction {
     /// every history in a run and must not be cloned per particle. Read-only
     /// data is `Arc<T>` per the workspace Rust rules.
     pub weight_windows: Option<std::sync::Arc<crate::physics::weight_windows::WeightWindows>>,
+    /// Play the window game after a surface crossing too
+    /// (`settings::weight_window_checkpoint_surface`). The collision
+    /// checkpoint is always on. gh:#1579.
+    pub weight_window_checkpoint_surface: bool,
 }
 
 impl Default for VarianceReduction {
@@ -80,6 +84,7 @@ impl Default for VarianceReduction {
             weight_survive: 1.0,
             survival_normalization: false,
             weight_windows: None,
+            weight_window_checkpoint_surface: true,
         }
     }
 }
@@ -99,6 +104,13 @@ impl VarianceReduction {
         ww: crate::physics::weight_windows::WeightWindows,
     ) -> Self {
         self.weight_windows = Some(std::sync::Arc::new(ww));
+        self
+    }
+
+    /// Switch the surface-crossing window checkpoint on or off. Upstream's
+    /// default is OFF (`src/settings.cpp:89`); see gh:#1579.
+    pub fn with_weight_window_checkpoint_surface(mut self, on: bool) -> Self {
+        self.weight_window_checkpoint_surface = on;
         self
     }
 
@@ -377,5 +389,17 @@ mod tests {
             ..Default::default()
         };
         assert!(noop.validate().unwrap_err().contains("no effect"));
+    }
+
+    /// gh:#1579: the surface checkpoint is on by default (behaviour unchanged
+    /// by the knob's introduction; upstream's own default is off), the builder
+    /// flips it, and it does not make a run analog or non-analog by itself.
+    #[test]
+    fn the_surface_checkpoint_knob_defaults_on_and_flips() {
+        let vr = VarianceReduction::default();
+        assert!(vr.weight_window_checkpoint_surface);
+        let off = vr.clone().with_weight_window_checkpoint_surface(false);
+        assert!(!off.weight_window_checkpoint_surface);
+        assert!(off.is_analog());
     }
 }

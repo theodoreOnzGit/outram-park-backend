@@ -1308,3 +1308,147 @@ fn shielded_room_learned_importance() {
     // Asserted only after everything is printed, so a failure still leaves the table.
     assert!(worst_z <= 5.0, "gross bias guard (not the band): worst |z| = {worst_z}");
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// gh:#1579 — is the MAGIC far-field shift (-4.8 %, z = -3.1 at 5 seeds) a real
+// bias or a heavy tail? Hypothesis and prediction were posted on the issue
+// before any run. Record: `verification_and_validation/stats_epic_493/497_learned_importance.md`.
+//
+// One process per arm (`OUTRAM_MB_ARM` = analog | magic | magic_collision),
+// each writing one line per chunk of histories to `OUTRAM_MB_OUT`; then
+// `shielded_room_magic_bias_report` reads the files. A chunk is a separate
+// one-batch `run_fixed_source` call of `OUTRAM_MB_CHUNK` histories, so the
+// chunk-to-chunk spread of the headline band is the tail diagnostic.
+// The windows are built exactly as in `shielded_room_learned_importance`
+// (early analog tally of 2000 histories, seed 424 242, threshold 1, ratio 5).
+// ════════════════════════════════════════════════════════════════════════════
+
+fn mb_env(k: &str, d: usize) -> usize {
+    std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
+}
+
+#[test]
+#[ignore = "measurement (gh:#1579), single-threaded, tens of minutes; run explicitly with --ignored"]
+fn shielded_room_magic_bias_hunt_arm() {
+    use std::io::Write;
+    let Some(nucs) = load_nuclides() else { return };
+    let mats = materials();
+    let geom = geometry();
+    let arm = std::env::var("OUTRAM_MB_ARM").unwrap_or_else(|_| "analog".into());
+    let out = std::env::var("OUTRAM_MB_OUT").expect("OUTRAM_MB_OUT");
+    let n_seeds = mb_env("OUTRAM_MB_SEEDS", 20);
+    let n = mb_env("OUTRAM_MB_N", 20_000);
+    let chunk = mb_env("OUTRAM_MB_CHUNK", 200);
+    let off = mb_env("OUTRAM_MB_SEED_OFFSET", 0) as u64;
+    let n_early = 2_000;
+    let m = mesh();
+    let n_m = m.n_bins();
+    let vol = (1550.0 / m.dimension[0] as f64) * (1900.0 / m.dimension[1] as f64) * 700.0;
+    let mut early = flux_tally();
+    run_fixed_source(
+        &geom,
+        &mats,
+        &nucs,
+        &source(),
+        &settings(n_early, 424_242, VarianceReduction::default()),
+        Some(&mut early),
+    );
+    let sum: Vec<f64> = early.bins.iter().map(|b| b.sum).collect();
+    let sum_sq: Vec<f64> = early.bins.iter().map(|b| b.sum_sq).collect();
+    let volumes = vec![vol; n_m];
+    let mut magic =
+        WeightWindows::new(m, vec![0.0, 2.0e7], vec![-1.0; n_m], vec![-1.0; n_m]).unwrap();
+    magic.update_magic(&sum, &sum_sq, &volumes, N_BATCHES, 1.0, 5.0).unwrap();
+    let (vr, base) = match arm.as_str() {
+        "analog" => (VarianceReduction::default(), 20_261_114u64),
+        "magic" => (VarianceReduction::default().with_weight_windows(magic), 30_261_114),
+        "magic_collision" => (
+            VarianceReduction::default()
+                .with_weight_windows(magic)
+                .with_weight_window_checkpoint_surface(false),
+            50_261_114,
+        ),
+        other => panic!("unknown OUTRAM_MB_ARM {other}"),
+    };
+    let bins = band_bins(900.0, 1450.0);
+    let mut f = std::fs::File::create(&out).unwrap();
+    let t0 = Instant::now();
+    for s in 0..n_seeds {
+        for c in 0..(n / chunk) {
+            let mut st = settings(
+                chunk,
+                base + off + 1_000_003 * s as u64 + 7_919 * c as u64,
+                vr.clone(),
+            );
+            st.n_batches = 1;
+            let mut t = flux_tally();
+            run_fixed_source(&geom, &mats, &nucs, &source(), &st, Some(&mut t));
+            let score: f64 = bins.iter().map(|&b| t.bins[b].mean(1) / chunk as f64).sum();
+            writeln!(f, "{arm} {s} {c} {score:.10e}").unwrap();
+        }
+        f.flush().unwrap();
+        println!("{arm} seed {s} done at {:.0} s", t0.elapsed().as_secs_f64());
+    }
+    println!(
+        "{arm}: {:.0} s total, {n_seeds} seeds x {n} histories, chunk {chunk}",
+        t0.elapsed().as_secs_f64()
+    );
+}
+
+/// Reads the files written by `shielded_room_magic_bias_hunt_arm`
+/// (`OUTRAM_MB_FILES` = comma-separated paths, the analog file first) and
+/// prints, per arm: the seed-to-seed mean and sem, the chunk-level sem,
+/// relative VOV of the chunk scores, skewness, the largest chunk's share of
+/// the total and the top-5 share, and the z and ratio against analog.
+#[test]
+#[ignore = "reads the files written by shielded_room_magic_bias_hunt_arm"]
+fn shielded_room_magic_bias_report() {
+    let files = std::env::var("OUTRAM_MB_FILES").expect("OUTRAM_MB_FILES");
+    let mut ref_stats: Option<(f64, f64)> = None;
+    for path in files.split(',') {
+        let txt = std::fs::read_to_string(path).unwrap();
+        let mut by_seed: Vec<Vec<f64>> = Vec::new();
+        let mut name = String::new();
+        for l in txt.lines() {
+            let p: Vec<&str> = l.split_whitespace().collect();
+            name = p[0].to_string();
+            let s: usize = p[1].parse().unwrap();
+            while by_seed.len() <= s {
+                by_seed.push(Vec::new());
+            }
+            by_seed[s].push(p[3].parse().unwrap());
+        }
+        let seed_means: Vec<f64> =
+            by_seed.iter().map(|v| v.iter().sum::<f64>() / v.len() as f64).collect();
+        let (mean, sem) = mean_and_sem(&seed_means);
+        let all: Vec<f64> = by_seed.iter().flatten().copied().collect();
+        let n = all.len() as f64;
+        let m = all.iter().sum::<f64>() / n;
+        let d2: f64 = all.iter().map(|x| (x - m).powi(2)).sum();
+        let d3: f64 = all.iter().map(|x| (x - m).powi(3)).sum();
+        let d4: f64 = all.iter().map(|x| (x - m).powi(4)).sum();
+        let sem_chunks = (d2 / (n - 1.0) / n).sqrt();
+        let vov = d4 / (d2 * d2) - 1.0 / n;
+        let skew = (d3 / n) / (d2 / n).powf(1.5);
+        let total: f64 = all.iter().sum();
+        let mut sorted = all.clone();
+        sorted.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        let top5: f64 = sorted.iter().take(5).sum::<f64>() / total;
+        let z = ref_stats.map(|(rm, rs)| (mean - rm) / (sem * sem + rs * rs).sqrt());
+        println!(
+            "{name}: seeds {}, chunks {}; mean {mean:.4} +- {sem:.4} (seed sem, {:.2} %), +- {sem_chunks:.4} (chunk sem); \
+             chunk VOV {vov:.4}; skew {skew:.2}; max-chunk share {:.3} % (uniform {:.3} %); top-5 share {:.2} %; z vs analog {}; ratio {}",
+            by_seed.len(),
+            all.len(),
+            100.0 * sem / mean,
+            100.0 * sorted[0] / total,
+            100.0 / n,
+            100.0 * top5,
+            z.map(|z| format!("{z:+.2}")).unwrap_or("-".into()),
+            ref_stats.map(|(rm, _)| format!("{:.4}", mean / rm)).unwrap_or("-".into()),
+        );
+        if ref_stats.is_none() {
+            ref_stats = Some((mean, sem));
+        }
+    }
+}
