@@ -1,6 +1,6 @@
 //! **Where are the neutrons being absorbed?** Macroscopic Σ per material.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_htr10_sab, Htr10SabLaws};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
@@ -28,10 +28,6 @@ fn main() {
     };
     let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
     let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
-    let bind_sic = |n: Nuclide, s: &Option<ThermalScattering>| match s {
-        Some(t) => n.with_thermal_scattering(t.clone()),
-        None => n,
-    };
     let (
         Some(u5),
         Some(u8),
@@ -73,21 +69,21 @@ fn main() {
         u8,
         o,
         cf,
-        cg.with_thermal_scattering(sab.clone().unwrap()),
-        bind_sic(si, &si_in_sic),
+        cg,
+        si,
         b,
         // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
         // isotopes. The atom density was always built from silicon's natural
         // molar mass, so this splits a correct total rather than changing it.
-        bind_sic(c_sic, &c_in_sic),
-        bind_sic(si29, &si_in_sic),
-        bind_sic(si30, &si_in_sic),
+        c_sic,
+        si29,
+        si30,
         // 10: B-11 (gh:#311).
         b11,
         // 11, 12, 13: C-13 (gh:#425), bound as its C-12 partners.
         c13_free,
-        c13_graphite.with_thermal_scattering(sab.unwrap()),
-        bind_sic(c13_sic, &c_in_sic),
+        c13_graphite,
+        c13_sic,
     ];
     let idx = Htr10Nuclides::NATURAL_CARBON;
     let mut mats = fuel_pebble_materials(idx, BoronReading::Natural, 293.6);
@@ -114,6 +110,20 @@ fn main() {
             .collect(),
         temperature: 293.6,
     });
+    // Per-material S(a,b) (gh:#462, #1581). Audited 2026-11-14: the graphite
+    // slot is referenced by the graphite and the reflector only; the SiC slots
+    // by the SiC layer.
+    let (mats, nucs) = assign_htr10_sab(
+        &mats,
+        &nucs,
+        &idx,
+        &Htr10SabLaws {
+            graphite: sab.expect("graphite law"),
+            c_in_sic,
+            si_in_sic,
+        },
+    )
+    .expect("S(a,b) per material");
     println!(
         "zone 22: carbon {:.6e}  natural_boron {:.6e}  -> B10 {:.6e}",
         z.carbon,

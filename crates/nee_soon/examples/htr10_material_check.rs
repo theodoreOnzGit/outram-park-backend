@@ -1,5 +1,5 @@
 //! Does the HTR-10 kernel material actually fission? Diagnostic for op-867c.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
+use outram_mc_libs::material::material_sab::{assign_htr10_sab, Htr10SabLaws};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
@@ -34,32 +34,28 @@ fn main() {
     };
     let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
     let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
-    let bind_sic = |n: Nuclide, s: &Option<ThermalScattering>| match s {
-        Some(t) => n.with_thermal_scattering(t.clone()),
-        None => n,
-    };
     let Some(n) = (|| {
         Some(vec![
             ld("U235", "n-092_U_235-ENDF8.0.endf")?,
             ld("U238", "n-092_U_238.endf")?,
             ld("O16", "n-008_O_016-ENDF8.0.endf")?,
             ld("C12", "n-006_C_012-ENDF8.0.endf")?,
-            ld("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
-            bind_sic(ld("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
+            ld("C12", "n-006_C_012-ENDF8.0.endf")?,
+            ld("Si28", "n-014_Si_028-ENDF8.0.endf")?,
             ld("B10", "n-005_B_010-ENDF8.0.endf")?,
             // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
             // isotopes. The atom density was always built from silicon's natural
             // molar mass, so this splits a correct total rather than changing it.
-            bind_sic(ld("C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
-            bind_sic(ld("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
-            bind_sic(ld("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
+            ld("C12", "n-006_C_012-ENDF8.0.endf")?,
+            ld("Si29", "n-014_Si_029-ENDF8.0.endf")?,
+            ld("Si30", "n-014_Si_030-ENDF8.0.endf")?,
             ld("B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
             // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
             // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
             // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
             ld("C13", "n-006_C_013-ENDF8.0.endf")?,
-            ld("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
-            bind_sic(ld("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
+            ld("C13", "n-006_C_013-ENDF8.0.endf")?,
+            ld("C13", "n-006_C_013-ENDF8.0.endf")?,
         ])
     })() else {
         println!("SKIP");
@@ -67,6 +63,15 @@ fn main() {
     };
 
     let mats = fuel_pebble_materials(NUC, BoronReading::Natural, T);
+    // Per-material S(a,b) (gh:#462, #1581): every slot above is free; each law
+    // goes to the materials that reference its slot.
+    let (mats, n) = assign_htr10_sab(
+        &mats,
+        &n,
+        &NUC,
+        &Htr10SabLaws { graphite: sab, c_in_sic, si_in_sic },
+    )
+    .expect("S(a,b) per material");
     println!("fuel_pebble_materials returned {} materials", mats.len());
     for e in [0.0253_f64, 1.0, 1.0e5, 2.0e6] {
         println!("\n--- E = {e:e} eV ---");

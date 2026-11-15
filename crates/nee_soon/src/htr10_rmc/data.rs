@@ -50,7 +50,7 @@
 //! error ([`Htr10DataError::NotInFolder`]), never a silent fall-back to the
 //! workspace copy; the one exception is the documented free-gas fall-back
 //! for a missing SiC law, which applies to either source.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE by slot role, not migrated. Each planned slot is one role (free carbon for the rod B4C and steel, graphite, C-in-SiC, Si in SiC, U/O in UO2); the pebble materials reference U-235/U-238/O-16 only in the kernel, graphite only in the pebble graphite, reflector, bricks and dummy pebbles, SiC slots only in the SiC layer, and the rod-metal slots are a separate set. Not migrated: this loader is the contract of the whole HTR-10 / HTTR model (parametric study, direct coupling, MGXS, web demo) and every HTR-10 k on record has a URR nuclide, so each would need an ensemble re-measure of a full-core run.
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
