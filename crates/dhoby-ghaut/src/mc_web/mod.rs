@@ -3,8 +3,8 @@
 //! What every in-browser Monte Carlo run shares, moved here from the
 //! `monte_carlo_web` example (where no other demo could reuse it) so that
 //! its HTR-10 whole core and the museum MSRE simulator
-//! (`outram-park-digital-twin-engine`, `examples/msre_web`) call the same
-//! code:
+//! (~~`outram-park-digital-twin-engine`, `examples/msre_web`~~ since
+//! gh:#1578 that crate's library, `msre::web`) call the same code:
 //!
 //! | Module | What |
 //! |---|---|

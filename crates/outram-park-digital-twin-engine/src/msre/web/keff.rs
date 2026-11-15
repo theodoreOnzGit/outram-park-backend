@@ -1,4 +1,5 @@
-//! **The worker side of the Core k_eff tab** (gh:#1571): the MSRE N-1
+//! **The worker side of the MSRE simulator's Core k_eff tab** (gh:#1571;
+//! moved from the `msre_web` example into the library, gh:#1578): the MSRE N-1
 //! full-core Monte Carlo on a pool of workers, on the browser pipeline
 //! promoted to `dhoby_ghaut::mc_web` (gh:#1572).
 //!
@@ -40,7 +41,7 @@ use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::tally::mesh::RegularMesh;
-use outram_park_digital_twin_engine::msre::first_criticality::{self as m, NuclideJob, Study};
+use crate::msre::first_criticality::{self as m, NuclideJob, Study};
 use std::collections::BTreeMap;
 
 /// The graphite law's LEAPR "tape": nothing is downloaded for it.
@@ -379,7 +380,6 @@ pub fn prepare_web_data(dir: &std::path::Path) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 /// The URL a tape is served under, beside the page.
 pub fn tape_url(path: &str) -> String {
     format!("data/{}", served_name(path))
@@ -437,7 +437,6 @@ pub enum View {
     Elevation,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 impl View {
     pub fn code(self) -> f64 {
         match self {
@@ -493,27 +492,23 @@ pub fn raster(study: &Study, view: View, px: usize) -> (usize, usize, Vec<u8>) {
     (w, h, ids)
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 /// A study as wire numbers `[salt °F, graphite °F, U-235 scale, shield]`.
 pub fn study_to_vec(s: &Study) -> [f64; 4] {
     [s.salt_f, s.graphite_f, s.u235_scale, s.shield as u8 as f64]
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 /// The inverse of [`study_to_vec`].
 pub fn study_from_slice(v: &[f64]) -> Study {
     let g = |i: usize, d: f64| v.get(i).copied().unwrap_or(d);
     Study { salt_f: g(0, m::REFERENCE_TEMPERATURE_F), graphite_f: g(1, m::REFERENCE_TEMPERATURE_F), u235_scale: g(2, 1.0), shield: g(3, 1.0) != 0.0 }
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 /// A run's settings as wire numbers `[n, inactive, active, seed]` (seeds
 /// below 2^53 are exact).
 pub fn cfg_to_vec(c: &KeffConfig) -> [f64; 4] {
     [c.n_particles as f64, c.n_inactive as f64, c.n_active as f64, c.seed as f64]
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 /// The inverse of [`cfg_to_vec`].
 pub fn cfg_from_slice(v: &[f64]) -> KeffConfig {
     let g = |i: usize| v.get(i).copied().unwrap_or(0.0);
@@ -523,7 +518,7 @@ pub fn cfg_from_slice(v: &[f64]) -> KeffConfig {
 impl KeffWorker {
     /// Answer `req` natively, posting as it goes (each job's start and
     /// product as soon as it is done). The browser worker runs the same
-    /// steps with downloads in between (`engine::web`).
+    /// steps with downloads in between ([`super::engine::worker`]).
     #[cfg(not(target_arch = "wasm32"))]
     pub fn answer_native(&mut self, req: KReq, post: &mut impl FnMut(KEv)) {
         let now = || std::time::Instant::now();

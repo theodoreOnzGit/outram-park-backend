@@ -123,13 +123,16 @@ pub use bugis::web_demo;
 /// ENDF tapes for the browser, the processed-data cache, the k_eff settings
 /// and summary, and the worker-pool protocol, promoted from the
 /// `monte_carlo_web` example so the HTR-10 rung and the MSRE simulator
-/// (`outram-park-digital-twin-engine`'s `msre_web`) call the same code.
+/// (`outram-park-digital-twin-engine`'s `msre::web`, in its library since
+/// gh:#1578) call the same code.
 #[cfg(all(feature = "mc_web", not(target_os = "android")))]
 pub mod mc_web;
 
 // The guided high-fidelity workbench's library half (gh:#561): catalogue,
 // steps and the kovan-markdown recipe. Off wasm32 because `kovan` is.
-#[cfg(not(target_arch = "wasm32"))]
+// Behind the default `workbench` feature since gh:#1578, so a crate wanting
+// only `mc_web` does not build kovan and the workbench's stack.
+#[cfg(all(feature = "workbench", not(target_arch = "wasm32")))]
 pub mod workbench;
 
 /// The crate's own expansion, for anywhere a human needs it spelled out.

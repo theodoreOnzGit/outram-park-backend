@@ -211,7 +211,17 @@ egui.workspace = true
 # in this crate's `src/components/` and draw through the bugis art; bugis's
 # `widgets` feature no longer pulls any physics crate.
 # `app_scaffold`: re-exported as `app_scaffold`.
-bugis = { workspace = true, features = ["widgets", "app_scaffold"] }
+# `web_demo` (gh:#1578): `msre::web` runs on the web-demo link layer
+# (worker links, `Floats`, the platform clock, the pool planner).
+bugis = { workspace = true, features = ["widgets", "app_scaffold", "web_demo"] }
+# `msre::web` (gh:#1578, maintainer 2026-11-14: "msre code shld reside in
+# library"): the MSRE k_eff workers and pool run on dhoby-ghaut's browser
+# Monte Carlo pipeline (`dhoby_ghaut::mc_web`). `default-features = false`
+# leaves out its `workbench` feature (kovan, the workbench's eframe/GPU/foam
+# stack), so this adds only what `outram-mc-libs`, already a dependency,
+# brings. No cycle: dhoby-ghaut does not depend on this crate. Both are
+# AGPL-3.0-only. Path AND version so the lockstep release can publish it.
+dhoby-ghaut = { path = "../dhoby-ghaut", version = "0.0.2", default-features = false, features = ["mc_web"] }
 eframe.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true
@@ -456,7 +466,21 @@ bugis = { workspace = true, features = ["web_demo"] }
 # checked against the browser's on the same seed. Natively this brings
 # dhoby-ghaut's kovan stack into the example and test builds (not the
 # library's).
-dhoby-ghaut = { path = "../dhoby-ghaut", features = ["mc_web"] }
+# ~~dhoby-ghaut = { path = "../dhoby-ghaut", features = ["mc_web"] }~~
+# MOVED 2026-11-15 (gh:#1578): a normal dependency now (above, without the
+# `workbench` default), since `msre::web` in the library uses it; the
+# examples reach it through that.
+
+# `msre::web::engine::worker` (gh:#1578): the MSRE engine's Web Worker (its
+# messages as JS objects, its timer loop, the k_eff tapes it downloads) and
+# the pool's console lines. Library dependencies on wasm32 only: a native
+# consumer pays nothing for them.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+js-sys = { workspace = true }
+log = { workspace = true }
+web-sys = { workspace = true, features = ["DedicatedWorkerGlobalScope", "WorkerGlobalScope"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { workspace = true }

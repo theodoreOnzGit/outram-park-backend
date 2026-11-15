@@ -1,5 +1,7 @@
 //! The engine: the MSRE operator session on a background thread natively,
 //! in a Web Worker in the browser (the no-lag rule: the page only draws).
+//! Moved from the `msre_web` example into the library (gh:#1578), so a page
+//! or app outside this workspace can drive the same plant and k_eff workers.
 //!
 //! It holds one `msre::session::Session` and, beside it, Moltres's
 //! precursor drift around the loop (`msre::moltres_drift::LoopDrift`, gh:#1575),
@@ -9,7 +11,8 @@
 //! **The plant paces itself (gh:#1573).** ~~The page asks for the next
 //! stretch of plant time only after the last frame arrived.~~ A clock outside
 //! the page sends [`Request::Tick`] about ten times a second (in the browser a
-//! timer loop inside the worker, [`web`]; natively a ticker thread, `main`),
+//! timer loop inside the worker, [`worker`]; natively a ticker thread,
+//! [`start_native_ticker`]),
 //! and the engine's `session::Pacer` turns the wall time into plant time at
 //! the chosen speed. So the plant runs from page load, whichever tab is open
 //! and however the page's frames are throttled; the page sends only the
@@ -22,8 +25,8 @@
 //! page) restarts it hot.
 
 use bugis::web_demo::link::Floats;
-use outram_park_digital_twin_engine::msre::moltres_drift::{LoopDrift, LOOP_DRIFT_CELLS};
-use outram_park_digital_twin_engine::msre::session::{
+use crate::msre::moltres_drift::{LoopDrift, LOOP_DRIFT_CELLS};
+use crate::msre::session::{
     natural_periods, Advance, Coefficients, Command, Freeze, FreezeLocation, Pacer, Session, SessionConfig, Snapshot,
     MAX_ADVANCE_S,
 };
@@ -49,7 +52,7 @@ pub enum Request {
     Periods(f64, f64),
     /// The Core k_eff tab's pool (gh:#1571): a k_eff worker's request. A
     /// worker that only ever gets these never starts the plant's clock.
-    Keff(crate::keff::KReq),
+    Keff(crate::msre::web::keff::KReq),
 }
 
 #[derive(Clone)]
@@ -69,7 +72,7 @@ pub enum Event {
     /// beside the held frame.
     Frozen(Floats),
     /// A k_eff worker's event (gh:#1571).
-    Keff(crate::keff::KEv),
+    Keff(crate::msre::web::keff::KEv),
     /// A refused command or a failed step.
     Error(String),
 }
@@ -89,9 +92,9 @@ pub struct Runner {
     session: Option<Session>,
     drift: Option<LoopDrift>,
     /// The k_eff worker's state, used only by the tab's pool workers.
-    keff: crate::keff::KeffWorker,
+    keff: crate::msre::web::keff::KeffWorker,
     pacer: Pacer,
-    /// The browser worker's timer loop has been started (`web`).
+    /// The browser worker's timer loop has been started ([`worker`]).
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
     ticking: bool,
 }
@@ -103,7 +106,7 @@ impl Default for Runner {
     fn default() -> Self {
         let session = Session::new(SessionConfig::default()).ok();
         let drift = session.as_ref().and_then(|s| drift_for(&s.snapshot()));
-        Self { session, drift, keff: crate::keff::KeffWorker::default(), pacer: Pacer::new(DEFAULT_SPEED, false), ticking: false }
+        Self { session, drift, keff: crate::msre::web::keff::KeffWorker::default(), pacer: Pacer::new(DEFAULT_SPEED, false), ticking: false }
     }
 }
 
@@ -261,7 +264,6 @@ impl bugis::web_demo::link::NativeEngine for Runner {
 }
 
 /// Coefficient presets as wire codes.
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 pub fn coefficients_code(c: Coefficients) -> [f64; 5] {
     match c {
         Coefficients::Ornl1965 => [0.0; 5],
@@ -271,7 +273,6 @@ pub fn coefficients_code(c: Coefficients) -> [f64; 5] {
 }
 
 /// The inverse of [`coefficients_code`].
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 pub fn coefficients_from_code(v: &[f64]) -> Coefficients {
     let g = |i: usize| v.get(i).copied().unwrap_or(0.0);
     match g(0) as i64 {
@@ -283,7 +284,6 @@ pub fn coefficients_from_code(v: &[f64]) -> Coefficients {
 
 /// A command as wire numbers `[code, values...]` (a coefficient set,
 /// gh:#1574, carries five: its `coefficients_code`).
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 pub fn command_code(c: Command) -> Vec<f64> {
     match c {
         Command::RodsPcm(x) => vec![0.0, x],
@@ -302,7 +302,6 @@ pub fn command_code(c: Command) -> Vec<f64> {
 }
 
 /// The inverse of [`command_code`].
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the wire is the browser's; tested natively
 pub fn command_from_code(v: &[f64]) -> Option<Command> {
     let x = v.get(1).copied().unwrap_or(0.0);
     Some(match *v.first()? as i64 {
@@ -319,7 +318,7 @@ pub fn command_from_code(v: &[f64]) -> Option<Command> {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub mod web {
+pub mod worker {
     use super::*;
     use bugis::web_demo::link::{js, Message, Poster, WorkerEngine};
     use std::sync::{Arc, RwLock};
@@ -448,7 +447,7 @@ pub mod web {
 
     // ─── The k_eff pool's messages (gh:#1571) ──────────────────────────────
 
-    use crate::keff::{cfg_from_slice, cfg_to_vec, study_from_slice, study_to_vec, tape_url, Job, KEv, KReq, View};
+    use crate::msre::web::keff::{cfg_from_slice, cfg_to_vec, study_from_slice, study_to_vec, tape_url, Job, KEv, KReq, View};
 
     fn keff_req_to_js(k: &KReq) -> JsValue {
         let o = js::object();
@@ -563,7 +562,7 @@ pub mod web {
                 data: Floats::get(v, "data").ok_or("no product")?,
                 cached_ms: js::get_f64(v, "cached").filter(|x| x.is_finite()),
             },
-            "k_assembled" => KEv::Assembled(crate::keff::Assembly { nuclides: g("nuclides") as usize, materials: g("materials") as usize, secs: g("secs") }),
+            "k_assembled" => KEv::Assembled(crate::msre::web::keff::Assembly { nuclides: g("nuclides") as usize, materials: g("materials") as usize, secs: g("secs") }),
             "k_source" => {
                 let m = js::get_f64s(v, "mesh");
                 let mut mesh = [0.0; 9];
@@ -638,9 +637,9 @@ pub mod web {
         }
     }
 
-    async fn keff_process(state: &Arc<RwLock<Runner>>, study: outram_park_digital_twin_engine::msre::first_criticality::Study, jobs: &[usize], post: Poster<Event>) -> Result<(), String> {
+    async fn keff_process(state: &Arc<RwLock<Runner>>, study: crate::msre::first_criticality::Study, jobs: &[usize], post: Poster<Event>) -> Result<(), String> {
         use dhoby_ghaut::mc_web::processed_cache::{tape_prefix, web as cache};
-        let list = crate::keff::jobs(&study);
+        let list = crate::msre::web::keff::jobs(&study);
         let mut health = cache::Health::default();
         for &j in jobs {
             post.post(Event::Keff(KEv::Started { job: j }));
@@ -652,7 +651,7 @@ pub mod web {
             };
             let mut store = take_store(state);
             match job {
-                Job::Graphite(_) => cache::before_prefix(&mut store, &tape_prefix(&dhoby_ghaut::mc_web::tapes::generated_source(crate::keff::LEAPR_GRAPHITE_30P)), &mut health).await,
+                Job::Graphite(_) => cache::before_prefix(&mut store, &tape_prefix(&dhoby_ghaut::mc_web::tapes::generated_source(crate::msre::web::keff::LEAPR_GRAPHITE_30P)), &mut health).await,
                 _ => cache::before_step(&mut store, &bytes, &mut health).await,
             }
             put_store(state, store);
@@ -673,9 +672,9 @@ pub mod web {
         Ok(())
     }
 
-    async fn keff_assemble(state: &Arc<RwLock<Runner>>, study: outram_park_digital_twin_engine::msre::first_criticality::Study) -> Result<crate::keff::Assembly, String> {
+    async fn keff_assemble(state: &Arc<RwLock<Runner>>, study: crate::msre::first_criticality::Study) -> Result<crate::msre::web::keff::Assembly, String> {
         let mut tapes = std::collections::BTreeMap::new();
-        for j in crate::keff::jobs(&study) {
+        for j in crate::msre::web::keff::jobs(&study) {
             if let Some(tp) = j.tape() {
                 if !tapes.contains_key(tp) {
                     tapes.insert(tp, tape_bytes(tp).await?);
@@ -723,10 +722,33 @@ pub mod web {
 /// The plant clock's period, [ms]: about ten frames a second.
 pub const TICK_MS: i32 = 100;
 
+/// The native plant clock (gh:#1573): a thread that sends the engine a
+/// [`Request::Tick`] with the wall time every [`TICK_MS`], as the browser
+/// worker's own timer loop does ([`worker`]), so the plant paces itself and
+/// the window only draws. It shares the link's mailbox and exits when the
+/// link is closed. (Moved from the example's `main`, gh:#1578.)
+#[cfg(not(target_arch = "wasm32"))]
+pub fn start_native_ticker(link: &bugis::web_demo::link::Link<Request, Event>) {
+    use bugis::web_demo::link::Link;
+    let Link::Native(mailbox) = link;
+    let ticks = Link::Native(mailbox.clone());
+    let mailbox = mailbox.clone();
+    std::thread::spawn(move || {
+        let t0 = std::time::Instant::now();
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(TICK_MS as u64));
+            if mailbox.read().map_or(true, |m| m.closed) {
+                return;
+            }
+            ticks.send(Request::Tick(t0.elapsed().as_secs_f64()));
+        }
+    });
+}
+
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
-    use outram_park_digital_twin_engine::msre::session::Snapshot;
+    use crate::msre::session::Snapshot;
 
     fn frame(e: &Event) -> Snapshot {
         match e {
@@ -760,7 +782,7 @@ mod tests {
         let mut r = Runner::default();
         assert!(matches!(r.answer(Request::Cmd(Command::AirFraction(0.0)))[0], Event::Error(_)));
         assert!(matches!(r.run(1.0)[0], Event::Frame(_)));
-        let mut empty = Runner { session: None, drift: None, keff: crate::keff::KeffWorker::default(), pacer: Pacer::new(1.0, false), ticking: false };
+        let mut empty = Runner { session: None, drift: None, keff: crate::msre::web::keff::KeffWorker::default(), pacer: Pacer::new(1.0, false), ticking: false };
         assert!(empty.run(1.0).is_empty());
         assert!(matches!(empty.answer(Request::Cmd(Command::Servo(true)))[0], Event::Error(_)));
         assert!(matches!(empty.answer(Request::Thaw)[0], Event::Error(_)));
@@ -841,6 +863,23 @@ mod tests {
         ] {
             assert_eq!(coefficients_from_code(&coefficients_code(c)), c);
         }
+    }
+
+    /// gh:#1573 / #1578: natively the ticker thread drives the plant with
+    /// no request from the window: within a second of starting it, frames
+    /// arrive at the link; closing the link stops it.
+    #[test]
+    fn the_native_ticker_drives_the_plant() {
+        let link = bugis::web_demo::link::start_native(Runner::default(), || {});
+        start_native_ticker(&link);
+        let t0 = std::time::Instant::now();
+        let mut frames = 0;
+        while frames == 0 && t0.elapsed().as_secs_f64() < 10.0 {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            frames += link.drain().iter().filter(|e| matches!(e, Event::Frame(_))).count();
+        }
+        assert!(frames > 0, "no frame from the ticker in 10 s");
+        link.terminate();
     }
 
     /// gh:#1573: the plant runs on wall-clock ticks with no page request
