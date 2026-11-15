@@ -43,8 +43,10 @@ impl Loading {
     /// Finished jobs by weight, plus the running job's elapsed share of its
     /// expected time, capped short of done.
     pub fn fraction(&self, now: f64) -> f32 {
-        let total: f64 = self.weights.iter().sum::<f64>().max(1e-9);
-        let mut f: f64 = (0..self.labels.len()).filter(|&i| self.job_secs[i].is_some()).map(|i| self.weights[i]).sum();
+        // Folded from +0.0: `Iterator::sum` of no `f64`s is −0.0, which the
+        // card printed as "−0 %" before the first job finished.
+        let total: f64 = self.weights.iter().fold(0.0, |a, w| a + w).max(1e-9);
+        let mut f: f64 = (0..self.labels.len()).filter(|&i| self.job_secs[i].is_some()).fold(0.0, |a, i| a + self.weights[i]);
         if let Some(i) = self.current() {
             let t = now - self.job_started[i].unwrap_or(now);
             f += self.weights[i] * (t / self.weights[i].max(0.05)).min(0.95);
@@ -134,6 +136,7 @@ mod tests {
     #[test]
     fn progress_is_weighted_and_capped_while_running() {
         let mut l = Loading::new(vec!["small", "big"], vec![1.0, 99.0]);
+        assert!(l.fraction(0.0).is_sign_positive(), "+0 before any job, not -0");
         l.job_done(0, 0.1);
         assert!((l.fraction(0.0) - 0.01).abs() < 1e-6);
         l.started_at(1, 0.0);

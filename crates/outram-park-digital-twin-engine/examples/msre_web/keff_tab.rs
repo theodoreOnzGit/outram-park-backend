@@ -14,13 +14,14 @@
 
 use crate::engine::{Event, Request};
 use bugis::web_demo::link::Link;
+use bugis::web_demo::loading::Loading;
 use dhoby_ghaut::mc_web::keff::KeffConfig;
 use dhoby_ghaut::mc_web::pool::{GenSummary, Note};
 use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, Vec2};
 use egui_plot::{HLine, Legend, Line, Plot, PlotPoints, Points};
 use outram_park_digital_twin_engine::msre::first_criticality::Study;
 use outram_park_digital_twin_engine::msre::session::{Coefficients, SPLIT_BASE_F, SPLIT_STEP_F};
-use outram_park_digital_twin_engine::msre::web::keff::{KReq, View};
+use outram_park_digital_twin_engine::msre::web::keff::{jobs, Job, KReq, View};
 use outram_park_digital_twin_engine::msre::web::keff_pool::{plan_workers, preset_cfg, Finished, Phase, Pool, Split, BAND_PCM, K_REF, PRESETS};
 
 /// The tab's state.
@@ -34,6 +35,9 @@ pub struct KeffTab {
     asked: Option<(Study, View)>,
     pub view: View,
     texture: Option<(egui::TextureHandle, Study, View)>,
+    /// The data processing as the HTR-10 demo shows it: a card on the main
+    /// view and a per-job table in the panel (gh:#1578), for the pool's study.
+    loading: Option<(Study, Loading)>,
     /// Every run finished this session, newest last.
     pub finished: Vec<Finished>,
     /// The generations of the run on screen.
@@ -62,6 +66,7 @@ impl Default for KeffTab {
             asked: None,
             view: View::Plan,
             texture: None,
+            loading: None,
             finished: Vec::new(),
             gens: Vec::new(),
             error: None,
@@ -194,6 +199,7 @@ impl KeffTab {
                 self.error = Some(f);
             }
         }
+        self.sync_loading();
         // The measured split goes on to its next run.
         if let (Some(f), Some(sp)) = (done, self.split.as_mut()) {
             if sp.runs.len() < 3 && f.study == sp.study(sp.runs.len()) {
@@ -286,6 +292,9 @@ impl KeffTab {
                 Phase::Failed(m) => format!("Failed: {m}"),
             };
             ui.label(RichText::new(line).small());
+            if let Some((_, l)) = self.loading.as_ref() {
+                egui::CollapsingHeader::new(format!("Nuclear-data jobs ({} of {} done)", l.done(), l.labels.len())).default_open(false).show(ui, |ui| l.grid(ui));
+            }
             for l in p.keff.log.iter().rev().take(3) {
                 ui.label(RichText::new(l).small().color(ui.visuals().warn_fg_color));
             }
@@ -309,6 +318,27 @@ impl KeffTab {
         }
     }
 
+    /// Follow the pool's jobs into the loading card (a job started, a job
+    /// done), starting a fresh card for a new study. Tab-driving code.
+    fn sync_loading(&mut self) {
+        let Some(p) = self.pool.as_ref() else { return };
+        if self.loading.as_ref().map(|l| l.0) != Some(p.study) {
+            let list = jobs(&p.study);
+            let labels = list.iter().map(job_label).collect();
+            self.loading = Some((p.study, Loading::new(labels, list.iter().map(Job::cost).collect())));
+        }
+        if let Some((_, l)) = self.loading.as_mut() {
+            for j in 0..p.data.started.len().min(l.labels.len()) {
+                if p.data.started[j] && l.job_started[j].is_none() {
+                    l.job_started(j);
+                }
+                if let (Some(secs), None) = (p.data.secs[j], l.job_secs[j]) {
+                    l.job_done(j, secs);
+                }
+            }
+        }
+    }
+
     /// The main view: geometry above, k below. GUI drawing code.
     pub fn view_ui(&mut self, ui: &mut egui::Ui, rect: Rect) {
         let narrow = rect.width() < 700.0;
@@ -321,6 +351,19 @@ impl KeffTab {
         };
         self.geometry_ui(ui, geo);
         ui.scope_builder(egui::UiBuilder::new().max_rect(plot), |ui| self.plot_ui(ui));
+        // While the nuclear data are processed, the card over the plot (as
+        // the HTR-10 demo's), so it shows with the panel folded on a phone.
+        if let (Some(p), Some((_, l))) = (self.pool.as_ref(), self.loading.as_ref()) {
+            if p.data_phase() {
+                let note = if p.data.secs.iter().any(Option::is_some) {
+                    format!("First visit: several minutes in this browser (U-235 and U-238 are the longest); a later visit reads the results from this browser's cache. So far: {}.", p.data.data_source())
+                } else {
+                    "First visit: several minutes in this browser (U-235 and U-238 are the longest); a later visit reads the results from this browser's cache.".to_string()
+                };
+                let title = format!("Processing ENDF/B-VIII.0 on {} workers", p.links.len());
+                l.card(ui.painter(), plot, &title, Some(&note));
+            }
+        }
     }
 
     fn geometry_ui(&mut self, ui: &mut egui::Ui, rect: Rect) {
@@ -418,6 +461,15 @@ fn processing_line(p: &Pool) -> String {
         )
     } else {
         format!("Nuclear data: {:.0} % by cost, {done} of {n} jobs, on {} workers ({}); now {now_text}", 100.0 * p.data.processed(), p.links.len(), p.data.data_source())
+    }
+}
+
+/// A job's name for the loading card (its nuclide, or its law).
+fn job_label(j: &Job) -> &'static str {
+    match j {
+        Job::Nuclide(n) => n.name,
+        Job::Graphite(_) => "graphite S(a,b)",
+        Job::Water => "H in H2O S(a,b)",
     }
 }
 
