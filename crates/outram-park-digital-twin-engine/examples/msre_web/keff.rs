@@ -25,7 +25,6 @@
 //! Research, education and V&V only. NOT VALIDATED: the model's N-1 k sits
 //! +1726 ± 23 pcm above ORNL-4233's (the record,
 //! `crates/outram-mc-libs/verification_and_validation/msre_n1_first_criticality/README.md`).
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use dhoby_ghaut::mc_web::keff::KeffConfig;
 use dhoby_ghaut::mc_web::pool::{csg_chunk, csg_source, PoolSource};
@@ -35,6 +34,7 @@ use dhoby_ghaut::web_demo::data_cache::{Record, Source};
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::material::material::Material;
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -303,22 +303,30 @@ impl KeffWorker {
         // The products are in the nuclides now: free the words (a new study
         // starts a new pool, so they are not read again).
         self.products.clear();
-        // The S(α,β) laws on their nuclides, as the example attaches them.
-        let attach = |nuclides: &mut Vec<Nuclide>, name: &str, law: &ThermalScattering| {
-            if let Some(i) = plan.nuclides.iter().position(|j| j.name == name) {
-                let n = nuclides.remove(i);
-                nuclides.insert(i, n.with_thermal_scattering(law.clone()));
-            }
-        };
+        // The S(α,β) laws per material, as the example attaches them
+        // (gh:#462, #1581): graphite on C-12 / C-13 and H in H2O on H-1, each
+        // only in the materials that hold the nuclide. Audited 2026-11-14 (see
+        // `msre_n1_first_criticality`): the carbon is in the graphite
+        // compositions only and the hydrogen in the shield water only.
         let graphite = graphite.ok_or("no graphite law")?;
-        for c in ["C12", "C13"] {
-            attach(&mut nuclides, c, &graphite);
-        }
-        if let Some(w) = &water {
-            attach(&mut nuclides, "H1", w);
-        }
         let materials = plan.transport_materials();
-        let a = Assembly { nuclides: nuclides.len(), materials: materials.len(), secs: now_s() - t0 };
+        let mut tables: Vec<ThermalScattering> = vec![graphite];
+        let mut entries: Vec<MaterialSab> = Vec::new();
+        for c in ["C12", "C13"] {
+            if let Some(i) = plan.nuclides.iter().position(|j| j.name == c) {
+                entries.extend(MaterialSab::for_materials_containing(&materials, i, 0, &[]));
+            }
+        }
+        if let Some(w) = water {
+            if let Some(i) = plan.nuclides.iter().position(|j| j.name == "H1") {
+                entries.extend(MaterialSab::for_materials_containing(&materials, i, tables.len(), &[]));
+            }
+            tables.push(w);
+        }
+        // The count shown is the loaded nuclides; the bound copies are extra.
+        let n_loaded = nuclides.len();
+        let (materials, nuclides) = assign_material_sab(&materials, &nuclides, &tables, &entries)?;
+        let a = Assembly { nuclides: n_loaded, materials: materials.len(), secs: now_s() - t0 };
         self.model = Some(Model { geometry: study.geometry(), materials, nuclides, salt_k: plan.salt_k });
         Ok(a)
     }

@@ -40,7 +40,6 @@
 
 // Headless output is native-only.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use crate::engine::Tier;
@@ -52,6 +51,7 @@ use crate::triso::model::splitmix;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::Material;
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::fixed_source::{run_fixed_source_traced, FixedSource, FixedSourceSettings};
@@ -167,11 +167,19 @@ impl<C: CsgCase> RungBuilder for Builder<C> {
             return Err(format!("{} of {want} nuclides done", self.nuclides.len()));
         }
         let mut nuclides = self.nuclides;
+        let mut materials = C::materials();
         if let Some(law) = C::thermal() {
             let s = self.law.ok_or("the thermal scattering law was not processed")?;
-            nuclides[law.nuclide] = nuclides[law.nuclide].clone().with_thermal_scattering(s);
+            // Per-material S(a,b), as OpenMC does (gh:#462, #1581): the law goes
+            // to every material that holds the nuclide. Audited 2026-11-14 for
+            // the one case that names a law (hst009): H-1 is in the solution
+            // and the water reflector, and the tank holds none.
+            let entries = MaterialSab::for_materials_containing(&materials, law.nuclide, 0, &[]);
+            (materials, nuclides) = assign_material_sab(&materials, &nuclides, &[s], &entries)?;
         }
-        Ok(Loaded { phys: Physics::new::<C>(nuclides), chain: Chain::new(crate::engine::CHAIN_SEED), keff: None, case: PhantomData })
+        let mut phys = Physics::new::<C>(nuclides);
+        phys.materials = materials;
+        Ok(Loaded { phys, chain: Chain::new(crate::engine::CHAIN_SEED), keff: None, case: PhantomData })
     }
 }
 

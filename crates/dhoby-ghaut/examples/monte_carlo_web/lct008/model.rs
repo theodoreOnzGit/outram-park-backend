@@ -39,7 +39,6 @@
 //!   record.~~ **CORRECTED 2026-10-13** (gh:#859): Run k_eff and the pitch
 //!   view compute a `k`, so they process at NJOY's 0.001, the record's own
 //!   tolerance ([`DataBuilder::at`]).
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use super::spec;
 use crate::tapes::read_tape;
@@ -47,6 +46,7 @@ use outram_mc_libs::geometry::cell::CellFill;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::lattice::Lattice;
 use outram_mc_libs::material::material::Material;
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -184,9 +184,14 @@ impl DataBuilder {
             return Err(format!("{} of {} nuclides done", self.nuclides.len(), N_NUCLIDES));
         }
         let sab = self.sab.ok_or("no S(a,b)")?;
-        let mut nuclides = self.nuclides;
-        nuclides[N_H1] = nuclides[N_H1].clone().with_thermal_scattering(sab);
+        let nuclides = self.nuclides;
         let materials = materials()?;
+        // Per-material H(H2O), as the model's <sab> card says (gh:#462, #1581).
+        // Audited 2026-11-14: H-1 is in the water only (the fuel and clad hold
+        // none), and the water is the one material with a <sab> card.
+        let entries = MaterialSab::for_materials_containing(&materials, N_H1, 0, &[]);
+        let (materials, nuclides) =
+            assign_material_sab(&materials, &nuclides, &[sab], &entries)?;
         Ok(NuclearData { nuclides, materials })
     }
 }

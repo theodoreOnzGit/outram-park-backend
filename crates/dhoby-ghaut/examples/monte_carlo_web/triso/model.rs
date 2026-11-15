@@ -39,7 +39,6 @@
 // Headless output and data preparation are native-only; the browser build
 // does not call them.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::common::phys::{AMASSN_AMU, AMU_G};
@@ -52,6 +51,7 @@ use outram_mc_libs::geometry::surface::{
 };
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -435,7 +435,7 @@ impl NuclearData {
     /// stays free gas: there is a C-in-SiC law on disk, but the SiC layer is
     /// 35 um thick and adding two more tapes to a browser load is not worth it
     /// for a demo. That is an approximation and is listed as one.
-    pub fn assemble(loaded: Vec<Nuclide>, graphite: ThermalScattering) -> Result<Self, String> {
+    pub fn assemble(loaded: Vec<Nuclide>, graphite_law: ThermalScattering) -> Result<Self, String> {
         if loaded.len() != 10 {
             return Err(format!("expected 10 nuclides, got {}", loaded.len()));
         }
@@ -443,8 +443,9 @@ impl NuclearData {
         let mut take = || it.next().expect("length checked");
         let (u235, u238, o16, b10, b11, c12, c13, si28, si29, si30) =
             (take(), take(), take(), take(), take(), take(), take(), take(), take(), take());
-        let c12_gr = c12.clone().with_thermal_scattering(graphite.clone());
-        let c13_gr = c13.clone().with_thermal_scattering(graphite);
+        // The graphite slots hold free carbon too; the law is attached per
+        // material below (gh:#462, #1581), which appends the bound copies.
+        let (c12_gr, c13_gr) = (c12.clone(), c13.clone());
         let nuclides = vec![u235, u238, o16, b10, b11, c12_gr, c13_gr, c12, c13, si28, si29, si30];
 
         let carbon = [(&nuclides[N_C12_FREE], AB_C12), (&nuclides[N_C13_FREE], AB_C13)];
@@ -481,6 +482,14 @@ impl NuclearData {
             mat(MAT_MATRIX, matrix.clone()),
             mat(MAT_SHELL, matrix),
         ];
+        // Per-material S(a,b), as OpenMC does (gh:#462, #1581). Audited
+        // 2026-11-14: the graphite slots are referenced by the buffer, IPyC,
+        // OPyC, matrix and shell only; the SiC layer uses the free slots and
+        // the kernel holds no carbon.
+        let mut entries = MaterialSab::for_materials_containing(&materials, N_C12_GR, 0, &[]);
+        entries.extend(MaterialSab::for_materials_containing(&materials, N_C13_GR, 0, &[]));
+        let (materials, nuclides) =
+            assign_material_sab(&materials, &nuclides, &[graphite_law], &entries)?;
         Ok(Self { nuclides, materials })
     }
 }
