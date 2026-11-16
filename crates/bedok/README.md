@@ -1,9 +1,11 @@
 # BEDOK
 
 **B**road-scope **E**nvironment for **D**ual-phase advanced reactor
-**O**peration simulation **K**it (BEDOK). Backronym set by the maintainer on
+**O**peration simulation **K**it (BEDOK). ~~Backronym set by the maintainer on
 2026-09-25; it adds to the published name (see "Citing BEDOK" below) and does
-not replace that citation.
+not replace that citation.~~ **CORRECTED 2026-11-16:** this expansion is the
+published name: the paper's abstract (see "Citing BEDOK" below) spells BEDOK
+out in exactly these words.
 
 3-D nodal-diffusion neutronics coupled to thermal hydraulics — the fidelity
 band **above 1-D neutronics and below CFD**.
@@ -25,14 +27,19 @@ BEDOK is published. Cite the paper:
 
 > Than, Y. R., & Xiao, S. (2026). BEDOK: An In-House Numerical Reactor
 > Simulator Effort in Singapore. *Energy Engineering*, 123(9).
+> https://doi.org/10.32604/ee.2026.082487
 
 This crate is the Rust translation of that work's MATLAB implementation. Cite
 the paper for the method and its results. Cite this crate only for the
 translation itself.
 
-Reference supplied by the maintainer on 2026-09-21. DOI and page range are
+Reference supplied by the maintainer on 2026-09-21. ~~DOI and page range are
 **not recorded here** because they have not been checked; add them from the
-journal page rather than from memory.
+journal page rather than from memory.~~ **CORRECTED 2026-11-16:** DOI
+`10.32604/ee.2026.082487`, read from the journal page
+(techscience.com/energy/v123n9/68316, open access; issue published
+2026-08-06). The journal numbers it article 1 of the issue; a page range was
+not checked and is not recorded.
 
 > **Status: translation complete.** All 50 MATLAB files are accounted for —
 > every solver, both coupling drivers, the critical-boron search, and all six
