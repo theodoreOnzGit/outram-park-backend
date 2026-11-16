@@ -7460,7 +7460,6 @@ version = "0.1.5"
 dependencies = [
  "approx",
  "miniz_oxide 0.8.9",
- "ndarray",
  "outram-foam-basic-lib",
  "petir",
  "thiserror 2.0.21",
