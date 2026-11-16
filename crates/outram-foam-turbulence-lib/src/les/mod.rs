@@ -29,6 +29,9 @@
 //! `TurbulenceModel` method and has unit tests and a code-to-code test
 //! (`tests/openfoam_turbulence_code_to_code.rs`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod deltas;
 pub mod dynamic_k_eqn;
 pub mod dynamic_lagrangian;

@@ -16,8 +16,11 @@
 //! `Cases/Verification` is separate work under bead `op-6sl.1` and is the
 //! maintainer's to sign off.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};

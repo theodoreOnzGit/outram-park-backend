@@ -21,6 +21,9 @@
 //!
 //! Pressure MPa, temperature K, specific enthalpy kJ/kg.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::region1::dgammadtau1_pt;
 use super::region2::dgammadtau2_pt;
 use super::region4::{p_b13_sat, tsat_p, P_CRIT, T_MIN};

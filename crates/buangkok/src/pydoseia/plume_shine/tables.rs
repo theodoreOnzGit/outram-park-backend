@@ -6,6 +6,9 @@
 //! Copyright (c) 2024 Dr. Biswajit Sadhu, MIT (see `crates/buangkok/NOTICE`).
 //! No table data ships here; see the parent module for why.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::pydoseia::csv::{col, num, split_csv};
 
 /// Air density upstream multiplies the mass coefficients by, g/cm^3.

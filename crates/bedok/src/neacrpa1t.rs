@@ -65,6 +65,9 @@
 //! So the boron here is not a tuning knob — get it wrong and the case stops
 //! being the transient the benchmark specifies.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::neacrpa2t::neacrpa2t;
 use crate::sigmavalupd3d_handler::FeedbackTables;
 use crate::types::{Geometry, Params, SigmaValues, Th};

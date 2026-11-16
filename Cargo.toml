@@ -355,7 +355,10 @@ rust-mqtt = "0.5.1"
 
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
-serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
+serde_json = "1.0"
+# `serde_json` without its `std` default but with `alloc` (gh:#1597, the
+# moltres tables parser): same crate and version as above, bump both together.
+serde_json-nostd = { package = "serde_json", version = "1.0", default-features = false, features = ["alloc"] }           # KovanDocument (de)serialisation, generated artifacts
 # Worker wire format for the browser demos (gh:#986). JSON cannot carry a
 # non-finite f64 -- it writes NaN as `null`, which will not read back as f64 --
 # and `HtgrSnapshot` uses NaN deliberately, in a dozen fields, to mean "not
@@ -597,7 +600,10 @@ tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.
 outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.8", default-features = false }
 raffles                      = { path = "crates/raffles",                      version = "0.0.4" }
 petir                        = { path = "crates/petir",                        version = "0.0.4" }
-changi                       = { path = "crates/changi",                       version = "0.0.3" }
+# `default-features = false` (gh:#1587): `changi`'s default is `std`; members
+# that need its thread pool ask for `features = ["std"]` (see
+# `outram-foam-basic-lib` above for why the root must leave it off).
+changi                       = { path = "crates/changi",                       version = "0.0.3", default-features = false }
 bishan                       = { path = "crates/bishan",                       version = "0.0.3" }
 bugis                        = { path = "crates/bugis",                        version = "0.0.1" }
 buangkok                     = { path = "crates/buangkok",                     version = "0.0.2" }

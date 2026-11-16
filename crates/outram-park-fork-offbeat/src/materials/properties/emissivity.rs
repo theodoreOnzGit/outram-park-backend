@@ -49,6 +49,9 @@
 //!
 //! Raw `f64`: temperature in kelvin, emissivity dimensionless in `[0, 1]`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 

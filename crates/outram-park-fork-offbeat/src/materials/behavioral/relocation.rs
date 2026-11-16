@@ -115,6 +115,9 @@
 //! [`OffbeatError::OutOfRange`]: crate::error::OffbeatError::OutOfRange
 //! [`OffbeatError::Unphysical`]: crate::error::OffbeatError::Unphysical
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;

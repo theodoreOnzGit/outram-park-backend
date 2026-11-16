@@ -18,6 +18,9 @@
 //! carried over as provenance for the method; the thesis itself is not in this
 //! repository.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matlab::{Array2, SparseMatrix};
 
 /// Whether the extrapolation was applied, and if not, why.

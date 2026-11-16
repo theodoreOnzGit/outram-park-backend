@@ -96,6 +96,9 @@
 //!   Δ definition only. See the `## Bookkeeping status` gate in the crate
 //!   README — the V&V axis is not human-cleared.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::source_terms::{FrozenState, SourceForm, SourceTerms};
 use crate::traits::TurbulenceModel;
@@ -103,7 +106,7 @@ use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
     Field, FvMesh, FvVectorMatrix, PatchField, Tensor, Vector3, VolScalarField, VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Outer (dyadic) product a ⊗ b → Tensor. (`Vector3 * Vector3` is the dyad.)
 #[inline]

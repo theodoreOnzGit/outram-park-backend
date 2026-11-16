@@ -17,6 +17,9 @@
 //! exactly `0`, which upstream uses to avoid `acos` of a value a rounding
 //! above 1.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Earth radius local to `distance*.f90`, m.

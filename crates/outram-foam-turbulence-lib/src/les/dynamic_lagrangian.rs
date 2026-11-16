@@ -37,6 +37,9 @@
 //! ported), and no `TurbulenceModel` impl. The gradients are the port's own
 //! [`grad_vec_corrected`], which is bit-identical to the real `fvc::grad` on the duct.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::les::pointwise::{
     boundary_values, calculated, ddot_st, dev_symm_st, dev_symm_tensor, mag_sqr_st, map1, map2,
     sqr_vec,
@@ -48,7 +51,7 @@ use outram_foam_basic_lib::prelude::{
     FvMesh, SymmTensor, VolScalarField, VolVectorField,
 };
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// `SMALL` (double): the boundary value of `delta` (`LESdelta.C`).
 const SMALL: f64 = 1e-15;

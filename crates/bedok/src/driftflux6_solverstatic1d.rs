@@ -87,6 +87,9 @@
 //! purely to swallow the JFNK solver's per-iteration printing, which it notes
 //! would otherwise flood the coupled log at ~2 MB/cycle. Nothing here prints.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::BedokError;
 use crate::iapws_if97::basic::{cp1_pt, h1_pt, h2_pt, hl_p, hv_p, v1_pt, v2_pt};
 use crate::iapws_if97::region4::tsat_p;

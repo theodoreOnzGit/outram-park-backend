@@ -10,6 +10,9 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::calc_a1234_expansionxyz::calc_a1234_expansionxyz;
 use crate::calc_abefghxyz::Coeffs;
 use crate::calc_bucklingxyz::BucklingCache;
@@ -313,7 +316,7 @@ pub fn calc_sanodalxyz(
     // ---- face terms ------------------------------------------------------
     let mut terms = Array2::<f64>::zeros(philen, 6);
     // Defect N11 — see `SaNodal::guard_suppressions`.
-    let guard_suppressions = std::cell::Cell::new(0usize);
+    let guard_suppressions = core::cell::Cell::new(0usize);
 
     let face_terms = |lines: &[(usize, usize)],
                       stride: usize,

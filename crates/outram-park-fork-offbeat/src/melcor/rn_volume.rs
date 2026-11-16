@@ -33,6 +33,9 @@
 //! unchanged: built from the public MELCOR manuals and open literature only,
 //! never MELCOR, MAAP or other code source (see [`super`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::aerosol::{Medium, Sections, Surface};
 use super::wire::{Reader, Writer};
 use super::vapour::{condense, BulkGas, CondensingSurface, FpClass};
@@ -68,7 +71,7 @@ impl RnFlow {
         RnFlow {
             moved: self.moved.iter().map(|m| m * f).collect(),
             vapour_kg: self.vapour_kg.map(|x| x * f),
-            on_aerosol_kg: std::array::from_fn(|c| self.on_aerosol_kg[c].iter().map(|x| x * f).collect::<Vec<f64>>()),
+            on_aerosol_kg: core::array::from_fn(|c| self.on_aerosol_kg[c].iter().map(|x| x * f).collect::<Vec<f64>>()),
         }
     }
     pub fn write(&self, w: &mut Writer) {
@@ -80,8 +83,8 @@ impl RnFlow {
     }
     pub fn read(r: &mut Reader) -> Self {
         let moved = r.vec();
-        let vapour_kg = std::array::from_fn(|_| r.f());
-        let on_aerosol_kg = std::array::from_fn(|_| r.vec());
+        let vapour_kg = core::array::from_fn(|_| r.f());
+        let on_aerosol_kg = core::array::from_fn(|_| r.vec());
         RnFlow { moved, vapour_kg, on_aerosol_kg }
     }
 }
@@ -130,7 +133,7 @@ impl RnVolume {
             volume_m3,
             sections,
             vapour_kg: [0.0; N_CLASSES],
-            on_aerosol_kg: std::array::from_fn(|_| vec![0.0; n]),
+            on_aerosol_kg: core::array::from_fn(|_| vec![0.0; n]),
             lumped: false,
             condensate_mass: false,
             on_surface_kg: vec![[0.0; N_CLASSES]; n_surfaces],
@@ -203,7 +206,7 @@ impl RnVolume {
             *c *= 1.0 - f;
         }
         let vap = self.vapour_kg.map(|x| x * f);
-        let aer: PerClassSection = std::array::from_fn(|c| self.on_aerosol_kg[c].iter().map(|x| x * f).collect::<Vec<f64>>());
+        let aer: PerClassSection = core::array::from_fn(|c| self.on_aerosol_kg[c].iter().map(|x| x * f).collect::<Vec<f64>>());
         for k in 0..N_CLASSES {
             self.vapour_kg[k] -= vap[k];
             for (x, a) in self.on_aerosol_kg[k].iter_mut().zip(&aer[k]) {
@@ -247,14 +250,14 @@ impl RnVolume {
             *c = r.f();
         }
         self.sections.fallout = r.f();
-        self.vapour_kg = std::array::from_fn(|_| r.f());
+        self.vapour_kg = core::array::from_fn(|_| r.f());
         for c in 0..N_CLASSES {
             for x in self.on_aerosol_kg[c].iter_mut() {
                 *x = r.f();
             }
         }
         for x in self.on_surface_kg.iter_mut() {
-            *x = std::array::from_fn(|_| r.f());
+            *x = core::array::from_fn(|_| r.f());
         }
         for x in self.aerosol_on_surface_kg.iter_mut() {
             *x = r.f();
@@ -276,7 +279,7 @@ impl RnVolume {
             let ak: Vec<f64> = (0..n)
                 .map(|k| {
                     let d = self.sections.diameter(k);
-                    self.sections.number(k) * std::f64::consts::PI * d * d * v * 2.0 * d_vap / d
+                    self.sections.number(k) * core::f64::consts::PI * d * d * v * 2.0 * d_vap / d
                 })
                 .collect();
             let total_ak: f64 = ak.iter().sum();

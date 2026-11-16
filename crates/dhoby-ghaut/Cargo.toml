@@ -202,7 +202,7 @@ log = { workspace = true }
 # The dispersion demo (gh:#530), which also builds for wasm32: buangkok's
 # pyDOSEIA plume, rise, wake and deposition velocities, changi's puff kernel
 # and decay transfer function. Both are wasm in-scope crates.
-changi = { workspace = true }
+changi = { workspace = true, features = ["std"] }
 buangkok = { workspace = true }
 # The TRISO-ATOPS and fuel failure demo (gh:#540): boon-lay's TRISO geometry,
 # decay chains, Walk-on-Spheres, fuel failure, chemistry and TRISO-ATOPS

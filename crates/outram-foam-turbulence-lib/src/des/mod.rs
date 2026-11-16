@@ -22,6 +22,9 @@
 //! Detached-eddy simulation family (gh:#1545): [`spalart_allmaras_des`] (DES, DDES, IDDES)
 //! and [`k_omega_sst_des`]. Terms-only ports compared with ESI v2506 on a frozen duct.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod k_omega_sst_des;
 pub mod spalart_allmaras_des;
 pub use k_omega_sst_des::KOmegaSstDes;

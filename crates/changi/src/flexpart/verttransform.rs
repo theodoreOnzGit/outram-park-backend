@@ -158,6 +158,9 @@
 //! grid; the code-to-code driver keeps each slot's grid size fixed within a
 //! process, so it is not exercised there.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::boundary_layer::f_qvsat;

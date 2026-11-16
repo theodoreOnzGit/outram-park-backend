@@ -39,6 +39,9 @@
 //! counted and pinned there. `correct()` is NOT compared against upstream: no
 //! wall functions, zero-gradient walls, `bound()` a plain floor at `small`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::k_epsilon_step::{self, scalar_field, EpsilonSources, StepInputs};
 use crate::source_terms::{self, FrozenState, SourceTerms};
 use crate::traits::TurbulenceModel;
@@ -47,7 +50,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMesh, FvVectorMatrix, SurfaceScalarField, Tensor, VolScalarField, VolVectorField,
 };
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// upstream double `SMALL`.
 const U_SMALL: f64 = 1e-15;
@@ -309,7 +312,7 @@ mod tests {
         let p = rcmu_cell(&Tensor::ZERO, 0.2, 10.0, 4.0);
         assert_eq!(p.s2, 0.0);
         assert_eq!(p.w, 0.0);
-        assert!((p.phis - std::f64::consts::PI / 6.0).abs() < 1e-15);
+        assert!((p.phis - core::f64::consts::PI / 6.0).abs() < 1e-15);
         assert!((p.as_ - 3.0 / 2.0_f64.sqrt()).abs() < 1e-14);
         assert!((p.rcmu - 0.25).abs() < 1e-15);
     }

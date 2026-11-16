@@ -34,6 +34,9 @@
 //! counted and pinned there. No wall damping/van Driest delta, and `correct()`
 //! is not compared against upstream.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::k_epsilon_step::scalar_field;
 use crate::source_terms::{self, FrozenState, SourceTerms};
 use crate::traits::TurbulenceModel;
@@ -42,7 +45,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMesh, FvVectorMatrix, Tensor, VolScalarField, VolVectorField,
 };
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// upstream double `SMALL`.
 const U_SMALL: f64 = 1e-15;

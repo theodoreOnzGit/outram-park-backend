@@ -39,6 +39,9 @@
 //! two groups of outer fuel, and a down-scatter of 0.02 with no up-scatter.
 //! Those identities are checked by a test rather than asserted here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry_ends3d::geometry_ends3d;
 use crate::matlab::{Array2, Array3};
 use crate::types::{BoundaryCondition, Geometry, Params, SigmaValues};
@@ -361,7 +364,7 @@ mod tests {
         let (_, _, ws, _) = iaea3ds(&Params::default());
 
         let level_materials = |iz: usize| {
-            let mut seen = std::collections::BTreeSet::new();
+            let mut seen = alloc::collections::BTreeSet::new();
             for ix in 0..17 {
                 for iy in 0..17 {
                     seen.insert(ws.get(ix, iy, iz));

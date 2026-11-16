@@ -65,6 +65,9 @@
 //! conversion happens. Do not feed a small-strain tensor to this wrapper
 //! directly; it expects a deformation gradient.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::{
     eigen_values_symm, eigen_vectors_symm_with, SymmTensor, Tensor, Vector3,

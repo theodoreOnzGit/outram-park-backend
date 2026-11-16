@@ -151,6 +151,9 @@
 //! against experimental or reference-solver data. Nothing here is validated
 //! multiphase CFD and it must not be described as such.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::two_fluid::{DragModel, TwoFluidSystem};
 use crate::MultiphaseError;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
@@ -158,7 +161,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMesh, PatchField, SolverSettings, SurfaceScalarField, Vector3, VolScalarField,
     VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 use uom::si::kinematic_viscosity::square_meter_per_second;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 

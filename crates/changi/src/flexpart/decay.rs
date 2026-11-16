@@ -24,6 +24,9 @@
 //! into these functions — this module deliberately holds **no nuclide data of
 //! its own**, so the two cannot drift apart.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Convert a half-life to a decay constant, `lambda = ln2 / t_half`.

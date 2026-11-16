@@ -25,6 +25,9 @@
 //! branch on the sign of `z/L`, and they do **not** use the same empirical
 //! constants as each other — see each function's notes.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::constants::{CPA, GA, HREF, KARMAN, PI, R_AIR};

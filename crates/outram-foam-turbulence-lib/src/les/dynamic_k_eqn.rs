@@ -43,6 +43,9 @@
 //! `grad_vec` leaves it extrapolated, see the README), so the caller supplies the gradient with
 //! its boundary faces.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::les::pointwise::{
     as_calculated, calculated, extrapolate_boundary, ddot_st, ddot_t_st, dev_symm_st, dev_symm_tensor, boundary_values,
     mag_sqr_st, mag_sqr_vec, map1, map2, sqr_vec, symm_tensor, umax,
@@ -54,7 +57,7 @@ use outram_foam_basic_lib::prelude::{
     FvMesh, SymmTensor, Tensor, VolScalarField, VolVectorField,
 };
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// `SMALL` (double): the lower clamp of `KK` in `correct()`.
 const SMALL: f64 = 1e-15;

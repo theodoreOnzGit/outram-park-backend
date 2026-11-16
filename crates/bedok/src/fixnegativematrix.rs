@@ -10,6 +10,9 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matlab::{Array2, SparseMatrix};
 
 /// `mat = fixnegativematrix(mat)`.

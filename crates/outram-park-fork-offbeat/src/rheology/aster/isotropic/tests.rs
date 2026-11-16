@@ -20,6 +20,9 @@
 //! `σ_y = 250` MPa, `E = 210` GPa, `ν = 0.3` hence `μ = E/(2(1+ν)) =
 //! 80.769…` GPa. Power-law hardening uses `α = 100`, `n = 10`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::rheology::aster::hardening::ASTER_POWER_LINEARISATION_STRAIN;

@@ -318,7 +318,7 @@ outram-park-fork-offbeat.workspace = true
 #
 # Android/wasm are unaffected: `petir/wgpu`'s `wgpu` dependency is itself
 # target-gated off both, so enabling this feature there activates nothing.
-changi = { workspace = true, features = ["gpu"] }
+changi = { workspace = true, features = ["gpu", "std"] }
 
 # htgr_sim_v1's map "Dose rate" basis (maintainer direction 2026-09-29):
 # `physics::dose_rate` turns the live air concentration and the dry deposit

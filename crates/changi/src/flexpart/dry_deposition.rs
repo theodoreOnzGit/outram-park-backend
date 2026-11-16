@@ -35,6 +35,9 @@
 //! FLEXPART's, as bare `f64`: resistances s/m, velocities m/s, temperatures K
 //! except where a doc says Celsius, pressure Pa, kinematic viscosity m²/s.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::aerosol::AerosolBins;

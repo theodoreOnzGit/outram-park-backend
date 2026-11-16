@@ -52,6 +52,9 @@
 //! Sci. Eng.* 169 (2011) 155–167). Independent Rust re-implementation; this
 //! crate is AGPL-3.0-only (MIT is compatible).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matrix::BurnupMatrix;
 use petir::PetirError;
 use petir::depletion::DepletionMatrix;

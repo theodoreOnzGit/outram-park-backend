@@ -69,7 +69,10 @@
 //! Units: flux `1/(m^2 s)` (normalised), `C_i` `1/m^3`, `u` `m/s`
 //! (`flow` as face flux `m^3/s`), `k_eff` dimensionless.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{fvm, BoundaryCondition, FvMesh, VolScalarField};
 
@@ -257,6 +260,8 @@ impl CirculatingFuelSolver {
             k = k_new;
 
             flux_residual = relative_l2_change(&flux_before, &self.flux);
+            // A debug trace on stderr: needs `std` (gh:#1597).
+            #[cfg(feature = "std")]
             if std::env::var_os("MOLTRES_DEBUG_OUTER").is_some() && outer % 25 == 0 {
                 eprintln!(
                     "outer {outer}: k = {k:.10}, k_res = {k_residual:.3e}, flux_res = {flux_residual:.3e}"

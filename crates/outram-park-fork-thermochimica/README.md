@@ -9,6 +9,14 @@ Gibbs-energy-minimisation (CALPHAD) thermochemistry for molten fluoride salts: f
 > upstream project. Not for nuclear facility operation, reactor control,
 > safety-critical, or licensing decisions.
 
+## `no_std` + `alloc` (gh:#1590)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-park-fork-thermochimica --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` only turns on `thiserror`'s `std`. With `std` on (the default)
+nothing changes.
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping

@@ -59,6 +59,9 @@
 //!
 //! Full record, with the corroborating sources: `docs/References.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::angle::degree;
 use uom::si::f64::{Angle, Velocity};
 use uom::si::velocity::meter_per_second;

@@ -57,6 +57,9 @@
 //!
 //! Raw `f64` in strict SI: temperature in kelvin, density in kg/m^3.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;

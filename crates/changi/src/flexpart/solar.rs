@@ -14,6 +14,9 @@
 //! Both routines declare their **own** `pi = 3.1415927`, not `par_mod`'s
 //! `3.14159265`; the port keeps each routine's literal.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::calendar::caldate;

@@ -9,6 +9,9 @@
 //! for the full BSD-2-Clause terms this translation is made under, and
 //! [`super`] for the module-level provenance block.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Number of terms in the region-1 residual sum. `Nterms` in the reference.

@@ -29,6 +29,14 @@ reduced-order system-code physics (epic `op-dt3`) are derived — 1D models must
 trace back to a validated 3D reference here, never be invented independently.
 Independent OUTRAM PARK fork, not the official OpenFOAM (see `TRADEMARKS.md`).
 
+## `no_std` + `alloc` (gh:#1594)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-foam-multiphase --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` turns on `outram-foam-basic-lib`'s and `thiserror`'s `std`. With `std` on (the default)
+nothing changes.
+
 ## Roadmap
 
 | Stage | Module | OpenFOAM ref | Bead | Status |

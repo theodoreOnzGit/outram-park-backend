@@ -28,6 +28,9 @@
 //! the same set twice is legal and gives deposition evaluated at breathing
 //! height, which under-predicts.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Radioactivity;
 use uom::si::radioactivity::becquerel;
 

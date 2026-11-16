@@ -61,6 +61,9 @@
 //! the comment cites `test_critboron3.m`, which was not shipped. See
 //! `docs/bedok-reference-defects.md`, "Missing files".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::neacrpa2::neacrpa2;
 use crate::sigmavalupd3d_handler::FeedbackTables;
 use crate::types::{Geometry, Params, SigmaValues, Th, VolumetricHeatCapacity};

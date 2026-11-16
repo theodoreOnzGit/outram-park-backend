@@ -7,6 +7,24 @@ research-grade safety analysis.
 The workspace root `CLAUDE.md` binds here in full. This file adds only what is
 specific to this crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1593, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). `std` turns on `changi`'s `std` (its thread pool). Keep it that way:
+
+- New code uses `core::` / `alloc::` paths where they exist; every module
+  glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line
+  from any module). Doc-comment examples keep `std::` paths.
+- What needs an operating system (printing, files, threads, clocks,
+  environment variables) goes behind `#[cfg(feature = "std")]`, on the
+  statement or the item.
+- No `HashMap` in the library: `BTreeMap` (`alloc`; fixed iteration order).
+- A `std` build computes what it did before: `petir::real::Real`, which
+  supplies `sqrt`, `floor`, ... without `std`, is imported only there.
+- A library dependency must build without `std`; one only tests use belongs
+  in `[dev-dependencies]`.
+
 ## Status: pyDOSEIA ported (2026-09-28)
 
 ~~Nothing is implemented. The crate exists to reserve the name and state the

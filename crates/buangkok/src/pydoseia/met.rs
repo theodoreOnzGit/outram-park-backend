@@ -27,6 +27,9 @@
 //! mirror a spreadsheet row, including upstream's `999` / `9` missing-value
 //! sentinels.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Upstream's wind-speed class edges, km/h (10 classes; class 0 is calm).
 pub const WSRANGE_KMPH: [f64; 11] = [0.0, 1.8, 3.0, 5.5, 11.5, 19.5, 29.5, 38.5, 50.5, 61.5, 74.5];
 

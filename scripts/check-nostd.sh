@@ -26,6 +26,15 @@ crates=(
   outram-foam-basic-lib       # gh:#1586
   outram-park-fork-coolprop   # gh:#1598
   tampines-steam-tables       # gh:#1599
+  changi                      # gh:#1587
+  bedok                       # gh:#1588
+  outram-park-fork-onix       # gh:#1589
+  outram-park-fork-thermochimica  # gh:#1590
+  buangkok                    # gh:#1593
+  outram-foam-multiphase      # gh:#1594
+  outram-foam-turbulence-lib  # gh:#1595
+  outram-park-fork-offbeat    # gh:#1596
+  outram-park-fork-moltres    # gh:#1597
 )
 
 rustup target add "$target" >/dev/null

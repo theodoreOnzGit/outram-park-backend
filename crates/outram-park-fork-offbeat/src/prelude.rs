@@ -13,5 +13,8 @@
 //! use outram_park_fork_offbeat::prelude::*;
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::error::{OffbeatError, Result};
 pub use crate::materials::MaterialState;

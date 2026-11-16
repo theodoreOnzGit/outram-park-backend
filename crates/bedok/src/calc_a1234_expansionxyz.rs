@@ -10,6 +10,9 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::calc_1sttransleakagexyz::calc_1sttransleakagexyz;
 use crate::calc_2ndtransleakagexyz::calc_2ndtransleakagexyz;
 use crate::calc_a1_expansionxyz::{buckling_blocks, calc_a1_expansionxyz, A1};

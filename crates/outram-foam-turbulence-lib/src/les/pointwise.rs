@@ -25,13 +25,16 @@
 //! tensor operations of ESI v2506 `SymmTensorI.H` / `TensorI.H` in upstream's operation order
 //! (so a frozen-field comparison can be bit for bit).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;
 use outram_foam_basic_lib::fields::vol_field::VolField;
 use outram_foam_basic_lib::fv_operators::fvc::interpolate;
 use outram_foam_basic_lib::fv_operators::les_filter::FilterValue;
 use outram_foam_basic_lib::prelude::{FvMesh, SymmTensor, Tensor, Vector3};
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// A field with `calculated` patches: cell values plus explicit boundary-face values.
 pub fn calculated<T: Clone + Default>(

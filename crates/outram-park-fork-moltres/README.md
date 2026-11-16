@@ -10,6 +10,14 @@ Circulating-fuel molten-salt reactor multiphysics: multigroup neutron diffusion,
 > affiliated with the upstream project. Not for nuclear facility operation,
 > reactor control, safety-critical, or licensing decisions.
 
+## `no_std` + `alloc` (gh:#1597)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-park-fork-moltres --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` carries the table loaders that read files (`tables::...::load`, `tables_multivar::...::load`) and the `MOLTRES_DEBUG_OUTER` trace; JSON table parsing stays (`serde_json` with `alloc`, the root's `serde_json-nostd` key). With `std` on (the default)
+nothing changes.
+
 ## What is implemented (first pass, 2026-08-04)
 
 - **`materials`** — SI multigroup cross-section records (`MsrMaterial`,

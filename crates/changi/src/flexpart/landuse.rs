@@ -52,6 +52,9 @@
 //! `1..=13`, an inventory cell index of 0 or below) are refused with
 //! [`LanduseError`] instead of guessed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::constants::NUMCLASS;
 use super::met_fields::{Field2, GridGeometry};
 

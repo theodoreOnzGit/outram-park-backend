@@ -88,6 +88,9 @@
 //! relax them. **The claim this module supports is the NEACRP one above; do
 //! not extend it to the transient path, which has no such evidence.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::makesigmadfxyz::makesigmadfxyz;
 use crate::matlab::{norm2, Array2, Array3};
 use crate::sigmavalupd3d_handler::{sigmavalupd3d_handler, FeedbackTables, RodFraction};
@@ -578,7 +581,7 @@ mod tests {
             }
             a
         };
-        let subarea = 1.26 * 1.26 - std::f64::consts::PI * 0.476 * 0.476;
+        let subarea = 1.26 * 1.26 - core::f64::consts::PI * 0.476 * 0.476;
 
         let geometry = Geometry {
             xtot: nx as f64 * 20.0,
@@ -614,7 +617,7 @@ mod tests {
                 pitch: 1.26,
                 subarea,
                 hydia: 4.0 * subarea
-                    / (2.0 * std::f64::consts::PI * 0.476 + 4.0 * 1.26 - 8.0 * 0.476),
+                    / (2.0 * core::f64::consts::PI * 0.476 + 4.0 * 1.26 - 8.0 * 0.476),
                 doppleralpha: 0.3,
                 ..Default::default()
             },

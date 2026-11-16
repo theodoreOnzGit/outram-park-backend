@@ -61,6 +61,9 @@
 //! OH in molecules/cm³, rate constants as in the SPECIES file
 //! (`k = C T^N exp(-D/T)` in cm³/molecule/s), temperatures K, times s.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::calendar::caldate;

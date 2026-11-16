@@ -18,6 +18,9 @@
 //! Independent Rust re-implementation; the OUTRAM PARK fork relicenses under
 //! **GPL-3.0-only** (MIT is GPL-3.0-compatible; upstream MIT notice preserved).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::nuclide::Nuclide;
 
 /// The metastable-state change ONIX applies for a parent in state `parent_m`,

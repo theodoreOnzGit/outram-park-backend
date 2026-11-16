@@ -32,6 +32,9 @@
 //! compared: it uses the port's own solver settings, a plain floor at `small` instead of
 //! upstream's neighbour-averaging `bound()`, and no `fvOptions`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::k_epsilon_step::{scalar_field, U_SMALL};
 use crate::source_terms::{self, FrozenState, SourceTerms};
 use crate::traits::TurbulenceModel;
@@ -41,7 +44,7 @@ use outram_foam_basic_lib::prelude::{
     VolVectorField,
 };
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// `kEqn` LES model (incompressible, single phase).
 pub struct KEqn {

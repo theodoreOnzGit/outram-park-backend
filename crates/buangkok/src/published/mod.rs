@@ -13,5 +13,8 @@
 //! not measurements. Provenance: `crates/buangkok/docs/References.md`.
 //! `RESPONSIBLE_USE.md` applies in full.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod accident_dose_by_distance;
 pub mod normal_operation_dose_by_distance;

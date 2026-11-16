@@ -48,6 +48,9 @@
 //! ignores a file that cannot be opened and leaves every coefficient zero,
 //! and `myfile >> value` on a short file silently reuses the last value.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::MoltresError;
 use crate::moose_interpolation::BicubicSplineInterpolation;
 use crate::materials::MsrMaterial;
@@ -131,6 +134,7 @@ impl LsqTables {
         })
     }
 
+    #[cfg(feature = "std")]
     /// Read the file at `path`.
     ///
     /// # Errors
@@ -280,6 +284,7 @@ impl BicubicTables {
         })
     }
 
+    #[cfg(feature = "std")]
     /// Read `<root><SUFFIX>.txt` for the eleven constants.
     ///
     /// # Errors
@@ -301,7 +306,7 @@ impl BicubicTables {
                 MoltresError::InvalidMaterial(format!("cannot read {path}: {e}"))
             })?);
         }
-        let refs: [&str; 11] = std::array::from_fn(|i| texts[i].as_str());
+        let refs: [&str; 11] = core::array::from_fn(|i| texts[i].as_str());
         Self::from_texts(
             &refs,
             fuel_points,
@@ -399,7 +404,7 @@ mod tests {
         let fp = [800.0, 900.0, 1000.0];
         let mp = [700.0, 800.0, 900.0, 1000.0];
         let texts = bicubic_texts(&fp, &mp);
-        let refs: [&str; 11] = std::array::from_fn(|i| texts[i].as_str());
+        let refs: [&str; 11] = core::array::from_fn(|i| texts[i].as_str());
         let fuel = BicubicTables::from_texts(&refs, &fp, &mp, 1, 1, TableLayout::Legacy, BicubicMaterial::Fuel)
             .unwrap();
         let moder =
@@ -416,9 +421,9 @@ mod tests {
         assert!(BicubicTables::load("/nonexistent/x_", &fp, &mp, 1, 1, TableLayout::Legacy, BicubicMaterial::Fuel).is_err());
         assert!(BicubicTables::from_texts(&refs, &[], &mp, 1, 1, TableLayout::Legacy, BicubicMaterial::Fuel).is_err());
         assert!(BicubicTables::from_texts(&refs, &fp, &[], 1, 1, TableLayout::Legacy, BicubicMaterial::Fuel).is_err());
-        let short: [&str; 11] = std::array::from_fn(|_| "800 700 1.0");
+        let short: [&str; 11] = core::array::from_fn(|_| "800 700 1.0");
         assert!(BicubicTables::from_texts(&short, &fp, &mp, 1, 1, TableLayout::Legacy, BicubicMaterial::Fuel).is_err());
-        let bad: [&str; 11] = std::array::from_fn(|_| "x");
+        let bad: [&str; 11] = core::array::from_fn(|_| "x");
         assert!(BicubicTables::from_texts(&bad, &fp, &mp, 1, 1, TableLayout::Legacy, BicubicMaterial::Fuel).is_err());
     }
 }

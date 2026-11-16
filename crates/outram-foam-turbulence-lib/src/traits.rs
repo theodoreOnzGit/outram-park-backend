@@ -29,6 +29,9 @@
 //! every method for real and is unit-tested — none `todo!()`-panic (see the
 //! crate-level status table).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::{FvVectorMatrix, VolScalarField, VolVectorField};
 
 /// Common interface for all RAS and LES turbulence models.

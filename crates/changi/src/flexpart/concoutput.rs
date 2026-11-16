@@ -139,6 +139,9 @@
 //! classes are 0-based here (1-based upstream) — except the packed flat
 //! index, which is upstream's number.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flexpart::concentration::{ConcentrationGrid, DepositionGrid};
 use crate::flexpart::plume_trajectory::mean;
 

@@ -53,6 +53,9 @@
 //! temperature and the non-linearity is lagged. A caller wanting the fully
 //! implicit answer iterates, feeding each result back in as `temps`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matlab::{Decomposition, SparseMatrix};
 use crate::types::FuelGeometry;
 

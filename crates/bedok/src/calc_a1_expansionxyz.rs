@@ -10,7 +10,12 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+// A `BTreeMap` (gh:#1588: `alloc`, so `no_std`), ~~`std::collections::HashMap`~~:
+// only looked up by key, never iterated, so the map type changes no result.
+use alloc::collections::BTreeMap;
 
 use crate::calc_abefghxyz::Coeffs;
 use crate::calc_bucklingxyz::Buckling;
@@ -70,7 +75,7 @@ pub fn buckling_blocks(
     es: usize,
     groups: usize,
 ) -> Array2<f64> {
-    let lookup: HashMap<(usize, usize), f64> =
+    let lookup: BTreeMap<(usize, usize), f64> =
         m.find().into_iter().map(|t| ((t.i, t.j), t.v)).collect();
     let mut out = Array2::<f64>::zeros(philen, groups);
     for idx in 0..philen {
