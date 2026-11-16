@@ -848,6 +848,8 @@ pub fn min_abs_finite(v: &[f64]) -> Option<f64> {
 mod tests {
     use super::*;
 
+    // Faer is a backend only with `std` (gh:#1588).
+    #[cfg(feature = "std")]
     #[test]
     fn the_sparse_backend_is_faer_by_default_and_the_port_on_request() {
         use petir::sparse::SparseBackend;
