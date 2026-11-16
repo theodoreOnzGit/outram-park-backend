@@ -45,6 +45,10 @@ comparisons, but the cause is understood and is a move TOWARD upstream's
 arithmetic, not a physics change. **Flagged for the maintainer** (root
 CLAUDE.md: a residual needs a human judgement). `edw_pimple_he_1` did not move.
 
+**Accepted by the maintainer, 2026-11-16:** "I'm ok with ulp, and the
+larger error bound" -- both the step-1 ulp differences and the 5.4e-8 (`p`) /
+4.2e-7 (`rho`) bound at step 200 on this flashing case.
+
 | golden | count | old hash | new hash |
 |---|---|---|---|
 | `edw_pimple_p_1` | 24 | `0x5c438839a9588fe5` | `0x8d430410d56799cc` |
