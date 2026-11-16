@@ -290,7 +290,7 @@ fn vscale(s: f64, v: Vector3) -> Vector3 {
 /// # Example
 ///
 /// ```rust
-/// use alloc::sync::Arc;
+/// use std::sync::Arc;
 /// use outram_foam_basic_lib::fields::vol_field::VolScalarField;
 /// use outram_foam_basic_lib::fv_operators::fvc::grad_least_squares;
 /// use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
@@ -436,7 +436,7 @@ pub fn grad_least_squares(phi: &VolScalarField) -> VolVectorField {
 /// # Example
 ///
 /// ```rust
-/// use alloc::sync::Arc;
+/// use std::sync::Arc;
 /// use outram_foam_basic_lib::fields::vol_field::VolScalarField;
 /// use outram_foam_basic_lib::fv_operators::fvc::grad_least_squares_face_centre;
 /// use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;

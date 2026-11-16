@@ -311,7 +311,7 @@ pub fn krylov_solve(
 /// # Example
 ///
 /// ```rust
-/// use alloc::sync::Arc;
+/// use std::sync::Arc;
 /// use outram_foam_basic_lib::compute::ComputeBackend;
 /// use outram_foam_basic_lib::krylov::Preconditioner;
 /// use outram_foam_basic_lib::ldu_matrix::parallel::HybridLdu;

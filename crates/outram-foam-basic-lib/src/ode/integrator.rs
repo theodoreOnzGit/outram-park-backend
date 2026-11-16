@@ -90,7 +90,7 @@
 //! # Example — the shared `dyn` path
 //!
 //! ```rust
-//! use alloc::sync::Arc;
+//! use std::sync::Arc;
 //! use outram_foam_basic_lib::ode::{OdeIntegrator, OdeSolver, OdeSystem, SharedOdeSystem};
 //!
 //! struct Decay;
@@ -585,7 +585,7 @@ impl OdeIntegrator<NoTypedSystem> {
     /// argument never has to be written out.
     ///
     /// ```rust
-    /// # use alloc::sync::Arc;
+    /// # use std::sync::Arc;
     /// # use outram_foam_basic_lib::ode::{OdeIntegrator, OdeSolver, OdeSystem, SharedOdeSystem};
     /// # struct Decay;
     /// # impl OdeSystem for Decay {

@@ -203,7 +203,7 @@ pub struct CyclicCoupling {
 ///
 /// ```
 /// use outram_foam_basic_lib::prelude::*;
-/// use alloc::sync::Arc;
+/// use std::sync::Arc;
 ///
 /// // 16 cells over a unit length, unit cross-sectional area.
 /// let mesh = Arc::new(FvMesh::periodic_1d(16, 1.0, 1.0));

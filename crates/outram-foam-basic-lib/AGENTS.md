@@ -193,6 +193,9 @@ on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
   `no_std` builds (the `alloc` types and macros, and `petir::real::Real` for
   `sqrt`, `floor`, `mul_add`, ...); a new module copies that line from any
   existing one.
+- **Doc-comment examples keep `std::` paths** (`std::sync::Arc`, ...): a
+  doctest is its own crate with no `extern crate alloc`, so `alloc::` there
+  does not compile (16 doctests broke that way in the first cut of gh:#1586).
 - **What needs an operating system goes behind `#[cfg(feature = "std")]`**:
   files and paths (`io`'s readers and writers, all of `io::case`), threads and
   `available_parallelism`, `Instant`, `OnceLock`, printing. `parallel`, `gpu`

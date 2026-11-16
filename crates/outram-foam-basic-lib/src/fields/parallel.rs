@@ -917,7 +917,7 @@ where
 /// Panics if the internal fields or any patch pair differ in length.
 ///
 /// ```rust
-/// use alloc::sync::Arc;
+/// use std::sync::Arc;
 /// use outram_foam_basic_lib::compute::ComputeBackend;
 /// use outram_foam_basic_lib::fields::parallel;
 /// use outram_foam_basic_lib::fields::vol_field::VolScalarField;
@@ -1033,7 +1033,7 @@ where
 /// Panics if the internal fields or any patch pair differ in length.
 ///
 /// ```rust
-/// use alloc::sync::Arc;
+/// use std::sync::Arc;
 /// use outram_foam_basic_lib::compute::ComputeBackend;
 /// use outram_foam_basic_lib::fields::parallel;
 /// use outram_foam_basic_lib::fields::vol_field::VolScalarField;
@@ -1160,7 +1160,7 @@ pub fn axpy_surface_assign<T>(
 /// count, not bit-identical to a serial left fold.
 ///
 /// ```rust
-/// use alloc::sync::Arc;
+/// use std::sync::Arc;
 /// use outram_foam_basic_lib::compute::ComputeBackend;
 /// use outram_foam_basic_lib::fields::parallel;
 /// use outram_foam_basic_lib::fields::vol_field::VolScalarField;

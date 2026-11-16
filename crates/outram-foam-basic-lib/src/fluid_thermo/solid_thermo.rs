@@ -76,7 +76,7 @@ pub trait SolidThermo {
 /// ```rust
 /// use outram_foam_basic_lib::prelude::*;
 /// use outram_foam_basic_lib::fluid_thermo::{ConstSolidThermo, SolidThermo};
-/// use alloc::sync::Arc;
+/// use std::sync::Arc;
 ///
 /// let mesh = Arc::new(
 ///     FvMeshBuilder::new()

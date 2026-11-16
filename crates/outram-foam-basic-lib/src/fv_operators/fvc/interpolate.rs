@@ -80,7 +80,7 @@ pub fn linear_weight(mesh: &FvMesh, f: usize) -> f64 {
 /// ```rust
 /// use outram_foam_basic_lib::prelude::*;
 /// use outram_foam_basic_lib::fv_operators::fvc;
-/// use alloc::sync::Arc;
+/// use std::sync::Arc;
 ///
 /// let mesh = Arc::new(
 ///     FvMeshBuilder::new()
