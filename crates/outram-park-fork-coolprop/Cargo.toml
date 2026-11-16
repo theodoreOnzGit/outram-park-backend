@@ -39,12 +39,21 @@ topic = "thermal-hydraulics"
 fidelity = 0
 maturity = 2
 
-# The Helmholtz EOS engine and fluid data are pure `std` (hardcoded Rust, no
+# ~~The Helmholtz EOS engine and fluid data are pure `std` (hardcoded Rust, no
 # runtime JSON). `uom` is the only runtime dependency — it types the
 # `OPCPFluidSingleCV` control-volume API and the vendored `openfoam_algorithms`
 # finite-volume layer. Both `uom` and those primitives are pure Rust (no BLAS /
 # C / ndarray, and no `outram-foam-basic-lib` dependency — the primitives are
-# copied in as source), so the crate still builds on Android.
+# copied in as source), so the crate still builds on Android.~~
+# CORRECTED 2026-11-16 (gh:#1598): the Helmholtz EOS engine and fluid data are
+# hardcoded Rust (no runtime JSON) and, since gh:#1598, `no_std` + `alloc`
+# without the `std` feature. The runtime dependencies are `petir`, `uom` and
+# `outram-foam-basic-lib` (below): the vendored `openfoam_algorithms` layer is
+# HALF-migrated to it. Its `mesh::fv_mesh`, `mesh::error`, the tensor
+# primitives, `one_dimensional_meshing` and `DeltaCoeff` are re-exports of
+# `outram-foam-basic-lib`; the rest of `openfoam_source/` (84 files, ~15k
+# lines) is still a copy. All pure Rust (no BLAS / C / ndarray), so the crate
+# builds on Android.
 # `std` (default, gh:#1598): without it the crate is `no_std` + `alloc`,
 # checked on a bare-metal target by `scripts/check-nostd.sh`.
 [features]
