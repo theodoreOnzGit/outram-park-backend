@@ -8331,6 +8331,7 @@ name = "raffles"
 version = "0.0.4"
 dependencies = [
  "burn",
+ "hashbrown 0.16.1",
  "petir",
  "serde_json",
  "thiserror 2.0.21",
