@@ -376,6 +376,7 @@ mod tests {
         assert_eq!(m.d_sigma_removal_d_temp[1], 0.001 * 100.0);
         assert!(LsqTables::from_text("1 2 3", 2, 2, TableLayout::Legacy).is_err());
         assert!(LsqTables::from_text("x", 2, 2, TableLayout::Legacy).is_err());
+        #[cfg(feature = "std")] // reads a file (gh:#1597)
         assert!(LsqTables::load("/nonexistent/lsq.txt", 2, 2, TableLayout::Legacy).is_err());
     }
 
@@ -418,6 +419,7 @@ mod tests {
         assert!(fuel.raw_sample("NOPE", 0, 1.0, 1.0).is_none());
         let m = fuel.material_at("fuel", 850.0, 750.0);
         assert_eq!(m.sigma_removal.len(), 1);
+        #[cfg(feature = "std")] // reads a file (gh:#1597)
         assert!(BicubicTables::load("/nonexistent/x_", &fp, &mp, 1, 1, TableLayout::Legacy, BicubicMaterial::Fuel).is_err());
         assert!(BicubicTables::from_texts(&refs, &[], &mp, 1, 1, TableLayout::Legacy, BicubicMaterial::Fuel).is_err());
         assert!(BicubicTables::from_texts(&refs, &fp, &[], 1, 1, TableLayout::Legacy, BicubicMaterial::Fuel).is_err());

@@ -24,6 +24,10 @@
 //! `terms::precursor_production`) the worst difference must be <= 8 ulp
 //! and is printed.
 
+// Loads tables from files: needs the `std` feature (gh:#1597;
+// `cargo quick-test -p outram-park-fork-moltres` skips it).
+#![cfg(feature = "std")]
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
