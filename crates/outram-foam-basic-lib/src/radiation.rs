@@ -57,6 +57,9 @@
 //!
 //! Units: SI throughout (`a`, `e` in 1/m, `E` in W/m3, `G`, `qr` in W/m2, T in K).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::vol_field::VolScalarField;
@@ -77,8 +80,8 @@ pub use crate::primitives::scalar::ROOT_VSMALL;
 /// choice as `R_UNIVERSAL_ESI_V2506` for the gas constant, gh:#1362).
 #[must_use]
 pub fn stefan_boltzmann_esi_v2506() -> f64 {
-    let pi = std::f64::consts::PI;
-    let two_pi = 2.0 * std::f64::consts::PI;
+    let pi = core::f64::consts::PI;
+    let two_pi = 2.0 * core::f64::consts::PI;
     let (k, h, c) = (1.38065e-23_f64, 6.62607e-34_f64, 2.99792e8_f64);
     let hr = h / two_pi;
     let k2 = k * k;
@@ -426,7 +429,7 @@ mod tests {
     use crate::mesh::fv_mesh::FvMesh;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Uniform 1-D slab of `n` cells, length 1 m, cross-section `s` m2: patch 0 is the
     /// x-min wall, patch 1 the x-max wall.

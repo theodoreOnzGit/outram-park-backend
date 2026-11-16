@@ -46,6 +46,9 @@
 //! The output boundary patches are set zero-gradient (values carry the mapped
 //! result); the operation is applied element-wise so no BC evaluation occurs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::vol_field::{VolField, VolScalarField, VolSymmTensorField, VolTensorField};
 
@@ -127,7 +130,7 @@ mod tests {
     use crate::fields::field::Field;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::{SymmTensor, Tensor, Vector3};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
         Arc::new(

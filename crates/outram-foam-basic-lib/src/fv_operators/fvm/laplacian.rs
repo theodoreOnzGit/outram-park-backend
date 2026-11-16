@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolScalarField;
@@ -524,7 +527,7 @@ mod tests {
     use crate::fields::vol_field::VolScalarField;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
         Arc::new(
@@ -816,7 +819,7 @@ mod tests {
     /// stencil (diag = 2Γ·A/h, off-diag = −Γ·A/h). This is the reference a
     /// cyclic `periodic_1d(n, n·h, A)` mesh must reproduce.
     fn ring_mesh(n: usize, h: f64, area: f64) -> Arc<crate::mesh::fv_mesh::FvMesh> {
-        use std::f64::consts::PI;
+        use core::f64::consts::PI;
         let r = h / (2.0 * (PI / n as f64).r_sin());
         // n internal faces: face f couples cell f and cell (f+1) mod n.
         let owner: Vec<usize> = (0..n).collect();

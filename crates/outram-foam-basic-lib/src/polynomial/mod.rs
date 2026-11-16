@@ -29,6 +29,9 @@
 //! (dimensionless) form — these are numerical building blocks, not dimensioned
 //! physical quantities.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cubic_eqn;
 pub mod linear_eqn;
 pub mod polynomial;

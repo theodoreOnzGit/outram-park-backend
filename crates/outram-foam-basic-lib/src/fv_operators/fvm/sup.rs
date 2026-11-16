@@ -41,6 +41,9 @@
 //! `fvm::laplacian`).  So an explicit source `S` you want on the RHS is added as
 //! `... - fvm::su(S, φ)`; a stabilising sink `k·φ` on the LHS is `... + fvm::sp(k, φ)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
 use crate::ldu_matrix::fv_matrix::FvMatrix;
 use crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix;
@@ -143,7 +146,7 @@ mod tests {
     use crate::ldu_matrix::fv_matrix::SolverSettings;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
         Arc::new(

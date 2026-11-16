@@ -11,6 +11,9 @@
 
 //! A general explicit/implicit source on one field.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{CellSelection, SourceContribution};
 
 /// A constant source term with an explicit and an implicit part.

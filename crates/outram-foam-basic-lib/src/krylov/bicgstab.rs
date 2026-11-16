@@ -62,7 +62,10 @@
 //! that they differ in the last bits; the measured effect on residual histories
 //! and iteration counts is recorded in `crate::krylov::hybrid_tests`.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use super::{KrylovResult, KrylovSettings, Preconditioner};
 use crate::compute::ComputeBackend;
@@ -198,7 +201,7 @@ pub fn bicgstab(
 /// # Example
 ///
 /// ```rust
-/// use std::sync::Arc;
+/// use alloc::sync::Arc;
 /// use outram_foam_basic_lib::compute::ComputeBackend;
 /// use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 /// use outram_foam_basic_lib::ldu_matrix::parallel::HybridLdu;

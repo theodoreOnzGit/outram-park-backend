@@ -17,6 +17,10 @@
 //! under a `regIOobject` / `cellZones` header); an empty zone list writes no
 //! file. Result (2026-11-11): all assertions hold.
 
+// Reads or writes files, or starts threads: needs the `std` feature
+// (gh:#1586; `cargo quick-test -p outram-foam-basic-lib` skips it).
+#![cfg(feature = "std")]
+
 use outram_foam_basic_lib::io::poly_mesh::PolyMesh;
 
 #[test]

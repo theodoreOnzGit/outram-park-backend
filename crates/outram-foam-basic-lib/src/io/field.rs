@@ -46,8 +46,16 @@
 //!
 //! [`VolField`]: crate::fields::VolField
 
+// gh:#1586: without `std` there are no files, so the text formatters and
+// cursors below, reached only through the file readers and writers, are
+// unused in a `no_std` build.
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports))]
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::esi::{esi_header, format_g, EsiWriteOptions};
 use super::dict::{fmt_scalar, tokenize, write_header, FoamHeader, Token, BANNER, FOOTER, SEPARATOR};
@@ -65,6 +73,7 @@ pub type Dimensions = [f64; 7];
 //  Public API
 // ───────────────────────────────────────────────────────────────────────────
 
+#[cfg(feature = "std")]
 /// Read a `volScalarField` file, returning the field and its dimensions.
 ///
 /// The `mesh` supplies the cell count and the boundary-patch order/sizes the
@@ -89,6 +98,7 @@ pub fn read_vol_scalar_field(
     Ok((field, dims))
 }
 
+#[cfg(feature = "std")]
 /// Read a `volVectorField` file, returning the field and its dimensions.
 pub fn read_vol_vector_field(
     path: impl AsRef<Path>,
@@ -124,6 +134,7 @@ fn fs(st: NumStyle, x: f64) -> String {
     }
 }
 
+#[cfg(feature = "std")]
 /// Write a `volScalarField` file to `path` with the given `dimensions`.
 pub fn write_vol_scalar_field(
     path: impl AsRef<Path>,
@@ -141,6 +152,7 @@ pub fn write_vol_scalar_field(
     std::fs::write(path, s).map_err(|e| IoError::io(path.display().to_string(), e))
 }
 
+#[cfg(feature = "std")]
 /// Write a `volVectorField` file to `path` with the given `dimensions`.
 pub fn write_vol_vector_field(
     path: impl AsRef<Path>,
@@ -158,6 +170,7 @@ pub fn write_vol_vector_field(
     std::fs::write(path, s).map_err(|e| IoError::io(path.display().to_string(), e))
 }
 
+#[cfg(feature = "std")]
 /// [`write_vol_scalar_field`] in ESI v2506's layout (gh:#1363 row 7): ESI
 /// banner, `arch`, `location "<location>"` (the time directory name), numbers
 /// as `%g` at `opts.precision`, two blank lines before the footer.
@@ -180,6 +193,7 @@ pub fn write_vol_scalar_field_esi(
     std::fs::write(path, s).map_err(|e| IoError::io(path.display().to_string(), e))
 }
 
+#[cfg(feature = "std")]
 /// Write a `surfaceScalarField` (the face flux `phi`) in ESI v2506's layout
 /// (gh:#1363 row 7): `oriented oriented;`, the internal-face values, and per
 /// patch `type empty;` or `type calculated;` with a `value uniform` entry.
@@ -218,6 +232,7 @@ pub fn write_surface_scalar_field_esi(
     std::fs::write(path, s).map_err(|e| IoError::io(path.display().to_string(), e))
 }
 
+#[cfg(feature = "std")]
 /// [`write_vol_vector_field`] in ESI v2506's layout; see
 /// [`write_vol_scalar_field_esi`].
 pub fn write_vol_vector_field_esi(
@@ -1103,6 +1118,7 @@ fn write_value_vector(st: NumStyle, s: &mut String, v: &[Vector3]) {
 
 // ── file helpers ────────────────────────────────────────────────────────────
 
+#[cfg(feature = "std")]
 fn read_to_string(path: &Path) -> Result<String, IoError> {
     std::fs::read_to_string(path).map_err(|e| IoError::io(path.display().to_string(), e))
 }

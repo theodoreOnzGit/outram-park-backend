@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mesh::ami::AmiCoupling;
 use crate::mesh::error::MeshError;
 use crate::primitives::Vector3;
@@ -200,7 +203,7 @@ pub struct CyclicCoupling {
 ///
 /// ```
 /// use outram_foam_basic_lib::prelude::*;
-/// use std::sync::Arc;
+/// use alloc::sync::Arc;
 ///
 /// // 16 cells over a unit length, unit cross-sectional area.
 /// let mesh = Arc::new(FvMesh::periodic_1d(16, 1.0, 1.0));

@@ -35,6 +35,9 @@
 //! [`imports`](crate::thermophysics::imports) (shared uom re-exports used by
 //! every implementation file).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod constants;
 pub mod eos;
 pub mod error;

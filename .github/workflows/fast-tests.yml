@@ -202,6 +202,28 @@ jobs:
             --exclude outram-park-digital-twin-engine \
             --all-targets --target ${{ matrix.target }}
 
+  # The `no_std` + `alloc` gate (epic gh:#1585): every converted crate's
+  # library, `--no-default-features`, on a bare-metal target with no `std`.
+  # The crate list lives in the script, which also runs locally.
+  no-std:
+    name: check / no_std + alloc (x86_64-unknown-none)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: no-std
+          cache-on-failure: true
+
+      # The script runs `rustup target add` inside the checkout, so the
+      # target lands on the pinned toolchain (see the android job's note).
+      - name: Check the no_std crates
+        run: scripts/check-nostd.sh
+
   ios:
     name: check / ios (${{ matrix.target }})
     runs-on: macos-latest

@@ -25,6 +25,14 @@
 //! producer OpenFOAM: that is why it is an option, and why the default
 //! banner keeps naming this project.
 
+// gh:#1586: without `std` there are no files, so the text formatters and
+// cursors below, reached only through the file readers and writers, are
+// unused in a `no_std` build.
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports))]
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use super::poly_mesh::PolyMesh;
@@ -160,6 +168,7 @@ fn type_word(kind: PatchKind) -> &'static str {
     in_group(kind).unwrap_or("patch")
 }
 
+#[cfg(feature = "std")]
 /// Write `<time_dir>/uniform/time` as ESI's `Time::writeObject` does:
 /// `value` at 18 significant digits, the time `name`, step `index`, and
 /// `deltaT` / `deltaT0` at `opts.precision`.
@@ -233,6 +242,7 @@ fn finish_list(mut header: String, items: &[String], contiguous: bool) -> String
     header
 }
 
+#[cfg(feature = "std")]
 /// Write a `topoSet` file (`cellSet`, `faceSet`, `pointSet`) as ESI's
 /// `topoSet::writeData` does (gh:#1384): the ESI header (class `class`,
 /// `location`, object `name`) and the labels **in the order given**, which
@@ -259,6 +269,7 @@ pub fn write_label_set_esi(
     std::fs::write(&path, s).map_err(|e| IoError::io(path.display().to_string(), e))
 }
 
+#[cfg(feature = "std")]
 /// Write `<dir>/cellZones` as ESI's `blockMesh` does (the zone names are also
 /// listed in a `meta` entry of the header). Nothing is written for no zones.
 ///
@@ -312,6 +323,7 @@ pub fn write_cell_zones_esi(
 }
 
 impl PolyMesh {
+    #[cfg(feature = "std")]
     /// Write `points`, `faces`, `owner`, `neighbour`, `boundary` into `dir`
     /// in ESI v2506's layout (see the module doc). `location` is the string
     /// of the header's `location` entry, e.g. `"constant/polyMesh"` or
@@ -339,6 +351,7 @@ impl PolyMesh {
         Ok(())
     }
 
+    #[cfg(feature = "std")]
     /// [`PolyMesh::write_esi`] for a processor mesh of `decomposePar` (gh:#1381):
     /// the same five files, but every [`PatchKind::Processor`] patch is written
     /// with ESI's `processorPolyPatch::write` entries (`matchTolerance 0.0001`,
@@ -469,6 +482,7 @@ impl PolyMesh {
     }
 }
 
+#[cfg(feature = "std")]
 /// Write a `labelList` file (`object`) as ESI's `IOList<label>::writeContents`
 /// does for the `*ProcAddressing` files of `decomposePar` (gh:#1381): header with
 /// no `note`, then the list in ESI's short/long layout. Values are signed

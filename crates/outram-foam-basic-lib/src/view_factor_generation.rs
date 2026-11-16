@@ -62,13 +62,16 @@
 //!
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::esi_octree::{LineShapes, Octree, OctreeShapes, TreeBox, V};
 use crate::io::poly_mesh::face_centre_and_area;
 use crate::primitives::{Vector3, GREAT, ROOT_VSMALL, SMALL, VSMALL};
 use petir::mathf::RealMath;
 
 /// `constant::mathematical::pi` (OpenFOAM: `M_PI`).
-const PI: f64 = std::f64::consts::PI;
+const PI: f64 = core::f64::consts::PI;
 
 /// `viewFactorsDict` entries read by `viewFactorsGen`, with upstream's code defaults.
 #[derive(Debug, Clone, Copy, PartialEq)]

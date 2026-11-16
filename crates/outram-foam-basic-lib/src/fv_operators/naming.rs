@@ -63,6 +63,9 @@
 ///
 /// Chosen as plain ASCII so field names stay safe to write into an OpenFOAM
 /// case file and to compare in tests.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub const ELIDED_OPERAND: &str = "..";
 
 /// Whether `name` is already an operator-derived name rather than a plain

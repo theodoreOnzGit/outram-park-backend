@@ -206,6 +206,14 @@ libm = { version = "0.2", default-features = false }
 ndarray = "0.17.2"
 ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
 thiserror = "2.0.18"
+# `thiserror` without its `std` default, for crates that build `no_std` +
+# `alloc` (gh:#1585, first `outram-foam-basic-lib`, gh:#1586). A member
+# crate cannot switch off the defaults of `thiserror.workspace = true`, so
+# this second key names the same crate and version with them off; the crate
+# turns `std` back on from its own `std` feature and renames it with
+# `extern crate thiserror_nostd as thiserror;`. Same version as above: bump
+# both together.
+thiserror-nostd = { package = "thiserror", version = "2.0.18", default-features = false }
 # uom WITHOUT its `std` feature (gh:#985, maintainer direction 2026-10-20: "I
 # want uom as no std in this workspace. Do the refactor using petir math.").
 # With `std` on, Quantity sqrt/powi/cbrt/hypot/mul_add, Ratio exp/ln/log*/

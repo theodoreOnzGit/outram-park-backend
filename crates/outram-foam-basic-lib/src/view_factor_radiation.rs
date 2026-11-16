@@ -58,6 +58,9 @@
 //! Opt-in: nothing in the solvers calls this by default (the model is a new capability).
 //! Units: SI (T in K, areas in m2, fluxes in W/m2).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matrix::square_matrix::SquareMatrix;
 use crate::radiation::stefan_boltzmann_esi_v2506;
 
@@ -70,8 +73,8 @@ pub enum ViewFactorError {
     Shape(String),
 }
 
-impl std::fmt::Display for ViewFactorError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ViewFactorError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ViewFactorError::Parse(m) => write!(f, "view-factor parse error: {m}"),
             ViewFactorError::Shape(m) => write!(f, "view-factor shape error: {m}"),
@@ -79,7 +82,7 @@ impl std::fmt::Display for ViewFactorError {
     }
 }
 
-impl std::error::Error for ViewFactorError {}
+impl core::error::Error for ViewFactorError {}
 
 /// Tokens of an OpenFOAM ASCII file with the `FoamFile` header, `//` and `/* */`
 /// comments removed and `(` `)` split out.

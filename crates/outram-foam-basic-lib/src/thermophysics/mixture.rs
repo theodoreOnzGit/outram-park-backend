@@ -45,6 +45,9 @@
 //!
 //! The `ReactionTable`, the `Y` fields and the mesh are not ported here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::primitives::{ROOT_VSMALL, SMALL};
 use crate::thermophysics::imports::*;
 

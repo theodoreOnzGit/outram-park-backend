@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{adaptive_step, integrate_interval, integrate_interval_esi_v2506, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
 
 // Butcher tableau coefficients — Runge-Kutta-Fehlberg 4(5)

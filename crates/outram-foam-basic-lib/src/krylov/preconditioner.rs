@@ -36,6 +36,9 @@
 //! All quantities are dimensionless `f64`: the preconditioner acts on the raw
 //! algebraic residual, not on a `uom`-typed physical field.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::compute::ComputeBackend;
 use crate::ldu_matrix::parallel::vecop_backend_for;
 use crate::ldu_matrix::LduMatrix;

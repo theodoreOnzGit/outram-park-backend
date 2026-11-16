@@ -12,6 +12,9 @@
 
 //! Solidification and melting by the enthalpy-porosity method.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::CellSelection;
 use crate::fields::VolScalarField;
 use crate::ldu_matrix::{FvMatrix, FvVectorMatrix};

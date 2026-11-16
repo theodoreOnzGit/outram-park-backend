@@ -92,6 +92,9 @@
 //! the time update, and any clamping of non-physical states. Those belong to
 //! the solver, which is where the policy (clamp, or report and stop) is set.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
@@ -702,7 +705,7 @@ mod tests {
     #[test]
     fn velocity_component_maps_interior_and_boundaries() {
         use crate::interface::one_dimensional_meshing::create_one_d_mesh;
-        use std::sync::Arc;
+        use alloc::sync::Arc;
         use uom::si::area::square_meter;
         use uom::si::f64::{Area, Length};
         use uom::si::length::meter;

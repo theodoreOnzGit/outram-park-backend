@@ -181,6 +181,31 @@ Shared mesh or field data: `Arc<FvMesh>`, `Arc<RwLock<VolScalarField>>`.
 
 ## Implementation rules
 
+### `no_std` + `alloc`, with a default `std` feature (gh:#1586, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). Keep it that way:
+
+- **New code uses `core::` / `alloc::` paths**, not `std::`, for anything
+  that exists there (`fmt`, `ops`, `mem`, `f64::consts`, `Arc`, `Vec`,
+  `BTreeMap`, ...). Every module glob-imports `crate::nostd_prelude::*` in
+  `no_std` builds (the `alloc` types and macros, and `petir::real::Real` for
+  `sqrt`, `floor`, `mul_add`, ...); a new module copies that line from any
+  existing one.
+- **What needs an operating system goes behind `#[cfg(feature = "std")]`**:
+  files and paths (`io`'s readers and writers, all of `io::case`), threads and
+  `available_parallelism`, `Instant`, `OnceLock`, printing. `parallel`, `gpu`
+  and `blas-bench` imply `std`.
+- **No `HashMap` in the library**: `BTreeMap` (`alloc`, and iteration order is
+  fixed). GAMG's coarse-face map was converted; it is only looked up, so
+  nothing changed.
+- **A `std` build computes what it did before**: `Real` is imported only
+  without `std`, so `x.sqrt()` is `std`'s own there.
+- An integration test that touches files or threads starts with
+  `#![cfg(feature = "std")]` (`cargo quick-test -p outram-foam-basic-lib`
+  builds the library without `std`).
+
 ### `extern "C"` policy
 
 `extern "C"` blocks are **permitted if and only if** the called function

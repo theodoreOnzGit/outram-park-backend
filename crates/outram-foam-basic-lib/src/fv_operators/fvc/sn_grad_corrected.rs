@@ -39,6 +39,9 @@
 //! `snGrad()` and the correction vector is zero. Coupled (cyclic / AMI) faces
 //! are not corrected here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{grad, linear_weight, sn_grad_with_delta};
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
@@ -149,7 +152,7 @@ mod tests {
     use crate::fields::boundary::bc::PatchField;
     use crate::fields::field::Field;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Two cells whose centre-to-centre vector is tilted against the face normal
     /// (a sheared pair), so the correction vector is non-zero.

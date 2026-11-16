@@ -24,6 +24,9 @@
 //! Translated from `specie/transport/logPolynomial/logPolynomialTransportI.H`
 //! (v2506). Upstream's dictionary keys are `muLogCoeffs<N>` / `kappaLogCoeffs<N>`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::traits::TransportModel;
 use crate::polynomial::Polynomial;
 use crate::thermophysics::eos::EquationOfState;

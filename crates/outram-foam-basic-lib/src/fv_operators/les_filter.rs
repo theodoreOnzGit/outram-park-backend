@@ -48,8 +48,11 @@
 //! `ZeroGradient`/`Symmetry` (zero) and `FixedGradient` (the gradient). `Mixed` patches take the
 //! generic path and are NOT claimed.
 
-use std::ops::{Add, Div, Mul, Sub};
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, Div, Mul, Sub};
+use alloc::sync::Arc;
 
 use petir::mathf::RealMath;
 

@@ -24,6 +24,9 @@
 //! `alphah = mu / Pr`. Translated from `specie/transport/WLF/WLFTransportI.H`
 //! (v2506), including `kappa = Cp * mu * rPr` in that operation order.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::traits::TransportModel;
 use crate::thermophysics::eos::EquationOfState;
 use crate::thermophysics::imports::*;

@@ -19,7 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
@@ -73,7 +76,7 @@ pub trait SolidThermo {
 /// ```rust
 /// use outram_foam_basic_lib::prelude::*;
 /// use outram_foam_basic_lib::fluid_thermo::{ConstSolidThermo, SolidThermo};
-/// use std::sync::Arc;
+/// use alloc::sync::Arc;
 ///
 /// let mesh = Arc::new(
 ///     FvMeshBuilder::new()
@@ -205,7 +208,7 @@ mod tests {
         // Steady state: T[0]=450K, T[1]=350K (linear profile)
         use crate::fv_operators::fvm;
         use crate::mesh::fv_mesh::FvMeshBuilder;
-        use std::sync::Arc;
+        use alloc::sync::Arc;
 
         let mesh = Arc::new(
             FvMeshBuilder::new()

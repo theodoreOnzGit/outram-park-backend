@@ -175,7 +175,7 @@
 //! # Example
 //!
 //! ```rust
-//! use std::sync::Arc;
+//! use alloc::sync::Arc;
 //! use outram_foam_basic_lib::compute::ComputeBackend;
 //! use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 //! use outram_foam_basic_lib::ldu_matrix::parallel::HybridLdu;
@@ -200,7 +200,10 @@
 //! );
 //! ```
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -684,7 +687,7 @@ impl LduTopology {
     /// Bytes, dimensionless.
     #[must_use]
     pub fn index_bytes(&self) -> usize {
-        let usize_b = std::mem::size_of::<usize>();
+        let usize_b = core::mem::size_of::<usize>();
         self.row_start.len() * usize_b
             + self.entry_face.len() * usize_b
             + self.entry_other.len() * usize_b
@@ -795,7 +798,7 @@ impl LduTopology {
 /// # Example
 ///
 /// ```rust
-/// use std::sync::Arc;
+/// use alloc::sync::Arc;
 /// use outram_foam_basic_lib::compute::ComputeBackend;
 /// use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 /// use outram_foam_basic_lib::ldu_matrix::parallel::HybridLdu;
@@ -1217,7 +1220,7 @@ impl HybridLdu {
     /// # Example
     ///
     /// ```rust
-    /// use std::sync::Arc;
+    /// use alloc::sync::Arc;
     /// use outram_foam_basic_lib::compute::ComputeBackend;
     /// use outram_foam_basic_lib::ldu_matrix::LduMatrix;
     /// use outram_foam_basic_lib::ldu_matrix::parallel::HybridLdu;

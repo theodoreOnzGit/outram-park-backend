@@ -36,8 +36,12 @@
 //! counterpart that re-emits the system dictionaries, the mesh, and the
 //! scalar/vector fields.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::dict::FoamFile;
 use super::field::{
@@ -92,11 +96,13 @@ pub struct FoamCase {
 }
 
 impl FoamCase {
+    #[cfg(feature = "std")]
     /// Read a case from `root`, using time directory `"0"`.
     pub fn read(root: impl AsRef<Path>) -> Result<Self, IoError> {
         Self::read_time(root, "0")
     }
 
+    #[cfg(feature = "std")]
     /// Read a case from `root`, using the given `time_dir` (e.g. `"0"`).
     pub fn read_time(root: impl AsRef<Path>, time_dir: &str) -> Result<Self, IoError> {
         let root = root.as_ref().to_path_buf();
@@ -165,6 +171,7 @@ impl FoamCase {
         self.system.iter().find(|(n, _)| n == name).map(|(_, f)| f)
     }
 
+    #[cfg(feature = "std")]
     /// Best-effort write of the case back to `root`: `system/` dictionaries,
     /// `constant/polyMesh`, and the scalar/vector fields into the time
     /// directory. Skipped (unsupported-class) fields are not re-emitted.
@@ -197,10 +204,12 @@ impl FoamCase {
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
+#[cfg(feature = "std")]
 fn create_dir(dir: &Path) -> Result<(), IoError> {
     std::fs::create_dir_all(dir).map_err(|e| IoError::io(dir.display().to_string(), e))
 }
 
+#[cfg(feature = "std")]
 /// List regular-file names (not sub-directories) in `dir`.
 fn list_files(dir: &Path) -> Result<Vec<String>, IoError> {
     let mut out = Vec::new();
@@ -217,6 +226,7 @@ fn list_files(dir: &Path) -> Result<Vec<String>, IoError> {
     Ok(out)
 }
 
+#[cfg(feature = "std")]
 /// Read just the `FoamFile` `class` field from a file, without parsing the
 /// whole body.
 fn peek_class(path: &Path) -> Result<Option<String>, IoError> {

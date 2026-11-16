@@ -29,6 +29,9 @@
 //! `doubleScalar` definitions.
 
 /// OpenFOAM `scalar` — a dimensionless double-precision floating-point value.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub type Scalar = f64;
 /// OpenFOAM `label` — a signed integer used for indices and counts.
 pub type Label = i64;

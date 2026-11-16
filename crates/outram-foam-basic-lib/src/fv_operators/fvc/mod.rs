@@ -38,6 +38,9 @@
 //! `f64` / `Vector3` / `Tensor` element data (no `uom`), consistent with the
 //! rest of the FV operator layer.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod central_upwind;
 mod ddt_corr;
 mod div;

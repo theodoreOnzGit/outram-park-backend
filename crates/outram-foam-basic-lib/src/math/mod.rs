@@ -40,6 +40,9 @@
 //! residual such as `h(T) - h_target`, which is not a polynomial at all, and
 //! because this module is already where the crate's iterative inversions live.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod differentiate;
 pub mod erf_inv;
 pub mod inc_gamma;

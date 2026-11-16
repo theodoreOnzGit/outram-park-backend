@@ -36,6 +36,9 @@
 //! and the `sup` module header for the LHS / RHS sign conventions that apply
 //! when combining these matrices.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod d2dt2;
 mod ddt;
 mod ddt_vec;

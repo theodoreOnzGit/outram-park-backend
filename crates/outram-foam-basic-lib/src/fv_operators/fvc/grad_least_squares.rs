@@ -74,6 +74,9 @@
 //! direction to zero**, which is the physically correct answer for a mesh with
 //! no extent in it. See [`grad_least_squares`] for the exact test used.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fields::boundary::bc::PatchField;
 use crate::fields::field::Field;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
@@ -287,7 +290,7 @@ fn vscale(s: f64, v: Vector3) -> Vector3 {
 /// # Example
 ///
 /// ```rust
-/// use std::sync::Arc;
+/// use alloc::sync::Arc;
 /// use outram_foam_basic_lib::fields::vol_field::VolScalarField;
 /// use outram_foam_basic_lib::fv_operators::fvc::grad_least_squares;
 /// use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
@@ -433,7 +436,7 @@ pub fn grad_least_squares(phi: &VolScalarField) -> VolVectorField {
 /// # Example
 ///
 /// ```rust
-/// use std::sync::Arc;
+/// use alloc::sync::Arc;
 /// use outram_foam_basic_lib::fields::vol_field::VolScalarField;
 /// use outram_foam_basic_lib::fv_operators::fvc::grad_least_squares_face_centre;
 /// use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
@@ -554,7 +557,7 @@ mod tests {
     use crate::fields::boundary::bc::PatchField;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
     use approx::assert_relative_eq;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Two cells along x with a wall patch at each end — the same fixture
     /// `fvc::grad`'s own tests use.

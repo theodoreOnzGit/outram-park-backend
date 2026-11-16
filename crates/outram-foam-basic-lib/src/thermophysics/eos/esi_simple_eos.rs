@@ -31,6 +31,9 @@
 //! `verification_and_validation/upstream_thermo_gh1362/README.md` (gh:#1378
 //! section).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::traits::EquationOfState;
 use crate::thermophysics::constants::{GasConstant, P_REF};
 use crate::thermophysics::imports::*;

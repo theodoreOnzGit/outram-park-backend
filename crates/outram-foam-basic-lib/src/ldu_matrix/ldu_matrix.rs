@@ -31,6 +31,9 @@
 ///          + Σ_{f: neighbour[f]=c} lower[f]·x[owner[f]]
 /// ```
 /// For a symmetric matrix (e.g. Laplacian), `lower[f] == upper[f]`.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[derive(Debug, Clone)]
 pub struct LduMatrix {
     /// Number of cells (matrix rows/columns; length of `diag`).
