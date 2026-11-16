@@ -207,7 +207,7 @@ samplers, distributions, estimators, surrogates, filters, sensitivity, the
 fault-tree and BDD/ZBDD engines (on a model built in memory, or from an
 already-parsed `scram::mef::Element`). What `std` adds: `scram::mef::parse_xml`,
 `MefModel::from_file` and `<xi:include>` (xml-rs has no `no_std` build). Without
-`std` the internal hash maps are `BTreeMap`s; with it (the default) nothing
+`std` the internal hash maps are `hashbrown`'s; with it (the default) nothing
 changes.
 
 ## Optional features

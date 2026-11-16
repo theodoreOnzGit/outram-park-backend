@@ -18,8 +18,9 @@ reader (xml-rs) only. Keep it that way:
 
 - New code uses `core::` / `alloc::` paths; every module glob-imports
   `crate::nostd_prelude::*` in `no_std` builds (copy the line from any module).
-- `HashMap` / `HashSet` come from `crate::hash` (std's with `std`, `BTreeMap` /
-  `BTreeSet` without), so a map key needs `Ord` as well as `Hash`.
+- `HashMap` / `HashSet` come from `crate::hash` (std's with `std`,
+  `hashbrown`'s without). Iteration order differs between the two builds, so
+  a map whose order can reach a result is sorted before it is walked.
 - Float methods `core` lacks come from `petir::real::Real` (in the prelude);
   `round_ties_even` has a `core` version in `surrogate::polynomial_chaos::special`,
   tested against std's.

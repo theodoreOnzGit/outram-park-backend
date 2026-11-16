@@ -171,15 +171,16 @@ extern crate thiserror_nostd as thiserror;
 /// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
 /// module in `no_std` builds only, so a `std` build resolves every name, and
 /// computes every number, exactly as before.
-/// `HashMap` / `HashSet` in a `std` build, exactly as before; their `BTree`
-/// counterparts from `alloc` without `std`, which has no hasher. Only the
-/// `no_std` build sees the ordered maps.
+/// `HashMap` / `HashSet`: `std`'s in a `std` build, exactly as before, and
+/// `hashbrown`'s without `std` (maintainer choice, 2026-11-16), as in
+/// `outram-blender` and `outram-mc-libs`. Same `Hash + Eq` bounds, so no key
+/// needs `Ord`.
 #[allow(unused_imports)]
 pub(crate) mod hash {
     #[cfg(any(feature = "std", test))]
     pub(crate) use std::collections::{HashMap, HashSet};
     #[cfg(not(any(feature = "std", test)))]
-    pub(crate) use alloc::collections::{BTreeMap as HashMap, BTreeSet as HashSet};
+    pub(crate) use hashbrown::{HashMap, HashSet};
 }
 
 #[cfg(not(any(feature = "std", test)))]

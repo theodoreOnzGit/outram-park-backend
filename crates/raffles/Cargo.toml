@@ -89,6 +89,8 @@ thiserror-nostd.workspace = true
 # gating convention if it ever needs something Android-hostile — see this
 # crate's CLAUDE.md.
 petir.workspace = true
+# `HashMap`/`HashSet` without `std` (gh:#1610); unused in std builds.
+hashbrown = { workspace = true }
 # DIMENSIONED QUANTITIES at the `fidelity` API edge (gh:#1194, maintainer:
 # "Integrate uom into the trait interface"). The root entry is no_std
 # (`default-features = false`, `si` + `f64`), pure Rust, and already in this

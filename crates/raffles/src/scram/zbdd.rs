@@ -132,7 +132,7 @@ pub const BASE: SetId = 1;
 /// exhaust memory.
 pub const NODE_LIMIT: usize = 20_000_000;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct SetNode {
     /// The **literal** tested, as one monotone key: `2 * order` for a
     /// variable occurring, `2 * order + 1` for it not occurring.

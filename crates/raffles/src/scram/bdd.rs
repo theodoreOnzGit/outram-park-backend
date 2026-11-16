@@ -119,7 +119,7 @@ pub const NODE_LIMIT: usize = 20_000_000;
 
 /// One if-then-else node: test `variable`, follow `high` when it occurs and
 /// `low` when it does not.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Ite {
     /// Position of the tested variable in the diagram's own ordering, **not**
     /// a basic-event index. [`Bdd::basic_event`] converts.
@@ -147,7 +147,7 @@ pub struct Bdd {
 }
 
 /// The binary operations [`Builder::apply`] memoises.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Op {
     And,
     Or,
