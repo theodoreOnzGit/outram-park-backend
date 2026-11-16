@@ -3,6 +3,9 @@
 //! an (h,s) flash in region 3 — once `p` is known, `T`/`v` follow from the
 //! `(p,h)` or `(p,s)` backward equations in the sibling modules.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::available_energy::kilojoule_per_kilogram;

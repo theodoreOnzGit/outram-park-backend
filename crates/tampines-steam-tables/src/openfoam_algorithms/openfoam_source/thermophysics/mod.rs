@@ -28,6 +28,9 @@
 /// Physical/reference constants shared across EOS, thermo, and transport
 /// closures (universal gas constant, standard-state T/p, Newton-iteration
 /// bounds).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod constants;
 /// Equation-of-state closures — density ρ, compressibility ψ, and
 /// enthalpy/entropy/Cp departure terms as functions of pressure and

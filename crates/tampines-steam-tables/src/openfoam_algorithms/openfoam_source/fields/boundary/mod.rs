@@ -25,5 +25,8 @@
 
 /// Boundary-condition variants (`BoundaryCondition`) and the `PatchField`
 /// container that pairs a BC with its current per-face values.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod bc;
 pub use bc::*;

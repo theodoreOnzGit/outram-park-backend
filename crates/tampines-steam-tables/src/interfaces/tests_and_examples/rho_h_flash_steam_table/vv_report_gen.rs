@@ -6,6 +6,9 @@
 //! declares its subject to be an in-house non-IAPWS fit, which is precisely
 //! what this module is *not*.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::mass_density::kilogram_per_cubic_meter;

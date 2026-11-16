@@ -19,8 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-use std::ops::{Add, Sub, Mul, Div, Neg};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
+use core::ops::{Add, Sub, Mul, Div, Neg};
 
 use crate::openfoam_algorithms::openfoam_source::Vector3;
 use crate::openfoam_algorithms::openfoam_source::fv_mesh::FvMesh;

@@ -26,6 +26,9 @@
 
 /// Row-major dense `n x n` matrix of `f64` and its LU-decomposition solve —
 /// see [`SquareMatrix`].
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod square_matrix;
 pub use square_matrix::MatrixError;
 pub use square_matrix::SquareMatrix;

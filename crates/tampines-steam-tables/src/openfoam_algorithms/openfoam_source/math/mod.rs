@@ -24,6 +24,9 @@
 //! no physical units are attached at this layer.
 
 /// Inverse error function (Winitzki approximation).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod erf_inv;
 /// Regularised/unregularised incomplete gamma functions `P(a,x)`, `Q(a,x)`,
 /// `γ(a,x)`, `Γ(a,x)` (DiDonato & Morris algorithm).

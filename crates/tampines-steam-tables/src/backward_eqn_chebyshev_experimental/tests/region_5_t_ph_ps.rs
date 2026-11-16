@@ -2,6 +2,9 @@
 //! correlations `T(p,h)` and `T(p,s)` against this crate's Region 5 forward
 //! equations.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::{

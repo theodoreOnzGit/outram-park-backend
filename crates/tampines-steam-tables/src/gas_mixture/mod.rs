@@ -50,6 +50,9 @@
 //! ideal-steam fallback were considered and rejected; see
 //! [`STEAM_BELOW_TRIPLE_POINT`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod melcor_ncg;
 pub mod nasa7;
 

@@ -26,6 +26,9 @@
 //! not in this layer.
 
 /// Boundary-condition types (`BoundaryCondition`, `PatchField`).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod boundary;
 /// Flat `Field<T>` container with element-wise arithmetic; the storage
 /// backing both `VolField` and `SurfaceField`.

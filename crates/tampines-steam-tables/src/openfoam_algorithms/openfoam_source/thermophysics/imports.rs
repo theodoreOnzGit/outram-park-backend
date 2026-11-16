@@ -42,6 +42,9 @@
 //! The one exception is [`Compressibility`], which is a crate-local type.
 
 // ── quantity types ────────────────────────────────────────────────────────────
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use uom::si::f64::{
     AvailableEnergy, DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio,
     SpecificHeatCapacity, ThermalConductivity, ThermodynamicTemperature,

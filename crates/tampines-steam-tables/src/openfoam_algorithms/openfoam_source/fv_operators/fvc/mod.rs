@@ -26,6 +26,9 @@
 //! implicit matrix coefficients. Mirrors `Foam::fvc::` from
 //! `src/finiteVolume/finiteVolume/fvc/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod ddt_corr;
 mod div;
 mod flux;

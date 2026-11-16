@@ -28,6 +28,9 @@
 //! lookups; callers attach `uom` units at their own call sites.
 
 /// Cubic-spline interpolation of a tabulated `y(x)` curve (dimensionless `f64`).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod interpolate_spline_xy;
 /// Piecewise-linear interpolation of a tabulated `y(x)` curve (dimensionless `f64`).
 pub mod interpolate_xy;

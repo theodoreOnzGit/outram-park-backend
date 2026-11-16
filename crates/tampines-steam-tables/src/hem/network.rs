@@ -45,6 +45,9 @@
 //! transparency test, which measures the difference against one continuous
 //! pipe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_basic_lib::fv_operators::fvc::central_upwind::{
     central_flux_speed_max, knp_face_flux, KnpFaceFlux, KnpFaceState,

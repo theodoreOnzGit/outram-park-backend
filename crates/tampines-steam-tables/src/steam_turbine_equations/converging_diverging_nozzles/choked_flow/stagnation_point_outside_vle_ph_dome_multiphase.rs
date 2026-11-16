@@ -19,6 +19,9 @@
 //! the isentrope — so no sound speed (and no finite-difference
 //! `mass_flux_ps_eqm_throat`) is ever evaluated.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 

@@ -19,8 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::ops::{Add, Div, Mul, Neg, Sub};
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, Div, Mul, Neg, Sub};
+use alloc::sync::Arc;
 
 use super::boundary::bc::PatchField;
 use super::field::Field;

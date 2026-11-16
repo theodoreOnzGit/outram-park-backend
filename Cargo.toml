@@ -589,7 +589,12 @@ outram-park-fork-moltres = { path = "crates/outram-park-fork-moltres", version =
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.8" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.9" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.1" }
-outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.8" }
+# `default-features = false` (gh:#1598, #1599): the crate's default is `std`
+# (gh:#1586), and a member cannot switch an inherited default off. So the
+# root leaves it off and every member that needs files, threads or timing
+# asks for `features = ["std"]` itself; a crate converted to `no_std` turns
+# it on from its own `std` feature instead.
+outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.8", default-features = false }
 raffles                      = { path = "crates/raffles",                      version = "0.0.4" }
 petir                        = { path = "crates/petir",                        version = "0.0.4" }
 changi                       = { path = "crates/changi",                       version = "0.0.3" }

@@ -157,7 +157,7 @@ outram-park-fork-cfmesh = { workspace = true, features = ["foam-export"], option
 outram-foam-appbuilder-lib = { workspace = true, optional = true }
 # Step 10's spatial neutronics (gh:#591): the flux boundary conditions and the
 # FvMesh the GeN-Foam port's DiffusionNeutronics is built on.
-outram-foam-basic-lib = { workspace = true, optional = true }
+outram-foam-basic-lib = { workspace = true, features = ["std"], optional = true }
 # The literature pane renders PDF pages with the engine kovan's own reader
 # uses (AGPL-3.0-only, like this crate since 2026-10-05; see NOTICE). Same
 # version and features as `crates/kovan`.
@@ -240,7 +240,7 @@ outram-park-fork-dwsim-libs = { workspace = true }
 # the pimpleFoam port, run in the page's worker too. All wasm in-scope (the
 # stage 0 gate, gh:#1154, ran them in a Worker with no host imports).
 outram-foam-appbuilder-lib = { workspace = true }
-outram-foam-basic-lib = { workspace = true }
+outram-foam-basic-lib = { workspace = true, features = ["std"] }
 outram-foam-mesh = { workspace = true }
 # Foam Studio's unstructured pipe (gh:#1202): outram-blender's cylinder and
 # its cfMesh bridge (`foam-mesh`), and the neutral -> polyMesh converter

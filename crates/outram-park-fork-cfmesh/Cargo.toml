@@ -61,7 +61,7 @@ surface-file = []
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
-outram-foam-basic-lib = { workspace = true }
+outram-foam-basic-lib = { workspace = true, features = ["std"] }
 # gh:#1480: non-optional. The OpenFOAM mesh-quality checks (`checks.rs`, used by
 # the layer back-off, the pipelines and the optimizers) live in
 # `outram_foam_mesh::check_mesh`. Pure Rust, Android- and wasm-safe (checked

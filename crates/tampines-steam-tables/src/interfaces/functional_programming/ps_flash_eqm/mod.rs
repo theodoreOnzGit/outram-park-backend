@@ -1,5 +1,8 @@
 /// checks if (p,s) point is within validity range
 /// of region 1 to 4
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(crate) mod validity_range;
 pub(crate) use validity_range::*;
 

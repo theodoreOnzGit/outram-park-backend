@@ -111,7 +111,7 @@ uom.workspace = true
 outram-foam-appbuilder-lib.workspace = true
 outram-foam-mesh.workspace = true
 # Names `FvMesh` for the meshes above (was a dev-dependency, below).
-outram-foam-basic-lib.workspace = true
+outram-foam-basic-lib = { workspace = true, features = ["std"] }
 
 # REAL (non-dev) dependency for `multifidelity::double_pipe::fidelity`
 # (gh:#1194): the double-pipe pair implements `raffles::fidelity`'s traits

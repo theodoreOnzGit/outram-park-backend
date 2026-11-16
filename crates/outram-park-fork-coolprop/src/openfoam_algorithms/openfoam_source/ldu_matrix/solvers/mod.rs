@@ -24,6 +24,9 @@
 //! agglomerated multigrid (GAMG). Mirrors OpenFOAM's `lduMatrix::solver`
 //! hierarchy.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod gauss_seidel;
 pub mod conjugate_gradient;
 pub mod gamg;

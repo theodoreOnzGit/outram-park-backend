@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::PatchField;
 use crate::openfoam_algorithms::openfoam_source::field::Field;
@@ -125,7 +128,7 @@ pub fn reconstruct(phi: &SurfaceScalarField) -> VolVectorField {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
     use crate::openfoam_algorithms::openfoam_source::FvMesh;
     use crate::openfoam_algorithms::openfoam_source::boundary::bc::BoundaryCondition;
     use crate::openfoam_algorithms::openfoam_source::vol_field::VolVectorField;

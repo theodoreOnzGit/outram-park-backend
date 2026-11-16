@@ -26,6 +26,9 @@
 //! caller's `OdeSystem` implementation — this module only sees plain `f64`
 //! state vectors.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Explicit first-order adaptive Euler solver.
 
@@ -131,8 +134,8 @@ pub enum OdeError {
     NonFiniteState,
 }
 
-impl std::fmt::Display for OdeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for OdeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::StepSizeUnderflow => write!(f, "ODE step size underflow"),
             Self::MaxStepsExceeded(n) => write!(f, "ODE exceeded {n} steps"),
@@ -144,7 +147,7 @@ impl std::fmt::Display for OdeError {
     }
 }
 
-impl std::error::Error for OdeError {}
+impl core::error::Error for OdeError {}
 
 // ── Shared utilities ─────────────────────────────────────────────────────────
 
@@ -231,7 +234,7 @@ pub(crate) fn adaptive_step(
     };
 
     *x += dx;
-    std::mem::swap(y, y_temp);
+    core::mem::swap(y, y_temp);
 
     let threshold = (cfg.max_scale / cfg.safe_scale).r_powf(-1.0 / cfg.alpha_inc);
     *dx_try = if err > threshold {

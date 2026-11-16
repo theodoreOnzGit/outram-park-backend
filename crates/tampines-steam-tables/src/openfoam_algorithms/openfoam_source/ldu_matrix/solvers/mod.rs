@@ -24,6 +24,9 @@
 //! matrix was assembled from.
 
 /// DIC-preconditioned conjugate gradient — symmetric SPD matrices only.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod conjugate_gradient;
 /// GAMG (geometric-algebraic multigrid) V-cycle solver — symmetric SPD matrices only.
 pub mod gamg;

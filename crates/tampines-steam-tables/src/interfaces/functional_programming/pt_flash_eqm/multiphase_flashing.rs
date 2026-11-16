@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{pressure::megapascal, ratio::ratio};
 
 use crate::constants::{p_crit_water, t_crit_water, T_C_KELVIN};

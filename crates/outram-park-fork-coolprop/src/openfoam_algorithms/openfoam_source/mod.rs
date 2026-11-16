@@ -29,6 +29,9 @@
 //! Android-buildable. Ported from OpenFOAM `src/`; see per-module docs for the
 //! upstream `Foam::` correspondence.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(crate) mod primitives;
 pub(crate) mod polynomial;
 pub(crate) mod math;

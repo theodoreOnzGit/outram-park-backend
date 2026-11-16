@@ -59,6 +59,9 @@
 //! > reactor control, licensing or safety-critical decisions. See
 //! > `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod eos;
 mod error;
 mod iapws97;

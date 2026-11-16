@@ -32,6 +32,9 @@
 // per-item so the warning count doesn't obscure real issues in the rest of
 // the crate; op-21g.8 tracks revisiting this once each primitive either gets
 // a real consumer or is confirmed genuinely unused and deleted.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[allow(dead_code, unused_imports)]
 pub(crate) mod fields;
 #[allow(dead_code, unused_imports)]

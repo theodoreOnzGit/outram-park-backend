@@ -15,4 +15,7 @@
 // built here behaves identically). foam-basic-lib is the one copy; these are
 // re-exports. Merging `FvMesh` alone was not possible: its fields are
 // foam-basic-lib `Vector3`s, so the primitives had to come with it.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use outram_foam_basic_lib::interface::one_dimensional_meshing;

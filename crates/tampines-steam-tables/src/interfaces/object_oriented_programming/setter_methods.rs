@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{f64::*, mass::kilogram};
 impl super::TampinesSteamTableCV {
     /// Re-flashes the control volume in place from `(T,p,x)`, where

@@ -24,6 +24,9 @@
 //! its complement/ratio forms), and the inverse incomplete gamma. Mirrors the
 //! relevant pieces of OpenFOAM's `src/OpenFOAM/primitives/functions/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod erf_inv;
 pub mod inc_gamma;
 pub mod inv_inc_gamma;

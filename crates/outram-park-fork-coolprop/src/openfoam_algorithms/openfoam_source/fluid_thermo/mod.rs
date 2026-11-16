@@ -28,6 +28,9 @@
 //! `psi`) and uses a per-species `TransportModel` (from Layer 1h) to evaluate
 //! properties cell-by-cell.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod traits;
 pub mod psi_thermo;
 pub mod rho_thermo;

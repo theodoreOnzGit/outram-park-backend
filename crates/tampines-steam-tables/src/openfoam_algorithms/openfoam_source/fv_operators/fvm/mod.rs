@@ -27,6 +27,9 @@
 //! carried by the `uom`-typed fields/coefficients passed in. Mirrors
 //! `Foam::fvm::` from `src/finiteVolume/finiteVolume/fvm/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod ddt;
 mod ddt_vec;
 mod div;

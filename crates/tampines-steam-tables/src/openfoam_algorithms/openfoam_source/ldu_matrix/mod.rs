@@ -29,6 +29,9 @@
 //! assembled from (the upstream `fvm::` call), not in the matrix itself.
 
 /// Scalar-field implicit equation `A·φ = b`, plus its solve entry points.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod fv_matrix;
 /// Vector-field implicit equation `A·U = b`, solved component-wise.
 pub mod fv_vector_matrix;

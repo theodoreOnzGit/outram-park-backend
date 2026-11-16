@@ -32,6 +32,9 @@
 //! two methods are public so a unit test can exercise either mechanism on its
 //! own.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;

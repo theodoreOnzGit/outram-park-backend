@@ -22,6 +22,9 @@
 //! (for the initial guess). Near the critical point the two densities merge and
 //! the Newton system stiffens; callers get [`None`] rather than a wrong number.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::ancillaries::FluidAncillaries;
 use crate::fluid::Fluid;

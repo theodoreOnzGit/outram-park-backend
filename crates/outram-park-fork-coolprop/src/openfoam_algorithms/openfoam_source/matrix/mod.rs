@@ -23,6 +23,9 @@
 //! stiff ODE solver's Jacobian handling — the pure-Rust stand-in for the BLAS
 //! path so this crate needs no LAPACK. Mirrors OpenFOAM's `scalarSquareMatrix`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod square_matrix;
 pub use square_matrix::SquareMatrix;
 pub use square_matrix::MatrixError;

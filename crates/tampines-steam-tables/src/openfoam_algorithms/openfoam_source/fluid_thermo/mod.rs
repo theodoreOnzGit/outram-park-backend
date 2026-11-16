@@ -29,6 +29,9 @@
 //! properties cell-by-cell.
 
 /// Pressure-based compressible closure — mirrors `Foam::psiThermo`.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod psi_thermo;
 /// Density-based compressible closure — mirrors `Foam::rhoThermo`.
 pub mod rho_thermo;

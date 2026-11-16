@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::{adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
@@ -153,7 +156,7 @@ mod tests {
         let mut y = vec![1.0_f64, 0.0];
         let mut dx = 0.1;
         solver
-            .integrate(&ode, 0.0, std::f64::consts::PI / 2.0, &mut y, &mut dx)
+            .integrate(&ode, 0.0, core::f64::consts::PI / 2.0, &mut y, &mut dx)
             .unwrap();
         assert!(y[0].abs() < 5e-2, "y0={}", y[0]);
         assert!((y[1] - 1.0).abs() < 5e-2, "y1={}", y[1]);

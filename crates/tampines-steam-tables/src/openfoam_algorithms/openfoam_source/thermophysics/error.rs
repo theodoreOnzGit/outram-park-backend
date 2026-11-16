@@ -20,6 +20,9 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 /// Errors produced by the specie-level thermophysics layer.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ThermoError {
     /// Newton T-inversion exhausted all iterations without meeting the
@@ -27,8 +30,8 @@ pub enum ThermoError {
     NonConvergent { max_iter: usize, last_t: f64 },
 }
 
-impl std::fmt::Display for ThermoError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ThermoError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ThermoError::NonConvergent { max_iter, last_t } => write!(
                 f,
@@ -39,4 +42,4 @@ impl std::fmt::Display for ThermoError {
     }
 }
 
-impl std::error::Error for ThermoError {}
+impl core::error::Error for ThermoError {}

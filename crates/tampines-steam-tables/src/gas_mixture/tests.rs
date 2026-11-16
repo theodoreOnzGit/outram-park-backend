@@ -19,6 +19,9 @@
 //! 6. With the ablations (`without_real_steam`, `without_ncg_cv_t`) the
 //!    energy is `sembawang`'s formula exactly.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 
 fn vol(v: f64) -> Volume {

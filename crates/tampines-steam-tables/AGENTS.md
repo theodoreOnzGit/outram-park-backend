@@ -82,6 +82,26 @@ FHR (Fluoride salt-cooled High-temperature Reactor) educational simulator.
 
 License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`) (OpenFOAM-derived algorithms are included; see README).
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1599, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). Keep it that way:
+
+- **New code uses `core::` / `alloc::` paths** where they exist; every module
+  glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line
+  from any module). Doc-comment examples keep `std::` paths (a doctest has no
+  `extern crate alloc`).
+- **What needs an operating system goes behind `#[cfg(feature = "std")]`**:
+  printing (`dbg!`, `println!`, `eprintln!`: put the attribute on the
+  statement), files, threads, clocks.
+- **No `HashMap` in the library**: `BTreeMap` (`alloc`; fixed iteration
+  order).
+- **A `std` build computes what it did before**: `petir::real::Real`, which
+  supplies `sqrt`, `floor`, ... without `std`, is imported only there.
+- A library dependency must build without `std`; one only tests use belongs
+  in `[dev-dependencies]`.
+
 ## Build, test, run
 
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.

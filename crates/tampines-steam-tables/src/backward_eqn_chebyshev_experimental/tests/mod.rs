@@ -10,6 +10,9 @@
 //! Each test states its methodology and its measured results in its own doc
 //! comment, per the workspace V&V documentation rule.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod p_rho_h;
 mod region_4_near_critical_hs;
 mod region_5_t_ph_ps;

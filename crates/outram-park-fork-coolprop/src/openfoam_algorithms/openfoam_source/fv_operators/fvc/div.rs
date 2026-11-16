@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::PatchField;
 use crate::openfoam_algorithms::openfoam_source::field::Field;
 use crate::openfoam_algorithms::openfoam_source::surface_field::SurfaceScalarField;
@@ -274,7 +277,7 @@ pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField) -> VolVectorField {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
     use crate::openfoam_algorithms::openfoam_source::{FvMesh, Vector3};
     use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
     use crate::openfoam_algorithms::openfoam_source::field::Field;

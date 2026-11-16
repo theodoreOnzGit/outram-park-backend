@@ -27,6 +27,9 @@
 /// followed by Newton–Raphson refinement.  Matches `Foam::Math::invIncGamma`.
 
 // Euler–Mascheroni constant γ ≈ 0.5772156649015328…
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 const EU: f64 = 0.577_215_664_901_532_8;
 
@@ -249,7 +252,7 @@ mod tests {
     fn a_eq_1_explicit() {
         // P(1, x) = 1 - e^(-x)  → inv at P=0.5: x = -ln(0.5) ≈ 0.693
         let x = inv_inc_gamma(1.0, 0.5);
-        assert!((x - std::f64::consts::LN_2).abs() < 1e-10, "x={x}");
+        assert!((x - core::f64::consts::LN_2).abs() < 1e-10, "x={x}");
     }
 
     #[test]

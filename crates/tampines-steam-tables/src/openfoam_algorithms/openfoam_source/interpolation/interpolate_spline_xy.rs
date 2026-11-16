@@ -25,6 +25,9 @@
 /// extension), matching OpenFOAM's `Foam::interpolateSplineXY`.
 /// Clamps to endpoint values outside the table range.
 /// Assumes `xs` is sorted in ascending order.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub fn interpolate_spline_xy(x: f64, xs: &[f64], ys: &[f64]) -> f64 {
     let n = xs.len();
     assert_eq!(n, ys.len(), "xs and ys must have the same length");

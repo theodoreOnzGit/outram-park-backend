@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::openfoam_algorithms::openfoam_source::scalar::VSMALL;
@@ -188,7 +191,7 @@ mod tests {
         assert!(pi.log_active());
         assert!((pi.log_coeff() - 1.0).abs() < 1e-14);
         // pi.value(e) = 0 + 2*e + 1*ln(e) = 2e + 1
-        let e = std::f64::consts::E;
+        let e = core::f64::consts::E;
         assert!((pi.value(e) - (2.0 * e + 1.0)).abs() < 1e-12);
     }
 

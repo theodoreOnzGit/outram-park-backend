@@ -32,6 +32,9 @@
 //! their own call sites.
 
 /// Closed-form real roots of a cubic equation (dimensionless `f64`).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cubic_eqn;
 /// Closed-form root of a linear equation (dimensionless `f64`).
 pub mod linear_eqn;

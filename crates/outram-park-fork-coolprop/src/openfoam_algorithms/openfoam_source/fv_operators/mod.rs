@@ -25,6 +25,9 @@
 //! into its momentum, pressure and energy equations. Mirrors OpenFOAM's
 //! `src/finiteVolume/finiteVolume/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(crate) mod adjust_phi;
 
 /// Explicit finite-volume operators — return a new field.

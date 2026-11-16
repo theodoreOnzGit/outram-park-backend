@@ -19,7 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::ops::{Add, Mul};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, Mul};
 
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
 use crate::openfoam_algorithms::openfoam_source::field::Field;
@@ -130,7 +133,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
     use crate::openfoam_algorithms::openfoam_source::Vector3;
     use crate::openfoam_algorithms::openfoam_source::vol_field::VolScalarField;
     use crate::openfoam_algorithms::openfoam_source::fv_mesh::{

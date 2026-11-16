@@ -25,6 +25,9 @@
 //! GAMG). Mirrors OpenFOAM's `lduMatrix`/`fvMatrix` from
 //! `src/OpenFOAM/matrices/` and `src/finiteVolume/fvMatrices/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod ldu_matrix;
 pub mod fv_matrix;
 pub mod fv_vector_matrix;

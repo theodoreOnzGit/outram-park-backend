@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::force::newton;
 use uom::si::pressure::{bar, pascal};
@@ -117,6 +120,7 @@ pub fn _print_graph_pts_for_outlet_pressure_and_force_balance_isentropic(
     mass_flowrate: MassRate,
 ) {
     // now let's plot a trend of isentropic nozzles
+    #[cfg(feature = "std")]
     println!("{:?}", &("oulet pressure (Bar)", "force bal(Newton)"));
     let mut p2 = p1;
     let n = 100;
@@ -125,6 +129,7 @@ pub fn _print_graph_pts_for_outlet_pressure_and_force_balance_isentropic(
 
         let force_bal: Force = _force_balance_isentropic_nozzle(p1, p2, h1, mass_flowrate, a1, a2);
 
+        #[cfg(feature = "std")]
         println!("{:?}", &(p2.get::<bar>(), force_bal.get::<newton>()));
     }
 
@@ -138,6 +143,7 @@ pub fn _print_graph_pts_for_outlet_pressure_and_force_balance_isentropic(
             let force_bal: Force =
                 _force_balance_isentropic_nozzle(p1, p2, h1, mass_flowrate, a1, a2);
 
+            #[cfg(feature = "std")]
             println!("{:?}", &(p2.get::<bar>(), force_bal.get::<newton>()));
         }
     }

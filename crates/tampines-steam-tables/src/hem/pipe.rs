@@ -64,6 +64,9 @@
 //! integrator as the cells. So `total_mass() + Σ cumulative_mass_outflow()`
 //! is constant to round-off whatever the boundaries do.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fv_operators::fvc::central_upwind::{
     central_flux_speed_max, knp_face_flux, physical_face_flux, KnpFaceFlux, KnpFaceState,
 };
@@ -336,7 +339,7 @@ impl HemPipeGeometry {
     /// √(4A/π)`.
     pub fn hydraulic_diameter_at(&self, x: Length) -> Length {
         let a = self.profile.at(x.get::<meter>(), self.length_m);
-        Length::new::<meter>((4.0 * a / std::f64::consts::PI).sqrt())
+        Length::new::<meter>((4.0 * a / core::f64::consts::PI).sqrt())
     }
 
     /// Wall (heated) area per unit length at `x` for a circular cross-section
@@ -345,11 +348,11 @@ impl HemPipeGeometry {
     /// circular case). `dR/dx` is a central difference over one cell.
     pub fn wall_area_per_length_at(&self, x: Length) -> Length {
         let xm = x.get::<meter>().clamp(0.0, self.length_m);
-        let r = |x: f64| (self.profile.at(x, self.length_m) / std::f64::consts::PI).sqrt();
+        let r = |x: f64| (self.profile.at(x, self.length_m) / core::f64::consts::PI).sqrt();
         let h = 0.5 * self.dx();
         let (x0, x1) = ((xm - h).max(0.0), (xm + h).min(self.length_m));
         let slope = (r(x1) - r(x0)) / (x1 - x0);
-        Length::new::<meter>(2.0 * std::f64::consts::PI * r(xm) * (1.0 + slope * slope).sqrt())
+        Length::new::<meter>(2.0 * core::f64::consts::PI * r(xm) * (1.0 + slope * slope).sqrt())
     }
 
     /// `true` when the area is the same everywhere.
@@ -1310,7 +1313,7 @@ impl<E: HemEquationOfState> HemPipe<E> {
         let n = self.geometry.n_cells();
         let q_old = self.q.clone();
         let mut q = self.q.clone();
-        let mut work = std::mem::replace(&mut self.work, SspWorkspace::new(0));
+        let mut work = core::mem::replace(&mut self.work, SspWorkspace::new(0));
         let mut hints: Vec<f64> = prims0.iter().map(|c| c.p).collect();
         let mut err: Option<HemError> = None;
         let mut first = Some(asm0);

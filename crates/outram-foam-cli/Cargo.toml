@@ -31,7 +31,7 @@ maturity = 1
 thiserror.workspace = true
 uom.workspace = true
 clap.workspace = true
-outram-foam-basic-lib.workspace = true
+outram-foam-basic-lib = { workspace = true, features = ["std"] }
 outram-foam-mesh.workspace = true
 outram-foam-appbuilder-lib.workspace = true
 # gh:#1476: the cfMesh executables (cartesianMesh, tetMesh, pMesh,

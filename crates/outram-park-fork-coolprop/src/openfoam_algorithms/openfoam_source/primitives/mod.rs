@@ -31,6 +31,9 @@
 // built here behaves identically). foam-basic-lib is the one copy; these are
 // re-exports. Merging `FvMesh` alone was not possible: its fields are
 // foam-basic-lib `Vector3`s, so the primitives had to come with it.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use outram_foam_basic_lib::primitives::{scalar, spherical_tensor, symm_tensor, tensor, vector};
 
 pub use scalar::{Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};

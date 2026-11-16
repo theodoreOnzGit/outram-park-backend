@@ -23,5 +23,8 @@
 //! `BoundaryCondition`) for the cell/surface fields. Mirrors OpenFOAM's
 //! `fvPatchField` family (fixed value, zero gradient, empty, …).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod bc;
 pub use bc::*;

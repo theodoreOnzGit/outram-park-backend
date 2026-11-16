@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{
     f64::*, mass_density::kilogram_per_cubic_meter, pressure::megapascal,
     thermodynamic_temperature::kelvin,

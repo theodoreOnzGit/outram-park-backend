@@ -23,7 +23,9 @@ set -euo pipefail
 
 target="x86_64-unknown-none"
 crates=(
-  outram-foam-basic-lib   # gh:#1586
+  outram-foam-basic-lib       # gh:#1586
+  outram-park-fork-coolprop   # gh:#1598
+  tampines-steam-tables       # gh:#1599
 )
 
 rustup target add "$target" >/dev/null

@@ -32,6 +32,9 @@
 //! **are** implemented (Water, heavy water, helium, CO₂, ethane, the xylenes,
 //! R23, methanol, methane) are exposed and returned like any other model.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::fluid::Fluid;
 
@@ -568,7 +571,7 @@ fn methanol_viscosity(t: f64, rho: f64, rhomolar: f64) -> f64 {
     summerd += (1..10).map(|j| e[j] * rhor.r_powi(j as i32)).sum::<f64>();
     let sigmac = 0.7193422e-9;
     let sigma_hs = summerd * sigmac;
-    let b_hs = 2.0 * std::f64::consts::PI * n_a * sigma_hs.r_powi(3) / 3.0; // m³/mol
+    let b_hs = 2.0 * core::f64::consts::PI * n_a * sigma_hs.r_powi(3) / 3.0; // m³/mol
     let zeta = b_hs * rhomolar / 4.0;
     let g_sigma_hs = (1.0 - 0.5 * zeta) / (1.0 - zeta).r_powi(3);
     let eta_e =
@@ -1414,7 +1417,7 @@ impl CriticalConductivity {
             } => {
                 const NU: f64 = 0.63;
                 const K_B: f64 = 1.3806488e-23;
-                let pi = std::f64::consts::PI;
+                let pi = core::f64::consts::PI;
                 let eos = fluid.eos();
                 let r = eos.gas_constant;
                 let tc = eos.t_reducing;
@@ -1459,7 +1462,7 @@ impl CriticalConductivity {
                 0.486742e-2 * (-100.0 * (tau - 1.0).r_powi(4) - 7.08535 * (delta - 1.0).r_powi(2)).r_exp()
             }
             CriticalConductivity::Ammonia => {
-                let pi = std::f64::consts::PI;
+                let pi = core::f64::consts::PI;
                 let (tc, rhoc) = (405.4, 235.0);
                 let (lambda_p, nu, gamma, delta_e, zeta0p, a_zeta, gamma0p) =
                     (1.2, 0.63, 1.24, 0.50, 1.34e-10, 1.0, 0.423e-8);

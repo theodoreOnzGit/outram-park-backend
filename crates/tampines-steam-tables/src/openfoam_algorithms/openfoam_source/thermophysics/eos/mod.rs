@@ -30,6 +30,9 @@
 /// Incompressible EOS with ~~specific volume~~ density given by a polynomial
 /// in temperature (corrected 2026-11-10, gh:#1238). See
 /// [`ico_polynomial::IcoPolynomial`].
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod ico_polynomial;
 /// Peng-Robinson (1976) cubic real-gas EOS. See
 /// [`peng_robinson::PengRobinsonGas`].

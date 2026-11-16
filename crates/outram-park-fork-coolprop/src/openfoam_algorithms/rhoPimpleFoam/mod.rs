@@ -202,7 +202,10 @@
 //
 //
 //// ************************************************************************* //
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 use uom::si::f64::{
     Angle, Area, AvailableEnergy, Length, MassDensity, MassRate, Power, Pressure, Ratio, Time,
     ThermalConductance, ThermodynamicTemperature,

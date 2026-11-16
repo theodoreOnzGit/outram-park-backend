@@ -23,6 +23,9 @@
 //! linear (`interpolate_xy`) and cubic-spline (`interpolate_spline_xy`).
 //! Mirrors OpenFOAM's `interpolationTable` utilities.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod interpolate_xy;
 pub mod interpolate_spline_xy;
 pub use interpolate_xy::interpolate_xy;

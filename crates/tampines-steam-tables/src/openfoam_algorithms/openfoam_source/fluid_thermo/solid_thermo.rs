@@ -19,7 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
 use crate::openfoam_algorithms::openfoam_source::field::Field;
@@ -213,7 +216,7 @@ mod tests {
         // Steady state: T[0]=450K, T[1]=350K (linear profile)
         use crate::openfoam_algorithms::openfoam_source::fv_mesh::FvMeshBuilder;
         use crate::openfoam_algorithms::openfoam_source::fvm;
-        use std::sync::Arc;
+        use alloc::sync::Arc;
 
         let mesh = Arc::new(
             FvMeshBuilder::new()

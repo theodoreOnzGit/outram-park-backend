@@ -21,6 +21,9 @@
 
 /// Universal gas constant in J/(mol·K).
 /// Using this value with `MolarMass` in kg/mol gives `r = R_UNIVERSAL / W` in J/(kg·K).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub const R_UNIVERSAL: f64 = 8.314_462_618_153_24;
 
 /// Standard thermodynamic temperature (used as entropy reference in S = Cp·ln(T/Tstd)).

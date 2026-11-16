@@ -24,6 +24,9 @@
 //! and their boundary (`PatchField`) machinery. Mirrors OpenFOAM's
 //! `GeometricField` layer (`volField`/`surfaceField`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod field;
 pub mod boundary;
 pub mod vol_field;

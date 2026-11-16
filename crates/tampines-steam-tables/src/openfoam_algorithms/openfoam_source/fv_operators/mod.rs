@@ -28,6 +28,9 @@
 ///
 /// Usage mirrors `Foam::adjustPhi` from
 /// `src/finiteVolume/cfdTools/general/adjustPhi/adjustPhi.C`.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(crate) mod adjust_phi;
 
 /// Explicit finite-volume operators — return a new field.

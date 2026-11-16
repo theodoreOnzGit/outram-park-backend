@@ -66,11 +66,17 @@
 //! stays symmetric and the Gauss-Seidel smoother / dense coarsest solve need no
 //! special face ordering.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::openfoam_algorithms::openfoam_source::fv_matrix::{SolverPerformance, SolverSettings};
 use crate::openfoam_algorithms::openfoam_source::ldu_matrix::LduMatrix;
 use crate::openfoam_algorithms::openfoam_source::solvers::gauss_seidel::gauss_seidel;
 use crate::openfoam_algorithms::openfoam_source::SquareMatrix;
-use std::collections::HashMap;
+// A `BTreeMap` (gh:#1598: `alloc`, so `no_std`), ~~`std::collections::HashMap`~~:
+// the map below is only looked up (`entry`), never iterated, so which map it
+// is changes no coarse face, no index and no result.
+use alloc::collections::BTreeMap;
 
 /// Agglomerate to this few cells (or fewer) before stopping the hierarchy and
 /// switching to the direct coarsest solve. Matches OpenFOAM's default
@@ -410,7 +416,7 @@ fn agglomerate_matrix(fine: &LduMatrix, map: &[usize], n_coarse: usize) -> LduMa
     // Build coarse faces, deduplicated by (lo, hi) coarse-cell pair.
     let mut coarse_owner: Vec<usize> = Vec::new();
     let mut coarse_neighbour: Vec<usize> = Vec::new();
-    let mut face_map: HashMap<(usize, usize), usize> = HashMap::new();
+    let mut face_map: BTreeMap<(usize, usize), usize> = BTreeMap::new();
     // ≥0: coarse face index; <0: encodes intra-cluster cell as −(cell+1).
     let mut face_restrict = vec![0isize; nf];
 

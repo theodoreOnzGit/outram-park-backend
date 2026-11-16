@@ -59,6 +59,9 @@
 //! NaN, which the unchecked internals silently accept) into a typed
 //! error instead of a panic.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::pressure::{kilopascal, megapascal};

@@ -19,6 +19,9 @@
 /// Saha 1978 NUREG/CR-0417 — NOT raw experimental data).
 /// Given the throat pressure and enthalpy, it should guess the stagnation
 /// enthalpy correctly.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod backward_throat_to_stagnation;
 /// this contains a test suite for stagnation (p0,h0) points within
 /// the vapour liquid equilibrium (VLE)

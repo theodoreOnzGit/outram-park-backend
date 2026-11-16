@@ -34,6 +34,9 @@
 // The swap changes bits: measured against glibc, erf is 99.0 % bit-identical
 // and tgamma only 25.0 %, all within a few ulp. petir::real's docs carry the
 // full table.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use petir::real::{erf as c_erf, erfc as c_erfc, tgamma as c_gamma};
@@ -144,7 +147,7 @@ fn calc_te18(a: f64, e0: f64, _x: f64, lambda: f64, sigma: f64, phi: f64) -> f64
 /// Selects from several branch formulas depending on `a` and `x` ranges,
 /// exactly as in `Foam::Math::incGammaRatio_Q`.
 pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     const BIG: f64 = 14.0;
     const X0: f64 = 17.0;

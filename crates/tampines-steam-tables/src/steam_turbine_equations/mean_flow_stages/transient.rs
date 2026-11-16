@@ -87,6 +87,9 @@
 //! - Everything the steady model does not do is still not done: mean-line only,
 //!   no radial equilibrium, no spanwise variation, no tip leakage.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::energy::joule;

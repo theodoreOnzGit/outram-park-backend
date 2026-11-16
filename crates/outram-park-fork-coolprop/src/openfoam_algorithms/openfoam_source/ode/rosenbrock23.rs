@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::{OdeError, OdeSystem, OdeSolverConfig, integrate_interval, normalize_error};
 use crate::openfoam_algorithms::openfoam_source::SquareMatrix;
@@ -159,7 +162,7 @@ impl Rosenbrock23 {
         let dydx0_snapshot = self.dydx0.clone();
 
         // Temporarily take y_temp out to avoid a double-&mut-self borrow
-        let mut y_temp = std::mem::take(&mut self.y_temp);
+        let mut y_temp = core::mem::take(&mut self.y_temp);
 
         let err = loop {
             let err = self.inner_step(ode, *x, y, &dydx0_snapshot, dx, &mut y_temp);
@@ -185,7 +188,7 @@ impl Rosenbrock23 {
         };
 
         *x += dx;
-        std::mem::swap(y, &mut y_temp);
+        core::mem::swap(y, &mut y_temp);
         self.y_temp = y_temp;
 
         let threshold = (cfg.max_scale / cfg.safe_scale).r_powf(-1.0 / cfg.alpha_inc);
@@ -316,7 +319,7 @@ mod tests {
         let mut y = vec![1.0_f64, 0.0];
         let mut dx = 0.1;
         solver
-            .integrate(&ode, 0.0, std::f64::consts::PI / 2.0, &mut y, &mut dx)
+            .integrate(&ode, 0.0, core::f64::consts::PI / 2.0, &mut y, &mut dx)
             .unwrap();
         assert!(y[0].abs() < 1e-5, "y0={}", y[0]);
         assert!((y[1] - 1.0).abs() < 1e-5, "y1={}", y[1]);

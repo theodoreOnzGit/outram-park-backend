@@ -25,6 +25,9 @@
 //! is the contract each implements. Mirrors OpenFOAM's
 //! `src/thermophysicalModels/specie/thermo/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(crate) mod traits;
 pub mod h_const;
 pub mod janaf;

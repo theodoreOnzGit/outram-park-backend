@@ -48,4 +48,4 @@ thiserror.workspace = true
 # matrix implementing the same `LinearOperator` contract.
 # Through the root [workspace.dependencies] pin (path + version): a bare path
 # dependency carries no version, and `cargo publish` refuses it.
-outram-foam-basic-lib.workspace = true
+outram-foam-basic-lib = { workspace = true, features = ["std"] }

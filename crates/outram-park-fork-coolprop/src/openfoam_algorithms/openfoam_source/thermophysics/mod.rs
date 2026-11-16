@@ -25,6 +25,9 @@
 //! models (`transport`) — that the field-level `fluid_thermo` layer evaluates
 //! cell-by-cell. Mirrors OpenFOAM's `src/thermophysicalModels/specie/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod constants;
 pub(crate) mod error;
 pub mod quantities;

@@ -19,7 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, SubAssign};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, Sub, Mul, Div, Neg, AddAssign, SubAssign};
 
 use crate::openfoam_algorithms::openfoam_source::{Vector3, Tensor, SymmTensor, SphericalTensor};
 
@@ -72,11 +75,11 @@ impl<T: Clone> Field<T> {
         self.data
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+    pub fn iter(&self) -> core::slice::Iter<'_, T> {
         self.data.iter()
     }
 
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
+    pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, T> {
         self.data.iter_mut()
     }
 
@@ -181,14 +184,14 @@ impl Field<Vector3> {
 
 // ── Index ─────────────────────────────────────────────────────────────────────
 
-impl<T> std::ops::Index<usize> for Field<T> {
+impl<T> core::ops::Index<usize> for Field<T> {
     type Output = T;
     fn index(&self, i: usize) -> &T {
         &self.data[i]
     }
 }
 
-impl<T> std::ops::IndexMut<usize> for Field<T> {
+impl<T> core::ops::IndexMut<usize> for Field<T> {
     fn index_mut(&mut self, i: usize) -> &mut T {
         &mut self.data[i]
     }
@@ -202,7 +205,7 @@ impl<T> AsRef<[T]> for Field<T> {
 
 impl<T> IntoIterator for Field<T> {
     type Item = T;
-    type IntoIter = std::vec::IntoIter<T>;
+    type IntoIter = alloc::vec::IntoIter<T>;
     fn into_iter(self) -> Self::IntoIter {
         self.data.into_iter()
     }
@@ -210,7 +213,7 @@ impl<T> IntoIterator for Field<T> {
 
 impl<'a, T> IntoIterator for &'a Field<T> {
     type Item = &'a T;
-    type IntoIter = std::slice::Iter<'a, T>;
+    type IntoIter = core::slice::Iter<'a, T>;
     fn into_iter(self) -> Self::IntoIter {
         self.data.iter()
     }

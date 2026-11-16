@@ -25,6 +25,9 @@
 //! answer. A reaction stage uses the same triangle but reads work off a blade
 //! lift coefficient instead — see [`super::stage::StageKind`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::angle::radian;
 use uom::si::f64::*;

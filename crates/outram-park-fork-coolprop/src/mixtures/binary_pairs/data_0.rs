@@ -3,6 +3,9 @@
 //! Binary-pair data, chunk 0 of 5 (200 pairs) --
 //! see `dev/gen_mixture.py` and the parent module's doc.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::BinaryPair;
 use crate::mixtures::departure::DepartureTerm;
 use crate::fluid::Fluid;

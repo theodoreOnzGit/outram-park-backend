@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{constants::p_crit_water, region_4_vap_liq_equilibrium::sat_pressure_4};
 
 pub use super::*;

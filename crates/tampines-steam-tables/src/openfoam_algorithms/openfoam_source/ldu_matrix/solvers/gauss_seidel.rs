@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::openfoam_algorithms::openfoam_source::ldu_matrix::LduMatrix;
 
 /// Gauss-Seidel iterative solver for `A·x = b`.

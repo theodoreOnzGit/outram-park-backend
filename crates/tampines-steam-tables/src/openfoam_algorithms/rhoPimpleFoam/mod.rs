@@ -306,6 +306,9 @@
 //! C++ reference (reproduced verbatim below for provenance):
 //! `applications/solvers/compressible/rhoPimpleFoam/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
 use crate::openfoam_algorithms::openfoam_source::*;
 ///*---------------------------------------------------------------------------*\
@@ -512,7 +515,7 @@ use crate::openfoam_algorithms::openfoam_source::*;
 //
 //
 //// ************************************************************************* //
-use std::sync::Arc;
+use alloc::sync::Arc;
 use uom::si::f64::{
     Angle, Area, AvailableEnergy, Length, MassRate, Power, Pressure, Ratio, ThermalConductance,
     ThermodynamicTemperature, Time,
@@ -2284,6 +2287,7 @@ impl TampinesSteamArray {
                         .find(|&c| p_new.internal[c] < p_min_pa || p_new.internal[c] > p_max_pa)
                     {
                         self.p_bound_reported = true;
+                        #[cfg(feature = "std")]
                         eprintln!(
                             "WARNING [TampinesSteamArray]: pressure bounding engaged -- \
                              the pressure solve left the EOS range and the value was CLAMPED. \
@@ -2574,6 +2578,7 @@ impl TampinesSteamArray {
                     // answer. Running total: `drained_hold_events()`.
                     if !self.hold_reported {
                         self.hold_reported = true;
+                        #[cfg(feature = "std")]
                         eprintln!(
                             "WARNING [TampinesSteamArray]: drained-cell enthalpy hold engaged -- \
                              cell {c}'s continuity density reached its floor, so its specific \

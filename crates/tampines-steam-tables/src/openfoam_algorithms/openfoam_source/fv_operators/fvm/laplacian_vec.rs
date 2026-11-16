@@ -19,7 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fv_operators::fvm::DeltaCoeff;
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::BoundaryCondition;
@@ -175,12 +178,12 @@ mod tests {
     /// transversally to `(1, 0.25, 0)`: `Cf - C = (0.25, 0.25, 0)` (|d| = 0.3536)
     /// while the patch normal is `+x`, so `fvPatch::delta() = (0.25, 0, 0)`.
     /// gh:#1494.
-    fn skewed_boundary_mesh() -> std::sync::Arc<crate::openfoam_algorithms::openfoam_source::FvMesh> {
+    fn skewed_boundary_mesh() -> alloc::sync::Arc<crate::openfoam_algorithms::openfoam_source::FvMesh> {
         use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
             BoundaryPatch, FvMeshBuilder, PatchKind,
         };
         use crate::openfoam_algorithms::openfoam_source::Vector3;
-        std::sync::Arc::new(
+        alloc::sync::Arc::new(
             FvMeshBuilder::new()
                 .n_cells(2)
                 .n_internal_faces(1)

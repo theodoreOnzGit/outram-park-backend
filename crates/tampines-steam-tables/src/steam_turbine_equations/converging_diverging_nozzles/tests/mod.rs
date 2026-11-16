@@ -1,6 +1,9 @@
 /// for subsonic flow, outlet pressure is higher than the throat pressure
 /// and the entire process is considered isentropic
 ///
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cd_nozzle_subsonic_flow;
 
 /// for perfectly expanded flow

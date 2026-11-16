@@ -21,6 +21,9 @@
 //! the integral above it (continuous at `T_mid`, since the two GRI ranges
 //! match there in value), and linear in `c_v(T_high)` above the upper bound.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::melcor_ncg::R_GAS;
 use super::NonCondensable;
 

@@ -26,6 +26,9 @@
 //! reach second order, à la OpenFOAM's `interpolate(field, pos)` /
 //! `interpolate(field, neg)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
 use crate::openfoam_algorithms::openfoam_source::field::Field;
 use crate::openfoam_algorithms::openfoam_source::surface_field::SurfaceScalarField;
@@ -145,7 +148,7 @@ pub fn reconstruct_pos_neg(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
     use crate::openfoam_algorithms::openfoam_source::{FvMesh, Vector3};
     use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
         BoundaryPatch, FvMeshBuilder, PatchKind,

@@ -24,6 +24,9 @@
 //! evaluator. Used by the cubic equation-of-state and interpolation code.
 //! Mirrors OpenFOAM's `src/OpenFOAM/primitives/polynomialEqns/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod roots;
 pub mod linear_eqn;
 pub mod quadratic_eqn;
