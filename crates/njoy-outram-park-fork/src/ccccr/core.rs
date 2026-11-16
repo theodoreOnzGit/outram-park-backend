@@ -23,6 +23,9 @@
 //! - [`Records`]: the output file, gfortran unformatted sequential records
 //!   (a 4-byte little-endian length before and after each record).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::errorr::gendf::{GendfKind, GendfRecord, GendfTape};
 use crate::NjoyError;
 

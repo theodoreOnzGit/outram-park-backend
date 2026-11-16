@@ -7,6 +7,9 @@
 
 //! The module variables of `viewm`, with `graph`'s inside.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::graph::Graph;
 
 /// A blank-padded 80-column Fortran `character(80)`.

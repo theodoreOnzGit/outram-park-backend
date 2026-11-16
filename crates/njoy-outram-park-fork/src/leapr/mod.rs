@@ -129,6 +129,9 @@
 //!
 //! **Upstream:** `leapr.f90` (~3.6k lines). **Manual:** LA-UR-17-20093 §LEAPR.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 pub mod coher;

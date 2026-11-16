@@ -58,6 +58,9 @@
 //! The resulting ACE file carries `NXS = [61269, 3, 7, 64, 0, 0, 0, 0]`
 //! (`nil = 7` ⇒ 8 cosines, `nieb = 64`, `ifeng = 0`) and `ITXE = 214`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::acesix::{acesix_equiprobable, normalized_rows, BinWeights};
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;

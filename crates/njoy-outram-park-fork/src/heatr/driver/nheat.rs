@@ -22,6 +22,9 @@
 //! Partial kermas, damage MTs and the kinematic limits (`kchk`) are
 //! accumulated in the same pass, in the columns `hinit` laid out.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::flat::{nint, terpa};
 use super::sixbar::SixIo;
@@ -343,7 +346,7 @@ impl Heatr {
                 let mut yld0 = 0.0;
                 let ne = self.ne;
                 for nn in 1..=ne {
-                    let mut c = std::mem::take(&mut self.rows[nn - 1]);
+                    let mut c = core::mem::take(&mut self.rows[nn - 1]);
                     let e = sigfig(c[1], 9, 0);
                     if new6 == 1 {
                         c[npkk] = 0.0;

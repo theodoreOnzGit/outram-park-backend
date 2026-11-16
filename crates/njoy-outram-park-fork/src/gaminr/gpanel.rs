@@ -39,6 +39,9 @@
 
 // Re-export the shared numeric engine with GAMINR-facing names, so a GAMINR user
 // finds it without needing to know it is physically shared with GROUPR.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::groupr::gendf::{GendfGroupRecord, GendfSection, GendfTape};
 pub use crate::groupr::panel::{
     group_average_vector, group_integral, GroupFlux, GroupIntegral, PointwiseXs,
@@ -47,7 +50,7 @@ pub use crate::groupr::panel::{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// The shared engine, driven through the GAMINR re-exports, group-averages a
     /// photoatomic vector correctly: a constant cross section returns itself.

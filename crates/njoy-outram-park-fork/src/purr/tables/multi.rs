@@ -28,6 +28,9 @@
 //! leaves (`rdheat` resets it per temperature): 2 with any partial, 1 with
 //! MT=301 alone. The column is `purr.f90:525-560` (upstream test 19).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::tape::Tape;
 use crate::unresr::mf2::{self, UnresolvedCase};
 use crate::NjoyError;

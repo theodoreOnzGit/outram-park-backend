@@ -13,6 +13,9 @@
 //! a coded unit its text. The library option (`nout > 0`) is read and then
 //! refused by name: [`crate::covr::run_library`] exists but no deck here runs it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::covr::input::{
     default_tlev, ColorStyle, CovarianceForm, CovrInput, CovrMode, LegendOption, LibraryOptions, MatrixOutputType,
     PlotOptions, ReactionSelector, NCASE_MAX,
@@ -139,7 +142,7 @@ pub fn run_covr(r: &mut CardReader, units: &mut TapeUnits, parse_only: bool) -> 
         Some(g) => tape_from_records(&g),
         None => {
             let text = units.text_or_file(c.nin).ok_or_else(|| bad(&format!("unit {} holds no errorr tape", c.nin)))?;
-            Tape::read(text.as_bytes())?
+            Tape::from_bytes(text.as_bytes())?
         }
     };
     let plot = crate::covr::plot::run_plot(&tape, opts, &c.cases)?;
@@ -176,6 +179,7 @@ mod tests {
         assert!(read_covr(&mut r).is_err());
     }
 
+    #[cfg(feature = "std")]
     /// The library option's cards are read, then refused by name.
     #[test]
     fn library_option_is_refused_by_name() {

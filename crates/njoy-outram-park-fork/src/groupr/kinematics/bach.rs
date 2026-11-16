@@ -5,6 +5,9 @@
 
 //! The Kalbach-86 slope systematics (`bach`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::{AMASSN_AMU, AMU_G, CLIGHT_CM_S, EV_ERG};
 use crate::NjoyError;

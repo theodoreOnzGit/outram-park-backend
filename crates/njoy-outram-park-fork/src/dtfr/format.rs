@@ -23,6 +23,9 @@
 //! specific Fortran compiler's `write` is a validation-pass concern (see the
 //! module README).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Format a real as a Fortran `1p,eW.D` field: a mantissa in `[1,10)` (or
 /// `-(1,10]`), an uppercase `E`, an explicit exponent sign, and a ≥2-digit
 /// exponent, right-justified in `width` columns (`dtfr.f90:805` uses `e12.4`,

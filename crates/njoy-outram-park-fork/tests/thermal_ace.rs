@@ -9,6 +9,9 @@
 //! cargo test -p njoy-outram-park-fork --test thermal_ace --release
 //! ```
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use std::fs::File;
 

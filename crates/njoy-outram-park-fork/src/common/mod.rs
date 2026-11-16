@@ -11,6 +11,9 @@
 //!
 //! **Status:** scaffold only. See `docs/porting-plan.md` (Phase 1).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Physical constants from CODATA 2014 / ENDF-102 Appendix H.
 /// Ported from NJOY2016 `phys.f90`.
 pub mod phys;

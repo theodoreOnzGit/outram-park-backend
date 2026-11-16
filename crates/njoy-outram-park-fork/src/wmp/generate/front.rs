@@ -19,6 +19,10 @@
 
 //! ENDF tape to the 0 K pointwise cross sections `vectfit_nuclide` fits.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use crate::acer::read::{parse_type1, RawAceTable};
@@ -210,6 +214,7 @@ fn make_ace_deck(mat: i32, njoy_error: f64) -> String {
     )
 }
 
+#[cfg(feature = "std")]
 /// Run this crate's RECONR -> GASPR -> ACER on `endf_path` at 0 K, as
 /// `IncidentNeutron.from_njoy(temperatures=[0.0], error=njoy_error,
 /// broadr=False, heatr=False, purr=False)` runs NJOY, and return the ACE.
@@ -230,6 +235,7 @@ pub fn zero_kelvin_ace(endf_path: &Path, mat: i32, njoy_error: f64) -> Result<Ra
     result
 }
 
+#[cfg(feature = "std")]
 /// The pointwise half of `vectfit_nuclide` (`multipole.py:419-476`): 0 K
 /// ACE data cut at the lower of the resolved-range top and the first
 /// threshold, with elastic, absorption (MT=27) and, if present, fission.

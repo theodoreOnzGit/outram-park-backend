@@ -17,7 +17,10 @@
 //! when `mfcov = 31` (whose output is still headed MF=33, `errorr.f90:7202`).
 //! `resprx` runs for `mfcov = 33` with MF=32 on file, as in [`super::run_mf33`].
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 use crate::endf::tape::Tape;
 use crate::NjoyError;

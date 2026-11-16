@@ -2,6 +2,9 @@
 //! approximation) and `coulfg` (the CPC "COULFG" algorithm), ported from
 //! `samm.f90:4297-4338` and `samm.f90:4003-4295`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// JWKB (semiclassical) approximation to the irregular Coulomb function

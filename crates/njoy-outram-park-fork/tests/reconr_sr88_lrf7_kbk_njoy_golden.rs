@@ -127,6 +127,9 @@
 //! port's MT=1 is NJOY's in every one of the 44 326 pairs (table above), so it
 //! is the sum of the partials as `reconr.f90` builds it.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::mt::MtReaction;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;

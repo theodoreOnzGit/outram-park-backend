@@ -30,6 +30,9 @@
 //!   `:1866-1890`): evaluated on the union grid with `gety1`, cut at the
 //!   first non-zero point (less one), `sigfig`'d to 7 figures.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::gety1::Gety1;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::{Section, Tape};

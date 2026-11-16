@@ -50,6 +50,9 @@
 //! `sqrt` for `e**half`). [`AnalyticWeight`] itself still covers the analytic ones only.
 //! Gated against NJOY2016.80 by `tests/deck_driver_groupr_weights_vs_njoy2016.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Boltzmann constant in **eV per kelvin**, matching NJOY's `phys` module
@@ -221,7 +224,7 @@ fn thermal_fission_fusion(e: f64, t_dependent: bool, temperature_kelvin: f64) ->
     let bb = 2.0 * tt;
     // cc = 1 for iwt=6; for iwt=7 cc = wt6b*exp(2)/bb^2 (continuity at bb).
     let cc = if t_dependent {
-        WT6B * std::f64::consts::E.r_powi(2) / bb.r_powi(2)
+        WT6B * core::f64::consts::E.r_powi(2) / bb.r_powi(2)
     } else {
         1.0
     };

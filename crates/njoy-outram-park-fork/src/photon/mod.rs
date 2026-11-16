@@ -60,6 +60,9 @@
 //! that test's doc comment and in
 //! `verification_and_validation/heatr_vs_njoy2016.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod capture;
 mod mf6;
 

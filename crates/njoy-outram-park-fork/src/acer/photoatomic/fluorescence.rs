@@ -33,6 +33,9 @@
 //! `verification_and_validation/acer_photoatomic_vs_njoy2016.md`. Anything
 //! that depends on fluorescence should treat it as unmeasured.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::gety1::Gety1;
 use crate::endf::records::{List, SectionCursor};
 use crate::endf::tape::Tape;

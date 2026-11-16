@@ -24,6 +24,9 @@
 //! [`crate::gpu::GpuContext::adapter_label`]); on a machine with no GPU the caller
 //! passes `"CPU only"`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -140,7 +143,7 @@ pub fn format_perf_report(
     let peak = rows.iter().max_by(|a, b| {
         a.speedup
             .partial_cmp(&b.speedup)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .unwrap_or(core::cmp::Ordering::Equal)
     });
     match (crossover, peak) {
         (Some(c), Some(p)) => s.push_str(&format!(

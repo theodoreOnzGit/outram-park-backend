@@ -73,6 +73,9 @@
 //!
 //! Runtime: 57 s for the nine nuclides, release build.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::compare::compare;
 use njoy_outram_park_fork::acer::read::{self, AceFileType};
 use njoy_outram_park_fork::acer::{build_deck, AceDeck};

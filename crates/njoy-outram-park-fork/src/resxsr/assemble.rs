@@ -21,6 +21,9 @@
 //! real PENDF `gety1` values into this step is *not* ported here (see
 //! [`crate::resxsr::run`]); these functions operate on already-parsed reactions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::{terp1, IntLaw};
 
 /// A pointwise reaction cross section: `(energy_eV, xs_barns)` pairs in

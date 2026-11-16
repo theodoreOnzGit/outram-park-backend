@@ -92,6 +92,9 @@
 //! establishes that the coefficients reaching a transport code are the ones on
 //! the tape. What they are worth in `k` is a separate, ablated measurement.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::energy::{parse_mf6_law1_neutrons, Mf6AngularLaw, Mf6Neutron};
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;

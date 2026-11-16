@@ -8,6 +8,9 @@
 //! **DLAYXS** (gh:#1369): delayed-neutron precursor decay constants, spectra
 //! and yields, as `cdlyxs` writes them (a CCCC-III file).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::ccccr::core::{text8, Items, Records, ISIZA4, MULT};
 use crate::ccccr::state::State;
 use crate::NjoyError;

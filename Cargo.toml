@@ -214,6 +214,9 @@ thiserror = "2.0.18"
 # `extern crate thiserror_nostd as thiserror;`. Same version as above: bump
 # both together.
 thiserror-nostd = { package = "thiserror", version = "2.0.18", default-features = false }
+# `sha2` without its `std` default (gh:#1592): SHA-256 is pure computation;
+# `std` only adds `io::Write` support.
+sha2-nostd = { package = "sha2", version = "0.10", default-features = false }
 # uom WITHOUT its `std` feature (gh:#985, maintainer direction 2026-10-20: "I
 # want uom as no std in this workspace. Do the refactor using petir math.").
 # With `std` on, Quantity sqrt/powi/cbrt/hypot/mul_add, Ratio exp/ln/log*/
@@ -467,6 +470,9 @@ hdf5-pure = { version = "0.20.0", features = ["ndarray"] }
 # codec for the embedded WMPB windowed-multipole blob in njoy-outram-park-fork.
 # Chosen over zstd/ruzstd because those lack a mature pure-Rust *encoder*.
 miniz_oxide = "0.8"
+# `no_std` one-time init and lock for njoy-outram-park-fork without `std`
+# (gh:#1592); already in the lock file through other crates.
+spin = { version = "0.10.1", default-features = false, features = ["mutex", "spin_mutex", "once", "rwlock"] }
 
 # HIGH-fidelity data-acquisition stack for njoy-outram-park-fork's `net-fetch`
 # feature (opt-in ENDF download tier; see docs/data-acquisition.md). Every crate

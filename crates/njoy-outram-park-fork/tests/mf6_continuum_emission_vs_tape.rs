@@ -76,6 +76,9 @@
 //! MT=91 is opening. That difference is the reason for this work; it is priced
 //! on the transport side, not here.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::nuclear_data::secondary::{ChiEout, ContinuumEmission};

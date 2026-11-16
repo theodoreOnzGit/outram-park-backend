@@ -12,6 +12,9 @@
 //! [`crate::acer::photonuclear::build::photonuclear_ace`]); this file only
 //! binds the deck's units to them and writes the directory line.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::fortran_fmt::{fortran_e, fortran_f};
 use crate::acer::photoatomic::{photoatomic_ace, PhotoatomicOptions};
 use crate::acer::photonuclear::build::{photonuclear_ace, PhotonuclearOptions};

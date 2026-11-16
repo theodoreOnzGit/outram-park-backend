@@ -31,6 +31,9 @@
 //! **`erfc(x)`, not `erfc(sqrt(x))`** (`:1395`): the `LF = 7` mean energy's
 //! normalisation passes `x` itself to `erfc`, kept as upstream writes it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::records::{terp, Xss};
 use crate::broadr::joint::erfc;
 use crate::endf::records::{SectionCursor, Tab1};
@@ -345,7 +348,7 @@ pub(super) fn mf5_distribution(x: &mut Xss, b: &Block, rx: Reaction, rows: &[[f6
                 if lf == 7 && xx > 0.0 {
                     let st = theta.sqrt();
                     let sx = xx.sqrt();
-                    let anorm = st.r_powi(3) * (std::f64::consts::PI.sqrt() * (1.0 - erfc(xx)) / 2.0 - sx * (-xx).r_exp());
+                    let anorm = st.r_powi(3) * (core::f64::consts::PI.sqrt() * (1.0 - erfc(xx)) / 2.0 - sx * (-xx).r_exp());
                     ebar = 3.0 * theta / 2.0 - (st.r_powi(2) * sx.r_powi(3) * (-xx).r_exp()) / anorm;
                 } else if lf == 9 && xx > 0.0 {
                     let anorm = theta.r_powi(2) * (1.0 - (-xx).r_exp() * (1.0 + xx));

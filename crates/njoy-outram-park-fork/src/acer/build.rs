@@ -45,6 +45,9 @@
 //! absorption (MT=102–150, plus MT=155/182/191/192/193/197, plus discrete
 //! charged-particle levels MT=600–849). Fission is *not* disappearance.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::reconr::{eval_lin_lin, ReconrResult, ReconrSection};
 
 use super::angular::ElasticAngular;

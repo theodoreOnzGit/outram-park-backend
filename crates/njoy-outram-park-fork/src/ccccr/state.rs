@@ -8,6 +8,9 @@
 
 //! CCCCR's cards and its module variables (`ccccm`), as one owned struct.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::ccccr::core::{Core, Cursor, Hdr, Scratch, MAXE};
 
 /// One isotope's card 5 of `ccccr` (`ccccr.f90:221-224`).

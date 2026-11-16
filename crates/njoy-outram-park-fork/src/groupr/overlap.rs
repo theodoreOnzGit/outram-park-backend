@@ -79,6 +79,9 @@
 //! `terpu`'s sigma-zero argument, the augmented `run_dilutions` reproduce the
 //! `iovl == 1` branch exactly (point 1).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::groupr::unresolved::{UnrShielded, UnresolvedTable, UrrReaction};
 use crate::NjoyError;
 

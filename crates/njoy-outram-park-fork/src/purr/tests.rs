@@ -1,6 +1,9 @@
 //! Unit tests for the `PURR` port (moved verbatim out of `purr/mod.rs`
 //! when the file was split at the ladder-generation / `unrest` boundary).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::ladder::CHISQ;
 use super::unrest::line_shape;
@@ -111,7 +114,7 @@ fn ladder_spacing_has_the_wigner_mean_and_width() {
     assert!(n > 15_000.0, "only {n} spacings");
     let mean = spacings.iter().sum::<f64>() / n;
     let var = spacings.iter().map(|s| (s - mean).r_powi(2)).sum::<f64>() / (n - 1.0);
-    let want_sd = dbar * (4.0 / std::f64::consts::PI - 1.0).sqrt();
+    let want_sd = dbar * (4.0 / core::f64::consts::PI - 1.0).sqrt();
     // Statistical error of the mean: sd/√n ≈ 0.075 eV here; 4σ bands.
     assert!(
         (mean - dbar).abs() < 4.0 * want_sd / n.sqrt(),
@@ -124,7 +127,7 @@ fn ladder_spacing_has_the_wigner_mean_and_width() {
     );
     // First resonance uniform in [elow, elow + D√(4/π)).
     assert!(
-        ladder[0].energy >= 0.0 && ladder[0].energy < dbar * (4.0 / std::f64::consts::PI).sqrt()
+        ladder[0].energy >= 0.0 && ladder[0].energy < dbar * (4.0 / core::f64::consts::PI).sqrt()
     );
     // ~~Ladder ends with the first resonance past ehigh~~ (CORRECTED
     // 2026-09-26: `ladr2` samples that resonance and drops it, `nr=ir-1`,

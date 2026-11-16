@@ -20,6 +20,9 @@
 //! functions here only lay them out, as `purr.f90` fills `a(iscr..)` and hands
 //! it to `contio`/`listio`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::tables::UrrProbabilityTables;
 use crate::acer::build::sigfig;
 

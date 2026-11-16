@@ -57,6 +57,9 @@
 //! treatment (UNRESR/PURR), and it is verification, not validation — no
 //! measurement is involved.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::{reference_file, reference_file_or_skip};

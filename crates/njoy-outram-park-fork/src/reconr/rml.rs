@@ -5,6 +5,9 @@
 //! rule); the shared grid machinery (`rebuild_range`, `RangeDelta`) stays
 //! there.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::mf2::EnergyRange;
 use super::{rebuild_range, RangeDelta, ReconrSection, MAX_OTHER};
 

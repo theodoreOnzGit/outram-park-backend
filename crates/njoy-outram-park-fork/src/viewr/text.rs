@@ -20,6 +20,9 @@
 //! that case). `text3` reads `txt(i+1:i+1)` one past `ntxt` at the end of a
 //! string: here a blank, which is what the blank-padded 80-column variables hold.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::graph::Graph;

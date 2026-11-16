@@ -14,6 +14,9 @@
 //! unit's text read back as records. `nout = iabs(nout)` (`:168`): the
 //! library is always text.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::{CardReader, Slot};
 use crate::deck::tapes::TapeUnits;
 use crate::wimsr::WimsrInput;

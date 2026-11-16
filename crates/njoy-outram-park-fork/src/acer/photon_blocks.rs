@@ -47,6 +47,9 @@
 //! [`build`]'s return contract. A partial photon block is a malformed table,
 //! so refusing is the only safe failure.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 
@@ -1129,7 +1132,7 @@ pub fn gamma_discontinuities(tape: &Tape, mat: i32) -> Vec<f64> {
         }
     }
     // `aordr`: ascending, duplicates within 1e-10 dropped.
-    disc.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    disc.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
     disc.dedup_by(|b, a| *b <= (1.0 + 1.0e-10) * *a);
     disc
 }

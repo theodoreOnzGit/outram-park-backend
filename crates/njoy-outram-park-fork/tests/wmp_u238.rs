@@ -8,6 +8,9 @@
 //!
 //! Run: `cargo test -p njoy-outram-park-fork --release`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::wmp::WindowedMultipole;
 use std::path::PathBuf;
 

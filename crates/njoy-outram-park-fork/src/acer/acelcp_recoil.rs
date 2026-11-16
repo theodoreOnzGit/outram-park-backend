@@ -20,6 +20,9 @@
 //! - [`law5_tail_is_harmless`]: a LAW = 5 product other than the projectile,
 //!   which the energy pass neither handles nor skips.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::terpa;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::endf::tape::{Section, Tape};

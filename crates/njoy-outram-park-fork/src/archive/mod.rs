@@ -47,6 +47,9 @@
 //! the size are checked after. `tests` truncates a valid archive at every
 //! byte and flips bytes through it, and asserts each attempt returns.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod read;
 mod write;
 

@@ -13,6 +13,9 @@
 //! for more than 500 000 words of 3-d data is not printed either (the data is
 //! truncated as upstream truncates it).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::plot2d::Curve2d;
 use super::state::{blank80, Str80, ViewrState};
 use crate::deck::cards::{CardReader, Slot};

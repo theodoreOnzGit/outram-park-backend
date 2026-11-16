@@ -8,6 +8,9 @@
 //! The edit descriptors POWR writes its libraries with, on top of the crate's
 //! one copy of `Ew.d` and `Fw.d` ([`crate::acer::fortran_fmt`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::fortran_fmt::{fixed, fortran_e};
 
 /// `1pE12.5`. A negative zero keeps its sign, as gfortran writes it.

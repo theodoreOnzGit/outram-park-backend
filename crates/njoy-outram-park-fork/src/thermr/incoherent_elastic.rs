@@ -24,6 +24,9 @@
 //! incoherent-elastic branch of `thermr.f90` (`iel`); the ACE writer consumes the
 //! cross section and the equally-probable cosines for the ITCE/ITCX/ITCA blocks.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::mf7::IncoherentElastic;
 use crate::endf::interp::terpa;

@@ -118,6 +118,9 @@
 //! - **`LSSF = 1` is verified only as a no-op**, by the second test here.
 //! - Verification against NJOY2016, not validation against measurement.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::mt::MtReaction;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;

@@ -25,7 +25,10 @@
 //! `grist`'s further subsections) is refused by the deck reader and is not
 //! translated here.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::endf::records::{Cont, SectionCursor};
 use crate::endf::tape::Tape;

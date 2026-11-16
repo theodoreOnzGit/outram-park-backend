@@ -14,6 +14,9 @@
 //! The `save`d variables of `getaed` (`ie`, the low/high LIST records, `elo`,
 //! `ehi`, `nlo`, `nhi`) are the fields of [`ThermalFeed`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::gety1::Gety1;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::endf::tape::Tape;
@@ -201,7 +204,7 @@ impl ThermalFeed {
                 loop {
                     if self.ie != 1 {
                         // 205: slide
-                        self.lo = std::mem::take(&mut self.hi);
+                        self.lo = core::mem::take(&mut self.hi);
                         self.elo = self.ehi;
                         self.nlo = self.nhi;
                     }
@@ -228,7 +231,7 @@ impl ThermalFeed {
             } else if self.ie == self.ne {
             } else {
                 if self.ie != 1 {
-                    self.lo = std::mem::take(&mut self.hi);
+                    self.lo = core::mem::take(&mut self.hi);
                     self.elo = self.ehi;
                 }
                 self.ehi = 0.0;

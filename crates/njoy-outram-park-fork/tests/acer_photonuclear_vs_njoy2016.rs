@@ -75,6 +75,9 @@
 //! law bodies — exactly as `phnout` does. Getting one count or one locator
 //! wrong anywhere in those 27 453 words changes a byte.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::photonuclear::build::{photonuclear_ace, PhotonuclearOptions};
 use njoy_outram_park_fork::acer::photonuclear::layout::{self, jxs, nxs};
 use njoy_outram_park_fork::acer::read::AceFileType;

@@ -27,6 +27,9 @@
 //! reusing the first sweep's points — this port does the same, on purpose
 //! (translation, not "improvement").
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::super::mf7::IncoherentInelastic;
 use crate::error::NjoyError;

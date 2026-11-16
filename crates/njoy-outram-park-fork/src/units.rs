@@ -25,6 +25,9 @@
 //! let t_k     = t.get::<kelvin>();
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Neutron (or incident particle) kinetic energy.
 ///
 /// ENDF evaluations store energies in eV; use `uom::si::energy::electronvolt`

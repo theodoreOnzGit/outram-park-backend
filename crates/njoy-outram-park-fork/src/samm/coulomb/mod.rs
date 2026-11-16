@@ -32,6 +32,9 @@
 //! re-derived from scratch, precisely because an indexing slip here is
 //! easy to make and hard to notice.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod api;
 pub mod asymptotic;
 pub mod dispatch;

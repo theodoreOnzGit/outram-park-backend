@@ -11,7 +11,10 @@
 //! poles plus a curve-fit background that reproduce the multipole cross
 //! section; and the search over window counts and curve-fit orders.
 
-use std::cmp::Ordering;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::cmp::Ordering;
 
 use petir::mathf::RealMath;
 

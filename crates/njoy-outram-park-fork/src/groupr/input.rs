@@ -50,6 +50,9 @@
 //! numeric cards and the reaction list; it documents its handling of the
 //! conditional cards 6/7/8 (see that method).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::errorr::groups::NeutronGroupStructure;
 use crate::groupr::weights::ThermalFissionParams;
 use crate::groupr::PhotonGroupStructure;

@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **GROUPR with several materials (card 10) and an input GENDF (`ngout1`),
 //! whole decks against NJOY2016.80** (gh:#1370).

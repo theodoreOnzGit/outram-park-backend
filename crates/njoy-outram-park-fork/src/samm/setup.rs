@@ -6,6 +6,9 @@
 //! ported) and `babb` (`Want_Partial_Derivs`-gated) — the latter is
 //! [`setup_with_derivs`], which ERRORR's `LRF=7` MF=32 path uses.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::samm::betset::{self, ResonanceAmplitudes};
 use crate::samm::context::{self, ChannelKinematics, GroupQuantumInfo};
 use crate::samm::mf2::RmlSection;

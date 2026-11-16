@@ -54,6 +54,9 @@
 // trusted/deterministic path; the GPU path only accelerates it.
 // ---------------------------------------------------------------------------
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Evaluate the WMP curve-fit background cross section across an energy grid, in
 /// `f64`, on the CPU. **This is the trusted, deterministic reference.**
 ///
@@ -444,7 +447,7 @@ impl GpuContext {
             pass.dispatch_workgroups(workgroups, 1, 1);
         }
         encoder.copy_buffer_to_buffer(&output_buf, 0, &staging_buf, 0, output_size);
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.queue.submit(core::iter::once(encoder.finish()));
 
         // --- read back --------------------------------------------------------
         let slice = staging_buf.slice(..);
@@ -515,7 +518,7 @@ pub(crate) fn le_bytes_to_f32_vec(bytes: &[u8]) -> Vec<f32> {
 fn block_on<F: core::future::Future>(fut: F) -> F::Output {
     use core::pin::Pin;
     use core::task::{Context, Poll, Waker};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
     use std::task::Wake;
 
     /// Waker that unparks the thread that created it.

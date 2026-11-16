@@ -8,6 +8,9 @@
 //! `character(10)`); the names NJOY prints on the reference plot tapes are
 //! checked by `tests/aplots_code_to_code.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `hndf(1..500)`, 0-based here: `HNDF[i - 1]` is Fortran `hndf(i)`.
 pub const HNDF: [&str; 500] = [
     "total     ", "elastic   ", "nonelastic",

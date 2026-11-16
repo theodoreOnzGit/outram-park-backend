@@ -29,6 +29,9 @@
 //! levels, and the listing GASPR writes. MF=6/MT=5 multiplicities use
 //! [`eval_tab1`] where upstream uses `terpa`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::energy::mf6::parse_mf6_product_yields;
 use crate::endf::gety1::Gety1;
 use crate::endf::interp::eval_tab1;

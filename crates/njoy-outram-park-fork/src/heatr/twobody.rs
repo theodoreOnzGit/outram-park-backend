@@ -30,6 +30,9 @@
 //! leaves `c = 0` (`:1966-1968`, the jump to label 120): all of `E + q0` is
 //! deposited. That case needs no walker.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::{terp1, IntLaw};
 use crate::endf::tape::Tape;
 use crate::groupr::file4::{File4Angular, File4Options};

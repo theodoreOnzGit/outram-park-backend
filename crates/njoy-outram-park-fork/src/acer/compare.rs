@@ -25,6 +25,9 @@
 //! is equality of the printed value (12 significant figures); there is no
 //! tolerance anywhere.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::read::{AceClass, RawAceTable};
 
 /// What a row of the comparison found.
@@ -147,7 +150,7 @@ impl AceComparison {
                 v.push(format!("{:<10} DIFFERENT: {}", a.name, d.join(", ")));
             }
         }
-        for s in self.blocks.iter().chain(std::iter::once(&self.whole_xss)) {
+        for s in self.blocks.iter().chain(core::iter::once(&self.whole_xss)) {
             v.push(span_line(s));
         }
         v.push(if self.identical() {

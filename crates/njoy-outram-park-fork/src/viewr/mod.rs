@@ -35,6 +35,9 @@
 //! LA-UR-17-20093 §VIEWR. Not reproduced: the card echo VIEWR prints on its
 //! output listing.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod axis;
 mod curves;
 mod driver;

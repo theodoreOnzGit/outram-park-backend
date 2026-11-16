@@ -8,6 +8,9 @@
 //! `lib = 1`'s f-factors (`gamff`). Upstream does not reset `l` after paging
 //! a record here (as `gamxs` does); that is kept.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fast::Locs;
 use super::reader::{Reader, NWSCR};
 use crate::NjoyError;

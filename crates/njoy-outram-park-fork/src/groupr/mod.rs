@@ -74,6 +74,9 @@
 //! [`crate::NjoyError::NotPorted`] rather than fabricating a GENDF result. See
 //! `README.md` in this directory for the full theory summary and gap list.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod continuum;
 pub mod conver;
 pub mod file4;

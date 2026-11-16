@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **Deck-driver survey** (gh:#1369, differential #1366): every upstream
 //! `tests/NN/input` deck that is present, run through the NJOY2016 binary and

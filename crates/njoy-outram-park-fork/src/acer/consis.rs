@@ -22,6 +22,9 @@
 //! Found by comparing deck 71 (TENDL-2021 d + Pt-184): NJOY's unit 34 had
 //! `4.94590800000E+00` where its own unit 31 had `5.00000000000E+00`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mixr::mix::sigfig;
 
 /// What `consis` reads: `NXS`/`JXS` pointers and the header masses.

@@ -30,6 +30,9 @@
 //! evaluation has one, and none is refused silently: the per-range result is unchanged
 //! there.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     channel_radius, csslbw_elastic_step, eval_lin_lin, eval_mlbw_lstate, eval_mlbw_lstate_radii, eval_slbw_lstate_parts, refine_panel,
     rebuild_total_as_sum_of_parts, rm, EnergyRange, MtReaction, PanelAccept, RangeDelta, RawMf3, RefineTolerances, ReconrSection,

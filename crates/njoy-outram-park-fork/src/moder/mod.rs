@@ -32,6 +32,9 @@
 //! `run()` is the deferred card-reader shim. See `README.md` in this
 //! directory for theory, plan, and caveats.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::tape::{Section, Tape};
 use crate::NjoyError;
 

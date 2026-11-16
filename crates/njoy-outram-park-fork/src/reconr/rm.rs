@@ -21,6 +21,9 @@
 //! (Frobenius-Schur method), and cross sections follow from `|S|²` terms.
 //! For nuclides with no fission widths the 3×3 inversion reduces to a scalar.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::{
     common::phys::PI,
@@ -199,7 +202,7 @@ fn kkkkkk_code(
 /// contribution of one l. Summing these over l is **not** bit-identical to
 /// [`eval_rm_range`], which follows upstream's accumulation order.
 pub fn eval_rm_lstate(e: f64, ls: &RmLState, ap: f64, spi: f64, naps: i32) -> RmSigmas {
-    eval_rm_range(e, std::slice::from_ref(ls), ap, spi, naps)
+    eval_rm_range(e, core::slice::from_ref(ls), ap, spi, naps)
 }
 
 /// Evaluate a whole Reich-Moore range at energy `e` \[eV\], in `csrmat`'s own

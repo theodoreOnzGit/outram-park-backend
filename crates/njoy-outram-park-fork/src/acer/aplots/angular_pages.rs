@@ -8,6 +8,9 @@
 //! Angular-distribution pages (`aplof4`), the total-fission nubar page
 //! (`aplonu`) and the delayed-neutron pages (`aplodn`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::{fe, fi, hk_it, nint, AceTable, Plot};
 use super::scale::{ascle, ascll, plot_name};
 use crate::NjoyError;

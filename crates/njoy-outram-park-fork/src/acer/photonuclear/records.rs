@@ -7,6 +7,9 @@
 
 //! The ENDF records and the XSS buffer [`super::build`] works on (gh:#1369).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::{List, SectionCursor, Tab1, Tab2};
 use crate::NjoyError;
 

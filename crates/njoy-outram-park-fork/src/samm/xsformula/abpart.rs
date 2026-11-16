@@ -9,6 +9,9 @@
 //! `ERRORR` — see `src/samm/README.md`'s scope-history note and
 //! [[njoy-no-orphaned-dead-code]] in the porting-plan.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::samm::betset::ResonanceAmplitudes;
 use crate::samm::mf2::RmlResonance;
 

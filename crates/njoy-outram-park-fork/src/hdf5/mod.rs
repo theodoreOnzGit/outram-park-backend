@@ -26,6 +26,9 @@
 //! the same reason the WMP pair is kept together: the round trip of
 //! upstream's own fixtures has to see both.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod collision_track;
 pub mod cross_sections_xml;
 pub mod depletion_chain_xml;

@@ -2,6 +2,9 @@
 //! Unit tests of the WMP generator's pieces (gh:#1390). The differential
 //! against OpenMC is `tests/wmp_generate_vs_openmc.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::npy::{cdiv, count_peaks, eigvals, interp, linspace, lstsq, pairwise_sum, HouseholderQr};
 use super::vectfit::{evaluate, label_conjugate_poles, vectfit};
 use super::*;

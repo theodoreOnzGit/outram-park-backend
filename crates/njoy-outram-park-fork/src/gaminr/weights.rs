@@ -43,6 +43,9 @@
 //! tabulated energy range clamp to the endpoint value and are flagged in
 //! [`PhotonWeight::evaluate`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::NjoyError;
 

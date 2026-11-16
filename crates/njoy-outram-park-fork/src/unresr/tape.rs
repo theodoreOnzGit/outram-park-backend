@@ -23,6 +23,9 @@
 //! Not translated (refused by name): a PENDF with no MT=152 yet (`new = 1`,
 //! which inserts a dictionary entry, `:239-270`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;

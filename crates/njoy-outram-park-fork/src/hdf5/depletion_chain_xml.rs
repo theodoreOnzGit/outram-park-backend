@@ -50,7 +50,10 @@
 //!   here would refuse a chain file written by a newer OpenMC for no gain,
 //!   since this layer never branches on the value.
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 use std::path::Path;
 
 use super::xml_scan::{scan, XmlElement};
@@ -159,7 +162,7 @@ impl ChainNuclide {
     /// Decay constant `lambda = ln(2) / T_half` in `1/s`, or `0.0` when stable.
     pub fn decay_constant(&self) -> f64 {
         match self.half_life_seconds {
-            Some(t) if t > 0.0 => std::f64::consts::LN_2 / t,
+            Some(t) if t > 0.0 => core::f64::consts::LN_2 / t,
             _ => 0.0,
         }
     }

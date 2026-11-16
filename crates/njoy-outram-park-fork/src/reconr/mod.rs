@@ -33,6 +33,9 @@
 //! println!("Material ZA = {}", result.material.za);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod aa;
 pub mod csunr;
 pub mod linearize;
@@ -1874,6 +1877,7 @@ struct RefineTolerances {
     errint: f64,
 }
 
+#[cfg(any(feature = "std", test))]
 thread_local! {
     /// Whether `lunion`'s scratch tape `nscr1` is coded (formatted) on this
     /// thread: `nscr1 = -10` (binary) unless `npend > 0`, then `10`
@@ -1883,8 +1887,17 @@ thread_local! {
     /// way were made with `reconr -21 -22` (`reference-data/{gaspr,heatr}`,
     /// Ca-40), which is the binary mode. Not re-checked whether any of them
     /// has a raised threshold where the mode matters (2026-11-12).
-    static CODED_SCRATCH: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
-}
+    static CODED_SCRATCH: core::cell::Cell<bool> = const { core::cell::Cell::new(true) };}
+#[cfg(not(any(feature = "std", test)))]
+/// Whether `lunion`'s scratch tape `nscr1` is coded (formatted) on this
+/// thread: `nscr1 = -10` (binary) unless `npend > 0`, then `10`
+/// (`reconr.f90:155,193`). `true` (coded, as before gh:#1496) unless
+/// [`reconr_for_deck`] set it from a deck's `npend`. A direct [`reconr`]
+/// call therefore models `npend > 0`; some committed goldens compared that
+/// way were made with `reconr -21 -22` (`reference-data/{gaspr,heatr}`,
+/// Ca-40), which is the binary mode. Not re-checked whether any of them
+/// has a raised threshold where the mode matters (2026-11-12).
+static CODED_SCRATCH: crate::nostd_sync::Local<core::cell::Cell<bool>> = crate::nostd_sync::Local::new(core::cell::Cell::new(true));
 
 /// [`reconr_with_errtol`] for a deck's `reconr nendf npend` card: `npend`'s
 /// sign picks the mode of `lunion`'s scratch tape `nscr1`, which `emerge`
@@ -1955,11 +1968,15 @@ pub(crate) fn lunion_awin(mf1: &crate::endf::tape::Section) -> f64 {
     }
 }
 
+#[cfg(any(feature = "std", test))]
 thread_local! {
     /// Card-3 `errmax`/`errint` of the RECONR call running on this thread
     /// (`None`: upstream's defaults). Set only by [`reconr_with_errtol`].
-    static ERRTOL_OVERRIDE: std::cell::Cell<Option<(f64, f64)>> = const { std::cell::Cell::new(None) };
-}
+    static ERRTOL_OVERRIDE: core::cell::Cell<Option<(f64, f64)>> = const { core::cell::Cell::new(None) };}
+#[cfg(not(any(feature = "std", test)))]
+/// Card-3 `errmax`/`errint` of the RECONR call running on this thread
+/// (`None`: upstream's defaults). Set only by [`reconr_with_errtol`].
+static ERRTOL_OVERRIDE: crate::nostd_sync::Local<core::cell::Cell<Option<(f64, f64)>>> = crate::nostd_sync::Local::new(core::cell::Cell::new(None));
 
 /// [`reconr`] with the card-3 `errmax` and `errint` of the NJOY deck
 /// (`reconr.f90:428-430`: `errmax` defaults to `10*err` and is raised to at
@@ -2049,17 +2066,17 @@ fn test_panel(
     let fr2 = (xm - e1) / dx;
     let fr1 = 1.0 - fr2;
     const NP: usize = 3 + MAX_OTHER;
-    let parts: [(f64, f64, f64); NP] = std::array::from_fn(|j| match j {
+    let parts: [(f64, f64, f64); NP] = core::array::from_fn(|j| match j {
         0 => (d1.elastic, d2.elastic, d_mid.elastic),
         1 => (d1.fission, d2.fission, d_mid.fission),
         2 => (d1.capture, d2.capture, d_mid.capture),
         k => (d1.other[k - 3], d2.other[k - 3], d_mid.other[k - 3]),
     });
-    let dm: [f64; NP] = std::array::from_fn(|j| {
+    let dm: [f64; NP] = core::array::from_fn(|j| {
         let (lo, hi, t) = parts[j];
         (t - (fr1 * lo + fr2 * hi)).abs()
     });
-    let sig: [f64; NP] = std::array::from_fn(|j| parts[j].2);
+    let sig: [f64; NP] = core::array::from_fn(|j| parts[j].2);
     let (errn, errm) = if e2 < RES_TIGHT_RANGE_EV {
         (tol.err / 5.0, tol.errmax / 5.0)
     } else {
@@ -2199,9 +2216,9 @@ fn refine_resonance_grid(
     eps: f64,
     allow_widen: bool,
 ) -> (Vec<f64>, Vec<RangeDelta>) {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par::*;
 
     let mut tol = RefineTolerances::defaults(eps);

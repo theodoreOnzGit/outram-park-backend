@@ -36,6 +36,9 @@
 //! ([`run_mf34_pendf`]): `grpav` for the flux and `sigma_el`, and `grpav4`'s ENDF
 //! branch ([`super::grpav4`]) for the coefficients, `plele` and `u1lele`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::groupr::GendfText;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;

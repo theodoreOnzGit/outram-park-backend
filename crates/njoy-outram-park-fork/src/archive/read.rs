@@ -6,7 +6,10 @@
 //! Reading a ZIP archive held in memory. See the module docs of
 //! [`crate::archive`] for the format subset and the error policy.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use super::crc32;
 use crate::NjoyError;

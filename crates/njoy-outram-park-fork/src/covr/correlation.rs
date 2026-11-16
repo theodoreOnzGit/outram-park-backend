@@ -42,6 +42,9 @@
 //!   (`covr.f90:1371-1372`). Use [`CorrelationMatrix::clamped`] to reproduce it.
 //! - [`RelativeStdDev`] values are dimensionless fractions (e.g. `0.05` = 5 %).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 /// A dimensionless correlation coefficient. For a positive-semidefinite

@@ -27,6 +27,9 @@
 //!
 //! Ported from NJOY2016 `src/endf.f90`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod gety1;
 pub mod interp;
 pub mod mt;
@@ -44,7 +47,7 @@ pub use tape::{Section, Tape};
 /// - `mat` — material number (e.g. 228 for He-4)
 /// - `mf`  — file number (1 = general info, 3 = cross sections, 6 = products, …)
 /// - `mt`  — reaction/section number (e.g. 2 = elastic, 102 = capture, …)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct EndfKey {
     /// Material number (`MAT`).
     pub mat: i32,

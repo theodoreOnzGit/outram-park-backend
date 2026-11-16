@@ -44,6 +44,9 @@
 //! | 13 | `wght` (TAB1) | `iwt==1` only |
 //! | 13b | `eb tb ec tc` | `iwt==4` only |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 // ---------------------------------------------------------------------------
@@ -1040,7 +1043,7 @@ mod tests {
     #[test]
     fn selector_enums_round_trip() {
         // ign: -1 and 1..=34
-        for ign in std::iter::once(-1).chain(1..=34) {
+        for ign in core::iter::once(-1).chain(1..=34) {
             let g = GroupStructure::from_ign(ign).expect("valid ign");
             assert_eq!(g.to_ign(), ign);
         }

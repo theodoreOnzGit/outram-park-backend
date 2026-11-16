@@ -13,6 +13,9 @@
 //! `(1,1),(2,1),(2,2),(3,1),…` (`ij = i(i-1)/2 + j`, `j <= i`), stored
 //! 0-based.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::samm::linpack::PackedComplexMatrix;
 use crate::samm::xsformula::abpart::AlphaTerms;
 

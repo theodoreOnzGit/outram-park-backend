@@ -66,6 +66,9 @@
 //! **License:** the WMP data itself is MIT CRPG — `LICENSE-WMP` and the `NOTICE`
 //! credit must travel with any file written from the embedded library.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::Path;
 
 use hdf5_pure::{AttrValue, CompoundTypeBuilder, FileBuilder};

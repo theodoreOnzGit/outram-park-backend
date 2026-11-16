@@ -8,6 +8,9 @@
 //! (thermal) table when card 2's `suff >= 0` (`aceth.f90:618`, gh:#1369,
 //! upstream test 61).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `newsuff(mcnpx, suff, hz)` on the ZAID field `hz` as read (10 characters,
 /// or 13 with `mcnpx`). Returns the new field, the same length.
 ///

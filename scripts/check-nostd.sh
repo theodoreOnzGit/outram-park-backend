@@ -35,6 +35,7 @@ crates=(
   outram-foam-turbulence-lib  # gh:#1595
   outram-park-fork-offbeat    # gh:#1596
   outram-park-fork-moltres    # gh:#1597
+  njoy-outram-park-fork       # gh:#1592
 )
 
 rustup target add "$target" >/dev/null

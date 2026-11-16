@@ -44,6 +44,9 @@
 //! MF=2 URR (upstream reads uninitialised `amur`), and an `LRF=3` range in
 //! a material that also has an `LRF=7` one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod group;
 pub mod mf2;
 pub mod mlbw;

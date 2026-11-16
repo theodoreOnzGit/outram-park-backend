@@ -46,6 +46,9 @@
 //! (`openmc/data/reaction.py:355-357`: `AngleEnergy.from_ace(ace, ace.jxs[27],
 //! location_start)`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::read::RawAceTable;
 use crate::acer::{jxs, nxs};
 use crate::error::NjoyError;

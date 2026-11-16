@@ -31,6 +31,9 @@
 //! moved into the submodule; the stamped decks differ only in the comment
 //! card, and the data lines were checked identical).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::compare::compare;
 use njoy_outram_park_fork::acer::read::{self, AceFileType};
 use njoy_outram_park_fork::acer::thermal::{ace_incident_grid, IncidentPendf, InelasticForm, ThermalAceOptions};

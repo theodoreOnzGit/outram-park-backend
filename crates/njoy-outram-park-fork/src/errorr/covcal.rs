@@ -32,6 +32,9 @@
 //! stages the standard's records through [`super::standards::stand`]), ENDF-5/6. The
 //! `LB = 7` law belongs to MF=35 and is rejected here as upstream does.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;

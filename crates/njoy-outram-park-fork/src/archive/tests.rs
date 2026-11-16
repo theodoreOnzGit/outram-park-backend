@@ -3,7 +3,10 @@
 //
 // This file is part of OUTRAM PARK.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use super::*;
 

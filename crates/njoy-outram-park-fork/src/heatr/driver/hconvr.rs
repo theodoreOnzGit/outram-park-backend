@@ -22,6 +22,9 @@
 //! level energies taken from MF=3 `−QI` and overwritten by MF=12's `ES`, and
 //! the transition matrices kept across MTs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::flat::{list_flat, nint, rows_of_list, rows_of_tab1, tab1_flat};
 use super::state::Heatr;
 use crate::endf::records::SectionCursor;

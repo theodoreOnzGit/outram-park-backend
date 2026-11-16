@@ -40,6 +40,9 @@
 //!   [`crate::covr::boxer_text`] (`press_text`, byte-exact with NJOY2016, and
 //!   the matching reader `parse_boxer_text`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::covr::correlation::CovarianceMatrix;
 use crate::NjoyError;
 

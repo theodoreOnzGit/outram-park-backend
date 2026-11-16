@@ -51,6 +51,9 @@
 //! scope note). Decoding it here is the data crate's job; a photon transport
 //! kernel is a separate piece of work and would find the data already read.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::ce_laws::{decode_angular_block, decode_law_chain, AceEnergyLaw};
 use crate::acer::ce_decode::EV_PER_MEV;
 use crate::acer::read::RawAceTable;

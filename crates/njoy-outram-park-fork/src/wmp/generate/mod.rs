@@ -40,6 +40,9 @@
 //!
 //! Not ported: logging, the diagnostic figures (`path_out`), and pickle I/O.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod fit;
 mod front;
 mod npy;
@@ -49,12 +52,14 @@ mod windowing;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use crate::wmp::Cf64;
 use crate::NjoyError;
 
 pub use fit::{vectfit_pointwise, vectfit_xs, PieceFit, VectfitOptions};
+#[cfg(feature = "std")]
 pub use front::{pointwise_from_endf, zero_kelvin_ace};
 pub use windowing::{search_windowing, windowing, SearchOptions, WindowingOptions, WmpGenerated};
 
@@ -103,6 +108,7 @@ pub struct MultipoleData {
     pub residues: Vec<Vec<Vec<Cf64>>>,
 }
 
+#[cfg(feature = "std")]
 /// `vectfit_nuclide` (`multipole.py:387-538`) with upstream defaults
 /// (`njoy_error = 5e-4`, automatic pieces).
 pub fn vectfit_nuclide(endf_path: &Path, njoy_error: f64, opts: &VectfitOptions) -> Result<MultipoleData, NjoyError> {
@@ -110,6 +116,7 @@ pub fn vectfit_nuclide(endf_path: &Path, njoy_error: f64, opts: &VectfitOptions)
     vectfit_pointwise(&xs, None, opts)
 }
 
+#[cfg(feature = "std")]
 /// `WindowedMultipole.from_endf` (`multipole.py:1005-1046`) with upstream's
 /// defaults: `vectfit_nuclide(njoy_error = 5e-4)` then
 /// `from_multipole(search = True)`.

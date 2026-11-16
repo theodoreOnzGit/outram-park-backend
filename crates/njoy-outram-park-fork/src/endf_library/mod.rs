@@ -53,6 +53,9 @@
 //! module is the general index (zips, uploads, layouts, library choice) that
 //! nuclear-data loading uses.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod generate;
 mod header;
 mod index;

@@ -20,6 +20,9 @@
 //! - the chi translation tests `er <= ea3` (`:9461`), where `er` and `ea3` are the
 //!   values the **last MF=3 section** left behind. [`ColapsState`] carries them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 use super::gendf::{sigfig_bounds, CondensedGendf, CondensedSection};

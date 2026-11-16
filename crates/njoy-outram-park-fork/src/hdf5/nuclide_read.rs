@@ -40,7 +40,10 @@
 //! `(breakpoints, interpolation)` unambiguously. So this reader covers every
 //! law, including the three the writer refuses.
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 use std::path::Path;
 
 use hdf5_pure::{AttrValue, File};

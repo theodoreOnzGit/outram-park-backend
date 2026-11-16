@@ -39,7 +39,13 @@
 //! unconditionally parses the ZAID as a float either panics on every thermal
 //! table or, worse, silently accepts a partial parse.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
+#[cfg(not(feature = "std"))]
+use crate::nostd_path::Path;
 
 use crate::acer::fortran_fmt::{
     fixed_field, fortran_e, fortran_e20, fortran_f, fortran_f0, fortran_i20,
@@ -224,6 +230,7 @@ fn split_zaid(hz: &str) -> Result<(Option<f64>, AceClass), NjoyError> {
     Ok((zaid_num, class))
 }
 
+#[cfg(feature = "std")]
 /// Read a **Type 1** (ASCII) ACE file.
 ///
 /// Layout, per `acefc.f90`'s type-1 writer and `change`:
@@ -667,6 +674,7 @@ fn take_i32(b: &[u8], o: &mut usize) -> i32 {
 }
 
 
+#[cfg(feature = "std")]
 /// Read a **Type 2** (binary) ACE file — upstream `acer`'s `iopt = 8`.
 ///
 /// Layout, from the writer at `acefc.f90:13028-13053`:
@@ -815,6 +823,7 @@ fn parse_type2_at(bytes: &[u8], pos: &mut usize) -> Result<RawAceTable, NjoyErro
     })
 }
 
+#[cfg(feature = "std")]
 /// Read an ACE file of either type, deciding which by looking at it.
 ///
 /// A Type-1 file begins with printable text; a Type-2 file begins with a 4-byte
@@ -843,6 +852,7 @@ pub fn read<P: AsRef<Path>>(path: P) -> Result<RawAceTable, NjoyError> {
     }
 }
 
+#[cfg(feature = "std")]
 /// Every ACE table in the file at `path`, of either type, gzipped or not, in
 /// file order. GitHub #365 audit: an MCNP/OpenMC-style library concatenates
 /// tables, and OpenMC's `Library` reads them all (`openmc/data/ace.py:194-241`).
@@ -853,6 +863,7 @@ pub fn read_library<P: AsRef<Path>>(path: P) -> Result<Vec<RawAceTable>, NjoyErr
     read_library_bytes(bytes, path)
 }
 
+#[cfg(feature = "std")]
 /// The table named `name` (its ZAID / thermal name as the header writes it,
 /// e.g. `92235.00c`, `92235.800nc`, `hh2o.01t`) from the file at `path` — the
 /// equivalent of OpenMC's `ace.get_table(filename, name)`
@@ -1335,6 +1346,7 @@ impl RawAceTable {
         out
     }
 
+    #[cfg(feature = "std")]
     /// Write this table to `path` as a Type-2 ACE file.
     pub fn write_type2<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
         let path = path.as_ref();

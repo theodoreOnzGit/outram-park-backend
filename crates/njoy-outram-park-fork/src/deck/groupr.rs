@@ -71,6 +71,9 @@
 //! precision for a negative unit (`GendfText::records`, `TapeUnits::put_gendf`),
 //! which is what NJOY's ERRORR reads back from a blocked-binary GENDF.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::modules::GrouprJob;
 use crate::deck::tapes::TapeUnits;
 use crate::errorr::groups::NeutronGroupStructure;
@@ -85,7 +88,7 @@ pub use gendf_text::{write_head, GendfText};
 /// the run's `sigz`, and the current reaction's `init` values `nz` and `nl`.
 struct Shield {
     flux: crate::groupr::njoy_panel::FluxSource,
-    unr: Option<std::sync::Arc<crate::groupr::unresolved::UnresolvedTable>>,
+    unr: Option<alloc::sync::Arc<crate::groupr::unresolved::UnresolvedTable>>,
     sigz: Vec<f64>,
     nz: usize,
     nl: usize,
@@ -358,7 +361,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         .ok_or_else(|| NjoyError::InvalidInput(format!("groupr: unable to find mat={}", inp.matb)))?;
     let (za, awr) = (mf1.rows[0][0], mf1.rows[0][1]);
     // `stounr` (`:533`), then `genflx` when `nsigz > 1` (`:539-546`).
-    let unr = crate::groupr::flux_table::stounr(&pend, inp.matb, tempin)?.map(std::sync::Arc::new);
+    let unr = crate::groupr::flux_table::stounr(&pend, inp.matb, tempin)?.map(alloc::sync::Arc::new);
     let flux = if sigz.len() > 1 {
         let t = match &card8a {
             Some(p) => crate::groupr::flux_table::genflx_card8a(
@@ -379,7 +382,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 None => crate::groupr::flux_table::genflx(&pend, inp.matb, inp.weight.iwt(), inp.lord, &sigz, egn[0], unr.as_deref())?,
             },
         };
-        crate::groupr::njoy_panel::FluxSource::Table(crate::groupr::flux_table::FluxCursor::new(std::sync::Arc::new(t)))
+        crate::groupr::njoy_panel::FluxSource::Table(crate::groupr::flux_table::FluxCursor::new(alloc::sync::Arc::new(t)))
     } else {
         crate::groupr::njoy_panel::FluxSource::Wtf(inp.weight.iwt())
     };

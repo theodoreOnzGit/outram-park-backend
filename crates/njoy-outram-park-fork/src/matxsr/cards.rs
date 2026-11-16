@@ -6,6 +6,9 @@
 
 //! MATXSR's cards.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::{CardReader, Slot};
 use crate::NjoyError;
 

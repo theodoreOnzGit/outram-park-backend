@@ -28,6 +28,9 @@
 //! U-235) are ported, `continuum::PhotonSed`; `econst` starts at `ebig` only for
 //! `MT = 18, 19, 102, 452, 455, 456` (`:5831-5836`), as upstream.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::{terp1, terpa, IntLaw};
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;

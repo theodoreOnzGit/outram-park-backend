@@ -43,6 +43,9 @@
 //! - [`therm`]: `lib = 2`.
 //! - [`fmt`]: the Fortran edit descriptors POWR writes with.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod fast;
 pub mod fmt;
 pub mod gamff;

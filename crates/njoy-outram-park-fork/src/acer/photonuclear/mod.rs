@@ -45,6 +45,9 @@
 //! own `tests/resources` hold five photo-nuclear tapes (He-3, Co-59, Bi-209,
 //! U-235, Pu-239), which the deck-driver gates read from the upstream clone.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod build;
 pub mod layout;
 mod mf45;

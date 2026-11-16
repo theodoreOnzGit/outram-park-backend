@@ -25,6 +25,9 @@
 //! [`sumh`]/`sjbes` is the dimensionless argument `b' * wavenumber`; all outputs
 //! are dimensionless.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::{EV_ERG, HBAR_ERG_S};
 use crate::leapr::discrete::{bfill, exts, sint};

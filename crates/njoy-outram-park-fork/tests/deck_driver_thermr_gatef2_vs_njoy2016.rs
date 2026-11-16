@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **THERMR's second SCT atom (`gatef2`) on an ENDF-4/5 tape, against NJOY2016.80**
 //! (gh:#1375).

@@ -18,6 +18,9 @@
 //! material `matd` at temperature `tempin`, the first sigma-zero only, P0 only
 //! for MF=3 and at most P0/P1 for MF=5/6/8, sections MF=3, 5, 6, 8 in that order.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::parse::parse_endf_float;
 use crate::mixr::mix::sigfig;
 use crate::NjoyError;

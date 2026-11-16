@@ -13,6 +13,9 @@
 //! of the last head read, and the container is not cleared between `shufl`'s
 //! passes.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::errorr::gendf::{GendfKind, GendfRecord};
 use crate::matxsr::data::{words, Ctl2, Cursor, Matxs, ISIZA, MULT};
 use crate::matxsr::hname::hname;

@@ -11,6 +11,9 @@
 //! go on their units as raw bytes (gfortran unformatted records), whatever the
 //! sign of the unit (`openz(-nisot,1)`, `ccccr.f90:205-207`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::ccccr::{run_ccccr, BrkoxsCards, CcccrCards, IsotopeCard, IsotxsCards, IsotxsIsotope};
 use crate::deck::cards::{CardReader, Slot};
 use crate::deck::tapes::TapeUnits;

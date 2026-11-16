@@ -55,6 +55,9 @@
 //! This is untrusted AI draft material: verify against upstream NJOY golden
 //! output before trusting numerically.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod bach;
 pub mod cm;
 pub mod lab1;
