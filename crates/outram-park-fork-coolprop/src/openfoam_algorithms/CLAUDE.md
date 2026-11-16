@@ -23,9 +23,17 @@ of `rhoPimpleFoam/central_upwind.rs` is basic-lib's
 `rhoPimpleFoam/central_upwind.rs` is gone. The array's KNP hybrid
 (`SolverMode::HybridAllMach`) was retired in step with the steam-tables twin
 (maintainer decision D7, gh:#914), so `OPCPFluidArray` no longer calls the
-KNP kernel and has one flux discretisation, PIMPLE. Still no `ndarray` / BLAS / C. The
+KNP kernel and has one flux discretisation, PIMPLE. Still no `ndarray` / BLAS / C. ~~The
 rest of `openfoam_source/` (fields, FV operators, matrices) is still a
-vendored copy.
+vendored copy.~~ **CHANGED 2026-11-16 (gh:#1607, maintainer: "let's have both depend
+directly on openfoam basic lib, no duplicate code"):** `openfoam_source/` holds
+no copied code any more. Its `mod.rs` re-exports `outram-foam-basic-lib`'s
+modules under the same names, so every `openfoam_source::...` path still
+resolves, now to the one maintained implementation. The copy had drifted in
+78 of 84 files; the two functions only it had (`fvc::div_limited`,
+`fvm::ddt_coeff_old`, identical in both crates' copies) moved into
+`outram-foam-basic-lib` with tests. Add new primitives to
+`outram-foam-basic-lib`, never here.
 
 ## Differences from the tampines copy
 
@@ -52,6 +60,7 @@ vendored copy.
   vendored solvers were deleted, so `rhoPimpleFoam` is the only solver here.
 - `correct_thermo` is **single-phase** (no saturation/VLE) and does not update
   transport (`μ`, `αh`) — CoolProp has no transport properties yet.
-- Parts of `openfoam_source` are still unused by the single kept solver; once
+- ~~Parts of `openfoam_source` are still unused by the single kept solver; once
   `rhoPimpleFoam` fully exercises them, drop the module-level
-  `#![allow(dead_code)]` / `unused_imports` on the vendored tree.
+  `#![allow(dead_code)]` / `unused_imports` on the vendored tree.~~ Moot since
+  gh:#1607: there is no vendored tree, only re-exports.

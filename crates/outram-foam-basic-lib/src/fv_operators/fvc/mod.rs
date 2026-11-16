@@ -58,7 +58,7 @@ mod sn_grad;
 mod sn_grad_corrected;
 
 pub use ddt_corr::{ddt_corr, ddt_corr_backward, BackwardDdtCoeffs};
-pub use div::{div, div_flux, div_vec};
+pub use div::{div, div_flux, div_limited, div_vec};
 pub use div_tensor::{div_symm_tensor, div_tensor};
 pub use flux::{buoyancy_flux, flux};
 pub use grad::grad;

@@ -320,6 +320,16 @@ rule 1): blender depends on this crate, optionally, to export into it, and
 Cargo counts optional dependencies when it looks for cycles. Mesh types stay
 defined here; the converters live in `outram_blender::unstructured::convert`.
 
+## Never depend on `outram-park-fork-coolprop` or `tampines-steam-tables` (gh:#1607)
+
+Both depend on this crate directly: since 2026-11-16 their
+`openfoam_algorithms::openfoam_source` modules are re-exports of it, not
+copies. A dependency from here back to either (to borrow water or fluid
+properties for `thermophysics`, say) would close a cycle. Like the
+`outram-blender` rule above, the edge only ever points one way: this crate
+depends on nothing in the workspace but `petir`. A primitive either crate
+needs goes here, with a test, never into a copy in theirs.
+
 ## Avoid writing macros (workspace rule, 2026-11-05)
 
 Maintainer direction: macros make code harder to read and review. Do not
