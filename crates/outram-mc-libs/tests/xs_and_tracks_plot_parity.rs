@@ -57,6 +57,8 @@
 //! directory on every run instead of being committed; gate 1 asserts they are
 //! deterministic.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;

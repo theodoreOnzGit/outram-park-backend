@@ -40,6 +40,9 @@
 //! A cell may be a **material cell** (filled with a `Material`) or a **fill
 //! cell** (filled with a nested `Universe` or `Lattice`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::position::{Direction, Position};
 use super::surface::{SurfaceKind, FP_COINCIDENT};
 

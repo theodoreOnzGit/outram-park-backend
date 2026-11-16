@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Fission site bank — stores secondary neutron phase-space for the next generation.
 ///
 /// C++ source: `src/bank.cpp`, `include/openmc/bank.h`.

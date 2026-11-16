@@ -48,6 +48,9 @@
 //! V&V: `crates/raffles/verification_and_validation/openda_gh1192.md`,
 //! tests `tests/openda_gh1192.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cost;
 pub mod dud;
 pub mod enkf;

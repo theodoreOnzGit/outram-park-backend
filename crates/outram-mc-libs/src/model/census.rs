@@ -36,7 +36,10 @@
 //! particles counted from the geometry and the packing fraction they
 //! realise, beside the one asked for.
 
-use std::collections::HashSet;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashSet;
 
 use uom::si::f64::{Ratio, Volume};
 use uom::si::ratio::ratio;
@@ -209,8 +212,8 @@ impl Census {
     }
 }
 
-impl std::fmt::Display for Census {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Census {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(
             f,
             "{:>5}  {:<28} {:<14} {:>8} {:>14} {:>14} {:>9}",

@@ -31,6 +31,8 @@
 //!
 //! Printed by the test; recorded in the #365 thread.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::nuclear_data::secondary::{

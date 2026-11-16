@@ -57,6 +57,8 @@
 //!     over 64 seeds, against the 1024-seed record −6 ± 5.
 //! - The browser leg (headless Chromium) has **not** been re-run against the
 //!   new pins.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #[path = "../examples/nd_wasm_probe/probe.rs"]
 #[allow(dead_code)]
 mod probe;

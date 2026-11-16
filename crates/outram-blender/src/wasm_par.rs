@@ -16,6 +16,9 @@
 //! `src/wasm_par.rs` when the plotter moved (2026-10-02, GitHub #486). A call
 //! site reaching for anything else fails the wasm build, which is intended.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Mirror of `rayon::prelude`, so a call site can swap one import for another.
 pub(crate) mod prelude {
     pub(crate) use super::IntoParallelIterator;

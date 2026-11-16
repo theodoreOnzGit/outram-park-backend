@@ -1,6 +1,9 @@
 //! Translational periodic boundary conditions (GitHub #259): single-particle
 //! track tests against analytic geometry, and the refusals by name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken, SurfaceToken};
 use crate::geometry::geometry::{Crossing, Geometry};

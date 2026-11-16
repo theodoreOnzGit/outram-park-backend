@@ -42,6 +42,8 @@
 //! margin 0.05 → ≤ 0.95494 at every T. Control: 3.28 at 1500 K from a
 //! 293.6 K build. Wall time ~40 s per U-238 test (3 cores).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use std::sync::Arc;
 
 use njoy_outram_park_fork::endf::tape::Tape;

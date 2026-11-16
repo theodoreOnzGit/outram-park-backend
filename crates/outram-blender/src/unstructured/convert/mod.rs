@@ -38,6 +38,9 @@
 //! `FvMesh` holds no points, so there is nothing to build vertices from. Go
 //! through the `PolyMesh` it was built from.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::mesh::UnstructuredMeshError;
 
 #[cfg(feature = "foam-export")]

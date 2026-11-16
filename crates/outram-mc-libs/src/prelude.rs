@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Convenience re-export of the most commonly used types.
 ///
 /// ```rust
@@ -98,6 +101,7 @@ pub use crate::pebble_beds::sphere_packing::{
 };
 pub use crate::pebble_beds::crp_packing::{pack_spheres_crp, CrpError, MAX_PF_CRP};
 pub use crate::pebble_beds::triso_lattice::{create_triso_lattice, TrisoLattice, TrisoLatticeBase};
+#[cfg(feature = "std")]
 pub use crate::pebble_beds::dem_bed::{DemBed, DemBedError};
 // Stochastic-media research track (beads epic op-eby). The chord statistics,
 // SCLS retention machinery and brute-force index are implemented.
@@ -130,7 +134,7 @@ pub use crate::stochastic::benchmark::{AbsorptionBenchmark, BenchmarkResult};
 // f32 accelerated path, present only off Android.
 pub use crate::gpu::xs_interp::interp_xs_cpu;
 pub use crate::gpu::{probe as gpu_probe, GpuContext};
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub use crate::gpu::xs_interp::interp_xs_gpu;
 // Ray–surface distance for all 15 CSG SurfaceKind variants (op-9s8.2). The
 // encoding (`EncodedSurfaces`/`encode_surfaces`), the query type (`SurfaceQuery`),
@@ -140,7 +144,7 @@ pub use crate::gpu::xs_interp::interp_xs_gpu;
 pub use crate::gpu::surface_distance::{
     encode_surfaces, surface_distance_cpu_f32, EncodedSurfaces, SurfaceQuery, MISS, SURF_STRIDE,
 };
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub use crate::gpu::surface_distance::surface_distance_gpu;
 // Batched next-event GPU flight kernel (event-based transport). `FlightBatch`,
 // `FlightSphere`, `FlightOutcome`, and `advance_flight_cpu_mirror` build on every
@@ -148,7 +152,7 @@ pub use crate::gpu::surface_distance::surface_distance_gpu;
 pub use crate::gpu::batched_flight::{
     advance_flight_cpu_mirror, FlightBatch, FlightOutcome, FlightSphere,
 };
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub use crate::gpu::batched_flight::advance_flight_gpu;
 // Fused flight + collision GPU event kernel (op-u6s.8 collision-on-GPU). The
 // per-nuclide reaction tables (`CollisionTables`), the packed `EventTablesF32`,
@@ -160,10 +164,11 @@ pub use crate::gpu::batched_event::{
     advance_event_cpu_mirror, advance_generation_cpu_mirror, EventBatch, EventSphere,
     EventTablesF32, FISS_NONE,
 };
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub use crate::gpu::batched_event::advance_generation_gpu;
 // Per-machine performance-report generator (detects host GPU/CPU/OS; renders a
 // local, gitignored "what performance is available on my PC" markdown report).
+#[cfg(feature = "std")]
 pub use crate::perf_report::{HardwareInfo, PerfReport, PerfRow};
 
 // The error type the ENDF entry points return, so `use outram_mc_libs::prelude::*`

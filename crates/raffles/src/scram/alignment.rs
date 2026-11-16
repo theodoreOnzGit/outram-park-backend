@@ -52,6 +52,9 @@
 //! fractions. That combination is the analyst's to make, and neither upstream
 //! nor this port makes it for them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{RafflesError, Result};
 
 fn invalid(reason: String) -> RafflesError {

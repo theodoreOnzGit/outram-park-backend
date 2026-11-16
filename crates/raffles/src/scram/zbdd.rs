@@ -102,7 +102,10 @@
 //! assert!(cut_sets.iter().all(|c| c.order() == 2));
 //! ```
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use super::bdd::{self, Bdd};
 use super::fault_tree::{Arg, Connective, FaultTree};
@@ -129,7 +132,7 @@ pub const BASE: SetId = 1;
 /// exhaust memory.
 pub const NODE_LIMIT: usize = 20_000_000;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct SetNode {
     /// The **literal** tested, as one monotone key: `2 * order` for a
     /// variable occurring, `2 * order + 1` for it not occurring.

@@ -36,6 +36,9 @@
 //! sphere's volume minus the whole particles it holds, exact. The census
 //! reports the pool as one row and the particles from the geometry.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::census::Arrangement;
 use super::dh_region::{DhSpec, DhTracking, Packing};
@@ -91,7 +94,7 @@ pub(crate) fn whole_in_sphere(zone: &Sphere, child: &Solid, at: [f64; 3]) -> boo
     match child {
         Solid::Sphere(p) => {
             let pc = p.centre_cm();
-            let d: [f64; 3] = std::array::from_fn(|i| (at[i] + pc[i]) - c[i]);
+            let d: [f64; 3] = core::array::from_fn(|i| (at[i] + pc[i]) - c[i]);
             let keep = rz - p.radius_cm();
             keep >= 0.0 && d[0] * d[0] + d[1] * d[1] + d[2] * d[2] <= keep * keep
         }

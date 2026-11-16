@@ -38,6 +38,9 @@
 //! The unscented Kalman filter (FilterPy's `UnscentedKalmanFilter` and
 //! `unscented_transform`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::numpy_ops::{outer, vec_dot, Matrix};
 use super::sigma_points::MerweScaledSigmaPoints;
 use crate::{RafflesError, Result};

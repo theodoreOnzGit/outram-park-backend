@@ -26,6 +26,9 @@
 //! this module captures the state and hands it over. [`StatePoint`] is
 //! therefore a value, not a file, and nothing here opens one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::geometry::Geometry;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;

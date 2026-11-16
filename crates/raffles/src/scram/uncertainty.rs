@@ -69,6 +69,9 @@
 //! samples and takes the exact order statistic. Both are defensible; they are
 //! not the same number.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::expression::{Expression, Parameters};
 use super::fault_tree::FaultTreeModel;
@@ -168,7 +171,7 @@ pub struct UncertaintyResult {
 pub fn analyse<Q>(
     model: &FaultTreeModel,
     expressions: &[Expression],
-    parameters: &std::collections::HashMap<String, Expression>,
+    parameters: &crate::hash::HashMap<String, Expression>,
     mission_time: f64,
     settings: UncertaintySettings,
     mut quantify: Q,
@@ -277,7 +280,7 @@ pub fn statistics(samples: Vec<f64>, settings: UncertaintySettings) -> Uncertain
     let half_width = sigma * 1.96 / (n as f64).sqrt();
 
     let mut sorted = samples.clone();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
     let quantiles = (1..=settings.quantiles)
         .map(|i| {
             let p = i as f64 / settings.quantiles as f64;

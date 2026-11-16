@@ -76,6 +76,9 @@
 //! uses PETIR's port of GSL's `gsl_cheb_init` (`petir::ChebSeries::new`), and
 //! is a measurement aid here, not a transport path.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::material::nuclide::{MicroXS, Nuclide};
 use crate::physics::scatter::K_BOLTZMANN_EV_PER_K;
@@ -389,7 +392,7 @@ pub fn chebyshev_nodes_k(
     let (bma, bpa) = (0.5 * (b - a), 0.5 * (b + a));
     Ok((0..n)
         .map(|k| {
-            let y = (std::f64::consts::PI * (k as f64 + 0.5) / n as f64).r_cos();
+            let y = (core::f64::consts::PI * (k as f64 + 0.5) / n as f64).r_cos();
             variable.temperature(y * bma + bpa)
         })
         .collect())

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Particle phase-space state.
 ///
 /// C++ source: `src/particle.cpp` (1044 LOC), `include/openmc/particle.h` (136 LOC).

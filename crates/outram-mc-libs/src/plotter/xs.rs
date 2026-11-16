@@ -65,6 +65,9 @@
 //!   [`IncidentNeutronData`] holds one ACE table, so the nearest-temperature
 //!   choice upstream makes is always that one table.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -166,9 +169,9 @@ impl From<i32> for XsType {
     }
 }
 
-impl std::fmt::Display for XsType {
+impl core::fmt::Display for XsType {
     /// Python's `f'{type}'`.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Named(s) => f.write_str(s),
             Self::Mt(m) => write!(f, "{m}"),

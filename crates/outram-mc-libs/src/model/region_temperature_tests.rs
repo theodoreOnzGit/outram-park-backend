@@ -4,6 +4,9 @@
 //! `ThermalProfile` (#949). No nuclear data is processed here (header-only
 //! library); the transport checks are `tests/region_temperature.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::dh_region::{DhRegion, Packing};
 use super::isotope::isotopes::*;
 use super::material::{atoms_per_barn_cm, Material};
@@ -310,6 +313,7 @@ fn components_take_their_mean_from_a_thermal_profile() {
     assert_eq!(taken.len(), 2);
     assert_eq!((taken[0].0, taken[1].0), (fuel, shell));
     let (t_fuel, t_shell) = (taken[0].1.get::<kelvin>(), taken[1].1.get::<kelvin>());
+    #[cfg(feature = "std")]
     println!("thermal profile -> fuel {t_fuel:.2} K, shell {t_shell:.2} K");
     assert!(t_fuel > t_shell && t_shell > 500.0, "{t_fuel} {t_shell}");
     assert_eq!(

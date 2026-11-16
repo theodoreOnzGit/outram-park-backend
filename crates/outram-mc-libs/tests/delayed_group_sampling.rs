@@ -31,6 +31,8 @@
 //!
 //! Printed by the tests.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::nuclide::Nuclide;
 
 const TEMP: f64 = 293.6;

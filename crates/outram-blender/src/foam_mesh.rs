@@ -93,8 +93,11 @@
 //! `RESPONSIBLE_USE.md`: not for reactor operation, licensing, or safety-critical
 //! decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 use std::path::Path;
 
 use crate::mesh::Mesh;
@@ -671,7 +674,7 @@ pub fn revolved_profile_surface(profile: &[[f64; 2]], n_seg: usize) -> (Vec<Vec3
         } else {
             let mut r = Vec::with_capacity(n_seg);
             for j in 0..n_seg {
-                let phi = 2.0 * std::f64::consts::PI * j as f64 / n_seg as f64;
+                let phi = 2.0 * core::f64::consts::PI * j as f64 / n_seg as f64;
                 pts.push(Vec3::new(p[0] * phi.r_cos(), p[0] * phi.r_sin(), p[1]));
                 r.push(pts.len() - 1);
             }
@@ -760,7 +763,7 @@ mod revolve_tests {
             let (a, b) = (prof[i], prof[(i + 1) % m]);
             ir += (a[0] + b[0]) * (a[0] * b[1] - b[0] * a[1]);
         }
-        let tau = 2.0 * std::f64::consts::PI;
+        let tau = 2.0 * core::f64::consts::PI;
         let exact = tau * (ir / 6.0).abs();
         let k = n as f64 * (tau / n as f64).r_sin() / tau;
         assert!((v - exact * k).abs() < 1e-9 * exact, "{v} vs {}", exact * k);

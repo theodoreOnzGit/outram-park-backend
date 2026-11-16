@@ -13,6 +13,9 @@
 //! `tests/depletion_move_fingerprints.rs` pins it against fingerprints printed
 //! on the pre-move code.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use petir::depletion::cram::{ipf_cram, Complex64, CramSolver, DepSystemSolver, LuFactor};
 
 use super::matrix::DepletionMatrix;

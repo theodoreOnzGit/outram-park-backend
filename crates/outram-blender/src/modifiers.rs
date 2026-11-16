@@ -57,6 +57,9 @@
 //! multiples of the input mesh's bounding-box extent along each axis, exactly
 //! like Blender's Array modifier "Relative Offset" factor.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 
@@ -124,7 +127,7 @@ pub enum Modifier {
     /// CSG boolean against `operand` — forwards to [`crate::boolean::boolean`].
     Boolean {
         /// The cutter / combiner mesh (shared, never mutated).
-        operand: std::sync::Arc<Mesh>,
+        operand: alloc::sync::Arc<Mesh>,
         /// Union / difference / intersect.
         op: crate::ops::BooleanMode,
     },
@@ -157,7 +160,7 @@ pub enum Modifier {
     /// complement instead.
     Mask {
         /// Vertices whose fully-covered faces survive.
-        keep: std::sync::Arc<Vec<crate::mesh::VertexId>>,
+        keep: alloc::sync::Arc<Vec<crate::mesh::VertexId>>,
         /// Keep the complement.
         invert: bool,
     },
@@ -473,7 +476,7 @@ fn wireframe(input: &Mesh, thickness: f64) -> Mesh {
 
 /// Mask: keep faces whose vertices are all in `keep` (or the complement).
 fn mask(input: &Mesh, keep: &[crate::mesh::VertexId], invert: bool) -> Mesh {
-    let set: std::collections::BTreeSet<usize> = keep.iter().map(|v| v.0).collect();
+    let set: alloc::collections::BTreeSet<usize> = keep.iter().map(|v| v.0).collect();
     let faces: Vec<Vec<usize>> = input
         .polygons()
         .iter()
@@ -953,7 +956,7 @@ mod tests {
         assert_eq!(tri.face_count(), 12);
 
         let split = Modifier::EdgeSplit {
-            angle: std::f64::consts::FRAC_PI_4,
+            angle: core::f64::consts::FRAC_PI_4,
         }
         .evaluate(&c)
         .unwrap();
@@ -986,7 +989,7 @@ mod tests {
                 .collect::<Vec<_>>(),
         );
         let out = Modifier::Boolean {
-            operand: std::sync::Arc::new(b),
+            operand: alloc::sync::Arc::new(b),
             op: crate::ops::BooleanMode::Union,
         }
         .evaluate(&a)
@@ -1040,7 +1043,7 @@ mod tests {
         // resulting geometry differs.
         let bar = primitives::cylinder(8, 1.0, 4.0);
         let twist = Modifier::SimpleDeform {
-            mode: crate::deform::SimpleDeform::Twist(std::f64::consts::PI),
+            mode: crate::deform::SimpleDeform::Twist(core::f64::consts::PI),
             axis: crate::selection::Axis::Z,
         };
         let mut a = ModifierStack::new()
@@ -1096,7 +1099,7 @@ mod tests {
         let c = primitives::cube(2.0);
         assert!(
             Modifier::SimpleDeform {
-                mode: crate::deform::SimpleDeform::Twist(std::f64::consts::PI),
+                mode: crate::deform::SimpleDeform::Twist(core::f64::consts::PI),
                 axis: crate::selection::Axis::Z,
             }
             .evaluate(&c)
@@ -1147,14 +1150,14 @@ mod tests {
         // Keep the 4 verts of face 0.
         let keep: Vec<crate::mesh::VertexId> = m.face_vertices(crate::mesh::FaceId(0));
         let out = Modifier::Mask {
-            keep: std::sync::Arc::new(keep),
+            keep: alloc::sync::Arc::new(keep),
             invert: false,
         }
         .evaluate(&m)
         .unwrap();
         assert_eq!(out.face_count(), 1);
         let inv = Modifier::Mask {
-            keep: std::sync::Arc::new(m.face_vertices(crate::mesh::FaceId(0))),
+            keep: alloc::sync::Arc::new(m.face_vertices(crate::mesh::FaceId(0))),
             invert: true,
         }
         .evaluate(&m)

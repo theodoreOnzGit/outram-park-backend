@@ -71,9 +71,13 @@
 //!    the tests), and the *live* fission-yield consumption is demonstrated with
 //!    the reachable `u232_thermal_fission_yield` accessor.
 
-use std::collections::HashMap;
-use std::f64::consts::LN_2;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
+use core::f64::consts::LN_2;
 
+#[cfg(feature = "std")]
 use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
 use thiserror::Error;
 
@@ -453,6 +457,7 @@ impl DepletionChain {
         Self::from_nuclides(nuclides)
     }
 
+    #[cfg(feature = "std")]
     /// The `chain_simple.xml` chain, but with the I-135 and Xe-135 half-lives
     /// pulled **live** from the ENDF/B-VIII decay libraries, and a live read of
     /// the fission-yield data crate — proving the "consume open data, don't
@@ -527,6 +532,7 @@ impl DepletionChain {
         Self::simple_with_half_lives(i135_half_life, xe135_half_life)
     }
 
+    #[cfg(feature = "std")]
     /// Build a chain by **reading a depletion chain XML file**, rather than from
     /// a transcription of one.
     ///
@@ -684,6 +690,7 @@ impl DepletionChain {
         Ok(chain)
     }
 
+    #[cfg(feature = "std")]
     /// Read a chain straight from a file — [`Self::from_chain_xml`] with the
     /// codec's `read_file` in front of it.
     ///
@@ -874,6 +881,7 @@ fn accumulate(a: &mut DepletionMatrix, row: usize, col: usize, v: f64) {
         .expect("burnup-matrix index taken from the chain's own nuclide list");
 }
 
+#[cfg(feature = "std")]
 /// Find `name` in a decay-library `SerdeNuclideVec` and return its half-life in
 /// seconds (`None` if absent, or if the record has no half-life = stable).
 ///
@@ -929,6 +937,7 @@ mod tests {
         assert_eq!(chain.index_of("Pu239"), None);
     }
 
+    #[cfg(feature = "std")]
     /// Test 2 — decay constants from half-lives (and vs the live decay libs).
     ///
     /// Methodology: `lambda = ln(2) / T_half`. For I135 (T = 2.36520e4 s) the
@@ -1097,6 +1106,7 @@ mod tests {
         assert!((u235_xe135 - 0.002566345).abs() < 1e-12);
     }
 
+    #[cfg(feature = "std")]
     /// `simple_from_data()` reproduces the same chain structure as `simple()`.
     ///
     /// Methodology: both constructors must produce identical nuclide ordering and

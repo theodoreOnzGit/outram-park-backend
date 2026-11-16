@@ -65,6 +65,9 @@
 //! analytic volume, and slices drawn with the ported plotter
 //! (`verification_and_validation/composite_surfaces/`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod cones;
 mod polygon;
 mod prisms;
@@ -108,13 +111,13 @@ impl CompositeError {
     }
 }
 
-impl std::fmt::Display for CompositeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for CompositeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}: {}", self.composite, self.reason)
     }
 }
 
-impl std::error::Error for CompositeError {}
+impl core::error::Error for CompositeError {}
 
 /// **A composite surface expanded into primitive surfaces and two regions.**
 ///

@@ -33,6 +33,9 @@
 //! Device limits used: 4 storage buffers and one uniform per stage, within
 //! `wgpu::Limits::downlevel_defaults()`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::flat::FlatGeometry;
 use crate::csg::plot::{
@@ -90,8 +93,8 @@ pub enum GpuRenderError {
     Gpu(String),
 }
 
-impl std::fmt::Display for GpuRenderError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for GpuRenderError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::NoGeometry => write!(f, "no geometry on the GPU"),
             Self::Unsupported(w) => write!(f, "not supported on the GPU: {w}"),
@@ -100,7 +103,7 @@ impl std::fmt::Display for GpuRenderError {
     }
 }
 
-impl std::error::Error for GpuRenderError {}
+impl core::error::Error for GpuRenderError {}
 
 /// One finished (or in-flight) GPU picture.
 ///
@@ -622,7 +625,7 @@ impl CsgGpuRenderer {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         enc.copy_buffer_to_buffer(&frame.aux, 0, &staging, 0, size);
         self.queue.submit(Some(enc.finish()));
-        let done = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let done = alloc::sync::Arc::new(std::sync::Mutex::new(None));
         let d2 = done.clone();
         staging.slice(..).map_async(wgpu::MapMode::Read, move |r| {
             if let Ok(mut d) = d2.lock() {
@@ -679,7 +682,7 @@ impl CsgGpuRenderer {
 pub struct PendingIds {
     device: wgpu::Device,
     staging: wgpu::Buffer,
-    done: std::sync::Arc<std::sync::Mutex<Option<bool>>>,
+    done: alloc::sync::Arc<std::sync::Mutex<Option<bool>>>,
     n: usize,
 }
 

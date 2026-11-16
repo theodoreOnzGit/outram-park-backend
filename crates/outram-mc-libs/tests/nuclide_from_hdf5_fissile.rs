@@ -25,6 +25,8 @@
 //! plumbing work; the cross-section parity against the ACE route is
 //! `nuclide_from_hdf5.rs`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::hdf5::nuclide_laws::{
     AngleDistribution, AngleEnergy, EmissionMode, EnergyDist, Function1D, Product, Tabulated1D,
 };

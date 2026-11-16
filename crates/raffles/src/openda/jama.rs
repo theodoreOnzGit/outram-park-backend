@@ -30,6 +30,9 @@
 //! **JAMA's singular value decomposition**, in JAMA's rounding order
 //! (gh:#1192). Matrices are `Vec<Vec<f64>>`, Java's `double[][]`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 

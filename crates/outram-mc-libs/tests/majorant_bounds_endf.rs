@@ -65,6 +65,8 @@
 //! Cost: 391 s for the file, dominated by the U-235/U-238 reconstructions with
 //! URR tables (~70 s each) and the 3 M-energy audits. The two ENDF tests are
 //! therefore behind `long-tests`.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. C-12 / C-13 are referenced only by the graphite matrix; the UO2 kernel holds no carbon. Not migrated because the test audits the majorant over exactly this nuclide array (about 6.5 min on 2 cores) and was not re-run.
 
 use petir::mathf::RealMath;

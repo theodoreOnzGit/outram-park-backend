@@ -46,7 +46,7 @@ long-tests = []
 # combinatorics, and `raffles`'s own `burn` feature stays off unless a caller
 # asks for it — so the default build gains `raffles` but no tensor library.
 # Turn it off with `--no-default-features` (plus whatever else you want back).
-gnn = ["dep:raffles"]
+gnn = ["dep:raffles", "raffles/std"]
 # The TRAINABLE surrogate: `raffles`'s message-passing network and its training
 # loop, which are behind `raffles/burn`. **OFF by default, deliberately**, and
 # unlike `gnn` this one really does pull a tensor stack (burn + its ndarray

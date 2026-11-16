@@ -21,6 +21,9 @@
 //! it. Delta-tracked histories are not traced here and their ends are not
 //! counted (the chunk reports how many histories it ran).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{sample_initial_source, transport_history, DeltaDomain, MaterialQuery, Site, GEN_STRIDE, HIST_STRIDE};
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;

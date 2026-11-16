@@ -55,6 +55,8 @@
 //! `examples/graphite_kernel_vs_njoy_thermr.rs`, which read the tapes directly
 //! and print these tables in full.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 // The oracle tables themselves live in the library, at

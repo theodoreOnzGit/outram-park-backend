@@ -44,7 +44,11 @@
 //! *selected-subset* bevel needs partial-boundary handling and is also
 //! follow-up.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
+use crate::hash::{HashMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -123,8 +127,8 @@ pub fn bevel(mesh: &Mesh, opts: BevelOptions) -> Mesh {
     };
     let mut offset = match opts.width_type {
         WidthType::Offset => opts.amount,
-        WidthType::Width => opts.amount / std::f64::consts::SQRT_2,
-        WidthType::Depth => opts.amount * std::f64::consts::SQRT_2,
+        WidthType::Width => opts.amount / core::f64::consts::SQRT_2,
+        WidthType::Depth => opts.amount * core::f64::consts::SQRT_2,
         WidthType::Percent => opts.amount / 100.0 * mean_edge,
     };
     if opts.clamp_overlap {
@@ -322,8 +326,8 @@ mod tests {
 
     /// Every undirected edge is shared by exactly two faces.
     fn watertight(m: &Mesh) -> bool {
-        let mut count: std::collections::HashMap<(usize, usize), usize> =
-            std::collections::HashMap::new();
+        let mut count: crate::hash::HashMap<(usize, usize), usize> =
+            crate::hash::HashMap::new();
         for poly in m.polygons() {
             let k = poly.len();
             for i in 0..k {

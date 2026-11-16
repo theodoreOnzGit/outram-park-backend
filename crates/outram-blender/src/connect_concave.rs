@@ -84,6 +84,9 @@
 //!    index rings rebuilt per face that case cannot arise.
 //! 5. **Rebuild, not in-place.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::limited_dissolve::join_faces;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -241,7 +244,7 @@ fn split_one_concave_face(
         let l2 = positions[a2].sub(positions[b2]);
         l2.dot(l2)
             .partial_cmp(&l1.dot(l1))
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .unwrap_or(core::cmp::Ordering::Equal)
             .then_with(|| (a1, b1).cmp(&(a2, b2)))
     });
 

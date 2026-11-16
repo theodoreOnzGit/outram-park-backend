@@ -53,7 +53,7 @@ nee_soon.workspace = true
 # `tests/ci_smoke/` (GitHub #415). `njoy-outram-park-fork` is named directly only
 # for `reference_data::reference_endf`, which `outram-mc-libs` does not re-export.
 outram-mc-libs.workspace = true
-njoy-outram-park-fork.workspace = true
+njoy-outram-park-fork = { workspace = true, features = ["std"] }
 chem-eng-real-time-process-control-simulator.workspace = true
 
 # REAL (non-dev) dependency: `components::TurbineVisual` renders
@@ -68,7 +68,7 @@ chem-eng-real-time-process-control-simulator.workspace = true
 # CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
 # physics half of `TurbineVisual` is back in this crate's `components`, so
 # this entry carries the library edge again.
-tampines-steam-tables.workspace = true
+tampines-steam-tables = { workspace = true, features = ["std"] }
 
 # TUAS is a REAL (non-dev) dependency because the CIET Educational Simulator v2
 # is a `[[bin]]`, and Cargo does not make dev-dependencies available to binary
@@ -119,7 +119,7 @@ outram-foam-basic-lib = { workspace = true, features = ["std"] }
 # `Dataset`. No cycle: raffles depends only on thiserror, petir, uom, xml-rs
 # and optional burn (checked in its Cargo.toml, 2026-11-04), and it was already
 # in this crate's tree through `tampines -> raffles`, so it adds no build work.
-raffles.workspace = true
+raffles = { workspace = true, features = ["std"] }
 
 # REAL (non-dev) dependency for `msre::moltres_drift` (maintainer, 2026-11-14:
 # "wire Moltres into the digital twin lib as an explicit dependency"): the

@@ -38,7 +38,7 @@ backronym = "Probabilistic Assessment of Safety In Reactors: Risk & Reliability 
 # models; the high-fidelity solvers stay in their own crates and studios.
 [dependencies]
 # Level 1: fault trees (`raffles::scram`), sampling and UQ.
-raffles.workspace = true
+raffles = { workspace = true, features = ["std"] }
 # Level 2: in-building release (`bishan`) and the source term and offsite
 # chain it orchestrates (`sembawang`).
 bishan.workspace = true

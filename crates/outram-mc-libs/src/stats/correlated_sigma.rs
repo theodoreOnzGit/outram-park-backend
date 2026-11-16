@@ -44,6 +44,9 @@
 //! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
 //! Protocol: `verification_and_validation/stats_epic_493/495_correlated_sigma.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::physics::keff::KeffResult;
 use crate::tally::tally::Tally;
 use raffles::estimators::autocorrelation::CorrelatedMean;
@@ -196,7 +199,7 @@ impl TallyBatchRecorder {
 /// `ExtraScoring` tallies of the stepped `CsgPowerIteration` do not.
 #[derive(Debug, Clone, Default)]
 pub struct TallyBatchLog {
-    batches: std::sync::Arc<std::sync::RwLock<Vec<Vec<f64>>>>,
+    batches: alloc::sync::Arc<crate::sync::RwLock<Vec<Vec<f64>>>>,
 }
 
 impl TallyBatchLog {
@@ -209,7 +212,7 @@ impl TallyBatchLog {
     pub fn push(&self, batch: &[f64]) {
         self.batches
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(crate::sync::PoisonError::into_inner)
             .push(batch.to_vec());
     }
 
@@ -217,7 +220,7 @@ impl TallyBatchLog {
     pub fn len(&self) -> usize {
         self.batches
             .read()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(crate::sync::PoisonError::into_inner)
             .len()
     }
 
@@ -230,7 +233,7 @@ impl TallyBatchLog {
     pub fn batches(&self) -> Vec<Vec<f64>> {
         self.batches
             .read()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(crate::sync::PoisonError::into_inner)
             .clone()
     }
 }

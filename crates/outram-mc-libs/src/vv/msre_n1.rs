@@ -75,6 +75,9 @@
 //!   ([`MoTreatment::Natural`]); the other arms are kept as ablations. The script is `scripts/inor8.py` beside
 //!   `salt.py`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use crate::geometry::geometry::Geometry;
 use crate::geometry::lattice::{Lattice, RectLattice};
@@ -1637,6 +1640,7 @@ mod tests {
         assert_eq!((void, other), (0, 0));
         let total: usize = m.iter().sum();
         let f = m[SALT_IDX] as f64 / total as f64;
+        #[cfg(feature = "std")]
         println!("stringer fuel fraction {f:.5} (analytic {STRINGER_FUEL_FRACTION:.5}, TM-0728 Table 5.4: 0.224)");
         assert!((f - STRINGER_FUEL_FRACTION).abs() < 2e-3, "{f}");
         assert!((STRINGER_FUEL_FRACTION / 0.224 - 1.0).abs() < 0.006);
@@ -1652,12 +1656,14 @@ mod tests {
         let px = 1400;
         let (m, void, outside) = census(&g, Position::new(0.0, 0.0, H_CORE / 2.0), PlotBasis::Xy, [w, w], px);
         // The window's corners lie beyond the vessel: outside the model.
+        #[cfg(feature = "std")]
         println!("pixels outside the model (window corners): {outside}");
         let a_px = (w / px as f64).powi(2);
         // The square window clips the gap/can/downcomer rings; inside the
         // graphite radius only the lattice, openings and thimble voids lie.
         let graphite = m[GRAPHITE_IDX] as f64 * a_px * H_CORE / FT3;
         let salt_all = m[SALT_IDX] as f64 * a_px * H_CORE / FT3;
+        #[cfg(feature = "std")]
         println!("mid-plane census: graphite {graphite:.2} ft3, salt (window incl. gap) {salt_all:.2} ft3, void px {void}");
         assert!((graphite / 69.0 - 1.0).abs() < 0.02, "graphite {graphite}");
     }
@@ -2063,7 +2069,7 @@ mod tests {
         }
         assert!(!off.nuclides.iter().any(|j| j.name == "H1"), "no water without the shield");
         assert!(off.nuclides.len() < d.nuclides.len());
-        let names: std::collections::BTreeSet<&str> = d.nuclides.iter().map(|j| j.name).collect();
+        let names: alloc::collections::BTreeSet<&str> = d.nuclides.iter().map(|j| j.name).collect();
         assert_eq!(names.len(), d.nuclides.len(), "each nuclide once");
         for j in &d.nuclides {
             let expect = if GRAPHITE_NUCLIDES.contains(&j.name) {
@@ -2083,6 +2089,7 @@ mod tests {
         assert_eq!(m.len(), d.materials.len());
         assert!(m.iter().all(|x| x.components.iter().all(|c| c.nuclide_idx < d.nuclides.len())));
         assert_eq!(m[GRAPHITE_IDX].temperature, d.graphite_k);
+        #[cfg(feature = "std")]
         println!("MSRE_STUDY nuclides: default {} (shield off {})", d.nuclides.len(), off.nuclides.len());
         let _ = Study::default().geometry();
         let _ = Study { shield: false, ..Study::default() }.geometry();

@@ -2,6 +2,9 @@
 //! boundary conditions, enum dispatch. Membership against OpenMC, volumes
 //! and drawings are in `tests/composite_surfaces_vs_openmc.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::geometry::cell::HalfSpaceSense::{Inside, Outside};
 

@@ -48,6 +48,9 @@
 //! defaults to 10. [`IfpSettings::n_generation`] carries it on the result so a
 //! β_eff cannot be quoted without it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Which lineage data to carry — `settings::ifp_delayed_group_on` and
 /// `ifp_lifetime_on`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

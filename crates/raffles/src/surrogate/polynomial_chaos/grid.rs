@@ -48,8 +48,11 @@
 //! RAVEN's index sets, quadrature sparse grids and orthonormal polynomials
 //! for polynomial chaos.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use super::special::{eval_hermitenorm, eval_legendre, gauss_rule, numpy_around, GaussRule};
 use crate::{RafflesError, Result};

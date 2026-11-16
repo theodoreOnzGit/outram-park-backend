@@ -39,6 +39,9 @@
 //! *initial guess*, which is usually a box and bears no relation to the
 //! converged shape.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Position;
 use crate::tally::mesh::RegularMesh;
 use crate::tally::mesh::RegularMeshExt;

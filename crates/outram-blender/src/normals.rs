@@ -35,8 +35,11 @@
 //!   [`split_normals_by_angle`] auto-smooths below an angle,
 //!   [`harden_normals`] makes the selected faces contribute flat.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh, VertexId};
@@ -282,14 +285,14 @@ mod tests {
             }
         }
         // angle π → smooth (corner normals blend the 3 faces at each corner).
-        let smooth = split_normals_by_angle(&m, std::f64::consts::PI);
+        let smooth = split_normals_by_angle(&m, core::f64::consts::PI);
         assert!(smooth.normals[0][0].sub(m.face_normal(FaceId(0))).length() > 0.1);
     }
 
     #[test]
     fn harden_normals_flattens_the_selection() {
         let m = primitives::cube(2.0);
-        let sn = harden_normals(&m, &[FaceId(0)], std::f64::consts::PI);
+        let sn = harden_normals(&m, &[FaceId(0)], core::f64::consts::PI);
         let n = m.face_normal(FaceId(0));
         for &c in &sn.normals[0] {
             assert!(c.sub(n).length() < 1e-9, "hardened face is flat");

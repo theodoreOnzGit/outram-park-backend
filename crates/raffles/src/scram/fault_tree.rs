@@ -57,7 +57,10 @@
 //! assert_eq!(model.probabilities(), &[0.5, 0.7, 0.5, 0.7]);
 //! ```
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::{RafflesError, Result};
 

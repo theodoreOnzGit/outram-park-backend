@@ -65,6 +65,9 @@
 //! deferred by the maintainer, 2026-10-03). For research, education and V&V
 //! only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod build;
 pub mod convert;
 pub mod element;

@@ -19,6 +19,9 @@
 //! Drawing the voxel mesh the solver saw, and its temperatures (the
 //! "draw what the solver sees" rule of this crate's `CLAUDE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::length::centimeter;
 use uom::si::thermodynamic_temperature::kelvin;
 

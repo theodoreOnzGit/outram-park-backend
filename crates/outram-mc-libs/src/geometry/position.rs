@@ -4,4 +4,7 @@
 //! #486)**; every item is re-exported here so `outram_mc_libs::geometry::position::*`
 //! paths keep working.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use outram_blender::csg::position::*;

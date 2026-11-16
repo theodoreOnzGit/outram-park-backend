@@ -43,7 +43,11 @@
 //! chain of the new loop, so a caller can select it (mirroring the "and Slide"
 //! tool leaving the new loop selected).
 
-use std::collections::{BTreeSet, HashMap};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeSet;
+use crate::hash::HashMap;
 
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};
 use crate::topology::{self, MeshTopology};

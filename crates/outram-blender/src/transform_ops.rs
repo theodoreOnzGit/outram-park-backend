@@ -37,6 +37,9 @@
 //! - [`randomize`] — deterministic per-vertex jitter.
 //! - [`smooth_vertices`] — Laplacian smoothing with a per-axis mask.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
@@ -226,7 +229,7 @@ pub fn smooth_vertices(
     mask: [bool; 3],
 ) -> Mesh {
     let topo = MeshTopology::new(mesh);
-    let sel: std::collections::BTreeSet<usize> = if verts.is_empty() {
+    let sel: alloc::collections::BTreeSet<usize> = if verts.is_empty() {
         (0..mesh.vertex_count()).collect()
     } else {
         verts.iter().map(|v| v.0).collect()
@@ -322,7 +325,7 @@ mod tests {
         }
         // dummy face to keep verts
         m.add_face(&[VertexId(0), VertexId(1), VertexId(3)]);
-        let b = bend(&m, &[], Vec3::ZERO, Axis::X, Axis::Z, std::f64::consts::PI);
+        let b = bend(&m, &[], Vec3::ZERO, Axis::X, Axis::Z, core::f64::consts::PI);
         // The far ends rotated toward each other → both x < original magnitude.
         let end = b.vertex(VertexId(16)).unwrap().position; // x was +4
         assert!(end.x < 3.5, "the +X end bent inward");

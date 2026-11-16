@@ -85,6 +85,9 @@
 //! 3. **Rebuild, not in-place split.** Upstream mutates a BMesh; this
 //!    returns a new [`Mesh`], like every other operator in this crate.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -94,7 +97,7 @@ use crate::polyfill;
 /// expressed in radians.
 ///
 /// Faces whose two best halves differ by less than this are left alone.
-pub const DEFAULT_ANGLE_LIMIT: f64 = 5.0 * std::f64::consts::PI / 180.0;
+pub const DEFAULT_ANGLE_LIMIT: f64 = 5.0 * core::f64::consts::PI / 180.0;
 
 /// Upstream `BM_face_calc_normal_subset` (`bmesh_polygon.cc:1036`) — the
 /// Newell normal of the corner run `ring[a..=b]`, walking forward with
@@ -501,7 +504,7 @@ mod tests {
         let n = 6;
         let pts: Vec<Vec3> = (0..n)
             .map(|i| {
-                let t = std::f64::consts::TAU * (i as f64) / (n as f64);
+                let t = core::f64::consts::TAU * (i as f64) / (n as f64);
                 // Alternating lift: a corrugated hexagon.
                 Vec3::new(t.r_cos(), t.r_sin(), if i % 2 == 0 { 0.4 } else { -0.4 })
             })
@@ -554,7 +557,7 @@ mod tests {
         let bow: Vec<Vec3> = (0..6)
             .map(|i| {
                 let t = i as f64 / 5.0;
-                Vec3::new(i as f64, 0.0, amp * (std::f64::consts::PI * t).r_sin())
+                Vec3::new(i as f64, 0.0, amp * (core::f64::consts::PI * t).r_sin())
             })
             .collect();
         let e_zig = subset_planarity_error(&zig, 0, 5, n);

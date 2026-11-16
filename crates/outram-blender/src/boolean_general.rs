@@ -119,6 +119,9 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::boolean::BooleanError;
 use crate::boolean_classify::winding_number;
 use crate::boolean_predicates::{incircle, orient2d, Vec2};
@@ -890,7 +893,7 @@ mod tests {
     /// faces — the combinatorial test for a closed 2-manifold (watertight, no
     /// boundary edges, no non-manifold edges shared by 3+ faces).
     fn is_manifold(m: &Mesh) -> bool {
-        use std::collections::HashMap;
+        use crate::hash::HashMap;
         let mut edge_use: HashMap<(usize, usize), usize> = HashMap::new();
         for face in m.polygons() {
             let n = face.len();

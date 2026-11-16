@@ -35,6 +35,9 @@
 //! - [`warp`] — bend space so a "from" segment maps onto a "to" segment.
 //! - [`wave`] — a travelling sine ripple.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
@@ -305,7 +308,7 @@ pub fn wave(
     let wl = wavelength.abs().max(1e-6);
     deform(mesh, verts, |p| {
         let radial = p.sub(k.scale(p.dot(k))).length();
-        let phase = std::f64::consts::TAU * (radial / wl - speed * time);
+        let phase = core::f64::consts::TAU * (radial / wl - speed * time);
         p.add(k.scale(amplitude * phase.r_sin()))
     })
 }
@@ -356,7 +359,7 @@ mod tests {
         let b = m.add_vertex(Vec3::new(1.0, 0.0, 1.0));
         let c = m.add_vertex(Vec3::new(0.0, 1.0, 0.0));
         m.add_face(&[a, b, c]);
-        let t = simple_deform(&m, &[], SimpleDeform::Twist(std::f64::consts::PI), Axis::Z);
+        let t = simple_deform(&m, &[], SimpleDeform::Twist(core::f64::consts::PI), Axis::Z);
         let pa = t.vertex(a).unwrap().position;
         let pb = t.vertex(b).unwrap().position;
         // The two ends' x/y swapped signs relative to each other.

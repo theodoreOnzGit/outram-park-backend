@@ -36,10 +36,13 @@
 //! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
 //! Protocol: `verification_and_validation/stats_epic_493/494_seed_ensembles.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use raffles::estimators::seed_consistency::{
     group_mean_scatter, seed_consistency, GroupMeanScatter, SeedConsistency,
 };
-use std::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 /// Group size for [`EnsembleReport::group_scatter`], fixed in advance: 32
 /// seeds (this workspace's standard) give 8 disjoint groups of 4.
@@ -62,7 +65,7 @@ pub struct SeedRun {
 /// The result never depends on it (see the module docs); only the wall clock
 /// does.
 pub fn default_workers() -> usize {
-    std::thread::available_parallelism()
+    crate::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4)
 }
@@ -99,7 +102,7 @@ where
         return out;
     }
     let done = AtomicUsize::new(0);
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     {
         let _ = workers;
         for slot in out.iter_mut() {
@@ -109,7 +112,7 @@ where
             progress(done.fetch_add(1, Ordering::Relaxed) + 1);
         }
     }
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     {
         let chunk = seeds.len().div_ceil(workers.min(seeds.len()).max(1));
         let run = &run;

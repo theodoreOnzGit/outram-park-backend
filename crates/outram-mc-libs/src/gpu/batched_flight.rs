@@ -40,6 +40,9 @@
 // mirror is bit-identical across hosts. The GPU side still uses the WGSL
 // shader intrinsics, which are driver-defined; the mirror/GPU agreement
 // test tolerance covers that difference.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Structure-of-Arrays batch of live neutrons resident for the GPU flight kernel.
@@ -124,7 +127,7 @@ pub enum FlightOutcome {
 impl FlightOutcome {
     /// Decode the shader's `u32` outcome code (`0 = Leaked`, anything else =
     /// `Collided`) into a [`FlightOutcome`]. Used only by the GPU read-back path.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[inline]
     fn from_code(code: u32) -> Self {
         if code == 0 {
@@ -355,7 +358,7 @@ pub fn advance_flight_cpu_mirror(
 /// `bytemuck` is intentionally not a dependency of this crate; both the CPU
 /// upload and the same-machine GPU agree on byte order, so native-endian is
 /// correct.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -365,7 +368,7 @@ fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
 }
 
 /// Reinterpret an `&[u32]` slice as native-endian bytes for buffer upload.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn u32_slice_to_bytes(data: &[u32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -378,7 +381,7 @@ fn u32_slice_to_bytes(data: &[u32]) -> Vec<u8> {
 /// (16 bytes), then the sphere `vec4<f32>` `(x0, y0, z0, r)` (16 bytes), all
 /// native-endian. Layout mirrors the WGSL `Params` struct (std140 alignment:
 /// the `vec4` sits at offset 16).
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn pack_params(n_grid: u32, n_particle: u32, sphere: FlightSphere) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(32);
     bytes.extend_from_slice(&n_grid.to_ne_bytes());
@@ -393,7 +396,7 @@ fn pack_params(n_grid: u32, n_particle: u32, sphere: FlightSphere) -> Vec<u8> {
 }
 
 /// Rebuild a `Vec<f32>` of length `n` from a native-endian byte view.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_f32_vec(bytes: &[u8], n: usize) -> Vec<f32> {
     let mut out = Vec::with_capacity(n);
     for chunk in bytes.chunks_exact(4).take(n) {
@@ -403,7 +406,7 @@ fn bytes_to_f32_vec(bytes: &[u8], n: usize) -> Vec<f32> {
 }
 
 /// Rebuild a `Vec<u32>` of length `n` from a native-endian byte view.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_u32_vec(bytes: &[u8], n: usize) -> Vec<u32> {
     let mut out = Vec::with_capacity(n);
     for chunk in bytes.chunks_exact(4).take(n) {
@@ -439,7 +442,7 @@ fn bytes_to_u32_vec(bytes: &[u8], n: usize) -> Vec<u32> {
 /// `grid.len() == sigma.len() >= 2`, `grid` sorted ascending; the batch length
 /// invariants in [`FlightBatch`]. An empty batch returns an empty `Vec` without
 /// touching the GPU.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn advance_flight_gpu(
     ctx: &crate::gpu::GpuContext,
     grid: &[f32],
@@ -472,7 +475,7 @@ pub fn advance_flight_gpu(
     let mut state_packed = Vec::with_capacity(3 * n);
     state_packed.extend_from_slice(&batch.rng_hi);
     state_packed.extend_from_slice(&batch.rng_lo);
-    state_packed.extend(std::iter::repeat(0u32).take(n)); // outcome
+    state_packed.extend(core::iter::repeat(0u32).take(n)); // outcome
 
     // --- Read-only input buffers ---------------------------------------------
     let xs_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -505,8 +508,8 @@ pub fn advance_flight_gpu(
     });
 
     // --- Staging buffers (one per read-back array) ---------------------------
-    let pos_size = (batch.pos.len() * std::mem::size_of::<f32>()) as wgpu::BufferAddress;
-    let state_size = (state_packed.len() * std::mem::size_of::<u32>()) as wgpu::BufferAddress;
+    let pos_size = (batch.pos.len() * core::mem::size_of::<f32>()) as wgpu::BufferAddress;
+    let state_size = (state_packed.len() * core::mem::size_of::<u32>()) as wgpu::BufferAddress;
     let make_staging = |label: &str, size: wgpu::BufferAddress| {
         device.create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
@@ -694,10 +697,11 @@ mod tests {
     /// advance bit-for-bit. On CPU-only CI (no adapter) this prints a SKIP line
     /// and returns green. (The f32 *uniform value* intentionally differs from the
     /// CPU `f64 prn` — only the integer state is asserted here.)
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_lcg_state_matches_cpu() {
         let Some(ctx) = crate::gpu::probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP gpu_lcg_state_matches_cpu: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -755,6 +759,7 @@ mod tests {
             }
         }
         assert_eq!(exact, n, "all {n} LCG states must be bit-exact");
+        #[cfg(feature = "std")]
         eprintln!(
             "gpu_lcg_state_matches_cpu: {exact}/{n} bit-exact on {}",
             ctx.info.name
@@ -798,10 +803,11 @@ mod tests {
     /// 1.2 R: `1 - (4/3)pi / 2.4^3`) leaks before the distance test on both sides, as OpenMC's
     /// `Surface::sense` puts it out of its cell; before, an outside particle
     /// aimed inward could collide outside the sphere.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_flight_matches_cpu_mirror() {
         let Some(ctx) = crate::gpu::probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP gpu_flight_matches_cpu_mirror: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -929,6 +935,7 @@ mod tests {
             frac < 1e-3,
             "outcome mismatches {outcome_mismatch}/{n} exceed 0.1% (near-tangent tolerance)"
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "gpu_flight_matches_cpu_mirror on {}: outcome_mismatch={outcome_mismatch}/{n}, \
              max_pos_diff={max_pos_diff} cm",
@@ -1132,9 +1139,10 @@ mod tests {
             }
         }
 
-        #[cfg(not(target_os = "android"))]
+        #[cfg(all(feature = "std", not(target_os = "android")))]
         {
             let Some(ctx) = crate::gpu::probe() else {
+                #[cfg(feature = "std")]
                 eprintln!("SKIP GPU arm of mirror_and_gpu_resolve_the_sphere_surface_as_openmc");
                 return;
             };
@@ -1143,6 +1151,7 @@ mod tests {
             assert_eq!(out_gpu, want, "GPU outcomes on {}", ctx.info.name);
             assert_eq!(gpu.rng_hi, cpu.rng_hi);
             assert_eq!(gpu.rng_lo, cpu.rng_lo);
+            #[cfg(feature = "std")]
             eprintln!(
                 "mirror_and_gpu_resolve_the_sphere_surface_as_openmc: {:?} on {}, case-2 d = {d2:e} cm",
                 out_gpu, ctx.info.name

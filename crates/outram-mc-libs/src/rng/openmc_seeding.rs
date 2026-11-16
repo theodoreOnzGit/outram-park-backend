@@ -91,6 +91,9 @@
 //! loop) generation `g` (0-based) is batch `g + 1`, so the transport seed of
 //! history `i` (0-based) is `g * n_particles + (i + 1)` on a single rank.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use petir::rng::lcg::{
     future_seed_coefficients, init_particle_seeds, DEFAULT_STRIDE, N_STREAMS, STREAM_SOURCE,
     STREAM_TRACKING, STREAM_URR_PTABLE, STREAM_VOLUME,

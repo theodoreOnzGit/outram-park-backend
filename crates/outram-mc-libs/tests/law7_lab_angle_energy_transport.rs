@@ -65,6 +65,8 @@
 //! so a `cm_frame` law here would be put through a CM->lab transform it must
 //! never see.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::nuclear_data::secondary::{ContinuumAngular, ContinuumEmission};
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use outram_mc_libs::geometry::position::Direction;

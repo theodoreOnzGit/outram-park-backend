@@ -56,6 +56,9 @@
 //! refuses `--probability` on `TwoTrain/nondeclarative_substitutions.xml` and
 //! runs it under `--rare-event`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::mef::{Formula, FormulaArg, MefConnective};
 use super::probability::CutSet;
 use crate::{RafflesError, Result};

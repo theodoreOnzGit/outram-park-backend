@@ -14,7 +14,10 @@
 //! [`Polygon`]: a closed path of points, concave allowed, extruded along the
 //! missing axis (or revolved, for the `rz` basis).
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 use super::{and, neg, not, or, pos, Builder, CompositeError, CompositeRegion, T};
 use crate::geometry::cell::RegionToken;

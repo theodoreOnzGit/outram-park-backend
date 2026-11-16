@@ -13,6 +13,9 @@
 //! crossings (each adds two 1e-9 cm nudges).
 //! Result (2026-11-14, release): all pass; see the issue comment for numbers.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use petir::mathf::RealMath;
 use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken, SurfaceToken};
@@ -192,7 +195,7 @@ fn folded_straight_lines_stay_consistent_over_many_crossings() {
             let rho0 = 0.5 + 4.5 * crate::rng::lcg::prn(&mut seed);
             let phi0 = th * (0.05 + 0.9 * crate::rng::lcg::prn(&mut seed));
             let r0 = Position::new(rho0 * phi0.r_cos(), rho0 * phi0.r_sin(), 0.0);
-            let az = std::f64::consts::TAU * crate::rng::lcg::prn(&mut seed);
+            let az = core::f64::consts::TAU * crate::rng::lcg::prn(&mut seed);
             let mu = 0.4 * (2.0 * crate::rng::lcg::prn(&mut seed) - 1.0);
             let sin_t = (1.0 - mu * mu).sqrt();
             let u0 = Direction::new(sin_t * az.r_cos(), sin_t * az.r_sin(), mu);

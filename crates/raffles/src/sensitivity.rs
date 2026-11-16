@@ -167,6 +167,9 @@
 //! you are about to port traces back to either, stop and ask rather than
 //! guessing at the header. See the crate `NOTICE` and `NOTICE-RAVEN`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{RafflesError, Result};
 use core::ops::Range;
 

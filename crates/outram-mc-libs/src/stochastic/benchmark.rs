@@ -70,6 +70,9 @@
 //!
 //! This module is **new work**, not an OpenMC port.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Position;
 use crate::pebble_beds::sphere_packing::{PackedSpheres, PackingConfig, PackingError, PackingMethod};
 use crate::rng::distributions::isotropic_direction;

@@ -48,6 +48,9 @@
 //! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
 //! Protocol: `verification_and_validation/stats_epic_493/498_uq_sensitivity.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use raffles::distributions::{ContinuousDistribution1D, Distribution};
 use raffles::samplers::{MonteCarlo, Sampler, SamplingDesign};

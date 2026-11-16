@@ -57,6 +57,9 @@
 //! (`collision` / `inelastic_scatter`). The reflective-cube flight is new pebble-bed
 //! assembly built on this crate's primitives.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod distributed;
 
@@ -583,7 +586,7 @@ where
     // The flight reads the state through a `RefCell` because `DeltaRegion`
     // methods take `&self`; the borrow lasts one point query, on one thread,
     // so there is no lock and no contention (GitHub #205).
-    let state = std::cell::RefCell::new(state);
+    let state = core::cell::RefCell::new(state);
     let region = DomainRegion {
         domain,
         material_at: |p: Position| material_at.material_at(&mut **state.borrow_mut(), p),
@@ -1055,11 +1058,11 @@ pub fn run_keff_delta_par_in<Q>(
 where
     Q: MaterialQuery,
 {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par as rayon;
 
 
@@ -1746,6 +1749,7 @@ mod tests {
 
         let sigma_comb = (seq.k_std.r_powi(2) + par1.k_std.r_powi(2)).sqrt().max(1e-9);
         let dist = (seq.k_mean - par1.k_mean).abs() / sigma_comb;
+        #[cfg(feature = "std")]
         eprintln!(
             "[delta backend agreement] seq = {:.5} ± {:.5}, par = {:.5} ± {:.5}  ({:.2}σ apart)",
             seq.k_mean, seq.k_std, par1.k_mean, par1.k_std, dist
@@ -1971,6 +1975,7 @@ mod tests {
             );
             let sigma = (cube.k_std.r_powi(2) + sphere.k_std.r_powi(2)).sqrt().max(1e-9);
             let dist = (cube.k_mean - sphere.k_mean).abs() / sigma;
+            #[cfg(feature = "std")]
             eprintln!(
                 "[k∞ shape independence, size {size}] cube {:.5} ± {:.5} vs sphere \
                  {:.5} ± {:.5}  ({dist:.2}σ, {:+.0} pcm)",

@@ -35,6 +35,9 @@
 //! (a hardware FMA, or libm's software `fma`), so the results do not depend
 //! on the build's target features.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::bayesian::koh::pairwise_sum;
 use crate::{RafflesError, Result};
 

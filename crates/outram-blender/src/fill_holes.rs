@@ -58,9 +58,13 @@
 //! edges (degenerate) is left uncapped. No `faer`, no external dependency;
 //! Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::{BTreeMap, HashSet};
+use alloc::collections::BTreeMap;
+use crate::hash::HashSet;
 
 /// Cap every open boundary loop of `mesh` with a centroid triangle fan,
 /// returning the watertight mesh.

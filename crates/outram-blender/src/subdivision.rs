@@ -89,7 +89,10 @@
 //!   boundary) is held fixed as a safe fallback. Neither case is covered by the
 //!   V&V tests below.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;

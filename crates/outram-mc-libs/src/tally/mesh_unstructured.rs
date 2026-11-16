@@ -67,6 +67,9 @@
 //! for it, so it bins no event. OpenMC fixes `n_dimension_ = 3` for every
 //! unstructured mesh (`mesh.cpp:893`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_blender::unstructured::geometry::tet_signed_volume;
 pub use outram_blender::unstructured::UnstructuredMesh;
@@ -132,7 +135,7 @@ fn in_cell(mesh: &UnstructuredMesh, c: usize, q: [f64; 3]) -> bool {
     }
     let mut omega = 0.0;
     mesh.for_each_bounding_triangle(c, |t| omega += solid_angle(q, t[0], t[1], t[2]));
-    omega / (4.0 * std::f64::consts::PI) >= 0.5 - INSIDE_TOL
+    omega / (4.0 * core::f64::consts::PI) >= 0.5 - INSIDE_TOL
 }
 
 /// Point location in mesh units.
@@ -222,7 +225,7 @@ impl UnstructuredMeshExt for UnstructuredMesh {
                 }
             }
         }
-        hits.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
+        hits.sort_by(|x, y| x.partial_cmp(y).unwrap_or(core::cmp::Ordering::Equal));
         hits.dedup_by(|x, y| (*x - *y).abs() <= SAME_HIT_TOL);
 
         // No crossing: the segment lies in one cell (or outside the mesh).
@@ -235,7 +238,7 @@ impl UnstructuredMeshExt for UnstructuredMesh {
         // One sub-segment per pair of consecutive crossings, located at its
         // midpoint, plus the tail after the last crossing.
         let mut last = 0.0;
-        for &t in hits.iter().chain(std::iter::once(&1.0)) {
+        for &t in hits.iter().chain(core::iter::once(&1.0)) {
             let seg = t - last;
             if seg > SAME_HIT_TOL {
                 if let Some(c) = locate_unit(self, at(last + 0.5 * seg)) {

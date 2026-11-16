@@ -22,6 +22,9 @@
 //! module docs and in `verification_and_validation/tutorial_rung2/README.md`
 //! and `tutorial_rung3/README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::material::material::{Material, NuclideComponent};
 use crate::pebble_beds::fhr_pebble::TrisoSpec;

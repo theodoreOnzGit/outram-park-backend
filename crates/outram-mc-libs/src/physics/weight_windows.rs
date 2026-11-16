@@ -29,6 +29,9 @@
 //! [`WeightWindows::look_up`] is called after a surface crossing and after a
 //! collision, and [`apply`] plays the game.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Position;
 use crate::physics::variance_reduction::russian_roulette;
 use crate::tally::mesh::RegularMesh;
@@ -689,6 +692,7 @@ mod tests {
                 *weight <= w.upper_weight * (1.0 + WEIGHT_WINDOW_REL_TOL)
                     && *weight >= w.lower_weight * (1.0 - WEIGHT_WINDOW_REL_TOL)
             }) {
+                #[cfg(feature = "std")]
                 println!(
                     "cascade settled after {} generations: {} particles, {produced} produced",
                     generation + 1,
@@ -746,6 +750,7 @@ mod tests {
             let p = start / w_s;
             let sigma = (p * (1.0 - p) / N as f64).sqrt() * w_s;
             let dev = (mean - start).abs() / sigma;
+            #[cfg(feature = "std")]
             println!(
                 "start {start:.2}: survivors {survivors}, mean weight {mean:.6} vs \
                  {start:.6} ({dev:.2} sigma); promoted to {w_s:.3}"
@@ -753,6 +758,7 @@ mod tests {
             worst = worst.max(dev);
             assert!(dev < 4.0, "expected weight not preserved: {dev:.2} sigma");
         }
+        #[cfg(feature = "std")]
         println!("worst deviation across all starting weights: {worst:.2} sigma");
     }
 
@@ -875,6 +881,7 @@ mod tests {
         let volumes = vec![1.0_f64; 4];
         ww.update_magic(&sum, &sum_sq, &volumes, n, 0.1, 5.0).unwrap();
 
+        #[cfg(feature = "std")]
         println!("MAGIC lower bounds: {:?}", ww.lower);
         assert!(
             (ww.lower[0] - 0.5).abs() < 1e-12,
@@ -915,6 +922,7 @@ mod tests {
         ];
         ww.update_magic(&sum, &sum_sq, &vec![1.0; 4], n, 0.1, 5.0)
             .unwrap();
+        #[cfg(feature = "std")]
         println!("MAGIC lower bounds with unresolved cells: {:?}", ww.lower);
         assert!(ww.lower[0] > 0.0, "the resolved cell must carry a window");
         for i in 1..4 {

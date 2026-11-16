@@ -63,6 +63,9 @@
 //! divergence theorem whatever the cell's shape (a warped face adds the usual
 //! OpenFOAM approximation).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `a - b`.
 #[inline]
 pub fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {

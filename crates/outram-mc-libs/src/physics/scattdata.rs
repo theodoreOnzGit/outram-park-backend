@@ -61,6 +61,9 @@
 //! that compares sampled cosines against `mean_cosine` for a negative-going
 //! kernel is testing the wrong number.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::physics::collision_probability::gauss_legendre;
 use crate::rng::lcg::prn;
 
@@ -781,6 +784,7 @@ mod tests {
             // Var(mu) <= 1, so the mean's sigma is at most 1/sqrt(N).
             let sigma = 1.0 / (N as f64).sqrt();
             let dev = (measured - want).abs() / sigma;
+            #[cfg(feature = "std")]
             println!(
                 "a1 = {a1:+.2}: declared <mu> = {:+.6}, truncated reference = {want:+.6}, \
                  sampled = {measured:+.6} ({dev:.2} sigma)",
@@ -861,6 +865,7 @@ mod tests {
         for n_mu in [9, 17, 33, 129, 1025] {
             let t = TabularKernel::from_legendre(&k, n_mu).unwrap();
             let err = (t.mean_cosine() - exact).abs();
+            #[cfg(feature = "std")]
             println!(
                 "n_mu = {n_mu:5}: tabular <mu> = {:+.6} vs exact {exact:+.6} \
                  (error {err:.2e})",
@@ -962,6 +967,7 @@ mod tests {
         let want = h.mean_cosine();
         let sigma = 1.0 / (N as f64).sqrt();
         let dev = (measured - want).abs() / sigma;
+        #[cfg(feature = "std")]
         println!(
             "histogram(64): own <mu> = {want:+.6}, sampled {measured:+.6} \
              ({dev:.2} sigma); underlying Legendre <mu> = {:+.6}",
@@ -1010,6 +1016,7 @@ mod tests {
         // Independent streams, so the difference carries sqrt(2) sigma.
         let sigma = (2.0_f64 / N as f64).sqrt();
         let dev = (rej - inv).abs() / sigma;
+        #[cfg(feature = "std")]
         println!(
             "rejection <mu> = {rej:+.6}, inversion <mu> = {inv:+.6} ({dev:.2} sigma), \
              exact {:+.6}",

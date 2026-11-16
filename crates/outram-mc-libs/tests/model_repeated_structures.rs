@@ -41,6 +41,8 @@
 //! kernel volume agrees within its 4-sigma band. The k values are not
 //! physics results (LOW tier, tiny runs).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;

@@ -7365,6 +7365,7 @@ dependencies = [
  "egui_plot",
  "env_logger",
  "farrer-park",
+ "hashbrown 0.16.1",
  "miniz_oxide 0.8.9",
  "naga",
  "outram-foam-basic-lib",
@@ -7473,6 +7474,7 @@ version = "0.0.7"
 dependencies = [
  "approx",
  "fission-yields-data",
+ "hashbrown 0.16.1",
  "log",
  "miniz_oxide 0.8.9",
  "naga",
@@ -7487,6 +7489,7 @@ dependencies = [
  "raffles",
  "ratatui",
  "rayon",
+ "spin 0.10.1",
  "tampines-steam-tables",
  "thiserror 2.0.21",
  "uom",

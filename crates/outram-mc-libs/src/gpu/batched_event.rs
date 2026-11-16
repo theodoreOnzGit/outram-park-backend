@@ -49,6 +49,9 @@
 // mirror is bit-identical across hosts. The GPU side still uses the WGSL
 // shader intrinsics, which are driver-defined; the mirror/GPU agreement
 // test tolerance covers that difference.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::gpu::collision_grid::CollisionTables;
@@ -58,10 +61,10 @@ pub const FISS_NONE: u32 = 0xFFFF_FFFF;
 
 /// Words per fission-site record in the GPU `ctrl` buffer (see the CTRL LAYOUT in
 /// `batched_event.wgsl`).
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 const RECORD_WORDS: usize = 12;
 /// Header words of the GPU `ctrl` buffer before the first record.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 const CTRL_HEADER_WORDS: usize = 4;
 
 /// Where the fused event path banks fission sites (gh:#1444 e, 2026-11-11).
@@ -466,7 +469,7 @@ pub fn rotate_direction_f32_unguarded(
     hi: u32,
 ) -> ([f32; 3], u32, u32) {
     let (lo, hi, xi) = rng_next(lo, hi);
-    let phi = 2.0 * std::f32::consts::PI * xi;
+    let phi = 2.0 * core::f32::consts::PI * xi;
     let (sinphi, cosphi) = phi.r_sin_cos();
     let a = (1.0 - mu * mu).max(0.0).sqrt();
     let b0 = (1.0 - u[2] * u[2]).max(0.0).sqrt();
@@ -873,7 +876,7 @@ pub fn advance_generation_cpu_mirror_banking(
 // GPU compute path (non-Android only).
 // ---------------------------------------------------------------------------
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn f32_bytes(data: &[f32]) -> Vec<u8> {
     let mut b = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -882,7 +885,7 @@ fn f32_bytes(data: &[f32]) -> Vec<u8> {
     b
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn u32_bytes(data: &[u32]) -> Vec<u8> {
     let mut b = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -891,7 +894,7 @@ fn u32_bytes(data: &[u32]) -> Vec<u8> {
     b
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_f32(bytes: &[u8], n: usize) -> Vec<f32> {
     bytes
         .chunks_exact(4)
@@ -900,7 +903,7 @@ fn bytes_to_f32(bytes: &[u8], n: usize) -> Vec<f32> {
         .collect()
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_u32(bytes: &[u8], n: usize) -> Vec<u32> {
     bytes
         .chunks_exact(4)
@@ -911,7 +914,7 @@ fn bytes_to_u32(bytes: &[u8], n: usize) -> Vec<u32> {
 
 /// Pack the 32-byte `Params` uniform: `n_grid, n_particle, n_nuclide, pad` (16 B)
 /// (`pad` = the `keff_bits` word) then the sphere `vec4<f32>` (16 B), native-endian, matching the WGSL `Params`.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn pack_params(
     n_grid: u32,
     n_particle: u32,
@@ -944,7 +947,7 @@ fn pack_params(
 /// This is the `f32` accelerated counterpart of [`advance_generation_cpu_mirror`];
 /// the per-event GPU logic is held to the CPU mirror by the V&V test in this file.
 /// An empty batch returns `0` without touching the GPU.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn advance_generation_gpu(
     ctx: &crate::gpu::GpuContext,
     tables: &EventTablesF32,
@@ -970,7 +973,7 @@ pub fn advance_generation_gpu(
 /// record buffer starts at `2N + 1024` and the generation is re-run from the
 /// untouched initial batch with a doubled capacity if the kernel reports more
 /// records than fit, so no record is ever dropped.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn advance_generation_gpu_banking(
     ctx: &crate::gpu::GpuContext,
     tables: &EventTablesF32,
@@ -994,7 +997,7 @@ pub fn advance_generation_gpu_banking(
 
 /// [`advance_generation_gpu_banking`] with an explicit initial record capacity
 /// (tests pass a tiny one to exercise the grow-and-rerun path).
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 #[allow(clippy::too_many_arguments)]
 pub fn advance_generation_gpu_banking_with_capacity(
     ctx: &crate::gpu::GpuContext,
@@ -1020,7 +1023,7 @@ pub fn advance_generation_gpu_banking_with_capacity(
 
 /// One attempt at [`advance_generation_gpu_banking`] with a fixed record capacity.
 /// `Err(total_records)` (batch untouched) when the kernel wrote more than `cap`.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn advance_generation_gpu_inner(
     ctx: &crate::gpu::GpuContext,
     tables: &EventTablesF32,
@@ -1423,10 +1426,11 @@ mod tests {
     /// (Vulkan); see the committed `docs/gpu_collision_dev_log.md` for the measured
     /// mismatch counts. On CPU-only CI this prints a SKIP line and returns green
     /// (the CPU mirror is still a callable reference there).
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_event_matches_cpu_mirror() {
         let Some(ctx) = crate::gpu::probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP gpu_event_matches_cpu_mirror: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -1493,6 +1497,7 @@ mod tests {
             max_prod_rel < 1e-3,
             "max production rel diff {max_prod_rel}"
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "gpu_event_matches_cpu_mirror on {}: alive_mismatch={alive_mismatch}/{n}, \
              max_e_rel={max_e_rel}, max_prod_rel={max_prod_rel}",

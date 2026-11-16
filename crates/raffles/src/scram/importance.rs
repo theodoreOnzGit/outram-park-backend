@@ -29,6 +29,9 @@
 //! *differently* because they ask different questions — see
 //! [`ImportanceFactors`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::probability::{top_event_probability, Approximation, CutSet};
 use crate::{RafflesError, Result};
 

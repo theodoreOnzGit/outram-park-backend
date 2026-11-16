@@ -64,6 +64,9 @@
 //!   condition. arXiv:2507.08861.
 //!   <https://arxiv.org/abs/2507.08861>
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::graph::Graph;
 use crate::{RafflesError, Result};
 

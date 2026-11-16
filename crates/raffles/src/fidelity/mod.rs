@@ -64,6 +64,9 @@
 //! digital twin engine's double-pipe pair
 //! (`outram_park_digital_twin_engine::multifidelity::double_pipe::fidelity`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod build;
 mod dataset;
 pub mod koh;

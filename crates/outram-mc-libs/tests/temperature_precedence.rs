@@ -63,6 +63,8 @@
 //! Recorded in `docs/temperatures.md` from this test's printout (2026-09-27,
 //! re-measured 2026-09-30 twice: once for the H-1 protocol, once for #313).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;

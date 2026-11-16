@@ -19,6 +19,8 @@
 //! drivers. A bank that empties in the LAST generation (one generation
 //! requested) is an error too.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;

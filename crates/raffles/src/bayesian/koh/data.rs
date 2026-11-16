@@ -26,6 +26,9 @@
 //! cube over the simulator's range, y standardised by the simulator's mean
 //! and standard deviation).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{RafflesError, Result};
 
 /// numpy's `pairwise_sum` (`numpy/core/src/umath/loops_utils.h.src`): a

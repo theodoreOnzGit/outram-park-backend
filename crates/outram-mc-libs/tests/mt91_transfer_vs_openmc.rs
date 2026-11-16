@@ -129,6 +129,8 @@
 //!
 //! Recorded in this file's assertions and printed on every run.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use outram_mc_libs::material::nuclide::Nuclide;
 

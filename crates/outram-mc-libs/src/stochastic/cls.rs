@@ -70,6 +70,9 @@
 //! crate's "mirror the canonical source" rule does not apply here (see the crate
 //! `CLAUDE.md`: new parts are scaffolded only where genuinely absent upstream).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Position;
 use crate::rng::lcg::prn;
 use crate::stochastic::medium::{MaterialId, MediumError};
@@ -549,7 +552,7 @@ mod tests {
             // 1. Entry point uniform on the sphere's surface.
             let cz = 2.0 * prn(&mut seed) - 1.0;
             let sz = (1.0 - cz * cz).max(0.0).sqrt();
-            let phi = 2.0 * std::f64::consts::PI * prn(&mut seed);
+            let phi = 2.0 * core::f64::consts::PI * prn(&mut seed);
             let p = [r * sz * phi.r_cos(), r * sz * phi.r_sin(), r * cz];
 
             // Inward normal, and an orthonormal basis around it.
@@ -576,7 +579,7 @@ mod tests {
             // 2. Cosine-weighted inward direction: cos(theta) = sqrt(xi).
             let cos_t = prn(&mut seed).sqrt();
             let sin_t = (1.0 - cos_t * cos_t).max(0.0).sqrt();
-            let psi = 2.0 * std::f64::consts::PI * prn(&mut seed);
+            let psi = 2.0 * core::f64::consts::PI * prn(&mut seed);
             let d = [
                 sin_t * psi.r_cos() * t1[0] + sin_t * psi.r_sin() * t2[0] + cos_t * nrm[0],
                 sin_t * psi.r_cos() * t1[1] + sin_t * psi.r_sin() * t2[1] + cos_t * nrm[1],

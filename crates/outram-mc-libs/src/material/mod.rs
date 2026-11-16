@@ -17,6 +17,9 @@
 //!
 //! Geometry, sources and tallies live in their own modules; transport itself
 //! is in [`crate::physics`].
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cell_temperature;
 pub mod material;
 pub mod material_sab;

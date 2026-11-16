@@ -36,6 +36,9 @@ crates=(
   outram-park-fork-offbeat    # gh:#1596
   outram-park-fork-moltres    # gh:#1597
   njoy-outram-park-fork       # gh:#1592
+  raffles                     # gh:#1610
+  outram-blender              # gh:#1604
+  outram-mc-libs              # gh:#1605
 )
 
 rustup target add "$target" >/dev/null

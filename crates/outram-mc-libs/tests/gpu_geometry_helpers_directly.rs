@@ -100,6 +100,8 @@
 //! SIGSEGV here as that race rather than a geometry-helper defect, and re-run
 //! with `--test-threads=1`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::mathf::RealMath;

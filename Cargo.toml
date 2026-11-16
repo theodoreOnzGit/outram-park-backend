@@ -472,6 +472,11 @@ hdf5-pure = { version = "0.20.0", features = ["ndarray"] }
 miniz_oxide = "0.8"
 # `no_std` one-time init and lock for njoy-outram-park-fork without `std`
 # (gh:#1592); already in the lock file through other crates.
+# `HashMap` / `HashSet` for crates that build `no_std` + `alloc` and whose
+# public generics are bounded on `Hash`, not `Ord`, so a `BTreeMap` stand-in
+# would change their API (gh:#1604, `outram-blender`). Used only without
+# `std`; std builds keep `std::collections`. Already in the lock file.
+hashbrown = { version = "0.16", default-features = false, features = ["default-hasher"] }
 spin = { version = "0.10.1", default-features = false, features = ["mutex", "spin_mutex", "once", "rwlock"] }
 
 # HIGH-fidelity data-acquisition stack for njoy-outram-park-fork's `net-fetch`
@@ -597,14 +602,18 @@ outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version =
 outram-park-fork-moltres = { path = "crates/outram-park-fork-moltres", version = "0.0.2" }
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.8" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.9" }
-tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.1" }
+# `default-features = false` since gh:#1605 (same reason as njoy above);
+# members that need `std` ask for it.
+tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.1", default-features = false }
 # `default-features = false` (gh:#1598, #1599): the crate's default is `std`
 # (gh:#1586), and a member cannot switch an inherited default off. So the
 # root leaves it off and every member that needs files, threads or timing
 # asks for `features = ["std"]` itself; a crate converted to `no_std` turns
 # it on from its own `std` feature instead.
 outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.8", default-features = false }
-raffles                      = { path = "crates/raffles",                      version = "0.0.4" }
+# `raffles` likewise since gh:#1610: `default-features = false`, and each
+# member that needs its `std` asks for it.
+raffles                      = { path = "crates/raffles",                      version = "0.0.4", default-features = false }
 petir                        = { path = "crates/petir",                        version = "0.0.4" }
 # `default-features = false` (gh:#1587): `changi`'s default is `std`; members
 # that need its thread pool ask for `features = ["std"]` (see
@@ -635,7 +644,10 @@ outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", ver
 boon-lay            = { path = "crates/boon-lay",            version = "0.2.2" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
 # lives here; outram-mc-libs and nee_soon pull cross sections from it.
-njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.7" }
+# `default-features = false` since gh:#1605, so `outram-mc-libs` can take it
+# without `std`; every member that needs files, HDF5 or threads asks for
+# `features = ["std"]`.
+njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.7", default-features = false }
 # Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
 nee_soon            = { path = "crates/nee_soon",            version = "0.0.5" }

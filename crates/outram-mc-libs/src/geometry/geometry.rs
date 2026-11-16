@@ -9,5 +9,8 @@
 //! on [`GeometryExt`] in [`super::crossing`], re-exported here with
 //! [`SurfaceCrossing`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use outram_blender::csg::geometry::*;
 pub use super::crossing::{GeometryExt, SurfaceCrossing};

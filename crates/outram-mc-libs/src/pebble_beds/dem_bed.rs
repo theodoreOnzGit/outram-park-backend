@@ -59,8 +59,11 @@
 //!   experimental comparison — see that crate's `CLAUDE.md`). Converting it to
 //!   cm adds nothing to that claim.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 use outram_park_fork_liggghts::granular_system::GranularSystem;
 use outram_park_fork_liggghts::particle::Particle;
@@ -302,7 +305,7 @@ mod tests {
     const STEPS: usize = 10_000; // 1.0 s of settling
 
     fn pebble(x: f64, y: f64, z: f64, radius: f64) -> Particle {
-        let mass = DENSITY * 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
+        let mass = DENSITY * 4.0 / 3.0 * core::f64::consts::PI * radius.r_powi(3);
         Particle::new(
             Vec3::new(x, y, z),
             Vec3::zero(),
@@ -375,6 +378,7 @@ mod tests {
 
         let bed = DemBed::from_dem_simulation(&sim).expect("monodisperse, finite bed");
         let brute = brute_force_overlap(bed.spheres(), bed.radius_cm());
+        #[cfg(feature = "std")]
         eprintln!(
             "dem_bed: {} pebbles, KE {ke:.3e} J, radius {} cm, max overlap {:.6e} cm \
              ({:.4e} of a diameter), {} overlapping pairs",

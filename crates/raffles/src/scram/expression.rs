@@ -89,9 +89,12 @@
 //! assert!((p - (1.0 - (-1e-3f64).r_exp())).abs() < 1e-15);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::hash::HashMap;
+use alloc::sync::Arc;
 
 use crate::{RafflesError, Result};
 
@@ -980,8 +983,8 @@ impl Interval {
     }
 }
 
-impl std::fmt::Display for Interval {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Interval {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "{}{}, {}{}",

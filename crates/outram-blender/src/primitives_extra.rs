@@ -47,8 +47,11 @@
 //! All radius / size arguments are dimensionless model-space lengths, as in
 //! [`crate::primitives`]; angles are radians.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -284,8 +287,8 @@ pub fn icosphere(subdivisions: usize, radius: f64) -> Mesh {
         [9, 8, 1],
     ];
 
-    let mut midpoint_cache: std::collections::HashMap<(usize, usize), usize> =
-        std::collections::HashMap::new();
+    let mut midpoint_cache: crate::hash::HashMap<(usize, usize), usize> =
+        crate::hash::HashMap::new();
     for _ in 0..subdivisions.min(5) {
         let mut next: Vec<[usize; 3]> = Vec::with_capacity(tris.len() * 4);
         let mut mid = |a: usize, b: usize, verts: &mut Vec<Vec3>| -> usize {

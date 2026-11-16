@@ -183,8 +183,11 @@
 //! every k-eff driver in this crate already consumes, which is why every
 //! treatment shares one transport path rather than each needing its own.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::RwLock;
+use crate::sync::RwLock;
 
 use crate::geometry::position::Position;
 use crate::material::material::Material;
@@ -634,7 +637,7 @@ impl core::fmt::Display for DhError {
     }
 }
 
-impl std::error::Error for DhError {}
+impl core::error::Error for DhError {}
 
 /// A spherical fuel pebble with TRISO particles in a graphite fuel zone.
 ///
@@ -796,7 +799,7 @@ enum DhGeometry {
     /// needs cross sections and so cannot happen at construction.
     Scls {
         medium: RwLock<(SclsMedium, u64)>,
-        window_set: std::sync::atomic::AtomicBool,
+        window_set: core::sync::atomic::AtomicBool,
         particle_material: usize,
         matrix_material: usize,
         outer: OuterShells,
@@ -1057,7 +1060,7 @@ impl DhUniverse {
                     treatment,
                     geometry: DhGeometry::Scls {
                         medium: RwLock::new((medium, params.seed | 1)),
-                        window_set: std::sync::atomic::AtomicBool::new(false),
+                        window_set: core::sync::atomic::AtomicBool::new(false),
                         particle_material: KERNEL_IDX,
                         matrix_material: matrix_idx,
                         outer,
@@ -1089,7 +1092,7 @@ impl DhUniverse {
                     treatment,
                     geometry: DhGeometry::Scls {
                         medium: RwLock::new((medium, params.seed | 1)),
-                        window_set: std::sync::atomic::AtomicBool::new(false),
+                        window_set: core::sync::atomic::AtomicBool::new(false),
                         particle_material: particle_idx,
                         matrix_material: MATRIX_IDX,
                         outer,
@@ -1271,7 +1274,7 @@ impl DhUniverse {
                 (
                     DhGeometry::Scls {
                         medium: RwLock::new((medium, params.seed | 1)),
-                        window_set: std::sync::atomic::AtomicBool::new(false),
+                        window_set: core::sync::atomic::AtomicBool::new(false),
                         particle_material: PARTICLE,
                         matrix_material: MATRIX,
                         outer: OuterShells::none(),
@@ -1721,7 +1724,7 @@ impl DhUniverse {
     ///   magnitude less wrong than what it replaces, and in the conservative
     ///   direction (a slightly smaller window retains slightly less).
     fn size_scls_window(&self, nuclides: &[Nuclide]) {
-        use std::sync::atomic::Ordering;
+        use core::sync::atomic::Ordering;
         let DhGeometry::Scls {
             medium,
             window_set,
@@ -2819,7 +2822,7 @@ mod tests {
         };
         // Volume-average the fuel zone's nuclide inventory for a CLS-style arm:
         // pf * inclusion + (1 - pf) * matrix.
-        let inventory = |u: &DhUniverse| -> std::collections::BTreeMap<usize, f64> {
+        let inventory = |u: &DhUniverse| -> alloc::collections::BTreeMap<usize, f64> {
             let DhGeometry::Cls {
                 particle_material,
                 matrix_material,
@@ -2829,7 +2832,7 @@ mod tests {
                 panic!("expected a CLS geometry");
             };
             let pf = u.packing_fraction();
-            let mut acc: std::collections::BTreeMap<usize, f64> = Default::default();
+            let mut acc: alloc::collections::BTreeMap<usize, f64> = Default::default();
             for (m, w) in [
                 (&u.materials[*particle_material], pf),
                 (&u.materials[*matrix_material], 1.0 - pf),

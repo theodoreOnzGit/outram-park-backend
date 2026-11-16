@@ -49,7 +49,10 @@
 //!   [`crate::pebble_beds::triso_lattice::create_triso_lattice`], a port of
 //!   OpenMC's `openmc.model.create_triso_lattice`.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use uom::si::f64::{Length, Ratio};
 

@@ -9,6 +9,9 @@
 // GPU-vs-CPU agreement test), but still requires human review before it is
 // promoted past the "Unit Tested" V&V stage.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Linearly interpolate a tabulated cross section onto a set of query energies.
 ///
 /// This is the **trusted, deterministic f64 reference path** against which the
@@ -116,7 +119,7 @@ fn lower_bound_index(grid: &[f64], q: f64) -> usize {
 /// `bytemuck` is intentionally not a dependency of this crate, so byte views
 /// are built by hand. Native-endian is correct here because both the CPU
 /// upload and the GPU (same machine) agree on byte order.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -126,7 +129,7 @@ fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
 }
 
 /// Reinterpret a `[u32; 4]` params block as native-endian bytes for upload.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn u32x4_to_bytes(data: &[u32; 4]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(16);
     for &x in data {
@@ -136,7 +139,7 @@ fn u32x4_to_bytes(data: &[u32; 4]) -> Vec<u8> {
 }
 
 /// Rebuild a `Vec<f32>` of length `n` from a native-endian byte view.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_f32_vec(bytes: &[u8], n: usize) -> Vec<f32> {
     let mut out = Vec::with_capacity(n);
     for chunk in bytes.chunks_exact(4).take(n) {
@@ -170,7 +173,7 @@ fn bytes_to_f32_vec(bytes: &[u8], n: usize) -> Vec<f32> {
 /// `ceil(n_query / 64)` workgroups of the `main` entry point, copies the result
 /// storage buffer into a mappable staging buffer, blocks on
 /// `device.poll(PollType::wait_indefinitely())`, and reads the result back.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn interp_xs_gpu(
     ctx: &crate::gpu::GpuContext,
     grid: &[f32],
@@ -214,7 +217,7 @@ pub fn interp_xs_gpu(
     });
 
     // Result storage buffer (write from shader, copy to staging afterwards).
-    let result_size = (n_query * std::mem::size_of::<f32>()) as wgpu::BufferAddress;
+    let result_size = (n_query * core::mem::size_of::<f32>()) as wgpu::BufferAddress;
     let result_buf = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("xs_interp.result"),
         size: result_size,
@@ -465,10 +468,11 @@ mod tests {
     /// adapter this passes for all ~4096 queries; on CPU-only CI (no adapter)
     /// it prints a SKIP line and returns green (the GPU path is untested there,
     /// which the CPU analytical tests above still cover for the algorithm).
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_matches_cpu_reference() {
         let Some(ctx) = crate::gpu::probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP interp_xs gpu test: no GPU adapter (CPU-only CI)");
             return;
         };

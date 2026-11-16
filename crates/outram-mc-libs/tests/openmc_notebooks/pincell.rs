@@ -77,6 +77,8 @@
 //!   has been measured; 1.39802 ± 0.00652 must be regarded as stale until the
 //!   S(α,β) data file is available and the test is re-run.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};

@@ -28,6 +28,9 @@
 //! delta tracking over a dense lattice) needs majorants the beginner run
 //! does not carry yet, so it is not offered; see #926.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Length, Ratio};
 use uom::si::length::centimeter;
 use uom::si::ratio::ratio;
@@ -599,13 +602,13 @@ impl Lattice {
     /// natural order, and the lower-left corner.
     pub(crate) fn layout(&self, pitch: [f64; 3], centre: [f64; 3]) -> ([f64; 3], Vec<[f64; 3]>) {
         let lower: [f64; 3] =
-            std::array::from_fn(|i| centre[i] - 0.5 * self.n[i] as f64 * pitch[i]);
+            core::array::from_fn(|i| centre[i] - 0.5 * self.n[i] as f64 * pitch[i]);
         let mut centres = Vec::with_capacity(self.pattern.len());
         for iz in 0..self.n[2] {
             for iy in 0..self.n[1] {
                 for ix in 0..self.n[0] {
                     let i = [ix, iy, iz];
-                    centres.push(std::array::from_fn(|k| {
+                    centres.push(core::array::from_fn(|k| {
                         lower[k] + (i[k] as f64 + 0.5) * pitch[k]
                     }));
                 }
@@ -632,10 +635,10 @@ impl Lattice {
             let k_hi = (radius / p - off - 0.5).ceil();
             ((k_hi - k_lo) as usize + 1, (k_lo + off - 0.5) * p)
         };
-        let a: [(usize, f64); 3] = std::array::from_fn(|i| axis(pitch[i], offset[i]));
+        let a: [(usize, f64); 3] = core::array::from_fn(|i| axis(pitch[i], offset[i]));
         (
             a.map(|(n, _)| n),
-            std::array::from_fn(|i| a[i].1 + centre[i]),
+            core::array::from_fn(|i| a[i].1 + centre[i]),
         )
     }
 }

@@ -72,6 +72,9 @@
 //! outward-facing input stays that way. No `faer`, no external dependency;
 //! Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use crate::polyfill;
@@ -267,7 +270,7 @@ pub(crate) fn split_quad(pts: &[Vec3], method: QuadMethod) -> [[usize; 3]; 2] {
 mod tests {
     use super::*;
     use crate::primitives;
-    use std::collections::HashSet;
+    use crate::hash::HashSet;
 
     /// True when every face is a triangle.
     fn all_triangles(mesh: &Mesh) -> bool {
@@ -422,7 +425,7 @@ mod tests {
         let mesh = Mesh::from_polygons(&positions, &[vec![0, 1, 2, 3]]);
         let truth = 3.5;
 
-        let mut seen_diagonals = std::collections::HashSet::new();
+        let mut seen_diagonals = crate::hash::HashSet::new();
         for qm in [
             QuadMethod::Fixed,
             QuadMethod::Alternate,

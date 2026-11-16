@@ -120,6 +120,8 @@
 //! FAILS identically before and after (fused GPU `k = 1.78183 +/- 0.05545`):
 //! a pre-existing defect unrelated to the guard, filed as gh:#1506.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use outram_mc_libs::gpu::batched_event::{

@@ -37,6 +37,9 @@
 //! carries as an `empty` patch named `sides` (the OpenFOAM way to say "no
 //! flux in this direction").
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::element::{BoundarySpec, Element, ElementKind, LengthUnit, PatchKind};
 use super::mesh::{UnstructuredMesh, UnstructuredMeshError};
 

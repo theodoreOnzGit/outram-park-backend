@@ -52,6 +52,8 @@
 //! were scored and then re-sampled after the particle stopped there. Fixed
 //! in `transport_csg.rs` (score only before `d_bound`), then passed.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use std::sync::Arc;
 

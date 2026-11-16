@@ -34,7 +34,10 @@
 //! - [`mirror_selection`] — the mirror-image vertices of a selection (the
 //!   position-matched partners), for live / topology mirror editing.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};

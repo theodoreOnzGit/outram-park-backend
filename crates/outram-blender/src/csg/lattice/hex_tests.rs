@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use super::hex::*;
@@ -8,14 +11,14 @@ use super::hex_build::*;
 /// centre (0,0), pitch 1.25, big-pin (universe index 1) at the first element
 /// of every ring, regular pin (index 0) elsewhere, outer = 2.
 fn notebook_lattice() -> HexLattice {
-    let outer_ring: Vec<usize> = std::iter::once(1)
-        .chain(std::iter::repeat(0).take(17))
+    let outer_ring: Vec<usize> = core::iter::once(1)
+        .chain(core::iter::repeat(0).take(17))
         .collect();
-    let ring_1: Vec<usize> = std::iter::once(1)
-        .chain(std::iter::repeat(0).take(11))
+    let ring_1: Vec<usize> = core::iter::once(1)
+        .chain(core::iter::repeat(0).take(11))
         .collect();
-    let ring_2: Vec<usize> = std::iter::once(1)
-        .chain(std::iter::repeat(0).take(5))
+    let ring_2: Vec<usize> = core::iter::once(1)
+        .chain(core::iter::repeat(0).take(5))
         .collect();
     let inner_ring: Vec<usize> = vec![1];
     HexLattice::from_rings(

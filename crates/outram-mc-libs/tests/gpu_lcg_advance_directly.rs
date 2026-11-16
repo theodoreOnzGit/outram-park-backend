@@ -82,6 +82,8 @@
 //! Without a GPU these print `SKIP`. `the_reference_is_sound_without_a_gpu`
 //! runs everywhere, so a device-less CI is not silently testing nothing.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use outram_mc_libs::gpu::{probe, GpuContext};

@@ -28,6 +28,9 @@
 //! scores a collision estimator at a POINT with [`score_collision_point`]
 //! (gh:#598), by default at every tentative collision with `1/Σ_maj`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::filter::{FilterEvent, FilterKind};
 use crate::particle::particle::ParticleType;
 use super::tally::{ScoreType, Tally, TallyBin};
@@ -1063,7 +1066,7 @@ mod tests {
         use crate::tally::filter::{EnergyFilter, MeshFilter};
         use crate::tally::mesh::MeshKind;
         use outram_blender::unstructured::{Element, ElementKind, LengthUnit, UnstructuredMesh};
-        use std::sync::Arc;
+        use alloc::sync::Arc;
 
         let mut pts = Vec::new();
         for x in [0.0, 1.0, 2.0] {

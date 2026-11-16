@@ -37,6 +37,8 @@
 //! | Oracle | `reference-data/scram/oracle-substitutions.txt` |
 //! | Generator | `reference-data/scram/extract_substitution_oracle.sh` |
 
+#![cfg(feature = "std")] // reads MEF XML files (gh:#1610)
+
 use raffles::scram::bdd::Bdd;
 use raffles::scram::importance::{importance_factors, importance_factors_from_bdd};
 use raffles::scram::mef::MefModel;

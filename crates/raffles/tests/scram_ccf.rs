@@ -35,6 +35,8 @@
 //! | Oracle | `reference-data/scram/oracle-ccf.txt`, from `scram --probability --importance --ccf` |
 //! | Generator | `reference-data/scram/extract_ccf_oracle.sh` |
 
+#![cfg(feature = "std")] // reads MEF XML files (gh:#1610)
+
 use raffles::scram::ccf::CcfModel;
 use raffles::scram::fault_tree::FaultTreeModel;
 use raffles::scram::importance::importance_factors;

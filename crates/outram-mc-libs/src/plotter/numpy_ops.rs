@@ -22,6 +22,9 @@
 //! length 1-300 (2026-09-26): identical in every case, whereas the naive
 //! "first element plus pairwise rest" form differed in 9 674 of them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `np.searchsorted(a, v, side='right')`: the number of elements `<= v`.
 pub fn searchsorted_right(a: &[f64], v: f64) -> usize {
     a.partition_point(|&x| x <= v)
@@ -142,7 +145,29 @@ pub fn pairwise_sum(a: &[f64]) -> f64 {
 
 /// Python's `round(x)` to an integer: halves go to the even neighbour.
 pub fn python_round(x: f64) -> f64 {
-    x.round_ties_even()
+    #[cfg(any(feature = "std", test))]
+    {
+        x.round_ties_even()
+    }
+    #[cfg(not(any(feature = "std", test)))]
+    {
+        round_ties_even_core(x)
+    }
+}
+
+/// `f64::round_ties_even` from `core` alone (gh:#1605), used by the `no_std`
+/// build: round half away from zero, and where `x` sat exactly halfway, take
+/// the even neighbour instead. `x / 2` is exact (a power of two), so this is
+/// exact for every finite `x`. Always compiled so a test can hold it to
+/// `std`'s answer.
+#[cfg_attr(any(feature = "std", test), allow(dead_code))]
+fn round_ties_even_core(x: f64) -> f64 {
+    let r = x.round();
+    if (r - x).abs() == 0.5 {
+        2.0 * (x / 2.0).round()
+    } else {
+        r
+    }
 }
 
 #[cfg(test)]
@@ -167,5 +192,22 @@ mod tests {
         assert_eq!(python_round(292.5), 292.0);
         assert_eq!(python_round(293.5), 294.0);
         assert_eq!(python_round(293.6), 294.0);
+    }
+}
+
+#[cfg(test)]
+mod round_ties_even_core_tests {
+    /// The `core`-only rounding agrees with `std`'s, bit for bit, on the
+    /// halfway cases, their neighbours, signed zeros and large values.
+    #[test]
+    fn the_core_rounding_matches_std() {
+        let mut xs = vec![0.0, -0.0, 0.5, -0.5, 1.5, -1.5, 2.5, -2.5, 3.5, 1e15 + 0.5, -1e15 - 0.5, 4.5e15, 0.49999999999999994, 2.5000000000000004, 1e300];
+        for k in -2000..2000 {
+            xs.push(k as f64 * 0.25);
+            xs.push(k as f64 * 0.1);
+        }
+        for x in xs {
+            assert_eq!(super::round_ties_even_core(x).to_bits(), x.round_ties_even().to_bits(), "x = {x:e}");
+        }
     }
 }

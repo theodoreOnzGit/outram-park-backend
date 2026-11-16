@@ -98,51 +98,10 @@ const MEMBERS: [(&str, u64, char); 16] = [
     ("progeny_id", 120, 'l'),
 ];
 
-/// One collision record, `struct CollisionTrackSite`
-/// (`include/openmc/particle_data.h:61`), as plain data.
-///
-/// Field meanings are upstream's (`collision_track_record`,
-/// `src/collision_track.cpp`): `e` is the energy **before** the collision
-/// (`E_last`), `de = E_last - E` the energy it lost, `u` the direction and
-/// `wgt` the weight **after** it; ids are user-facing ids, not indices;
-/// `nuclide_id` and `particle` are PDG numbers (`1000000000 + 10000 Z + 10 A
-/// + m` and 2112 for a neutron); `parent_id` is the particle's id and
-/// `progeny_id` its `n_progeny` at the time of the collision.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CollisionTrackSite {
-    /// Position \[cm\].
-    pub r: [f64; 3],
-    /// Direction after the collision.
-    pub u: [f64; 3],
-    /// Energy before the collision \[eV\].
-    pub e: f64,
-    /// Energy lost in the collision \[eV\].
-    pub de: f64,
-    /// Time \[s\].
-    pub time: f64,
-    /// Weight after the collision.
-    pub wgt: f64,
-    /// ENDF MT of the reaction.
-    pub event_mt: i32,
-    /// Delayed group (0 = prompt).
-    pub delayed_group: i32,
-    /// Cell id.
-    pub cell_id: i32,
-    /// Target nuclide's PDG number, 0 when there is none.
-    pub nuclide_id: i32,
-    /// Material id.
-    pub material_id: i32,
-    /// Universe id.
-    pub universe_id: i32,
-    /// Collisions so far.
-    pub n_collision: i32,
-    /// Particle PDG number.
-    pub particle: i32,
-    /// The particle's id.
-    pub parent_id: i64,
-    /// The particle's progeny count.
-    pub progeny_id: i64,
-}
+/// One collision record. Defined in [`crate::collision_track_site`] since
+/// gh:#1605, so the `no_std` build of `outram-mc-libs` can record collisions
+/// without this HDF5 module; re-exported here at its old path.
+pub use crate::collision_track_site::CollisionTrackSite;
 
 /// `h5_collision_track_banktype()` (`src/collision_track.cpp`): the 128-byte
 /// compound with nested `r` and `u`, every member at its C offset.

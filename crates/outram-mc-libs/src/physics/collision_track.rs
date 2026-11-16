@@ -70,8 +70,11 @@
 //!   whose particle is rouletted by survival biasing before its reaction is
 //!   drawn.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::material::nuclide::Nuclide;
-pub use njoy_outram_park_fork::hdf5::collision_track::CollisionTrackSite;
+pub use njoy_outram_park_fork::collision_track_site::CollisionTrackSite;
 
 /// `CollisionTrackConfig` (`include/openmc/settings.h`).
 ///
@@ -366,7 +369,7 @@ impl CollisionTrackBank {
         };
         let file = CollisionTrackFile {
             filename,
-            sites: std::mem::take(&mut self.sites),
+            sites: core::mem::take(&mut self.sites),
             mcpl: cfg.mcpl_write,
         };
         self.current_file += 1;
@@ -374,6 +377,7 @@ impl CollisionTrackBank {
     }
 }
 
+#[cfg(feature = "std")]
 /// Write one [`CollisionTrackFile`] under `path_output` (upstream's
 /// `settings::path_output`, a directory prefix ending in `/`, or empty).
 /// Run-boundary I/O; returns the path written.

@@ -227,6 +227,9 @@
 //!
 //! None of this is validation, and none of it has been through human review.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::rng::lcg::{future_seed, prn, DEFAULT_STRIDE};
 
 use crate::{RafflesError, Result};

@@ -43,8 +43,11 @@
 //! [`crate::csg::cell::Cell::contains`] would reject on its stack discipline)
 //! is never folded: it is kept, whole, in every voxel its box reaches.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use crate::csg::cell::{HalfSpaceSense, RegionToken};
 use crate::csg::geometry::Geometry;
@@ -851,7 +854,7 @@ mod tests {
         let and = |v: Vec<RegionToken>| {
             let n = v.len();
             let mut v = v;
-            v.extend(std::iter::repeat_n(RegionToken::Intersection, n - 1));
+            v.extend(core::iter::repeat_n(RegionToken::Intersection, n - 1));
             v
         };
         let slot = and(vec![

@@ -82,9 +82,13 @@
 //! RelaxNG grammar before looking at anything; this checks only what it needs
 //! to build the model. A document SCRAM would reject may be read here.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
+#[cfg(feature = "std")]
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::alignment::{Alignment, Phase};
 use super::ccf::{proxy_arguments, CcfGroup, CcfModel};
@@ -145,6 +149,7 @@ fn invalid(reason: String) -> RafflesError {
 /// Namespace prefixes are stripped: MEF uses one vocabulary and the only
 /// prefixed element in upstream's suite is `<xi:include>`, which is resolved
 /// before this sees it.
+#[cfg(feature = "std")]
 pub fn parse_xml(source: &str) -> Result<Element> {
     use xml::reader::{EventReader, XmlEvent};
 
@@ -398,7 +403,7 @@ impl Scope {
 #[derive(Debug, Default)]
 struct Table {
     /// `Id::id()` of every declaration of this type.
-    ids: std::collections::HashSet<String>,
+    ids: crate::hash::HashSet<String>,
     /// Full dotted path -> `Id::id()`.
     paths: HashMap<String, String>,
 }
@@ -520,6 +525,7 @@ impl MefModel {
     ///
     /// [`RafflesError::InvalidParameter`] if the file cannot be read, the XML
     /// is malformed, or the model uses a construct this reader refuses.
+    #[cfg(feature = "std")]
     pub fn from_file(path: &Path) -> Result<Self> {
         let source = std::fs::read_to_string(path)
             .map_err(|e| invalid(format!("reading {}: {e}", path.display())))?;
@@ -2042,9 +2048,10 @@ fn read_expression(element: &Element, scope: &Scope, index: &Index) -> Result<Ex
 /// Upstream lets libxml2 do this. Only the `href` form appears in its own
 /// suite; an `xpointer` is honoured only in the whole-document form it uses
 /// there, and anything else is refused rather than half-applied.
+#[cfg(feature = "std")]
 fn resolve_includes(element: &mut Element, base: &Path) -> Result<()> {
     let mut replaced: Vec<Element> = Vec::new();
-    for child in std::mem::take(&mut element.children) {
+    for child in core::mem::take(&mut element.children) {
         if child.name == "include" {
             let href = child.need_attr("href")?;
             if let Some(pointer) = child.attr("xpointer") {

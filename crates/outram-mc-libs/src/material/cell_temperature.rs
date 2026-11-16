@@ -63,6 +63,9 @@
 //! built over the original materials still bounds what transport reads. With no
 //! mismatching cell nothing is widened and the run is bit for bit what it was.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::CellFill;
 use crate::geometry::geometry::Geometry;
 use crate::material::material::Material;

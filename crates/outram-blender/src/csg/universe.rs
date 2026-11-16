@@ -37,6 +37,9 @@
 //! Key operation: [`Universe::find_cell`] — given a local position, return the
 //! first cell in this universe that contains it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cell::{Cell, SurfaceToken};
 use super::position::{Direction, Position};
 use super::surface::SurfaceKind;

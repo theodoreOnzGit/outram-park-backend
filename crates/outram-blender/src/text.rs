@@ -36,7 +36,10 @@
 //! - [`text_to_mesh`] — the outlines filled and, if `extrude > 0`, thickened
 //!   into a solid with beveled front/back edges.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;

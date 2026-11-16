@@ -34,6 +34,8 @@
 //! Recorded on GitHub #259 and in
 //! `verification_and_validation/rotational_periodic/README.md` (2026-11-14).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::crossing::GeometryExt;
 use outram_mc_libs::geometry::geometry::Geometry;

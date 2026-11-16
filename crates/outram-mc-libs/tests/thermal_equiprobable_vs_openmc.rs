@@ -43,6 +43,8 @@
 //!
 //! Printed by the test and recorded on #407.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use std::path::PathBuf;

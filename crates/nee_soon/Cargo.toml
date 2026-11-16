@@ -46,7 +46,7 @@ petir = { workspace = true }
 # Integration targets — the crates NEE_SOON composes and re-exposes. Declared
 # here so the coupling surface is wired even though the scaffold does not yet
 # call into them.
-njoy-outram-park-fork = { workspace = true }   # nuclear data / cross sections
+njoy-outram-park-fork = { workspace = true, features = ["std"] }   # nuclear data / cross sections
 outram-mc-libs           = { workspace = true }   # Monte Carlo transport
 teh-o-prke            = { workspace = true }   # point reactor kinetics (PRKE)
 # GeN-Foam SP3 neutronics + porous-media TH + multi_region coupling. Used by the
@@ -58,7 +58,7 @@ outram-foam-basic-lib      = { workspace = true, features = ["std"] }   # FvMesh
 # Geometry authoring: `blender_bridge` (surface mesh -> outram-mc CSG) and the
 # `sim` run driver moved here from outram-blender's retired `mc-export` feature
 # (GitHub #486, 2026-10-02). The edge runs coupler -> blender, never back.
-outram-blender        = { workspace = true }
+outram-blender        = { workspace = true, features = ["std"] }
 # HTR-10 coupled thermal-hydraulic transients (`htr10_th_transient`, gh:#1151):
 # the tampines primary loop and its core models, with the point kinetics here
 # (maintainer, 2026-11-03: "any neutronics and TH shld live in nee soon").
@@ -77,7 +77,7 @@ serde_json            = { workspace = true }
 [dev-dependencies]
 # Steam states of the helical-coil SG test in `htr10_th_transient` (moved
 # from tampines, gh:#1151). Pure Rust; Android- and wasm-clean.
-tampines-steam-tables = { workspace = true }
+tampines-steam-tables = { workspace = true, features = ["std"] }
 # Also used by the fhr_sim_v2 example (steam tables, turbine generator).
 
 # The fhr_sim_v2 GUI example, MOVED 2026-11-05 from

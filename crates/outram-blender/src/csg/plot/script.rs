@@ -39,6 +39,9 @@
 //! the `.py` is standalone and reproducible with no Rust binary and no side
 //! files. It runs on a bare `python3` with only `matplotlib` and `numpy`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::csg::cell::SurfaceToken;
 use crate::csg::geometry::Geometry;
 use crate::csg::position::{Direction, Position};

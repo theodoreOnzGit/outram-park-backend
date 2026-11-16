@@ -333,6 +333,9 @@ pub mod gpu_wmp;
 /// WMP and statepoint files, `cross_sections.xml`, the depletion chain) —
 /// see the module docs. (CORRECTED 2026-10-04: the `perf_report` doc comment
 /// below used to sit on this line, so rustdoc showed it for `hdf5`.)
+/// OpenMC's per-collision record as plain data, in every build (gh:#1605);
+/// [`hdf5::collision_track`] writes it to `collision_track.h5`.
+pub mod collision_track_site;
 #[cfg(feature = "std")]
 pub mod hdf5;
 /// **Per-machine performance-report generator** — hardware detection (GPU label,

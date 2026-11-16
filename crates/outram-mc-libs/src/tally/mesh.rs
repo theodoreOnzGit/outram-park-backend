@@ -40,6 +40,9 @@
 //! cylindrical mesh than a Cartesian one, because a radial cell's width varies
 //! across it. Worth knowing before using a fine R-Z mesh.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::geometry::position::Position;
 use crate::tally::mesh_unstructured::UnstructuredMeshExt;
@@ -312,7 +315,7 @@ impl RegularMeshExt for RegularMesh {
                 }
             }
         }
-        events.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap_or(std::cmp::Ordering::Equal));
+        events.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap_or(core::cmp::Ordering::Equal));
 
         let mut bins = Vec::with_capacity(2 * events.len());
         for (t, k, forward) in events {
@@ -382,7 +385,7 @@ impl CylindricalMeshExt for CylindricalMesh {
         } else {
             let a = y.r_atan2(x);
             if a < 0.0 {
-                a + std::f64::consts::TAU
+                a + core::f64::consts::TAU
             } else {
                 a
             }
@@ -423,7 +426,7 @@ impl SphericalMeshExt for SphericalMesh {
             (
                 (z / r).clamp(-1.0, 1.0).r_acos(),
                 if a < 0.0 {
-                    a + std::f64::consts::TAU
+                    a + core::f64::consts::TAU
                 } else {
                     a
                 },

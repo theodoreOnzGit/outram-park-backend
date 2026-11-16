@@ -76,7 +76,7 @@ outram-mc-libs = { workspace = true }
 # than re-entered. All three are pure Rust, wasm in-scope and build for
 # aarch64-linux-android (checked 2026-10-29). No cycle: none depends on this
 # crate (`cargo tree -p <each> -e normal`, 2026-10-29).
-tampines-steam-tables    = { workspace = true }
+tampines-steam-tables    = { workspace = true, features = ["std"] }
 # The thermal-hydraulic framework (maintainer direction, 2026-11-01):
 # a severe-accident code like MELCOR does thermal hydraulics and much more,
 # so sembawang (severe accidents, orchestration) depends on tampines (thermal

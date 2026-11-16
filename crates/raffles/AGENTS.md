@@ -10,6 +10,23 @@ root file still binds for everything this file does not address.
 
 ---
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1610, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh`. `std` carries the MEF XML
+reader (xml-rs) only. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths; every module glob-imports
+  `crate::nostd_prelude::*` in `no_std` builds (copy the line from any module).
+- `HashMap` / `HashSet` come from `crate::hash` (std's with `std`, `BTreeMap` /
+  `BTreeSet` without), so a map key needs `Ord` as well as `Hash`.
+- Float methods `core` lacks come from `petir::real::Real` (in the prelude);
+  `round_ties_even` has a `core` version in `surrogate::polynomial_chaos::special`,
+  tested against std's.
+- The exported `quantities!` macro expands in the caller's crate, so it keeps
+  its `::std` paths.
+
+
 ## Calibration is acceptable when it is the intention
 
 **Maintainer direction, 2026-10-12:** *"Calibration is acceptable if that's the

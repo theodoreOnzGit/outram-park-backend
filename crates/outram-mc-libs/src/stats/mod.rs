@@ -40,6 +40,9 @@
 //! compile; they have not been run. V&V stubs live under
 //! `verification_and_validation/stats_epic_493/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod convergence;
 pub mod correlated_sigma;
 pub mod ensemble;

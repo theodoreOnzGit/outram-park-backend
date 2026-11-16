@@ -132,6 +132,9 @@
 //! > tests below); not yet validated against arbitrary imported/scanned
 //! > geometry.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -206,7 +209,7 @@ pub fn winding_number(mesh: &Mesh, p: Vec3) -> f64 {
         let denominator = la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
         total_solid_angle += 2.0 * numerator.r_atan2(denominator);
     }
-    total_solid_angle / (4.0 * std::f64::consts::PI)
+    total_solid_angle / (4.0 * core::f64::consts::PI)
 }
 
 /// Classify `p` against `mesh`'s solid interior.
@@ -386,9 +389,9 @@ fn moller_trumbore(orig: Vec3, dir: Vec3, a: Vec3, b: Vec3, c: Vec3) -> Option<(
 #[cfg(test)]
 fn candidate_ray_directions() -> [Vec3; 6] {
     [
-        Vec3::new(1.0, std::f64::consts::SQRT_2, 3.0_f64.sqrt()),
-        Vec3::new(std::f64::consts::PI, 1.0, std::f64::consts::E),
-        Vec3::new(-1.0, 2.0, -std::f64::consts::SQRT_2),
+        Vec3::new(1.0, core::f64::consts::SQRT_2, 3.0_f64.sqrt()),
+        Vec3::new(core::f64::consts::PI, 1.0, core::f64::consts::E),
+        Vec3::new(-1.0, 2.0, -core::f64::consts::SQRT_2),
         Vec3::new(0.618, -1.414, 2.236),
         Vec3::new(-2.236, 0.577, 1.732),
         Vec3::new(1.234, -5.678, 2.345),

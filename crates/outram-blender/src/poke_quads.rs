@@ -37,8 +37,12 @@
 //!   `Face ▸ Tris to Quads`). Attribute comparisons (material / UV / sharp /
 //!   seam) arrive with the attribute layers in `op-hzs.54.28`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::{BTreeMap, HashSet};
+use alloc::collections::BTreeMap;
+use crate::hash::HashSet;
 
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
@@ -360,7 +364,7 @@ fn quad_angle_deviation(pos: &[Vec3], q: &[usize; 4]) -> f64 {
             .clamp(-1.0, 1.0)
             .r_acos()
     };
-    let half_pi = std::f64::consts::FRAC_PI_2;
+    let half_pi = core::f64::consts::FRAC_PI_2;
     (0..4)
         .map(|i| (ang(q[i], q[(i + 1) % 4], q[(i + 3) % 4]) - half_pi).abs())
         .fold(0.0, f64::max)

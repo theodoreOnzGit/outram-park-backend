@@ -44,6 +44,8 @@
 //! | Oracle | `reference-data/scram/oracle-uncertainty.txt`, from `scram --uncertainty` |
 //! | Upstream trials | 1000, `Settings::num_trials_` |
 
+#![cfg(feature = "std")] // reads MEF XML files (gh:#1610)
+
 use petir::mathf::RealMath;
 use raffles::scram::bdd::Bdd;
 use raffles::scram::expression::{Expression, Parameters, DEFAULT_MISSION_TIME};

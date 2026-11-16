@@ -38,7 +38,10 @@
 //! - [`align_rotation_target`] — the surface normal at a face snap, so a caller
 //!   can also orient the moved geometry (Blender's *Align Rotation to Target*).
 
-use std::collections::BTreeSet;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeSet;
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};

@@ -13,6 +13,8 @@
 //! The provenance, the approximations and every recorded result stay in
 //! `lct008_keff.rs`'s module documentation, which is the authority for the model.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![allow(dead_code)]
 
 #[allow(unused_imports)]

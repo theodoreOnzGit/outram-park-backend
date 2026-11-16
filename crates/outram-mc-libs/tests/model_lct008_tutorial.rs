@@ -38,6 +38,8 @@
 //! See the `println!` of the test and the tutorial page
 //! (`docs/tutorial/src/tutorial6-lct008.md`) for the measured numbers.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #[path = "../examples/common/lct008_model.rs"]
 #[allow(dead_code)]
 mod lct008_model;

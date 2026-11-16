@@ -30,6 +30,9 @@
 //! needs (split out of the surface module on 2026-10-02 to respect the
 //! 1000-line file cap).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{BoundaryType, Surface};
 use crate::csg::position::{Direction, Position};
 

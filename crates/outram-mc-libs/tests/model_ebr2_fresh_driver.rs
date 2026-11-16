@@ -61,6 +61,8 @@
 //! Skips (passes with a message) when the reference tapes or the ACE
 //! submodule's `endf/` tapes are absent.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #[path = "../examples/common/ebr2_fresh_driver_model.rs"]
 #[allow(dead_code)]
 mod ebr2;

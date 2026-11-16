@@ -29,6 +29,8 @@
 //! U-238 y(12 MeV) = 0.06682, both previously 1. Without the change the test
 //! fails on the first U-235 row (checked by reverting the wiring).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::nuclide::Nuclide;
 use std::collections::BTreeMap;
 use std::path::PathBuf;

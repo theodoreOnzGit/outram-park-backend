@@ -40,6 +40,9 @@
 //! [`VarianceReduction::validate`] enforces this rather than letting a caller
 //! configure a no-op.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::rng::lcg::prn;
 
 /// Variance-reduction settings for a run. All-off is analog.
@@ -63,7 +66,7 @@ pub struct VarianceReduction {
     /// `Arc` rather than an owned value: the bounds are one array shared by
     /// every history in a run and must not be cloned per particle. Read-only
     /// data is `Arc<T>` per the workspace Rust rules.
-    pub weight_windows: Option<std::sync::Arc<crate::physics::weight_windows::WeightWindows>>,
+    pub weight_windows: Option<alloc::sync::Arc<crate::physics::weight_windows::WeightWindows>>,
     /// Play the window game after a surface crossing too
     /// (`settings::weight_window_checkpoint_surface`). The collision
     /// checkpoint is always on. gh:#1579.
@@ -103,7 +106,7 @@ impl VarianceReduction {
         mut self,
         ww: crate::physics::weight_windows::WeightWindows,
     ) -> Self {
-        self.weight_windows = Some(std::sync::Arc::new(ww));
+        self.weight_windows = Some(alloc::sync::Arc::new(ww));
         self
     }
 
@@ -304,6 +307,7 @@ mod tests {
             let sigma = w_s * (p * (1.0 - p) / N as f64).sqrt();
             let dev = (mean - w).abs() / sigma;
             worst = worst.max(dev);
+            #[cfg(feature = "std")]
             println!(
                 "w = {w:.2}: survivors {survivors}, mean weight {mean:.6} vs {w:.6} \
                  ({dev:.2} sigma)"
@@ -313,6 +317,7 @@ mod tests {
                 "roulette is biased at w = {w}: mean {mean:.6} vs {w:.6}, {dev:.2} sigma"
             );
         }
+        #[cfg(feature = "std")]
         println!("worst deviation across all weights: {worst:.2} sigma");
     }
 

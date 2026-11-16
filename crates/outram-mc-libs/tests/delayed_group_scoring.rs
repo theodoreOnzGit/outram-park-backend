@@ -32,6 +32,8 @@
 //! sum of the evaluation's `p_k(E)` at each energy. Skips cleanly when the
 //! tape is absent.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;

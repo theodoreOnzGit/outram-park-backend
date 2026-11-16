@@ -62,6 +62,8 @@
 //! Test 2: see the README. Full record:
 //! `verification_and_validation/urr_tally_scoring_953/README.md`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use std::path::PathBuf;
 

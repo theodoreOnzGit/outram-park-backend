@@ -58,6 +58,9 @@
 //! not the transfer kernel. Upstream records this as causing 2–5 % errors on
 //! PWR pin-cell eigenvalue derivatives near low-energy resonances.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::tally::tally::ScoreType;

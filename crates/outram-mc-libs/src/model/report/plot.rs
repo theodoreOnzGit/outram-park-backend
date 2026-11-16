@@ -8,6 +8,9 @@
 //! thick and solid, references dashed, our own calculations small and
 //! dotted, and every series' legend names where it comes from.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_blender::csg::plot::annotate::{draw_text, fmt_tick, nice_step, text_width};
 use outram_blender::csg::plot::colour::Rgb;

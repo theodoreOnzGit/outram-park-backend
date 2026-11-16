@@ -37,6 +37,8 @@
 //! | Oracle | `reference-data/scram/oracle-alignments.txt` |
 //! | Generator | `reference-data/scram/extract_alignment_oracle.sh`, run with and without `--ccf` |
 
+#![cfg(feature = "std")] // reads MEF XML files (gh:#1610)
+
 use raffles::scram::mef::MefModel;
 use raffles::scram::mocus::{minimal_cut_sets, DEFAULT_LIMIT_ORDER};
 use raffles::scram::probability::{top_event_probability, Approximation};

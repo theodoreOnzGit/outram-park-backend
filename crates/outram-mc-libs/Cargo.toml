@@ -50,8 +50,15 @@ maturity = 2
 # Routed float maths; see src/mathf.rs. no_std. EVERY transcendental call goes
 # through PETIR in every build, no feature (gh:#985).
 petir.workspace = true
-thiserror = { workspace = true }
-ndarray = { workspace = true }
+# `HashMap`/`HashSet` without `std` (gh:#1605); unused in std builds.
+hashbrown = { workspace = true }
+# `RwLock` without `std` (gh:#1605); unused in std builds.
+spin = { workspace = true }
+# `thiserror` without its std default (gh:#1605); `std` turns it back on.
+# Imported in lib.rs as `thiserror`.
+thiserror-nostd = { workspace = true }
+# std-only (gh:#1605): nothing in `src/` uses it.
+ndarray = { workspace = true, optional = true }
 # Nuclear data (cross sections, ν̄, χ). outram-mc-libs is data-free — it pulls all
 # microscopic cross sections from this crate's provider surface. See
 # docs/architecture.md.
@@ -73,7 +80,8 @@ njoy-outram-park-fork = { workspace = true }
 # here) and, on desktop only, `wgpu` (target-gated off Android and wasm by
 # liggghts exactly as this crate gates its own; already in this tree). Pure
 # Rust, no BLAS, Android- and wasm-clean.
-outram-park-fork-liggghts = { workspace = true }
+# std-only (gh:#1605): used by `pebble_beds::dem_bed` alone.
+outram-park-fork-liggghts = { workspace = true, optional = true }
 # Generic statistics (GitHub issue #500, 2026-10-02): the sample mean/stderr of
 # the active generations, seed pooling, Shannon entropy over mesh counts, the
 # trigger's running-sum statistics, tally error propagation and the generic
@@ -81,8 +89,11 @@ outram-park-fork-liggghts = { workspace = true }
 # `raffles::distributions::seeded`. The rule: the maths on numbers lives in
 # RAFFLES; deciding WHAT is counted stays here. Allowed edge (maintainer,
 # 2026-10-02) because `raffles` depends only on `petir` -- it must never depend
-# on this crate. Default features: `long-tests` gates raffles' own slow tests
-# and costs a dependent nothing; `burn` stays off. Pure Rust, Android/wasm-clean.
+# on this crate. ~~Default features: `long-tests` gates raffles' own slow tests
+# and costs a dependent nothing; `burn` stays off.~~ CORRECTED 2026-11-16
+# (gh:#1610): the root entry is now `default-features = false`; this crate's
+# `std` feature turns on `raffles/std`, and `burn` stays off. Pure Rust,
+# Android/wasm-clean.
 raffles = { workspace = true }
 # CSG geometry DESCRIPTION and its pure navigation kernel (GitHub #486,
 # maintainer decision 2026-10-02): position, surfaces, cells, universes,
@@ -92,23 +103,31 @@ raffles = { workspace = true }
 # `tally::mesh::*` paths. Transport-state work stays here on `*Ext` traits
 # (`geometry::crossing`). The root workspace entry is `default-features =
 # false`, so blender's `gpu` (wgpu) feature is not pulled; this crate has its
-# own GPU path. outram-blender must never depend on this crate.
+# own GPU path. Since 2026-11-16 (gh:#1604) that also leaves blender's `std`
+# off; this crate's `std` feature turns it on. outram-blender must never
+# depend on this crate.
 outram-blender = { workspace = true }
 # Coarse-mesh steady conduction + energy balance for the beginner thermal
 # profile (maintainer decision, gh:#949; see also gh:#945, epic #925). Edge
 # ADDED 2026-10-17 with no code using it yet. No cycle: outram-foam-basic-lib
 # depends only on petir (checked with `cargo tree -i`), and no outram-foam-*
-# crate depends on this crate. Features: the crate's defaults are EMPTY, so
+# crate depends on this crate. ~~Features: the crate's defaults are EMPTY, so
 # `parallel` (rayon) and `gpu` (wgpu) stay off and nothing is pulled in that
-# this tree did not already carry; no `default-features = false` is needed.
-outram-foam-basic-lib = { workspace = true, features = ["std"] }
+# this tree did not already carry; no `default-features = false` is needed.~~
+# CORRECTED 2026-11-16 (gh:#1605): the root entry is `default-features =
+# false` and its defaults are not empty (`std` since gh:#1586); this crate's
+# `std` feature turns on `outram-foam-basic-lib/std`, and `parallel` and `gpu`
+# stay off.
+outram-foam-basic-lib = { workspace = true }
 # IAPWS-IF97 water density for the beginner `model::Material::water(T, p)`
 # (maintainer decision on gh #925, 2026-10-17: "using existing helps"; water
 # from the existing steam tables, as OpenMC's `borated_water` takes T and p).
 # Edge ADDED 2026-10-17 (gh #937). No cycle: tampines-steam-tables depends on
 # approx, petir, ndarray, thiserror, uom and outram-foam-basic-lib, all
 # already in this crate's tree, and nothing it depends on depends on this
-# crate. No features. Pure Rust, Android- and wasm-clean (it is in
+# crate. ~~No features.~~ CORRECTED 2026-11-16 (gh:#1605): the root entry is
+# now `default-features = false`; this crate's `std` feature turns on
+# `tampines-steam-tables/std`. Pure Rust, Android- and wasm-clean (it is in
 # scripts/check-wasm.sh's scope).
 tampines-steam-tables = { workspace = true }
 # ~~Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
@@ -126,11 +145,13 @@ uom = { workspace = true }
 #     ENDF/B-8 OpenMC depletion chain XML, split a (Z<=47) / b (Z>=48).
 #   * parent-independent fission yields (ENDF/B-VIII.0) per fissioning nuclide.
 # See src/depletion/ and docs/ai-fleet-review/op-6tz-depletion/.
-openmc-endf-8-depletion-lib-a = { workspace = true }
-openmc-endf-8-depletion-lib-b = { workspace = true }
+# std-only (gh:#1605): both read their decay data through serde-xml-rs.
+openmc-endf-8-depletion-lib-a = { workspace = true, optional = true }
+openmc-endf-8-depletion-lib-b = { workspace = true, optional = true }
 fission-yields-data = { workspace = true }
 # Compute-mode selector (`ComputeType`) support. Both are pure-Rust and
-# Android-safe, so they are unconditional deps:
+# Android-safe. ~~so they are unconditional deps~~ CORRECTED 2026-11-16
+# (gh:#1605): `log` is unconditional; `rayon` is behind `std` (default on):
 #   * rayon  — data-parallel `CpuMultiThread` transport over the per-generation
 #     history bank (embarrassingly parallel; each history gets a deterministically
 #     derived RNG stream so results are reproducible independent of thread count).
@@ -146,8 +167,10 @@ log = { workspace = true }
 # for Android/Termux and wasm32 there. Named here only so the plot module can
 # call it directly instead of re-exporting it through the data crate.
 miniz_oxide = { workspace = true }
-# Terminal-UI stack for the `outram-mc-tui` binary (see [[bin]] below). An
-# unconditional (non-gated, non-target-gated) dependency: a terminal UI is
+# Terminal-UI stack for the `outram-mc-tui` binary (see [[bin]] below).
+# ~~An unconditional (non-gated, non-target-gated) dependency~~ CORRECTED
+# 2026-11-16 (gh:#1605): behind `std` (default on), as is the binary. A
+# terminal UI is
 # Android-in-scope per the workspace CLAUDE.md ("Android portability": only
 # windowing GUI is out of scope), so it compiles on every target and the binary
 # always builds with a plain `cargo build`. ratatui re-exports its matched
@@ -159,7 +182,27 @@ miniz_oxide = { workspace = true }
 # DEFAULT-ON, deliberately: a long test that is off by default is a test that
 # rots. `cargo quick-test` (--no-default-features) is the iteration escape
 # hatch; work is not done on a quick-test run.
-default = ["long-tests"]
+# `std` (default, gh:#1605): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`. It carries
+# threads (rayon; without it the parallel drivers run serially through
+# `wasm_par`), files and reports, clocks, printing, the GPU path, the TUI,
+# the DEM pebble bed (LIGGGHTS) and the OpenMC decay-data tables.
+std = [
+    "thiserror-nostd/std",
+    "dep:ndarray",
+    "dep:outram-park-fork-liggghts",
+    "dep:openmc-endf-8-depletion-lib-a",
+    "dep:openmc-endf-8-depletion-lib-b",
+    "dep:rayon",
+    "dep:ratatui",
+    "dep:wgpu",
+    "njoy-outram-park-fork/std",
+    "raffles/std",
+    "outram-blender/std",
+    "outram-foam-basic-lib/std",
+    "tampines-steam-tables/std",
+]
+default = ["std", "long-tests"]
 long-tests = []
 
 # `deterministic-math` was REMOVED 2026-10-20 (gh:#985): deterministic maths
@@ -169,7 +212,7 @@ long-tests = []
 # σ(E) on device (RECONR + BROADR). Off by default — the LOW tier
 # (`Nuclide::from_core`, embedded WMP + fast MGXS) needs no network. Enable with
 # `--features net-fetch`. See docs/data-acquisition.md.
-net-fetch = ["njoy-outram-park-fork/net-fetch"]
+net-fetch = ["std", "njoy-outram-park-fork/net-fetch"]
 
 # HIGH-fidelity FHR TRISO-pebble V&V cases (op-mzvp.2). A no-op feature that just
 # gates `examples/fhr_ring_rpt_endf.rs` out of the default build/test — it needs
@@ -190,7 +233,7 @@ endf-pebble-cases = []
 # futures, keeping this crate's third-party surface unchanged (dependency policy:
 # all versions live in the root workspace table).
 [target.'cfg(not(target_os = "android"))'.dependencies]
-wgpu = { workspace = true }
+wgpu = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx = { workspace = true }
@@ -223,6 +266,7 @@ naga = { workspace = true, features = ["wgsl-in"] }
 [[bin]]
 name = "outram-mc-tui"
 path = "src/bin/outram-mc-tui/main.rs"
+required-features = ["std"]
 
 # Ungated companion to `fhr_ring_rpt_endf` below: the same five-submodule
 # pipeline (crp_packing -> sphere_packing -> fhr_pebble -> delta_tracking ->
@@ -397,5 +441,6 @@ required-features = ["endf-pebble-cases"]
 # Monte Carlo drivers seed per history and their eigenvalues are documented as
 # thread-count-independent. Bead op-okqo.1.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = { workspace = true }
-ratatui = { workspace = true }
+# std-only (gh:#1605): without `std` the rayon call sites use `wasm_par`.
+rayon = { workspace = true, optional = true }
+ratatui = { workspace = true, optional = true }

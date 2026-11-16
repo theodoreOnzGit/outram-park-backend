@@ -9,6 +9,9 @@
 //! validation. No k-eigenvalue comparison against the upstream
 //! `triso_virtual_lattice` regression case has been run.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::geometry::position::Direction;
 use crate::geometry::surface::{BoundaryType, Sphere};

@@ -31,7 +31,10 @@
 //! other machine-specific artifact in this crate, unless
 //! `OUTRAM_MC_DIAGNOSTICS` names a path.
 
-use std::fmt::Write as _;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -264,18 +267,25 @@ impl RunDiagnostics {
 
     /// Print the summary to stdout — the two totals, separated, and any failure.
     pub fn print_summary(&self) {
+        #[cfg(feature = "std")]
         println!("\n  --- timing, data processing vs transport ---");
+        #[cfg(feature = "std")]
         println!("  hardware     : {}", self.hardware.headline());
+        #[cfg(feature = "std")]
         println!("  nuclear data : {:8.1} s", self.data_seconds());
+        #[cfg(feature = "std")]
         println!("  transport    : {:8.1} s", self.phase_seconds());
+        #[cfg(feature = "std")]
         println!(
             "  total        : {:8.1} s",
             self.data_seconds() + self.phase_seconds()
         );
         let failures = self.failures();
         if !failures.is_empty() {
+            #[cfg(feature = "std")]
             println!("  !! {} DATA ITEM(S) FAILED TO LOAD:", failures.len());
             for f in failures {
+                #[cfg(feature = "std")]
                 println!("     {} — {}", f.role, f.source.describe());
             }
         }
@@ -285,7 +295,7 @@ impl RunDiagnostics {
     /// timestamped file in the gitignored local-perf directory.
     #[must_use]
     pub fn output_path(&self) -> PathBuf {
-        if let Ok(p) = std::env::var("OUTRAM_MC_DIAGNOSTICS") {
+        if let Ok(p) = crate::env::var("OUTRAM_MC_DIAGNOSTICS") {
             return PathBuf::from(p);
         }
         let slug: String = self
@@ -319,10 +329,12 @@ impl RunDiagnostics {
     pub fn write_and_report(&self) -> Option<PathBuf> {
         match self.write() {
             Ok(p) => {
+                #[cfg(feature = "std")]
                 println!("  diagnostics  : {}", p.display());
                 Some(p)
             }
             Err(e) => {
+                #[cfg(feature = "std")]
                 eprintln!("  diagnostics could not be written: {e}");
                 None
             }

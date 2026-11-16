@@ -74,6 +74,8 @@
 //! Printed at run time with `--nocapture`; the write-up is
 //! `verification_and_validation/variance_reduction/shielded_room_2026_09_22.md`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use std::time::Instant;
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};

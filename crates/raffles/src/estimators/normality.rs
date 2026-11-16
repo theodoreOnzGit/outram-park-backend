@@ -96,6 +96,9 @@
 //!
 //! No human V&V, like the rest of this crate.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 

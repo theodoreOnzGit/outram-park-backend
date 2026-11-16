@@ -69,6 +69,9 @@
 //! `crates/nee_soon/examples/htr10_geometry_images.rs` uses it on the HTR-10
 //! core.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod annotate;
 pub mod colour;
 pub mod image;

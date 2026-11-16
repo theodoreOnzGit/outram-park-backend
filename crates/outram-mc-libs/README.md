@@ -47,6 +47,30 @@ Data-free: all cross sections come from `njoy-outram-park-fork`'s
 `NUCLEAR_DATA.md` for how nuclear-data distribution is planned to work
 (runtime downloader + cache vs. embedded curated subsets).
 
+## `no_std` + `alloc` (gh:#1605)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-mc-libs --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). What stays: geometry, materials, sources,
+tallies, the transport and k-eigenvalue drivers, delta tracking, the
+`model` API on in-memory or embedded data, and statistics. What `std` adds:
+
+- threads (`rayon`; without it the parallel drivers run serially through
+  `wasm_par`, which the drivers' per-history seeding makes exact, as on wasm);
+- files: ENDF/ACE/HDF5 loading from disk, MCPL and `collision_track.h5`
+  output, reports, `perf_report`, `run_diagnostics`, `vv`;
+- clocks, printing and environment variables (without `std` every
+  `OUTRAM_MC_*` switch reads as unset, so it takes its default);
+- the GPU path (`wgpu`; without `std` the CPU path is used, as on Android);
+- S(α,β) thermal laws, which NJOY's LEAPR generates (without `std`,
+  `NuclearData::load_nuclide` with a law returns an error saying so);
+- the DEM pebble bed (`pebble_beds::dem_bed`, LIGGGHTS), the OpenMC decay-data
+  tables of `depletion::chain`, and the `outram-mc-tui` binary.
+
+With `std` on (the default) nothing changes: every switch above re-exports
+the `std` item it replaces.
+
 ## Compute backend & GPU tradeoff (opt-in)
 
 The k-eigenvalue driver takes a `ComputeType` (set on `KeffSettings`), selecting

@@ -65,6 +65,8 @@
 //! 1.01210 +/- 0.00418, identical to each other (every legacy order at once, so
 //! not comparable with OLD).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{KeffResult, KeffSettings};

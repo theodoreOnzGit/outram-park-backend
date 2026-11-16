@@ -34,6 +34,9 @@
 //! and an oriented frame (tangent + tilted normal), which the sweep operators
 //! ride.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 
@@ -613,7 +616,7 @@ mod tests {
         let mut s = Spline::poly(&[Vec3::ZERO, Vec3::new(4.0, 0.0, 0.0)]);
         s.points[0].radius = 1.0;
         s.points[1].radius = 3.0;
-        s.points[1].tilt = std::f64::consts::FRAC_PI_2;
+        s.points[1].tilt = core::f64::consts::FRAC_PI_2;
         s.resolution = 8;
         let frames = s.sample_with_frames();
         assert!((frames.first().unwrap().radius - 1.0).abs() < 1e-9);

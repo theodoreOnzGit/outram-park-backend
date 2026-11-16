@@ -162,6 +162,8 @@
 //! a paired-seed ensemble — a single Godiva-scale run carries ~200 pcm of
 //! seed-to-seed spread, an order larger than the effect predicted above.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::nuclear_data::secondary::{ContinuumAngular, ContinuumEmission};
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;

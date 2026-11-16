@@ -48,8 +48,12 @@
 //!
 //! No `faer`, no external dependency; Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 /// Errors from parsing an STL stream.
@@ -71,6 +75,7 @@ pub enum StlError {
     #[error("malformed ASCII STL: {0}")]
     Parse(String),
     /// A filesystem error while reading an STL file.
+    #[cfg(feature = "std")]
     #[error("I/O error reading STL: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -144,11 +149,13 @@ pub fn to_stl_binary(mesh: &Mesh) -> Vec<u8> {
 }
 
 /// Write `mesh` to `path` as ASCII STL.
+#[cfg(feature = "std")]
 pub fn write_stl_ascii(mesh: &Mesh, path: &Path) -> std::io::Result<()> {
     std::fs::write(path, to_stl_ascii(mesh))
 }
 
 /// Write `mesh` to `path` as binary STL.
+#[cfg(feature = "std")]
 pub fn write_stl_binary(mesh: &Mesh, path: &Path) -> std::io::Result<()> {
     std::fs::write(path, to_stl_binary(mesh))
 }
@@ -235,12 +242,13 @@ pub fn from_stl_bytes(bytes: &[u8]) -> Result<Mesh, StlError> {
             return from_stl_binary(bytes);
         }
     }
-    let text = std::str::from_utf8(bytes)
+    let text = core::str::from_utf8(bytes)
         .map_err(|e| StlError::Parse(format!("not binary and not valid UTF-8: {e}")))?;
     from_stl_ascii(text)
 }
 
 /// Read an STL file from `path`, auto-detecting ASCII vs binary.
+#[cfg(feature = "std")]
 pub fn read_stl(path: &Path) -> Result<Mesh, StlError> {
     let bytes = std::fs::read(path)?;
     from_stl_bytes(&bytes)

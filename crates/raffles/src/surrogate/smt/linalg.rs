@@ -14,6 +14,9 @@
 //! QR, a symmetric eigenvalue routine for condition estimates, and a small
 //! inverse.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Solves `L z = b` for lower-triangular `L`.

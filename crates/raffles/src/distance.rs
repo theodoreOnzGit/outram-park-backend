@@ -83,6 +83,9 @@
 //! Independent implementations from the published definitions; see the
 //! provenance note in [`crate::bayesian`] for why that is stated explicitly.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 

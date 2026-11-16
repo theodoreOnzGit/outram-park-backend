@@ -75,6 +75,8 @@
 //! `gpu_continuum_inelastic_is_kinematically_consistent` passes under both.
 //! Only the distribution sees them.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::mathf::RealMath;

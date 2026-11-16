@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Spatial source distributions.
 ///
 /// C++ source: `src/distribution_spatial.cpp`, `include/openmc/distribution_spatial.h`.

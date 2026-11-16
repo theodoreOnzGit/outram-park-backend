@@ -65,6 +65,9 @@
 //! refactor). `pebble_beds::delta_tracking` re-exports everything at its old
 //! path; behaviour is bit-identical (`tests/delta_tracking_bit_identity.rs`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod flight;
 pub mod handoff;
 pub mod majorant;

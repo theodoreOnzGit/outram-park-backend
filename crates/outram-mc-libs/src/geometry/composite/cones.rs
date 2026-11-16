@@ -15,6 +15,9 @@
 
 //! Cones and vessels: [`ConeOneSided`], [`ConicalFrustum`], [`Vessel`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::prisms::{axis_cylinder, axis_plane};
 use super::{and, dot, neg, norm, or, pos, Axis, Builder, CompositeError, CompositeRegion, T};
 use crate::geometry::surface::{Plane, Quadric, SurfaceKind, XCone, YCone, ZCone};

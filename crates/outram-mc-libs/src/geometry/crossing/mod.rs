@@ -24,6 +24,9 @@
 //! | [`SurfaceKindExt`] | [`SurfaceKind`] | `diffuse_reflect`, `sphere_centre_radius`, `overlaps_voxel` |
 //! | [`GeometryExt`] | [`Geometry`] | `cross_surface`, `cross_surface_in_frame`, `distance_out_of_level`, `sigma_t_at`, `validate_boundary_conditions` |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_blender::csg::cell::{HalfSpaceSense, RegionToken, SurfaceToken};
 use petir::mathf::RealMath;
 use outram_blender::csg::geometry::{Geometry, GeometryPath};
@@ -940,7 +943,7 @@ pub fn periodic_transform(
     let angle = cross[axis].r_atan2(a.u * b.u + a.v * b.v + a.w * b.w);
     // Upstream only warns here; a wedge that does not tile the circle is not
     // a periodic cell, so this port refuses.
-    let turns = std::f64::consts::TAU / angle;
+    let turns = core::f64::consts::TAU / angle;
     if (turns.round() - turns).abs() > 1.0e-10 {
         return Err(format!(
             "rotational periodic pair ({i_surf}, {j_surf}) has a rotation angle of {} degrees, \

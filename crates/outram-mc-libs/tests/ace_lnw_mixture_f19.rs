@@ -84,6 +84,8 @@
 //! clamping test. Full record:
 //! `verification_and_validation/ace_route_physics/f19_lnw_mixture_2026-09-29.md`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::endf::records::{Cont, Tab1};
 use njoy_outram_park_fork::nuclear_data::secondary::{
     ChiEout, ChiTabular, ContinuumAngular, ContinuumBranch, ContinuumEmission,

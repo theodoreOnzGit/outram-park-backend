@@ -12,6 +12,9 @@
 //! assert_eq!(TAN2024_RSA.year, 2024);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// One journal-article citation, in the fields a reader (or a `.bib` exporter)
 /// needs. All strings are `'static` — these are compile-time constants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

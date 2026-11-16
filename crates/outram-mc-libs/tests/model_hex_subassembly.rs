@@ -46,6 +46,8 @@
 //! skips when they are absent. Pictures:
 //! `examples/hex_subassembly_geometry.rs`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::reference_data::reference_endf_dir;
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::position::{Direction, Position};

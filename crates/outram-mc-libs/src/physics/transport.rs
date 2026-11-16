@@ -16,3 +16,7 @@
 //   - `cross_surface(particle)`           — apply boundary condition
 //
 // TODO: implement transport_history once Particle + geometry + material are ported.
+
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;

@@ -39,6 +39,9 @@
 //! **OpenDA's cost functions**, including the weighted least-squares cost
 //! its calibration algorithms minimise (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::linalg::{axpy, norm2_squared, pointwise_divide};
 use super::models::{Observations, OdaStochModel};
 use super::noise::{DrawSource, StochVector};
@@ -373,7 +376,7 @@ mod tests {
         let obs = Observations::new(vec![0.0, 1.0, 2.0], vec![0.0; 3], vec![0.8, 0.0, -0.6], vec![0.1; 3], None).unwrap();
         let mut w = WeightedLeastSquares::simulation(tpl.clone(), &obs, false).unwrap();
         assert_eq!(w.predictor().observations().len(), 2);
-        let c = w.evaluate(&[8.0, std::f64::consts::FRAC_PI_2]).unwrap();
+        let c = w.evaluate(&[8.0, core::f64::consts::FRAC_PI_2]).unwrap();
         assert!(c > 0.0 && c < 10.0 && w.multiplication_factor() == 0.5);
         assert!(WeightedLeastSquares::simulation(tpl, &Observations::new(vec![0.0], vec![0.0], vec![0.8], vec![0.1], None).unwrap(), false).is_err());
     }

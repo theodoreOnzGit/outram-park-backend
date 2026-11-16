@@ -67,6 +67,9 @@
 //! Record: `crates/raffles/verification_and_validation/raven_routes_gh1193.md`;
 //! differential tests in `tests/raven_routes_gh1193.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod grid;
 pub mod special;
 

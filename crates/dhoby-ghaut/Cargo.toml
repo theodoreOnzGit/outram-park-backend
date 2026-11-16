@@ -117,7 +117,7 @@ petir = { workspace = true }
 # a demo that runs no Monte Carlo builds none of this. Wasm-safe (the
 # example already builds all of it for wasm32).
 outram-mc-libs = { workspace = true, optional = true }
-njoy-outram-park-fork = { workspace = true, optional = true }
+njoy-outram-park-fork = { workspace = true, optional = true, features = ["std"] }
 miniz_oxide = { workspace = true, optional = true }
 log = { workspace = true, optional = true }
 uom = { workspace = true, optional = true }
@@ -136,7 +136,7 @@ egui-file-dialog = { workspace = true, optional = true }
 nee_soon = { workspace = true, optional = true }
 # Step 0's folder scan and the tape lookup the nuclear-data load shares with
 # it (`endf_folder`, gh:#581).
-njoy-outram-park-fork = { workspace = true, optional = true }
+njoy-outram-park-fork = { workspace = true, optional = true, features = ["std"] }
 outram-mc-libs = { workspace = true, optional = true }
 # The GPU ray tracer of the 3D view and the slices (gh:#587,
 # `outram_blender::csg::gpu`): its `gpu` feature, on eframe's own wgpu

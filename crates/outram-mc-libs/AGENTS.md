@@ -6,6 +6,28 @@ Pure-Rust port of the OpenMC Monte Carlo neutron transport kernels.
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openmc/`
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1605, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. The README lists what `std`
+carries. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob in `no_std` builds (copy the line from any module).
+- `HashMap` / `HashSet` from `crate::hash` (`hashbrown` without `std`);
+  `RwLock` / `PoisonError` from `crate::sync`; `env::var` from `crate::env`;
+  `available_parallelism` from `crate::thread`. Each is the `std` item itself
+  in a `std` build.
+- A `rayon` import or anything else the wasm build already swaps out takes
+  `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`, with the
+  `wasm_par` / serial branch on `any(target_arch = "wasm32", not(feature =
+  "std"))`; GPU code likewise reuses the Android branches.
+- Printing is a `#[cfg(feature = "std")]` statement, not a gated function;
+  files, HDF5 and LEAPR are `#[cfg(feature = "std")]` items.
+- Tests that read files or use threads are `#[cfg(feature = "std")]`; the
+  rest also build with `--no-default-features`.
+
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

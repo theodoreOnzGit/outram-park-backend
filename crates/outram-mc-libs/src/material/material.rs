@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Material composition and macroscopic cross-section lookup.
 ///
 /// C++ source: `src/material.cpp` (1603 LOC), `include/openmc/material.h`.

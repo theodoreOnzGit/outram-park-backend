@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Tally filters — constrain which phase-space events are scored.
 ///
@@ -945,7 +948,7 @@ fn factorial(k: usize) -> f64 {
 /// filter scored with rather than a re-derivation that could drift.
 pub fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f64> {
     let mut out = Vec::with_capacity((order + 1) * (order + 1));
-    let four_pi = 4.0 * std::f64::consts::PI;
+    let four_pi = 4.0 * core::f64::consts::PI;
     for l in 0..=order {
         for m in -(l as i32)..=(l as i32) {
             let am = m.unsigned_abs() as usize;
@@ -955,9 +958,9 @@ pub fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f
             let v = if m == 0 {
                 norm * p
             } else if m > 0 {
-                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_cos()
+                core::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_cos()
             } else {
-                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_sin()
+                core::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_sin()
             };
             out.push(v);
         }
