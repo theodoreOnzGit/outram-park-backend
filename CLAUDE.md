@@ -359,6 +359,17 @@ operation order — is acceptable when the relative difference is below 1e-8.**
 - **It does not relax physics V&V gates** (benchmark residuals, pcm, experimental
   tolerances), nor a bit-identity pin a test already holds — moving such a pin
   still needs the reasons the "PROCESS right first" section demands.
+- **Moving a pin for rounding (maintainer, 2026-11-17):** "Pins can move if they
+  r due to rounding errors, is ok. 1e-9 for most errors, 1e-4 for propagated
+  error." A pin may be re-pinned when its value moved by round-off: up to
+  **1e-9 relative** for a direct difference, and up to **1e-4 relative** for a
+  *propagated* one (a last-bit change carried forward, e.g. a Monte Carlo
+  random walk diverging after one rounded collision). Record the old and new
+  values and the relative change where the pin lives. A move beyond those
+  bounds, or one with an unexplained cause, still needs the reasons above.
+  First use: gh:#1613 (Godiva k-trace, 4.6e-6 propagated). Not reconciled yet
+  with the 1e-8 code-to-code allowance above; ask the maintainer which binds
+  where they differ.
 
 
 ## Search the workspace before building anything (HARD RULE)
