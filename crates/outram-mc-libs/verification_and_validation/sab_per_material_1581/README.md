@@ -195,8 +195,10 @@ nuclide-level tests (13 files, nothing to attach to); `region_temperature`
 (pins the hand path bit-identical to the `Model` path, which a longer array
 would break); `ugraphite_common` and dhoby `ugraphite` (densities indexed by
 nuclide-array position); dhoby `htr10` and `dhshort` (materials built
-elsewhere); `majorant_bounds_endf`, `majorant_temperature_cover`,
-`htr10_graphite_thermal_scattering_pebble_bed`,
+elsewhere); ~~`majorant_bounds_endf`, `majorant_temperature_cover`,
+`htr10_graphite_thermal_scattering_pebble_bed`~~ (**CORRECTED 2026-11-17,
+gh:#1635: all three are migrated, markers removed; checked by the
+`no_unmarked_nuclide_level_sab_462` scan and the results below**),
 `temperature_interpolation_947`; nee_soon `data.rs` / `data_jobs.rs`.
 Each file's marker now states its audit and reason.
 
@@ -1022,3 +1024,141 @@ path) and after (this change) and run with identical settings, `--test-threads=1
   an accidental relaunch at 15:18 and is not in the saved files; before it was
   lost it read `table worst 0.7729 (1.386e-5 eV, 1500 K)` in the before run.
   Raw: `ensembles_1635/majorant_temperature_cover_{before,after}.out`.
+
+## gh:#1635 item 1: `htr10_graphite_thermal_scattering_pebble_bed` (2026-11-17): prediction
+
+**Written before any run of the migrated test.** The test file built one array
+`[U234, U235, U238, C0]` through `nuclides(thermal)`, attaching the graphite law
+to `C0` (slot 3) with `with_thermal_scattering`; material 1 (graphite matrix)
+is the only reference to slot 3. The migration loads all four slots free and
+lowers the law per material with `assign_material_sab` (the
+`majorant_temperature_cover` pattern), which appends a bound copy of `C0` at
+slot 4 and repoints material 1 at it. The free-gas arm is unchanged (4 free
+nuclides, `materials()` as before).
+
+Predictions, each falsifiable by the before/after outputs:
+
+1. **Free-gas k: bit-identical** (same array, same materials, same seed).
+2. **Bound k: bit-identical OR a seed-level re-draw.** The array grows 4 -> 5,
+   and `keff_delta` advances its URR stream by `nuclides.len()` per energy change
+   (`future_seed(nuclides.len(), urr_seed)`, `src/pebble_beds/keff_delta.rs:1237`).
+   If no nuclide in this model calls the URR draw (`from_core` windowed-multipole
+   nuclides; `needs_urr_draw`), the stream is never consumed and the k is bit-identical.
+   I do not know which holds, so both are admissible; if the bound k moves I will
+   state that as a stream re-draw only after showing it is statistically
+   consistent in a seed ensemble (|z| <= 2), not assume it.
+3. **Nuclide-level checks** (`graphite_thermal_law_reaches_the_transport_kernel`,
+   `majorant_still_bounds_total_xs_with_bound_graphite`, the shape test): the
+   bound copy is a clone of the same `C0` with the same law, and the majorant is
+   rebuilt on the same material set, so every printed number is **identical**
+   (the unreferenced free `C0` at slot 3 is in no material, so `macro_xs_total`
+   and the majorant are unchanged).
+4. **Any pinned value that moves: STOP and report; no re-pin.**
+
+### Results, gh:#1635 item 1 (2026-11-17)
+
+`tests/htr10_graphite_thermal_scattering_pebble_bed.rs` is migrated: the new
+`model(thermal)` helper loads `[U234, U235, U238, C0]` free and, for the bound
+arm, lowers the graphite law with `assign_material_sab`
+(`MaterialSab::for_materials_containing(&mats, 3, 0, &[])`); `matrix_nuclide`
+reads the matrix's nuclide through the material, so the nuclide-level checks
+also run on the bound copy that `assign_material_sab` makes (its one sanctioned
+binding site). No deprecated call is left in the file and the
+`#![allow(deprecated)]` marker is gone. Methodology: the test binary was built
+before (`e5b0e9e3b`, deprecated path) and after (this change); both were run
+`--test-threads=1 --nocapture`, once for the four live tests and once with
+`--ignored` for `diagnose_thermal_spectrum_reach`. Hardware: Intel Xeon
+@ 2.10 GHz KVM container, 4 logical cores, 15.7 GiB, Linux 6.18, CPU only,
+shared; the test runs are single-threaded.
+
+| quantity | before | after |
+|---|---|---|
+| free-gas k (300 histories, 8 + 15 cycles) | 1.93405 +/- 0.00852 | 1.93405 +/- 0.00852 |
+| bound k | 1.94577 +/- 0.00635 | 1.94577 +/- 0.00635 |
+| `<E'/E>` at 0.0253 eV, free gas / bound | 1.13863 +/- 0.00123 / 1.03807 +/- 0.00065 | identical |
+| worst Sigma_t/Sigma_maj (200000 points) | 0.909093 at 4.850698 eV, material 0 | identical |
+| diagnostic: histories reaching cutoff, mean scatters, percentiles | 17923 / 20000, 77.7, p01 3.9750 ... p90 6.3901 eV | identical |
+
+**All four live tests and the diagnostic print identical output before and
+after** (diff with the wall times masked; 4 passed / 1 ignored in both; 97.4 s
+before, 96.0 s after). **Prediction check:** (1) free-gas k bit-identical: held.
+(2) bound k bit-identical or a re-draw: it is **bit-identical**, so the array
+growth 4 -> 5 did not move anything here (the URR stream is not consumed by this
+`from_core` model; I did not separately trace that, the identical k is the
+evidence). No seed ensemble was needed. (3) nuclide-level numbers identical:
+held. (4) no pinned value moved, nothing re-pinned. Limit: one seed and one
+packing, as the test always was; this shows the migration changes nothing in
+these runs, not that the physics is validated. Raw:
+`ensembles_1635/htr10_pebble_bed_{before,after,diag_before,diag_after}.out`.
+
+## gh:#1635 item 2: nee_soon HTR-10 diagnostics, transport part (2026-11-17): prediction
+
+**Which of the five migrated diagnostics (`00d2cc781`) transport.** Read from the
+sources: `htr10_material_check`, `htr10_mat_xs` and `htr10_majorant_diagnosis`
+only evaluate macroscopic cross sections or a majorant (no neutron histories);
+`htr10_mgxs_genfoam` is BLOCKED by its own header (panics at assembly, gh:#475)
+and cannot run. The only one with transport is
+**`htr10_deterministic_vs_mc`** (explicit-TRISO full-core `run_keff_csg_hybrid`,
+two passes; the k comes from pass 1). It is the one measured here.
+
+**Knobs added to the example (defaults unchanged, applied identically to the
+OLD checkout `d1e20f188`):** `OUTRAM_HTR10_SEED` (the `KeffSettings::seed`, default
+20260919) and `OUTRAM_HTR10_K_ONLY` (stop after pass 1; scoring draws no random
+number, so pass 1's k is the full run's k).
+
+**Prediction, written before any run.** OLD attaches the graphite law to three
+carbon slots with `with_thermal_scattering` (C12 slot 4, C13 graphite slot, ...,
+lines 192/200/214) and the SiC laws likewise; NEW loads every slot free and
+`assign_htr10_sab` appends bound copies after them, so the nuclide array
+**lengthens**. Every nuclide here comes from ENDF with RECONR+BROADR+PURR, so URR
+probability tables are live and the URR stream advances by `nuclides.len()` per
+energy change: the stream **re-draws**, bit-identity is NOT expected. Materials
+reference the same cross sections otherwise (each slot's role audited safe,
+`00d2cc781`), so the expected shift in k is **zero within statistics**. Gate:
+paired by seed, N seeds, `new - old` within |z| <= 2 of its standard error; a
+bigger shift is reported, not tuned. Pass criterion for a seed: none (no
+pinned value; the example prints k and compares to a deterministic solver).
+If the histories needed for a usable per-seed sigma exceed the time budget, the
+run is reduced (histories, rings, layers via the example's existing knobs) and
+the reduction stated; k of a reduced run is a statistics instrument for the
+old-vs-new comparison, not a benchmark number.
+
+### Results, gh:#1635 item 2 (2026-11-17): NOT MEASURABLE, the example panics at OLD and NEW alike
+
+Of the five nee_soon diagnostics migrated in `00d2cc781`, only
+`htr10_deterministic_vs_mc` transports (see the prediction above). It was built
+at OLD (`d1e20f188`, throwaway worktree) and NEW (this branch) and run with its
+documented defaults plus `OUTRAM_HTR10_HISTORIES=100` (to shorten, had it run),
+from `crates/nee_soon`, tapes present (`reference-data/endf`, 90 files, no
+SKIP). **Both builds panic identically, about four minutes in, at the start of
+Monte Carlo pass 1**, after the geometry is built (5746 tiles, 19410 cells, 767
+universes):
+
+```
+panicked at crates/outram-mc-libs/src/material/cell_temperature.rs:178:68:
+cell 2 references material 11, out of range
+  ... with_cell_temperatures_and_majorants <- run_keff_csg_seq
+  <- run_keff_csg_inner <- run_keff_csg_hybrid <- htr10_deterministic_vs_mc::main
+```
+
+Raw: `ensembles_1635/nee_soon_dvm_{old,new}_panic.out` (identical apart from clock
+times and thread ids). So the panic is **not caused by the #1581 migration**
+(OLD has it too) and **no old-vs-new k could be measured**; the prediction
+(zero shift within |z| <= 2 after a URR-stream re-draw) is **untested**, neither
+supported nor refuted. Diagnosis I can state: the example's `materials()` builds
+exactly `mat::HOMOG_DUMMY + 1 = 11` materials (it asserts this), while the
+assembled core (`assemble_explicit_triso`) has a cell filled with material
+index 11, `mat::ZONE_TABLE_FIRST`, so `with_cell_temperatures` (the cell
+temperature default, gh:#313, `651dcd747`, 2026-11-14) rejects it. I did not
+check whether the panic predates #313 (older code may have skipped the lookup)
+or which cell 2 is; I did not fix the example, because that is a rewrite of its
+material list against the current core, outside this item. The other three
+non-transport diagnostics (`htr10_material_check`, `htr10_mat_xs`,
+`htr10_majorant_diagnosis`) evaluate cross sections or a majorant only and were
+not run; `htr10_mgxs_genfoam` is blocked by its own header (gh:#475). The
+`OUTRAM_HTR10_SEED` / `OUTRAM_HTR10_K_ONLY` knobs mentioned in the prediction
+were reverted (never exercised past the panic); the prediction text above is
+kept as written. The nee_soon `data.rs` / `data_jobs.rs` loader (full-core
+HTR-10 runs, marked not migrated) was not measured either. Hardware: Intel Xeon
+@ 2.10 GHz KVM container, 4 logical cores, 15.7 GiB, CPU only, two processes
+concurrent.
