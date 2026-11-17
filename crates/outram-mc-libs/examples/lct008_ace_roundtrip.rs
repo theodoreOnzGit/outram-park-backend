@@ -517,6 +517,18 @@ fn main() {
         st.transport_endf_ablated += t.elapsed();
         std_abl = r.k_std;
         k_abl.push(r.k_mean);
+        // Per-seed line for the DBRC-ablated arm (gh:#1644): the summary above
+        // prints only its mean, which hid an 8-seed block mean moving by
+        // +282 pcm. Print-only, in `main`'s glue (no test reaches `main`).
+        // `ABLATED` not `ENDF` so the `seed N: ENDF ... ACE ...` parsers of
+        // the #1583/#1635 scripts do not match it; 7 decimals so two runs can
+        // be compared bit-for-bit.
+        if n_seeds > 1 {
+            println!(
+                "    seed {:>3}: ABLATED {:.7} +/- {:.7}",
+                set.seed, r.k_mean, r.k_std
+            );
+        }
     }
     let a_abl = summarise(&k_abl, std_abl);
     let r_abl = KRes {
