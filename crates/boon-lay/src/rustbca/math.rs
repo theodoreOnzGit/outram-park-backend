@@ -8,7 +8,7 @@
 // Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
 //                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
 // Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
-// Local changes    : std::mem::swap -> core::mem::swap
+// Local changes    : core::mem::swap -> core::mem::swap
 //                    (full list: module docs in mod.rs)
 
 use super::*;

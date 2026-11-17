@@ -51,7 +51,7 @@ long-tests = []
 petir = { workspace = true }
 # The release physics. boon-lay's TRISO-ATOPS fork is the whole mechanistic
 # layer; this crate orchestrates it and does not reimplement any of it.
-boon-lay  = { workspace = true }
+boon-lay  = { workspace = true, features = ["std"] }
 # The consumer. The dependency direction is sembawang -> changi and never the
 # reverse: changi defines the source-term types its own driver consumes, which
 # is what lets changi's end-to-end example run with this crate untouched.
@@ -68,7 +68,7 @@ buangkok  = { workspace = true }
 # added (`cargo tree -p sembawang -i outram-mc-libs -e normal`, 2026-10-17).
 # outram-mc-libs must never depend on this crate. Default features only
 # (`long-tests` gates its own slow tests and costs a dependent nothing).
-outram-mc-libs = { workspace = true }
+outram-mc-libs = { workspace = true, features = ["std"] }
 # The Fukushima Daiichi Unit 1 plant model (`bwr_mark1`, gh:#1033, moved from
 # dhoby-ghaut's `fukushima_web` example 2026-10-29): IAPWS-IF97 for the
 # vessel, the pool and the coolant properties; teh-o-prke's decay heat; and

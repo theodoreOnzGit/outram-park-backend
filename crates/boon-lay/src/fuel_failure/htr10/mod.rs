@@ -136,6 +136,9 @@
 //! in conflict — but without Fig. 10's temperature history it is not a check
 //! either. Digitising Fig. 10 would make it one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod qualification;
 // pub mod sweep; -- added in the next commit
 
@@ -214,7 +217,7 @@ pub fn sic_layer() -> SicLayer {
 /// The kernel volume `V_k`, from the published kernel radius.
 pub fn kernel_volume() -> Volume {
     let r = KERNEL_RADIUS_UM * 1.0e-6;
-    Volume::new::<cubic_meter>(4.0 / 3.0 * std::f64::consts::PI * r * r * r)
+    Volume::new::<cubic_meter>(4.0 / 3.0 * core::f64::consts::PI * r * r * r)
 }
 
 /// The free volume `V_f` — **half the buffer shell**, which is the report's
@@ -224,7 +227,7 @@ pub fn free_volume() -> Volume {
     let r_k = KERNEL_RADIUS_UM * 1.0e-6;
     let r_b = BUFFER_OUTER_RADIUS_UM * 1.0e-6;
     Volume::new::<cubic_meter>(
-        0.5 * 4.0 / 3.0 * std::f64::consts::PI * (r_b * r_b * r_b - r_k * r_k * r_k),
+        0.5 * 4.0 / 3.0 * core::f64::consts::PI * (r_b * r_b * r_b - r_k * r_k * r_k),
     )
 }
 

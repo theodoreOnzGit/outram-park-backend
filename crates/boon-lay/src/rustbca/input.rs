@@ -34,7 +34,8 @@ pub trait GeometryInput {
 
 #[cfg(any(test, feature = "rustbca-std"))]
 /// Rustbca's internal representation of an input file.
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct Input2D {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
@@ -74,7 +75,8 @@ impl InputFile for Input2D {
 
 #[cfg(any(test, feature = "rustbca-std"))]
 /// Rustbca's internal representation of an input file for homogeneous 2D meshes.
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct InputHomogeneous2D {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
@@ -112,7 +114,9 @@ impl InputFile for InputHomogeneous2D {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct Input0D {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
@@ -148,7 +152,9 @@ impl InputFile for Input0D {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct Input1D {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
@@ -241,42 +247,43 @@ fn default_rootfinder() -> Vec<Vec<Rootfinder>> {
 }
 
 /// Rustbca's internal representation of the simulation-level options.
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct Options {
     pub name: String,
-    #[serde(default = "default_false")]
+    #[cfg_attr(feature = "std", serde(default = "default_false"))]
     pub track_trajectories: bool,
-    #[serde(default = "default_true")]
+    #[cfg_attr(feature = "std", serde(default = "default_true"))]
     pub track_recoils: bool,
-    #[serde(default = "default_false")]
+    #[cfg_attr(feature = "std", serde(default = "default_false"))]
     pub track_recoil_trajectories: bool,
-    #[serde(default = "default_buffer_size")]
+    #[cfg_attr(feature = "std", serde(default = "default_buffer_size"))]
     pub write_buffer_size: usize,
-    #[serde(default = "zero_usize")]
+    #[cfg_attr(feature = "std", serde(default = "zero_usize"))]
     pub weak_collision_order: usize,
-    #[serde(default = "default_false")]
+    #[cfg_attr(feature = "std", serde(default = "default_false"))]
     pub suppress_deep_recoils: bool,
-    #[serde(default = "default_false")]
+    #[cfg_attr(feature = "std", serde(default = "default_false"))]
     pub high_energy_free_flight_paths: bool,
-    #[serde(default = "default_electronic_stopping_mode")]
+    #[cfg_attr(feature = "std", serde(default = "default_electronic_stopping_mode"))]
     pub electronic_stopping_mode: ElectronicStoppingMode,
-    #[serde(default = "default_mean_free_path_model")]
+    #[cfg_attr(feature = "std", serde(default = "default_mean_free_path_model"))]
     pub mean_free_path_model: MeanFreePathModel,
-    #[serde(default = "default_interaction_potential")]
+    #[cfg_attr(feature = "std", serde(default = "default_interaction_potential"))]
     pub interaction_potential: Vec<Vec<InteractionPotential>>,
-    #[serde(default = "default_scattering_integral")]
+    #[cfg_attr(feature = "std", serde(default = "default_scattering_integral"))]
     pub scattering_integral: Vec<Vec<ScatteringIntegral>>,
-    #[serde(default = "default_rootfinder")]
+    #[cfg_attr(feature = "std", serde(default = "default_rootfinder"))]
     pub root_finder: Vec<Vec<Rootfinder>>,
-    #[serde(default = "one_usize")]
+    #[cfg_attr(feature = "std", serde(default = "one_usize"))]
     pub num_threads: usize,
-    #[serde(default = "one_u64")]
+    #[cfg_attr(feature = "std", serde(default = "one_u64"))]
     pub num_chunks: u64,
-    #[serde(default = "default_false")]
+    #[cfg_attr(feature = "std", serde(default = "default_false"))]
     pub track_displacements: bool,
-    #[serde(default = "default_false")]
+    #[cfg_attr(feature = "std", serde(default = "default_false"))]
     pub track_energy_losses: bool,
-    #[serde(default = "default_seed")]
+    #[cfg_attr(feature = "std", serde(default = "default_seed"))]
     pub seed: i32
 }
 

@@ -24,15 +24,17 @@ pub enum MaterialType {
     HOMOGENEOUS2D(material::Material<geometry::HomogeneousMesh2D>)
 }
 
-#[derive(Deserialize, PartialEq, Clone, Copy)]
-#[serde(untagged)]
+#[derive(PartialEq, Clone, Copy)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
+#[cfg_attr(feature = "std", serde(untagged))]
 pub enum Distributions {
     UNIFORM{min: f64, max: f64},
     NORMAL{mean: f64, std: f64},
     POINT(f64),
 }
 
-#[derive(Deserialize)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum GeometryType {
     MESH0D,
     MESH1D,
@@ -42,7 +44,8 @@ pub enum GeometryType {
 }
 
 /// Mode of electronic stopping to use.
-#[derive(Deserialize, PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum ElectronicStoppingMode {
     /// Biersack-Varelas interpolated electronic stopping. Valid for ~eV/nucleon to ~GeV/nucleon.
     INTERPOLATED,
@@ -69,7 +72,8 @@ impl fmt::Display for ElectronicStoppingMode {
 }
 
 /// Mode of surface binding energy calculation.
-#[derive(Deserialize, PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum SurfaceBindingCalculation {
     /// Surface binding energies will be determined individually depending only on the particle's `Es`.
     INDIVIDUAL,
@@ -92,7 +96,9 @@ impl fmt::Display for SurfaceBindingCalculation {
     }
 }
 
-#[derive(Deserialize, PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum SurfaceBindingModel {
     /// Isotropic surface binding potential - results in no refraction
     ISOTROPIC{calculation: SurfaceBindingCalculation},
@@ -119,7 +125,8 @@ impl fmt::Display for SurfaceBindingModel {
 }
 
 /// Mode of bulk binding energy calculation.
-#[derive(Deserialize, PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum BulkBindingModel {
     /// Bulk binding energies will be determined individually depending only on the particle's `Eb`.
     INDIVIDUAL,
@@ -140,7 +147,8 @@ impl fmt::Display for BulkBindingModel {
 }
 
 /// Mean-free-path model.
-#[derive(Deserialize, PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum MeanFreePathModel {
     /// Constant mean-free-path for liquids and amorphous solids.
     LIQUID,
@@ -161,7 +169,8 @@ impl fmt::Display for MeanFreePathModel {
 }
 
 /// Interatomic potentials between particles in rustbca.
-#[derive(Deserialize, Clone, Copy)]
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum InteractionPotential {
     /// TRIDYN-style Kr-C. Equivalent to KR_C, except for the MAGIC constants.
     TRIDYN,
@@ -215,7 +224,8 @@ impl PartialEq for InteractionPotential {
 }
 
 /// Method for solving the scattering integral.
-#[derive(Deserialize, Clone, Copy)]
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum ScatteringIntegral {
     /// Mendenhall-Weller Gauss-Lobatto 4-point quadrature.
     MENDENHALL_WELLER,
@@ -245,7 +255,8 @@ impl PartialEq for ScatteringIntegral {
 }
 
 /// Root-finding algorithm.
-#[derive(Deserialize, Clone, Copy)]
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub enum Rootfinder {
     /// Newton root-finder with user-defined `max_iterations` and `tolerance`.
     NEWTON{max_iterations: usize, tolerance: f64},

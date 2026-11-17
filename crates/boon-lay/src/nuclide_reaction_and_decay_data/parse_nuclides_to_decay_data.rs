@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{decay_xml_info_serde::*, prelude::decay_library::DecayLibrary};
 use fission_yields_data::prelude::Nuclide;
 

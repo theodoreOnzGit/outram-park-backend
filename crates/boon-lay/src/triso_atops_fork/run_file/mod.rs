@@ -43,6 +43,9 @@
 //! trap — a caller who assumes seconds is out by a factor of 3.15e7 — so
 //! [`RunFile::to_config`] converts them explicitly and the field docs say so.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use serde::{Deserialize, Serialize};
 use uom::si::f64::{Frequency, Length, Time};
 use uom::si::frequency::hertz;

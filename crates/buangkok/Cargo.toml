@@ -64,4 +64,4 @@ uom = { workspace = true }
 # (tests/liu_cao_external_dose_cross_check.rs, gh:#379). The README says
 # half-lives come from boon-lay; this is a TEST-only edge, so the library stays
 # free of it. boon-lay does not depend on buangkok, so there is no cycle.
-boon-lay = { workspace = true }
+boon-lay = { workspace = true, features = ["std"] }

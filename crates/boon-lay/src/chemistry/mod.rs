@@ -15,6 +15,9 @@
 //! each only valid inside its stated range, and the caller is told when it
 //! leaves it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod graphite_air;
 pub mod graphite_steam;
 pub mod kernel_hydrolysis;

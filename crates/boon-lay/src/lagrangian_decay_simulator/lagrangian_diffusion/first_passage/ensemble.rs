@@ -10,12 +10,15 @@
 //! deterministically from a base seed and `i` (a SplitMix64 mix), so a run is
 //! bit-for-bit reproducible and independent of how `rayon` schedules the work.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use fission_yields_data::prelude::Nuclide;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par::prelude::*;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par as rayon;
 use uom::si::f64::*;
 

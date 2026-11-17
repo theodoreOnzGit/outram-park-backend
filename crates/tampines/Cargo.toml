@@ -63,6 +63,7 @@ std = [
     "dep:outram-foam-appbuilder-lib",
     "outram-foam-appbuilder-lib/std",
     "dep:boon-lay",
+    "boon-lay/std",
     "dep:farrer-park",
     "farrer-park/std",
 ]

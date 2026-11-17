@@ -1,6 +1,9 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use fission_yields_data::prelude::Nuclide;
 use uom::si::f64::*;
@@ -104,8 +107,8 @@ pub struct MissingDiffusionData {
     pub layer: TrisoPebbleLayerMaterial,
 }
 
-impl std::fmt::Display for MissingDiffusionData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for MissingDiffusionData {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "no cited diffusion coefficient for element Z = {} in layer {:?} (gh:#638)",
@@ -114,7 +117,7 @@ impl std::fmt::Display for MissingDiffusionData {
     }
 }
 
-impl std::error::Error for MissingDiffusionData {}
+impl core::error::Error for MissingDiffusionData {}
 
 /// Whether Jiang et al. (2023) give krypton coefficients for `layer`.
 ///

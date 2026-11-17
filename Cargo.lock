@@ -1096,6 +1096,7 @@ dependencies = [
  "serde",
  "serde-xml-rs",
  "serde_json",
+ "spin 0.10.1",
  "toml",
  "uom",
  "wgpu",

@@ -148,6 +148,8 @@
 //! either matches measured fission-product release — that needs a public
 //! benchmark and is not claimed here.
 
+// Needs the std-only data or file readers (gh:#1634).
+#![cfg(feature = "std")]
 use petir::mathf::RealMath;
 use boon_lay::prelude::*;
 use boon_lay::triso_atops_fork::release_models::steady_state::{
