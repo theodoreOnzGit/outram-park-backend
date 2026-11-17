@@ -246,7 +246,34 @@ impl SpectrumDepletion {
         source: SourceBox,
         keff: &KeffSettings,
     ) -> Result<DepletionOutcome, String> {
-        // 1. Chain: reduce, then fix one yield set per parent.
+        let base = self.reduced_xml()?;
+        let group_flux = self.spectrum(geom, materials, nuclides, source, keff)?;
+        let recs = self.reconstruct(&base)?;
+        let seg = self.segment(&base, &recs, &group_flux)?;
+        let (mut dens, dropped) = self.initial_densities(&seg);
+        let mut history = vec![(0.0, 0.0, dens.clone())];
+        let mut t = 0.0;
+        for (k, dt) in self.steps_s.iter().enumerate() {
+            let (flux, next) = self.step(&seg, &dens, *dt, k)?;
+            dens = next;
+            t += dt;
+            history.push((t, flux, dens.clone()));
+        }
+        Ok(DepletionOutcome {
+            group_edges: self.group_edges.clone(),
+            group_flux,
+            chain_xml: seg.xml,
+            chain: seg.chain,
+            one_group: seg.one_group,
+            no_data: seg.no_data,
+            dropped,
+            branching: seg.branching,
+            history,
+        })
+    }
+
+    /// Step 1: the reduced chain with one yield set per parent.
+    fn reduced_xml(&self) -> Result<DepletionChainXml, String> {
         let start: Vec<&str> = match &self.reduce_from {
             Some(v) => v.iter().map(String::as_str).collect(),
             None => self.starting.iter().map(|(n, _)| n.as_str()).collect(),
@@ -264,17 +291,22 @@ impl SpectrumDepletion {
             n.fission_yields = vec![njoy_outram_park_fork::hdf5::depletion_chain_xml::FissionYieldSet { energy_ev: self.yield_energy_ev, yields: chosen }];
             n.fission_yield_parent = None;
         }
-        // 2. Spectrum: one transport run.
+        Ok(xml)
+    }
+
+    /// Step 2: one transport run, the depletable material's group flux.
+    fn spectrum(&self, geom: &Geometry, materials: &[Material], nuclides: &[Nuclide], source: SourceBox, keff: &KeffSettings) -> Result<Vec<f64>, String> {
         let out = get_microxs_and_flux(geom, materials, nuclides, source, keff, &[self.depletable], &[], &[], &self.group_edges, |_, _| None)?;
         let group_flux = out[0].group_flux.clone();
-        let total: f64 = group_flux.iter().sum();
-        if !(total > 0.0) {
+        if !(group_flux.iter().sum::<f64>() > 0.0) {
             return Err("no flux tallied in the depletable material".into());
         }
-        let norm: Vec<f64> = group_flux.iter().map(|f| f / total).collect();
+        Ok(group_flux)
+    }
 
-        // Reconstruct each evaluated chain nuclide once (RECONR, 0 K).
-        let mut recs: Vec<(String, njoy_outram_park_fork::reconr::ReconrResult)> = Vec::new();
+    /// RECONR (0 K) on each evaluated chain nuclide, once.
+    fn reconstruct(&self, xml: &DepletionChainXml) -> Result<Recs, String> {
+        let mut recs = Vec::new();
         for n in &xml.nuclides {
             if let Some((_, tape)) = self.evaluations.iter().find(|(m, _)| *m == n.name) {
                 let rec = njoy_outram_park_fork::process::reconstruct(tape, &njoy_outram_park_fork::process::CrossSectionSettings::default())
@@ -282,15 +314,22 @@ impl SpectrumDepletion {
                 recs.push((n.name.clone(), rec.reconr));
             }
         }
+        Ok(recs)
+    }
+
+    /// Steps 2b and 3 on one spectrum: branching into a copy of `base`, the
+    /// solver chain, and the collapsed one-group data.
+    fn segment(&self, base: &DepletionChainXml, recs: &Recs, group_flux: &[f64]) -> Result<Segment, String> {
+        let mut xml = base.clone();
+        let total: f64 = group_flux.iter().sum();
+        let norm: Vec<f64> = group_flux.iter().map(|f| f / total).collect();
         let pairs_of = |name: &str, mt: i32| -> Option<Vec<(f64, f64)>> {
             let m = njoy_outram_park_fork::endf::mt::MtReaction::from_any(mt);
             recs.iter().find(|(n, _)| n == name)?.1.sections.iter().find(|s| s.mt == m).map(|s| s.pairs.clone())
         };
-
-        // Branching ratios from the spectrum (gh:#1628), the default.
         let mut branching = Vec::new();
         if !self.preset_branch_ratios {
-            for (name, _) in &recs {
+            for (name, _) in recs {
                 let Some((_, tape)) = self.evaluations.iter().find(|(m, _)| m == name) else { continue };
                 let mat = tape.materials().first().copied().unwrap_or(0);
                 for (kind, mt) in [("(n,gamma)", 102), ("(n,2n)", 16), ("(n,p)", 103), ("(n,a)", 107)] {
@@ -308,19 +347,15 @@ impl SpectrumDepletion {
                         branching.push(rec(BranchingOutcome::Refused(format!("no MF=3/MT={mt} after RECONR"))));
                         continue;
                     };
-                    match njoy_outram_park_fork::isomeric_branching::apply_to_chain(&mut xml, name, kind, &states, &sigma, &self.group_edges, &group_flux) {
+                    match njoy_outram_park_fork::isomeric_branching::apply_to_chain(&mut xml, name, kind, &states, &sigma, &self.group_edges, group_flux) {
                         Ok(a) => branching.push(rec(BranchingOutcome::Applied { set: a.set, not_in_chain: a.not_in_chain })),
                         Err(e) => branching.push(rec(BranchingOutcome::Refused(e.to_string()))),
                     }
                 }
             }
         }
-
         let chain = DepletionChain::from_chain_xml_with_branches(&xml, self.yield_energy_ev).map_err(|e| format!("{e:?}"))?;
         let names: Vec<String> = chain.nuclide_names().iter().map(|s| (*s).to_owned()).collect();
-        let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
-
-        // 3. One-group data from each evaluation.
         let mut one_group = Vec::with_capacity(names.len());
         let mut n2n = vec![0.0; names.len()];
         let mut no_data = Vec::new();
@@ -340,55 +375,191 @@ impl SpectrumDepletion {
             n2n[i] = collapse(16);
             one_group.push((name.clone(), OneGroupXs { fission, gamma, nu_fission: 0.0, absorption: gamma + fission }));
         }
-
-        // 4. Deplete on the fixed spectrum.
         let chain_records: Vec<(String, Vec<(String, f64)>)> =
             xml.nuclides.iter().map(|n| (n.name.clone(), n.reactions.iter().map(|r| (r.kind.clone(), r.q_ev)).collect())).collect();
         let q = fission_q_vector(&chain_records, &names);
+        Ok(Segment { xml, chain, names, one_group, n2n, q, branching, no_data })
+    }
+
+    fn initial_densities(&self, seg: &Segment) -> (Vec<Vec<f64>>, Vec<String>) {
         let n_mats = self.transfer.as_ref().map_or(1, |t| t.rates().burnable_mats().len());
-        let mut dens = vec![vec![0.0; names.len()]; n_mats];
+        let mut dens = vec![vec![0.0; seg.names.len()]; n_mats];
         let mut dropped = Vec::new();
         for (nuc, d) in &self.starting {
-            match chain.index_of(nuc) {
+            match seg.chain.index_of(nuc) {
                 Some(i) => dens[0][i] = *d,
                 None => dropped.push(nuc.clone()),
             }
         }
-        let mut history = vec![(0.0, 0.0, dens.clone())];
-        let mut t = 0.0;
-        for (k, dt) in self.steps_s.iter().enumerate() {
-            let fission_power_per_flux: f64 =
-                (0..names.len()).map(|i| dens[0][i] * one_group[i].1.fission * q[i] * EV_TO_J).sum::<f64>() * self.volume_cm3;
-            let flux = if fission_power_per_flux > 0.0 { self.power_w / fission_power_per_flux } else { 0.0 };
-            let rates_at = |phi: f64| {
-                let mut r = ReactionRates { flux: phi, ..ReactionRates::zero() };
-                for (i, n) in name_refs.iter().enumerate() {
-                    let x = &one_group[i].1;
-                    r.set(n, MicroRate { gamma: phi * x.gamma * BARN_CM2, fission: phi * x.fission * BARN_CM2, n2n: phi * n2n[i] * BARN_CM2 });
-                }
-                r
-            };
-            let irradiated = chain.build_matrix(&rates_at(flux));
-            dens = match &self.transfer {
-                None => vec![cram16(&irradiated, &dens[0], *dt)],
-                Some(tr) => {
-                    let decay_only = chain.build_matrix(&rates_at(0.0));
-                    let mut ms = vec![irradiated];
-                    ms.extend((1..n_mats).map(|_| decay_only.clone()));
-                    deplete_with_external_rates(cram16, &names, ms, dens.clone(), *dt, k, Some(tr), None)?
-                }
-            };
-            for m in &mut dens {
-                for d in m.iter_mut() {
-                    if *d < 0.0 {
-                        *d = 0.0;
-                    }
+        (dens, dropped)
+    }
+
+    /// The flux \[n/cm²/s\] that gives the power at densities `d` with
+    /// `seg`'s one-group fission data and the chain's Q.
+    fn flux_for_power(&self, seg: &Segment, d: &[f64]) -> f64 {
+        let per_flux: f64 = (0..seg.names.len()).map(|i| d[i] * seg.one_group[i].1.fission * seg.q[i] * EV_TO_J).sum::<f64>() * self.volume_cm3;
+        if per_flux > 0.0 { self.power_w / per_flux } else { 0.0 }
+    }
+
+    /// Step 4 for one step `k` of length `dt`.
+    fn step(&self, seg: &Segment, dens: &[Vec<f64>], dt: f64, k: usize) -> Result<(f64, Vec<Vec<f64>>), String> {
+        let flux = self.flux_for_power(seg, &dens[0]);
+        let rates_at = |phi: f64| {
+            let mut r = ReactionRates { flux: phi, ..ReactionRates::zero() };
+            for (i, n) in seg.names.iter().enumerate() {
+                let x = &seg.one_group[i].1;
+                r.set(n, MicroRate { gamma: phi * x.gamma * BARN_CM2, fission: phi * x.fission * BARN_CM2, n2n: phi * seg.n2n[i] * BARN_CM2 });
+            }
+            r
+        };
+        let irradiated = seg.chain.build_matrix(&rates_at(flux));
+        let mut out = match &self.transfer {
+            None => vec![cram16(&irradiated, &dens[0], dt)],
+            Some(tr) => {
+                let decay_only = seg.chain.build_matrix(&rates_at(0.0));
+                let mut ms = vec![irradiated];
+                ms.extend((1..dens.len()).map(|_| decay_only.clone()));
+                deplete_with_external_rates(cram16, &seg.names, ms, dens.to_vec(), dt, k, Some(tr), None)?
+            }
+        };
+        for m in &mut out {
+            for d in m.iter_mut() {
+                if *d < 0.0 {
+                    *d = 0.0;
                 }
             }
+        }
+        Ok((flux, out))
+    }
+
+    /// **Spectrum tracking on transport** (gh:#1630): at every step after
+    /// the first, transport on the current composition (`materials_for`
+    /// builds the transport materials from the depletable material's
+    /// `(nuclide, density)` inventory) and form a fresh segment (spectrum,
+    /// branching, one-group data); adopt it only when #1630's criterion
+    /// exceeds `tolerance`. The criterion is the `N`-weighted relative
+    /// change of the per-atom one-group rates (fission, capture, (n,2n)),
+    /// each data set at its own power-normalised flux, at the current
+    /// composition. `tolerance = 0` adopts every changed segment;
+    /// `f64::INFINITY` is [`Self::run`] with one transport per step spent on
+    /// the check.
+    ///
+    /// # Errors
+    /// As [`Self::run`].
+    pub fn run_tracking(
+        &self,
+        geom: &Geometry,
+        nuclides: &[Nuclide],
+        source: SourceBox,
+        keff: &KeffSettings,
+        tolerance: f64,
+        mut materials_for: impl FnMut(&[(String, f64)]) -> Vec<Material>,
+    ) -> Result<TrackedOutcome, String> {
+        let base = self.reduced_xml()?;
+        let recs = self.reconstruct(&base)?;
+        let start_inv: Vec<(String, f64)> = self.starting.clone();
+        let flux0 = self.spectrum(geom, &materials_for(&start_inv), nuclides, source, keff)?;
+        let mut seg = self.segment(&base, &recs, &flux0)?;
+        let (mut dens, _) = self.initial_densities(&seg);
+        let mut history = vec![(0.0, 0.0, dens.clone())];
+        let mut records = Vec::new();
+        let mut transport_calls = 1usize;
+        let mut t = 0.0;
+        for (k, dt) in self.steps_s.iter().enumerate() {
+            if k > 0 {
+                let inv: Vec<(String, f64)> = seg.names.iter().cloned().zip(dens[0].iter().copied()).collect();
+                let fresh_flux = self.spectrum(geom, &materials_for(&inv), nuclides, source, keff)?;
+                transport_calls += 1;
+                let fresh = self.segment(&base, &recs, &fresh_flux)?;
+                let (value, dominant) = self.criterion(&seg, &fresh, &dens[0]);
+                let refreshed = value > tolerance;
+                records.push(TrackedRecord { step: k, value, dominant, refreshed });
+                if refreshed {
+                    seg = fresh;
+                }
+            }
+            let (flux, next) = self.step(&seg, &dens, *dt, k)?;
+            dens = next;
             t += dt;
             history.push((t, flux, dens.clone()));
         }
-        Ok(DepletionOutcome { group_edges: self.group_edges.clone(), group_flux, chain_xml: xml, chain, one_group, no_data, dropped, branching, history })
+        Ok(TrackedOutcome { chain: seg.chain, history, records, transport_calls })
+    }
+
+    /// #1630's criterion between the frozen and the fresh segment at
+    /// densities `d`.
+    fn criterion(&self, old: &Segment, new: &Segment, d: &[f64]) -> (f64, Option<String>) {
+        let (po, pn) = (self.flux_for_power(old, d), self.flux_for_power(new, d));
+        let (mut num, mut den) = (0.0, 0.0);
+        let mut best: Option<(usize, f64)> = None;
+        for i in 0..old.names.len() {
+            let (a, b) = (&old.one_group[i].1, &new.one_group[i].1);
+            let ro = [a.fission * po, a.gamma * po, old.n2n[i] * po];
+            let rn = [b.fission * pn, b.gamma * pn, new.n2n[i] * pn];
+            let mut c = 0.0;
+            for ch in 0..3 {
+                c += d[i] * (rn[ch] - ro[ch]).abs();
+                den += d[i] * ro[ch];
+            }
+            num += c;
+            if c > 0.0 && best.is_none_or(|(_, x)| c > x) {
+                best = Some((i, c));
+            }
+        }
+        (if den > 0.0 { num / den } else { 0.0 }, best.map(|(i, _)| old.names[i].clone()))
+    }
+}
+
+type Recs = Vec<(String, njoy_outram_park_fork::reconr::ReconrResult)>;
+
+/// One spectrum's chain and one-group data.
+#[derive(Debug, Clone)]
+struct Segment {
+    xml: DepletionChainXml,
+    chain: DepletionChain,
+    names: Vec<String>,
+    one_group: Vec<(String, OneGroupXs)>,
+    n2n: Vec<f64>,
+    q: Vec<f64>,
+    branching: Vec<BranchingRecord>,
+    no_data: Vec<String>,
+}
+
+/// One criterion evaluation of [`SpectrumDepletion::run_tracking`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrackedRecord {
+    /// Step at whose start it was evaluated.
+    pub step: usize,
+    /// The criterion.
+    pub value: f64,
+    /// The nuclide that moved it most.
+    pub dominant: Option<String>,
+    /// Whether the fresh segment was adopted.
+    pub refreshed: bool,
+}
+
+/// What [`SpectrumDepletion::run_tracking`] returns.
+#[derive(Debug, Clone)]
+pub struct TrackedOutcome {
+    /// The chain in use at the end.
+    pub chain: DepletionChain,
+    /// `(time [s], flux, densities per material)`, as [`DepletionOutcome::history`].
+    pub history: Vec<(f64, f64, Vec<Vec<f64>>)>,
+    /// Every criterion evaluation.
+    pub records: Vec<TrackedRecord>,
+    /// Transport runs made.
+    pub transport_calls: usize,
+}
+
+impl TrackedOutcome {
+    /// Density of `nuclide` in material 0 at history entry `k`.
+    pub fn density(&self, k: usize, nuclide: &str) -> f64 {
+        self.chain.index_of(nuclide).map_or(0.0, |i| self.history[k].2[0][i])
+    }
+
+    /// Adopted refreshes.
+    pub fn refreshes(&self) -> usize {
+        self.records.iter().filter(|r| r.refreshed).count()
     }
 }
 
