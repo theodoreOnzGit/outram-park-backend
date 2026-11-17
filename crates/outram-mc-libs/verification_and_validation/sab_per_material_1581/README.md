@@ -1022,3 +1022,33 @@ path) and after (this change) and run with identical settings, `--test-threads=1
   an accidental relaunch at 15:18 and is not in the saved files; before it was
   lost it read `table worst 0.7729 (1.386e-5 eV, 1500 K)` in the before run.
   Raw: `ensembles_1635/majorant_temperature_cover_{before,after}.out`.
+
+## gh:#1635 item 1: `htr10_graphite_thermal_scattering_pebble_bed` (2026-11-17): prediction
+
+**Written before any run of the migrated test.** The test file built one array
+`[U234, U235, U238, C0]` through `nuclides(thermal)`, attaching the graphite law
+to `C0` (slot 3) with `with_thermal_scattering`; material 1 (graphite matrix)
+is the only reference to slot 3. The migration loads all four slots free and
+lowers the law per material with `assign_material_sab` (the
+`majorant_temperature_cover` pattern), which appends a bound copy of `C0` at
+slot 4 and repoints material 1 at it. The free-gas arm is unchanged (4 free
+nuclides, `materials()` as before).
+
+Predictions, each falsifiable by the before/after outputs:
+
+1. **Free-gas k: bit-identical** (same array, same materials, same seed).
+2. **Bound k: bit-identical OR a seed-level re-draw.** The array grows 4 -> 5,
+   and `keff_delta` advances its URR stream by `nuclides.len()` per energy change
+   (`future_seed(nuclides.len(), urr_seed)`, `src/pebble_beds/keff_delta.rs:1237`).
+   If no nuclide in this model calls the URR draw (`from_core` windowed-multipole
+   nuclides; `needs_urr_draw`), the stream is never consumed and the k is bit-identical.
+   I do not know which holds, so both are admissible; if the bound k moves I will
+   state that as a stream re-draw only after showing it is statistically
+   consistent in a seed ensemble (|z| <= 2), not assume it.
+3. **Nuclide-level checks** (`graphite_thermal_law_reaches_the_transport_kernel`,
+   `majorant_still_bounds_total_xs_with_bound_graphite`, the shape test): the
+   bound copy is a clone of the same `C0` with the same law, and the majorant is
+   rebuilt on the same material set, so every printed number is **identical**
+   (the unreferenced free `C0` at slot 3 is in no material, so `macro_xs_total`
+   and the majorant are unchanged).
+4. **Any pinned value that moves: STOP and report; no re-pin.**
