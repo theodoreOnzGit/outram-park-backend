@@ -13,7 +13,9 @@ a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
   `crate::par::prelude::*` on `not(feature = "std")`; extend `par` when a new
   rayon adapter is needed.
 - `decomposition`, `hdf5_io` and `gpu` are `std` only, and so is any
-  integration test that uses them.
+  integration test that uses them. `outram-park-mpi` stays `std` only
+  (maintainer, 2026-11-17: "mpi shld be std only"); do not try to make
+  `decomposition` build without it.
 - Maps, if any are added, come from a `crate::hash` module (`hashbrown`
   without std, the workspace rule).
 
