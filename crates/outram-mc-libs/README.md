@@ -79,9 +79,15 @@ five reruns. Each GPU test creates its own `wgpu` device and queue, and
 several threads doing that at once in one process appear to race inside the
 Vulkan driver or loader. The crash is below this crate, which is safe Rust,
 and it is a race, so it is intermittent. Treat a SIGSEGV in a GPU test binary
-as this limitation until #466 lands a shared, process-wide GPU context for the
-tests. If it bites, re-run with `--test-threads=1`. Transport itself uses one
-device per run and is not affected.
+as this limitation ~~until #466 lands a shared, process-wide GPU context for the
+tests. If it bites, re-run with `--test-threads=1`.~~ **CHANGED 2026-11-17
+(maintainer decision on #466):** the GPU tests now take one process-wide device
+from `gpu::shared_probe()` (created once, reused by every test), so the
+concurrent creation can no longer happen in the test binaries. On Mesa lavapipe
+the crash did not reproduce before the change either (0 in 180 runs at 4 and 14
+test threads), so the fix is by construction, not shown by a crash count going
+from non-zero to zero. A SIGSEGV that still appears should be reported.
+Transport itself uses one device per run and is not affected.
 
 ## Quick start
 

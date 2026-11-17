@@ -407,7 +407,7 @@ mod tests {
     #[cfg(not(target_os = "android"))]
     #[test]
     fn gpu_matches_cpu_union_grid() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             eprintln!("SKIP union_grid gpu test: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -612,7 +612,7 @@ mod tests {
     #[cfg(not(target_os = "android"))]
     #[test]
     fn gpu_matches_cpu_native_union() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             eprintln!("SKIP native-union gpu test: no GPU adapter (CPU-only CI)");
             return;
         };

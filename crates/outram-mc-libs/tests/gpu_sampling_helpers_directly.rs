@@ -78,7 +78,7 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::mathf::RealMath;
-use outram_mc_libs::gpu::{probe, GpuContext};
+use outram_mc_libs::gpu::{shared_probe, GpuContext};
 
 /// The shader under test is exactly what the pipeline compiles:
 /// `outram_mc_libs::gpu::batched_event::shader_source()`, i.e. PETIR's
@@ -476,7 +476,7 @@ fn the_references_are_sound_without_a_gpu() {
 /// `2^-24`, which is representable in `f32` without rounding.
 #[test]
 fn gpu_rng_next_is_bit_identical_to_a_u64_lcg() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_rng_next_is_bit_identical_to_a_u64_lcg: no GPU adapter");
         return;
     };
@@ -550,7 +550,7 @@ fn gpu_rng_next_is_bit_identical_to_a_u64_lcg() {
 /// leaves `[0, 1]` — both of which this catches.
 #[test]
 fn gpu_locate_brackets_and_reconstructs_the_energy() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_locate_brackets_and_reconstructs_the_energy: no GPU adapter");
         return;
     };
@@ -622,7 +622,7 @@ fn gpu_locate_brackets_and_reconstructs_the_energy() {
 /// `interp_channel` is exact at the grid points and linear between them.
 #[test]
 fn gpu_interp_channel_is_linear_and_exact_at_the_nodes() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_interp_channel_is_linear_and_exact_at_the_nodes: no GPU adapter");
         return;
     };
@@ -697,7 +697,14 @@ fn gpu_interp_channel_is_linear_and_exact_at_the_nodes() {
 /// | residual | 2.146e-05 | 4.145e-06 | 2.808e-06 | 7.218e-08 | < 1e-06 |
 ///
 /// The error is worst at the **smallest** `mu_bar` and collapses away from
-/// it. That is not the solver: it is the function being solved. At
+/// it. **The location of the worst probe is adapter-dependent f32 arithmetic**
+/// (gh:#466, maintainer decision 2026-11-17): it is `|mu_bar| = 0.01` on Mesa
+/// lavapipe (the table above) and `0.02` on an NVIDIA RTX A5000 and on the
+/// maintainer's desktop. The test therefore accepts the worst residual at
+/// **either of the two smallest probes** (0.01 or 0.02); the 5e-5 accuracy
+/// bound, which is the actual gate, is unchanged. ~~The test used to pin the
+/// worst probe at exactly 0.01, which failed on the other adapters.~~ That is
+/// The cause of the error is not the solver: it is the function being solved. At
 /// `mu_bar = 0.01` the root is `lambda = 0.0301`, where `coth(lambda)` is
 /// 33.34 and `1/lambda` is 33.33 — a difference of 0.01 formed from two
 /// numbers 3300 times larger, which discards about 3.5 of `f32`'s 7.2
@@ -710,7 +717,7 @@ fn gpu_interp_channel_is_linear_and_exact_at_the_nodes() {
 /// to isotropic, so the very smallest values never reach the solve at all.
 #[test]
 fn gpu_langevin_inverse_actually_inverts_the_langevin_function() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!(
             "SKIP gpu_langevin_inverse_actually_inverts_the_langevin_function: no GPU adapter"
         );
@@ -758,18 +765,22 @@ fn gpu_langevin_inverse_actually_inverts_the_langevin_function() {
             at = x;
         }
     }
+    println!(
+        "langevin_inverse worst residual {worst:e} at mu_bar = {at} on {} ({:?})",
+        gpu.info.name, gpu.info.backend
+    );
     // The bound is 5e-05 rather than the f32 floor, and the reason is
     // cancellation in the function being inverted -- see the doc comment.
     assert!(
         worst < 5e-5,
         "langevin_inverse residual |L(lambda) - mu_bar| = {worst:e} at mu_bar = {at}"
     );
-    assert_eq!(
-        at.abs(),
-        0.01,
-        "the worst residual is documented as sitting at the SMALLEST |mu_bar|, \
-         where coth(lambda) - 1/lambda cancels hardest; it is now at {at}. \
-         Re-measure and rewrite the doc comment rather than loosening the bound."
+    assert!(
+        at.abs() == 0.01 || at.abs() == 0.02,
+        "the worst residual is documented as sitting at one of the TWO SMALLEST \
+         |mu_bar| (0.01 or 0.02), where coth(lambda) - 1/lambda cancels hardest; \
+         it is now at {at}. Re-measure and rewrite the doc comment rather than \
+         loosening the bound."
     );
 
     // Away from zero it collapses to the f32 floor. Pinning both ends is what
@@ -814,7 +825,7 @@ fn gpu_langevin_inverse_actually_inverts_the_langevin_function() {
 /// sensitive test rather than one any monotone map would pass.
 #[test]
 fn gpu_exponential_mu_has_the_mean_it_was_asked_for() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_exponential_mu_has_the_mean_it_was_asked_for: no GPU adapter");
         return;
     };
@@ -995,7 +1006,7 @@ fn continuum_batch(gpu: &GpuContext, e: f32, awr: f32, n: usize) -> Vec<(f32, f3
 /// recovered CM energy inside `[0, e_cm_elastic]` to within 1.5e-04 relative.
 #[test]
 fn gpu_continuum_inelastic_is_kinematically_consistent() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_continuum_inelastic_is_kinematically_consistent: no GPU adapter");
         return;
     };
@@ -1066,7 +1077,7 @@ fn gpu_continuum_inelastic_is_kinematically_consistent() {
 /// back (see the next test).
 #[test]
 fn gpu_continuum_inelastic_samples_the_weisskopf_spectrum() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_continuum_inelastic_samples_the_weisskopf_spectrum: no GPU adapter");
         return;
     };

@@ -37,7 +37,7 @@ pub use crate::material::processed::ProcessedEvaluation;
 pub use crate::material::speed::SpeedTier;
 pub use crate::material::temperature_interpolation::{InterpolationVariable, TableBracket, TemperatureTables};
 pub use crate::material::thermal::{
-    CoherentElasticTable, IncoherentElasticTable, ThermalElastic, ThermalScattering,
+    CoherentElasticTable, EndfElasticOptions, IncoherentElasticTable, ThermalElastic, ThermalScattering,
 };
 pub use crate::tally::tally::{ScoreType, Tally, TallyBin};
 pub use crate::tally::filter::{

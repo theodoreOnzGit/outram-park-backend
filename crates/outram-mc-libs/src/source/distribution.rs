@@ -267,6 +267,9 @@ pub struct PowerLaw {
     offset: f64,
     span: f64,
     ninv: f64,
+    /// Legacy switch: normalise `evaluate` with `trunc(n + 1)` as OpenMC
+    /// `8f79d9d0` does. Default `false` (the real exponent). gh:#1580.
+    upstream_integer_exponent: bool,
 }
 
 /// `Normal` (`distribution.cpp:343`), optionally truncated to `[lower, upper]`.
@@ -331,10 +334,37 @@ impl Distribution {
     }
 
     /// `PowerLaw(a, b, n)`.
+    ///
+    /// **Divergence from upstream (gh:#1580, maintainer decision 2026-11-17).**
+    /// OpenMC `8f79d9d0` (`distribution.cpp:253`, `PowerLaw::evaluate`) writes
+    /// `int pwr = n() + 1;`, which truncates a non-integer exponent, so its
+    /// density is normalised by `trunc(n + 1)` instead of `n + 1` and a
+    /// `PowerLaw` *bias* with non-integer `n` gives importance weights with
+    /// `E[w] = (n + 1)/trunc(n + 1)` (1.5 at `n = 0.5`). This port uses the
+    /// real exponent, so `evaluate` integrates to 1 and `E[w] = 1`. Integer
+    /// `n` is unaffected (bit-identical to upstream). The upstream behaviour
+    /// stays reachable, by name only, through
+    /// [`Distribution::with_upstream_integer_exponent`]. Sampling is the same
+    /// either way.
     pub fn power_law(a: f64, b: f64, n: f64) -> Self {
         let offset = a.r_powf(n + 1.0);
         let span = b.r_powf(n + 1.0) - offset;
-        Distribution::PowerLaw { law: PowerLaw { offset, span, ninv: 1.0 / (n + 1.0) }, bias: None }
+        Distribution::PowerLaw {
+            law: PowerLaw { offset, span, ninv: 1.0 / (n + 1.0), upstream_integer_exponent: false },
+            bias: None,
+        }
+    }
+
+    /// Legacy option for a `PowerLaw`: reproduce OpenMC `8f79d9d0`'s
+    /// `int pwr = n() + 1;` truncation in `evaluate` (and so in the bias
+    /// weight). Only for comparing with upstream; it is a defect for
+    /// non-integer `n` (see [`Distribution::power_law`]). Other variants are
+    /// returned unchanged. gh:#1580.
+    pub fn with_upstream_integer_exponent(mut self) -> Self {
+        if let Distribution::PowerLaw { law, .. } = &mut self {
+            law.upstream_integer_exponent = true;
+        }
+        self
     }
 
     /// `Maxwell(theta)`.
@@ -449,8 +479,10 @@ impl Distribution {
                 if x <= a || x >= b {
                     0.0
                 } else {
-                    // upstream: `int pwr = n() + 1;` truncates toward zero
-                    let pwr = (n + 1.0) as i32 as f64;
+                    // upstream: `int pwr = n() + 1;` truncates toward zero.
+                    // Default here is the real exponent (gh:#1580); the
+                    // truncation is the explicit legacy option.
+                    let pwr = if law.upstream_integer_exponent { (n + 1.0) as i32 as f64 } else { n + 1.0 };
                     let norm = pwr / law.span;
                     norm * x.abs().r_powf(n)
                 }

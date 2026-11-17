@@ -1050,7 +1050,12 @@ the maintainer, 2026-10-03; protocols in
   refits), `predict` → `SurrogatePrediction` with a jackknife+ interval (its
   own type: **a surrogate value is never a transport result**), `loo_gate`
   (literal and noise-floor-aware readings — the literal one is expected to
-  fail for a perfect surrogate; flagged on #499), `propose_next_runs`
+  fail for a perfect surrogate; ~~flagged on #499~~ **DECIDED 2026-11-17
+  (maintainer, gh:#499): the noise-floor-aware reading gates**
+  (`LooGate::passes`), the literal one is reported but not gating; degree 2
+  stays the gated degree, degree 3 a labelled study, and the degree-2 FAIL is
+  the recorded finding, lack of fit of a quadratic; re-run 2026-11-17
+  reproduces the 2026-10-07 numbers), `propose_next_runs`
   (active sampling heuristic). `examples/stats_sweep_loo.rs` runs the gate on
   the committed HTR-10 sweep CSV without transport. **Measured 2026-10-07
   (gh:#782), the one exception to "every gate NOT YET MEASURED" above:** on

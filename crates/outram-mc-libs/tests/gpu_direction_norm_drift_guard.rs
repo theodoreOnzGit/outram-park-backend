@@ -128,7 +128,7 @@ use outram_mc_libs::gpu::batched_event::{
     DIRECTION_NORM_DRIFT_TOL_F32 as TOL, FISS_NONE,
 };
 use outram_mc_libs::gpu::collision_grid::CollisionTables;
-use outram_mc_libs::gpu::{probe, GpuContext};
+use outram_mc_libs::gpu::{shared_probe, GpuContext};
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use petir::wgsl::mirror_lcg::lcg_next;
@@ -477,7 +477,7 @@ fn mirror_walks_stay_unit_with_the_guard_and_drift_without_it() {
 /// P1-P4 on the GPU (SKIP without an adapter).
 #[test]
 fn gpu_walks_stay_unit_with_the_guard_and_drift_without_it() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_walks_stay_unit_with_the_guard_and_drift_without_it: no GPU adapter");
         return;
     };
@@ -523,7 +523,7 @@ fn step_cases() -> (Vec<[f32; 4]>, usize) {
 /// P5: one rotation, GPU against the mirror (SKIP without an adapter).
 #[test]
 fn gpu_and_mirror_agree_on_one_guarded_rotation() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!("SKIP gpu_and_mirror_agree_on_one_guarded_rotation: no GPU adapter");
         return;
     };
@@ -638,7 +638,7 @@ fn a_graphite_event_walk_keeps_every_direction_unit_on_the_mirror() {
 /// P6 on the GPU: the whole generation resident, final directions checked.
 #[test]
 fn a_graphite_event_walk_keeps_every_direction_unit_on_the_gpu() {
-    let Some(gpu) = probe() else {
+    let Some(gpu) = shared_probe() else {
         eprintln!(
             "SKIP a_graphite_event_walk_keeps_every_direction_unit_on_the_gpu: no GPU adapter"
         );

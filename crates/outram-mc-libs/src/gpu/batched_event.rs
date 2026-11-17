@@ -1426,7 +1426,7 @@ mod tests {
     #[cfg(not(target_os = "android"))]
     #[test]
     fn gpu_event_matches_cpu_mirror() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             eprintln!("SKIP gpu_event_matches_cpu_mirror: no GPU adapter (CPU-only CI)");
             return;
         };

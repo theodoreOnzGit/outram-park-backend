@@ -145,7 +145,10 @@ fn univariate_cases() -> Vec<(&'static str, Distribution, bool)> {
     vec![
         ("uniform", Distribution::uniform(1.0, 4.0), false),
         ("powerlaw", Distribution::power_law(2.0, 5.0, 2.0), true),
-        ("powerlaw_frac", Distribution::power_law(1.0, 3.0, 1.5), true),
+        // Upstream truncates a non-integer exponent in `evaluate` (`int pwr = n() + 1`);
+        // this port uses the real exponent by default (gh:#1580), so the comparison with
+        // upstream names the legacy option.
+        ("powerlaw_frac", Distribution::power_law(1.0, 3.0, 1.5).with_upstream_integer_exponent(), true),
         ("maxwell", Distribution::maxwell(1.3e6), true),
         ("watt", Distribution::watt(0.988e6, 2.249e-6), true),
         ("normal", Distribution::normal(2.0, 0.5, -f64::MAX, f64::MAX).unwrap(), true),

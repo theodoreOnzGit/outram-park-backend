@@ -468,7 +468,7 @@ mod tests {
     #[cfg(not(target_os = "android"))]
     #[test]
     fn gpu_matches_cpu_reference() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             eprintln!("SKIP interp_xs gpu test: no GPU adapter (CPU-only CI)");
             return;
         };
