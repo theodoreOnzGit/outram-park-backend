@@ -16,6 +16,9 @@
 //! on across a copied material. A blocked-binary unit is read record by record
 //! and copied record for record; its text is what MODER would write from it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::GendfText;
 use crate::endf::parse::parse_endf_float;
 use crate::errorr::gendf::{GendfKind, GendfRecord};

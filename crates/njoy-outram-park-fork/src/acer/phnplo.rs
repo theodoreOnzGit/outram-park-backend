@@ -34,6 +34,9 @@
 //!   lines (`j <= nd`) scaled by 100 and bracketed by `ep ± 0.01` at `zmin`, and
 //!   `intt` compared with 1 *before* the `10*nd` is taken off it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::aplots::scale::{ascle, mtname};
 use super::aplots::{fmt, Plot};
 use super::read::RawAceTable;

@@ -40,6 +40,9 @@
 //!   Reproduced as upstream has it and measured in the test (see the V&V
 //!   README).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::thermophysics::constants::{P_REF, T_STD};

@@ -14,6 +14,9 @@
 //! Internally the EOS is raw `f64` SI; the `uom`-typed public wrapper matching
 //! the workspace's units convention is [`crate::single_cv::OPCPFluidSingleCV`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::eos::FluidEos;
 use crate::fluid::Fluid;

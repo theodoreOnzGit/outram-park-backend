@@ -82,6 +82,9 @@
 //! whenever `A = C - I` is small, which is exact in the same limit. The two
 //! branches agree to better than 1e-9 relative across the switch.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::{
     eigen_values_symm, eigen_vectors_symm_with, SymmTensor, Tensor, Vector3,
@@ -90,7 +93,7 @@ use outram_foam_basic_lib::primitives::{
 use crate::error::{OffbeatError, Result};
 
 /// `sqrt(2)`, upstream's `rac2`.
-const RAC2: f64 = std::f64::consts::SQRT_2;
+const RAC2: f64 = core::f64::consts::SQRT_2;
 
 /// A symmetric tensor in code_aster's six-component Mandel ordering.
 ///
@@ -787,7 +790,7 @@ mod tests {
         ))
         .unwrap();
 
-        let theta = std::f64::consts::FRAC_PI_6;
+        let theta = core::f64::consts::FRAC_PI_6;
         let (c, s) = (theta.r_cos(), theta.r_sin());
         let q = Tensor::new(c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0);
 

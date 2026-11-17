@@ -1,6 +1,9 @@
 //! IAPWS-IF97 Region 1 backward equation: temperature as a function of
 //! pressure and specific entropy, `T(p,s)` (Table 8).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use float_equations::t_ps_1_kelvin;
 use uom::si::{
     f64::*, pressure::pascal, specific_heat_capacity::kilojoule_per_kilogram_kelvin,

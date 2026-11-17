@@ -30,6 +30,9 @@
 //! Units: energies in eV; cross sections in barns (1 b = 10⁻²⁴ cm²).
 //! [`WAVE_K`] is chosen so that `k` is in (10⁻¹² cm)⁻¹ and `π/k²` is in barns.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::{AMU_G, AMASSN_AMU, EV_ERG, PI};
 

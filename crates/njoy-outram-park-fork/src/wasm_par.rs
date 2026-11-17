@@ -37,6 +37,9 @@
 //! on the `wasm32` build, which is the intended behaviour: adding a method
 //! should be a deliberate act, not something a blanket shim hides.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Serial stand-in for `rayon`'s `IntoParallelIterator`.
 ///
 /// Blanket-implemented for every [`IntoIterator`], so `(0..n).into_par_iter()`

@@ -41,6 +41,11 @@
 //! so the reader validates each `nwds` against the writer. Energies are **eV**,
 //! cross sections **barns**, temperatures **kelvin**, `amass` dimensionless.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
+#[cfg(feature = "std")]
 use std::io::{Read, Write};
 
 use crate::endf::records::SectionCursor;
@@ -174,6 +179,7 @@ impl<'a> WordReader<'a> {
     }
 }
 
+#[cfg(feature = "std")]
 /// Write one record the way gfortran's sequential unformatted `write(nout)`
 /// lays it out: a leading and a trailing 4-byte **byte** count around the
 /// payload (`[u32 nbytes][payload][u32 nbytes]`). Until 2026-09-10 this
@@ -194,6 +200,7 @@ fn write_record<W: Write>(w: &mut W, nwds: i32, payload: &[u8]) -> Result<(), Nj
     Ok(())
 }
 
+#[cfg(feature = "std")]
 /// Read one gfortran-framed record, returning its word count and payload.
 ///
 /// # Errors
@@ -226,6 +233,7 @@ impl ResxsFile {
         self.control.nblok
     }
 
+    #[cfg(feature = "std")]
     /// Write the RESXS file to `out` in the documented record sequence
     /// (`resxsr.f90:435-501`).
     ///
@@ -312,6 +320,7 @@ impl ResxsFile {
         Ok(())
     }
 
+    #[cfg(feature = "std")]
     /// Read a RESXS file back from `input`, inverting [`ResxsFile::write`].
     ///
     /// # Errors
@@ -482,6 +491,7 @@ mod tests {
         assert!(!is_fissionable(&reactions));
     }
 
+    #[cfg(feature = "std")]
     /// A full RESXS file round-trips: `read == write^-1`, preserving the union
     /// grid energies and every reaction value (within single-precision).
     ///

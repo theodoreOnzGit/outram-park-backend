@@ -45,6 +45,9 @@
 //! `outram_mc_libs::material::thermal::ThermalScattering::from_ace` refuses
 //! IFENG = 1. This decoder still reads it faithfully (`ifeng` is carried).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::read::RawAceTable;
 use crate::acer::thermal::{jxs, nxs};
 use crate::error::NjoyError;
@@ -253,7 +256,7 @@ fn decode_continuous_emission(
             pdf.push(t.xss[o + 1] / EV_PER_MEV);
             cdf.push(t.xss[o + 2]);
             let mut mu = t.xss[o + 3..o + 3 + n_mu].to_vec();
-            mu.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            mu.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
             cosines.extend_from_slice(&mu);
         }
         if cdf[0] > 0.0 {

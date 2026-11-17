@@ -2,6 +2,9 @@
 //!
 //! Split out of `heatr/mod.rs` (see the module doc there for the physics).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::spectra::{
     emission_spectrum, heating_model, neutron_multiplicity, single_neutron_factor,
     EmissionSpectrum, HeatingModel,

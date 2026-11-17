@@ -46,6 +46,9 @@
 //! a labelled **divergence** that computes each nuclide on its own and fixes
 //! D8-D11; the default everywhere else stays upstream's.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod corrected;
 pub mod food_chain;
 pub mod upstream;

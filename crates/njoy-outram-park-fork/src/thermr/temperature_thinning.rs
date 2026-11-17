@@ -43,6 +43,9 @@
 //! Units: temperatures in K, energies in eV, `α`/`β` dimensionless, `S` per the
 //! ENDF convention. Relative errors are dimensionless fractions (not per cent).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::mf7::{interp_s_temperature, CoherentElastic, IncoherentInelastic};
 use crate::endf::tape::Tape;
 use crate::units::NeutronEnergy;

@@ -5,6 +5,9 @@
 //! [`super::sectio::sectio`] actually needs (upstream's own comment:
 //! the scattering matrix element is `U = I + 2i*XXXX`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::samm::linpack::PackedComplexMatrix;
 
 #[inline]

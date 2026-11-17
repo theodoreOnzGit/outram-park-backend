@@ -27,6 +27,9 @@
 //! `gsl_sf_gamma_inc` is the **upper**. [`petir::gamma_inc_lower`] is the
 //! lower one, matching SLATEC.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use petir::{expint_e1, gamma_inc_lower};
 

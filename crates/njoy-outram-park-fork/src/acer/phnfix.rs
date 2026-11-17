@@ -20,6 +20,9 @@
 //! written when `ngend != 0`. Not ported: a
 //! ZAID suffix (`suff >= 0`); `nxtra != 0`; Type 2 and mcnpx formats.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::acefix::{AcefixOutput, AcefixRequest};
 use super::fortran_fmt::fixed;
 use crate::NjoyError;

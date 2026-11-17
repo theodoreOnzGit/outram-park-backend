@@ -54,6 +54,9 @@
 //! group-1 P2 feed used the seven-digit 20-point table and came out one
 //! 1e-7 unit (2.5 %) below NJOY's 8-point value.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::sync::Arc;
 
 use njoy_outram_park_fork::endf::tape::Tape;

@@ -12,6 +12,9 @@
 //! than the near-saturation IF97 special case — the same simplification
 //! CoolProp itself offers as an equivalent alternative.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::HumidAirError;
 use crate::fluid::Fluid;

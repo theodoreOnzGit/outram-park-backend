@@ -9,6 +9,9 @@
 //! removed (e.g. `HC10` stays `HC10`); [`Incompressible::name`] returns the
 //! original CoolProp name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fluids;
 use super::IncompressibleFluid;
 

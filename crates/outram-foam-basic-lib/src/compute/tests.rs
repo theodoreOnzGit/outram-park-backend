@@ -9,6 +9,9 @@
 //! These are verification tests, not validation: they check that the dispatch
 //! layer obeys its own stated contract. No physics is involved.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 
 /// The serial backend is available unconditionally.

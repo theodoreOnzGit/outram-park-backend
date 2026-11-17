@@ -95,6 +95,9 @@
 //! because `Section`'s `[f64; 6]` rows carry no record type. Full history:
 //! `verification_and_validation/moder_vs_njoy2016.md`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::parse::parse_line;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::moder::{select_materials, MaterialSelection};

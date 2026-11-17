@@ -43,6 +43,9 @@
 //! `colaps` ([`super::mf31::run_cov_gendf`]), MF=34 ([`super::mf34`]) and MF=35
 //! ([`super::mf35::run_mf35`]). MF=40 is not ported.)
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;

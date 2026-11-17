@@ -9,7 +9,10 @@
 //! the Fortran edit descriptors PLOTR writes with, and the record and getter
 //! calls on a unit (see [`super::run`] for what upstream does with them).
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 use crate::deck::tapes::TapeUnits;
 use crate::endf::tape::Tape;
@@ -386,7 +389,7 @@ impl Plotr {
         let tape = if let Some(g) = units.binary_gendf(unit) {
             crate::deck::covr::tape_from_records(&g)
         } else if let Some(t) = units.text(unit) {
-            Tape::read(t.as_bytes())?
+            Tape::from_bytes(t.as_bytes())?
         } else {
             units.openz(unit, 0)?;
             units.get(unit)?.tape.clone()

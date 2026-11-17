@@ -9,6 +9,9 @@
 //! ([`write_head`]); moved out of `deck/groupr.rs` unchanged (2026-11-14, gh:#1370,
 //! the file-size cap).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::parse::format_endf_float;
 use crate::errorr::gendf::{GendfKind, GendfRecord};
 

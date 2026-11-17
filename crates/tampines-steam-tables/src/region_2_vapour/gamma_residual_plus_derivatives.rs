@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::{pi_2, tau_2, REGION_2_COEFFS_RES};
 use uom::si::f64::*;

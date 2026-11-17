@@ -54,6 +54,9 @@
 //! build logging `sig`, `sigl` and `tpend`), is
 //! `verification_and_validation/acer_thermal_word_parity_2026_10_14.md`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::compare::compare;
 use njoy_outram_park_fork::acer::read::{self, AceFileType, RawAceTable};
 use njoy_outram_park_fork::acer::thermal::{ace_incident_grid, IncidentPendf, InelasticForm, ThermalAceOptions};

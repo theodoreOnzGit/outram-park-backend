@@ -34,6 +34,9 @@
 //! upstream's **renamed** column headers (upstream reassigns the headers by
 //! position after reading).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::pydoseia::csv::{col, num, split_csv};
 use crate::pydoseia::dcf::nan_max;
 

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use subregion_2a::t_ps_2a;
 use subregion_2b::t_ps_2b;
 use subregion_2c::t_ps_2c;

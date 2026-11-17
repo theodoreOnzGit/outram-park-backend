@@ -21,6 +21,9 @@
 //!
 //! **Status: AI draft, terms only**; see [`super`] for what is and is not compared.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     dev_symm_tensor, effective_diffusivity, gen_g, production, push_symm, wall_correct_production,
     wall_face_cells, ReynoldsStressFrozen,
@@ -29,7 +32,7 @@ use crate::source_terms::SourceTerms;
 use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
 use outram_foam_basic_lib::primitives::{SphericalTensor, SymmTensor, Vector3};
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// LRR on a frozen field (terms only).
 pub struct Lrr {

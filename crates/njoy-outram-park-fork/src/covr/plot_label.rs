@@ -12,6 +12,9 @@
 //! superscripts, `]` Greek), built exactly as upstream builds them, including
 //! its `character(n)` truncation and blank padding.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::fortran_fmt::fortran_e;
 
 /// What `smilab` needs besides its arguments: the module variables it reads.

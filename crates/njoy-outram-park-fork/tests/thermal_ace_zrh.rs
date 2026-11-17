@@ -12,6 +12,9 @@
 //! crates/njoy-outram-park-fork/scripts/test.sh --test thermal_ace_zrh
 //! ```
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use std::fs::File;
 

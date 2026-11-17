@@ -4,6 +4,9 @@
 //! CoolProp `SES36` Helmholtz EOS, as hardcoded `const` data.
 #![allow(clippy::approx_constant)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 
 /// SES36 Helmholtz equation of state (from CoolProp).

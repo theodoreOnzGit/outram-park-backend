@@ -23,6 +23,9 @@
 //! points: MT=1 9.736429e3, MT=2 9.666179e3, MT=102 1.644874e1 b, equal on
 //! both sides.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;

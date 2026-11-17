@@ -22,6 +22,9 @@
 //! each module's `README.md` for the real per-piece status, and
 //! `docs/porting-plan.md` for phasing.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The NJOY processing modules that can be selected on the card-input stream,
 /// grouped by the order a typical processing run uses them.
 ///

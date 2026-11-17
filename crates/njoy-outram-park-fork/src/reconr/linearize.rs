@@ -23,6 +23,9 @@
 //!
 //! Ported from the grid-refinement logic in NJOY2016 `reconr.f90`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::{terp1, IntLaw};
 
 /// Maximum bisection depth per segment. Prevents runaway recursion near

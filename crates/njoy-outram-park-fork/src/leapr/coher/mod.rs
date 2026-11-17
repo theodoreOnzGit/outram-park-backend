@@ -28,6 +28,9 @@
 //! for. A deck that is neither still yields no MT=2, which is the honest
 //! outcome.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod builtin;
 pub mod crystals;
 pub mod general;

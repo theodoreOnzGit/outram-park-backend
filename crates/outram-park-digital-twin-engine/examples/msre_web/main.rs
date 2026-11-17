@@ -34,19 +34,20 @@
 //! CLI and window glue: reached by no test (it starts an event loop or reads
 //! `std::env::args`), per the workspace exception for `main`/CLI glue. What
 //! it dispatches to is tested: `msre::session::tests` (the headless CSV) and
-//! `engine::tests`.
+//! `msre::web`'s tests.
 
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 
 #[cfg(not(target_os = "android"))]
 mod app;
-#[cfg(not(target_os = "android"))]
-mod engine;
-// The Core k_eff tab (gh:#1571): its workers and its page.
-#[cfg(not(target_os = "android"))]
-mod keff;
+// The Core k_eff tab's page (gh:#1571); its pool is the library's.
 #[cfg(not(target_os = "android"))]
 mod keff_tab;
+// The engine and the k_eff worker live in the library since gh:#1578
+// (`msre::web`); named here so the app's `crate::engine` / `crate::keff`
+// paths read as before.
+#[cfg(not(target_os = "android"))]
+use outram_park_digital_twin_engine::msre::web::{engine, keff};
 
 /// Android stub: windowing GUIs are out of scope on Termux.
 #[cfg(target_os = "android")]
@@ -77,34 +78,11 @@ fn main() -> Result<(), String> {
             bugis::Theme::default().apply(&cc.egui_ctx);
             let ctx = cc.egui_ctx.clone();
             let link = bugis::web_demo::link::start_native(engine::Runner::default(), move || ctx.request_repaint());
-            start_ticker(&link);
+            engine::start_native_ticker(&link);
             Ok(Box::new(app::App::new(link)))
         }),
     )
     .map_err(|e| e.to_string())
-}
-
-/// The native plant clock (gh:#1573): a thread that sends the engine a
-/// `Request::Tick` with the wall time every `engine::TICK_MS`, as the browser
-/// worker's own timer loop does (`engine::web`), so the plant paces itself
-/// and the window only draws. It shares the link's mailbox and exits when
-/// the link is closed.
-#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
-fn start_ticker(link: &bugis::web_demo::link::Link<engine::Request, engine::Event>) {
-    use bugis::web_demo::link::Link;
-    let Link::Native(mailbox) = link;
-    let ticks = Link::Native(mailbox.clone());
-    let mailbox = mailbox.clone();
-    std::thread::spawn(move || {
-        let t0 = std::time::Instant::now();
-        loop {
-            std::thread::sleep(std::time::Duration::from_millis(engine::TICK_MS as u64));
-            if mailbox.read().map_or(true, |m| m.closed) {
-                return;
-            }
-            ticks.send(engine::Request::Tick(t0.elapsed().as_secs_f64()));
-        }
-    });
 }
 
 /// In the browser the same module starts twice: on the page (the egui app)
@@ -133,7 +111,7 @@ fn main() {
                 web_options,
                 Box::new(|cc| {
                     bugis::Theme::default().apply(&cc.egui_ctx);
-                    let link = bugis::web_demo::link::start_web(cc.egui_ctx.clone(), engine::web::WORKER_JS, engine::Event::Error)?;
+                    let link = bugis::web_demo::link::start_web(cc.egui_ctx.clone(), engine::worker::WORKER_JS, engine::Event::Error)?;
                     Ok(Box::new(app::App::new(link)))
                 }),
             )

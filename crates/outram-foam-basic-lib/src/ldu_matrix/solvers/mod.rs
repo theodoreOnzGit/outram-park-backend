@@ -39,6 +39,9 @@
 //! Belongs here: the linear-solver kernels only. The matrix assembly and the
 //! `FvMatrix`/`FvVectorMatrix` wrappers that call them live one level up.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod conjugate_gradient;
 pub mod gamg;
 pub mod gauss_seidel;

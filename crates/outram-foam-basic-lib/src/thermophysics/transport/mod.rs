@@ -28,6 +28,9 @@
 //! Sutherland's-law [`SutherlandTransport`], and tabulated
 //! [`TabulatedTransport`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod const_transport;
 pub mod log_polynomial;
 pub mod polynomial;

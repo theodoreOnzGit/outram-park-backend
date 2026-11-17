@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::traits::EquationOfState;
 use crate::polynomial::cubic_eqn::CubicEqn;
@@ -408,7 +411,7 @@ impl PengRobinsonGas {
         if d <= 0.0 {
             let th = (rl / (-q3).sqrt()).r_acos();
             let qm = 2.0 * (-q).sqrt();
-            let pi = std::f64::consts::PI;
+            let pi = core::f64::consts::PI;
             let r1 = qm * (th / 3.0).r_cos() - a2 / 3.0;
             let r2 = qm * ((th + 2.0 * pi) / 3.0).r_cos() - a2 / 3.0;
             let r3 = qm * ((th + 4.0 * pi) / 3.0).r_cos() - a2 / 3.0;

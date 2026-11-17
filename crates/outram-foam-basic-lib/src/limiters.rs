@@ -34,6 +34,9 @@
 /// `limitedSchemes`. `psi = 0` is first-order upwind, `psi = 1` is second-order
 /// linear; most TVD variants clip extrema (`psi(r) = 0` for `r <= 0`); `vanAlbada` and `OSPRE` do
 /// not, as upstream.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FluxLimiter {
     /// First-order `upwind`: `psi = 0`.

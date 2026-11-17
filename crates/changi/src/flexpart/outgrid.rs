@@ -84,6 +84,9 @@
 //! m² for areas, m³ for volumes; topography in m. Output columns `ix`, rows
 //! `jy` and levels `kz` are **0-based** (upstream's levels are 1-based).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::flexpart::constants::{PI, PI180, R_EARTH};

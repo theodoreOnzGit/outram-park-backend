@@ -29,8 +29,11 @@
 //! crossover so `CpuMulti` genuinely spreads work across threads when the crate
 //! is built with `--features parallel`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::*;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
@@ -843,7 +846,7 @@ fn measure_crossover_add() {
                 let t = Instant::now();
                 let out = add(backend, &a, &b);
                 let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(dt);
             }
             best
@@ -882,7 +885,7 @@ fn forced_parallel_add_timing(a: &Field<f64>, b: &Field<f64>) -> f64 {
         let t = Instant::now();
         let out = run();
         let dt = t.elapsed().as_secs_f64() * 1.0e6;
-        std::hint::black_box(&out);
+        core::hint::black_box(&out);
         best = best.min(dt);
     }
     best
@@ -947,7 +950,7 @@ fn measure_kernel_timings() {
             let t = Instant::now();
             let out = body();
             let dt = t.elapsed().as_secs_f64() * 1.0e6;
-            std::hint::black_box(&out);
+            core::hint::black_box(&out);
             best = best.min(dt);
         }
         println!("{:<24} {:>12.2} us", label, best);

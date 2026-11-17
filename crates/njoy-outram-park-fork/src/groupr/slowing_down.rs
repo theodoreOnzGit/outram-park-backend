@@ -102,8 +102,11 @@
 //! separately confirm the infinite-dilution limit (`sigma_0 -> inf`) returns the
 //! weight `C(E)` even with elastic scattering active.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use crate::groupr::panel::{GroupFlux, PointwiseXs, GETWTF_STEP, NO_NEXT_BREAK_EV};
 use crate::groupr::unresolved::{bondarenko_flux_value, SelfShieldedFluxSet};

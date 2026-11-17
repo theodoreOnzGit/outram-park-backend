@@ -123,7 +123,7 @@ miniz_oxide = { workspace = true }
 # NO outram-mc-libs dependency, not even optional (GitHub #486, 2026-10-02):
 # outram-mc-libs depends on this crate for `csg` (and later `spatial_mesh`),
 # and Cargo counts optional dependencies when it looks for cycles.
-outram-foam-basic-lib = { workspace = true, optional = true }
+outram-foam-basic-lib = { workspace = true, features = ["std"], optional = true }
 # RAFFLES's graph type, for the `gnn-graph` feature only. RAFFLES depends on no
 # geometry or physics crate (petir only), so this edge cannot form a cycle; it
 # pulls no tensor library (raffles' `burn` feature stays off).

@@ -49,6 +49,9 @@
 //! NIS > 1, ABN ≠ 1 or NRO ≠ 0 on a resolved range, so no recorded
 //! reconstruction moves.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::{
     endf::tape::{Section, Tape},
     reconr::{

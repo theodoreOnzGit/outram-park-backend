@@ -227,10 +227,12 @@ impl DataRelay {
         Source::summarize(self.sources.iter().flatten())
     }
 
-    /// Fraction of the processing done, by cost.
+    /// Fraction of the processing done, by cost: +0 before any job is done.
+    /// (Folded from +0.0: `Iterator::sum` of no `f64`s is −0.0, which a
+    /// page printed as "−0 %", gh:#1578.)
     pub fn processed(&self) -> f64 {
-        let total: f64 = self.costs.iter().sum::<f64>().max(1e-9);
-        let done: f64 = self.costs.iter().zip(&self.secs).filter(|(_, s)| s.is_some()).map(|(c, _)| c).sum();
+        let total: f64 = self.costs.iter().fold(0.0, |a, c| a + c).max(1e-9);
+        let done: f64 = self.costs.iter().zip(&self.secs).filter(|(_, s)| s.is_some()).fold(0.0, |a, (c, _)| a + c);
         done / total
     }
 

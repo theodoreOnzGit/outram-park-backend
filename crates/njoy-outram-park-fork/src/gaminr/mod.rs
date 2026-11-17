@@ -73,6 +73,9 @@
 //! See `README.md` in this directory for theory, the ported-vs-NotPorted table,
 //! and test status.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod gpanel;
 pub mod gtff;
 pub mod input;

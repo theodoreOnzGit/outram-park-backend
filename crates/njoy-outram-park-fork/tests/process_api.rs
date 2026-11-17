@@ -47,6 +47,9 @@
 //!   330 K is refused.
 //! - All refusals return `NjoyError`, none panics.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::compare::compare;
 use njoy_outram_park_fork::acer::read::{self, RawAceTable};
 use njoy_outram_park_fork::endf::tape::Tape;

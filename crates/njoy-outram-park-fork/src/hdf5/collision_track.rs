@@ -54,6 +54,9 @@
 //! `openmc.read_collision_track_hdf5` itself: see
 //! `crates/outram-mc-libs/verification_and_validation/collision_track_mcpl/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::Path;
 
 use hdf5_pure::{

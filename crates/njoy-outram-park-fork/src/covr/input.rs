@@ -32,6 +32,9 @@
 //!   in NJOY, positive a formatted (BCD) tape, zero "absent".
 //! - MAT/MT numbers are ENDF integer identifiers (dimensionless).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 // ---------------------------------------------------------------------------

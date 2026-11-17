@@ -59,6 +59,9 @@
 //! it says this port reproduces NJOY's SIGMA1, not that either describes a
 //! reactor.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 #![cfg(not(target_os = "android"))]
 
 use njoy_outram_park_fork::acer::{integrate_linlin, jxs, nxs, AceTable};

@@ -45,6 +45,9 @@
 //! two-body data is CM), as upstream's lab-to-CM path is "not coded"
 //! (`:10685-10686`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::{eval_tab1, terp1, IntLaw};
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;

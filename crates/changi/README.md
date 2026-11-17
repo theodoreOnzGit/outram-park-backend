@@ -6,6 +6,14 @@ atmospheric **I**mpacts.
 Atmospheric consequences for the OUTRAM PARK suite — *"what happens after
 release?"*
 
+## `no_std` + `alloc` (gh:#1587)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p changi --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` carries the Gaussian puff field's `rayon` thread pool (`puff::wgsl::field_pooled`); without it `field_pooled` is the serial `field_serial`, bit for bit the same field (pinned by `the_pooled_field_is_bit_identical_to_the_serial_one`). `gpu` implies `std`. With `std` on (the default)
+nothing changes.
+
 ## Scope — now
 
 Research and educational use only:

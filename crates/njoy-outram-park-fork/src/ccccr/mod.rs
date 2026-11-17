@@ -28,6 +28,9 @@
 //! - [`state`]: the cards and the module variables.
 //! - [`isotxs`], [`brkoxs`], [`dlayxs`]: the three files.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod brkoxs;
 pub mod core;
 pub mod dlayxs;

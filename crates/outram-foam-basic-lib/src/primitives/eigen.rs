@@ -82,6 +82,9 @@
 //!   the general [`eigen_vectors_with`] does not, because a non-symmetric
 //!   tensor has no orthogonal eigenbasis to restore.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::polynomial::{CubicEqn, RootType};
 use crate::primitives::{SymmTensor, Tensor, Vector3, ROOT_SMALL, SMALL, VGREAT};
 

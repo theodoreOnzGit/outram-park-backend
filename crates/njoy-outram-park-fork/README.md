@@ -20,13 +20,34 @@ codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
 libraries that [`outram-mc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
+## `no_std` + `alloc` (gh:#1592)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p njoy-outram-park-fork --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). What it keeps: the ENDF parser and every
+processing module on in-memory tapes (`Tape::from_bytes` in, `Tape::to_text`
+out), the deck driver with memory-only units, the embedded WMP and MGXS
+libraries, and ACE reading from bytes. What `std` adds: files and the deck work
+directory, the download/cache layer (`acquire::EndfCache`), HDF5, `rayon`
+threads (without them RECONR and BROADR run the same work serially, as on
+wasm), the GPU path, clocks (HEATR's listing times read 0.0 s, `dater` reads
+`01/01/70` unless the deck fixes a date) and the two binaries. With `std` on
+(the default) nothing changes.
+
+One semantic difference, by design: upstream's Fortran `save` state (RECONR's
+`errmax`/`errint` override and scratch mode, GROUPR's weight-function state,
+ACER's binary-units flag) is per-thread with `std` and **one global behind a
+spin lock without it**, so a bare-metal build is single-context.
+
 ## `njoy-tui` — terminal nuclear-data browser
 
 This crate ships a **mobile-first, touchscreen** terminal UI — a JANIS-like
 browser over the embedded WMP/MGXS data: fuzzy nuclide finder, log-log
 cross-section plot, and a °C/K Doppler-temperature stepper. It is a `[[bin]]`
-**inside this crate** (not a separate crate); `ratatui` is an unconditional
-dependency, so it always builds with a plain `cargo build` — no feature flags.
+**inside this crate** (not a separate crate); ~~`ratatui` is an unconditional
+dependency~~ **CORRECTED 2026-11-16 (gh:#1592):** `ratatui` comes with the default `std` feature, so
+it builds with a plain `cargo build` — no feature flags.
 
 ```bash
 # run from a checkout

@@ -34,6 +34,9 @@
 //! `ip1opt = 1`, 69 groups, a binary GENDF read by [`run_gendf_records`]) is
 //! NJOY2016's line for line; `run()` here is the module table's, unchanged.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod gendf;
 pub mod input;
 pub mod p1scat;

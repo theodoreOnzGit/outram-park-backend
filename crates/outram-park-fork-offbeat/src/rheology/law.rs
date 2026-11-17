@@ -13,6 +13,9 @@
 //! The constitutive laws themselves: elasticity, von Mises plasticity, and
 //! plasticity with creep.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
 use crate::error::{OffbeatError, Result};

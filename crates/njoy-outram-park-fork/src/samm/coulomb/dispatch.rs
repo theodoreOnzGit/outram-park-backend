@@ -4,6 +4,9 @@
 //! (`bigeta`/`getps`). The K0/K1 harmonic sums follow NJOY2016 2016.80 (single-precision
 //! `1./(k+1)`, see `harmonic_step`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::asymptotic::{asymp1, asymp2, end1, getfg, taylor, xsigll};
 use crate::common::phys::{EULER, PI};

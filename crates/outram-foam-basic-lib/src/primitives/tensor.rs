@@ -28,7 +28,10 @@
 //! the double contraction (`&&`), and the dyadic/outer product is `Mul`
 //! (`*`) of two vectors.
 
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use super::spherical_tensor::SphericalTensor;
 use super::symm_tensor::SymmTensor;

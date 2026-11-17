@@ -76,6 +76,9 @@
 //! This is untrusted AI draft material: verify against upstream NJOY golden
 //! output before trusting it numerically.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::{terp1, IntLaw};
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;

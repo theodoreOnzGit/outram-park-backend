@@ -8,6 +8,34 @@ step upstream of an OpenMC run.
 > the shared dependency policy and design rules. Dep versions come from
 > `[workspace.dependencies]` — do not pin locally.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1592, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). `std` carries files, the deck work directory, `acquire`'s
+cache, HDF5, `rayon`, `wgpu`, clocks and both binaries. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths where they exist; every module
+  glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line
+  from any module). Doc-comment examples keep `std::` paths.
+- What needs an operating system (printing, files, threads, clocks,
+  environment variables) goes behind `#[cfg(feature = "std")]`.
+- A tape crosses memory as `Tape::from_bytes` / `Tape::to_text`; `Tape::read`
+  / `Tape::write` are their `io` wrappers, with one parsing and one writing
+  body between them (`tests/tape_from_bytes_matches_read.rs` pins that they
+  agree). A text round trip inside the processing code uses the in-memory
+  pair, not a `Vec<u8>` and `io`.
+- `OnceLock`, `RwLock` come from `crate::once`; a `thread_local!` gets a
+  `crate::nostd_sync::Local` twin for the `no_std` build (see
+  `reconr/mod.rs`). Without `std` that state is one global: the bare-metal
+  build is single-context, which the README states.
+- A `Path` that only labels an error can stay in a signature:
+  `crate::nostd_path::Path` stands in for it without `std`.
+- A `HashMap` may stay where it is lookup-only and never iterated into
+  output; it becomes a `BTreeMap` only in the `no_std` build (`endf/tape.rs`).
+- A `std` build computes what it did before: `petir::real::Real` is imported
+  only without `std`, and the NJOY2016 parity gates are the check.
+
 ## The NJOY2016 manual: where it is, and its licence (2026-10-02)
 
 **The manual is OPEN literature, not proprietary.** Read it, quote it, and

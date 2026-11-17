@@ -24,6 +24,9 @@
 //! deck runs them). Without it, `ITIX` differs from NJOY2016's by up to about
 //! 1e-4 between grid points (Al-27 at 20 K).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::acesix::pendf_text;
 use crate::acer::thermal::thermr_terp;
 use crate::common::phys::{AMASSN_AMU, AMU_G, EV_ERG, HBAR_ERG_S};

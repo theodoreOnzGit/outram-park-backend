@@ -1,5 +1,8 @@
 //! Unit tests for `heatr` (moved verbatim out of `heatr/mod.rs` on split).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::damage::*;
 use super::kerma::*;

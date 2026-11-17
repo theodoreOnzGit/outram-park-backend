@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: GPL-3.0
 
 //! **The ACE photon-production blocks read back — GitHub #307 item 5.**

@@ -154,6 +154,9 @@
 //! been compared against code_aster output or against a measured creep-fatigue
 //! curve, and no such agreement is claimed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_basic_lib::ode::{OdeError, OdeIntegrator, OdeSolver, OdeSystem};
 

@@ -31,8 +31,12 @@
 //! a model would mean to distinguish. A **0 K** table is one with
 //! `kT <= 1e-9 eV` (the threshold outram-mc's `Nuclide::from_ace` uses).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::read::{read_library_from_bytes, AceClass, RawAceTable};
 use crate::archive::{looks_like_zip, ZipArchive};
@@ -138,8 +142,8 @@ pub enum AceLookupError {
     Ambiguous(Vec<String>),
 }
 
-impl std::fmt::Display for AceLookupError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for AceLookupError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Missing => write!(f, "no ACE table for it"),
             Self::WrongTemperature(t) => write!(f, "ACE tables for it exist only at {t:?} K"),
@@ -199,6 +203,7 @@ impl AceSet {
         }
     }
 
+    #[cfg(feature = "std")]
     /// **Every file under `dir`** (native only), with paths relative to it.
     ///
     /// # Errors
@@ -283,6 +288,7 @@ impl AceSet {
     }
 }
 
+#[cfg(feature = "std")]
 fn collect(dir: &Path, rel: &str, out: &mut Vec<(String, Vec<u8>)>) -> Result<(), NjoyError> {
     for e in std::fs::read_dir(dir).map_err(NjoyError::Io)?.flatten() {
         let p = e.path();
@@ -328,6 +334,7 @@ mod tests {
         s.into_bytes()
     }
 
+    #[cfg(feature = "std")]
     /// Tables are found by header (ZAID, class, kT), never by file name; a
     /// temperature mismatch is refused with the temperatures that exist; the
     /// 0 K table is the companion; zips are opened; junk is skipped, never a

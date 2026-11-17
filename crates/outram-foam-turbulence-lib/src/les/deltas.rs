@@ -37,6 +37,9 @@
 //! `meshWave` addressing, so [`van_driest_delta`] takes `y` as an input and the port's map is a
 //! documented approximation; coupled patches are not handled.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::{FvMesh, PatchKind, Vector3, VolVectorField};
 use petir::mathf::RealMath;
 
@@ -231,7 +234,7 @@ pub fn van_driest_delta(
 mod tests {
     use super::*;
     use outram_foam_basic_lib::prelude::{BoundaryPatch, FvMeshBuilder};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn vx(x: f64) -> Vector3 {
         Vector3::new(x, 0.0, 0.0)

@@ -8,6 +8,9 @@
 //! already parsed by [`super::parse`]). The slice is advanced by a cursor so
 //! multi-record sections can be read sequentially.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 /// The six-word header present at the start of every ENDF record.

@@ -9,6 +9,9 @@
 //! resonance pages (total, then fission and capture), log heating, log
 //! damage, and the log non-threshold reaction pages.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::{hk_it, nint, AceTable, Plot};
 use super::scale::{ascll, plot_name};
 use petir::mathf::RealMath;

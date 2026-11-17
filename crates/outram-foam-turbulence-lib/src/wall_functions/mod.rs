@@ -28,6 +28,9 @@
 //! patch boundary conditions, and are untested. The log-law constants
 //! (κ = 0.41, E = 9.8, y⁺_lam = 11) are hard-coded.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Dimensionless wall distance y⁺ = u_τ · y / ν.
 ///

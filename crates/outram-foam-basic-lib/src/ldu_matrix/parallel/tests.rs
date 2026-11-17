@@ -37,8 +37,11 @@
 //!     ldu_matrix::parallel::tests::spmv_crossover_benchmark -- --ignored --nocapture
 //! ```
 
-use std::hint::black_box;
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::hint::black_box;
+use alloc::sync::Arc;
 use std::time::Instant;
 
 use super::*;
@@ -754,7 +757,7 @@ fn spmv_rejects_a_wrong_length_input() {
 #[ignore = "measurement, ~31 s; run explicitly with --ignored --nocapture"]
 fn spmv_crossover_benchmark() {
     let cores = std::thread::available_parallelism()
-        .map(std::num::NonZeroUsize::get)
+        .map(core::num::NonZeroUsize::get)
         .unwrap_or(1);
     println!("available_parallelism = {cores}");
     println!(
@@ -807,7 +810,7 @@ fn spmv_crossover_benchmark() {
 #[ignore = "measurement, ~7 s; run explicitly with --ignored --nocapture"]
 fn vecop_crossover_benchmark() {
     let cores = std::thread::available_parallelism()
-        .map(std::num::NonZeroUsize::get)
+        .map(core::num::NonZeroUsize::get)
         .unwrap_or(1);
     println!("available_parallelism = {cores}");
     println!(
@@ -873,7 +876,7 @@ fn vecop_crossover_benchmark() {
 #[ignore = "measurement, ~4 s; run explicitly with --ignored --nocapture"]
 fn spmv_thread_scaling_benchmark() {
     let cores = std::thread::available_parallelism()
-        .map(std::num::NonZeroUsize::get)
+        .map(core::num::NonZeroUsize::get)
         .unwrap_or(1);
     println!("available_parallelism = {cores}");
 

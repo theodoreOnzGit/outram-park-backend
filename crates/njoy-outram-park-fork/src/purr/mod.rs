@@ -54,6 +54,9 @@
 //! for the full status, the tier-classification equivalence argument in more
 //! detail, and caveats.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod ladder;
 pub(crate) mod pendf;
 pub mod tables;

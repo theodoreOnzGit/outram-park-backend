@@ -2,6 +2,9 @@
 /// `(p,T) -> v` equation is split into, near the critical point and along
 /// the saturation line. `subregion` classifies a `(T,p)` point into one
 /// of these; `v_tp_3_float` dispatches to the matching `subregion_*` fn.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(crate) enum BackwardPTRegion3 {
     SubregionA,
     SubregionB,

@@ -11,6 +11,9 @@
 //! amplitude expansion) or `LTP = 2` (residual cross section expansion), as
 //! `ptlegc` reconstructs them adaptively and `coul` evaluates them (gh:#1485).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::common::phys::{AMASSN_AMU as AMASSN, AMU_G as AMU, CLIGHT_CM_S as CLIGHT, EV_ERG as EV, HBAR_ERG_S as HBAR};
 use crate::groupr::kinematics::shared::legndr;
 use crate::mixr::mix::sigfig;

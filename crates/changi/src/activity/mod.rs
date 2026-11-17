@@ -86,6 +86,9 @@
 //! an item out of the crate's *future* scope list; that is a maintainer
 //! decision taken in `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Published HTR-10 annual airborne release to the environment under normal
 /// operation (Liu and Cao 2002, Table 5). Reference data only; nothing in this
 /// crate consumes it.

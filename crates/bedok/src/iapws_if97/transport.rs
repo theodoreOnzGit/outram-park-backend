@@ -39,6 +39,9 @@
 //! conductivity **W/(m·K)**. Note both are SI here, where the BEDOK callers
 //! work in cm-g-s and convert at the call site.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::basic::{v1_pt, v2_pt};

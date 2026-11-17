@@ -80,6 +80,9 @@
 //! ace.write_type1("92235.00c.ace").unwrap();
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod acefix;
 pub mod newsuff;
 pub mod phnfix;
@@ -914,7 +917,7 @@ impl AceTable {
         let nes = gpd.len();
         let pos = (at - 1) as usize;
         self.xss.splice(pos..pos, gpd.iter().copied());
-        self.xss_is_int.splice(pos..pos, std::iter::repeat_n(false, nes));
+        self.xss_is_int.splice(pos..pos, core::iter::repeat_n(false, nes));
         for k in [
             jxs::MTRP,
             jxs::LSIGP,

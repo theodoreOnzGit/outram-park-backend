@@ -101,7 +101,7 @@ outram-blender = { workspace = true }
 # crate depends on this crate. Features: the crate's defaults are EMPTY, so
 # `parallel` (rayon) and `gpu` (wgpu) stay off and nothing is pulled in that
 # this tree did not already carry; no `default-features = false` is needed.
-outram-foam-basic-lib = { workspace = true }
+outram-foam-basic-lib = { workspace = true, features = ["std"] }
 # IAPWS-IF97 water density for the beginner `model::Material::water(T, p)`
 # (maintainer decision on gh #925, 2026-10-17: "using existing helps"; water
 # from the existing steam tables, as OpenMC's `borated_water` takes T and p).

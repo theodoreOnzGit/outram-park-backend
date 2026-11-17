@@ -106,6 +106,9 @@
 //! cross-scheme consistency only. Do not describe the transient path as
 //! validated.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::error::Result;
@@ -774,8 +777,8 @@ pub fn thdiffusion_solvertimexyz(
                                     let mut w = vec![0.0; philenf];
                                     for g in 0..g_count {
                                         let lo = g * es;
-                                        let mut num = 0.0;
-                                        let mut den = 0.0;
+                                        let mut num = 0.0_f64;
+                                        let mut den = 0.0_f64;
                                         for i in 0..es {
                                             if invv[lo + i] > 0.0 {
                                                 num += phi[lo + i] * vig[lo + i];

@@ -40,6 +40,9 @@
 //! `total` is redefined as `fission + capture` and `elastic = 0` — a second
 //! upstream oddity ported as-is, see [`eval_aa_range`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::reconr::{mf2::AaRange, slbw::WAVE_K};
 

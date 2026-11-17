@@ -25,6 +25,9 @@
 //! [`run()`] below is the module-enum entry point, which has no cards; it
 //! still returns [`crate::NjoyError::NotPorted`]. See `README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 pub mod cards;

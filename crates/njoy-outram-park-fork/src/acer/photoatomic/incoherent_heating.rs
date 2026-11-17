@@ -25,6 +25,9 @@
 //! shared is the physics constants and the `terpa` conventions, which are
 //! taken from their existing homes rather than redeclared.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::interp::terpa;
 use crate::endf::records::Tab1;

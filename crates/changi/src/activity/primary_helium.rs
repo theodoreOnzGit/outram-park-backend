@@ -55,6 +55,9 @@
 //! carries no reuse licence and is **not** redistributed here; only the cited
 //! table of 20 values is, which is ordinary scientific citation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Radioactivity;
 
 use super::inventory::parse_nuclide_bq_csv;

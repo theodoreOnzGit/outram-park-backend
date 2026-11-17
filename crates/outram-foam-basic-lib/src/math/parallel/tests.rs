@@ -19,6 +19,9 @@
 //! 4. **Measurement** — `#[ignore]`d crossover benchmarks whose printed output
 //!    is the source of every number in the constants' documentation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::polynomial::RootType;
@@ -978,13 +981,13 @@ fn root_batch_crossover_benchmark() {
                     )
                 }
             };
-            std::hint::black_box(run());
+            core::hint::black_box(run());
             let mut best = f64::INFINITY;
             for _ in 0..7 {
                 let t = Instant::now();
                 let out = run();
                 let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(dt);
             }
             best
@@ -1031,13 +1034,13 @@ fn poly_batch_crossover_benchmark() {
     for n in [256_usize, 512, 1024, 2048, 4096, 16_384, 65_536, 262_144] {
         let (eqns, _) = sample_cubics(n, 0x7777_3333);
         let time = |backend: ComputeBackend| -> f64 {
-            std::hint::black_box(cubic_roots_batch_min(&eqns, backend, 0));
+            core::hint::black_box(cubic_roots_batch_min(&eqns, backend, 0));
             let mut best = f64::INFINITY;
             for _ in 0..7 {
                 let t = Instant::now();
                 let out = cubic_roots_batch_min(&eqns, backend, 0);
                 let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(dt);
             }
             best
@@ -1079,7 +1082,7 @@ fn root_batch_thread_scaling_benchmark() {
     );
 
     let t = Instant::now();
-    std::hint::black_box(solve_bracketed_batch_min(
+    core::hint::black_box(solve_bracketed_batch_min(
         &problems,
         RootMethod::Brent,
         settings,
@@ -1098,7 +1101,7 @@ fn root_batch_thread_scaling_benchmark() {
             0,
             f,
         );
-        std::hint::black_box(&out);
+        core::hint::black_box(&out);
         serial_us = serial_us.min(t.elapsed().as_secs_f64() * 1.0e6);
     }
 
@@ -1144,7 +1147,7 @@ fn root_batch_thread_scaling_benchmark() {
                     0,
                     f,
                 );
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(t.elapsed().as_secs_f64() * 1.0e6);
             }
             (best, identical)

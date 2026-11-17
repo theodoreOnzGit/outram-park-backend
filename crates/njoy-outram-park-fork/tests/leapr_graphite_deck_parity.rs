@@ -159,6 +159,9 @@
 //! [`FrequencyModel::start`]: njoy_outram_park_fork::leapr::frequency::FrequencyModel::start
 //! [`phonon_expansion`]: njoy_outram_park_fork::leapr::continuous::phonon_expansion
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::continuous::phonon_expansion;

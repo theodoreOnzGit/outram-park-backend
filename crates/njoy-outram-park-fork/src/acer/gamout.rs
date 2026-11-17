@@ -12,6 +12,9 @@
 //! neutron group. The 30 x 20 words follow GPD in the ACE table (`acelod` insists
 //! on 30 neutron groups, `:6290`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::parse::{format_endf_float, parse_endf_float};
 use crate::mixr::mix::sigfig;
 use crate::NjoyError;

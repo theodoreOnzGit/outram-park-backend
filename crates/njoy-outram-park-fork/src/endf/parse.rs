@@ -2,6 +2,9 @@
 //!
 //! Ported from the read path of `contio`/`lineio`/`a11` in NJOY2016 `endf.f90`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::NjoyError;
 
@@ -85,12 +88,15 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
             };
             match exponent.parse::<i32>() {
                 Ok(e) => {
-                    let mut buf = [0u8; 40];
-                    let mut w = std::io::Cursor::new(&mut buf[..]);
-                    use std::io::Write;
+                    // The same 40 bytes, written through `core::fmt` rather
+                    // than `std::io::Cursor` so it builds without `std`
+                    // (gh:#1592); the text written, and so the parse, is
+                    // unchanged.
+                    let mut w = FixedBuf { buf: [0u8; 40], len: 0 };
+                    use core::fmt::Write;
                     if write!(w, "{mantissa}e{e}").is_ok() {
-                        let n = w.position() as usize;
-                        std::str::from_utf8(&buf[..n])
+                        let n = w.len;
+                        core::str::from_utf8(&w.buf[..n])
                             .ok()
                             .and_then(|t| t.parse::<f64>().ok())
                     } else {
@@ -346,7 +352,7 @@ pub fn parse_line(line: &str) -> Result<RawLine, NjoyError> {
     for (slot, c) in buf.iter_mut().zip(line.chars()) {
         *slot = if c.is_ascii() { c as u8 } else { b'?' };
     }
-    let s = std::str::from_utf8(&buf).map_err(|e| NjoyError::EndfParse(e.to_string()))?;
+    let s = core::str::from_utf8(&buf).map_err(|e| NjoyError::EndfParse(e.to_string()))?;
 
     let mut fields = [0.0f64; 6];
     for i in 0..6 {
@@ -420,5 +426,25 @@ mod tests {
         assert!((rl.fields[1] - 3.968219).abs() < 1e-5, "{}", rl.fields[1]);
         assert_eq!(rl.fields[2] as i32, -1); // L1 = -1
         assert_eq!(rl.fields[3] as i32, 0);
+    }
+}
+
+/// A fixed 40-byte text buffer for `parse_endf_float`'s re-assembled number:
+/// `core::fmt::Write` into a stack array, so no allocation and no `std`
+/// (gh:#1592). A write past the end fails, as the `Cursor` it replaces did.
+struct FixedBuf {
+    buf: [u8; 40],
+    len: usize,
+}
+
+impl core::fmt::Write for FixedBuf {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let end = self.len + s.len();
+        if end > self.buf.len() {
+            return Err(core::fmt::Error);
+        }
+        self.buf[self.len..end].copy_from_slice(s.as_bytes());
+        self.len = end;
+        Ok(())
     }
 }

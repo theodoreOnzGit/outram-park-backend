@@ -121,6 +121,9 @@
 //! expressions; none is a validation against experiment or against a
 //! fission-gas-release benchmark.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::{OffbeatError, Result};
 
 // ---------------------------------------------------------------------------

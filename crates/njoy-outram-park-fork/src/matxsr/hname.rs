@@ -11,6 +11,9 @@
 //! ENDF-4 photo-electric MT=602 is named as an ENDF-6 proton level, `p02`, and
 //! MT=621 as `p21` (deck 03).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 const I1: [i32; 33] = [2, 3, 4, 5, 6, 7, 8, 9, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 41, 42, 44, 45];
 const H1: [&str; 33] = [
     "elas ", "nonel", "inel ", "x    ", "2n1  ", "2n2  ", "2n3  ", "2n4  ", "2n   ", "3n   ", "ftot ", "f    ", "nf   ", "2nf  ", "na   ",

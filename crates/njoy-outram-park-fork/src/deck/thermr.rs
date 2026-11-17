@@ -45,6 +45,9 @@
 //! temperatures of the PENDF that are skipped over (`icopy`), a PENDF block
 //! with a different `iverf` from the tape's.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::thermal::thermr_terp;
 use crate::deck::modules::ThermrCards;
 use crate::deck::tapes::TapeUnits;

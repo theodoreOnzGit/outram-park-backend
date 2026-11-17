@@ -36,6 +36,9 @@
 //! exactly as upstream, so the union grid matches the Fortran listing to the
 //! printed digits.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;

@@ -10,6 +10,9 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::error::Result;
@@ -63,7 +66,7 @@ pub struct DeltaSigmaValues {
 /// `currval` that dips below zero is exactly the case this handles.
 fn real_pow(a: f64, m: f64) -> f64 {
     if a < 0.0 {
-        a.abs().r_powf(m) * (std::f64::consts::PI * m).r_cos()
+        a.abs().r_powf(m) * (core::f64::consts::PI * m).r_cos()
     } else {
         a.r_powf(m)
     }

@@ -25,6 +25,9 @@
 //! report (field-shape mismatches, use-before-init, and non-physical negative
 //! turbulence quantities).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Failure modes reported by the turbulence closures.

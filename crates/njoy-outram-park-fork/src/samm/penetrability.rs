@@ -12,6 +12,9 @@
 //! `1/(S-B+iP)` (`B` the ENDF boundary condition), which is the quantity
 //! `betset` actually needs per channel.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Penetrability `P_l(rho)` only (no derivative, no shift factor) — ported

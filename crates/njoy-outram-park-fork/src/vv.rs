@@ -44,7 +44,10 @@
 //! tolerance is only ever loosened together with a written justification in the
 //! example's doc comment saying what new evidence supports the wider envelope.
 
-use std::fmt::Write as _;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt::Write as _;
 
 /// Outcome of a tabulated oracle comparison: the worst relative deviation seen
 /// and where it occurred.
@@ -555,7 +558,7 @@ mod tests {
     #[test]
     fn a_comparable_run_widens_the_gate_by_root_two() {
         let recorded = RecordedKeff::from_comparable_run(1042.0);
-        let root_two_gate = 4.0 * SIGMA_RUN_PCM * std::f64::consts::SQRT_2;
+        let root_two_gate = 4.0 * SIGMA_RUN_PCM * core::f64::consts::SQRT_2;
 
         assert!(
             drift_passes(root_two_gate * 0.99, SIGMA_RUN_PCM, recorded),

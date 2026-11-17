@@ -17,6 +17,9 @@
 //! bit-identity check rather than a tolerance. Each function states the
 //! upstream expression it reproduces.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Prompt-fission neutron source of one group in one cell, Moltres
 /// `CoupledFissionKernel` with `account_delayed = true`.
 ///

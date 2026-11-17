@@ -4,6 +4,9 @@
 
 /// equations for isentropic nozzles, including choked flow
 /// at sonic speeds
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod converging_diverging_nozzles;
 pub use converging_diverging_nozzles::*;
 

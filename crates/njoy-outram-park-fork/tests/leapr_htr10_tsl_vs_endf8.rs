@@ -93,6 +93,9 @@
 //! Gated behind `long-tests` on the **data** criterion (four 7–9 MB reference
 //! tapes); the whole file takes ~2–3 min on 4 cores.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::time::Instant;
 
 use njoy_outram_park_fork::endf::tape::Tape;

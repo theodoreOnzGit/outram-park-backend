@@ -52,6 +52,9 @@
 //!   [`LeaprDeck::temperatures`] is self-contained.
 //! - `delta_ev`, `energy_ev` — eV; `dka` — inverse angstroms.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::leapr::endout::SecondaryScatterer;
 use crate::leapr::input::{
     ColdOption, ContinuousDist, DiscreteOscillator, ElasticOption, LeaprInput,

@@ -22,6 +22,9 @@
 //! directly as a normalisation denominator the way `thermr.f90:2404` does,
 //! where the stray factor of 2 in the numerator cancels it).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::super::mf7::IncoherentInelastic;
 
 /// `sigu`'s `imax`: bisection-stack depth cap, same constant as `sigl`.

@@ -10,7 +10,12 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+// A `BTreeMap` (gh:#1588: `alloc`, so `no_std`), ~~`std::collections::HashMap`~~:
+// only looked up by key, never iterated, so the map type changes no result.
+use alloc::collections::BTreeMap;
 
 use crate::handle3dcoords::handle3dcoords;
 use crate::matlab::SparseMatrix;
@@ -205,14 +210,14 @@ pub fn calc_bucklingxyz(
         // single entries are read, so the difference is held as a lookup rather
         // than formed as a matrix. A missing key reads as 0, which is what
         // indexing a MATLAB sparse at a structural zero gives.
-        let mut aterm: HashMap<(usize, usize), f64> = HashMap::new();
+        let mut aterm: BTreeMap<(usize, usize), f64> = BTreeMap::new();
         for t in tot.iter() {
             *aterm.entry((t.i, t.j)).or_insert(0.0) += t.v;
         }
         for t in s.iter() {
             *aterm.entry((t.i, t.j)).or_insert(0.0) -= t.v;
         }
-        let mut bterm: HashMap<(usize, usize), f64> = HashMap::new();
+        let mut bterm: BTreeMap<(usize, usize), f64> = BTreeMap::new();
         for t in f.iter() {
             *bterm.entry((t.i, t.j)).or_insert(0.0) += t.v;
         }

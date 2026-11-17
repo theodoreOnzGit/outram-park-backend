@@ -90,6 +90,9 @@
 //! counterpart (`thermr::on_pendf`'s module doc), so its gate stays at the
 //! measured value. Predicted on gh:#1366 before the run, and held.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::fs::File;
 
 use njoy_outram_park_fork::{

@@ -10,6 +10,9 @@
 //! Reference data: the `s_liq` column of the saturated steam tables in
 //! `interfaces/tests_and_examples/hs_flash_steam_table/saturation_table_*`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::pressure::bar;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;

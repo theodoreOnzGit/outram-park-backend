@@ -54,6 +54,9 @@
 //! only** — they are not a bound on the near-degenerate case, and should not be
 //! read as one. Characterising the degenerate range is outstanding work.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::compute::gpu::{bytes_to_u32_vec, context, f64_to_f32_bytes, u32_to_bytes};
 use crate::polynomial::linear_eqn::LinearEqn;
 use crate::polynomial::quadratic_eqn::QuadraticEqn;

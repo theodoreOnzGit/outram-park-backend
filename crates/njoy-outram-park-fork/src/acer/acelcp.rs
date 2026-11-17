@@ -65,6 +65,9 @@
 //! when a production item needs a branch that is not ported;
 //! [`append_incident_mode`] says so with `NotPorted`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::interp::terpa;
 use crate::endf::records::{List, SectionCursor, Tab1};

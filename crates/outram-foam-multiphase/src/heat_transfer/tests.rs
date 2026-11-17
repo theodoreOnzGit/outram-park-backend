@@ -11,6 +11,9 @@
 //! transcribed independently. Nothing is compared against a measured
 //! heat-transfer coefficient and no such agreement is claimed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 

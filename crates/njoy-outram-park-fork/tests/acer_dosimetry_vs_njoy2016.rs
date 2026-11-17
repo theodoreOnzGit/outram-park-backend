@@ -35,6 +35,9 @@
 //! 2, 4, 5 and 7), so this gate covers a path
 //! upstream does not cover itself.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::dosimetry::{dosimetry_ace, DosimetryOptions};
 use njoy_outram_park_fork::acer::read::AceFileType;
 use njoy_outram_park_fork::endf::tape::Tape;

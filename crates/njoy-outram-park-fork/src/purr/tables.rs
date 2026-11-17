@@ -32,6 +32,9 @@
 //! reading `LSSF=1` as `LSSF=0` makes the reconstruction look catastrophically
 //! wrong when it is correct.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::tape::Tape;
 use crate::unresr::mf2::{self, UnresolvedCase, UnresolvedRange};
@@ -219,7 +222,7 @@ impl UrrProbabilityTables {
         for p in self.points.iter().skip(i).take(2) {
             cuts.extend(p.cum.iter().copied().filter(|c| (0.0..=1.0).contains(c)));
         }
-        cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
         cuts.dedup();
         let mut reps: Vec<f64> = cuts.windows(2).map(|w| 0.5 * (w[0] + w[1])).collect();
         // `sample` picks the first band whose cumulative probability EXCEEDS
@@ -1278,6 +1281,7 @@ mod urr_grid_tests {
         assert!(nunx_indices(0, 0).is_empty());
     }
 
+    #[cfg(feature = "std")]
     fn grid_of(tape_file: &str) -> Option<Vec<f64>> {
         let path = reference_endf(tape_file)?;
         let tape = Tape::read_file(&path).expect("parse tape");
@@ -1297,6 +1301,7 @@ mod urr_grid_tests {
         v.iter().map(|&e| format!("{e:.6e}")).collect()
     }
 
+    #[cfg(feature = "std")]
     /// PURR's own grid (`rdf2un`, `purr.f90:681-1037`), checked against the
     /// UNR energies of NJOY2016 2016.79's five-route tables (GitHub #875).
     ///

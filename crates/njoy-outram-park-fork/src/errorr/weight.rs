@@ -30,6 +30,9 @@
 //! `nscr2 = 0`, `errorr.f90:8907-8910`), so no total-cross-section
 //! self-shielding factor is applied.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::interp::{terp1, IntLaw};
 use crate::groupr::weights::BOLTZMANN_EV_PER_K;

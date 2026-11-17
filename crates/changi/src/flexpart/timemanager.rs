@@ -106,6 +106,9 @@
 //! stores them), masses kg, decay constants s⁻¹, deposition probability
 //! dimensionless.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::flexpart::concentration::DepositionGrid;

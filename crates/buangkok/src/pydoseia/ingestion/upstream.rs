@@ -8,6 +8,9 @@
 //! function exists so that the port can be compared with upstream number for
 //! number, and so that upstream's defects D8-D11 are demonstrable.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::food_chain::{
     animal_products, c14_in_animal, c14_in_plant, deposition_rate_per_day, food_crop, per_day,
     tritium_in_animal, tritium_in_plant, AnimalProduct, Climate, VegetationType, C14_S_AIR,

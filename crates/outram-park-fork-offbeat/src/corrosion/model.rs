@@ -15,6 +15,9 @@
 
 //! The patch-level corrosion model: kinetics plus metal loss plus hydrogen.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::Result;
 
 use super::hydrogen::HydrogenPickupModel;

@@ -3,6 +3,24 @@
 Crate-specific guidance. The workspace `CLAUDE.md` governs everything else and
 is not repeated here.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1587, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). `std` carries the Gaussian puff field's `rayon` thread pool (`puff::wgsl::field_pooled`); without it `field_pooled` is the serial `field_serial`, bit for bit the same field (pinned by `the_pooled_field_is_bit_identical_to_the_serial_one`). `gpu` implies `std`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths where they exist; every module
+  glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line
+  from any module). Doc-comment examples keep `std::` paths.
+- What needs an operating system (printing, files, threads, clocks,
+  environment variables) goes behind `#[cfg(feature = "std")]`, on the
+  statement or the item.
+- No `HashMap` in the library: `BTreeMap` (`alloc`; fixed iteration order).
+- A `std` build computes what it did before: `petir::real::Real`, which
+  supplies `sqrt`, `floor`, ... without `std`, is imported only there.
+- A library dependency must build without `std`; one only tests use belongs
+  in `[dev-dependencies]`.
+
 ## What this crate is
 
 Atmospheric dispersion, plume transport, deposition and ground contamination —

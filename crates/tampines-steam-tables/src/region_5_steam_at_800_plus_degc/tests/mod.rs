@@ -1,4 +1,7 @@
 /// using table 2.27 for test
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod set_a_1500_kelvin_0_5_mpa;
 /// using table 2.27 for test
 pub mod set_b_1500_kelvin_30_mpa;

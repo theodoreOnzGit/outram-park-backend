@@ -31,6 +31,19 @@ tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics,
 fields, mesh, FV operators, and fluid/solid thermodynamics needed to build
 compressible and conjugate-heat-transfer CFD solvers.
 
+## `no_std` + `alloc` (gh:#1586)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-foam-basic-lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Everything numerical stays: meshes,
+fields, the finite-volume operators, the LDU and Krylov solvers, ODEs,
+thermophysics, radiation, the `FoamFile` dictionary parser. `std` carries
+what needs an operating system: reading and writing case files (`io`'s
+`read_*` / `write_*`, `io::case`), wall-clock timing, the thread-count and
+GPU probes. `parallel`, `gpu` and `blas-bench` imply `std`. With `std` on
+(the default) nothing changes.
+
 ## Quick start
 
 ```toml

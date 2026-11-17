@@ -22,6 +22,9 @@
 //! - **Case C** (`LRF=2`) — every average parameter (`D`, `GX`, `GNO`, `GG`,
 //!   `GF`) is energy-dependent, tabulated independently per J-state.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::NjoyError;
 

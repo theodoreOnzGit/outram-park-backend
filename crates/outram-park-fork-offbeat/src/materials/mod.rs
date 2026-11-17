@@ -51,6 +51,9 @@
 //! methods clamp to the range endpoints, matching upstream behaviour, and say
 //! so in their doc comments.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod behavioral;
 pub mod properties;
 pub mod state;

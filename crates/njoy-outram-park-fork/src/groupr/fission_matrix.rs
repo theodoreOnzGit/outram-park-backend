@@ -48,8 +48,11 @@
 //! - **Remaining gap:** the fully incident-dependent χ(E'|E) matrix (MF=5
 //!   incident-energy axis) is still unported — see the fidelity note above.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use crate::groupr::panel::{group_average_vector, group_integral, GroupFlux, PointwiseXs};
 use crate::nuclear_data::secondary::FissionSpectrum;

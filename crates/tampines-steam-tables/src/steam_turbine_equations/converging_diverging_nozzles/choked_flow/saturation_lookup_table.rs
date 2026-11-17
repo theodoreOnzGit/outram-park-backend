@@ -9,6 +9,9 @@
 //! point. Rows are ordered by increasing pressure; `s_f` increases monotonically
 //! and `s_g` decreases monotonically with the row index.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::pressure::pascal;
 use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;

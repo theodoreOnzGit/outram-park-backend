@@ -17,6 +17,9 @@
 //! no secondary group of a row is in range; a real power `ten**x` is `pow`
 //! and an integer one `__powidf2` (PETIR's `r_powf` and `r_powi`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::dtfr::deck::{e1p, Dtfr};

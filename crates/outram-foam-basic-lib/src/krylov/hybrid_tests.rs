@@ -89,7 +89,10 @@
 //! See the individual test doc comments for methodology, pass criteria, repeat
 //! runs and limitations.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 use std::time::Instant;
 
 use super::bicgstab::bicgstab_impl;
@@ -1100,7 +1103,7 @@ fn ilu0_serial_fraction_benchmark() {
             let t = Instant::now();
             let p = Preconditioner::ilu0(&a);
             factor_us = factor_us.min(t.elapsed().as_secs_f64() * 1e6);
-            std::hint::black_box(&p);
+            core::hint::black_box(&p);
         }
         let precond = Preconditioner::ilu0(&a);
         let ldu = HybridLdu::new(Arc::new(a));
@@ -1127,7 +1130,7 @@ fn ilu0_serial_fraction_benchmark() {
                     &mut Vec::new(),
                 );
                 solve_us[bi] = solve_us[bi].min(t.elapsed().as_secs_f64() * 1e6);
-                std::hint::black_box(&x);
+                core::hint::black_box(&x);
                 assert!(r.converged, "{cells} cells: solve did not converge");
                 iters = r.n_iterations;
             }
@@ -1145,7 +1148,7 @@ fn ilu0_serial_fraction_benchmark() {
                 precond.apply_on(&b, &mut z, ComputeBackend::CpuMulti);
             }
             applies_us = applies_us.min(t.elapsed().as_secs_f64() * 1e6);
-            std::hint::black_box(&z);
+            core::hint::black_box(&z);
         }
 
         // Amdahl: s is the fraction of the SERIAL runtime that cannot be
@@ -1357,7 +1360,7 @@ fn end_to_end_solve_speedup_benchmark() {
                     let (x, r) =
                         bicgstab_impl(&ldu, &b, None, precond, &settings, backend, &mut Vec::new());
                     let ms = t.elapsed().as_secs_f64() * 1e3;
-                    std::hint::black_box(&x);
+                    core::hint::black_box(&x);
                     assert!(r.converged, "{cells} cells: did not converge");
                     best[pi][bi] = best[pi][bi].min(ms);
                     iters[pi][bi] = r.n_iterations;
@@ -1498,7 +1501,7 @@ fn gmres_end_to_end_speedup_benchmark() {
                     &mut Vec::new(),
                 );
                 let ms = t.elapsed().as_secs_f64() * 1e3;
-                std::hint::black_box(&x);
+                core::hint::black_box(&x);
                 assert!(r.converged, "{cells} cells: GMRES did not converge");
                 best[bi] = best[bi].min(ms);
                 iters[bi] = r.n_iterations;

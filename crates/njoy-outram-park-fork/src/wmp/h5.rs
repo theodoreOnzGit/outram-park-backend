@@ -3,6 +3,9 @@
 //!
 //! Split out of `wmp.rs` (see the module doc there for provenance and status).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::types::{Cf64, WindowedMultipole, WmpWindow};
 use crate::NjoyError;
 

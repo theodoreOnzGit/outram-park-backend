@@ -9,6 +9,9 @@
 //! 8-point Gauss–Legendre quadrature that both [`super::lab7::ll2lab`] and
 //! [`super::lab1::f6lab`] use for their mu-integrals.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Sentinel "no further break point" energy \[eV\] — NJOY's `emax = 1.e10`.
 pub(crate) const EMAX: f64 = 1.0e10;
 /// Relative smallness guard — NJOY's `small = 1.e-10`.

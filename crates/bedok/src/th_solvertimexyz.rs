@@ -44,6 +44,9 @@
 //! cross-check across two independently transcribed drivers and four
 //! independently transcribed solvers.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::fuelrodheattime_1dcylnd::fuelrodheattime_1dcylnd;
@@ -146,15 +149,15 @@ pub fn th_solvertimexyz(
     let pitch = geometry.fuel.pitch;
     let rtot = geometry.fuel.rtot;
     let frad = geometry.fuel.fuelrad;
-    let subarea = pitch * pitch - std::f64::consts::PI * rtot * rtot;
+    let subarea = pitch * pitch - core::f64::consts::PI * rtot * rtot;
     let hydia =
-        4.0 * subarea / (2.0 * std::f64::consts::PI * rtot + 4.0 * pitch - 8.0 * rtot);
+        4.0 * subarea / (2.0 * core::f64::consts::PI * rtot + 4.0 * pitch - 8.0 * rtot);
 
     let real_pow = |x: f64, p: f64| -> f64 {
         if x >= 0.0 {
             x.r_powf(p)
         } else {
-            (-x).r_powf(p) * (std::f64::consts::PI * p).r_cos()
+            (-x).r_powf(p) * (core::f64::consts::PI * p).r_cos()
         }
     };
 
@@ -170,7 +173,7 @@ pub fn th_solvertimexyz(
         .collect();
     let pinpowdens: Vec<f64> = linpwrdens
         .iter()
-        .map(|q| (1.0 - th.coolheatfrac) * q / th.nfuelpin / (std::f64::consts::PI * frad * frad))
+        .map(|q| (1.0 - th.coolheatfrac) * q / th.nfuelpin / (core::f64::consts::PI * frad * frad))
         .collect();
 
     // ---- the rods ----
@@ -330,7 +333,7 @@ mod tests {
         let mut zh = Array2::<usize>::zeros(1, 1);
         zh.set(0, 0, n - 1);
 
-        let subarea = 1.26 * 1.26 - std::f64::consts::PI * 0.476 * 0.476;
+        let subarea = 1.26 * 1.26 - core::f64::consts::PI * 0.476 * 0.476;
         let geometry = Geometry {
             lz: vec![366.0 / n as f64; n],
             zlows: Some(zl),
@@ -350,7 +353,7 @@ mod tests {
                 pitch: 1.26,
                 subarea,
                 hydia: 4.0 * subarea
-                    / (2.0 * std::f64::consts::PI * 0.476 + 4.0 * 1.26 - 8.0 * 0.476),
+                    / (2.0 * core::f64::consts::PI * 0.476 + 4.0 * 1.26 - 8.0 * 0.476),
                 doppleralpha: 0.3,
                 ..Default::default()
             },

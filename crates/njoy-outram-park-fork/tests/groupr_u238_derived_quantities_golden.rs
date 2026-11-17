@@ -25,6 +25,9 @@
 //!
 //! **Result (2026-09-10):** recorded in the assertion message once measured.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::sync::Arc;
 
 use njoy_outram_park_fork::endf::tape::Tape;

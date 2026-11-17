@@ -20,6 +20,9 @@
 //! `None`. This module remains for the ECS and `rhosr`-CS methods.)
 #![allow(dead_code, unused_variables)] // TODO(op-kbc.17): drop once implemented
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fluid::Fluid;
 
 /// Which corresponding-states method a fluid uses.

@@ -21,6 +21,9 @@
 //! temperature (l.583-599); the reference-group flux is only taken when
 //! the reaction is `MT=1`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::gendf::GendfMaterial;
 use super::input::WimsrInput;

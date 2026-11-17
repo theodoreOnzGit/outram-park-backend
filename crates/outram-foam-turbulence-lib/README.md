@@ -33,6 +33,14 @@ simulation Kit) suite.
 Provides RAS (Reynolds-Averaged Simulation) and LES (Large Eddy Simulation)
 turbulence closures for use with `outram-foam-appbuilder-lib` solver loops.
 
+## `no_std` + `alloc` (gh:#1595)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-foam-turbulence-lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` turns on `outram-foam-basic-lib`'s and `thiserror`'s `std`. With `std` on (the default)
+nothing changes.
+
 ## Turbulence models
 
 | Model | Type | C++ class | Status |

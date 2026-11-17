@@ -104,6 +104,9 @@
 //!   `tests/non_orthogonal_laplacian.rs` are verification against an analytic
 //!   field, not validation against an external code or experiment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::surface_field::SurfaceScalarField;
@@ -591,7 +594,7 @@ mod tests {
     use crate::fv_operators::fvc::grad_least_squares;
     use crate::fields::field::Field;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Orthogonal two-cell mesh — the correction must be a no-op here.
     fn ortho_mesh() -> Arc<FvMesh> {

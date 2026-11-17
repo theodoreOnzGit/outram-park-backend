@@ -33,6 +33,9 @@
 //! point and T_eff, plus an unprinted bound of 2e-13 so nothing but the bias
 //! can sit under the print.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::parse::format_endf_float;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;

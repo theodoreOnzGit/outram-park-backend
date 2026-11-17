@@ -40,6 +40,9 @@
 //! Differential against the real classes:
 //! `verification_and_validation/upstream_thermo_gh1362/README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::primitives::{SMALL, VSMALL};
 use crate::thermophysics::imports::*;
 use petir::mathf::RealMath;

@@ -57,6 +57,9 @@
 //! not assign them a unit type: they are plain `f64` "upstream plume-shine
 //! values".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 mod integral;
 mod tables;

@@ -9,6 +9,9 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::{BedokError, Result};
 
 /// `pauseonnan(input)`.
@@ -44,6 +47,7 @@ use crate::error::{BedokError, Result};
 /// behaviour rather than incidental.
 pub fn pauseonnan(input: &[f64]) -> Result<()> {
     if input.iter().any(|x| x.is_nan()) {
+        #[cfg(feature = "std")]
         eprintln!("input =\n{input:?}");
         return Err(BedokError::NanEncountered);
     }

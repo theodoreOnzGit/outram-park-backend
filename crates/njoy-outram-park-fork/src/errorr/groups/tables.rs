@@ -19,6 +19,9 @@
 //! (except `EG20*`, which the dispatch splices). Extraction was verified by
 //! matching every array length to its Fortran `dimension(N)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(super) const GL2: [f64; 241] = [
     27.631e0, 17.0e0, 16.75e0, 16.588e0, 16.5e0, 16.3e0, 16.25e0, 16.0e0, 15.75e0, 15.5e0, 15.25e0,
     15.0e0, 14.75e0, 14.5e0, 14.25e0, 14.0e0, 13.75e0, 13.5e0, 13.25e0, 13.0e0, 12.75e0, 12.5e0,

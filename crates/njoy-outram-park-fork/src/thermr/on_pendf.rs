@@ -30,6 +30,9 @@
 //! parser interpolated) and no MF=3 grid. That path is this crate's own and
 //! has no NJOY2016 counterpart.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::thermal::IncidentPendf;
 use crate::thermr::calcem::iform0::compute_iform0;
 use crate::thermr::calcem::types::Iform0Table;

@@ -48,6 +48,9 @@
 //! [`correlation_from_auto_and_cross`] wires exactly that sourcing, which is the
 //! documented point a human must confirm against a real ERRORR tape's data flow.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::covr::correlation::{correlation_cross, CorrelationMatrix, CovarianceMatrix};
 use crate::covr::input::CovarianceForm;
 use crate::NjoyError;

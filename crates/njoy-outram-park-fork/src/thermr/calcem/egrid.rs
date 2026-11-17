@@ -6,6 +6,9 @@
 //! at `thermr.f90:1971-1975` (`iform=0`, label 310) and `thermr.f90:2288`
 //! (`iform=1`, label 520).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::BK_EV_PER_K;
 

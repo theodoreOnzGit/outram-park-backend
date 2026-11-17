@@ -21,6 +21,9 @@
 //! which has no caller until angular distributions are built alongside
 //! `ERRORR`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::samm::betset::{beta_triangular_index, ResonanceAmplitudes};
 use crate::samm::context::ChannelKinematics;

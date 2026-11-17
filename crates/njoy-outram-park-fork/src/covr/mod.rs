@@ -70,6 +70,9 @@
 //! See `README.md` in this directory for theory, the full ported-vs-NotPorted
 //! table, and the recorded test results.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod boxer;
 pub mod boxer_text;
 pub mod correlation;
@@ -118,6 +121,7 @@ pub fn run() -> Result<(), NjoyError> {
     Err(NjoyError::NotPorted("covr"))
 }
 
+#[cfg(feature = "std")]
 /// Run the COVR module from a parsed input deck (`subroutine covr`,
 /// `covr.f90:49-506`), with NJOY's unit convention: the ERRORR tape is read
 /// from `tape<nin>` and the BOXER library written to `tape<nout>` in the
@@ -162,6 +166,7 @@ pub fn run_with_deck(input: &CovrInput) -> Result<(), NjoyError> {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "std")]
     /// ~~Methodology: the plot option is out of scope and must report
     /// `NotPorted`, never a fabricated figure.~~ **CORRECTED 2026-11-13
     /// (gh:#1369):** the plot option runs ([`plot`]); with no input tape in the
@@ -184,6 +189,7 @@ mod tests {
         assert!(matches!(run(), Err(NjoyError::NotPorted("covr"))));
     }
 
+    #[cfg(feature = "std")]
     /// Methodology: an invalid deck (no card-4 selectors) must fail validation
     /// *before* reaching the NotPorted skeleton, surfacing the input error.
     /// Result (2026-07-15): returns an EndfParse error, not NotPorted.

@@ -35,6 +35,9 @@
 //! distance is not meshWave's (slice 2) and the Gauss gradient orderings are gh:#1489.
 //! Not ported: `fvOptions`, `couplingFactor` (default 0), `divDevRhoReff`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod lrr;
 pub mod ssg;
 

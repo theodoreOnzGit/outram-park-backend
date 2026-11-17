@@ -57,6 +57,9 @@
 //! interpolation; by `select_temperature`'s rule it would have interpolated
 //! 330 K too and snapped 603 K to 600 K (read, not run).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::compare::compare;
 use njoy_outram_park_fork::acer::read::{self, AceFileType, RawAceTable};
 use njoy_outram_park_fork::acer::thermal::{

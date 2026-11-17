@@ -5,6 +5,9 @@
 //! [`NjoyError`] returned through `Result`, so a caller (e.g. an ACE-generation
 //! driver) can handle failures instead of taking down the process.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Errors raised while parsing ENDF data or running an NJOY module.
@@ -99,6 +102,7 @@ pub enum NjoyError {
     WmpData(String),
 
     /// Underlying I/O failure reading or writing a tape file.
+    #[cfg(feature = "std")]
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 

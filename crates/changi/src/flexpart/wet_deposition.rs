@@ -60,6 +60,9 @@
 //! Precipitation mm/h, temperatures K, `dquer` µm, masses as the caller's
 //! (kg), times s, grid coordinates in grid units.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::constants::R_AIR;

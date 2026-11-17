@@ -77,6 +77,9 @@
 //! the *parse* so that whoever ports the sampler is not building on flattened
 //! data — it is not a claim that Be-9 (n,2n) is modelled correctly today.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::energy::parse_mf6_law7_lab_angle_energy;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::{reference_data_dir, reference_endf_or_skip};

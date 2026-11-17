@@ -15,6 +15,9 @@
 //! character card is kept as the `character(60)` variable it is read into
 //! (blank-padded to 60), which is what PLOTR writes back out.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::{CardReader, Slot};
 use crate::NjoyError;
 

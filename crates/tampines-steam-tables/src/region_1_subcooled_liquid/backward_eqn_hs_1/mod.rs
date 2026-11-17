@@ -1,6 +1,9 @@
 //! IAPWS-IF97 Region 1 backward equation: pressure as a function of specific
 //! enthalpy and specific entropy, `p(h,s)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::available_energy::kilojoule_per_kilogram;

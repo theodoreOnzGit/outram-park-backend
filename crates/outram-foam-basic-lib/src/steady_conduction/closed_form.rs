@@ -49,6 +49,9 @@
 //! is cited yet (UNCITED: maintainer to supply a heat-conduction text from the
 //! corpus if a citation is wanted).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, ThermalConductivity, ThermodynamicTemperature, VolumetricPowerDensity};
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;

@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **GROUPR's weight functions `iwt = 1, 7, 8, 10, 11, 12` and `-3`, whole decks
 //! against NJOY2016.80** (gh:#1370).

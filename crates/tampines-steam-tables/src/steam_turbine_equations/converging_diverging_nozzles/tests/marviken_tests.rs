@@ -301,6 +301,9 @@
 //!      done: it would be fitting the model to its own validation data, and it
 //!      would put the Zaloudek near-saturation curves at risk.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
@@ -1213,7 +1216,7 @@ fn marviken_nozzle_geometry() {
     let bore = Length::new::<millimeter>(NOZZLE_BORE_MM);
     let length = Length::new::<millimeter>(NOZZLE_LENGTH_MM);
     let length_over_diameter = (length / bore).get::<uom::si::ratio::ratio>();
-    let throat_area: Area = std::f64::consts::PI * bore * bore / 4.0;
+    let throat_area: Area = core::f64::consts::PI * bore * bore / 4.0;
 
     println!(
         "\n  Marviken 500 mm nozzle: D = {:.0} mm, L = {:.0} mm, L/D = {:.3}, A_throat = {:.5} m^2",

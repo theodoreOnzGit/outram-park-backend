@@ -25,5 +25,8 @@
 //! value, zero gradient, symmetry, empty, calculated) and [`PatchField`] (the
 //! BC together with the current face values it holds for one patch).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod bc;
 pub use bc::*;

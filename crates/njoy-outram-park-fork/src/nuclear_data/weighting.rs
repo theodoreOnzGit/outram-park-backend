@@ -28,6 +28,9 @@
 //! index either way. Callers needing a solved flux use the HIGH tier
 //! (on-device ENDF reprocessing).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// The neutron-flux shape used to weight a fast-range group collapse.

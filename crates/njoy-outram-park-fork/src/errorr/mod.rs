@@ -58,6 +58,9 @@
 //! (in the deck driver) are ported; decks 04, 15, 16, 20, 46 and 65 are identical
 //! whole.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod colaps;
 pub mod covadd;
 pub mod covariance;

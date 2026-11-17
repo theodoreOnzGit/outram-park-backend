@@ -19,9 +19,12 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fields::vol_field::VolScalarField;
 use crate::mesh::fv_mesh::FvMesh;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Field-level fluid thermodynamic model.
 ///

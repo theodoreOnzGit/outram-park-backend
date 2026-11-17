@@ -29,6 +29,9 @@
 //! Items are described by [`Slot`], preset with the default the caller wants
 //! to survive a null, and updated in place by [`CardReader::read`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 /// One item of a `read(nsysi,*)` statement, holding its current value.

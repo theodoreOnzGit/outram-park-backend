@@ -27,6 +27,9 @@
 //! The whole reaction contributes only within the energy range where its
 //! leading yield TAB1 is non-zero (`elow`/`ehigh`, `:5194-5210`, checked at `:5262`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::common::phys::{AMASSN_AMU, AMU_G, CLIGHT_CM_S, EV_ERG};
 use crate::endf::interp::{terp1, terpa, IntLaw};
 use crate::endf::records::{SectionCursor, Tab1};

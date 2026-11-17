@@ -45,6 +45,9 @@
 //! (`tests/deck_driver_tapes_vs_njoy2016.rs::test_48_photoatomic_whole_deck`). See
 //! `verification_and_validation/acer_photoatomic_vs_njoy2016.md`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::photoatomic::{photoatomic_ace, PhotoatomicOptions};
 use njoy_outram_park_fork::acer::read::AceFileType;

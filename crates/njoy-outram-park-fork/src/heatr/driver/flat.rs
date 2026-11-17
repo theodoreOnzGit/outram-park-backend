@@ -16,6 +16,9 @@
 //! same arrays and keeps the indexing. A Rust slice `s` stands for a Fortran
 //! array `a` with `s[k - 1] == a(k)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::records::{Cont, List, Tab1, Tab2};
 

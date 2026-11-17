@@ -45,6 +45,9 @@
 /// - Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
 /// - Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
 // --- Primitive scalars ---
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::primitives::{GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};
 
 // --- Primitive tensor types ---

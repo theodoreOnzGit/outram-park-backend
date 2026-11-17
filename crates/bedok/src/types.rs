@@ -17,6 +17,9 @@
 //! which is exactly what the translation is supposed to avoid. Each field
 //! records the `.m` file it was introduced by.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Geometry discretisation mode, as selected by which coordinate fields the

@@ -32,6 +32,9 @@
 //! The slope is what makes the plastic return mapping solvable in one Newton
 //! step for a linear curve, and quadratically convergent for a curved one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::mechanics::LinearElastic;

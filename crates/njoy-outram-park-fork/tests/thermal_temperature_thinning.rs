@@ -201,6 +201,9 @@
 //! - **Angular/emission distributions were not compared**, only integrated
 //!   cross sections and the underlying tables.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::thermr::mf7::{parse_mf7, parse_mf7_at_temperature, CoherentElastic};

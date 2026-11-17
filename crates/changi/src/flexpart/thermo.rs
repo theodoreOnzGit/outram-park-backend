@@ -14,6 +14,9 @@
 //! Two kernels, both pure functions of temperature, both taken from FLEXPART
 //! files that have no module dependencies at all.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::dynamic_viscosity::pascal_second;

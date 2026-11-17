@@ -8,6 +8,9 @@
 //! `aplotr` (inelastic levels, then threshold reactions, five curves per
 //! page) and `aplopf` (higher-order fission reactions).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::{hk_it, nint, AceTable, Plot};
 use super::scale::{ascle, mtname, plot_name};
 

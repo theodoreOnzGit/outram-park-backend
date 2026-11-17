@@ -41,6 +41,9 @@
 //! difference in a model formula is separated from a difference in the Gauss
 //! gradient ulp ordering (gh:#1489).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fv_operators::fvc;
 use outram_foam_basic_lib::prelude::{FvMesh, SurfaceScalarField, Tensor, Vector3, VolVectorField};
 

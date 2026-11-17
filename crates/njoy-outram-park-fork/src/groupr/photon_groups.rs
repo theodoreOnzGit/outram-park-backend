@@ -56,6 +56,9 @@
 //! Fortran removes `eg8(7) = 0.075 MeV` and drops the final `eg8(39) = 20 MeV`
 //! (`groupr.f90:4786-4798`). This port reproduces that splice exactly.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 /// A conversion factor spelled out for human readers: 1 MeV = 1.0e6 eV.

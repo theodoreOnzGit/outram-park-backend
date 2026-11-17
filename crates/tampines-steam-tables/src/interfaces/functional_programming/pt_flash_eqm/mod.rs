@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use uom::si::{f64::*, pressure::pascal, thermodynamic_temperature::kelvin};
 
@@ -146,6 +149,7 @@ pub fn region_fwd_eqn_single_phase(t: ThermodynamicTemperature, p: Pressure) -> 
             FwdEqnRegion::Region1
         }
         _ => {
+            #[cfg(feature = "std")]
             dbg!(&(t, p));
             panic!("t,p flashing at eqm out of bounds!")
         }

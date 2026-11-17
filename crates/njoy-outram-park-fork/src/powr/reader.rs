@@ -12,6 +12,9 @@
 //! `gamxs` positions it with `skiprz(ngendf,-2)` and `findf`, which count
 //! cards. Arrays keep Fortran's 1-based indices: `scr(i)` is [`Reader::sc`]`(i)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::plotr::stream::{EndfStream, Head, NPAGE};
 use crate::NjoyError;
 

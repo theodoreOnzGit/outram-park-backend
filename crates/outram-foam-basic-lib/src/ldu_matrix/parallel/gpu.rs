@@ -41,6 +41,9 @@
 //! associativity differs. Reproducible is not the same as identical, and the
 //! parity gates use a tolerance for exactly this reason.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::compute::gpu::{bytes_to_f64_vec, context, f64_to_f32_bytes, u32_to_bytes, WORKGROUP_SIZE};
 use crate::compute::ComputeBackend;
 use crate::ldu_matrix::ldu_matrix::LduMatrix;
@@ -371,7 +374,7 @@ pub fn available() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// A 1-D Laplacian on `n` cells: `diag = 2`, off-diagonals `-1`.
     fn laplacian(n: usize) -> (LduMatrix, LduTopology) {

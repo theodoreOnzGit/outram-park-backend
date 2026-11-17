@@ -109,6 +109,9 @@
 //! is settled, do not trust this module's answer on a case that reports
 //! `bootstrapped == true`.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::{BedokError, Result};
 use crate::matlab::{norm1, norm2, Array2, Array3, Decomposition, SparseMatrix};
 use crate::sigmavalupd3d_handler::{sigmavalupd3d_handler, FeedbackTables};

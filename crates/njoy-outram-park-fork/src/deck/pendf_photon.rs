@@ -24,6 +24,9 @@
 //! Refused by name: a material with both MF=3 and MF=23, and MF=10/12/13 on a
 //! photo-atomic material (no evaluation does this; upstream would merge them).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::gety1::Gety1;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::{Section, Tape};

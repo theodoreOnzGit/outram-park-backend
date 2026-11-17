@@ -69,6 +69,9 @@
 //! Raw `f64` in strict SI, per the crate's units policy: K, W/(m K),
 //! J/(kg K), kg/m³, J/(m³ K), Pa.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::Result;
 use crate::gap::gas::{GapGasMixture, GapGasSpecies, GasConductivityFit, N_SPECIES};
 use crate::materials::properties::conductivity::ConductivityModel;

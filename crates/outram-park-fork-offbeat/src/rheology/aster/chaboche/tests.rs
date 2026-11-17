@@ -41,6 +41,9 @@
 //! immediately, and no iteration on the lateral stress is needed as it would be
 //! for uniaxial *stress*.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::primitives::SymmTensor;

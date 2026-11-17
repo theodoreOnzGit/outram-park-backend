@@ -138,6 +138,9 @@
 //!
 //! **Result:** see the test's printed summary and assertion.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::sync::Arc;
 
 use njoy_outram_park_fork::endf::records::SectionCursor;

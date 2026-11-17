@@ -198,6 +198,9 @@
 //! the crate `CLAUDE.md`. Not for nuclear facility operation, reactor control,
 //! safety-critical, or licensing decisions. Independent OUTRAM PARK fork.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// CODATA-2018 molar gas constant `R` \[J/(mol·K)\].
 ///

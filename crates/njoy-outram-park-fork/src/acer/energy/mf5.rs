@@ -11,6 +11,9 @@
 //!   `p_k(E)` — the `acelf5` gap this crate previously refused via
 //!   `NjoyError::NotPorted` at two separate checks (`NK≠1` and `LF≠1`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::{records::SectionCursor, tape::Section};
 use crate::NjoyError;
 use super::madland_nix;

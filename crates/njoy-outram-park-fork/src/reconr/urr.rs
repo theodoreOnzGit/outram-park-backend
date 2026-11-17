@@ -106,6 +106,9 @@
 //! bare `else`), and PURR's `unfac2` falls through like RECONR's; that is
 //! unchanged here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::mt::MtReaction;
 use crate::mixr::mix::sigfig;
 use crate::reconr::{eval_lin_lin, ReconrSection};

@@ -38,6 +38,9 @@
 //! committed (5 MB + 2 MB); the test skips when they are absent, honouring
 //! `OUTRAM_PARK_REQUIRE_REFERENCE_DATA` so the skip cannot pass silently.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::read::{self as read, read_type1, read_type2, AceClass, AceFileType};
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 

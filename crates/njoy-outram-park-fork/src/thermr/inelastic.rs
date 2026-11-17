@@ -30,6 +30,9 @@
 //! adaptively to a tolerance; that refinement (and the liquid `cliq` small-α
 //! correction) are future accuracy work, noted where they apply.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::mf7::{interp_s_temperature, AlphaTable, IncoherentInelastic};
 use crate::common::phys::BK_EV_PER_K;
@@ -174,7 +177,7 @@ impl IncoherentInelastic {
             a = AMIN;
         }
         let sigc = (ep / e).sqrt() * rtev / 2.0;
-        let c = (4.0 * std::f64::consts::PI).sqrt();
+        let c = (4.0 * core::f64::consts::PI).sqrt();
         let arg = (a + bb) * (a + bb) / (4.0 * a);
         let s = if -arg > SABFLG { (-arg).r_exp() / (c * a.sqrt()) } else { 0.0 };
         let sig = sigc * self.sigma_bound(natom) * s;
@@ -343,7 +346,7 @@ impl IncoherentInelastic {
             (a_tab, b_tab)
         };
         let sigc = (ep / e).sqrt() * rtev / 2.0;
-        let c = (4.0 * std::f64::consts::PI).sqrt();
+        let c = (4.0 * core::f64::consts::PI).sqrt();
 
         // Principal scatterer (thermr.f90 lines 2584–2587).
         // T_eff in eV, at the requested temperature where calcem reads it
@@ -1002,12 +1005,14 @@ mod tests {
     use crate::endf::tape::Tape;
     use std::fs::File;
 
+    #[cfg(feature = "std")]
     fn al27() -> IncoherentInelastic {
         let p = crate::reference_data::reference_endf_dir().join("tsl-013_Al_027-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         parse_mf7(&tape, 53).unwrap().incoherent_inelastic.unwrap()
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn bound_cross_section_is_physical() {
         let ii = al27();
@@ -1017,6 +1022,7 @@ mod tests {
         assert!((ii.mass_ratio() - 26.75).abs() < 0.1);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn double_differential_nonnegative_and_finite() {
         let ii = al27();
@@ -1029,6 +1035,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn inelastic_cross_section_is_positive_and_finite() {
         let ii = al27();
@@ -1042,6 +1049,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn cross_section_rises_toward_free_gas_limit() {
         // For this cold (T=20 K) crystal the incoherent-inelastic cross section is

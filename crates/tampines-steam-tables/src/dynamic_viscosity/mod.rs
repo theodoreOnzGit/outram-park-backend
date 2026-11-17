@@ -6,6 +6,9 @@
 //! the critical-enhancement term is omitted (fast path). Public entry
 //! points flash the state from `(T, p)`, `(rho, T)`, or `(p, h)` first.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::{dynamic_viscosity::pascal_second, f64::*, ratio::ratio};

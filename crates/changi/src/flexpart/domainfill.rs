@@ -115,6 +115,9 @@
 //! (upstream's `j - 1`); level indices 0-based. Positions in grid units,
 //! heights m, masses kg, winds m/s, densities kg/m³, PV in pvu.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::constants::{GA, PI, PI180, R_AIR, R_EARTH};
@@ -1044,7 +1047,7 @@ mod tests {
             &settings,
             &met,
             &vec![0.0; met.uu.len()],
-            &mut std::iter::empty(),
+            &mut core::iter::empty(),
             &mut parts,
             &mut state,
         );

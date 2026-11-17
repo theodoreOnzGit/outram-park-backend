@@ -12,6 +12,9 @@
 //! (see its `CLAUDE.md`); every item here is `pub(super)` and belongs to
 //! `getmf6` (`groupr.f90:7527-8133`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::groupr::kinematics::{Cm6Point, Law1LabTable};

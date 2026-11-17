@@ -30,6 +30,9 @@
 //! representation directly -- keeping those internals out of this crate's
 //! public surface (see this module's own `CLAUDE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
     Angle, AvailableEnergy, Length, MassRate, Power, Pressure, ThermalConductance,
@@ -99,8 +102,8 @@ pub enum TampinesSteamArrayError {
     },
 }
 
-impl std::fmt::Display for TampinesSteamArrayError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for TampinesSteamArrayError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::LengthMismatch {
                 array,
@@ -130,7 +133,7 @@ impl std::fmt::Display for TampinesSteamArrayError {
     }
 }
 
-impl std::error::Error for TampinesSteamArrayError {}
+impl core::error::Error for TampinesSteamArrayError {}
 
 impl TampinesSteamArray {
     /// Register one lateral (radial) thermal link to another array/solid at a
@@ -1606,7 +1609,7 @@ mod tests {
         let p0 = Pressure::new::<pascal>(4.0e6);
         let t_mean = ThermodynamicTemperature::new::<kelvin>(400.0);
         let dx = L_M / N as f64;
-        let k = std::f64::consts::PI / L_M;
+        let k = core::f64::consts::PI / L_M;
         // Cell-centre value of the mode, reused for seeding and for projection.
         let mode = |c: usize| (k * (c as f64 + 0.5) * dx).r_cos();
 

@@ -100,6 +100,9 @@
 // through and propagate it into a physical result. The idiom is intentional.
 #![allow(clippy::neg_cmp_op_on_partial_ord)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::{OffbeatError, Result};
 
 /// Default regularisation added to the diagonal of the projection matrix —

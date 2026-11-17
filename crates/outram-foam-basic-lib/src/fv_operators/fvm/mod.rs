@@ -25,7 +25,7 @@
 //! field.
 //!
 //! Mirrors `Foam::fvm::` (`src/finiteVolume/finiteVolume/fvm/`). Contents:
-//! implicit Euler time derivatives (`ddt`, `ddt_coeff`, `ddt_vec`,
+//! implicit Euler time derivatives (`ddt`, `ddt_coeff`, `ddt_coeff_old`, `ddt_vec`,
 //! `ddt_coeff_vec`) and the second time derivative (`d2dt2`, `d2dt2_coeff`),
 //! first-order upwind convection (`div`, `div_vec`), the Gauss-orthogonal
 //! Laplacian (`laplacian`, `laplacian_vec`), its **non-orthogonality-corrected**
@@ -36,6 +36,9 @@
 //! and the `sup` module header for the LHS / RHS sign conventions that apply
 //! when combining these matrices.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod d2dt2;
 mod ddt;
 mod ddt_vec;
@@ -47,7 +50,7 @@ mod laplacian_vec;
 mod sup;
 
 pub use d2dt2::{d2dt2, d2dt2_coeff};
-pub use ddt::{ddt, ddt_coeff};
+pub use ddt::{ddt, ddt_coeff, ddt_coeff_old};
 pub use ddt_vec::{ddt_coeff_vec, ddt_vec};
 pub use div::div;
 pub use div_vec::{div_vec, div_vec_linear};

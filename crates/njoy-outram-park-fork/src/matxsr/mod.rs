@@ -27,6 +27,9 @@
 //! text read of the MF=1 head is replaced by the GENDF reader's own (same
 //! columns); its title word is not used.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cards;
 pub(crate) mod data;
 pub mod hname;

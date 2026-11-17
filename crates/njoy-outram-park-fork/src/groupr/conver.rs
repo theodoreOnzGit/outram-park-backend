@@ -26,6 +26,9 @@
 //! Not translated (refused by name): ENDF-5 and earlier tapes (`iverf <= 5`), whose
 //! `mt0` series for MT >= 700 and MAT 1149/1150 patches `Lo2Cascade` does not carry.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::endf::tape::{Section, Tape};
 use crate::NjoyError;

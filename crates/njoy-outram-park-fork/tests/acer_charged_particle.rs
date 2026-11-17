@@ -2,6 +2,9 @@
 //! against NJOY2016.80's reference tapes (`tests/14`). Skips when the
 //! upstream clone is absent (`NJOY2016_ROOT`, else `upstream_source/NJOY2016`).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::{charged, read::parse_type1};
 use njoy_outram_park_fork::endf::tape::Tape;
 use std::path::{Path, PathBuf};

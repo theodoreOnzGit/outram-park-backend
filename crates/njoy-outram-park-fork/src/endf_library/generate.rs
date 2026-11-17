@@ -24,6 +24,9 @@
 //! `0K/<name>.ace` for its companion, `<T>K/<law>.ace` for a thermal table;
 //! [`crate::archive::write_zip`] packs a batch into one download.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::header::SubLibrary;
 use super::index::{EndfLibraryIndex, IndexedTape};
 use crate::leapr::deck::LeaprDeck;

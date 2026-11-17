@@ -75,6 +75,9 @@
 //! temperature K, pressure Pa, humidity ratio `W` kg-water/kg-dry-air,
 //! relative humidity `R` \[0, 1\], `H` J/kg-dry-air, `V` m³/kg-dry-air.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod saturation;
 pub mod virials;

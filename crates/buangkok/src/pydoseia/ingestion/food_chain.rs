@@ -7,6 +7,9 @@
 //! uptake, pasture, stored feed, milk and meat, and IAEA-TECDOC-1616 (2009)
 //! for the H-3 and C-14 specific-activity models, as upstream cites them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::{IngestionParameters, TransferFactors};
 

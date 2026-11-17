@@ -134,6 +134,10 @@ impl Fnv {
 /// re-measured unchanged after stage S3 (see the module docs).
 const GOLDEN: &[(&str, usize, u64)] = &[
     // GOLDEN-TABLE-START
+    // Moved 2026-11-16 (gh:#1607): all 16 `n2arr_pimple_*`; the array now runs on
+    // outram-foam-basic-lib's upstream-order operators (gh:#1489) instead of a
+    // pre-#1489 copy. Round-off throughout (<= 4e-15 in p after 200 steps); see
+    // verification_and_validation/determinism_golden_moves.md.
     // Moved 2026-11-13 (gh:#1349, see verification_and_validation/determinism_golden_moves.md):
     // the (p,T) flash now returns the stable root. Old values are recorded there.
     ("water_rho", 576, 0x2de937f8790d710f),
@@ -156,22 +160,22 @@ const GOLDEN: &[(&str, usize, u64)] = &[
     ("n2_ph_rho", 576, 0x7f2368e5d71930d4),
     ("n2_mu", 576, 0xed714122666e0ff9),
     ("n2_lambda", 576, 0x04250425065a4e64),
-    ("n2arr_pimple_p_1", 10, 0xc593ad5453fadb2d),
-    ("n2arr_pimple_he_1", 10, 0xe02fbb6bcb14e9b9),
-    ("n2arr_pimple_rho_1", 10, 0x1e7a398d49c67b58),
-    ("n2arr_pimple_U_1", 30, 0xcbd400ad968b13d8),
-    ("n2arr_pimple_p_10", 10, 0x60cac2e4deec8a3b),
-    ("n2arr_pimple_he_10", 10, 0xc3825424b8e38e5d),
-    ("n2arr_pimple_rho_10", 10, 0xb2842afa7d9c8ab2),
-    ("n2arr_pimple_U_10", 30, 0x53e674be6debf8f2),
-    ("n2arr_pimple_p_50", 10, 0xe9fee336758b806d),
-    ("n2arr_pimple_he_50", 10, 0x7c9c31f29a443528),
-    ("n2arr_pimple_rho_50", 10, 0x8758c468709d5cb5),
-    ("n2arr_pimple_U_50", 30, 0x34895150d19f50b4),
-    ("n2arr_pimple_p_200", 10, 0x07ef4d9edb494bfb),
-    ("n2arr_pimple_he_200", 10, 0x3fea5c7f55a1d2e8),
-    ("n2arr_pimple_rho_200", 10, 0x526666a45dd9bc30),
-    ("n2arr_pimple_U_200", 30, 0xa301458654117bb8),
+    ("n2arr_pimple_p_1", 10, 0x7c50d8200128cc80),
+    ("n2arr_pimple_he_1", 10, 0xc4eea40de0341f61),
+    ("n2arr_pimple_rho_1", 10, 0x55b0f68131619c9e),
+    ("n2arr_pimple_U_1", 30, 0x252ede2f3e3d5ebe),
+    ("n2arr_pimple_p_10", 10, 0x8c471e8fbb6501c0),
+    ("n2arr_pimple_he_10", 10, 0x7b2a7abc59856343),
+    ("n2arr_pimple_rho_10", 10, 0x2da3069e612f856e),
+    ("n2arr_pimple_U_10", 30, 0x32fc950f398eb971),
+    ("n2arr_pimple_p_50", 10, 0xd48c276a7fd157ce),
+    ("n2arr_pimple_he_50", 10, 0x8a4cb0874094000b),
+    ("n2arr_pimple_rho_50", 10, 0x4ac234ddf9cab513),
+    ("n2arr_pimple_U_50", 30, 0x44f9237942ec31ec),
+    ("n2arr_pimple_p_200", 10, 0xd3f55629983357d8),
+    ("n2arr_pimple_he_200", 10, 0x53e4b04c20b48016),
+    ("n2arr_pimple_rho_200", 10, 0x2d5f8d028bbc0075),
+    ("n2arr_pimple_U_200", 30, 0xd3e359a0e51d4223),
     // GOLDEN-TABLE-END
 ];
 

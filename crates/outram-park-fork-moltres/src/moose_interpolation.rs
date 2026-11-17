@@ -52,6 +52,9 @@
 //! the `ADReal` overloads and the CSV dump helpers, none of which Moltres
 //! calls.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::MoltresError;
 
 /// MOOSE `SplineInterpolationBase::_deriv_bound`

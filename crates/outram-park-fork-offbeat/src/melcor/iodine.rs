@@ -50,6 +50,9 @@
 //! unchanged: built from the public MELCOR manuals and open literature only,
 //! never MELCOR, MAAP or other code source (see [`super`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Molar masses, kg/mol: I2, and Cs (as CsOH, one hydroxide per atom).

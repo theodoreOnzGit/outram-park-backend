@@ -22,6 +22,9 @@
 //! 4. **Measurement** — `#[ignore]`d crossover benchmarks whose printed output
 //!    is the source of every number in the constants' documentation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::matrix::SquareMatrix;
@@ -212,7 +215,7 @@ fn ensemble_matches_analytic_decay() {
 fn ensemble_matches_harmonic_oscillator() {
     let n = 16;
     let ends: Vec<f64> = (1..=n)
-        .map(|m| m as f64 * std::f64::consts::FRAC_PI_2)
+        .map(|m| m as f64 * core::f64::consts::FRAC_PI_2)
         .collect();
     let lanes: Vec<OdeLane<Harmonic>> = ends
         .iter()
@@ -590,8 +593,8 @@ fn simpson_and_trapezoid_are_exact_to_their_degree() {
 /// [`crate::ode::parallel::quadrature_batch`] from this test's printed output.
 #[test]
 fn fixed_rules_match_a_transcendental_reference() {
-    let exact = (1.0 + (-std::f64::consts::PI).r_exp()) / 2.0;
-    let iv = [QuadratureInterval::new(0.0, std::f64::consts::PI)];
+    let exact = (1.0 + (-core::f64::consts::PI).r_exp()) / 2.0;
+    let iv = [QuadratureInterval::new(0.0, core::f64::consts::PI)];
     let f = |_: usize, x: f64| (-x).r_exp() * x.r_sin();
 
     let run = |rule: QuadratureRule| -> (f64, f64) {
@@ -643,7 +646,7 @@ fn fixed_rules_match_a_transcendental_reference() {
 /// output.
 #[test]
 fn adaptive_matches_closed_forms() {
-    let pi = std::f64::consts::PI;
+    let pi = core::f64::consts::PI;
     let intervals = [
         QuadratureInterval::new(0.0, pi),
         QuadratureInterval::new(0.0, 1.0),
@@ -987,7 +990,7 @@ fn invalid_lanes_are_reported() {
 
     for (what, lane) in cases {
         let ensemble =
-            integrate_ensemble(std::slice::from_ref(&lane), &solver, ComputeBackend::Serial);
+            integrate_ensemble(core::slice::from_ref(&lane), &solver, ComputeBackend::Serial);
         let l = &ensemble.lanes()[0];
         assert_eq!(l.status(), OdeLaneStatus::InvalidLane, "{what}");
         assert!(l.state().is_none(), "{what}");
@@ -1401,7 +1404,7 @@ fn ensemble_crossover_benchmark() {
         let lanes = imbalanced_lanes(n);
         let solver = OdeSolver::rkf45(1, 1e-10, 1e-8);
         let time = |backend: ComputeBackend| -> f64 {
-            std::hint::black_box(integrate_ensemble_min(
+            core::hint::black_box(integrate_ensemble_min(
                 &lanes,
                 |_| solver.clone(),
                 backend,
@@ -1412,7 +1415,7 @@ fn ensemble_crossover_benchmark() {
                 let t = Instant::now();
                 let out = integrate_ensemble_min(&lanes, |_| solver.clone(), backend, 0);
                 let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(dt);
             }
             best
@@ -1477,13 +1480,13 @@ fn quadrature_crossover_benchmark() {
         let f = |i: usize, x: f64| (-a[i] * x).r_exp() * (b[i] * x).r_sin();
 
         let time = |backend: ComputeBackend| -> f64 {
-            std::hint::black_box(quadrature_batch_min(&intervals, rule, backend, 0, f));
+            core::hint::black_box(quadrature_batch_min(&intervals, rule, backend, 0, f));
             let mut best = f64::INFINITY;
             for _ in 0..7 {
                 let t = Instant::now();
                 let out = quadrature_batch_min(&intervals, rule, backend, 0, f);
                 let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(dt);
             }
             best
@@ -1518,7 +1521,7 @@ fn ensemble_thread_scaling_benchmark() {
     for _ in 0..7 {
         let t = Instant::now();
         let out = integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::Serial, 0);
-        std::hint::black_box(&out);
+        core::hint::black_box(&out);
         serial_us = serial_us.min(t.elapsed().as_secs_f64() * 1.0e6);
     }
 
@@ -1556,7 +1559,7 @@ fn ensemble_thread_scaling_benchmark() {
                 let t = Instant::now();
                 let out =
                     integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::CpuMulti, 0);
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(t.elapsed().as_secs_f64() * 1.0e6);
             }
             (best, identical)

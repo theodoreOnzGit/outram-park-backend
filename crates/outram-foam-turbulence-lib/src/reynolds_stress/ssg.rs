@@ -21,6 +21,9 @@
 //!
 //! **Status: AI draft, terms only**; see [`super`] for what is and is not compared.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     dev_symm_tensor, effective_diffusivity, gen_g, production, push_symm, push_tensor,
     wall_correct_production, wall_face_cells, ReynoldsStressFrozen,
@@ -28,7 +31,7 @@ use super::{
 use crate::source_terms::SourceTerms;
 use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
 use outram_foam_basic_lib::primitives::{SphericalTensor, SymmTensor, Tensor};
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// SSG on a frozen field (terms only).
 pub struct Ssg {

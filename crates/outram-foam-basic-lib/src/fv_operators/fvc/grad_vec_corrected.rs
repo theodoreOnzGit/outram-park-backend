@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::interpolate;
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
@@ -102,7 +105,7 @@ pub fn grad_vec_corrected(vol: &VolVectorField) -> VolTensorField {
 mod tests {
     use super::*;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn mesh() -> Arc<FvMesh> {
         let vx = |x: f64| Vector3::new(x, 0.0, 0.0);

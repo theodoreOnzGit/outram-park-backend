@@ -33,6 +33,9 @@
 //! `linePointRef` overload of `findNearest`.
 
 /// A point or vector.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub type V = [f64; 3];
 
 const VSMALL: f64 = 1e-300;

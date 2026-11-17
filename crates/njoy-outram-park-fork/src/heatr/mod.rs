@@ -120,6 +120,9 @@
 //! - [`driver`] — the routine-by-routine translation of `heatr.f90`
 //!   ([`heatr()`], [`HeatrInput`], [`heatr_kerma`], [`pendf_for_heatr`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod damage;
 pub mod driver;
 mod kerma;

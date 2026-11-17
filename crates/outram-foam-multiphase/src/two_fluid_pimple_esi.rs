@@ -72,6 +72,9 @@
 //! the energy equations (they cannot feed back with `rhoConst`), virtual
 //! mass, lift, wall lubrication, turbulent dispersion, blending, `faceMomentum`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::two_fluid_pimple::TwoFluidPimple;
 use crate::MultiphaseError;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
@@ -79,7 +82,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMesh, PatchField, PatchKind, SolverSettings, SurfaceScalarField, Tensor, Vector3,
     VolScalarField, VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 

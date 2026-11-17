@@ -15,6 +15,9 @@
 //! mol/m³, `R` in J/(mol·K), `molar_mass` in kg/mol. The property layer
 //! ([`crate::props`]) converts to mass-based SI at the boundary.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// One group of residual-Helmholtz terms, tagged by its functional form.

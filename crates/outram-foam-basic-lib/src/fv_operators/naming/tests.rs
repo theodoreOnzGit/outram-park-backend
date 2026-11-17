@@ -6,6 +6,9 @@
 
 //! Verification that operator-derived field names cannot grow without bound.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 
 /// A first application keeps full diagnostic value.

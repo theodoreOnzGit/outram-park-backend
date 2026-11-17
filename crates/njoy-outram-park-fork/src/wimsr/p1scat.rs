@@ -19,6 +19,9 @@
 //! `l2t .ne. l1t` guard; a temperature block without an `MT=2` section
 //! would add an uninitialised `elas` upstream — here zeros.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 use super::gendf::GendfMaterial;

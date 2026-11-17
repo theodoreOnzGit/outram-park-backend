@@ -10,6 +10,9 @@
 //! drop has no reaction part at all, and the impulse and reaction terms are
 //! public so either can be evaluated on its own.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use uom::si::angle::{degree, radian};

@@ -20,6 +20,9 @@
 //! Independent Rust re-implementation; OUTRAM PARK fork relicenses under
 //! **GPL-3.0-only** (MIT is GPL-3.0-compatible).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::nuclide::Nuclide;
 use crate::reactions::{DecayMode, ReactionChannel};
 
@@ -60,7 +63,7 @@ impl DecayData {
     /// with `fraction` dimensionless.
     pub fn from_half_life(half_life_s: f64, branches: Vec<(DecayMode, f64)>) -> Self {
         Self {
-            lambda_total: std::f64::consts::LN_2 / half_life_s,
+            lambda_total: core::f64::consts::LN_2 / half_life_s,
             branches,
         }
     }
@@ -174,7 +177,7 @@ mod tests {
     #[test]
     fn half_life_to_lambda() {
         // t_half = ln2 s  => lambda = 1 /s.
-        let d = DecayData::from_half_life(std::f64::consts::LN_2, vec![]);
+        let d = DecayData::from_half_life(core::f64::consts::LN_2, vec![]);
         assert!((d.lambda_total - 1.0).abs() < 1e-15);
     }
 

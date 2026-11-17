@@ -59,6 +59,9 @@
 //! two layouts are used here; the diagonal (self-scatter) is dropped because
 //! Moltres' `InScatter` skips `i == g` and `REMXS` already excludes it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::MoltresError;
 use crate::materials::{DelayedFamily, MsrMaterial};
 use crate::moose_interpolation::{MonotoneCubicInterpolation, SplineInterpolation};
@@ -463,6 +466,7 @@ impl MoltresTables {
         })
     }
 
+    #[cfg(feature = "std")]
     /// Read the eleven files `<root><SUFFIX>.txt` from disk (Moltres
     /// `property_tables_root`). A missing `CHI_D` file is allowed, as
     /// upstream.
@@ -500,7 +504,7 @@ impl MoltresTables {
                 }
             }
         }
-        let refs: [&str; 11] = std::array::from_fn(|i| texts[i].as_str());
+        let refs: [&str; 11] = core::array::from_fn(|i| texts[i].as_str());
         Self::from_texts(
             &refs,
             chi_d.as_deref(),

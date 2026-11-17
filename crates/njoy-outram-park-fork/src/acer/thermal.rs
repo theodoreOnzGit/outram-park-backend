@@ -47,6 +47,9 @@
 //! - **LEAPR** (`leapr.f90`) — *generates* MF=7 when an evaluation lacks it;
 //!   optional, since the ENDF/B thermal sublibrary ships MF=7.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::acesix::{
     acesix_equiprobable, acesix_tabulated, pendf_text, tpend_rows, AcesixPoint, BinWeights,
 };

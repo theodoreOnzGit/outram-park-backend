@@ -22,6 +22,9 @@
 //! caller keeps, shared by every tape, as upstream's are. Records go into the
 //! caller's work array at a 1-based Fortran index, `a[at - 1]` being `a(at)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::parse::parse_line;
 use crate::endf::tape::Tape;
 use crate::NjoyError;
@@ -428,6 +431,7 @@ impl EndfStream {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "std")]
     fn tape() -> Tape {
         let text = "\
  tape label                                                          1 0  0    0
@@ -452,6 +456,7 @@ mod tests {
         Tape::read(text.as_bytes()).unwrap()
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn records_and_positioning_follow_endf_f90() {
         let mut s = EndfStream::from_tape(&tape());

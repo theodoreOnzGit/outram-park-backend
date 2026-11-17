@@ -2,7 +2,8 @@
 
 > **Where this lives:** `njoy-tui` is a `[[bin]]` target **inside the
 > `njoy-outram-park-fork` crate** (`src/bin/njoy-tui/`) — it is not a separate
-> crate. `ratatui` is an unconditional dependency, so the binary always builds
+> crate. ~~`ratatui` is an unconditional dependency~~ **CORRECTED 2026-11-16 (gh:#1592):** `ratatui` comes
+> with the default `std` feature, so the binary builds
 > with a plain `cargo run -p njoy-outram-park-fork --bin njoy-tui` (no feature
 > flags; see commands below).
 

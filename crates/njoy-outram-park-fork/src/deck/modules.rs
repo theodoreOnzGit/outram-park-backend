@@ -14,6 +14,9 @@
 //! the deck driver stays in step with the stream: the next record is the next
 //! module's name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::{CardReader, Slot};
 use crate::groupr::{
     input::neutron_group_from_ign, GrouprInput, PhotonGroupStructure, PrintOption, ReactionRequest, SmoothingOption,

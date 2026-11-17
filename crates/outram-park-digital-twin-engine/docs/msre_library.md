@@ -76,8 +76,9 @@ live state with a copy kept beside it:
 
 Tests: `msre::session::tests` checks the hold at the last liquid state, that
 the guard leaves a liquid plant bit-identical, that the thaw is consumed once,
-and the pacer. `msre_web`'s `engine::tests` checks the ticks and that the
-freeze is posted once. These are harness checks, not V&V.
+and the pacer. ~~`msre_web`'s `engine::tests`~~ `msre::web::engine::tests`
+(in the library since gh:#1578) checks the ticks and that the freeze is
+posted once. These are harness checks, not V&V.
 
 Found on the way: with the radiator doors left open after a fuel-pump trip,
 the coolant reaches its liquidus within a few hundred seconds. The drift
@@ -102,17 +103,37 @@ functions in the same order as the `msre_n1_first_criticality` example's
 - Each worker builds the model through the shared processed-data cache.
 - `KeffPool` runs the power iteration in chunks.
 
-The worker is `examples/msre_web/keff.rs` and the page is `keff_tab.rs`;
-moving them into this library is gh:#1578.
+~~The worker is `examples/msre_web/keff.rs` and the page is `keff_tab.rs`;
+moving them into this library is gh:#1578.~~ **MOVED 2026-11-15 (gh:#1578):**
+the worker is `msre::web::keff`, the plant engine `msre::web::engine`, and
+the pool, split and presets `msre::web::keff_pool`, all in this library;
+the example's `keff_tab.rs` keeps only the egui drawing.
 
 **Methodology and results (2026-11-14, CPU only, 4 cores, Intel Xeon @
 2.30 GHz, 15.7 GiB RAM, Linux; the machine was shared with other builds):**
 
 | check | settings | result |
 |---|---|---|
-| native pool vs `run_keff_csg_par` on the real model (`keff_tab::tests::a_pooled_run_is_run_keff_csg_par_bit_for_bit`, ignored) | default study, 500 × [2 + 3], seed 7, 2 workers / 2 threads | **all 5 generations bit-identical** (k 0.828348478555774426 … 1.07203981664989678; mean 1.03750 ± 0.02557); pool from tapes to k 266 s |
+| native pool vs `run_keff_csg_par` on the real model (~~`keff_tab::tests::`~~ `msre::web::keff_pool::tests::a_pooled_run_is_run_keff_csg_par_bit_for_bit` since gh:#1578, ignored) | default study, 500 × [2 + 3], seed 7, 2 workers / 2 threads | **all 5 generations bit-identical** (k 0.828348478555774426 … 1.07203981664989678; mean 1.03750 ± 0.02557); pool from tapes to k 266 s |
 | browser vs native (headless Chromium, `?workers=2&kcfg=500,2,3,7&krun`) | the same | **all 5 generations equal** to the native values (0.8283484785557744, 1.0209114745691594, 1.0528981026713053, 0.9875693732678972, 1.0720398166498968); data processed and built in about 705 s on 2 Web Workers |
 | the measured split in the browser (`?kmeasure`) | 500 × [2 + 3] for each run | A (1131/1131 °F) k = 1.0503 ± 0.0261, C (salt 1231) 0.9713 ± 0.0291, D (graphite 1231) 0.9909 ± 0.0091; fuel −77 ± 39, graphite −57 ± 25 × 10⁻⁵ /°F. These are statistical noise at 500 histories (the pipeline check, not a measurement). Run D took 69 s against about 450 s for each other run: the salt's products were read back from the browser's cache |
+
+**Re-run after the move into the library (gh:#1578, 2026-11-15, same
+machine, CPU only, 4 cores, Intel Xeon @ 2.30 GHz, 15.7 GiB RAM, shared with
+other builds), at `develop` after #463:**
+
+| check | settings | result |
+|---|---|---|
+| native pool vs `run_keff_csg_par` (`msre::web::keff_pool::tests::a_pooled_run_is_run_keff_csg_par_bit_for_bit`) | default study, 500 × [2 + 3], seed 7, 2 workers / 2 threads | **all 5 generations bit-identical** (0.795546636478280056, 0.930537445868985236, 0.979719628548193056, 1.09317455097742955, 1.00434337451507116; mean 1.02575 ± 0.03446); pool 264.8 s, reference 475.2 s |
+| browser vs native (headless Chromium, `?workers=2&kcfg=500,2,3,7&krun`, the page built by `web/msre/build.sh` from the moved code) | the same | mean **1.0257458513468978 ± 0.0344555**, equal to the native mean of the three active generations to the last digit |
+
+The generations differ from the 2026-11-14 rows above (first generation
+0.8283 then, 0.7955 now) because develop's gh:#463 (OpenMC-parity `nu_fission`
+interpolation, grid extrapolation, S(α,β) cutoff and total) moves every
+history slightly and the run becomes a different random realisation;
+reproduced to every digit with `OUTRAM_MC_LEGACY_XS_DETAILS=1` on study D
+(gh:#1574 comment, 2026-11-15). Not a bias, and not the move: the move is
+pinned by the two equalities in this table.
 
 Pair arithmetic (`session::coefficient_from_pair`): reproduces the N-3
 record's fuel −3.79 and graphite −3.26 × 10⁻⁵ /°F from its own eigenvalues

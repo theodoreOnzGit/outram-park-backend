@@ -104,6 +104,9 @@
 //! `solver::rheology_tests::spatially_varying_creep_keeps_the_axial_stress_uniform`.
 //! Each is tracked separately under bead `op-6sl`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod solver;
 
 pub use solver::{CreepStepReport, Eigenstrain, LinearElastic, MechanicsReport, MechanicsSolver};

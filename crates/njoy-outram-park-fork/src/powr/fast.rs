@@ -29,6 +29,9 @@
 //! Refused by name, because upstream's result is undefined: delayed-neutron
 //! normalisation with no MF=5 MT=455 (`nldla` undefined).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::{chars, i, six_e12_5};
 use super::reader::{Reader, NWSCR};
 use super::FastMaterial;

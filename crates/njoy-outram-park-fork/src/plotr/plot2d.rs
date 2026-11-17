@@ -7,6 +7,9 @@
 
 //! Input data points (label 500) and the 2-d plot writer (label 610).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::run::{c60, fe, ff, fi, undefined, Go, Plotr, Res, MMAX, XLABLD, YLABLD};
 use super::run::perr;
 

@@ -59,17 +59,24 @@
 //! of an arbitrary pre-existing file — comment banners and incidental
 //! whitespace are normalised — but every value round-trips.)
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+/// Whole case directories: `std` only (gh:#1586), it is files throughout.
+#[cfg(feature = "std")]
 pub mod case;
 pub mod dict;
 pub mod esi;
 pub mod field;
 pub mod poly_mesh;
 
+#[cfg(feature = "std")]
 pub use case::FoamCase;
-pub use esi::{
-    format_g, write_cell_zones_esi, write_label_list_esi, write_time_file_esi, EsiWriteOptions,
-};
+pub use esi::{format_g, EsiWriteOptions};
+#[cfg(feature = "std")]
+pub use esi::{write_cell_zones_esi, write_label_list_esi, write_time_file_esi};
 pub use dict::{Dimensioned, FoamDict, FoamEntry, FoamHeader, FoamValue};
+#[cfg(feature = "std")]
 pub use field::{
     read_vol_scalar_field, read_vol_vector_field, write_vol_scalar_field,
     write_surface_scalar_field_esi, write_vol_scalar_field_esi, write_vol_vector_field,
@@ -81,6 +88,8 @@ pub use poly_mesh::{cell_geometry_from_faces, face_centre_and_area, MeshFace, Po
 #[derive(Debug, thiserror::Error)]
 pub enum IoError {
     /// An underlying filesystem error (file missing, permission denied, …).
+    /// Only with the `std` feature: a `no_std` build reads no files.
+    #[cfg(feature = "std")]
     #[error("I/O error on {path}: {source}")]
     Io {
         /// The path being read or written when the error occurred.
@@ -125,6 +134,7 @@ impl IoError {
     }
 
     /// Build a [`IoError::Io`] wrapping a filesystem error at `path`.
+    #[cfg(feature = "std")]
     pub(crate) fn io(path: impl Into<String>, source: std::io::Error) -> Self {
         Self::Io {
             path: path.into(),

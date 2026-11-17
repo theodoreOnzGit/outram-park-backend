@@ -90,6 +90,9 @@
 //! masses kg; `outstep` s; wall areas m². Columns, rows, levels, species,
 //! release slots and age classes are **0-based** in [`FluxGrid`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flexpart::calendar::caldate;
 use crate::flexpart::concentration::OutputDomain;
 use crate::flexpart::outgrid::CellGeometry;

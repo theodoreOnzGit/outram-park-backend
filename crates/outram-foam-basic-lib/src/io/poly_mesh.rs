@@ -45,6 +45,14 @@
 //! Faces are ordered OpenFOAM-style: internal faces first
 //! (`[0, n_internal_faces)`), then boundary faces grouped by patch.
 
+// gh:#1586: without `std` there are no files, so the text formatters and
+// cursors below, reached only through the file readers and writers, are
+// unused in a `no_std` build.
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports))]
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use super::dict::{fmt_scalar, tokenize, write_header, Token, BANNER, FOOTER, SEPARATOR};
@@ -171,6 +179,7 @@ impl PolyMesh {
 
     // ── Reading ─────────────────────────────────────────────────────────────
 
+    #[cfg(feature = "std")]
     /// Read a `polyMesh` from a `constant/polyMesh` directory.
     ///
     /// Reads `points`, `faces`, `owner`, `neighbour`, and `boundary`.
@@ -232,6 +241,7 @@ impl PolyMesh {
 
     // ── Writing ─────────────────────────────────────────────────────────────
 
+    #[cfg(feature = "std")]
     /// Write the `polyMesh` files into `dir`, creating it if necessary.
     pub fn write(&self, dir: impl AsRef<Path>) -> Result<(), IoError> {
         let dir = dir.as_ref();
@@ -244,6 +254,7 @@ impl PolyMesh {
         Ok(())
     }
 
+    #[cfg(feature = "std")]
     /// Write `dir/cellZones` (OpenFOAM `cellZoneMesh`, gh:#1463): for each
     /// `(name, cells)` a `cellZone` dictionary with its `cellLabels`. An empty
     /// `zones` list writes nothing, as `blockMesh` only adds zones when a
@@ -575,6 +586,7 @@ impl ListCursor {
     }
 }
 
+#[cfg(feature = "std")]
 fn read_points(path: &Path) -> Result<Vec<Vector3>, IoError> {
     let text = read_to_string(path)?;
     let mut c = ListCursor::new(&text, path.display().to_string());
@@ -593,6 +605,7 @@ fn read_points(path: &Path) -> Result<Vec<Vector3>, IoError> {
     Ok(pts)
 }
 
+#[cfg(feature = "std")]
 fn read_faces(path: &Path) -> Result<Vec<Vec<usize>>, IoError> {
     let text = read_to_string(path)?;
     let mut c = ListCursor::new(&text, path.display().to_string());
@@ -613,6 +626,7 @@ fn read_faces(path: &Path) -> Result<Vec<Vec<usize>>, IoError> {
     Ok(faces)
 }
 
+#[cfg(feature = "std")]
 fn read_labels(path: &Path) -> Result<Vec<usize>, IoError> {
     let text = read_to_string(path)?;
     let mut c = ListCursor::new(&text, path.display().to_string());
@@ -633,6 +647,7 @@ struct RawPatch {
     start_face: usize,
 }
 
+#[cfg(feature = "std")]
 fn read_boundary(path: &Path) -> Result<Vec<RawPatch>, IoError> {
     let text = read_to_string(path)?;
     let mut c = ListCursor::new(&text, path.display().to_string());
@@ -700,10 +715,12 @@ fn read_boundary(path: &Path) -> Result<Vec<RawPatch>, IoError> {
 
 // ── small file helpers ──────────────────────────────────────────────────────
 
+#[cfg(feature = "std")]
 fn read_to_string(path: &Path) -> Result<String, IoError> {
     std::fs::read_to_string(path).map_err(|e| IoError::io(path.display().to_string(), e))
 }
 
+#[cfg(feature = "std")]
 fn write_file(path: &Path, contents: &str) -> Result<(), IoError> {
     std::fs::write(path, contents).map_err(|e| IoError::io(path.display().to_string(), e))
 }

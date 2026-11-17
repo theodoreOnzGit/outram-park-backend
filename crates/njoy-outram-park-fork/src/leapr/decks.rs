@@ -31,9 +31,15 @@
 //! on it — is recorded in `docs/leapr-deck-provenance.md`, per the workspace
 //! data-provenance rule.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::PathBuf;
 
-use crate::acquire::{well_known_tsl, EndfCache, EndfLibrary};
+use crate::acquire::well_known_tsl;
+#[cfg(feature = "std")]
+use crate::acquire::{EndfCache, EndfLibrary};
 use crate::NjoyError;
 
 /// Environment variable naming a directory of ENDF thermal-scattering files
@@ -365,14 +371,16 @@ pub const fn embedded_deck_text(material: SabMaterial) -> Option<&'static str> {
 pub enum DeckSource {
     /// Compiled into this crate by [`embedded_deck_text`].
     Embedded,
-    /// Read from a file on disk.
+    /// Read from a file on disk (needs `std`).
+    #[cfg(feature = "std")]
     File(PathBuf),
 }
 
-impl std::fmt::Display for DeckSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for DeckSource {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             DeckSource::Embedded => write!(f, "embedded"),
+            #[cfg(feature = "std")]
             DeckSource::File(p) => write!(f, "file:{}", p.display()),
         }
     }
@@ -388,6 +396,7 @@ pub struct LocatedDeck {
     pub source: DeckSource,
 }
 
+#[cfg(feature = "std")]
 /// Find the LEAPR deck for `material`, following the resolution order in the
 /// [module docs](self).
 ///
@@ -429,6 +438,7 @@ pub fn locate_deck(material: SabMaterial) -> Result<LocatedDeck, NjoyError> {
     )))
 }
 
+#[cfg(feature = "std")]
 /// Every on-disk path [`locate_deck`] will try, in order, **after** the
 /// embedded copy.
 ///
@@ -535,6 +545,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     /// The search path honours both environment variables, in the documented
     /// order, and names the distributed deck file.
     ///

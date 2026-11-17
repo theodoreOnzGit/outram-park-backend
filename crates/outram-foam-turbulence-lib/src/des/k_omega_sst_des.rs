@@ -34,10 +34,13 @@
 //! against the real ESI model on a frozen duct (README slice 4). No `correct()`, no
 //! [`crate::traits::TurbulenceModel`] impl. Not ported: `useSigma true`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::k_omega_sst::KOmegaSST;
 use crate::source_terms::{self, FrozenState, SourceForm, SourceTerms};
 use outram_foam_basic_lib::prelude::FvMesh;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// `kOmegaSSTDES` on a frozen field (terms only).
 pub struct KOmegaSstDes {

@@ -9,6 +9,9 @@
 //! beryllium, water, ZrH, polyethylene, ..., which pre-ENDF-6 MF=7 files do
 //! not carry. THERMR's `calcem` uses it in the short-collision-time branch.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `gateff`'s table: `(MAT, T [K], T_eff [K])`.
 const GATEFF: [(f64, f64, f64); 67] = [
     (1002., 296.0, 1396.8),

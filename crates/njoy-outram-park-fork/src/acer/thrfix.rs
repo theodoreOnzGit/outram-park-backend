@@ -20,6 +20,9 @@
 //! **CORRECTED 2026-11-13 (gh:#1369):** `suff >= 0` is applied by
 //! [`super::newsuff::newsuff`] (upstream test 61).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::acefix::{AcefixOutput, AcefixRequest};
 use super::fortran_fmt::fixed;
 use super::newsuff::newsuff;

@@ -27,6 +27,9 @@
 //! This *is* a deliberate numerical divergence from upstream and is measured:
 //! see `docs/flexpart-code-to-code.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::constants::{GA, NI, PI};

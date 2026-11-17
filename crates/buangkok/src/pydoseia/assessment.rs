@@ -24,6 +24,9 @@
 //! output formatting and are not ported; the **numbers** they print are, as
 //! the functions below.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Length, Radioactivity};
 use uom::si::length::meter;
 use uom::si::radioactivity::becquerel;

@@ -8,6 +8,9 @@
 //! and its run ([`crate::plotr::Plotr::run`]) on the deck's tape units. The
 //! plot-command file goes on unit `nplt` as text, where VIEWR reads it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::CardReader;
 use crate::deck::tapes::TapeUnits;
 use crate::NjoyError;

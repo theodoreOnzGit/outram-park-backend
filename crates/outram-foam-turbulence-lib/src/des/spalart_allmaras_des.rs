@@ -50,11 +50,14 @@
 //! 2026-11-14:** `IDDESDelta` and `maxDeltaxyz` are ported in [`crate::les::deltas`] (0 ulp against ESI
 //! v2506, README slice 9); this model still takes `delta` and `hmax` as INPUTS (`delta`, `h_max`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::source_terms::{self, FrozenState, SourceTerms};
 use crate::spalart_allmaras::compute_wall_distance;
 use outram_foam_basic_lib::prelude::{FvMesh, VolScalarField};
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// upstream double `SMALL`.
 const U_SMALL: f64 = 1e-15;
@@ -313,7 +316,7 @@ impl SpalartAllmarasDes {
                     extra.extend([alpha, fb, fdt, ft, fl, fe1, fe]);
                 }
             }
-            let om = std::f64::consts::SQRT_2 * source_terms::mag_skew(gr);
+            let om = core::f64::consts::SQRT_2 * source_terms::mag_skew(gr);
             let st = source_terms::umax(
                 om + (f2 * nt[c]) / sqr(cf.kappa * d_tilda),
                 cf.cs * om,

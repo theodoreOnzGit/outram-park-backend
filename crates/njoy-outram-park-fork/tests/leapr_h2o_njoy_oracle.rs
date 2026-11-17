@@ -22,6 +22,9 @@
 //! `T_eff = 1194.341 K` exactly. A ~0.6 % residual would be a port defect,
 //! not a vintage effect.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::decks::{locate_deck, SabMaterial};

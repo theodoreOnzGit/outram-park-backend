@@ -14,6 +14,9 @@
 
 //! Inputs and results of one corrosion step, for **one boundary face**.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::materials::MaterialState;
 
 /// Everything a waterside-corrosion model needs to advance **one boundary

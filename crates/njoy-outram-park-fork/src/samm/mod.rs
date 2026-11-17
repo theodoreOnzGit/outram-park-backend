@@ -59,6 +59,9 @@
 //! real entry point; RECONR calls [`setup::setup`] + [`xsformula::cssammy`]
 //! and ERRORR [`setup::setup_with_derivs`] + [`xsformula::cssammy_with_derivs`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod betset;
 pub mod context;
 pub mod coulomb;

@@ -53,6 +53,9 @@
 //! FLEXPART's: winds m/s (`ww` in m/s after `verttransform`), heights m,
 //! times s, density kg/m³.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `eps` of the standard-deviation guards (`eps=1.0e-30`).
 const EPS: f64 = 1.0e-30;
 

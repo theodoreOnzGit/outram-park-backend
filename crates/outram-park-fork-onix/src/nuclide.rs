@@ -19,6 +19,9 @@
 //! OUTRAM PARK fork relicenses the derived work under **GPL-3.0-only** (MIT is
 //! GPL-3.0-compatible; the upstream MIT notice is preserved above).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// A nuclide: proton number, mass number, and metastable-state index.
 ///
 /// * `z` — proton number (atomic number). Valid range in practice `1..=118`.

@@ -43,6 +43,9 @@
 //! unformatted records (see [`resxs`] for the port's word encoding). [`run`] is
 //! the no-argument registry shim and returns [`NjoyError::NotPorted`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 pub mod assemble;
@@ -52,7 +55,9 @@ pub mod input;
 pub mod resxs;
 
 pub use assemble::{assemble_union_grid, thin_linear, PointwiseReaction, UnionRow};
-pub use driver::{run as run_with_input, run_resxs};
+pub use driver::run as run_with_input;
+#[cfg(feature = "std")]
+pub use driver::run_resxs;
 pub use format::{
     FileControl, FileData, FileIdentification, MaterialControl, FILE_NAME, MULT, NBLOK, NBUF, NX,
 };

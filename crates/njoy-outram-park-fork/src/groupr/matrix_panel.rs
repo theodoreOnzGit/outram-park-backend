@@ -36,6 +36,9 @@
 // checked against its `groupr.f90` line.
 #![allow(clippy::needless_range_loop)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::groupr::gendf::{GendfGroupRecord, GendfSection};
 use crate::groupr::panel::{GroupFlux, PointwiseXs};
 use crate::groupr::mf6_feed::Mf6Feed;
@@ -670,7 +673,7 @@ mod tests {
     use crate::endf::tape::{Section, Tape};
     use crate::endf::EndfKey;
     use crate::groupr::file4::{File4Angular, NLD};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn isotropic_angular() -> File4Angular {
         let rows = vec![

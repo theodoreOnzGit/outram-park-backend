@@ -39,6 +39,9 @@
 //! (`File4Angular::from_mf6_law4`); File-6 `LAW = 5` for a neutron is
 //! `File4Angular::from_mf6_law5`. The Coulomb term is still not ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::groupr::file4::{File4Angular, NLD};
 use crate::groupr::kinematics::legndr;

@@ -31,6 +31,9 @@
 //! Every measured number quoted in a doc comment below was printed by the test
 //! it appears on and transcribed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::primitives::SymmTensor;

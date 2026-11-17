@@ -25,6 +25,9 @@
 /// Spans every isobar the `(p,h)` steam-table tests cover, so a sweep over
 /// this array touches Regions 1, 2, 3 and 5 and both sides of the critical
 /// pressure.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub const SINGLE_PHASE_NODES: &[[f64; 4]] = &[
     [0.006112127, 2.0, 207.657, 2504.66],
     [0.006112127, 4.0, 209.173, 2508.42],

@@ -19,18 +19,27 @@ and bead `op-21g.12`.
 
 ## Numerical primitives already in-tree
 
-The outram-foam-basic-lib primitives (matrix, PCG, DIC, GAMG, MUSCL, FV
+~~The outram-foam-basic-lib primitives (matrix, PCG, DIC, GAMG, MUSCL, FV
 operators, etc.) are already committed to `tampines-steam-tables` as
 Rust source under `openfoam_algorithms/openfoam_source/`. Import from
 the existing internal modules — do not attempt to fetch, copy, or
 reorganise them. If a primitive is missing for the task, ask before
-adding.
+adding.~~ **CHANGED 2026-11-16 (gh:#1607, maintainer: "let's have both depend
+directly on openfoam basic lib, no duplicate code"):** `openfoam_source/` holds
+no copied code any more. Its `mod.rs` re-exports `outram-foam-basic-lib`'s
+modules under the same names, so every `openfoam_source::...` path still
+resolves, now to the one maintained implementation. The copy had drifted in
+78 of 84 files; the two functions only it had (`fvc::div_limited`,
+`fvm::ddt_coeff_old`, identical in both crates' copies) moved into
+`outram-foam-basic-lib` with tests. Add new primitives to
+`outram-foam-basic-lib`, never here.
 
 **Partly deduped 2026-10-03 (GitHub #492, maintainer default).** `mesh::fv_mesh`,
 `mesh::error`, `interface::one_dimensional_meshing` and the five
 `primitives` modules are now re-exports of `outram-foam-basic-lib` (they
 were code-identical, or a strict subset, of it). Import paths are unchanged.
-The rest of `openfoam_source/` is still a vendored copy.
+~~The rest of `openfoam_source/` is still a vendored copy.~~ Not since
+gh:#1607 (above): it is all re-exports now.
 
 ## Known port debt — `pub use` → `pub(crate) use`
 

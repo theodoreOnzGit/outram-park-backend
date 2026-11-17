@@ -6,6 +6,10 @@
 
 //! The deck driver: `program njoy`'s module loop, and the modules it can run.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::PathBuf;
 
 use crate::broadr::broadn::BroadnTolerances;
@@ -28,6 +32,7 @@ use crate::NjoyError;
 pub struct DeckOptions {
     /// Directory holding `tape<n>` input files (e.g. `tape20`) and receiving
     /// the coded output units. `None`: memory only.
+    #[cfg(feature = "std")]
     pub workdir: Option<PathBuf>,
     /// Read the cards of every module but run none (checks the card stream).
     pub parse_only: bool,
@@ -69,7 +74,11 @@ pub struct DeckRun {
 /// unit error, or a module's own failure.
 pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
     let mut r = CardReader::new(text);
+    #[cfg(feature = "std")]
     let mut units = TapeUnits::new(opts.workdir.clone());
+    // No work directory without `std`: memory only, as `new(None)`.
+    #[cfg(not(feature = "std"))]
+    let mut units = TapeUnits::default();
     if let Some(d) = &opts.run_date {
         units.set_run_date(d)?;
     }
@@ -179,6 +188,7 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
             }
         }
     }
+    #[cfg(feature = "std")]
     if opts.workdir.is_some() && !opts.parse_only {
         units.write_coded_files()?;
     }
@@ -715,10 +725,16 @@ fn gamsum_block(meta: &PendfMeta, tape: &Tape, mat: i32, tempd: f64) -> Option<R
 /// local date (`date_and_time`); this crate has no time-zone source, so the two
 /// differ outside UTC between the two midnights (gh:#1549). A comparison fixes
 /// the date through [`DeckOptions::run_date`].
+///
+/// Without `std` there is no clock: the date is 1970-01-01 (`01/01/70`) unless
+/// the run fixes one through [`DeckOptions::run_date`] (gh:#1592).
 pub(crate) fn dater() -> String {
+    #[cfg(feature = "std")]
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs() as i64);
+    #[cfg(not(feature = "std"))]
+    let secs: i64 = 0;
     let z = secs.div_euclid(86_400) + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z.rem_euclid(146_097);

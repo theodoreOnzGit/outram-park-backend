@@ -11,6 +11,9 @@
 //! Upstream overwrites PLOTR's `nr` (the right-axis label length) with the
 //! TAB1's `NR` here, and so does this port.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::run::{perr, Go, Plotr, Res};

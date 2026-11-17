@@ -47,6 +47,9 @@
 //! unchanged: built from the public MELCOR manuals and open literature only,
 //! never MELCOR, MAAP or other code source (see [`super`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 const K_B: f64 = 1.380_649e-23;
@@ -113,7 +116,7 @@ impl Medium {
     }
     /// Particle diffusion coefficient, m^2/s (Eq B-2).
     pub fn diffusivity(&self, d: f64) -> f64 {
-        K_B * self.t_k / (3.0 * std::f64::consts::PI * d * self.mu_pa_s * self.chi) * self.slip_correction(d)
+        K_B * self.t_k / (3.0 * core::f64::consts::PI * d * self.mu_pa_s * self.chi) * self.slip_correction(d)
     }
     /// Stokes terminal velocity with slip, m/s (Eq B-14, and the settling
     /// velocity of RN §2.4.2.2).
@@ -123,7 +126,7 @@ impl Medium {
 
     /// Brownian diffusion deposition velocity, m/s (Eq 2-42).
     pub fn diffusion_velocity(&self, d: f64) -> f64 {
-        K_B * self.t_k * self.slip_correction(d) / (3.0 * std::f64::consts::PI * self.mu_pa_s * self.chi * d * self.boundary_layer_m)
+        K_B * self.t_k * self.slip_correction(d) / (3.0 * core::f64::consts::PI * self.mu_pa_s * self.chi * d * self.boundary_layer_m)
     }
 
     /// Thermophoretic velocity toward a surface, m/s, for a gas
@@ -138,7 +141,7 @@ impl Medium {
 
     /// Brownian kernel, m^3/s (Fuchs; Eqs B-1 to B-10).
     pub fn brownian(&self, di: f64, dj: f64) -> f64 {
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         let (d_i, d_j) = (self.diffusivity(di), self.diffusivity(dj));
         let speed = |d: f64| (8.0 * K_B * self.t_k / (pi * self.rho_p * pi * d * d * d / 6.0)).sqrt();
         let (v_i, v_j) = (speed(di), speed(dj));
@@ -156,7 +159,7 @@ impl Medium {
     /// Gravitational kernel, m^3/s (Eqs B-13 to B-15).
     pub fn gravitational(&self, di: f64, dj: f64) -> f64 {
         let eps = 1.5 * di.min(dj).r_powi(2) / (di + dj).r_powi(2);
-        eps * std::f64::consts::PI / 4.0 * self.sticking * (self.gamma * (di + dj)).r_powi(2) * (self.settling_velocity(di) - self.settling_velocity(dj)).abs()
+        eps * core::f64::consts::PI / 4.0 * self.sticking * (self.gamma * (di + dj)).r_powi(2) * (self.settling_velocity(di) - self.settling_velocity(dj)).abs()
     }
 
     /// Turbulent kernel, shear and inertial in quadrature, m^3/s (Eqs B-16
@@ -165,7 +168,7 @@ impl Medium {
         let rho_g = self.rho_gas();
         let e = self.dissipation;
         let sum3 = (self.gamma * di + self.gamma * dj).r_powi(3);
-        let b1 = (std::f64::consts::PI * e * rho_g / (120.0 * self.mu_pa_s)).sqrt() * sum3;
+        let b1 = (core::f64::consts::PI * e * rho_g / (120.0 * self.mu_pa_s)).sqrt() * sum3;
         let a = |d: f64| self.rho_p * self.slip_correction(d) * d * d / self.chi;
         let b2 = 0.04029 * rho_g.r_powf(0.25) * e.r_powf(0.75) / self.mu_pa_s.r_powf(1.25) * (self.gamma * di + self.gamma * dj).r_powi(2) * (a(di) - a(dj)).abs();
         self.sticking * (b1 * b1 + b2 * b2).sqrt()
@@ -181,7 +184,7 @@ impl Medium {
     /// quantities (slip, diffusivity, speed, Fuchs' `g`, terminal velocity)
     /// computed once instead of once per pair.
     pub fn kernel_table(&self, d: &[f64]) -> Vec<Vec<f64>> {
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         let lambda = self.mean_free_path();
         let rho_g = self.rho_gas();
         struct P {
@@ -281,12 +284,12 @@ impl Sections {
     /// `ratio` (at least 2), empty.
     pub fn new(d_min: f64, n: usize, ratio: f64) -> Self {
         assert!(ratio >= 2.0, "the volume ratio must be at least 2 (Eq 2-37's analogue)");
-        let v0 = std::f64::consts::PI / 6.0 * d_min.r_powi(3);
+        let v0 = core::f64::consts::PI / 6.0 * d_min.r_powi(3);
         let v = (0..n).map(|k| v0 * ratio.r_powi(k as i32)).collect();
         Self { v, conc: vec![0.0; n], fallout: 0.0 }
     }
     pub fn diameter(&self, k: usize) -> f64 {
-        (6.0 * self.v[k] / std::f64::consts::PI).r_powf(1.0 / 3.0)
+        (6.0 * self.v[k] / core::f64::consts::PI).r_powf(1.0 / 3.0)
     }
     /// Number concentration in section `k`, 1/m^3.
     pub fn number(&self, k: usize) -> f64 {
@@ -472,7 +475,7 @@ mod tests {
         let cont = 8.0 * K_B * m.t_k / (3.0 * m.mu_pa_s) * m.slip_correction(d);
         assert!((m.brownian(d, d) / cont - 1.0).abs() < 0.01, "{} vs {cont}", m.brownian(d, d));
         let d = 2e-9;
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         let v = (8.0 * K_B * m.t_k / (pi * m.rho_p * pi * d * d * d / 6.0)).sqrt();
         let fm = pi * (2.0 * d) * (2.0 * d) * 2f64.sqrt() * v / 4.0;
         assert!((m.brownian(d, d) / fm - 1.0).abs() < 0.005, "{} vs {fm}", m.brownian(d, d));
@@ -549,7 +552,7 @@ mod tests {
         assert!(s.fallout > 0.0 && (s.conc.iter().sum::<f64>() + s.fallout - 3e-6).abs() < 1e-18, "{s:?}");
         let m = air();
         let vd = m.diffusion_velocity(0.1e-6);
-        let hand = K_B * m.t_k * m.slip_correction(0.1e-6) / (3.0 * std::f64::consts::PI * m.mu_pa_s * 0.1e-6 * 1e-5);
+        let hand = K_B * m.t_k * m.slip_correction(0.1e-6) / (3.0 * core::f64::consts::PI * m.mu_pa_s * 0.1e-6 * 1e-5);
         assert!((vd - hand).abs() < 1e-15 && (vd - 6.87e-5).abs() < 0.02e-5, "{vd} {}", m.slip_correction(0.1e-6));
         assert_eq!(m.thermophoretic_velocity(1e-6, 0.0, 400.0), 0.0);
         let t1 = m.thermophoretic_velocity(1e-6, 100.0, 400.0);

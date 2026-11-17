@@ -6,6 +6,9 @@
 //! This module supplies the near-critical Region 3/4 saturation boundary
 //! (`boundary_eqn_ps3`, the p_s3(s) curve).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(test)]
 mod tests;
 

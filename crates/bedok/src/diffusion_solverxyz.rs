@@ -26,6 +26,9 @@
 //! exactly the inconsistencies the defect register is trying to keep visible.
 //! One module per `.m` file, as everywhere else in this crate.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::calc_relpower3d::calc_relpower3d;
 use crate::calcdiffvalues3d::calcdiffvalues3d;
 use crate::error::BedokError;

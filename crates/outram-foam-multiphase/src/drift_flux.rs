@@ -90,6 +90,9 @@
 //! (formula exactness, hand-computed slip velocities, advection boundedness),
 //! not *validation* against experimental or reference-solver data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::MultiphaseError;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
@@ -97,7 +100,7 @@ use outram_foam_basic_lib::prelude::{
     BoundaryCondition, Field, FvMesh, PatchField, SolverSettings, SurfaceScalarField, Vector3,
     VolScalarField, VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{DynamicViscosity, MassDensity};
 use uom::si::mass_density::kilogram_per_cubic_meter;

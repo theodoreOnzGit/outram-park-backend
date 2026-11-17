@@ -138,10 +138,13 @@
 //!   cares. It is proof that the V&V gates in this crate do not, at their
 //!   current tolerances.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 
-use std::cell::Cell;
+use core::cell::Cell;
 
 use uom::ConstZero;
 use uom::si::available_energy::kilojoule_per_kilogram;

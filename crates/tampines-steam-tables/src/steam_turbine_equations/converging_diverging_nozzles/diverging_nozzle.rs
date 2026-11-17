@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use uom::si::f64::*;
 use uom::si::pressure::pascal;
@@ -51,7 +54,9 @@ pub fn guess_velocity_and_state_for_diverge_nozzle_from_choked_throat(
     let debug = false;
 
     if debug {
+        #[cfg(feature = "std")]
         dbg!(&(p_ideal_exp_subsonic, p_ideal_exp_supersonic));
+        #[cfg(feature = "std")]
         dbg!(&(v_ideal_exp_subsonic, v_ideal_exp_supersonic));
     }
 
@@ -109,10 +114,15 @@ pub fn guess_velocity_and_state_for_diverge_nozzle_from_choked_throat(
     // pressure, we should not even have choked flow in the first place
 
     if p2 > p_ideal_exp_subsonic {
+        #[cfg(feature = "std")]
         eprintln!("outlet pressure is too high for choked flow to happen");
+        #[cfg(feature = "std")]
         eprintln!("outlet_pressure:");
+        #[cfg(feature = "std")]
         dbg!(&(p2));
+        #[cfg(feature = "std")]
         eprintln!("whereas isentropic subsonic expansion pressure is:");
+        #[cfg(feature = "std")]
         dbg!(&(p_ideal_exp_subsonic));
         panic!("");
     }
@@ -201,7 +211,9 @@ pub fn guess_velocity_and_state_for_diverge_nozzle_from_choked_throat(
         }
 
         if debug {
+            #[cfg(feature = "std")]
             dbg!(&(v_test));
+            #[cfg(feature = "std")]
             dbg!(&(initial_error, outlet_state));
         }
 
@@ -226,7 +238,9 @@ pub fn guess_velocity_and_state_for_diverge_nozzle_from_choked_throat(
                 v_test += v_increment;
 
                 if debug {
+                    #[cfg(feature = "std")]
                     dbg!(&(v_test));
+                    #[cfg(feature = "std")]
                     dbg!(&(test_error, outlet_state));
                 }
                 continue;
@@ -235,7 +249,9 @@ pub fn guess_velocity_and_state_for_diverge_nozzle_from_choked_throat(
             // if signs are not same
 
             if debug {
+                #[cfg(feature = "std")]
                 dbg!(&(v_test));
+                #[cfg(feature = "std")]
                 dbg!(&(test_error, outlet_state));
             }
             v_upper_limit = v_test;
@@ -249,7 +265,9 @@ pub fn guess_velocity_and_state_for_diverge_nozzle_from_choked_throat(
         // near this region
 
         if debug {
+            #[cfg(feature = "std")]
             println!("Regula Falsi bounds found");
+            #[cfg(feature = "std")]
             dbg!(&(v_lower_limit, v_upper_limit));
         }
 
@@ -289,6 +307,7 @@ pub fn guess_velocity_and_state_for_diverge_nozzle_from_choked_throat(
             }
 
             if debug {
+                #[cfg(feature = "std")]
                 dbg!(&(v_lower_limit, v_upper_limit));
             }
             iteration += 1;

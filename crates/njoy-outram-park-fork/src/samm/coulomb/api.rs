@@ -4,6 +4,9 @@
 //! wrapping `pspcou`'s output into the `G+iH` form
 //! [`super::super::betset`] needs) — ported from `samm.f90:3823-4001`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::dispatch::{coulx, CoulombPsp};
 use super::steed::coulfg;
 

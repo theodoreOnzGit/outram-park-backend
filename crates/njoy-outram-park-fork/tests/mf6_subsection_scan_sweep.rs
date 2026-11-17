@@ -60,6 +60,9 @@
 //!   test cannot claim otherwise; a synthetic fixture would only test the fixture.
 //!   That gap is recorded rather than papered over.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::energy::parse_mf6_law1_neutrons;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::NjoyError;

@@ -14,6 +14,9 @@
 //! 14 MeV block skips no `2*m` interpolation words; the second spectrum
 //! reuses the first's `iimax` when no bin exceeds `ymin`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::{hk_it, nint, AceTable, Plot};
 use super::scale::{ascle, ascll, mtname};
 use crate::mixr::mix::sigfig;

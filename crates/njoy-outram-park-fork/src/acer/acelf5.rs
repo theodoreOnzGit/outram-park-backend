@@ -23,6 +23,9 @@
 //! the table has `m` entries) -- reproducing that is not something to do
 //! without a case that exercises it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::acelf6::{Acelf6Tyr, DlwEntry, DlwWord};
 use crate::endf::interp::{terp1, IntLaw};
 use crate::endf::records::SectionCursor;

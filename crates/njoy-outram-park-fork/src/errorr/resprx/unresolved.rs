@@ -24,6 +24,9 @@
 //! dropped when `|s| < 1e-10`, and multiplied by `cflx(ig)·ABN`; the
 //! relative covariance is scaled by `p_i p_j` (`errorr.f90:4959-4967`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::{AMASSN_AMU, PI};
 use crate::endf::records::SectionCursor;

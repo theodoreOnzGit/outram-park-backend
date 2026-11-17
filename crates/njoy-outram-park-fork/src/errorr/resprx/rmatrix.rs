@@ -24,6 +24,9 @@
 //! channel spin; `efrobns`'s singular case is an error here where
 //! upstream degrades silently.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::{AMASSN_AMU, PI};
 use crate::reconr::slbw::WAVE_K;

@@ -5,6 +5,9 @@
 //! `pub const`s carry their SI unit in the name suffix; the accessor `fn`s
 //! return the same values as dimensioned `uom` quantities.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::amount_of_substance::mole;
 use uom::si::area::square_meter;
 use uom::si::electric_charge::coulomb;

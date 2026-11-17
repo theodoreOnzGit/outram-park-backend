@@ -29,6 +29,9 @@
 //! whole resolved range (two independent to-tolerance grids differ by up to
 //! ~2 err where they are relaxed to `errmax` only on sub-`errint` panels).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;

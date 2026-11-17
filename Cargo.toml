@@ -206,6 +206,17 @@ libm = { version = "0.2", default-features = false }
 ndarray = "0.17.2"
 ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
 thiserror = "2.0.18"
+# `thiserror` without its `std` default, for crates that build `no_std` +
+# `alloc` (gh:#1585, first `outram-foam-basic-lib`, gh:#1586). A member
+# crate cannot switch off the defaults of `thiserror.workspace = true`, so
+# this second key names the same crate and version with them off; the crate
+# turns `std` back on from its own `std` feature and renames it with
+# `extern crate thiserror_nostd as thiserror;`. Same version as above: bump
+# both together.
+thiserror-nostd = { package = "thiserror", version = "2.0.18", default-features = false }
+# `sha2` without its `std` default (gh:#1592): SHA-256 is pure computation;
+# `std` only adds `io::Write` support.
+sha2-nostd = { package = "sha2", version = "0.10", default-features = false }
 # uom WITHOUT its `std` feature (gh:#985, maintainer direction 2026-10-20: "I
 # want uom as no std in this workspace. Do the refactor using petir math.").
 # With `std` on, Quantity sqrt/powi/cbrt/hypot/mul_add, Ratio exp/ln/log*/
@@ -347,7 +358,10 @@ rust-mqtt = "0.5.1"
 
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
-serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
+serde_json = "1.0"
+# `serde_json` without its `std` default but with `alloc` (gh:#1597, the
+# moltres tables parser): same crate and version as above, bump both together.
+serde_json-nostd = { package = "serde_json", version = "1.0", default-features = false, features = ["alloc"] }           # KovanDocument (de)serialisation, generated artifacts
 # Worker wire format for the browser demos (gh:#986). JSON cannot carry a
 # non-finite f64 -- it writes NaN as `null`, which will not read back as f64 --
 # and `HtgrSnapshot` uses NaN deliberately, in a dozen fields, to mean "not
@@ -456,6 +470,9 @@ hdf5-pure = { version = "0.20.0", features = ["ndarray"] }
 # codec for the embedded WMPB windowed-multipole blob in njoy-outram-park-fork.
 # Chosen over zstd/ruzstd because those lack a mature pure-Rust *encoder*.
 miniz_oxide = "0.8"
+# `no_std` one-time init and lock for njoy-outram-park-fork without `std`
+# (gh:#1592); already in the lock file through other crates.
+spin = { version = "0.10.1", default-features = false, features = ["mutex", "spin_mutex", "once", "rwlock"] }
 
 # HIGH-fidelity data-acquisition stack for njoy-outram-park-fork's `net-fetch`
 # feature (opt-in ENDF download tier; see docs/data-acquisition.md). Every crate
@@ -581,10 +598,18 @@ outram-park-fork-moltres = { path = "crates/outram-park-fork-moltres", version =
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.8" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.9" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.1" }
-outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.8" }
+# `default-features = false` (gh:#1598, #1599): the crate's default is `std`
+# (gh:#1586), and a member cannot switch an inherited default off. So the
+# root leaves it off and every member that needs files, threads or timing
+# asks for `features = ["std"]` itself; a crate converted to `no_std` turns
+# it on from its own `std` feature instead.
+outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.8", default-features = false }
 raffles                      = { path = "crates/raffles",                      version = "0.0.4" }
 petir                        = { path = "crates/petir",                        version = "0.0.4" }
-changi                       = { path = "crates/changi",                       version = "0.0.3" }
+# `default-features = false` (gh:#1587): `changi`'s default is `std`; members
+# that need its thread pool ask for `features = ["std"]` (see
+# `outram-foam-basic-lib` above for why the root must leave it off).
+changi                       = { path = "crates/changi",                       version = "0.0.3", default-features = false }
 bishan                       = { path = "crates/bishan",                       version = "0.0.3" }
 bugis                        = { path = "crates/bugis",                        version = "0.0.1" }
 buangkok                     = { path = "crates/buangkok",                     version = "0.0.2" }

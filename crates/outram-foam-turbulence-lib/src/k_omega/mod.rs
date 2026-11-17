@@ -74,6 +74,9 @@
 //! Consequently this model is verified (units, formulae, positivity — see the
 //! tests) but not yet validated against a published k-ω benchmark.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::source_terms::{self, FrozenState, SourceForm, SourceTerms};
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
@@ -81,7 +84,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMesh, FvVectorMatrix, PatchField, SolverSettings, SurfaceScalarField, Tensor, Vector3,
     VolScalarField, VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Outer (dyadic) product a ⊗ b → Tensor. (`Vector3 * Vector3` is the dyad.)
 #[inline]

@@ -35,10 +35,13 @@
 //! nested Gauss gradients are not compared with upstream's (gh:#1489). No `correct()` and no
 //! [`crate::traits::TurbulenceModel`] impl yet.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::source_terms::{self, FrozenState, SourceTerms};
 use outram_foam_basic_lib::prelude::{FvMesh, VolScalarField};
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Launder-Sharma k-epsilon on a frozen field (terms only).
 pub struct LaunderSharmaKe {

@@ -19,7 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
 use crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix;

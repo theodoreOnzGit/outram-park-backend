@@ -3,6 +3,9 @@
 //! function of density (`MassDensity`, kg/m^3) and temperature
 //! (`ThermodynamicTemperature`, K).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::{f64::*, molar_mass::kilogram_per_mole, ratio::ratio, thermodynamic_temperature::kelvin};
