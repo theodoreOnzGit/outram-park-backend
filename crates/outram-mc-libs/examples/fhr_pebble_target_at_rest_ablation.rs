@@ -15,34 +15,56 @@
 //! `.map(Nuclide::with_target_at_rest)`, applied per nuclide **in process**.
 //!
 //! The question is **not** "is free-gas target motion worth something on a
-//! thermal pebble" — that is already known to be worth about −2242 pcm. It is
-//! whether the **new in-process hook reproduces the old whole-material
-//! switch**. gh:#193's pricing table got its −2242 pcm by setting
-//! `OUTRAM_RINGRPT_TARGET_AT_REST=1` in `examples/fhr_ring_rpt_endf.rs`, which
-//! zeroes `KeffSettings::temperature_k` for the **whole run** — including the
-//! S(α,β) moderators, whose bound-atom law is a different code path from the
-//! free-gas kernel this hook reaches.
+//! thermal pebble" -- that is already known. It is whether the **new in-process
+//! hook reproduces the old whole-material switch**. gh:#193's pricing table got
+//! its number by setting `OUTRAM_RINGRPT_TARGET_AT_REST=1` in
+//! `examples/fhr_ring_rpt_endf.rs`, which at that commit (`75615b678`) set
+//! `KeffSettings::temperature_k = 0.0` for the **whole run** and edited no
+//! nuclide.
 //!
-//! So a materially different number is a **real finding, not a failure**: it
-//! would mean the per-nuclide hook reaches a different set of nuclides than
-//! zeroing the temperature did, which is plausible and worth knowing.
+//! **That switch no longer exists** (gh:#1617). gh:#313 (`0414bc827`,
+//! 2026-09-30) made the CSG kernel stop reading `KeffSettings::temperature_k`
+//! (`tests/temperature_precedence.rs` pins it), and moved the env var onto
+//! `Nuclide::with_target_at_rest`. So on today's build there is no second route
+//! to compare against; the like-for-like number below was measured by
+//! replaying the old switch on the last build that has it.
 //!
-//! # Prediction on record, made before any measurement
+//! # Prediction on record
 //!
-//! **−2242 pcm**, because that is what the environment-variable route measured
-//! in gh:#193's pricing table on this case:
+//! ~~**-2242 pcm**, k_MOVING 1.40546 +/- 0.00234 (gh:#193's table, 2026-09-12,
+//! one seed a side, +/- 323 pcm within-run)~~ **CORRECTED 2026-11-17 (gh:#1617)**
+//! -- stale, not a like-for-like number: both figures predate the F-19
+//! sub-threshold inelastic fix `45f8d72d` (k_MOVING 1.40546 before it, 1.36140
+//! after; tests/inelastic_channel_vs_endf.rs, gh:#193's closing comment). The
+//! F-19 defect made p +8.54 % over OpenMC; the ablation acts on that same
+//! slowing-down balance, so the -2242 was measured on a broken model.
 //!
-//! ```text
-//!   target motion     k_eff (ring-RPT CSG)   p vs OpenMC   eps vs OpenMC
-//!   sampled (correct) 1.40546 +/- 0.00234    +8.54 %       -4.99 %
-//!   AT REST (broken)  1.38304 +/- 0.00223    +6.03 %       -3.69 %
-//!   difference        -2242 +/- 323 pcm      -2.51 points  +1.30 points
-//! ```
+//! **Re-baselined: -556 +/- 87 pcm** (paired, 8 seeds, 4000 x [30 + 80]),
+//! k_MOVING = 1.36625, k_AT-REST = 1.36069, produced 2026-11-17 by replaying
+//! the whole-run switch (`KeffSettings::temperature_k = 0.0`, nuclides
+//! untouched) on commit `60f6bb261` (post-F-19, pre-#313; the last kind of
+//! build that has the switch), next to the per-nuclide hook on the same build.
+//! The prediction for that replay was committed first
+//! (`verification_and_validation/sab_per_material_1581/README.md`, "gh:#1617")
+//! and held on every count: the switch arm is **bit-identical to the hook arm on
+//! 8 of 8 seeds** (k, p and eps), MOVING seed 1 reproduced 1.36662 +/- 0.00210,
+//! and the difference equals the 2026-09-17 record of -556 +/- 87 pcm. So the
+//! two routes are the same arithmetic, and **-556 is both the whole-material
+//! and the per-nuclide value on that build**. It was not tuned: it is what the
+//! replay returned. Raw output: `ensembles_1617/`.
 //!
-//! Note what that row's `± 323` is and is not: it is the two runs' **own
-//! within-run** `k_std` added in quadrature, from **one seed a side**. This
-//! program instead runs an ensemble of seeds and quotes the seed-to-seed
-//! standard error, which is the statistic the difference actually needs.
+//! It is the pass criterion below because it is the only like-for-like
+//! whole-material number there is, with the caveat that **it was measured on
+//! `60f6bb261`, not on the build running this driver**: anything that moved
+//! between that commit and now (gh:#313's free-gas kT, `81ec018c3`'s URR/DBRC/
+//! equiprobable S(a,b) sampling, gh:#1581's per-material S(a,b)) can move this
+//! driver's number away from it without the hook being wrong. The first
+//! post-1617 measurement here, 2026-11-17 (`7b5dd858d`, 8 seeds), was
+//! -153 +/- 43 pcm paired, 4.2 sigma from -556 with k_MOVING 1.36307; the cause
+//! is not isolated (the MOVING arm moved -318 pcm and the AT-REST arm +85 pcm).
+//!
+//! Note what the +/- is: a seed-to-seed standard error over an ensemble, not
+//! one run's within-run `k_std` as in gh:#193's single-seed row.
 //!
 //! # Statistics
 //!
@@ -676,95 +698,107 @@ mod desktop {
             (md, edp)
         };
 
-        const REFERENCE_PCM: f64 = -2242.0;
+        let verdict = judge(quote, qerr, ka, eka);
         println!();
-        println!("  Prediction on record, made before any measurement: {REFERENCE_PCM:+.0} pcm,");
-        println!("  because that is what the environment-variable route (which zeroes the whole");
-        println!("  run's transport temperature, S(alpha,beta) moderators included) measured on");
-        println!("  this same case in gh:#193's pricing table. The question is whether the new");
-        println!("  PER-NUCLIDE hook reaches the same set of nuclides that did.");
+        println!(
+            "  Prediction on record: {REFERENCE_PCM:+.0} +/- {REFERENCE_ERR_PCM:.0} pcm, the whole-run \
+             switch (KeffSettings::temperature_k = 0) replayed on commit {REFERENCE_BUILD} \
+             (gh:#1617, 2026-11-17)."
+        );
+        println!(
+            "  (The earlier -2242 pcm / k 1.40546 predates the F-19 fix 45f8d72d and is struck \
+             through in the doc comment.)"
+        );
+        println!(
+            "  Unablated arm: k_MOVING {ka:.5} vs the reference build's {REFERENCE_K_MOVING:.5}: \
+             {:+.0} pcm ({:+.1} sigma of this run's own sem).",
+            verdict.moving_shift_pcm, verdict.moving_shift_sigma
+        );
         println!();
         println!("  VERDICT:");
-        let gap = quote - REFERENCE_PCM;
-        if qerr > 0.0 && gap.abs() < 3.0 * qerr {
-            println!(
-                "    HELD. {quote:+.0} ± {qerr:.0} pcm is {:+.0} pcm from the recorded \
-                 {REFERENCE_PCM:+.0} pcm,",
-                gap
-            );
-            println!(
-                "    which is {:.1} sigma of this run's own statistics. The in-process hook \
-                 reproduces",
-                (gap / qerr).abs()
-            );
-            println!("    the whole-material switch on this case.");
+        println!(
+            "    gap {:+.0} pcm from the reference, {:.1} sigma of (this run + reference) errors.",
+            verdict.gap_pcm, verdict.gap_sigma
+        );
+        if verdict.held {
+            println!("    HELD. The in-process hook reproduces the re-baselined whole-material value.");
         } else {
+            println!("    FAILED as stated. What this does and does not mean:");
             println!(
-                "    FAILED as stated: {quote:+.0} ± {qerr:.0} pcm is {gap:+.0} pcm from the \
-                 recorded"
+                "      - At the reference build the hook and the switch were BIT-IDENTICAL on 8 of \
+                 8 seeds, so"
+            );
+            println!("        this is not a hook-versus-switch disagreement.");
+            println!(
+                "      - The switch cannot be run here (gh:#313 removed its reach), so the gap is a \
+                 BUILD shift"
             );
             println!(
-                "    {REFERENCE_PCM:+.0} pcm ({:.1} sigma). Per the hand-off this is a REAL \
-                 FINDING, not a",
-                (gap / qerr).abs()
+                "        in the quantity itself since {REFERENCE_BUILD}: compare the unablated-arm \
+                 line above."
             );
             println!(
-                "    failure. But it is NOT the hand-off's stated explanation -- that the \
-                 per-nuclide"
+                "      - Cause not isolated; candidates: gh:#313 free-gas kT, 81ec018c3 URR/DBRC/\
+                 equiprobable"
             );
-            println!(
-                "    hook reaches a different set of nuclides than zeroing the temperature did, \
-                 the"
-            );
-            println!(
-                "    S(alpha,beta) moderators in particular. Reading the code refutes that \
-                 mechanism:"
-            );
-            println!(
-                "      - XsSource::Pointwise never passes temp_k to recon.eval_mt, and every \
-                 nuclide"
-            );
-            println!(
-                "        on this case is HIGH tier, so zeroing the temperature moves no cross \
-                 section;"
-            );
-            println!(
-                "      - Nuclide::sample_thermal takes NO temperature argument at all -- the \
-                 S(alpha,beta)"
-            );
-            println!(
-                "        tables are fixed at construction, so the env var cannot reach the \
-                 bound-atom law;"
-            );
-            println!(
-                "      - free_gas_kt(temp) is the ONLY consumer of the run temperature in the \
-                 collision"
-            );
-            println!(
-                "        kernel (until GitHub #313, 2026-09-30, made it the data temperature), and \
-                 with_target_at_rest makes that same function return 0.0."
-            );
-            println!(
-                "    The two routes are therefore mechanically identical on this case, and the \
-                 gap is"
-            );
-            println!(
-                "    CRATE DRIFT: the reference predates gh:#193's F-19 inelastic fix and \
-                 op-tm9f /"
-            );
-            println!(
-                "    op-og56. Check the unablated arm against the recorded k_eff 1.40546 and \
-                 against"
-            );
-            println!(
-                "    OpenMC's p 0.4842 / eps 1.5043 before reading the difference as a hook \
-                 defect."
-            );
-            println!(
-                "    Note also that the {REFERENCE_PCM:+.0} pcm reference carries a ONE-SEED \
-                 within-run"
-            );
-            println!("    error bar (±323 pcm), not an ensemble one; part of any gap may be that.");
+            println!("        S(a,b), gh:#1581 per-material S(a,b). Bisect before attributing.");
+        }
+    }
+
+    /// Outcome of comparing a measured difference with the re-baselined value.
+    pub struct Verdict {
+        pub gap_pcm: f64,
+        pub gap_sigma: f64,
+        pub held: bool,
+        pub moving_shift_pcm: f64,
+        pub moving_shift_sigma: f64,
+    }
+
+    /// Re-baselined like-for-like prediction (gh:#1617, 2026-11-17): the
+    /// whole-run switch replayed on `REFERENCE_BUILD`, 8 seeds paired. Fixed
+    /// from that replay; never retuned to a result of this driver.
+    pub const REFERENCE_PCM: f64 = -556.0;
+    /// Seed-to-seed standard error of [`REFERENCE_PCM`] (paired, 8 seeds).
+    pub const REFERENCE_ERR_PCM: f64 = 87.0;
+    /// k_MOVING of the replay's unablated arm (8-seed mean).
+    pub const REFERENCE_K_MOVING: f64 = 1.36625;
+    /// The commit the reference was measured on.
+    pub const REFERENCE_BUILD: &str = "60f6bb261";
+
+    /// Compare `quote +/- qerr` (pcm) with the re-baselined reference, in
+    /// quadrature with the reference's own error; HELD within 3 sigma.
+    /// `k_moving` (+/- `k_moving_sem`) is this run's unablated mean, reported against the
+    /// reference build's so a shifted baseline is visible.
+    pub fn judge(quote: f64, qerr: f64, k_moving: f64, k_moving_sem: f64) -> Verdict {
+        let gap = quote - REFERENCE_PCM;
+        let err = (qerr * qerr + REFERENCE_ERR_PCM * REFERENCE_ERR_PCM).sqrt();
+        let shift = (k_moving - REFERENCE_K_MOVING) * 1.0e5;
+        Verdict {
+            gap_pcm: gap,
+            gap_sigma: gap.abs() / err,
+            held: gap.abs() < 3.0 * err,
+            moving_shift_pcm: shift,
+            moving_shift_sigma: shift / (k_moving_sem * 1.0e5),
+        }
+    }
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// The verdict logic is pinned on three cases: the reference itself
+        /// holds; the stale -2242 does not; and the 2026-11-17 first
+        /// measurement (-153 +/- 43 pcm, k_MOVING 1.36307 +/- 0.00041) fails at
+        /// about 4 sigma with the baseline visibly shifted by about -318 pcm.
+        #[test]
+        fn judge_reference_holds_stale_and_shifted_do_not() {
+            let v = judge(REFERENCE_PCM, 87.0, REFERENCE_K_MOVING, 0.0004);
+            assert!(v.held && v.gap_sigma < 1e-9);
+            let stale = judge(-2242.0, 87.0, REFERENCE_K_MOVING, 0.0004);
+            assert!(!stale.held && stale.gap_sigma > 10.0);
+            let today = judge(-153.0, 43.0, 1.36307, 0.00041);
+            assert!(!today.held);
+            assert!((today.gap_sigma - 4.15).abs() < 0.05, "{}", today.gap_sigma);
+            assert!((today.moving_shift_pcm + 318.0).abs() < 1.0);
         }
     }
 }

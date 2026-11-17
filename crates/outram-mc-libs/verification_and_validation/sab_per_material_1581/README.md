@@ -461,8 +461,138 @@ the post-fix 1.36140, not 1.40546. So the table the driver's prediction quotes
 was taken on a build with the F-19 teleport defect, and the -2242 pcm is not a
 like-for-like number for today's model. This is a probable cause established
 from those records; it is **not** re-run, since no pre-fix build was
-re-measured. The prediction was not retuned and the driver was not edited. A
-re-baseline would need a fresh whole-material AT-REST run at today's build.
+re-measured. ~~The prediction was not retuned and the driver was not edited. A
+re-baseline would need a fresh whole-material AT-REST run at today's build.~~
+**CORRECTED 2026-11-17 (gh:#1617):** the whole-material switch no longer exists
+on today's build (gh:#313); the re-baseline was made by replaying it on
+`60f6bb261` (-556 +/- 87 pcm, bit-identical to the per-nuclide hook), and the
+driver now gates on that, see the next section.
+
+### gh:#1617: what #193 ablated, and the prediction written before the like-for-like run (2026-11-17)
+
+**What gh:#193 did (read from `75615b678`, 2026-09-12, and `0414bc827`).** The
+-2242 pcm row came from `OUTRAM_RINGRPT_TARGET_AT_REST=1` in
+`examples/fhr_ring_rpt_endf.rs`, which at that commit set
+`KeffSettings::temperature_k = 0.0` for the whole run and changed nothing else:
+no nuclide was edited. One seed per side, 4000 x [30 + 80], on a build that still
+carried the F-19 sub-threshold inelastic defect (k_MOVING 1.40546).
+
+**That switch no longer exists.** gh:#313 (`0414bc827`, 2026-09-30) made the CSG
+kernel stop reading `KeffSettings::temperature_k` (free-gas kT is the nuclide's
+data temperature); `tests/temperature_precedence.rs` pins that a changed run
+temperature leaves k bit-identical. The env var in `fhr_ring_rpt_endf.rs` was
+moved onto `Nuclide::with_target_at_rest` in the same commit. So **on today's
+build there is no whole-material switch distinct from the per-nuclide hook**, and
+no like-for-like whole-material measurement can be made on it. I will not invent
+one. The comparison that CAN be made is a replay of the old switch on the last
+kind of build that has it AND the post-F-19 physics: commit `60f6bb261`
+(2026-09-17), which already carries the per-nuclide-hook driver. That commit's
+message records the hook arm there as -556 +/- 87 pcm (paired, 8 seeds) with
+MOVING seed 1 = 1.36662 +/- 0.00210, and says the env-var route was "being
+confirmed separately"; no record of that confirmation exists in the tree. This
+replay supplies it.
+
+**Prediction (written before any run of the replay).** From the code trace
+recorded in `60f6bb261` (zeroing the run temperature moves no pointwise cross
+section; `Nuclide::sample_thermal` takes no temperature; `free_gas_kt(temp)` is
+the only consumer and `with_target_at_rest` makes that same function return 0.0),
+the two routes execute the same arithmetic. Therefore, at `60f6bb261`, 8 seeds:
+
+1. SWITCH arm (`temperature_k = 0.0`, nuclides untouched) is **bit-identical
+   seed by seed** to the HOOK arm. Any seed that differs refutes the trace.
+2. MOVING seed 1 reproduces 1.36662 +/- 0.00210 (determinism check).
+3. AT-REST - MOVING = **-556 +/- 87 pcm** (paired, the 2026-09-17 record) for
+   both routes, i.e. within |z| < 2 of that record; -2242 is not reproduced
+   (gap about +1700 pcm, more than 15 sigma of the ensemble error).
+4. For today's build, the whole-material number would equal today's hook number
+   by construction, since the routes coincide. Using only the record, I expect it
+   to lie near -556 but not to equal it: `60f6bb261` to today includes #313
+   (free-gas kT), URR band / DBRC / equiprobable S(a,b) sampling (`81ec018c3`)
+   and per-material S(a,b) (#1581), each of which moves the MOVING arm. I have no
+   physics basis to say by how much and will report the drift as measured, not as
+   explained.
+
+The stale -2242 / 1.40546 is attributed to F-19, not to the hook: the F-19
+teleport put neutrons past the U-238 resonances (p +8.5 % over OpenMC), and a
+target-at-rest ablation acts on the thermal/epithermal slowing-down balance that
+sits next to that error. This is the same inference the earlier record drew and
+is what the replay's MOVING arm and the -2242 gap test.
+
+**Cost probe and plan.** From `ensembles_1583/fhr_new_7b5dd858d.out`: about 300 s
+data build, 200-250 s per seed (up to 570 s under load), 4 logical cores shared.
+Two processes at most: A = MOVING + HOOK, B = SWITCH; N = 8 seeds each.
+
+#### gh:#1617: results of the replay (2026-11-17)
+
+**Method.** A detached worktree at `60f6bb261`, whose driver already has the
+per-nuclide-hook arm. Its only edits (`ensembles_1617/replay_driver_patch.diff`):
+an arm `SWITCH` that runs the unmodified nuclides with
+`KeffSettings::temperature_k = 0.0` (the gh:#193 switch, exactly as
+`75615b678` applied it), an arm selector, and `k` printed to 15 digits. Same case,
+4000 x [30 + 80], seeds 1-8, one process per arm group (A = MOVING + HOOK,
+B = SWITCH). No retuning: the predictions above were committed (`e046bc796`)
+before any of this ran.
+
+| seed | MOVING k | HOOK k = SWITCH k | HOOK vs SWITCH (k, p, eps) |
+|---|---|---|---|
+| 1 | 1.366620965 | 1.360950879 | bit-identical |
+| 2 | 1.365263700 | 1.356959614 | bit-identical |
+| 3 | 1.366041799 | 1.365649312 | bit-identical |
+| 4 | 1.366565419 | 1.358806863 | bit-identical |
+| 5 | 1.366194794 | 1.360870933 | bit-identical |
+| 6 | 1.367760389 | 1.362685367 | bit-identical |
+| 7 | 1.366477344 | 1.359285890 | bit-identical |
+| 8 | 1.365114313 | 1.360320031 | bit-identical |
+
+(Full per-seed values with p and eps in `ensembles_1617/replay_60f6bb261_*.out`;
+`ensembles_1617/analyse_1617.py` recomputes everything below.)
+
+| quantity (8 seeds, 60f6bb261) | value |
+|---|---|
+| k_MOVING | 1.36625 (sd 83 pcm) |
+| k_AT-REST, SWITCH arm = HOOK arm | 1.36069 (sd 263 pcm) |
+| AT-REST - MOVING, paired | **-556 +/- 87 pcm** (6.4 sigma), paired sd 247 |
+| AT-REST - MOVING, unpaired | -556 +/- 97 pcm (5.7 sigma) |
+| p (2-group) MOVING / AT-REST | 0.4833 / 0.4841, +0.0008 +/- 0.0004 |
+| eps (2-group) MOVING / AT-REST | 1.5063 / 1.5015, -0.0048 +/- 0.0007 |
+
+**Against the predictions.** (1) Bit-identity: held, 8 of 8 seeds, k, p and eps.
+(2) MOVING seed 1 = 1.36662 +/- 0.00210: held. (3) -556 +/- 87: held, to the
+pcm, because the two routes are one calculation. (4) Today's whole-material
+number: not measurable (the switch is gone); the hook's own value on the current
+build is -153 +/- 43 pcm paired (8 seeds, `ensembles_1583/fhr_new_7b5dd858d.out`),
+so the "near -556, not equal" expectation held in sign and was wrong in size: the
+shift is +403 pcm, 4.2 sigma of (87, 43) combined.
+
+**Verdict.**
+
+| comparison | result |
+|---|---|
+| whole-material switch vs per-nuclide hook, same build `60f6bb261` | identical, 0 sigma, bit for bit; **no hook defect, no disagreement beyond abs(z) = 2** |
+| gh:#193 -2242 pcm vs the like-for-like -556 | gap +1686 pcm; explained by F-19 (`45f8d72d`) and the 1-seed error bar, not by the hook |
+| hook at `60f6bb261` (-556 +/- 87) vs hook today (-153 +/- 43) | **4.2 sigma, a finding**: the quantity moved with the build |
+
+So gh:#1617's question ("does the hook reproduce the whole-material switch?")
+is answered yes, with an exact result and not a statistical one. What remains is
+a different finding: the target-motion worth itself changed between 2026-09-17
+and today. The unablated arm moved 1.36625 -> 1.36307 (-318 pcm) and the
+at-rest arm 1.36069 -> 1.36154 (+85 pcm). I have not bisected it. Candidates by
+the commit log between the two builds: gh:#313 (`0414bc827`, free-gas kT is the
+nuclide's data temperature), `81ec018c3` (URR band, DBRC, equiprobable S(a,b)
+sampling), `a7e650694` (DBRC rejection loop), gh:#1581 (per-material S(a,b)).
+Which of them, and whether the new value is the better physics, is open. The
+MOVING arm today (1.36307) also sits nearer OpenMC's 1.36479 +/- 0.00067 than the
+replay's 1.36625 does, so the shift is not obviously a regression.
+
+**Not done / limits.** No bisect of the 403 pcm. No whole-material measurement on
+today's build, because none exists. The replay is one commit (`60f6bb261`), 8
+seeds. Reviewed functions edited: none (`examples/review.md` holds no review
+record; the driver is an example).
+
+**Hardware.** Intel Xeon @ 2.10 GHz (cloud container, KVM), 4 logical cores,
+15.7 GiB RAM, Linux 6.18, CPU only; shared, load average 8-12 from other agents'
+runs during the replay. Per-seed wall times were 600-1250 s and carry no
+cross-run meaning; data build about 275 s per process.
 
 ## Item 2, last three drivers (gh:#1583, 2026-11-17): predictions
 

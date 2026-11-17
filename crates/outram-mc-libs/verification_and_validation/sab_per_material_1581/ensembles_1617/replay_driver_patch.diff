@@ -1,0 +1,52 @@
+diff --git a/crates/outram-mc-libs/examples/fhr_pebble_target_at_rest_ablation.rs b/crates/outram-mc-libs/examples/fhr_pebble_target_at_rest_ablation.rs
+index a33e56050..fd386f38b 100644
+--- a/crates/outram-mc-libs/examples/fhr_pebble_target_at_rest_ablation.rs
++++ b/crates/outram-mc-libs/examples/fhr_pebble_target_at_rest_ablation.rs
+@@ -498,7 +498,7 @@ mod desktop {
+                     n_particles: 4000,
+                     n_inactive: 30,
+                     n_active: 80,
+-                    temperature_k: TEMP_K,
++                    temperature_k: if label.starts_with("SWITCH") { 0.0 } else { TEMP_K },
+                     seed,
+                     compute: ComputeType::CpuMultiThread(Default::default()),
+                     ..KeffSettings::default()
+@@ -513,9 +513,10 @@ mod desktop {
+                 .expect("CSG reactor physics");
+             let (_e2, _f2, p2, eps2) = r.six_factors.two_group_openmc_convention();
+             eprintln!(
+-                "    {label} seed {seed:>3}: k = {:.5} ± {:.5}, p = {p2:.4}, eps = {eps2:.4}  \
++                "    {label} seed {seed:>3}: kfull = {:.15} k = {:.5} ± {:.5}, p = {p2:.4}, eps = {eps2:.4}  \
+                  [{:.1} s]",
+                 r.keff.k_mean,
++                r.keff.k_mean,
+                 r.keff.k_std,
+                 t.elapsed().as_secs_f64()
+             );
+@@ -589,13 +590,19 @@ mod desktop {
+         let n = n_seeds();
+         let seeds: Vec<u64> = (1..=n as u64).collect();
+         eprintln!("{n} seeds per arm, 4000 histories × [30 inactive + 80 active]:");
+-        let t = Instant::now();
+-        let a = run_arm(&moving, &mats, r_fuel, &seeds, "MOVING ");
+-        eprintln!("  MOVING  arm done in {:.1} s", t.elapsed().as_secs_f64());
+-        let t = Instant::now();
+-        let b = run_arm(&at_rest, &mats, r_fuel, &seeds, "AT-REST");
+-        eprintln!("  AT-REST arm done in {:.1} s\n", t.elapsed().as_secs_f64());
+-
++        let arms = std::env::var("OUTRAM_FHR_ARMS").unwrap_or_default();
++        if arms.contains('M') {
++            let _ = run_arm(&moving, &mats, r_fuel, &seeds, "MOVING ");
++        }
++        if arms.contains('H') {
++            let _ = run_arm(&at_rest, &mats, r_fuel, &seeds, "HOOK   ");
++        }
++        if arms.contains('S') {
++            let _ = run_arm(&moving, &mats, r_fuel, &seeds, "SWITCH ");
++        }
++        std::process::exit(0);
++        #[allow(unreachable_code)]
++        let (a, b) = (Arm { k: vec![], p: vec![], eps: vec![] }, Arm { k: vec![], p: vec![], eps: vec![] });
+         let (ka, ska, eka) = stats(&a.k);
+         let (kb, skb, ekb) = stats(&b.k);
+         // pcm on the eigenvalue itself, the convention gh:#193's row uses.
