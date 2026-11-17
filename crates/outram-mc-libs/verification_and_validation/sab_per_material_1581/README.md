@@ -175,10 +175,10 @@ run time is uncertain; both strings are recorded as read.
   item 2**, see "Item 2 ensembles" below), `fhr_ring_rpt_endf`,
   ~~`thermal_kernel_keff_worth`~~ (**done**, N = 6),
   ~~`htr10_fuel_zone_kinf`~~ (**done**, N = 12),
-  `lct008_pitch_sweep` (**partial only, N = 3, not enough to conclude**),
+  ~~`lct008_pitch_sweep` (partial only, N = 3, not enough to conclude)~~ (**done 2026-11-17, N = 10**, see "Item 2 remainder" below),
   `lct008_ace_roundtrip`, `icsbep_five_route_keff`
-  (every case), `msre_n1_first_criticality`, the nee_soon HTR-10 diagnostics
-  with transport (these five and `fhr_ring_rpt_endf` are **still not
+  (every case), ~~`msre_n1_first_criticality`~~ (**done 2026-11-17, N = 8 + 8 replication; seeds 1-8 MISSED the gate, see below**), the nee_soon HTR-10 diagnostics
+  with transport (these three and `fhr_ring_rpt_endf` are **still not
   re-measured**): each loads uranium from ENDF (14 to 36 nuclides) and the
   RECONR+BROADR+PURR load alone took 13 to 25 minutes per process here
   (4 shared cores), so a seed ensemble of old and new was not affordable.
@@ -370,3 +370,96 @@ replication (same as above): |z| <= 2; a z > +2 again, or a pooled N = 16
 |z| > 2, would make a real old/new difference the working hypothesis, to be
 chased by reading `assign_material_sab` against the old per-nuclide path (not
 by touching anything here).
+
+### Results, item 2 remainder (2026-11-17)
+
+Raw outputs: `ensembles_1583/pitch10_{old_d1e20f188,new_2d2a99ab4}.out`,
+`msre_s1-8_*.out`, `msre_s9-16_*.out`, plus `msre_stat.awk`, the arithmetic
+used for the MSRE rows (`paste old.k new.k | awk -f msre_stat.awk`, one
+`seed k` pair per line, the k values being the `seed N: k = ...` lines of the
+outputs; no new Python). The pitch rows were produced by the existing
+`analyse.py pitch`. sem = sd / sqrt(N); sigma = sqrt(sem_old^2 + sem_new^2);
+z = difference / sigma.
+
+**`lct008_pitch_sweep`** (N = 10, seeds 1-10, 3000 x [30 + 100], 11-nuclide
+tier, multi-thread, OLD and NEW concurrent):
+
+| arm | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| 1.45 cm | 1.11715 (106 pcm) | 1.11789 (208) | +75 +- 74 pcm | +1.01 |
+| 1.63576 cm (LCT-008) | 1.06221 (170) | 1.06226 (172) | +4 +- 76 | +0.05 |
+| delta (1.63576 - 1.45), per seed | -5493 +- 56 | -5564 +- 79 | -71 +- 97 | -0.73 |
+
+|z| <= 2 on both arms and the delta (held); |z| <= 1 on one arm and the delta
+(the prediction asked for at least one of the two arms: held). **Verdict:
+consistent with a URR re-draw**, resolution about +-75 pcm per arm.
+Determinism checks, both as predicted: OLD seeds 1-3 are bit-identical to the
+first pass's OLD values, and NEW seeds 1-3 at `2d2a99ab4` are bit-identical to
+the first pass's NEW values at `7b5dd858d`, so the intervening source changes
+did not move this driver. The two arms average +39 pcm new above old, the same
+sign as the earlier lean and well inside the noise.
+
+**`msre_n1_first_criticality`** (`--mo natural`, 52 nuclides, 4000 x
+[30 + 70], 2 threads, seeds 1-8, then, as a pre-declared replication, 9-16; the
+data load, 374-389 s, was paid once per process):
+
+| seeds | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| 1-8 | 1.01709 (188 pcm) | 1.01938 (176) | **+229 +- 91 pcm** | **+2.51** |
+| 9-16 (fresh) | 1.01827 (192) | 1.01832 (228) | +5 +- 105 | +0.05 |
+| pooled 1-16 | 1.01768 (193) | 1.01885 (204) | +117 +- 70 | +1.66 |
+
+**Verdict against the prediction: MISSED on seeds 1-8** (z = +2.51 > 2), and
+that stays the recorded result of the pre-declared N = 8. The replication did
+not repeat it (z = +0.05) and the pooled N = 16 is +1.66. That is consistent
+with a 2.5-sigma chance excursion (about 1 in 80 two-sided, among the many
+comparisons made across these ensembles) and equally with a real shift of
+order +100 pcm that N = 16 cannot resolve. **Not resolved, and not declared a
+pure re-draw.** The sign matches the unexplained new-above-old lean of the
+HTR-10 pebble and thermal-kernel ensembles; recorded, untested. Nothing was
+patched. Reading `assign_material_sab`: the lowering is equivalent by
+construction to the old nuclide-level binding for this driver (the same law on
+C-12 / C-13 in every material that holds them, H-1 in the shield water), so no
+mechanism for a physics difference was found, only the URR re-draw.
+
+A first launch of both builds crashed after about 20 minutes on missing Zr
+tapes (the driver reads `../ace/endf/...` from the `reference-data/ace`
+submodule, empty in a worktree clone). Both were relaunched with that path
+linked to the main checkout's populated submodule; nothing else changed (the
+link was removed afterwards).
+
+Per-seed k (old / new), seeds 1-8: `1.01513/1.01756, 1.01757/1.02116,
+1.01965/1.01835, 1.01786/1.01905, 1.01394/1.01968, 1.01610/1.02266,
+1.01838/1.01893, 1.01813/1.01765`; seeds 9-16: `1.02203/1.01821,
+1.01813/1.01861, 1.01641/1.01319, 1.01949/1.02053, 1.01850/1.01984,
+1.01865/1.01833, 1.01640/1.01792, 1.01656/1.01993`.
+
+**Not done:** `fhr_ring_rpt_endf` (no seed loop in the 1527-line driver; it
+would need a knob, left alone), `icsbep_five_route_keff`,
+`lct008_ace_roundtrip`, and the nee_soon transport diagnostics. `msre` was run
+ahead of `fhr_ring_rpt_endf` because it already had `--seeds`.
+
+**Hardware.** Intel Xeon @ 2.10 GHz (cloud container, KVM), 4 logical cores,
+15.7 GiB RAM, Linux 6.18, CPU only (llvmpipe), shared: OLD and NEW concurrent
+plus another agent's compiles (load average up to 7.5). Wall times carry no
+cross-run meaning; an msre process was about 390 s load plus about 190-200 s
+per seed.
+
+### gh:#1617: where the -2242 pcm came from (read, not re-run)
+
+`examples/fhr_pebble_target_at_rest_ablation.rs` takes its prediction and its
+`k_MOVING = 1.40546` from `examples/fhr_ring_rpt_endf.rs` caveat 6, measured on
+2026-09-12 with `OUTRAM_RINGRPT_TARGET_AT_REST=1`. That 1.40546 is the
+**pre-fix** value: `tests/inelastic_channel_vs_endf.rs`
+(`a_threshold_reaction_has_no_cross_section_below_its_threshold`: "before
+1.40546 ... +4067 pcm vs OpenMC, after 1.36140 ... -339 pcm") and gh:#193's
+closing comment record that the F-19 sub-threshold inelastic clamp defect
+(fixed in `45f8d72d`, 2026-09-12) held the whole FHR pebble about +4400 pcm
+high, and `fhr_ring_rpt_endf.rs` itself says "Caveats 4-6 were measured BEFORE
+the residual was closed". The ablation's MOVING k today (1.363-1.364) matches
+the post-fix 1.36140, not 1.40546. So the table the driver's prediction quotes
+was taken on a build with the F-19 teleport defect, and the -2242 pcm is not a
+like-for-like number for today's model. This is a probable cause established
+from those records; it is **not** re-run, since no pre-fix build was
+re-measured. The prediction was not retuned and the driver was not edited. A
+re-baseline would need a fresh whole-material AT-REST run at today's build.
