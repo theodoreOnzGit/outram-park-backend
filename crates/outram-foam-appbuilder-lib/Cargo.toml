@@ -75,7 +75,7 @@ outram-blender = { workspace = true, features = ["std"] }
 # Hands-Arp conductivity) for verifying the KTA 3102.1 helium fits in
 # `htgr_closures::helium` and the ZBS tests moved here from `tampines`.
 # No cycle: coolprop depends on outram-foam-basic-lib, not on this crate.
-outram-park-fork-coolprop.workspace = true
+outram-park-fork-coolprop = { workspace = true, features = ["std"] }
 # gh:#1156: the double-pipe exchanger V&V compares the solved effectiveness
 # with this crate's epsilon-NTU (`heat_exchanger::ntu_effectiveness`).
 # Dev-only: no library code depends on it.

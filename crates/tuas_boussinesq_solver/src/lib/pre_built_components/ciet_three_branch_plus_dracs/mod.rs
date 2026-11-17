@@ -21,6 +21,9 @@
 //! in W, pressure drop in Pa, and lengths in m throughout (carried as
 //! `uom` dimensioned quantities on the public component APIs).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this version of ciet is optimised for real-time
 /// simulation. It will not be validated, but it will be
 /// fun to play with as a simulator. Useful for education and etc.

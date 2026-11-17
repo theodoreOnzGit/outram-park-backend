@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use ndarray::*;
 
 use uom::si::f64::*;
@@ -191,6 +194,7 @@ pub fn advance_timestep_solid_cylindrical_shell_node_no_axial_conduction(
 /// TODO: change test
 #[test]
 //#[ignore="not ready yet"]
+#[cfg(feature = "std")]
 fn fluid_solid_node_calculation_initial_test() {
     use std::{
         sync::{Arc, Mutex},
@@ -200,6 +204,7 @@ fn fluid_solid_node_calculation_initial_test() {
         f64::consts::PI,
     };
 
+    #[cfg(feature = "std")]
     use csv::Writer;
     use ndarray::*;
 

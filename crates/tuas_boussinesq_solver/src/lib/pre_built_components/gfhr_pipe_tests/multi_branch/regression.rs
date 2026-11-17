@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::power::megawatt;
 use uom::si::pressure::megapascal;
 use uom::si::thermal_conductance::watt_per_kelvin;
@@ -210,6 +213,7 @@ pub(crate) fn test_fhr_four_branch_solver_pri_and_intrmd_loop_full_th_short_regr
     }
 
     // show fhr state in case of failure
+    #[cfg(feature = "std")]
     dbg!(&fhr_state);
 
     // flowrates
@@ -281,6 +285,7 @@ pub fn isothermal_test_fhr_four_branch_solver_regression_library() {
         &fhr_pri_loop_pump,
     );
 
+    #[cfg(feature = "std")]
     dbg!(&(
         reactor_flow,
         downcomer_branch_1_flow,

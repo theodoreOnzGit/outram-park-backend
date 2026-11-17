@@ -3,11 +3,14 @@
 //! Advances the state of each control-volume array (shell fluid, pipe shell,
 //! insulation and porous-media interior) forward by one timestep — carrying
 //! out the conduction/energy update — either serially or by spawning threads.
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::thread::{self};
-use std::thread::JoinHandle;
-use std::ops::DerefMut;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
+use crate::sync::Mutex;
+use crate::thread::{self};
+use crate::thread::JoinHandle;
+use core::ops::DerefMut;
 
 use uom::si::f64::*;
 use super::InsulatedPorousMediaFluidComponent;

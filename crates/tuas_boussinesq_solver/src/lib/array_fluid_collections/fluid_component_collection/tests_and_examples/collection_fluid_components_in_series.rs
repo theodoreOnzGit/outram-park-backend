@@ -46,6 +46,9 @@
 // Main author of the code: Theodore Kay Chen Ong, supervised by
 // Professor Per F. Peterson
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Here is a test which is meant to test a simple struct made
 /// to hold and calculate fluid component collections
 ///

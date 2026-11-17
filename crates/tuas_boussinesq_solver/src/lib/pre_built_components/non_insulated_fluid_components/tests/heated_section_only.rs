@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boundary_conditions::BCType;
@@ -7,8 +10,8 @@ use crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFlu
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 #[test]
 pub fn heated_section_test_v2_3kw() {
-    use std::time::SystemTime;
-    use std::thread::JoinHandle;
+    use crate::time::SystemTime;
+    use crate::thread::JoinHandle;
 
     use uom::{
         si::{time::second, power::kilowatt},
@@ -149,12 +152,14 @@ pub fn heated_section_test_v2_3kw() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(heated_section_exit_temperature
             .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
         simulated_outlet_temperature = heated_section_exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
 
@@ -181,8 +186,8 @@ pub fn heated_section_test_v2_3kw() {
 
 #[test]
 pub fn heated_section_test_v2_4kw() {
-    use std::time::SystemTime;
-    use std::thread::JoinHandle;
+    use crate::time::SystemTime;
+    use crate::thread::JoinHandle;
 
     use uom::{
         si::{time::second, power::kilowatt},
@@ -323,12 +328,14 @@ pub fn heated_section_test_v2_4kw() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(heated_section_exit_temperature
             .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
         simulated_outlet_temperature = heated_section_exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
 
@@ -355,8 +362,8 @@ pub fn heated_section_test_v2_4kw() {
 
 #[test]
 pub fn heated_section_test_v2_6kw() {
-    use std::time::SystemTime;
-    use std::thread::JoinHandle;
+    use crate::time::SystemTime;
+    use crate::thread::JoinHandle;
 
     use uom::{
         si::{time::second, power::kilowatt},
@@ -497,12 +504,14 @@ pub fn heated_section_test_v2_6kw() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(heated_section_exit_temperature
             .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
         simulated_outlet_temperature = heated_section_exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
 
@@ -529,8 +538,8 @@ pub fn heated_section_test_v2_6kw() {
 
 #[test]
 pub fn heated_section_test_v2_8kw() {
-    use std::time::SystemTime;
-    use std::thread::JoinHandle;
+    use crate::time::SystemTime;
+    use crate::thread::JoinHandle;
 
     use uom::{
         si::{time::second, power::kilowatt},
@@ -671,12 +680,14 @@ pub fn heated_section_test_v2_8kw() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(heated_section_exit_temperature
             .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
         simulated_outlet_temperature = heated_section_exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
 
@@ -702,8 +713,8 @@ pub fn heated_section_test_v2_8kw() {
 }
 #[test]
 pub fn heated_section_test_v2_10kw() {
-    use std::time::SystemTime;
-    use std::thread::JoinHandle;
+    use crate::time::SystemTime;
+    use crate::thread::JoinHandle;
 
     use uom::{
         si::{time::second, power::kilowatt},
@@ -844,12 +855,14 @@ pub fn heated_section_test_v2_10kw() {
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(heated_section_exit_temperature
             .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
         simulated_outlet_temperature = heated_section_exit_temperature;
 
         // print loop time
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
 

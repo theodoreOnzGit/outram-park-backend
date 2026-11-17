@@ -1,6 +1,10 @@
-use std::ops::{DerefMut, Deref};
-use std::sync::{Arc, Mutex};
-use std::thread;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{DerefMut, Deref};
+use alloc::sync::Arc;
+    use crate::sync::Mutex;
+use crate::thread;
 
 use petir::specfunc::erfc;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
@@ -24,6 +28,7 @@ use uom::si::pressure::atmosphere;
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
 
+#[cfg(feature = "std")]
 /// This is an example of transient conduction case where analytical
 /// solutions have been well known
 ///
@@ -210,6 +215,7 @@ fn transient_conduction_semi_infinite_copper_medium() -> Result<(), TuasLibError
         let mut timestep_in_loop = timestep_ptr.lock().unwrap();
         let max_time_ptr_in_loop = max_time_ptr;
 
+        #[cfg(feature = "std")]
         use csv::Writer;
         let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path(
             "single_cv_semi_infinite_simulated_values.csv",
@@ -533,6 +539,7 @@ fn transient_conduction_semi_infinite_copper_medium() -> Result<(), TuasLibError
 
     // let's make the csv writer
 
+    #[cfg(feature = "std")]
     use csv::Writer;
     let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path(
         "analytical_1d_transient_conduction.csv",
@@ -620,6 +627,7 @@ fn transient_conduction_semi_infinite_copper_medium() -> Result<(), TuasLibError
     Ok(())
 }
 
+#[cfg(feature = "std")]
 /// this is basically the same copper medium test,
 /// except that now I use an array CVs
 /// this is with 10 total nodes (8 inner nodes and two boundary nodes)
@@ -692,6 +700,7 @@ fn arraycv_transient_conduction_copper_medium() -> Result<(), TuasLibError> {
         let mut timestep_in_loop = timestep_ptr.lock().unwrap();
         let max_time_ptr_in_loop = max_time_ptr;
 
+        #[cfg(feature = "std")]
         use csv::Writer;
         let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path(
             "array_cv_semi_infinite_copper.csv",
@@ -924,6 +933,7 @@ fn arraycv_transient_conduction_copper_medium() -> Result<(), TuasLibError> {
 
     // let's make the csv writer
 
+    #[cfg(feature = "std")]
     use csv::Writer;
     let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path(
         "analytical_1d_transient_conduction.csv",

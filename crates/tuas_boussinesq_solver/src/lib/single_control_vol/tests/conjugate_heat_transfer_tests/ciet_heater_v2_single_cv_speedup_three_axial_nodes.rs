@@ -1,9 +1,14 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::ops::DerefMut;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::SystemTime;
+use core::ops::DerefMut;
+use alloc::sync::Arc;
+    use crate::sync::Mutex;
+use crate::thread;
+use crate::time::SystemTime;
 
+#[cfg(feature = "std")]
 use csv::Writer;
 
 use uom::si::area::square_meter;
@@ -106,6 +111,7 @@ use crate::prelude::beta_testing::*;
 ///
 #[test]
 //#[ignore = "data collected"]
+#[cfg(feature = "std")]
 pub fn ciet_heater_v_2_0_test_steady_state_v_1_2_three_nodes() {
     // okay, let's make two control volumes
     // one cylinder and then the other a shell

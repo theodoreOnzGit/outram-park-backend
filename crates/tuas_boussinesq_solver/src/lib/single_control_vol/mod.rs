@@ -19,7 +19,10 @@
 //! limits), `interaction_between_two_cvs` and
 //! `wrappers_for_heat_transfer_interaction` (node-to-node heat transfer), and
 //! `boundary_condition_interactions` (node-to-boundary-condition heat/flow).
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 use uom::si::area::square_meter;
 use uom::si::f64::*;
 use uom::si::pressure::atmosphere;

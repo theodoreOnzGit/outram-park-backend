@@ -1,8 +1,11 @@
-use std::ops::DerefMut;
-use std::thread::JoinHandle;
-use std::thread;
-use std::sync::Arc;
-use std::sync::Mutex;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::DerefMut;
+use crate::thread::JoinHandle;
+use crate::thread;
+use alloc::sync::Arc;
+use crate::sync::Mutex;
 
 use uom::si::f64::*;
 

@@ -7,6 +7,9 @@
 //! enums and constructors read unambiguously and cannot silently swap, say, an
 //! inner diameter for an outer one. Convert in and out with `From<Length>` /
 //! `Into<Length>` (or `From<Area>` / `Into<Area>` for the area types).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 
 /// XThicknessThermalConduction is essentially a struct containing

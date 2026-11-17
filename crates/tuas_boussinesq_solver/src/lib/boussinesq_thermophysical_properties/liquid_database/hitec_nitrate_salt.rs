@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 #[warn(missing_docs)]
 // This library was developed for use in my PhD thesis under supervision
@@ -230,7 +233,8 @@ pub fn get_hitec_dynamic_viscosity(
 pub fn hitec_nitrate_salt_test_viscosity() {
     use uom::si::thermodynamic_temperature::degree_fahrenheit;
     use uom::si::dynamic_viscosity::centipoise;
-    extern crate approx;
+    // `approx` reaches this crate as `approx-nostd`, aliased at the crate
+    // root (gh:#1601), so no `extern crate` is needed here.
     // let's try the 346 F one first
     let temperature_346_f = ThermodynamicTemperature::new::<degree_fahrenheit>(346.338);
 

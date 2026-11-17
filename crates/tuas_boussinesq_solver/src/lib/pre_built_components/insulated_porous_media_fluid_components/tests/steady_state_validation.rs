@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Validation test using the experimental data,
 ///
 /// for now, results look good! within 0.2 degC of expt data
@@ -211,6 +214,7 @@ pub fn steady_state_test_for_heater_v1_eight_nodes_validation() {
 
                 // bt_12_temperature, which is actually the output temperature of static
                 // mixer 10
+                #[cfg(feature = "std")]
                 dbg!(bt_12_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
             }
@@ -230,10 +234,12 @@ pub fn steady_state_test_for_heater_v1_eight_nodes_validation() {
                 // prints therminol temperature
 
                 // print outlet temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_top_head_exit_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
                 // print surface temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_surface_array_temp);
 
                 //// print therminol temperature
@@ -407,6 +413,7 @@ pub fn steady_state_test_for_heater_v1_eight_nodes_validation() {
 
             let time_taken_for_calculation_loop = loop_time.elapsed().unwrap() - loop_time_start;
 
+            #[cfg(feature = "std")]
             dbg!(time_taken_for_calculation_loop);
         }
         // assert final temp

@@ -51,6 +51,9 @@
 //! AI-drafted (Claude Opus 5.5 in Claude Code), untrusted until reviewed.
 //! Research, education and V&V only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_park_fork_coolprop::incompressibles::Incompressible;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::*;
@@ -249,6 +252,7 @@ mod tests {
                 try_get_mu_viscosity(sodium(), t, p).unwrap().get::<pascal_second>() / mu,
             ]
             .map(|x| x - 1.0);
+            #[cfg(feature = "std")]
             println!(
                 "LiqNa fit/table - 1 [%] at {t_k:6.1} K: rho {:+.3} cp {:+.3} k {:+.4} mu {:+.3}",
                 100.0 * r[0],
@@ -276,6 +280,7 @@ mod tests {
     fn sodium_prandtl_number_is_of_order_five_thousandths() {
         let pr = try_get_prandtl(sodium(), kelvin_t(700.0), one_atm()).unwrap();
         let pr = pr.get::<ratio>();
+        #[cfg(feature = "std")]
         println!("sodium Pr(700 K) = {pr:.5e}");
         assert!(pr > 4.0e-3 && pr < 6.0e-3, "Pr = {pr}");
     }

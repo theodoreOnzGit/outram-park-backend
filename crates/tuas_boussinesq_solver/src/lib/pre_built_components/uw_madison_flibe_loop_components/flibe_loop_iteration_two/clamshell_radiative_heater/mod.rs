@@ -26,9 +26,12 @@
 //! This sub-component is UNDER CONSTRUCTION: calibration and validation
 //! against the 1.7 kW heaters of the reference loop are not yet complete.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
-//use std::f64::consts::PI;
+//use core::f64::consts::PI;
 //
 //use uom::si::angle::degree;
 //use uom::si::heat_transfer::watt_per_square_meter_kelvin;

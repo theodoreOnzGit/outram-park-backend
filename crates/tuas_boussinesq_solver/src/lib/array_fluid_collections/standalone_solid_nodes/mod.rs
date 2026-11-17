@@ -12,6 +12,9 @@
 //! with a zero-conductance side). The temperature solve reuses the
 //! conductance-matrix solver from the sibling `standalone_fluid_nodes` module.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// code for solving solid nodes connected to two
 /// adjacent boundaries:
 ///

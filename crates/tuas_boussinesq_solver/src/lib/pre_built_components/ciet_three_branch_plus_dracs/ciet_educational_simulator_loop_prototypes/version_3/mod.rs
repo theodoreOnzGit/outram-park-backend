@@ -7,6 +7,9 @@
 //! reverse-diode test harnesses. Time is in seconds, temperatures in
 //! degC, mass flow in kg/s and power in W.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this is for testing steady state forced circulation with ctah
 ///
 /// this is approximately based on Zou's publication
@@ -68,6 +71,7 @@ pub fn ctah_flow_steady_state_test() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -190,6 +194,7 @@ pub fn ctah_flow_short_test_dhx_blocked() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -316,6 +321,7 @@ pub fn ctah_flow_short_test_reverse_diode_effect() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -438,9 +444,10 @@ pub fn three_branch_ciet_ver3(
     dhx_branch_blocked: bool,
     timestep_seconds: f64,
 ) -> Result<(), crate::tuas_lib_error::TuasLibError> {
-    use std::ops::{Deref, DerefMut};
-    use std::sync::{Arc, Mutex};
-    use std::thread;
+    use core::ops::{Deref, DerefMut};
+    use alloc::sync::Arc;
+    use crate::sync::Mutex;
+    use crate::thread;
 
     use uom::si::length::centimeter;
     use uom::si::pressure::{atmosphere, pascal};
@@ -1274,6 +1281,7 @@ pub fn three_branch_ciet_ver3(
         let debug_settings = false;
 
         if debug_settings == true {
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
             // temperatures before and after heater
             let ((_bt_11, _wt_10), (_bt_12, _wt_13)) = pri_loop_heater_temperature_diagnostics(
@@ -1338,6 +1346,7 @@ pub fn three_branch_ciet_ver3(
         .try_get_bulk_temperature()
         .unwrap()
         .get::<degree_celsius>();
+    #[cfg(feature = "std")]
     dbg!(&(
         input_power,
         mass_flowrate_ctah_br,
@@ -1346,6 +1355,7 @@ pub fn three_branch_ciet_ver3(
         simulated_heater_avg_surf_temp_degc
     ));
 
+    #[cfg(feature = "std")]
     dbg!(&(
         bt_11.get::<degree_celsius>(),
         bt_12.get::<degree_celsius>(),

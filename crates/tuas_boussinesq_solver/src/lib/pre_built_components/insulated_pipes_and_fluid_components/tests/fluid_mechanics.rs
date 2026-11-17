@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::pressure::{kilopascal, pascal};
 use uom::si::f64::*;
 use uom::si::thermodynamic_temperature::degree_celsius;
@@ -25,6 +28,7 @@ pub fn single_pipe_internal_pressure_change_check() {
     let pressure_chg_hydrostatic_plus_pump =
         pipe_1.get_pressure_change_immutable(mass_flowrate_zero);
 
+    #[cfg(feature = "std")]
     dbg!(&(pressure_chg_hydrostatic, pressure_chg_hydrostatic_plus_pump));
 
     approx::assert_relative_eq!(

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Transient Validation test using the experimental data,
 ///
 /// we are specifically going for the transient at 4050s
@@ -327,6 +330,7 @@ pub fn transient_test_stepup_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_
 
                 // bt_12_temperature, which is actually the output temperature of static
                 // mixer 10
+                #[cfg(feature = "std")]
                 dbg!(bt_12_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
             }
@@ -346,10 +350,12 @@ pub fn transient_test_stepup_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_
                 // prints therminol temperature
 
                 // print outlet temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_top_head_exit_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
                 // print surface temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_surface_array_temp);
 
                 //// print therminol temperature
@@ -529,6 +535,7 @@ pub fn transient_test_stepup_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_
 
             let time_taken_for_calculation_loop = loop_time.elapsed().unwrap() - loop_time_start;
 
+            #[cfg(feature = "std")]
             dbg!(time_taken_for_calculation_loop);
         }
         // assert final temp to within 0.5 degC of thermocouple error
@@ -900,6 +907,7 @@ pub fn transient_test_stepdown_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eigh
 
                 // bt_12_temperature, which is actually the output temperature of static
                 // mixer 10
+                #[cfg(feature = "std")]
                 dbg!(bt_12_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
             }
@@ -919,10 +927,12 @@ pub fn transient_test_stepdown_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eigh
                 // prints therminol temperature
 
                 // print outlet temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_top_head_exit_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
                 // print surface temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_surface_array_temp);
 
                 //// print therminol temperature
@@ -1102,6 +1112,7 @@ pub fn transient_test_stepdown_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eigh
 
             let time_taken_for_calculation_loop = loop_time.elapsed().unwrap() - loop_time_start;
 
+            #[cfg(feature = "std")]
             dbg!(time_taken_for_calculation_loop);
         }
         // assert final temp to within 0.5 degC of thermocouple error

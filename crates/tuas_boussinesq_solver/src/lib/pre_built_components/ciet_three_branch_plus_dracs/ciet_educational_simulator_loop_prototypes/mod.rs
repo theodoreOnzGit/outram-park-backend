@@ -17,6 +17,9 @@
 //! seconds, temperatures in degC, mass flow in kg/s and power in W in
 //! these prototype drivers.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this ensures that despite all the changes, the three branch
 /// ciet should still reproduce results
 ///

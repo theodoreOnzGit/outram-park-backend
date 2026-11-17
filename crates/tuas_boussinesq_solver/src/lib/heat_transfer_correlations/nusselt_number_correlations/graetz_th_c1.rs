@@ -77,6 +77,9 @@
 //! **Not covered:** the developing constant-flux Graetz series; turbulent
 //! correlations against measured data (that is TH-1, gh:#1134).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(test)]
 use petir::mathf::RealMath;
 
@@ -234,10 +237,12 @@ mod tests {
     fn a1_the_first_graetz_eigenvalue_gives_3_6568() {
         let beta0 = series()[0].beta;
         let nu = beta0 * beta0 / 2.0;
+        #[cfg(feature = "std")]
         println!("A1: beta0 = {beta0:.8}, Nu_developed = {nu:.8}");
         approx::assert_relative_eq!(nu, 3.6568, max_relative = 1.0e-4);
         // The bulk weights of a complete series sum to theta_b(0) = 1.
         let sum: f64 = series().iter().map(|t| t.weight).sum();
+        #[cfg(feature = "std")]
         println!("A1: sum of 120 bulk weights = {sum:.10}");
     }
 
@@ -253,6 +258,7 @@ mod tests {
             let beta_asym = 4.0 * n as f64 + 8.0 / 3.0;
             let g_asym = 1.01276 * term.beta.r_powf(-1.0 / 3.0);
             if n < 5 || n % 10 == 0 {
+                #[cfg(feature = "std")]
                 println!(
                     "A3: n = {n:2}: beta = {:.5} (asym {beta_asym:.5}), G = {g:.5} (asym {g_asym:.5}, {:+.3} %)",
                     term.beta,
@@ -276,6 +282,7 @@ mod tests {
         let tuas_wall_t =
             pipe_correlations::laminar_nusselt_uniform_wall_temperature_fully_developed(1000.0);
         let tuas_flux = pipe_correlations::laminar_nusselt_uniform_heat_flux_fully_developed(1000.0);
+        #[cfg(feature = "std")]
         println!(
             "A2: wall T {tuas_wall_t} vs {exact_wall_t:.6} ({:+.3} %); flux {tuas_flux} vs {exact_flux:.6} ({:+.3} %)",
             100.0 * (tuas_wall_t / exact_wall_t - 1.0),
@@ -298,6 +305,7 @@ mod tests {
         let wall_t =
             pipe_correlations::laminar_nusselt_uniform_wall_temperature_developing(1.0, 1.0, l_over_d);
         let flux = pipe_correlations::laminar_nusselt_uniform_heat_flux_developing(1.0, 1.0, l_over_d);
+        #[cfg(feature = "std")]
         println!(
             "B1: {wall_t:.6} vs {exact_wall_t:.6} ({:+.3} %); B2: {flux:.6} vs {exact_flux:.6} ({:+.3} %)",
             100.0 * (wall_t / exact_wall_t - 1.0),
@@ -320,6 +328,7 @@ mod tests {
         for gz in [1.0e2_f64, 1.0e3, 1.0e4] {
             let (nu_m, used) = graetz_mean_nusselt(1.0 / gz);
             let leveque = 1.615 * gz.r_cbrt();
+            #[cfg(feature = "std")]
             println!(
                 "B4: Gz = {gz:6.0}: Nu_m = {nu_m:.5}, Nu_m/Gz^(1/3) = {:.5} ({:+.3} % of 1.615), deficit {:+.4}, {used} terms",
                 nu_m / gz.r_cbrt(),
@@ -335,6 +344,7 @@ mod tests {
     /// (thermally developing only), Gz = Re Pr D/L from 1 to 1e4.
     #[test]
     fn b3_report_developing_wall_temperature_against_graetz() {
+        #[cfg(feature = "std")]
         println!("B3: Pr, Gz, terms, Graetz Nu_m, TUAS Nu_m, TUAS/Graetz - 1 [%]");
         for pr in [0.7, 7.0, 13.0, 100.0] {
             for gz in [1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1000.0, 3000.0, 1.0e4] {
@@ -345,6 +355,7 @@ mod tests {
                 let tuas = pipe_correlations::laminar_nusselt_uniform_wall_temperature_developing(
                     re, pr, l_over_d,
                 );
+                #[cfg(feature = "std")]
                 println!(
                     "B3: {pr:6.1} {gz:8.0} {used:4} {exact:9.4} {tuas:9.4} {:+8.2}",
                     100.0 * (tuas / exact - 1.0)
@@ -359,12 +370,14 @@ mod tests {
     /// Pr_bulk) against Dittus-Boelter (heating, n = 0.4), Re 1e4 to 1e5.
     #[test]
     fn c1_report_gnielinski_against_dittus_boelter() {
+        #[cfg(feature = "std")]
         println!("C1: Re, Pr, f_Darcy, Gnielinski, Dittus-Boelter, DB/Gn - 1 [%]");
         for re in [1.0e4, 3.0e4, 1.0e5] {
             for pr in [0.7, 7.0, 13.0] {
                 let f = darcy(re, 0.0).unwrap();
                 let gn = pipe_correlations::gnielinski_correlation_liquids_fully_developed(re, pr, pr, f);
                 let db = pipe_correlations::dittus_boelter_correlation(re, pr, true);
+                #[cfg(feature = "std")]
                 println!(
                     "C1: {re:8.0} {pr:5.1} {f:.5} {gn:9.3} {db:9.3} {:+7.2}",
                     100.0 * (db / gn - 1.0)

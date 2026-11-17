@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// dataset number,dracs loop mass flowrate (kg/s),DHX tube top (outlet) (DegC),TCHX inlet (DegC),TCHX outlet(DegC),DHX tube bottom (DegC),
 /// C-1,0.02686,53.00304,51.79332,40.42208,39.84713,
 #[test]
@@ -467,6 +470,7 @@ pub fn dracs_hot_leg_insulation_thickness_calibration_validation_test_v1(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         tchx_inlet_temperature_set_point.get::<degree_celsius>(),
         tchx_inlet_actual_temperature.get::<degree_celsius>(),

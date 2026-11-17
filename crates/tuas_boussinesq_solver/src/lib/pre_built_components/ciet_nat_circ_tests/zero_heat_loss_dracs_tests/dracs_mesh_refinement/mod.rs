@@ -7,6 +7,9 @@
 //! to mesh and timestep. This addresses a TUAS-paper reviewer comment that
 //! discretisation was not considered as a source of error.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// mesh refinement 2 times that of SAM
 /// nodalisation
 ///

@@ -20,7 +20,10 @@
 //!   [`single_cv_single_cv_interactions`] — the leaf routines for single-node
 //!   connections.
 
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use uom::si::f64::*;
 use crate::boundary_conditions::BCType;
@@ -659,6 +662,7 @@ pub(crate) fn try_get_thermal_conductance_based_on_interaction(
             )?
         }
         HeatTransferInteractionType::UserSpecifiedHeatAddition => {
+            #[cfg(feature = "std")]
             println!(
                 "interaction type needs to be \n 
                         thermal conductance"
@@ -667,6 +671,7 @@ pub(crate) fn try_get_thermal_conductance_based_on_interaction(
         }
 
         HeatTransferInteractionType::UserSpecifiedHeatFluxCustomArea(_) => {
+            #[cfg(feature = "std")]
             println!(
                 "interaction type needs to be \n 
                         thermal conductance"
@@ -674,6 +679,7 @@ pub(crate) fn try_get_thermal_conductance_based_on_interaction(
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
         HeatTransferInteractionType::UserSpecifiedHeatFluxCylindricalOuterArea(_, _) => {
+            #[cfg(feature = "std")]
             println!(
                 "interaction type needs to be \n 
                         thermal conductance"
@@ -681,6 +687,7 @@ pub(crate) fn try_get_thermal_conductance_based_on_interaction(
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
         HeatTransferInteractionType::UserSpecifiedHeatFluxCylindricalInnerArea(_, _) => {
+            #[cfg(feature = "std")]
             println!(
                 "interaction type needs to be \n 
                         thermal conductance"
@@ -753,6 +760,7 @@ pub(crate) fn try_get_thermal_conductance_based_on_interaction(
         }
 
         HeatTransferInteractionType::Advection(_) => {
+            #[cfg(feature = "std")]
             println!(
                 "advection interaction types \n 
                 do not correspond to conductance"
@@ -942,6 +950,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::
             UserSpecifiedThermalConductance(_) =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
@@ -951,6 +960,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::
             SingleCartesianThermalConductanceOneDimension(_, _) =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
@@ -960,6 +970,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::
             DualCartesianThermalConductance(_, _) =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
@@ -969,6 +980,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::
             DualCylindricalThermalConductance(_, _, _) =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
@@ -978,6 +990,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::
             CylindricalConductionConvectionLiquidOutside(_, _) =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
@@ -987,6 +1000,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::
             CylindricalConductionConvectionLiquidInside(_, _) =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
@@ -996,6 +1010,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::
             UserSpecifiedHeatAddition =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
@@ -1005,6 +1020,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::
             DualCartesianThermalConductanceThreeDimension(_) =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
@@ -1040,6 +1056,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::
             UserSpecifiedConvectionResistance(_) =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
@@ -1058,6 +1075,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         HeatTransferInteractionType::SimpleRadiation
             (_area_coeff) =>
             {
+                #[cfg(feature = "std")]
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
                 return Err(TuasLibError::WrongHeatTransferInteractionType);

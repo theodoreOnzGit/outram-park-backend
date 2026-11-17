@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// basically, for all smaller unit tests mean to debug the flow simulation
 pub mod debugging_tests;
 

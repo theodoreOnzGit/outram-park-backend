@@ -1,8 +1,11 @@
-use std::ops::Deref;
-use std::ops::DerefMut;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::thread;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::Deref;
+use core::ops::DerefMut;
+use alloc::sync::Arc;
+use crate::sync::Mutex;
+use crate::thread;
 
 // first, copy and paste the dracs loop functions over
 //
@@ -1818,6 +1821,7 @@ pub fn dracs_loop_dhx_tube_temperature_diagnostics(
 
     // debug
     if print_debug_results {
+        #[cfg(feature = "std")]
         dbg!(&(
             "bulk and wall temp degC, before and after dhx_tube respectively",
             bt_60.get::<degree_celsius>(),

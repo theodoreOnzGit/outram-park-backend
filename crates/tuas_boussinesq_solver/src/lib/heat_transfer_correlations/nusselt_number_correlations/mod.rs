@@ -1,6 +1,9 @@
 //! The nusselt correlations class has calculates nusselt numbers
 //! given a certain geometry
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// These are nusselt correlations for pipes
 pub mod pipe_correlations;
 

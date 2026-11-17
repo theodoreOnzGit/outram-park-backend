@@ -1,9 +1,12 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::tuas_lib_error::TuasLibError;
 
 use super::HeatTransferEntity;
 use super::cv_types::CVType;
-use std::thread::JoinHandle;
-use std::thread;
+use crate::thread::JoinHandle;
+use crate::thread;
 
 use uom::si::f64::*;
 

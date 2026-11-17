@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
@@ -505,28 +508,34 @@ pub fn uw_madison_flibe_loop_iteration_1_temperature_diagnostics(
 
     // debug
     if print_debug_results {
+        #[cfg(feature = "std")]
         dbg!(&(
             "before and after horizontal-ish part of cooler deg C",
             tc_21.get::<degree_celsius>(),
             tc_24.get::<degree_celsius>(),
         ));
+        #[cfg(feature = "std")]
         dbg!(&(
             "mid temperature estimate of vertical part of cooler deg C",
             tc_32_estimate.get::<degree_celsius>(),
         ));
+        #[cfg(feature = "std")]
         dbg!(&(
             "before horizontal-ish part of heater and before vertical part of heater degC",
             tc_35.get::<degree_celsius>(),
             tc_11.get::<degree_celsius>(),
         ));
+        #[cfg(feature = "std")]
         dbg!(&(
             "mid section of vertical heater estimate degC",
             tc_12_estimate.get::<degree_celsius>(),
         ));
+        #[cfg(feature = "std")]
         dbg!(&(
             "heater exit temp estimate",
             tc_14_estimate.get::<degree_celsius>(),
         ));
+        #[cfg(feature = "std")]
         dbg!(&(
             "temperature of FLiBe to open tank",
             tc_18.get::<degree_celsius>(),

@@ -10192,6 +10192,7 @@ dependencies = [
  "outram-park-fork-coolprop",
  "petir",
  "serde",
+ "spin 0.10.1",
  "thiserror 2.0.21",
  "uom",
 ]

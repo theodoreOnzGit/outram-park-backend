@@ -12,6 +12,9 @@
 //! (fluid coupled to both an inner and an outer solid) — and the shared
 //! conductance-matrix / power-vector temperature solver in this file. Solid-only
 //! node arrays live in the sibling `standalone_solid_nodes` module.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// deals with fluid nodes in the core region
 pub mod core_fluid_node;
 

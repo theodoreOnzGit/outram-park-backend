@@ -20,7 +20,10 @@
 //! - `calibration` — insulation-thickness tuning of parasitic heat loss
 //! - `type_conversion` — conversion into a `FluidComponent`
 //! - `tests` — steady-state and transient validation against Zweibaum's data
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::boussinesq_thermophysical_properties::thermal_conductivity::*;

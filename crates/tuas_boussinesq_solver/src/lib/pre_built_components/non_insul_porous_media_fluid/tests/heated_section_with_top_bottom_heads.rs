@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// development test: runs the CIET heater-v2 heated section together with the
 /// separately-modelled top and bottom heads, advancing the coupled components
 /// through a transient to check the assembled loop behaves sensibly.
@@ -114,10 +117,12 @@ pub fn test_inclusive_heater_top_bottom_head() {
                 // prints therminol temperature
 
                 // print outlet temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_top_head_exit_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
                 // print surface temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_surface_array_temp);
             }
 
@@ -195,6 +200,7 @@ pub fn test_inclusive_heater_top_bottom_head() {
 
             let time_taken_for_calculation_loop = loop_time.elapsed().unwrap() - loop_time_start;
 
+            #[cfg(feature = "std")]
             dbg!(time_taken_for_calculation_loop);
         }
     });

@@ -22,6 +22,9 @@
 //! thermophysical properties, mesh/geometry primitives) belongs in the
 //! sibling modules, not here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// correlations for convective heat transfer
 pub mod nusselt_number_correlations;
 

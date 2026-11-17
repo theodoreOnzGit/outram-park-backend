@@ -9,6 +9,9 @@
 //! circulation mass flow rates (kg/s) and the heater surface temperature (degC).
 //! Tests are `#[ignore]`d legacy debugging runs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// test series took about 230 s
 /// c1
 /// Version 4 increases the K of pipe 22 to 45.95
@@ -86,6 +89,7 @@ pub fn regression_long_test_calibrated_ver6_set_c1() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -202,6 +206,7 @@ pub fn regression_long_test_calibrated_ver6_set_c2() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -319,6 +324,7 @@ pub fn regression_long_test_calibrated_ver6_set_c3() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -436,6 +442,7 @@ pub fn regression_long_test_calibrated_ver6_set_c4() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -553,6 +560,7 @@ pub fn regression_long_test_calibrated_ver6_set_c5() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -670,6 +678,7 @@ pub fn regression_long_test_calibrated_ver6_set_c6() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -787,6 +796,7 @@ pub fn regression_long_test_calibrated_ver6_set_c7() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -904,6 +914,7 @@ pub fn regression_long_test_calibrated_ver6_set_c8() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -1021,6 +1032,7 @@ pub fn regression_long_test_calibrated_ver6_set_c9() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -1670,6 +1682,7 @@ pub fn regression_coupled_dracs_loop_version_6(
         let debug_settings = false;
 
         if debug_settings == true {
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
             // temperatures before and after heater
             let ((_bt_11, _wt_10), (_bt_12, _wt_13)) = pri_loop_heater_temperature_diagnostics(
@@ -1720,6 +1733,7 @@ pub fn regression_coupled_dracs_loop_version_6(
 
     let simulated_heater_avg_surf_temp_degc: f64 = heater_avg_surf_temp.get::<degree_celsius>();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         input_power,
         final_mass_flowrate_pri_loop,

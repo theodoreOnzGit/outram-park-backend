@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
@@ -12,8 +15,8 @@ use uom::si::angle::degree;
 use uom::si::area::square_meter;
 use uom::si::ratio::ratio;
 use uom::si::f64::*;
-use std::time::SystemTime;
-use std::thread::JoinHandle;
+use crate::time::SystemTime;
+use crate::thread::JoinHandle;
 use uom::si::pressure::atmosphere;
 
 use uom::{si::time::second, ConstZero};

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{
     heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation,
     prelude::beta_testing::FluidArray,

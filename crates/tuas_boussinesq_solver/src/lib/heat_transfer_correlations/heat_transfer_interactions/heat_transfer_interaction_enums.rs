@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::control_volume_dimensions::*;
 use crate::boussinesq_thermophysical_properties::{LiquidMaterial, Material};
 use uom::si::f64::*;

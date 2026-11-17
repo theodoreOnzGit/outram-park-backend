@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::boussinesq_thermophysical_properties::density::try_get_rho;
 use crate::boussinesq_thermophysical_properties::specific_heat_capacity::try_get_cp;
 use crate::boussinesq_thermophysical_properties::thermal_conductivity::try_get_kappa_thermal_conductivity;
@@ -837,6 +840,7 @@ impl SingleCVNode {
             HeatTransferInteractionType::UserSpecifiedHeatAddition => {
                 // user specified heat addition does not make sense
                 // for cv to cv interaction
+                #[cfg(feature = "std")]
                 println!("interaction type needs to be thermal conductance");
                 return Err(TuasLibError::TypeConversionErrorHeatTransferEntity);
             }
@@ -844,6 +848,7 @@ impl SingleCVNode {
             HeatTransferInteractionType::UserSpecifiedHeatFluxCustomArea(_) => {
                 // user specified heat flux does not make sense
                 // for cv to cv interaction
+                #[cfg(feature = "std")]
                 println!("interaction type needs to be thermal conductance");
 
                 return Err(TuasLibError::TypeConversionErrorHeatTransferEntity);
@@ -851,6 +856,7 @@ impl SingleCVNode {
             HeatTransferInteractionType::UserSpecifiedHeatFluxCylindricalOuterArea(_, _) => {
                 // user specified heat flux does not make sense
                 // for cv to cv interaction
+                #[cfg(feature = "std")]
                 println!("interaction type needs to be thermal conductance");
 
                 return Err(TuasLibError::TypeConversionErrorHeatTransferEntity);
@@ -858,6 +864,7 @@ impl SingleCVNode {
             HeatTransferInteractionType::UserSpecifiedHeatFluxCylindricalInnerArea(_, _) => {
                 // user specified heat flux does not make sense
                 // for cv to cv interaction
+                #[cfg(feature = "std")]
                 println!("interaction type needs to be thermal conductance");
 
                 return Err(TuasLibError::TypeConversionErrorHeatTransferEntity);

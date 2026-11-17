@@ -56,7 +56,7 @@ petir = { workspace = true }
 # module surface is built out incrementally (see docs/notes.md or the epic
 # op-dt3 in beads for the live plan).
 tuas_boussinesq_solver.workspace = true
-outram-park-fork-coolprop.workspace = true
+outram-park-fork-coolprop = { workspace = true, features = ["std"] }
 tampines-steam-tables = { workspace = true, features = ["std"] }
 outram-foam-basic-lib = { workspace = true, features = ["std"] }
 # Uncertainty quantification and reduced-order models (RAVEN port). tampines

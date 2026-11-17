@@ -17,6 +17,9 @@
 //!   links (ambient-temperature and mixed power/ambient couplings).
 //! - [`calculation`] — advance the structure one timestep.
 //! - [`postprocessing`] — read back the nodal temperature vector.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
 

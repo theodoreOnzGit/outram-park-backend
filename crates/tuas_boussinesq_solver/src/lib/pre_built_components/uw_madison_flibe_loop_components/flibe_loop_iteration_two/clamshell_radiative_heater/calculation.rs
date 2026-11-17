@@ -1,8 +1,11 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::ClamshellRadiativeHeater;
 use crate::tuas_lib_error::TuasLibError;
 use uom::si::f64::*;
-use std::thread::JoinHandle;
-use std::thread;
+use crate::thread::JoinHandle;
+use crate::thread;
 
 impl ClamshellRadiativeHeater {
     /// advances the timestep (in seconds) for each HeatTransferEntity within

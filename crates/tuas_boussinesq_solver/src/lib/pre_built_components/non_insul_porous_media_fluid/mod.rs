@@ -23,7 +23,10 @@
 //! - [`type_conversion`] — conversion into a `FluidComponent` enum variant.
 //! - [`tests`] — verification against De Wet's CIET heater-v2 data.
 
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;

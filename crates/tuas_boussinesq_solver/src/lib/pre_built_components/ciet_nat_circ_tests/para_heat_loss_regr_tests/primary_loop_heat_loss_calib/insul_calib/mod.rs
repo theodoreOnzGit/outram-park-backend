@@ -7,6 +7,9 @@
 //! temperatures in degC). A calibrated thickness of about 0.24 cm was found
 //! suitable across the hot-leg datasets.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// This contains tests for the hot leg calibration of insulation
 /// thickness,
 ///

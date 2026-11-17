@@ -264,7 +264,7 @@ serde.workspace = true
 # flashes themselves, so the example reaches the backend directly -- same
 # precedent as outram-park-fork-dwsim-libs above. Promoting a property
 # accessor into tampines is the tidier long-term home.
-outram-park-fork-coolprop.workspace = true
+outram-park-fork-coolprop = { workspace = true, features = ["std"] }
 
 # htgr_sim_v1's TRISO fission-product release channel
 # (`physics::fission_product_release`) drives `boon-lay`'s Rust fork of Idaho

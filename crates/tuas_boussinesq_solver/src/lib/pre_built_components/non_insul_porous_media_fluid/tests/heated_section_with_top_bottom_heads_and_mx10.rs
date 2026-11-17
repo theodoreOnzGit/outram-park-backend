@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// development test: heated section plus top/bottom heads and the MX-10 static
 /// mixer downstream, but without structural-support heat losses; advances the
 /// assembled components through a transient.
@@ -182,6 +185,7 @@ pub fn heater_plus_mx_10_without_supports() {
 
                 // bt_12_temperature, which is actually the output temperature of static
                 // mixer 10
+                #[cfg(feature = "std")]
                 dbg!(bt_12_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
             }
@@ -201,10 +205,12 @@ pub fn heater_plus_mx_10_without_supports() {
                 // prints therminol temperature
 
                 // print outlet temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_top_head_exit_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
                 // print surface temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_surface_array_temp);
 
                 //// print therminol temperature
@@ -392,6 +398,7 @@ pub fn heater_plus_mx_10_without_supports() {
 
             let time_taken_for_calculation_loop = loop_time.elapsed().unwrap() - loop_time_start;
 
+            #[cfg(feature = "std")]
             dbg!(time_taken_for_calculation_loop);
         }
     });

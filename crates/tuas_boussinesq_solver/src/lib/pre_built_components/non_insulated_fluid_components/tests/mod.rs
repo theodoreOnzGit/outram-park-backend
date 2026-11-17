@@ -2,6 +2,9 @@
 //! comparing simulated steady-state heater behaviour against De Wet's CIET
 //! heater-v2 data. Test-only module (`#[cfg(test)]`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this does not have csv writer, was used for early test and development
 ///
 /// but now also becomes a unit test for validation at steady state using

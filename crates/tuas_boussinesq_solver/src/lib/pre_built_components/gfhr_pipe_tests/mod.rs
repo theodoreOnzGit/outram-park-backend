@@ -20,6 +20,9 @@
 //! Note: Radiation Heat Transfer (RHT) is NOT accounted for anywhere in this
 //! module.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// contains the code for single pipes and other components in
 /// primary and intermediate loop of what could be used to cool the gFHR
 ///

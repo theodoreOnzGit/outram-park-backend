@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// tests the implementation of a custom fluid component trait
 ///
 /// checks if getting pressure loss from a specified mass flowrate works
@@ -13,7 +16,7 @@ pub fn test_custom_fluid_component_pressure_loss() -> Result<(), crate::tuas_lib
     use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
     use uom::si::length::inch;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
     use uom::si::ratio::ratio;
     use uom::si::mass_rate::kilogram_per_second;
     use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -124,7 +127,7 @@ pub fn test_custom_fluid_component_mass_flow_from_pressure_loss(
     use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
     use uom::si::length::inch;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
     use uom::si::ratio::ratio;
     use uom::si::mass_rate::kilogram_per_second;
     use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -245,7 +248,7 @@ pub fn test_custom_fluid_component_pressure_change(
     use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
     use uom::si::length::inch;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
     use uom::si::ratio::ratio;
     use uom::si::mass_rate::kilogram_per_second;
     use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -530,7 +533,7 @@ pub fn test_custom_fluid_component_mass_flowrate_from_pressure_change(
     use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
     use uom::si::length::inch;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
     use uom::si::ratio::ratio;
     use uom::si::mass_rate::kilogram_per_second;
     use uom::si::mass_density::kilogram_per_cubic_meter;

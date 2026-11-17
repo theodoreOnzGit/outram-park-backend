@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// regression test checked steady state and temp profile
 /// 11:24 am 02 jul 2025
 ///
@@ -32,6 +35,7 @@
     not(feature = "long-tests"),
     ignore = "long test (measured 692 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_b1() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.061;
@@ -74,6 +78,7 @@ pub fn ciet_coupled_nat_circ_set_b1() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -160,6 +165,7 @@ pub fn ciet_coupled_nat_circ_set_b1() {
     not(feature = "long-tests"),
     ignore = "long test (measured 641 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_b2() {
     let max_simulation_time_seconds: f64 = 3000.0;
     // expect overprediction of mass flowrates in both loops
@@ -192,6 +198,7 @@ pub fn ciet_coupled_nat_circ_set_b2() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -278,6 +285,7 @@ pub fn ciet_coupled_nat_circ_set_b2() {
     not(feature = "long-tests"),
     ignore = "long test (measured 600 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_b3() {
     let max_simulation_time_seconds: f64 = 3000.0;
     // expect overprediction of mass flowrates in both loops
@@ -310,6 +318,7 @@ pub fn ciet_coupled_nat_circ_set_b3() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -396,6 +405,7 @@ pub fn ciet_coupled_nat_circ_set_b3() {
     not(feature = "long-tests"),
     ignore = "long test (measured 596 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_b4() {
     let max_simulation_time_seconds: f64 = 3000.0;
     // expect overprediction of mass flowrates in both loops
@@ -428,6 +438,7 @@ pub fn ciet_coupled_nat_circ_set_b4() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -515,6 +526,7 @@ pub fn ciet_coupled_nat_circ_set_b4() {
     not(feature = "long-tests"),
     ignore = "long test (measured 591 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_b5() {
     let max_simulation_time_seconds: f64 = 3000.0;
     // expect overprediction of mass flowrates in both loops
@@ -547,6 +559,7 @@ pub fn ciet_coupled_nat_circ_set_b5() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -633,6 +646,7 @@ pub fn ciet_coupled_nat_circ_set_b5() {
     not(feature = "long-tests"),
     ignore = "long test (measured 577 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_b6() {
     let max_simulation_time_seconds: f64 = 3000.0;
     // expect overprediction of mass flowrates in both loops
@@ -665,6 +679,7 @@ pub fn ciet_coupled_nat_circ_set_b6() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -752,6 +767,7 @@ pub fn ciet_coupled_nat_circ_set_b6() {
     not(feature = "long-tests"),
     ignore = "long test (measured 582 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_b7() {
     let max_simulation_time_seconds: f64 = 3000.0;
     // expect overprediction of mass flowrates in both loops
@@ -784,6 +800,7 @@ pub fn ciet_coupled_nat_circ_set_b7() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -879,6 +896,7 @@ pub fn ciet_coupled_nat_circ_set_b7() {
     not(feature = "long-tests"),
     ignore = "long test (measured 590 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_b8() {
     let max_simulation_time_seconds: f64 = 3000.0;
     // expect overprediction of mass flowrates in both loops
@@ -911,6 +929,7 @@ pub fn ciet_coupled_nat_circ_set_b8() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -997,6 +1016,7 @@ pub fn ciet_coupled_nat_circ_set_b8() {
     not(feature = "long-tests"),
     ignore = "long test (measured 595 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_b9() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.061;
@@ -1027,6 +1047,7 @@ pub fn ciet_coupled_nat_circ_set_b9() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -1721,6 +1742,7 @@ pub fn regression_coupled_dracs_loop_version_5(
         let debug_settings = false;
 
         if debug_settings == true {
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
             // temperatures before and after heater
             let ((_bt_11, _wt_10), (_bt_12, _wt_13)) = pri_loop_heater_temperature_diagnostics(
@@ -1745,6 +1767,7 @@ pub fn regression_coupled_dracs_loop_version_5(
         current_simulation_time += timestep;
     }
 
+    #[cfg(feature = "std")]
     dbg!(&(
         input_power,
         final_mass_flowrate_pri_loop,
@@ -1800,6 +1823,7 @@ pub fn regression_coupled_dracs_loop_version_5(
     Ok(())
 }
 
+#[cfg(feature = "std")]
 /// for dracs calibration version 7, in comparison to version 6,
 /// pipe 3's K values were adjusted from 3.15 in the RELAP model to
 /// 17.15 used in the SAM model.
@@ -2385,6 +2409,7 @@ pub fn regression_coupled_dracs_loop_version_7(
         let debug_settings = false;
 
         if debug_settings == true {
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
             // temperatures before and after heater
             let ((_bt_11, _wt_10), (_bt_12, _wt_13)) = pri_loop_heater_temperature_diagnostics(
@@ -2447,6 +2472,7 @@ pub fn regression_coupled_dracs_loop_version_7(
 
     let simulated_heater_avg_surf_temp_degc: f64 = heater_avg_surf_temp.get::<degree_celsius>();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         input_power,
         final_mass_flowrate_dracs_loop,

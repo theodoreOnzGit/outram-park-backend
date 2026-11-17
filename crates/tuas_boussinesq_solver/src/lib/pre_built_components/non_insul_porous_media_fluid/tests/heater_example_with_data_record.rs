@@ -34,14 +34,18 @@
 //!
 //!
 //!
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 ///
 ///
 /// it has twisted tape
 use core::time;
-use std::thread::{self};
-use std::thread::JoinHandle;
-use std::time::SystemTime;
+use crate::thread::{self};
+use crate::thread::JoinHandle;
+use crate::time::SystemTime;
 
+#[cfg(feature = "std")]
 use csv::Writer;
 
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
@@ -66,6 +70,7 @@ use uom::si::power::kilowatt;
 use uom::si::ratio::ratio;
 use uom::si::time::second;
 
+#[cfg(feature = "std")]
 /// example test: full heater assembly (heated section, top/bottom heads,
 /// MX-10 mixer and structural supports) run through a transient with results
 /// written to a CSV data record.
@@ -306,6 +311,7 @@ pub fn example_heater_with_struct_supports_and_mx10() {
                     .collect();
 
                 // print surface temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_surf_temp_degc);
                 // print therminol temperature, toggle this to true
                 // if you want to print the temperature of the fluid
@@ -316,6 +322,7 @@ pub fn example_heater_with_struct_supports_and_mx10() {
                         .iter()
                         .map(|&temperature| temperature.get::<degree_celsius>())
                         .collect();
+                    #[cfg(feature = "std")]
                     dbg!(therminol_temp_degc);
                 }
 
@@ -326,11 +333,13 @@ pub fn example_heater_with_struct_supports_and_mx10() {
                     .last()
                     .unwrap();
                 // print outlet temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_top_head_exit_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
                 // bt_12_temperature, which is actually the output temperature of static
                 // mixer 10
+                #[cfg(feature = "std")]
                 dbg!(bt_12_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -344,6 +353,7 @@ pub fn example_heater_with_struct_supports_and_mx10() {
 
                 // print simulation time
                 // dbg diagnostics probably not the cause of mem leaks
+                #[cfg(feature = "std")]
                 dbg!(simulation_time);
             }
             // record current fluid temperature profile
@@ -704,6 +714,7 @@ pub fn example_heater_with_struct_supports_and_mx10() {
 
             let time_taken_for_calculation_loop = loop_time.elapsed().unwrap() - loop_time_start;
 
+            #[cfg(feature = "std")]
             dbg!(time_taken_for_calculation_loop);
         }
     });

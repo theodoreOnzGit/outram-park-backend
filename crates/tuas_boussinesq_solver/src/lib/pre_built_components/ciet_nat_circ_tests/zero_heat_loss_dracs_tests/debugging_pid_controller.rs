@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// This next set of tests shows explicitly what we need to do in
 /// the fluid component collection in order to get natural circulation
 ///
@@ -667,9 +670,13 @@ pub fn dracs_natural_circ_thermal_hydraulics_pid_test_prototype_1() {
             // tchx outlet temperature
             // current sim time
             // and tchx heat trf coeff
+            #[cfg(feature = "std")]
             dbg!(&mass_flowrate_absolute);
+            #[cfg(feature = "std")]
             dbg!(&tchx_outlet_temperature);
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
+            #[cfg(feature = "std")]
             dbg!(&tchx_heat_transfer_coeff);
         }
     }

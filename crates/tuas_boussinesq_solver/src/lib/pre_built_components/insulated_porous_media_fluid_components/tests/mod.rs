@@ -6,6 +6,9 @@
 //! non-insulated regression checks and the node-count check), and hosts the
 //! `steady_state_validation` and `transient_validation` submodules that compare
 //! the model against Zweibaum's experimental CIET heater data.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::length::meter;
 
 use crate::pre_built_components::ciet_isothermal_test_components::new_heated_section_version_1_label_1_without_inner_annular_pipe;
@@ -33,7 +36,7 @@ pub fn test_to_assert_if_conductance_from_insulation_to_ambient_is_correct() {
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
     use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
 
     use uom::{si::time::second, ConstZero};
 
@@ -183,6 +186,7 @@ pub fn test_to_assert_if_conductance_from_insulation_to_ambient_is_correct() {
     }
 
     // print outlet temperature
+    #[cfg(feature = "std")]
     dbg!(heated_section_exit_temperature
         .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -201,6 +205,7 @@ pub fn test_to_assert_if_conductance_from_insulation_to_ambient_is_correct() {
     simulation_time += timestep;
 
     let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
+    #[cfg(feature = "std")]
     dbg!(time_taken_for_calculation_loop);
 }
 
@@ -217,7 +222,7 @@ pub fn regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
     use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
 
     use uom::{si::time::second, ConstZero};
 
@@ -365,6 +370,7 @@ pub fn regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation
     }
 
     // print outlet temperature
+    #[cfg(feature = "std")]
     dbg!(heated_section_exit_temperature
         .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -383,6 +389,7 @@ pub fn regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation
     simulation_time += timestep;
 
     let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
+    #[cfg(feature = "std")]
     dbg!(time_taken_for_calculation_loop);
 }
 
@@ -434,7 +441,7 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
     use crate::pre_built_components::non_insul_porous_media_fluid::NonInsulatedPorousMediaFluidComponent;
     use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
 
     use uom::{si::time::second, ConstZero};
 
@@ -582,6 +589,7 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to
     }
 
     // print outlet temperature
+    #[cfg(feature = "std")]
     dbg!(heated_section_exit_temperature
         .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -600,6 +608,7 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to
     simulation_time += timestep;
 
     let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
+    #[cfg(feature = "std")]
     dbg!(time_taken_for_calculation_loop);
 }
 
@@ -618,7 +627,7 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
     use crate::pre_built_components::non_insul_porous_media_fluid::NonInsulatedPorousMediaFluidComponent;
     use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
 
     use uom::{si::time::second, ConstZero};
 
@@ -766,6 +775,7 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape
     }
 
     // print outlet temperature
+    #[cfg(feature = "std")]
     dbg!(heated_section_exit_temperature
         .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -784,6 +794,7 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape
     simulation_time += timestep;
 
     let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
+    #[cfg(feature = "std")]
     dbg!(time_taken_for_calculation_loop);
 }
 

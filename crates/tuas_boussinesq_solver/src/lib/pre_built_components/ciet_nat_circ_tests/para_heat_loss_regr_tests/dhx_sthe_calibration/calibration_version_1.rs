@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 ///
 ///
 /// in this module, I want to calibrate dhx shell and tube heat exchanger (STHE)
@@ -179,6 +182,7 @@ pub fn dhx_calibration_validation_test_v1(
 
         let debug_on = false;
         if debug_on {
+            #[cfg(feature = "std")]
             dbg!(&(
                 dhx_shell_outlet_actual_temperature.get::<degree_celsius>(),
                 dhx_tube_outlet_actual_temperature.get::<degree_celsius>()
@@ -279,6 +283,7 @@ pub fn dhx_calibration_validation_test_v1(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         dhx_shell_side_inlet_temperature.get::<degree_celsius>(),
         dhx_tube_side_inlet_temperature.get::<degree_celsius>(),
@@ -303,6 +308,7 @@ pub fn dhx_calibration_validation_test_v1(
     let inner_tube_wall_prandtl = dhx_sthe.wall_prandtl_number_shell_side_fluid_for_inner_tube();
     let nusselt_number_shell_side_to_tubes = dhx_sthe.nusselt_number_shell_side_to_tubes();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         shell_side_reynolds,
         shell_side_bulk_prandtl,
@@ -312,6 +318,7 @@ pub fn dhx_calibration_validation_test_v1(
     let outer_tube_wall_prandtl = dhx_sthe.wall_prandtl_number_shell_side_fluid_for_outer_tube();
     let nusselt_number_shell_side_to_outer_shell = dhx_sthe.nusselt_number_shell_side_parasitic();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         shell_side_reynolds,
         shell_side_bulk_prandtl,
