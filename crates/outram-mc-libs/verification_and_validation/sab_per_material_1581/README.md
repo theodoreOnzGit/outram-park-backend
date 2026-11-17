@@ -342,3 +342,20 @@ pass the single-seed sigma is about 190-200 pcm, the seed-to-seed sd about
 so a shift under about 200 pcm would not be resolved. Any arm beyond 2 sigma is
 a finding: reported, not patched. The partial N = 3 result above (+115 +- 151,
 +75 +- 81 pcm) is not used.
+
+**Prediction for `msre_n1_first_criticality` (written before any run of it).**
+OLD = `d1e20f188` (the driver as it was, per-nuclide `with_thermal_scattering`),
+NEW = `2d2a99ab4` (per-material S(a,b)); the driver already has `--seeds`, so no
+code change and no patch in either build. Arm: `--mo natural` (the V&V record's
+default model), default shield and dimensions, 4000 x [30 + 70], 2 threads per
+process, seeds 1..N (N = 8 planned, >= 8 required), all seeds in one process
+per build, OLD and NEW concurrent. Sized from the cost of the other drivers, not
+from any tally; if seed 1 shows N = 8 does not fit, N is reduced equally in both
+and said so. Same mechanism: the migration appends bound C-12 / C-13 / H-1
+copies and re-draws the URR stream; the carbon and shield-water physics are
+unchanged. mean(NEW) - mean(OLD) consistent with zero, |z| <= 2 (and |z| <= 1
+expected). No sign predicted. Expected seed sd about 150-300 pcm at this
+history count (the full-core model is large and loosely coupled), so
+sigma(new - old) about 100-150 pcm at N = 8; shifts under about 300 pcm are not
+resolvable. The recorded V&V k_eff is for a different history count and is not
+compared. Beyond 2 sigma is a finding, reported and not patched.
