@@ -1423,3 +1423,23 @@ These cannot be told apart without reading how OLD's ablated arm derives its
 per-seed stream, which has NOT been done here. The verdict is unchanged: not a
 physics shift between builds (absent at seeds 17-24 in both builds and in all 24
 NEW seeds), and still unexplained.
+
+**Code read, OLD `lct008_ace_roundtrip` and `run_keff_csg`'s seeding (2026-11-17).**
+- Each seed of each arm is a separate `run_keff_csg` call with
+  `set.seed = settings.seed + s`.
+- The ablated arm owns `via_endf_ablated`, which is `via_endf` consumed with
+  `without_dbrc()`. Its loop shares nothing mutable with the other arms' loops.
+- Per-history streams are `future_seed(hist * HIST_STRIDE, future_seed(gen * GEN_STRIDE, seed))`,
+  independent of thread count and of any earlier call.
+- So seed 13's ablated k is a function of (seed 13, the ablated nuclide set) and
+  nothing else. Nothing in the code can couple seeds 9-16 to each other within
+  the process, and the reproduction across processes confirms it.
+- The OLD ENDF arm, which uses the same seed values and transport, moved only
+  +41 pcm between blocks.
+
+This removes the "correlation within the process" reading. What is left is an
+unusually large chance excursion (+4.5 sigma in one of six eight-seed blocks,
+from about a dozen comparisons), which no further run here can distinguish from
+an unidentified effect. **Final position: not a physics difference between the
+builds, and not to be quoted as one. The 9-16 block is a deterministic,
+unexplained statistical excursion of the OLD ablated arm.**
