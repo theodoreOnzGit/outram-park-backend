@@ -1,0 +1,64 @@
+    Li6      0.1 s  URR false DBRC true
+    Li7      0.1 s  URR false DBRC true
+    Be9      0.1 s  URR false DBRC true
+    U238   148.7 s  URR true DBRC true
+    F19      0.2 s  URR false DBRC true
+    Zr90     6.8 s  URR true DBRC true
+    Zr91    32.1 s  URR true DBRC true
+    Zr92     4.4 s  URR true DBRC true
+    U235   192.7 s  URR true DBRC true
+    Zr94     5.7 s  URR true DBRC true
+    Zr96     7.1 s  URR true DBRC true
+    U236    19.2 s  URR true DBRC true
+    C12      0.9 s  URR false DBRC true
+    C13      0.2 s  URR false DBRC true
+    B10      0.2 s  URR false DBRC true
+    B11      1.1 s  URR false DBRC true
+    U234    26.9 s  URR true DBRC true
+    Ni58     4.7 s  URR false DBRC true
+    Ni61     1.8 s  URR false DBRC true
+    Ni60     4.6 s  URR false DBRC true
+    Ni62     3.0 s  URR true DBRC true
+    Ni64     1.7 s  URR false DBRC true
+    Cr50     2.9 s  URR false DBRC true
+    Cr52     2.7 s  URR false DBRC true
+    Cr54     1.8 s  URR false DBRC true
+    Cr53     2.6 s  URR false DBRC true
+    Fe54    11.1 s  URR false DBRC true
+    Fe56    12.6 s  URR false DBRC true
+    Fe57     7.9 s  URR false DBRC true
+    Fe58     7.2 s  URR true DBRC true
+    Mo92     1.7 s  URR true DBRC true
+    Mo94     1.8 s  URR true DBRC true
+    Mo96     2.2 s  URR true DBRC true
+    Mo97     8.2 s  URR true DBRC true
+    Mo95    12.2 s  URR true DBRC true
+    Mo98     2.2 s  URR true DBRC true
+    Mo100    2.3 s  URR true DBRC true
+    Fe54s    9.6 s  URR false DBRC true
+    Fe56s   10.3 s  URR false DBRC true
+    Fe57s    7.0 s  URR false DBRC true
+    Fe58s    6.7 s  URR true DBRC true
+    Cr50s    3.0 s  URR false DBRC true
+    Cr52s    3.0 s  URR false DBRC true
+    Cr54s    1.4 s  URR false DBRC true
+    Cr53s    2.6 s  URR false DBRC true
+    Ni60s    4.6 s  URR false DBRC true
+    Ni58s    5.2 s  URR false DBRC true
+    Ni61s    1.9 s  URR false DBRC true
+    Ni62s    2.4 s  URR true DBRC true
+    H1       0.1 s  URR false DBRC true
+    Ni64s    1.6 s  URR false DBRC true
+    O16      3.9 s  URR false DBRC true
+    C: graphite 30p S(a,b) by LEAPR at 911.48 K in 33.3 s
+    H1: bound in H2O at 293.6 K
+  nuclear data ready in 368.5 s (52 nuclides); hardware: llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.10GHz, 15.7 GiB RAM; threads 2
+  mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full seed 9: k = 1.02203 +/- 0.00219 (+2121 pcm vs 1.00080) in 206 s
+  mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full seed 10: k = 1.01813 +/- 0.00197 (+1731 pcm vs 1.00080) in 206 s
+  mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full seed 11: k = 1.01641 +/- 0.00207 (+1560 pcm vs 1.00080) in 203 s
+  mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full seed 12: k = 1.01949 +/- 0.00190 (+1867 pcm vs 1.00080) in 196 s
+  mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full seed 13: k = 1.01850 +/- 0.00217 (+1769 pcm vs 1.00080) in 212 s
+  mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full seed 14: k = 1.01865 +/- 0.00198 (+1783 pcm vs 1.00080) in 196 s
+  mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full seed 15: k = 1.01640 +/- 0.00193 (+1559 pcm vs 1.00080) in 203 s
+  mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full seed 16: k = 1.01656 +/- 0.00192 (+1574 pcm vs 1.00080) in 198 s
+EXIT 0
