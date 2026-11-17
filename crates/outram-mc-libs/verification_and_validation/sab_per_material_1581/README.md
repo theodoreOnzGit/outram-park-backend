@@ -1205,3 +1205,38 @@ is not known in advance (the pilot measures it); the run uses the example's
 default 2000 histories x [20 inactive + 40 active], 6 rings x 4 layers, unless
 the clock forces fewer, and the seed ensemble is cut by clock, never by result.
 k of this reduced run is a statistics instrument, not a benchmark number.
+
+### Results, gh:#1635 item 2, second attempt (2026-11-17): within the gate
+
+Runs: `OUTRAM_HTR10_K_ONLY=1`, 2000 histories x [20 inactive + 40 active],
+6 rings x 4 layers, seeds 20260919-20260924 on each build (six each; the
+ensemble was set by clock before any result, and two container restarts
+interrupted it: seeds were resumed, none re-drawn or dropped). OLD =
+`d1e20f188` + the same example fix (`with_thermal_scattering` on nuclide slots);
+NEW = `68b52a0b0` (laws per material).
+
+| seed | OLD k_eff | NEW k_eff |
+|---|---|---|
+| 20260919 | 0.547218 ± 0.003348 | 0.550315 ± 0.002503 |
+| 20260920 | 0.549320 ± 0.003738 | 0.544410 ± 0.004091 |
+| 20260921 | 0.551570 ± 0.002480 | 0.543653 ± 0.003083 |
+| 20260922 | 0.545045 ± 0.002890 | 0.535304 ± 0.003111 |
+| 20260923 | 0.543016 ± 0.003586 | 0.546343 ± 0.003108 |
+| 20260924 | 0.551063 ± 0.003573 | 0.544343 ± 0.002982 |
+| **mean ± sem** | **0.547872 ± 0.001390** | **0.544061 ± 0.002011** |
+
+The sem is from the seed-to-seed scatter; the quoted per-seed sigmas combine to
+0.001347 (OLD) and 0.001299 (NEW), so the example's own error bar agrees with
+the scatter on OLD and is about 1.5x small on NEW (n = 6 cannot tell these
+apart: the NEW scatter is driven by seed 20260922).
+
+**new - old = −381 ± 244 pcm, z = −1.56: inside the |z| <= 2 gate**, so the
+prediction (zero within statistics) holds. The difference is not resolved; an
+ensemble this size cannot exclude a shift of a few hundred pcm in either
+direction, and none is claimed. k here is a statistics instrument for the
+migration, not an HTR-10 benchmark number (reduced run, 293.6 K, UO2 and iron
+laws unbound).
+
+Raw: `ensembles_1635/nee_soon_dvm_{old,new}_konly_*.out` (the OLD pilot without
+`OUTRAM_PARK_ENDF_DIR` printed SKIP and is not counted or kept); statistics:
+`ensembles_1635/dvm_stats.sh`. Test: `tests::materials_cover_every_core_slot`.
