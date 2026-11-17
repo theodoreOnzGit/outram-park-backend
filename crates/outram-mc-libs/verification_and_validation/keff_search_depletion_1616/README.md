@@ -148,7 +148,11 @@ the 986 ppm total drop still clears 3 sigma (about 260 ppm).
   is validated against a measurement or against OpenMC's own coupled run.
   Not compared with OpenMC numerically: no OpenMC run was made.
 - Boron does not feed back into depletion (frozen cross sections), so this
-  is the trajectory of the parameter, not a coupled spectrum-shift study. The
+  is the trajectory of the parameter, not a coupled spectrum-shift study.
+  **True of `deplete_independent_with_keff_search`, which this case uses.
+  Since 2026-11-17 (gh:#1618) `deplete_coupled_with_keff_search` composes the
+  hook with the transport-coupled spectrum; see below. This case was not
+  re-run on it.** The
   enrichment-type path (parameter changes a burnable nuclide) is exercised
   only with a synthetic k in the unit test, not with transport.
 - sigma_k of 0.003 to 0.004 per solve is the resolving power. A 25 ppm bracket
@@ -239,3 +243,39 @@ The test sets `b0 = 25` explicitly.
 What this does not show: one seed per solve, so the two methods' 10 to 30 ppm
 difference and the 41-versus-32 solve count are one realisation each. No
 ensemble over seeds was run (#1618 item 5 is not done).
+
+## 2026-11-17, #1618 item 2: the hook composed with `deplete_coupled`
+
+Code: `deplete_coupled_with_keff_search` in `src/depletion/keff_search.rs`.
+`deplete_coupled` (`operator.rs`) is not edited; the loop is its loop, line for
+line (predictor splitting, CRAM16, `settings.weighting` replaced by the tallied
+flux), with the hook where upstream puts it (`abc.py:883-900`): search on the
+inventory entering the step, write the adjusted inventory back, then call the
+caller's `spectrum(p, inventory)` **at the found `p`**. That hand-over is the
+composition: the parameter reaches the depletion cross sections through the
+spectrum a transport solve measures at it, which the frozen operator cannot do.
+The one change outside the new function is `DEFAULT_GROUP_SUB_POINTS` in
+`operator.rs`, `const` to `pub(crate) const`, so the new loop collapses with the
+same 8 sub-points; no function body changed.
+
+Differences stated: only predictor-style splitting (that is all
+`deplete_coupled` offers; there is no integrator choice), and one spectrum
+solve per step (the step-0 root's), where `deplete_coupled` reuses its
+beginning-of-life solve for step 1, which are the same inventory.
+
+Tests (`keff_search::tests`, synthetic closures, no transport, milliseconds):
+
+- `the_coupled_hook_with_an_inert_parameter_equals_deplete_coupled`: with a
+  spectrum that ignores `p`, the burnup is **bit-identical** to
+  `deplete_coupled` on the same fixed 4-group spectrum, and the spectrum is
+  called `n_steps` times (4).
+- `the_searched_parameter_reaches_the_coupled_spectrum_and_the_burnup`: the
+  spectrum closure is handed the found parameter (5.0 to 1e-6) at each of the 4
+  steps, equal to the search record's root to the bit; a spectrum whose thermal
+  weight tracks `p` gives a burnup different from one that ignores it; at zero
+  power no search runs and the spectrum is handed `x0`.
+
+Prediction, written before the run: both pass first time. Measured: both
+passed first time. **This is a wiring test, not a physics result**: no
+transport-coupled case (critical boron against burnup with the spectrum fed
+back) was run, so the size of the feedback on the #1616 trajectory is unknown.

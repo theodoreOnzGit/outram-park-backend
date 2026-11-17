@@ -72,8 +72,12 @@
 //!   `adjust`. For a non-burnable parameter such as boron the burnup history is
 //!   therefore the same as without the hook (bit for bit, pinned by
 //!   `tests::a_parameter_that_changes_no_burnable_nuclide_leaves_the_burnup_unchanged`).
-//! * A transport-coupled spectrum ([`deplete_coupled`](crate::depletion::operator::deplete_coupled))
-//!   is not composed with the hook here.
+//! * [`deplete_coupled_with_keff_search`] (#1618) composes it with the
+//!   transport-coupled spectrum of
+//!   [`deplete_coupled`](crate::depletion::operator::deplete_coupled): the
+//!   found parameter is handed to the caller's `spectrum` closure, so a
+//!   transport solve at the **critical** boron supplies the flux that collapses
+//!   the depletion cross sections, and boron feeds back into the burnup.
 //!
 //! The existing drivers are **not edited**. This is a new function in a new
 //! file; with no hook there is nothing to call, and the pins in
@@ -90,7 +94,11 @@ use crate::depletion::integrators::{
     CramSolver, DepletionError, DepletionIntegrator, Integrator, MicroXs, OneGroupOperator,
     SECONDS_PER_DAY,
 };
-use crate::depletion::operator::{k_inf, BurnupResult, BurnupSettings, BurnupStep};
+use crate::depletion::cram::cram16;
+use crate::depletion::operator::{
+    flux_for_power, k_inf, one_group_cross_sections, reaction_rates, BurnupResult,
+    BurnupSettings, BurnupStep, OneGroupWeighting, DEFAULT_GROUP_SUB_POINTS,
+};
 use crate::physics::keff::KeffResult;
 use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchResult, SearchSettings,
@@ -638,6 +646,157 @@ where
     })
 }
 
+/// Deplete with the **transport-coupled spectrum** and **a k search before
+/// every step** — the hook composed with
+/// [`deplete_coupled`](crate::depletion::operator::deplete_coupled)
+/// (GitHub #1618 item 2; upstream's hook composes with any operator, and
+/// `CoupledOperator` re-evaluates transport at every step).
+///
+/// The loop is `deplete_coupled`'s, line for line (predictor splitting, CRAM16,
+/// the spectrum re-solved on the inventory entering each step, `settings.weighting`
+/// replaced by the returned tabulated flux), with the hook placed as upstream
+/// places it (`abc.py:883-900`): at the beginning of each step the search runs
+/// on the current inventory, the inventory the found parameter implies is
+/// written back, and **then** the spectrum is solved on that adjusted inventory
+/// **at the found parameter**. That last point is the composition: boron (or any
+/// parameter) enters the depletion cross sections through the flux the
+/// `spectrum` closure tallies at `p`, so the parameter feeds back into the
+/// burnup, which the frozen operator of
+/// [`deplete_independent_with_keff_search`] cannot do.
+///
+/// # Arguments
+///
+/// * `model`, `adjust` — as [`deplete_independent_with_keff_search`].
+/// * `spectrum(p, inventory)` — a transport solve at parameter `p` on the
+///   (already adjusted) inventory, returning `(group boundaries [eV], flux per
+///   group)` as [`deplete_coupled`](crate::depletion::operator::deplete_coupled)'s
+///   closure does, or `None` to keep the previous spectrum. With
+///   `settings.power_watts == 0.0` no search runs (`abc.py:886`) and `p` is the
+///   first initial guess, [`KeffSearchControl::initial_guesses`]`.0`.
+///
+/// # Call counts
+///
+/// A search and a spectrum solve before each of the `n_steps` steps (unlike
+/// `deplete_coupled`, whose step 1 reuses the beginning-of-life solve: here the
+/// beginning-of-life solve **is** the one at the step-0 root), plus one search
+/// on the final inventory unless [`KeffSearchControl::with_search_at_end`] is
+/// `false`. That final inventory is recorded as it is, not adjusted.
+///
+/// # Differences from `deplete_coupled`
+///
+/// Only [`Integrator::Predictor`]-style splitting is available, because that is
+/// all `deplete_coupled` offers; there is no `method` argument. Upstream's
+/// coupled operator is not restricted so, but the workspace's coupled driver
+/// is, and this composes with what exists. `deplete_coupled` itself is not
+/// edited, and with a parameter that changes nothing the result is **bit
+/// identical** to it (`tests::the_coupled_hook_with_an_inert_parameter_equals_deplete_coupled`).
+///
+/// # Errors
+///
+/// [`KeffSearchDepletionError`], as the independent driver.
+pub fn deplete_coupled_with_keff_search<M, A, S>(
+    chain: &DepletionChain,
+    initial: &[(String, f64)],
+    settings: &BurnupSettings,
+    control: &KeffSearchControl,
+    mut model: M,
+    mut adjust: A,
+    mut spectrum: S,
+) -> Result<KeffSearchDepletion, KeffSearchDepletionError>
+where
+    M: FnMut(f64, &[(String, f64)], usize) -> KeffResult,
+    A: FnMut(f64, &mut [(String, f64)]),
+    S: FnMut(f64, &[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
+{
+    let names: Vec<&str> = chain.nuclide_names();
+    let mut densities = vec![0.0_f64; names.len()];
+    for (name, dens) in initial {
+        if let Some(idx) = chain.index_of(name) {
+            densities[idx] = *dens;
+        }
+    }
+    let searching = settings.power_watts != 0.0;
+    let mut searches: Vec<KeffSearchStep> = Vec::new();
+    let mut step_settings = settings.clone();
+    let mut xs = one_group_cross_sections(chain, &step_settings);
+    let mut steps = Vec::with_capacity(settings.n_steps + 1);
+    let dt_seconds = settings.step_days * SECONDS_PER_DAY;
+    let mut parameter = control.x0;
+
+    for step in 0..settings.n_steps {
+        let time_days = step as f64 * settings.step_days;
+        if searching {
+            let found = search_step(
+                chain,
+                &names,
+                control,
+                step,
+                time_days,
+                &mut densities,
+                &mut model,
+                &mut adjust,
+            )?;
+            parameter = found.parameter;
+            searches.push(found);
+        }
+        // The spectrum of the (adjusted) inventory entering this step, at the
+        // parameter just found.
+        if let Some((e_grid_ev, phi)) = spectrum(parameter, &inventory_of(&names, &densities)) {
+            step_settings.weighting = OneGroupWeighting::TabulatedFlux {
+                e_grid_ev,
+                phi,
+                sub_points: DEFAULT_GROUP_SUB_POINTS,
+            };
+            xs = one_group_cross_sections(chain, &step_settings);
+        }
+        if step == 0 {
+            steps.push(BurnupStep {
+                step: 0,
+                time_days: 0.0,
+                flux: 0.0,
+                k_inf: k_inf(&densities, &xs),
+                densities: inventory_of(&names, &densities),
+            });
+        }
+        let flux = flux_for_power(&names, &densities, &xs, settings);
+        let rates = reaction_rates(&names, flux, &xs);
+        let matrix = chain.build_matrix(&rates);
+        densities = cram16(&matrix, &densities, dt_seconds);
+        for d in &mut densities {
+            if *d < 0.0 {
+                *d = 0.0;
+            }
+        }
+        steps.push(BurnupStep {
+            step: step + 1,
+            time_days: (step + 1) as f64 * settings.step_days,
+            flux,
+            k_inf: k_inf(&densities, &xs),
+            densities: inventory_of(&names, &densities),
+        });
+    }
+
+    if searching && control.search_at_end {
+        let mut final_inventory = densities.clone();
+        let found = search_step(
+            chain,
+            &names,
+            control,
+            settings.n_steps,
+            settings.n_steps as f64 * settings.step_days,
+            &mut final_inventory,
+            &mut model,
+            &mut adjust,
+        )?;
+        searches.push(found);
+    }
+
+    Ok(KeffSearchDepletion {
+        burnup: BurnupResult { steps },
+        searches,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1126,5 +1285,98 @@ mod tests {
         .unwrap_err();
         assert!(matches!(e, KeffSearchDepletionError::Search { step: 0, .. }), "{e}");
         assert!(e.to_string().contains("no usable slope"));
+    }
+
+    /// A fixed 4-group spectrum, thermal weight `w`.
+    fn grid(w: f64) -> Option<(Vec<f64>, Vec<f64>)> {
+        Some((vec![1e-5, 0.0253, 1.0, 1e3, 1e6], vec![w, 2.0, 1.0, 0.5]))
+    }
+
+    fn coupled_bits(r: &BurnupResult) -> Vec<u64> {
+        bits(r)
+    }
+
+    /// With a parameter that changes nothing (the spectrum ignores it), the
+    /// coupled hook reproduces `deplete_coupled` bit for bit, and calls the
+    /// spectrum once per step.
+    #[test]
+    fn the_coupled_hook_with_an_inert_parameter_equals_deplete_coupled() {
+        use crate::depletion::operator::deplete_coupled;
+        let (chain, initial, settings, _) = setup();
+        let reference = deplete_coupled(&chain, &initial, &settings, |_| grid(1.0));
+        let control = KeffSearchControl::new(3.0, 8.0, (0.0, 10.0)).unwrap();
+        let mut calls = 0usize;
+        let hooked = deplete_coupled_with_keff_search(
+            &chain,
+            &initial,
+            &settings,
+            &control,
+            |p, _, b| noisy(p, b),
+            |_, _| {},
+            |_p, _| {
+                calls += 1;
+                grid(1.0)
+            },
+        )
+        .unwrap();
+        assert_eq!(coupled_bits(&reference), coupled_bits(&hooked.burnup));
+        assert_eq!(calls, settings.n_steps);
+        assert_eq!(hooked.searches.len(), settings.n_steps + 1);
+    }
+
+    /// The composition: the spectrum closure is handed the **found** parameter
+    /// at every step, so a parameter that shapes the spectrum changes the
+    /// burnup, which the independent (frozen) driver cannot show.
+    #[test]
+    fn the_searched_parameter_reaches_the_coupled_spectrum_and_the_burnup() {
+        let (chain, initial, settings, _) = setup();
+        let control = KeffSearchControl::new(3.0, 8.0, (0.0, 10.0)).unwrap();
+        let run = |feed: bool, seen: &mut Vec<f64>| {
+            deplete_coupled_with_keff_search(
+                &chain,
+                &initial,
+                &settings,
+                &control,
+                |p, _, b| noisy(p, b),
+                |_, _| {},
+                |p, _| {
+                    seen.push(p);
+                    // Thermal weight tracks the parameter (a stand-in for
+                    // boron hardening the spectrum): p = 5 gives weight 5.
+                    grid(if feed { p } else { 1.0 })
+                },
+            )
+            .unwrap()
+        };
+        let mut seen = Vec::new();
+        let fed = run(true, &mut seen);
+        assert_eq!(seen.len(), settings.n_steps);
+        for p in &seen {
+            assert!((p - 5.0).abs() < 1e-6, "{seen:?}");
+        }
+        for (s, p) in fed.searches.iter().zip(&seen) {
+            assert_eq!(s.parameter.to_bits(), p.to_bits());
+        }
+        let mut unused = Vec::new();
+        let plain = run(false, &mut unused);
+        assert_ne!(coupled_bits(&fed.burnup), coupled_bits(&plain.burnup));
+        // Zero power: no search, the spectrum gets x0.
+        let quiet = BurnupSettings { power_watts: 0.0, ..settings.clone() };
+        let mut p0 = Vec::new();
+        let r = deplete_coupled_with_keff_search(
+            &chain,
+            &initial,
+            &quiet,
+            &control,
+            |p, _, b| noisy(p, b),
+            |_, _| {},
+            |p, _| {
+                p0.push(p);
+                grid(1.0)
+            },
+        )
+        .unwrap();
+        assert!(r.searches.is_empty());
+        assert!(p0.iter().all(|p| *p == 3.0));
     }
 }
