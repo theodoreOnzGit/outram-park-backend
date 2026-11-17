@@ -64,6 +64,7 @@
 //! The model is a generic `FnMut(f64, usize) -> KeffResult`, never boxed.
 
 use crate::physics::keff::KeffResult;
+use petir::mathf::RealMath;
 
 /// Settings of a [`grsecant_search_for_keff`] run — the keyword arguments of
 /// upstream's `Model.keff_search` (`model.py:3248-3270`) with upstream's
@@ -263,7 +264,7 @@ fn weighted_root(xs: &[f64], fs: &[f64], ss: &[f64]) -> Option<f64> {
 
 /// Population variance of `ln(g)`, as `np.var(np.log(gs))`.
 fn var_ln(gs: &[usize]) -> f64 {
-    let l: Vec<f64> = gs.iter().map(|g| (*g as f64).ln()).collect();
+    let l: Vec<f64> = gs.iter().map(|g| (*g as f64).r_ln()).collect();
     let m = l.iter().sum::<f64>() / l.len() as f64;
     l.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / l.len() as f64
 }
@@ -377,7 +378,7 @@ where
         } else {
             1.0
         };
-        let sig_target = (base * ratio.powf(settings.p)).max(base);
+        let sig_target = (base * ratio.r_powf(settings.p)).max(base);
 
         // Step 3 (`:3436-3459`): batches for that sigma, r = 0.5.
         let k = if gs.len() >= 2 && var_ln(&gs) > 0.0 {
@@ -386,15 +387,15 @@ where
             let ln_k = gs[t0..]
                 .iter()
                 .zip(&ss[t0..])
-                .map(|(g, s)| s.ln() + 0.5 * (*g as f64).ln())
+                .map(|(g, s)| s.r_ln() + 0.5 * (*g as f64).r_ln())
                 .sum::<f64>()
                 / tail as f64;
-            ln_k.exp()
+            ln_k.r_exp()
         } else {
             let last = gs.len() - 1;
             ss[last] * (gs[last] as f64).sqrt()
         };
-        let b_float = (k / sig_target).powi(2).ceil();
+        let b_float = (k / sig_target).r_powi(2).ceil();
         let mut b_new = if b_float.is_finite() && b_float < usize::MAX as f64 {
             (b_float as usize).max(settings.b_min)
         } else {
