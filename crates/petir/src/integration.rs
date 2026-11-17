@@ -128,13 +128,30 @@ mod qawc;
 /// QAWS: algebraic-logarithmic end-point weights, GSL `integration/qaws.c`,
 /// `qc25s.c`, `qmomo.c` (gh:#1340).
 mod qaws;
+
+/// QAWO and QAWF: trigonometric-weight and Fourier integrals, GSL
+/// `integration/qawo.c`, `qawf.c`, `qc25f.c`, `qmomof.c` (gh:#1340).
+mod qawo;
+/// CQUAD constants, copied from GSL `integration/cquad_const.c` by script
+/// (gh:#1340).
+mod cquad_tables;
+
+/// CQUAD: doubly-adaptive Clenshaw-Curtis quadrature, GSL
+/// `integration/cquad.c` (gh:#1340).
+mod cquad;
+/// Fixed-order Gaussian quadrature (IQPACK), GSL `integration/fixed.c` and
+/// the nine weight types (gh:#1340).
+mod fixed;
 /// Romberg integration, GSL `integration/romberg.c` (gh:#1340).
 mod romberg;
 
 pub use qagp::{qagp, qagp_with_status};
 pub use qaws::{qaws, qaws_with_status, QawsTable};
 pub use romberg::{romberg, romberg_with_status, RombergOutcome};
+pub use cquad::{cquad, cquad_with_status, CquadOutcome};
+pub use fixed::{FixedType, FixedWorkspace};
 pub use qawc::{qawc, qawc_with_status};
+pub use qawo::{qawf, qawf_with_status, qawo, qawo_with_status, QawoKind, QawoOutcome, QawoTable};
 pub use qng::{qng, qng_with_status, QngOutcome};
 pub use qagi::{qagi, qagil, qagil_with_status, qagi_with_status, qagiu, qagiu_with_status};
 pub use qags::{qags, qags_with_status, QagsOutcome};
