@@ -89,7 +89,10 @@
 //! a physics disagreement rather than an indexing bug, which is exactly why the
 //! leakage-free cross-check below exists.
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 use outram_foam_appbuilder_lib::genfoam::neutronics::xs::input::{
     NuclearDataInput, StateInput, ZoneConstantsInput, ZoneStateInput,

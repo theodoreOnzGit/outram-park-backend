@@ -111,8 +111,11 @@
 //! 0.000962, −583 ± 143 pcm from the lattice at N = 12, on one pour
 //! (`verification_and_validation/htr10_dem_bed_keff_2026_10_08/`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, RegionToken};
 use outram_mc_libs::geometry::lattice::{HexLattice, HexOrientation};
@@ -262,7 +265,7 @@ impl ExplicitBed {
 /// centres are `d` apart (`d < 2r`).
 #[must_use]
 pub fn lens_volume(r: f64, d: f64) -> f64 {
-    std::f64::consts::PI * (4.0 * r + d) * (2.0 * r - d).r_powi(2) / 12.0
+    core::f64::consts::PI * (4.0 * r + d) * (2.0 * r - d).r_powi(2) / 12.0
 }
 
 /// **Fuel/dummy flags by the literature's rule**, for centres in the DEM
@@ -564,7 +567,7 @@ impl ExplicitBed {
             }
         }
         bed.max_overlap = (2.0 * r - dmin).max(0.0);
-        let v_ball = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
+        let v_ball = 4.0 / 3.0 * core::f64::consts::PI * r.r_powi(3);
         bed.lens_volume_fraction = lens / (v_ball * bed.centres.len() as f64);
 
         // Every tile each ball intersects.
@@ -697,9 +700,9 @@ pub fn assemble_explicit_triso_from_centres_with(
     // the tiles below add hundreds of thousands. Only the order of entries in
     // the surface and cell lists differs from the Şeker path.
     sh.add_reflector();
-    let mut surfaces = std::mem::take(&mut sh.surfaces);
-    let mut cells = std::mem::take(&mut sh.cells);
-    let mut universes = std::mem::take(&mut sh.universes);
+    let mut surfaces = core::mem::take(&mut sh.surfaces);
+    let mut cells = core::mem::take(&mut sh.cells);
+    let mut universes = core::mem::take(&mut sh.universes);
 
     // Random TRISO packings (gh:#1243): each one exactly the lattice's
     // particle count, wrapped in a tracking lattice (geometry lattices 2..).

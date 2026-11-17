@@ -34,6 +34,9 @@
 //! still being built in `njoy-outram-park-fork`, `outram-mc-libs`, and the
 //! in-progress GeN-Foam SP3 port (see each stage's bead references).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod case;
 pub mod mesh_mc;
 pub mod mgxs;

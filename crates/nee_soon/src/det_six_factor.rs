@@ -36,6 +36,9 @@
 //! is zero, while the discretisation and condensation errors, which are the
 //! large ones here, are not represented at all.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mgxs::MgxsLibrary;
 use outram_mc_libs::prelude::{assemble_six_factors, Estimate, SixFactors};
 

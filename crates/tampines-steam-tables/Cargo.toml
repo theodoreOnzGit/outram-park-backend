@@ -175,7 +175,7 @@ long-tests = []
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 # resolves to the in-tree crate rather than crates.io
 tuas_boussinesq_solver = { workspace = true, features = ["std"] }
-teh-o-prke.workspace = true
+teh-o-prke = { workspace = true, features = ["std"] }
 chem-eng-real-time-process-control-simulator = { workspace = true, features = ["std"] }
 egui.workspace = true
 bugis.workspace = true

@@ -21,6 +21,9 @@
 //! in the same order, so every surface index callers and tests use is
 //! unchanged.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::lattice::{HexLattice, Lattice, RectLattice};
@@ -94,7 +97,7 @@ impl CoreFrame {
         // one configuration directly comparable to the independently measured
         // single-pebble k_inf from the DhUniverse path. Two implementations, one
         // physical problem: they must agree or one of them is wrong.
-        let refl_thickness = if std::env::var("OUTRAM_HTR10_NOREFL").is_ok() {
+        let refl_thickness = if crate::env::var("OUTRAM_HTR10_NOREFL").is_ok() {
             0.0
         } else {
             100.0
@@ -133,7 +136,7 @@ impl CoreFrame {
         };
 
         let has_refl = refl_thickness > 0.0;
-        let explicit_tube = has_refl && std::env::var("OUTRAM_HTR10_HOMOG_TUBE").is_err();
+        let explicit_tube = has_refl && crate::env::var("OUTRAM_HTR10_HOMOG_TUBE").is_err();
         Self {
             bed_radius,
             bed_half_height,
@@ -247,7 +250,7 @@ impl CoreShell {
         // OUTRAM_HTR10_REFLECTIVE=1 closes the outer boundary. NOT physical -- it is
         // a DIAGNOSTIC that separates the two ways k can be low: with no leakage at
         // all, whatever k remains is pure in-model absorption or lost histories.
-        let obc = if std::env::var("OUTRAM_HTR10_REFLECTIVE").is_ok() {
+        let obc = if crate::env::var("OUTRAM_HTR10_REFLECTIVE").is_ok() {
             BoundaryType::Reflective
         } else {
             BoundaryType::Vacuum
@@ -370,8 +373,8 @@ impl CoreShell {
         //   except the boronated bricks at r > 167.793 cm (the reflector before the
         //   zone map), the borings still explicit.
         // - OUTRAM_HTR10_NO_WITHDRAWN_RODS=1: the rod channels are empty.
-        let zone_map = std::env::var("OUTRAM_HTR10_NO_ZONE_MAP").is_err();
-        let withdrawn_rods = std::env::var("OUTRAM_HTR10_NO_WITHDRAWN_RODS").is_err();
+        let zone_map = crate::env::var("OUTRAM_HTR10_NO_ZONE_MAP").is_err();
+        let withdrawn_rods = crate::env::var("OUTRAM_HTR10_NO_WITHDRAWN_RODS").is_err();
         let temperature_zones = design.temperature_zones;
         // Zone 0 lies between the cone and r = 90 cm, below the bed: the
         // bottom reflector when temperature zones are on (gh:#1138).

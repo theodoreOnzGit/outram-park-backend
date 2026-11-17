@@ -32,6 +32,9 @@
 //! blender -> outram-mc edge, even an optional one, would then be a cycle, so
 //! the bridge moved up to this coupling crate, which depends on both.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_blender::export::ExportError;
 #[cfg(test)]
 use outram_blender::export::{to_csg_primitive, CsgSurface};

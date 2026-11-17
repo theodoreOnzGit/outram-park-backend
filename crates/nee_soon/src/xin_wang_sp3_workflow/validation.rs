@@ -14,6 +14,9 @@
 //! **Placeholder stage.** Depends on Stages 1–3 (none of which run yet). Tracked
 //! by bead **op-fr2.2.5**.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Power;
 use uom::si::power::watt;
 

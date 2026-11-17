@@ -40,6 +40,9 @@
 //! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/`. See the
 //! module docs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 
@@ -342,6 +345,7 @@ fn the_built_triso_lattice_holds_the_stated_8335_particles() {
         .iter()
         .filter(|&&u| u == TRISO_PARTICLE_UNIVERSE)
         .count();
+    #[cfg(feature = "std")]
     println!("{built} particles on a {:?} grid, pitch {:.7} cm", rect.n, rect.pitch[0]);
     assert_eq!(built, 8335, "TRISO particles per fuel pebble");
     // The grid must cover the 2.5 cm fuel zone on every axis.
@@ -434,8 +438,8 @@ pub(crate) fn built_ball_pieces(c: &crate::htr10_rmc::core_model::AssembledCore)
 /// flags of every piece)`.
 pub(crate) fn built_balls(pieces: &[BallPiece]) -> Vec<([f64; 3], Vec<bool>)> {
     let key = |c: &[f64; 3]| c.map(|x| (x * 1.0e6).round() as i64);
-    let mut m: std::collections::BTreeMap<[i64; 3], ([f64; 3], Vec<bool>)> =
-        std::collections::BTreeMap::new();
+    let mut m: alloc::collections::BTreeMap<[i64; 3], ([f64; 3], Vec<bool>)> =
+        alloc::collections::BTreeMap::new();
     for p in pieces {
         m.entry(key(&p.centre))
             .or_insert_with(|| (p.centre, Vec::new()))
@@ -475,7 +479,7 @@ fn no_two_balls_of_the_built_bed_overlap() {
     let seker = matches!(c.bed, Some(bed::PebbleBed::Seker(_)));
     let bin = 7.0;
     let cell_of = |p: &[f64; 3]| p.map(|x| (x / bin).floor() as i64);
-    let mut grid: std::collections::BTreeMap<[i64; 3], Vec<usize>> = Default::default();
+    let mut grid: alloc::collections::BTreeMap<[i64; 3], Vec<usize>> = Default::default();
     for (i, (p, _)) in balls.iter().enumerate() {
         grid.entry(cell_of(p)).or_default().push(i);
     }
@@ -503,6 +507,7 @@ fn no_two_balls_of_the_built_bed_overlap() {
             }
         }
     }
+    #[cfg(feature = "std")]
     println!(
         "{} balls built; minimum centre distance {dmin:.4} cm (diameter {:.1}, A-B spacing {:.4})",
         balls.len(),
@@ -568,6 +573,7 @@ fn every_piece_of_a_built_ball_has_one_identity() {
             inconsistent += 1;
         }
     }
+    #[cfg(feature = "std")]
     println!(
         "{} balls: held by 1 tile {}, 2 tiles {}, 3 tiles {}; inconsistent {inconsistent}",
         balls.len(),
@@ -623,6 +629,7 @@ fn the_built_bed_is_57_percent_fuel_balls_and_the_conus_none() {
         }
     }
     let f = bed_fuel as f64 / bed_n as f64;
+    #[cfg(feature = "std")]
     println!("bed: {bed_fuel} of {bed_n} balls fuelled = {f:.5}; conus: {conus_fuel} of {conus_n}");
     assert!(
         (f - table1::FUEL_BALL_FRACTION).abs() < 2.0e-3,
@@ -681,7 +688,7 @@ fn the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction() {
     let u = Direction::new(0.0, 0.0, 1.0);
     for _ in 0..n {
         let r = c.bed_radius * prn().sqrt();
-        let th = 2.0 * std::f64::consts::PI * prn();
+        let th = 2.0 * core::f64::consts::PI * prn();
         let z = c.bed_half_height * (2.0 * prn() - 1.0);
         let path = g
             .locate(Position::new(r * th.r_cos(), r * th.r_sin(), z), u, SurfaceToken::NONE)
@@ -700,6 +707,7 @@ fn the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction() {
     }
     let pack = (fuel + dummy) as f64 / n as f64;
     let fb = fuel as f64 / (fuel + dummy) as f64;
+    #[cfg(feature = "std")]
     println!("packing {pack:.5}, fuel-ball fraction {fb:.5}, helium {}", helium as f64 / n as f64);
     let expected = match c.bed.as_ref() {
         Some(pb @ bed::PebbleBed::Seker(b)) => {
@@ -708,7 +716,7 @@ fn the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction() {
             // caps of the conus balls centred 1.899 cm below the floor, which
             // reach 1.1 cm up into the slab (Şeker's lattice continues into the
             // cone). Kept balls never cross r = 90 cm.
-            let pi = std::f64::consts::PI;
+            let pi = core::f64::consts::PI;
             let r = 3.0;
             let cap = |h: f64| pi * h * h * (3.0 * r - h) / 3.0;
             let (lo, hi) = (-c.bed_half_height, c.bed_half_height);
@@ -725,6 +733,7 @@ fn the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction() {
             let v_bed = pi * c.bed_radius.r_powi(2) * 2.0 * c.bed_half_height;
             let v_ball = 4.0 / 3.0 * pi * r.r_powi(3);
             let seker = (1346 * b.n_layers + 733) as f64 * v_ball / v_bed;
+            #[cfg(feature = "std")]
             println!(
                 "Seker bed, N = {}: ball list -> {:.5}; Seker Table 3 count -> {seker:.5}",
                 b.n_layers,
@@ -792,6 +801,7 @@ fn the_default_graphite_law_is_30p_reactor_graphite() {
         .join("../../reference-data/endf")
         .join(law.tape());
     let Ok(text) = std::fs::read_to_string(&tape) else {
+        #[cfg(feature = "std")]
         eprintln!("SKIP tape check: {} not in this checkout", tape.display());
         return;
     };
@@ -820,6 +830,7 @@ fn the_reference_is_matched_to_the_bed_by_ball_count() {
     let balls = c.bed.as_ref().and_then(|b| b.core_balls()).expect("a Şeker bed");
     let h = seker_height_for_balls(balls);
     let k = rmc_keff_at_ball_count(balls).expect("inside the table");
+    #[cfg(feature = "std")]
     println!("N = 12: {balls} balls -> Seker height {h:.3} cm -> RMC {k:.6}");
     assert_eq!(balls, 16_681);
     assert!(h < 123.576 && h > 113.778);

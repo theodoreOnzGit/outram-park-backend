@@ -105,8 +105,12 @@
 //! - **No validation.** Condensing correctly is not the same as the group
 //!   constants reproducing a reference eigenvalue. Nothing here is validated.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
+#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 /// Errors from condensing a Monte Carlo run into group constants.
@@ -229,8 +233,9 @@ pub enum MgxsError {
 ///
 /// Serialises as the plain edge list; deserialising re-runs [`Self::new`], so
 /// a file cannot smuggle in edges that do not ascend.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(try_from = "Vec<f64>", into = "Vec<f64>")]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(try_from = "Vec<f64>", into = "Vec<f64>"))]
 pub struct GroupStructure {
     edges: Vec<f64>,
 }
@@ -324,7 +329,8 @@ impl GroupStructure {
 /// Every vector is indexed by group in the structure's own **ascending-energy**
 /// order. Cross sections are macroscopic, in cm^-1; `kappa_fission` is a power
 /// density per unit flux (J cm^-1).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct ZoneMgxs {
     /// Human-readable zone name, carried through from the material.
     pub name: String,
@@ -360,7 +366,7 @@ pub struct ZoneMgxs {
     /// row is the tallied estimate of `Sigma_t - Sigma_a`. **Empty** for a
     /// library condensed before the score existed (records deserialise with
     /// it empty).
-    #[serde(default)]
+    #[cfg_attr(feature = "std", serde(default))]
     pub scatter_only: Vec<Vec<f64>>,
     /// Fission spectrum `chi_g`, normalised to sum to 1 over groups.
     ///
@@ -377,7 +383,7 @@ pub struct ZoneMgxs {
     /// [`MgxsLibrary::homogenised`] or [`MgxsLibrary::rebalanced`] (none of
     /// which can carry them, see [`ZoneMgxsSigma`]), and every record written
     /// before the field existed, which deserialise with `None`.
-    #[serde(default)]
+    #[cfg_attr(feature = "std", serde(default))]
     pub sigma: Option<ZoneMgxsSigma>,
 }
 
@@ -404,7 +410,8 @@ pub struct ZoneMgxs {
 /// [`MgxsLibrary::collapse`] has none.
 ///
 /// `flux` is the flux's own absolute standard error.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct ZoneMgxsSigma {
     /// Standard error of [`ZoneMgxs::flux`].
     pub flux: Vec<f64>,
@@ -422,7 +429,7 @@ pub struct ZoneMgxsSigma {
     pub scatter: Vec<Vec<f64>>,
     /// Standard error of each [`ZoneMgxs::scatter_only`] element
     /// \[cm^-1\]; empty when that matrix is.
-    #[serde(default)]
+    #[cfg_attr(feature = "std", serde(default))]
     pub scatter_only: Vec<Vec<f64>>,
 }
 
@@ -556,7 +563,8 @@ impl ZoneMgxs {
 }
 
 /// A full MGXS set: one group structure, one entry per zone.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct MgxsLibrary {
     /// The group structure every zone is condensed onto.
     pub groups: GroupStructure,
@@ -2277,6 +2285,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     /// A library survives a JSON round trip unchanged, and a file whose edges
     /// do not ascend is refused on the way in.
     #[test]
@@ -2415,6 +2424,7 @@ mod tests {
         ));
     }
 
+    #[cfg(feature = "std")]
     /// `condense` estimates each constant's standard error from its bins.
     ///
     /// # Methodology
@@ -2528,6 +2538,7 @@ mod tests {
         assert!(off.material(0).multiplicity.is_none());
     }
 
+    #[cfg(feature = "std")]
     /// A library condensed before the scatter-only score existed cannot form
     /// the multiplicity: refused by default, converted by the ablation.
     #[test]

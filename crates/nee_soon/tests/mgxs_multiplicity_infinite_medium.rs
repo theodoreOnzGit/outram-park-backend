@@ -76,6 +76,8 @@
 //! **Not covered:** a heterogeneous geometry, where flux-weighted constants
 //! are no longer exact; that is the gate's question (#850).
 
+// Needs nuclear data files or file output: `std` only (gh:#1640).
+#![cfg(feature = "std")]
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure};
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};

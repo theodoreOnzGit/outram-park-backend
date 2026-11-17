@@ -24,6 +24,9 @@
 //!
 //! Tracked by bead **op-fr2.2.4**.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_appbuilder_lib::genfoam::neutronics::NeutronicsModelKind;
 
 use super::case::{self, ControlRodRemovalTransient};

@@ -28,6 +28,9 @@
 //! Orchestration only: no physics is implemented here.
 #![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE by slot role, not migrated. Same planned slots as `data.rs`, which this jobs path must equal bit for bit (`the_jobs_path_builds_the_loaders_nuclides`); migrate the two together. Not re-measured: full-core HTR-10 runs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use njoy_outram_park_fork::endf::tape::Tape as EndfTape;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -69,6 +72,7 @@ impl ProcessingJob {
         }
     }
 
+    #[cfg(feature = "std")]
     /// The tape the job reads, or `None` for a law LEAPR generates.
     ///
     /// # Errors
@@ -120,6 +124,7 @@ impl TemperedJob {
     }
 }
 
+#[cfg(feature = "std")]
 /// The LEAPR deck a law is generated from under `cfg`, or `None` when it is
 /// read from a tape. The UO2 and metal laws are always LEAPR's (as the
 /// loader); graphite and SiC are under
@@ -249,6 +254,7 @@ fn mat_of(t: &EndfTape, what: &str) -> Result<i32, Htr10DataError> {
         .ok_or_else(|| Htr10DataError::InvalidConfig(format!("{what}: no material on the tape")))
 }
 
+#[cfg(feature = "std")]
 /// Run one job. `tape` is the tape [`ProcessingJob::tape`] names, already
 /// read (`None` for a LEAPR law).
 ///
@@ -264,6 +270,7 @@ pub fn process_job(
     process_job_at(job, cfg, tape, cfg.temperature)
 }
 
+#[cfg(feature = "std")]
 /// [`process_job`] at `temperature` instead of `cfg.temperature` (gh:#1138):
 /// a [`TemperedJob`]'s processing.
 ///
@@ -458,14 +465,20 @@ pub fn assemble_entries(
 mod tests {
     use petir::mathf::RealMath;
     use super::*;
-    use crate::htr10_rmc::data::{load_htr10_nuclides, DataDir};
+    use crate::htr10_rmc::data::{DataDir};
+    #[cfg(feature = "std")]
+    use crate::htr10_rmc::data::{load_htr10_nuclides};
+    #[cfg(feature = "std")]
+    #[cfg(feature = "std")]
     use outram_mc_libs::run_diagnostics::RunDiagnostics;
 
+    #[cfg(feature = "std")]
     fn read(t: &Tape) -> Result<EndfTape, Htr10DataError> {
         EndfTape::read_file(&t.path())
             .map_err(|e| Htr10DataError::InvalidConfig(format!("{}: {e}", t.file)))
     }
 
+    #[cfg(feature = "std")]
     /// The default layout's jobs: every law once, every tape once, every
     /// slot's tape and law among them; 5 laws and 31 tapes for 38 slots (43 items in the loader's log).
     #[test]
@@ -517,6 +530,7 @@ mod tests {
             .any(|j| matches!(j.tape(&cfg), Ok(Some(t)) if t.dir == DataDir::AceSubmoduleEndfB8)));
     }
 
+    #[cfg(feature = "std")]
     /// The jobs path and the loader give the same nuclides, bit for bit, on
     /// a cut-down layout (helium, boron, the SiC silicon with its bound law):
     /// cross sections at 600 energies and thermal samples, after every
@@ -531,6 +545,7 @@ mod tests {
         });
         layout.slots.dedup_by(|a, b| a.name == b.name);
         if layout.slots.iter().any(|s| !s.tape.path().exists()) {
+            #[cfg(feature = "std")]
             eprintln!("SKIP: tapes not in this checkout");
             return;
         }
@@ -583,6 +598,7 @@ mod tests {
         .is_err());
     }
 
+    #[cfg(feature = "std")]
     /// The whole default layout (38 slots, 36 jobs, minutes): the jobs path
     /// and `load_htr10_nuclides` agree bit for bit at 300 energies per slot.
     #[test]

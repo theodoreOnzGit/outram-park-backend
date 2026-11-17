@@ -31,6 +31,9 @@
 //! reflector through the withdrawn rods, and the hot-gas duct, so that the
 //! control-rod, absorber-ball (KLAK), irradiation and coolant borings all show.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::plot::{

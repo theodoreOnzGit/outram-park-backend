@@ -23,6 +23,9 @@
 //! edge of the tally structure; [`Collapse::structure`] is built from the
 //! tally structure's own values so that holds by construction.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mgxs::GroupStructure;
 use njoy_outram_park_fork::errorr::groups::neutron_group_structure;
 

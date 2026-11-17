@@ -50,6 +50,9 @@
 //! - **real nickel and iron** in the rod steel, or the simplified Ni -> Fe,
 //!   Fe-57 -> Fe-56 mapping when asked for (gh:#329, gh:#339).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading};
 use uom::si::f64::{Pressure, ThermodynamicTemperature};

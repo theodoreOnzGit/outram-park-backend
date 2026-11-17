@@ -132,7 +132,7 @@ wgpu = { workspace = true, optional = true }
 # asserts they are equal (gh:#1319). A dev-dependency only: teh-o-prke does
 # not depend on this crate, so the edge forms no cycle.
 [dev-dependencies]
-teh-o-prke.workspace = true
+teh-o-prke = { workspace = true, features = ["std"] }
 
 [features]
 # `long-tests` is default-on so the reference-data tests run unless someone

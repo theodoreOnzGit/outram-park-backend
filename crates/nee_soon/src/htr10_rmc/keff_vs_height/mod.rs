@@ -46,10 +46,13 @@
 //! Heights cross the public API as `uom` [`Length`]s; `k_eff` and its
 //! standard deviation are dimensionless `f64`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod script;
 
-use std::time::Instant;
+use crate::time::Instant;
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::Material;
@@ -292,7 +295,7 @@ pub fn run_core(
         &core.geometry,
         mats,
         nucs,
-        std::slice::from_ref(majorant),
+        core::slice::from_ref(majorant),
         Some(&mesh),
         fissile_source_box(core),
         &settings,

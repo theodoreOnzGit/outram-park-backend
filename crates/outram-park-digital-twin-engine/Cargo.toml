@@ -40,8 +40,8 @@ petir = { workspace = true }
 # Physics backends this framework visualizes. Real (non-dev) dependencies --
 # unlike tampines, this crate's whole purpose is presentation, so it makes no
 # Android-portability claim and GUI deps are not confined to examples/.
-tampines.workspace = true
-nee_soon.workspace = true
+tampines = { workspace = true, features = ["std"] }
+nee_soon = { workspace = true, features = ["std"] }
 # teh-o-prke: see the single entry below (shared by `msre::model`, gh:#1330,
 # which steps `zero_power_prke::circulating::CirculatingPointKinetics`, and
 # `ebr2::model`, gh:#1331).
@@ -92,7 +92,7 @@ tuas_boussinesq_solver = { workspace = true, features = ["std"] }
 # thiserror, uom and chem-eng-real-time-process-control-simulator only
 # (checked in its Cargo.toml, 2026-11-10), and builds for wasm32. Was a
 # dev-dependency (htgr_sim_v1's kinetics); the entry below is removed.
-teh-o-prke.workspace = true
+teh-o-prke = { workspace = true, features = ["std"] }
 
 # Public API primitives -- dimensioned quantities.
 uom.workspace = true

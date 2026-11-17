@@ -256,6 +256,9 @@
 //! agreement to 50 pcm would be suspicious and should prompt a search for a
 //! coincidence rather than a celebration.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::prelude::TrisoSpec;
 
@@ -555,7 +558,7 @@ pub fn heavy_metal_per_ball() -> f64 {
     let x5 = u235_atom_fraction();
     let m_u = x5 * 235.043_930 + (1.0 - x5) * 238.050_788;
     let m_uo2 = m_u + 2.0 * 15.994_914_6;
-    let v_kernel = 4.0 / 3.0 * std::f64::consts::PI * spec.kernel.r_powi(3);
+    let v_kernel = 4.0 / 3.0 * core::f64::consts::PI * spec.kernel.r_powi(3);
     8335.0 * v_kernel * RHO_UO2 * m_u / m_uo2
 }
 

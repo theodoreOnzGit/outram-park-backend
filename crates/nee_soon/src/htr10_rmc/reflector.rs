@@ -39,6 +39,9 @@
 //! represented here by its absence rather than by zeros, so a caller that asks
 //! for it gets `None` instead of a suspiciously empty material.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Homogenised composition of one reflector zone \[atoms/(barn·cm)\].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ZoneComposition {
@@ -165,6 +168,7 @@ mod tests {
         assert!(dupes.is_empty(), "zones listed more than once: {dupes:?}");
 
         let missing: Vec<usize> = (0..=MAX_ZONE).filter(|z| !zones.contains(z)).collect();
+        #[cfg(feature = "std")]
         println!("{} zones listed; missing: {missing:?}", zones.len());
         assert_eq!(
             missing,
@@ -220,6 +224,7 @@ mod tests {
                  material it homogenises"
             );
         }
+        #[cfg(feature = "std")]
         println!(
             "densest zone {} at {:.6e}; solid graphite at 1.76 g/cm3 is {:.6e} ({:.1} %)",
             worst.0,
