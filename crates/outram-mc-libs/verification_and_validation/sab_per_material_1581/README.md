@@ -1122,3 +1122,43 @@ If the histories needed for a usable per-seed sigma exceed the time budget, the
 run is reduced (histories, rings, layers via the example's existing knobs) and
 the reduction stated; k of a reduced run is a statistics instrument for the
 old-vs-new comparison, not a benchmark number.
+
+### Results, gh:#1635 item 2 (2026-11-17): NOT MEASURABLE, the example panics at OLD and NEW alike
+
+Of the five nee_soon diagnostics migrated in `00d2cc781`, only
+`htr10_deterministic_vs_mc` transports (see the prediction above). It was built
+at OLD (`d1e20f188`, throwaway worktree) and NEW (this branch) and run with its
+documented defaults plus `OUTRAM_HTR10_HISTORIES=100` (to shorten, had it run),
+from `crates/nee_soon`, tapes present (`reference-data/endf`, 90 files, no
+SKIP). **Both builds panic identically, about four minutes in, at the start of
+Monte Carlo pass 1**, after the geometry is built (5746 tiles, 19410 cells, 767
+universes):
+
+```
+panicked at crates/outram-mc-libs/src/material/cell_temperature.rs:178:68:
+cell 2 references material 11, out of range
+  ... with_cell_temperatures_and_majorants <- run_keff_csg_seq
+  <- run_keff_csg_inner <- run_keff_csg_hybrid <- htr10_deterministic_vs_mc::main
+```
+
+Raw: `ensembles_1635/nee_soon_dvm_{old,new}_panic.out` (identical apart from clock
+times and thread ids). So the panic is **not caused by the #1581 migration**
+(OLD has it too) and **no old-vs-new k could be measured**; the prediction
+(zero shift within |z| <= 2 after a URR-stream re-draw) is **untested**, neither
+supported nor refuted. Diagnosis I can state: the example's `materials()` builds
+exactly `mat::HOMOG_DUMMY + 1 = 11` materials (it asserts this), while the
+assembled core (`assemble_explicit_triso`) has a cell filled with material
+index 11, `mat::ZONE_TABLE_FIRST`, so `with_cell_temperatures` (the cell
+temperature default, gh:#313, `651dcd747`, 2026-11-14) rejects it. I did not
+check whether the panic predates #313 (older code may have skipped the lookup)
+or which cell 2 is; I did not fix the example, because that is a rewrite of its
+material list against the current core, outside this item. The other three
+non-transport diagnostics (`htr10_material_check`, `htr10_mat_xs`,
+`htr10_majorant_diagnosis`) evaluate cross sections or a majorant only and were
+not run; `htr10_mgxs_genfoam` is blocked by its own header (gh:#475). The
+`OUTRAM_HTR10_SEED` / `OUTRAM_HTR10_K_ONLY` knobs mentioned in the prediction
+were reverted (never exercised past the panic); the prediction text above is
+kept as written. The nee_soon `data.rs` / `data_jobs.rs` loader (full-core
+HTR-10 runs, marked not migrated) was not measured either. Hardware: Intel Xeon
+@ 2.10 GHz KVM container, 4 logical cores, 15.7 GiB, CPU only, two processes
+concurrent.

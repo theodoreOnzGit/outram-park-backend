@@ -362,9 +362,7 @@ fn main() {
         n_particles: histories,
         n_inactive: 20,
         n_active: 40,
-        // `OUTRAM_HTR10_SEED` (gh:#1635, default unchanged) lets an old-vs-new
-        // seed ensemble run; it is read here only.
-        seed: env_usize("OUTRAM_HTR10_SEED", 20_260_919) as u64,
+        seed: 20_260_919,
         ..KeffSettings::default()
     };
     let src = SourceBox {
@@ -412,13 +410,6 @@ fn main() {
         &settings,
         Some(&mut scalar),
     );
-    // `OUTRAM_HTR10_K_ONLY` (gh:#1635): stop after pass 1, which carries the
-    // eigenvalue, for seed ensembles of the transport alone. Scoring draws no
-    // random number, so this k is the k of the full run.
-    if std::env::var_os("OUTRAM_HTR10_K_ONLY").is_some() {
-        println!("K_ONLY k_eff = {:.6} +/- {:.6}", mc.k_mean, mc.k_std);
-        return;
-    }
     println!("  Monte Carlo pass 2/2 (scatter matrix + fission spectrum)...");
     let mut matrix = matrix_tally(2, &groups, all);
     run_keff_csg_hybrid(
