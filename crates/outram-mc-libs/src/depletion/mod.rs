@@ -76,6 +76,7 @@ pub mod chain;
 pub mod operator;
 pub mod external_rates;
 pub mod microxs;
+pub mod helpers;
 
 pub use chain::{
     ChainImportError, DecayBranch, DepletionChain, NeutronReaction, NuclideData, ReactionKind,
