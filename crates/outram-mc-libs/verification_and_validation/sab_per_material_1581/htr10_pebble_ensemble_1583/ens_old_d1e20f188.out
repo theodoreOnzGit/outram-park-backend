@@ -1,0 +1,137 @@
+HTR-10 fuel pebble — k-infinity by delta (Woodcock) tracking
+============================================================
+  geometry : Li, Yu & Wei (2014), HTR 2014 Weihai, Table 2
+             6 cm ball, 0.5 cm fuel-free shell, 8335 TRISO,
+             250 um kernel + 90/40/35/40 um coatings, pf 5.0247 %
+  data     : ENDF/B-VIII.0 + crystalline-graphite S(a,b), 300.15 K
+  boundary : reflective at the pebble surface (bare pebble k-inf)
+
+  histories: 300 x [20 inactive + 60 active]
+
+boron interpretation                k_inf      sigma   vs natural      secs
+---------------------------------------------------------------------------
+SEED natural B, atom ppm (as specified)    1    1.68547    0.00600     62.6s
+SEED natural B, weight ppm (ablation)    1    1.68125    0.00620     62.4s
+SEED no boron at all                   1    1.69170    0.00684     61.4s
+SEED graphite boron only               1    1.69133    0.00577     85.9s
+SEED ppm read as elemental B-10        1    1.64133    0.00748     86.8s
+SEED natural B, atom ppm (as specified)    2    1.68574    0.00582     76.0s
+SEED natural B, weight ppm (ablation)    2    1.67427    0.00686     78.9s
+SEED no boron at all                   2    1.69483    0.00662     76.7s
+SEED graphite boron only               2    1.67650    0.00694     82.8s
+SEED ppm read as elemental B-10        2    1.63239    0.00633     83.7s
+SEED natural B, atom ppm (as specified)    3    1.68022    0.00726     80.7s
+SEED natural B, weight ppm (ablation)    3    1.68037    0.00692     78.1s
+SEED no boron at all                   3    1.68609    0.00559     58.0s
+SEED graphite boron only               3    1.69426    0.00605     70.6s
+SEED ppm read as elemental B-10        3    1.63427    0.00711     68.7s
+SEED natural B, atom ppm (as specified)    4    1.68502    0.00553     68.2s
+SEED natural B, weight ppm (ablation)    4    1.69484    0.00691     70.0s
+SEED no boron at all                   4    1.69573    0.00766     65.1s
+SEED graphite boron only               4    1.69709    0.00730     68.6s
+SEED ppm read as elemental B-10        4    1.64512    0.00533     65.3s
+SEED natural B, atom ppm (as specified)    5    1.68659    0.00569     68.9s
+SEED natural B, weight ppm (ablation)    5    1.69475    0.00648     68.6s
+SEED no boron at all                   5    1.69284    0.00719     64.6s
+SEED graphite boron only               5    1.68138    0.00539     72.3s
+SEED ppm read as elemental B-10        5    1.63976    0.00562     72.0s
+SEED natural B, atom ppm (as specified)    6    1.67947    0.00567     70.4s
+SEED natural B, weight ppm (ablation)    6    1.69531    0.00674     66.2s
+SEED no boron at all                   6    1.70063    0.00645     59.4s
+SEED graphite boron only               6    1.69761    0.00613     69.4s
+SEED ppm read as elemental B-10        6    1.65995    0.00761     66.2s
+SEED natural B, atom ppm (as specified)    7    1.70344    0.00729     68.2s
+SEED natural B, weight ppm (ablation)    7    1.69871    0.00687     73.0s
+SEED no boron at all                   7    1.70550    0.00684     71.0s
+SEED graphite boron only               7    1.69290    0.00683     70.7s
+SEED ppm read as elemental B-10        7    1.64931    0.00582     72.3s
+SEED natural B, atom ppm (as specified)    8    1.69758    0.00548     70.5s
+SEED natural B, weight ppm (ablation)    8    1.67891    0.00617     68.6s
+SEED no boron at all                   8    1.68741    0.00541     61.9s
+SEED graphite boron only               8    1.69948    0.00597     66.7s
+SEED ppm read as elemental B-10        8    1.65285    0.00553     63.7s
+SEED natural B, atom ppm (as specified)    9    1.67862    0.00639     65.0s
+SEED natural B, weight ppm (ablation)    9    1.68311    0.00602     67.4s
+SEED no boron at all                   9    1.69859    0.00677     62.5s
+SEED graphite boron only               9    1.67807    0.00551     65.8s
+SEED ppm read as elemental B-10        9    1.64268    0.00609     63.3s
+SEED natural B, atom ppm (as specified)   10    1.68781    0.00541     67.3s
+SEED natural B, weight ppm (ablation)   10    1.69009    0.00658     65.7s
+SEED no boron at all                  10    1.70479    0.00518     60.4s
+SEED graphite boron only              10    1.67855    0.00651     63.9s
+SEED ppm read as elemental B-10       10    1.64190    0.00667     62.3s
+SEED natural B, atom ppm (as specified)   11    1.68324    0.00718     65.7s
+SEED natural B, weight ppm (ablation)   11    1.67898    0.00575     65.9s
+SEED no boron at all                  11    1.69030    0.00725     61.0s
+SEED graphite boron only              11    1.68720    0.00589     64.5s
+SEED ppm read as elemental B-10       11    1.63454    0.00665     65.3s
+SEED natural B, atom ppm (as specified)   12    1.68485    0.00734     65.5s
+SEED natural B, weight ppm (ablation)   12    1.68201    0.00761     66.9s
+SEED no boron at all                  12    1.70231    0.00609     60.3s
+SEED graphite boron only              12    1.68753    0.00751     66.6s
+SEED ppm read as elemental B-10       12    1.64075    0.00731     62.7s
+SEED natural B, atom ppm (as specified)   13    1.68470    0.00595     65.4s
+SEED natural B, weight ppm (ablation)   13    1.68975    0.00670     67.4s
+SEED no boron at all                  13    1.69217    0.00497     63.8s
+SEED graphite boron only              13    1.68090    0.00531     68.9s
+SEED ppm read as elemental B-10       13    1.64666    0.00697     65.7s
+SEED natural B, atom ppm (as specified)   14    1.68962    0.00577     68.5s
+SEED natural B, weight ppm (ablation)   14    1.67867    0.00645     65.4s
+SEED no boron at all                  14    1.70529    0.00695     64.4s
+SEED graphite boron only              14    1.68914    0.00566     67.9s
+SEED ppm read as elemental B-10       14    1.64183    0.00692     68.2s
+SEED natural B, atom ppm (as specified)   15    1.68124    0.00605     67.9s
+SEED natural B, weight ppm (ablation)   15    1.68603    0.00626     66.8s
+SEED no boron at all                  15    1.70692    0.00595     66.6s
+SEED graphite boron only              15    1.67891    0.00608     65.0s
+SEED ppm read as elemental B-10       15    1.64570    0.00702     64.1s
+SEED natural B, atom ppm (as specified)   16    1.69589    0.00668     66.4s
+SEED natural B, weight ppm (ablation)   16    1.67535    0.00591     66.7s
+SEED no boron at all                  16    1.69785    0.00573     63.8s
+SEED graphite boron only              16    1.69199    0.00585     70.2s
+SEED ppm read as elemental B-10       16    1.63450    0.00685     65.1s
+SEED natural B, atom ppm (as specified)   17    1.68180    0.00609     71.9s
+SEED natural B, weight ppm (ablation)   17    1.68800    0.00676     73.9s
+SEED no boron at all                  17    1.69822    0.00660     68.5s
+SEED graphite boron only              17    1.68761    0.00665     70.1s
+SEED ppm read as elemental B-10       17    1.64616    0.00707     65.6s
+SEED natural B, atom ppm (as specified)   18    1.68182    0.00600     67.0s
+SEED natural B, weight ppm (ablation)   18    1.68957    0.00724     74.0s
+SEED no boron at all                  18    1.69579    0.00571     71.3s
+SEED graphite boron only              18    1.68098    0.00608     77.9s
+SEED ppm read as elemental B-10       18    1.64307    0.00666     80.8s
+SEED natural B, atom ppm (as specified)   19    1.70238    0.00715     75.9s
+SEED natural B, weight ppm (ablation)   19    1.68161    0.00721     75.5s
+SEED no boron at all                  19    1.69882    0.00497     64.2s
+SEED graphite boron only              19    1.69532    0.00596     51.0s
+SEED ppm read as elemental B-10       19    1.64010    0.00706     50.7s
+SEED natural B, atom ppm (as specified)   20    1.70761    0.00644     50.1s
+SEED natural B, weight ppm (ablation)   20    1.68004    0.00536     50.6s
+SEED no boron at all                  20    1.69859    0.00647     49.4s
+SEED graphite boron only              20    1.68273    0.00724     52.8s
+SEED ppm read as elemental B-10       20    1.64151    0.00681     48.9s
+SEED natural B, atom ppm (as specified)   21    1.69896    0.00536     50.8s
+SEED natural B, weight ppm (ablation)   21    1.68526    0.00686     49.8s
+SEED no boron at all                  21    1.70902    0.00593     46.4s
+SEED graphite boron only              21    1.68744    0.00575     49.7s
+SEED ppm read as elemental B-10       21    1.63808    0.00625     47.7s
+SEED natural B, atom ppm (as specified)   22    1.68366    0.00681     49.7s
+SEED natural B, weight ppm (ablation)   22    1.68993    0.00603     49.5s
+SEED no boron at all                  22    1.69503    0.00587     46.5s
+SEED graphite boron only              22    1.68824    0.00727     47.9s
+SEED ppm read as elemental B-10       22    1.65431    0.00579     47.1s
+SEED natural B, atom ppm (as specified)   23    1.69263    0.00632     49.4s
+SEED natural B, weight ppm (ablation)   23    1.69114    0.00670     49.1s
+SEED no boron at all                  23    1.69643    0.00592     45.5s
+SEED graphite boron only              23    1.69141    0.00597     49.4s
+SEED ppm read as elemental B-10       23    1.64908    0.00666     46.6s
+SEED natural B, atom ppm (as specified)   24    1.69449    0.00627     48.7s
+SEED natural B, weight ppm (ablation)   24    1.68547    0.00676     51.7s
+SEED no boron at all                  24    1.71302    0.00621     47.9s
+SEED graphite boron only              24    1.70305    0.00573     50.9s
+SEED ppm read as elemental B-10       24    1.64757    0.00563     49.0s
+ENSEMBLE natural B, atom ppm (as specified) n=24 mean 1.68887 sd 0.00829 sem 0.00169
+ENSEMBLE natural B, weight ppm (ablation) n=24 mean 1.68556 sd 0.00668 sem 0.00136
+ENSEMBLE no boron at all                n=24 mean 1.69824 sd 0.00677 sem 0.00138
+ENSEMBLE graphite boron only            n=24 mean 1.68832 sd 0.00741 sem 0.00151
+ENSEMBLE ppm read as elemental B-10     n=24 mean 1.64348 sd 0.00669 sem 0.00136
