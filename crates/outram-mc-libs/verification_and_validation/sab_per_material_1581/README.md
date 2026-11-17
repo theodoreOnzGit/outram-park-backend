@@ -172,12 +172,12 @@ run time is uncertain; both strings are recorded as read.
 ### Not re-measured after the #1581 migration
 
 - ~~`fhr_pebble_target_at_rest_ablation`~~ (**done 2026-11-17, gh:#1583
-  item 2**, see "Item 2 ensembles" below), `fhr_ring_rpt_endf`,
+  item 2**, see "Item 2 ensembles" below), ~~`fhr_ring_rpt_endf`~~ (**done 2026-11-17 for its surface-tracked CSG solve only, N = 8; its six other solves are NOT re-measured, see "Item 2, last three drivers" below**),
   ~~`thermal_kernel_keff_worth`~~ (**done**, N = 6),
   ~~`htr10_fuel_zone_kinf`~~ (**done**, N = 12),
   ~~`lct008_pitch_sweep` (partial only, N = 3, not enough to conclude)~~ (**done 2026-11-17, N = 10**, see "Item 2 remainder" below),
-  `lct008_ace_roundtrip`, `icsbep_five_route_keff`
-  (every case), ~~`msre_n1_first_criticality`~~ (**done 2026-11-17, N = 8 + 8 replication; seeds 1-8 MISSED the gate, see below**), the nee_soon HTR-10 diagnostics
+  ~~`lct008_ace_roundtrip`~~ (**done 2026-11-17, N = 8, see below**), ~~`icsbep_five_route_keff`
+  (every case)~~ (**done 2026-11-17 for the hst009 (N = 16) and msre (N = 8) cases on route `endf`; godiva and jemima carry no S(a,b) and were not run; lct008-full and the ACE routes were NOT run**), ~~`msre_n1_first_criticality`~~ (**done 2026-11-17, N = 8 + 8 replication; seeds 1-8 MISSED the gate, see below**), the nee_soon HTR-10 diagnostics
   with transport (these three and `fhr_ring_rpt_endf` are **still not
   re-measured**): each loads uranium from ENDF (14 to 36 nuclides) and the
   RECONR+BROADR+PURR load alone took 13 to 25 minutes per process here
@@ -463,3 +463,167 @@ like-for-like number for today's model. This is a probable cause established
 from those records; it is **not** re-run, since no pre-fix build was
 re-measured. The prediction was not retuned and the driver was not edited. A
 re-baseline would need a fresh whole-material AT-REST run at today's build.
+
+## Item 2, last three drivers (gh:#1583, 2026-11-17): predictions
+
+**Written before any ensemble run of this pass.** One cost probe preceded it:
+`icsbep_five_route_keff --case hst009 --route endf --seeds 1` on the NEW build
+alone (data load about 320 s, 52 s for the seed, k = 1.00128 +/- 0.00143, 2
+threads, box loaded by other agents). That seed is kept as seed 1 of the NEW
+ensemble; no OLD value had been seen when the predictions below were fixed.
+
+**Design (all three drivers).** OLD = `d1e20f188`, NEW = `501c16264` plus the
+`fhr_ring_rpt_endf` seed knob only (committed in this pass; the OLD build
+carries the same patch). Same data, settings and seeds in both; all seeds of an
+arm in ONE process per build (data load paid once); OLD and NEW run at the same
+time, at most two transport processes of mine. sem = sd / sqrt(N);
+sigma(new - old) = sqrt(sem_old^2 + sem_new^2); z = difference / sigma. Gate:
+|z| <= 2 on every arm; |z| <= 1 also reported. A run cut for time is cut at the
+same seed count in both builds, chosen by the clock and never by a result. A
+miss is recorded as a miss; if an arm misses, a fresh non-overlapping
+replication is planned here before it runs and then pooled, as the MSRE case
+was. Nothing is tuned.
+
+**Mechanism under test (same as the earlier passes).** #1581 appends bound
+copies of H-1 (and, for MSRE, C-12 / C-13) to the nuclide array;
+`transport_csg.rs` advances the URR stream by `nuclides.len()`, so models with
+URR-table nuclides draw a different URR realisation. Same physics, different
+draws.
+
+**Arms and expected size.**
+
+1. `icsbep_five_route_keff` at the acceptance size 5000 x [40 + 120], route
+   `endf`, 2 threads: **hst009** (12 nuclides, URR on 5, S(a,b) H(H2O) on the
+   solution and the water reflector), N = 16 seeds 1..16; then **msre** (the
+   graphite unit cell; carbon S(a,b) per material), N as the cost allows
+   (target 16, at least 8); **lct008-full** (35 nuclides) only if the load
+   fits, otherwise reported not done. Prediction: per arm, mean(NEW) -
+   mean(OLD) consistent with zero, |z| <= 2, and |z| <= 1 on at least half of
+   the arms run. Expected seed sd about 150-250 pcm, so at N = 16 sigma about
+   55-90 pcm; a shift under about 150 pcm would not be resolved. No sign
+   predicted (earlier ensembles leaned new-above-old by +40 to +120 pcm; the
+   lean is checked for, not assumed).
+2. `lct008_ace_roundtrip` (11-nuclide lattice, `--purr`, ENDF / ACE / ablated
+   arms), reduced size 4000 x [40 + 100] (the default 10000 x [250 + 400] is
+   not affordable), N = 8 seeds from `--seed 1`, 3 threads. Prediction: each
+   of the three arms consistent between builds at |z| <= 2, and |z| <= 1 on at
+   least one of three. The within-build parity (ACE - ENDF) is also predicted
+   consistent between builds (computed from the per-seed ENDF and ACE values).
+   Expected seed sd 100-200 pcm, sigma(new - old) about 70-100 pcm per arm at
+   N = 8; shifts under about 200 pcm invisible. No arm-specific shift is
+   predicted.
+3. `fhr_ring_rpt_endf`: the driver had no seed loop; a knob
+   `OUTRAM_FHR_RING_SEEDS=N` / `OUTRAM_FHR_RING_SEED0=S` was added around its
+   `OUTRAM_RINGRPT_ONLY=csg` branch ONLY (the surface-tracked ring-RPT solve,
+   4000 x [30 + 80]). The default output is unchanged (knob unset: one solve at
+   the default seed, no extra line). The other solves of the driver (explicit
+   TRISO, ring-RPT and naive homogenised, cube and sphere, delta-tracked) are
+   NOT covered: per-seed repetition of those would put the whole 1500-line
+   body inside a seed loop, judged not safe to patch. N = 8 seeds (default
+   seed + 0..7). Prediction: mean(NEW) - mean(OLD) consistent with zero,
+   |z| <= 2; seed sd about 100-150 pcm (the FHR ablation driver, same pebble,
+   same history count, gave 117-154 pcm), sigma about 50-70 pcm. A shift under
+   about 150 pcm would not be seen.
+
+### Results, item 2 last three drivers (2026-11-17)
+
+OLD = `d1e20f188`, NEW = `501c16264` + the `fhr_ring_rpt_endf` seed knob.
+Raw outputs: `ensembles_1583/hst009_{old_d1e20f188,new_501c16264}.out`,
+`icsbep_msre_s1-8_*.out`, `ace_roundtrip_*.out`, `fhr_ring_csg_*.out`. The
+arithmetic is `msre_stat.awk` (`paste old.k new.k | awk -f msre_stat.awk`, one
+`seed k` pair per line from the `seed N: k = ...` / `SEEDK N k std` lines) and,
+for the three-column roundtrip table, the same formulas in a one-off awk
+command; no Python. sem = sd / sqrt(N), sigma = sqrt(sem_old^2 + sem_new^2).
+
+**`icsbep_five_route_keff`, route `endf`, 5000 x [40 + 120], 2 threads**
+(`--particles 5000 --inactive 40 --active 120`, seeds 1..N):
+
+| case (N) | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| hst009, 12 nuclides, URR on 5 (N = 16) | 1.00082 (156 pcm) | 1.00080 (152) | -2 +- 54 pcm | -0.04 |
+| msre unit cell, 15 nuclides, URR on 7 (N = 8) | 1.65542 (157) | 1.65536 (118) | -6 +- 69 | -0.09 |
+
+|z| <= 1 on both. **Verdict: consistent with a URR re-draw**, resolution about
++-55 to +-70 pcm per case. Departures from the plan, all by cost and none by
+result: msre was planned for N = 16 and was cut at N = 8 in both builds (about
+690-700 s per seed on this box with the other agent's four processes running,
+load average about 11.8); the cut was made by the clock on the seed count, with
+all eight seeds already finished in both builds. `lct008-full` (35 nuclides)
+was not run (not affordable beside msre at these per-seed costs), and godiva and
+jemima were not run (they carry no S(a,b), so their nuclide array did not
+change). The hst009 seed 1 of the NEW build had been run once before the
+predictions as the cost probe (1.00128, the same value as in this ensemble).
+
+**`lct008_ace_roundtrip`**, `--purr --particles 4000 --inactive 40 --active 100
+--seeds 8 --seed 1 --threads 2` (2 threads instead of the 3 predicted, to
+stay inside the two-process allowance on a loaded box; threads do not change
+the estimate):
+
+| arm | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| ENDF route | 1.00235 (128 pcm) | 1.00253 (137) | +18 +- 66 pcm | +0.27 |
+| ACE route (with PURR) | 1.00189 (133) | 1.00246 (270) | +57 +- 106 | +0.54 |
+| ENDF, DBRC ablated | 1.00159 (122, sem 43) | 1.00143 (171, sem 61) | -16 +- 75 | -0.21 |
+| parity ACE - ENDF (per seed pair) | -46 +- 40 pcm | -6 +- 131 | +39 +- 137 | +0.29 |
+
+All four |z| <= 1 (prediction: <= 2 on all, <= 1 on at least one of three
+arms: held). **Verdict: consistent with a URR re-draw.** Within each build the
+ACE route agrees with the ENDF route (old -46 +- 40 pcm, new -6 +- 131 pcm; the
+driver's own verdict line reads "AGREE" for both), which is the point of the
+example and is unchanged. The ablated arm prints only its mean and sem in the
+driver's summary, so its row is from those two numbers (mean 1.00159 / 1.00143,
+sd 122 / 171 pcm), not recomputed per seed. **Not explained, not tested:** the
+NEW ACE arm's seed-to-seed sd is 270 pcm against 133 pcm in OLD (variance ratio
+about 4.1 on 7 and 7 degrees of freedom, about 0.04 one-sided); seeds 4 and 5
+of NEW swing the parity by +397 and -408 pcm. The ENDF arms and the ablated arm
+do not show it, and a ratio like this among the many comparisons made across
+these ensembles is not strong evidence, but it is on the record. Absolute k
+(1.0024 at 4000 x 100) belongs to the 11-nuclide reduced-size model and is not
+comparable with the 10000 x [250 + 400] record in the file's doc comment.
+
+**`fhr_ring_rpt_endf`, surface-tracked CSG solve only**
+(`OUTRAM_RINGRPT_ONLY=csg OUTRAM_FHR_RING_SEEDS=8`, seeds 1..8, 4000 x
+[30 + 80], 600 K, default thread pool, one process per build):
+
+| arm | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| ring-RPT CSG pebble | 1.36384 (127 pcm) | 1.36307 (117) | -77 +- 61 pcm | -1.26 |
+
+|z| <= 2 (prediction: held); |z| <= 1 not met on this arm (the prediction asked
+for it only for arms of the other two drivers). **Read this honestly: this is
+NOT independent of the earlier FHR ablation.** This solve is the same model,
+settings and seeds as the MOVING arm of `fhr_pebble_target_at_rest_ablation`,
+and the 8 per-seed k in each build are identical to the printed digits to that
+driver's MOVING lines (OLD 1.36463, 1.36491, 1.36322, ...; NEW 1.36355,
+1.36228, ...), so the number above is the same -77 +- 61 pcm (z -1.26) already
+recorded for MOVING. What this run adds is that the `fhr_ring_rpt_endf` entry
+point and its new seed knob reproduce that arm bit for bit in both builds
+(a determinism and harness check), not a second sample. **Not covered:** the
+driver's other six solves (explicit-TRISO, ring-RPT and naive-homogenised, cube
+and sphere, delta tracking) were not re-measured; putting them in a seed loop
+means wrapping most of a 1500-line `run()` and was not attempted. The record
+for those remains the pre-migration values. The knob leaves the default output
+unchanged (knob unset: one solve at the default seed, no extra line).
+
+**Overall.** Across 6 arm comparisons and 1 within-build parity in the three
+drivers (hst009, msre, three roundtrip arms, FHR CSG; the FHR row repeats an
+earlier record), every |z| <= 1.26 and none exceeded 2: **no arm missed the
+gate, so no replication was planned or run.** The signs are mixed (-2, -6, +18,
++57, -16, -77 pcm), so this pass does not extend the "new above old" lean of the
+earlier thermal-kernel / HTR-10 / MSRE ensembles. Nulls of about +-55 to +-110
+pcm per arm, not proofs of zero: a physics shift under about 110-220 pcm (2
+sigma) would not be seen.
+
+**Reproduction notes.** Both binaries were built with `-j 2` and copied under
+unique names. The OLD worktree was deleted after its build, but the OLD
+binaries embed its path at compile time (`CARGO_MANIFEST_DIR`), so OLD runs set
+`OUTRAM_PARK_ENDF_DIR` to this checkout's `reference-data/endf` (the same
+tapes) and the OLD `fhr_ring_rpt_endf` got a scratch directory shaped like the
+old tree whose `reference-data/endf` is a link to the same tapes. The msre case
+reads Zr tapes from `reference-data/ace/endf`, so `reference-data/ace` was
+linked to the main checkout's populated submodule for the runs and the link was
+removed afterwards. Hardware: Intel Xeon @ 2.10 GHz (cloud container, KVM), 4
+logical cores, about 15 GiB RAM, Linux 6.18, CPU only, shared with another
+agent's two long processes (load average 8-12 throughout); per-seed wall times
+(52-70 s hst009 at 2 threads, about 690-705 s msre, about 5 min FHR CSG) carry
+no cross-run meaning.

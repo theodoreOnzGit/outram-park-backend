@@ -752,6 +752,22 @@ mod desktop {
         // runs only the surface-tracked CSG case, which is the one that yields
         // the six-factor decomposition. ~5 min instead of ~40.
         if only == "csg" {
+            // `OUTRAM_FHR_RING_SEEDS=N` / `OUTRAM_FHR_RING_SEED0=S` (gh:#1583):
+            // N consecutive master seeds from S inside this one process (the
+            // ENDF load is paid once), CSG arm only. Unset: one solve at the
+            // default seed with unchanged output.
+            let n_seeds_env: Option<u64> = std::env::var("OUTRAM_FHR_RING_SEEDS")
+                .ok()
+                .and_then(|v| v.parse().ok());
+            let seed0: u64 = std::env::var("OUTRAM_FHR_RING_SEED0")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(KeffSettings::default().seed);
+            for seed_i in 0..n_seeds_env.unwrap_or(1) {
+            let mut keff = keff.clone();
+            if n_seeds_env.is_some() {
+                keff.seed = seed0 + seed_i;
+            }
             let r_rpt_fuel_csg =
                 rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
             let pebble_csg = fhr_pebble_geometry(
@@ -800,6 +816,10 @@ mod desktop {
                     "      {name}  {ours:.4} vs {theirs:.4}   {:+.2}%",
                     100.0 * (ours / theirs - 1.0)
                 );
+            }
+            if n_seeds_env.is_some() {
+                eprintln!("SEEDK {} {:.5} {:.5}", keff.seed, r.keff.k_mean, r.keff.k_std);
+            }
             }
             return;
         }
