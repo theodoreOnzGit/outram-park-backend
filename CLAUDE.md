@@ -342,7 +342,11 @@ paper — in the relevant `docs/` development-history entry.
 **Maintainer judgment, 2026-10-20.** When a port is compared against its upstream
 (or two routes are compared), **bit-identity is the goal, but a round-off-level
 difference — e.g. 1 ulp from a different `libm`, a vectorised `exp`, or a changed
-operation order — is acceptable when the relative difference is below 1e-8.**
+operation order — is acceptable when the relative difference is below ~~1e-8~~
+**1e-9** (CORRECTED 2026-11-17, maintainer: "1e-9 supercedes").** Comparisons
+already accepted between 1e-9 and 1e-8 **stay accepted**, flagged (maintainer:
+"those which need 1e-8 and are accepted shld be acceptable"); they are listed
+on gh:#1614. A new one needs 1e-9.
 
 - **Bit-identical is still strongly preferred** (maintainer, same day): it is a
   yes/no check that automation can judge alone. **The moment a residual appears,
@@ -367,9 +371,9 @@ operation order — is acceptable when the relative difference is below 1e-8.**
   random walk diverging after one rounded collision). Record the old and new
   values and the relative change where the pin lives. A move beyond those
   bounds, or one with an unexplained cause, still needs the reasons above.
-  First use: gh:#1613 (Godiva k-trace, 4.6e-6 propagated). Not reconciled yet
-  with the 1e-8 code-to-code allowance above; ask the maintainer which binds
-  where they differ.
+  First use: gh:#1613 (Godiva k-trace, 4.6e-6 propagated). ~~Not reconciled
+  yet with the 1e-8 code-to-code allowance above~~ Reconciled 2026-11-17: 1e-9
+  supersedes 1e-8 there too.
 
 
 ## Search the workspace before building anything (HARD RULE)
