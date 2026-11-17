@@ -171,11 +171,15 @@ run time is uncertain; both strings are recorded as read.
 
 ### Not re-measured after the #1581 migration
 
-- `fhr_pebble_target_at_rest_ablation`, `fhr_ring_rpt_endf`,
-  `thermal_kernel_keff_worth`, `htr10_fuel_zone_kinf`,
-  `lct008_pitch_sweep`, `lct008_ace_roundtrip`, `icsbep_five_route_keff`
+- ~~`fhr_pebble_target_at_rest_ablation`~~ (**done 2026-11-17, gh:#1583
+  item 2**, see "Item 2 ensembles" below), `fhr_ring_rpt_endf`,
+  ~~`thermal_kernel_keff_worth`~~ (**done**, N = 6),
+  ~~`htr10_fuel_zone_kinf`~~ (**done**, N = 12),
+  `lct008_pitch_sweep` (**partial only, N = 3, not enough to conclude**),
+  `lct008_ace_roundtrip`, `icsbep_five_route_keff`
   (every case), `msre_n1_first_criticality`, the nee_soon HTR-10 diagnostics
-  with transport: each loads uranium from ENDF (14 to 36 nuclides) and the
+  with transport (these five and `fhr_ring_rpt_endf` are **still not
+  re-measured**): each loads uranium from ENDF (14 to 36 nuclides) and the
   RECONR+BROADR+PURR load alone took 13 to 25 minutes per process here
   (4 shared cores), so a seed ensemble of old and new was not affordable.
   Their recorded values stand and each driver's change is the same mechanism
@@ -196,3 +200,126 @@ elsewhere); `majorant_bounds_endf`, `majorant_temperature_cover`,
 `temperature_interpolation_947`; nee_soon `data.rs` / `data_jobs.rs`.
 Each file's marker now states its audit and reason.
 
+
+## Item 2 ensembles: three more ENDF drivers, old vs migrated (gh:#1583, 2026-11-17)
+
+**Prediction (written on #1583 before any run).** Every arm's new-minus-old
+difference consistent with zero, |z| <= 2 on all arms and |z| <= 1 on at least
+half; the within-build deltas each driver exists to measure also consistent
+with their OLD value at |z| <= 2. No sign predicted. Expected resolution
+(from the HTR-10 pebble ensemble) a few hundred pcm per arm at N = 8-12, so a
+shift under about 700 pcm would be invisible. Any arm beyond 2 sigma would be a
+finding, reported and not patched.
+
+**Method.** Same as the HTR-10 pebble section above. OLD = `d1e20f188` (before
+#1581); NEW = `7b5dd858d` (the session branch, which holds #1581). Same data,
+seeds and settings in both; ALL seeds inside ONE process per build, so each
+ENDF load was paid once; OLD and NEW ran at the same time with the other
+drivers (up to six processes on 4 cores). sem = sample sd / sqrt(n);
+sigma(new - old) = sqrt(sem_old^2 + sem_new^2); z = difference / sigma. Both
+|z| <= 1 and |z| <= 2 are reported. A delta is the arm minus the first arm,
+formed per seed and then averaged, per build. Script:
+`ensembles_1583/analyse.py` (`python3 -I analyse.py <fz|fhr|tk|pitch> old new`
+reproduces every number below), raw outputs beside it. The only code change is
+a seed-loop knob in two examples (`OUTRAM_FZ_SEEDS`/`OUTRAM_FZ_SEED0` in
+`htr10_fuel_zone_kinf`, `OUTRAM_PITCH_SEEDS` in `lct008_pitch_sweep`), applied
+identically to both builds; unset it leaves the single-seed program as it was.
+`fhr_pebble_target_at_rest_ablation` (`OUTRAM_FHR_SEEDS`) and
+`thermal_kernel_keff_worth` (replica argument) already had seed loops.
+
+### `htr10_fuel_zone_kinf` (N = 12, seeds 1-12)
+
+2000 particles x [20 + 60], 293.15 K, default ENDF route (30P graphite,
+URR + DBRC), packing seed 20260811, `CpuSingleThread`. The recorded 2026-10-05
+numbers are at 10 000 x [50 + 200] and are not comparable per seed.
+
+| arm | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| heterogeneous | 1.57287 (164 pcm) | 1.57302 (279) | +15 +- 93 pcm | +0.16 |
+| homogenised | 1.44863 (251) | 1.44751 (268) | -113 +- 106 | -1.06 |
+| worth (hom - het) | -12424 +- 64 | -12551 +- 123 | -128 +- 138 | -0.92 |
+
+|z| <= 2 on all three (held); |z| <= 1 on two of three (held; homogenised is
+-1.06). **Verdict: consistent with a URR re-draw.** The double-heterogeneity
+worth is -12.4 to -12.6 thousand pcm in both builds, against -12452 +- 126 recorded
+at 10 000 x 250. Null at about +-100 pcm per arm, +-140 on the worth.
+
+### `fhr_pebble_target_at_rest_ablation` (N = 8, seeds 1-8)
+
+4000 x [30 + 80], 600 K, ring-RPT CSG pebble, multi-thread inside each seed.
+
+| arm | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| MOVING (free-gas target motion sampled) | 1.36384 (127 pcm) | 1.36307 (117) | -77 +- 61 pcm | -1.26 |
+| AT-REST | 1.36165 (154) | 1.36154 (141) | -11 +- 74 | -0.15 |
+| AT-REST - MOVING | -219 +- 64 | -153 +- 43 | +66 +- 77 | +0.86 |
+
+|z| <= 2 on all three (held); |z| <= 1 on two of three (held). **Verdict:
+consistent with a re-draw**, at about +-60-75 pcm per arm (the tightest of the
+three drivers). **Separate pre-existing finding, not caused by #1581:** the
+driver's own prediction (-2242 pcm, from gh:#193's table, k_MOVING 1.40546) FAILS
+in BOTH builds (OLD -219 +- 71 pcm, NEW -153 +- 65 unpaired; the driver prints
+"FAILED as stated" in both outputs), and MOVING k is about 1.364 in both
+against 1.40546 in that table. The in-process hook therefore does not
+reproduce the whole-material switch's -2242 pcm on either side of the
+migration. Not investigated here and not patched.
+
+### `thermal_kernel_keff_worth` (N = 6 replicas, master seeds 20260912-20260917)
+
+`-- 4000 20 80 8` was requested; the run was cut after replica 5 (the
+OLD process had finished replicas 0-5, NEW 0-5 plus part of 6) for time, so the
+common complete set is N = 6. 600 K graphite medium, four S(a,b) emission
+tabulations per replica, multi-thread.
+
+| tabulation | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| 48x16 (superseded) | 1.38445 (199 pcm) | 1.38447 (180) | +2 +- 109 pcm | +0.02 |
+| 384x16 (grid only) | 1.38518 (150) | 1.38627 (134) | +109 +- 82 | +1.33 |
+| 48x64 (bins only) | 1.38363 (217) | 1.38527 (178) | +163 +- 115 | +1.42 |
+| 384x64 (current) | 1.38449 (199) | 1.38534 (144) | +85 +- 100 | +0.85 |
+
+Worths against 48x16, new - old: 384x16 +108 +- 130 (z +0.82), 48x64 +161 +- 128
+(+1.26), 384x64 +83 +- 160 (+0.52). |z| <= 2 on all seven (held); |z| <= 1
+on four of seven (two of four arms, exactly half, so the prediction's "at
+least half" holds, narrowly; three comparisons sit at 1.26-1.42). Three of
+four arms and all three worths are positive and the four arms average
++90 pcm, the same new-above-old lean seen in the HTR-10 pebble ensemble; the
+fuel-zone and FHR drivers above lean the other way, so it is recorded, not
+explained, and no test was made. **Verdict: consistent with a re-draw at |z| <= 2,
+resolution about +-100 pcm per arm at N = 6; not a proof of zero.** The
+recorded 2026-10-04 worth (+107 +- 207 pcm at 720 000 histories) is
+within these statistics in both builds (old +4 +- 110, new +87 +- 116).
+
+### `lct008_pitch_sweep` (PARTIAL, N = 3: not a result)
+
+`--cheap-nuclides` (11 tapes), pitches 1.45 and 1.63576 cm, 3000 x [30 + 100],
+seeds 1-3 complete when the run was stopped for time (it was paused for about
+25 minutes to let the other drivers finish, then killed). N = 3 is below the
+N >= 8 required, so the sd per arm is itself uncertain (OLD 1.45 cm: sd 48 pcm
+from three values, against a within-run sigma of about 190). new - old:
+1.45 cm +115 +- 151 pcm (z +0.76), 1.63576 cm +75 +- 81 (z +0.94). These are
+reported for completeness and **conclude nothing**; the item stays open for
+this driver.
+
+### Not done
+
+`fhr_ring_rpt_endf`, `msre_n1_first_criticality`, `icsbep_five_route_keff`,
+`lct008_ace_roundtrip` and the nee_soon transport diagnostics were not run:
+the three completed drivers plus a partial pitch sweep took the whole time
+budget on a shared 4-core box (each process reconstructs 8-36 nuclides, and the
+sweeps ran at 3-15 minutes per seed once six processes shared the cores).
+
+### Overall
+
+Across the three completed drivers: 8 arm comparisons and 5 within-build
+deltas, every one at |z| <= 2 (largest |z| 1.42, on the 48x64 arm). No difference inconsistent with a pure URR re-draw was found, at resolutions of
+about +-60 to +-140 pcm per arm; a physics shift below about 150-300 pcm (2
+sigma) would not be seen. The |z| <= 1 half-criterion held on every driver
+(thermal-kernel only narrowly).
+
+**Hardware.** Intel Xeon @ 2.10 GHz (cloud container, `lscpu` model name only;
+KVM), 4 logical cores, 15 GiB RAM, Linux 6.18, CPU only, shared: OLD and NEW
+and up to six processes ran at once. Per-run times (107-307 s for one
+fuel-zone case, 225 s for one FHR seed) carry no cross-run meaning and are
+not tabulated; whole-process wall time was 4221 s / 4049 s (fuel-zone, old /
+new, including the data load).
