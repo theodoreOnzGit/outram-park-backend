@@ -6,6 +6,9 @@
 //! `op-dt3.10` bead notes). Condensation is naturally represented via
 //! `HemSteamCv`'s own VLE-dome-aware quality state instead.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::hem::HemSteamCv;
 use crate::TampinesError;
 use uom::si::f64::Pressure;

@@ -9,6 +9,9 @@
 //! `crates/tampines/verification_and_validation/multiphase_1d_issues_1058_1060_1062_1076.md`.
 //! Verification only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines_steam_tables::hem::{TimeTable, WallHeat};
 use tampines_steam_tables::region_1_subcooled_liquid::h_tp_1;
 use uom::si::angle::radian;
@@ -220,7 +223,7 @@ fn pressure_boundaries_drive_a_heated_channel_that_balances_its_energy() {
         HeatFluxDensity::new::<watt_per_square_meter>(q_w),
     )))
     .expect("flux");
-    let q = q_w * std::f64::consts::PI * D * 0.5;
+    let q = q_w * core::f64::consts::PI * D * 0.5;
     let v = s.pipe().cell_volume();
     let dt = 1.0e-4;
     let mut last = None;

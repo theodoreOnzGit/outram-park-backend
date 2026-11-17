@@ -62,6 +62,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{AvailableEnergy, MassRate, Pressure, Ratio, ThermodynamicTemperature, Time};
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::mass_rate::kilogram_per_second;
@@ -214,8 +217,8 @@ pub enum SteamGeneratorModel {
     },
 }
 
-impl std::fmt::Debug for SteamGeneratorModel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for SteamGeneratorModel {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::PrescribedHeliumOutlet(t) => write!(f, "PrescribedHeliumOutlet({} K)", t.get::<kelvin>()),
             Self::HelicalCoil { feedwater_flow, .. } => write!(

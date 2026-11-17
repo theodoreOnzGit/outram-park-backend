@@ -28,6 +28,9 @@
 //!    round-off; the first steps are choked.
 //! 5. **Loose coupling** (one pass) also conserves to round-off.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::control_volume::{Port, VolumeAltitudeTable};
 use crate::flow_path::{FlowPathGeometry, FlowPathKind};
@@ -187,7 +190,7 @@ fn a_manometer_oscillates_at_the_hand_frequency() {
     let rho = net.volume(0).unwrap().pool_density().value;
     let (ap, l, area, v, p, g) = (0.01, 5.0, 1.0, 50.0, 1.0e5, 9.80665);
     let omega = (2.0 * ap * (g + 1.4 * p * area / (rho * v)) / (l * area)).sqrt();
-    let period = 2.0 * std::f64::consts::PI / omega;
+    let period = 2.0 * core::f64::consts::PI / omega;
     let dt = 0.002;
     let diff = |n: &CvNetwork| n.volume(1).unwrap().pool_level().value - n.volume(0).unwrap().pool_level().value;
     let mut prev = diff(&net);
@@ -1009,7 +1012,7 @@ fn mark_i_proxy() -> CvNetwork {
     let h_ww = (v_pool + v_ww_gas) / a_ww;
     let level0 = v_pool / a_ww;
     let exit = level0 - 11_800.0 / (995.0 * g);
-    let d_dc = (4.0 * 20.0 / (96.0 * std::f64::consts::PI)).sqrt();
+    let d_dc = (4.0 * 20.0 / (96.0 * core::f64::consts::PI)).sqrt();
     let z_ww_gas = h_ww - 0.5;
     let port = |z: f64, h: f64| Port { elevation: m(z), opening_height: m(h) };
     let ww = ControlVolume::new(

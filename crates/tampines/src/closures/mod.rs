@@ -10,6 +10,9 @@
 //!   `tampines_steam_tables::hem::wall_friction`, beside the HEM pipe that
 //!   also uses it, and is re-exported here for `multiphase_1d`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The RELAP5 four-region wall friction (gh:#1061).
 pub mod wall_friction {
     pub use tampines_steam_tables::hem::wall_friction::{

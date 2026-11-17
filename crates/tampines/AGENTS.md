@@ -2,6 +2,15 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `tampines` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1606, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`, and nothing in it is gated.
+Keep it that way: `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+glob in new code, printing only in tests or behind `#[cfg(feature = "std")]`,
+and a new dependency only if it builds without std (or behind `std`, in which
+case say what it costs here).
+
 ## Heat sources are inputs; kinetics lives in `nee_soon` (HARD RULE)
 
 **Maintainer direction, 2026-11-03:** "any neutronics and TH shld live in

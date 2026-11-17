@@ -52,6 +52,9 @@
 //! lambda_f / lambda_g = 9.210375
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Length;
 use uom::si::length::{meter, millimeter};
 

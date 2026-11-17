@@ -107,6 +107,9 @@
 //! made, and none is claimed. AI-assisted draft pending human review per
 //! `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{MassFlux, PressureGradient};
 use crate::gas_phase::properties::helium_state;
 use crate::TampinesError;
@@ -225,7 +228,7 @@ impl KtaBed {
         Self::new(
             Ratio::new::<ratio>(0.39),
             Length::new::<meter>(0.06),
-            Area::new::<square_meter>(std::f64::consts::FRAC_PI_4 * d_core * d_core),
+            Area::new::<square_meter>(core::f64::consts::FRAC_PI_4 * d_core * d_core),
         )
     }
 

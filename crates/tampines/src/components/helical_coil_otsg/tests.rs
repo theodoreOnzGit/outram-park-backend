@@ -4,6 +4,9 @@
 //! the prediction each one is set against is there (§1), written before the
 //! first run.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::correlations as corr;
 use super::*;
 use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::pipe_correlations::gnielinski_correlation_liquids_fully_developed;
@@ -38,7 +41,7 @@ fn liquid_case_tubes(curvature_ratio: f64, length_m: f64, tubes: u32, options: O
     // Solve D_w (1 + (h/(π D_w))²) = D_c by fixed point.
     let mut d_w = d_c;
     for _ in 0..50 {
-        let q = pitch / (std::f64::consts::PI * d_w);
+        let q = pitch / (core::f64::consts::PI * d_w);
         d_w = d_c / (1.0 + q * q);
     }
     let mut g = HelicalCoilGeometry {
@@ -83,13 +86,13 @@ fn correct_physics_is_the_default() {
 #[test]
 fn geometry_is_derived_and_validated() {
     let g = HelicalCoilGeometry::illustrative();
-    let turn = (std::f64::consts::PI * 0.1f64).hypot(0.03);
+    let turn = (core::f64::consts::PI * 0.1f64).hypot(0.03);
     assert!((g.turn_length().get::<meter>() - turn).abs() < 1e-12);
     assert!((g.tube_length().get::<meter>() - 108.0 * turn).abs() < 1e-9);
     assert!((g.tube_length().get::<meter>() - 34.08).abs() < 0.01, "the published 34 m");
     assert!((g.coil_height().get::<meter>() - 3.24).abs() < 1e-12);
     assert!((g.elevation_sine() - 0.03 / turn).abs() < 1e-15);
-    let d_c = 0.1 * (1.0 + (0.03 / (std::f64::consts::PI * 0.1)).powi(2));
+    let d_c = 0.1 * (1.0 + (0.03 / (core::f64::consts::PI * 0.1)).powi(2));
     assert!((g.curvature_ratio().get::<ratio>() - 0.014 / d_c).abs() < 1e-15);
     g.validate().expect("valid");
     // Generic, not `&dyn Fn` (workspace rule: no trait objects).
@@ -133,7 +136,7 @@ fn geometry_is_derived_and_validated() {
 fn the_region_query_sees_the_assembled_helix() {
     let g = HelicalCoilGeometry::illustrative();
     let n = g.turns;
-    for phi in [0.0, 1.0, 17.3, 2.0 * std::f64::consts::PI * n] {
+    for phi in [0.0, 1.0, 17.3, 2.0 * core::f64::consts::PI * n] {
         let c = g.centreline_point(phi);
         assert!(g.distance_to_centreline(c) < 1e-9, "phi {phi}");
         assert_eq!(g.region_at(c), CoilRegion::Bore);
@@ -215,7 +218,7 @@ fn ablations_close_and_move_the_answer_the_right_way() {
     ];
     let peak = |s: &OtsgSolution| s.points.iter().map(|p| k(p.inner_wall_temperature)).fold(0.0, f64::max);
     println!("ablation | duty MW | steam out C | dp kPa | peak wall C | dryout s m | closure");
-    for (name, s) in std::iter::once(("default", base.clone())).chain(cases.iter().cloned()) {
+    for (name, s) in core::iter::once(("default", base.clone())).chain(cases.iter().cloned()) {
         println!("{name} | {:.4} | {:.2} | {:.2} | {:.1} | {:?} | {:.2e}", s.duty_water.get::<watt>() / 1e6, k(s.outlet().water_temperature) - 273.15, s.pressure_drop().get::<pascal>() / 1e3, peak(&s) - 273.15, s.dryout_length.map(|l| (l.get::<meter>() * 100.0).round() / 100.0), s.energy_closure.get::<ratio>());
         assert!(s.converged && s.energy_closure.get::<ratio>().abs() <= 1e-8, "{name}");
     }

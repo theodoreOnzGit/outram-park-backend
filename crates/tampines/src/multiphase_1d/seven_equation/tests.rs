@@ -9,7 +9,10 @@
 //! Every prediction below was written into this file before the case was
 //! first run; every result is the measured number, misses included.
 
-use std::f64::consts::FRAC_PI_2;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::FRAC_PI_2;
 
 use tampines_steam_tables::hem::{StiffenedGasHem, StiffenedGasPair};
 use uom::si::angle::radian;
