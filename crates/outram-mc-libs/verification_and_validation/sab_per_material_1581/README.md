@@ -1010,8 +1010,15 @@ path) and after (this change) and run with identical settings, `--test-threads=1
 - **`majorant_bounds_endf`: output identical before and after**, line for line
   apart from wall time (3 passed; 1127 s before, 1110 s after). Raw:
   `ensembles_1635/majorant_bounds_endf_{before,after}.out`.
-- **`majorant_temperature_cover`: Not re-checked yet** at this commit. Its
-  before/after runs (about 1.5 h each on this box) are still in progress; the
-  first two of five tests passed in both and printed the same 487-byte head
-  (`[MIX] DEFAULT ... table worst 0.7729 (1.386e-5 eV, 1500 K)`). The result is
-  added below when the runs finish.
+- ~~**`majorant_temperature_cover`: Not re-checked yet** at this commit; runs in
+  progress.~~ **CORRECTED 2026-11-17:** both runs finished, **5 passed in each;
+  every printed majorant number identical before and after** (diffed with the
+  build and fit wall times masked; 6680 s before, 6702 s after). Limits: the two
+  `u238_*` tests printed `SKIP: reference ENDF tapes not present` in BOTH runs
+  (the binaries were run from a scratch directory where the tape lookup failed),
+  so this compares the three graphite/UO2 tests only; the U-238 cases hold no
+  S(a,b) law and are untouched by the migration. The head of each output file
+  (the first test and the `[MIX] DEFAULT` line of the second) was overwritten by
+  an accidental relaunch at 15:18 and is not in the saved files; before it was
+  lost it read `table worst 0.7729 (1.386e-5 eV, 1500 K)` in the before run.
+  Raw: `ensembles_1635/majorant_temperature_cover_{before,after}.out`.
