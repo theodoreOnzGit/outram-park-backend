@@ -141,7 +141,10 @@
 //! into an adiabatic (zeroGradient) wall on both sides. Pinned by
 //! `tests::interface_coupling_is_on_by_default`.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::error::AppBuilderError;
 use crate::solvers::energy::{face_conduction_in, EnergyEquation, EnergySolve, IncompressibleThermo};
@@ -669,7 +672,7 @@ impl ChtMultiRegionFoam {
 }
 
 fn config_error(msg: String) -> AppBuilderError {
-    AppBuilderError::Case { case: std::path::PathBuf::from("chtMultiRegionFoam"), msg }
+    AppBuilderError::Case { case: crate::path::PathBuf::from("chtMultiRegionFoam"), msg }
 }
 
 /// A 1-D slab mesh for conduction checks: `n` cells along x from `x0` to

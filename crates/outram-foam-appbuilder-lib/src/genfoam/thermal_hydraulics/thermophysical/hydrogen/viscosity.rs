@@ -38,6 +38,9 @@
 //! [`equation_of_state::density`](super::equation_of_state::density)); the
 //! upstream regression fixture's reference values already reflect it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::collision_integrals::{a12, omega22_22};
 use super::constants::{R, TC, W, W_H};

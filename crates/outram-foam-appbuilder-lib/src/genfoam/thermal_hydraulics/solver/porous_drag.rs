@@ -48,6 +48,9 @@
 //! convention; the scalar tuning parameters that cross the public API carry
 //! their [`uom`] types.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::vol_field::VolScalarField;
 
 use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
@@ -147,7 +150,7 @@ impl PorousDrag {
 mod tests {
     use super::*;
     use outram_foam_basic_lib::prelude::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     use crate::genfoam::thermal_hydraulics::phase::fluid::StateOfMatter;
 

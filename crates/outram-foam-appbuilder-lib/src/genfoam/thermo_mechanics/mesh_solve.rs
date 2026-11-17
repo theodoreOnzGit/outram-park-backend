@@ -123,7 +123,10 @@
 //! per cell via [`super::assemble_mesh_displacement`] once an axial-expansion
 //! field is supplied.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;

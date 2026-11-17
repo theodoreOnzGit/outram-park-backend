@@ -33,7 +33,7 @@ uom.workspace = true
 clap.workspace = true
 outram-foam-basic-lib = { workspace = true, features = ["std"] }
 outram-foam-mesh.workspace = true
-outram-foam-appbuilder-lib.workspace = true
+outram-foam-appbuilder-lib = { workspace = true, features = ["std"] }
 # gh:#1476: the cfMesh executables (cartesianMesh, tetMesh, pMesh,
 # cartesian2DMesh): the meshDict reader, STL surfaceFile and polyMeshGen write.
 outram-park-fork-cfmesh = { workspace = true, features = ["foam-export", "surface-file"] }

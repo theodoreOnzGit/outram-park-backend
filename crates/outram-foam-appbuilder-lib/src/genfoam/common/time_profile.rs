@@ -89,6 +89,9 @@
 //! assert_eq!(rho.value(Time::new::<second>(101.0)), 0.0005767131);// shifted t = 1 s
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Time;
 use uom::si::time::second;
 

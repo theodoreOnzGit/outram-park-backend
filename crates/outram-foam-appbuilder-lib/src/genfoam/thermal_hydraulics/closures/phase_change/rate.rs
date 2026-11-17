@@ -37,6 +37,9 @@
 //! mesh zones) is mesh/solver state and is likewise out of scope — this port
 //! exposes the constant rate itself; zone masking is a call-site concern.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{InterfacialHeatFlux, LatentHeat, PhaseChangeRate};
 use uom::si::volumetric_power_density::watt_per_cubic_meter;
 

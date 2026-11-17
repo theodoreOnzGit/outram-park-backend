@@ -6,6 +6,9 @@
 //! Tests for the `nuclearSteadyStatePebble` port, on the GeN-Foam `3D_gFHR`
 //! tutorial's own data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 
 /// The gFHR tutorial's pebble, from
@@ -319,7 +322,7 @@ fn the_gfhr_minimum_peak_fuel_temperature_reproduces_upstream() {
     let rho = 2413.03 - 0.4884 * T_COOLANT_INLET;
     // Velocity exactly as upstream's own U boundary condition computes it:
     // mdot/(rho * pi r^2 * volumeFraction).
-    let area = std::f64::consts::PI * CORE_RADIUS * CORE_RADIUS * GFHR_SOLID_FRACTION;
+    let area = core::f64::consts::PI * CORE_RADIUS * CORE_RADIUS * GFHR_SOLID_FRACTION;
     let velocity = MASS_FLOW / (rho * area);
 
     let re = rho * velocity * D_H / MU;

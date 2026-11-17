@@ -34,7 +34,12 @@
 //! `runTimeModifiable` fields are carried faithfully for a future output layer
 //! but are **not consulted by any solver today** — each is flagged below.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use crate::error::AppBuilderError;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 /// The contents of an OpenFOAM `system/controlDict`, as a typed struct.
@@ -158,6 +163,7 @@ pub enum WriteFormat {
 }
 
 impl ControlDict {
+    #[cfg(feature = "std")]
     /// Parse a `controlDict` file from disk.
     ///
     /// **Not yet implemented — calling this panics (`todo!`).** OpenFOAM

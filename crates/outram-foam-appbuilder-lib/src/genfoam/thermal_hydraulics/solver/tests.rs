@@ -19,7 +19,10 @@
 //! `fvm::sp`, the linearised structure source) through the driver, not a
 //! re-derivation.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::*;
 

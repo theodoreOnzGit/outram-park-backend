@@ -55,6 +55,9 @@
 //! doc comment. Read a value back with the quantity's `.value` field, which is
 //! likewise the base-SI magnitude.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::marker::PhantomData;
 use uom::si::{Quantity, ISQ, SI};
 use uom::typenum::{N1, N2, P1, Z0};

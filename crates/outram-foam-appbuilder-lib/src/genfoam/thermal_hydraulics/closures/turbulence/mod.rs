@@ -88,6 +88,9 @@
 //! bead op-p6p.7.9; the solver-integration items listed immediately above
 //! remain deferred. See `docs/genfoam-port-plan.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod lahey_k_epsilon;
 pub mod mixture_k_epsilon;
 pub mod porous_k_epsilon;

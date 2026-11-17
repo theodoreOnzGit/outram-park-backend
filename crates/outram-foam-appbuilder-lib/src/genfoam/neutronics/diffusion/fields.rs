@@ -55,7 +55,10 @@
 //! feedback variables, pass `raw_parameters = &[]` and every value equals the
 //! `reference` state.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{
     fvc, BoundaryCondition, Field, FvMesh, PatchField, SurfaceScalarField, VolScalarField,

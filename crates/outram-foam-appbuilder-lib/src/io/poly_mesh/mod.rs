@@ -31,13 +31,18 @@
 //! enough (FoamFile header + N-element list) that a purpose-built 400-line
 //! Rust parser is far simpler than attempting C++ interop.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use outram_foam_basic_lib::prelude::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind, Vector3};
+#[cfg(feature = "std")]
 use std::path::Path;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 // ── public entry point ────────────────────────────────────────────────────────
 
+#[cfg(feature = "std")]
 /// Read an OpenFOAM `constant/polyMesh/` directory and return an `FvMesh`.
 ///
 /// Reads `points`, `faces`, `owner`, `neighbour`, and `boundary`, then
@@ -634,6 +639,7 @@ fn parse_cell_labels(block: &str, zone: &str, file: &str) -> Result<Vec<usize>, 
     Ok(cells)
 }
 
+#[cfg(feature = "std")]
 /// Read and parse `<polyMesh>/cellZones`.
 ///
 /// # Errors

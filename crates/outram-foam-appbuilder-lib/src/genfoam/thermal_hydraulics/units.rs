@@ -30,6 +30,9 @@
 //! pass a temperature where a Reynolds number is wanted) without inventing a
 //! bespoke newtype the compiler could not check.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Ratio;
 use uom::si::ratio::ratio;
 

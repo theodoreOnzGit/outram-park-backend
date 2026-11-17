@@ -17,6 +17,9 @@
 //! is therefore preserved exactly on any mesh (the map's last row ends at
 //! `z = 187 cm`, inside the mesh interval 180-187.5).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The CSV, embedded.
 const CSV: &str = include_str!("data/power-density-fpic-10mw-tab2-6.csv");
 
@@ -81,7 +84,7 @@ pub fn map_power_w(map: &[PowerMapCell]) -> f64 {
     map.iter()
         .map(|c| {
             c.q_w_per_cm3
-                * std::f64::consts::PI
+                * core::f64::consts::PI
                 * (c.r_cm[1] * c.r_cm[1] - c.r_cm[0] * c.r_cm[0])
                 * (c.z_cm[1] - c.z_cm[0])
         })

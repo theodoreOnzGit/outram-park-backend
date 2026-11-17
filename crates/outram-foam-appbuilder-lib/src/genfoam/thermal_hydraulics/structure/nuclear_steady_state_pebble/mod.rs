@@ -119,8 +119,11 @@
 //! - Density correlations and the min/max/average field reductions, which are
 //!   reporting rather than physics.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// The radii of a pebble and of the TRISO particles dispersed in it, metres.
 ///

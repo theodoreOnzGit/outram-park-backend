@@ -61,6 +61,9 @@
 //! composite expressions with no natural `uom` type; all public signatures
 //! stay `uom`-dimensioned.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio, ThermalConductivity, ThermodynamicTemperature};
 use uom::si::heat_flux_density::watt_per_square_meter;

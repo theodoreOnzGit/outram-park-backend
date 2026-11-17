@@ -108,7 +108,7 @@ uom.workspace = true
 #
 # `outram-foam-appbuilder-lib` was a dev-dependency (htgr_sim_v1's genfoam
 # placeholder); it moved here.
-outram-foam-appbuilder-lib.workspace = true
+outram-foam-appbuilder-lib = { workspace = true, features = ["std"] }
 outram-foam-mesh.workspace = true
 # Names `FvMesh` for the meshes above (was a dev-dependency, below).
 outram-foam-basic-lib = { workspace = true, features = ["std"] }

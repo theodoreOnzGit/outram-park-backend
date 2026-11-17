@@ -131,6 +131,9 @@
 //! flow as one node. The hydraulic diameters not in the input sheet are
 //! **Assumed** (see [`flow_region`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{
@@ -682,7 +685,7 @@ impl GasNetwork {
         let mut faces = Vec::new();
         let mut inflow = Vec::new();
         let mut outlet = Vec::new();
-        let ring = |i: usize| std::f64::consts::PI * (re[i + 1] * re[i + 1] - re[i] * re[i]);
+        let ring = |i: usize| core::f64::consts::PI * (re[i + 1] * re[i + 1] - re[i] * re[i]);
         for j in 0..nz {
             for i in 0..nr {
                 let c = mesh.cell_index(i, j);
@@ -695,7 +698,7 @@ impl GasNetwork {
                             faces.push(GasFace {
                                 a: ga,
                                 b: gb,
-                                area: 2.0 * std::f64::consts::PI * re[i + 1] * (ze[j + 1] - ze[j]),
+                                area: 2.0 * core::f64::consts::PI * re[i + 1] * (ze[j + 1] - ze[j]),
                                 da: re[i + 1] - rc(i),
                                 db: rc(i + 1) - re[i + 1],
                                 axial: false,
@@ -742,7 +745,7 @@ impl GasNetwork {
                         inflow.push((ga, ring(i), Stream::Leakage));
                     }
                     HOT_PLENUM if (re[i + 1] * 100.0 - 90.0).abs() < 1e-6 => {
-                        outlet.push((ga, 2.0 * std::f64::consts::PI * re[i + 1] * (ze[j + 1] - ze[j]), re[i + 1] - rc(i), zcf(j)));
+                        outlet.push((ga, 2.0 * core::f64::consts::PI * re[i + 1] * (ze[j + 1] - ze[j]), re[i + 1] - rc(i), zcf(j)));
                     }
                     _ => {}
                 }
@@ -826,7 +829,7 @@ impl GasNetwork {
                 tap_leak = Some(chain.len() - 1);
             }
             chain.push(ChainNode {
-                flow_area: 2.0 * std::f64::consts::PI * rc(i) * h,
+                flow_area: 2.0 * core::f64::consts::PI * rc(i) * h,
                 cells,
                 fraction: if inside { 1.0 - f_dis } else { 1.0 - f_dis - f_leak },
                 region: fr_rnd,

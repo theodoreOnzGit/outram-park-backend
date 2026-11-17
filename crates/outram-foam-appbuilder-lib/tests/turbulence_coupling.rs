@@ -47,6 +47,8 @@
 //! symptom of a missing ω wall treatment. Do not describe any wall-bounded RAS
 //! result from this stack as validated.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;

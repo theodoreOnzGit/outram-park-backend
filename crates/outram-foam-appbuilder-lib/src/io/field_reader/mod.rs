@@ -23,14 +23,19 @@
 //!
 //! Supports both `uniform` and `nonuniform List<...>` internal fields.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::poly_mesh::strip_foam_comments;
 use outram_foam_basic_lib::prelude::{
     BoundaryCondition, Field, FvMesh, PatchField, Vector3, VolScalarField, VolVectorField,
 };
+#[cfg(feature = "std")]
 use std::path::Path;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
+#[cfg(feature = "std")]
 /// Read the `internalField` of a `volVectorField` file.
 ///
 /// Handles:
@@ -51,6 +56,7 @@ pub fn read_vol_vector_field(path: &Path, n_cells: usize) -> Result<Vec<Vector3>
     parse_nonuniform_vector_list(&stripped, n_cells, &file_name)
 }
 
+#[cfg(feature = "std")]
 /// Read the `internalField` of a `volScalarField` file.
 ///
 /// Handles:
@@ -297,6 +303,7 @@ fn parse_vector_triple(s: &str, file: &str) -> Result<Vector3, AppBuilderError> 
 // in the file onto the matching mesh patch (by name) and translating the
 // OpenFOAM BC type string into a `BoundaryCondition`.
 
+#[cfg(feature = "std")]
 /// Read a complete `volScalarField` (internal + boundary) bound to `mesh`.
 pub fn read_vol_scalar_field_full(
     path: &Path,
@@ -332,6 +339,7 @@ pub fn read_vol_scalar_field_full(
     ))
 }
 
+#[cfg(feature = "std")]
 /// Read a complete `volVectorField` (internal + boundary) bound to `mesh`.
 pub fn read_vol_vector_field_full(
     path: &Path,
@@ -373,6 +381,7 @@ struct PatchSpec {
     value: Option<String>,
 }
 
+#[cfg(feature = "std")]
 fn field_name(path: &Path) -> String {
     path.file_name()
         .and_then(|s| s.to_str())

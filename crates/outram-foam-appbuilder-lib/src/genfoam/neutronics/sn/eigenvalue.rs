@@ -32,6 +32,9 @@
 
 //! The k-eigenvalue outer power iteration for the S_N solver (see [`super`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::SnNeutronics;
 use crate::genfoam::neutronics::{EigenvalueReport, NeutronicsError};
 

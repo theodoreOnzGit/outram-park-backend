@@ -90,7 +90,10 @@
 //! independent in-crate solver — not validation against a published benchmark.
 //! All are deterministic; repeat runs on the same build reproduce these digits.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
 use outram_foam_basic_lib::prelude::{BoundaryCondition, FvMesh};

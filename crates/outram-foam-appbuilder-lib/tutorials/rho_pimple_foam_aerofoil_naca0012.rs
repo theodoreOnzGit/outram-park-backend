@@ -110,6 +110,8 @@
 //! Do not un-ignore these until a body actually asserts something and wall
 //! functions exist.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
 use outram_foam_basic_lib::prelude::PatchKind;
 use std::path::Path;

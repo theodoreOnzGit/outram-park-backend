@@ -96,6 +96,8 @@
 //! convection on the coarse 20×20 mesh (Ghia used 129×129) — the test asserts
 //! an RMS < 0.10 regression guard, not the 2 % a fine second-order mesh reaches.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::field_reader::{

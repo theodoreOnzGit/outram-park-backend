@@ -56,10 +56,13 @@
 //! tutorials pair it with (`cellLimitedGrad.C`, minmod). The TVD schemes
 //! (`vanLeer`, `MUSCL`, `limitedLinear`) are still unsupported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::fv_schemes::{DdtScheme, DivScheme, GradScheme};
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Which Rhie–Chow `ddtCorr` form a PISO/PIMPLE solver pairs with its ddt
 /// scheme.

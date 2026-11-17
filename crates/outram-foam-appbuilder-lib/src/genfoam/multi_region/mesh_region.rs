@@ -88,7 +88,10 @@
 //! seam. Until then this stand-in provides the temperature field the neutronics
 //! feedback consumes. See the `TODO(op-p6p.7)` below.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{BoundaryCondition, FvMesh};
 use uom::si::f64::{Power, ThermodynamicTemperature, Time, VolumetricHeatCapacity};
@@ -443,7 +446,7 @@ impl RegionKernel for MeshThermalHydraulics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
+    use alloc::collections::BTreeMap;
 
     use outram_foam_basic_lib::fields::vol_field::VolScalarField;
     use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;

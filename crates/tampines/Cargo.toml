@@ -61,6 +61,7 @@ std = [
     "chem-eng-real-time-process-control-simulator/std",
     "outram-park-fork-dwsim-libs/std",
     "dep:outram-foam-appbuilder-lib",
+    "outram-foam-appbuilder-lib/std",
     "dep:boon-lay",
     "dep:farrer-park",
     "farrer-park/std",

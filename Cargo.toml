@@ -637,8 +637,8 @@ bugis                        = { path = "crates/bugis",                        v
 buangkok                     = { path = "crates/buangkok",                     version = "0.0.2" }
 sembawang                    = { path = "crates/sembawang",                    version = "0.0.2" }
 redhill                      = { path = "crates/redhill",                      version = "0.0.3" }
-outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.5" }
-outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.7" }
+outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.5", default-features = false }
+outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.7", default-features = false }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.5", default-features = false }
 outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.3" }
 # FEM structural mechanics; first workspace-dep consumer: outram-blender's

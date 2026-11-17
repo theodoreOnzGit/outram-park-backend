@@ -34,6 +34,9 @@
 //! One backward-Euler transient time step of the SP3 moment + precursor system
 //! (see [`super`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::{fvm, VolScalarField};
 use uom::si::f64::Time;
 use uom::si::time::second;

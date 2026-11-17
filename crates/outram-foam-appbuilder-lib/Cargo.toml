@@ -41,16 +41,28 @@ maturity = 2
 [dependencies]
 # Deterministic transcendentals (gh:#985): petir::mathf::RealMath, no_std.
 petir = { workspace = true }
-thiserror.workspace = true
+thiserror-nostd = { workspace = true }
 uom.workspace = true
-ndarray.workspace = true
-serde.workspace = true
-outram-foam-basic-lib = { workspace = true, features = ["std"] }
-outram-foam-turbulence-lib.workspace = true
-outram-foam-multiphase = { workspace = true, features = ["std"] }
+ndarray-nostd = { workspace = true }
+hashbrown = { workspace = true }
+serde = { workspace = true, optional = true }
+outram-foam-basic-lib = { workspace = true }
+outram-foam-turbulence-lib = { workspace = true }
+outram-foam-multiphase = { workspace = true }
 
 [features]
-default = ["long-tests"]
+default = ["std", "long-tests"]
+# `no_std` + `alloc` without `std` (gh:#1633, epic gh:#1585; unblocks tampines
+# gh:#1606). `std` carries the OpenFOAM case readers and writers (files and
+# paths), the I/O error variant, and `std` in every dependency.
+std = [
+    "thiserror-nostd/std",
+    "ndarray-nostd/std",
+    "dep:serde",
+    "outram-foam-basic-lib/std",
+    "outram-foam-turbulence-lib/std",
+    "outram-foam-multiphase/std",
+]
 # Tests over 5 minutes (root CLAUDE.md "Slow tests and CI"): on by default,
 # skipped by `cargo quick-test`. ADDED 2026-11-03 for the HTR-10 R-Z mesh
 # convergence study (gh:#1149 part B, ~7 min in release).
@@ -112,3 +124,8 @@ path = "tutorials/rho_pimple_foam_aerofoil_naca0012.rs"
 [[test]]
 name = "foam_vv_cases"
 path = "tests/foam_vv_cases/main.rs"
+
+# Reads OpenFOAM case files: `std` only (gh:#1633).
+[[example]]
+name = "tutorial_run_a_solver"
+required-features = ["std"]

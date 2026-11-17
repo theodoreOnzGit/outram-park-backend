@@ -53,7 +53,7 @@ teh-o-prke            = { workspace = true }   # point reactor kinetics (PRKE)
 # Xin Wang SP3 workflow scaffold (src/xin_wang_sp3_workflow/). The SP3 solver
 # port is in progress in a parallel session; the scaffold codes against its
 # intended NeutronicsModel::Sp3 / Sp3Neutronics interface (see op-fr2.2.4).
-outram-foam-appbuilder-lib = { workspace = true }   # GeN-Foam SP3 multiphysics host
+outram-foam-appbuilder-lib = { workspace = true, features = ["std"] }   # GeN-Foam SP3 multiphysics host
 outram-foam-basic-lib      = { workspace = true, features = ["std"] }   # FvMesh / fields, for the GeN-Foam bridge
 # Geometry authoring: `blender_bridge` (surface mesh -> outram-mc CSG) and the
 # `sim` run driver moved here from outram-blender's retired `mc-export` feature

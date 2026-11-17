@@ -60,6 +60,9 @@
 //! transient-only upstream: `!eigenvalueNeutronics_`), and only the neutronics
 //! region (`regionSolvers { neutroRegion ... }`) is stepped.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMatrix, SolverSettings, VolScalarField};
 use thiserror::Error;
 

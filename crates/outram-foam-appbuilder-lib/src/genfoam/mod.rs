@@ -79,6 +79,9 @@
 //!
 //! The generic FV building blocks ([`common`]) round out the subtree.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod common;
 pub mod multi_region;
 pub mod neutronics;

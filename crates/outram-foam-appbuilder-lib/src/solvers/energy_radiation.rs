@@ -64,6 +64,9 @@
 //! coupled by [`crate::solvers::energy_view_factor`] (exclusive with P1 on one equation), scattering and a non-orthogonal
 //! correction of the `G` Laplacian are not ported (gh:#1379).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::solvers::energy::IncompressibleThermo;
 use outram_foam_basic_lib::prelude::*;
@@ -100,7 +103,7 @@ impl RadiationCoupling {
     pub fn new(model: P1Model, t: &VolScalarField, g0: f64) -> Result<Self, AppBuilderError> {
         if model.patches.len() != t.mesh.patches.len() {
             return Err(AppBuilderError::Case {
-                case: std::path::PathBuf::from("energy radiation"),
+                case: crate::path::PathBuf::from("energy radiation"),
                 msg: format!("P1 model has {} patch entries, the mesh has {} patches", model.patches.len(), t.mesh.patches.len()),
             });
         }
@@ -167,7 +170,7 @@ mod tests {
     use super::*;
     use crate::solvers::energy::EnergyEquation;
     use outram_foam_basic_lib::radiation::{stefan_boltzmann_esi_v2506, ConstantAbsorptionEmission, P1PatchModel};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
     use uom::si::f64::{Length, Time};
     use uom::si::length::meter;
     use uom::si::time::second;

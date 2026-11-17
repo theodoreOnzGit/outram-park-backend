@@ -53,6 +53,9 @@
 //! operate on `surfaceScalarField`s / look up sibling phase objects from the
 //! mesh registry — deferred (see the parent module doc).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::drag_coefficient_from_kd;
 use super::units::{

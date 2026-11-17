@@ -40,6 +40,9 @@
 //! to the solver bead (op-p6p.7.11) once it exists. Only the scalar `Cvm(alpha)`
 //! coefficient closure is ported here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Ratio;
 use uom::si::ratio::ratio;
 

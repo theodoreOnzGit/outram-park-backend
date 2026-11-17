@@ -27,6 +27,9 @@
 //! These helpers re-apply a captured BC template — the equivalent of OpenFOAM's
 //! `field.correctBoundaryConditions()`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::{BoundaryCondition, Vector3, VolScalarField, VolVectorField};
 
 /// Re-apply a scalar boundary-condition template to a field. For `FixedValue`

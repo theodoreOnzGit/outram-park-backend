@@ -68,6 +68,9 @@
 //! - H. No, M.S. Kazimi, subchannel void-fraction/interfacial-drag closure
 //!   (MIT report basis for the upstream `NoKazimi` model).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 use uom::si::f64::{Length, MassDensity, Ratio, ReciprocalLength, Velocity};

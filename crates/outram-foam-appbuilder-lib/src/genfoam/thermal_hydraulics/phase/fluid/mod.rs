@@ -76,7 +76,10 @@
 //! | [`Fluid::lockhart_martinelli`] | `XLM` | dimensionless |
 //! | [`Fluid::dispersion`] | — | dimensionless (`0` continuous … `1` dispersed) |
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::surface_field::SurfaceScalarField;
 use outram_foam_basic_lib::fields::vol_field::{VolScalarField, VolVectorField};

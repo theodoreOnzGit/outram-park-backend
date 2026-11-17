@@ -90,6 +90,9 @@
 //!   unported; what exists here is the closure/field/one-phase-driver
 //!   foundation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod boundary_conditions;
 pub mod closures;
 pub mod function_objects;

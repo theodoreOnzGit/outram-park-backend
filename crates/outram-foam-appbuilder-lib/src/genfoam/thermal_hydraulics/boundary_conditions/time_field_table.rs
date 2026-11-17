@@ -73,6 +73,9 @@
 //! floor [`ScalarInterpolateTable`] enforces); a single-row table is a
 //! constant field and does not need this machinery.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Time;
 use uom::si::time::second;
 
