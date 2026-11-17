@@ -167,6 +167,73 @@ fn openmc_rates_through_the_port_integrator() {
     assert!(worst <= 1e-10, "{worst}");
 }
 
+/// **Solver ablation** (maintainer direction 2026-11-17: the solvers are
+/// PETIR's; measure how much choosing among them moves the result). The
+/// replay of [`openmc_rates_through_the_port_integrator`] through each of
+/// PETIR's matrix exponentials, against OpenMC's end-of-step atoms:
+/// `Cram48` and `Cram16` (IPF form, ported into PETIR from OpenMC's
+/// `cram.py`) and `cram16_pfd` (ONIX's partial-fraction CRAM-16, an
+/// independent port). Same filter as check 1.
+///
+/// **Prediction, posted on gh:#1626 before the run:** `Cram48` unchanged
+/// (4.1e-15); `Cram16` IPF at most 1e-10; ONIX PFD at most 1e-9 and above
+/// IPF CRAM-16. Recorded, not gated: the assertions only require each
+/// solver to return finite densities on every step.
+///
+/// **Results, measured 2026-11-17** (160 steps each; the bounds held):
+///
+/// | PETIR solver | worst relative to OpenMC | where |
+/// |---|---|---|
+/// | `Cram48` (IPF, OpenMC's default) | 4.07e-15 | direct seed 1, step 0->1, U-238 |
+/// | `Cram16` (IPF) | 4.80e-14 | flux seed 6, step 0->1, Cs-135 |
+/// | ONIX `cram16_pfd` | 4.97e-14 | direct seed 5, step 0->1, Cs-135 |
+///
+/// The choice of solver is worth at most ~5e-14 here, below anything the
+/// transport comparison can see (its sigma is ~1e-3). The third part of the
+/// prediction, that the partial-fraction form would be clearly worse than
+/// IPF CRAM-16, did not show: the two agree to within 4 %.
+#[test]
+fn solver_ablation_on_openmc_rates() {
+    let mut runs = Runs::default();
+    read(&outputs().join("pincell_depletion.tsv"), &mut runs);
+    let (chain, names) = chain();
+    let mut keys: Vec<&(String, u64, usize)> = runs.atoms.keys().filter(|k| k.2 < 5).collect();
+    keys.sort();
+    let solvers: [(&str, fn(&outram_mc_libs::depletion::matrix::DepletionMatrix, &[f64], f64) -> Vec<f64>); 3] = [
+        ("PETIR Cram48 (IPF)", |a, n, dt| petir::depletion::cram48(a, n, dt).unwrap()),
+        ("PETIR Cram16 (IPF)", |a, n, dt| petir::depletion::cram16(a, n, dt).unwrap()),
+        ("PETIR ONIX cram16_pfd", |a, n, dt| petir::depletion::cram16_pfd(a, n, dt).unwrap()),
+    ];
+    for (label, solve) in solvers {
+        let (mut worst, mut at, mut steps) = (0.0f64, String::new(), 0);
+        for key in &keys {
+            let (mode, seed, i) = key;
+            let mut rates = ReactionRates::zero();
+            for n in &names {
+                rates.set(n, MicroRate { gamma: runs.gamma[*key][n], fission: runs.fission[*key][n], n2n: 0.0 });
+            }
+            let n0: Vec<f64> = names.iter().map(|n| runs.atoms[*key][n]).collect();
+            let ours = solve(&chain.build_matrix(&rates), &n0, 86_400.0);
+            assert!(ours.iter().all(|x| x.is_finite()), "{label}: non-finite densities");
+            let next = &runs.atoms[&(mode.clone(), *seed, i + 1)];
+            let big = ours.iter().cloned().fold(0.0, f64::max);
+            for (j, n) in names.iter().enumerate() {
+                let r = next[n];
+                if r.abs() < 1e-12 * big {
+                    continue;
+                }
+                let rel = ((ours[j] - r) / r).abs();
+                if rel > worst {
+                    worst = rel;
+                    at = format!("{mode} seed {seed} step {i}->{} {n}", i + 1);
+                }
+            }
+            steps += 1;
+        }
+        println!("{label:<24} {steps} steps, worst relative to OpenMC {worst:.2e} ({at})");
+    }
+}
+
 #[test]
 fn port_against_openmc_within_statistics() {
     let mut runs = Runs::default();
