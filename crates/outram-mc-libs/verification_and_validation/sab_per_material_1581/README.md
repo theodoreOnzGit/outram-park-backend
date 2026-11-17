@@ -1289,3 +1289,104 @@ sd of the other seeds; the OLD ablated arm staying high (above 1.0035) on 17-24
 while the NEW one does not; or the ablated arm's per-seed values drifting with
 seed order inside a process (state leaking across runs). Nothing is changed in
 the transport and nothing is tuned.
+
+### Results, gh:#1644 (2026-11-17): PARTLY RESOLVED, the OLD per-seed values are NOT obtained
+
+Raw outputs and arithmetic: `ensembles_1644/` (`run.sh` is the exact command
+line, `stats1644.sh` the awk, `stats1644_output.txt` its output). Settings as
+the #1635 record: `--purr --particles 4000 --inactive 40 --active 100 --seeds 8
+--threads 2`, 11 nuclides, `OUTRAM_PARK_ENDF_DIR=reference-data/endf`, blocks
+`--seed 1`, `--seed 9`, `--seed 17`. Hardware: the shared 4-logical-core cloud
+container used throughout this record (CPU model and RAM not captured here;
+load average 8-12 from other agents, so the timings in the raw files mean
+nothing and are not quoted). The OLD binary is the unpatched `d1e20f188` build
+left by the #1635 session (`rt_old`); the NEW binary is this branch with the
+print-only patch.
+
+**What was NOT done, and why.** The OLD print-only patch was prepared (detached
+`git archive` of `d1e20f188` plus the same six added lines) but **never built**:
+the volume had about 1 GB free, a separate `target-old` would need several GB
+(it cannot fit), and building the OLD source into the shared `target-njoy` was
+declined by the permission layer (the brief says that directory is not safe for
+different source). So there are **no OLD per-seed ablated values**; the OLD
+arm below is the driver's own summary means (sem from seed scatter), as in the
+original table. Items 1 and 3 of the issue are answered for NEW only, plus the
+OLD block means.
+
+**(a) Reproduction, OLD seeds 9-16, unmodified driver: BIT-FOR-BIT.** The
+re-run prints `ENDF ablated : k_eff = 1.00441 +/- 0.00046`, `ablated sd 130
+pcm`, and its eight `seed N: ENDF ... ACE ...` lines are **identical to the
+recorded file** (`diff` empty), so the jump is deterministic in the OLD build
+and is not a thread-scheduling or process artefact. NEW seeds 9-16 and 1-8
+likewise reproduce the recorded ablated means, 1.00179 (46) and 1.00143 (61).
+
+**(b) NEW per-seed ablated k** (7 decimals in the raw files; pcm = (k-1)*1e5):
+
+| seed | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| k | 0.99887 | 1.00283 | 0.99920 | 1.00341 | 1.00201 | 1.00062 | 1.00165 | 1.00287 |
+
+| seed | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
+|---|---|---|---|---|---|---|---|---|
+| k | 1.00023 | 1.00040 | 1.00300 | 1.00260 | 1.00380 | 1.00109 | 1.00229 | 1.00095 |
+
+| seed | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 |
+|---|---|---|---|---|---|---|---|---|
+| k | 0.99941 | 1.00272 | 1.00132 | 0.99959 | 1.00185 | 1.00374 | 1.00167 | 1.00246 |
+
+**(c) Block means of the ablated arm (pcm above k = 1; sem = sd/sqrt(8)):**
+
+| block | OLD (summary mean, sem) | NEW (per-seed mean, sd, sem) | new - old +- sigma | z |
+|---|---|---|---|---|
+| 1-8 | +159 (43) | +143 (171, 61) | -16 +- 75 | -0.21 |
+| 9-16 | **+441 (46)** | +179 (131, 46) | -262 +- 65 | -4.0 |
+| 17-24 | +157 (72) | +159 (149, 53) | +2 +- 89 | +0.02 |
+| pooled 24 | +252 (32) | +161 (145 per seed, 30) | -91 +- 44 | -2.07 |
+
+(OLD pooled = unweighted mean of the three block means, sem = quadrature of the
+three sems / 3. OLD ablated sd on 17-24 is 205 pcm, on 1-8 122, on 9-16 130.)
+
+**What the blocks say.** NEW is homogeneous across blocks (143, 179, 159; no
+trend, sd per seed 145 pooled). OLD blocks 1-8 and 17-24 agree with NEW to
+16 and 2 pcm. Only OLD block 9-16 departs: +283 +- 62 pcm (z +4.55) from the
+mean of OLD's other two blocks; the three OLD block means have chi2 = 22.9 on
+2 dof against their weighted mean (p about 1e-5). The ENDF arm of OLD also
+sits slightly high on 9-16 (1.00276 against 1.00235 and 1.00182, +41 and +94
+pcm), the ACE arm does not (1.00168 vs 1.00189 and 1.00285).
+
+**Prediction check.** (a) reproduces bit-for-bit: **held**. (b) one seed
+carries at most half of the jump: **not testable**, no OLD per-seed values.
+(c) block 17-24 ablated means fall back to 1.0010-1.0030 for both builds,
+paired |z| <= 2: **held** (OLD 1.00157, NEW 1.00159, z +0.02). (d) pooled
+24-seed agreement within 2 sigma: **missed marginally**, z -2.07, and entirely
+because of the one OLD block. **Defect indicators:** a failed (a): no; outlier
+seeds in NEW: none (all 24 seeds within -1.9 to +1.5 sd of the pooled mean);
+OLD staying high on 17-24: no (it returned to 1.00157); state leaking across
+seeds within a process: not seen in NEW (block means do not drift with
+position in the process, and a fresh process at seed 17 gives the same level
+as a process at seed 1), not testable in OLD.
+
+**Code read (no defect found).** `without_dbrc` is `self.dbrc = None` on an
+owned `Nuclide` (`src/material/nuclide.rs:1658`), the ablated arm owns its own
+vector (`via_endf.into_iter()`, consumed after arm A), `run_keff_csg` is called
+with `seed + s` exactly as the other arms, and the driver asserts that the
+arm carries the ACE arm's URR tables and no DBRC. I found no shared mutable
+state between arms and none was reported by the bit-for-bit reproduction.
+
+**Verdict.** The jump is a **property of the OLD build at those eight seeds,
+reproducible bit-for-bit, and not seen in the NEW build or in OLD's other two
+blocks**. It is NOT explained: the leading candidate is chance in the
+particular random streams OLD gave those seeds (per the #1581 description, not re-read here, OLD draws the URR variate from
+the same stream position for every nuclide of a collision, the correlation
+#1581 removed; that could fatten the tails of a per-seed k and is a hypothesis
+only, untested here), but a +4.5 sigma block in one of six is not a comfortable
+chance reading even after counting about a dozen comparisons. What IS
+established: (i) it does not reproduce at fresh seeds 17-24 in either build,
+(ii) NEW has no such block in 24 seeds, (iii) the per-build difference is
+therefore **not a physics shift and must not be quoted as one**, the pooled
+24-seed difference of -91 +- 44 pcm (z -2.07) being dominated by one OLD block.
+**What would settle it:** OLD per-seed ablated values for seeds 9-16 (the
+patched OLD binary, needing roughly 3+ GB of target space or the shared
+`target-njoy` with the maintainer's go-ahead) to see whether one or two seeds
+carry the +283, then OLD seeds 25-40 to see whether tail blocks like this recur
+in OLD. Nothing in the transport was changed and nothing was tuned.
