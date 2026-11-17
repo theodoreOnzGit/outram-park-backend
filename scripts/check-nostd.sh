@@ -49,6 +49,13 @@ crates=(
   outram-foam-appbuilder-lib  # gh:#1633
   boon-lay                    # gh:#1634
   tampines                    # gh:#1606
+  # Already no_std, gated 2026-11-17 (after the gh:#1585 survey). petir,
+  # kaki-bukit and redhill are always `no_std` (no `std` feature); bugis is
+  # checked without its `egui` default.
+  petir
+  kaki-bukit
+  redhill
+  bugis
 )
 
 rustup target add "$target" >/dev/null
