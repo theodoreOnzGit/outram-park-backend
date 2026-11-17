@@ -33,6 +33,9 @@
 //! essentially all elastic evaluations), which is the frame an ACE reader assumes
 //! for elastic scattering.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::{records::SectionCursor, tape::Section};
 use crate::reconr::linearize::linearize_tab1;
 use crate::NjoyError;

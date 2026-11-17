@@ -24,6 +24,9 @@
 //!
 //! [openmc-dev/openmc-notebooks]: https://github.com/openmc-dev/openmc-notebooks
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 mod nuclear_data;
 mod nuclear_data_resonance_covariance;
 mod search;

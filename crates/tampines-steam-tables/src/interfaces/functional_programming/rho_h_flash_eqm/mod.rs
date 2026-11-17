@@ -139,6 +139,9 @@
 //! - [`rho_h_is_within_validity_range`] — a non-panicking domain predicate, for
 //!   callers that must check before committing to a flash.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;

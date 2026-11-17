@@ -109,6 +109,9 @@
 //! degrees; masses kg; receptor areas m². `gridunc` accumulates
 //! `mass/rhoi * weight` (kg, or kg/(kg/m³) for a mixing ratio).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flexpart::particle_average::{Corners, GriddedMet, Vertical};
 
 /// `factor = .596831` of `conccalc.f90` (15/(8 pi), Epanechnikov kernel).

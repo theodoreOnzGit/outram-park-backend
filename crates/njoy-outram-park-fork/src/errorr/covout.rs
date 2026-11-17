@@ -34,6 +34,9 @@
 //! `diagonal` accessor carries the same numbers), `nin = 0` (no input
 //! covariance tape to copy), `nout != 0`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::tape::{Section, Tape};
 use crate::endf::EndfKey;
 use crate::mixr::mix::sigfig;

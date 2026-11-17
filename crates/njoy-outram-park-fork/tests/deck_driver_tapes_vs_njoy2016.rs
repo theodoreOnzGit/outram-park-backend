@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **NJOY input-deck driver, tape against tape** (gh:#1369 part 2, differential
 //! #1366).

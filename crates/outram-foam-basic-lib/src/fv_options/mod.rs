@@ -87,6 +87,9 @@
 //! their cell list behind an `Arc`, per the workspace rule against lifetime
 //! parameters, so sharing one selection between several models is free.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod selection;
 mod semi_implicit;
 mod solidification_melting;

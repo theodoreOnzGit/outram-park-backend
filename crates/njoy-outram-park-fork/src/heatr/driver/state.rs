@@ -19,6 +19,9 @@
 //! the translation reads like the Fortran; flat ENDF records are 0-based
 //! slices (see [`super::flat`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::tape::Tape;
 

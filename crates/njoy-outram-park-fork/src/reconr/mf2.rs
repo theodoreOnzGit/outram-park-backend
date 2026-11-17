@@ -19,6 +19,9 @@
 //!     LRU=2: SPI/AP header kept, the rest of the body stepped over
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{
     endf::{records::SectionCursor, tape::Section},
     samm::mf2::RmlSection,

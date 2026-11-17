@@ -97,6 +97,9 @@
 //! U-235 needs `continuous` and `correlated`, so a *complete* U-235 file
 //! waits on that; a fissile nuclide does not.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::Path;
 
 use hdf5_pure::{AttrValue, FileBuilder};

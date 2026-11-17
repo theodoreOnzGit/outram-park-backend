@@ -16,6 +16,9 @@
 #![allow(unused_imports)]
 
 // rhoPimpleFoam: PIMPLE algorithm for compressible flow, driving OPCPFluidArray.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[allow(non_snake_case)]
 pub mod rhoPimpleFoam;
 

@@ -25,6 +25,9 @@
 //! Not translated: an MF=40 tape (`mfflg = -14`, `izap`), refused by name; and the
 //! listing (`nsyso`), of which only the omitted-plot table is returned.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::acer::fortran_fmt::fortran_e;

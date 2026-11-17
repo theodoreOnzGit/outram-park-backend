@@ -71,6 +71,9 @@
 //! Strict SI raw `f64`: kelvin, metre, pascal, W/m/K for a conductivity,
 //! W/m²K for a conductance.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::gap::gas::GapGasMixture;

@@ -49,6 +49,9 @@
 //! (`dtfr.f90:275-575`) — every neutron and photon table for one material
 //! card, golden-validated against NJOY2016's CLAW output (see `README.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 pub mod assemble;

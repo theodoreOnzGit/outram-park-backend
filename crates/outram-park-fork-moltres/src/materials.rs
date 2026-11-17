@@ -60,7 +60,10 @@
 //! applies; its distance from the full table is measured in the gh:#1400
 //! record (S4).
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fv_operators::fvc;
 use outram_foam_basic_lib::prelude::{Field, FvMesh, PatchField, SurfaceScalarField, VolScalarField};

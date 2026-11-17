@@ -19,6 +19,9 @@
 //! where it had got to. Upstream's analytic `source + u_emit * age` is retained
 //! as the bug-compatible variant the code-to-code fixture asks for by name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::f64::{Length, Mass, MassRate, Time, Velocity};

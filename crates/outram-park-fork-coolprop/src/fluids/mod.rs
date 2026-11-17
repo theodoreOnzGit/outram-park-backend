@@ -5,6 +5,9 @@
 //!
 //! Regenerate the whole set with `dev/regen_all.py` (see the crate README).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod acetone;
 pub mod air;
 pub mod ammonia;

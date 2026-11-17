@@ -76,6 +76,9 @@
 //! Maxwell law is therefore fully expressible and transportable — which is
 //! what #304's "cannot write a fissile nuclide" actually blocks on.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use hdf5_pure::{AttrValue, GroupBuilder};
 
 use crate::error::NjoyError;

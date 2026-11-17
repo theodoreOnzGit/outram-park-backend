@@ -19,6 +19,9 @@
 //! records and positions by record, which the card-by-card reader does not
 //! model; convert it with MODER first).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::{CardReader, Slot};
 use crate::deck::tapes::TapeUnits;
 use crate::powr::{run_powr, FastMaterial, PowrCards, ThermMaterial};

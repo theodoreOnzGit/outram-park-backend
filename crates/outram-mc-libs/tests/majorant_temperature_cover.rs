@@ -34,7 +34,7 @@
 //! material at a temperature between the tables, and the build time of each.
 //!
 //! Hardware: see the README section.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. The bound H-1 is referenced only by the water material (the fuel holds none). Not migrated because the test audits majorants over these per-temperature nuclide sets and was not re-run.
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;

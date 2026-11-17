@@ -18,8 +18,11 @@
 //! Every number quoted in a doc comment below was **printed by the test itself**
 //! and transcribed; none is predicted.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
@@ -687,7 +690,7 @@ fn spatially_varying_creep_keeps_the_axial_stress_uniform() {
         let laws: Vec<ConstitutiveLaw> = (0..n)
             .map(|c| {
                 let x = mesh.cell_centres[c].x / length;
-                linear_creep_law(b0 * (1.0 + 0.9 * (std::f64::consts::PI * x).r_sin()), sigma_c)
+                linear_creep_law(b0 * (1.0 + 0.9 * (core::f64::consts::PI * x).r_sin()), sigma_c)
             })
             .collect();
         solver

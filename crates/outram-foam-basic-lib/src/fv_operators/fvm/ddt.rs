@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fields::vol_field::VolScalarField;
 use crate::ldu_matrix::fv_matrix::FvMatrix;
 
@@ -57,13 +60,45 @@ pub fn ddt_coeff(
     mat
 }
 
+/// Conservative implicit Euler ddt with **distinct new- and old-time
+/// coefficients**: `∂(ρφ)/∂t ≈ (ρ_new·φ − ρ_old·φ_old) / Δt`.
+///
+/// Unlike [`ddt_coeff`] (which reuses one `coeff` field for both time levels),
+/// this takes the new-time density `coeff_new` (e.g. the continuity density
+/// `ρ_cont = ρ_old − Δt·∇·φ`) for the implicit diagonal and the old-time density
+/// `coeff_old` for the explicit source. Assembling `ρ_new·V/Δt` on the diagonal
+/// and `ρ_old·φ_old·V/Δt` in the source makes the discrete energy balance carry
+/// the missing `φ_old·(ρ − ρ_old)/Δt = −φ_old·∇·φ` term, which cancels the
+/// `φ·∇·φ` part of `∇·(φ·Φ)` exactly and recovers the material derivative
+/// `ρ Dφ/Dt` — the Edwards flashing-plateau fix (bead op-21g.14). See
+/// `tampines_steam_tables`' `TampinesSteamArray::step` energy-equation block
+/// for the full rationale. **Moved here 2026-11-16 (gh:#1607)** from the
+/// identical copies in `tampines-steam-tables` and `outram-park-fork-coolprop`.
+pub fn ddt_coeff_old(
+    coeff_new: &VolScalarField,
+    coeff_old: &VolScalarField,
+    phi: &VolScalarField,
+    phi_old: &VolScalarField,
+    dt: f64,
+) -> FvMatrix {
+    let mesh = phi.mesh.clone();
+    let mut mat = FvMatrix::new(mesh.clone());
+    for c in 0..mesh.n_cells {
+        let v_dt = mesh.cell_volumes[c] / dt;
+        mat.ldu.diag[c] += coeff_new.internal[c] * v_dt;
+        mat.source[c] += coeff_old.internal[c] * phi_old.internal[c] * v_dt;
+    }
+    let _ = phi;
+    mat
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::fields::vol_field::VolScalarField;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
         Arc::new(
@@ -94,6 +129,29 @@ mod tests {
                 .build()
                 .unwrap(),
         )
+    }
+
+    /// gh:#1607: `ddt_coeff_old` puts the NEW coefficient on the diagonal
+    /// and the OLD one in the source; with the two equal it is `ddt_coeff`.
+    #[test]
+    fn ddt_coeff_old_splits_new_and_old_coefficients() {
+        let m = unit_mesh();
+        let old = VolScalarField::uniform("rho_old", m.clone(), 2.0);
+        let new = VolScalarField::uniform("rho_new", m.clone(), 4.0);
+        let phi = VolScalarField::zeros("h", m.clone());
+        let phi_old = VolScalarField::uniform("h_old", m.clone(), 3.0);
+        // V/dt = 0.5/0.1 = 5: diagonal 4*5 = 20, source 2*3*5 = 30.
+        let mat = ddt_coeff_old(&new, &old, &phi, &phi_old, 0.1);
+        for c in 0..2 {
+            assert!((mat.ldu.diag[c] - 20.0).abs() < 1e-12, "diag {}", mat.ldu.diag[c]);
+            assert!((mat.source[c] - 30.0).abs() < 1e-12, "source {}", mat.source[c]);
+        }
+        let same = ddt_coeff_old(&old, &old, &phi, &phi_old, 0.1);
+        let reference = ddt_coeff(&old, &phi, &phi_old, 0.1);
+        for c in 0..2 {
+            assert!((same.ldu.diag[c] - reference.ldu.diag[c]).abs() < 1e-12);
+            assert!((same.source[c] - reference.source[c]).abs() < 1e-12);
+        }
     }
 
     #[test]

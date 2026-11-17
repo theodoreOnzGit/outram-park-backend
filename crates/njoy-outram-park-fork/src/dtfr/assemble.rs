@@ -28,6 +28,9 @@
 //! (`:451-456`) even when the record carries `nz > 1` copies, and the
 //! constant-spectrum production word is `a(lz+il+nl*(jz-1)+jz)` (`:471`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::dtfr::gendf::{read_header, read_section_records, GendfGroupRecord};
 use crate::dtfr::input::{DtfrInput, EditSpec};
 use crate::dtfr::table::{dtf_group, DtfTable};

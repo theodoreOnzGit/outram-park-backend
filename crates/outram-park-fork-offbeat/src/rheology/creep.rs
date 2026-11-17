@@ -65,6 +65,9 @@
 //! the creep increment is effectively explicit in the stress. This port does
 //! not reproduce that; it iterates to a real tolerance.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 

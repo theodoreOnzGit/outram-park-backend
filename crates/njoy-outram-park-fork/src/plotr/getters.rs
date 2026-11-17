@@ -21,6 +21,9 @@
 //! - [`fixl7`]: an MF=6 LAW=7 angle-energy record summed over angle.
 //! - [`ascale`]: the SC4020 linear axis scaler.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::gety1::Gety1;
 use crate::endf::interp::{terp1 as endf_terp1, IntLaw};
 use crate::endf::records::{Cont, Tab1};
@@ -641,6 +644,7 @@ mod tests {
         )
     }
 
+    #[cfg(feature = "std")]
     fn tape(body: &[String]) -> EndfStream {
         let mut t = String::from(
             " label                                                               1 0  0    0\n",
@@ -660,6 +664,7 @@ mod tests {
 
     const B: &str = "           ";
 
+    #[cfg(feature = "std")]
     #[test]
     fn getz_and_gety1_walk_a_tab1() {
         let body = vec![
@@ -710,6 +715,7 @@ mod tests {
         assert_eq!(g.call(2.5, &mut s, &mut h, &mut a).unwrap(), (4.5, 3.0, 0));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn gety4_reads_one_legendre_coefficient() {
         let body = vec![
@@ -796,6 +802,7 @@ mod tests {
         assert_eq!(g.call(3.0, 1, &mut s, &mut h, &mut a).unwrap(), (0.3, BIG));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn gety6_and_fixl7_follow_upstream() {
         // An MF=6 LAW=1 LIST: 3 secondary energies, na = 0 (ncyc = 2).

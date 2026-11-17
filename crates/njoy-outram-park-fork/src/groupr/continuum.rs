@@ -33,6 +33,9 @@
 //! so a fission spectrum given by law 7 or 9 is read with its `econst` search. Laws 11
 //! (`hnab`) and 12 (`e1`, `gami`) and `LF = 3` are still refused by name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::endf::tape::Tape;
@@ -487,7 +490,7 @@ impl Lf5 {
 /// SLATEC `derfc`, the one BROADR uses ([`crate::broadr::joint::erfc`]).
 fn anased7(st: &mut Lf5State, new: bool, xlo: f64, xhi: f64) -> f64 {
     use crate::broadr::joint::erfc;
-    let rp4 = (std::f64::consts::PI / 4.0).sqrt();
+    let rp4 = (core::f64::consts::PI / 4.0).sqrt();
     if new {
         let rc = st.xc.sqrt();
         let r4 = -st.xc;
@@ -858,6 +861,7 @@ mod analytic_tests {
                                                                     -1 0  0    0
 ";
 
+    #[cfg(feature = "std")]
     fn tape() -> Tape {
         Tape::read(T404_MF5.as_bytes()).unwrap()
     }
@@ -867,6 +871,7 @@ mod analytic_tests {
         vec![1.0e-5, 1.0, 1.0e2, 1.0e4, 1.0e5, 3.0e5, 6.0e5, 1.0e6, 2.0e6, 4.0e6, 8.0e6, 1.4e7, 2.0e7]
     }
 
+    #[cfg(feature = "std")]
     /// `anased` law 9 through [`PhotonSed`] is [`SedFeed`]'s `anased9`, bit for bit, on
     /// MT=91 at five incident energies: the two routes `ContinuumFeed` now chooses
     /// between (fission law 9 on `PhotonSed`, the rest on `SedFeed`) cannot disagree.
@@ -886,6 +891,7 @@ mod analytic_tests {
         }
     }
 
+    #[cfg(feature = "std")]
     /// `anased` law 7 on MT=18: the group integrals sum to 1 (`top` telescopes to
     /// `bot` when the last group reaches `de`), and each equals the integral of the
     /// normalised Maxwellian `sqrt(E') exp(-E'/theta)` over its group, by a

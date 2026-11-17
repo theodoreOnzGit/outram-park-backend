@@ -26,6 +26,9 @@
 //! `ff = (yld, 1)` (`ng = 2`), and `displa` writes the ratio form (`irat = 1`)
 //! that `MT = 251-253` use.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::groupr::continuum::PhotonSed;

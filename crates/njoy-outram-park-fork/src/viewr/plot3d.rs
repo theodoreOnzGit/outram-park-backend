@@ -7,6 +7,9 @@
 //! Three-dimensional surface plots: a family of curves `z(x)` at stepped `y`,
 //! drawn back to front with hidden-line removal by white fill.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::plot2d::ascalv;

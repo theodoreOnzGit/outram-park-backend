@@ -5,6 +5,9 @@
 //! tested here is narrower and complementary: the domain predicate, the
 //! documented panics, and the quality convention at each boundary it defines.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::{joule_per_kilogram, kilojoule_per_kilogram};
 use uom::si::f64::*;
 use uom::si::mass_density::kilogram_per_cubic_meter;

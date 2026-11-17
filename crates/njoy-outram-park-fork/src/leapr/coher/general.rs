@@ -83,6 +83,9 @@
 //! the bottom of this file for the measured numbers. **Untrusted AI-assisted
 //! draft** per crate policy: no human has reviewed the physics.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::PI;
 use crate::leapr::coher::BraggEdges;

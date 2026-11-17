@@ -21,6 +21,9 @@
 //! "zero cross section over the whole panel" reset, the thermal-group removal
 //! for MT 221-250, and `displa`'s `sigfig(.,7,0)` rounding of flux and ratio.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::gety1::Gety1;
 use crate::mixr::mix::sigfig;
 use crate::NjoyError;
@@ -49,15 +52,21 @@ const QW10: [f64; 10] = [
 /// which `iwt = 1` and `10` update too.
 type WtfState = crate::groupr::genwtf::TabState;
 
+#[cfg(any(feature = "std", test))]
 thread_local! {
-    static WTF: std::cell::RefCell<WtfState> = const { std::cell::RefCell::new(WtfState { ip: 2, ir: 1, ipl: 0, step: 1.10 }) };
-}
+    static WTF: core::cell::RefCell<WtfState> = const { core::cell::RefCell::new(WtfState { ip: 2, ir: 1, ipl: 0, step: 1.10 }) };}
+#[cfg(not(any(feature = "std", test)))]
+static WTF: crate::nostd_sync::Local<core::cell::RefCell<WtfState>> = crate::nostd_sync::Local::new(core::cell::RefCell::new(WtfState { ip: 2, ir: 1, ipl: 0, step: 1.10 }));
 
+#[cfg(any(feature = "std", test))]
 thread_local! {
     /// `wght(1..6)` as `genwtf` sets it for `iwt = 4` (`:5036-5052`): `eb, tb, ab, ec, tc,
     /// ac`. `None` until [`genwtf_iwt4`] runs.
-    static WGHT4: std::cell::Cell<Option<[f64; 6]>> = const { std::cell::Cell::new(None) };
-}
+    static WGHT4: core::cell::Cell<Option<[f64; 6]>> = const { core::cell::Cell::new(None) };}
+#[cfg(not(any(feature = "std", test)))]
+/// `wght(1..6)` as `genwtf` sets it for `iwt = 4` (`:5036-5052`): `eb, tb, ab, ec, tc,
+/// ac`. `None` until [`genwtf_iwt4`] runs.
+static WGHT4: crate::nostd_sync::Local<core::cell::Cell<Option<[f64; 6]>>> = crate::nostd_sync::Local::new(core::cell::Cell::new(None));
 
 /// `genwtf` for `iwt = 4` (`groupr.f90:5036-5052`): store `wght(1..6) = eb, tb, ab, ec,
 /// tc, ac` for [`getwtf`], with `ab, ac` from
@@ -125,7 +134,7 @@ pub fn getwtf(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
                 Ok((wtf, enext))
             })?
         }
-        4 => match WGHT4.with(std::cell::Cell::get) {
+        4 => match WGHT4.with(core::cell::Cell::get) {
             Some(w) => crate::groupr::weights::getwtf_iwt4(&w, e),
             None => return Err(NjoyError::InvalidInput("groupr getwtf: iwt = 4 without genwtf's card 8c (eb, tb, ec, tc)".into())),
         },
@@ -158,7 +167,7 @@ pub struct SigFeed {
     /// `mt`, the section `getsig` read (`getunr`'s reaction).
     mt: i32,
     /// `stounr`'s table and the run's `sigz`, for `getunr` when `nz > 1`.
-    unr: Option<(std::sync::Arc<crate::groupr::unresolved::UnresolvedTable>, Vec<f64>)>,
+    unr: Option<(alloc::sync::Arc<crate::groupr::unresolved::UnresolvedTable>, Vec<f64>)>,
 }
 
 impl SigFeed {
@@ -237,7 +246,7 @@ impl SigFeed {
     /// The `stounr` table and the run's `sigz` for `getunr` (`nz > 1`), and the
     /// MT `getsig` read (`mt`, `:6692-6713`).
     #[must_use]
-    pub fn with_unr(mut self, unr: Option<std::sync::Arc<crate::groupr::unresolved::UnresolvedTable>>, sigz: &[f64], mt: i32) -> Self {
+    pub fn with_unr(mut self, unr: Option<alloc::sync::Arc<crate::groupr::unresolved::UnresolvedTable>>, sigz: &[f64], mt: i32) -> Self {
         self.unr = unr.map(|u| (u, sigz.to_vec()));
         self.mt = mt;
         self

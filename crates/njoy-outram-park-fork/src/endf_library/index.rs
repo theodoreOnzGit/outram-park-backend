@@ -6,8 +6,14 @@
 //! The common index: one implementation for a folder, a zip, or files handed
 //! over as bytes. See the module docs of [`super`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+#[cfg(not(feature = "std"))]
+use crate::nostd_path::Path;
+use alloc::sync::Arc;
 
 use super::header::{EndfHeader, SubLibrary};
 use super::layout::{library_named_in, LibraryLayout, PathRole};
@@ -29,6 +35,7 @@ const MAX_FOLDER_DEPTH: usize = 4;
 /// Where an indexed file's bytes are.
 #[derive(Debug, Clone)]
 enum Item {
+    #[cfg(feature = "std")]
     File(PathBuf),
     Bytes(Arc<Vec<u8>>),
     Member(usize),
@@ -38,7 +45,8 @@ enum Item {
 /// What the library was read from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LibrarySource {
-    /// A folder on disk (native only).
+    /// A folder on disk (native only; needs `std`).
+    #[cfg(feature = "std")]
     Folder(PathBuf),
     /// A zip archive given as bytes.
     Zip {
@@ -123,8 +131,8 @@ pub enum LookupError {
     Ambiguous(Vec<String>),
 }
 
-impl std::fmt::Display for LookupError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for LookupError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Missing { elsewhere } if elsewhere.is_empty() => write!(f, "no tape for it"),
             Self::Missing { elsewhere } => write!(
@@ -195,6 +203,7 @@ impl EndfLibraryIndex {
         Self::build(LibrarySource::Files { count }, None, items)
     }
 
+    #[cfg(feature = "std")]
     /// **A folder on disk** (native only: `std::fs` compiles for `wasm32`
     /// and fails at run time), followed down [`MAX_FOLDER_DEPTH`] levels.
     ///
@@ -297,6 +306,7 @@ impl EndfLibraryIndex {
 
     fn read_item(&self, item: &Item) -> Result<Vec<u8>, NjoyError> {
         match item {
+            #[cfg(feature = "std")]
             Item::File(p) => std::fs::read(p).map_err(NjoyError::Io),
             Item::Bytes(b) => Ok(b.as_ref().clone()),
             Item::Member(i) => self
@@ -314,7 +324,9 @@ impl EndfLibraryIndex {
 
     fn prefix(&self, item: &Item, path: &str) -> Result<Vec<u8>, NjoyError> {
         let raw = match item {
+            #[cfg(feature = "std")]
             Item::File(p) => {
+                #[cfg(feature = "std")]
                 use std::io::Read;
                 let mut buf = Vec::with_capacity(PEEK_BYTES);
                 std::fs::File::open(p)
@@ -473,7 +485,7 @@ impl EndfLibraryIndex {
     /// # Errors
     /// As [`Self::read_bytes`], and a tape that does not parse.
     pub fn read_tape(&self, tape: &IndexedTape) -> Result<Tape, NjoyError> {
-        Tape::read(std::io::Cursor::new(self.read_bytes(tape)?))
+        Tape::from_bytes(&self.read_bytes(tape)?)
     }
 
     /// **Fuzzy-find tapes for a picker**: incident-neutron and thermal tapes
@@ -530,6 +542,7 @@ impl EndfLibraryIndex {
     #[must_use]
     pub fn summary(&self) -> String {
         let src = match &self.source {
+            #[cfg(feature = "std")]
             LibrarySource::Folder(p) => format!("folder {}", p.display()),
             LibrarySource::Zip { bytes } => format!("zip of {bytes} bytes"),
             LibrarySource::Files { count } => format!("{count} uploaded files"),
@@ -553,6 +566,7 @@ impl EndfLibraryIndex {
     }
 }
 
+#[cfg(feature = "std")]
 fn walk(
     dir: &Path,
     rel: &str,

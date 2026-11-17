@@ -7,6 +7,9 @@
 
 //! Grids, curves, polygons and hatching.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::graph::Graph;
 
 const SUBS9: [f64; 9] = [0.301, 0.477, 0.602, 0.699, 0.778, 0.845, 0.903, 0.954, 1.000];

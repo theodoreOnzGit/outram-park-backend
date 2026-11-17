@@ -29,6 +29,9 @@
 //!   (binary) container and MCNPX formats. A deck asking for them gets
 //!   `NotPorted`. The plot file `aplots` is ported ([`super::aplots`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fortran_fmt::{fixed, fortran_e, fortran_f, fortran_f0};
 use crate::NjoyError;
 

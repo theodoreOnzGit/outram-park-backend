@@ -18,6 +18,9 @@
 //! one's if the energy walk ever asked for more records than a subsection
 //! holds; this port returns an error there instead.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::flat::{nint, terp1, terpa0};
 use super::state::Heatr;
 use crate::NjoyError;

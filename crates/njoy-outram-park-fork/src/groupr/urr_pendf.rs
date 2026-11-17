@@ -62,6 +62,9 @@
 //!   feeding [`read_urr_table`]. See its doc for the exact mapping and the
 //!   `findf`/`tosend` simplification it takes.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::IntLaw;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;

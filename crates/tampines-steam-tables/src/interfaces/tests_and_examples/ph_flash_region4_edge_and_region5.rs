@@ -84,6 +84,9 @@
 //! [`region_5_above_its_pressure_limit_is_still_refused`]: above Region 5's own
 //! 50 MPa ceiling, and above the 2273.15 K isotherm — outside IF97 entirely.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::pressure::megapascal;
@@ -271,7 +274,7 @@ fn region_4_tp_forward_flash_is_explicitly_under_determined() {
     // otherwise a compile-time fold can round differently from the runtime
     // recompute inside v_tp_eqm_single_phase and miss the exact-equality
     // saturation-line branch (see the router-fragility note above).
-    let t = ThermodynamicTemperature::new::<kelvin>(std::hint::black_box(400.0));
+    let t = ThermodynamicTemperature::new::<kelvin>(core::hint::black_box(400.0));
     let p = Pressure::new::<pascal>(sat_pressure_4(t).get::<pascal>());
     let _ = v_tp_eqm_single_phase(t, p);
 }

@@ -3,6 +3,9 @@
 // Do not edit by hand — re-run the generator. See dev/gen_incompressible.py.
 //! CoolProp `Ethanol` incompressible-fluid fit, as hardcoded `const` data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `Ethanol` (pure), `T ∈ [198.14999999999998, 423.84372495198846] K`.

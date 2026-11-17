@@ -43,6 +43,14 @@ and an Android/Termux-buildable library.
 
 **Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
 
+## `no_std` + `alloc` (gh:#1596)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-park-fork-offbeat --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` turns on `outram-foam-basic-lib`'s and `thiserror`'s `std`. With `std` on (the default)
+nothing changes.
+
 ## What a fuel-performance code computes
 
 Given a fuel rod and its irradiation history — linear power against time,

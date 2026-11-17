@@ -24,6 +24,9 @@
 //! descriptor is one implementation and one latent bug; this is the single
 //! one, and both writers call it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Truncate or pad `s` to exactly `n` characters, left-justified — Fortran
 /// `a<n>` on output.
 pub fn fixed(s: &str, n: usize) -> String {

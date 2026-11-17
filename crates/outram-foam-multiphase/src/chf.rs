@@ -99,6 +99,9 @@
 //! [`MultiphaseError::InvalidInput`]. The look-up table instead **clamps** an
 //! out-of-range query to its axis bounds (documented on [`GroeneveldLut`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::MultiphaseError;
 use uom::si::available_energy::joule_per_kilogram;

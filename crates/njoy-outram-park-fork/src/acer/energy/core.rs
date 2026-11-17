@@ -6,6 +6,9 @@
 //! `CLAUDE.md`); [`super::mf5`] and [`super::mf6`] hold the ENDF-file-specific
 //! parsers that build these types.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::tape::Tape;
 use crate::acer::angular::{parse_elastic_angular_newfor, ElasticAngular};
 

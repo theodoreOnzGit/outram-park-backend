@@ -28,6 +28,9 @@
 //! them at any positive distance; see [`pasquill_gifford_sigmas`] for what that
 //! produces beyond the fitted range, which is measured rather than assumed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::f64::Length;

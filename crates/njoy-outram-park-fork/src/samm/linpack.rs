@@ -47,6 +47,9 @@
 //! instead, which corrupted `Y^-1` for every `n >= 4` spin group with a
 //! non-zero off-diagonal; see `xdot`'s doc comment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// A packed complex-symmetric matrix (see this module's doc comment for

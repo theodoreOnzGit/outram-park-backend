@@ -112,11 +112,11 @@
 //! run; the kernel-shape oracles
 //! (`graphite_sab_angle_and_width_vs_njoy_thermr.rs`) are the better
 //! instrument for that.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::delta_tracking::{bounding_audit_line, Majorant};
@@ -200,17 +200,40 @@ fn main() {
     // cross sections, the medium, the seeds — is shared, so the only thing that
     // differs between two runs of the same replica is the S(a,b) tables.
     let mut sets: Vec<(String, Vec<Nuclide>)> = Vec::new();
+    // The one medium has every carbon bound, so both carbon slots take the
+    // table in that one material (per-material S(a,b), gh:#462 / #1581).
+    let mut bound_material: Option<Material> = None;
     for &(n_emit, n_out, label) in CONFIGS {
         let t0 = std::time::Instant::now();
         let sab =
             ThermalScattering::from_tape_with_grids(&tape, 30, TEMP_K, "c_Graphite", n_emit, n_out)
                 .expect("S(a,b) tables");
         eprintln!("  S(a,b) {label}: built in {:.1?}", t0.elapsed());
-        let mut v = base.clone();
-        v[nx::C12G] = v[nx::C12G].clone().with_thermal_scattering(sab.clone());
-        v[nx::C13G] = v[nx::C13G].clone().with_thermal_scattering(sab);
+        let mut entries = MaterialSab::for_materials_containing(
+            std::slice::from_ref(&material),
+            nx::C12G,
+            0,
+            &[],
+        );
+        entries.extend(MaterialSab::for_materials_containing(
+            std::slice::from_ref(&material),
+            nx::C13G,
+            0,
+            &[],
+        ));
+        let (mats, v) = assign_material_sab(
+            std::slice::from_ref(&material),
+            &base,
+            std::slice::from_ref(&sab),
+            &entries,
+        )
+        .expect("S(a,b) per material");
+        // Every tabulation assigns the same way, so the material is the same.
+        bound_material = Some(mats[0].clone());
         sets.push((label.to_string(), v));
     }
+
+    let material = bound_material.expect("at least one tabulation");
 
     // `OUTRAM_MAJORANT_AUDIT=1`: audit the old and new majorant on these
     // materials, with the settings below, and stop (GitHub #585).

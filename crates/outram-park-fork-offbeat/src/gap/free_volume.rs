@@ -74,6 +74,9 @@
 //!
 //! Strict SI raw `f64`: m³, kelvin, pascal, mole, kg, m³/K for a `V/T`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::{OffbeatError, Result};
 use crate::gap::gas::{GapGasMixture, GAS_CONSTANT};
 

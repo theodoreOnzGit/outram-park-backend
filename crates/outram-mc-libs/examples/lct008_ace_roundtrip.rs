@@ -77,7 +77,6 @@
 //! difference is attributable to the Type-1 ASCII format's finite precision
 //! rather than to physics — both routes share the same `ReconrResult`, so the
 //! energy grid is identical by construction.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use std::time::{Duration, Instant};
@@ -317,8 +316,6 @@ fn main() {
             lct008_model::Z_HI,
         ),
     };
-    let make_material = |_name: &str| -> Vec<Material> { materials.clone() };
-
     // S(a,b) H in H2O on H-1, the SAME table on every arm (see module docs).
     let sab = ThermalScattering::from_endf_file(
         reference_endf("tsl-HinH2O.endf")
@@ -330,11 +327,17 @@ fn main() {
         "c_H_in_H2O",
     )
     .expect("H(H2O) S(a,b)");
-    let h1 = slots["H1"];
-    via_endf[h1] = via_endf[h1].clone().with_thermal_scattering(sab.clone());
-    if !endf_only {
-        via_ace[h1] = via_ace[h1].clone().with_thermal_scattering(sab);
-    }
+    // Per-material H(H2O), as the model's <sab> card says (gh:#462, #1581).
+    // Both arms get the same table and the same material list.
+    let (bound_materials, via_endf) =
+        lct008_model::assign_spec_sab(&spec, &materials, &via_endf, &slots, Some(&sab));
+    let via_ace = if endf_only {
+        via_ace
+    } else {
+        lct008_model::assign_spec_sab(&spec, &materials, &via_ace, &slots, Some(&sab)).1
+    };
+    let materials = bound_materials;
+    let make_material = |_name: &str| -> Vec<Material> { materials.clone() };
 
     let settings = KeffSettings {
         n_particles,

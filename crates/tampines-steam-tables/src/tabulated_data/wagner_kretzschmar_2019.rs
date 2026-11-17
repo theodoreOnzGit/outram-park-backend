@@ -74,6 +74,9 @@
 /// | 7 | enthalpy of vaporisation | kJ/kg |
 /// | 8 | saturated-liquid specific entropy | kJ/(kg K) |
 /// | 9 | saturated-vapour specific entropy | kJ/(kg K) |
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub type WagnerSaturationRow = [f64; 10];
 
 /// A row of the Wagner single-phase isobar tables, column-subset to the four

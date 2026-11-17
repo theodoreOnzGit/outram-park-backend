@@ -27,6 +27,9 @@
 //! [`PerfectGas`], constant-density [`RhoConst`], incompressible specific-volume
 //! polynomial [`IcoPolynomial`], and real-gas [`PengRobinsonGas`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod esi_simple_eos;
 pub mod ico_polynomial;
 pub mod peng_robinson;

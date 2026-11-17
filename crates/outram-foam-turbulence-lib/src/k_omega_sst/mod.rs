@@ -42,6 +42,9 @@
 //! `RhoPimpleFoam` and turbulence wall-function boundary conditions, both
 //! tracked in `outram-foam-appbuilder-lib/TODO.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::source_terms::{self, FrozenState, SourceForm, SourceTerms};
 use crate::traits::TurbulenceModel;
@@ -50,7 +53,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMesh, FvVectorMatrix, PatchField, PatchKind, SolverSettings, SurfaceScalarField,
     Tensor, Vector3, VolScalarField, VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Outer (dyadic) product a ⊗ b → Tensor. (`Vector3 * Vector3` is the dyad.)
 #[inline]

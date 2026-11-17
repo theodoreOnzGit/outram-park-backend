@@ -64,6 +64,9 @@
 //! FLEXPART's: positions in grid units (`xt`, `yt`) and m (`zt`), velocities
 //! m/s, times s.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::cbl::{cbl, initialize_cbl_vel, re_initialize_particle};

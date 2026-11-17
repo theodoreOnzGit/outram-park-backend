@@ -1,5 +1,8 @@
 /// uses table 2.69 in steam tables book
 /// along with other tables
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod saturated_liquid_line;
 
 /// uses table 2.72 in steam tables book

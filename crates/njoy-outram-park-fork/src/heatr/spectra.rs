@@ -3,6 +3,9 @@
 //! Split out of `heatr/mod.rs` (see the module doc there for the physics of
 //! each phase H1–H5).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::acer::energy::Mf6Neutron;
 use crate::endf::MtReaction;

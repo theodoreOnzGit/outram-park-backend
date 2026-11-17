@@ -54,6 +54,9 @@
 //! surface, created by the `ir == maxir` branch. The arithmetic is right for
 //! this configuration; it is not obviously right for every configuration.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matlab::{Decomposition, SparseMatrix};
 use crate::types::FuelGeometry;
 

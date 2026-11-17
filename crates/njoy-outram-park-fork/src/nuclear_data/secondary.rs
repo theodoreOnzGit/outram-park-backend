@@ -15,6 +15,9 @@
 //! routed through the ACER ACE-file writer (`src/ace/energy.rs` has its own,
 //! narrower MF=5 LF=1 parser for that separate path; see `docs/porting-plan.md` §8).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// `true` when an `(NBT, INT)` region table is **lin-lin throughout**: empty
@@ -1517,7 +1520,7 @@ fn lab_angle_energy_emission(
             .iter()
             .flat_map(|t| t.e_out_mev.iter().copied())
             .collect();
-        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
         grid.dedup_by(|a, b| (*a - *b).abs() <= 0.0);
         if grid.len() < 2 {
             return Ok(None);
@@ -2583,6 +2586,7 @@ mod mf5_lf_survey {
     use crate::endf::tape::Tape;
     use crate::reference_data::reference_data_dir;
 
+    #[cfg(feature = "std")]
     /// **Which MF=5 secondary-energy laws (`LF`) do the held evaluations use?**
     ///
     /// [`super::FissionSpectrum::from_endf_mf5_mt`] ports LF=1/7/9/11 and
@@ -2613,7 +2617,7 @@ mod mf5_lf_survey {
             .collect();
         files.sort();
 
-        let mut seen: std::collections::BTreeMap<i32, usize> = Default::default();
+        let mut seen: alloc::collections::BTreeMap<i32, usize> = Default::default();
         let mut unported: Vec<String> = Vec::new();
         let (mut n_sec, mut n_err) = (0usize, 0usize);
         for f in &files {

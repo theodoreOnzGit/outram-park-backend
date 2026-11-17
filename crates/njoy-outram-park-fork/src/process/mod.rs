@@ -78,13 +78,16 @@
 //!
 //! The results, with dates, are in that file's module doc.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod settings;
 mod thermal;
 
 pub use settings::{CrossSectionSettings, PurrSettings, ThermalSettings};
 pub use thermal::{thermal_ace, thermal_scattering, ThermalScatteringLaw};
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use uom::si::thermodynamic_temperature::kelvin;
 

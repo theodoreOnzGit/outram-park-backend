@@ -5,6 +5,9 @@
 //! part of this crate's public API. The sole public export is
 //! [`rhoPimpleFoam`], which hosts `TampinesSteamArray`, a 1-D compressible
 //! PIMPLE pipe solver built on TAMPINES IAPWS-IF97 steam-table properties.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[allow(non_snake_case)]
 mod simplefoam;
 

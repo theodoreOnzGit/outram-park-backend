@@ -26,6 +26,9 @@
 //! 2026-11-13:** `grep todo!` finds none in `src/`; every model listed in the
 //! crate-level status table implements the trait (see its status column).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::error::TurbulenceError;
 pub use crate::traits::TurbulenceModel;
 

@@ -66,6 +66,9 @@
 //!
 //! Strict SI raw `f64`: metre, pascal, m², m³, Pa/m for a stiffness.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::{OffbeatError, Result};
 
 /// Boundary normal stiffness \[Pa/m\] of a cell touching the interface —

@@ -1,250 +1,28 @@
-//! **The Core k_eff tab** (gh:#1571): the MSRE N-1 full-core Monte Carlo on
-//! a pool of workers, started when the reader presses Run and stoppable.
+//! **The Core k_eff tab's page** (gh:#1571): the reader's controls, the
+//! geometry drawn from the assembled CSG (the drawing rule), k per
+//! generation with its running mean, the measured critical state k_ref =
+//! 1.00080 (ORNL-4233) and the maintainer's ±1000 pcm band. **The model's
+//! default sits outside that band (+1726 ± 23 pcm, the V&V record): the tab
+//! shows that, it does not hide it.**
 //!
-//! The page holds the two state machines of `dhoby_ghaut::mc_web::pool`
-//! (gh:#1572): [`DataRelay`] deals the nuclear-data jobs to the workers and
-//! relays every product to every other worker, then each builds the model;
-//! [`KeffPool`] runs the power iteration on them, one worker sampling the
-//! source and every worker transporting chunks of each generation. The
-//! workers are `engine::Runner`s that only ever get `Request::Keff`
-//! (`keff.rs`), separate from the plant's worker, which keeps running.
+//! The pool, the measured split and the presets are the library's
+//! (`msre::web::keff_pool`, gh:#1578); this file is the egui half.
 //!
-//! What the reader sees: the core geometry drawn from the assembled CSG (the
-//! drawing rule), k per generation, the running mean with its σ, the
-//! measured critical state k_ref = 1.00080 (ORNL-4233, rods at 0.08 % δk/k)
-//! and the maintainer's ±1000 pcm band. **The model's default sits outside
-//! that band (+1726 ± 23 pcm, the V&V record): the tab shows that, it does
-//! not hide it.**
-//!
-//! GUI and pool-driving code: reached by no test (it needs a window and
-//! workers), per the workspace exception for GUI code. What it composes is
-//! tested: the two state machines (`dhoby_ghaut::mc_web::pool::tests`, and
-//! bit for bit with the HTR-10 core's pool in the `monte_carlo_web`
-//! example), the model (`vv::msre_n1::tests::the_study_plans_the_recorded_default`)
-//! and the worker (`keff::tests`).
+//! GUI drawing and tab-driving code: reached by no test (it needs a window
+//! and workers), per the workspace exception for GUI code. What it drives is
+//! tested in `msre::web` (the pool bit for bit with `run_keff_csg_par`).
 
 use crate::engine::{Event, Request};
-use crate::keff::{coordinator_settings, jobs, Assembly, KEv, KReq, View};
 use bugis::web_demo::link::Link;
+use bugis::web_demo::loading::Loading;
 use dhoby_ghaut::mc_web::keff::KeffConfig;
-use dhoby_ghaut::mc_web::pool::{DataOut, DataRelay, GenSummary, KeffPool, Note, RunReq, RELAY_WORDS_PER_FRAME};
-use dhoby_ghaut::web_demo::data_cache::Source;
+use dhoby_ghaut::mc_web::pool::{GenSummary, Note};
 use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, Vec2};
 use egui_plot::{HLine, Legend, Line, Plot, PlotPoints, Points};
-use outram_park_digital_twin_engine::msre::first_criticality::{self as m, Study};
-use outram_park_digital_twin_engine::msre::session::{coefficient_from_pair, Coefficients, SPLIT_BASE_F, SPLIT_STEP_F};
-
-/// ORNL-4233's critical state, rods at 0.08 % δk/k (`vv::msre_n1::REFERENCE_K`).
-pub const K_REF: f64 = m::REFERENCE_K;
-/// The maintainer's band for N-1, ±1000 pcm (gh:#1128, 2026-11-10).
-pub const BAND_PCM: f64 = 1000.0;
-/// One worker's memory for the pool planner, MB: an ESTIMATE (the HTR-10
-/// core's worker holds about 545 MB; MSRE's 52 nuclides at one temperature
-/// are of the same order). Not measured.
-pub const WORKER_MB: f64 = 700.0;
-/// The record's seed for the tab's runs (any is fine; this one is fixed so
-/// a run can be repeated bit for bit).
-pub const SEED: u64 = 1;
-
-/// Accuracy presets: name, histories, inactive, active, and the σ each is
-/// expected to give, pcm, scaled by 1/√(histories × active) from the
-/// record's single run of 20 000 × 200 active (about 56 pcm, from the
-/// 6-seed ±23 pcm). An ESTIMATE for choosing; each run shows its own σ.
-pub const PRESETS: [(&str, usize, usize, usize, f64); 3] = [
-    ("Quick", 4_000, 30, 140, 150.0),
-    ("Standard", 10_000, 50, 200, 80.0),
-    ("Careful", 20_000, 100, 400, 40.0),
-];
-
-/// A finished run, kept for the measured coefficients (gh:#1574).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Finished {
-    pub study: Study,
-    pub cfg: KeffConfig,
-    pub k: f64,
-    pub sigma: f64,
-}
-
-/// **The measured split** (gh:#1574): the N-3 record's three runs on this
-/// tab's pool, one after another: A salt and graphite at
-/// [`SPLIT_BASE_F`]; C the salt raised by [`SPLIT_STEP_F`]; D the graphite
-/// raised. α_fuel from A and C, α_graphite from A and D
-/// ([`coefficient_from_pair`]), each with its σ. Never sent to the plant
-/// except by the reader's button.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Split {
-    pub cfg: KeffConfig,
-    pub shield: bool,
-    pub u235_scale: f64,
-    /// A, C, D as they finish.
-    pub runs: Vec<Finished>,
-}
-
-impl Split {
-    /// The study of run `i` (0 A, 1 C, 2 D).
-    pub fn study(&self, i: usize) -> Study {
-        let (b, up) = (SPLIT_BASE_F, SPLIT_BASE_F + SPLIT_STEP_F);
-        let (salt_f, graphite_f) = match i {
-            0 => (b, b),
-            1 => (up, b),
-            _ => (b, up),
-        };
-        Study { salt_f, graphite_f, u235_scale: self.u235_scale, shield: self.shield }
-    }
-
-    /// The coefficients, once the three runs are in.
-    pub fn coefficients(&self) -> Option<Coefficients> {
-        let [a, c, d] = [self.runs.first()?, self.runs.get(1)?, self.runs.get(2)?];
-        let (f, sf) = coefficient_from_pair(a.k, a.sigma, c.k, c.sigma, SPLIT_STEP_F);
-        let (g, sg) = coefficient_from_pair(a.k, a.sigma, d.k, d.sigma, SPLIT_STEP_F);
-        Some(Coefficients::Measured { fuel_per_f: f, fuel_sigma: sf, graphite_per_f: g, graphite_sigma: sg })
-    }
-}
-
-/// Where a pool is.
-#[derive(Clone, Debug, PartialEq)]
-enum Phase {
-    Processing,
-    Assembling,
-    Ready,
-    Failed(String),
-}
-
-/// A pool built for one study.
-struct Pool {
-    study: Study,
-    links: Vec<Link<Request, Event>>,
-    data: DataRelay,
-    keff: KeffPool<Study>,
-    phase: Phase,
-    assembled: Vec<Option<Assembly>>,
-    started_s: f64,
-    ready_s: Option<f64>,
-    /// A run waiting for the data.
-    pending: Option<KeffConfig>,
-}
-
-impl Pool {
-    fn start(ctx: &egui::Context, study: Study, workers: usize) -> Result<Self, String> {
-        let list = jobs(&study);
-        let labels = list.iter().map(|j| j.label()).collect();
-        let costs = list.iter().map(|j| j.cost()).collect();
-        let mut links = Vec::new();
-        for _ in 0..workers {
-            #[cfg(target_arch = "wasm32")]
-            links.push(bugis::web_demo::link::start_web::<Request, Event>(ctx.clone(), crate::engine::web::WORKER_JS, Event::Error)?);
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                let c = ctx.clone();
-                links.push(bugis::web_demo::link::start_native(crate::engine::Runner::default(), move || c.request_repaint()));
-            }
-        }
-        let n = links.len();
-        Ok(Self {
-            study,
-            links,
-            data: DataRelay::new(n, labels, costs),
-            keff: KeffPool::new(n, format!("about {WORKER_MB:.0} MB of nuclear data (an estimate)"), coordinator_settings, crate::keff::TRACED),
-            phase: Phase::Processing,
-            assembled: vec![None; n],
-            started_s: bugis::web_demo::platform::now_s(),
-            ready_s: None,
-            pending: None,
-        })
-    }
-
-    fn terminate(&self) {
-        for l in &self.links {
-            l.terminate();
-        }
-    }
-
-    fn data_phase(&self) -> bool {
-        matches!(self.phase, Phase::Processing | Phase::Assembling)
-    }
-
-    /// Take every worker's events and send what is due.
-    fn pump(&mut self, now: f64) -> Vec<Note> {
-        let mut notes = Vec::new();
-        for w in 0..self.links.len() {
-            for e in self.links[w].drain() {
-                match e {
-                    Event::Keff(k) => match k {
-                        KEv::Started { job } => self.data.on_started(job),
-                        KEv::Product { job, secs, data, cached_ms } => {
-                            let source = match cached_ms {
-                                Some(created_ms) => Source::Cached { created_ms, code: dhoby_ghaut::mc_web::processed_cache::CODE.to_string() },
-                                None => Source::Processed,
-                            };
-                            self.data.on_product(w, job, secs, data, source);
-                        }
-                        KEv::Assembled(a) => {
-                            // The console line an unattended browser check reads.
-                            #[cfg(target_arch = "wasm32")]
-                            log::info!("msre k_eff pool: worker {} built {} nuclides, {} materials in {:.1} s", w + 1, a.nuclides, a.materials, a.secs);
-                            self.assembled[w] = Some(a);
-                            let all = (0..self.links.len()).filter(|&v| self.keff.alive[v]).all(|v| self.assembled[v].is_some());
-                            if all && self.keff.live_workers() > 0 {
-                                self.phase = Phase::Ready;
-                                self.ready_s.get_or_insert(now);
-                            }
-                        }
-                        KEv::Source { sites, seed, mesh, epoch } => self.keff.on_source(w, &sites, seed, &mesh, epoch, now),
-                        KEv::ChunkDone { data, secs, epoch } => notes.extend(self.keff.on_chunk_done(w, &data, secs, epoch, now)),
-                        KEv::Failed { message, epoch } => {
-                            if self.data_phase() {
-                                self.keff.idle(w);
-                                self.phase = Phase::Failed(format!("Worker {} could not build its data: {message}.", w + 1));
-                            } else {
-                                self.keff.on_failed(w, &message, epoch);
-                            }
-                        }
-                        KEv::Raster { .. } => {}
-                    },
-                    Event::Error(msg) => {
-                        let dp = self.data_phase();
-                        if let Some(why) = self.keff.on_error(w, msg, dp) {
-                            self.phase = Phase::Failed(why);
-                        }
-                        if !self.keff.alive[w] {
-                            self.links[w].terminate();
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        if !matches!(self.phase, Phase::Failed(_)) {
-            let (out, all) = self.data.outbox(RELAY_WORDS_PER_FRAME, self.phase == Phase::Processing);
-            for d in out {
-                let (w, r) = match d {
-                    DataOut::Process { worker, jobs } => (worker, KReq::Process { study: self.study, jobs }),
-                    DataOut::Relay { worker, job, data } => (worker, KReq::Product { job, data }),
-                    DataOut::Assemble { worker } => (worker, KReq::Assemble { study: self.study }),
-                };
-                self.links[w].send(Request::Keff(r));
-            }
-            if all && self.phase == Phase::Processing {
-                self.phase = Phase::Assembling;
-            }
-            if self.phase == Phase::Ready {
-                if let Some(cfg) = self.pending.take() {
-                    if let Err(e) = self.keff.start_run(cfg, self.study, now) {
-                        self.keff.note(e);
-                    }
-                }
-                for (w, r) in self.keff.outbox() {
-                    let r = match r {
-                        RunReq::Source { cfg, epoch } => KReq::Source { cfg, epoch },
-                        RunReq::Chunk { cfg, data, epoch } => KReq::Chunk { cfg, data, epoch },
-                    };
-                    self.links[w].send(Request::Keff(r));
-                }
-            }
-        }
-        notes
-    }
-}
+use outram_park_digital_twin_engine::msre::first_criticality::Study;
+use outram_park_digital_twin_engine::msre::session::{Coefficients, SPLIT_BASE_F, SPLIT_STEP_F};
+use outram_park_digital_twin_engine::msre::web::keff::{jobs, Job, KReq, View};
+use outram_park_digital_twin_engine::msre::web::keff_pool::{plan_workers, preset_cfg, Finished, Phase, Pool, Split, BAND_PCM, K_REF, PRESETS};
 
 /// The tab's state.
 pub struct KeffTab {
@@ -257,6 +35,9 @@ pub struct KeffTab {
     asked: Option<(Study, View)>,
     pub view: View,
     texture: Option<(egui::TextureHandle, Study, View)>,
+    /// The data processing as the HTR-10 demo shows it: a card on the main
+    /// view and a per-job table in the panel (gh:#1578), for the pool's study.
+    loading: Option<(Study, Loading)>,
     /// Every run finished this session, newest last.
     pub finished: Vec<Finished>,
     /// The generations of the run on screen.
@@ -285,6 +66,7 @@ impl Default for KeffTab {
             asked: None,
             view: View::Plan,
             texture: None,
+            loading: None,
             finished: Vec::new(),
             gens: Vec::new(),
             error: None,
@@ -307,8 +89,7 @@ fn query(key: &str) -> Option<String> {
 
 /// How many pool workers: `?workers=N`, else the device's plan.
 fn workers() -> usize {
-    let forced = bugis::web_demo::platform::query_pairs().iter().find(|(k, _)| k == "workers").and_then(|(_, v)| v.parse().ok());
-    bugis::web_demo::pool::plan(bugis::web_demo::pool::Device::probe(), WORKER_MB, forced).workers
+    plan_workers(query("workers").and_then(|v| v.parse().ok()))
 }
 
 impl KeffTab {
@@ -317,8 +98,7 @@ impl KeffTab {
         if let Some(c) = self.custom {
             return c;
         }
-        let (_, n, i, a, _) = PRESETS[self.preset.min(PRESETS.len() - 1)];
-        KeffConfig { n_particles: n, n_inactive: i, n_active: a, seed: SEED, point_source: false, want_sites: false }
+        preset_cfg(self.preset)
     }
 
     /// A run is going (or waiting for its data).
@@ -419,6 +199,7 @@ impl KeffTab {
                 self.error = Some(f);
             }
         }
+        self.sync_loading();
         // The measured split goes on to its next run.
         if let (Some(f), Some(sp)) = (done, self.split.as_mut()) {
             if sp.runs.len() < 3 && f.study == sp.study(sp.runs.len()) {
@@ -505,12 +286,15 @@ impl KeffTab {
         }
         if let Some(p) = &self.pool {
             let line = match &p.phase {
-                Phase::Processing => format!("Nuclear data: {:.0} % on {} workers ({})", 100.0 * p.data.processed(), p.links.len(), p.data.data_source()),
+                Phase::Processing => processing_line(p),
                 Phase::Assembling => format!("Building the model on {} workers", p.links.len()),
                 Phase::Ready => format!("{} workers hold the model ({}); data ready in {:.0} s", p.keff.live_workers(), p.data.data_source(), p.ready_s.unwrap_or(p.started_s) - p.started_s),
                 Phase::Failed(m) => format!("Failed: {m}"),
             };
             ui.label(RichText::new(line).small());
+            if let Some((_, l)) = self.loading.as_ref() {
+                egui::CollapsingHeader::new(format!("Nuclear-data jobs ({} of {} done)", l.done(), l.labels.len())).default_open(false).show(ui, |ui| l.grid(ui));
+            }
             for l in p.keff.log.iter().rev().take(3) {
                 ui.label(RichText::new(l).small().color(ui.visuals().warn_fg_color));
             }
@@ -534,6 +318,33 @@ impl KeffTab {
         }
     }
 
+    /// Follow the pool's jobs into the loading card (a job started, a job
+    /// done), starting a fresh card for a new study. Tab-driving code.
+    fn sync_loading(&mut self) {
+        let Some(p) = self.pool.as_ref() else { return };
+        if self.loading.as_ref().map(|l| l.0) != Some(p.study) {
+            let list = jobs(&p.study);
+            let labels = list.iter().map(job_label).collect();
+            // The card reads each weight as the job's expected seconds. The
+            // costs are desktop estimates (U-235 58 s); on a phone U-235
+            // took about 500 s (the maintainer, 2026-11-15), so a phone's
+            // are scaled by that ratio (an ESTIMATE from one measurement),
+            // and the bar does not race to a third and stall.
+            let slow = if bugis::web_demo::pool::Device::probe().phone { PHONE_SLOWDOWN } else { 1.0 };
+            self.loading = Some((p.study, Loading::new(labels, list.iter().map(|j| j.cost() * slow).collect())));
+        }
+        if let Some((_, l)) = self.loading.as_mut() {
+            for j in 0..p.data.started.len().min(l.labels.len()) {
+                if p.data.started[j] && l.job_started[j].is_none() {
+                    l.job_started(j);
+                }
+                if let (Some(secs), None) = (p.data.secs[j], l.job_secs[j]) {
+                    l.job_done(j, secs);
+                }
+            }
+        }
+    }
+
     /// The main view: geometry above, k below. GUI drawing code.
     pub fn view_ui(&mut self, ui: &mut egui::Ui, rect: Rect) {
         let narrow = rect.width() < 700.0;
@@ -546,6 +357,19 @@ impl KeffTab {
         };
         self.geometry_ui(ui, geo);
         ui.scope_builder(egui::UiBuilder::new().max_rect(plot), |ui| self.plot_ui(ui));
+        // While the nuclear data are processed, the card over the plot (as
+        // the HTR-10 demo's), so it shows with the panel folded on a phone.
+        if let (Some(p), Some((_, l))) = (self.pool.as_ref(), self.loading.as_ref()) {
+            if p.data_phase() {
+                let note = if p.data.secs.iter().any(Option::is_some) {
+                    format!("First visit: several minutes in this browser; U-235 and U-238 are the longest (U-235 alone took about 500 s on a phone, measured by the maintainer, 2026-11-15). A later visit reads the results from this browser's cache. So far: {}.", p.data.data_source())
+                } else {
+                    "First visit: several minutes in this browser; U-235 and U-238 are the longest (U-235 alone took about 500 s on a phone, measured by the maintainer, 2026-11-15). A later visit reads the results from this browser's cache.".to_string()
+                };
+                let title = format!("Processing ENDF/B-VIII.0 on {} workers", p.links.len());
+                l.card(ui.painter(), plot, &title, Some(&note));
+            }
+        }
     }
 
     fn geometry_ui(&mut self, ui: &mut egui::Ui, rect: Rect) {
@@ -555,12 +379,31 @@ impl KeffTab {
                 ui.selectable_value(&mut self.view, View::Elevation, "Elevation (x-z)");
             });
         });
-        let area = Rect::from_min_max(rect.min + Vec2::new(0.0, 34.0), rect.max - Vec2::new(0.0, 70.0));
         let Some((s, v, w, h, ids)) = &self.raster else {
+            let area = Rect::from_min_max(rect.min + Vec2::new(0.0, 34.0), rect.max);
             ui.painter().text(area.center(), Align2::CENTER_CENTER, "Drawing the geometry…", FontId::proportional(15.0), ui.visuals().text_color());
             return;
         };
         let plan = s.plan();
+        // Legend first: the materials present, wrapped by each label's own
+        // width, so the drawing gets what is left (on a phone it wraps to
+        // five rows, which a fixed allowance let the caption overlap).
+        let mut items = Vec::new();
+        let (mut x, mut row) = (0.0_f32, 0_usize);
+        for (i, (name, _)) in plan.materials.iter().enumerate() {
+            let galley = ui.painter().layout_no_wrap(name.to_string(), FontId::proportional(11.0), ui.visuals().text_color());
+            let wdt = 14.0 + galley.size().x + 10.0;
+            if x + wdt > rect.width() && x > 0.0 {
+                x = 0.0;
+                row += 1;
+            }
+            items.push((x, row, colour(i as u8 + 1), galley));
+            x += wdt;
+        }
+        let legend_h = 15.0 * (row + 1) as f32;
+        let legend_top = rect.bottom() - legend_h;
+        // 34 px of view buttons above, 20 px of caption below the drawing.
+        let area = Rect::from_min_max(rect.min + Vec2::new(0.0, 34.0), Pos2::new(rect.right(), (legend_top - 20.0).max(rect.top() + 60.0)));
         if self.texture.as_ref().map(|t| (t.1, t.2)) != Some((*s, *v)) {
             let px: Vec<Color32> = ids.iter().map(|&i| colour(i)).collect();
             let img = egui::ColorImage { size: [*w, *h], pixels: px, source_size: Vec2::new(*w as f32, *h as f32) };
@@ -572,22 +415,12 @@ impl KeffTab {
             let r = Rect::from_center_size(area.center(), Vec2::new(side, side * aspect));
             ui.painter().image(t.id(), r, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
             let (_, _, width) = v.frame(s);
-            ui.painter().text(r.left_bottom() + Vec2::new(0.0, 4.0), Align2::LEFT_TOP, format!("{:.0} cm across · drawn from the assembled CSG", width[0]), FontId::proportional(12.0), ui.visuals().text_color());
+            ui.painter().text(r.left_bottom() + Vec2::new(0.0, 3.0), Align2::LEFT_TOP, format!("{:.0} cm across · drawn from the assembled CSG", width[0]), FontId::proportional(12.0), ui.visuals().text_color());
         }
-        // Legend: the materials present, wrapped by each label's own width.
-        let mut y = rect.bottom() - 64.0;
-        let mut x = rect.left();
-        for (i, (name, _)) in plan.materials.iter().enumerate() {
-            let c = colour(i as u8 + 1);
-            let galley = ui.painter().layout_no_wrap(name.to_string(), FontId::proportional(11.0), ui.visuals().text_color());
-            let wdt = 14.0 + galley.size().x + 10.0;
-            if x + wdt > rect.right() && x > rect.left() {
-                x = rect.left();
-                y += 15.0;
-            }
+        for (x, row, c, galley) in items {
+            let (x, y) = (rect.left() + x, legend_top + 15.0 * row as f32);
             ui.painter().rect_filled(Rect::from_min_size(Pos2::new(x, y + 2.0), Vec2::splat(10.0)), 1.0, c);
             ui.painter().galley(Pos2::new(x + 14.0, y), galley, ui.visuals().text_color());
-            x += wdt;
         }
     }
 
@@ -618,6 +451,39 @@ impl KeffTab {
     }
 }
 
+/// The pool's line while the nuclear data are processed (gh:#1578: the
+/// first version read "Nuclear data: −0 % (no nuclear data)" for the
+/// minutes before the first job finished, which looked like missing data).
+/// GUI text.
+fn processing_line(p: &Pool) -> String {
+    let n = p.data.labels.len();
+    let done = p.data.secs.iter().filter(|s| s.is_some()).count();
+    let now: Vec<&str> = (0..n).filter(|&j| p.data.started[j] && p.data.secs[j].is_none()).map(|j| p.data.labels[j].as_str()).collect();
+    let now_text = if now.is_empty() { "starting".to_string() } else { now.iter().take(4).copied().collect::<Vec<_>>().join(", ") + if now.len() > 4 { ", ..." } else { "" } };
+    if done == 0 {
+        format!(
+            "Processing the nuclear data on {} workers: 0 of {n} jobs done, now {now_text}. A first visit processes ENDF/B-VIII.0 in this browser and takes several minutes (U-235 and U-238 are the longest); a later visit reads the results back from this browser's cache.",
+            p.links.len()
+        )
+    } else {
+        format!("Nuclear data: {:.0} % by cost, {done} of {n} jobs, on {} workers ({}); now {now_text}", 100.0 * p.data.processed(), p.links.len(), p.data.data_source())
+    }
+}
+
+/// How much longer a phone takes than the desktop cost estimates: U-235
+/// about 500 s on the maintainer's phone (2026-11-15) against the 58 s
+/// estimate. An ESTIMATE from one measurement; only the progress bar uses it.
+const PHONE_SLOWDOWN: f64 = 500.0 / 58.0;
+
+/// A job's name for the loading card (its nuclide, or its law).
+fn job_label(j: &Job) -> &'static str {
+    match j {
+        Job::Nuclide(n) => n.name,
+        Job::Graphite(_) => "graphite S(a,b)",
+        Job::Water => "H in H2O S(a,b)",
+    }
+}
+
 /// A material's drawing colour (index + 1 from `keff::raster`; 0 void, 254
 /// overlap, 255 outside). An indicative palette, no physical meaning.
 fn colour(id: u8) -> Color32 {
@@ -643,80 +509,5 @@ fn colour(id: u8) -> Color32 {
         254 => Color32::from_rgb(255, 0, 255),
         255 => Color32::from_rgb(20, 20, 28),
         i => P[(i as usize - 1) % P.len()],
-    }
-}
-
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-    use super::*;
-    use crate::keff::{entropy_mesh, native_tape, run_settings, KeffWorker};
-
-    /// **gh:#1571 / #1572: a pooled run on the real MSRE model is
-    /// `run_keff_csg_par`'s, bit for bit.** The tab's pool (two native
-    /// worker threads, the library's `DataRelay` and `KeffPool`) processes
-    /// the default study's 54 jobs, relays them, builds the model on each
-    /// worker and runs 500 × [2 + 3] on seed 7. Separately, one worker
-    /// processes every job itself and `run_keff_csg_par` runs on its model
-    /// (2 threads, the entropy mesh). Every generation's k must be equal to
-    /// the bit. Prints the k values, the timings and the hardware.
-    #[test]
-    #[ignore = "processes the MSRE model's 54 jobs twice natively and runs k (many minutes); run with --ignored --nocapture"]
-    fn a_pooled_run_is_run_keff_csg_par_bit_for_bit() {
-        let study = Study::default();
-        let cfg = KeffConfig { n_particles: 500, n_inactive: 2, n_active: 3, seed: 7, point_source: false, want_sites: false };
-        let ctx = egui::Context::default();
-        let t0 = std::time::Instant::now();
-        let mut pool = Pool::start(&ctx, study, 2).expect("pool");
-        pool.pending = Some(cfg);
-        let mut ks = Vec::new();
-        'run: loop {
-            for n in pool.pump(bugis::web_demo::platform::now_s()) {
-                match n {
-                    Note::Generation(g) => ks.push(g.gen.k),
-                    Note::RunDone => break 'run,
-                }
-            }
-            if let Phase::Failed(m) = &pool.phase {
-                panic!("{m}");
-            }
-            if let Some(f) = pool.keff.run.as_ref().and_then(|r| r.failed.clone()) {
-                panic!("{f}");
-            }
-            assert!(t0.elapsed().as_secs() < 7200, "not done in two hours");
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-        let pool_s = t0.elapsed().as_secs_f64();
-        pool.terminate();
-        let t1 = std::time::Instant::now();
-        let mut w = KeffWorker::default();
-        let list = jobs(&study);
-        for (j, job) in list.iter().enumerate() {
-            let b = job.tape().map(|t| native_tape(t).expect("tape")).unwrap_or_default();
-            w.process(&study, j, &b).expect("process");
-        }
-        w.assemble(&study, native_tape, || 0.0).expect("assemble");
-        let md = w.model.as_ref().expect("model");
-        let r = outram_mc_libs::physics::transport_csg::run_keff_csg_par(
-            &md.geometry,
-            &md.materials,
-            &md.nuclides,
-            &[],
-            Some(&entropy_mesh()),
-            m::source_box(),
-            &run_settings(&cfg, md.salt_k),
-            None,
-            &[],
-            None,
-            outram_mc_libs::physics::compute::ThreadCount::Fixed(2),
-        );
-        let ref_s = t1.elapsed().as_secs_f64();
-        let bits = |v: &[f64]| v.iter().map(|k| k.to_bits()).collect::<Vec<_>>();
-        println!("MSRE_POOL_K {:?}", ks.iter().map(|k| format!("{k:.17e}")).collect::<Vec<_>>());
-        println!("MSRE_PAR_K  {:?} mean {:.5} ± {:.5}", r.k_by_generation.iter().map(|k| format!("{k:.17e}")).collect::<Vec<_>>(), r.k_mean, r.k_std);
-        println!(
-            "MSRE_TIMING pool (process + relay + build + run, 2 workers) {pool_s:.1} s; reference (process + build + run, one worker then 2 threads) {ref_s:.1} s; hardware: {}",
-            outram_mc_libs::perf_report::HardwareInfo::detect().headline()
-        );
-        assert_eq!(bits(&ks), bits(&r.k_by_generation));
     }
 }

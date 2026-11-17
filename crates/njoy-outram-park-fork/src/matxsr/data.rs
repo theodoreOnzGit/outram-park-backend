@@ -12,6 +12,9 @@
 //! stored in it is rounded to `f32`; `a + b` with `b` a `real(kr)` is a double
 //! sum rounded to `f32`; `a + a` is a single-precision sum (`:1800`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::errorr::gendf::{GendfKind, GendfRecord, GendfTape};
 use crate::matxsr::cards::MatxsrCards;
 use crate::matxsr::hname::hname;

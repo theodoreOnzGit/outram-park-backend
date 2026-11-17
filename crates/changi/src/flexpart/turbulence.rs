@@ -57,6 +57,9 @@
 //! Bare `f64` in FLEXPART's units, as throughout this module (see
 //! [`super::surface_layer`]): velocities m/s, lengths m, times s.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// The `hanna_mod` turbulence state for one particle.

@@ -32,6 +32,9 @@
 //! Nothing here allocates: `petir::cheb_slice` works on borrowed slices
 //! precisely so these hot-path lookups do not have to.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(crate) use petir::{basis as cheb_basis, eval_plain as cheb1, scale};
 
 /// Evaluates a dense tensor-product Chebyshev series `sum_ij c[i][j] T_i(x) T_j(y)`.

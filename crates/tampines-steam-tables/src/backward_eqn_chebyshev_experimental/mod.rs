@@ -53,6 +53,9 @@
 #![allow(clippy::excessive_precision)]
 
 /// Chebyshev basis evaluation shared by the correlations in this module.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod chebyshev;
 
 /// Near-critical Region 4 `(h,s)` flash: saturation pressure and vapour

@@ -13,6 +13,9 @@
 //! `jtype = 2` and the default labels for later curves; a 2-d curve whose
 //! values are all zero leaves `n` as the previous curve left it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::getters::ascale;

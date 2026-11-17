@@ -4,6 +4,9 @@
 // those are determined by the following sat temp and sat pressure
 // equations:
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::backward_eqn_ph_region_1_to_4::p_s3_h;
 use crate::region_1_subcooled_liquid::h_tp_1;
 use crate::region_2_vapour::h_tp_2;

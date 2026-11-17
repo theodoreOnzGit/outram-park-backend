@@ -3,11 +3,11 @@
 //! The first full-core run (2026-09-17) returned `k = 0`, zero entropy and
 //! **2.82e9 virtual collisions** — 18,801 per history — with every history
 //! exhausting its budget and leaking. This measures why, rather than guessing.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_htr10_sab, Htr10SabLaws};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
@@ -43,32 +43,28 @@ fn main() {
     };
     let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
     let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
-    let bind_sic = |n: Nuclide, s: &Option<ThermalScattering>| match s {
-        Some(t) => n.with_thermal_scattering(t.clone()),
-        None => n,
-    };
     let Some(nucs) = (|| {
         Some(vec![
             load("U235", "n-092_U_235-ENDF8.0.endf")?,
             load("U238", "n-092_U_238.endf")?,
             load("O16", "n-008_O_016-ENDF8.0.endf")?,
             load("C12", "n-006_C_012-ENDF8.0.endf")?,
-            load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
-            bind_sic(load("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
+            load("C12", "n-006_C_012-ENDF8.0.endf")?,
+            load("Si28", "n-014_Si_028-ENDF8.0.endf")?,
             load("B10", "n-005_B_010-ENDF8.0.endf")?,
             // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
             // isotopes. The atom density was always built from silicon's natural
             // molar mass, so this splits a correct total rather than changing it.
-            bind_sic(load("C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
-            bind_sic(load("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
-            bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
+            load("C12", "n-006_C_012-ENDF8.0.endf")?,
+            load("Si29", "n-014_Si_029-ENDF8.0.endf")?,
+            load("Si30", "n-014_Si_030-ENDF8.0.endf")?,
             load("B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
             // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
             // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
             // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
             load("C13", "n-006_C_013-ENDF8.0.endf")?,
-            load("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
-            bind_sic(load("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
+            load("C13", "n-006_C_013-ENDF8.0.endf")?,
+            load("C13", "n-006_C_013-ENDF8.0.endf")?,
         ])
     })() else {
         println!("SKIP: no tapes");
@@ -99,6 +95,17 @@ fn main() {
             .collect(),
         temperature: TEMP_K,
     });
+
+    // Per-material S(a,b) (gh:#462, #1581). Audited 2026-11-14: the graphite
+    // slot is referenced by the graphite and the reflector only; the SiC slots
+    // by the SiC layer.
+    let (mats, nucs) = assign_htr10_sab(
+        &mats,
+        &nucs,
+        &NUC,
+        &Htr10SabLaws { graphite: sab, c_in_sic, si_in_sic },
+    )
+    .expect("S(a,b) per material");
 
     let grid: Vec<f64> = (0..4096)
         .map(|i| (1.0e-4_f64.r_ln() + (2.0e7_f64.r_ln() - 1.0e-4_f64.r_ln()) * i as f64 / 4095.0).r_exp())

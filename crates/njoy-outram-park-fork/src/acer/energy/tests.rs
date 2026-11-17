@@ -1,7 +1,11 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::endf::tape::Tape;
 use std::fs::File;
 
+#[cfg(feature = "std")]
 fn u235_fission_chi() -> Law4 {
     let p = crate::reference_data::reference_endf_dir().join("n-092_U_235-ENDF8.0.endf");
     let tape = Tape::read(File::open(p).unwrap()).unwrap();
@@ -9,6 +13,7 @@ fn u235_fission_chi() -> Law4 {
     parse_mf5_law4(sec).unwrap()
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn fission_chi_parses_with_many_incident_energies() {
     let law = u235_fission_chi();
@@ -19,6 +24,7 @@ fn fission_chi_parses_with_many_incident_energies() {
     assert!(*e.last().unwrap() < 1000.0, "E_in in MeV not eV");
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn fission_chi_distributions_are_valid() {
     let law = u235_fission_chi();
@@ -37,6 +43,7 @@ fn fission_chi_distributions_are_valid() {
     }
 }
 
+#[cfg(feature = "std")]
 fn u235_mf6(mt: i32) -> Mf6Neutron {
     let p = crate::reference_data::reference_endf_dir().join("n-092_U_235-ENDF8.0.endf");
     let tape = Tape::read(File::open(p).unwrap()).unwrap();
@@ -44,6 +51,7 @@ fn u235_mf6(mt: i32) -> Mf6Neutron {
     parse_mf6_law1_neutron(sec).unwrap()
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn mf6_n2n_yield_and_frame() {
     // MT=16 (n,2n): neutron multiplicity 2, centre-of-mass frame (LCT=2).
@@ -56,6 +64,7 @@ fn mf6_n2n_yield_and_frame() {
     assert!(n2n.law4.incident.len() > 5, "MT16 has an E_in grid");
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn mf6_energy_distributions_are_valid() {
     // Both MT16 (n,2n) and MT91 (continuum inelastic) energy spectra.
@@ -145,6 +154,7 @@ fn mf6_mean_energy_interpolates_in_incident() {
     );
 }
 
+#[cfg(feature = "std")]
 /// Real-data sanity: the U-235 (n,2n) MF=6 mean emitted-neutron energy at a
 /// high incident energy is a physically reasonable few MeV — positive, and
 /// well below the incident energy (the two neutrons share `E + Q`, `Q < 0`).
@@ -167,6 +177,7 @@ fn mf6_n2n_mean_energy_is_physical() {
     );
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn fission_spectrum_peaks_near_1_mev() {
     // The U-235 prompt fission spectrum peaks around 0.7–1 MeV. Take a

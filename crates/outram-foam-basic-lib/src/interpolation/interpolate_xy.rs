@@ -24,6 +24,9 @@
 /// Clamps to the endpoint values outside the table range.
 /// Assumes `xs` is sorted in ascending order.
 /// Maps to `Foam::interpolateXY(scalar, UList<scalar>&, UList<Type>&)`.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub fn interpolate_xy(x: f64, xs: &[f64], ys: &[f64]) -> f64 {
     let n = xs.len();
     assert_eq!(n, ys.len(), "xs and ys must have the same length");

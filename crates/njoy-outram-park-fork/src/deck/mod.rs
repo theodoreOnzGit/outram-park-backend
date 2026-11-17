@@ -56,6 +56,9 @@
 //! **CORRECTED 2026-11-13 (gh:#1369):** PLOTR's cards are read and it runs
 //! ([`plotr`], `crate::plotr`), writing the plot-command file VIEWR reads.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod acer_photon;
 pub mod acer_thermal;
 pub mod cards;

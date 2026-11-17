@@ -26,6 +26,9 @@
 //! and takes `changi`'s. `buangkok -> changi` is the dependency direction: dose
 //! sits downstream of dispersion.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use changi::activity::units::DilutionFactor;
 
 /// An effective dose (or, for a long-term release, the dose accrued over one

@@ -21,7 +21,10 @@
 //! This module does the same with one law per material zone and an index per
 //! cell.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::error::{OffbeatError, Result};
 

@@ -20,7 +20,12 @@
 //! Independent Rust re-implementation; OUTRAM PARK fork relicenses under
 //! **GPL-3.0-only** (MIT is GPL-3.0-compatible).
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+// A `BTreeMap` (gh:#1589: `alloc`, so `no_std`), ~~`std::collections::HashMap`~~:
+// only looked up by key, never iterated, so the map type changes no result.
+use alloc::collections::BTreeMap;
 
 use crate::chain::{DecayData, FissionYields, ReactionRates};
 use crate::cram::{clamp_nonnegative, cram16, CramError};
@@ -65,7 +70,7 @@ pub enum DepletionError {
 #[derive(Debug, Clone)]
 pub struct DepletionSystem {
     nuclides: Vec<Nuclide>,
-    index: HashMap<ZamId, NuclideIndex>,
+    index: BTreeMap<ZamId, NuclideIndex>,
     decay: Vec<DecayData>,
     rates: Vec<ReactionRates>,
     fission_yields: Vec<FissionYields>,
@@ -82,7 +87,7 @@ impl DepletionSystem {
     pub fn new() -> Self {
         Self {
             nuclides: Vec::new(),
-            index: HashMap::new(),
+            index: BTreeMap::new(),
             decay: Vec::new(),
             rates: Vec::new(),
             fission_yields: Vec::new(),

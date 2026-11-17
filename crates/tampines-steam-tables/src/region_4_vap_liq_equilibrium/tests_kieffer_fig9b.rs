@@ -73,6 +73,9 @@
 //! The results are also recorded in
 //! `verification_and_validation/hem_sound_speed_vs_kieffer_fig9b.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::pressure::bar;

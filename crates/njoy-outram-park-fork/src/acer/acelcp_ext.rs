@@ -13,6 +13,9 @@
 //!
 //! Both are called from `acelcp`'s loops, with upstream's 1-based XSS indices.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::endf::interp::terpa;

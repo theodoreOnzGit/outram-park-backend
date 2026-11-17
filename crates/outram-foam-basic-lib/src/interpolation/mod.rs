@@ -28,6 +28,9 @@
 //! endpoint value outside the table range. Abscissae and ordinates are bare
 //! `f64` in the caller's own units.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod interpolate_spline_xy;
 pub mod interpolate_xy;
 pub use interpolate_spline_xy::interpolate_spline_xy;

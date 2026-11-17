@@ -39,6 +39,9 @@
 //! provenance table in `reference-data/endf/README.md`, which records the
 //! library, MAT number, source URL and date accessed for every tape.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::{Path, PathBuf};
 
 /// Environment variable that overrides where reference tapes are looked up.

@@ -3,6 +3,9 @@
 /// style (no objects)
 ///
 /// this keeps things simple.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod functional_programming;
 
 /// Bounds-checked, `Result`-returning facade over the panicking flash

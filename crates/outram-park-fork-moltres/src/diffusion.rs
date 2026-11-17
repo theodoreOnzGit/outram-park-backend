@@ -61,7 +61,10 @@
 //! Units: flux `1/(m^2 s)` (amplitude arbitrary up to normalisation),
 //! `D` in `m`, all `Sigma` in `1/m`, `k_eff` dimensionless.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{
     fvm, BoundaryCondition, Field, FvMesh, PatchField, SolverSettings, VolScalarField,
@@ -503,7 +506,7 @@ mod tests {
     use super::*;
     use crate::materials::MsrMaterial;
     use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
     use uom::si::area::square_meter;
     use uom::si::f64::{Area, Length};
     use uom::si::length::meter;

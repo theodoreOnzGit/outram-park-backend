@@ -17,6 +17,9 @@
 //! `x`, `y`, `b`, `dxm`, `dxp`, `dym`, `dyp` are `equivalence`d into `aa`
 //! (`plotr.f90:392-394`), and so they are here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::deck::tapes::TapeUnits;
@@ -107,7 +110,7 @@ impl Plotr {
             };
         }
         p.line(" 99/");
-        units.put_text(cards.nplt, std::mem::take(&mut p.out));
+        units.put_text(cards.nplt, core::mem::take(&mut p.out));
         units.closz(p.nin)?;
         Ok(())
     }

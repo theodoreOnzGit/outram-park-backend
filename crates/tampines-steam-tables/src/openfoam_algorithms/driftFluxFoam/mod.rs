@@ -3,6 +3,9 @@
 //! drift-flux approximation for relative phase motion (e.g. settling of a
 //! dispersed phase). Not compiled or ported to Rust; kept here as study
 //! material for a simpler two-phase model than `chtMultiRegionTwoPhaseEulerFoam`.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /*
 /*---------------------------------------------------------------------------*\
   =========                 |

@@ -26,6 +26,9 @@
 //!   last point is never written and `bfile3`'s paging does not end (`nj` never
 //!   turns negative, `:1224`). Refused too.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mixr::mix::sigfig;
 use crate::reconr::{ReconrResult, ReconrSection};
 use crate::NjoyError;

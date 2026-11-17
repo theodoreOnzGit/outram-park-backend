@@ -6,9 +6,12 @@
 //! (`lambda_1`), and a near-critical enhancement term (`lambda_2`). Public
 //! entry points flash the density from a `(T, p)` or `(T, p, x)` state.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
-use std::ops::Index;
+use core::ops::Index;
 
 use uom::si::pressure::megapascal;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;

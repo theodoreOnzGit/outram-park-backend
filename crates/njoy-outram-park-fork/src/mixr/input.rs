@@ -20,6 +20,9 @@
 //! reader carries (see the workspace "human interface layer" rule). Units are
 //! instead spelled out in every doc comment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// One component of a mix — the Rust analogue of a single index-aligned triple
 /// `(nin(i), matn(i), wtn(i))` in `mixr.f90`.
 ///

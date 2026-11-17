@@ -72,6 +72,9 @@
 //! Longitudes/latitudes in degrees (inputs and outputs), heights in m,
 //! distances (`rms`, `rmsclust`, `rmsdist`) in km, fractions in percent.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::flexpart::constants::PI180;

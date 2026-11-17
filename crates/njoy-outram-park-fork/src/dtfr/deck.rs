@@ -25,6 +25,9 @@
 //! Refused by name: a material not found on the GENDF tape is upstream's
 //! `***material not found` and the next card is read, as upstream does.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::{CardReader, Slot};
 use crate::errorr::gendf::{GendfKind, GendfRecord, GendfTape};
 use crate::NjoyError;

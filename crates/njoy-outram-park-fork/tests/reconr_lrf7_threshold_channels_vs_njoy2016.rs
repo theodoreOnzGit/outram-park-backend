@@ -102,6 +102,9 @@
 //! spin groups, the only ones that exercise `yfour` with off-diagonal
 //! coupling.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::time::Instant;
 
 use njoy_outram_park_fork::endf::records::SectionCursor;

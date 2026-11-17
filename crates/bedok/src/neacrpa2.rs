@@ -76,6 +76,9 @@
 //! mechanically** from `neacrpa2.m` rather than retyped, and every distinct
 //! numeric literal below was checked to appear verbatim in the source.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry_ends3d::geometry_ends3d;
 use crate::matlab::{Array2, Array3};
 use crate::sigmavalupd3d::DeltaSigmaValues;
@@ -686,7 +689,7 @@ pub fn neacrpa2(
     // `12893000 / 157 / (4*10.803^2 - 314*pi*0.47585^2)` — core mass flow over
     // the flow area left by 314 pins in the node. The reference carries two
     // earlier, overwritten forms of this; only the last runs.
-    let flow_area = 4.0 * 10.803 * 10.803 - 314.0 * std::f64::consts::PI * 0.475_85 * 0.475_85;
+    let flow_area = 4.0 * 10.803 * 10.803 - 314.0 * core::f64::consts::PI * 0.475_85 * 0.475_85;
     let flowrate = 12_893_000.0 / 157.0 / flow_area;
 
     // ----- fuel rod -----
@@ -723,9 +726,9 @@ pub fn neacrpa2(
     // The same `sum(Lr(i))`-on-a-scalar-index defect as `neacrpd1` — B1 in the
     // register. Dead data; reproduced as written.
     let mut vif = vec![0.0; maxir];
-    vif[0] = std::f64::consts::PI * lr[0] * lr[0];
+    vif[0] = core::f64::consts::PI * lr[0] * lr[0];
     for i in 1..maxir {
-        vif[i] = std::f64::consts::PI * (lr[i] * lr[i] - lr[i - 1] * lr[i - 1]);
+        vif[i] = core::f64::consts::PI * (lr[i] * lr[i] - lr[i - 1] * lr[i - 1]);
     }
 
     let mut whichk = vec![1usize; maxir];
@@ -738,8 +741,8 @@ pub fn neacrpa2(
         }
     }
 
-    let subarea = pitch * pitch - std::f64::consts::PI * rtot * rtot;
-    let hydia = 4.0 * subarea / (2.0 * std::f64::consts::PI * rtot + 4.0 * pitch - 8.0 * rtot);
+    let subarea = pitch * pitch - core::f64::consts::PI * rtot * rtot;
+    let hydia = 4.0 * subarea / (2.0 * core::f64::consts::PI * rtot + 4.0 * pitch - 8.0 * rtot);
 
     geometry.fuel = FuelGeometry {
         lr,

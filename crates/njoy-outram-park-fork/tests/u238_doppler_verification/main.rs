@@ -56,6 +56,9 @@
 //!
 //! Run under the memory cap: `scripts/test.sh capture -- --nocapture`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::interface::NuclearDataLibrary;
 use std::io::Write;
 use std::path::PathBuf;

@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **ERRORR `mfcov = 40` and `nstan` from a deck, against NJOY2016.80** (gh:#1371).
 //!

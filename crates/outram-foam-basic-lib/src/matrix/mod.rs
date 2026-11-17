@@ -27,6 +27,9 @@
 //! to solve is reported through [`MatrixError`](crate::matrix::square_matrix::MatrixError). Entries are bare `f64`; the
 //! matrix carries no unit information.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod square_matrix;
 pub use square_matrix::MatrixError;
 pub use square_matrix::SquareMatrix;

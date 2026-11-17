@@ -63,7 +63,7 @@
 //! against a reference tape — see `SabRequest::validation` and bead `op-rvrg`.
 //! Treat these as verification of the wiring and of limiting physics, not as a
 //! validated water library.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): nuclide-level test or probe; it builds one bound nuclide and no material references it, so there is no free material that could receive the bound law. Not migrated: the nuclide-level binding is what it exercises.
 
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::material::thermal::{ThermalElastic, ThermalScattering};

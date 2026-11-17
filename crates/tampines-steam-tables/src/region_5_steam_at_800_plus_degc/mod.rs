@@ -16,6 +16,9 @@
 
 /// IAPWS-IF97 Region 5 Table 39 coefficients (I_i, J_i, n_i) for the residual
 /// part of the dimensionless Gibbs free energy, `gamma_5_res(pi, tau)`.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 const REGION_5_COEFFS_RES: [[f64; 3]; 6] = [
     [1.0, 1.0, 0.15736404855259e-2],
     [1.0, 2.0, 0.90153761673944e-3],

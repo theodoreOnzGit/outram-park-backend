@@ -1,5 +1,8 @@
 // ================    Region 1 ===================
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::*;
 

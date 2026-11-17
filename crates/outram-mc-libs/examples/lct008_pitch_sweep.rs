@@ -77,7 +77,6 @@
 //!     [--particles 4000 --inactive 50 --active 150] [--seed 1] \
 //!     [--cheap-nuclides] [--no-soluble-boron] [--csv out.csv] [--plots DIR]
 //! ```
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -218,7 +217,10 @@ fn main() {
     );
     assert_eq!(clad_idx, 2);
 
-    let nuclides = load_nuclides(&spec, &slots, tier);
+    let (free_nuclides, sab) = load_nuclides(&spec, &slots, tier);
+    // Per-material H(H2O), as the model's <sab> card says (gh:#462, #1581).
+    let (materials, nuclides) =
+        lct008_model::assign_spec_sab(&spec, &materials, &free_nuclides, &slots, sab.as_ref());
 
     let mut csv_file = csv.map(|p| {
         let new = !p.is_file();
@@ -361,11 +363,11 @@ fn load_nuclides(
     spec: &[lct008_model::MaterialSpec],
     slots: &BTreeMap<String, usize>,
     tier: &[(&str, &str)],
-) -> Vec<Nuclide> {
+) -> (Vec<Nuclide>, Option<ThermalScattering>) {
     let t0 = Instant::now();
     eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K, URR + DBRC by default):");
     let sab_needed = spec.iter().any(|m| m.sab.as_deref() == Some("c_H_in_H2O"));
-    let mut sab = sab_needed.then(|| {
+    let sab = sab_needed.then(|| {
         ThermalScattering::from_endf_file(
             reference_endf("tsl-HinH2O.endf")
                 .expect("H(H2O) tape")
@@ -385,14 +387,10 @@ fn load_nuclides(
         let file = tier.iter().find(|(n, _)| *n == name).expect("tape").1;
         let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
         let t = Instant::now();
-        let mut n =
+        let n =
             Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, outram_mc_libs::vv::bench_speed())
                 .unwrap_or_else(|e| panic!("from_endf_file_with_speed({}): {e}", p.display()));
-        if name == "H1" {
-            if let Some(s) = sab.take() {
-                n = n.with_thermal_scattering(s);
-            }
-        }
+        // H-1 stays free; `assign_spec_sab` binds it per material (gh:#1581).
         eprintln!(
             "  {name:<6} {:6.1} s  urr={} dbrc={} sab={}",
             t.elapsed().as_secs_f64(),
@@ -403,5 +401,5 @@ fn load_nuclides(
         out.push(n);
     }
     eprintln!("Nuclear data ready in {:.1} s.", t0.elapsed().as_secs_f64());
-    out
+    (out, sab)
 }

@@ -2,6 +2,9 @@
 //! positivity, conservation, double rarefaction, Edwards) are integration
 //! tests: `tests/hem_pipe_verification.rs`, `tests/hem_pipe_edwards.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::pipe::test_access::muscl_1d;
 use super::*;
@@ -204,7 +207,7 @@ fn reconstruction_matches_basic_lib_reconstruct_pos_neg() {
     use outram_foam_basic_lib::fv_operators::fvc::{reconstruct_pos_neg, Limiter};
     use outram_foam_basic_lib::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use outram_foam_basic_lib::primitives::vector::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     let n = 6usize;
     let dx = 0.25;

@@ -31,6 +31,9 @@
 //! with its `ig = 0` record (`mffis = 5, 6`). The rest is
 //! refused by name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::groupr::GendfText;
 use crate::endf::interp::{intega, terpa};
 use crate::endf::records::SectionCursor;

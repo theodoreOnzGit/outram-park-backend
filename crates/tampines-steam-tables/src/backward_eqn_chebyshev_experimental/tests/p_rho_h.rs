@@ -20,6 +20,9 @@
 //!   mixture properties from the crate's two-phase `(T,p,x)` flashes, with
 //!   quality running from the bubble point to the dew point inclusive.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::{

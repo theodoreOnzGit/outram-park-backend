@@ -162,7 +162,6 @@
 //!    existed that mattered.
 //!
 //! 8. Not a validated result — an AI-assisted code-to-code check.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 #[cfg(target_os = "android")]
 fn main() {
@@ -197,6 +196,7 @@ mod desktop {
     use outram_mc_libs::geometry::triso_particle::TrisoMaterials;
     use outram_mc_libs::geometry::position::Position;
     use outram_mc_libs::geometry::surface::BoundaryType;
+    use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
     use outram_mc_libs::material::thermal::ThermalScattering;
     use std::path::PathBuf;
 
@@ -269,7 +269,7 @@ mod desktop {
         n
     }
 
-    fn nuclides() -> Vec<Nuclide> {
+    fn nuclides() -> (Vec<Nuclide>, ThermalScattering) {
         // C12 / C13 (fuel kernel) stay free-gas. C12G / C13G (buffer, PyC,
         // matrix, shell) carry the ENDF/B-VIII.0 crystalline-graphite S(α,β)
         // law — below ~4 eV they scatter off the bound lattice (coherent Bragg
@@ -278,14 +278,16 @@ mod desktop {
         // spectrum sits ~1700 pcm too high (tests/htr10_graphite_thermal_scatt…).
         let sab = graphite_sab();
         eprintln!("  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok");
-        vec![
+        let nuclides = vec![
             load("U235", "n-092_U_235-ENDF8.0.endf"),
             load("U238", "n-092_U_238.endf"),
             load("O16", "n-008_O_016-ENDF8.0.endf"),
             load("C12", "n-006_C_012-ENDF8.0.endf"),
             load("C13", "n-006_C_013-ENDF8.0.endf"),
-            load("C12", "n-006_C_012-ENDF8.0.endf").with_thermal_scattering(sab.clone()),
-            load("C13", "n-006_C_013-ENDF8.0.endf").with_thermal_scattering(sab),
+            // Loaded free; c_Graphite is attached per material in `run`
+            // (gh:#1581).
+            load("C12", "n-006_C_012-ENDF8.0.endf"),
+            load("C13", "n-006_C_013-ENDF8.0.endf"),
             load("Si28", "n-014_Si_028-ENDF8.0.endf"),
             load("Si29", "n-014_Si_029-ENDF8.0.endf"),
             load("Si30", "n-014_Si_030-ENDF8.0.endf"),
@@ -293,7 +295,8 @@ mod desktop {
             load("Li6", "n-003_Li_006-ENDF8.0.endf"),
             load("Li7", "n-003_Li_007-ENDF8.0.endf"),
             load("Be9", "n-004_Be_009-ENDF8.0.endf"),
-        ]
+        ];
+        (nuclides, sab)
     }
 
     fn graphite_sab() -> ThermalScattering {
@@ -566,46 +569,6 @@ mod desktop {
         // scattering is not dominated by the same nuclide its fission is.
         let no_inelastic = std::env::var("OUTRAM_RINGRPT_NO_INELASTIC").unwrap_or_default();
         let isotropic_elastic = std::env::var("OUTRAM_RINGRPT_ISOTROPIC_ELASTIC").is_ok();
-        let nucs = if !no_inelastic.is_empty() {
-            let all = no_inelastic.eq_ignore_ascii_case("all");
-            let wanted: Vec<&str> = no_inelastic.split(',').map(str::trim).collect();
-            eprintln!(
-                "  !! SENSITIVITY MODE: INELASTIC levels dropped for [{no_inelastic}] — those\n\
-                 \x20    collisions scatter elastically. Wrong physics on purpose."
-            );
-            nuclides()
-                .into_iter()
-                .map(|n| {
-                    if all || wanted.iter().any(|w| w.eq_ignore_ascii_case(&n.name)) {
-                        n.without_inelastic()
-                    } else {
-                        n
-                    }
-                })
-                .collect::<Vec<_>>()
-        } else if isotropic_elastic {
-            eprintln!(
-                "  !! SENSITIVITY MODE: elastic scattering forced ISOTROPIC-CM — every\n\
-                 \x20    MF=4 angular distribution dropped. Wrong physics on purpose."
-            );
-            nuclides()
-                .into_iter()
-                .map(Nuclide::with_isotropic_elastic)
-                .collect::<Vec<_>>()
-        } else {
-            nuclides()
-        };
-        // GitHub #313: the free-gas kT of a pointwise nuclide is now its data
-        // temperature, so zeroing `KeffSettings::temperature_k` no longer
-        // removes target motion. The positive control therefore applies the
-        // per-nuclide hook, which the in-process ablation study
-        // (`fhr_pebble_target_at_rest_ablation.rs`) showed to be mechanically
-        // identical to the old whole-run switch.
-        let nucs = if std::env::var("OUTRAM_RINGRPT_TARGET_AT_REST").is_ok() {
-            nucs.into_iter().map(Nuclide::with_target_at_rest).collect::<Vec<_>>()
-        } else {
-            nucs
-        };
         let (mats, spec) = build_materials();
         // ── Sensitivity switch: how much is the graphite S(α,β) law WORTH here? ──
         //
@@ -628,6 +591,56 @@ mod desktop {
             mats.into_iter().map(free_gas_carbon).collect::<Vec<_>>()
         } else {
             mats
+        };
+        // S(a,b) per material, as OpenMC does (gh:#462, #1581): every material
+        // that references C12G / C13G gets c_Graphite; the kernel, SiC and the
+        // free-gas homogenised TRISO carbon stay free. With
+        // OUTRAM_RINGRPT_FREE_GAS_GRAPHITE no material references C12G / C13G
+        // any more, so no bound copy is added.
+        let (free_nucs, sab) = nuclides();
+        let mut sab_entries = MaterialSab::for_materials_containing(&mats, nx::C12G, 0, &[]);
+        sab_entries.extend(MaterialSab::for_materials_containing(&mats, nx::C13G, 0, &[]));
+        let (mats, base_nucs) = assign_material_sab(&mats, &free_nucs, &[sab], &sab_entries)
+            .expect("S(a,b) per material");
+        let nucs = if !no_inelastic.is_empty() {
+            let all = no_inelastic.eq_ignore_ascii_case("all");
+            let wanted: Vec<&str> = no_inelastic.split(',').map(str::trim).collect();
+            eprintln!(
+                "  !! SENSITIVITY MODE: INELASTIC levels dropped for [{no_inelastic}] — those\n\
+                 \x20    collisions scatter elastically. Wrong physics on purpose."
+            );
+            base_nucs
+                .into_iter()
+                .map(|n| {
+                    if all || wanted.iter().any(|w| w.eq_ignore_ascii_case(&n.name)) {
+                        n.without_inelastic()
+                    } else {
+                        n
+                    }
+                })
+                .collect::<Vec<_>>()
+        } else if isotropic_elastic {
+            eprintln!(
+                "  !! SENSITIVITY MODE: elastic scattering forced ISOTROPIC-CM — every\n\
+                 \x20    MF=4 angular distribution dropped. Wrong physics on purpose."
+            );
+            base_nucs
+                .into_iter()
+                .map(Nuclide::with_isotropic_elastic)
+                .collect::<Vec<_>>()
+        } else {
+            base_nucs
+        };
+        // GitHub #313: the free-gas kT of a pointwise nuclide is now its data
+        // temperature, so zeroing `KeffSettings::temperature_k` no longer
+        // removes target motion. The positive control therefore applies the
+        // per-nuclide hook, which the in-process ablation study
+        // (`fhr_pebble_target_at_rest_ablation.rs`) showed to be mechanically
+        // identical to the old whole-run switch.
+        let nucs = if std::env::var("OUTRAM_RINGRPT_TARGET_AT_REST").is_ok() {
+            nucs.into_iter().map(Nuclide::with_target_at_rest).collect::<Vec<_>>()
+        } else {
+            nucs
         };
         eprintln!();
 

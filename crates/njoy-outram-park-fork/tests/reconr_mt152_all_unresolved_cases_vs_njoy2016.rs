@@ -109,6 +109,9 @@
 //! against NJOY2016, not validation: nothing here is compared to measurement,
 //! and the synthetic material does not exist.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::common::phys::{AMASSN_AMU, PI};
 use njoy_outram_park_fork::endf::mt::MtReaction;

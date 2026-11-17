@@ -5,6 +5,9 @@
 //! maximum evaluation energy. Ported from the MF=1 processing block in NJOY2016
 //! `reconr.f90` (lines ~219–275).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{
     endf::{records::SectionCursor, tape::Section},
     NjoyError,

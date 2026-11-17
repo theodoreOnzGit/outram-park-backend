@@ -5,7 +5,8 @@
 //! [`Snapshot`] of the getters in the units MSRE's reports used (°F, MW,
 //! pcm), a deterministic headless CSV ([`headless_csv`]) and the T-1
 //! natural-period table ([`natural_periods`]). Built for the museum MSRE
-//! simulator (`examples/msre_web`, gh:#1570).
+//! simulator (`examples/msre_web`, gh:#1570; its engine is `msre::web` since
+//! gh:#1578).
 //!
 //! It adds **no physics**: every number comes from [`MsreModel`] or
 //! `nee_soon`'s frequency-response model. The only logic here is

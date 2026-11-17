@@ -20,6 +20,9 @@
 //! backwards is upstream's `error('advance', ...)` and is an `Err` here; a
 //! forward gap is padded with integers (upstream also prints a message).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fortran_fmt::fortran_e20;
 use crate::NjoyError;
 
@@ -360,7 +363,7 @@ pub fn xss_lines(xss: &[f64], idx: &AceIndex) -> Result<Vec<String>, NjoyError> 
         };
         cur.push_str(&s);
         if p % 4 == 3 {
-            lines.push(std::mem::take(&mut cur));
+            lines.push(core::mem::take(&mut cur));
         }
     }
     if !cur.is_empty() {

@@ -80,6 +80,9 @@
 //! Status: untrusted AI-generated draft (2026-10-17) per `RESPONSIBLE_USE.md`.
 //! For research, education and V&V only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod closed_form;
 pub mod mesh;
 mod solve;

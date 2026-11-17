@@ -58,7 +58,7 @@ petir = { workspace = true }
 tuas_boussinesq_solver.workspace = true
 outram-park-fork-coolprop.workspace = true
 tampines-steam-tables.workspace = true
-outram-foam-basic-lib.workspace = true
+outram-foam-basic-lib = { workspace = true, features = ["std"] }
 # Uncertainty quantification and reduced-order models (RAVEN port). tampines
 # reaches real-time by evaluating a SURROGATE where a full property or closure
 # solve is too slow per tick per node -- see the crate docs. The ROM layer

@@ -32,6 +32,36 @@
 //! and energy in J/kg, specific entropy and heat capacity in J/(kg·K), specific
 //! volume in m³/kg, density in kg/m³.
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1599, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+// Some values (and the units that format them) are read only by the
+// `dbg!` / `println!` diagnostics, which need `std` and are compiled out
+// without it (64 sites, each `#[cfg(feature = "std")]`).
+#![cfg_attr(not(feature = "std"), allow(unused_variables, unused_assignments, unused_imports))]
+
+extern crate alloc;
+// `thiserror` without its `std` default (the root's `thiserror-nostd` key),
+// under the name the code uses.
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+
 /// allows for easy importing as with most rust
 /// crates.
 pub mod prelude;

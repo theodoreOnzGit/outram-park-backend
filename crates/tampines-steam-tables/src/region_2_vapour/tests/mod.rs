@@ -1,4 +1,7 @@
 /// uses table 2.11 on page 33 in steam tables book
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod set_a_region_2_300_kelvin_0_0035_mpa;
 /// uses table 2.11 on page 33 in steam tables book
 pub mod set_b_region_2_700_kelvin_0_0035_mpa;

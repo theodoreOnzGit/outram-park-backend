@@ -34,8 +34,11 @@
 //! [`FvMesh`] built here directly. Exporting a [`VoxelMesh`] to the neutral
 //! mesh is left to the crate that owns that dependency.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use uom::si::area::square_meter;
 use uom::si::f64::{Area, Length};
@@ -89,8 +92,8 @@ impl RadialGeometry {
     fn area_at(self, r: f64) -> f64 {
         match self {
             Self::Slab { area } => area.get::<square_meter>(),
-            Self::Cylinder { height } => 2.0 * std::f64::consts::PI * r * height.get::<meter>(),
-            Self::Sphere => 4.0 * std::f64::consts::PI * r * r,
+            Self::Cylinder { height } => 2.0 * core::f64::consts::PI * r * height.get::<meter>(),
+            Self::Sphere => 4.0 * core::f64::consts::PI * r * r,
         }
     }
 
@@ -99,9 +102,9 @@ impl RadialGeometry {
         match self {
             Self::Slab { area } => area.get::<square_meter>() * (r2 - r1),
             Self::Cylinder { height } => {
-                std::f64::consts::PI * height.get::<meter>() * (r2 * r2 - r1 * r1)
+                core::f64::consts::PI * height.get::<meter>() * (r2 * r2 - r1 * r1)
             }
-            Self::Sphere => 4.0 / 3.0 * std::f64::consts::PI * (r2.r_powi(3) - r1.r_powi(3)),
+            Self::Sphere => 4.0 / 3.0 * core::f64::consts::PI * (r2.r_powi(3) - r1.r_powi(3)),
         }
     }
 }

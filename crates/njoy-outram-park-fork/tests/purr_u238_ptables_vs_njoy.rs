@@ -129,6 +129,9 @@
 //! equivalent transport. If bit-exactness is ever wanted, this file is where the
 //! gate would tighten.~~ **CORRECTED 2026-11-14:** bit-for-bit reproduction is established now, through the deck driver (below).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::purr::{

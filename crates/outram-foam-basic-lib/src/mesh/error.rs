@@ -2,6 +2,9 @@
 // Copyright (C) 2026 OUTRAM PARK contributors
 
 /// Errors produced by the mesh layer (mesh construction and validation).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[derive(Debug, Clone, PartialEq)]
 pub enum MeshError {
     /// An array field in the mesh has the wrong length.
@@ -57,8 +60,8 @@ pub enum MeshError {
     },
 }
 
-impl std::fmt::Display for MeshError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for MeshError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             MeshError::ArrayLengthMismatch {
                 array,
@@ -96,4 +99,4 @@ impl std::fmt::Display for MeshError {
     }
 }
 
-impl std::error::Error for MeshError {}
+impl core::error::Error for MeshError {}

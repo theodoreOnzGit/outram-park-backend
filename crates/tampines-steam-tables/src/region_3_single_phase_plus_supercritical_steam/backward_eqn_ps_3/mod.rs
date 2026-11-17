@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use t_ps_flash::{t_ps_3a, t_ps_3b};
 use uom::si::{f64::*, specific_heat_capacity::kilojoule_per_kilogram_kelvin};
 use v_ps_flash::{v_ps_3a, v_ps_3b};

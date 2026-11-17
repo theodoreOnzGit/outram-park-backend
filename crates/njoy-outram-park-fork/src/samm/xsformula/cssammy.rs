@@ -8,6 +8,9 @@
 //! per pointwise energy grid point (`reconr.f90:2624`); everything in this
 //! port up through Phase 5 exists to make this one function possible.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::samm::betset::ResonanceAmplitudes;
 use crate::samm::context::{ChannelKinematics, GroupQuantumInfo};
 use crate::samm::derivs::DerivSetup;

@@ -53,7 +53,10 @@
 //! shape scaled to target power → temperature → linear cross-section
 //! feedback → eigenvalue …, Picard-iterated with under-relaxation.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{
     fvm, Field, FvMesh, PatchField, SolverPerformance, SolverSettings, SurfaceScalarField,

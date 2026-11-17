@@ -26,6 +26,9 @@
 //! for LMF 3, 6, 9, 10). A negative entry `-m` after `mtd` visits
 //! `mtd + 1, ..., m` (`:640-646`, `:731-732`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::NjoyError;

@@ -30,6 +30,9 @@
 //! Every other combination is read and then refused by name, so a deck stops here
 //! with its cards consumed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::{CardReader, Slot};
 use crate::deck::tapes::TapeUnits;
 use crate::deck::groupr::GendfText;
@@ -553,7 +556,7 @@ fn run_errorr_cov_gendf(c: &ErrorrCards, units: &mut TapeUnits, mfcov: i32) -> R
         run_cov_gendf_card10(&endf, &gendf, &cfg, mfcov, &c.card10)?
     } else if nstan != 0 {
         units.openz(nstan, 0)?;
-        let tape = std::sync::Arc::new(units.get(nstan)?.tape.clone());
+        let tape = alloc::sync::Arc::new(units.get(nstan)?.tape.clone());
         run_cov_gendf_nstan(&endf, &gendf, &cfg, mfcov, Some(Standards { tape, redefine: c.card11.clone() }))?
     } else {
         run_cov_gendf(&endf, &gendf, &cfg, mfcov)?

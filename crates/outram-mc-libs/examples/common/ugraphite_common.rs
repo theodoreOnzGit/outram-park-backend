@@ -14,7 +14,7 @@
 //! the recorded results are documented in `ugraphite_four_factor.rs`.
 
 #![allow(dead_code)]
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. Carbon is referenced only by the graphite and the mix (uranium lumps hold none). Not migrated because `run_case` and `slow_down` index the atom-density vector `Mix::densities()` by nuclide-array position, so appending bound copies would put the fold and the energy-only walk out of step; that is a redesign of `Mix`, not a call-site change.
 
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;

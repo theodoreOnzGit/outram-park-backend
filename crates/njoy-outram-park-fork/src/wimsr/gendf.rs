@@ -11,6 +11,9 @@
 //! on [`crate::dtfr::gendf::GendfGroupRecord`] — the same `lz`-relative
 //! data layout `wimsr.f90` indexes with `loca = l + lz + …`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::dtfr::gendf::GendfGroupRecord;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;

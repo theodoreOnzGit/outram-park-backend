@@ -10,6 +10,9 @@
 //! Pole fitting of pointwise cross sections (`_vectfit_xs`) and the
 //! piecewise driver (`vectfit_nuclide`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::wmp::Cf64;
 use crate::NjoyError;
 

@@ -11,6 +11,24 @@ operators) and `outram-foam-appbuilder-lib` (solver loops + I/O).
 
 ---
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1595, 2026-11-16)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
+`fast-tests.yml`). `std` turns on `outram-foam-basic-lib`'s and `thiserror`'s `std`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths where they exist; every module
+  glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line
+  from any module). Doc-comment examples keep `std::` paths.
+- What needs an operating system (printing, files, threads, clocks,
+  environment variables) goes behind `#[cfg(feature = "std")]`, on the
+  statement or the item.
+- No `HashMap` in the library: `BTreeMap` (`alloc`; fixed iteration order).
+- A `std` build computes what it did before: `petir::real::Real`, which
+  supplies `sqrt`, `floor`, ... without `std`, is imported only there.
+- A library dependency must build without `std`; one only tests use belongs
+  in `[dev-dependencies]`.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

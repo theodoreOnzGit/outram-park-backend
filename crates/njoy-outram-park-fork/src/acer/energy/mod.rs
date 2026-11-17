@@ -87,6 +87,9 @@
 //! `INTT` is the outgoing interpolation (1 histogram, 2 lin-lin); the pdf is per
 //! MeV and the cdf runs 0 → 1.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod madland_nix;
 mod core;
 mod mf5;

@@ -3,6 +3,9 @@
 // Do not edit by hand — re-run the generator. See dev/gen_incompressible.py.
 //! CoolProp `MPG2` incompressible-fluid fit, as hardcoded `const` data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `MPG2` (mass), `T ∈ [228.15, 313.15] K`.

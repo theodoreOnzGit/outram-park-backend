@@ -4,6 +4,9 @@
 //! scope. Extend the `pub use` list whenever a new public item is added, per the
 //! workspace porting workflow.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::endf::EndfKey;
 pub use crate::endf::{Cont, List, Tab1, Tab2, Tape};
 pub use crate::error::NjoyError;

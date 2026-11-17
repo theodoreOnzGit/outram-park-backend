@@ -83,6 +83,9 @@
 //! `x(h,s)` is not covered by the above — only the pressure is. See
 //! [`super::tests`] for the methodology and to reproduce the numbers.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::{

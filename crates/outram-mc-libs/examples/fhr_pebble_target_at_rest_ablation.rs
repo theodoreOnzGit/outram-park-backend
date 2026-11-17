@@ -69,7 +69,6 @@
 //! OUTRAM_FHR_SEEDS=8 cargo run --release -p outram-mc-libs \
 //!     --features endf-pebble-cases --example fhr_pebble_target_at_rest_ablation
 //! ```
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 #[cfg(target_os = "android")]
 fn main() {
@@ -98,6 +97,7 @@ mod desktop {
     };
     use outram_mc_libs::geometry::position::Position;
     use outram_mc_libs::geometry::surface::BoundaryType;
+    use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
     use outram_mc_libs::material::thermal::ThermalScattering;
     use std::path::PathBuf;
     use std::time::Instant;
@@ -171,7 +171,7 @@ mod desktop {
         n
     }
 
-    fn nuclides() -> Vec<Nuclide> {
+    fn nuclides() -> (Vec<Nuclide>, ThermalScattering) {
         // C12 / C13 (fuel kernel) stay free-gas. C12G / C13G (buffer, PyC,
         // matrix, shell) carry the ENDF/B-VIII.0 crystalline-graphite S(α,β)
         // law — below ~4 eV they scatter off the bound lattice (coherent Bragg
@@ -180,14 +180,16 @@ mod desktop {
         // spectrum sits ~1700 pcm too high (tests/htr10_graphite_thermal_scatt…).
         let sab = graphite_sab();
         eprintln!("  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok");
-        vec![
+        let nuclides = vec![
             load("U235", "n-092_U_235-ENDF8.0.endf"),
             load("U238", "n-092_U_238.endf"),
             load("O16", "n-008_O_016-ENDF8.0.endf"),
             load("C12", "n-006_C_012-ENDF8.0.endf"),
             load("C13", "n-006_C_013-ENDF8.0.endf"),
-            load("C12", "n-006_C_012-ENDF8.0.endf").with_thermal_scattering(sab.clone()),
-            load("C13", "n-006_C_013-ENDF8.0.endf").with_thermal_scattering(sab),
+            // Loaded free; c_Graphite is attached per material in `run`
+            // (gh:#1581).
+            load("C12", "n-006_C_012-ENDF8.0.endf"),
+            load("C13", "n-006_C_013-ENDF8.0.endf"),
             load("Si28", "n-014_Si_028-ENDF8.0.endf"),
             load("Si29", "n-014_Si_029-ENDF8.0.endf"),
             load("Si30", "n-014_Si_030-ENDF8.0.endf"),
@@ -195,7 +197,8 @@ mod desktop {
             load("Li6", "n-003_Li_006-ENDF8.0.endf"),
             load("Li7", "n-003_Li_007-ENDF8.0.endf"),
             load("Be9", "n-004_Be_009-ENDF8.0.endf"),
-        ]
+        ];
+        (nuclides, sab)
     }
 
     fn graphite_sab() -> ThermalScattering {
@@ -535,7 +538,17 @@ mod desktop {
         eprintln!();
         let t0 = Instant::now();
         eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K):");
-        let moving = nuclides();
+        let (free_nuclides, sab) = nuclides();
+        let (mats, spec) = build_materials();
+        // S(a,b) per material, as OpenMC does (gh:#462, #1581): every material
+        // that references C12G / C13G (buffer, PyC1, PyC2, graphite and the
+        // naive-homogenised zone, which holds the matrix graphite) gets
+        // c_Graphite; the kernel, SiC and the free-gas homogenised TRISO carbon
+        // (C12 / C13) stay free. The bound copies are appended to the array.
+        let mut sab_entries = MaterialSab::for_materials_containing(&mats, nx::C12G, 0, &[]);
+        sab_entries.extend(MaterialSab::for_materials_containing(&mats, nx::C13G, 0, &[]));
+        let (mats, moving) = assign_material_sab(&mats, &free_nuclides, &[sab], &sab_entries)
+            .expect("S(a,b) per material");
         let at_rest: Vec<Nuclide> = moving
             .iter()
             .cloned()
@@ -580,7 +593,6 @@ mod desktop {
             moving.len()
         );
 
-        let (mats, spec) = build_materials();
         let r_fuel = rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
         eprintln!(
             "  ring-RPT fuel shell: {R_RPT_INNER:.6} < r < {r_fuel:.6} cm; pebble {R_PEBBLE}, \

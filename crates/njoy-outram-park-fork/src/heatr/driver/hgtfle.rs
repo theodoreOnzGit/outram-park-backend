@@ -21,6 +21,9 @@
 //! the next interpolation can use. And a request above the last energy of a
 //! section is an error upstream (`:4318`), returned here as one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::flat::{legndr1, list_flat, nint, tab1_flat, tab2_flat, terp1, terpa, QP64, QW64};
 use super::state::Heatr;
 use crate::endf::records::SectionCursor;
@@ -173,8 +176,8 @@ impl Heatr {
                 self.fle.elo = self.fle.ehi;
                 if self.fle.nne == self.fle.ne && self.fle.ltt3 == 3 && self.fle.lttn == 1 {
                     let fle = &mut self.fle;
-                    fle.tab2 = std::mem::take(&mut fle.tab2b);
-                    fle.recs = std::mem::take(&mut fle.recsb);
+                    fle.tab2 = core::mem::take(&mut fle.tab2b);
+                    fle.recs = core::mem::take(&mut fle.recsb);
                     fle.next = 0;
                     fle.ne = nint(fle.tab2[5]) as usize;
                     fle.nne = 0;

@@ -20,7 +20,10 @@
 
 //! numpy/scipy primitives for the WMP generator (gh:#1390).
 
-use std::cmp::Ordering;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::cmp::Ordering;
 
 use petir::linalg::{eigen_nonsymm, Matrix, Svd};
 use petir::mathf::RealMath;

@@ -8,6 +8,9 @@
 
 /// IAPWS-IF97 Table 2 coefficients (I_i, J_i, n_i) for the Region 1
 /// dimensionless Gibbs free energy `gamma_1(pi, tau)` and its derivatives.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub const REGION_1_COEFFS: [[f64; 3]; 34] = [
     [0.0, -2.0, 0.14632971213167],
     [0.0, -1.0, -0.84548187169114],

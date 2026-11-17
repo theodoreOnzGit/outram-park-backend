@@ -76,7 +76,6 @@
 //!   the run could not be repeated. No replacement value is quoted, because none
 //!   has been measured; 1.39802 ± 0.00652 must be regarded as stale until the
 //!   S(α,β) data file is available and the test is re-run.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use petir::mathf::RealMath;
 use outram_mc_libs::tally::filter::FilterKind;
@@ -86,6 +85,7 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZCylinder};
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
@@ -528,9 +528,12 @@ const ZR_ISOTOPES: &[(&str, f64)] = &[
 ];
 
 /// Nuclide array for the thermal UO₂ pin-cell. Indices:
-/// `0 U235, 1 U238, 2 O16, 3..=7 Zr{90,91,92,94,96}, 8 H1 (S(α,β) attached)`.
-/// The H-1 nuclide carries the H-in-H₂O bound-atom thermal-scattering table.
-fn pincell_nuclides(tsl_path: &str) -> Result<Vec<Nuclide>, njoy_outram_park_fork::NjoyError> {
+/// `0 U235, 1 U238, 2 O16, 3..=7 Zr{90,91,92,94,96}, 8 H1`. H-1 is free here;
+/// the H-in-H₂O table is returned beside it and attached to the water by
+/// `assign_material_sab` (per material, as OpenMC does; gh:#462, #1581).
+fn pincell_nuclides(
+    tsl_path: &str,
+) -> Result<(Vec<Nuclide>, ThermalScattering), njoy_outram_park_fork::NjoyError> {
     let thermal = ThermalScattering::from_endf_file(tsl_path, 1, TSL_TEMPERATURE_K, "H in H2O")?;
     let mut nuclides = vec![
         Nuclide::from_core("U235")?,
@@ -540,8 +543,8 @@ fn pincell_nuclides(tsl_path: &str) -> Result<Vec<Nuclide>, njoy_outram_park_for
     for (name, _) in ZR_ISOTOPES {
         nuclides.push(Nuclide::from_core(name)?);
     }
-    nuclides.push(Nuclide::from_core("H1")?.with_thermal_scattering(thermal));
-    Ok(nuclides)
+    nuclides.push(Nuclide::from_core("H1")?);
+    Ok((nuclides, thermal))
 }
 
 /// The three pin-cell materials (UO₂ fuel, Zr clad, light water), mirroring the
@@ -795,8 +798,15 @@ fn pincell_lwr_thermal_pin_benchmark() {
     };
 
     let t_build = std::time::Instant::now();
-    let nuclides = pincell_nuclides(&tsl_path).expect("build pincell nuclides + S(a,b) table");
+    let (free_nuclides, thermal) =
+        pincell_nuclides(&tsl_path).expect("build pincell nuclides + S(a,b) table");
     let materials = pincell_materials();
+    // Audited 2026-11-14: H-1 (index 8) is in the water only; the fuel and the
+    // clad hold none, so no free material references the bound copy.
+    let entries = MaterialSab::for_materials_containing(&materials, 8, 0, &[]);
+    let (materials, nuclides) =
+        assign_material_sab(&materials, &free_nuclides, &[thermal], &entries)
+            .expect("S(a,b) per material");
     let geom = uo2_pincell_geometry();
     eprintln!(
         "[thermal pincell] S(α,β) + nuclide build: {:.2?}",

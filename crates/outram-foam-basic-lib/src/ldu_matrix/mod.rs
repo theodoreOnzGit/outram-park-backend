@@ -44,6 +44,9 @@
 //! solvers. Field types, meshes, and the differential operators that build these
 //! matrices live in their own modules.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod fv_matrix;
 pub mod fv_vector_matrix;
 pub mod ldu_matrix;

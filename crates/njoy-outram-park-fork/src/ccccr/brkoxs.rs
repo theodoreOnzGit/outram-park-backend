@@ -14,6 +14,9 @@
 //! `a(mdex)-273.16` (a default-real literal). Refused by name: a file whose
 //! factors do not fit the container in one block (`nsblk = nreact`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::ccccr::core::{Core, Items, Records, ISIZA4, MULT};
 use crate::ccccr::state::{BrkoxsCards, State};
 use crate::NjoyError;

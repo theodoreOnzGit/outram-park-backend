@@ -35,6 +35,9 @@
 //! Interfaces (coupled patches) do not exist in [`LduMatrix`]. Parallel reductions
 //! are the serial sums.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::ldu_matrix::ldu_matrix::LduMatrix;
 
 /// Controls of [`pbicgstab_dilu`] (upstream `tolerance`, `relTol`, `minIter`, `maxIter`).

@@ -37,7 +37,6 @@
 //!
 //! CLI glue (`main` and argument parsing; the workspace's exception for
 //! `main` glue): the model itself is reached by `vv::msre_n1`'s tests.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -47,6 +46,7 @@ use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, SlicePlot};
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
@@ -389,6 +389,12 @@ fn main() {
     let mut nuclides: Vec<Nuclide> =
         slots.into_iter().map(|s| s.into_inner().expect("slot").expect("loaded")).collect();
     let sab = !args.iter().any(|a| a == "--no-sab");
+    // The laws are held here and attached per material once the materials
+    // exist (gh:#462, #1581): tables[0] graphite on C-12 / C-13, then H in H2O
+    // on H-1.
+    let mut sab_tables: Vec<ThermalScattering> = Vec::new();
+    let mut sab_graphite: Option<usize> = None;
+    let mut sab_water: Option<usize> = None;
     if sab {
         use njoy_outram_park_fork::leapr::decks::SabMaterial;
         let t = Instant::now();
@@ -403,21 +409,18 @@ fn main() {
         };
         let law = ThermalScattering::from_embedded_leapr_deck(material, t_g, tag).expect("graphite S(a,b) from LEAPR");
         eprintln!("    C: graphite {graphite_law} S(a,b) by LEAPR at {t_g:.2} K in {:.1} s", t.elapsed().as_secs_f64());
-        for c in ["C12", "C13"] {
-            let i = names.iter().position(|n| *n == c).expect("carbon");
-            let nuc = nuclides.remove(i);
-            nuclides.insert(i, nuc.with_thermal_scattering(law.clone()));
-        }
+        sab_graphite = Some(sab_tables.len());
+        sab_tables.push(law);
     } else {
         eprintln!("  ABLATION: --no-sab, carbon is free gas");
     }
     // The shield's water: H-1 bound in H2O at the shield temperature.
-    if let Some(i) = names.iter().position(|n| *n == "H1") {
+    if names.iter().any(|n| *n == "H1") {
         let tape = reference_endf("tsl-HinH2O.endf").expect("tsl-HinH2O tape");
         let law = ThermalScattering::from_endf_file(tape.to_str().expect("utf-8 path"), 1, m::SHIELD_TEMPERATURE_K, "c_H_in_H2O")
             .expect("H in H2O S(a,b)");
-        let nuc = nuclides.remove(i);
-        nuclides.insert(i, nuc.with_thermal_scattering(law));
+        sab_water = Some(sab_tables.len());
+        sab_tables.push(law);
         eprintln!("    H1: bound in H2O at {:.1} K", m::SHIELD_TEMPERATURE_K);
     }
     // `--no-dbrc` (gh:#1311): resonance elastic scattering off on every
@@ -445,6 +448,24 @@ fn main() {
             components: comps.iter().map(|(n, d)| NuclideComponent { nuclide_idx: idx(n), atom_density: *d }).collect(),
         })
         .collect();
+    // Per-material S(a,b), as OpenMC does (gh:#462, #1581). Audited
+    // 2026-11-14: C-12 / C-13 are only in the graphite compositions (core
+    // graphite and the end mixtures made from it); H-1 is only in the shield
+    // water; the salt, INOR-8, basket and rod materials hold neither. So no
+    // free material references a bound copy.
+    let (materials, nuclides) = {
+        let mut entries: Vec<MaterialSab> = Vec::new();
+        if let Some(ti) = sab_graphite {
+            for c in ["C12", "C13"] {
+                entries.extend(MaterialSab::for_materials_containing(&materials, idx(c), ti, &[]));
+            }
+        }
+        if let Some(ti) = sab_water {
+            entries.extend(MaterialSab::for_materials_containing(&materials, idx("H1"), ti, &[]));
+        }
+        assign_material_sab(&materials, &nuclides, &sab_tables, &entries)
+            .expect("S(a,b) per material")
+    };
     let hw = outram_mc_libs::perf_report::HardwareInfo::detect().headline();
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 

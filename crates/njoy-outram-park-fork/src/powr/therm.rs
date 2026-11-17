@@ -16,6 +16,9 @@
 //! are taken from the first material only (`igprnt`); a packed row with no
 //! element above `1e-6` still reports `ngi = 2` (`packa`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::{chars, f, i, ints, six_e12_5};
 use super::reader::{Reader, NWSCR};
 use super::ThermMaterial;

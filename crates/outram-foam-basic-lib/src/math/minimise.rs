@@ -333,6 +333,9 @@
 //! assert_eq!(located, serial.extrema().unwrap());
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 

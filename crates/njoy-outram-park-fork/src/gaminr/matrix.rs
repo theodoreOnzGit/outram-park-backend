@@ -24,6 +24,9 @@
 //! the record is written (`:353-359`). `MT=525`/`621` is the edit of that
 //! running total (`:400-419`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::gaminr::gtff::{
     gtff_coherent, gtff_incoherent, gtff_pair, gtff_vector, ig2pp, PhotonFeed, PhotonTab1, EMAX,
 };

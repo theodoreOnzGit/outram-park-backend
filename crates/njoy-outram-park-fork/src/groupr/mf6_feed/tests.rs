@@ -6,6 +6,9 @@
 //! Unit tests for [`super::Mf6Feed`]. Split out of `mf6_feed.rs` to respect
 //! this crate's 1000-line file cap (see its `CLAUDE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::endf::tape::{Section, Tape};

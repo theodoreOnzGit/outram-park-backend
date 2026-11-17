@@ -43,6 +43,9 @@
 //! 1582-10-15 itself. Upstream also refuses year 0 and shifts negative years by
 //! one; neither is reachable for a meteorological date and neither is ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Julian Day Number of 1970-01-01 in FLEXPART's (midnight-based) convention.
 const JDN_UNIX_EPOCH: i64 = 2_440_588;
 

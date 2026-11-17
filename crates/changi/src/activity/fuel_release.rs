@@ -34,6 +34,9 @@
 //! `crates/changi/docs/References.md`. Restricted access: cited, not
 //! redistributed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The table, compiled in.
 const HTR10_FUEL_RELEASE_CSV: &str =
     include_str!("../../reference/htr10_fuel_element_release_rate.csv");

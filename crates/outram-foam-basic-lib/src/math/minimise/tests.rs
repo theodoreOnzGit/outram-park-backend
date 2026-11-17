@@ -23,6 +23,9 @@
 //! 5. **Measurement** — `#[ignore]`d benchmarks whose printed output is the
 //!    source of every number in the constants' documentation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 
@@ -294,7 +297,7 @@ fn flat_minimum_exposes_the_sqrt_eps_limit() {
 /// abscissa error near a smooth minimum.
 #[test]
 fn golden_section_matches_analytic_transcendental_minimum() {
-    let x_star = std::f64::consts::E.recip();
+    let x_star = core::f64::consts::E.recip();
     let f_star = -x_star;
 
     let problems = [MinProblem::new(0.05, 3.0)];
@@ -338,9 +341,9 @@ fn golden_section_matches_analytic_transcendental_minimum() {
 /// last bit of a `f64` near unity.
 #[test]
 fn maximise_matches_analytic_sine_peak() {
-    let x_star = std::f64::consts::FRAC_PI_2;
+    let x_star = core::f64::consts::FRAC_PI_2;
 
-    let problems = [MinProblem::new(0.0, std::f64::consts::PI)];
+    let problems = [MinProblem::new(0.0, core::f64::consts::PI)];
     let batch = golden_section_batch(
         &problems,
         Sense::Maximise,
@@ -899,7 +902,7 @@ fn partial_failure_in_a_large_batch_is_reported() {
 /// objective zero times.
 #[test]
 fn empty_batch_is_vacuously_converged() {
-    use std::sync::atomic::{AtomicU32, Ordering};
+    use core::sync::atomic::{AtomicU32, Ordering};
     let calls = AtomicU32::new(0);
     let batch = golden_section_batch(
         &[],
@@ -1085,13 +1088,13 @@ fn minimise_batch_crossover_benchmark() {
                     )
                 }
             };
-            std::hint::black_box(run());
+            core::hint::black_box(run());
             let mut best = f64::INFINITY;
             for _ in 0..7 {
                 let t = Instant::now();
                 let out = run();
                 let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(dt);
             }
             best
@@ -1149,7 +1152,7 @@ fn minimise_batch_thread_scaling_benchmark() {
             0,
             f,
         );
-        std::hint::black_box(&out);
+        core::hint::black_box(&out);
         serial_us = serial_us.min(t.elapsed().as_secs_f64() * 1.0e6);
     }
 
@@ -1195,7 +1198,7 @@ fn minimise_batch_thread_scaling_benchmark() {
                     0,
                     f,
                 );
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(t.elapsed().as_secs_f64() * 1.0e6);
             }
             (best, identical)

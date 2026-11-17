@@ -28,6 +28,9 @@
 //! Independent Rust re-implementation; OUTRAM PARK fork relicenses under
 //! **GPL-3.0-only** (MIT is GPL-3.0-compatible).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// A dense, row-major depletion matrix `A` with units `1/s`.
 ///
 /// Index convention: `A[i][j]` is the rate at which parent `j` feeds nuclide

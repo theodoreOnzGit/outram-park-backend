@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal};
 
 use crate::region_3_single_phase_plus_supercritical_steam::h_3a3b_backwards_ph_boundary;

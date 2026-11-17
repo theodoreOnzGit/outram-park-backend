@@ -3,6 +3,9 @@
 // Do not edit by hand — re-run the generator. See dev/gen_incompressible.py.
 //! CoolProp `TVP1869` incompressible-fluid fit, as hardcoded `const` data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::incompressibles::{IncompressibleFluid, IncompressibleKind, PropertyFit, PropertyForm};
 
 /// CoolProp `TVP1869` (pure), `T ∈ [193.15, 293.15] K`.

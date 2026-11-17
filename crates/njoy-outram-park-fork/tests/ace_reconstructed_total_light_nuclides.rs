@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: GPL-3.0
 
 //! **`CeNeutronAce::reconstructed_total` does not double count the (n,d),

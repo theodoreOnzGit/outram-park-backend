@@ -33,6 +33,9 @@
 //! [`crate::groupr::slowing_down::solve_flux`]) with its `ninwt` file. `iwt = 0`
 //! is [`genflx_fwt`]: `getfwt` ([`FwtReader`]) reads that file back.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::gety1::Gety1;
 use crate::endf::interp::{terp1, IntLaw};
 use crate::endf::tape::Tape;
@@ -607,7 +610,7 @@ pub fn genflx_card8a(
 /// `falo`/`fahi` rows, as row numbers (1-based, `finda`'s).
 #[derive(Debug, Clone)]
 pub struct FluxCursor {
-    table: std::sync::Arc<FluxTable>,
+    table: alloc::sync::Arc<FluxTable>,
     ip: usize,
     falo: usize,
     fahi: usize,
@@ -615,7 +618,7 @@ pub struct FluxCursor {
 
 impl FluxCursor {
     /// A cursor on `table`, initialised (`getflx(e = 0)`).
-    pub fn new(table: std::sync::Arc<FluxTable>) -> Self {
+    pub fn new(table: alloc::sync::Arc<FluxTable>) -> Self {
         let mut c = Self { table, ip: 0, falo: 1, fahi: 2 };
         c.init();
         c
@@ -692,14 +695,14 @@ impl FluxCursor {
 mod tests {
     use super::*;
 
-    fn table() -> std::sync::Arc<FluxTable> {
+    fn table() -> alloc::sync::Arc<FluxTable> {
         // nl = 2, nsigz = 2: (e, f11, f21, f12, f22, xtot)
         let rows = vec![
             vec![1.0, 1.0, 1.0, 0.5, 0.25, 0.0],
             vec![2.0, 2.0, 2.0, 1.0, 0.5, 0.0],
             vec![4.0, 4.0, 4.0, 2.0, 1.0, 0.0],
         ];
-        std::sync::Arc::new(FluxTable { nl: 2, rows })
+        alloc::sync::Arc::new(FluxTable { nl: 2, rows })
     }
 
     #[test]

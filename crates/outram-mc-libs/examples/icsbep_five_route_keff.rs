@@ -122,7 +122,6 @@
 //!
 //! Results by environment:
 //! `verification_and_validation/acceptance_testing/README.md`.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -137,6 +136,7 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
@@ -978,26 +978,15 @@ fn main() {
     } else {
         sab
     };
-    if let Some(s) = sab {
-        let i = names
-            .iter()
-            .position(|n| *n == "H1")
-            .expect("S(a,b) needs H1 in the case");
-        let h = nuclides.remove(i);
-        nuclides.insert(i, h.with_thermal_scattering(s));
-    }
-    // Reactor graphite (30P) on C-12 and C-13, LEAPR at the run temperature
-    // (route 4 only; the ACE routes refuse this case above). `--no-sab`
-    // ablates it as it ablates H(H2O).
-    if c.sab_graphite && !args.iter().any(|a| a == "--no-sab") {
-        let law = graphite_from_leapr();
-        for carbon in ["C12", "C13"] {
-            if let Some(i) = names.iter().position(|n| *n == carbon) {
-                let nuc = nuclides.remove(i);
-                nuclides.insert(i, nuc.with_thermal_scattering(law.clone()));
-            }
-        }
-    }
+    // S(a,b) is attached per material once the materials exist (gh:#462,
+    // #1581): H(H2O) to every material that holds H-1, and (msre) reactor
+    // graphite (30P) to every material that holds C-12 / C-13, LEAPR at the
+    // run temperature (route 4 only; the ACE routes refuse this case above).
+    // `--no-sab` ablates both, as before. The nuclide array holds both free
+    // until then, so the `--ablate` switches below see the same nuclides.
+    let sab_law: Option<ThermalScattering> = sab;
+    let graphite_law = (c.sab_graphite && !args.iter().any(|a| a == "--no-sab"))
+        .then(graphite_from_leapr);
     // `--ablate a,b` (diagnostic): explicit, visible ablations applied to every
     // nuclide, for localising a route difference. Recorded in the CSV `route`
     // label by the caller; the campaign itself never passes this flag.
@@ -1083,6 +1072,38 @@ fn main() {
         })
         .collect();
 
+    // Per-material S(a,b), as OpenMC does (gh:#462, #1581). Audited
+    // 2026-11-14: H-1 is in the water (lct008), the solution and the water
+    // reflector (hst009; the tank holds none); C-12/C-13 are in the msre
+    // graphite only (the fuel salt holds no carbon). No free material
+    // references a bound copy.
+    let n_loaded = nuclides.len();
+    let (materials, nuclides) = {
+        let mut tables: Vec<ThermalScattering> = Vec::new();
+        let mut entries: Vec<MaterialSab> = Vec::new();
+        if let Some(law) = sab_law {
+            let ti = tables.len();
+            entries.extend(MaterialSab::for_materials_containing(&materials, idx("H1"), ti, &[]));
+            tables.push(law);
+        }
+        if let Some(law) = graphite_law {
+            let ti = tables.len();
+            for carbon in ["C12", "C13"] {
+                if names.iter().any(|n| *n == carbon) {
+                    entries.extend(MaterialSab::for_materials_containing(
+                        &materials,
+                        idx(carbon),
+                        ti,
+                        &[],
+                    ));
+                }
+            }
+            tables.push(law);
+        }
+        assign_material_sab(&materials, &nuclides, &tables, &entries)
+            .expect("S(a,b) per material")
+    };
+
     let base = KeffSettings {
         n_particles: np,
         n_inactive: ni,
@@ -1126,7 +1147,7 @@ fn main() {
             "{case_label},{label},outram-mc,{seed},{:.6},{:.6},{np},{ni},{na},{threads},{wall:.1},{load_s:.1},{},{n_urr},{n_dbrc},{},{commit},",
             r.k_mean,
             r.k_std,
-            nuclides.len(),
+            n_loaded,
             c.sab_on_h1 || c.sab_graphite
         )
         .expect("csv row");

@@ -295,6 +295,11 @@ impl Fnv {
 /// `verification_and_validation/determinism_golden_moves.md`.
 /// **2026-11-10 (gh:#904):** `lambda_ph` regenerated: its 17 former-NaN
 /// points (the panic guard) now carry values; the other 2147 are unchanged.
+/// **2026-11-16 (gh:#1607):** `edw_pimple_*` regenerated (15 of 16; `he_1`
+/// unchanged): the array now runs on `outram-foam-basic-lib`'s upstream-order
+/// operators (gh:#1489) instead of a pre-#1489 copy. A 1-ulp step-1 seed grows to
+/// 5e-8 in `p` by step 200. Recorded, with the measured differences, in
+/// `verification_and_validation/determinism_golden_moves.md`.
 const GOLDEN: &[(&str, usize, u64)] = &[
     // GOLDEN-TABLE-START
     ("t_ph", 2164, 0xfe7442848ca7f258),
@@ -310,22 +315,22 @@ const GOLDEN: &[(&str, usize, u64)] = &[
     ("powi_runtime", 2007, 0x2eecdc58aa489499),
     ("std_libm", 2500, 0xc001414e982af1cb),
     ("petir_libm", 2500, 0x6dfb4db67eae5e27),
-    ("edw_pimple_p_1", 24, 0x5c438839a9588fe5),
+    ("edw_pimple_p_1", 24, 0x8d430410d56799cc),
     ("edw_pimple_he_1", 24, 0x99e80f2836e95484),
-    ("edw_pimple_rho_1", 24, 0xbf05587125d7c7a4),
-    ("edw_pimple_U_1", 72, 0x60673c681d1e7655),
-    ("edw_pimple_p_10", 24, 0xea24059e9252ee26),
-    ("edw_pimple_he_10", 24, 0x97558ed3c2267639),
-    ("edw_pimple_rho_10", 24, 0x4a6a86282b7d1440),
-    ("edw_pimple_U_10", 72, 0x56f26996362e49d7),
-    ("edw_pimple_p_50", 24, 0x2db5604a318a689a),
-    ("edw_pimple_he_50", 24, 0xfb30d36be397eea7),
-    ("edw_pimple_rho_50", 24, 0x522057d3cd38af3b),
-    ("edw_pimple_U_50", 72, 0x9be7a101d78eb351),
-    ("edw_pimple_p_200", 24, 0x2745182f6bdcdd42),
-    ("edw_pimple_he_200", 24, 0x9bbaec8f5dface67),
-    ("edw_pimple_rho_200", 24, 0xba774c18e058e414),
-    ("edw_pimple_U_200", 72, 0x49d693d4bf1ada00),
+    ("edw_pimple_rho_1", 24, 0xcd32bb4b43d3486a),
+    ("edw_pimple_U_1", 72, 0x84b8abd449c96cc7),
+    ("edw_pimple_p_10", 24, 0x78b090ab26827b15),
+    ("edw_pimple_he_10", 24, 0xda33bccef07f6501),
+    ("edw_pimple_rho_10", 24, 0x3a98613213d7ef36),
+    ("edw_pimple_U_10", 72, 0x49b8965f3229ba5f),
+    ("edw_pimple_p_50", 24, 0x046d14343f8da32a),
+    ("edw_pimple_he_50", 24, 0x376cfacb147b992d),
+    ("edw_pimple_rho_50", 24, 0x39e8d741c2d9d930),
+    ("edw_pimple_U_50", 72, 0x4783a649141d0141),
+    ("edw_pimple_p_200", 24, 0x0bc3ec6e62362a80),
+    ("edw_pimple_he_200", 24, 0xdeec6fe5a05d9b0c),
+    ("edw_pimple_rho_200", 24, 0xb91e0276528fd948),
+    ("edw_pimple_U_200", 72, 0x7ee1dfa6f7512b7d),
     // GOLDEN-TABLE-END
 ];
 

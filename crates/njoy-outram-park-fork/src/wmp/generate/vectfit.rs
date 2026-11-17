@@ -28,6 +28,9 @@
 //! (`_vectfit_xs`) passes `f = sigma * E`, which is real. The polynomial
 //! terms (`n_polys`) are ported but that caller never uses them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::wmp::Cf64;
 use crate::NjoyError;
 

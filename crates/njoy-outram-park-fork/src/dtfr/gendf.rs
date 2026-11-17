@@ -33,6 +33,9 @@
 //!
 //! Cross sections are in **barns**, energies in **eV**, temperature in **kelvin**.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::dtfr::input::{EditSpec, NeutronTables};
 use crate::dtfr::table::{dtf_group, DtfTable};
 use crate::endf::records::SectionCursor;

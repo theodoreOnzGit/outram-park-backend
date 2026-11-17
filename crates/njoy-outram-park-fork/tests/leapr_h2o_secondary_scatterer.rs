@@ -80,6 +80,9 @@
 //! still reported as **not validated against a reference tape** by
 //! `SabRequest::validation`, and that reporting is correct — see bead `op-rvrg`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::generate::{thermal_scattering_tape, ElasticChannel, SabRequest};

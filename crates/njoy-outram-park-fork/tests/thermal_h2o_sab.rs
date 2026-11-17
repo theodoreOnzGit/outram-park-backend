@@ -63,6 +63,9 @@
 //! comparison against an NJOY ACE oracle — see the REVIEW_MANIFEST for the
 //! human-verify list.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
 use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};

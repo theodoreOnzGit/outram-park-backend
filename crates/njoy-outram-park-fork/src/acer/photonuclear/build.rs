@@ -36,6 +36,9 @@
 //! the two are usually the same file — but the distinction is upstream's and
 //! is kept, because the grid is what every block is built on.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::read::{AceClass, AceFileType, AceHeader, RawAceTable};
 use crate::endf::gety1::Gety1;
 use crate::acer::acelcp::eavl;

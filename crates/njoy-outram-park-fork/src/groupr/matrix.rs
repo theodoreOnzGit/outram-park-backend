@@ -65,6 +65,9 @@
 //! Those build a non-isotropic `ff(il, ig)`; here `fle` is fixed to the isotropic
 //! `[1, 0, 0, …]`. See the [`FeedFunction`] variants for the exact gaps.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::groupr::gendf::{GendfGroupRecord, GendfSection};
 use crate::groupr::panel::{GroupFlux, PointwiseXs};
 use crate::NjoyError;
@@ -797,7 +800,7 @@ mod tests {
     /// in all 4 groups (deviation `< 1e-12`); all mass lies on `gp ∈ {g, g+1}`.
     #[test]
     fn identity_feed_conserves_probability_on_diagonal_band() {
-        use std::sync::Arc;
+        use alloc::sync::Arc;
         let sigma = PointwiseXs::LinLin(Arc::new(vec![
             (1.0e0, 2.0),
             (1.0e2, 5.0),

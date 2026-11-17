@@ -26,6 +26,9 @@
 //! `Tstd`, with no `Hsref`, and `S` has no `ln` term. Differential:
 //! `verification_and_validation/upstream_thermo_gh1362/README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::traits::ThermoModel;
 use crate::thermophysics::constants::T_STD;
 use crate::thermophysics::eos::EquationOfState;

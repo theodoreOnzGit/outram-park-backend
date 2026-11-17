@@ -53,6 +53,9 @@
 //! closes is a silent fallback: before this, Be-9 MT=16 emitted from the
 //! Weisskopf stand-in with nothing recording that its evaluated law existed.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::energy::parse_mf6_law7_lab_angle_energy;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::nuclear_data::secondary::{ContinuumAngular, ContinuumEmission};

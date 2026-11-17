@@ -11,6 +11,9 @@
 //! (6e12.5))` a list that ends exactly at the `/` still executes the `/`, so an
 //! empty line follows (five words, or eight names in `' 3d '`/`' 6d '`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matxsr::data::{Ctl2, Matxs};
 use crate::NjoyError;
 
@@ -104,7 +107,7 @@ pub(crate) fn cmatxs(m: &mut Matxs) -> Result<String, NjoyError> {
     let mut s2 = m.scr2.clone().into_iter();
     let mut s3 = m.scr3.clone().into_iter();
     let short = || NjoyError::InvalidInput("cmatxs: scratch file ends early".into());
-    let read3 = |s3: &mut std::vec::IntoIter<Vec<f32>>, n: usize| -> Result<Vec<f32>, NjoyError> {
+    let read3 = |s3: &mut alloc::vec::IntoIter<Vec<f32>>, n: usize| -> Result<Vec<f32>, NjoyError> {
         let r = s3.next().ok_or_else(short)?;
         if r.len() < n {
             return Err(NjoyError::InvalidInput("cmatxs: record shorter than the read".into()));

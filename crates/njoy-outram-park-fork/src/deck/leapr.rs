@@ -9,6 +9,9 @@
 //! [`LeaprDeck`] reader (no second parser), the run is [`run_deck`], and the
 //! tape `endout` writes goes on card 1's unit `nout`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::CardReader;
 use crate::deck::tapes::TapeUnits;
 use crate::endf::tape::Tape;
@@ -43,7 +46,7 @@ pub fn run_leapr(deck: &LeaprDeck, units: &mut TapeUnits) -> Result<(), NjoyErro
     let nout = deck.nout;
     let run = run_deck(&deck.clone().with_constants(PhysicalConstants::Codata2018))?;
     let text = run.write_text()?;
-    let tape = Tape::read(text.as_bytes())?;
+    let tape = Tape::from_bytes(text.as_bytes())?;
     units.openz(nout, 1)?;
     units.store(nout, tape, None)?;
     if nout > 0 {

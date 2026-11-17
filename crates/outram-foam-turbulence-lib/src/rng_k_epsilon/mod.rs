@@ -35,6 +35,9 @@
 //! `correct()` is NOT compared against upstream: no wall functions, zero-gradient
 //! walls, and `bound()` is a plain floor at `small` (upstream averages neighbours).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::k_epsilon_step::{self, scalar_field, EpsilonSources, StepInputs};
 use crate::source_terms::{self, FrozenState, SourceTerms};
 use crate::traits::TurbulenceModel;
@@ -42,7 +45,7 @@ use outram_foam_basic_lib::fv_operators::fvm;
 use outram_foam_basic_lib::prelude::{
     Field, FvMesh, FvVectorMatrix, SurfaceScalarField, VolScalarField, VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// RNG k-epsilon model (incompressible, single phase).
 pub struct RngKEpsilon {

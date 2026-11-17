@@ -144,6 +144,9 @@
 //! solutions; none is a validation against experiment, and none may be
 //! described as one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod aster;
 
 mod by_material;

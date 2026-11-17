@@ -32,7 +32,11 @@
 //!   by [`TapeUnits::store`]; a unit only loaded from `tape<n>` on disk is an
 //!   input, and [`TapeUnits::write_coded_files`] leaves its file untouched.
 
-use std::collections::{BTreeMap, BTreeSet};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::{BTreeMap, BTreeSet};
+#[cfg(feature = "std")]
 use std::path::PathBuf;
 
 use crate::endf::tape::Tape;
@@ -109,6 +113,7 @@ pub struct TapeUnits {
     gendf: BTreeMap<i32, crate::errorr::gendf::GendfTape>,
     /// Units a module opened new or stored a tape on (its outputs), gh:#1508.
     written: BTreeSet<i32>,
+    #[cfg(feature = "std")]
     workdir: Option<PathBuf>,
     /// Files a module wrote as raw bytes (CCCCR's unformatted CCCC files,
     /// gh:#1369), by unit.
@@ -123,6 +128,7 @@ fn unit_err(msg: String) -> NjoyError {
 }
 
 impl TapeUnits {
+    #[cfg(feature = "std")]
     /// Units backed by files `tape<n>` in `workdir` (`None`: memory only).
     pub fn new(workdir: Option<PathBuf>) -> Self {
         Self {
@@ -176,12 +182,18 @@ impl TapeUnits {
 
     /// The raw bytes of unit `lun`: what a module wrote with [`Self::put_bytes`],
     /// else `tape<n>` in the work directory (GROUPR's `ninwt`, gh:#1370).
+    /// Without `std` there is no work directory, so only the first.
     pub fn bytes_or_file(&self, lun: i32) -> Option<Vec<u8>> {
         if let Some(b) = self.bytes(lun) {
             return Some(b.to_vec());
         }
-        let dir = self.workdir.as_ref()?;
-        std::fs::read(dir.join(format!("tape{}", lun.abs()))).ok()
+        #[cfg(not(feature = "std"))]
+        return None;
+        #[cfg(feature = "std")]
+        {
+            let dir = self.workdir.as_ref()?;
+            std::fs::read(dir.join(format!("tape{}", lun.abs()))).ok()
+        }
     }
 
     /// `openz(lun, new)`: open unit `lun`; with `new == 1` destroy any previous
@@ -218,16 +230,23 @@ impl TapeUnits {
 
     fn load_file(&mut self, lun: i32) -> Result<(), NjoyError> {
         let nun = lun.abs();
+        // Without `std` there is no work directory, so always this error.
+        #[cfg(not(feature = "std"))]
+        return Err(unit_err(format!("unit {lun}: no tape and no work directory to read tape{nun} from")));
+        #[cfg(feature = "std")]
         let Some(dir) = &self.workdir else {
             return Err(unit_err(format!("unit {lun}: no tape and no work directory to read tape{nun} from")));
         };
-        let path = dir.join(format!("tape{nun}"));
-        if lun < 0 {
-            return Err(NjoyError::NotPorted("blocked-binary tape file on disk (MODER glstio reader)"));
+        #[cfg(feature = "std")]
+        {
+            let path = dir.join(format!("tape{nun}"));
+            if lun < 0 {
+                return Err(NjoyError::NotPorted("blocked-binary tape file on disk (MODER glstio reader)"));
+            }
+            let tape = Tape::read_file(&path)?;
+            self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: false, pointwise: None });
+            Ok(())
         }
-        let tape = Tape::read_file(&path)?;
-        self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: false, pointwise: None });
-        Ok(())
     }
 
     fn check_mode(&self, lun: i32) -> Result<(), NjoyError> {
@@ -293,9 +312,8 @@ impl TapeUnits {
             return Ok(());
         }
         let (tape, pointwise) = if lun > 0 {
-            let mut text = Vec::new();
-            tape.write(&mut text)?;
-            let mut back = Tape::read(&text[..])?;
+            let text = tape.to_text()?;
+            let mut back = Tape::from_bytes(text.as_bytes())?;
             back.copy_closers_from(&tape);
             (back, pointwise.map(|(m, r)| (m, r.through_pendf_text())))
         } else {
@@ -312,10 +330,10 @@ impl TapeUnits {
     /// out (MF=32) reach the next reader as written, and the file is the text.
     ///
     /// # Errors
-    /// Those of [`Tape::read`].
+    /// Those of [`Tape::from_bytes`].
     pub fn put_endf_text(&mut self, lun: i32, text: String) -> Result<(), NjoyError> {
         let nun = lun.abs();
-        let tape = Tape::read(text.as_bytes())?;
+        let tape = Tape::from_bytes(text.as_bytes())?;
         self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: lun < 0, pointwise: None });
         self.written.insert(nun);
         self.put_text(lun, text);
@@ -373,12 +391,18 @@ impl TapeUnits {
 
     /// The text file on unit `lun`: the one put there by a module, else the
     /// work directory's `tape<n>` (an input file such as an ACER plot file).
+    /// Without `std` there is no work directory, so only the first.
     pub fn text_or_file(&self, lun: i32) -> Option<String> {
         if let Some(t) = self.text(lun) {
             return Some(t.to_string());
         }
-        let dir = self.workdir.as_ref()?;
-        std::fs::read_to_string(dir.join(format!("tape{}", lun.abs()))).ok()
+        #[cfg(not(feature = "std"))]
+        return None;
+        #[cfg(feature = "std")]
+        {
+            let dir = self.workdir.as_ref()?;
+            std::fs::read_to_string(dir.join(format!("tape{}", lun.abs()))).ok()
+        }
     }
 
     /// Unit numbers currently holding a tape, ascending.
@@ -392,6 +416,7 @@ impl TapeUnits {
         self.written.contains(&lun.abs()) || self.texts.contains_key(&lun.abs())
     }
 
+    #[cfg(feature = "std")]
     /// Write every coded, non-scratch **output** unit (20 and above, plus 8-9)
     /// to `tape<n>` in the work directory, every text unit, and every raw-byte
     /// file ([`TapeUnits::put_bytes`], gh:#1369). Returns the
@@ -426,6 +451,7 @@ impl TapeUnits {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "std")]
     #[test]
     fn unit_rules_follow_openz() {
         let mut t = TapeUnits::new(None);
@@ -443,6 +469,7 @@ mod tests {
         assert!(t.closz(1000).is_err());
     }
 
+    #[cfg(feature = "std")]
     /// gh:#1508: a unit read from disk is an input and is not written back;
     /// a unit opened new or stored to is an output and is.
     #[test]
@@ -469,6 +496,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    #[cfg(feature = "std")]
     /// gh:#1549: a fixed run date is `dater`'s for the rest of the run, in
     /// `'  '//hdate` form; without one, the clock's date in the same form.
     #[test]

@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **Photo-atomic RECONR, GAMINR, DTFR and MATXSR from a deck, whole decks
 //! against NJOY2016.80** (gh:#1369).

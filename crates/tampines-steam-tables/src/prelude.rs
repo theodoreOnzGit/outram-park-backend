@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::interfaces::functional_programming;
 pub use crate::interfaces::object_oriented_programming::*;
 

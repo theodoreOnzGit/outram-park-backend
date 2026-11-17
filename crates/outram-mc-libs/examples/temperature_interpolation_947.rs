@@ -24,7 +24,7 @@
 //! the instruments of `outram_mc_libs::vv::temperature_interpolation_947` and
 //! the port `material::temperature_interpolation`, which are tested there and
 //! in `tests/temperature_interpolation_947.rs`.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. Every H-1 entry is bound at its own temperature and the one water mix references only those; no free material references a bound entry. The bracket nuclides and the temperature-interpolation mix are a nuclide-level study, so a per-material association has nothing to attach to.
 
 use petir::mathf::RealMath;
 use std::collections::BTreeMap;

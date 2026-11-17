@@ -44,6 +44,9 @@
 //!    J-state when the energy was evaluated this call, and that of the first
 //!    otherwise (`int` is overwritten in the J loop).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::common::phys::PI;

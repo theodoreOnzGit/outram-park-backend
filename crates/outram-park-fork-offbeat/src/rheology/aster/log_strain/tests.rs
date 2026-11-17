@@ -25,6 +25,9 @@
 //! None of these is validation against code_aster output; they are verification
 //! that the framework is internally and physically correct.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::primitives::{SymmTensor, Tensor};
@@ -153,7 +156,7 @@ fn the_wrapped_stress_is_objective() {
         -0.03, 0.07, 1.1,
     );
 
-    let theta = std::f64::consts::FRAC_PI_6;
+    let theta = core::f64::consts::FRAC_PI_6;
     let (c, s) = (theta.r_cos(), theta.r_sin());
     let q = Tensor::new(c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0);
 

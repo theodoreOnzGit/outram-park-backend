@@ -10,20 +10,31 @@
 //! (`wght`) and the run's current temperature (`temp(jtemp)`). Like `genwtf_iwt4`'s
 //! `wght(1..6)`, they are Fortran module variables, held per thread here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::NjoyError;
 
 const EMAX: f64 = 1.0e10;
 
+#[cfg(any(feature = "std", test))]
 thread_local! {
     /// `wght(1..iw)` as `genwtf` reads it for `iwt = 1` (card 8b, `:5011-5025`): a TAB1
     /// in ENDF flat layout. `None` until [`genwtf_iwt1`] runs.
-    static WGHT1: std::cell::RefCell<Option<Vec<f64>>> = const { std::cell::RefCell::new(None) };
+    static WGHT1: core::cell::RefCell<Option<Vec<f64>>> = const { core::cell::RefCell::new(None) };
     /// `temp(jtemp)` \[K\], the temperature `getwtf` reads for `iwt = 7, 10, 12`
     /// (`:497`, `:5230`, `:5253-5254`, `:5281`). Set by [`getwtf_set_temperature`].
-    static TEMP_JTEMP: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
-}
+    static TEMP_JTEMP: core::cell::Cell<Option<f64>> = const { core::cell::Cell::new(None) };}
+#[cfg(not(any(feature = "std", test)))]
+/// `wght(1..iw)` as `genwtf` reads it for `iwt = 1` (card 8b, `:5011-5025`): a TAB1
+/// in ENDF flat layout. `None` until [`genwtf_iwt1`] runs.
+static WGHT1: crate::nostd_sync::Local<core::cell::RefCell<Option<Vec<f64>>>> = crate::nostd_sync::Local::new(core::cell::RefCell::new(None));
+#[cfg(not(any(feature = "std", test)))]
+/// `temp(jtemp)` \[K\], the temperature `getwtf` reads for `iwt = 7, 10, 12`
+/// (`:497`, `:5230`, `:5253-5254`, `:5281`). Set by [`getwtf_set_temperature`].
+static TEMP_JTEMP: crate::nostd_sync::Local<core::cell::Cell<Option<f64>>> = crate::nostd_sync::Local::new(core::cell::Cell::new(None));
 
 /// `genwtf` for `iwt = 1` (`groupr.f90:5011-5025`): `nr = nint(tmp(5))`, `np =
 /// nint(tmp(6))`, `iw = 6 + 2 nr + 2 np`, and `wght(1..iw) = tmp(1..iw)` for `getwtf`.
@@ -79,7 +90,7 @@ pub fn getwtf_set_temperature(temp_k: f64) {
 /// [`NjoyError::InvalidInput`] before [`getwtf_set_temperature`] has run.
 pub(crate) fn temp_jtemp() -> Result<f64, NjoyError> {
     TEMP_JTEMP
-        .with(std::cell::Cell::get)
+        .with(core::cell::Cell::get)
         .ok_or_else(|| NjoyError::InvalidInput("groupr getwtf: a temperature-dependent iwt before temp(jtemp) was set".into()))
 }
 

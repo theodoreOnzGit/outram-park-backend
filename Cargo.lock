@@ -6683,6 +6683,7 @@ dependencies = [
  "ratatui",
  "rayon",
  "sha2",
+ "spin 0.10.1",
  "teh-o-prke",
  "thiserror 2.0.21",
  "uom",
@@ -7460,7 +7461,6 @@ version = "0.1.5"
 dependencies = [
  "approx",
  "miniz_oxide 0.8.9",
- "ndarray",
  "outram-foam-basic-lib",
  "petir",
  "thiserror 2.0.21",

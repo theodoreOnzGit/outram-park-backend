@@ -24,6 +24,9 @@
 //!    `v(p, h_new) = v_new` for `p` with **regula falsi** (false position),
 //!    then rebuild the control volume from `(p, h_new)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::pressure::{megapascal, pascal};
 use uom::si::specific_volume::cubic_meter_per_kilogram;

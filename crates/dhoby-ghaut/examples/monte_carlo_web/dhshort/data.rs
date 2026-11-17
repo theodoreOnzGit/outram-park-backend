@@ -8,7 +8,7 @@
 //!
 //! The Watch view needs none of this; only the k∞ view loads it (the full
 //! tier, like the `htr10` rung's fuel zone).
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
+#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581; read only, not run): SAFE (the graphite slot is referenced only by the five graphite materials of `common/fhr_unit_cell.rs`), not migrated: this loader returns nuclides only and the materials are built in `dhshort/model.rs`, so it is not a mechanical change. Not run here (browser demo).
 
 use super::model::fhr;
 use crate::engine::Tier;

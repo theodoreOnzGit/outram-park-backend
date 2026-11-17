@@ -48,6 +48,9 @@
 //! unvalidated draft. The β grid length is asserted first (209 = 2×105 − 1)
 //! because a mismatch there means the signed grid itself was not built.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::generate::{generate_tape, ElasticChannel};

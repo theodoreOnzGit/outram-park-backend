@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*,
     specific_heat_capacity::kilojoule_per_kilogram_kelvin,

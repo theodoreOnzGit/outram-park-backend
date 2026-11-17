@@ -14,6 +14,9 @@
 //! text (`ipt` not 1, 9, 31, 32, 33, 34; and 2 on the emission pages) gets no
 //! label record.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::angular_pages::angular_perspective;
 use super::fmt::{hk_it, AceTable, Plot};
 use super::scale::{ascle, ascll, plot_name};

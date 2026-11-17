@@ -20,6 +20,9 @@
 //! "Entrance channel, ipp=2 ... crss(1)"; "Ipp=1 term, sort-of ...
 //! crss(2)"), not a translation artifact — ported literally.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::samm::context::GroupQuantumInfo;
 

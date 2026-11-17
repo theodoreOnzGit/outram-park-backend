@@ -116,6 +116,9 @@
 //! says the scheme represents real convection, and per the crate's scope limit
 //! nothing here supports operational or emergency use.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// `ELCRIT`: autoconversion threshold water content, g/g.

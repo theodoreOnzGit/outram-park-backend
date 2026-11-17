@@ -13,6 +13,9 @@
 //! and the factor is written as `*10^n`; log axes are labelled `10^n`, the
 //! exponent raised with the `#EH.8<` instruction.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::fmt::{f, i as fmt_i};

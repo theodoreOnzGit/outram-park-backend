@@ -45,7 +45,11 @@
 //! a [`FoamValue::List`]). It also lets `4(1 4 13 10)` count-prefixed lists
 //! parse cleanly.
 
-use std::fmt::Write as _;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt::Write as _;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use super::IoError;
@@ -100,7 +104,7 @@ pub fn tokenize(text: &str) -> Vec<Token> {
     fn flush_word(word: &mut String, word_glued: bool, tokens: &mut Vec<Token>) {
         if !word.is_empty() {
             tokens.push(Token {
-                text: std::mem::take(word),
+                text: core::mem::take(word),
                 glued: word_glued,
                 quoted: false,
             });
@@ -772,6 +776,7 @@ impl FoamFile {
         Ok(Self { header, dict })
     }
 
+    #[cfg(feature = "std")]
     /// Read and parse a dictionary file from `path`.
     ///
     /// `#include` directives are **not** followed — use
@@ -783,6 +788,7 @@ impl FoamFile {
         Self::parse_named(&text, path.display().to_string())
     }
 
+    #[cfg(feature = "std")]
     /// Read and parse a dictionary file from `path`, splicing in any
     /// `#include "relative/name"` directives first.
     ///
@@ -836,6 +842,7 @@ impl FoamFile {
         out
     }
 
+    #[cfg(feature = "std")]
     /// Write to `path` as OpenFOAM ASCII text.
     pub fn write(&self, path: impl AsRef<Path>) -> Result<(), IoError> {
         let path = path.as_ref();
@@ -996,6 +1003,7 @@ pub(crate) fn write_dict_body(out: &mut String, dict: &FoamDict, level: usize) {
 /// turns that into a plain error naming the file.
 pub const MAX_INCLUDE_DEPTH: usize = 16;
 
+#[cfg(feature = "std")]
 /// Read `path` and splice in every `#include "name"` it contains, recursively.
 ///
 /// `name` is resolved relative to `path`'s own directory, as OpenFOAM does.

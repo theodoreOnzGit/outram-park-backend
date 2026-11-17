@@ -166,7 +166,10 @@
 //! serial path below [`field_parallel_crossover`], whose value was **measured on
 //! real hardware**, not guessed; see [`FIELD_PARALLEL_CROSSOVER`] for the table.
 
-use std::ops::{Add, Mul, Sub};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, Mul, Sub};
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -539,7 +542,7 @@ fn tree_extremum(_backend: ComputeBackend, x: &[f64], init: f64, op: fn(f64, f64
 /// stores bare numbers and cannot check that); the result carries it too.
 ///
 /// Every output element is computed by the same expression as the serial
-/// [`std::ops::Add`] impl on [`Field`], so the result is **bit-identical** to
+/// [`core::ops::Add`] impl on [`Field`], so the result is **bit-identical** to
 /// [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial) on any backend and any thread count.
 ///
 /// # Panics
@@ -567,7 +570,7 @@ where
 /// Element-wise difference `c[i] = a[i] - b[i]`, returning a new field.
 ///
 /// **Units:** as for [`add`] — both operands are the same physical quantity.
-/// Bit-identical to the serial [`std::ops::Sub`] impl on [`Field`].
+/// Bit-identical to the serial [`core::ops::Sub`] impl on [`Field`].
 ///
 /// # Panics
 ///
@@ -587,7 +590,7 @@ where
 ///
 /// **Units:** the result carries `[a] * [s]`; this layer treats `s` as a bare
 /// number and cannot check it. Bit-identical to the serial
-/// [`std::ops::Mul<f64>`] impl on [`Field`].
+/// [`core::ops::Mul<f64>`] impl on [`Field`].
 pub fn scale<T>(backend: ComputeBackend, a: &Field<T>, s: f64) -> Field<T>
 where
     T: Copy + Send + Sync + Mul<f64, Output = T>,
@@ -902,7 +905,7 @@ where
 /// Sum of two volume fields — internal field **and** every boundary patch.
 ///
 /// The result takes `a`'s `name`, `a`'s mesh, and `a`'s per-patch boundary
-/// conditions, exactly like the serial [`std::ops::Add`] impl on [`VolField`].
+/// conditions, exactly like the serial [`core::ops::Add`] impl on [`VolField`].
 ///
 /// **The name is copied, never composed.** See the module docs: composing names
 /// here produces `2^step` string growth in a solver loop.

@@ -32,6 +32,9 @@
 //! - **the production blocks** (`acelcp`) cover the neutron too, since the
 //!   projectile's own kind is the one written to `DLW`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::gety1::Gety1;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::endf::tape::{Section, Tape};

@@ -43,6 +43,9 @@
 //! **not** rounded — upstream stores `scr(...)` unmodified, and rounding them
 //! would be a gratuitous difference.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;

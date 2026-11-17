@@ -14,6 +14,9 @@
 //! quirks are kept: `ed3d` writes its view card without the closing `/`
 //! (`:2158`), and `ad3d` and `gg3d` write `-x3`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::run::{c60, fe, ff, fi, perr, undefined, Go, Plotr, Res, XLABLD};

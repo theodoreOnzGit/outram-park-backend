@@ -92,6 +92,9 @@
 //! code_aster output, and per `RESPONSIBLE_USE.md` these laws remain untrusted
 //! draft material until the maintainer reviews them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::{SymmTensor, Vector3};
 

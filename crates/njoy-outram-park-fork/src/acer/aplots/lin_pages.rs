@@ -7,6 +7,9 @@
 //! The linear pages of `aplots`: principal cross sections above 2 MeV,
 //! heating, damage, and the lin-log non-threshold reaction pages.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::{hk_it, nint, AceTable, Plot};
 use super::log_pages::SINGLE_1E6;
 use super::scale::{ascle, ascll, plot_name};

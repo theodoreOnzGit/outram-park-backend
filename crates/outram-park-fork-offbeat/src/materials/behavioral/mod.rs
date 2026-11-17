@@ -26,6 +26,9 @@
 //! | [`phase_transition`] | solid-phase changes (e.g. Zircaloy alpha to beta) |
 //! | [`failure`] | failure criteria, including Weibull statistics for ceramics |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod densification;
 pub mod failure;
 pub mod phase_transition;

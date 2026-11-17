@@ -47,7 +47,10 @@
 //! is `[gamma]·[T]·m`); the solver only ever forms ratios, so no `uom` typing is
 //! applied here. Apply units at the field/equation layer.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::compute::ComputeBackend;
 use crate::krylov::{bicgstab_prepared, gmres_prepared, KrylovSettings, Preconditioner};

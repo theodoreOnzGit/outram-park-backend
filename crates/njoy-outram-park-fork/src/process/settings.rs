@@ -1,6 +1,9 @@
 //! The settings of [`super`]'s four functions, as builders with NJOY's
 //! defaults.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::energy::electronvolt;
 
 use crate::acer::thermal::InelasticForm;

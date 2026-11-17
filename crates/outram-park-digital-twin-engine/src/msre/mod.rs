@@ -51,6 +51,8 @@
 //! demonstration, never for operation (`RESPONSIBLE_USE.md`).
 //!
 //! GUI-free and not target-gated: it builds for `wasm32-unknown-unknown`.
+//! The exception is [`web`] (gh:#1578), the demo's engine and k_eff pool:
+//! it rides on the web-demo link layer, which is off Android.
 
 pub mod circulation;
 pub mod design;
@@ -58,6 +60,10 @@ pub mod model;
 pub mod moltres_drift;
 pub mod pumps;
 pub mod session;
+/// The simulator's engine, k_eff workers and pool as a library (gh:#1578):
+/// built on `dhoby_ghaut::mc_web` and `bugis::web_demo`, so off Android.
+#[cfg(not(target_os = "android"))]
+pub mod web;
 
 /// MSRE T-1's linear frequency-domain model and TM-1647's measured natural
 /// periods: `nee_soon::msre_frequency_response`, re-exported.

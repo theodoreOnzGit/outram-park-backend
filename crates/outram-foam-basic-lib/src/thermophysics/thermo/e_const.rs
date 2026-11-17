@@ -31,6 +31,9 @@
 //! [`EConstThermo::cv`], [`EConstThermo::es`], [`EConstThermo::ea`] and
 //! [`ThermoModel::hc`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::traits::ThermoModel;
 use crate::thermophysics::constants::T_STD;
 use crate::thermophysics::eos::EquationOfState;

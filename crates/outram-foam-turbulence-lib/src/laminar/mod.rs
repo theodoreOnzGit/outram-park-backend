@@ -41,12 +41,15 @@
 //! correction `−∇·(alphaRhoNuEff · dev2(T(grad U)))`); the laminar model itself
 //! is `.../momentumTransportModels/laminar/laminar/laminar.H`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::fvm;
 use outram_foam_basic_lib::prelude::{
     Field, FvMesh, FvVectorMatrix, PatchField, Tensor, Vector3, VolScalarField, VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Outer (dyadic) product a ⊗ b → Tensor. (`Vector3 * Vector3` is the dyad.)
 #[inline]

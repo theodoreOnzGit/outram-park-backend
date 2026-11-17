@@ -22,6 +22,9 @@
 //! `TampinesSteamArray` equivalents, since both drive the same rhoPimpleFoam
 //! port.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{
     Angle, AvailableEnergy, Length, MassRate, Power, Pressure, ThermalConductance,
     ThermodynamicTemperature, Velocity,
@@ -62,8 +65,8 @@ pub enum OPCPFluidArrayError {
     },
 }
 
-impl std::fmt::Display for OPCPFluidArrayError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for OPCPFluidArrayError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::LengthMismatch {
                 array,
@@ -81,7 +84,7 @@ impl std::fmt::Display for OPCPFluidArrayError {
     }
 }
 
-impl std::error::Error for OPCPFluidArrayError {}
+impl core::error::Error for OPCPFluidArrayError {}
 
 impl OPCPFluidArray {
     /// Register one lateral (radial) thermal link to another array/solid at a

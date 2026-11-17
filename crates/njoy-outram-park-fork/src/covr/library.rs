@@ -29,6 +29,9 @@
 //! second material has more groups) is replaced by in-memory matrices; the
 //! group-count agreement check (`covr.f90:715-716`) is kept.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::covr::boxer::{compress, BoxerDataType, BoxerHeader, BoxerShape};
 use crate::covr::boxer_text::press_text;
 use crate::covr::covard::{expand_mt_pairs, ErrorrCovarianceSection};

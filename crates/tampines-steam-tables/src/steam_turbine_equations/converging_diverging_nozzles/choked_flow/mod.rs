@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use uom::ConstZero;
 use uom::si::f64::*;
@@ -94,6 +97,7 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
     // so we can use the pure vapour algorithm directly
     if s0 >= SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(9.2) {
         if debug {
+            #[cfg(feature = "std")]
             println!("using vapour only algorithm, s0 >= 9.2 kJ/kg/K");
         }
 
@@ -106,6 +110,7 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
         let critical_mass_flux = c * rho_throat;
 
         if debug {
+            #[cfg(feature = "std")]
             dbg!(&(s0, critical_pressure_choked_flow, critical_mass_flux));
         }
 
@@ -125,6 +130,7 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
             let s_g = s_tp_2(t_sat, p0);
             if s0 >= s_g {
                 if debug {
+                    #[cfg(feature = "std")]
                     println!("Region 2, s0 >= s_g, using pure vapour algorithm");
                 }
                 let s0_opt = Some(s0);
@@ -134,11 +140,13 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
                 let rho_throat = v_ps_eqm(critical_pressure_choked_flow, s0).recip();
                 let critical_mass_flux = c * rho_throat;
                 if debug {
+                    #[cfg(feature = "std")]
                     dbg!(&(s0, s_g, critical_pressure_choked_flow, critical_mass_flux));
                 }
                 return (critical_pressure_choked_flow, critical_mass_flux);
             }
             if debug {
+                #[cfg(feature = "std")]
                 println!("Region 2, s0 < s_g, using generalised algorithm");
             }
         }
@@ -150,6 +158,7 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
         let t0 = t_ph_eqm(p0, h0);
         if t0 > t_crit {
             if debug {
+                #[cfg(feature = "std")]
                 println!("Region 3, T > T_crit, using pure vapour algorithm");
             }
             let s0_opt = Some(s0);
@@ -159,11 +168,13 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
             let rho_throat = v_ps_eqm(critical_pressure_choked_flow, s0).recip();
             let critical_mass_flux = c * rho_throat;
             if debug {
+                #[cfg(feature = "std")]
                 dbg!(&(s0, critical_pressure_choked_flow, critical_mass_flux));
             }
             return (critical_pressure_choked_flow, critical_mass_flux);
         }
         if debug {
+            #[cfg(feature = "std")]
             println!("Region 3, T <= T_crit, using generalised algorithm");
         }
     }
@@ -205,6 +216,7 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
 
         if debug {
             let quality = x_ps_flash(p_test, s0);
+            #[cfg(feature = "std")]
             dbg!(&(p_test, region, quality, g_energy, g_hem));
         }
 
@@ -223,6 +235,7 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
         let f_curr = root_fn(p_scan.get::<pascal>());
 
         if debug {
+            #[cfg(feature = "std")]
             dbg!(&(p_scan, f_prev, f_curr));
         }
 
@@ -232,7 +245,9 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
             p_lower_bracket = p_scan;
             found_bracket = true;
             if debug {
+                #[cfg(feature = "std")]
                 println!("bracket found!");
+                #[cfg(feature = "std")]
                 dbg!(&(p_upper_bracket, p_lower_bracket));
             }
             break;
@@ -280,6 +295,7 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
         let f_crit = root_fn(p_crit.get::<pascal>());
 
         if debug {
+            #[cfg(feature = "std")]
             dbg!(&(p_crit, f_crit));
         }
 
@@ -303,6 +319,7 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
     if debug {
         let region = ps_flash_region(p_crit, s0);
         let quality = x_ps_flash(p_crit, s0);
+        #[cfg(feature = "std")]
         dbg!(&(p_crit, region, quality, g_crit));
     }
 
@@ -537,11 +554,13 @@ pub fn isentropic_pressure_scan_of_mass_flux(s0: SpecificHeatCapacity, p0: Press
         let g_hem = mass_flux_ps_eqm_throat(p_test, s0);
 
         let quality = x_ps_flash(p_test, s0);
+        #[cfg(feature = "std")]
         dbg!(&(p_test, region, quality, g_hem, max_g_hem, p_crit));
 
         if g_hem > max_g_hem {
             max_g_hem = g_hem;
             p_crit = p_test;
+            #[cfg(feature = "std")]
             dbg!(&("new maximum found!", p_crit, max_g_hem));
         }
     }

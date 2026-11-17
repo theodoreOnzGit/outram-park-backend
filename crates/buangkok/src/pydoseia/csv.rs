@@ -3,6 +3,9 @@
 //! fields, `#` comment lines and blank lines skipped, fields trimmed. Blank or
 //! unparsable numbers read as NaN, which is how pandas reads an empty cell.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Split a simple CSV into a header and rows.
 pub(crate) fn split_csv(text: &str) -> (Vec<String>, Vec<Vec<String>>) {
     let mut lines = text

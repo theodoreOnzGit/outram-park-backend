@@ -5,6 +5,9 @@
 //! Plant data (geometry, sequence, tagged placeholders) stays in
 //! `sembawang::bwr_mark1::params`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The molar gas constant, J/(mol K), to the precision the Fukushima plant
 /// model has always used (the CODATA 2018 exact value is 8.314 462 618 153 24;
 /// the truncation is kept so results stay bit-identical across the move).

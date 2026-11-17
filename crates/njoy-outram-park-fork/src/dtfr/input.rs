@@ -26,6 +26,9 @@
 //! Field names keep the upstream Fortran identifiers in their doc comments so a
 //! discrepancy can be localised to a specific `read(nsysi,*)` statement.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Print control (`iprint`), card 2 (`dtfr.f90:84`). Default [`PrintOption::Minimum`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrintOption {

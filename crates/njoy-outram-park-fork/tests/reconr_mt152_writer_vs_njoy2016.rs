@@ -42,6 +42,9 @@
 //!
 //! Verification against NJOY2016, not validation.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::groupr::urr_pendf::{read_urr_from_tape, read_urr_table};
 use njoy_outram_park_fork::reconr::urr::build_mt152;

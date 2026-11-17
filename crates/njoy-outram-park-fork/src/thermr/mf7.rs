@@ -61,6 +61,9 @@
 //! Units: energies and `β` scale in eV (or in kT when `LAT=1`); `α`/`β` are
 //! dimensionless; `S` is per the ENDF convention (per unit `α·β`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::{terp1, IntLaw};
 use crate::endf::{records::SectionCursor, tape::Tape};
 use crate::NjoyError;
@@ -824,12 +827,14 @@ mod tests {
 
     const AL_MAT: i32 = 53;
 
+    #[cfg(feature = "std")]
     fn al27() -> Mf7 {
         let p = crate::reference_data::reference_endf_dir().join("tsl-013_Al_027-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         parse_mf7(&tape, AL_MAT).unwrap()
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn al27_has_both_elastic_and_inelastic() {
         let mf7 = al27();
@@ -841,6 +846,7 @@ mod tests {
         assert!(mf7.incoherent_inelastic.is_some(), "Al has S(α,β)");
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn coherent_elastic_bragg_edges_are_monotone() {
         let ce = al27().coherent_elastic.unwrap();
@@ -880,6 +886,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn inelastic_s_alpha_beta_grid_is_consistent() {
         let ii = al27().incoherent_inelastic.unwrap();

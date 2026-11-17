@@ -25,6 +25,9 @@
 //! `i = 1..9`, stored as `plele`, and only then is `ans(1,2)` multiplied by
 //! `u1lele(2)` when MF=4 is in the CM frame (`lct4 = 2`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::endf::interp::{terp1, IntLaw};

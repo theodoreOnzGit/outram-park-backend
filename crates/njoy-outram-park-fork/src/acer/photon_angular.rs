@@ -21,8 +21,14 @@
 //! exact floating-point comparisons (`pro(k) == sum`, `ap == 0`), because
 //! the bin edges are stored words.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
+#[cfg(any(feature = "std", test))]
 use std::sync::OnceLock;
+#[cfg(not(any(feature = "std", test)))]
+use crate::nostd_sync::OnceLock;
 
 use crate::endf::interp::gral;
 use crate::mixr::mix::sigfig;

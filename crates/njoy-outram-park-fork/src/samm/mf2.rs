@@ -21,6 +21,9 @@
 //! upstream Fortran, corrected here in [`reorder_eliminated_channel`] (bug
 //! op-cjw.3); see its doc comment for the derivation and verification.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::interp::eval_tab1;
 use crate::endf::records::{SectionCursor, Tab1};

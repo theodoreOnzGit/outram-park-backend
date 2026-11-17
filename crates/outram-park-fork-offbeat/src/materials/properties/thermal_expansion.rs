@@ -103,6 +103,9 @@
 //! kelvin, strain dimensionless, coefficient in `1/K`. Correlations published
 //! in degrees Celsius convert internally and never expose °C.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;

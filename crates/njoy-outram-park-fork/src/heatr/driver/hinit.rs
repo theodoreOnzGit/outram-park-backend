@@ -20,6 +20,9 @@
 //!    upstream walks it: a discontinuity puts an extra point a factor
 //!    `0.99999` below it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::flat::{list_flat, nint, tab1_flat, tab2_flat};
 use super::state::{Heatr, Mf6Section, Mf6Sub, MAXMF6};
@@ -369,9 +372,8 @@ impl Heatr {
             // MT=55 yield 1.7845837955e-3 is 1.784584e-3 there, which moved
             // MT=301 by one unit in the 7th figure at 3.82 and 5.70 MeV
             // against NJOY2016 (2026-10-15, found with an instrumented build).
-            let mut text = Vec::new();
-            self.conv.write(&mut text)?;
-            self.conv = Tape::read(&text[..])?;
+            let text = self.conv.to_text()?;
+            self.conv = Tape::from_bytes(text.as_bytes())?;
         }
 
         // The energy grid of the total cross section.

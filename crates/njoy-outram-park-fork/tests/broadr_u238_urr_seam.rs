@@ -33,6 +33,9 @@
 //! and `0.529870` at the two shaded points, and the same four interpolants
 //! to every printed digit. Those oracle values are asserted below.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::broadr::{broaden_result, broadening_limit};
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;

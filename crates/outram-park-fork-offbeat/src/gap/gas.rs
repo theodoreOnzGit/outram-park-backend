@@ -85,6 +85,9 @@
 //! Strict SI (kelvin, W/m/K, kilogram, mole, pascal, m³) with the single
 //! documented exception of [`GapGasSpecies::molar_mass_g_per_mol`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 

@@ -14,6 +14,9 @@
 //! per table; `ibrgb`, `ifrgb`, `isrgb` are the page/window background, curve
 //! and shading colours (`r,g,b` triples, 0-255).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `cw1` of graph.f90.
 pub const CW1: [f64; 32] = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0];
 /// `cw2` of graph.f90.

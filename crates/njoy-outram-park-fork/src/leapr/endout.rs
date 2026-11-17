@@ -43,6 +43,9 @@
 //! **Untrusted AI draft.** Verified by a LEAPR→THERMR round-trip on synthetic and
 //! `coher`-derived data; **not** validated against a reference NJOY MF=7 tape.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::tape::{Section, Tape};
 use crate::endf::EndfKey;

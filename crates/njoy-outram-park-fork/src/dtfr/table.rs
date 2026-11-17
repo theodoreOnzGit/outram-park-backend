@@ -24,6 +24,9 @@
 //! operates on an in-memory [`DtfTable`]; the GENDF-record reader that supplies
 //! the raw transfer values is not ported here (see [`crate::dtfr::run`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Map a GENDF group index `ig` to its DTF group number `jg = ng - ig + 1`
 /// (`dtfr.f90:342`). DTF orders groups from highest energy (`jg==1`) to lowest.
 pub fn dtf_group(ig: i32, ng: i32) -> i32 {

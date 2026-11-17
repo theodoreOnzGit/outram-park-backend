@@ -136,12 +136,12 @@
 //! which are whole-core k-eff against loading height. No published reference
 //! k-infinity for this pebble is asserted here, because none was read; this
 //! example establishes the pebble model and quantifies its input ambiguities.
-#![allow(deprecated)] // gh:#462: not migrated to assign_material_sab. This file keeps one nuclide entry per role (free / bound) and binds the law before any material exists; whether a bound entry is also referenced by a material that should be free has NOT been re-audited here.
 
 use std::path::PathBuf;
 use std::time::Instant;
 
 use outram_mc_libs::dh_universe::{DhTreatment, DhUniverse, PebbleParams};
+use outram_mc_libs::material::material_sab::{assign_htr10_sab, Htr10SabLaws};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
@@ -158,7 +158,7 @@ fn reference_endf(file: &str) -> Option<PathBuf> {
     p.exists().then_some(p)
 }
 
-fn nuclides() -> Option<Vec<Nuclide>> {
+fn nuclides() -> Option<(Vec<Nuclide>, Htr10SabLaws)> {
     let load = |name: &str, file: &str| -> Option<Nuclide> {
         let path = reference_endf(file)?;
         eprint!("  reconstructing {name:<6} from {file} … ");
@@ -190,34 +190,33 @@ fn nuclides() -> Option<Vec<Nuclide>> {
     };
     let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
     let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
-    let bind_sic = |n: Nuclide, s: &Option<ThermalScattering>| match s {
-        Some(t) => n.with_thermal_scattering(t.clone()),
-        None => n,
-    };
-    Some(vec![
+    // Every slot is loaded free; the three laws are attached per material in
+    // `main` (`assign_htr10_sab`, gh:#462 / #1581).
+    let nuclides = vec![
         load("U235", "n-092_U_235-ENDF8.0.endf")?,
         load("U238", "n-092_U_238.endf")?,
         load("O16", "n-008_O_016-ENDF8.0.endf")?,
         load("C12", "n-006_C_012-ENDF8.0.endf")?,
-        load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
-        bind_sic(load("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
+        load("C12", "n-006_C_012-ENDF8.0.endf")?,
+        load("Si28", "n-014_Si_028-ENDF8.0.endf")?,
         load("B10", "n-005_B_010-ENDF8.0.endf")?,
         // 7, 8, 9: the slots `Htr10Nuclides` names. Filling the struct
         // fields in is not enough -- these indices are used to index this
         // very slice, so the entries have to exist or the example reads
         // past its own end at run time.
-        bind_sic(load("C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
-        bind_sic(load("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
-        bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
+        load("C12", "n-006_C_012-ENDF8.0.endf")?,
+        load("Si29", "n-014_Si_029-ENDF8.0.endf")?,
+        load("Si30", "n-014_Si_030-ENDF8.0.endf")?,
         // 10: B-11, the rest of natural boron (gh:#311).
         load("B11", "n-005_B_011-ENDF8.0.endf")?,
         // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
         // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
         // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
         load("C13", "n-006_C_013-ENDF8.0.endf")?,
-        load("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
-        bind_sic(load("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
-    ])
+        load("C13", "n-006_C_013-ENDF8.0.endf")?,
+        load("C13", "n-006_C_013-ENDF8.0.endf")?,
+    ];
+    Some((nuclides, Htr10SabLaws { graphite: sab, c_in_sic, si_in_sic }))
 }
 
 /// Where each nuclide sits in the slice handed to [`DhUniverse::keff`].
@@ -239,7 +238,7 @@ fn main() {
 
     eprintln!("Reconstructing cross sections (setup, not transport):");
     let t_data = Instant::now();
-    let Some(nucs) = nuclides() else {
+    let Some((free_nucs, laws)) = nuclides() else {
         println!("SKIP: reference-data/endf/ tapes not available in this checkout.");
         return;
     };
@@ -265,8 +264,13 @@ fn main() {
 
     let mut baseline: Option<(f64, f64)> = None;
     for arm in BoronReading::all() {
-        let params = PebbleParams::htr10_li2014()
-            .with_materials(fuel_pebble_materials(NUCLIDES, arm, TEMP_K));
+        let arm_materials = fuel_pebble_materials(NUCLIDES, arm, TEMP_K);
+        // Per-material S(a,b) (gh:#1581): each arm's own materials decide
+        // which slots are bound.
+        let (arm_materials, nucs) =
+            assign_htr10_sab(&arm_materials, &free_nucs, &NUCLIDES, &laws)
+                .expect("S(a,b) per material");
+        let params = PebbleParams::htr10_li2014().with_materials(arm_materials);
         let universe = match DhUniverse::pebble(params, DhTreatment::DeltaTracking) {
             Ok(u) => u,
             Err(e) => {

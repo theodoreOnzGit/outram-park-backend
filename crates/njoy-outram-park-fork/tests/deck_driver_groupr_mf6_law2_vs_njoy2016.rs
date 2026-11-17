@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **GROUPR `getmf6` LAW = 2 for neutrons, against NJOY2016.80** (gh:#1370).
 //!

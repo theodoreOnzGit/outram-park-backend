@@ -18,6 +18,9 @@
 //! FLEXPART's, as bare `f64`: pressure Pa, temperature K, heights m, wind
 //! m/s, heat flux W/m², stress N/m², specific humidity kg/kg.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::constants::{CONVKE, CPA, GA, R_AIR, VONKARMAN};

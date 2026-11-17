@@ -39,6 +39,9 @@
 //! \[mol/m³\], `p` \[Pa\], molar energies \[J/mol\], molar entropies/heat
 //! capacities \[J/(mol·K)\].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod binary_pairs;
 pub mod departure;

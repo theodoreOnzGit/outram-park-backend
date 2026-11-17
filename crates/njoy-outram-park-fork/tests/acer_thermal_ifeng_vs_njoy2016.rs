@@ -51,6 +51,9 @@
 //! `ifeng2_itxe_block_is_njoy2016s_in_every_word`, no tolerance. The graphite
 //! row and `IFENG = 1` were not re-measured here.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::acer::thermal::{nxs, InelasticForm, ThermalAceOptions};
 use njoy_outram_park_fork::acer::AceTable;
 use njoy_outram_park_fork::endf::tape::Tape;

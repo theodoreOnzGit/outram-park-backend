@@ -21,6 +21,9 @@
 //! forced by `isomtx` when the matrix does not fit), and a chi matrix
 //! (`ichix > 1`). No upstream test deck runs them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::ccccr::core::{text6, Core, Items, Records, ISIZA4, MULT};
 use crate::ccccr::state::{IsotxsCards, State};
 use crate::errorr::gendf::{GendfKind, GendfRecord};

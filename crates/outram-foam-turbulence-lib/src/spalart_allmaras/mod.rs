@@ -95,6 +95,9 @@
 //! only at the unit level (see the inline test module); not validated against
 //! an aerodynamic benchmark.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::source_terms::{self, FrozenState, SourceForm, SourceTerms};
 use crate::traits::TurbulenceModel;
@@ -103,7 +106,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMesh, FvVectorMatrix, PatchField, PatchKind, SolverSettings, SurfaceScalarField,
     Tensor, Vector3, VolScalarField, VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Outer (dyadic) product a ⊗ b → Tensor. (`Vector3 * Vector3` is the dyad.)
 #[inline]
@@ -322,7 +325,7 @@ impl SpalartAllmaras {
                     let f1 = fv1(x);
                     let f2 = fv2(x, f1);
                     let s = state.grad_u[c].skew();
-                    let om = std::f64::consts::SQRT_2 * s.double_inner(s).max(0.0).sqrt();
+                    let om = core::f64::consts::SQRT_2 * s.double_inner(s).max(0.0).sqrt();
                     let ky2 = (KAPPA * y[c]).r_powi(2).max(SMALL);
                     let st = (om + f2 * nt[c] / ky2).max(CS * om);
                     let r = (nt[c] / (st.max(SMALL) * ky2)).min(10.0);
@@ -352,7 +355,7 @@ impl SpalartAllmaras {
                     let chi3 = pow3(x);
                     let f1 = chi3 / (chi3 + pow3(cv1));
                     let f2 = 1.0 - x / (1.0 + x * f1);
-                    let om = std::f64::consts::SQRT_2 * source_terms::mag_skew(&state.grad_u[c]);
+                    let om = core::f64::consts::SQRT_2 * source_terms::mag_skew(&state.grad_u[c]);
                     let d = y[c];
                     let st = source_terms::umax(om + (f2 * nt[c]) / sqr(kappa * d), cs * om);
                     let r = source_terms::umin(
@@ -468,7 +471,7 @@ impl TurbulenceModel for SpalartAllmaras {
         let mut omega = vec![0.0_f64; n];
         for c in 0..n {
             let s = grad_u[c].skew();
-            omega[c] = std::f64::consts::SQRT_2 * s.double_inner(s).max(0.0).sqrt();
+            omega[c] = core::f64::consts::SQRT_2 * s.double_inner(s).max(0.0).sqrt();
         }
 
         // ── ∇ν̃ for the Cb2/σ |∇ν̃|² explicit source ──────────────────────────

@@ -20,6 +20,9 @@
 //! changed (GitHub #305), so re-running the suite leaves an unchanged receipt,
 //! and its stamp, exactly as they were.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;

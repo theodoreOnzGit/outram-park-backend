@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: AGPL-3.0-only
 //! **Photo-nuclear decks against NJOY2016.80, whole decks** (gh:#1369):
 //! RECONR on a photo-nuclear tape, ACER `iopt = 5` (`acephn`), the two ACER

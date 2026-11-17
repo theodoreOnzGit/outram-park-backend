@@ -9,6 +9,14 @@ Solves the depletion (Bateman) equations via a CRAM (Chebyshev Rational Approxim
 > PARK fork; not affiliated with the upstream project. Not for nuclear facility
 > operation, reactor control, safety-critical, or licensing decisions.
 
+## `no_std` + `alloc` (gh:#1589)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-park-fork-onix --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). `std` only turns on `thiserror`'s `std`; everything else is `no_std` + `alloc` already. With `std` on (the default)
+nothing changes.
+
 ## Depletion core (implemented)
 
 Stand-alone (precomputed-input) depletion: the caller supplies decay data,

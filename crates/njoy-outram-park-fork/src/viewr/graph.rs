@@ -14,6 +14,9 @@
 //! VIEWR in one deck sees what the first left behind, as in the Fortran
 //! process. The PostScript is accumulated in [`Graph::out`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::tables::{CW1, CW10, CW11, CW12, CW2, CW3, CW4, CW5, CW6, CW7, CW8, CW9};
@@ -252,7 +255,7 @@ impl Graph {
         if self.www == 0.0 {
             (x, y)
         } else {
-            let pi = std::f64::consts::PI;
+            let pi = core::f64::consts::PI;
             let ct = (2.0 * pi * self.wwr / 360.0).r_cos();
             let st = (2.0 * pi * self.wwr / 360.0).r_sin();
             (self.xwll + x * ct - y * st, self.ywll + x * st + y * ct)

@@ -37,11 +37,14 @@
 //! and no [`crate::traits::TurbulenceModel`] impl. Not ported: `fvOptions`, `omegaInf`/`kInf`
 //! sources, `Qsas`, SST `F3` and decay control (all off in the v2506 defaults).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::k_omega_sst::KOmegaSST;
 use crate::source_terms::{self, umax, umin, FrozenState, SourceForm, SourceTerms};
 use outram_foam_basic_lib::prelude::FvMesh;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Upstream `SMALL` for double precision.
 const SMALL: f64 = 1e-15;

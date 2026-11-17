@@ -35,7 +35,10 @@
 //! point (`x(i+1) == x(i)`) is reported as a discontinuity so `epanel`
 //! evaluates just below it (`delta = 0.999995`).
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 use crate::endf::interp::{terp1, IntLaw};
 use crate::endf::records::SectionCursor;

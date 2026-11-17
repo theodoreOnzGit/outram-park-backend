@@ -16,6 +16,9 @@
 //! The law-7 recoil path keeps upstream's `en = yy*xx` taken before `xx` is
 //! replaced by the recoil energy.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::flat::{legndr1, nint, terp1, terpa0, QP4, QP64, QW4, QW64};
 use super::state::Heatr;

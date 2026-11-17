@@ -31,6 +31,9 @@
 //! library or version (a JEFF U-235 in the folder) is found as U-235; the
 //! library is whatever the user put in the folder.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::{Path, PathBuf};
 
 /// The sub-library folders transport reads, in an extracted ENDF library

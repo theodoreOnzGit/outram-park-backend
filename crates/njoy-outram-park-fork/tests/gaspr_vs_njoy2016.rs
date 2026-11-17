@@ -117,6 +117,9 @@
 //! The write-up is
 //! `verification_and_validation/gaspr_light_nuclides_vs_njoy2016.md`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;

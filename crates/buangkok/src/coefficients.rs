@@ -46,6 +46,9 @@
 //! Research-grade only: never a dose to a real person, and not for emergency,
 //! regulatory, occupational or medical use (`RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::pydoseia::dcf::{
     self, AgeBracket, ExternalDcfTable, InhalationDcfTable, ProgenyChains, ProgenyCorrection,
 };

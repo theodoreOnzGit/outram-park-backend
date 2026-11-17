@@ -49,6 +49,9 @@
 //! symmetric upper-triangular pack). See the `#[cfg(test)]` block for the
 //! synthetic round-trip and the real-tape structural smoke test.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::{Cont, List, SectionCursor};
 use crate::endf::tape::Tape;
 use crate::NjoyError;
@@ -420,6 +423,7 @@ mod tests {
         assert_eq!(nc.list.data[1], 2.0); // first (coefficient, MT) pair's MT=2
     }
 
+    #[cfg(feature = "std")]
     /// Structural smoke test against the real U-235 ENDF8.0 tape
     /// (`reference-data/endf/n-092_U_235-ENDF8.0.endf`, MAT=9228): parse the
     /// MF=33/MT=1 (total) and MF=33/MT=2 (elastic) sections and assert the

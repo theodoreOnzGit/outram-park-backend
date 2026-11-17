@@ -26,6 +26,9 @@
 //! which this reproduces. `NaN` is therefore the answer for a subcritical
 //! query, not an error.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// The ten coefficients of the saturation equation, shared by both directions.

@@ -22,6 +22,10 @@
 //! Bounds were written in `PREDICTIONS.md` before any of this ran; results
 //! and the comparison with the predictions are in `RESULTS.md`.
 
+// Loads tables from files: needs the `std` feature (gh:#1597;
+// `cargo quick-test -p outram-park-fork-moltres` skips it).
+#![cfg(feature = "std")]
+
 use std::sync::Arc;
 
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;

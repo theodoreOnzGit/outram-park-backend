@@ -172,3 +172,60 @@ pub fn assign_material_sab(
     }
     Ok((out_mats, out_nucs))
 }
+
+/// The three thermal laws of an HTR-10 pebble or core (GitHub #1581).
+///
+/// `c_in_sic` and `si_in_sic` are optional because a missing tape falls back
+/// to free gas for that nuclide, as the drivers always did.
+#[derive(Debug, Clone)]
+pub struct Htr10SabLaws {
+    /// C in crystalline graphite (buffer, PyC, matrix, shell, reflector).
+    pub graphite: ThermalScattering,
+    /// C in SiC (the SiC coating's carbon).
+    pub c_in_sic: Option<ThermalScattering>,
+    /// Si in SiC (the SiC coating's silicon).
+    pub si_in_sic: Option<ThermalScattering>,
+}
+
+/// Per-material S(α,β) for the HTR-10 slot layout (GitHub #462, #1581).
+///
+/// The nuclide array holds every slot **free**; each law goes only to the
+/// materials that reference its slot: the graphite carbon slots get
+/// `graphite`, the SiC carbon slots `c_in_sic`, Si-28/29/30 `si_in_sic`. This
+/// replaces the old nuclide-level binding of those slots
+/// (`Nuclide::with_thermal_scattering`) with OpenMC's per-material
+/// association. The slots stay where they are; bound copies are appended
+/// after them ([`assign_material_sab`]), so the array grows and the URR
+/// stream advances by the new length.
+///
+/// # Errors
+///
+/// Whatever [`assign_material_sab`] refuses, notably a slot that is already
+/// bound in `nuclides`.
+pub fn assign_htr10_sab(
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    layout: &crate::pebble_beds::htr10::Htr10Nuclides,
+    laws: &Htr10SabLaws,
+) -> Result<(Vec<Material>, Vec<Nuclide>), String> {
+    let mut tables: Vec<ThermalScattering> = vec![laws.graphite.clone()];
+    let mut entries: Vec<MaterialSab> = Vec::new();
+    for s in layout.c_graphite.slots() {
+        entries.extend(MaterialSab::for_materials_containing(materials, s, 0, &[]));
+    }
+    if let Some(t) = &laws.c_in_sic {
+        let ti = tables.len();
+        tables.push(t.clone());
+        for s in layout.c_sic.slots() {
+            entries.extend(MaterialSab::for_materials_containing(materials, s, ti, &[]));
+        }
+    }
+    if let Some(t) = &laws.si_in_sic {
+        let ti = tables.len();
+        tables.push(t.clone());
+        for s in [layout.si28, layout.si29, layout.si30] {
+            entries.extend(MaterialSab::for_materials_containing(materials, s, ti, &[]));
+        }
+    }
+    assign_material_sab(materials, nuclides, &tables, &entries)
+}

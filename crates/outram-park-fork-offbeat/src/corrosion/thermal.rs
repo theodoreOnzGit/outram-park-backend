@@ -48,6 +48,9 @@
 // through and propagate it into a physical result. The idiom is intentional.
 #![allow(clippy::neg_cmp_op_on_partial_ord)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// OpenFOAM's `SMALL`, used by upstream to keep the oxide resistance finite
 /// when the layer has zero thickness.
 const SMALL: f64 = 1.0e-15;

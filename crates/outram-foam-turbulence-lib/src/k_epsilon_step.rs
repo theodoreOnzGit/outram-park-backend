@@ -29,11 +29,14 @@
 //! `bound()` averages neighbours below the limit; here a plain floor at
 //! `small` is used.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
     Field, FvMesh, PatchField, SolverSettings, SurfaceScalarField, VolScalarField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Upstream double-precision `small` (`kMin_`, `epsilonMin_`).
 pub(crate) const U_SMALL: f64 = 1e-15;

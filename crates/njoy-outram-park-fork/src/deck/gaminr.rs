@@ -12,6 +12,9 @@
 //! and card 7 between materials, but nothing on a tape changes which cards
 //! follow, so the stream is the same.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::{CardReader, Slot};
 use crate::deck::tapes::TapeUnits;
 use crate::gaminr::tape::{run_gaminr_tape, GaminrCards};

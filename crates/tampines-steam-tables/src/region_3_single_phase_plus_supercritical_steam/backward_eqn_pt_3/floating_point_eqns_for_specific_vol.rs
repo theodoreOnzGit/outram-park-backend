@@ -6,6 +6,9 @@
 //! entry points (`v_tp_3`, `v_tp_3c`, ...) in the parent module call these.
 //! `subregion` classifies a `(t,p)` point into the matching letter.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::BackwardPTRegion3;

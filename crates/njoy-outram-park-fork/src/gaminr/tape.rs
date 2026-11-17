@@ -22,6 +22,9 @@
 //! Refused by name: an input GAM-out tape (`ngam1 /= 0`, the merge of
 //! `:166-186`), a read-in weight function (`iwt = 1`), and `ngam2 = 0`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::groupr::GendfText;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;

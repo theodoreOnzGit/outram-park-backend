@@ -29,6 +29,9 @@
 //! Lives here, beside the HEM pipe that uses it; `tampines` re-exports it as
 //! `tampines::closures::wall_friction` for its two-phase solvers.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Lower edge of the laminar region (`f = f_max` below it).

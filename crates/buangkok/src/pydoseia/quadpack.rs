@@ -38,6 +38,9 @@
 //! differs from SciPy's routine on singular integrands (the `quadpack`-group
 //! mutation test). Petir's `qags` does not have that gap.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Machine epsilon, `np.finfo(np.float64).eps` (SciPy's `epmach`).
 const EPMACH: f64 = f64::EPSILON;

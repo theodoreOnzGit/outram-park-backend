@@ -21,6 +21,9 @@
 //! differ" step, so [`ascll`] here is its own copy. `ascle` is the same routine
 //! in both modules and is reused from [`super::aplots`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::aplots::scale::ascle;
 use super::aplots::{fmt, Plot};
 use super::read::RawAceTable;

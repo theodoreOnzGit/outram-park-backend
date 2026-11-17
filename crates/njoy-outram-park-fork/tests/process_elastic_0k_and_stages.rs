@@ -37,6 +37,9 @@
 //! the same number of points as the 0 K MT=2 and differs from the 293.6 K
 //! MT=2. Tapes absent: every test skips.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::process::{self, CrossSectionSettings, NuclearCrossSections};
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;

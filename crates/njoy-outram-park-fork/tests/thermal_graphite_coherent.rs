@@ -84,6 +84,9 @@
 //! [`CoherentElasticScattering`]: njoy_outram_park_fork::thermr::scattering::CoherentElasticScattering
 //! [`IncoherentInelasticScattering`]: njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::thermr::mf7::{parse_mf7, CoherentElastic};
 use njoy_outram_park_fork::thermr::scattering::{

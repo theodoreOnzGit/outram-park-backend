@@ -32,6 +32,9 @@
 //! `33`, or `40` when `mfflg=-14`, `35` when the vectors live in `MF=5`, and
 //! `34` for `mt=251` (`covr.f90:813-816`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::covr::covard::{CovarianceRowBlock, ErrorrCovarianceSection};
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;

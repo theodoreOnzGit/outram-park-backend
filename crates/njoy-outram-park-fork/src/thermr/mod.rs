@@ -74,6 +74,9 @@
 //!
 //! See `docs/porting-plan.md` (Phase 3 THERMR, Phase 4f thermal ACE).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod calcem;
 pub mod coherent;
 pub mod effective_temperature;

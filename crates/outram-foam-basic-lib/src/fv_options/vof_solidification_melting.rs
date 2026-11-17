@@ -30,6 +30,9 @@
 //! belongs in [`solidification_melting`](super::solidification_melting)
 //! instead.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{CellSelection, TemperatureTable};
 use crate::fields::VolScalarField;
 use crate::ldu_matrix::{FvMatrix, FvVectorMatrix};

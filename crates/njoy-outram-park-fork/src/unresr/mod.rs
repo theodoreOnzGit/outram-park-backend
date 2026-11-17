@@ -26,6 +26,9 @@
 //! is [`tape`], used by the deck driver. See `README.md` for the full status
 //! and caveats.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod mf2;
 pub mod tape;
 pub mod wfun;

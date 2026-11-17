@@ -13,6 +13,9 @@
 //! [`DepartureTerm::Gaussian`]/[`DepartureTerm::GergExponential`] — no special
 //! casing needed).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::eos::HelmholtzDerivs;
 

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{
     f64::*, force::newton, length::meter, radiant_exposure::joule_per_square_meter,
     thermodynamic_temperature::kelvin,

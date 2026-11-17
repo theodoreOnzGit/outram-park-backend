@@ -70,6 +70,9 @@
 //! silently stop being true, and that the rel-peak criterion really is worse (if
 //! it ever became better, the reasoning here would need revisiting).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;

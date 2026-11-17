@@ -52,6 +52,9 @@
 //! mean reproducing the evaluation's own error. **AI-assisted draft, no human
 //! review**: the finding is about a published evaluation and needs one.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::decks::{embedded_deck_text, SabMaterial};
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;

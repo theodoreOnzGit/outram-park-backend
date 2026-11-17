@@ -109,7 +109,10 @@
 //! assert!((y[0] - (-1.0_f64).exp()).abs() < 1e-8);
 //! ```
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use super::{Euler, OdeError, OdeSolverConfig, OdeSystem, Rkf45, Rosenbrock23};
 
@@ -384,8 +387,8 @@ pub struct DynSystemIntegrator {
 }
 
 // `dyn OdeSystem` is not `Debug`, so derive cannot produce this.
-impl std::fmt::Debug for DynSystemIntegrator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for DynSystemIntegrator {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("DynSystemIntegrator")
             .field("solver", &self.solver)
             .field(

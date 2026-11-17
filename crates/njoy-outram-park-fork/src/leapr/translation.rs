@@ -22,6 +22,9 @@
 //! ## Units
 //! `alpha`, `beta`, `S` dimensionless; temperatures in K.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::leapr::frequency::FrequencyModel;
 use crate::leapr::input::LeaprInput;

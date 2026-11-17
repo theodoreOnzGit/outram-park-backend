@@ -52,6 +52,9 @@
 //!
 //! Results are recorded on the beads and in `reference-data/errorr/README.md`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;

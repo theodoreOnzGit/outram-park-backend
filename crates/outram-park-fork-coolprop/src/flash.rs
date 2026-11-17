@@ -32,6 +32,9 @@
 //! `(p, h)`: single-phase EOS speed outside the dome, a finite difference of
 //! the equilibrium isentrope through the Maxwell VLE ([`crate::vle`]) inside it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::fluid::Fluid;
 use crate::props::{state_trho, FluidState};

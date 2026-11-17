@@ -41,6 +41,9 @@
 //! The only defect surfaced was in the test itself: `first` must follow
 //! `gety1`'s leading-zero scan ([`gety1_first_energy`]), not `x(1)`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::groupr::gendf::GendfSection;
 use njoy_outram_park_fork::groupr::panel::{group_integral, GroupFlux};

@@ -6,6 +6,9 @@
 //! Regenerate the whole set with `dev/regen_incompressible_all.py` (see the
 //! crate README).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod acetone;
 pub mod aeg;
 pub mod air;

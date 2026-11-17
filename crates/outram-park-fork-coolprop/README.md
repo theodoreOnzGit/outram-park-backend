@@ -57,6 +57,15 @@ it (see `TRADEMARKS.md`). Ported from
 commit `0e67fe74b30a2fe9526af9bc64ea026a96f56ebf` (2026-07-05) — see
 `upstream_source/README.md` for the full provenance record.
 
+## `no_std` + `alloc` (gh:#1598)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-park-fork-coolprop --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every fluid, equation of state and
+transport model stays. `std` here only turns on `outram-foam-basic-lib`'s
+`std`. With `std` on (the default) nothing changes.
+
 ## What's different from CoolProp
 
 - **Enum dispatch, no trait objects.** Fluids are a `Fluid` enum; EOS term

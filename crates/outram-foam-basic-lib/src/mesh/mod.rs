@@ -39,6 +39,9 @@
 //! It stores only the data required by the operators; the OpenFOAM
 //! `polyMesh → primitiveMesh → lduMesh` inheritance chain is not reproduced.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod ami;
 pub mod error;
 pub mod fv_mesh;

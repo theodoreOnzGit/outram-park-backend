@@ -9,6 +9,9 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matlab::min_abs_finite;
 
 /// `newvector = fixinfnan(vector)` and `fixinfnan(vector, anything)`.

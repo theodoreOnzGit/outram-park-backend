@@ -14,6 +14,9 @@
 //! Inside a double-quoted Fortran string `''` is two apostrophes, so
 //! `"(n,n''f)  "` is ten characters as written.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `hndf` (`plotr.f90:2980-3064`), 415 names of 10 characters.
 #[rustfmt::skip]
 const HNDF: [&str; 415] = [

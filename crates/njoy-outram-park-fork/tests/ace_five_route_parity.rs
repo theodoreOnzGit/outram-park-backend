@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: GPL-3.0
 
 //! # The five-route library's light nuclides are NJOY2016's tables in every word (GitHub #872)
