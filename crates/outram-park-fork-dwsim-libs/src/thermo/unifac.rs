@@ -82,8 +82,11 @@
 //! follows the crate `CLAUDE.md` rule of raw documented `f64` in inner
 //! thermodynamic loops.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// Coordination number `z` of the UNIFAC/UNIQUAC lattice (dimensionless).
 /// Fixed at 10 in the original model (Fredenslund et al. 1975); enters the

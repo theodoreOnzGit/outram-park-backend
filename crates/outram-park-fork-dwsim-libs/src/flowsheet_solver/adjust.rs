@@ -94,7 +94,10 @@
 //! Newton arithmetic against analytically-solvable synthetic cases; they are not
 //! validation against a DWSIM benchmark flowsheet.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::flowsheet::{Flowsheet, ObjectId, ObjectType};
 use crate::flowsheet_solver::errors::{AbortFlag, SolverError};

@@ -65,6 +65,9 @@
 //! upstream code raises `IndexOutOfRangeException` for perfectly ordinary
 //! inputs (adjacent D1160 points less than 10 K apart).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::pressure::pascal;

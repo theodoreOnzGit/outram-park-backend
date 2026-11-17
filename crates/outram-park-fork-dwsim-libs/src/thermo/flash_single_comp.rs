@@ -77,6 +77,9 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::thermo::cubic_eos::Phase;
 use crate::thermo::property_package::PropertyPackageModel;
 use crate::thermo::saturation::{bubble_pressure, bubble_temperature, SaturationError};
@@ -294,7 +297,7 @@ pub fn saturation_pressure(
 ) -> Result<f64, SingleCompError> {
     let comp = resolve_component(components, z)?;
     require_positive("temperature", temperature)?;
-    let state = bubble_pressure(std::slice::from_ref(comp), &[1.0], temperature, package)?;
+    let state = bubble_pressure(core::slice::from_ref(comp), &[1.0], temperature, package)?;
     Ok(state.pressure)
 }
 
@@ -317,7 +320,7 @@ pub fn saturation_temperature(
 ) -> Result<f64, SingleCompError> {
     let comp = resolve_component(components, z)?;
     require_positive("pressure", pressure)?;
-    let state = bubble_temperature(std::slice::from_ref(comp), &[1.0], pressure, package)?;
+    let state = bubble_temperature(core::slice::from_ref(comp), &[1.0], pressure, package)?;
     Ok(state.temperature)
 }
 

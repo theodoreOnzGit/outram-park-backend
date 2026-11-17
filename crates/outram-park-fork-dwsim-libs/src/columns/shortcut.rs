@@ -145,6 +145,9 @@
 //! - The result reports which [`UnderwoodMode`] was taken — upstream computes
 //!   the same branch but does not expose it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use ndarray::Array2;
 use uom::si::catalytic_activity::katal;
@@ -892,7 +895,7 @@ impl ShortcutColumn {
         // Souders-Brown-type maximum vapour velocity, Fair-style capacity
         // quadratic in the tray spacing (`:558`).
         let uv = (-0.17 * lt * lt + 0.27 * lt - 0.047) * ((rho_l - rho_v) / rho_v).sqrt();
-        let diameter = (4.0 * max_vw / (std::f64::consts::PI * rho_v * uv)).sqrt();
+        let diameter = (4.0 * max_vw / (core::f64::consts::PI * rho_v * uv)).sqrt();
 
         Ok(ShortcutColumnResult {
             minimum_stages: n_min,

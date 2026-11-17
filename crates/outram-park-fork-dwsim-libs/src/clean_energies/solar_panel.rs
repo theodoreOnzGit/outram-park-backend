@@ -47,6 +47,9 @@
 //! energy-stream write at `:266` (`esout.EnergyFlow = GeneratedPower`), which
 //! is flowsheet plumbing — the value is [`SolarPanel::generated_power`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::area::square_meter;
 use uom::si::f64::{Area, HeatFluxDensity, Power, Ratio};
 use uom::si::heat_flux_density::watt_per_square_meter;

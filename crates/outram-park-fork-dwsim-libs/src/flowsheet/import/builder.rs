@@ -31,7 +31,11 @@
 //! original code documenting that format; it is deliberately **not** a port of
 //! DWSIM's loader, which is excluded from this crate's scope.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
+use crate::hash::{HashMap, HashSet};
 
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::catalytic_activity::katal;

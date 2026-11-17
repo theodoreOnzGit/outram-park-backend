@@ -4,6 +4,9 @@
 //! preamble (the co/counter-current LMTD forms shared by every calculation
 //! mode in that file).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Area, HeatTransfer, Power, TemperatureInterval, ThermodynamicTemperature};
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;

@@ -26,6 +26,9 @@
 //! stopping rule maps onto the new one, and why the new one is at least as
 //! strict, is set out on [`solve_intercell_mass_flow`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::cell::RefCell;
 
 use petir::roots::{test_interval, test_residual, BracketingMethod, BracketingSolver};

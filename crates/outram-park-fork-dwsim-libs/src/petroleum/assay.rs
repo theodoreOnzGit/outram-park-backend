@@ -54,6 +54,9 @@
 //! 100 on entry (`DistCurves.cs:895`), and every downstream routine expects
 //! `0..1`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{KinematicViscosity, MolarMass, Ratio, ThermodynamicTemperature};
 
 use super::property_methods::SpecificGravity;

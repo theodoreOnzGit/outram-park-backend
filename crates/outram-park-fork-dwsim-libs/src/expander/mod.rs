@@ -7,4 +7,7 @@
 //! (Floater-Hormann rational interpolation of head/efficiency/power vs.
 //! flow) is not ported -- see the workspace's `op-qo2.9` bead.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod isentropic;

@@ -10,6 +10,9 @@
 //! Floater-Hormann rational interpolation of head/efficiency/NPSHr/power
 //! vs. flow is available in [`crate::interpolation`]; see `op-qo2.9`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::f64::{
     Acceleration, AvailableEnergy, Length, MassDensity, MassRate, Power, Pressure, Ratio,

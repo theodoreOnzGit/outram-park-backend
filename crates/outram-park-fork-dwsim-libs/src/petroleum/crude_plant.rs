@@ -45,6 +45,9 @@
 //! > cut yields nor their response to a control move should be read as
 //! > quantitative. Not for operational, licensing, or safety use.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::columns::dynamic::{
     DynamicColumn, DynamicColumnOperating, DynamicColumnState, TrayHydraulics,
 };

@@ -57,6 +57,9 @@
 //! - **`ndarray-linalg` / LAPACK.** Not used: the workspace's Android/Termux
 //!   rule forbids a system BLAS dependency in library code.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::linalg::{lu_decomp, lu_solve, Matrix};
 
 /// Solve the dense square system `A x = b`.

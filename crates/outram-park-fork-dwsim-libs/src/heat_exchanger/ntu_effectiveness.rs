@@ -13,6 +13,9 @@
 //! linearised `C = W (H2-H1)/(T2-T1)` the same way DWSIM does, or a plain
 //! `W * Cp` for ideal/near-ideal fluids.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::lmtd::FlowArrangement;
 use uom::si::f64::{Power, Ratio, TemperatureInterval, ThermalConductance};

@@ -132,6 +132,9 @@
 //! feed-basis weights `(S^{I}, S^{II}) = (S^{I}, (1-\ell^{II}) L^{II}_0)`, which
 //! is what makes the overall mole balance close exactly (V&V below).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::thermo::activity::ActivityModel;
 use crate::thermo::cubic_eos::CubicEos;
 use crate::thermo::flash::FlashError;

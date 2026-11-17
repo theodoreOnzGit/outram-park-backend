@@ -100,6 +100,9 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::thermo::cubic_eos::{BinaryInteraction, CubicEos, Phase};
 use crate::thermo::flash::{FlashError, FlashResult};
 use crate::thermo::lkp;

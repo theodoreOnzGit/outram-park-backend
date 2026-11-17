@@ -165,6 +165,9 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::electrolyte_svle::{EquilibriumReaction, SvleSpecies};
 

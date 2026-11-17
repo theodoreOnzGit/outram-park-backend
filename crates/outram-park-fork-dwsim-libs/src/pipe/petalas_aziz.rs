@@ -53,6 +53,9 @@
 //! (2026-07-13): this is a low-priority literature-review placeholder, not
 //! an implementation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Not implemented -- see the module documentation above for the literature
 /// review and why this was not ported. Calling this always panics; it exists
 /// so the gap is a discoverable, documented item in the crate's API surface

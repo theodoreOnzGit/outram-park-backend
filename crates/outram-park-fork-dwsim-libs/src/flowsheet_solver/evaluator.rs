@@ -95,6 +95,9 @@
 //! - **`ms.Validate()`** (Mixer.vb:123). The port checks the compound lists line
 //!   up and otherwise trusts the data model's own invariants.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flowsheet::{CalculationArgs, Flowsheet, ObjectData, ObjectId, ObjectType, PhaseIndex};
 use crate::flowsheet_solver::errors::SolverError;
 
@@ -452,7 +455,7 @@ fn attached_peers_of_type(
         Side::Outlet => obj
             .outputs
             .iter()
-            .chain(std::iter::once(&obj.energy_connector))
+            .chain(core::iter::once(&obj.energy_connector))
             .collect(),
     };
     Ok(slots

@@ -40,6 +40,9 @@
 //!   .NET dynamic-dispatch extension point, and this workspace's solver set is
 //!   a closed enum (no `dyn`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use ndarray::Array2;
 
 /// Tuning for [`broyden_root`] and [`newton_root`].

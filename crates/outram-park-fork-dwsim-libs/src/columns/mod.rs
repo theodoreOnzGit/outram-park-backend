@@ -182,6 +182,9 @@
 //! [`StageProfile`]: profile::StageProfile
 //! [`ColumnThermo`]: thermo_bridge::ColumnThermo
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod bubble_point;
 pub mod bubble_point2;
 pub mod dynamic;

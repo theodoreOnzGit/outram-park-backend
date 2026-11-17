@@ -114,6 +114,9 @@
 //! they check "did we port it correctly?", not "does it represent physical
 //! reality?". No DWSIM benchmark flowsheet has been run against this port.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{MassRate, Power, Pressure, TemperatureInterval};
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::kilowatt;

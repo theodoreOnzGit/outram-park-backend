@@ -45,6 +45,68 @@
 
 #![forbid(unsafe_code)]
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1591, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+
+extern crate alloc;
+extern crate ndarray_nostd as ndarray;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+
+/// Hash maps and sets: std's in a `std` build (and in tests), so iteration
+/// order and every result are exactly as before; `hashbrown` without std, the
+/// workspace rule (gh:#1591). `HashSet` is used only by the `std` importer.
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+
+/// The wall clock behind solver and runner timeouts (gh:#1591). With `std`
+/// this is `std::time::Instant`. Without it there is no clock: `now()` is a
+/// fixed instant and `elapsed()` is always zero, so a wall-clock timeout never
+/// fires and the iteration limits alone bound a solve.
+pub mod time {
+    #[cfg(any(feature = "std", test))]
+    pub use std::time::Instant;
+
+    /// Stand-in for `std::time::Instant` without std: no clock.
+    #[cfg(not(any(feature = "std", test)))]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct Instant;
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl Instant {
+        /// A fixed instant: there is no clock to read.
+        pub fn now() -> Self {
+            Instant
+        }
+        /// Always zero without a clock.
+        pub fn elapsed(&self) -> core::time::Duration {
+            core::time::Duration::ZERO
+        }
+    }
+}
+
 pub mod clean_energies;
 pub mod columns;
 pub mod compressor;
