@@ -60,8 +60,27 @@
 //! equiprobable S(a,b) sampling, gh:#1581's per-material S(a,b)) can move this
 //! driver's number away from it without the hook being wrong. The first
 //! post-1617 measurement here, 2026-11-17 (`7b5dd858d`, 8 seeds), was
-//! -153 +/- 43 pcm paired, 4.2 sigma from -556 with k_MOVING 1.36307; the cause
-//! is not isolated (the MOVING arm moved -318 pcm and the AT-REST arm +85 pcm).
+//! -153 +/- 43 pcm paired, 4.2 sigma from -556 with k_MOVING 1.36307; ~~the cause
+//! is not isolated (the MOVING arm moved -318 pcm and the AT-REST arm +85 pcm)~~
+//! **CORRECTED 2026-11-17 (gh:#1636): isolated.** `60f6bb261`'s `Nuclide` carried
+//! no resonance elastic scattering table (`git grep -i dbrc 60f6bb261 --
+//! crates/outram-mc-libs/src` hits only `physics/scatter.rs`); `f8dbb4951`
+//! (2026-09-20, "correct physics is the DEFAULT") attached DBRC by default and
+//! `457d4ca97` (gh:#1311) made upstream's RVS the method. It acts only at target
+//! kT > 0, so it is in the MOVING arm and absent from the AT-REST arm, which is
+//! exactly the signature (MOVING -318 +/- 50 pcm, AT-REST +85 +/- 105, 0.8 sigma).
+//! Removing it (`OUTRAM_FHR_NO_RESONANCE_SCATTERING=1`, `Nuclide::without_dbrc`)
+//! gives, 8 seeds, same session build: MOVING 1.36570 (+263 +/- 74 pcm over the
+//! default, 3.6 sigma), AT-REST bit-identical seed for seed, worth **-416 +/- 79
+//! pcm**, 1.2 sigma from -556 +/- 87. The legacy scatter kernels (gh:#1386) move
+//! MOVING by -32 +/- 47 pcm (0.7 sigma): not the cause. So the default-build
+//! worth is **-153 +/- 43 pcm** (`SESSION_PCM`), and -556 is the worth of a model
+//! without resonance scattering. Correct physics (default on, maintainer-decided),
+//! so this is a re-baseline, not a revert. Raw outputs, analysis and the
+//! predictions written before the runs:
+//! `verification_and_validation/sab_per_material_1581/` (`ensembles_1636/`,
+//! README "gh:#1636"). Not done: building `f8dbb4951` and its parent to separate
+//! DBRC-on from the RVS method switch (the ablation removes both together).
 //!
 //! Note what the +/- is: a seed-to-seed standard error over an ensemble, not
 //! one run's within-run `k_std` as in gh:#193's single-seed row.
@@ -647,6 +666,19 @@ mod desktop {
         let n = n_seeds();
         let seeds: Vec<u64> = (1..=n as u64).collect();
         eprintln!("{n} seeds per arm, 4000 histories × [30 inactive + 80 active]:");
+        // `OUTRAM_FHR_ARMS=at-rest` runs only the ablated arm (so the two arms can
+        // run as two processes); the per-seed lines are merged by hand afterwards.
+        if std::env::var("OUTRAM_FHR_ARMS").as_deref() == Ok("at-rest") {
+            let b = run_arm(&at_rest, &mats, r_fuel, &seeds, "AT-REST");
+            let (kb, skb, ekb) = stats(&b.k);
+            println!(
+                "AT-REST-only: n = {} k_AT-REST = {kb:.5}, sd = {:.0} pcm, sem = {:.0} pcm",
+                b.k.len(),
+                skb * 1.0e5,
+                ekb * 1.0e5
+            );
+            return;
+        }
         let t = Instant::now();
         let a = run_arm(&moving, &mats, r_fuel, &seeds, "MOVING ");
         eprintln!("  MOVING  arm done in {:.1} s", t.elapsed().as_secs_f64());
@@ -729,50 +761,54 @@ mod desktop {
             (md, edp)
         };
 
-        let verdict = judge(quote, qerr, ka, eka);
+        // gh:#1636: the -556 record was measured on a build with NO resonance elastic
+        // scattering; the default build carries it, which acts on the MOVING arm only.
+        // So each configuration is judged against its own like-for-like record.
+        let (r_pcm, r_err, r_k, r_build, r_what) = if no_res {
+            (
+                REFERENCE_PCM,
+                REFERENCE_ERR_PCM,
+                REFERENCE_K_MOVING,
+                REFERENCE_BUILD,
+                "the whole-run switch replayed on that commit (gh:#1617), a build without \
+                 resonance scattering; here with it ablated (gh:#1636 measured -416 +/- 79)",
+            )
+        } else {
+            (
+                SESSION_PCM,
+                SESSION_ERR_PCM,
+                SESSION_K_MOVING,
+                SESSION_BUILD,
+                "this driver on the default build, 8 seeds (gh:#1636, 2026-11-17); the -556 \
+                 of 60f6bb261 is reproduced only with resonance scattering ablated",
+            )
+        };
+        let verdict = judge_against(r_pcm, r_err, r_k, quote, qerr, ka, eka);
         println!();
+        println!("  Prediction on record: {r_pcm:+.0} +/- {r_err:.0} pcm, {r_what}; build {r_build}.");
         println!(
-            "  Prediction on record: {REFERENCE_PCM:+.0} +/- {REFERENCE_ERR_PCM:.0} pcm, the whole-run \
-             switch (KeffSettings::temperature_k = 0) replayed on commit {REFERENCE_BUILD} \
-             (gh:#1617, 2026-11-17)."
+            "  (-2242 pcm / k 1.40546 predates the F-19 fix 45f8d72d; -556 / 60f6bb261 predates \
+             default resonance scattering; both struck through in the doc comment.)"
         );
         println!(
-            "  (The earlier -2242 pcm / k 1.40546 predates the F-19 fix 45f8d72d and is struck \
-             through in the doc comment.)"
-        );
-        println!(
-            "  Unablated arm: k_MOVING {ka:.5} vs the reference build's {REFERENCE_K_MOVING:.5}: \
+            "  Unablated arm: k_MOVING {ka:.5} vs the reference build's {r_k:.5}: \
              {:+.0} pcm ({:+.1} sigma of this run's own sem).",
             verdict.moving_shift_pcm, verdict.moving_shift_sigma
         );
         println!();
         println!("  VERDICT:");
         println!(
-            "    gap {:+.0} pcm from the reference, {:.1} sigma of (this run + reference) errors.",
+            "    gap {:+.0} pcm from the reference, {:.1} sigma of (this run + reference) errors \
+             (gh:#1636 task gate abs(z) <= 2; HELD below is the older 3 sigma).",
             verdict.gap_pcm, verdict.gap_sigma
         );
         if verdict.held {
-            println!("    HELD. The in-process hook reproduces the re-baselined whole-material value.");
+            println!("    HELD. The in-process hook reproduces the recorded like-for-like value.");
         } else {
-            println!("    FAILED as stated. What this does and does not mean:");
-            println!(
-                "      - At the reference build the hook and the switch were BIT-IDENTICAL on 8 of \
-                 8 seeds, so"
-            );
-            println!("        this is not a hook-versus-switch disagreement.");
-            println!(
-                "      - The switch cannot be run here (gh:#313 removed its reach), so the gap is a \
-                 BUILD shift"
-            );
-            println!(
-                "        in the quantity itself since {REFERENCE_BUILD}: compare the unablated-arm \
-                 line above."
-            );
-            println!(
-                "      - Cause not isolated; candidates: gh:#313 free-gas kT, 81ec018c3 URR/DBRC/\
-                 equiprobable"
-            );
-            println!("        S(a,b), gh:#1581 per-material S(a,b). Bisect before attributing.");
+            println!("    FAILED as stated. At 60f6bb261 the hook and the switch were BIT-IDENTICAL");
+            println!("    on 8 of 8 seeds, so this is not a hook-versus-switch disagreement; compare");
+            println!("    the unablated-arm line above and re-baseline only with a mechanism, as");
+            println!("    gh:#1636 did for resonance scattering.");
         }
     }
 
@@ -801,9 +837,43 @@ mod desktop {
     /// `k_moving` (+/- `k_moving_sem`) is this run's unablated mean, reported against the
     /// reference build's so a shifted baseline is visible.
     pub fn judge(quote: f64, qerr: f64, k_moving: f64, k_moving_sem: f64) -> Verdict {
-        let gap = quote - REFERENCE_PCM;
-        let err = (qerr * qerr + REFERENCE_ERR_PCM * REFERENCE_ERR_PCM).sqrt();
-        let shift = (k_moving - REFERENCE_K_MOVING) * 1.0e5;
+        judge_against(
+            REFERENCE_PCM,
+            REFERENCE_ERR_PCM,
+            REFERENCE_K_MOVING,
+            quote,
+            qerr,
+            k_moving,
+            k_moving_sem,
+        )
+    }
+
+    /// The default build's own record (gh:#1636, 2026-11-17): this driver, session
+    /// build, 8 seeds, resonance scattering on. Measured, with its mechanism
+    /// established by ablation (`REFERENCE_PCM` comes back when it is removed);
+    /// not tuned.
+    pub const SESSION_PCM: f64 = -153.0;
+    /// Paired seed-to-seed standard error of [`SESSION_PCM`].
+    pub const SESSION_ERR_PCM: f64 = 43.0;
+    /// k_MOVING of that run.
+    pub const SESSION_K_MOVING: f64 = 1.36307;
+    /// Commit the first measurement was taken on (gh:#1583), reproduced seed for
+    /// seed by the gh:#1636 step-0 determinism check.
+    pub const SESSION_BUILD: &str = "7b5dd858d";
+
+    /// [`judge`] against an explicit reference.
+    pub fn judge_against(
+        ref_pcm: f64,
+        ref_err: f64,
+        ref_k_moving: f64,
+        quote: f64,
+        qerr: f64,
+        k_moving: f64,
+        k_moving_sem: f64,
+    ) -> Verdict {
+        let gap = quote - ref_pcm;
+        let err = (qerr * qerr + ref_err * ref_err).sqrt();
+        let shift = (k_moving - ref_k_moving) * 1.0e5;
         Verdict {
             gap_pcm: gap,
             gap_sigma: gap.abs() / err,
@@ -815,6 +885,27 @@ mod desktop {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        /// gh:#1636: the default build holds against its own record; the
+        /// resonance-scattering-ablated measurement (-416 +/- 79 pcm) is within
+        /// 2 sigma of the 60f6bb261 record (-556 +/- 87), the default one is not.
+        #[test]
+        fn judge_against_session_and_ablated_records() {
+            let own = judge_against(
+                SESSION_PCM,
+                SESSION_ERR_PCM,
+                SESSION_K_MOVING,
+                SESSION_PCM,
+                43.0,
+                SESSION_K_MOVING,
+                0.0004,
+            );
+            assert!(own.held && own.gap_sigma < 1e-9);
+            let ablated = judge(-416.0, 79.0, 1.36570, 0.0006);
+            assert!(ablated.held && ablated.gap_sigma < 2.0, "{}", ablated.gap_sigma);
+            let default_vs_old = judge(SESSION_PCM, SESSION_ERR_PCM, SESSION_K_MOVING, 0.0004);
+            assert!(default_vs_old.gap_sigma > 2.0);
+        }
 
         /// The verdict logic is pinned on three cases: the reference itself
         /// holds; the stale -2242 does not; and the 2026-11-17 first

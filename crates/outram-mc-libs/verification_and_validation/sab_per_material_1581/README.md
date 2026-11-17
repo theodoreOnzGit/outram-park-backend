@@ -580,7 +580,10 @@ at-rest arm 1.36069 -> 1.36154 (+85 pcm). I have not bisected it. Candidates by
 the commit log between the two builds: gh:#313 (`0414bc827`, free-gas kT is the
 nuclide's data temperature), `81ec018c3` (URR band, DBRC, equiprobable S(a,b)
 sampling), `a7e650694` (DBRC rejection loop), gh:#1581 (per-material S(a,b)).
-Which of them, and whether the new value is the better physics, is open. The
+~~Which of them, and whether the new value is the better physics, is open.~~
+**CORRECTED 2026-11-17 (gh:#1636):** none of the four listed; the cause is the
+default-on resonance elastic scattering (`f8dbb4951`, method switched to RVS by
+`457d4ca97`), see "gh:#1636" below. The
 MOVING arm today (1.36307) also sits nearer OpenMC's 1.36479 +/- 0.00067 than the
 replay's 1.36625 does, so the shift is not obviously a regression.
 
@@ -838,3 +841,62 @@ of the driver's reference to the session-build value with the old one struck
 through. If 1 holds only in part, the residual is attributed to the remaining
 candidates (gh:#313, per-material S(a,b)) by building those commits, planned
 here before they run.
+
+#### gh:#1636: results (2026-11-17)
+
+Raw outputs: `ensembles_1636/step{0_default,1_scatter,4_moving,4_atrest}.out`;
+`ensembles_1636/analyse_1636.sh` recomputes everything (awk), its output is
+`ensembles_1636/analysis_1636.txt`. Binary: the session build at `26eab0e5e`'s
+parent tree plus the driver knobs (the example only), seeds 1-8, 4000 x [30 + 80].
+
+| arm (8 seeds) | k_MOVING mean, sd, sem | change vs default MOVING | z |
+|---|---|---|---|
+| step 0, default | 1.36307, 117, 41 pcm | 0 (reproduces `ensembles_1583` seed for seed, to the 5 printed digits on 8 of 8) | - |
+| step 1, `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1` | 1.36275, 62, 22 pcm | **-32 +/- 47 pcm** unpaired (paired -32 +/- 33) | 0.7 |
+| step 4, resonance scattering removed | 1.36570, 173, 61 pcm | **+263 +/- 74 pcm** unpaired (paired +263 +/- 84) | 3.6 |
+| AT-REST, default = AT-REST, resonance scattering removed | 1.36154, 141, 50 pcm | **bit-identical on 8 of 8 seeds** (5 printed digits against `ensembles_1583`; full precision in `step4_atrest.out`) | - |
+
+| worth (AT-REST - MOVING), 8 seeds | value | vs the -556 +/- 87 record (60f6bb261) |
+|---|---|---|
+| default build (resonance scattering on) | -153 +/- 43 pcm paired (sd 121); unpaired -153 +/- 65 | gap +403, 4.2 sigma: FAILS |
+| resonance scattering removed | **-416 +/- 79 pcm** unpaired (paired -416 +/- 80, sd 225; paired sd exceeds the arms', so quote unpaired) | gap +140, 1.2 sigma of (79, 87): **HOLDS, abs(z) <= 2** |
+
+**Against the predictions.**
+
+- Step 1 (+300 pcm, range +100 to +450): **refuted**, measured -32 +/- 47. The
+  scatter-kernel rewrite (gh:#1386) does not move this case; I had picked it as the
+  only listed change that acts at kT > 0 only, and that was the wrong candidate.
+- Steps 2 and 3 (null predictions): **not run**, step 4 explained the shift.
+- Step 4, three predictions written after steps 0-1 and before step 4:
+  (1) MOVING returns to 1.3663 (range 1.3650-1.3680): measured **1.36570**, inside
+  the range (the `60f6bb261` value 1.36625 is -55 +/- 68 pcm away, 0.8 sigma);
+  (2) AT-REST bit-identical per seed: **held, 8 of 8**; (3) worth inside
+  (-750, -362) pcm: **-416**, inside (centre predicted -480, within 0.8 sigma).
+  Accounted for: of the MOVING shift of -318 +/- 50 pcm, +263 +/- 74 is restored by
+  removing the table (83 %); the remaining -55 pcm is 0.8 sigma, not resolved.
+
+**Verdict.** The worth moved from -556 to -153 pcm because the session build
+**applies resonance elastic scattering by default** and `60f6bb261` did not. That
+is correct physics (CLAUDE.md "correct physics is the DEFAULT"; maintainer
+decision gh:#1311 on the RVS method), a default-on change, so the fix is a
+documented re-baseline, not a revert. It acts only at target kT > 0, which is why
+the MOVING arm carries the shift and the AT-REST arm is untouched. The old -556
+is the worth of a model without the effect (reproduced to 1.2 sigma when the
+effect is removed). The driver's reference was **not moved to fit**: the default
+build is judged against its own measured -153 +/- 43 (`SESSION_PCM`), and the
+ablated configuration against the unchanged -556 +/- 87. The effect itself is also
+the physically sensible sign: resonance up-scatter off U-238 widens its resonances
+and lowers k.
+
+**Not done / limits.** (a) The ablation removes DBRC-on and the RVS method
+together; building `f8dbb4951` and its parent, and `457d4ca97` and its parent, to
+split them was not done (about 5 min build plus 35 min per arm each; the
+mechanism is already resolved to within 1 sigma, so I stopped). (b) No
+commit-by-commit bisect of the remaining -55 pcm; it is 0.8 sigma. (c) Steps 2 and
+3 not run. (d) No new physics V&V against OpenMC: whether -153 is the better
+physics rests on the maintainer's RVS decision and
+`tests/dbrc_single_scatter_vs_openmc.rs`, not on this study. (e) Eight seeds per
+arm; AT-REST sem 50 pcm. Reviewed functions edited: none (an example only; no
+`src/` change). Hardware: Intel Xeon 2.10 GHz (KVM), 4 logical cores shared by two
+of my transport processes plus another agent's builds, 15.7 GiB, Linux 6.18, CPU
+only; per-seed wall times 390-440 s carry no cross-run meaning.
