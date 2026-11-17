@@ -161,9 +161,17 @@ fn run(
 ///
 /// | model | SCRAM mean | this port (100k) | gap | band (4 se) |
 /// |---|---|---|---|---|
-/// | `SmallTree/SmallTree` | 0.0256955 | 0.0249788 | 0.000717 | 0.002747 |
-/// | `BSCU/BSCU` | 0.119838 | 0.115172 | 0.004666 | 0.023138 |
+/// | `SmallTree/SmallTree` | 0.0256955 | ~~0.0249788~~ 0.0250438 | ~~0.000717~~ 0.000652 | 0.002747 |
+/// | `BSCU/BSCU` | 0.119838 | ~~0.115172~~ 0.114948 | ~~0.004666~~ 0.004890 | 0.023138 |
 /// | `models-for-this-port/deviates` | 1.97179e-07 | 2.07e-07 | 1.0e-08 | 4.6e-08 |
+///
+/// **CORRECTED 2026-11-17 (gh:#1611):** the struck numbers were drawn in the
+/// parameter map's `HashMap` order, which std seeds per process, so on
+/// `SmallTree` and `BSCU` (whose failure rates are deviate PARAMETERS) they
+/// were one run of many and could not be reproduced. Re-measured after the
+/// fix, which draws parameters in upstream's order; two separate processes
+/// now print identical numbers. `deviates` has no parameters and did not
+/// move. Each change is within this port's own Monte Carlo error.
 ///
 /// Every gap is well inside its band, and in each case it is **SCRAM's** 1000
 /// trials that set the band: its standard error is ten times this port's.
@@ -207,9 +215,12 @@ fn the_monte_carlo_mean_agrees_with_scrams_within_both_runs_error() {
 ///
 /// | model | SCRAM sigma | this port | gap | band |
 /// |---|---|---|---|---|
-/// | `SmallTree/SmallTree` | 0.0216128 | 0.0213543 | 0.000258 | 0.001943 |
-/// | `BSCU/BSCU` | 0.182027 | 0.180997 | 0.001030 | 0.032723 (skewed) |
+/// | `SmallTree/SmallTree` | 0.0216128 | ~~0.0213543~~ 0.0213953 | ~~0.000258~~ 0.000217 | 0.001943 |
+/// | `BSCU/BSCU` | 0.182027 | ~~0.180997~~ 0.180682 | ~~0.001030~~ 0.001345 | 0.032723 (skewed) |
 /// | `models-for-this-port/deviates` | 3.64046e-07 | 3.76e-07 | 1.2e-08 | 6.5e-08 (skewed) |
+///
+/// **CORRECTED 2026-11-17 (gh:#1611):** re-measured after the sampling-order
+/// fix, for the reason given on the mean test; now reproducible run to run.
 #[test]
 fn the_monte_carlo_spread_agrees_with_scrams() {
     const TRIALS: usize = 100_000;
@@ -461,7 +472,8 @@ fn the_statistics_are_upstreams_formulas() {
 /// quantiles (`0.1` to `0.9`) are checked; the extreme ones are not, because
 /// an order statistic in the tail of a 1000-sample run is itself very noisy.
 ///
-/// **Results** (2026-09-22): on `SmallTree`, all **17** interior quantiles
+/// **Results** (2026-09-22; re-run 2026-11-17 after gh:#1611, unchanged at
+/// this precision): on `SmallTree`, all **17** interior quantiles
 /// agree, the worst gap being **6.62 %** — which is about what two different
 /// estimators on two different streams, one of them online and approximate at
 /// 1000 samples, should manage.
@@ -548,4 +560,63 @@ fn a_model_with_no_deviate_is_refused() {
     .expect_err("one trial has no variance")
     .to_string();
     assert!(err.contains("at least 2 trials"), "{err}");
+}
+
+/// Runs `model` from a FRESH load, so its parameter map carries a fresh hash
+/// seed: std's `RandomState` gives every new map its own keys.
+fn samples_of_a_fresh_load(model: &str, trials: usize) -> Vec<u64> {
+    let model = MefModel::from_file(&model_path(model)).unwrap();
+    let tree = model.fault_tree(&model.top_gates()[0]).unwrap();
+    let expressions = model.basic_event_expressions(&tree).unwrap();
+    let diagram = Bdd::build(tree.tree()).unwrap();
+    analyse(
+        &tree,
+        &expressions,
+        &model.parameters,
+        model.mission_time,
+        UncertaintySettings {
+            trials,
+            seed: 1611,
+            ..Default::default()
+        },
+        |p| diagram.probability(p),
+    )
+    .unwrap()
+    .samples
+    .iter()
+    .map(|s| s.to_bits())
+    .collect()
+}
+
+/// **A fixed seed gives the same sample, whatever the parameter map's
+/// iteration order** (gh:#1611).
+///
+/// **Methodology.** BSCU's four failure rates are `<lognormal-deviate>`
+/// parameters, so they share one random stream and the ORDER in which they
+/// are drawn decides which parameter gets which number. Before the fix the
+/// order was the `HashMap`'s, which std seeds afresh for every map, so the
+/// same seed gave a different sample on every load. Upstream SCRAM draws a
+/// parameter lazily, the first time a deviate basic event's expression
+/// reaches it (basic events in index order, arguments depth first, one
+/// memoised draw per object per trial: `Expression::Sample`,
+/// `UncertaintyAnalysis::SampleExpressions`), and that order does not depend
+/// on any map. This loads the model eight times, each with its own map and
+/// hash seed, runs 200 trials from the same seed, and requires every run's
+/// samples to be bit-identical to the first's.
+///
+/// **Results** (2026-11-17): before the fix this test FAILED (the
+/// loads disagreed); after it, all eight loads give bit-identical samples
+/// for BSCU and for SmallTree.
+#[test]
+fn a_fixed_seed_gives_the_same_sample_whatever_the_map_order() {
+    for model in ["BSCU/BSCU", "SmallTree/SmallTree"] {
+        let first = samples_of_a_fresh_load(model, 200);
+        for load in 1..8 {
+            assert_eq!(
+                samples_of_a_fresh_load(model, 200),
+                first,
+                "{model}: load {load} drew a different sample from the same seed"
+            );
+        }
+    }
 }

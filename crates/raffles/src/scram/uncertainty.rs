@@ -41,7 +41,8 @@
 //!
 //! Upstream's `UncertaintyAnalysis::Analyze`, in three steps:
 //!
-//! 1. gather the basic events whose expression [`Expression::is_deviate`];
+//! 1. gather the basic events whose expression reaches a deviate
+//!    ([`Expression::is_deviate_through`], which follows parameter names);
 //! 2. per trial, `Reset()` and `Sample()` each of them, **clamping to
 //!    `[0, 1]`** — upstream's `prob > 1 ? 1 : prob < 0 ? 0 : prob`, which
 //!    matters because a normal deviate reaches outside the unit interval;
@@ -49,10 +50,19 @@
 //!
 //! **Parameters are sampled once per trial, not once per use.** Upstream
 //! memoises a draw per expression object per round, so a parameter feeding
-//! several basic events contributes the same draw to all of them. Here a
+//! several basic events contributes the same draw to all of them. ~~Here a
 //! parameter is a name in a table, so the table is sampled first and every
 //! event evaluated against it — the same thing by construction rather than by
-//! bookkeeping.
+//! bookkeeping.~~ **CORRECTED 2026-11-17 (gh:#1611):** sampling the table
+//! first was NOT the same thing. It drew the parameters in the table's
+//! `HashMap` order, which std seeds per process, so one shared stream gave
+//! each parameter a different draw on every run with the same seed; it also
+//! drew deviate parameters no event uses. Now a parameter is drawn the way
+//! upstream draws it: lazily, the first time a deviate event's expression
+//! reaches it, events in index order and arguments depth first, memoised for
+//! the rest of the trial ([`Expression::sample_memoised`]). A deviate's own
+//! arguments read their **value**, as upstream's `mean_.value()` does, not
+//! this trial's sample.
 //!
 //! # What this can and cannot be checked against
 //!
@@ -157,15 +167,20 @@ pub struct UncertaintyResult {
 /// as it is upstream: the BDD, inclusion-exclusion over cut sets, or an
 /// approximation. It is called once per trial, so its cost sets the run's.
 ///
-/// `parameters` are the model's parameter **expressions**, sampled once per
+/// `parameters` are the model's parameter **expressions**. ~~sampled once per
 /// trial before the basic events are — upstream's memoisation, by
-/// construction.
+/// construction.~~ **CORRECTED 2026-11-17 (gh:#1611):** each is drawn at most
+/// once per trial, lazily, when a deviate basic event first reaches it — the
+/// order upstream's memoised `Sample()` gives, which does not depend on the
+/// map's iteration order. A fixed `settings.seed` therefore gives the same
+/// samples on every run.
 ///
 /// # Errors
 ///
 /// [`RafflesError::InvalidParameter`] if `settings.trials` is below 2 (the
 /// variance correction divides by `n - 1`), if a sample or a quantification
-/// fails, or if the model has no deviate at all — a Monte Carlo over a
+/// fails, if a parameter does not resolve, or if no basic event reaches a
+/// deviate — a Monte Carlo over a
 /// deterministic model reports a spread of zero and is almost always a
 /// mistake, so it is refused rather than answered.
 pub fn analyse<Q>(
@@ -196,21 +211,24 @@ where
             expressions.len() as f64,
         ));
     }
+    // Every parameter at its value: what a deviate's own arguments read
+    // (upstream `mean_.value()`), and what a non-deviate event evaluates to.
+    // Resolving first also rejects a parameter cycle, which the recursion
+    // below relies on being absent.
+    let values = super::expression::resolve_parameter_values(parameters, mission_time)?;
+    // Upstream `GatherDeviateExpressions`: the basic events whose expression
+    // reaches a deviate, in index order. A reference to a deviate parameter
+    // counts, as upstream's `Parameter::IsDeviate` does.
     let deviate: Vec<usize> = expressions
         .iter()
         .enumerate()
-        .filter(|(_, e)| e.is_deviate())
+        .filter(|(_, e)| e.is_deviate_through(parameters))
         .map(|(i, _)| i)
         .collect();
-    let deviate_parameters: Vec<&String> = parameters
-        .iter()
-        .filter(|(_, e)| e.is_deviate())
-        .map(|(name, _)| name)
-        .collect();
-    if deviate.is_empty() && deviate_parameters.is_empty() {
+    if deviate.is_empty() {
         return Err(bad(
-            "no basic event and no parameter of this model is a random deviate, so every \
-             trial would draw the same numbers; there is no uncertainty to analyse",
+            "no basic event of this model reaches a random deviate, so every trial would \
+             draw the same numbers; there is no uncertainty to analyse",
             0.0,
         ));
     }
@@ -218,38 +236,26 @@ where
     let mut seed = settings.seed.wrapping_add(1);
     let mut samples = Vec::with_capacity(settings.trials);
     let mut probabilities = model.probabilities().to_vec();
-    for _ in 0..settings.trials {
-        // Parameters first: one draw per parameter per trial, shared by every
-        // event that names it. This IS upstream's per-object memoisation.
-        let mut round: Parameters = Parameters::new();
-        for _ in 0..parameters.len().max(1) {
-            let mut progressed = false;
-            for (name, expression) in parameters {
-                if round.contains_key(name) {
-                    continue;
-                }
-                if let Ok(v) = expression.sample(&round, mission_time, &mut seed) {
-                    round.insert(name.clone(), v);
-                    progressed = true;
-                }
-            }
-            if !progressed {
-                break;
-            }
+    // Upstream leaves the other events at their values for every trial.
+    for (i, expression) in expressions.iter().enumerate() {
+        if !deviate.contains(&i) {
+            probabilities[i] = expression.evaluate(&values, mission_time)?.clamp(0.0, 1.0);
         }
+    }
+    let mut round: Parameters = Parameters::new();
+    for _ in 0..settings.trials {
+        // Upstream `SampleExpressions`: `Reset()`, then `Sample()` each deviate
+        // event in index order. A parameter is drawn the first time an event
+        // reaches it and shared by every later reference: the order of draws
+        // comes from the expressions, never from the parameter map
+        // (gh:#1611; the map's iteration order is seeded per process).
+        round.clear();
         for &i in &deviate {
             // Upstream: `prob > 1 ? 1 : prob < 0 ? 0 : prob`. A normal deviate
             // reaches outside [0, 1] and this is what keeps it a probability.
             probabilities[i] = expressions[i]
-                .sample(&round, mission_time, &mut seed)?
+                .sample_memoised(parameters, &values, &mut round, mission_time, &mut seed)?
                 .clamp(0.0, 1.0);
-        }
-        // A non-deviate event whose expression names a sampled parameter also
-        // moves, so every event is re-evaluated against this trial's table.
-        for (i, expression) in expressions.iter().enumerate() {
-            if !deviate.contains(&i) {
-                probabilities[i] = expression.evaluate(&round, mission_time)?.clamp(0.0, 1.0);
-            }
         }
         samples.push(quantify(&probabilities)?);
     }

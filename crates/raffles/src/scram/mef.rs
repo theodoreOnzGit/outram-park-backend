@@ -810,34 +810,7 @@ impl MefModel {
     /// [`RafflesError::InvalidParameter`] naming the parameters that could not
     /// be resolved.
     pub fn resolved_parameters(&self) -> Result<Parameters> {
-        let mut resolved = Parameters::new();
-        for _ in 0..self.parameters.len().max(1) {
-            let mut progressed = false;
-            for (name, e) in &self.parameters {
-                if resolved.contains_key(name) {
-                    continue;
-                }
-                if let Ok(v) = e.evaluate(&resolved, self.mission_time) {
-                    resolved.insert(name.clone(), v);
-                    progressed = true;
-                }
-            }
-            if !progressed {
-                break;
-            }
-        }
-        if resolved.len() < self.parameters.len() {
-            let missing: Vec<&String> = self
-                .parameters
-                .keys()
-                .filter(|k| !resolved.contains_key(*k))
-                .collect();
-            return Err(invalid(format!(
-                "these parameters could not be resolved, which upstream would report as a \
-                 cycle: {missing:?}"
-            )));
-        }
-        Ok(resolved)
+        super::expression::resolve_parameter_values(&self.parameters, self.mission_time)
     }
 
     /// This model with its common-cause groups **dropped** — the explicit
