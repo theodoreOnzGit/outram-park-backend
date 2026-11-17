@@ -117,6 +117,9 @@ pub struct TrackingResult {
     pub records: Vec<RefreshRecord>,
     /// Transport (spectrum) calls made.
     pub transport_calls: usize,
+    /// `(step, chain)` for every chain used: the initial one at step 0,
+    /// then each regenerated one at the step it took effect.
+    pub chains: Vec<(usize, DepletionChain)>,
 }
 
 impl TrackingResult {
@@ -135,7 +138,7 @@ pub fn deplete_tracking(
     tolerance: f64,
     spectrum: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
 ) -> TrackingResult {
-    run_tracking(chain, initial, settings, tolerance, None, spectrum).expect("no transfer rates: nothing can fail")
+    run_tracking(chain, initial, settings, tolerance, None, spectrum, no_regeneration).expect("no transfer rates: nothing can fail")
 }
 
 /// The with-removal and without-removal histories from one starting state
@@ -166,9 +169,36 @@ pub fn deplete_tracking_pair(
     spectrum_without: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
 ) -> Result<RemovalPair, String> {
     Ok(RemovalPair {
-        with_removal: run_tracking(chain, initial, settings, tolerance, Some(removal), spectrum_with)?,
-        without_removal: run_tracking(chain, initial, settings, tolerance, None, spectrum_without)?,
+        with_removal: run_tracking(chain, initial, settings, tolerance, Some(removal), spectrum_with, no_regeneration)?,
+        without_removal: run_tracking(chain, initial, settings, tolerance, None, spectrum_without, no_regeneration)?,
     })
+}
+
+fn no_regeneration(_: &[f64], _: &[f64]) -> Result<Option<DepletionChain>, String> {
+    Ok(None)
+}
+
+/// [`deplete_tracking`] that also **regenerates the chain** at every
+/// adopted refresh (#1630: "start a new segment with a regenerated chain").
+/// `regenerate(group_edges, group_flux)` returns the chain for the new
+/// spectrum (for example branching ratios from
+/// `njoy_outram_park_fork::isomeric_branching::apply_to_chain` and
+/// `DepletionChain::from_chain_xml`), or `None` to keep the current one.
+/// The chain at beginning of life is `chain`; a regenerated chain must list
+/// the same nuclides in the same order, since the inventory vector is
+/// carried across. [`TrackingResult::chains`] records every chain used.
+///
+/// # Errors
+/// A regenerated chain with a different nuclide list, or `regenerate`'s own.
+pub fn deplete_tracking_regenerating(
+    chain: &DepletionChain,
+    initial: &[(String, f64)],
+    settings: &BurnupSettings,
+    tolerance: f64,
+    spectrum: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
+    regenerate: impl FnMut(&[f64], &[f64]) -> Result<Option<DepletionChain>, String>,
+) -> Result<TrackingResult, String> {
+    run_tracking(chain, initial, settings, tolerance, None, spectrum, regenerate)
 }
 
 fn run_tracking(
@@ -178,8 +208,14 @@ fn run_tracking(
     tolerance: f64,
     transfer: Option<&TransferRates>,
     mut spectrum: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
+    mut regenerate: impl FnMut(&[f64], &[f64]) -> Result<Option<DepletionChain>, String>,
 ) -> Result<TrackingResult, String> {
-    let names: Vec<&str> = chain.nuclide_names();
+    let base = chain;
+    let mut current = base.clone();
+    let mut chains: Vec<(usize, DepletionChain)> = vec![(0, base.clone())];
+    let chain = &mut current;
+    let names_owned: Vec<String> = chain.nuclide_names().iter().map(|n| (*n).to_owned()).collect();
+    let names: Vec<&str> = names_owned.iter().map(String::as_str).collect();
     let mut densities = vec![0.0_f64; names.len()];
     for (name, dens) in initial {
         if let Some(idx) = chain.index_of(name) {
@@ -215,12 +251,21 @@ fn run_tracking(
         if step > 1 {
             transport_calls += 1;
             if let Some((e, phi)) = spectrum(&inventory(&densities)) {
-                let fresh = one_group_cross_sections(chain, &with_spectrum(e, phi));
+                let fresh = one_group_cross_sections(chain, &with_spectrum(e.clone(), phi.clone()));
                 let criterion = refresh_criterion(&names, &densities, &xs, &fresh, settings);
                 let refreshed = criterion.value > tolerance;
                 records.push(RefreshRecord { step, criterion, refreshed, k_inf_frozen: k_inf(&densities, &xs) });
                 if refreshed {
-                    xs = fresh;
+                    if let Some(new_chain) = regenerate(&e, &phi)? {
+                        if new_chain.nuclide_names() != names {
+                            return Err(format!("step {step}: the regenerated chain lists different nuclides"));
+                        }
+                        *chain = new_chain;
+                        chains.push((step, chain.clone()));
+                        xs = one_group_cross_sections(chain, &with_spectrum(e, phi));
+                    } else {
+                        xs = fresh;
+                    }
                 }
             }
         }
@@ -230,7 +275,6 @@ fn run_tracking(
         densities = match transfer {
             None => cram16(&matrix, &densities, dt_seconds),
             Some(tr) => {
-                let names_owned: Vec<String> = names.iter().map(|n| (*n).to_owned()).collect();
                 deplete_with_external_rates(cram16, &names_owned, vec![matrix], vec![densities], dt_seconds, step - 1, Some(tr), None)?
                     .pop()
                     .ok_or("no material returned")?
@@ -243,7 +287,7 @@ fn run_tracking(
         }
         steps.push(record(step, step as f64 * settings.step_days, flux, &densities, &xs));
     }
-    Ok(TrackingResult { result: BurnupResult { steps }, records, transport_calls })
+    Ok(TrackingResult { result: BurnupResult { steps }, records, transport_calls, chains })
 }
 
 #[cfg(test)]

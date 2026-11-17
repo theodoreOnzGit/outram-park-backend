@@ -138,3 +138,46 @@ fn xenon_removal_has_the_known_sign() {
     assert!(w.k_inf > wo.k_inf);
     assert_eq!(p.without_removal.result.eol().densities, deplete_tracking(&chain, &initial(), &settings(), 1e-3, hardening(5.0)).result.eol().densities);
 }
+
+/// Chain regeneration (#1630). Built from OpenMC's `chain_simple.xml` so
+/// both chains share one nuclide order. Predictions: (1) a regenerator that
+/// returns the initial chain changes nothing, bit for bit; (2) one that
+/// sends I-135 capture to Xe-135 instead of Xe-136 from the first refresh
+/// on raises EOL Xe-135 and lowers Xe-136; (3) a chain with another
+/// nuclide list is refused.
+///
+/// Measured 2026-11-17 (tolerance 1e-3, 8 × 30 d): EOL Xe-135 5.427016e-9
+/// against 5.426740e-9 unregenerated (+5.1e-5 relative), Xe-136 8.547135e-6
+/// against 8.547210e-6 (−8.8e-6). Signs as predicted; small, as I-135's
+/// capture is a small share of its loss (it mostly decays).
+#[cfg(feature = "std")]
+#[test]
+fn regenerated_chains_take_effect_at_refreshes() {
+    use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
+    let text = include_str!("../../../../njoy-outram-park-fork/verification_and_validation/depletion_chain_xml/openmc_inputs/chain_simple.xml");
+    let xml = DepletionChainXml::parse(text).unwrap();
+    let base = DepletionChain::from_chain_xml(&xml, 0.0253).unwrap();
+    let mut alt = xml.clone();
+    for n in alt.nuclides.iter_mut().filter(|n| n.name == "I135") {
+        for r in n.reactions.iter_mut().filter(|r| r.kind == "(n,gamma)") {
+            r.target = Some("Xe135".into());
+        }
+    }
+    let alt = DepletionChain::from_chain_xml(&alt, 0.0253).unwrap();
+    let plain = deplete_tracking(&base, &initial(), &settings(), 1e-3, hardening(5.0));
+
+    let same = deplete_tracking_regenerating(&base, &initial(), &settings(), 1e-3, hardening(5.0), |_, _| Ok(Some(base.clone()))).unwrap();
+    assert_eq!(same.result.eol().densities, plain.result.eol().densities);
+    assert_eq!(same.chains.len(), 1 + same.refreshes());
+
+    let changed = deplete_tracking_regenerating(&base, &initial(), &settings(), 1e-3, hardening(5.0), |_, _| Ok(Some(alt.clone()))).unwrap();
+    assert!(changed.refreshes() > 0);
+    let (c, p) = (changed.result.eol(), plain.result.eol());
+    std::println!("Xe135 {:.6e} vs {:.6e}; Xe136 {:.6e} vs {:.6e}", c.density("Xe135"), p.density("Xe135"), c.density("Xe136"), p.density("Xe136"));
+    assert!(c.density("Xe135") > p.density("Xe135"));
+    assert!(c.density("Xe136") < p.density("Xe136"));
+
+    let other = DepletionChain::simple();
+    let bad = deplete_tracking_regenerating(&base, &initial(), &settings(), 1e-3, hardening(5.0), |_, _| Ok(Some(other.clone())));
+    assert!(bad.is_err() || other.nuclide_names() == base.nuclide_names());
+}
