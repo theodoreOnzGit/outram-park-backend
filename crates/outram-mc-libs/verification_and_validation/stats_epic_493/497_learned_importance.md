@@ -657,7 +657,9 @@ the nearest is run B MAGIC 0-400 cm at z = +1.96.
 #### Timing caveat (read before quoting any FOM)
 
 Seconds per arm (5 seeds): A: analog 267, MAGIC 1478, learned 1068, source-bias
-129, learned+sb 801; B: 258, 1456, 1084, 130, 806. **Source-bias-only ran the
+129, learned+sb 801; B: 258, 1456, 1084, 130, 806. ~~**Source-bias-only ran the
+same 40 000 analog histories per seed as the analog arm in about half the
+time, in both replicates.**~~ **CORRECTED 2026-11-17 (gh:#1619): it was load drift, see the #1619 section below.** Original text, superseded for the source-bias arm: **Source-bias-only ran the
 same 40 000 analog histories per seed as the analog arm in about half the
 time, in both replicates.** Biased births cannot halve an analog history's
 cost (the transport and weights are analog), so this is either load drift
@@ -692,4 +694,113 @@ comparable.
 
 **Not tested.** More than N = 5 seeds; a quiet machine; the discrete-energy
 bias in transport (unit-tested only); a source whose importance varies by 10x
-or more across its extent; the cause of the source-bias-only speed difference.
+or more across its extent; ~~the cause of the source-bias-only speed difference~~ **CORRECTED 2026-11-17 (gh:#1619): measured, it was load drift, see the #1619 section.**
+
+## #1619: is the source-bias-only arm's ~2x speed a source-path cost? (2026-11-17)
+
+### What was read (before any run)
+
+- `FixedSource::Box` (`src/physics/fixed_source.rs`, `sample`): one
+  `isotropic_direction` draw, then three `prn`, a few flops.
+- `FixedSource::Independent` -> `IndependentSource::sample`
+  (`src/source/source.rs`): spatial draw (`SpatialBox`: three `prn`; `Cells`:
+  one `DiscreteIndex::sample` (a table lookup) plus three `prn`), energy (no
+  draw for `Monoenergetic`), angle (`isotropic_direction`), then `strength *
+  wr * we`. Same number of draws, plus one table lookup for `Cells`.
+- Both go through the same `transport_history_vr_urr` call in
+  `run_fixed_source_traced`; only the birth weight argument differs
+  (`birth_weight` is 1.0 for `Box`). Nothing in the loop branches on the
+  source variant, and the geometry start cell is located inside
+  `transport_history_vr_urr` from the birth position for both.
+- So the code path difference is tens of nanoseconds per history against
+  about a millisecond of transport.
+
+### Prediction (written 2026-11-17 BEFORE any run)
+
+1. **Path cost: none.** Per-history cost of (b) `Independent`/`SpatialBox` and
+   (b2) `Independent`/`Cells` (unbiased) equals (a) `Box` to within the
+   run-to-run noise: paired cost ratio **1.00 +- 0.03**. The headline-band flux
+   and the total flux per source particle of (a), (b) and (b2) agree within
+   their seed sigma (they sample the same distribution; the draw order differs,
+   so not bit-identical). Every arm transports exactly N histories (no fissile
+   material).
+2. **The 2x is load drift.** The analog arm ran first at load 15-19, and the
+   source-bias arm later on a lighter box.
+3. **But (c), the learned bias, is not the same physical source**, so its cost
+   per history can differ for a real reason: births are moved towards
+   high-importance cells (importance `1/lower` grows away from the source
+   centre, birth weights 0.60-1.97). Births nearer the room walls reach
+   concrete sooner. Predicted paired cost (c)/(a) **0.8-1.0, point 0.9**: a
+   modest real effect, **not 0.5**.
+4. Verdict I expect: load drift explains the factor 2; at most a 10 % real cost
+   effect of the birth redistribution; no defect in the source path. If (b) or
+   (b2) is faster than (a) by more than 5 % that contradicts (1) and a start
+   cell, a track length or a source-region difference is investigated.
+
+### Results (measured 2026-11-17, gh:#1619)
+
+**Hardware.** Intel Xeon @ 2.10 GHz (cloud container), 4 logical cores, 15 GB
+RAM, Linux 6.18.44, CPU only; each run single-threaded. The box was shared
+with another agent's builds: load average 1.3-2.9 during the runs (the
+#1615 runs had 15-19). **Test:** `shielded_room_source_path_timing`
+(`tests/openmc_notebooks/shielded_room_weight_window.rs`, `--ignored`), run as
+`OUTRAM_T1619_N=60000 OUTRAM_T1619_REPEATS=6`. Analog transport in every arm,
+60 000 histories per run (about 38 s), same seed per repeat index across arms,
+arm order alternated (a,b,b2,c then c,b2,b,a, ...), one warm-up run, 943 s in
+all. Arms: (a) `FixedSource::Box`; (b) the same box as an unbiased
+`Independent` source (`SpatialBox`, weight 1); (b2) the same box as an
+unbiased `SpatialDistribution::Cells` (56 equal cells, uniform strengths);
+(c) `with_learned_source_bias` (56 cells, weights 0.60-1.97, relative variance
+0.074).
+
+| arm | cost per history, ms (mean, sd over 6) | paired cost / (a), mean (sem) | headline flux per source particle (mean +- sem) | total flux per source particle |
+|---|---|---|---|---|
+| a `Box` | 0.654 (0.035) | 1 | 4.708 +- 0.130 | 1692.6 +- 3.5 |
+| b `Independent`/`SpatialBox` | 0.630 (0.012) | 0.965 (0.016) | 4.709 +- 0.127 | 1693.8 +- 2.8 |
+| b2 `Independent`/`Cells`, unbiased | 0.630 (0.029) | 0.967 (0.032) | 4.948 +- 0.105 | 1693.2 +- 2.7 |
+| c learned bias | 0.646 (0.044) | 0.989 (0.030) | 4.729 +- 0.085 | 1692.7 +- 3.8 |
+
+Every run transported exactly 60 000 histories (no fissile material).
+Headline (900-1450 cm) a vs b: z = 0.00; a vs b2: z = +1.4; a vs c: z = +0.13.
+
+**Verdict: load drift. There is no source-path cost.** The four arms cost the
+same per history to within 3.5 %, and the paired differences are 0.4 to 2.2
+standard errors of the mean from 1, the b arm's 0.965 (2.2 sem) being the
+largest. If that 3.5 % is real it is far from the factor 2 seen in #1615, so I
+do not chase it. (a) and (b) have the same mean total flux per particle (track
+length) and headline flux, so they transport the same particles: no different
+start cell, no skipped locate, no different source region, no tally bias. The
+cost per history here, 0.65 ms, times the #1615 200 000 histories per arm is
+131 s, which is the 129 s and 130 s the source-bias arm took in #1615. **The
+source-bias arm was the correctly timed one; the analog arm's 267 s and 258 s
+were inflated about 2x by load (15-19, analog ran first).** The learned bias
+itself (c) is not cheaper per history (0.989 +- 0.030).
+
+**Corrected numbers.** (1) Per-history cost, source-bias-only against analog:
+**0.99 +- 0.03**, not 0.5. (2) Source-bias-only FOM ratio against analog at
+equal per-history cost, headline band, from the #1615 seed sigmas (FOM ratio =
+variance ratio / cost ratio): ~~A 33.4~~ **about 17.8** (sigma 0.0965 vs 0.0230),
+~~B 1.69~~ **about 0.83** (sigma 0.164 vs 0.181). Each is still about +-100 %
+at N = 5, and A and B differ by a factor 20, so **neither shows a resolved
+gain**; quote neither. A FOM ratio is only valid when both times come from
+paired, alternating runs on one box. **Not re-timed here:** the
+variance-reduced arms (MAGIC, learned, learned+sb), so the "learned+sb 25 %
+cheaper than learned" observation is **not explained by this measurement**:
+this run covers analog transport only. It is probably the same drift (learned
+ran before learned+sb under a falling load), but that is a reading, not a
+finding, and the learned+sb / learned FOM ratios (1.60, 2.37) stay unquotable
+until those arms are re-timed in alternating order.
+
+#### Against the prediction (written before the run)
+
+| prediction | measured | verdict |
+|---|---|---|
+| (b), (b2) cost per history = (a) within 3 %, same tally physics, equal history count | 0.965 +- 0.016 and 0.967 +- 0.032; headline z 0.00 and +1.4; histories equal | hit, (b) at the edge of the 3 % band |
+| the 2x is load drift | the source-bias arm's 130 s = 200 000 x 0.65 ms | hit |
+| (c)/(a) 0.8-1.0, point 0.9 | 0.989 +- 0.030 | inside the range at its top: no birth-location effect is resolved, my point estimate (0.9) was too low |
+| no defect in the source path | none found; no source code changed | hit |
+
+**Code changed:** the new `#[ignore]` test only (`shielded_room_source_path_timing`
+and two helpers in the same test file). No kovan-reviewed function was edited,
+no `review.md` touched. **Not tested:** the VR arms' timing (above); fission
+(the room has none); the `Surface` source.
