@@ -1390,3 +1390,36 @@ patched OLD binary, needing roughly 3+ GB of target space or the shared
 `target-njoy` with the maintainer's go-ahead) to see whether one or two seeds
 carry the +283, then OLD seeds 25-40 to see whether tail blocks like this recur
 in OLD. Nothing in the transport was changed and nothing was tuned.
+
+### gh:#1644: OLD per-seed ablated values, seeds 9-16 (2026-11-17)
+
+Built after the maintainer approved building the print-patched OLD tree
+(`d1e20f188` + the per-seed print of `e606c312d`, not committed) into the shared
+target dir. Same command as `ensembles_1644/run.sh` (`--seed 9 --seeds 8`).
+Raw: `ensembles_1644/old_patched_9-16.out`.
+
+**The patch is print-only, checked:** the block summary is again
+`ENDF ablated 1.00441 +/- 0.00046`, and the eight per-seed ENDF/ACE lines are
+identical to `old_unpatched_9-16.out`.
+
+| seed | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
+|---|---|---|---|---|---|---|---|---|
+| OLD ablated k | 1.00445 | 1.00567 | 1.00233 | 1.00458 | 1.00465 | 1.00320 | 1.00392 | 1.00646 |
+
+**No single seed carries the block.** The lowest seed (11, 1.00233) is still
+above OLD's 1-8 block mean (1.00159). Dropping any one seed leaves the block
++252 to +311 pcm above that mean. The within-block sd is 130 pcm, the same as
+NEW's 145 pcm. So the whole block is shifted together, with ordinary scatter
+around a mean about 280 pcm high.
+
+**What this means.** The prediction "one seed carries at most half the jump"
+holds trivially: no seed carries a large share. The result rules out an outlier
+seed and leaves two readings:
+- a ~4.5 sigma chance fluctuation of eight independent seeds all landing high;
+- something correlating the OLD ablated arm across seeds 9-16 in this one
+  process, which seeds 1-8 and 17-24 in their own processes do not show.
+
+These cannot be told apart without reading how OLD's ablated arm derives its
+per-seed stream, which has NOT been done here. The verdict is unchanged: not a
+physics shift between builds (absent at seeds 17-24 in both builds and in all 24
+NEW seeds), and still unexplained.
