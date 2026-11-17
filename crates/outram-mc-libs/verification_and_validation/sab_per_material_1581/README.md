@@ -82,9 +82,92 @@ All three sit inside 2 sigma of the pair, so each is consistent with a
 re-draw, but the largest is 1.7 sigma on one seed and the boron-ablation
 deltas printed in the file's "vs natural" column moved (-422 -> +483 pcm and
 +623 -> +2330 pcm). Those deltas are single-seed noise at 300 histories (the
-file itself says a difference under about 2 sigma is not resolved); an
-8-seed ensemble was not run (data load 463 s per process on shared cores).
-Flagged for the maintainer rather than hidden.
+file itself says a difference under about 2 sigma is not resolved); ~~an
+8-seed ensemble was not run (data load 463 s per process on shared cores)~~
+**CORRECTED 2026-11-15 (gh:#1583):** a 24-seed ensemble of old and new was
+run, see the next section. Flagged for the maintainer rather than hidden.
+
+### HTR-10 pebble ensemble, old vs migrated (gh:#1583)
+
+**Question.** Are the single-seed moves above (-57, +848, +1650 pcm; boron
+deltas -422 -> +483 and +623 -> +2330 pcm) only a URR random-stream re-draw
+(the nuclide array got longer), or a physics change?
+
+**Method.** `examples/htr10_pebble_delta_tracking.rs` with
+`OUTRAM_HTR10_SEEDS=24 OUTRAM_HTR10_HISTORIES=300` (new in #1583; seed loop
+outer; master seeds 1..24; the example's own settings, 300 x [20 inactive + 60
+active], 300.15 K, delta tracking over the explicit packing, ENDF/B-VIII.0 +
+crystalline-graphite and SiC S(a,b)). `BoronReading::all()` is **five** arms;
+the single-seed table above showed three. ONE process per build, so the ENDF
+load was paid once (505 s old, 512 s new, both running at once). **OLD** =
+`d1e20f188` (develop before #1581) in a separate worktree; **NEW** =
+`f26d6b1a5` (develop with #1581). Both carry the same seed-loop patch to the
+example; nothing else differs in data or settings. Each seed's `k` is that
+run's own estimate; the ensemble mean is the mean of 24 seed values, sem =
+sd/sqrt(24), the difference has sigma = sqrt(sem_old^2 + sem_new^2). Seed 1
+of the old and new builds reproduces the single-seed values of the section
+above to every printed digit (natural-B atom ppm 1.68547 old, 1.68490 new), a
+check that the harness is the same program.
+
+**Prediction (written on #1583 before any run).** Every arm's new-minus-old
+difference consistent with zero, |z| <= 2 on all and |z| <= 1 on at least two;
+same for the boron-ablation deltas; resolution about +-500-650 pcm at N = 8
+(about +-200 at N = 24, as it turned out: the seed sd was 450-830 pcm, below
+the 1100 pcm used for that estimate).
+
+| arm | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| natural B, atom ppm (as specified) | 1.68887 (829 pcm) | 1.68681 (589) | -206 +- 208 pcm | -0.99 |
+| natural B, weight ppm (ablation) | 1.68556 (668) | 1.68667 (565) | +111 +- 179 | +0.62 |
+| no boron at all | 1.69824 (676) | 1.70078 (561) | +254 +- 179 | +1.41 |
+| graphite boron only | 1.68832 (741) | 1.68796 (452) | -36 +- 177 | -0.20 |
+| ppm read as elemental B-10 | 1.64348 (669) | 1.64516 (725) | +168 +- 201 | +0.84 |
+
+sem per arm, old / new (pcm): 169/120, 136/115, 138/114, 151/92, 136/148. The
+paired same-seed difference gives the same means (the two builds' URR streams
+differ, so seeds are not expected to correlate).
+
+Boron-ablation deltas (arm minus natural-atom-ppm arm; difference of arm
+means over the 24 seeds):
+
+| delta | old +- sem | new +- sem | new - old +- sigma | z |
+|---|---|---|---|---|
+| weight ppm - natural | -331 +- 230 | -13 +- 130 | +318 +- 264 | +1.20 |
+| no boron - natural | +938 +- 186 | +1397 +- 167 | +460 +- 250 | +1.84 |
+| graphite boron only - natural | -55 +- 190 | +115 +- 152 | +170 +- 244 | +0.70 |
+| elemental-B-10 misread - natural | -4539 +- 222 | -4165 +- 201 | +375 +- 300 | +1.25 |
+
+**Verdict.** The prediction held. All nine comparisons are inside |z| <= 2, so
+the data are consistent with a pure URR re-draw. Four of the five arm
+differences are also inside |z| <= 1 (the exception is no-boron at +1.41);
+the largest delta is +1.84. Read with care:
+
+1. This is a **null at about +-200 pcm per arm and +-250-300 pcm on a delta,
+   not a proof of zero.** A physics shift under about 400-500 pcm (2 sigma)
+   would not be seen.
+2. Nine correlated comparisons were made; a largest |z| of 1.84 among them is
+   not unusual under a zero true difference. But the three largest z (+1.84,
+   +1.41, +1.25) all point the same way (new above old) and the five arm
+   differences average +66 pcm. That pattern was not in the prediction and was
+   not tested; it is recorded, not explained.
+3. The new ensemble's seed sd (452-725 pcm) is below the old's (668-829) on
+   four of five arms. No cause is claimed and no test was made.
+4. The single-seed headline moves (+1650 pcm; +2330 pcm delta) were draws of
+   populations with sd 450-830 pcm. For this model at 300 histories, quote
+   the 24-seed mean (natural-B atom ppm `1.6868 +- 0.0012`, new), not any
+   single seed. The 2026-09-16 6000-history table in the example's doc comment
+   was not re-measured and is not comparable to these settings.
+
+**Hardware.** Intel Xeon (cloud container), 4 logical cores, 15 GiB RAM, Linux
+6.18, CPU only. The old and new ensembles ran concurrently on one container
+(a rayon pool per process, shared cores), so per-call times (60-87 s) carry no
+cross-run meaning and are not tabulated. `lscpu` read `@ 2.80GHz` when the
+runs started and `@ 2.10GHz` after a later container restart, so the clock at
+run time is uncertain; both strings are recorded as read.
+
+**Raw outputs and script:** `htr10_pebble_ensemble_1583/`
+(`ens_old_d1e20f188.out`, `ens_new_f26d6b1a5.out`, `analyse.py`;
+`python3 -I analyse.py <old> <new>` reproduces every number here).
 
 ### Not re-measured after the #1581 migration
 
