@@ -19,7 +19,6 @@
 //!   (`outram-mc-libs/docs/profiling/speed_tiers_2026_09_27.md`).~~
 //!   **CORRECTED 2026-10-16** (maintainer, gh:#876 item 3): NJOY's 0.001,
 //!   as every demo.
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581; read only, not run): SAFE, not migrated. Same loader contract as `common/ugraphite_common.rs`: densities are indexed by nuclide-array position. Not run here (browser demo).
 
 use crate::tapes::read_tape;
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -49,17 +48,18 @@ pub const JOBS: [(&str, &str); 6] = [
 ];
 
 /// Index of U-235 in the nuclide list (for the Watch mode's birth spectrum).
-pub const N_U235: usize = 1;
-/// Index of U-238 and of C-12 (the σ(E) panel, gh:#549).
-pub const N_U238: usize = 2;
-pub const N_C12: usize = 3;
-/// Indices of the carbons, which carry the graphite law.
-const N_CARBON: std::ops::Range<usize> = 3..5;
+pub const N_U235: usize = vv::Role::U235.tape_index();
+/// Index of U-238 (the σ(E) panel, gh:#549). The uranium slots do not move
+/// when the graphite law is bound; the carbon's do, see [`DataBuilder::finish`]
+/// and `vv::RoleIndex`.
+pub const N_U238: usize = vv::Role::U238.tape_index();
 
 /// Incremental processing, one job per call, as `load_nuclides` in
 /// `examples/common/ugraphite_common.rs` does from files: RECONR + BROADR to
-/// 296 K, URR and DBRC by the constructor's defaults, and the graphite law on
-/// C-12 and C-13.
+/// 296 K, URR and DBRC by the constructor's defaults, and the graphite law
+/// given per material to the carbon of the materials that hold it
+/// (`vv::bind_graphite`, GitHub #462 and #1635 item 3). Compile-checked only
+/// here: a browser demo, not run.
 pub struct DataBuilder {
     tier: SpeedTier,
     nuclides: Vec<Nuclide>,
@@ -90,15 +90,17 @@ impl DataBuilder {
             Ok(crate::rungs::Product::Law(store.thermal(bytes, &tape, mat, TEMPERATURE_K, "c_Graphite", label)?))
         }
     }
-    /// The five nuclides in [`vv::TAPES`] order, graphite law on the carbons.
-    pub fn finish(mut self) -> Result<Vec<Nuclide>, String> {
-        let sab = self.sab.take().ok_or("the graphite S(a,b) job was not done")?;
+    /// The five free nuclides in [`vv::TAPES`] order with bound carbon copies
+    /// appended, and `materials` repointed at them: the graphite law goes to
+    /// the carbon of every material in `materials` that holds carbon. The
+    /// returned [`vv::RoleIndex`] says where each role sits afterwards (the
+    /// C-12 the σ(E) panel draws is the bound copy, not slot 3).
+    pub fn finish(self, materials: &[Material]) -> Result<vv::GraphiteBinding, String> {
+        let sab = self.sab.as_ref().ok_or("the graphite S(a,b) job was not done")?;
         if self.nuclides.len() != vv::TAPES.len() {
             return Err(format!("{} of {} nuclides done", self.nuclides.len(), vv::TAPES.len()));
         }
-        let carbons: Vec<Nuclide> = self.nuclides.drain(N_CARBON).map(|n| n.with_thermal_scattering(sab.clone())).collect();
-        self.nuclides.extend(carbons);
-        Ok(self.nuclides)
+        vv::bind_graphite(materials, &self.nuclides, Some(sab))
     }
 }
 
