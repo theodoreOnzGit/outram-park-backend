@@ -1240,3 +1240,55 @@ laws unbound).
 Raw: `ensembles_1635/nee_soon_dvm_{old,new}_konly_*.out` (the OLD pilot without
 `OUTRAM_PARK_ENDF_DIR` printed SKIP and is not counted or kept); statistics:
 `ensembles_1635/dvm_stats.sh`. Test: `tests::materials_cover_every_core_slot`.
+
+## gh:#1635 item 3: the four loader files (ugraphite, dhshort, htr10) (2026-11-17): prediction
+
+**Written before any run of a migrated binary.** The four files below each
+attached the graphite law to carbon slots with the deprecated
+`Nuclide::with_thermal_scattering`. They migrate to per-material binding
+(`assign_material_sab`), after which the carbon slots stay free and bound
+copies are appended to the nuclide array.
+
+- `examples/common/ugraphite_common.rs` (native, runnable) and
+  `dhoby-ghaut/examples/monte_carlo_web/ugraphite/model.rs` (browser): the
+  five-nuclide table `[U234, U235, U238, C12, C13]` was indexed by position by
+  `Mix::densities()`, `run_case`'s thermal fold and `energy_only_slowing_down`.
+  The new code keys those densities by **role** (`vv::ugraphite::Role`,
+  `RoleIndex`), looks the bound carbon up through the assembled materials, and
+  builds the per-nuclide density vector from the roles. Array: 5 -> 7 entries.
+- `dhshort/data.rs` and `htr10/model.rs` (browser-only): compile-checked only, not
+  run (no browser here). dhshort already carried a free C-12 at slot 3 and a
+  bound copy at slot 4; its migration builds the bound copy by
+  `assign_material_sab` on the materials of `dhshort/model.rs`. htr10's
+  `FuelZone::new` is given the free table and binds both arms' carbon.
+
+Predictions for what I can run natively (`ugraphite_four_factor` main case and
+sweep point, `lumped_ugraphite_kinf` one radius), each falsifiable:
+
+1. **Input-derived output is bit-identical**: the `settings:` line, the
+   inventory line, `N [atoms/b-cm]`, the cell-average `N_C/N_U`, the lump and
+   cell radii, `uranium volume fraction`. These do not touch transport.
+2. **With `GRAPHITE_SAB=0` (the existing explicit ablation) every k, factor and
+   energy-only number is bit-identical** before and after: no law is bound, so
+   the array stays 5 free nuclides and the materials do not change. This is the
+   control: if it moves, the refactor changed something other than the binding.
+3. **With the law on, k_inf, the factors and the energy-only `p` are NOT
+   expected to be bit-identical, only equal within statistics.** The array grows
+   5 -> 7 and U-235 / U-238 carry unresolved-resonance tables, whose stream is
+   advanced by the array length per energy change, so histories re-draw. The
+   gate for each of k, eta, f, p, epsilon (main case) and k (lumped, r = 0.3 cm)
+   is |z| <= 2 on the difference of seed-ensemble means, 6 seeds per arm, `z =
+   (mean_new - mean_old) / sqrt(sem_old^2 + sem_new^2)` with `sem = sd/sqrt(n)`.
+   Predicted difference: 0 (the same atoms, same law, same data), with the
+   usual ~5 % chance per quantity of a 2 sigma miss. Misses are reported, not
+   tuned.
+4. **The fold check** `fold(Sigma_a,tot)/tally` should stay near 1 within the
+   binning error of the old output (the old value is the reference, not 1.0).
+   If it moves materially, the role-keyed density vector is wrong (a density
+   attached to the free carbon instead of the bound copy would show here and in
+   the energy-only `p`).
+5. dhoby's ignored native tests of the ugraphite and lumped rungs (processing
+   six tapes) check structure, not statistics: predicted to pass before and
+   after, once the one assertion that read `nuclides[3]` for the graphite law
+   reads the bound carbon through its role.
+6. **Any pinned value that moves outside these allowances: STOP and report.**
