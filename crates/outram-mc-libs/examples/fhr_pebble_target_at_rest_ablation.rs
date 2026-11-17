@@ -540,8 +540,9 @@ mod desktop {
                 run_keff_reactor_physics(&pebble, mats, nucs, &cfg).expect("CSG reactor physics");
             let (_e2, _f2, p2, eps2) = r.six_factors.two_group_openmc_convention();
             eprintln!(
-                "    {label} seed {seed:>3}: k = {:.5} ± {:.5}, p = {p2:.4}, eps = {eps2:.4}  \
-                 [{:.1} s]",
+                "    {label} seed {seed:>3}: kfull = {:.15} k = {:.5} ± {:.5}, p = {p2:.4}, \
+                 eps = {eps2:.4}  [{:.1} s]",
+                r.keff.k_mean,
                 r.keff.k_mean,
                 r.keff.k_std,
                 t.elapsed().as_secs_f64()
@@ -631,6 +632,18 @@ mod desktop {
         let t = Instant::now();
         let a = run_arm(&moving, &mats, r_fuel, &seeds, "MOVING ");
         eprintln!("  MOVING  arm done in {:.1} s", t.elapsed().as_secs_f64());
+        // gh:#1636: `OUTRAM_FHR_ARMS=moving` screens the unablated arm alone (a
+        // legacy-knob run needs only that arm; the at-rest arm is half the cost).
+        if std::env::var("OUTRAM_FHR_ARMS").as_deref() == Ok("moving") {
+            let (ka, ska, eka) = stats(&a.k);
+            println!(
+                "MOVING-only: n = {} k_MOVING = {ka:.5}, sd = {:.0} pcm, sem = {:.0} pcm",
+                a.k.len(),
+                ska * 1.0e5,
+                eka * 1.0e5
+            );
+            return;
+        }
         let t = Instant::now();
         let b = run_arm(&at_rest, &mats, r_fuel, &seeds, "AT-REST");
         eprintln!("  AT-REST arm done in {:.1} s\n", t.elapsed().as_secs_f64());

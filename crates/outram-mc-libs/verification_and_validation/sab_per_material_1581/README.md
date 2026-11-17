@@ -757,3 +757,42 @@ logical cores, about 15 GiB RAM, Linux 6.18, CPU only, shared with another
 agent's two long processes (load average 8-12 throughout); per-seed wall times
 (52-70 s hst009 at 2 threads, about 690-705 s msre, about 5 min FHR CSG) carry
 no cross-run meaning.
+
+## gh:#1636: which change moved the FHR target-at-rest worth from -556 to -153 pcm (2026-11-17)
+
+**Predictions written before any run of this pass.** Question: between
+`60f6bb261` (2026-09-17) and the session build, the paired AT-REST - MOVING
+worth moved from -556 +/- 87 pcm to -153 +/- 43 pcm. Which change did it?
+
+**What the two ensembles already say (read, not re-run).** MOVING k went
+1.36625 (sem 29 pcm, sd 83) -> 1.36307 (sem 41, sd 117): **-318 +/- 50 pcm
+(6.4 sigma)**. AT-REST went 1.36069 (sem 93) -> 1.36154 (sem 50): **+85 +/- 105
+pcm (0.8 sigma, not resolved)**. So the worth shift is carried by the MOVING
+arm; the AT-REST arm has not been shown to move. A cause that acts on both arms
+equally (cross-section details, S(a,b) data) would have moved AT-REST by about
+the same -318 pcm; it did not (difference of the two shifts: 403 +/- 116 pcm).
+The cause is therefore predicted to be something that acts only when the target
+kT > 0, i.e. the free-gas / resonance-scattering collision path.
+
+**Design.** Runtime legacy switches on the current build (no rebuild of old
+commits), `OUTRAM_FHR_ARMS=moving` (the driver's new MOVING-only mode), seeds
+1-8, 4000 x [30 + 80], one process per switch, at most two transport processes.
+sem = sd/sqrt(8); sigma(a - b) = sqrt(sem_a^2 + sem_b^2); gate |z| <= 2. A
+switch's worth is the MOVING k with the switch minus the MOVING k without it.
+Nothing is tuned; the -556 reference is not moved.
+
+| step | switch (on the session build) | predicted MOVING k change (legacy minus default) | basis |
+|---|---|---|---|
+| 0 | none: determinism check vs `ensembles_1583/fhr_new_7b5dd858d.out` | 0, bit-identical on 8 of 8 seeds | transport code unchanged since; later commits are depletion/k-search |
+| 1 | `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1` (pre-2026-11-11 free-gas, CM-to-lab and ladder kernels; gh:#1386) | **+300 pcm, range +100 to +450** (up: restores the old 1.366) | the only listed change that acts on kT > 0 only; carries the shift if the hypothesis holds |
+| 2 | `OUTRAM_MC_LEGACY_REACTION_ORDER=1` (master: reaction order, fission-neutron order, per-collision banking; gh:#1444) | 0 +/- 60 pcm (abs(z) < 2 of zero) | draw-order and unbiased banking changes of the same physics; no kT dependence |
+| 3 | `OUTRAM_MC_LEGACY_XS_DETAILS=1` (nu_fission, extrapolation, S(a,b) cutoff and total; gh:#463) | 0 +/- 60 pcm | acts on both arms, so cannot explain a MOVING-only shift |
+
+A step-1 result inside the range would make `ScatterKernels::OpenMc` (default
+physics, maintainer decision 2026-11-11) the cause; the consequence is a
+documented re-baseline, never a revert. If steps 1-3 together leave more than 2
+sigma of the -318 pcm unexplained, the remaining candidates (gh:#313 free-gas
+kT, `81ec018c3` URR/DBRC/equiprobable S(a,b), `457d4ca97` RVS default,
+gh:#1581 per-material S(a,b)) are tested by building those commits and their
+parents, planned here before they run. Hardware: shared 4-core Intel Xeon
+2.10 GHz, 15.7 GiB, CPU only, another agent running.
