@@ -1090,3 +1090,35 @@ held. (4) no pinned value moved, nothing re-pinned. Limit: one seed and one
 packing, as the test always was; this shows the migration changes nothing in
 these runs, not that the physics is validated. Raw:
 `ensembles_1635/htr10_pebble_bed_{before,after,diag_before,diag_after}.out`.
+
+## gh:#1635 item 2: nee_soon HTR-10 diagnostics, transport part (2026-11-17): prediction
+
+**Which of the five migrated diagnostics (`00d2cc781`) transport.** Read from the
+sources: `htr10_material_check`, `htr10_mat_xs` and `htr10_majorant_diagnosis`
+only evaluate macroscopic cross sections or a majorant (no neutron histories);
+`htr10_mgxs_genfoam` is BLOCKED by its own header (panics at assembly, gh:#475)
+and cannot run. The only one with transport is
+**`htr10_deterministic_vs_mc`** (explicit-TRISO full-core `run_keff_csg_hybrid`,
+two passes; the k comes from pass 1). It is the one measured here.
+
+**Knobs added to the example (defaults unchanged, applied identically to the
+OLD checkout `d1e20f188`):** `OUTRAM_HTR10_SEED` (the `KeffSettings::seed`, default
+20260919) and `OUTRAM_HTR10_K_ONLY` (stop after pass 1; scoring draws no random
+number, so pass 1's k is the full run's k).
+
+**Prediction, written before any run.** OLD attaches the graphite law to three
+carbon slots with `with_thermal_scattering` (C12 slot 4, C13 graphite slot, ...,
+lines 192/200/214) and the SiC laws likewise; NEW loads every slot free and
+`assign_htr10_sab` appends bound copies after them, so the nuclide array
+**lengthens**. Every nuclide here comes from ENDF with RECONR+BROADR+PURR, so URR
+probability tables are live and the URR stream advances by `nuclides.len()` per
+energy change: the stream **re-draws**, bit-identity is NOT expected. Materials
+reference the same cross sections otherwise (each slot's role audited safe,
+`00d2cc781`), so the expected shift in k is **zero within statistics**. Gate:
+paired by seed, N seeds, `new - old` within |z| <= 2 of its standard error; a
+bigger shift is reported, not tuned. Pass criterion for a seed: none (no
+pinned value; the example prints k and compares to a deterministic solver).
+If the histories needed for a usable per-seed sigma exceed the time budget, the
+run is reduced (histories, rings, layers via the example's existing knobs) and
+the reduction stated; k of a reduced run is a statistics instrument for the
+old-vs-new comparison, not a benchmark number.
