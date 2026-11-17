@@ -26,6 +26,9 @@
 //! Jacobian (which needs a distributed BiCGStab, not CG), remain the op-gj5
 //! follow-ups. 1-D structured partition only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 
 use super::krylov::{distributed_bicgstab_with, distributed_cg_with};

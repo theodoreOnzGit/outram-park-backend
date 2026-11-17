@@ -12,6 +12,9 @@
 //! All quantities are `uom`-typed at the public boundary and plain `f64`
 //! (SI base units) internally.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::units::{FluidDensity, FluidPressure, FluidViscosity};

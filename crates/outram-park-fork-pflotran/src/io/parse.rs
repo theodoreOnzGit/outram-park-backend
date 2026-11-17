@@ -61,6 +61,9 @@
 //! repeat. Any unknown keyword, missing required block, or out-of-range value
 //! is a [`PflotranError::InvalidInput`] carrying the offending line number.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 
 use super::spec::{

@@ -90,6 +90,9 @@
 //!   parallel subsurface simulators: An illustrative example with PFLOTRAN,"
 //!   Water Resour. Res. 50 (2014) 208.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 

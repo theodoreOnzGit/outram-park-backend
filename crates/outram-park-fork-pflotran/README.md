@@ -143,6 +143,23 @@ AI-assessed from the code; bead closure is the maintainer's decision.
 - **op-v6s.9** — V&V strategy + first RICHARDS benchmark (vs PFLOTRAN gold-files) — *partial: MMS + analytical verification done; validation vs published gold-files still open*
 - **op-v6s.10 .. op-v6s.14** — TH, solute transport, reactive geochemistry, GENERAL multiphase, parallelism — ~~*not started*~~ **CORRECTED 2026-10-18:** TH, solute transport, reactive geochemistry and GENERAL multiphase are implemented as verification-only modules (see "What exists today"; module and `#[test]` counts checked, tests not re-run); only parallelism is deferred
 
+## `no_std` + `alloc` (gh:#1603)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-park-fork-pflotran --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). The flow modes, transport, geochemistry,
+EOS, solvers and deck parsing build without it. What `std` adds:
+
+- `rayon`. Without it the per-cell loops run serially through `crate::par`;
+  each is an ordered `map`/`collect` or writes only its own element, so the
+  values are the same.
+- `decomposition`, the MPI-style domain decomposition: `outram-park-mpi` runs
+  its ranks as OS threads.
+- `hdf5_io` (files) and the `gpu` module (`wgpu`).
+
+With `std` on (the default) nothing changes.
+
 ## Design rules (workspace mandate)
 
 - **Enum dispatch, no trait objects** — flow modes / EOS forms / solver kinds

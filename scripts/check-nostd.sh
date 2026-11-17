@@ -43,6 +43,7 @@ crates=(
   teh-o-prke                  # gh:#1600
   tuas_boussinesq_solver      # gh:#1601
   outram-park-fork-liggghts   # gh:#1602
+  outram-park-fork-pflotran   # gh:#1603
 )
 
 rustup target add "$target" >/dev/null

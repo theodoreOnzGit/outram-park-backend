@@ -157,6 +157,9 @@
 //!   geochemistry," *Reviews in Mineralogy* 23 (1990) 177 — CCM/DLM/TLM overview.
 //! - G. Sposito, *The Surface Chemistry of Natural Particles*, Oxford (2004).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 

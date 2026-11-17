@@ -17,6 +17,9 @@
 //! Lengths (`dx`/`dy`/`dz` and emitted coordinates) are in metres, `pressure`
 //! in pascals (Pa), and `saturation` is dimensionless (0..1).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::fmt::Write as _;
 
 use crate::error::PflotranError;

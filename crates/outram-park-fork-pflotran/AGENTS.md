@@ -2,6 +2,21 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `outram-park-fork-pflotran` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1603, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (copy it from any module).
+- A `rayon` import takes `#[cfg(feature = "std")]`, with
+  `crate::par::prelude::*` on `not(feature = "std")`; extend `par` when a new
+  rayon adapter is needed.
+- `decomposition`, `hdf5_io` and `gpu` are `std` only, and so is any
+  integration test that uses them.
+- Maps, if any are added, come from a `crate::hash` module (`hashbrown`
+  without std, the workspace rule).
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

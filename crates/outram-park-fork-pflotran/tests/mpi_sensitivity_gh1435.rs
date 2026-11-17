@@ -19,6 +19,9 @@
 //! assertion below holds for the tree under test; the before/after comparison
 //! is reported, not gated.
 
+// `decomposition` and outram-park-mpi are `std` only (gh:#1603).
+#![cfg(feature = "std")]
+
 use outram_park_fork_pflotran::decomposition::krylov::{distributed_cg, distributed_dot};
 use outram_park_fork_pflotran::decomposition::Decomposition1D;
 use outram_park_mpi::run;

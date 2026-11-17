@@ -5,6 +5,9 @@
 //! entry points whose physics is not yet translated return it, so a caller can
 //! never mistake an unfinished stub for a real result.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Errors returned by `outram-park-fork-pflotran`.

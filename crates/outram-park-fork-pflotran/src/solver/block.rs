@@ -41,6 +41,9 @@
 //! dimensionless numeric coefficients — any `uom` unit bookkeeping belongs to
 //! the flow mode that assembles them, not to this generic block layer.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 use outram_foam_basic_lib::krylov::vecops::{axpy, dot, nrm2};
 use outram_foam_basic_lib::matrix::SquareMatrix;
@@ -1024,14 +1027,14 @@ mod tests {
         }
 
         fn u_exact(x: f64) -> f64 {
-            (std::f64::consts::PI * x).r_sin()
+            (core::f64::consts::PI * x).r_sin()
         }
         fn v_exact(x: f64) -> f64 {
             x * (1.0 - x)
         }
         /// -u'' for u* = sin(πx) is π² sin(πx).
         fn u_lap(x: f64) -> f64 {
-            let pi = std::f64::consts::PI;
+            let pi = core::f64::consts::PI;
             pi * pi * (pi * x).r_sin()
         }
         /// -v'' for v* = x(1−x) is +2.

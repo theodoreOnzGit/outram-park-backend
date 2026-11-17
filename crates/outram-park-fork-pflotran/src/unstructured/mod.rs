@@ -82,6 +82,9 @@
 //! readers yet. No human V&V has been performed; not for facility operation,
 //! reactor control, or licensing.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 
 /// An index into a grid's cell array.

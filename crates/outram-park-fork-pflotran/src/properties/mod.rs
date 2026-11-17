@@ -40,6 +40,9 @@
 //!   unit-tested against central finite differences, but the curves have not
 //!   been validated against a published PFLOTRAN reference case.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod curves;
 mod eos;
 mod thermal;

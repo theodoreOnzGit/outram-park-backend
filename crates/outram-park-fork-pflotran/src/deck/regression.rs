@@ -34,6 +34,9 @@
 //! > Untrusted AI-generated draft until a human reviews it. The reader is
 //! > exercised only by `infiltration1d.in` (tests in `tests/regression_decks_gh1537.rs`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     err_at, is_terminator, next_float, next_usize, parse_fortran_float, time_to_seconds, Cursor,
     FlowMode, Token,

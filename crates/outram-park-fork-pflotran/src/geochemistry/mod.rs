@@ -16,6 +16,9 @@
 //! mineral precipitation/dissolution with solubility products, kinetic reaction
 //! rates, and coupling to the transport solver. Enum dispatch, no trait objects.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod network;
 
 pub use network::{ReactionNetwork, Speciation};

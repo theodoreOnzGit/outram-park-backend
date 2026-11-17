@@ -15,6 +15,9 @@
 //! constraint is documented here and must be enforced by the code that consumes
 //! them (a future validated newtype may wrap them — bead op-v6s.7).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{
     Area, DynamicViscosity, Length, MassDensity, Pressure, Ratio, ThermodynamicTemperature,
     Velocity,

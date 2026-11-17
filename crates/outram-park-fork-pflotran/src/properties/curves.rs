@@ -40,6 +40,9 @@
 //! one genuinely singular case (van Genuchten–Mualem `dk_r/dS_e` as
 //! `S_e -> 1`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::units::{CapillaryPressure, RelativePermeability, Saturation};
