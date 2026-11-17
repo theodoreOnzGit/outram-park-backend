@@ -172,9 +172,13 @@
 //!
 //! [`redhill`]: https://docs.rs/redhill
 
-// `std` is required: `boon-lay` is a `std` crate, so `no_std` could not survive
-// the dependency even if this crate wanted it. The previous `#![no_std]` was
-// removed on 2026-09-21 for that reason and not as a preference.
+// ~~`std` is required: `boon-lay` is a `std` crate, so `no_std` could not survive
+// the dependency even if this crate wanted it.~~ CORRECTED 2026-11-17: boon-lay
+// builds `no_std` + `alloc` without its default `std` feature (gh:#1634), so
+// that reason no longer holds; this crate is still `std` (it reads the OpenMC
+// decay XML and files, and it has not been converted). The previous
+// `#![no_std]` was removed on 2026-09-21 for the old reason, not as a
+// preference.
 #![forbid(unsafe_code)]
 
 pub mod accident;
