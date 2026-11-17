@@ -44,26 +44,23 @@
 //!    CCFE-709 collapse moves step-5 atoms by under 0.5 % for every listed
 //!    nuclide.
 //!
-//! **CORRECTED 2026-11-17:** the port runs below were made with U-234
-//! fission at zero (`reaction_from_ace` did not build U-234's redundant
-//! MT=18; found by `tests/collapse_rate_vs_libopenmc.rs`). They are being
-//! re-run; the numbers in item 2 are the defective runs' until replaced.
-//!
 //! # Results, measured 2026-11-17 (all three predictions held)
 //!
 //! 1. Check 1: 160 OpenMC steps (2 modes x 16 seeds x 5) replayed, worst
 //!    **4.1e-15** (CRAM-48 dense against SuperLU, as arm 1).
-//! 2. Check 2: **0 of 41 above 3 sigma**, worst |z| 2.85 (I-135, step 2).
+//! 2. Check 2: **0 of 41 above 3 sigma, worst |z| 1.76** (Gd-157, step 3).
 //!    `k`: 1.16286 +- 0.00090 against 1.16222 +- 0.00046 at BOS (+0.6 sigma),
-//!    1.14039 +- 0.00068 against 1.14245 +- 0.00077 at day 5 (-2.0 sigma);
-//!    U-235 at day 5 agrees to 7e-7 relative (+1.1 sigma).
-//!    **Not resolved, recorded:** U-238 is low at every depleted step
-//!    (-1.9 to -2.8 sigma) and Xe-136 too (-1.7 to -2.3 sigma). The records
-//!    are cumulative and therefore correlated, so this is one signal, not
-//!    eight: the port consumes about 0.2 % more U-238 over five days (a
-//!    2e-8 change in its inventory). A candidate small systematic in the
-//!    U-238 one-group rates; resolving it needs more seeds or a direct
-//!    comparison of the collapsed U-238 rates.
+//!    1.14343 +- 0.00110 against 1.14245 +- 0.00077 at day 5 (+0.7 sigma);
+//!    U-235 at day 5 agrees to 4e-7 relative (+0.6 sigma).
+//!
+//!    ~~First run: 0 of 41 above 3 sigma, worst 2.85, with U-238 low at every
+//!    step (-1.9 to -2.8 sigma), recorded as a candidate systematic.~~
+//!    **CORRECTED 2026-11-17:** that run had U-234 fission at zero
+//!    (`reaction_from_ace` did not build U-234's redundant MT=18, found by
+//!    `tests/collapse_rate_vs_libopenmc.rs`). With it fixed and all 16 seeds
+//!    re-run, U-238 sits at -0.6 to -1.3 sigma: the signal was that defect,
+//!    acting through the fission-power normalisation, not transport. The
+//!    first run's output is not kept in the repository.
 //! 3. OpenMC direct against flux (CCFE-709) at day 5: Xe-135 -0.19 %,
 //!    Cs-135 -0.18 %, Gd-157 -0.13 %, I-135 -0.003 %, Xe-136 +0.014 %, U
 //!    below 1e-5 %; all under the predicted 0.5 %. `k` within 166 pcm
