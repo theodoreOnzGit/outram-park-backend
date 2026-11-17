@@ -122,6 +122,17 @@ Two properties must be preserved by any future change: **irregular timesteps**
 **dead time** (queued in a `VecDeque` bounded by `delay/dt`, empty when there
 is no dead time). Simulation time must be non-decreasing across calls.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1612, 2026-11-17)
+
+Without its default `std` feature the library is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. `std` carries the CSV
+logging helpers and the `library_demo` binary. Keep it that way: new code
+uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*` glob (copy
+it from any module); anything writing a file, printing or reading a clock is
+`#[cfg(feature = "std")]`, including a trait method that names
+`csv::Writer` and every impl of it. Maps, if one is ever needed, follow the
+workspace rule (`crate::hash`, `hashbrown`; `docs/claude-md/rust-design-rules.md`).
+
 ## Build, test, run
 
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.

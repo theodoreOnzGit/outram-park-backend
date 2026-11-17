@@ -42,7 +42,7 @@ thiserror.workspace = true
 uom.workspace = true
 # real (non-dev) dep: nordheim_fuchs's optional reactivity-input driver
 # reuses this crate's TransferFnFirstOrder -- see src/nordheim_fuchs.rs
-chem-eng-real-time-process-control-simulator.workspace = true
+chem-eng-real-time-process-control-simulator = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 env_logger.workspace = true

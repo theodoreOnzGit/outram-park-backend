@@ -39,6 +39,7 @@ crates=(
   raffles                     # gh:#1610
   outram-blender              # gh:#1604
   outram-mc-libs              # gh:#1605
+  chem-eng-real-time-process-control-simulator  # gh:#1612
 )
 
 rustup target add "$target" >/dev/null

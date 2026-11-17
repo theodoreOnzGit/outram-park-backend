@@ -28,9 +28,12 @@
 //! (`pub(crate)`) and tiny so the crate does not grow a new dependency for
 //! four arithmetic operators and two transcendental functions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use core::ops::{Add, Div, Mul, Neg, Sub};
 
 /// A complex number `re + i*im` (dimensionless `f64` components).
 #[derive(Debug, Clone, Copy, PartialEq)]

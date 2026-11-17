@@ -78,6 +78,19 @@ implementations. Zero-order hold `c2d` of a first-order lag reproduces the
 samples); methodology and measured results live in
 `src/lib/beta_testing/z_domain/verification_tests.rs` doc comments.
 
+## `no_std` + `alloc` (gh:#1612)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p chem-eng-real-time-process-control-simulator --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). The transfer functions, their recurrences,
+the z-domain conversions and the P / I / filtered-D controllers all stay. What
+`std` adds: the CSV logging helpers (`spawn_writer`, `csv_write_values`, the
+`CsvError` variant; the `csv` crate writes files) and the `library_demo`
+binary. The root workspace entry has `default-features = false`, so a member
+that wants the CSV helpers asks for `features = ["std"]`. With `std` on (the
+default) nothing changes.
+
 ## to run 
 
 ```bash

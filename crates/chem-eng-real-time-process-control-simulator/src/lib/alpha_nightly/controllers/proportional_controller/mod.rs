@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::alpha_nightly::transfer_fn_wrapper_and_enums::{TransferFnFirstOrder, TransferFnTraits};
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
@@ -87,6 +90,7 @@ impl TransferFnTraits for ProportionalController {
             .set_user_input_and_calc(user_input, time_of_input)
     }
 
+    #[cfg(feature = "std")]
     fn spawn_writer(
         &mut self,
         name: String,
@@ -95,6 +99,7 @@ impl TransferFnTraits for ProportionalController {
             .spawn_writer(name + "_proportional_controller_")
     }
 
+    #[cfg(feature = "std")]
     fn csv_write_values(
         &mut self,
         wtr: &mut csv::Writer<std::fs::File>,

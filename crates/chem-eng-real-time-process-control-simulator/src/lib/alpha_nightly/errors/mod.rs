@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Master Error type of this crate
@@ -16,10 +19,12 @@ pub enum ChemEngProcessControlSimulatorError {
     #[error("wrong transfer function type")]
     WrongTransferFnType,
 
+    #[cfg(feature = "std")]
     #[error("csv error")]
     CsvError(csv::Error),
 }
 
+#[cfg(feature = "std")]
 impl From<csv::Error> for ChemEngProcessControlSimulatorError {
     fn from(csv_error: csv::Error) -> Self {
         Self::CsvError(csv_error)
@@ -45,6 +50,7 @@ impl Into<String> for ChemEngProcessControlSimulatorError {
             ChemEngProcessControlSimulatorError::WrongTransferFnType => {
                 "wrong transfer function type".to_owned()
             }
+            #[cfg(feature = "std")]
             ChemEngProcessControlSimulatorError::CsvError(err) => err.to_string(),
         }
     }

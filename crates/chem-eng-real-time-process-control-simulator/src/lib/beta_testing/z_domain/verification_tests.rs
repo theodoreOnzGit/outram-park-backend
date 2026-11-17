@@ -29,6 +29,9 @@
 //! round-trip at tolerance 1e-4), the corresponding test here checks the
 //! same identity at a tighter tolerance.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::f64::*;

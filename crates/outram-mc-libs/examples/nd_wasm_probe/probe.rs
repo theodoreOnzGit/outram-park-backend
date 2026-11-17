@@ -4,8 +4,6 @@
 //! print fingerprints that must be equal. See
 //! `verification_and_validation/nuclear_data_loading_web/README.md`.
 
-#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
-
 use njoy_outram_park_fork::acer::ace_set::AceSet;
 use njoy_outram_park_fork::archive::write_zip;
 use njoy_outram_park_fork::endf_library::{generate_ace, AceRequest, EndfLibraryIndex};

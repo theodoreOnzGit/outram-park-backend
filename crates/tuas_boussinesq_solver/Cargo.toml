@@ -66,7 +66,7 @@ name = "ciet_educational_simulator"
 
 [dev-dependencies]
 # the natural circulation loop requires a PID controller
-chem-eng-real-time-process-control-simulator.workspace = true
+chem-eng-real-time-process-control-simulator = { workspace = true, features = ["std"] }
 
 log.workspace = true
 

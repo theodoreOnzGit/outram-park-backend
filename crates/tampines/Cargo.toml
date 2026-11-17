@@ -77,7 +77,7 @@ outram-foam-multiphase.workspace = true
 # porting them a second time. No cycle: the appbuilder depends only on petir,
 # outram-foam-{basic,turbulence,multiphase}-lib, ndarray, serde, uom, thiserror.
 outram-foam-appbuilder-lib.workspace = true
-chem-eng-real-time-process-control-simulator.workspace = true
+chem-eng-real-time-process-control-simulator = { workspace = true, features = ["std"] }
 # DWSIM-derived equipment-model correlations (pipe/valve/heat-exchanger/
 # expander/pump) for tampines::components (op-dt3.4) to build on.
 outram-park-fork-dwsim-libs.workspace = true
