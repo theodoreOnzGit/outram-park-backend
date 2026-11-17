@@ -105,6 +105,9 @@
 //! solver-integration bead (op-p6p.7.11+), once field-level assembly exists to
 //! run an actual case.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::lahey_k_epsilon::LaheyBubbleClosure;
 use super::mixture_k_epsilon::MixtureKEpsilonClosure;

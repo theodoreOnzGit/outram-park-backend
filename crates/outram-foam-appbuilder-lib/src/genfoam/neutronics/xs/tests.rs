@@ -41,6 +41,9 @@
 //! published evaluation); it exercises every quantity while keeping the expected
 //! interpolation results hand-computable.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::genfoam::common::rbf;
@@ -50,7 +53,7 @@ use crate::genfoam::neutronics::xs::input::{
 use crate::genfoam::neutronics::xs::nuclear_data_one_energy::NuclearDataOneEnergy;
 use crate::genfoam::neutronics::xs::variables::{VariableLaw, XsVariable};
 use approx::assert_relative_eq;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 // ---------------------------------------------------------------------------
 // RBF basis-function unit checks

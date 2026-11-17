@@ -45,6 +45,9 @@
 //! Every `empty` patch must be excluded from the radiating patches: the enclosure is the set of
 //! patches given, so a region with empty patches gives an open (and upstream-2-D) enclosure.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use outram_foam_basic_lib::io::poly_mesh::PolyMesh;
 use outram_foam_basic_lib::prelude::*;
@@ -57,7 +60,7 @@ use outram_foam_basic_lib::view_factor_radiation::{
 
 fn case_error(msg: String) -> AppBuilderError {
     AppBuilderError::Case {
-        case: std::path::PathBuf::from("energy view-factor radiation"),
+        case: crate::path::PathBuf::from("energy view-factor radiation"),
         msg,
     }
 }
@@ -228,7 +231,7 @@ mod tests {
 
     fn setup() -> (PolyMesh, EnergyEquation) {
         let pm = unit_cell();
-        let mesh = std::sync::Arc::new(pm.to_fv_mesh().expect("mesh"));
+        let mesh = alloc::sync::Arc::new(pm.to_fv_mesh().expect("mesh"));
         (pm, EnergyEquation::uniform(mesh, IncompressibleThermo::si(1000.0, 4000.0, 0.6), 300.0))
     }
 

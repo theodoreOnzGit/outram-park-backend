@@ -72,7 +72,10 @@
 //! `mu = Omega_x`; the scalar-flux sum still integrates the angular flux
 //! correctly because the weights are complete on the sphere.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;
@@ -80,7 +83,7 @@ use outram_foam_basic_lib::fields::surface_field::SurfaceScalarField;
 use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// The order `N` of a level-symmetric S_N discrete-ordinates set.
 ///

@@ -46,6 +46,7 @@ crates=(
   outram-park-fork-pflotran   # gh:#1603
   outram-park-fork-dwsim-libs # gh:#1591
   farrer-park                 # gh:#1632
+  outram-foam-appbuilder-lib  # gh:#1633
 )
 
 rustup target add "$target" >/dev/null

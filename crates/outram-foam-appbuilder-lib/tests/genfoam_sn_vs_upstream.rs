@@ -23,6 +23,8 @@
 //! `run_pseudo_time_eigenvalue`. Predictions N1 to N7 of the README were
 //! committed before this test was first run. Results: README, "SN results".
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

@@ -41,6 +41,9 @@
 //! `bc_util` is a crate-internal helper for capturing and re-applying patch
 //! boundary conditions around a field solve.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub(crate) mod bc_util;
 pub mod cht_multi_region_foam;
 pub mod energy;

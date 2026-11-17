@@ -100,6 +100,9 @@
 //! > Research, education and V&V only. Not for licensing, operation or
 //! > safety decisions. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::energy::joule;
 use uom::si::f64::{
@@ -123,7 +126,7 @@ use crate::genfoam::thermal_hydraulics::solid_conduction::{
     ConductivityModel, HeatCapacityModel, RzPatch, VolumetricHeatTransferCoefficient,
 };
 
-const PI: f64 = std::f64::consts::PI;
+const PI: f64 = core::f64::consts::PI;
 /// Fuel-zone and pebble radii, m (TECDOC-1694 Tab 2.2).
 const R_FUEL_ZONE: f64 = 0.025;
 const R_PEBBLE: f64 = 0.030;
@@ -447,8 +450,8 @@ pub struct Htr10RzTransientCore {
 
 fn hv(v: f64) -> VolumetricHeatTransferCoefficient {
     VolumetricHeatTransferCoefficient {
-        dimension: std::marker::PhantomData,
-        units: std::marker::PhantomData,
+        dimension: core::marker::PhantomData,
+        units: core::marker::PhantomData,
         value: v,
     }
 }

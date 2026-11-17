@@ -35,6 +35,9 @@
 //! 1979 for laminar flow) are in
 //! `tampines::components::helical_coil_otsg::correlations` and are called by
 //! the V&V runner, not here (no dependency on `tampines` from this crate).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::*;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::f64::{Acceleration, Length};
@@ -182,7 +185,7 @@ pub fn dean_section(sol: &PimpleFoam, cells: &CoilCells, flow: &PipeFlow, s0: Le
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
     use uom::si::f64::{KinematicViscosity, Time, Velocity};
     use uom::si::kinematic_viscosity::square_meter_per_second;
     use uom::si::time::second;

@@ -17,6 +17,8 @@
 //! See `verification_and_validation/reacting_two_phase_euler_foam_vs_openfoam.md`
 //! (Round 2), where every number below is recorded and interpreted.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::io::field_reader::read_vol_scalar_field;
 use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;

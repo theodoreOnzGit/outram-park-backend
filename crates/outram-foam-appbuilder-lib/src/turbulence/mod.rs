@@ -73,9 +73,12 @@
 //! - No model in this stack has been validated end-to-end against a published
 //!   turbulence benchmark. Do not describe one as validated.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::*;
 use outram_foam_turbulence_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Which turbulence closure a solver run uses.
 ///
@@ -122,8 +125,8 @@ pub enum TurbulenceClosure {
     Smagorinsky(Smagorinsky),
 }
 
-impl std::fmt::Debug for TurbulenceClosure {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for TurbulenceClosure {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(self.name())
     }
 }

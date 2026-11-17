@@ -22,6 +22,8 @@
 //! The reference numbers below are the upstream log's `keff_` and `pow:` of step 1.
 //! Results: README, "SN results".
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use std::path::PathBuf;
 use std::sync::Arc;
 

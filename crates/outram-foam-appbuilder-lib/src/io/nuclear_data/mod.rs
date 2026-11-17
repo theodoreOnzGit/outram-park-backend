@@ -94,7 +94,11 @@
 //!
 //! [`CrossSectionData::from_input`]: crate::genfoam::neutronics::xs::CrossSectionData::from_input
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 mod writer;
@@ -108,6 +112,7 @@ use crate::genfoam::neutronics::xs::input::{
 };
 use crate::genfoam::neutronics::xs::variables::{VariableLaw, XsVariable};
 
+#[cfg(feature = "std")]
 /// Read and parse a GeN-Foam `nuclearData` dictionary.
 ///
 /// Follows `#include` directives relative to `path`'s own directory, so a case

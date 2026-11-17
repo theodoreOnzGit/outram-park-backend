@@ -86,6 +86,9 @@
 //! cross-section feedback awaits a neutronics-subtree API addition (tracked on
 //! `op-p6p.8.4`). See `docs/genfoam-port-plan.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod coupling_fields;
 pub mod mesh_region;
 pub mod mesh_to_mesh;

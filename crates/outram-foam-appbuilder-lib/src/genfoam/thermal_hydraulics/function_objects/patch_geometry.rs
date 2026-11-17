@@ -17,6 +17,9 @@
 //! nearly verbatim in `massFlow::write()`, `pressureDrop::read()`, and
 //! `TBulk::write()` (`forAll(magSf, i) { S += magSf[i]; }`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::mesh::FvMesh;
 use uom::si::area::square_meter;
 use uom::si::f64::Area;

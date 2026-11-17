@@ -7386,6 +7386,7 @@ name = "outram-foam-appbuilder-lib"
 version = "0.1.7"
 dependencies = [
  "approx",
+ "hashbrown 0.16.1",
  "miniz_oxide 0.8.9",
  "ndarray",
  "outram-blender",

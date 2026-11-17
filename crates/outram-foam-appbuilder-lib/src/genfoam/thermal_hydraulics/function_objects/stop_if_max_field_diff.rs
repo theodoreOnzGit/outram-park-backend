@@ -26,6 +26,9 @@
 //! `max(field1-field2)` (an OpenFOAM `Foam::max` reduction over a
 //! `GeometricField`'s internal field).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::VolScalarField;
 
 /// Outcome of evaluating the `stopIfMaxFieldDiff` criterion.
@@ -75,7 +78,7 @@ mod tests {
     use outram_foam_basic_lib::fields::{Field, VolField};
     use outram_foam_basic_lib::mesh::FvMeshBuilder;
     use outram_foam_basic_lib::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn three_cell_mesh() -> Arc<outram_foam_basic_lib::mesh::FvMesh> {
         Arc::new(

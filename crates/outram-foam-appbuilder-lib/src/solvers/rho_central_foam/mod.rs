@@ -42,12 +42,15 @@
 //! from them, a hard-coded γ = 1.4, positivity clamps); see
 //! `verification_and_validation/rho_central_foam_vs_openfoam.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Standard temperature [K], upstream `Tstd`.
 const T_STD: f64 = 298.15;

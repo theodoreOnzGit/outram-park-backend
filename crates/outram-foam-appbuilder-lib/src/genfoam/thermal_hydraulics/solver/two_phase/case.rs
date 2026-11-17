@@ -23,8 +23,12 @@
 //! which is recorded in [`TwoPhaseCase::deviations`] because GeN-Foam ships
 //! the alternative and the substitution is the whole point of this slice.
 
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
+use std::path::Path;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::io::dict::FoamFile;
 use outram_foam_basic_lib::io::{FoamDict, FoamEntry, FoamValue};
@@ -43,6 +47,7 @@ use super::{
     ByRegime, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, Structure,
     TimeControls, TwoPhaseControls, TwoPhaseModels,
 };
+#[cfg(feature = "std")]
 use crate::error::AppBuilderError;
 use crate::genfoam::thermal_hydraulics::closures::ff_drag::{FfDragCoefficient, TwoPhaseDragMultiplier};
 use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
@@ -60,6 +65,7 @@ use crate::genfoam::thermal_hydraulics::closures::phase_change::{
 };
 use crate::genfoam::thermal_hydraulics::structure::power_model::FixedPower;
 use crate::genfoam::thermal_hydraulics::structure::power_off::PowerOffCriterion;
+#[cfg(feature = "std")]
 use crate::io::poly_mesh::{read_cell_zones, read_poly_mesh};
 
 /// Everything [`super::TwoPhaseSolver::new`] needs, read from a case.
@@ -94,6 +100,7 @@ pub struct TwoPhaseCase {
     pub deviations: Vec<String>,
 }
 
+#[cfg(feature = "std")]
 fn err(case: &Path, msg: impl Into<String>) -> AppBuilderError {
     AppBuilderError::Case {
         case: case.to_path_buf(),
@@ -103,10 +110,11 @@ fn err(case: &Path, msg: impl Into<String>) -> AppBuilderError {
 
 /// Reading context: the case root, for error messages.
 pub(super) struct Ctx {
-    pub(super) root: PathBuf,
+    pub(super) root: crate::path::PathBuf,
 }
 
 impl Ctx {
+    #[cfg(feature = "std")]
     pub(super) fn read(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
         let p = self.root.join(rel);
         FoamFile::read(&p)
@@ -114,22 +122,27 @@ impl Ctx {
             .map_err(|e| err(&self.root, format!("{rel}: {e}")))
     }
 
+    #[cfg(feature = "std")]
     pub(super) fn e(&self, msg: impl Into<String>) -> AppBuilderError {
         err(&self.root, msg)
     }
 
+    #[cfg(feature = "std")]
     pub(super) fn sub<'a>(&self, d: &'a FoamDict, key: &str) -> Result<&'a FoamDict, AppBuilderError> {
         d.get_dict(key).ok_or_else(|| self.e(format!("missing sub-dictionary `{key}`")))
     }
 
+    #[cfg(feature = "std")]
     pub(super) fn f64(&self, d: &FoamDict, key: &str) -> Result<f64, AppBuilderError> {
         scalar(d, key).ok_or_else(|| self.e(format!("missing scalar `{key}`")))
     }
 
+    #[cfg(feature = "std")]
     pub(super) fn word(&self, d: &FoamDict, key: &str) -> Result<String, AppBuilderError> {
         word(d, key).ok_or_else(|| self.e(format!("missing word `{key}`")))
     }
 
+    #[cfg(feature = "std")]
     pub(super) fn list8(&self, d: &FoamDict, key: &str) -> Result<[f64; 8], AppBuilderError> {
         let v = match d.get(key) {
             Some(FoamEntry::List(v)) => v,
@@ -199,6 +212,7 @@ pub(super) fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEn
     d.iter().find(|(k, _)| key_matches(k, name)).map(|(_, e)| e)
 }
 
+#[cfg(feature = "std")]
 /// `internalField uniform v;` (scalar) or the first component of a vector.
 pub(super) fn uniform_value(ctx: &Ctx, e: Option<&FoamEntry>) -> Result<FoamValue, AppBuilderError> {
     match e {
@@ -213,6 +227,7 @@ pub(super) struct FieldFile {
     pub(super) bcs: Vec<(String, String, Option<FoamValue>)>,
 }
 
+#[cfg(feature = "std")]
 pub(super) fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
     let d = ctx.read(rel)?;
     let internal = uniform_value(ctx, d.get("internalField"))?;
@@ -232,6 +247,7 @@ pub(super) fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderEr
     Ok(FieldFile { internal, bcs })
 }
 
+#[cfg(feature = "std")]
 /// Map a scalar field file to [`Bc`]s on the mesh patches.
 pub(super) fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<Bc>, AppBuilderError> {
     let mut out = Vec::new();
@@ -275,6 +291,7 @@ impl TwoPhaseCase {
         self
     }
 
+    #[cfg(feature = "std")]
     /// Read the `fluidRegion` of a GeN-Foam case at `root` (the directory
     /// holding `0/`, `constant/`, `system/`).
     ///
@@ -802,6 +819,7 @@ impl TwoPhaseCase {
     }
 }
 
+#[cfg(feature = "std")]
 /// `constant`/`byRegime` scalar model reader.
 fn read_by_regime(
     ctx: &Ctx,
@@ -826,6 +844,7 @@ fn read_by_regime(
     }
 }
 
+#[cfg(feature = "std")]
 pub(super) fn read_nusselt(ctx: &Ctx, md: &FoamDict) -> Result<FsForcedConvectionHtc, AppBuilderError> {
     match ctx.word(md, "type")?.as_str() {
         "NusseltReynoldsPrandtlPower" | "Nusselt" => Ok(FsForcedConvectionHtc::Nusselt {
@@ -839,6 +858,7 @@ pub(super) fn read_nusselt(ctx: &Ctx, md: &FoamDict) -> Result<FsForcedConvectio
     }
 }
 
+#[cfg(feature = "std")]
 fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> {
     match ctx.word(md, "type")?.as_str() {
         "NusseltReynoldsPrandtlPower" | "Nusselt" => Ok(FsHtcModel::Nusselt(read_nusselt(ctx, md)?)),
@@ -878,6 +898,7 @@ fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> 
     }
 }
 
+#[cfg(feature = "std")]
 pub(super) fn read_thermo(ctx: &Ctx, rel: &str) -> Result<PhaseThermo, AppBuilderError> {
     let d = ctx.read(rel)?;
     let tt = ctx.sub(&d, "thermoType")?;

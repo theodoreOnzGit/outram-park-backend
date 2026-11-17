@@ -107,6 +107,9 @@
 //!   materialises the cross sections, builds the quadrature, and lets
 //!   [`Self::solve_eigenvalue`] run the real transport eigenvalue solve.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod quadrature;
 pub mod quadrature_set;
 pub mod pseudo_time;
@@ -117,7 +120,7 @@ mod sweep;
 #[cfg(test)]
 mod tests;
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField};
 

@@ -43,6 +43,9 @@
 //! (`energy_groups x energy_groups`) and per-Legendre-moment indexing make a
 //! dense matrix the natural container.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::genfoam::neutronics::xs::units::{
     DiffusionCoefficient, Dimensionless, EnergyReleaseCrossSection, InverseVelocity,
     MacroscopicCrossSection, PrecursorDecayConstant,

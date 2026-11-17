@@ -36,6 +36,9 @@
 //! [`equation_of_state`](super::equation_of_state) and
 //! [`heat_capacity`](super::heat_capacity)); this module does not.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Molar mass of molecular hydrogen H2 — kg/kmol.
 pub(super) const W: f64 = 2.01588;
 

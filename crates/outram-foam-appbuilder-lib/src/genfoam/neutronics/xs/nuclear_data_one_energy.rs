@@ -49,6 +49,9 @@
 //! treated as constant and [`NuclearDataOneEnergy::get`] returns the reference
 //! (first) value — faithfully mirroring upstream `nuclearDataOneEnergy`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::genfoam::common::rbf;
 use crate::genfoam::neutronics::xs::XsError;
 

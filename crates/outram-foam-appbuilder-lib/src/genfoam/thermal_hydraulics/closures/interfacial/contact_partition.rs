@@ -44,6 +44,9 @@
 //! instead of re-deriving it), which is exact for any registry wiring a caller
 //! chooses.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Ratio;
 use uom::si::ratio::ratio;
 

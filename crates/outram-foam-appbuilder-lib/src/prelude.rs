@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::error::AppBuilderError;
 
 // I/O
@@ -45,11 +48,14 @@ pub use crate::io::fv_solution::{FvSolution, LinearSolverConfig, LinearSolverTyp
 // Field readers, which ARE implemented. Previously the prelude exported the
 // mesh reader but none of these, so "read a field from disk" dead-ended on the
 // discovery surface while the functions existed one module away.
+#[cfg(feature = "std")]
 pub use crate::io::field_reader::{
     read_vol_scalar_field, read_vol_scalar_field_full, read_vol_vector_field,
     read_vol_vector_field_full,
 };
+#[cfg(feature = "std")]
 pub use crate::io::poly_mesh::read_poly_mesh;
+#[cfg(feature = "std")]
 pub use crate::io::nuclear_data::{read_nuclear_data, write_nuclear_data};
 
 // GeN-Foam neutronics — point kinetics (0-D)

@@ -37,6 +37,9 @@
 //! Status: untrusted AI-generated draft (2026-11-03) per `RESPONSIBLE_USE.md`;
 //! research, education and V&V only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{TemperatureCoefficient, ThermalConductivity, ThermodynamicTemperature};
 use uom::si::temperature_coefficient::per_kelvin;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;

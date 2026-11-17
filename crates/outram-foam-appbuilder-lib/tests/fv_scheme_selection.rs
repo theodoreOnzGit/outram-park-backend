@@ -34,6 +34,8 @@
 //! tabulated `U_x/U_lid` values on the vertical centreline. Public literature
 //! data; the same table the `pimple_foam_cavity` tutorial already uses.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::field_reader::{
     read_vol_scalar_field_full, read_vol_vector_field_full,

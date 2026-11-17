@@ -81,9 +81,61 @@
 //! Per the workspace `RESPONSIBLE_USE.md`, nothing here is for reactor
 //! operation, control, licensing, or any safety-critical or operational use.
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1633, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+// Without `std` the gated case readers leave their imports and helpers
+// unused; the `std` build still warns about every one.
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports, unused_variables, unused_mut))]
+
+extern crate alloc;
+extern crate ndarray_nostd as ndarray;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+
+/// Paths (gh:#1633). With `std` these are `std::path::{Path, PathBuf}`, so
+/// every signature and error is exactly as before. Without it there is no
+/// filesystem: `PathBuf` is a `String`, which is all the solvers use it for
+/// (the case label in [`AppBuilderError::Case`]), and the readers that take a
+/// `&Path` are `std` only.
+pub mod path {
+    #[cfg(feature = "std")]
+    pub use std::path::{Path, PathBuf};
+    /// A case label: no filesystem without `std`.
+    #[cfg(not(feature = "std"))]
+    pub type PathBuf = alloc::string::String;
+}
+
+/// Hash maps: std's with `std` (and in tests), so every result is as before;
+/// `hashbrown` without it, the workspace rule (gh:#1633).
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::HashMap;
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::HashMap;
+}
+
 /// The crate's single error type, [`error::AppBuilderError`].
 /// Driving a solver from an OpenFOAM case directory: read the case, build the
 /// solver's initial state, march the time loop, write the fields back.
+/// `std` only (gh:#1633): it reads OpenFOAM case directories.
+#[cfg(feature = "std")]
 pub mod case_runner;
 /// Ready-made flow cases (boundary conditions + diagnostics) shared by V&V
 /// tests and demos, e.g. [`cases::laminar_pipe`].

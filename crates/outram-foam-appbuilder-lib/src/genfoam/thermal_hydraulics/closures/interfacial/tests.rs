@@ -113,6 +113,9 @@
 //! published theory), and the regime-map's non-obvious boundary behaviour is
 //! pinned down by regression test rather than left as an undocumented risk.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::area::InterfacialArea;
 use super::contact_partition::ContactPartition;

@@ -54,10 +54,13 @@
 //! compared with a driver that is `sonicFoam.C` on the unmodified ESI thermo
 //! and turbulence libraries, per cell, bit for bit.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::solvers::rho_central_foam::PerfectGas;
 use outram_foam_basic_lib::mesh::fv_mesh::{FvMesh, PatchKind};
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// `SMALL` of `doubleScalar.H`.
 pub(crate) const SMALL: f64 = 1.0e-15;

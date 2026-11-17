@@ -18,6 +18,8 @@
 //! `tests/data/genfoam_1d_boiling`; the protocol is applied to a per-test copy
 //! by [`protocol_copy`], mirroring the script line for line.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

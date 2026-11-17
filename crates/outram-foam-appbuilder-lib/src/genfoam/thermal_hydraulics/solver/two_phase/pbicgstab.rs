@@ -34,6 +34,9 @@
 //! serial run, and the matrix-vector product is
 //! `LduMatrix::multiply`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::LduMatrix;
 
 /// `SolverPerformance::small_`.

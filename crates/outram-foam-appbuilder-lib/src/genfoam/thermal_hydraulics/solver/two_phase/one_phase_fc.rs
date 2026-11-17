@@ -61,8 +61,12 @@
 //! criteria; velocity patches other than `zeroGradient`; closed volumes (no fixed-value `p_rgh`
 //! patch: the reference-cell branch); `Boussinesq`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::io::FoamEntry;
 use outram_foam_basic_lib::prelude::*;
@@ -78,9 +82,9 @@ use uom::si::time::second;
 use uom::si::volumetric_heat_capacity::joule_per_cubic_meter_kelvin;
 use uom::si::volumetric_power_density::watt_per_cubic_meter;
 
-use super::case::{
-    bool_entry, lookup_regex, read_field, read_nusselt, read_thermo, scalar, scalar_bcs, word, Ctx,
-};
+use super::case::{bool_entry, lookup_regex, scalar, word, Ctx};
+#[cfg(feature = "std")]
+use super::case::{read_field, read_nusselt, read_thermo, scalar_bcs};
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
 use super::{
     dev2_div, solve_krylov, temperature, Phase, Structure, TimeControls, VecEqn,
@@ -90,6 +94,7 @@ use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForcedConvectionHtc;
 use crate::genfoam::thermal_hydraulics::structure::power_model::FixedPower;
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
+#[cfg(feature = "std")]
 use crate::io::poly_mesh::{read_cell_zones, read_poly_mesh};
 
 /// PIMPLE and solver controls of the `onePhase` region (`fvSolution`, `controlDict`).
@@ -201,6 +206,7 @@ where
 }
 
 impl OnePhaseFcCase {
+    #[cfg(feature = "std")]
     /// Read a GeN-Foam single-phase case directory (`fluidRegion`, `onePhase`).
     ///
     /// # Errors
@@ -582,6 +588,7 @@ impl OnePhaseFcSolver {
         s
     }
 
+    #[cfg(feature = "std")]
     /// Read a case directory and build the solver.
     ///
     /// # Errors

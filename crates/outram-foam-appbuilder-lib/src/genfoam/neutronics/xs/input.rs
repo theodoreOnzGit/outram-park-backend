@@ -51,8 +51,11 @@
 //! All cross sections are in MKSA (per-metre) units, matching the `nuclearData`
 //! convention.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::genfoam::neutronics::xs::variables::XsVariable;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 /// Top-level parsed `nuclearData` dictionary.
 #[derive(Debug, Clone)]

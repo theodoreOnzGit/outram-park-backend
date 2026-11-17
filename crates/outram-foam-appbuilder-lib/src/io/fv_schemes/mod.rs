@@ -24,7 +24,12 @@
 //! interpolation) is a typed enum on [`FvSchemes`], so rust-analyzer surfaces
 //! every valid option on hover and an unknown scheme is a `Result` error.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use crate::error::AppBuilderError;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 /// Parsed `system/fvSchemes` — numerical scheme selection for each operator.
@@ -140,6 +145,7 @@ impl FvSchemes {
         self.grad_u.as_ref().unwrap_or(&self.default_grad)
     }
 
+    #[cfg(feature = "std")]
     /// Parse a `system/fvSchemes` file from disk.
     ///
     /// **Not yet implemented — calling this panics (`todo!`).** No OpenFOAM

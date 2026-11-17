@@ -22,6 +22,8 @@
 //! instead). `TWO_PHASE_OUT=<dir>` makes the full run write CSV histories for
 //! plotting.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use std::io::Write;
 use std::path::PathBuf;
 

@@ -44,6 +44,9 @@
 //! half-stubbed. Tracked for follow-up once the `phase`/`fluid` port exposes
 //! (and documents) that accessor.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::PrandtlNumber;
 use crate::genfoam::thermal_hydraulics::units::{HeatTransferCoefficient, ReynoldsNumber};

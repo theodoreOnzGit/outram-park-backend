@@ -63,6 +63,9 @@
 //! ([`von_mises_stress`], [`hydrostatic_stress`]) are returned as `uom`
 //! [`Pressure`] so the public boundary stays dimensioned.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::material::{BulkModulusTerm, LameLambda, ShearModulus, Stress};
 use outram_foam_basic_lib::primitives::SymmTensor;
 use uom::si::f64::TemperatureInterval;
