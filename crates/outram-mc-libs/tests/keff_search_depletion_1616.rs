@@ -45,14 +45,53 @@
 //! # Results
 //!
 //! See `verification_and_validation/keff_search_depletion_1616/README.md`.
+//!
+//! # 2026-11-17 addendum (GitHub #1618): GRsecant is now the default search
+//!
+//! The text above describes the original (bracketed false-position) run and is
+//! kept as `critical_boron_falls_monotonically_with_burnup_bracketed`, selected
+//! by name. `critical_boron_falls_monotonically_with_burnup` now runs the
+//! hook's **default**, GRsecant (`model.py:3248-3405`), on the same case.
+//!
+//! ## Predictions for the GRsecant run, written BEFORE it was run
+//!
+//! Settings fixed in advance, not tuned: seeds `(0, 6000)` ppm (the old
+//! bracket's ends), clamp `[0, 6000]`, `k_tol = 0.005` (as before),
+//! `sigma_final = 0.004` (the size of the old runs' `sigma_k`, 0.0033 to
+//! 0.0043), `b0 = 25` active (the old count), `b_min = 20` (upstream's), `b_max
+//! = 100` (to protect a shared 4-core box), 8 inactive.
+//!
+//! 1. Every search converges (`|k - 1| <= 0.005`, `sigma <= 0.004`) in at most
+//!    8 evaluations: the seeds' chord overshoots on a convex `k(p)`, then the
+//!    secant closes in a few steps.
+//! 2. The boron trajectory agrees with the recorded bracketed one (4014.8,
+//!    3642.2, 3454.0, 3270.0, 3029.2 ppm) at every search to within 250 ppm
+//!    (about 2.5 combined sigma: each run is about 65 to 75 ppm at the local
+//!    5.4e-5 per ppm), and mostly within 100 ppm.
+//! 3. Boron non-increasing with burnup within noise; total drop 986 +- 150 ppm.
+//! 4. Total transport solves 20 to 35 (the bracketed run spent 32), each a bit
+//!    longer than the old 25 active where the adaptive count rises.
+//!
+//! ## Outcome (2026-11-17, one run, fixed seed; README has the table)
+//!
+//! 1. Converged and `sigma <= 0.004` at every search: **met**. "At most 8
+//!    evaluations": **missed**, 7, 9, 8, 9, 8.
+//! 2. Agreement with the bracketed trajectory: **met**, the differences are
+//!    -24, -20, -30, -26, -10 ppm (all inside 100 ppm, all the same sign).
+//! 3. Monotone, total drop 971 ppm against 986 +- 150: **met**.
+//! 4. Total solves 41 against 20 to 35: **missed**, and more than the bracketed
+//!    run's 32. The 4-point fit window keeps the two far seeds (0 and 6000 ppm)
+//!    for the first iterations, and `k(p)` is convex there, so early proposals
+//!    are biased.
 
 use outram_mc_libs::depletion::chain::DepletionChain;
 use outram_mc_libs::depletion::integrators::{deplete_independent, Integrator, MicroXs};
 use outram_mc_libs::depletion::keff_search::{
-    deplete_independent_with_keff_search, KeffSearchControl,
+    deplete_independent_with_keff_search, KeffSearchControl, KeffSearchMethod, KeffSearchStep,
 };
 use outram_mc_libs::depletion::operator::BurnupSettings;
 use outram_mc_libs::physics::search::{SearchMethod, SearchSettings};
+use outram_mc_libs::physics::search_grsecant::GrSecantSettings;
 use outram_mc_libs::prelude::*;
 
 const R_FUEL: f64 = 0.4096;
@@ -107,8 +146,9 @@ fn pincell(r_fuel: f64, half: f64) -> Geometry {
     }
 }
 
-/// The pin cell for one burnable inventory and one boron concentration.
-fn pin_cell_k(ppm: f64, inventory: &[(String, f64)]) -> KeffResult {
+/// The pin cell for one burnable inventory, one boron concentration and a
+/// number of active generations.
+fn pin_cell_k(ppm: f64, inventory: &[(String, f64)], n_active: usize) -> KeffResult {
     let mut nuclides: Vec<Nuclide> = Vec::new();
     let mut fuel: Vec<NuclideComponent> = Vec::new();
     let mut n_heavy = 0.0;
@@ -147,7 +187,7 @@ fn pin_cell_k(ppm: f64, inventory: &[(String, f64)]) -> KeffResult {
     let ks = KeffSettings {
         n_particles: 2500,
         n_inactive: 8,
-        n_active: 25,
+        n_active,
         ..KeffSettings::default()
     };
     let src = SourceBox {
@@ -157,22 +197,12 @@ fn pin_cell_k(ppm: f64, inventory: &[(String, f64)]) -> KeffResult {
     run_keff_csg(&pincell(R_FUEL, HALF), &materials, &nuclides, src, &ks, None)
 }
 
-#[test]
-fn critical_boron_falls_monotonically_with_burnup() {
+fn run_and_gate(control: KeffSearchControl) -> Vec<KeffSearchStep> {
     let chain = DepletionChain::simple();
     // 4.25 wt% UO2, 10.4 g/cm3: N(UO2) = 0.02320 /(b cm).
     let initial = vec![("U235".to_string(), 9.8e-4), ("U238".to_string(), 2.222e-2)];
     let settings = BurnupSettings { n_steps: 4, step_days: 50.0, ..BurnupSettings::default() };
     let micro = MicroXs::from_chain(&chain, &settings);
-    let control = KeffSearchControl::new(0.0, 6000.0, (0.0, 6000.0))
-        .unwrap()
-        .with_search_settings(SearchSettings {
-            target: 1.0,
-            tol: TOL_PPM,
-            k_tol: K_TOL,
-            max_iterations: 12,
-            method: SearchMethod::Secant,
-        });
     let t0 = std::time::Instant::now();
     let run = deplete_independent_with_keff_search(
         &chain,
@@ -181,7 +211,7 @@ fn critical_boron_falls_monotonically_with_burnup() {
         &micro,
         Integrator::Predictor,
         &control,
-        |p, inv| pin_cell_k(p, inv),
+        |p, inv, b| pin_cell_k(p, inv, b),
         |_, _| {},
     )
     .expect("k search coupled to depletion");
@@ -260,4 +290,173 @@ fn critical_boron_falls_monotonically_with_burnup() {
         first.parameter,
         last.parameter
     );
+    run.searches
+}
+
+/// The recorded bracketed trajectory (README, 2026-11-17): boron at each search.
+const BRACKETED_PPM: [f64; 5] = [4014.8, 3642.2, 3454.0, 3270.0, 3029.2];
+/// Local worth near the root, per ppm (README): 5.4e-5.
+const LOCAL_SLOPE: f64 = 5.4e-5;
+
+/// The original #1616 run, the bracketed false-position search selected by
+/// name (GRsecant has been the default since #1618).
+#[test]
+fn critical_boron_falls_monotonically_with_burnup_bracketed() {
+    // The bracketed search hands the model `GrSecantSettings::b0` active
+    // generations (it has no batch adaptation); the original run used 25, so
+    // set it, then select the bracketed search by name. (Left at the default
+    // 50 the run is a different, twice-as-long design: measured 2026-11-17,
+    // 4004.6, 3692.1, 3456.5, 3283.1, 3051.6 ppm.)
+    let control = KeffSearchControl::new(0.0, 6000.0, (0.0, 6000.0))
+        .unwrap()
+        .with_grsecant_settings(GrSecantSettings { b0: 25, ..GrSecantSettings::default() })
+        .with_search_settings(SearchSettings {
+            target: 1.0,
+            tol: TOL_PPM,
+            k_tol: K_TOL,
+            max_iterations: 12,
+            method: SearchMethod::Secant,
+        });
+    assert_eq!(control.method(), KeffSearchMethod::Bracketed);
+    run_and_gate(control);
+}
+
+/// The same case under the hook's default search, GRsecant (#1618).
+#[test]
+fn critical_boron_falls_monotonically_with_burnup() {
+    let control = KeffSearchControl::new(0.0, 6000.0, (0.0, 6000.0))
+        .unwrap()
+        .with_grsecant_settings(GrSecantSettings {
+            k_tol: K_TOL,
+            sigma_final: 0.004,
+            b0: 25,
+            inactive: 8,
+            b_min: 20,
+            b_max: Some(100),
+            maxiter: 12,
+            ..GrSecantSettings::default()
+        });
+    assert_eq!(control.method(), KeffSearchMethod::GrSecant);
+    let searches = run_and_gate(control);
+    // Prediction 1 (converged, at the stated sigma): `Ok` means the search met
+    // `k_tol`; the sigma is checked here. The "at most 8 evaluations" part of
+    // the prediction was MISSED (measured 7, 9, 8, 9, 8) and is recorded in the
+    // README, not gated: the count is a measurement, not a correctness bound.
+    for s in &searches {
+        assert!(s.keff_std <= 0.004, "step {}: sigma {}", s.step, s.keff_std);
+        assert!(!s.root_outside_bracket);
+    }
+    // Prediction 2: agreement with the recorded bracketed trajectory, within
+    // 3 combined sigma at the local worth.
+    for (s, old) in searches.iter().zip(BRACKETED_PPM) {
+        let sigma_new = s.keff_std / LOCAL_SLOPE;
+        let sigma_old = 0.0035 / LOCAL_SLOPE;
+        let allowed = 3.0 * (sigma_new.powi(2) + sigma_old.powi(2)).sqrt();
+        println!(
+            "step {}: GRsecant {:.1} ppm vs bracketed {old} ppm, diff {:.1}, allowed {allowed:.0}",
+            s.step,
+            s.parameter,
+            s.parameter - old
+        );
+        assert!((s.parameter - old).abs() <= allowed, "step {}", s.step);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// GitHub #1618 item 4: a parameter that writes a BURNABLE nuclide, with transport
+// ---------------------------------------------------------------------------
+//
+// Methodology. The same unborated pin cell, one burnup step (20 d, the
+// independent operator), one GRsecant search before it, none after. The
+// searched parameter is the U-235 atom fraction of the heavy metal, `p`
+// (enrichment in atom percent / 100); `adjust` sets U-235 to `p * N_heavy` and
+// U-238 to `(1 - p) * N_heavy` with `N_heavy = 9.8e-4 + 2.222e-2 = 2.32e-2`
+// atoms/(b cm) held fixed. Both are chain nuclides, so `write_back` carries the
+// found enrichment into the depletion vector, which a boron search never does.
+// Transport per solve: 2500 histories x (8 inactive + `n_active`), fixed seed.
+// GRsecant: seeds (0.015, 0.030), clamp [0.007, 0.06], `k_tol` 0.01,
+// `sigma_final` 0.008, `b0` 15, `b_min` 10, `b_max` 40, at most 10 solves.
+//
+// Predictions, written BEFORE the first run (2026-11-17):
+//
+// 1. The search converges inside the clamp.
+// 2. The critical enrichment lies between natural uranium (0.0072, where light
+//    water without heavy-water moderation cannot be critical) and the case's own
+//    4.23 %, where the boron search found k(0 ppm) = 1.49 (README). Those two
+//    are physics bounds and are the gate.
+// 3. My estimate of where in that range, NOT gated: 0.010 to 0.022, central
+//    0.015, from a rough scaling of k_inf with enrichment in a tight-pitch
+//    cold pin cell. CORE-tier H-1 has no S(a,b), which lowers k and would push
+//    the root up.
+// 4. The BOL inventory is the written-back one, `U235 = p * N_heavy` to the
+//    bit, and differs from the initial 9.8e-4; U-235 then falls over the step.
+//
+// Results: README, section "2026-11-17, #1618 item 4".
+#[test]
+fn a_critical_enrichment_search_writes_a_burnable_nuclide_with_transport() {
+    const N_HEAVY: f64 = 9.8e-4 + 2.222e-2;
+    let chain = DepletionChain::simple();
+    let initial = vec![("U235".to_string(), 9.8e-4), ("U238".to_string(), 2.222e-2)];
+    let settings = BurnupSettings { n_steps: 1, step_days: 20.0, ..BurnupSettings::default() };
+    let micro = MicroXs::from_chain(&chain, &settings);
+    let control = KeffSearchControl::new(0.015, 0.030, (0.007, 0.06))
+        .unwrap()
+        .with_search_at_end(false)
+        .with_grsecant_settings(GrSecantSettings {
+            k_tol: 0.01,
+            sigma_final: 0.008,
+            b0: 15,
+            inactive: 8,
+            b_min: 10,
+            b_max: Some(40),
+            maxiter: 10,
+            ..GrSecantSettings::default()
+        });
+    let t0 = std::time::Instant::now();
+    let run = deplete_independent_with_keff_search(
+        &chain,
+        &initial,
+        &settings,
+        &micro,
+        Integrator::Predictor,
+        &control,
+        // The model reads the inventory the search adjusted; no boron.
+        |_p, inv, n_active| pin_cell_k(0.0, inv, n_active),
+        |p, inv| {
+            for e in inv.iter_mut() {
+                if e.0 == "U235" {
+                    e.1 = p * N_HEAVY;
+                } else if e.0 == "U238" {
+                    e.1 = (1.0 - p) * N_HEAVY;
+                }
+            }
+        },
+    )
+    .expect("enrichment search");
+    println!("wall time {:.1} s", t0.elapsed().as_secs_f64());
+    assert_eq!(run.searches.len(), 1);
+    let s = &run.searches[0];
+    println!(
+        "root U-235 fraction {:.5} (k {:.5} +- {:.5}, {} solves) trials {:?} batches {:?}",
+        s.parameter,
+        s.keff,
+        s.keff_std,
+        s.n_evaluations,
+        s.iterations
+            .iter()
+            .map(|i| ((i.parameter * 1e5).round() / 1e5, (i.keff * 1e5).round() / 1e5))
+            .collect::<Vec<_>>(),
+        s.batches
+    );
+    // Prediction 1.
+    assert!(s.parameter >= 0.007 && s.parameter <= 0.06);
+    assert!((s.keff - 1.0).abs() <= 0.01 && s.keff_std <= 0.008);
+    // Prediction 2: the physics bounds.
+    assert!(s.parameter > 0.0072, "below natural uranium: {}", s.parameter);
+    assert!(s.parameter < 9.8e-4 / N_HEAVY, "above the 4.23 % case: {}", s.parameter);
+    // Prediction 4: the written-back inventory, to the bit, and burnup after it.
+    let bol = &run.burnup.steps[0];
+    assert_eq!(bol.density("U235").to_bits(), (s.parameter * N_HEAVY).to_bits());
+    assert_ne!(bol.density("U235").to_bits(), 9.8e-4_f64.to_bits());
+    assert!(run.burnup.steps[1].density("U235") < bol.density("U235"));
 }

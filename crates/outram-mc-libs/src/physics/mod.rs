@@ -70,6 +70,7 @@ pub mod keff;
 pub mod ifp;
 pub mod kinetics;
 pub mod search;
+pub mod search_grsecant;
 pub mod physics_mg;
 pub mod reactor_physics;
 pub mod slowing_down;

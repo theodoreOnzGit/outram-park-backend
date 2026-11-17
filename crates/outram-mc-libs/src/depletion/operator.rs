@@ -631,7 +631,7 @@ pub fn deplete_coupled(
 /// lethargy units, which resolves the slowly varying part of `sigma` without
 /// pretending to resolve individual resonances — a group structure that puts a
 /// resonance inside a group has already made that decision.
-const DEFAULT_GROUP_SUB_POINTS: usize = 8;
+pub(crate) const DEFAULT_GROUP_SUB_POINTS: usize = 8;
 
 /// Run a predictor (forward-Euler) burnup calculation on `chain`, starting from
 /// the inventory `initial` (`(nuclide_name, atom_density)` in atoms/(barn·cm)).

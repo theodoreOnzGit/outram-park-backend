@@ -58,6 +58,9 @@ pub use crate::physics::keff::{run_keff, GenerationReport, HistoryCounts, KeffRe
 pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
 };
+pub use crate::physics::search_grsecant::{
+    grsecant_search_for_keff, GrSecantError, GrSecantFlag, GrSecantResult, GrSecantSettings,
+};
 pub use crate::physics::transport_csg::{
     run_keff_csg, run_keff_csg_reactor_physics, try_run_keff_csg, DeltaTallyEstimator,
     EmptyFissionBank, SourceBox,
