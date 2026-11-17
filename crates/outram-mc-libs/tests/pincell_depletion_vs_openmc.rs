@@ -44,6 +44,13 @@
 //!    CCFE-709 collapse moves step-5 atoms by under 0.5 % for every listed
 //!    nuclide.
 //!
+//! **Re-measure in progress (2026-11-17, gh:#1626):** the example now binds
+//! H in H2O per material (`assign_material_sab`, gh:#462) rather than to the
+//! H-1 nuclide. Only the water holds H-1, so the physics is the same, but
+//! the random stream is not (seed 1's day-5 k: 1.14437, was 1.14840). The
+//! results below and `pincell_depletion_port.tsv` were measured with the
+//! nuclide-level binding; all 16 seeds are being re-run.
+//!
 //! # Results, measured 2026-11-17 (all three predictions held)
 //!
 //! 1. Check 1: 160 OpenMC steps (2 modes x 16 seeds x 5) replayed, worst
