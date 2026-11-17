@@ -142,8 +142,12 @@
 //!    are measurements rather than failures to measure.
 //!
 //! 7. **Caveats 4-6 were measured BEFORE the residual was closed.** They are
-//!    still correct as *worth* measurements — that is what they are for, and
-//!    their numbers do not depend on what else was wrong at the time — but read
+//!    still correct as *worth* measurements — that is what they are for, ~~and
+//!    their numbers do not depend on what else was wrong at the time~~
+//!    **CORRECTED 2026-11-17 (gh:#1617)**: the caveat-6 target-motion number
+//!    DID depend on it. Replayed post-F-19 on `60f6bb261`, the same whole-run
+//!    switch gives -556 +/- 87 pcm (8 seeds), not -2242; see
+//!    `examples/fhr_pebble_target_at_rest_ablation.rs` — but read
 //!    them as the elimination trail that led to GitHub #193 rather than as live
 //!    statements about an open gap. The trail was: graphite S(α,β) priced at
 //!    -127 +/- 337 pcm, the MF=4 angular law at -81 +/- 317, a deliberately

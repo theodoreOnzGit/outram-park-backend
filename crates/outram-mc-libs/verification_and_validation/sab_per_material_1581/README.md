@@ -517,3 +517,75 @@ is what the replay's MOVING arm and the -2242 gap test.
 **Cost probe and plan.** From `ensembles_1583/fhr_new_7b5dd858d.out`: about 300 s
 data build, 200-250 s per seed (up to 570 s under load), 4 logical cores shared.
 Two processes at most: A = MOVING + HOOK, B = SWITCH; N = 8 seeds each.
+
+#### gh:#1617: results of the replay (2026-11-17)
+
+**Method.** A detached worktree at `60f6bb261`, whose driver already has the
+per-nuclide-hook arm. Its only edits (`ensembles_1617/replay_driver_patch.diff`):
+an arm `SWITCH` that runs the unmodified nuclides with
+`KeffSettings::temperature_k = 0.0` (the gh:#193 switch, exactly as
+`75615b678` applied it), an arm selector, and `k` printed to 15 digits. Same case,
+4000 x [30 + 80], seeds 1-8, one process per arm group (A = MOVING + HOOK,
+B = SWITCH). No retuning: the predictions above were committed (`e046bc796`)
+before any of this ran.
+
+| seed | MOVING k | HOOK k = SWITCH k | HOOK vs SWITCH (k, p, eps) |
+|---|---|---|---|
+| 1 | 1.366620965 | 1.360950879 | bit-identical |
+| 2 | 1.365263700 | 1.356959614 | bit-identical |
+| 3 | 1.366041799 | 1.365649312 | bit-identical |
+| 4 | 1.366565419 | 1.358806863 | bit-identical |
+| 5 | 1.366194794 | 1.360870933 | bit-identical |
+| 6 | 1.367760389 | 1.362685367 | bit-identical |
+| 7 | 1.366477344 | 1.359285890 | bit-identical |
+| 8 | 1.365114313 | 1.360320031 | bit-identical |
+
+(Full per-seed values with p and eps in `ensembles_1617/replay_60f6bb261_*.out`;
+`ensembles_1617/analyse_1617.py` recomputes everything below.)
+
+| quantity (8 seeds, 60f6bb261) | value |
+|---|---|
+| k_MOVING | 1.36625 (sd 83 pcm) |
+| k_AT-REST, SWITCH arm = HOOK arm | 1.36069 (sd 263 pcm) |
+| AT-REST - MOVING, paired | **-556 +/- 87 pcm** (6.4 sigma), paired sd 247 |
+| AT-REST - MOVING, unpaired | -556 +/- 97 pcm (5.7 sigma) |
+| p (2-group) MOVING / AT-REST | 0.4833 / 0.4841, +0.0008 +/- 0.0004 |
+| eps (2-group) MOVING / AT-REST | 1.5063 / 1.5015, -0.0048 +/- 0.0007 |
+
+**Against the predictions.** (1) Bit-identity: held, 8 of 8 seeds, k, p and eps.
+(2) MOVING seed 1 = 1.36662 +/- 0.00210: held. (3) -556 +/- 87: held, to the
+pcm, because the two routes are one calculation. (4) Today's whole-material
+number: not measurable (the switch is gone); the hook's own value on the current
+build is -153 +/- 43 pcm paired (8 seeds, `ensembles_1583/fhr_new_7b5dd858d.out`),
+so the "near -556, not equal" expectation held in sign and was wrong in size: the
+shift is +403 pcm, 4.2 sigma of (87, 43) combined.
+
+**Verdict.**
+
+| comparison | result |
+|---|---|
+| whole-material switch vs per-nuclide hook, same build `60f6bb261` | identical, 0 sigma, bit for bit; **no hook defect, no disagreement beyond abs(z) = 2** |
+| gh:#193 -2242 pcm vs the like-for-like -556 | gap +1686 pcm; explained by F-19 (`45f8d72d`) and the 1-seed error bar, not by the hook |
+| hook at `60f6bb261` (-556 +/- 87) vs hook today (-153 +/- 43) | **4.2 sigma, a finding**: the quantity moved with the build |
+
+So gh:#1617's question ("does the hook reproduce the whole-material switch?")
+is answered yes, with an exact result and not a statistical one. What remains is
+a different finding: the target-motion worth itself changed between 2026-09-17
+and today. The unablated arm moved 1.36625 -> 1.36307 (-318 pcm) and the
+at-rest arm 1.36069 -> 1.36154 (+85 pcm). I have not bisected it. Candidates by
+the commit log between the two builds: gh:#313 (`0414bc827`, free-gas kT is the
+nuclide's data temperature), `81ec018c3` (URR band, DBRC, equiprobable S(a,b)
+sampling), `a7e650694` (DBRC rejection loop), gh:#1581 (per-material S(a,b)).
+Which of them, and whether the new value is the better physics, is open. The
+MOVING arm today (1.36307) also sits nearer OpenMC's 1.36479 +/- 0.00067 than the
+replay's 1.36625 does, so the shift is not obviously a regression.
+
+**Not done / limits.** No bisect of the 403 pcm. No whole-material measurement on
+today's build, because none exists. The replay is one commit (`60f6bb261`), 8
+seeds. Reviewed functions edited: none (`examples/review.md` holds no review
+record; the driver is an example).
+
+**Hardware.** Intel Xeon @ 2.10 GHz (cloud container, KVM), 4 logical cores,
+15.7 GiB RAM, Linux 6.18, CPU only; shared, load average 8-12 from other agents'
+runs during the replay. Per-seed wall times were 600-1250 s and carry no
+cross-run meaning; data build about 275 s per process.
