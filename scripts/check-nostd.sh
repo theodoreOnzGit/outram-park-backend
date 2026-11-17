@@ -41,6 +41,8 @@ crates=(
   outram-mc-libs              # gh:#1605
   chem-eng-real-time-process-control-simulator  # gh:#1612
   teh-o-prke                  # gh:#1600
+  tuas_boussinesq_solver      # gh:#1601
+  outram-park-fork-liggghts   # gh:#1602
 )
 
 rustup target add "$target" >/dev/null

@@ -49,13 +49,16 @@
 //! (found 2026-11-11, when a bounding-sphere shortcut miscounted one
 //! crossing in the cross-code deck).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::insert::RanPark;
 use crate::mesh_wall::MeshWall;
 use crate::particle::{Particle, Vec3};
 use crate::tri_mesh::arr;
 use crate::DemError;
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::hash::HashMap;
+use alloc::sync::Arc;
 
 /// `PIOVERFOUR` of `fix_massflow_mesh_sieve.h` (a truncated literal, kept).
 const PI_OVER_FOUR: f64 = 0.78539816339;
@@ -343,7 +346,7 @@ impl MassFlowMesh {
     /// Take the tags marked for deletion (`atom_tags_delete_`), in marking
     /// order, for the owning system to remove at its next `pre_exchange`.
     pub fn take_pending_deletions(&mut self) -> Vec<u64> {
-        std::mem::take(&mut self.pending_delete)
+        core::mem::take(&mut self.pending_delete)
     }
 
     /// Record one deleted particle of mass `mass` (`pre_exchange`).

@@ -55,6 +55,9 @@
 //! those too). `is_nearby`'s second filter (`isInBoundingBox`) is implied for a
 //! planar face by its first two tests and is not repeated.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::insert::{
     InsertVelocity, InsertedParticle, OverlapGrid, ParticleDistributionDiscrete, Rate, RateTotal,
     RanPark, SMALL,

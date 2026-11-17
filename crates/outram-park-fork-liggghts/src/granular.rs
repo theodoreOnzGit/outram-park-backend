@@ -115,8 +115,11 @@
 //! - **Verified against upstream** — see `docs/verification-and-validation.md`
 //!   and `tests/liggghts_cross_code.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
@@ -236,7 +239,7 @@ impl GranularMaterial {
     #[must_use]
     pub fn beta_eff(&self) -> f64 {
         let ln_e = self.restitution.r_ln();
-        ln_e / (ln_e * ln_e + std::f64::consts::PI * std::f64::consts::PI).sqrt()
+        ln_e / (ln_e * ln_e + core::f64::consts::PI * core::f64::consts::PI).sqrt()
     }
 }
 
@@ -270,7 +273,7 @@ impl PairProps {
             y_eff: m.y_eff(),
             g_eff: m.g_eff(),
             ln_e,
-            beta_eff: ln_e / (ln_e * ln_e + std::f64::consts::PI * std::f64::consts::PI).sqrt(),
+            beta_eff: ln_e / (ln_e * ln_e + core::f64::consts::PI * core::f64::consts::PI).sqrt(),
             friction: m.friction,
         }
     }
@@ -389,7 +392,7 @@ impl MaterialTable {
             y_eff: 1.0 / ((1.0 - vi * vi) / yi + (1.0 - vj * vj) / yj),
             g_eff: 1.0 / (2.0 * (2.0 - vi) * (1.0 + vi) / yi + 2.0 * (2.0 - vj) * (1.0 + vj) / yj),
             ln_e,
-            beta_eff: ln_e / (ln_e * ln_e + std::f64::consts::PI * std::f64::consts::PI).sqrt(),
+            beta_eff: ln_e / (ln_e * ln_e + core::f64::consts::PI * core::f64::consts::PI).sqrt(),
             friction: self.friction[i][j],
         }
     }
@@ -1384,7 +1387,7 @@ impl GranularNormalModel {
                 let ln_e = props.ln_e;
                 let ln_e_sq = ln_e * ln_e;
                 let gamman = (4.0 * k.m_eff * kn * ln_e_sq
-                    / (ln_e_sq + std::f64::consts::PI * std::f64::consts::PI))
+                    / (ln_e_sq + core::f64::consts::PI * core::f64::consts::PI))
                     .sqrt();
                 let gammat = if tangential_damping { gamman } else { 0.0 };
 
@@ -1481,7 +1484,7 @@ fn tn_elastic_df(a: f64, e: f64, fl: f64, fc: f64) -> f64 {
 /// `calculate_plastic_force_differential`.
 fn tn_plastic_df(a_yield: f64, e: f64, fl: f64, fc: f64, yield_stress: f64, r: f64) -> f64 {
     if fc != 0.0 {
-        let up = 3.0 * std::f64::consts::PI * r * yield_stress * fl.sqrt()
+        let up = 3.0 * core::f64::consts::PI * r * yield_stress * fl.sqrt()
             - 2.0 * a_yield * e * fc.sqrt();
         let down = 3.0 * fl.sqrt() - fc.sqrt();
         up / down
@@ -1534,7 +1537,7 @@ fn edi_k_adh(
     let dsq = d * d;
     let a =
         (1.0 / (2.0 * d)) * (4.0 * dsq * risq - ((dsq - rjsq + risq) * (dsq - rjsq + risq))).sqrt();
-    let mut f_min = 1.5 * std::f64::consts::PI * g_surf * a;
+    let mut f_min = 1.5 * core::f64::consts::PI * g_surf * a;
     let delta_min;
     if f_min > f_min_lim {
         f_min = f_min_lim;
@@ -1575,7 +1578,7 @@ impl GranularNormalModel {
         else {
             return self.evaluate_with(k, props);
         };
-        use std::f64::consts::PI;
+        use core::f64::consts::PI;
         let deltan = k.delta_n;
         let ri = k.rad_i;
         let rj = k.rad_j;
@@ -1727,7 +1730,7 @@ impl GranularNormalModel {
         else {
             return self.evaluate_with(k, props);
         };
-        use std::f64::consts::PI;
+        use core::f64::consts::PI;
         let ri = k.rad_i;
         let mut reff = k.r_eff;
         let meff = k.m_eff;
@@ -1928,10 +1931,10 @@ impl GranularNormalModel {
         let kc = kn2kc * kn;
         let f_0 = f_adh;
         let gamman = (4.0 * meff * kn
-            / (1.0 + (std::f64::consts::PI / ln_e) * (std::f64::consts::PI / ln_e)))
+            / (1.0 + (core::f64::consts::PI / ln_e) * (core::f64::consts::PI / ln_e)))
             .sqrt();
         let mut gammat = (4.0 * meff * kn
-            / (1.0 + (std::f64::consts::PI / ln_e) * (std::f64::consts::PI / ln_e)))
+            / (1.0 + (core::f64::consts::PI / ln_e) * (core::f64::consts::PI / ln_e)))
             .sqrt();
         if !tangential_damping {
             gammat = 0.0;
@@ -2023,7 +2026,7 @@ impl GranularNormalModel {
             * (15.0 * meff * char_vel * char_vel / (16.0 * sqrtval * y_eff)).r_powf(0.2);
         let kt = kn;
         let gamman = (4.0 * meff * kn
-            / (1.0 + (std::f64::consts::PI / ln_e) * (std::f64::consts::PI / ln_e)))
+            / (1.0 + (core::f64::consts::PI / ln_e) * (core::f64::consts::PI / ln_e)))
             .sqrt();
         let gammat = if tangential_damping { gamman } else { 0.0 };
 
@@ -2356,7 +2359,7 @@ struct ContactHistoryEntry {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct BuildContactHasher;
 
-impl std::hash::BuildHasher for BuildContactHasher {
+impl core::hash::BuildHasher for BuildContactHasher {
     type Hasher = ContactHasher;
     fn build_hasher(&self) -> ContactHasher {
         ContactHasher(0)
@@ -2378,7 +2381,7 @@ impl ContactHasher {
     }
 }
 
-impl std::hash::Hasher for ContactHasher {
+impl core::hash::Hasher for ContactHasher {
     #[inline]
     fn finish(&self) -> u64 {
         self.0
@@ -2655,7 +2658,7 @@ impl GranularCohesion {
     /// `surfacesIntersect` bodies (`3d5c00f2`).
     #[must_use]
     pub fn normal_force(&self, k: &ContactKinematics) -> (f64, bool) {
-        use std::f64::consts::PI;
+        use core::f64::consts::PI;
         let (energy_density, reduce, second) = match *self {
             // the bridge force needs the liquid state: `CapillaryParams::intersect`
             Self::Capillary(_) => return (0.0, false),
@@ -3364,7 +3367,7 @@ impl GranularContactModel {
     /// or names a different model kind than this model (the contact-state
     /// layout is fixed by the kind).
     pub fn with_pair_models(self, table: PairModelTable) -> Result<Self, DemError> {
-        use std::mem::discriminant as d;
+        use core::mem::discriminant as d;
         for i in 0..table.n_types {
             for j in 0..table.n_types {
                 let Some(e) = table.entries[i][j] else {
@@ -3836,7 +3839,7 @@ mod tests {
 
     fn sphere(x: f64, vx: f64) -> Particle {
         // d = 0.01 m, rho = 2500 kg/m^3  ->  m = 2500 * pi/6 * 1e-6
-        let m = 2500.0 * std::f64::consts::PI / 6.0 * 1.0e-6;
+        let m = 2500.0 * core::f64::consts::PI / 6.0 * 1.0e-6;
         Particle::new(
             Vec3::new(x, 0.0, 0.0),
             Vec3::new(vx, 0.0, 0.0),
@@ -3863,7 +3866,7 @@ mod tests {
         let ln_e = 0.9_f64.r_ln();
         assert_abs_diff_eq!(
             m.beta_eff(),
-            ln_e / (ln_e * ln_e + std::f64::consts::PI.r_powi(2)).sqrt(),
+            ln_e / (ln_e * ln_e + core::f64::consts::PI.r_powi(2)).sqrt(),
             epsilon = 1e-15
         );
         // Also verify the "mixed-material" general form collapses to ours.
@@ -3947,7 +3950,7 @@ mod tests {
             * (15.0 * k.m_eff * 4.0 / (16.0 * sqrtval * m.y_eff())).r_powf(0.2);
         let ln_e = 0.9_f64.r_ln();
         let gamman_hand = (4.0 * k.m_eff * kn_hand * ln_e * ln_e
-            / (ln_e * ln_e + std::f64::consts::PI.r_powi(2)))
+            / (ln_e * ln_e + core::f64::consts::PI.r_powi(2)))
         .sqrt();
         assert_abs_diff_eq!(out.kn, kn_hand, epsilon = kn_hand * 1e-12);
         assert_abs_diff_eq!(out.gamman, gamman_hand, epsilon = gamman_hand * 1e-12);

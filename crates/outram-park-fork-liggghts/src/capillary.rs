@@ -126,11 +126,14 @@
 //! * The pair-style `tangential_reduce` is ported; coarse graining is an
 //!   upstream error (`error->cg`) and is not representable here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::granular::{ContactKinematics, MAX_TYPES};
 use crate::particle::Vec3;
 use crate::DemError;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// `4/3 * 1000` as upstream writes it (a truncated literal, not `4000/3`).
 const FOUR_THIRDS_1000: f64 = 1333.333333;
@@ -932,14 +935,14 @@ pub struct CapillaryState {
     /// `liquidFlux` per particle `[1/s]`.
     pub flux: Vec<f64>,
     /// Tag pairs `(lo, hi)` whose history `contflag` is 1.
-    pub bridges: std::collections::BTreeSet<(u64, u64)>,
+    pub bridges: alloc::collections::BTreeSet<(u64, u64)>,
     /// Particle-wall bridges `(tag, wall id, facet)` with `contflag == 1`
     /// (wall id as in the contact history: a primitive wall's index, or the
     /// static-boundary count plus a moving wall's index; facet 0 for a
     /// primitive wall). gh:#1487.
-    pub wall_bridges: std::collections::BTreeSet<(u64, usize, usize)>,
+    pub wall_bridges: alloc::collections::BTreeSet<(u64, usize, usize)>,
     /// `fix mesh/surface/liquidtransfer` modules, by moving-wall index.
-    pub mesh_liquid: std::collections::BTreeMap<usize, MeshLiquid>,
+    pub mesh_liquid: alloc::collections::BTreeMap<usize, MeshLiquid>,
 }
 
 impl CapillaryState {
@@ -949,9 +952,9 @@ impl CapillaryState {
         Self {
             content: vec![initial; n],
             flux: vec![0.0; n],
-            bridges: std::collections::BTreeSet::new(),
-            wall_bridges: std::collections::BTreeSet::new(),
-            mesh_liquid: std::collections::BTreeMap::new(),
+            bridges: alloc::collections::BTreeSet::new(),
+            wall_bridges: alloc::collections::BTreeSet::new(),
+            mesh_liquid: alloc::collections::BTreeMap::new(),
         }
     }
 

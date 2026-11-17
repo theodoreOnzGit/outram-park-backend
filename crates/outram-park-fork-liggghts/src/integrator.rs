@@ -93,6 +93,9 @@
 //! tracked, matching the base crate: only `angular_velocity` is advanced, which
 //! is sufficient for spheres with isotropic inertia.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
 

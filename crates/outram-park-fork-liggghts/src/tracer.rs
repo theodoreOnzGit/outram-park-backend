@@ -30,6 +30,9 @@
 //!   default. Sums over particles take the local order as an argument so the
 //!   mass sum is accumulated in upstream's order.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::insert::InsertRegion;
 use crate::particle::Particle;
 

@@ -53,6 +53,9 @@
 //! discharge tube to the valve at `z = −0.61946`. The real tube is ~6 m; the
 //! DEM holds only this stub of it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Mass, Pressure, ThermodynamicTemperature, Time};
 use uom::si::length::meter;
@@ -173,7 +176,7 @@ fn e_drop() -> f64 {
 }
 
 fn pebble_mass() -> f64 {
-    PEBBLE_DENSITY * 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3)
+    PEBBLE_DENSITY * 4.0 / 3.0 * core::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3)
 }
 
 fn pebble(x: Vec3) -> Result<Particle, DemError> {
@@ -196,8 +199,8 @@ pub fn discharge_mesh(segments: usize) -> Result<MeshWall, DemError> {
         |z0: f64, r0: f64, z1: f64, r1: f64, tris: &mut Vec<Triangle>| -> Result<(), DemError> {
             for i in 0..n {
                 let (a0, a1) = (
-                    std::f64::consts::TAU * i as f64 / n as f64,
-                    std::f64::consts::TAU * (i + 1) as f64 / n as f64,
+                    core::f64::consts::TAU * i as f64 / n as f64,
+                    core::f64::consts::TAU * (i + 1) as f64 / n as f64,
                 );
                 let p0 = Vec3::new(r0 * a0.r_cos(), r0 * a0.r_sin(), z0);
                 let p1 = Vec3::new(r0 * a1.r_cos(), r0 * a1.r_sin(), z0);
@@ -270,8 +273,8 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
     let mut state = seed;
     let mut out: Vec<Vec3> = Vec::with_capacity(n);
     // Spatial hash of placed centres on a d-sized grid, for O(1) overlap checks.
-    let mut grid: std::collections::BTreeMap<(i64, i64, i64), Vec<usize>> =
-        std::collections::BTreeMap::new();
+    let mut grid: alloc::collections::BTreeMap<(i64, i64, i64), Vec<usize>> =
+        alloc::collections::BTreeMap::new();
     let cell = |p: Vec3| {
         (
             (p.x / d).floor() as i64,
@@ -279,7 +282,7 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
             (p.z / d).floor() as i64,
         )
     };
-    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
+    let v_pebble = 4.0 / 3.0 * core::f64::consts::PI * r.r_powi(3);
     // Fill slab by slab (one diameter thick) from the valve up, each slab to
     // the target solid fraction, so the seed is uniformly loose.
     let mut z0 = VALVE_Z_M;
@@ -291,14 +294,14 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
             z0 = z1;
             continue;
         }
-        let slab_volume = std::f64::consts::PI * (reach + r).r_powi(2) * d;
+        let slab_volume = core::f64::consts::PI * (reach + r).r_powi(2) * d;
         let target = ((SEED_SOLID_FRACTION * slab_volume / v_pebble).round() as usize).max(1);
         let (mut placed, mut tries) = (0usize, 0usize);
         while placed < target && out.len() < n && tries < 200 * target {
             tries += 1;
             // Uniform in the disc of radius `reach`, uniform in z within the slab.
             let rr = reach * splitmix(&mut state).sqrt();
-            let th = std::f64::consts::TAU * splitmix(&mut state);
+            let th = core::f64::consts::TAU * splitmix(&mut state);
             let p = Vec3::new(
                 rr * th.r_cos(),
                 rr * th.r_sin(),
@@ -361,8 +364,8 @@ pub fn whole_core_fraction(centres: &[Vec3]) -> f64 {
         return f64::NAN;
     };
     let n = centres.iter().filter(|c| c.z > 0.0).count();
-    let v = 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3);
-    n as f64 * v / (std::f64::consts::PI * CORE_RADIUS_M * CORE_RADIUS_M * top)
+    let v = 4.0 / 3.0 * core::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3);
+    n as f64 * v / (core::f64::consts::PI * CORE_RADIUS_M * CORE_RADIUS_M * top)
 }
 
 impl Htr10Fill {
@@ -474,7 +477,7 @@ impl Htr10Fill {
 /// state is read back after every [`Self::advance`]). Not bit-identical to
 /// the CPU pour (`gpu::dem`'s trust model); the CPU pour stays the default
 /// and the reference.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub struct Htr10GpuFill {
     dem: crate::gpu::dem::GpuDem,
     settings: Htr10FillSettings,
@@ -484,7 +487,7 @@ pub struct Htr10GpuFill {
     mass: f64,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 impl Htr10GpuFill {
     /// [`Self::new`] without blocking (the browser's way): `ctx` from
     /// `gpu::probe_async`.
@@ -550,7 +553,7 @@ impl Htr10GpuFill {
     ///
     /// # Errors
     /// No GPU adapter, or a setting the CPU pour refuses.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn new(settings: Htr10FillSettings) -> Result<Self, String> {
         let cpu = Htr10Fill::new(settings).map_err(|e| format!("{e:?}"))?;
         let ctx = crate::gpu::probe().ok_or("no GPU adapter")?;
@@ -567,7 +570,7 @@ impl Htr10GpuFill {
     }
 
     /// Step `n` more times (fewer if `max_steps` is reached) and report.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn advance(&mut self, n: usize) -> FillProgress {
         let n = n.min(self.settings.max_steps.saturating_sub(self.steps));
         if n > 0 {
@@ -613,7 +616,7 @@ impl Htr10GpuFill {
 
     /// Table overflows since the start (must be zero for a trusted run).
     #[must_use]
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn errors(&self) -> crate::gpu::dem::GpuErrors {
         self.dem.errors()
     }

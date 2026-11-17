@@ -35,6 +35,9 @@
 //! `TrackingMesh::rotate` does (`move(-origin)`, rotate, `move(origin)`);
 //! a rotation about a point other than the origin is not cross-coded.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::Vec3;
 use crate::variable::{Expr, VarContext};
 use crate::DemError;

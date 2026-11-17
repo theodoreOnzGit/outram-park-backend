@@ -189,6 +189,9 @@
 //! V&V: `docs/verification-and-validation.md` §§ 4.17, 4.17.1, 4.17.2 and
 //! 4.17.3.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::granular::{ContactKinematics, GranularMaterial, GranularNormalModel, MaterialTable};
 use crate::mesh_wall::MeshWall;
 use crate::neighbor_list::{self, LiggghtsNeighbor};
@@ -204,7 +207,7 @@ const SCALE_KOEF: f64 = 1.0001;
 /// `PHI_INV` of `math_extra_liggghts_superquadric.cpp`.
 const PHI_INV: f64 = 0.61803398874989479;
 /// `M_PI`.
-const M_PI: f64 = std::f64::consts::PI;
+const M_PI: f64 = core::f64::consts::PI;
 /// `SMALL_TRIMESH` of `tri_mesh.h`.
 const SMALL_TRIMESH: f64 = 1e-10;
 
@@ -3710,7 +3713,7 @@ impl SuperquadricParticle {
 pub(crate) struct SqOverlapList {
     check_obb: bool,
     cell: f64,
-    cells: std::collections::BTreeMap<(i64, i64, i64), Vec<SqOverlapBody>>,
+    cells: alloc::collections::BTreeMap<(i64, i64, i64), Vec<SqOverlapBody>>,
 }
 
 impl SqOverlapList {
@@ -3720,7 +3723,7 @@ impl SqOverlapList {
         Self {
             check_obb,
             cell: if cell > 0.0 { cell } else { 1.0 },
-            cells: std::collections::BTreeMap::new(),
+            cells: alloc::collections::BTreeMap::new(),
         }
     }
 

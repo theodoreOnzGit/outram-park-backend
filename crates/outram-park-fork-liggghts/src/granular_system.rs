@@ -60,16 +60,19 @@
 //! all-pairs scan below [`GranularSystem::BRUTE_FORCE_THRESHOLD`] and a
 //! uniform linked-cell grid above it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::force_fixes::ForceFix;
 use crate::variable::VarContext;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par as rayon;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par::prelude::*;
 
 use crate::boundary::Boundary;
@@ -294,7 +297,7 @@ pub struct GranularSystem {
     inserters: Vec<crate::insert::InsertFix>,
     /// `fix insert/stream` fixes and the shared release data (by tag).
     stream_inserters: Vec<crate::insert_stream::InsertStreamFix>,
-    stream_release: std::collections::BTreeMap<u64, crate::insert_stream::Release>,
+    stream_release: alloc::collections::BTreeMap<u64, crate::insert_stream::Release>,
     /// `fix heat/gran/conduction`, if attached ([`GranularSystem::with_heat_conduction`]).
     heat: Option<HeatGranConduction>,
     /// Heat flux into each particle `[W]` from the last step's contact
@@ -317,7 +320,7 @@ pub struct GranularSystem {
     ms_break: Option<(f64, i64)>,
     /// The break trigger (`fix property/atom`, default 0) of each atom, by
     /// tag.
-    break_trigger: std::collections::BTreeMap<u64, f64>,
+    break_trigger: alloc::collections::BTreeMap<u64, f64>,
     /// `boundary f f f` with `thermo_modify lost ignore`: the box whose
     /// leavers `Comm::exchange` drops at a rebuild
     /// ([`GranularSystem::with_lost_atoms`], gh:#1415).
@@ -478,7 +481,7 @@ impl GranularSystem {
             wall_near: Vec::new(),
             inserters: Vec::new(),
             stream_inserters: Vec::new(),
-            stream_release: std::collections::BTreeMap::new(),
+            stream_release: alloc::collections::BTreeMap::new(),
             heat: None,
             heat_flux: Vec::new(),
             massflow: Vec::new(),
@@ -487,7 +490,7 @@ impl GranularSystem {
             ms_nointegration: false,
             ms_allow_group_and_set: false,
             ms_break: None,
-            break_trigger: std::collections::BTreeMap::new(),
+            break_trigger: alloc::collections::BTreeMap::new(),
             lost_atoms_box: None,
         };
         s.compute_forces_setup();
@@ -1147,7 +1150,7 @@ impl GranularSystem {
     /// history writes (`pair_gran_base.h` compute + the surface model).
     fn resolve_pairs_mc(&mut self) {
         let setup = self.setup_phase;
-        let pairs = std::mem::take(&mut self.pairs);
+        let pairs = core::mem::take(&mut self.pairs);
         for &(i, j) in &pairs {
             let (i, j) = (i as usize, j as usize);
             let (ti, tj) = (self.tags[i] as usize, self.tags[j] as usize);
@@ -1483,7 +1486,7 @@ impl GranularSystem {
         let mut cap = self.capillary.take().expect("capillary state");
         cap.content.resize(self.particles.len(), p.initial_liquid_content);
         cap.flux.resize(self.particles.len(), 0.0);
-        let pairs = std::mem::take(&mut self.pairs);
+        let pairs = core::mem::take(&mut self.pairs);
         for &(i, j) in &pairs {
             let (i, j) = (i as usize, j as usize);
             let a = self.particles[i];
@@ -2467,7 +2470,7 @@ impl GranularSystem {
         let del = a.position.sub(b.position);
         let rsq = del.x * del.x + del.y * del.y + del.z * del.z;
         let r = rsq.sqrt();
-        let contact_area = -std::f64::consts::PI / 4.0
+        let contact_area = -core::f64::consts::PI / 4.0
             * ((r - radi - radj) * (r + radi - radj) * (r - radi + radj) * (r + radi + radj))
             / rsq;
         Some(PairLocalRecord {
@@ -2550,7 +2553,7 @@ impl GranularSystem {
                         force: gf.force_i,
                         torque: gf.torque_i,
                         history: hist,
-                        contact_area: (p.radius * p.radius - rsq) * std::f64::consts::PI,
+                        contact_area: (p.radius * p.radius - rsq) * core::f64::consts::PI,
                         delta: p.radius - rsq.sqrt(),
                     });
                 }
@@ -3615,7 +3618,7 @@ impl GranularSystem {
     /// path, used by [`ComputeType::CpuSingleThread`] and [`ComputeType::Gpu`].
     fn resolve_pairs_serial(&mut self) {
         let setup = self.setup_phase;
-        let pairs = std::mem::take(&mut self.pairs);
+        let pairs = core::mem::take(&mut self.pairs);
         for &(i, j) in &pairs {
             let (i, j) = (i as usize, j as usize);
             let a = self.particles[i];
@@ -3680,9 +3683,9 @@ impl GranularSystem {
     /// serial tail does not dominate.
     fn resolve_pairs_parallel(&mut self) {
         let threads = self.compute.threads();
-        let pairs = std::mem::take(&mut self.pairs);
-        let mut outcomes = std::mem::take(&mut self.outcomes);
-        let mut chunk_counts = std::mem::take(&mut self.chunk_counts);
+        let pairs = core::mem::take(&mut self.pairs);
+        let mut outcomes = core::mem::take(&mut self.outcomes);
+        let mut chunk_counts = core::mem::take(&mut self.chunk_counts);
 
         // Enough tasks to balance a ragged bed, few enough that per-task
         // overhead stays negligible against the contact arithmetic.
@@ -3813,9 +3816,9 @@ impl GranularSystem {
             }
             return;
         }
-        let mut pairs = std::mem::take(&mut self.pairs);
-        let mut offsets = std::mem::take(&mut self.cell_offsets);
-        let mut items = std::mem::take(&mut self.cell_items);
+        let mut pairs = core::mem::take(&mut self.pairs);
+        let mut offsets = core::mem::take(&mut self.cell_offsets);
+        let mut items = core::mem::take(&mut self.cell_items);
         Self::build_pairs(&self.particles, &mut pairs, &mut offsets, &mut items);
         self.pairs = pairs;
         self.cell_offsets = offsets;
@@ -3840,7 +3843,7 @@ impl GranularSystem {
     /// # Determinism is the point, not a side effect
     ///
     /// ~~Cells were held in a `HashMap` and iterated directly~~ **CORRECTED
-    /// 2026-09-17** — `std::collections::HashMap` seeds its hasher randomly
+    /// 2026-09-17** — `crate::hash::HashMap` seeds its hasher randomly
     /// *per process*, so that loop visited cells in a different order on every
     /// run. Since `forces[i] += …` is a floating-point accumulation and
     /// addition is not associative, the bed's trajectory differed run to run in
@@ -4020,7 +4023,7 @@ impl GranularSystem {
         pairs: &mut Vec<(u32, u32)>,
         icell: impl Fn(Vec3) -> (i64, i64, i64),
     ) {
-        use std::collections::BTreeMap;
+        use alloc::collections::BTreeMap;
         const FORWARD: [(i64, i64, i64); 13] = [
             (1, 0, 0),
             (-1, 1, 0),
@@ -4070,6 +4073,15 @@ impl GranularSystem {
 /// A **dedicated** pool is used rather than rayon's implicit global one (the
 /// same choice `outram-mc-libs` makes) so that a caller who is themselves
 /// inside a rayon scope cannot oversubscribe the machine or deadlock.
+#[cfg(not(feature = "std"))]
+fn shared_pool(_threads: usize) -> &'static rayon::ThreadPool {
+    // Without `std` (gh:#1602) `rayon` is the serial `wasm_par` stand-in: one
+    // pool, no registry needed.
+    static POOL: rayon::ThreadPool = rayon::ThreadPool;
+    &POOL
+}
+
+#[cfg(feature = "std")]
 fn shared_pool(threads: usize) -> &'static rayon::ThreadPool {
     use std::sync::{Mutex, OnceLock};
     static POOLS: OnceLock<Mutex<HashMap<usize, &'static rayon::ThreadPool>>> = OnceLock::new();
@@ -4102,7 +4114,7 @@ mod tests {
     }
 
     fn sphere(pos: Vec3, vel: Vec3) -> Particle {
-        let m = 2500.0 * std::f64::consts::PI / 6.0 * 1.0e-6;
+        let m = 2500.0 * core::f64::consts::PI / 6.0 * 1.0e-6;
         Particle::new(
             pos,
             vel,
@@ -4364,7 +4376,7 @@ mod tests {
     /// removed), which fails this test as intended.
     #[test]
     fn half_stencil_enumerates_the_same_pairs_as_the_full_stencil() {
-        use std::collections::HashMap;
+        use crate::hash::HashMap;
         let mut ps = Vec::new();
         let d = 0.0098;
         for i in 0..8 {

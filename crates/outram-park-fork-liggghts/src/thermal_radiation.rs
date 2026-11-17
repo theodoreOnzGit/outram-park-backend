@@ -168,6 +168,9 @@
 //!   Process Industries* (CSIRO, 1999) — gas-lens conductance integral applied
 //!   to DEM fluidized-bed heat transfer.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::particle::Particle;
 use crate::thermal::{effective_radius, sphere_wall_effective_radius};
@@ -371,7 +374,7 @@ fn gas_lens_conductance(
         )));
     }
     let ratio = outer_radius * outer_radius / (2.0 * r_eff * gap);
-    Ok(2.0 * std::f64::consts::PI * k_g * r_eff * (1.0 + ratio).r_ln())
+    Ok(2.0 * core::f64::consts::PI * k_g * r_eff * (1.0 + ratio).r_ln())
 }
 
 /// Near-field gas-gap conductance `H_gas` `[W/K]` between two spheres of radii
@@ -672,7 +675,7 @@ mod tests {
         let r_star = 0.005_f64;
         let ratio = r_out * r_out / (2.0 * r_star * gap);
         assert_abs_diff_eq!(ratio, 25.0, epsilon = 1.0e-12);
-        let expected = 2.0 * std::f64::consts::PI * k_g * r_star * (1.0 + ratio).r_ln();
+        let expected = 2.0 * core::f64::consts::PI * k_g * r_star * (1.0 + ratio).r_ln();
         assert_abs_diff_eq!(h_gas, expected, epsilon = 1.0e-15);
         // Hand value.
         assert_abs_diff_eq!(h_gas, 2.558_903_037e-3, epsilon = 1.0e-9);
@@ -804,7 +807,7 @@ mod tests {
         let h_wall = gas_wall_gap_conductance(k_g, 0.01, gap, r_out).unwrap();
         let r_eff = 0.01_f64;
         let expected = 2.0
-            * std::f64::consts::PI
+            * core::f64::consts::PI
             * k_g
             * r_eff
             * (1.0 + r_out * r_out / (2.0 * r_eff * gap)).r_ln();

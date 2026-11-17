@@ -143,7 +143,7 @@ outram-mc-libs = { workspace = true, optional = true }
 # device. Same wgpu as eframe's (the workspace pins them together).
 outram-blender = { workspace = true, features = ["gpu", "foam-mesh", "fem-export"], optional = true }
 # Step 1's fresh DEM pour (`htr10_fill`, the LIGGGHTS port's GranularSystem).
-outram-park-fork-liggghts = { workspace = true, optional = true }
+outram-park-fork-liggghts = { workspace = true, optional = true, features = ["std"] }
 # Step 10's coupled run (gh:#574): helium properties, KTA bed friction, Wakao
 # film coefficient and the HTR-10 pebble conduction (`tampines::gas_phase`,
 # `tampines::pebble_bed`).
@@ -219,7 +219,7 @@ nee_soon = { workspace = true }
 # The DEM pour demo (gh:#787): the LIGGGHTS port's `htr10_fill` pour, run in
 # the browser's worker, and the `htr10` rung's baked DEM bed. A wasm in-scope
 # crate (its `wasm_par` shim stands in for rayon).
-outram-park-fork-liggghts = { workspace = true }
+outram-park-fork-liggghts = { workspace = true, features = ["std"] }
 # ~~The Fukushima Daiichi Unit 1 demo (gh:#986): the digital-twin engine's
 # widget library, tampines' valve, sembawang's `bwr_mark1` and egui_plot ...
 # "no cycle: none of them depends on dhoby-ghaut".~~ CORRECTED 2026-11-05

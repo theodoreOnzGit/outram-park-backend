@@ -93,6 +93,9 @@
 //!   *Particuology* **10**(5), 582–591 (2012) — the CFDEM/LIGGGHTS coupling
 //!   approach this seam is modelled after.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Ratio, Volume};
 
 use crate::particle::{Particle, Vec3};

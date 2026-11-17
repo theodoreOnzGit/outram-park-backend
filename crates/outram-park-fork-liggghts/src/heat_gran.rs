@@ -72,6 +72,9 @@
 //! implicit integrator (`advanceQtyImplicit`) and `fix_modify every`.
 //! `thermalConductivity` and `thermalCapacity` are per atom type, as upstream.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::Particle;
 use crate::DemError;
 
@@ -171,10 +174,10 @@ impl HeatGranConduction {
                 if r < radi.max(radj) {
                     // one sphere is inside the other: area of the smaller sphere
                     let mut a = radi.min(radj);
-                    a *= a * std::f64::consts::PI;
+                    a *= a * core::f64::consts::PI;
                     a
                 } else {
-                    -std::f64::consts::PI / 4.0
+                    -core::f64::consts::PI / 4.0
                         * ((r - radi - radj)
                             * (r + radi - radj)
                             * (r - radi + radj)
@@ -185,7 +188,7 @@ impl HeatGranConduction {
             ConductionContactArea::Constant(a) => a,
             ConductionContactArea::Projection => {
                 let rmax = radi.max(radj);
-                std::f64::consts::PI * rmax * rmax
+                core::f64::consts::PI * rmax * rmax
             }
         }
     }
@@ -305,11 +308,11 @@ mod tests {
         assert_eq!(HeatGranConduction::pair_conductance(1e-7, 50.0, 1.0), 0.0);
         let r = 0.0096;
         let a = h.contact_area(0.005, 0.005, r);
-        let want = -std::f64::consts::PI / 4.0 * ((r - 0.01) * r * r * (r + 0.01)) / (r * r);
+        let want = -core::f64::consts::PI / 4.0 * ((r - 0.01) * r * r * (r + 0.01)) / (r * r);
         assert!((a - want).abs() < 1e-18 && a > 0.0);
         // r < max(ri, rj): the smaller sphere's area
         let inside = h.contact_area(0.005, 0.003, 0.004);
-        assert!((inside - std::f64::consts::PI * 0.003 * 0.003).abs() < 1e-18);
+        assert!((inside - core::f64::consts::PI * 0.003 * 0.003).abs() < 1e-18);
         let c = h
             .clone()
             .with_contact_area(ConductionContactArea::Constant(2e-6))
@@ -320,7 +323,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             p.contact_area(0.005, 0.003, r),
-            std::f64::consts::PI * 0.005 * 0.005
+            core::f64::consts::PI * 0.005 * 0.005
         );
         assert!(HeatGranConduction::single_type(1.0, 1.0)
             .unwrap()

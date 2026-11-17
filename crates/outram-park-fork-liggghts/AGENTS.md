@@ -10,6 +10,19 @@ pebble/packed-bed physics. Ports LIGGGHTS/LAMMPS-granular.
 > `[workspace.dependencies]` — do not pin versions in this crate's
 > `Cargo.toml`.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1602, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (copy it from any module).
+- Maps come from `crate::hash` (`hashbrown` without std, the workspace rule).
+- A `rayon` import takes `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`,
+  with the `wasm_par` stand-in on `any(target_arch = "wasm32", not(feature = "std"))`.
+- GPU code is `#[cfg(all(feature = "std", not(target_os = "android")))]`.
+- Files and printing are `#[cfg(feature = "std")]`.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

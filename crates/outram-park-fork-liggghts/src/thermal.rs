@@ -131,6 +131,9 @@
 //!   Math.* **92**, 156–171 (1882); K. L. Johnson, *Contact Mechanics*
 //!   (Cambridge University Press, 1985), §4 — `δ = a_c²/R*`, `R* = r_i r_j/(r_i+r_j)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::Particle;
 use crate::DemError;
 

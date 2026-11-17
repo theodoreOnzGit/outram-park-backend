@@ -88,6 +88,9 @@
 //! ```
 
 // The crate error.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::DemError;
 
 // Particles and the 3-vector every API takes.

@@ -71,6 +71,9 @@
 //! - H. Goldstein, C. Poole, J. Safko, *Classical Mechanics*, 3rd ed.
 //!   (Addison-Wesley, 2002) — rigid-body rotation, solid-sphere inertia.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
 use uom::si::length::meter;
@@ -286,7 +289,7 @@ impl Particle {
     /// Standard closed-form volume of a sphere of radius `r = self.radius`.
     #[must_use]
     pub fn volume(&self) -> f64 {
-        (4.0 / 3.0) * std::f64::consts::PI * self.radius.r_powi(3)
+        (4.0 / 3.0) * core::f64::consts::PI * self.radius.r_powi(3)
     }
 
     /// Moment of inertia of the particle `[kg·m²]`: `I = (2/5) m r²`.
@@ -577,7 +580,7 @@ mod tests {
         let m = 3.0_f64;
         let p = particle(Vec3::zero(), Vec3::zero(), Vec3::zero(), m, r);
 
-        let v_exact = (4.0 / 3.0) * std::f64::consts::PI * r * r * r;
+        let v_exact = (4.0 / 3.0) * core::f64::consts::PI * r * r * r;
         let i_exact = (2.0 / 5.0) * m * r * r;
 
         assert_abs_diff_eq!(p.volume(), v_exact, epsilon = 1.0e-15);

@@ -51,19 +51,22 @@
 //!    this module hand-rolls a tiny pure-`std` [`block_on`], the same shape
 //!    `outram-mc-libs` uses.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod dem;
 
-use std::future::Future;
-#[cfg(not(target_arch = "wasm32"))]
-use std::pin::pin;
+use core::future::Future;
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
+use core::pin::pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use std::task::Wake;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use std::thread;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use crate::particle::Vec3;
 
 /// Largest bin count the shader's workgroup-local histogram can hold; must
@@ -74,7 +77,7 @@ use crate::particle::Vec3;
 pub const MAX_BINS: usize = 1024;
 
 /// Workgroup size; must match `WG_SIZE` in the shader.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 const WG_SIZE: u32 = 64;
 
 /// A live, headless GPU compute context — a [`wgpu::Device`] and
@@ -88,8 +91,8 @@ pub struct GpuContext {
     pub info: wgpu::AdapterInfo,
 }
 
-impl std::fmt::Debug for GpuContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for GpuContext {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("GpuContext")
             .field("adapter", &self.info.name)
             .field("backend", &self.info.backend)
@@ -104,7 +107,7 @@ impl std::fmt::Debug for GpuContext {
 /// `None` is the *normal, expected* outcome on a headless host and is never an
 /// error.
 #[must_use]
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 pub fn probe() -> Option<GpuContext> {
     let instance = wgpu::Instance::default();
     let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -142,7 +145,7 @@ pub fn probe() -> Option<GpuContext> {
 /// `f32` throughout; see the module contract. Not bit-identical to the `f64`
 /// CPU reference.
 #[must_use]
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 pub fn rdf_histogram(
     centres: &[Vec3],
     centre_idx: &[u32],
@@ -198,7 +201,7 @@ pub fn rdf_histogram(
         contents: slice_bytes(centre_idx),
         usage: wgpu::BufferUsages::STORAGE,
     });
-    let hist_bytes = (n_bins * std::mem::size_of::<u32>()) as u64;
+    let hist_bytes = (n_bins * core::mem::size_of::<u32>()) as u64;
     let hist_buf = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("rdf histogram"),
         size: hist_bytes,
@@ -286,14 +289,14 @@ pub fn rdf_histogram(
 fn bytes_of<T: Copy>(v: &T) -> &[u8] {
     // SAFETY: `T` here is a `#[repr(C)]` POD struct of `f32`/`u32`, so every
     // byte of it is initialised and reading it as bytes is well-defined.
-    unsafe { std::slice::from_raw_parts((v as *const T).cast::<u8>(), std::mem::size_of::<T>()) }
+    unsafe { core::slice::from_raw_parts((v as *const T).cast::<u8>(), core::mem::size_of::<T>()) }
 }
 
 /// Reinterpret a slice of POD scalars as bytes for a storage upload.
 fn slice_bytes<T: Copy>(v: &[T]) -> &[u8] {
     // SAFETY: `T` is `f32` or `u32` at both call sites — POD, fully
     // initialised, no padding.
-    unsafe { std::slice::from_raw_parts(v.as_ptr().cast::<u8>(), std::mem::size_of_val(v)) }
+    unsafe { core::slice::from_raw_parts(v.as_ptr().cast::<u8>(), core::mem::size_of_val(v)) }
 }
 
 /// Minimal pure-`std` executor: block the current thread until `future`
@@ -302,7 +305,7 @@ fn slice_bytes<T: Copy>(v: &[T]) -> &[u8] {
 /// The standard `pollster::block_on` shape. It exists so this crate needs **no**
 /// async-runtime dependency to await `wgpu`'s two setup futures. Buffer
 /// read-back does not use it — that uses `Device::poll`.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 pub fn block_on<F: Future>(future: F) -> F::Output {
     struct ThreadWaker(thread::Thread);
     impl Wake for ThreadWaker {
@@ -378,7 +381,7 @@ pub(crate) struct MappedFuture(pub(crate) Arc<Mutex<Mapped>>);
 
 impl Future for MappedFuture {
     type Output = bool;
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<bool> {
+    fn poll(self: core::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<bool> {
         let Ok(mut m) = self.0.lock() else {
             return Poll::Ready(false);
         };

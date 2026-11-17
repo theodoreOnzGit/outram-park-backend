@@ -24,6 +24,9 @@
 //!   output (upstream writes `%g`; the value, not the text, is what is
 //!   compared).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::Particle;
 
 /// `INERTIA` of a solid sphere in LIGGGHTS (`math_const.h`).
@@ -325,7 +328,7 @@ impl AveEuler {
         if step % self.nevery != 0 {
             return;
         }
-        let prefactor_vol_fr = 4. / 3. * std::f64::consts::PI / self.cell_volume;
+        let prefactor_vol_fr = 4. / 3. * core::f64::consts::PI / self.cell_volume;
         for c in 0..self.ncells() {
             self.ncount[c] = 0;
             self.v_av[c] = [0.0; 3];
