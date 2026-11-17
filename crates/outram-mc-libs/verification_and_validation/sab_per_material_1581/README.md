@@ -1443,3 +1443,65 @@ from about a dozen comparisons), which no further run here can distinguish from
 an unidentified effect. **Final position: not a physics difference between the
 builds, and not to be quoted as one. The 9-16 block is a deterministic,
 unexplained statistical excursion of the OLD ablated arm.**
+
+## gh:#1635 region_temperature re-pin (2026-11-17): prediction
+
+**Written before any run of the migrated test.** Maintainer confirmed
+(2026-11-17) that `tests/region_temperature.rs` may be re-pinned, because
+appending a bound nuclide copy lengthens the nuclide array and
+`transport_csg.rs:2182` advances the URR stream by `nuclides.len()`, so every
+history re-draws.
+
+**What changes.** Only the HAND path of
+`leu_cell_two_regions_match_the_low_level_path_and_doppler_lowers_k`:
+`hand_nuclides()` loads all five nuclides FREE (U-235, U-238, O-16 at 1200 K,
+H-1 and O-16 at 293.6 K) and the H-in-H2O LEAPR law is associated to the water
+through `MaterialSab::for_materials_containing` and `assign_material_sab`. The
+hand array is then 6 long (a bound H-1 copy appended, water's H-1 component
+moved to index 5). The MODEL path (`Model::assemble` / `load_nuclides`,
+`src/model/data.rs`) is not edited: it still binds H-1 at nuclide level inside
+its own loader (keyed by law, marked and audited in #1581) and stays 5 long.
+`#![allow(deprecated)]` is removed from the test file.
+
+**Which assertions are physics (must pass unchanged).**
+- Test 1 (uniform by region is the uniform model, bit for bit): untouched, LOW
+  tier, no hand path; still bit-identical.
+- Test 3, Doppler: `k(1200 K) - k(293.6 K) < -3 sigma`, both from the model
+  path (unedited); predicted unchanged at -1920 +/- 258 pcm, bit-identical.
+- Test 4, the guard (`RunError::NuclideTemperature`), and the temperature and
+  nuclide-name assertions on the assembled model.
+- Test 5 (delta-tracked majorants, audit, control) and
+  `the_test_geometries_draw`: no nuclide-level binding in the hand path;
+  unchanged.
+
+**Which assertion is a bit-identity pin (expected to move).**
+`hot_run.k_by_cycle == reference.k_by_generation` and the `k_mean` bits: model
+(array of 5) against hand (array of 6). Expected NOT to be bit-identical any
+more: the URR stream is keyed by array length, so the hand path draws another
+realisation. Physics is unchanged (same cross sections, same law, same water
+density), so the two must agree within statistics.
+
+**Prediction for the ensemble.** The measured quantity is the hand-path k_eff
+(5000 x [20 + 100], the test's own size) over a seed ensemble, OLD build (base
+commit `cdd9a695e`, nuclide-level binding, array 5, where hand == model bit for
+bit) against NEW build (per-material, array 6). New minus old = 0 within
+statistics, no sign predicted; **gate |z| <= 2**, z the difference of means over
+the unpaired combined standard error of the means. Controls: the MODEL-path k
+at the same seeds is bit-identical between the two builds (the model path is
+not edited), and in the OLD build model == hand at every seed. The single-run
+sigma of k is about 170 pcm (0.00172 on the mean in the record above), so
+N = 12 seeds resolves a mean shift to about 70 pcm per build.
+
+**Plan, fixed before any result.** Seeds 101-112 (N = 12, decided now; cut by
+the clock to a prefix of completed seeds and said so, never by result). One
+process per build loads the data once and runs every seed through an env knob
+(`OUTRAM_RT_SEEDS=101-112`, with `OUTRAM_RT_ENSEMBLE_ONLY=1` to skip the other
+legs); the test's behaviour without the knob is unchanged. Same hardware, one
+long process at a time.
+
+**Re-pin rule, fixed before any result.** Only if |z| <= 2: the test stops
+asserting model == hand bit for bit (no longer true across two array lengths),
+asserts instead that model and hand agree within 3 combined sigma at seed 945
+(the physics statement), and pins the new hand-path `k_mean` bits at seed 945.
+The old pin is recorded struck through in the test doc and here. If |z| > 2
+nothing is re-pinned and the miss is reported. No physics tolerance is loosened.
