@@ -23,6 +23,9 @@
 //! the constants in the tests. After the N-group refactor the same
 //! constants still pass: six-group results are bit-identical.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
 use uom::si::time::second;

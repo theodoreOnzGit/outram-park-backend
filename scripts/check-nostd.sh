@@ -40,6 +40,7 @@ crates=(
   outram-blender              # gh:#1604
   outram-mc-libs              # gh:#1605
   chem-eng-real-time-process-control-simulator  # gh:#1612
+  teh-o-prke                  # gh:#1600
 )
 
 rustup target add "$target" >/dev/null

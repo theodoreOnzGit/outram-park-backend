@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::amount_of_substance::mole;
 use uom::si::area::barn;
 use uom::si::frequency::hertz;

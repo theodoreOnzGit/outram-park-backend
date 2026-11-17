@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// rust translation of the OpenFOAM ODE system
 ///
 /// note that this is nested inside ODESolver struct

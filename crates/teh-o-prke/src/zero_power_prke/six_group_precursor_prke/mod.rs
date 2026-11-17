@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::teh_o_prke_error::TehOPrkeError;
 use ndarray::Array1;
 use uom::ConstZero;

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::volumetric_number_density::per_cubic_meter;
 use uom::si::{f64::*, ratio::ratio};
 use uom::ConstZero;

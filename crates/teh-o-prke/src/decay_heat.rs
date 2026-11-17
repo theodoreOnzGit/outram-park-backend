@@ -101,6 +101,9 @@
 //! equations and against the total decay energy per fission; they do **not**
 //! validate the model against a measured decay-heat transient.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::energy::megaelectronvolt;
 use uom::si::f64::*;

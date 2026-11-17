@@ -32,6 +32,9 @@
 //!   design scaffold the project owner supplied 2026-07-14 (generated with
 //!   Microsoft Copilot).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 use uom::si::heat_capacity::joule_per_kelvin;

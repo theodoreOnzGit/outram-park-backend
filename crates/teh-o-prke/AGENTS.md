@@ -7,6 +7,16 @@ Guidance for Claude Code (and other AI assistants) working in this crate.
 > full consolidation/migration history. Dependencies are inherited from the root
 > `[workspace.dependencies]` — do not pin versions in this crate's `Cargo.toml`.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1600, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way: new code
+uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*` glob (copy
+it from any module); `ndarray` and `thiserror` come in as `ndarray-nostd` /
+`thiserror-nostd` (imported under their usual names in `lib.rs`); printing
+and clocks stay in tests or go behind `#[cfg(feature = "std")]`; a map, if
+one is ever needed, follows the workspace rule (`crate::hash`, `hashbrown`).
+
 ## Maturity: DECLARED MATURE (2026-09-05)
 
 The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
