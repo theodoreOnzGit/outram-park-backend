@@ -63,6 +63,7 @@ std = [
     "dep:outram-foam-appbuilder-lib",
     "dep:boon-lay",
     "dep:farrer-park",
+    "farrer-park/std",
 ]
 
 [dependencies]

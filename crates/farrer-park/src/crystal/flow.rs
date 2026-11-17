@@ -59,6 +59,9 @@
 //! rate is per second; the rate-sensitivity and hardening exponents and the
 //! latent-hardening ratios are dimensionless; time is in seconds.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::crystal::slip::MAX_SLIP_SYSTEMS;
 use crate::error::{FemError, Result};
