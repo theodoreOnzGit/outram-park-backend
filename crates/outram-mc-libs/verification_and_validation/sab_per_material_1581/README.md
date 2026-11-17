@@ -323,3 +323,22 @@ and up to six processes ran at once. Per-run times (107-307 s for one
 fuel-zone case, 225 s for one FHR seed) carry no cross-run meaning and are
 not tabulated; whole-process wall time was 4221 s / 4049 s (fuel-zone, old /
 new, including the data load).
+
+## Item 2 remainder (gh:#1583, 2026-11-17): `lct008_pitch_sweep` to N >= 8
+
+**Prediction (written before any run of this pass).** Same mechanism and same
+criterion as above: OLD = `d1e20f188` (+ the same `OUTRAM_PITCH_SEEDS` patch),
+NEW = `2d2a99ab4` (this branch). `--cheap-nuclides` (11 tapes), pitches 1.45 and
+1.63576 cm, 3000 x [30 + 100], seeds 1..N with N = 10 planned (>= 8 required),
+all seeds in one process per build, OLD and NEW concurrent. The 3 seeds of the
+first pass are NOT reused for NEW, because NEW has moved from `7b5dd858d` to
+`2d2a99ab4` (changes in `material/thermal.rs`, `source/distribution.rs`,
+`physics/keff.rs`); they are re-run, and OLD seeds 1-3 are compared with the
+first-pass OLD values as a determinism check (predicted bit-identical). For each
+of the two pitch arms, mean(NEW) - mean(OLD) is consistent with zero, |z| <= 2
+on both, and |z| <= 1 on at least one. No sign is predicted. From the first
+pass the single-seed sigma is about 190-200 pcm, the seed-to-seed sd about
+50-190 pcm; at N = 10 sigma(new - old) is expected about 80-110 pcm per arm,
+so a shift under about 200 pcm would not be resolved. Any arm beyond 2 sigma is
+a finding: reported, not patched. The partial N = 3 result above (+115 +- 151,
++75 +- 81 pcm) is not used.
