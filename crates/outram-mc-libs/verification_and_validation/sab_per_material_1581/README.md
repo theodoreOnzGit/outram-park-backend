@@ -195,8 +195,10 @@ nuclide-level tests (13 files, nothing to attach to); `region_temperature`
 (pins the hand path bit-identical to the `Model` path, which a longer array
 would break); `ugraphite_common` and dhoby `ugraphite` (densities indexed by
 nuclide-array position); dhoby `htr10` and `dhshort` (materials built
-elsewhere); `majorant_bounds_endf`, `majorant_temperature_cover`,
-`htr10_graphite_thermal_scattering_pebble_bed`,
+elsewhere); ~~`majorant_bounds_endf`, `majorant_temperature_cover`,
+`htr10_graphite_thermal_scattering_pebble_bed`~~ (**CORRECTED 2026-11-17,
+gh:#1635: all three are migrated, markers removed; checked by the
+`no_unmarked_nuclide_level_sab_462` scan and the results below**),
 `temperature_interpolation_947`; nee_soon `data.rs` / `data_jobs.rs`.
 Each file's marker now states its audit and reason.
 
@@ -1052,3 +1054,39 @@ Predictions, each falsifiable by the before/after outputs:
    (the unreferenced free `C0` at slot 3 is in no material, so `macro_xs_total`
    and the majorant are unchanged).
 4. **Any pinned value that moves: STOP and report; no re-pin.**
+
+### Results, gh:#1635 item 1 (2026-11-17)
+
+`tests/htr10_graphite_thermal_scattering_pebble_bed.rs` is migrated: the new
+`model(thermal)` helper loads `[U234, U235, U238, C0]` free and, for the bound
+arm, lowers the graphite law with `assign_material_sab`
+(`MaterialSab::for_materials_containing(&mats, 3, 0, &[])`); `matrix_nuclide`
+reads the matrix's nuclide through the material, so the nuclide-level checks
+also run on the bound copy that `assign_material_sab` makes (its one sanctioned
+binding site). No deprecated call is left in the file and the
+`#![allow(deprecated)]` marker is gone. Methodology: the test binary was built
+before (`e5b0e9e3b`, deprecated path) and after (this change); both were run
+`--test-threads=1 --nocapture`, once for the four live tests and once with
+`--ignored` for `diagnose_thermal_spectrum_reach`. Hardware: Intel Xeon
+@ 2.10 GHz KVM container, 4 logical cores, 15.7 GiB, Linux 6.18, CPU only,
+shared; the test runs are single-threaded.
+
+| quantity | before | after |
+|---|---|---|
+| free-gas k (300 histories, 8 + 15 cycles) | 1.93405 +/- 0.00852 | 1.93405 +/- 0.00852 |
+| bound k | 1.94577 +/- 0.00635 | 1.94577 +/- 0.00635 |
+| `<E'/E>` at 0.0253 eV, free gas / bound | 1.13863 +/- 0.00123 / 1.03807 +/- 0.00065 | identical |
+| worst Sigma_t/Sigma_maj (200000 points) | 0.909093 at 4.850698 eV, material 0 | identical |
+| diagnostic: histories reaching cutoff, mean scatters, percentiles | 17923 / 20000, 77.7, p01 3.9750 ... p90 6.3901 eV | identical |
+
+**All four live tests and the diagnostic print identical output before and
+after** (diff with the wall times masked; 4 passed / 1 ignored in both; 97.4 s
+before, 96.0 s after). **Prediction check:** (1) free-gas k bit-identical: held.
+(2) bound k bit-identical or a re-draw: it is **bit-identical**, so the array
+growth 4 -> 5 did not move anything here (the URR stream is not consumed by this
+`from_core` model; I did not separately trace that, the identical k is the
+evidence). No seed ensemble was needed. (3) nuclide-level numbers identical:
+held. (4) no pinned value moved, nothing re-pinned. Limit: one seed and one
+packing, as the test always was; this shows the migration changes nothing in
+these runs, not that the physics is validated. Raw:
+`ensembles_1635/htr10_pebble_bed_{before,after,diag_before,diag_after}.out`.

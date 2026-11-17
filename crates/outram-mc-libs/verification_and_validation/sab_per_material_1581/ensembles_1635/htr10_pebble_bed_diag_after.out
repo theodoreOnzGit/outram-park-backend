@@ -1,0 +1,14 @@
+
+running 1 test
+test diagnose_thermal_spectrum_reach ... 
+[op-hc2o spectrum diagnostic] homogenized medium, pf = 0.0005, 20000 histories
+thermal cutoff              : 5.3500 eV
+histories reaching cutoff   : 17923 / 20000 (89.615 %)
+mean scatters per history   : 77.7
+min-energy percentiles [eV] : p01 3.9750e0  p10 4.2992e0  p50 4.9356e0  p90 6.3901e0
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 24.73s
+
+EXIT 0
