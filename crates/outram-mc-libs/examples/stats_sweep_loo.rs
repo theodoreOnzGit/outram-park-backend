@@ -20,7 +20,12 @@
 //!   both readings `SweepSurrogate::loo_gate` provides — literal
 //!   (`loo_rmse ≤ rms σ`, expected to fail even for a perfect surrogate,
 //!   because each held-out residual carries that run's own noise) and
-//!   noise-floor-aware. Which reading the gate means is the maintainer's call.
+//!   noise-floor-aware. ~~Which reading the gate means is the maintainer's
+//!   call.~~ **DECIDED 2026-11-17 (maintainer, gh:#499): the noise-floor-aware
+//!   reading is the gate** (`LooGate::passes`); the literal reading is
+//!   reported, not gating. Degree 2 stays the gated degree, degree 3 a
+//!   labelled study, and the degree-2 FAIL is the recorded finding (lack of
+//!   fit of a quadratic).
 //! - Also printed: jackknife+ intervals (`α = 0.1`, coverage ≥ 80 %) at the
 //!   mid-points between runs, labelled as surrogate values — never as
 //!   transport results — and three proposed next heights.
@@ -40,6 +45,12 @@
 //! | VII.0 | 1 (study) | 1567 | 106 | FAIL | 228.10 | 1.22 | 187 | FAIL |
 //! | VII.0 | **2 (gated)** | **330** | 106 | **FAIL** | 10.39 | 1.38 | 7.5 | **FAIL** |
 //! | VII.0 | 3 (study) | 148 | 106 | FAIL | 2.16 | 1.57 | 1.4 | PASS |
+//!
+//! **Re-run 2026-11-17** (release, this example on the session branch, no
+//! transport): all six rows reproduce the table above to the printed digits
+//! (LOO RMSE 1418/352/168 and 1567/330/148 pcm; χ²/pt 171.90/10.94/2.50 and
+//! 228.10/10.39/2.16; floors 1.22/1.38/1.57). Gate verdict (floor-aware):
+//! degree 2 FAIL on both libraries.
 //!
 //! **The gated degree-2 surrogate fails #499's gate on both libraries, in
 //! both readings:** its LOO error is 3.1–3.3× the per-run σ, and χ²/point is
@@ -114,14 +125,14 @@ fn main() {
             };
             let g = s.loo_gate();
             println!(
-                "  degree {degree} [{tag}]: LOO rmse {:.0} pcm vs rms sigma {:.0} pcm -> literal {}; \
-                 chi2/pt {:.2} vs noise floor {:.2} -> floor-aware {}",
+                "  degree {degree} [{tag}]: LOO rmse {:.0} pcm vs rms sigma {:.0} pcm -> literal {} (reported, not gating); \
+                 chi2/pt {:.2} vs noise floor {:.2} -> floor-aware {} (GATE verdict)",
                 g.loo_rmse * 1e5,
                 g.rms_sigma * 1e5,
                 if g.literal_pass { "PASS" } else { "FAIL" },
                 g.chi2_per_point,
                 g.noise_floor,
-                if g.floor_aware_pass { "PASS" } else { "FAIL" }
+                if g.passes() { "PASS" } else { "FAIL" }
             );
             if degree != GATED_DEGREE {
                 continue;

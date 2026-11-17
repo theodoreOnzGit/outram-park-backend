@@ -43,8 +43,12 @@ under-bound 14× at 661 eV. No result was recorded on them.
   2. Noise-floor-aware: `χ²/point ÷ (1 + p/(n − p))` inside the two-sided
      95 % band of `χ²_n / n` (approximate; LOO residuals are not
      independent).
-  Which reading #499 means is **for the maintainer to decide**; it is raised
-  on the issue and not settled by looking at the numbers.
+  ~~Which reading #499 means is **for the maintainer to decide**; it is raised
+  on the issue and not settled by looking at the numbers.~~
+  **DECIDED 2026-11-17 (maintainer, gh:#499):** the gate's pass/fail is the
+  **noise-floor-aware** reading (`LooGate::passes`). The literal reading is
+  still reported but is not gating. Degree 2 stays the gated degree; degree 3
+  stays a labelled study.
 
 ## Results
 
@@ -64,6 +68,21 @@ libraries in both readings. Its LOO error, about 3.2 σ, is far above the
 ≈ 1.15 σ a correct surrogate would show, so this is lack of fit, not the
 literal reading's built-in excess: a quadratic in height does not carry
 k(H) to MC precision on these runs. Degree 3 passing the floor-aware reading
-does not change the gate; the degree was fixed in advance. Which reading
+does not change the gate; the degree was fixed in advance. ~~Which reading
 #499 means, and whether the gated degree should be revisited for a future
-sweep, remain the maintainer's call.
+sweep, remain the maintainer's call.~~ **DECIDED 2026-11-17 (maintainer):**
+the floor-aware reading gates, degree 2 stays gated, degree 3 stays a study.
+**The degree-2 FAIL (χ²/pt 10.94 / 10.39 against a floor of 1.38) is the
+recorded finding: lack of fit of a quadratic in height.**
+
+**Re-run 2026-11-17** (`stats_sweep_loo`, release, no transport, session
+branch): every row reproduces the 2026-10-07 record to the printed digits.
+
+| library | degree | LOO RMSE (pcm) | rms σ (pcm) | literal (not gating) | χ²/pt | floor | χ²/pt ÷ floor | gate (floor-aware) |
+|---|---|---|---|---|---|---|---|---|
+| VIII.0 | 1 (study) | 1418 | 107 | FAIL | 171.90 | 1.22 | 141 | FAIL |
+| VIII.0 | **2 (gated)** | **352** | 107 | FAIL | 10.94 | 1.38 | 7.9 | **FAIL** |
+| VIII.0 | 3 (study) | 168 | 107 | FAIL | 2.50 | 1.57 | 1.6 | PASS |
+| VII.0 | 1 (study) | 1567 | 106 | FAIL | 228.10 | 1.22 | 187 | FAIL |
+| VII.0 | **2 (gated)** | **330** | 106 | FAIL | 10.39 | 1.38 | 7.5 | **FAIL** |
+| VII.0 | 3 (study) | 148 | 106 | FAIL | 2.16 | 1.57 | 1.4 | PASS |
