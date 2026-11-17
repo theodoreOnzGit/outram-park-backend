@@ -204,4 +204,73 @@ fn thorium_breeding_and_pa_removal() {
     assert!(removed.density(last, 0, "Pa233") < plain.density(last, 0, "Pa233"));
     assert!(removed.density(last, 1, "U233") > 0.0);
     assert!(total(&removed, "U233") > total(&plain, "U233"));
+
+    // gh:#1628 default: these evaluations carry no MF=8/9/10, so every
+    // evaluated (n,gamma) is recorded as NoData and the preset ablation is
+    // bit-identical.
+    for n in ["Th232", "Pa233", "U233"] {
+        assert!(plain.branching.iter().any(|b| b.parent == n && b.reaction == "(n,gamma)" && b.outcome == BranchingOutcome::NoData), "{n}: {:?}", plain.branching);
+    }
+    let preset = study.clone().with_preset_branch_ratios().run(&geom, &materials, &nuclides, src, &ks).unwrap();
+    assert!(preset.branching.is_empty());
+    assert_eq!(preset.history[last].2, plain.history[last].2);
+}
+
+/// gh:#1628 as the default: Zn-68 (n,γ) has MF=9 multiplicities to Zn-69
+/// and Zn-69m. Chain: `from_endf` with the Zn-68 and U-233 evaluations
+/// (U-233 to carry the power), reduced from Zn-68 and U-233 to level 1.
+/// Predictions: by default the chain's Zn-68 capture splits between Zn69
+/// and Zn69_m1, the isomer share between the thermal 0.066 and the fast
+/// 0.244 (closer to 0.066 in this thermal pin), and Zn-69m is produced;
+/// with the preset ablation the split is not applied and Zn-69m is not
+/// produced by capture (0 at end of life, as nothing else feeds it in this
+/// chain).
+///
+/// Measured 2026-11-17: Zn-69m share **0.068839** (prediction held). The
+/// "0 under presets" prediction was **wrong**: U-233's fission yields feed
+/// Zn-69m (it is a level-1 fission product), giving 2.5802e-15 at end of
+/// life under presets, against **1.2005e-9** by default, so capture
+/// branching is ~465× the fission feed here. The gate is therefore
+/// "default above preset", not "preset zero".
+///
+/// Found on the way: `DepletionChain::from_chain_xml` leaves a branched
+/// channel out of the matrix entirely, so a spectrum-derived split removed
+/// Zn-68's capture altogether (default and preset first came out equal).
+/// `from_chain_xml_with_branches` now carries branched (n,γ)/(n,2n) at
+/// their ratios; `from_chain_xml` is unchanged.
+#[test]
+fn zinc68_isomer_branching_is_the_default() {
+    let Some((d, decay, nfy)) = data() else { return };
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let zn = Tape::from_bytes(&std::fs::read(root.join("n-030_Zn_068-ENDF8.0.endf")).unwrap()).unwrap();
+    let u3 = Tape::from_bytes(&std::fs::read(d.join("n-092_U_233-ENDF8.0.endf")).unwrap()).unwrap();
+    let (chain_xml, _) = from_endf(&decay, &nfy, &[zn.clone(), u3.clone()], None).unwrap();
+    let nuclides = vec![Nuclide::from_core("U235").unwrap(), Nuclide::from_core("U238").unwrap(), Nuclide::from_core("H1").unwrap()];
+    let (r_fuel, half) = (0.4_f64, 0.63_f64);
+    let geom = pincell(r_fuel, half);
+    let comp = |i: usize, x: f64| NuclideComponent { nuclide_idx: i, atom_density: x };
+    let materials = vec![
+        Material { id: 1, name: "fuel".into(), temperature: 293.6, components: vec![comp(0, 1.0e-3), comp(1, 2.2e-2)] },
+        Material { id: 2, name: "moderator".into(), temperature: 293.6, components: vec![comp(2, 6.6e-2)] },
+    ];
+    let ks = KeffSettings { n_particles: 400, n_inactive: 8, n_active: 20, ..KeffSettings::default() };
+    let src = SourceBox { lower: Position::new(-r_fuel, -r_fuel, -1.0), upper: Position::new(r_fuel, r_fuel, 1.0) };
+    let study = SpectrumDepletion::new(0, vec![("Zn68".into(), 1.0e-3), ("U233".into(), 1.0e-3)], chain_xml)
+        .with_reduce_level(Some(1))
+        .with_evaluation("Zn68", zn)
+        .with_evaluation("U233", u3)
+        .with_group_edges(log_grid(1.0e-5, 2.0e7, 40))
+        .with_power(3000.0, 1.0)
+        .with_steps(vec![86_400.0; 3]);
+    let def = study.run(&geom, &materials, &nuclides, src, &ks).unwrap();
+    let rec = def.branching.iter().find(|b| b.parent == "Zn68" && b.reaction == "(n,gamma)").unwrap();
+    std::println!("Zn68 (n,gamma) branching: {:?}", rec.outcome);
+    let BranchingOutcome::Applied { set, .. } = &rec.outcome else { panic!("{rec:?}") };
+    let m1 = set.iter().find(|(p, _)| p == "Zn69_m1").map(|(_, b)| *b).unwrap();
+    assert!(m1 > 0.066 && m1 < 0.244, "{m1}");
+    let last = def.history.len() - 1;
+    let pre = study.clone().with_preset_branch_ratios().run(&geom, &materials, &nuclides, src, &ks).unwrap();
+    std::println!("EOL Zn69_m1: default {:.4e}, preset {:.4e}", def.density(last, 0, "Zn69_m1"), pre.density(last, 0, "Zn69_m1"));
+    assert!(def.density(last, 0, "Zn69_m1") > 0.0);
+    assert!(def.density(last, 0, "Zn69_m1") > 100.0 * pre.density(last, 0, "Zn69_m1"));
 }

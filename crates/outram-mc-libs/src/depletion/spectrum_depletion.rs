@@ -18,6 +18,12 @@
 //! 2. **Spectrum.** One k-eigenvalue transport run tallies the multigroup
 //!    flux in the depletable material
 //!    ([`super::microxs_transport::get_microxs_and_flux`], gh:#1625).
+//! 2b. **Branching (default, gh:#1628).** For each evaluated parent with
+//!    MF=8/9/10 data on (n,γ), (n,2n), (n,p) or (n,a), the ratios to each
+//!    product state are collapsed on the tallied flux and written into the
+//!    chain through `set_branch_ratios`. A reaction without such data keeps
+//!    the chain's ratio and is recorded as [`BranchingOutcome::NoData`];
+//!    [`SpectrumDepletion::with_preset_branch_ratios`] is the ablation.
 //! 3. **One-group data.** For each chain nuclide with an evaluation given,
 //!    RECONR reconstructs it (0 K) and its (n,γ), fission and (n,2n) are
 //!    collapsed on the tallied flux ([`super::microxs::nuclide_collapse_rate`]).
@@ -38,8 +44,6 @@
 //! - RECONR at 0 K: no Doppler broadening of the collapsed data.
 //! - The integrator is predictor (CRAM-16 per step); PETIR's others are not
 //!   wired here.
-//! - Branching ratios from the spectrum (gh:#1628) are not applied by
-//!   default yet.
 //! - Not compared with OpenMC running (gh:#1626).
 
 #[cfg(not(any(feature = "std", test)))]
@@ -78,6 +82,36 @@ pub struct SpectrumDepletion {
     volume_cm3: f64,
     steps_s: Vec<f64>,
     transfer: Option<TransferRates>,
+    preset_branch_ratios: bool,
+}
+
+/// One reaction's branching outcome (gh:#1628).
+#[derive(Debug, Clone, PartialEq)]
+pub struct BranchingRecord {
+    /// Parent nuclide.
+    pub parent: String,
+    /// Reaction, e.g. `"(n,gamma)"`.
+    pub reaction: String,
+    /// What was done.
+    pub outcome: BranchingOutcome,
+}
+
+/// What was done with one reaction's branching.
+#[derive(Debug, Clone, PartialEq)]
+pub enum BranchingOutcome {
+    /// Ratios collapsed on the spectrum and written to the chain.
+    Applied {
+        /// `(product, ratio)` written.
+        set: Vec<(String, f64)>,
+        /// States collapsed but not in the chain.
+        not_in_chain: Vec<(String, f64)>,
+    },
+    /// The evaluation has no MF=8/9/10 for this reaction: the chain's
+    /// ratio stands, and this record says so.
+    NoData,
+    /// Data exists but could not be applied (reason); the chain's ratio
+    /// stands.
+    Refused(String),
 }
 
 /// What a run returns. Nothing hidden: `chain` is the exact chain the
@@ -98,6 +132,9 @@ pub struct DepletionOutcome {
     pub no_data: Vec<String>,
     /// Starting nuclides the reduced chain does not hold.
     pub dropped: Vec<String>,
+    /// What happened to each evaluated reaction's branching (gh:#1628);
+    /// empty under [`SpectrumDepletion::with_preset_branch_ratios`].
+    pub branching: Vec<BranchingRecord>,
     /// `(time [s], flux [n/cm²/s] over the step just taken, densities per
     /// material in chain order)`; the first entry is the start.
     pub history: Vec<(f64, f64, Vec<Vec<f64>>)>,
@@ -134,6 +171,7 @@ impl SpectrumDepletion {
             volume_cm3: 1.0,
             steps_s: vec![86_400.0],
             transfer: None,
+            preset_branch_ratios: false,
         }
     }
 
@@ -189,6 +227,13 @@ impl SpectrumDepletion {
         self
     }
 
+    /// **Ablation:** keep the chain's own branching ratios instead of
+    /// deriving them from the spectrum (gh:#1628).
+    pub fn with_preset_branch_ratios(mut self) -> Self {
+        self.preset_branch_ratios = true;
+        self
+    }
+
     /// Run the study (module docs, steps 1-4).
     ///
     /// # Errors
@@ -219,10 +264,6 @@ impl SpectrumDepletion {
             n.fission_yields = vec![njoy_outram_park_fork::hdf5::depletion_chain_xml::FissionYieldSet { energy_ev: self.yield_energy_ev, yields: chosen }];
             n.fission_yield_parent = None;
         }
-        let chain = DepletionChain::from_chain_xml(&xml, self.yield_energy_ev).map_err(|e| format!("{e:?}"))?;
-        let names: Vec<String> = chain.nuclide_names().iter().map(|s| (*s).to_owned()).collect();
-        let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
-
         // 2. Spectrum: one transport run.
         let out = get_microxs_and_flux(geom, materials, nuclides, source, keff, &[self.depletable], &[], &[], &self.group_edges, |_, _| None)?;
         let group_flux = out[0].group_flux.clone();
@@ -232,22 +273,66 @@ impl SpectrumDepletion {
         }
         let norm: Vec<f64> = group_flux.iter().map(|f| f / total).collect();
 
+        // Reconstruct each evaluated chain nuclide once (RECONR, 0 K).
+        let mut recs: Vec<(String, njoy_outram_park_fork::reconr::ReconrResult)> = Vec::new();
+        for n in &xml.nuclides {
+            if let Some((_, tape)) = self.evaluations.iter().find(|(m, _)| *m == n.name) {
+                let rec = njoy_outram_park_fork::process::reconstruct(tape, &njoy_outram_park_fork::process::CrossSectionSettings::default())
+                    .map_err(|e| format!("{}: {e}", n.name))?;
+                recs.push((n.name.clone(), rec.reconr));
+            }
+        }
+        let pairs_of = |name: &str, mt: i32| -> Option<Vec<(f64, f64)>> {
+            let m = njoy_outram_park_fork::endf::mt::MtReaction::from_any(mt);
+            recs.iter().find(|(n, _)| n == name)?.1.sections.iter().find(|s| s.mt == m).map(|s| s.pairs.clone())
+        };
+
+        // Branching ratios from the spectrum (gh:#1628), the default.
+        let mut branching = Vec::new();
+        if !self.preset_branch_ratios {
+            for (name, _) in &recs {
+                let Some((_, tape)) = self.evaluations.iter().find(|(m, _)| m == name) else { continue };
+                let mat = tape.materials().first().copied().unwrap_or(0);
+                for (kind, mt) in [("(n,gamma)", 102), ("(n,2n)", 16), ("(n,p)", 103), ("(n,a)", 107)] {
+                    let has = xml.get(name).is_some_and(|n| n.reactions.iter().any(|r| r.kind == kind));
+                    if !has {
+                        continue;
+                    }
+                    let (states, _) = njoy_outram_park_fork::isomeric_branching::production_states(tape, mat, mt).map_err(|e| e.to_string())?;
+                    let rec = |outcome: BranchingOutcome| BranchingRecord { parent: name.clone(), reaction: kind.to_owned(), outcome };
+                    if states.is_empty() {
+                        branching.push(rec(BranchingOutcome::NoData));
+                        continue;
+                    }
+                    let Some(sigma) = pairs_of(name, mt) else {
+                        branching.push(rec(BranchingOutcome::Refused(format!("no MF=3/MT={mt} after RECONR"))));
+                        continue;
+                    };
+                    match njoy_outram_park_fork::isomeric_branching::apply_to_chain(&mut xml, name, kind, &states, &sigma, &self.group_edges, &group_flux) {
+                        Ok(a) => branching.push(rec(BranchingOutcome::Applied { set: a.set, not_in_chain: a.not_in_chain })),
+                        Err(e) => branching.push(rec(BranchingOutcome::Refused(e.to_string()))),
+                    }
+                }
+            }
+        }
+
+        let chain = DepletionChain::from_chain_xml_with_branches(&xml, self.yield_energy_ev).map_err(|e| format!("{e:?}"))?;
+        let names: Vec<String> = chain.nuclide_names().iter().map(|s| (*s).to_owned()).collect();
+        let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
+
         // 3. One-group data from each evaluation.
         let mut one_group = Vec::with_capacity(names.len());
         let mut n2n = vec![0.0; names.len()];
         let mut no_data = Vec::new();
         for (i, name) in names.iter().enumerate() {
-            let Some((_, tape)) = self.evaluations.iter().find(|(n, _)| n == name) else {
+            if !recs.iter().any(|(n, _)| n == name) {
                 no_data.push(name.clone());
                 one_group.push((name.clone(), OneGroupXs::default()));
                 continue;
-            };
-            let rec = njoy_outram_park_fork::process::reconstruct(tape, &njoy_outram_park_fork::process::CrossSectionSettings::default())
-                .map_err(|e| format!("{name}: {e}"))?;
+            }
             let collapse = |mt: i32| -> f64 {
-                let m = njoy_outram_park_fork::endf::mt::MtReaction::from_any(mt);
-                rec.reconr.sections.iter().find(|s| s.mt == m).map_or(0.0, |s| {
-                    nuclide_collapse_rate(&NuclideReaction { low: ReactionTable::from_pointwise(&s.pairs), high: None }, &self.group_edges, &norm)
+                pairs_of(name, mt).map_or(0.0, |p| {
+                    nuclide_collapse_rate(&NuclideReaction { low: ReactionTable::from_pointwise(&p), high: None }, &self.group_edges, &norm)
                 })
             };
             let gamma = collapse(102);
@@ -303,7 +388,7 @@ impl SpectrumDepletion {
             t += dt;
             history.push((t, flux, dens.clone()));
         }
-        Ok(DepletionOutcome { group_edges: self.group_edges.clone(), group_flux, chain_xml: xml, chain, one_group, no_data, dropped, history })
+        Ok(DepletionOutcome { group_edges: self.group_edges.clone(), group_flux, chain_xml: xml, chain, one_group, no_data, dropped, branching, history })
     }
 }
 
