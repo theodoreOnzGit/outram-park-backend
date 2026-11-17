@@ -41,6 +41,8 @@
 //! pyramid-decomposition cell geometry are implemented correctly for the
 //! hex and tet paths.
 
+// Reads .unv files from disk (`convert_file` is std only, gh:#1638).
+#![cfg(feature = "std")]
 use approx::assert_abs_diff_eq;
 use outram_foam_basic_lib::primitives::Vector3;
 use outram_foam_mesh::ideas_unv_to_foam::{convert, convert_file, UnvPolyMesh};

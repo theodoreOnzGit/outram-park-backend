@@ -88,11 +88,14 @@
 //!   does the same (its test pins it); fixing it would change upstream's
 //!   output.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::surface_engine::{ring_area_vector, SurfaceEngine, SurfacePartitioner, NOT_BOUNDARY};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// OpenFOAM `SMALL` for `double`.
 const SMALL: f64 = 1.0e-15;
@@ -2002,10 +2005,10 @@ pub(crate) mod tests {
             }
         }
         for &(cu, cv, r) in circles {
-            let n = (2.0 * std::f64::consts::PI * r * s).ceil() as usize;
+            let n = (2.0 * core::f64::consts::PI * r * s).ceil() as usize;
             for i in 0..n {
                 if (i / 6) % 2 == 0 {
-                    let th = 2.0 * std::f64::consts::PI * i as f64 / n as f64;
+                    let th = 2.0 * core::f64::consts::PI * i as f64 / n as f64;
                     dot(tx(cu + r * th.cos()), ty(cv + r * th.sin()), [31, 119, 180], 0);
                 }
             }
@@ -2102,6 +2105,7 @@ pub(crate) mod tests {
         let mut w = w0.clone();
         let rep = surface_morpher_cells(&mut w).unwrap();
         let v1 = volume(&w);
+        #[cfg(feature = "std")]
         println!("morpher: {} cells -> {}, volume {v0:.9} -> {v1:.9}; {rep:?}", w0.n_cells, w.n_cells);
         assert!(closed(&w));
         let (vols, _) = crate::checks::cell_geometry(&w.clone().into_volume_mesh().0);
@@ -2123,6 +2127,7 @@ pub(crate) mod tests {
         let kept_sum: f64 = vols.iter().sum();
         // A carved cell is a cube of side 0.6: the removed cells' volume.
         let removed_v = (w0.n_cells - w.n_cells) as f64 * 0.6f64.powi(3);
+        #[cfg(feature = "std")]
         println!(
             "boundary cells {}, {multi} with more than one boundary face; kept sum {kept_sum:.9}; carved minus removed {:.9}, residual {:.3e} relative",
             n_bfaces.iter().filter(|&&n| n > 0).count(),
@@ -2157,6 +2162,7 @@ pub(crate) mod tests {
         }
         morph_boundary_faces(&mut w, &bc, &mut rep).unwrap();
         let v_merge = volume(&w);
+        #[cfg(feature = "std")]
         println!("carved {v0:.9}; after morphInternalFaces {v_int:.9}; after one morphBoundaryFaces {v_merge:.9}; {rep:?}");
         assert!(((v_int - v0) / v0).abs() < 1e-12);
         assert!(closed(&w));
@@ -2187,6 +2193,7 @@ pub(crate) mod tests {
         let rep = topological_cleaner(&mut w);
         let v1 = volume(&w);
         let (vols, _) = crate::checks::cell_geometry(&w.clone().into_volume_mesh().0);
+        #[cfg(feature = "std")]
         println!(
             "cleaner on morphed sphere: {n0} -> {} cells, volume {v0:.9} -> {v1:.9} ({:.2e}), min cell volume {:.3e}; {rep:?}",
             w.n_cells,
@@ -2201,6 +2208,7 @@ pub(crate) mod tests {
 
         let mut b = TopoMesh::from_volume_mesh(&cartesian_box(Vec3::ZERO, Vec3::new(3.0, 3.0, 3.0), [3, 3, 3]));
         let rep = topological_cleaner(&mut b);
+        #[cfg(feature = "std")]
         println!("cleaner on 3x3x3 box: {} cells, volume {:.15}; {rep:?}", b.n_cells, volume(&b));
         assert_eq!(rep.n_non_mappable_cells, 20);
         assert!(rep.changed);
@@ -2247,6 +2255,7 @@ pub(crate) mod tests {
         let shared: BTreeSet<usize> = (0..w.points.len()).filter(|&v| w.points[v].sub(Vec3::new(1.0, 1.0, 1.0)).length() < 1e-12).collect();
         assert_eq!(irregular_vertices(&w), shared);
         let rep = check_and_fix_irregular_connections(&mut w);
+        #[cfg(feature = "std")]
         println!("{rep:?}");
         assert_eq!(rep.n_points_split, 1);
         assert_eq!(rep.n_cells_removed_at_edges + rep.n_cells_removed_at_vertices, 0);

@@ -37,6 +37,9 @@
 //! region around them with [`crate::carve::carve_around`]. Pure Rust,
 //! education/research use only (see the crate `RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::shapes::{box_surface, cylinder_surface, sphere_surface, TriSoup};
 
@@ -120,7 +123,7 @@ mod tests {
     use super::*;
     use crate::carve::carve_around;
     use crate::shapes::surface_volume;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     /// V&V — sphere_packing produces the right count, and every pebble is the
     /// same sphere translated: a 2×2×2 packing is 8 pebbles whose enclosed

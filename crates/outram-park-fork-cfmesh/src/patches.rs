@@ -75,6 +75,9 @@
 //!
 //! Pure Rust, no dependencies, Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree::MeshOctree;
 pub use crate::mesh_octree_queries::SurfaceSearch;
@@ -394,7 +397,7 @@ pub(crate) fn nearest_triangle(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) ->
         if dx * dx + dy * dy + dz * dz >= best_d2 {
             continue;
         }
-        let q = closest_point_on_surface(p, points, std::slice::from_ref(t));
+        let q = closest_point_on_surface(p, points, core::slice::from_ref(t));
         let d2 = q.sub(p).dot(q.sub(p));
         if d2 < best_d2 {
             best_d2 = d2;

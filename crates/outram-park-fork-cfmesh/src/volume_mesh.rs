@@ -63,6 +63,9 @@
 //! Index-based throughout (newtype-free `usize` indices into `Vec`s), no
 //! lifetimes, no trait objects — per the workspace rules.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 
@@ -303,7 +306,7 @@ pub fn from_cell_faces_wound(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> Vo
 }
 
 fn assemble_cells(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], wound: bool) -> VolumeMesh {
-    use std::collections::HashMap;
+    use crate::hash::HashMap;
     let orient = |ring: Vec<usize>, centre: Vec3, points: &[Vec3]| if wound { ring } else { orient_ring(ring, centre, points) };
     // Cell centroids (vertex average over the cell's faces) — used to orient
     // every emitted face outward from its owner, so callers need not wind the

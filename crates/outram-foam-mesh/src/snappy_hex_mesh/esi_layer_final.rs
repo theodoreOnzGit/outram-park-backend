@@ -22,6 +22,9 @@
 //!
 //! Results against ESI: `tests/snappy_hex_mesh_esi_layers_multi.rs`, README "Round 10".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::esi_layer_loop::LayerIteration;
 use super::esi_layer_topo::avg_point_data_faces;
 use super::esi_layers::LayerPatch;

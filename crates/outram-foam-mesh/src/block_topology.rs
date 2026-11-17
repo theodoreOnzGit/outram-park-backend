@@ -62,7 +62,10 @@
 //!   returns exactly the pairs upstream's loop returns (every pair closer
 //!   than `sqrMergeTol`), processed in upstream's order.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use outram_foam_basic_lib::primitives::Vector3;
 

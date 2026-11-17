@@ -78,10 +78,13 @@
 //! - Point normals are the unit sum of the area vectors of the point's
 //!   faces, zero when that sum is below `VSMALL` (`calculatePointNormals`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::volume_mesh::VolumeMesh;
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 /// OpenFOAM `VSMALL` for `double`.
 pub(crate) const VSMALL: f64 = 1.0e-300;
@@ -534,7 +537,7 @@ mod tests {
     use super::*;
     use crate::carve::carve_box;
     use crate::shapes::box_surface;
-    use std::collections::BTreeMap;
+    use alloc::collections::BTreeMap;
 
     /// Patch of each boundary face of a box by its outward axis: 0..6.
     fn axis_patches(m: &VolumeMesh, e: &SurfaceEngine) -> Vec<usize> {
@@ -728,6 +731,7 @@ mod tests {
         let edge_pts: BTreeSet<usize> = n_feat.iter().filter(|&(_, &n)| n == 2).map(|(&v, _)| e.bp[v]).collect();
         assert_eq!(part.corners, corners);
         assert_eq!(part.edge_points, edge_pts);
+        #[cfg(feature = "std")]
         println!(
             "pipe h 5 mm: {} boundary points, {} faces, {} edges, {} feature edges, {} corners, {} edge points",
             e.n_boundary_points(),

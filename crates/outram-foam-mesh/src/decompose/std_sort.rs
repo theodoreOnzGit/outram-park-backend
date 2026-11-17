@@ -16,6 +16,9 @@
 //! tie order, so the decomposition would differ from ESI's on exactly the meshes
 //! decomposition is used on. This is the libstdc++ algorithm instead.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Below this many elements the introsort loop stops and insertion sort finishes.
 const THRESHOLD: usize = 16;
 

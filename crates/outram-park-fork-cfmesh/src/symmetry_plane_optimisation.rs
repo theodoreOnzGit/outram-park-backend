@@ -54,12 +54,15 @@
 //! types are given beside the mesh ([`crate::rename_boundary_patches`]
 //! returns them); a [`VolumeMesh`] carries none.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::poly_mesh_gen_checks::check_face_pyramids;
 use crate::surface_engine::ring_area_vector;
 use crate::volume_mesh::VolumeMesh;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 /// OpenFOAM's `VSMALL` for `double`.
 const VSMALL: f64 = 1e-300;
@@ -238,6 +241,7 @@ mod tests {
         let m0 = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
         let zmin = m0.patches.iter().position(|p| p.name.contains("zMin") || p.name.contains("zmin")).expect("zMin patch");
         let names: Vec<String> = m0.patches.iter().map(|p| p.name.clone()).collect();
+        #[cfg(feature = "std")]
         println!("patches {names:?}");
         let mut m = m0.clone();
         let p = &m0.patches[zmin];
@@ -251,6 +255,7 @@ mod tests {
         let t = types(&m, &[names[zmin].as_str()]);
         let rep = symmetry_plane_optimisation(&mut m, &t);
         let plane = rep.planes[&zmin];
+        #[cfg(feature = "std")]
         println!("one plane: {plane:?}, moved {}, problematic {}", rep.n_points_moved, rep.problematic);
         assert!(!rep.problematic);
         assert!(plane.normal.add(Vec3::new(0.0, 0.0, 1.0)).length() < 1e-3);
@@ -281,6 +286,7 @@ mod tests {
             }
             assert!(pl.distance(m.points[corner]) < 1e-12);
         }
+        #[cfg(feature = "std")]
         println!("three planes: corner at {:?}, moved {}", m.points[corner], rep.n_points_moved);
     }
 

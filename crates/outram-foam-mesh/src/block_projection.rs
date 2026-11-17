@@ -44,7 +44,10 @@
 //! Transcendentals (`sin`, `cos`, `asin` in `sweep`) go through PETIR
 //! `RealMath`; `sqrt` is exact.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use petir::mathf::RealMath;
 
@@ -991,7 +994,7 @@ pub fn sweep_face(
     let mut n_rows = density[d0] + 1;
     let mut n_cols = density[d1] + 1;
     if transpose {
-        std::mem::swap(&mut n_rows, &mut n_cols);
+        core::mem::swap(&mut n_rows, &mut n_cols);
     }
     let pi = move |i: i64, j: i64| -> usize {
         let i = if i < 0 { n_rows as i64 + i } else { i } as usize;
@@ -1008,8 +1011,8 @@ pub fn sweep_face(
     for i in 1..n_rows as i64 - 1 {
         let axisi = normalised(p(points, i, -1) - p(points, i, 0));
         // A = I - sqr(axisi)
-        let a: Mat = std::array::from_fn(|r| {
-            std::array::from_fn(|c| {
+        let a: Mat = core::array::from_fn(|r| {
+            core::array::from_fn(|c| {
                 (if r == c { 1.0 } else { 0.0 }) - comp(axisi, r) * comp(axisi, c)
             })
         });
@@ -1126,7 +1129,7 @@ pub fn find_curved_faces(block_labels: &[usize; 8], faces: &[BlockFace]) -> [Opt
         [0, 3, 2, 1],
         [4, 5, 6, 7],
     ];
-    std::array::from_fn(|bf| {
+    core::array::from_fn(|bf| {
         let bl: Vec<usize> = HEX_FACES[bf].iter().map(|&k| block_labels[k]).collect();
         faces
             .iter()
@@ -1504,7 +1507,7 @@ mod tests {
             let m = apply(&r, a);
             assert!((m - b).mag() < 1e-15, "{a:?} -> {b:?}: {m:?}");
             // orthonormal: R R^T = I
-            let rt: Mat = std::array::from_fn(|i| std::array::from_fn(|j| r[j][i]));
+            let rt: Mat = core::array::from_fn(|i| core::array::from_fn(|j| r[j][i]));
             let id = mat_mul(&r, &rt);
             for i in 0..3 {
                 for j in 0..3 {
@@ -1520,7 +1523,7 @@ mod tests {
     #[test]
     fn rotation_about_axis_and_scale() {
         let z = Vector3::new(0.0, 0.0, 1.0);
-        let r = rotation_about(z, std::f64::consts::FRAC_PI_2);
+        let r = rotation_about(z, core::f64::consts::FRAC_PI_2);
         let v = apply(&r, Vector3::new(1.0, 0.0, 0.0));
         assert!((v - Vector3::new(0.0, 1.0, 0.0)).mag() < 1e-15);
         let v = apply(&mat_scale(&r, 2.0), Vector3::new(1.0, 0.0, 0.0));

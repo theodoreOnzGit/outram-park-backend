@@ -36,6 +36,9 @@
 //! search and `correctAfterParallelTransfer`, `Cloud`, injection and the kinematic
 //! parcel sub-models.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::check_mesh::{esi_geometry, esi_tet_decomposition_min_quality, EsiGeometry};
 use crate::snappy_hex_mesh::esi_snap::{self, SnapMesh, V};
 

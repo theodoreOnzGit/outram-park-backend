@@ -89,6 +89,9 @@
 //! println!("refined mesh has {} cells", castellated.n_cells());
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod background;
 pub mod castellation;
 pub mod cyclic;
@@ -123,7 +126,9 @@ pub use cyclic::{
 pub use layers::{add_layers, layer_thicknesses, total_layer_thickness, LayerControls};
 pub use poly_topology::{face_area_and_centre, MeshQuality, PolyPatchMesh, QualityLimits};
 pub use snapping::{raw_surface_displacements, snap, SnapControls};
-pub use stl::{read_stl, read_stl_ascii_str, read_stl_binary, read_stl_bytes, Triangle, TriangleSoup};
+pub use stl::{read_stl_ascii_str, read_stl_binary, read_stl_bytes, Triangle, TriangleSoup};
+#[cfg(feature = "std")]
+pub use stl::read_stl;
 
 use crate::MeshError;
 

@@ -56,7 +56,10 @@
 //! - Optional trailing start/end tangents of `spline` / `BSpline` are read and
 //!   discarded by the parser, as upstream does.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use petir::mathf::RealMath;
 
@@ -200,7 +203,7 @@ impl BlockEdge {
 
 /// `units::degrees.toStandard(deg)`: `deg * (pi/180)`.
 fn deg_to_rad(deg: f64) -> f64 {
-    deg * (std::f64::consts::PI / 180.0)
+    deg * (core::f64::consts::PI / 180.0)
 }
 
 /// OpenFOAM `normalised(v)`: `v/|v|`, or zero for a zero vector.
@@ -375,7 +378,7 @@ impl ArcEdge {
         let cos_t = r0.dot(r1) / (r0.mag() * r1.mag());
         let mut t = cos_t.min(1.0).max(-1.0).r_acos();
         if r0.cross(r1).dot(dz) > 0.0 {
-            t = 2.0 * std::f64::consts::PI - t;
+            t = 2.0 * core::f64::consts::PI - t;
         }
         Ok(ArcEdge {
             p0,
@@ -496,9 +499,9 @@ impl ArcEdgeEsi {
         let radius = r3.mag();
         let mut angle = ((r1.dot(r3)) / (mag1 * mag3)).r_acos();
         if r1.cross(r2).dot(r1.cross(r3)) < 0.0 {
-            angle = 2.0 * std::f64::consts::PI - angle;
+            angle = 2.0 * core::f64::consts::PI - angle;
         }
-        if angle <= std::f64::consts::PI {
+        if angle <= core::f64::consts::PI {
             if arc_axis.mag() / (mag1 * mag3) < 0.001 {
                 arc_axis = r1.cross(r2);
             }

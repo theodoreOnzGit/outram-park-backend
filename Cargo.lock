@@ -7439,6 +7439,7 @@ name = "outram-foam-mesh"
 version = "0.1.3"
 dependencies = [
  "approx",
+ "hashbrown 0.16.1",
  "image",
  "miniz_oxide 0.8.9",
  "ndarray",
@@ -7562,6 +7563,7 @@ dependencies = [
  "eframe",
  "egui",
  "env_logger",
+ "hashbrown 0.16.1",
  "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "outram-foam-mesh",

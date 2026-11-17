@@ -48,6 +48,8 @@
 //! cell volume = `2.5e-7 m^3` to < 1e-12 relative; boundary face-area vectors
 //! sum to `< 1e-15 m^2` per component (closed). `FvMesh::validate` passes.
 
+// Reads or writes case files: `std` only (gh:#1638).
+#![cfg(feature = "std")]
 use petir::mathf::RealMath;
 use outram_foam_mesh::block_mesh::{block_mesh, block_mesh_from_file, BlockMeshDict};
 

@@ -101,6 +101,9 @@
 //! Jacobi-style (all new positions from the old ones), as upstream's
 //! `updateVerticesSMP`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::checks::{foam_cell_centres_and_vols, pmg_face_centre_and_area};
 use crate::math::Vec3;
 use crate::mesh_subsets::MeshSubsets;
@@ -166,7 +169,7 @@ fn match_tet(mesh: &VolumeMesh, c: usize, cell: &[usize]) -> Option<[usize; 4]> 
 pub(crate) fn point_cells(mesh: &VolumeMesh) -> Vec<Vec<usize>> {
     let mut pc: Vec<Vec<usize>> = vec![Vec::new(); mesh.points.len()];
     for f in 0..mesh.face_count() {
-        for c in std::iter::once(mesh.owner[f]).chain(mesh.neighbour[f]) {
+        for c in core::iter::once(mesh.owner[f]).chain(mesh.neighbour[f]) {
             for &p in &mesh.faces[f] {
                 pc[p].push(c);
             }
@@ -397,7 +400,7 @@ impl PartTetMesh {
     /// Returns (points, tets, local index of `node`).
     fn simplex(&self, node: usize) -> (Vec<Vec3>, Vec<[usize; 4]>, usize) {
         let mut pts: Vec<Vec3> = Vec::new();
-        let mut addr: std::collections::BTreeMap<usize, usize> = std::collections::BTreeMap::new();
+        let mut addr: alloc::collections::BTreeMap<usize, usize> = alloc::collections::BTreeMap::new();
         let mut tets = Vec::with_capacity(self.point_tets[node].len());
         for &t in &self.point_tets[node] {
             let tet = self.tets[t];
@@ -494,9 +497,10 @@ impl PartTetMesh {
             let nodes: Vec<usize> = (0..self.points.len()).filter(|&n| self.kind[n] & LOCKED == 0 && self.kind[n] & SMOOTH != 0).collect();
             let moved = self.smooth_nodes(&nodes, |pts, tets, c| volume_optimizer(pts, tets, c, 1e-5));
             self.update_vertices(&moved);
-            if self.points.len() == 21340 && std::env::var("GH1385_TRACE").is_ok() {
+            if self.points.len() == 21340 && crate::env::var("GH1385_TRACE").is_ok() {
                 // gh:#1385: `VI iteration node x y z`, as the instrumented upstream prints it
                 for (q, p) in self.points.iter().enumerate() {
+                    #[cfg(feature = "std")]
                     eprintln!("VI {it} {q} {:?} {:?} {:?}", p.x, p.y, p.z);
                 }
             }
@@ -661,7 +665,7 @@ impl PartTetMesh {
 
     /// `one` over `nodes`, in node order, threaded natively.
     fn map_nodes<F: Fn(usize) -> Option<(usize, Vec3)> + Sync>(nodes: &[usize], one: F) -> Vec<(usize, Vec3)> {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         {
             let n_threads = std::thread::available_parallelism().map_or(1, |n| n.get()).min(8);
             if n_threads > 1 && nodes.len() > 64 {
@@ -1285,18 +1289,18 @@ pub struct OptimiserReport {
     pub seconds_smooth: f64,
 }
 
-/// A clock for the profile (gh:#1241): `std::time::Instant` natively;
+/// A clock for the profile (gh:#1241): `crate::time::Instant` natively;
 /// wasm32-unknown-unknown has none, so the times there are NaN.
 #[cfg(not(target_arch = "wasm32"))]
-fn stamp() -> Option<std::time::Instant> {
-    Some(std::time::Instant::now())
+fn stamp() -> Option<crate::time::Instant> {
+    Some(crate::time::Instant::now())
 }
 #[cfg(target_arch = "wasm32")]
 fn stamp() -> Option<()> {
     None
 }
 #[cfg(not(target_arch = "wasm32"))]
-fn since(t: Option<std::time::Instant>) -> f64 {
+fn since(t: Option<crate::time::Instant>) -> f64 {
     t.map_or(f64::NAN, |t| t.elapsed().as_secs_f64())
 }
 #[cfg(target_arch = "wasm32")]
@@ -1307,21 +1311,24 @@ fn since(_t: Option<()>) -> f64 {
 /// With `GH1385_TRACE` set, print the flagged faces as upstream's instrumented
 /// `optimizeMeshFV.C` does (`BADF <tag> <iteration> <n>: <labels>`, gh:#1385).
 fn trace_bad(tag: &str, iter: usize, bad: &[bool]) {
-    if std::env::var("GH1385_TRACE").is_err() {
+    if crate::env::var("GH1385_TRACE").is_err() {
         return;
     }
     let labels: Vec<String> = bad.iter().enumerate().filter(|(_, &b)| b).map(|(f, _)| f.to_string()).collect();
+    #[cfg(feature = "std")]
     eprintln!("BADF {tag} {iter} {}: {}", labels.len(), labels.join(" "));
 }
 
 /// With `GH1385_TRACE` set, print a part tet mesh's nodes as upstream's
 /// instrumented `optimizeMeshFV.C` does (`TN <tag> <node> <x> <y> <z>`).
 fn trace_tet(tag: &str, tm: &PartTetMesh) {
-    if std::env::var("GH1385_TRACE").is_err() {
+    if crate::env::var("GH1385_TRACE").is_err() {
         return;
     }
+    #[cfg(feature = "std")]
     eprintln!("TETMESH {tag} nodes {} tets {}", tm.points.len(), tm.tets.len());
     for (i, p) in tm.points.iter().enumerate() {
+        #[cfg(feature = "std")]
         eprintln!("TN {tag} {i} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
     }
 }
@@ -2393,6 +2400,7 @@ mod tests {
         let bad_a = find_bad_faces(&a);
         let left_a = count(&bad_a);
         let at_bnd_a = (0..a.face_count()).filter(|&f| bad_a[f] && a.faces[f].iter().any(|&p| on_bnd[p])).count();
+        #[cfg(feature = "std")]
         println!("(A) interior only: {bad0} -> {left_a} bad faces ({at_bnd_a} with a boundary point); {ra:?}");
         assert!(left_a >= 1, "interior moves alone should not repair the dent");
         // Second half of (A) MISSED (2026-11-05, folded fixture): 3 -> 8 bad
@@ -2406,6 +2414,7 @@ mod tests {
         // describe; the default now follows the C++ (`BoundaryMoveCalls::Upstream`)
         let cb = UntangleControls { max_global_iterations: 2, boundary_moves: true, boundary_calls: BoundaryMoveCalls::AsDocumented, ..UntangleControls::default() };
         let rb = untangle_mesh_fv_with(&mut b, &locked, &cb);
+        #[cfg(feature = "std")]
         println!("(B) 2 global, non-shrinking: {bad0} -> {} bad faces; {rb:?}", count(&find_bad_faces(&b)));
         assert!(rb.surface_iterations >= 1, "the boundary loop ran");
         let mut worst = 0.0f64;
@@ -2421,6 +2430,7 @@ mod tests {
                 }
             }
         }
+        #[cfg(feature = "std")]
         println!("(B) largest departure of a flat-side point from its plane: {worst:.3e}");
         assert!(worst <= 1e-12, "{worst}");
 
@@ -2430,6 +2440,7 @@ mod tests {
         let mut b2 = m0.clone();
         let cb2 = UntangleControls { max_global_iterations: 2, boundary_moves: true, ..UntangleControls::default() };
         let rb2 = untangle_mesh_fv_with(&mut b2, &locked, &cb2);
+        #[cfg(feature = "std")]
         println!("(B') 2 global, upstream calls (1 iteration, unconstrained): {bad0} -> {} bad faces; {rb2:?}", count(&find_bad_faces(&b2)));
         assert!(rb2.surface_iterations >= 1, "the boundary loop ran with upstream's calls");
 
@@ -2438,6 +2449,7 @@ mod tests {
         let cc = UntangleControls { boundary_moves: true, ..UntangleControls::default() };
         let rc = untangle_mesh_fv_with(&mut c, &locked, &cc);
         let left_c = count(&find_bad_faces(&c));
+        #[cfg(feature = "std")]
         println!("(C) 10 global with boundary moves: {bad0} -> {left_c} bad faces; dent at {:?}; {rc:?}", c.points[dent]);
         assert_eq!(left_c, 0, "{rc:?}");
         for p in 0..m0.points.len() {
@@ -2486,6 +2498,7 @@ mod tests {
         let before = m.clone();
         let r = optimize_mesh_near_boundaries(&mut m, &locked, 2, 2);
         let back = m.points[near].sub(m0.points[near]).length();
+        #[cfg(feature = "std")]
         println!("near-wall point: 0.3 h -> {:.4} h; {r:?}", back / h);
         assert!(back < 0.15 * h, "{}", back / h);
         assert_eq!(m.points[centre], before.points[centre]);
@@ -2525,6 +2538,7 @@ mod tests {
         let (d0, s0) = (face_dot_products(&m0, &all), face_skewness(&m0, &all));
         for t in [0.0, 0.1, 0.5, 1.0] {
             let w = find_worst_quality_faces(&m0, &all, t);
+            #[cfg(feature = "std")]
             println!("unperturbed box, threshold {t}: {} faces selected", count(&w));
             for f in 0..m0.face_count() {
                 if w[f] {
@@ -2548,12 +2562,14 @@ mod tests {
                 assert!(pc[c].contains(&o) || m.neighbour[f].is_some_and(|n| pc[c].contains(&n)), "face {f}");
             }
         }
+        #[cfg(feature = "std")]
         println!("selected {} faces", count(&worst));
         let q0 = check_quality(&m).max_non_orthogonality_deg;
         let locked = vec![false; m.points.len()];
         let before = m.clone();
         let r = optimize_mesh_fv_best_quality(&mut m, &locked, 50, 0.1);
         let q = check_quality(&m).max_non_orthogonality_deg;
+        #[cfg(feature = "std")]
         println!("max non-orthogonality {q0:.3} -> {q:.3} deg; {r:?}");
         assert!(q < q0);
         for f in m.n_internal_faces()..m.face_count() {
@@ -2589,6 +2605,7 @@ mod tests {
             let mut m = m0.clone();
             opt.optimize_laplacian(&mut m, kind, 5);
             let worst = m.points.iter().zip(&m0.points).map(|(a, b)| a.sub(*b).length()).fold(0.0, f64::max);
+            #[cfg(feature = "std")]
             println!("{kind:?}: uniform box, largest move after 5 passes {worst:.2e}");
             assert!(worst <= 1e-12, "{kind:?} {worst}");
         }
@@ -2607,6 +2624,7 @@ mod tests {
         let expect = expect.div(pc[c].len() as f64);
         let before = m.clone();
         opt.optimize_laplacian(&mut m, LaplaceKind::PointCells, 1);
+        #[cfg(feature = "std")]
         println!("one pass: x {} -> {} (expected {})", before.points[c].x, m.points[c].x, expect.x);
         assert_eq!(m.points[c], expect);
         let moved = (0..m.points.len()).filter(|&p| m.points[p] != before.points[p]).count();
@@ -2648,6 +2666,7 @@ mod tests {
         let mut m = m0.clone();
         let controls = UntangleControls { boundary_moves: true, ..UntangleControls::default() };
         let r = opt.optimize_mesh_fv(&mut m, 5, &controls).expect("no constraint enforced");
+        #[cfg(feature = "std")]
         println!("optimize_mesh_fv with one locked cell: {r:?}");
         for &p in &locked {
             assert_eq!(m.points[p], m0.points[p]);
@@ -2660,6 +2679,7 @@ mod tests {
         opt.set_enforce_constraints("badPoints");
         let mut m = m0.clone();
         let err = opt.untangle_mesh_fv(&mut m, &controls).expect_err("the dent needs a boundary move");
+        #[cfg(feature = "std")]
         println!("enforced: {} points in '{}'; {:?}", err.points.len(), err.subset_name, err.report);
         assert!(err.points.contains(&dent));
         for f in m.n_internal_faces()..m.face_count() {
@@ -2698,10 +2718,10 @@ mod tests {
         let q0 = check_quality(&m0);
         let opt = MeshOptimizer::new(&m0);
         let mut a = m0.clone();
-        let t = std::time::Instant::now();
+        let t = crate::time::Instant::now();
         opt.optimize_laplacian(&mut a, LaplaceKind::PointCells, 5);
         let ta = t.elapsed().as_secs_f64();
-        let t = std::time::Instant::now();
+        let t = crate::time::Instant::now();
         let b = crate::smooth::laplacian_smooth(&m0, 5);
         let tb = t.elapsed().as_secs_f64();
         let disp = |m: &VolumeMesh| {
@@ -2711,9 +2731,13 @@ mod tests {
         };
         let (qa, qb) = (check_quality(&a), check_quality(&b));
         let (da, db) = (disp(&a), disp(&b));
+        #[cfg(feature = "std")]
         println!("graded sphere: {} cells, {} inside points", m0.n_cells, opt.vertex_location.iter().filter(|&&v| v & vertex_type::INSIDE != 0).count());
+        #[cfg(feature = "std")]
         println!("unsmoothed:      NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}", q0.max_non_orthogonality_deg, q0.max_skewness, q0.n_negative_volume_cells, count(&find_bad_faces(&m0)));
+        #[cfg(feature = "std")]
         println!("laplacianPC x5:  NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}, mean/max disp {:.4}/{:.4}, {ta:.2} s", qa.max_non_orthogonality_deg, qa.max_skewness, qa.n_negative_volume_cells, count(&find_bad_faces(&a)), da.0, da.1);
+        #[cfg(feature = "std")]
         println!("smart Laplace x5: NO max {:.2}, skew {:.3}, neg cells {}, bad faces {}, mean/max disp {:.4}/{:.4}, {tb:.2} s", qb.max_non_orthogonality_deg, qb.max_skewness, qb.n_negative_volume_cells, count(&find_bad_faces(&b)), db.0, db.1);
     }
 
@@ -2778,6 +2802,7 @@ mod tests {
             let mut v = p0.clone();
             volume_optimizer(&mut v, &tets, 6, 1e-5);
             let (mk, ml, mv) = (min_vol(&k, &tets), min_vol(&l, &tets), min_vol(&v, &tets));
+            #[cfg(feature = "std")]
             println!(
                 "star (jitter {jitter}): {inv0} inverted at start; Knupp -> {:?} min V {mk:.4}; LP -> {:?} min V {ml:.4}; volume optimiser -> {:?} min V {mv:.4}",
                 k[6], l[6], v[6]
@@ -2843,6 +2868,7 @@ mod tests {
             tm.optimise_using_knupp_metric(n);
             runs.push((n, tm.n_inverted_tets(), tm.points.clone()));
         }
+        #[cfg(feature = "std")]
         println!("inverted tets: {before} before, after one call with n = 1 / 5 / 50: {:?}", runs.iter().map(|r| r.1).collect::<Vec<_>>());
         assert!(before > 0, "the case has inverted tetrahedra");
         assert!(runs[0].2 != start.points, "the pass moved points");
@@ -2859,10 +2885,11 @@ mod tests {
         for lpu in [false, true] {
             let c = UntangleControls { boundary_moves: true, mesh_untangler: lpu, ..UntangleControls::default() };
             let mut m = m0.clone();
-            let t = std::time::Instant::now();
+            let t = crate::time::Instant::now();
             let r = untangle_mesh_fv_with(&mut m, &locked, &c);
             let secs = t.elapsed().as_secs_f64();
             let left = count(&find_bad_faces(&m));
+            #[cfg(feature = "std")]
             println!("LP untangler {lpu}: {} -> {left} bad faces, {} passes, {} global, {secs:.2} s", r.flagged_before, r.iterations, r.global_iterations);
             assert_eq!(left, 0);
             let mut m2 = m0.clone();
@@ -2870,6 +2897,7 @@ mod tests {
             assert_eq!(m2.points, m.points);
             res.push(m.points);
         }
+        #[cfg(feature = "std")]
         println!("positions differ: {}", res[0] != res[1]);
     }
 

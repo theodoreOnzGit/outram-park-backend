@@ -62,6 +62,9 @@
 //! under their own name (no `defaultName`) are not checked against new
 //! names, so a kept name can repeat a new one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::symmetry_plane_optimisation::{symmetry_plane_optimisation, SymmetryReport};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 
