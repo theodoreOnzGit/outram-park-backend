@@ -1037,9 +1037,15 @@ the maintainer, 2026-10-03; protocols in
   about 0.2x of analog (N = 5, ~100 % sigma)** on the shielded room
   (`stats_epic_493/497_learned_importance.md`). **Off by default**:
   it only builds a `WeightWindows`; transport changes only if a caller
-  attaches it to a `VarianceReduction`, whose default stays analog. Source
+  attaches it to a `VarianceReduction`, whose default stays analog. ~~Source
   biasing from the learned map is not implemented (CORRECTED 2026-11-14: OpenMC's
-  user-specified source `bias` is ported in `source::distribution`, opt-in).
+  user-specified source `bias` is ported in `source::distribution`, opt-in).~~
+  **CORRECTED 2026-11-17 (gh:#1615):** `stats::learned_source_bias`
+  (`with_learned_source_bias`, `learned_biased_spatial`, `learned_biased_energy`)
+  biases births with `q ∝ p/lower` of the window set, weight `p/q`, built on the
+  ported OpenMC `bias` machinery plus `SpatialDistribution::Cells`. Opt-in; a
+  point source is one cell, so the bias is the identity. The unbiasedness gate
+  `|z| ≤ 2` is **maintainer-decided (2026-11-17)**, no longer open.
 - `stats::uq` (#498) — `UqDesign::{sampled, sobol, evaluate}` with
   `raffles` distributions / samplers, `UqReport::analyse` (total sd, the runs'
   own MC-noise variance separated out, quantiles, Pearson / Spearman /

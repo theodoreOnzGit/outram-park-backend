@@ -40,14 +40,18 @@
 //! - Too few resolved cells to identify the polynomial: the group is left as
 //!   MAGIC left it (unresolved = no window) and the report says so.
 //!
-//! **Source biasing driven by this importance map** is NOT implemented here.
+//! ~~**Source biasing driven by this importance map** is NOT implemented here.~~
+//! **CORRECTED 2026-11-17 (gh:#1615, maintainer: "connect source biasing with
+//! importance, let it be an option"):** it is implemented, opt-in, in
+//! [`super::learned_source_bias`] (`q ∝ p/lower`, birth weight `p/q`). Earlier text:
 //! ~~the existing `physics/ufs.rs` uniform-fission-site weights remain the only
 //! source-side scheme.~~ **CORRECTED 2026-11-14 (gh:#497):** OpenMC's own source
 //! `bias` (a distribution sampled from `q`, weight `p/q`) IS ported, opt-in, in
 //! `source::distribution` (`Distribution::with_bias`, bit-compared with compiled
 //! OpenMC in `tests/source_distributions_vs_openmc_code_to_code.rs`); its
 //! analog-vs-biased mean is pinned by `tests/source_biasing_unbiased_vs_analog.rs`.
-//! It is user-specified, not built from a learned map.
+//! ~~It is user-specified, not built from a learned map.~~ The OpenMC `bias`
+//! machinery is what the learned source bias reuses.
 //!
 //! # Why the mean cannot be biased in principle — and why that is still tested
 //!
@@ -65,16 +69,19 @@
 //! and a measured FOM ratio `FOM = 1/(σ²T)` with uncertainty, against analog
 //! **and** against plain MAGIC (`weight_windows.rs`). A biased answer fails
 //! regardless of the FOM. "Within combined `σ`" is implemented as
-//! `|z| ≤ UNBIASED_Z_BAND = 2` (95 %); the issue's wording could be read as
-//! 1σ, which a correct estimator fails 32 % of the time — **flagged for the
-//! maintainer to confirm, not decided after seeing a result.**
+//! `|z| ≤ UNBIASED_Z_BAND = 2` (95 %). ~~The issue's wording could be read as
+//! 1σ, which a correct estimator fails 32 % of the time — flagged for the
+//! maintainer to confirm, not decided after seeing a result.~~ **DECIDED
+//! 2026-11-17 (maintainer, gh:#497/#1615): the gate is `|z| ≤ 2`.**
 //!
 //! ~~**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**~~
 //! **MEASURED 2026-11-14 (gh:#497, N = 5 seeds, two replicates):** learned windows
 //! show no resolvable bias on the far-field band (z +0.30, -0.12) but **lose on
 //! FOM**: about 0.18 +- 0.12 of analog and 0.17 +- 0.11 of MAGIC (pooled N = 10).
 //! Plain MAGIC showed a repeatable -4.8 % shift there (z about -3). The
-//! `|z|` band is still the maintainer's to choose; both readings are tabulated.
+//! ~~`|z|` band is still the maintainer's to choose; both readings are tabulated.~~
+//! **The band is `|z| ≤ 2`, maintainer-decided 2026-11-17**; the tabulated
+//! readings stay as the record of what was measured.
 //! Protocol: `verification_and_validation/stats_epic_493/497_learned_importance.md`.
 
 use petir::mathf::RealMath;

@@ -44,9 +44,10 @@ runs unless a caller builds the windows and attaches them with
 - **Unbiased:** `|z| ≤ 2` (`UNBIASED_Z_BAND`), `z = Δmean / sqrt(σ_a² + σ_v²)`,
   for the headline tally and for every mesh cell both arms resolve (with the
   expected ~5 % of cells outside 2σ by chance stated, not hidden).
-  **Open question for the maintainer:** #497 says "within combined σ"; read
+  ~~**Open question for the maintainer:** #497 says "within combined σ"; read
   literally as 1σ, a correct estimator fails 32 % of the time. 2σ is used
-  here and flagged, decided before any result exists.
+  here and flagged, decided before any result exists.~~ **DECIDED 2026-11-17
+  (maintainer): the gate is `|z| ≤ 2`.**
 - **FOM:** reported, with uncertainty, against analog and MAGIC. No FOM
   threshold is a pass/fail gate — the issue asks for a measured ratio.
 
@@ -225,7 +226,7 @@ N = 5 seeds per arm per run is the floor asked for; sigma and its error are
 both poor at that N. One geometry, one early-tally size (2000 particles), one
 mesh (31 x 38, the 50 cm default that `fom_2026_09_24.md` calls
 misconfigured for weight windows), one MAGIC iteration count (windows built
-once). The gate decision (|z| <= 1 vs <= 2) is still the maintainer's.
+once). ~~The gate decision (|z| <= 1 vs <= 2) is still the maintainer's.~~ **DECIDED 2026-11-17: `|z| <= 2`.**
 
 ## Source biasing (2026-11-14)
 
@@ -241,8 +242,8 @@ bit-compared with compiled OpenMC in
 source tree itself is not on this machine (`/home/teddy0/...` absent, no
 `vendor/openmc`), so **this session did not re-read upstream's lines**; the
 provenance is the port's own headers and its recorded bit-comparison. It is
-opt-in (`with_bias`); an unbiased source has `w = 1` exactly. Importance-map
-driven source biasing (from learned windows) is **not** implemented.
+opt-in (`with_bias`); an unbiased source has `w = 1` exactly. ~~Importance-map
+driven source biasing (from learned windows) is **not** implemented.~~ **CORRECTED 2026-11-17 (gh:#1615):** implemented, see the last section.
 
 **New test:** `tests/source_biasing_unbiased_vs_analog.rs`, `p = Uniform(1, 4
 MeV)`, `q = PowerLaw(n = 2)`, 5 seeds x 100 000 draws through

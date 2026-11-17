@@ -17,6 +17,7 @@
 //! | [`correlated_sigma`] | #495 | autocorrelation-corrected `σ` for `k` and tally series, **alongside** the naive `σ` | no — post-processing |
 //! | [`convergence`] | #496 | stationarity diagnostics on the entropy and `k` traces, recommended inactive count | no — post-processing |
 //! | [`learned_importance`] | #497 | weight windows from early-cycle tallies with a RAFFLES surrogate filling unresolved cells; FOM and unbiasedness comparison | **only if a caller attaches the windows** — off by default |
+//! | [`learned_source_bias`] | #1615 | births biased by `q ∝ p/lower` of a learned window set (CADIS-style), weight `p/q`; identity for a point source | **only if a caller passes a source through `with_learned_source_bias`** — off by default |
 //! | [`uq`] | #498 | input-uncertainty propagation and sensitivity by sampling | no — runs the caller's closure |
 //! | [`sweep`] | #499 | surrogate interpolation of a parameter sweep with jackknife+ prediction intervals, held-out validation, next-run proposals | no |
 //!
