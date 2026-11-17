@@ -359,3 +359,14 @@ history count (the full-core model is large and loosely coupled), so
 sigma(new - old) about 100-150 pcm at N = 8; shifts under about 300 pcm are not
 resolvable. The recorded V&V k_eff is for a different history count and is not
 compared. Beyond 2 sigma is a finding, reported and not patched.
+
+**`msre_n1_first_criticality`: first N = 8 (seeds 1-8) MISSED the gate.**
+new - old = +229 +- 91 pcm, z = +2.51 (prediction was |z| <= 2). It stands as
+a miss and is not reinterpreted. Before the replication below was run, the plan
+was written: a fresh, non-overlapping replication, seeds 9-16, identical
+settings and builds, run as a SEPARATE process pair (so the data load is paid
+again); the verdict on seeds 1-8 is not changed by it. Prediction for the
+replication (same as above): |z| <= 2; a z > +2 again, or a pooled N = 16
+|z| > 2, would make a real old/new difference the working hypothesis, to be
+chased by reading `assign_material_sab` against the old per-nuclide path (not
+by touching anything here).
