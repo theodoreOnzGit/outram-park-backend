@@ -835,3 +835,43 @@ fn the_reference_is_matched_to_the_bed_by_ball_count() {
     assert_eq!(balls, 16_681);
     assert!(h < 123.576 && h > 113.778);
 }
+
+/// **The fixed-layout material set** (moved from two examples, 2026-11-17).
+/// Methodology: build it at 293.6 K and check what the examples relied on:
+/// eleven materials in `mat::` order (ids 1..6 from the pebble, then 70..74),
+/// every one at the requested temperature, and the dummy pebbles equal to the
+/// moderator graphite scaled by `PAPER_FILLING_FRACTION`, component by
+/// component. Results (2026-11-17): all hold.
+#[test]
+fn fixed_layout_material_set_is_in_mat_order() {
+    use crate::htr10_rmc::core_model::{mat, PAPER_FILLING_FRACTION};
+    use crate::htr10_rmc::materials::htr10_fixed_layout_material_set;
+    use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
+    let mats = htr10_fixed_layout_material_set(Htr10Nuclides::NATURAL_CARBON, 293.6);
+    assert_eq!(mats.len(), mat::HOMOG_DUMMY + 1);
+    assert_eq!(mats[6..].iter().map(|m| m.id).collect::<Vec<_>>(), vec![70, 71, 72, 73, 74]);
+    assert!(mats.iter().all(|m| m.temperature == 293.6));
+    let g = &mats[mat::GRAPHITE];
+    let d = &mats[mat::HOMOG_DUMMY];
+    assert_eq!(g.components.len(), d.components.len());
+    for (a, b) in g.components.iter().zip(&d.components) {
+        assert_eq!(a.nuclide_idx, b.nuclide_idx);
+        assert_eq!(b.atom_density, a.atom_density * PAPER_FILLING_FRACTION);
+    }
+}
+
+/// **`find_kernel_near` finds a fuel kernel in the assembled core** (moved
+/// from two image examples, 2026-11-17). Methodology: assemble the explicit
+/// TRISO core at 9 Şeker layers and scan from the origin as
+/// `htr10_geometry_images` does (4000 x-steps, depth at least 3); the hit must
+/// be a kernel at three or more coordinate levels. Results (2026-11-17): it is.
+#[test]
+fn find_kernel_near_lands_in_a_kernel() {
+    use crate::htr10_rmc::core_model::{assemble_explicit_triso, find_kernel_near, mat};
+    use outram_mc_libs::geometry::position::Position;
+    let c = assemble_explicit_triso(14, 9, 0);
+    let path = find_kernel_near(&c.geometry, Position::new(0.0, 0.0, 0.0), 4000, 3)
+        .expect("a kernel within the scan");
+    assert_eq!(path.material, Some(mat::KERNEL));
+    assert!(path.levels.len() >= 3);
+}

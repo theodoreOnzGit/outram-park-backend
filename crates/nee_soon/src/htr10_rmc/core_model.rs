@@ -40,10 +40,10 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
-use outram_mc_libs::geometry::geometry::Geometry;
+use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
+use outram_mc_libs::geometry::geometry::{Geometry, GeometryPath};
 use outram_mc_libs::geometry::lattice::{HexLattice, HexOrientation, Lattice};
-use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, ZCylinder, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
 
@@ -1599,4 +1599,37 @@ pub fn tile_cell_role(cell_id: i32) -> Option<TileCellRole> {
         4 => Some(TileCellRole::Helium),
         _ => None,
     }
+}
+
+/// The first fuel kernel a point scan of `g` finds: from `start`, in 0.01 cm
+/// steps, `nx` steps in x (innermost), 40 in y and 20 in z (outermost), which
+/// covers about one TRISO pitch in y and z, so a scan through a pebble cannot
+/// miss every kernel (the lattice puts particle centres at fractional-pitch
+/// offsets, `TRISO_OFFSET`). Returns the located path of the first point
+/// whose material is [`mat::KERNEL`] at coordinate depth at least `min_depth`
+/// (the pebble is `levels[len - 2]`, the particle `levels[len - 1]` at depth 3
+/// and more).
+///
+/// For drawing and checking the assembled geometry, not for transport.
+/// Moved here from two image examples that each carried a private copy of
+/// this scan (2026-11-17); the scan order and positions are theirs exactly.
+pub fn find_kernel_near(g: &Geometry, start: Position, nx: usize, min_depth: usize) -> Option<GeometryPath> {
+    let u = Direction::new(0.0, 0.0, 1.0);
+    for kz in 0..20 {
+        for j in 0..40 {
+            for i in 0..nx {
+                let p = Position::new(
+                    start.x + 0.01 * i as f64,
+                    start.y + 0.01 * j as f64,
+                    start.z + 0.01 * kz as f64,
+                );
+                if let Some(path) = g.locate(p, u, SurfaceToken::NONE) {
+                    if path.material == Some(mat::KERNEL) && path.levels.len() >= min_depth {
+                        return Some(path);
+                    }
+                }
+            }
+        }
+    }
+    None
 }
