@@ -74,6 +74,7 @@ pub mod matrix;
 pub mod cram;
 pub mod chain;
 pub mod operator;
+pub mod external_rates;
 
 pub use chain::{
     ChainImportError, DecayBranch, DepletionChain, NeutronReaction, NuclideData, ReactionKind,
