@@ -757,3 +757,36 @@ logical cores, about 15 GiB RAM, Linux 6.18, CPU only, shared with another
 agent's two long processes (load average 8-12 throughout); per-seed wall times
 (52-70 s hst009 at 2 threads, about 690-705 s msre, about 5 min FHR CSG) carry
 no cross-run meaning.
+
+## ACE-arm variance replication (gh:#1635, 2026-11-17): prediction
+
+**Written before any run of this pass.** The question: is the NEW build's ACE
+arm of `lct008_ace_roundtrip` (seed sd 270 pcm, seeds 1-8) really noisier than
+OLD (133 pcm, F about 4.1, one-sided p about 0.04), or was that one of many
+comparisons made across these ensembles?
+
+**Design.** Fresh, non-overlapping seeds 9-16 for both builds, exactly the
+settings of the seeds 1-8 run: 11 nuclides, `--purr --particles 4000
+--inactive 40 --active 100 --seeds 8 --seed 9 --threads 2`, one process per
+build, both builds at the same time (two transport processes). OLD =
+`d1e20f188`; NEW = this branch (its `src/` and
+`examples/lct008_ace_roundtrip.rs` are identical to the `501c16264` used for
+seeds 1-8; checked with `git diff --stat`). Reported: per-build sd on seeds
+9-16 and pooled 1-16, F = var(NEW)/var(OLD) for the ACE arm (and for the ENDF
+arm and the parity as controls), and paired new - old with z (sem = sd/sqrt(N),
+sigma = sqrt(sem_old^2 + sem_new^2)).
+
+**Mechanism.** None expected. #1581 changes which URR realisation is drawn
+(stream advanced by `nuclides.len()`), not the variance of the estimator; the
+ACE route reads back the same tapes. A genuine variance excess in the ACE arm
+only would need a mechanism specific to the ACE read-back plus the bound
+S(a,b) copies, and none is known.
+
+**Prediction.** Chance. On seeds 9-16 the NEW/OLD ACE variance ratio is near 1
+(point estimate 0.5-2; F inside 0.2-4.99, the central 95 % band of F(7,7),
+with probability about 0.95 under chance). Pooled 1-16 ratio about 1.5-2.5
+(the seeds 1-8 excess diluted, not removed), pooled F(15,15) one-sided p above
+0.05. Paired new - old ACE |z| <= 2 on 9-16. If the F on 9-16 exceeds 4.99
+(one-sided p < 0.05 again, independent of the first) the "chance" reading is
+rejected and a mechanism hunt is warranted. Nothing is changed in the code by
+this item and nothing is tuned.
