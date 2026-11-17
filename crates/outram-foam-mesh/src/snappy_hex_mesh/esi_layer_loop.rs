@@ -15,6 +15,9 @@
 //! serial, no face zones, no baffles, `nSmoothDisplacement 0`. Verification and results:
 //! `tests/snappy_hex_mesh_esi_layers.rs`, README "Round 9".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::esi_layer_topo::{
     add_patch_cell_layer, avg_point_data_faces, check_and_unmark, count_extrusion, determine_side_patches, edge_global_faces,
     get_layer_cells_faces, setup_layer_info_truncation, truncate_displacement, AddLayerInput, AddedLayers, TruncateReport,

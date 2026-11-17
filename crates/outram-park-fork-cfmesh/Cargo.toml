@@ -55,19 +55,27 @@ cell-centre-dual = []
 # feature. Since gh:#1480 outram-foam-mesh is an unconditional dependency; the
 # feature only switches the code on. The outram-foam-cli meshers (cartesianMesh, tetMesh, pMesh, cartesian2DMesh)
 # turn it on.
-surface-file = []
+surface-file = ["std"]
+# `no_std` + `alloc` without `std` (gh:#1639, epic gh:#1637). `std` carries
+# file I/O (STL `surfaceFile`, `polyMeshGen` read/write, dictionaries), the
+# wall clock behind the timing traces, the trace/diagnostic environment
+# variables, printing, and `std` in the dependencies. `surface-file` reads STL
+# files, so it implies `std`.
+default = ["std"]
+std = ["outram-foam-basic-lib/std", "outram-foam-mesh/std"]
 
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
-outram-foam-basic-lib = { workspace = true, features = ["std"] }
+outram-foam-basic-lib = { workspace = true }
 # gh:#1480: non-optional. The OpenFOAM mesh-quality checks (`checks.rs`, used by
 # the layer back-off, the pipelines and the optimizers) live in
 # `outram_foam_mesh::check_mesh`. Pure Rust, Android- and wasm-safe (checked
 # 2026-11-11, see the gh:#1480 V&V record); outram-foam-mesh does not depend on
 # this crate: no cycle.
 outram-foam-mesh = { workspace = true }
+hashbrown = { workspace = true }
 
 [dev-dependencies]
 # (outram-foam-mesh, used by the gh:#1276 feature-edge differential, is a

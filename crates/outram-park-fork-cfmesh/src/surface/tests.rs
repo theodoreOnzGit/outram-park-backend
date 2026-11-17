@@ -11,6 +11,9 @@
 //! committed before the first run (gh:#1276/#1277 commits); results are in
 //! `verification_and_validation/surface_tools_gh1276/README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::checks::*;
 use super::cleanup::*;
 use super::features::*;
@@ -18,8 +21,8 @@ use crate::math::Vec3;
 use crate::mesh_octree::{MeshOctree, SurfacePatch, TriSurf};
 use crate::mesh_octree_creator::{MeshDict, MeshOctreeCreator};
 use crate::shapes::{box_surface, cylinder_surface, surface_volume};
-use std::collections::BTreeSet;
-use std::sync::Arc;
+use alloc::collections::BTreeSet;
+use alloc::sync::Arc;
 
 /// The unlabelled pipe: R 1, L 4, 48 segments, fan caps.
 pub(crate) fn pipe48() -> TriSurf {
@@ -314,7 +317,7 @@ fn flip_minority_orientation(s: &mut TriSurf) -> usize {
     for x in g.iter().flatten() {
         size[*x] += 1;
     }
-    let big = (0..n).max_by_key(|&i| (size[i], std::cmp::Reverse(i))).unwrap_or(0);
+    let big = (0..n).max_by_key(|&i| (size[i], core::cmp::Reverse(i))).unwrap_or(0);
     let mut tris = s.triangles.clone();
     let mut flipped = 0;
     for (f, gi) in g.iter().enumerate() {
@@ -427,6 +430,7 @@ fn orientation_against_volume_sign() {
 fn check_surface_mesh_on_clean_surfaces() {
     let mut b = box6();
     let r = check_surface_mesh(&mut b);
+    #[cfg(feature = "std")]
     eprintln!("box: {r:?}");
     assert_eq!((r.n_hole_facets, r.n_non_manifold_facets, r.n_manifolds, r.n_disconnected_parts), (0, 0, 1, 1));
     assert_eq!((r.n_small_angle_facets, r.n_collocated_points, r.n_self_intersecting_facets), (0, 0, 0));
@@ -435,6 +439,7 @@ fn check_surface_mesh_on_clean_surfaces() {
     assert_eq!(r.n_failed, 0);
     let mut p = pipe48();
     let r = check_surface_mesh(&mut p);
+    #[cfg(feature = "std")]
     eprintln!("pipe: {r:?}");
     assert_eq!((r.n_hole_facets, r.n_non_manifold_facets, r.n_self_intersecting_facets), (0, 0, 0));
     assert_eq!((r.n_overlapping_facets, r.n_failed), (0, 0));
@@ -462,6 +467,7 @@ fn triangle_pair_helpers() {
     assert!(!do_triangles_intersect(t0, far, 1e-9));
     let t1 = [Vec3::new(0.5, 0.0, 0.0), Vec3::new(1.5, 0.0, 0.0), Vec3::new(0.5, 1.0, 0.0)];
     let same = do_triangles_overlap(t0, t1, 1e-9, 0.99);
+    #[cfg(feature = "std")]
     eprintln!("same winding: {same:?}");
     assert!(same.is_none());
     let t1r = [t1[0], t1[2], t1[1]];
@@ -568,7 +574,9 @@ pub(crate) fn sphere_curvature_errors(n_lat: usize, n_lon: usize) -> [(f64, f64)
 fn sphere_curvature_against_one_over_r() {
     let a = sphere_curvature_errors(24, 48);
     let b = sphere_curvature_errors(48, 96);
+    #[cfg(feature = "std")]
     eprintln!("24x48 (max, median) mean/min/max: {a:?}");
+    #[cfg(feature = "std")]
     eprintln!("48x96 (max, median) mean/min/max: {b:?}");
     assert!(a[0].1 < 0.01 && b[0].1 < 0.003);
     assert!(a[0].0 < 0.03 && b[0].0 < 0.01);
@@ -590,13 +598,14 @@ fn pipe_rim_edge_curvature() {
     use super::curvature::TriSurfaceCurvatureEstimator;
     let s = crate::mesh_octree_queries::tests::pipe(1.0, 4.0, 48);
     let c = TriSurfaceCurvatureEstimator::new(&s);
-    let chord = 2.0 * (std::f64::consts::PI / 48.0).sin();
-    let good = (std::f64::consts::PI / 24.0) / chord;
-    let wrong = (std::f64::consts::PI - std::f64::consts::PI / 24.0) / chord;
+    let chord = 2.0 * (core::f64::consts::PI / 48.0).sin();
+    let good = (core::f64::consts::PI / 24.0) / chord;
+    let wrong = (core::f64::consts::PI - core::f64::consts::PI / 24.0) / chord;
     let k = &c.edge_point_curvature;
     let n_good = k.iter().filter(|&&v| (v - good).abs() < 1e-9).count();
     let n_wrong = k.iter().filter(|&&v| (v - wrong).abs() < 1e-9).count();
     let n_zero = k.iter().filter(|&&v| v == 0.0).count();
+    #[cfg(feature = "std")]
     eprintln!("good {n_good} wrong {n_wrong} zero {n_zero} of {}; values {good} {wrong}", k.len());
     assert_eq!((n_good, n_wrong, n_zero), (92, 4, k.len() - 96));
     for (p, pp) in c.point_patches.iter().enumerate() {

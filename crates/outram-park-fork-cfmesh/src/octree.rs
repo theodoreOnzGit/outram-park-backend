@@ -74,10 +74,14 @@
 //! the conformity pass above handles the extra hanging nodes that produces.
 //! Pure Rust, Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::snap::closest_point_on_surface;
 use crate::volume_mesh::{orient_ring, BoundaryPatch, VolumeMesh};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use alloc::collections::{BTreeMap, BTreeSet};
+use crate::hash::{HashMap, HashSet};
 
 /// A leaf cell: `(level, i, j, k)`. A level-`L` cell has edge `base / 2^L` and
 /// occupies finest-resolution integer coordinates `[i·m, (i+1)·m]` per axis,
@@ -571,7 +575,7 @@ pub(crate) fn build_mesh(leaves: &BTreeSet<Cell>, origin: Vec3, base_cs: f64, ma
     let n_boundary = bnd_faces.len();
     faces.extend(bnd_faces);
     owner.extend(bnd_owner);
-    neighbour.extend(std::iter::repeat(None).take(n_boundary));
+    neighbour.extend(core::iter::repeat(None).take(n_boundary));
     let patches = vec![BoundaryPatch {
         name: "walls".into(),
         start_face: n_internal,

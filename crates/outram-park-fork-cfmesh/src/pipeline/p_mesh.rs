@@ -47,6 +47,9 @@
 //!
 //! The tables of steps and stand-ins are in [`super::tet_mesh`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::tet_mesh::{run_generator, SavedMesh, Template, TetMeshOptions, TetMeshReport};
 use crate::math::Vec3;
 use crate::patches::SurfaceRegions;
@@ -72,7 +75,7 @@ pub(crate) mod tests {
     use crate::tet_creator_octree::tet_creator_octree;
     use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
     use crate::voronoi_mesh_extractor::voronoi_mesh_extractor;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     fn volumes(m: &VolumeMesh) -> Vec<f64> {
         crate::checks::cell_geometry(m).0
@@ -125,6 +128,7 @@ pub(crate) mod tests {
             let interior = interior_points(&tm);
             let n_interior = interior.iter().filter(|&&x| x).count();
             let cells_at_interior = point_of_cell.iter().filter(|c| c.is_some_and(|q| interior[q])).count();
+            #[cfg(feature = "std")]
             println!("{name}: non-manifold boundary points of the tet template {}", non_manifold_boundary_points(&tm));
             let median = crate::dual::polyhedral_dual(&tm);
             let mvols = volumes(&median);
@@ -133,6 +137,7 @@ pub(crate) mod tests {
                 let q = q.expect("cell at a used point");
                 max_rel = max_rel.max(((vols[c] - mvols[q]) / mvols[q]).abs());
             }
+            #[cfg(feature = "std")]
             println!(
                 "{name}: tets {} tet points {} interior {n_interior}; voronoi cells {} (at interior points {cells_at_interior}) faces {} edges {} boundary edges {} nonpos {n_nonpos} validate {v:?}; \
                  volume voronoi {:.6e} tet {:.6e}; median dual cells {} max rel. volume diff on the shared cells {max_rel:.3e}",
@@ -161,7 +166,7 @@ pub(crate) mod tests {
     /// edge-connected fan (non-manifold points; `polyDualMesh` refuses
     /// them).
     pub(crate) fn non_manifold_boundary_points(m: &VolumeMesh) -> usize {
-        let mut faces_of: std::collections::BTreeMap<usize, Vec<usize>> = std::collections::BTreeMap::new();
+        let mut faces_of: alloc::collections::BTreeMap<usize, Vec<usize>> = alloc::collections::BTreeMap::new();
         for f in m.n_internal_faces()..m.face_count() {
             for &v in &m.faces[f] {
                 faces_of.entry(v).or_default().push(f);
@@ -193,7 +198,7 @@ pub(crate) mod tests {
                     }
                 }
             }
-            let roots: std::collections::BTreeSet<usize> = (0..fs.len()).map(|a| root(&mut comp, a)).collect();
+            let roots: alloc::collections::BTreeSet<usize> = (0..fs.len()).map(|a| root(&mut comp, a)).collect();
             if roots.len() > 1 {
                 n += 1;
             }
@@ -226,6 +231,7 @@ pub(crate) mod tests {
             let cc = match crate::cell_centre_dual::cell_centre_dual(&tm, 45.0) {
                 Ok(c) => c,
                 Err(e) => {
+                    #[cfg(feature = "std")]
                     println!("{name}: polyDualMesh refuses the tet mesh ({e}); non-manifold boundary points {nm}");
                     assert!(nm > 0, "{name}: refused although manifold");
                     continue;
@@ -253,6 +259,7 @@ pub(crate) mod tests {
                     face_count_diff += 1;
                 }
             }
+            #[cfg(feature = "std")]
             println!(
                 "{name}: non-manifold boundary points {nm}; voronoi cells {} cell-centre cells {}; max rel volume diff {max_rel:.3e}; face-count differences {face_count_diff}",
                 vm.mesh.n_cells, cc.n_cells
@@ -288,12 +295,13 @@ pub(crate) mod tests {
             ("pipe without sheets", &pp, &pt, Some(&pr), 0.002, pipe_vol, FunSheets::Without),
         ] {
             let opts = TetMeshOptions { dict: MeshDict::with_max_cell_size(h), fun_sheets: fun, ..Default::default() };
-            let t0 = std::time::Instant::now();
+            let t0 = crate::time::Instant::now();
             let (m, rep) = p_mesh(p, t, r, &opts).unwrap();
             let dt = t0.elapsed().as_secs_f64();
             let q = crate::checks::check_quality(&m);
             let nonpos = volumes(&m).iter().filter(|&&x| x <= 0.0).count();
             let v = m.validate();
+            #[cfg(feature = "std")]
             println!(
                 "{name}: p_mesh cells {} template {} (vol {:.6e}) vol {:.6e} err {:+.3} % nonpos {nonpos} validate {v:?} non-orth {:.2} skew {:.3} time {dt:.2} s; meta kept {:?}",
                 m.n_cells,
@@ -306,6 +314,7 @@ pub(crate) mod tests {
                 rep.meta.last_step
             );
             for n in &rep.notes {
+                #[cfg(feature = "std")]
                 println!("  {n}");
             }
             v.unwrap();

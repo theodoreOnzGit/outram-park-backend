@@ -33,10 +33,18 @@ maturity = 2
 [dependencies]
 # Deterministic transcendentals (gh:#985): petir::mathf::RealMath, no_std.
 petir = { workspace = true }
-thiserror.workspace = true
+thiserror-nostd = { workspace = true }
 uom.workspace = true
-ndarray.workspace = true
-outram-foam-basic-lib = { workspace = true, features = ["std"] }
+ndarray-nostd = { workspace = true }
+hashbrown = { workspace = true }
+outram-foam-basic-lib = { workspace = true }
+
+# `no_std` + `alloc` without `std` (gh:#1638, epic gh:#1637). `std` carries
+# the file readers and writers (STL, blockMeshDict, I-DEAS UNV, case output),
+# printing, and `std` in the dependencies.
+[features]
+default = ["std"]
+std = ["thiserror-nostd/std", "ndarray-nostd/std", "outram-foam-basic-lib/std"]
 
 [dev-dependencies]
 approx.workspace = true
@@ -48,3 +56,48 @@ miniz_oxide = { workspace = true }
 [lib]
 name = "outram_foam_mesh"
 path = "src/lib.rs"
+
+# Reads and writes case files: `std` only (gh:#1638).
+[[example]]
+name = "decompose_par"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "compare_polymesh"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "compare_check_mesh"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "dump_castellation"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "compare_dual_modes"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "dump_block_mesh"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "sphere_in_box"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "draw_poly_dual_mesh"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "dump_dual_features"
+required-features = ["std"]

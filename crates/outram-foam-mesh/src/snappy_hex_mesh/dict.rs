@@ -38,6 +38,10 @@
 //! `FoamFile::read_with_includes`); `#includeEtc` is not supported by the
 //! parser and is reported by [`SnappyDict::parse`] as a not-ported keyword.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use outram_foam_basic_lib::io::dict::{FoamDict, FoamEntry, FoamFile, FoamValue};
@@ -152,6 +156,7 @@ impl SnappyDict {
         Self::from_dict(&file.dict)
     }
 
+    #[cfg(feature = "std")]
     /// Read `path`, resolving `#include "name"` relative to it.
     ///
     /// # Errors

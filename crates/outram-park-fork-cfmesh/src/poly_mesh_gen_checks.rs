@@ -72,6 +72,9 @@
 //! flags; `checkFaceVertices` and `checkClosedCells` accept a label equal to
 //! the list size (`> n`, not `>= n`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::checks::{cell_geometry, pmg_geometry, PmgGeometry};
 use crate::correct_edges::foam_face_centre;
 use crate::surface_engine::ring_area_vector;
@@ -229,7 +232,7 @@ pub(crate) fn check_face_dot_product_g(mesh: &VolumeMesh, g: &PmgGeometry, non_o
     let all = vec![true; mesh.face_count()];
     let dots = face_dot_products_g(mesh, g, active.unwrap_or(&all));
     // `::cos(nonOrthWarn/180.0*M_PI)`
-    let threshold = (non_orth_warn_deg / 180.0 * std::f64::consts::PI).r_cos();
+    let threshold = (non_orth_warn_deg / 180.0 * core::f64::consts::PI).r_cos();
     let mut bad = vec![false; mesh.face_count()];
     let mut n_error = 0usize;
     for f in 0..mesh.n_internal_faces() {
@@ -611,7 +614,7 @@ pub fn check_volume_uniformity(mesh: &VolumeMesh, _warn_uniform: f64, _active: O
 /// (any concave face, flags, the largest such sine).
 pub fn check_face_angles(mesh: &VolumeMesh, max_deg: f64, active: Option<&[bool]>) -> (bool, Vec<bool>, f64) {
     assert!((-SMALL..=180.0 + SMALL).contains(&max_deg), "maxDeg should be [0..180] but is now {max_deg}");
-    let max_sin = (max_deg / 180.0 * std::f64::consts::PI).r_sin();
+    let max_sin = (max_deg / 180.0 * core::f64::consts::PI).r_sin();
     let mut bad = vec![false; mesh.face_count()];
     let mut max_edge_sin = 0.0f64;
     for (f, b) in bad.iter_mut().enumerate() {
@@ -863,7 +866,7 @@ pub fn check_face_vertices(mesh: &VolumeMesh) -> (bool, Vec<bool>) {
         if ring.iter().any(|&p| p > np) {
             bad[f] = true;
         }
-        let mut seen = std::collections::BTreeSet::new();
+        let mut seen = alloc::collections::BTreeSet::new();
         for &p in ring {
             if !seen.insert(p) {
                 bad[f] = true;
@@ -933,12 +936,14 @@ mod tests {
         let s3 = 3.0f64.sqrt();
         let (a, b, c, d) = (Vec3::new(1.0, 1.0, 1.0), Vec3::new(1.0, -1.0, -1.0), Vec3::new(-1.0, 1.0, -1.0), Vec3::new(-1.0, -1.0, 1.0));
         let q = tet_quality(a, b, c, d).abs();
+        #[cfg(feature = "std")]
         println!("regular tet: quality {q}, circumradius {} (expect {s3})", tet_circum_radius(a, b, c, d));
         assert!((q - 1.0).abs() < 1e-12, "{q}");
         assert!((tet_circum_radius(a, b, c, d) - s3).abs() < 1e-12);
 
         let cube = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [1, 1, 1]);
         let det = cell_determinants(&cube)[0];
+        #[cfg(feature = "std")]
         println!("unit cube determinant {det}");
         assert!((det - 1.0).abs() < 1e-12);
         assert!(!check_min_twist(&cube, 1.0 - 1e-12, None).0);
@@ -966,6 +971,7 @@ mod tests {
                 min_dot = min_dot.min(n(i).dot(n(j)));
             }
         }
+        #[cfg(feature = "std")]
         println!("folded face: smallest triangle-normal dot product {min_dot}");
         assert!(check_triangle_twist(&m, min_dot + 1e-9, None).1[f]);
         assert!(!check_triangle_twist(&m, min_dot - 1e-9, None).1[f]);
@@ -991,6 +997,7 @@ mod tests {
         assert!(!fail_raw, "gh:#1285: cartesian_box is upper-triangular as built");
         let n_int = raw.n_internal_faces();
         assert!((0..n_int).all(|f| raw.owner[f] < raw.neighbour[f].unwrap()));
+        #[cfg(feature = "std")]
         println!("cartesian_box as built: upper-triangular {}, flagged {:?}", !fail_raw, (0..bad_raw.len()).filter(|&f| bad_raw[f]).collect::<Vec<_>>());
         let mut order: Vec<usize> = (0..n_int).collect();
         order.sort_by_key(|&f| (raw.owner[f], raw.neighbour[f]));
@@ -1008,6 +1015,7 @@ mod tests {
         s.owner.swap(0, n_int - 1);
         s.neighbour.swap(0, n_int - 1);
         let (fail, bad) = check_upper_triangular(&s);
+        #[cfg(feature = "std")]
         println!("swapped: fail {fail}, flagged {:?}", (0..bad.len()).filter(|&f| bad[f]).collect::<Vec<_>>());
         assert!(fail);
     }

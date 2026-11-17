@@ -46,6 +46,9 @@
 //! of a generator never triggers, because no later `runCurrentStep` call
 //! closes it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The steps of `workflowSteps_`, with upstream's values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum WorkflowStep {

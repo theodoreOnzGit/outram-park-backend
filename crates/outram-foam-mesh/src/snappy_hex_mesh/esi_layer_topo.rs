@@ -26,7 +26,10 @@
 //! methodology, predictions and results in `verification_and_validation/snappy_hex_mesh_esi_v2506/README.md`,
 //! "Round 9".
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use super::esi_layers::{ExtrudeMode, ExtrudeState, LayerPatch};
 use super::esi_medial::sync_patch_displacement;

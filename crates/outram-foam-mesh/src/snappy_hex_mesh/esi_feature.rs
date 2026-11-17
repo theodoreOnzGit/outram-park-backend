@@ -41,6 +41,9 @@
 //!
 //! Numerics: plain IEEE `+ - * /` and `sqrt` in upstream's operand grouping, no `mul_add`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::check_mesh::esi_face_area_normal;
 use crate::snappy_hex_mesh::esi_snap::{
     add, cross, displacement_field, div, dot, face_centre, mag, mag_sqr, scale, scale_mesh_loop, smooth_displacement, sub, MeshEdges,
@@ -748,7 +751,7 @@ pub fn calc_nearest_face_point_properties(
         // sortedOrder(mag(pFc)): stable ascending sort.
         let mut order: Vec<usize> = (0..rows.len()).collect();
         let keys: Vec<f64> = rows.iter().map(|r| mag(r.2)).collect();
-        order.sort_by(|&a, &b| keys[a].partial_cmp(&keys[b]).unwrap_or(std::cmp::Ordering::Equal));
+        order.sort_by(|&a, &b| keys[a].partial_cmp(&keys[b]).unwrap_or(core::cmp::Ordering::Equal));
         for &k in &order {
             out.normals[pi].push(rows[k].0);
             out.disp[pi].push(rows[k].1);

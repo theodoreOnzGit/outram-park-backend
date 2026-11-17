@@ -49,6 +49,8 @@ crates=(
   outram-foam-appbuilder-lib  # gh:#1633
   boon-lay                    # gh:#1634
   tampines                    # gh:#1606
+  outram-foam-mesh            # gh:#1638
+  outram-park-fork-cfmesh     # gh:#1639
   # Already no_std, gated 2026-11-17 (after the gh:#1585 survey). petir,
   # kaki-bukit and redhill are always `no_std` (no `std` feature); bugis is
   # checked without its `egui` default.

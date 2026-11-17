@@ -19,6 +19,8 @@
 //! probe text value by value as well, and to regenerate the table with the ignored
 //! test `regenerate_hash_table`.
 
+// Reads or writes case files: `std` only (gh:#1638).
+#![cfg(feature = "std")]
 use outram_foam_basic_lib::io::dict::FoamFile;
 use outram_foam_mesh::dynamic_mesh::{SolidBodyMeshMotion, SolidBodyMotion};
 use outram_foam_mesh::snappy_hex_mesh::esi_snap::SnapMesh;

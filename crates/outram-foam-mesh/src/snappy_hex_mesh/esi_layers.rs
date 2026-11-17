@@ -25,7 +25,11 @@
 //! Methodology, predictions P49-P51 and the results: `verification_and_validation/
 //! snappy_hex_mesh_esi_v2506/README.md`, "Round 8".
 
-use std::collections::{BTreeMap, HashMap};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
+use crate::hash::HashMap;
 
 use super::esi_merge::MergeMesh;
 use super::esi_snap::{div, dot, face_centres_areas, mag, scale, sub, V};
@@ -502,8 +506,8 @@ pub fn calc_addressing(
             let ne = edges.len();
             edges.push(cur_edges[next_nei]);
             face_edges[facei][next_nei] = ne;
-            let cnf = std::mem::take(&mut nei_faces[next_nei]);
-            let eonf = std::mem::take(&mut edge_of_nei_face[next_nei]);
+            let cnf = core::mem::take(&mut nei_faces[next_nei]);
+            let eonf = core::mem::take(&mut edge_of_nei_face[next_nei]);
             let mut cur_ef = vec![facei];
             for (c, &nf) in cnf.iter().enumerate() {
                 face_edges[nf][eonf[c]] = ne;
@@ -1020,7 +1024,7 @@ pub fn calculate_layer_thickness(
     let point_of: HashMap<usize, usize> = pp.mesh_points.iter().enumerate().map(|(i, &p)| (p, i)).collect();
     // patch meshPoints, in patch order of first appearance
     let patch_points = |patch: usize| -> Vec<usize> {
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = crate::hash::HashSet::new();
         let mut out = Vec::new();
         for f in starts[patch]..starts[patch + 1] {
             for &p in &m.mesh.faces[f] {
@@ -1235,7 +1239,7 @@ mod tests {
         let nm = handle_non_manifolds(&pp, &mut st);
         assert_eq!(nm, NonManifoldCounts { n_non_manifold_points: 0, n_baffle_faces: 0 });
         // flat strip: no feature edges at 30 degrees
-        let cos30 = (30.0f64 * std::f64::consts::PI / 180.0).cos();
+        let cos30 = (30.0f64 * core::f64::consts::PI / 180.0).cos();
         assert_eq!(handle_feature_angle(&pp, cos30, &mut st), 0);
         let ncl = set_num_layers(&m, &[2], &[0], &pp, &mut st);
         assert_eq!(ncl, 4);
@@ -1265,7 +1269,7 @@ mod tests {
         let m = MergeMesh::from_patch_starts(mesh, &[0, 2]);
         let pp = LayerPatch::new(&m, &[0]);
         let mut st = ExtrudeState::new(6);
-        let cos30 = (30.0f64 * std::f64::consts::PI / 180.0).cos();
+        let cos30 = (30.0f64 * core::f64::consts::PI / 180.0).cos();
         assert_eq!(handle_feature_angle(&pp, cos30, &mut st), 1);
         assert_eq!(st.n_extruding(), 4);
     }

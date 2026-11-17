@@ -337,6 +337,28 @@ Remaining roadmap (beads under the `op-hzs` epic):
 13. feature-edge-aware snapping, so patch seams follow surface feature edges
     rather than mesh face edges
 
+## `no_std` + `alloc` (gh:#1639)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-park-fork-cfmesh --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every generator and stage builds without
+it (`cartesianMesh`, `tetMesh`, `pMesh`, `cartesian2DMesh`, the tet-dual
+pipeline, layers, the optimisers and the surface tools). What `std` adds:
+
+- file I/O: `surface-file` (STL, which therefore implies `std`), the
+  `polyMeshGen` read/write and debug dumps;
+- threads: the per-node optimiser map runs on scoped threads with `std`, and
+  serially without it (as on wasm), with the same results;
+- the wall clock behind the timing profile (`crate::time`: zero without it);
+- the diagnostic environment variables (`GH1385_TRACE`, `CFMESH_*`, through
+  `crate::env`: unset without it);
+- printing, and `std` in `outram-foam-basic-lib` and `outram-foam-mesh`.
+
+Maps are std's with `std`, so every fingerprint pin holds, and `hashbrown`
+without it. The root workspace entry is `default-features = false`, so a
+member that wants `std` asks for it.
+
 ## Design rules (workspace `CLAUDE.md`)
 
 - **Index-based topology** — newtype indices into `Vec`, no lifetimes/pointers.

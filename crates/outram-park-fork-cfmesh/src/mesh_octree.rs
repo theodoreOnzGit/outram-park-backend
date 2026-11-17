@@ -97,10 +97,13 @@
 //! precision; the same values are used here ([`SMALL`], [`VSMALL`],
 //! [`ROOTVSMALL`], [`VGREAT`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_subsets::{SubsetGroup, SubsetKind};
-use std::collections::BTreeSet;
-use std::sync::Arc;
+use alloc::collections::BTreeSet;
+use alloc::sync::Arc;
 
 /// OpenFOAM `SMALL` (double precision).
 pub const SMALL: f64 = 1.0e-15;
@@ -288,7 +291,7 @@ impl TriSurf {
         }
         // calculateEdges: per point, the set of (p, q >= p).
         let mut edges: Vec<[usize; 2]> = Vec::new();
-        let mut edge_of: std::collections::BTreeMap<(usize, usize), usize> = Default::default();
+        let mut edge_of: alloc::collections::BTreeMap<(usize, usize), usize> = Default::default();
         for (p, pf) in point_facets.iter().enumerate() {
             let mut at: BTreeSet<usize> = BTreeSet::new();
             for &f in pf {
@@ -1290,7 +1293,7 @@ impl MeshOctree {
         for sc in 0..n_sub {
             if !in_sub[sc].is_empty() {
                 self.slot.cubes[subs[sc]].contained_elements = Some(self.slot.contained_triangles.len());
-                self.slot.contained_triangles.push(std::mem::take(&mut in_sub[sc]));
+                self.slot.contained_triangles.push(core::mem::take(&mut in_sub[sc]));
             }
         }
         for &s in subs.iter().take(n_sub) {
@@ -1601,6 +1604,7 @@ pub(crate) mod tests {
                     data += 1;
                 }
             }
+            #[cfg(feature = "std")]
             println!("{name}: {} leaves, {data} with triangles, {touch} (leaf, triangle) touches within the tolerance", o.number_of_leaves());
             assert_eq!((o.number_of_leaves(), data, touch), (n_leaves, n_data, n_touch), "{name} counts");
             // Every leaf holding triangles is at level 4; the others are coarser or equal.
@@ -1707,6 +1711,7 @@ pub(crate) mod tests {
         }
         let ab = a.intersection(&b).count();
         let got = (a.len(), a1.len(), b.len(), b_in.len(), ab);
+        #[cfg(feature = "std")]
         println!("|A| {} |A1| {} |B| {} |B_in| {} |A and B| {}", got.0, got.1, got.2, got.3, got.4);
         assert!(b.len() > a.len(), "prediction 3");
         assert_eq!(got, DIFF_PINS);

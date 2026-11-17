@@ -86,11 +86,14 @@
 //! (wall ring, top ring reversed, side quads); the layers of one cell are
 //! numbered consecutively in its place, so later cell labels shift.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::surface_engine::{SurfaceEngine, VSMALL};
 use crate::topology::TopoMesh;
 use crate::volume_mesh::VolumeMesh;
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 use petir::mathf::RealMath;
 
 /// OpenFOAM `SMALL` for `double`.
@@ -614,7 +617,7 @@ fn refine_boundary_layers_mode(mesh: &VolumeMesh, s: &RefineBoundaryLayersSettin
     }
     let n_faces_before = new_faces.len();
     // `pointNewFaces` + `areFacesEqual`: a face is found by its vertex set, the first one wins.
-    let mut face_index: std::collections::HashMap<Vec<usize>, usize> = std::collections::HashMap::new();
+    let mut face_index: crate::hash::HashMap<Vec<usize>, usize> = crate::hash::HashMap::new();
     for (i, r) in new_faces.iter().enumerate() {
         face_index.entry(sorted_key(r)).or_insert(i);
     }
@@ -753,7 +756,7 @@ fn sorted_key(ring: &[usize]) -> Vec<usize> {
 
 /// The label of `ring` among `new_faces` (`areFacesEqual` on the faces at its
 /// first point), appending it when absent.
-fn face_label(ring: Vec<usize>, new_faces: &mut Vec<Vec<usize>>, face_index: &mut std::collections::HashMap<Vec<usize>, usize>) -> usize {
+fn face_label(ring: Vec<usize>, new_faces: &mut Vec<Vec<usize>>, face_index: &mut crate::hash::HashMap<Vec<usize>, usize>) -> usize {
     let k = sorted_key(&ring);
     if let Some(&l) = face_index.get(&k) {
         return l;
@@ -1343,6 +1346,7 @@ mod tests {
         let (_, l, o) = layered_pipe();
         let d = detect_boundary_layers(&l);
         let expect: BTreeSet<usize> = (o.first_layer_cell..l.cell_count()).collect();
+        #[cfg(feature = "std")]
         println!("{} layer groups, {} layer cells, {} hairs, patches {:?}", d.n_layers, d.layer_cells.len(), d.hair_edges.len(), d.layer_at_patch);
         assert_eq!(d.layer_cells, expect);
         let names: Vec<&str> = l.patches.iter().map(|p| p.name.as_str()).collect();
@@ -1390,6 +1394,7 @@ mod tests {
                 no_shared += 1;
                 if no_shared <= 3 {
                     let ring = &engine.face_rings[a];
+                    #[cfg(feature = "std")]
                     println!("  edge {:?}: owners {oa} ({} faces) and {ob} ({} faces) share no face; face a ring {:?}", engine.edges[e], cf[oa].len(), cf[ob].len(), ring);
                 }
             }
@@ -1399,6 +1404,7 @@ mod tests {
             sizes[*g] += 1;
         }
         sizes.sort_unstable();
+        #[cfg(feature = "std")]
         println!("{} groups, sizes {:?}; edges between groups: same owner {same_owner}, owners sharing a face {shared}, sharing none {no_shared}", d.n_layers, sizes);
         assert_eq!((same_owner, shared, no_shared), (0, 0, 0));
         assert_eq!(sizes.iter().filter(|&&n| n > 0).count(), 1);
@@ -1459,6 +1465,7 @@ mod tests {
                 }
             }
         }
+        #[cfg(feature = "std")]
         println!("split points: worst |difference| / column length {worst:.3e}; {n_bit} of {n_all} bit for bit; refined {} cells", r.cell_count());
         assert!(worst < 1e-12);
         assert!(n_bit < n_all);
@@ -1513,10 +1520,12 @@ mod tests {
     fn cartesian_box_layer_refines_the_walls_only() {
         let (l, _) = boundary_layers_add_layer(&named_box(0.25), &["walls"], &BoundaryLayersControls::default()).unwrap();
         let d = detect_boundary_layers(&l);
+        #[cfg(feature = "std")]
         println!("box: {} groups, patches {:?}", d.n_layers, d.layer_at_patch);
         assert_eq!(d.n_layers, 3);
         assert_eq!(d.layer_at_patch.iter().map(|g| g.len()).collect::<Vec<_>>(), vec![1, 1, 1]);
         let (r, rep) = refine_boundary_layers(&l, &walls(3, None, None)).unwrap();
+        #[cfg(feature = "std")]
         println!("refined: {} cells, {} split, volume {:.15}", r.cell_count(), rep.n_cells_split, r.total_volume());
         assert_eq!((r.cell_count(), rep.n_cells_split), (256, 64));
         assert!((r.total_volume() - 1.0).abs() < 1e-12);
@@ -1566,6 +1575,7 @@ mod tests {
         let (r, _) = refine_boundary_layers(&l, &walls(3, Some(1.2), None)).unwrap();
         let (bl, _) = boundary_layers_add_layer(&named_box(0.25), &["walls"], &BoundaryLayersControls::default()).unwrap();
         let (br, _) = refine_boundary_layers(&bl, &walls(3, Some(1.2), None)).unwrap();
+        #[cfg(feature = "std")]
         println!("fingerprints: pipe {:#018x}, box {:#018x}", mesh_fingerprint(&r), mesh_fingerprint(&br));
         // Re-pinned 2026-11-11 (gh:#1385): the pipe's layer now comes out in
         // upstream's face order (`addCells`, `reorderBoundaryFaces`,
@@ -1608,6 +1618,7 @@ mod tests {
         let (r, rep) = refine_boundary_layers(&l, &global(3, 1.0)).unwrap();
         let (vols, _) = crate::checks::cell_geometry(&r);
         let n_nonpos = vols.iter().filter(|&&v| v <= 0.0).count();
+        #[cfg(feature = "std")]
         println!("B6 refined: {} cells ({} split: {} edge, {} corner), V {:.15}, non-positive {n_nonpos}, patches {:?}", r.n_cells, rep.n_cells_split, rep.n_edge_hex_cells, rep.n_corner_hex_cells, r.total_volume(), r.patches.iter().map(|p| (p.name.clone(), p.n_faces)).collect::<Vec<_>>());
         assert_eq!((r.n_cells, rep.n_edge_hex_cells, rep.n_corner_hex_cells), (1000, 48, 8));
         r.validate().unwrap();
@@ -1622,6 +1633,7 @@ mod tests {
                 worst = worst.max(grid.iter().map(|g| (g - c).abs()).fold(f64::MAX, f64::min));
             }
         }
+        #[cfg(feature = "std")]
         println!("  worst distance of a coordinate from the 10 x 10 x 10 grid: {worst:.3e}");
         assert!(worst < 1e-12);
         // R5: the split points against build_layered_variable's columns
@@ -1635,6 +1647,7 @@ mod tests {
                 worst_col = worst_col.max(a.sub(*b).length());
             }
         }
+        #[cfg(feature = "std")]
         println!("  worst split point against the uniform column: {worst_col:.3e}");
         assert!(worst_col < 1e-15);
     }
@@ -1649,6 +1662,7 @@ mod tests {
         let (r, rep) = refine_boundary_layers(&bl.mesh, &global(3, 1.0)).unwrap();
         let (vols, _) = crate::checks::cell_geometry(&r);
         let n_nonpos = vols.iter().filter(|&&v| v <= 0.0).count();
+        #[cfg(feature = "std")]
         println!("B3 refined: {} cells ({} split: {} edge, {} corner), V {:.15}, non-positive {n_nonpos}", r.n_cells, rep.n_cells_split, rep.n_edge_hex_cells, rep.n_corner_hex_cells, r.total_volume());
         assert_eq!((r.n_cells, rep.n_edge_hex_cells, rep.n_corner_hex_cells), (640, 32, 0));
         r.validate().unwrap();

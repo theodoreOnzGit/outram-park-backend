@@ -38,6 +38,9 @@
 //! Later milestones add the octree refinement and surface intersection that
 //! turn this background grid into a body-fitted mesh, plus boundary layers.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::volume_mesh::{orient_ring, BoundaryPatch, VolumeMesh};
 

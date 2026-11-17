@@ -153,7 +153,7 @@ tampines = { workspace = true, optional = true }
 # farrer-park FEM bridge, mesh-to-mesh overlap, mesh plots); the cfMesh port
 # itself (named patches, boundary layers on one patch, polyMesh writer,
 # quality checks), and the GeN-Foam port's nuclearData writer/reader.
-outram-park-fork-cfmesh = { workspace = true, features = ["foam-export"], optional = true }
+outram-park-fork-cfmesh = { workspace = true, features = ["std", "foam-export"], optional = true }
 outram-foam-appbuilder-lib = { workspace = true, optional = true, features = ["std"] }
 # Step 10's spatial neutronics (gh:#591): the flux boundary conditions and the
 # FvMesh the GeN-Foam port's DiffusionNeutronics is built on.
@@ -241,7 +241,7 @@ outram-park-fork-dwsim-libs = { workspace = true, features = ["std"] }
 # stage 0 gate, gh:#1154, ran them in a Worker with no host imports).
 outram-foam-appbuilder-lib = { workspace = true, features = ["std"] }
 outram-foam-basic-lib = { workspace = true, features = ["std"] }
-outram-foam-mesh = { workspace = true }
+outram-foam-mesh = { workspace = true, features = ["std"] }
 # Foam Studio's unstructured pipe (gh:#1202): outram-blender's cylinder and
 # its cfMesh bridge (`foam-mesh`), and the neutral -> polyMesh converter
 # (`foam-export`), in the worker too. Both features are wasm in-scope
@@ -251,7 +251,7 @@ outram-blender = { workspace = true, features = ["foam-mesh", "foam-export"] }
 # gh:#1240: the cfMesh port's dual kinds (`dual::DualKind`), the cell-centre
 # one through outram-foam-mesh's polyDualMesh (`cell-centre-dual`, pure Rust,
 # wasm in-scope); the same crate outram-blender's `foam-mesh` pulls.
-outram-park-fork-cfmesh = { workspace = true, features = ["foam-export", "cell-centre-dual"] }
+outram-park-fork-cfmesh = { workspace = true, features = ["std", "foam-export", "cell-centre-dual"] }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature

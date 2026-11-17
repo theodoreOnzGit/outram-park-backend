@@ -72,11 +72,14 @@
 //! must then use the same assignment, not re-derive it from the children's
 //! centroids ([`crate::surface_mapper::map_vertices_onto_surface_patches_untangled_given`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::surface_engine::{NOT_BOUNDARY, VSMALL};
 use crate::topology::{decompose_cells, TopoMesh};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// What [`correct_edges_between_patches`] did.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -374,6 +377,7 @@ mod tests {
             h = h.rotate_left(7) ^ r.map_or(u64::MAX, |r| r as u64);
         }
         let got = (out.cell_count(), rep.n_concave_faces, rep.n_patch_corrected_faces, rep.n_connection_faces, rep.n_decomposed_cells, h);
+        #[cfg(feature = "std")]
         println!("correct_edges pin {got:?}");
         assert_eq!(got, CORRECT_EDGES_PIN);
     }

@@ -20,6 +20,9 @@
 //! predictions P52-P54 and results: `verification_and_validation/snappy_hex_mesh_esi_v2506/
 //! README.md`, "Round 8".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::esi_layers::{ExtrudeMode, ExtrudeState, LayerPatch, GREAT, SMALL};
 use super::esi_snap::{
     add, div, dot, mag, mag_sqr, scale, sub, MeshEdges, MotionSmoother, PatchAddr, PatchPointScaling, ScaleControls,

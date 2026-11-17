@@ -71,6 +71,9 @@
 //!
 //! Pure Rust, wasm- and Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::Vector3;
 use petir::mathf::RealMath;
 
@@ -1023,7 +1026,7 @@ pub fn esi_check_non_orthogonality(
     check_faces: &[usize],
 ) -> Vec<usize> {
     use esi_snap::{dot, mag, sub};
-    let threshold = (max_non_ortho * std::f64::consts::PI / 180.0).r_cos();
+    let threshold = (max_non_ortho * core::f64::consts::PI / 180.0).r_cos();
     let mut wrong = Vec::new();
     for &f in check_faces {
         if f < mesh.neighbour.len() {
@@ -1151,7 +1154,7 @@ pub fn esi_check_face_angles(
     check_faces: &[usize],
 ) -> Vec<usize> {
     use esi_snap::{cross, div, dot, mag, sub};
-    let max_sin = (max_deg * std::f64::consts::PI / 180.0).r_sin();
+    let max_sin = (max_deg * core::f64::consts::PI / 180.0).r_sin();
     let mut wrong = Vec::new();
     for &f in check_faces {
         let ring = &mesh.faces[f];
@@ -1594,7 +1597,7 @@ pub fn esi_quality_fields(mesh: &SnapMesh, mesh_d: [i32; 3]) -> EsiQualityFields
     }
 
     // faceConcavity(sin(degToRad(10)))
-    let max_sin = (10.0 * std::f64::consts::PI / 180.0).r_sin();
+    let max_sin = (10.0 * core::f64::consts::PI / 180.0).r_sin();
     let mut concavity = Vec::with_capacity(n_faces);
     for f in 0..n_faces {
         let ring = &mesh.faces[f];
@@ -1721,7 +1724,7 @@ pub fn esi_check_summary(q: &EsiQualityFields) -> EsiCheckSummary {
     let min = |v: &[f64]| v.iter().copied().fold(ESI_GREAT, f64::min);
     let max = |v: &[f64]| v.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let sum = |v: &[f64]| v.iter().copied().fold(0.0, |a, b| a + b);
-    let to_deg = |rad: f64| rad * 180.0 / std::f64::consts::PI;
+    let to_deg = |rad: f64| rad * 180.0 / core::f64::consts::PI;
     let n_int = q.orthogonality.len();
     let mag_areas: Vec<f64> = q.geometry.face_areas.iter().map(|&a| esi_snap::mag(a)).collect();
     EsiCheckSummary {

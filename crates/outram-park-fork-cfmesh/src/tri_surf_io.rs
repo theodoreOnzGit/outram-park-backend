@@ -54,6 +54,9 @@
 //! Not ported: the binary (`IOstream::BINARY`) variants of these files and
 //! gzip-compressed input.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree::{SurfacePatch, TriSurf};
 use outram_foam_basic_lib::io::dict::{tokenize, Token};
