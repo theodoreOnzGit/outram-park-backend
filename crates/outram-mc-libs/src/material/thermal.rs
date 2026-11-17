@@ -895,6 +895,49 @@ impl ThermalScattering {
         Self::from_tape_with_grids(tape, mat, temperature_k, name, N_EMIT_GRID, N_OUTGOING)
     }
 
+    /// [`from_endf_file`](Self::from_endf_file) with explicit
+    /// [`EndfElasticOptions`] (gh:#634): today, the optional THERMR `natom`
+    /// for the incoherent elastic part. `EndfElasticOptions::default()` is
+    /// exactly `from_endf_file`.
+    ///
+    /// # Errors
+    /// As [`from_endf_file`](Self::from_endf_file), plus
+    /// [`NjoyError::InvalidInput`] for a `natom` that is not finite and positive.
+    pub fn from_endf_file_with_options<P: AsRef<std::path::Path>>(
+        path: P,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
+        let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(path.as_ref())?;
+        Self::from_tape_with_options(&tape, mat, temperature_k, name, options)
+    }
+
+    /// [`from_tape`](Self::from_tape) with explicit [`EndfElasticOptions`]
+    /// (gh:#634). `EndfElasticOptions::default()` is exactly `from_tape`.
+    ///
+    /// # Errors
+    /// As [`from_tape`](Self::from_tape), plus [`NjoyError::InvalidInput`] for
+    /// a `natom` that is not finite and positive.
+    pub fn from_tape_with_options(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_grids_and_options(
+            tape,
+            mat,
+            temperature_k,
+            name,
+            N_EMIT_GRID,
+            N_OUTGOING,
+            options,
+        )
+    }
+
     /// [`from_tape`](Self::from_tape) with the **two emission-table dimensions
     /// chosen by the caller** instead of the crate defaults `N_EMIT_GRID` and
     /// `N_OUTGOING`.
@@ -931,10 +974,38 @@ impl ThermalScattering {
         n_emit: usize,
         n_outgoing: usize,
     ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_grids_and_options(
+            tape,
+            mat,
+            temperature_k,
+            name,
+            n_emit,
+            n_outgoing,
+            EndfElasticOptions::default(),
+        )
+    }
+
+    /// [`from_tape_with_grids`](Self::from_tape_with_grids) with explicit
+    /// [`EndfElasticOptions`] (gh:#634); the default options are exactly
+    /// `from_tape_with_grids`.
+    ///
+    /// # Errors
+    /// As [`from_tape_with_grids`](Self::from_tape_with_grids), plus
+    /// [`NjoyError::InvalidInput`] for a `natom` that is not finite and positive.
+    pub fn from_tape_with_grids_and_options(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        n_emit: usize,
+        n_outgoing: usize,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
         use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
         use uom::si::{energy::electronvolt, thermodynamic_temperature::kelvin};
 
+        options.validate()?;
         if n_emit == 0 || n_outgoing == 0 {
             return Err(NjoyError::NotPorted(
                 "ThermalScattering: an emission table with a zero dimension cannot sample",
@@ -1002,7 +1073,7 @@ impl ThermalScattering {
             })
             .collect();
 
-        let elastic = build_elastic_channel(tape, mat, t, cutoff_ev)?;
+        let elastic = build_elastic_channel(tape, mat, t, cutoff_ev, options.natom)?;
 
         Ok(Self {
             name: name.to_string(),
@@ -1541,6 +1612,7 @@ fn build_elastic_channel(
     mat: i32,
     t: njoy_outram_park_fork::units::Temperature,
     cutoff_ev: f64,
+    natom: Option<f64>,
 ) -> Result<ThermalElastic, NjoyError> {
     use njoy_outram_park_fork::thermr::scattering::{
         CoherentElasticScattering, IncoherentElasticScattering,
@@ -1571,9 +1643,20 @@ fn build_elastic_channel(
             let e_grid = log_grid(E_MIN_GRID_EV, cutoff_ev, N_INC_ELASTIC_GRID);
             let mut sigma = Vec::with_capacity(e_grid.len());
             let mut cosines = Vec::with_capacity(e_grid.len() * N_INC_ELASTIC_COSINES);
+            // `ie.cross_section` divides by the tape's MT=4 B(6) (`2*B(6)` in
+            // `σ_b/(2N)`). With a `natom` the divisor is `natom` instead, as
+            // THERMR's `iel` (`c1 = sb/(2*natom)`, `thermr.f90`): rescale by
+            // `B(6)/natom`. Without one the factor is not applied at all, so the
+            // default is bit-identical to before. The coherent part is never
+            // divided by this `natom` (NJOY's `coh` does not use it).
+            let rescale = natom.map(|n| ie.principal_atom_count() / n);
             for &e_ev in &e_grid {
                 let e = NeutronEnergy::new::<electronvolt>(e_ev);
-                sigma.push(ie.cross_section(e).get::<barn>());
+                let s = ie.cross_section(e).get::<barn>();
+                sigma.push(match rescale {
+                    Some(f) => s * f,
+                    None => s,
+                });
                 let mus = ie.equiprobable_cosines(e, N_INC_ELASTIC_COSINES);
                 for j in 0..N_INC_ELASTIC_COSINES {
                     cosines.push(mus.get(j).copied().unwrap_or(0.0));
@@ -1661,6 +1744,43 @@ fn interp_linear(xs: &[f64], ys: &[f64], x: f64) -> f64 {
         y0 + (y1 - y0) * (x - x0) / (x1 - x0)
     } else {
         y0
+    }
+}
+
+/// Options for the ENDF route's elastic channel (gh:#634, maintainer decision
+/// 2026-11-17).
+///
+/// `EndfElasticOptions::default()` changes nothing: the incoherent elastic
+/// part is divided by the tape's MF=7/MT=4 `B(6)`, as OpenMC's `from_endf`
+/// does. [`with_natom`](Self::with_natom) divides it by the given `natom`
+/// instead, as THERMR's card does (`iel`: `c1 = sb/(2*natom)`). The coherent
+/// part is never divided by it, on either side.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct EndfElasticOptions {
+    natom: Option<f64>,
+}
+
+impl EndfElasticOptions {
+    /// Divide the incoherent elastic part by `natom` (THERMR's card input)
+    /// instead of the tape's `B(6)`.
+    pub fn with_natom(mut self, natom: f64) -> Self {
+        self.natom = Some(natom);
+        self
+    }
+
+    /// The `natom` given, if any.
+    pub fn natom(&self) -> Option<f64> {
+        self.natom
+    }
+
+    /// Refuse a `natom` that is not finite and positive.
+    fn validate(&self) -> Result<(), NjoyError> {
+        match self.natom {
+            Some(n) if !(n.is_finite() && n > 0.0) => Err(NjoyError::InvalidInput(format!(
+                "ENDF-route natom must be finite and positive, got {n}"
+            ))),
+            _ => Ok(()),
+        }
     }
 }
 
