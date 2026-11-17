@@ -264,10 +264,21 @@ z undefined), and a first run with `n = 0.5` exposed the defect below.
 `int pwr = n() + 1`, so `p/q` is off by `(n+1)/trunc(n+1)`. Measured at
 `n = 0.5`: **E[w] = 1.50006** (predicted 1.5 from reading `evaluate`), a 50 %
 bias on every tally using that source; the sampler is exact, only the weight
-is wrong. Pinned by `non_integer_power_law_bias_weight_is_upstreams_defect`.
+is wrong. ~~Pinned by `non_integer_power_law_bias_weight_is_upstreams_defect`.
 The port copies upstream (the bit-comparison covers integer `n` only), so
 fixing it would diverge from OpenMC: **maintainer decision**; whether current
-OpenMC still has this was not checked here (no upstream source available).
+OpenMC still has this was not checked here (no upstream source available).~~
+**CORRECTED 2026-11-17 (gh:#1580, maintainer decision: fix it).** The default
+`Distribution::power_law` now uses the real exponent; OpenMC `8f79d9d0`'s
+truncation is reachable only through `Distribution::with_upstream_integer_exponent()`.
+Predicted before the run: default E[w] = 1, legacy `(n+1)/trunc(n+1)`.
+Measured (2e5 draws, `source_biasing_unbiased_vs_analog`): default
+E[w] = 1.00004 +- 0.00043 at n = 0.5 (z = +0.09) and 0.99909 +- 0.00137 at
+n = 1.5 (z = -0.67); legacy 1.50006 +- 0.00065 (n = 0.5) and 1.24886 +- 0.00171
+(n = 1.5, predicted 1.25). Integer n is bit-identical in both modes, and the
+code-to-code comparison with OpenMC names the legacy option for its
+`powerlaw_frac` case (`source_distributions_vs_openmc_code_to_code`, still
+40/40 bit-identical).
 
 
 ## MAGIC shift investigation (2026-11-15, gh:#1579)
