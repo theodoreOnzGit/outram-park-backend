@@ -312,6 +312,17 @@ fn hand_nuclides() -> Vec<Nuclide> {
     .collect()
 }
 
+/// Seeds from `OUTRAM_RT_SEEDS`: `a-b` (inclusive) or a comma list; `None`
+/// when unset or unparsable. Test-only knob (gh:#1635), default unchanged.
+fn ensemble_seeds() -> Option<Vec<u64>> {
+    let v = std::env::var("OUTRAM_RT_SEEDS").ok()?;
+    if let Some((a, b)) = v.split_once('-') {
+        let (a, b) = (a.trim().parse::<u64>().ok()?, b.trim().parse::<u64>().ok()?);
+        return Some((a..=b).collect());
+    }
+    v.split(',').map(|s| s.trim().parse::<u64>().ok()).collect()
+}
+
 fn hand_materials(a: &AssembledModel) -> Vec<LowMaterial> {
     let comp = |nuclide_idx, atom_density| NuclideComponent {
         nuclide_idx,
@@ -404,6 +415,28 @@ fn leu_cell_two_regions_match_the_low_level_path_and_doppler_lowers_k() {
         compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(6)),
         ..LowKeffSettings::default()
     };
+    // Seed ensemble (gh:#1635): `OUTRAM_RT_SEEDS=101-112` (or `7,9,11`) runs
+    // the model path and the hand path at each seed on the data already
+    // loaded and prints `ENS seed model_k model_std hand_k hand_std`;
+    // `OUTRAM_RT_ENSEMBLE_ONLY=1` then returns. Unset: no effect.
+    if let Some(seeds) = ensemble_seeds() {
+        for s in seeds {
+            let m = hot
+                .keff_with(&hot_nuc, &custom(particles, inactive, active, s))
+                .unwrap()
+                .keff();
+            let (g, sb) = hand_built_cell();
+            let ls = LowKeffSettings { seed: s, ..low.clone() };
+            let h = run_keff_csg(&g, &hand_materials(&hot), &nuc, sb, &ls, None);
+            println!(
+                "ENS {s} {:.6} {:.6} {:.6} {:.6}",
+                m.mean, m.std, h.k_mean, h.k_std
+            );
+        }
+        if std::env::var_os("OUTRAM_RT_ENSEMBLE_ONLY").is_some() {
+            return;
+        }
+    }
     let reference = run_keff_csg(&geometry, &hand_materials(&hot), &nuc, src, &low, None);
     println!(
         "hot through run_keff_csg by hand: {:.5} +/- {:.5}",
