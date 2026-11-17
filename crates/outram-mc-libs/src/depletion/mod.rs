@@ -77,6 +77,7 @@ pub mod operator;
 pub mod external_rates;
 pub mod microxs;
 pub mod microxs_transport;
+pub mod coupled_operator;
 pub mod helpers;
 pub mod tracking;
 #[cfg(feature = "std")]
