@@ -186,3 +186,43 @@ fn predictor_step_through_the_coupled_operator() {
     println!("U235 burnt {burnt:e}, fissions {fissions:e}");
     assert!(burnt > 0.94 * fissions && burnt < 0.96 * fissions, "{burnt} {fissions}");
 }
+
+/// `reaction_from_ace` builds U-234's MT=18 the way OpenMC's
+/// `IncidentNeutron.from_ace` does: NJOY2016's table carries only the partial
+/// fissions, its photon block names MT=18, so MT=18 is their sum from the
+/// lowest partial threshold (`neutron.py:612-632`, `:877-906`). Checked
+/// bit-for-bit against libopenmc's `collapse_rate` in
+/// `tests/collapse_rate_vs_libopenmc.rs`; here on the repository's own
+/// NJOY2016 table (skips if the `reference-data/ace` submodule is absent).
+#[test]
+fn redundant_fission_is_the_sum_of_the_partials() {
+    use njoy_outram_park_fork::acer::ce_decode::decode_ce;
+    use outram_mc_libs::depletion::coupled_operator::reaction_from_ace;
+    let p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/U234.ace.gz");
+    if !p.is_file() {
+        println!("SKIP: {} absent (submodule not fetched)", p.display());
+        return;
+    }
+    let raw = njoy_outram_park_fork::acer::read::read(&p).unwrap();
+    let ace = decode_ce(&raw).unwrap();
+    assert!(ace.reactions.iter().all(|r| r.mt != 18), "U-234 should carry partial fissions only");
+    let rx = reaction_from_ace(&raw, &ace, 18).expect("redundant MT=18");
+    let partials: Vec<_> = ace.reactions.iter().filter(|r| [19, 20, 21, 38].contains(&r.mt)).collect();
+    assert!(!partials.is_empty());
+    let thr = partials.iter().map(|r| r.threshold_index).min().unwrap();
+    assert_eq!(rx.low.threshold, thr);
+    for (k, v) in rx.low.xs.iter().enumerate() {
+        let i = thr + k;
+        let mut sum = 0.0;
+        for r in &partials {
+            if i >= r.threshold_index {
+                sum += r.xs[i - r.threshold_index];
+            }
+        }
+        assert_eq!(v.to_bits(), sum.to_bits(), "grid point {i}");
+    }
+    // A plain reaction is copied; an MT neither present nor redundant is None.
+    let g = reaction_from_ace(&raw, &ace, 102).unwrap();
+    assert_eq!(g.low.xs, ace.reactions.iter().find(|r| r.mt == 102).unwrap().xs);
+    assert!(reaction_from_ace(&raw, &ace, 999).is_none());
+}

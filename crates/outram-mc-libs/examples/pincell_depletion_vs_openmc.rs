@@ -141,12 +141,13 @@ fn main() {
             match names.iter().position(|m| m == n) {
                 None => ChainNuclideData { fission_q: q, ..Default::default() },
                 Some(t) => {
-                    let ace = decode_ce(&njoy_outram_park_fork::acer::read::read(table(n)).unwrap()).unwrap();
+                    let raw = njoy_outram_park_fork::acer::read::read(table(n)).unwrap();
+                    let ace = decode_ce(&raw).unwrap();
                     ChainNuclideData {
                         transport: Some(t),
-                        gamma: reaction_from_ace(&ace, 102),
-                        fission: reaction_from_ace(&ace, 18),
-                        n2n: reaction_from_ace(&ace, 16),
+                        gamma: reaction_from_ace(&raw, &ace, 102),
+                        fission: reaction_from_ace(&raw, &ace, 18),
+                        n2n: reaction_from_ace(&raw, &ace, 16),
                         fission_q: q,
                     }
                 }

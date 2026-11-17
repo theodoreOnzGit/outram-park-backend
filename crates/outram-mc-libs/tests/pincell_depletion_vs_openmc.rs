@@ -44,6 +44,11 @@
 //!    CCFE-709 collapse moves step-5 atoms by under 0.5 % for every listed
 //!    nuclide.
 //!
+//! **CORRECTED 2026-11-17:** the port runs below were made with U-234
+//! fission at zero (`reaction_from_ace` did not build U-234's redundant
+//! MT=18; found by `tests/collapse_rate_vs_libopenmc.rs`). They are being
+//! re-run; the numbers in item 2 are the defective runs' until replaced.
+//!
 //! # Results, measured 2026-11-17 (all three predictions held)
 //!
 //! 1. Check 1: 160 OpenMC steps (2 modes x 16 seeds x 5) replayed, worst

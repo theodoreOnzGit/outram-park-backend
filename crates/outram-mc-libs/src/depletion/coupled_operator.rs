@@ -272,15 +272,110 @@ impl TransportOperator for CoupledOperator {
     }
 }
 
-/// One reaction of a continuous-energy ACE table as upstream holds it in
-/// memory after `IncidentNeutron.from_ace`: the nuclide's union grid, the
-/// SIG block from its threshold index on (`Reaction.xs`, `threshold_idx`).
-/// `None` when the table has no such MT: upstream's `collapse_rate` then
-/// returns 0 (`reaction_index_[MT] < 0`, `nuclide.cpp:1052-1054`).
-pub fn reaction_from_ace(ace: &njoy_outram_park_fork::acer::ce_decode::CeNeutronAce, mt: i32) -> Option<NuclideReaction> {
-    let rx = ace.reactions.iter().find(|r| r.mt == mt)?;
-    Some(NuclideReaction {
-        low: super::microxs::ReactionTable { grid: ace.energy.clone(), xs: rx.xs.clone(), threshold: rx.threshold_index },
-        high: None,
+/// The `endf` package's `SUM_RULES` (the copy OpenMC `e4febe9` imports in
+/// `openmc/data/endf.py`): the components of a redundant MT.
+fn sum_rule(mt: i32) -> Option<Vec<i32>> {
+    let range = |a: i32, b: i32| (a..=b).collect::<Vec<i32>>();
+    Some(match mt {
+        1 => vec![2, 3],
+        3 => {
+            let mut v = vec![4, 5, 11, 16, 17, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 41, 42, 44, 45];
+            v.extend([152, 153, 154]);
+            v.extend(range(156, 181));
+            v.extend(range(183, 190));
+            v.extend([194, 195, 196, 198, 199, 200]);
+            v
+        }
+        4 => range(50, 91),
+        16 => range(875, 891),
+        18 => vec![19, 20, 21, 38],
+        27 => vec![18, 101],
+        101 => {
+            let mut v = range(102, 109);
+            v.extend(range(111, 117));
+            v.extend([155, 182, 191, 192, 193, 197]);
+            v
+        }
+        103 => range(600, 649),
+        104 => range(650, 699),
+        105 => range(700, 749),
+        106 => range(750, 799),
+        107 => range(800, 849),
+        501 => vec![502, 504, 516, 522],
+        516 => vec![515, 517],
+        522 => range(534, 572),
+        _ => return None,
     })
+}
+
+/// Upstream `IncidentNeutron.get_reaction_components` (`neutron.py:346-368`):
+/// the MTs, recursively through [`sum_rule`], that the table carries.
+fn reaction_components(ace: &njoy_outram_park_fork::acer::ce_decode::CeNeutronAce, mt: i32) -> Vec<i32> {
+    let mut mts = Vec::new();
+    if let Some(parts) = sum_rule(mt) {
+        for p in parts {
+            mts.extend(reaction_components(ace, p));
+        }
+    }
+    if !mts.is_empty() {
+        mts
+    } else if ace.reactions.iter().any(|r| r.mt == mt) {
+        vec![mt]
+    } else {
+        Vec::new()
+    }
+}
+
+/// One reaction of a continuous-energy ACE table as upstream holds it in
+/// memory after `IncidentNeutron.from_ace` (`neutron.py:571-645`): the
+/// nuclide's union grid, the SIG block from its threshold index on
+/// (`Reaction.xs`, `threshold_idx`).
+///
+/// When the table lacks `mt`, upstream builds it as a **redundant**
+/// reaction in two cases, and so does this:
+/// - `mt` is one of 16, 103..107 and some of its levels are present
+///   (`neutron.py:639-645`), or
+/// - the photon-production block names `mt` (`MTRP / 1000`), `mt` has a sum
+///   rule and some component is present (`neutron.py:612-632`). This is how
+///   U-234's MT=18 comes to exist from MT=19/20/21/38.
+///
+/// The redundant cross section is `_get_redundant_reaction`
+/// (`neutron.py:877-906`): from the lowest component threshold, the sum of
+/// the components' values on the union grid (each 0 below its own
+/// threshold), in component order. Otherwise `None`: upstream's
+/// `collapse_rate` then returns 0 (`nuclide.cpp:1052-1054`).
+pub fn reaction_from_ace(
+    raw: &njoy_outram_park_fork::acer::read::RawAceTable,
+    ace: &njoy_outram_park_fork::acer::ce_decode::CeNeutronAce,
+    mt: i32,
+) -> Option<NuclideReaction> {
+    let table = |grid: &[f64], xs: Vec<f64>, threshold: usize| NuclideReaction {
+        low: super::microxs::ReactionTable { grid: grid.to_vec(), xs, threshold },
+        high: None,
+    };
+    if let Some(rx) = ace.reactions.iter().find(|r| r.mt == mt) {
+        return Some(table(&ace.energy, rx.xs.clone(), rx.threshold_index));
+    }
+    let photon_mts: Vec<i32> = raw
+        .slice_at(raw.jxs[12], raw.nxs[5].max(0) as usize)
+        .map(|w| w.iter().map(|x| (*x as i64 / 1000) as i32).collect())
+        .unwrap_or_default();
+    let by_photons = photon_mts.contains(&mt) && sum_rule(mt).is_some();
+    let by_levels = matches!(mt, 16 | 103 | 104 | 105 | 106 | 107);
+    if !(by_photons || by_levels) {
+        return None;
+    }
+    let parts = reaction_components(ace, mt);
+    if parts.is_empty() {
+        return None;
+    }
+    let rxs: Vec<_> = parts.iter().filter_map(|m| ace.reactions.iter().find(|r| r.mt == *m)).collect();
+    let idx = rxs.iter().map(|r| r.threshold_index).min()?;
+    let mut xs = vec![0.0; ace.energy.len() - idx];
+    for r in &rxs {
+        for (k, v) in r.xs.iter().enumerate() {
+            xs[r.threshold_index + k - idx] += v;
+        }
+    }
+    Some(table(&ace.energy, xs, idx))
 }
