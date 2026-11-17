@@ -245,6 +245,16 @@ fn main() {
         "\n  pitch    p/d    Vm/Vf   k_inf ± σ              eta     f       p       eps     \
          leak     t[s]"
     );
+    // `OUTRAM_PITCH_SEEDS=N` (gh:#1583): N consecutive master seeds from `--seed`
+    // inside this one process (the ENDF load is paid once); seed loop OUTER, so
+    // a run cut short holds equal N at every pitch. Default 1 = unchanged.
+    let seed_base = seed;
+    let n_seeds: u64 = std::env::var("OUTRAM_PITCH_SEEDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1);
+    for seed_i in 0..n_seeds {
+    let seed = seed_base + seed_i;
     for &pitch in &pitches {
         let geom = pin_cell(0.5 * pitch);
         let vm_vf = (pitch * pitch - std::f64::consts::PI * R_CLAD * R_CLAD)
@@ -287,6 +297,9 @@ fn main() {
             sf.epsilon.mean,
             rep.leakage_total.mean,
         );
+        if n_seeds > 1 {
+            println!("SEED {pitch} {seed} {:.5} {:.5}", rep.keff.k_mean, rep.keff.k_std);
+        }
         if let Some(f) = csv_file.as_mut() {
             writeln!(
                 f,
@@ -314,6 +327,7 @@ fn main() {
             )
             .expect("csv row");
         }
+    }
     }
 }
 
