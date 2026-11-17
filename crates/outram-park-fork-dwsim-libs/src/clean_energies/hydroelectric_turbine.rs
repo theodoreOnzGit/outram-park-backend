@@ -63,6 +63,9 @@
 //! (`:310-312`) — inputs here — and the outlet material-stream mutation with
 //! its PH flash (`:330-338`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{AvailableEnergy, Length, MassDensity, MassRate, Power, Ratio, Velocity, VolumeRate};
 use uom::si::length::meter;

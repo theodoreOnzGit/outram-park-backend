@@ -41,6 +41,9 @@
 //! so the earlier "not checked against the standard" note in `kta_bed` is
 //! now answered for the benchmark's printing of it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{
     DynamicViscosity, HeatTransfer, Length, MassDensity, Ratio, ThermalConductivity,
@@ -210,7 +213,7 @@ mod tests {
         let nu = kta_3102_2_nusselt(r(1.0e4), r(0.66), r(0.39)).unwrap().get::<ratio>();
         assert!((nu / 294.7420017540218 - 1.0).abs() < 1e-9, "{nu}");
 
-        let area = std::f64::consts::FRAC_PI_4 * 1.8 * 1.8;
+        let area = core::f64::consts::FRAC_PI_4 * 1.8 * 1.8;
         let g = MassFlux::new::<uom::si::mass_flux::kilogram_per_square_meter_second>(4.3 / area);
         let he = KtaHelium::new(
             Pressure::new::<bar>(30.0),

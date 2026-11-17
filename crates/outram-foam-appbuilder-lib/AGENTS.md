@@ -38,6 +38,19 @@ This crate provides:
    `TwoPhaseCase::read` refuses, by name, every case selection the port does
    not implement: extend the port, never the refusal.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1633, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (copy it from any module).
+- Paths are `crate::path::{Path, PathBuf}` (`PathBuf` is a `String` without
+  std); maps are `crate::hash::HashMap`.
+- Anything that opens, reads or writes a file is `#[cfg(feature = "std")]`, and
+  so is any test that does. Keep the parsers separate from the file read where
+  you can, so the physics stays available without std.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

@@ -43,6 +43,9 @@
 //!   compound. This port uses `spci2` there, matching the error function
 //!   immediately above it, which upstream gets right.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::columns::model::{ColumnError, ColumnSpec, CondenserType, SpecBasis, SpecType};
 use crate::columns::profile::StageProfile;

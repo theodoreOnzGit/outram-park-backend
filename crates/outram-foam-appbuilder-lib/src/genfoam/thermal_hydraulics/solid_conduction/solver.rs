@@ -10,8 +10,11 @@
 //! The solid conduction field: assembly, Picard iteration, steady and
 //! transient solves (see [`super`] for the equations).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use uom::si::energy::joule;
 use uom::si::f64::{

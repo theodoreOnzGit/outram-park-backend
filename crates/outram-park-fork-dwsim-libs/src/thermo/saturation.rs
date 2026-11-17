@@ -124,6 +124,9 @@
 //! parameter's unit spelled out. A `uom`-typed façade, if wanted, belongs at the
 //! equipment-model boundary, not in this inner composition layer.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::flash::wilson_k_values;
 use crate::thermo::property_package::PropertyPackageModel;

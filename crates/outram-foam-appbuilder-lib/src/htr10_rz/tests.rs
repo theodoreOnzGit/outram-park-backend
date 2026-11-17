@@ -8,6 +8,9 @@
 //! `tests/htr10_rz_solid.rs` and the V&V record
 //! `verification_and_validation/htr10_rz_solid/README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Length, Power, ThermodynamicTemperature};
 use uom::si::length::centimeter;
 use uom::si::power::watt;
@@ -144,7 +147,7 @@ fn core_volume_matches_tab_2_3() {
         })
         .map(|c| mesh.mesh().cell_volumes[c])
         .sum();
-    let hand = std::f64::consts::PI
+    let hand = core::f64::consts::PI
         * (0.9 * 0.9 * 1.8
             + 0.075 * (0.835f64.powi(2) + 0.705f64.powi(2) + 0.6f64.powi(2) + 0.5f64.powi(2) + 0.39f64.powi(2)));
     println!("core + cone volume {v:.4} m^3 (hand {hand:.4}, Tab 2.3: 5 m^3)");
@@ -401,10 +404,10 @@ fn pebble_profile_is_the_full_sphere_limit() {
     let (ts, q) = (1000.0, 2.84e6);
     let h = pebble_profile(ts, q, PebbleMatrix::Tab29Homogeneous).unwrap();
     let k = h.fuel_zone_conductivity;
-    let pp = q * 4.0 / 3.0 * std::f64::consts::PI * 0.03f64.powi(3) / 0.61;
+    let pp = q * 4.0 / 3.0 * core::f64::consts::PI * 0.03f64.powi(3) / 0.61;
     assert!((h.pebble_power / pp - 1.0).abs() < 1e-12);
-    let shell = pp / (4.0 * std::f64::consts::PI * k) * (1.0 / 0.025 - 1.0 / 0.03);
-    let qm = pp / (4.0 / 3.0 * std::f64::consts::PI * 0.025f64.powi(3));
+    let shell = pp / (4.0 * core::f64::consts::PI * k) * (1.0 / 0.025 - 1.0 / 0.03);
+    let qm = pp / (4.0 / 3.0 * core::f64::consts::PI * 0.025f64.powi(3));
     let fz = qm * 0.025 * 0.025 / (6.0 * k);
     println!(
         "pebble at 2.84 W/cm^3, surface 1000 K: P {pp:.1} W, k {k:.2}, shell {shell:.3} K, fuel zone {fz:.3} K, kernel step {:.3} K",

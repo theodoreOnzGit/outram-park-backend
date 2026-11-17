@@ -55,6 +55,9 @@
 //! caller's buffer is a bug magnet and the solvers here rebuild the
 //! coefficients every iteration anyway.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::columns::model::ColumnError;
 
 /// Solve a tridiagonal linear system by the Thomas algorithm (Tomich/TDMA).

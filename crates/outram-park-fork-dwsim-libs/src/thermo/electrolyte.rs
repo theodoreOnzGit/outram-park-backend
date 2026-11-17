@@ -107,6 +107,9 @@
 //! needs the full DWSIM `LIQUAC2_RiQi.txt` / `LIQUAC2_IP.txt` /
 //! `dielectricconstants.txt` parameter databases, which are **not** bundled here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::activity::UniquacParams;
 

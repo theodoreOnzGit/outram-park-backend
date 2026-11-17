@@ -48,6 +48,9 @@
 //! See `docs/genfoam-port-plan.md` for the translation order and per-family
 //! tracking beads.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod fs_drag;
 
 pub mod ff_drag;

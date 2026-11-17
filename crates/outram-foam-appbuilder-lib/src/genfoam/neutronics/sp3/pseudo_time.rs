@@ -41,6 +41,9 @@
 //! `(sr+ss)*5.0/3.0+(sr*4.0/3.0)`, not the closed forms of
 //! [`super::Sp3XsFields`]). Discontinuity factors are 1.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::{fvc, fvm};
 
 use super::{Sp3Neutronics, Sp3XsFields};

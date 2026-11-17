@@ -45,6 +45,9 @@
 //! equation is solved twice. The linear solver is not upstream's (basic-lib's
 //! PCG/DIC, stopping on `||r||/||b||`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::fvm;
 
 use super::DiffusionNeutronics;

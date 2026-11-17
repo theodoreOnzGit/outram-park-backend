@@ -83,7 +83,7 @@ tampines-steam-tables = { workspace = true, features = ["std"] }
 # double_pipe` runs the TUAS 1-D exchanger (gh:#1178), and `ebr2::model` takes
 # its sodium properties and liquid-metal Nusselt correlations from TUAS. The
 # CIET physics itself still lives under src/bin/ciet_educational_simulator_v2/.
-tuas_boussinesq_solver.workspace = true
+tuas_boussinesq_solver = { workspace = true, features = ["std"] }
 
 # REAL (non-dev) dependency since 2026-11-10 (gh:#1331): `ebr2::model` runs
 # six-group point kinetics, the fast-reactor feedback set
@@ -108,7 +108,7 @@ uom.workspace = true
 #
 # `outram-foam-appbuilder-lib` was a dev-dependency (htgr_sim_v1's genfoam
 # placeholder); it moved here.
-outram-foam-appbuilder-lib.workspace = true
+outram-foam-appbuilder-lib = { workspace = true, features = ["std"] }
 outram-foam-mesh.workspace = true
 # Names `FvMesh` for the meshes above (was a dev-dependency, below).
 outram-foam-basic-lib = { workspace = true, features = ["std"] }
@@ -167,7 +167,7 @@ csv.workspace = true
 # CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
 # physics half of `HeatExchangerVisual` (and `HeatExchangerKindArrangement`) is
 # back in this crate's `components`, so this edge is the library's again.
-outram-park-fork-dwsim-libs.workspace = true
+outram-park-fork-dwsim-libs = { workspace = true, features = ["std"] }
 
 # OPC-UA (IEC 62541) interface layer for the CIET Educational Simulator v2.
 # Pure Rust (RustCrypto, not openssl-sys), so this stays Android/Termux-clean
@@ -237,7 +237,7 @@ egui_extras.workspace = true
 [dev-dependencies]
 # `tests/ci_smoke/edwards.rs` (GitHub #415) names `SlipModel`. The crate is
 # already compiled beneath `tampines`, so this adds no build work.
-outram-foam-multiphase.workspace = true
+outram-foam-multiphase = { workspace = true, features = ["std"] }
 # teh-o-prke is a REAL dependency above since 2026-11-10: `ebr2::model`
 # (gh:#1331) and `msre::model` (gh:#1330) both step kinetics from the
 # library; it stays usable from the examples either way.

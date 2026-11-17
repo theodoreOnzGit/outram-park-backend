@@ -26,6 +26,9 @@
 //! the primary thermodynamic closure. See [`SonicFoam`] for the pressure
 //! equation and the current explicit-convection limitation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod esi;
 
 use crate::error::AppBuilderError;
@@ -33,7 +36,7 @@ use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Transonic/supersonic compressible solver — sonicFoam.
 ///
@@ -374,7 +377,7 @@ mod tests {
         const N: usize = 20;
         const MODE: usize = 5;
         const RATIO: f64 = 0.2;
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         let mode = |i: usize| (MODE as f64 * pi * (i as f64 + 0.5) / N as f64).r_cos();
         let mu_m = 2.0 - 2.0 * (MODE as f64 * pi / N as f64).r_cos();
 

@@ -135,6 +135,9 @@
 //! assert!((state.fission_power().get::<watt>() - 1.0e6).abs() < 1.0);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::matrix::{MatrixError, SquareMatrix};
 use uom::si::f64::{Frequency, Power, Ratio, Time};
 use uom::si::frequency::hertz;

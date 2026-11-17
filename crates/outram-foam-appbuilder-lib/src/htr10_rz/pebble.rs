@@ -37,6 +37,9 @@
 //! [`PebbleMatrix`] keeps the port's default and offers the homogeneous
 //! benchmark reading as the comparison.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::Htr10RzError;
 use crate::genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble::{
     PebbleConductivities, PebbleGeometry,
@@ -139,7 +142,7 @@ pub fn pebble_profile(surface_k: f64, power_density: f64, matrix: PebbleMatrix) 
             PebbleMatrix::Tab29Homogeneous => k,
         };
         let rm = geo.matrix_radius;
-        let q_m = p.pebble_power / (4.0 / 3.0 * std::f64::consts::PI * rm * rm * rm);
+        let q_m = p.pebble_power / (4.0 / 3.0 * core::f64::consts::PI * rm * rm * rm);
         let rise = q_m * rm * rm / (6.0 * k_fz);
         let centre = p.matrix_outer + rise;
         let b = CENTRE_ZONE_RADIUS_M;

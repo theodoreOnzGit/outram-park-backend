@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::io::control_dict::ControlDict;
 use crate::io::fv_schemes::{DdtScheme, FvSchemes};

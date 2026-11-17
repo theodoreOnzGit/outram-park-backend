@@ -65,6 +65,9 @@
 //!   steady state the duty equals the power, so the result is the
 //!   temperature field and the split between the RCCS and the heads.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Length, Power, Ratio, ThermodynamicTemperature, VolumetricPowerDensity};
 use uom::si::angle::radian;
 use uom::si::f64::Angle;
@@ -298,7 +301,7 @@ pub fn build_mesh(options: &Htr10RzOptions) -> Result<RzMesh, Htr10RzError> {
     let (default_region, rects) = region_rects(options.vessel);
     RzMesh::build(
         RzGeometry::Axisymmetric {
-            wedge_angle: Angle::new::<radian>(2.0 * std::f64::consts::PI),
+            wedge_angle: Angle::new::<radian>(2.0 * core::f64::consts::PI),
         },
         axis(&radial_lines_cm(options.vessel), options.max_cell, options.refinement[0])?,
         axis(&AXIAL_LINES_CM, options.max_cell, options.refinement[1])?,

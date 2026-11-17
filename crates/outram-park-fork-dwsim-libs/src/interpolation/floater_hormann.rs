@@ -36,6 +36,9 @@
 //! (higher `d` gives smoother, higher-order interpolation; `d=3`-`4` is a
 //! common default, matching ALGLIB's/DWSIM's typical usage).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Ratio;
 use uom::si::ratio::ratio;
 

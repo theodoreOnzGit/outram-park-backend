@@ -113,6 +113,9 @@
 //! owned by value (`Vec<f64>`); inner arithmetic is documented raw `f64` (SI:
 //! K, mole fractions \[-\]). `#![forbid(unsafe_code)]` at the crate root.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::activity::ActivityModel;
 use crate::thermo::flash::FlashError;

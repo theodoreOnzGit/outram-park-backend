@@ -3225,6 +3225,7 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 name = "farrer-park"
 version = "0.0.4"
 dependencies = [
+ "hashbrown 0.16.1",
  "outram-foam-basic-lib",
  "petir",
  "thiserror 2.0.21",
@@ -7385,6 +7386,7 @@ name = "outram-foam-appbuilder-lib"
 version = "0.1.7"
 dependencies = [
  "approx",
+ "hashbrown 0.16.1",
  "miniz_oxide 0.8.9",
  "ndarray",
  "outram-blender",
@@ -7582,6 +7584,7 @@ name = "outram-park-fork-dwsim-libs"
 version = "0.0.5"
 dependencies = [
  "approx",
+ "hashbrown 0.16.1",
  "ndarray",
  "petir",
  "thiserror 2.0.21",

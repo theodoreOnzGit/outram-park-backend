@@ -52,6 +52,9 @@
 //! - **`FlowsheetOptions.SpecCalculationMode`** as a *stored flowsheet option*.
 //!   It is passed in as [`SpecCalcMode`] instead of read off the flowsheet.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flowsheet::{Flowsheet, ObjectId, ObjectType};
 
 /// Where a spec sits relative to the object it is attached to — DWSIM's
@@ -221,7 +224,7 @@ impl SpecBlock {
 #[must_use]
 pub fn specs_firing_at(
     flowsheet: &Flowsheet,
-    specs: &std::collections::HashMap<ObjectId, SpecBlock>,
+    specs: &crate::hash::HashMap<ObjectId, SpecBlock>,
     global: SpecCalcMode,
     point: &SpecFiringPoint,
 ) -> Vec<ObjectId> {
@@ -250,7 +253,7 @@ mod tests {
     //! **Results (2026-08-11, release build):** recorded per test.
 
     use super::*;
-    use std::collections::HashMap;
+    use crate::hash::HashMap;
 
     /// **Methodology.** Each per-block [`SpecCalcMode2`] must win over the
     /// flowsheet-wide default, and [`SpecCalcMode2::GlobalSetting`] must defer.

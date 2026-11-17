@@ -38,6 +38,9 @@
 //! ([`TurbulentDispersion::constant_for_fluid1`]) rather than deferred into the
 //! evaluation call.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Ratio;
 use uom::si::ratio::ratio;
 

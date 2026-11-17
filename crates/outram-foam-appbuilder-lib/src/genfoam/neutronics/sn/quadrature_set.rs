@@ -52,8 +52,12 @@
 //! It also builds `legendreMatrices_` (`calcLegendreMatrices.H`): for each
 //! moment `L`, `P_L(Omega_i . Omega_j)` between every pair of directions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;
@@ -121,6 +125,7 @@ fn octant_list(d: &FoamDict, key: &str, n: usize, file: &str) -> Result<Vec<f64>
 }
 
 impl QuadratureSet {
+    #[cfg(feature = "std")]
     /// Read `constant/<region>/quadratureSet`.
     ///
     /// # Errors
@@ -318,6 +323,7 @@ mod tests {
         assert_eq!(legendre_poly(8, 0.3), 0.0);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn reads_the_godiva_quadrature_set_dictionary() {
         let dir = std::env::temp_dir().join("sn_quadrature_set_test");

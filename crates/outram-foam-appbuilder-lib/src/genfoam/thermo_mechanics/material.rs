@@ -61,6 +61,9 @@
 //! modulus in **physical** SI units (pascals) throughout; the two formulations
 //! are algebraically identical (see [`super::stress`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{
     DiffusionCoefficient, Length, MassDensity, Pressure, Ratio, SpecificHeatCapacity,
     TemperatureCoefficient, ThermalConductivity,

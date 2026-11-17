@@ -96,6 +96,9 @@
 //!   which print advisory text about negative or unusually high voltages.
 //!   The equivalent information is available from the returned curve.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::catalytic_activity::katal;
 use uom::si::electric_current::ampere;

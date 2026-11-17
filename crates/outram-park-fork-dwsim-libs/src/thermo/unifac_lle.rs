@@ -122,6 +122,9 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::unifac::{
     activity_coefficients as unifac_activity_coefficients, ln_gamma_combinatorial,
     ln_gamma_residual, molecular_r_q, UnifacComponent, UnifacParameters, UnifacSubgroup,

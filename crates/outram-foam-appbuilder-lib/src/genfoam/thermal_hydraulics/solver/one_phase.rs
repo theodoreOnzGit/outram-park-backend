@@ -81,7 +81,10 @@
 //! | [`super::porous_drag::PorousDrag`] ([`super::super::closures::fs_drag`]) | `Kd` assembly → `UEqn` drag term |
 //! | structure coupling fields (`wall_htc`, `wall_area`, `wall_temperature`) | `EEqn` linearised heat source |
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::*;
 

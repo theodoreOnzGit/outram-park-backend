@@ -52,7 +52,10 @@
 //! - `UpdateHistorianDisplaySize` and the historian list view.
 //! - `SnapshotType` selection — there is only one kind of snapshot here.
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 use crate::dynamics::sim_time::SimInstant;
 use crate::flowsheet::graph::Flowsheet;

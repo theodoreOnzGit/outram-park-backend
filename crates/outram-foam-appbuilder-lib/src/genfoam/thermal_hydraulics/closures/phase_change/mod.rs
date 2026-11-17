@@ -68,6 +68,9 @@
 //! These four aliases arguably belong in the shared `units.rs` module once a
 //! second closure family needs them (see the port report for op-p6p.7.7).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::ops::Div;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{AvailableEnergy, Pressure, ThermodynamicTemperature, VolumetricPowerDensity};

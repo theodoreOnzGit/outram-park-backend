@@ -62,6 +62,9 @@
 //! operating range (523-1273 K); the full table is in
 //! `breitbach_vs_zbs_over_the_htr10_range`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{ThermalConductivity, ThermodynamicTemperature};
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;

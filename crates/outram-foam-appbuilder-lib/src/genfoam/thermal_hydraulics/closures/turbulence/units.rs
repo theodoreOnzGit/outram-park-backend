@@ -55,6 +55,9 @@
 //! | [`MixtureBubbleProduction`] | kg/(m s^3) | mixture-model bubble-induced production `bubbleG` (dimensionally distinct from the Lahey model's — see [`super::mixture_k_epsilon`]) |
 //! | [`TurbulentDissipationRateOfChange`] | m^2/s^4 | `d(epsilon)/dt`-shaped production terms |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::marker::PhantomData;
 use uom::si::{Quantity, ISQ, SI};
 use uom::typenum::{N1, N3, N4, P1, P2, Z0};

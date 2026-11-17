@@ -10,6 +10,9 @@
 //! clone is absent. The tests here use small hand-written dictionaries so they
 //! run everywhere and pin the schema, the defaults, and the error messages.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::genfoam::neutronics::xs::CrossSectionData;
 
@@ -63,6 +66,7 @@ states
 "#
 }
 
+#[cfg(feature = "std")]
 /// Write `text` to a scratch file and read it back through the public entry
 /// point, so the include-resolving path is the one under test.
 fn read_str(text: &str) -> Result<NuclearDataInput, AppBuilderError> {
@@ -79,6 +83,7 @@ fn read_str(text: &str) -> Result<NuclearDataInput, AppBuilderError> {
     out
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn the_minimal_dictionary_round_trips_into_cross_section_data() {
     let input = read_str(minimal()).expect("parse");
@@ -128,6 +133,7 @@ fn the_minimal_dictionary_round_trips_into_cross_section_data() {
     assert_eq!(xs.zone_index("core"), Some(0));
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn a_perturbed_state_inherits_the_reference_parameters_it_omits() {
     // Upstream's ESFR perturbed states restate only the variable they perturb.
@@ -172,6 +178,7 @@ fn a_perturbed_state_inherits_the_reference_parameters_it_omits() {
     );
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn an_include_is_spliced_relative_to_the_including_file() {
     let dir = std::env::temp_dir().join(format!("op_nuclear_data_inc_{}", std::process::id()));
@@ -216,6 +223,7 @@ fn an_include_is_spliced_relative_to_the_including_file() {
     assert_eq!(input.states[0].zones[0].d, vec![2.0e-2, 1.0e-2]);
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn a_wrong_array_length_is_rejected_where_the_file_name_is_still_known() {
     // `D` given 3 values in a 2-group case. Left unchecked this surfaces much
@@ -235,6 +243,7 @@ fn a_wrong_array_length_is_rejected_where_the_file_name_is_still_known() {
     );
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn a_first_state_that_is_not_reference_is_rejected() {
     let text = minimal().replace("    reference\n", "    hotFullPower\n");
@@ -245,6 +254,7 @@ fn a_first_state_that_is_not_reference_is_rejected() {
     );
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn an_unknown_variable_law_is_rejected_by_name() {
     let text = minimal().replace("TFuel   log;", "TFuel   cubic;");

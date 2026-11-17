@@ -76,6 +76,9 @@
 //! exact name key, which this module deliberately relaxes (see
 //! [`ReferenceCompound::from_name`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::thermo::component::{reference, Component};
 
 /// The compounds this crate has constant-property data for — the complete
@@ -459,7 +462,7 @@ pub fn component_by_name(name: &str) -> Result<Component, ComponentLookupError> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeSet;
+    use alloc::collections::BTreeSet;
 
     /// Exact, NaN-aware field-by-field equality for two [`Component`] records.
     ///

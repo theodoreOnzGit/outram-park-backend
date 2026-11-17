@@ -64,6 +64,10 @@
 //! than running with a default equation of state. See
 //! [`SolverKind::is_case_wired`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 
 use outram_foam_basic_lib::io::case::{CaseField, FoamCase};

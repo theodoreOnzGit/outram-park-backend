@@ -68,6 +68,9 @@
 //! - **`Gcor`/`Lcor` are unconditional copies** of `G`/`L` (`:44-45`) — a
 //!   correction hook upstream never wired up.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{MolarMass, ThermodynamicTemperature};
 use uom::si::molar_mass::gram_per_mole;

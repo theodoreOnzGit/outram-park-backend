@@ -78,6 +78,9 @@
 //! the overall reaction order, exactly as in DWSIM (which leaves `A` and the
 //! rate's `VelUnit` to the user).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Universal gas constant `R` [J/(mol·K)].
 ///

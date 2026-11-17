@@ -46,6 +46,9 @@
 //! - **Ideal equilibrium basis.** The equilibrium reactor uses mole-fraction or
 //!   partial-pressure activity with unit activity/fugacity coefficients.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod conversion_reactor;
 pub mod cstr;
 pub mod equilibrium_reactor;

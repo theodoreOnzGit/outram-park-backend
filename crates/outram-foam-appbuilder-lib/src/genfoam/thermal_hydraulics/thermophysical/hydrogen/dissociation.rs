@@ -25,6 +25,9 @@
 //! for nuclear thermal propulsion reactor*, Nucl. Eng. Design 392 (2022)
 //! 111753, Eqs. 2-3; equilibrium-constant fit against Reisfeld (1957), LA-2123.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::constants::{W, W_H};
 

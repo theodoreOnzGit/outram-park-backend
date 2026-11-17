@@ -1,10 +1,16 @@
 //! Unit tests of the `solidDisplacementFoam` translation. The comparison with
 //! the real ESI binary is `tests/upstream_solid_displacement_gh1383.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
+#[cfg(feature = "std")]
 use crate::io::poly_mesh::read_poly_mesh;
+#[cfg(feature = "std")]
 use std::path::PathBuf;
 
+#[cfg(feature = "std")]
 fn case_mesh() -> Arc<FvMesh> {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("verification_and_validation/upstream_solid_displacement_gh1383/case/constant/polyMesh");
@@ -83,6 +89,7 @@ fn pcg_dic_solves_a_chain_and_stops_at_once_when_converged() {
     assert_eq!(again, 0);
 }
 
+#[cfg(feature = "std")]
 /// Pure mechanical step: the imposed end displacement drives a non-trivial
 /// field; every linear solve converges and the clamped end stays clamped.
 #[test]
@@ -98,6 +105,7 @@ fn mechanical_step_converges_and_is_finite() {
     assert!(s.sigma_eq().iter().all(|v| *v >= 0.0));
 }
 
+#[cfg(feature = "std")]
 /// Thermal step: heating the right end with both ends clamped solves T first,
 /// and a temperature field bounded by its Dirichlet values results.
 #[test]
@@ -120,6 +128,7 @@ fn thermal_step_solves_temperature_between_its_dirichlet_bounds() {
     assert!(s.temperature().iter().cloned().fold(0.0, f64::max) > 300.0);
 }
 
+#[cfg(feature = "std")]
 /// `compactNormalStress no` is refused by name, not silently run as `yes`.
 #[test]
 fn non_compact_normal_stress_is_refused_by_name() {

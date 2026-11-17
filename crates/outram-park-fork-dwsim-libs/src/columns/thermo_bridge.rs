@@ -88,6 +88,9 @@
 //!   `NewtonRaphson.vb:273`) used by DWSIM's liquid-liquid extractor mode.
 //!   Out of scope here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::{CubicEos, Phase};
 use crate::thermo::flash::wilson_k_values;

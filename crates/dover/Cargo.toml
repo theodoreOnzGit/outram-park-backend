@@ -39,7 +39,7 @@ backronym = "Deck-based Open-source Visualisation Engine for Reactors"
 petir = { workspace = true }
 # The reactor stack DOVER composes: Cstr, Reaction, EquilibriumConstant,
 # ReactorFeed/Outcome. Reused rather than reimplemented -- see src/lib.rs.
-outram-park-fork-dwsim-libs = { workspace = true }
+outram-park-fork-dwsim-libs = { workspace = true, features = ["std"] }
 # The deck is a typed, validated document; serde derives it and toml parses it.
 serde = { workspace = true }
 toml = { workspace = true }

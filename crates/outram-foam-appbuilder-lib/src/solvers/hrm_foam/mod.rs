@@ -31,6 +31,9 @@
 //! overrides ([`HrmModelConfig`]) are defined here; [`HrmFoam`] owns the time
 //! loop.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
@@ -38,7 +41,7 @@ use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
 use outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition;
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 // ── Downar-Zapolski (1996) model constants ────────────────────────────────────
 
@@ -639,11 +642,11 @@ mod tests {
     const RATIO: f64 = 0.2;
 
     fn mode(i: usize) -> f64 {
-        (MODE as f64 * std::f64::consts::PI * (i as f64 + 0.5) / N as f64).r_cos()
+        (MODE as f64 * core::f64::consts::PI * (i as f64 + 0.5) / N as f64).r_cos()
     }
 
     fn mu_m() -> f64 {
-        2.0 - 2.0 * (MODE as f64 * std::f64::consts::PI / N as f64).r_cos()
+        2.0 - 2.0 * (MODE as f64 * core::f64::consts::PI / N as f64).r_cos()
     }
 
     fn amplitude(values: &[f64], base: f64) -> f64 {

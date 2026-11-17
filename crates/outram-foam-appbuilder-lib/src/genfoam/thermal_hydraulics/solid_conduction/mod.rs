@@ -95,6 +95,9 @@
 //! Status: untrusted AI-generated draft (2026-11-03) per `RESPONSIBLE_USE.md`.
 //! For research, education and V&V only; not validated against any reactor.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod gap;
 pub mod properties;
 pub mod rz_mesh;

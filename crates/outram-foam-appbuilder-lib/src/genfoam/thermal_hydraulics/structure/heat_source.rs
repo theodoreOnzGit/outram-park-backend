@@ -46,6 +46,9 @@
 //! here; the explicit source below is the coupling term a lumped or
 //! operator-split integrator needs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::ThermodynamicTemperature;
 
 use super::units::{

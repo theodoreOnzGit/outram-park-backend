@@ -6,6 +6,9 @@
 //! [`tinker_shell_and_tube`]'s module doc for that method's full source
 //! mapping and the outer-convergence-loop flash-dependency boundary.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod f_correction;
 pub mod lmtd;
 pub mod ntu_effectiveness;

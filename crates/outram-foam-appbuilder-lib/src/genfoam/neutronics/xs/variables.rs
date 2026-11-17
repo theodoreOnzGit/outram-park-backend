@@ -47,6 +47,9 @@
 //! the query point at evaluation time, so the interpolation is carried out
 //! entirely in transformed space (see [`super::CrossSectionData`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// The transform applied to a feedback parameter before interpolation.
 ///

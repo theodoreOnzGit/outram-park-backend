@@ -614,7 +614,7 @@ chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-ti
 outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.2" }
 outram-park-fork-moltres = { path = "crates/outram-park-fork-moltres", version = "0.0.2" }
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.8" }
-tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.9" }
+tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.9", default-features = false }
 # `default-features = false` since gh:#1605 (same reason as njoy above);
 # members that need `std` ask for it.
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.1", default-features = false }
@@ -637,13 +637,13 @@ bugis                        = { path = "crates/bugis",                        v
 buangkok                     = { path = "crates/buangkok",                     version = "0.0.2" }
 sembawang                    = { path = "crates/sembawang",                    version = "0.0.2" }
 redhill                      = { path = "crates/redhill",                      version = "0.0.3" }
-outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.5" }
-outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.7" }
-outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.5" }
+outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.5", default-features = false }
+outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.7", default-features = false }
+outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.5", default-features = false }
 outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.3" }
 # FEM structural mechanics; first workspace-dep consumer: outram-blender's
 # optional `fem-export` bridge (GitHub #492).
-farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.4" }
+farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.4", default-features = false }
 outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.0.2" }
 outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.7" }
 # Granular DEM. `default-features = false` HERE, at the root, because workspace
@@ -653,7 +653,7 @@ outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.
 # (pulls `raffles`); a member that wants either names it. First consumer:
 # outram-mc-libs (2026-10-02), for DEM-settled pebble beds.
 outram-park-fork-liggghts = { path = "crates/outram-park-fork-liggghts", version = "0.0.3", default-features = false }
-outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.5" }
+outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.5", default-features = false }
 boon-lay            = { path = "crates/boon-lay",            version = "0.2.2" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
 # lives here; outram-mc-libs and nee_soon pull cross sections from it.

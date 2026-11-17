@@ -54,6 +54,9 @@
 //! GPL-3.0-only, an independent OUTRAM PARK fork, not the official DWSIM
 //! software. **No compound property data was taken from upstream.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flowsheet::streams::StreamCompound;
 use crate::thermo::component::Component;
 use crate::thermo::registry::{ComponentLookupError, ReferenceCompound};

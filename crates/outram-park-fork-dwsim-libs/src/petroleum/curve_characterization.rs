@@ -70,6 +70,9 @@
 //!   Maxwell-Bonnell lift (`:417-424`), ignoring the assay's own Watson factor.
 //!   Reproduced.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{KinematicViscosity, MolarMass, Ratio, ThermodynamicTemperature};
 use uom::si::kinematic_viscosity::square_meter_per_second;
@@ -639,7 +642,7 @@ fn interpolate(points: &[(f64, f64)], x: f64) -> f64 {
                 (a.0 - x)
                     .abs()
                     .partial_cmp(&(b.0 - x).abs())
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .unwrap_or(core::cmp::Ordering::Equal)
             })
             .map_or(f64::NAN, |p| p.1),
     }

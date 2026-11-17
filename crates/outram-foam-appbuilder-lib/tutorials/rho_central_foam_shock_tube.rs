@@ -151,6 +151,8 @@
 //! (Rows in the two undisturbed plateaus x < −3.0 and x > 4.2 are decimated
 //! here; the test prints all 100 cells.)
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::field_reader::{
     read_vol_scalar_field, read_vol_scalar_field_full, read_vol_vector_field_full,

@@ -47,6 +47,9 @@
 //!   [`PseudoComponentError::NonPhysical`] instead of throwing on a formatted
 //!   string.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
     AvailableEnergy, KinematicViscosity, MolarMass, MolarVolume, Ratio, ThermodynamicTemperature,

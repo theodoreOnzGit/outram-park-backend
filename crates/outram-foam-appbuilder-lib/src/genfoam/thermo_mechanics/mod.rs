@@ -90,6 +90,9 @@
 //!
 //! See `docs/genfoam-port-plan.md` for the module map and translation order.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod feedback;
 pub mod material;
 pub mod mesh_solve;

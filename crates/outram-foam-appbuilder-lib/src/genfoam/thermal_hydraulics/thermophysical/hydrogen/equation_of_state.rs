@@ -41,6 +41,9 @@
 //! tests check against upstream's *own* reference numbers, which already bake
 //! in this exact formula.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::constants::{alpha0, b, c, n, PC, R, TC, VC, W, W_H};
 

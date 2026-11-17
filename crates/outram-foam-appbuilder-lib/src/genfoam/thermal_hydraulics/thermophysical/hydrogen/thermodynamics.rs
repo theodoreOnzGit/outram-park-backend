@@ -32,6 +32,9 @@
 //! sensible = absolute enthalpy); this port exposes one function,
 //! [`specific_enthalpy`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::constants::{alpha0, b, c, n, R, TC, W, W_H};
 use super::equation_of_state::density_molecular_h2;

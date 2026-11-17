@@ -63,6 +63,25 @@ shell-and-tube rating, the flash-coupled pressure update for the transient pipe
 network, the Mathias-Copeman / Twu α-variants, the advanced-EOS tier
 (PC-SAFT / GERG-2008), and the LIQUAC full-package glue.
 
+## `no_std` + `alloc` (gh:#1591)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-park-fork-dwsim-libs --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Thermodynamics, the unit operations, the
+flowsheet and its solver, and the dynamics engine build without it. What
+`std` adds:
+
+- `flowsheet::import`, the `.dwxml` / `.dwxmz` reader (files and `zip`).
+- the wall clock (`crate::time::Instant`). Without it `elapsed()` is always
+  zero, so a wall-clock timeout never fires and the iteration limits alone
+  bound a solve.
+- printing.
+
+Maps come from `crate::hash`: std's `HashMap` with `std`, so iteration order
+and every number are exactly as before, and `hashbrown` without it. With
+`std` on (the default) nothing changes.
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping

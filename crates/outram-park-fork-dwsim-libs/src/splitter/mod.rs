@@ -61,6 +61,9 @@
 //! :428-557). DWSIM's two/three-outlet GUI cap is dropped — this port accepts
 //! any number of outlets `N >= 1`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::catalytic_activity::katal;
 use uom::si::f64::{

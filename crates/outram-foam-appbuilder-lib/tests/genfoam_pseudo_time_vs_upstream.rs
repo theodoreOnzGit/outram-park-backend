@@ -27,6 +27,8 @@
 //! Pass criteria are the predictions T1 to T7 of the README, committed before
 //! this test was first run. Results: README, "Round 2 results".
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

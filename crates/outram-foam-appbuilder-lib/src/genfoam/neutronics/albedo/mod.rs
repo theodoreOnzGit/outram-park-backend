@@ -106,6 +106,9 @@
 //! out entirely and the condition reduces to the Robin form above. Porting the
 //! SP3 branch belongs with the SP3 solver.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;
 use outram_foam_basic_lib::fields::VolScalarField;

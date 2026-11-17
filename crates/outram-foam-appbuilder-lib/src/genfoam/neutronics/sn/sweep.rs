@@ -33,7 +33,10 @@
 //! The within-group transport sweep and scattering-source inner iteration
 //! (see [`super`]).
 
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use outram_foam_basic_lib::prelude::{fvm, VolScalarField};
 

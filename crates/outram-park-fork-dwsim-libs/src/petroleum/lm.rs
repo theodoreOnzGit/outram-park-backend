@@ -66,6 +66,9 @@
 //! - The `AddressOf` delegate dispatch (`LM.vb:42-55`) becomes enum dispatch on
 //!   [`LmModel`], per the workspace no-trait-objects rule.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Which correlation form is being fitted — DWSIM's `LMFit.FitType`
 /// (`LM.vb:25-32`) plus the TBP-curve polynomial from `CurveConversion.vb`.

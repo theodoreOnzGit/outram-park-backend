@@ -85,6 +85,9 @@
 //!   approximation (see [`flash_ps`]); it is verified only for the single-phase
 //!   case here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::thermo::cubic_eos::Phase;
 use crate::thermo::flash::FlashResult;
 use crate::thermo::ideal_props::{

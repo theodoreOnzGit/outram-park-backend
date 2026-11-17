@@ -64,6 +64,9 @@
 //! pushed to the caller as described above — and the outlet energy-stream
 //! write at `:408`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::area::square_meter;
 use uom::si::f64::{Area, Length, MassDensity, Power, Ratio, Velocity};
 use uom::si::length::meter;

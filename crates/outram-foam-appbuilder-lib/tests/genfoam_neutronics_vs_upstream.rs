@@ -32,6 +32,8 @@
 //!
 //! Results and predictions: the `README.md` beside the references.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

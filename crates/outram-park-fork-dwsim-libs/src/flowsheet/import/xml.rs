@@ -35,7 +35,10 @@
 //! and nesting deeper than [`MAX_DEPTH`] is rejected rather than risking a
 //! stack overflow when the resulting tree is dropped.
 
-use std::fmt;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt;
 
 /// Maximum element nesting accepted before [`parse_document`] gives up.
 ///
@@ -238,7 +241,7 @@ impl fmt::Display for XmlError {
     }
 }
 
-impl std::error::Error for XmlError {}
+impl core::error::Error for XmlError {}
 
 /// Parse a whole document and return its root element.
 ///

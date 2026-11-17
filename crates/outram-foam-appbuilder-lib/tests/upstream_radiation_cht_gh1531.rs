@@ -19,6 +19,8 @@
 //! `qr` by default (`InterfaceRadiation::Auto`); the qr-less references are compared with the explicit
 //! ablation `without_radiative_flux_coupling`.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::io::control_dict::ControlDict;
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;

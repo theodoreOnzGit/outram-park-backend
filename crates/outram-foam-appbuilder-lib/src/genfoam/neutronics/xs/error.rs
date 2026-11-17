@@ -30,6 +30,9 @@
 
 //! Error type for building and querying the cross-section data model.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Failure while constructing or evaluating a [`super::CrossSectionData`].

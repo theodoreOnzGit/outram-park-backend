@@ -6,6 +6,9 @@
 //! in `Pipe.vb`'s `CalcOverallHeatTransferCoefficient`); this is the single
 //! consolidated Rust version.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{DynamicViscosity, Length, MassDensity, Pressure, Ratio, Velocity};
 use uom::si::ratio::ratio;

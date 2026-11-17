@@ -14,6 +14,8 @@
 //! # Results
 //! See the README ("Results").
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
 use outram_foam_appbuilder_lib::solvers::solid_displacement_foam::{
     DisplacementPatch, PcgSettings, SolidDisplacementControls, SolidDisplacementFoamEsi, SolidProperties, StepLog,

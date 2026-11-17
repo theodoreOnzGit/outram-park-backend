@@ -87,6 +87,9 @@
 //! | `closures::interfacial::regime_map::RegimeMap1D` | `oneParameter::correct` → `byRegime` weights |
 //! | `structure::power_model::FixedPower`, `structure::power_off::PowerOffCriterion` | `fixedPower::correct`, `structure::checkPowerOff` |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod case;
 pub mod fv;
 pub mod one_phase_fc;

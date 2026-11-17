@@ -62,7 +62,10 @@
 //! [`outram_foam_basic_lib`] scalar fields — the physical `uom` meaning is
 //! attached by the consumer that reads the mapped field.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::vol_field::VolScalarField;
 use outram_foam_basic_lib::matrix::MatrixError;
@@ -116,8 +119,8 @@ pub enum RbfMapError {
     Singular,
 }
 
-impl std::fmt::Display for RbfMapError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for RbfMapError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             RbfMapError::EmptyOrMismatched { n_points, n_values } => write!(
                 f,
@@ -132,7 +135,7 @@ impl std::fmt::Display for RbfMapError {
     }
 }
 
-impl std::error::Error for RbfMapError {}
+impl core::error::Error for RbfMapError {}
 
 impl From<MatrixError> for RbfMapError {
     fn from(_: MatrixError) -> Self {

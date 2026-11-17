@@ -111,6 +111,9 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::component::Component;
 
@@ -585,7 +588,7 @@ fn real_cubic_roots(c2: f64, c1: f64, c0: f64) -> Vec<f64> {
         let m = 2.0 * (-third_p).sqrt();
         let theta = (3.0 * q / (p * m)).clamp(-1.0, 1.0).r_acos() / 3.0;
         for k in 0..3 {
-            let t = m * (theta - 2.0 * std::f64::consts::PI * f64::from(k) / 3.0).r_cos();
+            let t = m * (theta - 2.0 * core::f64::consts::PI * f64::from(k) / 3.0).r_cos();
             roots.push(t - shift);
         }
     }

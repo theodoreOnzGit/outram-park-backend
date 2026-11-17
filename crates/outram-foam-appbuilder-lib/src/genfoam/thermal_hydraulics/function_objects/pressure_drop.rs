@@ -34,6 +34,9 @@
 //! (`p.boundaryField()[patchID]`), i.e. already a per-face boundary value —
 //! no interpolation needed, unlike the `faceSet` case above.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::VolScalarField;
 use outram_foam_basic_lib::mesh::FvMesh;
 use uom::si::area::square_meter;
@@ -104,7 +107,7 @@ mod tests {
     use outram_foam_basic_lib::fields::{BoundaryCondition, Field, PatchField, VolField};
     use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use outram_foam_basic_lib::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Two single-face patches ("inlet", "outlet") on a one-cell mesh, unit
     /// area each, so an area-weighted average degenerates to a plain value.

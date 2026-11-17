@@ -51,8 +51,11 @@
 //!
 //! All nodal coordinates are in metres. A 2-D mesh stores `z = 0`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use crate::element::{ElementType, FacetType};
 use crate::error::{FemError, Result};
@@ -401,8 +404,8 @@ pub fn tri3_to_tri6(tri3: &Mesh) -> Result<Mesh> {
         });
     }
     let mut coords = tri3.coords().to_vec();
-    let mut edge_node: std::collections::HashMap<(usize, usize), usize> =
-        std::collections::HashMap::new();
+    let mut edge_node: crate::hash::HashMap<(usize, usize), usize> =
+        crate::hash::HashMap::new();
     let mut conn = Vec::with_capacity(6 * tri3.n_elements());
     for e in 0..tri3.n_elements() {
         let n: Vec<usize> = tri3.element_nodes(ElemId(e)).to_vec();
@@ -572,7 +575,7 @@ pub fn quarter_annulus_quad4(
     }
     let mut coords = Vec::with_capacity((n_r + 1) * (n_theta + 1));
     for j in 0..=n_theta {
-        let th = std::f64::consts::FRAC_PI_2 * j as f64 / n_theta as f64;
+        let th = core::f64::consts::FRAC_PI_2 * j as f64 / n_theta as f64;
         for i in 0..=n_r {
             let r = r_inner + (r_outer - r_inner) * i as f64 / n_r as f64;
             coords.push([r * th.r_cos(), r * th.r_sin(), 0.0]);
@@ -724,7 +727,7 @@ mod tests {
     #[test]
     fn annulus_area_converges_second_order() {
         let (a, b) = (0.5, 1.0);
-        let exact = std::f64::consts::FRAC_PI_4 * (b * b - a * a);
+        let exact = core::f64::consts::FRAC_PI_4 * (b * b - a * a);
         let mut prev_err = f64::INFINITY;
         for nt in [4usize, 8, 16] {
             let m = quarter_annulus_quad4(a, b, 4, nt).unwrap();
@@ -796,7 +799,7 @@ mod tests {
             }
         }
         // Chord total is slightly under the true arc length pi a / 2.
-        let arc = std::f64::consts::FRAC_PI_2 * 0.5;
+        let arc = core::f64::consts::FRAC_PI_2 * 0.5;
         assert!(total < arc && total > 0.99 * arc, "chords {} arc {}", total, arc);
     }
 }

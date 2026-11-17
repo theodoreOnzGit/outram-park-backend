@@ -60,6 +60,9 @@
 //! silently "improving" upstream physics without sign-off is exactly the
 //! failure mode this workspace's guardrails exist to prevent.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::genfoam::thermal_hydraulics::units::{HeatFlux, HeatTransferCoefficient};
 use uom::si::f64::{Ratio, ThermodynamicTemperature};

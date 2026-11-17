@@ -34,6 +34,9 @@
 //! modelled as a parameter here since [`MassRate`] is a `uom` quantity and
 //! already supports `mdot * k` for a plain `f64` scale `k`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::SurfaceScalarField;
 use outram_foam_basic_lib::mesh::FvMesh;
 use uom::si::area::square_meter;
@@ -109,7 +112,7 @@ mod tests {
     use outram_foam_basic_lib::fields::{BoundaryCondition, Field, PatchField};
     use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use outram_foam_basic_lib::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// One cell, three boundary faces (unit area each) all on patch
     /// "outlet", no internal faces.
