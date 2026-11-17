@@ -44,9 +44,31 @@
 //!    CCFE-709 collapse moves step-5 atoms by under 0.5 % for every listed
 //!    nuclide.
 //!
-//! # Results
+//! # Results, measured 2026-11-17 (all three predictions held)
 //!
-//! Filled in after the run.
+//! 1. Check 1: 160 OpenMC steps (2 modes x 16 seeds x 5) replayed, worst
+//!    **4.1e-15** (CRAM-48 dense against SuperLU, as arm 1).
+//! 2. Check 2: **0 of 41 above 3 sigma**, worst |z| 2.85 (I-135, step 2).
+//!    `k`: 1.16286 +- 0.00090 against 1.16222 +- 0.00046 at BOS (+0.6 sigma),
+//!    1.14039 +- 0.00068 against 1.14245 +- 0.00077 at day 5 (-2.0 sigma);
+//!    U-235 at day 5 agrees to 7e-7 relative (+1.1 sigma).
+//!    **Not resolved, recorded:** U-238 is low at every depleted step
+//!    (-1.9 to -2.8 sigma) and Xe-136 too (-1.7 to -2.3 sigma). The records
+//!    are cumulative and therefore correlated, so this is one signal, not
+//!    eight: the port consumes about 0.2 % more U-238 over five days (a
+//!    2e-8 change in its inventory). A candidate small systematic in the
+//!    U-238 one-group rates; resolving it needs more seeds or a direct
+//!    comparison of the collapsed U-238 rates.
+//! 3. OpenMC direct against flux (CCFE-709) at day 5: Xe-135 -0.19 %,
+//!    Cs-135 -0.18 %, Gd-157 -0.13 %, I-135 -0.003 %, Xe-136 +0.014 %, U
+//!    below 1e-5 %; all under the predicted 0.5 %. `k` within 166 pcm
+//!    (k carries ~100 pcm noise per seed-mean here).
+//!
+//! Wall time, one host (Intel Xeon Processor, 4 logical cores, 4 threads
+//! each, 15 GB RAM, Linux 6.18, CPU only; not shared during the port's
+//! seeds 3-16): OpenMC 19 s per seed (5 steps + final), the port 166-176 s,
+//! about 9x. Seeds 1-2 of the port ran beside OpenMC (350 s) and are not
+//! timings.
 
 use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
 use outram_mc_libs::depletion::chain::DepletionChain;
