@@ -1279,11 +1279,30 @@ mod tests {
         let t = QawoTable::new(10.0, 1.0, QawoKind::Cosine, 12).unwrap();
         let r = qawo(|_x: f64| 1.0, 0.0, 0.0, 1e-10, 100, &t).unwrap();
         assert!((r.value - Real::sin(10.0) / 10.0).abs() < 1e-10);
-        // A table with one level cannot bisect a long interval: ETABLE.
+        // ~~A table with one level cannot bisect a long interval: ETABLE.~~
+        // CORRECTED 2026-11-17: on L = 1 compiled GSL 2.8 (cf180cd7) returns
+        // status 0 after ONE evaluation (abserr 2.8e-18): the 25-point
+        // Chebyshev rule converges at once, so the table is never exhausted.
+        // The port agreed with GSL; this assertion did not. On L = 10 GSL
+        // does exhaust a one-level table, with status 26 (GSL_ETABLE).
+        // Both pinned to GSL 2.8 relinked with PETIR's sin/cos/sincos/pow/exp
+        // (the round-3 shim, plus `exp` for the integrand), which matches the
+        // port bit for bit. Stock glibc GSL differs in the last bits only
+        // (L = 1: -0.01186093651078271, 1 ulp; L = 10: 102.22249021721859,
+        // abserr 4.6992971849057806e-06), the libm cause round 3 found.
         let one = QawoTable::new(200.0, 1.0, QawoKind::Cosine, 1).unwrap();
         let o = qawo_with_status(|x: f64| Real::exp(x), 0.0, 0.0, 1e-12, 100, &one);
+        assert_eq!(o.gsl_status, 0);
+        assert_eq!(o.integral.subintervals, 1);
+        assert_eq!(o.integral.value, -0.011860936510782707);
+        assert_eq!(o.integral.abserr, 2.3742891565964368e-18);
+        let long = QawoTable::new(200.0, 10.0, QawoKind::Cosine, 1).unwrap();
+        let o = qawo_with_status(|x: f64| Real::exp(x), 0.0, 0.0, 1e-12, 100, &long);
         assert_eq!(o.gsl_status, 26);
         assert_eq!(o.status, Err(PetirError::Failed));
+        assert_eq!(o.integral.subintervals, 1);
+        assert_eq!(o.integral.value, 102.22249021721861);
+        assert_eq!(o.integral.abserr, 4.6992971749159215e-06);
         // QAWF: int_0^inf e^-x cos x = 1/2; sine with omega 0 is zero.
         let mut c = QawoTable::new(1.0, 1.0, QawoKind::Cosine, 25).unwrap();
         let r = qawf(|x: f64| Real::exp(-x), 0.0, 1e-10, 50, 50, &mut c).unwrap();

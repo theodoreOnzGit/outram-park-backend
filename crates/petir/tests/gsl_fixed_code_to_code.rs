@@ -121,7 +121,7 @@ fn fixed_matches_compiled_gsl() {
     let total_refused: usize = by_kind.values().map(|t| t.refused).sum();
     assert_eq!((total_rules, total_refused), (270, 18));
     // (nodes exact, weights exact, integrals exact) per type, measured
-    // 2026-11-14 and pinned.
+    // 2026-11-17 (first run) and pinned.
     let pins: [(&str, (usize, usize, usize)); 9] = PINS;
     for (k, (ne, we, ie)) in pins {
         let t = by_kind[k];
@@ -143,16 +143,20 @@ fn fixed_is_bit_identical_when_gsl_uses_petirs_libm() {
     }
 }
 
-/// `(kind, (nodes exact, weights exact, integrals exact))`; filled in from the
-/// first run against stock GSL.
+/// `(kind, (nodes exact, weights exact, integrals exact))`, from the first run
+/// against stock GSL 2.8 (glibc 2.39, x86-64), 2026-11-17. Out of 228/342/456
+/// nodes and weights and 80/120/160 integrals per type (see the record). Every
+/// node is bit-identical; Exponential and Rational weights differ in the last
+/// bits (worst 2.5e-16 and 2.6e-18 relative), a libm difference: the
+/// PETIR-libm run above is bit-identical in every value.
 const PINS: [(&str, (usize, usize, usize)); 9] = [
-    ("chebyshev", (0, 0, 0)),
-    ("chebyshev2", (0, 0, 0)),
-    ("exponential", (0, 0, 0)),
-    ("gegenbauer", (0, 0, 0)),
-    ("hermite", (0, 0, 0)),
-    ("jacobi", (0, 0, 0)),
-    ("laguerre", (0, 0, 0)),
-    ("legendre", (0, 0, 0)),
-    ("rational", (0, 0, 0)),
+    ("chebyshev", (228, 228, 80)),
+    ("chebyshev2", (228, 228, 80)),
+    ("exponential", (342, 230, 86)),
+    ("gegenbauer", (456, 456, 160)),
+    ("hermite", (342, 342, 120)),
+    ("jacobi", (456, 456, 160)),
+    ("laguerre", (342, 342, 120)),
+    ("legendre", (342, 342, 120)),
+    ("rational", (342, 221, 72)),
 ];

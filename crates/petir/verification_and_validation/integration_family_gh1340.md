@@ -432,3 +432,56 @@ PETIR's libm.
 - **P15e (cause).** With GSL relinked to PETIR's `exp`, `log`, `pow`, `sin`,
   `cos` (`petir_libm_shim.rs`), **all** nodes, weights and integrals are
   bit-identical (100 %), except possibly Jacobi's `pow(y, 2.0)` as in P15b.
+
+**Results, 2026-11-17** (first run, a later session; GSL 2.8 `cf180cd7` built
+with `build_gsl_nocfg.sh`, gcc -O2, glibc 2.39, x86-64). Two build fixes were
+needed before the driver would link, both in the script, not in GSL: GSL's
+`configure.ac` macro `GSL_COERCE_DBL(x)` (the identity on x86-64), and the
+`complex/` sources, which `specfunc/psi.c` calls.
+
+| type | rules | refused | nodes | weights | integrals | worst (relative) |
+|---|---|---|---|---|---|---|
+| chebyshev | 20 | 1 | 228/228 | 228/228 | 80/80 | 0 |
+| chebyshev2 | 20 | 1 | 228/228 | 228/228 | 80/80 | 0 |
+| exponential | 30 | 2 | 342/342 | 230/342 | 86/120 | weight 2.5e-16, integral 3.8e-16 |
+| gegenbauer | 40 | 2 | 456/456 | 456/456 | 160/160 | 0 |
+| hermite | 30 | 2 | 342/342 | 342/342 | 120/120 | 0 |
+| jacobi | 40 | 2 | 456/456 | 456/456 | 160/160 | 0 |
+| laguerre | 30 | 2 | 342/342 | 342/342 | 120/120 | 0 |
+| legendre | 30 | 2 | 342/342 | 342/342 | 120/120 | 0 |
+| rational | 30 | 4 | 342/342 | 221/342 | 72/120 | weight 2.6e-18, integral 1.1e-16 |
+
+- **P15a held:** accept/refuse identical in 288 of 288 (270 accepted, 18
+  refused).
+- **P15b held:** every node of every type bit-identical, Jacobi included, so
+  `pow(y, 2.0)` against `y * y` never differed on these rows.
+- **P15c: mixed.** Legendre and Chebyshev 100 %, held. **Exponential failed:**
+  230/342 weights (67 %) against at least 95 % predicted; Chebyshev2 held
+  (100 %). The gamma types did better than predicted: Gegenbauer, Jacobi,
+  Laguerre and Hermite are 100 %, and Rational is 221/342 (65 %, at least 50 %
+  predicted). The worst relative difference, 2.5e-16, is inside the 1e-12
+  predicted.
+- **P15d held:** no rule has identical nodes and weights but a differing
+  integral (checked row by row over the 270 rules).
+- **P15e held:** with GSL relinked to PETIR's `exp`, `log`, `pow`, `sin`,
+  `cos` (and `sincos`), all 270 rules are bit-identical in every node, weight
+  and integral. Committed as `fixed-gsl-2.8-petir-libm-reference.txt` and
+  gated by `fixed_is_bit_identical_when_gsl_uses_petirs_libm`.
+- **Cause, isolated.** Stock GSL differs on 24 rules (10 Exponential, 14
+  Rational). Relinking PETIR's `pow` **alone** removes 21 of them, every
+  Exponential one included (`fixed_compute`'s `pow(slp, al + be + 1)`, so
+  P15c's Exponential prediction failed on `pow`, not on the square it named).
+  The remaining 3 (Rational `a0` and `a1` at n = 1, `a0_close` at n = 10)
+  need PETIR's `exp`/`log` as well: they reach `gsl_sf_gamma` in `zemu`
+  (`rational.c:81`). Every difference from stock GSL is libm.
+- **Gated** by `fixed_matches_compiled_gsl`, which pins the counts above,
+  against `fixed-gsl-2.8-reference.txt`.
+
+**Also fixed in this session (the reason round 3 was not merged).** The unit
+test `qawo::tests::qawo_and_qawf_closed_forms` asserted `GSL_ETABLE` (26) for
+a one-level table on `e^x` over `[0, 1]` with omega 200. Compiled GSL 2.8
+returns **0** there after one evaluation (abserr 2.8e-18): the 25-point
+Chebyshev rule converges at once and the table is never exhausted. The port
+agreed with GSL and the assertion did not. On `[0, 10]` GSL does return 26.
+The test now pins both cases to GSL relinked with PETIR's libm; stock GSL
+differs in the last bits only (L = 1: 1 ulp in the result).

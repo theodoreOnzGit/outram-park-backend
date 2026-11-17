@@ -77,10 +77,17 @@
 //! 2026-09-28**: QAGS is ported ([`qags`], `integration/qags.rs`), for
 //! `buangkok`'s plume-shine integral. [`qag`] still grinds through its
 //! iteration limit on an endpoint singularity and reports
-//! [`PetirError::MaxIterations`]; use [`qags`] there. Not ported: the
+//! [`PetirError::MaxIterations`]; use [`qags`] there. ~~Not ported: the
 //! infinite-range transforms (`QAGI`, `QAGIU`, `QAGIL`, which live in the same
 //! `qags.c` and would reuse its core with the 15-point rule), the weighted
-//! rules (`QAWO`, `QAWS`, `QAWC`), and the non-adaptive `QNG`.
+//! rules (`QAWO`, `QAWS`, `QAWC`), and the non-adaptive `QNG`.~~
+//! **CORRECTED 2026-11-17 (gh:#1340, checked against `pub use` in this
+//! file):** all of those are now ported — [`qagi`]/[`qagiu`]/[`qagil`],
+//! [`qagp`], [`qawc`], [`qaws`], [`qawo`]/[`qawf`], [`qng`] — together with
+//! [`cquad`], Romberg, `glfixed` and the IQPACK fixed-order rules
+//! ([`FixedWorkspace`]), each compared with compiled GSL 2.8 (record:
+//! `verification_and_validation/integration_family_gh1340.md`). The rest of
+//! GSL's `integration/` directory is ported.
 //!
 //! This is the honest boundary of the port, and worth reading before assuming
 //! a hard integral will work.
@@ -423,7 +430,8 @@ pub struct Integral {
 /// # Errors
 ///
 /// - [`PetirError::Domain`] if `a` or `b` is not finite. Infinite ranges need
-///   the `QAGI` transforms, which are not ported.
+///   the `QAGI` transforms, ~~which are not ported~~ **CORRECTED 2026-11-17**:
+///   ported as [`qagi`], [`qagiu`] and [`qagil`] (gh:#1340).
 /// - [`PetirError::Tolerance`] if both tolerances are effectively zero — GSL
 ///   refuses `epsabs <= 0` together with `epsrel < 50 * eps`, because no
 ///   subdivision can meet it.

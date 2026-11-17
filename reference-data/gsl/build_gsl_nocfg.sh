@@ -38,8 +38,12 @@ if [ ! -f "$B/libgslnocfg.a" ]; then
 #define HAVE_VPRINTF 1
 #define STDC_HEADERS 1
 #define RETURN_IF_NULL(x) if (!x) { return ; }
+/* configure.ac AH_BOTTOM: x86-64 has no extended-precision registers, so
+   GSL_COERCE_DBL is the identity (specfunc/elementary.c needs it; added
+   2026-11-17 when the fixed-order driver first linked specfunc). */
+#define GSL_COERCE_DBL(x) (x)
 CFG
-  for d in integration err sys specfunc; do
+  for d in integration err sys specfunc complex; do  # complex: specfunc/psi.c
     # the library's own source list from Makefile.am (some .c files are
     # #included by others and do not compile alone)
     srcs=$(sed -e ':a' -e '/\\$/N; s/\\\n//; ta' "$G/$d/Makefile.am" | grep -E '^libgsl[a-z]*_la_SOURCES' | sed 's/^[^=]*=//' | tr ' \t' '\n\n' | grep '\.c$')
