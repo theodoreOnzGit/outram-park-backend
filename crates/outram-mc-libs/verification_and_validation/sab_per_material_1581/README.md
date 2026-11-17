@@ -463,3 +463,57 @@ like-for-like number for today's model. This is a probable cause established
 from those records; it is **not** re-run, since no pre-fix build was
 re-measured. The prediction was not retuned and the driver was not edited. A
 re-baseline would need a fresh whole-material AT-REST run at today's build.
+
+### gh:#1617: what #193 ablated, and the prediction written before the like-for-like run (2026-11-17)
+
+**What gh:#193 did (read from `75615b678`, 2026-09-12, and `0414bc827`).** The
+-2242 pcm row came from `OUTRAM_RINGRPT_TARGET_AT_REST=1` in
+`examples/fhr_ring_rpt_endf.rs`, which at that commit set
+`KeffSettings::temperature_k = 0.0` for the whole run and changed nothing else:
+no nuclide was edited. One seed per side, 4000 x [30 + 80], on a build that still
+carried the F-19 sub-threshold inelastic defect (k_MOVING 1.40546).
+
+**That switch no longer exists.** gh:#313 (`0414bc827`, 2026-09-30) made the CSG
+kernel stop reading `KeffSettings::temperature_k` (free-gas kT is the nuclide's
+data temperature); `tests/temperature_precedence.rs` pins that a changed run
+temperature leaves k bit-identical. The env var in `fhr_ring_rpt_endf.rs` was
+moved onto `Nuclide::with_target_at_rest` in the same commit. So **on today's
+build there is no whole-material switch distinct from the per-nuclide hook**, and
+no like-for-like whole-material measurement can be made on it. I will not invent
+one. The comparison that CAN be made is a replay of the old switch on the last
+kind of build that has it AND the post-F-19 physics: commit `60f6bb261`
+(2026-09-17), which already carries the per-nuclide-hook driver. That commit's
+message records the hook arm there as -556 +/- 87 pcm (paired, 8 seeds) with
+MOVING seed 1 = 1.36662 +/- 0.00210, and says the env-var route was "being
+confirmed separately"; no record of that confirmation exists in the tree. This
+replay supplies it.
+
+**Prediction (written before any run of the replay).** From the code trace
+recorded in `60f6bb261` (zeroing the run temperature moves no pointwise cross
+section; `Nuclide::sample_thermal` takes no temperature; `free_gas_kt(temp)` is
+the only consumer and `with_target_at_rest` makes that same function return 0.0),
+the two routes execute the same arithmetic. Therefore, at `60f6bb261`, 8 seeds:
+
+1. SWITCH arm (`temperature_k = 0.0`, nuclides untouched) is **bit-identical
+   seed by seed** to the HOOK arm. Any seed that differs refutes the trace.
+2. MOVING seed 1 reproduces 1.36662 +/- 0.00210 (determinism check).
+3. AT-REST - MOVING = **-556 +/- 87 pcm** (paired, the 2026-09-17 record) for
+   both routes, i.e. within |z| < 2 of that record; -2242 is not reproduced
+   (gap about +1700 pcm, more than 15 sigma of the ensemble error).
+4. For today's build, the whole-material number would equal today's hook number
+   by construction, since the routes coincide. Using only the record, I expect it
+   to lie near -556 but not to equal it: `60f6bb261` to today includes #313
+   (free-gas kT), URR band / DBRC / equiprobable S(a,b) sampling (`81ec018c3`)
+   and per-material S(a,b) (#1581), each of which moves the MOVING arm. I have no
+   physics basis to say by how much and will report the drift as measured, not as
+   explained.
+
+The stale -2242 / 1.40546 is attributed to F-19, not to the hook: the F-19
+teleport put neutrons past the U-238 resonances (p +8.5 % over OpenMC), and a
+target-at-rest ablation acts on the thermal/epithermal slowing-down balance that
+sits next to that error. This is the same inference the earlier record drew and
+is what the replay's MOVING arm and the -2242 gap test.
+
+**Cost probe and plan.** From `ensembles_1583/fhr_new_7b5dd858d.out`: about 300 s
+data build, 200-250 s per seed (up to 570 s under load), 4 logical cores shared.
+Two processes at most: A = MOVING + HOOK, B = SWITCH; N = 8 seeds each.
