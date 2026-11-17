@@ -52,7 +52,10 @@
 //!
 //! All lengths are metres.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use outram_foam_basic_lib::mesh::PatchKind;
 use outram_foam_basic_lib::primitives::Vector3;
@@ -122,8 +125,8 @@ pub enum CyclicError {
     },
 }
 
-impl std::fmt::Display for CyclicError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for CyclicError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::UnresolvedPartner { patch, name } => write!(
                 f,
@@ -163,7 +166,7 @@ impl std::fmt::Display for CyclicError {
     }
 }
 
-impl std::error::Error for CyclicError {}
+impl core::error::Error for CyclicError {}
 
 /// Area-weighted-free centroid of a face — the plain mean of its vertices.
 ///

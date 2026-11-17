@@ -35,11 +35,14 @@
 //! facets or points (`const triSurf&`), and one that also records them as a
 //! subset of the surface (`triSurf&`, default subset names as upstream).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree::{help, mag_sqr, BoundBox, MeshOctree, TriSurf, SMALL, VSMALL};
 use crate::mesh_octree_creator::{group_marking, MeshOctreeCreator};
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// `createOctreeWithRefinedBoundary(20, 30)`: the search octree the
 /// geometric checks build.
@@ -90,7 +93,7 @@ fn set_group_subsets(surf: &mut TriSurf, prefix: &str, group: &[Option<usize>], 
 /// needle triangle (one small angle, two near 90°) is not flagged despite
 /// the check's name and the `smallAngles` subset. Ported as written.
 pub fn check_angles(surf: &TriSurf, angle_tol: f64) -> Vec<usize> {
-    let tol = (angle_tol * std::f64::consts::PI / 180.0).r_cos();
+    let tol = (angle_tol * core::f64::consts::PI / 180.0).r_cos();
     let pts = &surf.points;
     let mut bad = Vec::new();
     for (t, tri) in surf.triangles.iter().enumerate() {
@@ -385,7 +388,7 @@ pub fn check_self_intersections_subset(surf: &mut TriSurf, subset_name: &str, to
 /// polygon to an `.fms` file is not ported.
 pub fn check_overlaps(surf: &TriSurf, tol: f64, angle_tol: f64) -> IntersectionReport {
     let o = search_octree(surf, 20, 30);
-    let cos_val = (angle_tol * std::f64::consts::PI / 180.0).r_cos();
+    let cos_val = (angle_tol * core::f64::consts::PI / 180.0).r_cos();
     let mut hit = vec![false; surf.size()];
     let mut pairs = Vec::new();
     for t in 0..surf.size() {

@@ -15,6 +15,9 @@
 //! `multiLevel`, `structured`, and the external-library methods (`scotch`, `metis`, `kahip`).
 //! The parallel (`Pstream::parRun`) branches are not ported either: this is the serial path.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::std_sort::std_sort_by;
 
 /// Which method of `decomposeParDict` a [`GeomDecomp`] runs.
@@ -213,11 +216,11 @@ fn sort_component(
     let val = |i: usize| points[current[i]][comp];
     sorted.sort_by(|&a, &b| {
         if val(a) < val(b) {
-            std::cmp::Ordering::Less
+            core::cmp::Ordering::Less
         } else if val(b) < val(a) {
-            std::cmp::Ordering::Greater
+            core::cmp::Ordering::Greater
         } else {
-            std::cmp::Ordering::Equal
+            core::cmp::Ordering::Equal
         }
     });
     let mut left = 0;

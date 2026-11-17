@@ -33,6 +33,9 @@
 //! exactly the two z values). Computed eagerly here; upstream computes each
 //! on demand. Upstream's `FatalError`s are the `Err`s.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::volume_mesh::VolumeMesh;
 

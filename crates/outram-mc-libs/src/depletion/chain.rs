@@ -711,6 +711,9 @@ impl DepletionChain {
         Ok(chain)
     }
 
+    /// `std` only, like [`Self::from_chain_xml`] (its input is the parsed
+    /// chain XML).
+    #[cfg(feature = "std")]
     /// [`Self::from_chain_xml`], except that `(n,gamma)` and `(n,2n)`
     /// channels with a branching ratio other than 1 are **kept** at their
     /// ratios (as OpenMC's matrix does) instead of being left out, and are

@@ -47,12 +47,16 @@
 //! numbers are written by `outram-foam-basic-lib`'s formatter (full
 //! precision; upstream uses `controlDict`'s `writePrecision`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::foam::to_poly_mesh;
 use crate::mesh_subsets::MeshSubsets;
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 use crate::workflow_controls::{MeshMetaData, WorkflowStep};
 use outram_foam_basic_lib::io::dict::{tokenize, FoamDict, FoamEntry, FoamFile, FoamHeader, FoamValue};
 use outram_foam_basic_lib::io::poly_mesh::PolyMesh;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 /// One named subset to write: its labels (point, face or cell indices).

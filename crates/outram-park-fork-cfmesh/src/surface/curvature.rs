@@ -59,10 +59,13 @@
 //!   directions (`π − θ` instead of `θ`). Ported as written; the test
 //!   records it on the pipe rims.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree::{TriSurf, SMALL, VSMALL};
 use petir::mathf::RealMath;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 /// `simpleMatrix<scalar>::LUsolve` for a small dense system: Crout LU with
 /// implicit (row-scaled) partial pivoting, then back substitution. A
@@ -459,12 +462,14 @@ impl TriSurfaceCurvatureEstimator {
             }
         }
         let est = TriSurfaceCurvatureEstimator { edge_point_curvature, point_patches, patch_positions, gaussian, mean, max, min, max_vector, min_vector };
-        if std::env::var("GH1385_TRACE").is_ok() {
+        if crate::env::var("GH1385_TRACE").is_ok() {
             // gh:#1385: the instrumented upstream prints the same (`ECURV`, `MCURV`)
             for (p, k) in est.edge_point_curvature.iter().enumerate() {
+                #[cfg(feature = "std")]
                 eprintln!("ECURV {p} {k:.17e}");
             }
             for t in 0..surf.size() {
+                #[cfg(feature = "std")]
                 eprintln!("MCURV {t} {:.17e}", est.mean_curvature_at_triangle(surf, t));
             }
         }

@@ -643,7 +643,7 @@ redhill                      = { path = "crates/redhill",                      v
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.5", default-features = false }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.7", default-features = false }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.5", default-features = false }
-outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.3" }
+outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.3", default-features = false }
 # FEM structural mechanics; first workspace-dep consumer: outram-blender's
 # optional `fem-export` bridge (GitHub #492).
 farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.4", default-features = false }
@@ -716,7 +716,7 @@ outram-blender   = { path = "crates/outram-blender",   version = "0.0.7", defaul
 # Android-safe by default; its `foam-export` feature adds the (BLAS-free)
 # outram-foam-basic-lib polyMesh writer. Consumed by outram-blender's optional
 # `foam-mesh` bridge.
-outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.4" }
+outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.4", default-features = false }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.

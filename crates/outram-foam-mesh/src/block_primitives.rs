@@ -50,6 +50,9 @@
 //! Each primitive face carries a patch name chosen by the caller. Faces with
 //! the same name go into one patch; a name containing `wall` gets
 //! `type wall`, any other `type patch`. Patches appear in first-use order.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::block_mesh::{block_mesh, PolyMesh};
 use crate::MeshError;
 use petir::mathf::RealMath;
@@ -115,7 +118,7 @@ impl PipeOGrid {
     pub fn polygon_area(&self) -> f64 {
         let r = self.radius.get::<meter>();
         let k = (4 * self.n) as f64;
-        0.5 * k * r * r * (2.0 * std::f64::consts::PI / k).r_sin()
+        0.5 * k * r * r * (2.0 * core::f64::consts::PI / k).r_sin()
     }
 
     /// The blockMeshDict text.
@@ -134,7 +137,7 @@ impl PipeOGrid {
             (a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1))
         };
         let ci_xy = |k: usize| {
-            let th = -0.75 * std::f64::consts::PI + 2.0 * std::f64::consts::PI * k as f64 / n4 as f64;
+            let th = -0.75 * core::f64::consts::PI + 2.0 * core::f64::consts::PI * k as f64 / n4 as f64;
             (r * th.r_cos(), r * th.r_sin())
         };
         let sq = |k: usize, zl: usize| zl * 2 * n4 + (k % n4);
@@ -286,7 +289,7 @@ impl Annulus {
     /// Cross-section area between the two inscribed `n_theta`-gons.
     pub fn polygon_area(&self) -> f64 {
         let k = self.n_theta.max(3) as f64;
-        let s = 0.5 * k * (2.0 * std::f64::consts::PI / k).r_sin();
+        let s = 0.5 * k * (2.0 * core::f64::consts::PI / k).r_sin();
         let (a, b) = (self.r_inner.get::<meter>(), self.r_outer.get::<meter>());
         s * (b * b - a * a)
     }
@@ -298,7 +301,7 @@ impl Annulus {
         let [ox, oy, oz] = self.origin.map(|v| v.get::<meter>());
         let nt = self.n_theta.max(3);
         let xy = |r: f64, k: usize| {
-            let th = -0.75 * std::f64::consts::PI + 2.0 * std::f64::consts::PI * (k % nt) as f64 / nt as f64;
+            let th = -0.75 * core::f64::consts::PI + 2.0 * core::f64::consts::PI * (k % nt) as f64 / nt as f64;
             (r * th.r_cos(), r * th.r_sin())
         };
         let vi = |k: usize, zl: usize| zl * 2 * nt + (k % nt);
@@ -522,7 +525,7 @@ impl HelicalPipe {
 
     fn rc(&self) -> (f64, f64, f64) {
         let r = 0.5 * self.coil_diameter.get::<meter>();
-        let c = self.pitch.get::<meter>() / (2.0 * std::f64::consts::PI);
+        let c = self.pitch.get::<meter>() / (2.0 * core::f64::consts::PI);
         (r, c, (r * r + c * c).sqrt())
     }
 
@@ -549,7 +552,7 @@ impl HelicalPipe {
     /// Developed length of the tube, `turns · √((π D_w)² + h²)`.
     pub fn arc_length(&self) -> Length {
         let (_, _, l) = self.rc();
-        Length::new::<meter>(2.0 * std::f64::consts::PI * l * self.turns)
+        Length::new::<meter>(2.0 * core::f64::consts::PI * l * self.turns)
     }
 
     /// Curvature `κ = R/(R² + c²)` \[1/m\].
@@ -644,12 +647,12 @@ impl HelicalPipe {
         let (r, c, l) = self.rc();
         let o = self.axis_origin.map(|v| v.get::<meter>());
         let (x, y, z) = (p[0] - o[0], p[1] - o[1], p[2] - o[2]);
-        let two_pi = 2.0 * std::f64::consts::PI;
+        let two_pi = 2.0 * core::f64::consts::PI;
         let mut phi = y.r_atan2(x);
         if c > 0.0 {
             let k = ((z / c - phi) / two_pi).round();
             phi += two_pi * k;
-        } else if phi < -0.5 * std::f64::consts::PI {
+        } else if phi < -0.5 * core::f64::consts::PI {
             phi += two_pi;
         }
         for _ in 0..30 {
@@ -781,7 +784,7 @@ mod tests {
         let names: Vec<&str> = pm.patches.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(names, ["inlet", "outlet", "walls"]);
         // 24-gon: inscribed area / πR² = 0.98862...
-        assert!((g.polygon_area() / (std::f64::consts::PI * 1e-4) - 0.988_616).abs() < 1e-5);
+        assert!((g.polygon_area() / (core::f64::consts::PI * 1e-4) - 0.988_616).abs() < 1e-5);
         let fv = pm.to_fv_mesh().unwrap();
         assert!(fv.cell_volumes.iter().all(|v| *v > 0.0));
     }
@@ -877,14 +880,14 @@ mod tests {
     fn helix_frames_are_orthonormal_and_untwisted() {
         let g = coil();
         let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-        let (r, c) = (0.05, 0.02 / (2.0 * std::f64::consts::PI));
+        let (r, c) = (0.05, 0.02 / (2.0 * core::f64::consts::PI));
         assert!((g.curvature() - r / (r * r + c * c)).abs() < 1e-12);
         assert!((g.torsion() - c / (r * r + c * c)).abs() < 1e-12);
         // 2/κ is the VDI curvature diameter D_w [1 + (h/(π D_w))²].
-        let dc = 0.1 * (1.0 + (0.02 / (std::f64::consts::PI * 0.1)).powi(2));
+        let dc = 0.1 * (1.0 + (0.02 / (core::f64::consts::PI * 0.1)).powi(2));
         assert!((g.curvature_diameter().get::<meter>() / dc - 1.0).abs() < 1e-14);
         let l = g.arc_length().get::<meter>();
-        assert!((l - 1.5 * ((std::f64::consts::PI * 0.1).powi(2) + 0.02 * 0.02).sqrt()).abs() < 1e-14);
+        assert!((l - 1.5 * ((core::f64::consts::PI * 0.1).powi(2) + 0.02 * 0.02).sqrt()).abs() < 1e-14);
         assert_eq!(g.centreline(m(0.0)), [0.05, 0.0, 0.0]);
         let h = 1e-5;
         for k in 0..7 {

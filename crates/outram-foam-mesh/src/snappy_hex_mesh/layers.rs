@@ -206,8 +206,11 @@
 //! [`PatchKind::Wall`]: outram_foam_basic_lib::mesh::PatchKind::Wall
 //! [`FvMesh`]: outram_foam_basic_lib::mesh::FvMesh
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use outram_foam_basic_lib::mesh::{BoundaryPatch, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
@@ -1134,8 +1137,8 @@ mod tests {
     fn unit_sphere_soup(n_lat: usize, n_lon: usize) -> crate::snappy_hex_mesh::stl::TriangleSoup {
         use crate::snappy_hex_mesh::stl::{Triangle, TriangleSoup};
         let point = |ia: f64, io: f64| -> Vector3 {
-            let theta = std::f64::consts::PI * ia;
-            let phi = 2.0 * std::f64::consts::PI * io;
+            let theta = core::f64::consts::PI * ia;
+            let phi = 2.0 * core::f64::consts::PI * io;
             Vector3::new(
                 theta.r_sin() * phi.r_cos(),
                 theta.r_sin() * phi.r_sin(),

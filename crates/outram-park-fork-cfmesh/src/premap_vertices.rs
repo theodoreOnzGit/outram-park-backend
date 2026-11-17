@@ -57,6 +57,9 @@
 //! ([`NearestSearch::Upstream`], [`TriangleProjection::Upstream`]). MPI is
 //! not ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::mesh_octree::{BoundBox, MeshOctree};
@@ -131,7 +134,7 @@ pub fn pre_map_vertices(mesh: &mut VolumeMesh, o: &MeshOctree, points: &[Vec3], 
     let one = vec![0usize; mesh.face_count()];
     let mut engine = SurfaceEngine::from_parts(&mesh.points, &mesh.faces, &mesh.owner, &mesh.neighbour, &one);
     let nb = engine.n_boundary_points();
-    let octree_arc = std::sync::Arc::new(o.clone());
+    let octree_arc = alloc::sync::Arc::new(o.clone());
     let q = SurfaceQueries::new(points, tris, regions);
     let mean_dist = |m: &VolumeMesh, e: &SurfaceEngine| {
         let s: f64 = e.boundary_points.iter().map(|&v| q.nearest(m.points[v]).sub(m.points[v]).length()).sum();
@@ -260,6 +263,7 @@ mod tests {
         let mut m = cartesian_mesh_extractor(&o, &CartesianMeshOptions::default()).mesh;
         let reg = SurfaceRegions::single("defaultFaces", t.len());
         let rep = pre_map_vertices(&mut m, &o, &p, &t, &reg, 3);
+        #[cfg(feature = "std")]
         println!("preMapVertices: {rep:?}; ratio {:.4}", rep.mean_distance.1 / rep.mean_distance.0);
         assert_eq!(rep.n_iterations, 3);
         assert_eq!(rep.n_without_patch, 0);

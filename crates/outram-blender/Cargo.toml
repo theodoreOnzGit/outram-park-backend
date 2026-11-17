@@ -83,7 +83,7 @@ foam-export = ["std", "dep:outram-foam-basic-lib"]
 # its foam-export bridge (outram-foam-basic-lib) are both BLAS-free / Android-
 # safe, so this feature keeps the crate Android-buildable; it is OFF by default
 # so the base authoring frontend pulls nothing. Drives the `mesh_studio` example.
-foam-mesh = ["std", "dep:outram-park-fork-cfmesh"]
+foam-mesh = ["std", "dep:outram-park-fork-cfmesh", "outram-park-fork-cfmesh/std"]
 
 # gnn-graph → `gnn_graph::cell_adjacency_graph`: a CSG cell
 # list as a RAFFLES message-passing graph (`raffles::gnn::Graph`). OFF by
@@ -107,7 +107,7 @@ gnn-graph = ["std", "dep:raffles", "raffles/std"]
 #   block-mesh            blockMesh + snappyHexMesh (outram-foam-mesh) -> neutral
 #   foam-mesh    (above)  cfMesh tet->dual->layers VolumeMesh -> neutral
 #   fem-export            neutral <-> farrer-park Mesh, farrer-park generators
-block-mesh = ["foam-export", "dep:outram-foam-mesh"]
+block-mesh = ["foam-export", "dep:outram-foam-mesh", "outram-foam-mesh/std"]
 fem-export = ["std", "dep:farrer-park", "farrer-park/std"]
 
 [dependencies]

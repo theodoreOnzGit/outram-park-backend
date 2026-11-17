@@ -73,6 +73,9 @@
 //! [`cleanup::import_surface_as_subset`] compares a cosine with an angle in
 //! radians (effective tolerance about 85°).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod checks;
 pub mod cleanup;
 pub mod curvature;

@@ -59,6 +59,9 @@
 //! ascending label (upstream's cell lists are in the order the mesh holds
 //! them). Both change the numbering of new faces, points and cells only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::layers::extrude_layer::{extrude_layer, ExtrudeLayerError, ExtrudeLayerReport};
 use crate::topology::TopoMesh;
 
@@ -256,6 +259,7 @@ mod tests {
         assert_eq!(init.n_extruded_faces, 54);
         let fe = &rep.feature_edge_sheets[0];
         let (v, vmin, nb, per_patch) = summary(&out);
+        #[cfg(feature = "std")]
         println!("JFS box: initial {init:?}\nfeature edges {fe:?}\ncells {} volume {v} vmin {vmin:e} boundary faces {nb} per patch {per_patch:?}", out.n_cells);
         assert!(vmin > 0.0);
         assert!((v - 1.12772).abs() < 1e-5, "{v}");
@@ -282,6 +286,7 @@ mod tests {
         let w = TopoMesh::from_volume_mesh(&cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [3, 3, 3]));
         let (out, rep) = create_fundamental_sheets(&w, SheetsKind::Fj, true).unwrap();
         let (v, vmin, nb, per_patch) = summary(&out);
+        #[cfg(feature = "std")]
         println!("FJ box: {rep:?}\ncells {} volume {v} vmin {vmin:e} boundary faces {nb} per patch {per_patch:?}", out.n_cells);
         assert!(vmin > 0.0);
         assert_eq!(per_patch.len(), 6);

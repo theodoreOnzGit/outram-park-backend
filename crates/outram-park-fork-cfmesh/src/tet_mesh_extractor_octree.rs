@@ -53,6 +53,9 @@
 //! `renumberMesh` reads them in the cells' own order
 //! ([`crate::renumber_mesh`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::tet_creator_octree::TetCreatorOctree;
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};

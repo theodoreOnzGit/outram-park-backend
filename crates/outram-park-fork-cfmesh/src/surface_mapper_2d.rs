@@ -62,6 +62,9 @@
 //! up mesh point labels in a set of boundary-point labels (an upstream
 //! defect without effect).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::mesh_octree::{BoundBox, MeshOctree};
@@ -69,7 +72,7 @@ use crate::mesh_octree_queries::{NearestSearch, TriangleProjection};
 use crate::poly_mesh_gen_2d_engine::PolyMeshGen2DEngine;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 /// `findNearestSurfacePoint` (region `None`) or
 /// `findNearestSurfacePointInRegion`: (point, region), `None` where

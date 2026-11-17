@@ -44,6 +44,9 @@
 //! Gated behind `foam-export` so the base crate stays dependency-free and
 //! Android-buildable; `outram-foam-basic-lib` is itself BLAS-free.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::volume_mesh::VolumeMesh;
 use outram_foam_basic_lib::io::poly_mesh::{MeshFace, PolyMesh};
 use outram_foam_basic_lib::mesh::{BoundaryPatch as FoamPatch, PatchKind};

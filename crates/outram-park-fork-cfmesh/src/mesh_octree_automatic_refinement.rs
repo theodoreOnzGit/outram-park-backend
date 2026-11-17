@@ -76,12 +76,15 @@
 //! the OpenMP and MPI branches (`loadDistribution`,
 //! `exchangeRequestsWithNeighbourProcessors`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree::help::{nearest_point_on_the_edge, nearest_point_on_the_edge_exact, nearest_point_on_the_triangle};
 use crate::mesh_octree::{BoundBox, CubeCoordinates, MeshOctree, TriSurf, SMALL};
 use crate::surface::curvature::TriSurfaceCurvatureEstimator;
 use crate::surface::features::TriSurfacePartitioner;
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// How many boxes each criterion marked, summed over its passes, and the
 /// number of passes (`refineSelectedBoxes` calls).
@@ -216,7 +219,7 @@ impl MeshOctreeAutomaticRefinement {
 
     /// `refineBasedOnContainedCorners` (module docs, including the defect).
     pub fn refine_based_on_contained_corners(&mut self, o: &MeshOctree, refine_box: &mut [i32], cands: &[usize]) -> bool {
-        let surf = std::sync::Arc::clone(&o.surface);
+        let surf = alloc::sync::Arc::clone(&o.surface);
         let corners = self.partitioner(&surf).corners.clone();
         let mut corner_in_leaf: Vec<Option<usize>> = vec![None; refine_box.len()];
         let mut n_marked = 0;
@@ -255,7 +258,8 @@ impl MeshOctreeAutomaticRefinement {
             }
         }
         self.report.n_corners += n_marked;
-        if std::env::var("GH1385_TRACE").is_ok() {
+        if crate::env::var("GH1385_TRACE").is_ok() {
+            #[cfg(feature = "std")]
             eprintln!("AUTOREF corner {n_marked}");
         }
         n_marked != 0
@@ -263,7 +267,7 @@ impl MeshOctreeAutomaticRefinement {
 
     /// `refineBasedOnContainedPartitions` (module docs).
     pub fn refine_based_on_contained_partitions(&mut self, o: &MeshOctree, refine_box: &mut [i32], cands: &[usize]) -> bool {
-        let surf = std::sync::Arc::clone(&o.surface);
+        let surf = alloc::sync::Arc::clone(&o.surface);
         let max_ref_level = self.max_ref_level;
         let part = self.partitioner(&surf);
         let mut n_marked = 0;
@@ -315,7 +319,8 @@ impl MeshOctreeAutomaticRefinement {
             }
         }
         self.report.n_partitions += n_marked;
-        if std::env::var("GH1385_TRACE").is_ok() {
+        if crate::env::var("GH1385_TRACE").is_ok() {
+            #[cfg(feature = "std")]
             eprintln!("AUTOREF partition {n_marked}");
         }
         n_marked != 0
@@ -323,7 +328,7 @@ impl MeshOctreeAutomaticRefinement {
 
     /// `refineBasedOnCurvature` (module docs).
     pub fn refine_based_on_curvature(&mut self, o: &MeshOctree, refine_box: &mut [i32], cands: &[usize]) -> bool {
-        let surf = std::sync::Arc::clone(&o.surface);
+        let surf = alloc::sync::Arc::clone(&o.surface);
         let max_ref_level = self.max_ref_level;
         let curv = self.curvature(&surf);
         let mut n_marked = 0;
@@ -342,7 +347,8 @@ impl MeshOctreeAutomaticRefinement {
             }
         }
         self.report.n_curvature += n_marked;
-        if std::env::var("GH1385_TRACE").is_ok() {
+        if crate::env::var("GH1385_TRACE").is_ok() {
+            #[cfg(feature = "std")]
             eprintln!("AUTOREF curvature {n_marked}");
         }
         n_marked != 0
@@ -366,7 +372,8 @@ impl MeshOctreeAutomaticRefinement {
             }
         }
         self.report.n_proximity += n_marked;
-        if std::env::var("GH1385_TRACE").is_ok() {
+        if crate::env::var("GH1385_TRACE").is_ok() {
+            #[cfg(feature = "std")]
             eprintln!("AUTOREF proximity {n_marked}");
         }
         n_marked != 0
@@ -529,7 +536,7 @@ pub(crate) mod tests {
     use crate::mesh_octree_creator::tests::sphere3;
     use crate::mesh_octree_creator::{MeshDict, MeshOctreeCreator};
     use crate::shapes::box_surface_subdivided;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// The thin slab `[0, 1] x [0, 1] x [0, g]`: two parallel plates `g`
     /// apart, joined by narrow side walls, triangles of side 0.02, one
@@ -641,6 +648,7 @@ pub(crate) mod tests {
             a.proximity_refinement(&mut o);
             let after = data_levels(&o);
             let r = a.report();
+            #[cfg(feature = "std")]
             println!("slab g {g}, maxCellSize {max}: DATA levels before {before:?} after {after:?}; report {r:?}");
             assert_eq!(before.keys().copied().collect::<Vec<_>>(), vec![global], "ablation: plate leaves at the global level");
             let mut interior: BTreeMap<u8, usize> = BTreeMap::new();
@@ -660,6 +668,7 @@ pub(crate) mod tests {
                     assert!(nf <= 1 && ne <= 1, "leaf {l}: stopping rule ({nf}, {ne})");
                 }
             }
+            #[cfg(feature = "std")]
             println!("  interior plate leaves by level: {interior:?}; gap / h = {}", g / h_interior);
             assert_eq!(interior.keys().copied().collect::<Vec<_>>(), expect);
             assert_eq!(r.n_corners + r.n_partitions, 0);
@@ -721,6 +730,7 @@ pub(crate) mod tests {
                 assert!(oc.size(&o.root_box) <= 0.2835 / (k + SMALL), "leaf {l}: h {} κ {k}", oc.size(&o.root_box));
             }
         }
+        #[cfg(feature = "std")]
         println!("sphere R3: DATA levels before {before:?} after {after:?}; leaf κ {kmin:.4}..{kmax:.4}; report {:?}", a.report());
         assert_eq!(before.keys().copied().collect::<Vec<_>>(), vec![4]);
         assert_eq!(after.keys().copied().collect::<Vec<_>>(), vec![5]);
@@ -753,6 +763,7 @@ pub(crate) mod tests {
         let mut c = MeshOctreeCreator::new(&o, Some(on));
         c.create_octree_boxes(&mut o);
         let lv = data_levels(&o);
+        #[cfg(feature = "std")]
         println!("sphere createOctreeBoxes with minCellSize: {} leaves, DATA levels {lv:?}", o.number_of_leaves());
         assert_eq!(lv.keys().copied().collect::<Vec<_>>(), vec![5]);
         let mut o2 = MeshOctree::new(sphere3());
@@ -765,6 +776,7 @@ pub(crate) mod tests {
         let mut a = MeshOctreeAutomaticRefinement::new(&op, pd.min_cell_size, pd.max_cell_size, false, false);
         let n0 = op.number_of_leaves();
         a.automatic_refinement(&mut op);
+        #[cfg(feature = "std")]
         println!("pipe automatic refinement: leaves {n0} -> {}, DATA levels {:?}, report {:?}", op.number_of_leaves(), data_levels(&op), a.report());
         assert!(op.number_of_leaves() > n0);
     }

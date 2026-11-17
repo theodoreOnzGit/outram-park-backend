@@ -105,6 +105,9 @@
 //!   [`SurfaceQueries`] the mapper and untangler already use); the
 //!   distribution queries use the octree as upstream does.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::mesh_octree::{mag_sqr, BoundBox, MeshOctree, TriSurf, SMALL, VGREAT, VSMALL};
@@ -115,7 +118,7 @@ use crate::surface_mapper::{map_points_onto_patches, SurfaceQueries};
 use crate::surface_optimizer::{check_inverted_vertices, MeshSurfaceOptimizer};
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 use petir::mathf::RealMath;
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 /// A patch upstream leaves unset (see the module docs).
 pub const NO_PATCH: usize = usize::MAX;
@@ -243,7 +246,7 @@ pub fn foam_map_order(requested: usize, keys: &[usize]) -> Vec<usize> {
         buckets[k & (cap - 1)].insert(0, k);
         size += 1;
         if size as f64 / cap as f64 > 0.8 {
-            let old = std::mem::take(&mut buckets);
+            let old = core::mem::take(&mut buckets);
             cap *= 2;
             buckets = vec![Vec::new(); cap];
             for b in old {
@@ -291,7 +294,7 @@ impl EdgeExtractor {
             return Err("edgeExtractor: the regions do not label the octree's surface".into());
         }
         let engine = SurfaceEngine::new(&mesh);
-        let queries = SurfaceQueries::new(&surf.points, &surf.triangles, regions).with_octree(std::sync::Arc::new(octree.clone()));
+        let queries = SurfaceQueries::new(&surf.points, &surf.triangles, regions).with_octree(alloc::sync::Arc::new(octree.clone()));
         let mut ex = EdgeExtractor {
             engine,
             queries,
@@ -1068,7 +1071,7 @@ pub fn assignment_differential(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usiz
 /// `|Σ S_z|`, and the rim: the patch's edges used by one of its faces only.
 pub fn patch_area_and_rim(m: &VolumeMesh, face_region: &[Option<usize>], region: usize) -> (f64, Vec<[usize; 2]>) {
     let mut a_z = 0.0;
-    let mut count: std::collections::BTreeMap<(usize, usize), usize> = Default::default();
+    let mut count: alloc::collections::BTreeMap<(usize, usize), usize> = Default::default();
     for f in 0..m.face_count() {
         if face_region[f] != Some(region) {
             continue;
@@ -1155,6 +1158,7 @@ pub(crate) mod tests {
                 }
             }
         }
+        #[cfg(feature = "std")]
         println!("box: {} boundary faces; misassigned extractor {wrong_ex}, nearest triangle {wrong_nt}; report {:?}", ex.engine.n_boundary_faces(), ex.report);
         assert_eq!(wrong_ex, 0);
         assert_eq!(wrong_nt, 0);
@@ -1222,6 +1226,7 @@ pub(crate) mod tests {
         ex.face_patch[island] = bottom;
         ex.face_patch[rim] = sides;
         assert!(ex.check_face_patches_topology());
+        #[cfg(feature = "std")]
         println!("planted: report {:?}", ex.report);
         assert_eq!(ex.face_patch[rim], top);
         assert_eq!(ex.face_patch[island], bottom);
@@ -1284,16 +1289,16 @@ pub(crate) mod tests {
     #[test]
     #[ignore]
     fn diagnose_foam_studio_pipe_differential() {
-        let hs: Vec<f64> = std::env::var("CFMESH_HS").ok().map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+        let hs: Vec<f64> = crate::env::var("CFMESH_HS").ok().map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         let (r_pipe, l) = (0.01, 0.2);
-        let section = std::f64::consts::PI * r_pipe * r_pipe;
+        let section = core::f64::consts::PI * r_pipe * r_pipe;
         for h in hs {
-            let t0 = std::time::Instant::now();
+            let t0 = crate::time::Instant::now();
             let (p, t, r, pre, oct) = foam_studio_premapped(h);
             let d = assignment_differential(&pre, &p, &t, &r, &oct).unwrap();
             let inlet = r.names.iter().position(|n| n == "inlet").unwrap();
             let mut far = 0;
-            let mut by_kind: std::collections::BTreeMap<(String, String), usize> = Default::default();
+            let mut by_kind: alloc::collections::BTreeMap<(String, String), usize> = Default::default();
             for &(f, a, b) in &d.changed {
                 let z = pre.face_centroid(f).z;
                 if z.min(l - z) > h {
@@ -1309,6 +1314,7 @@ pub(crate) mod tests {
                 let rmin = rad.iter().cloned().fold(f64::MAX, f64::min);
                 let n_in = reg.iter().filter(|x| **x == Some(inlet)).count();
                 let q = crate::checks::check_quality(m);
+                #[cfg(feature = "std")]
                 println!(
                     "h {:.0} mm {name}: inlet {n_in} faces, |sum Sz|/piR2 {:.5} (48-gon 0.99715); rim {} edges {} points, r mean {:.4} min {:.4} mm; valid {}, negative cells {}, max non-orth {:.1}",
                     h * 1e3,
@@ -1322,6 +1328,7 @@ pub(crate) mod tests {
                     q.max_non_orthogonality_deg
                 );
             }
+            #[cfg(feature = "std")]
             println!(
                 "h {:.0} mm: {} boundary faces change patch ({far} more than h from an end): {by_kind:?}; report {:?}; {:.1} s",
                 h * 1e3,
@@ -1357,12 +1364,12 @@ pub(crate) mod tests {
     fn diagnose_edge_extractor_in_tet_and_p_mesh() {
         use crate::pipeline::tet_mesh::{tet_mesh, PatchAssignment, TetMeshOptions};
         let (p, t, r) = crate::pipeline::tet_mesh::tests::pipe_surface(0.01, 0.06, 48);
-        let exact = 0.5 * 48.0 * 0.01f64.powi(2) * (2.0 * std::f64::consts::PI / 48.0).sin() * 0.06;
-        let section = std::f64::consts::PI * 1e-4;
+        let exact = 0.5 * 48.0 * 0.01f64.powi(2) * (2.0 * core::f64::consts::PI / 48.0).sin() * 0.06;
+        let section = core::f64::consts::PI * 1e-4;
         for kind in ["tet_mesh", "p_mesh"] {
             for pa in [PatchAssignment::EdgeExtractor, PatchAssignment::NearestTriangle] {
                 let opts = TetMeshOptions { dict: MeshDict::with_max_cell_size(0.002), patch_assignment: pa, ..Default::default() };
-                let t0 = std::time::Instant::now();
+                let t0 = crate::time::Instant::now();
                 let (m, rep) = if kind == "tet_mesh" { tet_mesh(&p, &t, Some(&r), &opts).unwrap() } else { crate::pipeline::p_mesh::p_mesh(&p, &t, Some(&r), &opts).unwrap() };
                 let dt = t0.elapsed().as_secs_f64();
                 let q = crate::checks::check_quality(&m);
@@ -1370,6 +1377,7 @@ pub(crate) mod tests {
                 let reg = regions_of(&m, &r.names);
                 let inlet = r.names.iter().position(|n| n == "inlet").unwrap();
                 let (az, rim) = patch_area_and_rim(&m, &reg, inlet);
+                #[cfg(feature = "std")]
                 println!(
                     "{kind} {pa:?}: cells {} volume error {:+.3} % non-positive {} valid {} max non-orth {:.2} skew {:.3}; patches {:?}; inlet |sum Sz|/piR2 {:.5}, rim {} edges; {dt:.1} s",
                     m.n_cells,
@@ -1383,6 +1391,7 @@ pub(crate) mod tests {
                     rim.len()
                 );
                 for n in &rep.notes {
+                    #[cfg(feature = "std")]
                     println!("    {n}");
                 }
             }
@@ -1404,6 +1413,7 @@ pub(crate) mod tests {
             let (vols, _) = crate::checks::cell_geometry(&m);
             assert!(vols.iter().all(|&v| v > 0.0));
             let er = rep.edge_extractor.as_ref().expect("edgeExtractor ran");
+            #[cfg(feature = "std")]
             println!("p_mesh {p_kind}: {:?}; {:?}", m.patches.iter().map(|x| (x.name.clone(), x.n_faces)).collect::<Vec<_>>(), er);
             assert_eq!(er.n_unset_neighbour_patch_reads, 0);
             assert_eq!(er.n_failed_region_searches, 0);

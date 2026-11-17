@@ -32,7 +32,10 @@
 //! Numerics: plain IEEE `+ - * /` and `sqrt` only, in upstream's grouping, no
 //! `mul_add`; no transcendental is involved, so there is no PETIR residual here.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use outram_foam_basic_lib::primitives::Vector3;
 

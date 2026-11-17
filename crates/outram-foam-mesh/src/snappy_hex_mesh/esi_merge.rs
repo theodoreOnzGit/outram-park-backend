@@ -35,7 +35,10 @@
 //! Numerics: plain IEEE arithmetic in upstream's grouping; the only transcendental is
 //! `cos(degToRad(angle))` at the call site, through `petir::mathf::RealMath`.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::check_mesh::{esi_check_mesh, esi_face_area_normal, esi_geometry, EsiCheckResult, EsiGeometry, EsiQualityControls};
 use crate::snappy_hex_mesh::esi_snap::{self, mesh_edges, SnapMesh, V};
@@ -126,7 +129,7 @@ impl<T> FoamHashMap<T> {
         if new_capacity == self.capacity {
             return;
         }
-        let old = std::mem::take(&mut self.table);
+        let old = core::mem::take(&mut self.table);
         self.capacity = new_capacity;
         self.table.resize_with(new_capacity, Vec::new);
         for chain in old {

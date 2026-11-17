@@ -97,6 +97,9 @@
 //! mesh immediately after this stage and compare against the carve that fed it)
 //! — which does not exist yet. Do not cite the slivers as a proven cause.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::volume_mesh::{from_cell_faces, VolumeMesh};
 

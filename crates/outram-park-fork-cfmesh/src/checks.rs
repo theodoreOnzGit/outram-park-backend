@@ -60,6 +60,9 @@
 //! volumes and centroids from the faces — so the metrics match what the solver
 //! itself would compute. Pure Rust, no dependencies.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::volume_mesh::VolumeMesh;
 use outram_foam_basic_lib::primitives::Vector3;

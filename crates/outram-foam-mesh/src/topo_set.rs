@@ -45,7 +45,10 @@
 //! Not ported yet (deferred, gh:#1384): the other cell sources, every face and
 //! point source, `topoSet`'s zone conversion.
 
-use std::collections::BTreeSet;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeSet;
 
 use outram_foam_basic_lib::io::dict::{FoamDict, FoamEntry, FoamValue};
 use outram_foam_basic_lib::primitives::Vector3;
@@ -401,7 +404,7 @@ impl LabelHashSet {
         if new_cap == 0 {
             return;
         }
-        let old = std::mem::replace(&mut self.buckets, vec![Vec::new(); new_cap]);
+        let old = core::mem::replace(&mut self.buckets, vec![Vec::new(); new_cap]);
         self.cap = new_cap;
         for chain in &old {
             for &key in chain {
@@ -485,9 +488,9 @@ impl LabelHashSet {
     /// (capacity 0), `clear()`, `reserve(max(64, maxLen - original.size()))`,
     /// then insert every id in `0..maxLen` that the original lacked.
     pub fn invert(&mut self, max_len: usize) {
-        let original = std::mem::take(self);
+        let original = core::mem::take(self);
         self.clear();
-        self.reserve(std::cmp::max(64, max_len.saturating_sub(original.len())));
+        self.reserve(core::cmp::max(64, max_len.saturating_sub(original.len())));
         for id in 0..max_len {
             if !original.contains(id) {
                 self.insert(id);

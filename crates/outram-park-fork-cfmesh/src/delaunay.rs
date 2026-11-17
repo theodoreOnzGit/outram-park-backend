@@ -89,9 +89,13 @@
 //! the global Delaunay triangulation (that needs point insertion too, per
 //! `op-38z`). Pure Rust, Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::volume_mesh::{cells_faces, from_cell_faces, VolumeMesh};
-use std::collections::{BTreeMap, HashMap};
+use alloc::collections::{BTreeMap};
+use crate::hash::{HashMap};
 
 /// Signed volume × 6 of the tetrahedron `(a, b, c, d)`: `(b−a)·((c−a)×(d−a))`.
 /// Strictly positive iff the tet is **positively oriented** (`d` on the

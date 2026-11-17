@@ -23,6 +23,8 @@
 //! (3D graded hex, aspect ratio 11.7) and `dual_warped3d` (polyhedral
 //! `polyDualMesh`, 45 concave cells in ESI's report).
 
+// Reads or writes case files: `std` only (gh:#1638).
+#![cfg(feature = "std")]
 use outram_foam_basic_lib::mesh::PatchKind;
 use outram_foam_mesh::check_mesh::{esi_check_summary, esi_geometric_d, esi_geometry, esi_quality_fields};
 use outram_foam_mesh::snappy_hex_mesh::esi_snap::SnapMesh;

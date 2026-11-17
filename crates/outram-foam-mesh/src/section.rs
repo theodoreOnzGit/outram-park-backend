@@ -8,6 +8,9 @@
 //! polyhedron it is the hull of the true section. A vertex lying on the plane
 //! counts as above it, so a plane through a layer of faces gives one polygon
 //! per cell below it rather than two.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::block_mesh::PolyMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 use uom::si::f64::Length;
@@ -122,7 +125,7 @@ fn convex_hull(mut p: Vec<[f64; 2]>) -> Vec<[f64; 2]> {
 /// index of the patch it was first met on: the wireframe of what the solver
 /// meshes.
 pub fn boundary_edges(mesh: &PolyMesh) -> Vec<([f64; 3], [f64; 3], usize)> {
-    let mut seen = std::collections::BTreeSet::new();
+    let mut seen = alloc::collections::BTreeSet::new();
     let mut out = Vec::new();
     for (pi, patch) in mesh.patches.iter().enumerate() {
         for f in &mesh.faces[patch.start..patch.start + patch.size] {

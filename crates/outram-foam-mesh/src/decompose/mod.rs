@@ -9,12 +9,16 @@
 //!
 //! Research, education and V&V only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod domain;
 pub mod geom;
 pub mod std_sort;
 
 pub use domain::{
-    decompose_mesh, decompose_par, esi_cell_centres, write_processor_cases, DecomposeError, Decomposition,
-    ProcessorAddressing,
+    decompose_mesh, decompose_par, esi_cell_centres, DecomposeError, Decomposition, ProcessorAddressing,
 };
+#[cfg(feature = "std")]
+pub use domain::write_processor_cases;
 pub use geom::{GeomDecomp, GeomMethod};

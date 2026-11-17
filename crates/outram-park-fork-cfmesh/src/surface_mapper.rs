@@ -70,12 +70,15 @@
 //! inlet patch spanned 0.9396 πR² and the section 0.9796 πR²: the case ran
 //! at 6 % less flow than it set (laminar_pipe_gh1155.md, gh:#1202).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::patches::{nearest_triangle, SurfaceRegions};
 use crate::snap::closest_point_on_triangle;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
 use crate::volume_mesh::VolumeMesh;
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// Map the boundary of `mesh` onto the surface `(points, tris)` patch by
 /// patch, sharpening the feature edges between `regions` (see the module
@@ -163,17 +166,17 @@ pub struct SurfaceQueries {
     /// gh:#1385: with an octree, `nearest` and `nearest_in_region` are
     /// `meshOctree::findNearestSurfacePoint[InRegion]` (upstream's search and
     /// `nearestPointOnTheTriangle`), not the brute-force stand-ins.
-    octree: Option<std::sync::Arc<crate::mesh_octree::MeshOctree>>,
+    octree: Option<alloc::sync::Arc<crate::mesh_octree::MeshOctree>>,
 }
 
 impl SurfaceQueries {
     /// The octree these queries go through, if any (gh:#1385).
-    pub(crate) fn octree(&self) -> Option<&std::sync::Arc<crate::mesh_octree::MeshOctree>> {
+    pub(crate) fn octree(&self) -> Option<&alloc::sync::Arc<crate::mesh_octree::MeshOctree>> {
         self.octree.as_ref()
     }
 
     /// These queries answered by upstream's octree search (see the field).
-    pub fn with_octree(mut self, o: std::sync::Arc<crate::mesh_octree::MeshOctree>) -> Self {
+    pub fn with_octree(mut self, o: alloc::sync::Arc<crate::mesh_octree::MeshOctree>) -> Self {
         self.octree = Some(o);
         self
     }
@@ -328,7 +331,7 @@ fn map_impl(
     let part = SurfacePartitioner::with_face_patches(&engine, face_region);
     let mut q = SurfaceQueries::new(points, tris, regions);
     if let Some(o) = octree {
-        q = q.with_octree(std::sync::Arc::new(o.clone()));
+        q = q.with_octree(alloc::sync::Arc::new(o.clone()));
     }
     let mut new_points = mesh.points.clone();
     // gh:#1283's `only` (mesh point labels) as the boundary-point selection

@@ -53,7 +53,10 @@
 //! (see [`crate::snappy_hex_mesh::snapping`] and
 //! [`crate::snappy_hex_mesh::layers`]).
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
@@ -381,7 +384,7 @@ pub fn castellate(
 
     // ESI chain: removal, dangling-cell refinement (may add a level), split.
     let mut esi_kept: Option<Vec<bool>> = None;
-    let mut boundary_regions = std::collections::HashMap::new();
+    let mut boundary_regions = crate::hash::HashMap::new();
     if let Some(r) = &controls.surface_regions {
         if controls.removal != CellRemoval::EsiSplitMesh {
             return Err(MeshError::Construction(
@@ -402,7 +405,7 @@ pub fn castellate(
         }
         let size0 = [span.x / bg.nx as f64, span.y / bg.ny as f64, span.z / bg.nz as f64];
         let stages = crate::snappy_hex_mesh::esi_split::esi_stages(
-            std::mem::take(&mut leaves),
+            core::mem::take(&mut leaves),
             [bg.nx, bg.ny, bg.nz],
             origin,
             size0,
@@ -994,8 +997,8 @@ impl MeshAssembler {
                     let (ka0, ka1) = (comp(cf[a], t0), comp(cf[a], t1));
                     let (kb0, kb1) = (comp(cf[b], t0), comp(cf[b], t1));
                     ka0.partial_cmp(&kb0)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then(ka1.partial_cmp(&kb1).unwrap_or(std::cmp::Ordering::Equal))
+                        .unwrap_or(core::cmp::Ordering::Equal)
+                        .then(ka1.partial_cmp(&kb1).unwrap_or(core::cmp::Ordering::Equal))
                 });
                 let permute_owner: Vec<usize> =
                     order.iter().map(|&i| self.bnd_owner[bucket][i]).collect();

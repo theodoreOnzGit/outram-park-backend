@@ -95,6 +95,9 @@
 //! doc comments in this module for the measured values; every case agrees with
 //! its closed form to `< 1e-12`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::io::PolyMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
@@ -140,8 +143,8 @@ pub enum QualityVerdict {
     Unusable,
 }
 
-impl std::fmt::Display for QualityVerdict {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for QualityVerdict {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let s = match self {
             Self::Good => "GOOD",
             Self::Marginal => "MARGINAL",

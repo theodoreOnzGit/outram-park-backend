@@ -17,6 +17,8 @@
 //! `behind`, `nBehind`, position, the returned fraction) is bit-identical.
 //! Set `PARTICLE_PROBE_OUT` to a directory to write our replay next to it for diffing.
 
+// Reads or writes case files: `std` only (gh:#1638).
+#![cfg(feature = "std")]
 use outram_foam_mesh::particle_tracking::{Particle, TrackingMesh};
 use outram_foam_mesh::snappy_hex_mesh::esi_snap::SnapMesh;
 

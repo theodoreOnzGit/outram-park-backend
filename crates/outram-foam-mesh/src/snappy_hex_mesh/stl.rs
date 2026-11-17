@@ -39,6 +39,9 @@
 //! metres to match the rest of the mesh layer; STL itself is unit-less, so the
 //! caller is responsible for supplying a metre-scaled file.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::MeshError;
 use outram_foam_basic_lib::primitives::Vector3;
@@ -232,8 +235,8 @@ impl TriangleSoup {
         assert!(n_lat >= 3 && n_lon >= 3, "need at least 3×3 tessellation");
         assert!(r > 0.0, "sphere radius must be positive");
         let point = |ia: f64, io: f64| -> Vector3 {
-            let theta = std::f64::consts::PI * ia; // 0..π  (polar angle)
-            let phi = 2.0 * std::f64::consts::PI * io; // 0..2π (azimuth)
+            let theta = core::f64::consts::PI * ia; // 0..π  (polar angle)
+            let phi = 2.0 * core::f64::consts::PI * io; // 0..2π (azimuth)
             Vector3::new(
                 centre.x + r * theta.r_sin() * phi.r_cos(),
                 centre.y + r * theta.r_sin() * phi.r_sin(),
@@ -492,6 +495,7 @@ impl TriangleSoup {
 
 // ── Readers ─────────────────────────────────────────────────────────────────
 
+#[cfg(feature = "std")]
 /// Read an STL file from `path`, auto-detecting ASCII vs binary.
 ///
 /// Detection: a file whose leading non-whitespace token is `solid` *and* whose
@@ -788,6 +792,7 @@ pub fn read_stl_zoned_bytes(bytes: &[u8]) -> Result<StlZoned, MeshError> {
     Ok(StlZoned { points, triangles, zones: raw.zones, names: raw.names, n_zones: raw.n_zones, binary })
 }
 
+#[cfg(feature = "std")]
 /// Read an STL file with [`read_stl_zoned_bytes`].
 ///
 /// # Errors
@@ -816,7 +821,7 @@ fn read_binary_zoned(bytes: &[u8]) -> Result<RawStl, MeshError> {
     let rf = |off: usize| f32::from_le_bytes([bytes[off], bytes[off + 1], bytes[off + 2], bytes[off + 3]]) as f64;
     let mut points = Vec::with_capacity(3 * count);
     let mut zones = Vec::with_capacity(count);
-    let mut lookup: std::collections::BTreeMap<u16, usize> = std::collections::BTreeMap::new();
+    let mut lookup: alloc::collections::BTreeMap<u16, usize> = alloc::collections::BTreeMap::new();
     for i in 0..count {
         let base = 84 + 50 * i + 12;
         for v in 0..3 {

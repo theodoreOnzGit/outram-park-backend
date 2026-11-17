@@ -20,6 +20,8 @@
 //! sort breaks 2 of the 3 `delta 0` simple variants (96 files), so the tie order is load-bearing
 //! and the comparison can fail.
 
+// Reads or writes case files: `std` only (gh:#1638).
+#![cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 
 use outram_foam_basic_lib::io::{EsiWriteOptions, PolyMesh};

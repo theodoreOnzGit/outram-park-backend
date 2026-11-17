@@ -82,7 +82,12 @@
 //! - [`convert_scaled`] — parse a UNV string with an explicit metre-per-unit scale.
 //! - [`convert_file`] — read and parse a `.unv` file from disk.
 
-use std::collections::{BTreeMap, HashMap};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
+use crate::hash::HashMap;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
@@ -798,6 +803,7 @@ pub fn convert_scaled(unv_text: &str, scale: f64) -> Result<UnvPolyMesh, MeshErr
     parse_and_assemble(unv_text, scale)
 }
 
+#[cfg(feature = "std")]
 /// Read a `.unv` file from disk and convert it into a `polyMesh` (scale `1.0`).
 pub fn convert_file(path: impl AsRef<Path>) -> Result<UnvPolyMesh, MeshError> {
     let path = path.as_ref();

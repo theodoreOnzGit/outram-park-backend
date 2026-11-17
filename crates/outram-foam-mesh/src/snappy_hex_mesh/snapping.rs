@@ -141,8 +141,11 @@
 //! parents (`HangingConstraint`); without that constraint an unconstrained move
 //! of the same points opens gaps of ~9e-4 m² per cell.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use outram_foam_basic_lib::mesh::PatchKind;
 use super::cyclic::{CyclicPointConstraints, DEFAULT_CYCLIC_TOL};
@@ -539,7 +542,7 @@ fn frozen_patch_points(
     // left the geometry un-snapped (staircased) exactly where it crosses a
     // periodic plane. A point that *also* lies on some other boundary patch is
     // still frozen by that patch's faces below.
-    let cyclic_ranges: Vec<std::ops::Range<usize>> = mesh
+    let cyclic_ranges: Vec<core::ops::Range<usize>> = mesh
         .topology
         .patches
         .iter()
@@ -630,7 +633,7 @@ fn detect_hanging_nodes(topo: &crate::snappy_hex_mesh::PolyPatchMesh) -> Vec<Han
     for (i, &p) in topo.points.iter().enumerate() {
         coord_map.insert(key(p), i);
     }
-    let mut seen: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    let mut seen: crate::hash::HashSet<usize> = crate::hash::HashSet::new();
     let mut cons = Vec::new();
     for face in &topo.faces {
         let k = face.len();
@@ -991,8 +994,8 @@ mod tests {
     fn sphere_soup(c: Vector3, r: f64, n_lat: usize, n_lon: usize) -> TriangleSoup {
         let mut tris = Vec::new();
         let point = |ia: f64, io: f64| -> Vector3 {
-            let theta = std::f64::consts::PI * ia;
-            let phi = 2.0 * std::f64::consts::PI * io;
+            let theta = core::f64::consts::PI * ia;
+            let phi = 2.0 * core::f64::consts::PI * io;
             Vector3::new(
                 c.x + r * theta.r_sin() * phi.r_cos(),
                 c.y + r * theta.r_sin() * phi.r_sin(),

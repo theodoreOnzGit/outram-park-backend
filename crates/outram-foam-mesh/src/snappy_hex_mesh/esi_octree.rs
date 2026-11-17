@@ -9,6 +9,9 @@
 //! [`outram_foam_basic_lib::esi_octree`] (moved there for gh:#1564 so `viewFactorsGen` can use
 //! `findLine`; everything is re-exported here unchanged).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::snappy_hex_mesh::stl::Triangle;
 pub use outram_foam_basic_lib::esi_octree::{
     cross, dot, sub, EsiRandom, NearestShapes, Octree, OctreeShapes, TreeBox, V,

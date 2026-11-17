@@ -42,9 +42,12 @@
 //! Surface clean-up and part tools (gh:#1277, `docs/upstream_coverage.md`
 //! §4 item 23).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::rebuild;
 use crate::mesh_octree::{help, mag_sqr, BoundBox, MeshOctree, SurfacePatch, TriSurf, VGREAT, VSMALL};
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 /// `labelledTri::operator==` as the duplicate tests use it: the same three
 /// points in the same or the reversed cyclic order (`triFace::compare`
@@ -497,7 +500,7 @@ pub fn import_surface_as_subset(surf: &mut TriSurf, import: &TriSurf, subset_nam
 }
 
 /// Upstream's default `angleTol` of `addSurfaceAsSubset`, `5π/180`.
-pub const IMPORT_SUBSET_ANGLE_TOL: f64 = 5.0 * std::f64::consts::PI / 180.0;
+pub const IMPORT_SUBSET_ANGLE_TOL: f64 = 5.0 * core::f64::consts::PI / 180.0;
 
 /// `getPatchIds`: the ids of the patches named in `names`, in patch order.
 /// The second value is `false` where upstream warns that not every name
@@ -535,7 +538,7 @@ pub fn merge_surface_patches(surf: &TriSurf, patch_ids: &[usize], new_name: &str
         addr[r].push(f);
     }
     for &p in patch_ids {
-        let moved = std::mem::take(&mut addr[p]);
+        let moved = core::mem::take(&mut addr[p]);
         addr[np].extend(moved);
     }
     let mut tris = Vec::with_capacity(surf.size());
