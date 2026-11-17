@@ -43,6 +43,9 @@
 //!
 //! Everything inside is in ORNL's units (MW, °F, s); the public API is `uom`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::depletion::cram::solve_complex;
 use petir::depletion::Complex64;
 use petir::mathf::RealMath;
@@ -408,6 +411,7 @@ mod tests {
         m.alpha_graphite = 0.0;
         let beta: f64 = BETA.iter().sum();
         let rho0 = m.circulation_loss();
+        #[cfg(feature = "std")]
         println!("rho0 = {:.5} % dk/k (beta {beta:.5}; measured 0.212 %)", 100.0 * rho0);
         assert!(rho0 > 0.0 && rho0 < beta);
         for w in [1e-3, 1e-2, 0.1, 1.0, 10.0] {
@@ -464,9 +468,11 @@ mod tests {
     /// `verification_and_validation/msre_t1_frequency_response/README.md`.
     #[test]
     fn ornl_coefficients_against_the_measured_periods() {
+        #[cfg(feature = "std")]
         println!("   P [MW]  measured [min]  model, ORNL coefficients [min]  ratio");
         for (p, t_meas) in MEASURED_PERIODS_TM1647 {
             let t = ornl(p).natural_period(600).expect("resonance").get::<second>() / 60.0;
+            #[cfg(feature = "std")]
             println!("  {p:7.3}  {t_meas:14.2}  {t:30.2}  {:5.3}", t / t_meas);
             assert!(t / t_meas < 1.5 && t_meas / t < 1.5, "{p} MW: {t} vs {t_meas}");
         }
@@ -480,6 +486,7 @@ mod tests {
             .iter()
             .map(|&p| ornl(p).natural_period(400).expect("a resonance").get::<second>() / 60.0)
             .collect();
+        #[cfg(feature = "std")]
         println!("ORNL-1965 coefficients: natural periods {periods:?} min at 0.075, 1, 7.5 MW");
         assert!(periods[0] > periods[1] && periods[1] > periods[2]);
     }

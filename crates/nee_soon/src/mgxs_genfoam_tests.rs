@@ -6,6 +6,9 @@
 //! on-disk `htr10_mgxs` records (~1.2 MB JSON each). The mesh and the
 //! diffusion comparison are `examples/htr10_mgxs_genfoam_rz.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 
 fn regions() -> Htr10MgxsRegions {
@@ -17,6 +20,7 @@ fn regions() -> Htr10MgxsRegions {
     ])
 }
 
+#[cfg(feature = "std")]
 /// The four records load, ascending in temperature, on one bed, with the
 /// `k` the index lists.
 #[test]
@@ -31,6 +35,7 @@ fn the_four_records_are_the_state_points() {
     assert_eq!(layers_of("full HTR-10 core, Şeker 13-ball bed N = 12 (123.576 cm)"), Some(12));
 }
 
+#[cfg(feature = "std")]
 /// **Every default ON, pinned**: rebalanced, descending, SI. Each ablation
 /// changes exactly what it names, against the default input.
 #[test]
@@ -70,6 +75,7 @@ fn the_defaults_are_on_and_each_ablation_changes_its_own_thing() {
     assert_eq!(w.states[0].zones[0].nu_sigma_eff, bed.nu_sigma_eff);
 }
 
+#[cfg(feature = "std")]
 /// The stack has one variable, `TFuel` with the log law, the coldest point
 /// as `reference`, every state carrying its temperature; it builds
 /// GeN-Foam's `CrossSectionData`.
@@ -89,6 +95,7 @@ fn the_state_points_stack_into_one_parametrised_input() {
     assert_eq!(xs.energy_groups(), 4);
 }
 
+#[cfg(feature = "std")]
 /// Volume mixing a zone with itself is the zone; mixing with a zero-cross-
 /// section zone dilutes every cross section by the fraction.
 #[test]

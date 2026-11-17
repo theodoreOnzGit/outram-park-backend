@@ -616,7 +616,7 @@ tokio = { version = "1.53", features = [
 chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.2.5", default-features = false }
 outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.2" }
 outram-park-fork-moltres = { path = "crates/outram-park-fork-moltres", version = "0.0.2" }
-teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.8" }
+teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.8", default-features = false }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.9", default-features = false }
 # `default-features = false` since gh:#1605 (same reason as njoy above);
 # members that need `std` ask for it.
@@ -666,14 +666,14 @@ boon-lay            = { path = "crates/boon-lay",            version = "0.2.2", 
 njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.7", default-features = false }
 # Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
-nee_soon            = { path = "crates/nee_soon",            version = "0.0.5" }
+nee_soon            = { path = "crates/nee_soon",            version = "0.0.5", default-features = false }
 # `default-features = false` since gh:#1601 (no_std TUAS); members that need
 # its `std` ask for `features = ["std"]`.
 outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.4", default-features = false }
 # Central thermal-hydraulic framework — composes tuas_boussinesq_solver,
 # outram-park-fork-coolprop, tampines-steam-tables, outram-foam-basic-lib and
 # chem-eng-real-time-process-control-simulator (scaffold).
-tampines            = { path = "crates/tampines",            version = "0.0.4" }
+tampines            = { path = "crates/tampines",            version = "0.0.4", default-features = false }
 # Reusable visualization framework — visual process objects whose rendering
 # derives directly from tampines/nee_soon physics state (scaffold).
 outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.0.4" }

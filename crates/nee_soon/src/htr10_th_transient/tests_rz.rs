@@ -8,6 +8,9 @@
 // The plot helpers and some imports serve only the `long-tests` runs.
 #![cfg_attr(not(feature = "long-tests"), allow(unused_imports, dead_code))]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_blender::csg::plot::annotate::draw_text;
 use outram_blender::csg::plot::colour::{Rgb, BLACK, WHITE};
@@ -54,6 +57,7 @@ fn part_b_data_copies_and_parsers() {
         assert!(positions.iter().any(|p| p.location == t.label), "{} has a position", t.label);
     }
     let tr1 = traces.iter().find(|t| t.label == "TR1_TR4").unwrap();
+    #[cfg(feature = "std")]
     println!("TR1_TR4: {:.1} C at t0, {:.1} C at 3 h", tr1.value_at(0.0), tr1.value_at(10_800.0));
     assert!(tr1.value_at(10_800.0) > tr1.value_at(0.0) + 150.0);
 }
@@ -72,6 +76,7 @@ fn neutron_source_is_default_and_sets_the_subcritical_floor() {
     assert_eq!(base.neutron_source, NeutronSource::htr10_am_be_startup());
     assert_eq!(base.without_neutron_source().neutron_source, NeutronSource::None);
     let NeutronSource::Constant { neutrons_per_second, .. } = NeutronSource::htr10_intrinsic() else { panic!() };
+    #[cfg(feature = "std")]
     println!("intrinsic U-238 SF source: {neutrons_per_second:.1} n/s");
     assert!((neutrons_per_second - 775.0).abs() < 10.0);
     let refs = FeedbackTemperatures { fuel: k(900.0), moderator: k(850.0), reflector: k(500.0) };
@@ -95,6 +100,7 @@ fn neutron_source_is_default_and_sets_the_subcritical_floor() {
     let kin0 = Htr10Kinetics::new(no_xe, Power::new::<watt>(3.315e6), refs).unwrap();
     let rho = 500.0e-5;
     let expected = kin0.fission_power().get::<watt>() * 4.4e7 / (2.43 * rho) / kin0.fission_rate().get::<uom::si::frequency::hertz>();
+    #[cfg(feature = "std")]
     println!(
         "after 1 h at -500 pcm: with source {:.6e} W (expected {expected:.6e} W), without {:.3e} W",
         out[0], out[1]
@@ -118,6 +124,7 @@ fn rz_coupled_initial_state_and_coastdown() {
     case.loop_config.trip_time = None;
     let mut sim = CoupledTransient::new(&case).unwrap();
     let r0 = sim.initial_response();
+    #[cfg(feature = "std")]
     println!(
         "R-Z initial (Fig 2.5 mesh): outlet {:.2} C, RCCS {:.1} kW, fuel {:.1} C, moderator {:.1} C, reflector {:.1} C, head {:.1} Pa",
         r0.outlet_temperature.get::<kelvin>() - 273.15,
@@ -132,6 +139,7 @@ fn rz_coupled_initial_state_and_coastdown() {
         last = Some(sim.step(s(0.1)).unwrap());
     }
     let l = last.unwrap();
+    #[cfg(feature = "std")]
     println!("after 30 s: flow {:.6} kg/s, total {:.3} W", l.mass_flow_kg_s, l.total_power_w);
     assert!((l.mass_flow_kg_s / 1.457 - 1.0).abs() < 1e-4);
     assert!((l.total_power_w / 3.315e6 - 1.0).abs() < 1e-3);
@@ -141,6 +149,7 @@ fn rz_coupled_initial_state_and_coastdown() {
     for i in 1..=150 {
         let x = sim.step(s(0.1)).unwrap();
         if i % 20 == 0 {
+            #[cfg(feature = "std")]
             println!("t {:5.1} s speed {:.4} W/W0 {:.4}", x.time_s, x.speed, x.mass_flow_kg_s / 1.457);
         }
         if x.time_s <= 11.95 {
@@ -169,6 +178,7 @@ fn line(img: &mut ImageData, (x0, y0): (f64, f64), (x1, y1): (f64, f64), c: Rgb)
     }
 }
 
+#[cfg(feature = "std")]
 /// A line plot as a PNG: linear x; linear or log10 y.
 fn plot(path: &str, title: &str, xr: (f64, f64), yr: (f64, f64), log_y: bool, xlabel: &str, series: &[Series]) {
     let (w, h, l, b, t) = (900usize, 420usize, 80usize, 40usize, 10usize);
@@ -273,6 +283,7 @@ fn write_trace_csv(path: &str, trace: &[TransientSample]) {
 fn summarise_lofc(name: &str, trace: &[TransientSample]) -> LofcMetrics {
     let m = lofc_metrics(trace);
     let up = trace.iter().filter(|x| x.time_s >= 1000.0).map(|x| x.bed_upflow_kg_s).fold(0.0, f64::max);
+    #[cfg(feature = "std")]
     println!(
         "| {name} | {} | {:.0} pcm @ {:.0} s | {} | {} | {} | {:.0} kW | {:.3} kg/s |",
         m.time_to_one_percent_s.map_or("-".into(), |t| format!("{t:.0} s")),
@@ -295,12 +306,14 @@ fn summarise_lofc(name: &str, trace: &[TransientSample]) -> LofcMetrics {
 #[cfg(feature = "long-tests")]
 #[test]
 fn rz_lofc_base_against_the_measured_traces() {
-    let started = std::time::Instant::now();
+    let started = crate::time::Instant::now();
     let case = LofcCase::rz_base().unwrap();
     let probes = c09_thermocouple_positions();
     let (sim, trace, rows) = run_case(&case, &probes, 180.0).unwrap();
+    #[cfg(feature = "std")]
     println!("RZ-BASE wall time {:.0} s", started.elapsed().as_secs_f64());
     let r0 = sim.initial_response();
+    #[cfg(feature = "std")]
     println!(
         "initial: outlet {:.2} C, RCCS {:.1} kW, fuel {:.1} C, moderator {:.1} C, reflector {:.1} C",
         r0.outlet_temperature.get::<kelvin>() - 273.15,
@@ -309,15 +322,18 @@ fn rz_lofc_base_against_the_measured_traces() {
         r0.feedback.moderator.get::<kelvin>() - 273.15,
         r0.feedback.reflector.get::<kelvin>() - 273.15
     );
+    #[cfg(feature = "std")]
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
     let m = summarise_lofc(&case.name, &trace);
     let short = TabulatedSeries::from_csv_columns(POWER_SHORT_C09_FIG4, 0, 1).unwrap();
     let long = TabulatedSeries::from_csv_columns(POWER_LONG_C09_FIG6, 0, 1).unwrap();
     let p0 = trace[0].fission_power_w;
+    #[cfg(feature = "std")]
     println!("t (s) | model P/P0 | measured | fuel C | mod C | refl C | Xe pcm | rho pcm | decay kW | RCCS kW | upflow kg/s");
     for t in [10.0, 20.0, 50.0, 100.0, 200.0, 300.0, 400.0, 1000.0, 2000.0, 3000.0, 4000.0, 4400.0, 5000.0, 6000.0, 7200.0, 9000.0, 10_800.0] {
         let x = trace.iter().find(|x| x.time_s >= t - 1e-9).unwrap_or(trace.last().unwrap());
         let meas = if t <= 500.0 { short.value_at(t) } else { long.value_at(t) };
+        #[cfg(feature = "std")]
         println!(
             "{t:6.0} | {:.4e} | {:.4} | {:.1} | {:.1} | {:.1} | {:.1} | {:.1} | {:.1} | {:.1} | {:.4}",
             x.fission_power_w / p0,
@@ -334,6 +350,7 @@ fn rz_lofc_base_against_the_measured_traces() {
     }
     // Thermocouples: model against measured at every measured bin.
     let traces = lofc_thermocouple_traces().unwrap();
+    #[cfg(feature = "std")]
     println!("| TC | r, z cm | measured t0 / 3 h C | model t0 / 3 h C | residual t0 / 3 h K | RMS over 3 h K | max |res| K |");
     let mut all = Vec::new();
     for (k, p) in probes.iter().enumerate() {
@@ -352,6 +369,7 @@ fn rz_lofc_base_against_the_measured_traces() {
         all.extend(res.iter().copied());
         let (m0, m3) = (meas.value_at(0.0), meas.value_at(10_800.0));
         let (o0, o3) = (rows[0].1[k], model_at(10_800.0));
+        #[cfg(feature = "std")]
         println!(
             "| {} | {:.0}, {:.0} | {m0:.1} / {m3:.1} | {o0:.1} / {o3:.1} | {:+.1} / {:+.1} | {rms:.1} | {mx:.1} |",
             p.location,
@@ -364,6 +382,7 @@ fn rz_lofc_base_against_the_measured_traces() {
         let _ = dir;
     }
     let rms_all = (all.iter().map(|r| r * r).sum::<f64>() / all.len() as f64).sqrt();
+    #[cfg(feature = "std")]
     println!("all 17 TCs, every bin: RMS {rms_all:.1} K, mean {:+.1} K", all.iter().sum::<f64>() / all.len() as f64);
 
     // Plots and CSVs.
@@ -515,10 +534,12 @@ fn rz_lofc_sensitivity_cases() {
             .with_rz_time_step(RzCoreTimeStep { early: s(0.5), late: s(2.5), switch_at: s(1000.0) })
             .named("DT-HALF"),
     );
+    #[cfg(feature = "std")]
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
+    #[cfg(feature = "std")]
     println!("|---|---|---|---|---|---|---|---|");
     for case in &cases {
-        let started = std::time::Instant::now();
+        let started = crate::time::Instant::now();
         match run_lofc(case) {
             Ok((_, trace)) => {
                 summarise_lofc(&case.name, &trace);
@@ -528,6 +549,7 @@ fn rz_lofc_sensitivity_cases() {
             }
             Err(e) => println!("| {} | FAILED: {e} |", case.name),
         }
+        #[cfg(feature = "std")]
         println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
     }
 }
@@ -571,14 +593,16 @@ fn rz_short_term_feedback_cases() {
             c
         }),
     ];
+    #[cfg(feature = "std")]
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
     for (test, base) in [("LOFC", LofcCase::rz_base().unwrap()), ("CRW", LofcCase::crw_base().unwrap())] {
         for (name, edit) in edits {
             let case = edit(base.clone()).named(&format!("{test}-{name}"));
-            let started = std::time::Instant::now();
+            let started = crate::time::Instant::now();
             let trace = match run_lofc(&case) {
                 Ok((_, t)) => t,
                 Err(e) => {
+                    #[cfg(feature = "std")]
                     println!("| {} | FAILED: {e} |", case.name);
                     continue;
                 }
@@ -587,6 +611,7 @@ fn rz_short_term_feedback_cases() {
             let p0 = trace[0].fission_power_w;
             let rel = |t: f64| trace.iter().find(|x| x.time_s >= t - 1e-6).map_or(f64::NAN, |x| x.fission_power_w / p0);
             let x100 = trace.iter().find(|x| x.time_s >= 100.0 - 1e-6).unwrap();
+            #[cfg(feature = "std")]
             println!(
                 "  {}: P/P0 at 20 / 50 / 100 / 200 s = {:.4} / {:.4} / {:.4} / {:.4}; at 100 s rho fuel {:+.1}, moderator {:+.1}, reflector {:+.1} pcm, fuel {:.2} C, moderator {:.2} C",
                 case.name,
@@ -602,6 +627,7 @@ fn rz_short_term_feedback_cases() {
             );
             if test == "CRW" {
                 let m = crw_metrics(&trace);
+                #[cfg(feature = "std")]
                 println!(
                     "  {} CRW: first peak {:.1} % @ {:.0} s; P/P0 at 30 / 35 s {:.3} / {:.3}; decay level {}; re-criticality {}",
                     case.name,
@@ -613,6 +639,7 @@ fn rz_short_term_feedback_cases() {
                     m.recriticality_s.map_or("none".into(), |t| format!("{t:.0} s"))
                 );
             }
+            #[cfg(feature = "std")]
             println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
         }
     }
@@ -657,12 +684,14 @@ fn rz_cavity_convection_cases() {
         (crw.clone().named("CRW-BASE"), true),
         (off(crw, "CRW-CAVITY-NC-OFF"), true),
     ];
+    #[cfg(feature = "std")]
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
     for (case, is_crw) in &cases {
-        let started = std::time::Instant::now();
+        let started = crate::time::Instant::now();
         let (_, trace, rows) = match run_case(case, &probes, 600.0) {
             Ok(x) => x,
             Err(e) => {
+                #[cfg(feature = "std")]
                 println!("| {} | FAILED: {e} |", case.name);
                 continue;
             }
@@ -672,6 +701,7 @@ fn rz_cavity_convection_cases() {
         let p0 = trace[0].fission_power_w;
         if *is_crw {
             let m = crw_metrics(&trace);
+            #[cfg(feature = "std")]
             println!(
                 "  {} CRW: first peak {:.1} % @ {:.0} s, decay level {}, re-criticality {}, P(7200 s) {:.0} kW",
                 case.name,
@@ -682,6 +712,7 @@ fn rz_cavity_convection_cases() {
                 m.power_at_7200_w / 1e3
             );
         }
+        #[cfg(feature = "std")]
         println!(
             "  {}: P(100 s)/P0 {:.4}; RCCS+heads at 0 / 1 / 2 / 3 h: {:.1} / {:.1} / {:.1} / {:.1} kW",
             case.name,
@@ -694,6 +725,7 @@ fn rz_cavity_convection_cases() {
         for t in [1800.0, 3600.0, 5400.0, 7200.0] {
             let x = at(t);
             let r = &x.reactivity;
+            #[cfg(feature = "std")]
             println!(
                 "  {} at {t:.0} s: rho fuel {:+.1} / moderator {:+.1} / reflector {:+.1} / Xe {:+.1} / total {:+.1} pcm; fuel {:.2} C, moderator {:.2} C, reflector {:.2} C",
                 case.name,
@@ -708,8 +740,10 @@ fn rz_cavity_convection_cases() {
             );
         }
         for (t, v) in rows.iter().filter(|(t, _)| [0.0, 3600.0, 7200.0, 10_800.0].iter().any(|x| (t - x).abs() < 1e-6)) {
+            #[cfg(feature = "std")]
             println!("  {} RPV wall at {t:.0} s (z -200 / 90 / 400 cm): {:.1} / {:.1} / {:.1} degC", case.name, v[0], v[1], v[2]);
         }
+        #[cfg(feature = "std")]
         println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
     }
 }
@@ -725,22 +759,25 @@ fn rz_cavity_convection_cases() {
 #[cfg(feature = "long-tests")]
 #[test]
 fn rz_lofc_mesh_check() {
+    #[cfg(feature = "std")]
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
     for cm in [30.0, 20.0, 15.0, 10.0] {
         let case = LofcCase::rz_base()
             .unwrap()
             .with_rz_options(|o| o.with_max_cell(Length::new::<centimeter>(cm)))
             .named(&format!("MESH-{cm:.0}CM"));
-        let started = std::time::Instant::now();
+        let started = crate::time::Instant::now();
         match run_lofc(&case) {
             Ok((sim, trace)) => {
                 if let CoreModel::RzPorous(c) = sim.core() {
+                    #[cfg(feature = "std")]
                     println!("  ({} cells)", c.core().solid().field().mesh().n_cells());
                 }
                 summarise_lofc(&case.name, &trace);
             }
             Err(e) => println!("| {} | FAILED: {e} |", case.name),
         }
+        #[cfg(feature = "std")]
         println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
     }
 }
@@ -748,6 +785,7 @@ fn rz_lofc_mesh_check() {
 fn summarise_crw(name: &str, trace: &[TransientSample], tr: &[(f64, f64)]) -> CrwMetrics {
     let m = crw_metrics(trace);
     let rise = |t: f64| tr.iter().find(|p| p.0 >= t - 1e-6).map_or(f64::NAN, |p| p.1) - tr[0].1;
+    #[cfg(feature = "std")]
     println!(
         "| {name} | {:.1} % @ {:.0} s ({:.0} kW total) | {} | {:.0} pcm @ {:.0} s | {} | {} | {:.0} kW | {:.0} kW | {:+.0} K |",
         100.0 * m.first_peak.0,
@@ -780,23 +818,28 @@ fn rz_crw_cases() {
     c.kinetics = c.kinetics.without_neutron_source();
     cases.push(c);
     cases.push(LofcCase::crw_base().unwrap().with_rz_options(|o| o.without_buoyancy()).named("CRW-NC-OFF"));
+    #[cfg(feature = "std")]
     println!("| case | first peak | to decay level | min rho | re-criticality | re-criticality peak | P at 7200 s | mean P, last 30 min | TR1&TR4 rise at 2 h |");
+    #[cfg(feature = "std")]
     println!("|---|---|---|---|---|---|---|---|---|");
     let dir = vv_dir();
     for case in &cases {
-        let started = std::time::Instant::now();
+        let started = crate::time::Instant::now();
         let (_, trace, rows) = match run_case(case, &probes, 60.0) {
             Ok(x) => x,
             Err(e) => {
+                #[cfg(feature = "std")]
                 println!("| {} | FAILED: {e} |", case.name);
                 continue;
             }
         };
         let tr: Vec<(f64, f64)> = rows.iter().map(|(t, v)| (*t, v[0])).collect();
         let m = summarise_crw(&case.name, &trace, &tr);
+        #[cfg(feature = "std")]
         println!("  ({} wall {:.0} s)", case.name, started.elapsed().as_secs_f64());
         if case.name == "CRW-BASE" {
             let p0 = trace[0].fission_power_w;
+            #[cfg(feature = "std")]
             println!(
                 "CRW-BASE first peak: {:.1} % of the model's 3315 kW; as a fraction of 3000 kW ([H06]'s stated initial power) {:.1} %; total {:.0} kW against [H06]'s 7230 kW",
                 100.0 * m.first_peak.0,
@@ -805,6 +848,7 @@ fn rz_crw_cases() {
             );
             for t in [5.0, 10.0, 12.0, 20.0, 30.0, 40.0, 60.0, 100.0, 200.0, 500.0, 1000.0] {
                 let x = trace.iter().find(|x| x.time_s >= t - 1e-9).unwrap();
+                #[cfg(feature = "std")]
                 println!(
                     "t {t:6.0} s: P/P0 {:.4}, rho ext {:.1} pcm, total {:.1} pcm, fuel {:.1} C, mod {:.1} C, flow {:.3} kg/s",
                     x.fission_power_w / p0,
@@ -894,10 +938,11 @@ struct MeshRow {
 /// time.
 #[cfg(feature = "long-tests")]
 fn mesh_row(case: &LofcCase) -> Option<MeshRow> {
-    let started = std::time::Instant::now();
+    let started = crate::time::Instant::now();
     let (sim, trace) = match run_lofc(case) {
         Ok(x) => x,
         Err(e) => {
+            #[cfg(feature = "std")]
             println!("| {} | FAILED: {e} | ({:.0} s) |", case.name, started.elapsed().as_secs_f64());
             return None;
         }
@@ -922,6 +967,7 @@ fn mesh_row(case: &LofcCase) -> Option<MeshRow> {
         mod_c,
         p100: at(100.0).fission_power_w / p0,
     };
+    #[cfg(feature = "std")]
     println!(
         "  {}: {} cells; P(100 s) {:.4}; RCCS+heads 0 / 3 h {:.2} / {:.2} kW; initial fuel / moderator / reflector {:.2} / {:.2} / {:.2} C; moderator at 1800 / 3600 / 7200 s {:.2} / {:.2} / {:.2} C; max bed upflow after 1000 s {:.4} kg/s; wall {:.0} s",
         case.name,
@@ -954,6 +1000,7 @@ fn mesh_row(case: &LofcCase) -> Option<MeshRow> {
 #[cfg(feature = "long-tests")]
 #[test]
 fn rz_lofc_geometric_mesh_study() {
+    #[cfg(feature = "std")]
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
     let base = LofcCase::rz_base().unwrap();
     let rows: Vec<Option<MeshRow>> = [1, 2, 4]
@@ -970,6 +1017,7 @@ fn rz_lofc_geometric_mesh_study() {
             ("moderator at 3600 s C", |r| r.mod_c[2]),
             ("P(100 s)/P0", |r| r.p100),
         ];
+        #[cfg(feature = "std")]
         println!("cells {} / {} / {}", a.cells, b.cells, c.cells);
         for (name, get) in metrics {
             let (f1, f2, f3) = (get(a), get(b), get(c));
@@ -990,6 +1038,7 @@ fn rz_lofc_geometric_mesh_study() {
 #[cfg(feature = "long-tests")]
 #[test]
 fn rz_lofc_mesh_diagnostics() {
+    #[cfg(feature = "std")]
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min | max bed upflow after 1000 s |");
     let base = LofcCase::rz_base().unwrap();
     let cases = [

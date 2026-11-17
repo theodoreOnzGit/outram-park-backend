@@ -5,6 +5,9 @@
 //! exact integrals the ring quadrature promises, the expansion round trips
 //! through the Monte Carlo filters' own basis, and the frames.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use outram_mc_libs::tally::filter::FilterEvent;
@@ -315,6 +318,7 @@ fn rz_mesh_cells_receive_the_power() {
     assert!((cyl.captured_fraction(&cells, l(90.0), [l(-90.0), l(90.0)]) - 1.0).abs() < 1e-10);
 }
 
+#[cfg(feature = "std")]
 /// The PNG writers produce a file.
 #[test]
 fn shapes_draw() {
@@ -375,6 +379,7 @@ fn zernike_of(f: impl Fn(f64) -> f64, order: usize) -> Vec<f64> {
 fn a_bare_cylinder_mode_is_one_dirichlet_term() {
     let z = zernike_of(|rho| bessel_j0(J0_FIRST_ZERO * rho), 20);
     let b = zernike_to_bessel(&z, l(90.0), 6, BesselBoundary::Dirichlet { extrapolated_radius: l(90.0) }).unwrap();
+    #[cfg(feature = "std")]
     println!("J0 mode in Dirichlet terms: {:?}", b.coefficients);
     assert!((b.coefficients[0] - 1.0).abs() < 1e-10, "{:?}", b.coefficients);
     for c in &b.coefficients[1..] {
@@ -433,6 +438,7 @@ fn zernike_polynomial_converges_in_bessel_modes_and_conserves_power() {
                 assert!(dp.abs() < 1e-12, "{name}: power {dp} at n = {n}");
             }
         }
+        #[cfg(feature = "std")]
         println!("{line}");
     }
     assert_eq!(BesselBoundary::default(), BesselBoundary::Neumann);

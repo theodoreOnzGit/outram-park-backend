@@ -133,7 +133,7 @@ egui_plot = { workspace = true, optional = true }
 # Step 0's folder picker for the unzipped ENDF library (the same picker kovan
 # and tampines-steam-tables-gui use).
 egui-file-dialog = { workspace = true, optional = true }
-nee_soon = { workspace = true, optional = true }
+nee_soon = { workspace = true, optional = true, features = ["std"] }
 # Step 0's folder scan and the tape lookup the nuclear-data load shares with
 # it (`endf_folder`, gh:#581).
 njoy-outram-park-fork = { workspace = true, optional = true, features = ["std"] }
@@ -147,7 +147,7 @@ outram-park-fork-liggghts = { workspace = true, optional = true, features = ["st
 # Step 10's coupled run (gh:#574): helium properties, KTA bed friction, Wakao
 # film coefficient and the HTR-10 pebble conduction (`tampines::gas_phase`,
 # `tampines::pebble_bed`).
-tampines = { workspace = true, optional = true }
+tampines = { workspace = true, optional = true, features = ["std"] }
 # Steps 7-8 (gh:#572, #573): outram-blender's meshing nexus (its `foam-mesh`
 # and `fem-export` features, on the line above: (neutral mesh, cfMesh bridge,
 # farrer-park FEM bridge, mesh-to-mesh overlap, mesh plots); the cfMesh port
@@ -215,7 +215,7 @@ uom = { workspace = true }
 # nee_soon's `assemble_explicit_triso`, the builder the recorded runs use, so
 # the zoom ladder shows the solver's geometry, not a re-model. A wasm in-scope
 # crate.
-nee_soon = { workspace = true }
+nee_soon = { workspace = true, features = ["std"] }
 # The DEM pour demo (gh:#787): the LIGGGHTS port's `htr10_fill` pour, run in
 # the browser's worker, and the `htr10` rung's baked DEM bed. A wasm in-scope
 # crate (its `wasm_par` shim stands in for rayon).
@@ -306,7 +306,7 @@ eframe = { workspace = true }
 # browser. Natively tampines is a normal dependency (the studios), but that
 # section is off on wasm32; dropping the dev-dependency on 2026-11-05
 # (a2be2b83f) broke the Pages build of this demo.
-tampines = { workspace = true }
+tampines = { workspace = true, features = ["std"] }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }

@@ -3,6 +3,20 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `nee_soon` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1640, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob; maps `crate::hash`, paths `crate::path`, clocks `crate::time`,
+  environment switches `crate::env`, mutexes `crate::sync`.
+- Keep data **loading** (ENDF/LEAPR tapes, record files) separate from the
+  code that **uses** the data, and put only the loading behind
+  `#[cfg(feature = "std")]`; a builder that takes loaded data stays available.
+- Printing is gated one statement at a time; tests and examples that load
+  data are `std` only.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

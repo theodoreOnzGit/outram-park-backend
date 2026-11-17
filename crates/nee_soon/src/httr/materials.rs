@@ -48,6 +48,9 @@
 //! O-18 is not modelled separately: R1's oxygen total (Table 3.1) is split
 //! by the deck into O-16 and O-17 only, so O-18's 0.2 % rides on O-16.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 
 use crate::htr10_rmc::data::{DataDir, NuclideSlot, Tape, ThermalLaw, ThermalLawSource};
@@ -180,6 +183,7 @@ pub enum HttrThermal {
     FreeGas,
 }
 
+#[cfg(feature = "std")]
 /// The 48 nuclide slots in [`nuc`] order, every one ENDF/B-VIII.0, with
 /// the thermal law each carries, and the modelling notes a run records.
 ///

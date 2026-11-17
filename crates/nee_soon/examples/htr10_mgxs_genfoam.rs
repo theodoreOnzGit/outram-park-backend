@@ -58,11 +58,9 @@ use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use nee_soon::genfoam_xs::to_nuclear_data_input;
-use nee_soon::htr10_rmc::core_model::{
-    assemble, mat, HTR10_BORED_BORON, HTR10_BORED_CARBON, PAPER_FILLING_FRACTION,
-};
+use nee_soon::htr10_rmc::core_model::{assemble, mat};
 use nee_soon::htr10_rmc::materials::GraphiteLaw;
-use nee_soon::htr10_rmc::reflector::zone_composition;
+use nee_soon::htr10_rmc::materials::htr10_fixed_layout_material_set;
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure};
 use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
     DiffusionNeutronics, DiffusionSettings,
@@ -71,11 +69,11 @@ use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
 use outram_foam_basic_lib::prelude::BoundaryCondition;
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::material_sab::{assign_htr10_sab, Htr10SabLaws};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
+use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
@@ -84,7 +82,6 @@ use uom::si::f64::{Area, Length};
 use uom::si::length::meter;
 
 const TEMP_K: f64 = 293.6;
-const B10_OF_NATURAL: f64 = 0.199;
 const NUC: Htr10Nuclides = Htr10Nuclides::NATURAL_CARBON;
 
 fn env_usize(key: &str, default: usize) -> usize {
@@ -144,70 +141,12 @@ fn nuclides() -> Option<(Vec<Nuclide>, Htr10SabLaws)> {
 }
 
 /// The eleven materials `htr10_rmc`'s geometry indexes, in `mat::` order.
+/// The fixed-layout HTR-10 material set at [`TEMP_K`]: the library's
+/// [`htr10_fixed_layout_material_set`] (moved there from this example and
+/// `htr10_mgxs_genfoam`/`htr10_deterministic_vs_mc`, which carried identical
+/// copies, 2026-11-17).
 fn materials() -> Vec<Material> {
-    let mut mats = fuel_pebble_materials(NUC, BoronReading::Natural, TEMP_K);
-    mats.truncate(6); // 0..5: kernel, buffer, iPyC, SiC, oPyC, graphite
-    mats.push(Material {
-        id: 70,
-        name: "helium".into(),
-        components: vec![],
-        temperature: TEMP_K,
-    });
-    let graphite_zone = |id: i32, name: &str, z_carbon: f64, z_boron: f64| Material {
-        id,
-        name: name.into(),
-        components: NUC.c_graphite
-            .components(z_carbon)
-            .into_iter()
-            .chain([
-            NuclideComponent {
-                nuclide_idx: NUC.b10,
-                atom_density: z_boron * B10_OF_NATURAL,
-            },
-            ])
-            .collect(),
-        temperature: TEMP_K,
-    };
-    let z22 = zone_composition(22).expect("TECDOC zone 22");
-    mats.push(graphite_zone(
-        71,
-        "reflector graphite (TECDOC zone 22)",
-        z22.carbon,
-        z22.natural_boron,
-    ));
-    let z17 = zone_composition(17).expect("TECDOC zone 17");
-    mats.push(graphite_zone(
-        72,
-        "boronated carbon brick (TECDOC zone 17)",
-        z17.carbon,
-        z17.natural_boron,
-    ));
-    mats.push(graphite_zone(
-        73,
-        "bored side reflector (TECDOC zones 31-40)",
-        HTR10_BORED_CARBON,
-        HTR10_BORED_BORON,
-    ));
-    let dummy = mats[mat::GRAPHITE].clone();
-    mats.push(Material {
-        id: 74,
-        name: "homogenised dummy pebbles".into(),
-        components: dummy
-            .components
-            .iter()
-            .map(|c| NuclideComponent {
-                nuclide_idx: c.nuclide_idx,
-                atom_density: c.atom_density * PAPER_FILLING_FRACTION,
-            })
-            .collect(),
-        temperature: TEMP_K,
-    });
-    assert_eq!(
-        mats.len(),
-        mat::HOMOG_DUMMY + 1,
-        "material order must match mat::"
-    );
-    mats
+    htr10_fixed_layout_material_set(NUC, TEMP_K)
 }
 
 fn main() {

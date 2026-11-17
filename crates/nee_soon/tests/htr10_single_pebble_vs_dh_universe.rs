@@ -61,6 +61,8 @@
 //! +353 pcm on the core; here they would be more, all fuel being in one
 //! pebble) at about 3σ, not more.
 
+// Needs nuclear data files or file output: `std` only (gh:#1640).
+#![cfg(feature = "std")]
 use petir::mathf::RealMath;
 use nee_soon::htr10_mgxs::cells::Htr10Cell;
 use nee_soon::htr10_rmc::core_model::mat;

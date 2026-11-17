@@ -73,6 +73,9 @@
 //!
 //! **Research, education and V&V only** (`RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -84,6 +87,7 @@ use outram_mc_libs::geometry::surface::{
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::physics::transport_csg::SourceBox;
 use outram_mc_libs::tally::mesh::RegularMesh;
+#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 use crate::htr10_rmc::bed::{hex_ring, seker_tile_ball, tile_xy, SekerBallId, SekerCell, SekerSite};
@@ -94,7 +98,8 @@ use crate::htr10_rmc::core_model::{
 use crate::htr10_rmc::core_shell::{ins, out, TrisoBuild};
 
 /// Which cell: the identity a case or a record names.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum CellKind {
     /// One fuel pebble and helium in a reflective 6 cm cube.
     SinglePebble,
@@ -481,15 +486,15 @@ impl Prism {
         let (lx, ly) = (i as f64 * a1x + j as f64 * a2x, i as f64 * a1y + j as f64 * a2y);
         let len = lx.r_hypot(ly);
         let theta = ly.r_atan2(lx);
-        let normals = std::array::from_fn(|k| {
-            let t = theta + std::f64::consts::FRAC_PI_3 * k as f64;
+        let normals = core::array::from_fn(|k| {
+            let t = theta + core::f64::consts::FRAC_PI_3 * k as f64;
             (t.r_cos(), t.r_sin())
         });
         let apothem = 0.5 * len;
         Self {
             normals,
             apothem,
-            circumradius: apothem / (std::f64::consts::PI / 6.0).r_cos(),
+            circumradius: apothem / (core::f64::consts::PI / 6.0).r_cos(),
             area: 2.0 * 3.0_f64.sqrt() * apothem * apothem,
         }
     }
@@ -508,7 +513,7 @@ impl Prism {
         let verts: Vec<(f64, f64)> = (0..6)
             .map(|k| {
                 let (n0x, n0y) = self.normals[k];
-                let t = n0y.r_atan2(n0x) + std::f64::consts::FRAC_PI_6;
+                let t = n0y.r_atan2(n0x) + core::f64::consts::FRAC_PI_6;
                 (self.circumradius * t.r_cos(), self.circumradius * t.r_sin())
             })
             .collect();

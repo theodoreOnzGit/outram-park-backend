@@ -84,8 +84,13 @@
 //! Status: untrusted AI-generated draft (2026-11-03), research, education
 //! and V&V only (`RESPONSIBLE_USE.md`).
 
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::path::PathBuf;
+#[cfg(feature = "std")]
+use std::path::Path;
+use alloc::sync::Arc;
 
 use outram_foam_appbuilder_lib::genfoam::neutronics::albedo::AlbedoLinearisation;
 use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{DiffusionNeutronics, DiffusionSettings};
@@ -165,12 +170,14 @@ pub const HTR10_ISOTHERMAL_RECORDS: [&str; 4] =
     ["core_n12_t300", "core_n12_t600", "core_n12_t900", "core_n12_t1200"];
 
 impl MgxsStatePoints {
+    #[cfg(feature = "std")]
     /// The folder holding the `htr10_mgxs` case records.
     #[must_use]
     pub fn records_root() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/htr10_mgxs_runs")
     }
 
+    #[cfg(feature = "std")]
     /// **The four isothermal HTR-10 records** ([`HTR10_ISOTHERMAL_RECORDS`]).
     ///
     /// # Errors
@@ -181,6 +188,7 @@ impl MgxsStatePoints {
         Self::from_record_dirs(&dirs)
     }
 
+    #[cfg(feature = "std")]
     /// State points from `htr10_mgxs` case folders (each with `record.json`).
     ///
     /// # Errors
@@ -573,6 +581,7 @@ pub struct Htr10RzNeutronicsMesh {
 }
 
 impl Htr10RzNeutronicsMesh {
+    #[cfg(feature = "std")]
     /// The mesh for the bed the state points were run on (20 cm cells).
     ///
     /// # Errors
@@ -670,7 +679,7 @@ impl Htr10RzNeutronicsMesh {
         let zc = zone_of_cell.clone();
         let (re2, ze2) = (re.clone(), ze.clone());
         let mesh = RzMesh::build(
-            RzGeometry::Axisymmetric { wedge_angle: Angle::new::<radian>(2.0 * std::f64::consts::PI) },
+            RzGeometry::Axisymmetric { wedge_angle: Angle::new::<radian>(2.0 * core::f64::consts::PI) },
             m(&re)?,
             m(&ze)?,
             regions.len(),
@@ -758,6 +767,7 @@ impl Htr10RzNeutronicsMesh {
         })
     }
 
+    #[cfg(feature = "std")]
     /// **Draw the mesh's regions** (R-Z, TECDOC frame: the top of the picture
     /// is the physical top), each cell coloured by its region, with a legend
     /// naming the region and its recipe, at `px_per_cm`.
@@ -805,7 +815,7 @@ impl Htr10RzNeutronicsMesh {
                 };
                 LegendEntry::new(palette(k), format!("{} {}", n.to_uppercase(), what))
             })
-            .chain(std::iter::once(LegendEntry::new(
+            .chain(core::iter::once(LegendEntry::new(
                 Rgb::new(0, 0, 0),
                 format!("R 0-{r1:.0} CM, Z {z0:.0}-{z1:.0} CM DOWN"),
             )))
@@ -852,7 +862,7 @@ fn sample_cell(core: &AssembledCore, frame: &FrameMap, r: [f64; 2], z: [f64; 2])
             let zm = frame.z_to_mc(Frame::Tecdoc, Length::new::<centimeter>(zt)).get::<centimeter>();
             for t in 0..nt {
                 // An irrational offset so the azimuths do not align with the lattice.
-                let th = (t as f64 + 0.318) * 2.0 * std::f64::consts::PI / nt as f64 + 0.1 * a as f64;
+                let th = (t as f64 + 0.318) * 2.0 * core::f64::consts::PI / nt as f64 + 0.1 * a as f64;
                 let (s, c) = th.r_sin_cos();
                 let m = core
                     .geometry
