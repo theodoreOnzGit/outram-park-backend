@@ -7582,6 +7582,7 @@ name = "outram-park-fork-dwsim-libs"
 version = "0.0.5"
 dependencies = [
  "approx",
+ "hashbrown 0.16.1",
  "ndarray",
  "petir",
  "thiserror 2.0.21",
