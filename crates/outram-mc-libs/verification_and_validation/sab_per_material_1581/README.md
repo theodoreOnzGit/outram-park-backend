@@ -1505,3 +1505,54 @@ asserts instead that model and hand agree within 3 combined sigma at seed 945
 (the physics statement), and pins the new hand-path `k_mean` bits at seed 945.
 The old pin is recorded struck through in the test doc and here. If |z| > 2
 nothing is re-pinned and the miss is reported. No physics tolerance is loosened.
+
+### Results, gh:#1635 region_temperature re-pin (2026-11-17): within the gate, re-pinned
+
+**Hardware:** Intel Xeon (cloud container), 4 logical cores shared with other
+runs (one long process at a time), 15 GiB RAM, Linux 6.18, CPU only; rayon 4
+threads for the model path, `ThreadCount::Fixed(6)` for the hand path (k is
+independent of thread count). Data: ENDF/B-VIII.0 from `reference-data/endf/`.
+Timings not recorded as comparable (shared machine).
+
+**Method (as planned above).** OLD binary built from `891f8ccea` (the knob
+commit on the base code, nuclide-level binding), NEW binary from this change;
+each ran `OUTRAM_RT_SEEDS=101-112 OUTRAM_RT_ENSEMBLE_ONLY=1`, 5000 x [20 + 100],
+data loaded once per build, N = 12 as fixed beforehand (not cut). Statistics by
+`awk` (unpaired, z = difference of means over sqrt(sem_old^2 + sem_new^2)).
+Raw: `ensembles_1635/region_temperature_{old,new}.out`.
+
+| seed | model k (old = new) | hand k OLD | hand k NEW |
+|---|---|---|---|
+| 101 | 1.492744 | 1.492744 | 1.493173 |
+| 102 | 1.491675 | 1.491675 | 1.493670 |
+| 103 | 1.494288 | 1.494288 | 1.490877 |
+| 104 | 1.493806 | 1.493806 | 1.491343 |
+| 105 | 1.488376 | 1.488376 | 1.490113 |
+| 106 | 1.491780 | 1.491780 | 1.492666 |
+| 107 | 1.490129 | 1.490129 | 1.491281 |
+| 108 | 1.489914 | 1.489914 | 1.491559 |
+| 109 | 1.492847 | 1.492847 | 1.493155 |
+| 110 | 1.492144 | 1.492144 | 1.491629 |
+| 111 | 1.492805 | 1.492805 | 1.492983 |
+| 112 | 1.490075 | 1.490075 | 1.491650 |
+
+- OLD hand: mean 1.491715, sd 0.001766, sem 0.000510.
+- NEW hand: mean 1.492008, sd 0.001093, sem 0.000315.
+- **new - old = +0.000293 = +29 +/- 60 pcm, z = +0.49** (gate |z| <= 2: PASS).
+- Controls, as predicted: the model-path column is bit-identical between the
+  builds (12 of 12 seeds), and in the OLD build model == hand at all 12 seeds.
+- The NEW sd (0.00109) is smaller than the OLD (0.00177); with 11 degrees of
+  freedom each the variance ratio is 2.6 (two-sided p about 0.15), consistent
+  with chance. Not investigated further.
+
+**Re-pin (rule fixed beforehand, |z| <= 2 met).** ~~model == hand bit for bit~~
+**RE-PINNED 2026-11-17** to: (a) model and hand agree within 3 combined sigma
+(physics statement; seed 945: 1.492429 +/- 0.001330 vs 1.492279 +/- 0.001231),
+(b) hand path `k_mean` bits at seed 945 `3ff7e06041575ec6` (1.492279), reason
+the nuclide array is 6 long against 5 (the URR stream advances by the array
+length), gh:#1635, maintainer-confirmed. No physics assertion was loosened
+(Doppler `< -3 sigma`, the guard, the majorant audit and its control, test 1 are
+unchanged). `#![allow(deprecated)]` is removed from the test file.
+The `1.49292 +/- 0.00172` in the test's module docs predates later changes to the
+code and is not re-checked; at seed 945 on current code the model path reads
+1.492429 +/- 0.001330.

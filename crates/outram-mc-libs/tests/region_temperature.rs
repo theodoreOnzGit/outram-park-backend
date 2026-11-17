@@ -16,9 +16,15 @@
 //!    CSG with each material at its temperature and each nuclide built with
 //!    `Nuclide::from_endf_file_with_speed` at that temperature (and
 //!    `ThermalScattering::from_embedded_leapr_deck` for H in H2O), run by
-//!    `run_keff_csg` at the same seed: the same `k` per cycle, bit for bit.
-//!    The global nuclide order is the model's, because the URR stream is
-//!    keyed by nuclide index.
+//!    `run_keff_csg` at the same seed. The global nuclide order is the
+//!    model's, because the URR stream is keyed by nuclide index.
+//!    ~~Same `k` per cycle, bit for bit.~~ **RE-PINNED 2026-11-17** the
+//!    hand path loads every nuclide FREE and binds the H in H2O law to the
+//!    water per material (`assign_material_sab`), so its nuclide array is
+//!    6 long against the model's 5 and the URR stream (advanced by the
+//!    array length) re-draws: the two agree in distribution, not bit for
+//!    bit (gh:#1635, maintainer-confirmed). The test now asserts agreement
+//!    within 3 combined sigma, and pins the hand path's `k_mean` bits.
 //! 3. **Doppler sign.** The same cell with the fuel at 293.6 K and at
 //!    1200 K (water at 293.6 K in both): `k` must fall, by more than 3
 //!    combined sigma.
@@ -42,7 +48,22 @@
 //! ENDF/B-VIII.0 from `reference-data/endf/`. All five pass.
 //!
 //! 1. Bit-identical (as predicted).
-//! 2. Bit-identical: `k = 1.49292 +/- 0.00172` both ways (as predicted).
+//! 2. ~~Bit-identical: `k = 1.49292 +/- 0.00172` both ways (as predicted).~~
+//!    **RE-PINNED 2026-11-17** (gh:#1635, maintainer-confirmed): the old pin
+//!    was model == hand bit for bit (at seed 945 on this data both read
+//!    `k = 1.492429 +/- 0.001330`; the 1.49292 above predates later
+//!    changes and is not re-checked). New: hand path
+//!    `k = 1.492279 +/- 0.001231` (`k_mean` bits `3ff7e06041575ec6`), model
+//!    path unchanged at 1.492429. Reason: per-material S(a,b) lengthens the
+//!    hand nuclide array 5 -> 6, so the URR stream re-draws. Old vs new on
+//!    a 12-seed ensemble (seeds 101-112, same size): old hand 1.491715 sd
+//!    0.001766, new hand 1.492008 sd 0.001093, new - old = +29 +/- 60 pcm,
+//!    **z = +0.49** (gate |z| <= 2); the model column is bit-identical
+//!    between builds and equals the old hand column at all 12 seeds. Record:
+//!    `verification_and_validation/sab_per_material_1581/README.md`, section
+//!    "gh:#1635 region_temperature re-pin". Hardware: Intel Xeon (cloud
+//!    container), 4 logical cores shared with other runs, 15 GiB, Linux
+//!    6.18, CPU only.
 //! 3. `k(fuel 293.6 K) = 1.51212 +/- 0.00192`, `k(fuel 1200 K) =
 //!    1.49292 +/- 0.00172`: **-1920 +/- 258 pcm in k (7.5 sigma)**, inside
 //!    the predicted -1500 to -4000 and in its lower half, as predicted for
@@ -53,7 +74,6 @@
 //!    857 176 energies; control (293.6 K majorant): **1.314 under at
 //!    6.48 eV** (UO2, the U-238 6.67 eV resonance's wing), inside the
 //!    predicted 1.3x to 4x and at its low end.
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE, not migrated. The bound H-1 is referenced only by the water; the fuel holds none. Not migrated on purpose: the test pins the hand path BIT-IDENTICAL to the `Model` path, and appending a bound copy would change this array's length, hence the URR stream, and break that pin.
 
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use njoy_outram_park_fork::reference_data::reference_endf_dir;
@@ -65,6 +85,7 @@ use outram_mc_libs::geometry::surface::{
 };
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material as LowMaterial, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -287,29 +308,45 @@ const O16_TAPE: &str = "n-008_O_016-ENDF8.0.endf";
 const H1_TAPE: &str = "n-001_H_001-ENDF8.0-Beta6.endf";
 const C12_TAPE: &str = "n-006_C_012-ENDF8.0.endf";
 
-/// The hand path's nuclides, in the model's order: fuel's U-235, U-238,
-/// O-16 at 1200 K, then water's H-1 (H in H2O) and O-16 at 293.6 K.
-fn hand_nuclides() -> Vec<Nuclide> {
+/// The hand path's FIVE nuclides, all loaded FREE, in the model's order:
+/// fuel's U-235, U-238, O-16 at 1200 K, then water's H-1 and O-16 at
+/// 293.6 K; plus the H in H2O LEAPR law at 293.6 K, which [`hand_path`]
+/// associates to the water per material (gh:#462, #1581, #1635).
+fn hand_nuclides() -> (Vec<Nuclide>, ThermalScattering) {
     use rayon::prelude::*;
-    let build = |(file, name, t, law): (&str, &str, f64, Option<SabMaterial>)| {
-        let n = Nuclide::from_endf_file_with_speed(&endf(file), name, t, SpeedTier::Fast).unwrap();
-        match law {
-            None => n,
-            Some(m) => n.with_thermal_scattering(
-                ThermalScattering::from_embedded_leapr_deck(m, t, &format!("{m:?}")).unwrap(),
-            ),
-        }
+    let build = |(file, name, t): (&str, &str, f64)| {
+        Nuclide::from_endf_file_with_speed(&endf(file), name, t, SpeedTier::Fast).unwrap()
     };
-    vec![
-        (U235_TAPE, "U235", T_HOT, None),
-        (U238_TAPE, "U238", T_HOT, None),
-        (O16_TAPE, "O16", T_HOT, None),
-        (H1_TAPE, "H1", T_ROOM, Some(SabMaterial::HInH2O)),
-        (O16_TAPE, "O16", T_ROOM, None),
+    let free = vec![
+        (U235_TAPE, "U235", T_HOT),
+        (U238_TAPE, "U238", T_HOT),
+        (O16_TAPE, "O16", T_HOT),
+        (H1_TAPE, "H1", T_ROOM),
+        (O16_TAPE, "O16", T_ROOM),
     ]
     .into_par_iter()
     .map(build)
-    .collect()
+    .collect();
+    let law = ThermalScattering::from_embedded_leapr_deck(
+        SabMaterial::HInH2O,
+        T_ROOM,
+        &format!("{:?}", SabMaterial::HInH2O),
+    )
+    .unwrap();
+    (free, law)
+}
+
+/// The hand path's materials and nuclide array: the free nuclides of
+/// [`hand_nuclides`] with the H in H2O law bound to the water only, through
+/// `MaterialSab::for_materials_containing` and `assign_material_sab`. The
+/// array is 6 long (a bound H-1 copy appended after the five) where the
+/// model's is 5, so the URR stream differs and the two paths are no longer
+/// bit for bit (gh:#1635).
+fn hand_path(a: &AssembledModel) -> (Vec<LowMaterial>, Vec<Nuclide>) {
+    let (free, law) = hand_nuclides();
+    let materials = hand_materials(a);
+    let entries = MaterialSab::for_materials_containing(&materials, 3, 0, &[]);
+    assign_material_sab(&materials, &free, &[law], &entries).expect("S(alpha,beta) per material")
 }
 
 /// Seeds from `OUTRAM_RT_SEEDS`: `a-b` (inclusive) or a comma list; `None`
@@ -322,6 +359,13 @@ fn ensemble_seeds() -> Option<Vec<u64>> {
     }
     v.split(',').map(|s| s.trim().parse::<u64>().ok()).collect()
 }
+
+/// Bits of the hand path's `k_mean` at seed 945, 5000 x [20 + 100]
+/// (`1.492279`). ~~Old pin: equal to the model path's mean bit for bit
+/// (`1.492429`).~~ **RE-PINNED 2026-11-17** (gh:#1635, maintainer-confirmed;
+/// per-material S(a,b) lengthens the nuclide array and re-draws the URR
+/// stream; old vs new z = +0.49 over 12 seeds).
+const HAND_K_MEAN_BITS_SEED_945: u64 = 0x3ff7e06041575ec6;
 
 fn hand_materials(a: &AssembledModel) -> Vec<LowMaterial> {
     let comp = |nuclide_idx, atom_density| NuclideComponent {
@@ -351,7 +395,7 @@ fn hand_materials(a: &AssembledModel) -> Vec<LowMaterial> {
 ///
 /// Run size 5000 x [20 + 100] (seed 945) for the three transport runs.
 ///
-/// *Result (2026-10-18):* PASS. Model and hand path bit-identical,
+/// *Result (2026-10-18):* PASS. ~~Model and hand path bit-identical~~ (**RE-PINNED 2026-11-17**, gh:#1635: see module docs, item 2),
 /// `k = 1.49292 +/- 0.00172`; cold fuel `1.51212 +/- 0.00192`; Doppler
 /// -1920 +/- 258 pcm (7.5 sigma); the guard refused. Data 148 s (hot
 /// model), 72 s (cold), transport ~5 s per run, hardware as in the module
@@ -401,9 +445,9 @@ fn leu_cell_two_regions_match_the_low_level_path_and_doppler_lowers_k() {
     assert_eq!(hot_run.provenance.temperatures_k, vec![T_ROOM, T_HOT]);
     assert!(hot_run.provenance.physics.iter().all(|n| n.dbrc.is_ok()));
 
-    // 2. The low-level path, bit for bit.
+    // 2. The low-level path (per-material S(a,b); re-pinned, see below).
     let clock = std::time::Instant::now();
-    let nuc = hand_nuclides();
+    let (hand_mats, nuc) = hand_path(&hot);
     println!("hand-built data: {:.1} s", clock.elapsed().as_secs_f64());
     let (geometry, src) = hand_built_cell();
     let low = LowKeffSettings {
@@ -427,26 +471,39 @@ fn leu_cell_two_regions_match_the_low_level_path_and_doppler_lowers_k() {
                 .keff();
             let (g, sb) = hand_built_cell();
             let ls = LowKeffSettings { seed: s, ..low.clone() };
-            let h = run_keff_csg(&g, &hand_materials(&hot), &nuc, sb, &ls, None);
+            let h = run_keff_csg(&g, &hand_mats, &nuc, sb, &ls, None);
             println!(
-                "ENS {s} {:.6} {:.6} {:.6} {:.6}",
-                m.mean, m.std, h.k_mean, h.k_std
+                "ENS {s} {:.6} {:.6} {:.6} {:.6} {:016x}",
+                m.mean, m.std, h.k_mean, h.k_std, h.k_mean.to_bits()
             );
         }
         if std::env::var_os("OUTRAM_RT_ENSEMBLE_ONLY").is_some() {
             return;
         }
     }
-    let reference = run_keff_csg(&geometry, &hand_materials(&hot), &nuc, src, &low, None);
+    let reference = run_keff_csg(&geometry, &hand_mats, &nuc, src, &low, None);
     println!(
         "hot through run_keff_csg by hand: {:.5} +/- {:.5}",
         reference.k_mean, reference.k_std
     );
-    assert_eq!(
-        hot_run.k_by_cycle, reference.k_by_generation,
-        "the model and the hand-built low-level path give the same k per cycle"
+    // ~~model == hand, bit for bit (k_by_cycle and the mean's bits)~~
+    // **RE-PINNED 2026-11-17** (gh:#1635, maintainer-confirmed): different
+    // array lengths (5 vs 6) give different URR draws. Physics: the two
+    // agree within 3 combined sigma. Pin: the hand path's own `k_mean` bits
+    // at seed 945 (`1.492279`, from the 2026-11-17 run).
+    let sigma_pair = (hot_run.keff().std.powi(2) + reference.k_std.powi(2)).sqrt();
+    assert!(
+        (hot_run.keff().mean - reference.k_mean).abs() < 3.0 * sigma_pair,
+        "the model and the hand-built path agree in distribution: {} vs {} (+/- {sigma_pair})",
+        hot_run.keff().mean,
+        reference.k_mean
     );
-    assert_eq!(hot_run.keff().mean.to_bits(), reference.k_mean.to_bits());
+    assert_eq!(
+        reference.k_mean.to_bits(),
+        HAND_K_MEAN_BITS_SEED_945,
+        "hand-path k_mean re-pinned 2026-11-17 (gh:#1635); got {:016x}",
+        reference.k_mean.to_bits()
+    );
 
     // 4. The guard: data at the wrong temperature are refused.
     let cold_model = leu_cell(data(), T_ROOM);

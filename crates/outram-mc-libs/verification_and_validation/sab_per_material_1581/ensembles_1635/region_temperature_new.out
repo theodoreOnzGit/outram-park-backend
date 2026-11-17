@@ -1,0 +1,33 @@
+
+running 1 test
+test leu_cell_two_regions_match_the_low_level_path_and_doppler_lowers_k ... hot model data: 306.8 s
+hot (fuel 1200 K) through the model: 1.49243 ± 0.00133 (30.7 s)
+k_eff = 1.49243 ± 0.00133
+  batch-means sigma (correlation-aware): 0.00121
+  run: Custom(CustomRun { particles: 5000, inactive: 20, active: 100, seed: 945 }), seed 945, 20 inactive cycles (from 5000 per cycle), 100 active cycles of 5000
+  source: converged (NotWatched { inactive_sufficient: Some(true) })
+  data: ENDF/B-VIII reference tapes, /home/user/outram-park-backend/reference-data/endf at 293.6, 1200 K by region (model 293.6 K); CsgPowerIteration::step_par, CPU multi-thread on rayon's current pool (k independent of the thread count; bit for bit run_keff_csg CpuMultiThread at a fixed population) (4 threads)
+  physics U235 at 1200 K: URR tables on, DBRC on, thermal free gas
+  physics U238 at 1200 K: URR tables on, DBRC on, thermal free gas
+  physics O16 at 1200 K: URR tables none, DBRC on, thermal free gas
+  physics H1 at 293.6 K: URR tables none, DBRC on, thermal HInH2O (LEAPR, ENDF/B-VIII.0 deck)
+  physics O16 at 293.6 K: URR tables none, DBRC on, thermal free gas
+  note: lost histories are not counted on this run path (#699).
+
+hand-built data: 316.5 s
+ENS 101 1.492744 0.001542 1.493173 0.001311
+ENS 102 1.491675 0.001348 1.493670 0.001387
+ENS 103 1.494288 0.001471 1.490877 0.001237
+ENS 104 1.493806 0.001308 1.491343 0.001576
+ENS 105 1.488376 0.001346 1.490113 0.001358
+ENS 106 1.491780 0.001435 1.492666 0.001276
+ENS 107 1.490129 0.001368 1.491281 0.001304
+ENS 108 1.489914 0.001497 1.491559 0.001436
+ENS 109 1.492847 0.001400 1.493155 0.001357
+ENS 110 1.492144 0.001426 1.491629 0.001396
+ENS 111 1.492805 0.001417 1.492983 0.001229
+ENS 112 1.490075 0.001622 1.491650 0.001350
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 1458.32s
+
