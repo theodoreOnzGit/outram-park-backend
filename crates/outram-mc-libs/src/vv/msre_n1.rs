@@ -86,6 +86,10 @@ use crate::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZCylin
 use crate::geometry::universe::Universe;
 use crate::physics::transport_csg::SourceBox;
 
+/// The N-1 balance, salt-spectrum and N-4 axial tallies (moved from the
+/// example 2026-11-17).
+pub mod tallies;
+
 /// One inch \[cm\].
 pub const INCH: f64 = 2.54;
 /// 1181 °F, the state of ORNL-4233 Table 1 \[K\].

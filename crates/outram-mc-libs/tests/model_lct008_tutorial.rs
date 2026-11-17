@@ -1,6 +1,6 @@
 //! **Tutorial 6's model is the V&V model** (gh #943): LEU-COMP-THERM-008
 //! case 1 built through the beginner API (`examples/tutorial_lct008.rs`,
-//! statements in `examples/common/lct008_tutorial_model.rs`) transports like
+//! statements in `outram_mc_libs::vv::lct008_tutorial`) transports like
 //! the hand-built model `lct008_keff.rs` runs (`common/lct008_model.rs`,
 //! the OpenMC cards parsed into a CSG lattice).
 //!
@@ -43,9 +43,7 @@
 #[path = "../examples/common/lct008_model.rs"]
 #[allow(dead_code)]
 mod lct008_model;
-#[path = "../examples/common/lct008_tutorial_model.rs"]
-#[allow(dead_code)]
-mod lct008_tutorial_model;
+use outram_mc_libs::vv::lct008_tutorial as lct008_tutorial_model;
 
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::position::{Direction, Position};

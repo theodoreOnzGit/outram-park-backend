@@ -13,7 +13,7 @@
 //! `universes` array runs **top row first** (`openmc/lattice.py:382-388`),
 //! outram's CSG lattice starts at the **lower-left** (`rect.rs:45-47`), and
 //! the LCT-008 port needed a `reverse_rows` flag for it
-//! (`examples/common/lct008_model.rs:440`). Here the reader picks the order
+//! (`vv::lct008::build_geometry_and_model`). Here the reader picks the order
 //! by the constructor's name: [`Lattice::from_rows_top_down`] (as a picture
 //! of the lattice is drawn, and as OpenMC's input reads) or
 //! [`Lattice::from_natural_order`] (lower-left first, x fastest).
