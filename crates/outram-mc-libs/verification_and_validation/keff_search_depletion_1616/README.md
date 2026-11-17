@@ -327,3 +327,20 @@ Not done: only one step and one seed. The local slope from the table is
 (1.06862 - 0.97177) / (0.01019 - 0.00819) = 48 per unit p, so sigma_k 0.0064 is
 about 0.00013 in p, 1.5 % of the root: that is the single-seed resolving power,
 and the seed-to-seed spread was not measured. Nothing was compared with OpenMC.
+
+## 2026-11-17, #1618 restart restore: not ported, and why
+
+Upstream (`abc.py:871-881`, `:883-900`): on a restart the integrator does **not**
+search at the first resumed step. It reads `keff_search_root` from the last
+stored `StepResult` (`stepresult.py:61, 375, 467, 516-518`) and calls the user's
+`function(root)` to put the model back at that parameter, raising `ValueError`
+if the stored results carry no root. It needs a depletion results file and a
+prior step to resume from. This crate has neither: the depletion drivers
+(`deplete_independent`, `deplete_coupled`, the hook) run from an initial
+inventory and return a `BurnupResult` in memory, with no restart file, no
+`prev_res` and no resume-at-step entry point. Porting only the restore would be
+a function with nothing to call it, so it was not written. For a caller who
+resumes by hand, `KeffSearchStep::parameter` is the stored root of each step and
+re-applying it is the caller's own `function(root)`. A restart path needs a
+depletion results file first, which is a larger change than this issue's item
+and is not done.
