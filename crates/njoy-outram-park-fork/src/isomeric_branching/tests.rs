@@ -96,3 +96,42 @@ fn u235_inelastic_isomer_reads_from_mf10() {
     assert_eq!(states[1].level_energy_ev, 77.0);
     assert!(production_states(&t, 9228, 102).unwrap().0.is_empty(), "no MF=8 for capture: reported empty");
 }
+
+/// Zn-68 (n,γ) applied to a three-nuclide chain: a thermal spectrum writes
+/// 0.934 / 0.066, a fast one 0.755509 / 0.244491 (the collapse above), and
+/// the chain still exports and parses. A chain without Zn-69m reports it.
+#[cfg(feature = "std")]
+#[test]
+fn zn68_ratios_written_to_a_chain() {
+    use crate::hdf5::depletion_chain_ops::export_to_xml;
+    use crate::hdf5::depletion_chain_xml::DepletionChainXml;
+    let Some(t) = tape("n-030_Zn_068-ENDF8.0.endf") else { return };
+    let mat = crate::process::single_material(&t).unwrap();
+    let (states, _) = production_states(&t, mat, 102).unwrap();
+    let rec = crate::process::reconstruct(&t, &crate::process::CrossSectionSettings::default()).unwrap();
+    let mt102 = crate::endf::mt::MtReaction::from_any(102);
+    let sigma = rec.reconr.sections.iter().find(|s| s.mt == mt102).unwrap().pairs.clone();
+    let xml = "<depletion_chain>\n  <nuclide name=\"Zn68\" reactions=\"1\">\n    <reaction type=\"(n,gamma)\" Q=\"6482070.0\" target=\"Zn69\"/>\n  </nuclide>\n  <nuclide name=\"Zn69\" reactions=\"0\"/>\n  <nuclide name=\"Zn69_m1\" reactions=\"0\"/>\n</depletion_chain>\n";
+    let base = DepletionChainXml::parse(xml).unwrap();
+
+    let mut c = base.clone();
+    let a = apply_to_chain(&mut c, "Zn68", "(n,gamma)", &states, &sigma, &[1e-5, 1.0], &[1.0]).unwrap();
+    assert!(a.not_in_chain.is_empty());
+    let r = &c.get("Zn68").unwrap().reactions;
+    assert_eq!(r.len(), 2);
+    assert!((r[0].branching_ratio - 0.934).abs() < 1e-14 && (r[1].branching_ratio - 0.066).abs() < 1e-14);
+    assert_eq!(r[0].q_ev, 6482070.0);
+    assert_eq!(DepletionChainXml::parse(&export_to_xml(&c)).unwrap(), c);
+
+    let mut f = base.clone();
+    apply_to_chain(&mut f, "Zn68", "(n,gamma)", &states, &sigma, &[1e5, 2e7], &[1.0]).unwrap();
+    let m1 = f.get("Zn68").unwrap().reactions.iter().find(|x| x.target.as_deref() == Some("Zn69_m1")).unwrap().branching_ratio;
+    assert!((m1 - 0.244491).abs() < 1e-6, "{m1}");
+
+    let short = DepletionChainXml::parse(&xml.replace("  <nuclide name=\"Zn69_m1\" reactions=\"0\"/>\n", "")).unwrap();
+    let mut s = short.clone();
+    let res = apply_to_chain(&mut s, "Zn68", "(n,gamma)", &states, &sigma, &[1e-5, 1.0], &[1.0]);
+    // Ground alone at 0.934 with the ground among the products: upstream's
+    // strict sum check refuses it rather than renormalising.
+    assert!(res.is_err(), "{res:?}");
+}

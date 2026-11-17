@@ -256,5 +256,57 @@ pub fn collapse(
         .collect())
 }
 
+/// What [`apply_to_chain`] did for one parent.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AppliedRatios {
+    /// Parent nuclide.
+    pub parent: String,
+    /// `(product, ratio)` set on the chain.
+    pub set: Vec<(String, f64)>,
+    /// States collapsed but left out because the product is not in the
+    /// chain (named, never dropped silently).
+    pub not_in_chain: Vec<(String, f64)>,
+}
+
+/// **Spectrum-derived branching ratios applied to a chain** (gh:#1628):
+/// collapse `states` of `parent`'s `reaction` (e.g. `"(n,gamma)"`) on the
+/// group flux and write them through the ported
+/// [`set_branch_ratios`](crate::hdf5::depletion_chain_ops::set_branch_ratios)
+/// (strict, tolerance 1e-5), so the chain keeps its format and exports as
+/// before. Products absent from the chain are reported, not set.
+///
+/// # Errors
+/// The collapse's errors; no state whose product is in the chain; and
+/// `set_branch_ratios`' strict checks (a sum outside 1 ± 1e-5 when a
+/// ground state is among the products).
+#[cfg(feature = "std")]
+pub fn apply_to_chain(
+    chain: &mut crate::hdf5::depletion_chain_xml::DepletionChainXml,
+    parent: &str,
+    reaction: &str,
+    states: &[ProductionState],
+    sigma_mt: &[(f64, f64)],
+    bounds: &[f64],
+    group_flux: &[f64],
+) -> Result<AppliedRatios, NjoyError> {
+    let collapsed = collapse(states, sigma_mt, bounds, group_flux)?;
+    let mut set = Vec::new();
+    let mut not_in_chain = Vec::new();
+    for c in collapsed {
+        let name = c.product.ok_or_else(|| NjoyError::InvalidInput("a product with an unknown Z".into()))?;
+        if chain.get(&name).is_some() {
+            set.push((name, c.branching_ratio));
+        } else {
+            not_in_chain.push((name, c.branching_ratio));
+        }
+    }
+    if set.is_empty() {
+        return Err(NjoyError::InvalidInput(format!("{parent} {reaction}: no product state is in the chain")));
+    }
+    let pairs: Vec<(&str, f64)> = set.iter().map(|(n, b)| (n.as_str(), *b)).collect();
+    crate::hdf5::depletion_chain_ops::set_branch_ratios(chain, &[(parent, &pairs)], reaction, true, 1e-5)?;
+    Ok(AppliedRatios { parent: parent.to_owned(), set, not_in_chain })
+}
+
 #[cfg(test)]
 mod tests;
