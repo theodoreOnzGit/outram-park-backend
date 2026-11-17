@@ -34,6 +34,8 @@
 //! * [`integrators`] — PETIR's [`Integrator`](integrators::Integrator)
 //!   (re-exported), this crate's [`OneGroupOperator`](integrators::OneGroupOperator)
 //!   implementing PETIR's `TransportOperator`, and transfer rates.
+//! * [`keff_search`] — opt-in k-eigenvalue search before every burnup step
+//!   (OpenMC `keff_search_control.py`, gh:#1616); the other drivers are untouched.
 //! * [`operator`] — the burnup loops coupling transport to the transmutation
 //!   step. Stays here.
 //!
@@ -71,6 +73,7 @@ pub mod matrix;
 pub mod cram;
 pub mod chain;
 pub mod operator;
+pub mod keff_search;
 
 pub use chain::{
     ChainImportError, DecayBranch, DepletionChain, NeutronReaction, NuclideData, ReactionKind,
