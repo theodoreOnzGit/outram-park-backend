@@ -591,3 +591,94 @@ every variance-reduced arm.
    expect it **not to be resolved from 1** at N = 5 (FOM sigma about 100 %):
    `|ln ratio| < 2 sigma` with probability about 0.8. A resolved gain
    above 2 would surprise me (about 5 %).
+
+### Results (measured 2026-11-17, gh:#1615)
+
+**Hardware.** Intel Xeon @ 2.10 GHz (cloud container), 4 logical cores, 15 GB
+RAM, Linux 6.18.44, CPU only. Each replicate is one single-threaded process;
+the two replicates ran concurrently (offsets 0 = A, 5 000 000 = B), on a box
+shared with other agents' builds and runs (load average 15-19 during the runs).
+**Absolute seconds mean nothing and the arms ran sequentially under a drifting
+load, so every FOM below is timing-contaminated.** See the timing caveat.
+**Commit of the test code:** `e3189a363`. **Command:** `shielded_room_learned_source_bias
+--ignored --nocapture` from `cargo test --release -j 2 -p outram-mc-libs
+--no-default-features --test openmc_notebooks`, binary copied and run directly.
+Sizes as protocol: early tally 2000 histories (seed 424 242), analog and
+source-bias-only 40 000 per seed, MAGIC / learned / learned+source-bias 20 000
+per seed, N = 5 seeds per arm.
+
+**Windows and bias built.** MAGIC 607/1178 cells carry a window; learned
+1178/1178 (571 filled, 0 clamped, LOO RMSE in ln flux 1.35). Source bias over
+the box: 56 cells, none without a window, birth weights `p/q` from 0.601 to
+1.966, **relative variance of the birth weight 0.074**.
+
+#### Headline band (900-1450 cm), flux per source particle summed over 317 cells
+
+| run | arm | mean +- sem | z vs analog | `\|z\|<=2` | FOM ratio vs analog (+- ~100 %) |
+|---|---|---|---|---|---|
+| A | analog | 4.9011 +- 0.0965 | - | - | 1 |
+| A | MAGIC | 4.8505 +- 0.0650 | -0.43 | yes | 0.39 |
+| A | learned | 4.7930 +- 0.0444 | -1.02 | yes | 1.13 |
+| A | source bias only | 4.6958 +- 0.0230 | **-2.07** | **NO** | 33.4 |
+| A | learned + source bias | 4.7948 +- 0.0405 | -1.02 | yes | 1.81 |
+| B | analog | 4.9925 +- 0.164 | - | - | 1 |
+| B | MAGIC | 4.7520 +- 0.0651 | -1.36 | yes | 1.02 |
+| B | learned | 4.8084 +- 0.0905 | -0.98 | yes | 0.73 |
+| B | source bias only | 5.0756 +- 0.181 | +0.34 | yes | 1.69 |
+| B | learned + source bias | 4.7650 +- 0.0677 | -1.28 | yes | 1.72 |
+
+FOM(learned + source bias) / FOM(learned only), headline: **1.60 (A), 2.37 (B)**,
+each +- 100 %. Other bands: 0-400 cm 0.28, 8.5; 400-900 cm 0.99, 1.67.
+
+**Gate (`|z| <= 2`, maintainer-decided).** Of the 24 arm/band/run cells (4 arms x 3
+bands x 2 runs; the table above is the 8 headline cells), **one misses: run A,
+source bias only, headline band, z = -2.07.** It is not repaired or explained
+away. That arm's 5-seed sigma (0.0230) is four times smaller than the analog's
+(0.0965) and the run B repeat of the same arm sits at +0.34 with sigma 0.181,
+so the miss is consistent with a small sample sigma (a 5-seed sigma is a poor
+estimate, and a heavy-tailed score makes it worse) but **that is a reading, not
+a finding**: nothing here separates a real -4 % shift from noise. Seven of the eight headline arm/run means read below analog (-0.43 to -2.07 sigma;
+the exception is B source bias only, +0.34), the
+same sign the #1582 re-measurement saw for MAGIC; no single cell fails, and the
+pooled shift was not tested here. Other bands: no cell outside `|z| <= 2`;
+the nearest is run B MAGIC 0-400 cm at z = +1.96.
+
+#### Timing caveat (read before quoting any FOM)
+
+Seconds per arm (5 seeds): A: analog 267, MAGIC 1478, learned 1068, source-bias
+129, learned+sb 801; B: 258, 1456, 1084, 130, 806. **Source-bias-only ran the
+same 40 000 analog histories per seed as the analog arm in about half the
+time, in both replicates.** Biased births cannot halve an analog history's
+cost (the transport and weights are analog), so this is either load drift
+(analog ran first, on the busiest box) or a real cost difference between the
+`Box` and `Independent` source paths that was not investigated. Until it is,
+**the source-bias-only FOM ratios (33.4, 1.69, ...) are not evidence of a
+gain**; the variance side alone (sigma ratio) is A 0.24, B 1.1, which disagree.
+The same caveat applies to the learned+sb / learned ratios (learned+sb was
+25 % cheaper per history in both runs).
+
+#### Against the prediction (written before any run)
+
+| prediction | measured | verdict |
+|---|---|---|
+| headline `\|z\|<=2` for every arm, p about 0.95 each; at least one near-field cell would miss | **one headline miss** (A, source bias only, -2.07); **no** near-field miss | **partial miss**: the gate failed where I did not expect it and held where I did |
+| point source: bias is the identity | `with_learned_source_bias` returns the source unchanged, asserted in the test | hit (by construction) |
+| birth-weight relative variance 0.1-1.0 | **0.074**; weights 0.60-1.97 | **miss** (slightly low): the importance varies only ~3.3x across the box, not 2-10x |
+| source bias alone vs analog FOM 0.7-1.5, point 1.0 | 33.4 and 1.69 (headline); 2.97, 0.98 (0-400); 4.0, 0.49 (400-900) | **miss** in A (33.4), hit in B, and timing-contaminated (above); not resolved at +-100 % |
+| learned vs analog 0.1-0.8, point 0.3 | 1.13 (A), 0.73 (B) | A **miss** (above), B inside the range |
+| MAGIC vs analog 0.1-0.5, point 0.2 | 0.39 (A), 1.02 (B) | A inside, B **miss** (above) |
+| learned+sb / learned 0.8-1.5, point 1.1, not resolved from 1 | 1.60 (A), 2.37 (B), each +- 100 % | both above the range, **neither resolved from 1**; "not resolved" held |
+
+**Which numbers to quote.** None of the FOM ratios in this table is resolved:
+each carries about 100 % sigma at N = 5 and the arms' times are contaminated by
+load. What the data supports: (1) the learned source bias is unbiased to within
+`|z| <= 2` on 23 of 24 cells, with one 2.07 miss recorded; (2) it moves births
+only mildly on this box source (weight relative variance 0.074), so a large FOM
+gain from it should not be expected, and none is demonstrated; (3) on the
+headline band learned+sb is not distinguished from learned windows alone. A
+resolved FOM claim needs more seeds and a quiet machine, so that timings are
+comparable.
+
+**Not tested.** More than N = 5 seeds; a quiet machine; the discrete-energy
+bias in transport (unit-tested only); a source whose importance varies by 10x
+or more across its extent; the cause of the source-bias-only speed difference.
