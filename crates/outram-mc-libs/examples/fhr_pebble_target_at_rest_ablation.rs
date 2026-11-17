@@ -572,6 +572,24 @@ mod desktop {
         sab_entries.extend(MaterialSab::for_materials_containing(&mats, nx::C13G, 0, &[]));
         let (mats, moving) = assign_material_sab(&mats, &free_nuclides, &[sab], &sab_entries)
             .expect("S(a,b) per material");
+        // gh:#1636: `OUTRAM_FHR_NO_RESONANCE_SCATTERING=1` removes the default-on
+        // resonance elastic scattering (RVS/DBRC table) from BOTH arms, to price it.
+        // Off by default: the ordinary run keeps the physics (CLAUDE.md, correct
+        // physics is the default).
+        let no_res = std::env::var("OUTRAM_FHR_NO_RESONANCE_SCATTERING")
+            .map(|v| !v.is_empty() && v != "0")
+            .unwrap_or(false);
+        let moving: Vec<Nuclide> = if no_res {
+            moving.into_iter().map(Nuclide::without_dbrc).collect()
+        } else {
+            moving
+        };
+        eprintln!(
+            "  resonance elastic scattering (DBRC/RVS table) on {} of {} nuclides{}",
+            moving.iter().filter(|n| n.has_dbrc()).count(),
+            moving.len(),
+            if no_res { " (ABLATED, gh:#1636)" } else { "" }
+        );
         let at_rest: Vec<Nuclide> = moving
             .iter()
             .cloned()

@@ -796,3 +796,45 @@ kT, `81ec018c3` URR/DBRC/equiprobable S(a,b), `457d4ca97` RVS default,
 gh:#1581 per-material S(a,b)) are tested by building those commits and their
 parents, planned here before they run. Hardware: shared 4-core Intel Xeon
 2.10 GHz, 15.7 GiB, CPU only, another agent running.
+
+#### gh:#1636: step 4 prediction, written after steps 0-1 and before step 4 ran
+
+Steps 0 and 1 were running when this was written (seeds 1-7 of each were in:
+step 0 reproduces `ensembles_1583` seed for seed; step 1, the legacy scatter
+kernels, sits at about 1.3626 against 1.3630, i.e. no shift). **The step-1
+prediction (+300 pcm) is refuted**: the kernel rewrite is not the cause. Steps 2
+and 3 are not run unless step 4 fails, because their predictions were null and
+step 1 has already moved the suspicion elsewhere.
+
+What I missed when predicting: at `60f6bb261`, `Nuclide` carried **no** resonance
+elastic scattering table (`git grep -i dbrc 60f6bb261 -- crates/outram-mc-libs/src`
+hits only `physics/scatter.rs`; `material/nuclide.rs` has none), and the FHR
+driver never attached one. On the session build every nuclide with 0 K elastic
+data carries one by default (RVS, upstream's method, gh:#1311; table from
+`81ec018c3` / `a7e650694`), acting between 0.01 eV and 1 keV on U-238. That
+acts only when the target kT > 0, so it is **in the MOVING arm and absent from
+the AT-REST arm**, which is exactly the signature found above (MOVING -318 pcm,
+AT-REST unresolved). Resonance scattering broadens U-238's effective resonance
+capture and is known to lower k in low-enriched thermal systems.
+
+**Step 4: price it.** New driver knob `OUTRAM_FHR_NO_RESONANCE_SCATTERING=1`
+removes the table (`Nuclide::without_dbrc`) from both arms before the at-rest
+hook; everything else is the session build. Seeds 1-8, 4000 x [30 + 80], both
+arms, paired. Predictions, fixed now:
+
+1. MOVING k with the table removed returns to the `60f6bb261` value:
+   **1.3663 (range 1.3650-1.3680)**, i.e. +320 pcm (range +150 to +480) over
+   the default MOVING arm 1.36307.
+2. AT-REST with the table removed is **bit-identical per seed** to the default
+   AT-REST arm (kT = 0 means the table is never consulted). A seed that differs
+   refutes the mechanism claim, or shows the table alters RNG draws at kT = 0.
+3. The paired worth with the table removed is within |z| <= 2 of the -556 +/- 87
+   record: inside (-750, -362) pcm, centre about -480 (AT-REST 1.3615 minus
+   MOVING 1.3663).
+
+If 1 holds and 3 holds, the cause is the default-on resonance scattering
+(correct physics, maintainer decision gh:#1311), and the fix is a re-baseline
+of the driver's reference to the session-build value with the old one struck
+through. If 1 holds only in part, the residual is attributed to the remaining
+candidates (gh:#313, per-material S(a,b)) by building those commits, planned
+here before they run.
