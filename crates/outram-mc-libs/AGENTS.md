@@ -1031,7 +1031,10 @@ the maintainer, 2026-10-03; protocols in
   filling the cells MAGIC leaves without a window (extrapolation clamped,
   leave-one-out error reported); `VrArm` / `FomComparison` for
   `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Measured 2026-11-14:** no
-  resolvable bias, but FOM about 0.2x of analog and of MAGIC on the shielded room
+  resolvable bias, but ~~FOM about 0.2x of analog and of MAGIC~~ **CORRECTED
+  2026-11-17 (gh:#1582, weight windows now play upstream's game by default,
+  re-measured): learned about 0.17-0.57x of analog, 0.8-2.9x of MAGIC, and MAGIC
+  about 0.2x of analog (N = 5, ~100 % sigma)** on the shielded room
   (`stats_epic_493/497_learned_importance.md`). **Off by default**:
   it only builds a `WeightWindows`; transport changes only if a caller
   attaches it to a `VarianceReduction`, whose default stays analog. Source
