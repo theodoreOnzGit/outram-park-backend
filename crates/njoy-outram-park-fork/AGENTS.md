@@ -32,7 +32,9 @@ cache, HDF5, `rayon`, `wgpu`, clocks and both binaries. Keep it that way:
 - A `Path` that only labels an error can stay in a signature:
   `crate::nostd_path::Path` stands in for it without `std`.
 - A `HashMap` may stay where it is lookup-only and never iterated into
-  output; it becomes a `BTreeMap` only in the `no_std` build (`endf/tape.rs`).
+  output; it becomes a ~~`BTreeMap`~~ `hashbrown` map only in the `no_std`
+  build (`endf/tape.rs`; **CORRECTED 2026-11-16**: hashbrown workspace-wide,
+  maintainer).
 - A `std` build computes what it did before: `petir::real::Real` is imported
   only without `std`, and the NJOY2016 parity gates are the check.
 

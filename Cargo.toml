@@ -472,10 +472,12 @@ hdf5-pure = { version = "0.20.0", features = ["ndarray"] }
 miniz_oxide = "0.8"
 # `no_std` one-time init and lock for njoy-outram-park-fork without `std`
 # (gh:#1592); already in the lock file through other crates.
-# `HashMap` / `HashSet` for crates that build `no_std` + `alloc` and whose
-# public generics are bounded on `Hash`, not `Ord`, so a `BTreeMap` stand-in
-# would change their API (gh:#1604, `outram-blender`). Used only without
-# `std`; std builds keep `std::collections`. Already in the lock file.
+# `HashMap` / `HashSet` in every `no_std` + `alloc` build (maintainer,
+# 2026-11-16: "hashbrown workspace wide"; first gh:#1604). The same `Hash +
+# Eq` bounds as std's, so a stand-in adds no `Ord` bound to any API. Used only
+# without `std`; std builds keep `std::collections`. Its iteration order is
+# arbitrary, like std's: a map whose order reaches a result is sorted first.
+# Already in the lock file.
 hashbrown = { version = "0.16", default-features = false, features = ["default-hasher"] }
 spin = { version = "0.10.1", default-features = false, features = ["mutex", "spin_mutex", "once", "rwlock"] }
 

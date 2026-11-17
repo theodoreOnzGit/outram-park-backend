@@ -59,12 +59,13 @@ use std::fs::File;
 use crate::acer::acesix::{acesix_equiprobable, normalized_rows, BinWeights};
 use crate::thermr::calcem::iform0::compute_iform0;
 use crate::thermr::calcem::types::{Iform0Table, IncidentEnergyRecord};
-// A lookup-only cache (by cosine count), so the `no_std` `BTreeMap` gives the
+// A lookup-only cache (by cosine count), so the `no_std` ~~`BTreeMap`~~
+// `hashbrown` map (workspace-wide since 2026-11-16, maintainer) gives the
 // same tables (gh:#1592).
 #[cfg(any(feature = "std", test))]
 use std::collections::HashMap;
 #[cfg(not(any(feature = "std", test)))]
-use alloc::collections::BTreeMap as HashMap;
+use hashbrown::HashMap;
 #[cfg(feature = "std")]
 use std::path::Path;
 use alloc::sync::Arc;

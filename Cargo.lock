@@ -6676,6 +6676,7 @@ version = "0.0.7"
 dependencies = [
  "directories 5.0.1",
  "fs2",
+ "hashbrown 0.16.1",
  "hdf5-pure",
  "log",
  "miniz_oxide 0.8.9",

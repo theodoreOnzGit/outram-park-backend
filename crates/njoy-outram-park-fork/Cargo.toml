@@ -87,6 +87,9 @@ log.workspace = true
 miniz_oxide.workspace = true
 # `no_std` stand-ins for `OnceLock` and `thread_local!` (`crate::nostd_sync`),
 # used only without `std` (gh:#1592). Pure `core`, no OS.
+# `HashMap`/`HashSet` without `std` (workspace-wide choice, 2026-11-16);
+# unused in std builds.
+hashbrown = { workspace = true }
 spin = { workspace = true }
 # Pure-Rust HDF5 reader — no system libhdf5 (CORRECTED 2026-11-16, gh:#1592:
 # compiled with the default `std` feature, no longer always) (no build
