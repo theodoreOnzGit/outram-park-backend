@@ -110,3 +110,31 @@ fn tightening_the_tolerance_converges_to_the_reference() {
     }
     assert_eq!(last_err, 0.0);
 }
+
+/// Removal pair (#1630, verification 5, on the chain this crate holds):
+/// xenon sparged at 1/(10 min) as in an MSR off-gas system. Signs known
+/// before running: Xe-135 and its decay product Cs-135 fall, and with less
+/// Xe-135 absorbing, `k_inf` at end of life rises.
+///
+/// Measured 2026-11-17 (8 × 30 d, tolerance 1e-3): Xe-135 1.81e-10 vs
+/// 5.43e-9 (a factor 30 lower), Cs-135 8.16e-8 vs 2.57e-6, `k_inf`
+/// 1.855095 vs 1.827911 (+0.0272). All three signs as predicted.
+#[test]
+fn xenon_removal_has_the_known_sign() {
+    use crate::depletion::external_rates::RateUnit;
+    let chain = DepletionChain::simple();
+    let names: Vec<String> = chain.nuclide_names().iter().map(|n| (*n).to_owned()).collect();
+    let mut tr = TransferRates::new(vec!["fuel".into()], names, settings().n_steps);
+    tr.set_transfer_rate("fuel", &["Xe"], 6.0, RateUnit::PerHour, None, None).unwrap();
+    let p = deplete_tracking_pair(&chain, &initial(), &settings(), 1e-3, &tr, hardening(5.0), hardening(5.0)).unwrap();
+    let (w, wo) = (p.with_removal.result.eol(), p.without_removal.result.eol());
+    for n in ["Xe135", "Cs135"] {
+        #[cfg(feature = "std")]
+        std::println!("{n}: with removal {:.4e}, without {:.4e}", w.density(n), wo.density(n));
+        assert!(w.density(n) < wo.density(n), "{n}");
+    }
+    #[cfg(feature = "std")]
+    std::println!("k_inf EOL: with {:.6}, without {:.6}", w.k_inf, wo.k_inf);
+    assert!(w.k_inf > wo.k_inf);
+    assert_eq!(p.without_removal.result.eol().densities, deplete_tracking(&chain, &initial(), &settings(), 1e-3, hardening(5.0)).result.eol().densities);
+}

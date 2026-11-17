@@ -36,7 +36,8 @@
 //! Tests below, on a synthetic spectrum callback: the two limits above, the
 //! composition-only control, and convergence of the end-of-life inventory
 //! as the tolerance tightens. **Not yet** on transport spectra, not with
-//! removal (#1622's driver is separate), and not against OpenMC.
+//! against OpenMC. The removal pair ([`deplete_tracking_pair`]) is checked
+//! for the sign of its effect on xenon sparging (tests).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -44,6 +45,7 @@ use crate::nostd_prelude::*;
 
 use super::chain::DepletionChain;
 use super::cram::cram16;
+use super::external_rates::{deplete_with_external_rates, TransferRates};
 use super::operator::{
     flux_for_power, k_inf, one_group_cross_sections, reaction_rates, BurnupResult, BurnupSettings, BurnupStep,
     OneGroupWeighting, OneGroupXs, DEFAULT_GROUP_SUB_POINTS,
@@ -131,8 +133,52 @@ pub fn deplete_tracking(
     initial: &[(String, f64)],
     settings: &BurnupSettings,
     tolerance: f64,
-    mut spectrum: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
+    spectrum: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
 ) -> TrackingResult {
+    run_tracking(chain, initial, settings, tolerance, None, spectrum).expect("no transfer rates: nothing can fail")
+}
+
+/// The with-removal and without-removal histories from one starting state
+/// (#1630's removal ablation). Each arm has its own spectrum callback and
+/// its own refreshes, since removal changes the spectrum.
+#[derive(Debug, Clone)]
+pub struct RemovalPair {
+    /// With `removal` applied every step.
+    pub with_removal: TrackingResult,
+    /// The same run without it.
+    pub without_removal: TrackingResult,
+}
+
+/// Run both arms. `removal` is a one-material [`TransferRates`] whose
+/// timestep `k` applies to burnup step `k + 1`, solved exactly by
+/// [`deplete_with_external_rates`] with CRAM-16 (removal and any feed).
+///
+/// # Errors
+/// From the transfer terms (e.g. a removal set on a material other than
+/// the one `removal` names).
+pub fn deplete_tracking_pair(
+    chain: &DepletionChain,
+    initial: &[(String, f64)],
+    settings: &BurnupSettings,
+    tolerance: f64,
+    removal: &TransferRates,
+    spectrum_with: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
+    spectrum_without: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
+) -> Result<RemovalPair, String> {
+    Ok(RemovalPair {
+        with_removal: run_tracking(chain, initial, settings, tolerance, Some(removal), spectrum_with)?,
+        without_removal: run_tracking(chain, initial, settings, tolerance, None, spectrum_without)?,
+    })
+}
+
+fn run_tracking(
+    chain: &DepletionChain,
+    initial: &[(String, f64)],
+    settings: &BurnupSettings,
+    tolerance: f64,
+    transfer: Option<&TransferRates>,
+    mut spectrum: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
+) -> Result<TrackingResult, String> {
     let names: Vec<&str> = chain.nuclide_names();
     let mut densities = vec![0.0_f64; names.len()];
     for (name, dens) in initial {
@@ -181,7 +227,15 @@ pub fn deplete_tracking(
         let flux = flux_for_power(&names, &densities, &xs, settings);
         let rates = reaction_rates(&names, flux, &xs);
         let matrix = chain.build_matrix(&rates);
-        densities = cram16(&matrix, &densities, dt_seconds);
+        densities = match transfer {
+            None => cram16(&matrix, &densities, dt_seconds),
+            Some(tr) => {
+                let names_owned: Vec<String> = names.iter().map(|n| (*n).to_owned()).collect();
+                deplete_with_external_rates(cram16, &names_owned, vec![matrix], vec![densities], dt_seconds, step - 1, Some(tr), None)?
+                    .pop()
+                    .ok_or("no material returned")?
+            }
+        };
         for d in &mut densities {
             if *d < 0.0 {
                 *d = 0.0;
@@ -189,7 +243,7 @@ pub fn deplete_tracking(
         }
         steps.push(record(step, step as f64 * settings.step_days, flux, &densities, &xs));
     }
-    TrackingResult { result: BurnupResult { steps }, records, transport_calls }
+    Ok(TrackingResult { result: BurnupResult { steps }, records, transport_calls })
 }
 
 #[cfg(test)]
