@@ -74,6 +74,11 @@ pub mod matrix;
 pub mod cram;
 pub mod chain;
 pub mod operator;
+pub mod external_rates;
+pub mod microxs;
+pub mod microxs_transport;
+pub mod helpers;
+pub mod tracking;
 
 pub use chain::{
     ChainImportError, DecayBranch, DepletionChain, NeutronReaction, NuclideData, ReactionKind,

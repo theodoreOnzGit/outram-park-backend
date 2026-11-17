@@ -262,6 +262,9 @@ pub mod reconr;
 /// too large for a crates.io package.
 #[cfg(any(feature = "std", test))]
 pub mod reference_data;
+/// Isomeric branching ratios from MF=8/9/10, collapsed on a group spectrum
+/// (gh:#1628).
+pub mod isomeric_branching;
 /// Thermal neutron scattering (the THERMR domain): read MF=7 S(α,β) evaluations
 /// and, in future, compute bound-atom thermal cross sections. Distinct from
 /// [`acer::thermal`], which *writes* the thermal ACE table.

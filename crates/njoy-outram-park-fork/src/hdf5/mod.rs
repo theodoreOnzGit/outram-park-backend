@@ -31,6 +31,7 @@
 use crate::nostd_prelude::*;
 pub mod collision_track;
 pub mod cross_sections_xml;
+pub mod depletion_chain_ops;
 pub mod depletion_chain_xml;
 pub mod mgxs_write;
 pub mod nuclide_laws;
