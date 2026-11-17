@@ -4,3 +4,5 @@
 # V&V raw data -- the .md write-ups in verification_and_validation/ are
 # committed; standalone .csv data files they reference are not.
 /verification_and_validation/*.csv
+# per-run diagnostics written by outram_mc_libs::perf_report (LOCAL_PERF_DIR); machine-local, never committed
+/verification_and_validation/local_perf/
