@@ -41,7 +41,9 @@ pub fn silent_physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particl
     finished_particles
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct FinishedParticlesContainer {
     sputtered: Vec<bool>,
     implanted: Vec<bool>,

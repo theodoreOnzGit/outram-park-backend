@@ -86,7 +86,7 @@ outram-park-fork-dwsim-libs = { workspace = true, features = ["std"] }
 # Maintainer-approved edge (2026-08-11, op-jyyp.5): geometry and per-layer
 # property handling only -- boon-lay's fission-product RELEASE model is NOT
 # consumed here (its CRP-6 verification test is flagged defective, op-jyyp.10).
-boon-lay.workspace = true
+boon-lay = { workspace = true, features = ["std"] }
 # 1-D continuous-Galerkin flow (gh:#1069) takes its Gauss-Legendre line rule
 # from farrer-park's `quadrature::facet_rule(FacetType::Line2)` rather than a
 # copy. farrer-park depends only on petir, uom, thiserror and

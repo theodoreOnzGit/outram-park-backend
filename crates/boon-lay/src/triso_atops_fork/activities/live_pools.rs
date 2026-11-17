@@ -56,6 +56,9 @@
 //! (the ported forms' `C_parent`/`P_parent` are passed as zero by every caller
 //! in this workspace).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// The three primary-circuit pools and the cumulative leak, in **atoms**.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]

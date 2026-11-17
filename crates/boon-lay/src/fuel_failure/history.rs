@@ -242,6 +242,9 @@
 //! One digitisation label reads `90% FIMA` where the caption says
 //! `9.0 % FIMA` and `F_B = 0.09`; 0.09 is used, and the slip is noted.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Frequency, Pressure, Ratio, ThermodynamicTemperature, Time, Volume};
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -934,7 +937,7 @@ mod tests {
             .iter()
             .zip(props.iter())
             .filter(|(phi, _)| **phi >= 1.0e-6)
-            .map(|(phi, (s_o, m))| s_o * (-(1.0 - phi).r_ln() / std::f64::consts::LN_2).r_powf(1.0 / m))
+            .map(|(phi, (s_o, m))| s_o * (-(1.0 - phi).r_ln() / core::f64::consts::LN_2).r_powf(1.0 / m))
             .collect();
         assert_eq!(
             recovered.len(),
@@ -1000,7 +1003,7 @@ mod tests {
             .iter()
             .zip(props.iter())
             .map(|(phi, (s_o, m))| {
-                s_o * (-(1.0 - deflate(*phi)).r_ln() / std::f64::consts::LN_2).r_powf(1.0 / m)
+                s_o * (-(1.0 - deflate(*phi)).r_ln() / core::f64::consts::LN_2).r_powf(1.0 / m)
             })
             .collect();
         let cmean = corrected.iter().sum::<f64>() / 8.0;
@@ -1073,7 +1076,7 @@ mod tests {
         let mut ratios = Vec::new();
         for (t_h, phi) in panama {
             let chain = frj2_k11_stress_at(t_h).get::<megapascal>();
-            let from_figure = sigma_o * (-(1.0 - phi).r_ln() / std::f64::consts::LN_2).r_powf(1.0 / m);
+            let from_figure = sigma_o * (-(1.0 - phi).r_ln() / core::f64::consts::LN_2).r_powf(1.0 / m);
             ratios.push((t_h, from_figure / chain, from_figure, chain));
         }
 
@@ -1507,7 +1510,7 @@ mod tests {
 
     /// Invert Eq (1): the `σ_t` a digitised failure fraction implies.
     fn stress_implied_by(phi: f64, sigma_o: Pressure, m: f64) -> f64 {
-        sigma_o.get::<megapascal>() * (-(1.0 - phi).r_ln() / std::f64::consts::LN_2).r_powf(1.0 / m)
+        sigma_o.get::<megapascal>() * (-(1.0 - phi).r_ln() / core::f64::consts::LN_2).r_powf(1.0 / m)
     }
 
     /// **Fig. 8 (page -501-): the Fig. 7 drift REAPPEARS under a purely

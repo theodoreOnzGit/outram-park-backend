@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this code here is meant to simulate decay chains
 /// Basically, it takes information from the nuclide, converts it into decay
 /// data and then terminates it as it reaches stability

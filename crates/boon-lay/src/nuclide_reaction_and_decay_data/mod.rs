@@ -1,6 +1,10 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use fission_yields_data::prelude::{parse_nuclide_allow_underscore_isomer, Nuclide};
 use uom::si::{energy::electronvolt, f64::*, ratio::ratio, time::second};
 
+#[cfg(feature = "std")]
 use crate::decay_xml_info_serde::SerdeNuclideData;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -80,6 +84,7 @@ impl DecayType {
             "n" => DecayType::Neutron,
             "n,n" => DecayType::DoubleNeutron,
             _ => {
+                #[cfg(feature = "std")]
                 dbg!(&string);
                 todo!("does not match any decay type")
             }
@@ -89,6 +94,8 @@ impl DecayType {
     }
 }
 
+/// `std` only (gh:#1634): `SerdeNuclideData` is the parsed OpenMC XML.
+#[cfg(feature = "std")]
 impl From<SerdeNuclideData> for NuclideReactionAndDecayData {
     fn from(raw_data_serde: SerdeNuclideData) -> Self {
         // first convert nuclide name to string
@@ -218,54 +225,68 @@ impl From<SerdeNuclideData> for NuclideReactionAndDecayData {
 }
 
 /// this contains tests for alkali metals and hydrogen
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod alkali_metals_and_hydrogen;
 
 /// this contains tests for alkaline_earth metals
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod alkaline_earth_metals;
 
 /// this contains tests for transition metals
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod transition_metals_test;
 
 /// this contains tests for noble gases
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod noble_gases_test;
 
 /// this contains tests for halogens
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod halogens_test;
 
 /// this contains tests for chalcogens
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod chalcogens_test;
 
 /// this contains tests for pnictogens
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod pnictogens_test;
 
 /// this contains tests for lanthanides
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod lanthanides_test;
 
 /// this contains tests for actinides
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod actinides_test;
 
 /// this contains tests for the carbon group
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod carbon_group_test;
 
 /// this contains tests for the boron group
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod boron_group_test;
 
 /// this contains tests for heavier than actinides
-#[cfg(test)]
+// Reads the std-only OpenMC XML data (gh:#1634).
+#[cfg(all(test, feature = "std"))]
 pub mod heavier_than_actinides;
 
 /// contains modules to parse nuclides and obtain their respective xml data
+/// `std` only (gh:#1634): it parses OpenMC's XML (`serde-xml-rs`).
+#[cfg(feature = "std")]
 pub mod parse_nuclides_to_decay_data;
 
 /// contains a module for a full decay library, which is meant to make it

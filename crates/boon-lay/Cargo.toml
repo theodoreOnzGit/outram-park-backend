@@ -51,15 +51,15 @@ backronym = "BOmbardment of neutrons On Nuclides with Lagrangian transport and t
 
 [dependencies]
 uom             = { workspace = true }
-serde           = { workspace = true }
-serde-xml-rs    = { workspace = true }
+serde           = { workspace = true, optional = true }
+serde-xml-rs    = { workspace = true, optional = true }
 # JSON for reading upstream / GUI-written TRISO-ATOPS run files
 # (triso_atops_fork::run_file::upstream, #449). Pure Rust; wasm/Android-clean.
-serde_json      = { workspace = true }
-anyhow          = { workspace = true }
+serde_json      = { workspace = true, optional = true }
+anyhow-nostd    = { workspace = true }
 outram-mc-libs     = { workspace = true }
 fission-yields-data               = { workspace = true }
-openmc-endf-8-depletion-lib-b     = { workspace = true }
+openmc-endf-8-depletion-lib-b     = { workspace = true, optional = true }
 # ── RustBCA copy (src/rustbca/, gh:#876 item 7) ─────────────────────────────
 # The no_std + alloc core needs only these. petir supplies the libm-backed
 # `real::Real` float shim (the workspace's one no_std shim) and, since
@@ -67,6 +67,8 @@ openmc-endf-8-depletion-lib-b     = { workspace = true }
 # rand_distr 0.6.0 pieces RustBCA used (ChaCha8Rng, Uniform, Normal), draw for
 # draw, so `rand` and `rand_distr` are no longer dependencies.
 petir           = { workspace = true }
+# `crate::sync::OnceLock` without std (gh:#1634).
+spin            = { workspace = true }
 # OS entropy for `seed < 0` and `simple_bca`, std layer only (was rand's
 # thread_rng; gh:#995).
 getrandom       = { workspace = true, optional = true }
@@ -84,7 +86,7 @@ itertools       = { workspace = true, optional = true }
 # `gpu` module is `cfg(not(target_os = "android"))`-gated; the CPU (rayon) path
 # is always available and is the trusted reference.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
-wgpu = { workspace = true }
+wgpu = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx          = { workspace = true }
@@ -124,12 +126,18 @@ image           = { workspace = true }
 
 [[example]]
 name = "boon_lay_decay_simulator"
+# Uses the std-only decay data or threads (gh:#1634).
+required-features = ["std"]
 
 [[example]]
 name = "triso_simulator"
+# Uses the std-only decay data or threads (gh:#1634).
+required-features = ["std"]
 
 [[example]]
 name = "first_passage_realtime"
+# Uses the std-only decay data or threads (gh:#1634).
+required-features = ["std"]
 
 # Geometry check for lesson rung 1 (gh:#531): draws the assembled TrisoCell
 # from region lookups and recovers each interface radius. Pure std.
@@ -149,7 +157,25 @@ name = "layer_diffusion_table"
 # gh:#876 item 7). Not for wasm32-unknown-unknown: ~~getrandom 0.4 (from
 # rand's thread_rng)~~ getrandom 0.3 (the entropy seed, gh:#995) needs its
 # wasm_js feature there, which nothing enables here.
-rustbca-std = ["dep:toml", "dep:geo", "dep:indicatif", "dep:itertools", "dep:getrandom"]
+rustbca-std = ["std", "dep:toml", "dep:geo", "dep:indicatif", "dep:itertools", "dep:getrandom"]
+
+# `no_std` + `alloc` without `std` (gh:#1634, epic gh:#1585). `std` (default)
+# carries: the OpenMC decay/transmutation data (`openmc-endf-8-depletion-lib-b`,
+# read through `serde-xml-rs`) and the modules built on it, `serde` /
+# `serde_json` (file input only), the TRISO run-file readers, the rayon thread
+# pool (serial `wasm_par` stand-in without it), the wgpu `gpu` module, printing,
+# and `std` in `anyhow` and `outram-mc-libs`. `rustbca-std` implies it.
+default = ["std"]
+std = [
+    "dep:serde",
+    "dep:serde-xml-rs",
+    "dep:serde_json",
+    "dep:openmc-endf-8-depletion-lib-b",
+    "dep:rayon",
+    "dep:wgpu",
+    "anyhow-nostd/std",
+    "outram-mc-libs/std",
+]
 
 # Headless cost probe for RustBCA cascades in a UO2 kernel and its TRISO
 # coatings (gh:#876 item 7). Pure Rust, no GUI; runs on every target.
@@ -165,5 +191,6 @@ name = "rustbca_cascades"
 # For this crate the serial path is the documented trusted reference anyway: the
 # CPU Walk-on-Spheres ensemble is what the GPU path is validated against.
 # Bead op-okqo.1.
+required-features = ["std"]
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = { workspace = true }
+rayon = { workspace = true, optional = true }

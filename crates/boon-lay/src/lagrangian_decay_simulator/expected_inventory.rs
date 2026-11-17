@@ -39,6 +39,9 @@
 //! The order is CRAM48, one substep: the most accurate of PETIR's two CRAMs
 //! and OpenMC's default. No upstream code here has a CRAM to match.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use fission_yields_data::prelude::Nuclide;
 use petir::depletion::{cram48, DepletionMatrix};
 use petir::mathf::RealMath;
@@ -202,6 +205,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     /// **Comparison (a), gh:#999: per-atom Monte Carlo mean vs the CRAM48
     /// expected inventory**, on the thorium-C end of the Th-232 chain.
     ///
@@ -284,6 +288,7 @@ mod tests {
         println!("worst |MC - CRAM48| = {worst_sigmas:.2} sigma over {n_atoms} atoms");
     }
 
+    #[cfg(feature = "std")]
     /// **Comparison (b), gh:#999: CRAM48 vs the exact Bateman answer** on the
     /// Th-232 chain built from the library.
     ///
@@ -391,6 +396,7 @@ mod tests {
         println!("worst normwise CRAM48 vs Bateman: {worst_abs:.2e}");
     }
 
+    #[cfg(feature = "std")]
     /// The builder's edge cases: a stable start is a 1x1 zero matrix (the
     /// inventory does not move), and bad inputs are errors, not panics.
     #[test]

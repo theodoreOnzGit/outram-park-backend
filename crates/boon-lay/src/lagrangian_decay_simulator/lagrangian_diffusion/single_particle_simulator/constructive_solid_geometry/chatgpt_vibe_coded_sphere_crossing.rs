@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Length, Time, Velocity};
 use uom::si::length::meter;
 use uom::si::time::second;
@@ -79,7 +82,7 @@ pub fn sphere_first_crossing_uom(
     let mut t0 = q / a; // (s)
     let mut t1 = if q != 0.0 { c / q } else { t0 }; // (s)
     if t0 > t1 {
-        std::mem::swap(&mut t0, &mut t1);
+        core::mem::swap(&mut t0, &mut t1);
     }
 
     // Starting region classification (inside/outside/on), tolerance in m^2

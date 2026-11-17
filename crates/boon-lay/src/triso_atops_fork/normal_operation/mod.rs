@@ -64,6 +64,9 @@
 //! thin `serde` reader for existing GUI run files. The physics it will call —
 //! [`normal_operation_node`] — is complete and verified here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Frequency, Length, ThermodynamicTemperature, Time};
 use uom::si::frequency::hertz;
 

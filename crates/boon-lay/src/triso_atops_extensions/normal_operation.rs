@@ -39,6 +39,9 @@
 //! sets a zero rate where upstream's rate is non-zero, the pool is zero and
 //! does **not** inherit the parent's pool. Upstream never meets either case.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Frequency, Time};
 use uom::si::frequency::hertz;
 

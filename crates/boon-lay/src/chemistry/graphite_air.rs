@@ -32,6 +32,9 @@
 //! and CO2 is the bounding choice for heat per mole of O2 consumed (393.7
 //! against 2 x 111.4 = 222.8 kJ).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Pressure, ThermodynamicTemperature};
 use uom::si::frequency::hertz;

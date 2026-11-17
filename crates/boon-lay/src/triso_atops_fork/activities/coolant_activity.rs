@@ -44,6 +44,9 @@
 //! - `decay_constant` is `λ` ([`DecayConstant`], `s^-1`).
 //! - `time` is the elapsed reactor run time ([`uom::si::f64::Time`], `s`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Time};
 use uom::si::frequency::hertz;

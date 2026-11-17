@@ -121,6 +121,9 @@
 //! code to build for Android. See `docs/triso-atops-fork.md` for the full
 //! Python→Rust module map and the port/verification status.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The radioactive decay constant `λ = ln 2 / t½`.
 ///
 /// SI unit `s^-1`; dimensionally a frequency. Construct with
@@ -152,6 +155,8 @@ pub mod normal_operation;
 pub mod accident;
 
 /// The JSON run file: parsing, validation and unit attachment.
+/// `std` only (gh:#1634): reads run files (files, `serde_json`).
+#[cfg(feature = "std")]
 pub mod run_file;
 
 /// Model variant: the upstream code (default) or the 2026 paper as written (gh:#1015).

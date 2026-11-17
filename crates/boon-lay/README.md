@@ -81,6 +81,35 @@ its coatings. A fission fragment costs 1.5–2 s on one desktop core. Results
 are in
 [`verification_and_validation/rustbca_cascades/`](verification_and_validation/rustbca_cascades/README.md).
 
+## `no_std` + `alloc` (gh:#1634)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p boon-lay --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). **Everything that computes builds without
+it**: every decay, diffusion, first-passage and transmutation simulator, the
+`DecayLibrary` type and its lookups, the RustBCA copy's physics, the fuel
+failure models, the TRISO-ATOPS release models and the chemistry rate laws.
+What `std` (default) carries:
+
+- **the OpenMC decay data source**: `decay_xml_info_serde`,
+  `parse_nuclides_to_decay_data` and `DecayLibrary::new`, which read
+  `openmc-endf-8-depletion-lib-b` through `serde-xml-rs` (no `no_std` build).
+  Without `std` a `DecayLibrary` has to be built from another source;
+- the TRISO-ATOPS run-file readers (`triso_atops_fork::run_file`: files,
+  `serde_json`) and `serde` itself (RustBCA input files only);
+- the rayon thread pool (serial `wasm_par` stand-in without it, as on wasm),
+  `available_parallelism` (one core without it), and the wgpu `gpu` module;
+- the wall clock: a loop timer reads zero, and `DiffusionRandomCache::new`,
+  which seeds from the clock, gets a fixed seed;
+- printing, and `std` in `anyhow` and `outram-mc-libs`.
+
+`rustbca-std` implies `std`. The root workspace entry is
+`default-features = false`, so a member that wants `std` asks for it. With
+`std` on (the default) nothing changes. Three kovan-reviewed functions were
+edited mechanically for this, with the maintainer's confirmation
+(`std::` paths to `core::`; listed on gh:#1634).
+
 ## Where it sits
 
 `boon-lay` supplies the release physics for the offsite chain. `sembawang`

@@ -33,22 +33,23 @@ fn default_vec_float_zero() -> Vec<f64> {
 }
 
 /// Holds material input parameters from [material_params].
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct MaterialParameters {
     pub energy_unit: String,
     pub mass_unit: String,
     pub Eb: Vec<f64>,
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
-    #[serde(default = "default_vec_float_zero")]
+    #[cfg_attr(feature = "std", serde(default = "default_vec_float_zero"))]
     pub Ed: Vec<f64>,
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
-    #[serde(default = "default_vec_zero")]
+    #[cfg_attr(feature = "std", serde(default = "default_vec_zero"))]
     pub interaction_index: Vec<usize>,
-    #[serde(default = "default_surface_binding_model")]
+    #[cfg_attr(feature = "std", serde(default = "default_surface_binding_model"))]
     pub surface_binding_model: SurfaceBindingModel,
-    #[serde(default = "default_bulk_binding_model")]
+    #[cfg_attr(feature = "std", serde(default = "default_bulk_binding_model"))]
     pub bulk_binding_model: BulkBindingModel
 }
 

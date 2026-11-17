@@ -13,12 +13,15 @@
 //! independent histories are executed (one thread, all cores via `rayon`, or a
 //! `wgpu` kernel). See [`crate::compute::ComputeType`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use fission_yields_data::prelude::Nuclide;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par::prelude::*;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par as rayon;
 use uom::si::f64::{Length, ThermodynamicTemperature, Time};
 use uom::si::length::micrometer;
@@ -236,7 +239,7 @@ impl LiveEnsemble {
     /// (and on Android, on wasm, and whenever no adapter is present) this runs
     /// the CPU path so `ComputeType::Gpu` is always safe to select.
     fn advance_gpu(&mut self, until: Time) {
-        #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+        #[cfg(all(feature = "std", not(target_os = "android"), not(target_arch = "wasm32")))]
         {
             if crate::gpu::advance_multilayer_best_effort(
                 &self.cell,

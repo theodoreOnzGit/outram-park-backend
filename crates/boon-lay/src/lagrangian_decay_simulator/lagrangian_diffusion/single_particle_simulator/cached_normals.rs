@@ -1,7 +1,10 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use outram_mc_libs::rng::distributions::sample_normal;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use core::sync::atomic::{AtomicUsize, Ordering};
+use crate::time::{SystemTime, UNIX_EPOCH};
 use uom::si::time::second;
 
 /// Fast cached pool of standard normal random numbers for diffusion simulation
@@ -16,7 +19,8 @@ pub struct DiffusionRandomCache {
 
 impl DiffusionRandomCache {
     /// Create a new cache with the specified number of pre-generated samples.
-    /// Uses the OpenMC LCG seeded from the current wall-clock time.
+    /// Uses the OpenMC LCG seeded from the current wall-clock time. Without
+    /// `std` there is no clock and the seed is fixed (gh:#1634).
     pub fn new(cache_size: usize) -> Self {
         let t = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -66,8 +70,8 @@ impl Clone for DiffusionRandomCache {
 }
 
 // Manual Debug implementation (since AtomicUsize doesn't implement Debug in the usual way)
-impl std::fmt::Debug for DiffusionRandomCache {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for DiffusionRandomCache {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("DiffusionRandomCache")
             .field("size", &self.size)
             .field("current_index", &self.index.load(Ordering::Relaxed))

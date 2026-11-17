@@ -40,6 +40,9 @@
 //! [`crate::triso_atops_fork::run_selection`] (`SelectedNuclide`), which is
 //! implemented.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod nuclide_database;
 
 pub use nuclide_database::{supported_nuclides, TRISO_ATOPS_NUCLIDE_COUNT};
@@ -117,7 +120,7 @@ impl TrisoAtopsNuclide {
     #[must_use]
     pub fn decay_constant(&self) -> DecayConstant {
         let t_half_s = self.half_life.get::<second>();
-        Frequency::new::<hertz>(std::f64::consts::LN_2 / t_half_s)
+        Frequency::new::<hertz>(core::f64::consts::LN_2 / t_half_s)
     }
 
     /// The transport [`ElementGroup`] this nuclide belongs to, from its `Z`.
@@ -272,7 +275,7 @@ mod tests {
         let lam = cs137.decay_constant().get::<hertz>();
         assert_relative_eq!(
             lam,
-            std::f64::consts::LN_2 / 949_232_333.0,
+            core::f64::consts::LN_2 / 949_232_333.0,
             max_relative = 1e-12
         );
         assert_relative_eq!(lam, 7.302e-10, max_relative = 1e-3);
