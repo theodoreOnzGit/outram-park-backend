@@ -274,3 +274,81 @@ fn zinc68_isomer_branching_is_the_default() {
     assert!(def.density(last, 0, "Zn69_m1") > 0.0);
     assert!(def.density(last, 0, "Zn69_m1") > 100.0 * pre.density(last, 0, "Zn69_m1"));
 }
+
+/// gh:#1630 on transport spectra: a uranium pin whose transport materials
+/// follow the depleting U-235/U-238 (CORE carries both), the chain from
+/// `from_endf` with the U-235 and U-238 evaluations, reduced from them to
+/// level 1. 5 steps of 30 d at 300 W/cm³ (about 14 % U-235 burnup expected;
+/// a first attempt at 3 kW/cm³ for 5 × 60 d burnt the U-235 out, which made
+/// the relative error undefined).
+///
+/// Predictions, written before the run:
+/// 1. tolerance 0 adopts every changed segment (4 refreshes, 5 transports);
+/// 2. tolerance ∞ adopts none, and its history equals `run`'s exactly;
+/// 3. the end-of-life U-235 error against tolerance 0 shrinks (does not
+///    grow) as the tolerance tightens.
+///
+/// The criterion here also carries Monte Carlo noise (each step is a fresh
+/// 400 × [8 + 20] run), so its values are recorded, not predicted.
+///
+/// Measured 2026-11-17: predictions 1 and 2 **held** (4 refreshes and 5
+/// transports at tolerance 0; tolerance ∞ equals `run` exactly).
+/// Prediction 3 **FAILED**. The criterion at steps 1-4 was 0.042, 0.0062,
+/// 0.022, 0.023 (U-238 dominant each time). Never refreshing left EOL
+/// U-235 within **6.5e-7** of the refresh-every-step reference, while one
+/// refresh (tolerance 3e-2) put it **1.2e-5** away: at these statistics
+/// the step-to-step change in the tallied spectrum is mostly Monte Carlo
+/// noise, and adopting a noisy spectrum adds error. The finding for gh:#1630:
+/// the criterion must be judged against the tally's own statistical
+/// uncertainty (a refresh only when the change exceeds its noise), which
+/// it is not yet. The sweep is printed and not gated; only the two held
+/// predictions are.
+#[test]
+fn tracking_on_transport_spectra() {
+    let Some((_, decay, nfy)) = data() else { return };
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let u5 = Tape::from_bytes(&std::fs::read(root.join("n-092_U_235-ENDF8.0.endf")).unwrap()).unwrap();
+    let u8 = Tape::from_bytes(&std::fs::read(root.join("n-092_U_238.endf")).unwrap()).unwrap();
+    let (chain_xml, _) = from_endf(&decay, &nfy, &[u5.clone(), u8.clone()], None).unwrap();
+    let nuclides = vec![Nuclide::from_core("U235").unwrap(), Nuclide::from_core("U238").unwrap(), Nuclide::from_core("H1").unwrap()];
+    let (r_fuel, half) = (0.4_f64, 0.63_f64);
+    let geom = pincell(r_fuel, half);
+    let comp = |i: usize, x: f64| NuclideComponent { nuclide_idx: i, atom_density: x };
+    let materials_for = |inv: &[(String, f64)]| {
+        let get = |n: &str| inv.iter().find(|(x, _)| x == n).map_or(0.0, |(_, d)| *d);
+        vec![
+            Material { id: 1, name: "fuel".into(), temperature: 293.6, components: vec![comp(0, get("U235")), comp(1, get("U238"))] },
+            Material { id: 2, name: "moderator".into(), temperature: 293.6, components: vec![comp(2, 6.6e-2)] },
+        ]
+    };
+    let ks = KeffSettings { n_particles: 400, n_inactive: 8, n_active: 20, ..KeffSettings::default() };
+    let src = SourceBox { lower: Position::new(-r_fuel, -r_fuel, -1.0), upper: Position::new(r_fuel, r_fuel, 1.0) };
+    let starting = vec![("U235".to_string(), 1.0e-3), ("U238".to_string(), 2.2e-2)];
+    let study = SpectrumDepletion::new(0, starting.clone(), chain_xml)
+        .with_reduce_level(Some(1))
+        .with_evaluation("U235", u5)
+        .with_evaluation("U238", u8)
+        .with_group_edges(log_grid(1.0e-5, 2.0e7, 40))
+        .with_power(300.0, 1.0)
+        .with_steps(vec![30.0 * 86_400.0; 5]);
+
+    let reference = study.run_tracking(&geom, &nuclides, src, &ks, 0.0, materials_for).unwrap();
+    let last = reference.history.len() - 1;
+    let r235 = reference.density(last, "U235");
+    std::println!("tol 0: refreshes {}, transports {}, criterion {:?}", reference.refreshes(), reference.transport_calls, reference.records.iter().map(|r| (r.value, r.dominant.clone())).collect::<Vec<_>>());
+    assert_eq!(reference.refreshes(), 4);
+    assert_eq!(reference.transport_calls, 5);
+
+    let frozen = study.run_tracking(&geom, &nuclides, src, &ks, f64::INFINITY, materials_for).unwrap();
+    assert_eq!(frozen.refreshes(), 0);
+    let plain = study.run(&geom, &materials_for(&starting), &nuclides, src, &ks).unwrap();
+    assert_eq!(frozen.history.last().unwrap().2, plain.history.last().unwrap().2, "tolerance ∞ is run()");
+
+    for tol in [1e-1, 3e-2, 1e-2, 3e-3] {
+        let t = study.run_tracking(&geom, &nuclides, src, &ks, tol, materials_for).unwrap();
+        let err = ((t.density(last, "U235") - r235) / r235).abs();
+        std::println!("tol {tol:e}: refreshes {}, EOL U235 {:.6e}, error {err:.3e}", t.refreshes(), t.density(last, "U235"));
+    }
+    let err_frozen = ((frozen.density(last, "U235") - r235) / r235).abs();
+    std::println!("tol inf: EOL U235 error {err_frozen:.3e}");
+}

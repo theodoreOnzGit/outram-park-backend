@@ -80,7 +80,12 @@
 //! 4. **Summation order in [`add_redox_term`].** Upstream's
 //!    `sum(array[:, i]*os)` uses numpy's pairwise summation; this port sums
 //!    rows in order. Results can differ in the last bits for chains of more
-//!    than a few nuclides. Not yet compared against OpenMC by running it.
+//!    than a few nuclides. ~~Not yet compared against OpenMC by running it.~~
+//!    **CORRECTED 2026-11-17:** compared, redox included, against OpenMC
+//!    `e4febe9` run on the same inputs (`tests/external_rates_vs_openmc_run.rs`,
+//!    2.8e-15) and its transfer-rate regression files
+//!    (`tests/transfer_rates_vs_openmc_regression.rs`, 2.0e-15); no difference
+//!    from the summation order was resolved.
 //! 5. **Material identifiers are strings.** Upstream also accepts an
 //!    `openmc.Material` or its name; here the caller passes the burnable
 //!    material's id, as upstream's `_get_material_id` returns it.

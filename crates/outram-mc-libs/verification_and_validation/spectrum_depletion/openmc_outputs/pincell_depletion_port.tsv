@@ -1,0 +1,2688 @@
+k	port	1	0	1.1605590237177492	0.003390488321767883
+atoms	port	1	0	I135	0.0
+rate	port	1	0	I135	(n,gamma)	2.7181699454667635e-9
+rate	port	1	0	I135	fission	0.0
+atoms	port	1	0	Xe135	0.0
+rate	port	1	0	Xe135	(n,gamma)	9.320591494541893e-5
+rate	port	1	0	Xe135	fission	0.0
+atoms	port	1	0	Xe136	0.0
+rate	port	1	0	Xe136	(n,gamma)	9.254657453327792e-12
+rate	port	1	0	Xe136	fission	0.0
+atoms	port	1	0	Cs135	0.0
+rate	port	1	0	Cs135	(n,gamma)	7.434431900523096e-10
+rate	port	1	0	Cs135	fission	0.0
+atoms	port	1	0	Gd157	0.0
+rate	port	1	0	Gd157	(n,gamma)	5.4635287676413565e-6
+rate	port	1	0	Gd157	fission	0.0
+atoms	port	1	0	Gd156	0.0
+rate	port	1	0	Gd156	(n,gamma)	1.0466960366597804e-9
+rate	port	1	0	Gd156	fission	0.0
+atoms	port	1	0	U234	2.410633813691412e18
+rate	port	1	0	U234	(n,gamma)	8.259990054915236e-9
+rate	port	1	0	U234	fission	1.4876402435166835e-10
+atoms	port	1	0	U235	2.6970192963926262e20
+rate	port	1	0	U235	(n,gamma)	4.157674889780861e-9
+rate	port	1	0	U235	fission	1.9549984424196153e-8
+atoms	port	1	0	U238	1.0825746400694843e22
+rate	port	1	0	U238	(n,gamma)	1.0790904221050734e-9
+rate	port	1	0	U238	fission	3.090146160655332e-11
+k	port	1	1	1.1472019014180692	0.0031950335478917453
+atoms	port	1	1	I135	4984776137810741.0
+rate	port	1	1	I135	(n,gamma)	2.7211083460369605e-9
+rate	port	1	1	I135	fission	0.0
+atoms	port	1	1	Xe135	1359543262718076.3
+rate	port	1	1	Xe135	(n,gamma)	9.321549038912602e-5
+rate	port	1	1	Xe135	fission	0.0
+atoms	port	1	1	Xe136	1.7023676967710566e16
+rate	port	1	1	Xe136	(n,gamma)	9.25600379959386e-12
+rate	port	1	1	Xe136	fission	0.0
+atoms	port	1	1	Cs135	1578050239577459.5
+rate	port	1	1	Cs135	(n,gamma)	7.557363769515672e-10
+rate	port	1	1	Cs135	fission	0.0
+atoms	port	1	1	Gd157	31832921014668.973
+rate	port	1	1	Gd157	(n,gamma)	5.445152656386796e-6
+rate	port	1	1	Gd157	fission	0.0
+atoms	port	1	1	Gd156	89498239446944.55
+rate	port	1	1	Gd156	(n,gamma)	1.058045517035081e-9
+rate	port	1	1	Gd156	fission	0.0
+atoms	port	1	1	U234	2.410602829503789e18
+rate	port	1	1	U234	(n,gamma)	8.114498529674285e-9
+rate	port	1	1	U234	fission	1.5149112623383502e-10
+atoms	port	1	1	U235	2.6924675560851725e20
+rate	port	1	1	U235	(n,gamma)	4.1725841355167434e-9
+rate	port	1	1	U235	fission	1.956256348865758e-8
+atoms	port	1	1	U238	1.082571749722162e22
+rate	port	1	1	U238	(n,gamma)	1.103285389320675e-9
+rate	port	1	1	U238	fission	3.1398817813883676e-11
+k	port	1	2	1.139000881906837	0.0029715028674075685
+atoms	port	1	2	I135	5378184634725931.0
+rate	port	1	2	I135	(n,gamma)	2.7256485463958053e-9
+rate	port	1	2	I135	fission	0.0
+atoms	port	1	2	Xe135	1495252805896576.8
+rate	port	1	2	Xe135	(n,gamma)	9.31072550841107e-5
+rate	port	1	2	Xe135	fission	0.0
+atoms	port	1	2	Xe136	3.877444133649171e16
+rate	port	1	2	Xe136	(n,gamma)	9.280607211952649e-12
+rate	port	1	2	Xe136	fission	0.0
+atoms	port	1	2	Cs135	4226212072910358.0
+rate	port	1	2	Cs135	(n,gamma)	7.494933914585088e-10
+rate	port	1	2	Cs135	fission	0.0
+atoms	port	1	2	Gd157	51879644636199.41
+rate	port	1	2	Gd157	(n,gamma)	5.455101898095118e-6
+rate	port	1	2	Gd157	fission	0.0
+atoms	port	1	2	Gd156	179271487773029.6
+rate	port	1	2	Gd156	(n,gamma)	1.0639923167466428e-9
+rate	port	1	2	Gd156	fission	0.0
+atoms	port	1	2	U234	2.410571277731677e18
+rate	port	1	2	U234	(n,gamma)	8.000586941385114e-9
+rate	port	1	2	U234	fission	1.5052484103526745e-10
+atoms	port	1	2	U235	2.687920576400046e20
+rate	port	1	2	U235	(n,gamma)	4.1897248579634396e-9
+rate	port	1	2	U235	fission	1.9602762171640636e-8
+atoms	port	1	2	U238	1.0825688128628673e22
+rate	port	1	2	U238	(n,gamma)	1.1120426615527999e-9
+rate	port	1	2	U238	fission	3.12265843450231e-11
+k	port	1	3	1.1447357475104167	0.003444548667161972
+atoms	port	1	3	I135	5410397811342196.0
+rate	port	1	3	I135	(n,gamma)	2.7293568070012302e-9
+rate	port	1	3	I135	fission	0.0
+atoms	port	1	3	Xe135	1507737951609674.0
+rate	port	1	3	Xe135	(n,gamma)	9.336745916562855e-5
+rate	port	1	3	Xe135	fission	0.0
+atoms	port	1	3	Xe136	6.092338332425598e16
+rate	port	1	3	Xe136	(n,gamma)	9.289141993375909e-12
+rate	port	1	3	Xe136	fission	0.0
+atoms	port	1	3	Cs135	6966807195563967.0
+rate	port	1	3	Cs135	(n,gamma)	7.334707714292917e-10
+rate	port	1	3	Cs135	fission	0.0
+atoms	port	1	3	Gd157	64324020103593.27
+rate	port	1	3	Gd157	(n,gamma)	5.469857189523505e-6
+rate	port	1	3	Gd157	fission	0.0
+atoms	port	1	3	Gd156	268938136695667.1
+rate	port	1	3	Gd156	(n,gamma)	1.0367252327123354e-9
+rate	port	1	3	Gd156	fission	0.0
+atoms	port	1	3	U234	2.4105399276213755e18
+rate	port	1	3	U234	(n,gamma)	8.082736199527285e-9
+rate	port	1	3	U234	fission	1.501426311985744e-10
+atoms	port	1	3	U235	2.6833719557407015e20
+rate	port	1	3	U235	(n,gamma)	4.18421962222524e-9
+rate	port	1	3	U235	fission	1.963727560754112e-8
+atoms	port	1	3	U238	1.0825658921211704e22
+rate	port	1	3	U238	(n,gamma)	1.1024220704964212e-9
+rate	port	1	3	U238	fission	3.1195616946172e-11
+k	port	1	4	1.1401929590248976	0.0031258341928778197
+atoms	port	1	4	I135	5413120149300281.0
+rate	port	1	4	I135	(n,gamma)	2.7353660069429713e-9
+rate	port	1	4	I135	fission	0.0
+atoms	port	1	4	Xe135	1505238767701151.0
+rate	port	1	4	Xe135	(n,gamma)	9.375048203932012e-5
+rate	port	1	4	Xe135	fission	0.0
+atoms	port	1	4	Xe136	8.311583099268341e16
+rate	port	1	4	Xe136	(n,gamma)	9.313171471737562e-12
+rate	port	1	4	Xe136	fission	0.0
+atoms	port	1	4	Cs135	9709458410822848.0
+rate	port	1	4	Cs135	(n,gamma)	7.471732794665851e-10
+rate	port	1	4	Cs135	fission	0.0
+atoms	port	1	4	Gd157	72019402926344.17
+rate	port	1	4	Gd157	(n,gamma)	5.498468602759141e-6
+rate	port	1	4	Gd157	fission	0.0
+atoms	port	1	4	Gd156	358579490496642.2
+rate	port	1	4	Gd156	(n,gamma)	1.0507687137496868e-9
+rate	port	1	4	Gd156	fission	0.0
+atoms	port	1	4	U234	2.4105086575208443e18
+rate	port	1	4	U234	(n,gamma)	8.130703766006245e-9
+rate	port	1	4	U234	fission	1.5050443755111014e-10
+atoms	port	1	4	U235	2.678823044305394e20
+rate	port	1	4	U235	(n,gamma)	4.18836873231186e-9
+rate	port	1	4	U235	fission	1.9673744322032628e-8
+atoms	port	1	4	U238	1.082562974283842e22
+rate	port	1	4	U238	(n,gamma)	1.1162051757620324e-9
+rate	port	1	4	U238	fission	3.112006405934986e-11
+k	port	1	5	1.1483953195833803	0.0035614614497870723
+atoms	port	1	5	I135	5413745544442519.0
+rate	port	1	5	I135	(n,gamma)	2.741578463817683e-9
+rate	port	1	5	I135	fission	0.0
+atoms	port	1	5	Xe135	1500409242049569.3
+rate	port	1	5	Xe135	(n,gamma)	9.390836970568757e-5
+rate	port	1	5	Xe135	fission	0.0
+atoms	port	1	5	Xe136	1.0532349544403026e17
+rate	port	1	5	Xe136	(n,gamma)	9.323701948376212e-12
+rate	port	1	5	Xe136	fission	0.0
+atoms	port	1	5	Cs135	1.2444018606567848e16
+rate	port	1	5	Cs135	(n,gamma)	7.378614442368666e-10
+rate	port	1	5	Cs135	fission	0.0
+atoms	port	1	5	Gd157	76656346037404.75
+rate	port	1	5	Gd157	(n,gamma)	5.502673754072174e-6
+rate	port	1	5	Gd157	fission	0.0
+atoms	port	1	5	Gd156	448169143340480.1
+rate	port	1	5	Gd156	(n,gamma)	1.0322217987061683e-9
+rate	port	1	5	Gd156	fission	0.0
+atoms	port	1	5	U234	2.4104773124742666e18
+rate	port	1	5	U234	(n,gamma)	8.154572827255158e-9
+rate	port	1	5	U234	fission	1.5036930166709704e-10
+atoms	port	1	5	U235	2.6742734179120844e20
+rate	port	1	5	U235	(n,gamma)	4.193284877861889e-9
+rate	port	1	5	U235	fission	1.9700973740990917e-8
+atoms	port	1	5	U238	1.082560063521082e22
+rate	port	1	5	U238	(n,gamma)	1.1176196223390772e-9
+rate	port	1	5	U238	fission	3.127092829490298e-11
+k	port	2	0	1.1597765393354276	0.00397923804628634
+atoms	port	2	0	I135	0.0
+rate	port	2	0	I135	(n,gamma)	2.7170147806131337e-9
+rate	port	2	0	I135	fission	0.0
+atoms	port	2	0	Xe135	0.0
+rate	port	2	0	Xe135	(n,gamma)	9.312091447600407e-5
+rate	port	2	0	Xe135	fission	0.0
+atoms	port	2	0	Xe136	0.0
+rate	port	2	0	Xe136	(n,gamma)	9.249316406325179e-12
+rate	port	2	0	Xe136	fission	0.0
+atoms	port	2	0	Cs135	0.0
+rate	port	2	0	Cs135	(n,gamma)	7.339541943658652e-10
+rate	port	2	0	Cs135	fission	0.0
+atoms	port	2	0	Gd157	0.0
+rate	port	2	0	Gd157	(n,gamma)	5.471599021590122e-6
+rate	port	2	0	Gd157	fission	0.0
+atoms	port	2	0	Gd156	0.0
+rate	port	2	0	Gd156	(n,gamma)	1.0525248967122471e-9
+rate	port	2	0	Gd156	fission	0.0
+atoms	port	2	0	U234	2.410633813691412e18
+rate	port	2	0	U234	(n,gamma)	8.33639275746177e-9
+rate	port	2	0	U234	fission	1.4912377971258894e-10
+atoms	port	2	0	U235	2.6970192963926262e20
+rate	port	2	0	U235	(n,gamma)	4.159291925923929e-9
+rate	port	2	0	U235	fission	1.9549625199673637e-8
+atoms	port	2	0	U238	1.0825746400694843e22
+rate	port	2	0	U238	(n,gamma)	1.0884452199188398e-9
+rate	port	2	0	U238	fission	3.09101350907298e-11
+k	port	2	1	1.1500737644675758	0.0032697242166640013
+atoms	port	2	1	I135	4984728127291495.0
+rate	port	2	1	I135	(n,gamma)	2.7225863114705556e-9
+rate	port	2	1	I135	fission	0.0
+atoms	port	2	1	Xe135	1360503566646409.8
+rate	port	2	1	Xe135	(n,gamma)	9.309473322276701e-5
+rate	port	2	1	Xe135	fission	0.0
+atoms	port	2	1	Xe136	1.7021474808363686e16
+rate	port	2	1	Xe136	(n,gamma)	9.27055438860157e-12
+rate	port	2	1	Xe136	fission	0.0
+atoms	port	2	1	Cs135	1579027058602127.8
+rate	port	2	1	Cs135	(n,gamma)	7.546933544667662e-10
+rate	port	2	1	Cs135	fission	0.0
+atoms	port	2	1	Gd157	31824987535932.117
+rate	port	2	1	Gd157	(n,gamma)	5.4495769570056e-6
+rate	port	2	1	Gd157	fission	0.0
+atoms	port	2	1	Gd156	89503162807120.61
+rate	port	2	1	Gd156	(n,gamma)	1.0622352481942748e-9
+rate	port	2	1	Gd156	fission	0.0
+atoms	port	2	1	U234	2.4106027545753533e18
+rate	port	2	1	U234	(n,gamma)	8.033806962085013e-9
+rate	port	2	1	U234	fission	1.5072251469028562e-10
+atoms	port	2	1	U235	2.692467639651288e20
+rate	port	2	1	U235	(n,gamma)	4.1752198690648976e-9
+rate	port	2	1	U235	fission	1.957226007016901e-8
+atoms	port	2	1	U238	1.0825717489108943e22
+rate	port	2	1	U238	(n,gamma)	1.1164341184511026e-9
+rate	port	2	1	U238	fission	3.116314558978599e-11
+k	port	2	2	1.1438839466173962	0.0027322184019002663
+atoms	port	2	2	I135	5379488466189794.0
+rate	port	2	2	I135	(n,gamma)	2.725905862123029e-9
+rate	port	2	2	I135	fission	0.0
+atoms	port	2	2	Xe135	1497207253717085.0
+rate	port	2	2	Xe135	(n,gamma)	9.323847521816052e-5
+rate	port	2	2	Xe135	fission	0.0
+atoms	port	2	2	Xe136	3.877528206821161e16
+rate	port	2	2	Xe136	(n,gamma)	9.282173571897185e-12
+rate	port	2	2	Xe136	fission	0.0
+atoms	port	2	2	Cs135	4230315878019619.0
+rate	port	2	2	Cs135	(n,gamma)	7.590415755908742e-10
+rate	port	2	2	Cs135	fission	0.0
+atoms	port	2	2	Gd157	51799700808993.18
+rate	port	2	2	Gd157	(n,gamma)	5.453102956261961e-6
+rate	port	2	2	Gd157	fission	0.0
+atoms	port	2	2	Gd156	179142090493605.7
+rate	port	2	2	Gd156	(n,gamma)	1.0469487382647407e-9
+rate	port	2	2	Gd156	fission	0.0
+atoms	port	2	2	U234	2.410571362885529e18
+rate	port	2	2	U234	(n,gamma)	7.694751641622818e-9
+rate	port	2	2	U234	fission	1.4969067860923762e-10
+atoms	port	2	2	U235	2.6879184079273322e20
+rate	port	2	2	U235	(n,gamma)	4.182277508962148e-9
+rate	port	2	2	U235	fission	1.961034955196021e-8
+atoms	port	2	2	U238	1.0825688340949539e22
+rate	port	2	2	U238	(n,gamma)	1.1173195946336795e-9
+rate	port	2	2	U238	fission	3.104293199526543e-11
+k	port	2	3	1.150142116683991	0.003410181250761284
+atoms	port	2	3	I135	5411520596926229.0
+rate	port	2	3	I135	(n,gamma)	2.733470356376382e-9
+rate	port	2	3	I135	fission	0.0
+atoms	port	2	3	Xe135	1506337586168099.3
+rate	port	2	3	Xe135	(n,gamma)	9.358601678355826e-5
+rate	port	2	3	Xe135	fission	0.0
+atoms	port	2	3	Xe136	6.093629532789929e16
+rate	port	2	3	Xe136	(n,gamma)	9.301761049339045e-12
+rate	port	2	3	Xe136	fission	0.0
+atoms	port	2	3	Cs135	6969011397481201.0
+rate	port	2	3	Cs135	(n,gamma)	7.416570468483942e-10
+rate	port	2	3	Cs135	fission	0.0
+atoms	port	2	3	Gd157	64233824455130.51
+rate	port	2	3	Gd157	(n,gamma)	5.480927483005874e-6
+rate	port	2	3	Gd157	fission	0.0
+atoms	port	2	3	Gd156	268704444721332.25
+rate	port	2	3	Gd156	(n,gamma)	1.0337139836092856e-9
+rate	port	2	3	Gd156	fission	0.0
+atoms	port	2	3	U234	2.4105401865056824e18
+rate	port	2	3	U234	(n,gamma)	8.102355908249285e-9
+rate	port	2	3	U234	fission	1.4981145147898497e-10
+atoms	port	2	3	U235	2.6833680318560014e20
+rate	port	2	3	U235	(n,gamma)	4.180818367429415e-9
+rate	port	2	3	U235	fission	1.9640955886524216e-8
+atoms	port	2	3	U238	1.0825659305308834e22
+rate	port	2	3	U238	(n,gamma)	1.0916380939964145e-9
+rate	port	2	3	U238	fission	3.110718001268106e-11
+k	port	2	4	1.138036885433518	0.0029820140640502493
+atoms	port	2	4	I135	5413699457228786.0
+rate	port	2	4	I135	(n,gamma)	2.7316539376535177e-9
+rate	port	2	4	I135	fission	0.0
+atoms	port	2	4	Xe135	1502541002550127.0
+rate	port	2	4	Xe135	(n,gamma)	9.334705880464732e-5
+rate	port	2	4	Xe135	fission	0.0
+atoms	port	2	4	Xe136	8.313838101546154e16
+rate	port	2	4	Xe136	(n,gamma)	9.311655974422129e-12
+rate	port	2	4	Xe136	fission	0.0
+atoms	port	2	4	Cs135	9707060918897990.0
+rate	port	2	4	Cs135	(n,gamma)	7.47742965283367e-10
+rate	port	2	4	Cs135	fission	0.0
+atoms	port	2	4	Gd157	71887588528576.9
+rate	port	2	4	Gd157	(n,gamma)	5.475813744126438e-6
+rate	port	2	4	Gd157	fission	0.0
+atoms	port	2	4	Gd156	358295515228738.0
+rate	port	2	4	Gd156	(n,gamma)	1.0712547009077464e-9
+rate	port	2	4	Gd156	fission	0.0
+atoms	port	2	4	U234	2.410508985375923e18
+rate	port	2	4	U234	(n,gamma)	7.898128356993653e-9
+rate	port	2	4	U234	fission	1.5148899734846156e-10
+atoms	port	2	4	U235	2.6788182752722177e20
+rate	port	2	4	U235	(n,gamma)	4.19566211318931e-9
+rate	port	2	4	U235	fission	1.965925875373626e-8
+atoms	port	2	4	U238	1.0825630209652638e22
+rate	port	2	4	U238	(n,gamma)	1.1347759780952733e-9
+rate	port	2	4	U238	fission	3.147120740355444e-11
+k	port	2	5	1.1432468343133344	0.003651075486293689
+atoms	port	2	5	I135	5411843556761069.0
+rate	port	2	5	I135	(n,gamma)	2.740423954560686e-9
+rate	port	2	5	I135	fission	0.0
+atoms	port	2	5	Xe135	1505153418923069.8
+rate	port	2	5	Xe135	(n,gamma)	9.38164297681288e-5
+rate	port	2	5	Xe135	fission	0.0
+atoms	port	2	5	Xe136	1.0532080696004098e17
+rate	port	2	5	Xe136	(n,gamma)	9.331921300033424e-12
+rate	port	2	5	Xe136	fission	0.0
+atoms	port	2	5	Cs135	1.2449210634352104e16
+rate	port	2	5	Cs135	(n,gamma)	7.500588895285076e-10
+rate	port	2	5	Cs135	fission	0.0
+atoms	port	2	5	Gd157	76783242240125.9
+rate	port	2	5	Gd157	(n,gamma)	5.501417281038955e-6
+rate	port	2	5	Gd157	fission	0.0
+atoms	port	2	5	Gd156	448084537593643.9
+rate	port	2	5	Gd156	(n,gamma)	1.0637530788177025e-9
+rate	port	2	5	Gd156	fission	0.0
+atoms	port	2	5	U234	2.410477435275483e18
+rate	port	2	5	U234	(n,gamma)	7.835694821650945e-9
+rate	port	2	5	U234	fission	1.495219532990553e-10
+atoms	port	2	5	U235	2.6742720039698068e20
+rate	port	2	5	U235	(n,gamma)	4.192405794406553e-9
+rate	port	2	5	U235	fission	1.9709309778250044e-8
+atoms	port	2	5	U238	1.0825600773588186e22
+rate	port	2	5	U238	(n,gamma)	1.0855669090963748e-9
+rate	port	2	5	U238	fission	3.106999573642284e-11
+k	port	3	0	1.1650822119992454	0.003404245290606011
+atoms	port	3	0	I135	0.0
+rate	port	3	0	I135	(n,gamma)	2.7194490545166802e-9
+rate	port	3	0	I135	fission	0.0
+atoms	port	3	0	Xe135	0.0
+rate	port	3	0	Xe135	(n,gamma)	9.342466760183463e-5
+rate	port	3	0	Xe135	fission	0.0
+atoms	port	3	0	Xe136	0.0
+rate	port	3	0	Xe136	(n,gamma)	9.253300438047252e-12
+rate	port	3	0	Xe136	fission	0.0
+atoms	port	3	0	Cs135	0.0
+rate	port	3	0	Cs135	(n,gamma)	7.523129096782852e-10
+rate	port	3	0	Cs135	fission	0.0
+atoms	port	3	0	Gd157	0.0
+rate	port	3	0	Gd157	(n,gamma)	5.4667578498112574e-6
+rate	port	3	0	Gd157	fission	0.0
+atoms	port	3	0	Gd156	0.0
+rate	port	3	0	Gd156	(n,gamma)	1.0477491068018557e-9
+rate	port	3	0	Gd156	fission	0.0
+atoms	port	3	0	U234	2.410633813691412e18
+rate	port	3	0	U234	(n,gamma)	7.856405171875685e-9
+rate	port	3	0	U234	fission	1.4870645300977866e-10
+atoms	port	3	0	U235	2.6970192963926262e20
+rate	port	3	0	U235	(n,gamma)	4.159078674012502e-9
+rate	port	3	0	U235	fission	1.9550209723132402e-8
+atoms	port	3	0	U238	1.0825746400694843e22
+rate	port	3	0	U238	(n,gamma)	1.111274101760642e-9
+rate	port	3	0	U238	fission	3.0895985461400816e-11
+k	port	3	1	1.1384382351543112	0.003806228537641595
+atoms	port	3	1	I135	4984806362042443.0
+rate	port	3	1	I135	(n,gamma)	2.7203170341812894e-9
+rate	port	3	1	I135	fission	0.0
+atoms	port	3	1	Xe135	1357051235661083.8
+rate	port	3	1	Xe135	(n,gamma)	9.301816634837669e-5
+rate	port	3	1	Xe135	fission	0.0
+atoms	port	3	1	Xe136	1.7028876912153056e16
+rate	port	3	1	Xe136	(n,gamma)	9.26166345105691e-12
+rate	port	3	1	Xe136	fission	0.0
+atoms	port	3	1	Cs135	1575509932065550.0
+rate	port	3	1	Cs135	(n,gamma)	7.471016120436605e-10
+rate	port	3	1	Cs135	fission	0.0
+atoms	port	3	1	Gd157	31827396501998.395
+rate	port	3	1	Gd157	(n,gamma)	5.443129048985322e-6
+rate	port	3	1	Gd157	fission	0.0
+atoms	port	3	1	Gd156	89495114883367.14
+rate	port	3	1	Gd156	(n,gamma)	1.0620442745936048e-9
+rate	port	3	1	Gd156	fission	0.0
+atoms	port	3	1	U234	2.4106028414945234e18
+rate	port	3	1	U234	(n,gamma)	8.126965922917022e-9
+rate	port	3	1	U234	fission	1.505836125404358e-10
+atoms	port	3	1	U235	2.692467503674065e20
+rate	port	3	1	U235	(n,gamma)	4.182104346596785e-9
+rate	port	3	1	U235	fission	1.9575242406374415e-8
+atoms	port	3	1	U238	1.0825717502343675e22
+rate	port	3	1	U238	(n,gamma)	1.1225434041908795e-9
+rate	port	3	1	U238	fission	3.1090668370541886e-11
+k	port	3	2	1.1354403933593136	0.003565010854024422
+atoms	port	3	2	I135	5379897275580955.0
+rate	port	3	2	I135	(n,gamma)	2.722683350797218e-9
+rate	port	3	2	I135	fission	0.0
+atoms	port	3	2	Xe135	1498327911783769.3
+rate	port	3	2	Xe135	(n,gamma)	9.315413304888666e-5
+rate	port	3	2	Xe135	fission	0.0
+atoms	port	3	2	Xe136	3.877929273274182e16
+rate	port	3	2	Xe136	(n,gamma)	9.27034374930207e-12
+rate	port	3	2	Xe136	fission	0.0
+atoms	port	3	2	Cs135	4227905646867866.0
+rate	port	3	2	Cs135	(n,gamma)	7.489035830715564e-10
+rate	port	3	2	Cs135	fission	0.0
+atoms	port	3	2	Gd157	51801471709180.6
+rate	port	3	2	Gd157	(n,gamma)	5.429024407132925e-6
+rate	port	3	2	Gd157	fission	0.0
+atoms	port	3	2	Gd156	179092753733829.4
+rate	port	3	2	Gd156	(n,gamma)	1.0471314611892355e-9
+rate	port	3	2	Gd156	fission	0.0
+atoms	port	3	2	U234	2.410571478733186e18
+rate	port	3	2	U234	(n,gamma)	8.156799568876435e-9
+rate	port	3	2	U234	fission	1.5214844805827743e-10
+atoms	port	3	2	U235	2.6879175795737048e20
+rate	port	3	2	U235	(n,gamma)	4.178613952112407e-9
+rate	port	3	2	U235	fission	1.957884873358248e-8
+atoms	port	3	2	U238	1.0825688421975068e22
+rate	port	3	2	U238	(n,gamma)	1.141779476058382e-9
+rate	port	3	2	U238	fission	3.180736348762029e-11
+k	port	3	3	1.1458308180988068	0.0031103144031561893
+atoms	port	3	3	I135	5407311359448367.0
+rate	port	3	3	I135	(n,gamma)	2.727511140652244e-9
+rate	port	3	3	I135	fission	0.0
+atoms	port	3	3	Xe135	1506234662659588.3
+rate	port	3	3	Xe135	(n,gamma)	9.325332728046404e-5
+rate	port	3	3	Xe135	fission	0.0
+atoms	port	3	3	Xe136	6.091789494885017e16
+rate	port	3	3	Xe136	(n,gamma)	9.274270294223095e-12
+rate	port	3	3	Xe136	fission	0.0
+atoms	port	3	3	Cs135	6967231719368076.0
+rate	port	3	3	Cs135	(n,gamma)	7.589230842446638e-10
+rate	port	3	3	Cs135	fission	0.0
+atoms	port	3	3	Gd157	64533477715901.32
+rate	port	3	3	Gd157	(n,gamma)	5.451923510765828e-6
+rate	port	3	3	Gd157	fission	0.0
+atoms	port	3	3	Gd156	269090633926637.28
+rate	port	3	3	Gd156	(n,gamma)	1.0636278150741454e-9
+rate	port	3	3	Gd156	fission	0.0
+atoms	port	3	3	U234	2.410539790470577e18
+rate	port	3	3	U234	(n,gamma)	7.899774987799983e-9
+rate	port	3	3	U234	fission	1.5127027534482396e-10
+atoms	port	3	3	U235	2.6833745081565505e20
+rate	port	3	3	U235	(n,gamma)	4.194817562902107e-9
+rate	port	3	3	U235	fission	1.9623923978536162e-8
+atoms	port	3	3	U238	1.0825658671333126e22
+rate	port	3	3	U238	(n,gamma)	1.142964257307213e-9
+rate	port	3	3	U238	fission	3.151854172636144e-11
+k	port	3	4	1.1449212387244607	0.003434912641118894
+atoms	port	3	4	I135	5411083083610213.0
+rate	port	3	4	I135	(n,gamma)	2.729871789594296e-9
+rate	port	3	4	I135	fission	0.0
+atoms	port	3	4	Xe135	1506139437030634.8
+rate	port	3	4	Xe135	(n,gamma)	9.33030864224684e-5
+rate	port	3	4	Xe135	fission	0.0
+atoms	port	3	4	Xe136	8.3094162646312e16
+rate	port	3	4	Xe136	(n,gamma)	9.30590555979008e-12
+rate	port	3	4	Xe136	fission	0.0
+atoms	port	3	4	Cs135	9710941167294466.0
+rate	port	3	4	Cs135	(n,gamma)	7.516145510682189e-10
+rate	port	3	4	Cs135	fission	0.0
+atoms	port	3	4	Gd157	72320422432451.7
+rate	port	3	4	Gd157	(n,gamma)	5.470721115197918e-6
+rate	port	3	4	Gd157	fission	0.0
+atoms	port	3	4	Gd156	358915226931606.5
+rate	port	3	4	Gd156	(n,gamma)	1.066381781676987e-9
+rate	port	3	4	Gd156	fission	0.0
+atoms	port	3	4	U234	2.410508285519718e18
+rate	port	3	4	U234	(n,gamma)	7.898879956380303e-9
+rate	port	3	4	U234	fission	1.5175309462001528e-10
+atoms	port	3	4	U235	2.6788286826377413e20
+rate	port	3	4	U235	(n,gamma)	4.193199917509554e-9
+rate	port	3	4	U235	fission	1.965288968433154e-8
+atoms	port	3	4	U238	1.0825629190917877e22
+rate	port	3	4	U238	(n,gamma)	1.1074697255217427e-9
+rate	port	3	4	U238	fission	3.16234193193508e-11
+k	port	3	5	1.1370637244021464	0.003039318478868779
+atoms	port	3	5	I135	5410791279102645.0
+rate	port	3	5	I135	(n,gamma)	2.7360120194901584e-9
+rate	port	3	5	I135	fission	0.0
+atoms	port	3	5	Xe135	1505416917190895.8
+rate	port	3	5	Xe135	(n,gamma)	9.389153224721393e-5
+rate	port	3	5	Xe135	fission	0.0
+atoms	port	3	5	Xe136	1.0527197032102466e17
+rate	port	3	5	Xe136	(n,gamma)	9.309514787778406e-12
+rate	port	3	5	Xe136	fission	0.0
+atoms	port	3	5	Cs135	1.2453979951192702e16
+rate	port	3	5	Cs135	(n,gamma)	7.596237431544187e-10
+rate	port	3	5	Cs135	fission	0.0
+atoms	port	3	5	Gd157	77119024599914.5
+rate	port	3	5	Gd157	(n,gamma)	5.480244754204497e-6
+rate	port	3	5	Gd157	fission	0.0
+atoms	port	3	5	Gd156	448791077912660.06
+rate	port	3	5	Gd156	(n,gamma)	1.055632451573797e-9
+rate	port	3	5	Gd156	fission	0.0
+atoms	port	3	5	U234	2.4104766804261704e18
+rate	port	3	5	U234	(n,gamma)	8.145568855640308e-9
+rate	port	3	5	U234	fission	1.5197301930239555e-10
+atoms	port	3	5	U235	2.6742838652976408e20
+rate	port	3	5	U235	(n,gamma)	4.196858348983165e-9
+rate	port	3	5	U235	fission	1.9686752756041075e-8
+atoms	port	3	5	U238	1.082559961248755e22
+rate	port	3	5	U238	(n,gamma)	1.1241285352557344e-9
+rate	port	3	5	U238	fission	3.161225190381846e-11
+k	port	4	0	1.1630951758755192	0.0036192205694459984
+atoms	port	4	0	I135	0.0
+rate	port	4	0	I135	(n,gamma)	2.7196493226256806e-9
+rate	port	4	0	I135	fission	0.0
+atoms	port	4	0	Xe135	0.0
+rate	port	4	0	Xe135	(n,gamma)	9.34559843692855e-5
+rate	port	4	0	Xe135	fission	0.0
+atoms	port	4	0	Xe136	0.0
+rate	port	4	0	Xe136	(n,gamma)	9.25457538373382e-12
+rate	port	4	0	Xe136	fission	0.0
+atoms	port	4	0	Cs135	0.0
+rate	port	4	0	Cs135	(n,gamma)	7.675514748712766e-10
+rate	port	4	0	Cs135	fission	0.0
+atoms	port	4	0	Gd157	0.0
+rate	port	4	0	Gd157	(n,gamma)	5.472467540618144e-6
+rate	port	4	0	Gd157	fission	0.0
+atoms	port	4	0	Gd156	0.0
+rate	port	4	0	Gd156	(n,gamma)	1.0499076533886544e-9
+rate	port	4	0	Gd156	fission	0.0
+atoms	port	4	0	U234	2.410633813691412e18
+rate	port	4	0	U234	(n,gamma)	7.927512189545989e-9
+rate	port	4	0	U234	fission	1.4759188538610328e-10
+atoms	port	4	0	U235	2.6970192963926262e20
+rate	port	4	0	U235	(n,gamma)	4.166573101408654e-9
+rate	port	4	0	U235	fission	1.9564677304442593e-8
+atoms	port	4	0	U238	1.0825746400694843e22
+rate	port	4	0	U238	(n,gamma)	1.0994130013890984e-9
+rate	port	4	0	U238	fission	3.0543776819147636e-11
+k	port	4	1	1.1438468542131623	0.0034650143975766784
+atoms	port	4	1	I135	4986760969944311.0
+rate	port	4	1	I135	(n,gamma)	2.718606433361017e-9
+rate	port	4	1	I135	fission	0.0
+atoms	port	4	1	Xe135	1357257612992433.0
+rate	port	4	1	Xe135	(n,gamma)	9.315315617523693e-5
+rate	port	4	1	Xe135	fission	0.0
+atoms	port	4	1	Xe136	1.7039136551958622e16
+rate	port	4	1	Xe136	(n,gamma)	9.25447130017655e-12
+rate	port	4	1	Xe136	fission	0.0
+atoms	port	4	1	Cs135	1575816222637254.3
+rate	port	4	1	Cs135	(n,gamma)	7.563899137181176e-10
+rate	port	4	1	Cs135	fission	0.0
+atoms	port	4	1	Gd157	31727905841924.516
+rate	port	4	1	Gd157	(n,gamma)	5.4552641954262235e-6
+rate	port	4	1	Gd157	fission	0.0
+atoms	port	4	1	Gd156	89294439557258.52
+rate	port	4	1	Gd156	(n,gamma)	1.0367720080262945e-9
+rate	port	4	1	Gd156	fission	0.0
+atoms	port	4	1	U234	2.4106030736323164e18
+rate	port	4	1	U234	(n,gamma)	8.134793440484635e-9
+rate	port	4	1	U234	fission	1.499538642704693e-10
+atoms	port	4	1	U235	2.6924641380944095e20
+rate	port	4	1	U235	(n,gamma)	4.171054734407923e-9
+rate	port	4	1	U235	fission	1.95707592836277e-8
+atoms	port	4	1	U238	1.0825717831779234e22
+rate	port	4	1	U238	(n,gamma)	1.1322174093673732e-9
+rate	port	4	1	U238	fission	3.120042913609478e-11
+k	port	4	2	1.1408112597450477	0.003957291593642019
+atoms	port	4	2	I135	5379443852524602.0
+rate	port	4	2	I135	(n,gamma)	2.724278499351145e-9
+rate	port	4	2	I135	fission	0.0
+atoms	port	4	2	Xe135	1496439305651863.8
+rate	port	4	2	Xe135	(n,gamma)	9.343405629171672e-5
+rate	port	4	2	Xe135	fission	0.0
+atoms	port	4	2	Xe136	3.879274403916747e16
+rate	port	4	2	Xe136	(n,gamma)	9.267116748212563e-12
+rate	port	4	2	Xe136	fission	0.0
+atoms	port	4	2	Cs135	4225556005977749.0
+rate	port	4	2	Cs135	(n,gamma)	7.643520411454293e-10
+rate	port	4	2	Cs135	fission	0.0
+atoms	port	4	2	Gd157	51731621279313.67
+rate	port	4	2	Gd157	(n,gamma)	5.451310265757685e-6
+rate	port	4	2	Gd157	fission	0.0
+atoms	port	4	2	Gd156	178954912379841.1
+rate	port	4	2	Gd156	(n,gamma)	1.0558875548991153e-9
+rate	port	4	2	Gd156	fission	0.0
+atoms	port	4	2	U234	2.410571842027774e18
+rate	port	4	2	U234	(n,gamma)	8.025755957213342e-9
+rate	port	4	2	U234	fission	1.5075458795341193e-10
+atoms	port	4	2	U235	2.6879152608231945e20
+rate	port	4	2	U235	(n,gamma)	4.177754708224146e-9
+rate	port	4	2	U235	fission	1.9595227837064323e-8
+atoms	port	4	2	U238	1.082568864874613e22
+rate	port	4	2	U238	(n,gamma)	1.1031688685536523e-9
+rate	port	4	2	U238	fission	3.141040215503576e-11
+k	port	4	3	1.143755882789129	0.003589631908393275
+atoms	port	4	3	I135	5409478025384960.0
+rate	port	4	3	I135	(n,gamma)	2.728760946590028e-9
+rate	port	4	3	I135	fission	0.0
+atoms	port	4	3	Xe135	1503175596392606.5
+rate	port	4	3	Xe135	(n,gamma)	9.353083435213838e-5
+rate	port	4	3	Xe135	fission	0.0
+atoms	port	4	3	Xe136	6.0949920326692024e16
+rate	port	4	3	Xe136	(n,gamma)	9.297462247140997e-12
+rate	port	4	3	Xe136	fission	0.0
+atoms	port	4	3	Cs135	6959202092248968.0
+rate	port	4	3	Cs135	(n,gamma)	7.458216210830083e-10
+rate	port	4	3	Cs135	fission	0.0
+atoms	port	4	3	Gd157	64295070728674.23
+rate	port	4	3	Gd157	(n,gamma)	5.477003522589204e-6
+rate	port	4	3	Gd157	fission	0.0
+atoms	port	4	3	Gd156	268726470986213.53
+rate	port	4	3	Gd156	(n,gamma)	1.0547562156422203e-9
+rate	port	4	3	Gd156	fission	0.0
+atoms	port	4	3	U234	2.4105404440605844e18
+rate	port	4	3	U234	(n,gamma)	8.052172778529983e-9
+rate	port	4	3	U234	fission	1.50749732700832e-10
+atoms	port	4	3	U235	2.6833683959414964e20
+rate	port	4	3	U235	(n,gamma)	4.1824413755570204e-9
+rate	port	4	3	U235	fission	1.9632862337582444e-8
+atoms	port	4	3	U238	1.0825659269396184e22
+rate	port	4	3	U238	(n,gamma)	1.105374023559087e-9
+rate	port	4	3	U238	fission	3.130308601565083e-11
+k	port	4	4	1.1483420614445945	0.0035281176799916263
+atoms	port	4	4	I135	5412450711078818.0
+rate	port	4	4	I135	(n,gamma)	2.7345551977135717e-9
+rate	port	4	4	I135	fission	0.0
+atoms	port	4	4	Xe135	1502895566111603.3
+rate	port	4	4	Xe135	(n,gamma)	9.340941287300128e-5
+rate	port	4	4	Xe135	fission	0.0
+atoms	port	4	4	Xe136	8.314072196975307e16
+rate	port	4	4	Xe136	(n,gamma)	9.310980066970368e-12
+rate	port	4	4	Xe136	fission	0.0
+atoms	port	4	4	Cs135	9697146779245188.0
+rate	port	4	4	Cs135	(n,gamma)	7.606849377365022e-10
+rate	port	4	4	Cs135	fission	0.0
+atoms	port	4	4	Gd157	71996063153856.88
+rate	port	4	4	Gd157	(n,gamma)	5.479140168551451e-6
+rate	port	4	4	Gd157	fission	0.0
+atoms	port	4	4	Gd156	358428588125712.9
+rate	port	4	4	Gd156	(n,gamma)	1.070980411153928e-9
+rate	port	4	4	Gd156	fission	0.0
+atoms	port	4	4	U234	2.410509047513549e18
+rate	port	4	4	U234	(n,gamma)	8.028536692568914e-9
+rate	port	4	4	U234	fission	1.4975248216912002e-10
+atoms	port	4	4	U235	2.678820511992382e20
+rate	port	4	4	U235	(n,gamma)	4.197521665953081e-9
+rate	port	4	4	U235	fission	1.967385340599897e-8
+atoms	port	4	4	U238	1.0825629990502451e22
+rate	port	4	4	U238	(n,gamma)	1.102930290071065e-9
+rate	port	4	4	U238	fission	3.1118036228567324e-11
+k	port	4	5	1.137980151536535	0.003683263685610052
+atoms	port	4	5	I135	5413703786528971.0
+rate	port	4	5	I135	(n,gamma)	2.7387103672856305e-9
+rate	port	4	5	I135	fission	0.0
+atoms	port	4	5	Xe135	1504864637871896.8
+rate	port	4	5	Xe135	(n,gamma)	9.394307968383255e-5
+rate	port	4	5	Xe135	fission	0.0
+atoms	port	4	5	Xe136	1.0533425191761374e17
+rate	port	4	5	Xe136	(n,gamma)	9.326894939271632e-12
+rate	port	4	5	Xe136	fission	0.0
+atoms	port	4	5	Cs135	1.243848760680029e16
+rate	port	4	5	Cs135	(n,gamma)	7.430118501827563e-10
+rate	port	4	5	Cs135	fission	0.0
+atoms	port	4	5	Gd157	76741208699167.42
+rate	port	4	5	Gd157	(n,gamma)	5.485444212378596e-6
+rate	port	4	5	Gd157	fission	0.0
+atoms	port	4	5	Gd156	448016385961738.44
+rate	port	4	5	Gd156	(n,gamma)	1.057009309113184e-9
+rate	port	4	5	Gd156	fission	0.0
+atoms	port	4	5	U234	2.410477859068102e18
+rate	port	4	5	U234	(n,gamma)	8.044294653540736e-9
+rate	port	4	5	U234	fission	1.5091884254560176e-10
+atoms	port	4	5	U235	2.674270864695262e20
+rate	port	4	5	U235	(n,gamma)	4.191665878332742e-9
+rate	port	4	5	U235	fission	1.968894206690381e-8
+atoms	port	4	5	U238	1.0825600884770871e22
+rate	port	4	5	U238	(n,gamma)	1.0998682135303412e-9
+rate	port	4	5	U238	fission	3.156190233878488e-11
+k	port	5	0	1.158167493150228	0.0036137809950564574
+atoms	port	5	0	I135	0.0
+rate	port	5	0	I135	(n,gamma)	2.718105775351359e-9
+rate	port	5	0	I135	fission	0.0
+atoms	port	5	0	Xe135	0.0
+rate	port	5	0	Xe135	(n,gamma)	9.333123810802267e-5
+rate	port	5	0	Xe135	fission	0.0
+atoms	port	5	0	Xe136	0.0
+rate	port	5	0	Xe136	(n,gamma)	9.25174661606195e-12
+rate	port	5	0	Xe136	fission	0.0
+atoms	port	5	0	Cs135	0.0
+rate	port	5	0	Cs135	(n,gamma)	7.474455234612799e-10
+rate	port	5	0	Cs135	fission	0.0
+atoms	port	5	0	Gd157	0.0
+rate	port	5	0	Gd157	(n,gamma)	5.4571111320529065e-6
+rate	port	5	0	Gd157	fission	0.0
+atoms	port	5	0	Gd156	0.0
+rate	port	5	0	Gd156	(n,gamma)	1.0516327879142831e-9
+rate	port	5	0	Gd156	fission	0.0
+atoms	port	5	0	U234	2.410633813691412e18
+rate	port	5	0	U234	(n,gamma)	7.911042930318123e-9
+rate	port	5	0	U234	fission	1.4884417508892516e-10
+atoms	port	5	0	U235	2.6970192963926262e20
+rate	port	5	0	U235	(n,gamma)	4.161528192332292e-9
+rate	port	5	0	U235	fission	1.954715871823908e-8
+atoms	port	5	0	U238	1.0825746400694843e22
+rate	port	5	0	U238	(n,gamma)	1.1207409330290603e-9
+rate	port	5	0	U238	fission	3.097028222006251e-11
+k	port	5	1	1.145174300056838	0.003186243909385243
+atoms	port	5	1	I135	4984394227384716.0
+rate	port	5	1	I135	(n,gamma)	2.7229343179970244e-9
+rate	port	5	1	I135	fission	0.0
+atoms	port	5	1	Xe135	1357999215923785.3
+rate	port	5	1	Xe135	(n,gamma)	9.32870297540471e-5
+rate	port	5	1	Xe135	fission	0.0
+atoms	port	5	1	Xe136	1.7024709459189476e16
+rate	port	5	1	Xe136	(n,gamma)	9.267119761168603e-12
+rate	port	5	1	Xe136	fission	0.0
+atoms	port	5	1	Cs135	1576456746125779.3
+rate	port	5	1	Cs135	(n,gamma)	7.617363061133812e-10
+rate	port	5	1	Cs135	fission	0.0
+atoms	port	5	1	Gd157	31859111781128.82
+rate	port	5	1	Gd157	(n,gamma)	5.445787054613523e-6
+rate	port	5	1	Gd157	fission	0.0
+atoms	port	5	1	Gd156	89537428355370.64
+rate	port	5	1	Gd156	(n,gamma)	1.0646186182915542e-9
+rate	port	5	1	Gd156	fission	0.0
+atoms	port	5	1	U234	2.410602812810305e18
+rate	port	5	1	U234	(n,gamma)	8.085703419462007e-9
+rate	port	5	1	U234	fission	1.505590826861932e-10
+atoms	port	5	1	U235	2.6924682134269572e20
+rate	port	5	1	U235	(n,gamma)	4.175357285776813e-9
+rate	port	5	1	U235	fission	1.9569956182536426e-8
+atoms	port	5	1	U238	1.08257174328508e22
+rate	port	5	1	U238	(n,gamma)	1.130189201557011e-9
+rate	port	5	1	U238	fission	3.121911079229922e-11
+k	port	5	2	1.1496011673089404	0.003476534107388767
+atoms	port	5	2	I135	5379151316995725.0
+rate	port	5	2	I135	(n,gamma)	2.724705039288905e-9
+rate	port	5	2	I135	fission	0.0
+atoms	port	5	2	Xe135	1494597209442778.0
+rate	port	5	2	Xe135	(n,gamma)	9.341784162015637e-5
+rate	port	5	2	Xe135	fission	0.0
+atoms	port	5	2	Xe136	3.878121813312955e16
+rate	port	5	2	Xe136	(n,gamma)	9.270924476873277e-12
+rate	port	5	2	Xe136	fission	0.0
+atoms	port	5	2	Cs135	4223130458295986.0
+rate	port	5	2	Cs135	(n,gamma)	7.67675032120384e-10
+rate	port	5	2	Cs135	fission	0.0
+atoms	port	5	2	Gd157	51847044262088.15
+rate	port	5	2	Gd157	(n,gamma)	5.462826752521687e-6
+rate	port	5	2	Gd157	fission	0.0
+atoms	port	5	2	Gd156	179208206219789.6
+rate	port	5	2	Gd156	(n,gamma)	1.0586658264249302e-9
+rate	port	5	2	Gd156	fission	0.0
+atoms	port	5	2	U234	2.410571455158255e18
+rate	port	5	2	U234	(n,gamma)	7.833672321365841e-9
+rate	port	5	2	U234	fission	1.505627440812855e-10
+atoms	port	5	2	U235	2.6879195157797057e20
+rate	port	5	2	U235	(n,gamma)	4.1782495741041344e-9
+rate	port	5	2	U235	fission	1.9599990119163732e-8
+atoms	port	5	2	U238	1.082568823234508e22
+rate	port	5	2	U238	(n,gamma)	1.094436312020607e-9
+rate	port	5	2	U238	fission	3.129406702403328e-11
+k	port	5	3	1.1445414522449668	0.003350842719722445
+atoms	port	5	3	I135	5410100313127663.0
+rate	port	5	3	I135	(n,gamma)	2.728467850894458e-9
+rate	port	5	3	I135	fission	0.0
+atoms	port	5	3	Xe135	1503566607948164.0
+rate	port	5	3	Xe135	(n,gamma)	9.329773083796615e-5
+rate	port	5	3	Xe135	fission	0.0
+atoms	port	5	3	Xe136	6.093926813480808e16
+rate	port	5	3	Xe136	(n,gamma)	9.281748168540788e-12
+rate	port	5	3	Xe136	fission	0.0
+atoms	port	5	3	Cs135	6956958849329548.0
+rate	port	5	3	Cs135	(n,gamma)	7.583061537112784e-10
+rate	port	5	3	Cs135	fission	0.0
+atoms	port	5	3	Gd157	64289849655936.77
+rate	port	5	3	Gd157	(n,gamma)	5.47876675445481e-6
+rate	port	5	3	Gd157	fission	0.0
+atoms	port	5	3	Gd156	268913409274217.4
+rate	port	5	3	Gd156	(n,gamma)	1.0625993420081817e-9
+rate	port	5	3	Gd156	fission	0.0
+atoms	port	5	3	U234	2.41054009715155e18
+rate	port	5	3	U234	(n,gamma)	7.987441676821255e-9
+rate	port	5	3	U234	fission	1.506490753730998e-10
+atoms	port	5	3	U235	2.683371539596908e20
+rate	port	5	3	U235	(n,gamma)	4.186795481292447e-9
+rate	port	5	3	U235	fission	1.963319198656424e-8
+atoms	port	5	3	U238	1.0825658961808811e22
+rate	port	5	3	U238	(n,gamma)	1.1004395998783871e-9
+rate	port	5	3	U238	fission	3.1294561045777874e-11
+k	port	5	4	1.144124327194259	0.003659856828115391
+atoms	port	5	4	I135	5412547546318009.0
+rate	port	5	4	I135	(n,gamma)	2.7315923379245345e-9
+rate	port	5	4	I135	fission	0.0
+atoms	port	5	4	Xe135	1505989702058705.0
+rate	port	5	4	Xe135	(n,gamma)	9.334009604142297e-5
+rate	port	5	4	Xe135	fission	0.0
+atoms	port	5	4	Xe136	8.312299766022758e16
+rate	port	5	4	Xe136	(n,gamma)	9.299009211037812e-12
+rate	port	5	4	Xe136	fission	0.0
+atoms	port	5	4	Cs135	9700105998259002.0
+rate	port	5	4	Cs135	(n,gamma)	7.632358633950729e-10
+rate	port	5	4	Cs135	fission	0.0
+atoms	port	5	4	Gd157	71982418589524.05
+rate	port	5	4	Gd157	(n,gamma)	5.47628953757509e-6
+rate	port	5	4	Gd157	fission	0.0
+atoms	port	5	4	Gd156	358610438397677.1
+rate	port	5	4	Gd156	(n,gamma)	1.056795144064539e-9
+rate	port	5	4	Gd156	fission	0.0
+atoms	port	5	4	U234	2.4105087215727304e18
+rate	port	5	4	U234	(n,gamma)	8.435335298999725e-9
+rate	port	5	4	U234	fission	1.5123282057775464e-10
+atoms	port	5	4	U235	2.678823574022422e20
+rate	port	5	4	U235	(n,gamma)	4.198612094242121e-9
+rate	port	5	4	U235	fission	1.965942712872766e-8
+atoms	port	5	4	U238	1.0825629690889608e22
+rate	port	5	4	U238	(n,gamma)	1.1007750477469328e-9
+rate	port	5	4	U238	fission	3.146624909383242e-11
+k	port	5	5	1.143345168264958	0.0035346159680455093
+atoms	port	5	5	I135	5411779572853077.0
+rate	port	5	5	I135	(n,gamma)	2.7380319957837278e-9
+rate	port	5	5	I135	fission	0.0
+atoms	port	5	5	Xe135	1505221630457756.0
+rate	port	5	5	Xe135	(n,gamma)	9.386284168994579e-5
+rate	port	5	5	Xe135	fission	0.0
+atoms	port	5	5	Xe136	1.0530729029111485e17
+rate	port	5	5	Xe136	(n,gamma)	9.31936264524123e-12
+rate	port	5	5	Xe136	fission	0.0
+atoms	port	5	5	Cs135	1.2442860581219346e16
+rate	port	5	5	Cs135	(n,gamma)	7.547736607383011e-10
+rate	port	5	5	Cs135	fission	0.0
+atoms	port	5	5	Gd157	76838194658350.22
+rate	port	5	5	Gd157	(n,gamma)	5.493494724132367e-6
+rate	port	5	5	Gd157	fission	0.0
+atoms	port	5	5	Gd156	448397106946770.3
+rate	port	5	5	Gd156	(n,gamma)	1.0622094151314981e-9
+rate	port	5	5	Gd156	fission	0.0
+atoms	port	5	5	U234	2.410477224828457e18
+rate	port	5	5	U234	(n,gamma)	8.024154237847243e-9
+rate	port	5	5	U234	fission	1.5061890471819647e-10
+atoms	port	5	5	U235	2.6742772548230916e20
+rate	port	5	5	U235	(n,gamma)	4.200185334844746e-9
+rate	port	5	5	U235	fission	1.96979464451619e-8
+atoms	port	5	5	U238	1.082560025946422e22
+rate	port	5	5	U238	(n,gamma)	1.1135008520180864e-9
+rate	port	5	5	U238	fission	3.134332071251354e-11
+k	port	6	0	1.1645765839424334	0.0036625698584760603
+atoms	port	6	0	I135	0.0
+rate	port	6	0	I135	(n,gamma)	2.718230901403159e-9
+rate	port	6	0	I135	fission	0.0
+atoms	port	6	0	Xe135	0.0
+rate	port	6	0	Xe135	(n,gamma)	9.307776152542606e-5
+rate	port	6	0	Xe135	fission	0.0
+atoms	port	6	0	Xe136	0.0
+rate	port	6	0	Xe136	(n,gamma)	9.253805479437088e-12
+rate	port	6	0	Xe136	fission	0.0
+atoms	port	6	0	Cs135	0.0
+rate	port	6	0	Cs135	(n,gamma)	7.467080513368357e-10
+rate	port	6	0	Cs135	fission	0.0
+atoms	port	6	0	Gd157	0.0
+rate	port	6	0	Gd157	(n,gamma)	5.456837546601264e-6
+rate	port	6	0	Gd157	fission	0.0
+atoms	port	6	0	Gd156	0.0
+rate	port	6	0	Gd156	(n,gamma)	1.0572066538068765e-9
+rate	port	6	0	Gd156	fission	0.0
+atoms	port	6	0	U234	2.410633813691412e18
+rate	port	6	0	U234	(n,gamma)	8.251960285033172e-9
+rate	port	6	0	U234	fission	1.4976789622535485e-10
+atoms	port	6	0	U235	2.6970192963926262e20
+rate	port	6	0	U235	(n,gamma)	4.157512266372397e-9
+rate	port	6	0	U235	fission	1.9541069857288466e-8
+atoms	port	6	0	U238	1.0825746400694843e22
+rate	port	6	0	U238	(n,gamma)	1.0960855292764546e-9
+rate	port	6	0	U238	fission	3.1118415401245793e-11
+k	port	6	1	1.1455928702210505	0.0032979075971037034
+atoms	port	6	1	I135	4983572081078677.0
+rate	port	6	1	I135	(n,gamma)	2.719051565622017e-9
+rate	port	6	1	I135	fission	0.0
+atoms	port	6	1	Xe135	1360664226668193.0
+rate	port	6	1	Xe135	(n,gamma)	9.287755905371826e-5
+rate	port	6	1	Xe135	fission	0.0
+atoms	port	6	1	Xe136	1.7014837123888484e16
+rate	port	6	1	Xe136	(n,gamma)	9.255933477499442e-12
+rate	port	6	1	Xe136	fission	0.0
+atoms	port	6	1	Cs135	1579133977429752.0
+rate	port	6	1	Cs135	(n,gamma)	7.466422442138126e-10
+rate	port	6	1	Cs135	fission	0.0
+atoms	port	6	1	Gd157	31898309543646.145
+rate	port	6	1	Gd157	(n,gamma)	5.429093512306065e-6
+rate	port	6	1	Gd157	fission	0.0
+atoms	port	6	1	Gd156	89621809839957.64
+rate	port	6	1	Gd156	(n,gamma)	1.0554883265278292e-9
+rate	port	6	1	Gd156	fission	0.0
+atoms	port	6	1	U234	2.410602620421293e18
+rate	port	6	1	U234	(n,gamma)	7.921773595077434e-9
+rate	port	6	1	U234	fission	1.5177515223032587e-10
+atoms	port	6	1	U235	2.6924696298745063e20
+rate	port	6	1	U235	(n,gamma)	4.169972228479608e-9
+rate	port	6	1	U235	fission	1.9552096778458205e-8
+atoms	port	6	1	U238	1.0825717294295622e22
+rate	port	6	1	U238	(n,gamma)	1.1005595000953169e-9
+rate	port	6	1	U238	fission	3.165294403200055e-11
+k	port	6	2	1.1468785398745027	0.0036294632386403383
+atoms	port	6	2	I135	5376679028298546.0
+rate	port	6	2	I135	(n,gamma)	2.724015377351608e-9
+rate	port	6	2	I135	fission	0.0
+atoms	port	6	2	Xe135	1499233961408879.5
+rate	port	6	2	Xe135	(n,gamma)	9.330037367006981e-5
+rate	port	6	2	Xe135	fission	0.0
+atoms	port	6	2	Xe136	3.874730764907132e16
+rate	port	6	2	Xe136	(n,gamma)	9.274447471287518e-12
+rate	port	6	2	Xe136	fission	0.0
+atoms	port	6	2	Cs135	4233847753507045.5
+rate	port	6	2	Cs135	(n,gamma)	7.644394643216322e-10
+rate	port	6	2	Cs135	fission	0.0
+atoms	port	6	2	Gd157	52035301395097.33
+rate	port	6	2	Gd157	(n,gamma)	5.454636050662024e-6
+rate	port	6	2	Gd157	fission	0.0
+atoms	port	6	2	Gd156	179539854763211.34
+rate	port	6	2	Gd156	(n,gamma)	1.0702842299588879e-9
+rate	port	6	2	Gd156	fission	0.0
+atoms	port	6	2	U234	2.4105710094968694e18
+rate	port	6	2	U234	(n,gamma)	8.163079018185335e-9
+rate	port	6	2	U234	fission	1.4972029197670255e-10
+atoms	port	6	2	U235	2.687925077440633e20
+rate	port	6	2	U235	(n,gamma)	4.179279793517411e-9
+rate	port	6	2	U235	fission	1.9611256500244743e-8
+atoms	port	6	2	U238	1.0825687688008945e22
+rate	port	6	2	U238	(n,gamma)	1.1255744496928296e-9
+rate	port	6	2	U238	fission	3.1019725997788665e-11
+k	port	6	3	1.1444401820884496	0.0034316913601325806
+atoms	port	6	3	I135	5411426428955956.0
+rate	port	6	3	I135	(n,gamma)	2.727477587987843e-9
+rate	port	6	3	I135	fission	0.0
+atoms	port	6	3	Xe135	1505482941297263.8
+rate	port	6	3	Xe135	(n,gamma)	9.337272074357958e-5
+rate	port	6	3	Xe135	fission	0.0
+atoms	port	6	3	Xe136	6.091070116247226e16
+rate	port	6	3	Xe136	(n,gamma)	9.28207136299141e-12
+rate	port	6	3	Xe136	fission	0.0
+atoms	port	6	3	Cs135	6971167863732899.0
+rate	port	6	3	Cs135	(n,gamma)	7.55011964278787e-10
+rate	port	6	3	Cs135	fission	0.0
+atoms	port	6	3	Gd157	64368968422311.74
+rate	port	6	3	Gd157	(n,gamma)	5.45885073851906e-6
+rate	port	6	3	Gd157	fission	0.0
+atoms	port	6	3	Gd156	269088499848705.38
+rate	port	6	3	Gd156	(n,gamma)	1.0830999105393703e-9
+rate	port	6	3	Gd156	fission	0.0
+atoms	port	6	3	U234	2.410539826953999e18
+rate	port	6	3	U234	(n,gamma)	8.185714178344168e-9
+rate	port	6	3	U234	fission	1.5147147513496493e-10
+atoms	port	6	3	U235	2.6833744798083596e20
+rate	port	6	3	U235	(n,gamma)	4.191844657141926e-9
+rate	port	6	3	U235	fission	1.9624021562615408e-8
+atoms	port	6	3	U238	1.0825658674075421e22
+rate	port	6	3	U238	(n,gamma)	1.1316893625375063e-9
+rate	port	6	3	U238	fission	3.151613802068913e-11
+k	port	6	4	1.1439148239771613	0.0038603828129113557
+atoms	port	6	4	I135	5411423466103656.0
+rate	port	6	4	I135	(n,gamma)	2.7334303556895524e-9
+rate	port	6	4	I135	fission	0.0
+atoms	port	6	4	Xe135	1504684380619554.3
+rate	port	6	4	Xe135	(n,gamma)	9.339103388882096e-5
+rate	port	6	4	Xe135	fission	0.0
+atoms	port	6	4	Xe136	8.30935621138356e16
+rate	port	6	4	Xe136	(n,gamma)	9.301819437185187e-12
+rate	port	6	4	Xe136	fission	0.0
+atoms	port	6	4	Cs135	9712849164933742.0
+rate	port	6	4	Cs135	(n,gamma)	7.753615007087388e-10
+rate	port	6	4	Cs135	fission	0.0
+atoms	port	6	4	Gd157	72184627423885.4
+rate	port	6	4	Gd157	(n,gamma)	5.473612609872216e-6
+rate	port	6	4	Gd157	fission	0.0
+atoms	port	6	4	Gd156	358911198004786.3
+rate	port	6	4	Gd156	(n,gamma)	1.0859893699910468e-9
+rate	port	6	4	Gd156	fission	0.0
+atoms	port	6	4	U234	2.4105082800992067e18
+rate	port	6	4	U234	(n,gamma)	7.795984105789423e-9
+rate	port	6	4	U234	fission	1.5053437268237814e-10
+atoms	port	6	4	U235	2.6788286317516594e20
+rate	port	6	4	U235	(n,gamma)	4.19944543205772e-9
+rate	port	6	4	U235	fission	1.9668399134429134e-8
+atoms	port	6	4	U238	1.0825629195908434e22
+rate	port	6	4	U238	(n,gamma)	1.1321661200785045e-9
+rate	port	6	4	U238	fission	3.124840518456094e-11
+k	port	6	5	1.1466657069549702	0.003632303026492498
+atoms	port	6	5	I135	5412898856440603.0
+rate	port	6	5	I135	(n,gamma)	2.737476597493056e-9
+rate	port	6	5	I135	fission	0.0
+atoms	port	6	5	Xe135	1504869641263431.8
+rate	port	6	5	Xe135	(n,gamma)	9.374582545808127e-5
+rate	port	6	5	Xe135	fission	0.0
+atoms	port	6	5	Xe136	1.0528363598129552e17
+rate	port	6	5	Xe136	(n,gamma)	9.313117668763148e-12
+rate	port	6	5	Xe136	fission	0.0
+atoms	port	6	5	Cs135	1.2454497409263604e16
+rate	port	6	5	Cs135	(n,gamma)	7.428245894377785e-10
+rate	port	6	5	Cs135	fission	0.0
+atoms	port	6	5	Gd157	76921768366332.9
+rate	port	6	5	Gd157	(n,gamma)	5.502044987346822e-6
+rate	port	6	5	Gd157	fission	0.0
+atoms	port	6	5	Gd156	448572706839866.25
+rate	port	6	5	Gd156	(n,gamma)	1.0468353050503949e-9
+rate	port	6	5	Gd156	fission	0.0
+atoms	port	6	5	U234	2.4104769288230984e18
+rate	port	6	5	U234	(n,gamma)	8.159608274581808e-9
+rate	port	6	5	U234	fission	1.5073736520791982e-10
+atoms	port	6	5	U235	2.6742802309158827e20
+rate	port	6	5	U235	(n,gamma)	4.192648547599606e-9
+rate	port	6	5	U235	fission	1.96919473144985e-8
+atoms	port	6	5	U238	1.0825599968240757e22
+rate	port	6	5	U238	(n,gamma)	1.104170046321038e-9
+rate	port	6	5	U238	fission	3.148768295294206e-11
+k	port	7	0	1.1638254927748584	0.003660961778543911
+atoms	port	7	0	I135	0.0
+rate	port	7	0	I135	(n,gamma)	2.7185091103303155e-9
+rate	port	7	0	I135	fission	0.0
+atoms	port	7	0	Xe135	0.0
+rate	port	7	0	Xe135	(n,gamma)	9.337680588124784e-5
+rate	port	7	0	Xe135	fission	0.0
+atoms	port	7	0	Xe136	0.0
+rate	port	7	0	Xe136	(n,gamma)	9.255243650852871e-12
+rate	port	7	0	Xe136	fission	0.0
+atoms	port	7	0	Cs135	0.0
+rate	port	7	0	Cs135	(n,gamma)	7.468350916040582e-10
+rate	port	7	0	Cs135	fission	0.0
+atoms	port	7	0	Gd157	0.0
+rate	port	7	0	Gd157	(n,gamma)	5.449842704515122e-6
+rate	port	7	0	Gd157	fission	0.0
+atoms	port	7	0	Gd156	0.0
+rate	port	7	0	Gd156	(n,gamma)	1.0414291695892188e-9
+rate	port	7	0	Gd156	fission	0.0
+atoms	port	7	0	U234	2.410633813691412e18
+rate	port	7	0	U234	(n,gamma)	8.23724233888217e-9
+rate	port	7	0	U234	fission	1.4948255927318296e-10
+atoms	port	7	0	U235	2.6970192963926262e20
+rate	port	7	0	U235	(n,gamma)	4.1637699404370025e-9
+rate	port	7	0	U235	fission	1.9541798344871988e-8
+atoms	port	7	0	U238	1.0825746400694843e22
+rate	port	7	0	U238	(n,gamma)	1.0998354026131427e-9
+rate	port	7	0	U238	fission	3.110073010914933e-11
+k	port	7	1	1.146733375388236	0.0032438942085107163
+atoms	port	7	1	I135	4983670211783150.0
+rate	port	7	1	I135	(n,gamma)	2.717931225866466e-9
+rate	port	7	1	I135	fission	0.0
+atoms	port	7	1	Xe135	1357269770332795.3
+rate	port	7	1	Xe135	(n,gamma)	9.302987237567278e-5
+rate	port	7	1	Xe135	fission	0.0
+atoms	port	7	1	Xe136	1.7022229038451052e16
+rate	port	7	1	Xe136	(n,gamma)	9.257623852661081e-12
+rate	port	7	1	Xe136	fission	0.0
+atoms	port	7	1	Cs135	1575677187819465.3
+rate	port	7	1	Cs135	(n,gamma)	7.452549403291432e-10
+rate	port	7	1	Cs135	fission	0.0
+atoms	port	7	1	Gd157	31902505819771.92
+rate	port	7	1	Gd157	(n,gamma)	5.44557038546039e-6
+rate	port	7	1	Gd157	fission	0.0
+atoms	port	7	1	Gd156	89611791983023.77
+rate	port	7	1	Gd156	(n,gamma)	1.0674460504860458e-9
+rate	port	7	1	Gd156	fission	0.0
+atoms	port	7	1	U234	2.410602679850153e18
+rate	port	7	1	U234	(n,gamma)	8.1630188043375e-9
+rate	port	7	1	U234	fission	1.5094343346195252e-10
+atoms	port	7	1	U235	2.692469460406906e20
+rate	port	7	1	U235	(n,gamma)	4.17471516733533e-9
+rate	port	7	1	U235	fission	1.9561743529591903e-8
+atoms	port	7	1	U238	1.0825717310837433e22
+rate	port	7	1	U238	(n,gamma)	1.1074588314936665e-9
+rate	port	7	1	U238	fission	3.1418541785278626e-11
+k	port	7	2	1.140444448523748	0.003356172589460875
+atoms	port	7	2	I135	5377987869061889.0
+rate	port	7	2	I135	(n,gamma)	2.7201930540530986e-9
+rate	port	7	2	I135	fission	0.0
+atoms	port	7	2	Xe135	1497616873861617.5
+rate	port	7	2	Xe135	(n,gamma)	9.291667025638917e-5
+rate	port	7	2	Xe135	fission	0.0
+atoms	port	7	2	Xe136	3.8763516422459656e16
+rate	port	7	2	Xe136	(n,gamma)	9.2657712906884e-12
+rate	port	7	2	Xe136	fission	0.0
+atoms	port	7	2	Cs135	4227055931670279.0
+rate	port	7	2	Cs135	(n,gamma)	7.633328675337902e-10
+rate	port	7	2	Cs135	fission	0.0
+atoms	port	7	2	Gd157	51927128599162.06
+rate	port	7	2	Gd157	(n,gamma)	5.435025866948475e-6
+rate	port	7	2	Gd157	fission	0.0
+atoms	port	7	2	Gd156	179396150034230.13
+rate	port	7	2	Gd156	(n,gamma)	1.0530629258573328e-9
+rate	port	7	2	Gd156	fission	0.0
+atoms	port	7	2	U234	2.4105712421498045e18
+rate	port	7	2	U234	(n,gamma)	8.177168741685574e-9
+rate	port	7	2	U234	fission	1.525603056401661e-10
+atoms	port	7	2	U235	2.68792266793024e20
+rate	port	7	2	U235	(n,gamma)	4.184656144360782e-9
+rate	port	7	2	U235	fission	1.9581172950009833e-8
+atoms	port	7	2	U238	1.0825687923796373e22
+rate	port	7	2	U238	(n,gamma)	1.1242039270733277e-9
+rate	port	7	2	U238	fission	3.17499458173182e-11
+k	port	7	3	1.1381300027626398	0.0031248792714896087
+atoms	port	7	3	I135	5407478638387985.0
+rate	port	7	3	I135	(n,gamma)	2.730044630855851e-9
+rate	port	7	3	I135	fission	0.0
+atoms	port	7	3	Xe135	1509412156996694.8
+rate	port	7	3	Xe135	(n,gamma)	9.357736039057074e-5
+rate	port	7	3	Xe135	fission	0.0
+atoms	port	7	3	Xe136	6.089344306650059e16
+rate	port	7	3	Xe136	(n,gamma)	9.299516142156022e-12
+rate	port	7	3	Xe136	fission	0.0
+atoms	port	7	3	Cs135	6971167851807641.0
+rate	port	7	3	Cs135	(n,gamma)	7.556074510784118e-10
+rate	port	7	3	Cs135	fission	0.0
+atoms	port	7	3	Gd157	64572622590286.99
+rate	port	7	3	Gd157	(n,gamma)	5.473406046692152e-6
+rate	port	7	3	Gd157	fission	0.0
+atoms	port	7	3	Gd156	269361181787324.8
+rate	port	7	3	Gd156	(n,gamma)	1.0692051071481451e-9
+rate	port	7	3	Gd156	fission	0.0
+atoms	port	7	3	U234	2.410539468112473e18
+rate	port	7	3	U234	(n,gamma)	8.024789789432998e-9
+rate	port	7	3	U234	fission	1.5017574016233853e-10
+atoms	port	7	3	U235	2.6833790490572666e20
+rate	port	7	3	U235	(n,gamma)	4.186173461307657e-9
+rate	port	7	3	U235	fission	1.9638466679772e-8
+atoms	port	7	3	U238	1.0825658226860693e22
+rate	port	7	3	U238	(n,gamma)	1.118679175573211e-9
+rate	port	7	3	U238	fission	3.1165484023174335e-11
+k	port	7	4	1.1424694390151886	0.0039176332252624365
+atoms	port	7	4	I135	5413055261194722.0
+rate	port	7	4	I135	(n,gamma)	2.7348308914880956e-9
+rate	port	7	4	I135	fission	0.0
+atoms	port	7	4	Xe135	1502451317668911.5
+rate	port	7	4	Xe135	(n,gamma)	9.375039208325215e-5
+rate	port	7	4	Xe135	fission	0.0
+atoms	port	7	4	Xe136	8.309321234548736e16
+rate	port	7	4	Xe136	(n,gamma)	9.315730122637357e-12
+rate	port	7	4	Xe136	fission	0.0
+atoms	port	7	4	Cs135	9709193917035426.0
+rate	port	7	4	Cs135	(n,gamma)	7.487004325503496e-10
+rate	port	7	4	Cs135	fission	0.0
+atoms	port	7	4	Gd157	72150374458689.03
+rate	port	7	4	Gd157	(n,gamma)	5.467339385920384e-6
+rate	port	7	4	Gd157	fission	0.0
+atoms	port	7	4	Gd156	358984448921891.0
+rate	port	7	4	Gd156	(n,gamma)	1.0655969767686619e-9
+rate	port	7	4	Gd156	fission	0.0
+atoms	port	7	4	U234	2.410508191122371e18
+rate	port	7	4	U234	(n,gamma)	8.45747104628462e-9
+rate	port	7	4	U234	fission	1.516868853929987e-10
+atoms	port	7	4	U235	2.6788298499224587e20
+rate	port	7	4	U235	(n,gamma)	4.199578447769125e-9
+rate	port	7	4	U235	fission	1.966666241885546e-8
+atoms	port	7	4	U238	1.0825629076673637e22
+rate	port	7	4	U238	(n,gamma)	1.1170270981443397e-9
+rate	port	7	4	U238	fission	3.1289963998993096e-11
+k	port	7	5	1.1430698728678623	0.0036195858428201715
+atoms	port	7	5	I135	5412797595446769.0
+rate	port	7	5	I135	(n,gamma)	2.738652967253242e-9
+rate	port	7	5	I135	fission	0.0
+atoms	port	7	5	Xe135	1500137370672875.8
+rate	port	7	5	Xe135	(n,gamma)	9.382305605629895e-5
+rate	port	7	5	Xe135	fission	0.0
+atoms	port	7	5	Xe136	1.0529394886211288e17
+rate	port	7	5	Xe136	(n,gamma)	9.313454697558806e-12
+rate	port	7	5	Xe136	fission	0.0
+atoms	port	7	5	Cs135	1.2442911248715146e16
+rate	port	7	5	Cs135	(n,gamma)	7.40532452517987e-10
+rate	port	7	5	Cs135	fission	0.0
+atoms	port	7	5	Gd157	76943107940781.67
+rate	port	7	5	Gd157	(n,gamma)	5.4980652833056555e-6
+rate	port	7	5	Gd157	fission	0.0
+atoms	port	7	5	Gd156	448670352792327.4
+rate	port	7	5	Gd156	(n,gamma)	1.0414706744395367e-9
+rate	port	7	5	Gd156	fission	0.0
+atoms	port	7	5	U234	2.4104765998191396e18
+rate	port	7	5	U234	(n,gamma)	8.258071998570885e-9
+rate	port	7	5	U234	fission	1.509342372310723e-10
+atoms	port	7	5	U235	2.674281848300256e20
+rate	port	7	5	U235	(n,gamma)	4.187619529382648e-9
+rate	port	7	5	U235	fission	1.9693299626393367e-8
+atoms	port	7	5	U238	1.0825599810135e22
+rate	port	7	5	U238	(n,gamma)	1.1294213388405823e-9
+rate	port	7	5	U238	fission	3.145468640391431e-11
+k	port	8	0	1.1671474346902229	0.0035283909116994847
+atoms	port	8	0	I135	0.0
+rate	port	8	0	I135	(n,gamma)	2.721887985385271e-9
+rate	port	8	0	I135	fission	0.0
+atoms	port	8	0	Xe135	0.0
+rate	port	8	0	Xe135	(n,gamma)	9.355639985162398e-5
+rate	port	8	0	Xe135	fission	0.0
+atoms	port	8	0	Xe136	0.0
+rate	port	8	0	Xe136	(n,gamma)	9.263359200669303e-12
+rate	port	8	0	Xe136	fission	0.0
+atoms	port	8	0	Cs135	0.0
+rate	port	8	0	Cs135	(n,gamma)	7.369822675525699e-10
+rate	port	8	0	Cs135	fission	0.0
+atoms	port	8	0	Gd157	0.0
+rate	port	8	0	Gd157	(n,gamma)	5.461213565387454e-6
+rate	port	8	0	Gd157	fission	0.0
+atoms	port	8	0	Gd156	0.0
+rate	port	8	0	Gd156	(n,gamma)	1.0286482618910046e-9
+rate	port	8	0	Gd156	fission	0.0
+atoms	port	8	0	U234	2.410633813691412e18
+rate	port	8	0	U234	(n,gamma)	7.985847463245262e-9
+rate	port	8	0	U234	fission	1.4793462185169535e-10
+atoms	port	8	0	U235	2.6970192963926262e20
+rate	port	8	0	U235	(n,gamma)	4.154832147908181e-9
+rate	port	8	0	U235	fission	1.9557345700479236e-8
+atoms	port	8	0	U238	1.0825746400694843e22
+rate	port	8	0	U238	(n,gamma)	1.1007109742282458e-9
+rate	port	8	0	U238	fission	3.0722310338850015e-11
+k	port	8	1	1.1451906971843455	0.00380707340078085
+atoms	port	8	1	I135	4985769894131437.0
+rate	port	8	1	I135	(n,gamma)	2.719966779641357e-9
+rate	port	8	1	I135	fission	0.0
+atoms	port	8	1	Xe135	1355827262816809.8
+rate	port	8	1	Xe135	(n,gamma)	9.314099296857311e-5
+rate	port	8	1	Xe135	fission	0.0
+atoms	port	8	1	Xe136	1.7036614495276664e16
+rate	port	8	1	Xe136	(n,gamma)	9.265947290136817e-12
+rate	port	8	1	Xe136	fission	0.0
+atoms	port	8	1	Cs135	1574308227351333.3
+rate	port	8	1	Cs135	(n,gamma)	7.49882801902253e-10
+rate	port	8	1	Cs135	fission	0.0
+atoms	port	8	1	Gd157	31788843302756.316
+rate	port	8	1	Gd157	(n,gamma)	5.444258772623275e-6
+rate	port	8	1	Gd157	fission	0.0
+atoms	port	8	1	Gd156	89396236320077.56
+rate	port	8	1	Gd156	(n,gamma)	1.0529653288771243e-9
+rate	port	8	1	Gd156	fission	0.0
+atoms	port	8	1	U234	2.410603002248504e18
+rate	port	8	1	U234	(n,gamma)	8.156079975448956e-9
+rate	port	8	1	U234	fission	1.5064778076017074e-10
+atoms	port	8	1	U235	2.6924658436379253e20
+rate	port	8	1	U235	(n,gamma)	4.176144391032085e-9
+rate	port	8	1	U235	fission	1.9570263042802736e-8
+atoms	port	8	1	U238	1.0825717664789341e22
+rate	port	8	1	U238	(n,gamma)	1.110060992568585e-9
+rate	port	8	1	U238	fission	3.1212046951605314e-11
+k	port	8	2	1.1457075031527526	0.0035864505476972002
+atoms	port	8	2	I135	5379300330852768.0
+rate	port	8	2	I135	(n,gamma)	2.7200080513245017e-9
+rate	port	8	2	I135	fission	0.0
+atoms	port	8	2	Xe135	1496552359256224.8
+rate	port	8	2	Xe135	(n,gamma)	9.288203813632629e-5
+rate	port	8	2	Xe135	fission	0.0
+atoms	port	8	2	Xe136	3.87876085548723e16
+rate	port	8	2	Xe136	(n,gamma)	9.264768920725503e-12
+rate	port	8	2	Xe136	fission	0.0
+atoms	port	8	2	Cs135	4223851431791410.0
+rate	port	8	2	Cs135	(n,gamma)	7.630044758755003e-10
+rate	port	8	2	Cs135	fission	0.0
+atoms	port	8	2	Gd157	51805743532571.664
+rate	port	8	2	Gd157	(n,gamma)	5.432693713293597e-6
+rate	port	8	2	Gd157	fission	0.0
+atoms	port	8	2	Gd156	179063139553056.2
+rate	port	8	2	Gd156	(n,gamma)	1.0754518441577555e-9
+rate	port	8	2	Gd156	fission	0.0
+atoms	port	8	2	U234	2.410571626120544e18
+rate	port	8	2	U234	(n,gamma)	8.159970231545096e-9
+rate	port	8	2	U234	fission	1.5242639261160152e-10
+atoms	port	8	2	U235	2.6879170787302215e20
+rate	port	8	2	U235	(n,gamma)	4.184769579973283e-9
+rate	port	8	2	U235	fission	1.9578973960554494e-8
+atoms	port	8	2	U238	1.0825688470890115e22
+rate	port	8	2	U238	(n,gamma)	1.1327907228849895e-9
+rate	port	8	2	U238	fission	3.1804351473151544e-11
+k	port	8	3	1.1420699633757976	0.003776920974541775
+atoms	port	8	3	I135	5407281058154790.0
+rate	port	8	3	I135	(n,gamma)	2.7294891491647453e-9
+rate	port	8	3	I135	fission	0.0
+atoms	port	8	3	Xe135	1509819373023305.5
+rate	port	8	3	Xe135	(n,gamma)	9.351394366305096e-5
+rate	port	8	3	Xe135	fission	0.0
+atoms	port	8	3	Xe136	6.0914942848960104e16
+rate	port	8	3	Xe136	(n,gamma)	9.296865599680049e-12
+rate	port	8	3	Xe136	fission	0.0
+atoms	port	8	3	Cs135	6968627664793994.0
+rate	port	8	3	Cs135	(n,gamma)	7.680219553028926e-10
+rate	port	8	3	Cs135	fission	0.0
+atoms	port	8	3	Gd157	64520835280415.73
+rate	port	8	3	Gd157	(n,gamma)	5.4478099964816755e-6
+rate	port	8	3	Gd157	fission	0.0
+atoms	port	8	3	Gd156	269058761893583.0
+rate	port	8	3	Gd156	(n,gamma)	1.0615341891968978e-9
+rate	port	8	3	Gd156	fission	0.0
+atoms	port	8	3	U234	2.4105398799683057e18
+rate	port	8	3	U234	(n,gamma)	8.137410636014066e-9
+rate	port	8	3	U234	fission	1.5104871527421174e-10
+atoms	port	8	3	U235	2.683373979126527e20
+rate	port	8	3	U235	(n,gamma)	4.1888823424284255e-9
+rate	port	8	3	U235	fission	1.9625317524276307e-8
+atoms	port	8	3	U238	1.0825658723065313e22
+rate	port	8	3	U238	(n,gamma)	1.1473467499452125e-9
+rate	port	8	3	U238	fission	3.148490607381622e-11
+k	port	8	4	1.1489458235616827	0.0032767304393395984
+atoms	port	8	4	I135	5411267009074668.0
+rate	port	8	4	I135	(n,gamma)	2.734064148336114e-9
+rate	port	8	4	I135	fission	0.0
+atoms	port	8	4	Xe135	1502766614662578.3
+rate	port	8	4	Xe135	(n,gamma)	9.356512115301746e-5
+rate	port	8	4	Xe135	fission	0.0
+atoms	port	8	4	Xe136	8.310405685696957e16
+rate	port	8	4	Xe136	(n,gamma)	9.311817147567331e-12
+rate	port	8	4	Xe136	fission	0.0
+atoms	port	8	4	Cs135	9707449362511148.0
+rate	port	8	4	Cs135	(n,gamma)	7.427816101576843e-10
+rate	port	8	4	Cs135	fission	0.0
+atoms	port	8	4	Gd157	72323228076004.23
+rate	port	8	4	Gd157	(n,gamma)	5.475725557493231e-6
+rate	port	8	4	Gd157	fission	0.0
+atoms	port	8	4	Gd156	358864249810198.8
+rate	port	8	4	Gd156	(n,gamma)	1.0785780440656487e-9
+rate	port	8	4	Gd156	fission	0.0
+atoms	port	8	4	U234	2.410508421160137e18
+rate	port	8	4	U234	(n,gamma)	7.961722156772638e-9
+rate	port	8	4	U234	fission	1.498550757321188e-10
+atoms	port	8	4	U235	2.6788278319667374e20
+rate	port	8	4	U235	(n,gamma)	4.199434164519471e-9
+rate	port	8	4	U235	fission	1.9675034229856462e-8
+atoms	port	8	4	U238	1.0825629274110492e22
+rate	port	8	4	U238	(n,gamma)	1.10615306338841e-9
+rate	port	8	4	U238	fission	3.1088142604040583e-11
+k	port	8	5	1.1409136683012764	0.0033563262334025496
+atoms	port	8	5	I135	5413775695000492.0
+rate	port	8	5	I135	(n,gamma)	2.7400594685562444e-9
+rate	port	8	5	I135	fission	0.0
+atoms	port	8	5	Xe135	1502835950668382.3
+rate	port	8	5	Xe135	(n,gamma)	9.385996505608619e-5
+rate	port	8	5	Xe135	fission	0.0
+atoms	port	8	5	Xe136	1.0530281745661952e17
+rate	port	8	5	Xe136	(n,gamma)	9.329425118402236e-12
+rate	port	8	5	Xe136	fission	0.0
+atoms	port	8	5	Cs135	1.2445284178776492e16
+rate	port	8	5	Cs135	(n,gamma)	7.432746990073255e-10
+rate	port	8	5	Cs135	fission	0.0
+atoms	port	8	5	Gd157	76955039122285.52
+rate	port	8	5	Gd157	(n,gamma)	5.500661785837253e-6
+rate	port	8	5	Gd157	fission	0.0
+atoms	port	8	5	Gd156	448434712489172.2
+rate	port	8	5	Gd156	(n,gamma)	1.0448698966361252e-9
+rate	port	8	5	Gd156	fission	0.0
+atoms	port	8	5	U234	2.4104772113561236e18
+rate	port	8	5	U234	(n,gamma)	8.168119671123136e-9
+rate	port	8	5	U234	fission	1.5084366949029834e-10
+atoms	port	8	5	U235	2.674277899399186e20
+rate	port	8	5	U235	(n,gamma)	4.1936324765300725e-9
+rate	port	8	5	U235	fission	1.970012658268723e-8
+atoms	port	8	5	U238	1.0825600196341305e22
+rate	port	8	5	U238	(n,gamma)	1.105279942300527e-9
+rate	port	8	5	U238	fission	3.129049376366073e-11
+k	port	9	0	1.1579694724249856	0.0029241849038756924
+atoms	port	9	0	I135	0.0
+rate	port	9	0	I135	(n,gamma)	2.7216647142609103e-9
+rate	port	9	0	I135	fission	0.0
+atoms	port	9	0	Xe135	0.0
+rate	port	9	0	Xe135	(n,gamma)	9.351454362953616e-5
+rate	port	9	0	Xe135	fission	0.0
+atoms	port	9	0	Xe136	0.0
+rate	port	9	0	Xe136	(n,gamma)	9.25766411433998e-12
+rate	port	9	0	Xe136	fission	0.0
+atoms	port	9	0	Cs135	0.0
+rate	port	9	0	Cs135	(n,gamma)	7.390030172549422e-10
+rate	port	9	0	Cs135	fission	0.0
+atoms	port	9	0	Gd157	0.0
+rate	port	9	0	Gd157	(n,gamma)	5.46532630797679e-6
+rate	port	9	0	Gd157	fission	0.0
+atoms	port	9	0	Gd156	0.0
+rate	port	9	0	Gd156	(n,gamma)	1.041023190771756e-9
+rate	port	9	0	Gd156	fission	0.0
+atoms	port	9	0	U234	2.410633813691412e18
+rate	port	9	0	U234	(n,gamma)	8.055410921895706e-9
+rate	port	9	0	U234	fission	1.48378636550805e-10
+atoms	port	9	0	U235	2.6970192963926262e20
+rate	port	9	0	U235	(n,gamma)	4.1593660919131675e-9
+rate	port	9	0	U235	fission	1.955690023105248e-8
+atoms	port	9	0	U238	1.0825746400694843e22
+rate	port	9	0	U238	(n,gamma)	1.0952541058774059e-9
+rate	port	9	0	U238	fission	3.0733066664542305e-11
+k	port	9	1	1.1508413661475834	0.003082323490774662
+atoms	port	9	1	I135	4985710193954581.0
+rate	port	9	1	I135	(n,gamma)	2.7198551211165486e-9
+rate	port	9	1	I135	fission	0.0
+atoms	port	9	1	Xe135	1356286944394928.5
+rate	port	9	1	Xe135	(n,gamma)	9.286609913224232e-5
+rate	port	9	1	Xe135	fission	0.0
+atoms	port	9	1	Xe136	1.703536010477286e16
+rate	port	9	1	Xe136	(n,gamma)	9.252685496325691e-12
+rate	port	9	1	Xe136	fission	0.0
+atoms	port	9	1	Cs135	1574774412784790.8
+rate	port	9	1	Cs135	(n,gamma)	7.449188203286544e-10
+rate	port	9	1	Cs135	fission	0.0
+atoms	port	9	1	Gd157	31786500422927.98
+rate	port	9	1	Gd157	(n,gamma)	5.439557889027074e-6
+rate	port	9	1	Gd157	fission	0.0
+atoms	port	9	1	Gd156	89402322100753.56
+rate	port	9	1	Gd156	(n,gamma)	1.034640702218444e-9
+rate	port	9	1	Gd156	fission	0.0
+atoms	port	9	1	U234	2.4106029097708534e18
+rate	port	9	1	U234	(n,gamma)	8.04627074832891e-9
+rate	port	9	1	U234	fission	1.5106987840070557e-10
+atoms	port	9	1	U235	2.6924659472670556e20
+rate	port	9	1	U235	(n,gamma)	4.1734099360906705e-9
+rate	port	9	1	U235	fission	1.9565312149463957e-8
+atoms	port	9	1	U238	1.0825717654728468e22
+rate	port	9	1	U238	(n,gamma)	1.1161253737312504e-9
+rate	port	9	1	U238	fission	3.1332344487139315e-11
+k	port	9	2	1.1484104485665168	0.0034274643404437794
+atoms	port	9	2	I135	5378627995514662.0
+rate	port	9	2	I135	(n,gamma)	2.721248667225915e-9
+rate	port	9	2	I135	fission	0.0
+atoms	port	9	2	Xe135	1499958554161313.5
+rate	port	9	2	Xe135	(n,gamma)	9.304352868626058e-5
+rate	port	9	2	Xe135	fission	0.0
+atoms	port	9	2	Xe136	3.877410691205548e16
+rate	port	9	2	Xe136	(n,gamma)	9.258922062148918e-12
+rate	port	9	2	Xe136	fission	0.0
+atoms	port	9	2	Cs135	4229884153448330.0
+rate	port	9	2	Cs135	(n,gamma)	7.670489313856336e-10
+rate	port	9	2	Cs135	fission	0.0
+atoms	port	9	2	Gd157	51849710316458.125
+rate	port	9	2	Gd157	(n,gamma)	5.4431186232875464e-6
+rate	port	9	2	Gd157	fission	0.0
+atoms	port	9	2	Gd156	179137975900250.34
+rate	port	9	2	Gd156	(n,gamma)	1.0740909044832323e-9
+rate	port	9	2	Gd156	fission	0.0
+atoms	port	9	2	U234	2.410571445732391e18
+rate	port	9	2	U234	(n,gamma)	8.292386767768699e-9
+rate	port	9	2	U234	fission	1.527928621520334e-10
+atoms	port	9	2	U235	2.687918331960405e20
+rate	port	9	2	U235	(n,gamma)	4.1866412940955165e-9
+rate	port	9	2	U235	fission	1.9579602211253375e-8
+atoms	port	9	2	U238	1.0825688348310202e22
+rate	port	9	2	U238	(n,gamma)	1.1264611746388432e-9
+rate	port	9	2	U238	fission	3.1788797601032106e-11
+k	port	9	3	1.142797331846545	0.0032020748052061848
+atoms	port	9	3	I135	5407313697727620.0
+rate	port	9	3	I135	(n,gamma)	2.7282499002409407e-9
+rate	port	9	3	I135	fission	0.0
+atoms	port	9	3	Xe135	1507689608615254.0
+rate	port	9	3	Xe135	(n,gamma)	9.340035930102914e-5
+rate	port	9	3	Xe135	fission	0.0
+atoms	port	9	3	Xe136	6.0909773940296664e16
+rate	port	9	3	Xe136	(n,gamma)	9.28559009679416e-12
+rate	port	9	3	Xe136	fission	0.0
+atoms	port	9	3	Cs135	6971721145736245.0
+rate	port	9	3	Cs135	(n,gamma)	7.552578799972015e-10
+rate	port	9	3	Cs135	fission	0.0
+atoms	port	9	3	Gd157	64501709054125.96
+rate	port	9	3	Gd157	(n,gamma)	5.473267475963496e-6
+rate	port	9	3	Gd157	fission	0.0
+atoms	port	9	3	Gd156	269124761225391.25
+rate	port	9	3	Gd156	(n,gamma)	1.0674811813664567e-9
+rate	port	9	3	Gd156	fission	0.0
+atoms	port	9	3	U234	2.4105396232576886e18
+rate	port	9	3	U234	(n,gamma)	7.884439182994638e-9
+rate	port	9	3	U234	fission	1.5114431888115798e-10
+atoms	port	9	3	U235	2.683375084582594e20
+rate	port	9	3	U235	(n,gamma)	4.1806400235722e-9
+rate	port	9	3	U235	fission	1.9625319067616358e-8
+atoms	port	9	3	U238	1.0825658615033831e22
+rate	port	9	3	U238	(n,gamma)	1.0983894027335292e-9
+rate	port	9	3	U238	fission	3.148465237104344e-11
+k	port	9	4	1.144861280673601	0.0035881955797358285
+atoms	port	9	4	I135	5411271217377590.0
+rate	port	9	4	I135	(n,gamma)	2.7324283488137983e-9
+rate	port	9	4	I135	fission	0.0
+atoms	port	9	4	Xe135	1504259102265740.8
+rate	port	9	4	Xe135	(n,gamma)	9.361209483198392e-5
+rate	port	9	4	Xe135	fission	0.0
+atoms	port	9	4	Xe136	8.309324837426914e16
+rate	port	9	4	Xe136	(n,gamma)	9.295107606970744e-12
+rate	port	9	4	Xe136	fission	0.0
+atoms	port	9	4	Cs135	9712597890156704.0
+rate	port	9	4	Cs135	(n,gamma)	7.475022560937289e-10
+rate	port	9	4	Cs135	fission	0.0
+atoms	port	9	4	Gd157	72190388661141.7
+rate	port	9	4	Gd157	(n,gamma)	5.4695010927311165e-6
+rate	port	9	4	Gd157	fission	0.0
+atoms	port	9	4	Gd156	358929938280151.75
+rate	port	9	4	Gd156	(n,gamma)	1.0697532391745882e-9
+rate	port	9	4	Gd156	fission	0.0
+atoms	port	9	4	U234	2.410508144541708e18
+rate	port	9	4	U234	(n,gamma)	8.330577853861217e-9
+rate	port	9	4	U234	fission	1.5084405317086493e-10
+atoms	port	9	4	U235	2.6788289351927448e20
+rate	port	9	4	U235	(n,gamma)	4.1976524596052004e-9
+rate	port	9	4	U235	fission	1.966414325063703e-8
+atoms	port	9	4	U238	1.0825629166316594e22
+rate	port	9	4	U238	(n,gamma)	1.1106917413301154e-9
+rate	port	9	4	U238	fission	3.1351265264368456e-11
+k	port	9	5	1.1386943369663085	0.003253216315286271
+atoms	port	9	5	I135	5412316111524200.0
+rate	port	9	5	I135	(n,gamma)	2.7362528944356607e-9
+rate	port	9	5	I135	fission	0.0
+atoms	port	9	5	Xe135	1501800093856409.0
+rate	port	9	5	Xe135	(n,gamma)	9.36825258743156e-5
+rate	port	9	5	Xe135	fission	0.0
+atoms	port	9	5	Xe136	1.0528772675932013e17
+rate	port	9	5	Xe136	(n,gamma)	9.317427402424435e-12
+rate	port	9	5	Xe136	fission	0.0
+atoms	port	9	5	Cs135	1.2449199652957846e16
+rate	port	9	5	Cs135	(n,gamma)	7.558705897808672e-10
+rate	port	9	5	Cs135	fission	0.0
+atoms	port	9	5	Gd157	76973065091089.53
+rate	port	9	5	Gd157	(n,gamma)	5.468097310004841e-6
+rate	port	9	5	Gd157	fission	0.0
+atoms	port	9	5	Gd156	448650614337604.2
+rate	port	9	5	Gd156	(n,gamma)	1.0709197002307428e-9
+rate	port	9	5	Gd156	fission	0.0
+atoms	port	9	5	U234	2.4104767287716915e18
+rate	port	9	5	U234	(n,gamma)	8.263921359301033e-9
+rate	port	9	5	U234	fission	1.5189579905230203e-10
+atoms	port	9	5	U235	2.674281517197245e20
+rate	port	9	5	U235	(n,gamma)	4.202237221860984e-9
+rate	port	9	5	U235	fission	1.968665193967207e-8
+atoms	port	9	5	U238	1.08255998424407e22
+rate	port	9	5	U238	(n,gamma)	1.105813343199122e-9
+rate	port	9	5	U238	fission	3.1615120810041046e-11
+k	port	10	0	1.1618622225667259	0.0035185499091092815
+atoms	port	10	0	I135	0.0
+rate	port	10	0	I135	(n,gamma)	2.7165877956508177e-9
+rate	port	10	0	I135	fission	0.0
+atoms	port	10	0	Xe135	0.0
+rate	port	10	0	Xe135	(n,gamma)	9.326662865544358e-5
+rate	port	10	0	Xe135	fission	0.0
+atoms	port	10	0	Xe136	0.0
+rate	port	10	0	Xe136	(n,gamma)	9.251534637733227e-12
+rate	port	10	0	Xe136	fission	0.0
+atoms	port	10	0	Cs135	0.0
+rate	port	10	0	Cs135	(n,gamma)	7.591718521062967e-10
+rate	port	10	0	Cs135	fission	0.0
+atoms	port	10	0	Gd157	0.0
+rate	port	10	0	Gd157	(n,gamma)	5.466835541251072e-6
+rate	port	10	0	Gd157	fission	0.0
+atoms	port	10	0	Gd156	0.0
+rate	port	10	0	Gd156	(n,gamma)	1.046797739961319e-9
+rate	port	10	0	Gd156	fission	0.0
+atoms	port	10	0	U234	2.410633813691412e18
+rate	port	10	0	U234	(n,gamma)	7.891535358168128e-9
+rate	port	10	0	U234	fission	1.4872861982234682e-10
+atoms	port	10	0	U235	2.6970192963926262e20
+rate	port	10	0	U235	(n,gamma)	4.167152023861403e-9
+rate	port	10	0	U235	fission	1.955024857247236e-8
+atoms	port	10	0	U238	1.0825746400694843e22
+rate	port	10	0	U238	(n,gamma)	1.0908394427163783e-9
+rate	port	10	0	U238	fission	3.089503425270705e-11
+k	port	10	1	1.1499225367008015	0.003477615155695121
+atoms	port	10	1	I135	4984812019082148.0
+rate	port	10	1	I135	(n,gamma)	2.721288976541565e-9
+rate	port	10	1	I135	fission	0.0
+atoms	port	10	1	Xe135	1358858632693319.5
+rate	port	10	1	Xe135	(n,gamma)	9.342293881366185e-5
+rate	port	10	1	Xe135	fission	0.0
+atoms	port	10	1	Xe136	1.702525440019937e16
+rate	port	10	1	Xe136	(n,gamma)	9.269985296737535e-12
+rate	port	10	1	Xe136	fission	0.0
+atoms	port	10	1	Cs135	1577353789260483.8
+rate	port	10	1	Cs135	(n,gamma)	7.412786882193187e-10
+rate	port	10	1	Cs135	fission	0.0
+atoms	port	10	1	Gd157	31827045852407.37
+rate	port	10	1	Gd157	(n,gamma)	5.431733674140311e-6
+rate	port	10	1	Gd157	fission	0.0
+atoms	port	10	1	Gd156	89494576945963.08
+rate	port	10	1	Gd156	(n,gamma)	1.0457559984172874e-9
+rate	port	10	1	Gd156	fission	0.0
+atoms	port	10	1	U234	2.4106028368777037e18
+rate	port	10	1	U234	(n,gamma)	8.175281961929462e-9
+rate	port	10	1	U234	fission	1.5086735245186792e-10
+atoms	port	10	1	U235	2.6924674946365725e20
+rate	port	10	1	U235	(n,gamma)	4.1708207402580595e-9
+rate	port	10	1	U235	fission	1.9562970205892525e-8
+atoms	port	10	1	U238	1.0825717503233391e22
+rate	port	10	1	U238	(n,gamma)	1.091315823843778e-9
+rate	port	10	1	U238	fission	3.138907190159577e-11
+k	port	10	2	1.144707390219263	0.00347557512410142
+atoms	port	10	2	I135	5378241594368384.0
+rate	port	10	2	I135	(n,gamma)	2.725474137989411e-9
+rate	port	10	2	I135	fission	0.0
+atoms	port	10	2	Xe135	1492567107832444.8
+rate	port	10	2	Xe135	(n,gamma)	9.331864766742627e-5
+rate	port	10	2	Xe135	fission	0.0
+atoms	port	10	2	Xe136	3.878274893851098e16
+rate	port	10	2	Xe136	(n,gamma)	9.278645440923804e-12
+rate	port	10	2	Xe136	fission	0.0
+atoms	port	10	2	Cs135	4221116951638252.0
+rate	port	10	2	Cs135	(n,gamma)	7.4878689726705e-10
+rate	port	10	2	Cs135	fission	0.0
+atoms	port	10	2	Gd157	51913467675381.19
+rate	port	10	2	Gd157	(n,gamma)	5.455404135313559e-6
+rate	port	10	2	Gd157	fission	0.0
+atoms	port	10	2	Gd156	179262408058475.9
+rate	port	10	2	Gd156	(n,gamma)	1.062770584295873e-9
+rate	port	10	2	Gd156	fission	0.0
+atoms	port	10	2	U234	2.410571415020959e18
+rate	port	10	2	U234	(n,gamma)	7.765548529897748e-9
+rate	port	10	2	U234	fission	1.497161397316453e-10
+atoms	port	10	2	U235	2.6879204206007068e20
+rate	port	10	2	U235	(n,gamma)	4.177645486246508e-9
+rate	port	10	2	U235	fission	1.9605881129890946e-8
+atoms	port	10	2	U238	1.0825688143756148e22
+rate	port	10	2	U238	(n,gamma)	1.1159143702371208e-9
+rate	port	10	2	U238	fission	3.115106053816277e-11
+k	port	10	3	1.1470042840161552	0.0035233655061147617
+atoms	port	10	3	I135	5410821541514551.0
+rate	port	10	3	I135	(n,gamma)	2.729381143292495e-9
+rate	port	10	3	I135	fission	0.0
+atoms	port	10	3	Xe135	1505074366363885.0
+rate	port	10	3	Xe135	(n,gamma)	9.327352784558427e-5
+rate	port	10	3	Xe135	fission	0.0
+atoms	port	10	3	Xe136	6.0938919338978e16
+rate	port	10	3	Xe136	(n,gamma)	9.28434210634097e-12
+rate	port	10	3	Xe136	fission	0.0
+atoms	port	10	3	Cs135	6956823139260514.0
+rate	port	10	3	Cs135	(n,gamma)	7.511012154507994e-10
+rate	port	10	3	Cs135	fission	0.0
+atoms	port	10	3	Gd157	64324079421016.74
+rate	port	10	3	Gd157	(n,gamma)	5.4728680430248485e-6
+rate	port	10	3	Gd157	fission	0.0
+atoms	port	10	3	Gd156	268886045514464.28
+rate	port	10	3	Gd156	(n,gamma)	1.0525508226496634e-9
+rate	port	10	3	Gd156	fission	0.0
+atoms	port	10	3	U234	2.410540233337634e18
+rate	port	10	3	U234	(n,gamma)	8.059304705556378e-9
+rate	port	10	3	U234	fission	1.5070147206224092e-10
+atoms	port	10	3	U235	2.6833710770954614e20
+rate	port	10	3	U235	(n,gamma)	4.1888722666914684e-9
+rate	port	10	3	U235	fission	1.9632663240413622e-8
+atoms	port	10	3	U238	1.0825659006979355e22
+rate	port	10	3	U238	(n,gamma)	1.1180289234321457e-9
+rate	port	10	3	U238	fission	3.13074474913288e-11
+k	port	10	4	1.1426893369532738	0.0037712901341322856
+atoms	port	10	4	I135	5412533196312171.0
+rate	port	10	4	I135	(n,gamma)	2.7313237014831906e-9
+rate	port	10	4	I135	fission	0.0
+atoms	port	10	4	Xe135	1506307625930013.0
+rate	port	10	4	Xe135	(n,gamma)	9.3443743261213e-5
+rate	port	10	4	Xe135	fission	0.0
+atoms	port	10	4	Xe136	8.312321536752707e16
+rate	port	10	4	Xe136	(n,gamma)	9.298871764584463e-12
+rate	port	10	4	Xe136	fission	0.0
+atoms	port	10	4	Cs135	9700863564129566.0
+rate	port	10	4	Cs135	(n,gamma)	7.536508723151873e-10
+rate	port	10	4	Cs135	fission	0.0
+atoms	port	10	4	Gd157	72034821223752.75
+rate	port	10	4	Gd157	(n,gamma)	5.4669836570236354e-6
+rate	port	10	4	Gd157	fission	0.0
+atoms	port	10	4	Gd156	358590691604447.06
+rate	port	10	4	Gd156	(n,gamma)	1.050358207519101e-9
+rate	port	10	4	Gd156	fission	0.0
+atoms	port	10	4	U234	2.4105088468444887e18
+rate	port	10	4	U234	(n,gamma)	8.080063284021723e-9
+rate	port	10	4	U234	fission	1.5200682197219948e-10
+atoms	port	10	4	U235	2.6788232346833234e20
+rate	port	10	4	U235	(n,gamma)	4.190640712738753e-9
+rate	port	10	4	U235	fission	1.9654067926543212e-8
+atoms	port	10	4	U238	1.0825629724006878e22
+rate	port	10	4	U238	(n,gamma)	1.1140524385925785e-9
+rate	port	10	4	U238	fission	3.1595819892803574e-11
+k	port	10	5	1.149041807139336	0.0037210624256759565
+atoms	port	10	5	I135	5411059395819021.0
+rate	port	10	5	I135	(n,gamma)	2.740461123670315e-9
+rate	port	10	5	I135	fission	0.0
+atoms	port	10	5	Xe135	1503651396041042.8
+rate	port	10	5	Xe135	(n,gamma)	9.38726913710069e-5
+rate	port	10	5	Xe135	fission	0.0
+atoms	port	10	5	Xe136	1.053078409950197e17
+rate	port	10	5	Xe136	(n,gamma)	9.323332882821819e-12
+rate	port	10	5	Xe136	fission	0.0
+atoms	port	10	5	Cs135	1.2441197650264544e16
+rate	port	10	5	Cs135	(n,gamma)	7.367606734878713e-10
+rate	port	10	5	Cs135	fission	0.0
+atoms	port	10	5	Gd157	76952568218604.8
+rate	port	10	5	Gd157	(n,gamma)	5.5074585477697e-6
+rate	port	10	5	Gd157	fission	0.0
+atoms	port	10	5	Gd156	448451411970342.4
+rate	port	10	5	Gd156	(n,gamma)	1.061672652488635e-9
+rate	port	10	5	Gd156	fission	0.0
+atoms	port	10	5	U234	2.4104771889009946e18
+rate	port	10	5	U234	(n,gamma)	8.152175119496517e-9
+rate	port	10	5	U234	fission	1.506153887946328e-10
+atoms	port	10	5	U235	2.6742781543441806e20
+rate	port	10	5	U235	(n,gamma)	4.194304431632364e-9
+rate	port	10	5	U235	fission	1.9701149155167363e-8
+atoms	port	10	5	U238	1.0825600171389722e22
+rate	port	10	5	U238	(n,gamma)	1.1010037081924147e-9
+rate	port	10	5	U238	fission	3.1265796272363035e-11
+k	port	11	0	1.1566074854596802	0.0030374711649942634
+atoms	port	11	0	I135	0.0
+rate	port	11	0	I135	(n,gamma)	2.7205245445151575e-9
+rate	port	11	0	I135	fission	0.0
+atoms	port	11	0	Xe135	0.0
+rate	port	11	0	Xe135	(n,gamma)	9.344938702945023e-5
+rate	port	11	0	Xe135	fission	0.0
+atoms	port	11	0	Xe136	0.0
+rate	port	11	0	Xe136	(n,gamma)	9.259094722050706e-12
+rate	port	11	0	Xe136	fission	0.0
+atoms	port	11	0	Cs135	0.0
+rate	port	11	0	Cs135	(n,gamma)	7.344721196368652e-10
+rate	port	11	0	Cs135	fission	0.0
+atoms	port	11	0	Gd157	0.0
+rate	port	11	0	Gd157	(n,gamma)	5.452861412807419e-6
+rate	port	11	0	Gd157	fission	0.0
+atoms	port	11	0	Gd156	0.0
+rate	port	11	0	Gd156	(n,gamma)	1.043488330491813e-9
+rate	port	11	0	Gd156	fission	0.0
+atoms	port	11	0	U234	2.410633813691412e18
+rate	port	11	0	U234	(n,gamma)	7.980916522290511e-9
+rate	port	11	0	U234	fission	1.4881013041414895e-10
+atoms	port	11	0	U235	2.6970192963926262e20
+rate	port	11	0	U235	(n,gamma)	4.164172750785908e-9
+rate	port	11	0	U235	fission	1.95573846341485e-8
+atoms	port	11	0	U238	1.0825746400694843e22
+rate	port	11	0	U238	(n,gamma)	1.0957937821187347e-9
+rate	port	11	0	U238	fission	3.072117277328407e-11
+k	port	11	1	1.1439633848565274	0.0035334012879062768
+atoms	port	11	1	I135	4985776311261154.0
+rate	port	11	1	I135	(n,gamma)	2.717367841977889e-9
+rate	port	11	1	I135	fission	0.0
+atoms	port	11	1	Xe135	1357049000412915.0
+rate	port	11	1	Xe135	(n,gamma)	9.288660555536954e-5
+rate	port	11	1	Xe135	fission	0.0
+atoms	port	11	1	Xe136	1.7034181424957628e16
+rate	port	11	1	Xe136	(n,gamma)	9.252540923348871e-12
+rate	port	11	1	Xe136	fission	0.0
+atoms	port	11	1	Cs135	1575555217176331.5
+rate	port	11	1	Cs135	(n,gamma)	7.472348414780467e-10
+rate	port	11	1	Cs135	fission	0.0
+atoms	port	11	1	Gd157	31799176908389.35
+rate	port	11	1	Gd157	(n,gamma)	5.431818246341848e-6
+rate	port	11	1	Gd157	fission	0.0
+atoms	port	11	1	Gd156	89395542206387.72
+rate	port	11	1	Gd156	(n,gamma)	1.0501943444711647e-9
+rate	port	11	1	Gd156	fission	0.0
+atoms	port	11	1	U234	2.4106028199009946e18
+rate	port	11	1	U234	(n,gamma)	8.087714089118536e-9
+rate	port	11	1	U234	fission	1.5153898324109695e-10
+atoms	port	11	1	U235	2.6924658345808216e20
+rate	port	11	1	U235	(n,gamma)	4.178020231381045e-9
+rate	port	11	1	U235	fission	1.9553318959294236e-8
+atoms	port	11	1	U238	1.0825717665853342e22
+rate	port	11	1	U238	(n,gamma)	1.1277475555085834e-9
+rate	port	11	1	U238	fission	3.162394048223245e-11
+k	port	11	2	1.1432444575311507	0.0032732830516078756
+atoms	port	11	2	I135	5377015454619532.0
+rate	port	11	2	I135	(n,gamma)	2.7246218413465694e-9
+rate	port	11	2	I135	fission	0.0
+atoms	port	11	2	Xe135	1499222374025649.5
+rate	port	11	2	Xe135	(n,gamma)	9.297948337194789e-5
+rate	port	11	2	Xe135	fission	0.0
+atoms	port	11	2	Xe136	3.876640145487848e16
+rate	port	11	2	Xe136	(n,gamma)	9.28936831586657e-12
+rate	port	11	2	Xe136	fission	0.0
+atoms	port	11	2	Cs135	4229831455366703.0
+rate	port	11	2	Cs135	(n,gamma)	7.605177239822541e-10
+rate	port	11	2	Cs135	fission	0.0
+atoms	port	11	2	Gd157	51957443306515.45
+rate	port	11	2	Gd157	(n,gamma)	5.442610596118201e-6
+rate	port	11	2	Gd157	fission	0.0
+atoms	port	11	2	Gd156	179297143493535.4
+rate	port	11	2	Gd156	(n,gamma)	1.0674125243232934e-9
+rate	port	11	2	Gd156	fission	0.0
+atoms	port	11	2	U234	2.4105712581616635e18
+rate	port	11	2	U234	(n,gamma)	8.080050470021955e-9
+rate	port	11	2	U234	fission	1.512499485072135e-10
+atoms	port	11	2	U235	2.6879210047180672e20
+rate	port	11	2	U235	(n,gamma)	4.1848367712604095e-9
+rate	port	11	2	U235	fission	1.9597323131324637e-8
+atoms	port	11	2	U238	1.0825688086693833e22
+rate	port	11	2	U238	(n,gamma)	1.1071989305551404e-9
+rate	port	11	2	U238	fission	3.135840793839159e-11
+k	port	11	3	1.141921177171188	0.0033868801527881017
+atoms	port	11	3	I135	5409573472646080.0
+rate	port	11	3	I135	(n,gamma)	2.730303019041496e-9
+rate	port	11	3	I135	fission	0.0
+atoms	port	11	3	Xe135	1509183227076870.5
+rate	port	11	3	Xe135	(n,gamma)	9.353556971522827e-5
+rate	port	11	3	Xe135	fission	0.0
+atoms	port	11	3	Xe136	6.090971544612551e16
+rate	port	11	3	Xe136	(n,gamma)	9.302849366433298e-12
+rate	port	11	3	Xe136	fission	0.0
+atoms	port	11	3	Cs135	6973471031523140.0
+rate	port	11	3	Cs135	(n,gamma)	7.454502945265028e-10
+rate	port	11	3	Cs135	fission	0.0
+atoms	port	11	3	Gd157	64458126630049.016
+rate	port	11	3	Gd157	(n,gamma)	5.473000774992924e-6
+rate	port	11	3	Gd157	fission	0.0
+atoms	port	11	3	Gd156	269038832369970.7
+rate	port	11	3	Gd156	(n,gamma)	1.0666143626950236e-9
+rate	port	11	3	Gd156	fission	0.0
+atoms	port	11	3	U234	2.410539757033021e18
+rate	port	11	3	U234	(n,gamma)	7.802165119409465e-9
+rate	port	11	3	U234	fission	1.5058359429645838e-10
+atoms	port	11	3	U235	2.6833736443396604e20
+rate	port	11	3	U235	(n,gamma)	4.187131358075918e-9
+rate	port	11	3	U235	fission	1.963743715349858e-8
+atoms	port	11	3	U238	1.082565875597752e22
+rate	port	11	3	U238	(n,gamma)	1.1018789646556809e-9
+rate	port	11	3	U238	fission	3.1191307075341636e-11
+k	port	11	4	1.1396380079289532	0.003437824047935818
+atoms	port	11	4	I135	5413078355897303.0
+rate	port	11	4	I135	(n,gamma)	2.73033966218346e-9
+rate	port	11	4	I135	fission	0.0
+atoms	port	11	4	Xe135	1503015082345001.5
+rate	port	11	4	Xe135	(n,gamma)	9.340984733860523e-5
+rate	port	11	4	Xe135	fission	0.0
+atoms	port	11	4	Xe136	8.310868130803163e16
+rate	port	11	4	Xe136	(n,gamma)	9.299690256400972e-12
+rate	port	11	4	Xe136	fission	0.0
+atoms	port	11	4	Cs135	9712646732698100.0
+rate	port	11	4	Cs135	(n,gamma)	7.522482924599172e-10
+rate	port	11	4	Cs135	fission	0.0
+atoms	port	11	4	Gd157	72087630040988.34
+rate	port	11	4	Gd157	(n,gamma)	5.477674896424089e-6
+rate	port	11	4	Gd157	fission	0.0
+atoms	port	11	4	Gd156	358676916780396.0
+rate	port	11	4	Gd156	(n,gamma)	1.0719276862483212e-9
+rate	port	11	4	Gd156	fission	0.0
+atoms	port	11	4	U234	2.410508395096236e18
+rate	port	11	4	U234	(n,gamma)	8.225116422359142e-9
+rate	port	11	4	U234	fission	1.513485245009663e-10
+atoms	port	11	4	U235	2.6788246926519127e20
+rate	port	11	4	U235	(n,gamma)	4.196082875260305e-9
+rate	port	11	4	U235	fission	1.965942506741034e-8
+atoms	port	11	4	U238	1.082562958163586e22
+rate	port	11	4	U238	(n,gamma)	1.1433180050951967e-9
+rate	port	11	4	U238	fission	3.146607566017883e-11
+k	port	11	5	1.148389215710987	0.0034535639434629707
+atoms	port	11	5	I135	5411822929677228.0
+rate	port	11	5	I135	(n,gamma)	2.7395213245362152e-9
+rate	port	11	5	I135	fission	0.0
+atoms	port	11	5	Xe135	1504319121668082.0
+rate	port	11	5	Xe135	(n,gamma)	9.388143279269703e-5
+rate	port	11	5	Xe135	fission	0.0
+atoms	port	11	5	Xe136	1.0529335645377518e17
+rate	port	11	5	Xe136	(n,gamma)	9.33524225403467e-12
+rate	port	11	5	Xe136	fission	0.0
+atoms	port	11	5	Cs135	1.2453440557674926e16
+rate	port	11	5	Cs135	(n,gamma)	7.409059242267542e-10
+rate	port	11	5	Cs135	fission	0.0
+atoms	port	11	5	Gd157	76896989511687.95
+rate	port	11	5	Gd157	(n,gamma)	5.495448898758551e-6
+rate	port	11	5	Gd157	fission	0.0
+atoms	port	11	5	Gd156	448462954150631.75
+rate	port	11	5	Gd156	(n,gamma)	1.0538986223333968e-9
+rate	port	11	5	Gd156	fission	0.0
+atoms	port	11	5	U234	2.410476874259131e18
+rate	port	11	5	U234	(n,gamma)	7.89359847652024e-9
+rate	port	11	5	U234	fission	1.505696863973402e-10
+atoms	port	11	5	U235	2.6742783720304047e20
+rate	port	11	5	U235	(n,gamma)	4.1937335400704475e-9
+rate	port	11	5	U235	fission	1.9700287302716364e-8
+atoms	port	11	5	U238	1.0825600150372994e22
+rate	port	11	5	U238	(n,gamma)	1.112667007771223e-9
+rate	port	11	5	U238	fission	3.1286586578083064e-11
+k	port	12	0	1.1678213534532647	0.0033859132012314776
+atoms	port	12	0	I135	0.0
+rate	port	12	0	I135	(n,gamma)	2.7197179188374932e-9
+rate	port	12	0	I135	fission	0.0
+atoms	port	12	0	Xe135	0.0
+rate	port	12	0	Xe135	(n,gamma)	9.31308725804562e-5
+rate	port	12	0	Xe135	fission	0.0
+atoms	port	12	0	Xe136	0.0
+rate	port	12	0	Xe136	(n,gamma)	9.263059368388542e-12
+rate	port	12	0	Xe136	fission	0.0
+atoms	port	12	0	Cs135	0.0
+rate	port	12	0	Cs135	(n,gamma)	7.572193946785031e-10
+rate	port	12	0	Cs135	fission	0.0
+atoms	port	12	0	Gd157	0.0
+rate	port	12	0	Gd157	(n,gamma)	5.460269187313987e-6
+rate	port	12	0	Gd157	fission	0.0
+atoms	port	12	0	Gd156	0.0
+rate	port	12	0	Gd156	(n,gamma)	1.060888815684422e-9
+rate	port	12	0	Gd156	fission	0.0
+atoms	port	12	0	U234	2.410633813691412e18
+rate	port	12	0	U234	(n,gamma)	8.096741889936802e-9
+rate	port	12	0	U234	fission	1.4855953249209162e-10
+atoms	port	12	0	U235	2.6970192963926262e20
+rate	port	12	0	U235	(n,gamma)	4.158098978169351e-9
+rate	port	12	0	U235	fission	1.9553812981219136e-8
+atoms	port	12	0	U238	1.0825746400694843e22
+rate	port	12	0	U238	(n,gamma)	1.1027407068732214e-9
+rate	port	12	0	U238	fission	3.080823707317361e-11
+k	port	12	1	1.1491064179338846	0.00332718346710674
+atoms	port	12	1	I135	4985293288195875.0
+rate	port	12	1	I135	(n,gamma)	2.7195963730731805e-9
+rate	port	12	1	I135	fission	0.0
+atoms	port	12	1	Xe135	1360552788607504.0
+rate	port	12	1	Xe135	(n,gamma)	9.320172003784766e-5
+rate	port	12	1	Xe135	fission	0.0
+atoms	port	12	1	Xe136	1.7024464196312e16
+rate	port	12	1	Xe136	(n,gamma)	9.25469987140067e-12
+rate	port	12	1	Xe136	fission	0.0
+atoms	port	12	1	Cs135	1579105067246168.5
+rate	port	12	1	Cs135	(n,gamma)	7.507508196241722e-10
+rate	port	12	1	Cs135	fission	0.0
+atoms	port	12	1	Gd157	31812668640463.207
+rate	port	12	1	Gd157	(n,gamma)	5.440241503320215e-6
+rate	port	12	1	Gd157	fission	0.0
+atoms	port	12	1	Gd156	89445072113573.64
+rate	port	12	1	Gd156	(n,gamma)	1.0504822592662325e-9
+rate	port	12	1	Gd156	fission	0.0
+atoms	port	12	1	U234	2.41060287209455e18
+rate	port	12	1	U234	(n,gamma)	8.01127405987246e-9
+rate	port	12	1	U234	fission	1.5101645603917482e-10
+atoms	port	12	1	U235	2.6924666654511717e20
+rate	port	12	1	U235	(n,gamma)	4.171426591854181e-9
+rate	port	12	1	U235	fission	1.9562204135459175e-8
+atoms	port	12	1	U238	1.0825717584418438e22
+rate	port	12	1	U238	(n,gamma)	1.1154860993326855e-9
+rate	port	12	1	U238	fission	3.140781701865671e-11
+k	port	12	2	1.1472313929903517	0.003619651359638501
+atoms	port	12	2	I135	5378176087949771.0
+rate	port	12	2	I135	(n,gamma)	2.725162626415008e-9
+rate	port	12	2	I135	fission	0.0
+atoms	port	12	2	Xe135	1495432338815002.3
+rate	port	12	2	Xe135	(n,gamma)	9.333317280525473e-5
+rate	port	12	2	Xe135	fission	0.0
+atoms	port	12	2	Xe136	3.877571870177834e16
+rate	port	12	2	Xe136	(n,gamma)	9.259358686533881e-12
+rate	port	12	2	Xe136	fission	0.0
+atoms	port	12	2	Cs135	4227806702062816.0
+rate	port	12	2	Cs135	(n,gamma)	7.467392523235552e-10
+rate	port	12	2	Cs135	fission	0.0
+atoms	port	12	2	Gd157	51883967478384.33
+rate	port	12	2	Gd157	(n,gamma)	5.454648390038018e-6
+rate	port	12	2	Gd157	fission	0.0
+atoms	port	12	2	Gd156	179223533911759.25
+rate	port	12	2	Gd156	(n,gamma)	1.0711568362222288e-9
+rate	port	12	2	Gd156	fission	0.0
+atoms	port	12	2	U234	2.410571419183037e18
+rate	port	12	2	U234	(n,gamma)	8.117388427824616e-9
+rate	port	12	2	U234	fission	1.5099068243649507e-10
+atoms	port	12	2	U235	2.6879197707249756e20
+rate	port	12	2	U235	(n,gamma)	4.175031324390074e-9
+rate	port	12	2	U235	fission	1.9594413713346372e-8
+atoms	port	12	2	U238	1.0825688207407951e22
+rate	port	12	2	U238	(n,gamma)	1.1135474795200265e-9
+rate	port	12	2	U238	fission	3.142932052424238e-11
+k	port	12	3	1.1453781716932059	0.0034256671388602678
+atoms	port	12	3	I135	5409272128599243.0
+rate	port	12	3	I135	(n,gamma)	2.7303942561562717e-9
+rate	port	12	3	I135	fission	0.0
+atoms	port	12	3	Xe135	1504435927374840.3
+rate	port	12	3	Xe135	(n,gamma)	9.340577710566768e-5
+rate	port	12	3	Xe135	fission	0.0
+atoms	port	12	3	Xe136	6.092714783781193e16
+rate	port	12	3	Xe136	(n,gamma)	9.284517774088675e-12
+rate	port	12	3	Xe136	fission	0.0
+atoms	port	12	3	Cs135	6963187448617176.0
+rate	port	12	3	Cs135	(n,gamma)	7.482455499873604e-10
+rate	port	12	3	Cs135	fission	0.0
+atoms	port	12	3	Gd157	64381816996462.734
+rate	port	12	3	Gd157	(n,gamma)	5.477915054894106e-6
+rate	port	12	3	Gd157	fission	0.0
+atoms	port	12	3	Gd156	269005552460402.2
+rate	port	12	3	Gd156	(n,gamma)	1.065924601369333e-9
+rate	port	12	3	Gd156	fission	0.0
+atoms	port	12	3	U234	2.4105399720498e18
+rate	port	12	3	U234	(n,gamma)	7.99118473964718e-9
+rate	port	12	3	U234	fission	1.489918289810425e-10
+atoms	port	12	3	U235	2.683373086963581e20
+rate	port	12	3	U235	(n,gamma)	4.188351179754242e-9
+rate	port	12	3	U235	fission	1.9648050188042748e-8
+atoms	port	12	3	U238	1.0825658810364158e22
+rate	port	12	3	U238	(n,gamma)	1.1197086079494156e-9
+rate	port	12	3	U238	fission	3.0934508138898826e-11
+k	port	12	4	1.1436677554140704	0.003221403628149239
+atoms	port	12	4	I135	5414479562279728.0
+rate	port	12	4	I135	(n,gamma)	2.7352101670275834e-9
+rate	port	12	4	I135	fission	0.0
+atoms	port	12	4	Xe135	1505121918182619.3
+rate	port	12	4	Xe135	(n,gamma)	9.359066549934868e-5
+rate	port	12	4	Xe135	fission	0.0
+atoms	port	12	4	Xe136	8.312447963226467e16
+rate	port	12	4	Xe136	(n,gamma)	9.310044975223852e-12
+rate	port	12	4	Xe136	fission	0.0
+atoms	port	12	4	Cs135	9704718815345674.0
+rate	port	12	4	Cs135	(n,gamma)	7.473857886452505e-10
+rate	port	12	4	Cs135	fission	0.0
+atoms	port	12	4	Gd157	71949517670306.23
+rate	port	12	4	Gd157	(n,gamma)	5.4816060286443655e-6
+rate	port	12	4	Gd157	fission	0.0
+atoms	port	12	4	Gd156	358497341349526.8
+rate	port	12	4	Gd156	(n,gamma)	1.0575526571853267e-9
+rate	port	12	4	Gd156	fission	0.0
+atoms	port	12	4	U234	2.410508941623924e18
+rate	port	12	4	U234	(n,gamma)	8.141487938491298e-9
+rate	port	12	4	U234	fission	1.5011042961995217e-10
+atoms	port	12	4	U235	2.6788216798307038e20
+rate	port	12	4	U235	(n,gamma)	4.196357613262732e-9
+rate	port	12	4	U235	fission	1.967728791337034e-8
+atoms	port	12	4	U238	1.0825629876215238e22
+rate	port	12	4	U238	(n,gamma)	1.1145784012872678e-9
+rate	port	12	4	U238	fission	3.103464623411353e-11
+k	port	12	5	1.1372592106521617	0.003425677917562087
+atoms	port	12	5	I135	5414327641045249.0
+rate	port	12	5	I135	(n,gamma)	2.736632302267299e-9
+rate	port	12	5	I135	fission	0.0
+atoms	port	12	5	Xe135	1502674340684894.0
+rate	port	12	5	Xe135	(n,gamma)	9.347509087755367e-5
+rate	port	12	5	Xe135	fission	0.0
+atoms	port	12	5	Xe136	1.0532983740063858e17
+rate	port	12	5	Xe136	(n,gamma)	9.324038141456891e-12
+rate	port	12	5	Xe136	fission	0.0
+atoms	port	12	5	Cs135	1.2443067361866606e16
+rate	port	12	5	Cs135	(n,gamma)	7.667528778739944e-10
+rate	port	12	5	Cs135	fission	0.0
+atoms	port	12	5	Gd157	76677336019525.56
+rate	port	12	5	Gd157	(n,gamma)	5.464863741486849e-6
+rate	port	12	5	Gd157	fission	0.0
+atoms	port	12	5	Gd156	448038098425779.7
+rate	port	12	5	Gd156	(n,gamma)	1.0705152428424426e-9
+rate	port	12	5	Gd156	fission	0.0
+atoms	port	12	5	U234	2.4104776786318264e18
+rate	port	12	5	U234	(n,gamma)	8.163483420031357e-9
+rate	port	12	5	U234	fission	1.5247167902198267e-10
+atoms	port	12	5	U235	2.674271236982947e20
+rate	port	12	5	U235	(n,gamma)	4.200293701162772e-9
+rate	port	12	5	U235	fission	1.968370914909438e-8
+atoms	port	12	5	U238	1.082560084848128e22
+rate	port	12	5	U238	(n,gamma)	1.121391389122399e-9
+rate	port	12	5	U238	fission	3.168790811736201e-11
+k	port	13	0	1.1615920485766227	0.0034127692630027046
+atoms	port	13	0	I135	0.0
+rate	port	13	0	I135	(n,gamma)	2.717688659653965e-9
+rate	port	13	0	I135	fission	0.0
+atoms	port	13	0	Xe135	0.0
+rate	port	13	0	Xe135	(n,gamma)	9.31494388781861e-5
+rate	port	13	0	Xe135	fission	0.0
+atoms	port	13	0	Xe136	0.0
+rate	port	13	0	Xe136	(n,gamma)	9.246080328141162e-12
+rate	port	13	0	Xe136	fission	0.0
+atoms	port	13	0	Cs135	0.0
+rate	port	13	0	Cs135	(n,gamma)	7.448726045177782e-10
+rate	port	13	0	Cs135	fission	0.0
+atoms	port	13	0	Gd157	0.0
+rate	port	13	0	Gd157	(n,gamma)	5.465032471786727e-6
+rate	port	13	0	Gd157	fission	0.0
+atoms	port	13	0	Gd156	0.0
+rate	port	13	0	Gd156	(n,gamma)	1.0213143650806033e-9
+rate	port	13	0	Gd156	fission	0.0
+atoms	port	13	0	U234	2.410633813691412e18
+rate	port	13	0	U234	(n,gamma)	7.923776359157114e-9
+rate	port	13	0	U234	fission	1.4804886876385147e-10
+atoms	port	13	0	U235	2.6970192963926262e20
+rate	port	13	0	U235	(n,gamma)	4.161936214919417e-9
+rate	port	13	0	U235	fission	1.9554909231896312e-8
+atoms	port	13	0	U238	1.0825746400694843e22
+rate	port	13	0	U238	(n,gamma)	1.1098890595084698e-9
+rate	port	13	0	U238	fission	3.078164125251437e-11
+k	port	13	1	1.147349212221195	0.0035881502479650205
+atoms	port	13	1	I135	4985441193055889.0
+rate	port	13	1	I135	(n,gamma)	2.715905430810427e-9
+rate	port	13	1	I135	fission	0.0
+atoms	port	13	1	Xe135	1360382607540807.8
+rate	port	13	1	Xe135	(n,gamma)	9.283686431509128e-5
+rate	port	13	1	Xe135	fission	0.0
+atoms	port	13	1	Xe136	1.7025613330409152e16
+rate	port	13	1	Xe136	(n,gamma)	9.244273928275748e-12
+rate	port	13	1	Xe136	fission	0.0
+atoms	port	13	1	Cs135	1578938768856306.3
+rate	port	13	1	Cs135	(n,gamma)	7.345330161690128e-10
+rate	port	13	1	Cs135	fission	0.0
+atoms	port	13	1	Gd157	31799531115996.246
+rate	port	13	1	Gd157	(n,gamma)	5.425029348209816e-6
+rate	port	13	1	Gd157	fission	0.0
+atoms	port	13	1	Gd156	89430066874355.17
+rate	port	13	1	Gd156	(n,gamma)	1.0660059425106146e-9
+rate	port	13	1	Gd156	fission	0.0
+atoms	port	13	1	U234	2.410602978453602e18
+rate	port	13	1	U234	(n,gamma)	8.26144643106421e-9
+rate	port	13	1	U234	fission	1.523865286452849e-10
+atoms	port	13	1	U235	2.6924664104313582e20
+rate	port	13	1	U235	(n,gamma)	4.1759683015235685e-9
+rate	port	13	1	U235	fission	1.9553380099771202e-8
+atoms	port	13	1	U238	1.0825717609294629e22
+rate	port	13	1	U238	(n,gamma)	1.1156796353774028e-9
+rate	port	13	1	U238	fission	3.162216893793148e-11
+k	port	13	2	1.1445493164711888	0.0033844264684503083
+atoms	port	13	2	I135	5376998823114510.0
+rate	port	13	2	I135	(n,gamma)	2.724289079500547e-9
+rate	port	13	2	I135	fission	0.0
+atoms	port	13	2	Xe135	1499869278028200.8
+rate	port	13	2	Xe135	(n,gamma)	9.339757668620712e-5
+rate	port	13	2	Xe135	fission	0.0
+atoms	port	13	2	Xe136	3.875866443813468e16
+rate	port	13	2	Xe136	(n,gamma)	9.268224790861063e-12
+rate	port	13	2	Xe136	fission	0.0
+atoms	port	13	2	Cs135	4234817110098174.0
+rate	port	13	2	Cs135	(n,gamma)	7.390284027817949e-10
+rate	port	13	2	Cs135	fission	0.0
+atoms	port	13	2	Gd157	51977704278354.91
+rate	port	13	2	Gd157	(n,gamma)	5.4607957060444326e-6
+rate	port	13	2	Gd157	fission	0.0
+atoms	port	13	2	Gd156	179330483035705.84
+rate	port	13	2	Gd156	(n,gamma)	1.0470307644225891e-9
+rate	port	13	2	Gd156	fission	0.0
+atoms	port	13	2	U234	2.4105712401910636e18
+rate	port	13	2	U234	(n,gamma)	7.999918038740758e-9
+rate	port	13	2	U234	fission	1.505325559318241e-10
+atoms	port	13	2	U235	2.687921565397531e20
+rate	port	13	2	U235	(n,gamma)	4.175111371387427e-9
+rate	port	13	2	U235	fission	1.9597324482017993e-8
+atoms	port	13	2	U238	1.082568803179225e22
+rate	port	13	2	U238	(n,gamma)	1.1212448213921693e-9
+rate	port	13	2	U238	fission	3.135843099118851e-11
+k	port	13	3	1.1420420595738143	0.0037063883373219526
+atoms	port	13	3	I135	5409572144480044.0
+rate	port	13	3	I135	(n,gamma)	2.7305621347137647e-9
+rate	port	13	3	I135	fission	0.0
+atoms	port	13	3	Xe135	1503671142448888.5
+rate	port	13	3	Xe135	(n,gamma)	9.353708075492378e-5
+rate	port	13	3	Xe135	fission	0.0
+atoms	port	13	3	Xe136	6.0917003284099544e16
+rate	port	13	3	Xe136	(n,gamma)	9.293401704133523e-12
+rate	port	13	3	Xe136	fission	0.0
+atoms	port	13	3	Cs135	6969573903255067.0
+rate	port	13	3	Cs135	(n,gamma)	7.56171592037867e-10
+rate	port	13	3	Cs135	fission	0.0
+atoms	port	13	3	Gd157	64396317035441.266
+rate	port	13	3	Gd157	(n,gamma)	5.4711530699032015e-6
+rate	port	13	3	Gd157	fission	0.0
+atoms	port	13	3	Gd156	269072567467206.13
+rate	port	13	3	Gd156	(n,gamma)	1.0683020839029968e-9
+rate	port	13	3	Gd156	fission	0.0
+atoms	port	13	3	U234	2.4105398884744627e18
+rate	port	13	3	U234	(n,gamma)	8.09908697766925e-9
+rate	port	13	3	U234	fission	1.506648113767155e-10
+atoms	port	13	3	U235	2.6833742037574317e20
+rate	port	13	3	U235	(n,gamma)	4.182830499351027e-9
+rate	port	13	3	U235	fission	1.9630935782497277e-8
+atoms	port	13	3	U238	1.082565870105452e22
+rate	port	13	3	U238	(n,gamma)	1.0994595704535915e-9
+rate	port	13	3	U238	fission	3.134877240562696e-11
+k	port	13	4	1.1416008776037405	0.0037690933435034057
+atoms	port	13	4	I135	5412204389546907.0
+rate	port	13	4	I135	(n,gamma)	2.7348903519184675e-9
+rate	port	13	4	I135	fission	0.0
+atoms	port	13	4	Xe135	1502743093709840.3
+rate	port	13	4	Xe135	(n,gamma)	9.353403818332102e-5
+rate	port	13	4	Xe135	fission	0.0
+atoms	port	13	4	Xe136	8.310725698859518e16
+rate	port	13	4	Xe136	(n,gamma)	9.317255873157096e-12
+rate	port	13	4	Xe136	fission	0.0
+atoms	port	13	4	Cs135	9707404008583944.0
+rate	port	13	4	Cs135	(n,gamma)	7.418794939545968e-10
+rate	port	13	4	Cs135	fission	0.0
+atoms	port	13	4	Gd157	72099151736405.94
+rate	port	13	4	Gd157	(n,gamma)	5.4790216054982035e-6
+rate	port	13	4	Gd157	fission	0.0
+atoms	port	13	4	Gd156	358800311022361.8
+rate	port	13	4	Gd156	(n,gamma)	1.0539609573766185e-9
+rate	port	13	4	Gd156	fission	0.0
+atoms	port	13	4	U234	2.410508509621051e18
+rate	port	13	4	U234	(n,gamma)	8.04106593110989e-9
+rate	port	13	4	U234	fission	1.5050286038747737e-10
+atoms	port	13	4	U235	2.6788267558673452e20
+rate	port	13	4	U235	(n,gamma)	4.19143594670108e-9
+rate	port	13	4	U235	fission	1.9669213863438163e-8
+atoms	port	13	4	U238	1.082562937943025e22
+rate	port	13	4	U238	(n,gamma)	1.1493634064798528e-9
+rate	port	13	4	U238	fission	3.1229030523541015e-11
+k	port	13	5	1.1408970418521354	0.0032477168725776073
+atoms	port	13	5	I135	5413068183270782.0
+rate	port	13	5	I135	(n,gamma)	2.7412294953979446e-9
+rate	port	13	5	I135	fission	0.0
+atoms	port	13	5	Xe135	1503043827992327.8
+rate	port	13	5	Xe135	(n,gamma)	9.383342749171344e-5
+rate	port	13	5	Xe135	fission	0.0
+atoms	port	13	5	Xe136	1.0530179204599653e17
+rate	port	13	5	Xe136	(n,gamma)	9.334601345005109e-12
+rate	port	13	5	Xe136	fission	0.0
+atoms	port	13	5	Cs135	1.2445787263453776e16
+rate	port	13	5	Cs135	(n,gamma)	7.551345658440262e-10
+rate	port	13	5	Cs135	fission	0.0
+atoms	port	13	5	Gd157	76834652369199.73
+rate	port	13	5	Gd157	(n,gamma)	5.482270582198457e-6
+rate	port	13	5	Gd157	fission	0.0
+atoms	port	13	5	Gd156	448451909433187.6
+rate	port	13	5	Gd156	(n,gamma)	1.0551886235598224e-9
+rate	port	13	5	Gd156	fission	0.0
+atoms	port	13	5	U234	2.4104771649048704e18
+rate	port	13	5	U234	(n,gamma)	7.944515373081414e-9
+rate	port	13	5	U234	fission	1.5035400782829712e-10
+atoms	port	13	5	U235	2.6742781699672827e20
+rate	port	13	5	U235	(n,gamma)	4.194202097396221e-9
+rate	port	13	5	U235	fission	1.9701968633892905e-8
+atoms	port	13	5	U238	1.0825600169883822e22
+rate	port	13	5	U238	(n,gamma)	1.1164348142502326e-9
+rate	port	13	5	U238	fission	3.124605442810927e-11
+k	port	14	0	1.1687608260919649	0.0038523786617324905
+atoms	port	14	0	I135	0.0
+rate	port	14	0	I135	(n,gamma)	2.717038992578215e-9
+rate	port	14	0	I135	fission	0.0
+atoms	port	14	0	Xe135	0.0
+rate	port	14	0	Xe135	(n,gamma)	9.329360977428708e-5
+rate	port	14	0	Xe135	fission	0.0
+atoms	port	14	0	Xe136	0.0
+rate	port	14	0	Xe136	(n,gamma)	9.2436852603899e-12
+rate	port	14	0	Xe136	fission	0.0
+atoms	port	14	0	Cs135	0.0
+rate	port	14	0	Cs135	(n,gamma)	7.427756988508301e-10
+rate	port	14	0	Cs135	fission	0.0
+atoms	port	14	0	Gd157	0.0
+rate	port	14	0	Gd157	(n,gamma)	5.460146940029285e-6
+rate	port	14	0	Gd157	fission	0.0
+atoms	port	14	0	Gd156	0.0
+rate	port	14	0	Gd156	(n,gamma)	1.0391194746655771e-9
+rate	port	14	0	Gd156	fission	0.0
+atoms	port	14	0	U234	2.410633813691412e18
+rate	port	14	0	U234	(n,gamma)	8.048073289883997e-9
+rate	port	14	0	U234	fission	1.4892742122682877e-10
+atoms	port	14	0	U235	2.6970192963926262e20
+rate	port	14	0	U235	(n,gamma)	4.156197370328414e-9
+rate	port	14	0	U235	fission	1.95458548864802e-8
+atoms	port	14	0	U238	1.0825746400694843e22
+rate	port	14	0	U238	(n,gamma)	1.0948526037907576e-9
+rate	port	14	0	U238	fission	3.100202730219717e-11
+k	port	14	1	1.1468069402270789	0.004138627736803698
+atoms	port	14	1	I135	4984218196182046.0
+rate	port	14	1	I135	(n,gamma)	2.7190441947832538e-9
+rate	port	14	1	I135	fission	0.0
+atoms	port	14	1	Xe135	1358378522542153.5
+rate	port	14	1	Xe135	(n,gamma)	9.315103958253387e-5
+rate	port	14	1	Xe135	fission	0.0
+atoms	port	14	1	Xe136	1.7022980840647868e16
+rate	port	14	1	Xe136	(n,gamma)	9.26037646621941e-12
+rate	port	14	1	Xe136	fission	0.0
+atoms	port	14	1	Cs135	1576834973139574.8
+rate	port	14	1	Cs135	(n,gamma)	7.690302614463803e-10
+rate	port	14	1	Cs135	fission	0.0
+atoms	port	14	1	Gd157	31863538438186.098
+rate	port	14	1	Gd157	(n,gamma)	5.446287645562418e-6
+rate	port	14	1	Gd157	fission	0.0
+atoms	port	14	1	Gd156	89555562958085.34
+rate	port	14	1	Gd156	(n,gamma)	1.0522472583275251e-9
+rate	port	14	1	Gd156	fission	0.0
+atoms	port	14	1	U234	2.410602795472128e18
+rate	port	14	1	U234	(n,gamma)	8.025579410658798e-9
+rate	port	14	1	U234	fission	1.507382003629196e-10
+atoms	port	14	1	U235	2.6924685167363837e20
+rate	port	14	1	U235	(n,gamma)	4.171402332215272e-9
+rate	port	14	1	U235	fission	1.9562213803287e-8
+atoms	port	14	1	U238	1.0825717403158321e22
+rate	port	14	1	U238	(n,gamma)	1.1088702282694936e-9
+rate	port	14	1	U238	fission	3.1407315396166095e-11
+k	port	14	2	1.1439582000093202	0.0032616946752200473
+atoms	port	14	2	I135	5378093549362602.0
+rate	port	14	2	I135	(n,gamma)	2.7228730964906266e-9
+rate	port	14	2	I135	fission	0.0
+atoms	port	14	2	Xe135	1496065369292993.8
+rate	port	14	2	Xe135	(n,gamma)	9.295446531834651e-5
+rate	port	14	2	Xe135	fission	0.0
+atoms	port	14	2	Xe136	3.876997823981765e16
+rate	port	14	2	Xe136	(n,gamma)	9.269105302187149e-12
+rate	port	14	2	Xe136	fission	0.0
+atoms	port	14	2	Cs135	4226011718468216.5
+rate	port	14	2	Cs135	(n,gamma)	7.508989069388288e-10
+rate	port	14	2	Cs135	fission	0.0
+atoms	port	14	2	Gd157	51897544538103.234
+rate	port	14	2	Gd157	(n,gamma)	5.445005849669625e-6
+rate	port	14	2	Gd157	fission	0.0
+atoms	port	14	2	Gd156	179333704607941.78
+rate	port	14	2	Gd156	(n,gamma)	1.0582619290351523e-9
+rate	port	14	2	Gd156	fission	0.0
+atoms	port	14	2	U234	2.4105714005148636e18
+rate	port	14	2	U234	(n,gamma)	8.178195760633614e-9
+rate	port	14	2	U234	fission	1.502860464532551e-10
+atoms	port	14	2	U235	2.6879216166386136e20
+rate	port	14	2	U235	(n,gamma)	4.184277658536431e-9
+rate	port	14	2	U235	fission	1.9606074357689438e-8
+atoms	port	14	2	U238	1.0825688026617515e22
+rate	port	14	2	U238	(n,gamma)	1.1331239843685016e-9
+rate	port	14	2	U238	fission	3.1146034548516165e-11
+k	port	14	3	1.1378995464016373	0.0032003547141755944
+atoms	port	14	3	I135	5410838061945007.0
+rate	port	14	3	I135	(n,gamma)	2.7289420577438595e-9
+rate	port	14	3	I135	fission	0.0
+atoms	port	14	3	Xe135	1509885131940529.0
+rate	port	14	3	Xe135	(n,gamma)	9.323124892117797e-5
+rate	port	14	3	Xe135	fission	0.0
+atoms	port	14	3	Xe136	6.0916379471714696e16
+rate	port	14	3	Xe136	(n,gamma)	9.295935596702718e-12
+rate	port	14	3	Xe136	fission	0.0
+atoms	port	14	3	Cs135	6970192282095844.0
+rate	port	14	3	Cs135	(n,gamma)	7.405406841675433e-10
+rate	port	14	3	Cs135	fission	0.0
+atoms	port	14	3	Gd157	64355099950150.234
+rate	port	14	3	Gd157	(n,gamma)	5.439382853135965e-6
+rate	port	14	3	Gd157	fission	0.0
+atoms	port	14	3	Gd156	268954566724248.1
+rate	port	14	3	Gd156	(n,gamma)	1.0440413411392254e-9
+rate	port	14	3	Gd156	fission	0.0
+atoms	port	14	3	U234	2.41054010013687e18
+rate	port	14	3	U234	(n,gamma)	8.21128746160854e-9
+rate	port	14	3	U234	fission	1.524761620779084e-10
+atoms	port	14	3	U235	2.683372226310478e20
+rate	port	14	3	U235	(n,gamma)	4.185637871660458e-9
+rate	port	14	3	U235	fission	1.9617462273055342e-8
+atoms	port	14	3	U238	1.0825658894542023e22
+rate	port	14	3	U238	(n,gamma)	1.1253816204446949e-9
+rate	port	14	3	U238	fission	3.1675305514186104e-11
+k	port	14	4	1.1404125636963094	0.0031464257045837815
+atoms	port	14	4	I135	5410493098529136.0
+rate	port	14	4	I135	(n,gamma)	2.7335998317453445e-9
+rate	port	14	4	I135	fission	0.0
+atoms	port	14	4	Xe135	1506275797740389.0
+rate	port	14	4	Xe135	(n,gamma)	9.362483878033697e-5
+rate	port	14	4	Xe135	fission	0.0
+atoms	port	14	4	Xe136	8.309318404869157e16
+rate	port	14	4	Xe136	(n,gamma)	9.305734713072672e-12
+rate	port	14	4	Xe136	fission	0.0
+atoms	port	14	4	Cs135	9715331881868422.0
+rate	port	14	4	Cs135	(n,gamma)	7.615638427769756e-10
+rate	port	14	4	Cs135	fission	0.0
+atoms	port	14	4	Gd157	72309300978384.7
+rate	port	14	4	Gd157	(n,gamma)	5.479563436824921e-6
+rate	port	14	4	Gd157	fission	0.0
+atoms	port	14	4	Gd156	358869026688395.56
+rate	port	14	4	Gd156	(n,gamma)	1.063035453089145e-9
+rate	port	14	4	Gd156	fission	0.0
+atoms	port	14	4	U234	2.4105083440344315e18
+rate	port	14	4	U234	(n,gamma)	7.95442727138976e-9
+rate	port	14	4	U234	fission	1.516330279503307e-10
+atoms	port	14	4	U235	2.6788279002233117e20
+rate	port	14	4	U235	(n,gamma)	4.1844676743420665e-9
+rate	port	14	4	U235	fission	1.965261945816942e-8
+atoms	port	14	4	U238	1.0825629267499617e22
+rate	port	14	4	U238	(n,gamma)	1.1314435432842102e-9
+rate	port	14	4	U238	fission	3.163012265356108e-11
+k	port	14	5	1.1469181800155934	0.003352193229719596
+atoms	port	14	5	I135	5410706564362716.0
+rate	port	14	5	I135	(n,gamma)	2.737198068060787e-9
+rate	port	14	5	I135	fission	0.0
+atoms	port	14	5	Xe135	1501166422937874.3
+rate	port	14	5	Xe135	(n,gamma)	9.37432258225536e-5
+rate	port	14	5	Xe135	fission	0.0
+atoms	port	14	5	Xe136	1.0528162886586397e17
+rate	port	14	5	Xe136	(n,gamma)	9.312194959168417e-12
+rate	port	14	5	Xe136	fission	0.0
+atoms	port	14	5	Cs135	1.2451372721299218e16
+rate	port	14	5	Cs135	(n,gamma)	7.454505305752424e-10
+rate	port	14	5	Cs135	fission	0.0
+atoms	port	14	5	Gd157	77068050622277.28
+rate	port	14	5	Gd157	(n,gamma)	5.476373559049245e-6
+rate	port	14	5	Gd157	fission	0.0
+atoms	port	14	5	Gd156	448748816078945.4
+rate	port	14	5	Gd156	(n,gamma)	1.0694960757190192e-9
+rate	port	14	5	Gd156	fission	0.0
+atoms	port	14	5	U234	2.4104767639458273e18
+rate	port	14	5	U234	(n,gamma)	8.032898517660386e-9
+rate	port	14	5	U234	fission	1.5141129877110747e-10
+atoms	port	14	5	U235	2.674283146648561e20
+rate	port	14	5	U235	(n,gamma)	4.19778675154848e-9
+rate	port	14	5	U235	fission	1.9688020505098942e-8
+atoms	port	14	5	U238	1.0825599682799255e22
+rate	port	14	5	U238	(n,gamma)	1.1351729927686597e-9
+rate	port	14	5	U238	fission	3.158187670629921e-11
+k	port	15	0	1.1644882397493614	0.003167888172776339
+atoms	port	15	0	I135	0.0
+rate	port	15	0	I135	(n,gamma)	2.7183573169590886e-9
+rate	port	15	0	I135	fission	0.0
+atoms	port	15	0	Xe135	0.0
+rate	port	15	0	Xe135	(n,gamma)	9.325000325271864e-5
+rate	port	15	0	Xe135	fission	0.0
+atoms	port	15	0	Xe136	0.0
+rate	port	15	0	Xe136	(n,gamma)	9.259917742742495e-12
+rate	port	15	0	Xe136	fission	0.0
+atoms	port	15	0	Cs135	0.0
+rate	port	15	0	Cs135	(n,gamma)	7.468840994982126e-10
+rate	port	15	0	Cs135	fission	0.0
+atoms	port	15	0	Gd157	0.0
+rate	port	15	0	Gd157	(n,gamma)	5.466429756024829e-6
+rate	port	15	0	Gd157	fission	0.0
+atoms	port	15	0	Gd156	0.0
+rate	port	15	0	Gd156	(n,gamma)	1.0498135550678573e-9
+rate	port	15	0	Gd156	fission	0.0
+atoms	port	15	0	U234	2.410633813691412e18
+rate	port	15	0	U234	(n,gamma)	8.019597299287719e-9
+rate	port	15	0	U234	fission	1.4840506953056517e-10
+atoms	port	15	0	U235	2.6970192963926262e20
+rate	port	15	0	U235	(n,gamma)	4.1631653678194486e-9
+rate	port	15	0	U235	fission	1.9558003868597258e-8
+atoms	port	15	0	U238	1.0825746400694843e22
+rate	port	15	0	U238	(n,gamma)	1.094535932423589e-9
+rate	port	15	0	U238	fission	3.0706174889315355e-11
+k	port	15	1	1.1467625351881805	0.003309426503285823
+atoms	port	15	1	I135	4985859863843313.0
+rate	port	15	1	I135	(n,gamma)	2.7199400553689767e-9
+rate	port	15	1	I135	fission	0.0
+atoms	port	15	1	Xe135	1359351600933862.8
+rate	port	15	1	Xe135	(n,gamma)	9.289829395413019e-5
+rate	port	15	1	Xe135	fission	0.0
+atoms	port	15	1	Xe136	1.702998399810273e16
+rate	port	15	1	Xe136	(n,gamma)	9.268148370645019e-12
+rate	port	15	1	Xe136	fission	0.0
+atoms	port	15	1	Cs135	1577908039260843.0
+rate	port	15	1	Cs135	(n,gamma)	7.559186369111904e-10
+rate	port	15	1	Cs135	fission	0.0
+atoms	port	15	1	Gd157	31778087747407.688
+rate	port	15	1	Gd157	(n,gamma)	5.441713510448644e-6
+rate	port	15	1	Gd157	fission	0.0
+atoms	port	15	1	Gd156	89386968289163.31
+rate	port	15	1	Gd156	(n,gamma)	1.0342835570837865e-9
+rate	port	15	1	Gd156	fission	0.0
+atoms	port	15	1	U234	2.410602904265492e18
+rate	port	15	1	U234	(n,gamma)	8.234592727256302e-9
+rate	port	15	1	U234	fission	1.508260683986223e-10
+atoms	port	15	1	U235	2.692465690528903e20
+rate	port	15	1	U235	(n,gamma)	4.176850328833996e-9
+rate	port	15	1	U235	fission	1.9569476162301542e-8
+atoms	port	15	1	U238	1.082571767988149e22
+rate	port	15	1	U238	(n,gamma)	1.1169164087656542e-9
+rate	port	15	1	U238	fission	3.123117260145436e-11
+k	port	15	2	1.140745546488553	0.003943857997019257
+atoms	port	15	2	I135	5379201334901897.0
+rate	port	15	2	I135	(n,gamma)	2.726504236939073e-9
+rate	port	15	2	I135	fission	0.0
+atoms	port	15	2	Xe135	1499702892267517.5
+rate	port	15	2	Xe135	(n,gamma)	9.33346554479427e-5
+rate	port	15	2	Xe135	fission	0.0
+atoms	port	15	2	Xe136	3.877516998725557e16
+rate	port	15	2	Xe136	(n,gamma)	9.289265418464418e-12
+rate	port	15	2	Xe136	fission	0.0
+atoms	port	15	2	Cs135	4233131117251139.5
+rate	port	15	2	Cs135	(n,gamma)	7.554952695344962e-10
+rate	port	15	2	Cs135	fission	0.0
+atoms	port	15	2	Gd157	51811468496560.984
+rate	port	15	2	Gd157	(n,gamma)	5.45431181525249e-6
+rate	port	15	2	Gd157	fission	0.0
+atoms	port	15	2	Gd156	179064987165692.75
+rate	port	15	2	Gd156	(n,gamma)	1.0394302820796857e-9
+rate	port	15	2	Gd156	fission	0.0
+atoms	port	15	2	U234	2.4105714910062387e18
+rate	port	15	2	U234	(n,gamma)	8.110076602682139e-9
+rate	port	15	2	U234	fission	1.5082551957747393e-10
+atoms	port	15	2	U235	2.6879171086218658e20
+rate	port	15	2	U235	(n,gamma)	4.1794814746192725e-9
+rate	port	15	2	U235	fission	1.96008501335298e-8
+atoms	port	15	2	U238	1.0825688468093248e22
+rate	port	15	2	U238	(n,gamma)	1.1063383825125005e-9
+rate	port	15	2	U238	fission	3.1273555268234655e-11
+k	port	15	3	1.1438343386187708	0.0035950372697857213
+atoms	port	15	3	I135	5410217776615481.0
+rate	port	15	3	I135	(n,gamma)	2.729500660556823e-9
+rate	port	15	3	I135	fission	0.0
+atoms	port	15	3	Xe135	1504694187904904.8
+rate	port	15	3	Xe135	(n,gamma)	9.337644141777808e-5
+rate	port	15	3	Xe135	fission	0.0
+atoms	port	15	3	Xe136	6.093509976793349e16
+rate	port	15	3	Xe136	(n,gamma)	9.2844631811611e-12
+rate	port	15	3	Xe136	fission	0.0
+atoms	port	15	3	Cs135	6969731880581303.0
+rate	port	15	3	Cs135	(n,gamma)	7.543725397231079e-10
+rate	port	15	3	Cs135	fission	0.0
+atoms	port	15	3	Gd157	64296593484624.5
+rate	port	15	3	Gd157	(n,gamma)	5.46669100827223e-6
+rate	port	15	3	Gd157	fission	0.0
+atoms	port	15	3	Gd156	268758893720346.13
+rate	port	15	3	Gd156	(n,gamma)	1.0606774560073923e-9
+rate	port	15	3	Gd156	fission	0.0
+atoms	port	15	3	U234	2.4105400782706447e18
+rate	port	15	3	U234	(n,gamma)	7.92472366902544e-9
+rate	port	15	3	U234	fission	1.5072936956732973e-10
+atoms	port	15	3	U235	2.683368937123616e20
+rate	port	15	3	U235	(n,gamma)	4.183427668391937e-9
+rate	port	15	3	U235	fission	1.962949978614932e-8
+atoms	port	15	3	U238	1.0825659216741733e22
+rate	port	15	3	U238	(n,gamma)	1.121060488298237e-9
+rate	port	15	3	U238	fission	3.138449684215698e-11
+k	port	15	4	1.1344197814679933	0.0037418129613611003
+atoms	port	15	4	I135	5412057614825472.0
+rate	port	15	4	I135	(n,gamma)	2.7307056997933114e-9
+rate	port	15	4	I135	fission	0.0
+atoms	port	15	4	Xe135	1504813066508889.8
+rate	port	15	4	Xe135	(n,gamma)	9.338425605497342e-5
+rate	port	15	4	Xe135	fission	0.0
+atoms	port	15	4	Xe136	8.312012995830789e16
+rate	port	15	4	Xe136	(n,gamma)	9.30072468281013e-12
+rate	port	15	4	Xe136	fission	0.0
+atoms	port	15	4	Cs135	9711239965432438.0
+rate	port	15	4	Cs135	(n,gamma)	7.423833627004627e-10
+rate	port	15	4	Cs135	fission	0.0
+atoms	port	15	4	Gd157	72067295783877.02
+rate	port	15	4	Gd157	(n,gamma)	5.464667212681043e-6
+rate	port	15	4	Gd157	fission	0.0
+atoms	port	15	4	Gd156	358507226402659.94
+rate	port	15	4	Gd156	(n,gamma)	1.0555941445669164e-9
+rate	port	15	4	Gd156	fission	0.0
+atoms	port	15	4	U234	2.410508685969362e18
+rate	port	15	4	U234	(n,gamma)	7.842292560506588e-9
+rate	port	15	4	U234	fission	1.5216220699795093e-10
+atoms	port	15	4	U235	2.6788218305203932e20
+rate	port	15	4	U235	(n,gamma)	4.184032214441624e-9
+rate	port	15	4	U235	fission	1.964506312444606e-8
+atoms	port	15	4	U238	1.0825629861701793e22
+rate	port	15	4	U238	(n,gamma)	1.1162659561507075e-9
+rate	port	15	4	U238	fission	3.181392628251797e-11
+k	port	15	5	1.1429829847738762	0.003303312699381159
+atoms	port	15	5	I135	5409811368246755.0
+rate	port	15	5	I135	(n,gamma)	2.7393664722222766e-9
+rate	port	15	5	I135	fission	0.0
+atoms	port	15	5	Xe135	1504070660397426.5
+rate	port	15	5	Xe135	(n,gamma)	9.393036710231268e-5
+rate	port	15	5	Xe135	fission	0.0
+atoms	port	15	5	Xe136	1.0529522217750389e17
+rate	port	15	5	Xe136	(n,gamma)	9.325669661630073e-12
+rate	port	15	5	Xe136	fission	0.0
+atoms	port	15	5	Cs135	1.2452084455695752e16
+rate	port	15	5	Cs135	(n,gamma)	7.34900440406811e-10
+rate	port	15	5	Cs135	fission	0.0
+atoms	port	15	5	Gd157	77042054837881.9
+rate	port	15	5	Gd157	(n,gamma)	5.508337876801178e-6
+rate	port	15	5	Gd157	fission	0.0
+atoms	port	15	5	Gd156	448492027714749.7
+rate	port	15	5	Gd156	(n,gamma)	1.041089260846023e-9
+rate	port	15	5	Gd156	fission	0.0
+atoms	port	15	5	U234	2.41047699566669e18
+rate	port	15	5	U234	(n,gamma)	8.136319452843573e-9
+rate	port	15	5	U234	fission	1.4934533229872552e-10
+atoms	port	15	5	U235	2.6742788331916286e20
+rate	port	15	5	U235	(n,gamma)	4.189800286722754e-9
+rate	port	15	5	U235	fission	1.970851288380888e-8
+atoms	port	15	5	U238	1.0825600105082419e22
+rate	port	15	5	U238	(n,gamma)	1.0846702507170099e-9
+rate	port	15	5	U238	fission	3.108806996825612e-11
+k	port	16	0	1.1644822157370167	0.0037937680696938417
+atoms	port	16	0	I135	0.0
+rate	port	16	0	I135	(n,gamma)	2.715890626916366e-9
+rate	port	16	0	I135	fission	0.0
+atoms	port	16	0	Xe135	0.0
+rate	port	16	0	Xe135	(n,gamma)	9.338031195139521e-5
+rate	port	16	0	Xe135	fission	0.0
+atoms	port	16	0	Xe136	0.0
+rate	port	16	0	Xe136	(n,gamma)	9.241064442866568e-12
+rate	port	16	0	Xe136	fission	0.0
+atoms	port	16	0	Cs135	0.0
+rate	port	16	0	Cs135	(n,gamma)	7.481632130987481e-10
+rate	port	16	0	Cs135	fission	0.0
+atoms	port	16	0	Gd157	0.0
+rate	port	16	0	Gd157	(n,gamma)	5.45364978259596e-6
+rate	port	16	0	Gd157	fission	0.0
+atoms	port	16	0	Gd156	0.0
+rate	port	16	0	Gd156	(n,gamma)	1.0385417806028882e-9
+rate	port	16	0	Gd156	fission	0.0
+atoms	port	16	0	U234	2.410633813691412e18
+rate	port	16	0	U234	(n,gamma)	7.99956520357368e-9
+rate	port	16	0	U234	fission	1.499556107998069e-10
+atoms	port	16	0	U235	2.6970192963926262e20
+rate	port	16	0	U235	(n,gamma)	4.156883019121452e-9
+rate	port	16	0	U235	fission	1.953423822615967e-8
+atoms	port	16	0	U238	1.0825746400694843e22
+rate	port	16	0	U238	(n,gamma)	1.0908813655738283e-9
+rate	port	16	0	U238	fission	3.128480240444711e-11
+k	port	16	1	1.1478146192760228	0.0039373472479505515
+atoms	port	16	1	I135	4982649028195731.0
+rate	port	16	1	I135	(n,gamma)	2.722127153439287e-9
+rate	port	16	1	I135	fission	0.0
+atoms	port	16	1	Xe135	1356935048074770.0
+rate	port	16	1	Xe135	(n,gamma)	9.310168538734055e-5
+rate	port	16	1	Xe135	fission	0.0
+atoms	port	16	1	Xe136	1.701732498556026e16
+rate	port	16	1	Xe136	(n,gamma)	9.264871326944621e-12
+rate	port	16	1	Xe136	fission	0.0
+atoms	port	16	1	Cs135	1575285632659010.3
+rate	port	16	1	Cs135	(n,gamma)	7.629504702928751e-10
+rate	port	16	1	Cs135	fission	0.0
+atoms	port	16	1	Gd157	31945913151643.535
+rate	port	16	1	Gd157	(n,gamma)	5.44986819385461e-6
+rate	port	16	1	Gd157	fission	0.0
+atoms	port	16	1	Gd156	89716674910199.08
+rate	port	16	1	Gd156	(n,gamma)	1.0370506226381744e-9
+rate	port	16	1	Gd156	fission	0.0
+atoms	port	16	1	U234	2.4106025813248394e18
+rate	port	16	1	U234	(n,gamma)	8.157747942842974e-9
+rate	port	16	1	U234	fission	1.4947668948965133e-10
+atoms	port	16	1	U235	2.692471219113066e20
+rate	port	16	1	U235	(n,gamma)	4.173916132610595e-9
+rate	port	16	1	U235	fission	1.9581537095667998e-8
+atoms	port	16	1	U238	1.0825717138666883e22
+rate	port	16	1	U238	(n,gamma)	1.0975117673442137e-9
+rate	port	16	1	U238	fission	3.0937162778505165e-11
+k	port	16	2	1.1435355060254906	0.003356805491626818
+atoms	port	16	2	I135	5380577477443756.0
+rate	port	16	2	I135	(n,gamma)	2.7201951008976852e-9
+rate	port	16	2	I135	fission	0.0
+atoms	port	16	2	Xe135	1497421826015305.5
+rate	port	16	2	Xe135	(n,gamma)	9.286527628110266e-5
+rate	port	16	2	Xe135	fission	0.0
+atoms	port	16	2	Xe136	3.8773060329134984e16
+rate	port	16	2	Xe136	(n,gamma)	9.264479367463976e-12
+rate	port	16	2	Xe136	fission	0.0
+atoms	port	16	2	Cs135	4225860401467935.5
+rate	port	16	2	Cs135	(n,gamma)	7.527328209426693e-10
+rate	port	16	2	Cs135	fission	0.0
+atoms	port	16	2	Gd157	51814864640400.914
+rate	port	16	2	Gd157	(n,gamma)	5.444915517079636e-6
+rate	port	16	2	Gd157	fission	0.0
+atoms	port	16	2	Gd156	179227117441112.25
+rate	port	16	2	Gd156	(n,gamma)	1.078806978591971e-9
+rate	port	16	2	Gd156	fission	0.0
+atoms	port	16	2	U234	2.410571449109473e18
+rate	port	16	2	U234	(n,gamma)	7.959363471659137e-9
+rate	port	16	2	U234	fission	1.5193012374220485e-10
+atoms	port	16	2	U235	2.6879198268785125e20
+rate	port	16	2	U235	(n,gamma)	4.190895175101934e-9
+rate	port	16	2	U235	fission	1.9586505426007035e-8
+atoms	port	16	2	U238	1.0825688201879076e22
+rate	port	16	2	U238	(n,gamma)	1.1020201744333564e-9
+rate	port	16	2	U238	fission	3.1621115047405314e-11
+k	port	16	3	1.1480382182544038	0.003308526950403107
+atoms	port	16	3	I135	5408399420760585.0
+rate	port	16	3	I135	(n,gamma)	2.730782800465958e-9
+rate	port	16	3	I135	fission	0.0
+atoms	port	16	3	Xe135	1510371351303879.8
+rate	port	16	3	Xe135	(n,gamma)	9.360465052331961e-5
+rate	port	16	3	Xe135	fission	0.0
+atoms	port	16	3	Xe136	6.0906407599100536e16
+rate	port	16	3	Xe136	(n,gamma)	9.295508317886462e-12
+rate	port	16	3	Xe136	fission	0.0
+atoms	port	16	3	Cs135	6971721190418406.0
+rate	port	16	3	Cs135	(n,gamma)	7.678663605032668e-10
+rate	port	16	3	Cs135	fission	0.0
+atoms	port	16	3	Gd157	64428717338975.0
+rate	port	16	3	Gd157	(n,gamma)	5.4566541373879036e-6
+rate	port	16	3	Gd157	fission	0.0
+atoms	port	16	3	Gd156	269118263949825.56
+rate	port	16	3	Gd156	(n,gamma)	1.070945068151875e-9
+rate	port	16	3	Gd156	fission	0.0
+atoms	port	16	3	U234	2.410539806317797e18
+rate	port	16	3	U234	(n,gamma)	8.050812366002447e-9
+rate	port	16	3	U234	fission	1.506189505693408e-10
+atoms	port	16	3	U235	2.683374976507298e20
+rate	port	16	3	U235	(n,gamma)	4.190309199652391e-9
+rate	port	16	3	U235	fission	1.9637702939806462e-8
+atoms	port	16	3	U238	1.082565862544279e22
+rate	port	16	3	U238	(n,gamma)	1.120503195364369e-9
+rate	port	16	3	U238	fission	3.118462131424777e-11
+k	port	16	4	1.1398449180619208	0.003802703032568988
+atoms	port	16	4	I135	5413022066134687.0
+rate	port	16	4	I135	(n,gamma)	2.7316278284558027e-9
+rate	port	16	4	I135	fission	0.0
+atoms	port	16	4	Xe135	1502088304982440.8
+rate	port	16	4	Xe135	(n,gamma)	9.348404492332382e-5
+rate	port	16	4	Xe135	fission	0.0
+atoms	port	16	4	Xe136	8.310805641032494e16
+rate	port	16	4	Xe136	(n,gamma)	9.301614865690598e-12
+rate	port	16	4	Xe136	fission	0.0
+atoms	port	16	4	Cs135	9709452750831624.0
+rate	port	16	4	Cs135	(n,gamma)	7.47777547463278e-10
+rate	port	16	4	Cs135	fission	0.0
+atoms	port	16	4	Gd157	72145182027616.06
+rate	port	16	4	Gd157	(n,gamma)	5.469071281760582e-6
+rate	port	16	4	Gd157	fission	0.0
+atoms	port	16	4	Gd156	358752415006719.9
+rate	port	16	4	Gd156	(n,gamma)	1.0516267623118706e-9
+rate	port	16	4	Gd156	fission	0.0
+atoms	port	16	4	U234	2.410508437016793e18
+rate	port	16	4	U234	(n,gamma)	8.012681723320609e-9
+rate	port	16	4	U234	fission	1.5283180749534097e-10
+atoms	port	16	4	U235	2.678825961044826e20
+rate	port	16	4	U235	(n,gamma)	4.1855232026080265e-9
+rate	port	16	4	U235	fission	1.9640099922770105e-8
+atoms	port	16	4	U238	1.0825629457354913e22
+rate	port	16	4	U238	(n,gamma)	1.1158910118134017e-9
+rate	port	16	4	U238	fission	3.1933145712754456e-11
+k	port	16	5	1.149948570324487	0.003563183341406114
+atoms	port	16	5	I135	5409226246973526.0
+rate	port	16	5	I135	(n,gamma)	2.739146604522458e-9
+rate	port	16	5	I135	fission	0.0
+atoms	port	16	5	Xe135	1502595754216210.0
+rate	port	16	5	Xe135	(n,gamma)	9.365822870657838e-5
+rate	port	16	5	Xe135	fission	0.0
+atoms	port	16	5	Xe136	1.0528185528103445e17
+rate	port	16	5	Xe136	(n,gamma)	9.32716264804972e-12
+rate	port	16	5	Xe136	fission	0.0
+atoms	port	16	5	Cs135	1.244758284975481e16
+rate	port	16	5	Cs135	(n,gamma)	7.572478828634125e-10
+rate	port	16	5	Cs135	fission	0.0
+atoms	port	16	5	Gd157	77099026606910.77
+rate	port	16	5	Gd157	(n,gamma)	5.479249581097445e-6
+rate	port	16	5	Gd157	fission	0.0
+atoms	port	16	5	Gd156	448805258857021.44
+rate	port	16	5	Gd156	(n,gamma)	1.0437214837881563e-9
+rate	port	16	5	Gd156	fission	0.0
+atoms	port	16	5	U234	2.410476607262919e18
+rate	port	16	5	U234	(n,gamma)	8.251901119282981e-9
+rate	port	16	5	U234	fission	1.5158816495183925e-10
+atoms	port	16	5	U235	2.674284103499061e20
+rate	port	16	5	U235	(n,gamma)	4.198545793748661e-9
+rate	port	16	5	U235	fission	1.9687107400041413e-8
+atoms	port	16	5	U238	1.08255995892269e22
+rate	port	16	5	U238	(n,gamma)	1.106543966682732e-9
+rate	port	16	5	U238	fission	3.160372584753167e-11

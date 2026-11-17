@@ -34,7 +34,13 @@
 //!
 //! # Verification status (2026-11-17)
 //!
-//! Analytic tests only. Not yet compared against OpenMC by running it.
+//! ~~Analytic tests only. Not yet compared against OpenMC by running it.~~
+//! **CORRECTED 2026-11-17:** `source_rate_factor`, `energy_normalization_factor`
+//! and `chain_fission_energy` are compared against OpenMC `e4febe9` run on the
+//! same inputs: the rates they normalise are bit-identical to
+//! `IndependentOperator`'s in all 16 runs of
+//! `tests/independent_operator_vs_openmc_run.rs`. The yield helpers are
+//! still checked analytically only.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]

@@ -42,8 +42,11 @@
 //!
 //! # Verification status (2026-11-17)
 //!
-//! Analytic tests only (below). Not yet compared against OpenMC by running
-//! it.
+//! Analytic tests only (below). Not yet compared against OpenMC's
+//! `collapse_rate` directly. **Update 2026-11-17:** exercised indirectly by
+//! `tests/pincell_depletion_vs_openmc.rs`, where the port's flux-mode depletion
+//! agrees with OpenMC's within statistics; a direct comparison on one group
+//! flux is still open.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
