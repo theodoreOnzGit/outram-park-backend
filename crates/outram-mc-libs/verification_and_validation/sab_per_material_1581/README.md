@@ -790,3 +790,85 @@ with probability about 0.95 under chance). Pooled 1-16 ratio about 1.5-2.5
 (one-sided p < 0.05 again, independent of the first) the "chance" reading is
 rejected and a mechanism hunt is warranted. Nothing is changed in the code by
 this item and nothing is tuned.
+
+### Results, ACE-arm variance replication (gh:#1635, 2026-11-17)
+
+Raw outputs: `ensembles_1635/ace_roundtrip_{old_d1e20f188,new_ed32c976a}_seeds9-16.out`;
+seeds 1-8 are `ensembles_1583/ace_roundtrip_*.out`; arithmetic is
+`ensembles_1635/stats.sh` (awk, per-seed k parsed from the `seed N: ENDF ... ACE ...`
+lines; the seeds 1-8 rows reproduce the table above to the digit, which checks
+the parser). Settings as predicted (`--purr --particles 4000 --inactive 40
+--active 100 --seeds 8 --seed 9 --threads 2`, 11 nuclides, both builds at once,
+box load average about 11-12). F = var(NEW)/var(OLD); sigma(new - old) =
+sqrt(sem_old^2 + sem_new^2). k in pcm-of-k below shown as k.
+
+| arm | seeds | old mean (sd, pcm) | new mean (sd) | F | new - old +- sigma | z |
+|---|---|---|---|---|---|---|
+| ACE | 1-8 | 1.00189 (133) | 1.00246 (270) | 4.10 | +57 +- 106 | +0.54 |
+| ACE | **9-16** | 1.00168 (**280**) | 1.00207 (**173**) | **0.38** | +39 +- 116 | +0.33 |
+| ACE | pooled 1-16 | 1.00179 (212) | 1.00227 (220) | **1.08** | +48 +- 76 | +0.63 |
+| ENDF (control) | 1-8 | 1.00235 (128) | 1.00253 (137) | 1.14 | +18 +- 66 | +0.27 |
+| ENDF | 9-16 | 1.00276 (200) | 1.00173 (201) | 1.00 | -103 +- 100 | -1.03 |
+| ENDF | pooled 1-16 | 1.00256 (164) | 1.00213 (171) | 1.09 | -43 +- 59 | -0.72 |
+| parity ACE - ENDF (pcm) | 1-8 | -46 (114) | -6 (372) | 10.6 | +39 +- 137 | +0.29 |
+| parity | 9-16 | -108 (385) | +34 (311) | 0.65 | +142 +- 175 | +0.81 |
+| parity | pooled 1-16 | -77 (276) | +14 (332) | 1.44 | +91 +- 108 | +0.84 |
+
+**Verdict: the seeds 1-8 variance excess was chance.** On the fresh seeds the
+ratio reversed: OLD's ACE arm has sd 280 pcm and NEW's 173 (F = 0.38, i.e.
+OLD/NEW = 2.6, itself about p = 0.1 one-sided), so OLD shows the same large
+spread NEW showed on 1-8. Pooled over 16 seeds the two builds have the same ACE
+sd (212 vs 220 pcm, F = 1.08). Nothing in this ensemble supports a build-
+specific variance difference, and the seed-to-seed sd of this ACE arm is simply
+large and variable at 8 seeds (133-280 pcm across the four 8-seed samples).
+The paired ACE shift is +48 +- 76 pcm (z +0.63), consistent with zero. The
+within-build parity ACE - ENDF is -77 +- 69 pcm (OLD) and +14 +- 83 pcm (NEW)
+over 16 seeds (sem = sd/4), both within about 1.1 sigma of zero; the driver's
+own verdict line reads AGREE on seeds 9-16 for both builds.
+
+Prediction check: ACE F on 9-16 inside 0.2-4.99: **held** (0.38); paired ACE
+|z| <= 2 on 9-16: **held** (0.33); pooled F(15,15) p above 0.05: **held**
+(F = 1.08, p about 0.4). **Missed:** the predicted pooled ratio "about 1.5-2.5"
+came out 1.08, because the OLD build supplied the large spread rather than
+only diluting NEW's; that is a closer-to-1 result than predicted, not a
+contradiction of the chance reading.
+
+**A new anomaly, reported and NOT explained: the ENDF-with-DBRC-ablated arm,
+seeds 9-16.** It was a secondary arm in the plan (no prediction was written for
+it beyond the earlier "consistent" record) and its per-seed values are not
+printed, so this row is from the driver's own summary lines (mean +- sem over
+8 seeds):
+
+| arm | seeds | old | new | new - old +- sigma | z |
+|---|---|---|---|---|---|
+| ENDF, DBRC ablated | 1-8 | 1.00159 (sem 43) | 1.00143 (sem 61) | -16 +- 75 | -0.21 |
+| ENDF, DBRC ablated | 9-16 | 1.00441 (sem 46) | 1.00179 (sem 46) | **-262 +- 65** | **-4.0** |
+
+Within OLD alone the ablated mean moved from 1.00159 (seeds 1-8) to 1.00441
+(seeds 9-16), +282 pcm, about 4.3 sigma between two 8-seed means (sd 122 and 130
+pcm), while the ENDF and ACE arms of the same OLD process moved by +41 and -21
+pcm. This is a 4-sigma result among a dozen or so comparisons in these
+ensembles, so chance is not excluded but is not a comfortable reading. With
+only summary means it cannot be tested here (no per-seed ablated values; a
+re-run with per-seed output of that arm, or a third block of seeds 17-24, would
+be the next step). Do not quote the ablated-arm difference as a physics shift
+until that is done: the two builds agreed on seeds 1-8, and the shift sits in
+the OLD build's second block, not in a NEW-only change. Filed as a follow-up in
+the hand-off, not tuned or explained.
+
+### gh:#1635: two majorant tests migrated off `with_thermal_scattering` (2026-11-17)
+
+`tests/majorant_bounds_endf.rs` and `tests/majorant_temperature_cover.rs` now
+load every nuclide free and associate each LEAPR law per material through
+`assign_material_sab` (the #1581 API); the `#![allow(deprecated)]` markers are
+removed. Methodology: the test binaries were built before (`ed32c976a`, deprecated
+path) and after (this change) and run with identical settings, `--test-threads=1`.
+
+- **`majorant_bounds_endf`: output identical before and after**, line for line
+  apart from wall time (3 passed; 1127 s before, 1110 s after). Raw:
+  `ensembles_1635/majorant_bounds_endf_{before,after}.out`.
+- **`majorant_temperature_cover`: Not re-checked yet** at this commit. Its
+  before/after runs (about 1.5 h each on this box) are still in progress; the
+  first two of five tests passed in both and printed the same 487-byte head
+  (`[MIX] DEFAULT ... table worst 0.7729 (1.386e-5 eV, 1500 K)`). The result is
+  added below when the runs finish.
