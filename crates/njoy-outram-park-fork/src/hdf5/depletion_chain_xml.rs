@@ -523,6 +523,22 @@ impl DepletionChainXml {
         Ok(())
     }
 
+    /// Build a chain from nuclide records, in the order given (the
+    /// constructor `depletion_chain_ops::reduce` uses). Added 2026-11-17
+    /// (gh:#1621).
+    ///
+    /// # Errors
+    /// A name listed twice.
+    pub fn from_nuclides(nuclides: Vec<ChainNuclide>) -> Result<Self, NjoyError> {
+        let mut by_name = BTreeMap::new();
+        for (i, n) in nuclides.iter().enumerate() {
+            if by_name.insert(n.name.clone(), i).is_some() {
+                return Err(NjoyError::Hdf5(format!("depletion chain: `{}` listed more than once", n.name)));
+            }
+        }
+        Ok(Self { nuclides, by_name })
+    }
+
     /// A nuclide by name.
     pub fn get(&self, name: &str) -> Option<&ChainNuclide> {
         self.nuclides.get(*self.by_name.get(name)?)
