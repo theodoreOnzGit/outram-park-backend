@@ -383,7 +383,6 @@ impl TrisoParticle {
     /// densities. Returns [`TampinesError::InvalidInput`] if the cell's radii
     /// do not form a valid concentric nest (they cannot, in practice —
     /// `TrisoCell::new` asserts the same ordering).
-    #[cfg(feature = "std")]
     pub fn from_boon_lay_cell(
         cell: &boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell,
         buffer_density: MassDensity,
@@ -408,7 +407,6 @@ impl TrisoParticle {
     /// and zero fluence; set them there if they matter. Only the geometry
     /// crosses the boundary — this is not a route into `boon-lay`'s release
     /// model, which `op-jyyp.10` flags as unverified.
-    #[cfg(feature = "std")]
     pub fn to_boon_lay_cell(
         &self,
     ) -> boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell{

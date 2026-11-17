@@ -56,6 +56,19 @@ crate is **not** for nuclear facility operation, reactor control, licensing
 decisions, safety-critical decision-making, emergency response,
 safeguards-sensitive analysis, or real-time plant monitoring.
 
+## `no_std` + `alloc` (gh:#1606)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p tampines --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). **Every module builds without it**,
+`multiphase_1d`, `htr10_primary_loop`, `fem1d`, the pebble-bed and gas-phase
+models included, because every dependency now does too (the last three were
+`farrer-park` gh:#1632, `outram-foam-appbuilder-lib` gh:#1633 and `boon-lay`
+gh:#1634). `std` turns on `std` in every dependency, and printing. The root
+workspace entry is unchanged, so dependents keep `std`; with `std` on (the
+default) nothing changes.
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping

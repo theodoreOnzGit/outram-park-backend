@@ -78,6 +78,7 @@
 // `no_std` + `alloc` without the default `std` feature (gh:#1606, epic
 // gh:#1585). Unit tests always build with `std`.
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports, unused_variables, unused_mut))]
 
 extern crate alloc;
 extern crate thiserror_nostd as thiserror;
@@ -107,13 +108,11 @@ pub mod compressible;
 pub mod cooling_tower;
 pub mod critical_flow;
 pub mod error;
-#[cfg(feature = "std")]
 pub mod fem1d;
 pub mod fluids;
 pub mod gas_phase;
 pub mod heat_transfer;
 pub mod hem;
-#[cfg(feature = "std")]
 pub mod htr10_primary_loop;
 pub mod humid_air;
 pub mod multiphase_1d;

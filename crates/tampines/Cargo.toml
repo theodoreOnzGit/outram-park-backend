@@ -46,10 +46,10 @@ backronym = "Thermal-hydraulic Artificial-intelligence Multi-Phase INtegrated Em
 # iterating with `cargo quick-test -p tampines`.
 default = ["std", "long-tests"]
 long-tests = []
-# `no_std` + `alloc` without `std` (gh:#1606, epic gh:#1585). `std` carries
-# printing, the three dependencies that have no `no_std` build
-# (`outram-foam-appbuilder-lib`, `boon-lay`, `farrer-park`) and the modules
-# built on them, and `std` in every other dependency.
+# `no_std` + `alloc` without `std` (gh:#1606, epic gh:#1585). Every module
+# builds without it, now that every dependency does (farrer-park gh:#1632,
+# outram-foam-appbuilder-lib gh:#1633, boon-lay gh:#1634). `std` carries
+# printing and `std` in every dependency.
 std = [
     "thiserror-nostd/std",
     "tuas_boussinesq_solver/std",
@@ -60,11 +60,8 @@ std = [
     "outram-foam-multiphase/std",
     "chem-eng-real-time-process-control-simulator/std",
     "outram-park-fork-dwsim-libs/std",
-    "dep:outram-foam-appbuilder-lib",
     "outram-foam-appbuilder-lib/std",
-    "dep:boon-lay",
     "boon-lay/std",
-    "dep:farrer-park",
     "farrer-park/std",
 ]
 
@@ -97,7 +94,7 @@ outram-foam-multiphase = { workspace = true }
 # its one-parameter flow-regime map (`regime_map::RegimeMap1D`) rather than
 # porting them a second time. No cycle: the appbuilder depends only on petir,
 # outram-foam-{basic,turbulence,multiphase}-lib, ndarray, serde, uom, thiserror.
-outram-foam-appbuilder-lib = { workspace = true, optional = true }
+outram-foam-appbuilder-lib = { workspace = true }
 chem-eng-real-time-process-control-simulator = { workspace = true }
 # DWSIM-derived equipment-model correlations (pipe/valve/heat-exchanger/
 # expander/pump) for tampines::components (op-dt3.4) to build on.
@@ -107,13 +104,13 @@ outram-park-fork-dwsim-libs = { workspace = true }
 # Maintainer-approved edge (2026-08-11, op-jyyp.5): geometry and per-layer
 # property handling only -- boon-lay's fission-product RELEASE model is NOT
 # consumed here (its CRP-6 verification test is flagged defective, op-jyyp.10).
-boon-lay = { workspace = true, optional = true }
+boon-lay = { workspace = true }
 # 1-D continuous-Galerkin flow (gh:#1069) takes its Gauss-Legendre line rule
 # from farrer-park's `quadrature::facet_rule(FacetType::Line2)` rather than a
 # copy. farrer-park depends only on petir, uom, thiserror and
 # outram-foam-basic-lib, all already here, so this edge adds no new crate to
 # the tree and no cycle (farrer-park does not depend on tampines).
-farrer-park = { workspace = true, optional = true }
+farrer-park = { workspace = true }
 # ~~teh-o-prke as a library dependency for the HTR-10 coupled transient
 # (gh:#1151, decision D2)~~ CORRECTED again 2026-11-03: maintainer moved
 # coupled kinetics to nee_soon (`nee_soon::htr10_th_transient`); tampines
