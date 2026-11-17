@@ -76,6 +76,7 @@ pub mod chain;
 pub mod operator;
 pub mod external_rates;
 pub mod microxs;
+pub mod microxs_transport;
 pub mod helpers;
 pub mod tracking;
 
