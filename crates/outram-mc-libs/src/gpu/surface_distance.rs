@@ -1606,7 +1606,7 @@ mod tests {
     #[cfg(not(target_os = "android"))]
     #[test]
     fn gpu_matches_cpu_reference() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             eprintln!("SKIP surface_distance gpu test: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -1677,7 +1677,7 @@ mod tests {
     fn diagnose_probed_hardware_capabilities() {
         use crate::gpu::capabilities::{plan_split, SplitPolicy};
 
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             eprintln!("SKIP: no GPU adapter on this host");
             return;
         };
@@ -1745,7 +1745,7 @@ mod tests {
     fn hybrid_splits_work_across_both_devices() {
         use crate::gpu::capabilities::{SplitPolicy, SplitReason};
 
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             eprintln!("SKIP hybrid test: no GPU adapter (CPU-only CI)");
             return;
         };

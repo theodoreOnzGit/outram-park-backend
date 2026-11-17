@@ -131,7 +131,7 @@ fn batched_driver_banks_per_collision_by_default_and_legacy_reproduces_old_run()
     let expected_mode = if legacy { FissionBanking::AtFission } else { FissionBanking::PerCollision };
     assert_eq!(fission_banking_from_env(), expected_mode, "default banking mode");
 
-    let Some(ctx) = outram_mc_libs::gpu::probe() else {
+    let Some(ctx) = outram_mc_libs::gpu::shared_probe() else {
         eprintln!("SKIP batched_driver_banks_per_collision: no GPU adapter");
         return;
     };

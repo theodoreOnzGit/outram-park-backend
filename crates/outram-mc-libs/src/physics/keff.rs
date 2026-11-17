@@ -3230,7 +3230,7 @@ mod tests {
         );
 
         // GPU arm: skip gracefully when no adapter, else run and assert agreement.
-        if crate::gpu::probe().is_none() {
+        if crate::gpu::shared_probe().is_none() {
             eprintln!("SKIP gpu arm: no adapter");
             return;
         }
@@ -3616,7 +3616,7 @@ mod tests {
     #[ignore]
     fn gpu_collision_before_after() {
         use std::time::Instant;
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
             eprintln!("SKIP gpu_collision_before_after: no GPU adapter");
             return;
         };

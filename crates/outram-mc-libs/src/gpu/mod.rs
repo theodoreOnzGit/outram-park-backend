@@ -191,6 +191,25 @@ mod context {
         })
     }
 
+    /// The process-wide shared [`GpuContext`]: [`probe`] runs **once** per
+    /// process (the first caller creates the instance, adapter, device and
+    /// queue; concurrent callers wait for it) and every later call returns the
+    /// same context. `None` is cached too, so a machine without an adapter
+    /// probes once.
+    ///
+    /// **Why (gh:#466, maintainer decision 2026-11-17).** The GPU tests run in
+    /// one process on many harness threads, and each called [`probe`], so
+    /// several `wgpu` instances and devices were being created concurrently;
+    /// the Vulkan driver/loader has crashed (SIGSEGV) in that situation, in the
+    /// driver and not in this crate's safe code. A device and queue are
+    /// `Send + Sync` and are meant to be shared, so tests (and any caller that
+    /// does not need a private device) take this one instead. A caller that
+    /// wants its own device still calls [`probe`].
+    pub fn shared_probe() -> Option<Arc<GpuContext>> {
+        static SHARED: std::sync::OnceLock<Option<Arc<GpuContext>>> = std::sync::OnceLock::new();
+        SHARED.get_or_init(|| probe().map(Arc::new)).clone()
+    }
+
     /// Minimal pure-`std` executor: block the current thread until `future`
     /// resolves, driving it with a `Wake`-based thread-park waker.
     ///
@@ -221,7 +240,7 @@ mod context {
 }
 
 #[cfg(not(target_os = "android"))]
-pub use context::{block_on, probe, GpuContext};
+pub use context::{block_on, probe, shared_probe, GpuContext};
 
 // ---------------------------------------------------------------------------
 // Android path: CPU-only shim so call sites compile unchanged (no wgpu there).
@@ -241,7 +260,33 @@ mod context {
     pub fn probe() -> Option<GpuContext> {
         None
     }
+
+    /// Android twin of the desktop `shared_probe`: always `None`.
+    pub fn shared_probe() -> Option<std::sync::Arc<GpuContext>> {
+        None
+    }
 }
 
 #[cfg(target_os = "android")]
-pub use context::{probe, GpuContext};
+pub use context::{probe, shared_probe, GpuContext};
+
+#[cfg(test)]
+mod shared_probe_tests {
+    /// `shared_probe` creates the device once: concurrent callers on many
+    /// threads all get the same context (or all get `None` without an
+    /// adapter). gh:#466. Skips cleanly without an adapter (it then asserts
+    /// that every caller got `None`).
+    #[test]
+    fn shared_probe_hands_every_thread_the_same_context() {
+        let handles: Vec<_> = (0..8)
+            .map(|_| std::thread::spawn(crate::gpu::shared_probe))
+            .collect();
+        let got: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        match &got[0] {
+            None => assert!(got.iter().all(|g| g.is_none())),
+            Some(first) => {
+                assert!(got.iter().all(|g| g.as_ref().is_some_and(|c| std::sync::Arc::ptr_eq(c, first))));
+            }
+        }
+    }
+}
