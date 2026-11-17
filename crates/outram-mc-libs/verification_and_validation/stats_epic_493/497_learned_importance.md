@@ -514,3 +514,79 @@ separated** (the surface checkpoint alone was priced in #1579: no effect).
 calls. `weight_window_checkpoint` (not in kovan's index) gained the
 no-window rule, the `ww_factor` reset and the `set_born_one` argument.
 `VarianceReduction::default` is not reviewed. `review.md` was not touched.
+
+## Source biasing from the learned importance map (2026-11-17, gh:#1615)
+
+**Maintainer direction (gh:#497, 2026-11-17):** "connect source biasing with
+importance, let it be an option". **Also decided: the unbiasedness gate is
+`|z| <= 2`** (`UNBIASED_Z_BAND`), the maintainer's choice, no longer a flagged
+question. The earlier "both readings tabulated, none chosen" tables above stay
+as the record of what was measured; the gate they are judged by is now 2.
+
+### Design (written before any run)
+
+Code: `src/stats/learned_source_bias.rs` (`with_learned_source_bias`,
+`learned_biased_spatial`, `learned_biased_energy`, `SourceBiasReport`), plus
+one new `SpatialDistribution::Cells` variant (uniform-in-box cells chosen by
+the ported OpenMC `DiscreteIndex`, biased by `compute_importance_weights`;
+`src/source/distribution.rs`). **Off by default:** nothing calls it; a
+`FixedSource` is analog unless a caller passes it through
+`with_learned_source_bias`.
+
+- **Importance = `1/lower` of the window set** (MAGIC's `lower` is
+  proportional to the forward flux; the learned fill extends it), CADIS
+  `q ∝ p·I`. Chosen over a second flux-derived map because then source and
+  game cannot disagree: every birth has `w/lower_c` equal to the same
+  constant (`1/Σ p_k/lower_k`), i.e. all births land at the same place in
+  their own window. Pinned by a unit test.
+- Position: source box split over the mesh cells it overlaps, `p_c` =
+  overlap fraction. Energy: a mono-energetic source has one group; a discrete
+  spectrum is biased by `learned_biased_energy` (product-form: energy and
+  position independent, so the joint (cell, group) importance is not
+  represented).
+- **A point source is a single cell: the bias is the identity** and the
+  source is returned unchanged. The 2026-11-14 shielded-room record uses a
+  point source, so **it has no source bias to measure**; that is a finding,
+  not a gap to paper over. To have something to bias, the V&V case below uses
+  a **volume source** (a box in the inner room), a new case with its own
+  analog arm and its own early tally.
+- Cells with no window get the `p`-weighted mean importance of the windowed
+  source cells (neutral; affects variance only).
+
+### Case and protocol (fixed before any run)
+
+`shielded_room_learned_source_bias` in
+`tests/openmc_notebooks/shielded_room_weight_window.rs`: the same room,
+materials and 31 x 38 mesh; source a uniform box
+`[350,750] x [650,1000] x [150,550]` cm (same centre `(550, 825, 350)` as the
+point source, entirely inside the inner room), 2.5 MeV isotropic. Bands, seeds
+(N = 5 per arm), sizes (analog 40 000, others 20 000 per seed, early tally
+2000 analog histories of THIS source, seed 424 242, threshold 1, ratio 5), FOM
+(`1/(R²T)`, T total transport seconds) and headline (900-1450 cm from
+`(550, 825)`) are those of the protocol above. Arms: **analog**; **learned
+windows only**; **source bias only** (analog transport, biased births, 40 000
+per seed like analog); **learned windows + source bias**; MAGIC windows only
+as the existing reference. Two replicates with fresh transport seeds (offsets
+0 and 5 000 000), both reported. Gate: headline `|z| <= 2` against analog for
+every variance-reduced arm.
+
+### Prediction (written 2026-11-17 BEFORE any run)
+
+1. **Bias.** None by argument; each arm's headline `|z| <= 2` with p about
+   0.95. Other bands missed `|z| <= 2` in 5 of 12 cells in the #1582
+   re-measurement (not explained); I expect that to recur in the 0-400 and
+   400-900 bands in at least one cell, and will report it, not tune.
+2. **Point-source case:** `with_learned_source_bias` returns the source
+   unchanged (bit-identical runs). Asserted, not measured.
+3. **Weight spread.** Importance `1/lower` varies across the 8 x 7 source
+   cells by roughly a factor 2-10 (the flux falls towards the walls), so the
+   birth-weight relative variance `E[w²]-1` is predicted **0.1-1.0**.
+4. **Source bias alone vs analog (FOM ratio):** **0.7-1.5, point 1.0.** The
+   source region is a small part of the room; CADIS source bias is meant to
+   pair with windows, and alone it moves births modestly.
+5. **Learned windows only vs analog:** 0.1-0.8, point 0.3 (the point-source
+   record gave 0.17-0.57); **MAGIC vs analog** 0.1-0.5, point 0.2.
+6. **Learned + source bias vs learned only:** **0.8-1.5, point 1.1**, and I
+   expect it **not to be resolved from 1** at N = 5 (FOM sigma about 100 %):
+   `|ln ratio| < 2 sigma` with probability about 0.8. A resolved gain
+   above 2 would surprise me (about 5 %).
