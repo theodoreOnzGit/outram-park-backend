@@ -1240,3 +1240,52 @@ laws unbound).
 Raw: `ensembles_1635/nee_soon_dvm_{old,new}_konly_*.out` (the OLD pilot without
 `OUTRAM_PARK_ENDF_DIR` printed SKIP and is not counted or kept); statistics:
 `ensembles_1635/dvm_stats.sh`. Test: `tests::materials_cover_every_core_slot`.
+
+## gh:#1644 (2026-11-17): the DBRC-ablated arm, seeds 9-16, new - old -262 +- 65 pcm: prediction
+
+**Written before any run of this pass.** Question: is the OLD build's ablated
+arm jump (1.00159 on seeds 1-8 to 1.00441 on seeds 9-16, +282 pcm, about 4.3
+sigma) a property of the code or one of a dozen comparisons made across the
+#1583/#1635 ensembles?
+
+**Design.** (1) Re-run OLD (`d1e20f188`) seeds 9-16 with the UNMODIFIED driver,
+same command line as the #1635 record (`--purr --particles 4000 --inactive 40
+--active 100 --seeds 8 --seed 9 --threads 2`, 11 nuclides) and check that the
+ablated-arm mean and sem on the `ENDF ablated` summary line reproduce the
+recorded 1.00441 (46) bit-for-bit (runs are deterministic per seed). (2) Add a
+print-only per-seed line for the ablated arm to the driver (NEW: committed;
+OLD: patched in a detached checkout, never committed), then run per-seed
+ablated k on both builds for seed blocks 1-8, 9-16 and 17-24, one process per
+block per build, the same `--seeds 8` structure as the record, so that a
+process-level effect (state leaking between arms or between seeds) would
+appear in the same place. The NEW transport source is identical to the
+`ed32c976a` used for seeds 9-16 (`git diff --stat ed32c976a HEAD` over
+`crates/outram-mc-libs/src`, `crates/njoy-outram-park-fork/src`, `petir/src`,
+`Cargo.lock`: empty). Statistics by awk: mean, sd, sem = sd/sqrt(N), paired
+new - old with sigma = sqrt(sem_old^2 + sem_new^2), and a leave-one-out look
+at the OLD 9-16 block to see whether one seed carries the jump.
+
+**Mechanism considered, from the code (read before predicting).** The ablated
+arm is the third loop in `main`, after the ENDF and ACE arms, over
+`via_endf.into_iter().map(without_dbrc)`, with `seed + s` for the same seeds as
+the other arms; no state is shared across `run_keff_csg` calls that I know of
+(each call builds its own tallies). The only ways an arm-specific,
+build-specific, block-specific jump arises with deterministic seeds are chance
+in the seed draws or a non-deterministic path (thread scheduling at `--threads
+2`). I know of no such path and have not yet audited one.
+
+**Prediction.** Chance. (a) The OLD unmodified 9-16 run reproduces the recorded
+mean bit-for-bit (to the printed 5 digits). If it does not, the runs are NOT
+deterministic per seed and that is the finding. (b) On OLD seeds 9-16 the
+per-seed ablated k are spread with sd about 130 pcm and no single seed carries
+more than about half of the +282 pcm (a leave-one-out mean still above 1.0030).
+(c) Block 17-24 ablated means for both builds fall back inside about
+1.0010-1.0030 (the ENDF and ACE arm range; the ablated arm differs from ENDF
+only by DBRC, worth about -20 pcm in the 2026-09-30 record), and the paired
+new - old |z| <= 2 on 17-24 and on the pooled 24 seeds. (d) Pooled 24-seed
+ablated means agree between builds within 2 sigma. **What would indicate a
+defect:** a failure of (a); one or two seeds that are outliers by more than 3
+sd of the other seeds; the OLD ablated arm staying high (above 1.0035) on 17-24
+while the NEW one does not; or the ablated arm's per-seed values drifting with
+seed order inside a process (state leaking across runs). Nothing is changed in
+the transport and nothing is tuned.
