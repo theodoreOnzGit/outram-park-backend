@@ -9,6 +9,9 @@
 //! Record: `crates/tampines/verification_and_validation/multiphase_1d_issues_1058_1060_1062_1076.md`.
 //! Verification only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::Vector3;
 use outram_foam_multiphase::drift_flux::SlipModel;
 use tampines_steam_tables::hem::AreaProfile;
@@ -113,7 +116,7 @@ fn a_uniform_area_profile_is_bit_identical_to_the_constant_section() {
 /// varying area is therefore weaker than the brief asked for.**
 #[test]
 fn a_closed_varying_area_pipe_conserves_mass_in_both_solvers() {
-    let base = pipe(1.0, 0.05, std::f64::consts::FRAC_PI_2, 16);
+    let base = pipe(1.0, 0.05, core::f64::consts::FRAC_PI_2, 16);
     let a = base.area_si();
     let nozzle = AreaProfile::ConvergingDiverging {
         inlet_m2: a,

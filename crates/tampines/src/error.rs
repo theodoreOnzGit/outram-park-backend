@@ -1,5 +1,8 @@
 //! Crate-wide error type for TAMPINES.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Errors returned by TAMPINES's public API.
@@ -67,6 +70,7 @@ pub enum TampinesError {
     /// [`outram_foam_appbuilder_lib::htgr_closures`] rejected its inputs or
     /// left its valid region (ZBS bed conductivity, KTA 3102.3 friction).
     /// Kept whole so the closure's own diagnosis survives.
+#[cfg(feature = "std")]
     #[error("TAMPINES HTGR closure: {0}")]
     HtgrClosure(#[from] outram_foam_appbuilder_lib::htgr_closures::HtgrClosureError),
 }

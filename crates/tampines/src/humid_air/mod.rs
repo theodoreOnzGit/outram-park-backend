@@ -9,6 +9,9 @@
 //! independently cross-checked, though its temperature dependence is
 //! verified).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_park_fork_coolprop::humid_air::{ha_props, HaInput, HumidAirParam};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{

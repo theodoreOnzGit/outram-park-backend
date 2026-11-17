@@ -5,6 +5,9 @@
 //! crates (maintainer decision D2, gh #896): the solver and the IF97 and
 //! ideal-gas closures are in `tampines-steam-tables`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_park_fork_coolprop::flash::{hem_sound_speed_ph, state_ph, state_pt};
 use outram_park_fork_coolprop::vle::{phase_at_ph, saturation_at_temperature, PhaseAtPh};
 use outram_park_fork_coolprop::Fluid as CoolPropFluid;

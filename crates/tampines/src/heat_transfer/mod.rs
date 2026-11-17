@@ -13,6 +13,9 @@
 //! documentation for the re-exported correlations' physics and validated
 //! ranges.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Dispatches which Nusselt-number correlation a single-phase pipe/component
 /// segment uses (Gnielinski, Dittus-Boelter-derived, Wakao, CIET-specific,
 /// fixed, ...).

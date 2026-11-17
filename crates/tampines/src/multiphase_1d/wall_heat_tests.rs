@@ -11,6 +11,9 @@
 //! Verification only: energy identities and a hand energy balance. Nothing
 //! here is compared with an experiment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::Vector3;
 use outram_foam_multiphase::drift_flux::SlipModel;
 use tampines_steam_tables::hem::WallHeat;
@@ -71,7 +74,7 @@ fn a_closed_heated_two_fluid_pipe_gains_exactly_the_wall_heat() {
         .expect("profile");
     s.set_wall_heat(flux()).expect("flux");
     let v = s.pipe().cell_volume();
-    let q_in = FLUX * std::f64::consts::PI * D * L * 1.0e-4;
+    let q_in = FLUX * core::f64::consts::PI * D * L * 1.0e-4;
     let mut worst = 0.0_f64;
     let p0 = s.pressure()[0];
     for _ in 0..20 {
@@ -110,7 +113,7 @@ fn a_closed_heated_drift_flux_pipe_gains_exactly_the_wall_heat() {
     s.set_wall_heat(flux()).expect("flux");
     assert_eq!(s.wall_heat(), flux());
     let v = s.pipe().cell_volume();
-    let q_in = FLUX * std::f64::consts::PI * D * L * 1.0e-4;
+    let q_in = FLUX * core::f64::consts::PI * D * L * 1.0e-4;
     let mut worst = 0.0_f64;
     for _ in 0..20 {
         let rho = s.density().to_vec();
@@ -193,7 +196,7 @@ fn a_heated_two_phase_channel_matches_the_hand_energy_balance() {
         .fold(0.0_f64, f64::max);
     let u0 = s.face_velocity()[0];
     let h_in = h0 - 0.5 * u0 * u0;
-    let q_total = q_w * std::f64::consts::PI * D * L;
+    let q_total = q_w * core::f64::consts::PI * D * L;
     let expected = h_in + q_total / m_dot;
     let h_out = s.enthalpy()[n - 1];
     let rel = (h_out - expected) / expected;

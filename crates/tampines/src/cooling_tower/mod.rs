@@ -22,6 +22,9 @@
 //! example, per this workspace's V&V philosophy) is tracked as follow-up
 //! work, not done in this pass.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::TampinesError;
 
 /// Placeholder for the future cooling-tower calculation engine's entry

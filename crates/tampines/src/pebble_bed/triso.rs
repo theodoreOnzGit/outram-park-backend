@@ -78,8 +78,11 @@
 //! graphite dispersion (level 2, [`super::pebble`]), or anything about the
 //! bed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::f64::{
     Length, MassDensity, Power, Ratio, TemperatureInterval, ThermalConductivity,
@@ -380,6 +383,7 @@ impl TrisoParticle {
     /// densities. Returns [`TampinesError::InvalidInput`] if the cell's radii
     /// do not form a valid concentric nest (they cannot, in practice —
     /// `TrisoCell::new` asserts the same ordering).
+    #[cfg(feature = "std")]
     pub fn from_boon_lay_cell(
         cell: &boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell,
         buffer_density: MassDensity,
@@ -404,6 +408,7 @@ impl TrisoParticle {
     /// and zero fluence; set them there if they matter. Only the geometry
     /// crosses the boundary — this is not a route into `boon-lay`'s release
     /// model, which `op-jyyp.10` flags as unverified.
+    #[cfg(feature = "std")]
     pub fn to_boon_lay_cell(
         &self,
     ) -> boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell{

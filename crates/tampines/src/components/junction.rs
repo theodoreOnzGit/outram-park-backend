@@ -16,6 +16,9 @@
 //! See the source module's doc for the method and the V&V record,
 //! `crates/tampines-steam-tables/verification_and_validation/hem_network_junctions.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use tampines_steam_tables::hem::{
     HemJunction, HemNetwork, PipeEndRef, PortDraw, PumpHead, TdvThermo, TurbineParams, TimeDependentBoundary, TimeTable, VolumeBranch, VolumePort,
 };

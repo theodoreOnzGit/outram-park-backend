@@ -155,21 +155,35 @@
 //! because they are per-cell per-timestep and `uom` round-trips inside them
 //! cost more than they buy. Every raw-`f64` boundary says so.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 pub mod drift_flux;
+#[cfg(feature = "std")]
 pub mod entropy;
 pub mod geometry;
+#[cfg(feature = "std")]
 pub mod interfacial;
 pub mod properties;
+#[cfg(feature = "std")]
 pub mod seven_equation;
+#[cfg(feature = "std")]
 pub mod two_fluid;
+#[cfg(feature = "std")]
 pub mod wall_heat;
 
+#[cfg(feature = "std")]
 pub use drift_flux::{DriftFlux1d, DriftFluxReport};
 pub use geometry::Pipe1d;
+#[cfg(feature = "std")]
 pub use interfacial::{DispersedPhase, InterfacialCellState, InterfacialExchange, InterfacialSources};
 pub use properties::{SaturatedProperties, TwoPhaseState};
+#[cfg(feature = "std")]
 pub use seven_equation::{SevenEquation1d, SevenEquationBoundary, SevenEquationReport, SevenEquationState};
+#[cfg(feature = "std")]
 pub use wall_heat::{PhasicWallHeat, WallPhaseState};
+#[cfg(feature = "std")]
 pub use two_fluid::{
     PhaseCouplingBlock, PhaseCouplingInputs, TwoFluid1d, TwoFluidBoundary, TwoFluidInflow,
     TwoFluidInflowThermo, TwoFluidReport, TwoFluidTimeDependentBoundary,

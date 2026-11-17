@@ -94,7 +94,7 @@ tampines-steam-tables = { workspace = true, features = ["std"] }
 # not Sync on wasm, so the block is gated off both (dev-dependencies apply to
 # tests too). The example carries `#![cfg(not(target_os = "android"))]`.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
-tuas_boussinesq_solver.workspace = true
+tuas_boussinesq_solver = { workspace = true, features = ["std"] }
 ndarray.workspace = true
 egui.workspace = true
 bugis.workspace = true

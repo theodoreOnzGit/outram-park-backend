@@ -43,6 +43,9 @@
 //! `tampines_steam_tables::hem` for its full scope, its deviations from
 //! upstream `rhoCentralFoam`, and its V&V record.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod coolprop_eos;
 
 pub use coolprop_eos::{CoolPropHem, HemEos, COOLPROP_P_RHO_E_REL_TOL};

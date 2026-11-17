@@ -81,12 +81,17 @@
 //! code-to-code and analytic-limit checks only. AI-assisted draft pending
 //! human review per `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod circulator;
+#[cfg(feature = "std")]
 pub mod kta_bed;
 pub mod pipe;
 pub mod properties;
 
 pub use circulator::{Circulator, CirculatorDuty};
+#[cfg(feature = "std")]
 pub use kta_bed::{KtaBed, KtaBedResult};
 pub use pipe::{GasDuct, GasDuctResult, HeatTransferCorrelation};
 pub use properties::{

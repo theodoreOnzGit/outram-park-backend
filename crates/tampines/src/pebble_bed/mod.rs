@@ -91,6 +91,9 @@
 //! tier; nothing here has been compared against HTR-10 measurements.
 //! AI-assisted draft pending human review per `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{TemperatureInterval, ThermodynamicTemperature};
 use uom::si::temperature_interval::kelvin as kelvin_interval;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -99,12 +102,14 @@ pub mod cht;
 pub mod feedback;
 pub mod pebble;
 pub mod triso;
+#[cfg(feature = "std")]
 pub mod zbs;
 
 pub use cht::PackedBedConvection;
 pub use feedback::GraphiteModeratorFeedback;
 pub use pebble::{DispersionModel, Pebble, PebbleTemperatureProfile};
 pub use triso::{CorrelationWindow, TrisoLayer, TrisoParticle, TrisoTemperatureProfile};
+#[cfg(feature = "std")]
 pub use zbs::ZbsBed;
 
 /// The difference between two absolute temperatures, as a `uom`

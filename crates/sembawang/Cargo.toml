@@ -99,7 +99,7 @@ fission-yields-data           = { workspace = true }
 # database. Stainless steel is MELCOR's default lower-head layer material
 # (MELCOR 2.2 Vol. 2, COR §6.1). Light (petir, uom, ndarray, csv, approx,
 # thiserror), wasm in-scope, already built by dhoby-ghaut; no cycle.
-tuas_boussinesq_solver = { workspace = true }
+tuas_boussinesq_solver = { workspace = true, features = ["std"] }
 uom       = { workspace = true }
 thiserror = { workspace = true }
 

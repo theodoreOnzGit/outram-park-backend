@@ -235,7 +235,7 @@ outram-park-fork-liggghts = { workspace = true, features = ["std"] }
 # table, raffles.
 # The DWSIM port's heat-exchanger correlations, for Foam Studio's 1-D
 # comparison (`foam_studio_web/engine.rs`).
-outram-park-fork-dwsim-libs = { workspace = true }
+outram-park-fork-dwsim-libs = { workspace = true, features = ["std"] }
 # Foam Studio (`foam_studio_web`, gh:#1155): the O-grid / box meshers and
 # the pimpleFoam port, run in the page's worker too. All wasm in-scope (the
 # stage 0 gate, gh:#1154, ran them in a Worker with no host imports).

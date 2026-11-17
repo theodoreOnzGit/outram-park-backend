@@ -30,6 +30,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::htr10_rz::{
     CoreStepReport, Htr10RzTransientCore, OperatingPoint, Thermocouple, TransientCoreOptions,
@@ -50,7 +53,7 @@ use crate::TampinesError;
 /// core); scaled with `W^2` here (density held at the steady state).
 const DP_SIDE_REFLECTOR_PASS: (f64, f64) = (700.0, 3.846);
 
-fn rz_err(e: impl std::fmt::Display) -> TampinesError {
+fn rz_err(e: impl core::fmt::Display) -> TampinesError {
     TampinesError::Numerical(format!("HTR-10 R-Z core: {e}"))
 }
 
