@@ -259,9 +259,10 @@ const SMR_UPSTREAM_FLOWS: [f64; 5] = [
     0.185_833_795_505_563_12,
     1.313_243_605_663_083_4,
 ];
-/// Gate on the worst per-species relative gap. Measured 6.1e-10; set at 1e-8.
+/// Gate on the worst per-species relative gap. Measured 6.1e-10; set at ~~1e-8~~
+/// **1e-9** (gh:#1614, 2026-11-17, the workspace round-off allowance).
 /// The upstream vector is frozen above, so only this crate can move the gap.
-const SMR_GATE: f64 = 1e-8;
+const SMR_GATE: f64 = 1e-9;
 
 /// Heterogeneous catalytic (Langmuir–Hinshelwood) isomerisation against the
 /// **pristine** upstream build — coverage row R3.

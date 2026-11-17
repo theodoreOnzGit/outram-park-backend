@@ -300,7 +300,8 @@ fn lssf1_materials_are_untouched_by_the_unresolved_reconstruction() {
                 want[i]
             );
             assert!(
-                dev < 1.0e-8,
+                // ~~1e-8~~ 1e-9 (gh:#1614, 2026-11-17): measured 0, bitwise identical.
+                dev < 1.0e-9,
                 "{f} MT=1 at {e:e} moved: {got:.9e} against the pre-change {:.9e} \
                  ({dev:.2e}). This material is LSSF=1, so the unresolved \
                  reconstruction must be a no-op for it -- if it is not, the \

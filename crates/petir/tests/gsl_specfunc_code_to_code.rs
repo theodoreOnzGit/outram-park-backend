@@ -267,7 +267,7 @@ struct Tally {
     ok_rows: usize,
     ok_exact: usize,
     ok_rel_lt_1e8: usize,
-    /// Rows >= 1e-8 whose difference is nonetheless within GSL's own `err`.
+    /// Rows >= 1e-9 (~~1e-8~~, gh:#1614) whose difference is nonetheless within GSL's own `err`.
     within_gsl_err: usize,
     worst_rel: f64,
     worst_at: String,
@@ -363,7 +363,8 @@ fn compare_in_k(name: &str, region: Region, kernel: TrigKernel) -> Tally {
             } else if t.examples.len() < 4 && std::env::var_os("SPECFUNC_SHOW_DIFFS").is_some() {
                 t.examples.push(desc());
             }
-            if w < 1e-8 {
+            // ~~1e-8~~ 1e-9 (gh:#1614, 2026-11-17); the field keeps its name.
+            if w < 1e-9 {
                 t.ok_rel_lt_1e8 += 1;
             } else if covered {
                 t.within_gsl_err += 1;
@@ -389,7 +390,8 @@ fn compare_in_k(name: &str, region: Region, kernel: TrigKernel) -> Tally {
 
 /// Compare a family and print the measurement. The assertion is the
 /// code-to-code rule of the workspace CLAUDE.md: every value GSL returns
-/// successfully agrees to < 1e-8 relative, and every row GSL refuses is
+/// successfully agrees to < ~~1e-8~~ 1e-9 relative (since 2026-11-17, gh:#1614),
+/// or is within GSL's own `err`, and every row GSL refuses is
 /// refused (non-finite) or reproduced by PETIR.
 fn family(label: &str, names: &[&str]) -> (usize, usize) {
     family_in(label, names, Region::All)
@@ -401,8 +403,8 @@ fn family_in(label: &str, names: &[&str], region: Region) -> (usize, usize) {
     for n in names {
         let t = compare_in(n, region);
         println!(
-            "  {label}/{n}: {} ok rows, {} bit-identical ({:.2} %), {} < 1e-8, worst rel {:.3e}; \
-             {} GSL-refused rows, {} agree; {} >= 1e-8 but within GSL's own err, {} GSL-NaN-success rows \
+            "  {label}/{n}: {} ok rows, {} bit-identical ({:.2} %), {} < 1e-9, worst rel {:.3e}; \
+             {} GSL-refused rows, {} agree; {} >= 1e-9 but within GSL's own err, {} GSL-NaN-success rows \
              skipped, {} unrepresentable",
             t.ok_rows,
             t.ok_exact,
@@ -424,7 +426,7 @@ fn family_in(label: &str, names: &[&str], region: Region) -> (usize, usize) {
         rows += t.ok_rows;
         exact += t.ok_exact;
         if t.ok_rel_lt_1e8 + t.within_gsl_err != t.ok_rows {
-            problems.push(format!("{n}: >=1e-8 rows: {:#?}", t.big));
+            problems.push(format!("{n}: >=1e-9 rows: {:#?}", t.big));
         }
         if !t.err_disagree.is_empty() {
             problems.push(format!("{n}: refusal mismatch: {:#?}", t.err_disagree));

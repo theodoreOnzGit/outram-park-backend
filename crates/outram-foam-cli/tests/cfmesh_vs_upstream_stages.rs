@@ -278,7 +278,8 @@ fn upstream_final(run: &str) -> Option<PolyMesh> {
 /// inputs by 1 ulp). Reproduced outside both codes: Python's `math.pow`
 /// (glibc) in upstream's operation order gives upstream's Hessian
 /// (886.6570495551824, 1224.6298733174792); `x*x*x` gives the port's
-/// (...823, ...479). Below 1e-8 relative with a known round-off cause, so
+/// (...823, ...479). Below ~~1e-8~~ 1e-9 relative (since 2026-11-17, gh:#1614;
+/// one ulp, ~1e-16) with a known round-off cause, so
 /// pinned from above rather than closed: the count may not fall and the
 /// difference may not grow. **Flagged for the maintainer.**
 #[test]

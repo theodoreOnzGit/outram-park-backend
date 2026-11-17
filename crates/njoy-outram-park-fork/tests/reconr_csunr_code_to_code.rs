@@ -143,7 +143,8 @@ fn hex(s: &str) -> u64 {
 /// bit-identical**. So PETIR's `r_sin` differs from glibc's `sin` by one ulp at
 /// some arguments. This crate's rule is that every transcendental goes through
 /// `RealMath` (gh:#985), so the port keeps `r_sin`; the allowance for round-off
-/// below 1e-8 relative with an understood cause applies, and the
+/// below ~~1e-8~~ 1e-9 relative (since 2026-11-17, gh:#1614; worst measured
+/// 2.9e-16) with an understood cause applies, and the
 /// difference is flagged for the maintainer (it is not a defect of this
 /// translation). A pin on the count would catch either route changing.
 #[test]

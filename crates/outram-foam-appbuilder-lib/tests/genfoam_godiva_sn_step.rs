@@ -82,7 +82,9 @@ fn godiva_sn_first_step_against_upstream() {
     let dk = s.k_eff - UPSTREAM_KEFF;
     let dp = ((s.power - UPSTREAM_POWER) / UPSTREAM_POWER).abs();
     println!("  dk {dk:+.3e}  dP rel {dp:.3e}");
-    // G1 (README): predicted 1e-8; measured 3e-14 and 3e-15.
-    assert!(dk.abs() < 1e-8, "G1 dk {dk:e}");
-    assert!(dp < 1e-8, "G1 dP {dp:e}");
+    // G1 (README): predicted 1e-8; measured 3e-14 and 3e-15. Gate ~~1e-8~~
+    // 1e-9 (gh:#1614, 2026-11-17, from the recorded values; this test is
+    // `#[ignore]`d and was not re-run for the change).
+    assert!(dk.abs() < 1e-9, "G1 dk {dk:e}");
+    assert!(dp < 1e-9, "G1 dP {dp:e}");
 }

@@ -176,7 +176,8 @@ fn k_inf_of(xs: XsFields) -> f64 {
 
 /// S2: `gmm_none` and `gmm_linear` k_eff against the Moltres gold values.
 ///
-/// **Pass criterion** (predicted): relative difference <= 1e-8.
+/// **Pass criterion** (predicted): relative difference <= ~~1e-8~~ 1e-9
+/// (gh:#1614, 2026-11-17; worst measured 6.1e-14).
 #[test]
 fn s2_k_inf_matches_moltres_gmm_none_and_linear() {
     let none = MoltresTables::load(
@@ -203,7 +204,7 @@ fn s2_k_inf_matches_moltres_gmm_none_and_linear() {
         let k = k_inf(tabs, 922.0);
         let rel = (k - gold).abs() / gold;
         println!("[S2 {name}] gold k_eff {gold:.12} port k_inf {k:.12} rel {rel:.3e}");
-        assert!(rel <= 1e-8, "{name}: rel {rel:e}");
+        assert!(rel <= 1e-9, "{name}: rel {rel:e}");
     }
 }
 
@@ -238,7 +239,7 @@ fn s3_linear_port_to_spline_and_monotone_gold_gap_is_the_omission() {
              moltres linear-gold {moltres_minus:.4e}",
             port_minus * 1e5
         );
-        assert!((port_minus - moltres_minus).abs() <= 1e-8);
+        assert!((port_minus - moltres_minus).abs() <= 1e-9);
     }
 }
 
@@ -246,8 +247,9 @@ fn s3_linear_port_to_spline_and_monotone_gold_gap_is_the_omission() {
 /// Moltres gold values, with the port's own spline / monotone-cubic tables.
 ///
 /// **Pass criterion** (predicted in PREDICTIONS.md before the code was run):
-/// relative difference <= 1e-8 each, and the port's spline-minus-linear
-/// and monotone-minus-linear k_inf equal the gold gaps to 1e-8 absolute.
+/// relative difference <= ~~1e-8~~ 1e-9 each, and the port's spline-minus-linear
+/// and monotone-minus-linear k_inf equal the gold gaps to ~~1e-8~~ 1e-9 absolute
+/// (gh:#1614, 2026-11-17; worst measured 1.0e-14).
 #[test]
 fn s5_spline_and_monotone_cubic_k_inf_match_moltres_gold() {
     let load = |interp| {
@@ -283,8 +285,8 @@ fn s5_spline_and_monotone_cubic_k_inf_match_moltres_gold() {
             (k - k_lin) * 1e5,
             (gold - g_lin) * 1e5
         );
-        assert!(rel <= 1e-8, "{name}: rel {rel:e}");
-        assert!(((k - k_lin) - (gold - g_lin)).abs() <= 1e-8);
+        assert!(rel <= 1e-9, "{name}: rel {rel:e}");
+        assert!(((k - k_lin) - (gold - g_lin)).abs() <= 1e-9);
     }
 }
 
@@ -300,7 +302,8 @@ const XSDATA_900K: &str = include_str!(
 /// 2 groups, 6 precursor groups; `none` reads `xsdata-900K.json` at 900 K,
 /// the others `xsdata.json` (600/900/1200 K) at 922 K).
 ///
-/// **Pass criterion** (predicted): relative difference <= 1e-8 each.
+/// **Pass criterion** (predicted): relative difference <= ~~1e-8~~ 1e-9 each
+/// (gh:#1614, 2026-11-17; worst measured 3.1e-14).
 #[test]
 fn s6_json_material_k_inf_matches_moltres_gold() {
     for (name, text, interp, t, file) in [
@@ -340,7 +343,7 @@ fn s6_json_material_k_inf_matches_moltres_gold() {
         let k = k_inf(&tabs, t);
         let rel = (k - gold).abs() / gold;
         println!("[S6 mjm_{name}] gold {gold:.14} port {k:.14} rel {rel:.3e}");
-        assert!(rel <= 1e-8, "mjm_{name}: rel {rel:e}");
+        assert!(rel <= 1e-9, "mjm_{name}: rel {rel:e}");
     }
 }
 

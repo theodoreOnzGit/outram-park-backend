@@ -25,7 +25,8 @@
 //!   spin, no gravity, no walls; 10 frames to step 3 000.
 //!
 //! **Pass criterion.** The counts of bit-identical values below, pinned
-//! (gh:#1455), and every other value within `1e-8` relative (for the decks
+//! (gh:#1455), and every other value within ~~`1e-8`~~ `1e-9` relative (gh:#1614,
+//! 2026-11-17; worst measured 1.6e-11) (for the decks
 //! of the second section that exceed it, the worst value pinned exactly).
 //!
 //! **Results** (2026-11-13, Rust 1.99.1, PETIR `RealMath`):
@@ -83,6 +84,9 @@
 //!
 //! The swap routes `pow` and `cbrt` (both needed, both sufficient) to glibc;
 //! the last row shows the swap telling the default list from upstream's.
+//! **Flagged on gh:#1614 (2026-11-17):** the decks below were accepted above
+//! the round-off allowance (now 1e-9) and stay accepted.
+//!
 //! **`sq_mesh`, `sq_ridge` and the piles exceed the 1e-8 allowance with
 //! PETIR's maths:** an unstable tip-over and a settling pile grow the 1-ulp
 //! seed exponentially (pile: `2e-12` at step 5 000, `2.5e-6` at 10 000).
@@ -277,7 +281,7 @@ fn sq_drop_against_liggghts() {
     eprintln!("sq_drop: {same}/{total} bit-identical, worst relative difference {worst:e}");
     assert_eq!(total, 130);
     assert_eq!(same, DROP_BIT_IDENTICAL);
-    assert!(worst < 1e-8, "{worst:e}");
+    assert!(worst < 1e-9, "{worst:e}"); // ~~1e-8~~ gh:#1614
 }
 
 #[test]
@@ -308,7 +312,7 @@ fn sq_collide_against_liggghts() {
     eprintln!("sq_collide: {same}/{total} bit-identical, worst relative difference {worst:e}");
     assert_eq!(total, 260);
     assert_eq!(same, COLLIDE_BIT_IDENTICAL);
-    assert!(worst < 1e-8, "{worst:e}");
+    assert!(worst < 1e-9, "{worst:e}"); // ~~1e-8~~ gh:#1614
 }
 
 /// Bit-identical values of `sq_mesh` (of 10 frames x 13 values).
@@ -393,7 +397,7 @@ fn sq_cyl_against_liggghts() {
     eprintln!("sq_cyl: {same}/{total} bit-identical, worst relative difference {worst:e}");
     assert_eq!(total, 130);
     assert_eq!(same, CYL_BIT_IDENTICAL);
-    assert!(worst < 1e-8, "{worst:e}");
+    assert!(worst < 1e-9, "{worst:e}"); // ~~1e-8~~ gh:#1614
 }
 
 /// Bit-identical values of `sq_ridge` (of 10 frames x 13 values).
@@ -472,7 +476,7 @@ fn sq_curv_mean_against_liggghts() {
     eprintln!("sq_curv_mean: {same}/{total} bit-identical, worst relative difference {worst:e}");
     assert_eq!(total, 260);
     assert_eq!(same, CURV_MEAN_BIT_IDENTICAL);
-    assert!(worst < 1e-8, "{worst:e}");
+    assert!(worst < 1e-9, "{worst:e}"); // ~~1e-8~~ gh:#1614
 }
 
 #[test]
@@ -486,7 +490,7 @@ fn sq_curv_gauss_against_liggghts() {
     eprintln!("sq_curv_gauss: {same}/{total} bit-identical, worst relative difference {worst:e}");
     assert_eq!(total, 260);
     assert_eq!(same, CURV_GAUSS_BIT_IDENTICAL);
-    assert!(worst < 1e-8, "{worst:e}");
+    assert!(worst < 1e-9, "{worst:e}"); // ~~1e-8~~ gh:#1614
 }
 
 /// Bit-identical values of `sq_pile_check` (of 10 frames x 12 particles x 13 values).
@@ -866,7 +870,7 @@ fn sq_cdt_against_liggghts() {
     eprintln!("sq_cdt: {same}/{total} bit-identical, worst relative difference {worst:e}");
     assert_eq!(total, 260);
     assert_eq!(same, CDT_BIT_IDENTICAL);
-    assert!(worst < 1e-8, "{worst:e}");
+    assert!(worst < 1e-9, "{worst:e}"); // ~~1e-8~~ gh:#1614
 }
 
 #[test]
@@ -880,5 +884,5 @@ fn sq_cdt_curv_against_liggghts() {
     eprintln!("sq_cdt_curv: {same}/{total} bit-identical, worst relative difference {worst:e}");
     assert_eq!(total, 260);
     assert_eq!(same, CDT_CURV_BIT_IDENTICAL);
-    assert!(worst < 1e-8, "{worst:e}");
+    assert!(worst < 1e-9, "{worst:e}"); // ~~1e-8~~ gh:#1614
 }
