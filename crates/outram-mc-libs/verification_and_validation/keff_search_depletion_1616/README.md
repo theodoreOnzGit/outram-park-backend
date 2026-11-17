@@ -27,10 +27,15 @@ search changes the transport solves but not the depleted inventory.
 
 ## Differences in this port (all in the module doc table)
 
-- The search is the workspace's `search_for_keff` (bracketed bisection or false
+- ~~The search is the workspace's `search_for_keff` (bracketed bisection or false
   position), **not GRsecant**, which the workspace does not have. It needs a
   straddling bracket: `(x0, x1)` first, then the absolute bracket once, then an
-  error. There is no `sigma_final` test and no adaptive batch count.
+  error. There is no `sigma_final` test and no adaptive batch count.~~
+  **CORRECTED 2026-11-17 (gh:#1618)**: the default search is now GRsecant
+  (`physics::search_grsecant`, `model.py:3248-3405`), with `sigma_final` and an
+  adaptive batch count; the text above describes the #1616 run, which is kept
+  and is selected by name (`KeffSearchControl::with_search_settings`). See
+  "2026-11-17, #1618 item 1" below.
 - Refused for stochastic-implicit integrators (upstream's SI loop never calls
   the hook). No restart restore (no restart files here).
 - It composes with the **independent** one-group operator. Frozen cross
@@ -149,3 +154,88 @@ the 986 ppm total drop still clears 3 sigma (about 260 ppm).
 - sigma_k of 0.003 to 0.004 per solve is the resolving power. A 25 ppm bracket
   tolerance is below it, so the search stops on the residual criterion.
 - One seed per solve; no ensemble over seeds.
+
+## 2026-11-17, #1618 item 1: GRsecant is the default search
+
+Code: `src/physics/search_grsecant.rs` (`grsecant_search_for_keff`), selected by
+`KeffSearchControl::new` (the default) or `with_grsecant_settings`. The
+bracketed search above is `with_search_settings`, unchanged. Upstream read at
+`8f79d9d0`: `openmc/model/model.py:3248-3405` (`Model.keff_search`, GRsecant of
+Price and Roskoff, doi:10.1016/j.pnucene.2023.104731), and
+`openmc/deplete/keff_search_control.py:41-42, 79, 85-99` for how the hook sets
+`x_min`/`x_max` from the bracket, calls it and raises on non-convergence. The
+helper it calls, scipy `curve_fit`, is replaced by the closed-form weighted
+least squares that has the same minimiser (weights `1/sigma^2`). Differences
+from upstream are in the module doc table; the one that matters here is that
+the model closure now receives the active-batch count, which the workspace's
+k-eigenvalue driver supports through `KeffSettings::n_active`, so **adaptive
+batches are ported**.
+
+Unit tests: `physics::search_grsecant::tests` (10) and `keff_search::tests`
+(the hook with GRsecant on a synthetic `k(p)` with `sigma ~ 1/sqrt(b)`).
+
+### The case, same inputs
+
+Seeds `(0, 6000)` ppm (the old bracket's ends), clamp `[0, 6000]`, `k_tol =
+0.005` (as before), `sigma_final = 0.004` (the size of the old `sigma_k`), `b0 =
+25` active, 8 inactive, `b_min = 20` (upstream's), `b_max = 100` (cap for a shared
+box), `maxiter = 12`; everything else as the case above, fixed seed.
+
+### Predictions, written before the run (also in the test's doc comment)
+
+1. Every search converges, `sigma <= 0.004`, in at most 8 evaluations.
+2. Boron within 250 ppm of the bracketed trajectory at every search, mostly
+   within 100 ppm.
+3. Monotone non-increasing within noise; total drop 986 +- 150 ppm.
+4. 20 to 35 transport solves in total (bracketed: 32).
+
+### Measured (2026-11-17; two runs agree to every digit, fixed seed)
+
+Hardware: Intel Xeon @ 2.10 GHz, 4 logical cores, 1 thread used, 15 GB RAM,
+Linux 6.18.44, CPU only; shared, load average 2 to 4.
+
+| search before step | burnup [d] | GRsecant boron [ppm] | k at root | sigma_k | solves | bracketed boron [ppm] | difference [ppm] |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 3991.1 | 1.00129 | 0.00315 | 7 | 4014.8 | -23.7 |
+| 1 | 50 | 3622.4 | 1.00395 | 0.00370 | 9 | 3642.2 | -19.8 |
+| 2 | 100 | 3424.5 | 1.00209 | 0.00268 | 8 | 3454.0 | -29.5 |
+| 3 | 150 | 3244.1 | 1.00190 | 0.00388 | 9 | 3270.0 | -25.9 |
+| final | 200 | 3019.7 | 1.00241 | 0.00253 | 8 | 3029.2 | -9.5 |
+
+Total drop 971 ppm (bracketed 986). Wall time 232.8 s for 41 solves (bracketed,
+re-run alone the same day: 207.8 s for 32 solves; the original 176.9 s was on a
+different load; hardware as above, so only ratios on one host mean anything,
+and these were not taken back to back under equal load).
+
+### Against the predictions
+
+1. **Partly missed.** Converged with `sigma <= 0.004` at all five, but the
+   evaluation counts are 7, 9, 8, 9, 8: two searches needed 9, not at most 8.
+2. Met. All five inside 30 ppm (limit 250, "mostly 100").
+3. Met. Every step falls; total 971.
+4. **Missed:** 41 solves against 20 to 35, and more than the bracketed run's
+   32. A reading of the trial lists: the 4-point fit window holds the two far
+   seeds (0 and 6000 ppm) for the first iterations, and `k(p)` is convex over
+   that span, so the first proposals land high (4684, 4505, 4354, 4156, 3999 ppm,
+   against roots near 3000 to 4000) and several steps are needed to walk in.
+   This is a reading of the printed trajectories, not an ablation; a seed pair
+   nearer the root, or `memory = 2`, would test it and was not run.
+
+The new trajectory sits a consistent 10 to 30 ppm below the old one, all
+five of one sign. Both runs use the same random seed per solve but different
+batch counts (GRsecant's solves carry between `b_min` 20 and `b_max` 100 active
+generations, against the old fixed 25; the counts were not printed), so the two are not the same noise realisation, and a 25 ppm shift
+is 0.4 sigma of one search (65 ppm); one sign over five searches is not
+significant at that size and is not explained further here.
+
+The bracketed run re-run through the new hook reproduces the README table above
+**to every printed digit** (4014.8, 3642.2, 3454.0, 3270.0, 3029.2 ppm), which
+checks that the hook change did not move it. One trap, found on the way: the
+bracketed search passes the model `GrSecantSettings::b0` active generations
+(default 50), and the first re-run with that default gave 4004.6, 3692.1, 3456.5,
+3283.1, 3051.6 ppm, a different design (twice the statistics), not a regression.
+The test sets `b0 = 25` explicitly.
+
+What this does not show: one seed per solve, so the two methods' 10 to 30 ppm
+difference and the 41-versus-32 solve count are one realisation each. No
+ensemble over seeds was run (#1618 item 5 is not done).
