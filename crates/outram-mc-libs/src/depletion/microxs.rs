@@ -159,6 +159,18 @@ pub struct ReactionTable {
     pub threshold: usize,
 }
 
+impl ReactionTable {
+    /// A reaction given on its own lin-lin `(E [eV], σ [b])` grid, e.g. a
+    /// RECONR / BROADR section's `pairs` from `njoy-outram-park-fork`.
+    /// Upstream stores every reaction on the nuclide's union grid with a
+    /// threshold index; one reaction on its own grid with `threshold = 0`
+    /// is the same piecewise-linear function, so `collapse_rate` integrates
+    /// the same thing (summation order differs; see the test).
+    pub fn from_pointwise(pairs: &[(f64, f64)]) -> Self {
+        Self { grid: pairs.iter().map(|p| p.0).collect(), xs: pairs.iter().map(|p| p.1).collect(), threshold: 0 }
+    }
+}
+
 /// A reaction at a requested temperature: the lower table and, when the
 /// temperature lies between two, the upper one with the interpolation
 /// factor `f` (upstream `find_temperature`).
