@@ -633,6 +633,14 @@ pub enum SpatialDistribution {
     Spherical { r: Distribution, cos_theta: Distribution, phi: Distribution, origin: V3 },
     /// `PointCloud`: weighted discrete points.
     PointCloud { points: Vec<V3>, di: DiscreteIndex, weight: Vec<f64> },
+    /// **Uniform-in-box cells** (gh:#1615, not an OpenMC class): choose one of
+    /// several boxes by a discrete index, then a point uniform inside it. The
+    /// cell choice is biased exactly as [`SpatialDistribution::PointCloud`]'s
+    /// point choice is (sample `q`, weight `p/q`, via the ported
+    /// [`DiscreteIndex`] and [`compute_importance_weights`]); inside a box the
+    /// draw is `SpatialBox`'s. Built by [`SpatialDistribution::cells`] /
+    /// [`SpatialDistribution::cells_biased`].
+    Cells { boxes: Vec<(V3, V3)>, di: DiscreteIndex, weight: Vec<f64> },
 }
 
 impl SpatialDistribution {
@@ -703,6 +711,37 @@ impl SpatialDistribution {
         })
     }
 
+    /// Uniform-in-box cells chosen with probability proportional to
+    /// `strengths` (no bias, weight 1).
+    ///
+    /// # Errors
+    ///
+    /// If the lengths differ, or there are no cells.
+    pub fn cells(boxes: Vec<(V3, V3)>, strengths: &[f64]) -> Result<Self, String> {
+        if boxes.len() != strengths.len() || boxes.is_empty() {
+            return Err("cells: boxes and strengths must be non-empty and the same length".into());
+        }
+        Ok(SpatialDistribution::Cells { boxes, di: DiscreteIndex::new(strengths), weight: Vec::new() })
+    }
+
+    /// Biased cells: drawn with `bias` strengths, weighted `p_norm / bias_norm`
+    /// (`compute_importance_weights`). Unbiased in the mean for any `bias` that
+    /// is positive wherever `strengths` is.
+    ///
+    /// # Errors
+    ///
+    /// If the three lengths differ, or there are no cells.
+    pub fn cells_biased(boxes: Vec<(V3, V3)>, strengths: &[f64], bias: &[f64]) -> Result<Self, String> {
+        if boxes.len() != strengths.len() || boxes.len() != bias.len() || boxes.is_empty() {
+            return Err("cells_biased: boxes, strengths and bias must be non-empty and the same length".into());
+        }
+        Ok(SpatialDistribution::Cells {
+            boxes,
+            di: DiscreteIndex::new(bias),
+            weight: compute_importance_weights(strengths, bias),
+        })
+    }
+
     /// Sample a position and its importance weight, with upstream's draw order
     /// and operation order.
     pub fn sample(&self, seed: &mut u64) -> (V3, f64) {
@@ -748,6 +787,19 @@ impl SpatialDistribution {
             SpatialDistribution::PointCloud { points, di, weight } => {
                 let i = di.sample(seed);
                 (points[i], if weight.is_empty() { 1.0 } else { weight[i] })
+            }
+            SpatialDistribution::Cells { boxes, di, weight } => {
+                let i = di.sample(seed);
+                let (ll, ur) = boxes[i];
+                let xi = [prn(seed), prn(seed), prn(seed)];
+                (
+                    [
+                        ll[0] + xi[0] * (ur[0] - ll[0]),
+                        ll[1] + xi[1] * (ur[1] - ll[1]),
+                        ll[2] + xi[2] * (ur[2] - ll[2]),
+                    ],
+                    if weight.is_empty() { 1.0 } else { weight[i] },
+                )
             }
         }
     }

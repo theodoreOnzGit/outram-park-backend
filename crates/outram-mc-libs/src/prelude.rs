@@ -175,6 +175,9 @@ pub use crate::NjoyError;
 pub use crate::stats::ensemble::{run_seeds, EnsembleReport, SeedRun};
 pub use crate::stats::correlated_sigma::{KeffUncertainty, TallyBatchLog, TallyBatchRecorder};
 pub use crate::stats::convergence::SourceConvergence;
+pub use crate::stats::learned_source_bias::{
+    learned_biased_energy, learned_biased_spatial, with_learned_source_bias, SourceBiasReport,
+};
 pub use crate::stats::learned_importance::{
     learned_weight_windows, FomComparison, LearnedImportanceSettings, VrArm,
 };
