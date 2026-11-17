@@ -72,6 +72,9 @@
 //! because a fourth-order tensor with mixed physical roles has no single `uom`
 //! type.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
 /// Number of independent components of a symmetric second-order tensor in three

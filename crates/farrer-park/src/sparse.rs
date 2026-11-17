@@ -47,6 +47,9 @@
 //! Stiffness entries are newton per metre; more generally, the units of the
 //! assembled operator. Treated as bare `f64` here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::dof::SparsityPattern;
 use crate::error::{FemError, Result};
 

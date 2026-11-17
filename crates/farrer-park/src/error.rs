@@ -31,10 +31,13 @@
 //! out of iterations returns [`FemError::NewtonNotConverged`]; a Newton solve
 //! that converges returns a report struct from [`crate::solver`], not an error.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Result alias for every fallible Farrer Park operation.
-pub type Result<T> = std::result::Result<T, FemError>;
+pub type Result<T> = core::result::Result<T, FemError>;
 
 /// Everything that can go wrong in a Farrer Park finite-element run.
 ///

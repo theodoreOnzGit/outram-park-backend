@@ -45,6 +45,9 @@
 //! Indices are dimensionless. The *values* a `DofMap` indexes are nodal
 //! displacements in metres.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::element::ElementType;
 use crate::error::{FemError, Result};
 use crate::mesh::{ElemId, Mesh, NodeId};

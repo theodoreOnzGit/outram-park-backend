@@ -49,6 +49,9 @@
 //!
 //! Dimensionless `f64`, as the shared contract requires.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::linear_operator::{LinearOperator, OperatorPreconditioner};
 
 use crate::sparse::{CsrMatrix, CsrPreconditioner};

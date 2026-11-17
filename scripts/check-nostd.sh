@@ -45,6 +45,7 @@ crates=(
   outram-park-fork-liggghts   # gh:#1602
   outram-park-fork-pflotran   # gh:#1603
   outram-park-fork-dwsim-libs # gh:#1591
+  farrer-park                 # gh:#1632
 )
 
 rustup target add "$target" >/dev/null

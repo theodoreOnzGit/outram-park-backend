@@ -643,7 +643,7 @@ outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       v
 outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.3" }
 # FEM structural mechanics; first workspace-dep consumer: outram-blender's
 # optional `fem-export` bridge (GitHub #492).
-farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.4" }
+farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.4", default-features = false }
 outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.0.2" }
 outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.7" }
 # Granular DEM. `default-features = false` HERE, at the root, because workspace

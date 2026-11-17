@@ -137,6 +137,15 @@ compiles for `wasm32-unknown-unknown` and for `aarch64-linux-android`
 running**: neither target has been executed, and no claim is made that it works
 in a browser or on a device.
 
+**`no_std` + `alloc` (gh:#1632).** The default `std` feature can be turned
+off: the library is then `no_std` + `alloc` and builds for bare metal
+(`cargo check --release -p farrer-park --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Everything builds without it; `std` only
+turns on `std` in `thiserror` and `outram-foam-basic-lib`. The mesh's edge map
+is `crate::hash::HashMap`: std's with `std`, so every result is as before, and
+`hashbrown` without it. The root workspace entry is `default-features = false`,
+so a member that wants `std` asks for it.
+
 ## Licensing
 
 ~~GPL-3.0-only~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): the ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE` (see `docs/relicensing-agpl-2026-10-20.md`). Ported from MOOSE, PRISMS-Plasticity and PRISMS-Fatigue, all
