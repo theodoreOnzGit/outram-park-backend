@@ -55,13 +55,19 @@ Th-232, Pa-233 and U-233 tapes, from NNDC, in `reference-data/ace` at
 | Test | Reference | Result |
 |---|---|---|
 | `tests/chain_from_endf_vs_openmc_run.rs` | OpenMC `e4febe9`'s own `Chain.from_endf`, run 2026-11-17 on the same decay/NFY sublibraries and (full) the Th-232, Pa-233, U-233, U-235, U-238 tapes; `openmc_inputs/ref_chain.py`, decay spectra removed by `strip_sources.py`; outputs in `openmc_outputs/` | **all 3,820 nuclide records equal, export byte-identical, both chains** (predicted). This supersedes the packaged-chain comparison above as the reference for `from_endf`: the packaged chain was built by an older OpenMC |
+| `tests/external_rates_vs_openmc_run.rs` (gh:#1622) | OpenMC `e4febe9`'s own `pool.deplete` with `TransferRates` / `ExternalSourceRates`, `chain_simple.xml`, two materials, one 1-day step, CRAM-48; `openmc_inputs/ref_transfer_rates.py`, output `openmc_outputs/transfer_rates.tsv` | transfer, removal, redox: worst **2.8e-15** (predicted ≤ 1e-10). Feed: **1.5e-8, prediction failed**, diagnosed to PETIR's dense CRAM-48 on the badly scaled augmented system (OpenMC's own CRAM-48 is 1.3e-11 from `expm` there); gh:#1645 |
+| `tests/independent_operator_vs_openmc_run.rs` (gh:#1626 arm 1) | OpenMC `e4febe9`'s `IndependentOperator` with all eight integrators on its own `deplete_no_transport` regression inputs (`openmc_inputs/micro_xs_simple.csv`, `chain_simple_tests.xml`), three 5-day steps, `source-rate` (1.0) and `fission-q` (174 W), CRAM-48; `openmc_inputs/ref_independent_operator.py` with `libopenmc` built, output `openmc_outputs/independent_operator.tsv` | step-0 rates **bit-identical** in all 16 runs; atoms: 480 entries, 69 bit-identical, worst **4.7e-15** (predicted ≤ 1e-10). The residual is the CRAM-48 linear solve (dense elimination against SuperLU); below the 1e-9 allowance, flagged for the maintainer |
 
 OpenMC provenance: OpenMC `e4febe9` (MIT, `openmc_inputs/LICENSE.openmc`),
 installed as a pure-Python package in a Python 3.11 venv (`--ignore-requires-python`;
 upstream asks for 3.12), with numpy, h5py, scipy, pandas, lxml,
-uncertainties and endf from PyPI. `libopenmc` was not built: `from_endf`
-does not call it, and `openmc.lib` was loaded through upstream's
-documentation-build mock (`READTHEDOCS=True`). Command:
+uncertainties and endf from PyPI. For `from_endf` and the transfer rates
+`libopenmc` was not needed, and `openmc.lib` was loaded through upstream's
+documentation-build mock (`READTHEDOCS=True`). For the independent
+operator `libopenmc` was built from the same commit (CMake Release, no MPI,
+no tests; system HDF5 1.10.10, pugixml, fmt from apt) and copied into the
+package; `OPENMC_CROSS_SECTIONS` unset, which the transport-free operator
+does not read. Command:
 
 ```bash
 READTHEDOCS=True python openmc_inputs/ref_chain.py \

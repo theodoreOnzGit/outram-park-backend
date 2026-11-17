@@ -1,0 +1,1738 @@
+volume	0.5541769440932395
+initial	Cs135	0.0
+initial	Gd156	0.0
+initial	Gd157	0.0
+initial	I135	0.0
+initial	U234	4.945767244820886e+18
+initial	U235	5.533328877654267e+20
+initial	U238	1.2301425386030308e+22
+initial	Xe135	0.0
+initial	Xe136	0.0
+source-rate	predictor	0	Cs135	0.0
+source-rate	predictor	0	Gd156	0.0
+source-rate	predictor	0	Gd157	0.0
+source-rate	predictor	0	I135	0.0
+source-rate	predictor	0	U234	4.945767244820886e+18
+source-rate	predictor	0	U235	5.533328877654267e+20
+source-rate	predictor	0	U238	1.2301425386030308e+22
+source-rate	predictor	0	Xe135	0.0
+source-rate	predictor	0	Xe136	0.0
+rate	source-rate	predictor	0	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	predictor	0	Cs135	fission	0.0
+rate	source-rate	predictor	0	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	predictor	0	Gd156	fission	0.0
+rate	source-rate	predictor	0	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	predictor	0	Gd157	fission	0.0
+rate	source-rate	predictor	0	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	predictor	0	I135	fission	0.0
+rate	source-rate	predictor	0	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	predictor	0	U234	fission	5.779427224021646e-10
+rate	source-rate	predictor	0	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	predictor	0	U235	fission	5.6393264024864684e-08
+rate	source-rate	predictor	0	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	predictor	0	U238	fission	1.219214956616676e-10
+rate	source-rate	predictor	0	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	predictor	0	Xe135	fission	0.0
+rate	source-rate	predictor	0	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	predictor	0	Xe136	fission	0.0
+source-rate	predictor	1	Cs135	2.940211224436338e+16
+source-rate	predictor	1	Gd156	2466188858397129.0
+source-rate	predictor	1	Gd157	168095159318275.1
+source-rate	predictor	1	I135	3.1165568981192492e+16
+source-rate	predictor	1	U234	4.944532583036794e+18
+source-rate	predictor	1	U235	5.4001552944711506e+20
+source-rate	predictor	1	U238	1.2300777485958373e+22
+source-rate	predictor	1	Xe135	3468937519501285.5
+source-rate	predictor	1	Xe136	6.626322526411791e+17
+rate	source-rate	predictor	1	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	predictor	1	Cs135	fission	0.0
+rate	source-rate	predictor	1	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	predictor	1	Gd156	fission	0.0
+rate	source-rate	predictor	1	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	predictor	1	Gd157	fission	0.0
+rate	source-rate	predictor	1	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	predictor	1	I135	fission	0.0
+rate	source-rate	predictor	1	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	predictor	1	U234	fission	5.779427224021646e-10
+rate	source-rate	predictor	1	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	predictor	1	U235	fission	5.6393264024864684e-08
+rate	source-rate	predictor	1	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	predictor	1	U238	fission	1.219214956616676e-10
+rate	source-rate	predictor	1	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	predictor	1	Xe135	fission	0.0
+rate	source-rate	predictor	1	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	predictor	1	Xe136	fission	0.0
+source-rate	predictor	2	Cs135	6.066158384246481e+16
+source-rate	predictor	2	Gd156	4880635846589868.0
+source-rate	predictor	2	Gd157	165976603362176.94
+source-rate	predictor	2	I135	3.043229627886103e+16
+source-rate	predictor	2	U234	4.943298229473783e+18
+source-rate	predictor	2	U235	5.270186871084237e+20
+source-rate	predictor	2	U238	1.2300129620010499e+22
+source-rate	predictor	2	Xe135	3387207414187135.5
+source-rate	predictor	2	Xe136	1.3416222091175928e+18
+rate	source-rate	predictor	2	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	predictor	2	Cs135	fission	0.0
+rate	source-rate	predictor	2	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	predictor	2	Gd156	fission	0.0
+rate	source-rate	predictor	2	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	predictor	2	Gd157	fission	0.0
+rate	source-rate	predictor	2	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	predictor	2	I135	fission	0.0
+rate	source-rate	predictor	2	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	predictor	2	U234	fission	5.779427224021646e-10
+rate	source-rate	predictor	2	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	predictor	2	U235	fission	5.6393264024864684e-08
+rate	source-rate	predictor	2	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	predictor	2	U238	fission	1.219214956616676e-10
+rate	source-rate	predictor	2	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	predictor	2	Xe135	fission	0.0
+rate	source-rate	predictor	2	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	predictor	2	Xe136	fission	0.0
+source-rate	predictor	3	Cs135	9.118463392611693e+16
+source-rate	predictor	3	Gd156	7244572624144691.0
+source-rate	predictor	3	Gd157	163643984158830.9
+source-rate	predictor	3	I135	2.9716572194371296e+16
+source-rate	predictor	3	U234	4.942064184054909e+18
+source-rate	predictor	3	U235	5.1433464671998267e+20
+source-rate	predictor	3	U238	1.2299481788184881e+22
+source-rate	predictor	3	Xe135	3307433005058339.0
+source-rate	predictor	3	Xe136	2.0045094135473144e+18
+rate	source-rate	predictor	3	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	predictor	3	Cs135	fission	0.0
+rate	source-rate	predictor	3	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	predictor	3	Gd156	fission	0.0
+rate	source-rate	predictor	3	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	predictor	3	Gd157	fission	0.0
+rate	source-rate	predictor	3	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	predictor	3	I135	fission	0.0
+rate	source-rate	predictor	3	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	predictor	3	U234	fission	5.779427224021646e-10
+rate	source-rate	predictor	3	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	predictor	3	U235	fission	5.6393264024864684e-08
+rate	source-rate	predictor	3	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	predictor	3	U238	fission	1.219214956616676e-10
+rate	source-rate	predictor	3	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	predictor	3	Xe135	fission	0.0
+rate	source-rate	predictor	3	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	predictor	3	Xe136	fission	0.0
+source-rate	cecm	0	Cs135	0.0
+source-rate	cecm	0	Gd156	0.0
+source-rate	cecm	0	Gd157	0.0
+source-rate	cecm	0	I135	0.0
+source-rate	cecm	0	U234	4.945767244820886e+18
+source-rate	cecm	0	U235	5.533328877654267e+20
+source-rate	cecm	0	U238	1.2301425386030308e+22
+source-rate	cecm	0	Xe135	0.0
+source-rate	cecm	0	Xe136	0.0
+rate	source-rate	cecm	0	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	cecm	0	Cs135	fission	0.0
+rate	source-rate	cecm	0	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	cecm	0	Gd156	fission	0.0
+rate	source-rate	cecm	0	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	cecm	0	Gd157	fission	0.0
+rate	source-rate	cecm	0	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	cecm	0	I135	fission	0.0
+rate	source-rate	cecm	0	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	cecm	0	U234	fission	5.779427224021646e-10
+rate	source-rate	cecm	0	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	cecm	0	U235	fission	5.6393264024864684e-08
+rate	source-rate	cecm	0	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	cecm	0	U238	fission	1.219214956616676e-10
+rate	source-rate	cecm	0	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	cecm	0	Xe135	fission	0.0
+rate	source-rate	cecm	0	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	cecm	0	Xe136	fission	0.0
+source-rate	cecm	1	Cs135	2.940211224436338e+16
+source-rate	cecm	1	Gd156	2466188858397129.0
+source-rate	cecm	1	Gd157	168095159318275.1
+source-rate	cecm	1	I135	3.1165568981192492e+16
+source-rate	cecm	1	U234	4.944532583036794e+18
+source-rate	cecm	1	U235	5.4001552944711506e+20
+source-rate	cecm	1	U238	1.2300777485958373e+22
+source-rate	cecm	1	Xe135	3468937519501285.5
+source-rate	cecm	1	Xe136	6.626322526411791e+17
+rate	source-rate	cecm	1	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	cecm	1	Cs135	fission	0.0
+rate	source-rate	cecm	1	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	cecm	1	Gd156	fission	0.0
+rate	source-rate	cecm	1	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	cecm	1	Gd157	fission	0.0
+rate	source-rate	cecm	1	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	cecm	1	I135	fission	0.0
+rate	source-rate	cecm	1	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	cecm	1	U234	fission	5.779427224021646e-10
+rate	source-rate	cecm	1	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	cecm	1	U235	fission	5.6393264024864684e-08
+rate	source-rate	cecm	1	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	cecm	1	U238	fission	1.219214956616676e-10
+rate	source-rate	cecm	1	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	cecm	1	Xe135	fission	0.0
+rate	source-rate	cecm	1	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	cecm	1	Xe136	fission	0.0
+source-rate	cecm	2	Cs135	6.066158384246481e+16
+source-rate	cecm	2	Gd156	4880635846589868.0
+source-rate	cecm	2	Gd157	165976603362176.94
+source-rate	cecm	2	I135	3.043229627886103e+16
+source-rate	cecm	2	U234	4.943298229473783e+18
+source-rate	cecm	2	U235	5.270186871084237e+20
+source-rate	cecm	2	U238	1.2300129620010499e+22
+source-rate	cecm	2	Xe135	3387207414187135.5
+source-rate	cecm	2	Xe136	1.3416222091175928e+18
+rate	source-rate	cecm	2	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	cecm	2	Cs135	fission	0.0
+rate	source-rate	cecm	2	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	cecm	2	Gd156	fission	0.0
+rate	source-rate	cecm	2	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	cecm	2	Gd157	fission	0.0
+rate	source-rate	cecm	2	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	cecm	2	I135	fission	0.0
+rate	source-rate	cecm	2	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	cecm	2	U234	fission	5.779427224021646e-10
+rate	source-rate	cecm	2	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	cecm	2	U235	fission	5.6393264024864684e-08
+rate	source-rate	cecm	2	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	cecm	2	U238	fission	1.219214956616676e-10
+rate	source-rate	cecm	2	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	cecm	2	Xe135	fission	0.0
+rate	source-rate	cecm	2	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	cecm	2	Xe136	fission	0.0
+source-rate	cecm	3	Cs135	9.118463392611693e+16
+source-rate	cecm	3	Gd156	7244572624144691.0
+source-rate	cecm	3	Gd157	163643984158830.9
+source-rate	cecm	3	I135	2.9716572194371296e+16
+source-rate	cecm	3	U234	4.942064184054909e+18
+source-rate	cecm	3	U235	5.1433464671998267e+20
+source-rate	cecm	3	U238	1.2299481788184881e+22
+source-rate	cecm	3	Xe135	3307433005058339.0
+source-rate	cecm	3	Xe136	2.0045094135473144e+18
+rate	source-rate	cecm	3	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	cecm	3	Cs135	fission	0.0
+rate	source-rate	cecm	3	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	cecm	3	Gd156	fission	0.0
+rate	source-rate	cecm	3	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	cecm	3	Gd157	fission	0.0
+rate	source-rate	cecm	3	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	cecm	3	I135	fission	0.0
+rate	source-rate	cecm	3	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	cecm	3	U234	fission	5.779427224021646e-10
+rate	source-rate	cecm	3	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	cecm	3	U235	fission	5.6393264024864684e-08
+rate	source-rate	cecm	3	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	cecm	3	U238	fission	1.219214956616676e-10
+rate	source-rate	cecm	3	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	cecm	3	Xe135	fission	0.0
+rate	source-rate	cecm	3	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	cecm	3	Xe136	fission	0.0
+source-rate	cf4	0	Cs135	0.0
+source-rate	cf4	0	Gd156	0.0
+source-rate	cf4	0	Gd157	0.0
+source-rate	cf4	0	I135	0.0
+source-rate	cf4	0	U234	4.945767244820886e+18
+source-rate	cf4	0	U235	5.533328877654267e+20
+source-rate	cf4	0	U238	1.2301425386030308e+22
+source-rate	cf4	0	Xe135	0.0
+source-rate	cf4	0	Xe136	0.0
+rate	source-rate	cf4	0	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	cf4	0	Cs135	fission	0.0
+rate	source-rate	cf4	0	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	cf4	0	Gd156	fission	0.0
+rate	source-rate	cf4	0	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	cf4	0	Gd157	fission	0.0
+rate	source-rate	cf4	0	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	cf4	0	I135	fission	0.0
+rate	source-rate	cf4	0	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	cf4	0	U234	fission	5.779427224021646e-10
+rate	source-rate	cf4	0	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	cf4	0	U235	fission	5.6393264024864684e-08
+rate	source-rate	cf4	0	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	cf4	0	U238	fission	1.219214956616676e-10
+rate	source-rate	cf4	0	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	cf4	0	Xe135	fission	0.0
+rate	source-rate	cf4	0	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	cf4	0	Xe136	fission	0.0
+source-rate	cf4	1	Cs135	2.940211224436344e+16
+source-rate	cf4	1	Gd156	2466188858397138.0
+source-rate	cf4	1	Gd157	168095159318275.5
+source-rate	cf4	1	I135	3.1165568981192584e+16
+source-rate	cf4	1	U234	4.944532583036804e+18
+source-rate	cf4	1	U235	5.400155294471169e+20
+source-rate	cf4	1	U238	1.2300777485958398e+22
+source-rate	cf4	1	Xe135	3468937519501296.5
+source-rate	cf4	1	Xe136	6.626322526411803e+17
+rate	source-rate	cf4	1	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	cf4	1	Cs135	fission	0.0
+rate	source-rate	cf4	1	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	cf4	1	Gd156	fission	0.0
+rate	source-rate	cf4	1	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	cf4	1	Gd157	fission	0.0
+rate	source-rate	cf4	1	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	cf4	1	I135	fission	0.0
+rate	source-rate	cf4	1	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	cf4	1	U234	fission	5.779427224021646e-10
+rate	source-rate	cf4	1	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	cf4	1	U235	fission	5.6393264024864684e-08
+rate	source-rate	cf4	1	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	cf4	1	U238	fission	1.219214956616676e-10
+rate	source-rate	cf4	1	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	cf4	1	Xe135	fission	0.0
+rate	source-rate	cf4	1	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	cf4	1	Xe136	fission	0.0
+source-rate	cf4	2	Cs135	6.066158384246501e+16
+source-rate	cf4	2	Gd156	4880635846589891.0
+source-rate	cf4	2	Gd157	165976603362177.8
+source-rate	cf4	2	I135	3.0432296278861228e+16
+source-rate	cf4	2	U234	4.943298229473799e+18
+source-rate	cf4	2	U235	5.2701868710842735e+20
+source-rate	cf4	2	U238	1.2300129620010539e+22
+source-rate	cf4	2	Xe135	3387207414187158.0
+source-rate	cf4	2	Xe136	1.3416222091175964e+18
+rate	source-rate	cf4	2	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	cf4	2	Cs135	fission	0.0
+rate	source-rate	cf4	2	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	cf4	2	Gd156	fission	0.0
+rate	source-rate	cf4	2	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	cf4	2	Gd157	fission	0.0
+rate	source-rate	cf4	2	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	cf4	2	I135	fission	0.0
+rate	source-rate	cf4	2	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	cf4	2	U234	fission	5.779427224021646e-10
+rate	source-rate	cf4	2	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	cf4	2	U235	fission	5.6393264024864684e-08
+rate	source-rate	cf4	2	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	cf4	2	U238	fission	1.219214956616676e-10
+rate	source-rate	cf4	2	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	cf4	2	Xe135	fission	0.0
+rate	source-rate	cf4	2	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	cf4	2	Xe136	fission	0.0
+source-rate	cf4	3	Cs135	9.118463392611738e+16
+source-rate	cf4	3	Gd156	7244572624144743.0
+source-rate	cf4	3	Gd157	163643984158832.38
+source-rate	cf4	3	I135	2.971657219437159e+16
+source-rate	cf4	3	U234	4.942064184054931e+18
+source-rate	cf4	3	U235	5.143346467199881e+20
+source-rate	cf4	3	U238	1.2299481788184917e+22
+source-rate	cf4	3	Xe135	3307433005058372.0
+source-rate	cf4	3	Xe136	2.0045094135473236e+18
+rate	source-rate	cf4	3	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	cf4	3	Cs135	fission	0.0
+rate	source-rate	cf4	3	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	cf4	3	Gd156	fission	0.0
+rate	source-rate	cf4	3	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	cf4	3	Gd157	fission	0.0
+rate	source-rate	cf4	3	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	cf4	3	I135	fission	0.0
+rate	source-rate	cf4	3	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	cf4	3	U234	fission	5.779427224021646e-10
+rate	source-rate	cf4	3	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	cf4	3	U235	fission	5.6393264024864684e-08
+rate	source-rate	cf4	3	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	cf4	3	U238	fission	1.219214956616676e-10
+rate	source-rate	cf4	3	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	cf4	3	Xe135	fission	0.0
+rate	source-rate	cf4	3	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	cf4	3	Xe136	fission	0.0
+source-rate	celi	0	Cs135	0.0
+source-rate	celi	0	Gd156	0.0
+source-rate	celi	0	Gd157	0.0
+source-rate	celi	0	I135	0.0
+source-rate	celi	0	U234	4.945767244820886e+18
+source-rate	celi	0	U235	5.533328877654267e+20
+source-rate	celi	0	U238	1.2301425386030308e+22
+source-rate	celi	0	Xe135	0.0
+source-rate	celi	0	Xe136	0.0
+rate	source-rate	celi	0	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	celi	0	Cs135	fission	0.0
+rate	source-rate	celi	0	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	celi	0	Gd156	fission	0.0
+rate	source-rate	celi	0	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	celi	0	Gd157	fission	0.0
+rate	source-rate	celi	0	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	celi	0	I135	fission	0.0
+rate	source-rate	celi	0	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	celi	0	U234	fission	5.779427224021646e-10
+rate	source-rate	celi	0	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	celi	0	U235	fission	5.6393264024864684e-08
+rate	source-rate	celi	0	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	celi	0	U238	fission	1.219214956616676e-10
+rate	source-rate	celi	0	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	celi	0	Xe135	fission	0.0
+rate	source-rate	celi	0	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	celi	0	Xe136	fission	0.0
+source-rate	celi	1	Cs135	2.940211224436344e+16
+source-rate	celi	1	Gd156	2466188858397138.0
+source-rate	celi	1	Gd157	168095159318275.5
+source-rate	celi	1	I135	3.1165568981192584e+16
+source-rate	celi	1	U234	4.944532583036804e+18
+source-rate	celi	1	U235	5.400155294471169e+20
+source-rate	celi	1	U238	1.2300777485958398e+22
+source-rate	celi	1	Xe135	3468937519501296.0
+source-rate	celi	1	Xe136	6.626322526411803e+17
+rate	source-rate	celi	1	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	celi	1	Cs135	fission	0.0
+rate	source-rate	celi	1	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	celi	1	Gd156	fission	0.0
+rate	source-rate	celi	1	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	celi	1	Gd157	fission	0.0
+rate	source-rate	celi	1	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	celi	1	I135	fission	0.0
+rate	source-rate	celi	1	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	celi	1	U234	fission	5.779427224021646e-10
+rate	source-rate	celi	1	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	celi	1	U235	fission	5.6393264024864684e-08
+rate	source-rate	celi	1	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	celi	1	U238	fission	1.219214956616676e-10
+rate	source-rate	celi	1	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	celi	1	Xe135	fission	0.0
+rate	source-rate	celi	1	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	celi	1	Xe136	fission	0.0
+source-rate	celi	2	Cs135	6.066158384246501e+16
+source-rate	celi	2	Gd156	4880635846589891.0
+source-rate	celi	2	Gd157	165976603362177.88
+source-rate	celi	2	I135	3.0432296278861228e+16
+source-rate	celi	2	U234	4.943298229473799e+18
+source-rate	celi	2	U235	5.2701868710842735e+20
+source-rate	celi	2	U238	1.2300129620010539e+22
+source-rate	celi	2	Xe135	3387207414187158.0
+source-rate	celi	2	Xe136	1.3416222091175964e+18
+rate	source-rate	celi	2	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	celi	2	Cs135	fission	0.0
+rate	source-rate	celi	2	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	celi	2	Gd156	fission	0.0
+rate	source-rate	celi	2	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	celi	2	Gd157	fission	0.0
+rate	source-rate	celi	2	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	celi	2	I135	fission	0.0
+rate	source-rate	celi	2	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	celi	2	U234	fission	5.779427224021646e-10
+rate	source-rate	celi	2	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	celi	2	U235	fission	5.6393264024864684e-08
+rate	source-rate	celi	2	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	celi	2	U238	fission	1.219214956616676e-10
+rate	source-rate	celi	2	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	celi	2	Xe135	fission	0.0
+rate	source-rate	celi	2	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	celi	2	Xe136	fission	0.0
+source-rate	celi	3	Cs135	9.118463392611749e+16
+source-rate	celi	3	Gd156	7244572624144742.0
+source-rate	celi	3	Gd157	163643984158832.38
+source-rate	celi	3	I135	2.9716572194371596e+16
+source-rate	celi	3	U234	4.942064184054931e+18
+source-rate	celi	3	U235	5.143346467199881e+20
+source-rate	celi	3	U238	1.2299481788184917e+22
+source-rate	celi	3	Xe135	3307433005058373.0
+source-rate	celi	3	Xe136	2.0045094135473236e+18
+rate	source-rate	celi	3	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	celi	3	Cs135	fission	0.0
+rate	source-rate	celi	3	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	celi	3	Gd156	fission	0.0
+rate	source-rate	celi	3	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	celi	3	Gd157	fission	0.0
+rate	source-rate	celi	3	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	celi	3	I135	fission	0.0
+rate	source-rate	celi	3	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	celi	3	U234	fission	5.779427224021646e-10
+rate	source-rate	celi	3	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	celi	3	U235	fission	5.6393264024864684e-08
+rate	source-rate	celi	3	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	celi	3	U238	fission	1.219214956616676e-10
+rate	source-rate	celi	3	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	celi	3	Xe135	fission	0.0
+rate	source-rate	celi	3	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	celi	3	Xe136	fission	0.0
+source-rate	epc_rk4	0	Cs135	0.0
+source-rate	epc_rk4	0	Gd156	0.0
+source-rate	epc_rk4	0	Gd157	0.0
+source-rate	epc_rk4	0	I135	0.0
+source-rate	epc_rk4	0	U234	4.945767244820886e+18
+source-rate	epc_rk4	0	U235	5.533328877654267e+20
+source-rate	epc_rk4	0	U238	1.2301425386030308e+22
+source-rate	epc_rk4	0	Xe135	0.0
+source-rate	epc_rk4	0	Xe136	0.0
+rate	source-rate	epc_rk4	0	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	epc_rk4	0	Cs135	fission	0.0
+rate	source-rate	epc_rk4	0	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	epc_rk4	0	Gd156	fission	0.0
+rate	source-rate	epc_rk4	0	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	epc_rk4	0	Gd157	fission	0.0
+rate	source-rate	epc_rk4	0	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	epc_rk4	0	I135	fission	0.0
+rate	source-rate	epc_rk4	0	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	epc_rk4	0	U234	fission	5.779427224021646e-10
+rate	source-rate	epc_rk4	0	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	epc_rk4	0	U235	fission	5.6393264024864684e-08
+rate	source-rate	epc_rk4	0	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	epc_rk4	0	U238	fission	1.219214956616676e-10
+rate	source-rate	epc_rk4	0	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	epc_rk4	0	Xe135	fission	0.0
+rate	source-rate	epc_rk4	0	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	epc_rk4	0	Xe136	fission	0.0
+source-rate	epc_rk4	1	Cs135	2.940211224436338e+16
+source-rate	epc_rk4	1	Gd156	2466188858397129.0
+source-rate	epc_rk4	1	Gd157	168095159318275.1
+source-rate	epc_rk4	1	I135	3.1165568981192476e+16
+source-rate	epc_rk4	1	U234	4.944532583036794e+18
+source-rate	epc_rk4	1	U235	5.4001552944711506e+20
+source-rate	epc_rk4	1	U238	1.2300777485958373e+22
+source-rate	epc_rk4	1	Xe135	3468937519501284.0
+source-rate	epc_rk4	1	Xe136	6.626322526411791e+17
+rate	source-rate	epc_rk4	1	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	epc_rk4	1	Cs135	fission	0.0
+rate	source-rate	epc_rk4	1	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	epc_rk4	1	Gd156	fission	0.0
+rate	source-rate	epc_rk4	1	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	epc_rk4	1	Gd157	fission	0.0
+rate	source-rate	epc_rk4	1	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	epc_rk4	1	I135	fission	0.0
+rate	source-rate	epc_rk4	1	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	epc_rk4	1	U234	fission	5.779427224021646e-10
+rate	source-rate	epc_rk4	1	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	epc_rk4	1	U235	fission	5.6393264024864684e-08
+rate	source-rate	epc_rk4	1	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	epc_rk4	1	U238	fission	1.219214956616676e-10
+rate	source-rate	epc_rk4	1	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	epc_rk4	1	Xe135	fission	0.0
+rate	source-rate	epc_rk4	1	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	epc_rk4	1	Xe136	fission	0.0
+source-rate	epc_rk4	2	Cs135	6.066158384246479e+16
+source-rate	epc_rk4	2	Gd156	4880635846589868.0
+source-rate	epc_rk4	2	Gd157	165976603362176.94
+source-rate	epc_rk4	2	I135	3.0432296278861024e+16
+source-rate	epc_rk4	2	U234	4.943298229473783e+18
+source-rate	epc_rk4	2	U235	5.270186871084237e+20
+source-rate	epc_rk4	2	U238	1.2300129620010499e+22
+source-rate	epc_rk4	2	Xe135	3387207414187135.5
+source-rate	epc_rk4	2	Xe136	1.3416222091175928e+18
+rate	source-rate	epc_rk4	2	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	epc_rk4	2	Cs135	fission	0.0
+rate	source-rate	epc_rk4	2	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	epc_rk4	2	Gd156	fission	0.0
+rate	source-rate	epc_rk4	2	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	epc_rk4	2	Gd157	fission	0.0
+rate	source-rate	epc_rk4	2	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	epc_rk4	2	I135	fission	0.0
+rate	source-rate	epc_rk4	2	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	epc_rk4	2	U234	fission	5.779427224021646e-10
+rate	source-rate	epc_rk4	2	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	epc_rk4	2	U235	fission	5.6393264024864684e-08
+rate	source-rate	epc_rk4	2	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	epc_rk4	2	U238	fission	1.219214956616676e-10
+rate	source-rate	epc_rk4	2	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	epc_rk4	2	Xe135	fission	0.0
+rate	source-rate	epc_rk4	2	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	epc_rk4	2	Xe136	fission	0.0
+source-rate	epc_rk4	3	Cs135	9.118463392611693e+16
+source-rate	epc_rk4	3	Gd156	7244572624144691.0
+source-rate	epc_rk4	3	Gd157	163643984158830.9
+source-rate	epc_rk4	3	I135	2.9716572194371284e+16
+source-rate	epc_rk4	3	U234	4.942064184054909e+18
+source-rate	epc_rk4	3	U235	5.1433464671998267e+20
+source-rate	epc_rk4	3	U238	1.2299481788184881e+22
+source-rate	epc_rk4	3	Xe135	3307433005058338.5
+source-rate	epc_rk4	3	Xe136	2.0045094135473144e+18
+rate	source-rate	epc_rk4	3	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	epc_rk4	3	Cs135	fission	0.0
+rate	source-rate	epc_rk4	3	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	epc_rk4	3	Gd156	fission	0.0
+rate	source-rate	epc_rk4	3	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	epc_rk4	3	Gd157	fission	0.0
+rate	source-rate	epc_rk4	3	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	epc_rk4	3	I135	fission	0.0
+rate	source-rate	epc_rk4	3	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	epc_rk4	3	U234	fission	5.779427224021646e-10
+rate	source-rate	epc_rk4	3	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	epc_rk4	3	U235	fission	5.6393264024864684e-08
+rate	source-rate	epc_rk4	3	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	epc_rk4	3	U238	fission	1.219214956616676e-10
+rate	source-rate	epc_rk4	3	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	epc_rk4	3	Xe135	fission	0.0
+rate	source-rate	epc_rk4	3	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	epc_rk4	3	Xe136	fission	0.0
+source-rate	leqi	0	Cs135	0.0
+source-rate	leqi	0	Gd156	0.0
+source-rate	leqi	0	Gd157	0.0
+source-rate	leqi	0	I135	0.0
+source-rate	leqi	0	U234	4.945767244820886e+18
+source-rate	leqi	0	U235	5.533328877654267e+20
+source-rate	leqi	0	U238	1.2301425386030308e+22
+source-rate	leqi	0	Xe135	0.0
+source-rate	leqi	0	Xe136	0.0
+rate	source-rate	leqi	0	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	leqi	0	Cs135	fission	0.0
+rate	source-rate	leqi	0	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	leqi	0	Gd156	fission	0.0
+rate	source-rate	leqi	0	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	leqi	0	Gd157	fission	0.0
+rate	source-rate	leqi	0	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	leqi	0	I135	fission	0.0
+rate	source-rate	leqi	0	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	leqi	0	U234	fission	5.779427224021646e-10
+rate	source-rate	leqi	0	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	leqi	0	U235	fission	5.6393264024864684e-08
+rate	source-rate	leqi	0	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	leqi	0	U238	fission	1.219214956616676e-10
+rate	source-rate	leqi	0	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	leqi	0	Xe135	fission	0.0
+rate	source-rate	leqi	0	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	leqi	0	Xe136	fission	0.0
+source-rate	leqi	1	Cs135	2.940211224436344e+16
+source-rate	leqi	1	Gd156	2466188858397138.0
+source-rate	leqi	1	Gd157	168095159318275.5
+source-rate	leqi	1	I135	3.1165568981192584e+16
+source-rate	leqi	1	U234	4.944532583036804e+18
+source-rate	leqi	1	U235	5.400155294471169e+20
+source-rate	leqi	1	U238	1.2300777485958398e+22
+source-rate	leqi	1	Xe135	3468937519501296.0
+source-rate	leqi	1	Xe136	6.626322526411803e+17
+rate	source-rate	leqi	1	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	leqi	1	Cs135	fission	0.0
+rate	source-rate	leqi	1	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	leqi	1	Gd156	fission	0.0
+rate	source-rate	leqi	1	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	leqi	1	Gd157	fission	0.0
+rate	source-rate	leqi	1	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	leqi	1	I135	fission	0.0
+rate	source-rate	leqi	1	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	leqi	1	U234	fission	5.779427224021646e-10
+rate	source-rate	leqi	1	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	leqi	1	U235	fission	5.6393264024864684e-08
+rate	source-rate	leqi	1	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	leqi	1	U238	fission	1.219214956616676e-10
+rate	source-rate	leqi	1	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	leqi	1	Xe135	fission	0.0
+rate	source-rate	leqi	1	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	leqi	1	Xe136	fission	0.0
+source-rate	leqi	2	Cs135	6.066158384246501e+16
+source-rate	leqi	2	Gd156	4880635846589891.0
+source-rate	leqi	2	Gd157	165976603362177.8
+source-rate	leqi	2	I135	3.0432296278861228e+16
+source-rate	leqi	2	U234	4.943298229473799e+18
+source-rate	leqi	2	U235	5.2701868710842735e+20
+source-rate	leqi	2	U238	1.2300129620010539e+22
+source-rate	leqi	2	Xe135	3387207414187158.0
+source-rate	leqi	2	Xe136	1.3416222091175964e+18
+rate	source-rate	leqi	2	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	leqi	2	Cs135	fission	0.0
+rate	source-rate	leqi	2	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	leqi	2	Gd156	fission	0.0
+rate	source-rate	leqi	2	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	leqi	2	Gd157	fission	0.0
+rate	source-rate	leqi	2	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	leqi	2	I135	fission	0.0
+rate	source-rate	leqi	2	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	leqi	2	U234	fission	5.779427224021646e-10
+rate	source-rate	leqi	2	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	leqi	2	U235	fission	5.6393264024864684e-08
+rate	source-rate	leqi	2	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	leqi	2	U238	fission	1.219214956616676e-10
+rate	source-rate	leqi	2	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	leqi	2	Xe135	fission	0.0
+rate	source-rate	leqi	2	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	leqi	2	Xe136	fission	0.0
+source-rate	leqi	3	Cs135	9.118463392611749e+16
+source-rate	leqi	3	Gd156	7244572624144742.0
+source-rate	leqi	3	Gd157	163643984158832.38
+source-rate	leqi	3	I135	2.9716572194371596e+16
+source-rate	leqi	3	U234	4.942064184054931e+18
+source-rate	leqi	3	U235	5.143346467199881e+20
+source-rate	leqi	3	U238	1.2299481788184917e+22
+source-rate	leqi	3	Xe135	3307433005058373.0
+source-rate	leqi	3	Xe136	2.0045094135473236e+18
+rate	source-rate	leqi	3	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	leqi	3	Cs135	fission	0.0
+rate	source-rate	leqi	3	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	leqi	3	Gd156	fission	0.0
+rate	source-rate	leqi	3	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	leqi	3	Gd157	fission	0.0
+rate	source-rate	leqi	3	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	leqi	3	I135	fission	0.0
+rate	source-rate	leqi	3	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	leqi	3	U234	fission	5.779427224021646e-10
+rate	source-rate	leqi	3	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	leqi	3	U235	fission	5.6393264024864684e-08
+rate	source-rate	leqi	3	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	leqi	3	U238	fission	1.219214956616676e-10
+rate	source-rate	leqi	3	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	leqi	3	Xe135	fission	0.0
+rate	source-rate	leqi	3	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	leqi	3	Xe136	fission	0.0
+source-rate	si_celi	0	Cs135	0.0
+source-rate	si_celi	0	Gd156	0.0
+source-rate	si_celi	0	Gd157	0.0
+source-rate	si_celi	0	I135	0.0
+source-rate	si_celi	0	U234	4.945767244820886e+18
+source-rate	si_celi	0	U235	5.533328877654267e+20
+source-rate	si_celi	0	U238	1.2301425386030308e+22
+source-rate	si_celi	0	Xe135	0.0
+source-rate	si_celi	0	Xe136	0.0
+rate	source-rate	si_celi	0	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	si_celi	0	Cs135	fission	0.0
+rate	source-rate	si_celi	0	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	si_celi	0	Gd156	fission	0.0
+rate	source-rate	si_celi	0	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	si_celi	0	Gd157	fission	0.0
+rate	source-rate	si_celi	0	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	si_celi	0	I135	fission	0.0
+rate	source-rate	si_celi	0	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	si_celi	0	U234	fission	5.779427224021646e-10
+rate	source-rate	si_celi	0	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	si_celi	0	U235	fission	5.6393264024864684e-08
+rate	source-rate	si_celi	0	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	si_celi	0	U238	fission	1.219214956616676e-10
+rate	source-rate	si_celi	0	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	si_celi	0	Xe135	fission	0.0
+rate	source-rate	si_celi	0	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	si_celi	0	Xe136	fission	0.0
+source-rate	si_celi	1	Cs135	2.9402112244363444e+16
+source-rate	si_celi	1	Gd156	2466188858397138.0
+source-rate	si_celi	1	Gd157	168095159318275.66
+source-rate	si_celi	1	I135	3.1165568981192584e+16
+source-rate	si_celi	1	U234	4.944532583036804e+18
+source-rate	si_celi	1	U235	5.400155294471169e+20
+source-rate	si_celi	1	U238	1.2300777485958398e+22
+source-rate	si_celi	1	Xe135	3468937519501296.5
+source-rate	si_celi	1	Xe136	6.626322526411803e+17
+rate	source-rate	si_celi	1	Cs135	(n,gamma)	2.529965768530313e-09
+rate	source-rate	si_celi	1	Cs135	fission	0.0
+rate	source-rate	si_celi	1	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	si_celi	1	Gd156	fission	0.0
+rate	source-rate	si_celi	1	Gd157	(n,gamma)	1.4892225301748721e-05
+rate	source-rate	si_celi	1	Gd157	fission	0.0
+rate	source-rate	si_celi	1	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	si_celi	1	I135	fission	0.0
+rate	source-rate	si_celi	1	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	si_celi	1	U234	fission	5.779427224021647e-10
+rate	source-rate	si_celi	1	U235	(n,gamma)	1.220511101542324e-08
+rate	source-rate	si_celi	1	U235	fission	5.639326402486469e-08
+rate	source-rate	si_celi	1	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	si_celi	1	U238	fission	1.2192149566166763e-10
+rate	source-rate	si_celi	1	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	si_celi	1	Xe135	fission	0.0
+rate	source-rate	si_celi	1	Xe136	(n,gamma)	2.6996998002517126e-11
+rate	source-rate	si_celi	1	Xe136	fission	0.0
+source-rate	si_celi	2	Cs135	6.066158384246501e+16
+source-rate	si_celi	2	Gd156	4880635846589891.0
+source-rate	si_celi	2	Gd157	165976603362177.88
+source-rate	si_celi	2	I135	3.0432296278861236e+16
+source-rate	si_celi	2	U234	4.943298229473799e+18
+source-rate	si_celi	2	U235	5.2701868710842735e+20
+source-rate	si_celi	2	U238	1.2300129620010539e+22
+source-rate	si_celi	2	Xe135	3387207414187158.5
+source-rate	si_celi	2	Xe136	1.3416222091175964e+18
+rate	source-rate	si_celi	2	Cs135	(n,gamma)	2.529965768530313e-09
+rate	source-rate	si_celi	2	Cs135	fission	0.0
+rate	source-rate	si_celi	2	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	si_celi	2	Gd156	fission	0.0
+rate	source-rate	si_celi	2	Gd157	(n,gamma)	1.4892225301748721e-05
+rate	source-rate	si_celi	2	Gd157	fission	0.0
+rate	source-rate	si_celi	2	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	si_celi	2	I135	fission	0.0
+rate	source-rate	si_celi	2	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	si_celi	2	U234	fission	5.779427224021647e-10
+rate	source-rate	si_celi	2	U235	(n,gamma)	1.220511101542324e-08
+rate	source-rate	si_celi	2	U235	fission	5.639326402486469e-08
+rate	source-rate	si_celi	2	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	si_celi	2	U238	fission	1.2192149566166763e-10
+rate	source-rate	si_celi	2	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	si_celi	2	Xe135	fission	0.0
+rate	source-rate	si_celi	2	Xe136	(n,gamma)	2.6996998002517126e-11
+rate	source-rate	si_celi	2	Xe136	fission	0.0
+source-rate	si_celi	3	Cs135	9.118463392611749e+16
+source-rate	si_celi	3	Gd156	7244572624144742.0
+source-rate	si_celi	3	Gd157	163643984158832.4
+source-rate	si_celi	3	I135	2.9716572194371604e+16
+source-rate	si_celi	3	U234	4.942064184054931e+18
+source-rate	si_celi	3	U235	5.143346467199881e+20
+source-rate	si_celi	3	U238	1.2299481788184917e+22
+source-rate	si_celi	3	Xe135	3307433005058373.5
+source-rate	si_celi	3	Xe136	2.0045094135473236e+18
+rate	source-rate	si_celi	3	Cs135	(n,gamma)	2.529965768530313e-09
+rate	source-rate	si_celi	3	Cs135	fission	0.0
+rate	source-rate	si_celi	3	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	si_celi	3	Gd156	fission	0.0
+rate	source-rate	si_celi	3	Gd157	(n,gamma)	1.4892225301748721e-05
+rate	source-rate	si_celi	3	Gd157	fission	0.0
+rate	source-rate	si_celi	3	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	si_celi	3	I135	fission	0.0
+rate	source-rate	si_celi	3	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	si_celi	3	U234	fission	5.779427224021647e-10
+rate	source-rate	si_celi	3	U235	(n,gamma)	1.220511101542324e-08
+rate	source-rate	si_celi	3	U235	fission	5.639326402486469e-08
+rate	source-rate	si_celi	3	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	si_celi	3	U238	fission	1.2192149566166763e-10
+rate	source-rate	si_celi	3	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	si_celi	3	Xe135	fission	0.0
+rate	source-rate	si_celi	3	Xe136	(n,gamma)	2.6996998002517126e-11
+rate	source-rate	si_celi	3	Xe136	fission	0.0
+source-rate	si_leqi	0	Cs135	0.0
+source-rate	si_leqi	0	Gd156	0.0
+source-rate	si_leqi	0	Gd157	0.0
+source-rate	si_leqi	0	I135	0.0
+source-rate	si_leqi	0	U234	4.945767244820886e+18
+source-rate	si_leqi	0	U235	5.533328877654267e+20
+source-rate	si_leqi	0	U238	1.2301425386030308e+22
+source-rate	si_leqi	0	Xe135	0.0
+source-rate	si_leqi	0	Xe136	0.0
+rate	source-rate	si_leqi	0	Cs135	(n,gamma)	2.5299657685303127e-09
+rate	source-rate	si_leqi	0	Cs135	fission	0.0
+rate	source-rate	si_leqi	0	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	si_leqi	0	Gd156	fission	0.0
+rate	source-rate	si_leqi	0	Gd157	(n,gamma)	1.4892225301748723e-05
+rate	source-rate	si_leqi	0	Gd157	fission	0.0
+rate	source-rate	si_leqi	0	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	si_leqi	0	I135	fission	0.0
+rate	source-rate	si_leqi	0	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	si_leqi	0	U234	fission	5.779427224021646e-10
+rate	source-rate	si_leqi	0	U235	(n,gamma)	1.2205111015423239e-08
+rate	source-rate	si_leqi	0	U235	fission	5.6393264024864684e-08
+rate	source-rate	si_leqi	0	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	si_leqi	0	U238	fission	1.219214956616676e-10
+rate	source-rate	si_leqi	0	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	si_leqi	0	Xe135	fission	0.0
+rate	source-rate	si_leqi	0	Xe136	(n,gamma)	2.6996998002517123e-11
+rate	source-rate	si_leqi	0	Xe136	fission	0.0
+source-rate	si_leqi	1	Cs135	2.9402112244363444e+16
+source-rate	si_leqi	1	Gd156	2466188858397138.0
+source-rate	si_leqi	1	Gd157	168095159318275.66
+source-rate	si_leqi	1	I135	3.1165568981192584e+16
+source-rate	si_leqi	1	U234	4.944532583036804e+18
+source-rate	si_leqi	1	U235	5.400155294471169e+20
+source-rate	si_leqi	1	U238	1.2300777485958398e+22
+source-rate	si_leqi	1	Xe135	3468937519501296.5
+source-rate	si_leqi	1	Xe136	6.626322526411803e+17
+rate	source-rate	si_leqi	1	Cs135	(n,gamma)	2.529965768530313e-09
+rate	source-rate	si_leqi	1	Cs135	fission	0.0
+rate	source-rate	si_leqi	1	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	si_leqi	1	Gd156	fission	0.0
+rate	source-rate	si_leqi	1	Gd157	(n,gamma)	1.4892225301748721e-05
+rate	source-rate	si_leqi	1	Gd157	fission	0.0
+rate	source-rate	si_leqi	1	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	si_leqi	1	I135	fission	0.0
+rate	source-rate	si_leqi	1	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	si_leqi	1	U234	fission	5.779427224021647e-10
+rate	source-rate	si_leqi	1	U235	(n,gamma)	1.220511101542324e-08
+rate	source-rate	si_leqi	1	U235	fission	5.639326402486469e-08
+rate	source-rate	si_leqi	1	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	si_leqi	1	U238	fission	1.2192149566166763e-10
+rate	source-rate	si_leqi	1	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	si_leqi	1	Xe135	fission	0.0
+rate	source-rate	si_leqi	1	Xe136	(n,gamma)	2.6996998002517126e-11
+rate	source-rate	si_leqi	1	Xe136	fission	0.0
+source-rate	si_leqi	2	Cs135	6.066158384246501e+16
+source-rate	si_leqi	2	Gd156	4880635846589891.0
+source-rate	si_leqi	2	Gd157	165976603362177.88
+source-rate	si_leqi	2	I135	3.0432296278861236e+16
+source-rate	si_leqi	2	U234	4.943298229473799e+18
+source-rate	si_leqi	2	U235	5.2701868710842735e+20
+source-rate	si_leqi	2	U238	1.2300129620010539e+22
+source-rate	si_leqi	2	Xe135	3387207414187158.5
+source-rate	si_leqi	2	Xe136	1.3416222091175964e+18
+rate	source-rate	si_leqi	2	Cs135	(n,gamma)	2.529965768530313e-09
+rate	source-rate	si_leqi	2	Cs135	fission	0.0
+rate	source-rate	si_leqi	2	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	si_leqi	2	Gd156	fission	0.0
+rate	source-rate	si_leqi	2	Gd157	(n,gamma)	1.4892225301748721e-05
+rate	source-rate	si_leqi	2	Gd157	fission	0.0
+rate	source-rate	si_leqi	2	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	si_leqi	2	I135	fission	0.0
+rate	source-rate	si_leqi	2	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	si_leqi	2	U234	fission	5.779427224021647e-10
+rate	source-rate	si_leqi	2	U235	(n,gamma)	1.220511101542324e-08
+rate	source-rate	si_leqi	2	U235	fission	5.639326402486469e-08
+rate	source-rate	si_leqi	2	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	si_leqi	2	U238	fission	1.2192149566166763e-10
+rate	source-rate	si_leqi	2	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	si_leqi	2	Xe135	fission	0.0
+rate	source-rate	si_leqi	2	Xe136	(n,gamma)	2.6996998002517126e-11
+rate	source-rate	si_leqi	2	Xe136	fission	0.0
+source-rate	si_leqi	3	Cs135	9.118463392611738e+16
+source-rate	si_leqi	3	Gd156	7244572624144742.0
+source-rate	si_leqi	3	Gd157	163643984158832.4
+source-rate	si_leqi	3	I135	2.9716572194371604e+16
+source-rate	si_leqi	3	U234	4.942064184054931e+18
+source-rate	si_leqi	3	U235	5.143346467199881e+20
+source-rate	si_leqi	3	U238	1.2299481788184917e+22
+source-rate	si_leqi	3	Xe135	3307433005058373.0
+source-rate	si_leqi	3	Xe136	2.0045094135473236e+18
+rate	source-rate	si_leqi	3	Cs135	(n,gamma)	2.529965768530313e-09
+rate	source-rate	si_leqi	3	Cs135	fission	0.0
+rate	source-rate	si_leqi	3	Gd156	(n,gamma)	3.9607566823097765e-09
+rate	source-rate	si_leqi	3	Gd156	fission	0.0
+rate	source-rate	si_leqi	3	Gd157	(n,gamma)	1.4892225301748721e-05
+rate	source-rate	si_leqi	3	Gd157	fission	0.0
+rate	source-rate	si_leqi	3	I135	(n,gamma)	7.969474476726297e-09
+rate	source-rate	si_leqi	3	I135	fission	0.0
+rate	source-rate	si_leqi	3	U234	(n,gamma)	2.5894042520349247e-08
+rate	source-rate	si_leqi	3	U234	fission	5.779427224021647e-10
+rate	source-rate	si_leqi	3	U235	(n,gamma)	1.220511101542324e-08
+rate	source-rate	si_leqi	3	U235	fission	5.639326402486469e-08
+rate	source-rate	si_leqi	3	U238	(n,gamma)	1.0102005439797405e-09
+rate	source-rate	si_leqi	3	U238	fission	1.2192149566166763e-10
+rate	source-rate	si_leqi	3	Xe135	(n,gamma)	0.0002649317051872141
+rate	source-rate	si_leqi	3	Xe135	fission	0.0
+rate	source-rate	si_leqi	3	Xe136	(n,gamma)	2.6996998002517126e-11
+rate	source-rate	si_leqi	3	Xe136	fission	0.0
+fission-q	predictor	0	Cs135	0.0
+fission-q	predictor	0	Gd156	0.0
+fission-q	predictor	0	Gd157	0.0
+fission-q	predictor	0	I135	0.0
+fission-q	predictor	0	U234	4.945767244820886e+18
+fission-q	predictor	0	U235	5.533328877654267e+20
+fission-q	predictor	0	U238	1.2301425386030308e+22
+fission-q	predictor	0	Xe135	0.0
+fission-q	predictor	0	Xe136	0.0
+rate	fission-q	predictor	0	Cs135	(n,gamma)	4.33894900434019e-10
+rate	fission-q	predictor	0	Cs135	fission	0.0
+rate	fission-q	predictor	0	Gd156	(n,gamma)	6.792788059391425e-10
+rate	fission-q	predictor	0	Gd156	fission	0.0
+rate	fission-q	predictor	0	Gd157	(n,gamma)	2.5540506100590035e-06
+rate	fission-q	predictor	0	Gd157	fission	0.0
+rate	fission-q	predictor	0	I135	(n,gamma)	1.3667830520091802e-09
+rate	fission-q	predictor	0	I135	fission	0.0
+rate	fission-q	predictor	0	U234	(n,gamma)	4.440887359407992e-09
+rate	fission-q	predictor	0	U234	fission	9.911849524309031e-11
+rate	fission-q	predictor	0	U235	(n,gamma)	2.093204380350004e-09
+rate	fission-q	predictor	0	U235	fission	9.671573419521876e-09
+rate	fission-q	predictor	0	U238	(n,gamma)	1.732516976714302e-10
+rate	fission-q	predictor	0	U238	fission	2.090981462236022e-11
+rate	fission-q	predictor	0	Xe135	(n,gamma)	4.543639177805889e-05
+rate	fission-q	predictor	0	Xe135	fission	0.0
+rate	fission-q	predictor	0	Xe136	(n,gamma)	4.630046740562935e-12
+rate	fission-q	predictor	0	Xe136	fission	0.0
+fission-q	predictor	1	Cs135	2.121772925905653e+16
+fission-q	predictor	1	Gd156	426687253466716.3
+fission-q	predictor	1	Gd157	113726116762886.75
+fission-q	predictor	1	I135	5444241470357931.0
+fission-q	predictor	1	U234	4.945555475607733e+18
+fission-q	predictor	1	U235	5.51025819676342e+20
+fission-q	predictor	1	U238	1.2301314267265657e+22
+fission-q	predictor	1	Xe135	2606274466647607.0
+fission-q	predictor	1	Xe136	9.659981053924731e+16
+rate	fission-q	predictor	1	Cs135	(n,gamma)	4.35626144118014e-10
+rate	fission-q	predictor	1	Cs135	fission	0.0
+rate	fission-q	predictor	1	Gd156	(n,gamma)	6.819891331203965e-10
+rate	fission-q	predictor	1	Gd156	fission	0.0
+rate	fission-q	predictor	1	Gd157	(n,gamma)	2.564241289836169e-06
+rate	fission-q	predictor	1	Gd157	fission	0.0
+rate	fission-q	predictor	1	I135	(n,gamma)	1.3722365259352746e-09
+rate	fission-q	predictor	1	I135	fission	0.0
+rate	fission-q	predictor	1	U234	(n,gamma)	4.458606530996821e-09
+rate	fission-q	predictor	1	U234	fission	9.951397873156883e-11
+rate	fission-q	predictor	1	U235	(n,gamma)	2.101556280451081e-09
+rate	fission-q	predictor	1	U235	fission	9.710163065033019e-09
+rate	fission-q	predictor	1	U238	(n,gamma)	1.7394297315550491e-10
+rate	fission-q	predictor	1	U238	fission	2.0993244928782944e-11
+rate	fission-q	predictor	1	Xe135	(n,gamma)	4.561768329867967e-05
+rate	fission-q	predictor	1	Xe135	fission	0.0
+rate	fission-q	predictor	1	Xe136	(n,gamma)	4.648520659404072e-12
+rate	fission-q	predictor	1	Xe136	fission	0.0
+fission-q	predictor	2	Cs135	4.492066533278974e+16
+fission-q	predictor	2	Gd156	853515195824590.9
+fission-q	predictor	2	Gd157	151254246590863.22
+fission-q	predictor	2	I135	5443607242987650.0
+fission-q	predictor	2	U234	4.94534287055588e+18
+fission-q	predictor	2	U235	5.487192230605256e+20
+fission-q	predictor	2	U238	1.230120270614611e+22
+fission-q	predictor	2	Xe135	2598877152946656.5
+fission-q	predictor	2	Xe136	1.9875485171456618e+17
+rate	fission-q	predictor	2	Cs135	(n,gamma)	4.373709012219731e-10
+rate	fission-q	predictor	2	Cs135	fission	0.0
+rate	fission-q	predictor	2	Gd156	(n,gamma)	6.847206160694833e-10
+rate	fission-q	predictor	2	Gd156	fission	0.0
+rate	fission-q	predictor	2	Gd157	(n,gamma)	2.5745115141262313e-06
+rate	fission-q	predictor	2	Gd157	fission	0.0
+rate	fission-q	predictor	2	I135	(n,gamma)	1.3777325675738803e-09
+rate	fission-q	predictor	2	I135	fission	0.0
+rate	fission-q	predictor	2	U234	(n,gamma)	4.476464011599748e-09
+rate	fission-q	predictor	2	U234	fission	9.991254921150795e-11
+rate	fission-q	predictor	2	U235	(n,gamma)	2.109973372260643e-09
+rate	fission-q	predictor	2	U235	fission	9.749053926422017e-09
+rate	fission-q	predictor	2	U238	(n,gamma)	1.7463964446918672e-10
+rate	fission-q	predictor	2	U238	fission	2.1077326459974802e-11
+rate	fission-q	predictor	2	Xe135	(n,gamma)	4.580038991093472e-05
+rate	fission-q	predictor	2	Xe135	fission	0.0
+rate	fission-q	predictor	2	Xe136	(n,gamma)	4.667138778525038e-12
+rate	fission-q	predictor	2	Xe136	fission	0.0
+fission-q	predictor	3	Cs135	6.855605988082596e+16
+fission-q	predictor	3	Gd156	1280484856295886.8
+fission-q	predictor	3	Gd157	163392665138858.47
+fission-q	predictor	3	I135	5442950692669014.0
+fission-q	predictor	3	U234	4.94512942317916e+18
+fission-q	predictor	3	U235	5.4641310158591846e+20
+fission-q	predictor	3	U238	1.230109069922304e+22
+fission-q	predictor	3	Xe135	2591449053654273.0
+fission-q	predictor	3	Xe136	3.0095923672140486e+17
+rate	fission-q	predictor	3	Cs135	(n,gamma)	4.3912932767461236e-10
+rate	fission-q	predictor	3	Cs135	fission	0.0
+rate	fission-q	predictor	3	Gd156	(n,gamma)	6.874734988986794e-10
+rate	fission-q	predictor	3	Gd156	fission	0.0
+rate	fission-q	predictor	3	Gd157	(n,gamma)	2.584862200777802e-06
+rate	fission-q	predictor	3	Gd157	fission	0.0
+rate	fission-q	predictor	3	I135	(n,gamma)	1.383271668105525e-09
+rate	fission-q	predictor	3	I135	fission	0.0
+rate	fission-q	predictor	3	U234	(n,gamma)	4.494461397137497e-09
+rate	fission-q	predictor	3	U234	fission	1.0031424230309973e-10
+rate	fission-q	predictor	3	U235	(n,gamma)	2.1184564080130936e-09
+rate	fission-q	predictor	3	U235	fission	9.78824947936011e-09
+rate	fission-q	predictor	3	U238	(n,gamma)	1.7534177387390054e-10
+rate	fission-q	predictor	3	U238	fission	2.116206673029133e-11
+rate	fission-q	predictor	3	Xe135	(n,gamma)	4.5984527943290246e-05
+rate	fission-q	predictor	3	Xe135	fission	0.0
+rate	fission-q	predictor	3	Xe136	(n,gamma)	4.685902761824722e-12
+rate	fission-q	predictor	3	Xe136	fission	0.0
+fission-q	cecm	0	Cs135	0.0
+fission-q	cecm	0	Gd156	0.0
+fission-q	cecm	0	Gd157	0.0
+fission-q	cecm	0	I135	0.0
+fission-q	cecm	0	U234	4.945767244820886e+18
+fission-q	cecm	0	U235	5.533328877654267e+20
+fission-q	cecm	0	U238	1.2301425386030308e+22
+fission-q	cecm	0	Xe135	0.0
+fission-q	cecm	0	Xe136	0.0
+rate	fission-q	cecm	0	Cs135	(n,gamma)	4.33894900434019e-10
+rate	fission-q	cecm	0	Cs135	fission	0.0
+rate	fission-q	cecm	0	Gd156	(n,gamma)	6.792788059391425e-10
+rate	fission-q	cecm	0	Gd156	fission	0.0
+rate	fission-q	cecm	0	Gd157	(n,gamma)	2.5540506100590035e-06
+rate	fission-q	cecm	0	Gd157	fission	0.0
+rate	fission-q	cecm	0	I135	(n,gamma)	1.3667830520091802e-09
+rate	fission-q	cecm	0	I135	fission	0.0
+rate	fission-q	cecm	0	U234	(n,gamma)	4.440887359407992e-09
+rate	fission-q	cecm	0	U234	fission	9.911849524309031e-11
+rate	fission-q	cecm	0	U235	(n,gamma)	2.093204380350004e-09
+rate	fission-q	cecm	0	U235	fission	9.671573419521876e-09
+rate	fission-q	cecm	0	U238	(n,gamma)	1.732516976714302e-10
+rate	fission-q	cecm	0	U238	fission	2.090981462236022e-11
+rate	fission-q	cecm	0	Xe135	(n,gamma)	4.543639177805889e-05
+rate	fission-q	cecm	0	Xe135	fission	0.0
+rate	fission-q	cecm	0	Xe136	(n,gamma)	4.630046740562935e-12
+rate	fission-q	cecm	0	Xe136	fission	0.0
+fission-q	cecm	1	Cs135	2.1232166425351092e+16
+fission-q	cecm	1	Gd156	427536137856809.9
+fission-q	cecm	1	Gd157	113849761694233.05
+fission-q	cecm	1	I135	5455051039694185.0
+fission-q	cecm	1	U234	4.945555053536392e+18
+fission-q	cecm	1	U235	5.510212310427874e+20
+fission-q	cecm	1	U238	1.230131404579416e+22
+fission-q	cecm	1	Xe135	2607898012837208.0
+fission-q	cecm	1	Xe136	9.682329257401518e+16
+rate	fission-q	cecm	1	Cs135	(n,gamma)	4.3562960123519696e-10
+rate	fission-q	cecm	1	Cs135	fission	0.0
+rate	fission-q	cecm	1	Gd156	(n,gamma)	6.819945453675321e-10
+rate	fission-q	cecm	1	Gd156	fission	0.0
+rate	fission-q	cecm	1	Gd157	(n,gamma)	2.564261639585017e-06
+rate	fission-q	cecm	1	Gd157	fission	0.0
+rate	fission-q	cecm	1	I135	(n,gamma)	1.3722474159668693e-09
+rate	fission-q	cecm	1	I135	fission	0.0
+rate	fission-q	cecm	1	U234	(n,gamma)	4.458641914376488e-09
+rate	fission-q	cecm	1	U234	fission	9.951476847178637e-11
+rate	fission-q	cecm	1	U235	(n,gamma)	2.10157295834433e-09
+rate	fission-q	cecm	1	U235	fission	9.710240124621922e-09
+rate	fission-q	cecm	1	U238	(n,gamma)	1.7394435356218958e-10
+rate	fission-q	cecm	1	U238	fission	2.0993411530601384e-11
+rate	fission-q	cecm	1	Xe135	(n,gamma)	4.5618045319368534e-05
+rate	fission-q	cecm	1	Xe135	fission	0.0
+rate	fission-q	cecm	1	Xe136	(n,gamma)	4.648557549937076e-12
+rate	fission-q	cecm	1	Xe136	fission	0.0
+fission-q	cecm	2	Cs135	4.494983326035083e+16
+fission-q	cecm	2	Gd156	855216751213136.4
+fission-q	cecm	2	Gd157	151335185189755.03
+fission-q	cecm	2	I135	5454455208150386.0
+fission-q	cecm	2	U234	4.945342021462792e+18
+fission-q	cecm	2	U235	5.4871003025868836e+20
+fission-q	cecm	2	U238	1.2301202260590384e+22
+fission-q	cecm	2	Xe135	2600482897612031.0
+fission-q	cecm	2	Xe136	1.9921481276677328e+17
+rate	fission-q	cecm	2	Cs135	(n,gamma)	4.3737788280976737e-10
+rate	fission-q	cecm	2	Cs135	fission	0.0
+rate	fission-q	cecm	2	Gd156	(n,gamma)	6.847315460080828e-10
+rate	fission-q	cecm	2	Gd156	fission	0.0
+rate	fission-q	cecm	2	Gd157	(n,gamma)	2.5745526100887493e-06
+rate	fission-q	cecm	2	Gd157	fission	0.0
+rate	fission-q	cecm	2	I135	(n,gamma)	1.3777545598025598e-09
+rate	fission-q	cecm	2	I135	fission	0.0
+rate	fission-q	cecm	2	U234	(n,gamma)	4.4765354677172386e-09
+rate	fission-q	cecm	2	U234	fission	9.991414407808941e-11
+rate	fission-q	cecm	2	U235	(n,gamma)	2.1100070529748853e-09
+rate	fission-q	cecm	2	U235	fission	9.74920954691645e-09
+rate	fission-q	cecm	2	U238	(n,gamma)	1.746424321763863e-10
+rate	fission-q	cecm	2	U238	fission	2.1077662909438488e-11
+rate	fission-q	cecm	2	Xe135	(n,gamma)	4.580112100539546e-05
+rate	fission-q	cecm	2	Xe135	fission	0.0
+rate	fission-q	cecm	2	Xe136	(n,gamma)	4.667213278312379e-12
+rate	fission-q	cecm	2	Xe136	fission	0.0
+fission-q	cecm	3	Cs135	6.859979589257657e+16
+fission-q	cecm	3	Gd156	1283042902587225.0
+fission-q	cecm	3	Gd157	163431074973882.03
+fission-q	cecm	3	I135	5453837276882361.0
+fission-q	cecm	3	U234	4.945128142043785e+18
+fission-q	cecm	3	U235	5.463992889850239e+20
+fission-q	cecm	3	U238	1.230109002693321e+22
+fission-q	cecm	3	Xe135	2593036858157007.5
+fission-q	cecm	3	Xe136	3.016567232129503e+17
+rate	fission-q	cecm	3	Cs135	(n,gamma)	4.3913990243673653e-10
+rate	fission-q	cecm	3	Cs135	fission	0.0
+rate	fission-q	cecm	3	Gd156	(n,gamma)	6.874900540870017e-10
+rate	fission-q	cecm	3	Gd156	fission	0.0
+rate	fission-q	cecm	3	Gd157	(n,gamma)	2.584924447367074e-06
+rate	fission-q	cecm	3	Gd157	fission	0.0
+rate	fission-q	cecm	3	I135	(n,gamma)	1.3833049789502383e-09
+rate	fission-q	cecm	3	I135	fission	0.0
+rate	fission-q	cecm	3	U234	(n,gamma)	4.494569629171104e-09
+rate	fission-q	cecm	3	U234	fission	1.0031665799065043e-10
+rate	fission-q	cecm	3	U235	(n,gamma)	2.1185074229901707e-09
+rate	fission-q	cecm	3	U235	fission	9.788485192174839e-09
+rate	fission-q	cecm	3	U238	(n,gamma)	1.753459963146083e-10
+rate	fission-q	cecm	3	U238	fission	2.1162576338298868e-11
+rate	fission-q	cecm	3	Xe135	(n,gamma)	4.598563530600493e-05
+rate	fission-q	cecm	3	Xe135	fission	0.0
+rate	fission-q	cecm	3	Xe136	(n,gamma)	4.686015603996539e-12
+rate	fission-q	cecm	3	Xe136	fission	0.0
+fission-q	cf4	0	Cs135	0.0
+fission-q	cf4	0	Gd156	0.0
+fission-q	cf4	0	Gd157	0.0
+fission-q	cf4	0	I135	0.0
+fission-q	cf4	0	U234	4.945767244820886e+18
+fission-q	cf4	0	U235	5.533328877654267e+20
+fission-q	cf4	0	U238	1.2301425386030308e+22
+fission-q	cf4	0	Xe135	0.0
+fission-q	cf4	0	Xe136	0.0
+rate	fission-q	cf4	0	Cs135	(n,gamma)	4.33894900434019e-10
+rate	fission-q	cf4	0	Cs135	fission	0.0
+rate	fission-q	cf4	0	Gd156	(n,gamma)	6.792788059391425e-10
+rate	fission-q	cf4	0	Gd156	fission	0.0
+rate	fission-q	cf4	0	Gd157	(n,gamma)	2.5540506100590035e-06
+rate	fission-q	cf4	0	Gd157	fission	0.0
+rate	fission-q	cf4	0	I135	(n,gamma)	1.3667830520091802e-09
+rate	fission-q	cf4	0	I135	fission	0.0
+rate	fission-q	cf4	0	U234	(n,gamma)	4.440887359407992e-09
+rate	fission-q	cf4	0	U234	fission	9.911849524309031e-11
+rate	fission-q	cf4	0	U235	(n,gamma)	2.093204380350004e-09
+rate	fission-q	cf4	0	U235	fission	9.671573419521876e-09
+rate	fission-q	cf4	0	U238	(n,gamma)	1.732516976714302e-10
+rate	fission-q	cf4	0	U238	fission	2.090981462236022e-11
+rate	fission-q	cf4	0	Xe135	(n,gamma)	4.543639177805889e-05
+rate	fission-q	cf4	0	Xe135	fission	0.0
+rate	fission-q	cf4	0	Xe136	(n,gamma)	4.630046740562935e-12
+rate	fission-q	cf4	0	Xe136	fission	0.0
+fission-q	cf4	1	Cs135	2.122726142951638e+16
+fission-q	cf4	1	Gd156	427537537180094.0
+fission-q	cf4	1	Gd157	113849965288594.62
+fission-q	cf4	1	I135	5462300294162581.0
+fission-q	cf4	1	U234	4.945555052840647e+18
+fission-q	cf4	1	U235	5.5102122347876857e+20
+fission-q	cf4	1	U238	1.230131404542909e+22
+fission-q	cf4	1	Xe135	2608977672103077.0
+fission-q	cf4	1	Xe136	9.682028134324306e+16
+rate	fission-q	cf4	1	Cs135	(n,gamma)	4.356296069340411e-10
+rate	fission-q	cf4	1	Cs135	fission	0.0
+rate	fission-q	cf4	1	Gd156	(n,gamma)	6.819945542892872e-10
+rate	fission-q	cf4	1	Gd156	fission	0.0
+rate	fission-q	cf4	1	Gd157	(n,gamma)	2.564261673130321e-06
+rate	fission-q	cf4	1	Gd157	fission	0.0
+rate	fission-q	cf4	1	I135	(n,gamma)	1.372247433918414e-09
+rate	fission-q	cf4	1	I135	fission	0.0
+rate	fission-q	cf4	1	U234	(n,gamma)	4.4586419727038046e-09
+rate	fission-q	cf4	1	U234	fission	9.951476977362433e-11
+rate	fission-q	cf4	1	U235	(n,gamma)	2.1015729858368067e-09
+rate	fission-q	cf4	1	U235	fission	9.710240251649895e-09
+rate	fission-q	cf4	1	U238	(n,gamma)	1.7394435583770474e-10
+rate	fission-q	cf4	1	U238	fission	2.099341180523419e-11
+rate	fission-q	cf4	1	Xe135	(n,gamma)	4.5618045916137275e-05
+rate	fission-q	cf4	1	Xe135	fission	0.0
+rate	fission-q	cf4	1	Xe136	(n,gamma)	4.648557610748841e-12
+rate	fission-q	cf4	1	Xe136	fission	0.0
+fission-q	cf4	2	Cs135	4.4944960316384056e+16
+fission-q	cf4	2	Gd156	855219561412393.9
+fission-q	cf4	2	Gd157	151335318562519.28
+fission-q	cf4	2	I135	5461731346249645.0
+fission-q	cf4	2	U234	4.94534202006048e+18
+fission-q	cf4	2	U235	5.4871001507636085e+20
+fission-q	cf4	2	U238	1.23012022598545e+22
+fission-q	cf4	2	Xe135	2601560599820354.5
+fission-q	cf4	2	Xe136	1.9921216025719526e+17
+rate	fission-q	cf4	2	Cs135	(n,gamma)	4.373778943403594e-10
+rate	fission-q	cf4	2	Cs135	fission	0.0
+rate	fission-q	cf4	2	Gd156	(n,gamma)	6.847315640596588e-10
+rate	fission-q	cf4	2	Gd156	fission	0.0
+rate	fission-q	cf4	2	Gd157	(n,gamma)	2.5745526779616734e-06
+rate	fission-q	cf4	2	Gd157	fission	0.0
+rate	fission-q	cf4	2	I135	(n,gamma)	1.3777545961243e-09
+rate	fission-q	cf4	2	I135	fission	0.0
+rate	fission-q	cf4	2	U234	(n,gamma)	4.476535585732132e-09
+rate	fission-q	cf4	2	U234	fission	9.991414671212574e-11
+rate	fission-q	cf4	2	U235	(n,gamma)	2.110007108600996e-09
+rate	fission-q	cf4	2	U235	fission	9.749209803934836e-09
+rate	fission-q	cf4	2	U238	(n,gamma)	1.746424367804843e-10
+rate	fission-q	cf4	2	U238	fission	2.1077663465108864e-11
+rate	fission-q	cf4	2	Xe135	(n,gamma)	4.58011222128503e-05
+rate	fission-q	cf4	2	Xe135	fission	0.0
+rate	fission-q	cf4	2	Xe136	(n,gamma)	4.667213401354111e-12
+rate	fission-q	cf4	2	Xe136	fission	0.0
+fission-q	cf4	3	Cs135	6.859495492389105e+16
+fission-q	cf4	3	Gd156	1283047135355085.0
+fission-q	cf4	3	Gd157	163431138304603.9
+fission-q	cf4	3	I135	5461140469069171.0
+fission-q	cf4	3	U234	4.945128139923892e+18
+fission-q	cf4	3	U235	5.463992661295226e+20
+fission-q	cf4	3	U238	1.2301090025820775e+22
+fission-q	cf4	3	Xe135	2594112594173350.5
+fission-q	cf4	3	Xe136	3.0165443238464774e+17
+rate	fission-q	cf4	3	Cs135	(n,gamma)	4.3913991993505707e-10
+rate	fission-q	cf4	3	Cs135	fission	0.0
+rate	fission-q	cf4	3	Gd156	(n,gamma)	6.874900814812815e-10
+rate	fission-q	cf4	3	Gd156	fission	0.0
+rate	fission-q	cf4	3	Gd157	(n,gamma)	2.5849245503680455e-06
+rate	fission-q	cf4	3	Gd157	fission	0.0
+rate	fission-q	cf4	3	I135	(n,gamma)	1.3833050340705174e-09
+rate	fission-q	cf4	3	I135	fission	0.0
+rate	fission-q	cf4	3	U234	(n,gamma)	4.4945698082653285e-09
+rate	fission-q	cf4	3	U234	fission	1.0031666198794841e-10
+rate	fission-q	cf4	3	U235	(n,gamma)	2.1185075074059155e-09
+rate	fission-q	cf4	3	U235	fission	9.788485582214666e-09
+rate	fission-q	cf4	3	U238	(n,gamma)	1.7534600330158544e-10
+rate	fission-q	cf4	3	U238	fission	2.116257718155985e-11
+rate	fission-q	cf4	3	Xe135	(n,gamma)	4.5985637138385414e-05
+rate	fission-q	cf4	3	Xe135	fission	0.0
+rate	fission-q	cf4	3	Xe136	(n,gamma)	4.686015790719273e-12
+rate	fission-q	cf4	3	Xe136	fission	0.0
+fission-q	celi	0	Cs135	0.0
+fission-q	celi	0	Gd156	0.0
+fission-q	celi	0	Gd157	0.0
+fission-q	celi	0	I135	0.0
+fission-q	celi	0	U234	4.945767244820886e+18
+fission-q	celi	0	U235	5.533328877654267e+20
+fission-q	celi	0	U238	1.2301425386030308e+22
+fission-q	celi	0	Xe135	0.0
+fission-q	celi	0	Xe136	0.0
+rate	fission-q	celi	0	Cs135	(n,gamma)	4.33894900434019e-10
+rate	fission-q	celi	0	Cs135	fission	0.0
+rate	fission-q	celi	0	Gd156	(n,gamma)	6.792788059391425e-10
+rate	fission-q	celi	0	Gd156	fission	0.0
+rate	fission-q	celi	0	Gd157	(n,gamma)	2.5540506100590035e-06
+rate	fission-q	celi	0	Gd157	fission	0.0
+rate	fission-q	celi	0	I135	(n,gamma)	1.3667830520091802e-09
+rate	fission-q	celi	0	I135	fission	0.0
+rate	fission-q	celi	0	U234	(n,gamma)	4.440887359407992e-09
+rate	fission-q	celi	0	U234	fission	9.911849524309031e-11
+rate	fission-q	celi	0	U235	(n,gamma)	2.093204380350004e-09
+rate	fission-q	celi	0	U235	fission	9.671573419521876e-09
+rate	fission-q	celi	0	U238	(n,gamma)	1.732516976714302e-10
+rate	fission-q	celi	0	U238	fission	2.090981462236022e-11
+rate	fission-q	celi	0	Xe135	(n,gamma)	4.543639177805889e-05
+rate	fission-q	celi	0	Xe135	fission	0.0
+rate	fission-q	celi	0	Xe136	(n,gamma)	4.630046740562935e-12
+rate	fission-q	celi	0	Xe136	fission	0.0
+fission-q	celi	1	Cs135	2.1227261168122744e+16
+fission-q	celi	1	Gd156	427536942182602.4
+fission-q	celi	1	Gd157	113849878719601.42
+fission-q	celi	1	I135	5462278277256879.0
+fission-q	celi	1	U234	4.945555053136478e+18
+fission-q	celi	1	U235	5.510212266950176e+20
+fission-q	celi	1	U238	1.230131404558432e+22
+fission-q	celi	1	Xe135	2608974389061841.5
+fission-q	celi	1	Xe136	9.682013142847422e+16
+rate	fission-q	celi	1	Cs135	(n,gamma)	4.3562960451087117e-10
+rate	fission-q	celi	1	Cs135	fission	0.0
+rate	fission-q	celi	1	Gd156	(n,gamma)	6.819945504957235e-10
+rate	fission-q	celi	1	Gd156	fission	0.0
+rate	fission-q	celi	1	Gd157	(n,gamma)	2.5642616588667318e-06
+rate	fission-q	celi	1	Gd157	fission	0.0
+rate	fission-q	celi	1	I135	(n,gamma)	1.3722474262853499e-09
+rate	fission-q	celi	1	I135	fission	0.0
+rate	fission-q	celi	1	U234	(n,gamma)	4.4586419479028106e-09
+rate	fission-q	celi	1	U234	fission	9.951476922007795e-11
+rate	fission-q	celi	1	U235	(n,gamma)	2.1015729741469025e-09
+rate	fission-q	celi	1	U235	fission	9.710240197637125e-09
+rate	fission-q	celi	1	U238	(n,gamma)	1.7394435487014715e-10
+rate	fission-q	celi	1	U238	fission	2.099341168845929e-11
+rate	fission-q	celi	1	Xe135	(n,gamma)	4.5618045662388966e-05
+rate	fission-q	celi	1	Xe135	fission	0.0
+rate	fission-q	celi	1	Xe136	(n,gamma)	4.648557584891451e-12
+rate	fission-q	celi	1	Xe136	fission	0.0
+fission-q	celi	2	Cs135	4.494494971707906e+16
+fission-q	celi	2	Gd156	855218366355709.8
+fission-q	celi	2	Gd157	151335261844949.38
+fission-q	celi	2	I135	5461709163094466.0
+fission-q	celi	2	U234	4.945342020656835e+18
+fission-q	celi	2	U235	5.487100215327504e+20
+fission-q	celi	2	U238	1.2301202260167448e+22
+fission-q	celi	2	Xe135	2601557320423413.0
+fission-q	celi	2	Xe136	1.9921184404184832e+17
+rate	fission-q	celi	2	Cs135	(n,gamma)	4.3737788943689556e-10
+rate	fission-q	celi	2	Cs135	fission	0.0
+rate	fission-q	celi	2	Gd156	(n,gamma)	6.847315563831016e-10
+rate	fission-q	celi	2	Gd156	fission	0.0
+rate	fission-q	celi	2	Gd157	(n,gamma)	2.574552649098244e-06
+rate	fission-q	celi	2	Gd157	fission	0.0
+rate	fission-q	celi	2	I135	(n,gamma)	1.3777545806782294e-09
+rate	fission-q	celi	2	I135	fission	0.0
+rate	fission-q	celi	2	U234	(n,gamma)	4.476535535545484e-09
+rate	fission-q	celi	2	U234	fission	9.991414559198362e-11
+rate	fission-q	celi	2	U235	(n,gamma)	2.1100070849456087e-09
+rate	fission-q	celi	2	U235	fission	9.749209694635993e-09
+rate	fission-q	celi	2	U238	(n,gamma)	1.7464243482255985e-10
+rate	fission-q	celi	2	U238	fission	2.1077663228806204e-11
+rate	fission-q	celi	2	Xe135	(n,gamma)	4.5801121699371796e-05
+rate	fission-q	celi	2	Xe135	fission	0.0
+rate	fission-q	celi	2	Xe136	(n,gamma)	4.667213349029765e-12
+rate	fission-q	celi	2	Xe136	fission	0.0
+fission-q	celi	3	Cs135	6.859493405908373e+16
+fission-q	celi	3	Gd156	1283045335114332.0
+fission-q	celi	3	Gd157	163431111369471.47
+fission-q	celi	3	I135	5461118117883182.0
+fission-q	celi	3	U234	4.945128140825519e+18
+fission-q	celi	3	U235	5.4639927585020595e+20
+fission-q	celi	3	U238	1.2301090026293933e+22
+fission-q	celi	3	Xe135	2594109318528167.5
+fission-q	celi	3	Xe136	3.01653948458246e+17
+rate	fission-q	celi	3	Cs135	(n,gamma)	4.391399124928384e-10
+rate	fission-q	celi	3	Cs135	fission	0.0
+rate	fission-q	celi	3	Gd156	(n,gamma)	6.874900698302078e-10
+rate	fission-q	celi	3	Gd156	fission	0.0
+rate	fission-q	celi	3	Gd157	(n,gamma)	2.5849245065606555e-06
+rate	fission-q	celi	3	Gd157	fission	0.0
+rate	fission-q	celi	3	I135	(n,gamma)	1.3833050106272864e-09
+rate	fission-q	celi	3	I135	fission	0.0
+rate	fission-q	celi	3	U234	(n,gamma)	4.494569732094682e-09
+rate	fission-q	celi	3	U234	fission	1.0031666028785578e-10
+rate	fission-q	celi	3	U235	(n,gamma)	2.1185074715030166e-09
+rate	fission-q	celi	3	U235	fission	9.788485416326648e-09
+rate	fission-q	celi	3	U238	(n,gamma)	1.75346000329951e-10
+rate	fission-q	celi	3	U238	fission	2.1162576822912136e-11
+rate	fission-q	celi	3	Xe135	(n,gamma)	4.5985636359054834e-05
+rate	fission-q	celi	3	Xe135	fission	0.0
+rate	fission-q	celi	3	Xe136	(n,gamma)	4.686015711304141e-12
+rate	fission-q	celi	3	Xe136	fission	0.0
+fission-q	epc_rk4	0	Cs135	0.0
+fission-q	epc_rk4	0	Gd156	0.0
+fission-q	epc_rk4	0	Gd157	0.0
+fission-q	epc_rk4	0	I135	0.0
+fission-q	epc_rk4	0	U234	4.945767244820886e+18
+fission-q	epc_rk4	0	U235	5.533328877654267e+20
+fission-q	epc_rk4	0	U238	1.2301425386030308e+22
+fission-q	epc_rk4	0	Xe135	0.0
+fission-q	epc_rk4	0	Xe136	0.0
+rate	fission-q	epc_rk4	0	Cs135	(n,gamma)	4.33894900434019e-10
+rate	fission-q	epc_rk4	0	Cs135	fission	0.0
+rate	fission-q	epc_rk4	0	Gd156	(n,gamma)	6.792788059391425e-10
+rate	fission-q	epc_rk4	0	Gd156	fission	0.0
+rate	fission-q	epc_rk4	0	Gd157	(n,gamma)	2.5540506100590035e-06
+rate	fission-q	epc_rk4	0	Gd157	fission	0.0
+rate	fission-q	epc_rk4	0	I135	(n,gamma)	1.3667830520091802e-09
+rate	fission-q	epc_rk4	0	I135	fission	0.0
+rate	fission-q	epc_rk4	0	U234	(n,gamma)	4.440887359407992e-09
+rate	fission-q	epc_rk4	0	U234	fission	9.911849524309031e-11
+rate	fission-q	epc_rk4	0	U235	(n,gamma)	2.093204380350004e-09
+rate	fission-q	epc_rk4	0	U235	fission	9.671573419521876e-09
+rate	fission-q	epc_rk4	0	U238	(n,gamma)	1.732516976714302e-10
+rate	fission-q	epc_rk4	0	U238	fission	2.090981462236022e-11
+rate	fission-q	epc_rk4	0	Xe135	(n,gamma)	4.543639177805889e-05
+rate	fission-q	epc_rk4	0	Xe135	fission	0.0
+rate	fission-q	epc_rk4	0	Xe136	(n,gamma)	4.630046740562935e-12
+rate	fission-q	epc_rk4	0	Xe136	fission	0.0
+fission-q	epc_rk4	1	Cs135	2.1232190192567344e+16
+fission-q	epc_rk4	1	Gd156	427537537180093.75
+fission-q	epc_rk4	1	Gd157	113849965288594.55
+fission-q	epc_rk4	1	I135	5455068858400703.0
+fission-q	epc_rk4	1	U234	4.945555052840631e+18
+fission-q	epc_rk4	1	U235	5.510212234787682e+20
+fission-q	epc_rk4	1	U238	1.2301314045429076e+22
+fission-q	epc_rk4	1	Xe135	2607900685432368.0
+fission-q	epc_rk4	1	Xe136	9.68236610026246e+16
+rate	fission-q	epc_rk4	1	Cs135	(n,gamma)	4.3562960693404146e-10
+rate	fission-q	epc_rk4	1	Cs135	fission	0.0
+rate	fission-q	epc_rk4	1	Gd156	(n,gamma)	6.819945542892878e-10
+rate	fission-q	epc_rk4	1	Gd156	fission	0.0
+rate	fission-q	epc_rk4	1	Gd157	(n,gamma)	2.5642616731303227e-06
+rate	fission-q	epc_rk4	1	Gd157	fission	0.0
+rate	fission-q	epc_rk4	1	I135	(n,gamma)	1.372247433918415e-09
+rate	fission-q	epc_rk4	1	I135	fission	0.0
+rate	fission-q	epc_rk4	1	U234	(n,gamma)	4.458641972703808e-09
+rate	fission-q	epc_rk4	1	U234	fission	9.951476977362441e-11
+rate	fission-q	epc_rk4	1	U235	(n,gamma)	2.1015729858368083e-09
+rate	fission-q	epc_rk4	1	U235	fission	9.710240251649903e-09
+rate	fission-q	epc_rk4	1	U238	(n,gamma)	1.7394435583770487e-10
+rate	fission-q	epc_rk4	1	U238	fission	2.0993411805234207e-11
+rate	fission-q	epc_rk4	1	Xe135	(n,gamma)	4.5618045916137316e-05
+rate	fission-q	epc_rk4	1	Xe135	fission	0.0
+rate	fission-q	epc_rk4	1	Xe136	(n,gamma)	4.648557610748845e-12
+rate	fission-q	epc_rk4	1	Xe136	fission	0.0
+fission-q	epc_rk4	2	Cs135	4.49498813441595e+16
+fission-q	epc_rk4	2	Gd156	855219561412393.5
+fission-q	epc_rk4	2	Gd157	151335318562519.22
+fission-q	epc_rk4	2	I135	5454473157727290.0
+fission-q	epc_rk4	2	U234	4.945342020060462e+18
+fission-q	epc_rk4	2	U235	5.487100150763596e+20
+fission-q	epc_rk4	2	U238	1.2301202259854536e+22
+fission-q	epc_rk4	2	Xe135	2600485550900838.5
+fission-q	epc_rk4	2	Xe136	1.992155724668614e+17
+rate	fission-q	epc_rk4	2	Cs135	(n,gamma)	4.3737789434036024e-10
+rate	fission-q	epc_rk4	2	Cs135	fission	0.0
+rate	fission-q	epc_rk4	2	Gd156	(n,gamma)	6.847315640596602e-10
+rate	fission-q	epc_rk4	2	Gd156	fission	0.0
+rate	fission-q	epc_rk4	2	Gd157	(n,gamma)	2.5745526779616785e-06
+rate	fission-q	epc_rk4	2	Gd157	fission	0.0
+rate	fission-q	epc_rk4	2	I135	(n,gamma)	1.3777545961243027e-09
+rate	fission-q	epc_rk4	2	I135	fission	0.0
+rate	fission-q	epc_rk4	2	U234	(n,gamma)	4.4765355857321405e-09
+rate	fission-q	epc_rk4	2	U234	fission	9.991414671212594e-11
+rate	fission-q	epc_rk4	2	U235	(n,gamma)	2.110007108601e-09
+rate	fission-q	epc_rk4	2	U235	fission	9.749209803934854e-09
+rate	fission-q	epc_rk4	2	U238	(n,gamma)	1.7464243678048463e-10
+rate	fission-q	epc_rk4	2	U238	fission	2.1077663465108906e-11
+rate	fission-q	epc_rk4	2	Xe135	(n,gamma)	4.5801122212850385e-05
+rate	fission-q	epc_rk4	2	Xe135	fission	0.0
+rate	fission-q	epc_rk4	2	Xe136	(n,gamma)	4.6672134013541195e-12
+rate	fission-q	epc_rk4	2	Xe136	fission	0.0
+fission-q	epc_rk4	3	Cs135	6.859986811620955e+16
+fission-q	epc_rk4	3	Gd156	1283047135355083.2
+fission-q	epc_rk4	3	Gd157	163431138304603.5
+fission-q	epc_rk4	3	I135	5453855358686032.0
+fission-q	epc_rk4	3	U234	4.945128139923876e+18
+fission-q	epc_rk4	3	U235	5.463992661295205e+20
+fission-q	epc_rk4	3	U238	1.2301090025820798e+22
+fission-q	epc_rk4	3	Xe135	2593039491853802.5
+fission-q	epc_rk4	3	Xe136	3.0165787740503174e+17
+rate	fission-q	epc_rk4	3	Cs135	(n,gamma)	4.3913991993505867e-10
+rate	fission-q	epc_rk4	3	Cs135	fission	0.0
+rate	fission-q	epc_rk4	3	Gd156	(n,gamma)	6.87490081481284e-10
+rate	fission-q	epc_rk4	3	Gd156	fission	0.0
+rate	fission-q	epc_rk4	3	Gd157	(n,gamma)	2.5849245503680552e-06
+rate	fission-q	epc_rk4	3	Gd157	fission	0.0
+rate	fission-q	epc_rk4	3	I135	(n,gamma)	1.3833050340705223e-09
+rate	fission-q	epc_rk4	3	I135	fission	0.0
+rate	fission-q	epc_rk4	3	U234	(n,gamma)	4.494569808265345e-09
+rate	fission-q	epc_rk4	3	U234	fission	1.0031666198794877e-10
+rate	fission-q	epc_rk4	3	U235	(n,gamma)	2.1185075074059234e-09
+rate	fission-q	epc_rk4	3	U235	fission	9.788485582214701e-09
+rate	fission-q	epc_rk4	3	U238	(n,gamma)	1.753460033015861e-10
+rate	fission-q	epc_rk4	3	U238	fission	2.1162577181559927e-11
+rate	fission-q	epc_rk4	3	Xe135	(n,gamma)	4.5985637138385583e-05
+rate	fission-q	epc_rk4	3	Xe135	fission	0.0
+rate	fission-q	epc_rk4	3	Xe136	(n,gamma)	4.68601579071929e-12
+rate	fission-q	epc_rk4	3	Xe136	fission	0.0
+fission-q	leqi	0	Cs135	0.0
+fission-q	leqi	0	Gd156	0.0
+fission-q	leqi	0	Gd157	0.0
+fission-q	leqi	0	I135	0.0
+fission-q	leqi	0	U234	4.945767244820886e+18
+fission-q	leqi	0	U235	5.533328877654267e+20
+fission-q	leqi	0	U238	1.2301425386030308e+22
+fission-q	leqi	0	Xe135	0.0
+fission-q	leqi	0	Xe136	0.0
+rate	fission-q	leqi	0	Cs135	(n,gamma)	4.33894900434019e-10
+rate	fission-q	leqi	0	Cs135	fission	0.0
+rate	fission-q	leqi	0	Gd156	(n,gamma)	6.792788059391425e-10
+rate	fission-q	leqi	0	Gd156	fission	0.0
+rate	fission-q	leqi	0	Gd157	(n,gamma)	2.5540506100590035e-06
+rate	fission-q	leqi	0	Gd157	fission	0.0
+rate	fission-q	leqi	0	I135	(n,gamma)	1.3667830520091802e-09
+rate	fission-q	leqi	0	I135	fission	0.0
+rate	fission-q	leqi	0	U234	(n,gamma)	4.440887359407992e-09
+rate	fission-q	leqi	0	U234	fission	9.911849524309031e-11
+rate	fission-q	leqi	0	U235	(n,gamma)	2.093204380350004e-09
+rate	fission-q	leqi	0	U235	fission	9.671573419521876e-09
+rate	fission-q	leqi	0	U238	(n,gamma)	1.732516976714302e-10
+rate	fission-q	leqi	0	U238	fission	2.090981462236022e-11
+rate	fission-q	leqi	0	Xe135	(n,gamma)	4.543639177805889e-05
+rate	fission-q	leqi	0	Xe135	fission	0.0
+rate	fission-q	leqi	0	Xe136	(n,gamma)	4.630046740562935e-12
+rate	fission-q	leqi	0	Xe136	fission	0.0
+fission-q	leqi	1	Cs135	2.1227261168122744e+16
+fission-q	leqi	1	Gd156	427536942182602.4
+fission-q	leqi	1	Gd157	113849878719601.42
+fission-q	leqi	1	I135	5462278277256879.0
+fission-q	leqi	1	U234	4.945555053136478e+18
+fission-q	leqi	1	U235	5.510212266950176e+20
+fission-q	leqi	1	U238	1.230131404558432e+22
+fission-q	leqi	1	Xe135	2608974389061841.5
+fission-q	leqi	1	Xe136	9.682013142847422e+16
+rate	fission-q	leqi	1	Cs135	(n,gamma)	4.3562960451087117e-10
+rate	fission-q	leqi	1	Cs135	fission	0.0
+rate	fission-q	leqi	1	Gd156	(n,gamma)	6.819945504957235e-10
+rate	fission-q	leqi	1	Gd156	fission	0.0
+rate	fission-q	leqi	1	Gd157	(n,gamma)	2.5642616588667318e-06
+rate	fission-q	leqi	1	Gd157	fission	0.0
+rate	fission-q	leqi	1	I135	(n,gamma)	1.3722474262853499e-09
+rate	fission-q	leqi	1	I135	fission	0.0
+rate	fission-q	leqi	1	U234	(n,gamma)	4.4586419479028106e-09
+rate	fission-q	leqi	1	U234	fission	9.951476922007795e-11
+rate	fission-q	leqi	1	U235	(n,gamma)	2.1015729741469025e-09
+rate	fission-q	leqi	1	U235	fission	9.710240197637125e-09
+rate	fission-q	leqi	1	U238	(n,gamma)	1.7394435487014715e-10
+rate	fission-q	leqi	1	U238	fission	2.099341168845929e-11
+rate	fission-q	leqi	1	Xe135	(n,gamma)	4.5618045662388966e-05
+rate	fission-q	leqi	1	Xe135	fission	0.0
+rate	fission-q	leqi	1	Xe136	(n,gamma)	4.648557584891451e-12
+rate	fission-q	leqi	1	Xe136	fission	0.0
+fission-q	leqi	2	Cs135	4.494495215372401e+16
+fission-q	leqi	2	Gd156	855218963145951.4
+fission-q	leqi	2	Gd157	151335290168726.2
+fission-q	leqi	2	I135	5461731208724129.0
+fission-q	leqi	2	U234	4.945342020359017e+18
+fission-q	leqi	2	U235	5.487100183085406e+20
+fission-q	leqi	2	U238	1.2301202260011176e+22
+fission-q	leqi	2	Xe135	2601560589620030.0
+fission-q	leqi	2	Xe136	1.9921199221140256e+17
+rate	fission-q	leqi	2	Cs135	(n,gamma)	4.373778918856009e-10
+rate	fission-q	leqi	2	Cs135	fission	0.0
+rate	fission-q	leqi	2	Gd156	(n,gamma)	6.84731560216642e-10
+rate	fission-q	leqi	2	Gd156	fission	0.0
+rate	fission-q	leqi	2	Gd157	(n,gamma)	2.5745526635121434e-06
+rate	fission-q	leqi	2	Gd157	fission	0.0
+rate	fission-q	leqi	2	I135	(n,gamma)	1.377754588391731e-09
+rate	fission-q	leqi	2	I135	fission	0.0
+rate	fission-q	leqi	2	U234	(n,gamma)	4.476535560607831e-09
+rate	fission-q	leqi	2	U234	fission	9.991414615136331e-11
+rate	fission-q	leqi	2	U235	(n,gamma)	2.1100070967587016e-09
+rate	fission-q	leqi	2	U235	fission	9.749209749217952e-09
+rate	fission-q	leqi	2	U238	(n,gamma)	1.746424358003136e-10
+rate	fission-q	leqi	2	U238	fission	2.107766334681168e-11
+rate	fission-q	leqi	2	Xe135	(n,gamma)	4.5801121955794114e-05
+rate	fission-q	leqi	2	Xe135	fission	0.0
+rate	fission-q	leqi	2	Xe136	(n,gamma)	4.6672133751596424e-12
+rate	fission-q	leqi	2	Xe136	fission	0.0
+fission-q	leqi	3	Cs135	6.859494680506383e+16
+fission-q	leqi	3	Gd156	1283046533979216.8
+fission-q	leqi	3	Gd157	163431129306856.06
+fission-q	leqi	3	I135	5461140332603831.0
+fission-q	leqi	3	U234	4.945128140225072e+18
+fission-q	leqi	3	U235	5.463992693767447e+20
+fission-q	leqi	3	U238	1.2301090025978806e+22
+fission-q	leqi	3	Xe135	2594112584364114.0
+fission-q	leqi	3	Xe136	3.0165426346199846e+17
+rate	fission-q	leqi	3	Cs135	(n,gamma)	4.3913991744896274e-10
+rate	fission-q	leqi	3	Cs135	fission	0.0
+rate	fission-q	leqi	3	Gd156	(n,gamma)	6.874900775892071e-10
+rate	fission-q	leqi	3	Gd156	fission	0.0
+rate	fission-q	leqi	3	Gd157	(n,gamma)	2.584924535734062e-06
+rate	fission-q	leqi	3	Gd157	fission	0.0
+rate	fission-q	leqi	3	I135	(n,gamma)	1.3833050262392393e-09
+rate	fission-q	leqi	3	I135	fission	0.0
+rate	fission-q	leqi	3	U234	(n,gamma)	4.4945697828203074e-09
+rate	fission-q	leqi	3	U234	fission	1.0031666142002762e-10
+rate	fission-q	leqi	3	U235	(n,gamma)	2.1185074954124497e-09
+rate	fission-q	leqi	3	U235	fission	9.788485526799301e-09
+rate	fission-q	leqi	3	U238	(n,gamma)	1.7534600230890248e-10
+rate	fission-q	leqi	3	U238	fission	2.116257706175256e-11
+rate	fission-q	leqi	3	Xe135	(n,gamma)	4.598563687804782e-05
+rate	fission-q	leqi	3	Xe135	fission	0.0
+rate	fission-q	leqi	3	Xe136	(n,gamma)	4.686015764190422e-12
+rate	fission-q	leqi	3	Xe136	fission	0.0
+fission-q	si_celi	0	Cs135	0.0
+fission-q	si_celi	0	Gd156	0.0
+fission-q	si_celi	0	Gd157	0.0
+fission-q	si_celi	0	I135	0.0
+fission-q	si_celi	0	U234	4.945767244820886e+18
+fission-q	si_celi	0	U235	5.533328877654267e+20
+fission-q	si_celi	0	U238	1.2301425386030308e+22
+fission-q	si_celi	0	Xe135	0.0
+fission-q	si_celi	0	Xe136	0.0
+rate	fission-q	si_celi	0	Cs135	(n,gamma)	4.33894900434019e-10
+rate	fission-q	si_celi	0	Cs135	fission	0.0
+rate	fission-q	si_celi	0	Gd156	(n,gamma)	6.792788059391425e-10
+rate	fission-q	si_celi	0	Gd156	fission	0.0
+rate	fission-q	si_celi	0	Gd157	(n,gamma)	2.5540506100590035e-06
+rate	fission-q	si_celi	0	Gd157	fission	0.0
+rate	fission-q	si_celi	0	I135	(n,gamma)	1.3667830520091802e-09
+rate	fission-q	si_celi	0	I135	fission	0.0
+rate	fission-q	si_celi	0	U234	(n,gamma)	4.440887359407992e-09
+rate	fission-q	si_celi	0	U234	fission	9.911849524309031e-11
+rate	fission-q	si_celi	0	U235	(n,gamma)	2.093204380350004e-09
+rate	fission-q	si_celi	0	U235	fission	9.671573419521876e-09
+rate	fission-q	si_celi	0	U238	(n,gamma)	1.732516976714302e-10
+rate	fission-q	si_celi	0	U238	fission	2.090981462236022e-11
+rate	fission-q	si_celi	0	Xe135	(n,gamma)	4.543639177805889e-05
+rate	fission-q	si_celi	0	Xe135	fission	0.0
+rate	fission-q	si_celi	0	Xe136	(n,gamma)	4.630046740562935e-12
+rate	fission-q	si_celi	0	Xe136	fission	0.0
+fission-q	si_celi	1	Cs135	2.122728022355994e+16
+fission-q	si_celi	1	Gd156	427538643585238.3
+fission-q	si_celi	1	Gd157	113850126264344.7
+fission-q	si_celi	1	I135	5462314393729985.0
+fission-q	si_celi	1	U234	4.945555052290522e+18
+fission-q	si_celi	1	U235	5.5102121749811174e+20
+fission-q	si_celi	1	U238	1.230131404514043e+22
+fission-q	si_celi	1	Xe135	2608979783029067.0
+fission-q	si_celi	1	Xe136	9.68205726386866e+16
+rate	fission-q	si_celi	1	Cs135	(n,gamma)	4.3562961074437357e-10
+rate	fission-q	si_celi	1	Cs135	fission	0.0
+rate	fission-q	si_celi	1	Gd156	(n,gamma)	6.819945602545061e-10
+rate	fission-q	si_celi	1	Gd156	fission	0.0
+rate	fission-q	si_celi	1	Gd157	(n,gamma)	2.5642616955592127e-06
+rate	fission-q	si_celi	1	Gd157	fission	0.0
+rate	fission-q	si_celi	1	I135	(n,gamma)	1.3722474459210852e-09
+rate	fission-q	si_celi	1	I135	fission	0.0
+rate	fission-q	si_celi	1	U234	(n,gamma)	4.458642011702321e-09
+rate	fission-q	si_celi	1	U234	fission	9.951477064405267e-11
+rate	fission-q	si_celi	1	U235	(n,gamma)	2.101573004218688e-09
+rate	fission-q	si_celi	1	U235	fission	9.710240336582699e-09
+rate	fission-q	si_celi	1	U238	(n,gamma)	1.739443573591482e-10
+rate	fission-q	si_celi	1	U238	fission	2.0993411988857795e-11
+rate	fission-q	si_celi	1	Xe135	(n,gamma)	4.5618046315145806e-05
+rate	fission-q	si_celi	1	Xe135	fission	0.0
+rate	fission-q	si_celi	1	Xe136	(n,gamma)	4.648557651408498e-12
+rate	fission-q	si_celi	1	Xe136	fission	0.0
+fission-q	si_celi	2	Cs135	4.494499833063566e+16
+fission-q	si_celi	2	Gd156	855221782958677.0
+fission-q	si_celi	2	Gd157	151335423996963.22
+fission-q	si_celi	2	I135	5461745547293181.0
+fission-q	si_celi	2	U234	4.94534201895189e+18
+fission-q	si_celi	2	U235	5.487100030742724e+20
+fission-q	si_celi	2	U238	1.230120225927281e+22
+fission-q	si_celi	2	Xe135	2601562695129612.5
+fission-q	si_celi	2	Xe136	1.992127608110182e+17
+rate	fission-q	si_celi	2	Cs135	(n,gamma)	4.373779027492437e-10
+rate	fission-q	si_celi	2	Cs135	fission	0.0
+rate	fission-q	si_celi	2	Gd156	(n,gamma)	6.847315772240839e-10
+rate	fission-q	si_celi	2	Gd156	fission	0.0
+rate	fission-q	si_celi	2	Gd157	(n,gamma)	2.574552727459181e-06
+rate	fission-q	si_celi	2	Gd157	fission	0.0
+rate	fission-q	si_celi	2	I135	(n,gamma)	1.3777546226125588e-09
+rate	fission-q	si_celi	2	I135	fission	0.0
+rate	fission-q	si_celi	2	U234	(n,gamma)	4.47653567179654e-09
+rate	fission-q	si_celi	2	U234	fission	9.991414863304243e-11
+rate	fission-q	si_celi	2	U235	(n,gamma)	2.1100071491673023e-09
+rate	fission-q	si_celi	2	U235	fission	9.749209991369954e-09
+rate	fission-q	si_celi	2	U238	(n,gamma)	1.7464244013810263e-10
+rate	fission-q	si_celi	2	U238	fission	2.1077663870341124e-11
+rate	fission-q	si_celi	2	Xe135	(n,gamma)	4.5801123093407684e-05
+rate	fission-q	si_celi	2	Xe135	fission	0.0
+rate	fission-q	si_celi	2	Xe136	(n,gamma)	4.667213491084428e-12
+rate	fission-q	si_celi	2	Xe136	fission	0.0
+fission-q	si_celi	3	Cs135	6.859501201707653e+16
+fission-q	si_celi	3	Gd156	1283050481224390.2
+fission-q	si_celi	3	Gd157	163431188365012.66
+fission-q	si_celi	3	I135	5461154774087322.0
+fission-q	si_celi	3	U234	4.945128138248162e+18
+fission-q	si_celi	3	U235	5.463992480629654e+20
+fission-q	si_celi	3	U238	1.2301090024941446e+22
+fission-q	si_celi	3	Xe135	2594114673863483.0
+fission-q	si_celi	3	Xe136	3.0165534472458694e+17
+rate	fission-q	si_celi	3	Cs135	(n,gamma)	4.3913993304951196e-10
+rate	fission-q	si_celi	3	Cs135	fission	0.0
+rate	fission-q	si_celi	3	Gd156	(n,gamma)	6.874901020124544e-10
+rate	fission-q	si_celi	3	Gd156	fission	0.0
+rate	fission-q	si_celi	3	Gd157	(n,gamma)	2.584924627564117e-06
+rate	fission-q	si_celi	3	Gd157	fission	0.0
+rate	fission-q	si_celi	3	I135	(n,gamma)	1.3833050753814766e-09
+rate	fission-q	si_celi	3	I135	fission	0.0
+rate	fission-q	si_celi	3	U234	(n,gamma)	4.494569942490959e-09
+rate	fission-q	si_celi	3	U234	fission	1.0031666498380068e-10
+rate	fission-q	si_celi	3	U235	(n,gamma)	2.1185075706729285e-09
+rate	fission-q	si_celi	3	U235	fission	9.78848587453756e-09
+rate	fission-q	si_celi	3	U238	(n,gamma)	1.753460085381106e-10
+rate	fission-q	si_celi	3	U238	fission	2.1162577813558097e-11
+rate	fission-q	si_celi	3	Xe135	(n,gamma)	4.598563851169842e-05
+rate	fission-q	si_celi	3	Xe135	fission	0.0
+rate	fission-q	si_celi	3	Xe136	(n,gamma)	4.6860159306622374e-12
+rate	fission-q	si_celi	3	Xe136	fission	0.0
+fission-q	si_leqi	0	Cs135	0.0
+fission-q	si_leqi	0	Gd156	0.0
+fission-q	si_leqi	0	Gd157	0.0
+fission-q	si_leqi	0	I135	0.0
+fission-q	si_leqi	0	U234	4.945767244820886e+18
+fission-q	si_leqi	0	U235	5.533328877654267e+20
+fission-q	si_leqi	0	U238	1.2301425386030308e+22
+fission-q	si_leqi	0	Xe135	0.0
+fission-q	si_leqi	0	Xe136	0.0
+rate	fission-q	si_leqi	0	Cs135	(n,gamma)	4.33894900434019e-10
+rate	fission-q	si_leqi	0	Cs135	fission	0.0
+rate	fission-q	si_leqi	0	Gd156	(n,gamma)	6.792788059391425e-10
+rate	fission-q	si_leqi	0	Gd156	fission	0.0
+rate	fission-q	si_leqi	0	Gd157	(n,gamma)	2.5540506100590035e-06
+rate	fission-q	si_leqi	0	Gd157	fission	0.0
+rate	fission-q	si_leqi	0	I135	(n,gamma)	1.3667830520091802e-09
+rate	fission-q	si_leqi	0	I135	fission	0.0
+rate	fission-q	si_leqi	0	U234	(n,gamma)	4.440887359407992e-09
+rate	fission-q	si_leqi	0	U234	fission	9.911849524309031e-11
+rate	fission-q	si_leqi	0	U235	(n,gamma)	2.093204380350004e-09
+rate	fission-q	si_leqi	0	U235	fission	9.671573419521876e-09
+rate	fission-q	si_leqi	0	U238	(n,gamma)	1.732516976714302e-10
+rate	fission-q	si_leqi	0	U238	fission	2.090981462236022e-11
+rate	fission-q	si_leqi	0	Xe135	(n,gamma)	4.543639177805889e-05
+rate	fission-q	si_leqi	0	Xe135	fission	0.0
+rate	fission-q	si_leqi	0	Xe136	(n,gamma)	4.630046740562935e-12
+rate	fission-q	si_leqi	0	Xe136	fission	0.0
+fission-q	si_leqi	1	Cs135	2.122728022355994e+16
+fission-q	si_leqi	1	Gd156	427538643585238.3
+fission-q	si_leqi	1	Gd157	113850126264344.7
+fission-q	si_leqi	1	I135	5462314393729985.0
+fission-q	si_leqi	1	U234	4.945555052290522e+18
+fission-q	si_leqi	1	U235	5.5102121749811174e+20
+fission-q	si_leqi	1	U238	1.230131404514043e+22
+fission-q	si_leqi	1	Xe135	2608979783029067.0
+fission-q	si_leqi	1	Xe136	9.68205726386866e+16
+rate	fission-q	si_leqi	1	Cs135	(n,gamma)	4.3562961074437357e-10
+rate	fission-q	si_leqi	1	Cs135	fission	0.0
+rate	fission-q	si_leqi	1	Gd156	(n,gamma)	6.819945602545061e-10
+rate	fission-q	si_leqi	1	Gd156	fission	0.0
+rate	fission-q	si_leqi	1	Gd157	(n,gamma)	2.5642616955592127e-06
+rate	fission-q	si_leqi	1	Gd157	fission	0.0
+rate	fission-q	si_leqi	1	I135	(n,gamma)	1.3722474459210852e-09
+rate	fission-q	si_leqi	1	I135	fission	0.0
+rate	fission-q	si_leqi	1	U234	(n,gamma)	4.458642011702321e-09
+rate	fission-q	si_leqi	1	U234	fission	9.951477064405267e-11
+rate	fission-q	si_leqi	1	U235	(n,gamma)	2.101573004218688e-09
+rate	fission-q	si_leqi	1	U235	fission	9.710240336582699e-09
+rate	fission-q	si_leqi	1	U238	(n,gamma)	1.739443573591482e-10
+rate	fission-q	si_leqi	1	U238	fission	2.0993411988857795e-11
+rate	fission-q	si_leqi	1	Xe135	(n,gamma)	4.5618046315145806e-05
+rate	fission-q	si_leqi	1	Xe135	fission	0.0
+rate	fission-q	si_leqi	1	Xe136	(n,gamma)	4.648557651408498e-12
+rate	fission-q	si_leqi	1	Xe136	fission	0.0
+fission-q	si_leqi	2	Cs135	4.494498414168731e+16
+fission-q	si_leqi	2	Gd156	855220674485991.5
+fission-q	si_leqi	2	Gd157	151335371388998.2
+fission-q	si_leqi	2	I135	5461731422798041.0
+fission-q	si_leqi	2	U234	4.945342019505033e+18
+fission-q	si_leqi	2	U235	5.487100090628879e+20
+fission-q	si_leqi	2	U238	1.2301202259563105e+22
+fission-q	si_leqi	2	Xe135	2601560592225458.5
+fission-q	si_leqi	2	Xe136	1.9921246447327754e+17
+rate	fission-q	si_leqi	2	Cs135	(n,gamma)	4.373778989036323e-10
+rate	fission-q	si_leqi	2	Cs135	fission	0.0
+rate	fission-q	si_leqi	2	Gd156	(n,gamma)	6.847315712036344e-10
+rate	fission-q	si_leqi	2	Gd156	fission	0.0
+rate	fission-q	si_leqi	2	Gd157	(n,gamma)	2.574552704822625e-06
+rate	fission-q	si_leqi	2	Gd157	fission	0.0
+rate	fission-q	si_leqi	2	I135	(n,gamma)	1.3777546104987578e-09
+rate	fission-q	si_leqi	2	I135	fission	0.0
+rate	fission-q	si_leqi	2	U234	(n,gamma)	4.4765356324369466e-09
+rate	fission-q	si_leqi	2	U234	fission	9.9914147754555e-11
+rate	fission-q	si_leqi	2	U235	(n,gamma)	2.1100071306152276e-09
+rate	fission-q	si_leqi	2	U235	fission	9.749209905650778e-09
+rate	fission-q	si_leqi	2	U238	(n,gamma)	1.7464243860257252e-10
+rate	fission-q	si_leqi	2	U238	fission	2.1077663685017392e-11
+rate	fission-q	si_leqi	2	Xe135	(n,gamma)	4.580112269070485e-05
+rate	fission-q	si_leqi	2	Xe135	fission	0.0
+rate	fission-q	si_leqi	2	Xe136	(n,gamma)	4.667213450048314e-12
+rate	fission-q	si_leqi	2	Xe136	fission	0.0
+fission-q	si_leqi	3	Cs135	6.859497868570866e+16
+fission-q	si_leqi	3	Gd156	1283048255321148.0
+fission-q	si_leqi	3	Gd157	163431155061424.38
+fission-q	si_leqi	3	I135	5461140545376147.0
+fission-q	si_leqi	3	U234	4.945128139362968e+18
+fission-q	si_leqi	3	U235	5.463992600820852e+20
+fission-q	si_leqi	3	U238	1.230109002552647e+22
+fission-q	si_leqi	3	Xe135	2594112586300938.0
+fission-q	si_leqi	3	Xe136	3.016547385381507e+17
+rate	fission-q	si_leqi	3	Cs135	(n,gamma)	4.3913992456113304e-10
+rate	fission-q	si_leqi	3	Cs135	fission	0.0
+rate	fission-q	si_leqi	3	Gd156	(n,gamma)	6.874900887235777e-10
+rate	fission-q	si_leqi	3	Gd156	fission	0.0
+rate	fission-q	si_leqi	3	Gd157	(n,gamma)	2.584924577598677e-06
+rate	fission-q	si_leqi	3	Gd157	fission	0.0
+rate	fission-q	si_leqi	3	I135	(n,gamma)	1.3833050486428073e-09
+rate	fission-q	si_leqi	3	I135	fission	0.0
+rate	fission-q	si_leqi	3	U234	(n,gamma)	4.49456985561293e-09
+rate	fission-q	si_leqi	3	U234	fission	1.0031666304472435e-10
+rate	fission-q	si_leqi	3	U235	(n,gamma)	2.118507529723123e-09
+rate	fission-q	si_leqi	3	U235	fission	9.788485685330498e-09
+rate	fission-q	si_leqi	3	U238	(n,gamma)	1.7534600514875055e-10
+rate	fission-q	si_leqi	3	U238	fission	2.116257740449492e-11
+rate	fission-q	si_leqi	3	Xe135	(n,gamma)	4.5985637622816553e-05
+rate	fission-q	si_leqi	3	Xe135	fission	0.0
+rate	fission-q	si_leqi	3	Xe136	(n,gamma)	4.686015840083642e-12
+rate	fission-q	si_leqi	3	Xe136	fission	0.0
