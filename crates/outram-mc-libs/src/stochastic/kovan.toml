@@ -1000,13 +1000,14 @@ lines = [
     499,
     625,
 ]
-hash = "sha256:ec1c94fbb4b35cd50b5bd07cb113619487a65f46bf87a29d5b6a1ae351e20119"
+hash = "sha256:ad905fecef3f429f75e5f554e93bb791b4195fa6446f4bb6eed3be07a06bd515"
 doc_hash = "sha256:f5f4f4a38f7dd774f2ba8188adc72c4ff956eca59e82a25b73b5fa3bd3c76055"
 callees = [
     "fn:681ddf6544e7b60b",
     "fn:a6f9680243dfe213",
 ]
 test = true
+index_out_of_date = true
 
 [[module."cls.rs".function]]
 id = "fn:19caeac31aa1580b"
