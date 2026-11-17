@@ -52,7 +52,7 @@ nee_soon.workspace = true
 # so this adds no build work. First consumer: the HIGH-tier Godiva case in
 # `tests/ci_smoke/` (GitHub #415). `njoy-outram-park-fork` is named directly only
 # for `reference_data::reference_endf`, which `outram-mc-libs` does not re-export.
-outram-mc-libs.workspace = true
+outram-mc-libs = { workspace = true, features = ["std"] }
 njoy-outram-park-fork = { workspace = true, features = ["std"] }
 chem-eng-real-time-process-control-simulator = { workspace = true, features = ["std"] }
 
@@ -276,7 +276,7 @@ outram-park-fork-coolprop = { workspace = true, features = ["std"] }
 # existing transitive dependency nameable from the example rather than adding
 # one. AGPL/GPL note: `boon-lay` is GPL-3.0 like this crate, and the TRISO-ATOPS
 # fork inside it carries its upstream MIT notice, which is GPLv3-compatible.
-boon-lay.workspace = true
+boon-lay = { workspace = true, features = ["std"] }
 # The reactor-building CV between the primary leak and the stack (gh:#400).
 bishan.workspace = true
 

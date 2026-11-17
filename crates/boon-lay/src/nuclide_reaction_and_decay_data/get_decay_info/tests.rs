@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::lagrangian_decay_simulator::StochasticDecayChain;
 use crate::prelude::decay_library::DecayLibrary;
 use crate::prelude::DecayType;
@@ -6,6 +9,7 @@ use uom::si::f64::*;
 use uom::si::ratio::ratio;
 use uom::si::time::minute;
 use uom::si::time::{day, second, year};
+#[cfg(feature = "std")]
 #[test]
 fn test_rng() {
     let some_seed = 4u128;
@@ -76,6 +80,7 @@ fn test_rng() {
     );
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn test_decay_chain() {
     // construct the library
@@ -201,6 +206,7 @@ fn u_inside_branch(data: &NuclideReactionAndDecayData, index: usize) -> f64 {
     before + 0.5 * branches[index].0.get::<ratio>()
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn u238_spontaneous_fission_has_no_tracked_daughter() {
     let lib = DecayLibrary::new();
@@ -235,6 +241,7 @@ fn u238_spontaneous_fission_has_no_tracked_daughter() {
     );
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn he5_alpha_without_target_does_not_panic() {
     let lib = DecayLibrary::new();
@@ -288,6 +295,7 @@ fn rounding_gap_selects_largest_branch_not_todo() {
     );
 }
 
+#[cfg(feature = "std")]
 /// Pins the assumption the rounding-gap rule rests on: in the bundled
 /// libraries every multi-branch nuclide's ratios sum to 1 within 1e-9
 /// (OpenMC's `math.isclose` default), so the gap is rounding, never a missing
@@ -335,6 +343,7 @@ fn branching_ratios_sum_to_one_within_1e_9() {
     assert_eq!(targetless, vec![Nuclide::He5]);
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn stochastic_chain_from_u238_does_not_panic() {
     let mut lib = DecayLibrary::new();
@@ -351,6 +360,7 @@ fn stochastic_chain_from_u238_does_not_panic() {
     }
 }
 
+#[cfg(feature = "std")]
 /// gh:#538 (found while sweeping): the lookup for Z = 0 and Z >= 112 was
 /// `todo!()`; it returns `None`, as `decay-data.md` says. Every nuclide the
 /// ZAID table knows, at any Z, must look up without panicking.

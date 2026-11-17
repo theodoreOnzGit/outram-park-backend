@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{f64::*, length::meter};
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Sphere {

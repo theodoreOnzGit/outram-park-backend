@@ -1,5 +1,8 @@
 //! [`FemPipe`]: the continuous-Galerkin HEM pipe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use farrer_park::element::FacetType;
 use farrer_park::quadrature::facet_rule;
 use petir::ssprk::{ssp_step, SspMethod, SspWorkspace};
@@ -815,7 +818,7 @@ impl<E: HemEquationOfState> FemPipe<E> {
 
         let q_old = self.q.clone();
         let mut q = self.q.clone();
-        let mut work = std::mem::replace(&mut self.work, SspWorkspace::new(0));
+        let mut work = core::mem::replace(&mut self.work, SspWorkspace::new(0));
         let mut err: Option<HemError> = None;
         let mut first = Some(first);
         let t0 = self.time_s;
@@ -869,7 +872,7 @@ impl<E: HemEquationOfState> FemPipe<E> {
                 return Err(e);
             }
         };
-        let old_nodes = std::mem::replace(&mut self.nodes, new_nodes);
+        let old_nodes = core::mem::replace(&mut self.nodes, new_nodes);
         self.history = Some((
             old_nodes.iter().map(|s| s.p).collect(),
             old_nodes.iter().map(|s| s.rho).collect(),

@@ -99,6 +99,9 @@
 //! - No radiation, no forced convection, no condensate film resistance, no
 //!   evaporation from a film.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use tampines_steam_tables::gas_mixture::melcor_ncg::{cv_h2, cv_n2, M_H2, M_H2O, M_N2, R_GAS};
 use tampines_steam_tables::gas_mixture::{nasa7, NonCondensable};

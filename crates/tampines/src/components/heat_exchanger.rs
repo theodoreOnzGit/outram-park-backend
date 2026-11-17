@@ -6,6 +6,9 @@
 //! and [`crate::components::condenser`], which wrap this crate's own
 //! [`crate::hem::HemSteamCv`] instead.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::TampinesError;
 use outram_park_fork_dwsim_libs::heat_exchanger::lmtd::FlowArrangement;
 use uom::si::f64::{Area, HeatTransfer, Power, ThermodynamicTemperature};

@@ -60,6 +60,9 @@
 //! reconciles five curves over a 1000 °C span. That is a typo, not a
 //! modelling choice.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio, ThermodynamicTemperature, Time, Velocity};
 use uom::si::ratio::ratio;

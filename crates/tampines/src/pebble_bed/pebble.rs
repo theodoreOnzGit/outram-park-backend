@@ -70,8 +70,11 @@
 //! conductivity ([`super::zbs`]), or the convective boundary condition
 //! ([`super::cht`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::f64::{
     Length, Mass, MassDensity, Power, Ratio, ThermalConductivity, ThermodynamicTemperature, Volume,

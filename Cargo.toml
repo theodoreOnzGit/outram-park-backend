@@ -332,6 +332,9 @@ xml-rs = "0.8.28"
 # API changes between 0.x releases.
 html5ever = "0.39"
 anyhow = "1.0.100"
+# `anyhow` without its `std` default, for `no_std` crates (boon-lay's RustBCA
+# copy, gh:#1634); same pattern and version as `thiserror-nostd`.
+anyhow-nostd = { package = "anyhow", version = "1.0.100", default-features = false }
 
 # OPC UA client/server — `async-opcua` (github.com/freeopcua/async-opcua), the
 # actively-maintained successor to the older `opcua` crate (locka99, last
@@ -645,7 +648,7 @@ outram-foam-mesh             = { path = "crates/outram-foam-mesh",             v
 # optional `fem-export` bridge (GitHub #492).
 farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.4", default-features = false }
 outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.0.2" }
-outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.7" }
+outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.7", default-features = false }
 # Granular DEM. `default-features = false` HERE, at the root, because workspace
 # inheritance can only ADD features: a member writing `default-features = false`
 # against a default-on root entry is silently ignored. Its defaults are
@@ -654,7 +657,7 @@ outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.
 # outram-mc-libs (2026-10-02), for DEM-settled pebble beds.
 outram-park-fork-liggghts = { path = "crates/outram-park-fork-liggghts", version = "0.0.3", default-features = false }
 outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.5", default-features = false }
-boon-lay            = { path = "crates/boon-lay",            version = "0.2.2" }
+boon-lay            = { path = "crates/boon-lay",            version = "0.2.2", default-features = false }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
 # lives here; outram-mc-libs and nee_soon pull cross sections from it.
 # `default-features = false` since gh:#1605, so `outram-mc-libs` can take it

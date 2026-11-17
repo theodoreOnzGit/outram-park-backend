@@ -8,6 +8,9 @@
 //! `multiphase_1d`, over a sweep of states (gh:#1064). Record:
 //! `crates/tampines/verification_and_validation/species_entropy.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines_steam_tables::region_1_subcooled_liquid::h_tp_1;
 use tampines_steam_tables::region_2_vapour::h_tp_2;
 use uom::si::available_energy::joule_per_kilogram;

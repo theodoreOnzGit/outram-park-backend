@@ -28,6 +28,9 @@
 //! Anything that changes during a transient. Both solvers own their own field
 //! state; this type is constructed once and read thereafter.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::area::square_meter;
 use uom::si::f64::{Angle, Area, Length};
@@ -155,7 +158,7 @@ impl Pipe1d {
         n_cells: usize,
     ) -> Result<Self, TampinesError> {
         let d = inside_diameter.get::<meter>();
-        let area = Area::new::<square_meter>(std::f64::consts::PI * d * d / 4.0);
+        let area = Area::new::<square_meter>(core::f64::consts::PI * d * d / 4.0);
         Self::new(length, area, inside_diameter, incline, n_cells)
     }
 

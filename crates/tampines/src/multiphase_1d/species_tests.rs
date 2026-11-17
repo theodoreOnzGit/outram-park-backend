@@ -11,7 +11,10 @@
 //! Verification only: conservation, advection and a second-law monotonicity
 //! check, compared against no experiment.
 
-use std::f64::consts::FRAC_PI_2;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::FRAC_PI_2;
 
 use uom::si::angle::radian;
 use uom::si::f64::{Angle, Length, Pressure, Ratio, ThermodynamicTemperature, Time};

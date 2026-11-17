@@ -10,6 +10,9 @@
 //!
 //! Methodology and results: `crates/tampines/verification_and_validation/pcice.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use tampines_steam_tables::hem::{
     AreaProfile, HemBoundary, HemEquationOfState, HemInitialCondition, HemNumerics, HemPipe,

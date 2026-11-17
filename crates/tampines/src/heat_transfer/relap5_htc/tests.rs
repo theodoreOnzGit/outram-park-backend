@@ -26,6 +26,9 @@
 //! switches fall where predicted. Table:
 //! `crates/tampines/docs/relap5-htc-dispatcher-vv.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::dynamic_viscosity::pascal_second;

@@ -86,6 +86,9 @@
 //!
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use petir::linalg::solve_symm_tridiag;
 use uom::si::diffusion_coefficient::square_meter_per_second;
@@ -95,7 +98,7 @@ use uom::si::length::meter;
 use uom::si::ratio::ratio;
 use uom::si::time::second;
 
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// One layer of the sphere: its outer radius and how many cells it gets.
 #[derive(Debug, Clone, Copy, PartialEq)]

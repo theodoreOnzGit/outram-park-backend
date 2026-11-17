@@ -13,7 +13,9 @@
 
 use super::*;
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct InputSphere {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
@@ -42,7 +44,9 @@ impl InputFile for InputSphere {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct SphereInput {
     pub length_unit: String,
     pub radius: f64,

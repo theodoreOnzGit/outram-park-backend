@@ -38,6 +38,9 @@
 //! | `nuclide_import_accident` unguarded table lookup (`KeyError`) | Returns [`SelectionError::UnknownNuclide`] |
 //! | `nuclide_sort` compares a `list` to `str` (dead reordering) | [`sort_parents_before_daughters`] does what upstream intended |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::nuclide_model::{nuclide_database::find_nuclide, TrisoAtopsNuclide};
 use uom::si::f64::Time;
 use uom::si::time::second;

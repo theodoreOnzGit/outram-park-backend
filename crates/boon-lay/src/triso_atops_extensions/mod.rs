@@ -55,6 +55,9 @@
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`): not for reactor
 //! operation, licensing, safety decisions or emergency response.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod multilayer_diffusion;
 pub mod normal_operation;
 pub mod removal_rates;

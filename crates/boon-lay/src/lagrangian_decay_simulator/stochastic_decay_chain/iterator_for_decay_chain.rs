@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use fission_yields_data::prelude::Nuclide;
 
 use crate::{lagrangian_decay_simulator::StochasticDecayChain, prelude::HalfLifeAndDecayEnergyInfo};
@@ -18,7 +21,7 @@ impl StochasticDecayChain {
 
 // Consuming iterator (moves out of DecayChain)
 pub struct DecayChainIntoIter {
-    inner: std::vec::IntoIter<(Nuclide, HalfLifeAndDecayEnergyInfo)>,
+    inner: alloc::vec::IntoIter<(Nuclide, HalfLifeAndDecayEnergyInfo)>,
 }
 
 impl Iterator for DecayChainIntoIter {
@@ -34,7 +37,7 @@ impl Iterator for DecayChainIntoIter {
 }
 
 impl ExactSizeIterator for DecayChainIntoIter {}
-impl std::iter::FusedIterator for DecayChainIntoIter {}
+impl core::iter::FusedIterator for DecayChainIntoIter {}
 
 impl IntoIterator for StochasticDecayChain {
     type Item = (Nuclide, HalfLifeAndDecayEnergyInfo);
@@ -49,7 +52,7 @@ impl IntoIterator for StochasticDecayChain {
 
 // Shared-reference iterator: &DecayChain
 pub struct DecayChainIter<'a> {
-    inner: std::slice::Iter<'a, (Nuclide, HalfLifeAndDecayEnergyInfo)>,
+    inner: core::slice::Iter<'a, (Nuclide, HalfLifeAndDecayEnergyInfo)>,
 }
 
 impl<'a> Iterator for DecayChainIter<'a> {
@@ -65,7 +68,7 @@ impl<'a> Iterator for DecayChainIter<'a> {
 }
 
 impl<'a> ExactSizeIterator for DecayChainIter<'a> {}
-impl<'a> std::iter::FusedIterator for DecayChainIter<'a> {}
+impl<'a> core::iter::FusedIterator for DecayChainIter<'a> {}
 
 impl<'a> IntoIterator for &'a StochasticDecayChain {
     type Item = &'a (Nuclide, HalfLifeAndDecayEnergyInfo);
@@ -80,7 +83,7 @@ impl<'a> IntoIterator for &'a StochasticDecayChain {
 
 // Mutable-reference iterator: &mut DecayChain
 pub struct DecayChainIterMut<'a> {
-    inner: std::slice::IterMut<'a, (Nuclide, HalfLifeAndDecayEnergyInfo)>,
+    inner: core::slice::IterMut<'a, (Nuclide, HalfLifeAndDecayEnergyInfo)>,
 }
 
 impl<'a> Iterator for DecayChainIterMut<'a> {
@@ -96,7 +99,7 @@ impl<'a> Iterator for DecayChainIterMut<'a> {
 }
 
 impl<'a> ExactSizeIterator for DecayChainIterMut<'a> {}
-impl<'a> std::iter::FusedIterator for DecayChainIterMut<'a> {}
+impl<'a> core::iter::FusedIterator for DecayChainIterMut<'a> {}
 
 impl<'a> IntoIterator for &'a mut StochasticDecayChain {
     type Item = &'a mut (Nuclide, HalfLifeAndDecayEnergyInfo);

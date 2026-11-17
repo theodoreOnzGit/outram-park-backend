@@ -31,8 +31,11 @@
 //! upstream defaults ([`BREAKTHROUGH_SERIES_TERMS`], [`BOOTH_SERIES_TERMS`],
 //! [`ATTENUATION_SERIES_TERMS`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::{DiffusionCoefficient, Length, Ratio, ThermodynamicTemperature, Time};

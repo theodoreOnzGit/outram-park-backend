@@ -183,6 +183,9 @@
 //! modelled); boiling at depth in a layered pool (only the surface mixed block, **CORRECTED 2026-11-01** from "the top layer",
 //! flashes); heat structures (the caller's, as `pool_heat`); aerosols.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod layers;
 pub mod level;
 pub mod pool_surface;
@@ -1091,7 +1094,7 @@ impl ControlVolume {
         }
         let p = self.d.p_gas;
         let guess = self.d.t_pool;
-        let mut layers = std::mem::take(&mut self.layers);
+        let mut layers = core::mem::take(&mut self.layers);
         let merges = layers::convective_adjustment(&mut layers, |u| rho_liquid(self.t_liquid(u, guess), p));
         self.layers = layers;
         if merges > 0 {
@@ -1244,7 +1247,7 @@ impl ControlVolume {
         if self.layers.is_empty() {
             return;
         }
-        let mut ts = std::mem::take(&mut self.layer_t);
+        let mut ts = core::mem::take(&mut self.layer_t);
         ts.resize(self.layers.len(), self.d.t_pool);
         for (i, l) in self.layers.iter().enumerate() {
             let guess = if ts[i].is_finite() && ts[i] > 0.0 { ts[i] } else { self.d.t_pool };

@@ -16,6 +16,9 @@
 //! Unknowns are scaled (`ṁ/ṁ_ref`, `T/T_ref`, `p/p_ref`, `w/w_ref`) and rows
 //! are scaled to O(1), so one infinity norm judges convergence.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::multiroots::GSL_SQRT_DBL_EPSILON;
 use petir::sparse::{CscMatrix, SparseLu};
 use uom::si::dynamic_viscosity::pascal_second;

@@ -22,6 +22,9 @@
 //! **Eq (2)** — the SiC hoop stress induced by the internal gas pressure
 //! (page -484-), in both the report's approximate and exact thin-shell forms.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Pressure, Ratio, Time, Velocity};
 use uom::si::ratio::ratio;
 

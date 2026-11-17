@@ -17,7 +17,9 @@ fn default_vec_zero() -> Vec<usize> {
     vec![0]
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct ParticleParameters {
     pub length_unit: String,
     pub energy_unit: String,
@@ -30,7 +32,7 @@ pub struct ParticleParameters {
     pub Es: Vec<f64>,
     pub pos: Vec<(Distributions, Distributions, Distributions)>,
     pub dir: Vec<(Distributions, Distributions, Distributions)>,
-    #[serde(default = "default_vec_zero")]
+    #[cfg_attr(feature = "std", serde(default = "default_vec_zero"))]
     pub interaction_index: Vec<usize>,
 }
 

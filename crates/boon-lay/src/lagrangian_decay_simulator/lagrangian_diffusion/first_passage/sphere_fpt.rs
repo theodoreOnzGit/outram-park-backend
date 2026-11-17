@@ -26,9 +26,12 @@
 //! table for `theta` once and reuse it for every hop of every walker, converting
 //! to a physical time with `t = theta * R^2 / D`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
-use std::sync::OnceLock;
+use core::f64::consts::PI;
+use crate::sync::OnceLock;
 
 use outram_mc_libs::rng::distributions::isotropic_direction;
 use outram_mc_libs::rng::lcg::prn;

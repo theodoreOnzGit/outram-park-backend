@@ -40,6 +40,9 @@
 //! Criteria pre-registered on gh:#1136 (D1–D3); see `tests` for the
 //! measured results.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::area::square_meter;
 use uom::si::energy::joule;

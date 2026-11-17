@@ -1,3 +1,7 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use crate::decay_xml_info_serde::*;
 use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 
@@ -281,7 +285,7 @@ fn test_transition_metals_parsing_y_to_hg_excl_ru() {
 // from chat gpt 5, the type that accepts m1 to translate to m
 //
 //
-// use std::str::FromStr;
+// use core::str::FromStr;
 //
 // // Normalise: remove underscores; map ...m1 -> ...m
 // fn normalize_isomer_token(s: &str) -> String {

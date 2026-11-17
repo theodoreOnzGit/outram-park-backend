@@ -36,6 +36,9 @@
 //! [`crate::hem`] provides the underlying two-phase state type these
 //! solvers operate on.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines_steam_tables::steam_turbine_equations::converging_diverging_nozzles::choked_flow;
 
 /// Critical (choked) pressure and mass flux for a stagnation state `(p0,

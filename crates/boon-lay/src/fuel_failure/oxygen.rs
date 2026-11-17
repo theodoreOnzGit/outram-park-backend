@@ -63,6 +63,9 @@
 //! [`oxygen_per_fission_uo2`] therefore takes a `uom` [`Time`] and converts
 //! internally, so a caller cannot get this wrong at all.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Ratio, ThermodynamicTemperature, Time};
 use uom::si::ratio::ratio;

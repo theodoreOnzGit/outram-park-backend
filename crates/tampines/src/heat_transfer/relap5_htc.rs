@@ -76,6 +76,9 @@
 //!
 //! V&V record: `crates/tampines/docs/relap5-htc-dispatcher-vv.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::f64::{

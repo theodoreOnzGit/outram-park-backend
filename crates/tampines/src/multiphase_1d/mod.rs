@@ -155,6 +155,9 @@
 //! because they are per-cell per-timestep and `uom` round-trips inside them
 //! cost more than they buy. Every raw-`f64` boundary says so.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod drift_flux;
 pub mod entropy;
 pub mod geometry;

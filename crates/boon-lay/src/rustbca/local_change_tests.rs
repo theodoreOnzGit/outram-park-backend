@@ -50,7 +50,7 @@ fn lazylock_replacements_match_upstream_tables() {
     assert_eq!(checked, 3 * TABLE_SIZE);
 
     // material.rs: LS_STOPPING_CONSTANT_TABLE. Upstream builder:
-    //   std::array::from_fn(|i| f((i / Z_MAX) as f64, (i % Z_MAX) as f64))
+    //   core::array::from_fn(|i| f((i / Z_MAX) as f64, (i % Z_MAX) as f64))
     // Upstream lookup: table[Za as usize * Z_MAX + Zb as usize].
     for index in 0..Z_MAX * Z_MAX {
         let table = material::lindhard_scharff_stopping_power_constant((index / Z_MAX) as f64, (index % Z_MAX) as f64);

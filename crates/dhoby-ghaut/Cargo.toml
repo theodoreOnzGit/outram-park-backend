@@ -116,7 +116,7 @@ petir = { workspace = true }
 # `monte_carlo_web` example so the MSRE simulator can call it too. Optional:
 # a demo that runs no Monte Carlo builds none of this. Wasm-safe (the
 # example already builds all of it for wasm32).
-outram-mc-libs = { workspace = true, optional = true }
+outram-mc-libs = { workspace = true, optional = true, features = ["std"] }
 njoy-outram-park-fork = { workspace = true, optional = true, features = ["std"] }
 miniz_oxide = { workspace = true, optional = true }
 log = { workspace = true, optional = true }
@@ -137,7 +137,7 @@ nee_soon = { workspace = true, optional = true }
 # Step 0's folder scan and the tape lookup the nuclear-data load shares with
 # it (`endf_folder`, gh:#581).
 njoy-outram-park-fork = { workspace = true, optional = true, features = ["std"] }
-outram-mc-libs = { workspace = true, optional = true }
+outram-mc-libs = { workspace = true, optional = true, features = ["std"] }
 # The GPU ray tracer of the 3D view and the slices (gh:#587,
 # `outram_blender::csg::gpu`): its `gpu` feature, on eframe's own wgpu
 # device. Same wgpu as eframe's (the workspace pins them together).
@@ -195,7 +195,7 @@ egui = { workspace = true }
 # The TRISO pebble demo, which ALSO builds for wasm32: continuous-energy
 # transport, the in-repo NJOY port that processes the real ENDF tapes it runs
 # on, and zlib for the covariance-stripped tapes the browser downloads.
-outram-mc-libs = { workspace = true }
+outram-mc-libs = { workspace = true, features = ["std"] }
 njoy-outram-park-fork = { workspace = true }
 miniz_oxide = { workspace = true }
 log = { workspace = true }
@@ -207,7 +207,7 @@ buangkok = { workspace = true }
 # The TRISO-ATOPS and fuel failure demo (gh:#540): boon-lay's TRISO geometry,
 # decay chains, Walk-on-Spheres, fuel failure, chemistry and TRISO-ATOPS
 # release. A wasm in-scope crate (its `wasm_par` shim stands in for rayon).
-boon-lay = { workspace = true }
+boon-lay = { workspace = true, features = ["std"] }
 # The nuclear data demo's THERMR rung names energies and cross sections in
 # njoy-outram-park-fork's `uom` units (gh:#529).
 uom = { workspace = true }

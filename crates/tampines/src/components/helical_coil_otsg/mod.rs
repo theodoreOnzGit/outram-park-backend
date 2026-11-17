@@ -89,6 +89,9 @@
 //! Verification and validation, with predictions written before the runs:
 //! `crates/tampines/verification_and_validation/helical_coil_otsg_gh1157.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod correlations;
 #[cfg(test)]
 mod tests;
@@ -197,7 +200,7 @@ impl HelicalCoilGeometry {
 
     /// Tube length of one turn, `√((π D_w)² + h²)`.
     pub fn turn_length(&self) -> Length {
-        let c = std::f64::consts::PI * self.coil_diameter.get::<meter>();
+        let c = core::f64::consts::PI * self.coil_diameter.get::<meter>();
         let h = self.pitch.get::<meter>();
         Length::new::<meter>((c * c + h * h).sqrt())
     }
@@ -234,7 +237,7 @@ impl HelicalCoilGeometry {
     /// helix starts at `(D_w/2, 0, 0)` and rises `h` per turn. Strict SI \[m\].
     pub fn centreline_point(&self, phi: f64) -> [f64; 3] {
         let r = 0.5 * self.coil_diameter.get::<meter>();
-        let c = self.pitch.get::<meter>() / (2.0 * std::f64::consts::PI);
+        let c = self.pitch.get::<meter>() / (2.0 * core::f64::consts::PI);
         let (s, co) = phi.r_sin_cos();
         [r * co, r * s, c * phi]
     }
@@ -244,18 +247,18 @@ impl HelicalCoilGeometry {
     pub fn distance_to_centreline(&self, point: [f64; 3]) -> f64 {
         let [x, y, z] = point;
         let r = 0.5 * self.coil_diameter.get::<meter>();
-        let c = self.pitch.get::<meter>() / (2.0 * std::f64::consts::PI);
-        let phi_max = 2.0 * std::f64::consts::PI * self.turns;
+        let c = self.pitch.get::<meter>() / (2.0 * core::f64::consts::PI);
+        let phi_max = 2.0 * core::f64::consts::PI * self.turns;
         let dist2 = |phi: f64| {
             let p = self.centreline_point(phi);
             let (a, b, e) = (x - p[0], y - p[1], z - p[2]);
             a * a + b * b + e * e
         };
-        let phi0 = y.r_atan2(x).rem_euclid(2.0 * std::f64::consts::PI);
-        let k0 = ((z - c * phi0) / (2.0 * std::f64::consts::PI * c.max(1e-300))).round();
+        let phi0 = y.r_atan2(x).rem_euclid(2.0 * core::f64::consts::PI);
+        let k0 = ((z - c * phi0) / (2.0 * core::f64::consts::PI * c.max(1e-300))).round();
         let mut best = dist2(0.0).min(dist2(phi_max));
         for dk in -1..=1 {
-            let mut phi = phi0 + 2.0 * std::f64::consts::PI * (k0 + f64::from(dk));
+            let mut phi = phi0 + 2.0 * core::f64::consts::PI * (k0 + f64::from(dk));
             // Newton on d(dist²)/dphi from the angular match.
             for _ in 0..8 {
                 let (s, co) = phi.r_sin_cos();
@@ -737,15 +740,15 @@ impl HelicalCoilOtsg {
     }
     fn mass_flux(&self) -> f64 {
         let d = self.d_i();
-        self.m_w() / (0.25 * std::f64::consts::PI * d * d)
+        self.m_w() / (0.25 * core::f64::consts::PI * d * d)
     }
     /// Outer film plus wall resistance per unit length \[m·K/W\].
     fn r_ext(&self) -> f64 {
         let d_o = self.geometry.tube_outer_diameter.get::<meter>();
         let h_o = self.operating.shell_side_htc.get::<watt_per_square_meter_kelvin>();
-        let r_o = 1.0 / (h_o * std::f64::consts::PI * d_o);
+        let r_o = 1.0 / (h_o * core::f64::consts::PI * d_o);
         let r_w = if self.options.wall_resistance {
-            (d_o / self.d_i()).r_ln() / (2.0 * std::f64::consts::PI
+            (d_o / self.d_i()).r_ln() / (2.0 * core::f64::consts::PI
                 * self.geometry.wall_conductivity.get::<watt_per_meter_kelvin>())
         } else {
             0.0
@@ -773,7 +776,7 @@ impl HelicalCoilOtsg {
 
     /// Inner-wall temperature for a linear inner law `q'' = h (T_w − T_ref)`.
     fn wall_linear(&self, t_h: f64, h: f64, t_ref: f64) -> f64 {
-        let a = std::f64::consts::PI * self.d_i() * h;
+        let a = core::f64::consts::PI * self.d_i() * h;
         let r = self.r_ext();
         (t_h / r + a * t_ref) / (1.0 / r + a)
     }
@@ -795,7 +798,7 @@ impl HelicalCoilOtsg {
             return t_lin;
         }
         let r = self.r_ext();
-        let pd = std::f64::consts::PI * self.d_i();
+        let pd = core::f64::consts::PI * self.d_i();
         let resid = |tw: f64| (t_h - tw) / r - pd * (h_c * (tw - t_ref) + nuc(tw));
         let (mut lo, mut hi) = (t_sat, t_lin);
         for _ in 0..60 {
@@ -970,13 +973,13 @@ impl HelicalCoilOtsg {
         let q_lin = (t_h - t_wi) / self.r_ext();
         let d_o = self.geometry.tube_outer_diameter.get::<meter>();
         let h_o = self.operating.shell_side_htc.get::<watt_per_square_meter_kelvin>();
-        let t_wo = t_h - q_lin / (h_o * std::f64::consts::PI * d_o);
+        let t_wo = t_h - q_lin / (h_o * core::f64::consts::PI * d_o);
         Ok(Local {
             t_b,
             t_wi,
             t_wo,
             q_lin,
-            q_flux: q_lin / (std::f64::consts::PI * d),
+            q_flux: q_lin / (core::f64::consts::PI * d),
             h_i,
             chf_ratio,
             x_eq,

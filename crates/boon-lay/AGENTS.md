@@ -13,6 +13,23 @@ The standalone source lives at:
 
 ---
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1634, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh` (and the RustBCA copy alone by
+`scripts/check-rustbca-no-std.sh`). Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (outside `src/rustbca/`, whose files import `alloc` items by name).
+- Clocks are `crate::time`, one-time statics `crate::sync::OnceLock`, a
+  `rayon` import takes `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`
+  with `wasm_par` on `any(target_arch = "wasm32", not(feature = "std"))`.
+- The OpenMC XML data path, files, `serde` and printing are
+  `#[cfg(feature = "std")]`. Keep data *loading* separate from the code that
+  *uses* the data, so the simulators stay available without std.
+- Kovan-reviewed functions are still closed to modification: the 2026-11-17
+  confirmation covered only the mechanical edits listed on gh:#1634.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

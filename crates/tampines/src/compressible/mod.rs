@@ -12,6 +12,9 @@
 //! tracked separately -- see the workspace's beads issue tracker, epic
 //! `op-dt3`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// A compressible pipe-flow loop segment (finite-volume, CoolProp-backed
 /// thermophysical properties, lateral thermal coupling + heat source).
 ///

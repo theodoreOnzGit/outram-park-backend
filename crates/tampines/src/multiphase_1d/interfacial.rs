@@ -261,7 +261,10 @@
 //! evaluates them once per cell per timestep, and every one of them is
 //! documented individually with its unit spelled out.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::area::InterfacialArea;
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::regime_map::{

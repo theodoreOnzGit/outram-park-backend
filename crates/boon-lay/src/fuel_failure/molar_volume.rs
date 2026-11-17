@@ -56,6 +56,9 @@
 //! (0.2670), and the report does not say what mixture it assumes. Taken as
 //! printed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::MolarVolume;
 use uom::si::molar_volume::cubic_meter_per_mole;
 

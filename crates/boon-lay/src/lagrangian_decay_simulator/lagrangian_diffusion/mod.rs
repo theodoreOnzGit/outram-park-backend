@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// for lagrangian_diffusion,
 /// chatgpt 5 has given a pretty straightforward monte
 /// carlo type diffusion simulator.
