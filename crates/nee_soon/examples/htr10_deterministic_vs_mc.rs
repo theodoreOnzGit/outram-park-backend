@@ -131,11 +131,9 @@ use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use nee_soon::genfoam_xs::to_nuclear_data_input;
-use nee_soon::htr10_rmc::core_model::{
-    HTR10_AXIAL_REFLECTOR_CM, assemble_explicit_triso, mat, HTR10_BORED_BORON, HTR10_BORED_CARBON,
-    PAPER_FILLING_FRACTION,
-};
-use nee_soon::htr10_rmc::reflector::zone_composition;
+use nee_soon::htr10_rmc::core_model::{HTR10_AXIAL_REFLECTOR_CM, assemble_explicit_triso, mat};
+use nee_soon::htr10_rmc::data::{Htr10DataConfig, Htr10NuclideLayout};
+use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure, MgxsLibrary};
 use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
     DiffusionNeutronics, DiffusionSettings,
@@ -145,11 +143,10 @@ use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
 use outram_foam_basic_lib::prelude::BoundaryCondition;
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::material_sab::{assign_htr10_sab, Htr10SabLaws};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
@@ -158,8 +155,6 @@ use uom::si::f64::{Area, Length};
 use uom::si::length::meter;
 
 const TEMP_K: f64 = 293.6;
-const B10_OF_NATURAL: f64 = 0.199;
-const NUC: Htr10Nuclides = Htr10Nuclides::NATURAL_CARBON;
 
 fn env_usize(key: &str, default: usize) -> usize {
     std::env::var(key)
@@ -168,10 +163,33 @@ fn env_usize(key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-fn nuclides() -> Option<(Vec<Nuclide>, Htr10SabLaws)> {
+/// The nuclide plan of this example: the loader `htr10_rmc_keff` uses.
+///
+/// **CORRECTED 2026-11-17 (gh:#1635 item 2).** ~~A hand-written 14-slot list and
+/// eleven materials (`mat::HOMOG_DUMMY + 1`).~~ `assemble_explicit_triso` places
+/// all `mat::COUNT` slots (the 24 Table 4-3 zones from `mat::ZONE_TABLE_FIRST`
+/// and the control-rod B4C / steel / iron, added 2026-09-25), so the example
+/// panicked at the first lookup of slot 11. The plan is now
+/// [`Htr10NuclideLayout::plan`] and the materials are [`htr10_material_set`],
+/// the one builder every other `htr10_rmc` consumer calls.
+fn layout() -> Htr10NuclideLayout {
+    let cfg = Htr10DataConfig {
+        temperature: uom::si::f64::ThermodynamicTemperature::new::<
+            uom::si::thermodynamic_temperature::kelvin,
+        >(TEMP_K),
+        ..Htr10DataConfig::default()
+    };
+    Htr10NuclideLayout::plan(&cfg).expect("default HTR-10 nuclide plan")
+}
+
+/// Every slot of `layout` loaded FREE (no law bound), plus the three laws.
+/// `None` if a tape is missing (the example then prints SKIP).
+fn nuclides(layout: &Htr10NuclideLayout) -> Option<(Vec<Nuclide>, Htr10SabLaws)> {
     let dir =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
-    let load = |n: &str, f: &str| Nuclide::from_endf_file(&dir.join(f), n, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).ok();
+    let temperature = uom::si::f64::ThermodynamicTemperature::new::<
+        uom::si::thermodynamic_temperature::kelvin,
+    >(TEMP_K);
     let sab = ThermalScattering::from_endf_file(
         dir.join("tsl-crystalline-graphite.endf").to_str()?,
         30,
@@ -188,99 +206,43 @@ fn nuclides() -> Option<(Vec<Nuclide>, Htr10SabLaws)> {
     };
     let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
     let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
-    // Every slot is loaded free; the laws are attached per material in `main`
-    // (`assign_htr10_sab`, gh:#462 / #1581).
-    let nuclides = vec![
-        load("U235", "n-092_U_235-ENDF8.0.endf")?,
-        load("U238", "n-092_U_238.endf")?,
-        load("O16", "n-008_O_016-ENDF8.0.endf")?,
-        load("C12", "n-006_C_012-ENDF8.0.endf")?,
-        load("C12", "n-006_C_012-ENDF8.0.endf")?,
-        load("Si28", "n-014_Si_028-ENDF8.0.endf")?,
-        load("B10", "n-005_B_010-ENDF8.0.endf")?,
-        // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
-        // isotopes. The atom density was always built from silicon's natural
-        // molar mass, so this splits a correct total rather than changing it.
-        load("C12", "n-006_C_012-ENDF8.0.endf")?,
-        load("Si29", "n-014_Si_029-ENDF8.0.endf")?,
-        load("Si30", "n-014_Si_030-ENDF8.0.endf")?,
-        load("B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
-        // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
-        // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
-        // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
-        load("C13", "n-006_C_013-ENDF8.0.endf")?,
-        load("C13", "n-006_C_013-ENDF8.0.endf")?,
-        load("C13", "n-006_C_013-ENDF8.0.endf")?,
-    ];
+    // Every slot is loaded free; the graphite and SiC laws are attached per
+    // material in `main` (`assign_htr10_sab`, gh:#462 / #1581). The UO2 and
+    // iron laws a slot may name are NOT attached, as before this fix: this
+    // example never bound them.
+    let nuclides = layout
+        .slots
+        .iter()
+        .map(|s| Nuclide::from_endf_file(&s.tape.path(), s.name, temperature, 1.0e-3).ok())
+        .collect::<Option<Vec<_>>>()?;
     Some((nuclides, Htr10SabLaws { graphite: sab, c_in_sic, si_in_sic }))
 }
 
-/// The eleven materials `htr10_rmc`'s geometry indexes, in `mat::` order.
-fn materials() -> Vec<Material> {
-    let mut mats = fuel_pebble_materials(NUC, BoronReading::Natural, TEMP_K);
-    mats.truncate(6); // 0..5: kernel, buffer, iPyC, SiC, oPyC, graphite
-    mats.push(Material {
-        id: 70,
-        name: "helium".into(),
-        components: vec![],
-        temperature: TEMP_K,
-    });
-    let graphite_zone = |id: i32, name: &str, z_carbon: f64, z_boron: f64| Material {
-        id,
-        name: name.into(),
-        components: NUC.c_graphite
-            .components(z_carbon)
-            .into_iter()
-            .chain([
-            NuclideComponent {
-                nuclide_idx: NUC.b10,
-                atom_density: z_boron * B10_OF_NATURAL,
-            },
-            ])
-            .collect(),
-        temperature: TEMP_K,
-    };
-    let z22 = zone_composition(22).expect("TECDOC zone 22");
-    mats.push(graphite_zone(
-        71,
-        "reflector graphite (TECDOC zone 22)",
-        z22.carbon,
-        z22.natural_boron,
-    ));
-    let z17 = zone_composition(17).expect("TECDOC zone 17");
-    mats.push(graphite_zone(
-        72,
-        "boronated carbon brick (TECDOC zone 17)",
-        z17.carbon,
-        z17.natural_boron,
-    ));
-    mats.push(graphite_zone(
-        73,
-        "bored side reflector (TECDOC zones 31-40)",
-        HTR10_BORED_CARBON,
-        HTR10_BORED_BORON,
-    ));
-    let dummy = mats[mat::GRAPHITE].clone();
-    mats.push(Material {
-        id: 74,
-        name: "homogenised dummy pebbles".into(),
-        components: dummy
-            .components
-            .iter()
-            .map(|c| NuclideComponent {
-                nuclide_idx: c.nuclide_idx,
-                atom_density: c.atom_density * PAPER_FILLING_FRACTION,
-            })
-            .collect(),
-        temperature: TEMP_K,
-    });
-    assert_eq!(
-        mats.len(),
-        mat::HOMOG_DUMMY + 1,
-        "material order must match mat::"
-    );
-    mats
+/// The `mat::COUNT` materials `htr10_rmc`'s geometry indexes, in `mat::` order,
+/// from the shared builder at the example's temperature.
+fn materials(layout: &Htr10NuclideLayout) -> Vec<Material> {
+    htr10_material_set(layout, Htr10MaterialConfig::benchmark_default(TEMP_K))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The material list covers every slot the assembled core can reference,
+    /// and every component points at a planned nuclide (gh:#1635 item 2).
+    #[test]
+    fn materials_cover_every_core_slot() {
+        let layout = layout();
+        let mats = materials(&layout);
+        assert_eq!(mats.len(), mat::COUNT);
+        for m in &mats {
+            for c in &m.components {
+                assert!(c.nuclide_idx < layout.len(), "{}: slot {}", m.name, c.nuclide_idx);
+            }
+        }
+    }
+}
+
 
 fn main() {
     let histories = env_usize("OUTRAM_HTR10_HISTORIES", 2000);
@@ -303,16 +265,17 @@ fn main() {
     println!("HTR-10: deterministic (diffusion + SP3) vs Monte Carlo, k_inf");
     println!("=============================================================");
 
-    let Some((free_nucs, laws)) = nuclides() else {
+    let layout = layout();
+    let Some((free_nucs, laws)) = nuclides(&layout) else {
         println!("SKIP: reference-data/endf/ not in this checkout.");
         return;
     };
-    let mats = materials();
+    let mats = materials(&layout);
     // Per-material S(a,b) (gh:#462, #1581). Audited 2026-11-14: the graphite
     // slot is referenced by the graphite, the reflector / brick / bored-zone
     // graphite and the dummy pebbles only; the SiC slots by the SiC layer.
     let (mats, nucs) =
-        assign_htr10_sab(&mats, &free_nucs, &NUC, &laws).expect("S(a,b) per material");
+        assign_htr10_sab(&mats, &free_nucs, &layout.pebble, &laws).expect("S(a,b) per material");
     // OUTRAM_HTR10_SURFACE=1 surface-tracks the bed instead of delta-tracking
     // it, on the SAME geometry. `assemble`'s own docs call this the
     // discriminator: if the reaction-rate balance closes under surface tracking
@@ -362,7 +325,7 @@ fn main() {
         n_particles: histories,
         n_inactive: 20,
         n_active: 40,
-        seed: 20_260_919,
+        seed: env_usize("OUTRAM_HTR10_SEED", 20_260_919) as u64,
         ..KeffSettings::default()
     };
     let src = SourceBox {
@@ -398,6 +361,31 @@ fn main() {
     let names: Vec<String> = mats.iter().map(|m| m.name.clone()).collect();
     let all: Vec<usize> = (0..mats.len()).collect();
 
+    // OUTRAM_HTR10_K_ONLY=1 (gh:#1635): k only, no tallies, no deterministic
+    // side. `OUTRAM_HTR10_SEED_COUNT` consecutive seeds from OUTRAM_HTR10_SEED
+    // reuse the one geometry, majorant and data (building them takes minutes).
+    // Scoring draws no random number, so this k is the full run's pass-1 k.
+    if std::env::var_os("OUTRAM_HTR10_K_ONLY").is_some() {
+        for i in 0..env_usize("OUTRAM_HTR10_SEED_COUNT", 1) {
+            let mut s = settings.clone();
+            s.seed += i as u64;
+            let r = run_keff_csg_hybrid(
+                &core.geometry,
+                &mats,
+                &nucs,
+                &[maj.clone()],
+                None,
+                src,
+                &s,
+                None,
+            );
+            println!(
+                "K_ONLY seed {} histories {} k_eff = {:.6} +/- {:.6}",
+                s.seed, s.n_particles, r.k_mean, r.k_std
+            );
+        }
+        return;
+    }
     println!("\n  Monte Carlo pass 1/2 (scalar reaction rates)...");
     let mut scalar = scalar_tally(1, &groups, all.clone());
     let mc = run_keff_csg_hybrid(

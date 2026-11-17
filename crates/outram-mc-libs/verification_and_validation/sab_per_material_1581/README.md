@@ -1162,3 +1162,46 @@ kept as written. The nee_soon `data.rs` / `data_jobs.rs` loader (full-core
 HTR-10 runs, marked not migrated) was not measured either. Hardware: Intel Xeon
 @ 2.10 GHz KVM container, 4 logical cores, 15.7 GiB, CPU only, two processes
 concurrent.
+
+## gh:#1635 item 2, second attempt (2026-11-17): the example fixed, prediction
+
+**The earlier "NOT MEASURABLE" record above is superseded; its diagnosis was
+right and is now acted on.** ~~`htr10_deterministic_vs_mc` ... could not be
+measured~~ **CORRECTED 2026-11-17:** `htr10_deterministic_vs_mc` built
+`mat::HOMOG_DUMMY + 1 = 11` materials by hand while `assemble_explicit_triso`
+references up to `mat::COUNT` (11 + 24 Table 4-3 zones + ROD_B4C/STEEL/IRON).
+Fix, example only: the nuclide plan is `Htr10NuclideLayout::plan` (the loader
+`htr10_rmc_keff` uses) with every slot loaded FREE, the materials are
+`htr10_material_set(layout, Htr10MaterialConfig::benchmark_default(293.6))` (the
+one builder every other `htr10_rmc` consumer calls), and the graphite /
+C-in-SiC / Si-in-SiC laws are still attached per material by
+`assign_htr10_sab(.., &layout.pebble, ..)`. The UO2 and iron laws the plan names
+for some slots are NOT bound (the example never bound them). The helium slot now
+carries real He-3/He-4 (it was an empty material before): a change of the
+example's model that applies to OLD and NEW alike. Test:
+`tests::materials_cover_every_core_slot` in the example
+(`materials().len() == mat::COUNT`, every component index inside the plan).
+
+**When it broke (git, not run).** `mat::ZONE_TABLE_FIRST` and the 24 zone slots
+arrived in `55e46d6f4` (2026-09-25, "HTR-10 reflector as explicit 3-D
+geometry"), the rod slots (`ROD_B4C`...) later in the same series; the example's
+material list and its `HOMOG_DUMMY + 1` assert were never updated (its only
+later commits are the `mathf` route `0cfb3c036` and the #1581 migration
+`00d2cc781`). So the example has been inconsistent with the core since
+2026-09-25. Why it panics with `cell 2 references material 11` is #313
+(`651dcd747`, 2026-11-14), which checks every cell's material at run start;
+before that the same out-of-range index would have been hit at the first
+collision in such a cell (inference from the code, NOT run on an old checkout).
+
+**Prediction, written before any run of the fixed example.** OLD (`d1e20f188`,
+same example fix, laws bound on the nuclide slots with
+`with_thermal_scattering`) vs NEW (this branch, laws per material): the
+per-material association lengthens the nuclide array (bound copies appended),
+the URR stream advances by the array length, so histories re-draw and no
+bit-identity is expected. Cross sections are the same otherwise, so the expected
+difference `new - old` in `k_eff` is **zero within statistics**; gate |z| <= 2
+of its standard error, a larger shift reported and not tuned. The per-seed sigma
+is not known in advance (the pilot measures it); the run uses the example's
+default 2000 histories x [20 inactive + 40 active], 6 rings x 4 layers, unless
+the clock forces fewer, and the seed ensemble is cut by clock, never by result.
+k of this reduced run is a statistics instrument, not a benchmark number.
