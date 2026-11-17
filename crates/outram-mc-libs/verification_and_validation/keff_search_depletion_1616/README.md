@@ -153,8 +153,10 @@ the 986 ppm total drop still clears 3 sigma (about 260 ppm).
   Since 2026-11-17 (gh:#1618) `deplete_coupled_with_keff_search` composes the
   hook with the transport-coupled spectrum; see below. This case was not
   re-run on it.** The
-  enrichment-type path (parameter changes a burnable nuclide) is exercised
-  only with a synthetic k in the unit test, not with transport.
+  ~~enrichment-type path (parameter changes a burnable nuclide) is exercised
+  only with a synthetic k in the unit test, not with transport.~~
+  **CORRECTED 2026-11-17 (gh:#1618 item 4)**: there is now a short transport
+  case, below.
 - sigma_k of 0.003 to 0.004 per solve is the resolving power. A 25 ppm bracket
   tolerance is below it, so the search stops on the residual criterion.
 - One seed per solve; no ensemble over seeds.
@@ -279,3 +281,49 @@ Prediction, written before the run: both pass first time. Measured: both
 passed first time. **This is a wiring test, not a physics result**: no
 transport-coupled case (critical boron against burnup with the spectrum fed
 back) was run, so the size of the feedback on the #1616 trajectory is unknown.
+
+## 2026-11-17, #1618 item 4: an enrichment parameter, with transport
+
+Test: `a_critical_enrichment_search_writes_a_burnable_nuclide_with_transport`
+(same file as the boron gate; methodology and predictions are in its comment,
+written before the first run). The unborated pin cell above, one 20 d step on
+the independent operator, one GRsecant search before it. The parameter is the
+U-235 atom fraction `p` of the heavy metal; `adjust` sets U-235 to `p * N_heavy`
+and U-238 to `(1 - p) * N_heavy`, `N_heavy = 2.32e-2` atoms/(b cm) fixed, both
+chain nuclides, so the found `p` is **written back into the depletion vector**,
+which a boron search never does. Transport per solve 2500 histories x (8
+inactive + adaptive active), fixed seed. GRsecant: seeds (0.015, 0.030), clamp
+[0.007, 0.06], `k_tol` 0.01, `sigma_final` 0.008, `b0` 15, `b_min` 10, `b_max`
+40.
+
+Predictions (before the run): 1. converges inside the clamp; 2. the root lies
+between natural uranium (0.0072) and the case's own 4.23 % (physics bounds, the
+gate); 3. my estimate 0.010 to 0.022, central 0.015 (not gated); 4. the BOL
+inventory is the written-back one to the bit and U-235 falls over the step.
+
+Measured (hardware as above, 37.8 s, 7 solves):
+
+| p | 0.015 | 0.030 | 0.007 | 0.007 | 0.00819 | 0.01019 | **0.00879** |
+|---|---|---|---|---|---|---|---|
+| k | 1.22386 | 1.42850 | 0.90942 | 0.90942 | 0.97177 | 1.06862 | **1.00692 +- 0.00639** |
+
+Root **U-235 atom fraction 0.00879** (0.88 %), k within `k_tol` and sigma within
+`sigma_final`. Predictions 1, 2 and 4 met (the gate passes, and the BOL U-235
+equals `0.00879 * 2.32e-2` to the bit and differs from the initial 9.8e-4).
+**Prediction 3 missed**: 0.00879 is below the 0.010 to 0.022 I estimated, about
+40 % under the central 0.015. The estimate was a rough scaling, not a derived
+number, and I do not know which part of it was wrong. The root is not offered as
+a physical critical enrichment: cold water, no clad, H-1 free gas without S(a,b),
+CORE-tier data, a one-seed solve with sigma_k 0.006.
+
+Worth reading in the table: the unbracketed secant went to the **clamp**. The
+0.015 and 0.030 seeds extrapolated below the lower bound, the proposal was
+clamped to 0.007 (k = 0.909, below target), and the next proposal was the bound
+again, a repeated evaluation (identical k, same seed) that cost one solve.
+Upstream behaves the same: it clamps the proposal and does not skip a repeated
+point.
+
+Not done: only one step and one seed. The local slope from the table is
+(1.06862 - 0.97177) / (0.01019 - 0.00819) = 48 per unit p, so sigma_k 0.0064 is
+about 0.00013 in p, 1.5 % of the root: that is the single-seed resolving power,
+and the seed-to-seed spread was not measured. Nothing was compared with OpenMC.

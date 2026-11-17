@@ -361,3 +361,102 @@ fn critical_boron_falls_monotonically_with_burnup() {
         assert!((s.parameter - old).abs() <= allowed, "step {}", s.step);
     }
 }
+
+// ---------------------------------------------------------------------------
+// GitHub #1618 item 4: a parameter that writes a BURNABLE nuclide, with transport
+// ---------------------------------------------------------------------------
+//
+// Methodology. The same unborated pin cell, one burnup step (20 d, the
+// independent operator), one GRsecant search before it, none after. The
+// searched parameter is the U-235 atom fraction of the heavy metal, `p`
+// (enrichment in atom percent / 100); `adjust` sets U-235 to `p * N_heavy` and
+// U-238 to `(1 - p) * N_heavy` with `N_heavy = 9.8e-4 + 2.222e-2 = 2.32e-2`
+// atoms/(b cm) held fixed. Both are chain nuclides, so `write_back` carries the
+// found enrichment into the depletion vector, which a boron search never does.
+// Transport per solve: 2500 histories x (8 inactive + `n_active`), fixed seed.
+// GRsecant: seeds (0.015, 0.030), clamp [0.007, 0.06], `k_tol` 0.01,
+// `sigma_final` 0.008, `b0` 15, `b_min` 10, `b_max` 40, at most 10 solves.
+//
+// Predictions, written BEFORE the first run (2026-11-17):
+//
+// 1. The search converges inside the clamp.
+// 2. The critical enrichment lies between natural uranium (0.0072, where light
+//    water without heavy-water moderation cannot be critical) and the case's own
+//    4.23 %, where the boron search found k(0 ppm) = 1.49 (README). Those two
+//    are physics bounds and are the gate.
+// 3. My estimate of where in that range, NOT gated: 0.010 to 0.022, central
+//    0.015, from a rough scaling of k_inf with enrichment in a tight-pitch
+//    cold pin cell. CORE-tier H-1 has no S(a,b), which lowers k and would push
+//    the root up.
+// 4. The BOL inventory is the written-back one, `U235 = p * N_heavy` to the
+//    bit, and differs from the initial 9.8e-4; U-235 then falls over the step.
+//
+// Results: README, section "2026-11-17, #1618 item 4".
+#[test]
+fn a_critical_enrichment_search_writes_a_burnable_nuclide_with_transport() {
+    const N_HEAVY: f64 = 9.8e-4 + 2.222e-2;
+    let chain = DepletionChain::simple();
+    let initial = vec![("U235".to_string(), 9.8e-4), ("U238".to_string(), 2.222e-2)];
+    let settings = BurnupSettings { n_steps: 1, step_days: 20.0, ..BurnupSettings::default() };
+    let micro = MicroXs::from_chain(&chain, &settings);
+    let control = KeffSearchControl::new(0.015, 0.030, (0.007, 0.06))
+        .unwrap()
+        .with_search_at_end(false)
+        .with_grsecant_settings(GrSecantSettings {
+            k_tol: 0.01,
+            sigma_final: 0.008,
+            b0: 15,
+            inactive: 8,
+            b_min: 10,
+            b_max: Some(40),
+            maxiter: 10,
+            ..GrSecantSettings::default()
+        });
+    let t0 = std::time::Instant::now();
+    let run = deplete_independent_with_keff_search(
+        &chain,
+        &initial,
+        &settings,
+        &micro,
+        Integrator::Predictor,
+        &control,
+        // The model reads the inventory the search adjusted; no boron.
+        |_p, inv, n_active| pin_cell_k(0.0, inv, n_active),
+        |p, inv| {
+            for e in inv.iter_mut() {
+                if e.0 == "U235" {
+                    e.1 = p * N_HEAVY;
+                } else if e.0 == "U238" {
+                    e.1 = (1.0 - p) * N_HEAVY;
+                }
+            }
+        },
+    )
+    .expect("enrichment search");
+    println!("wall time {:.1} s", t0.elapsed().as_secs_f64());
+    assert_eq!(run.searches.len(), 1);
+    let s = &run.searches[0];
+    println!(
+        "root U-235 fraction {:.5} (k {:.5} +- {:.5}, {} solves) trials {:?} batches {:?}",
+        s.parameter,
+        s.keff,
+        s.keff_std,
+        s.n_evaluations,
+        s.iterations
+            .iter()
+            .map(|i| ((i.parameter * 1e5).round() / 1e5, (i.keff * 1e5).round() / 1e5))
+            .collect::<Vec<_>>(),
+        s.batches
+    );
+    // Prediction 1.
+    assert!(s.parameter >= 0.007 && s.parameter <= 0.06);
+    assert!((s.keff - 1.0).abs() <= 0.01 && s.keff_std <= 0.008);
+    // Prediction 2: the physics bounds.
+    assert!(s.parameter > 0.0072, "below natural uranium: {}", s.parameter);
+    assert!(s.parameter < 9.8e-4 / N_HEAVY, "above the 4.23 % case: {}", s.parameter);
+    // Prediction 4: the written-back inventory, to the bit, and burnup after it.
+    let bol = &run.burnup.steps[0];
+    assert_eq!(bol.density("U235").to_bits(), (s.parameter * N_HEAVY).to_bits());
+    assert_ne!(bol.density("U235").to_bits(), 9.8e-4_f64.to_bits());
+    assert!(run.burnup.steps[1].density("U235") < bol.density("U235"));
+}
