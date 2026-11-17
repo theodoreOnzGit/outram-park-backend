@@ -117,9 +117,8 @@ pub(crate) mod thread {
     }
 }
 
-/// `HashMap` / `HashSet`: `std`'s in a `std` build, exactly as before, and
-/// `hashbrown`'s without `std`. `hashbrown` keeps the same `Hash` bounds, so
-/// no public generic here gains an `Ord` bound; a `BTreeMap` would add one.
+/// `HashMap` / `HashSet`: `std`'s in a `std` build, `hashbrown`'s without
+/// (workspace rule, `docs/claude-md/rust-design-rules.md`).
 #[allow(unused_imports)]
 pub(crate) mod hash {
     #[cfg(any(feature = "std", test))]

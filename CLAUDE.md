@@ -733,6 +733,8 @@ Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/
   `Arc<T>`; no channels for simulation state.
 - **`uom` everywhere** a physical quantity crosses an API, with named type
   aliases for complex quantities.
+- **`no_std` maps are `hashbrown`**, through each crate's `crate::hash`
+  module; never a `BTreeMap as HashMap` stand-in (maintainer, 2026-11-16).
 
 Full text, with the enum-dispatch pattern: [`docs/claude-md/rust-design-rules.md`](docs/claude-md/rust-design-rules.md).
 

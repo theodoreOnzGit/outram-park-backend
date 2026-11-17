@@ -52,6 +52,16 @@ extern crate sha2_nostd as sha2;
 /// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
 /// module in `no_std` builds only, so a `std` build resolves every name, and
 /// computes every number, exactly as before.
+/// `HashMap` / `HashSet`: `std`'s in a `std` build, `hashbrown`'s without
+/// (workspace rule, `docs/claude-md/rust-design-rules.md`).
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 pub(crate) mod nostd_prelude {

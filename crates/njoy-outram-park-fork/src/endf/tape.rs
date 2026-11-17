@@ -14,10 +14,7 @@ use crate::nostd_prelude::*;
 // Lookup-only maps (never iterated in an order that reaches output), so the
 // `no_std` build's ~~`BTreeMap`~~ `hashbrown` map (workspace-wide since
 // 2026-11-16, maintainer) gives the same tape (gh:#1592).
-#[cfg(any(feature = "std", test))]
-use std::collections::{HashMap, HashSet};
-#[cfg(not(any(feature = "std", test)))]
-use hashbrown::{HashMap, HashSet};
+use crate::hash::{HashMap, HashSet};
 #[cfg(feature = "std")]
 use std::io::{BufRead, BufReader, Read, Write};
 

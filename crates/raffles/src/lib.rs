@@ -166,15 +166,8 @@
 extern crate alloc;
 extern crate thiserror_nostd as thiserror;
 
-/// What the `std` prelude gives every module and a `no_std` build has to
-/// import: the `alloc` types and macros, and `petir::real::Real` for the
-/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
-/// module in `no_std` builds only, so a `std` build resolves every name, and
-/// computes every number, exactly as before.
-/// `HashMap` / `HashSet`: `std`'s in a `std` build, exactly as before, and
-/// `hashbrown`'s without `std` (maintainer choice, 2026-11-16), as in
-/// `outram-blender` and `outram-mc-libs`. Same `Hash + Eq` bounds, so no key
-/// needs `Ord`.
+/// `HashMap` / `HashSet`: `std`'s in a `std` build, `hashbrown`'s without
+/// (workspace rule, `docs/claude-md/rust-design-rules.md`).
 #[allow(unused_imports)]
 pub(crate) mod hash {
     #[cfg(any(feature = "std", test))]

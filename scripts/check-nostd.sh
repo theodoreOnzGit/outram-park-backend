@@ -43,6 +43,13 @@ crates=(
 
 rustup target add "$target" >/dev/null
 fail=0
+
+# `no_std` maps are `hashbrown` through `crate::hash`, never a `BTreeMap`
+# stand-in (docs/claude-md/rust-design-rules.md, maintainer 2026-11-16).
+if grep -rnE 'BTree(Map|Set) as Hash(Map|Set)' --include='*.rs' crates; then
+  echo "FAILED: a BTreeMap/BTreeSet stands in for HashMap/HashSet; use crate::hash (hashbrown)" >&2
+  fail=1
+fi
 for c in "${crates[@]}"; do
   echo "== $c (no_std + alloc, $target)"
   if ! cargo check --release -p "$c" --lib --no-default-features --target "$target"; then
