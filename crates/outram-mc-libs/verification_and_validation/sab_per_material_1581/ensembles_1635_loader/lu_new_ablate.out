@@ -1,0 +1,23 @@
+ABLATION: GRAPHITE_SAB=0, carbon is free gas (no crystalline-graphite S(a,b))
+settings: PARTICLES 500 x [INACTIVE 5 + ACTIVE 10], THREADS 3, SEED 778, 296 K; cell-average N_C/N_U = 600, uranium volume fraction v = 2.990541e-3, R/r = 6.9409
+lump: U metal 19.05 g/cm3, N_U = 4.819657e-2 /b-cm; moderator: graphite N_C = 8.673968e-2 /b-cm
+
+=== lump r = 0.3 cm, cell R = 2.0823 cm (white) ===
+cell-average N_C/N_U = 600.0
+k_inf (power iteration, generation mean) = 0.94978 +/- 0.01674   [9.9 s]
+three-group factors (library convention, L = 0):
+  eta     = 1.33426 +/- 0.01250
+  f       = 0.74845 +/- 0.00618
+  p       = 0.94721 +/- 0.00676
+  epsilon = 1.01495 +/- 0.01198
+  P_FNL   = 1.00000 +/- 0.00727   P_TNL = 1.00000 +/- 0.00700
+  eta*f*p*eps = 0.96006 +/- 0.02032
+  P_total/(A_total + L_total) = 0.96006 (telescoping: product - P/(A+L) = +0.00e0; leakage 0.00e0)
+  (k - k_factors)/k = -0.01082 (band (-0.01, 0.05): OUTSIDE)
+two-group view (split at 0.625 eV): eta 1.33426  f 0.74845  p 0.94026  eps 1.02245  product 0.96006
+group rates per source neutron [thermal, resonance, fast]: absorption [0.96902, 0.05401, 0.00756]  nu-fission [0.96770, 0.00917, 0.01256]
+fuel = the uranium material (library definition); f = 0.74845
+
+=== Rung 3: natural U metal lumps in graphite, N_C/N_U = 600, 296 K ===
+  r [cm]    R [cm]     k_inf    sigma      eta        f        p      eps k_factors   wall s
+    0.30    2.0823   0.94978  0.01674  1.33426  0.74845  0.94721  1.01495   0.96006      9.9

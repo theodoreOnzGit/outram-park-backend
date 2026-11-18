@@ -1292,3 +1292,97 @@ sweep point, `lumped_ugraphite_kinf` one radius), each falsifiable:
    after, once the one assertion that read `nuclides[3]` for the graphite law
    reads the bound carbon through its role.
 6. **Any pinned value that moves outside these allowances: STOP and report.**
+
+### Results, gh:#1635 item 3 (2026-11-17/18)
+
+**What changed.** `examples/common/ugraphite_common.rs`,
+`dhoby-ghaut/.../ugraphite/model.rs`, `.../dhshort/data.rs` and
+`.../htr10/model.rs` no longer call `Nuclide::with_thermal_scattering`; the four
+`#[allow(deprecated)]` markers are gone (the #462 scan test
+`no_unmarked_nuclide_level_sab_462` passes and prints 21 files that still call
+it; I did not record the count before this change). New unreviewed code in
+`outram_mc_libs::vv::ugraphite`: `Role`, `RoleIndex`, `Mix::density_of`,
+`bind_graphite` (unit test
+`binding_graphite_moves_carbon_to_bound_copies_and_roles_follow`).
+`Mix::densities` is untouched. `run_case` binds per material and reads its
+densities by role; the energy-only walk of `ugraphite_four_factor` does the
+same; the dhoby ugraphite/lumped `Loaded` carries a `RoleIndex` (the sigma(E)
+panel's C-12 is the bound copy). dhshort builds its live universe with the bound
+materials (`model::build_with`, new; `build` is unchanged). No kovan-reviewed
+function was edited: none of the touched folders holds a `kind = "review"`
+block (checked in `examples/common`, `examples`, `src/vv` and the dhoby
+`monte_carlo_web` folders).
+
+**Method.** Before: binaries built from the base commit (the code of
+`20cf60a96`, which differs from the base only by the prediction text); after:
+the migration commit; both `--release -j 2`, same machine, run sequentially (one
+MC process at a time). `ugraphite_four_factor` main case
+(`PARTICLES=2000 INACTIVE=15 ACTIVE=40 P_HIST=100000 THREADS=3`) and
+`lumped_ugraphite_kinf` (`RADII=0.3 CONTROL=0`, same settings), seeds
+20261101-20261106, 6 per arm, plus the `GRAPHITE_SAB=0` control (500 x [5+10],
+seeds 777 / 778). Hardware: Intel Xeon @ 2.10 GHz, 4 logical cores (3 used per
+run), 15 GiB, Linux 6.18, CPU only; the machine was shared and loaded (load
+average 6-8), so wall times are not comparable and are not quoted. The
+settings are far smaller than the recorded 5000 x [20+50] runs; the point is
+old vs new, not the k itself. Raw: `ensembles_1635_loader/` (`*_old_*`,
+`*_new_*`, `compare.out`, `run_arm.sh`, `compare.sh`).
+
+| check | prediction | result |
+|---|---|---|
+| input-derived lines (settings, inventory, `N`, ratios, radii) | bit-identical | **identical** in 12 of 12 seed pairs |
+| `GRAPHITE_SAB=0`, main case (every k, factor, energy-only number) | bit-identical | **identical** (diff of the two outputs, wall time masked) |
+| `GRAPHITE_SAB=0`, lumped | bit-identical | **identical** (wall time masked) |
+
+Law on, 6 seeds per arm, z = (new - old) / sqrt(sem_old^2 + sem_new^2):
+
+| quantity | old (sd) | new (sd) | diff | z |
+|---|---|---|---|---|
+| main k_inf | 1.56997 (0.00278) | 1.56893 (0.00376) | -0.00104 +/- 0.00191 | -0.54 |
+| main eta | 2.02810 (0.00005) | 2.02807 (0.00006) | -0.00004 | -1.11 |
+| main f | 0.97470 (0.00000) | 0.97470 (0.00001) | +0.00000 | 0.00 |
+| main p (3-group) | 0.71339 (0.00064) | 0.71396 (0.00224) | +0.00057 +/- 0.00095 | +0.60 |
+| main epsilon | 1.11147 (0.00031) | 1.11153 (0.00070) | +0.00006 | +0.19 |
+| main p (energy-only) | 0.71337 (0.00070) | 0.71376 (0.00133) | +0.00039 +/- 0.00061 | +0.63 |
+| main fold/tally | 0.99999 | 0.99999 | 0 | 0.00 |
+| lumped k_inf | 0.96091 (0.00238) | 0.95963 (0.00105) | -0.00129 +/- 0.00106 | -1.21 |
+| lumped eta / f / p / epsilon | | | | +0.50 / -0.30 / +0.13 / -0.06 |
+
+**Prediction check.** (1) held. (2) held: both controls are bit-identical, so
+the refactor changes nothing but the binding. (3) held: all gated quantities
+are inside |z| <= 2, largest |z| 1.21 (lumped k_inf); no misses to report. The
+k's are not bit-identical with the law on, as predicted (array 5 -> 7, URR
+stream advanced by the array length). (4) n/a, nothing pinned moved. Caveats:
+6 seeds per arm resolve a difference of about 2 x 190 pcm on the main k and
+2 x 110 pcm on the lumped k, so this excludes a gross error in the binding,
+not a shift of tens of pcm; eta and f have a seed sd at the printed precision,
+so their z is quantised and means little beyond "no movement at five digits".
+The fold/tally ratio (0.99999 both) is the check that the role-keyed density
+vector sits on the bound carbon: a density left on the free copy would move it
+and the energy-only `p`.
+
+**Native tests of the browser code** (the four `#[ignore]`d tests that process
+tapes, `cargo test --release -p dhoby-ghaut --example monte_carlo_web --
+--ignored`, 1270 s, after the migration): all four pass
+(`ugraphite::histories_in_the_mixture_end_properly_and_thermalise`,
+`lumped::histories_in_the_cell_end_properly`,
+`dhshort::data::the_table_is_dh_keff_vvs_order` (now 11 slots: the bound copy at
+10, the graphite slot unreferenced) and
+`htr10::the_fuel_zone_case_runs_both_arms`). Only the htr10 test measures a k,
+so only it was run before as well (one seed, 1000 x [20+60], harness sem):
+
+| arm | record (2026-10-16) | before | after | after - before |
+|---|---|---|---|---|
+| heterogeneous | 1.57136 +/- 0.00088 | 1.57264 +/- 0.00375 | 1.57766 +/- 0.00384 | +0.00502 +/- 0.00537 (z +0.93) |
+| homogenised | 1.44684 +/- 0.00090 | 1.44604 +/- 0.00321 | 1.45263 +/- 0.00377 | +0.00659 +/- 0.00495 (z +1.33) |
+
+Both after-values are about 1.5 sigma above the record, both before-values
+within 0.4 sigma; both arms share one seed and one packing, so the two z's are
+not independent, and each difference is inside |z| <= 2. A single seed cannot
+tell a re-draw from a small shift; no ensemble was run here and nothing was
+tuned. The majorant audit is unchanged (worst Sigma_t/Sigma_maj 0.9091 in both
+arms, before and after). The other three tests are structural; their
+before-state was not run. The dhshort k_inf view and the dhoby ugraphite and
+lumped Watch views (browser) are compile-checked only: `cargo check --release
+--target wasm32-unknown-unknown -p dhoby-ghaut --example monte_carlo_web`
+passes, as does the native `--lib --tests --examples` check of
+`outram-mc-libs`, `nee_soon` and `dhoby-ghaut`.
