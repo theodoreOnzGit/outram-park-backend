@@ -46,7 +46,7 @@ petir = { workspace = true }
 # op-cdte): the OFFBEAT small-strain mechanics solver is run alongside the
 # GeN-Foam one on a mesh this crate's own `blockMesh` tool writes. The CLI
 # binaries do not link OFFBEAT.
-outram-park-fork-offbeat.workspace = true
+outram-park-fork-offbeat = { workspace = true, features = ["std"] }
 # gh:#1483: tests/cfmesh_patch_types.rs inflates the committed upstream cfMesh
 # `boundary.gz` files it compares the written boundary with.
 miniz_oxide = { workspace = true }

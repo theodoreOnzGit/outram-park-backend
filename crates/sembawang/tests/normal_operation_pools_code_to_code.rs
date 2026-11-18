@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 
 //! **Code-to-code: `sembawang`'s accident release, with real normal-operation
 //! pools (the #448 default), against upstream TRISO-ATOPS** (`de374c8`,

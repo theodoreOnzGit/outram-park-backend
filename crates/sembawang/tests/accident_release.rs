@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 
 //! End-to-end: a prescribed transient and inventory out to a `changi` source
 //! term.

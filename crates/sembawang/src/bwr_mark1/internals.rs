@@ -30,6 +30,9 @@
 //! [`Mechanisms::without_dome_internals`](super::Mechanisms), passes the
 //! core's exit gas straight through: the model before 2026-10-29.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::core::{steel_h, steel_t};
 use super::params::Params;
 use petir::mathf::RealMath;

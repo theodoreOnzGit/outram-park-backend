@@ -51,6 +51,9 @@
 //! hydrogen path (gh:#1122, #1123); Unit 2's blow-out panel
 //! (opened by Unit 1's explosion at 24:50, row on p. 7.1-20).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::Params;
 use super::containment_network::NetworkConfig;
 use super::EventKind;

@@ -49,6 +49,9 @@
 //!   separated (stated: the debris surface here stays far above
 //!   saturation). The concrete ablates beneath, as CORCON's does.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::*;
 use super::pool_surface::{steam_conductivity, steam_viscosity};
 use super::sparc;

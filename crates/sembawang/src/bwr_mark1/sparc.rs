@@ -64,10 +64,13 @@
 //! Gas properties are air's, as MELCOR evaluates every aerosol
 //! coefficient (RN §2.4.2.3, constraint c).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::aerosol::Medium;
 use super::steam::p_sat_pa;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 use tampines_steam_tables::dynamic_viscosity::mu_tp_eqm_single_phase;
 use tampines_steam_tables::region_1_subcooled_liquid::intensive_properties::v_tp_1;
 use tampines_steam_tables::surface_tension::water_surf_tension;

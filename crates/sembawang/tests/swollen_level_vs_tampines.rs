@@ -25,6 +25,7 @@
 //! **Result (2026-11-01, release):** 64 of 64 heated cases bit-identical;
 //! the unheated cases agree to within 1e-15 m. As predicted.
 
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 use sembawang::bwr_mark1::params::Params;
 use sembawang::bwr_mark1::{height_of_volume, swollen_level as sem_swollen, volume_below};
 use tampines::control_volume::swollen_level;

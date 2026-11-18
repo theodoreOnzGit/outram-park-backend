@@ -42,7 +42,7 @@ raffles = { workspace = true, features = ["std"] }
 # Level 2: in-building release (`bishan`) and the source term and offsite
 # chain it orchestrates (`sembawang`).
 bishan.workspace = true
-sembawang.workspace = true
+sembawang = { workspace = true, features = ["std"] }
 # Level 3: atmospheric dispersion (`changi`), dose (`buangkok`) and ground
 # transport (`redhill`, a placeholder).
 changi.workspace = true
