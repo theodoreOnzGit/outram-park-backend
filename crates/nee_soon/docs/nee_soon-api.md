@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.4
+**Version:** 0.0.5
 
 **Format Version:** 61
 
@@ -70,6 +70,9 @@ What is real and tested today:
 | [`genfoam_xs`] | hands those constants to GeN-Foam through its own `nuclearData` input path |
 | [`coupling`] | [`coupling::McToGenFoam`], the facade: construct, `generate_mgxs()`, `solve_infinite_medium()` |
 | [`direct_coupling`] | [`direct_coupling::McGenFoamDirect`], Monte Carlo iterated directly against GeN-Foam's lumped thermal region |
+| [`power_shape`] | power shapes (lumps, cosine/sine, `J0 x cos`, Legendre-z, Zernike(-Legendre), Fourier-Bessel, spatial spherical harmonics, R-Z tables), read from Monte Carlo tallies and put on TH cells conserving the power; the HTR-10 frames (gh:#1184) |
+| [`htr10_coupling`] | [`htr10_coupling::Htr10DirectCoupling`]: the whole-core HTR-10 Monte Carlo (`ParametricStudy`) iterated against a lumped node or the `htr10_rz` R-Z core, reprocessing the data exactly at each zone temperature (gh:#1186) |
+| [`mgxs_genfoam`] | four isothermal Monte Carlo MGXS records stacked with `TFuel` into a GeN-Foam R-Z diffusion core on the `htr10_rz` mesh (gh:#1187) |
 
 [`NeeSoon::new_prompt_excursion_model`] remains real, wired code exposing
 `teh-o-prke`'s Nordheim-Fuchs exact timestepper.
@@ -235,6 +238,7 @@ pub struct Mk1DesignPoint {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -249,6 +253,7 @@ pub struct Mk1DesignPoint {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -372,6 +377,7 @@ pub struct ControlRodRemovalTransient {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -386,6 +392,7 @@ pub struct ControlRodRemovalTransient {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -497,6 +504,7 @@ pub struct Fig429Point {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -511,6 +519,7 @@ pub struct Fig429Point {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -719,6 +728,7 @@ pub struct Mk1CoreGeometry {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -733,6 +743,7 @@ pub struct Mk1CoreGeometry {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -873,6 +884,7 @@ pub struct MeshMonteCarloStage {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -887,6 +899,7 @@ pub struct MeshMonteCarloStage {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -1076,6 +1089,7 @@ Flibe coolant channels.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1090,6 +1104,7 @@ Flibe coolant channels.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -1226,6 +1241,7 @@ pub struct MgxsGenerationStage {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1240,6 +1256,7 @@ pub struct MgxsGenerationStage {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -1412,6 +1429,7 @@ pub struct PorousMediaClosures {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1426,6 +1444,7 @@ pub struct PorousMediaClosures {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -1576,6 +1595,7 @@ pub struct Sp3MultiphysicsStage {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1590,6 +1610,7 @@ pub struct Sp3MultiphysicsStage {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -1762,6 +1783,7 @@ pub struct Fig429Target {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1776,6 +1798,7 @@ pub struct Fig429Target {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -1911,6 +1934,7 @@ pub struct Fig429ValidationStage {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1925,6 +1949,7 @@ pub struct Fig429ValidationStage {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -2072,6 +2097,7 @@ Stage 4 — Figure-4.29 comparison (validation target).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2086,6 +2112,7 @@ Stage 4 — Figure-4.29 comparison (validation target).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -2207,6 +2234,7 @@ Fields:
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2221,6 +2249,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -2387,6 +2416,7 @@ pub struct XinWangSp3Workflow {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2401,6 +2431,7 @@ pub struct XinWangSp3Workflow {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -2453,6 +2484,3384 @@ pub struct XinWangSp3Workflow {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `htr10_th_transient`
+
+HTR-10 coupled thermal-hydraulic transients: point kinetics with the
+`tampines` primary loop (gh:#1151; moved from `tampines` 2026-11-03).
+# HTR-10 coupled thermal-hydraulic transients (gh:#1151)
+
+Point kinetics (`teh-o-prke`) coupled to the `tampines` primary loop and
+its core models: the LOFC ATWS case with its named sensitivity cases.
+**Moved here from `tampines::htr10_primary_loop` on 2026-11-03**
+(maintainer: "any neutronics and TH shld live in nee soon"; "Tampines
+will have fixed or user determined heat sources"): `tampines` keeps the
+loop and core thermal-hydraulics with the power as an input; everything
+that computes power from reactivity lives here.
+
+| Module | What |
+|---|---|
+| [`kinetics`] | PRKE + ANS decay heat + Xe-135 + fuel/moderator/reflector feedback + the start-up neutron source + external reactivity |
+| [`transient`] | the coupled step, the LOFC and CRW cases (lumped or R-Z core) and their named sensitivities, metrics, thermocouple probes |
+| [`data`] | embedded copies of the measured traces and the Tab 2.60 reactivity |
+
+V&V records: `crates/nee_soon/verification_and_validation/htr10_loop_lofc/README.md`
+(part A, lumped stand-in) and `.../htr10_rz_transients/README.md`
+(part B, R-Z core).
+
+Inputs: `docs/reactor-scoping/htr10-th-benchmark.md` and
+`docs/reactor-scoping/htr10-th-data/`. Source keys are the sheet's.
+
+> Research, education and V&V only. Not for licensing, operation or
+> safety decisions. AI draft, unreviewed.
+
+```rust
+pub mod htr10_th_transient { /* ... */ }
+```
+
+### Modules
+
+## Module `data`
+
+Embedded validation tables of the HTR-10 coupled transients (gh:#1151),
+moved from `tampines::htr10_primary_loop::data` on 2026-11-03.
+
+Each file under `data/` is a byte-for-byte copy of the file of the same
+name in `docs/reactor-scoping/htr10-th-data/`, which carries the citation
+header, the digitisation method and the read error. The test
+`data_copies_match_the_input_sheet` fails if a copy drifts. The loop's own
+tables (power map, coastdown) stay in `tampines`.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+```rust
+pub mod data { /* ... */ }
+```
+
+### Types
+
+#### Struct `MeasuredTrace`
+
+One measured thermocouple trace of [`LOFC_THERMOCOUPLES_C09`]: its label
+(`SR6`, `TR1_TR4`, ...) and `(t s, T deg C, read band deg C)` rows.
+
+```rust
+pub struct MeasuredTrace {
+    pub label: String,
+    pub rows: Vec<(f64, f64, f64)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `label` | `String` | Label as in [C09]. |
+| `rows` | `Vec<(f64, f64, f64)>` | `(t, T, band)`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn value_at(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  Linear interpolation in `T` (held at the ends).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `lofc_thermocouple_traces`
+
+The 17 traces of [`LOFC_THERMOCOUPLES_C09`], in file order.
+
+# Errors
+[`TampinesError::InvalidInput`] for a row that does not parse.
+
+```rust
+pub fn lofc_thermocouple_traces() -> Result<Vec<MeasuredTrace>, tampines::TampinesError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `POWER_LONG_C09_FIG6`
+
+Chen et al. (2009) Fig 6, measured relative fission power, 0-10800 s.
+
+```rust
+pub const POWER_LONG_C09_FIG6: &str = "# Source: Chen F., Dong Y., Zhang Z., Zheng Y., Shi L., Hu S., \"Post-test analysis of helium circulator trip\n# without scram at 3 MW power level on the HTR-10\", Nucl. Eng. Des. 239 (2009) 1010-1018. [C09]\n# Redistribution: (c) 2009 Elsevier B.V., all rights reserved. Numbers only, cited by figure (maintainer decision D1, 2026-11-03).\n# Digitised 2026-11-03 for gh:#1151 by an AI agent (draft until human review). Method: the embedded raster figure\n# was extracted at native resolution with `pdfimages -png` (no resampling). The plot frame was located from its\n# solid axis lines; the axes were calibrated from the frame lines and the printed tick labels (and checked against\n# the dotted gridlines where present). Curve pixels were selected by colour and reduced per pixel column (scripts\n# kept in the session scratchpad, not committed). The legend box was masked. No point was interpolated or invented:\n# a column with no curve pixel (hidden behind another curve) is simply absent.\n# Content: [C09] Fig 6, curve \"Fission power_test\" (MEASURED), relative fission power 0-10800 s.\n# Resolution: 1 px = 19.7 s and 0.0054 relative (= 18 kW at 3315 kW). Read error: +-0.006 relative and\n# +-20 s, or the half-width if larger. Checks against the text: first peak read 0.246 at 4395 s vs [C09]\n# Sec 5 \"24.7 % ... at 4400 s\"; second peak 0.097 at ~5610 s vs [T1] \"0.1 at 1250 s after the first\";\n# plateau 0.054 (179 kW) vs [C09] \"about 180 kW within 3 h\".\nt_s,relative_power,halfwidth\n19.71,0.92703,0.0676\n39.42,0.73784,0.1919\n59.12,0.47568,0.0811\n78.83,0.33243,0.0676\n98.54,0.22703,0.0378\n118.25,0.16216,0.0324\n137.96,0.12162,0.0189\n157.66,0.08919,0.0135\n177.37,0.06757,0.0081\n197.08,0.05405,0.0054\n216.79,0.04054,0.0027\n236.50,0.03243,0.0054\n256.20,0.02432,0.0027\n275.91,0.01892,0.0027\n295.62,0.01351,0.0027\n315.33,0.01081,0.0027\n335.04,0.01081,0.0027\n354.74,0.01081,0.0027\n374.45,0.00541,0.0027\n394.16,0.00541,0.0027\n413.87,0.00541,0.0027\n433.58,0.00541,0.0027\n453.28,0.00541,0.0027\n472.99,0.00270,0.0027\n492.70,0.00000,0.0027\n512.41,0.00000,0.0027\n532.12,0.00000,0.0027\n551.82,0.00000,0.0027\n571.53,0.00000,0.0027\n591.24,0.00000,0.0027\n610.95,0.00000,0.0027\n630.66,0.00000,0.0027\n650.36,0.00000,0.0027\n670.07,0.00000,0.0027\n689.78,0.00000,0.0027\n709.49,0.00000,0.0027\n729.20,0.00000,0.0027\n748.91,0.00000,0.0027\n768.61,0.00000,0.0027\n788.32,0.00000,0.0027\n808.03,0.00000,0.0027\n827.74,0.00000,0.0027\n847.45,0.00000,0.0027\n867.15,0.00000,0.0027\n886.86,0.00000,0.0027\n906.57,0.00000,0.0027\n926.28,0.00000,0.0027\n945.99,0.00000,0.0027\n965.69,0.00000,0.0027\n985.40,0.00000,0.0027\n1005.11,0.00000,0.0027\n1024.82,0.00000,0.0027\n1044.53,0.00000,0.0027\n1064.23,0.00000,0.0027\n1083.94,0.00000,0.0027\n1103.65,0.00000,0.0027\n1123.36,0.00000,0.0027\n1143.07,0.00000,0.0027\n1162.77,0.00000,0.0027\n1182.48,0.00000,0.0027\n1202.19,0.00000,0.0027\n1221.90,0.00000,0.0027\n1241.61,0.00000,0.0027\n1261.31,0.00000,0.0027\n1281.02,0.00000,0.0027\n1300.73,0.00000,0.0027\n1320.44,0.00000,0.0027\n1340.15,0.00000,0.0027\n1359.85,0.00000,0.0027\n1379.56,0.00000,0.0027\n1399.27,0.00000,0.0027\n1418.98,0.00000,0.0027\n1438.69,0.00000,0.0027\n1458.39,0.00000,0.0027\n1478.10,0.00000,0.0027\n1497.81,0.00000,0.0027\n1517.52,0.00000,0.0027\n1537.23,0.00000,0.0027\n1556.93,0.00000,0.0027\n1576.64,0.00000,0.0027\n1596.35,0.00000,0.0027\n1616.06,0.00000,0.0027\n1635.77,0.00000,0.0027\n1655.47,0.00000,0.0027\n1675.18,0.00000,0.0027\n1694.89,0.00000,0.0027\n1714.60,0.00000,0.0027\n1734.31,0.00000,0.0027\n1754.01,0.00000,0.0027\n1773.72,0.00000,0.0027\n1793.43,0.00000,0.0027\n1813.14,0.00000,0.0027\n1832.85,0.00000,0.0027\n1852.55,0.00000,0.0027\n1872.26,0.00000,0.0027\n1891.97,0.00000,0.0027\n1911.68,0.00000,0.0027\n1931.39,0.00000,0.0027\n1951.09,0.00000,0.0027\n1970.80,0.00000,0.0027\n1990.51,0.00000,0.0027\n2010.22,0.00000,0.0027\n2029.93,0.00000,0.0027\n2049.64,0.00000,0.0027\n2069.34,0.00000,0.0027\n2089.05,0.00000,0.0027\n2108.76,0.00000,0.0027\n2128.47,0.00000,0.0027\n2148.18,0.00000,0.0027\n2167.88,0.00000,0.0027\n2187.59,0.00000,0.0027\n2207.30,0.00000,0.0027\n2227.01,0.00000,0.0027\n2246.72,0.00000,0.0027\n2266.42,0.00000,0.0027\n2286.13,0.00000,0.0027\n2305.84,0.00000,0.0027\n2325.55,0.00000,0.0027\n2345.26,0.00000,0.0027\n2364.96,0.00000,0.0027\n2384.67,0.00000,0.0027\n2404.38,0.00000,0.0027\n2424.09,0.00000,0.0027\n2443.80,0.00000,0.0027\n2463.50,0.00000,0.0027\n2483.21,0.00000,0.0027\n2502.92,0.00000,0.0027\n2522.63,0.00000,0.0027\n2542.34,0.00000,0.0027\n2562.04,0.00000,0.0027\n2581.75,0.00000,0.0027\n2601.46,0.00000,0.0027\n2621.17,0.00000,0.0027\n2640.88,0.00000,0.0027\n2660.58,0.00000,0.0027\n2680.29,0.00000,0.0027\n2700.00,0.00000,0.0027\n2719.71,0.00000,0.0027\n2739.42,0.00000,0.0027\n2759.12,0.00000,0.0027\n2778.83,0.00000,0.0027\n2798.54,0.00000,0.0027\n2818.25,0.00000,0.0027\n2837.96,0.00000,0.0027\n2857.66,0.00000,0.0027\n2877.37,0.00000,0.0027\n2897.08,0.00000,0.0027\n2916.79,0.00000,0.0027\n2936.50,0.00000,0.0027\n2956.20,0.00000,0.0027\n2975.91,0.00000,0.0027\n2995.62,0.00000,0.0027\n3015.33,0.00000,0.0027\n3035.04,0.00000,0.0027\n3054.74,0.00000,0.0027\n3074.45,0.00000,0.0027\n3094.16,0.00000,0.0027\n3113.87,0.00000,0.0027\n3133.58,0.00000,0.0027\n3153.28,0.00000,0.0027\n3172.99,0.00000,0.0027\n3192.70,0.00000,0.0027\n3212.41,0.00000,0.0027\n3232.12,0.00000,0.0027\n3251.82,0.00000,0.0027\n3271.53,0.00000,0.0027\n3291.24,0.00000,0.0027\n3310.95,0.00000,0.0027\n3330.66,0.00000,0.0027\n3350.36,0.00000,0.0027\n3370.07,0.00000,0.0027\n3389.78,0.00000,0.0027\n3409.49,0.00000,0.0027\n3429.20,0.00000,0.0027\n3448.91,0.00000,0.0027\n3468.61,0.00000,0.0027\n3488.32,0.00000,0.0027\n3508.03,0.00000,0.0027\n3527.74,0.00000,0.0027\n3547.45,0.00000,0.0027\n3567.15,0.00000,0.0027\n3586.86,0.00000,0.0027\n3606.57,0.00000,0.0027\n3626.28,0.00000,0.0027\n3645.99,0.00000,0.0027\n3665.69,0.00000,0.0027\n3685.40,0.00000,0.0027\n3705.11,0.00000,0.0027\n3724.82,0.00000,0.0027\n3744.53,0.00000,0.0027\n3764.23,0.00000,0.0027\n3783.94,0.00000,0.0027\n3803.65,0.00000,0.0027\n3823.36,0.00000,0.0027\n3843.07,0.00000,0.0027\n3862.77,0.00000,0.0027\n3882.48,0.00000,0.0027\n3902.19,0.00000,0.0027\n3921.90,0.00000,0.0027\n3941.61,0.00000,0.0027\n3961.31,0.00000,0.0027\n3981.02,0.00000,0.0027\n4000.73,0.00000,0.0027\n4020.44,0.00270,0.0027\n4040.15,0.00000,0.0027\n4059.85,0.00000,0.0027\n4079.56,0.00000,0.0027\n4099.27,0.00000,0.0027\n4118.98,0.00000,0.0027\n4138.69,0.00000,0.0027\n4158.39,0.00270,0.0027\n4178.10,0.00541,0.0027\n4197.81,0.00541,0.0027\n4217.52,0.01081,0.0027\n4237.23,0.01351,0.0027\n4256.93,0.02703,0.0054\n4276.64,0.04324,0.0108\n4296.35,0.06757,0.0135\n4316.06,0.10541,0.0243\n4335.77,0.14595,0.0270\n4355.47,0.19730,0.0243\n4375.18,0.22973,0.0135\n4394.89,0.24595,0.0027\n4414.60,0.23784,0.0054\n4434.31,0.22162,0.0108\n4454.01,0.19730,0.0135\n4473.72,0.17027,0.0135\n4493.43,0.14595,0.0108\n4513.14,0.12703,0.0081\n4532.85,0.11081,0.0081\n4552.55,0.09189,0.0054\n4572.26,0.08108,0.0054\n4591.97,0.06757,0.0027\n4611.68,0.05676,0.0027\n4631.39,0.05135,0.0027\n4651.09,0.04595,0.0027\n4670.80,0.04054,0.0027\n4690.51,0.03514,0.0027\n4710.22,0.02973,0.0027\n4729.93,0.02703,0.0027\n4749.64,0.02162,0.0027\n4769.34,0.02162,0.0027\n4789.05,0.01892,0.0027\n4808.76,0.01622,0.0027\n4828.47,0.01622,0.0027\n4848.18,0.01622,0.0027\n4867.88,0.01351,0.0027\n4887.59,0.01081,0.0027\n4907.30,0.01081,0.0027\n4927.01,0.01081,0.0027\n4946.72,0.01081,0.0027\n4966.42,0.01081,0.0027\n4986.13,0.01081,0.0027\n5005.84,0.01081,0.0027\n5025.55,0.01081,0.0027\n5045.26,0.01081,0.0027\n5064.96,0.01081,0.0027\n5084.67,0.01081,0.0027\n5104.38,0.01081,0.0027\n5124.09,0.01081,0.0027\n5143.80,0.01081,0.0027\n5163.50,0.01081,0.0027\n5183.21,0.01081,0.0027\n5202.92,0.01081,0.0027\n5222.63,0.01351,0.0027\n5242.34,0.01622,0.0027\n5262.04,0.01622,0.0027\n5281.75,0.01622,0.0027\n5301.46,0.02162,0.0027\n5321.17,0.02162,0.0027\n5340.88,0.02432,0.0027\n5360.58,0.02973,0.0027\n5380.29,0.03514,0.0027\n5400.00,0.04054,0.0027\n5419.71,0.04595,0.0027\n5439.42,0.05135,0.0027\n5459.12,0.05676,0.0027\n5478.83,0.06216,0.0027\n5498.54,0.07297,0.0027\n5518.25,0.07838,0.0027\n5537.96,0.08378,0.0027\n5557.66,0.08919,0.0027\n5577.37,0.09459,0.0027\n5597.08,0.09730,0.0027\n5616.79,0.09730,0.0027\n5636.50,0.09730,0.0027\n5656.20,0.09459,0.0027\n5675.91,0.09189,0.0027\n5695.62,0.08919,0.0027\n5715.33,0.08649,0.0027\n5735.04,0.08108,0.0027\n5754.74,0.07838,0.0027\n5774.45,0.07297,0.0027\n5794.16,0.06757,0.0027\n5813.87,0.06486,0.0027\n5833.58,0.05946,0.0027\n5853.28,0.05676,0.0027\n5872.99,0.05405,0.0027\n5892.70,0.04865,0.0027\n5912.41,0.04865,0.0027\n5932.12,0.04324,0.0027\n5951.82,0.04324,0.0027\n5971.53,0.04054,0.0027\n5991.24,0.03784,0.0027\n6010.95,0.03784,0.0027\n6030.66,0.03784,0.0027\n6050.36,0.03514,0.0027\n6070.07,0.03243,0.0027\n6089.78,0.03243,0.0027\n6109.49,0.03243,0.0027\n6129.20,0.03243,0.0027\n6148.91,0.03243,0.0027\n6168.61,0.03243,0.0027\n6188.32,0.03243,0.0027\n6208.03,0.03243,0.0027\n6227.74,0.03243,0.0027\n6247.45,0.03243,0.0027\n6267.15,0.03243,0.0027\n6286.86,0.03514,0.0027\n6306.57,0.03784,0.0027\n6326.28,0.03784,0.0027\n6345.99,0.03784,0.0027\n6365.69,0.03784,0.0027\n6385.40,0.04324,0.0027\n6405.11,0.04324,0.0027\n6424.82,0.04595,0.0027\n6444.53,0.04865,0.0027\n6464.23,0.04865,0.0027\n6483.94,0.05135,0.0027\n6503.65,0.05405,0.0027\n6523.36,0.05676,0.0027\n6543.07,0.05946,0.0027\n6562.77,0.05946,0.0027\n6582.48,0.06216,0.0027\n6602.19,0.06486,0.0027\n6621.90,0.06486,0.0027\n6641.61,0.06486,0.0027\n6661.31,0.06486,0.0027\n6681.02,0.06486,0.0027\n6700.73,0.06486,0.0027\n6720.44,0.06486,0.0027\n6740.15,0.06486,0.0027\n6759.85,0.06486,0.0027\n6779.56,0.06486,0.0027\n6799.27,0.06486,0.0027\n6818.98,0.06486,0.0027\n6838.69,0.05946,0.0027\n6858.39,0.05946,0.0027\n6878.10,0.05946,0.0027\n6897.81,0.05676,0.0027\n6917.52,0.05405,0.0027\n6937.23,0.05405,0.0027\n6956.93,0.05405,0.0027\n6976.64,0.05405,0.0027\n6996.35,0.05135,0.0027\n7016.06,0.05135,0.0027\n7035.77,0.04865,0.0027\n7055.47,0.04865,0.0027\n7075.18,0.04865,0.0027\n7094.89,0.04865,0.0027\n7114.60,0.04865,0.0027\n7134.31,0.04865,0.0027\n7154.01,0.04865,0.0027\n7173.72,0.04595,0.0027\n7193.43,0.04324,0.0027\n7213.14,0.04324,0.0027\n7232.85,0.04595,0.0027\n7252.55,0.04865,0.0027\n7272.26,0.04865,0.0027\n7291.97,0.04595,0.0027\n7311.68,0.04865,0.0027\n7331.39,0.04865,0.0027\n7351.09,0.04865,0.0027\n7370.80,0.04865,0.0027\n7390.51,0.04865,0.0027\n7410.22,0.04865,0.0027\n7429.93,0.04865,0.0027\n7449.64,0.05135,0.0027\n7469.34,0.05135,0.0027\n7489.05,0.05405,0.0027\n7508.76,0.05405,0.0027\n7528.47,0.05405,0.0027\n7548.18,0.05405,0.0027\n7567.88,0.05405,0.0027\n7587.59,0.05405,0.0027\n7607.30,0.05405,0.0027\n7627.01,0.05405,0.0027\n7646.72,0.05676,0.0027\n7666.42,0.05946,0.0027\n7686.13,0.05946,0.0027\n7705.84,0.05946,0.0027\n7725.55,0.05946,0.0027\n7745.26,0.05946,0.0027\n7764.96,0.05946,0.0027\n7784.67,0.05946,0.0027\n7804.38,0.05946,0.0027\n7824.09,0.05946,0.0027\n7843.80,0.05676,0.0027\n7863.50,0.05405,0.0027\n7883.21,0.05405,0.0027\n7902.92,0.05405,0.0027\n7922.63,0.05405,0.0027\n7942.34,0.05405,0.0027\n7962.04,0.05405,0.0027\n7981.75,0.05405,0.0027\n8001.46,0.05405,0.0027\n8021.17,0.05405,0.0027\n8040.88,0.05405,0.0027\n8060.58,0.05405,0.0027\n8080.29,0.05405,0.0027\n8100.00,0.05405,0.0027\n8119.71,0.05135,0.0027\n8139.42,0.05135,0.0027\n8159.12,0.05135,0.0027\n8178.83,0.04865,0.0027\n8198.54,0.04865,0.0027\n8218.25,0.04865,0.0027\n8237.96,0.04865,0.0027\n8257.66,0.04865,0.0027\n8277.37,0.05135,0.0027\n8297.08,0.04865,0.0027\n8356.20,0.05405,0.0027\n8415.33,0.05135,0.0027\n8435.04,0.05405,0.0027\n8454.74,0.05405,0.0027\n8474.45,0.05405,0.0027\n8494.16,0.05405,0.0027\n8513.87,0.05405,0.0027\n8533.58,0.05405,0.0027\n8553.28,0.05405,0.0027\n8572.99,0.05405,0.0027\n8592.70,0.05405,0.0027\n8612.41,0.05405,0.0027\n8632.12,0.05405,0.0027\n8651.82,0.05405,0.0027\n8671.53,0.05405,0.0027\n8691.24,0.05405,0.0027\n8710.95,0.05405,0.0027\n8730.66,0.05405,0.0027\n8750.36,0.05405,0.0027\n8770.07,0.05405,0.0027\n8789.78,0.05405,0.0027\n8809.49,0.05405,0.0027\n8829.20,0.05405,0.0027\n8848.91,0.05405,0.0027\n8868.61,0.05405,0.0027\n8888.32,0.05405,0.0027\n8908.03,0.05405,0.0027\n8927.74,0.05405,0.0027\n8947.45,0.05405,0.0027\n8967.15,0.05405,0.0027\n8986.86,0.05405,0.0027\n9006.57,0.05405,0.0027\n9026.28,0.05405,0.0027\n9045.99,0.05405,0.0027\n9065.69,0.05405,0.0027\n9085.40,0.05405,0.0027\n9105.11,0.05405,0.0027\n9124.82,0.05405,0.0027\n9144.53,0.05405,0.0027\n9164.23,0.05405,0.0027\n9183.94,0.05405,0.0027\n9203.65,0.05405,0.0027\n9223.36,0.05405,0.0027\n9243.07,0.05405,0.0027\n9262.77,0.05405,0.0027\n9282.48,0.05405,0.0027\n9302.19,0.05405,0.0027\n9321.90,0.05405,0.0027\n9341.61,0.05405,0.0027\n9361.31,0.05405,0.0027\n9381.02,0.05405,0.0027\n9400.73,0.05405,0.0027\n9420.44,0.05405,0.0027\n9440.15,0.05405,0.0027\n9459.85,0.05405,0.0027\n9479.56,0.05405,0.0027\n9499.27,0.05405,0.0027\n9518.98,0.05405,0.0027\n9538.69,0.05405,0.0027\n9558.39,0.05405,0.0027\n9578.10,0.05405,0.0027\n9597.81,0.05405,0.0027\n9617.52,0.05405,0.0027\n9637.23,0.05405,0.0027\n9656.93,0.05405,0.0027\n9676.64,0.05405,0.0027\n9696.35,0.05405,0.0027\n9716.06,0.05405,0.0027\n9735.77,0.05405,0.0027\n9755.47,0.05405,0.0027\n9775.18,0.05405,0.0027\n9794.89,0.05405,0.0027\n9814.60,0.05405,0.0027\n9834.31,0.05405,0.0027\n9854.01,0.05405,0.0027\n9873.72,0.05405,0.0027\n9893.43,0.05405,0.0027\n9913.14,0.05405,0.0027\n9932.85,0.05405,0.0027\n9952.55,0.05405,0.0027\n9972.26,0.05405,0.0027\n9991.97,0.05405,0.0027\n10011.68,0.05405,0.0027\n10031.39,0.05405,0.0027\n10051.09,0.05405,0.0027\n10070.80,0.05405,0.0027\n10090.51,0.05405,0.0027\n10110.22,0.05405,0.0027\n10129.93,0.05405,0.0027\n10149.64,0.05405,0.0027\n10169.34,0.05405,0.0027\n10189.05,0.05405,0.0027\n10208.76,0.05405,0.0027\n10228.47,0.05405,0.0027\n10248.18,0.05405,0.0027\n10267.88,0.05405,0.0027\n10287.59,0.05405,0.0027\n10307.30,0.05405,0.0027\n10327.01,0.05405,0.0027\n10346.72,0.05405,0.0027\n10366.42,0.05405,0.0027\n10386.13,0.05405,0.0027\n10405.84,0.05405,0.0027\n10425.55,0.05405,0.0027\n10445.26,0.05405,0.0027\n10464.96,0.05405,0.0027\n10484.67,0.05405,0.0027\n10504.38,0.05405,0.0027\n10524.09,0.05405,0.0027\n10543.80,0.05405,0.0027\n10563.50,0.05405,0.0027\n10583.21,0.05405,0.0027\n10602.92,0.05405,0.0027\n10622.63,0.05405,0.0027\n10642.34,0.05405,0.0027\n10662.04,0.05405,0.0027\n10681.75,0.05405,0.0027\n10701.46,0.05405,0.0027\n10721.17,0.05405,0.0027\n10740.88,0.05405,0.0027\n10760.58,0.05405,0.0027\n10780.29,0.05405,0.0027\n";
+```
+
+#### Constant `POWER_SHORT_C09_FIG4`
+
+Chen et al. (2009) Fig 4, measured relative fission power, 0-500 s.
+
+```rust
+pub const POWER_SHORT_C09_FIG4: &str = "# Source: Chen F., Dong Y., Zhang Z., Zheng Y., Shi L., Hu S., \"Post-test analysis of helium circulator trip\n# without scram at 3 MW power level on the HTR-10\", Nucl. Eng. Des. 239 (2009) 1010-1018. [C09]\n# Redistribution: (c) 2009 Elsevier B.V., all rights reserved. Numbers only, cited by figure (maintainer decision D1, 2026-11-03).\n# Digitised 2026-11-03 for gh:#1151 by an AI agent (draft until human review). Method: the embedded raster figure\n# was extracted at native resolution with `pdfimages -png` (no resampling). The plot frame was located from its\n# solid axis lines; the axes were calibrated from the frame lines and the printed tick labels (and checked against\n# the dotted gridlines where present). Curve pixels were selected by colour and reduced per pixel column (scripts\n# kept in the session scratchpad, not committed). The legend box was masked. No point was interpolated or invented:\n# a column with no curve pixel (hidden behind another curve) is simply absent.\n# Content: [C09] Fig 4, curve \"Fission power_test\" (MEASURED), relative fission power 0-500 s after the\n# circulator trip; 1.0 = initial power (3.3 MW per [C09] Tab 1; 3315 kW per [J09] Tab 2).\n# Resolution 1 px = 0.43 s, 0.0028 relative. The calculated (black) THERMIX curve overlies the test curve in\n# places; columns where red is hidden are absent. Read error +-0.01 relative, or the half-width if larger.\nt_s,relative_power,halfwidth\n0.86,1.00000,0.0014\n3.44,0.99722,0.0014\n6.02,0.99722,0.0014\n8.61,0.99444,0.0014\n11.19,0.98333,0.0028\n13.77,0.96250,0.0042\n16.35,0.94167,0.0028\n18.93,0.91944,0.0028\n21.51,0.88333,0.0083\n24.10,0.83889,0.0083\n26.68,0.79444,0.0083\n29.26,0.74722,0.0083\n31.84,0.71111,0.0056\n34.42,0.67778,0.0056\n37.01,0.64861,0.0014\n39.59,0.60972,0.0069\n42.17,0.58194,0.0042\n44.75,0.55278,0.0056\n47.33,0.52500,0.0056\n49.91,0.49722,0.0028\n52.50,0.47361,0.0042\n55.08,0.45139,0.0042\n57.66,0.42917,0.0042\n60.24,0.40833,0.0028\n62.82,0.39028,0.0014\n65.40,0.37361,0.0014\n67.99,0.35833,0.0028\n70.57,0.34167,0.0028\n73.15,0.32500,0.0028\n75.73,0.30833,0.0028\n78.31,0.29167,0.0028\n80.90,0.27639,0.0014\n83.48,0.26667,0.0028\n86.06,0.25556,0.0028\n88.64,0.24583,0.0014\n91.22,0.23611,0.0014\n93.80,0.22639,0.0014\n96.39,0.21667,0.0014\n98.97,0.20694,0.0014\n101.55,0.19861,0.0014\n104.13,0.19028,0.0014\n106.71,0.18194,0.0014\n109.29,0.17500,0.0014\n111.88,0.16806,0.0014\n114.46,0.16250,0.0014\n117.04,0.15556,0.0014\n119.62,0.15000,0.0014\n122.20,0.14444,0.0014\n124.78,0.13750,0.0014\n127.37,0.13056,0.0014\n129.95,0.12500,0.0014\n132.53,0.12083,0.0014\n135.11,0.11667,0.0014\n137.69,0.11250,0.0014\n140.28,0.10833,0.0014\n142.86,0.10417,0.0014\n145.44,0.10000,0.0014\n148.02,0.09722,0.0014\n150.60,0.09306,0.0014\n153.18,0.09028,0.0014\n155.77,0.08611,0.0014\n158.35,0.08333,0.0014\n160.93,0.08056,0.0014\n163.51,0.07778,0.0014\n166.09,0.07500,0.0014\n168.67,0.07222,0.0014\n171.26,0.06944,0.0014\n173.84,0.06667,0.0014\n176.42,0.06389,0.0014\n179.00,0.06250,0.0014\n181.58,0.06111,0.0014\n184.17,0.05833,0.0014\n186.75,0.05556,0.0014\n189.33,0.05417,0.0014\n191.91,0.05278,0.0014\n194.49,0.05000,0.0014\n197.07,0.05000,0.0014\n199.66,0.04722,0.0014\n202.24,0.04583,0.0014\n204.82,0.04444,0.0014\n207.40,0.04306,0.0014\n209.98,0.04167,0.0014\n212.56,0.04028,0.0014\n215.15,0.03889,0.0014\n217.73,0.03889,0.0014\n220.31,0.50556,0.4694\n222.89,0.50556,0.4694\n225.47,0.50417,0.4708\n228.06,0.50278,0.4722\n230.64,0.50278,0.4722\n233.22,0.50278,0.4722\n235.80,0.50278,0.4722\n238.38,0.50139,0.4736\n240.96,0.50139,0.4736\n243.55,0.50139,0.4736\n246.13,0.50000,0.4750\n248.71,0.50000,0.4750\n251.29,0.50000,0.4750\n253.87,0.97500,0.0014\n256.45,0.49861,0.4764\n259.04,0.02222,0.0014\n261.62,0.02222,0.0014\n264.20,0.02222,0.0014\n266.78,0.01944,0.0014\n269.36,0.01944,0.0014\n271.94,0.01944,0.0014\n274.53,0.01944,0.0014\n277.11,0.01944,0.0014\n282.27,0.01667,0.0014\n284.85,0.01667,0.0014\n287.44,0.01667,0.0014\n290.02,0.01667,0.0014\n292.60,0.01667,0.0014\n295.18,0.01389,0.0014\n297.76,0.01389,0.0014\n300.34,0.01389,0.0014\n302.93,0.01389,0.0014\n305.51,0.01389,0.0014\n308.09,0.01389,0.0014\n315.83,0.01111,0.0014\n318.42,0.01111,0.0014\n321.00,0.01111,0.0014\n323.58,0.01111,0.0014\n326.16,0.01111,0.0014\n328.74,0.01111,0.0014\n331.33,0.01111,0.0014\n333.91,0.01111,0.0014\n336.49,0.00833,0.0014\n339.07,0.00833,0.0014\n341.65,0.00833,0.0014\n344.23,0.00833,0.0014\n346.82,0.00833,0.0014\n349.40,0.00833,0.0014\n351.98,0.00833,0.0014\n354.56,0.00833,0.0014\n357.14,0.00833,0.0014\n359.72,0.00833,0.0014\n362.31,0.00833,0.0014\n364.89,0.00833,0.0014\n367.47,0.00694,0.0014\n370.05,0.00556,0.0014\n372.63,0.00556,0.0014\n375.22,0.00556,0.0014\n377.80,0.00556,0.0014\n380.38,0.00556,0.0014\n382.96,0.00556,0.0014\n385.54,0.00556,0.0014\n388.12,0.00556,0.0014\n390.71,0.00556,0.0014\n393.29,0.00556,0.0014\n395.87,0.00556,0.0014\n398.45,0.00556,0.0014\n401.03,0.00556,0.0014\n403.61,0.00556,0.0014\n406.20,0.00556,0.0014\n408.78,0.00556,0.0014\n411.36,0.00556,0.0014\n413.94,0.00556,0.0014\n416.52,0.00556,0.0014\n419.10,0.00556,0.0014\n421.69,0.00556,0.0014\n424.27,0.00556,0.0014\n426.85,0.00556,0.0014\n429.43,0.00278,0.0014\n432.01,0.00278,0.0014\n434.60,0.00278,0.0014\n437.18,0.00278,0.0014\n439.76,0.00278,0.0014\n442.34,0.00278,0.0014\n450.09,0.00278,0.0014\n452.67,0.00278,0.0014\n455.25,0.00278,0.0014\n457.83,0.00278,0.0014\n460.41,0.00278,0.0014\n462.99,0.00278,0.0014\n465.58,0.00278,0.0014\n468.16,0.00278,0.0014\n470.74,0.00278,0.0014\n473.32,0.00278,0.0014\n475.90,0.00278,0.0014\n478.49,0.00278,0.0014\n481.07,0.00278,0.0014\n483.65,0.00278,0.0014\n486.23,0.00278,0.0014\n488.81,0.00278,0.0014\n491.39,0.00278,0.0014\n493.98,0.00278,0.0014\n496.56,0.00278,0.0014\n499.14,0.00278,0.0014\n";
+```
+
+#### Constant `CRW_REACTIVITY_TAB2_60`
+
+TECDOC-1694 Tab 2.60, CRW inserted reactivity (mk) against s, 0-128 s.
+
+```rust
+pub const CRW_REACTIVITY_TAB2_60: &str = "# Source: IAEA-TECDOC-1694 (2013), Evaluation of High Temperature Gas Cooled Reactor Performance:\n# Benchmark Analysis Related to the PBMR-400, PBMM, GT-MHR, HTR-10 and the ASTRA Critical Facility. IAEA, Vienna.\n# Redistribution: IAEA publication, no reuse licence. Numbers only, cited by table (maintainer decision D1, 2026-11-03).\n# Transcribed 2026-11-03 for gh:#1147 from pdftotext -layout of the PDF, checked against rendered pages.\n# Methodology, confidence and conflicts: docs/reactor-scoping/htr10-th-benchmark.md\n# Content: Table 2.60 \'CRD insertion speed vs induced positive reactivity\', HTR-10 control-rod withdrawal\n# without scram benchmark (Sec 2.4.1), 0-128 s in 1 s steps. Unit: mk (1 mk = 1e-3 dk/k = 100 pcm).\n# Derived here, not in the source: rho/beta with beta = 0.726 % (Sec 2.4.1) is $0.685 at 128 s.\nt_s,rho_mk\n0,0\n1,0.0825\n2,0.1905\n3,0.2984\n4,0.4064\n5,0.5144\n6,0.6223\n7,0.7303\n8,0.8383\n9,0.9462\n10,1.0542\n11,1.1086\n12,1.172\n13,1.2353\n14,1.2987\n15,1.3621\n16,1.4254\n17,1.4888\n18,1.5521\n19,1.6155\n20,1.6788\n21,1.7422\n22,1.8052\n23,1.8682\n24,1.9312\n25,1.9943\n26,2.0573\n27,2.1204\n28,2.1834\n29,2.2464\n30,2.3095\n31,2.3725\n32,2.4356\n33,2.4986\n34,2.5385\n35,2.5806\n36,2.6226\n37,2.6646\n38,2.7066\n39,2.7487\n40,2.7907\n41,2.8327\n42,2.8748\n43,2.9168\n44,2.9588\n45,3.0009\n46,3.0429\n47,3.0849\n48,3.1269\n49,3.169\n50,3.211\n51,3.253\n52,3.2951\n53,3.3371\n54,3.3713\n55,3.3976\n56,3.424\n57,3.4503\n58,3.4767\n59,3.5031\n60,3.5294\n61,3.5558\n62,3.5821\n63,3.6085\n64,3.6348\n65,3.6612\n66,3.6876\n67,3.7139\n68,3.7403\n69,3.7666\n70,3.793\n71,3.8193\n72,3.8457\n73,3.8721\n74,3.8963\n75,3.9192\n76,3.942\n77,3.9649\n78,3.9878\n79,4.0106\n80,4.0335\n81,4.0564\n82,4.0792\n83,4.1021\n84,4.125\n85,4.1478\n86,4.1707\n87,4.1936\n88,4.2164\n89,4.2393\n90,4.2622\n91,4.285\n92,4.3079\n93,4.3307\n94,4.3536\n95,4.3765\n96,4.3993\n97,4.4222\n98,4.4451\n99,4.4618\n100,4.4795\n101,4.4973\n102,4.515\n103,4.5327\n104,4.5505\n105,4.5682\n106,4.586\n107,4.6037\n108,4.6214\n109,4.6392\n110,4.6569\n111,4.6747\n112,4.6924\n113,4.7101\n114,4.7279\n115,4.7456\n116,4.7634\n117,4.7811\n118,4.7988\n119,4.8166\n120,4.8343\n121,4.852\n122,4.8698\n123,4.8875\n124,4.9053\n125,4.923\n126,4.9407\n127,4.9585\n128,4.9762\n";
+```
+
+#### Constant `LOFC_THERMOCOUPLES_C09`
+
+Chen et al. (2009) Figs 8-11, the 17 measured internals thermocouple
+traces of the LOFC test (180 s bins).
+
+```rust
+pub const LOFC_THERMOCOUPLES_C09: &str = "# Source: Chen F., Dong Y., Zhang Z., Zheng Y., Shi L., Hu S., \"Post-test analysis of helium circulator trip\n# without scram at 3 MW power level on the HTR-10\", Nucl. Eng. Des. 239 (2009) 1010-1018. [C09]\n# Redistribution: (c) 2009 Elsevier B.V., all rights reserved. Numbers only, cited by figure (maintainer decision D1, 2026-11-03).\n# Digitised 2026-11-03 for gh:#1151 by an AI agent (draft until human review). Method: the embedded raster figure\n# was extracted at native resolution with `pdfimages -png` (no resampling). The plot frame was located from its\n# solid axis lines; the axes were calibrated from the frame lines and the printed tick labels (and checked against\n# the dotted gridlines where present). Curve pixels were selected by colour and reduced per pixel column (scripts\n# kept in the session scratchpad, not committed). The legend box was masked. No point was interpolated or invented:\n# a column with no curve pixel (hidden behind another curve) is simply absent.\n# Content: [C09] Figs 8-11, curves \"Test\" (MEASURED), internals thermocouples during the LOFC ATWS test,\n# 0-10800 s. Pairs (TR1_TR4 etc.) are the averages of symmetric thermocouples as plotted in [C09].\n# Positions: [C09] Fig 3 (schematic only; no coordinates are printed). TR = top internals, SR1-6 / SR7-12\n# = side reflector and carbon brick at two heights, BR = bottom reflector.\n# Reduction: pixel columns binned in 180 s windows; T_C = mean of per-column centres of the red trace;\n# band_C = half the spread of every red pixel in the window plus half a pixel, i.e. the plotted noise band\n# plus read resolution. The noisy traces make band_C the read error. BR2_BR4 first bin contains the\n# initial spike from ~800 C (band 37 C). Checks against [C09] Sec 5: TR1&TR4 232 -> 405 C in 3 h (read\n# 232.7 -> 405.2); SR6 minimum ~295 C (read 295-297 C near 2000-2800 s).\ntc,figure,t_s,T_C,band_C\nTR3_TR6,Fig 8(a),92,202.69,0.86\nTR3_TR6,Fig 8(a),266,202.70,0.98\nTR3_TR6,Fig 8(a),450,202.90,1.14\nTR3_TR6,Fig 8(a),634,203.07,1.49\nTR3_TR6,Fig 8(a),808,203.25,0.94\nTR3_TR6,Fig 8(a),983,203.46,0.83\nTR3_TR6,Fig 8(a),1166,203.61,1.49\nTR3_TR6,Fig 8(a),1350,203.91,1.02\nTR3_TR6,Fig 8(a),1534,204.15,1.34\nTR3_TR6,Fig 8(a),1708,203.89,0.83\nTR3_TR6,Fig 8(a),1883,204.37,1.18\nTR3_TR6,Fig 8(a),2066,204.45,0.90\nTR3_TR6,Fig 8(a),2250,204.55,1.61\nTR3_TR6,Fig 8(a),2434,205.06,0.94\nTR3_TR6,Fig 8(a),2608,204.99,1.02\nTR3_TR6,Fig 8(a),2783,205.01,1.14\nTR3_TR6,Fig 8(a),2966,205.21,1.38\nTR3_TR6,Fig 8(a),3150,205.58,0.98\nTR3_TR6,Fig 8(a),3334,205.72,0.71\nTR3_TR6,Fig 8(a),3508,205.87,0.83\nTR3_TR6,Fig 8(a),3683,206.21,0.83\nTR3_TR6,Fig 8(a),3866,206.47,0.94\nTR3_TR6,Fig 8(a),4050,206.34,1.14\nTR3_TR6,Fig 8(a),4234,206.97,0.86\nTR3_TR6,Fig 8(a),4408,207.04,0.83\nTR3_TR6,Fig 8(a),4583,207.22,1.14\nTR3_TR6,Fig 8(a),4766,207.40,0.98\nTR3_TR6,Fig 8(a),4950,207.78,0.94\nTR3_TR6,Fig 8(a),5134,207.83,0.79\nTR3_TR6,Fig 8(a),5308,208.17,1.02\nTR3_TR6,Fig 8(a),5483,208.44,1.14\nTR3_TR6,Fig 8(a),5666,208.82,0.83\nTR3_TR6,Fig 8(a),5850,208.77,1.14\nTR3_TR6,Fig 8(a),6034,209.19,0.98\nTR3_TR6,Fig 8(a),6208,209.57,0.98\nTR3_TR6,Fig 8(a),6383,209.94,0.98\nTR3_TR6,Fig 8(a),6566,210.22,1.42\nTR3_TR6,Fig 8(a),6750,210.36,1.26\nTR3_TR6,Fig 8(a),6934,210.88,1.42\nTR3_TR6,Fig 8(a),7108,211.18,0.98\nTR3_TR6,Fig 8(a),7283,211.67,1.10\nTR3_TR6,Fig 8(a),7466,211.69,1.26\nTR3_TR6,Fig 8(a),7650,212.21,0.98\nTR3_TR6,Fig 8(a),7834,212.54,0.83\nTR3_TR6,Fig 8(a),8008,212.98,0.98\nTR3_TR6,Fig 8(a),8183,213.64,0.83\nTR3_TR6,Fig 8(a),8366,213.89,0.67\nTR3_TR6,Fig 8(a),8550,214.32,0.98\nTR3_TR6,Fig 8(a),8734,214.53,1.10\nTR3_TR6,Fig 8(a),8908,214.87,0.98\nTR3_TR6,Fig 8(a),9083,215.37,0.98\nTR3_TR6,Fig 8(a),9266,215.96,0.98\nTR3_TR6,Fig 8(a),9450,216.20,0.83\nTR3_TR6,Fig 8(a),9634,216.69,1.14\nTR3_TR6,Fig 8(a),9808,217.27,0.90\nTR3_TR6,Fig 8(a),9983,217.75,0.71\nTR3_TR6,Fig 8(a),10166,218.08,0.67\nTR3_TR6,Fig 8(a),10350,218.75,0.94\nTR3_TR6,Fig 8(a),10534,219.29,0.83\nTR3_TR6,Fig 8(a),10708,219.55,0.98\nTR2_TR5,Fig 8(b),92,218.52,1.43\nTR2_TR5,Fig 8(b),266,218.72,1.10\nTR2_TR5,Fig 8(b),450,218.98,1.32\nTR2_TR5,Fig 8(b),634,219.27,1.43\nTR2_TR5,Fig 8(b),808,219.44,1.21\nTR2_TR5,Fig 8(b),983,219.59,1.10\nTR2_TR5,Fig 8(b),1166,219.89,1.21\nTR2_TR5,Fig 8(b),1350,219.98,1.21\nTR2_TR5,Fig 8(b),1534,220.22,1.21\nTR2_TR5,Fig 8(b),1708,220.85,0.99\nTR2_TR5,Fig 8(b),1883,221.16,1.10\nTR2_TR5,Fig 8(b),2066,221.46,1.10\nTR2_TR5,Fig 8(b),2250,221.75,1.10\nTR2_TR5,Fig 8(b),2434,222.77,0.99\nTR2_TR5,Fig 8(b),2608,223.42,0.88\nTR2_TR5,Fig 8(b),2783,223.74,1.43\nTR2_TR5,Fig 8(b),2966,224.25,1.65\nTR2_TR5,Fig 8(b),3150,225.22,1.10\nTR2_TR5,Fig 8(b),3334,226.03,1.32\nTR2_TR5,Fig 8(b),3508,226.63,0.99\nTR2_TR5,Fig 8(b),3683,227.21,1.43\nTR2_TR5,Fig 8(b),3866,227.98,1.43\nTR2_TR5,Fig 8(b),4050,229.12,1.43\nTR2_TR5,Fig 8(b),4234,230.04,1.21\nTR2_TR5,Fig 8(b),4408,230.78,0.99\nTR2_TR5,Fig 8(b),4583,231.26,1.21\nTR2_TR5,Fig 8(b),4766,232.75,1.43\nTR2_TR5,Fig 8(b),4950,233.91,0.99\nTR2_TR5,Fig 8(b),5134,234.70,1.32\nTR2_TR5,Fig 8(b),5308,235.77,1.43\nTR2_TR5,Fig 8(b),5483,236.82,1.54\nTR2_TR5,Fig 8(b),5666,238.02,1.43\nTR2_TR5,Fig 8(b),5850,239.08,1.32\nTR2_TR5,Fig 8(b),6034,240.43,1.32\nTR2_TR5,Fig 8(b),6208,241.38,1.87\nTR2_TR5,Fig 8(b),6383,242.61,1.21\nTR2_TR5,Fig 8(b),6566,243.50,1.10\nTR2_TR5,Fig 8(b),6750,244.75,1.65\nTR2_TR5,Fig 8(b),6934,246.08,0.99\nTR2_TR5,Fig 8(b),7108,247.10,1.32\nTR2_TR5,Fig 8(b),7283,248.05,1.54\nTR2_TR5,Fig 8(b),7466,249.19,1.43\nTR2_TR5,Fig 8(b),7650,250.80,1.21\nTR2_TR5,Fig 8(b),7834,251.89,1.21\nTR2_TR5,Fig 8(b),8008,252.64,1.21\nTR2_TR5,Fig 8(b),8183,253.92,1.32\nTR2_TR5,Fig 8(b),8366,255.06,1.21\nTR2_TR5,Fig 8(b),8550,256.27,1.21\nTR2_TR5,Fig 8(b),8734,257.39,1.32\nTR2_TR5,Fig 8(b),8908,258.57,1.32\nTR2_TR5,Fig 8(b),9083,259.67,1.32\nTR2_TR5,Fig 8(b),9266,260.69,1.43\nTR2_TR5,Fig 8(b),9450,262.10,1.10\nTR2_TR5,Fig 8(b),9634,263.18,1.43\nTR2_TR5,Fig 8(b),9808,264.02,1.32\nTR2_TR5,Fig 8(b),9983,265.37,1.32\nTR2_TR5,Fig 8(b),10166,266.35,1.76\nTR2_TR5,Fig 8(b),10350,267.47,1.43\nTR2_TR5,Fig 8(b),10534,268.38,1.21\nTR2_TR5,Fig 8(b),10708,269.35,0.77\nTR1_TR4,Fig 8(c),92,232.65,2.75\nTR1_TR4,Fig 8(c),266,237.48,3.85\nTR1_TR4,Fig 8(c),450,242.32,3.85\nTR1_TR4,Fig 8(c),634,247.38,3.85\nTR1_TR4,Fig 8(c),808,251.91,3.30\nTR1_TR4,Fig 8(c),983,257.12,3.85\nTR1_TR4,Fig 8(c),1166,262.13,3.85\nTR1_TR4,Fig 8(c),1350,267.41,3.85\nTR1_TR4,Fig 8(c),1534,272.04,3.30\nTR1_TR4,Fig 8(c),1708,276.43,3.85\nTR1_TR4,Fig 8(c),1883,280.51,3.85\nTR1_TR4,Fig 8(c),2066,285.02,3.30\nTR1_TR4,Fig 8(c),2250,289.26,3.30\nTR1_TR4,Fig 8(c),2434,293.66,3.30\nTR1_TR4,Fig 8(c),2608,297.96,3.85\nTR1_TR4,Fig 8(c),2783,302.74,3.85\nTR1_TR4,Fig 8(c),2966,307.09,4.40\nTR1_TR4,Fig 8(c),3150,311.55,3.30\nTR1_TR4,Fig 8(c),3334,315.90,3.85\nTR1_TR4,Fig 8(c),3508,319.54,2.75\nTR1_TR4,Fig 8(c),3683,323.49,3.30\nTR1_TR4,Fig 8(c),3866,327.18,3.30\nTR1_TR4,Fig 8(c),4050,331.14,2.75\nTR1_TR4,Fig 8(c),4234,334.83,2.75\nTR1_TR4,Fig 8(c),4408,338.37,2.75\nTR1_TR4,Fig 8(c),4583,342.15,3.85\nTR1_TR4,Fig 8(c),4766,345.67,3.30\nTR1_TR4,Fig 8(c),4950,348.53,2.75\nTR1_TR4,Fig 8(c),5134,352.27,3.30\nTR1_TR4,Fig 8(c),5308,355.62,2.75\nTR1_TR4,Fig 8(c),5483,358.55,3.85\nTR1_TR4,Fig 8(c),5666,361.68,2.75\nTR1_TR4,Fig 8(c),5850,364.82,2.75\nTR1_TR4,Fig 8(c),6034,367.85,2.20\nTR1_TR4,Fig 8(c),6208,370.41,2.75\nTR1_TR4,Fig 8(c),6383,372.85,2.75\nTR1_TR4,Fig 8(c),6566,375.66,2.75\nTR1_TR4,Fig 8(c),6750,378.14,2.20\nTR1_TR4,Fig 8(c),6934,380.39,2.75\nTR1_TR4,Fig 8(c),7108,382.52,2.20\nTR1_TR4,Fig 8(c),7283,384.14,2.20\nTR1_TR4,Fig 8(c),7466,386.06,1.65\nTR1_TR4,Fig 8(c),7650,388.04,2.20\nTR1_TR4,Fig 8(c),7834,389.69,2.20\nTR1_TR4,Fig 8(c),8008,391.08,2.20\nTR1_TR4,Fig 8(c),8183,392.72,1.65\nTR1_TR4,Fig 8(c),8366,393.82,1.65\nTR1_TR4,Fig 8(c),8550,395.09,2.20\nTR1_TR4,Fig 8(c),8734,396.24,2.20\nTR1_TR4,Fig 8(c),8908,397.50,2.20\nTR1_TR4,Fig 8(c),9083,398.55,2.75\nTR1_TR4,Fig 8(c),9266,399.54,2.20\nTR1_TR4,Fig 8(c),9450,400.31,2.20\nTR1_TR4,Fig 8(c),9634,401.19,2.20\nTR1_TR4,Fig 8(c),9808,401.90,2.20\nTR1_TR4,Fig 8(c),9983,402.85,1.65\nTR1_TR4,Fig 8(c),10166,403.62,1.65\nTR1_TR4,Fig 8(c),10350,404.17,2.20\nTR1_TR4,Fig 8(c),10534,404.33,1.65\nTR1_TR4,Fig 8(c),10708,405.15,1.65\nSR6,Fig 9(a),101,324.30,1.63\nSR6,Fig 9(a),280,323.35,2.04\nSR6,Fig 9(a),458,319.68,2.86\nSR6,Fig 9(a),637,315.85,2.59\nSR6,Fig 9(a),816,311.72,2.72\nSR6,Fig 9(a),995,307.70,1.77\nSR6,Fig 9(a),1174,305.05,2.18\nSR6,Fig 9(a),1353,301.92,1.90\nSR6,Fig 9(a),1532,299.98,1.63\nSR6,Fig 9(a),1711,298.10,1.09\nSR6,Fig 9(a),1889,297.35,0.68\nSR6,Fig 9(a),2068,296.38,0.95\nSR6,Fig 9(a),2247,295.87,1.63\nSR6,Fig 9(a),2426,295.66,1.09\nSR6,Fig 9(a),2605,296.09,1.36\nSR6,Fig 9(a),2784,296.07,1.22\nSR6,Fig 9(a),2963,296.62,0.95\nSR6,Fig 9(a),3142,297.48,1.22\nSR6,Fig 9(a),3320,297.91,0.95\nSR6,Fig 9(a),3499,298.62,1.77\nSR6,Fig 9(a),3689,299.52,1.22\nSR6,Fig 9(a),3880,300.37,1.22\nSR6,Fig 9(a),4058,301.51,1.22\nSR6,Fig 9(a),4237,302.70,1.63\nSR6,Fig 9(a),4416,304.44,1.50\nSR6,Fig 9(a),4595,307.69,2.04\nSR6,Fig 9(a),4774,310.03,1.36\nSR6,Fig 9(a),4953,311.22,1.63\nSR6,Fig 9(a),5132,312.28,0.95\nSR6,Fig 9(a),5311,312.91,1.50\nSR6,Fig 9(a),5489,313.72,1.36\nSR6,Fig 9(a),5668,315.85,1.36\nSR6,Fig 9(a),5847,317.53,1.22\nSR6,Fig 9(a),6026,318.98,1.90\nSR6,Fig 9(a),6205,320.00,0.95\nSR6,Fig 9(a),6384,320.95,1.36\nSR6,Fig 9(a),6563,322.19,1.36\nSR6,Fig 9(a),6742,323.59,1.50\nSR6,Fig 9(a),6920,324.71,1.36\nSR6,Fig 9(a),7099,326.00,0.95\nSR6,Fig 9(a),7289,327.10,1.22\nSR6,Fig 9(a),7480,328.13,1.22\nSR6,Fig 9(a),7658,329.15,0.95\nSR6,Fig 9(a),7837,330.26,1.22\nSR6,Fig 9(a),8016,330.83,0.95\nSR6,Fig 9(a),8195,332.18,1.09\nSR6,Fig 9(a),8374,332.89,0.95\nSR6,Fig 9(a),8553,333.57,1.22\nSR6,Fig 9(a),8732,334.46,0.95\nSR6,Fig 9(a),8911,335.03,1.22\nSR6,Fig 9(a),9089,336.11,0.95\nSR6,Fig 9(a),9268,337.01,0.95\nSR6,Fig 9(a),9447,337.79,1.50\nSR6,Fig 9(a),9626,338.54,1.36\nSR6,Fig 9(a),9805,339.08,1.36\nSR6,Fig 9(a),9984,339.69,0.82\nSR6,Fig 9(a),10163,340.49,1.36\nSR6,Fig 9(a),10342,340.99,0.95\nSR6,Fig 9(a),10520,341.45,0.95\nSR6,Fig 9(a),10699,342.01,1.09\nSR5,Fig 9(b),101,293.20,0.95\nSR5,Fig 9(b),280,293.26,0.95\nSR5,Fig 9(b),459,293.11,1.19\nSR5,Fig 9(b),639,292.65,1.31\nSR5,Fig 9(b),818,292.62,0.95\nSR5,Fig 9(b),997,292.11,1.43\nSR5,Fig 9(b),1176,291.88,1.19\nSR5,Fig 9(b),1356,291.55,1.31\nSR5,Fig 9(b),1535,291.18,1.31\nSR5,Fig 9(b),1714,290.55,1.19\nSR5,Fig 9(b),1893,290.12,0.95\nSR5,Fig 9(b),2073,289.85,1.19\nSR5,Fig 9(b),2252,289.30,0.71\nSR5,Fig 9(b),2431,288.97,1.31\nSR5,Fig 9(b),2610,289.08,1.07\nSR5,Fig 9(b),2790,288.82,0.71\nSR5,Fig 9(b),2969,288.29,1.19\nSR5,Fig 9(b),3148,288.62,0.95\nSR5,Fig 9(b),3327,288.33,0.95\nSR5,Fig 9(b),3507,288.38,1.55\nSR5,Fig 9(b),3686,288.29,1.19\nSR5,Fig 9(b),3865,288.32,1.07\nSR5,Fig 9(b),4044,288.54,1.19\nSR5,Fig 9(b),4224,288.78,0.71\nSR5,Fig 9(b),4403,288.87,1.19\nSR5,Fig 9(b),4582,289.00,1.55\nSR5,Fig 9(b),4761,289.73,1.55\nSR5,Fig 9(b),4941,290.16,1.31\nSR5,Fig 9(b),5120,290.71,1.31\nSR5,Fig 9(b),5299,291.22,1.31\nSR5,Fig 9(b),5490,291.26,1.31\nSR5,Fig 9(b),5680,292.10,1.19\nSR5,Fig 9(b),5859,292.74,1.19\nSR5,Fig 9(b),6039,293.36,1.19\nSR5,Fig 9(b),6218,293.82,1.19\nSR5,Fig 9(b),6397,294.54,1.55\nSR5,Fig 9(b),6576,294.90,1.55\nSR5,Fig 9(b),6756,295.71,1.55\nSR5,Fig 9(b),6935,296.58,1.07\nSR5,Fig 9(b),7114,296.98,0.95\nSR5,Fig 9(b),7293,297.05,1.19\nSR5,Fig 9(b),7473,298.04,0.95\nSR5,Fig 9(b),7652,298.44,1.67\nSR5,Fig 9(b),7831,299.20,0.95\nSR5,Fig 9(b),8010,299.81,1.55\nSR5,Fig 9(b),8190,300.10,1.31\nSR5,Fig 9(b),8369,301.03,0.83\nSR5,Fig 9(b),8548,301.59,0.95\nSR5,Fig 9(b),8727,302.10,0.95\nSR5,Fig 9(b),8907,302.44,1.31\nSR5,Fig 9(b),9086,303.10,1.31\nSR5,Fig 9(b),9265,303.81,1.43\nSR5,Fig 9(b),9444,304.24,0.95\nSR5,Fig 9(b),9624,304.79,1.31\nSR5,Fig 9(b),9803,305.40,0.95\nSR5,Fig 9(b),9982,306.00,1.31\nSR5,Fig 9(b),10161,306.95,1.19\nSR5,Fig 9(b),10341,307.01,1.31\nSR5,Fig 9(b),10520,307.57,1.55\nSR5,Fig 9(b),10699,307.92,1.19\nSR4,Fig 9(c),101,278.83,1.22\nSR4,Fig 9(c),280,279.74,1.22\nSR4,Fig 9(c),458,280.96,1.33\nSR4,Fig 9(c),637,281.49,1.33\nSR4,Fig 9(c),816,281.59,1.33\nSR4,Fig 9(c),995,282.21,0.92\nSR4,Fig 9(c),1174,282.45,1.22\nSR4,Fig 9(c),1353,283.05,1.22\nSR4,Fig 9(c),1532,283.01,1.53\nSR4,Fig 9(c),1711,283.52,1.02\nSR4,Fig 9(c),1889,283.24,1.33\nSR4,Fig 9(c),2068,283.64,1.22\nSR4,Fig 9(c),2247,283.55,1.02\nSR4,Fig 9(c),2426,283.65,0.92\nSR4,Fig 9(c),2605,283.53,1.43\nSR4,Fig 9(c),2784,283.41,1.53\nSR4,Fig 9(c),2963,283.47,1.33\nSR4,Fig 9(c),3142,283.30,1.02\nSR4,Fig 9(c),3320,283.65,1.22\nSR4,Fig 9(c),3499,283.53,1.22\nSR4,Fig 9(c),3689,283.51,1.22\nSR4,Fig 9(c),3880,283.80,1.22\nSR4,Fig 9(c),4058,283.84,1.22\nSR4,Fig 9(c),4237,283.78,1.22\nSR4,Fig 9(c),4416,283.99,1.33\nSR4,Fig 9(c),4595,284.38,1.02\nSR4,Fig 9(c),4774,284.26,1.22\nSR4,Fig 9(c),4953,284.72,1.33\nSR4,Fig 9(c),5132,284.95,1.22\nSR4,Fig 9(c),5311,285.14,1.22\nSR4,Fig 9(c),5489,285.60,1.02\nSR4,Fig 9(c),5668,285.59,1.02\nSR4,Fig 9(c),5847,286.26,1.02\nSR4,Fig 9(c),6026,286.63,1.12\nSR4,Fig 9(c),6205,287.19,1.22\nSR4,Fig 9(c),6384,287.14,1.22\nSR4,Fig 9(c),6563,287.63,1.53\nSR4,Fig 9(c),6742,288.29,1.02\nSR4,Fig 9(c),6920,288.25,1.22\nSR4,Fig 9(c),7099,288.83,1.02\nSR4,Fig 9(c),7289,289.23,1.33\nSR4,Fig 9(c),7480,289.76,1.22\nSR4,Fig 9(c),7658,289.94,1.22\nSR4,Fig 9(c),7837,290.46,0.92\nSR4,Fig 9(c),8016,291.03,1.53\nSR4,Fig 9(c),8195,291.35,1.33\nSR4,Fig 9(c),8374,291.88,1.53\nSR4,Fig 9(c),8553,292.59,1.33\nSR4,Fig 9(c),8732,292.70,1.33\nSR4,Fig 9(c),8911,293.51,1.02\nSR4,Fig 9(c),9089,293.67,1.53\nSR4,Fig 9(c),9268,294.03,0.92\nSR4,Fig 9(c),9447,294.27,1.22\nSR4,Fig 9(c),9626,294.91,1.22\nSR4,Fig 9(c),9805,295.50,1.02\nSR4,Fig 9(c),9984,295.94,0.71\nSR4,Fig 9(c),10163,296.39,1.22\nSR4,Fig 9(c),10342,296.68,1.22\nSR4,Fig 9(c),10520,297.08,0.71\nSR4,Fig 9(c),10699,297.86,0.92\nSR3,Fig 9(d),101,264.77,1.22\nSR3,Fig 9(d),280,264.04,1.53\nSR3,Fig 9(d),459,264.29,1.53\nSR3,Fig 9(d),639,264.68,1.22\nSR3,Fig 9(d),818,264.94,0.92\nSR3,Fig 9(d),997,265.14,0.92\nSR3,Fig 9(d),1176,265.70,1.22\nSR3,Fig 9(d),1356,265.99,1.53\nSR3,Fig 9(d),1535,266.65,1.53\nSR3,Fig 9(d),1714,266.76,1.33\nSR3,Fig 9(d),1893,267.22,1.33\nSR3,Fig 9(d),2073,267.77,1.02\nSR3,Fig 9(d),2252,267.74,1.53\nSR3,Fig 9(d),2431,268.14,1.02\nSR3,Fig 9(d),2610,268.69,1.33\nSR3,Fig 9(d),2790,268.78,1.33\nSR3,Fig 9(d),2969,268.99,1.53\nSR3,Fig 9(d),3148,269.43,1.22\nSR3,Fig 9(d),3327,269.64,0.92\nSR3,Fig 9(d),3507,269.80,1.02\nSR3,Fig 9(d),3686,269.94,1.02\nSR3,Fig 9(d),3865,270.28,0.92\nSR3,Fig 9(d),4044,270.33,1.22\nSR3,Fig 9(d),4224,270.93,1.53\nSR3,Fig 9(d),4403,270.83,1.02\nSR3,Fig 9(d),4582,271.15,1.22\nSR3,Fig 9(d),4761,271.22,1.22\nSR3,Fig 9(d),4941,271.62,1.22\nSR3,Fig 9(d),5120,271.33,1.33\nSR3,Fig 9(d),5299,271.57,1.33\nSR3,Fig 9(d),5490,271.78,1.33\nSR3,Fig 9(d),5680,272.42,0.71\nSR3,Fig 9(d),5859,272.33,1.02\nSR3,Fig 9(d),6039,272.73,1.02\nSR3,Fig 9(d),6218,272.54,1.02\nSR3,Fig 9(d),6397,272.92,1.33\nSR3,Fig 9(d),6576,273.29,1.22\nSR3,Fig 9(d),6756,273.48,1.33\nSR3,Fig 9(d),6935,273.64,1.53\nSR3,Fig 9(d),7114,273.78,1.43\nSR3,Fig 9(d),7293,274.18,1.22\nSR3,Fig 9(d),7473,274.49,0.71\nSR3,Fig 9(d),7652,274.52,1.33\nSR3,Fig 9(d),7831,275.09,1.02\nSR3,Fig 9(d),8010,275.17,1.63\nSR3,Fig 9(d),8190,275.65,1.33\nSR3,Fig 9(d),8369,275.85,1.33\nSR3,Fig 9(d),8548,276.26,1.02\nSR3,Fig 9(d),8727,276.30,1.02\nSR3,Fig 9(d),8907,276.66,2.14\nSR3,Fig 9(d),9086,277.05,1.22\nSR3,Fig 9(d),9265,277.35,1.02\nSR3,Fig 9(d),9444,277.47,1.22\nSR3,Fig 9(d),9624,278.11,0.71\nSR3,Fig 9(d),9803,278.09,1.22\nSR3,Fig 9(d),9982,278.19,1.63\nSR3,Fig 9(d),10161,278.57,1.33\nSR3,Fig 9(d),10341,278.86,0.82\nSR3,Fig 9(d),10520,279.31,0.92\nSR3,Fig 9(d),10699,279.66,1.22\nSR2,Fig 9(e),101,244.17,0.67\nSR2,Fig 9(e),280,244.27,0.92\nSR2,Fig 9(e),458,244.69,1.23\nSR2,Fig 9(e),637,244.55,0.92\nSR2,Fig 9(e),816,245.08,0.87\nSR2,Fig 9(e),995,244.81,1.18\nSR2,Fig 9(e),1174,245.08,0.92\nSR2,Fig 9(e),1353,245.15,0.92\nSR2,Fig 9(e),1532,245.25,0.92\nSR2,Fig 9(e),1711,245.23,0.97\nSR2,Fig 9(e),1889,244.93,0.92\nSR2,Fig 9(e),2068,245.27,1.18\nSR2,Fig 9(e),2247,245.48,0.67\nSR2,Fig 9(e),2426,245.43,0.92\nSR2,Fig 9(e),2605,245.68,0.92\nSR2,Fig 9(e),2784,246.07,0.67\nSR2,Fig 9(e),2963,245.92,1.23\nSR2,Fig 9(e),3142,246.14,1.23\nSR2,Fig 9(e),3320,246.28,0.97\nSR2,Fig 9(e),3499,246.42,0.92\nSR2,Fig 9(e),3689,246.17,1.23\nSR2,Fig 9(e),3880,246.47,0.67\nSR2,Fig 9(e),4058,246.54,0.67\nSR2,Fig 9(e),4237,246.58,0.97\nSR2,Fig 9(e),4416,246.94,0.92\nSR2,Fig 9(e),4595,246.74,0.87\nSR2,Fig 9(e),4774,247.09,1.23\nSR2,Fig 9(e),4953,246.93,1.54\nSR2,Fig 9(e),5132,247.22,1.18\nSR2,Fig 9(e),5311,247.24,1.48\nSR2,Fig 9(e),5489,247.21,0.92\nSR2,Fig 9(e),5668,247.35,0.92\nSR2,Fig 9(e),5847,247.44,1.23\nSR2,Fig 9(e),6026,247.69,1.23\nSR2,Fig 9(e),6205,247.83,1.23\nSR2,Fig 9(e),6384,247.91,0.87\nSR2,Fig 9(e),6563,248.15,1.23\nSR2,Fig 9(e),6742,248.31,1.23\nSR2,Fig 9(e),6920,248.60,1.23\nSR2,Fig 9(e),7099,248.64,0.92\nSR2,Fig 9(e),7289,248.29,0.97\nSR2,Fig 9(e),7480,248.57,1.23\nSR2,Fig 9(e),7658,248.29,1.23\nSR2,Fig 9(e),7837,248.68,0.97\nSR2,Fig 9(e),8016,248.46,1.18\nSR2,Fig 9(e),8195,248.58,0.67\nSR2,Fig 9(e),8374,248.65,1.28\nSR2,Fig 9(e),8553,248.77,0.97\nSR2,Fig 9(e),8732,249.02,1.18\nSR2,Fig 9(e),8911,249.04,0.97\nSR2,Fig 9(e),9089,249.13,0.92\nSR2,Fig 9(e),9268,249.35,0.92\nSR2,Fig 9(e),9447,249.48,0.92\nSR2,Fig 9(e),9626,249.44,0.97\nSR2,Fig 9(e),9805,249.51,0.92\nSR2,Fig 9(e),9984,249.75,0.67\nSR2,Fig 9(e),10163,249.98,1.28\nSR2,Fig 9(e),10342,250.01,1.28\nSR2,Fig 9(e),10520,250.10,0.67\nSR2,Fig 9(e),10699,250.01,0.97\nSR1,Fig 9(f),101,219.23,1.19\nSR1,Fig 9(f),280,219.17,0.94\nSR1,Fig 9(f),459,219.02,1.54\nSR1,Fig 9(f),639,218.47,1.54\nSR1,Fig 9(f),818,218.44,1.49\nSR1,Fig 9(f),997,218.02,0.94\nSR1,Fig 9(f),1176,217.85,1.28\nSR1,Fig 9(f),1356,218.04,0.98\nSR1,Fig 9(f),1535,217.80,1.24\nSR1,Fig 9(f),1714,217.79,1.24\nSR1,Fig 9(f),1893,217.53,1.24\nSR1,Fig 9(f),2073,217.53,1.19\nSR1,Fig 9(f),2252,217.52,0.98\nSR1,Fig 9(f),2431,217.17,1.54\nSR1,Fig 9(f),2610,217.19,1.54\nSR1,Fig 9(f),2790,217.35,0.98\nSR1,Fig 9(f),2969,217.34,1.19\nSR1,Fig 9(f),3148,216.92,1.54\nSR1,Fig 9(f),3327,217.06,1.54\nSR1,Fig 9(f),3507,216.97,1.24\nSR1,Fig 9(f),3686,216.80,1.24\nSR1,Fig 9(f),3865,216.87,0.94\nSR1,Fig 9(f),4044,216.56,0.90\nSR1,Fig 9(f),4224,216.56,1.24\nSR1,Fig 9(f),4403,216.77,1.83\nSR1,Fig 9(f),4582,217.00,0.90\nSR1,Fig 9(f),4761,216.61,1.28\nSR1,Fig 9(f),4941,216.26,0.90\nSR1,Fig 9(f),5120,216.34,0.94\nSR1,Fig 9(f),5299,216.54,1.28\nSR1,Fig 9(f),5490,216.46,1.83\nSR1,Fig 9(f),5680,216.34,0.98\nSR1,Fig 9(f),5859,216.54,1.24\nSR1,Fig 9(f),6039,216.55,1.24\nSR1,Fig 9(f),6218,217.04,0.94\nSR1,Fig 9(f),6397,216.52,1.24\nSR1,Fig 9(f),6576,216.56,1.24\nSR1,Fig 9(f),6756,216.77,0.94\nSR1,Fig 9(f),6935,216.61,1.49\nSR1,Fig 9(f),7114,216.66,1.49\nSR1,Fig 9(f),7293,216.57,1.49\nSR1,Fig 9(f),7473,216.71,1.19\nSR1,Fig 9(f),7652,216.40,0.94\nSR1,Fig 9(f),7831,216.19,1.24\nSR1,Fig 9(f),8010,216.23,1.24\nSR1,Fig 9(f),8190,216.19,0.94\nSR1,Fig 9(f),8369,216.20,0.64\nSR1,Fig 9(f),8548,216.38,0.94\nSR1,Fig 9(f),8727,216.35,0.94\nSR1,Fig 9(f),8907,216.55,0.94\nSR1,Fig 9(f),9086,216.40,1.07\nSR1,Fig 9(f),9265,216.11,1.24\nSR1,Fig 9(f),9444,215.91,1.28\nSR1,Fig 9(f),9624,215.86,0.94\nSR1,Fig 9(f),9803,215.96,1.24\nSR1,Fig 9(f),9982,216.03,0.94\nSR1,Fig 9(f),10161,215.95,0.68\nSR1,Fig 9(f),10341,215.72,1.24\nSR1,Fig 9(f),10520,216.13,0.81\nSR1,Fig 9(f),10699,216.28,1.54\nSR12,Fig 10(a),101,462.66,2.22\nSR12,Fig 10(a),281,458.69,2.22\nSR12,Fig 10(a),460,454.77,2.05\nSR12,Fig 10(a),640,450.74,2.56\nSR12,Fig 10(a),820,446.51,2.39\nSR12,Fig 10(a),999,442.38,2.39\nSR12,Fig 10(a),1179,438.28,2.05\nSR12,Fig 10(a),1358,434.51,2.05\nSR12,Fig 10(a),1538,430.64,2.05\nSR12,Fig 10(a),1718,427.25,2.05\nSR12,Fig 10(a),1897,423.54,1.54\nSR12,Fig 10(a),2077,420.19,2.05\nSR12,Fig 10(a),2257,417.16,1.88\nSR12,Fig 10(a),2436,413.98,1.71\nSR12,Fig 10(a),2616,411.19,1.37\nSR12,Fig 10(a),2795,408.59,1.37\nSR12,Fig 10(a),2975,406.18,1.19\nSR12,Fig 10(a),3155,403.68,1.37\nSR12,Fig 10(a),3334,401.72,1.02\nSR12,Fig 10(a),3514,399.42,1.71\nSR12,Fig 10(a),3694,397.73,0.85\nSR12,Fig 10(a),3873,395.98,1.54\nSR12,Fig 10(a),4053,394.08,1.02\nSR12,Fig 10(a),4232,392.57,1.02\nSR12,Fig 10(a),4412,391.93,0.68\nSR12,Fig 10(a),4592,391.93,0.68\nSR12,Fig 10(a),4771,391.95,0.34\nSR12,Fig 10(a),4951,391.40,0.68\nSR12,Fig 10(a),5131,390.71,0.68\nSR12,Fig 10(a),5310,389.88,0.68\nSR12,Fig 10(a),5490,389.26,0.85\nSR12,Fig 10(a),5669,389.01,0.51\nSR12,Fig 10(a),5849,389.03,0.68\nSR12,Fig 10(a),6029,388.86,0.68\nSR12,Fig 10(a),6208,388.49,0.51\nSR12,Fig 10(a),6388,388.20,0.68\nSR12,Fig 10(a),6568,387.98,0.34\nSR12,Fig 10(a),6747,387.98,0.68\nSR12,Fig 10(a),6927,387.85,0.68\nSR12,Fig 10(a),7106,387.79,0.85\nSR12,Fig 10(a),7286,387.85,0.34\nSR12,Fig 10(a),7466,387.62,0.68\nSR12,Fig 10(a),7645,387.51,0.68\nSR12,Fig 10(a),7825,387.38,0.51\nSR12,Fig 10(a),8005,387.41,0.68\nSR12,Fig 10(a),8184,387.43,0.68\nSR12,Fig 10(a),8364,387.43,0.51\nSR12,Fig 10(a),8543,387.41,0.51\nSR12,Fig 10(a),8723,387.36,0.51\nSR12,Fig 10(a),8903,387.28,0.51\nSR12,Fig 10(a),9082,387.21,0.68\nSR12,Fig 10(a),9262,387.30,0.51\nSR12,Fig 10(a),9442,387.02,0.34\nSR12,Fig 10(a),9621,387.26,0.68\nSR12,Fig 10(a),9801,387.15,0.51\nSR12,Fig 10(a),9980,387.24,0.68\nSR12,Fig 10(a),10160,387.15,0.68\nSR12,Fig 10(a),10340,386.92,0.51\nSR12,Fig 10(a),10519,387.11,0.68\nSR12,Fig 10(a),10699,386.96,0.34\nSR11,Fig 10(b),101,371.02,0.61\nSR11,Fig 10(b),281,371.19,0.68\nSR11,Fig 10(b),460,371.37,0.68\nSR11,Fig 10(b),640,371.97,0.68\nSR11,Fig 10(b),820,372.29,0.55\nSR11,Fig 10(b),999,372.20,0.96\nSR11,Fig 10(b),1179,372.29,0.41\nSR11,Fig 10(b),1358,372.19,0.34\nSR11,Fig 10(b),1538,372.01,0.68\nSR11,Fig 10(b),1718,371.93,0.61\nSR11,Fig 10(b),1897,371.52,0.61\nSR11,Fig 10(b),2077,371.30,0.61\nSR11,Fig 10(b),2257,370.93,0.68\nSR11,Fig 10(b),2436,370.42,0.68\nSR11,Fig 10(b),2616,369.93,0.41\nSR11,Fig 10(b),2795,369.44,0.61\nSR11,Fig 10(b),2975,368.99,0.61\nSR11,Fig 10(b),3155,368.52,0.68\nSR11,Fig 10(b),3334,367.88,0.89\nSR11,Fig 10(b),3514,367.41,0.61\nSR11,Fig 10(b),3694,366.95,0.61\nSR11,Fig 10(b),3873,366.48,0.41\nSR11,Fig 10(b),4053,366.08,0.68\nSR11,Fig 10(b),4232,365.50,0.61\nSR11,Fig 10(b),4412,365.20,0.34\nSR11,Fig 10(b),4592,364.69,0.68\nSR11,Fig 10(b),4771,364.48,0.61\nSR11,Fig 10(b),4951,364.10,0.61\nSR11,Fig 10(b),5131,363.80,0.61\nSR11,Fig 10(b),5310,363.53,0.89\nSR11,Fig 10(b),5490,363.31,0.61\nSR11,Fig 10(b),5669,363.06,0.61\nSR11,Fig 10(b),5849,362.89,0.96\nSR11,Fig 10(b),6029,362.74,0.61\nSR11,Fig 10(b),6208,362.53,0.68\nSR11,Fig 10(b),6388,362.41,0.41\nSR11,Fig 10(b),6568,362.39,0.41\nSR11,Fig 10(b),6747,362.29,0.61\nSR11,Fig 10(b),6927,362.12,0.61\nSR11,Fig 10(b),7106,362.05,0.61\nSR11,Fig 10(b),7286,361.87,0.34\nSR11,Fig 10(b),7466,361.87,0.61\nSR11,Fig 10(b),7645,361.75,0.68\nSR11,Fig 10(b),7825,361.76,0.34\nSR11,Fig 10(b),8005,361.70,0.61\nSR11,Fig 10(b),8184,361.64,0.68\nSR11,Fig 10(b),8364,361.43,0.61\nSR11,Fig 10(b),8543,361.52,0.61\nSR11,Fig 10(b),8723,361.58,0.61\nSR11,Fig 10(b),8903,361.47,0.34\nSR11,Fig 10(b),9082,361.25,0.61\nSR11,Fig 10(b),9262,361.20,0.34\nSR11,Fig 10(b),9442,361.36,0.34\nSR11,Fig 10(b),9621,361.13,0.61\nSR11,Fig 10(b),9801,361.20,0.61\nSR11,Fig 10(b),9980,361.32,0.34\nSR11,Fig 10(b),10160,361.05,0.61\nSR11,Fig 10(b),10340,360.93,0.41\nSR11,Fig 10(b),10519,361.12,0.34\nSR11,Fig 10(b),10699,361.02,0.61\nSR10,Fig 10(c),101,341.66,1.19\nSR10,Fig 10(c),281,343.05,1.43\nSR10,Fig 10(c),460,344.83,1.31\nSR10,Fig 10(c),640,346.10,1.25\nSR10,Fig 10(c),820,347.00,0.96\nSR10,Fig 10(c),999,348.09,0.60\nSR10,Fig 10(c),1179,348.60,1.19\nSR10,Fig 10(c),1358,349.38,1.43\nSR10,Fig 10(c),1538,349.87,1.19\nSR10,Fig 10(c),1718,350.70,0.90\nSR10,Fig 10(c),1897,351.03,1.19\nSR10,Fig 10(c),2077,351.21,0.96\nSR10,Fig 10(c),2257,351.45,0.90\nSR10,Fig 10(c),2436,351.85,0.90\nSR10,Fig 10(c),2616,351.67,0.96\nSR10,Fig 10(c),2795,351.85,0.90\nSR10,Fig 10(c),2975,352.14,0.96\nSR10,Fig 10(c),3155,352.20,1.25\nSR10,Fig 10(c),3334,352.42,0.96\nSR10,Fig 10(c),3514,352.08,1.19\nSR10,Fig 10(c),3694,352.26,1.19\nSR10,Fig 10(c),3873,352.29,1.25\nSR10,Fig 10(c),4053,352.32,0.96\nSR10,Fig 10(c),4232,352.29,0.90\nSR10,Fig 10(c),4412,352.21,1.49\nSR10,Fig 10(c),4592,352.45,0.90\nSR10,Fig 10(c),4771,352.17,0.96\nSR10,Fig 10(c),4951,351.89,0.96\nSR10,Fig 10(c),5131,351.88,1.19\nSR10,Fig 10(c),5310,351.96,0.90\nSR10,Fig 10(c),5490,351.80,1.19\nSR10,Fig 10(c),5669,352.00,0.96\nSR10,Fig 10(c),5849,351.99,0.90\nSR10,Fig 10(c),6029,351.93,0.90\nSR10,Fig 10(c),6208,351.67,1.25\nSR10,Fig 10(c),6388,351.49,0.66\nSR10,Fig 10(c),6568,351.63,0.96\nSR10,Fig 10(c),6747,351.78,0.96\nSR10,Fig 10(c),6927,351.55,0.66\nSR10,Fig 10(c),7106,351.41,1.19\nSR10,Fig 10(c),7286,351.53,0.90\nSR10,Fig 10(c),7466,351.64,0.60\nSR10,Fig 10(c),7645,351.46,0.60\nSR10,Fig 10(c),7825,351.22,0.90\nSR10,Fig 10(c),8005,351.39,0.96\nSR10,Fig 10(c),8184,351.61,0.66\nSR10,Fig 10(c),8364,351.51,0.66\nSR10,Fig 10(c),8543,351.55,0.96\nSR10,Fig 10(c),8723,351.43,0.90\nSR10,Fig 10(c),8903,351.59,0.96\nSR10,Fig 10(c),9082,351.43,0.96\nSR10,Fig 10(c),9262,351.09,0.90\nSR10,Fig 10(c),9442,351.15,0.90\nSR10,Fig 10(c),9621,351.19,1.19\nSR10,Fig 10(c),9801,351.31,1.19\nSR10,Fig 10(c),9980,351.29,0.60\nSR10,Fig 10(c),10160,351.10,1.19\nSR10,Fig 10(c),10340,351.22,1.19\nSR10,Fig 10(c),10519,351.12,0.66\nSR10,Fig 10(c),10699,351.43,0.90\nSR9,Fig 10(d),101,314.64,0.92\nSR9,Fig 10(d),281,314.06,1.00\nSR9,Fig 10(d),460,314.06,1.23\nSR9,Fig 10(d),640,314.35,1.23\nSR9,Fig 10(d),820,315.11,0.92\nSR9,Fig 10(d),999,315.48,0.92\nSR9,Fig 10(d),1179,316.13,1.23\nSR9,Fig 10(d),1358,316.82,0.84\nSR9,Fig 10(d),1538,317.56,1.23\nSR9,Fig 10(d),1718,317.93,1.15\nSR9,Fig 10(d),1897,318.61,0.92\nSR9,Fig 10(d),2077,319.06,1.31\nSR9,Fig 10(d),2257,319.87,1.46\nSR9,Fig 10(d),2436,320.59,0.61\nSR9,Fig 10(d),2616,321.14,1.23\nSR9,Fig 10(d),2795,321.59,0.92\nSR9,Fig 10(d),2975,321.79,0.61\nSR9,Fig 10(d),3155,322.49,1.23\nSR9,Fig 10(d),3334,323.03,1.23\nSR9,Fig 10(d),3514,323.67,1.23\nSR9,Fig 10(d),3694,323.71,1.15\nSR9,Fig 10(d),3873,324.36,0.92\nSR9,Fig 10(d),4053,324.57,1.23\nSR9,Fig 10(d),4232,325.24,0.92\nSR9,Fig 10(d),4412,325.38,0.92\nSR9,Fig 10(d),4592,325.70,1.23\nSR9,Fig 10(d),4771,326.02,1.23\nSR9,Fig 10(d),4951,326.17,1.23\nSR9,Fig 10(d),5131,326.32,0.92\nSR9,Fig 10(d),5310,326.64,0.92\nSR9,Fig 10(d),5490,326.77,0.61\nSR9,Fig 10(d),5669,327.19,0.92\nSR9,Fig 10(d),5849,327.34,0.92\nSR9,Fig 10(d),6029,327.40,0.92\nSR9,Fig 10(d),6208,327.40,0.92\nSR9,Fig 10(d),6388,327.66,1.23\nSR9,Fig 10(d),6568,328.10,1.46\nSR9,Fig 10(d),6747,328.25,1.23\nSR9,Fig 10(d),6927,328.56,1.23\nSR9,Fig 10(d),7106,328.55,0.92\nSR9,Fig 10(d),7286,328.58,0.92\nSR9,Fig 10(d),7466,328.58,0.92\nSR9,Fig 10(d),7645,328.96,1.00\nSR9,Fig 10(d),7825,328.92,0.92\nSR9,Fig 10(d),8005,328.97,0.92\nSR9,Fig 10(d),8184,329.19,0.92\nSR9,Fig 10(d),8364,329.36,0.92\nSR9,Fig 10(d),8543,329.23,1.23\nSR9,Fig 10(d),8723,329.52,0.92\nSR9,Fig 10(d),8903,329.24,1.15\nSR9,Fig 10(d),9082,329.59,1.23\nSR9,Fig 10(d),9262,329.74,0.92\nSR9,Fig 10(d),9442,329.92,0.92\nSR9,Fig 10(d),9621,329.87,0.92\nSR9,Fig 10(d),9801,329.91,0.92\nSR9,Fig 10(d),9980,329.84,0.92\nSR9,Fig 10(d),10160,330.08,0.61\nSR9,Fig 10(d),10340,330.40,0.92\nSR9,Fig 10(d),10519,330.23,0.92\nSR9,Fig 10(d),10699,329.91,1.00\nSR8,Fig 10(e),101,267.94,0.97\nSR8,Fig 10(e),281,268.47,0.92\nSR8,Fig 10(e),460,268.63,1.18\nSR8,Fig 10(e),640,268.66,1.13\nSR8,Fig 10(e),820,269.06,0.87\nSR8,Fig 10(e),999,269.09,1.33\nSR8,Fig 10(e),1179,269.23,1.18\nSR8,Fig 10(e),1358,269.30,1.23\nSR8,Fig 10(e),1538,269.36,1.23\nSR8,Fig 10(e),1718,269.81,0.61\nSR8,Fig 10(e),1897,269.45,1.13\nSR8,Fig 10(e),2077,269.72,1.23\nSR8,Fig 10(e),2257,269.98,0.92\nSR8,Fig 10(e),2436,270.24,1.23\nSR8,Fig 10(e),2616,270.58,0.92\nSR8,Fig 10(e),2795,270.84,0.92\nSR8,Fig 10(e),2975,270.74,0.92\nSR8,Fig 10(e),3155,270.96,1.23\nSR8,Fig 10(e),3334,271.19,0.97\nSR8,Fig 10(e),3514,271.47,0.92\nSR8,Fig 10(e),3694,271.72,1.18\nSR8,Fig 10(e),3873,271.86,1.28\nSR8,Fig 10(e),4053,272.20,0.92\nSR8,Fig 10(e),4232,272.48,0.92\nSR8,Fig 10(e),4412,272.66,1.18\nSR8,Fig 10(e),4592,272.80,1.18\nSR8,Fig 10(e),4771,273.35,0.92\nSR8,Fig 10(e),4951,273.55,0.67\nSR8,Fig 10(e),5131,273.89,1.23\nSR8,Fig 10(e),5310,273.85,1.23\nSR8,Fig 10(e),5490,274.25,0.92\nSR8,Fig 10(e),5669,274.08,0.92\nSR8,Fig 10(e),5849,274.44,0.87\nSR8,Fig 10(e),6029,274.85,0.92\nSR8,Fig 10(e),6208,275.31,1.54\nSR8,Fig 10(e),6388,275.32,0.97\nSR8,Fig 10(e),6568,275.69,1.18\nSR8,Fig 10(e),6747,276.04,0.92\nSR8,Fig 10(e),6927,276.27,0.67\nSR8,Fig 10(e),7106,276.46,0.97\nSR8,Fig 10(e),7286,276.33,1.02\nSR8,Fig 10(e),7466,276.56,0.92\nSR8,Fig 10(e),7645,276.75,0.92\nSR8,Fig 10(e),7825,277.14,1.23\nSR8,Fig 10(e),8005,277.23,1.23\nSR8,Fig 10(e),8184,277.16,0.97\nSR8,Fig 10(e),8364,277.53,0.72\nSR8,Fig 10(e),8543,277.70,1.23\nSR8,Fig 10(e),8723,278.05,0.67\nSR8,Fig 10(e),8903,278.02,0.92\nSR8,Fig 10(e),9082,278.37,0.97\nSR8,Fig 10(e),9262,278.41,0.92\nSR8,Fig 10(e),9442,278.67,0.92\nSR8,Fig 10(e),9621,278.49,1.23\nSR8,Fig 10(e),9801,278.96,1.23\nSR8,Fig 10(e),9980,278.99,1.23\nSR8,Fig 10(e),10160,279.48,1.23\nSR8,Fig 10(e),10340,279.59,0.97\nSR8,Fig 10(e),10519,279.68,0.97\nSR8,Fig 10(e),10699,279.75,0.92\nSR7,Fig 10(f),101,222.41,1.23\nSR7,Fig 10(f),281,222.66,0.92\nSR7,Fig 10(f),460,222.86,0.87\nSR7,Fig 10(f),640,223.07,1.23\nSR7,Fig 10(f),820,222.78,1.54\nSR7,Fig 10(f),999,223.02,0.92\nSR7,Fig 10(f),1179,223.12,1.23\nSR7,Fig 10(f),1358,222.96,1.54\nSR7,Fig 10(f),1538,222.84,0.97\nSR7,Fig 10(f),1718,223.03,1.28\nSR7,Fig 10(f),1897,222.98,1.48\nSR7,Fig 10(f),2077,222.74,1.23\nSR7,Fig 10(f),2257,223.08,0.92\nSR7,Fig 10(f),2436,222.88,0.97\nSR7,Fig 10(f),2616,222.83,1.23\nSR7,Fig 10(f),2795,222.74,1.23\nSR7,Fig 10(f),2975,222.91,1.79\nSR7,Fig 10(f),3155,223.07,1.18\nSR7,Fig 10(f),3334,222.73,1.54\nSR7,Fig 10(f),3514,222.87,1.54\nSR7,Fig 10(f),3694,223.01,1.54\nSR7,Fig 10(f),3873,223.05,1.23\nSR7,Fig 10(f),4053,223.03,1.48\nSR7,Fig 10(f),4232,223.30,1.28\nSR7,Fig 10(f),4412,222.96,1.54\nSR7,Fig 10(f),4592,223.22,1.23\nSR7,Fig 10(f),4771,222.91,1.28\nSR7,Fig 10(f),4951,223.07,1.18\nSR7,Fig 10(f),5131,223.34,1.23\nSR7,Fig 10(f),5310,223.26,1.23\nSR7,Fig 10(f),5490,223.12,1.54\nSR7,Fig 10(f),5669,223.14,1.02\nSR7,Fig 10(f),5849,223.26,1.23\nSR7,Fig 10(f),6029,223.15,1.54\nSR7,Fig 10(f),6208,223.41,0.92\nSR7,Fig 10(f),6388,223.34,1.54\nSR7,Fig 10(f),6568,223.62,1.54\nSR7,Fig 10(f),6747,223.42,0.92\nSR7,Fig 10(f),6927,223.42,1.54\nSR7,Fig 10(f),7106,223.21,1.28\nSR7,Fig 10(f),7286,223.62,0.92\nSR7,Fig 10(f),7466,223.92,0.97\nSR7,Fig 10(f),7645,223.86,1.23\nSR7,Fig 10(f),7825,224.17,0.92\nSR7,Fig 10(f),8005,223.77,1.23\nSR7,Fig 10(f),8184,223.75,1.54\nSR7,Fig 10(f),8364,223.83,1.28\nSR7,Fig 10(f),8543,224.16,1.54\nSR7,Fig 10(f),8723,223.98,1.18\nSR7,Fig 10(f),8903,224.13,1.23\nSR7,Fig 10(f),9082,224.05,1.18\nSR7,Fig 10(f),9262,223.85,1.18\nSR7,Fig 10(f),9442,223.72,1.28\nSR7,Fig 10(f),9621,223.69,1.23\nSR7,Fig 10(f),9801,223.94,0.97\nSR7,Fig 10(f),9980,223.42,0.97\nSR7,Fig 10(f),10160,223.91,0.92\nSR7,Fig 10(f),10340,223.69,0.67\nSR7,Fig 10(f),10519,223.56,0.92\nSR7,Fig 10(f),10699,224.22,1.23\nBR1_BR3,Fig 11(a),92,642.82,2.26\nBR1_BR3,Fig 11(a),268,643.34,1.81\nBR1_BR3,Fig 11(a),452,640.86,3.61\nBR1_BR3,Fig 11(a),637,634.22,3.61\nBR1_BR3,Fig 11(a),812,630.07,4.07\nBR1_BR3,Fig 11(a),988,622.52,4.07\nBR1_BR3,Fig 11(a),1172,616.19,3.61\nBR1_BR3,Fig 11(a),1357,610.05,4.52\nBR1_BR3,Fig 11(a),1532,603.71,3.16\nBR1_BR3,Fig 11(a),1708,597.98,4.07\nBR1_BR3,Fig 11(a),1892,592.56,3.16\nBR1_BR3,Fig 11(a),2068,587.10,3.61\nBR1_BR3,Fig 11(a),2243,582.67,3.16\nBR1_BR3,Fig 11(a),2428,576.34,4.07\nBR1_BR3,Fig 11(a),2612,570.78,4.07\nBR1_BR3,Fig 11(a),2797,564.95,3.16\nBR1_BR3,Fig 11(a),2972,559.59,4.07\nBR1_BR3,Fig 11(a),3148,553.48,3.16\nBR1_BR3,Fig 11(a),3332,548.69,3.61\nBR1_BR3,Fig 11(a),3517,542.86,4.52\nBR1_BR3,Fig 11(a),3692,537.05,3.16\nBR1_BR3,Fig 11(a),3868,532.52,3.61\nBR1_BR3,Fig 11(a),4052,526.69,3.16\nBR1_BR3,Fig 11(a),4228,521.69,3.16\nBR1_BR3,Fig 11(a),4403,517.15,4.07\nBR1_BR3,Fig 11(a),4588,511.96,3.16\nBR1_BR3,Fig 11(a),4772,507.76,2.71\nBR1_BR3,Fig 11(a),4948,504.62,2.26\nBR1_BR3,Fig 11(a),5123,500.17,3.16\nBR1_BR3,Fig 11(a),5308,496.05,3.16\nBR1_BR3,Fig 11(a),5492,492.21,2.26\nBR1_BR3,Fig 11(a),5677,488.96,2.71\nBR1_BR3,Fig 11(a),5852,485.54,2.71\nBR1_BR3,Fig 11(a),6028,482.41,2.26\nBR1_BR3,Fig 11(a),6212,479.74,2.26\nBR1_BR3,Fig 11(a),6397,476.76,2.26\nBR1_BR3,Fig 11(a),6572,474.30,1.81\nBR1_BR3,Fig 11(a),6748,471.75,2.26\nBR1_BR3,Fig 11(a),6932,468.99,2.26\nBR1_BR3,Fig 11(a),7117,466.55,1.81\nBR1_BR3,Fig 11(a),7292,464.21,1.81\nBR1_BR3,Fig 11(a),7468,462.21,2.26\nBR1_BR3,Fig 11(a),7652,460.05,1.81\nBR1_BR3,Fig 11(a),7837,457.79,1.36\nBR1_BR3,Fig 11(a),8012,456.07,1.81\nBR1_BR3,Fig 11(a),8188,454.08,1.36\nBR1_BR3,Fig 11(a),8372,452.23,2.26\nBR1_BR3,Fig 11(a),8548,450.45,1.36\nBR1_BR3,Fig 11(a),8723,448.84,2.26\nBR1_BR3,Fig 11(a),8908,446.81,1.81\nBR1_BR3,Fig 11(a),9092,445.05,1.36\nBR1_BR3,Fig 11(a),9268,443.12,1.81\nBR1_BR3,Fig 11(a),9443,441.57,1.36\nBR1_BR3,Fig 11(a),9628,439.80,1.81\nBR1_BR3,Fig 11(a),9812,438.40,1.36\nBR1_BR3,Fig 11(a),9988,436.70,1.81\nBR1_BR3,Fig 11(a),10163,435.33,1.81\nBR1_BR3,Fig 11(a),10348,433.89,1.81\nBR1_BR3,Fig 11(a),10532,432.30,1.36\nBR1_BR3,Fig 11(a),10708,431.07,1.81\nBR2_BR4,Fig 11(b),92,747.97,37.27\nBR2_BR4,Fig 11(b),268,723.54,7.45\nBR2_BR4,Fig 11(b),452,712.02,6.10\nBR2_BR4,Fig 11(b),637,702.39,6.10\nBR2_BR4,Fig 11(b),812,692.47,5.42\nBR2_BR4,Fig 11(b),988,683.08,6.78\nBR2_BR4,Fig 11(b),1172,674.27,5.42\nBR2_BR4,Fig 11(b),1357,666.07,5.42\nBR2_BR4,Fig 11(b),1532,659.64,4.07\nBR2_BR4,Fig 11(b),1708,653.26,6.10\nBR2_BR4,Fig 11(b),1892,644.92,5.42\nBR2_BR4,Fig 11(b),2068,636.97,4.74\nBR2_BR4,Fig 11(b),2243,630.35,4.74\nBR2_BR4,Fig 11(b),2428,623.31,4.74\nBR2_BR4,Fig 11(b),2612,616.60,4.74\nBR2_BR4,Fig 11(b),2797,610.02,4.74\nBR2_BR4,Fig 11(b),2972,603.69,4.07\nBR2_BR4,Fig 11(b),3148,597.35,4.74\nBR2_BR4,Fig 11(b),3332,590.23,4.74\nBR2_BR4,Fig 11(b),3517,583.12,4.74\nBR2_BR4,Fig 11(b),3692,577.48,4.07\nBR2_BR4,Fig 11(b),3868,572.00,4.07\nBR2_BR4,Fig 11(b),4052,566.04,4.07\nBR2_BR4,Fig 11(b),4228,560.24,3.39\nBR2_BR4,Fig 11(b),4403,554.99,4.07\nBR2_BR4,Fig 11(b),4588,549.10,3.39\nBR2_BR4,Fig 11(b),4772,543.88,3.39\nBR2_BR4,Fig 11(b),4948,539.38,4.74\nBR2_BR4,Fig 11(b),5123,534.39,3.39\nBR2_BR4,Fig 11(b),5308,529.44,4.07\nBR2_BR4,Fig 11(b),5492,524.36,3.39\nBR2_BR4,Fig 11(b),5677,520.36,3.39\nBR2_BR4,Fig 11(b),5852,516.34,3.39\nBR2_BR4,Fig 11(b),6028,511.89,3.39\nBR2_BR4,Fig 11(b),6212,507.96,3.39\nBR2_BR4,Fig 11(b),6397,503.96,2.71\nBR2_BR4,Fig 11(b),6572,500.45,2.71\nBR2_BR4,Fig 11(b),6748,496.78,2.71\nBR2_BR4,Fig 11(b),6932,493.66,3.39\nBR2_BR4,Fig 11(b),7117,490.20,3.39\nBR2_BR4,Fig 11(b),7292,487.20,2.71\nBR2_BR4,Fig 11(b),7468,484.04,3.39\nBR2_BR4,Fig 11(b),7652,481.12,2.71\nBR2_BR4,Fig 11(b),7837,478.21,2.71\nBR2_BR4,Fig 11(b),8012,475.90,2.03\nBR2_BR4,Fig 11(b),8188,473.33,3.39\nBR2_BR4,Fig 11(b),8372,470.62,2.03\nBR2_BR4,Fig 11(b),8548,468.83,2.03\nBR2_BR4,Fig 11(b),8723,466.35,2.03\nBR2_BR4,Fig 11(b),8908,464.11,2.71\nBR2_BR4,Fig 11(b),9092,461.40,2.71\nBR2_BR4,Fig 11(b),9268,459.26,2.03\nBR2_BR4,Fig 11(b),9443,457.47,2.03\nBR2_BR4,Fig 11(b),9628,455.30,2.03\nBR2_BR4,Fig 11(b),9812,453.40,2.71\nBR2_BR4,Fig 11(b),9988,451.58,2.03\nBR2_BR4,Fig 11(b),10163,449.81,2.03\nBR2_BR4,Fig 11(b),10348,447.64,2.03\nBR2_BR4,Fig 11(b),10532,446.08,2.03\nBR2_BR4,Fig 11(b),10708,444.13,2.71\n";
+```
+
+## Module `kinetics`
+
+Point kinetics with fuel / moderator / reflector temperature feedback,
+Xe-135 and decay heat, for the HTR-10 transients (gh:#1151).
+
+Everything numerical is `teh-o-prke`'s: [`PointReactor`] (N-group PRKE by
+backward Euler + ANS decay heat, RELAP-7 Eqs 412-429). This module only
+supplies the HTR-10 data and the reactivity.
+
+# Kinetics data (input sheet `htr10-th-benchmark.md` Sec 9.1)
+
+| Quantity | Base | Source | Sensitivity |
+|---|---|---|---|
+| `beta_eff` | 0.00726 | [T1] Sec 2.3.1.1; [J09] Tab 3; [C09] Tab 1 | none (all agree) |
+| `Lambda` | 1.68e-3 s | [T1], [J09], [C09] (D4: the as-run sources agree) | `KIN-LAMBDA-H06`: 1.68e-4 s |
+| `alpha_f / alpha_m / alpha_r` | -2.13 / -16.2 / +7.71 pcm/K | [T1], [J09] Tab 3 | `KIN-ALPHA-G02-IC`, `-G02-EQ` |
+| six delayed groups | **Unknown in every source** | — | see below |
+
+**The six-group constants are a named assumption**: Keepin's U-235
+thermal-fission set (G. R. Keepin, T. F. Wimett, R. K. Zeigler, "Delayed
+neutrons from fissionable isotopes of uranium, plutonium and thorium",
+Phys. Rev. 107 (1957) 1044, Table; reproduced in G. R. Keepin, *Physics
+of Nuclear Kinetics*, Addison-Wesley 1965, Table 4-7): half-lives
+55.72 / 22.72 / 6.22 / 2.30 / 0.610 / 0.230 s, relative abundances
+0.033 / 0.219 / 0.196 / 0.395 / 0.115 / 0.042. Chosen because HTR-10 fuel
+is 17 % enriched UO2 in a thermal spectrum, so almost every fission is
+U-235 thermal fission; only the relative abundances are used, rescaled to
+the benchmark's `beta_eff`. Sensitivities: `teh-o-prke`'s own tabulated
+U-235 set (~~rounded half-lives and fractions~~ **since 2026-11-10,
+gh:#1319: ENDF/B-VIII.0 U-235 thermal, MAT 9228 MT=455; mean precursor
+life 11.06 s against Keepin's 13.02 s**, also rescaled), and the
+one-group equivalent (same `sum beta_i / lambda_i`).
+
+# Feedback
+
+`rho = alpha_f (T_f - T_f0) + alpha_m (T_m - T_m0) + alpha_r (T_r - T_r0)
++ (rho_Xe - rho_Xe0)`, the overall coefficients applied to core-average
+temperatures; [T1] Sec 2.1.1.6 splits them over zones by power fraction,
+which is what the core model's power-weighted averages do.
+
+# Xenon (default ON; `XE-OFF` is the explicit ablation)
+
+I-135 / Xe-135 with burnout, the yields and decay constants of
+`teh-o-prke`'s [`Xenon135Poisoning`] (Lamarsh 1975 Tabs 7.5-7.6). The
+reactivity of an inventory `X` (atoms in the core) is, one-group,
+
+```text
+rho_Xe = -(sigma_Xe / sigma_f) (X / N_235) (Sigma_f / Sigma_a),
+Sigma_f / Sigma_a = k_inf / nu,       sigma_Xe phi = (sigma_Xe / sigma_f) F / N_235
+```
+
+with `F` the fission rate. Inputs, each cited and each an assumption:
+`sigma_Xe = 2.65e6 b`, `sigma_f(U-235) = 585 b` (2200 m/s values;
+S. F. Mughabghab, *Atlas of Neutron Resonances*, 2006), so the ratio is
+taken at 2200 m/s, not spectrum-averaged; `nu = 2.43` (U-235 thermal,
+Lamarsh Tab 6.5); `k_inf = 1.77`, the MCNP5 value for the 57:43
+fuel/dummy BCC lattice recorded in `docs/reactor-scoping/htr10-neutronics.md`
+(Wang 2014, config b); `N_235` from the as-run 13,651 fuel pebbles
+([J09] Tab 2) x 5.0 g U x 17 % ([T1] Tab 2.2). Only the CHANGE from the
+equilibrium inventory enters the reactivity.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+```rust
+pub mod kinetics { /* ... */ }
+```
+
+### Types
+
+#### Enum `DelayedNeutronSet`
+
+Which delayed-neutron group constants to use (none is published for
+HTR-10; see the module docs).
+
+```rust
+pub enum DelayedNeutronSet {
+    KeepinU235Thermal,
+    TehOPrkeU235,
+    OneGroupKeepin,
+}
+```
+
+##### Variants
+
+###### `KeepinU235Thermal`
+
+Keepin (1957) U-235 thermal, six groups. The named base assumption.
+
+###### `TehOPrkeU235`
+
+`teh-o-prke`'s tabulated U-235 set (~~rounded Keepin-like
+half-lives and fractions~~ **ENDF/B-VIII.0 U-235 thermal since
+2026-11-10, gh:#1319**), group shares rescaled to `beta_eff`.
+Sensitivity `KIN-DN-TEHO`.
+
+###### `OneGroupKeepin`
+
+One group with the Keepin set's `sum a_i / lambda_i`. Sensitivity
+`KIN-DN-1G`.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn groups(self: &Self, beta_eff: Ratio) -> (Vec<Ratio>, Vec<Frequency>) { /* ... */ }
+  ```
+  `(beta_i, lambda_i)` rescaled so `sum beta_i = beta_eff`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FeedbackCoefficients`
+
+Fuel, moderator and reflector temperature coefficients.
+
+```rust
+pub struct FeedbackCoefficients {
+    pub fuel: uom::si::f64::TemperatureCoefficient,
+    pub moderator: uom::si::f64::TemperatureCoefficient,
+    pub reflector: uom::si::f64::TemperatureCoefficient,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fuel` | `uom::si::f64::TemperatureCoefficient` | Fuel, 1/K. |
+| `moderator` | `uom::si::f64::TemperatureCoefficient` | Moderator (pebble graphite), 1/K. |
+| `reflector` | `uom::si::f64::TemperatureCoefficient` | Reflector, 1/K. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn tecdoc1694() -> Self { /* ... */ }
+  ```
+  [T1] Sec 2.3.1.1 / [J09] Tab 3: -2.13 / -16.2 / +7.71 pcm/K. Base.
+
+- ```rust
+  pub fn g02_initial_core() -> Self { /* ... */ }
+  ```
+  [G02] Sec 4.3.2, initial core: -1.42 / -10.8 / +5.14 pcm/K.
+
+- ```rust
+  pub fn g02_equilibrium_core() -> Self { /* ... */ }
+  ```
+  [G02] Sec 4.3.2, equilibrium core: -2.55 / -5.62 / +4.29 pcm/K.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `XenonModel`
+
+The Xe-135 channel.
+
+```rust
+pub enum XenonModel {
+    Off,
+    OneGroupBurnout {
+        xe_to_fission_cross_section_ratio: f64,
+        fission_to_absorption_ratio: f64,
+        u235_atoms: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Off`
+
+No xenon reactivity (ablation `XE-OFF`).
+
+###### `OneGroupBurnout`
+
+One-group I/Xe with burnout (see the module docs).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `xe_to_fission_cross_section_ratio` | `f64` | `sigma_Xe / sigma_f(U-235)`. |
+| `fission_to_absorption_ratio` | `f64` | `Sigma_f / Sigma_a = k_inf / nu`. |
+| `u235_atoms` | `f64` | U-235 atoms in the core. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn htr10() -> Self { /* ... */ }
+  ```
+  The HTR-10 values of the module docs.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `KineticsParameters`
+
+Kinetics parameters.
+
+```rust
+pub struct KineticsParameters {
+    pub beta_eff: uom::si::f64::Ratio,
+    pub generation_time: uom::si::f64::Time,
+    pub delayed_set: DelayedNeutronSet,
+    pub coefficients: FeedbackCoefficients,
+    pub xenon: XenonModel,
+    pub decay_heat_scale: f64,
+    pub neutron_source: NeutronSource,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `beta_eff` | `uom::si::f64::Ratio` | `beta_eff`. |
+| `generation_time` | `uom::si::f64::Time` | Prompt generation time `Lambda`. |
+| `delayed_set` | `DelayedNeutronSet` | Delayed group constants. |
+| `coefficients` | `FeedbackCoefficients` | Temperature coefficients. |
+| `xenon` | `XenonModel` | Xenon. |
+| `decay_heat_scale` | `f64` | Multiplier on the ANS decay power (the standard's `F_gamma`); 1 is<br>best estimate. `DH-HALF` (0.5) mirrors [C14] Tab 4 case 3. |
+| `neutron_source` | `NeutronSource` | External neutron source (gh:#1151 part B; see [`NeutronSource`]). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn htr10_base() -> Self { /* ... */ }
+  ```
+  The base case of the module docs, with the start-up source
+
+- ```rust
+  pub fn without_neutron_source(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation `SRC-OFF`: no external source (part A's kinetics).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `NeutronSource`
+
+An external (non-fission) neutron source in the point kinetics
+(gh:#1151 part B).
+
+**Why it matters.** Deep subcritical, the fission power of a
+source-free PRKE decays with the longest precursor period for as long
+as the reactivity stays negative (part A: hours, to ~1e-20 of the
+initial power), and the return to power then has to climb those decades
+back; a source holds the fission power at its subcritical
+multiplication `S / |rho|` instead.
+
+**Magnitude, cited.** HTR-10 was started with a **20 Ci Am-Be source
+placed in the side reflector, emitting 4.4e7 n/s** (IAEA-TECDOC-1382
+(2003) Sec 4.2.1.5, "Initial criticality"; the input sheet
+`htr10-neutronics.md` records the 20 Ci). **Whether it was still in the
+reactor on 15 Oct 2003 is Unknown**: no source in either corpus says it
+was removed, and a graphite core at this burnup has no other source
+strong enough for a source-range start-up. Its importance relative to a
+fission neutron is Unknown; 1 is used, an upper bound for a reflector
+source. The intrinsic source of the fuel (U-238 spontaneous fission) is
+the floor that is certainly present ([`Self::htr10_intrinsic`]).
+
+**Units.** For a source `S` (n/s) of importance `w`, the PRKE term is
+`q = w S / (Lambda nu v Sigma_f V)` in the conversion's units, so that
+the subcritical fission-neutron rate is `w S / |rho|` (derivation in
+[`Htr10Kinetics::source_rate`]).
+
+```rust
+pub enum NeutronSource {
+    None,
+    Constant {
+        neutrons_per_second: f64,
+        importance: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `None`
+
+No source (ablation `SRC-OFF`).
+
+###### `Constant`
+
+A constant source.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `neutrons_per_second` | `f64` | Emission rate, n/s. |
+| `importance` | `f64` | Importance relative to a fission neutron. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn htr10_am_be_startup() -> Self { /* ... */ }
+  ```
+  The 20 Ci Am-Be start-up source, 4.4e7 n/s (TECDOC-1382
+
+- ```rust
+  pub fn htr10_intrinsic() -> Self { /* ... */ }
+  ```
+  `SRC-INTRINSIC`: U-238 spontaneous fission in the as-run fuel only.
+
+- ```rust
+  pub fn effective_strength(self: &Self) -> f64 { /* ... */ }
+  ```
+  `w S`, n/s.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ReactivityBreakdown`
+
+Reactivity split into its parts (dimensionless `dk/k`).
+
+```rust
+pub struct ReactivityBreakdown {
+    pub fuel: f64,
+    pub moderator: f64,
+    pub reflector: f64,
+    pub xenon: f64,
+    pub external: f64,
+    pub source_compensation: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fuel` | `f64` | Fuel temperature term. |
+| `moderator` | `f64` | Moderator temperature term. |
+| `reflector` | `f64` | Reflector temperature term. |
+| `xenon` | `f64` | Xenon change from equilibrium. |
+| `external` | `f64` | Externally inserted reactivity (rod withdrawal; zero in the LOFC). |
+| `source_compensation` | `f64` | The constant offset that makes the initial state with the source a<br>steady state, `-q Lambda / n0` (the plant was held critical with the<br>source in; about -1.8e-10 for the Am-Be source at 3.3 MW). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total(self: &Self) -> f64 { /* ... */ }
+  ```
+  Sum of the parts.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10Kinetics`
+
+Point kinetics + decay heat + xenon + temperature feedback.
+
+```rust
+pub struct Htr10Kinetics {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(params: KineticsParameters, total_power: Power, reference: FeedbackTemperatures) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Critical at `total_power` (immediate + saturated decay heat) with the
+
+- ```rust
+  pub fn equilibrium_xenon_worth(self: &Self) -> f64 { /* ... */ }
+  ```
+  Equilibrium xenon worth at the initial state, `dk/k` (negative).
+
+- ```rust
+  pub fn reactivity(self: &Self, temps: &FeedbackTemperatures) -> ReactivityBreakdown { /* ... */ }
+  ```
+  The reactivity at `temps` and the current xenon.
+
+- ```rust
+  pub fn source_rate(self: &Self) -> VolumetricNumberRate { /* ... */ }
+  ```
+  The PRKE source term of [`KineticsParameters::neutron_source`] in the
+
+- ```rust
+  pub fn step(self: &mut Self, dt: Time, temps: &FeedbackTemperatures) -> Result<ReactivityBreakdown, TampinesError> { /* ... */ }
+  ```
+  Advance by `dt` with the feedback evaluated at `temps` (the core's
+
+- ```rust
+  pub fn step_with_external(self: &mut Self, dt: Time, temps: &FeedbackTemperatures, external: f64) -> Result<ReactivityBreakdown, TampinesError> { /* ... */ }
+  ```
+  As [`Self::step`], with an externally inserted reactivity `external`
+
+- ```rust
+  pub fn fission_power(self: &Self) -> Power { /* ... */ }
+  ```
+  Immediate fission power.
+
+- ```rust
+  pub fn fission_rate(self: &Self) -> Frequency { /* ... */ }
+  ```
+  Fission rate, 1/s (the conversion's `F = n v Sigma_f V`).
+
+- ```rust
+  pub fn decay_power(self: &Self) -> Power { /* ... */ }
+  ```
+  Fission-product decay power.
+
+- ```rust
+  pub fn total_power(self: &Self) -> Power { /* ... */ }
+  ```
+  Total thermal power deposited in the core.
+
+- ```rust
+  pub fn parameters(self: &Self) -> &KineticsParameters { /* ... */ }
+  ```
+  The parameters.
+
+- ```rust
+  pub fn relative_xenon(self: &Self) -> f64 { /* ... */ }
+  ```
+  Xenon inventory relative to its initial equilibrium.
+
+- ```rust
+  pub fn delayed_mean_life_weight(self: &Self) -> f64 { /* ... */ }
+  ```
+  `sum beta_i / lambda_i` of the group set in use, s (the delayed
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Re-exports
+
+#### Re-export `FeedbackTemperatures`
+
+```rust
+pub use tampines::htr10_primary_loop::FeedbackTemperatures;
+```
+
+## Module `transient`
+
+The coupled transient: loop + core + kinetics, the LOFC ATWS and CRW
+ATWS cases and their named sensitivity cases (gh:#1151).
+
+# Step order (dt)
+
+1. kinetics: backward-Euler PRKE with the reactivity of the core's
+   start-of-step temperatures (explicit feedback) plus any external
+   reactivity at the end of the step (the CRW rod withdrawal), and the
+   external neutron source; then decay heat and xenon at the end-of-step
+   fission rate;
+2. loop: speed, baffle, isolation, momentum against the core's
+   start-of-step resistance and gravity head; SG; cold-nozzle temperature;
+3. core: the lumped stand-in steps every `dt`; the R-Z core
+   (`tampines::htr10_primary_loop::RzPorousCore`) sub-cycles at its own step with the time-mean
+   power.
+
+# Initial state (D4: as-run)
+
+3315 kW ([J09] Tab 2), RPV inlet 212 degC ([J09] Tab 2, [C09] Tab 1),
+2476 kPa ([J09] Tab 2), 1.457 kg/s (Derived, sheet Sec 6). The core is
+solved to steady state at that point, the kinetics is made critical at
+the resulting temperatures, and the circulator head is set to hold the
+flow.
+
+# CRW ATWS (input sheet Sec 8)
+
+The external reactivity is [T1] Tab 2.60 (0-128 s, held at 4.9762 mk
+after). As run (D4 base, `CRW-BASE`): the protection system trips the
+circulator, closes the baffle and isolates the secondary at **12 s**
+([H06] Tab 2, Sec 4.2); the baffle closure stops the loop flow at once.
+The specification (`CRW-TRIP9`, [T1] Sec 2.4.1) stops the flow
+instantly at 9 s.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+```rust
+pub mod transient { /* ... */ }
+```
+
+### Types
+
+#### Struct `InitialState`
+
+The initial operating point.
+
+```rust
+pub struct InitialState {
+    pub power: uom::si::f64::Power,
+    pub inlet_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub pressure: uom::si::f64::Pressure,
+    pub mass_flow: uom::si::f64::MassRate,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `power` | `uom::si::f64::Power` | Total thermal power. |
+| `inlet_temperature` | `uom::si::f64::ThermodynamicTemperature` | RPV inlet (cold nozzle) helium temperature. |
+| `pressure` | `uom::si::f64::Pressure` | Primary pressure. |
+| `mass_flow` | `uom::si::f64::MassRate` | Loop mass flow. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_run() -> Self { /* ... */ }
+  ```
+  As-run (D4): 3315 kW, 212 degC, 2476 kPa, 1.457 kg/s.
+
+- ```rust
+  pub fn hu2006() -> Self { /* ... */ }
+  ```
+  `TR-HU`: [H06] 3000 kW, 215 degC, 2500 kPa; flow by energy balance
+
+- ```rust
+  pub fn spec() -> Self { /* ... */ }
+  ```
+  `TR-SPEC`: [T1] 3 MW, 250 degC, 2.5 MPa, flow 1.444 kg/s (sheet Sec 6).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CoreChoice`
+
+Which core model a case runs.
+
+```rust
+pub enum CoreChoice {
+    LumpedStandIn,
+    RzPorous {
+        options: outram_foam_appbuilder_lib::htr10_rz::TransientCoreOptions,
+        time_step: tampines::htr10_primary_loop::RzCoreTimeStep,
+    },
+}
+```
+
+##### Variants
+
+###### `LumpedStandIn`
+
+The lumped stand-in of part A.
+
+###### `RzPorous`
+
+The R-Z porous core of part B. Its bypass split is replaced by the
+case's [`LofcCase::bypass`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `options` | `outram_foam_appbuilder_lib::htr10_rz::TransientCoreOptions` | The R-Z model options. |
+| `time_step` | `tampines::htr10_primary_loop::RzCoreTimeStep` | Its own time step. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LofcCase`
+
+One transient case (LOFC or CRW): everything that defines a run.
+
+```rust
+pub struct LofcCase {
+    pub name: String,
+    pub initial: InitialState,
+    pub kinetics: super::kinetics::KineticsParameters,
+    pub bypass: tampines::htr10_primary_loop::BypassSplit,
+    pub loop_config: tampines::htr10_primary_loop::PrimaryLoopConfig,
+    pub duration: uom::si::f64::Time,
+    pub core: CoreChoice,
+    pub external_reactivity: Option<tampines::htr10_primary_loop::data::TabulatedSeries>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | The case name (input sheet Sec 9.2). |
+| `initial` | `InitialState` | Initial point. |
+| `kinetics` | `super::kinetics::KineticsParameters` | Kinetics. |
+| `bypass` | `tampines::htr10_primary_loop::BypassSplit` | Bypass split. |
+| `loop_config` | `tampines::htr10_primary_loop::PrimaryLoopConfig` | Loop (coastdown, baffle, ...). |
+| `duration` | `uom::si::f64::Time` | Simulated duration after the start. |
+| `core` | `CoreChoice` | The core model. |
+| `external_reactivity` | `Option<tampines::htr10_primary_loop::data::TabulatedSeries>` | Externally inserted reactivity, `dk/k` against time since the start<br>(`None` in the LOFC). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn base() -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  The base case (as-run, D4) with the lumped stand-in (part A).
+
+- ```rust
+  pub fn rz_base() -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  The LOFC base case with the R-Z core (part B): `RZ-BASE`.
+
+- ```rust
+  pub fn crw_base() -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  The CRW ATWS base (as-run, D4; module docs): `CRW-BASE`, R-Z core,
+
+- ```rust
+  pub fn crw_trip9() -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  `CRW-TRIP9`: the specification's instantaneous flow stop and
+
+- ```rust
+  pub fn named(self: Self, name: &str) -> Self { /* ... */ }
+  ```
+  Rename (builder).
+
+- ```rust
+  pub fn with_coastdown(self: Self, c: CoastdownModel) -> Self { /* ... */ }
+  ```
+  Replace the coastdown (builder).
+
+- ```rust
+  pub fn with_initial(self: Self, s: InitialState) -> Self { /* ... */ }
+  ```
+  Replace the initial state, keeping the loop pressure consistent.
+
+- ```rust
+  pub fn with_rz_options</* synthetic */ impl Fn(TransientCoreOptions) -> TransientCoreOptions: Fn(TransientCoreOptions) -> TransientCoreOptions>(self: Self, f: impl Fn(TransientCoreOptions) -> TransientCoreOptions) -> Self { /* ... */ }
+  ```
+  Change the R-Z core options (no-op for the lumped stand-in).
+
+- ```rust
+  pub fn with_rz_time_step(self: Self, step: RzCoreTimeStep) -> Self { /* ... */ }
+  ```
+  Change the R-Z core time step (no-op for the lumped stand-in).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TransientSample`
+
+One sample of a run.
+
+```rust
+pub struct TransientSample {
+    pub time_s: f64,
+    pub total_power_w: f64,
+    pub fission_power_w: f64,
+    pub decay_power_w: f64,
+    pub reactivity: super::kinetics::ReactivityBreakdown,
+    pub mass_flow_kg_s: f64,
+    pub speed: f64,
+    pub fuel_k: f64,
+    pub moderator_k: f64,
+    pub reflector_k: f64,
+    pub core_outlet_k: f64,
+    pub heat_to_rccs_w: f64,
+    pub heat_to_coolant_w: f64,
+    pub bed_upflow_kg_s: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `time_s` | `f64` | Time after the start, s. |
+| `total_power_w` | `f64` | Total power, W. |
+| `fission_power_w` | `f64` | Immediate fission power, W. |
+| `decay_power_w` | `f64` | Decay power, W. |
+| `reactivity` | `super::kinetics::ReactivityBreakdown` | Reactivity parts. |
+| `mass_flow_kg_s` | `f64` | Loop flow, kg/s. |
+| `speed` | `f64` | Relative circulator speed. |
+| `fuel_k` | `f64` | Power-weighted fuel, moderator; reflector, K. |
+| `moderator_k` | `f64` | See `fuel_k`. |
+| `reflector_k` | `f64` | See `fuel_k`. |
+| `core_outlet_k` | `f64` | Hot-nozzle helium, K. |
+| `heat_to_rccs_w` | `f64` | Heat to the RCCS, W. |
+| `heat_to_coolant_w` | `f64` | Heat to the coolant, W. |
+| `bed_upflow_kg_s` | `f64` | In-vessel natural circulation: upward mass flow across the bed<br>mid-height, kg/s (R-Z core only; 0 for the stand-in). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LofcMetrics`
+
+Summary numbers of a LOFC run.
+
+```rust
+pub struct LofcMetrics {
+    pub time_to_one_percent_s: Option<f64>,
+    pub min_reactivity: (f64, f64),
+    pub reactivity_zero_crossing_s: Option<f64>,
+    pub power_return_s: Option<f64>,
+    pub first_peak: Option<(f64, f64)>,
+    pub late_total_power_w: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `time_to_one_percent_s` | `Option<f64>` | First time the fission power is at or below 1 % of its initial value. |
+| `min_reactivity` | `(f64, f64)` | Most negative total reactivity, dk/k, and its time. |
+| `reactivity_zero_crossing_s` | `Option<f64>` | First upward zero crossing of the total reactivity after its minimum. |
+| `power_return_s` | `Option<f64>` | First time after the 1 % point that the fission power climbs back<br>above 1 % of its initial value (the measured-trace definition). |
+| `first_peak` | `Option<(f64, f64)>` | Largest relative fission power after the return, and its time. |
+| `late_total_power_w` | `f64` | Mean total power over the last 1800 s, W. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CrwMetrics`
+
+Summary numbers of a CRW run (input sheet Sec 8.3).
+
+```rust
+pub struct CrwMetrics {
+    pub first_peak: (f64, f64),
+    pub first_peak_total_w: f64,
+    pub decay_level_s: Option<f64>,
+    pub min_reactivity: (f64, f64),
+    pub recriticality_s: Option<f64>,
+    pub recriticality_peak: Option<(f64, f64)>,
+    pub power_at_7200_w: f64,
+    pub late_total_power_w: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `first_peak` | `(f64, f64)` | Largest relative fission power in the first 300 s, and its time. |
+| `first_peak_total_w` | `f64` | That peak's total power, W. |
+| `decay_level_s` | `Option<f64>` | First time after the peak that the fission power is below the decay<br>power ("power to decay level"). |
+| `min_reactivity` | `(f64, f64)` | Most negative total reactivity after the peak, dk/k, and its time. |
+| `recriticality_s` | `Option<f64>` | First upward zero crossing of the total reactivity after its<br>minimum (re-criticality). |
+| `recriticality_peak` | `Option<(f64, f64)>` | Largest relative fission power after the re-criticality, and its<br>time. |
+| `power_at_7200_w` | `f64` | Total power at 7200 s, W (or the last sample). |
+| `late_total_power_w` | `f64` | Mean total power over the last 1800 s, W. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CoupledTransient`
+
+Loop + core + kinetics.
+
+```rust
+pub struct CoupledTransient {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(case: &LofcCase) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Build at the case's initial state with the case's core and the
+
+- ```rust
+  pub fn with_parts(case: &LofcCase, core: CoreModel, sg: SteamGeneratorModel) -> Result<Self, TampinesError> { /* ... */ }
+  ```
+  Build with an explicit core model and steam generator.
+
+- ```rust
+  pub fn initial_response(self: &Self) -> CoreResponse { /* ... */ }
+  ```
+  The core's steady-state response at the initial point.
+
+- ```rust
+  pub fn primary_loop(self: &Self) -> &PrimaryLoop { /* ... */ }
+  ```
+  The loop.
+
+- ```rust
+  pub fn core(self: &Self) -> &CoreModel { /* ... */ }
+  ```
+  The core.
+
+- ```rust
+  pub fn kinetics(self: &Self) -> &Htr10Kinetics { /* ... */ }
+  ```
+  The kinetics.
+
+- ```rust
+  pub fn time_s(self: &Self) -> f64 { /* ... */ }
+  ```
+  Time since the start, s.
+
+- ```rust
+  pub fn step(self: &mut Self, dt: Time) -> Result<TransientSample, TampinesError> { /* ... */ }
+  ```
+  Advance by `dt`.
+
+- ```rust
+  pub fn settle_steam_generator(self: &mut Self, hot: ThermodynamicTemperature, duration: Time) -> Result<ThermodynamicTemperature, TampinesError> { /* ... */ }
+  ```
+  Settle a helical-coil steam generator at the hot-nozzle temperature
+
+- ```rust
+  pub fn initial_fission_power_w(self: &Self) -> f64 { /* ... */ }
+  ```
+  Initial immediate fission power, W.
+
+- ```rust
+  pub fn thermocouples_c(self: &Self, tcs: &[Thermocouple]) -> Option<Vec<f64>> { /* ... */ }
+  ```
+  The R-Z core's model value at each thermocouple, deg C (`None` for
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Type Alias `ProbeRow`
+
+Thermocouple readings at one time: `(t_s, deg C per thermocouple)`.
+
+```rust
+pub type ProbeRow = (f64, Vec<f64>);
+```
+
+### Functions
+
+#### Function `crw_reactivity`
+
+[T1] Tab 2.60 as `dk/k` against s (mk / 1000), held after 128 s.
+
+# Errors
+Embedded-table parse errors.
+
+```rust
+pub fn crw_reactivity() -> Result<tampines::htr10_primary_loop::data::TabulatedSeries, tampines::TampinesError> { /* ... */ }
+```
+
+#### Function `run_lofc`
+
+Run a case: 0.1 s steps for the first 1000 s, 0.5 s after; one sample
+per second (plus `t = 0`).
+
+# Errors
+As [`CoupledTransient::step`].
+
+```rust
+pub fn run_lofc(case: &LofcCase) -> Result<(CoupledTransient, Vec<TransientSample>), tampines::TampinesError> { /* ... */ }
+```
+
+#### Function `run_case`
+
+As [`run_lofc`], also reading the R-Z core at `probes` every
+`probe_every_s` seconds (and at `t = 0`; nothing for the stand-in or
+for `probe_every_s <= 0`).
+
+# Errors
+As [`CoupledTransient::step`].
+
+```rust
+pub fn run_case(case: &LofcCase, probes: &[outram_foam_appbuilder_lib::htr10_rz::Thermocouple], probe_every_s: f64) -> Result<(CoupledTransient, Vec<TransientSample>, Vec<ProbeRow>), tampines::TampinesError> { /* ... */ }
+```
+
+#### Function `lofc_metrics`
+
+The metrics of [`LofcMetrics`] from a trace.
+
+```rust
+pub fn lofc_metrics(trace: &[TransientSample]) -> LofcMetrics { /* ... */ }
+```
+
+#### Function `crw_metrics`
+
+The metrics of [`CrwMetrics`] from a trace.
+
+```rust
+pub fn crw_metrics(trace: &[TransientSample]) -> CrwMetrics { /* ... */ }
+```
+
+#### Function `c09_thermocouple_positions`
+
+Model positions of the 17 [C09] LOFC thermocouple traces (labels as in
+`lofc-thermocouples-c09-figs8-11.csv`), cm, TECDOC `z` downward.
+
+**[C09] prints no coordinates** (its Fig 3 is a schematic), so every
+position is **Uncertain**, and was fixed before any model result:
+
+- `SR1`-`SR12`: [T1] Tab 2.7 thermocouples 1-12 (`r` 193 / 189 / 167 /
+  133 / 117 / 93 cm at `z` 80, then the same at `z` 170). Basis: [C09]
+  Sec 4 has SR1-6 and SR7-12 as two rows "at two different heights"
+  from the carbon brick inward, Fig 3 draws SR1-6 as the upper row, and
+  in both rows the measured initial temperatures rise monotonically from
+  SR1 to SR6 and SR7 to SR12 as Tab 2.7's radii fall.
+- `TR1_TR4`: [T1] Tab 2.7 thermocouple 13 (`r 60, z -40`), the top
+  reflector just above the core cavity ([C09] Sec 5: "located above the
+  top cavity"). `TR2_TR5` and `TR3_TR6`: read from Fig 3 as the same
+  column (`r ~ 55 cm`) about 60 cm and 95 cm higher (`z -100`, `-135`:
+  upper top reflector and the top carbon brick, which [C09] Sec 5 names
+  for TR3&TR6), +-15 cm.
+- `BR1_BR3`, `BR2_BR4`: read from Fig 3 just under the cone at `r ~ 78`
+  and `~ 45 cm`, placed at Tab 2.7's under-core height `z 234`. **Which
+  pair is inner is not readable**: BR2&BR4 is put inner because it reads
+  the hotter at `t = 0` (748 against 643 deg C), as the inner of Tab
+  2.7's two `z 234` points (TC 14, `r 40`) is at full power.
+
+```rust
+pub fn c09_thermocouple_positions() -> Vec<outram_foam_appbuilder_lib::htr10_rz::Thermocouple> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `DelayedNeutronSet`
+
+```rust
+pub use kinetics::DelayedNeutronSet;
+```
+
+#### Re-export `FeedbackCoefficients`
+
+```rust
+pub use kinetics::FeedbackCoefficients;
+```
+
+#### Re-export `FeedbackTemperatures`
+
+```rust
+pub use kinetics::FeedbackTemperatures;
+```
+
+#### Re-export `Htr10Kinetics`
+
+```rust
+pub use kinetics::Htr10Kinetics;
+```
+
+#### Re-export `KineticsParameters`
+
+```rust
+pub use kinetics::KineticsParameters;
+```
+
+#### Re-export `NeutronSource`
+
+```rust
+pub use kinetics::NeutronSource;
+```
+
+#### Re-export `ReactivityBreakdown`
+
+```rust
+pub use kinetics::ReactivityBreakdown;
+```
+
+#### Re-export `XenonModel`
+
+```rust
+pub use kinetics::XenonModel;
+```
+
+#### Re-export `c09_thermocouple_positions`
+
+```rust
+pub use transient::c09_thermocouple_positions;
+```
+
+#### Re-export `crw_metrics`
+
+```rust
+pub use transient::crw_metrics;
+```
+
+#### Re-export `crw_reactivity`
+
+```rust
+pub use transient::crw_reactivity;
+```
+
+#### Re-export `lofc_metrics`
+
+```rust
+pub use transient::lofc_metrics;
+```
+
+#### Re-export `run_case`
+
+```rust
+pub use transient::run_case;
+```
+
+#### Re-export `run_lofc`
+
+```rust
+pub use transient::run_lofc;
+```
+
+#### Re-export `CoreChoice`
+
+```rust
+pub use transient::CoreChoice;
+```
+
+#### Re-export `CoupledTransient`
+
+```rust
+pub use transient::CoupledTransient;
+```
+
+#### Re-export `CrwMetrics`
+
+```rust
+pub use transient::CrwMetrics;
+```
+
+#### Re-export `InitialState`
+
+```rust
+pub use transient::InitialState;
+```
+
+#### Re-export `LofcCase`
+
+```rust
+pub use transient::LofcCase;
+```
+
+#### Re-export `LofcMetrics`
+
+```rust
+pub use transient::LofcMetrics;
+```
+
+#### Re-export `ProbeRow`
+
+```rust
+pub use transient::ProbeRow;
+```
+
+#### Re-export `TransientSample`
+
+```rust
+pub use transient::TransientSample;
+```
+
+## Module `msre_frequency_response`
+
+MSRE power-to-reactivity frequency response (MSRE T-1, gh:#1132).
+**MSRE power-to-reactivity frequency response (MSRE T-1, gh:#1132).**
+
+> Research, education and V&V only. AI draft (Claude Opus 5.5 in Claude
+> Code), unreviewed. Not for facility operation.
+
+A linear model of the whole MSRE heat-transport chain, solved at each
+frequency as one complex linear system (`petir::depletion::solve_complex`).
+The pieces, with page numbers from the ORNL-TM-1070 scan (Ball and
+Kerlin, 1965):
+
+- **Kinetics:** circulating-fuel point kinetics, six groups. The
+  precursors leave the core in a well-stirred core of transit time τ_c
+  and return after the loop transit τ_L, decayed. This is the equation set
+  of `teh_o_prke::zero_power_prke::circulating` (T-C1, gh:#1131),
+  linearised; it is TM-1070 eq. (A.29)/(A.30) in reactivity form.
+  - λ_i and β'_i from App. B p. 69; Λ, τ_c and τ_L from Table 1 "present
+    study".
+  - The steady-state reactivity ρ₀ is the circulation loss (A.31).
+- **Core:** single region, two fuel lumps and a graphite lump, eqs.
+  (A.1)-(A.3) p. 49, with App. B's "1965 extrema determination"
+  coefficients (pp. 67-68). Reactivity follows the first fuel lump and the
+  graphite (importances 1, 0, 1).
+  - The delayed-gamma share of the power, 0.0564, arrives through a
+    188 s first-order lag (Table 1).
+- **Heat exchanger and radiator:** two lumps per fluid plus the tube
+  (and, in the heat exchanger, the shell), eqs. (A.32)-(A.37) pp. 58-60,
+  with App. B p. 69's 1965 coefficients at 10 MW.
+  - The radiator air side scales with power as ORNL scaled it (p. 60):
+    W_air ∝ P, h_air ∝ W_air^0.6, so n_air ∝ P^-0.4, τ_tube→air ∝ P^-0.6
+    and t*_air ∝ P^-1. The air inlet temperature does not change.
+- **Piping:** pure transport delays (plug flow), App. B p. 70's 1965 lags:
+  core → HX 5.77 s, HX → core 8.67 s, HX → radiator 4.71 s,
+  radiator → HX 8.24 s.
+  - TM-1070 p. 16 calls plug flow "probably superior" (Re ≈ 240 000 and
+    120 000) to the reduced model's first-order lags. Its complete model
+    used pure delays.
+
+**The fuel and graphite temperature coefficients are inputs.** For T-1
+they come from this workspace's own Monte Carlo model (N-3, gh:#1129),
+not from TM-1070's −4.84 and −3.7 × 10⁻⁵ /°F. Those are kept as
+[`ORNL_1965_FUEL_PER_F`] and [`ORNL_1965_GRAPHITE_PER_F`] for the
+code-to-code check against ORNL's own predicted curve.
+
+Everything inside is in ORNL's units (MW, °F, s); the public API is `uom`.
+
+```rust
+pub mod msre_frequency_response { /* ... */ }
+```
+
+### Types
+
+#### Struct `HxSection`
+
+One counterflow heat-exchange section: two lumps per fluid, a tube and
+an optional shell (TM-1070 eqs. A.32-A.37). Fluid 1 is inside the tube.
+
+```rust
+pub struct HxSection {
+    pub n1: f64,
+    pub n2: f64,
+    pub ns: f64,
+    pub t1: f64,
+    pub t2: f64,
+    pub tau_t1: f64,
+    pub tau_t2: f64,
+    pub tau_s: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n1` | `f64` | n₁ = hA/(W c_p) on fluid 1. |
+| `n2` | `f64` | n₂ on fluid 2. |
+| `ns` | `f64` | n_s, fluid 2 to the shell (0: no shell). |
+| `t1` | `f64` | Fluid 1 transit time \[s\]. |
+| `t2` | `f64` | Fluid 2 transit time \[s\]. |
+| `tau_t1` | `f64` | Tube time constant to fluid 1 \[s\]. |
+| `tau_t2` | `f64` | Tube time constant to fluid 2 \[s\]. |
+| `tau_s` | `f64` | Shell time constant \[s\] (unused when `ns == 0`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn radiator_at(p_mw: f64) -> Self { /* ... */ }
+  ```
+  The radiator at `p_mw`, its air side scaled from 10 MW as TM-1070
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MsreLoopModel`
+
+The MSRE loop model at one power level.
+
+```rust
+pub struct MsreLoopModel {
+    pub alpha_fuel: f64,
+    pub alpha_graphite: f64,
+    pub power_mw: f64,
+    pub generation_time: f64,
+    pub core_transit: f64,
+    pub loop_transit: f64,
+    pub hx: HxSection,
+    pub radiator: HxSection,
+    pub delays: [f64; 4],
+    pub loops: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alpha_fuel` | `f64` | Fuel temperature coefficient \[1/°F\]. |
+| `alpha_graphite` | `f64` | Graphite temperature coefficient \[1/°F\]. |
+| `power_mw` | `f64` | Steady power \[MW\]. |
+| `generation_time` | `f64` | Prompt generation time Λ \[s\] (Table 1: 0.00024). |
+| `core_transit` | `f64` | Core transit τ_c \[s\] (Table 1: 8.46). |
+| `loop_transit` | `f64` | External loop transit τ_L \[s\] (Table 1: 16.73). |
+| `hx` | `HxSection` | Heat exchanger. |
+| `radiator` | `HxSection` | Radiator at this power. |
+| `delays` | `[f64; 4]` | Piping delays \[s\]: core→HX, HX→core, HX→radiator, radiator→HX. |
+| `loops` | `bool` | Whether the external loops respond (false: core alone, inlet held). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn tm1070(power: Power, fuel: TemperatureCoefficient, graphite: TemperatureCoefficient) -> Self { /* ... */ }
+  ```
+  TM-1070's 1965 parameters at `power`, with the given coefficients.
+
+- ```rust
+  pub fn circulation_loss(self: &Self) -> f64 { /* ... */ }
+  ```
+  The steady reactivity of the circulating core, eq. (A.31) in
+
+- ```rust
+  pub fn response(self: &Self, omega: f64) -> Complex64 { /* ... */ }
+  ```
+  δP/P₀ per unit δρ (δk/k) of external reactivity at `omega` \[rad/s\].
+
+- ```rust
+  pub fn natural_period(self: &Self, points: usize) -> Option<Time> { /* ... */ }
+  ```
+  The natural period of oscillation: 2π/ω at the peak of |δP/δρ| on a
+
+- ```rust
+  pub fn amplitude_phase(self: &Self, omega: AngularVelocity) -> (f64, f64) { /* ... */ }
+  ```
+  `|δP/P₀ / δρ|` and phase \[deg\] at `omega`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `per_f`
+
+A coefficient from ORNL's per-°F to `uom`.
+
+```rust
+pub fn per_f(alpha_per_f: f64) -> uom::si::f64::TemperatureCoefficient { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `ORNL_1965_FUEL_PER_F`
+
+TM-1070 Table 1 "present study" fuel coefficient, −4.84 × 10⁻⁵ /°F.
+
+```rust
+pub const ORNL_1965_FUEL_PER_F: f64 = -4.84e-5;
+```
+
+#### Constant `ORNL_1965_GRAPHITE_PER_F`
+
+TM-1070 Table 1 "present study" graphite coefficient, −3.7 × 10⁻⁵ /°F.
+
+```rust
+pub const ORNL_1965_GRAPHITE_PER_F: f64 = -3.7e-5;
+```
+
+#### Constant `MEASURED_PERIODS_TM1647`
+
+TM-1647 (Kerlin, Ball and Steffy, 1966) Fig. 29: the **measured**
+natural periods of oscillation, `(power MW, period min)`.
+
+**Digitised 2026-11-09, a processing step.** The scan's PDF page 46 was
+rendered at 300 dpi in grey. Both log axes were calibrated on the
+gridlines:
+- x: 0.02 MW at px 428 and 10 MW at px 2086; the 0.1 and 1 MW lines fall
+  within 2 px of where the calibration puts them;
+- y: 1 min at px 2085 and 50 min at px 1020; the 2, 5, 10 and 20 min
+  lines fall within 5 px.
+
+Each value is the centroid of the dot's dense core (pixels whose 13 × 13
+neighbourhood is ≥ 95 % dark). The dot radius, ~13 px, makes each reading
+good to about ±2 % in both power and period. The two highest-power dots
+touch, and were separated with a 10 px search radius.
+
+```rust
+pub const MEASURED_PERIODS_TM1647: [(f64, f64); 7] = _;
+```
+
+#### Constant `LAMBDA`
+
+Decay constants λ_i \[1/s\], TM-1070 App. B p. 69.
+
+```rust
+pub const LAMBDA: [f64; 6] = _;
+```
+
+#### Constant `BETA`
+
+Delayed-neutron fractions β'_i (total, "1965 frequency-response"), App. B
+p. 69. They sum to 0.006661, Table 1's 0.00666.
+
+```rust
+pub const BETA: [f64; 6] = _;
+```
+
+#### Constant `HX_1965`
+
+The 1965 heat exchanger (fluid 1 coolant, fluid 2 fuel), App. B p. 69.
+
+```rust
+pub const HX_1965: HxSection = _;
+```
+
+#### Constant `RADIATOR_1965_10MW`
+
+The 1965 radiator at 10 MW (fluid 1 coolant, fluid 2 air), App. B p. 69.
+
+```rust
+pub const RADIATOR_1965_10MW: HxSection = _;
+```
+
+#### Constant `TAU_F`
+
+Fuel-lump residence time τ_F \[s\] (each of the two lumps), App. B pp. 67-68.
+
+```rust
+pub const TAU_F: f64 = 4.23;
+```
+
+#### Constant `K_F`
+
+Fraction of the fission power deposited in each fuel lump, K_F.
+
+```rust
+pub const K_F: f64 = 0.47;
+```
+
+#### Constant `K_G`
+
+Fraction of the fission power deposited in each graphite half, K_G
+(the graphite lump takes 2 K_G).
+
+```rust
+pub const K_G: f64 = 0.03;
+```
+
+#### Constant `MC_F`
+
+Heat capacity of each fuel lump, MC_F \[MW·s/°F\].
+
+```rust
+pub const MC_F: f64 = 0.750;
+```
+
+#### Constant `MC_G`
+
+Heat capacity of the graphite lump, MC_G \[MW·s/°F\].
+
+```rust
+pub const MC_G: f64 = 3.58;
+```
+
+#### Constant `HA`
+
+Graphite-to-fuel conductance, hA \[MW/°F\].
+
+```rust
+pub const HA: f64 = 0.020;
+```
+
+#### Constant `GAMMA_SHARE`
+
+Delayed-gamma share of the power (Table 1).
+
+```rust
+pub const GAMMA_SHARE: f64 = 0.0564;
+```
+
+#### Constant `GAMMA_LAG`
+
+Delayed-gamma first-order lag \[s\] (Table 1).
+
+```rust
+pub const GAMMA_LAG: f64 = 188.0;
+```
+
 ## Module `htr10_rmc`
 
 # HTR-10 code-to-code verification against the RMC paper
@@ -2606,8 +6015,11 @@ It is still an AI-drafted model awaiting human review.
   withdrawn and panics on entry (it cuts pebbles). `htr10_mgxs_genfoam`
   still calls it (checked: `examples/htr10_mgxs_genfoam.rs`), so that
   example now panics too.
-- gh:#313 — `Cell::temperature` is never read by transport and every cell
-  hardcodes 293.6 K; the material temperature (300.15 K) is what is used.
+- ~~gh:#313 — `Cell::temperature` is never read by transport and every cell
+  hardcodes 293.6 K; the material temperature (300.15 K) is what is used.~~
+  **CORRECTED 2026-11-14:** cell temperature is now the transport default
+  and the HTR-10 cells are `None` (the material's temperature), so the
+  hardcoded 293.6 K is gone and cannot override a 300.15 K material.
 - gh:#312 — the control-rod smeared composition drops the steel sections
   (not exercised by the rods-out benchmark).
 
@@ -2966,6 +6378,7 @@ pub struct HexBedCell {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2980,6 +6393,7 @@ pub struct HexBedCell {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -3114,6 +6528,7 @@ A moderator / dummy pebble (graphite only).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3128,6 +6543,7 @@ A moderator / dummy pebble (graphite only).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -3297,6 +6713,7 @@ B-layer ball at the 240 degree vertex, mid-height.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3316,6 +6733,7 @@ B-layer ball at the 240 degree vertex, mid-height.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Ord**
   - ```rust
     fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
@@ -3494,6 +6912,7 @@ Fields:
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3513,6 +6932,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Ord**
   - ```rust
     fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
@@ -3660,6 +7080,7 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3674,6 +7095,7 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -3933,6 +7355,7 @@ pub struct TwoBallBed {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3947,6 +7370,7 @@ pub struct TwoBallBed {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -4090,6 +7514,7 @@ pub struct DischargeTube {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4104,6 +7529,7 @@ pub struct DischargeTube {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -4300,6 +7726,7 @@ pub struct SekerCell {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4314,6 +7741,7 @@ pub struct SekerCell {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -4507,6 +7935,7 @@ Fields:
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4526,6 +7955,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Ord**
   - ```rust
     fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
@@ -4702,6 +8132,7 @@ Fields:
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4721,6 +8152,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Ord**
   - ```rust
     fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
@@ -4981,6 +8413,7 @@ pub struct SekerBed {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4995,6 +8428,7 @@ pub struct SekerBed {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -5240,6 +8674,7 @@ Fields:
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5254,6 +8689,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -5407,6 +8843,7 @@ Fields:
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5426,6 +8863,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Ord**
   - ```rust
     fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
@@ -5738,6 +9176,7 @@ pub struct ZoneComposition {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5752,6 +9191,7 @@ pub struct ZoneComposition {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6062,6 +9502,7 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6076,6 +9517,7 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6215,6 +9657,7 @@ pub struct ReflectorChannel {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6229,6 +9672,7 @@ pub struct ReflectorChannel {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6352,6 +9796,7 @@ pub struct Fig410Box {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6366,6 +9811,7 @@ pub struct Fig410Box {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6798,6 +10244,63 @@ boronated bricks at r > 167.793 cm (zones 75-79).
 pub fn for_zone_uniform(zone: usize) -> usize { /* ... */ }
 ```
 
+#### Function `regional_slot`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The copy of composition slot `base` for reflector region `region`
+(0 top, 1 side, 2 bottom), or `None` if `base` has no regional copies.
+
+```rust
+pub fn regional_slot(base: usize, region: usize) -> Option<usize> { /* ... */ }
+```
+
+#### Function `composition_of`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The composition slot a zoned slot copies: [`GRAPHITE`] for
+[`MODERATOR_BALL`], the base for a regional copy, and the slot itself
+otherwise.
+
+```rust
+pub fn composition_of(slot: usize) -> usize { /* ... */ }
+```
+
+#### Function `region_of_regional`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Region (0 top, 1 side, 2 bottom) of a regional copy, if `slot` is one.
+
+```rust
+pub fn region_of_regional(slot: usize) -> Option<usize> { /* ... */ }
+```
+
+#### Function `for_zone_zoned`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Material slot of a Fig. 4.10 zone in a zoned design**: the slot
+[`for_zone_mc`] (or, under the `zone_map` ablation, [`for_zone_uniform`])
+gives, moved to its copy for `region` (0 top, 1 side, 2 bottom);
+[`BORONATED`] stays itself.
+
+# Panics
+As [`for_zone_mc`], and for a region above 2.
+
+```rust
+pub fn for_zone_zoned(zone: usize, region: usize, zone_map: bool) -> usize { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `KERNEL`
@@ -6990,6 +10493,44 @@ Number of material slots.
 pub const COUNT: usize = _;
 ```
 
+#### Constant `MODERATOR_BALL`
+
+**The graphite (dummy) balls**: [`GRAPHITE`]'s composition in a slot
+of its own, so the moderator pebbles can sit at another temperature
+than the fuel pebbles' matrix and shell.
+
+```rust
+pub const MODERATOR_BALL: usize = COUNT;
+```
+
+#### Constant `REGIONAL_BASES`
+
+The reflector composition slots that get one copy per reflector
+region (top, side, bottom): [`REFLECTOR`] and every Table 4-3 zone
+slot. [`BORONATED`] is not among them: the boronated bricks are a
+temperature zone of their own wherever they sit.
+
+```rust
+pub const REGIONAL_BASES: [usize; 25] = _;
+```
+
+#### Constant `REGIONAL_FIRST`
+
+First regional copy: [`REGIONAL_BASES`] for the top reflector, then
+the side, then the bottom.
+
+```rust
+pub const REGIONAL_FIRST: usize = _;
+```
+
+#### Constant `ZONED_COUNT`
+
+Number of material slots of a zoned design.
+
+```rust
+pub const ZONED_COUNT: usize = _;
+```
+
 ### Types
 
 #### Struct `AssembledCore`
@@ -7063,6 +10604,7 @@ pub struct AssembledCore {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7077,6 +10619,7 @@ pub struct AssembledCore {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -7204,6 +10747,7 @@ Helium between pebbles.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7218,6 +10762,7 @@ Helium between pebbles.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7332,7 +10877,7 @@ pub fn cavity_above_bed(bed_full_height_cm: f64) -> f64 { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[attr = LintCheck([LintCheck {lint_name: \"unreachable_code\", kind: Allow},\nLintCheck {lint_name: \"unused_variables\", kind: Allow}])]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: None, name: \"unreachable_code\" },\nkind: Allow},\nLintCheck {lint_name: LintName { tool: None, name: \"unused_variables\" },\nkind: Allow}])]")`
 
 **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
 
@@ -7895,6 +11440,8 @@ pub struct Htr10CoreDesign {
     pub triso_radii_cm: [f64; 5],
     pub particles_per_pebble: usize,
     pub rod_insertions: [f64; 10],
+    pub temperature_zones: bool,
+    pub triso_packing: TrisoPacking,
 }
 ```
 
@@ -7907,10 +11454,22 @@ pub struct Htr10CoreDesign {
 | `triso_radii_cm` | `[f64; 5]` | TRISO shell radii \[cm\], kernel outward (kernel, buffer, IPyC, SiC,<br>OPyC), strictly increasing. Default [`TRISO_RADII_CM`]. |
 | `particles_per_pebble` | `usize` | Whole TRISO particles in each fuel zone; the lattice pitch is solved<br>to give exactly this count. Default [`PARTICLES_PER_PEBBLE`]. |
 | `rod_insertions` | `[f64; 10]` | Control-rod insertion of each rod, fraction \[-\] of the published<br>travel, `[0, 1]`: 0 withdrawn (the benchmark), 1 fully inserted. Rod<br>`i` sits in the channel at<br>[`super::reflector_geometry::control_rod_azimuths_deg`]`()[i]`.<br>~~`rod_insertion: f64`, all ten rods together~~ **CHANGED 2026-10-23<br>(gh:#1025)**: [`Self::with_bank`] is that case. |
+| `temperature_zones` | `bool` | **Temperature zones** (gh:#1138): place the extra material slots<br>(`mat::MODERATOR_BALL` for the graphite balls, a copy of each<br>reflector composition per top, side and bottom region) so every<br>material belongs to one of `super::zones`' eight zones. Off by default:<br>the record's geometry, cell for cell. `super::zones::zoned_material_set`<br>supplies the materials it needs. |
+| `triso_packing` | `TrisoPacking` | How the TRISO particles sit in a fuel zone (gh:#1243): the record's<br>regular lattice, or random. Read by the explicit (DEM) bed only; the<br>Şeker bed always uses the lattice. Default [`TrisoPacking::Lattice`]. |
 
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn with_temperature_zones(self: Self) -> Self { /* ... */ }
+  ```
+  This design with [`Self::temperature_zones`] on.
+
+- ```rust
+  pub fn moderator_ball_slot(self: &Self) -> usize { /* ... */ }
+  ```
+  Material slot of a graphite (dummy) ball: `mat::MODERATOR_BALL` with
 
 - ```rust
   pub fn with_bank(self: Self, f: f64) -> Self { /* ... */ }
@@ -7992,6 +11551,7 @@ pub struct Htr10CoreDesign {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8006,6 +11566,176 @@ pub struct Htr10CoreDesign {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `TrisoPacking`
+
+**How the TRISO particles sit in a fuel zone** (gh:#1243).
+
+```rust
+pub enum TrisoPacking {
+    Lattice,
+    Random {
+        realisations: usize,
+        seed: u64,
+    },
+}
+```
+
+##### Variants
+
+###### `Lattice`
+
+The record's regular cubic lattice, the same in every fuel pebble.
+
+###### `Random`
+
+**Random sequential addition** of exactly the lattice's particle count
+(so the fuel mass is unchanged), every particle wholly inside the fuel
+zone (`outram_mc_libs::dh_universe::pack_count_in_ball`), each packing
+wrapped in OpenMC's tracking lattice
+(`outram_mc_libs::pebble_beds::triso_lattice::create_triso_lattice`).
+`realisations` different packings (seeds `seed`, `seed + 1`, ...);
+fuel pebble number i takes packing i mod `realisations`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `realisations` | `usize` | Different packings, 1..=64. |
+| `seed` | `u64` | Seed of the first. |
+
+##### Implementations
+
+###### Methods
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -8279,6 +12009,7 @@ A Şeker discharge-tube ball below the DEM column (see the module docs).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8293,6 +12024,7 @@ A Şeker discharge-tube ball below the DEM column (see the module docs).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -8479,6 +12211,7 @@ pub struct ExplicitBed {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8493,6 +12226,7 @@ pub struct ExplicitBed {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -8645,6 +12379,7 @@ Fields:
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8659,6 +12394,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -8809,7 +12545,7 @@ pub fn assemble_explicit_triso_from_centres(centres: &[[uom::si::f64::Length; 3]
 **Attributes:**
 
 - `MustUse { reason: None }`
-- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"too_many_lines\",\nkind: Allow}])]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"too_many_lines\" },\nkind: Allow}])]")`
 
 [`assemble_explicit_triso_from_centres`] built to `design` (gh:#566,
 gh:#580): its fuel-zone radius, TRISO radii and count, and rod insertion.
@@ -8887,6 +12623,14 @@ bisector plane.
 
 ```rust
 pub const TOUCH_TOLERANCE_CM: f64 = 1.0e-9;
+```
+
+#### Constant `RANDOM_TRISO_LATTICE_ID`
+
+Id of the first random TRISO packing's tracking lattice (gh:#1243).
+
+```rust
+pub const RANDOM_TRISO_LATTICE_ID: i32 = 100;
 ```
 
 ## Module `control_rod`
@@ -9024,6 +12768,7 @@ pub struct SmearedRodComposition {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9038,6 +12783,7 @@ pub struct SmearedRodComposition {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -9409,6 +13155,7 @@ diagnostics).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9423,6 +13170,7 @@ diagnostics).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -9565,6 +13313,7 @@ the natural-carbon atom density. This was the VIII.0 model until
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9579,6 +13328,7 @@ the natural-carbon atom density. This was the VIII.0 model until
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -9721,6 +13471,7 @@ performed for vacuum and helium"*, and this was the model until
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9735,6 +13486,7 @@ performed for vacuum and helium"*, and this was the model until
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -9923,6 +13675,7 @@ caller strips their unloaded components and proves no cell uses them.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9937,6 +13690,7 @@ caller strips their unloaded components and proves no cell uses them.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10075,6 +13829,7 @@ resolved amount.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10089,6 +13844,181 @@ resolved amount.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ThermalLawSource`
+
+Where the graphite and SiC thermal laws come from (gh:#1138).
+
+```rust
+pub enum ThermalLawSource {
+    Tapes,
+    Leapr,
+}
+```
+
+##### Variants
+
+###### `Tapes`
+
+ABLATION since 2026-11-03 (`OUTRAM_HTR10_TAPE_LAWS`): the published
+ENDF/B-VIII.0 `tsl-*.endf` tapes, read at the tabulated temperature
+THERMR's tolerance matches. ~~**Default**~~ The recorded runs' laws
+(graphite at 296 K for a 300.15 K run): every HTR-10 record before
+2026-11-03 was made with these.
+
+###### `Leapr`
+
+**Default since 2026-11-03** (maintainer: "just use LEAPR by
+default"): generated by LEAPR from the embedded ENDF/B-VIII.0 decks
+**at the requested temperature exactly**, as the UO2 laws already are
+(the workspace's laws come from a deck, tapes being oracles:
+maintainer, 2026-10-14). LEAPR reproduces the published tapes' S(α,β)
+at every temperature they tabulate (gh:#1140). Built by both the jobs
+path ([`super::data_jobs`]) and [`load_htr10_nuclides`]. The VII.0
+graphite tape has no deck and is read from its tape regardless.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn leapr_deck(self: Self, law: ThermalLaw) -> Option<SabMaterial> { /* ... */ }
+  ```
+  The LEAPR deck `law` is generated from under this source, or `None`
+
+- ```rust
+  pub fn from_env() -> Self { /* ... */ }
+  ```
+  The source a run uses: the default, or the tapes under the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10225,6 +14155,7 @@ bound on the dominant absorber, never the VII.0 offset.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10239,6 +14170,7 @@ bound on the dominant absorber, never the VII.0 offset.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10382,6 +14314,7 @@ Fields:
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10396,6 +14329,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10468,6 +14402,7 @@ pub struct Htr10DataConfig {
     pub thermal: ThermalScatteringTreatment,
     pub u238: U238Evaluation,
     pub uo2_laws: Uo2Laws,
+    pub thermal_laws: ThermalLawSource,
     pub temperature: uom::si::f64::ThermodynamicTemperature,
     pub tapes: TapeSource,
 }
@@ -10485,6 +14420,7 @@ pub struct Htr10DataConfig {
 | `thermal` | `ThermalScatteringTreatment` | Bound thermal laws on or off. |
 | `u238` | `U238Evaluation` | U-238 evaluation (VIII.0 only). |
 | `uo2_laws` | `Uo2Laws` | Source of the UO2 thermal laws. |
+| `thermal_laws` | `ThermalLawSource` | Source of the graphite and SiC laws (gh:#1138). |
 | `temperature` | `uom::si::f64::ThermodynamicTemperature` | Temperature every nuclide is reconstructed and broadened at. 300.15 K<br>(27 °C) is the temperature Li, Yu & Wei (2014) and Şeker & Çolak (2003)<br>state. |
 | `tapes` | `TapeSource` | Where the tapes are read from: the workspace (default) or a folder<br>the user chose (gh:#581). Changes no physics choice: the same tapes<br>are read, found by identity. |
 
@@ -10534,6 +14470,7 @@ pub struct Htr10DataConfig {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10548,6 +14485,7 @@ pub struct Htr10DataConfig {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10692,6 +14630,7 @@ Fields:
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10706,6 +14645,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10845,6 +14785,7 @@ up). `git submodule update --init reference-data/ace`.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10859,6 +14800,7 @@ up). `git submodule update --init reference-data/ace`.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10998,6 +14940,7 @@ pub struct Tape {
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11012,6 +14955,7 @@ pub struct Tape {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -11191,6 +15135,7 @@ HTTR Alloy 800H (added 2026-10-16).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11205,6 +15150,7 @@ HTTR Alloy 800H (added 2026-10-16).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -11330,6 +15276,7 @@ pub struct NuclideSlot {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11344,6 +15291,7 @@ pub struct NuclideSlot {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -11484,6 +15432,7 @@ The vacuum ablation: no coolant nuclides.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11498,6 +15447,7 @@ The vacuum ablation: no coolant nuclides.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -11617,6 +15567,11 @@ pub struct Htr10NuclideLayout {
   ```
   Every distinct thermal law (in first-use order, as the loader takes
 
+- ```rust
+  pub fn tempered_jobs(self: &Self, entries: &[(usize, f64)]) -> Vec<TemperedJob> { /* ... */ }
+  ```
+  **The jobs of a nuclide array at several temperatures** (gh:#1138):
+
 ###### Trait Implementations
 
 - **Any**
@@ -11655,6 +15610,7 @@ pub struct Htr10NuclideLayout {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11669,6 +15625,7 @@ pub struct Htr10NuclideLayout {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -11841,6 +15798,7 @@ Fields:
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11855,6 +15813,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -11983,6 +15942,7 @@ Fields:
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11997,6 +15957,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -12024,6 +15985,148 @@ Fields:
 - **Same**
 - **Send**
 - **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FreeSlots`
+
+**Every nuclide of a slot list loaded FREE, and the thermal laws to be
+associated per material** (gh:#1635 item 3, gh:#462).
+
+`table_of[i]` is the index into `tables` of the law slot `i` is to carry,
+or `None` (no law, or the documented free-gas fall-back for a SiC law the
+source lacks). The same shape serves a nuclide array that is not slot-
+indexed (the per-temperature array of `ParametricStudy`): any vector of
+`Option<usize>` of the array's length.
+
+```rust
+pub struct FreeSlots {
+    pub nuclides: Vec<outram_mc_libs::material::nuclide::Nuclide>,
+    pub tables: Vec<outram_mc_libs::material::thermal::ThermalScattering>,
+    pub table_of: Vec<Option<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclides` | `Vec<outram_mc_libs::material::nuclide::Nuclide>` | One free nuclide per slot, in slot order. |
+| `tables` | `Vec<outram_mc_libs::material::thermal::ThermalScattering>` | Each distinct law, loaded once, in first-use order. |
+| `table_of` | `Vec<Option<usize>>` | Per slot, the table it carries. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn bind_per_material(self: &Self, materials: &[Material]) -> Result<(Vec<Material>, Vec<Nuclide>), String> { /* ... */ }
+  ```
+  Lower the slots' laws onto `materials` and the nuclide array, per
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -12129,6 +16232,108 @@ caller's (HTR-10's wrapper keeps it).
 
 ```rust
 pub fn load_slots_with_progress<F: FnMut(LoadProgress)>(slots: &[NuclideSlot], notes: &[String], temperature: uom::si::f64::ThermodynamicTemperature, tapes: &TapeSource, uo2_laws: &Uo2Laws, diag: &mut outram_mc_libs::run_diagnostics::RunDiagnostics, progress: F) -> Result<Vec<outram_mc_libs::material::nuclide::Nuclide>, Htr10DataError> { /* ... */ }
+```
+
+#### Function `load_slots_with_laws`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"too_many_arguments\" },\nkind: Allow}])]")`
+
+[`load_slots_with_progress`] with the graphite and SiC laws' source
+stated (gh:#1138): LEAPR at `temperature` exactly (the default), or the
+published tapes (the `OUTRAM_HTR10_TAPE_LAWS` ablation).
+
+Laws are bound to the nuclide slots (the deprecated nuclide-level binding,
+gh:#462): this is [`load_slots_free_with_laws`] followed by
+[`bind_nuclide_level`]. New code takes [`FreeSlots`] and binds per
+material.
+
+# Errors
+As [`load_slots_with_progress`].
+
+```rust
+pub fn load_slots_with_laws<F: FnMut(LoadProgress)>(slots: &[NuclideSlot], notes: &[String], temperature: uom::si::f64::ThermodynamicTemperature, tapes: &TapeSource, uo2_laws: &Uo2Laws, thermal_laws: ThermalLawSource, diag: &mut outram_mc_libs::run_diagnostics::RunDiagnostics, progress: F) -> Result<Vec<outram_mc_libs::material::nuclide::Nuclide>, Htr10DataError> { /* ... */ }
+```
+
+#### Function `load_slots_free_with_laws`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"too_many_arguments\" },\nkind: Allow}])]")`
+
+**Every slot loaded FREE, with each distinct thermal law loaded once**
+(gh:#1635 item 3): the body of [`load_slots_with_laws`] without its last
+step. Processing, order, notes and diagnostics are exactly those of the
+legacy loader; only the binding of the laws is left to the caller, to be
+done per material ([`FreeSlots::bind_per_material`]).
+
+# Errors
+As [`load_slots_with_progress`].
+
+```rust
+pub fn load_slots_free_with_laws<F: FnMut(LoadProgress)>(slots: &[NuclideSlot], notes: &[String], temperature: uom::si::f64::ThermodynamicTemperature, tapes: &TapeSource, uo2_laws: &Uo2Laws, thermal_laws: ThermalLawSource, diag: &mut outram_mc_libs::run_diagnostics::RunDiagnostics, progress: F) -> Result<FreeSlots, Htr10DataError> { /* ... */ }
+```
+
+#### Function `bind_tables_per_material`
+
+**Associate thermal laws per material, for a nuclide array** (gh:#1635
+item 3): `table_of[i]` names the table (an index into `tables`) that
+nuclide `i` carries in every material that references it, as the nuclide-
+level binding did, but through OpenMC's per-material association
+([`assign_material_sab`], fraction 1 from
+[`MaterialSab::for_materials_containing`]). The nuclides must all be free.
+
+**Not bit-identical to the nuclide-level binding.** The array is longer by
+one bound copy per (nuclide, table) pair a material uses, and the URR
+stream advances by the array length; the cross sections and the physics
+are the same.
+
+# Errors
+`table_of` shorter than `nuclides`, or whatever [`assign_material_sab`]
+refuses (a nuclide that is already bound, an index out of range).
+
+```rust
+pub fn bind_tables_per_material(materials: &[outram_mc_libs::material::material::Material], nuclides: &[outram_mc_libs::material::nuclide::Nuclide], table_of: &[Option<usize>], tables: &[outram_mc_libs::material::thermal::ThermalScattering]) -> Result<(Vec<outram_mc_libs::material::material::Material>, Vec<outram_mc_libs::material::nuclide::Nuclide>), String> { /* ... */ }
+```
+
+#### Function `bind_nuclide_level`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: None, name: \"deprecated\" },\nkind: Allow}])]")`
+
+**The one nuclide-level bind left in this file** (gh:#462): attach each
+slot's law to its nuclide, as the loader did before gh:#1635 item 3. For
+the callers not yet migrated to [`FreeSlots::bind_per_material`].
+
+```rust
+pub fn bind_nuclide_level(free: FreeSlots) -> Vec<outram_mc_libs::material::nuclide::Nuclide> { /* ... */ }
+```
+
+#### Function `load_htr10_nuclides_free`
+
+[`load_htr10_nuclides`] with every nuclide FREE and the laws returned for
+per-material binding ([`FreeSlots::bind_per_material`]); same processing,
+notes and errors (gh:#1635 item 3).
+
+# Errors
+As [`load_htr10_nuclides`].
+
+```rust
+pub fn load_htr10_nuclides_free(cfg: &Htr10DataConfig, layout: &Htr10NuclideLayout, diag: &mut outram_mc_libs::run_diagnostics::RunDiagnostics) -> Result<FreeSlots, Htr10DataError> { /* ... */ }
+```
+
+#### Function `load_htr10_nuclides_free_with_progress`
+
+[`load_htr10_nuclides_free`] with the progress callback of
+[`load_htr10_nuclides_with_progress`].
+
+# Errors
+As [`load_htr10_nuclides`].
+
+```rust
+pub fn load_htr10_nuclides_free_with_progress<F: FnMut(LoadProgress)>(cfg: &Htr10DataConfig, layout: &Htr10NuclideLayout, diag: &mut outram_mc_libs::run_diagnostics::RunDiagnostics, progress: F) -> Result<FreeSlots, Htr10DataError> { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -12287,6 +16492,7 @@ Fields:
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12301,6 +16507,152 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TemperedJob`
+
+**A job at a temperature** (gh:#1138): what one zone temperature needs
+of a tape or a law.
+
+```rust
+pub struct TemperedJob {
+    pub job: ProcessingJob,
+    pub temperature: uom::si::f64::ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `job` | `ProcessingJob` | The tape or law. |
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | The temperature it is processed (or the law generated) at. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: &Self) -> String { /* ... */ }
+  ```
+  `"U235 @ 900.00 K"`.
+
+- ```rust
+  pub fn kelvin(self: &Self) -> f64 { /* ... */ }
+  ```
+  The temperature, K.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -12444,6 +16796,7 @@ Fields:
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12458,6 +16811,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -12512,6 +16866,21 @@ Fields:
 - **WasmNotSync**
 ### Functions
 
+#### Function `leapr_material`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The LEAPR deck a law is generated from under `cfg`, or `None` when it is
+read from a tape. The UO2 and metal laws are always LEAPR's (as the
+loader); graphite and SiC are under
+[`super::data::ThermalLawSource::Leapr`] (the default), except the VII.0 graphite tape, which has no deck.
+
+```rust
+pub fn leapr_material(law: super::data::ThermalLaw, cfg: &super::data::Htr10DataConfig) -> Option<njoy_outram_park_fork::leapr::decks::SabMaterial> { /* ... */ }
+```
+
 #### Function `process_job`
 
 Run one job. `tape` is the tape [`ProcessingJob::tape`] names, already
@@ -12524,6 +16893,18 @@ process, with the reason.
 
 ```rust
 pub fn process_job(job: &ProcessingJob, cfg: &super::data::Htr10DataConfig, tape: Option<&njoy_outram_park_fork::endf::tape::Tape>) -> Result<JobProduct, super::data::Htr10DataError> { /* ... */ }
+```
+
+#### Function `process_job_at`
+
+[`process_job`] at `temperature` instead of `cfg.temperature` (gh:#1138):
+a [`TemperedJob`]'s processing.
+
+# Errors
+As [`process_job`].
+
+```rust
+pub fn process_job_at(job: &ProcessingJob, cfg: &super::data::Htr10DataConfig, tape: Option<&njoy_outram_park_fork::endf::tape::Tape>, temperature: uom::si::f64::ThermodynamicTemperature) -> Result<JobProduct, super::data::Htr10DataError> { /* ... */ }
 ```
 
 #### Function `assemble_slots`
@@ -12542,6 +16923,40 @@ nuclide that fails to assemble.
 
 ```rust
 pub fn assemble_slots</* synthetic */ impl FnMut(usize) -> Result<JobProduct, Htr10DataError>: FnMut(usize) -> Result<JobProduct, super::data::Htr10DataError>, /* synthetic */ impl FnMut(&Tape) -> Result<EndfTape, Htr10DataError>: FnMut(&super::data::Tape) -> Result<njoy_outram_park_fork::endf::tape::Tape, super::data::Htr10DataError>>(cfg: &super::data::Htr10DataConfig, layout: &super::data::Htr10NuclideLayout, jobs: &[ProcessingJob], product: impl FnMut(usize) -> Result<JobProduct, super::data::Htr10DataError>, read_tape: impl FnMut(&super::data::Tape) -> Result<njoy_outram_park_fork::endf::tape::Tape, super::data::Htr10DataError>) -> Result<Vec<outram_mc_libs::material::nuclide::Nuclide>, super::data::Htr10DataError> { /* ... */ }
+```
+
+#### Function `assemble_entries`
+
+**Build a nuclide array at several temperatures** (gh:#1138): nuclide `i`
+is slot `entries[i].0` of `layout` at `entries[i].1` K, from the products
+of `jobs` ([`Htr10NuclideLayout::tempered_jobs`] of the same entries).
+As [`assemble_slots`] otherwise, which is this with every entry at
+`cfg.temperature`: the laws first, then one tape's product at a time,
+each tape read once per temperature.
+
+# Errors
+
+A product missing or of the wrong kind, a tape that fails to read, or a
+nuclide that fails to assemble.
+
+```rust
+pub fn assemble_entries</* synthetic */ impl FnMut(usize) -> Result<JobProduct, Htr10DataError>: FnMut(usize) -> Result<JobProduct, super::data::Htr10DataError>, /* synthetic */ impl FnMut(&Tape) -> Result<EndfTape, Htr10DataError>: FnMut(&super::data::Tape) -> Result<njoy_outram_park_fork::endf::tape::Tape, super::data::Htr10DataError>>(layout: &super::data::Htr10NuclideLayout, entries: &[(usize, f64)], jobs: &[TemperedJob], product: impl FnMut(usize) -> Result<JobProduct, super::data::Htr10DataError>, read_tape: impl FnMut(&super::data::Tape) -> Result<njoy_outram_park_fork::endf::tape::Tape, super::data::Htr10DataError>) -> Result<Vec<outram_mc_libs::material::nuclide::Nuclide>, super::data::Htr10DataError> { /* ... */ }
+```
+
+#### Function `assemble_entries_free`
+
+**[`assemble_entries`] with every nuclide FREE** (gh:#1635 item 3): the
+same processing and order, but the laws come back as tables and
+`table_of[k]` names the one nuclide `k` carries, to be associated per
+material ([`FreeSlots::bind_per_material`]). The nuclide-level
+[`assemble_entries`] is this followed by `bind_nuclide_level`.
+
+# Errors
+
+As [`assemble_entries`].
+
+```rust
+pub fn assemble_entries_free</* synthetic */ impl FnMut(usize) -> Result<JobProduct, Htr10DataError>: FnMut(usize) -> Result<JobProduct, super::data::Htr10DataError>, /* synthetic */ impl FnMut(&Tape) -> Result<EndfTape, Htr10DataError>: FnMut(&super::data::Tape) -> Result<njoy_outram_park_fork::endf::tape::Tape, super::data::Htr10DataError>>(layout: &super::data::Htr10NuclideLayout, entries: &[(usize, f64)], jobs: &[TemperedJob], product: impl FnMut(usize) -> Result<JobProduct, super::data::Htr10DataError>, read_tape: impl FnMut(&super::data::Tape) -> Result<njoy_outram_park_fork::endf::tape::Tape, super::data::Htr10DataError>) -> Result<super::data::FreeSlots, super::data::Htr10DataError> { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -12861,6 +17276,7 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12875,6 +17291,7 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13004,6 +17421,7 @@ pub struct Htr10MaterialConfig {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13018,6 +17436,12 @@ pub struct Htr10MaterialConfig {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13039,6 +17463,7 @@ pub struct Htr10MaterialConfig {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -13074,7 +17499,7 @@ pub struct Htr10MaterialConfig {
 
 **Attributes:**
 
-- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Allow}])]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: None, name: \"missing_docs\" },\nkind: Allow}])]")`
 
 Indices, into the caller's nuclide array, of the nuclides the withdrawn
 control rods need beyond the pebble's `Htr10Nuclides`: the sleeve steel
@@ -13201,6 +17626,7 @@ pub struct RodMetalNuclides {
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13215,6 +17641,7 @@ pub struct RodMetalNuclides {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13523,6 +17950,7 @@ pub struct PlotJob {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13537,6 +17965,7 @@ pub struct PlotJob {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13697,6 +18126,7 @@ pub struct Htr10Plotter {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13711,6 +18141,7 @@ pub struct Htr10Plotter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13917,6 +18348,7 @@ pub struct SweepProvenance {
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13931,6 +18363,7 @@ pub struct SweepProvenance {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -14128,6 +18561,7 @@ pub struct SweepStatistics {
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -14142,6 +18576,7 @@ pub struct SweepStatistics {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -14298,6 +18733,7 @@ pub struct HeightPoint {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -14312,6 +18748,7 @@ pub struct HeightPoint {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -14481,6 +18918,1482 @@ compare with short of extrapolating.
 pub const SWEEP_LAYERS: [usize; 11] = _;
 ```
 
+## Module `zones`
+
+**HTR-10 temperature zones** (gh:#1138, epic #1137).
+
+The recorded model runs every material and every nuclide at one
+temperature (300.15 K). This module splits the core into the eight zones
+the maintainer set on 2026-11-03, each with a temperature of its own:
+
+| zone | material slots |
+|---|---|
+| [`Htr10Zone::FuelPebble`] | the UO₂ kernel, the four TRISO coatings, the matrix graphite and the shell ([`mat::KERNEL`] to [`mat::GRAPHITE`]) |
+| [`Htr10Zone::ModeratorPebble`] | the graphite (dummy) balls, in the bed and the discharge tube ([`mat::MODERATOR_BALL`]; [`mat::HOMOG_DUMMY`] under its ablation) |
+| [`Htr10Zone::Coolant`] | helium, everywhere it is ([`mat::HELIUM`]) |
+| [`Htr10Zone::TopReflector`], [`Htr10Zone::SideReflector`], [`Htr10Zone::BottomReflector`] | the reflector composition slots, one copy per region ([`mat::regional_slot`]); each Fig. 4.10 box is placed by [`region_of_box`] |
+| [`Htr10Zone::ControlRods`] | B₄C, steel sleeves, iron joints ([`mat::ROD_B4C`], [`mat::ROD_STEEL`], [`mat::ROD_IRON`]) |
+| [`Htr10Zone::BoronatedBricks`] | the boronated carbon bricks ([`mat::BORONATED`]) |
+
+A zone's temperature sets the temperature its nuclides are processed at
+(RECONR, BROADR, HEATR, PURR) and its bound thermal laws are generated at
+(LEAPR), the materials' `temperature`, the cells' `temperature`, and, for
+the coolant, the helium density (an ideal gas at the model's pressure).
+[`split_by_temperature`] turns materials at several temperatures into one
+nuclide array that holds each distinct (nuclide, temperature) once.
+
+Orchestration only: no physics is implemented here.
+
+```rust
+pub mod zones { /* ... */ }
+```
+
+### Types
+
+#### Enum `Htr10Zone`
+
+One of the eight temperature zones.
+
+```rust
+pub enum Htr10Zone {
+    FuelPebble,
+    ModeratorPebble,
+    Coolant,
+    TopReflector,
+    SideReflector,
+    BottomReflector,
+    ControlRods,
+    BoronatedBricks,
+}
+```
+
+##### Variants
+
+###### `FuelPebble`
+
+The whole fuel pebble: kernel, TRISO coatings, matrix and shell.
+
+###### `ModeratorPebble`
+
+The graphite (dummy) balls.
+
+###### `Coolant`
+
+The helium coolant.
+
+###### `TopReflector`
+
+Reflector above the core cavity.
+
+###### `SideReflector`
+
+Reflector beside the bed.
+
+###### `BottomReflector`
+
+Reflector below the bed, the conus region included.
+
+###### `ControlRods`
+
+The control rods: B₄C, steel sleeves and iron joints.
+
+###### `BoronatedBricks`
+
+The boronated carbon bricks.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn index(self: Self) -> usize { /* ... */ }
+  ```
+  Position in [`Self::ALL`].
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  Name for a slider or a log line.
+
+- ```rust
+  pub fn key(self: Self) -> &'static str { /* ... */ }
+  ```
+  Short machine name (`fuel`, `moderator`, ...), for the CLI and URLs.
+
+- ```rust
+  pub fn from_key(k: &str) -> Option<Self> { /* ... */ }
+  ```
+  The zone whose [`Self::key`] is `k`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ReflectorRegion`
+
+Reflector region, from a Fig. 4.10 box's place relative to the core.
+
+```rust
+pub enum ReflectorRegion {
+    Top,
+    Side,
+    Bottom,
+}
+```
+
+##### Variants
+
+###### `Top`
+
+Wholly above the core cavity's top.
+
+###### `Side`
+
+Overlapping the height of the cavity and the bed.
+
+###### `Bottom`
+
+Wholly below the bed floor.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn index(self: Self) -> usize { /* ... */ }
+  ```
+  0 top, 1 side, 2 bottom: the index [`mat::regional_slot`] takes.
+
+- ```rust
+  pub fn zone(self: Self) -> Htr10Zone { /* ... */ }
+  ```
+  The temperature zone of this region.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ZoneTemperatures`
+
+**A temperature for each of the eight zones.**
+
+```rust
+pub struct ZoneTemperatures {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn uniform(t: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  Every zone at `t`.
+
+- ```rust
+  pub fn record() -> Self { /* ... */ }
+  ```
+  The recorded model's: every zone at 300.15 K.
+
+- ```rust
+  pub fn from_kelvin(k: [f64; 8]) -> Self { /* ... */ }
+  ```
+  From one temperature per zone in K, in [`Htr10Zone::ALL`] order: the
+
+- ```rust
+  pub fn to_kelvin(self: &Self) -> [f64; 8] { /* ... */ }
+  ```
+  One temperature per zone in K, in [`Htr10Zone::ALL`] order.
+
+- ```rust
+  pub fn get(self: &Self, z: Htr10Zone) -> ThermodynamicTemperature { /* ... */ }
+  ```
+  Zone `z`'s temperature.
+
+- ```rust
+  pub fn kelvin(self: &Self, z: Htr10Zone) -> f64 { /* ... */ }
+  ```
+  Zone `z`'s temperature, K.
+
+- ```rust
+  pub fn set(self: &mut Self, z: Htr10Zone, t: ThermodynamicTemperature) { /* ... */ }
+  ```
+  Set zone `z` to `t`.
+
+- ```rust
+  pub fn with(self: Self, z: Htr10Zone, t: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  This, with zone `z` at `t`.
+
+- ```rust
+  pub fn is_uniform(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether every zone is at one temperature.
+
+- ```rust
+  pub fn above_triso_limit(self: &Self) -> Vec<Htr10Zone> { /* ... */ }
+  ```
+  The zones above the TRISO limit ([`triso_limit`]).
+
+- ```rust
+  pub fn check(self: &Self) -> Result<(), String> { /* ... */ }
+  ```
+  Refuse a temperature outside [`min_temperature`]..=[`max_temperature`]
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `region_of_box`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Region of a Fig. 4.10 box**, by height alone: wholly above the core
+band is the top reflector, wholly below it the bottom reflector, and any
+box overlapping it the side reflector. So the corners go with the top and
+bottom: the top corners sit by the cold-helium plenum and the bottom ones
+by the hot-gas region, which is where their temperatures come from.
+
+```rust
+pub fn region_of_box(b: &super::reflector_geometry::Fig410Box) -> ReflectorRegion { /* ... */ }
+```
+
+#### Function `zone_of_slot`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**The temperature zone of a material slot** of a zoned design (any slot
+below [`mat::ZONED_COUNT`]).
+
+The base composition slots ([`mat::REFLECTOR`] and the Table 4-3 slots)
+are not placed by a zoned design, which uses their regional copies; they
+answer [`Htr10Zone::SideReflector`], as does the unused
+[`mat::BORED_GRAPHITE`] (the side reflector's bored zones).
+
+# Panics
+For a slot at or above [`mat::ZONED_COUNT`].
+
+```rust
+pub fn zone_of_slot(slot: usize) -> Htr10Zone { /* ... */ }
+```
+
+#### Function `min_temperature`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The lowest temperature a zone may be set to: 20 °C, the B1 benchmark
+core's cold critical state.
+
+```rust
+pub fn min_temperature() -> uom::si::f64::ThermodynamicTemperature { /* ... */ }
+```
+
+#### Function `max_temperature`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The highest temperature a zone may be set to: 1800 °C (maintainer,
+2026-11-03: a little above the TRISO limit).
+
+```rust
+pub fn max_temperature() -> uom::si::f64::ThermodynamicTemperature { /* ... */ }
+```
+
+#### Function `triso_limit`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Above this a zone is warned about: 1600 °C, the TRISO fuel limit.
+
+```rust
+pub fn triso_limit() -> uom::si::f64::ThermodynamicTemperature { /* ... */ }
+```
+
+#### Function `zoned_material_set`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**The material set of a zoned design**: [`htr10_material_set`]'s slots,
+then [`mat::MODERATOR_BALL`] and the regional copies (slot order up to
+[`mat::ZONED_COUNT`]), each at its zone's temperature. The helium density
+is the ideal gas at the coolant's temperature and the model's pressure.
+
+Every component still indexes `layout`'s slots (one nuclide per slot, at
+no particular temperature): [`split_by_temperature`] then gives each
+(slot, temperature) pair a nuclide of its own.
+
+```rust
+pub fn zoned_material_set(layout: &super::data::Htr10NuclideLayout, cfg: super::materials::Htr10MaterialConfig, temps: &ZoneTemperatures) -> Vec<outram_mc_libs::material::material::Material> { /* ... */ }
+```
+
+#### Function `split_by_temperature`
+
+**One nuclide per (slot, temperature)**: for each of the `n_slots` base
+slots, in slot order, one entry for every distinct temperature of the
+materials that use it (ascending), and the materials' components
+re-pointed at their own temperature's entry. A slot no material uses
+keeps one entry, at the lowest material temperature.
+
+Returns the entries as `(base slot, temperature K)`. With every material
+at one temperature the entries are `(k, T)` for `k = 0..n_slots` and no
+component moves: the single-temperature nuclide array, unchanged.
+
+# Panics
+If a component indexes a slot at or above `n_slots`, or `mats` is empty.
+
+```rust
+pub fn split_by_temperature(mats: &mut [outram_mc_libs::material::material::Material], n_slots: usize) -> Vec<(usize, f64)> { /* ... */ }
+```
+
+#### Function `set_cell_temperatures`
+
+**Give every material cell its material's temperature** (gh:#313: the
+cells were built at a hardcoded 293.6 K, which transport never reads; the
+material's temperature is what it reads). Fill cells are left alone.
+
+```rust
+pub fn set_cell_temperatures(geometry: &mut outram_mc_libs::geometry::geometry::Geometry, mats: &[outram_mc_libs::material::material::Material]) { /* ... */ }
+```
+
+#### Function `zone_palette`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Palette by temperature zone** for `render_material_slice` (gh:#1138's
+drawing): every slot of a zoned design coloured by its zone, so a slice
+shows which cells each slider moves. Helium is pale so the pebbles show.
+
+```rust
+pub fn zone_palette() -> Vec<(outram_mc_libs::geometry::plot::Rgb, &'static str)> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `CORE_BAND_ZT_CM`
+
+The core's height band in Fig. 4.10's `z_T` (cm, measured down from the
+model's top): the core cavity's top (130 cm) to the bed floor at the
+conus top (388.764 cm). The same band bounds the KLAK slots
+([`super::reflector_geometry::KLAK_SLOT_ZT_CM`]).
+
+```rust
+pub const CORE_BAND_ZT_CM: (f64, f64) = super::reflector_geometry::KLAK_SLOT_ZT_CM;
+```
+
+## Module `parametric`
+
+**`ParametricStudy`: every setting of an HTR-10 whole-core run in one
+struct** (gh:#1139, epic #1137).
+
+The command line (`examples/htr10_parametric.rs`) and the browser demo
+(`dhoby-ghaut`'s `monte_carlo_web`, the HTR-10 whole-core tab) both build
+their model through this struct, so a setting means the same in both:
+
+| setting | field |
+|---|---|
+| the bed: Şeker & Çolak's lattice at N layers, or an explicit (DEM) ball list | [`ParametricStudy::bed`] |
+| the ten control rods, each `0` withdrawn to `1` fully inserted | [`ParametricStudy::rod_insertions`] |
+| a temperature per zone (eight zones, [`super::zones`]) | [`ParametricStudy::temperatures`] |
+| particles, inactive and active generations, seed | [`ParametricStudy::statistics`] |
+| the nuclear-data choices | [`ParametricStudy::data`] |
+
+**What a run is.** [`ParametricStudy::plan`] gives the materials (each at
+its zone's temperature), the nuclide array (each distinct (nuclide,
+temperature) once, [`super::zones::split_by_temperature`]) and the
+processing jobs: every tape processed exactly at each temperature it is
+needed at (RECONR, BROADR, HEATR, PURR: `Nuclide::process_evaluation`)
+and every bound law generated by LEAPR at each temperature
+([`ThermalLawSource::Leapr`], the study's default). No interpolation
+between temperatures. [`ParametricStudy::core`] builds the geometry with
+the zone slots placed; [`ParametricStudy::run_keff`] runs it natively.
+
+**With every zone at one temperature it is the single-temperature model**:
+the same nuclide array and the same jobs as
+[`Htr10NuclideLayout::processing_jobs`], materials that differ only by the
+zone copies' indices (pinned by `tests` below). The thermal laws differ
+from the recorded runs' unless `data.thermal_laws` is
+[`ThermalLawSource::Tapes`]: the records read graphite at the tape's
+296 K for a 300.15 K run.
+
+Orchestration only: no physics is implemented here.
+
+```rust
+pub mod parametric { /* ... */ }
+```
+
+### Types
+
+#### Enum `StudyBed`
+
+The bed a study builds.
+
+```rust
+pub enum StudyBed {
+    Seker {
+        layers: usize,
+    },
+    Explicit {
+        centres: Vec<[uom::si::f64::Length; 3]>,
+        is_fuel: Vec<bool>,
+    },
+}
+```
+
+##### Variants
+
+###### `Seker`
+
+Şeker & Çolak (2003)'s ordered bed at `layers` layers (10..=20).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `layers` | `usize` | Şeker layers N. |
+
+###### `Explicit`
+
+An explicit ball list in the DEM frame (a LIGGGHTS-port pour).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centres` | `Vec<[uom::si::f64::Length; 3]>` | Ball centres. |
+| `is_fuel` | `Vec<bool>` | Whether each ball is a fuel pebble. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ParametricStudy`
+
+**Every setting of an HTR-10 whole-core run.**
+
+```rust
+pub struct ParametricStudy {
+    pub bed: StudyBed,
+    pub rod_insertions: [f64; 10],
+    pub temperatures: super::zones::ZoneTemperatures,
+    pub statistics: super::keff_vs_height::SweepStatistics,
+    pub data: super::data::Htr10DataConfig,
+    pub materials: super::materials::Htr10MaterialConfig,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bed` | `StudyBed` | The bed. |
+| `rod_insertions` | `[f64; 10]` | Each control rod's insertion, `0` withdrawn (the benchmark) to `1`<br>fully inserted. |
+| `temperatures` | `super::zones::ZoneTemperatures` | The eight zones' temperatures. |
+| `statistics` | `super::keff_vs_height::SweepStatistics` | Particles, generations and seed. |
+| `data` | `super::data::Htr10DataConfig` | The nuclear-data choices. Its `temperature` is not read: each zone's<br>is. |
+| `materials` | `super::materials::Htr10MaterialConfig` | The material choices. Its `temperature_k` is not read either. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_args(words: &[String]) -> Result<(Self, Vec<String>), String> { /* ... */ }
+  ```
+  **Settings from command-line words**, on top of [`Self::default`]:
+
+- ```rust
+  pub fn check(self: &Self) -> Result<(), String> { /* ... */ }
+  ```
+  Refuse a setting the model cannot build: a temperature out of
+
+- ```rust
+  pub fn design(self: &Self) -> Htr10CoreDesign { /* ... */ }
+  ```
+  The core design: the rods, with the temperature-zone slots placed.
+
+- ```rust
+  pub fn plan(self: &Self) -> Result<StudyPlan, Htr10DataError> { /* ... */ }
+  ```
+  **The plan**: materials at their zones' temperatures, the nuclide
+
+- ```rust
+  pub fn plan_with_slot_temperatures(self: &Self, slots: &[(usize, ThermodynamicTemperature)]) -> Result<StudyPlan, Htr10DataError> { /* ... */ }
+  ```
+  **The plan with some material slots off their zone's temperature**
+
+- ```rust
+  pub fn process_job(self: &Self, plan: &StudyPlan, i: usize, tape: Option<&EndfTape>) -> Result<JobProduct, Htr10DataError> { /* ... */ }
+  ```
+  Run job `i` of `plan`. `tape` is the tape [`Self::job_tape`] names,
+
+- ```rust
+  pub fn job_tape(self: &Self, plan: &StudyPlan, i: usize) -> Result<Option<Tape>, Htr10DataError> { /* ... */ }
+  ```
+  The tape job `i` reads, or `None` for a LEAPR law.
+
+- ```rust
+  pub fn assemble_nuclides</* synthetic */ impl FnMut(usize) -> Result<JobProduct, Htr10DataError>: FnMut(usize) -> Result<JobProduct, Htr10DataError>, /* synthetic */ impl FnMut(&Tape) -> Result<EndfTape, Htr10DataError>: FnMut(&Tape) -> Result<EndfTape, Htr10DataError>>(self: &Self, plan: &StudyPlan, product: impl FnMut(usize) -> Result<JobProduct, Htr10DataError>, read_tape: impl FnMut(&Tape) -> Result<EndfTape, Htr10DataError>) -> Result<Vec<Nuclide>, Htr10DataError> { /* ... */ }
+  ```
+  Build the nuclide array from the jobs' products (`product(i)` for job
+
+- ```rust
+  pub fn core(self: &Self, plan: &StudyPlan) -> Result<AssembledCore, String> { /* ... */ }
+  ```
+  **The core**: the bed, the rods and the zone slots, every material
+
+- ```rust
+  pub fn majorant(plan: &StudyPlan, nuclides: &[Nuclide]) -> Majorant { /* ... */ }
+  ```
+  **The bed majorant**: as [`super::keff_vs_height::bed_majorant`], over
+
+- ```rust
+  pub fn process_all</* synthetic */ impl Fn(&str) + Sync: Fn(&str) + Sync>(self: &Self, plan: &StudyPlan, threads: usize, progress: impl Fn(&str) + Sync) -> Result<Vec<Nuclide>, String> { /* ... */ }
+  ```
+  **Process every job natively and assemble the nuclide array**: the
+
+- ```rust
+  pub fn transport(self: &Self, plan: &StudyPlan, nuclides: &[Nuclide], threads: usize) -> Result<KeffResult, String> { /* ... */ }
+  ```
+  **Transport the core on `nuclides`** (the array of `plan`) with
+
+- ```rust
+  pub fn transport_with_tally(self: &Self, plan: &StudyPlan, nuclides: &[Nuclide], threads: usize, tally: Option<&mut Tally>) -> Result<KeffResult, String> { /* ... */ }
+  ```
+  **As [`Self::transport`], scoring `tally` on the active generations**
+
+- ```rust
+  pub fn run_keff</* synthetic */ impl Fn(&str) + Sync: Fn(&str) + Sync>(self: &Self, threads: usize, progress: impl Fn(&str) + Sync) -> Result<KeffResult, String> { /* ... */ }
+  ```
+  **Run it natively**: [`Self::plan`], [`Self::process_all`],
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    The recorded model at N = 12, rods withdrawn, every zone at 300.15 K,
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `StudyPlan`
+
+What a study needs before any data is processed: the materials, the
+nuclide array's entries and the jobs that make them.
+
+```rust
+pub struct StudyPlan {
+    pub layout: super::data::Htr10NuclideLayout,
+    pub materials: Vec<outram_mc_libs::material::material::Material>,
+    pub entries: Vec<(usize, f64)>,
+    pub jobs: Vec<super::data_jobs::TemperedJob>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `layout` | `super::data::Htr10NuclideLayout` | The nuclide slots (one per nuclide, at no temperature). |
+| `materials` | `Vec<outram_mc_libs::material::material::Material>` | The materials, every slot of a zoned design (`mat::ZONED_COUNT`), each<br>at its zone's temperature, its components indexing [`Self::entries`]. |
+| `entries` | `Vec<(usize, f64)>` | The nuclide array: `(slot of layout, temperature K)` per nuclide. |
+| `jobs` | `Vec<super::data_jobs::TemperedJob>` | The processing jobs, as [`Htr10NuclideLayout::tempered_jobs`] lists<br>them for [`Self::entries`]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GraphiteWorthCase`
+
+One case of the graphite-zone worth measurement (gh:#1174).
+
+```rust
+pub struct GraphiteWorthCase {
+    pub name: &'static str,
+    pub temperatures: super::zones::ZoneTemperatures,
+    pub slots: Vec<(usize, uom::si::f64::ThermodynamicTemperature)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `&'static str` | Short name (`BASE`, `FUEL-GRAPHITE`, ...). |
+| `temperatures` | `super::zones::ZoneTemperatures` | The zone temperatures. |
+| `slots` | `Vec<(usize, uom::si::f64::ThermodynamicTemperature)>` | Slots moved off their zone's temperature<br>([`ParametricStudy::plan_with_slot_temperatures`]). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `graphite_worth_cases`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**The cases that split the graphite temperature worth by zone**
+(gh:#1174): every zone at `base`, then one part at `base + delta_k` at a
+time:
+
+- `FUEL-GRAPHITE`: the fuel pebbles' graphite ([`mat::GRAPHITE`]: the
+  fuel-zone matrix and the shell), kernels and coatings kept at `base`;
+- `DUMMIES`: the moderator (dummy) pebbles;
+- `TOP`, `SIDE`, `BOTTOM`: the three reflector zones;
+- `KERNEL`: the rest of the fuel-pebble zone (kernel and the four
+  coatings), the fuel coefficient's own part, as a check against
+  TECDOC-1694's fuel coefficient.
+
+The reactivity worth of each part is `1/k_base - 1/k_case`.
+
+```rust
+pub fn graphite_worth_cases(base: uom::si::f64::ThermodynamicTemperature, delta_k: f64) -> Vec<GraphiteWorthCase> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RECORD_RINGS`
+
+Rings of the bed tiling the recorded runs use.
+
+```rust
+pub const RECORD_RINGS: usize = 14;
+```
+
+#### Constant `DEFAULT_LAYERS`
+
+Şeker layers of the default bed: N = 12, 16 681 core balls.
+
+```rust
+pub const DEFAULT_LAYERS: usize = 12;
+```
+
 ## Module `table1`
 
 ```rust
@@ -14641,6 +20554,7 @@ pub struct GeometryClosure {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -14655,6 +20569,7 @@ pub struct GeometryClosure {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -15092,6 +21007,7 @@ pub struct AssembledHttr {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15106,6 +21022,7 @@ pub struct AssembledHttr {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -15235,6 +21152,7 @@ ABLATION: surface tracking everywhere.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15249,6 +21167,7 @@ ABLATION: surface tracking everywhere.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15887,6 +21806,7 @@ ABLATION: every nuclide a free gas.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15901,6 +21821,7 @@ ABLATION: every nuclide a free gas.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16030,6 +21951,7 @@ pub struct HttrMaterialConfig {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16044,6 +21966,7 @@ pub struct HttrMaterialConfig {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16292,6 +22215,7 @@ Three columns of ring E.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16311,6 +22235,7 @@ Three columns of ring E.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16440,6 +22365,7 @@ pub struct RodPositions {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16454,6 +22380,7 @@ pub struct RodPositions {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16584,6 +22511,7 @@ pub enum BpLoading {
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16603,6 +22531,7 @@ pub enum BpLoading {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16756,6 +22685,7 @@ Fourth or fifth (same loading).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16775,6 +22705,7 @@ Fourth or fifth (same loading).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16927,6 +22858,7 @@ The six corners of ring D.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16946,6 +22878,7 @@ The six corners of ring D.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17089,6 +23022,7 @@ Solid block graphite (the centre, and in 31-hole blocks two corners).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17103,6 +23037,7 @@ Solid block graphite (the centre, and in 31-hole blocks two corners).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17255,6 +23190,7 @@ A replaceable reflector column (solid graphite).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17274,6 +23210,7 @@ A replaceable reflector column (solid graphite).
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17405,6 +23342,7 @@ pub struct ColumnSpec {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17419,6 +23357,7 @@ pub struct ColumnSpec {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17941,6 +23880,7 @@ pub struct HttrDataConfig {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17955,6 +23895,7 @@ pub struct HttrDataConfig {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -18070,6 +24011,7 @@ pub struct ReferenceK {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -18084,6 +24026,7 @@ pub struct ReferenceK {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -18583,6 +24526,7 @@ Fields:
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -18605,6 +24549,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -18754,6 +24699,7 @@ where
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -18772,6 +24718,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -18961,6 +24908,7 @@ where
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -18975,6 +24923,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -19152,6 +25101,7 @@ where
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19166,6 +25116,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -19364,6 +25315,7 @@ where
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19378,6 +25330,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -19746,6 +25699,7 @@ Fields:
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19760,6 +25714,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -19916,6 +25871,7 @@ pub struct MgxsCase {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19930,6 +25886,7 @@ pub struct MgxsCase {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -20249,6 +26206,7 @@ where
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20263,6 +26221,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -20436,6 +26395,7 @@ pub struct Htr10Cell {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20450,6 +26410,7 @@ pub struct Htr10Cell {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -20619,6 +26580,7 @@ The tally structure itself, 70 groups.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20633,6 +26595,7 @@ The tally structure itself, 70 groups.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -20828,6 +26791,7 @@ where
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20842,6 +26806,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -20985,6 +26950,7 @@ where
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20999,6 +26965,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -21136,6 +27103,7 @@ where
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21150,6 +27118,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -21283,6 +27252,7 @@ where
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21297,6 +27267,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -21494,6 +27465,7 @@ where
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21508,6 +27480,7 @@ where
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -21680,6 +27653,7 @@ A thread count of zero.
     fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21698,6 +27672,7 @@ A thread count of zero.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -21981,6 +27956,7 @@ the geometry, or the tallies were filtered to the wrong materials.
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21999,6 +27975,7 @@ the geometry, or the tallies were filtered to the wrong materials.
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -22225,6 +28202,7 @@ pub struct BandRates {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22239,6 +28217,7 @@ pub struct BandRates {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -22655,6 +28634,7 @@ Fields:
     fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22677,6 +28657,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -22785,6 +28766,7 @@ pub struct MgxsRun {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22799,6 +28781,7 @@ pub struct MgxsRun {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -22943,6 +28926,7 @@ pub struct McToGenFoam {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22957,6 +28941,7 @@ pub struct McToGenFoam {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -23139,6 +29124,7 @@ Fields:
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23153,6 +29139,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -23205,10 +29192,13 @@ Fields:
 
 Convergence criteria for the outer Picard loop.
 
+~~`temperature_k: f64`, `k_eff: f64`~~ **CHANGED 2026-11-03 (gh:#1186):**
+dimensioned (`uom`), as every public quantity of this crate must be.
+
 ```rust
 pub struct Convergence {
-    pub temperature_k: f64,
-    pub k_eff: f64,
+    pub temperature: uom::si::f64::TemperatureInterval,
+    pub k_eff: uom::si::f64::Ratio,
     pub max_iterations: usize,
 }
 ```
@@ -23217,11 +29207,18 @@ pub struct Convergence {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `temperature_k` | `f64` | Stop when the fuel temperature moves less than this between outer<br>iterations \[K\]. |
-| `k_eff` | `f64` | Stop when `k_eff` moves less than this between outer iterations.<br><br>Setting this below the Monte Carlo statistical uncertainty is asking the<br>loop to converge on noise; it will burn iterations and stop on chance. |
+| `temperature` | `uom::si::f64::TemperatureInterval` | Stop when the fuel temperature moves less than this between outer<br>iterations (a temperature *difference*; positive). |
+| `k_eff` | `uom::si::f64::Ratio` | Stop when `k_eff` moves less than this between outer iterations<br>(dimensionless; positive).<br><br>Setting this below the Monte Carlo statistical uncertainty is asking the<br>loop to converge on noise; it will burn iterations and stop on chance. |
 | `max_iterations` | `usize` | Maximum outer iterations before giving up. |
 
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(temperature: TemperatureInterval, k_eff: Ratio, max_iterations: usize) -> Self { /* ... */ }
+  ```
+  Criteria of `temperature` (K) and `k_eff`, capped at `max_iterations`.
 
 ###### Trait Implementations
 
@@ -23268,6 +29265,7 @@ pub struct Convergence {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23282,6 +29280,7 @@ pub struct Convergence {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -23400,6 +29399,7 @@ pub struct CoupledIteration {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23414,6 +29414,7 @@ pub struct CoupledIteration {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -23535,6 +29536,7 @@ pub struct CoupledSteadyState {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23549,6 +29551,7 @@ pub struct CoupledSteadyState {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -23624,7 +29627,7 @@ pub struct McGenFoamDirect {
 ###### Methods
 
 - ```rust
-  pub fn new(geometry: Geometry, materials: Vec<Material>, nuclides: Vec<Nuclide>, source: SourceBox, thermal: LumpedThermal, power: Power, region_volume_m3: f64) -> Self { /* ... */ }
+  pub fn new(geometry: Geometry, materials: Vec<Material>, nuclides: Vec<Nuclide>, source: SourceBox, thermal: LumpedThermal, power: Power, region_volume: Volume) -> Self { /* ... */ }
   ```
   A direct coupling of `geometry` to a GeN-Foam lumped thermal region.
 
@@ -23676,6 +29679,7 @@ pub struct McGenFoamDirect {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23690,6 +29694,7 @@ pub struct McGenFoamDirect {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -23733,6 +29738,4548 @@ pub struct McGenFoamDirect {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `power_shape`
+
+Power shapes and their mapping from Monte Carlo tallies onto thermal-hydraulic
+cells, with the HTR-10 frames (gh:#1184).
+# `power_shape` — where the fission power goes, from Monte Carlo to a TH mesh
+
+gh:#1184 (epic gh:#1183). A closed set of **power shapes** (analytic,
+tabulated or reconstructed from a Monte Carlo tally), and the one operation
+every coupling needs: **put a total power onto a set of thermal-hydraulic
+cells so that the cells' powers add up to that total, to round-off.**
+
+## The shortest thing that works
+
+```
+use nee_soon::power_shape::{CellGeometry, Frame, FrameMap, PowerCells, PowerShape};
+use uom::si::f64::{Length, Power};
+use uom::si::length::centimeter;
+use uom::si::power::megawatt;
+use uom::si::volumetric_power_density::watt_per_cubic_meter;
+
+let cm = Length::new::<centimeter>;
+// A chopped cosine over a 180 cm bed (MC frame: z = 0 at bed mid-height).
+let shape = PowerShape::ChoppedCosine { centre: cm(0.0), extrapolated_height: cm(220.0) };
+// Two R-Z ring cells, in the Monte Carlo frame.
+let cells = PowerCells::new(
+    Frame::Mc,
+    FrameMap::new(cm(90.0)),
+    vec![
+        CellGeometry::Annulus { r: [cm(0.0), cm(90.0)], z: [cm(-90.0), cm(0.0)] },
+        CellGeometry::Annulus { r: [cm(0.0), cm(90.0)], z: [cm(0.0), cm(90.0)] },
+    ],
+);
+let q = shape.cell_power_density(&cells, Power::new::<megawatt>(10.0)).unwrap();
+// Symmetric shape, symmetric cells: equal densities, 5 MW each.
+assert!((q[0].get::<watt_per_cubic_meter>() / q[1].get::<watt_per_cubic_meter>() - 1.0).abs() < 1e-12);
+```
+
+## Module map
+
+| item | what |
+|---|---|
+| [`PowerShape`] | the closed set of shapes: uniform, region lumps, axial cosine/sine, `J0 x cos`, Legendre-z, Zernike(-Legendre), spatial spherical harmonics, an R-Z table |
+| [`PowerShape::cell_power_density`] | total power -> W/m^3 per cell, conserving the total to round-off |
+| [`PowerShape::from_tally`], [`PowerShape::zernike_legendre_from_tallies`] | the shape a Monte Carlo `KappaFission` tally measured, with the expansion normalisations |
+| [`McPowerTally`] | builders for those tallies (`rz_mesh`, `legendre_z`, `zernike`) |
+| [`zernike_to_bessel`], [`BesselRadial`], [`BesselBoundary`] | a Zernike (`m = 0`) shape re-expressed in Fourier-Bessel `J0` modes (Neumann/Dini by default, Dirichlet on request); [`PowerShape::bessel_legendre`] makes the R-Z product |
+| [`Frame`], [`FrameMap`] | the three coordinate frames of the HTR-10 chain: MC (cm, z up, 0 at bed mid-height), TECDOC-1694 (cm, z down, 0 at the full-core bed top) and GeN-Foam meshes (metres, TECDOC orientation) |
+| [`CellGeometry`], [`PowerCells`] | the cells power is put on: exact rings (R-Z meshes), boxes, or centroid points (a general `FvMesh`) |
+| [`PowerShape::write_rz_png`] | an R-Z picture of a shape, for a human to check |
+
+## How the cell integrals are done (and how exact they are)
+
+A cell receives `total * I_c / sum_k I_k / V_c`, with `I_c` the integral of
+the shape over the cell. **The total is therefore conserved by
+construction, to round-off, whatever the shape or the mesh.** The cell
+integrals themselves are:
+
+- **rings** ([`CellGeometry::Annulus`], what an R-Z mesh has): composite
+  Gauss-Legendre in `r` (with the `r dr` weight) and `z`, split at every
+  discontinuity the shape has in `r` and `z` (table and lump edges, the
+  support of a chopped cosine or of an expansion), so piecewise-constant and
+  polynomial shapes are integrated **exactly**; smooth ones (`J0 x cos`) are
+  refined by doubling until two estimates agree to `1e-12` relative (at
+  most 16 subdivisions per piece).
+  An axisymmetric shape is integrated in azimuth exactly (`2 pi f`); a
+  non-axisymmetric one (Zernike `m != 0`, spherical harmonics) by the
+  periodic trapezoid rule, refined with the rest;
+- **boxes**: the same composite Gauss in `x, y, z`, refined by doubling to
+  `1e-10` or 4 subdivisions per axis (a cylindrical discontinuity inside a
+  box converges only at first order);
+- **points** (centroid and volume of a general cell): the midpoint rule.
+  Not exact; use it only where the cell geometry is not known.
+
+**Power outside every cell is not lost silently**:
+[`PowerShape::captured_fraction`] reports what share of a shape's integral
+over a support the cells hold, for shapes whose integral is known.
+
+## What does not belong here
+
+No transport and no thermal-hydraulics: this module turns a tally into a
+shape and a shape into cell power densities. The Picard loops that use it
+are [`crate::htr10_coupling`] (Monte Carlo against the TH) and
+[`crate::direct_coupling`].
+
+Status: untrusted AI-generated draft (2026-11-03), research, education and
+V&V only (`RESPONSIBLE_USE.md`).
+
+```rust
+pub mod power_shape { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `PowerDensity`
+
+Power per unit volume, W/m^3 (`uom`'s `VolumetricPowerDensity`): what a
+thermal-hydraulic cell receives (GeN-Foam's `powerDensityNeutronics`).
+
+```rust
+pub type PowerDensity = uom::si::f64::VolumetricPowerDensity;
+```
+
+#### Enum `PowerShapeError`
+
+Why a shape could not be built or put on cells.
+
+```rust
+pub enum PowerShapeError {
+    NoPowerInCells(f64),
+    UnsupportedTally(String),
+    Input(String),
+}
+```
+
+##### Variants
+
+###### `NoPowerInCells`
+
+The shape integrates to zero (or less) over the cells, so there is no
+power distribution to normalise.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `UnsupportedTally`
+
+A tally this module cannot read as a power shape.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Input`
+
+An argument out of range.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(source: crate::power_shape::PowerShapeError) -> Self { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Frame`
+
+A coordinate frame of the HTR-10 chain. Every frame shares the core axis
+(`x = y = 0`, `r` from the axis); they differ in `z`.
+
+- **`Mc`**: the Monte Carlo model (`htr10_rmc`): `z` **up**, `z = 0` at the
+  bed mid-height of the loading built (so it moves with the loading);
+- **`Tecdoc`**: IAEA-TECDOC-1694's R-Z frame (`htr10_rz`): `z` **down**,
+  `z = 0` at the full-core bed top, fixed hardware.
+
+A GeN-Foam mesh built by this crate (an `htr10_rz` `RzMesh`) is in the
+`Tecdoc` frame in metres: see [`FrameMap::genfoam_m_to_mc_cm`].
+
+```rust
+pub enum Frame {
+    Mc,
+    Tecdoc,
+}
+```
+
+##### Variants
+
+###### `Mc`
+
+Monte Carlo: `z` up, `0` at the loading's bed mid-height.
+
+###### `Tecdoc`
+
+TECDOC-1694: `z` down, `0` at the full-core bed top.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FrameMap`
+
+The map between the frames for one Monte Carlo loading.
+
+The bed floor is common hardware ([`TECDOC_BED_FLOOR_Z_CM`]); the Monte
+Carlo bed spans `-h <= z <= h` with `h` its half-height, so
+`z_tecdoc = 180 cm - (z_mc + h)`.
+
+```rust
+pub struct FrameMap {
+    pub bed_half_height: uom::si::f64::Length,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bed_half_height` | `uom::si::f64::Length` | Half-height of the Monte Carlo bed's cylindrical part (cm in the model;<br>`AssembledCore::bed_half_height`). Range: positive, at most 90 cm (the<br>full core). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(bed_half_height: Length) -> Self { /* ... */ }
+  ```
+  The map for a bed of half-height `bed_half_height`.
+
+- ```rust
+  pub fn from_core(core: &crate::htr10_rmc::core_model::AssembledCore) -> Self { /* ... */ }
+  ```
+  The map for an assembled Monte Carlo core.
+
+- ```rust
+  pub fn z_to_mc(self: &Self, frame: Frame, z: Length) -> Length { /* ... */ }
+  ```
+  `z` in the Monte Carlo frame of a `z` given in `frame`.
+
+- ```rust
+  pub fn z_from_mc(self: &Self, frame: Frame, z_mc: Length) -> Length { /* ... */ }
+  ```
+  `z` in `frame` of a Monte Carlo `z`.
+
+- ```rust
+  pub fn to_mc(self: &Self, frame: Frame, p: [Length; 3]) -> [Length; 3] { /* ... */ }
+  ```
+  A point given in `frame`, in the Monte Carlo frame.
+
+- ```rust
+  pub fn from_mc(self: &Self, frame: Frame, p: [Length; 3]) -> [Length; 3] { /* ... */ }
+  ```
+  A Monte Carlo point, in `frame`.
+
+- ```rust
+  pub fn genfoam_m_to_mc_cm(self: &Self, p: [f64; 3]) -> [f64; 3] { /* ... */ }
+  ```
+  A GeN-Foam mesh point (metres, TECDOC orientation: `z` down, `0` at
+
+- ```rust
+  pub fn mc_cm_to_genfoam_m(self: &Self, p: [f64; 3]) -> [f64; 3] { /* ... */ }
+  ```
+  A Monte Carlo point (cm) as GeN-Foam mesh coordinates (metres, TECDOC
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CellGeometry`
+
+One cell that receives power.
+
+```rust
+pub enum CellGeometry {
+    Annulus {
+        r: [uom::si::f64::Length; 2],
+        z: [uom::si::f64::Length; 2],
+    },
+    Box {
+        min: [uom::si::f64::Length; 3],
+        max: [uom::si::f64::Length; 3],
+    },
+    Point {
+        centre: [uom::si::f64::Length; 3],
+        volume: uom::si::f64::Volume,
+    },
+}
+```
+
+##### Variants
+
+###### `Annulus`
+
+A full ring about the core axis: `r[0] <= r <= r[1]`, `z[0] <= z <=
+z[1]` (`z` in the cells' frame; either order). Integrated exactly for
+piecewise-polynomial shapes.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `[uom::si::f64::Length; 2]` | Inner and outer radius (`0 <= r[0] < r[1]`). |
+| `z` | `[uom::si::f64::Length; 2]` | The two axial faces. |
+
+###### `Box`
+
+An axis-aligned box.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `min` | `[uom::si::f64::Length; 3]` | Lower corner. |
+| `max` | `[uom::si::f64::Length; 3]` | Upper corner. |
+
+###### `Point`
+
+A cell known only by its centroid and volume (a general polyhedral
+`FvMesh` cell): the midpoint rule, not exact.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centre` | `[uom::si::f64::Length; 3]` | Centroid. |
+| `volume` | `uom::si::f64::Volume` | Volume (positive). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn volume(self: &Self) -> Volume { /* ... */ }
+  ```
+  The cell's volume.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PowerCells`
+
+The cells a power is put on, in one frame.
+
+```rust
+pub struct PowerCells {
+    pub frame: Frame,
+    pub map: FrameMap,
+    pub cells: Vec<CellGeometry>,
+    pub mesh_cell: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `frame` | `Frame` | The frame the cells' coordinates are in. |
+| `map` | `FrameMap` | The map to the Monte Carlo frame (where shapes live). |
+| `cells` | `Vec<CellGeometry>` | The cells. |
+| `mesh_cell` | `Vec<usize>` | The mesh cell index of each entry of [`Self::cells`] (its position in<br>the mesh it came from; `0..n` when built by hand). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(frame: Frame, map: FrameMap, cells: Vec<CellGeometry>) -> Self { /* ... */ }
+  ```
+  Cells built by hand; `mesh_cell` is `0..cells.len()`.
+
+- ```rust
+  pub fn from_rz_mesh</* synthetic */ impl Fn(usize) -> bool: Fn(usize) -> bool>(mesh: &RzMesh, map: FrameMap, keep: impl Fn(usize) -> bool) -> Self { /* ... */ }
+  ```
+  The rings of an `htr10_rz` [`RzMesh`] (TECDOC frame), keeping only
+
+- ```rust
+  pub fn from_fv_mesh(mesh: &FvMesh, frame: Frame, map: FrameMap) -> Self { /* ... */ }
+  ```
+  The cells of a general GeN-Foam [`FvMesh`] (coordinates in metres, in
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ZoneLump`
+
+One region lump of [`PowerShape::Zones`]: a ring `r[0]..r[1]`,
+`z[0]..z[1]` (Monte Carlo frame) holding `fraction` of the power,
+uniformly.
+
+```rust
+pub struct ZoneLump {
+    pub r: [uom::si::f64::Length; 2],
+    pub z: [uom::si::f64::Length; 2],
+    pub fraction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `[uom::si::f64::Length; 2]` | Inner and outer radius. |
+| `z` | `[uom::si::f64::Length; 2]` | Bottom and top, Monte Carlo frame. |
+| `fraction` | `f64` | Share of the power, `>= 0` (shares are renormalised over the cells). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `RadialProfile`
+
+The radial profile of [`PowerShape::SphericalHarmonics`], as a function of
+`rho = |p - centre| / radius` in `[0, 1]`.
+
+```rust
+pub enum RadialProfile {
+    Uniform,
+    Polynomial(Vec<f64>),
+    BareSphere,
+}
+```
+
+##### Variants
+
+###### `Uniform`
+
+Constant in `rho`.
+
+###### `Polynomial`
+
+`sum_k a_k rho^k`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<f64>` |  |
+
+###### `BareSphere`
+
+`sin(pi rho) / (pi rho)`: the bare sphere's fundamental mode.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PowerShape`
+
+**Where the power goes**: a closed set of shapes, all in the Monte Carlo
+frame ([`Frame::Mc`]: cm, `z` up, `0` at the bed mid-height).
+
+A shape is a *relative* power density: only its variation matters, because
+[`Self::cell_power_density`] normalises it to the total power over the
+cells it is given. Where a shape has a support (a chopped cosine, an
+expansion interval, a sphere), it is zero outside it.
+
+```rust
+pub enum PowerShape {
+    Uniform,
+    Zones(Vec<ZoneLump>),
+    ChoppedCosine {
+        centre: uom::si::f64::Length,
+        extrapolated_height: uom::si::f64::Length,
+    },
+    Sine {
+        bottom: uom::si::f64::Length,
+        height: uom::si::f64::Length,
+    },
+    J0Cosine {
+        centre: uom::si::f64::Length,
+        extrapolated_radius: uom::si::f64::Length,
+        extrapolated_height: uom::si::f64::Length,
+    },
+    LegendreZ {
+        z_min: uom::si::f64::Length,
+        z_max: uom::si::f64::Length,
+        coefficients: Vec<f64>,
+    },
+    Zernike {
+        centre: [uom::si::f64::Length; 2],
+        radius: uom::si::f64::Length,
+        coefficients: Vec<f64>,
+    },
+    ZernikeLegendre {
+        centre: [uom::si::f64::Length; 2],
+        radius: uom::si::f64::Length,
+        z_min: uom::si::f64::Length,
+        z_max: uom::si::f64::Length,
+        coefficients: Vec<Vec<f64>>,
+    },
+    BesselLegendre {
+        radius: uom::si::f64::Length,
+        alphas: Vec<f64>,
+        z_min: uom::si::f64::Length,
+        z_max: uom::si::f64::Length,
+        coefficients: Vec<Vec<f64>>,
+    },
+    SphericalHarmonics {
+        centre: [uom::si::f64::Length; 3],
+        radius: uom::si::f64::Length,
+        coefficients: Vec<f64>,
+        radial: RadialProfile,
+    },
+    RzTable {
+        r_edges: Vec<uom::si::f64::Length>,
+        z_edges: Vec<uom::si::f64::Length>,
+        values: Vec<f64>,
+    },
+}
+```
+
+##### Variants
+
+###### `Uniform`
+
+Uniform over whatever cells are given.
+
+###### `Zones`
+
+Region lumps: each [`ZoneLump`] holds its share uniformly (the
+per-vessel / per-region lumped description).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<ZoneLump>` |  |
+
+###### `ChoppedCosine`
+
+`cos(pi (z - centre) / H_e)` on `|z - centre| < H_e / 2`, radially
+uniform: the chopped cosine of a reflected core.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centre` | `uom::si::f64::Length` | Axial centre of the cosine. |
+| `extrapolated_height` | `uom::si::f64::Length` | Extrapolated height `H_e` (positive). |
+
+###### `Sine`
+
+`sin(pi (z - bottom) / height)` on `bottom < z < bottom + height`,
+radially uniform: the bare slab's fundamental mode.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bottom` | `uom::si::f64::Length` | Where the sine starts. |
+| `height` | `uom::si::f64::Length` | Its length (positive). |
+
+###### `J0Cosine`
+
+`J0(2.405 r / R_e) cos(pi (z - centre) / H_e)` inside `r < R_e`,
+`|z - centre| < H_e / 2`: the bare finite cylinder's fundamental mode.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centre` | `uom::si::f64::Length` | Axial centre. |
+| `extrapolated_radius` | `uom::si::f64::Length` | Extrapolated radius `R_e` (positive). |
+| `extrapolated_height` | `uom::si::f64::Length` | Extrapolated height `H_e` (positive). |
+
+###### `LegendreZ`
+
+`sum_n a_n P_n(xi)`, `xi = 2 (z - z_min)/(z_max - z_min) - 1`, on
+`z_min <= z <= z_max`, radially uniform. `coefficients[n]` is `a_n` in
+power per unit length (any unit; relative).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `z_min` | `uom::si::f64::Length` | Lower end of the expansion interval. |
+| `z_max` | `uom::si::f64::Length` | Upper end (must exceed `z_min`). |
+| `coefficients` | `Vec<f64>` | `a_0 ... a_N`. |
+
+###### `Zernike`
+
+`sum_j c_j Z_j(rho, theta)` on the disc `rho = |(x, y) - centre| /
+radius <= 1`, axially uniform, in Monte Carlo filter order (`n =
+0..`, `m = -n, -n+2, .., n`; [`zernike_zn`]).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centre` | `[uom::si::f64::Length; 2]` | Disc centre `(x, y)`. |
+| `radius` | `uom::si::f64::Length` | Disc radius (positive). |
+| `coefficients` | `Vec<f64>` | `c_j` per unit area (relative). |
+
+###### `ZernikeLegendre`
+
+`sum_n sum_j c[n][j] P_n(xi(z)) Z_j(rho, theta)`: Legendre in `z`
+times Zernike in `(r, theta)`, on the cylinder.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centre` | `[uom::si::f64::Length; 2]` | Disc centre `(x, y)`. |
+| `radius` | `uom::si::f64::Length` | Disc radius. |
+| `z_min` | `uom::si::f64::Length` | Lower end of the axial interval. |
+| `z_max` | `uom::si::f64::Length` | Upper end. |
+| `coefficients` | `Vec<Vec<f64>>` | `c[n][j]`. |
+
+###### `BesselLegendre`
+
+**Fourier-Bessel in `r` times Legendre in `z`**:
+`sum_n sum_k c[n][k] P_n(xi(z)) J0(alpha_k r / radius)` on `r <=
+radius`, `z_min <= z <= z_max`, axisymmetric about the core axis.
+The radial modes come from [`zernike_to_bessel`] (a Zernike tally
+re-expressed in Bessel modes); [`Self::bessel_legendre`] builds the
+product with a Legendre-z axial shape.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `uom::si::f64::Length` | The Bessel radius `R_b` (support and argument scale). |
+| `alphas` | `Vec<f64>` | `alpha_k` (zeros of `J0` for Dirichlet, `0` and the zeros of `J1`<br>for Neumann). |
+| `z_min` | `uom::si::f64::Length` | Lower end of the axial interval. |
+| `z_max` | `uom::si::f64::Length` | Upper end. |
+| `coefficients` | `Vec<Vec<f64>>` | `c[n][k]`. |
+
+###### `SphericalHarmonics`
+
+**Spatial** real spherical harmonics on a sphere:
+`R(rho) sum_{l,m} c_lm Y_l^m(theta, phi)` for `rho = |p - centre| /
+radius <= 1`, `theta` the polar angle from `+z`. `coefficients` in
+`(l, m)` order, `m = -l..=l` ([`real_spherical_harmonics`]'s order,
+orthonormal over the unit sphere).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centre` | `[uom::si::f64::Length; 3]` | Sphere centre. |
+| `radius` | `uom::si::f64::Length` | Sphere radius (positive). |
+| `coefficients` | `Vec<f64>` | `c_lm`, `(order + 1)^2` of them. |
+| `radial` | `RadialProfile` | The radial factor. |
+
+###### `RzTable`
+
+A piecewise-constant R-Z table: `values[i + n_r k]` on `r_edges[i]..
+r_edges[i+1]`, `z_edges[k]..z_edges[k+1]` (Monte Carlo frame, both
+ascending), zero outside.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_edges` | `Vec<uom::si::f64::Length>` | Ascending radial edges. |
+| `z_edges` | `Vec<uom::si::f64::Length>` | Ascending axial edges. |
+| `values` | `Vec<f64>` | Relative density per cell, `r` fastest. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn relative_density(self: &Self, p: [Length; 3]) -> f64 { /* ... */ }
+  ```
+  The relative power density at Monte Carlo point `p` (any unit; only
+
+- ```rust
+  pub fn is_axisymmetric(self: &Self) -> bool { /* ... */ }
+  ```
+  True when the shape does not depend on the azimuth about the core axis.
+
+- ```rust
+  pub fn cell_integral(self: &Self, cell: &CellGeometry, frame: Frame, map: &FrameMap) -> f64 { /* ... */ }
+  ```
+  The integral of the shape over one cell, in (relative units) x cm^3.
+
+- ```rust
+  pub fn cell_integrals(self: &Self, cells: &PowerCells) -> Vec<f64> { /* ... */ }
+  ```
+  The shape's integral over each cell, (relative units) x cm^3.
+
+- ```rust
+  pub fn cell_power_density(self: &Self, cells: &PowerCells, total: Power) -> Result<Vec<PowerDensity>, PowerShapeError> { /* ... */ }
+  ```
+  **Put `total` on `cells`**: each cell's power density, so that
+
+- ```rust
+  pub fn captured_fraction(self: &Self, cells: &PowerCells, r_max: Length, z: [Length; 2]) -> f64 { /* ... */ }
+  ```
+  Share of the shape's integral over the ring `r < r_max`, `z_lo < z <
+
+- ```rust
+  pub fn from_tally(tally: &Tally, n_active: usize) -> Result<Self, PowerShapeError> { /* ... */ }
+  ```
+  **The shape a Monte Carlo power tally measured** ([`McPowerTally`]):
+
+- ```rust
+  pub fn zernike_legendre_from_tallies(zernike: &Tally, legendre: &Tally, n_active: usize) -> Result<Self, PowerShapeError> { /* ... */ }
+  ```
+  **Zernike in `(r, theta)` times Legendre in `z`, from two tallies**
+
+- ```rust
+  pub fn bessel_legendre(radial: &BesselRadial, legendre: &[f64], z_min: Length, z_max: Length) -> Self { /* ... */ }
+  ```
+  **A Fourier-Bessel radial shape times a Legendre-z axial one**:
+
+- ```rust
+  pub fn write_rz_png</* synthetic */ impl AsRef<std::path::Path>: AsRef<std::path::Path>>(self: &Self, path: impl AsRef<std::path::Path>, title: &str, r_max: Length, z: [Length; 2], px_per_cm: f64) -> std::io::Result<()> { /* ... */ }
+  ```
+  **Draw the shape in R-Z** (the `x >= 0, y = 0` half-plane, Monte
+
+- ```rust
+  pub fn write_xy_png</* synthetic */ impl AsRef<std::path::Path>: AsRef<std::path::Path>>(self: &Self, path: impl AsRef<std::path::Path>, title: &str, z: Length, half_width: Length, px_per_cm: f64) -> std::io::Result<()> { /* ... */ }
+  ```
+  **Draw the shape on the plane `z` (Monte Carlo frame)**, `x, y` in
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `BesselBoundary`
+
+Which Fourier-Bessel series a radial shape is re-expressed in.
+
+**The default is [`Self::Neumann`]**, because a Zernike reconstruction of
+a reflected core's power is generally **non-zero at the disc edge**: the
+Dini (Neumann) modes `J0(alpha_k r/R)`, `J1(alpha_k) = 0`, with the
+constant `k = 0` term, carry a non-zero edge value and converge fast. The
+Dirichlet modes all vanish at `R_b`, so with `R_b = R` they can only
+approach a non-zero edge value slowly and with Gibbs ringing; they are
+the bare cylinder's modes, an explicit choice for a bare (or
+extrapolated, `R_b > R`) description.
+
+```rust
+pub enum BesselBoundary {
+    Dirichlet {
+        extrapolated_radius: uom::si::f64::Length,
+    },
+    Neumann,
+}
+```
+
+##### Variants
+
+###### `Dirichlet`
+
+`alpha_k` the zeros of `J0` at the radius `R_b = extrapolated_radius
+>= R` (the disc radius): `f(R_b) = 0`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `extrapolated_radius` | `uom::si::f64::Length` | `R_b`, at least the disc radius. |
+
+###### `Neumann`
+
+`alpha_0 = 0` and `alpha_k` the zeros of `J1` (`f'(R) = 0`), at the
+disc radius: the Dini series.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BesselRadial`
+
+A radial Fourier-Bessel series `f(r) = sum_k b_k J0(alpha_k r / R_b)` on
+`r <= R_b`.
+
+```rust
+pub struct BesselRadial {
+    pub radius: uom::si::f64::Length,
+    pub alphas: Vec<f64>,
+    pub coefficients: Vec<f64>,
+    pub boundary: BesselBoundary,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `uom::si::f64::Length` | `R_b`. |
+| `alphas` | `Vec<f64>` | `alpha_k`. |
+| `coefficients` | `Vec<f64>` | `b_k` (the units of the Zernike shape it came from). |
+| `boundary` | `BesselBoundary` | The series' boundary condition. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn eval(self: &Self, r: Length) -> f64 { /* ... */ }
+  ```
+  `f(r)` (zero beyond `R_b`).
+
+- ```rust
+  pub fn disc_integral(self: &Self, r_max: Length) -> f64 { /* ... */ }
+  ```
+  `int_0^{r_max} 2 pi r f(r) dr`, cm^2 times the shape's unit: exact
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `McPowerTally`
+
+Builders of the Monte Carlo **power tallies** whose result
+[`PowerShape::from_tally`] reads: each scores
+[`ScoreType::KappaFission`] (fission rate times the single recoverable
+`Q`, `outram_mc_libs::tally::scoring::Q_FISSION_J`), J per source
+particle, through one spatial filter. All coordinates in the Monte Carlo
+frame (cm, `z` up).
+
+In a delta-tracked region (the HTR-10 bed) the tally is scored at the
+tentative-collision sites (gh:#598); elsewhere by track length at the
+segment midpoint, which is exact for a mesh bin only while the bin is
+large against a mean free path.
+
+```rust
+pub struct McPowerTally;
+```
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn rz_mesh(r_edges: &[Length], z_edges: &[Length]) -> Result<Tally, PowerShapeError> { /* ... */ }
+  ```
+  An R-Z mesh tally on rings `r_edges` x slabs `z_edges` (both
+
+- ```rust
+  pub fn legendre_z(order: usize, z_min: Length, z_max: Length) -> Result<Tally, PowerShapeError> { /* ... */ }
+  ```
+  A Legendre expansion in `z` of order `order` over `[z_min, z_max]`.
+
+- ```rust
+  pub fn zernike(order: usize, centre: [Length; 2], radius: Length) -> Result<Tally, PowerShapeError> { /* ... */ }
+  ```
+  A Zernike expansion of radial order `order` on the disc of `radius`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `bessel_zeros`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The first `n` positive zeros of `J0` (`order = 0`) or `J1` (`order = 1`),
+by Newton from McMahon's asymptotic start `(k - 1/4) pi` / `(k + 1/4)
+pi` (A&S 9.5.12), on petir's `J0`, `J1` (`J0' = -J1`, `J1' = J0 - J1/x`),
+to round-off.
+
+```rust
+pub fn bessel_zeros(order: usize, n: usize) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `zernike_to_bessel`
+
+**Re-express a Zernike radial shape in Fourier-Bessel modes** (no Monte
+Carlo Bessel filter: the tally stays Zernike, this is a projection).
+
+`zernike` is a coefficient vector in filter order on a disc of
+`disc_radius` ([`PowerShape::Zernike`]'s, e.g. from
+[`PowerShape::from_tally`]); its `m = 0` part `f(r)` is projected on
+`n_terms` modes with the Bessel orthogonality weight `r`:
+
+- **Dirichlet** (`alpha_k` zeros of `J0`, `R_b >= R`; `f = 0` beyond
+  `R`): `b_k = 2 / (R_b^2 J1(alpha_k)^2) int_0^{R_b} f(r) J0(alpha_k r /
+  R_b) r dr` (Watson, *Treatise on the Theory of Bessel Functions*, 2nd
+  ed., Sec 18.24; the norm `int_0^1 x J0(alpha x)^2 dx = J1(alpha)^2/2`,
+  A&S 11.4.5);
+- **Neumann / Dini** (`alpha_0 = 0`, `alpha_k` zeros of `J1`, `R_b =
+  R`): `b_0 = (2/R^2) int_0^R f r dr`, `b_k = 2 / (R^2 J0(alpha_k)^2)
+  int_0^R f J0(alpha_k r/R) r dr` (Watson Sec 18.33, the Dini series with
+  `H = 0`; the norm is `J0(alpha)^2/2` where `J1(alpha) = 0`).
+
+The integrand is a polynomial times `J0`, integrated by composite
+30-point Gauss-Legendre refined until two estimates agree to 1e-14.
+
+**Power**: with Neumann the disc integral is carried by `b_0` alone
+(`int_0^R J0(alpha_k r/R) r dr = 0`), so it is conserved exactly at every
+`n_terms >= 1`. With Dirichlet every mode carries some, and the
+truncated series' integral converges to the Zernike one as `n_terms`
+grows ([`BesselRadial::disc_integral`] measures it).
+
+# Errors
+`n_terms == 0`, a non-positive radius, a Dirichlet radius below the disc
+radius, or a vector whose length is not a Zernike count.
+
+```rust
+pub fn zernike_to_bessel(zernike: &[f64], disc_radius: uom::si::f64::Length, n_terms: usize, boundary: BesselBoundary) -> Result<BesselRadial, PowerShapeError> { /* ... */ }
+```
+
+#### Function `zernike_disc_integral`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`int_0^R 2 pi r f(r) dr` of the `m = 0` Zernike profile (cm^2 times its
+unit): `pi R^2 c_00`, the only moment with a disc integral.
+
+```rust
+pub fn zernike_disc_integral(zernike: &[f64], disc_radius: uom::si::f64::Length) -> f64 { /* ... */ }
+```
+
+#### Function `write_bessel_comparison_png`
+
+**Picture: a Zernike radial profile against its Fourier-Bessel
+reconstructions** with `n_terms` of each listed count, both boundaries.
+
+# Errors
+The conversion fails or the file cannot be written.
+
+```rust
+pub fn write_bessel_comparison_png</* synthetic */ impl AsRef<std::path::Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, zernike: &[f64], disc_radius: uom::si::f64::Length, dirichlet_radius: uom::si::f64::Length, n_terms: &[usize]) -> Result<(), String> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `J0_FIRST_ZERO`
+
+The first zero of `J0`, `2.404 825 557 695 773` (Abramowitz & Stegun
+Tab 9.5): the radial buckling root of a bare cylinder.
+
+```rust
+pub const J0_FIRST_ZERO: f64 = 2.404_825_557_695_773;
+```
+
+#### Constant `TECDOC_BED_FLOOR_Z_CM`
+
+TECDOC-1694 `z` of the bed floor (the top of the discharge cone), cm:
+the full-core bed occupies `0 <= z <= 180` cm, `z` downward
+(`outram_foam_appbuilder_lib::htr10_rz::geometry`, the `BED` rectangle
+`0..180`). This is fixed hardware: the Monte Carlo model's bed floor is at
+the same place for every loading, and its bed top moves with the loading.
+Cross-check: the Monte Carlo core cavity is 221.818 cm above the floor
+(`htr10_rmc::core_model::HTR10_CORE_CAVITY_CM`), TECDOC-1694 puts the top of
+the core-entry plenum at `z = -40`, i.e. 220 cm above it (-0.8 %).
+
+```rust
+pub const TECDOC_BED_FLOOR_Z_CM: f64 = 180.0;
+```
+
+## Module `htr10_coupling`
+
+HTR-10 Monte Carlo iterated directly against a thermal-hydraulic target
+(lumped node or the `htr10_rz` R-Z core), with exact reprocessing (gh:#1186).
+# `htr10_coupling` — HTR-10 Monte Carlo iterated directly against its thermal-hydraulics
+
+gh:#1186 (epic gh:#1183). The whole-core HTR-10 Monte Carlo model
+([`ParametricStudy`], the one the web demo and `htr10_parametric` use)
+iterated by Picard against a thermal-hydraulic target until the zone
+temperatures and `k` stop moving. The neutronics is the Monte Carlo itself;
+no multigroup constants are involved (that chain is [`crate::mgxs_genfoam`]).
+
+## The shortest thing that works
+
+```no_run
+use nee_soon::direct_coupling::Convergence;
+use nee_soon::htr10_coupling::{Htr10DirectCoupling, ThermalTarget};
+use nee_soon::htr10_rmc::parametric::{ParametricStudy, StudyBed};
+use uom::si::f64::Power;
+use uom::si::power::megawatt;
+
+let study = ParametricStudy { bed: StudyBed::Seker { layers: 17 }, ..ParametricStudy::default() };
+let target = ThermalTarget::htr10_rz_fpic().unwrap(); // the TECDOC-1694 R-Z core at FPIC
+let mut coupling = Htr10DirectCoupling::new(study, target, Power::new::<megawatt>(10.0));
+let state = coupling.solve(Convergence::default(), |line| println!("{line}")).unwrap();
+println!("k = {:?} at fuel {:?}", state.k_eff, state.zone_temperatures.get(
+    nee_soon::htr10_rmc::zones::Htr10Zone::FuelPebble));
+```
+
+## One Picard iteration
+
+```text
+  1. Monte Carlo at the current zone temperatures, with an R-Z KappaFission
+     tally over the bed (McPowerTally::rz_mesh)              -> k, power shape
+  2. power_shape: the tally as an R-Z table, put on the TH cells, the
+     total power conserved to round-off
+  3. the TH solve (lumped node or the htr10_rz core's steady state)
+  4. power-weighted fuel and moderator temperatures, volume-averaged
+     reflector / brick / rod temperatures, the mean gas    -> ZoneTemperatures
+  5. under-relax (omega), round to the temperature quantum, and
+     REPROCESS the nuclear data EXACTLY at the new temperatures, every
+     (nuclide, temperature) job cached so a temperature reached again is
+     not reprocessed; the bed majorant is rebuilt from the new nuclides,
+     so it bounds them
+```
+
+**Why reprocessing and not `Material.temperature`.** HTR-10's pointwise
+(NJOY) nuclides carry their data temperature; the transport does not
+re-broaden them, so setting a material's temperature alone moves only the
+free-gas kinematics and leaves the Doppler broadening and the `S(alpha,
+beta)` laws where they were: a silent no-op for the feedback. Every
+temperature here goes through [`ParametricStudy::plan`], which processes
+each (nuclide, temperature) exactly and generates each bound law by LEAPR
+at its zone's temperature.
+
+## Module map
+
+| item | what |
+|---|---|
+| [`Htr10DirectCoupling`] | the coupling: build, set relaxation / quantum / threads / power mesh, [`Htr10DirectCoupling::solve`] |
+| [`ThermalTarget`] | the TH side, a closed enum: GeN-Foam's [`LumpedThermal`] node, or the `htr10_rz` R-Z core ([`RzTarget`]) |
+| [`PicardIteration`], [`CoupledHtr10State`] | the history (k +/- sigma, zone temperatures in / from the TH / out, residuals, costs) and the result |
+| [`write_history_png`] | the history as a picture |
+| [`zone_temperatures_from_rz`], [`relax_and_quantise`] | the pieces, public so they can be checked alone |
+
+## Known limitations, stated rather than discovered
+
+- **Statistical noise is in the loop.** Each iteration's `k` and shape
+  carry Monte Carlo noise; a `k` tolerance below the run's sigma will not
+  be met except by chance ([`Convergence::k_eff`]).
+- **The frames are tied at the bed floor** ([`crate::power_shape::FrameMap`]):
+  a Monte Carlo loading shorter than the TECDOC full core (N < 18)
+  heats only the lower part of the R-Z bed, and the R-Z model's flow and
+  heat capacity are the full core's.
+- **The Monte Carlo geometry is cold**: no thermal expansion; the helium
+  density follows the coolant temperature at the model's pressure.
+- **The conus and discharge tube hold no fuel** in the Monte Carlo model,
+  so the tally covers the cylindrical bed only.
+
+Status: untrusted AI-generated draft (2026-11-03); research, education and
+V&V only, never operation or safety (`RESPONSIBLE_USE.md`).
+
+```rust
+pub mod htr10_coupling { /* ... */ }
+```
+
+### Types
+
+#### Enum `Htr10CouplingError`
+
+Why the coupled solve failed.
+
+```rust
+pub enum Htr10CouplingError {
+    NotConverged {
+        iterations: usize,
+        last_dt_k: f64,
+        last_dk: f64,
+        history: Vec<PicardIteration>,
+    },
+    MonteCarlo(String),
+    Power(crate::power_shape::PowerShapeError),
+    Thermal(String),
+}
+```
+
+##### Variants
+
+###### `NotConverged`
+
+The cap was reached; the residuals say whether it was close.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `iterations` | `usize` | Iterations performed. |
+| `last_dt_k` | `f64` | Last largest zone-temperature residual, K. |
+| `last_dk` | `f64` | Last `k` change. |
+| `history` | `Vec<PicardIteration>` | The history so far. |
+
+###### `MonteCarlo`
+
+The Monte Carlo side failed (settings, data, transport).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Power`
+
+The power could not be put on the TH cells.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::power_shape::PowerShapeError` |  |
+
+###### `Thermal`
+
+The thermal-hydraulic side failed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+  - ```rust
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(source: crate::power_shape::PowerShapeError) -> Self { /* ... */ }
+    ```
+
+  - ```rust
+    fn from(e: Htr10RzError) -> Self { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RzTarget`
+
+The `htr10_rz` R-Z core as a TH target, with its operating point.
+
+```rust
+pub struct RzTarget {
+    pub core: outram_foam_appbuilder_lib::htr10_rz::Htr10RzTransientCore,
+    pub operating_point: outram_foam_appbuilder_lib::htr10_rz::OperatingPoint,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `core` | `outram_foam_appbuilder_lib::htr10_rz::Htr10RzTransientCore` | The R-Z core (its power map is replaced every iteration). |
+| `operating_point` | `outram_foam_appbuilder_lib::htr10_rz::OperatingPoint` | Inlet temperature, pressure and flow; its `power` is overwritten by<br>the coupling's. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ThermalTarget`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"large_enum_variant\" },\nkind: Allow}])]")`
+
+The thermal-hydraulic side of the coupling: a closed set.
+
+```rust
+pub enum ThermalTarget {
+    Lumped {
+        thermal: outram_foam_appbuilder_lib::genfoam::multi_region::outer_iteration::LumpedThermal,
+        volume: uom::si::f64::Volume,
+        time_step: uom::si::f64::Time,
+    },
+    Rz(RzTarget),
+}
+```
+
+##### Variants
+
+###### `Lumped`
+
+GeN-Foam's lumped node ([`LumpedThermal`]), marched in pseudo-time to
+its steady state each iteration. Its one temperature is given to the
+fuel and the moderator pebbles; the other zones keep theirs.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thermal` | `outram_foam_appbuilder_lib::genfoam::multi_region::outer_iteration::LumpedThermal` | The node. |
+| `volume` | `uom::si::f64::Volume` | The heated volume (positive). |
+| `time_step` | `uom::si::f64::Time` | Pseudo time step of the march (positive). |
+
+###### `Rz`
+
+The TECDOC-1694 R-Z core ([`Htr10RzTransientCore`]): the Monte Carlo
+shape is put on its heated bed cells and its steady state solved.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RzTarget` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn htr10_rz_fpic() -> Result<Self, Htr10RzError> { /* ... */ }
+  ```
+  The R-Z core at the FPIC specification (10 MW, 250 °C, 3 MPa,
+
+- ```rust
+  pub fn htr10_rz_fpic_coarse() -> Result<Self, Htr10RzError> { /* ... */ }
+  ```
+  As [`Self::htr10_rz_fpic`] on the coarse Fig 2.5 mesh (21 x 39
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PicardIteration`
+
+One Picard iteration, kept so the approach can be seen.
+
+```rust
+pub struct PicardIteration {
+    pub iteration: usize,
+    pub zone_temperatures_in: crate::htr10_rmc::zones::ZoneTemperatures,
+    pub k_eff: uom::si::f64::Ratio,
+    pub k_std: uom::si::f64::Ratio,
+    pub zone_temperatures_th: crate::htr10_rmc::zones::ZoneTemperatures,
+    pub zone_temperatures_out: crate::htr10_rmc::zones::ZoneTemperatures,
+    pub temperature_residual: uom::si::f64::TemperatureInterval,
+    pub k_change: Option<uom::si::f64::Ratio>,
+    pub peaking: uom::si::f64::Ratio,
+    pub majorant_violations: u64,
+    pub jobs_processed: usize,
+    pub jobs_cached: usize,
+    pub processing_time: uom::si::f64::Time,
+    pub transport_time: uom::si::f64::Time,
+    pub thermal_time: uom::si::f64::Time,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `iteration` | `usize` | 1-based. |
+| `zone_temperatures_in` | `crate::htr10_rmc::zones::ZoneTemperatures` | The zone temperatures the Monte Carlo ran at. |
+| `k_eff` | `uom::si::f64::Ratio` | `k_eff`. |
+| `k_std` | `uom::si::f64::Ratio` | Its one-sigma statistical uncertainty. |
+| `zone_temperatures_th` | `crate::htr10_rmc::zones::ZoneTemperatures` | The zone temperatures the TH solve returned (unrelaxed). |
+| `zone_temperatures_out` | `crate::htr10_rmc::zones::ZoneTemperatures` | The next iteration's (relaxed, quantised). |
+| `temperature_residual` | `uom::si::f64::TemperatureInterval` | Fixed-point residual: the largest `|T_th - T_in|` over the zones. |
+| `k_change` | `Option<uom::si::f64::Ratio>` | `|k - k_previous|` (`None` at the first iteration). |
+| `peaking` | `uom::si::f64::Ratio` | Peak over mean power density of the TH cells. |
+| `majorant_violations` | `u64` | Collisions above the majorant (must be zero). |
+| `jobs_processed` | `usize` | Processing jobs run this iteration. |
+| `jobs_cached` | `usize` | Jobs taken from the cache. |
+| `processing_time` | `uom::si::f64::Time` | Wall time processing nuclear data. |
+| `transport_time` | `uom::si::f64::Time` | Wall time transporting. |
+| `thermal_time` | `uom::si::f64::Time` | Wall time of the TH solve. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CoupledHtr10State`
+
+A converged coupled state.
+
+```rust
+pub struct CoupledHtr10State {
+    pub zone_temperatures: crate::htr10_rmc::zones::ZoneTemperatures,
+    pub k_eff: uom::si::f64::Ratio,
+    pub k_std: uom::si::f64::Ratio,
+    pub power_shape: crate::power_shape::PowerShape,
+    pub history: Vec<PicardIteration>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `zone_temperatures` | `crate::htr10_rmc::zones::ZoneTemperatures` | The zone temperatures (the last Monte Carlo ran at these). |
+| `k_eff` | `uom::si::f64::Ratio` | `k_eff` of the last iteration. |
+| `k_std` | `uom::si::f64::Ratio` | Its one-sigma uncertainty. |
+| `power_shape` | `crate::power_shape::PowerShape` | The last measured power shape (Monte Carlo frame). |
+| `history` | `Vec<PicardIteration>` | Every iteration. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10DirectCoupling`
+
+**The HTR-10 Monte Carlo iterated against a thermal-hydraulic target.**
+
+Build with [`Self::new`], adjust with the `with_*` builders, then
+[`Self::solve`]. See the module docs for the loop.
+
+```rust
+pub struct Htr10DirectCoupling {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(study: ParametricStudy, target: ThermalTarget, power: Power) -> Self { /* ... */ }
+  ```
+  The coupling of `study` (its temperatures are the starting guess) to
+
+- ```rust
+  pub fn with_relaxation(self: Self, omega: Ratio) -> Self { /* ... */ }
+  ```
+  Under-relaxation `omega` in `(0, 1]`: `T_next = T_in + omega (T_th -
+
+- ```rust
+  pub fn with_temperature_quantum(self: Self, quantum: TemperatureInterval) -> Self { /* ... */ }
+  ```
+  Round every zone temperature to a multiple of `quantum` (positive)
+
+- ```rust
+  pub fn without_temperature_quantum(self: Self) -> Self { /* ... */ }
+  ```
+  No rounding: every Picard temperature is processed as it comes (the
+
+- ```rust
+  pub fn with_threads(self: Self, threads: usize) -> Self { /* ... */ }
+  ```
+  Threads for processing and transport (at least one).
+
+- ```rust
+  pub fn with_power_mesh(self: Self, r_edges: Vec<Length>, z_edges: Vec<Length>) -> Self { /* ... */ }
+  ```
+  The Monte Carlo power mesh: ring edges and axial edges (Monte Carlo
+
+- ```rust
+  pub fn default_power_mesh(h: Length) -> (Vec<Length>, Vec<Length>) { /* ... */ }
+  ```
+  The default power mesh of a bed of half-height `h`: nine 10 cm rings
+
+- ```rust
+  pub fn study(self: &Self) -> &ParametricStudy { /* ... */ }
+  ```
+  The study (its temperatures are the last ones run).
+
+- ```rust
+  pub fn target(self: &Self) -> &ThermalTarget { /* ... */ }
+  ```
+  The thermal target in its current state.
+
+- ```rust
+  pub fn cached_jobs(self: &Self) -> usize { /* ... */ }
+  ```
+  Processed (nuclide, temperature) jobs held in the cache.
+
+- ```rust
+  pub fn solve</* synthetic */ impl FnMut(&str): FnMut(&str)>(self: &mut Self, criteria: Convergence, progress: impl FnMut(&str)) -> Result<CoupledHtr10State, Htr10CouplingError> { /* ... */ }
+  ```
+  **Iterate to a coupled steady state.** `progress` gets a line per
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `relax_and_quantise`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**The next Picard temperatures**: `T_in + omega (T_th - T_in)` per zone,
+rounded to the nearest multiple of `quantum` (none when the quantum is
+zero) and kept inside the zones' range (20..=1800 °C).
+
+```rust
+pub fn relax_and_quantise(t_in: &crate::htr10_rmc::zones::ZoneTemperatures, t_th: &crate::htr10_rmc::zones::ZoneTemperatures, omega: uom::si::f64::Ratio, quantum: uom::si::f64::TemperatureInterval) -> crate::htr10_rmc::zones::ZoneTemperatures { /* ... */ }
+```
+
+#### Function `rz_zone_of`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The `htr10_rz` region's Monte Carlo temperature zone, by its region and
+TECDOC `z` (cm): graphite above the Monte Carlo cavity top (`z <
+180 - 221.818`) is the top reflector, below the bed floor (`z > 180`)
+the bottom, else the side; the boronated bricks are their own zone.
+Gas, steel and the bed are `None` (the bed's temperatures are
+power-weighted separately; steel is outside the Monte Carlo model).
+
+```rust
+pub fn rz_zone_of(region: usize, z_tecdoc_cm: f64) -> Option<crate::htr10_rmc::zones::Htr10Zone> { /* ... */ }
+```
+
+#### Function `zone_temperatures_from_rz`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**The Monte Carlo zone temperatures an R-Z core state gives**:
+
+- fuel and moderator pebbles: the core's power-weighted feedback
+  temperatures ([`Htr10RzTransientCore::feedback`]);
+- top, side and bottom reflector and the boronated bricks:
+  volume-weighted means of their cells ([`rz_zone_of`]);
+- control rods: the volume mean of the control-rod channel ring
+  (`CR_RING`), where the withdrawn rods sit;
+- the coolant is kept from `t_in` (the coupling sets it from the gas).
+
+A zone with no cells keeps its `t_in` value.
+
+```rust
+pub fn zone_temperatures_from_rz(core: &outram_foam_appbuilder_lib::htr10_rz::Htr10RzTransientCore, t_in: &crate::htr10_rmc::zones::ZoneTemperatures) -> crate::htr10_rmc::zones::ZoneTemperatures { /* ... */ }
+```
+
+#### Function `write_history_png`
+
+**The history as a PNG**: `k` with its one-sigma bars against the
+iteration (left), and the fuel, moderator, side-reflector and coolant
+temperatures the Monte Carlo ran at (right).
+
+# Errors
+The file cannot be written.
+
+```rust
+pub fn write_history_png</* synthetic */ impl AsRef<std::path::Path>: AsRef<std::path::Path>>(history: &[PicardIteration], path: impl AsRef<std::path::Path>) -> std::io::Result<()> { /* ... */ }
+```
+
+## Module `mgxs_genfoam`
+
+HTR-10 Monte Carlo MGXS state points into a GeN-Foam R-Z diffusion core with
+`TFuel` feedback (gh:#1187).
+# `mgxs_genfoam` — HTR-10 Monte Carlo MGXS into a GeN-Foam R-Z diffusion core
+
+gh:#1187 (epic gh:#1183). The second coupling chain: **Monte Carlo ->
+multigroup constants -> GeN-Foam**. Four isothermal whole-core Monte Carlo
+records (`htr10_mgxs` cases `core_n12_t{300.15, 600, 900, 1200}`) become one
+temperature-parametrised `nuclearData`, homogenised into the regions of an
+R-Z mesh that is the **`htr10_rz` mesh** (the TH model's own lines),
+cropped to the Monte Carlo model and with each cell's region read from the
+**assembled Monte Carlo geometry** at the cell.
+
+## The shortest thing that works
+
+```no_run
+use nee_soon::mgxs_genfoam::{Htr10MgxsRegions, Htr10RzNeutronicsMesh, MgxsStatePoints};
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::kelvin;
+
+let points = MgxsStatePoints::htr10_records().unwrap();          // the four on-disk records
+let mesh = Htr10RzNeutronicsMesh::for_records(&points).unwrap(); // R-Z mesh + zone_of_cell
+let regions = Htr10MgxsRegions::new(&mesh);                    // rebalanced, descending, SI: all ON
+let nd = regions.nuclear_data(&points).unwrap();               // xsVariables { TFuel log; }
+let t = vec![ThermodynamicTemperature::new::<kelvin>(600.0); mesh.n_cells()];
+let sol = mesh.solve_diffusion(&nd, &t).unwrap();
+println!("k = {}", sol.k_eff);
+```
+
+## Module map
+
+| item | what |
+|---|---|
+| [`MgxsStatePoints`] | the state points: one Monte Carlo MGXS library and `k` per fuel temperature |
+| [`Htr10RzNeutronicsMesh`] | the R-Z mesh, `zone_of_cell`, the regions' recipes, its picture, the diffusion solve with per-cell `TFuel` |
+| [`RegionRecipe`] | how one neutronics region's constants are made from the record's per-material constants |
+| [`Htr10MgxsRegions`] | regions -> collapse -> rebalance -> descending order -> SI units -> stacked `NuclearDataInput`; each step ON by default, `without_*` to ablate |
+| [`stack_states`] | single-state inputs -> one input with `xsVariables { TFuel <law>; }` (ported from `dhoby-ghaut`) |
+
+## The traps, each handled by a default (and each ablation pinned by a test)
+
+- **Rebalance** (`MgxsLibrary::rebalanced`): `Sigma_t = Sigma_a + sum
+  Sigma_s` row by row. The HTR-10 record went from -17 133 to -353 pcm
+  against the Monte Carlo `k_inf` with it. Ablation:
+  [`Htr10MgxsRegions::without_rebalance`].
+- **Group order**: GeN-Foam reads group 0 as the fastest; the records are
+  tallied ascending, and the converter cannot tell. Ablation:
+  [`Htr10MgxsRegions::without_descending_order`]. **Measured 2026-11-03:
+  it does not move the steady `k`** (a consistent reversal of every
+  group axis is a relabelling, 1.02789 both ways); it does make the
+  inverse velocities `genfoam_xs` writes wrong, which matters for a
+  transient.
+- **Units**: the records are cm; GeN-Foam is SI (`Sigma` x 100, `D` x
+  0.01). Ablation: [`Htr10MgxsRegions::without_unit_conversion`].
+- **One zone for the whole core** costs about -27 000 pcm: the regions
+  here are the bed, the fuel-free pebble bed of the cone and the discharge
+  tube, the cavity, and **one region per Monte Carlo reflector material**
+  (each TECDOC-1382 zone composition sits where the Monte Carlo puts it).
+
+## Assumptions, stated
+
+- **The bed's helium flux.** The records tally per *material*, and helium
+  fills both the bed's voids and the cavity above it, so the bed's helium
+  flux cannot be separated from the cavity's. The bed region is therefore
+  built by **volume mixing**: the solids' flux-weighted constants times
+  their volume fraction `f` (sampled from the assembled geometry), plus the
+  helium's times `1 - f`, i.e. the flux per unit volume is assumed equal in
+  the pebbles and in the helium between them. The cone and the discharge
+  tube (dummy balls only) are built the same way from the pebble graphite.
+  The pebble-graphite constants are flux-weighted over every pebble's
+  graphite, fuelled bed and cone alike.
+- **P0 diffusion**: `D = 1/(3 Sigma_t)`, no transport correction (no P1
+  matrix was tallied); in graphite that under-states `D` by about
+  `mu_bar = 2/(3A) = 5.6 %`.
+- **The cavity** (helium at 1 atm, `D` of order 10^2 m) is a diffusion
+  region: diffusion cannot represent streaming across it.
+- **Withdrawn rods** are not regions of their own: a cell's region is the
+  material most of its sample points hit.
+- **Boundaries**: Marshak vacuum (GeN-Foam albedo `gamma = 0.5`) on the
+  outer radius, top and bottom of the Monte Carlo model; the axis
+  reflective.
+
+Status: untrusted AI-generated draft (2026-11-03), research, education
+and V&V only (`RESPONSIBLE_USE.md`).
+
+```rust
+pub mod mgxs_genfoam { /* ... */ }
+```
+
+### Types
+
+#### Enum `MgxsGenfoamError`
+
+What went wrong.
+
+```rust
+pub enum MgxsGenfoamError {
+    StatePoints(String),
+    Constants(String),
+    Mesh(String),
+    Diffusion(String),
+}
+```
+
+##### Variants
+
+###### `StatePoints`
+
+A record could not be read or the state points disagree.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Constants`
+
+The constants could not be built.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Mesh`
+
+The mesh could not be built.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Diffusion`
+
+The diffusion solve failed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MgxsStatePoint`
+
+One isothermal Monte Carlo MGXS state point.
+
+```rust
+pub struct MgxsStatePoint {
+    pub temperature: uom::si::f64::ThermodynamicTemperature,
+    pub library: crate::mgxs::MgxsLibrary,
+    pub k_eff: uom::si::f64::Ratio,
+    pub k_std: uom::si::f64::Ratio,
+    pub layers: usize,
+    pub case: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | The temperature every material was at. |
+| `library` | `crate::mgxs::MgxsLibrary` | The per-material library, as tallied (ascending groups, cm units). |
+| `k_eff` | `uom::si::f64::Ratio` | The Monte Carlo `k_eff` of the run. |
+| `k_std` | `uom::si::f64::Ratio` | Its one-sigma uncertainty. |
+| `layers` | `usize` | Şeker layers of the run's bed (12 for every `core_n12_*` record). |
+| `case` | `String` | The case name. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MgxsStatePoints`
+
+**The state points GeN-Foam interpolates between**: one MGXS library per
+fuel temperature, ascending in temperature, the first the reference.
+
+```rust
+pub struct MgxsStatePoints {
+    pub points: Vec<MgxsStatePoint>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `points` | `Vec<MgxsStatePoint>` | The points, ascending in temperature. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn records_root() -> PathBuf { /* ... */ }
+  ```
+  The folder holding the `htr10_mgxs` case records.
+
+- ```rust
+  pub fn htr10_records() -> Result<Self, MgxsGenfoamError> { /* ... */ }
+  ```
+  **The four isothermal HTR-10 records** ([`HTR10_ISOTHERMAL_RECORDS`]).
+
+- ```rust
+  pub fn from_record_dirs(dirs: &[PathBuf]) -> Result<Self, MgxsGenfoamError> { /* ... */ }
+  ```
+  State points from `htr10_mgxs` case folders (each with `record.json`).
+
+- ```rust
+  pub fn new(points: Vec<MgxsStatePoint>) -> Result<Self, MgxsGenfoamError> { /* ... */ }
+  ```
+  From points in any order; sorted ascending in temperature.
+
+- ```rust
+  pub fn layers(self: &Self) -> usize { /* ... */ }
+  ```
+  Şeker layers of the bed every point was run on.
+
+- ```rust
+  pub fn slot_has_flux(self: &Self, s: usize) -> bool { /* ... */ }
+  ```
+  Whether material slot `s` carries flux in every group of the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `RegionRecipe`
+
+How one neutronics region's constants are made from a per-material
+library (fine groups, before collapse).
+
+```rust
+pub enum RegionRecipe {
+    Bed {
+        solid_fraction: f64,
+    },
+    DummyBed {
+        solid_fraction: f64,
+    },
+    Cavity,
+    Slot(usize),
+}
+```
+
+##### Variants
+
+###### `Bed`
+
+The fuelled bed: the pebbles' solids (kernel, coatings, pebble
+graphite) flux-weighted together, volume-mixed with helium at
+`solid_fraction` (module docs).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid_fraction` | `f64` | Volume fraction of solids in the bed, `(0, 1)`. |
+
+###### `DummyBed`
+
+The cone and discharge tube: pebble graphite volume-mixed with helium.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid_fraction` | `f64` | Volume fraction of graphite, `(0, 1)`. |
+
+###### `Cavity`
+
+The helium of the cavity (and of any cell mostly gas).
+
+###### `Slot`
+
+One Monte Carlo material slot's own constants (a reflector zone).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(self: &Self, lib: &MgxsLibrary, name: &str) -> Result<ZoneMgxs, MgxsGenfoamError> { /* ... */ }
+  ```
+  The region's constants from `lib` (one zone per material slot), named
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10MgxsRegions`
+
+**The constants pipeline**, every trap handled by default:
+regions ([`RegionRecipe`]) -> collapse to `collapse` (4 groups default)
+-> rebalance -> descending energy -> SI units -> one `NuclearDataInput`
+with `xsVariables { TFuel log; }`.
+
+```rust
+pub struct Htr10MgxsRegions {
+    pub regions: Vec<(String, RegionRecipe)>,
+    pub collapse: crate::htr10_mgxs::Collapse,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `regions` | `Vec<(String, RegionRecipe)>` | The regions, in zone order: `(name, recipe)`. |
+| `collapse` | `crate::htr10_mgxs::Collapse` | The coarse structure (an exact collapse of the tally's WIMS-69 + 1). |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &Htr10RzNeutronicsMesh) -> Self { /* ... */ }
+  ```
+  The regions of `mesh`, with every default ON and 4 groups.
+
+- ```rust
+  pub fn from_regions(regions: Vec<(String, RegionRecipe)>) -> Self { /* ... */ }
+  ```
+  Given regions (zone order), every default ON, 4 groups.
+
+- ```rust
+  pub fn with_collapse(self: Self, c: Collapse) -> Self { /* ... */ }
+  ```
+  Collapse to `c` instead of four groups.
+
+- ```rust
+  pub fn with_law(self: Self, law: VariableLaw) -> Self { /* ... */ }
+  ```
+  The `TFuel` interpolation law (default `log`, GeN-Foam's for Doppler).
+
+- ```rust
+  pub fn without_rebalance(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation**: keep the tallied `Sigma_t` (no `Sigma_t = Sigma_a +
+
+- ```rust
+  pub fn without_descending_order(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation**: hand GeN-Foam the tally's ascending group order (it reads
+
+- ```rust
+  pub fn without_unit_conversion(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation**: hand GeN-Foam the cm constants as if they were SI.
+
+- ```rust
+  pub fn defaults(self: &Self) -> (bool, bool, bool) { /* ... */ }
+  ```
+  Whether the rebalance, the descending order and the SI conversion are
+
+- ```rust
+  pub fn library(self: &Self, lib: &MgxsLibrary) -> Result<MgxsLibrary, MgxsGenfoamError> { /* ... */ }
+  ```
+  The regions' constants at one state point: built, collapsed, and
+
+- ```rust
+  pub fn single_state(self: &Self, lib: &MgxsLibrary) -> Result<NuclearDataInput, MgxsGenfoamError> { /* ... */ }
+  ```
+  One state point as a single-state GeN-Foam input (SI unless
+
+- ```rust
+  pub fn nuclear_data(self: &Self, points: &MgxsStatePoints) -> Result<NuclearDataInput, MgxsGenfoamError> { /* ... */ }
+  ```
+  **Every state point stacked** into one input, `xsVariables { TFuel
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10RzNeutronicsMesh`
+
+**The R-Z neutronics mesh**: the `htr10_rz` mesh lines (Fig 2.5), cropped
+to the Monte Carlo model (`r <= 190` cm, its top and bottom) with lines
+added at the Monte Carlo bed top, cavity top and model ends, cells no
+larger than `max_cell`. Each cell's region comes from sampling the
+**assembled** Monte Carlo geometry over the cell (module docs). TECDOC
+frame (`z` down, metres in the mesh).
+
+```rust
+pub struct Htr10RzNeutronicsMesh {
+    pub mesh: outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solid_conduction::RzMesh,
+    pub zone_of_cell: Vec<usize>,
+    pub regions: Vec<(String, RegionRecipe)>,
+    pub frame: crate::power_shape::FrameMap,
+    pub solid_fractions: (f64, f64),
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solid_conduction::RzMesh` | The mesh. |
+| `zone_of_cell` | `Vec<usize>` | Region (GeN-Foam zone) of each cell. |
+| `regions` | `Vec<(String, RegionRecipe)>` | The regions, in zone order. |
+| `frame` | `crate::power_shape::FrameMap` | The frame map of the Monte Carlo loading. |
+| `solid_fractions` | `(f64, f64)` | The sampled solid fraction of the fuelled bed and of the cone/tube. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn for_records(points: &MgxsStatePoints) -> Result<Self, MgxsGenfoamError> { /* ... */ }
+  ```
+  The mesh for the bed the state points were run on (20 cm cells).
+
+- ```rust
+  pub fn build(core: &AssembledCore, present: &[bool], max_cell: Length) -> Result<Self, MgxsGenfoamError> { /* ... */ }
+  ```
+  The mesh for `core` (the record model's, non-zoned slots). `present[s]`
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Cells of the mesh.
+
+- ```rust
+  pub fn flux_boundary(self: &Self) -> Vec<BoundaryCondition<f64>> { /* ... */ }
+  ```
+  The flux boundary conditions, one per patch: zero gradient on the
+
+- ```rust
+  pub fn solve_diffusion(self: &Self, nd: &NuclearDataInput, t_fuel: &[ThermodynamicTemperature]) -> Result<RzDiffusionSolution, MgxsGenfoamError> { /* ... */ }
+  ```
+  **The diffusion `k` and power shape at per-cell fuel temperatures**
+
+- ```rust
+  pub fn write_png</* synthetic */ impl AsRef<Path>: AsRef<Path>>(self: &Self, path: impl AsRef<Path>, px_per_cm: f64) -> std::io::Result<()> { /* ... */ }
+  ```
+  **Draw the mesh's regions** (R-Z, TECDOC frame: the top of the picture
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RzDiffusionSolution`
+
+A diffusion eigenvalue on the R-Z mesh.
+
+```rust
+pub struct RzDiffusionSolution {
+    pub k_eff: f64,
+    pub outer_iterations: usize,
+    pub converged: bool,
+    pub power_density: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `k_eff` | `f64` | `k_eff` (dimensionless). |
+| `outer_iterations` | `usize` | Outer iterations. |
+| `converged` | `bool` | Whether the outer loop converged. |
+| `power_density` | `Vec<f64>` | Power density per cell, W/m^3 at GeN-Foam's arbitrary normalisation<br>(scale to a total power as needed). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `mix_by_volume`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Volume mixing** of zones with equal flux per unit volume: every cross
+section is `sum_i f_i Sigma_i`; the flux spectrum is the volume-weighted
+sum of each component's normalised spectrum; `chi` is weighted by each
+component's fission source. Standard errors are dropped (the mixture's
+are not those of any tally).
+
+```rust
+pub fn mix_by_volume(parts: &[(&crate::mgxs::ZoneMgxs, f64)]) -> crate::mgxs::ZoneMgxs { /* ... */ }
+```
+
+#### Function `stack_states`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Stack single-state inputs** into one with `xsVariables { TFuel <law>;
+}`: the state at `reference` K is GeN-Foam's `reference` state, the others
+follow named `T<K>K`, each carrying its `TFuel`.
+
+Ported from `dhoby-ghaut`'s `src/bin/dhoby-ghaut/mgxs_run.rs::stack_states`
+(gh:#573), which cannot be imported (dhoby-ghaut depends on this crate).
+
+```rust
+pub fn stack_states(inputs: &[(f64, outram_foam_appbuilder_lib::genfoam::neutronics::xs::input::NuclearDataInput)], reference: f64, law: outram_foam_appbuilder_lib::genfoam::neutronics::xs::variables::VariableLaw) -> outram_foam_appbuilder_lib::genfoam::neutronics::xs::input::NuclearDataInput { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `HTR10_ISOTHERMAL_RECORDS`
+
+The four isothermal full-core records (`htr10_mgxs` gh:#845), in
+ascending temperature.
+
+```rust
+pub const HTR10_ISOTHERMAL_RECORDS: [&str; 4] = _;
+```
+
 ## Module `system_coupling`
 
 # Coupling a 1-D system code to point kinetics (gh:#1084)
@@ -23890,6 +34437,7 @@ Fields:
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23904,6 +34452,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -24011,6 +34560,7 @@ pub struct PicardControl {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -24025,6 +34575,7 @@ pub struct PicardControl {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -24146,6 +34697,7 @@ pub struct CoupledStepReport {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -24160,6 +34712,7 @@ pub struct CoupledStepReport {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -24311,6 +34864,7 @@ pub struct LoopKineticsCoupling {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -24325,6 +34879,7 @@ pub struct LoopKineticsCoupling {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -24587,6 +35142,7 @@ pub struct MaterialSpec {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -24601,6 +35157,7 @@ pub struct MaterialSpec {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -24744,6 +35301,7 @@ Fields:
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -24762,6 +35320,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -24877,6 +35436,7 @@ Fields:
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -24891,6 +35451,7 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -24992,6 +35553,7 @@ pub struct McSimSetup {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -25006,6 +35568,7 @@ pub struct McSimSetup {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -25257,6 +35820,7 @@ pub struct NeeSoon {
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -25271,6 +35835,7 @@ pub struct NeeSoon {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **Move**
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }

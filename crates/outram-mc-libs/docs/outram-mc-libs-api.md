@@ -77226,6 +77226,11 @@ pub struct Mix {
   ```
   The same atoms scaled by `factor` (used to homogenise a cell).
 
+- ```rust
+  pub fn density_of(self: &Self, role: Role) -> f64 { /* ... */ }
+  ```
+  This mixture's atom density of one role \[atoms/barn-cm\]; the same
+
 ###### Trait Implementations
 
 - **Any**
@@ -77476,6 +77481,474 @@ pub struct PebbleInventory {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `Role`
+
+What a nuclide of the five-nuclide table [`TAPES`] is, so that code asks
+for "the carbon-12" and not for "slot 3" (GitHub #1635 item 3).
+
+New work (2026-11-17), beside [`Mix`] and not in place of it:
+[`Mix::densities`] keeps its positional order, and [`Mix::density_of`] and
+[`RoleIndex`] are the role-keyed views of it.
+
+```rust
+pub enum Role {
+    U234,
+    U235,
+    U238,
+    C12,
+    C13,
+}
+```
+
+##### Variants
+
+###### `U234`
+
+###### `U235`
+
+###### `U238`
+
+###### `C12`
+
+###### `C13`
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn tape_index(self: Self) -> usize { /* ... */ }
+  ```
+  Position of this role's tape in [`TAPES`] (and of its density in
+
+- ```rust
+  pub fn is_carbon(self: Self) -> bool { /* ... */ }
+  ```
+  True for the two carbons, the roles the graphite law binds to.
+
+- ```rust
+  pub fn is_uranium(self: Self) -> bool { /* ... */ }
+  ```
+  True for the three uranium isotopes.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RoleIndex`
+
+Where each [`Role`]'s nuclide sits in the array that the materials
+reference. With nothing bound ([`RoleIndex::free`]) that is [`TAPES`]
+order; after [`bind_graphite`] the two carbons point at their bound copies,
+which are appended after the table, so a density vector must be built
+through this index, never by array position.
+
+```rust
+pub struct RoleIndex {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn free() -> Self { /* ... */ }
+  ```
+  Nothing bound: role `r` is nuclide `r.tape_index()`.
+
+- ```rust
+  pub fn slot(self: &Self, role: Role) -> usize { /* ... */ }
+  ```
+  Index of the nuclide that carries `role` in the materials' array.
+
+- ```rust
+  pub fn densities(self: &Self, mix: &Mix, n_nuclides: usize) -> Vec<f64> { /* ... */ }
+  ```
+  One atom density per nuclide of an array of `n_nuclides`: the mixture's
+
+- ```rust
+  pub fn by_role<T: Copy>(self: &Self, per_nuclide: &[T]) -> [T; 5] { /* ... */ }
+  ```
+  The per-nuclide values `per_nuclide` (an array of the same length as the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GraphiteBinding`
+
+The result of [`bind_graphite`].
+
+```rust
+pub struct GraphiteBinding {
+    pub materials: Vec<crate::material::material::Material>,
+    pub nuclides: Vec<crate::material::nuclide::Nuclide>,
+    pub roles: RoleIndex,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `materials` | `Vec<crate::material::material::Material>` | The materials, carbon components repointed at the bound copies. |
+| `nuclides` | `Vec<crate::material::nuclide::Nuclide>` | The table with the bound carbon copies appended after it. |
+| `roles` | `RoleIndex` | Where each role sits in [`Self::nuclides`]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `htr10_pebble_mix`
@@ -77537,6 +78010,25 @@ Wigner-Seitz cell radius for a lump of radius `r_lump` at cell-average
 
 ```rust
 pub fn cell_radius(r_lump: f64, c_per_u: f64) -> f64 { /* ... */ }
+```
+
+#### Function `bind_graphite`
+
+Give every material that holds carbon the crystalline-graphite law on its
+carbon, per material as OpenMC does (GitHub #462, #1635 item 3): the table
+`nuclides` (the five of [`TAPES`] first, free) keeps its entries and its
+indices, and [`assign_material_sab`] appends a bound copy of C-12 and of
+C-13 for the materials that reference them. A material without carbon (a
+uranium lump) is untouched. `law = None` binds nothing (the explicit
+ablation): the materials and the table come back unchanged.
+
+# Errors
+
+Fewer than five nuclides, or whatever [`assign_material_sab`] refuses
+(notably a carbon slot already bound by the deprecated nuclide-level call).
+
+```rust
+pub fn bind_graphite(materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], law: Option<&crate::material::thermal::ThermalScattering>) -> Result<GraphiteBinding, String> { /* ... */ }
 ```
 
 ### Constants and Statics
