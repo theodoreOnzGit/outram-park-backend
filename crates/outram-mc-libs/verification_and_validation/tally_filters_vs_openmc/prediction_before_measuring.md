@@ -57,3 +57,17 @@ Not tuned; misses are reported.
 
 REACTION, PARTICLE_PRODUCTION (absent in OpenMC 0.15.3), PARENT_NUCLIDE (needs a depletion chain and a decay source).
 LEGENDRE: attempted only if the scatter-event driver is finished; otherwise reported as not done.
+
+## Amendment 1 (2026-11-18, before any run; from reading code, not results)
+
+The pass criterion "relative difference <= 1e-9" in Experiment A is too tight by
+construction: the transport nudges the particle `NUDGE = 1.0e-9 cm` at every
+surface and lattice crossing without scoring that step (`transport_csg.rs:2051`,
+`geometry/crossing/mod.rs:1020`), OpenMC does not. A beam of ~5 cm segments with a
+handful of crossings therefore carries a systematic relative difference up to
+~`n_cross * 1e-9 / segment` ~ 1e-9 to 1e-8 per bin. The criterion is fixed here, before
+any comparison, at **relative 2e-8, or absolute 2e-8 cm for bins under 1 cm**; a bin
+exceeding that is reported as a miss, whatever the cause. Crossing-count filters
+(cell-from, mesh-surface, ...) are integer-valued and must match **exactly**.
+Geometry used (fixed now): 3x1x1 lattice, pitch 6 cm, tile = sphere r=2 cm (cell A) in
+cell B; dilute O-16 materials M1 (A) and M2 (B); regular mesh 6x2x1 over the block.
