@@ -37,6 +37,13 @@ const PARTICLES: usize = 20_000;
 const INACTIVE: usize = 30;
 const ACTIVE: usize = 100;
 
+/// Diagnostic knobs (README section "B1 reflective discrepancy: diagnosis"):
+/// `OUTRAM_BC259_PARTICLES`, `OUTRAM_BC259_INACTIVE`, `OUTRAM_BC259_ACTIVE`
+/// override the defaults above; unset, the gate is exactly as recorded.
+fn env_usize(name: &str, default: usize) -> usize {
+    std::env::var(name).ok().and_then(|s| s.parse().ok()).unwrap_or(default)
+}
+
 fn fuel_slab_xs() -> Mgxs {
     Mgxs::new("fuel", vec![1.0], vec![0.30], vec![0.20], vec![0.50], vec![1.0], vec![0.70])
 }
@@ -132,6 +139,53 @@ fn rod_box(cx: f64, cy: f64, periodic: bool) -> Geometry {
     }
 }
 
+/// Case B1U: the method-of-images unfolding of the reflective B1 box. The
+/// reflective 6 x 6 box with a rod at (1.2, 1.7) is exactly the periodic
+/// 12 x 12 box (pitch 12, faces paired x=0<->x=12, y=0<->y=12) holding the
+/// rod and its three mirror images: (1.2, 1.7), (10.8, 1.7), (1.2, 10.3),
+/// (10.8, 10.3). Uses only the periodic crossing path, no reflective x/y wall.
+fn unfolded_b1() -> Geometry {
+    use HalfSpaceSense::{Inside, Outside};
+    let pb = |partner: usize| BoundaryType::PeriodicWith(partner);
+    let rods = [(1.2, 1.7), (10.8, 1.7), (1.2, 10.3), (10.8, 10.3)];
+    let mut surfaces = vec![
+        SurfaceKind::XPlane(XPlane { x0: 0.0, bc: pb(1) }),
+        SurfaceKind::XPlane(XPlane { x0: 12.0, bc: pb(0) }),
+        SurfaceKind::YPlane(YPlane { y0: 0.0, bc: pb(3) }),
+        SurfaceKind::YPlane(YPlane { y0: 12.0, bc: pb(2) }),
+        SurfaceKind::ZPlane(ZPlane { z0: -1.0, bc: BoundaryType::Reflective }),
+        SurfaceKind::ZPlane(ZPlane { z0: 1.0, bc: BoundaryType::Reflective }),
+    ];
+    for (cx, cy) in rods {
+        surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+            x0: cx,
+            y0: cy,
+            r: 0.8,
+            bc: BoundaryType::Transmissive,
+        }));
+    }
+    let box_tokens =
+        [(0, Outside), (1, Inside), (2, Outside), (3, Inside), (4, Outside), (5, Inside)];
+    let mut cells = Vec::new();
+    for k in 0..4 {
+        let mut t = box_tokens.to_vec();
+        t.push((6 + k, Inside));
+        cells.push(Cell::material(1 + k as i32, intersection(&t), 0, 293.6));
+    }
+    let mut m = box_tokens.to_vec();
+    for k in 0..4 {
+        m.push((6 + k, Outside));
+    }
+    cells.push(Cell::material(5, intersection(&m), 1, 293.6));
+    Geometry {
+        surfaces,
+        cells,
+        universes: vec![Universe { id: 0, cell_indices: vec![0, 1, 2, 3, 4] }],
+        lattices: vec![],
+        root_universe: 0,
+    }
+}
+
 /// One configuration: geometry, library, source box.
 struct Config {
     name: &'static str,
@@ -172,11 +226,29 @@ fn configs() -> Vec<Config> {
             });
         }
     }
+    // Diagnostic only, never part of the gate: `OUTRAM_BC259_ONLY=B1U`.
+    if std::env::var("OUTRAM_BC259_ONLY").as_deref() == Ok("B1U") {
+        v.push(Config {
+            name: "B1U",
+            bc: "periodic12",
+            geom: unfolded_b1(),
+            lib: MgxsLibrary::new(vec![fuel2_xs(), mod_xs()]),
+            src: SourceBox {
+                lower: Position::new(0.0, 0.0, -1.0),
+                upper: Position::new(12.0, 12.0, 1.0),
+            },
+        });
+    }
     v
 }
 
 fn run_one(c: &Config, seed: u64) -> f64 {
-    let settings = MgSettings { n_particles: PARTICLES, n_inactive: INACTIVE, n_active: ACTIVE, seed };
+    let settings = MgSettings {
+        n_particles: env_usize("OUTRAM_BC259_PARTICLES", PARTICLES),
+        n_inactive: env_usize("OUTRAM_BC259_INACTIVE", INACTIVE),
+        n_active: env_usize("OUTRAM_BC259_ACTIVE", ACTIVE),
+        seed,
+    };
     run_keff_mg(&c.geom, &c.lib, SourceBox { lower: c.src.lower, upper: c.src.upper }, &settings)
         .k_mean
 }

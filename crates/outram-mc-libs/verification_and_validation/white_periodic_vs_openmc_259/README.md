@@ -350,3 +350,205 @@ json.dump({'case': case, 'bc': bc, 'seeds': list(range(first, first + nseeds)), 
 print(case, bc, 'mean %.6f sem %.6f wall %.1fs' % (np.mean(ks),
       np.std(ks, ddof=1) / np.sqrt(len(ks)), time.time() - t0))
 ```
+
+---
+
+# B1 reflective discrepancy: diagnosis (GitHub #259)
+
+Status of this section: **HYPOTHESIS STAGE, written and committed before any
+diagnostic run** (2026-11-18). Results are appended below in a later commit;
+the text down to "Experiments" is not edited afterwards.
+
+## Upstream read first (no run yet)
+
+* OpenMC `ReflectiveBC::handle_particle` (`src/boundary_condition.cpp`):
+  `surf.reflect(r, u)` about the ONE struck surface, renormalise, then
+  `Particle::cross_reflective_bc` (`src/particle.cpp:657`): set `u`, put the
+  particle back in `cell_last`, flip the surface token, and re-find the cell
+  from the root (`neighbor_list_find_cell`). No nudge, no corner composition:
+  a particle exactly on two walls reflects off the first and meets the second
+  at distance 0 on its next move.
+* This port (`geometry/crossing/mod.rs`, `Geometry::cross_surface`,
+  `Reflective` arm): `compose_corner_reflection` reflects off the struck wall
+  and every other reflective wall within 1e-9 cm of the crossing point,
+  `nudge_across` moves the particle 1e-9 cm inside, and the driver
+  (`physics_mg.rs::transport_history`) re-locates with the outgoing surface
+  token. For a lone wall this is the same mirror as upstream; the two differ
+  only at a corner/edge (composed vs sequential, which is the same retro-
+  reflection for orthogonal planes) and by the 1e-9 cm nudge.
+* What upstream does that the port does not: nothing that bears on this box.
+  Corner events need a crossing within 1e-9 cm of two walls, probability of
+  order 1e-9 per boundary event; the rod (r 0.8 at (1.2, 1.7)) is 0.4 cm from
+  x = 0 and 0.9 cm from y = 0 and never coincident with a wall. The reflective
+  arm is also the same code in B0 (centred rod), which agrees.
+* Reviewed-function check: `src/geometry/crossing/review.md` holds no
+  `kind = "review"` block (it is the empty kovan note), so nothing in
+  `crossing/mod.rs` is stamped.
+
+## Hypotheses, with predicted sign and size (before measuring)
+
+The discrepancy to explain: port - OpenMC = 1.38024 - 1.38071 = **-47 pcm**
+(-4.7e-4), z -3.11 on 32 seeds; periodic B1 and both B0 arms agree.
+
+* **H1, the reflective crossing is defective (a missing limit or nudge
+  effect).** Predicted effect: k of the port is LOW by about 47 pcm relative
+  to the true reflective lattice. Discriminator E1 below. My prior is low
+  (~20 %): the code reading above finds no mechanism, and corner events are
+  of order 1e-9 per crossing.
+* **H2, the 30 vs 20 inactive batches.** A source confined to one rod in a
+  6 cm box relaxes in a few generations; predicted effect of 20 vs 30 inactive
+  in the port: |dk| < 5e-5 (inside the seed sem), sign indeterminate. Prior
+  ~5 %. Discriminator E2.
+* **H3, finite-population (batch-size) bias that differs between the codes.**
+  This port's MG driver redraws the next source WITH replacement
+  (`physics_mg.rs::resample`, its own doc says "crude"); OpenMC carries each
+  site once (sampling without replacement, no duplicates). Duplicated sites
+  add source variance, and the known k bias from a fluctuating source scales
+  as 1/N. Predicted: the port is biased LOW, the gap scales as 1/N, so at
+  N = 80 000 the gap shrinks from -47 pcm to about -12 pcm (a factor 4).
+  Why B1 reflective and not the others: OpenMC's reflective sem is smallest
+  there; the other cases may carry the same bias at smaller, unresolved size
+  (B0 reflective is +1.23 sigma the other way, which this hypothesis does not
+  explain). Prior ~35 %. Discriminator E3.
+* **H4, a fluctuation that survived 32 seeds (3.1 sigma, p about 0.002
+  two-sided, but 10 comparisons were looked at, so p about 0.02).** Prior
+  ~40 %. Discriminator: a disjoint block of seeds 33-64 for B1 reflective in
+  both codes; predicted gap there 0 +/- 25 pcm.
+
+## Experiments (cheapest discriminators first)
+
+* **E1, unfold the reflective box by the method of images.** The reflective
+  6x6 box with a rod at (1.2, 1.7) is EXACTLY the periodic 12x12 box with four
+  rods at (1.2, 1.7), (10.8, 1.7), (1.2, 10.3), (10.8, 10.3) (mirror images
+  through x = 0 and y = 0, wrapped by the pitch 12). Run that "B1U" in this
+  port using only the periodic path (which agrees with OpenMC) and in OpenMC.
+  If H1: port B1U = OpenMC value (1.3807), i.e. +47 pcm above port reflective.
+  If not H1: port B1U = port reflective (1.3802): the reflective crossing is
+  consistent with the periodic one and the gap is not in the boundary code.
+  Source: the four rods, so the same particles per rod ratio as before is not
+  kept; 20 000 particles per batch as everywhere.
+* **E2** port B1 reflective with 20 inactive (new env knob).
+* **E3** port and OpenMC B1 reflective at N = 80 000 particles per batch.
+* **E4** seeds 33-64 for B1 reflective in both codes.
+
+Seed ensembles only; z = (ours - OpenMC) / sqrt(sem_a^2 + sem_b^2) over the
+per-seed run means.
+
+## Experiments E1, E3, E4 as run, and prediction for E5 (written before E5)
+
+Interim measurements (hardware: Intel Xeon @ 2.10 GHz, 4 logical cores shared
+with other jobs; port 2 worker threads, OpenMC 1 thread per process):
+
+* **E1 (unfolded 12 x 12 periodic, 4 rods; 50 inactive both codes, seeds 1-16):**
+  port 1.38015 +/- 0.00022, OpenMC 1.38078 +/- 0.00007, z -2.67. OpenMC's
+  unfolded value equals its own reflective B1 (1.38065 / 1.38071), as the
+  images argument requires. The port's unfolded value equals ITS reflective
+  B1 (1.38024). So the port is low on this lattice **through its periodic
+  path too**: H1 (reflective crossing defect) is not supported.
+* **E4 (OpenMC B1 reflective, seeds 33-64):** 1.38087 +/- 0.00008. The OpenMC
+  value is stable at 1.3807-1.3809 over 64 seeds, H4 (fluctuation) is not
+  supported.
+* **E3 (port N = 80 000, 12 seeds, 30 + 100):** B1 reflective
+  1.38049 +/- 0.00014 (was 1.38024 +/- 0.00013 at N = 20 000), B1 periodic
+  1.35901 +/- 0.00010 (unchanged). OpenMC at N = 80 000 pending.
+
+**E5 prediction (before running):** replace the MG driver's with-replacement
+resampling by `comb_resample` (the CE drivers' routine since #460). If H3 is
+the whole cause, port B1 reflective at N = 20 000, 16 seeds, 30 + 100 rises
+by +35 to +47 pcm to 1.3806-1.3807 (z against OpenMC 1.38071 within 2), and
+B1U and B0 move by no more than their sem. If it moves by less than 15 pcm,
+H3 is rejected as the main cause.
+
+## Diagnosis: results (appended 2026-11-18; hypotheses above unedited)
+
+Hardware for all runs: Intel Xeon @ 2.10 GHz, 4 logical cores, 15 GB RAM,
+Linux 6.18, CPU only, shared with other agents' jobs. Port: 2 worker threads
+per test process. OpenMC 0.15.3 (`27e38e8`): 1 thread per process. Wall times:
+OpenMC B1 reflective 32 seeds 708 s; OpenMC N = 80 000, 12 seeds 1054 s; port
+full gate (160 runs) 802 s; port N = 80 000 (24 runs) 2124 s.
+
+### Verdict
+
+**The cause is not the reflective boundary. The best-supported cause is the
+multigroup driver's population control**: `physics_mg.rs::resample` redrew the
+next source WITH replacement, the leftover of the pre-#460 sampler that the CE
+drivers had already replaced by `fission::comb_resample`. Switching the MG
+driver to the comb (`physics_mg.rs`, this change) brings B1 reflective, the
+unfolded B1U and every other #259 case inside the pre-declared gate. The
+attribution is not a large direct effect: the old-vs-new change in B1
+reflective is +41 +/- 21 pcm (1.9 sigma, pooled 32 seeds). What carries the
+weight is that the comb value agrees with OpenMC (z -0.34, was -3.11) and so
+does B1U (z +0.11, was -2.67), with a prediction made in advance (below).
+
+### What was ruled out
+
+* **H1 (reflective crossing defect): NOT supported (E1).** The method-of-images
+  unfolding of B1 (periodic 12 x 12, four rods; periodic path only, no
+  reflective x/y wall) is low in the old port too: 1.38015 +/- 0.00022 against
+  OpenMC 1.38078 +/- 0.00007 (z -2.67, 16 seeds, 50 inactive in both), the same
+  gap as the reflective box. OpenMC's reflective and unfolded values agree with
+  each other (1.38071 / 1.38078), so the mirror argument holds. The upstream
+  read (above) found no missing limit. Not measured: a direct count of corner
+  hits.
+* **H4 (fluctuation): NOT supported (E4).** OpenMC B1 reflective on seeds
+  33-64: 1.38087 +/- 0.00008; OpenMC is stable at 1.3807-1.3809 over 64 seeds.
+* **H2 (30 vs 20 inactive): not run separately.** B1U used 50 inactive in both
+  codes and the gap was the same as at 30 vs 20; treated as unsupported, not
+  as measured.
+
+### H3 as measured, with the prediction scorecard
+
+* E5 prediction (committed before the run): the comb raises port B1
+  reflective by +35 to +47 pcm; B1U and B0 move by no more than their sem.
+  Measured, pooled 32 seeds: **+41 +/- 21 pcm** (held, at 1.9 sigma). B1U:
+  1.38080 +/- 0.00017 with the comb against 1.38015 old (+65 pcm). B0 moved
+  +0.0002 (reflective) and -0.0005 (periodic), inside 2 sem.
+* **H3's 1/N prediction (E3) was NOT supported at the available precision.**
+  I predicted the gap to shrink from -47 to about -12 pcm at N = 80 000. Old
+  code at 80 000 (12 seeds): 1.38049 +/- 0.00014; OpenMC at 80 000 (12 seeds):
+  1.38085 +/- 0.00008; gap -36 pcm, z -2.2. The port moved only +25 +/- 19 pcm
+  for 4x the particles. Consistent with a bias falling with N, but not showing
+  1/N; not measured further. Why the effect is large for B1/B1U and unresolved
+  for the other cases is NOT explained here.
+
+### New values (comb resampling), seeds 1-16, mean +/- sem over seeds
+
+| case | bc | OpenMC | port old | port new | z old | z new |
+|---|---|---|---|---|---|---|
+| A0.5 | reflective | 0.54607 +/- 0.00008 | 0.54618 | 0.54611 +/- 0.00020 | +0.40 | +0.15 |
+| A0.5 | white | 0.52471 +/- 0.00007 | 0.52491 | 0.52493 +/- 0.00021 | +0.84 | +1.00 |
+| A1.0 | reflective | 0.86638 +/- 0.00010 | 0.86673 | 0.86624 +/- 0.00026 | +1.95 | -0.51 |
+| A1.0 | white | 0.85391 +/- 0.00013 | 0.85412 | 0.85408 +/- 0.00025 | +0.74 | +0.63 |
+| A3.0 | reflective | 1.39565 +/- 0.00016 | 1.39537 | 1.39575 +/- 0.00029 | -1.16 | +0.31 |
+| A3.0 | white | 1.39452 +/- 0.00010 | 1.39432 | 1.39413 +/- 0.00027 | -0.70 | -1.36 |
+| B1 | reflective | 1.38065 +/- 0.00011 | 1.38009 | 1.38076 +/- 0.00024 | -2.18 | +0.42 |
+| B1 | periodic | 1.35898 +/- 0.00010 | 1.35923 | 1.35911 +/- 0.00021 | +1.16 | +0.51 |
+| B0 | reflective | 1.35890 +/- 0.00010 | 1.35915 | 1.35913 +/- 0.00027 | +1.23 | +0.78 |
+| B0 | periodic | 1.35897 +/- 0.00011 | 1.35911 | 1.35858 +/- 0.00025 | +0.46 | -1.40 |
+
+Differences d (other - reflective), new: A0.5 white z +0.61, A1.0 white
++0.80, A3.0 white -1.13, B1 periodic **+0.03** (was +2.42), B0 periodic -1.53
+(was -0.31). **Worst |z| 1.53: `white_and_periodic_ensembles_match_openmc`
+passes** (it failed before on B1 reflective and d(B1)). The port's sems did not
+shrink (0.0002-0.0003 here); the new B0 periodic and d(B0) are now the largest
+deviations, inside the gate, not explained.
+
+Replication, comb, B1 only, seeds 1-32: reflective 1.38065 +/- 0.00017
+(OpenMC 1.38071 +/- 0.00007, z -0.34; old 1.38024 +/- 0.00013, z -3.11),
+periodic 1.35920 +/- 0.00016 (OpenMC 1.35895 +/- 0.00007, z +1.4).
+
+### Consequences and what was not re-measured
+
+* The change moves the random stream of **every** `run_keff_mg` user. In this
+  crate `tests/stats_move_fingerprints.rs::two_group_mg_sphere_is_bit_identical`
+  was re-pinned (k 0.66115 -> 0.65646, -0.7 sigma of that run's own k_std).
+  Other crates calling `run_keff_mg` (`nee_soon`, `dhoby-ghaut`) were NOT
+  re-run; any recorded MG number of theirs is a draw from the old stream.
+* `tests/white_boundary_vs_openmc.rs::white_and_reflective_differ_as_openmc_
+  says_they_do` now FAILS on its single-seed draw at T = 3.0: d = +0.00056
+  (OpenMC -0.00116; single-run sigma of d about 0.00085, so a 2.0 sigma draw).
+  That gate asserts the SIGN of a 1.4 sigma effect on one seed; it passed on
+  the old stream by the draw, not by resolving the effect (the 16-seed
+  ensemble above gives d(T=3) = -0.00162 +/- 0.00040). Seed and assertion
+  left untouched: maintainer's call (suggestion: assert the sign for T <= 1.0
+  only and leave T = 3 to the ensemble gate). Its other two tests pass.

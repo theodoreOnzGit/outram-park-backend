@@ -12,7 +12,11 @@ import openmc
 
 case, bc, nseeds, first, workdir = (sys.argv[1], sys.argv[2], int(sys.argv[3]),
                                     int(sys.argv[4]), os.path.abspath(sys.argv[5]))
-PARTICLES, INACTIVE, ACTIVE = 20000, 20, 100
+# Diagnostic knobs (README 'B1 reflective discrepancy: diagnosis'); defaults = the gate.
+PARTICLES = int(os.environ.get('OMC_PARTICLES', 20000))
+INACTIVE = int(os.environ.get('OMC_INACTIVE', 20))
+ACTIVE = int(os.environ.get('OMC_ACTIVE', 100))
+TAG = os.environ.get('OMC_TAG', '')
 MGXS = os.path.join(workdir, 'mgxs.h5')
 
 
@@ -31,6 +35,8 @@ def build(case, bc):
         cell = openmc.Cell(fill=m, region=+left & -right & +ym & -yp & +zm & -zp)
         src = openmc.stats.Box((0.0, -1.0, -1.0), (T, 1.0, 1.0))
         return [m], openmc.Geometry([cell]), src
+    if case == 'B1U':
+        return build_unfolded()
     cx, cy = {'B1': (1.2, 1.7), 'B0': (3.0, 3.0)}[case]
     fuel = openmc.Material(name='fuel2')
     fuel.set_density('macro', 1.0)
@@ -56,6 +62,37 @@ def build(case, bc):
     c_m = openmc.Cell(fill=mod, region=box & +rod)
     src = openmc.stats.Box((cx - 0.8, cy - 0.8, -1.0), (cx + 0.8, cy + 0.8, 1.0))
     return [fuel, mod], openmc.Geometry([c_f, c_m]), src
+
+
+def build_unfolded():
+    """B1U: method-of-images unfolding of reflective B1 (README diagnosis, E1):
+    periodic 12 x 12 box with the rod and its three mirror images."""
+    fuel = openmc.Material(name='fuel2')
+    fuel.set_density('macro', 1.0)
+    fuel.add_macroscopic('fuel2')
+    mod = openmc.Material(name='mod')
+    mod.set_density('macro', 1.0)
+    mod.add_macroscopic('mod')
+    xm = openmc.XPlane(0.0, boundary_type='periodic')
+    xp = openmc.XPlane(12.0, boundary_type='periodic')
+    ym = openmc.YPlane(0.0, boundary_type='periodic')
+    yp = openmc.YPlane(12.0, boundary_type='periodic')
+    xm.periodic_surface = xp
+    xp.periodic_surface = xm
+    ym.periodic_surface = yp
+    yp.periodic_surface = ym
+    zm = openmc.ZPlane(-1.0, boundary_type='reflective')
+    zp = openmc.ZPlane(1.0, boundary_type='reflective')
+    box = +xm & -xp & +ym & -yp & +zm & -zp
+    rods = [openmc.ZCylinder(x0=x, y0=y, r=0.8)
+            for (x, y) in [(1.2, 1.7), (10.8, 1.7), (1.2, 10.3), (10.8, 10.3)]]
+    cells = [openmc.Cell(fill=fuel, region=box & -r) for r in rods]
+    mreg = box
+    for r in rods:
+        mreg = mreg & +r
+    cells.append(openmc.Cell(fill=mod, region=mreg))
+    src = openmc.stats.Box((0.0, 0.0, -1.0), (12.0, 12.0, 1.0))
+    return [fuel, mod], openmc.Geometry(cells), src
 
 
 ks, t0 = [], time.time()
@@ -84,6 +121,6 @@ for seed in range(first, first + nseeds):
 json.dump({'case': case, 'bc': bc, 'seeds': list(range(first, first + nseeds)), 'k': ks,
            'particles': PARTICLES, 'inactive': INACTIVE, 'active': ACTIVE,
            'wall_s': time.time() - t0},
-          open(os.path.join(workdir, f'{case}_{bc}_s{first}.json'), 'w'))
+          open(os.path.join(workdir, f'{case}_{bc}_s{first}{TAG}.json'), 'w'))
 print(case, bc, 'mean %.6f sem %.6f wall %.1fs' % (np.mean(ks),
       np.std(ks, ddof=1) / np.sqrt(len(ks)), time.time() - t0))

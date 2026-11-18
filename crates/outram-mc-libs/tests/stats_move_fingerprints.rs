@@ -460,7 +460,11 @@ fn two_group_mg_sphere_is_bit_identical() {
     check(
         "mg_sphere",
         fp.0,
-        0xcafa58c94439199d,
+        // Re-pinned (GitHub #259 diagnosis): the MG driver now resamples the bank by the comb
+        // instead of with replacement, so its random stream moved. Was 0xcafa58c94439199d,
+        // k = 0.66115 +/- 0.00639; now k = 0.65646 +/- 0.00676 (single seed, 800 histories:
+        // -0.7 sigma of the run's own k_std, as a stream change gives).
+        0xf4e640eec4a8087b,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
