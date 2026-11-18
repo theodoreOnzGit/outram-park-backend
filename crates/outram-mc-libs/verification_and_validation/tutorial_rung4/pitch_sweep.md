@@ -468,3 +468,13 @@ Prior, stated honestly: H1 ~ 40 %, H4 ~ 15 %, H2 ~ 15 %, ~ 30 % on something
 not on this list. The transport rules were ported from OpenMC and are pinned
 elsewhere; the thermal tables are the one component with two independent
 derivations.
+
+### Added 2026-11-18 after H1b, H1 and H2 were measured, BEFORE H6 is run
+
+H1b, H1 and H2 returned first (results are in the section below); they point
+at the S(a,b) outgoing-energy kernel, not at the cross sections or the neutron
+data. One more hypothesis, with its prediction, before it is run:
+
+| id | hypothesis | discriminator | prediction |
+|---|---|---|---|
+| H6 | the tape-built S(a,b) kernel (384 incident energies x 64 outgoing bins by default) is not converged in a way that matters, and refining it moves k towards NJOY's table | outram-mc from the OpenMC `.h5`, ENDF-built S(a,b) on a 1536 x 256 emission grid (`--sab-grids 1536,256`), 2.40 cm, seeds 1-8, compared with the same arm at 384 x 64 (arm B) | the k shift (fine minus default) is **+60 pcm** (range -50 .. +150): in the one single-energy check made before this (`sab_endf_vs_ace_550`), the fine table's mean outgoing energy sits above the default's at 0.1 and 1.5 eV (+3.7 % and +2.4 %) and the NJOY table sits between them, so refinement should move the default towards NJOY, but the sign of the net thermalisation effect is not something I can derive |
