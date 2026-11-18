@@ -68,7 +68,14 @@
 //!   tier and settings). The differences were −37 ± 38 pcm (z −0.97) at
 //!   1.63576 cm and −1 ± 37 pcm (z −0.01) at 1.75 cm, so those single-run
 //!   tensions were fluctuations. At 2.40 cm it was **−117 ± 39 pcm (z −2.97),
-//!   a miss** of the |z| ≤ 2 gate, cause not investigated. Record:
+//!   a miss** of the |z| ≤ 2 gate, ~~cause not investigated~~ **diagnosed the
+//!   same day (gh:#550): localised to the H-in-H2O S(a,b) table.** With the
+//!   neutron data from OpenMC's own `.h5`, swapping only the S(a,b) for NJOY's
+//!   (`--sab-ace`) moves k by +135 ± 35 pcm and leaves +42 ± 31 pcm (z +1.36)
+//!   against OpenMC; the neutron data (+23 ± 38 pcm), the S(a,b) cross sections
+//!   (1.3e-4) and the emission-grid density (−1 ± 43 pcm) are ruled out; which
+//!   feature of the kernel differs is not isolated. Record ("2.40 cm miss:
+//!   diagnosis"):
 //!   `verification_and_validation/tutorial_rung4/pitch_sweep.md`.
 //!   The 4 unborated points agree within 1σ.
 //! - **Predictions 3 and 4** (borated peak at V_m/V_f ≈ 2–3, LCT-008
