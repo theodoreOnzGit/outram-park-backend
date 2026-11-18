@@ -678,6 +678,18 @@ mod desktop {
             compute,
             ..KeffSettings::default()
         };
+        // `OUTRAM_FHR_ALL_SEED=S` (gh:#1635 item 1): master seed S for EVERY
+        // solve of this run (the TRISO packing seed below is a separate
+        // constant and does not move). Unset, `keff` is untouched and the
+        // output is unchanged. Env glue in an example's `run()`, exempt from
+        // the reached-by-a-test rule: it is exercised by every ensemble run.
+        let keff = match std::env::var("OUTRAM_FHR_ALL_SEED") {
+            Ok(s) => KeffSettings {
+                seed: s.parse().expect("OUTRAM_FHR_ALL_SEED must be a u64"),
+                ..keff
+            },
+            Err(_) => keff,
+        };
         // Full-pebble delta domains. The OpenMC deck clips the coolant at a
         // reflective SPHERE r = 3, so `ball` is the matched domain and every
         // absolute comparison against OpenMC uses it.
