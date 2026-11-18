@@ -276,6 +276,42 @@ Sensitivity log: `sensitivity_u238_run.log`.
 - Piece 303 has no OpenMC self-sensitivity run (about 40 min per trial).
 - The installed OpenMC 0.15.3 (27e38e89) was not used for any fit; see the top.
 
+## Extension run, 2026-11-18 evening (maintainer: "run more pieces here", a budget of about 5 h)
+
+Written and committed **before** any run of this extension (started 20:05 UTC).
+Same machine, reference (OpenMC `8f79d9d`, pure Python `vectfit`), tape and drivers as above.
+
+### Fixed rules (chosen from the front-end piece table `pieces.txt`, not from any fit result)
+
+1. **Self-sensitivity** (`openmc_inputs/sensitivity_u238_inputs.py`, 2 trials of +-1 ulp per piece, plus
+   the unperturbed rerun): on every piece fitted so far that lacks it: 0, 1, 2, 3, 4, 6, 9, 10, 11, 303.
+   Order: cheap first, 303 last. "Inside OpenMC's own sensitivity" is stated per metric (poles, residues,
+   sigma): the port-vs-OpenMC value is **inside** if it does not exceed the largest value OpenMC shows
+   against itself on that piece (any trial), **outside** otherwise.
+2. **New pieces to fit with both codes**, `fit_u238_pieces.py` (upstream's `_vectfit_xs`, unmodified, on the
+   inputs captured from `vectfit_nuclide`, each checksum-verified against `pieces.txt`):
+   - set A, stratified: every 25th piece by index, 25, 50, 75, 125, 150, 175, 225, 250, 275 (100, 200
+     are already done);
+   - set B, largest by point count among the 304: 298 (7 929), 296 (7 789), 299 (7 689);
+   - set C (only if budget remains after A and B): the contiguous prefix extension 12, 13, 14, ... upward,
+     for step 3.
+   Execution order: A ascending, then B by size, then C ascending. Pieces are not skipped or reordered
+   after seeing a result; whatever is unfinished at the budget is reported as not done.
+3. **Windowing** (step 3), only on a contiguous prefix: the longest fitted contiguous run from piece 0 at
+   the budget; windows, spacing, fit order and used poles compared exactly, curve fit and sigma(E,T) as
+   for the 12-piece prefix.
+
+### Predictions (written before running)
+
+| quantity | prediction |
+|---|---|
+| pole count, new pieces | identical in at least 90 % of the pieces that finish; most likely a single flip at a dense high-energy piece (30 to 80 poles, thousands of near-tied orders) |
+| port - OpenMC against OpenMC's self-sensitivity | for the 10 small/old pieces (0-4, 6, 9, 10, 11, 303): **inside on all three metrics in at least 7 of 10**; 303 inside (as 100 and 200). For the new pieces with more than 16 poles: inside in at least 75 %. Pieces whose differences are 1e-12 to 1e-9 (0-2, 4, 11) will show an OpenMC self-sensitivity of the same order or larger |
+| points outside rtol/atol of the data | port not worse than OpenMC on at least 80 % of the new pieces (the existing gate "port misses no more grid points than OpenMC" may fail on one) |
+| OpenMC run time | 5 to 60 min per new piece on a quiet machine, growing with energy; at least 6 of the 12 pieces in A and B finish in the budget; the largest of B (7 900 points) probably more than 1 h |
+| port run time | 3 to 13 times shorter than OpenMC (as above) |
+| longer-prefix windowing (if run) | windows, spacing, fit order, used poles identical; curve fit within 1e-4 of scale; sigma 100 % inside rtol/atol |
+
 ## Appendix: the reference driver, verbatim
 
 `openmc_inputs/ref_u238_subset.py`, run 2026-11-18 11:59 UTC against OpenMC
