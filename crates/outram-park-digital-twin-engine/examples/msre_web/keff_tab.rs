@@ -5,6 +5,17 @@
 //! default sits outside that band (+1726 ± 23 pcm, the V&V record): the tab
 //! shows that, it does not hide it.**
 //!
+//! **Since 2026-11-18 (gh:#1661) the tab uses the standard k_eff layout**
+//! every k_eff simulator shares (#1652; `dhoby_ghaut::mc_web`): the left
+//! panel holds the model's sliders (temperatures, U-235, shield, the three
+//! control rods by `rod_bank`, the salt level, the enrichment) and the
+//! run settings (`run_settings`); the bottom dock k and the Shannon
+//! entropy (`keffplot`); the right dock the rods (`rod_bank::draw_bank`);
+//! the main view the geometry, with zoom in, out and reset. With every new
+//! control at its default (rods not modelled, full vessel, the salt's own
+//! enrichment) the study is the record's, so a run is the same run as
+//! before.
+//!
 //! The pool, the measured split and the presets are the library's
 //! (`msre::web::keff_pool`, gh:#1578); this file is the egui half.
 //!
@@ -15,11 +26,14 @@
 use crate::engine::{Event, Request};
 use bugis::web_demo::link::Link;
 use bugis::web_demo::loading::Loading;
+use bugis::web_demo::dock::{Dock, Edge};
 use dhoby_ghaut::mc_web::keff::KeffConfig;
+use dhoby_ghaut::mc_web::keffplot::{self, GenPoint, RefLine, RunShape, StatusLine};
+use dhoby_ghaut::mc_web::rod_bank::{self, BankStyle, RodBank};
+use dhoby_ghaut::mc_web::run_settings::{run_settings_ui, RunPresets};
 use dhoby_ghaut::mc_web::pool::{GenSummary, Note};
-use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke, Vec2};
-use egui_plot::{HLine, Legend, Line, Plot, PlotPoints, Points};
-use outram_park_digital_twin_engine::msre::first_criticality::Study;
+use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Vec2};
+use outram_park_digital_twin_engine::msre::first_criticality::{self as m, Study};
 use outram_park_digital_twin_engine::msre::session::{Coefficients, SPLIT_BASE_F, SPLIT_STEP_F};
 use outram_park_digital_twin_engine::msre::web::keff::{jobs, Job, KReq, View};
 use outram_park_digital_twin_engine::msre::web::keff_pool::{plan_workers, preset_cfg, Finished, Phase, Pool, Split, BAND_PCM, K_REF, PRESETS};
@@ -54,7 +68,33 @@ pub struct KeffTab {
     autorun: bool,
     /// `?kmeasure`: start the measured split on load (the same check).
     automeasure: bool,
+    /// The run settings the reader has set (the standard left-panel
+    /// fields, gh:#1661); a preset or `?kcfg=` fills them.
+    run_cfg: KeffConfig,
+    /// The three rods (gh:#1658), in `m::OPENINGS` order (rods 2, 1, 3),
+    /// and whether they are modelled at all (off: the record's empty
+    /// thimbles).
+    rods: RodBank,
+    rods_on: bool,
+    /// The salt level (gh:#1659): on, and z in cm.
+    level_on: bool,
+    level_cm: f64,
+    /// The enrichment (gh:#1660): on, and the U-235 weight fraction.
+    enrich_on: bool,
+    enrich_w: f64,
+    /// The main view's zoom and pan over the geometry drawing.
+    geo_view: bugis::web_demo::view::View,
+    /// The standard docks: k and entropy below, the rods on the right.
+    keff_dock: Dock,
+    views_dock: Dock,
 }
+
+/// The V&V record's settings (gh:#1128): 20 000 × [100 + 200], seed 1.
+const RECORD_RUN: KeffConfig = KeffConfig { n_particles: 20_000, n_inactive: 100, n_active: 200, seed: 1, point_source: false, want_sites: false };
+
+/// The rods' names in `m::OPENINGS` order (ORNL-4233's numbering,
+/// `m::rods_inserted`).
+const ROD_LABELS: [&str; 3] = ["rod 2", "rod 1 (regulating, ORNL-4233)", "rod 3"];
 
 impl Default for KeffTab {
     fn default() -> Self {
@@ -72,12 +112,19 @@ impl Default for KeffTab {
             error: None,
             split: None,
             send: None,
-            custom: query("kcfg").and_then(|v| {
-                let n: Vec<u64> = v.split(',').filter_map(|x| x.trim().parse().ok()).collect();
-                (n.len() == 4).then(|| KeffConfig { n_particles: n[0] as usize, n_inactive: n[1] as usize, n_active: n[2] as usize, seed: n[3], point_source: false, want_sites: false })
-            }),
+            custom: KeffTab::custom_from_query(),
+            run_cfg: KeffTab::custom_from_query().unwrap_or(preset_cfg(0)),
             autorun: query("krun").is_some(),
             automeasure: query("kmeasure").is_some(),
+            rods: RodBank::from_query(3, 1, &bugis::web_demo::platform::query_pairs()),
+            rods_on: query("rods").is_some(),
+            level_on: false,
+            level_cm: m::H_CORE,
+            enrich_on: false,
+            enrich_w: 0.30993,
+            geo_view: bugis::web_demo::view::View::new(1.0),
+            keff_dock: Dock::new(Edge::Bottom, "k_eff · entropy"),
+            views_dock: Dock::new(Edge::Right, "Rods"),
         }
     }
 }
@@ -93,12 +140,17 @@ fn workers() -> usize {
 }
 
 impl KeffTab {
+    /// `?kcfg=n,inactive,active,seed`: settings in place of the presets.
+    fn custom_from_query() -> Option<KeffConfig> {
+        query("kcfg").and_then(|v| {
+            let n: Vec<u64> = v.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            (n.len() == 4).then(|| KeffConfig { n_particles: n[0] as usize, n_inactive: n[1] as usize, n_active: n[2] as usize, seed: n[3], point_source: false, want_sites: false })
+        })
+    }
+
     /// The settings of the chosen preset.
     pub fn cfg(&self) -> KeffConfig {
-        if let Some(c) = self.custom {
-            return c;
-        }
-        preset_cfg(self.preset)
+        self.custom.unwrap_or(self.run_cfg)
     }
 
     /// A run is going (or waiting for its data).
@@ -237,16 +289,54 @@ impl KeffTab {
             ui.add(egui::Slider::new(&mut self.study.graphite_f, 900.0..=1400.0).text("graphite °F"));
             ui.add(egui::Slider::new(&mut self.study.u235_scale, 0.9..=1.1).text("U-235 × (enriching salt)"));
             ui.checkbox(&mut self.study.shield, "Thermal shield (TM-0728, the default; off: ~37 nuclides, lighter)");
+            ui.separator();
+            ui.label(RichText::new("Control rods").strong());
+            ui.checkbox(&mut self.rods_on, "Model the rods (off: the record's empty thimbles)");
+            if self.rods_on {
+                let labels: Vec<String> = ROD_LABELS.iter().map(|l| (*l).to_string()).collect();
+                rod_bank::controls_ui(
+                    ui,
+                    "msre-rods",
+                    &mut self.rods,
+                    &labels,
+                    "Three Gd2O3-Al2O3 rods in thimbles near the centre (TM-0728 Table 5.4). 0 % is the upper limit, 51 in withdrawn, which still leaves 2.75 in of poison in the top of the graphite; 100 % is the driven lower limit (ORNL-4233 Fig. 2).",
+                    Some("Needs ENDF/B-VIII.0 Gd-152, 154, 155, 158 and 160, not yet in the published data (gh:#1658): a run with rods fails at the data step until they are."),
+                );
+            }
+            ui.separator();
+            ui.label(RichText::new("Fuel salt").strong());
+            ui.checkbox(&mut self.level_on, "Partly filled (off: a full vessel, the record)");
+            if self.level_on {
+                ui.add(egui::Slider::new(&mut self.level_cm, -20.0..=m::H_CORE + 20.0).text("salt surface z, cm (graphite 0 to 163)"));
+            }
+            ui.checkbox(&mut self.enrich_on, "Set the enrichment (off: the salt's own, 30.99 wt %)");
+            if self.enrich_on {
+                ui.add(egui::Slider::new(&mut self.enrich_w, 0.20..=0.93).text("U-235 wt fraction of the uranium"));
+            }
+            self.study.rods = self.rods_on.then(|| [self.rods.rods[0], self.rods.rods[1], self.rods.rods[2]]);
+            self.study.salt_level_cm = self.level_on.then_some(self.level_cm);
+            self.study.u235_enrichment = self.enrich_on.then_some(self.enrich_w);
             if ui.button("Back to the record's default").clicked() {
                 self.study = Study::default();
+                (self.rods_on, self.level_on, self.enrich_on) = (false, false, false);
             }
-            egui::ComboBox::from_label("accuracy")
+            ui.separator();
+            ui.label(RichText::new("k_eff settings").strong());
+            let before = self.preset;
+            egui::ComboBox::from_label("preset")
                 .selected_text(format!("{} (~±{:.0} pcm)", PRESETS[self.preset].0, PRESETS[self.preset].4))
                 .show_ui(ui, |ui| {
                     for (i, p) in PRESETS.iter().enumerate() {
                         ui.selectable_value(&mut self.preset, i, format!("{}: {} × [{} + {}], ~±{:.0} pcm", p.0, p.1, p.2, p.3, p.4));
                     }
                 });
+            if self.preset != before {
+                self.run_cfg = preset_cfg(self.preset);
+                self.custom = None;
+            }
+            if run_settings_ui(ui, "msre_cfg", &mut self.run_cfg, 0, &RunPresets { defaults: preset_cfg(0), recorded: Some(RECORD_RUN) }, busy) {
+                self.custom = None;
+            }
         });
         ui.label(RichText::new("The ± are estimates scaled from the V&V record; each run shows its own σ. A changed temperature or shield means the nuclear data are processed again (a cached product is read back).").small());
         ui.horizontal(|ui| {
@@ -345,34 +435,118 @@ impl KeffTab {
         }
     }
 
-    /// The main view: geometry above, k below. GUI drawing code.
+    /// The main view in the standard k_eff layout (gh:#1661): the
+    /// geometry in the middle, the k and entropy dock below, the rods dock
+    /// on the right. GUI drawing code.
     pub fn view_ui(&mut self, ui: &mut egui::Ui, rect: Rect) {
-        let narrow = rect.width() < 700.0;
-        let (geo, plot) = if narrow {
-            let h = rect.height() * 0.45;
-            (Rect::from_min_size(rect.min, Vec2::new(rect.width(), h)), Rect::from_min_max(Pos2::new(rect.left(), rect.top() + h + 8.0), rect.max))
-        } else {
-            let w = rect.width() * 0.45;
-            (Rect::from_min_size(rect.min, Vec2::new(w, rect.height())), Rect::from_min_max(Pos2::new(rect.left() + w + 8.0, rect.top()), rect.max))
-        };
-        self.geometry_ui(ui, geo);
-        ui.scope_builder(egui::UiBuilder::new().max_rect(plot), |ui| self.plot_ui(ui));
-        // While the nuclear data are processed, the card over the plot (as
-        // the HTR-10 demo's), so it shows with the panel folded on a phone.
-        if let (Some(p), Some((_, l))) = (self.pool.as_ref(), self.loading.as_ref()) {
-            if p.data_phase() {
-                let note = if p.data.secs.iter().any(Option::is_some) {
-                    format!("First visit: several minutes in this browser; U-235 and U-238 are the longest (U-235 alone took about 500 s on a phone, measured by the maintainer, 2026-11-15). A later visit reads the results from this browser's cache. So far: {}.", p.data.data_source())
-                } else {
-                    "First visit: several minutes in this browser; U-235 and U-238 are the longest (U-235 alone took about 500 s on a phone, measured by the maintainer, 2026-11-15). A later visit reads the results from this browser's cache.".to_string()
-                };
-                let title = format!("Processing ENDF/B-VIII.0 on {} workers", p.links.len());
-                l.card(ui.painter(), plot, &title, Some(&note));
+        let views = self.views_dock.split(rect);
+        if let Some(body) = views.body {
+            self.rods_ui(ui, body);
+        }
+        if !views.covers_main() {
+            let keff = self.keff_dock.split(views.main);
+            // A folded right dock leaves its tab over the main view's top
+            // right, where the zoom buttons go: put them below it.
+            let clear = if views.body.is_none() { (views.header.bottom() + 6.0 - keff.main.top()).max(0.0) } else { 0.0 };
+            self.geometry_ui(ui, keff.main, clear);
+            if let Some(body) = keff.body {
+                let painter = ui.painter_at(body);
+                self.keff_body(ui, &painter, body);
             }
+            // While the nuclear data are processed, the card over the main
+            // view (as the HTR-10 demo's), so it shows with the panel folded.
+            if let (Some(p), Some((_, l))) = (self.pool.as_ref(), self.loading.as_ref()) {
+                if p.data_phase() {
+                    let note = if p.data.secs.iter().any(Option::is_some) {
+                        format!("First visit: several minutes in this browser; U-235 and U-238 are the longest (U-235 alone took about 500 s on a phone, measured by the maintainer, 2026-11-15). A later visit reads the results from this browser's cache. So far: {}.", p.data.data_source())
+                    } else {
+                        "First visit: several minutes in this browser; U-235 and U-238 are the longest (U-235 alone took about 500 s on a phone, measured by the maintainer, 2026-11-15). A later visit reads the results from this browser's cache.".to_string()
+                    };
+                    let title = format!("Processing ENDF/B-VIII.0 on {} workers", p.links.len());
+                    l.card(ui.painter(), keff.main, &title, Some(&note));
+                }
+            }
+            let row = self.keff_dock.toggle(ui, &keff);
+            self.run_buttons(ui, row);
+        }
+        self.views_dock.toggle(ui, &views);
+    }
+
+    /// Run / Stop in the bottom dock's header, as HTR-10's. GUI code.
+    fn run_buttons(&mut self, ui: &mut egui::Ui, row: Rect) {
+        if row.width() < 60.0 {
+            return;
+        }
+        let b = Rect::from_min_size(row.min, Vec2::new(110.0_f32.min(row.width()), row.height()));
+        if self.busy() {
+            if ui.put(b, egui::Button::new(RichText::new("■ Stop").size(16.0))).clicked() {
+                self.stop();
+            }
+        } else if ui.put(b, egui::Button::new(RichText::new("▶ Run").size(16.0))).clicked() {
+            let (s, c) = (self.study, self.cfg());
+            self.run(ui.ctx(), s, c);
         }
     }
 
-    fn geometry_ui(&mut self, ui: &mut egui::Ui, rect: Rect) {
+    /// The bottom dock: the run's k with its running mean against k_ref
+    /// and the ±1000 pcm band, and the source's Shannon entropy, with the
+    /// shared plots (`dhoby_ghaut::mc_web::keffplot`). GUI drawing code.
+    fn keff_body(&self, ui: &mut egui::Ui, painter: &egui::Painter, rect: Rect) {
+        let rect = rect.shrink2(Vec2::new(8.0, 4.0));
+        let run = self.pool.as_ref().and_then(|p| p.keff.run.as_ref());
+        let cfg = run.map_or(self.cfg(), |r| r.cfg);
+        let pts: Vec<GenPoint> = self.gens.iter().map(|g| GenPoint::from(&g.gen)).collect();
+        let shape = RunShape { n_inactive: cfg.n_inactive, total: cfg.n_inactive + cfg.n_active };
+        let refs = [RefLine { label: format!("k_ref {K_REF:.5} (ORNL-4233) ± 1000 pcm band"), k: K_REF, sigma: Some(K_REF * BAND_PCM * 1e-5), colour: keffplot::REFERENCE_COLOUR }];
+        let mean = pts.last().and_then(|g| g.k_mean);
+        let line = match (run, mean) {
+            (None, _) => format!("No run yet. Next: {} × [{} + {}], seed {}", cfg.n_particles, cfg.n_inactive, cfg.n_active, cfg.seed),
+            (Some(_), None) => format!("generation {}/{}: inactive, the source is settling", self.gens.len(), shape.total),
+            (Some(_), Some((k, s))) => format!("k = {k:.5} ± {s:.5}: {:+.0} ± {:.0} pcm from k_ref · generation {}/{}", 1e5 * (k - K_REF) / (k * K_REF), 1e5 * s / (k * K_REF), self.gens.len(), shape.total),
+        };
+        let text = 13.0;
+        let (plots, pane, strip) = keffplot::body_layout(rect);
+        keffplot::draw_strip(painter, strip, line, bugis::Ink::of_ui(ui).text, text);
+        let ceiling = run.and_then(|r| r.entropy_bins()).map(|b| (b as f64).log2());
+        keffplot::draw_pair(painter, plots, &pts, shape, &refs, ceiling, text * 0.92);
+        let warn = ui.visuals().warn_fg_color;
+        let status: Vec<StatusLine> = vec![(
+            "The model's default sits +1726 ± 23 pcm above k_ref, outside the ±1000 pcm band (V&V record, 2026-11-13); what is left is open (gh:#1128). Not validated.".to_string(),
+            warn,
+        )];
+        let console: Vec<String> = self.pool.as_ref().map(|p| p.keff.log.clone()).unwrap_or_default();
+        keffplot::draw_text_pane(ui, painter, pane, &status, &console, "", text * 0.9, "msre-console");
+    }
+
+    /// The right dock: the three rods as columns against the graphite, by
+    /// the library's drawing (`rod_bank::draw_bank`), on the model's own
+    /// axis (z of the stringer bottom at 0, up). GUI drawing code; the
+    /// positions are `m::rod_lower_end_z`'s, which is tested.
+    fn rods_ui(&mut self, ui: &mut egui::Ui, rect: Rect) {
+        let painter = ui.painter_at(rect);
+        let d = m::Dims::at(self.study.salt_f, self.study.graphite_f);
+        let length = m::ROD_POISON_LENGTH_IN * m::INCH * d.graphite;
+        let spans: Vec<(f64, f64)> = (0..3)
+            .map(|i| {
+                let lo = m::rod_lower_end_z(m::rod_position_in(self.rods.rods[i]), d);
+                // The drawing's depth runs down: depth = top − z.
+                (-(lo + length), -lo)
+            })
+            .collect();
+        let top = m::H_CORE * d.graphite;
+        let style = BankStyle {
+            title: if self.rods_on { "Rods (side): poison, graphite in grey".into() } else { "Rods not modelled (the record): shown where they would be".into() },
+            depth_top: -(top + 70.0),
+            depth_bottom: 20.0,
+            core: (-top, 0.0),
+            core_label: "graphite".into(),
+            absorber: Color32::from_rgb(110, 110, 120),
+            core_colour: Color32::from_rgb(70, 70, 70),
+        };
+        rod_bank::draw_bank(&painter, rect.shrink(6.0), &style, &spans, self.rods.selected, 13.0);
+    }
+
+    fn geometry_ui(&mut self, ui: &mut egui::Ui, rect: Rect, zoom_clear: f32) {
         ui.scope_builder(egui::UiBuilder::new().max_rect(Rect::from_min_size(rect.min, Vec2::new(rect.width(), 30.0))), |ui| {
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.view, View::Plan, "Plan (x-y)");
@@ -410,44 +584,27 @@ impl KeffTab {
             self.texture = Some((ui.ctx().load_texture("msre_geometry", img, egui::TextureOptions::NEAREST), *s, *v));
         }
         if let Some((t, ..)) = &self.texture {
-            let aspect = *h as f32 / *w as f32;
-            let side = area.width().min(area.height() / aspect);
-            let r = Rect::from_center_size(area.center(), Vec2::new(side, side * aspect));
-            ui.painter().image(t.id(), r, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+            // Zoom and pan with the shared view (gh:#1661): the drawing's
+            // centre is the world origin, in cm.
             let (_, _, width) = v.frame(s);
-            ui.painter().text(r.left_bottom() + Vec2::new(0.0, 3.0), Align2::LEFT_TOP, format!("{:.0} cm across · drawn from the assembled CSG", width[0]), FontId::proportional(12.0), ui.visuals().text_color());
+            self.geo_view.half_extent = 0.5 * width[0].max(width[1]);
+            let resp = ui.interact(area, ui.id().with("msre-geometry"), egui::Sense::click_and_drag());
+            self.geo_view.handle_input(ui, &resp);
+            let (hw, hh) = (0.5 * width[0], 0.5 * width[1]);
+            let r = Rect::from_two_pos(self.geo_view.to_screen(area, -hw, hh), self.geo_view.to_screen(area, hw, -hh));
+            let painter = ui.painter_at(area);
+            painter.image(t.id(), r, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+            ui.painter().text(area.left_bottom() + Vec2::new(0.0, 3.0), Align2::LEFT_TOP, format!("{:.0} cm across · drawn from the assembled CSG", width[0]), FontId::proportional(12.0), ui.visuals().text_color());
+            let zoom_rect = Rect::from_min_max(Pos2::new(area.left(), area.top() + zoom_clear), area.max);
+            if let Some(z) = bugis::web_demo::view::zoom_buttons(ui, zoom_rect) {
+                bugis::web_demo::view::apply_zoom(&mut self.geo_view, area, z);
+            }
         }
         for (x, row, c, galley) in items {
             let (x, y) = (rect.left() + x, legend_top + 15.0 * row as f32);
             ui.painter().rect_filled(Rect::from_min_size(Pos2::new(x, y + 2.0), Vec2::splat(10.0)), 1.0, c);
             ui.painter().galley(Pos2::new(x + 14.0, y), galley, ui.visuals().text_color());
         }
-    }
-
-    fn plot_ui(&mut self, ui: &mut egui::Ui) {
-        let cfg = self.pool.as_ref().and_then(|p| p.keff.run.as_ref()).map_or(self.cfg(), |r| r.cfg);
-        let total = cfg.n_inactive + cfg.n_active;
-        let mean = self.pool.as_ref().and_then(|p| p.keff.run.as_ref()).and_then(|r| r.it.as_ref()).and_then(|it| it.k_mean());
-        let head = match mean {
-            Some((k, s)) => format!("k = {k:.5} ± {s:.5}: {:+.0} ± {:.0} pcm from k_ref {K_REF:.5} · generation {}/{total}", 1e5 * (k - K_REF) / (k * K_REF), 1e5 * s / (k * K_REF), self.gens.len()),
-            None if self.gens.is_empty() => format!("Press Run: {} histories × [{} inactive + {} active] on {} workers.", cfg.n_particles, cfg.n_inactive, cfg.n_active, workers()),
-            None => format!("generation {}/{total} (inactive: the source is converging)", self.gens.len()),
-        };
-        ui.label(RichText::new(head).strong());
-        ui.label(RichText::new("The model's default sits +1726 ± 23 pcm above k_ref, outside the ±1000 pcm band (V&V record, 2026-11-13); what is left is open (gh:#1128). Not validated.").small().color(ui.visuals().warn_fg_color));
-        let k: Vec<[f64; 2]> = self.gens.iter().map(|g| [g.gen.index as f64, g.gen.k]).collect();
-        let means: Vec<[f64; 2]> = self.gens.iter().filter_map(|g| g.gen.k_mean.map(|(m, _)| [g.gen.index as f64, m])).collect();
-        let band = BAND_PCM * 1e-5;
-        Plot::new("msre_keff").legend(Legend::default()).allow_scroll(false).x_axis_label("generation").y_axis_label("k").show(ui, |p| {
-            p.hline(HLine::new("k_ref (ORNL-4233)", K_REF).stroke(Stroke::new(1.5, Color32::from_rgb(80, 180, 80))));
-            p.hline(HLine::new("±1000 pcm band", K_REF * (1.0 + band)).stroke(Stroke::new(1.0, Color32::from_rgb(180, 180, 80))));
-            p.hline(HLine::new("±1000 pcm band", K_REF * (1.0 - band)).stroke(Stroke::new(1.0, Color32::from_rgb(180, 180, 80))));
-            if cfg.n_inactive > 0 {
-                p.vline(egui_plot::VLine::new("active from here", cfg.n_inactive as f64).stroke(Stroke::new(1.0, Color32::GRAY)));
-            }
-            p.points(Points::new("k per generation", PlotPoints::from(k)).radius(2.0));
-            p.line(Line::new("running mean (active)", PlotPoints::from(means)).width(2.0));
-        });
     }
 }
 
