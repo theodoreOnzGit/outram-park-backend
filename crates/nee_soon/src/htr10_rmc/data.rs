@@ -50,7 +50,18 @@
 //! error ([`Htr10DataError::NotInFolder`]), never a silent fall-back to the
 //! workspace copy; the one exception is the documented free-gas fall-back
 //! for a missing SiC law, which applies to either source.
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE by slot role, not migrated. Each planned slot is one role (free carbon for the rod B4C and steel, graphite, C-in-SiC, Si in SiC, U/O in UO2); the pebble materials reference U-235/U-238/O-16 only in the kernel, graphite only in the pebble graphite, reflector, bricks and dummy pebbles, SiC slots only in the SiC layer, and the rod-metal slots are a separate set. Not migrated: this loader is the contract of the whole HTR-10 / HTTR model (parametric study, direct coupling, MGXS, web demo) and every HTR-10 k on record has a URR nuclide, so each would need an ensemble re-measure of a full-core run.
+//
+// # S(a,b) per material (gh:#1635 item 3, 2026-11-17)
+//
+// ~~Every bound law was attached to its nuclide slot with
+// `Nuclide::with_thermal_scattering` (gh:#462)~~ **CHANGED 2026-11-17:** the
+// loader's primary products are now [`FreeSlots`] (every slot FREE, each law
+// loaded once) and [`bind_tables_per_material`] / [`FreeSlots::bind_per_material`],
+// which lower OpenMC's per-material association onto the array with
+// `assign_material_sab`. The old nuclide-level entry points
+// ([`load_htr10_nuclides`] and friends) remain for the callers not yet
+// migrated and are built on the free path plus one marked nuclide-level
+// bind, [`bind_nuclide_level`]: the only deprecated call left in this file.
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -58,6 +69,8 @@ use std::time::Instant;
 use njoy_outram_park_fork::endf_folder::{EndfFolder, FindTapeError, TapeIdentity};
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use njoy_outram_park_fork::reference_data::{ace_submodule_dir, reference_data_dir};
+use outram_mc_libs::material::material::Material;
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::htr10::{CarbonSlot, Htr10Nuclides};
@@ -1100,6 +1113,11 @@ pub fn load_slots_with_progress<F: FnMut(LoadProgress)>(
 /// stated (gh:#1138): LEAPR at `temperature` exactly (the default), or the
 /// published tapes (the `OUTRAM_HTR10_TAPE_LAWS` ablation).
 ///
+/// Laws are bound to the nuclide slots (the deprecated nuclide-level binding,
+/// gh:#462): this is [`load_slots_free_with_laws`] followed by
+/// [`bind_nuclide_level`]. New code takes [`FreeSlots`] and binds per
+/// material.
+///
 /// # Errors
 /// As [`load_slots_with_progress`].
 #[allow(clippy::too_many_arguments)]
@@ -1111,8 +1129,40 @@ pub fn load_slots_with_laws<F: FnMut(LoadProgress)>(
     uo2_laws: &Uo2Laws,
     thermal_laws: ThermalLawSource,
     diag: &mut RunDiagnostics,
-    mut progress: F,
+    progress: F,
 ) -> Result<Vec<Nuclide>, Htr10DataError> {
+    let free = load_slots_free_with_laws(
+        slots,
+        notes,
+        temperature,
+        tapes,
+        uo2_laws,
+        thermal_laws,
+        diag,
+        progress,
+    )?;
+    Ok(bind_nuclide_level(free))
+}
+
+/// **Every slot loaded FREE, with each distinct thermal law loaded once**
+/// (gh:#1635 item 3): the body of [`load_slots_with_laws`] without its last
+/// step. Processing, order, notes and diagnostics are exactly those of the
+/// legacy loader; only the binding of the laws is left to the caller, to be
+/// done per material ([`FreeSlots::bind_per_material`]).
+///
+/// # Errors
+/// As [`load_slots_with_progress`].
+#[allow(clippy::too_many_arguments)]
+pub fn load_slots_free_with_laws<F: FnMut(LoadProgress)>(
+    slots: &[NuclideSlot],
+    notes: &[String],
+    temperature: ThermodynamicTemperature,
+    tapes: &TapeSource,
+    uo2_laws: &Uo2Laws,
+    thermal_laws: ThermalLawSource,
+    diag: &mut RunDiagnostics,
+    mut progress: F,
+) -> Result<FreeSlots, Htr10DataError> {
     for n in notes {
         diag.note(n.clone());
         eprintln!("  {n}");
@@ -1182,15 +1232,153 @@ pub fn load_slots_with_laws<F: FnMut(LoadProgress)>(
             path: p,
             reason,
         })?;
-        let bound = s
-            .thermal
-            .and_then(|law| laws.iter().find(|(l, _)| *l == law));
-        out.push(match bound {
-            Some((_, sab)) => nuc.with_thermal_scattering(sab.clone()),
-            None => nuc,
-        });
+        out.push(nuc);
     }
-    Ok(out)
+    let table_of = slots
+        .iter()
+        .map(|s| {
+            s.thermal
+                .and_then(|law| laws.iter().position(|(l, _)| *l == law))
+        })
+        .collect();
+    Ok(FreeSlots {
+        nuclides: out,
+        tables: laws.into_iter().map(|(_, t)| t).collect(),
+        table_of,
+    })
+}
+
+/// **Every nuclide of a slot list loaded FREE, and the thermal laws to be
+/// associated per material** (gh:#1635 item 3, gh:#462).
+///
+/// `table_of[i]` is the index into `tables` of the law slot `i` is to carry,
+/// or `None` (no law, or the documented free-gas fall-back for a SiC law the
+/// source lacks). The same shape serves a nuclide array that is not slot-
+/// indexed (the per-temperature array of `ParametricStudy`): any vector of
+/// `Option<usize>` of the array's length.
+#[derive(Debug, Clone)]
+pub struct FreeSlots {
+    /// One free nuclide per slot, in slot order.
+    pub nuclides: Vec<Nuclide>,
+    /// Each distinct law, loaded once, in first-use order.
+    pub tables: Vec<ThermalScattering>,
+    /// Per slot, the table it carries.
+    pub table_of: Vec<Option<usize>>,
+}
+
+impl FreeSlots {
+    /// Lower the slots' laws onto `materials` and the nuclide array, per
+    /// material ([`bind_tables_per_material`]): every material that
+    /// references a slot with a law gets its own bound copy, at fraction 1.
+    /// Returns the new materials and the nuclide array (the slots keep their
+    /// indices; bound copies are appended).
+    ///
+    /// # Errors
+    /// As [`bind_tables_per_material`].
+    pub fn bind_per_material(
+        &self,
+        materials: &[Material],
+    ) -> Result<(Vec<Material>, Vec<Nuclide>), String> {
+        bind_tables_per_material(materials, &self.nuclides, &self.table_of, &self.tables)
+    }
+}
+
+/// **Associate thermal laws per material, for a nuclide array** (gh:#1635
+/// item 3): `table_of[i]` names the table (an index into `tables`) that
+/// nuclide `i` carries in every material that references it, as the nuclide-
+/// level binding did, but through OpenMC's per-material association
+/// ([`assign_material_sab`], fraction 1 from
+/// [`MaterialSab::for_materials_containing`]). The nuclides must all be free.
+///
+/// **Not bit-identical to the nuclide-level binding.** The array is longer by
+/// one bound copy per (nuclide, table) pair a material uses, and the URR
+/// stream advances by the array length; the cross sections and the physics
+/// are the same.
+///
+/// # Errors
+/// `table_of` shorter than `nuclides`, or whatever [`assign_material_sab`]
+/// refuses (a nuclide that is already bound, an index out of range).
+pub fn bind_tables_per_material(
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    table_of: &[Option<usize>],
+    tables: &[ThermalScattering],
+) -> Result<(Vec<Material>, Vec<Nuclide>), String> {
+    if table_of.len() != nuclides.len() {
+        return Err(format!(
+            "table_of has {} entries for {} nuclides",
+            table_of.len(),
+            nuclides.len()
+        ));
+    }
+    let mut entries: Vec<MaterialSab> = Vec::new();
+    for (i, t) in table_of.iter().enumerate() {
+        if let Some(t) = *t {
+            entries.extend(MaterialSab::for_materials_containing(materials, i, t, &[]));
+        }
+    }
+    assign_material_sab(materials, nuclides, tables, &entries)
+}
+
+/// **The one nuclide-level bind left in this file** (gh:#462): attach each
+/// slot's law to its nuclide, as the loader did before gh:#1635 item 3. For
+/// the callers not yet migrated to [`FreeSlots::bind_per_material`].
+// gh:#462 (GitHub #462): the documented legacy bind, kept for the unmigrated callers; new code binds per material.
+#[allow(deprecated)]
+pub fn bind_nuclide_level(free: FreeSlots) -> Vec<Nuclide> {
+    let FreeSlots {
+        nuclides,
+        tables,
+        table_of,
+    } = free;
+    nuclides
+        .into_iter()
+        .zip(table_of)
+        .map(|(n, t)| match t {
+            Some(t) => n.with_thermal_scattering(tables[t].clone()),
+            None => n,
+        })
+        .collect()
+}
+
+/// [`load_htr10_nuclides`] with every nuclide FREE and the laws returned for
+/// per-material binding ([`FreeSlots::bind_per_material`]); same processing,
+/// notes and errors (gh:#1635 item 3).
+///
+/// # Errors
+/// As [`load_htr10_nuclides`].
+pub fn load_htr10_nuclides_free(
+    cfg: &Htr10DataConfig,
+    layout: &Htr10NuclideLayout,
+    diag: &mut RunDiagnostics,
+) -> Result<FreeSlots, Htr10DataError> {
+    load_htr10_nuclides_free_with_progress(cfg, layout, diag, |_| {})
+}
+
+/// [`load_htr10_nuclides_free`] with the progress callback of
+/// [`load_htr10_nuclides_with_progress`].
+///
+/// # Errors
+/// As [`load_htr10_nuclides`].
+pub fn load_htr10_nuclides_free_with_progress<F: FnMut(LoadProgress)>(
+    cfg: &Htr10DataConfig,
+    layout: &Htr10NuclideLayout,
+    diag: &mut RunDiagnostics,
+    progress: F,
+) -> Result<FreeSlots, Htr10DataError> {
+    if layout.loads_fe57() && !FE57_RECONSTRUCTION_FIXED {
+        return Err(Htr10DataError::BlockedByGh339);
+    }
+    load_slots_free_with_laws(
+        &layout.slots,
+        &layout.notes,
+        cfg.temperature,
+        &cfg.tapes,
+        &cfg.uo2_laws,
+        cfg.thermal_laws,
+        diag,
+        progress,
+    )
 }
 
 /// Load one thermal law. `Ok(None)` is the documented free-gas fallback for a
@@ -1825,5 +2013,18 @@ mod tests {
             }
             let _ = std::fs::remove_dir_all(&root);
         }
+    }
+
+    /// `bind_tables_per_material` refuses a `table_of` whose length is not the
+    /// nuclide array's, and binds nothing for an array with no laws
+    /// (gh:#1635 item 3; no nuclear data needed). The binding itself is
+    /// checked against the legacy slot in
+    /// `data_jobs::tests::the_free_paths_agree_and_per_material_binding_matches_the_legacy_slot`.
+    #[test]
+    fn per_material_binding_refuses_a_mismatched_law_table() {
+        let err = bind_tables_per_material(&[], &[], &[None], &[]).expect_err("length mismatch");
+        assert!(err.contains("table_of has 1 entries for 0 nuclides"), "{err}");
+        let (m, n) = bind_tables_per_material(&[], &[], &[], &[]).expect("empty is fine");
+        assert!(m.is_empty() && n.is_empty());
     }
 }

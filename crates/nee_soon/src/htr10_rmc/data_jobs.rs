@@ -26,7 +26,7 @@
 //! `the_jobs_path_builds_the_whole_core_set`.
 //!
 //! Orchestration only: no physics is implemented here.
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): SAFE by slot role, not migrated. Same planned slots as `data.rs`, which this jobs path must equal bit for bit (`the_jobs_path_builds_the_loaders_nuclides`); migrate the two together. Not re-measured: full-core HTR-10 runs.
+// gh:#1635 item 3 (2026-11-17): migrated with `data.rs`, which this jobs path must equal bit for bit. The products are FREE nuclides plus per-entry tables ([`assemble_entries_free`]), bound per material; the nuclide-level `assemble_entries` is kept for unmigrated callers and is built on the free path.
 
 use njoy_outram_park_fork::endf::tape::Tape as EndfTape;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
@@ -37,8 +37,8 @@ use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
 use super::data::{
-    Htr10DataConfig, Htr10DataError, Htr10NuclideLayout, Tape, ThermalLaw,
-    Uo2Laws,
+    bind_nuclide_level, FreeSlots, Htr10DataConfig, Htr10DataError, Htr10NuclideLayout, Tape,
+    ThermalLaw, Uo2Laws,
 };
 
 /// RECONR and BROADR tolerance of every slot, as the loader (NJOY's 1e-3).
@@ -380,9 +380,30 @@ pub fn assemble_entries(
     layout: &Htr10NuclideLayout,
     entries: &[(usize, f64)],
     jobs: &[TemperedJob],
+    product: impl FnMut(usize) -> Result<JobProduct, Htr10DataError>,
+    read_tape: impl FnMut(&Tape) -> Result<EndfTape, Htr10DataError>,
+) -> Result<Vec<Nuclide>, Htr10DataError> {
+    Ok(bind_nuclide_level(assemble_entries_free(
+        layout, entries, jobs, product, read_tape,
+    )?))
+}
+
+/// **[`assemble_entries`] with every nuclide FREE** (gh:#1635 item 3): the
+/// same processing and order, but the laws come back as tables and
+/// `table_of[k]` names the one nuclide `k` carries, to be associated per
+/// material ([`FreeSlots::bind_per_material`]). The nuclide-level
+/// [`assemble_entries`] is this followed by `bind_nuclide_level`.
+///
+/// # Errors
+///
+/// As [`assemble_entries`].
+pub fn assemble_entries_free(
+    layout: &Htr10NuclideLayout,
+    entries: &[(usize, f64)],
+    jobs: &[TemperedJob],
     mut product: impl FnMut(usize) -> Result<JobProduct, Htr10DataError>,
     mut read_tape: impl FnMut(&Tape) -> Result<EndfTape, Htr10DataError>,
-) -> Result<Vec<Nuclide>, Htr10DataError> {
+) -> Result<FreeSlots, Htr10DataError> {
     let mut laws: Vec<(ThermalLaw, u64, ThermalScattering)> = Vec::new();
     for (i, job) in jobs.iter().enumerate() {
         if let ProcessingJob::Law(l) = job.job {
@@ -398,6 +419,7 @@ pub fn assemble_entries(
         }
     }
     let mut built: Vec<Option<Nuclide>> = (0..entries.len()).map(|_| None).collect();
+    let mut table_of: Vec<Option<usize>> = vec![None; entries.len()];
     for (i, job) in jobs.iter().enumerate() {
         let ProcessingJob::Tape { tape, .. } = job.job else {
             continue;
@@ -423,24 +445,22 @@ pub fn assemble_entries(
             let s = &layout.slots[entries[k].0];
             let n = Nuclide::from_processed(&t, mat, s.name, t_k, processed.clone())
                 .map_err(|e| Htr10DataError::InvalidConfig(format!("{}: {e}", s.name)))?;
-            built[k] = Some(match s.thermal {
-                Some(l) => {
-                    let law = laws
-                        .iter()
-                        .find(|(m, tb, _)| *m == l && *tb == t_k.to_bits())
-                        .ok_or_else(|| {
-                            Htr10DataError::InvalidConfig(format!(
-                                "no product for {} at {t_k:.2} K",
-                                l.label()
-                            ))
-                        })?;
-                    n.with_thermal_scattering(law.2.clone())
-                }
-                None => n,
-            });
+            if let Some(l) = s.thermal {
+                let at = laws
+                    .iter()
+                    .position(|(m, tb, _)| *m == l && *tb == t_k.to_bits())
+                    .ok_or_else(|| {
+                        Htr10DataError::InvalidConfig(format!(
+                            "no product for {} at {t_k:.2} K",
+                            l.label()
+                        ))
+                    })?;
+                table_of[k] = Some(at);
+            }
+            built[k] = Some(n);
         }
     }
-    built
+    let nuclides = built
         .into_iter()
         .enumerate()
         .map(|(k, n)| {
@@ -451,7 +471,12 @@ pub fn assemble_entries(
                 ))
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(FreeSlots {
+        nuclides,
+        tables: laws.into_iter().map(|(_, _, t)| t).collect(),
+        table_of,
+    })
 }
 
 #[cfg(test)]
@@ -581,6 +606,122 @@ mod tests {
             read
         )
         .is_err());
+    }
+
+    /// **The free jobs path equals the free loader, and per-material binding
+    /// equals the nuclide-level binding (gh:#1635 item 3).** On the cut-down
+    /// layout of the test above: `assemble_entries_free` and
+    /// `load_slots_free_with_laws` (through `load_htr10_nuclides_free`) give
+    /// the same free nuclides bit for bit, the same `table_of`, and the same
+    /// tables; `FreeSlots::bind_per_material` on a two-material set (one with
+    /// the SiC silicon, one without) appends exactly one bound copy, points
+    /// only the first material at it, and that copy transports as the
+    /// legacy nuclide-level slot does (`xs_at_energy` and `sample_thermal`
+    /// at 300 energies). Result 2026-11-17: see the gh:#1635 record.
+    #[test]
+    fn the_free_paths_agree_and_per_material_binding_matches_the_legacy_slot() {
+        use crate::htr10_rmc::data::load_htr10_nuclides_free;
+        use outram_mc_libs::material::material::{Material, NuclideComponent};
+        let cfg = Htr10DataConfig::default();
+        let mut layout = Htr10NuclideLayout::plan(&cfg).expect("plan");
+        layout.slots.retain(|s| {
+            ["He3", "He4", "B10", "B11", "Si29"].contains(&s.name)
+                && s.thermal.is_none_or(|l| l == ThermalLaw::SiInSiC)
+        });
+        layout.slots.dedup_by(|a, b| a.name == b.name);
+        if layout.slots.iter().any(|s| !s.tape.path().exists()) {
+            eprintln!("SKIP: tapes not in this checkout");
+            return;
+        }
+        let jobs = layout.processing_jobs();
+        let products: Vec<JobProduct> = jobs
+            .iter()
+            .map(|j| {
+                let t = j.tape(&cfg).expect("tape").map(|t| read(&t).expect("read"));
+                JobProduct::from_f64s(&process_job(j, &cfg, t.as_ref()).expect("process").to_f64s())
+                    .expect("decode")
+            })
+            .collect();
+        let t_k = cfg.temperature.get::<kelvin>();
+        let entries: Vec<(usize, f64)> = (0..layout.slots.len()).map(|k| (k, t_k)).collect();
+        let tempered: Vec<TemperedJob> = jobs
+            .iter()
+            .map(|j| TemperedJob {
+                job: j.clone(),
+                temperature: cfg.temperature,
+            })
+            .collect();
+        let shared = assemble_entries_free(
+            &layout,
+            &entries,
+            &tempered,
+            |i| Ok(products[i].clone()),
+            read,
+        )
+        .expect("assemble free");
+        let direct = load_htr10_nuclides_free(&cfg, &layout, &mut RunDiagnostics::new("test"))
+            .expect("load free");
+        assert_eq!(shared.table_of, direct.table_of);
+        assert_eq!(shared.tables.len(), direct.tables.len());
+        assert_eq!(shared.nuclides.len(), layout.slots.len());
+        for (i, (a, b)) in shared.nuclides.iter().zip(&direct.nuclides).enumerate() {
+            assert!(!a.has_thermal_scattering() && !b.has_thermal_scattering(), "slot {i} free");
+            for k in 0..200 {
+                let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(k) / 199.0);
+                assert_eq!(
+                    format!("{:?}", a.xs_at_energy(e, 300.15)),
+                    format!("{:?}", b.xs_at_energy(e, 300.15)),
+                    "slot {i} at {e}"
+                );
+            }
+        }
+        // Per-material lowering: material 0 holds every slot, material 1 only B10.
+        let si = layout.slots.iter().position(|s| s.name == "Si29").expect("Si29");
+        let b10 = layout.slots.iter().position(|s| s.name == "B10").expect("B10");
+        let comp = |i: usize| NuclideComponent {
+            nuclide_idx: i,
+            atom_density: 1.0e-3,
+        };
+        let mats = vec![
+            Material {
+                id: 1,
+                name: "all".into(),
+                components: (0..layout.slots.len()).map(comp).collect(),
+                temperature: 300.15,
+            },
+            Material {
+                id: 2,
+                name: "boron only".into(),
+                components: vec![comp(b10)],
+                temperature: 300.15,
+            },
+        ];
+        let (m2, n2) = shared.bind_per_material(&mats).expect("bind per material");
+        assert_eq!(n2.len(), layout.slots.len() + 1, "one bound copy appended");
+        let idx = |m: &Material| m.components.iter().map(|c| (c.nuclide_idx, c.atom_density)).collect::<Vec<_>>();
+        assert_eq!(idx(&m2[1]), idx(&mats[1]), "the boron-only material is untouched");
+        let bound = m2[0]
+            .components
+            .iter()
+            .find(|c| c.nuclide_idx == layout.slots.len())
+            .expect("the SiC silicon is the appended copy");
+        assert_eq!(bound.atom_density, 1.0e-3);
+        assert!(m2[0].components.iter().all(|c| c.nuclide_idx != si));
+        let legacy = bind_nuclide_level(direct);
+        for k in 0..300_i32 {
+            let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(k) / 299.0);
+            assert_eq!(
+                format!("{:?}", n2[layout.slots.len()].xs_at_energy(e, 300.15)),
+                format!("{:?}", legacy[si].xs_at_energy(e, 300.15)),
+                "bound copy vs legacy slot at {e}"
+            );
+            let (mut s1, mut s2) = (k as u64, k as u64);
+            assert_eq!(
+                format!("{:?}", n2[layout.slots.len()].sample_thermal(e, &mut s1)),
+                format!("{:?}", legacy[si].sample_thermal(e, &mut s2))
+            );
+        }
+        assert!(n2[layout.slots.len()].sample_thermal(0.0253, &mut 1u64).is_some());
     }
 
     /// The whole default layout (38 slots, 36 jobs, minutes): the jobs path
