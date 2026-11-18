@@ -33,6 +33,7 @@ use njoy_outram_park_fork::wmp::generate::{
     piece_ranges, pointwise_from_endf, resolve_vf_pieces, search_windowing, vectfit_xs, MultipoleData, SearchOptions, VectfitOptions,
     WmpGenerated,
 };
+use njoy_outram_park_fork::wmp::generate::vectfit::evaluate;
 use njoy_outram_park_fork::wmp::Cf64;
 
 const TAPE: &str = "n-092_U_238.endf";
@@ -223,11 +224,13 @@ fn compare_wmp(label: &str, ours: &WmpGenerated, theirs: &WmpGenerated) -> f64 {
 
 /// sigma(E, T) of two libraries at `per_t` energies equally spaced in
 /// `sqrt(E)` for each temperature. Returns (values outside rtol/atol, worst
-/// relative difference over values above atol, values compared).
-fn compare_sigma(ours: &WmpGenerated, theirs: &WmpGenerated, per_t: usize) -> (usize, f64, usize) {
+/// relative difference over values above atol, values compared, worst
+/// absolute difference in barn).
+fn compare_sigma(ours: &WmpGenerated, theirs: &WmpGenerated, per_t: usize) -> (usize, f64, usize, f64) {
     let (rtol, atol) = (1e-3, 1e-5);
     let (a, b) = (ours.to_windowed_multipole(), theirs.to_windowed_multipole());
     let (mut bad, mut worst, mut n) = (0usize, 0.0_f64, 0usize);
+    let mut worst_abs = 0.0_f64;
     for t in [0.0, 293.6, 1200.0] {
         for k in 0..per_t {
             let e = (b.e_min.sqrt() + (b.e_max.sqrt() - b.e_min.sqrt()) * (k as f64 + 0.5) / per_t as f64).powi(2);
@@ -235,6 +238,7 @@ fn compare_sigma(ours: &WmpGenerated, theirs: &WmpGenerated, per_t: usize) -> (u
             for (p, q) in [(x.scatter, y.scatter), (x.absorption, y.absorption)] {
                 n += 1;
                 let ab = (p - q).abs();
+                worst_abs = worst_abs.max(ab);
                 if ab > atol {
                     worst = worst.max(ab / q.abs());
                 }
@@ -244,8 +248,8 @@ fn compare_sigma(ours: &WmpGenerated, theirs: &WmpGenerated, per_t: usize) -> (u
             }
         }
     }
-    println!("sigma(E,T), {n} values at 0/293.6/1200 K: {bad} outside rtol/atol, worst {worst:.3e} relative");
-    (bad, worst, n)
+    println!("sigma(E,T), {n} values at 0/293.6/1200 K: {bad} outside rtol/atol, worst {worst:.3e} relative above atol, worst absolute {worst_abs:.3e} b");
+    (bad, worst, n, worst_abs)
 }
 
 /// The front end is OpenMC's, bit for bit, over every piece (all 304 are
@@ -292,9 +296,11 @@ fn u238_prefix_windowing_of_openmcs_multipole_data() {
     let theirs = load_library("U238");
     println!("port: {} windows, order {}; OpenMC: {} windows, order {}", ours.n_windows(), ours.fit_order(), theirs.n_windows(), theirs.fit_order());
     let cf = compare_wmp("from_multipole search on OpenMC's prefix data", &ours, &theirs);
-    let (bad, _, _) = compare_sigma(&ours, &theirs, 2000);
+    let (bad, _, _, abs) = compare_sigma(&ours, &theirs, 2000);
     assert_eq!(bad, 0, "windowed sigma outside rtol/atol");
-    assert!(cf.is_finite());
+    // measured 2026-11-18: 7.144e-6 of scale, 1.221e-6 b (README), rounded up
+    assert!(cf < 8e-6, "curve fit differs by {cf:.3e} of scale");
+    assert!(abs < 2e-6, "windowed sigma differs by {abs:.3e} b");
 }
 
 /// Pieces fitted by default: the cheap ones for OpenMC (< 25 s each in
@@ -308,6 +314,25 @@ fn selected_pieces(fitted: &BTreeMap<usize, PieceFit>) -> Vec<usize> {
         Ok(s) if s == "all" => fitted.keys().copied().collect(),
         Ok(s) => s.split(',').filter(|x| !x.is_empty()).map(|x| x.trim().parse().expect("piece index")).collect(),
         Err(_) => DEFAULT_PIECES.to_vec(),
+    }
+}
+
+/// The accepted agreement with OpenMC for each piece: (worst relative pole
+/// difference, worst relative residue difference, worst absolute sigma
+/// difference in barn on the piece's grid). Each is the 2026-11-18
+/// measurement (README, "Results") rounded up in its first figure, per the
+/// maintainer's rule for the Mg-26 gates (gh:#1390, 2026-11-14): the fit is
+/// ill-conditioned and the port's linear algebra is petir's, not LAPACK's, so
+/// 1e-8 is not reachable (the README measures how far OpenMC moves itself).
+/// A piece without an entry has no gate and fails.
+fn piece_gate(i: usize) -> Option<(f64, f64, f64)> {
+    match i {
+        0..=8 => Some((9e-8, 7e-5, 1e-6)),
+        9..=11 => Some((1e-8, 4e-7, 7e-8)),
+        100 => Some((2e-3, 2e-1, 3e-3)),
+        200 => Some((3e-2, 5e1, 4e-2)),
+        303 => Some((2e-3, 6e-1, 6e-3)),
+        _ => None,
     }
 }
 
@@ -335,6 +360,14 @@ fn fit_pieces_against_openmc(sel: &[usize]) -> Option<usize> {
             println!("piece {i}: {} points, port {} poles, OpenMC {} poles (DIFFERENT), {secs:.1} s", hi - lo, fit.poles.len(), rp.len());
             continue;
         }
+        // The physical comparison: the cross sections each set of poles gives on
+        // the piece's grid, against the pointwise data and against each other.
+        let sigma = sigma_report(&xs.energy[lo..hi], &cx, rp, rr, &fit.poles, &fit.residues);
+        println!(
+            "piece {i}: sigma from the poles on the {} grid points: OpenMC {} outside rtol/atol of the data, port {}; \
+             worst port-vs-OpenMC {:.3e} b absolute, {:.3e} relative above atol",
+            hi - lo, sigma.0, sigma.1, sigma.2, sigma.3
+        );
         let (map, wp) = match_poles(&fit.poles, rp);
         let mut wr = 0.0_f64;
         for (v, row) in rr.iter().enumerate() {
@@ -345,9 +378,53 @@ fn fit_pieces_against_openmc(sel: &[usize]) -> Option<usize> {
             }
         }
         println!("piece {i}: {} points, {} poles = OpenMC, worst pole {wp:.3e}, residue {wr:.3e} relative, {secs:.1} s", hi - lo, rp.len());
+        let (gp, gr, gs) = piece_gate(i).unwrap_or_else(|| panic!("piece {i} has no gate"));
+        assert!(wp < gp, "piece {i}: pole difference {wp:.3e} >= gate {gp:.1e}");
+        assert!(wr < gr, "piece {i}: residue difference {wr:.3e} >= gate {gr:.1e}");
+        assert!(sigma.2 < gs, "piece {i}: sigma difference {:.3e} b >= gate {gs:.1e}", sigma.2);
+        assert!(sigma.1 <= sigma.0, "piece {i}: port misses {} grid points, OpenMC {}", sigma.1, sigma.0);
     }
     println!("{differing} of {} fitted pieces have a different pole count", sel.len());
     Some(differing)
+}
+
+/// sigma(E) = Re-part of the pole sum / E on the grid, for OpenMC's poles and
+/// the port's. Returns (OpenMC's points outside rtol/atol of the data, the
+/// port's, worst absolute port-vs-OpenMC difference [b], worst relative
+/// difference over values above atol).
+fn sigma_report(
+    energy: &[f64],
+    data: &[Vec<f64>],
+    p_ref: &[Cf64],
+    r_ref: &[Vec<Cf64>],
+    p_port: &[Cf64],
+    r_port: &[Vec<Cf64>],
+) -> (usize, usize, f64, f64) {
+    let (rtol, atol) = (1e-3, 1e-5);
+    let s: Vec<f64> = energy.iter().map(|e| e.sqrt()).collect();
+    let i = Cf64::new(0.0, 1.0);
+    let times_i = |r: &[Vec<Cf64>]| -> Vec<Vec<Cf64>> { r.iter().map(|row| row.iter().map(|z| z.mul(i)).collect()).collect() };
+    let a = evaluate(&s, p_ref, &times_i(r_ref), &[]);
+    let b = evaluate(&s, p_port, &times_i(r_port), &[]);
+    let (mut bad_a, mut bad_b, mut worst_abs, mut worst_rel) = (0usize, 0usize, 0.0_f64, 0.0_f64);
+    for m in 0..data.len() {
+        for k in 0..energy.len() {
+            let (x, y) = (a[m][k] / energy[k], b[m][k] / energy[k]);
+            let d = data[m][k];
+            for (v, bad) in [(x, &mut bad_a), (y, &mut bad_b)] {
+                let ab = (v - d).abs();
+                if !(ab / d.abs() < rtol || ab < atol) {
+                    *bad += 1;
+                }
+            }
+            let ab = (x - y).abs();
+            worst_abs = worst_abs.max(ab);
+            if ab > atol {
+                worst_rel = worst_rel.max(ab / x.abs());
+            }
+        }
+    }
+    (bad_a, bad_b, worst_abs, worst_rel)
 }
 
 /// The default pieces (or `OUTRAM_WMP_U238_PIECES`).

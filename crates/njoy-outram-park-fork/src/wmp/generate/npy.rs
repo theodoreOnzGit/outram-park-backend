@@ -15,8 +15,8 @@
 // The LAPACK-backed calls (`scipy.linalg.lstsq` = DGELSD, `np.linalg.lstsq`
 // = DGELSD, `scipy.linalg.eigvals` = DGEEV) are NOT reproduced bit for bit:
 // they are re-expressed on PETIR's GSL ports (Golub-Reinsch SVD, Francis QR),
-// with the same truncation rule. See `docs/wmp-generation.md` for the measured
-// consequence.
+// with the same truncation rule. See `verification_and_validation/wmp_generate/README.md` for the
+// measured consequence (~~`docs/wmp-generation.md`~~ does not exist, corrected 2026-11-18).
 
 //! numpy/scipy primitives for the WMP generator (gh:#1390).
 

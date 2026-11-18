@@ -35,8 +35,10 @@
 //! `DGELSD`, `DGEEV`, `ZGEMM`) and numpy's SIMD `pow` are re-expressed here
 //! (an unblocked Householder QR, PETIR's Golub-Reinsch SVD and Francis QR),
 //! so fitted poles agree to round-off amplified by the fit, not to the bit.
-//! Measured: `docs/wmp-generation.md` and
-//! `verification_and_validation/wmp_generate/`.
+//! Measured: `verification_and_validation/wmp_generate/` (Mg-26) and
+//! `verification_and_validation/wmp_generate_u238/` (U-238). ~~`docs/wmp-generation.md`~~
+//! **CORRECTED 2026-11-18:** that file does not exist (checked: `docs/` holds
+//! only `wmp-nuclide-manifest.md` for WMP).
 //!
 //! Not ported: logging, the diagnostic figures (`path_out`), and pickle I/O.
 
