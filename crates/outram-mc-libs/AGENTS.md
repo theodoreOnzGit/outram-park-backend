@@ -23,7 +23,10 @@ carries. Keep it that way:
   `wasm_par` / serial branch on `any(target_arch = "wasm32", not(feature =
   "std"))`; GPU code likewise reuses the Android branches.
 - Printing is a `#[cfg(feature = "std")]` statement, not a gated function;
-  files, HDF5 and LEAPR are `#[cfg(feature = "std")]` items.
+  files, HDF5 and LEAPR are `#[cfg(feature = "std")]` items. The depletion
+  chain from parsed XML (`DepletionChain::from_chain_xml*`) and
+  `depletion::spectrum_depletion` build without `std` (gh:#1648); only
+  `from_chain_xml_file` and the live decay-library reads are `std`.
 - Tests that read files or use threads are `#[cfg(feature = "std")]`; the
   rest also build with `--no-default-features`.
 

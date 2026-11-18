@@ -77,7 +77,6 @@ use crate::nostd_prelude::*;
 use crate::hash::HashMap;
 use core::f64::consts::LN_2;
 
-#[cfg(feature = "std")]
 use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
 use thiserror::Error;
 
@@ -553,7 +552,6 @@ impl DepletionChain {
         Self::simple_with_half_lives(i135_half_life, xe135_half_life)
     }
 
-    #[cfg(feature = "std")]
     /// Build a chain by **reading a depletion chain XML file**, rather than from
     /// a transcription of one.
     ///
@@ -711,9 +709,9 @@ impl DepletionChain {
         Ok(chain)
     }
 
-    /// `std` only, like [`Self::from_chain_xml`] (its input is the parsed
-    /// chain XML).
-    #[cfg(feature = "std")]
+    /// ~~`std` only, like [`Self::from_chain_xml`] (its input is the parsed
+    /// chain XML).~~ **CHANGED 2026-11-18 (gh:#1648):** available without
+    /// `std`; only reading the file ([`Self::from_chain_xml_file`]) needs it.
     /// [`Self::from_chain_xml`], except that `(n,gamma)` and `(n,2n)`
     /// channels with a branching ratio other than 1 are **kept** at their
     /// ratios (as OpenMC's matrix does) instead of being left out, and are

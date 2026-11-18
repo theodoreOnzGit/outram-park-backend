@@ -279,7 +279,9 @@ pub struct AppliedRatios {
 /// The collapse's errors; no state whose product is in the chain; and
 /// `set_branch_ratios`' strict checks (a sum outside 1 ± 1e-5 when a
 /// ground state is among the products).
-#[cfg(feature = "std")]
+///
+/// In every build since 2026-11-18 (gh:#1648; it was `std` only while
+/// [`crate::hdf5`] was).
 pub fn apply_to_chain(
     chain: &mut crate::hdf5::depletion_chain_xml::DepletionChainXml,
     parent: &str,

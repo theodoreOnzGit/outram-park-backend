@@ -13,7 +13,9 @@ step upstream of an OpenMC run.
 Without its default `std` feature this crate is `no_std` + `alloc`, checked
 on a bare-metal target by `scripts/check-nostd.sh` (CI job `no-std` in
 `fast-tests.yml`). `std` carries files, the deck work directory, `acquire`'s
-cache, HDF5, `rayon`, `wgpu`, clocks and both binaries. Keep it that way:
+cache, HDF5 files, `rayon`, `wgpu`, clocks and both binaries. The depletion
+chain parses from XML text without `std` (gh:#1648): only
+`DepletionChainXml::read_file` is `std` inside `hdf5`'s chain modules. Keep it that way:
 
 - New code uses `core::` / `alloc::` paths where they exist; every module
   glob-imports `crate::nostd_prelude::*` in `no_std` builds (copy the line

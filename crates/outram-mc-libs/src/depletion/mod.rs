@@ -80,7 +80,6 @@ pub mod microxs_transport;
 pub mod coupled_operator;
 pub mod helpers;
 pub mod tracking;
-#[cfg(feature = "std")]
 pub mod spectrum_depletion;
 
 pub use chain::{

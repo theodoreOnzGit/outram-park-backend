@@ -31,6 +31,9 @@
 //! first failure tells you less than one that shows you where the failures
 //! are.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::Deck;
 use crate::smr::{SmrCase, SmrReaction};
 use crate::species::Species;
@@ -105,6 +108,7 @@ pub fn run_deck(deck: &Deck) -> String {
 /// Propagates [`crate::deck::DeckError`] from parsing or validation — a bad
 /// deck fails before any solving happens, rather than producing rows nobody
 /// should trust.
+#[cfg(feature = "std")]
 pub fn run_toml(text: &str) -> Result<String, crate::deck::DeckError> {
     Ok(run_deck(&Deck::from_toml(text)?))
 }

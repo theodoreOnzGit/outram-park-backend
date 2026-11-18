@@ -141,6 +141,9 @@
 //! **Untrusted AI-assisted draft, no human V&V.** Education, research and V&V
 //! only, per the workspace `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_park_fork_dwsim_libs::reactions::{
     EquilibriumConstant, Reaction, ReactionBasis, ReactionComponent, ReactionKind,

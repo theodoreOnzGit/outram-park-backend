@@ -73,7 +73,23 @@
 //! **isothermal** and holds volumetric flow constant, neither of which a real
 //! reformer does.
 
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 #![forbid(unsafe_code)]
+
+extern crate alloc;
+
+/// The `alloc` names `std` puts in its prelude, for `no_std` builds
+/// (gh:#1643). Glob-imported by every module in `no_std` builds only, so a
+/// `std` build resolves every name exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+}
 
 pub mod deck;
 pub mod headless;

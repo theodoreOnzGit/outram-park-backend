@@ -53,6 +53,9 @@ crates=(
   outram-park-fork-cfmesh     # gh:#1639
   nee_soon                    # gh:#1640
   sembawang                   # gh:#1641
+  bishan                      # gh:#1642
+  pasir-ris                   # gh:#1642
+  deck-based-open-source-visualisation-engine-for-reactors-dover  # gh:#1643
   # Already no_std, gated 2026-11-17 (after the gh:#1585 survey). petir,
   # kaki-bukit and redhill are always `no_std` (no `std` feature); bugis is
   # checked without its `egui` default.
