@@ -350,3 +350,86 @@ json.dump({'case': case, 'bc': bc, 'seeds': list(range(first, first + nseeds)), 
 print(case, bc, 'mean %.6f sem %.6f wall %.1fs' % (np.mean(ks),
       np.std(ks, ddof=1) / np.sqrt(len(ks)), time.time() - t0))
 ```
+
+---
+
+# B1 reflective discrepancy: diagnosis (GitHub #259)
+
+Status of this section: **HYPOTHESIS STAGE, written and committed before any
+diagnostic run** (2026-11-18). Results are appended below in a later commit;
+the text down to "Experiments" is not edited afterwards.
+
+## Upstream read first (no run yet)
+
+* OpenMC `ReflectiveBC::handle_particle` (`src/boundary_condition.cpp`):
+  `surf.reflect(r, u)` about the ONE struck surface, renormalise, then
+  `Particle::cross_reflective_bc` (`src/particle.cpp:657`): set `u`, put the
+  particle back in `cell_last`, flip the surface token, and re-find the cell
+  from the root (`neighbor_list_find_cell`). No nudge, no corner composition:
+  a particle exactly on two walls reflects off the first and meets the second
+  at distance 0 on its next move.
+* This port (`geometry/crossing/mod.rs`, `Geometry::cross_surface`,
+  `Reflective` arm): `compose_corner_reflection` reflects off the struck wall
+  and every other reflective wall within 1e-9 cm of the crossing point,
+  `nudge_across` moves the particle 1e-9 cm inside, and the driver
+  (`physics_mg.rs::transport_history`) re-locates with the outgoing surface
+  token. For a lone wall this is the same mirror as upstream; the two differ
+  only at a corner/edge (composed vs sequential, which is the same retro-
+  reflection for orthogonal planes) and by the 1e-9 cm nudge.
+* What upstream does that the port does not: nothing that bears on this box.
+  Corner events need a crossing within 1e-9 cm of two walls, probability of
+  order 1e-9 per boundary event; the rod (r 0.8 at (1.2, 1.7)) is 0.4 cm from
+  x = 0 and 0.9 cm from y = 0 and never coincident with a wall. The reflective
+  arm is also the same code in B0 (centred rod), which agrees.
+* Reviewed-function check: `src/geometry/crossing/review.md` holds no
+  `kind = "review"` block (it is the empty kovan note), so nothing in
+  `crossing/mod.rs` is stamped.
+
+## Hypotheses, with predicted sign and size (before measuring)
+
+The discrepancy to explain: port - OpenMC = 1.38024 - 1.38071 = **-47 pcm**
+(-4.7e-4), z -3.11 on 32 seeds; periodic B1 and both B0 arms agree.
+
+* **H1, the reflective crossing is defective (a missing limit or nudge
+  effect).** Predicted effect: k of the port is LOW by about 47 pcm relative
+  to the true reflective lattice. Discriminator E1 below. My prior is low
+  (~20 %): the code reading above finds no mechanism, and corner events are
+  of order 1e-9 per crossing.
+* **H2, the 30 vs 20 inactive batches.** A source confined to one rod in a
+  6 cm box relaxes in a few generations; predicted effect of 20 vs 30 inactive
+  in the port: |dk| < 5e-5 (inside the seed sem), sign indeterminate. Prior
+  ~5 %. Discriminator E2.
+* **H3, finite-population (batch-size) bias that differs between the codes.**
+  This port's MG driver redraws the next source WITH replacement
+  (`physics_mg.rs::resample`, its own doc says "crude"); OpenMC carries each
+  site once (sampling without replacement, no duplicates). Duplicated sites
+  add source variance, and the known k bias from a fluctuating source scales
+  as 1/N. Predicted: the port is biased LOW, the gap scales as 1/N, so at
+  N = 80 000 the gap shrinks from -47 pcm to about -12 pcm (a factor 4).
+  Why B1 reflective and not the others: OpenMC's reflective sem is smallest
+  there; the other cases may carry the same bias at smaller, unresolved size
+  (B0 reflective is +1.23 sigma the other way, which this hypothesis does not
+  explain). Prior ~35 %. Discriminator E3.
+* **H4, a fluctuation that survived 32 seeds (3.1 sigma, p about 0.002
+  two-sided, but 10 comparisons were looked at, so p about 0.02).** Prior
+  ~40 %. Discriminator: a disjoint block of seeds 33-64 for B1 reflective in
+  both codes; predicted gap there 0 +/- 25 pcm.
+
+## Experiments (cheapest discriminators first)
+
+* **E1, unfold the reflective box by the method of images.** The reflective
+  6x6 box with a rod at (1.2, 1.7) is EXACTLY the periodic 12x12 box with four
+  rods at (1.2, 1.7), (10.8, 1.7), (1.2, 10.3), (10.8, 10.3) (mirror images
+  through x = 0 and y = 0, wrapped by the pitch 12). Run that "B1U" in this
+  port using only the periodic path (which agrees with OpenMC) and in OpenMC.
+  If H1: port B1U = OpenMC value (1.3807), i.e. +47 pcm above port reflective.
+  If not H1: port B1U = port reflective (1.3802): the reflective crossing is
+  consistent with the periodic one and the gap is not in the boundary code.
+  Source: the four rods, so the same particles per rod ratio as before is not
+  kept; 20 000 particles per batch as everywhere.
+* **E2** port B1 reflective with 20 inactive (new env knob).
+* **E3** port and OpenMC B1 reflective at N = 80 000 particles per batch.
+* **E4** seeds 33-64 for B1 reflective in both codes.
+
+Seed ensembles only; z = (ours - OpenMC) / sqrt(sem_a^2 + sem_b^2) over the
+per-seed run means.
