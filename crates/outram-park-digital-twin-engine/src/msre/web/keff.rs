@@ -492,15 +492,41 @@ pub fn raster(study: &Study, view: View, px: usize) -> (usize, usize, Vec<u8>) {
     (w, h, ids)
 }
 
-/// A study as wire numbers `[salt °F, graphite °F, U-235 scale, shield]`.
-pub fn study_to_vec(s: &Study) -> [f64; 4] {
-    [s.salt_f, s.graphite_f, s.u235_scale, s.shield as u8 as f64]
+/// A study as wire numbers `[salt °F, graphite °F, U-235 scale, shield,
+/// rod 1..3 insertion, salt level cm, U-235 wt fraction]`; an absent
+/// option (`None`) travels as NaN (gh:#1658-#1660).
+pub fn study_to_vec(s: &Study) -> [f64; 9] {
+    let rods = s.rods.unwrap_or([f64::NAN; 3]);
+    [
+        s.salt_f,
+        s.graphite_f,
+        s.u235_scale,
+        s.shield as u8 as f64,
+        rods[0],
+        rods[1],
+        rods[2],
+        s.salt_level_cm.unwrap_or(f64::NAN),
+        s.u235_enrichment.unwrap_or(f64::NAN),
+    ]
 }
 
 /// The inverse of [`study_to_vec`].
 pub fn study_from_slice(v: &[f64]) -> Study {
     let g = |i: usize, d: f64| v.get(i).copied().unwrap_or(d);
-    Study { salt_f: g(0, m::REFERENCE_TEMPERATURE_F), graphite_f: g(1, m::REFERENCE_TEMPERATURE_F), u235_scale: g(2, 1.0), shield: g(3, 1.0) != 0.0 }
+    let opt = |i: usize| v.get(i).copied().filter(|x| !x.is_nan());
+    let rods = match (opt(4), opt(5), opt(6)) {
+        (Some(a), Some(b), Some(c)) => Some([a, b, c]),
+        _ => None,
+    };
+    Study {
+        salt_f: g(0, m::REFERENCE_TEMPERATURE_F),
+        graphite_f: g(1, m::REFERENCE_TEMPERATURE_F),
+        u235_scale: g(2, 1.0),
+        shield: g(3, 1.0) != 0.0,
+        rods,
+        salt_level_cm: opt(7),
+        u235_enrichment: opt(8),
+    }
 }
 
 /// A run's settings as wire numbers `[n, inactive, active, seed]` (seeds
@@ -627,8 +653,11 @@ mod tests {
     /// 2^53 exactly).
     #[test]
     fn the_wire_round_trips() {
-        let s = Study { salt_f: 1200.5, graphite_f: 1150.0, u235_scale: 1.03, shield: false };
+        let s = Study { salt_f: 1200.5, graphite_f: 1150.0, u235_scale: 1.03, shield: false, ..Study::default() };
         assert_eq!(study_from_slice(&study_to_vec(&s)), s);
+        let s = Study { rods: Some([0.25, 0.0, 1.0]), salt_level_cm: Some(120.5), u235_enrichment: Some(0.33), ..s };
+        assert_eq!(study_from_slice(&study_to_vec(&s)), s);
+        assert_eq!(study_from_slice(&[1181.0, 1181.0, 1.0, 1.0]), Study::default(), "an old four-number study");
         let c = KeffConfig { n_particles: 4000, n_inactive: 30, n_active: 140, seed: (1 << 53) - 1, point_source: false, want_sites: false };
         assert_eq!(cfg_from_slice(&cfg_to_vec(&c)), c);
         for v in [View::Plan, View::Elevation] {

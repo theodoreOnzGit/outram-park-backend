@@ -1433,6 +1433,225 @@ pub fn geometry_with_rods(mut g: Geometry, d: Dims, inserted: [bool; 3], first_r
     g
 }
 
+/// Rod travel, TM-0728 Table 5.4 \[in\].
+pub const ROD_TRAVEL_IN: f64 = 51.0;
+/// Poison section length, TM-0728 Table 5.4 (59.36 in; §5.3.5.2 rounds it
+/// to 59.4) \[in\].
+pub const ROD_POISON_LENGTH_IN: f64 = 59.36;
+/// Height of a rod's lower end at rod position 0 ("driven rod lower
+/// limit"), above the bottom of the 64 in stringers \[in\].
+///
+/// From ORNL-4233 Fig. 2 (ORNL-DWG 65-7573), which draws the rod-position
+/// scale against the vessel's elevations: position 0 is at 829 ft 0 in,
+/// position 51 ("upper rod limit") at 833 ft 3 in, the graphite matrix
+/// (65.5 in) from 828 ft 0¼ in to the top of most graphite at
+/// 833 ft 5¾ in. The model's 64 in stringers ([`H_CORE`]) are taken to end
+/// at that top, so they start 1.5 in above the matrix bottom (the
+/// horizontal graphite under them), at 828 ft 1¾ in. Then position 0 is
+/// 10.25 in above the stringer bottom, and position 51 is 2.75 in below
+/// their top: anchored at the top or the bottom, the two readings agree.
+///
+/// So a fully withdrawn rod still holds 2.75 in of poison in the top of the
+/// graphite. That is the "0.08 % δk/k rod poisoning" ORNL-4233 quotes for
+/// rods withdrawn, which [`REFERENCE_K`] removes from the measured state.
+pub const ROD_DRIVEN_LOWER_END_IN: f64 = 10.25;
+/// The scrammed rod's lower limit, rod position −4 in (ORNL-4233 Fig. 2).
+pub const ROD_SCRAM_POSITION_IN: f64 = -4.0;
+
+/// ORNL's rod position ("inches withdrawn", 0 = driven lower limit, 51 =
+/// upper limit) of a rod inserted by fraction `f` of its travel: 0 is the
+/// upper limit, 1 the driven lower limit. Clamped to 0..=1.
+pub fn rod_position_in(f: f64) -> f64 {
+    ROD_TRAVEL_IN * (1.0 - f.clamp(0.0, 1.0))
+}
+
+/// `z` \[cm\] of a rod's lower end at rod position `position_in` (ORNL's
+/// inches withdrawn, [`ROD_SCRAM_POSITION_IN`] to [`ROD_TRAVEL_IN`]). The
+/// position is measured against the graphite, so it scales with the
+/// graphite's expansion `d.graphite`; the rod's own expansion and the
+/// drive's are not modelled (a few tenths of an inch at most).
+pub fn rod_lower_end_z(position_in: f64, d: Dims) -> f64 {
+    (ROD_DRIVEN_LOWER_END_IN + position_in) * INCH * d.graphite
+}
+
+/// `g` with control rods at partial insertion (gh:#1658): rod `i` at
+/// ORNL rod position `positions_in[i]` (inches withdrawn; `None` leaves the
+/// thimble empty, as [`Study`]'s default does).
+///
+/// Each rod is [`geometry_with_rods`]' concentric section (element shell,
+/// ceramic, gaps; TM-0728 Table 5.4), but only over its poison section:
+/// from its lower end ([`rod_lower_end_z`]) up [`ROD_POISON_LENGTH_IN`].
+/// Inside the shell's outer radius, below and above that section the
+/// thimble is void (the flexible hose above the poison and the cables are
+/// omitted, as in [`geometry_with_rods`]). Rod dimensions are cold. New
+/// cells are numbered 200 + 10 i + k (rings) and 209 + 10 i (the void
+/// outside the section).
+pub fn geometry_with_rods_at(mut g: Geometry, d: Dims, positions_in: [Option<f64>; 3], first_rod_material: usize, t_k: f64) -> Geometry {
+    let t = BoundaryType::Transmissive;
+    let radii = [
+        ROD_SHELL_R_IN,
+        ROD_SHELL_R_IN + ROD_CLAD,
+        ROD_CERAMIC_R_IN,
+        ROD_CERAMIC_R_OUT,
+        ROD_SHELL_R_OUT - ROD_CLAD,
+        ROD_SHELL_R_OUT,
+    ];
+    let (inconel, poison) = (first_rod_material, first_rod_material + 1);
+    let fills = [None, Some(inconel), None, Some(poison), None, Some(inconel)];
+    let root = g.root_universe;
+    for (i, &(x, y)) in OPENINGS[..3].iter().enumerate() {
+        let Some(p) = positions_in[i] else { continue };
+        let idx = g.cells.iter().position(|c| c.id == 20 + i as i32).expect("thimble void cell");
+        let base = g.cells[idx].region.clone();
+        let s: Vec<usize> = radii
+            .iter()
+            .map(|&r| {
+                g.surfaces.push(zcyl(x * d.graphite, y * d.graphite, r, t));
+                g.surfaces.len() - 1
+            })
+            .collect();
+        let z_lo = rod_lower_end_z(p, d);
+        let z_hi = z_lo + ROD_POISON_LENGTH_IN * INCH * d.graphite;
+        g.surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: z_lo, bc: t }));
+        let p_lo = g.surfaces.len() - 1;
+        g.surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: z_hi, bc: t }));
+        let p_hi = g.surfaces.len() - 1;
+        // The thimble's own void keeps only the gap outside the rod.
+        g.cells[idx].region.push(hs(s[5], false));
+        g.cells[idx].region.push(RegionToken::Intersection);
+        let mut push = |g: &mut Geometry, cell: Cell| {
+            g.cells.push(cell);
+            let n = g.cells.len() - 1;
+            g.universes[root].cell_indices.push(n);
+        };
+        for (k, fill) in fills.iter().enumerate() {
+            let mut region = base.clone();
+            region.push(hs(s[k], true));
+            region.push(RegionToken::Intersection);
+            if k > 0 {
+                region.push(hs(s[k - 1], false));
+                region.push(RegionToken::Intersection);
+            }
+            region.extend([hs(p_lo, false), RegionToken::Intersection, hs(p_hi, true), RegionToken::Intersection]);
+            let id = 200 + 10 * i as i32 + k as i32;
+            let cell = match fill {
+                Some(m) => Cell::material(id, region, *m, t_k),
+                None => Cell::fill(id, region, CellFill::Void, Position::ZERO),
+            };
+            push(&mut g, cell);
+        }
+        let mut outside = base.clone();
+        outside.push(hs(s[5], true));
+        outside.push(RegionToken::Intersection);
+        outside.extend(any_of(vec![vec![hs(p_lo, true)], vec![hs(p_hi, false)]]));
+        outside.push(RegionToken::Intersection);
+        push(&mut g, Cell::fill(209 + 10 * i as i32, outside, CellFill::Void, Position::ZERO));
+    }
+    g
+}
+
+/// `g` with the fuel salt only up to `z_level` \[cm\] (gh:#1659): above
+/// it, every space the salt filled is void (helium cover gas, at a density
+/// that does not matter to neutrons).
+///
+/// Salt cells of the root universe (heads, plenums, the annulus, the
+/// openings) are split by a plane at `z_level`. The stringer lattice is
+/// not split inside its universe; instead the root cell holding it is
+/// split at the plane, and above it holds a twin lattice whose stringers
+/// have empty channels (cell 103 for the channels, universe and lattice
+/// id 2). Split-off cells take id + 1000. A level above the salt changes
+/// nothing a particle can see.
+pub fn geometry_with_salt_level(mut g: Geometry, z_level: f64) -> Geometry {
+    let t = BoundaryType::Transmissive;
+    g.surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: z_level, bc: t }));
+    let plane = g.surfaces.len() - 1;
+    let root = g.root_universe;
+    // The dry twin of the stringer universe and of its lattice.
+    let wet_universe = 1;
+    let dry_cells: Vec<Cell> = g.universes[wet_universe]
+        .cell_indices
+        .iter()
+        .map(|&c| {
+            let cell = &g.cells[c];
+            match cell.fill {
+                CellFill::Material(m) if m == SALT_IDX => Cell::fill(103, cell.region.clone(), CellFill::Void, Position::ZERO),
+                _ => cell.clone(),
+            }
+        })
+        .collect();
+    let first = g.cells.len();
+    let n_dry = dry_cells.len();
+    g.cells.extend(dry_cells);
+    let dry_universe = g.universes.len();
+    g.universes.push(Universe { id: 2, cell_indices: (first..first + n_dry).collect() });
+    let dry_lattice = match &g.lattices[0] {
+        Lattice::Rect(l) => {
+            let mut d = l.clone();
+            d.id = 2;
+            d.universes = vec![dry_universe; l.universes.len()];
+            Lattice::Rect(d)
+        }
+        other => other.clone(),
+    };
+    g.lattices.push(dry_lattice);
+    let dry_lattice_idx = g.lattices.len() - 1;
+    let root_cells: Vec<usize> = g.universes[root].cell_indices.clone();
+    for c in root_cells {
+        let twin_fill = match g.cells[c].fill {
+            CellFill::Material(m) if m == SALT_IDX => CellFill::Void,
+            CellFill::Lattice(0) => CellFill::Lattice(dry_lattice_idx),
+            _ => continue,
+        };
+        let mut above = g.cells[c].region.clone();
+        above.extend([hs(plane, false), RegionToken::Intersection]);
+        let twin = Cell { id: g.cells[c].id + 1000, region: above, fill: twin_fill, ..g.cells[c].clone() };
+        g.cells[c].region.extend([hs(plane, true), RegionToken::Intersection]);
+        g.cells.push(twin);
+        let n = g.cells.len() - 1;
+        g.universes[root].cell_indices.push(n);
+    }
+    g
+}
+
+/// `salt` with its uranium's ²³⁵U weight fraction set to `w` at the same
+/// number of uranium atoms (gh:#1660). ²³⁴U and ²³⁶U stay in their
+/// proportion to ²³⁵U (so in TM-0730's enriched-lot ratio when the salt
+/// carries them, [`salt_with_tm0730_minor_uranium`]); ²³⁸U takes the rest.
+/// Fluorine is unchanged (UF₄: the U atoms are), and so is everything else.
+/// The volume is held fixed.
+///
+/// # Panics
+/// If `w` asks for more ²³⁵U, with its minor isotopes, than the uranium
+/// atoms hold (the ²³⁸U would go negative), or the salt has no ²³⁵U.
+pub fn salt_with_enrichment(salt: &[(&'static str, f64)], w: f64) -> Vec<(&'static str, f64)> {
+    let get = |n: &str| salt.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+    let (n4, n5, n6, n8) = (get("U234"), get("U235"), get("U236"), get("U238"));
+    assert!(n5 > 0.0, "the salt has no U-235");
+    let (m4, m5, m6, m8) = (234.040_952, 235.043_930, 236.045_568, 238.050_788);
+    let (r4, r6) = (n4 / n5, n6 / n5);
+    let n_u = n4 + n5 + n6 + n8;
+    // w (a (m5 + r4 m4 + r6 m6) + (N_U - a (1 + r4 + r6)) m8) = a m5, linear in a.
+    let a = w * n_u * m8 / (m5 - w * (m5 + r4 * m4 + r6 * m6) + w * (1.0 + r4 + r6) * m8);
+    let new8 = n_u - a * (1.0 + r4 + r6);
+    assert!(new8 >= 0.0, "enrichment {w} needs more U-235 than the uranium atoms hold");
+    salt.iter()
+        .map(|&(n, v)| match n {
+            "U235" => (n, a),
+            "U234" => (n, a * r4),
+            "U236" => (n, a * r6),
+            "U238" => (n, new8),
+            _ => (n, v),
+        })
+        .collect()
+}
+
+/// The ²³⁵U weight fraction of `salt`'s uranium.
+pub fn u235_weight_fraction(salt: &[(&'static str, f64)]) -> f64 {
+    let get = |n: &str| salt.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+    let m5 = get("U235") * 235.043_930;
+    m5 / (get("U234") * 234.040_952 + m5 + get("U236") * 236.045_568 + get("U238") * 238.050_788)
+}
+
 /// Fission source box: the graphite core.
 pub fn source_box() -> SourceBox {
     SourceBox {
@@ -1457,7 +1676,9 @@ pub fn source_box() -> SourceBox {
 /// - the whole thermal shield ([`Shield::Tm0728Full`]) or none
 ///   ([`Study::shield`] false, the ablation);
 /// - the default salt with U-234/U-236 ([`default_salt`]);
-/// - rods out;
+/// - rods out: the thimbles empty ([`Study::rods`] `None`);
+/// - a full vessel ([`Study::salt_level_cm`] `None`) and the salt's own
+///   enrichment ([`Study::u235_enrichment`] `None`);
 /// - reactor graphite 30P S(α,β) on C-12 and C-13 at the graphite's
 ///   temperature;
 /// - the shield water's H-1 bound in H₂O at [`SHIELD_TEMPERATURE_K`].
@@ -1484,11 +1705,27 @@ pub struct Study {
     /// The whole TM-0728 shield (`true`, the default) or vacuum outside the
     /// vessel (the ablation).
     pub shield: bool,
+    /// The three control rods' insertion, each a fraction of the 51 in
+    /// travel (0 the upper limit, 1 the driven lower limit; rods 2, 1, 3 in
+    /// [`OPENINGS`] order, as [`rods_inserted`]), modelled by
+    /// [`geometry_with_rods_at`] (gh:#1658). `None`, the default, leaves the
+    /// thimbles empty, as every N-1 record ran: the withdrawn rods' 0.08 %
+    /// δk/k is then taken out of the measurement by [`REFERENCE_K`] rather
+    /// than modelled. Needs the seven Gd tapes of [`ROD_NUCLIDES`].
+    pub rods: Option<[f64; 3]>,
+    /// The fuel salt's surface, `z` in cm (stringer bottom at 0), by
+    /// [`geometry_with_salt_level`] (gh:#1659). `None`, the default, is a
+    /// full vessel.
+    pub salt_level_cm: Option<f64>,
+    /// The ²³⁵U weight fraction of the salt's uranium at the same uranium
+    /// atoms, by [`salt_with_enrichment`] (gh:#1660), applied after
+    /// [`Study::u235_scale`]. `None`, the default, leaves the composition.
+    pub u235_enrichment: Option<f64>,
 }
 
 impl Default for Study {
     fn default() -> Self {
-        Self { salt_f: REFERENCE_TEMPERATURE_F, graphite_f: REFERENCE_TEMPERATURE_F, u235_scale: 1.0, shield: true }
+        Self { salt_f: REFERENCE_TEMPERATURE_F, graphite_f: REFERENCE_TEMPERATURE_F, u235_scale: 1.0, shield: true, rods: None, salt_level_cm: None, u235_enrichment: None }
     }
 }
 
@@ -1535,6 +1772,12 @@ impl Study {
         if self.u235_scale != 1.0 {
             mats[SALT_IDX].1 = salt_with_enriching_salt(&mats[SALT_IDX].1, self.u235_scale);
         }
+        if let Some(w) = self.u235_enrichment {
+            mats[SALT_IDX].1 = salt_with_enrichment(&mats[SALT_IDX].1, w);
+        }
+        if self.rods.is_some() {
+            mats.extend(rod_materials());
+        }
         let mut names: Vec<&'static str> = Vec::new();
         for (_, comps) in &mats {
             for (n, _) in comps {
@@ -1575,12 +1818,20 @@ impl Study {
     pub fn geometry(&self) -> Geometry {
         let (t_k, t_g) = (kelvin_from_f(self.salt_f), kelvin_from_f(self.graphite_f));
         let dims = Dims::at(self.salt_f, self.graphite_f);
-        if self.shield {
-            let base = materials_with_dims(MoTreatment::Natural, self.salt_f, dims).len();
+        let base = materials_with_dims(MoTreatment::Natural, self.salt_f, dims).len();
+        let mut g = if self.shield {
             geometry_with_full_shield(t_k, t_g, dims, Ends::VolumeEquivalent, base)
         } else {
             geometry_with_ends(t_k, t_g, dims, Ends::VolumeEquivalent)
+        };
+        if let Some(f) = self.rods {
+            let first_rod = base + if self.shield { full_shield_materials().len() } else { 0 };
+            g = geometry_with_rods_at(g, dims, f.map(|x| Some(rod_position_in(x))), first_rod, t_k);
         }
+        if let Some(z) = self.salt_level_cm {
+            g = geometry_with_salt_level(g, z);
+        }
+        g
     }
 }
 
@@ -1607,6 +1858,7 @@ impl StudyPlan {
 mod tests {
     use super::*;
     use crate::geometry::plot::{PlotBasis, SlicePlot, SliceHit};
+    use alloc::collections::BTreeMap;
 
     fn census(g: &Geometry, origin: Position, basis: PlotBasis, width: [f64; 2], px: usize) -> (Vec<usize>, usize, usize) {
         let plot = SlicePlot {
@@ -2097,5 +2349,130 @@ mod tests {
         println!("MSRE_STUDY nuclides: default {} (shield off {})", d.nuclides.len(), off.nuclides.len());
         let _ = Study::default().geometry();
         let _ = Study { shield: false, ..Study::default() }.geometry();
+    }
+
+    /// The material at one point of the assembled geometry (a one-pixel
+    /// slice), panicking on an overlap or a point outside.
+    fn material_at(g: &Geometry, p: Position) -> Option<usize> {
+        let plot = SlicePlot { origin: p, basis: PlotBasis::Xy, width: [1e-4, 1e-4], pixels: [1, 1], level: None, show_overlaps: true, meshlines: None };
+        match plot.id_map(g).hits[0] {
+            SliceHit::Found { material, .. } => material,
+            SliceHit::Overlap => panic!("overlap at {p:?}"),
+            SliceHit::NotFound => panic!("outside at {p:?}"),
+        }
+    }
+
+    /// Pixels by material of a slice, with overlaps and misses counted.
+    fn count(g: &Geometry, origin: Position, basis: PlotBasis, width: [f64; 2], px: usize) -> (BTreeMap<Option<usize>, usize>, usize, usize) {
+        let plot = SlicePlot { origin, basis, width, pixels: [px, px], level: None, show_overlaps: true, meshlines: None };
+        let mut m = BTreeMap::new();
+        let (mut overlap, mut outside) = (0, 0);
+        for h in &plot.id_map(g).hits {
+            match *h {
+                SliceHit::Found { material, .. } => *m.entry(material).or_insert(0) += 1,
+                SliceHit::Overlap => overlap += 1,
+                SliceHit::NotFound => outside += 1,
+            }
+        }
+        (m, overlap, outside)
+    }
+
+    /// ORNL-4233 Fig. 2's rod scale (gh:#1658): position 0 puts the lower
+    /// end 10.25 in above the stringer bottom, position 51 2.75 in below
+    /// the 64 in top; insertion fraction 0 is position 51.
+    #[test]
+    fn rod_positions_follow_ornl_4233_fig_2() {
+        let cold = Dims::COLD;
+        assert!((rod_lower_end_z(0.0, cold) - 10.25 * INCH).abs() < 1e-12);
+        assert!((H_CORE - rod_lower_end_z(ROD_TRAVEL_IN, cold) - 2.75 * INCH).abs() < 1e-12);
+        assert_eq!(rod_position_in(0.0), 51.0);
+        assert_eq!(rod_position_in(1.0), 0.0);
+        assert_eq!(rod_position_in(2.0), 0.0, "clamped");
+        let hot = Dims::at(1181.0, 1181.0);
+        assert!(rod_lower_end_z(51.0, hot) > rod_lower_end_z(51.0, cold), "scales with the graphite");
+    }
+
+    /// Partly inserted rods on the assembled default geometry (gh:#1658):
+    /// rod 2 driven in, rod 1 at its upper limit, rod 3 half way. Each
+    /// rod's ceramic is poison from its lower end up, void just below it;
+    /// a withdrawn rod still has poison 1 in below the top of the graphite
+    /// and none 1 in below its own lower end; the slice through each
+    /// thimble has no overlap and nothing lost.
+    #[test]
+    fn partly_inserted_rods_sit_where_fig_2_puts_them() {
+        let study = Study { rods: Some([1.0, 0.0, 0.5]), ..Study::default() };
+        let plan = study.plan();
+        let g = study.geometry();
+        let poison = plan.materials.iter().position(|(n, _)| n.contains("poison")).expect("rod poison planned");
+        let d = Dims::at(study.salt_f, study.graphite_f);
+        let r_mid = 0.5 * (ROD_CERAMIC_R_IN + ROD_CERAMIC_R_OUT);
+        for (i, f) in [1.0, 0.0, 0.5].into_iter().enumerate() {
+            let (x, y) = (OPENINGS[i].0 * d.graphite + r_mid, OPENINGS[i].1 * d.graphite);
+            let z_lo = rod_lower_end_z(rod_position_in(f), d);
+            assert_eq!(material_at(&g, Position::new(x, y, z_lo + 1.0)), Some(poison), "rod {i} poison above its end");
+            assert_eq!(material_at(&g, Position::new(x, y, z_lo - 1.0)), None, "rod {i} void below its end");
+            let (m, overlap, outside) = count(&g, Position::new(OPENINGS[i].0 * d.graphite, y, H_CORE / 2.0), PlotBasis::Xz, [6.0, H_CORE + 40.0], 240);
+            assert_eq!((overlap, outside), (0, 0), "rod {i}: {m:?}");
+        }
+        // The withdrawn rod (index 1): poison inside the graphite's top 2.75 in.
+        let (x, y) = (OPENINGS[1].0 * d.graphite + r_mid, OPENINGS[1].1 * d.graphite);
+        assert_eq!(material_at(&g, Position::new(x, y, H_CORE * d.graphite - INCH)), Some(poison));
+        // No rods: the thimbles stay empty and the plan has no rod material.
+        let none = Study::default();
+        assert!(!none.plan().materials.iter().any(|(n, _)| n.contains("poison")));
+        assert_eq!(material_at(&none.geometry(), Position::new(x, y, H_CORE / 2.0)), None);
+    }
+
+    /// The salt level (gh:#1659): with the surface at 100 cm, a core
+    /// section at 50 cm holds the same salt as the full vessel and one at
+    /// 130 cm none, the lower plenum is still salt and the upper plenum
+    /// empty, nothing overlaps; a level above the vessel changes no pixel.
+    #[test]
+    fn the_salt_level_empties_everything_above_it() {
+        let full = Study::default().geometry();
+        let part = Study { salt_level_cm: Some(100.0), ..Study::default() }.geometry();
+        let w = 2.0 * R_VESSEL_OUT;
+        let slice = |g: &Geometry, z: f64| count(g, Position::new(0.0, 0.0, z), PlotBasis::Xy, [w, w], 300);
+        let (below_full, o1, _) = slice(&full, 50.0);
+        let (below_part, o2, _) = slice(&part, 50.0);
+        assert_eq!((o1, o2), (0, 0));
+        assert_eq!(below_full.get(&Some(SALT_IDX)), below_part.get(&Some(SALT_IDX)));
+        let (above_full, _, _) = slice(&full, 130.0);
+        let (above_part, o3, _) = slice(&part, 130.0);
+        assert_eq!(o3, 0);
+        assert!(above_full.get(&Some(SALT_IDX)).copied().unwrap_or(0) > 1000);
+        assert_eq!(above_part.get(&Some(SALT_IDX)), None, "no salt above the level");
+        assert_eq!(above_full.get(&Some(GRAPHITE_IDX)), above_part.get(&Some(GRAPHITE_IDX)), "graphite unchanged");
+        assert_eq!(material_at(&part, Position::new(0.0, 0.0, -5.0)), Some(SALT_IDX), "lower plenum");
+        assert_eq!(material_at(&part, Position::new(0.0, 0.0, H_CORE + 5.0)), None, "upper plenum");
+        let over = Study { salt_level_cm: Some(1.0e4), ..Study::default() }.geometry();
+        for z in [-5.0, 50.0, 130.0, H_CORE + 5.0] {
+            assert_eq!(slice(&over, z).0, slice(&full, z).0, "z = {z}");
+        }
+    }
+
+    /// The enrichment (gh:#1660): the salt's own fraction gives it back, a
+    /// new fraction is met at the same uranium atoms with U-234 and U-236
+    /// in the same ratio to U-235, and nothing else moves.
+    #[test]
+    fn enrichment_holds_the_uranium_and_its_minor_isotopes() {
+        let salt = default_salt();
+        let get = |s: &[(&'static str, f64)], n: &str| s.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+        let u = |s: &[(&'static str, f64)]| ["U234", "U235", "U236", "U238"].iter().map(|n| get(s, n)).sum::<f64>();
+        let w0 = u235_weight_fraction(&salt);
+        assert!(w0 > 0.3 && w0 < 0.4, "{w0}");
+        let same = salt_with_enrichment(&salt, w0);
+        for (a, b) in salt.iter().zip(&same) {
+            assert!((a.1 - b.1).abs() <= 1e-12 * a.1.abs().max(1e-30), "{} {} {}", a.0, a.1, b.1);
+        }
+        let more = salt_with_enrichment(&salt, 0.5);
+        assert!((u235_weight_fraction(&more) - 0.5).abs() < 1e-12);
+        assert!((u(&more) / u(&salt) - 1.0).abs() < 1e-12, "uranium atoms held");
+        assert!((get(&more, "U234") / get(&more, "U235") - get(&salt, "U234") / get(&salt, "U235")).abs() < 1e-12);
+        for n in ["F19", "Li7", "Li6", "Be9", "Zr90"] {
+            assert_eq!(get(&more, n), get(&salt, n), "{n}");
+        }
+        let s = Study { u235_enrichment: Some(0.5), ..Study::default() }.plan();
+        assert!((u235_weight_fraction(&s.materials[SALT_IDX].1) - 0.5).abs() < 1e-12);
     }
 }
