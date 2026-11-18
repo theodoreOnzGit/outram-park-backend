@@ -7,28 +7,31 @@
 //! (gh:#1390), the case `wmp_generate_vs_openmc.rs` (Mg-26) left undone.
 //!
 //! Methodology, the reference (OpenMC `8f79d9d`, and why not 0.15.3), the
-//! prediction written before the run, hardware and every timing:
+//! prediction written before the run, why only a subset of the 304 pieces is
+//! fitted, hardware and every timing:
 //! `verification_and_validation/wmp_generate_u238/README.md`. The reference
-//! driver is `openmc_inputs/ref_u238.py`; its outputs are the fixtures read
-//! here (`pieces.txt`, `mp_data.f64`, `library.f64`, little-endian f64).
+//! driver is `openmc_inputs/ref_u238_subset.py`; its outputs are the fixtures
+//! read here (`pieces.txt`, `meta.txt`, `fitted_pieces.f64`,
+//! `library_prefix.f64`; binary files are little-endian f64).
 //!
-//! | test | what it runs | cost |
-//! |---|---|---|
-//! | [`u238_front_end_is_openmcs_bit_for_bit`] | the port's RECONR -> GASPR -> ACER front end, 304 pieces checksummed against OpenMC's | minutes |
-//! | [`u238_windowing_of_openmcs_multipole_data`] | the port's `from_multipole(search)` on OpenMC's own multipole data | see README |
-//! | [`u238_piece_fits_against_openmc`] | `vectfit_xs` on a stated subset of pieces | see README |
-//! | [`u238_whole_chain_from_the_tape`] | `from_endf` on the tape (`#[ignore]`, hours) | hours |
+//! | test | what it runs |
+//! |---|---|
+//! | [`u238_front_end_is_openmcs_bit_for_bit`] | the port's RECONR -> GASPR -> ACER front end; all 304 pieces checksummed against OpenMC's input to `_vectfit_xs` |
+//! | [`u238_prefix_windowing_of_openmcs_multipole_data`] | the port's `from_multipole(search)` on OpenMC's own poles for the lowest 12 pieces |
+//! | [`u238_piece_fits_against_openmc`] | `vectfit_xs` on pieces OpenMC fitted (cheap ones by default; `OUTRAM_WMP_U238_PIECES`) |
+//! | [`u238_all_fitted_pieces_against_openmc`] | `vectfit_xs` on all 15 pieces OpenMC fitted (`#[ignore]`, hours) |
 //!
-//! Results are in the README (they are not repeated here, so they cannot
-//! drift from it). Skips (passes, printing `SKIP`) when the tape is absent.
+//! Results are in the README (not repeated here, so they cannot drift from
+//! it). Skips (passes, printing `SKIP`) when the tape is absent.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Instant;
 
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use njoy_outram_park_fork::wmp::generate::{
-    from_endf, piece_ranges, pointwise_from_endf, resolve_vf_pieces, search_windowing, vectfit_xs, MultipoleData, SearchOptions,
-    VectfitOptions, WmpGenerated,
+    piece_ranges, pointwise_from_endf, resolve_vf_pieces, search_windowing, vectfit_xs, MultipoleData, SearchOptions, VectfitOptions,
+    WmpGenerated,
 };
 use njoy_outram_park_fork::wmp::Cf64;
 
@@ -45,6 +48,8 @@ struct PieceRecord {
     checksum: [u64; 3],
     e_first: f64,
     e_last: f64,
+    /// Whether OpenMC's `_vectfit_xs` was run on this piece (else a stand-in).
+    fitted: bool,
 }
 
 fn load_pieces() -> Vec<PieceRecord> {
@@ -59,6 +64,7 @@ fn load_pieces() -> Vec<PieceRecord> {
                 checksum: [w[2].parse().unwrap(), w[3].parse().unwrap(), w[4].parse().unwrap()],
                 e_first: w[5].parse().unwrap(),
                 e_last: w[6].parse().unwrap(),
+                fitted: w[7] == "1",
             }
         })
         .collect()
@@ -88,45 +94,60 @@ fn read_f64s(name: &str) -> Vec<f64> {
     b.chunks_exact(8).map(|c| f64::from_le_bytes(c.try_into().unwrap())).collect()
 }
 
-/// OpenMC's `mp_data` as `ref_u238.py` wrote it, plus the pointwise-grid ends.
-fn load_mp_data(name: &str, awr: f64, e_min: f64, e_max: f64) -> MultipoleData {
-    let v = read_f64s("mp_data.f64");
+/// Poles and residues of one piece OpenMC fitted: `(poles, residues[mt][pole])`.
+type PieceFit = (Vec<Cf64>, Vec<Vec<Cf64>>);
+
+/// The pieces OpenMC fitted, keyed by 0-based piece index, as
+/// `ref_u238_subset.py` wrote them (`piece_<i>.f64` files concatenated).
+fn load_fitted_pieces() -> BTreeMap<usize, PieceFit> {
+    let v = read_f64s("fitted_pieces.f64");
     let mut at = 0usize;
-    let next = |at: &mut usize| {
-        let x = v[*at];
-        *at += 1;
-        x
-    };
-    let n_pieces = next(&mut at) as usize;
-    let (mut poles, mut residues) = (Vec::new(), Vec::new());
-    let mut n_mt_seen = 0usize;
-    for _ in 0..n_pieces {
-        let n = next(&mut at) as usize;
-        let nmt = next(&mut at) as usize;
-        n_mt_seen = nmt;
-        let cplx = |at: &mut usize, count: usize| -> Vec<Cf64> {
-            (0..count)
-                .map(|_| {
-                    let re = v[*at];
-                    let im = v[*at + 1];
-                    *at += 2;
-                    Cf64::new(re, im)
-                })
-                .collect()
+    let mut out = BTreeMap::new();
+    while at < v.len() {
+        let (i, n, nmt) = (v[at] as usize, v[at + 1] as usize, v[at + 2] as usize);
+        at += 3;
+        let mut cplx = |count: usize| -> Vec<Cf64> {
+            let r = (0..count).map(|k| Cf64::new(v[at + 2 * k], v[at + 2 * k + 1])).collect();
+            at += 2 * count;
+            r
         };
-        let p = cplx(&mut at, n);
-        let r: Vec<Vec<Cf64>> = (0..nmt).map(|_| cplx(&mut at, n)).collect();
-        poles.push(p);
-        residues.push(r);
+        let p = cplx(n);
+        let r: Vec<Vec<Cf64>> = (0..nmt).map(|_| cplx(n)).collect();
+        out.insert(i, (p, r));
     }
-    assert_eq!(at, v.len(), "mp_data.f64 fully consumed");
-    let mts = if n_mt_seen == 3 { vec![2, 27, 18] } else { vec![2, 27] };
-    MultipoleData { name: name.into(), awr, e_min, e_max, mts, poles, residues }
+    assert_eq!(at, v.len(), "fitted_pieces.f64 fully consumed");
+    out
+}
+
+/// `meta.txt`: `key value` lines (floats as shortest round-trip decimals).
+fn load_meta() -> BTreeMap<String, f64> {
+    let text = std::fs::read_to_string(dir().join("meta.txt")).expect("meta.txt");
+    text.lines()
+        .filter(|l| !l.starts_with('#'))
+        .map(|l| {
+            let mut it = l.split_whitespace();
+            (it.next().unwrap().to_string(), it.next().unwrap().parse().unwrap())
+        })
+        .collect()
+}
+
+/// The multipole data of the lowest `K` pieces over their own energy range.
+fn prefix_multipole(fitted: &BTreeMap<usize, PieceFit>, meta: &BTreeMap<String, f64>) -> MultipoleData {
+    let k = meta["K"] as usize;
+    MultipoleData {
+        name: "U238".into(),
+        awr: meta["awr"],
+        e_min: meta["e_min"],
+        e_max: meta["e_max_prefix"],
+        mts: vec![2, 27, 18],
+        poles: (0..k).map(|i| fitted[&i].0.clone()).collect(),
+        residues: (0..k).map(|i| fitted[&i].1.clone()).collect(),
+    }
 }
 
 /// OpenMC's searched library as `ref_u238.py` wrote it.
 fn load_library(name: &str) -> WmpGenerated {
-    let v = read_f64s("library.f64");
+    let v = read_f64s("library_prefix.f64");
     let (spacing, sqrt_awr, e_min, e_max) = (v[0], v[1], v[2], v[3]);
     let (n_poles, ncol, n_win) = (v[4] as usize, v[5] as usize, v[6] as usize);
     let mut at = 8usize;
@@ -148,7 +169,7 @@ fn load_library(name: &str) -> WmpGenerated {
     at += a * b * c;
     let broaden_poly: Vec<bool> = (0..n_win).map(|i| v[at + i] != 0.0).collect();
     at += n_win;
-    assert_eq!(at, v.len(), "library.f64 fully consumed");
+    assert_eq!(at, v.len(), "library_prefix.f64 fully consumed");
     WmpGenerated { name: name.into(), spacing, sqrt_awr, e_min, e_max, poles, residues, windows, curvefit, broaden_poly }
 }
 
@@ -227,19 +248,13 @@ fn compare_sigma(ours: &WmpGenerated, theirs: &WmpGenerated, per_t: usize) -> (u
     (bad, worst, n)
 }
 
-fn reference() -> (Vec<PieceRecord>, f64, f64, f64) {
-    let pieces = load_pieces();
-    let lib_hdr = read_f64s("library.f64");
-    let (sqrt_awr, e_min, e_max) = (lib_hdr[1], lib_hdr[2], lib_hdr[3]);
-    (pieces, sqrt_awr * sqrt_awr, e_min, e_max)
-}
-
-/// The front end is OpenMC's, bit for bit, over every piece that is fitted.
+/// The front end is OpenMC's, bit for bit, over every piece (all 304 are
+/// checksummed, fitted or not).
 #[test]
 #[cfg_attr(not(feature = "long-tests"), ignore = "minutes: RECONR+ACER of U-238 at 0 K; runs by default")]
 fn u238_front_end_is_openmcs_bit_for_bit() {
     let Some(endf) = reference_endf_or_skip(TAPE, "wmp_generate_u238_vs_openmc") else { return };
-    let (pieces, _, _, _) = reference();
+    let pieces = load_pieces();
     let t0 = Instant::now();
     let xs = pointwise_from_endf(&endf, 5e-4).expect("front end");
     println!("front end: {} points in {:.1} s", xs.energy.len(), t0.elapsed().as_secs_f64());
@@ -259,62 +274,61 @@ fn u238_front_end_is_openmcs_bit_for_bit() {
     println!("front end: {identical} of {n_pieces} pieces bit-identical to OpenMC's input to _vectfit_xs");
 }
 
-/// The port's windowing search on OpenMC's own multipole data: windows,
-/// spacing, fit order and used poles identical, curve fit and sigma measured.
+/// The port's windowing search on OpenMC's own multipole data for the lowest
+/// 12 pieces: windows, spacing, fit order and used poles identical, curve fit
+/// and sigma measured.
 #[test]
-#[cfg_attr(not(feature = "long-tests"), ignore = "long: windowing search over ~4000 poles; runs by default")]
-fn u238_windowing_of_openmcs_multipole_data() {
+#[cfg_attr(not(feature = "long-tests"), ignore = "long: windowing search; runs by default")]
+fn u238_prefix_windowing_of_openmcs_multipole_data() {
     if reference_endf_or_skip(TAPE, "wmp_generate_u238_vs_openmc").is_none() {
         return;
     }
-    let (_, awr, e_min, e_max) = reference();
-    let mp = load_mp_data("U238", awr, e_min, e_max);
+    let (fitted, meta) = (load_fitted_pieces(), load_meta());
+    let mp = prefix_multipole(&fitted, &meta);
     let n_poles: usize = mp.poles.iter().map(Vec::len).sum();
     let t0 = Instant::now();
     let ours = search_windowing(&mp, &SearchOptions::default()).expect("search_windowing");
     println!("search_windowing: {n_poles} poles in, {:.1} s", t0.elapsed().as_secs_f64());
     let theirs = load_library("U238");
     println!("port: {} windows, order {}; OpenMC: {} windows, order {}", ours.n_windows(), ours.fit_order(), theirs.n_windows(), theirs.fit_order());
-    let cf = compare_wmp("from_multipole search on OpenMC's data", &ours, &theirs);
+    let cf = compare_wmp("from_multipole search on OpenMC's prefix data", &ours, &theirs);
     let (bad, _, _) = compare_sigma(&ours, &theirs, 2000);
     assert_eq!(bad, 0, "windowed sigma outside rtol/atol");
     assert!(cf.is_finite());
 }
 
+/// Pieces fitted by default: the cheap ones for OpenMC (< 25 s each in
+/// `ref_u238_full_run_aborted.log`), chosen before any port timing.
+const DEFAULT_PIECES: [usize; 9] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
 /// Which pieces `u238_piece_fits_against_openmc` fits: `OUTRAM_WMP_U238_PIECES`
-/// (comma-separated indices, or `all`), default the pieces named in the README.
-fn selected_pieces(n: usize) -> Vec<usize> {
+/// (comma-separated indices, or `all` for every piece OpenMC fitted).
+fn selected_pieces(fitted: &BTreeMap<usize, PieceFit>) -> Vec<usize> {
     match std::env::var("OUTRAM_WMP_U238_PIECES") {
-        Ok(s) if s == "all" => (0..n).collect(),
+        Ok(s) if s == "all" => fitted.keys().copied().collect(),
         Ok(s) => s.split(',').filter(|x| !x.is_empty()).map(|x| x.trim().parse().expect("piece index")).collect(),
-        Err(_) => DEFAULT_PIECES.iter().copied().filter(|&i| i < n).collect(),
+        Err(_) => DEFAULT_PIECES.to_vec(),
     }
 }
 
-/// The pieces fitted by default, chosen before any port timing (every 76th
-/// piece plus the first and last), not after seeing results.
-const DEFAULT_PIECES: [usize; 5] = [0, 76, 152, 228, 303];
-
-/// `vectfit_xs` on OpenMC's own input to it, piece by piece: pole counts
-/// compared, poles and residues measured.
-#[test]
-#[cfg_attr(not(feature = "long-tests"), ignore = "long: vector fitting of the selected pieces; runs by default")]
-fn u238_piece_fits_against_openmc() {
-    let Some(endf) = reference_endf_or_skip(TAPE, "wmp_generate_u238_vs_openmc") else { return };
-    let (pieces, awr, e_min, e_max) = reference();
-    let mp = load_mp_data("U238", awr, e_min, e_max);
+/// `vectfit_xs` on OpenMC's own input, piece by piece: pole counts compared,
+/// poles and residues measured. Returns the number of pieces whose pole count
+/// differs, or `None` when the tape is absent.
+fn fit_pieces_against_openmc(sel: &[usize]) -> Option<usize> {
+    let endf = reference_endf_or_skip(TAPE, "wmp_generate_u238_vs_openmc")?;
+    let (pieces, fitted) = (load_pieces(), load_fitted_pieces());
     let xs = pointwise_from_endf(&endf, 5e-4).expect("front end");
     let ranges = piece_ranges(&xs, resolve_vf_pieces(&xs, None));
     let fission = xs.fission.clone().expect("fissionable");
     let mut differing = 0usize;
-    let sel = selected_pieces(ranges.len());
-    for &i in &sel {
+    for &i in sel {
+        assert!(pieces[i].fitted, "piece {i} was not fitted by OpenMC");
         let (lo, hi) = ranges[i];
         let cx = vec![xs.elastic[lo..hi].to_vec(), xs.absorption[lo..hi].to_vec(), fission[lo..hi].to_vec()];
         let t0 = Instant::now();
         let fit = vectfit_xs(&xs.energy[lo..hi], &cx, &VectfitOptions::default()).expect("vectfit_xs");
         let secs = t0.elapsed().as_secs_f64();
-        let (rp, rr) = (&mp.poles[i], &mp.residues[i]);
+        let (rp, rr) = &fitted[&i];
         assert_eq!(rp.len(), pieces[i].n_poles, "fixture consistency, piece {i}");
         if fit.poles.len() != rp.len() {
             differing += 1;
@@ -333,28 +347,26 @@ fn u238_piece_fits_against_openmc() {
         println!("piece {i}: {} points, {} poles = OpenMC, worst pole {wp:.3e}, residue {wr:.3e} relative, {secs:.1} s", hi - lo, rp.len());
     }
     println!("{differing} of {} fitted pieces have a different pole count", sel.len());
-    assert_eq!(differing, 0, "pole counts of the fitted pieces");
+    Some(differing)
 }
 
-/// Tape to library by the port's `from_endf`, against OpenMC's library:
-/// total poles, windows, fit order, and sigma(E, T). Hours; run with
-/// `cargo test --release -p njoy-outram-park-fork --test
-/// wmp_generate_u238_vs_openmc -- --ignored u238_whole_chain`.
+/// The default pieces (or `OUTRAM_WMP_U238_PIECES`).
 #[test]
-#[ignore = "hours: the port's vector fitting of all 304 U-238 pieces and its windowing search; see the README"]
-fn u238_whole_chain_from_the_tape() {
-    let Some(endf) = reference_endf_or_skip(TAPE, "wmp_generate_u238_vs_openmc") else { return };
-    let t0 = Instant::now();
-    let ours = from_endf(&endf).expect("from_endf");
-    println!("from_endf: {:.1} s", t0.elapsed().as_secs_f64());
-    let theirs = load_library("U238");
-    println!(
-        "port: {} poles / {} windows / order {} / spacing {:e}; OpenMC: {} / {} / {} / {:e}",
-        ours.poles.len(), ours.n_windows(), ours.fit_order(), ours.spacing,
-        theirs.poles.len(), theirs.n_windows(), theirs.fit_order(), theirs.spacing
-    );
-    let (bad, worst, n) = compare_sigma(&ours, &theirs, 2000);
-    println!("whole chain: {bad} of {n} sigma values outside rtol/atol, worst {worst:.3e}");
-    assert_eq!(ours.poles.len(), theirs.poles.len(), "total pole count");
-    assert_eq!((ours.n_windows(), ours.fit_order()), (theirs.n_windows(), theirs.fit_order()), "window parameters");
+#[cfg_attr(not(feature = "long-tests"), ignore = "long: vector fitting of the selected pieces; runs by default")]
+fn u238_piece_fits_against_openmc() {
+    let sel = selected_pieces(&load_fitted_pieces());
+    if let Some(differing) = fit_pieces_against_openmc(&sel) {
+        assert_eq!(differing, 0, "pole counts of the fitted pieces");
+    }
+}
+
+/// All 15 pieces OpenMC fitted (0-11, 100, 200, 303). Hours: OpenMC alone
+/// took ~25 min on the first 12 pieces, ~1 h of it in three of them.
+#[test]
+#[ignore = "hours: the port's vector fitting of every piece OpenMC fitted; see the README"]
+fn u238_all_fitted_pieces_against_openmc() {
+    let sel: Vec<usize> = load_fitted_pieces().keys().copied().collect();
+    if let Some(differing) = fit_pieces_against_openmc(&sel) {
+        assert_eq!(differing, 0, "pole counts of the fitted pieces");
+    }
 }

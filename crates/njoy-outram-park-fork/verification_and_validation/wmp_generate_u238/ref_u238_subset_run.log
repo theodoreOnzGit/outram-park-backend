@@ -1,0 +1,18 @@
+piece 0 FITTED points 469 poles 3 seconds 0.2
+piece 1 FITTED points 196 poles 3 seconds 0.1
+piece 2 FITTED points 65 poles 3 seconds 0.0
+piece 3 FITTED points 47 poles 5 seconds 0.1
+piece 4 FITTED points 242 poles 4 seconds 0.1
+piece 5 FITTED points 905 poles 5 seconds 7.4
+piece 6 FITTED points 1220 poles 6 seconds 11.2
+piece 7 FITTED points 561 poles 6 seconds 1.9
+piece 8 FITTED points 235 poles 5 seconds 0.4
+piece 9 FITTED points 866 poles 5 seconds 495.2
+piece 10 FITTED points 1059 poles 6 seconds 191.8
+piece 11 FITTED points 297 poles 6 seconds 77.7
+piece 100 FITTED points 3058 poles 16 seconds 613.0
+piece 200 FITTED points 5049 poles 34 seconds 1599.0
+piece 303 FITTED points 6623 poles 48 seconds 2415.6
+vectfit_nuclide seconds (fits of the chosen pieces only) 5696.571079492569 pieces 304
+from_multipole(search) on the prefix seconds 32.89399313926697
+done: prefix poles 19 windows 110 fit_order 5
