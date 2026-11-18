@@ -205,8 +205,11 @@ Follow-up: #533.
   separate that from a small real difference.
 - Without boron, all four points are +105 to +127 pcm (0.5–0.7σ each),
   combined +112 ± 96 pcm, which is not resolved.
-- **Neither code is the reference.** A seed ensemble at the three 2σ points
-  would settle it, and was not run. For scale, on the full LCT-008 lattice
+- **Neither code is the reference.** ~~A seed ensemble at the three 2σ points
+  would settle it, and was not run.~~ **CORRECTED 2026-11-18 (gh:#550):** it
+  was run, 16 seeds per code: 1.63576 and 1.75 cm agree (z −0.97 and −0.01),
+  2.40 cm misses the |z| ≤ 2 gate (−117 ± 39 pcm, z −2.97). See "Seed ensemble"
+  at the end of this file. For scale, on the full LCT-008 lattice
   the two codes agree at −8 ± 9 pcm over 96 seeds
   (`icsbep/five_route_keff_2026_09_29.md`).
 
@@ -274,3 +277,115 @@ I am aware of and cannot rule out in advance: the OpenMC binary used here is
 0.15.3 (the original record used 0.16.1-dev25), and the HDF5 library is
 rebuilt from the same NJOY2016 ACE recipe, not the original files. Nothing is
 adjusted after the runs.
+
+### Method of the ensemble (run 2026-11-18)
+
+- **Settings, unchanged from the single runs:** case-1 borated water, 11-nuclide
+  tier, 5000 × [50 inactive + 200 active], 293.6 K, URR on, resonance
+  scattering on, S(α,β) on the water. Only the seed changed: seeds 1–16 on each
+  code at each of 1.63576, 1.75 and 2.40 cm, so 48 runs per code.
+- **Pairing.** By setting and seed number only. The codes have different
+  random-number generators and physics routines, so seed `i` of one code is not
+  correlated with seed `i` of the other, and the comparison is unpaired (Welch):
+  σ_diff = √(sem_outram² + sem_OpenMC²).
+- **Estimator.** Per-seed k is each code's generation mean over the 200 active
+  generations (outram-mc's `k_mean`; OpenMC's `k_gen_mean`, as the original
+  single runs). Mean, sd (n − 1) and sem = sd/√16 are over the 16 seeds. OpenMC's
+  own combined estimator is in `openmc_seeds.csv` too; it is quoted below.
+- **outram-mc:** `examples/lct008_pitch_sweep.rs` with `--cheap-nuclides
+  --particles 5000 --inactive 50 --active 200`, `OUTRAM_PITCH_SEEDS=n`, at
+  HEAD `46ac0fab4` (the prediction commit, on `5dace1194`). Four processes ran
+  it in pieces, because the machine was heavily loaded and I split the seeds:
+  seeds 1–8, 9–12, 13–14 and 15–16, each with `--seed` set to its first seed
+  (`ensemble_550/parts/`). Every run is an independent master seed; the split
+  changes nothing but the load.
+  **The example has changed since the original record:** the single runs used
+  the binary built at `7e9b8bd637`; the per-material S(α,β) migration (gh:#1581)
+  and later commits touched the example and the library. This is not the same
+  code as the single runs.
+- **OpenMC:** 0.15.3, commit `27e38e894697bb32a1dac7848d2618818b6b8daf`, built
+  from source, no MPI (the original used 0.16.1-dev25, `d7d3284a1`). Deck:
+  `openmc_inputs/lct008_pin_cell_openmc.py`, **unchanged and verbatim**, run
+  by `ensemble_550/run_openmc_ensemble.sh`. `OMP_NUM_THREADS=2`, `--threads 2`.
+- **OpenMC library, rebuilt the way the original record says:** route 1 of the
+  five-route study, NJOY2016 2016.79 ACE → HDF5, made with
+  `icsbep/five_route_keff/scripts/make_njoy_library.sh` and
+  `openmc_inputs/ace_to_hdf5_route.py`, for the 11 nuclides in
+  `ensemble_550/nuclides_11.tsv` (build log `make_njoy_library.log`). U-234,
+  U-235, U-238 at 293.6 K and U-235 at 0 K were taken from the `reference-data/ace`
+  submodule as the script does; everything else (including the other 0 K
+  companions and H in H₂O at iwt = 1) was generated here with the same NJOY2016
+  build. The tables are **not the original files**, they are a rebuild from
+  the same recipe. B-10 went through the script's Type-2 fallback, as
+  recorded there.
+- **Environment fix (not a repository change):** the shared venv had no
+  `openmc/lib/libopenmc.so`, which `Model.run` imports. I symlinked the
+  installed `openmc-install/lib/libopenmc.so` into it. It does not alter the
+  transport.
+- **Hardware.** Intel Xeon @ 2.10 GHz (`ensemble_550/hardware.txt`), 4 logical
+  cores, 15 GB RAM, Linux 6.18.44, CPU only, a VM **shared with at least two
+  other agents; load average 6–13 on 4 cores throughout**. Threads: 2 per
+  process, at most 2 heavy processes of mine at a time (one outram-mc and one
+  OpenMC, later two outram-mc). Timings:
+  - OpenMC: 48 runs, 51–137 s each, mean 72 s, 3450 s in total.
+  - outram-mc: 48 runs, 199–588 s of transport each, mean 375 s, 18 011 s of
+    transport in total (sum over processes). Nuclear data load (RECONR + BROADR)
+    346–471 s per process, four times.
+  - Timings are indicative only: the load was high and varied.
+- **Raw outputs** (small text): `ensemble_550/outram_seeds.csv`,
+  `openmc_seeds.csv`, `parts/` (per-process CSVs and console logs),
+  `openmc_stdout.log`, `analysis_output.md`, produced by `analyse.py`.
+- **Source convergence.** OpenMC's Shannon entropy columns in the CSV: the
+  last-inactive and active-mean values sit at 7.7 in every run, as in the
+  original record.
+
+### Results (16 seeds per code, case-1 borated, 11-nuclide tier)
+
+| pitch [cm] | code | mean k∞ | sd over seeds | sem | mean single-run σ | sd / single-run σ |
+|---|---|---|---|---|---|---|
+| 1.63576 | outram-mc | 1.06216 | 126 pcm | 31 pcm | 106 pcm | 1.19 |
+| 1.63576 | OpenMC | 1.06253 | 87 pcm | 22 pcm | 126 pcm | 0.70 |
+| 1.75 | outram-mc | 1.01104 | 63 pcm | 16 pcm | 103 pcm | 0.61 |
+| 1.75 | OpenMC | 1.01104 | 132 pcm | 33 pcm | 120 pcm | 1.10 |
+| 2.40 | outram-mc | 0.70536 | 107 pcm | 27 pcm | 97 pcm | 1.10 |
+| 2.40 | OpenMC | 0.70653 | 116 pcm | 29 pcm | 91 pcm | 1.27 |
+
+| pitch [cm] | outram-mc − OpenMC [pcm] | σ [pcm] | z | gate (\|z\| ≤ 2) | single run, 2026-10-04 |
+|---|---|---|---|---|---|
+| 1.63576 | −37 | 38 | −0.97 | pass | +342 ± 174 |
+| 1.75 | −1 | 37 | −0.01 | pass | −409 ± 173 |
+| **2.40** | **−117** | 39 | **−2.97** | **MISS** | −294 ± 138 |
+
+Per-seed values for both codes are in `ensemble_550/analysis_output.md`.
+With OpenMC's own combined estimator instead of the generation mean, OpenMC's
+means are 1.06204, 1.01123 and 0.70650 (sem 17, 21 and 20 pcm); at 2.40 cm the
+difference is −114 pcm, z = −3.4, so the miss does not depend on the choice of
+estimator.
+
+### Prediction against outcome
+
+| pitch | predicted difference, z | measured | verdict |
+|---|---|---|---|
+| 1.63576 | +50 pcm, about +1 | −37 pcm, −0.97 | gate passes as predicted. The sign was wrong; the size is within the window I gave (−50 … +150) |
+| 1.75 | −100 pcm, about −2 | −1 pcm, −0.01 | gate passes, but **my predicted offset did not appear**: the −409 pcm single run was a fluctuation |
+| 2.40 | −100 pcm, about −2 | −117 pcm, −2.97 | **gate missed.** The size matched my prediction; I had called it borderline and the sem came out smaller than the one implied by my −2 |
+
+- The predicted sem of the difference was 45–60 pcm. It came out at 37–39 pcm,
+  because the true per-seed sd was 0.6–1.3 times the single-run σ rather than the
+  1.0–1.5 times I assumed.
+- **Two of the three single-run 2σ points are gone** (1.63576, 1.75 cm). They
+  were statistical.
+- **The 2.40 cm point remains and is now a 3σ miss.** I report it as a miss.
+  The 16 seeds put outram-mc low by −117 ± 39 pcm (−114 ± 34 pcm with OpenMC's
+  combined estimator). Nothing was changed to improve it: no input, seed
+  selection, threshold or estimator was altered after seeing the numbers.
+- **What it does not show.** The ensemble does not say which code is
+  right; neither is the reference. It does not show a trend (the other two
+  pitches are consistent with zero). It does not separate a code defect from a
+  data difference: the OpenMC data are NJOY2016 ACE, outram-mc's are its own
+  RECONR/BROADR from the tapes, and the OpenMC version and the outram-mc code
+  both differ from the original record. The gate is pass / pass / miss on three
+  points; the unborated points (all +105 to +127 pcm) were not rerun here.
+- **Follow-up not done:** locating the 2.40 cm difference needs a
+  factor-by-factor tally comparison against OpenMC, or reruns with single
+  physics options switched off. No hypothesis was tested here.

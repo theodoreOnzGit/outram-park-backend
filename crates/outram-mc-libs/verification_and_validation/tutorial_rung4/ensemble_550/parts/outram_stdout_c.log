@@ -1,0 +1,32 @@
+LEU-COMP-THERM-008 pin cell, reflective square lattice: k∞ against pitch
+  nuclide tier: CHEAP (--cheap-nuclides) (11 tapes); soluble boron: case-1, 1511 ppm
+  material 1 "Water with 1511 PPM": omitted 6.750e-5 of 1.002e-1 /b·cm (0.07 % of its atoms)
+  material 3 "Aluminum 6061 Cladding for Fuel": omitted 1.032e-3 of 5.538e-2 /b·cm (1.86 % of its atoms)
+  omitted (not in the active nuclide tier, or no tape): B11, Cr50, Cr52, Cr53, Cr54, Cu63, Cu65, Fe54, Fe56, Fe57, Fe58, Mg24, Mg25, Mg26, Ti46, Ti47, Ti48, Ti49, Ti50, Zn64, Zn66, Zn67, Zn68, Zn70 — 1.100e-3 /b·cm in total
+Reconstructing nuclides (RECONR + BROADR @ 293.6 K, URR + DBRC by default):
+  H1        0.1 s  urr=false dbrc=true sab=true
+  O16       4.1 s  urr=false dbrc=true sab=false
+  B10       0.2 s  urr=false dbrc=true sab=false
+  U234     19.5 s  urr=true dbrc=true sab=false
+  U235    141.8 s  urr=true dbrc=true sab=false
+  U238    128.2 s  urr=true dbrc=true sab=false
+  Al27      2.7 s  urr=false dbrc=true sab=false
+  Si28      2.0 s  urr=false dbrc=true sab=false
+  Si29      2.0 s  urr=false dbrc=true sab=false
+  Si30      1.7 s  urr=false dbrc=true sab=false
+  Mn55     12.1 s  urr=true dbrc=true sab=false
+Nuclear data ready in 347.5 s.
+
+  pitch    p/d    Vm/Vf   k_inf ± σ              eta     f       p       eps     leak     t[s]
+  1.63576  1.356   1.841  1.06281 ± 0.00111  1.7755  0.6805  0.7590  1.1570  0.0e0  539
+SEED 1.63576 13 1.06281 0.00111
+  1.75000  1.451   2.306  1.01167 ± 0.00097  1.7768  0.6292  0.7941  1.1375  0.0e0  504
+SEED 1.75 13 1.01167 0.00097
+  2.40000  1.990   5.545  0.70638 ± 0.00101  1.7800  0.4040  0.8913  1.1004  0.0e0  325
+SEED 2.4 13 0.70638 0.00101
+  1.63576  1.356   1.841  1.06267 ± 0.00101  1.7755  0.6807  0.7585  1.1567  0.0e0  433
+SEED 1.63576 14 1.06267 0.00101
+  1.75000  1.451   2.306  1.01168 ± 0.00103  1.7769  0.6292  0.7946  1.1373  0.0e0  294
+SEED 1.75 14 1.01168 0.00103
+  2.40000  1.990   5.545  0.70284 ± 0.00103  1.7800  0.4036  0.8909  1.1008  0.0e0  199
+SEED 2.4 14 0.70284 0.00103

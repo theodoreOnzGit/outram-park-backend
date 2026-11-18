@@ -1,0 +1,54 @@
+  NJOY2016 0 K  U234  12377961 bytes
+  NJOY2016 293 K  O16  16251057 bytes
+  NJOY2016 0 K  O16  16281817 bytes
+  NJOY2016 293 K  H1  182763 bytes
+  NJOY2016 0 K  H1  194427 bytes
+  NJOY2016 293 K  Al27  5159180 bytes
+  NJOY2016 0 K  Al27  5442964 bytes
+  NJOY2016 293 K  Si28  6551165 bytes
+  NJOY2016 0 K  Si28  6801071 bytes
+  NJOY2016 293 K  Si29  6110991 bytes
+  NJOY2016 0 K  Si29  6306606 bytes
+  NJOY2016 293 K  Si30  4742820 bytes
+  NJOY2016 0 K  Si30  4942262 bytes
+  NJOY2016 293 K  Mn55  17700005 bytes
+  NJOY2016 0 K  Mn55  18705175 bytes
+  NJOY2016 293 K  B10  1679420 bytes
+  NJOY2016 0 K  B10  1707527 bytes
+  NJOY2016 0 K  U238  250889792 bytes
+  NJOY2016 293 K  B10  Type 2 (Type-1 formatter aborted)  664612 bytes
+  NJOY2016 0 K  B10  Type 2 (Type-1 formatter aborted)  675732 bytes
+NJOY2016 library complete under /tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy
+/tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/0K:
+total 623904
+drwxr-xr-x  2 root root      4096 Nov 18 10:13 .
+drwxr-xr-x 10 root root      4096 Nov 18 10:14 ..
+-rw-r--r--  1 root root   5442964 Nov 18 10:11 Al27.ace
+-rw-r--r--  1 root root    675732 Nov 18 10:13 B10.ace
+-rw-r--r--  1 root root    194427 Nov 18 10:11 H1.ace
+-rw-r--r--  1 root root  18705175 Nov 18 10:12 Mn55.ace
+-rw-r--r--  1 root root  16281817 Nov 18 10:11 O16.ace
+-rw-r--r--  1 root root   6801071 Nov 18 10:11 Si28.ace
+-rw-r--r--  1 root root   6306606 Nov 18 10:12 Si29.ace
+-rw-r--r--  1 root root   4942262 Nov 18 10:12 Si30.ace
+-rw-r--r--  1 root root  12377961 Nov 18 10:11 U234.ace
+-rw-r--r--  1 root root 316226457 Nov 18 10:11 U235.ace
+-rw-r--r--  1 root root 250889792 Nov 18 10:13 U238.ace
+
+/tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/openmc-libs/lct008_pin11/njoy/293.6K:
+total 326144
+drwxr-xr-x  2 root root      4096 Nov 18 10:14 .
+drwxr-xr-x 10 root root      4096 Nov 18 10:14 ..
+-rw-r--r--  1 root root   5159180 Nov 18 10:11 Al27.ace
+-rw-r--r--  1 root root    664612 Nov 18 10:13 B10.ace
+-rw-r--r--  1 root root   2411377 Nov 18 10:14 Graphite30P.ace
+-rw-r--r--  1 root root    182763 Nov 18 10:11 H1.ace
+-rw-r--r--  1 root root   2605433 Nov 18 10:14 HinH2O.ace
+-rw-r--r--  1 root root  17700005 Nov 18 10:12 Mn55.ace
+-rw-r--r--  1 root root  16251057 Nov 18 10:11 O16.ace
+-rw-r--r--  1 root root   6551165 Nov 18 10:11 Si28.ace
+-rw-r--r--  1 root root   6110991 Nov 18 10:11 Si29.ace
+-rw-r--r--  1 root root   4742820 Nov 18 10:12 Si30.ace
+-rw-r--r--  1 root root   9107181 Nov 18 10:11 U234.ace
+-rw-r--r--  1 root root 135931655 Nov 18 10:11 U235.ace
+-rw-r--r--  1 root root 126511619 Nov 18 10:11 U238.ace
