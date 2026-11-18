@@ -342,14 +342,19 @@ pub mod gpu;
 #[cfg(all(feature = "std", not(target_os = "android")))]
 pub mod gpu_wmp;
 
+/// OpenMC's per-collision record as plain data, in every build (gh:#1605);
+/// [`hdf5::collision_track`] writes it to `collision_track.h5`.
+pub mod collision_track_site;
 /// Read and write for the **OpenMC interchange formats** (HDF5 nuclide, MGXS,
 /// WMP and statepoint files, `cross_sections.xml`, the depletion chain) —
 /// see the module docs. (CORRECTED 2026-10-04: the `perf_report` doc comment
 /// below used to sit on this line, so rustdoc showed it for `hdf5`.)
-/// OpenMC's per-collision record as plain data, in every build (gh:#1605);
-/// [`hdf5::collision_track`] writes it to `collision_track.h5`.
-pub mod collision_track_site;
-#[cfg(feature = "std")]
+/// (CORRECTED 2026-11-18: this comment then sat above `collision_track_site`,
+/// so rustdoc showed it for that module.) ~~`std` only.~~ **CHANGED
+/// 2026-11-18 (gh:#1648):** without `std` the module carries the depletion
+/// chain from text (`depletion_chain_xml`, `depletion_chain_ops`,
+/// `depletion_chain_from_endf`); the file and HDF5 readers and writers are
+/// `std` only.
 pub mod hdf5;
 /// **Per-machine performance-report generator** — hardware detection (GPU label,
 /// CPU cores, OS) plus a small markdown formatter, so a benchmark can emit a

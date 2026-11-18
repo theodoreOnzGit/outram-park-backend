@@ -29,14 +29,21 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 pub mod collision_track;
+#[cfg(feature = "std")]
 pub mod cross_sections_xml;
 pub mod depletion_chain_from_endf;
 pub mod depletion_chain_ops;
 pub mod depletion_chain_xml;
+#[cfg(feature = "std")]
 pub mod mgxs_write;
+#[cfg(feature = "std")]
 pub mod nuclide_laws;
+#[cfg(feature = "std")]
 pub mod nuclide_read;
+#[cfg(feature = "std")]
 pub mod nuclide_write;
+#[cfg(feature = "std")]
 pub mod statepoint_write;
 mod xml_scan;

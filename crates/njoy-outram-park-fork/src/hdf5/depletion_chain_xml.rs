@@ -54,6 +54,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use alloc::collections::BTreeMap;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use super::xml_scan::{scan, XmlElement};
@@ -403,6 +404,7 @@ impl DepletionChainXml {
     }
 
     /// Parse a chain from a file.
+    #[cfg(feature = "std")]
     pub fn read_file(path: &Path) -> Result<Self, NjoyError> {
         let text = std::fs::read_to_string(path)
             .map_err(|e| NjoyError::Hdf5(format!("reading {}: {e}", path.display())))?;
@@ -906,6 +908,7 @@ mod tests {
     /// embedded copy above cannot drift from the format's own examples without
     /// this failing. **Skips** — it does not fail — where no checkout exists,
     /// per the workspace rule that reference data may be absent.
+    #[cfg(feature = "std")]
     #[test]
     fn the_openmc_checkouts_own_chain_files_read_if_present() {
         let files = [

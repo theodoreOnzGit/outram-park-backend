@@ -28,8 +28,12 @@ The default `std` feature can be turned off: the library is then `no_std` +
 gated by `scripts/check-nostd.sh`). What it keeps: the ENDF parser and every
 processing module on in-memory tapes (`Tape::from_bytes` in, `Tape::to_text`
 out), the deck driver with memory-only units, the embedded WMP and MGXS
-libraries, and ACE reading from bytes. What `std` adds: files and the deck work
-directory, the download/cache layer (`acquire::EndfCache`), HDF5, `rayon`
+libraries, ACE reading from bytes, and (since 2026-11-18, gh:#1648) the
+OpenMC depletion chain from XML text (`hdf5::depletion_chain_xml::DepletionChainXml::parse`,
+`hdf5::depletion_chain_ops`, `hdf5::depletion_chain_from_endf`,
+`isomeric_branching::apply_to_chain`). What `std` adds: files and the deck work
+directory, the download/cache layer (`acquire::EndfCache`), HDF5 files
+(and reading the chain from a file, `DepletionChainXml::read_file`), `rayon`
 threads (without them RECONR and BROADR run the same work serially, as on
 wasm), the GPU path, clocks (HEATR's listing times read 0.0 s, `dater` reads
 `01/01/70` unless the deck fixes a date) and the two binaries. With `std` on
