@@ -44,21 +44,26 @@
 //!    CCFE-709 collapse moves step-5 atoms by under 0.5 % for every listed
 //!    nuclide.
 //!
-//! **Re-measure in progress (2026-11-17, gh:#1626):** the example now binds
-//! H in H2O per material (`assign_material_sab`, gh:#462) rather than to the
-//! H-1 nuclide. Only the water holds H-1, so the physics is the same, but
-//! the random stream is not (seed 1's day-5 k: 1.14437, was 1.14840). The
-//! results below and `pincell_depletion_port.tsv` were measured with the
-//! nuclide-level binding; all 16 seeds are being re-run.
-//!
-//! # Results, measured 2026-11-17 (all three predictions held)
+//! # Results, measured 2026-11-17/18 (all three predictions held)
 //!
 //! 1. Check 1: 160 OpenMC steps (2 modes x 16 seeds x 5) replayed, worst
 //!    **4.1e-15** (CRAM-48 dense against SuperLU, as arm 1).
-//! 2. Check 2: **0 of 41 above 3 sigma, worst |z| 1.76** (Gd-157, step 3).
-//!    `k`: 1.16286 +- 0.00090 against 1.16222 +- 0.00046 at BOS (+0.6 sigma),
-//!    1.14343 +- 0.00110 against 1.14245 +- 0.00077 at day 5 (+0.7 sigma);
-//!    U-235 at day 5 agrees to 4e-7 relative (+0.6 sigma).
+//! 2. Check 2: **0 of 41 above 3 sigma, worst |z| 1.62** (Xe-135, day 5).
+//!    `k`: 1.16158 +- 0.00074 against 1.16222 +- 0.00046 at BOS (-0.7
+//!    sigma), 1.14221 +- 0.00066 against 1.14245 +- 0.00077 at day 5 (-0.2
+//!    sigma); U-235 at day 5 agrees within 0.1 sigma.
+//!
+//!    **RE-MEASURED 2026-11-18** with H in H2O bound per material
+//!    (`assign_material_sab`, gh:#462; the example had bound it to the H-1
+//!    nuclide, which `tests/no_unmarked_nuclide_level_sab_462.rs` flags).
+//!    Only the water holds H-1, so the physics is the same, but the random
+//!    stream is not, so all 16 seeds were re-run (prediction on gh:#1626
+//!    first: 0 of 41 above 3 sigma, held). ~~0 of 41, worst 1.76 (Gd-157,
+//!    step 3); `k` 1.16286 +- 0.00090 at BOS (+0.6 sigma), 1.14343 +-
+//!    0.00110 at day 5 (+0.7 sigma)~~, the nuclide-level run. Day-5 `k`
+//!    moved -122 pcm, -0.95 sigma on the two runs' combined error: slightly
+//!    more than the old run's own SEM (0.00110), which was the bound
+//!    predicted.
 //!
 //!    ~~First run: 0 of 41 above 3 sigma, worst 2.85, with U-238 low at every
 //!    step (-1.9 to -2.8 sigma), recorded as a candidate systematic.~~
@@ -74,10 +79,11 @@
 //!    (k carries ~100 pcm noise per seed-mean here).
 //!
 //! Wall time, one host (Intel Xeon Processor, 4 logical cores, 4 threads
-//! each, 15 GB RAM, Linux 6.18, CPU only; not shared during the port's
-//! seeds 3-16): OpenMC 19 s per seed (5 steps + final), the port 166-176 s,
-//! about 9x. Seeds 1-2 of the port ran beside OpenMC (350 s) and are not
-//! timings.
+//! each, 15 GB RAM, Linux 6.18, CPU only): OpenMC 19 s per seed (5 steps +
+//! final); the port 166-176 s on the nuclide-level run (seeds 3-16, host
+//! not shared) and 174-181 s on the per-material re-run (seeds 9-16, host
+//! not shared), about 9x. The re-run's seeds 1-8 (244-364 s) shared the
+//! host with the nee_soon test suite and are not timings.
 
 use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
 use outram_mc_libs::depletion::chain::DepletionChain;
