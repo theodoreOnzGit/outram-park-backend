@@ -1860,3 +1860,67 @@ stated in advance:** six comparisons at a 2-sigma gate have about a 26 % chance
 of at least one |z| > 2 under the null, so a single marginal |z| between 2 and
 2.5 among the six is not by itself evidence of a shift; it would be replicated
 on fresh seeds before any claim is made.
+
+### gh:#1635 item 1: results, arms 1 and 2 (2026-11-18)
+
+OLD = `d1e20f188`, NEW = branch HEAD (`181fa26d8` + the prediction commit, plus
+the `OUTRAM_FHR_ALL_SEED` knob for arm 3 only; `icsbep_five_route_keff` is
+unchanged between `501c16264` and this HEAD, as the seed-1 check below shows).
+Both binaries were built `--release -j 2` into the shared target directory and
+copied to unique paths. `OUTRAM_PARK_ENDF_DIR` pointed at the main checkout's
+`reference-data/endf` (its `../ace` is the populated submodule, where the MSRE
+Zr tapes are). Raw outputs: `ensembles_1635_item1/icsbep_{msre,lct008}_*.{out,err,rss}`
+(the driver prints `seed N: k = ...` on stderr, so the `.err` files hold the
+per-seed lines; `.rss` is the peak `VmHWM` sampled every 30 s from `/proc`, so it
+can miss a short spike). Arithmetic: `ensembles_1635_item1/stat.awk`
+(= `ensembles_1583/msre_stat.awk`, unchanged), fed by `paste old new`; no
+Python. sem = sd / sqrt(N), sigma = sqrt(sem_old^2 + sem_new^2).
+
+**Hardware.** Intel Xeon @ 2.10 GHz (cloud container, KVM), 4 logical cores,
+about 15.7 GB RAM, Linux 6.18, CPU only; 2 threads per MC process, two MC
+processes of mine at a time, load average 3.4-4.6 (no other agent's heavy
+processes seen this time). Per-seed wall times (about 345-355 s MSRE, about 73-76
+s lct008-full) belong to this box under this load and carry no cross-run
+meaning; the earlier record's 690-705 s MSRE seeds ran beside another agent's
+four processes.
+
+**Seed-1 reproduction check (asked for before pooling).** NEW seed 1 on this
+HEAD printed `k = 1.65582 +/- 0.00113`, the same value to the printed digits as
+`ensembles_1583/icsbep_msre_s1-8_new_501c16264.out`. NEW has therefore not
+moved for this driver since `501c16264`; NEW seeds 1-8 were not re-run (seed 1
+was run again only as the check, inside the process that ran seeds 9-16).
+
+**Arm 1: MSRE, route `endf`, 5000 x [40 + 120], 2 threads, N = 16**
+
+| seeds | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| 1-8 (recorded 2026-11-17) | 1.65542 (157 pcm) | 1.65536 (118) | -6 +- 69 pcm | -0.09 |
+| 9-16 (this pass) | 1.65558 (116) | 1.65562 (158) | +5 +- 69 | +0.07 |
+| **pooled, N = 16** | 1.65550 (133, sem 33) | 1.65549 (135, sem 34) | **-1 +- 48 pcm** | **-0.01** |
+
+Per-seed (old / new): 9 1.65568 / 1.65537; 10 1.65728 / 1.65844; 11 1.65705 /
+1.65565; 12 1.65596 / 1.65649; 13 1.65516 / 1.65682; 14 1.65506 / 1.65374; 15
+1.65413 / 1.65425; 16 1.65431 / 1.65424. Prediction (consistent with zero,
+|z| <= 2, no sign): **held**, and |z| <= 1 on every row. Seed sd 116-158 pcm,
+inside the 120-160 predicted. Resolution: sigma 48 pcm, so a shift under about
+100 pcm (2 sigma) would not be seen. Peak RSS sampled 0.62 GB per process.
+
+**Arm 2: `lct008-full`** (35 nuclides, URR on 10/35, DBRC on 35/35, S(a,b) on),
+route `endf`, 5000 x [40 + 120], 2 threads, seeds 1-8 per build. It fits easily:
+peak sampled RSS 0.61 GB (old) and 0.63 GB (new) per process, data load 377-378
+s, 72-76 s per seed. N = 8 was fixed in the prediction and kept (the seeds are
+cheap enough that a larger N was possible; it was not added after seeing the
+result).
+
+| arm | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| lct008-full, N = 8 | 1.00129 (148 pcm) | 1.00134 (120) | +5 +- 67 pcm | +0.07 |
+
+Per-seed (old / new): 1 1.00266 / 1.00338; 2 1.00068 / 1.00061; 3 1.00213 /
+0.99992; 4 0.99899 / 1.00146; 5 1.00122 / 1.00074; 6 1.00185 / 1.00267; 7
+0.99957 / 1.00165; 8 1.00324 / 1.00030 (`ensembles_1635_item1/lct008_pairs.txt`).
+Prediction (|z| <= 2): **held**;
+seed sd 120-148 pcm, a little under the 150-250 assumed, so sigma 67 pcm is
+better than the 75-125 predicted. A shift under about 135 pcm would not be seen.
+Absolute k (1.0013) is this run's own value at 5000 x [40 + 120] and is not
+compared here with the benchmark or with the 10 000 x [250 + 400] record.
