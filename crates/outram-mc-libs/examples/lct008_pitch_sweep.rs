@@ -83,7 +83,8 @@
 //!     --example lct008_pitch_sweep -- [--pitches 1.25,1.63576,2.4] \
 //!     [--particles 4000 --inactive 50 --active 150] [--seed 1] \
 //!     [--cheap-nuclides] [--no-soluble-boron] [--csv out.csv] [--plots DIR] \
-//!     [--hdf5-dir DIR_WITH_h5]   # start from an OpenMC library (gh:#303)
+//!     [--hdf5-dir DIR_WITH_h5]   # start from an OpenMC library (gh:#303) \
+//!     [--threads N]              # default: every logical core
 //! ```
 
 use njoy_outram_park_fork::reference_data::reference_endf;
@@ -276,7 +277,11 @@ fn main() {
             n_inactive,
             n_active,
             temperature_k: TEMP_K,
-            compute: ComputeType::CpuMultiThread(Default::default()),
+            compute: ComputeType::CpuMultiThread(
+                value("--threads").map_or(Default::default(), |v| {
+                    outram_mc_libs::physics::compute::ThreadCount::Fixed(v.parse().expect("threads"))
+                }),
+            ),
             seed,
             ..KeffSettings::default()
         };

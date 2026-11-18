@@ -649,10 +649,18 @@ a translation of it.
   (`src/material/nuclide/hdf5_read.rs`) converts a `ReadNuclide`. It reproduces
   `Nuclide::from_ace`'s cross sections bit for bit
   (`tests/nuclide_from_hdf5.rs`) and transports elastic, MT=51..90 `level` and
-  Watt/Maxwell/evaporation fission. It **refuses by name** every other
+  Watt/Maxwell/evaporation fission. ~~It **refuses by name** every other
   neutron-emitting law, URR tables, delayed products and polynomial nu, so a
-  real OpenMC U-235 library (continuous and correlated laws) is still refused.
-  Verified: `ReadNuclide` is used in `src/material/nuclide/hdf5_read.rs`.
+  real OpenMC U-235 library (continuous and correlated laws) is still refused.~~
+  **CORRECTED 2026-11-18 (gh:#303):** it also decodes `continuous`,
+  `correlated`, `kalbach-mann`, `nbody` and `LNW` chains, URR tables, delayed
+  groups, polynomial nu and the `0K` elastic (DBRC), mapped onto what `from_ace`
+  builds (`src/material/nuclide/hdf5_laws.rs`). The 11-nuclide LCT-008 NJOY
+  library, U-235 and U-238 included, converts and matches `from_ace` on the ACE it
+  was built from (record: `verification_and_validation/hdf5_library_303/`). Still
+  refused: `madland-nix` and unknown laws; thermal `.h5` files are not read.
+  Verified: `Nuclide::from_hdf5` is exercised on all 11 files by
+  `material::nuclide::hdf5_real_tests` (env-gated).
 
   **The part that still holds for this crate:** it takes its data pre-loaded,
   captures run state (`physics::state_point`) and hands it to that codec at

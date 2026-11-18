@@ -1,0 +1,18 @@
+LEU-COMP-THERM-008 pin cell, reflective square lattice: k∞ against pitch
+  nuclide tier: CHEAP (--cheap-nuclides) (11 tapes); soluble boron: case-1, 1511 ppm
+  material 1 "Water with 1511 PPM": omitted 6.750e-5 of 1.002e-1 /b·cm (0.07 % of its atoms)
+  material 3 "Aluminum 6061 Cladding for Fuel": omitted 1.032e-3 of 5.538e-2 /b·cm (1.86 % of its atoms)
+  omitted (not in the active nuclide tier, or no tape): B11, Cr50, Cr52, Cr53, Cr54, Cu63, Cu65, Fe54, Fe56, Fe57, Fe58, Mg24, Mg25, Mg26, Ti46, Ti47, Ti48, Ti49, Ti50, Zn64, Zn66, Zn67, Zn68, Zn70 — 1.100e-3 /b·cm in total
+Reading nuclides from the OpenMC-format library (HDF5):
+  H1       0.00 s (read 0.00 s)  urr=false dbrc=true
+  O16      0.02 s (read 0.02 s)  urr=false dbrc=true
+  B10      0.01 s (read 0.01 s)  urr=false dbrc=true
+  U234     0.01 s (read 0.01 s)  urr=true dbrc=true
+  U235     0.18 s (read 0.14 s)  urr=true dbrc=true
+  U238     0.10 s (read 0.06 s)  urr=true dbrc=true
+  Al27     0.12 s (read 0.12 s)  urr=false dbrc=true
+  Si28     0.03 s (read 0.03 s)  urr=false dbrc=true
+  Si29     0.04 s (read 0.04 s)  urr=false dbrc=true
+  Si30     0.01 s (read 0.01 s)  urr=false dbrc=true
+  Mn55     0.09 s (read 0.08 s)  urr=true dbrc=true
+Nuclear data ready in 33.6 s (0.6 s of it the 11 nuclides, the rest the S(a,b)).
