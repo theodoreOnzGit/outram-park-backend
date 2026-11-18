@@ -750,3 +750,184 @@ fn b_replicates_pooled_vs_openmc() {
     println!("[B pooled] collision worst |z| {:.2}, legendre worst |z| {:.2}", worst[0], worst[1]);
     assert!(worst[0] <= 2.0 && worst[1] <= 2.0, "pooled worst |z| {worst:?}");
 }
+
+// ── Experiments B and C THROUGH THE REAL TRANSPORT (gh:#261, 2026-11-18) ──────
+// Predictions: `prediction_before_measuring.md`, amendments 3 and 4.
+
+/// Run the fixed-source runner for 20 batches of `per` histories from one
+/// isotropic point source at the origin, and return per bin `(mean, standard
+/// error)` of the batch values per source particle.
+#[allow(clippy::too_many_arguments)]
+fn real_stats(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    proto: &Tally,
+    vr: outram_mc_libs::physics::variance_reduction::VarianceReduction,
+    e_ev: f64,
+    per: usize,
+    seed: u64,
+) -> Vec<(f64, f64)> {
+    use outram_mc_libs::source::angle::IsotropicAngle;
+    let mut t = proto.clone();
+    let src = FixedSource::Independent(Arc::new(IndependentSource {
+        spatial: SpatialKind::Point(PointSource { r: Position::ZERO }),
+        energy: EnergyKind::Mono(Monoenergetic { e: e_ev }),
+        angle: AngleKind::Isotropic(IsotropicAngle),
+        strength: 1.0,
+    }));
+    run_fixed_source_traced(
+        geom,
+        materials,
+        nuclides,
+        &src,
+        &FixedSourceSettings { n_particles: 20 * per, n_batches: 20, seed, variance_reduction: vr, ..Default::default() },
+        Some(&mut t),
+        None,
+        None,
+        None,
+    );
+    t.bins
+        .iter()
+        .map(|b| {
+            let n = b.count as f64;
+            let mean = b.sum / n;
+            let var = ((b.sum_sq - n * mean * mean) / (n - 1.0)).max(0.0);
+            (mean / per as f64, (var / n).sqrt() / per as f64)
+        })
+        .collect()
+}
+
+fn z_pairs(name: &str, ours: &[(f64, f64)], theirs: &[(f64, f64)]) -> f64 {
+    let mut worst = 0.0f64;
+    for (b, (&(a, sa), &(o, so))) in ours.iter().zip(theirs).enumerate() {
+        let d = (sa * sa + so * so).sqrt();
+        let z = if d > 0.0 { (a - o) / d } else if a == o { 0.0 } else { f64::INFINITY };
+        println!("[real {name}] bin {b}: ours {a:.6} +- {sa:.6}  openmc {o:.6} +- {so:.6}  z {z:+.2}");
+        worst = worst.max(z.abs());
+    }
+    worst
+}
+
+#[test]
+fn real_b_collision_vs_openmc() {
+    let Some((geom, mats)) = model_b() else { return };
+    let nuc = &model().unwrap().nuclides;
+    let tc = tally(vec![FilterKind::Collision(CollisionFilter { bins: vec![0, 1, 2, 3, 4, 5] })], ScoreType::Flux);
+    let t0 = std::time::Instant::now();
+    let ours = real_stats(&geom, &mats, nuc, &tc, Default::default(), 1.0e6, 50_000, 261);
+    println!("[real B] 1e6 histories in {:.1} s (4 logical cores, single thread, shared host)", t0.elapsed().as_secs_f64());
+    let w = z_pairs("collision", &ours, &load_stat("collision"));
+    println!("[real B] collision worst |z| {w:.2}");
+    assert!(w <= 2.0, "collision filter through real transport: worst |z| {w}");
+}
+
+/// Replication plan of amendment 5 (fixed before it was run): 8 seed pairs,
+/// 1001..1008, pooled per bin from the scatter of the 8 run means.
+#[test]
+fn real_b_replicates_pooled_vs_openmc() {
+    let Some((geom, mats)) = model_b() else { return };
+    let nuc = &model().unwrap().nuclides;
+    let tc = tally(vec![FilterKind::Collision(CollisionFilter { bins: vec![0, 1, 2, 3, 4, 5] })], ScoreType::Flux);
+    let mut ours: Vec<Vec<f64>> = vec![Vec::new(); 6];
+    let mut theirs: Vec<Vec<f64>> = vec![Vec::new(); 6];
+    for k in 1..=8u64 {
+        let seed = 1000 + k;
+        let run = real_stats(&geom, &mats, nuc, &tc, Default::default(), 1.0e6, 50_000, seed);
+        let om = load_stat_file(&format!("expB_collision_s{seed}"));
+        for b in 0..6 {
+            ours[b].push(run[b].0);
+            theirs[b].push(om[b]);
+        }
+    }
+    let stats = |v: &[f64]| {
+        let n = v.len() as f64;
+        let m = v.iter().sum::<f64>() / n;
+        let var = v.iter().map(|x| (x - m) * (x - m)).sum::<f64>() / (n - 1.0);
+        (m, (var / n).sqrt())
+    };
+    let mut worst = 0.0f64;
+    for b in 0..6 {
+        let (a, sa) = stats(&ours[b]);
+        let (o, so) = stats(&theirs[b]);
+        let z = (a - o) / (sa * sa + so * so).sqrt();
+        println!("[real B pooled collision] bin {b}: ours {a:.6} +- {sa:.6}  openmc {o:.6} +- {so:.6}  z {z:+.2}");
+        worst = worst.max(z.abs());
+    }
+    println!("[real B pooled] collision worst |z| {worst:.2}");
+    assert!(worst <= 2.0, "pooled worst |z| {worst}");
+}
+
+fn model_c() -> Option<(Geometry, Vec<Material>, Vec<Nuclide>)> {
+    let (geom, _) = model_b()?;
+    let path = njoy_outram_park_fork::reference_data::reference_endf("n-003_Li_006-ENDF8.0.endf")?;
+    let li6 = Nuclide::from_endf_file(
+        &path,
+        "Li6",
+        uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K),
+        1.0e-3,
+    )
+    .ok()?;
+    let material = Material {
+        id: 1,
+        name: "Li6 gas".into(),
+        components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 0.05 }],
+        temperature: TEMP_K,
+    };
+    Some((geom, vec![material], vec![li6]))
+}
+
+fn survival_biasing() -> outram_mc_libs::physics::variance_reduction::VarianceReduction {
+    outram_mc_libs::physics::variance_reduction::VarianceReduction {
+        survival_biasing: true,
+        weight_cutoff: 0.25,
+        weight_survive: 1.0,
+        ..Default::default()
+    }
+}
+
+fn weight_tally() -> Tally {
+    let f = WeightFilter { bins: vec![0.0, 0.1, 0.25, 0.5, 0.75, 1.0] };
+    tally(vec![FilterKind::Weight(f)], ScoreType::Flux)
+}
+
+fn load_stat_c(name: &str) -> Vec<(f64, f64)> {
+    let txt = std::fs::read_to_string(ref_dir().join(format!("expC_{name}.txt"))).expect("expC reference");
+    txt.lines()
+        .map(|l| {
+            let v: Vec<f64> = l.split_whitespace().map(|x| x.parse().unwrap()).collect();
+            (v[1], v[2])
+        })
+        .collect()
+}
+
+/// Experiment C: WeightFilter under survival biasing (Li-6, 300 keV).
+#[test]
+fn real_c_weight_vs_openmc() {
+    let Some((geom, mats, nuc)) = model_c() else { return };
+    let ours = real_stats(&geom, &mats, &nuc, &weight_tally(), survival_biasing(), 3.0e5, 50_000, 261);
+    let w = z_pairs("weight", &ours, &load_stat_c("weight"));
+    println!("[real C] weight worst |z| {w:.2}");
+    assert!(w <= 2.0, "weight filter through real transport: worst |z| {w}");
+}
+
+/// Wiring the history fields must not perturb the transport: a tally binned by
+/// `CellBorn` (one cell, so every event lands in bin 0) holds the same total as
+/// an unbinned flux tally from the same seed, bit for bit, and a collision
+/// filter covering 0..100 collisions sums to it.
+#[test]
+fn history_tallies_do_not_perturb_the_run() {
+    let Some((geom, mats)) = model_b() else { return };
+    let nuc = &model().unwrap().nuclides;
+    let plain = tally(vec![], ScoreType::Flux);
+    let born = tally(vec![FilterKind::CellBorn(CellBornFilter { cells: vec![0] })], ScoreType::Flux);
+    let a = real_stats(&geom, &mats, nuc, &plain, Default::default(), 1.0e6, 500, 7);
+    let b = real_stats(&geom, &mats, nuc, &born, Default::default(), 1.0e6, 500, 7);
+    assert_eq!(a[0].0.to_bits(), b[0].0.to_bits());
+    assert_eq!(a[0].1.to_bits(), b[0].1.to_bits());
+    let bins: Vec<u32> = (0..100).collect();
+    let coll = tally(vec![FilterKind::Collision(CollisionFilter { bins })], ScoreType::Flux);
+    let c = real_stats(&geom, &mats, nuc, &coll, Default::default(), 1.0e6, 500, 7);
+    let total: f64 = c.iter().map(|x| x.0).sum();
+    assert!((total - a[0].0).abs() <= 1.0e-12 * a[0].0, "collision bins sum {total} vs {}", a[0].0);
+}

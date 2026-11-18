@@ -191,3 +191,17 @@ green.
    [0, 0.1, 0.25, 0.5, 0.75, 1.0]. Prediction unchanged in kind: all 5 bins |z| <= 2, worst
    about 1.5. If a bin is a miss at the first run, the replication plan is fixed here: 8
    further seed pairs (1001..1008) pooled as for Experiment B, criterion |z| <= 2 pooled.
+
+### Amendment 5 (2026-11-18, written after the first real-transport run of Experiment B/C, before any replication)
+
+First real-transport runs (seed 261, recorded in the README): WEIGHT worst |z| 1.06 (prediction
+held); **COLLISION worst |z| 2.56 (bins 2 and 4: +2.56 and +2.55), a miss of the registered
+criterion**, in the same direction as the driver's first run (bin 4 +1.1 % here, +1.2 % there).
+Stays reported as a miss. Replication plan fixed now, before running it: the same 8 seed pairs
+as before (ours seeds 1001..1008 through the real runner, OpenMC `expB_collision_s1001..1008`
+already committed), pooled per bin as mean of the 8 run means with standard error from their
+scatter, criterion |z| <= 2 on the pooled bins. Expectation: the OpenMC first-run bin-4 value
+(0.744105) is itself low against OpenMC's own 8-seed pooled 0.7473, so the first-run miss is
+mostly the reference's draw; the pooled worst |z| falls under 2 (about 1.2). If it stays above
+2.5 the noise reading is wrong and the collision-number binning (n_collision off by one at a
+secondary or after a split) is the suspect.
