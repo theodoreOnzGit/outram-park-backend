@@ -68,7 +68,14 @@
 //!   tier and settings). The differences were −37 ± 38 pcm (z −0.97) at
 //!   1.63576 cm and −1 ± 37 pcm (z −0.01) at 1.75 cm, so those single-run
 //!   tensions were fluctuations. At 2.40 cm it was **−117 ± 39 pcm (z −2.97),
-//!   a miss** of the |z| ≤ 2 gate, cause not investigated. Record:
+//!   a miss** of the |z| ≤ 2 gate, ~~cause not investigated~~ **diagnosed the
+//!   same day (gh:#550): localised to the H-in-H2O S(a,b) table.** With the
+//!   neutron data from OpenMC's own `.h5`, swapping only the S(a,b) for NJOY's
+//!   (`--sab-ace`) moves k by +135 ± 35 pcm and leaves +42 ± 31 pcm (z +1.36)
+//!   against OpenMC; the neutron data (+23 ± 38 pcm), the S(a,b) cross sections
+//!   (1.3e-4) and the emission-grid density (−1 ± 43 pcm) are ruled out; which
+//!   feature of the kernel differs is not isolated. Record ("2.40 cm miss:
+//!   diagnosis"):
 //!   `verification_and_validation/tutorial_rung4/pitch_sweep.md`.
 //!   The 4 unborated points agree within 1σ.
 //! - **Predictions 3 and 4** (borated peak at V_m/V_f ≈ 2–3, LCT-008
@@ -228,6 +235,33 @@ fn main() {
     // reconstructing from ENDF tapes. Everything else is unchanged.
     let hdf5_dir = value("--hdf5-dir").map(std::path::PathBuf::from);
     let (free_nuclides, sab) = load_nuclides(&spec, &slots, tier, hdf5_dir.as_deref());
+    // `--sab-ace PATH` (gh:#550 diagnostic A/B): H(H2O) from an NJOY thermal ACE
+    // (the table OpenMC's c_H_in_H2O.h5 was made from) instead of the ENDF tape.
+    // `--no-sab` (gh:#550 H3 ablation): no S(a,b); H-1 is free gas.
+    let sab = if let Some(p) = value("--sab-ace") {
+        let raw = njoy_outram_park_fork::acer::read::read(p)
+            .unwrap_or_else(|e| panic!("read {p}: {e}"));
+        eprintln!("  S(a,b) for H in H2O from {p} (--sab-ace)");
+        sab.map(|_| ThermalScattering::from_ace(&raw, "c_H_in_H2O").expect("S(a,b) from ACE"))
+    } else if let Some(g) = value("--sab-grids") {
+        // `--sab-grids N_EMIT,N_OUT` (gh:#550 H6): the ENDF-built table on a
+        // different emission grid (crate defaults: 384 incident energies, 64
+        // outgoing bins) to test the kernel's grid convergence.
+        let (ne, no) = g.split_once(',').expect("--sab-grids N_EMIT,N_OUT");
+        let (ne, no): (usize, usize) = (ne.parse().expect("n_emit"), no.parse().expect("n_out"));
+        eprintln!("  S(a,b) for H in H2O from the ENDF tape on a {ne} x {no} emission grid (--sab-grids)");
+        sab.map(|_| {
+            let p = reference_endf("tsl-HinH2O.endf").expect("H(H2O) tape");
+            let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+            ThermalScattering::from_tape_with_grids(&tape, 1, TEMP_K, "c_H_in_H2O", ne, no)
+                .expect("S(a,b) on a custom grid")
+        })
+    } else if flag("--no-sab") {
+        eprintln!("  S(a,b) REMOVED (--no-sab ablation): H-1 is free gas");
+        None
+    } else {
+        sab
+    };
     // Per-material H(H2O), as the model's <sab> card says (gh:#462, #1581).
     let (materials, nuclides) =
         lct008_model::assign_spec_sab(&spec, &materials, &free_nuclides, &slots, sab.as_ref());

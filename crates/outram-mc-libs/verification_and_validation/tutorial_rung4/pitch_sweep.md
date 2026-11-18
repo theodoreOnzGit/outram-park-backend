@@ -386,6 +386,198 @@ estimator.
   RECONR/BROADR from the tapes, and the OpenMC version and the outram-mc code
   both differ from the original record. The gate is pass / pass / miss on three
   points; the unborated points (all +105 to +127 pcm) were not rerun here.
-- **Follow-up not done:** locating the 2.40 cm difference needs a
+- ~~**Follow-up not done:** locating the 2.40 cm difference needs a
   factor-by-factor tally comparison against OpenMC, or reruns with single
-  physics options switched off. No hypothesis was tested here.
+  physics options switched off. No hypothesis was tested here.~~ **CORRECTED
+  2026-11-18 (gh:#550):** done, see "2.40 cm miss: diagnosis" below; the
+  difference is carried by the H-in-H2O S(a,b) table (A minus B +135 +- 35 pcm).
+
+## 2.40 cm miss: diagnosis (GitHub #550, started 2026-11-18)
+
+**This section is committed with its hypotheses and predictions BEFORE any
+diagnostic run.** Results are appended below it afterwards; a prediction that
+misses stays in place with its outcome beside it. Research, education and V&V
+only. Gate throughout: |z| <= 2 on a seed ensemble (>= 8 seeds per arm), no
+threshold moved, no input tuned.
+
+### The finding being explained
+
+Case-1 borated water, 11-nuclide tier, 5000 x [50 + 200], 16 seeds per code,
+2.40 cm: outram-mc 0.70536 +- 0.00027, OpenMC 0.70653 +- 0.00029, difference
+**-117 +- 39 pcm (z -2.97)**; -114 pcm (z -3.4) with OpenMC's combined
+estimator. 1.63576 cm (-37 +- 38) and 1.75 cm (-1 +- 37) pass. outram-mc's
+2.40 cm factors (16-seed means): eta 1.7800, f 0.4041, p 0.8913, eps 1.1004
+(`ensemble_550/outram_seeds.csv`). This is the most over-moderated point:
+f is 0.40 because 1511 ppm of B-10 and the water absorb most thermal
+neutrons, so k there measures the thermal spectrum and the thermal absorption
+in water and boron far more than at 1.63576 cm (f 0.68).
+
+### Upstream read first (OpenMC 0.15.3, `openmc-src/`), and what it implies
+
+What OpenMC does with a hydrogen atom in this water, read from source before
+forming any hypothesis:
+
+- `src/material.cpp:855-870`: the S(a,b) table is used for H-1 while
+  `E <= energy_max_` of the thermal table (the top of the inelastic grid, 4 eV
+  for NJOY THERMR `emax`), and dropped above it. `sab_frac = 1` here (all H-1
+  is in the water).
+- `src/nuclide.cpp:841-869` (`calculate_sab_xs`): inside the table the
+  scattering cross section is the table's elastic + inelastic, and the
+  free-atom elastic is removed (`micro.elastic = thermal + (1 - sab_frac)
+  elastic`).
+- `src/thermal.cpp:297-312` (`ThermalData::sample`): elastic or inelastic is
+  chosen by `thermal_elastic / thermal`; the outgoing law is the one NJOY
+  THERMR/ACER wrote into the table.
+- `src/physics.cpp:857-862` (`sample_target_velocity`): a non-resonant nuclide
+  gets the free-gas treatment only below `400 kT` and only for `awr > 1`; a
+  resonant nuclide (the deck switches resonance scattering on for every
+  nuclide with a 0 K table, 0.01 eV .. 1 keV) keeps it to 1 keV.
+- `src/physics.cpp:700-714`: the free-gas `kT` is `nuc->kTs_[i_temp]`, the kT
+  stored with the data.
+
+outram-mc already carries each of these (`ThermalScattering::beyond_cutoff`
+cites `material.cpp:866`; `Nuclide::free_gas_kt`; the 400 kT threshold). What
+differs between the two arms by construction is therefore **where the data
+come from**, not the transport rules:
+
+1. neutron data: outram-mc reconstructs from the ENDF tapes (RECONR+BROADR);
+   OpenMC reads the NJOY2016 ACER output converted to HDF5;
+2. **S(a,b) of H in H2O: outram-mc builds it from `tsl-HinH2O.endf` with its
+   own THERMR-equivalent (`ThermalScattering::from_endf_file`); OpenMC reads
+   NJOY2016's THERMR+ACER table (`c_H_in_H2O.h5`).** They are meant to be the
+   same physics; they are different code, with different alpha/beta grids,
+   cutoffs and outgoing-energy binning.
+
+### Hypotheses, with predicted sign and magnitude (outram-mc minus OpenMC)
+
+Reference arm: outram-mc, ENDF route, ENDF S(a,b), the existing 16 seeds,
+0.70536. Every new outram-mc arm is 5000 x [50 + 200] at 2.40 cm, 8 seeds
+(seeds 1-8) unless stated.
+
+| id | hypothesis | discriminator | prediction if TRUE | prediction if FALSE |
+|---|---|---|---|---|
+| H1b | (cheap precursor of H1, no transport) the S(a,b) cross sections of the two constructions differ | evaluate `inelastic_xs(E)`, `elastic_xs(E)` of `from_endf_file` and of the NJOY ACE (`from_ace`) on a common grid, 1e-5 .. 4 eV | a band of >= 0.3 % relative difference somewhere in 0.01 .. 0.3 eV (a 0.3 % change of the thermal hydrogen scattering cross section moves a f = 0.40 lattice by ~ 50-100 pcm) | < 0.1 % everywhere |
+| H1 | the S(a,b) built from the ENDF tape differs from NJOY's table in a way that matters most when the spectrum is most thermal | outram-mc with the S(a,b) read from the NJOY ACE `HinH2O.ace` (293.6 K) that OpenMC's `c_H_in_H2O.h5` was made from, everything else unchanged | k rises by **+60 to +130 pcm** (towards OpenMC; outram-mc is the low code) | shift within +-50 pcm |
+| H2 | the neutron data (RECONR/BROADR vs NJOY ACE) differ | outram-mc reading the very same `.h5` library OpenMC reads (`--hdf5-dir`, gh:#303), ENDF S(a,b) kept | **0 +- 50 pcm** (the full LCT-008 lattice agrees at -8 +- 9 pcm over 96 seeds; the h5 route against the ENDF route measured +39 +- 65 pcm at 1.63576 cm). A shift beyond +-80 pcm would make it a neutron-data effect, with B-10 (1/v absorption, weighted by f = 0.40) the first suspect | within +-50 pcm |
+| H3 | the gap tracks thermal physics at all | S(a,b) switched off in BOTH codes (H-1 free gas instead). k falls by thousands of pcm in both; the question is the difference | the outram-mc minus OpenMC difference changes by **> 100 pcm** from -117 | the difference stays near -117 +- 60 (gap lives outside the S(a,b)) |
+| H4 | a statistical fluke of the first ensemble (z = -2.97 at one of three pitches; p ~ 0.003 two-sided, ~ 0.01 after three looks) | independent new seeds: outram-mc ENDF route seeds 17-24 and OpenMC seeds 17-32 at 2.40 cm | the new difference is -40 +- 50 pcm (regression to the mean) | the new difference is again about -117 |
+| H5 | the gap sits in the thermal absorption share, which a tally comparison localises | OpenMC tallies (absorption by nuclide, thermal/resonance/fast groups) against outram-mc's factors on record | f differs by about -0.3 % relative (a harder or softer thermal spectrum changes the B-10 and H-1 absorption share) | p or eps differ instead: a resonance/fast difference, and H1 is wrong |
+
+Order of work, cheapest first: H1b (no transport), H2 (one outram-mc arm), H1
+(one outram-mc arm), H4 and H3 as the budget allows, H5 for localisation.
+
+Prior, stated honestly: H1 ~ 40 %, H4 ~ 15 %, H2 ~ 15 %, ~ 30 % on something
+not on this list. The transport rules were ported from OpenMC and are pinned
+elsewhere; the thermal tables are the one component with two independent
+derivations.
+
+### Added 2026-11-18 after H1b, H1 and H2 were measured, BEFORE H6 is run
+
+H1b, H1 and H2 returned first (results are in the section below); they point
+at the S(a,b) outgoing-energy kernel, not at the cross sections or the neutron
+data. One more hypothesis, with its prediction, before it is run:
+
+| id | hypothesis | discriminator | prediction |
+|---|---|---|---|
+| H6 | the tape-built S(a,b) kernel (384 incident energies x 64 outgoing bins by default) is not converged in a way that matters, and refining it moves k towards NJOY's table | outram-mc from the OpenMC `.h5`, ENDF-built S(a,b) on a 1536 x 256 emission grid (`--sab-grids 1536,256`), 2.40 cm, seeds 1-8, compared with the same arm at 384 x 64 (arm B) | the k shift (fine minus default) is **+60 pcm** (range -50 .. +150): in the one single-energy check made before this (`sab_endf_vs_ace_550`), the fine table's mean outgoing energy sits above the default's at 0.1 and 1.5 eV (+3.7 % and +2.4 %) and the NJOY table sits between them, so refinement should move the default towards NJOY, but the sign of the net thermalisation effect is not something I can derive |
+
+### Results (2026-11-18)
+
+Hardware for every number: Intel Xeon @ 2.10 GHz, 4 logical cores, 15 GB RAM,
+Linux 6.18.44, CPU only, a VM **shared with other agents (load average 7-10 on
+4 cores for most of it)**. 2 transport threads per process, at most 2 heavy
+processes of mine at a time. Settings as in the ensemble: 5000 x [50 + 200],
+2.40 cm, case-1 water, 11-nuclide tier, 293.6 K, URR and resonance scattering
+on. Code: this worktree at `755275f9a` (the new flags only add options; the
+default path is unchanged). Raw per-seed CSVs are not committed (scratch);
+the per-seed values are in the tables below. OpenMC 0.15.3 (`27e38e894`) with
+the same HDF5 library as the ensemble. Statistics are unpaired (Welch):
+sem of each mean, difference sigma = quadrature sum.
+
+**OpenMC reference at 2.40 cm, now 32 seeds** (the ensemble's 1-16 plus new
+seeds 17-32 of the same deck): 0.70652 +- 0.00020 (sd 113 pcm). Seeds 17-32
+minus seeds 1-16: -2 +- 41 pcm, so the OpenMC mean reproduces.
+
+| arm (outram-mc) | n seeds | k at 2.40 cm | minus OpenMC (32 seeds) | z |
+|---|---|---|---|---|
+| ensemble baseline: ENDF neutron data, ENDF-built S(a,b) (384 x 64) | 16 | 0.70536 +- 0.00027 | -116 +- 33 pcm | -3.47 |
+| **B**: neutron data from the OpenMC `.h5`, ENDF-built S(a,b) | 8 | 0.70559 +- 0.00027 | -93 +- 33 | -2.78 |
+| **A**: neutron data from the OpenMC `.h5`, **S(a,b) from NJOY's `HinH2O.ace`** (the table `c_H_in_H2O.h5` comes from) | 8 | 0.70694 +- 0.00023 | **+42 +- 31** | **+1.36** |
+| **D**: as B, ENDF-built S(a,b) on a 1536 x 256 emission grid | 8 | 0.70560 +- 0.00034 | -92 +- 39 | -2.34 |
+| **C**: as B but **no S(a,b)** (H-1 free gas) | 8 | 0.72045 +- 0.00027 | +10 +- 43 against OpenMC no-S(a,b) (8 seeds, 0.72035 +- 0.00033) | +0.23 |
+
+Differences between outram-mc arms: A - B = **+135 +- 35 pcm (z +3.80)**;
+B - baseline = +23 +- 38 (z +0.60); D - B = -1 +- 43 (z -0.03); A - D = +134
++- 41 (z +3.27).
+
+#### Hypotheses, predicted against measured
+
+| id | prediction (written before the run) | measured | verdict |
+|---|---|---|---|
+| H1b | a >= 0.3 % band in sigma_inel if the cross sections differ; < 0.1 % if not | the tables agree to **worst 1.3e-4 relative** (at 0.417 eV) over 291 points; Maxwellian-weighted integral differs by -3.4e-5. Cutoff 10 eV on both, temperature 293.600 / 293.594 K. **But** the sampled outgoing-energy kernel differs: mean outgoing energy of `sample_inelastic` (2e6 samples, statistical error << the differences) is 0.0814 vs 0.0823 eV at 0.1 eV incident (+1.1 %), 0.8273 vs 0.8220 at 1.5 eV (-0.6 %), 1.7858 vs 1.8259 at 3.5 eV (+2.2 %), 0.03021 vs 0.02994 at 0.025 eV (-0.9 %); identical to 1e-4 at the incident energies that are nodes of both grids (0.01, 0.05, 0.3, 0.625 eV) | cross-section half of the hypothesis **refuted**; a kernel difference found that I had not predicted |
+| H2 | 0 +- 50 pcm | **+23 +- 38 pcm** (z +0.60; B minus baseline) | **held**: the neutron data (RECONR/BROADR vs NJOY ACE, B-10 included) are not the cause |
+| H1 | +60 .. +130 pcm | **+135 +- 35 pcm** (A minus B), and A against OpenMC +42 +- 31 (z +1.36, passes the gate) | **held** on sign and size (just above the top of the range). Swapping only the S(a,b) for the NJOY table removes the miss |
+| H3 | the outram-minus-OpenMC difference changes by > 100 pcm; I also predicted k falls by *thousands* of pcm in both codes without S(a,b) | difference +10 +- 43 pcm (z +0.23), i.e. changed by +127 pcm from -117, **gap gone**. **The k prediction was wrong**: without S(a,b) both codes give **higher** k (outram-mc 0.72045, OpenMC 0.72035), +1400 pcm, not thousands lower, because here f = 0.40 is set by boron and hydrogen absorption and free-gas H-1 leaves a harder, less absorbed spectrum | **held** for the difference; the k-direction guess **missed** |
+| H4 | new independent seeds give about -40 +- 50 pcm | OpenMC seeds 17-32 reproduce the OpenMC mean (-2 +- 41 pcm vs seeds 1-16); the outram-mc side with other seeds and other data routes (B: seeds 1-8, D: seeds 1-8, both with the h5 neutron data) gives -93 and -92 pcm against 32 OpenMC seeds. A fresh ENDF-route outram-mc ensemble was **not** run | **fluke not supported**: the deficit reproduces on the OpenMC side and on two further outram-mc arms. (I did not re-run the ENDF-route baseline itself with new seeds.) |
+| H5 | f differs by about -0.3 % relative, p/eps unchanged | OpenMC tallies (seeds 17-32, thermal < 0.625 eV, resonance to 0.1 MeV, fast): eta 1.78012 +- 0.00001, f 0.40436 +- 0.00007, p 0.89135 +- 0.00006, eps 1.10036 +- 0.00006 (product 0.70599) against outram-mc baseline eta 1.78003, f 0.40412 +- 0.00009, p 0.89131, eps 1.10041. **f is the only factor that moves, by -0.06 % relative (2.2 sigma)**; eta, p and eps agree to 5e-5. Thermal absorption shares in OpenMC: B-10 0.4393, H-1 0.1513, O-16 0.00004 of all thermal absorption. Not run on the A arm | **direction held, size missed** (-0.06 %, not -0.3 %): the difference lives in the thermal utilisation, none in the resonance or fast factors |
+| H6 | +60 pcm (range -50 .. +150) | **-1 +- 43 pcm** (D minus B) | **refuted**: refining the ENDF-built table's incident-energy grid by 4x and its outgoing-energy bins by 4x changes k by nothing resolvable, so the grid density is not the cause. The single-energy comparison above also showed that the 384 x 64 and 1536 x 256 tables differ from each other (0.1 eV: 0.0814 vs 0.0844; 1.5 eV: 0.8273 vs 0.8472) by as much as either differs from NJOY's, so the first moment at a single energy is not a good predictor of k |
+
+#### Cause: where it was found, and what is not shown
+
+- **Localised, with the data identical on every other axis:** the 2.40 cm miss
+  is carried by the **H in H2O S(a,b) table**. With the neutron data taken
+  from the very same `.h5` OpenMC reads, replacing only this crate's ENDF-built
+  table by the NJOY2016 ACER table moves k by +135 +- 35 pcm and closes the gap
+  to OpenMC (+42 +- 31 pcm, z +1.36). Removing the S(a,b) from both codes
+  removes the gap (+10 +- 43 pcm). The neutron data, the free-gas and
+  resonance-scattering treatment, and the S(a,b) cross sections (1.3e-4) are
+  not the cause.
+- **What it is NOT, ruled out:** statistics of the first ensemble (OpenMC
+  reproduces; two more outram-mc arms sit at -93 and -92 pcm); the neutron
+  data pipeline (+23 +- 38); the S(a,b) cross sections; the emission-grid
+  density of the ENDF-built table (-1 +- 43); resonance/fast factors (p, eps
+  agree to 5e-5).
+- **What is not shown:** *which* feature of the ENDF-built outgoing-energy
+  kernel differs. Both tables use 64 outgoing-energy bins, the same discrete
+  sampling scheme and the same cross sections to 1e-4, and the difference does
+  not shrink on a 4x finer grid, so it is not interpolation resolution. The
+  remaining candidates are the content of the kernel itself (this crate's
+  `IncoherentInelasticScattering::emission` against NJOY `calcem` + `acer`
+  thermal's equiprobable-bin construction, including the 8 against 16 cosines
+  per bin), and I did not isolate it. **Nor is it shown which table is closer
+  to the evaluation:** the NJOY table is not an oracle of the ENDF law, it is
+  another processing of it. The reference for that is the evaluation's own
+  S(alpha,beta), which this study did not integrate independently. Until it is
+  done, the honest statement is "the two S(a,b) tables give k that differ by
+  +135 +- 35 pcm at 2.40 cm; the outram-mc-minus-OpenMC miss is that
+  difference", not "outram-mc is wrong". At 1.63576 and 1.75 cm, where f is
+  larger and the thermal spectrum matters less, the same difference is below
+  the resolution (-37 +- 38, -1 +- 37 pcm).
+- **Reviewed functions implicated: none edited, none identified as the
+  cause.** No source under `src/` was changed. `src/material/review.md` holds
+  no review block targeting a thermal function. The code that builds the table
+  lives in `njoy-outram-park-fork`'s THERMR port, which I did not check for
+  review stamps and did not touch. Any change there, for example to the
+  emission-table construction, needs the kovan-reviewed check and the
+  maintainer's confirmation first.
+- **Recommended next step (not done):** compare the two tables' *emission
+  kernels* against an independent integral of the ENDF S(alpha,beta) at a
+  handful of incident energies (0.1, 0.3, 1.5, 3.5 eV): mean and variance of
+  E' and the E'-mu correlation, with the tape-built table, the NJOY ACE table
+  and the direct integral side by side, then decide which is to be changed.
+  Also the same A/B at the other eleven pitches, to see whether the effect
+  follows f.
+
+#### Instruments and files
+
+- `examples/sab_endf_vs_ace_550.rs`: the table comparison (H1b and the
+  moments), run as `sab_endf_vs_ace_550 .../293.6K/HinH2O.ace`.
+- `examples/lct008_pitch_sweep.rs`: new options `--sab-ace FILE`, `--no-sab`,
+  `--sab-grids N_EMIT,N_OUT`, all off by default (the default path and every
+  recorded number are unchanged).
+- `openmc_inputs/lct008_pin_cell_openmc_550.py`: diagnostic copy of the
+  OpenMC deck with `--no-sab` and `--tallies`; the original deck is unchanged.
+  Without the flags it is the same model.
+- Timings (indicative only, shared VM): outram-mc transport 320-490 s per
+  seed with S(a,b) at load average ~9, 190 s when the machine was quiet;
+  OpenMC 75-115 s per seed on 2 threads. Data loading from the `.h5` plus S(a,b): 35-88 s per process (the logs print 55, 55, 88 and 35 s for arms A-D under varying load), so it is not a useful timing.
