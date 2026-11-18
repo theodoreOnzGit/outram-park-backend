@@ -77,8 +77,13 @@ pub enum HistoryEventKind {
         /// `+1.0` when the particle moves along the outward normal, else `-1.0`.
         sign: f64,
     },
-    /// A real collision.
-    Collision,
+    /// A real collision. `scatter` is set once the outcome is known to be a
+    /// scatter (then `ev.mu` is the lab-frame cosine and `ev.energy_out` the
+    /// outgoing energy).
+    Collision {
+        /// The collision ended in a scattering event.
+        scatter: bool,
+    },
 }
 
 /// One tallying event with the filter-facing state it was scored in.
@@ -264,7 +269,7 @@ pub fn history_events(
                     cell_instance: instance,
                     ..Default::default()
                 };
-                out.push(HistoryEvent { kind: HistoryEventKind::Collision, track_end: ev.position, ev });
+                out.push(HistoryEvent { kind: HistoryEventKind::Collision { scatter: false }, track_end: ev.position, ev });
                 after_boundary = false;
                 n_coll += 1;
                 material_last = None;
@@ -299,6 +304,16 @@ pub fn history_events(
                             ..Default::default()
                         };
                         out.push(HistoryEvent { kind: HistoryEventKind::Crossing { sign }, track_end: end, ev });
+                    }
+                }
+                if s.event == TrackEvent::Scatter {
+                    if let Some(last) = out.last_mut() {
+                        if let HistoryEventKind::Collision { scatter } = &mut last.kind {
+                            *scatter = true;
+                            // Lab-frame scattering cosine `p.mu()`: pre- vs post-collision direction.
+                            last.ev.mu = (u.u * s.u.u + u.v * s.u.v + u.w * s.u.w).clamp(-1.0, 1.0);
+                            last.ev.energy_out = Some(s.energy);
+                        }
                     }
                 }
                 u = s.u;
@@ -380,6 +395,27 @@ pub fn score_history_event(
         }
         return Ok(());
     }
+    // A lone expansion filter (Legendre, ...) deposits `w * P_n(mu)` into every
+    // moment bin on a scattering collision (`filter_legendre.cpp`, analog).
+    if tally.filters.len() == 1 {
+        if let HistoryEventKind::Collision { scatter } = he.kind {
+            if let Some(moments) = tally.filters[0].expansion_moments(&he.ev) {
+                if scatter {
+                    for (s, sc) in tally.scores.iter().enumerate() {
+                        match sc {
+                            ScoreType::Scatter => {
+                                for (n, pn) in moments.iter().enumerate() {
+                                    out[n * n_scores + s] += he.ev.weight * pn;
+                                }
+                            }
+                            _ => return Err(format!("score {sc:?} unsupported with an expansion filter")),
+                        }
+                    }
+                }
+                return Ok(());
+            }
+        }
+    }
     let mm = tally.filters.iter().position(|f| matches!(f, FilterKind::MeshMaterial(_)));
     if let Some(i) = mm {
         if tally.filters.len() != 1 {
@@ -421,7 +457,8 @@ pub fn score_history_event(
             (ScoreType::Current, HistoryEventKind::Crossing { sign }) if has_surface => {
                 he.ev.weight * sign
             }
-            (ScoreType::Flux | ScoreType::Current, _) => 0.0,
+            (ScoreType::Scatter, HistoryEventKind::Collision { scatter: true }) => he.ev.weight,
+            (ScoreType::Flux | ScoreType::Current | ScoreType::Scatter, _) => 0.0,
             _ => return Err(format!("score {sc:?} unsupported by the history driver")),
         };
         out[bin * n_scores + s] += v;

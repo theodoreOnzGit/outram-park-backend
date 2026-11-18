@@ -478,10 +478,178 @@ fn draw_the_experiment_a_geometry() {
             ),
             "xy at z=0 with the 6x2x1 tally mesh",
         ),
+        (
+            "xy_z0_mesh_a2.png",
+            mk(
+                PlotBasis::Xy,
+                Position::new(0.0, 0.0, 0.0),
+                Some(MeshLines { mesh: mesh_a2(), width: 1, colour: Rgb::new(0, 0, 0) }),
+            ),
+            "xy at z=0 with the 5x3x1 tally mesh (A2)",
+        ),
     ];
     for (name, plot, what) in cases {
         let (_raw, img) = render_material_slice(&m.geom, &plot, &pal, &format!("gh:#261 Experiment A: {what}"));
         img.write_png(out.join(name)).expect("png");
         assert!(out.join(name).exists());
     }
+}
+
+// ── Experiment B: statistical, CE O-16 gas sphere ────────────────────────────
+//
+// Sphere r = 10 cm, vacuum, O-16 0.03 atoms/b-cm, isotropic 1 MeV point source,
+// analog; 20 batches x 50 000 histories per code. Pass: every |z| <= 2,
+// z = (a-b)/sqrt(sa^2+sb^2), sa/sb the batch standard errors. Prediction:
+// `prediction_before_measuring.md`, "Experiment B".
+
+fn load_stat(name: &str) -> Vec<(f64, f64)> {
+    let txt = std::fs::read_to_string(ref_dir().join(format!("expB_{name}.txt"))).expect("expB reference");
+    txt.lines()
+        .map(|l| {
+            let v: Vec<f64> = l.split_whitespace().map(|x| x.parse().unwrap()).collect();
+            (v[1], v[2])
+        })
+        .collect()
+}
+
+fn model_b() -> Option<(Geometry, Vec<Material>)> {
+    model()?;
+    let surfaces = vec![SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 10.0, bc: BoundaryType::Vacuum })];
+    let geom = Geometry {
+        surfaces,
+        cells: vec![Cell::material(
+            1,
+            vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+            0,
+            None::<f64>,
+        )],
+        universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+        lattices: vec![],
+        root_universe: 0,
+    };
+    let material = Material {
+        id: 1,
+        name: "O16 gas".into(),
+        components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 0.03 }],
+        temperature: TEMP_K,
+    };
+    Some((geom, vec![material]))
+}
+
+/// 20 batches of `per` histories; per-batch tally sums divided by `per`.
+fn run_b(geom: &Geometry, materials: &[Material], nuclides: &[Nuclide], tallies: &[Tally], per: usize, seed0: u64) -> Vec<Vec<Vec<f64>>> {
+    use outram_mc_libs::rng::lcg::prn;
+    let mut seed: u64 = seed0;
+    let mut batches: Vec<Vec<Vec<f64>>> = Vec::new();
+    for _ in 0..20 {
+        let mut acc: Vec<Vec<f64>> = tallies.iter().map(|t| vec![0.0; t.bins.len()]).collect();
+        for _ in 0..per {
+            let mu = 2.0 * prn(&mut seed) - 1.0;
+            let phi = 2.0 * std::f64::consts::PI * prn(&mut seed);
+            let s = (1.0 - mu * mu).sqrt();
+            let mut trace: Vec<TraceEvent> = Vec::new();
+            trace_csg_history(
+                Position::ZERO,
+                Direction { u: s * phi.cos(), v: s * phi.sin(), w: mu },
+                1.0e6,
+                geom,
+                materials,
+                nuclides,
+                &mut seed,
+                |e| trace.push(e),
+            );
+            let events = history_events(geom, &trace, &[]);
+            for (t, a) in tallies.iter().zip(acc.iter_mut()) {
+                score_history(t, &events, a).expect("supported");
+            }
+        }
+        for a in acc.iter_mut() {
+            for v in a.iter_mut() {
+                *v /= per as f64;
+            }
+        }
+        batches.push(acc);
+    }
+    batches
+}
+
+fn z_report(name: &str, batches: &[Vec<Vec<f64>>], ti: usize, theirs: &[(f64, f64)]) -> (usize, f64) {
+    let n = batches.len() as f64;
+    let mut worst = 0.0f64;
+    for (b, &(rm, rs)) in theirs.iter().enumerate() {
+        let xs: Vec<f64> = batches.iter().map(|bt| bt[ti][b]).collect();
+        let mean = xs.iter().sum::<f64>() / n;
+        let var = xs.iter().map(|x| (x - mean) * (x - mean)).sum::<f64>() / (n - 1.0);
+        let se = (var / n).sqrt();
+        let z = (mean - rm) / (se * se + rs * rs).sqrt();
+        println!("[B {name}] bin {b}: ours {mean:.6} +- {se:.6}  openmc {rm:.6} +- {rs:.6}  z {z:+.2}");
+        worst = worst.max(z.abs());
+    }
+    (theirs.len(), worst)
+}
+
+#[test]
+fn b_collision_and_legendre_vs_openmc() {
+    let Some((geom, mats)) = model_b() else { return };
+    let nuc = &model().unwrap().nuclides;
+    let tc = tally(vec![FilterKind::Collision(CollisionFilter { bins: vec![0, 1, 2, 3, 4, 5] })], ScoreType::Flux);
+    let tl = tally(vec![FilterKind::Legendre(LegendreFilter { order: 3 })], ScoreType::Scatter);
+    let t0 = std::time::Instant::now();
+    let batches = run_b(&geom, &mats, nuc, &[tc, tl], 50_000, 261);
+    println!("[B] 1e6 histories in {:.1} s (4 logical cores, single thread, shared host)", t0.elapsed().as_secs_f64());
+    let (n1, w1) = z_report("collision", &batches, 0, &load_stat("collision"));
+    let (n2, w2) = z_report("legendre", &batches, 1, &load_stat("legendre"));
+    println!("[B] collision: {n1} bins worst |z| {w1:.2}; legendre: {n2} bins worst |z| {w2:.2}");
+    assert!(w1 <= 2.0, "collision filter worst |z| {w1}");
+    assert!(w2 <= 2.0, "legendre filter worst |z| {w2}");
+}
+
+fn load_stat_file(stem: &str) -> Vec<f64> {
+    let txt = std::fs::read_to_string(ref_dir().join(format!("{stem}.txt"))).expect("replica reference");
+    txt.lines().map(|l| l.split_whitespace().nth(1).unwrap().parse().unwrap()).collect()
+}
+
+/// Replication of Experiment B (plan fixed in `prediction_before_measuring.md`
+/// before it was run): 8 further independent runs of each code, seeds
+/// 1001..1008, pooled per bin from the scatter of the 8 run means.
+#[test]
+fn b_replicates_pooled_vs_openmc() {
+    let Some((geom, mats)) = model_b() else { return };
+    let nuc = &model().unwrap().nuclides;
+    let tc = tally(vec![FilterKind::Collision(CollisionFilter { bins: vec![0, 1, 2, 3, 4, 5] })], ScoreType::Flux);
+    let tl = tally(vec![FilterKind::Legendre(LegendreFilter { order: 3 })], ScoreType::Scatter);
+    let names = ["collision", "legendre"];
+    let nb = [6usize, 4usize];
+    let mut ours: Vec<Vec<Vec<f64>>> = vec![vec![Vec::new(); 6], vec![Vec::new(); 4]];
+    let mut theirs: Vec<Vec<Vec<f64>>> = vec![vec![Vec::new(); 6], vec![Vec::new(); 4]];
+    for k in 1..=8u64 {
+        let seed = 1000 + k;
+        let batches = run_b(&geom, &mats, nuc, &[tc.clone(), tl.clone()], 50_000, seed);
+        for ti in 0..2 {
+            let om = load_stat_file(&format!("expB_{}_s{seed}", names[ti]));
+            for b in 0..nb[ti] {
+                let m = batches.iter().map(|bt| bt[ti][b]).sum::<f64>() / batches.len() as f64;
+                ours[ti][b].push(m);
+                theirs[ti][b].push(om[b]);
+            }
+        }
+    }
+    let stats = |v: &[f64]| {
+        let n = v.len() as f64;
+        let m = v.iter().sum::<f64>() / n;
+        let var = v.iter().map(|x| (x - m) * (x - m)).sum::<f64>() / (n - 1.0);
+        (m, (var / n).sqrt())
+    };
+    let mut worst = [0.0f64; 2];
+    for ti in 0..2 {
+        for b in 0..nb[ti] {
+            let (a, sa) = stats(&ours[ti][b]);
+            let (o, so) = stats(&theirs[ti][b]);
+            let z = (a - o) / (sa * sa + so * so).sqrt();
+            println!("[B pooled {}] bin {b}: ours {a:.6} +- {sa:.6}  openmc {o:.6} +- {so:.6}  z {z:+.2}", names[ti]);
+            worst[ti] = worst[ti].max(z.abs());
+        }
+    }
+    println!("[B pooled] collision worst |z| {:.2}, legendre worst |z| {:.2}", worst[0], worst[1]);
+    assert!(worst[0] <= 2.0 && worst[1] <= 2.0, "pooled worst |z| {worst:?}");
 }
