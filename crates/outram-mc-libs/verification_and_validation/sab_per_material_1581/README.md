@@ -1969,3 +1969,47 @@ block, ring-RPT sphere, if the seeds 1-4 miss was a draw: |z| <= 2 on its own.
 If it is a real build difference of about -270 pcm, the block shows about -270 pcm
 again. Either outcome is reported as it comes; the pooled N = 16 number is the
 one quoted.
+
+### gh:#1635 item 1, arm 3: seeds 1-8 pooled (2026-11-18)
+
+Seeds 5-8 are the extension queued before any result was read; they ran on both
+builds and are pooled with 1-4. Per-seed k for all seven solves, both builds, are
+in `ensembles_1635_item1/fhr_s{1..8}_{old,new}.err` (the `k_eff` lines);
+`fhr_extract.awk` + `fhr_stat.awk` give the table. Seeds 5-8 per solve
+(explicit-sphere / explicit-cube / rpt-sphere / rpt-cube / naive-sphere /
+naive-cube / CSG), OLD then NEW, as extracted:
+
+```text
+seed 5 OLD 1.35757 1.40204 1.36196 1.39628 1.33092 1.38041 1.36607
+seed 5 NEW 1.35936 1.39845 1.36235 1.39818 1.32845 1.38153 1.36422
+seed 6 OLD 1.36382 1.39965 1.36560 1.39509 1.32989 1.37744 1.36291
+seed 6 NEW 1.35997 1.39852 1.36697 1.39835 1.33149 1.38399 1.36255
+seed 7 OLD 1.36035 1.39942 1.36171 1.39855 1.33029 1.37733 1.36379
+seed 7 NEW 1.36156 1.39994 1.36673 1.39900 1.32918 1.38032 1.36296
+seed 8 OLD 1.35817 1.39970 1.36433 1.39798 1.32969 1.37486 1.36225
+seed 8 NEW 1.35949 1.40191 1.36338 1.39977 1.32974 1.37818 1.36137
+```
+
+| solve (N = 8) | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| explicit TRISO, sphere | 1.36050 (200) | 1.36031 (149) | -19 +- 88 | -0.21 |
+| explicit TRISO, cube | 1.40048 (146) | 1.40066 (264) | +18 +- 107 | +0.17 |
+| ring-RPT, sphere | 1.36375 (154) | 1.36313 (250) | -62 +- 104 | -0.60 |
+| ring-RPT, cube | 1.39780 (196) | 1.39798 (136) | +18 +- 84 | +0.22 |
+| naive homogenised, sphere | 1.32946 (95) | 1.33032 (225) | +87 +- 86 | +1.01 |
+| naive homogenised, cube | 1.37815 (254) | 1.37983 (212) | +167 +- 117 | +1.43 |
+| ring-RPT, CSG sphere | 1.36384 (127) | 1.36307 (117) | -77 +- 61 | -1.26 |
+
+All seven |z| <= 1.43 at N = 8. The CSG row is the -77 +- 61 pcm (z -1.26)
+already recorded for this arm, here reproduced from the seven-solve driver; it
+is not independent of that record. Block by block, the seeds 1-4 miss of ring-RPT sphere (z -3.24) does not repeat:
+seeds 5-8 alone give ring-RPT sphere new - old = +146 +- 150 pcm (z +0.97), the
+opposite sign. Seeds 5-8 alone also put two other solves at |z| just over 2 (ring-RPT
+cube +185 +- 87 pcm, z +2.13; naive-homogenised cube +350 +- 166 pcm, z +2.10),
+neither of which is out of line at N = 8. So across the two N = 4 blocks, three of
+fourteen solve comparisons exceed 2 and they do not share a sign or a solve, which is
+what a stream re-draw with a heavy-tailed N = 4 sem looks like; it is not a
+demonstration of that. Resolution: sigma 84-117 pcm at N = 8, so a shift under about
+170-230 pcm would not be seen, and the seed sd of a single solve differs between the
+builds by up to a factor of 6 at N = 4 (naive-sphere 58 against 302), which small N
+cannot separate from chance. The replication block (seeds 9-12) is below.
