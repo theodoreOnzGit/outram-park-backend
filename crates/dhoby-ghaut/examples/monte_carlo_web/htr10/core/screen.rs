@@ -21,10 +21,10 @@
 //! [`super::TRACED_PER_GENERATION`] histories of every generation.
 
 use super::pool::{CorePool, Note, PoolPhase, PoolState, RestartKind, RunOrigin, RunState};
-use super::{DEFAULT_RUN, RECORD_RUN, RECORD_SEED};
+use super::{DEFAULT_RUN, RECORD_RUN};
 use crate::anim::{animated_speed, draw_track, energy_bar, fmt_speed, legend_markers, Anim};
 use crate::history::History;
-use crate::keff::{clamp_to_caps, eta_line, plan_line, KeffConfig, MAX_GENERATIONS, MAX_PARTICLES, MIN_ACTIVE};
+use crate::keff::{eta_line, plan_line, KeffConfig};
 use crate::raster::{Preset, RasterInfo, Slicer};
 use dhoby_ghaut::web_demo::platform::now_s;
 use dhoby_ghaut::web_demo::pool::{plan, Device, Plan};
@@ -1594,37 +1594,10 @@ fn pool_panel(
     let running = s.keff.run.as_ref().is_some_and(|r| r.going());
     // Held to the demo's caps (keff::MAX_PARTICLES, MAX_GENERATIONS in all;
     // 2026-10-15, were 20 000 and 50 + 200 here).
-    egui::Grid::new("core_cfg").num_columns(2).show(ui, |ui| {
-        ui.label("neutrons per generation");
-        ui.add(egui::DragValue::new(&mut cfg.n_particles).range(100..=MAX_PARTICLES).speed(100));
-        ui.end_row();
-        ui.label("inactive generations");
-        let hi = MAX_GENERATIONS - cfg.n_active.max(MIN_ACTIVE);
-        ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(0..=hi));
-        ui.end_row();
-        ui.label("active generations");
-        let hi = MAX_GENERATIONS - cfg.n_inactive.min(MAX_GENERATIONS - MIN_ACTIVE);
-        ui.add(egui::DragValue::new(&mut cfg.n_active).range(MIN_ACTIVE..=hi));
-        ui.end_row();
-        ui.label("seed");
-        ui.add(egui::DragValue::new(&mut cfg.seed));
-        ui.end_row();
-    });
-    *cfg = clamp_to_caps(*cfg, 0);
-    if cfg.seed != RECORD_SEED {
-        ui.weak(format!("The record used seed {RECORD_SEED}."));
-    }
-    // Repeat the record (gh:#876 item 5): same settings and seed.
-    ui.add_enabled_ui(!running, |ui| {
-        ui.horizontal_wrapped(|ui| {
-            if ui.button("Defaults").clicked() {
-                *cfg = DEFAULT_RUN;
-            }
-            if ui.button(format!("Recorded settings ({})", crate::keff::settings_line(&RECORD_RUN))).clicked() {
-                *cfg = RECORD_RUN;
-            }
-        });
-    });
+    // The fields and buttons are the library's (gh:#1653), the same in every
+    // k_eff simulator.
+    let presets = dhoby_ghaut::mc_web::run_settings::RunPresets { defaults: DEFAULT_RUN, recorded: Some(RECORD_RUN) };
+    dhoby_ghaut::mc_web::run_settings::run_settings_ui(ui, "core_cfg", cfg, 0, &presets, running);
     let page = dhoby_ghaut::web_demo::platform::page_url();
     crate::keff::settings_link_row(ui, &crate::keff::settings_link(&page, "htr10", "watch", Some("core"), cfg));
     ui.weak(crate::keff::POOL_TIP);
