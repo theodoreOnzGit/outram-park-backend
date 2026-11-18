@@ -82,7 +82,8 @@
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \
 //!     --example lct008_pitch_sweep -- [--pitches 1.25,1.63576,2.4] \
 //!     [--particles 4000 --inactive 50 --active 150] [--seed 1] \
-//!     [--cheap-nuclides] [--no-soluble-boron] [--csv out.csv] [--plots DIR]
+//!     [--cheap-nuclides] [--no-soluble-boron] [--csv out.csv] [--plots DIR] \
+//!     [--hdf5-dir DIR_WITH_h5]   # start from an OpenMC library (gh:#303)
 //! ```
 
 use njoy_outram_park_fork::reference_data::reference_endf;
@@ -222,7 +223,10 @@ fn main() {
     );
     assert_eq!(clad_idx, 2);
 
-    let (free_nuclides, sab) = load_nuclides(&spec, &slots, tier);
+    // `--hdf5-dir DIR` (gh:#303): start from an OpenMC-format library instead of
+    // reconstructing from ENDF tapes. Everything else is unchanged.
+    let hdf5_dir = value("--hdf5-dir").map(std::path::PathBuf::from);
+    let (free_nuclides, sab) = load_nuclides(&spec, &slots, tier, hdf5_dir.as_deref());
     // Per-material H(H2O), as the model's <sab> card says (gh:#462, #1581).
     let (materials, nuclides) =
         lct008_model::assign_spec_sab(&spec, &materials, &free_nuclides, &slots, sab.as_ref());
@@ -382,9 +386,14 @@ fn load_nuclides(
     spec: &[lct008_model::MaterialSpec],
     slots: &BTreeMap<String, usize>,
     tier: &[(&str, &str)],
+    hdf5_dir: Option<&std::path::Path>,
 ) -> (Vec<Nuclide>, Option<ThermalScattering>) {
     let t0 = Instant::now();
-    eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K, URR + DBRC by default):");
+    if hdf5_dir.is_some() {
+        eprintln!("Reading nuclides from the OpenMC-format library (HDF5):");
+    } else {
+        eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K, URR + DBRC by default):");
+    }
     let sab_needed = spec.iter().any(|m| m.sab.as_deref() == Some("c_H_in_H2O"));
     let sab = sab_needed.then(|| {
         ThermalScattering::from_endf_file(
@@ -401,8 +410,32 @@ fn load_nuclides(
     let mut by_slot: Vec<(usize, &str)> = slots.iter().map(|(n, &i)| (i, n.as_str())).collect();
     by_slot.sort_unstable();
     let mut out = Vec::with_capacity(by_slot.len());
+    let t_nuclides = Instant::now();
     for (i, name) in by_slot {
         assert_eq!(i, out.len());
+        if let Some(dir) = hdf5_dir {
+            // The library carries `0K` (resonance scattering) and `294K`
+            // (293.6 K, the model's temperature); read the cross sections at
+            // 294K and only the elastic at 0K, as OpenMC does.
+            let t = Instant::now();
+            let read = njoy_outram_park_fork::hdf5::nuclide_read::read_nuclide_selected(
+                dir.join(format!("{name}.h5")),
+                Some("294K"),
+                &["0K"],
+            )
+            .unwrap_or_else(|e| panic!("read {name}.h5: {e}"));
+            let t_read = t.elapsed().as_secs_f64();
+            let n = Nuclide::from_hdf5(&read, name)
+                .unwrap_or_else(|e| panic!("from_hdf5({name}): {e}"));
+            eprintln!(
+                "  {name:<6} {:6.2} s (read {t_read:.2} s)  urr={} dbrc={}",
+                t.elapsed().as_secs_f64(),
+                n.urr_range_ev().is_some(),
+                n.has_dbrc(),
+            );
+            out.push(n);
+            continue;
+        }
         let file = tier.iter().find(|(n, _)| *n == name).expect("tape").1;
         let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
         let t = Instant::now();
@@ -419,6 +452,11 @@ fn load_nuclides(
         );
         out.push(n);
     }
-    eprintln!("Nuclear data ready in {:.1} s.", t0.elapsed().as_secs_f64());
+    eprintln!(
+        "Nuclear data ready in {:.1} s ({:.1} s of it the {} nuclides, the rest the S(a,b)).",
+        t0.elapsed().as_secs_f64(),
+        t_nuclides.elapsed().as_secs_f64(),
+        out.len()
+    );
     (out, sab)
 }

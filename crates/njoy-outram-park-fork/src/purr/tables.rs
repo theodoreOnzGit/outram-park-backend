@@ -161,6 +161,79 @@ pub struct PurrHeating {
 }
 
 impl UrrProbabilityTables {
+    /// Build the tables from OpenMC's HDF5 `urr/<T>` layout (gh:#303), the
+    /// counterpart of [`Self::from_ace`] for a library that was converted from
+    /// ACE by `openmc.data.IncidentNeutron.from_ace(...).export_to_hdf5(...)`.
+    ///
+    /// `energy` is in eV and `table` is `(N, 6, M)` in C order -- energy,
+    /// then the six columns `[probability, total, elastic, fission, capture,
+    /// heating]`, then the `M` bands -- exactly what `urr.py:from_ace` builds
+    /// (`table.shape = (N, 6, M)`, `urr.py:204`) and `to_hdf5` writes
+    /// (`urr.py:132`). The columns are used as stored, as `from_ace` does,
+    /// except the heating column: OpenMC multiplies it by 1e6 unconditionally
+    /// (`urr.py:211`) where [`Self::from_ace`] scales it only for `lssf = 0`
+    /// (see there), so it is divided back for `lssf = 1`. It is zero on every
+    /// table built without HEATR, and nothing in transport reads it.
+    ///
+    /// `temperature_k` is the label's temperature, as `from_ace` takes
+    /// `kT / k_B` from the table header.
+    ///
+    /// # Errors
+    ///
+    /// A grid that is empty or not strictly ascending, or a table whose length
+    /// is not `N * 6 * M` for a positive `M`.
+    pub fn from_openmc_layout(
+        energy: &[f64],
+        table: &[f64],
+        interpolation: i32,
+        inelastic_flag: i32,
+        absorption_flag: i32,
+        multiply_smooth: bool,
+        temperature_k: f64,
+    ) -> Result<Self, NjoyError> {
+        let n_energy = energy.len();
+        if n_energy == 0 || table.is_empty() || table.len() % (n_energy * 6) != 0 {
+            return Err(NjoyError::EndfParse(format!(
+                "OpenMC URR table: {} values for {n_energy} energies; expected N * 6 * M",
+                table.len()
+            )));
+        }
+        if !energy.windows(2).all(|w| w[1] > w[0]) {
+            return Err(NjoyError::EndfParse(
+                "OpenMC URR table: the energy grid is not strictly ascending".into(),
+            ));
+        }
+        let n_bands = table.len() / (n_energy * 6);
+        let at = |i: usize, col: usize, b: usize| table[(i * 6 + col) * n_bands + b];
+        let heat_div = if multiply_smooth { 1.0e6 } else { 1.0 };
+        let mut points = Vec::with_capacity(n_energy);
+        for i in 0..n_energy {
+            let mut cum = Vec::with_capacity(n_bands);
+            let mut value = Vec::with_capacity(n_bands);
+            let mut heating = Vec::with_capacity(n_bands);
+            for b in 0..n_bands {
+                cum.push(at(i, 0, b));
+                value.push([at(i, 1, b), at(i, 2, b), at(i, 3, b), at(i, 4, b)]);
+                heating.push(at(i, 5, b) / heat_div);
+            }
+            points.push(UrrPoint { cum, value, heating });
+        }
+        Ok(Self {
+            lssf: i32::from(multiply_smooth),
+            e_low: energy[0],
+            e_high: energy[n_energy - 1],
+            temperature_k,
+            interpolation,
+            inelastic_competition: inelastic_flag,
+            absorption_competition: absorption_flag,
+            energy: energy.to_vec(),
+            points,
+            pendf: None,
+        })
+    }
+}
+
+impl UrrProbabilityTables {
     /// Number of tabulated energy points.
     pub fn len(&self) -> usize {
         self.energy.len()

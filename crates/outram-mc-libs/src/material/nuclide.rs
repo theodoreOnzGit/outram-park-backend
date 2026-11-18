@@ -474,7 +474,11 @@ pub struct Nuclide {
 }
 
 #[cfg(feature = "std")]
+mod hdf5_laws;
+#[cfg(feature = "std")]
 mod hdf5_read;
+#[cfg(all(test, feature = "std"))]
+mod hdf5_real_tests;
 mod multipole;
 pub use multipole::{MultipoleAttachError, MultipoleConsistency, MULTIPOLE_EVALUATION_TOLERANCE};
 

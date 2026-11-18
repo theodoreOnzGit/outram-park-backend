@@ -22,40 +22,38 @@
 //! the HDF5 round trip exactly), and the test that checks it is a check on the
 //! plumbing, not on a second implementation.
 //!
-//! # What is decoded, and what is REFUSED
+//! # What is decoded, and what is still REFUSED
 //!
-//! The reader unpacks the **uncorrelated** laws (`level`, `watt`, `maxwell`,
-//! `evaporation`) with their angle tables, and `total_nu`. That is enough for
-//! elastic scattering, the discrete inelastic levels and an evaluated-spectrum
-//! fission, which is a complete transportable nuclide for those channels.
+//! Decoded (2026-11-18, GitHub #303), each mapped onto what `from_ace` builds
+//! (see [`super::hdf5_laws`] for the table and the citations): `level`,
+//! `watt` / `maxwell` / `evaporation`, `continuous`, `kalbach-mann`,
+//! `correlated`, `nbody`, `LNW` chains (several distributions with an
+//! applicability), the MT=5 energy-dependent yield, unresolved-resonance
+//! probability tables (`urr/<T>`), delayed-neutron groups, a polynomial
+//! `total_nu`, and the `0K` elastic of a two-temperature library (DBRC).
 //!
-//! Everything else is **refused by name** and never approximated, because a
-//! secondary law that is skipped is a reaction whose neutrons are wrong while
-//! every cross section is right:
+//! Still **refused by name**, never approximated, because a secondary law that
+//! is skipped is a reaction whose neutrons are wrong while every cross section
+//! is right:
 //!
-//! - any neutron-emitting channel outside elastic, fission and MT=51..90
-//!   (continuum inelastic, `(n,2n)`, `(n,3n)`, the others), whatever its law;
-//! - a fission spectrum that is `correlated`, `continuous`, `kalbach-mann`,
-//!   `madland-nix` or otherwise not a Watt, Maxwell or evaporation law;
-//! - unresolved-resonance probability tables (`urr` group): they change the
-//!   physics by default, so a file carrying them is refused rather than
-//!   transported as infinitely dilute;
-//! - delayed-neutron products (the delayed-group data is not decoded);
-//! - more than one temperature, a polynomial `total_nu`.
+//! - a `madland-nix` law (ACE has none, so there is no route to be identical
+//!   to) and any law the reader returns as `Undecoded`;
+//! - a fissile nuclide without `total_nu`;
+//! - a file whose URR group is named in `urr_temperatures` but not read.
 //!
-//! So a **real** OpenMC U-235 library (continuous and correlated fission and
-//! continuum laws) is refused today, with the first offending MT named; the
-//! cross-section parity of such a file is what `ReadNuclide` itself serves
-//! (`tests/band_xs_from_hdf5_reader.rs`). Decoding those laws is the open part
-//! of GitHub #303.
+//! Not converted here: thermal scattering (`c_H_in_H2O.h5` is a separate
+//! `thermal` file with its own layout; a `Nuclide` takes its S(a,b) from
+//! `ThermalScattering`), photon production, and a second *transport*
+//! temperature (the nearest-temperature choice is the caller's: pass the label
+//! to [`njoy_outram_park_fork::hdf5::nuclide_read::read_nuclide_selected`]).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+use super::hdf5_laws::{delayed_data, secondary_laws};
 use super::{
-    build_inelastic_levels, elastic_0k_from_ace, partial_fission_chi, take_fission_law,
-    InelasticLevel,
-    ContinuumLaws, Nuclide, SectionIndex, SpeedTier, XsSource, DBRC_DEFAULT_E_MAX_EV,
+    build_inelastic_levels, InelasticLevel, Nuclide, OtherChannel, SectionIndex, SpeedTier,
+    XsSource, DBRC_DEFAULT_E_MAX_EV, DBRC_GRID_MAX_EV,
 };
 use super::nubar_for;
 use njoy_outram_park_fork::reconr::{ReconrResult, ReconrSection};
@@ -65,11 +63,10 @@ use njoy_outram_park_fork::acer::ce_decode::{
     AceReaction, CeNeutronAce, ALWAYS_REDUNDANT_MTS, PARTIAL_FISSION_MTS,
 };
 use njoy_outram_park_fork::endf::records::{Cont, Tab1};
-use njoy_outram_park_fork::hdf5::nuclide_laws::{EnergyDist, Tabulated1D};
-use njoy_outram_park_fork::hdf5::nuclide_read::{
-    ReadDistribution, ReadNuclide, ReadProduct, ReadReaction,
-};
-use njoy_outram_park_fork::nuclear_data::secondary::{FissionSpectrum, NuBar};
+use njoy_outram_park_fork::hdf5::nuclide_laws::Tabulated1D;
+use njoy_outram_park_fork::hdf5::nuclide_read::{ReadDistribution, ReadNuclide};
+use njoy_outram_park_fork::nuclear_data::secondary::NuBar;
+use njoy_outram_park_fork::purr::UrrProbabilityTables;
 use njoy_outram_park_fork::NjoyError;
 
 fn refuse(msg: String) -> NjoyError {
@@ -77,7 +74,7 @@ fn refuse(msg: String) -> NjoyError {
 }
 
 /// A `Tabulated1D` as the ENDF-shaped `Tab1` the fission-spectrum laws hold.
-fn tab1(t: &Tabulated1D) -> Tab1 {
+pub(super) fn tab1(t: &Tabulated1D) -> Tab1 {
     let n = t.x.len();
     let interp: Vec<(u32, u32)> = if t.breakpoints.is_empty() {
         vec![(n as u32, 2)]
@@ -102,71 +99,13 @@ fn tab1(t: &Tabulated1D) -> Tab1 {
     }
 }
 
-/// The prompt neutron products of a reaction.
-fn neutron_products(rx: &ReadReaction) -> Vec<&ReadProduct> {
-    rx.products
-        .iter()
-        .filter(|p| p.particle == "neutron" && p.emission_mode != "delayed")
-        .collect()
-}
-
-/// A single-law fission spectrum, or a refusal naming what was found.
-fn fission_spectrum(mt: i32, rx: &ReadReaction) -> Result<FissionSpectrum, NjoyError> {
-    let prompt = neutron_products(rx);
-    let [p] = prompt.as_slice() else {
-        return Err(refuse(format!(
-            "MT={mt}: {} prompt neutron products; a fission spectrum needs exactly one",
-            prompt.len()
-        )));
-    };
-    let [d] = p.distributions.as_slice() else {
-        return Err(refuse(format!(
-            "MT={mt}: a fission product with {} distributions (an applicability \
-             mixture) is not decoded",
-            p.distributions.len()
-        )));
-    };
-    match d {
-        ReadDistribution::Uncorrelated {
-            energy: Some(EnergyDist::Watt { u, a, b }),
-            ..
-        } => Ok(FissionSpectrum::WattEnergyDependent {
-            a: tab1(a),
-            b: tab1(b),
-            u: *u,
-        }),
-        ReadDistribution::Uncorrelated {
-            energy: Some(EnergyDist::Maxwell { u, theta }),
-            ..
-        } => Ok(FissionSpectrum::Maxwell {
-            theta: tab1(theta),
-            u: *u,
-        }),
-        ReadDistribution::Uncorrelated {
-            energy: Some(EnergyDist::Evaporation { u, theta }),
-            ..
-        } => Ok(FissionSpectrum::Evaporation {
-            theta: tab1(theta),
-            u: *u,
-        }),
-        ReadDistribution::Uncorrelated { energy, .. } => Err(refuse(format!(
-            "MT={mt}: the fission spectrum is {energy:?}, which is not a Watt, Maxwell \
-             or evaporation law; refusing rather than sampling another spectrum"
-        ))),
-        ReadDistribution::Undecoded(t) => Err(refuse(format!(
-            "MT={mt}: the fission spectrum is a '{t}' law, which this converter does \
-             not decode (GitHub #303); refusing rather than sampling another spectrum"
-        ))),
-    }
-}
-
 /// An angle table as the ACE-shaped [`ElasticAngular`] the kernels sample.
 ///
 /// A table that is `mu = [-1, 1]`, `p = [1/2, 1/2]` is how OpenMC spells
 /// isotropic (`AngleDistribution.from_ace` writes it for ACE's `LOC = 0`), and
 /// becomes the empty cosine grid that `EnergyAngular` spells it with, so the
 /// isotropic fast path is taken exactly as on the ACE route.
-fn elastic_angular(
+pub(super) fn elastic_angular(
     mt: i32,
     d: &ReadDistribution,
     centre_of_mass: bool,
@@ -214,14 +153,13 @@ fn elastic_angular(
 /// The table `CeNeutronAce` the rest of `outram-mc-libs` already reads, from
 /// the `.h5`'s arrays.
 fn as_decoded_ace(read: &ReadNuclide) -> Result<CeNeutronAce, NjoyError> {
-    if read.kts.len() != 1 || read.energy.len() != 1 {
-        return Err(refuse(format!(
-            "{}: {} temperatures in the file; this converter takes a single-temperature \
-             file (the reader returns the first temperature's cross sections)",
-            read.name,
-            read.kts.len().max(read.energy.len())
-        )));
-    }
+    // The temperature the cross sections were read at (`read_nuclide_selected`'s
+    // `primary`); a single-temperature file has just the one.
+    let label = if read.primary_temperature.is_empty() {
+        read.kts.keys().next().cloned().unwrap_or_default()
+    } else {
+        read.primary_temperature.clone()
+    };
     let energy = read
         .any_energy()
         .cloned()
@@ -270,7 +208,7 @@ fn as_decoded_ace(read: &ReadNuclide) -> Result<CeNeutronAce, NjoyError> {
             xs: r.xs.clone(),
         })
         .collect();
-    let kt_ev = read.kts.values().next().copied().unwrap_or(0.0);
+    let kt_ev = read.kts.get(&label).or_else(|| read.kts.values().next()).copied().unwrap_or(0.0);
     Ok(CeNeutronAce {
         zaid: read.name.clone(),
         za: 1000 * read.z + read.a,
@@ -291,10 +229,25 @@ fn nu_bar(read: &ReadNuclide) -> Result<Option<NuBar>, NjoyError> {
         return Ok(None);
     };
     if kind == "Polynomial" {
-        return Err(refuse(format!(
-            "{}: a polynomial total_nu is not converted (GitHub #303)",
-            read.name
-        )));
+        // OpenMC's `Polynomial` is in eV already (`reaction.py:255`: the MeV
+        // coefficients are scaled by `EV_PER_MEV**-i`), which is `NuBar::poly`'s
+        // unit. `energy` / `nu_total` tabulate it on the grid `decode_nu_block`
+        // uses (`ce_laws.rs`), for consumers that read the table.
+        let c = x;
+        let mut energy = Vec::new();
+        let mut nu_total = Vec::new();
+        let mut e = 1.0e-5_f64;
+        while e <= 2.0e7 {
+            energy.push(e);
+            nu_total.push(c.iter().rev().fold(0.0, |acc, &ci| acc * e + ci));
+            e *= 1.2;
+        }
+        return Ok(Some(NuBar {
+            energy,
+            nu_total,
+            poly: Some(c.clone()),
+            interp: Vec::new(),
+        }));
     }
     let lin_lin = read.total_nu_regions.is_empty()
         || read.total_nu_regions == [(x.len() as i64, 2)];
@@ -331,96 +284,17 @@ impl Nuclide {
     /// faithfully: a refused law, URR tables, delayed products, a second
     /// temperature, a fissile nuclide without `total_nu`.
     pub fn from_hdf5(read: &ReadNuclide, name: &str) -> Result<Self, NjoyError> {
-        if !read.urr_temperatures.is_empty() {
-            return Err(refuse(format!(
-                "{}: the file carries unresolved-resonance probability tables at {:?}, \
-                 which this converter does not decode; transporting it without them \
-                 would silently drop self-shielding that the ACE route applies by default",
-                read.name, read.urr_temperatures
-            )));
-        }
+        let label = if read.primary_temperature.is_empty() {
+            read.kts.keys().next().cloned().unwrap_or_default()
+        } else {
+            read.primary_temperature.clone()
+        };
         let ace = as_decoded_ace(read)?;
-        let transport_mts = ace.transport_channel_mts();
 
-        // Delayed-neutron data is not decoded.
-        for rx in read.reactions.values() {
-            if rx.products.iter().any(|p| p.emission_mode == "delayed" || p.decay_rate > 0.0) {
-                return Err(refuse(format!(
-                    "MT={}: delayed-neutron products are not decoded (GitHub #303); \
-                     refusing rather than transporting every fission neutron as prompt",
-                    rx.mt
-                )));
-            }
-        }
-
-        // Elastic, the levels and fission are the channels this converter can
-        // sample; any other neutron emitter is refused by name.
-        let mut elastic = ElasticAngular::default();
-        let mut inelastic_angular: Vec<(u32, ElasticAngular)> = Vec::new();
-        let mut chi = FissionSpectrum::default();
-        let mut partial_chi: Vec<(i32, FissionSpectrum)> = Vec::new();
-        let mut fissile = false;
-
-        if let Some(rx) = read.reactions.get(&2) {
-            let prods = neutron_products(rx);
-            let Some(first) = prods.first().and_then(|p| p.distributions.first()) else {
-                return Err(refuse("MT=2: no neutron distribution".to_string()));
-            };
-            elastic = elastic_angular(2, first, true)?.unwrap_or_default();
-        }
-        for &mt in &transport_mts {
-            let Some(rx) = read.reactions.get(&mt) else {
-                continue;
-            };
-            let prods = neutron_products(rx);
-            if mt == 18 || PARTIAL_FISSION_MTS.contains(&mt) {
-                fissile = true;
-                take_fission_law(&mut chi, &mut partial_chi, mt, fission_spectrum(mt, rx)?);
-            } else if (51..=90).contains(&mt) {
-                let Some(d) = prods.first().and_then(|p| p.distributions.first()) else {
-                    return Err(refuse(format!("MT={mt}: a level without a neutron distribution")));
-                };
-                match d {
-                    ReadDistribution::Uncorrelated {
-                        energy: Some(EnergyDist::Level { .. }),
-                        ..
-                    } => {}
-                    other => {
-                        return Err(refuse(format!(
-                            "MT={mt}: an inelastic level whose law is {other:?}, not `level`"
-                        )))
-                    }
-                }
-                if let Some(ang) = elastic_angular(mt, d, rx.center_of_mass)? {
-                    if !ang.is_all_isotropic() {
-                        inelastic_angular.push((mt as u32, ang));
-                    }
-                }
-            } else if !prods.is_empty() {
-                let laws: Vec<String> = prods
-                    .iter()
-                    .flat_map(|p| p.distributions.iter())
-                    .map(|d| match d {
-                        ReadDistribution::Undecoded(t) => t.clone(),
-                        ReadDistribution::Uncorrelated { energy, .. } => {
-                            format!("uncorrelated {energy:?}")
-                        }
-                    })
-                    .collect();
-                return Err(refuse(format!(
-                    "MT={mt}: a neutron-emitting channel with law {laws:?}. This converter \
-                     samples elastic, MT=51..90 levels and fission only (GitHub #303); \
-                     refusing rather than treating the reaction as elastic or capture"
-                )));
-            }
-        }
-        if !partial_chi.is_empty() {
-            chi = partial_fission_chi(&ace, partial_chi);
-        }
-
+        let laws = secondary_laws(read, &ace)?;
         let nu = match nu_bar(read)? {
             Some(nu) => nu,
-            None if fissile => {
+            None if laws.fissile => {
                 return Err(refuse(format!(
                     "{}: a fission reaction but no total_nu; the nuclide would fission \
                      and emit nothing",
@@ -431,23 +305,58 @@ impl Nuclide {
         };
 
         let (recon, inel) = ace_cross_sections(&ace);
+        let other_channels: Vec<OtherChannel> = laws
+            .other_raw
+            .into_iter()
+            .filter_map(|(mt, q, yield_, law)| {
+                recon.section_index(MtReaction::from_any(mt)).map(|section| OtherChannel {
+                    mt,
+                    section,
+                    q,
+                    yield_,
+                    law,
+                })
+            })
+            .collect();
+
+        // URR: `from_ace` reads the UNR block at `kT / k_B`; the file's `urr/<T>`
+        // group is the same block (`urr.py:from_ace`).
+        let urr = match read.urr.get(&label) {
+            Some(t) => Some(UrrProbabilityTables::from_openmc_layout(
+                &t.energy,
+                &t.table,
+                t.interpolation,
+                t.inelastic_flag,
+                t.absorption_flag,
+                t.multiply_smooth,
+                ace.kt_ev / 8.617_333_262e-5,
+            )?),
+            None if !read.urr_temperatures.is_empty() => {
+                return Err(refuse(format!(
+                    "{}: the file carries unresolved-resonance probability tables at {:?} \
+                     but none for the temperature read ({label:?}); transporting it \
+                     without them would silently drop self-shielding that the ACE route \
+                     applies by default",
+                    read.name, read.urr_temperatures
+                )))
+            }
+            None => None,
+        };
+
         Ok(Self {
             name: name.to_string(),
             awr: ace.awr,
             nu,
-            chi,
+            chi: laws.chi,
             xs: XsSource::Pointwise {
                 index: SectionIndex::new(&recon),
                 recon,
                 inel,
-                elastic_angular: elastic,
-                inelastic_angular,
+                elastic_angular: laws.elastic,
+                inelastic_angular: laws.inelastic_angular,
             },
             thermal: None,
-            continuum: ContinuumLaws {
-                uncorrelated: [(91, None), (16, None), (17, None)],
-                ..ContinuumLaws::default()
-            },
+            continuum: laws.continuum,
             target_at_rest: false,
             legacy_scatter_kernels: false,
             data_kt_ev: Some(ace.kt_ev),
@@ -455,18 +364,46 @@ impl Nuclide {
             chi_frozen_at: None,
             n2n_yield_one: false,
             delayed_spectra_ablated: false,
-            other_channels: Vec::new(),
+            other_channels,
             other_channels_ablated: false,
-            urr: None,
+            urr,
             dbrc: None,
-            elastic_0k: elastic_0k_from_ace(&ace),
+            elastic_0k: elastic_0k_from_hdf5(read),
             prompt_only: false,
-            delayed: None,
+            delayed: delayed_data(read)?,
             speed: SpeedTier::default(),
             multipole: None,
         }
         .with_dbrc(DBRC_DEFAULT_E_MAX_EV))
     }
+}
+
+/// The 0 K elastic `(E, sigma)` pairs of a library read with its `0K`
+/// temperature (the label `"0K"`: OpenMC writes no `kTs` entry for it) (`read_nuclide_selected(.., &["0K"])`), or empty.
+///
+/// The counterpart of `elastic_0k_from_ace`: that one takes the ESZ elastic of
+/// a 0 K ACE table, this the `reaction_002/0K/xs` OpenMC wrote from the same
+/// table, on the `energy/0K` grid. The cap at [`DBRC_GRID_MAX_EV`] is the same.
+fn elastic_0k_from_hdf5(read: &ReadNuclide) -> Vec<(f64, f64)> {
+    let Some(rx) = read.reactions.get(&2) else {
+        return Vec::new();
+    };
+    let Some((label, (xs, thr))) = rx
+        .other_temperature_xs
+        .iter()
+        .find(|(l, _)| l.strip_suffix('K').and_then(|t| t.parse::<f64>().ok()) == Some(0.0))
+    else {
+        return Vec::new();
+    };
+    let Some(grid) = read.energy.get(label) else {
+        return Vec::new();
+    };
+    grid[*thr..]
+        .iter()
+        .copied()
+        .zip(xs.iter().copied())
+        .filter(|&(e, _)| e <= DBRC_GRID_MAX_EV)
+        .collect()
 }
 
 /// **The pointwise cross-section half of `Nuclide::from_ace`, as a function of the
