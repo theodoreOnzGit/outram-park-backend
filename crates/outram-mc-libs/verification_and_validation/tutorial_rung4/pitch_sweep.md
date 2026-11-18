@@ -389,3 +389,82 @@ estimator.
 - **Follow-up not done:** locating the 2.40 cm difference needs a
   factor-by-factor tally comparison against OpenMC, or reruns with single
   physics options switched off. No hypothesis was tested here.
+
+## 2.40 cm miss: diagnosis (GitHub #550, started 2026-11-18)
+
+**This section is committed with its hypotheses and predictions BEFORE any
+diagnostic run.** Results are appended below it afterwards; a prediction that
+misses stays in place with its outcome beside it. Research, education and V&V
+only. Gate throughout: |z| <= 2 on a seed ensemble (>= 8 seeds per arm), no
+threshold moved, no input tuned.
+
+### The finding being explained
+
+Case-1 borated water, 11-nuclide tier, 5000 x [50 + 200], 16 seeds per code,
+2.40 cm: outram-mc 0.70536 +- 0.00027, OpenMC 0.70653 +- 0.00029, difference
+**-117 +- 39 pcm (z -2.97)**; -114 pcm (z -3.4) with OpenMC's combined
+estimator. 1.63576 cm (-37 +- 38) and 1.75 cm (-1 +- 37) pass. outram-mc's
+2.40 cm factors (16-seed means): eta 1.7800, f 0.4041, p 0.8913, eps 1.1004
+(`ensemble_550/outram_seeds.csv`). This is the most over-moderated point:
+f is 0.40 because 1511 ppm of B-10 and the water absorb most thermal
+neutrons, so k there measures the thermal spectrum and the thermal absorption
+in water and boron far more than at 1.63576 cm (f 0.68).
+
+### Upstream read first (OpenMC 0.15.3, `openmc-src/`), and what it implies
+
+What OpenMC does with a hydrogen atom in this water, read from source before
+forming any hypothesis:
+
+- `src/material.cpp:855-870`: the S(a,b) table is used for H-1 while
+  `E <= energy_max_` of the thermal table (the top of the inelastic grid, 4 eV
+  for NJOY THERMR `emax`), and dropped above it. `sab_frac = 1` here (all H-1
+  is in the water).
+- `src/nuclide.cpp:841-869` (`calculate_sab_xs`): inside the table the
+  scattering cross section is the table's elastic + inelastic, and the
+  free-atom elastic is removed (`micro.elastic = thermal + (1 - sab_frac)
+  elastic`).
+- `src/thermal.cpp:297-312` (`ThermalData::sample`): elastic or inelastic is
+  chosen by `thermal_elastic / thermal`; the outgoing law is the one NJOY
+  THERMR/ACER wrote into the table.
+- `src/physics.cpp:857-862` (`sample_target_velocity`): a non-resonant nuclide
+  gets the free-gas treatment only below `400 kT` and only for `awr > 1`; a
+  resonant nuclide (the deck switches resonance scattering on for every
+  nuclide with a 0 K table, 0.01 eV .. 1 keV) keeps it to 1 keV.
+- `src/physics.cpp:700-714`: the free-gas `kT` is `nuc->kTs_[i_temp]`, the kT
+  stored with the data.
+
+outram-mc already carries each of these (`ThermalScattering::beyond_cutoff`
+cites `material.cpp:866`; `Nuclide::free_gas_kt`; the 400 kT threshold). What
+differs between the two arms by construction is therefore **where the data
+come from**, not the transport rules:
+
+1. neutron data: outram-mc reconstructs from the ENDF tapes (RECONR+BROADR);
+   OpenMC reads the NJOY2016 ACER output converted to HDF5;
+2. **S(a,b) of H in H2O: outram-mc builds it from `tsl-HinH2O.endf` with its
+   own THERMR-equivalent (`ThermalScattering::from_endf_file`); OpenMC reads
+   NJOY2016's THERMR+ACER table (`c_H_in_H2O.h5`).** They are meant to be the
+   same physics; they are different code, with different alpha/beta grids,
+   cutoffs and outgoing-energy binning.
+
+### Hypotheses, with predicted sign and magnitude (outram-mc minus OpenMC)
+
+Reference arm: outram-mc, ENDF route, ENDF S(a,b), the existing 16 seeds,
+0.70536. Every new outram-mc arm is 5000 x [50 + 200] at 2.40 cm, 8 seeds
+(seeds 1-8) unless stated.
+
+| id | hypothesis | discriminator | prediction if TRUE | prediction if FALSE |
+|---|---|---|---|---|
+| H1b | (cheap precursor of H1, no transport) the S(a,b) cross sections of the two constructions differ | evaluate `inelastic_xs(E)`, `elastic_xs(E)` of `from_endf_file` and of the NJOY ACE (`from_ace`) on a common grid, 1e-5 .. 4 eV | a band of >= 0.3 % relative difference somewhere in 0.01 .. 0.3 eV (a 0.3 % change of the thermal hydrogen scattering cross section moves a f = 0.40 lattice by ~ 50-100 pcm) | < 0.1 % everywhere |
+| H1 | the S(a,b) built from the ENDF tape differs from NJOY's table in a way that matters most when the spectrum is most thermal | outram-mc with the S(a,b) read from the NJOY ACE `HinH2O.ace` (293.6 K) that OpenMC's `c_H_in_H2O.h5` was made from, everything else unchanged | k rises by **+60 to +130 pcm** (towards OpenMC; outram-mc is the low code) | shift within +-50 pcm |
+| H2 | the neutron data (RECONR/BROADR vs NJOY ACE) differ | outram-mc reading the very same `.h5` library OpenMC reads (`--hdf5-dir`, gh:#303), ENDF S(a,b) kept | **0 +- 50 pcm** (the full LCT-008 lattice agrees at -8 +- 9 pcm over 96 seeds; the h5 route against the ENDF route measured +39 +- 65 pcm at 1.63576 cm). A shift beyond +-80 pcm would make it a neutron-data effect, with B-10 (1/v absorption, weighted by f = 0.40) the first suspect | within +-50 pcm |
+| H3 | the gap tracks thermal physics at all | S(a,b) switched off in BOTH codes (H-1 free gas instead). k falls by thousands of pcm in both; the question is the difference | the outram-mc minus OpenMC difference changes by **> 100 pcm** from -117 | the difference stays near -117 +- 60 (gap lives outside the S(a,b)) |
+| H4 | a statistical fluke of the first ensemble (z = -2.97 at one of three pitches; p ~ 0.003 two-sided, ~ 0.01 after three looks) | independent new seeds: outram-mc ENDF route seeds 17-24 and OpenMC seeds 17-32 at 2.40 cm | the new difference is -40 +- 50 pcm (regression to the mean) | the new difference is again about -117 |
+| H5 | the gap sits in the thermal absorption share, which a tally comparison localises | OpenMC tallies (absorption by nuclide, thermal/resonance/fast groups) against outram-mc's factors on record | f differs by about -0.3 % relative (a harder or softer thermal spectrum changes the B-10 and H-1 absorption share) | p or eps differ instead: a resonance/fast difference, and H1 is wrong |
+
+Order of work, cheapest first: H1b (no transport), H2 (one outram-mc arm), H1
+(one outram-mc arm), H4 and H3 as the budget allows, H5 for localisation.
+
+Prior, stated honestly: H1 ~ 40 %, H4 ~ 15 %, H2 ~ 15 %, ~ 30 % on something
+not on this list. The transport rules were ported from OpenMC and are pinned
+elsewhere; the thermal tables are the one component with two independent
+derivations.
