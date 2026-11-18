@@ -215,7 +215,7 @@ uom = { workspace = true }
 # nee_soon's `assemble_explicit_triso`, the builder the recorded runs use, so
 # the zoom ladder shows the solver's geometry, not a re-model. A wasm in-scope
 # crate.
-nee_soon = { workspace = true, features = ["std"] }
+nee_soon = { workspace = true, features = ["std", "dem_ui"] }
 # The DEM pour demo (gh:#787): the LIGGGHTS port's `htr10_fill` pour, run in
 # the browser's worker, and the `htr10` rung's baked DEM bed. A wasm in-scope
 # crate (its `wasm_par` shim stands in for rayon).
