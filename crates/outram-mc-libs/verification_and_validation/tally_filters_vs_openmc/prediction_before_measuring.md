@@ -114,3 +114,14 @@ Pass: every |z| <= 2; the count of bins and the worst z are reported.
 |---|---|---|
 | COLLISION, track-length flux, collision numbers 0..5 | 6 | all |z| <= 2 (expected worst about 1.5 for 6 bins) |
 | LEGENDRE order 3 x `scatter` (analog), bare P_l(mu) | 4 | all |z| <= 2. P0 = scatters per source neutron; P1 = sum of mu |
+
+**B first-run outcome (recorded after the run):** LEGENDRE 4 bins, worst |z| 1.49. COLLISION 6
+bins, worst |z| **2.87** (collision number 4: ours 0.753318 +- 0.002031, OpenMC
+0.744105 +- 0.002480, +1.2 %), a **miss** of the registered criterion. Ten bins were tested, so
+a |z| this large arises by chance about 4 % of the time. The miss stays reported as it is;
+the first run is not discarded. To tell noise from a defect, a **replication plan is fixed
+here, before it is run**: 8 further independent runs of both codes (ours seeds 1001..1008,
+OpenMC `seed` 1001..1008, same model), pooled per bin as mean of the 8 run means with
+standard error from their scatter; pass criterion unchanged, |z| <= 2 on the pooled bins.
+Expectation: if collision bin 4 is noise the pooled |z| falls under 2 (about 1); if it is a
+defect of ours the pooled |z| exceeds ~2.5 and the +1.2 % persists.
