@@ -1799,3 +1799,64 @@ they are not an HTR-10 benchmark number.
 prediction. The ten unreferenced free originals stay in the array. The box was
 shared with other agents' builds and runs, and transport time per run varied
 231-592 s with load, so the timings say nothing about a cost difference.
+
+## gh:#1635 item 1: the arms #1583 did not run (2026-11-18): prediction
+
+**Written and committed before any run of this pass.** (The one thing done
+before it is reading the drivers; no transport process has been started.) Same
+design as "Item 2, last three drivers" above: OLD = `d1e20f188`, NEW = this
+branch HEAD (`181fa26d8` when this was written), same data, settings and seeds
+in both builds, at most two MC processes of mine at once. sem = sd / sqrt(N);
+sigma(new - old) = sqrt(sem_old^2 + sem_new^2); z = (new - old) / sigma. Gate
+|z| <= 2 on every comparison, |z| <= 1 also reported. A run cut for time is cut
+at the same seed count in both builds, chosen by the clock, never by a result.
+A miss is recorded as a miss, and a fresh non-overlapping replication is planned
+before it runs and then pooled. Nothing is tuned. Raw outputs:
+`ensembles_1635_item1/`. Statistics: awk only.
+
+**Mechanism under test (unchanged).** #1581 appends bound copies of H-1 and the
+carbon isotopes to the nuclide array; `transport_csg.rs` advances the URR
+stream by `nuclides.len()`, so models with URR-table nuclides draw a different
+URR realisation. Same physics, different draws.
+
+**Arm 1: MSRE to the planned N = 16** (`icsbep_five_route_keff --case msre
+--route endf --particles 5000 --inactive 40 --active 120 --threads 2`). Seeds
+1..8 exist in `ensembles_1583/icsbep_msre_s1-8_*.out`; this pass runs seeds
+9..16 on both builds. NEW seed 1 is re-run on this HEAD first and must
+reproduce 1.65582 +/- 0.00113 to the printed digits; if it does not, NEW has
+moved since `501c16264` and NEW seeds 1-8 are re-run and the record says so.
+Prediction: the pooled N = 16 new - old is consistent with zero, |z| <= 2, no
+sign predicted. The first N = 8 gave -6 +/- 69 pcm, z -0.09; the seeds 9..16
+block is reported on its own as well as pooled. Resolution: seed sd about
+120-160 pcm, so sigma(new - old) about 50 pcm at N = 16; a shift under about
+100 pcm (2 sigma) would not be seen.
+
+**Arm 2: `lct008-full`** (35 nuclides; same command with `--case lct008`, route
+`endf`, same settings), N = 8 seeds per build (seeds 1..8) **if** one process
+fits in memory (peak RSS measured on seed 1 first; the box has 15 GB shared with
+at most one other of my processes). If not, it is reported not done with the
+measured number. Prediction: new - old consistent with zero, |z| <= 2, no sign
+predicted. Resolution: no seed sd has been recorded for this case at this size;
+assuming 150-250 pcm, sigma about 75-125 pcm at N = 8, so a shift under about
+150-250 pcm would not be seen.
+
+**Arm 3: `fhr_ring_rpt_endf`'s other six solves** (explicit-TRISO cube and
+sphere, ring-RPT cube and sphere, naive-homogenised cube and sphere, all
+delta-tracked, 4000 x [30 + 80], 600 K). The driver has no seed override for
+them (the existing `OUTRAM_FHR_RING_SEEDS` wraps only the `csg` branch), and
+wrapping its 1500-line `run()` in a loop was judged unsafe. Instead one new env
+knob `OUTRAM_FHR_ALL_SEED=S` sets the master seed of every solve, and each seed
+is a separate process (data load and TRISO packing paid per process). Unset, the
+default is unchanged: this is proved byte for byte (apart from timings) before
+the ensemble. The TRISO packing seed is a separate constant and is NOT varied,
+so the geometry is the same in every process. N is fixed at **4 seeds per
+build** (seeds 1..4) as the minimum; seeds 5..8 are added to both builds if and
+only if the clock allows, decided by the clock and not by the 1..4 results.
+Prediction, per solve (six comparisons, plus the method deltas they imply):
+new - old consistent with zero, |z| <= 2, no sign predicted. Resolution: seed sd
+about 100-150 pcm, so sigma(new - old) about 70-105 pcm at N = 4 and 50-75 at
+N = 8; a shift under about 150-200 pcm would not be seen. **Multiplicity,
+stated in advance:** six comparisons at a 2-sigma gate have about a 26 % chance
+of at least one |z| > 2 under the null, so a single marginal |z| between 2 and
+2.5 among the six is not by itself evidence of a shift; it would be replicated
+on fresh seeds before any claim is made.
