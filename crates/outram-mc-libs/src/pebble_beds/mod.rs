@@ -67,5 +67,7 @@ pub mod fhr_pebble;
 pub mod htr10;
 pub mod keff_delta;
 pub mod references;
+#[cfg(feature = "std")]
+pub mod region_bed;
 pub mod sphere_packing;
 pub mod triso_lattice;
