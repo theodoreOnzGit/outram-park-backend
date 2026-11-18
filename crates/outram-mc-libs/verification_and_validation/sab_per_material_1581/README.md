@@ -1924,3 +1924,48 @@ seed sd 120-148 pcm, a little under the 150-250 assumed, so sigma 67 pcm is
 better than the 75-125 predicted. A shift under about 135 pcm would not be seen.
 Absolute k (1.0013) is this run's own value at 5000 x [40 + 120] and is not
 compared here with the benchmark or with the 10 000 x [250 + 400] record.
+
+### gh:#1635 item 1, arm 3: first four seeds, a miss, and the replication plan (2026-11-18, written before seeds 5-8 were read)
+
+**What ran.** `OUTRAM_FHR_ALL_SEED=S`, the whole `fhr_ring_rpt_endf` driver once
+per seed and per build (separate processes, seven solves each, 4000 x [30 + 80],
+600 K, default thread pool, two processes at a time, same box as above, about
+20 min per seed per build). The knob's default is proved unchanged:
+`fhr_default_csg_new.err` (knob unset) and `fhr_allseed1_csg_new.err` (knob = 1,
+the default seed) are byte-identical after masking wall times, and both give
+`k_eff (ring-RPT, CSG sphere) = 1.36355 +/- 0.00184`, the value recorded for
+this build at `501c16264`. As a harness check the seven-solve driver's CSG solve
+for seeds 1-4 reproduces, to the printed digits, the earlier CSG-only runs
+(OLD 1.36463 1.36491 1.36322 1.36293; NEW 1.36355 1.36228 1.36255 1.36507).
+
+**Seeds 1-4 (the pre-declared minimum N = 4), per solve** (statistics:
+`fhr_extract.awk` pulls the seven k per run, `paste old new | awk -f fhr_stat.awk`):
+
+| solve | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| explicit TRISO, sphere | 1.36102 (80) | 1.36053 (200) | -49 +- 108 | -0.46 |
+| explicit TRISO, cube | 1.40077 (180) | 1.40162 (335) | +85 +- 190 | +0.45 |
+| **ring-RPT, sphere** | 1.36410 (127) | 1.36141 (107) | **-269 +- 83** | **-3.24** |
+| ring-RPT, cube | 1.39862 (216) | 1.39714 (137) | -148 +- 128 | -1.16 |
+| naive homogenised, sphere | 1.32871 (58) | 1.33093 (302) | +222 +- 154 | +1.44 |
+| naive homogenised, cube | 1.37880 (297) | 1.37865 (96) | -15 +- 156 | -0.09 |
+| ring-RPT, CSG sphere (already recorded) | 1.36392 (99) | 1.36336 (126) | -56 +- 80 | -0.70 |
+
+**One solve misses the gate: ring-RPT, sphere, z -3.24 at N = 4.** This is above
+the 2.5 that the prediction's multiplicity note set for "marginal", so it is a
+miss, not an allowed chance excursion, and it is recorded as one. N = 4 is thin
+(the sd of a 4-seed sd is large, and the other solves' sd vary by a factor of 4
+between builds, 58 against 302 on naive-sphere), so this is neither a physics
+shift nor chance yet. Nothing is tuned and no cause is claimed.
+
+**Replication plan, fixed now, before any further seed is read.** (a) Seeds
+5-8 had already been queued on both builds, when seed 1 was still running, as
+the "added if the clock allows" extension; they are pooled with 1-4 into N = 8.
+(b) For the miss, a fresh non-overlapping replication: seeds 9-16 on both
+builds, whole driver per seed, run in order and cut by the clock at the same
+seed count in both builds. The replication block (9-16, or as many as ran) is
+reported on its own and then pooled into N = 16. Prediction for the replication
+block, ring-RPT sphere, if the seeds 1-4 miss was a draw: |z| <= 2 on its own.
+If it is a real build difference of about -270 pcm, the block shows about -270 pcm
+again. Either outcome is reported as it comes; the pooled N = 16 number is the
+one quoted.
