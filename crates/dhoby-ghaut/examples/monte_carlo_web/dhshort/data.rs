@@ -6,13 +6,23 @@
 //! carbon only, as the record does. C-12 is processed once and used twice:
 //! free gas (kernel and SiC carbon) and graphite-bound (everything else).
 //!
+//! **Per-material binding (GitHub #462, #1635 item 3, 2026-11-17).** The table
+//! holds every slot free, the graphite slot (`fhr::C_GRAPHITE`) a free clone of
+//! C-12; the law goes to the five materials that reference that slot through
+//! `assign_material_sab`, as `examples/dh_keff_vv.rs` does, which appends a
+//! bound copy (index 10) and repoints those materials at it. The bound
+//! materials come back beside the table and are what the live universe is
+//! built with ([`super::model::build_with`]). Compile-checked only: a browser
+//! demo, not run.
+//!
 //! The Watch view needs none of this; only the k∞ view loads it (the full
 //! tier, like the `htr10` rung's fuel zone).
-#![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581; read only, not run): SAFE (the graphite slot is referenced only by the five graphite materials of `common/fhr_unit_cell.rs`), not migrated: this loader returns nuclides only and the materials are built in `dhshort/model.rs`, so it is not a mechanical change. Not run here (browser demo).
 
 use super::model::fhr;
 use crate::engine::Tier;
 use crate::tapes::read_tape;
+use outram_mc_libs::material::material::Material;
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -87,9 +97,11 @@ impl DataBuilder {
         }
     }
 
-    /// The nuclide table in `fhr`'s index order, if this load processed the
-    /// tapes (the full tier); `None` for the Watch view's load.
-    pub fn finish(self) -> Result<Option<Vec<Nuclide>>, String> {
+    /// The nuclide table in `fhr`'s index order with the graphite law bound
+    /// per material (bound C-12 appended), and the materials repointed at it,
+    /// if this load processed the tapes (the full tier); `None` for the Watch
+    /// view's load.
+    pub fn finish(self) -> Result<Option<(Vec<Material>, Vec<Nuclide>)>, String> {
         if self.tier == Tier::NoData {
             return Ok(None);
         }
@@ -104,16 +116,19 @@ impl DataBuilder {
         let mut it = self.done.into_iter();
         let mut next = || it.next().ok_or("nuclide missing");
         let (u235, u238, o16, c12) = (next()?, next()?, next()?, next()?);
-        let graphite = c12.clone().with_thermal_scattering(sab);
+        // The graphite slot is a free clone; the law is bound per material below.
+        let graphite_slot = c12.clone();
         let rest = [next()?, next()?, next()?, next()?, next()?];
-        let mut table = vec![u235, u238, o16, c12, graphite];
+        let mut table = vec![u235, u238, o16, c12, graphite_slot];
         table.extend(rest);
         // The indices the material table uses (`fhr::U235` … `fhr::F19`).
         debug_assert_eq!(
             (fhr::C_FREE, fhr::C_GRAPHITE, fhr::SI28, fhr::F19),
             (3, 4, 5, 9)
         );
-        Ok(Some(table))
+        let mats = fhr::materials();
+        let entries = MaterialSab::for_materials_containing(&mats, fhr::C_GRAPHITE, 0, &[]);
+        assign_material_sab(&mats, &table, &[sab], &entries).map(Some)
     }
 }
 
@@ -138,14 +153,19 @@ mod tests {
                 .expect("step");
             eprintln!("  {label:<16} {:6.1} s", t.elapsed().as_secs_f64());
         }
-        let n = b.finish().unwrap().unwrap();
-        assert_eq!(n.len(), 10);
-        // The bound law changes carbon's thermal total; the free-gas entry keeps its own.
+        let (mats, n) = b.finish().unwrap().unwrap();
+        assert_eq!(n.len(), 11, "ten slots and the bound graphite carbon");
+        // The five graphite materials reference the bound copy, the kernel and
+        // SiC keep the free C-12, and the graphite slot itself is unreferenced.
         let at = |i: usize| n[i].total_at_energy(0.0253, fhr::TEMP_K);
-        assert!(
-            at(fhr::C_GRAPHITE) != at(fhr::C_FREE),
-            "graphite S(a,b) not attached"
-        );
+        assert!(n[10].has_thermal_scattering() && !n[fhr::C_GRAPHITE].has_thermal_scattering());
+        assert!(at(10) != at(fhr::C_FREE), "graphite S(a,b) not attached");
+        for (i, m) in mats.iter().enumerate() {
+            for c in &m.components {
+                assert_ne!(c.nuclide_idx, fhr::C_GRAPHITE, "material {i} still holds the free graphite slot");
+            }
+        }
+        assert!(mats.iter().any(|m| m.components.iter().any(|c| c.nuclide_idx == 10)));
     }
 
     /// A Watch load processes nothing and holds no table.

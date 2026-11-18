@@ -1,0 +1,22 @@
+settings: PARTICLES 2000 x [INACTIVE 15 + ACTIVE 40], THREADS 3, SEED 20261106, 296 K; cell-average N_C/N_U = 600, uranium volume fraction v = 2.990541e-3, R/r = 6.9409
+lump: U metal 19.05 g/cm3, N_U = 4.819657e-2 /b-cm; moderator: graphite N_C = 8.673968e-2 /b-cm
+
+=== lump r = 0.3 cm, cell R = 2.0823 cm (white) ===
+cell-average N_C/N_U = 600.0
+k_inf (power iteration, generation mean) = 0.96061 +/- 0.00423   [76.7 s]
+three-group factors (library convention, L = 0):
+  eta     = 1.33254 +/- 0.00343
+  f       = 0.74999 +/- 0.00171
+  p       = 0.94369 +/- 0.00189
+  epsilon = 1.01515 +/- 0.00332
+  P_FNL   = 1.00000 +/- 0.00205   P_TNL = 1.00000 +/- 0.00195
+  eta*f*p*eps = 0.95741 +/- 0.00562
+  P_total/(A_total + L_total) = 0.95741 (telescoping: product - P/(A+L) = +0.00e0; leakage 0.00e0)
+  (k - k_factors)/k = +0.00333 (band (-0.01, 0.05): inside)
+two-group view (split at 0.625 eV): eta 1.33254  f 0.74999  p 0.93637  eps 1.02309  product 0.95741
+group rates per source neutron [thermal, resonance, fast]: absorption [0.94336, 0.05629, 0.00781]  nu-fission [0.94279, 0.00924, 0.01253]
+fuel = the uranium material (library definition); f = 0.74999
+
+=== Rung 3: natural U metal lumps in graphite, N_C/N_U = 600, 296 K ===
+  r [cm]    R [cm]     k_inf    sigma      eta        f        p      eps k_factors   wall s
+    0.30    2.0823   0.96061  0.00423  1.33254  0.74999  0.94369  1.01515   0.95741     76.7

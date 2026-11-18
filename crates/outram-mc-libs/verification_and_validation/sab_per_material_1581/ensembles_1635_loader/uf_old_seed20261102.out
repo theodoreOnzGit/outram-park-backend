@@ -1,0 +1,25 @@
+settings: PARTICLES 2000 x [INACTIVE 15 + ACTIVE 40], THREADS 3, SEED 20261102, 296 K, 12300 fine bins over [1e-5, 2e7] eV
+HTR-10 fuel pebble inventory: 8335 particles, U 5.0001 g, C 193.97 g -> N_C/N_U = 767.2
+
+=== homogeneous U(17 wt%) + graphite at the HTR-10 pebble ratio ===
+cell-average N_C/N_U = 767.2
+k_inf (power iteration, generation mean) = 1.57354 +/- 0.00335   [74.7 s]
+three-group factors (library convention, L = 0):
+  eta     = 2.02814 +/- 0.00651
+  f       = 0.97471 +/- 0.00312
+  p       = 0.71408 +/- 0.00215
+  epsilon = 1.11090 +/- 0.00459
+  P_FNL   = 1.00000 +/- 0.00279   P_TNL = 1.00000 +/- 0.00320
+  eta*f*p*eps = 1.56817 +/- 0.01262
+  P_total/(A_total + L_total) = 1.56817 (telescoping: product - P/(A+L) = -2.22e-16; leakage 0.00e0)
+  (k - k_factors)/k = +0.00341 (band (-0.01, 0.05): inside)
+two-group view (split at 0.625 eV): eta 2.02814  f 0.97471  p 0.71059  eps 1.11635  product 1.56817
+group rates per source neutron [thermal, resonance, fast]: absorption [0.71411, 0.28593, 0.00491]  nu-fission [1.41169, 0.15781, 0.00644]
+nuclide split of thermal absorption: uranium share 0.97471; fold(Sigma_a,tot)/tally = 0.999988
+N [atoms/b-cm]: U234 0.0000e0  U235 1.9256e-5  U238 9.2829e-5  C 8.59914e-2
+
+=== p check: energy-only walk, 100 keV -> 0.625 eV, same mixture, 100000 histories [33.1 s] ===
+  p (energy-only escape)  = 0.71275 +/- 0.00143
+  p (transport, 3-group)  = 0.71408 +/- 0.00215
+  difference transport - energy-only = +0.00133 (+0.5 sigma combined)
+  energy-only absorption per source neutron by nuclide: U234 0.00000, U235 0.10113, U238 0.18457, C12 0.00154, C13 0.00001

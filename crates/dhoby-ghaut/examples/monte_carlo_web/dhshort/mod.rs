@@ -145,8 +145,13 @@ impl RungBuilder for Builder {
         data::DataBuilder::make(index, bytes, store).map(|_| ())
     }
     fn finish(self) -> Result<Loaded, String> {
+        let (materials, nuclides) = match self.0.finish()? {
+            Some((m, n)) => (m, Some(n)),
+            None => (Vec::new(), None),
+        };
         Ok(Loaded {
-            nuclides: self.0.finish()?,
+            materials,
+            nuclides,
             ..Loaded::default()
         })
     }
@@ -168,6 +173,9 @@ pub struct LiveRun {
 pub struct Loaded {
     universes: Vec<Option<(DhUniverse, f64)>>,
     nuclides: Option<Vec<Nuclide>>,
+    /// The materials of the live run, the graphite law bound per material
+    /// (empty without data); the table above carries the bound copy.
+    materials: Vec<outram_mc_libs::material::material::Material>,
     run: Option<LiveRun>,
 }
 
@@ -251,7 +259,7 @@ impl LoadedRung for Loaded {
             temperature_k: model::fhr::TEMP_K,
             ..KeffSettings::default()
         };
-        let universe = model::build(t)?;
+        let universe = model::build_with(t, self.materials.clone())?;
         let it = universe.power_iteration(nuclides, &settings);
         self.run = Some(LiveRun {
             t,

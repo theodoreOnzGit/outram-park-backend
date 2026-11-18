@@ -78,6 +78,21 @@ pub fn build(i: usize) -> Result<DhUniverse, String> {
     DhUniverse::pebble(params, t).map_err(|e| format!("{}: {e}", t.name()))
 }
 
+/// [`build`] with the materials supplied: the live run builds its universe
+/// with the materials whose carbon carries the graphite law per material
+/// (`super::data::DataBuilder::finish`, GitHub #1635 item 3), indexed as
+/// `fhr::materials()` is.
+pub fn build_with(i: usize, materials: Vec<outram_mc_libs::material::material::Material>) -> Result<DhUniverse, String> {
+    let t = *TREATMENTS
+        .get(i)
+        .ok_or_else(|| format!("no treatment {i}"))?;
+    let params = PebbleParams {
+        seed: seed(),
+        ..PebbleParams::fhr_unit_cell().with_materials(materials)
+    };
+    DhUniverse::pebble(params, t).map_err(|e| format!("{}: {e}", t.name()))
+}
+
 /// Rasterise `req` on `u` (worker side): one byte per pixel, row 0 on top, the
 /// material index `material_at` returns, or [`OUTSIDE`] beyond the reflective
 /// sphere. SCLS's in-progress flight is reset once per row
