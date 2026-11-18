@@ -352,7 +352,8 @@ pub fn source_convergence_drift_pcm(
 /// always run. They were typed into that example and into many tests beside
 /// it; they are collected here (2026-10-04, gh:#521) so the tutorial and the
 /// web demo use the model the record was measured on, not another copy of it.
-/// Changing a value here changes that example.
+/// Changing a value here changes that example, and since 2026-11-18 (gh:#1647)
+/// the ~16 Godiva research examples that run this module instead of a copy.
 pub mod godiva {
     use crate::material::material::{Material, NuclideComponent};
 

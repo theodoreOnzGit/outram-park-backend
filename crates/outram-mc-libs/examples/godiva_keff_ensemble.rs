@@ -235,7 +235,7 @@ fn main() {
 #[cfg(not(target_os = "android"))]
 mod desktop {
     use njoy_outram_park_fork::reference_data::reference_endf;
-    use outram_mc_libs::material::material::{Material, NuclideComponent};
+    use outram_mc_libs::vv::godiva;
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
     use outram_mc_libs::stats::ensemble::{
@@ -244,13 +244,11 @@ mod desktop {
     use std::sync::Arc;
     use std::time::Instant;
 
-    const TEMP_K: f64 = 293.6;
-    const RADIUS_CM: f64 = 8.7407;
-    const NUCLIDES: &[(&str, &str, f64)] = &[
-        ("n-092_U_234-ENDF8.0.endf", "U234", 4.9184e-4),
-        ("n-092_U_235-ENDF8.0.endf", "U235", 4.4994e-2),
-        ("n-092_U_238.endf", "U238", 2.4984e-3),
-    ];
+    const TEMP_K: f64 = godiva::TEMPERATURE_K;
+    const RADIUS_CM: f64 = godiva::RADIUS_CM;
+    // The Godiva model (radius, temperature, the three ICSBEP nuclides as
+    // `(name, tape, atoms/b-cm)`, the material) is `vv::godiva`; this
+    // example's identical copy was removed 2026-11-18 (gh:#1647).
 
     pub fn run() {
         let n_seeds: usize = std::env::var("OUTRAM_GODIVA_SEEDS")
@@ -261,10 +259,11 @@ mod desktop {
         println!("Reconstructing HEU isotopes from ENDF/B-VIII.0 (RECONR + BROADR @ 293.6 K)…");
         let t0 = Instant::now();
         let mut nuclides = Vec::new();
-        for &(file, name, _) in NUCLIDES {
+        for &(name, file, _) in &godiva::NUCLIDES {
             // OUTRAM_U238_ENDF7=1 swaps U-238 ALONE to ENDF/B-VII.0, every other
-            // nuclide held at VIII.0. Remapped HERE rather than in NUCLIDES
-            // because that is a `const` and `env::var` is not const-callable.
+            // nuclide held at VIII.0. Remapped HERE rather than in the
+            // `godiva::NUCLIDES` table because that is a `const` and `env::var`
+            // is not const-callable.
             //
             // Isolating one nuclide matters: the four pooled ICSBEP residuals
             // split by U-238 content (Godiva -55, Jemima -253, HST-009 -38,
@@ -327,19 +326,7 @@ mod desktop {
             t0.elapsed().as_secs_f64()
         );
 
-        let material = Material {
-            id: 1,
-            name: "Godiva HEU".into(),
-            temperature: TEMP_K,
-            components: NUCLIDES
-                .iter()
-                .enumerate()
-                .map(|(i, &(_, _, rho))| NuclideComponent {
-                    nuclide_idx: i,
-                    atom_density: rho,
-                })
-                .collect(),
-        };
+        let material = godiva::material();
 
         // GitHub #494: the seed loop is now the library runner
         // (`outram_mc_libs::stats::ensemble`), which uses exactly the scheme
