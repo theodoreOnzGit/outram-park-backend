@@ -8,8 +8,9 @@
 //! - `rods_xz_y_minus.png`: rod 3 (`OPENINGS[2]`) at insertion 0.5;
 //! - `rods_top_zoom.png`: the top of the graphite around the withdrawn rod,
 //!   its 2.75 in of poison below the graphite's top (ORNL-4233 Fig. 2);
-//! - `salt_level_100cm.png`, `salt_level_40cm.png`: the whole vessel with
-//!   the salt surface at 100 and 40 cm above the stringer bottom.
+//! - `salt_level_162.8cm.png`, `salt_level_100cm.png`, `salt_level_40cm.png`:
+//!   the whole vessel with the salt surface at the graphite top (162.8 cm,
+//!   upper head empty), 100 and 40 cm above the stringer bottom.
 //!
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_parameter_images -- <out dir>
@@ -73,8 +74,8 @@ fn main() {
     let x1 = m::OPENINGS[1].0 * d.graphite;
     draw(&dir, &rods, "rods_top_zoom", Position::new(x1, y_plus, h - 2.0), [8.0, 16.0], 480, "MSRE N-1 TOP OF THE GRAPHITE AT ROD 1, WITHDRAWN: 2.75 IN OF POISON BELOW THE TOP (ORNL-4233 FIG. 2)");
     let w = 2.0 * m::R_VESSEL_OUT + 10.0;
-    for level in [100.0, 40.0] {
+    for level in [162.8, 100.0, 40.0] {
         let s = Study { salt_level_cm: Some(level), ..Study::default() };
-        draw(&dir, &s, &format!("salt_level_{level:.0}cm"), Position::new(0.0, 0.0, h / 2.0), [w, h + 140.0], 600, &format!("MSRE N-1 X-Z AT Y = 0: SALT SURFACE AT Z = {level:.0} CM (STRINGER BOTTOM AT 0)"));
+        draw(&dir, &s, &format!("salt_level_{level}cm"), Position::new(0.0, 0.0, h / 2.0), [w, h + 140.0], 600, &format!("MSRE N-1 X-Z AT Y = 0: SALT SURFACE AT Z = {level} CM (STRINGER BOTTOM AT 0)"));
     }
 }
