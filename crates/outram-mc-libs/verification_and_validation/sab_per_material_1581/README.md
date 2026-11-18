@@ -2013,3 +2013,97 @@ demonstration of that. Resolution: sigma 84-117 pcm at N = 8, so a shift under a
 170-230 pcm would not be seen, and the seed sd of a single solve differs between the
 builds by up to a factor of 6 at N = 4 (naive-sphere 58 against 302), which small N
 cannot separate from chance. The replication block (seeds 9-12) is below.
+
+### gh:#1635 item 1, arm 3: replication block seeds 9-16, and pooled N = 16 (2026-11-18)
+
+**What ran.** The replication plan fixed above, unchanged: seeds 9-16 on both
+builds (`OUTRAM_FHR_ALL_SEED=S`, whole seven-solve driver per seed, separate
+processes, old build d1e20f188 and new build at the session head). All eight
+seeds ran in both builds, so the clock cut nothing. Raw outputs are
+`ensembles_1635_item1/fhr_s{9..16}_{old,new}.{err,out,rss}`; the tables come from
+`fhr_extract.awk` + `fhr_stat.awk`, as before.
+
+**Interruption, recorded so the files can be trusted.** A container restart at
+about 07:55 UTC ended the agent driving these runs after seeds 9-11 had finished
+in both builds. The seed-12 processes survived the restart. Not knowing that, a second
+seed-12 pair was started at 07:58 writing to the same files. Both pairs were
+killed, the seed-12 files deleted, and seed 12 rerun from scratch in both builds,
+followed by 13-16. No file holds output from two processes. Seeds 9-11 were not
+rerun. The per-seed `k_eff` values cannot depend on the restart, because each
+seed is a separate process seeded only by `OUTRAM_FHR_ALL_SEED`.
+
+**Seeds 9-16, per seed** (explicit-sphere / explicit-cube / rpt-sphere / rpt-cube
+/ naive-sphere / naive-cube / CSG):
+
+```text
+seed  9 OLD 1.36314 1.40008 1.36554 1.39620 1.32911 1.37441 1.36388
+seed  9 NEW 1.36149 1.40236 1.36360 1.39699 1.33071 1.37641 1.36227
+seed 10 OLD 1.36299 1.39819 1.36677 1.39968 1.33151 1.38237 1.36101
+seed 10 NEW 1.36130 1.40329 1.36235 1.39988 1.33111 1.37840 1.36408
+seed 11 OLD 1.36165 1.39892 1.35879 1.40201 1.32883 1.38068 1.36601
+seed 11 NEW 1.36275 1.39713 1.36646 1.39600 1.33047 1.37978 1.36395
+seed 12 OLD 1.36046 1.39682 1.36346 1.39960 1.33190 1.37823 1.36342
+seed 12 NEW 1.35791 1.40116 1.36100 1.39604 1.32968 1.37776 1.36310
+seed 13 OLD 1.35724 1.39851 1.36571 1.39708 1.33008 1.37813 1.36359
+seed 13 NEW 1.35917 1.39926 1.36205 1.39683 1.32694 1.37984 1.36260
+seed 14 OLD 1.35930 1.39796 1.36308 1.39784 1.32864 1.37517 1.36025
+seed 14 NEW 1.35981 1.39616 1.36388 1.39751 1.32872 1.37552 1.36726
+seed 15 OLD 1.36051 1.39518 1.36334 1.39851 1.32658 1.37990 1.36485
+seed 15 NEW 1.35916 1.39767 1.36271 1.39593 1.32801 1.38037 1.36266
+seed 16 OLD 1.36007 1.39768 1.36365 1.39925 1.32868 1.38004 1.36133
+seed 16 NEW 1.36447 1.39819 1.36505 1.39802 1.32979 1.37735 1.36219
+```
+
+**Replication block on its own (N = 8, seeds 9-16):**
+
+| solve | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| explicit TRISO, sphere | 1.36067 (195) | 1.36076 (216) | +9 +- 103 | +0.09 |
+| explicit TRISO, cube | 1.39792 (146) | 1.39940 (259) | +148 +- 105 | +1.41 |
+| **ring-RPT, sphere** | 1.36379 (243) | 1.36339 (175) | **-41 +- 106** | **-0.38** |
+| ring-RPT, cube | 1.39877 (180) | 1.39715 (134) | -162 +- 79 | -2.05 |
+| naive homogenised, sphere | 1.32942 (172) | 1.32943 (144) | +1 +- 79 | +0.02 |
+| naive homogenised, cube | 1.37862 (273) | 1.37818 (174) | -44 +- 114 | -0.38 |
+| ring-RPT, CSG sphere | 1.36304 (200) | 1.36351 (167) | +47 +- 92 | +0.51 |
+
+**The prediction held for the solve it was about.** Ring-RPT sphere, the seeds 1-4
+miss (z -3.24, about -270 pcm), gives -41 +- 106 pcm (z -0.38) in the fresh block.
+The -270 pcm a real build difference would have repeated is not there: it is
+2.2 sigma of this block away from what was measured. The 1-4 miss was a draw.
+
+**A different solve crosses 2 in this block: ring-RPT cube, z -2.05.** It is
+recorded as a miss of the block, not explained away. Three things weigh against
+it being a build difference. It was not the solve this block was designed to test.
+Seeds 5-8 put the same solve at z **+2.13**, the opposite sign. Across the three
+blocks (1-4, 5-8, 9-16) and seven solves, 4 of 21 comparisons cross 2 (rpt-sphere
+in 1-4, rpt-cube and naive-cube in 5-8, rpt-cube in 9-16), with no shared sign
+pattern. That is more than the normal 5 %, but each z uses an sd estimated from the
+same few seeds, so it follows a t distribution: P(|t| > 2) is about 14 % at 3
+degrees of freedom and 9 % at 7 (closed-form t CDF), which predicts about 2.5
+crossings out of 21. The combined sigma has somewhat more degrees of freedom than
+one build alone, so this overstates the tail a little.
+Four is above that but not far above it. This weighing is post hoc. The pre-declared quoted number is the pooled one below.
+
+**Pooled N = 16, the number quoted (as fixed in the plan):**
+
+| solve (N = 16) | old mean (sd) | new mean (sd) | new - old +- sigma | z |
+|---|---|---|---|---|
+| explicit TRISO, sphere | 1.36058 (191) | 1.36053 (181) | -5 +- 66 | -0.08 |
+| explicit TRISO, cube | 1.39920 (193) | 1.40003 (261) | +83 +- 81 | +1.02 |
+| ring-RPT, sphere | 1.36377 (197) | 1.36326 (209) | -51 +- 72 | -0.71 |
+| ring-RPT, cube | 1.39828 (189) | 1.39757 (137) | -72 +- 58 | -1.23 |
+| naive homogenised, sphere | 1.32944 (134) | 1.32988 (188) | +44 +- 58 | +0.76 |
+| naive homogenised, cube | 1.37838 (256) | 1.37900 (206) | +62 +- 82 | +0.75 |
+| ring-RPT, CSG sphere | 1.36344 (167) | 1.36329 (141) | -15 +- 55 | -0.27 |
+
+**All seven solves pass |z| <= 2 at N = 16 (largest |z| = 1.23, ring-RPT cube).**
+Arm 3 of #1635 item 1 is within the gate. Resolution: sigma 55-82 pcm, so a
+per-material S(a,b) binding effect on this case smaller than about 110-165 pcm
+(2 sigma) would not be seen. This shows the two builds agree to that level. It
+does not show they are identical.
+
+**Hardware and time.** Intel Xeon @ 2.10 GHz (cloud container, KVM), 4 logical
+cores, 15 GB RAM. One old and one new process ran at a time, side by side. Wall
+time was about 20.5 min per seed per build (seeds 12-16: 07:58 to 09:40 UTC, both
+builds in parallel). Peak resident memory was 0.99-1.02 GB per process
+(`*.rss`, `VmHWM`).
