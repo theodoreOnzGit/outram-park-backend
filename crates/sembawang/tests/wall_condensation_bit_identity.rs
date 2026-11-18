@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 // Copyright (C) 2026 OUTRAM PARK contributors
 //! **V&V, code-to-code (gh:#1096): MELCOR's heat-structure surface moved to
 //! `tampines` is bit-identical to `sembawang`'s original.**

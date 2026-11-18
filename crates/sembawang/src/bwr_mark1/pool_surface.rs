@@ -34,6 +34,9 @@
 //! heat capacity is the model's constant `c_p`; the pool's expansion
 //! coefficient is IAPWS-IF97's.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::*;
 use super::steam::p_sat_pa;
 use petir::mathf::RealMath;
@@ -145,7 +148,7 @@ pub fn exchange(pool: &Pool, atm: &Atmosphere, surface: &Surface, dt: f64) -> Ex
     let (_, rho_a, cp_a) = atm.mass_properties();
     let (mu_p, k_p) = (table(pool.t_k, &MU_WATER), table(pool.t_k, &K_WATER));
     let beta_p = water_beta(pool.t_k, atm.p_pa);
-    let d_s = (4.0 * surface.area_m2 / std::f64::consts::PI).sqrt();
+    let d_s = (4.0 * surface.area_m2 / core::f64::consts::PI).sqrt();
     let h_p = |t_l: f64| {
         h_free(true, k_p, mu_p, pool.rho, pool.cp, beta_p, pool.t_k - t_l, d_s, surface.pool_depth_m)
             + SIGMA * (pool.t_k * pool.t_k + t_l * t_l) * (pool.t_k + t_l)

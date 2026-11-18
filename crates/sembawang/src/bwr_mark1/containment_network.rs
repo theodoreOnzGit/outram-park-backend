@@ -114,6 +114,9 @@
 //!   (sembawang's vent never flows back); the vacuum breakers open at
 //!   `vacuum_breaker_pa`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines::control_volume::{AtmosphereSpeciesRates, ControlVolume, ElevatedPoolHeat, GasMixture, NonCondensable, Port, Source, VolumeAltitudeTable};
 use tampines::cv_network::{CvNetwork, NetworkBoundary, NetworkControl, NetworkEnd, NetworkPath};
 use tampines::flow_path::{FlowPath, FlowPathGeometry, FlowPathKind};
@@ -874,7 +877,7 @@ fn rho_liquid(t: f64, p: f64) -> f64 {
 /// rule on `A(y) = 4πR √(r² − (y − r)²)` then scaled to the exact total
 /// `2π² R r²` (so the table is a torus of the right volume).
 fn torus_table(big_r: f64, r: f64, n: usize) -> Vec<(f64, f64)> {
-    let pi = std::f64::consts::PI;
+    let pi = core::f64::consts::PI;
     let dy = 2.0 * r / n as f64;
     let mut pts = vec![(0.0, 0.0)];
     let mut v = 0.0;
@@ -982,7 +985,7 @@ impl ContainmentNetwork {
         let ww_pts = match cfg.torus_shape {
             TorusShape::Torus => {
                 let big_r = cfg.torus_major_radius_m;
-                let r = (v_torus / (2.0 * std::f64::consts::PI * std::f64::consts::PI * big_r)).sqrt();
+                let r = (v_torus / (2.0 * core::f64::consts::PI * core::f64::consts::PI * big_r)).sqrt();
                 torus_table(big_r, r, 64)
             }
             TorusShape::Prismatic => vec![(0.0, 0.0), (v_torus / prm.ww_pool_surface_m2, v_torus)],
@@ -991,7 +994,7 @@ impl ContainmentNetwork {
         let ww_top = ww_pts.last().map_or(0.0, |p| p.0);
         let level0 = ww_table.height_of_volume(vol(pool_kg / rho_liquid(t_pool, p0))).get::<meter>();
         let exit = level0 - prm.vent_submergence_pa / (995.0 * g);
-        let d_dc = (4.0 * prm.downcomer_area_m2 / (prm.downcomer_count * std::f64::consts::PI)).sqrt();
+        let d_dc = (4.0 * prm.downcomer_area_m2 / (prm.downcomer_count * core::f64::consts::PI)).sqrt();
         let z_ww_gas = ww_top - 0.5;
         let z_quencher = cfg.quencher_elevation_m.unwrap_or(exit);
         let ww_ports = vec![

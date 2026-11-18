@@ -45,6 +45,9 @@
 //! Research, education and V&V only: never for operation, licensing, safety
 //! decisions or emergency response.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cavity;
 pub mod compare;
 pub mod containment;
@@ -1445,7 +1448,7 @@ pub fn swollen_level(prm: &Params, level_m: f64, q_pool_w: f64, h_fg: f64, v_g: 
 
 /// Free volume of the vessel below height `z` above its bottom, m^3.
 pub fn volume_below(prm: &Params, z: f64) -> f64 {
-    let a = std::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m;
+    let a = ::core::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m;
     let a_core = a - core_rod_area_per_height(prm) - prm.core_other_area_m2;
     let taf = prm.baf_m + prm.active_length_m;
     let z = z.clamp(0.0, prm.rpv_height_m);
@@ -1457,7 +1460,7 @@ pub fn volume_below(prm: &Params, z: f64) -> f64 {
 
 /// Cross-section of fuel rods and channel walls, m^2.
 fn core_rod_area_per_height(prm: &Params) -> f64 {
-    prm.assemblies * (prm.rods_per_assembly * std::f64::consts::PI * prm.clad_outer_r_m * prm.clad_outer_r_m + 4.0 * (prm.channel_inner_width_m + prm.channel_wall_m) * prm.channel_wall_m)
+    prm.assemblies * (prm.rods_per_assembly * ::core::f64::consts::PI * prm.clad_outer_r_m * prm.clad_outer_r_m + 4.0 * (prm.channel_inner_width_m + prm.channel_wall_m) * prm.channel_wall_m)
 }
 
 /// Height (above the vessel bottom) at which the free volume below is `v`.
@@ -1956,7 +1959,7 @@ impl Plant {
             let m_l = ((1.0 - v.x) * self.m).max(0.0);
             let rho_l = 1.0 / v.sat.v_f;
             let head = (self.p_solved - p_dw).max(0.0) + rho_l * 9.81 * (v.level_m + prm.baf_m).max(0.0);
-            let area = 0.25 * std::f64::consts::PI * prm.breach_diameter_m * prm.breach_diameter_m;
+            let area = 0.25 * ::core::f64::consts::PI * prm.breach_diameter_m * prm.breach_diameter_m;
             (prm.discharge_coefficient * area * (2.0 * rho_l * head).sqrt()).min(m_l / DT_S)
         } else {
             0.0
@@ -2196,7 +2199,7 @@ impl Plant {
             let floor_t = if v.dry { t_g } else { v.sat.t_k };
             let surfaces = [
                 rn_volume::RnSurface {
-                    surface: aerosol::Surface { area: std::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m, facing: aerosol::Facing::Floor, phoretic: vec![0.0; n] },
+                    surface: aerosol::Surface { area: ::core::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m, facing: aerosol::Facing::Floor, phoretic: vec![0.0; n] },
                     t_k: floor_t,
                     k_vapour: k,
                 },
@@ -2572,7 +2575,7 @@ impl Frame {
 /// a hemispherical top head (`rpv_wall`).
 fn rpv_wall_area_m2(prm: &Params) -> f64 {
     let r = prm.rpv_radius_m;
-    2.0 * std::f64::consts::PI * r * prm.rpv_height_m + 2.0 * std::f64::consts::PI * r * r
+    2.0 * ::core::f64::consts::PI * r * prm.rpv_height_m + 2.0 * ::core::f64::consts::PI * r * r
 }
 
 pub const CSV_HEADER: &str = "t_s,p_rpv_mpa,level_m,decay_mw,q_ic_mw,w_relief_kg_s,w_injection_kg_s,peak_clad_k,exit_gas_k,h2_kg,relocated,p_dw_mpa,p_ww_mpa,t_pool_k,rb_h2_fraction,flags";
@@ -2887,6 +2890,7 @@ mod tests {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h.csv");
         let start = std::time::Instant::now();
         let now = headless_csv(108_000, 600);
+        #[cfg(feature = "std")]
         println!("30 h on the network: {:.1} s", start.elapsed().as_secs_f64());
         if std::env::var("FUKUSHIMA_BLESS").is_ok() {
             std::fs::write(path, &now).expect("write the fixture");
@@ -2905,6 +2909,7 @@ mod tests {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h_lumped.csv");
         let start = std::time::Instant::now();
         let now = headless_csv_with(Mechanisms::default().without_network_containment(), 108_000, 600);
+        #[cfg(feature = "std")]
         println!("30 h on the lumped containment: {:.1} s", start.elapsed().as_secs_f64());
         if std::env::var("FUKUSHIMA_BLESS").is_ok() {
             std::fs::write(path, &now).expect("write the fixture");
@@ -3174,10 +3179,12 @@ mod tests {
         }
         let f = p.frame();
         let k = &f.containment;
+        #[cfg(feature = "std")]
         println!(
             "CS 26h internals {:.2} vessel {:.2} airborne {:.2} dw structures {:.2} ww pool {:.2} vented {:.2} building {:.2} of released {:.2} kg",
             f.on_internals_kg[0], f.cs_vessel_kg, k.cs_airborne_kg, k.cs_dw_structures_kg, k.cs_ww_pool_kg, k.cs_vented_kg, k.cs_building_kg, f.core.fp_volatile_released * CS_INVENTORY_KG
         );
+        #[cfg(feature = "std")]
         println!(
             "I 26h vessel {:.3} airborne {:.3} dw structures {:.3} ww pool {:.3} of released {:.3} kg",
             f.i_vessel_kg, k.i_airborne_kg, k.i_dw_structures_kg, k.i_ww_pool_kg, f.core.fp_volatile_released * I_INVENTORY_KG
@@ -3288,10 +3295,12 @@ mod tests {
             let te = p.vessel_rn.total_kg(rn_volume::TE) + kr.te_kg;
             assert!((te - f.core.fp_volatile_released * TE_INVENTORY_KG).abs() < 1e-9 * TE_INVENTORY_KG, "Te {te} at {}", f.t_s);
             if i + 1 == 26 * 3600 {
+                #[cfg(feature = "std")]
                 println!("network 26 h: {f:?}");
                 at_26 = Some(f);
             }
         }
+        #[cfg(feature = "std")]
         println!("network 30 h: {:?}", p.frame());
         at_26.expect("26 h reached")
     }

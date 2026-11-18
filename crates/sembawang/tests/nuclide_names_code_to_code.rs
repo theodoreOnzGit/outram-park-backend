@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 
 //! **Code-to-code: nuclide-name handling against upstream's
 //! `nuclide_import_accident`** (#449).

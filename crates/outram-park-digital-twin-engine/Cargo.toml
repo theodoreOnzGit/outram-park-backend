@@ -286,7 +286,7 @@ bishan.workspace = true
 # same reason as `boon-lay`: example-only, and this crate's CLAUDE.md forbids
 # new physics in the library. Pure Rust (uom, thiserror, outram-foam-basic-lib,
 # which this crate already uses), so Android and wasm stay clean.
-outram-park-fork-offbeat.workspace = true
+outram-park-fork-offbeat = { workspace = true, features = ["std"] }
 
 # htgr_sim_v1's atmospheric dispersion channel
 # (`physics::atmospheric_dispersion`) takes the TRISO release channel's
@@ -334,7 +334,7 @@ changi = { workspace = true, features = ["gpu", "std"] }
 # Also the map's optional steady Gaussian-plume overlay (gh:#470,
 # `physics::steady_plume_overlay`): buangkok's pyDOSEIA single-plume master
 # equation evaluated per grid cell.
-buangkok = { workspace = true }
+buangkok = { workspace = true, features = ["std"] }
 
 # htgr_sim_v1's map "Bounding air ingress" button (#453): the HTR-10 bounding
 # air-ingress case (1400 C / 140 h, KORA f_ox from IAEA-TECDOC-978 Table 5-7,
@@ -345,7 +345,7 @@ buangkok = { workspace = true }
 # example-only, like buangkok. Direction: sembawang -> boon-lay, changi,
 # buangkok, uom (and outram-mc-libs since 2026-10-17, gh:#951, already a
 # dependency here); nothing in sembawang depends on this crate, so no cycle.
-sembawang = { workspace = true }
+sembawang = { workspace = true, features = ["std"] }
 
 # outram-foam-appbuilder-lib is now a REAL dependency above (gh:#1178's
 # `multifidelity::double_pipe` runs its double-pipe CFD from the library);

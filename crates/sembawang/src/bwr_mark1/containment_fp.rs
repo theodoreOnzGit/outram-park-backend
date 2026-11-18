@@ -20,6 +20,9 @@
 //! network its control volumes'), and moves the fission products in the
 //! fraction of a donor's gas a path took.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::aerosol::{diffusiophoretic_velocity, Facing, Medium, Surface};
 use super::containment::{air_conductivity, air_viscosity, condensation_pass, nc_share, rn_sections, ContainmentSnapshot, RN_STEP_S};
 use super::iodine;
@@ -267,8 +270,8 @@ impl FpHold {
             }
             self.pool_scrubbed[AEROSOL] += rf.moved.iter().sum::<f64>() * rho_p * (1.0 - pass);
             let moved: Vec<f64> = rf.moved.iter().map(|m| m * pass).collect();
-            let ca: [Vec<f64>; N_CLASSES] = std::array::from_fn(|k| rf.on_aerosol_kg[k].iter().map(|m| m * pass).collect());
-            self.ww_rn.receive(&moved, std::array::from_fn(|k| rf.vapour_kg[k] * pass_v[k]), &ca);
+            let ca: [Vec<f64>; N_CLASSES] = core::array::from_fn(|k| rf.on_aerosol_kg[k].iter().map(|m| m * pass).collect());
+            self.ww_rn.receive(&moved, core::array::from_fn(|k| rf.vapour_kg[k] * pass_v[k]), &ca);
             let lk = &s.rn_leak;
             if !lk.moved.is_empty() {
                 self.dw_rn.receive(&lk.moved, lk.vapour_kg, &lk.on_aerosol_kg);
@@ -301,7 +304,7 @@ impl FpHold {
                 let n_v = prm.downcomer_count;
                 let inj = sparc::Injection {
                     vent: sparc::Vent::Downcomer,
-                    diameter_m: (4.0 * prm.downcomer_area_m2 / (n_v * std::f64::consts::PI)).sqrt(),
+                    diameter_m: (4.0 * prm.downcomer_area_m2 / (n_v * core::f64::consts::PI)).sqrt(),
                     nc_mol_s: (dn2 + dh2) / dt / n_v,
                     q_exit_m3_s: n * R_GAS * t_dw / p_dw / dt / n_v,
                 };
@@ -322,7 +325,7 @@ impl FpHold {
             let n_v = prm.downcomer_count;
             let inj = sparc::Injection {
                 vent: sparc::Vent::Downcomer,
-                diameter_m: (4.0 * prm.downcomer_area_m2 / (n_v * std::f64::consts::PI)).sqrt(),
+                diameter_m: (4.0 * prm.downcomer_area_m2 / (n_v * core::f64::consts::PI)).sqrt(),
                 nc_mol_s: n_nc / dt / n_v,
                 q_exit_m3_s: n * R_GAS * t_dw / p_dw / dt / n_v,
             };
@@ -351,8 +354,8 @@ impl FpHold {
         }
         self.pool_scrubbed[AEROSOL] += moved.iter().sum::<f64>() * rho_p * (1.0 - pass) + moved.iter().zip(&swarm).map(|(m, p)| m * pass * (1.0 - p)).sum::<f64>() * rho_p;
         let moved: Vec<f64> = moved.iter().zip(&swarm).map(|(m, p)| m * pass * p).collect();
-        let ca: [Vec<f64>; N_CLASSES] = std::array::from_fn(|k| ca[k].iter().zip(&swarm).map(|(m, p)| m * pass * p).collect());
-        self.ww_rn.receive(&moved, std::array::from_fn(|k| cv[k] * pass_v[k]), &ca);
+        let ca: [Vec<f64>; N_CLASSES] = core::array::from_fn(|k| ca[k].iter().zip(&swarm).map(|(m, p)| m * pass * p).collect());
+        self.ww_rn.receive(&moved, core::array::from_fn(|k| cv[k] * pass_v[k]), &ca);
     }
 
     /// The fraction `f` of the wetwell gas into the drywell (the vacuum
