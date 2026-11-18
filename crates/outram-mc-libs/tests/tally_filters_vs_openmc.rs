@@ -16,11 +16,16 @@
 //! batch per site) is committed as plain text in
 //! `verification_and_validation/tally_filters_vs_openmc/openmc_reference/`.
 //!
-//! Wired filters (`DistribcellFilter`, `CellInstanceFilter`, `EnergyFunction`,
-//! `MeshMaterial`) are scored through the real fixed-source runner
-//! (`run_fixed_source_traced`). The other filters read event-history fields that
-//! the transport does not set (see `tally::history_events`), so they are scored
-//! through that driver, fed by the reviewed transport's `TraceEvent` stream.
+//! ~~Only `DistribcellFilter`, `CellInstanceFilter`, `EnergyFunction` and
+//! `MeshMaterial` went through the real runner; the history-field filters read
+//! fields the transport did not set and were scored through the
+//! `tally::history_events` driver.~~ **CORRECTED 2026-11-18 (gh:#261,
+//! maintainer-confirmed wiring):** every Experiment A filter except CELL_INSTANCE
+//! also has a `real_*` test that runs the real fixed-source runner
+//! (`run_fixed_source_traced`); the driver tests are kept as the oracle. The
+//! mesh-surface `real_*` tests pin the **count** of tie misses (16 and 1), they
+//! do not assert zero. Experiments B (COLLISION) and C (WEIGHT, survival
+//! biasing) at the end of the file are statistical.
 //!
 //! Pass criterion (fixed before the run, `prediction_before_measuring.md`,
 //! amendment 1): relative 2e-8, or absolute 2e-8 for bins under 1; integer-valued

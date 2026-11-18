@@ -15,16 +15,28 @@
 //! [`MeshSurfaceFilter`](super::filter_extra::MeshSurfaceFilter),
 //! [`CollisionFilter`](super::filter_extra::CollisionFilter) and
 //! [`WeightFilter`](super::filter_extra::WeightFilter) read them. Measured by
-//! `grep` on 2026-11-18: **no code outside `tally/filter*.rs` sets any of those
-//! fields**; `scoring.rs` builds its events with `..Default::default()`. A tally
-//! carrying one of those filters on a real run therefore scores nothing, or bins
-//! every event at the default value.
+//! `grep` on 2026-11-18, **before** the wiring below: ~~no code outside
+//! `tally/filter*.rs` sets any of those fields~~ **CORRECTED 2026-11-18 (gh:#261,
+//! maintainer-confirmed): the surface-tracking path of the real transport now
+//! sets them** (see "Live path" below); the collision-estimator, scatter-matrix
+//! and delta-tracking scoring paths still build their events with
+//! `..Default::default()`, so a history-field filter on those scores at the
+//! default value there.
 //!
-//! The transport function `transport_history_vr` is kovan-reviewed and is not
-//! edited. This module sits **beside** it: it consumes the
-//! [`TraceEvent`] stream the reviewed function already emits through its
-//! observer (`trace_csg_history`), and rebuilds the per-event [`FilterEvent`]s
-//! from it. It draws no random number and changes no transport result.
+//! Two routes exist, and both are kept. The **live** route
+//! ([`EventHistory`], [`score_crossing`], [`score_mesh_surface_segment`], and
+//! `score_track_length_hist` in `scoring.rs`) is called from
+//! `transport_history_vr_urr`, the body behind the kovan-reviewed
+//! `transport_history_vr` wrapper (the wrapper itself is not edited). The
+//! **driver** route below consumes the [`TraceEvent`] stream
+//! (`trace_csg_history`) and rebuilds the same events after the fact; it is
+//! the oracle the live route is checked against (it is the older, separately
+//! verified implementation), and the only route for the analog-scatter
+//! Legendre tally. Neither draws a random number or changes a transport result.
+//! They differ in one place: after a collision the driver's re-locate resets
+//! `material_last`, where the live route follows OpenMC and leaves it cleared;
+//! only a history that collides and then leaks in the same cell can tell them
+//! apart, and no recorded comparison contains one.
 //!
 //! # Upstream semantics mirrored (OpenMC 0.15.3, `27e38e89`)
 //!
