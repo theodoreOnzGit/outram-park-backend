@@ -69,5 +69,27 @@ handful of crossings therefore carries a systematic relative difference up to
 any comparison, at **relative 2e-8, or absolute 2e-8 cm for bins under 1 cm**; a bin
 exceeding that is reported as a miss, whatever the cause. Crossing-count filters
 (cell-from, mesh-surface, ...) are integer-valued and must match **exactly**.
+Amendment 2 is at the end of this file (written after the first Experiment A run).
+
 Geometry used (fixed now): 3x1x1 lattice, pitch 6 cm, tile = sphere r=2 cm (cell A) in
 cell B; dilute O-16 materials M1 (A) and M2 (B); regular mesh 6x2x1 over the block.
+
+## Amendment 2 (2026-11-18, WRITTEN AFTER the first Experiment A run; post-hoc, labelled as such)
+
+What the first run showed (A1, registered geometry, nothing tuned): all filters agree
+bin-for-bin except (a) MESH_MATERIAL through the shipped runner (predicted miss, 25 bins),
+and (b) MESH_SURFACE, 16 bins at 4 of 18 sites. Every mesh-surface miss is at a beam that
+crosses a tile boundary (x = +-3) or the grid vertices of the diagonal beam: in the
+registered mesh (6x2x1 over x in [-9,9]) the mesh planes x = +-3, 0, +-6 coincide with the
+lattice tile edges and sphere centres, so a flight ends or starts *exactly on a mesh plane*.
+Whether that crossing is counted then depends on the last ulp of `r + d*u` against the
+plane in each code (OpenMC's `raytrace_mesh` offsets the start by TINY_BIT and returns when
+`traveled_distance >= total_distance`, `mesh.cpp:1028,1061`), so these 16 bins test
+floating-point tie-breaking and not bin assignment. They are reported as misses of the
+registered experiment, not removed.
+
+Supplementary experiment **A2 (post-hoc)**: same sites, same geometry, mesh 5x3x1 over the
+same block (planes at x = -9, -5.4, -1.8, 1.8, 5.4, 9 and y = -3, -1, 1, 3, none on a tile
+edge or sphere centre). Prediction, fixed before A2 is run: MESH_SURFACE, MESH_BORN and
+MESH_MATERIAL (split) agree in every bin (currents exactly, flux within 2e-8), i.e. 0
+misses; the diagonal beam passes no grid vertex.
