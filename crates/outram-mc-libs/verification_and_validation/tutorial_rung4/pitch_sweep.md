@@ -233,3 +233,44 @@ Two cautions:
   leaks and contains all-water tiles.
 - **The moderator-coefficient statement is an inference from k∞(pitch).** No
   temperature or void coefficient was computed.
+
+## Seed ensemble at the three 2σ points (GitHub #550, started 2026-11-18)
+
+### Prediction (written 2026-11-18, committed before any run of this ensemble)
+
+Setting: case-1 borated water, 11-nuclide tier, 5000 × [50 + 200], pitches
+1.63576, 1.75 and 2.40 cm, seeds 1–16 on each code (16 runs per code per
+pitch). The seeds are paired by *setting* only: the two codes have different
+random-number generators and different physics routines, so seed `i` of one
+is not correlated with seed `i` of the other. The difference is therefore an
+unpaired comparison of two means.
+
+Reasoning, from numbers already on record and not from the outcome:
+
+- Single-run σ is 88–130 pcm per code at these pitches (table above). The
+  generation-mean standard error understates the true run-to-run σ because
+  generations are correlated; I assume the true per-seed sd is 1.0–1.5× that.
+- With N = 16 the standard error of a code's mean is sd/4, i.e. about 30–45 pcm,
+  and the difference of two codes about **45–60 pcm**. The gate
+  (|z| ≤ 2) is then a window of about ±90–120 pcm.
+- The single-run differences were +342, −409 and −294 pcm. A difference of
+  that size is 1.9–2.4σ of a single-run σ. Two or three points at 2σ among 11
+  is what noise gives about half the time, but the χ² of 21.9 (p ≈ 0.025) is
+  mildly high, and the neighbouring borated points (1.55: −185, 1.90: −72,
+  2.10: −175 pcm) lean the same way as 1.75 and 2.40. The unborated points
+  lean positive (+105 to +127 pcm).
+
+Predicted 16-seed outram-mc − OpenMC:
+
+| pitch [cm] | predicted difference | predicted z | gate |
+|---|---|---|---|
+| 1.63576 | +50 pcm (within −50 … +150) | about +1 | pass. +342 was a fluctuation: no neighbour supports it |
+| 1.75 | −100 pcm (within −200 … 0) | about −2 | borderline. A small real offset of ~−100 pcm is plausible and would sit at the gate |
+| 2.40 | −100 pcm (within −200 … 0) | about −2 | borderline, for the same reason |
+
+If the single-run tension was statistical, all three move to |diff| < 100 pcm
+and |z| ≤ 2. A real offset of ≥ 200 pcm would persist at |z| > 3. Differences
+I am aware of and cannot rule out in advance: the OpenMC binary used here is
+0.15.3 (the original record used 0.16.1-dev25), and the HDF5 library is
+rebuilt from the same NJOY2016 ACE recipe, not the original files. Nothing is
+adjusted after the runs.
