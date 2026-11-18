@@ -138,3 +138,42 @@ fn synthetic_chain_reproduces_its_input() {
     let searched = search_windowing(&mp, &SearchOptions { search_n_win: 3, search_cf_orders: vec![4, 3], ..SearchOptions::default() });
     assert!(searched.is_ok());
 }
+
+#[test]
+fn piece_ranges_cover_the_grid_and_follow_the_piece_rule() {
+    // 40 000 points on a sqrt(E)-uniform grid: above 30 000, so upstream splits
+    // into max(5, n_peaks // 50, n_points // 2000) = 20 pieces.
+    let n = 40_000usize;
+    let energy: Vec<f64> = (0..n).map(|i| (0.01 + 4.0 * i as f64 / (n - 1) as f64).powi(2)).collect();
+    let total: Vec<f64> = (0..n).map(|i| if i % 1000 == 500 { 2.0 } else { 1.0 }).collect();
+    let xs = PointwiseXs {
+        name: "toy".into(),
+        awr: 236.0058,
+        energy: energy.clone(),
+        total: total.clone(),
+        elastic: total.clone(),
+        absorption: total,
+        fission: None,
+    };
+    assert_eq!(resolve_vf_pieces(&xs, None), 20);
+    assert_eq!(resolve_vf_pieces(&xs, Some(7)), 7);
+    let r = piece_ranges(&xs, 20);
+    assert_eq!(r.len(), 20);
+    assert_eq!(r[0].0, 0);
+    assert_eq!(r[19].1, n);
+    for w in r.windows(2) {
+        // each piece starts at or before the previous one ends: they overlap
+        assert!(w[1].0 <= w[0].1, "{w:?}");
+        assert!(w[0].0 <= w[1].0 && w[0].1 <= w[1].1, "{w:?}");
+    }
+    // a small nuclide is one piece spanning the whole grid
+    let small = PointwiseXs {
+        energy: energy[..100].to_vec(),
+        total: vec![1.0; 100],
+        elastic: vec![1.0; 100],
+        absorption: vec![1.0; 100],
+        ..xs
+    };
+    assert_eq!(resolve_vf_pieces(&small, None), 1);
+    assert_eq!(piece_ranges(&small, 1), vec![(0, 100)]);
+}

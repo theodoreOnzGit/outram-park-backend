@@ -277,6 +277,57 @@ pub fn vectfit_xs(energy: &[f64], ce_xs: &[Vec<f64>], opts: &VectfitOptions) -> 
     Ok(PieceFit { poles, residues })
 }
 
+/// The number of pieces `vectfit_nuclide` uses when the caller gives none
+/// (`multipole.py:481-488`): one for a simple nuclide, otherwise
+/// `max(5, n_peaks // 50, n_points // 2000)`.
+pub fn resolve_vf_pieces(xs: &PointwiseXs, vf_pieces: Option<usize>) -> usize {
+    match vf_pieces {
+        Some(v) => v,
+        None => {
+            let n_points = xs.energy.len();
+            let n_peaks = count_peaks(&xs.total);
+            if n_peaks > 200 || n_points > 30000 || n_peaks * n_points > 100 * 10000 {
+                5.max(n_peaks / 50).max(n_points / 2000)
+            } else {
+                1
+            }
+        }
+    }
+}
+
+/// The index ranges `lo..hi` of the pointwise grid that `vectfit_nuclide`
+/// hands to `_vectfit_xs`, one per piece (`multipole.py:490-514`): pieces
+/// equal in `sqrt(E)`, each extended by the Doppler reach at 3000 K.
+pub fn piece_ranges(xs: &PointwiseXs, vf_pieces: usize) -> Vec<(usize, usize)> {
+    let energy = &xs.energy;
+    let n_points = energy.len();
+    let e_min = energy[0];
+    let e_max = energy[n_points - 1];
+    let piece_width = (e_max.sqrt() - e_min.sqrt()) / vf_pieces as f64;
+    let alpha = xs.awr / (K_BOLTZMANN * TEMPERATURE_LIMIT);
+    let mut out = Vec::with_capacity(vf_pieces);
+    for i_piece in 0..vf_pieces {
+        let b = e_min.sqrt() + piece_width * (i_piece as f64 - 0.5);
+        let e_bound = b * b;
+        let e_start_idx = if i_piece == 0 || (alpha * e_bound).sqrt() < 4.0 {
+            0
+        } else {
+            let t = (alpha * e_bound).sqrt() - 4.0;
+            let e_start = e_min.max(t * t / alpha);
+            searchsorted_right(energy, e_start) as isize - 1
+        };
+        let b = e_min.sqrt() + piece_width * (i_piece as f64 + 1.0);
+        let e_bound = b * b;
+        let t = (alpha * e_bound).sqrt() + 4.0;
+        let e_end = e_max.min(t * t / alpha);
+        let e_end_idx = searchsorted_left(energy, e_end) + 1;
+        let lo = e_start_idx.max(0) as usize;
+        let hi = (e_end_idx + 1).min(n_points);
+        out.push((lo, hi));
+    }
+    out
+}
+
 /// The fitting half of `vectfit_nuclide` (`multipole.py:481-524`): split the
 /// range into pieces equal in `sqrt(E)` (overlapping by the Doppler reach at
 /// 3000 K) and fit each with [`vectfit_xs`].
@@ -296,39 +347,10 @@ pub fn vectfit_pointwise(
         mts.push(18);
     }
 
-    let vf_pieces = match vf_pieces {
-        Some(v) => v,
-        None => {
-            let n_peaks = count_peaks(&xs.total);
-            if n_peaks > 200 || n_points > 30000 || n_peaks * n_points > 100 * 10000 {
-                5.max(n_peaks / 50).max(n_points / 2000)
-            } else {
-                1
-            }
-        }
-    };
-    let piece_width = (e_max.sqrt() - e_min.sqrt()) / vf_pieces as f64;
-    let alpha = xs.awr / (K_BOLTZMANN * TEMPERATURE_LIMIT);
-
-    let mut poles = Vec::with_capacity(vf_pieces);
-    let mut residues = Vec::with_capacity(vf_pieces);
-    for i_piece in 0..vf_pieces {
-        let b = e_min.sqrt() + piece_width * (i_piece as f64 - 0.5);
-        let e_bound = b * b;
-        let e_start_idx = if i_piece == 0 || (alpha * e_bound).sqrt() < 4.0 {
-            0
-        } else {
-            let t = (alpha * e_bound).sqrt() - 4.0;
-            let e_start = e_min.max(t * t / alpha);
-            searchsorted_right(energy, e_start) as isize - 1
-        };
-        let b = e_min.sqrt() + piece_width * (i_piece as f64 + 1.0);
-        let e_bound = b * b;
-        let t = (alpha * e_bound).sqrt() + 4.0;
-        let e_end = e_max.min(t * t / alpha);
-        let e_end_idx = searchsorted_left(energy, e_end) + 1;
-        let lo = e_start_idx.max(0) as usize;
-        let hi = (e_end_idx + 1).min(n_points);
+    let n_pieces = resolve_vf_pieces(xs, vf_pieces);
+    let mut poles = Vec::with_capacity(n_pieces);
+    let mut residues = Vec::with_capacity(n_pieces);
+    for (lo, hi) in piece_ranges(xs, n_pieces) {
         let en = energy[lo..hi].to_vec();
         let cx: Vec<Vec<f64>> = ce_xs.iter().map(|r| r[lo..hi].to_vec()).collect();
         let fit = vectfit_xs(&en, &cx, opts)?;
