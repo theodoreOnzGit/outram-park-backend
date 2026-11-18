@@ -441,6 +441,103 @@ fn mesh_born_vs_openmc() {
     }
 }
 
+// ── The same Experiment A bins THROUGH THE REAL TRANSPORT (gh:#261, 2026-11-18) ──
+// After the maintainer-confirmed wiring of the event-history fields into
+// `transport_history_vr_urr` and the MESH_MATERIAL splitting fix. Predictions:
+// `prediction_before_measuring.md`, amendment 3. `driver = false` everywhere:
+// `run_fixed_source_traced`, no `history_events` driver.
+
+#[test]
+fn real_cell_born_vs_openmc() {
+    let t = tally(vec![FilterKind::CellBorn(CellBornFilter { cells: vec![1, 2] })], ScoreType::Flux);
+    if let Some(r) = run_all("cell_born", &t, &[], false, false, None) {
+        assert_eq!(r.n_miss, 0);
+    }
+}
+
+#[test]
+fn real_mesh_born_vs_openmc() {
+    let t = tally(vec![FilterKind::MeshBorn(MeshBornFilter { mesh: MeshKind::Regular(mesh()) })], ScoreType::Flux);
+    if let Some(r) = run_all("mesh_born", &t, &[], false, false, None) {
+        assert_eq!(r.n_miss, 0);
+    }
+}
+
+#[test]
+fn real_a2_mesh_born_vs_openmc() {
+    let t = tally(vec![FilterKind::MeshBorn(MeshBornFilter { mesh: MeshKind::Regular(mesh_a2()) })], ScoreType::Flux);
+    if let Some(r) = run_all("A2_mesh_born", &t, &[], false, false, None) {
+        assert_eq!(r.n_miss, 0);
+    }
+}
+
+#[test]
+fn real_a2_mesh_material_vs_openmc() {
+    let pairs: Vec<(usize, usize)> = (0..15).flat_map(|e| [(e, 0usize), (e, 1usize)]).collect();
+    let t = tally(
+        vec![FilterKind::MeshMaterial(MeshMaterialFilter { mesh: MeshKind::Regular(mesh_a2()), pairs })],
+        ScoreType::Flux,
+    );
+    if let Some(r) = run_all("A2_mesh_material", &t, &[], false, false, None) {
+        assert_eq!(r.n_miss, 0);
+    }
+}
+
+#[test]
+fn real_cell_from_vs_openmc() {
+    let t = tally(
+        vec![surfaces_all(), FilterKind::CellFrom(CellFromFilter { cells: vec![1, 2] })],
+        ScoreType::Current,
+    );
+    if let Some(r) = run_all("cell_from", &t, &[], false, true, None) {
+        assert_eq!(r.n_miss, 0);
+    }
+}
+
+#[test]
+fn real_material_from_vs_openmc() {
+    let t = tally(
+        vec![surfaces_all(), FilterKind::MaterialFrom(MaterialFromFilter { materials: vec![0, 1] })],
+        ScoreType::Current,
+    );
+    if let Some(r) = run_all("material_from", &t, &[], false, true, None) {
+        assert_eq!(r.n_miss, 0);
+    }
+}
+
+#[test]
+fn real_mu_surface_vs_openmc() {
+    let edges: Vec<f64> = (0..9).map(|i| -1.0 + 0.25 * i as f64).collect();
+    let t = tally(
+        vec![surfaces_all(), FilterKind::MuSurface(MuSurfaceFilter { bins: edges })],
+        ScoreType::Current,
+    );
+    if let Some(r) = run_all("mu_surface", &t, &[], false, true, None) {
+        assert_eq!(r.n_miss, 0);
+    }
+}
+
+/// Registered 6x2x1 mesh: the 16 tie misses of the driver version are
+/// predicted to recur here (amendment 3); the test pins the COUNT, not zero.
+#[test]
+fn real_mesh_surface_vs_openmc() {
+    let f = MeshSurfaceFilter::new(MeshKind::Regular(mesh())).unwrap();
+    let t = tally(vec![FilterKind::MeshSurface(f)], ScoreType::Current);
+    if let Some(r) = run_all("mesh_surface", &t, &[], false, true, None) {
+        assert_eq!(r.n_miss, 16, "mesh-surface tie misses (record: README)");
+    }
+}
+
+/// A2 mesh: the 1 box-edge tie recurs (amendment 2 and 3).
+#[test]
+fn real_a2_mesh_surface_vs_openmc() {
+    let f = MeshSurfaceFilter::new(MeshKind::Regular(mesh_a2())).unwrap();
+    let t = tally(vec![FilterKind::MeshSurface(f)], ScoreType::Current);
+    if let Some(r) = run_all("A2_mesh_surface", &t, &[], false, true, None) {
+        assert_eq!(r.n_miss, 1, "mesh-surface tie miss (record: README)");
+    }
+}
+
 /// **The geometry, drawn from the assembled model** (AGENTS.md drawing rule),
 /// with the ported plotter (`geometry::plot`), PNGs committed beside the record:
 /// the xy slice at z = 0 through the three sphere centres, the xz slice at

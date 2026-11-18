@@ -176,3 +176,18 @@ driver-based tests are kept as the oracle; new real-transport tests are added be
 are predicted to show the same 16 and 1); the first-run COLLISION gate of the driver stays
 red as recorded (its numbers do not change), while its real-transport twin is predicted
 green.
+
+### Amendment 4 (2026-11-18, written BEFORE Experiment C is run; two things that happened after amendment 3)
+
+1. **Measured since amendment 3 (Experiment A through the real runner, recorded in the README):**
+   every prediction in the table above held (all filters, including the 16 and 1 tie misses and
+   the exact currents); existing bit-identity pins unmoved. That is not repeated here.
+2. **Experiment C absorber changed, forced by the data tool, not by a result.** NJOY2016's
+   ACER refuses ENDF/B-VIII.0 B-10 (`***error in change***Undefined law for dlwh block: 0`,
+   exit 77), so B-10 cannot be built into an OpenMC library here. **Li-6** (n,t) replaces it:
+   sphere r = 10 cm, Li-6 0.05 atoms/b-cm, isotropic **300 keV** point source (on the (n,t)
+   resonance, where Sa/St is large so weights spread), survival biasing on in both codes
+   (cutoff 0.25, survive 1.0), 20 x 50 000 histories, track-length flux in WeightFilter bins
+   [0, 0.1, 0.25, 0.5, 0.75, 1.0]. Prediction unchanged in kind: all 5 bins |z| <= 2, worst
+   about 1.5. If a bin is a miss at the first run, the replication plan is fixed here: 8
+   further seed pairs (1001..1008) pooled as for Experiment B, criterion |z| <= 2 pooled.

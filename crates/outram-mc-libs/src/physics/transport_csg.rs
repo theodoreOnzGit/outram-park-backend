@@ -95,9 +95,10 @@ use crate::physics::variance_reduction::{
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
 use crate::rng::openmc_seeding::{comb_resample_openmc, OpenMcRunLayout, SeedingMode};
+use crate::tally::history_events::{score_crossing, score_mesh_surface_segment, EventHistory};
 use crate::tally::scoring::{
     flush_batch, flush_bins, score_fission_birth, score_scatter_matrix, ScatterEmission,
-    score_track_length,
+    score_track_length_hist,
 };
 use crate::tally::tally::{Tally, TallyBin};
 use crate::mathf::RealMath;
@@ -2156,6 +2157,9 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
         let mut ww_state = start_ww;
         let w_birth = ww_state.weight_born;
         observe(TraceEvent::Start { r, u, e });
+        // Event-history state for the history-field tally filters (gh:#261,
+        // 2026-11-18): reads and tallies only, no random number, no decision.
+        let mut hist = EventHistory::at_birth(r);
 
         if let Some(t) = tracks.as_deref_mut() {
             // Unconditionally: `begin` is what counts a refused track, and
@@ -2239,6 +2243,10 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
             // what is being tallied.
             let cell_instance =
                 distribcell.and_then(|d| d.instance_of(geom, &path.levels));
+            // The flight's start, kept for the crossing and mesh-surface
+            // scores (gh:#261); `r` is advanced to the flight's end below.
+            let r_flight = r;
+            hist.located(cell_idx, path.material);
 
             // Advance the URR stream once the energy has changed since the
             // bands were last drawn (a collision changed it). The first flight
@@ -2397,21 +2405,36 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         // representative point of the free flight (constant
                         // energy, single cell over the segment).
                         let mid = stream(r, u, 0.5 * seg);
+                        // The surface this flight ends on, for a mesh-surface tally.
+                        let ends_on = match d_bound.crossing {
+                            Crossing::Surface(i) => Some(i),
+                            Crossing::Lattice | Crossing::None => None,
+                        };
+                        let collides = d_col < d_bound.distance;
                         if let Some(t) = tally {
-                            score_track_length(
+                            score_track_length_hist(
                                 batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
                                 mxs.as_ref(), w, cell_instance,
                                 // Clock at the START of this segment: the flight
                                 // has not been added yet at this point.
                                 time_s,
                                 u,
+                                &hist,
+                            );
+                            score_mesh_surface_segment(
+                                batch, t, geom, &hist, cell_idx, e, w, ends_on, collides,
+                                r_flight, u, seg,
                             );
                         }
                         if let Some(x) = extra.as_deref_mut() {
                             x.each_tally(|t, batch| {
-                                score_track_length(
+                                score_track_length_hist(
                                     batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
-                                    mxs.as_ref(), w, cell_instance, time_s, u,
+                                    mxs.as_ref(), w, cell_instance, time_s, u, &hist,
+                                );
+                                score_mesh_surface_segment(
+                                    batch, t, geom, &hist, cell_idx, e, w, ends_on, collides,
+                                    r_flight, u, seg,
                                 );
                             });
                         }
@@ -2451,6 +2474,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
 
             if d_col < d_bound.distance {
                 collisions += 1;
+                hist.collided();
                 // ── Collision ──────────────────────────────────────────────
                 time_s += flight_time(d_col, e);
                 r = stream(r, u, d_col);
@@ -3090,6 +3114,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                 }
             } else {
                 // ── Boundary crossing ──────────────────────────────────────
+                hist.crossed_boundary();
                 path_cm += d_bound.distance;
                 time_s += flight_time(d_bound.distance, e);
                 r = stream(r, u, d_bound.distance);
@@ -3126,6 +3151,25 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         }
                         let crossed =
                             geom.cross_surface_in_frame(i_surf, &path, d_bound.coord_level, r, u, seed);
+                        // Surface-current scores (gh:#261): taken before the
+                        // state changes, with the pre-crossing direction, as
+                        // `score_surface_tally` does.
+                        if let Some(t) = tally {
+                            score_crossing(
+                                batch, t, geom, &path.levels, &hist, cell_idx, leaf.universe,
+                                e, w, i_surf, r_flight, u, d_bound.distance, !crossed.alive,
+                                cell_instance,
+                            );
+                        }
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.each_tally(|t, batch| {
+                                score_crossing(
+                                    batch, t, geom, &path.levels, &hist, cell_idx,
+                                    leaf.universe, e, w, i_surf, r_flight, u, d_bound.distance,
+                                    !crossed.alive, cell_instance,
+                                );
+                            });
+                        }
                         if !crossed.alive {
                             // Vacuum leak — `e` is the true escape energy
                             // (unchanged since the last collision).
