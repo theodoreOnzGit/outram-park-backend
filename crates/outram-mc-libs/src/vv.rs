@@ -19,6 +19,12 @@ use petir::mathf::RealMath;
 pub mod njoy_golden;
 /// MSRE first criticality, U-235 (MSRE N-1, gh:#1128): the full-core model.
 pub mod msre_n1;
+/// ICSBEP LEU-COMP-THERM-008: the cards, materials, nested-lattice CSG, its
+/// self-check and the pin cell (moved from `examples/common/` 2026-11-17).
+pub mod lct008;
+/// LEU-COMP-THERM-008 case 1 through the beginner API (tutorial 6, epic
+/// gh:#925; moved from `examples/common/` 2026-11-17).
+pub mod lct008_tutorial;
 /// Instruments for the temperature-interpolation error study (GitHub #947).
 pub mod temperature_interpolation_947;
 /// The uranium-graphite compositions of tutorial rungs 2 and 3 (GitHub #524,
@@ -346,7 +352,8 @@ pub fn source_convergence_drift_pcm(
 /// always run. They were typed into that example and into many tests beside
 /// it; they are collected here (2026-10-04, gh:#521) so the tutorial and the
 /// web demo use the model the record was measured on, not another copy of it.
-/// Changing a value here changes that example.
+/// Changing a value here changes that example, and since 2026-11-18 (gh:#1647)
+/// the ~16 Godiva research examples that run this module instead of a copy.
 pub mod godiva {
     use crate::material::material::{Material, NuclideComponent};
 
@@ -429,8 +436,10 @@ fn materials_from(
 /// it (`verification_and_validation/icsbep/five_route_keff_2026_09_29.md`).
 /// Collected here on 2026-10-13 (GitHub #859) so the acceptance check
 /// (`examples/icsbep_five_route_keff.rs`) and the Monte Carlo web demo build
-/// ONE model. `examples/jemima_keff.rs` still carries its own copy of these
-/// numbers, with its ablation knobs.
+/// ONE model. ~~`examples/jemima_keff.rs` still carries its own copy of these
+/// numbers, with its ablation knobs.~~ **CHANGED 2026-11-17:** it runs this
+/// module (its copy was identical, value for value); its ablation knobs stay
+/// in the example.
 ///
 /// | region | z \[cm\] | r \[cm\] | material |
 /// |---|---|---|---|
@@ -544,7 +553,9 @@ pub mod jemima {
 /// model at the benchmark's 8.8837e-6 /b·cm, appended last in [`NUCLIDES`]
 /// so the other indices are unchanged. Collected
 /// here on 2026-10-13 (GitHub #859) for the same reason as [`jemima`];
-/// `examples/hst009_keff.rs` still carries its own copy.
+/// ~~`examples/hst009_keff.rs` still carries its own copy.~~ **CHANGED
+/// 2026-11-17:** it runs this module (its copy was identical, value for
+/// value).
 ///
 /// H-1 takes the H in H2O thermal scattering law ([`SAB_TAPE`]), in the
 /// solution and in the reflector.

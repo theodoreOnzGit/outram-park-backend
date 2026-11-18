@@ -147,28 +147,19 @@
 //! band, not against our sem.
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::vv::assert_reproduces_keff;
-use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Direction;
-use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::geometry::surface::{BoundaryType, SurfaceKind, ZCylinder, ZPlane};
-use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::compute::ComputeType;
 use outram_mc_libs::physics::keff::KeffSettings;
-use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+use outram_mc_libs::physics::transport_csg::run_keff_csg;
 use std::time::Instant;
 
-const TEMP_K: f64 = 293.6;
-
-const Z_BOT: f64 = 0.0;
-const Z_CORE_LO: f64 = 7.62;
-const Z_CORE_HI: f64 = 39.571;
-const Z_TOP: f64 = 47.0894;
-const R_CORE: f64 = 19.05;
-const R_OUT: f64 = 26.6446;
+// The model (dimensions, materials, CSG, source box) is the library's
+// `vv::jemima` since 2026-11-17; this example held an identical copy.
+use outram_mc_libs::vv::jemima::{self, R_CORE, R_OUT, TEMPERATURE_K as TEMP_K, Z_BOT, Z_CORE_HI, Z_CORE_LO, Z_TOP};
 
 fn main() {
     eprintln!("IEU-MET-FAST-002 'Jemima' — natural-U-reflected assembly of uranium plates");
@@ -287,32 +278,11 @@ fn main() {
         t0.elapsed().as_secs_f64()
     );
 
-    let comp = |v: &[(usize, f64)]| -> Vec<NuclideComponent> {
-        v.iter()
-            .map(|&(nuclide_idx, atom_density)| NuclideComponent {
-                nuclide_idx,
-                atom_density,
-            })
-            .collect()
-    };
-    let materials = vec![
-        // Oralloy: ~16 % enriched. U-238 is 83 % of the heavy metal.
-        Material {
-            id: 1,
-            name: "oralloy core".into(),
-            temperature: TEMP_K,
-            components: comp(&[(0, 8.4430e-05), (1, 7.7777e-03), (2, 3.9671e-02)]),
-        },
-        // Natural uranium reflector: 99.3 % U-238.
-        Material {
-            id: 2,
-            name: "natural uranium reflector".into(),
-            temperature: TEMP_K,
-            components: comp(&[(0, 2.6433e-06), (1, 3.4603e-04), (2, 4.7711e-02)]),
-        },
-    ];
+    // Oralloy (~16 % enriched; U-238 is 83 % of the heavy metal) and the
+    // natural uranium reflector (99.3 % U-238): `vv::jemima::MATERIALS`.
+    let materials = jemima::materials();
 
-    let geom = build_geometry();
+    let geom = jemima::geometry();
     check_geometry(&geom);
 
     // OUTRAM_NPART overrides the per-generation population. Fission-source
@@ -331,10 +301,7 @@ fn main() {
         ..KeffSettings::default()
     };
     // Start in the core.
-    let src = SourceBox {
-        lower: Position::new(-R_CORE, -R_CORE, Z_CORE_LO),
-        upper: Position::new(R_CORE, R_CORE, Z_CORE_HI),
-    };
+    let src = jemima::source_box();
 
     eprintln!(
         "  core r < {R_CORE} cm, z {Z_CORE_LO}–{Z_CORE_HI}; natural-U reflector to \
@@ -445,61 +412,6 @@ const ICSBEP_IMF002_K: f64 = 1.0000;
 /// figure is tighter than this. Taking the looser band means a failure here is
 /// unambiguous rather than arguable.
 const ICSBEP_IMF002_BAND: f64 = 0.003;
-
-/// Surfaces, then four cells, exactly as the ICSBEP model's XML lists them.
-fn build_geometry() -> Geometry {
-    let zp = |z0: f64, bc: BoundaryType| SurfaceKind::ZPlane(ZPlane { z0, bc });
-    let zc = |r: f64, bc: BoundaryType| {
-        SurfaceKind::ZCylinder(ZCylinder {
-            x0: 0.0,
-            y0: 0.0,
-            r,
-            bc,
-        })
-    };
-    // 0..5 mirror the model's surfaces 1..6.
-    let surfaces = vec![
-        zp(Z_BOT, BoundaryType::Vacuum),
-        zp(Z_CORE_LO, BoundaryType::Transmissive),
-        zp(Z_CORE_HI, BoundaryType::Transmissive),
-        zp(Z_TOP, BoundaryType::Vacuum),
-        zc(R_CORE, BoundaryType::Transmissive),
-        zc(R_OUT, BoundaryType::Vacuum),
-    ];
-    let hs =
-        |surface_idx: usize, sense: HalfSpaceSense| RegionToken::HalfSpace { surface_idx, sense };
-    let out = |i: usize| hs(i, HalfSpaceSense::Outside);
-    let ins = |i: usize| hs(i, HalfSpaceSense::Inside);
-    let and = RegionToken::Intersection;
-
-    let cells = vec![
-        // bottom reflector: +1 -2 -6
-        Cell::material(1, vec![out(0), ins(1), and, ins(5), and], 1, TEMP_K),
-        // core: +2 -3 -5
-        Cell::material(2, vec![out(1), ins(2), and, ins(4), and], 0, TEMP_K),
-        // radial reflector: +2 -3 +5 -6
-        Cell::material(
-            3,
-            vec![out(1), ins(2), and, out(4), and, ins(5), and],
-            1,
-            TEMP_K,
-        ),
-        // top reflector: +3 -4 -6
-        Cell::material(4, vec![out(2), ins(3), and, ins(5), and], 1, TEMP_K),
-    ];
-
-    let cell_indices = (0..cells.len()).collect();
-    Geometry {
-        surfaces,
-        cells,
-        universes: vec![Universe {
-            id: 0,
-            cell_indices,
-        }],
-        lattices: vec![],
-        root_universe: 0,
-    }
-}
 
 /// Assert the CSG lookup agrees with a hand-written predicate everywhere.
 ///

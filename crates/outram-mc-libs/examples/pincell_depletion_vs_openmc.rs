@@ -29,6 +29,7 @@ use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
 use outram_mc_libs::depletion::chain::DepletionChain;
 use outram_mc_libs::depletion::coupled_operator::{reaction_from_ace, ChainNuclideData, CoupledNormalization, CoupledOperator};
 use outram_mc_libs::depletion::integrators::{CramSolver, DepletionIntegrator, Integrator};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::prelude::*;
 use std::io::Write;
@@ -121,17 +122,8 @@ fn main() {
     }
     let t0 = std::time::Instant::now();
     let sab_raw = njoy_outram_park_fork::acer::read::read(lib.join("293.6K/HinH2O.ace.gz")).expect("HinH2O");
-    let nuclides: Vec<Nuclide> = names
-        .iter()
-        .map(|n| {
-            let nuc = Nuclide::from_ace_file(table(n), n).unwrap_or_else(|e| panic!("{n}: {e}"));
-            if n == "H1" {
-                nuc.with_thermal_scattering(ThermalScattering::from_ace(&sab_raw, "c_H_in_H2O").expect("S(a,b)"))
-            } else {
-                nuc
-            }
-        })
-        .collect();
+    let nuclides: Vec<Nuclide> = names.iter().map(|n| Nuclide::from_ace_file(table(n), n).unwrap_or_else(|e| panic!("{n}: {e}"))).collect();
+    let h_in_h2o = ThermalScattering::from_ace(&sab_raw, "c_H_in_H2O").expect("S(a,b)");
     eprintln!("{} nuclides loaded in {:.1} s", nuclides.len(), t0.elapsed().as_secs_f64());
 
     let data: Vec<ChainNuclideData> = chain_names
@@ -169,6 +161,14 @@ fn main() {
                 .collect(),
         })
         .collect();
+    // H in H2O per material, as OpenMC binds it (gh:#462): every material
+    // holding H-1 is the moderator here, and gets a bound copy of H-1
+    // appended after the transport nuclides; the free entry stays for the
+    // others (none hold H-1).
+    let h1 = names.iter().position(|n| n == "H1").expect("H1 in the model");
+    let entries = MaterialSab::for_materials_containing(&materials, h1, 0, &[]);
+    assert_eq!(entries.len(), 1, "only the water holds H-1");
+    let (materials, nuclides) = assign_material_sab(&materials, &nuclides, &[h_in_h2o], &entries).expect("per-material H(H2O)");
     let n0: Vec<f64> = chain_names.iter().map(|n| initial.iter().find(|(m, _)| m == n).map(|x| x.1).expect("initial atoms")).collect();
 
     let geom = Arc::new(geometry());

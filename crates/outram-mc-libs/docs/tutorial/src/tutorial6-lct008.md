@@ -79,7 +79,7 @@ let core = Cylinder::radius(cm(76.2)).height(height).filled_with(water)
 model.add(core);                       // vacuum outside: the default
 ```
 
-The statements are in `examples/common/lct008_tutorial_model.rs`, shared by
+The statements are in `src/vv/lct008_tutorial.rs` (`outram_mc_libs::vv::lct008_tutorial`), shared by
 the example and the test that pins it
 ([`Cylinder`](../../code-review/#crates/outram-mc-libs/src/model/shape.rs::Cylinder),
 [`Shape::containing_lattice`](../../code-review/#crates/outram-mc-libs/src/model/shape.rs::Shape::containing_lattice),
@@ -291,7 +291,7 @@ Posted on #943 before the first run of the new model.
 
 **Use.** Run `--geometry-only` and open the wall picture; then
 `--fast --ace-dir ...` after building the library. **Modify.** In
-`lct008_tutorial_model.rs` change `RowOrder::TopDown` for the core only and
+`src/vv/lct008_tutorial.rs` change `RowOrder::TopDown` for the core only and
 look at the picture; what does the census say? **Create.** Describe a 3 × 3
 lattice of your own pins in a box and ask for its census.
 
@@ -304,10 +304,10 @@ stack.
 
 ## Sources
 
-- `examples/tutorial_lct008.rs`, `examples/common/lct008_tutorial_model.rs`,
+- `examples/tutorial_lct008.rs`, `src/vv/lct008_tutorial.rs`,
   `examples/common/lct008_ace_library.sh`; `tests/model_lct008_tutorial.rs`.
 - The V&V case it repurposes: `examples/lct008_keff.rs` and
-  `examples/common/lct008_model.rs`.
+  `src/vv/lct008.rs` (`outram_mc_libs::vv::lct008`).
 - The record: `verification_and_validation/icsbep/five_route_keff_2026_09_29.md`
   ("Route 4 re-measured 2026-10-18", gh:#931).
 - gh:[#943](https://github.com/theodoreOnzGit/outram-park-backend/issues/943)

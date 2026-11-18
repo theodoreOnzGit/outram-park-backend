@@ -4,15 +4,17 @@
 //! beginner API** (`outram_mc_libs::model`, epic gh #925, tutorial list on
 //! #943). Shared by `examples/tutorial_lct008.rs` and
 //! `tests/model_lct008_tutorial.rs`, so the lesson and the test that pins it
-//! to the V&V model run one set of statements. Pulled in with `#[path]`
-//! beside `lct008_model.rs`, which it reads its cards through.
+//! to the V&V model run one set of statements. Reads its cards through
+//! [`super::lct008`]. **Moved 2026-11-17** from
+//! `examples/common/lct008_tutorial_model.rs`, unchanged but for its error
+//! type ([`TutorialError`] instead of a boxed trait object) and `no_std`.
 //!
 //! The specification is the OpenMC model in `mit-crpg/benchmarks` (Paul
 //! Romano, MIT licence) committed under
 //! `verification_and_validation/icsbep/leu-comp-therm-008/`: atom densities
 //! of three materials, the 15 x 15 pin maps of 22 assemblies and the 7 x 7
 //! core map are **read from those cards**, not transcribed, as
-//! `lct008_model.rs` reads them. What is written here, in the beginner API's
+//! [`super::lct008`] reads them. What is written here, in the beginner API's
 //! words, is the structure:
 //!
 //! ```text
@@ -26,7 +28,7 @@
 //!
 //! The same cards, radii, pitches and temperature; the same 35 nuclides at
 //! the same atom densities; the same pin maps. The pin radii are the
-//! hand-read constants `lct008_model::{R_FUEL, R_CLAD}` (the V&V model's own
+//! hand-read constants `lct008::{R_FUEL, R_CLAD}` (the V&V model's own
 //! `PIN_SHELLS` transcription), the core's `R_CORE`, `Z_LO`, `Z_HI`.
 //! **Only case 1** is built: case 8's pyrex rods (pin universe 3) are
 //! refused with a message.
@@ -38,18 +40,19 @@
 //! - A one-layer lattice is extruded through its container's height, so a
 //!   tile's own height is only a label: set to the core's. **Negligible**:
 //!   the cards have no axial structure either (the lattice's z pitch is 1 cm
-//!   with one layer, `lct008_model.rs`).
+//!   with one layer, [`super::lct008`]).
 //! - Temperature one value, 293.6 K, everywhere. The cards give no
-//!   `<temperature>`, so OpenMC's default applies (`lct008_model::TEMP_K`).
+//!   `<temperature>`, so OpenMC's default applies (`lct008::TEMP_K`).
 
-#![allow(dead_code)]
-
-use super::lct008_model::{
-    attr, block, elements, parse_materials, strip_comments, GEOMETRY_XML_CASE1,
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use super::lct008::{
+    attr, block, elements, parse_materials, strip_comments, MaterialSpec, GEOMETRY_XML_CASE1,
     MATERIALS_XML_CASE1, R_CLAD, R_CORE, R_FUEL, TEMP_K, Z_HI, Z_LO,
 };
-use outram_mc_libs::model::prelude::*;
-use std::collections::BTreeMap;
+use crate::model::prelude::*;
+use alloc::collections::{BTreeMap, BTreeSet};
 use uom::si::f64::{Length, ThermodynamicTemperature};
 use uom::si::length::centimeter;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -71,6 +74,20 @@ pub struct Cards {
     pub assembly_pitch_cm: f64,
     /// Nuclides in the model's three materials, after `keep`.
     pub nuclides: usize,
+}
+
+/// Why [`build`] refused.
+#[derive(Debug, thiserror::Error)]
+pub enum TutorialError {
+    /// A card the beginner model cannot hold (case 8's pyrex pin universe).
+    #[error("{0}")]
+    Card(String),
+    /// A number on a card that does not parse.
+    #[error("cannot parse {0:?} on a cell card")]
+    Parse(String),
+    /// The beginner API refused the model.
+    #[error(transparent)]
+    Model(#[from] ModelError),
 }
 
 /// The built model and what the cards say about it.
@@ -157,7 +174,7 @@ fn card_lattices(xml: &str) -> BTreeMap<i32, CardLattice> {
 pub fn build(
     data: NuclearData,
     keep: impl Fn(&str) -> bool,
-) -> Result<Lct008, Box<dyn std::error::Error>> {
+) -> Result<Lct008, TutorialError> {
     build_ordered(data, keep, RowOrder::TopDown, RowOrder::TopDown)
 }
 
@@ -169,7 +186,7 @@ pub fn build_ordered(
     keep: impl Fn(&str) -> bool,
     core_order: RowOrder,
     assembly_order: RowOrder,
-) -> Result<Lct008, Box<dyn std::error::Error>> {
+) -> Result<Lct008, TutorialError> {
     let cm = Length::new::<centimeter>;
     let xml = strip_comments(GEOMETRY_XML_CASE1);
     let lattices = card_lattices(&xml);
@@ -177,9 +194,10 @@ pub fn build_ordered(
     // whose fill is a lattice rather than a universe).
     let mut wrapper: BTreeMap<i32, i32> = BTreeMap::new();
     for (a, _) in elements(&xml, "cell") {
-        let universe: i32 = attr(a, "universe").expect("cell universe").parse()?;
+        let u = attr(a, "universe").expect("cell universe");
+        let universe: i32 = u.parse().map_err(|_| TutorialError::Parse(u.to_string()))?;
         if let Some(fill) = attr(a, "fill") {
-            let fill: i32 = fill.parse()?;
+            let fill: i32 = fill.parse().map_err(|_| TutorialError::Parse(fill.to_string()))?;
             if lattices.contains_key(&fill) {
                 wrapper.insert(universe, fill);
             }
@@ -193,8 +211,8 @@ pub fn build_ordered(
 
     // ── Materials: the cards' atom densities, in the cards' order ──────────
     let spec = parse_materials(MATERIALS_XML_CASE1);
-    let mut nuclides = std::collections::BTreeSet::new();
-    let mut material = |m: &super::lct008_model::MaterialSpec| {
+    let mut nuclides = BTreeSet::new();
+    let mut material = |m: &MaterialSpec| {
         Material::from_atom_densities(
             m.nuclides
                 .iter()
@@ -276,7 +294,7 @@ pub fn build_ordered(
             let pins = grid(
                 assembly_order,
                 vec![water_pin.clone(), fuel_pin.clone()],
-                pin_rows?,
+                pin_rows.map_err(TutorialError::Card)?,
             );
             assembly_tiles.push(
                 Cuboid::sides(cm(assembly_pitch), cm(assembly_pitch), height)

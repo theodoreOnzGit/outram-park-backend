@@ -37,7 +37,7 @@
 //! `lct008_keff.rs` keeps its role. This file repurposes its material: the
 //! committed OpenMC cards (`verification_and_validation/icsbep/leu-comp-therm-008/`,
 //! parsed through `common/lct008_model.rs`) and its record. The beginner
-//! statements are in `common/lct008_tutorial_model.rs`, shared with
+//! statements are in `outram_mc_libs::vv::lct008_tutorial`, shared with
 //! `tests/model_lct008_tutorial.rs`.)
 //!
 //! ## The case
@@ -138,9 +138,7 @@ use uom::si::volume::cubic_centimeter;
 #[path = "common/lct008_model.rs"]
 #[allow(dead_code)]
 mod lct008_model;
-#[path = "common/lct008_tutorial_model.rs"]
-#[allow(dead_code)]
-mod lct008_tutorial_model;
+use outram_mc_libs::vv::lct008_tutorial as lct008_tutorial_model;
 use lct008_tutorial_model::RowOrder;
 
 /// The crate's record for this model on the ENDF route (route 4, after
@@ -249,7 +247,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // ── 1. The model: pins, assemblies, a core (the statements are in
-    // common/lct008_tutorial_model.rs, shown on the tutorial page) ──────────
+    // outram_mc_libs::vv::lct008_tutorial, shown on the tutorial page) ──────────
     let t = lct008_tutorial_model::build(data.clone(), |_| true)?;
     let cards = &t.cards;
     println!(

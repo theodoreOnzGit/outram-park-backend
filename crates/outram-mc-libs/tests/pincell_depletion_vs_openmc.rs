@@ -44,14 +44,26 @@
 //!    CCFE-709 collapse moves step-5 atoms by under 0.5 % for every listed
 //!    nuclide.
 //!
-//! # Results, measured 2026-11-17 (all three predictions held)
+//! # Results, measured 2026-11-17/18 (all three predictions held)
 //!
 //! 1. Check 1: 160 OpenMC steps (2 modes x 16 seeds x 5) replayed, worst
 //!    **4.1e-15** (CRAM-48 dense against SuperLU, as arm 1).
-//! 2. Check 2: **0 of 41 above 3 sigma, worst |z| 1.76** (Gd-157, step 3).
-//!    `k`: 1.16286 +- 0.00090 against 1.16222 +- 0.00046 at BOS (+0.6 sigma),
-//!    1.14343 +- 0.00110 against 1.14245 +- 0.00077 at day 5 (+0.7 sigma);
-//!    U-235 at day 5 agrees to 4e-7 relative (+0.6 sigma).
+//! 2. Check 2: **0 of 41 above 3 sigma, worst |z| 1.62** (Xe-135, day 5).
+//!    `k`: 1.16158 +- 0.00074 against 1.16222 +- 0.00046 at BOS (-0.7
+//!    sigma), 1.14221 +- 0.00066 against 1.14245 +- 0.00077 at day 5 (-0.2
+//!    sigma); U-235 at day 5 agrees within 0.1 sigma.
+//!
+//!    **RE-MEASURED 2026-11-18** with H in H2O bound per material
+//!    (`assign_material_sab`, gh:#462; the example had bound it to the H-1
+//!    nuclide, which `tests/no_unmarked_nuclide_level_sab_462.rs` flags).
+//!    Only the water holds H-1, so the physics is the same, but the random
+//!    stream is not, so all 16 seeds were re-run (prediction on gh:#1626
+//!    first: 0 of 41 above 3 sigma, held). ~~0 of 41, worst 1.76 (Gd-157,
+//!    step 3); `k` 1.16286 +- 0.00090 at BOS (+0.6 sigma), 1.14343 +-
+//!    0.00110 at day 5 (+0.7 sigma)~~, the nuclide-level run. Day-5 `k`
+//!    moved -122 pcm, -0.95 sigma on the two runs' combined error: slightly
+//!    more than the old run's own SEM (0.00110), which was the bound
+//!    predicted.
 //!
 //!    ~~First run: 0 of 41 above 3 sigma, worst 2.85, with U-238 low at every
 //!    step (-1.9 to -2.8 sigma), recorded as a candidate systematic.~~
@@ -67,10 +79,11 @@
 //!    (k carries ~100 pcm noise per seed-mean here).
 //!
 //! Wall time, one host (Intel Xeon Processor, 4 logical cores, 4 threads
-//! each, 15 GB RAM, Linux 6.18, CPU only; not shared during the port's
-//! seeds 3-16): OpenMC 19 s per seed (5 steps + final), the port 166-176 s,
-//! about 9x. Seeds 1-2 of the port ran beside OpenMC (350 s) and are not
-//! timings.
+//! each, 15 GB RAM, Linux 6.18, CPU only): OpenMC 19 s per seed (5 steps +
+//! final); the port 166-176 s on the nuclide-level run (seeds 3-16, host
+//! not shared) and 174-181 s on the per-material re-run (seeds 9-16, host
+//! not shared), about 9x. The re-run's seeds 1-8 (244-364 s) shared the
+//! host with the nee_soon test suite and are not timings.
 
 use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
 use outram_mc_libs::depletion::chain::DepletionChain;
@@ -165,6 +178,73 @@ fn openmc_rates_through_the_port_integrator() {
     println!("{steps} OpenMC steps replayed; worst {worst:.2e} ({at})");
     assert_eq!(steps, 2 * 16 * 5);
     assert!(worst <= 1e-10, "{worst}");
+}
+
+/// **Solver ablation** (maintainer direction 2026-11-17: the solvers are
+/// PETIR's; measure how much choosing among them moves the result). The
+/// replay of [`openmc_rates_through_the_port_integrator`] through each of
+/// PETIR's matrix exponentials, against OpenMC's end-of-step atoms:
+/// `Cram48` and `Cram16` (IPF form, ported into PETIR from OpenMC's
+/// `cram.py`) and `cram16_pfd` (ONIX's partial-fraction CRAM-16, an
+/// independent port). Same filter as check 1.
+///
+/// **Prediction, posted on gh:#1626 before the run:** `Cram48` unchanged
+/// (4.1e-15); `Cram16` IPF at most 1e-10; ONIX PFD at most 1e-9 and above
+/// IPF CRAM-16. Recorded, not gated: the assertions only require each
+/// solver to return finite densities on every step.
+///
+/// **Results, measured 2026-11-17** (160 steps each; the bounds held):
+///
+/// | PETIR solver | worst relative to OpenMC | where |
+/// |---|---|---|
+/// | `Cram48` (IPF, OpenMC's default) | 4.07e-15 | direct seed 1, step 0->1, U-238 |
+/// | `Cram16` (IPF) | 4.80e-14 | flux seed 6, step 0->1, Cs-135 |
+/// | ONIX `cram16_pfd` | 4.97e-14 | direct seed 5, step 0->1, Cs-135 |
+///
+/// The choice of solver is worth at most ~5e-14 here, below anything the
+/// transport comparison can see (its sigma is ~1e-3). The third part of the
+/// prediction, that the partial-fraction form would be clearly worse than
+/// IPF CRAM-16, did not show: the two agree to within 4 %.
+#[test]
+fn solver_ablation_on_openmc_rates() {
+    let mut runs = Runs::default();
+    read(&outputs().join("pincell_depletion.tsv"), &mut runs);
+    let (chain, names) = chain();
+    let mut keys: Vec<&(String, u64, usize)> = runs.atoms.keys().filter(|k| k.2 < 5).collect();
+    keys.sort();
+    let solvers: [(&str, fn(&outram_mc_libs::depletion::matrix::DepletionMatrix, &[f64], f64) -> Vec<f64>); 3] = [
+        ("PETIR Cram48 (IPF)", |a, n, dt| petir::depletion::cram48(a, n, dt).unwrap()),
+        ("PETIR Cram16 (IPF)", |a, n, dt| petir::depletion::cram16(a, n, dt).unwrap()),
+        ("PETIR ONIX cram16_pfd", |a, n, dt| petir::depletion::cram16_pfd(a, n, dt).unwrap()),
+    ];
+    for (label, solve) in solvers {
+        let (mut worst, mut at, mut steps) = (0.0f64, String::new(), 0);
+        for key in &keys {
+            let (mode, seed, i) = key;
+            let mut rates = ReactionRates::zero();
+            for n in &names {
+                rates.set(n, MicroRate { gamma: runs.gamma[*key][n], fission: runs.fission[*key][n], n2n: 0.0 });
+            }
+            let n0: Vec<f64> = names.iter().map(|n| runs.atoms[*key][n]).collect();
+            let ours = solve(&chain.build_matrix(&rates), &n0, 86_400.0);
+            assert!(ours.iter().all(|x| x.is_finite()), "{label}: non-finite densities");
+            let next = &runs.atoms[&(mode.clone(), *seed, i + 1)];
+            let big = ours.iter().cloned().fold(0.0, f64::max);
+            for (j, n) in names.iter().enumerate() {
+                let r = next[n];
+                if r.abs() < 1e-12 * big {
+                    continue;
+                }
+                let rel = ((ours[j] - r) / r).abs();
+                if rel > worst {
+                    worst = rel;
+                    at = format!("{mode} seed {seed} step {i}->{} {n}", i + 1);
+                }
+            }
+            steps += 1;
+        }
+        println!("{label:<24} {steps} steps, worst relative to OpenMC {worst:.2e} ({at})");
+    }
 }
 
 #[test]

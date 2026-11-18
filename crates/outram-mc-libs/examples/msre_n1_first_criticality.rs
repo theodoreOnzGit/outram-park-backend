@@ -54,10 +54,10 @@ use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::keff::KeffResult;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, run_keff_csg_hybrid};
 use outram_mc_libs::stats::convergence::SourceConvergence;
-use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind, MaterialFilter, MeshFilter};
-use outram_mc_libs::tally::mesh::{CylindricalMesh, MeshKind, MeshKindExt, RegularMesh};
-use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
+use outram_mc_libs::tally::mesh::RegularMesh;
+use outram_mc_libs::tally::tally::Tally;
 use outram_mc_libs::vv::msre_n1 as m;
+use outram_mc_libs::vv::msre_n1::tallies::{self, axial_tally, balance_tally, salt_spectrum_tally};
 
 fn flag(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
@@ -559,32 +559,6 @@ fn write_entropy_trace(path: &std::path::Path, label: &str, seed: u64, n_inactiv
     eprintln!("    k: MSER {:?}; Geweke {:?}; change point {:?}", c.k.mser, c.k.geweke_after_truncation, c.k.change_point);
 }
 
-/// Axial z edges for the N-4 tally: 4 bins through the lower plenum, 32
-/// through the graphite, 4 through the upper plenum (cold dimensions).
-fn axial_edges() -> Vec<f64> {
-    let (lp, up, h) = (m::lower_plenum_height(), m::upper_plenum_height(), m::H_CORE);
-    let mut z: Vec<f64> = (0..4).map(|i| -lp + lp * i as f64 / 4.0).collect();
-    z.extend((0..32).map(|i| h * i as f64 / 32.0));
-    z.extend((0..=4).map(|i| h + up * i as f64 / 4.0));
-    z
-}
-
-/// Fission and flux on an R-Z mesh: r in [0, graphite radius] and
-/// [graphite radius, vessel inner radius], one azimuthal bin, [`axial_edges`],
-/// split at 0.625 eV.
-/// Absorption and nu-fission in every material, for the neutron balance.
-/// CLI glue (the workspace's exception for `main` glue); the material filter
-/// and scores are tested in the tally modules.
-fn balance_tally(n_materials: usize) -> Tally {
-    Tally {
-        id: 2,
-        name: "N-1 neutron balance by material".into(),
-        filters: vec![FilterKind::Material(MaterialFilter { material_indices: (0..n_materials).collect() })],
-        scores: vec![ScoreType::Absorption, ScoreType::NuFission],
-        bins: vec![TallyBin::default(); n_materials * 2],
-    }
-}
-
 /// Append one run's balance: per material, its absorption and nu-fission
 /// sums. Layout `[material * 2 + score]`. CLI glue, as above.
 fn write_balance(path: &std::path::Path, label: &str, seed: u64, t: &Tally, mats: &[(&str, Vec<(&str, f64)>)]) {
@@ -598,96 +572,25 @@ fn write_balance(path: &std::path::Path, label: &str, seed: u64, t: &Tally, mats
     }
 }
 
-/// Energy-bin edges for the salt spectrum, 20 000 logarithmic bins in three
-/// spans: 1 000 from 1e-5 eV to 1 eV, 17 000 from 1 eV to 100 keV (3 400 per
-/// decade, the resonance range: at U-238's 6.67 eV resonance a bin is
-/// 4.5e-3 eV, a fifth of its 0.025 eV width) and 2 000 from 100 keV to
-/// 20 MeV. A first version with 100 000 uniform bins ran out of memory
-/// (14 GB) at production statistics, because the tally is copied per batch.
-fn salt_spectrum_edges() -> Vec<f64> {
-    let span = |lo: f64, hi: f64, n: usize| -> Vec<f64> {
-        (0..n).map(|i| (lo.ln() + (hi.ln() - lo.ln()) * i as f64 / n as f64).exp()).collect()
-    };
-    let mut e = span(1e-5, 1.0, 1_000);
-    e.extend(span(1.0, 1e5, 17_000));
-    e.extend(span(1e5, 2e7, 2_000));
-    e.push(2e7);
-    e
-}
-
-/// Flux and absorption in the salt, by fine energy bin. CLI glue (the
-/// workspace's exception for `main` glue); the filters and scores are tested
-/// in the tally modules.
-fn salt_spectrum_tally() -> Tally {
-    let edges = salt_spectrum_edges();
-    let n = edges.len() - 1;
-    Tally {
-        id: 3,
-        name: "N-1 salt spectrum".into(),
-        filters: vec![
-            FilterKind::Material(MaterialFilter { material_indices: vec![m::SALT_IDX] }),
-            FilterKind::Energy(EnergyFilter { bins: edges }),
-        ],
-        scores: vec![ScoreType::Flux, ScoreType::Absorption],
-        bins: vec![TallyBin::default(); n * 2],
-    }
-}
-
-/// Split the salt's absorption by nuclide: `A_i = sum_g N_i sigma_a,i(E_g)
-/// phi_g`, with `E_g` the bin's geometric midpoint and the cross section at
-/// the salt temperature (infinitely dilute in the unresolved range). Writes
-/// one row per nuclide and a closure row comparing the reconstructed total
-/// with the directly tallied absorption. Each row also splits the absorption
-/// into three bands by the bin's lower edge: thermal (below 0.625 eV),
-/// epithermal (0.625 eV to 100 keV) and fast (above 100 keV); the three add
-/// to the total. CLI glue, as above.
+/// Append one run's salt absorption split by nuclide
+/// (`vv::msre_n1::tallies::salt_absorption_split`): one row per nuclide with
+/// its thermal / epithermal / fast bands, then a closure row comparing the
+/// reconstructed total with the directly tallied absorption. CLI glue (the
+/// workspace's exception for `main` glue).
 #[allow(clippy::too_many_arguments)]
 fn write_salt_split(path: &std::path::Path, label: &str, seed: u64, t: &Tally, salt: &[(&str, f64)], names: &[&str], nuclides: &[Nuclide], t_k: f64) {
-    let edges = salt_spectrum_edges();
-    let n = edges.len() - 1;
+    let split = tallies::salt_absorption_split(t, salt, names, nuclides, t_k);
     let new_file = !path.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("spectrum csv");
     if new_file {
         writeln!(f, "arm,seed,nuclide,absorption,thermal,epithermal,fast").expect("spectrum csv");
     }
-    let mut recon_total = 0.0;
-    for (name, density) in salt {
-        let nuc = &nuclides[names.iter().position(|k| k == name).expect("salt nuclide loaded")];
-        let mut band = [0.0_f64; 3];
-        for g in 0..n {
-            let phi = t.bins[g * 2].sum;
-            if phi != 0.0 {
-                let e = (edges[g] * edges[g + 1]).sqrt();
-                let b = if edges[g] < 0.625 { 0 } else if edges[g] < 1.0e5 { 1 } else { 2 };
-                band[b] += density * nuc.xs_at_energy(e, t_k).absorption.max(0.0) * phi;
-            }
-        }
+    for (name, band) in &split.rows {
         let a = band[0] + band[1] + band[2];
-        recon_total += a;
         writeln!(f, "{label},{seed},{name},{a:.8e},{:.8e},{:.8e},{:.8e}", band[0], band[1], band[2]).expect("spectrum csv");
     }
-    let tallied: f64 = (0..n).map(|g| t.bins[g * 2 + 1].sum).sum();
-    writeln!(f, "{label},{seed},RECONSTRUCTED_TOTAL,{recon_total:.8e},,,").expect("spectrum csv");
-    writeln!(f, "{label},{seed},TALLIED_TOTAL,{tallied:.8e},,,").expect("spectrum csv");
-}
-
-fn axial_tally() -> Tally {
-    let mesh = MeshKind::Cylindrical(CylindricalMesh {
-        r_grid: vec![0.0, m::R_GRAPHITE, m::R_VESSEL_IN],
-        phi_grid: vec![0.0, 2.0 * std::f64::consts::PI],
-        z_grid: axial_edges(),
-        origin: Position::ZERO,
-    });
-    let n = mesh.n_bins();
-    Tally {
-        id: 1,
-        name: "N-4 axial fission and flux".into(),
-        // Energy: below / above the conventional two-group thermal cutoff,
-        // 0.625 eV, so the flux above it can stand in for a fast importance.
-        filters: vec![FilterKind::Mesh(MeshFilter { mesh }), FilterKind::Energy(EnergyFilter { bins: vec![1e-11, 0.625, 2e7] })],
-        scores: vec![ScoreType::Fission, ScoreType::Flux],
-        bins: vec![TallyBin::default(); n * 2 * 2],
-    }
+    writeln!(f, "{label},{seed},RECONSTRUCTED_TOTAL,{:.8e},,,", split.reconstructed_total).expect("spectrum csv");
+    writeln!(f, "{label},{seed},TALLIED_TOTAL,{:.8e},,,", split.tallied_total).expect("spectrum csv");
 }
 
 /// Append one run's axial tally to `path`: per z bin, the fission and flux
@@ -695,24 +598,16 @@ fn axial_tally() -> Tally {
 /// workspace's exception for `main` glue); the tally machinery is tested in
 /// its own modules.
 fn write_axial(path: &std::path::Path, label: &str, seed: u64, t: &Tally) {
-    let FilterKind::Mesh(MeshFilter { mesh }) = &t.filters[0] else { unreachable!("mesh filter") };
-    let z = axial_edges();
     let new_file = !path.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("axial csv");
     if new_file {
         writeln!(f, "arm,seed,z_lo_cm,z_hi_cm,fission_inner,fission_outer,flux_inner,flux_outer,flux_fast_inner").expect("axial csv");
     }
-    for w in z.windows(2) {
-        let zc = 0.5 * (w[0] + w[1]);
-        let bin = |r: f64| mesh.bin(Position::new(r, 0.0, zc)).expect("inside the axial mesh");
-        let (bi, bo) = (bin(0.5 * m::R_GRAPHITE), bin(0.5 * (m::R_GRAPHITE + m::R_VESSEL_IN)));
-        // Layout: [(mesh bin * 2 + energy bin) * 2 + score]; energy 0 thermal, 1 fast.
-        let get = |mb: usize, e: usize, sc: usize| t.bins[(mb * 2 + e) * 2 + sc].sum;
-        let both = |mb: usize, sc: usize| get(mb, 0, sc) + get(mb, 1, sc);
+    for r in tallies::axial_rows(t) {
         writeln!(
             f,
             "{label},{seed},{:.4},{:.4},{:.6e},{:.6e},{:.6e},{:.6e},{:.6e}",
-            w[0], w[1], both(bi, 0), both(bo, 0), both(bi, 1), both(bo, 1), get(bi, 1, 1)
+            r.z_lo, r.z_hi, r.fission_inner, r.fission_outer, r.flux_inner, r.flux_outer, r.flux_fast_inner
         )
         .expect("axial csv");
     }

@@ -3,8 +3,8 @@
 //!
 //! **Nothing is retyped here.** The geometry and the materials are the
 //! committed `mit-crpg/benchmarks` OpenMC cards, parsed at run time by
-//! `outram-mc-libs/examples/common/lct008_model.rs` (pulled in as
-//! [`super::spec`]), the same code that `lct008_keff.rs` and the five-route
+//! `outram_mc_libs::vv::lct008` (through `outram-mc-libs/examples/common/lct008_model.rs`,
+//! pulled in as [`super::spec`]), the same code that `lct008_keff.rs` and the five-route
 //! study run. The core is the real one: a 7 × 7 core lattice of 15 × 15 pin
 //! lattices, 4961 fuel rods, inside a vacuum-bounded cylinder.
 //!
