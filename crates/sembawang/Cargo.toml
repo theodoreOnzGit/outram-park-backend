@@ -42,7 +42,26 @@ backronym = "Severe-accident Evolution and Melt Behaviour Analysis Workbench for
 # switch to the containment network (gh:#1099), whose 26-30 h plant runs take
 # about 20 min each.
 [features]
-default = ["long-tests"]
+default = ["std", "long-tests"]
+# `no_std` + `alloc` without `std` (gh:#1641, epic gh:#1637). `std` carries
+# the OpenMC decay-data source (`openmc-endf-8-depletion-lib-a`/`-b`, read
+# through `serde-xml-rs`, no `no_std` build) and the code that loads it,
+# fixture files, the wall clock, environment switches, printing, and `std`
+# in every dependency.
+std = [
+    "thiserror-nostd/std",
+    "dep:openmc-endf-8-depletion-lib-a",
+    "dep:openmc-endf-8-depletion-lib-b",
+    "boon-lay/std",
+    "changi/std",
+    "buangkok/std",
+    "outram-mc-libs/std",
+    "tampines-steam-tables/std",
+    "tampines/std",
+    "teh-o-prke/std",
+    "outram-park-fork-offbeat/std",
+    "tuas_boussinesq_solver/std",
+]
 long-tests = []
 
 [dependencies]
@@ -51,11 +70,11 @@ long-tests = []
 petir = { workspace = true }
 # The release physics. boon-lay's TRISO-ATOPS fork is the whole mechanistic
 # layer; this crate orchestrates it and does not reimplement any of it.
-boon-lay  = { workspace = true, features = ["std"] }
+boon-lay  = { workspace = true }
 # The consumer. The dependency direction is sembawang -> changi and never the
 # reverse: changi defines the source-term types its own driver consumes, which
 # is what lets changi's end-to-end example run with this crate untouched.
-changi    = { workspace = true, features = ["std"] }
+changi    = { workspace = true }
 # Dose (maintainer direction, 2026-09-30): the Gaussian plume and the dose
 # pathways at the end of the offsite chain. buangkok depends on changi and
 # petir only, so the edge sembawang -> buangkok introduces no cycle.
@@ -68,7 +87,7 @@ buangkok  = { workspace = true }
 # added (`cargo tree -p sembawang -i outram-mc-libs -e normal`, 2026-10-17).
 # outram-mc-libs must never depend on this crate. Default features only
 # (`long-tests` gates its own slow tests and costs a dependent nothing).
-outram-mc-libs = { workspace = true, features = ["std"] }
+outram-mc-libs = { workspace = true }
 # The Fukushima Daiichi Unit 1 plant model (`bwr_mark1`, gh:#1033, moved from
 # dhoby-ghaut's `fukushima_web` example 2026-10-29): IAPWS-IF97 for the
 # vessel, the pool and the coolant properties; teh-o-prke's decay heat; and
@@ -76,7 +95,7 @@ outram-mc-libs = { workspace = true, features = ["std"] }
 # than re-entered. All three are pure Rust, wasm in-scope and build for
 # aarch64-linux-android (checked 2026-10-29). No cycle: none depends on this
 # crate (`cargo tree -p <each> -e normal`, 2026-10-29).
-tampines-steam-tables    = { workspace = true, features = ["std"] }
+tampines-steam-tables    = { workspace = true }
 # The thermal-hydraulic framework (maintainer direction, 2026-11-01):
 # a severe-accident code like MELCOR does thermal hydraulics and much more,
 # so sembawang (severe accidents, orchestration) depends on tampines (thermal
@@ -85,24 +104,76 @@ tampines-steam-tables    = { workspace = true, features = ["std"] }
 # TRISO dimensions in `tampines::pebble_bed` and, since gh:#1075,
 # tests/wet_well_vs_tampines.rs). No cycle: tampines has no sembawang edge of
 # any kind.
-tampines = { workspace = true, features = ["std"] }
-teh-o-prke               = { workspace = true, features = ["std"] }
+tampines = { workspace = true }
+teh-o-prke               = { workspace = true }
 outram-park-fork-offbeat = { workspace = true }
 # bwr_mark1's decay heat by radionuclide class (gh:#1041): ENDF/B-VIII decay
 # data and fission yields, the same crates outram-mc-libs already depends on
 # (so nothing new enters the tree; both on uom 0.38).
-openmc-endf-8-depletion-lib-a = { workspace = true }
-openmc-endf-8-depletion-lib-b = { workspace = true }
+openmc-endf-8-depletion-lib-a = { workspace = true, optional = true }
+openmc-endf-8-depletion-lib-b = { workspace = true, optional = true }
 fission-yields-data           = { workspace = true }
 # bwr_mark1's lower-head wall (gh:#1034): Type 304L stainless steel
 # properties to 1700 K (Kim, ANL-75-55, public), reused from tuas's solid
 # database. Stainless steel is MELCOR's default lower-head layer material
 # (MELCOR 2.2 Vol. 2, COR §6.1). Light (petir, uom, ndarray, csv, approx,
 # thiserror), wasm in-scope, already built by dhoby-ghaut; no cycle.
-tuas_boussinesq_solver = { workspace = true, features = ["std"] }
+tuas_boussinesq_solver = { workspace = true }
 uom       = { workspace = true }
-thiserror = { workspace = true }
+thiserror-nostd = { workspace = true }
+hashbrown = { workspace = true }
+spin = { workspace = true }
 
 [dev-dependencies]
 # Reads boon-lay's upstream code-to-code probes (tests/nuclide_names_code_to_code.rs).
 serde_json = { workspace = true }
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "bwr_mark1_ensemble"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "bwr_mark1_sensitivity"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "containment_network_geometry"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_air_ingress_human_audited_example"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_air_ingress_kora_bound"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_dlofc_dose"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_dlofc_panama_source_term"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "lwr_nureg1465_counterpart"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "npmhtgr_chain"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "npmhtgr_release"
+required-features = ["std"]

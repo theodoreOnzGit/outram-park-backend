@@ -36,6 +36,9 @@
 //! The ablation, [`Mechanisms::without_msl_creep`](super::Mechanisms), is
 //! the model before 2026-10-29: no steam-line failure.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::core::{steel_h, steel_rho, steel_t};
 use super::params::Params;
 use petir::mathf::RealMath;
@@ -82,7 +85,7 @@ fn inside_h(prm: &Params, w_line: f64, t_film: f64, p_pa: f64) -> f64 {
     let k = lambda_tp_eqm_single_phase(t, p).get::<watt_per_meter_kelvin>();
     let mu = mu_tp_eqm_single_phase(t, p).get::<pascal_second>();
     let d = 2.0 * prm.msl_inner_radius_m;
-    let re = 4.0 * w_line / (std::f64::consts::PI * d * mu);
+    let re = 4.0 * w_line / (core::f64::consts::PI * d * mu);
     let pr = mu * cp / k;
     let nu = (0.023 * re.r_powf(0.8) * pr.r_powf(0.4)).max(4.36);
     nu * k / d
@@ -103,7 +106,7 @@ impl SteamLine {
             return;
         }
         let (r_i, r_o) = (prm.msl_inner_radius_m, prm.msl_inner_radius_m + prm.msl_wall_m);
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         let m = pi * (r_o * r_o - r_i * r_i) * steel_rho();
         let t = self.wall_k;
         let c = m * (steel_h(t + 0.5) - steel_h(t - 0.5));
@@ -122,7 +125,7 @@ impl SteamLine {
 
     /// The ruptured line's flow area, m^2 (one line).
     pub fn break_area_m2(prm: &Params) -> f64 {
-        std::f64::consts::PI * prm.msl_inner_radius_m * prm.msl_inner_radius_m
+        core::f64::consts::PI * prm.msl_inner_radius_m * prm.msl_inner_radius_m
     }
 }
 

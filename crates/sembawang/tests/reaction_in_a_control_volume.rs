@@ -14,6 +14,7 @@
 //! to round-off) and results are in
 //! `verification_and_validation/bwr_mark1/containment_network.md`.
 
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 use sembawang::bwr_mark1::reaction;
 use tampines::control_volume::*;
 use tampines::cv_network::{CvNetwork, NetworkControl};

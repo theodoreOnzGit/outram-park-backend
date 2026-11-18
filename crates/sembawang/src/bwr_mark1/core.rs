@@ -70,6 +70,9 @@
 //! leaves with volatile fission products; boron carbide control-blade
 //! reactions. Debris after the lower head fails leaves the model.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::params::*;
 use outram_park_fork_offbeat::materials::properties::heat_capacity::HeatCapacityModel;
@@ -77,7 +80,7 @@ use outram_park_fork_offbeat::materials::MaterialState;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp as ss304;
 use uom::si::f64::AvailableEnergy;
 use uom::si::mass_density::kilogram_per_cubic_meter;
-use std::sync::OnceLock;
+use crate::sync::OnceLock;
 use super::gas::{cp_h2_per_kg, h2_enthalpy_above_298};
 use super::wire::{Reader, Writer};
 use tampines_steam_tables::dynamic_viscosity::mu_tp_eqm_single_phase;
@@ -417,7 +420,7 @@ pub(crate) fn pool_h(prm: &Params, q_vol: f64, height: f64) -> f64 {
 fn debris_cap(prm: &Params, mf: f64, mc: f64) -> (f64, f64, f64) {
     let r = prm.rpv_radius_m;
     let v = (mf / prm.uo2_density + mc / prm.zr_density) / (1.0 - prm.debris_porosity);
-    let cap = |h: f64| std::f64::consts::PI * h * h * (3.0 * r - h) / 3.0;
+    let cap = |h: f64| core::f64::consts::PI * h * h * (3.0 * r - h) / 3.0;
     let (mut a, mut b) = (0.0, r);
     if cap(b) <= v {
         a = r;
@@ -432,7 +435,7 @@ fn debris_cap(prm: &Params, mf: f64, mc: f64) -> (f64, f64, f64) {
         }
     }
     let h = if a == r { r } else { 0.5 * (a + b) };
-    (2.0 * std::f64::consts::PI * r * h, h, if v > 0.0 { (mf + mc) / v } else { 0.0 })
+    (2.0 * core::f64::consts::PI * r * h, h, if v > 0.0 { (mf + mc) / v } else { 0.0 })
 }
 
 impl HeadWall {
@@ -503,7 +506,7 @@ impl HeadWall {
             let sigma = dp * ri * ri / (ro * ro - ri * ri);
             let t_mean = self.t_k.iter().sum::<f64>() / WALL_NODES as f64;
             let p_lm = prm.lm_p0 - prm.lm_slope * sigma.r_log10();
-            let t_rupture = ((p_lm / t_mean - prm.lm_c) * std::f64::consts::LN_10).r_exp();
+            let t_rupture = ((p_lm / t_mean - prm.lm_c) * core::f64::consts::LN_10).r_exp();
             self.strain += prm.creep_fail_strain * dt / t_rupture;
         }
         self.t_k[0] >= prm.head_failure_wall_k || self.strain >= prm.creep_fail_strain || (penetrations && self.pen_k >= prm.head_failure_wall_k)
@@ -550,12 +553,12 @@ fn gray_exchange(f_a: f64, e1: f64, e2: f64, t1: f64, t2: f64) -> f64 {
 /// The core's equivalent radius, m: the assemblies' lattice area as a
 /// circle. The rings hold equal numbers of rods, so equal areas.
 fn core_radius(prm: &Params) -> f64 {
-    (prm.assemblies * prm.assembly_pitch_m * prm.assembly_pitch_m / std::f64::consts::PI).sqrt()
+    (prm.assemblies * prm.assembly_pitch_m * prm.assembly_pitch_m / core::f64::consts::PI).sqrt()
 }
 
 /// Steel in one axial level of the shroud, kg (304L at 300 K, the wall's).
 fn shroud_mass_per_level(prm: &Params, dz: f64) -> f64 {
-    2.0 * std::f64::consts::PI * core_radius(prm) * dz * prm.shroud_thickness_m * steel_rho()
+    2.0 * core::f64::consts::PI * core_radius(prm) * dz * prm.shroud_thickness_m * steel_rho()
 }
 
 impl Core {
@@ -586,7 +589,7 @@ impl Core {
         let rc = core_radius(prm);
         let oxide = |n: &Node| n.w_ox.min(n.zr_kg / g.a_zr) * (ZRO2_PER_ZR / prm.zro2_density);
         let eps = |n: &Node| zr_emissivity(oxide(n), n.t_clad);
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         for j in 0..AXIAL_NODES {
             for k in 0..RINGS {
                 let a = &self.nodes[k * AXIAL_NODES + j];
@@ -697,7 +700,7 @@ impl Core {
         }
         let g = geom(prm);
         let rc = core_radius(prm);
-        let area = std::f64::consts::PI * rc * rc / RINGS as f64 * prm.flpup;
+        let area = core::f64::consts::PI * rc * rc / RINGS as f64 * prm.flpup;
         for k in 0..RINGS {
             if ring_plates && holds(&self.plates[k]) {
                 continue;
@@ -728,7 +731,7 @@ impl Core {
         let mut up = 0.0;
         let g = geom(prm);
         let rc = core_radius(prm);
-        let area = std::f64::consts::PI * rc * rc / RINGS as f64 * prm.axial_exchange;
+        let area = core::f64::consts::PI * rc * rc / RINGS as f64 * prm.axial_exchange;
         for k in 0..RINGS {
             if let Some(j) = (0..AXIAL_NODES).rev().find(|&j| !self.nodes[k * AXIAL_NODES + j].relocated) {
                 let n = &self.nodes[k * AXIAL_NODES + j];
@@ -822,7 +825,7 @@ impl Core {
             return (0.0, 0.0, 0.0);
         }
         let rc = core_radius(prm);
-        let area = if s.ring_plates { std::f64::consts::PI * rc * rc / RINGS as f64 } else { std::f64::consts::PI * rc * rc };
+        let area = if s.ring_plates { core::f64::consts::PI * rc * rc / RINGS as f64 } else { core::f64::consts::PI * rc * rc };
         let m_plate = area * prm.core_plate_m * steel_rho();
         let p = &mut self.plates[k];
         let t_d = debris_temperature(p.mf, p.mc, p.h);
@@ -960,7 +963,7 @@ fn axial_shape(prm: &Params) -> Vec<f64> {
     let raw: Vec<f64> = (0..AXIAL_NODES)
         .map(|j| {
             let z = (j as f64 + 0.5) / AXIAL_NODES as f64 * l;
-            (std::f64::consts::PI * (z - 0.5 * l) / le).r_cos()
+            (core::f64::consts::PI * (z - 0.5 * l) / le).r_cos()
         })
         .collect();
     let s: f64 = raw.iter().sum();
@@ -1325,7 +1328,7 @@ impl Core {
                         self.quench_f * conv
                     } else {
                         let (_, height, _) = debris_cap(prm, self.debris_mf, self.debris_mc);
-                        let a_cs = std::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m;
+                        let a_cs = core::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m;
                         conv.min(lipinski_dryout_flux(prm, s.p_pa, height) * a_cs)
                     };
                     q = q.min(p_debris + (self.debris_h - h_sat).max(0.0) / dt).max(0.0);
@@ -2039,15 +2042,15 @@ impl Core {
             lower_head_failed: r.f() != 0.0,
             zr_oxidised_kg: r.f(),
             h2_total_kg: r.f(),
-            head: HeadWall { t_k: std::array::from_fn(|_| r.f()), strain: r.f(), pen_k: r.f() },
-            shroud_k: std::array::from_fn(|_| r.f()),
+            head: HeadWall { t_k: core::array::from_fn(|_| r.f()), strain: r.f(), pen_k: r.f() },
+            shroud_k: core::array::from_fn(|_| r.f()),
             debris_fp: r.f(),
             fp_released: r.f(),
             debris_uo2: r.f(),
             uo2_released: r.f(),
             debris_zr_ox: r.f(),
             quench_f: r.f(),
-            plates: std::array::from_fn(|_| Plate { t_k: r.f(), failed: r.f() != 0.0, mf: r.f(), mc: r.f(), h: r.f(), zr_ox: r.f(), fp: r.f(), uo2: r.f(), share: r.f() }),
+            plates: core::array::from_fn(|_| Plate { t_k: r.f(), failed: r.f() != 0.0, mf: r.f(), mc: r.f(), h: r.f(), zr_ox: r.f(), fp: r.f(), uo2: r.f(), share: r.f() }),
             lp_steel_kg: r.f(),
             lp_steel_h: r.f(),
             b4c_reacted_kg: r.f(),
@@ -2401,11 +2404,11 @@ mod tests {
         let (area, h, rho_bed) = debris_cap(&prm, mf, mc);
         let r = prm.rpv_radius_m;
         let v = (mf + mc) / rho_bed;
-        let cap = std::f64::consts::PI * h * h * (3.0 * r - h) / 3.0;
+        let cap = core::f64::consts::PI * h * h * (3.0 * r - h) / 3.0;
         assert!((cap - v).abs() <= 1e-9 * v && h < r, "{cap} vs {v}, h {h}");
-        assert!((area - 2.0 * std::f64::consts::PI * r * h).abs() < 1e-9);
+        assert!((area - 2.0 * core::f64::consts::PI * r * h).abs() < 1e-9);
         let (full, h2, _) = debris_cap(&prm, 2.0 * mf, 2.0 * mc);
-        assert!((full - 2.0 * std::f64::consts::PI * r * r).abs() < 1e-9 && h2 == r);
+        assert!((full - 2.0 * core::f64::consts::PI * r * r).abs() < 1e-9 && h2 == r);
     }
 
     /// The core plate's yield stress (MELCOR Eq 5-16) by hand: at 1000 K
@@ -2420,7 +2423,7 @@ mod tests {
         assert_eq!(steel_yield_pa(1700.0), 0.0);
         let prm = Params::default();
         let rc = core_radius(&prm);
-        let area = std::f64::consts::PI * rc * rc;
+        let area = core::f64::consts::PI * rc * rc;
         assert!((area - 9.29).abs() < 0.05, "{area}");
         let sigma = 6.0 * 0.0833 * 0.09 / (area * 0.0025) * 1.0e6;
         assert!((sigma - 1.94e6).abs() < 0.02e6, "{sigma}");

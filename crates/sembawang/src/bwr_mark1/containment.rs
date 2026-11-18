@@ -60,6 +60,9 @@
 //! (`Mechanisms::pool_scrubbing`, SPARC-90 in [`super::sparc`]), and the
 //! fission products are tracked ([`super::rn_volume`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::*;
 use super::aerosol::Sections;
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
@@ -522,7 +525,7 @@ pub(crate) fn bur_flame_speed(y_max: f64, x_d: f64) -> f64 {
 /// record BUR_BRT, CDIM = DEF): the radius of the sphere of its volume,
 /// `(3 V / 4 pi)^(1/3)`.
 pub(crate) fn bur_cdim(volume_m3: f64) -> f64 {
-    (3.0 * volume_m3 / (4.0 * std::f64::consts::PI)).r_cbrt()
+    (3.0 * volume_m3 / (4.0 * core::f64::consts::PI)).r_cbrt()
 }
 
 /// Cells of the concrete slab around the drywell (`dw_wall_outer`).
@@ -838,7 +841,7 @@ impl Containment {
         let p_ww = self.p_ww(prm);
         let rho_l = sparc::Pool::submerged(self.pool_t, p_ww, prm.vent_submergence_pa).rho_l();
         let depth = prm.vent_submergence_pa / (rho_l * 9.81);
-        let opening = (4.0 * prm.downcomer_area_m2 / (prm.downcomer_count * std::f64::consts::PI)).sqrt();
+        let opening = (4.0 * prm.downcomer_area_m2 / (prm.downcomer_count * core::f64::consts::PI)).sqrt();
         let eps = pool_surface::bubble_efficiency(depth, opening, p_ww + prm.vent_submergence_pa, self.pool_t);
         let p_v = (0.99 * p_sat_pa(self.pool_t)).min(0.99 * p_ww);
         let m_v = (dn2 + dh2) * p_v / (p_ww - p_v) * M_H2O;
@@ -936,8 +939,8 @@ impl Containment {
     /// Exchange the two layers of the pool (`pool_layers`), so that what
     /// acts on "the pool" acts on the deep one, and back.
     fn swap_layers(&mut self) {
-        std::mem::swap(&mut self.pool_kg, &mut self.deep_kg);
-        std::mem::swap(&mut self.pool_t, &mut self.deep_t);
+        core::mem::swap(&mut self.pool_kg, &mut self.deep_kg);
+        core::mem::swap(&mut self.pool_t, &mut self.deep_t);
     }
     /// The torus pool in two layers (`pool_layers`): split, once, at the
     /// downcomers' exits (their submergence, `vent_submergence_pa`, as a
@@ -1777,7 +1780,7 @@ impl Containment {
             fdi_steam_kg: 0.0,
             fdi_hpme: false,
         };
-        c.dw_slab = std::array::from_fn(|_| r.f());
+        c.dw_slab = core::array::from_fn(|_| r.f());
         c.deep_kg = r.f();
         c.deep_t = r.f();
         c.layered = r.f() != 0.0;
@@ -1787,7 +1790,7 @@ impl Containment {
         c.fdi_steam_kg = r.f();
         c.fdi_hpme = r.f() != 0.0;
         c.fp.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
-        c.fp.pool_scrubbed = std::array::from_fn(|_| r.f());
+        c.fp.pool_scrubbed = core::array::from_fn(|_| r.f());
         c.fp.dw_rn.read_into(r);
         c.fp.ww_rn.read_into(r);
         c
@@ -2121,6 +2124,7 @@ mod tests {
             let lat_b = x.latent_power_to_wall.get::<watt>() * dt;
             let rel = if lat_a != 0.0 { ((lat_b - lat_a) / lat_a).abs() } else { lat_b.abs() };
             worst_latent = worst_latent.max(rel);
+            #[cfg(feature = "std")]
             println!(
                 "t {:5} s: T_dw {:.3} K, p_dw {:.1} Pa, T_wall {:.3} K, steam {:.1} kg; h {h_a:.6} / {h_b:.6} W/(m2 K); condensed {m_a:.6} / {m_b:.6} kg; latent {lat_a:.6e} / {lat_b:.6e} J ({rel:.1e})",
                 k + 1,
@@ -2137,6 +2141,7 @@ mod tests {
                 assert!(lat_a > 0.0);
             }
         }
+        #[cfg(feature = "std")]
         println!("worst latent-heat difference {worst_latent:.2e} over {checked} states");
         assert_eq!(checked, 6);
     }
@@ -2268,6 +2273,7 @@ mod spray_tests {
         let (w, t_in, t_gas) = (4.0, 293.15, 420.0);
         let (m, t) = spray_condensation(w, t_in, t_gas, 0.3e6, 5000.0, 1.0);
         let h_g = pool_surface::steam_h(t_gas);
+        #[cfg(feature = "std")]
         println!("spray: {m:.4} kg/s condensed, water at {t:.2} K");
         assert!((m * h_g - (w * CP_WATER * (t - t_in) + m * CP_WATER * (t - 273.15))).abs() < 1e-6 * m * h_g);
         assert!((t - pool_surface::t_sat(0.3e6)).abs() < 1e-9 && (0.85..1.05).contains(&m), "{m} {t}");
@@ -2301,8 +2307,10 @@ mod spray_tests {
         a.step(&spray);
         b.step(&ContainmentSnapshot { spray_exchange: false, ..spray.clone() });
         c.step(&base);
+        #[cfg(feature = "std")]
         println!("drywell steam after one step: spray {:.2} kg, landing unchanged {:.2} kg, none {:.2} kg", a.dw_steam_kg, b.dw_steam_kg, c.dw_steam_kg);
         let water = |k: &Containment| k.dw_steam_kg + k.pedestal_kg + k.pool_kg + k.ww_steam_kg;
+        #[cfg(feature = "std")]
         println!("pool after one step: spray {:.3} kg, unchanged {:.3} kg; floor {:.3} / {:.3} kg", a.pool_kg, b.pool_kg, a.pedestal_kg, b.pedestal_kg);
         assert!(a.pool_kg < b.pool_kg && a.pedestal_kg > b.pedestal_kg + 0.5, "{} {}", a.pedestal_kg, b.pedestal_kg);
         assert!(b.dw_steam_kg == c.dw_steam_kg && b.pool_kg == c.pool_kg && (b.pedestal_kg - c.pedestal_kg - 4.0).abs() < 1e-9);

@@ -20,6 +20,7 @@
 //!
 //! **Results:** see the V&V doc (2026-11-02).
 
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 use sembawang::bwr_mark1::turbine_pump::Drive;
 use sembawang::bwr_mark1::units23::{hm, observations, Observed};
 use sembawang::bwr_mark1::{Frame, Mechanisms, Mode, Plant, Unit, DT_S};

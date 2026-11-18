@@ -11,6 +11,9 @@
 //! back attached to the result, as [`Caveats`], and a caller that reports a
 //! number without reporting these is reporting half of it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Anything that can go wrong assembling a source term.

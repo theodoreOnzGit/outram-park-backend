@@ -28,6 +28,9 @@
 //! (`changi`'s [`changi::activity::source::ReleaseWindow`]), and any consumer
 //! wanting a rate divides by the window's own duration at the point of use.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use boon_lay::triso_atops_fork::Activity as BoonLayActivity;
 use uom::si::f64::{Frequency, Radioactivity, Time};
 use uom::si::frequency::hertz;

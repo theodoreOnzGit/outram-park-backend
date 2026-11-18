@@ -83,6 +83,9 @@
 //!
 //! Pinned by `tests::digitised_peaks_match_table_3_within_one_pixel`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// The digitised Fig. 7 series, verbatim (see the CSV header).
 const FIG7_CSV: &str =

@@ -203,7 +203,7 @@ log = { workspace = true }
 # pyDOSEIA plume, rise, wake and deposition velocities, changi's puff kernel
 # and decay transfer function. Both are wasm in-scope crates.
 changi = { workspace = true, features = ["std"] }
-buangkok = { workspace = true }
+buangkok = { workspace = true, features = ["std"] }
 # The TRISO-ATOPS and fuel failure demo (gh:#540): boon-lay's TRISO geometry,
 # decay chains, Walk-on-Spheres, fuel failure, chemistry and TRISO-ATOPS
 # release. A wasm in-scope crate (its `wasm_par` shim stands in for rayon).
