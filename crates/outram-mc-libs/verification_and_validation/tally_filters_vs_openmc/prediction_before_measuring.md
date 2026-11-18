@@ -125,3 +125,54 @@ OpenMC `seed` 1001..1008, same model), pooled per bin as mean of the 8 run means
 standard error from their scatter; pass criterion unchanged, |z| <= 2 on the pooled bins.
 Expectation: if collision bin 4 is noise the pooled |z| falls under 2 (about 1); if it is a
 defect of ours the pooled |z| exceeds ~2.5 and the +1.2 % persists.
+
+## Amendment 3 -- PREDICTIONS for the real-transport wiring pass (2026-11-18, written and committed BEFORE any run of the wired code)
+
+Maintainer-confirmed edits (gh:#261, 2026-11-18): (1) fill the event-history fields of
+`FilterEvent` in the real transport; (2) split MESH_MATERIAL tracks across mesh elements in
+`tally/scoring.rs`. Design (from reading the code, not from a run): the transport body that
+carries the logic is `transport_history_vr_urr` (the `kovan`-reviewed `transport_history_vr`
+is a 40-line forwarding wrapper that calls it and is NOT edited). A per-particle
+`EventHistory` (cell_born, position_born, n_collision, material, material_last) is kept in
+the loop and handed to new scoring functions; no random number is drawn by any of it.
+
+**Bit-identity of k and of every existing tally (predicted before running):** bit-identical.
+The new code reads state and adds to tallies; it takes no branch the transport takes and
+draws no variate. Existing pins (`stats_move_fingerprints`, `variance_reduction_is_bit_identical_when_analog`,
+the Godiva k-trace pin, ...) predicted to stay bit-identical, **no re-pin**. The one existing
+behaviour that changes: a `WeightFilter` on a track-length tally used to see the default
+weight 1.0 and now sees the particle weight `w`; any test that pins a WeightFilter
+track-length tally is predicted to move (none expected; a grep before the run will say).
+
+**Experiment A through the real runner (`run_fixed_source_traced`), same 18 sites, same
+criteria as amendment 1:**
+
+| filter | prediction |
+|---|---|
+| CELLBORN, MESHBORN (flux) | 0 misses of 36 / 216 (+270 on A2) bins, worst scaled diff about 1e-9 |
+| CELLFROM, MATERIALFROM, MUSURFACE (current) | 0 misses of 252 / 252 / 1008 bins, **exact**: the live scoring replays the verified driver's rules (sign in the level frame, vacuum-leak `material_last`, global-position normal) |
+| MESH_MATERIAL, registered mesh and A2 | **0 misses** of 432 and 540 bins after the splitting fix (the driver version of the same split gave 0), worst scaled diff about 1.6e-8 (the transport's 1e-9 cm nudge) |
+| MESH_SURFACE, registered 6x2x1 mesh | **16 misses at the same 4 sites (ties on mesh planes)**: the live segment start/end are the same floating-point numbers the driver reconstructs |
+| MESH_SURFACE, A2 mesh | **1 miss** (site 17, the box-edge tie), unchanged |
+
+**Experiment B through the real runner** (CE O-16 sphere, 1 MeV isotropic point source, 20 x
+50 000 histories; a different random stream from the driver run, since the runner draws the
+source itself): COLLISION flux, 6 bins: all |z| <= 2 expected (the earlier first-run 2.87 was
+judged noise by the 8-seed pooling; if the real-transport run again shows bin 4 high by
+about +1.2 % the noise reading is wrong). LEGENDRE is not reachable through real transport
+(no analog-scatter Legendre scoring exists in the CSG transport) and stays on the driver.
+
+**WEIGHT (Experiment C, new): B-10 gas sphere, survival biasing on in both codes** (OpenMC
+`survival_biasing`, cutoff 0.25, survive 1.0, its defaults; ours `VarianceReduction`
+likewise), 1 MeV source, track-length flux binned in weight. Bins: [0, 0.1, 0.25, 0.5, 0.75, 1.0].
+Prediction: all |z| <= 2; weights are (1 - Sa/St)^k so several bins are populated. OpenMC's
+filter reads `wgt_last` (weight at the start of the event) and ours the flight weight; they
+agree because the weight only changes at collisions, after the segment is scored. Expected
+worst |z| about 1.5 over 5 bins.
+
+**The 4 red gates (predicted):** `mesh_material_vs_openmc` goes green (shipped path split);
+`mesh_surface_vs_openmc` and `a2_mesh_surface_vs_openmc` stay red on the same ties (the
+driver-based tests are kept as the oracle; new real-transport tests are added beside them and
+are predicted to show the same 16 and 1); the first-run COLLISION gate of the driver stays
+red as recorded (its numbers do not change), while its real-transport twin is predicted
+green.

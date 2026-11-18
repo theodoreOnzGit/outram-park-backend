@@ -254,3 +254,13 @@ for name, rows in results.items():
                 f.write("%d %d %.17g\n" % (i, b, v))
 print("sites", len(sites), "runs", len(sites), "wall_s %.1f" % wall)
 ```
+
+## Real-transport wiring pass (gh:#261, 2026-11-18, maintainer-confirmed) -- PREDICTIONS
+
+Written and committed before any run of the wired code. Full text: amendment 3 of
+[`prediction_before_measuring.md`](prediction_before_measuring.md). Summary: bit-identical k and
+existing pins (no random number drawn; no re-pin); real-transport Experiment A: CELLBORN, MESHBORN,
+CELLFROM, MATERIALFROM, MUSURFACE 0 misses (the three currents exact); MESH_MATERIAL 0 misses on
+both meshes after the split fix; MESH_SURFACE the same ties as the driver (16 on the registered
+mesh, 1 on A2); Experiment B COLLISION |z| <= 2 on a fresh stream; WEIGHT (new Experiment C, B-10
+with survival biasing in both codes) |z| <= 2. Results follow in this section once measured.
