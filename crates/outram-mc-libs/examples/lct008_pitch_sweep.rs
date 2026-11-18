@@ -61,8 +61,15 @@
 //!   LCT-008's pitch is then slightly under-moderated (1.34838 ± 0.00112).
 //! - **OpenMC (NJOY2016 ACE, same tier).** The 11 borated points differ by
 //!   −409 to +342 pcm with no trend: mean −53 pcm, χ² = 21.9 for 11 points.
-//!   Three points sit at 2.0–2.4σ of the single-run σ. This is mild
-//!   tension, not a clean pass, and is unresolved without a seed ensemble.
+//!   Three points sit at 2.0–2.4σ of the single-run σ. ~~This is mild
+//!   tension, not a clean pass, and is unresolved without a seed ensemble.~~
+//!   **CORRECTED 2026-11-18 (gh:#550):** the seed ensemble was run, 16
+//!   seeds per code at those three pitches (OpenMC 0.15.3, the same 11-nuclide
+//!   tier and settings). The differences were −37 ± 38 pcm (z −0.97) at
+//!   1.63576 cm and −1 ± 37 pcm (z −0.01) at 1.75 cm, so those single-run
+//!   tensions were fluctuations. At 2.40 cm it was **−117 ± 39 pcm (z −2.97),
+//!   a miss** of the |z| ≤ 2 gate, cause not investigated. Record:
+//!   `verification_and_validation/tutorial_rung4/pitch_sweep.md`.
 //!   The 4 unborated points agree within 1σ.
 //! - **Predictions 3 and 4** (borated peak at V_m/V_f ≈ 2–3, LCT-008
 //!   under-moderated) were **refuted**.
