@@ -433,3 +433,28 @@ The discrepancy to explain: port - OpenMC = 1.38024 - 1.38071 = **-47 pcm**
 
 Seed ensembles only; z = (ours - OpenMC) / sqrt(sem_a^2 + sem_b^2) over the
 per-seed run means.
+
+## Experiments E1, E3, E4 as run, and prediction for E5 (written before E5)
+
+Interim measurements (hardware: Intel Xeon @ 2.10 GHz, 4 logical cores shared
+with other jobs; port 2 worker threads, OpenMC 1 thread per process):
+
+* **E1 (unfolded 12 x 12 periodic, 4 rods; 50 inactive both codes, seeds 1-16):**
+  port 1.38015 +/- 0.00022, OpenMC 1.38078 +/- 0.00007, z -2.67. OpenMC's
+  unfolded value equals its own reflective B1 (1.38065 / 1.38071), as the
+  images argument requires. The port's unfolded value equals ITS reflective
+  B1 (1.38024). So the port is low on this lattice **through its periodic
+  path too**: H1 (reflective crossing defect) is not supported.
+* **E4 (OpenMC B1 reflective, seeds 33-64):** 1.38087 +/- 0.00008. The OpenMC
+  value is stable at 1.3807-1.3809 over 64 seeds, H4 (fluctuation) is not
+  supported.
+* **E3 (port N = 80 000, 12 seeds, 30 + 100):** B1 reflective
+  1.38049 +/- 0.00014 (was 1.38024 +/- 0.00013 at N = 20 000), B1 periodic
+  1.35901 +/- 0.00010 (unchanged). OpenMC at N = 80 000 pending.
+
+**E5 prediction (before running):** replace the MG driver's with-replacement
+resampling by `comb_resample` (the CE drivers' routine since #460). If H3 is
+the whole cause, port B1 reflective at N = 20 000, 16 seeds, 30 + 100 rises
+by +35 to +47 pcm to 1.3806-1.3807 (z against OpenMC 1.38071 within 2), and
+B1U and B0 move by no more than their sem. If it moves by less than 15 pcm,
+H3 is rejected as the main cause.
