@@ -93,3 +93,24 @@ same block (planes at x = -9, -5.4, -1.8, 1.8, 5.4, 9 and y = -3, -1, 1, 3, none
 edge or sphere centre). Prediction, fixed before A2 is run: MESH_SURFACE, MESH_BORN and
 MESH_MATERIAL (split) agree in every bin (currents exactly, flux within 2e-8), i.e. 0
 misses; the diagonal beam passes no grid vertex.
+
+**A2 outcome (recorded here, after the run):** MESH_BORN 0/270 misses, MESH_MATERIAL
+(split) 0/540 misses, MESH_SURFACE 1 miss in 3240 bins (site 17, bin 142: z-max outward
+of element 11, ours counts it, OpenMC does not). The prediction "0 misses" was
+**falsified** for MESH_SURFACE: the diagonal beam leaves the model exactly through the
+box edge y = 3 cm, z = 3 cm (at x = -3 cm), which I overlooked when I wrote "passes no
+grid vertex". It is another tie (two faces hit at one point), not a bin-assignment finding.
+
+## Experiment B -- written before it is run (2026-11-18)
+
+CE O-16 gas (ENDF/B-VIII.0, 293.6 K, N = 0.03 atoms/b-cm), sphere of r = 10 cm,
+vacuum, isotropic 1 MeV point source at the centre, analog; ours through
+`trace_csg_history` + `history_events`. 20 batches x 50 000 histories on both sides
+(OpenMC: 20 batches of 50 000 in fixed-source mode; ours: 20 consecutive blocks of
+50 000 histories). z = (a-b)/sqrt(sa^2 + sb^2) with sa, sb the batch standard errors.
+Pass: every |z| <= 2; the count of bins and the worst z are reported.
+
+| tally | bins | prediction |
+|---|---|---|
+| COLLISION, track-length flux, collision numbers 0..5 | 6 | all |z| <= 2 (expected worst about 1.5 for 6 bins) |
+| LEGENDRE order 3 x `scatter` (analog), bare P_l(mu) | 4 | all |z| <= 2. P0 = scatters per source neutron; P1 = sum of mu |
