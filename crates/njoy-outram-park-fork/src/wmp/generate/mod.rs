@@ -58,7 +58,7 @@ use std::path::Path;
 use crate::wmp::Cf64;
 use crate::NjoyError;
 
-pub use fit::{vectfit_pointwise, vectfit_xs, PieceFit, VectfitOptions};
+pub use fit::{piece_ranges, resolve_vf_pieces, vectfit_pointwise, vectfit_xs, PieceFit, VectfitOptions};
 #[cfg(feature = "std")]
 pub use front::{pointwise_from_endf, zero_kelvin_ace};
 pub use windowing::{search_windowing, windowing, SearchOptions, WindowingOptions, WmpGenerated};

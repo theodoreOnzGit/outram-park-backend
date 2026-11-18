@@ -63,3 +63,54 @@ shared with two other agents (load average about 8 when this was written),
 
 - `openmc_inputs/probe_frontend.py`: the size probe above (committed verbatim).
 - `openmc_inputs/ref_u238.py`: the reference driver (committed verbatim before it was run).
+
+## Plan change, written before the subset run (2026-11-18 11:58 UTC)
+
+The full reference run (`openmc_inputs/ref_u238.py`) was started 11:22 UTC and
+stopped at 11:58 UTC, after 12 of 304 pieces (log:
+`ref_u238_full_run_aborted.log`; its "piece n" is 1-based, so n-1 below).
+Measured on this machine under load (average 10-12 on 4 cores, two threads for
+OpenMC):
+
+| piece (0-based) | points | poles | seconds |
+|---|---|---|---|
+| 0 - 4 | 469, 196, 65, 47, 242 | 3, 3, 5, 4, 5 | 0.0 - 0.1 each |
+| 5 | 905 | 5 | 21.8 |
+| 6 | 1220 | 6 | 15.6 |
+| 7, 8 | 561, 235 | 6, 5 | 2.4, 0.4 |
+| 9 | 866 | 5 | **962.4** |
+| 10 | 1059 | 6 | **398.8** |
+| 11 | 297 | 6 | **157.3** |
+
+A piece whose search never reaches an "ideal" fit runs every order from
+`max(2, 2 n_peaks)` to 200 with 30 relocation iterations each, so the cost
+per piece is hundreds to a thousand seconds almost regardless of size. The
+12 pieces took ~25 min, dominated by three; if the other 292 cost like those
+three the total is days. The prediction table's "2 to 10 hours" is not
+supported by this measurement (not a precise estimate: only 12 pieces, all at
+the lowest energies). Neither OpenMC nor the port fits this session at full
+size, so:
+
+- **What is run instead** (`openmc_inputs/ref_u238_subset.py`, unmodified
+  OpenMC; only `_vectfit_xs` is wrapped): OpenMC's `vectfit_nuclide` runs end
+  to end on the tape, so NJOY, the front end, the 304 piece boundaries and
+  slices are upstream's, and every piece's input is checksummed. Upstream's
+  `_vectfit_xs` is called unchanged only on pieces 0-11 (the "prefix") and on
+  pieces 100, 200 and 303 (middle and high energy, where resonances are
+  dense); every other piece gets an empty stand-in without fitting. Their
+  poles and residues are saved.
+- **Windowing** (`from_multipole(search=True)`) is run by OpenMC and by the
+  port on the prefix: the 12 fitted pieces over their own energy range
+  (`E_max = (sqrt(E_min) + 12 w)^2`, `w` the 304-piece width), a U-238 library
+  of the lowest 12 pieces. It is a windowing differential on U-238 poles, not
+  the whole library.
+- **Not done, stated now**: the 304-piece fit, the whole-chain pole count and
+  window parameters of the full library, and whole-chain sigma(E, T). The
+  `#[ignore]`d test `u238_whole_chain_from_the_tape` is the instrument for
+  that.
+- Predictions for the subset: front end bit-identical in all 304 pieces (as
+  above); pole count identical in at least 3 of the 4 pieces beyond the
+  prefix and in at least 11 of the 12 prefix pieces; prefix windowing:
+  windows, spacing, fit order, used poles identical, curve fit ~1e-7 of scale,
+  sigma within rtol/atol at every sampled value. Port time per fitted piece
+  3 to 6 times OpenMC's.
