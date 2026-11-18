@@ -300,7 +300,7 @@ impl KeffTab {
                     &mut self.rods,
                     &labels,
                     "Three Gd2O3-Al2O3 rods in thimbles near the centre (TM-0728 Table 5.4). 0 % is the upper limit, 51 in withdrawn, which still leaves 2.75 in of poison in the top of the graphite; 100 % is the driven lower limit (ORNL-4233 Fig. 2).",
-                    Some("Needs ENDF/B-VIII.0 Gd-152, 154, 155, 158 and 160, not yet in the published data (gh:#1658): a run with rods fails at the data step until they are."),
+                    Some("Rod 1 is the one ORNL-4233 calibrated (2.26 % δk/k over its travel, the three together 5.59 %). The rods add natural Gd, Al and O to the nuclear data the first run processes (gh:#1658)."),
                 );
             }
             ui.separator();

@@ -121,10 +121,11 @@ pub fn jobs(study: &Study) -> Vec<Job> {
 }
 
 /// Every tape any study of the tab can need (the default and its
-/// ablations at any temperature use the same tapes): for
-/// `--prepare-web-data`.
+/// ablations at any temperature use the same tapes; a study with rods adds
+/// the rods' Gd, Al and O, gh:#1658): for `--prepare-web-data`.
 pub fn all_tapes() -> Vec<&'static str> {
-    let mut v: Vec<&'static str> = jobs(&Study::default()).iter().filter_map(Job::tape).collect();
+    let rodded = Study { rods: Some([0.0; 3]), ..Study::default() };
+    let mut v: Vec<&'static str> = jobs(&Study::default()).iter().chain(jobs(&rodded).iter()).filter_map(Job::tape).collect();
     v.sort_unstable();
     v.dedup();
     v
@@ -640,12 +641,15 @@ mod tests {
         assert!(matches!(d[52], Job::Graphite(_)) && matches!(d[53], Job::Water));
         assert!(matches!(off[37], Job::Graphite(_)));
         // The shield's nuclides are named apart (Fe56s, ...) but read the same
-        // tapes as INOR-8's, so 52 nuclides need 39 tapes, plus the water's.
+        // tapes as INOR-8's, so 52 nuclides need 39 tapes, plus the water's;
+        // the rods (gh:#1658) add seven Gd and Al-27 (their O, `O16r`, reads
+        // the O-16 tape already published): ~~39 + 1~~ 39 + 1 + 8.
         let t = all_tapes();
-        assert_eq!(t.len(), 39 + 1);
+        assert_eq!(t.len(), 39 + 1 + 8);
         let served: std::collections::BTreeSet<String> = t.iter().map(|p| served_name(p)).collect();
         assert_eq!(served.len(), t.len(), "two tapes would be served under one name");
         assert!(t.iter().any(|p| p.contains("Mo_100")), "natural Mo from reference-data/ace");
+        assert!(t.iter().any(|p| p.contains("Gd_155")), "the rods' Gd (gh:#1658)");
         assert!(d.iter().all(|j| j.cost() > 0.0));
     }
 
