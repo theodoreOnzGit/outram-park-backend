@@ -1302,3 +1302,38 @@ ensemble size is cut by CLOCK, decided now: each build runs up to 8 seeds, and
 whichever build is slower sets the number of seeds both use, stopping at 3 hours
 of wall time per build; never cut by result. Statistics with awk
 (`ensembles_1635_nee_soon_loader/stats.sh`).
+
+### Results, gh:#1635 nee_soon loader (2026-11-18): within the gate
+
+Runs: `htr10_rmc_keff`, full core, `OUTRAM_HTR10_HISTORIES=1000`,
+`OUTRAM_HTR10_INACTIVE=10`, `OUTRAM_HTR10_ACTIVE=30`, one process per seed, run
+one at a time (old, then new, per seed). OLD = `4a8fe06fb`; NEW = `cdd9a695e`.
+Seeds 20260917-20260922 on each build: six seeds, about 19 min per run, about
+2 h per build, inside the 3 h clock cut. Raw:
+`ensembles_1635_nee_soon_loader/{old,new}_seed*.out`, runner `run.sh`,
+statistics `stats.sh` (awk).
+
+| seed | OLD k_eff | NEW k_eff |
+|---|---|---|
+| 20260917 | 1.001385 ± 0.006640 | 0.997219 ± 0.006426 |
+| 20260918 | 0.991311 ± 0.007357 | 0.994329 ± 0.006267 |
+| 20260919 | 0.988912 ± 0.007328 | 0.995951 ± 0.005368 |
+| 20260920 | 1.005977 ± 0.006243 | 0.989836 ± 0.007195 |
+| 20260921 | 0.994510 ± 0.004666 | 0.988380 ± 0.005571 |
+| 20260922 | 0.994721 ± 0.005977 | 0.995702 ± 0.006347 |
+| **mean ± sem** | **0.996136 ± 0.002611** | **0.993569 ± 0.001472** |
+
+The sem comes from the seed-to-seed scatter. The quoted per-seed sigmas combine
+to 0.002627 (OLD) and 0.002541 (NEW), so the reported error bars match the
+scatter.
+
+**new - old = −257 ± 300 pcm, z = −0.86: inside the |z| <= 2 gate.** The
+prediction (zero within statistics) holds. At this run size, shifts of a few
+hundred pcm in either direction cannot be excluded, and none is claimed. These k
+values come from a reduced run used as a statistics check for the migration;
+they are not an HTR-10 benchmark number.
+
+**Not measured:** the memory and per-history URR-cost caveat from the
+prediction. The ten unreferenced free originals stay in the array. The box was
+shared with other agents' builds and runs, and transport time per run varied
+231-592 s with load, so the timings say nothing about a cost difference.
