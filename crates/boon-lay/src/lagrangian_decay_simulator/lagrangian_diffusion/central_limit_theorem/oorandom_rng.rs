@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_mc_libs::rng::lcg::{prn, INC, MULT};
 
 /// Stateful RNG adapter for the diffusion simulators.

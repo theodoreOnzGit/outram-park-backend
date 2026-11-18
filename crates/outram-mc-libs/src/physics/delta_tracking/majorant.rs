@@ -34,6 +34,9 @@
 //! Moved here from `pebble_beds::delta_tracking` on 2026-10-06 (gh:#599
 //! audit); the old path re-exports everything.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::mathf::RealMath;

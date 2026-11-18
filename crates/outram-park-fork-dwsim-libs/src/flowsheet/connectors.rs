@@ -58,6 +58,9 @@
 //!   (DesignSurface.vb:1399) tests only `IsAttached`, never `Active`. See the
 //!   note on [`ConnectorLayout::energy_connector_active`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::flowsheet::objects::{ObjectId, ObjectType};
 
 /// Kind of a connection point — DWSIM's `ConType` (Enums.vb:654-661).

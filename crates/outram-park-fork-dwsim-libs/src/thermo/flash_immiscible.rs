@@ -105,6 +105,9 @@
 //! Documented raw `f64` in SI base units (`T` \[K\], `P` \[Pa\], mole fractions
 //! \[-\]) in the inner loops, matching the sibling flash modules.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::thermo::flash::{nested_loops_flash, FlashError, FlashResult, NestedLoopsOptions};
 use crate::thermo::property_package::PropertyPackageModel;
 use crate::thermo::saturation::bubble_pressure;
@@ -483,7 +486,7 @@ pub fn flash_pt_immiscible(
         // Pure-component vapour pressure = the bubble pressure of the immiscible
         // component alone (the P where its Wilson K = 1). Reuses saturation.rs.
         match bubble_pressure(
-            std::slice::from_ref(&imm),
+            core::slice::from_ref(&imm),
             &[1.0],
             temp,
             PropertyPackageModel::Ideal,
@@ -644,7 +647,7 @@ mod tests {
         // Wilson vapour pressure of pure water at each T.
         let pvap = |temp: f64| {
             bubble_pressure(
-                std::slice::from_ref(&comps[0]),
+                core::slice::from_ref(&comps[0]),
                 &[1.0],
                 temp,
                 PropertyPackageModel::Ideal,

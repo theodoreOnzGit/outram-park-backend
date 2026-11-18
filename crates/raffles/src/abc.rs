@@ -107,6 +107,9 @@
 //! Independent implementations from the published definitions — see the
 //! provenance note in [`crate::bayesian`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::bayesian::IndependentPrior;
 use crate::distance::DistanceMetric;

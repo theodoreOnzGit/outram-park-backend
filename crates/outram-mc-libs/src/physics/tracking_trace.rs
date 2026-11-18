@@ -43,6 +43,9 @@
 //!   after a real one: Collision + State(...)
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::{Direction, Position};
 use crate::physics::delta_tracking::flight::TentativeSite;
 use crate::physics::track_output::{TrackEvent, TrackState};

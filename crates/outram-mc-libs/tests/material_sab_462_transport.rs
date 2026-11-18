@@ -15,6 +15,8 @@
 //!
 //! Result (2026-11-14): recorded on #462.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::speed::SpeedTier;

@@ -26,10 +26,16 @@
 //! (`todo!`)** — the signatures and intended file layouts are fixed, but
 //! calling any of them currently panics.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use crate::error::AppBuilderError;
 use outram_foam_basic_lib::prelude::{VolScalarField, VolVectorField};
+#[cfg(feature = "std")]
 use std::path::Path;
 
+#[cfg(feature = "std")]
 /// Write a scalar field to `<time_dir>/<field_name>` in OpenFOAM ASCII format.
 ///
 /// **Not yet implemented — calling this panics (`todo!`).** The intended output
@@ -49,6 +55,7 @@ pub fn write_scalar_field(
     todo!("write_scalar_field — serialise VolScalarField to OpenFOAM ASCII format")
 }
 
+#[cfg(feature = "std")]
 /// Write a vector field to `<time_dir>/<field_name>` in OpenFOAM ASCII format.
 ///
 /// **Not yet implemented — calling this panics (`todo!`).**
@@ -61,6 +68,7 @@ pub fn write_vector_field(
     todo!("write_vector_field — serialise VolVectorField to OpenFOAM ASCII format")
 }
 
+#[cfg(feature = "std")]
 /// Write a legacy VTK unstructured grid file for ParaView.
 ///
 /// **Not yet implemented — calling this panics (`todo!`).** When implemented it

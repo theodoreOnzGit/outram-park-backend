@@ -71,8 +71,11 @@
 //!    the tests), and the *live* fission-yield consumption is demonstrated with
 //!    the reachable `u232_thermal_fission_yield` accessor.
 
-use std::collections::HashMap;
-use std::f64::consts::LN_2;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
+use core::f64::consts::LN_2;
 
 use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
 use thiserror::Error;
@@ -255,6 +258,26 @@ pub struct DepletionChain {
     /// read back with [`DepletionChain::unmodelled_channels`]. Kept rather than
     /// discarded so a caller can see what a file asked for and did not get.
     unmodelled: Vec<UnmodelledChannel>,
+    /// Branched `(n,gamma)` / `(n,2n)` channels carried at their ratios:
+    /// filled only by [`DepletionChain::from_chain_xml_with_branches`]
+    /// (gh:#1628); empty for every other constructor, so their matrices
+    /// are unchanged.
+    branched: Vec<BranchedReaction>,
+}
+
+/// A neutron reaction to one product state at a branching ratio
+/// (e.g. Zn-68 `(n,gamma)` → Zn-69m at 0.069). Destruction of the parent is
+/// `rate × ratio` per branch, so complete branches remove it at the full rate.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BranchedReaction {
+    /// Parent nuclide.
+    pub nuclide: String,
+    /// `Gamma` or `TwoN`.
+    pub kind: ReactionKind,
+    /// Product state, `None` for one outside the chain (a sink).
+    pub target: Option<String>,
+    /// Branching ratio.
+    pub ratio: f64,
 }
 
 /// Decay constant `lambda = ln(2) / T_half` in `1/s`, or `0.0` for a stable
@@ -285,6 +308,7 @@ impl DepletionChain {
             nuclides,
             index,
             unmodelled: Vec::new(),
+            branched: Vec::new(),
         }
     }
 
@@ -453,6 +477,7 @@ impl DepletionChain {
         Self::from_nuclides(nuclides)
     }
 
+    #[cfg(feature = "std")]
     /// The `chain_simple.xml` chain, but with the I-135 and Xe-135 half-lives
     /// pulled **live** from the ENDF/B-VIII decay libraries, and a live read of
     /// the fission-yield data crate — proving the "consume open data, don't
@@ -684,6 +709,44 @@ impl DepletionChain {
         Ok(chain)
     }
 
+    /// ~~`std` only, like [`Self::from_chain_xml`] (its input is the parsed
+    /// chain XML).~~ **CHANGED 2026-11-18 (gh:#1648):** available without
+    /// `std`; only reading the file ([`Self::from_chain_xml_file`]) needs it.
+    /// [`Self::from_chain_xml`], except that `(n,gamma)` and `(n,2n)`
+    /// channels with a branching ratio other than 1 are **kept** at their
+    /// ratios (as OpenMC's matrix does) instead of being left out, and are
+    /// no longer listed as unmodelled. Built for spectrum-derived branching
+    /// (gh:#1628). [`Self::from_chain_xml`] keeps its behaviour.
+    ///
+    /// # Errors
+    /// As [`Self::from_chain_xml`].
+    pub fn from_chain_xml_with_branches(xml: &DepletionChainXml, fission_energy_ev: f64) -> Result<Self, ChainImportError> {
+        let mut chain = Self::from_chain_xml(xml, fission_energy_ev)?;
+        for src in &xml.nuclides {
+            for r in &src.reactions {
+                let kind = match r.kind.as_str() {
+                    "(n,gamma)" => ReactionKind::Gamma,
+                    "(n,2n)" => ReactionKind::TwoN,
+                    _ => continue,
+                };
+                if r.branching_ratio == 1.0 {
+                    continue;
+                }
+                chain.branched.push(BranchedReaction { nuclide: src.name.clone(), kind, target: r.target.clone(), ratio: r.branching_ratio });
+            }
+        }
+        chain.unmodelled.retain(|u| {
+            !(matches!(u.reason, UnmodelledReason::BranchedChannel { .. }) && (u.reaction == "(n,gamma)" || u.reaction == "(n,2n)"))
+        });
+        Ok(chain)
+    }
+
+    /// The branched channels carried at their ratios.
+    pub fn branched_reactions(&self) -> &[BranchedReaction] {
+        &self.branched
+    }
+
+    #[cfg(feature = "std")]
     /// Read a chain straight from a file — [`Self::from_chain_xml`] with the
     /// codec's `read_file` in front of it.
     ///
@@ -842,6 +905,24 @@ impl DepletionChain {
             }
         }
 
+        // Branched channels (empty unless from_chain_xml_with_branches).
+        for b in &self.branched {
+            let Some(j) = self.index_of(&b.nuclide) else { continue };
+            let rate = rates.rate_for(&b.nuclide);
+            let r = match b.kind {
+                ReactionKind::Gamma => rate.gamma,
+                ReactionKind::TwoN => rate.n2n,
+                ReactionKind::Fission => 0.0,
+            } * b.ratio;
+            if r == 0.0 {
+                continue;
+            }
+            accumulate(&mut a, j, j, -r);
+            if let Some(t) = b.target.as_deref().and_then(|n| self.index_of(n)) {
+                accumulate(&mut a, t, j, r);
+            }
+        }
+
         a
     }
 
@@ -874,6 +955,7 @@ fn accumulate(a: &mut DepletionMatrix, row: usize, col: usize, v: f64) {
         .expect("burnup-matrix index taken from the chain's own nuclide list");
 }
 
+#[cfg(feature = "std")]
 /// Find `name` in a decay-library `SerdeNuclideVec` and return its half-life in
 /// seconds (`None` if absent, or if the record has no half-life = stable).
 ///
@@ -929,6 +1011,7 @@ mod tests {
         assert_eq!(chain.index_of("Pu239"), None);
     }
 
+    #[cfg(feature = "std")]
     /// Test 2 — decay constants from half-lives (and vs the live decay libs).
     ///
     /// Methodology: `lambda = ln(2) / T_half`. For I135 (T = 2.36520e4 s) the
@@ -1097,6 +1180,7 @@ mod tests {
         assert!((u235_xe135 - 0.002566345).abs() < 1e-12);
     }
 
+    #[cfg(feature = "std")]
     /// `simple_from_data()` reproduces the same chain structure as `simple()`.
     ///
     /// Methodology: both constructors must produce identical nuclide ordering and

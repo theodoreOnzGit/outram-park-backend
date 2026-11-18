@@ -8,6 +8,9 @@
 //! cylinder geometry is implemented; new enclosure geometries belong in their
 //! own submodule here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this module contains functions for calculating view factors for
 /// cocentric cylinders. This is for the clamshell radiative heater
 /// still under construction

@@ -14,6 +14,9 @@
 //!
 //! All public quantities are [`uom`]-dimensioned (never bare `f64`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::energy::electronvolt;
 use uom::si::f64::{Energy, MassRate, Power, Ratio, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;

@@ -55,6 +55,9 @@
 //! it. Not validated against any experiment; the V&V record is
 //! `crates/tampines/verification_and_validation/multiphase_1d_issues_1058_1060_1062_1076.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::contact_partition::ContactPartition;
 use tampines_steam_tables::hem::WallHeat;
 use uom::si::acceleration::meter_per_second_squared;

@@ -454,7 +454,8 @@ fn report(name: &str, case: Case, pin: Option<(usize, u64)>) {
         "{name}: {}/{} bit-identical, worst |diff|/scale = {:e}, worst ulp = {}, first difference at step {:?}",
         o.same, o.total, o.worst_rel, o.worst_ulp, o.first_diff_step
     );
-    assert!(o.worst_rel <= 1e-8, "{name}: worst {:e}", o.worst_rel);
+    // ~~1e-8~~ 1e-9 (gh:#1614, 2026-11-17): worst measured 1.3e-15.
+    assert!(o.worst_rel <= 1e-9, "{name}: worst {:e}", o.worst_rel);
     match pin {
         None => assert_eq!(o.same, o.total, "{name} must be bit-identical"),
         Some((same, ulp)) => {

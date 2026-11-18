@@ -43,6 +43,9 @@
 //! Positions and lengths are dimensionless model-space quantities; angles are
 //! radians.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::draw_tool::WorkPlane;
 use crate::knife::{Chord, KnifePoint};
@@ -321,7 +324,7 @@ mod tests {
         let plane = WorkPlane::xy();
         let mut t = LineTool::new();
         t.add_raw(Vec3::ZERO);
-        t.add_polar(&plane, 2.0, std::f64::consts::FRAC_PI_2); // straight up +y
+        t.add_polar(&plane, 2.0, core::f64::consts::FRAC_PI_2); // straight up +y
         let p = t.points()[1].position;
         assert!(p.sub(Vec3::new(0.0, 2.0, 0.0)).length() < 1e-9);
     }

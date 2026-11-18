@@ -54,9 +54,12 @@
 //!   faces land in a single `walls` patch (per-surface patch separation is a
 //!   later refinement). Pure Rust, Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::volume_mesh::{orient_ring, BoundaryPatch, VolumeMesh};
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// Carve the closed surface (`points`, triangle indices `tris`) into a
 /// [`VolumeMesh`] of uniform `cell_size` hexahedra: every cell whose centre is
@@ -471,7 +474,7 @@ fn assemble_kept(
         let n = pf.len();
         faces.extend(pf);
         owner.extend(po);
-        neighbour.extend(std::iter::repeat(None).take(n));
+        neighbour.extend(core::iter::repeat(None).take(n));
         patches.push(BoundaryPatch {
             name: patch_names[pi].clone(),
             start_face: start,

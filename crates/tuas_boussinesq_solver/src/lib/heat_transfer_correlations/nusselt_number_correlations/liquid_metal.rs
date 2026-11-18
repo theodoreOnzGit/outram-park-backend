@@ -95,6 +95,9 @@
 //! AI-drafted (Claude Opus 5.5 in Claude Code), untrusted until reviewed.
 //! Research, education and V&V only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::Ratio;
 use uom::si::ratio::ratio;
@@ -347,6 +350,7 @@ mod tests {
         ];
         for (name, got, hand) in cases {
             let got = got.get::<ratio>();
+            #[cfg(feature = "std")]
             println!("{name}: code {got:.6}, python {hand}");
             approx::assert_relative_eq!(got, hand, max_relative = 1e-5);
         }

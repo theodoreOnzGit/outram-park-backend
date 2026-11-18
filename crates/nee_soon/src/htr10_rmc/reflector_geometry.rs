@@ -108,6 +108,9 @@
 //! at bed mid-height, so `z_local = refl_top - z_T`. Every zone boundary here
 //! is fixed hardware: nothing but the bed top moves with the loading.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::position::Position;
@@ -999,6 +1002,7 @@ mod channel_layout_tests {
             // Lateral distance to the duct axis (the +x half-line).
             let lateral = if x > 0.0 { y.abs() } else { x.r_hypot(y) };
             let gap = lateral - r_ch - HOT_GAS_DUCT_RADIUS_CM;
+            #[cfg(feature = "std")]
             println!("{:?} at {:.1} deg: gap {gap:.3} cm", c.kind, c.azimuth_deg);
             min_gap = min_gap.min(gap);
             assert!(gap > 0.0, "{:?} at {} deg overlaps the duct by {:.3} cm", c.kind, c.azimuth_deg, -gap);

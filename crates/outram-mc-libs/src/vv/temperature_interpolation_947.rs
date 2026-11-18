@@ -27,6 +27,9 @@
 //! [`crate::physics::slowing_down`]; [`mix_slowing_down_grids`] forms the
 //! stochastic arm's grid from the per-table grids.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::physics::slowing_down::SlowingDownGrid;
 

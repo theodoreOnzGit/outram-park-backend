@@ -22,6 +22,13 @@ default path. Leave it unchanged until #409 is taken up.
 The building CV is **in-building** physics and so does not touch the open
 SEMBAWANG boundary question below, which concerns severe-accident progression.
 
+## `no_std` (gh:#1642, 2026-11-18)
+
+The crate is `#![cfg_attr(not(test), no_std)]` with no `std` feature: it
+uses only `core`, `petir` and `uom`. `scripts/check-nostd.sh` checks it on
+bare metal. Keep new code `core`-only, or add `alloc` / a `std` feature in the
+pattern the other converted crates use.
+
 ## Rules for when work starts
 
 - **Settle the boundary with SEMBAWANG first.** Both scopes name

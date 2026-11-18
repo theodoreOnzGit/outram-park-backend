@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 
 use crate::boussinesq_thermophysical_properties::Material;
@@ -37,6 +40,7 @@ pub fn calculate_constant_heat_addition_front_single_cv_back(
         }
 
         _ => {
+            #[cfg(feature = "std")]
             println!(
                 "you need to specify that the interaction type \n 
             is UserSpecifiedHeatAddition"
@@ -115,6 +119,7 @@ pub fn calculate_single_cv_front_constant_heat_addition_back(
         }
 
         _ => {
+            #[cfg(feature = "std")]
             println!(
                 "you need to specify that the interaction type \n 
             is UserSpecifiedHeatAddition"

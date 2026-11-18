@@ -32,8 +32,11 @@
 //! other vertex within `radius` of a grabbed vertex moves by
 //! `falloff(dist / radius) · displacement_of_nearest_grabbed`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::BinaryHeap;
+use alloc::collections::BinaryHeap;
 
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
@@ -174,15 +177,15 @@ fn topological_distance(
     let pos = mesh.positions();
     let mut dist = vec![f64::INFINITY; nv];
     let mut near: Vec<Option<usize>> = vec![None; nv];
-    let mut heap: BinaryHeap<(std::cmp::Reverse<Ord64>, usize, usize)> = BinaryHeap::new();
+    let mut heap: BinaryHeap<(core::cmp::Reverse<Ord64>, usize, usize)> = BinaryHeap::new();
     for (gi, &(g, _)) in grabbed.iter().enumerate() {
         if g.0 < nv {
             dist[g.0] = 0.0;
             near[g.0] = Some(gi);
-            heap.push((std::cmp::Reverse(Ord64(0.0)), g.0, gi));
+            heap.push((core::cmp::Reverse(Ord64(0.0)), g.0, gi));
         }
     }
-    while let Some((std::cmp::Reverse(Ord64(d)), v, gi)) = heap.pop() {
+    while let Some((core::cmp::Reverse(Ord64(d)), v, gi)) = heap.pop() {
         if d > dist[v] {
             continue;
         }
@@ -195,7 +198,7 @@ fn topological_distance(
             if nd < dist[w.0] {
                 dist[w.0] = nd;
                 near[w.0] = Some(gi);
-                heap.push((std::cmp::Reverse(Ord64(nd)), w.0, gi));
+                heap.push((core::cmp::Reverse(Ord64(nd)), w.0, gi));
             }
         }
     }
@@ -206,15 +209,15 @@ fn topological_distance(
 struct Ord64(f64);
 impl Eq for Ord64 {}
 impl PartialOrd for Ord64 {
-    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, o: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(o))
     }
 }
 impl Ord for Ord64 {
-    fn cmp(&self, o: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, o: &Self) -> core::cmp::Ordering {
         self.0
             .partial_cmp(&o.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .unwrap_or(core::cmp::Ordering::Equal)
     }
 }
 

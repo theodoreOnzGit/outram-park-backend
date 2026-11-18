@@ -27,7 +27,10 @@
 //! Verified by round trip: `write -> read_nuclear_data` returns the same
 //! input (`tests::written_nuclear_data_reads_back_identically`).
 
-use std::fmt::Write as _;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt::Write as _;
 
 use crate::genfoam::neutronics::xs::input::{NuclearDataInput, ZoneConstantsInput, ZoneStateInput};
 
@@ -141,7 +144,7 @@ mod tests {
     use super::*;
     use crate::genfoam::neutronics::xs::input::StateInput;
     use crate::genfoam::neutronics::xs::variables::{VariableLaw, XsVariable};
-    use std::collections::BTreeMap;
+    use alloc::collections::BTreeMap;
 
     fn zone_at(name: &str, f: f64, constants: bool) -> ZoneStateInput {
         ZoneStateInput {
@@ -164,6 +167,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     /// Two states (ln T), two zones, no delayed groups: written, read back
     /// with the upstream-schema reader, identical to 1e-9 relative.
     #[test]

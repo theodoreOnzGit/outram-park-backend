@@ -23,10 +23,16 @@
 //! walks `Map<label>::toc()`, which is ascending only while the labels are below the initial
 //! table size of 128, and `sortedOrder` on it is computed but never used (see the V&V README).
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
+#[cfg(feature = "std")]
 use std::path::Path;
 
-use outram_foam_basic_lib::io::{write_label_list_esi, EsiWriteOptions, IoError, MeshFace, PolyMesh};
+use outram_foam_basic_lib::io::{EsiWriteOptions, IoError, MeshFace, PolyMesh};
+#[cfg(feature = "std")]
+use outram_foam_basic_lib::io::write_label_list_esi;
 use outram_foam_basic_lib::mesh::{BoundaryPatch, PatchKind};
 
 use super::geom::GeomDecomp;
@@ -184,10 +190,10 @@ pub fn decompose_mesh(mesh: &PolyMesh, cell_to_proc: &[usize], n_procs: usize) -
         let points: Vec<usize> = (0..in_use.len()).filter(|&i| in_use[i]).collect();
         procs.push(ProcessorAddressing {
             points,
-            faces: std::mem::take(&mut faces[p]),
-            cells: std::mem::take(&mut cells[p]),
-            patch_sizes: std::mem::take(&mut patch_sizes[p]),
-            patch_starts: std::mem::take(&mut patch_starts[p]),
+            faces: core::mem::take(&mut faces[p]),
+            cells: core::mem::take(&mut cells[p]),
+            patch_sizes: core::mem::take(&mut patch_sizes[p]),
+            patch_starts: core::mem::take(&mut patch_starts[p]),
             nbr_procs,
             nbr_sizes,
             nbr_starts,
@@ -292,6 +298,7 @@ impl ProcessorAddressing {
     }
 }
 
+#[cfg(feature = "std")]
 /// Write `<case>/processor<N>/constant/polyMesh/` for every processor: the five mesh files and
 /// the four `*ProcAddressing` files, as `decomposePar` does. `IOstream::minPrecision(10)` is
 /// applied: the precision is the larger of `opts.precision` and 10.

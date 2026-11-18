@@ -111,6 +111,9 @@
 //! porous two-fluid momentum solver (bead op-p6p.7.11) exists to drive these
 //! closures end-to-end.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::{FfDragCoefficient, FfInterfacialState, TwoPhaseDragMultiplier};
 use crate::genfoam::thermal_hydraulics::units::reynolds_number;

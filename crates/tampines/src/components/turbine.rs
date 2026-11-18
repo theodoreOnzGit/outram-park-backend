@@ -10,6 +10,9 @@
 //! (`tampines-steam-tables/verification_and_validation/hem_network_junctions.md`).
 //! This struct is the steady turbine sizing/rating wrapper and is separate from it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::hem::HemSteamCv;
 use crate::TampinesError;
 use uom::si::f64::{Pressure, Ratio};

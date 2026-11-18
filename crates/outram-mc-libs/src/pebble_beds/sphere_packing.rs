@@ -50,10 +50,13 @@
 //! `_RectangularPrism` container (line 253), `pack_spheres` (line 1210). The
 //! high-packing-fraction DEM methods draw on Tan et al. — see [`super::references`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::geometry::position::Position;
 use crate::rng::lcg::prn;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// Maximum packing fraction Random Sequential Addition can reach in practice.
 ///
@@ -172,7 +175,7 @@ impl PackingConfig {
 /// `int(pf*domain.volume//volume)` (`openmc/model/triso.py:1308`).
 fn sphere_count(radius: f64, half_width: f64, packing_fraction: f64) -> usize {
     let v_cube = (2.0 * half_width).r_powi(3);
-    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
+    let v_sphere = 4.0 / 3.0 * core::f64::consts::PI * radius.r_powi(3);
     (packing_fraction * v_cube / v_sphere).floor() as usize
 }
 
@@ -544,7 +547,7 @@ impl PackedSpheres {
     /// the requested target to within one sphere's worth of volume (the floor in
     /// [`sphere_count`]).
     pub fn packing_fraction(&self) -> f64 {
-        let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * self.radius.r_powi(3);
+        let v_sphere = 4.0 / 3.0 * core::f64::consts::PI * self.radius.r_powi(3);
         let v_cube = (2.0 * self.half_width).r_powi(3);
         self.spheres.len() as f64 * v_sphere / v_cube
     }
@@ -613,7 +616,7 @@ mod tests {
         }
 
         // Realized packing fraction within one sphere's worth of the target.
-        let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
+        let v_sphere = 4.0 / 3.0 * core::f64::consts::PI * radius.r_powi(3);
         let one_sphere_pf = v_sphere / (2.0 * half).r_powi(3);
         assert!(
             (packed.packing_fraction() - pf).abs() <= one_sphere_pf + 1e-9,

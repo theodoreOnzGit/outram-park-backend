@@ -41,7 +41,11 @@
 //!   Rip; Rip Fill (capping the slit) composes it with
 //!   [`crate::fill_holes`].
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::{BTreeMap, BTreeSet};
+use crate::hash::{HashMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh};
@@ -163,7 +167,7 @@ pub fn separate_loose_parts(mesh: &Mesh) -> Vec<Mesh> {
             compact(&positions, &picked)
         })
         .collect();
-    out.sort_by_key(|m| std::cmp::Reverse(m.face_count()));
+    out.sort_by_key(|m| core::cmp::Reverse(m.face_count()));
     out
 }
 

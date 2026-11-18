@@ -26,8 +26,11 @@
 //! friction factor `f = 64/Re`. The hydrodynamic development length (to 99 %
 //! of the developed centreline velocity, uniform inlet) is taken from Durst
 //! et al. (2005), see [`PipeFlow::durst_development_length`].
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::*;
 use uom::si::acceleration::meter_per_second_squared;

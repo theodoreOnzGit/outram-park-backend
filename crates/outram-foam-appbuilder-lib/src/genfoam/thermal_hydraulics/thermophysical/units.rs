@@ -28,6 +28,9 @@
 //!
 //! All quantities are SI (`p` in Pa, `T` in K).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Mass density `rho` — **base SI: kg / m^3**.
 pub type MassDensity = uom::si::f64::MassDensity;
 

@@ -27,6 +27,9 @@
 //! The volumes of the tile backgrounds are counted in one pool (the
 //! hopper's volume less every kept ball), as a packed sphere's matrix is.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::bed::{BedLayout, PieceGeom};
 use super::census::Arrangement;
@@ -41,7 +44,7 @@ use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice as CsgLattice
 use crate::geometry::position::Position;
 use crate::geometry::surface::{BoundaryType, Sphere as CsgSphere, SurfaceKind};
 use crate::geometry::universe::Universe;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 use uom::si::f64::Length;
 use uom::si::length::centimeter;
 
@@ -236,7 +239,7 @@ impl Lowering {
 
         // The pool that counts the tile backgrounds' volume.
         let m = self.material_index(&tile.material, t, masses)?;
-        let ball_v = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
+        let ball_v = 4.0 / 3.0 * core::f64::consts::PI * r.r_powi(3);
         let tile_v = prism.volume_cm3();
         let hopper_v = hopper.volume_cm3();
         let pool = self.pools.len();

@@ -34,6 +34,9 @@
 //! residual or the Newton step is likewise reported as a `Convergence` failure
 //! rather than propagated silently.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod block;
 
 pub use block::{

@@ -59,6 +59,9 @@
 //! > safety-critical, or licensing decisions. Independent OUTRAM PARK fork, not
 //! > the official DWSIM.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::{BinaryInteraction, CubicEos, Phase, R};
 use crate::thermo::Component;

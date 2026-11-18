@@ -39,6 +39,8 @@
 //! Set `OUTRAM_PLOT_OUT=<dir>` to keep this crate's PNGs (that is how
 //! `geometry_plotting/outram/` was produced).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use std::path::PathBuf;
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};

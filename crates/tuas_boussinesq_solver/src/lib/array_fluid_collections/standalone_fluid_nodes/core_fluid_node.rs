@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use ndarray::*;
 use uom::num_traits::Zero;
 use uom::si::f64::*;
@@ -367,6 +370,7 @@ pub fn advance_timestep_fluid_node_array_pipe_high_peclet_number(
     return Ok(temperature_vector);
 }
 
+#[cfg(feature = "std")]
 /// basically I'm trying to set up basic pipe calculations with
 /// solid arrays and fluid arrays before I put them together into
 /// an insulated fluid component
@@ -384,6 +388,7 @@ pub fn fluid_node_calculation_initial_test() {
         thread,
     };
 
+    #[cfg(feature = "std")]
     use csv::Writer;
     use ndarray::*;
     use uom::si::f64::*;
@@ -833,6 +838,7 @@ pub fn fluid_node_calculation_initial_test() {
     return ();
 }
 
+#[cfg(feature = "std")]
 /// basically I'm trying to set up basic pipe calculations with
 /// solid arrays and fluid arrays before I put them together into
 /// an insulated fluid component
@@ -849,6 +855,7 @@ pub fn fluid_node_backflow_calculation_initial_test() {
         thread,
     };
 
+    #[cfg(feature = "std")]
     use csv::Writer;
     use ndarray::*;
     use uom::si::f64::*;

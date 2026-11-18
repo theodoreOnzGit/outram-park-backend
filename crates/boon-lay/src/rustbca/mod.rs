@@ -160,8 +160,9 @@
 //!     parenthesis was wrong while they were here: in boon-lay's build
 //!     `num-traits/std` was unified on, so `rand_distr`'s `exp`/`ln` were the
 //!     platform libm, not `libm` (checked with `cargo tree -e features -i
-//!     num-traits`). `getrandom` 0.3 only under `rustbca-std`; `anyhow`, `serde` from the
-//!     workspace; `itertools`, `indicatif`, `geo` 0.25 and `toml` only under
+//!     num-traits`). `getrandom` 0.3 only under `rustbca-std`; ~~`anyhow`, `serde` from the
+//!     workspace~~ **CORRECTED 2026-11-17 (item 13):** `anyhow` from the
+//!     workspace's `anyhow-nostd`, `serde` only with `std`; `itertools`, `indicatif`, `geo` 0.25 and `toml` only under
 //!     `rustbca-std` (`geo` also as a dev-dependency); `float-cmp` 0.10 as a
 //!     dev-dependency for upstream's tests. All versions live in the root
 //!     `[workspace.dependencies]`.
@@ -188,6 +189,14 @@
 //!     there and PETIR uses `libm`'s (9 of 8 million standard-normal draws;
 //!     see the PETIR test's docs). Upstream RustBCA samples `Normal` only for
 //!     input distributions, never inside a cascade.
+//! 13. **`serde` only with `std`** (gh:#1634, 2026-11-17). Every
+//!     `Serialize` / `Deserialize` derive and `#[serde(...)]` attribute is now
+//!     `#[cfg_attr(feature = "std", ...)]`, and `use serde::*` is
+//!     `#[cfg(feature = "std")]`. Serde only parses the TOML / JSON input files,
+//!     which are `std`-only, and a renamed no-std `serde` cannot be used by the
+//!     derive output. Without `std` the types are unchanged but carry no serde
+//!     impls. `anyhow` is the workspace's `anyhow-nostd` (default features
+//!     off; `std` turns them back on). No physics line changed.
 //!
 //! The physics code itself (collision kinematics, scattering integrals,
 //! stopping powers, geometry logic) is otherwise unchanged.
@@ -214,6 +223,7 @@ use alloc::vec::Vec;
 use anyhow::{Result, Context, anyhow};
 
 //Serializing/Deserializing crate
+#[cfg(feature = "std")]
 use serde::*;
 
 //I/O

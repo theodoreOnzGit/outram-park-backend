@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// function to test uncalibrated
 /// coupled dracs loop and compare with experimental data
 /// this is more of a regression function, so I want to check the
@@ -426,6 +429,7 @@ pub fn regression_dracs_loop_v1(
         current_simulation_time += timestep;
     }
 
+    #[cfg(feature = "std")]
     dbg!(&(
         input_power,
         final_mass_flowrate_pri_loop,

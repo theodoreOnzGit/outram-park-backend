@@ -39,6 +39,9 @@
 //! - [`laplacian_deform`] — anchored deformation; forwards to
 //!   [`crate::arap::arap_deform`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh, VertexId};
 use crate::selection::Axis;
@@ -236,7 +239,7 @@ pub fn lattice_deform(mesh: &Mesh, lat: &Lattice) -> Mesh {
 /// `from` out to `falloff_radius` (`0` = rigid within the whole selection).
 pub fn hook(mesh: &Mesh, verts: &[VertexId], from: Vec3, to: Vec3, falloff_radius: f64) -> Mesh {
     let delta = to.sub(from);
-    let sel: std::collections::BTreeSet<usize> = verts.iter().map(|v| v.0).collect();
+    let sel: alloc::collections::BTreeSet<usize> = verts.iter().map(|v| v.0).collect();
     let positions: Vec<Vec3> = mesh
         .positions()
         .iter()

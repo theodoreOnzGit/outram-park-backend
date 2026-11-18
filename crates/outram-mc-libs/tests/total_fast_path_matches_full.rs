@@ -25,6 +25,8 @@
 //! and defers to the full evaluation. H-1 with `c_H_in_H2O` is included here
 //! precisely to exercise that path — on a thermal lattice, getting it wrong
 //! shifts `k` in the way that is hardest to notice.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![allow(deprecated)] // gh:#462 (audited 2026-11-14, gh:#1581): nuclide-level test or probe; it builds one bound nuclide and no material references it, so there is no free material that could receive the bound law. Not migrated: the nuclide-level binding is what it exercises.
 
 use petir::mathf::RealMath;

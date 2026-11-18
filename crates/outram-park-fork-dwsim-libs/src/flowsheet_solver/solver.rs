@@ -134,8 +134,12 @@
 //! analytically known answers. Not for nuclear facility operation, reactor
 //! control, safety-critical decisions, or licensing.
 
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
+use core::time::Duration;
+use crate::time::Instant;
 
 use uom::si::f64::Time;
 use uom::si::time::second;
@@ -639,7 +643,7 @@ impl FlowsheetSolver {
 
         outcome.solved = outcome.errors.is_empty();
         flowsheet.solved = outcome.solved;
-        flowsheet.error_message = outcome.errors.first().map(std::string::ToString::to_string);
+        flowsheet.error_message = outcome.errors.first().map(alloc::string::ToString::to_string);
         outcome.elapsed = started.elapsed();
         outcome
     }
@@ -705,7 +709,7 @@ impl FlowsheetSolver {
         evaluator: &mut E,
         options: &SolveOptions,
     ) -> Result<AdjustSolveReport, SolverError> {
-        let adjusts = std::mem::take(&mut self.adjusts);
+        let adjusts = core::mem::take(&mut self.adjusts);
         let abort = self.abort.clone();
         let mut inner = options.clone();
         inner.adjusting = true;

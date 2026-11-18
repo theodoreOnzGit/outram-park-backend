@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// This next set of tests shows explicitly what we need to do in
 /// the fluid component collection in order to get natural circulation
 ///

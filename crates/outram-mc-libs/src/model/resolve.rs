@@ -21,6 +21,9 @@
 //! and O-18 fold into O-16, Ta-180m into Ta-181 and W-180 into W-182 (and the
 //! report says so); anything else missing is an error.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{MassDensity, Pressure, ThermodynamicTemperature};
 use uom::si::mass_density::gram_per_cubic_centimeter;
 use uom::si::ratio::ratio;
@@ -225,8 +228,8 @@ impl NumberDensityComparison {
     }
 }
 
-impl std::fmt::Display for NumberDensityComparison {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for NumberDensityComparison {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(
             f,
             "  nuclide   {:>14}   {:>14}   rel. diff  [atoms/b-cm]",

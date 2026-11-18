@@ -23,6 +23,9 @@
 //! comparison against a separately executed GeN-Foam run — no GeN-Foam
 //! executable is available in this environment).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::boiling::{
     multi_regime_boiling_htc, superposition_nucleate_boiling_htc, MultiRegimeBoilingInputs,

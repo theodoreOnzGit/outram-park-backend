@@ -37,6 +37,9 @@
 
 //! The ensemble Kalman filter (FilterPy's `EnsembleKalmanFilter`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::numpy_ops::{mean_rows, outer, sum_matrices, Matrix};
 use crate::distributions::seeded::sample_normal;
 use crate::{RafflesError, Result};

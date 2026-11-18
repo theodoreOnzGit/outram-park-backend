@@ -51,6 +51,9 @@
 //! until the caller states the ring mapping with
 //! `RadionuclideInventory::with_regions`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use boon_lay::triso_atops_fork::accident::distribute_inventory_axially;
 use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::find_nuclide;
 use boon_lay::triso_atops_fork::run_selection::normalise_nuclide_name;

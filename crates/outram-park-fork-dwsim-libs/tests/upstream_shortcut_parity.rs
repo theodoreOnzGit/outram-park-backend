@@ -33,7 +33,8 @@
 //! (Crout, dot-product order) reproduces the port's two values bit for bit
 //! (`fug_port_lu_control.py`). So the first divergent operation is the dense
 //! solve in the distributed-key branch (`ShortcutColumn.vb:380`), an accepted
-//! round-off-level difference (< 1e-8), flagged for the maintainer. **Upstream
+//! round-off-level difference (< ~~1e-8~~ 1e-9 since 2026-11-17, gh:#1614; the
+//! rows checked on 2026-11-17 are bit-identical), flagged for the maintainer. **Upstream
 //! behaviour noted, not a port defect:** both codes return a NEGATIVE `Rmin`
 //! (-6.4e-3, -2.8e-2... see the q = 0.8 distributed rows) for a subcooled-liquid
 //! feed in the distributed-key branch, and upstream's `Rmin > R` guard cannot

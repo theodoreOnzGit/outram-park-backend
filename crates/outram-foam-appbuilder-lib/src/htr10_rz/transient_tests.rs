@@ -6,6 +6,9 @@
 //! The coupled LOFC / CRW validation is in `tampines`
 //! (`verification_and_validation/htr10_rz_transients/README.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::energy::joule;
 use uom::si::f64::{MassRate, Power, Pressure, ThermodynamicTemperature, Time};

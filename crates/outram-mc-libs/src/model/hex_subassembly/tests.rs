@@ -1,6 +1,9 @@
 //! Tests of [`super`] (gh #1327). Every dimension is a generic round
 //! number, not any reactor's design.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::model::isotope::isotopes::{Fe56, Na23, U235, U238};
 use crate::model::shape::Shape;
@@ -267,7 +270,7 @@ fn volume_fractions_analytic_and_sampled() {
     let half_x = f_out / 3.0_f64.sqrt(); // circumradius, vertices on +-x
     let half_y = 0.5 * f_out;
     let m = 1201;
-    let mut counts = std::collections::HashMap::<String, usize>::new();
+    let mut counts = crate::hash::HashMap::<String, usize>::new();
     let mut inside = 0usize;
     for i in 0..m {
         for j in 0..m {

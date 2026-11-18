@@ -55,6 +55,9 @@
 //!   (weighted averages and the `χ²/dof` scale-factor test).
 //! - C. E. Bonferroni (1936); any text on multiple comparisons.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::distributions::special;
 use crate::{RafflesError, Result};

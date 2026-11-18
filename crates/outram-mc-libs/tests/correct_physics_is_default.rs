@@ -12,6 +12,8 @@
 //!
 //! This test fails if either default is ever silently turned back off.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::nuclide::Nuclide;
 use njoy_outram_park_fork::reference_data::reference_endf;
 

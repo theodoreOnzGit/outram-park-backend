@@ -20,6 +20,9 @@
 //! [`run_keff_cpu_multi`]: crate::physics::keff::run_keff_cpu_multi
 //! [`run_keff_gpu`]: crate::physics::keff::run_keff_gpu
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Which compute backend a Monte Carlo transport driver uses to execute its
 /// per-generation neutron histories.
 ///
@@ -136,7 +139,7 @@ impl ThreadCount {
     /// on Android — a phone just reports fewer cores).
     pub fn resolve(self) -> usize {
         fn logical_cores() -> usize {
-            std::thread::available_parallelism()
+            crate::thread::available_parallelism()
                 .map(|n| n.get())
                 .unwrap_or(1)
         }

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boussinesq_thermophysical_properties::Material;
 use crate::single_control_vol::SingleCVNode;

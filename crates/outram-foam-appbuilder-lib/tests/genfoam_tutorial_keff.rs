@@ -108,6 +108,8 @@
 //! thermal-hydraulic (`Tfmax`, subchannel conditions) rather than `k_eff`, and
 //! which need the porous-medium TH path rather than the neutronics one.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;

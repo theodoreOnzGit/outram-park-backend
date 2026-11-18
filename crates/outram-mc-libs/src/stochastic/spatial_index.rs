@@ -38,6 +38,9 @@
 //! inclusion sphere moves. Reusing versus rebuilding it is an open question the
 //! benchmark should settle rather than a decision to make up front.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Position;
 use crate::stochastic::scls::ParticleHistory;
 
@@ -277,7 +280,7 @@ fn build_subtree(
     idx.sort_by(|&a, &b| {
         let ca = KdTreeIndex::coord(histories[a as usize].center, axis);
         let cb = KdTreeIndex::coord(histories[b as usize].center, axis);
-        ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
+        ca.partial_cmp(&cb).unwrap_or(core::cmp::Ordering::Equal)
     });
     let mid = idx.len() / 2;
     let hist = idx[mid];

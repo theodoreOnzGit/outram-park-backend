@@ -79,6 +79,9 @@
 //! copies — no edition, year or page number is given, and none should be
 //! added without checking.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::{angular_velocity::radian_per_second, f64::*, time::second};
@@ -209,7 +212,7 @@ impl DiscreteTransferFn {
 fn prewarp_beta(w0: AngularVelocity, t_s: f64) -> Result<f64, ZDomainError> {
     let w0 = w0.get::<radian_per_second>();
     let half_angle = w0 * t_s / 2.0;
-    if !(w0 > 0.0) || half_angle >= std::f64::consts::FRAC_PI_2 {
+    if !(w0 > 0.0) || half_angle >= core::f64::consts::FRAC_PI_2 {
         return Err(ZDomainError::InvalidPrewarpFrequency);
     }
     Ok(w0 / half_angle.r_tan())

@@ -1,8 +1,11 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// checks whether constructor for Du shell and tube heat
 /// exchanger is working properly
 #[test]
 pub fn du_heat_exchanger_constructor_test() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::angle::degree;
     //use uom::si::heat_transfer::watt_per_square_meter_kelvin;
@@ -221,7 +224,7 @@ pub fn du_heat_exchanger_constructor_test() {
 /// is working properly
 #[test]
 pub fn insulated_sthe_constructor_test() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::angle::degree;
     //use uom::si::heat_transfer::watt_per_square_meter_kelvin;

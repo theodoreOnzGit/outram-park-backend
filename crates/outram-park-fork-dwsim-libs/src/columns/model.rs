@@ -76,6 +76,9 @@
 //!   `BubblePoint.vb:88`) — spec values are taken in SI here, with the
 //!   molar/mass **basis** distinction preserved as [`SpecBasis`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::catalytic_activity::katal;
 use uom::si::f64::{CatalyticActivity, MolarEnergy, Power, Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::molar_energy::joule_per_mole;

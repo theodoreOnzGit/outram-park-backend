@@ -55,6 +55,9 @@
 //!   denominator, so the neglected covariance is negative and the quoted `std`
 //!   is **conservative** (larger than the true correlated 1σ).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::geometry::Geometry;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
@@ -383,8 +386,8 @@ pub enum ReactorPhysicsError {
     BadEnergyGrid,
 }
 
-impl std::fmt::Display for ReactorPhysicsError {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ReactorPhysicsError {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::NoFuelMaterial => write!(
                 fmt,
@@ -399,7 +402,7 @@ impl std::fmt::Display for ReactorPhysicsError {
     }
 }
 
-impl std::error::Error for ReactorPhysicsError {}
+impl core::error::Error for ReactorPhysicsError {}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Energy grid
@@ -939,6 +942,7 @@ mod tests {
 
     fn log_report(tag: &str, report: &ReactorPhysicsReport) {
         let sf = &report.six_factors;
+        #[cfg(feature = "std")]
         eprintln!(
             "[reactor_physics {tag}] k = {:.5} ± {:.5} | eta {:.4} f {:.4} p {:.4} eps {:.4} \
              P_FNL {:.4} P_TNL {:.4} | k_4f {:.5} leak {:.4} gap {:+.2}% consistent={}",

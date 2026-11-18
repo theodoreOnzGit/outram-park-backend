@@ -14,8 +14,9 @@
 //!
 //! **Pass criterion.** Bit-identical results, and the same number and the same
 //! bits of `ptlegc` points. Round-off-level differences are reported if they
-//! occur (the workspace's code-to-code allowance, < 1e-8 relative with an
-//! understood cause), never absorbed silently.
+//! occur (the workspace's code-to-code allowance, < ~~1e-8~~ 1e-9 relative
+//! since 2026-11-17, with an understood cause), never absorbed silently.
+//! Worst measured 2026-11-17: 1.5e-16 (gh:#1614).
 //!
 //! **Result (2026-11-11, rustc 1.99.1, PETIR maths against glibc).** See the
 //! assertions' messages; the counts are printed with `--nocapture`.

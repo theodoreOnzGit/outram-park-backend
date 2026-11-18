@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::alpha_nightly::transfer_fn_wrapper_and_enums::{TransferFnFirstOrder, TransferFnTraits};
 use uom::si::f64::*;
 use uom::ConstZero;
@@ -81,6 +84,7 @@ impl TransferFnTraits for FilteredDerivativeController {
             .set_user_input_and_calc(user_input, time_of_input)
     }
 
+    #[cfg(feature = "std")]
     fn spawn_writer(
         &mut self,
         name: String,
@@ -89,6 +93,7 @@ impl TransferFnTraits for FilteredDerivativeController {
             .spawn_writer(name + "_filtered_derivative_controller_")
     }
 
+    #[cfg(feature = "std")]
     fn csv_write_values(
         &mut self,
         wtr: &mut csv::Writer<std::fs::File>,

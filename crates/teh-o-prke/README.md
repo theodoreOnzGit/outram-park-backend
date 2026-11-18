@@ -8,6 +8,21 @@ Point Reactor Kinetics Equations Module for the Teh-O package
 Teh-O is the Transport, Eigenvalue and Hybrid Open Source Solver. It is meant to 
 sound like Teh-O from Southeast Asia (Singapore Specifically).
 
+## `no_std` + `alloc` (gh:#1600)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p teh-o-prke --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every model builds without it: the
+zero-power and n-group PRKEs, the six-group solvers (`ndarray` without its
+`std` feature), the feedback mechanisms, decay heat, the point reactor, the
+Nordheim-Fuchs stepper (including its first-order actuator lag, through
+`chem-eng-real-time-process-control-simulator`, itself `no_std` since
+gh:#1612) and the delayed-neutron layer. `std` adds only what the crate's
+dependencies carry under theirs (chem-eng's CSV helpers); the library itself
+prints and reads clocks only in tests. With `std` on (the default) nothing
+changes.
+
 ## FHR Educational Simulator
 
 To showcase teh-o-prke, an FHR educational simulator was constructed.

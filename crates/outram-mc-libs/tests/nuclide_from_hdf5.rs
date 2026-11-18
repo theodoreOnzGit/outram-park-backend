@@ -34,6 +34,8 @@
 //! is `band_xs_from_hdf5_reader.rs`'s job), and U-235 itself is refused by
 //! `from_hdf5` because its fission and continuum laws are not decoded.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::acer::ce_decode::{decode_ce, CeNeutronAce};
 use njoy_outram_park_fork::acer::ce_laws::decode_angular;
 use njoy_outram_park_fork::acer::read::AceFileType;

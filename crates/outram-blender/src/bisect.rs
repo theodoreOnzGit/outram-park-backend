@@ -41,9 +41,12 @@
 //! original edge, so the result stays manifold along the cut rather than
 //! splitting into a crack. No `faer`, no external dependency; Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// One clipped-polygon vertex: either an original mesh vertex that survived, or
 /// a new point where the plane crossed an original edge.
@@ -147,7 +150,7 @@ mod tests {
     use super::*;
     use crate::fill_holes::fill_holes;
     use crate::primitives;
-    use std::collections::HashSet;
+    use crate::hash::HashSet;
 
     /// Six times the signed volume of the mesh as-wound (positive = outward).
     fn signed_volume6(mesh: &Mesh) -> f64 {

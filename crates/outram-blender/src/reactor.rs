@@ -51,12 +51,15 @@
 //! > Not for reactor operation, licensing, or safety-critical use. Independent
 //! > OUTRAM PARK work; not affiliated with the HTR-10 designers.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fill_holes::fill_holes;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use crate::recalc_normals::recalculate_normals;
 use crate::revolve::revolve;
-use std::f64::consts::TAU;
+use core::f64::consts::TAU;
 
 /// Default number of circumferential segments in a revolved envelope — a
 /// compromise between a smooth wall and a light triangle count. The faceted
@@ -230,8 +233,8 @@ fn meridian_profile(dims: &Htr10CoreDimensions) -> Vec<Vec3> {
 mod tests {
     use petir::mathf::RealMath;
     use super::*;
-    use std::collections::HashSet;
-    use std::f64::consts::PI;
+    use crate::hash::HashSet;
+    use core::f64::consts::PI;
 
     /// Enclosed volume (m³) of the mesh as-wound, via the divergence-theorem
     /// tetra-fan sum `Σ p0 · (pi × pi+1) / 6`. Sign follows the winding; we take

@@ -35,8 +35,11 @@
 //!   [`crate::weld::weld`] / Blender's *Merge by Distance* and the operation
 //!   an **Auto-Merge** editor toggle runs after each edit.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, Mesh, VertexId};

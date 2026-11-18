@@ -1,5 +1,8 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::angle::degree;
 use uom::si::f64::*;
@@ -244,6 +247,7 @@ pub fn gfhr_pipe_with_custom_graphite_material() {
     let inlet_temperature: ThermodynamicTemperature = temperature_vector[0];
     // this is also a sensing of how much mass flowrate you get
     let test_mass_flowrate = pipe_1.get_mass_flowrate_from_pressure_loss_immutable(test_pressure);
+    #[cfg(feature = "std")]
     dbg!(&(outlet_temperature, inlet_temperature, test_mass_flowrate));
     // outlet temp is around 1274 Kelvin
     approx::assert_relative_eq!(

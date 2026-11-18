@@ -1,5 +1,8 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use crate::boussinesq_thermophysical_properties::Material;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;

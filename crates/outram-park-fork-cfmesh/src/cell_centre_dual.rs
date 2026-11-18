@@ -43,6 +43,9 @@
 //! ring is planar or that its dual cells are convex, so the pipeline keeps the
 //! result only if it is closed and has no inverted cell.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
 use outram_foam_basic_lib::mesh::{BoundaryPatch as FoamPatch, PatchKind};

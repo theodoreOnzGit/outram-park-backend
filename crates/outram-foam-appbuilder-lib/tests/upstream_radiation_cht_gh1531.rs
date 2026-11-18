@@ -19,6 +19,8 @@
 //! `qr` by default (`InterfaceRadiation::Auto`); the qr-less references are compared with the explicit
 //! ablation `without_radiative_flux_coupling`.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::io::control_dict::ControlDict;
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;
@@ -217,7 +219,7 @@ fn coupled_p1_matches_upstream_chtmultiregionfoam() {
     assert!(w.t_solid < 2e-11, "{w:?}");
     assert!(w.g_rel < 1e-9, "{w:?}");
     assert!(w.gb_rel < 1e-9, "{w:?}");
-    assert!(w.qr_rel < 1e-8, "{w:?}");
+    assert!(w.qr_rel < 1e-9, "{w:?}");
 }
 
 /// Ablation (prediction 2): the same port without radiation differs from ESI-with-radiation by
@@ -247,7 +249,7 @@ fn solver_freq_three_matches_upstream() {
     let w = run(&mut cht, &reference, N_STEPS, verbose());
     eprintln!("cht+P1 solverFreq 3 vs ESI v2506: {w:?}");
     assert!(w.t_fluid < 5e-11 && w.t_solid < 2e-11, "{w:?}");
-    assert!(w.g_rel < 1e-9 && w.gb_rel < 1e-9 && w.qr_rel < 1e-8, "{w:?}");
+    assert!(w.g_rel < 1e-9 && w.gb_rel < 1e-9 && w.qr_rel < 1e-9, "{w:?}");
 }
 
 /// qr coupling (2026-11-14): the DEFAULT port (nothing asked for) against ESI with `qr qr` / `qrNbr qr` on the
@@ -262,7 +264,7 @@ fn default_qr_coupling_matches_upstream_rad_coupled_mixed() {
     assert!(w.t_fluid < 5e-11, "{w:?}");
     assert!(w.t_solid < 2e-11, "{w:?}");
     assert!(w.g_rel < 1e-9 && w.gb_rel < 1e-9, "{w:?}");
-    assert!(w.qr_rel < 1e-8, "{w:?}");
+    assert!(w.qr_rel < 1e-9, "{w:?}");
 }
 
 /// Ablation (Q3, Q4): ESI itself moves by the qr term (>= 1e-3 K, lower in the interface cells), and the port with

@@ -24,6 +24,9 @@
 //! two can always be matched. Changing a case after it has produced a record
 //! means giving it a new name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 

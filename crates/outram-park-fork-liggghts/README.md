@@ -19,6 +19,24 @@ LIGGGHTS/LAMMPS — see NOTICE for the licensing flag.
 > provenance. LAMMPS-proper headers are version-unspecified (murkier) — treat
 > those with care. Phase 1 is clean-room from public DEM literature regardless.
 
+## `no_std` + `alloc` (gh:#1602)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-park-fork-liggghts --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). The DEM itself (particles, contact
+models, walls, meshes, insertion, integration, thermal and capillary
+models, the `htr10_fill` pour) and the `gnn` bridge build without it. What
+`std` adds:
+
+- `rayon`. Without it the parallel loops run serially through `wasm_par`,
+  as on wasm, and `ThreadCount` resolves to one core.
+- the GPU path (`gpu`, `wgpu`).
+- files and printing.
+
+The root workspace entry is `default-features = false`, so a member that
+wants `std` asks for it. With `std` on (the default) nothing changes.
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.

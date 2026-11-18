@@ -7,6 +7,9 @@
 //! portable source -- see [`petalas_aziz`]'s module doc for the literature
 //! review and why it is a documented stub, not a port.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod beggs_brill;
 pub mod friction_factor;

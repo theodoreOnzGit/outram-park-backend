@@ -78,9 +78,12 @@
 //! A first-order lag carries **one** state variable, not a history of every
 //! input it has ever seen.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
-use std::collections::VecDeque;
+use alloc::collections::VecDeque;
 
 use uom::{
     si::{f64::*, ratio::ratio, time::second},

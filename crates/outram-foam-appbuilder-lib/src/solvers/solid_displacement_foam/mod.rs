@@ -69,7 +69,10 @@
 //!
 //! Units: SI base units as raw `f64` (the FV operator layer is un-`uom`'d).
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;
@@ -393,8 +396,8 @@ pub struct SolidDisplacementFoamEsi {
     zero_gradient_boundary_grad: bool,
 }
 
-impl std::fmt::Debug for FaceGeometry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for FaceGeometry {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "FaceGeometry({} faces)", self.mag_sf.len())
     }
 }
@@ -473,7 +476,7 @@ impl SolidDisplacementFoamEsi {
             || mesh.patches.iter().any(|p| p.kind == PatchKind::Empty);
         if bad {
             return Err(AppBuilderError::Case {
-                case: std::path::PathBuf::new(),
+                case: crate::path::PathBuf::new(),
                 msg: "solidDisplacementFoam: one D (and T) patch condition per patch, no empty patches".to_string(),
             });
         }

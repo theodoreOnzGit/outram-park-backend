@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use uom::si::f64::*;

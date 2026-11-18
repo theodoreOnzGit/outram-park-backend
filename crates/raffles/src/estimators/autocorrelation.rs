@@ -65,6 +65,9 @@
 //!   calculations. *Nuclear Science and Engineering, 145*, 279–290 — the
 //!   power-iteration motivation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Sokal's window constant `c`: the window `M` is the smallest with
 /// `M ≥ c·τ(M)`. Fixed in advance at Sokal's recommended `5`.

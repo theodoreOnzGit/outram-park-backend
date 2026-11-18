@@ -57,6 +57,22 @@
 //!     over 64 seeds, against the 1024-seed record −6 ± 5.
 //! - The browser leg (headless Chromium) has **not** been re-run against the
 //!   new pins.
+//!
+//! # Re-pinned 2026-11-17 (gh:#1613; maintainer: "Move the pin, that is fine")
+//!
+//! - **Godiva k trace** `0x2611432d237eaafd` -> `0x8b57b82718bc0467`. Stale on
+//!   `develop` itself: `develop` at `79e8e8626` and the no_std branch (#1605)
+//!   give the same fingerprint and the same k bit for bit, so the no_std change
+//!   did not move it. The commit that did was **not bisected**.
+//!   - k: **0.933366474168466 -> 0.933370798120763**, a relative change of
+//!     **4.6e-6** (0.46 pcm), against the run's own ±0.020. That is inside the
+//!     maintainer's bound for a propagated difference (1e-4 relative,
+//!     2026-11-17): in Monte Carlo, a last-bit change anywhere in a history
+//!     changes the random walk that follows, so the fingerprint, which hashes
+//!     every cycle's k, moves on any such change.
+//!   - The other four pins did not move. The browser leg was not re-run.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #[path = "../examples/nd_wasm_probe/probe.rs"]
 #[allow(dead_code)]
 mod probe;
@@ -118,7 +134,7 @@ fn value<'a>(report: &'a str, key: &str) -> &'a str {
 const ZIP_FNV: &str = "0xc85bbd987dade063";
 const INDEX_FNV: &str = "0x0e80455b35bda55c";
 const ACE_FNV: &str = "0xd2477939bbaba20a";
-const GODIVA_K_FNV: &str = "0x2611432d237eaafd";
+const GODIVA_K_FNV: &str = "0x8b57b82718bc0467";
 const ACE_XSS_FNV: &str = "0x9a9dbebd27900700";
 
 fn check(report: &str, key: &str, pinned: &str) {

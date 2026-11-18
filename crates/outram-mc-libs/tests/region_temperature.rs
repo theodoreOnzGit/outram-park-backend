@@ -74,6 +74,7 @@
 //!    857 176 energies; control (293.6 K majorant): **1.314 under at
 //!    6.48 eV** (UO2, the U-238 6.67 eV resonance's wing), inside the
 //!    predicted 1.3x to 4x and at its low end.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use njoy_outram_park_fork::reference_data::reference_endf_dir;

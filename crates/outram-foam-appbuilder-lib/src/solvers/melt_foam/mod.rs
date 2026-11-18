@@ -135,6 +135,9 @@
 //! the latent-heat source by ρ (a factor of ~6000 for gallium) and freeze the
 //! melt front in place.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
@@ -142,7 +145,7 @@ use crate::io::fv_solution::FvSolution;
 use crate::solvers::bc_util::{capture_bcs, correct_bcs, correct_bcs_vec};
 use crate::solvers::pimple_foam::PressureSolver;
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Incompressible transient buoyant PIMPLE solver with phase change.
 ///

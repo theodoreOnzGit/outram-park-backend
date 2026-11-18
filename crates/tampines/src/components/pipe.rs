@@ -8,6 +8,9 @@
 //! ([`outram_park_fork_dwsim_libs::pipe::PipeFlowCorrelation`]) would need if
 //! the flow becomes two-phase.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::compressible::CompressibleFluidArray;
 use crate::single_phase::SinglePhaseFluidArray;
 use tampines_steam_tables::openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray;

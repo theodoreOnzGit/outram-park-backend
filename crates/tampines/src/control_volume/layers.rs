@@ -35,6 +35,9 @@
 //! here a stable column exchanges heat by molecular conduction (see
 //! [`conduct`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Re-layer a Lagrangian column (bottom first) by splitting and merging,
 /// keeping the count `n`, with `t = M / n` the mean layer mass:
 ///

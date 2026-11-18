@@ -108,6 +108,9 @@
 //!   boundary, documented raw `f64` (SI) in the inner assembly loops — per the
 //!   workspace `CLAUDE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
@@ -117,7 +120,7 @@ use outram_foam_basic_lib::prelude::*;
 use outram_foam_multiphase::two_fluid::{DragModel, TwoFluidSystem};
 use outram_foam_multiphase::two_fluid_pimple::TwoFluidPimple;
 use outram_foam_multiphase::MultiphaseError;
-use std::sync::Arc;
+use alloc::sync::Arc;
 use uom::si::f64::{SpecificHeatCapacity, ThermalConductivity, ThermodynamicTemperature};
 use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;

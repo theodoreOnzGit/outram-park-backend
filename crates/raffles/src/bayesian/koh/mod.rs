@@ -49,6 +49,9 @@
 //! `crates/raffles/verification_and_validation/koh_calibration_gh1180.md`,
 //! differential tests `tests/koh_sepia_gh1180.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod data;
 mod model;
 mod sample;

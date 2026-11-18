@@ -46,8 +46,11 @@
 //! only the compact's materials (`materials::mat::COMPACT`), as HTR-10's
 //! covers only its bed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill};
 use outram_mc_libs::geometry::geometry::Geometry;

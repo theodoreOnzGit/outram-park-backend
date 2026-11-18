@@ -42,6 +42,9 @@
 //!   Dusseldorf, 1993, via J.G. Collier and J.R. Thome, *Convective Boiling
 //!   and Condensation*, 3rd ed., pp. 155-158, Oxford University Press, 1994.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::PrandtlNumber;
 use crate::genfoam::thermal_hydraulics::units::{HeatFlux, HeatTransferCoefficient, ReynoldsNumber};

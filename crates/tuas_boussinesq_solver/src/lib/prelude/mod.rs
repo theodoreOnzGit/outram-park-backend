@@ -18,6 +18,9 @@
 //! let _l: Material = therminol.into();
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// for code currently unstable and under development
 pub mod alpha_nightly;
 /// for code currently moving towards a stable API and read for public testing

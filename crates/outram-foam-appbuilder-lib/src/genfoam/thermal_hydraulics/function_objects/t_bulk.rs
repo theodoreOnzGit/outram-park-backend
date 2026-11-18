@@ -32,6 +32,9 @@
 //! upstream's `Tb = hDot/max(hDotByT, 1e-9)`, to avoid a NaN when the patch
 //! carries no flow.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::{SurfaceScalarField, VolScalarField};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -95,7 +98,7 @@ mod tests {
     use outram_foam_basic_lib::fields::{BoundaryCondition, Field, PatchField, VolField};
     use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
     use outram_foam_basic_lib::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// One cell, three boundary faces (unit area each) all on patch
     /// "outlet", no internal faces — same fixture shape as

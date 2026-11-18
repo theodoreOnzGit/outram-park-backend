@@ -73,6 +73,8 @@
 //! distances on the composite regions, points within 1e-9 of a surface, and
 //! whether Polygon's convex pieces match upstream's (they need not).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use std::f64::consts::PI;
 use std::path::PathBuf;
 

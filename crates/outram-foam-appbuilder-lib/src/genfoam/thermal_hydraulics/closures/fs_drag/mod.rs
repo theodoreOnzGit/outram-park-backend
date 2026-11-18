@@ -58,6 +58,9 @@
 //!   A.A. Bishop, "Laminar, transition, and turbulent parallel flow pressure
 //!   drop across wire-wrap-spaced rod bundles", *Nucl. Sci. Eng.* 69, 1979.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::genfoam::thermal_hydraulics::units::{DarcyFrictionFactor, ReynoldsNumber};
 use uom::si::ratio::ratio;

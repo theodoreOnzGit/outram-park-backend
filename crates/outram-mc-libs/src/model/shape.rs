@@ -22,6 +22,9 @@
 //! A TRISO particle itself needs nothing new: it is concentric spheres, one
 //! `.containing` per statement (maintainer, #926, 2026-10-17).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio};
 use uom::si::length::centimeter;
@@ -111,21 +114,21 @@ impl Sphere {
     }
 
     pub(crate) fn distance_cm(&self, other: &Sphere) -> f64 {
-        let d: [f64; 3] = std::array::from_fn(|i| self.centre_cm[i] - other.centre_cm[i]);
+        let d: [f64; 3] = core::array::from_fn(|i| self.centre_cm[i] - other.centre_cm[i]);
         (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
     }
 
     /// Whether `point` (cm) is inside.
     pub(crate) fn holds(&self, p: [f64; 3]) -> bool {
-        let d: [f64; 3] = std::array::from_fn(|i| p[i] - self.centre_cm[i]);
+        let d: [f64; 3] = core::array::from_fn(|i| p[i] - self.centre_cm[i]);
         d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < self.radius_cm * self.radius_cm
     }
 
     /// Axis-aligned bounding box `(lower, upper)` \[cm\].
     pub(crate) fn bounds(&self) -> ([f64; 3], [f64; 3]) {
         (
-            std::array::from_fn(|i| self.centre_cm[i] - self.radius_cm),
-            std::array::from_fn(|i| self.centre_cm[i] + self.radius_cm),
+            core::array::from_fn(|i| self.centre_cm[i] - self.radius_cm),
+            core::array::from_fn(|i| self.centre_cm[i] + self.radius_cm),
         )
     }
 }
@@ -196,8 +199,8 @@ impl Cuboid {
     /// `(lower, upper)` corners \[cm\].
     pub(crate) fn bounds(&self) -> ([f64; 3], [f64; 3]) {
         (
-            std::array::from_fn(|i| self.centre_cm[i] - 0.5 * self.sides_cm[i]),
-            std::array::from_fn(|i| self.centre_cm[i] + 0.5 * self.sides_cm[i]),
+            core::array::from_fn(|i| self.centre_cm[i] - 0.5 * self.sides_cm[i]),
+            core::array::from_fn(|i| self.centre_cm[i] + 0.5 * self.sides_cm[i]),
         )
     }
 }
@@ -289,7 +292,7 @@ impl Cylinder {
     /// Volume \[cm³\], `None` for a rod (it has no height of its own).
     pub fn volume_cm3(&self) -> Option<f64> {
         self.height_cm
-            .map(|h| std::f64::consts::PI * self.radius_cm * self.radius_cm * h)
+            .map(|h| core::f64::consts::PI * self.radius_cm * self.radius_cm * h)
     }
 
     /// The z range \[cm\], infinite for a rod.
@@ -486,7 +489,7 @@ impl Solid {
     /// [`Solid::volume_within`]).
     pub fn volume_cm3(&self) -> f64 {
         match self {
-            Solid::Sphere(s) => 4.0 / 3.0 * std::f64::consts::PI * s.radius_cm.r_powi(3),
+            Solid::Sphere(s) => 4.0 / 3.0 * core::f64::consts::PI * s.radius_cm.r_powi(3),
             Solid::Cuboid(b) => b.volume_cm3(),
             Solid::Cylinder(c) => c.volume_cm3().unwrap_or(f64::INFINITY),
             Solid::HexPrism(h) => h.volume_cm3(),
@@ -499,7 +502,7 @@ impl Solid {
     pub(crate) fn volume_within(&self, height: Option<f64>) -> f64 {
         match (self, height) {
             (Solid::Cylinder(c), Some(h)) if c.is_rod() => {
-                std::f64::consts::PI * c.radius_cm * c.radius_cm * h
+                core::f64::consts::PI * c.radius_cm * c.radius_cm * h
             }
             _ => self.volume_cm3(),
         }
@@ -598,7 +601,7 @@ impl Solid {
 
     /// This solid shifted by `d` \[cm\].
     pub(crate) fn translated(&self, d: [f64; 3]) -> Solid {
-        let shift = |c: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| c[i] + d[i]) };
+        let shift = |c: [f64; 3]| -> [f64; 3] { core::array::from_fn(|i| c[i] + d[i]) };
         match *self {
             Solid::Sphere(mut s) => {
                 s.centre_cm = shift(s.centre_cm);
@@ -708,7 +711,7 @@ impl Solid {
             (Solid::Sphere(_) | Solid::HexPrism(_), Solid::Hopper(i)) => {
                 let (l, u) = i.bounds();
                 let corners: Vec<[f64; 3]> = (0..8)
-                    .map(|k| std::array::from_fn(|d| if (k >> d) & 1 == 0 { l[d] } else { u[d] }))
+                    .map(|k| core::array::from_fn(|d| if (k >> d) & 1 == 0 { l[d] } else { u[d] }))
                     .collect();
                 match self {
                     Solid::Sphere(o) => corners.iter().all(|v| {
@@ -734,7 +737,7 @@ impl Solid {
                         let (l, u) = i.bounds();
                         let corners: Vec<[f64; 3]> = (0..8)
                             .map(|k| {
-                                std::array::from_fn(|d| if (k >> d) & 1 == 0 { l[d] } else { u[d] })
+                                core::array::from_fn(|d| if (k >> d) & 1 == 0 { l[d] } else { u[d] })
                             })
                             .collect();
                         prism_holds_all(o, &corners, tol)
@@ -1231,7 +1234,7 @@ mod tests {
         assert!(rod.is_rod() && !core.is_rod());
         assert_eq!((rod.height_cm(), core.height_cm()), (None, Some(10.0)));
         assert!(rod.volume_cm3().is_none());
-        assert!((core.volume_cm3().unwrap() - std::f64::consts::PI * 250.0).abs() < 1e-9);
+        assert!((core.volume_cm3().unwrap() - core::f64::consts::PI * 250.0).abs() < 1e-9);
         assert_eq!(core.centre_cm(), [0.0; 3]);
         let moved = core.centred_at(cm(1.0), cm(2.0), cm(3.0));
         assert_eq!(moved.centre_cm(), [1.0, 2.0, 3.0]);
@@ -1243,7 +1246,7 @@ mod tests {
         let (srod, score) = (Solid::Cylinder(rod), Solid::Cylinder(core));
         assert!(srod.is_rod() && !score.is_rod());
         assert!(srod.volume_cm3().is_infinite());
-        assert!((srod.volume_within(Some(10.0)) - std::f64::consts::PI * 10.0).abs() < 1e-9);
+        assert!((srod.volume_within(Some(10.0)) - core::f64::consts::PI * 10.0).abs() < 1e-9);
         assert_eq!(score.volume_within(Some(1.0)), score.volume_cm3());
         assert!(srod.is_valid() && score.is_valid());
         assert!(!Solid::Cylinder(Cylinder::radius(cm(-1.0))).is_valid());

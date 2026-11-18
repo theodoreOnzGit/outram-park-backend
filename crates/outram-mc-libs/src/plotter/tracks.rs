@@ -21,6 +21,9 @@
 //! file does; a caller that wants that grouping builds the [`PlotTrack`]
 //! directly.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Position;
 use crate::physics::track_output::Track;
 

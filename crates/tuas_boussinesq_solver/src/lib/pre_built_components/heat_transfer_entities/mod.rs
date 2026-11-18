@@ -23,6 +23,9 @@
 //!   from two heat transfer entities.
 //! - [`tests`] — mixing-joint and CIET-heater verification tests.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use self::cv_types::CVType;
 use crate::tuas_lib_error::TuasLibError;
 use crate::boundary_conditions::BCType;

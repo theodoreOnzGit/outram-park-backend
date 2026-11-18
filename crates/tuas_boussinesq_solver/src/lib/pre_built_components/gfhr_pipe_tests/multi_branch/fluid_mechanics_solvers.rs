@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
@@ -802,6 +805,7 @@ pub(crate) fn four_branch_pri_and_intermediate_loop_single_time_step(
     // if one wants to monitor flow through the loop
     let debugging = false;
     if debugging {
+        #[cfg(feature = "std")]
         dbg!(&fhr_state);
     }
     return fhr_state;
@@ -1341,6 +1345,7 @@ pub fn calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1(
     // the branches themselves may still have flow going
     // through them
     if user_requested_mass_flowrate.value.abs() < 1e-9_f64 {
+        #[cfg(feature = "std")]
         dbg!("zero flowrate through parallel branches");
         // in this case, the average mass flowrate through each of these
         // loops is very close to zero,
@@ -1368,7 +1373,9 @@ pub fn calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1(
 
         // with this max pressure change, we can guess a maximum
         // flowrate across each branch
+        #[cfg(feature = "std")]
         dbg!(&max_pressure_change_between_branches);
+        #[cfg(feature = "std")]
         dbg!("calculating max flow between brances");
 
         let debugging = true;
@@ -1404,6 +1411,7 @@ pub fn calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1(
         // calculate_pressure_change_using_guessed_branch_mass_flowrate
         //
 
+        #[cfg(feature = "std")]
         dbg!("calculating pressure chg through branches..");
         // now with pressure change through the branches...
         // I'm getting an oscillation issue
@@ -1421,7 +1429,9 @@ pub fn calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1(
                 &fluid_component_collection_vector,
             );
 
+        #[cfg(feature = "std")]
         dbg!("pressure chg calculated");
+        #[cfg(feature = "std")]
         dbg!(&pressure_change);
 
         let mut mass_flowrate_vector: Vec<MassRate> = vec![];
@@ -1443,7 +1453,9 @@ pub fn calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1(
 
             let fluid_component_collection = &*fluid_component_pointer_collection;
 
+            #[cfg(feature = "std")]
             dbg!("calculating mass flowrate for...");
+            #[cfg(feature = "std")]
             dbg!(&fluid_component_collection);
 
             // let me get the vector of fluid component
@@ -1463,6 +1475,7 @@ pub fn calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1(
                     );
             };
 
+            #[cfg(feature = "std")]
             dbg!(&fluid_component_mass_flowrate);
 
             mass_flowrate_vector[index] = fluid_component_mass_flowrate;

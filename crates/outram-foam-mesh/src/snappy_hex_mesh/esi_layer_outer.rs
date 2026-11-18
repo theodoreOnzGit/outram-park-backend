@@ -23,6 +23,9 @@
 //! such faces would be a guess). Verification and results: `tests/snappy_hex_mesh_esi_outer.rs`,
 //! README "Round 11".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::esi_layer_loop::{add_layers_loop, LayerDataRow, LayerIteration, LayerLoopInput};
 use super::esi_layer_final::LayerFields;
 use super::esi_layer_topo::{added_cells, avg_point_data_faces, determine_side_patches, AddedLayers};
@@ -31,7 +34,7 @@ use super::esi_medial::{DisplacementParams, MedialAxis, MedialParams};
 use super::esi_merge::MergeMesh;
 use super::esi_snap::mesh_edges;
 use crate::check_mesh::EsiQualityControls;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// `VSMALL` of a double.
 const VSMALL: f64 = 1e-300;

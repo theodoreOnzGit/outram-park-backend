@@ -8,6 +8,9 @@
 //! cross sections and in sampled `(E', μ)`, by `f64s_round_trip_exactly`
 //! below and by `tests/processed_evaluation_round_trip.rs` on real laws.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     CoherentElasticTable, ContinuousEmission, EmissionTable, IncoherentElasticTable,
     ThermalElastic, ThermalScattering,

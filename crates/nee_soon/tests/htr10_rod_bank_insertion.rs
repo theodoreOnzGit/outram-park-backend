@@ -47,6 +47,8 @@
 //!
 //! See the test's doc comment.
 
+// Needs nuclear data files or file output: `std` only (gh:#1640).
+#![cfg(feature = "std")]
 use nee_soon::htr10_rmc::core_design::Htr10CoreDesign;
 use nee_soon::htr10_rmc::core_model::assemble_explicit_triso_with;
 use nee_soon::htr10_rmc::data::{load_htr10_nuclides, Htr10DataConfig, Htr10NuclideLayout};

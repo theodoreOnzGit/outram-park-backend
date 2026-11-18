@@ -32,6 +32,8 @@
 //! are not expected to agree; this one exists to prove the SUBSETTING takes
 //! effect, that one to price it.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{
     Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken, TrackingMethod,

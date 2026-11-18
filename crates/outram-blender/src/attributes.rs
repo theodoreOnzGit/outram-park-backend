@@ -46,7 +46,11 @@
 //! angle (Blender's auto-smooth). [`MeshAttributes::linked_delimiters`] gives
 //! the edge set `select_linked` should not cross.
 
-use std::collections::{BTreeSet, HashMap};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeSet;
+use crate::hash::HashMap;
 
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};
 
@@ -269,13 +273,13 @@ mod tests {
     fn auto_smooth_marks_sharp_on_a_cube_but_not_a_sphere_band() {
         let cube = primitives::cube(2.0);
         let mut a = MeshAttributes::new(&cube);
-        a.auto_smooth(&cube, std::f64::consts::FRAC_PI_4); // 45°
+        a.auto_smooth(&cube, core::f64::consts::FRAC_PI_4); // 45°
         assert_eq!(a.sharp.len(), 12, "all cube edges are 90° → sharp");
         assert_eq!(a.smooth.len(), 6);
 
         let sph = primitives::uv_sphere(24, 12, 1.0);
         let mut b = MeshAttributes::new(&sph);
-        b.auto_smooth(&sph, std::f64::consts::FRAC_PI_4);
+        b.auto_smooth(&sph, core::f64::consts::FRAC_PI_4);
         assert!(
             b.sharp.len() < sph.edge_count(),
             "most sphere edges stay smooth"

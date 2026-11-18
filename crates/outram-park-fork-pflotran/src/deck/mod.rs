@@ -55,6 +55,9 @@
 //!   terminator is accepted where a block ends).
 //! - **Case-insensitive keywords**; blank lines; stray `:` tokens ignored.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 
 pub mod regression;

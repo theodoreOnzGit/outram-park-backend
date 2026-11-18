@@ -1,4 +1,7 @@
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use uom::si::f64::*;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
@@ -22,6 +25,7 @@ impl SolidColumn {
         // BC
         let heat_transfer_area: Area = match interaction {
             HeatTransferInteractionType::UserSpecifiedThermalConductance(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -30,6 +34,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::SingleCartesianThermalConductanceOneDimension(_, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -38,6 +43,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::DualCartesianThermalConductance(_, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -46,6 +52,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::DualCylindricalThermalConductance(_, _, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -54,6 +61,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::CylindricalConductionConvectionLiquidOutside(_, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -62,6 +70,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::CylindricalConductionConvectionLiquidInside(_, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -70,6 +79,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::UserSpecifiedHeatAddition => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -78,6 +88,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::DualCartesianThermalConductanceThreeDimension(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -110,6 +121,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::UserSpecifiedConvectionResistance(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -117,6 +129,7 @@ impl SolidColumn {
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
             }
             HeatTransferInteractionType::Advection(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -124,6 +137,7 @@ impl SolidColumn {
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
             }
             HeatTransferInteractionType::SimpleRadiation(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -173,6 +187,7 @@ impl SolidColumn {
         // BC
         let heat_transfer_area: Area = match interaction {
             HeatTransferInteractionType::UserSpecifiedThermalConductance(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -181,6 +196,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::SingleCartesianThermalConductanceOneDimension(_, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -189,6 +205,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::DualCartesianThermalConductance(_, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -197,6 +214,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::DualCylindricalThermalConductance(_, _, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -205,6 +223,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::CylindricalConductionConvectionLiquidOutside(_, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -213,6 +232,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::CylindricalConductionConvectionLiquidInside(_, _) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -221,6 +241,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::UserSpecifiedHeatAddition => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -229,6 +250,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::DualCartesianThermalConductanceThreeDimension(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -261,6 +283,7 @@ impl SolidColumn {
             }
 
             HeatTransferInteractionType::UserSpecifiedConvectionResistance(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -268,6 +291,7 @@ impl SolidColumn {
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
             }
             HeatTransferInteractionType::Advection(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -275,6 +299,7 @@ impl SolidColumn {
                 return Err(TuasLibError::WrongHeatTransferInteractionType);
             }
             HeatTransferInteractionType::SimpleRadiation(_) => {
+                #[cfg(feature = "std")]
                 println!(
                     "please specify interaction type as \n 
                     UserSpecifiedHeatFluxCustomArea or Similar"
@@ -321,6 +346,7 @@ impl SolidColumn {
         interaction: HeatTransferInteractionType,
     ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
+            #[cfg(feature = "std")]
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
@@ -349,6 +375,7 @@ impl SolidColumn {
         interaction: HeatTransferInteractionType,
     ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
+            #[cfg(feature = "std")]
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
@@ -375,6 +402,7 @@ impl SolidColumn {
         interaction: HeatTransferInteractionType,
     ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
+            #[cfg(feature = "std")]
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
@@ -400,6 +428,7 @@ impl SolidColumn {
         interaction: HeatTransferInteractionType,
     ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
+            #[cfg(feature = "std")]
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }

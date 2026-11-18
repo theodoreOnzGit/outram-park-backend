@@ -4,6 +4,9 @@
 // for the sphere, the L2 norm (straight line distance) will suffice
 // as to
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod norms;
 use petir::uom_math::QuantityMath;
 use fission_yields_data::prelude::Nuclide;

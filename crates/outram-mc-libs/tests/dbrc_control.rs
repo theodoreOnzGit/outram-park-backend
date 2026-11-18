@@ -33,6 +33,8 @@
 //! benchmark — the same gap the coverage survey records as the project's
 //! largest.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use outram_mc_libs::geometry::position::Direction;

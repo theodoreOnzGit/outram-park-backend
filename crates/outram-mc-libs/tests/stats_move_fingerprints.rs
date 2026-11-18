@@ -238,6 +238,8 @@
 //! | `csg_nested_lattice_navigation` | `0x8c30242091a4ade8` | `0x652daec672ff2e60` | counts unchanged; the hash includes `hit.distance` of every located point and flight event |
 //! | `csg_nested_lattice_keff` | `0x8931164ebf355c38` | `0x20e5b4eeeede18f1` | k 1.72559 +/- 0.01517 -> **1.72835 +/- 0.01486** (+276 pcm, 0.1 combined sigma) |
 //!
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;

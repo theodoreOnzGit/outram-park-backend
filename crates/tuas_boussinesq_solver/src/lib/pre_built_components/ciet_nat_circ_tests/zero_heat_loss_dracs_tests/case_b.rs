@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// In the original SAM publication
 ///
 /// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
@@ -43,7 +46,7 @@
 pub fn case_b_tchx_out_308_kelvin_35_celsius() {
     use uom::si::{f64::*, mass_rate::kilogram_per_second, power::watt};
 
-    use std::thread;
+    use crate::thread;
     use crate::tuas_lib_error::TuasLibError;
     use uom::si::{frequency::hertz, ratio::ratio, time::millisecond};
     use uom::si::thermodynamic_temperature::kelvin;
@@ -714,10 +717,15 @@ pub fn case_b_tchx_out_308_kelvin_35_celsius() {
                 // tchx outlet temperature
                 // current sim time
                 // and tchx heat trf coeff
+                #[cfg(feature = "std")]
                 dbg!(&input_power);
+                #[cfg(feature = "std")]
                 dbg!(&mass_flowrate_absolute);
+                #[cfg(feature = "std")]
                 dbg!(&tchx_outlet_temperature);
+                #[cfg(feature = "std")]
                 dbg!(&current_simulation_time);
+                #[cfg(feature = "std")]
                 dbg!(&tchx_heat_transfer_coeff);
             }
         }
@@ -725,6 +733,7 @@ pub fn case_b_tchx_out_308_kelvin_35_celsius() {
         // panic to see debug messages
 
         //panic!();
+        #[cfg(feature = "std")]
         dbg!(&(sam_solution_mass_flowrate_kg_per_s, final_mass_flowrate));
 
         approx::assert_relative_eq!(

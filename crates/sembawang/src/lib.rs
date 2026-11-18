@@ -172,10 +172,78 @@
 //!
 //! [`redhill`]: https://docs.rs/redhill
 
-// `std` is required: `boon-lay` is a `std` crate, so `no_std` could not survive
-// the dependency even if this crate wanted it. The previous `#![no_std]` was
-// removed on 2026-09-21 for that reason and not as a preference.
+// ~~`std` is required: `boon-lay` is a `std` crate, so `no_std` could not survive
+// the dependency even if this crate wanted it.~~ ~~CORRECTED 2026-11-17: boon-lay
+// builds `no_std` + `alloc` (gh:#1634), so that reason no longer holds; this
+// crate is still `std`.~~ **CHANGED 2026-11-17 (gh:#1641):** this crate is now
+// `no_std` + `alloc` without its default `std` feature (header below). The
+// `#![no_std]` removed on 2026-09-21 was removed for the boon-lay reason, not
+// as a preference.
 #![forbid(unsafe_code)]
+
+// `no_std` + `alloc` without the default `std` feature (gh:#1641, epic
+// gh:#1637). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports, unused_variables, unused_mut))]
+
+extern crate alloc;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
+/// Hash maps: std's with `std` (and in tests), so iteration order and every
+/// result are as before; `hashbrown` without it (gh:#1641).
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(not(any(feature = "std", test)))]
+    #[allow(unused_imports)]
+    use crate::nostd_prelude::*;
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+
+/// One-time initialisation (gh:#1641): std's `OnceLock` with `std` (and in
+/// tests), a `spin::Once` wrapper with the same two methods without it.
+pub(crate) mod sync {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::sync::OnceLock;
+
+    /// `OnceLock` without std, on `spin::Once`.
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) struct OnceLock<T>(spin::Once<T>);
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl<T> OnceLock<T> {
+        /// An empty cell.
+        pub(crate) const fn new() -> Self {
+            OnceLock(spin::Once::new())
+        }
+        /// The value, initialising it with `f` on first use.
+        pub(crate) fn get_or_init<F: FnOnce() -> T>(&self, f: F) -> &T {
+            self.0.call_once(f)
+        }
+    }
+}
 
 pub mod accident;
 /// AP1000 severe-accident plume-centreline TED digitised from Dadda et al.

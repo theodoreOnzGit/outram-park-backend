@@ -30,6 +30,8 @@
 //! Recorded in `verification_and_validation/implicit_region_1576/README.md`
 //! together with the images (set `OUTRAM_PLOT_OUT` to write them).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken, SurfaceToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, SlicePlot};

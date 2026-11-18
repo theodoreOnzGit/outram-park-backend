@@ -38,6 +38,9 @@
 //! Refusals are by name ([`AppBuilderError::UnsupportedScheme`]). The V&V
 //! record is `verification_and_validation/rho_pimple_foam_vs_openfoam.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::solvers::rho_central_foam::PerfectGas;
 use crate::solvers::sonic_foam::esi::{
@@ -46,7 +49,7 @@ use crate::solvers::sonic_foam::esi::{
     Matrix, SolveLog, StageDump, StepLog, Topo, SMALL,
 };
 use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// `hConstThermo::Hs` for a perfect gas: `Cp (T - Tref) + Hsref + H_eos`, with
 /// `Hsref = 0` and `perfectGas::H = 0`.

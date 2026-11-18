@@ -102,6 +102,9 @@
 //! (`tests/control_volume.rs::wet_well_round_off_amplification_gh1118`,
 //! `crates/sembawang/tests/wet_well_vs_tampines.rs`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines_steam_tables::prelude::h_tp_eqm_two_phase;
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;

@@ -19,6 +19,9 @@
 //! The [`UnstructuredMesh`] type: storage, accessors, derived geometry and
 //! validation. Construction lives in [`super::build`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::element::{ElementKind, LengthUnit, Patch, PatchKind, Zone};
 use super::geometry::{
     cell_volumes_and_centres, dot, face_centre_and_area, for_each_fan_triangle, mag, tet_signed_volume,

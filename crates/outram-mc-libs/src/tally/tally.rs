@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Tally definition — filter composition and accumulator.
 ///
 /// C++ source: `src/tallies/tally.cpp`, `include/openmc/tallies/tally.h`.
@@ -233,6 +236,7 @@ mod bin_variance_tests {
         let naive_mean = bin.sum / n;
         let naive = (bin.sum_sq / n - naive_mean * naive_mean) / (n - 1.0);
 
+        #[cfg(feature = "std")]
         println!(
             "reference {reference:.6e}  welford {:.6e}  naive {naive:.6e}",
             bin.variance()

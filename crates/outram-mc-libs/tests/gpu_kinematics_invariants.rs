@@ -50,6 +50,8 @@
 //! `the_reference_identities_are_self_consistent`, which needs no device and
 //! would catch an error in the reference algebra itself.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::mathf::RealMath;

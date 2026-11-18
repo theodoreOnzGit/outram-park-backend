@@ -7,12 +7,17 @@
 //! (seconds) and recording temperature (deg C) profiles to CSV. Also
 //! re-exports the [`mixing_joints`] adiabatic-mixing-joint tests.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::ops::{DerefMut, Deref};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::SystemTime;
+use core::ops::{DerefMut, Deref};
+use alloc::sync::Arc;
+    use crate::sync::Mutex;
+use crate::thread;
+use crate::time::SystemTime;
 
+#[cfg(feature = "std")]
 use csv::Writer;
 
 use crate::prelude::beta_testing::*;
@@ -80,6 +85,7 @@ use uom::si::f64::*;
 ///
 #[test]
 //#[ignore = "data collected"]
+#[cfg(feature = "std")]
 pub fn ciet_heater_v2_speedup_using_fluid_array_solid_column_hte() {
     use uom::si::length::inch;
     use uom::si::heat_transfer::watt_per_square_meter_kelvin;

@@ -23,6 +23,9 @@
 //! The meshers stay in `outram-foam-mesh`; this module only calls them, so
 //! every quality report and every phase decision is theirs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_mesh::driver::{mesh_from_surface, GeneratedMesh, MeshingControls};
 use outram_foam_mesh::snappy_hex_mesh::stl::{Triangle, TriangleSoup};
 use outram_foam_basic_lib::primitives::Vector3;

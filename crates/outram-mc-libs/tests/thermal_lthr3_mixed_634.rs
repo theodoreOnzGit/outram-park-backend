@@ -32,6 +32,8 @@
 //! for the maintainer, not fitted here. The 2.3e-3 is the ENDF route's own
 //! log grid against THERMR's tabulation, largest near 1 eV.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::thermal::{EndfElasticOptions, ThermalElastic, ThermalScattering};
 use std::path::PathBuf;
 

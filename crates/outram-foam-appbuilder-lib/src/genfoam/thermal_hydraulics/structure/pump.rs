@@ -36,6 +36,9 @@
 //! ported — it reads a scalar from an external functional-mock-up unit, out of
 //! scope for this crate.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Time;
 
 use outram_foam_basic_lib::prelude::Vector3;

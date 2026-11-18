@@ -38,6 +38,9 @@
 //!   event time either way). The exact Brownian-bridge placement is a possible
 //!   refinement.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use fission_yields_data::prelude::Nuclide;
 use outram_mc_libs::rng::lcg::prn;
@@ -319,6 +322,7 @@ mod tests {
     use uom::si::frequency::hertz;
     use uom::si::time::second;
 
+    #[cfg(feature = "std")]
     /// gh:#538: He-5 (alpha, no target in the chain file, t_half ~ 1e-21 s)
     /// decays on the first event and leaves the chain; before the fix the
     /// walker panicked on `target.unwrap()`. U-238's walk is checked only to
@@ -361,6 +365,7 @@ mod tests {
         assert_relative_eq!(mean, 1.0 / 2.5, max_relative = 0.02);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn decay_changes_nuclide_to_higher_z_daughter() {
         // Cs-137 (Z=55) beta-decays to a barium isotope (Z=56).
@@ -372,6 +377,7 @@ mod tests {
         assert_eq!(z, 56, "beta-minus decay of Cs (Z=55) should give Ba (Z=56)");
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn irradiation_transmutes_a_stable_target() {
         // A stable target (Cs-133) under a strong (n,gamma) field becomes Cs-134
@@ -404,6 +410,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn no_field_leaves_a_stable_nuclide_unchanged() {
         let library = DecayLibrary::new();

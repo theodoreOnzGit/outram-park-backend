@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use crate::tuas_lib_error::TuasLibError;
 
@@ -49,6 +52,7 @@ pub fn try_get_mu_viscosity(
 ) -> Result<DynamicViscosity, TuasLibError> {
     match material {
         Material::Solid(_) => {
+            #[cfg(feature = "std")]
             println!("Error: Solids do not have dynamic viscosity");
             Err(TuasLibError::ThermophysicalPropertyError)
         }

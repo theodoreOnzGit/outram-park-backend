@@ -84,9 +84,12 @@
 //! The exact measured numbers are emitted to stderr by each test (run with
 //! `--nocapture`); the assertions below encode the pass criteria.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
-use std::sync::Arc;
+use core::f64::consts::PI;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
 use outram_foam_basic_lib::prelude::{BoundaryCondition, FvMesh};

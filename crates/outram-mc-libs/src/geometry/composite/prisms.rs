@@ -13,6 +13,9 @@
 //! Infinite prisms: [`CylinderSector`], [`IsogonalOctagon`],
 //! [`CruciformPrism`] and the rounded-corner [`RectangularPrism`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     and, flip_normal, neg, not, or, plane_from_points, pos, remap, Axis, Builder, CompositeError,
     CompositeRegion, T,
@@ -98,7 +101,7 @@ impl CylinderSector {
             ));
         }
         let reflex = theta2 - theta1 > 180.0;
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         // `phi1 = pi / 180 * theta1`, evaluated left to right.
         let phi1 = pi / 180.0 * theta1;
         let phi2 = pi / 180.0 * theta2;

@@ -1,4 +1,7 @@
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use uom::si::angle::degree;
 use uom::si::f64::*;

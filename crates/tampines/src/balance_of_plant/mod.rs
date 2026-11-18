@@ -10,6 +10,9 @@
 //! not re-exported here: `Pipe` is general-purpose (not BOP-specific), and
 //! cooling towers have their own dedicated grouping, [`crate::cooling_tower`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::components::{Condenser, HeatExchanger, Pump, SteamGenerator, Turbine, Valve};
 
 /// A basic Rankine-cycle assembly: steam generator, turbine, condenser, and

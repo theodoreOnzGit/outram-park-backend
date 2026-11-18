@@ -38,6 +38,9 @@
 //! - Particles whose bounding box leaves the lattice are counted
 //!   ([`TrisoLattice::partly_outside`]) where upstream warns.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use crate::geometry::lattice::RectLattice;
 use crate::geometry::position::Position;
@@ -123,12 +126,12 @@ pub fn create_triso_lattice(
     let mut partly_outside = 0;
     let element = |p: [f64; 3]| -> [i64; 3] {
         let ll = [lower_left.x, lower_left.y, lower_left.z];
-        std::array::from_fn(|i| ((p[i] - ll[i]) / pitch[i]).floor() as i64)
+        core::array::from_fn(|i| ((p[i] - ll[i]) / pitch[i]).floor() as i64)
     };
     for (k, c) in centres.iter().enumerate() {
         let c = [c.x, c.y, c.z];
-        let lo = element(std::array::from_fn(|i| c[i] - particle_radius));
-        let hi = element(std::array::from_fn(|i| c[i] + particle_radius));
+        let lo = element(core::array::from_fn(|i| c[i] - particle_radius));
+        let hi = element(core::array::from_fn(|i| c[i] + particle_radius));
         let mut outside = false;
         for iz in lo[2]..=hi[2] {
             for iy in lo[1]..=hi[1] {

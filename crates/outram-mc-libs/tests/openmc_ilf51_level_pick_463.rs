@@ -35,6 +35,8 @@
 //!
 //! Printed by the test.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::hdf5::nuclide_laws::{
     AngleDistribution, AngleEnergy, EnergyDist, Product,
 };

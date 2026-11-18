@@ -1,6 +1,9 @@
 //! This module contains a library of liquid and solid
 //! thermophysical properties
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::tuas_lib_error::TuasLibError;
 use uom::si::f64::*;
 use uom::si::thermodynamic_temperature::degree_celsius;
@@ -151,7 +154,7 @@ impl Into<Material> for SolidMaterial {
 // Manual `PartialEq` (rather than `#[derive]`) because `CustomSolid` holds
 // `fn(...)` pointers, and comparing those by address via `derive`'s default
 // codegen is unreliable (function addresses can coincide or diverge across
-// codegen units -- see `std::ptr::fn_addr_eq` docs). `fn_addr_eq` is the
+// codegen units -- see `core::ptr::fn_addr_eq` docs). `fn_addr_eq` is the
 // address comparison rustc itself recommends for this case.
 impl PartialEq for SolidMaterial {
     fn eq(&self, other: &Self) -> bool {
@@ -169,9 +172,9 @@ impl PartialEq for SolidMaterial {
                 Self::CustomSolid(bounds_b, cp_b, k_b, rho_b, roughness_b),
             ) => {
                 bounds_a == bounds_b
-                    && std::ptr::fn_addr_eq(*cp_a, *cp_b)
-                    && std::ptr::fn_addr_eq(*k_a, *k_b)
-                    && std::ptr::fn_addr_eq(*rho_a, *rho_b)
+                    && core::ptr::fn_addr_eq(*cp_a, *cp_b)
+                    && core::ptr::fn_addr_eq(*k_a, *k_b)
+                    && core::ptr::fn_addr_eq(*rho_a, *rho_b)
                     && roughness_a == roughness_b
             }
             _ => false,
@@ -252,7 +255,7 @@ impl Into<Material> for LiquidMaterial {
 // Manual `PartialEq` -- see the matching comment on `SolidMaterial`'s impl:
 // `CustomLiquid` holds `fn(...)` pointers, so `#[derive]`'s default codegen
 // triggers rustc's "unpredictable function pointer comparisons" lint;
-// `std::ptr::fn_addr_eq` is the comparison rustc itself recommends instead.
+// `core::ptr::fn_addr_eq` is the comparison rustc itself recommends instead.
 impl PartialEq for LiquidMaterial {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -267,10 +270,10 @@ impl PartialEq for LiquidMaterial {
                 Self::CustomLiquid(bounds_b, cp_b, k_b, mu_b, rho_b),
             ) => {
                 bounds_a == bounds_b
-                    && std::ptr::fn_addr_eq(*cp_a, *cp_b)
-                    && std::ptr::fn_addr_eq(*k_a, *k_b)
-                    && std::ptr::fn_addr_eq(*mu_a, *mu_b)
-                    && std::ptr::fn_addr_eq(*rho_a, *rho_b)
+                    && core::ptr::fn_addr_eq(*cp_a, *cp_b)
+                    && core::ptr::fn_addr_eq(*k_a, *k_b)
+                    && core::ptr::fn_addr_eq(*mu_a, *mu_b)
+                    && core::ptr::fn_addr_eq(*rho_a, *rho_b)
             }
             _ => false,
         }

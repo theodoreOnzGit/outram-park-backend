@@ -42,6 +42,9 @@
 //! primary concentration strictly positive for any real `x`. See
 //! [`ReactionNetwork::speciate`] for the exact residual and Jacobian.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use outram_foam_basic_lib::matrix::SquareMatrix;

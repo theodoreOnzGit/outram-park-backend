@@ -27,8 +27,11 @@
 //! another. Materials are numbered in first-use order (equal materials share
 //! one entry), nuclides likewise, keyed by nuclide and thermal law.
 
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::sync::atomic::{AtomicU64, Ordering};
+use alloc::sync::Arc;
 
 use uom::si::f64::{Length, ThermodynamicTemperature};
 use uom::si::length::centimeter;
@@ -123,8 +126,8 @@ pub struct GeometryProblem {
     pub picture: ImageData,
 }
 
-impl std::fmt::Display for GeometryProblem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for GeometryProblem {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "{} (picture: GeometryProblem::picture, blue = first, orange = second, red = both)",
@@ -452,7 +455,7 @@ impl Model {
             }
         } else {
             // A void sphere around everything, vacuum on it.
-            let c: [f64; 3] = std::array::from_fn(|i| 0.5 * (lower[i] + upper[i]));
+            let c: [f64; 3] = core::array::from_fn(|i| 0.5 * (lower[i] + upper[i]));
             let r = 0.5
                 * (0..3)
                     .map(|i| upper[i] - lower[i])
@@ -1096,9 +1099,9 @@ impl AssembledModel {
         data: &NuclearData,
         progress: super::run::Progress,
     ) -> Result<Vec<Nuclide>, DataError> {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         use rayon::prelude::*;
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
         use crate::wasm_par::prelude::*;
         let print = progress == super::run::Progress::Print;
         if print {
@@ -1107,6 +1110,7 @@ impl AssembledModel {
                 .iter()
                 .map(|t| format!("{t} K"))
                 .collect();
+            #[cfg(feature = "std")]
             println!(
                 " processing {} nuclides at {} (correct physics on)",
                 self.nuclides.len(),
@@ -1116,18 +1120,18 @@ impl AssembledModel {
         self.nuclides
             .par_iter()
             .map(|k| {
-                #[cfg(not(target_arch = "wasm32"))]
+                #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
                 let clock = std::time::Instant::now();
                 let t = k.temperature.get::<kelvin>();
                 let n = data.load_nuclide(k.isotope, t, k.law);
                 if print {
-                    #[cfg(not(target_arch = "wasm32"))]
+                    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
                     println!(
                         "   {} at {t} K ready in {:.1} s",
                         k.isotope.name(),
                         clock.elapsed().as_secs_f64()
                     );
-                    #[cfg(target_arch = "wasm32")]
+                    #[cfg(all(feature = "std", target_arch = "wasm32"))]
                     println!("   {} at {t} K ready", k.isotope.name());
                 }
                 n
@@ -1247,6 +1251,7 @@ pub(crate) mod tests {
         assert_eq!(m.data().label(), "fake");
     }
 
+    #[cfg(feature = "std")]
     /// Three nested spheres lower exactly as `fhr_pebble_geometry` builds
     /// HEU-SOL-THERM-009 (`vv::hst009::geometry`): same surfaces, the same
     /// region tokens per cell, the same material indices.
@@ -1618,13 +1623,13 @@ pub(crate) mod tests {
             2 * 5,
             "2 fuel pins in each of 5 assemblies"
         );
-        let expect = std::f64::consts::PI * 0.4 * 0.4 * 10.0;
+        let expect = core::f64::consts::PI * 0.4 * 0.4 * 10.0;
         assert!(
             (fuel_row.volume_each.get::<cubic_centimeter>() - expect).abs() < 1e-9,
             "a rod is as tall as the cylinder it is extruded through"
         );
         // The pin tile's water: pitch^2 x height less the clad rod.
-        let tile_water = 1.2 * 1.2 * 10.0 - std::f64::consts::PI * 0.5 * 0.5 * 10.0;
+        let tile_water = 1.2 * 1.2 * 10.0 - core::f64::consts::PI * 0.5 * 0.5 * 10.0;
         assert!(census
             .rows
             .iter()
@@ -1758,7 +1763,7 @@ pub(crate) mod tests {
         use uom::si::volume::cubic_centimeter;
         // Şeker & Çolak's cell for 6 cm balls: apothem d cos 30 + d/2, height
         // 2 d sqrt(2/3) (exact, so the flower balls are exactly tangent).
-        let pitch = 2.0 * (6.0 * (std::f64::consts::PI / 6.0).r_cos() + 3.0);
+        let pitch = 2.0 * (6.0 * (core::f64::consts::PI / 6.0).r_cos() + 3.0);
         let height = 2.0 * 6.0 * (2.0_f64 / 3.0).sqrt();
         let gas = || Material::from_atom_densities([(H1, atoms_per_barn_cm(1.0e-5))]).named("gas");
         let ball = || {
@@ -1851,7 +1856,7 @@ pub(crate) mod tests {
             .collect();
         assert_eq!(ball_rows.len(), 3, "one row per ball, none per piece");
         assert_eq!(ball_rows.iter().map(|r| r.copies).sum::<usize>(), 3);
-        let v_ball = 4.0 / 3.0 * std::f64::consts::PI * 27.0;
+        let v_ball = 4.0 / 3.0 * core::f64::consts::PI * 27.0;
         let v_tile = 2.0 * 3.0_f64.sqrt() * apothem * apothem * height;
         let got = census.total_volume().get::<cubic_centimeter>();
         assert!(

@@ -22,6 +22,9 @@
 //! constants, 20.8 (N2) and 20.5 (H2) J/(mol K), and the
 //! `without_gas_cv_t` ablation restores them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use tampines_steam_tables::gas_mixture::melcor_ncg::{
     cp_h2_per_kg, cv_h2, cv_n2, h2_enthalpy_above_298, h2_molar_enthalpy, ncg_c, ncg_u, u_h2, u_n2,
 };

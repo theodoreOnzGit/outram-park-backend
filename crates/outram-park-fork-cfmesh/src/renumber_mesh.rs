@@ -48,6 +48,9 @@
 //! carried)~~); [`cells_from_mesh`] gives each cell its faces in ascending
 //! face order, for a mesh that does not carry them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::volume_mesh::VolumeMesh;
 
 /// Each cell's faces in ascending face order.

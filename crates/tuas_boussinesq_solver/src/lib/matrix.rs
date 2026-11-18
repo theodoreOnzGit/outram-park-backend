@@ -34,6 +34,9 @@
 //! Pure `std` — no `ndarray`, no BLAS/LAPACK — so it also builds unchanged on
 //! Android (see the workspace CLAUDE.md "Android portability" rule).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Error type for `SquareMatrix::solve`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum MatrixError {
@@ -45,8 +48,8 @@ pub enum MatrixError {
     },
 }
 
-impl std::fmt::Display for MatrixError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for MatrixError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             MatrixError::Singular { col } => {
                 write!(f, "matrix is singular: zero pivot at column {col}")
@@ -55,7 +58,7 @@ impl std::fmt::Display for MatrixError {
     }
 }
 
-impl std::error::Error for MatrixError {}
+impl core::error::Error for MatrixError {}
 
 /// Row-major n×n dense matrix of `f64`. Maps to `Foam::scalarSquareMatrix`.
 ///

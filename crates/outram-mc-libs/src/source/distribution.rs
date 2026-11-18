@@ -47,14 +47,17 @@
 //! `tests/source_distributions_vs_openmc_code_to_code.rs` against OpenMC's real
 //! sources: see `verification_and_validation/upstream_openmc_samplers/README.md`.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::mathf::RealMath;
 use crate::rng::distributions::{maxwell, normal_variate, watt};
 use crate::rng::lcg::prn;
 
 const INFTY: f64 = f64::MAX;
-const PI: f64 = std::f64::consts::PI;
+const PI: f64 = core::f64::consts::PI;
 
 /// `compute_importance_weights` (`distribution.cpp:34`): `p_norm / b_norm`, or
 /// `INFTY` where the bias probability is zero.

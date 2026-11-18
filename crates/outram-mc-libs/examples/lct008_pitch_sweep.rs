@@ -94,9 +94,7 @@ use std::time::Instant;
 
 #[path = "common/lct008_model.rs"]
 mod lct008_model;
-#[path = "common/lct008_pin_cell.rs"]
-mod lct008_pin_cell;
-use lct008_pin_cell::HALF_Z;
+use outram_mc_libs::vv::lct008::HALF_Z;
 use lct008_model::{R_CLAD, R_FUEL, TEMP_K};
 
 /// LCT-008's own lattice pitch [cm], from the committed `geometry.xml`
@@ -332,9 +330,9 @@ fn main() {
 }
 
 /// The reflective square pin cell, centred on the origin: fuel, clad, water
-/// (`common/lct008_pin_cell.rs`, shared with the web demo's pitch slider).
+/// (`outram_mc_libs::vv::lct008::pin_cell`, shared with the web demo's pitch slider).
 fn pin_cell(half: f64) -> Geometry {
-    lct008_pin_cell::pin_cell(half, R_FUEL, R_CLAD, TEMP_K)
+    outram_mc_libs::vv::lct008::pin_cell(half, R_FUEL, R_CLAD, TEMP_K)
 }
 
 /// Draw what the solver sees: an x-y slice of the ASSEMBLED pin cell, by

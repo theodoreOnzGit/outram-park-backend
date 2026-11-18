@@ -96,6 +96,9 @@
 //! println!("k = {:.5} ± {:.5}", result.k_mean, result.k_std);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::{stream, Direction, Position};
 use crate::geometry::surface::{BoundaryType, Sphere, Surface};
 use crate::material::material::Material;
@@ -911,11 +914,11 @@ pub fn run_keff_cpu_multi(
     thread_count: ThreadCount,
 ) -> KeffResult {
     use crate::rng::lcg::future_seed;
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par as rayon;
 
     let sphere = Sphere {
@@ -1085,7 +1088,7 @@ pub fn run_keff_gpu(
     nuclides: &[Nuclide],
     settings: &KeffSettings,
 ) -> KeffResult {
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     {
         if let Some(ctx) = crate::gpu::probe() {
             // op-u6s.8: the fused event path resolves flight AND collision on the
@@ -1138,7 +1141,7 @@ pub fn run_keff_gpu(
 /// the trusted reference. `k_gpu` differs from `k_single` only through (a) the
 /// table's dense-resampling approximation of Sigma_t and (b) `f32` rounding of
 /// the first-flight lookup — the RNG stream is otherwise identical.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn run_keff_gpu_inner(
     ctx: &crate::gpu::GpuContext,
     radius_cm: f64,
@@ -1269,26 +1272,26 @@ pub fn run_keff_gpu_inner(
 /// `(seed, generation, history index)` — reproducible run-to-run, independent of
 /// how the batch is scheduled on the GPU. (`(n,2n)` secondaries get a further
 /// jump-ahead off their parent's stream; see [`run_keff_gpu_batched`].)
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 const BATCH_GEN_STRIDE: u64 = 1 << 40;
 /// Per-history stride for the batched GPU path (see [`BATCH_GEN_STRIDE`]).
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 const BATCH_HIST_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
 /// Jump-ahead applied to a colliding neutron's post-collision seed to seed the
 /// extra neutron it emits in an `(n,2n)` event, so parent and secondary never
 /// share draws. Large and coprime-ish with the history stride.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 const BATCH_SECONDARY_STRIDE: u64 = 1 << 20;
 /// Hard cap on flight events per generation — a guard against a pathological
 /// non-terminating walk. Far above any real bare-sphere collision chain.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 const BATCH_MAX_EVENTS: usize = 100_000;
 
 /// One live neutron resident in the batched-flight event loop: phase-space state
 /// plus its own LCG seed. `r` \[cm\], `u` unit direction, `e` \[eV\], `seed` the
 /// per-particle 64-bit LCG state threaded through both the GPU flight and the CPU
 /// collision.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 #[derive(Clone, Copy)]
 struct LiveNeutron {
     r: Position,
@@ -1343,7 +1346,7 @@ struct LiveNeutron {
 /// is a statistically independent estimate of the same eigenvalue, agreeing with
 /// the trusted reference within combined statistical uncertainty. The CPU
 /// single-thread `f64` path remains the trusted, bit-reproducible reference.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn run_keff_gpu_batched(
     ctx: &crate::gpu::GpuContext,
     radius_cm: f64,
@@ -1783,7 +1786,7 @@ pub fn run_keff_event_cpu_mirror_reports(
 
 /// [`run_keff_gpu_event`] that also returns each generation's
 /// [`EventGenerationReport`].
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn run_keff_gpu_event_reports(
     ctx: &crate::gpu::GpuContext,
     radius_cm: f64,
@@ -1825,7 +1828,7 @@ pub fn run_keff_gpu_event_reports(
 /// within combined uncertainty. The per-event GPU logic is held to the CPU mirror
 /// ([`run_keff_event_cpu_mirror`]) by the V&V gate in
 /// [`crate::gpu::batched_event`].
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn run_keff_gpu_event(
     ctx: &crate::gpu::GpuContext,
     radius_cm: f64,
@@ -1869,7 +1872,7 @@ fn run_event_power_iteration(
     settings: &KeffSettings,
     tables: &EventTablesF32,
     sphere: &EventSphere,
-    #[cfg_attr(target_os = "android", allow(unused_variables))] ctx: Option<
+    #[cfg_attr(any(target_os = "android", not(feature = "std")), allow(unused_variables))] ctx: Option<
         &crate::gpu::GpuContext,
     >,
     mut reports: Option<&mut Vec<EventGenerationReport>>,
@@ -1911,7 +1914,7 @@ fn run_event_power_iteration(
         // is carried into the kernel, which appends site records.
         let banking = crate::gpu::batched_event::EventFissionBanking::from_env(k_running);
         let mut site_records: Vec<crate::gpu::batched_event::EventSiteRecord> = Vec::new();
-        #[cfg(not(target_os = "android"))]
+        #[cfg(all(feature = "std", not(target_os = "android")))]
         {
             if let Some(ctx) = ctx {
                 crate::gpu::batched_event::advance_generation_gpu_banking(
@@ -1934,7 +1937,7 @@ fn run_event_power_iteration(
                 );
             }
         }
-        #[cfg(target_os = "android")]
+        #[cfg(any(target_os = "android", not(feature = "std")))]
         {
             crate::gpu::batched_event::advance_generation_cpu_mirror_banking(
                 tables,
@@ -2000,7 +2003,7 @@ fn run_event_power_iteration(
 /// The outcome of one CPU-side collision in the batched GPU path
 /// ([`run_keff_gpu_batched`]) — enum dispatch so every downstream `match` is
 /// exhaustive (no trait objects, per the workspace design rules).
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 enum CollisionResult {
     /// Absorbed or fissioned → the neutron leaves the batch. Any fission sites
     /// were already banked into `next_bank`; the ν̄ production is returned
@@ -2038,7 +2041,7 @@ enum CollisionResult {
 /// is that `(n,2n)` returns the secondary to the caller (which re-banks it into
 /// the live batch) rather than pushing onto a local stack. See
 /// [`transport_history`] for the per-channel physics citations.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 #[allow(clippy::too_many_arguments)]
 fn collide_batched(
     r: Position,
@@ -2582,7 +2585,7 @@ fn transport_history(
 /// Only the Sigma_t **value** differs (table/GPU vs a direct data call); the RNG
 /// usage is identical, which is what keeps `k_gpu` tightly correlated with
 /// `k_single`.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 #[allow(clippy::too_many_arguments)]
 fn transport_history_tabulated(
     site: Site,
@@ -2932,7 +2935,7 @@ mod tests {
     /// old at-fission banking this count is 0); (2) the number of sites banked
     /// matches the summed expected production `nu_sigma_f/sigma_t` within 5 sigma of
     /// the Bernoulli rounding.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn collide_batched_banks_fission_sites_at_every_collision() {
         if crate::physics::scatter::fission_banking_from_env()
@@ -2964,6 +2967,7 @@ mod tests {
             }
         }
         let sites = bank.len() as f64;
+        #[cfg(feature = "std")]
         println!(
             "collide_batched: {sites} sites vs expected {production:.1}; \
              {nonfission_with_sites} scatter collisions banked sites"
@@ -3024,7 +3028,7 @@ mod tests {
         let mut it = PowerIteration::new_point_source(8.7407, &settings, Position::ZERO)
             .with_entropy_mesh(PowerIteration::bounding_box_mesh(8.7407, 5));
         assert!(it.source_positions().iter().all(|p| *p == Position::ZERO));
-        let h: Vec<f64> = std::iter::from_fn(|| it.step(&material, &nuclides)).filter_map(|g| g.entropy).collect();
+        let h: Vec<f64> = core::iter::from_fn(|| it.step(&material, &nuclides)).filter_map(|g| g.entropy).collect();
         assert_eq!(h.len(), 10);
         let first = h[0];
         let late = h[6..].iter().sum::<f64>() / 4.0;
@@ -3204,6 +3208,7 @@ mod tests {
             &base.clone().with_compute(ComputeType::CpuMultiThread(ThreadCount::Auto)),
         );
 
+        #[cfg(feature = "std")]
         eprintln!(
             "k_single = {:.5} ± {:.5} | k_multi = {:.5} ± {:.5}",
             single.k_mean, single.k_std, multi.k_mean, multi.k_std
@@ -3212,6 +3217,7 @@ mod tests {
         // single vs multi: statistical comparison (different RNG streams).
         let d_sm = (single.k_mean - multi.k_mean).abs();
         let sig_sm = (single.k_std.r_powi(2) + multi.k_std.r_powi(2)).sqrt();
+        #[cfg(feature = "std")]
         eprintln!(
             "single-vs-multi: |Δk| = {:.5} ({:.2}σ, band {:.5})",
             d_sm,
@@ -3231,6 +3237,7 @@ mod tests {
 
         // GPU arm: skip gracefully when no adapter, else run and assert agreement.
         if crate::gpu::shared_probe().is_none() {
+            #[cfg(feature = "std")]
             eprintln!("SKIP gpu arm: no adapter");
             return;
         }
@@ -3240,10 +3247,12 @@ mod tests {
             &nuclides,
             &base.clone().with_compute(ComputeType::Gpu),
         );
+        #[cfg(feature = "std")]
         eprintln!("k_gpu = {:.5} ± {:.5}", gpu.k_mean, gpu.k_std);
 
         let d_sg = (single.k_mean - gpu.k_mean).abs();
         let sig_sg = (single.k_std.r_powi(2) + gpu.k_std.r_powi(2)).sqrt();
+        #[cfg(feature = "std")]
         eprintln!(
             "single-vs-gpu: |Δk| = {:.5} ({:.2}σ, band {:.5})",
             d_sg,
@@ -3476,6 +3485,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     /// **GPU-vs-CpuMultiThread timing sweep** (beads op-u6s.7 deliverable) — the
     /// event-based batched-flight `ComputeType::Gpu` path benchmarked against the
     /// `CpuMultiThread` and `CpuSingleThread` backends across a sweep of
@@ -3507,6 +3517,7 @@ mod tests {
     #[test]
     #[ignore]
     fn gpu_batched_timing_sweep() {
+        #[cfg(feature = "std")]
         use crate::perf_report::{PerfReport, PerfRow};
         use std::time::Instant;
 
@@ -3524,6 +3535,7 @@ mod tests {
             "Godiva GPU batched-flight transport — this machine",
             "2026-07-17",
         );
+        #[cfg(feature = "std")]
         eprintln!("[sweep] host: {}", report.hardware.headline());
 
         for &n_particles in &sizes {
@@ -3559,6 +3571,7 @@ mod tests {
                     k_std: res.k_std,
                     histories_total,
                 });
+                #[cfg(feature = "std")]
                 eprintln!(
                     "[sweep] N={n_particles:>8} {name:<16} {dt:>8.3}s  k={:.5}±{:.5}",
                     res.k_mean, res.k_std
@@ -3576,6 +3589,7 @@ mod tests {
         if let Ok(p) =
             crate::perf_report::write_local_report("gpu_batched_transport_timing.csv", &csv)
         {
+            #[cfg(feature = "std")]
             eprintln!("[sweep] wrote per-PC csv {}", p.display());
         }
     }
@@ -3611,12 +3625,13 @@ mod tests {
     /// 0.00095 (−34 pcm, 0.25 σ combined)**, the predicted sign: the boundary
     /// case was reached there and those neutrons now leak. AFTER and Multi arms
     /// unchanged, as they do not use this kernel.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     #[ignore]
     fn gpu_collision_before_after() {
         use std::time::Instant;
         let Some(ctx) = crate::gpu::shared_probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP gpu_collision_before_after: no GPU adapter");
             return;
         };
@@ -3627,7 +3642,9 @@ mod tests {
             n_active: 7,
             ..KeffSettings::default()
         };
+        #[cfg(feature = "std")]
         eprintln!("[cmp] adapter: {}", ctx.info.name);
+        #[cfg(feature = "std")]
         eprintln!("[cmp] N         BEFORE(cpu-collide) AFTER(gpu-collide)  Multi     speedup(before/after)");
         for &n in &[10_000usize, 100_000, 1_000_000] {
             let s = KeffSettings {
@@ -3647,6 +3664,7 @@ mod tests {
             let multi = run_keff_cpu_multi(radius, &material, &nuclides, &s, ThreadCount::Auto);
             let dt_multi = t0.elapsed().as_secs_f64();
 
+            #[cfg(feature = "std")]
             eprintln!(
                 "[cmp] {n:>9} {dt_before:>10.3}s        {dt_after:>10.3}s     {dt_multi:>7.3}s   {:>5.2}x   \
                  | k: before={:.5}±{:.5} after={:.5}±{:.5} multi={:.5}±{:.5}",

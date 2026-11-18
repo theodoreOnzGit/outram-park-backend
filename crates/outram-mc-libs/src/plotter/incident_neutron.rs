@@ -35,8 +35,12 @@
 //! here. Photon products are recorded only as *present*, because their
 //! presence decides whether a redundant reaction survives `export_to_hdf5`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use njoy_outram_park_fork::acer::ce_decode::decode_ce;
@@ -125,6 +129,7 @@ pub struct IncidentNeutronData {
 }
 
 impl IncidentNeutronData {
+    #[cfg(feature = "std")]
     /// Read an ACE file (Type 1 or 2; `.gz` accepted by the reader).
     ///
     /// `name` overrides the GNDS name derived from the ZAID.
@@ -538,7 +543,7 @@ fn fission_products_ace(t: &RawAceTable) -> Result<(Vec<Product>, Vec<Product>),
 /// that `openmc.plot_xs(ce_cross_sections=...)` reads.
 #[derive(Debug, Clone, Default)]
 pub struct XsLibrary {
-    nuclides: Vec<std::sync::Arc<IncidentNeutronData>>,
+    nuclides: Vec<alloc::sync::Arc<IncidentNeutronData>>,
 }
 
 impl XsLibrary {
@@ -550,10 +555,11 @@ impl XsLibrary {
     /// Add a nuclide. A second entry under the same name replaces the first.
     pub fn with_nuclide(mut self, data: IncidentNeutronData) -> Self {
         self.nuclides.retain(|n| n.name != data.name);
-        self.nuclides.push(std::sync::Arc::new(data));
+        self.nuclides.push(alloc::sync::Arc::new(data));
         self
     }
 
+    #[cfg(feature = "std")]
     /// Read an ACE file and add it.
     pub fn with_ace_file(self, path: impl AsRef<Path>) -> Result<Self, PlotError> {
         Ok(self.with_nuclide(IncidentNeutronData::from_ace_file(path, None)?))

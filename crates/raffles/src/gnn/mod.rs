@@ -75,6 +75,9 @@
 //! upstream's are recorded in its tests, including one place where the bound
 //! computed here differs from the number the upstream's README states.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod bound;
 pub mod dataset;
 pub mod graph;

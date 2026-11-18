@@ -3,6 +3,9 @@
 //! Adjusts the insulation-layer thermal-conductance lengthscales (A/L, in m)
 //! to tune parasitic heat loss to ambient by changing the effective insulation
 //! thickness, without altering the component's thermal inertia.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::InsulatedPorousMediaFluidComponent;
 use uom::si::f64::*;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;

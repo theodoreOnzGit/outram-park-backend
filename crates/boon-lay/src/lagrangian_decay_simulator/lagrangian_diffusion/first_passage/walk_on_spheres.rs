@@ -24,6 +24,9 @@
 //! ([`WoSWalker::walk_until_released`]); see the test
 //! `multilayer_walk_transmits_across_interfaces`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 use fission_yields_data::prelude::Nuclide;

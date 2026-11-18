@@ -70,6 +70,9 @@
 //! not grow into one. If a file outside this format needs reading, the answer
 //! is to convert it, not to widen the opcode set.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::graph::Graph;
 use crate::{RafflesError, Result};
 

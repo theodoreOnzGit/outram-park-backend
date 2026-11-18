@@ -16,6 +16,8 @@
 //! U-235's peak-to-valley ratios 635.8, 218.4 and 5.34 at 0.0253 eV,
 //! 500 keV and 14 MeV.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 #[path = "../examples/lesson_fission_products/data.rs"]
 mod data;

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::pre_built_components::gfhr_pipe_tests::multi_branch::regression::new_reactor_vessel_pipe_1_regression;
 use uom::si::f64::*;
@@ -91,6 +94,7 @@ pub fn single_pipe_flibe_internal_pressure_change_check() {
     let pressure_chg_hydrostatic_plus_pump =
         pipe_1.get_pressure_change_immutable(mass_flowrate_zero);
 
+    #[cfg(feature = "std")]
     dbg!(&(pressure_chg_hydrostatic, pressure_chg_hydrostatic_plus_pump));
 
     approx::assert_relative_eq!(

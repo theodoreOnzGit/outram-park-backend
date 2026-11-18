@@ -60,6 +60,9 @@
 //! the hydrogen in the vessel's gas (the turbine takes steam only); pump
 //! head losses in the feedwater line; the exhaust's back-pressure trip.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::Params;
 use tampines_steam_tables::prelude::checked::{try_h_ps_eqm, try_s_ph_eqm};
 use uom::si::available_energy::joule_per_kilogram;
@@ -290,11 +293,13 @@ mod tests {
     #[test]
     fn the_isentropic_drop_matches_a_hand_calculation() {
         let dh = isentropic_drop(7.0e6, 2.7726e6, 0.15e6).unwrap();
+        #[cfg(feature = "std")]
         println!("isentropic drop 7 -> 0.15 MPa: {:.1} kJ/kg", dh / 1e3);
         assert!((dh - 621.6e3).abs() < 5.0e3, "{dh}");
         assert!(isentropic_drop(0.1e6, 2.6e6, 0.2e6).is_none());
         let prm = Params::unit2();
         let r = steam_per_kg_pumped(&prm, 7.0e6, 2.7726e6, 0.15e6, 1.013e5).unwrap();
+        #[cfg(feature = "std")]
         println!("steam per kg pumped at 7 MPa: {r:.4}");
         assert!((0.025..0.04).contains(&r), "{r}");
     }

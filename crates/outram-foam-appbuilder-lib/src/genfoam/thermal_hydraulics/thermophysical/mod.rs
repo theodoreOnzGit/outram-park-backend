@@ -46,6 +46,9 @@
 //! that belongs with [`io`](crate::io), not here — this module's job is the
 //! physics evaluators, addressed by picking an enum variant in Rust code.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod hydrogen;
 pub mod units;
 

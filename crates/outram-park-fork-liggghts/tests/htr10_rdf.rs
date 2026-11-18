@@ -85,6 +85,8 @@
 //!
 //! Recorded in `crates/outram-park-fork-liggghts/docs/verification-and-validation.md`.
 
+#![cfg(feature = "std")] // needs threads, files or the GPU (gh:#1602)
+
 use outram_park_fork_liggghts::compute::{ComputeType, ThreadCount};
 use outram_park_fork_liggghts::particle::Vec3;
 use outram_park_fork_liggghts::rdf::{radial_distribution, RdfDomain, RdfSettings};

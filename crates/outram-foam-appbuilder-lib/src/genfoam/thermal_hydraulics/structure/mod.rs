@@ -56,6 +56,9 @@
 //! higher-fidelity radial-conduction pin/pebble models and the FMU couplings are
 //! separate follow-ups (see [`power_model`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod heat_exchanger;
 pub mod heat_source;
 pub mod nuclear_steady_state_pebble;

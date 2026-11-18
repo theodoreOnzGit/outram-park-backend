@@ -106,6 +106,8 @@
 //! 30 runs at `--test-threads=4` and 30 at 14): 0 crashes before and after;
 //! see the #466 commit message.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::mathf::RealMath;

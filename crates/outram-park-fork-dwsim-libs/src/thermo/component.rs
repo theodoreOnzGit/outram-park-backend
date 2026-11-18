@@ -23,6 +23,9 @@
 //! | `normal_boiling_point` | `Tb` at 1 atm | K |
 //! | `cp_ig_a..e` | ideal-gas Cp correlation coefficients | see [`Component`] |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Pure-compound constant properties.
 ///
 /// A plain data record: no behaviour beyond validated construction and

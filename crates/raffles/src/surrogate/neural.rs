@@ -50,6 +50,9 @@
 //! says the surrogate is fit for a particular physical purpose. That is the
 //! caller's V&V, on the caller's data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use burn::nn::loss::{MseLoss, Reduction};
 use burn::optim::{AdamConfig, GradientsParams, Optimizer};

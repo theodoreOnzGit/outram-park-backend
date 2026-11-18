@@ -26,6 +26,9 @@
 //! deliberate generalisation beyond upstream's `write()`, not a literal port
 //! of it — documented here so the two are not confused.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::VolScalarField;
 use outram_foam_basic_lib::mesh::FvMesh;
 
@@ -107,7 +110,7 @@ mod tests {
     use outram_foam_basic_lib::fields::{BoundaryCondition, Field, PatchField, VolField};
     use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use outram_foam_basic_lib::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// One cell, three boundary faces (unit area each) all on patch
     /// "outlet", no internal faces — same fixture shape as

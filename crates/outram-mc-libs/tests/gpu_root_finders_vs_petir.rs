@@ -36,6 +36,8 @@
 //! against PETIR on the CPU in `the_test_cases_are_solvable_at_all`, a test
 //! that needs no device and would catch a badly-chosen case set.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::mathf::RealMath;

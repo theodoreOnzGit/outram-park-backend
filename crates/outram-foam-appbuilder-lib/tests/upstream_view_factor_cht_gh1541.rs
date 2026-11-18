@@ -13,6 +13,8 @@
 //! Predictions: `verification_and_validation/upstream_view_factor_gh1541/PREDICTIONS.md`
 //! (commit `7e9f474d8`, before the reference was generated); results: `README.md` there.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::io::control_dict::ControlDict;
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;

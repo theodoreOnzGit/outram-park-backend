@@ -27,6 +27,9 @@
 //! the last op-gj5 step — requires faithfully replicating those curves per rank
 //! and is a follow-up. Plain Newton (no line search / damping); 1-D tridiagonal.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_park_mpi::{Communicator, MpiError, MpiResult};
 
 use super::krylov::distributed_dot;

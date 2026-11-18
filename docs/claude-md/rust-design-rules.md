@@ -101,3 +101,44 @@ pipeline patterns where data is produced, consumed, and discarded. The simulatio
 timestep loop is a shared-state pattern — threads compute over non-overlapping
 regions of the same fields, then synchronise.
 
+### Maps in a `no_std` build: `hashbrown`, through `crate::hash` (added 2026-11-17)
+
+**Maintainer direction, 2026-11-16: "hashbrown workspace wide" ... "Standardize
+it".** A crate that builds `no_std` + `alloc` (epic gh:#1585) and uses a
+`HashMap` or `HashSet` takes it from one module in its `lib.rs`, word for
+word:
+
+```rust
+/// `HashMap` / `HashSet`: `std`'s in a `std` build, `hashbrown`'s without.
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+```
+
+and every module imports `crate::hash::{HashMap, HashSet}`, never
+`std::collections::HashMap` directly. The crate adds `hashbrown = { workspace
+= true }` (the root entry is `no_std`).
+
+- **Never a `BTreeMap` / `BTreeSet` stand-in** (`BTreeMap as HashMap`). It adds
+  an `Ord` bound to keys and to any public generic, and lacks
+  `with_capacity` / `reserve`. A genuinely ordered map is written as
+  `BTreeMap` by name, in every build. `scripts/check-nostd.sh` fails on a
+  stand-in.
+- **A std build is unchanged:** the `std` branch is std's own type.
+- **Iteration order is arbitrary in both builds**, and different between
+  them. A map whose order can reach a result (a float sum, a random draw, a
+  written list, "the first match") is sorted before it is walked, or is a
+  `BTreeMap` by name. Lookup-only maps need nothing. gh:#1611 is the
+  defect this prevents; the HTR-10 P0 in the root `CLAUDE.md` is the same
+  class.
+- **`hashbrown`'s map cannot promise the borrow checker what std's
+  `may_dangle` drop does:** a map of borrowed keys must be dropped before
+  what it borrows is moved (`raffles` `FaultTreeBuilder::build`).
+- **Do not expose the alias in a public type** where a caller builds the
+  value: the type changes with the `std` feature, and Cargo unifies features
+  across a build. Existing public fields that do are listed on gh:#1610.
+

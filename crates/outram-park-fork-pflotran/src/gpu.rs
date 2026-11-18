@@ -22,8 +22,11 @@
 //! > was available, so only the CPU fallback was exercised here. The GPU dispatch
 //! > must be validated on a GPU-equipped host before it is trusted (bead op-v6s.14).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::future::Future;
+use core::future::Future;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
@@ -273,7 +276,7 @@ fn block_on<F: Future>(future: F) -> F::Output {
     }
     let waker = Waker::from(Arc::new(ThreadWaker(std::thread::current())));
     let mut cx = Context::from_waker(&waker);
-    let mut future = std::pin::pin!(future);
+    let mut future = core::pin::pin!(future);
     loop {
         match future.as_mut().poll(&mut cx) {
             Poll::Ready(val) => return val,

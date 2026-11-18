@@ -81,6 +81,9 @@
 //!   reproduces — see [`SubcooledBoilingFraction::SahaZuber`]'s doc for why
 //!   it deviates from upstream's literal C++).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::{LatentHeat, PrandtlNumber};
 use crate::genfoam::thermal_hydraulics::units::{HeatFlux, HeatTransferCoefficient, ReynoldsNumber};

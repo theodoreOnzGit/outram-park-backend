@@ -60,6 +60,9 @@
 //! So the ten-rod problems (B31, B41) are the only ones this geometry can
 //! honestly address, and even there the expected bias is positive.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Inner radius of the B4C ring \[cm\] — 60 mm diameter.
 pub const B4C_INNER_RADIUS_CM: f64 = 3.0;

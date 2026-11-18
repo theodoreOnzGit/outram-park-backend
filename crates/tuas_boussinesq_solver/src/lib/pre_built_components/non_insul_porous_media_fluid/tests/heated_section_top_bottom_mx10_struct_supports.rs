@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// development test: heated section plus top/bottom heads, the MX-10 static
 /// mixer, and structural-support heat losses (the fullest heater assembly);
 /// advances the coupled components through a transient.
@@ -203,6 +206,7 @@ pub fn heater_plus_mx_10_with_supports() {
                     .collect();
 
                 // print surface temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_surf_temp_degc);
 
                 let bt_12_temperature: ThermodynamicTemperature = static_mixer_pipe_therminol_clone
@@ -212,11 +216,13 @@ pub fn heater_plus_mx_10_with_supports() {
                     .last()
                     .unwrap();
                 // print outlet temperature
+                #[cfg(feature = "std")]
                 dbg!(heater_top_head_exit_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
                 // bt_12_temperature, which is actually the output temperature of static
                 // mixer 10
+                #[cfg(feature = "std")]
                 dbg!(bt_12_temperature
                     .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -230,6 +236,7 @@ pub fn heater_plus_mx_10_with_supports() {
 
                 // print simulation time
                 // dbg diagnostics probably not the cause of mem leaks
+                #[cfg(feature = "std")]
                 dbg!(simulation_time);
             }
 
@@ -462,6 +469,7 @@ pub fn heater_plus_mx_10_with_supports() {
 
             let time_taken_for_calculation_loop = loop_time.elapsed().unwrap() - loop_time_start;
 
+            #[cfg(feature = "std")]
             dbg!(time_taken_for_calculation_loop);
         }
     });

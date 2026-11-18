@@ -61,6 +61,9 @@
 //! input guard. The tests below assert the wrapper is wired correctly against
 //! reference IAPWS liquid-water values — they are not a re-validation of IF97.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 
 use uom::si::available_energy::joule_per_kilogram;

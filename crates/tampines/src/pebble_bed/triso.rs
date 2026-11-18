@@ -78,8 +78,11 @@
 //! graphite dispersion (level 2, [`super::pebble`]), or anything about the
 //! bed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::f64::{
     Length, MassDensity, Power, Ratio, TemperatureInterval, ThermalConductivity,

@@ -46,7 +46,10 @@
 //! convergence it is the fully implicit backward-Euler solution of the joint
 //! system, which is what the V&V compares against a monolithic solve.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_appbuilder_lib::genfoam::multi_region::{CouplingRegion, ReactivityFeedback};
 use outram_foam_basic_lib::fields::vol_field::VolScalarField;

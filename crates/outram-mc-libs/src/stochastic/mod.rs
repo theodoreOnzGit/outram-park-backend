@@ -79,6 +79,9 @@
 //! not apply here (see the crate `CLAUDE.md`: new parts are scaffolded only where
 //! genuinely absent upstream).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod benchmark;
 pub mod cls;
 pub mod medium;

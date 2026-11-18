@@ -16,6 +16,9 @@
 //! flux 3500 kg/(m² s), `ṁ_0 = 0.3076 kg/s`, `u_0 = 3.51 m/s`,
 //! `Re ≈ 4.6e4`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::area::square_meter;

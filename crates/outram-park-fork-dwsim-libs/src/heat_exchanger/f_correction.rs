@@ -6,6 +6,9 @@
 //! shell-side correlations are not ported, see `op-qo2.7`). Standard TEMA
 //! reference formula (Bowman, Mueller & Nagle 1940).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Ratio, ThermodynamicTemperature};
 use uom::si::ratio::ratio;
@@ -45,10 +48,10 @@ pub fn f_correction_factor(
                 * ((2.0 - sf * (r + 1.0 - sqrt_r2_1)) / (2.0 - sf * (r + 1.0 + sqrt_r2_1))).r_ln())
     } else {
         let sf = p / (n * (1.0 - p) + p);
-        (sf * std::f64::consts::SQRT_2)
+        (sf * core::f64::consts::SQRT_2)
             / ((1.0 - sf)
-                * ((2.0 * (1.0 - sf) + sf * std::f64::consts::SQRT_2)
-                    / (2.0 * (1.0 - sf) - sf * std::f64::consts::SQRT_2))
+                * ((2.0 * (1.0 - sf) + sf * core::f64::consts::SQRT_2)
+                    / (2.0 * (1.0 - sf) - sf * core::f64::consts::SQRT_2))
                     .r_ln())
     };
     Ratio::new::<ratio>(f)

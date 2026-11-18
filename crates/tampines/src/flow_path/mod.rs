@@ -47,6 +47,9 @@
 //! **Kinds:** an open path, a check valve (forward only), and a vacuum
 //! breaker (forward only, opening above a pressure difference).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines_steam_tables::hem::{HemEquationOfState, Iapws97Hem};
 use tampines_steam_tables::gas_mixture::R_GAS;
 use uom::si::area::square_meter;

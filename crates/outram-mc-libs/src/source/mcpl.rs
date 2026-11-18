@@ -76,8 +76,11 @@
 //! Python reader (`mcpl` 2.2.8): see
 //! `verification_and_validation/collision_track_mcpl/README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::{Direction, Position};
-use njoy_outram_park_fork::hdf5::collision_track::CollisionTrackSite;
+use njoy_outram_park_fork::collision_track_site::CollisionTrackSite;
 
 /// What [`write_mcpl_source_point`] and [`write_mcpl_collision_track`] put in
 /// the `srcname` field. Upstream writes `"OpenMC <version>"`; this port is not
@@ -770,12 +773,14 @@ pub fn mcpl_outfile_name(name: &str) -> Result<String, McplError> {
     Ok(if name.ends_with(".mcpl") { name.to_string() } else { format!("{name}.mcpl") })
 }
 
+#[cfg(feature = "std")]
 /// Read an MCPL file from disk (plain or `.gz`). Run-boundary I/O only.
 pub fn read_mcpl_file(path: &str) -> Result<McplFile, McplError> {
     let b = std::fs::read(path).map_err(|e| McplError(format!("Unable to open file! {path}: {e}")))?;
     decode_mcpl(&b)
 }
 
+#[cfg(feature = "std")]
 /// Write an MCPL file to disk under [`mcpl_outfile_name`]; returns the path.
 /// Run-boundary I/O only.
 pub fn write_mcpl_file(name: &str, file: &McplFile) -> Result<String, McplError> {

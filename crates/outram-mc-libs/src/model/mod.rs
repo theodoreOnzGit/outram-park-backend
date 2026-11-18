@@ -98,6 +98,9 @@
 //! this API; the crate prelude re-exports the rest of it under its own
 //! names.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod advanced;
 pub mod census;
 pub mod collect;

@@ -22,7 +22,7 @@
 //!   only expected divergences are (a) history carry-over when a list rebuild
 //!   flips a pair's orientation, (b) the multicontact wall `surfacesClose`
 //!   history of the cylinder (not used here). Pass criterion: every value
-//!   within `1e-8` of its column's largest magnitude; the bit-identical count
+//!   within ~~`1e-8`~~ `1e-9` (gh:#1614) of its column's largest magnitude; the bit-identical count
 //!   and the worst difference are printed. A control run WITHOUT the model must
 //!   differ from upstream by far more (so the model is exercised).
 //!
@@ -184,7 +184,7 @@ fn compare(deck: Deck, multicontact: bool) -> (usize, usize, f64) {
 fn multicontact_trajectory_matches_upstream() {
     let (same, total, worst) = compare(Deck::Planes, true);
     println!("multicontact: {same}/{total} values bit-identical, worst |diff|/scale = {worst:e}");
-    assert!(worst <= 1e-8, "worst {worst:e}");
+    assert!(worst <= 1e-9, "worst {worst:e}"); // ~~1e-8~~ gh:#1614: measured 0
 }
 
 /// Cylinder wall (gh:#1410): `in.multicontact_cyl`, six spheres between two z
@@ -216,7 +216,7 @@ fn multicontact_cylinder_matches_upstream() {
     let (_, _, without) = compare(Deck::Cylinder, false);
     println!("cylinder control without the model: {without:e}");
     assert!(without > 10.0 * worst.max(1e-12), "model not exercised: with {worst:e} without {without:e}");
-    assert!(worst <= 1e-8, "worst {worst:e}");
+    assert!(worst <= 1e-9, "worst {worst:e}"); // ~~1e-8~~ gh:#1614: measured 0
 }
 
 /// Mesh-wall multicontact (gh:#1410): `in.multicontact_mesh`, the plane deck
@@ -238,7 +238,7 @@ fn multicontact_mesh_matches_upstream() {
     let (_, _, without) = compare(Deck::Mesh, false);
     println!("mesh control without the model: {without:e}");
     assert!(without > 10.0 * worst.max(1e-12), "model not exercised: with {worst:e} without {without:e}");
-    assert!(worst <= 1e-8, "worst {worst:e}");
+    assert!(worst <= 1e-9, "worst {worst:e}"); // ~~1e-8~~ gh:#1614: measured 0
 }
 
 /// The model is exercised: a run without it misses upstream by far more.

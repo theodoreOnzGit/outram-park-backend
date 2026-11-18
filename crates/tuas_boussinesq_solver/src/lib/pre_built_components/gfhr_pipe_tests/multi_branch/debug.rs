@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{mass_rate::kilogram_per_second, pressure::kilopascal};
 use uom::si::thermodynamic_temperature::degree_celsius;
 
@@ -64,6 +67,7 @@ pub fn test_fhr_four_branch_solver_debug() {
         &fhr_pri_loop_pump,
     );
 
+    #[cfg(feature = "std")]
     dbg!(&(
         reactor_flow,
         downcomer_branch_1_flow,

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(test)]
 use petir::mathf::RealMath;
 
@@ -21,9 +24,9 @@ use petir::mathf::RealMath;
 #[test]
 //#[ignore = "debugging"]
 pub fn du_test_shell_and_tube_heat_exchanger_set_b() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
-    use std::thread;
+    use crate::thread;
 
     use uom::si::time::second;
     use uom::si::thermodynamic_temperature::kelvin;
@@ -769,6 +772,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_b() {
             m_s.abs(),
         );
 
+        #[cfg(feature = "std")]
         dbg!(&(
             shell_inlet_temperature.get::<degree_celsius>(),
             tube_inlet_temperature.get::<degree_celsius>(),
@@ -820,6 +824,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_b() {
         m_s,
     );
 
+    #[cfg(feature = "std")]
     dbg!(&(
         reynolds_num_b1,
         bulk_prandtl_b1,
@@ -870,6 +875,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_b() {
                     m_s,
                 );
 
+            #[cfg(feature = "std")]
             dbg!(&(
                 reynolds_num_b2,
                 bulk_prandtl_b2,
@@ -919,6 +925,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_b() {
                     m_s,
                 );
 
+            #[cfg(feature = "std")]
             dbg!(&(
                 reynolds_num_b3,
                 bulk_prandtl_b3,
@@ -968,6 +975,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_b() {
                     m_s,
                 );
 
+            #[cfg(feature = "std")]
             dbg!(&(
                 reynolds_num_b4,
                 bulk_prandtl_b4,
@@ -1017,6 +1025,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_b() {
                     m_s,
                 );
 
+            #[cfg(feature = "std")]
             dbg!(&(
                 reynolds_num_b5,
                 bulk_prandtl_b5,
@@ -1066,6 +1075,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_b() {
                     m_s,
                 );
 
+            #[cfg(feature = "std")]
             dbg!(&(
                 reynolds_num_b6,
                 bulk_prandtl_b6,
@@ -1115,6 +1125,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_b() {
                     m_s,
                 );
 
+            #[cfg(feature = "std")]
             dbg!(&(
                 reynolds_num_b7,
                 bulk_prandtl_b7,

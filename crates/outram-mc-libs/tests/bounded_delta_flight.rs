@@ -34,6 +34,8 @@
 //! Also measured: 1960 of 2000 flights through a thin slab exited, and **every
 //! one landed on the boundary to within 1e-12 cm** rather than past it.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::material::material::{Material, NuclideComponent};

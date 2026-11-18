@@ -45,6 +45,9 @@
 //!   uses whichever [`InitialEstimates`] fields are present and valid (the
 //!   flags and the `Validate*` calls collapse into one check per profile).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::catalytic_activity::katal;
 use uom::si::power::watt;
 

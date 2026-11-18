@@ -22,7 +22,10 @@
 //! `python3 script.py [out.png]`. `build_figure()` returns the figure, so a
 //! caller can also import the script and inspect `fig.axes[0].lines`.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 /// Keyword arguments to `plt.subplots(**kwargs)` / `plt.figure(**kwargs)`.
 ///

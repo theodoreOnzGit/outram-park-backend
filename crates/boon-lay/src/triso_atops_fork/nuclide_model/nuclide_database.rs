@@ -20,6 +20,9 @@
 //! precursor within the TRISO-ATOPS model (e.g. `Xe-135` ← `I-135`), used to
 //! chain parent → daughter activity during a run.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::TrisoAtopsNuclide;
 
 /// Number of distinct nuclides in the TRISO-ATOPS supported table.

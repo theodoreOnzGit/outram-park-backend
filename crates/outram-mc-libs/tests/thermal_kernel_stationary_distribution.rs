@@ -168,6 +168,8 @@
 //! Data-gated: skips (passes) when `reference-data/endf/` is absent, same
 //! contract as `tests/thermal_laws_vs_njoy_thermr.rs`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::thermal::ThermalScattering;

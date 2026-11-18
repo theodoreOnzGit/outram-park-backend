@@ -71,6 +71,9 @@
 //! expansion, so that spurious axial variation of the plane solve does not leak
 //! into the coupled geometry. See [`assemble_mesh_displacement`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::material::{Displacement, ThermalExpansionCoeff};
 use outram_foam_basic_lib::primitives::Vector3;
 use uom::si::f64::{Length, TemperatureInterval};

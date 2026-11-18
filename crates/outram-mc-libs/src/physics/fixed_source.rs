@@ -28,6 +28,9 @@
 //! multiply without bound and is capped (and physically meaningless for a fixed
 //! source). Neutron-only, offline data. See the workspace `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::geometry::Geometry;
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
@@ -99,13 +102,13 @@ pub enum FixedSource {
     /// plausible wrong number. Check
     /// [`SurfaceSource::dropped`](crate::source::extra::SurfaceSource::dropped)
     /// before building this if a soft failure is wanted.
-    Surface(std::sync::Arc<crate::source::extra::SurfaceSource>),
+    Surface(alloc::sync::Arc<crate::source::extra::SurfaceSource>),
     /// **A general [`IndependentSource`](crate::source::source::IndependentSource)**
     /// (gh:#1388): any spatial, energy and angular distribution, including
     /// OpenMC's `Mixture`, `CylindricalIndependent`, ... (via the
     /// `Distribution` variants of `SpatialKind` / `EnergyKind`). The birth
     /// weight is the source's `strength` times the importance weights.
-    Independent(std::sync::Arc<crate::source::source::IndependentSource>),
+    Independent(alloc::sync::Arc<crate::source::source::IndependentSource>),
 }
 
 impl FixedSource {

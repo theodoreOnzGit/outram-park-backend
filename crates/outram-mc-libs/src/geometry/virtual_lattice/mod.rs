@@ -101,6 +101,9 @@
 //! No k-eigenvalue validation against the upstream `triso_virtual_lattice`
 //! regression case has been run — that is tracked as a separate bead.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::position::Position;
 use super::surface::{SurfaceKind, SurfaceKindExt};
 

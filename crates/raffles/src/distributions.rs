@@ -157,6 +157,9 @@
 //! this file for the upstream files, commit and the full list of structural
 //! changes.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 
@@ -231,11 +234,14 @@ fn require_probability(parameter: &str, value: f64) -> Result<()> {
 ///   using continued fractions*, Appl. Opt. **15** (1976) 668-671 — the
 ///   continued-fraction evaluation scheme used for both incomplete functions.
 pub(crate) mod special {
+    #[cfg(not(any(feature = "std", test)))]
+    #[allow(unused_imports)]
+    use crate::nostd_prelude::*;
     use petir::mathf::RealMath;
     /// `sqrt(2 * pi)`, to full `f64` precision.
     pub const SQRT_2PI: f64 = 2.506_628_274_631_000_5;
     /// `sqrt(2)`, to full `f64` precision.
-    pub const SQRT_2: f64 = std::f64::consts::SQRT_2;
+    pub const SQRT_2: f64 = core::f64::consts::SQRT_2;
 
     /// Lanczos coefficients for `g = 7`, `n = 9` (Lanczos 1964).
     const LANCZOS: [f64; 9] = [
@@ -261,8 +267,8 @@ pub(crate) mod special {
     pub fn ln_gamma(z: f64) -> f64 {
         if z < 0.5 {
             // Reflection: ln Gamma(z) = ln(pi / sin(pi z)) - ln Gamma(1 - z).
-            let s = (std::f64::consts::PI * z).r_sin();
-            (std::f64::consts::PI / s.abs()).r_ln() - ln_gamma(1.0 - z)
+            let s = (core::f64::consts::PI * z).r_sin();
+            (core::f64::consts::PI / s.abs()).r_ln() - ln_gamma(1.0 - z)
         } else {
             let z = z - 1.0;
             let mut x = LANCZOS[0];
@@ -2053,7 +2059,7 @@ mod tests {
             (
                 "ln Gamma(0.5) = ln sqrt(pi)",
                 special::ln_gamma(0.5),
-                std::f64::consts::PI.sqrt().r_ln(),
+                core::f64::consts::PI.sqrt().r_ln(),
             ),
             ("Gamma(5) = 24", special::ln_gamma(5.0).r_exp(), 24.0),
             ("erf(1)", special::erf(1.0), 0.842_700_792_949_714_9),

@@ -16,6 +16,9 @@
 //! tracked separately -- see the workspace's beads issue tracker, epic
 //! `op-dt3`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// A single-phase liquid loop segment (1D lumped finite-volume pipe/component
 /// with lateral thermal coupling).
 ///

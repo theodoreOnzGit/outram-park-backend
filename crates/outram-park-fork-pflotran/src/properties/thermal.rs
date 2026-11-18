@@ -31,6 +31,9 @@
 //! human reviews it: no human V&V has been done and the correlations have not
 //! been checked against a published PFLOTRAN TH reference case.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::units::{FluidDensity, FluidPressure, FluidTemperature, FluidViscosity};

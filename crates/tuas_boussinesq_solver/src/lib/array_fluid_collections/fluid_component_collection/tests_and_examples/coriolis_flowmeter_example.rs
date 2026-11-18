@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Example 3,
 ///
 /// suppose now we have a coriolis flowmeter
@@ -16,7 +19,7 @@ pub fn coriolis_flowmeter_empirical_custom_component_example_3(
     use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
     use uom::si::length::inch;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
     use uom::si::ratio::ratio;
     use uom::si::mass_rate::kilogram_per_second;
     use uom::si::mass_density::kilogram_per_cubic_meter;

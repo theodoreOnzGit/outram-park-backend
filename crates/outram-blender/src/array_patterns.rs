@@ -38,8 +38,11 @@
 //!
 //! Positions/lengths are dimensionless model-space quantities; angles radians.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use crate::curve::Spline;
 use crate::math::Vec3;
@@ -157,7 +160,7 @@ pub fn radial_array_capped(
 /// through `center` (step `= 2π / count`).
 pub fn circular_array(mesh: &Mesh, count: usize, axis: Vec3, center: Vec3) -> Mesh {
     let n = count.max(1);
-    radial_array(mesh, n, std::f64::consts::TAU / n as f64, axis, center)
+    radial_array(mesh, n, core::f64::consts::TAU / n as f64, axis, center)
 }
 
 /// `count` copies of `mesh`, copy `i` placed under `offset` applied `i` times
@@ -310,7 +313,7 @@ mod tests {
         let fan = radial_array(
             &unit,
             4,
-            std::f64::consts::FRAC_PI_2 / 3.0,
+            core::f64::consts::FRAC_PI_2 / 3.0,
             Vec3::new(0.0, 0.0, 1.0),
             Vec3::ZERO,
         );
@@ -335,7 +338,7 @@ mod tests {
         let unit = cube_at(0.4, Vec3::new(2.0, 0.0, 0.0));
         let step = compose(
             Affine3::translation(Vec3::new(0.0, 0.0, 1.0)),
-            rotation(Vec3::new(0.0, 0.0, 1.0), std::f64::consts::FRAC_PI_2),
+            rotation(Vec3::new(0.0, 0.0, 1.0), core::f64::consts::FRAC_PI_2),
         );
         let helix = object_offset_array(&unit, 4, step);
         let (lo2, hi2) = bounding_box(&helix);

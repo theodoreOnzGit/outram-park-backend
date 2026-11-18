@@ -55,6 +55,9 @@
 //! (op-p6p.7.11). Here the caller supplies both sides' already-mapped coupling
 //! sums.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::ThermodynamicTemperature;
 
 use super::units::{HeatFlux, HeatTransferCoefficient, WallConductance};

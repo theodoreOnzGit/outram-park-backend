@@ -99,6 +99,27 @@ The general rules this illustrates, which hold throughout the crate:
 
 # Changelog
 
+## `no_std` + `alloc` (gh:#1601)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p tuas_boussinesq_solver --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every component and correlation builds
+without it. What `std` adds:
+
+- **threads.** Without them, `thread::spawn` runs its closure at once and
+  `join` returns the result. Every spawned closure here works on its own
+  clone and is joined before its result is used, so the numbers are the
+  same, computed one after another.
+- **clocks.** Without them, `SystemTime::now().elapsed()` reads zero, so
+  wall-clock timing prints 0 s and real-time pacing does not wait.
+- **printing, CSV output (`csv`) and `env_logger`.**
+- **the binary and the CIET educational simulator example.**
+
+The root workspace entry for `outram-park-fork-coolprop` is
+`default-features = false`; members that want its `std` ask for it. With
+`std` on (the default) nothing changes.
+
 ## 0.1.4
 
 Patch release. Added SAM (NED-2021 Table 4) coupled natural-circulation

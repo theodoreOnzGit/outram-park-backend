@@ -59,6 +59,9 @@
 //!
 //! No human V&V is claimed. See the test module for what is and is not checked.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::thermo::property_package::PropertyPackageModel;
 use uom::si::f64::{MolarMass, Ratio, ThermodynamicTemperature};
 use uom::si::molar_mass::gram_per_mole;

@@ -70,9 +70,12 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// Which discrete Laplacian weighting to assemble (enum dispatch, per the
 /// workspace no-trait-objects rule).
@@ -153,7 +156,7 @@ pub(crate) type EdgeWeights = Vec<((usize, usize), f64)>;
 /// positions while the topology (`tris`) stays fixed.
 ///
 /// **Deterministic order (gh #1002, 2026-10-20).** This ~~returned a
-/// `std::collections::HashMap`~~, whose iteration order is randomly seeded per
+/// `crate::hash::HashMap`~~, whose iteration order is randomly seeded per
 /// map; every caller sums the weights into per-vertex diagonals, one-ring
 /// covariances or right-hand sides in that order, so ARAP, smoothing and
 /// parameterization changed in the last bits from call to call. The weights

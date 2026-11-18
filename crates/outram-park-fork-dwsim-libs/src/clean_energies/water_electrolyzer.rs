@@ -81,6 +81,9 @@
 //!   [`OutletEnthalpyBump`] return exactly the numbers DWSIM writes onto the
 //!   streams before flashing.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::catalytic_activity::katal;
 use uom::si::electric_current::ampere;

@@ -57,7 +57,10 @@
 //! assert_eq!(model.probabilities(), &[0.5, 0.7, 0.5, 0.7]);
 //! ```
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::{RafflesError, Result};
 
@@ -406,6 +409,13 @@ impl FaultTreeBuilder {
         }
 
         detect_cycle(&gates, &self.gate_names)?;
+
+        // The two lookups borrow the name lists moved out below. `hashbrown`'s
+        // map (the `no_std` build, gh:#1610) cannot promise the borrow checker
+        // that its destructor leaves those borrows alone, as std's does, so
+        // they are dropped here first. No effect on the result.
+        drop(gate_index);
+        drop(event_index);
 
         Ok(FaultTreeModel {
             tree: FaultTree {

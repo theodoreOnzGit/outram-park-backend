@@ -26,6 +26,9 @@
 //! Incropera or Todreas & Kazimi), so no constant here is "picked from a
 //! textbook range"; the cited ones are single values from one source each.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{HeatTransfer, ThermodynamicTemperature};
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;

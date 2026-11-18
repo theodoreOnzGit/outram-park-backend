@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use crate::boussinesq_thermophysical_properties::prandtl::try_get_prandtl;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
@@ -18,7 +21,7 @@ use uom::si::mass_rate::kilogram_per_second;
 use uom::si::pressure::atmosphere;
 use uom::si::thermodynamic_temperature::kelvin;
 use ndarray::*;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 impl Default for FluidArray {
     fn default() -> Self {

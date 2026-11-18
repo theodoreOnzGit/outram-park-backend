@@ -34,6 +34,7 @@
 //! material at a temperature between the tables, and the build time of each.
 //!
 //! Hardware: see the README section.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;

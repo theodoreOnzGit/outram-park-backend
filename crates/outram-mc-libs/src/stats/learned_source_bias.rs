@@ -52,7 +52,10 @@
 //! record in `verification_and_validation/stats_epic_493/497_learned_importance.md`
 //! measure it.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::physics::fixed_source::FixedSource;
 use crate::physics::weight_windows::WeightWindows;

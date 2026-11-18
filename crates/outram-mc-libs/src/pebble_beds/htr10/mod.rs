@@ -65,6 +65,9 @@
 //!    [`BoronReading`], which exists because this one is both easy to get wrong
 //!    and expensive when you do.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::material::material::{Material, NuclideComponent};
 
 /// Avogadro's number \[1/mol\].

@@ -61,6 +61,9 @@
 //! uses plain `f64` (not `uom`) because the solute field and its Krylov solve mix
 //! quantities of differing dimension; callers apply units at the case-setup layer.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 use crate::grid::{Axis, BoundaryLocation, CartesianGrid};
 use outram_foam_basic_lib::krylov::{bicgstab, KrylovResult, KrylovSettings, Preconditioner};

@@ -49,6 +49,9 @@
 //! This type is a public handoff between crates, not a hot loop, so it is
 //! `uom` throughout, per the workspace rule for quantities crossing an API.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::amount_of_substance::particle;
 use uom::si::f64::{AmountOfSubstance, AvailableEnergy, Radioactivity, Time, Volume};
 use uom::si::radioactivity::becquerel;
@@ -667,7 +670,7 @@ mod tests {
         let n = result.eol().density("I135") * 1.0e24 * 1000.0;
         let atoms = i135.atoms().unwrap().get::<particle>();
         assert!(n > 0.0 && ((atoms - n) / n).abs() < 1e-15, "{atoms} vs {n}");
-        let a_hand = std::f64::consts::LN_2 / 2.36520e4 * n;
+        let a_hand = core::f64::consts::LN_2 / 2.36520e4 * n;
         let a = i135.activity().get::<becquerel>();
         assert!(((a - a_hand) / a_hand).abs() < 1e-15, "{a} vs {a_hand}");
 

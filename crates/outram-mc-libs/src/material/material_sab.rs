@@ -30,6 +30,9 @@
 //! NEW WORK in the sense of the code (a lowering), a port in the sense of the
 //! semantics.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::material::material::{Material, NuclideComponent};
 use crate::material::nuclide::Nuclide;
 use crate::material::thermal::ThermalScattering;

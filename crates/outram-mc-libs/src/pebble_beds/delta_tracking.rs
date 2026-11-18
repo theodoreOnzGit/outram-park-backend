@@ -8,6 +8,9 @@
 //! name `physics::delta_tracking`, whose module docs state the algorithm, its
 //! invariants and its references (Woodcock 1965; Leppänen 2010).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::physics::delta_tracking::flight::{
     bounded_delta_flight, bounded_delta_flight_urr, bounded_delta_flight_visiting,
     classify_collision, sample_delta_distance, track_to_collision, DeltaEvent, DeltaFlight,

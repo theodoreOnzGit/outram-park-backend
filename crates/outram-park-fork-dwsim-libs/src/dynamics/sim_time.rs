@@ -43,6 +43,9 @@
 //!   exactly that at the start of a run. [`SimInstant::add_seconds`] **saturates
 //!   at zero** instead — see its own doc comment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Time;
 use uom::si::time::second;
 

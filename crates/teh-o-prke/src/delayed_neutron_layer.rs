@@ -158,6 +158,9 @@
 //! group structure, build the layer from explicit `(beta_i, lambda_i)` pairs
 //! with [`DelayedNeutronLayer::new`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 use uom::si::frequency::hertz;
 use uom::si::power::megawatt;
@@ -670,7 +673,7 @@ mod tests {
 
         let t_early = std::time::Instant::now();
         for k in 0..block {
-            std::hint::black_box(layer.advance(std::hint::black_box(power_for(k)), dt));
+            core::hint::black_box(layer.advance(core::hint::black_box(power_for(k)), dt));
         }
         let early = t_early.elapsed();
 
@@ -682,7 +685,7 @@ mod tests {
 
         let t_late = std::time::Instant::now();
         for k in 0..block {
-            std::hint::black_box(layer.advance(std::hint::black_box(power_for(k)), dt));
+            core::hint::black_box(layer.advance(core::hint::black_box(power_for(k)), dt));
         }
         let late = t_late.elapsed();
 

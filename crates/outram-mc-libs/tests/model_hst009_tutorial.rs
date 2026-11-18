@@ -27,6 +27,8 @@
 //! density) pairs, 11 bit-identical and 3 one ulp off (U-236 and F-19 in
 //! the solution, Mn-55 in the tank); H in H2O on H-1 only.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::geometry::surface::SurfaceKind;
 use outram_mc_libs::model::prelude::*;
 use outram_mc_libs::vv::hst009;

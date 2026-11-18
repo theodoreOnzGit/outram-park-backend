@@ -19,6 +19,9 @@
 //! and primary loops, component temperatures (degC), and heater surface
 //! temperatures (degC) at the given heater power (W).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// for gnielinski type correlations, there is a wall correction
 /// factor which is something like (Pr_f/Pr_w)^0.11
 ///

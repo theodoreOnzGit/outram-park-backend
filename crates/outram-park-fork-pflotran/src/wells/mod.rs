@@ -114,6 +114,9 @@
 //!   `r_eq = 0.14*sqrt(dx^2+dy^2)` isotropic form; anisotropic `kx != ky`
 //!   correction is documented above but not implemented.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::grid::CartesianGrid;

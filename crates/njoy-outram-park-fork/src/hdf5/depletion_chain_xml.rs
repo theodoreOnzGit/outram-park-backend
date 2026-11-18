@@ -54,6 +54,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use alloc::collections::BTreeMap;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use super::xml_scan::{scan, XmlElement};
@@ -403,6 +404,7 @@ impl DepletionChainXml {
     }
 
     /// Parse a chain from a file.
+    #[cfg(feature = "std")]
     pub fn read_file(path: &Path) -> Result<Self, NjoyError> {
         let text = std::fs::read_to_string(path)
             .map_err(|e| NjoyError::Hdf5(format!("reading {}: {e}", path.display())))?;
@@ -521,6 +523,22 @@ impl DepletionChainXml {
             self.nuclides[*idx].fission_yields = borrowed;
         }
         Ok(())
+    }
+
+    /// Build a chain from nuclide records, in the order given (the
+    /// constructor `depletion_chain_ops::reduce` uses). Added 2026-11-17
+    /// (gh:#1621).
+    ///
+    /// # Errors
+    /// A name listed twice.
+    pub fn from_nuclides(nuclides: Vec<ChainNuclide>) -> Result<Self, NjoyError> {
+        let mut by_name = BTreeMap::new();
+        for (i, n) in nuclides.iter().enumerate() {
+            if by_name.insert(n.name.clone(), i).is_some() {
+                return Err(NjoyError::Hdf5(format!("depletion chain: `{}` listed more than once", n.name)));
+            }
+        }
+        Ok(Self { nuclides, by_name })
     }
 
     /// A nuclide by name.
@@ -890,6 +908,7 @@ mod tests {
     /// embedded copy above cannot drift from the format's own examples without
     /// this failing. **Skips** — it does not fail — where no checkout exists,
     /// per the workspace rule that reference data may be absent.
+    #[cfg(feature = "std")]
     #[test]
     fn the_openmc_checkouts_own_chain_files_read_if_present() {
         let files = [

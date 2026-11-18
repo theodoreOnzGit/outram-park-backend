@@ -97,6 +97,9 @@
 //!
 //! Natural coordinates and weights are dimensionless.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::element::{ElementType, FacetType};
 
 /// One quadrature point: a natural coordinate and its reference-domain weight.

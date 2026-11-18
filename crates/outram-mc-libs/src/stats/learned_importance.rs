@@ -84,6 +84,9 @@
 //! readings stay as the record of what was measured.
 //! Protocol: `verification_and_validation/stats_epic_493/497_learned_importance.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::physics::weight_windows::WeightWindows;
 use crate::tally::mesh::{unflatten, RegularMesh};
@@ -227,7 +230,7 @@ pub fn learned_weight_windows(
         fill.loo_rmse_ln = Some(loo.rmse());
         let ln_max = ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let ln_min = ys.iter().cloned().fold(f64::INFINITY, f64::min)
-            - settings.max_extrapolation_decades * std::f64::consts::LN_10;
+            - settings.max_extrapolation_decades * core::f64::consts::LN_10;
         let is_resolved: Vec<bool> = (0..n_m).map(|m| lower[m] > 0.0).collect();
         for m in 0..n_m {
             if is_resolved[m] && !settings.smooth_resolved {

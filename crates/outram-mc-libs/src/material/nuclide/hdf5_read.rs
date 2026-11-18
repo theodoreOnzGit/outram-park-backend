@@ -49,6 +49,9 @@
 //! (`tests/band_xs_from_hdf5_reader.rs`). Decoding those laws is the open part
 //! of GitHub #303.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     build_inelastic_levels, elastic_0k_from_ace, partial_fission_chi, take_fission_law,
     InelasticLevel,

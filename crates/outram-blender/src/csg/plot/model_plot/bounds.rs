@@ -27,6 +27,9 @@
 //! Bounding boxes and domain order for [`super::ModelPlot`] (split out of
 //! the model-plot module on 2026-10-02 to respect the 1000-line file cap).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::csg::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use crate::csg::geometry::Geometry;
 use crate::csg::lattice::Lattice;

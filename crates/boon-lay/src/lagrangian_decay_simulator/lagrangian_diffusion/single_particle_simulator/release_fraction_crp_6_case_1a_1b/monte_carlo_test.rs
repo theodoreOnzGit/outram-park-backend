@@ -8,6 +8,9 @@
 //! literature ranges are those cited in the sibling analytical verification
 //! (Hales et al. 2021, Table 4).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use fission_yields_data::prelude::Nuclide;
 use uom::si::f64::*;
 use uom::si::length::micrometer;

@@ -56,6 +56,9 @@
 //! Independent implementations from those papers — see the provenance note in
 //! [`super`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use petir::rng::lcg::prn;
 

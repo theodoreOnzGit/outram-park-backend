@@ -19,6 +19,9 @@
 //!
 //! The CPU plotter is the reference and the fallback; the GPU path is `f32`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod flat;
 pub mod index;
 

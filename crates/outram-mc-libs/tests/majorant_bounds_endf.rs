@@ -65,6 +65,7 @@
 //! Cost: 391 s for the file, dominated by the U-235/U-238 reconstructions with
 //! URR tables (~70 s each) and the 3 M-energy audits. The two ENDF tests are
 //! therefore behind `long-tests`.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf;

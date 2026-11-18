@@ -24,6 +24,9 @@
 //! used from the loop's verification/simulation tests rather than the public
 //! library surface.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(test)]
 /// First iteration of UW madison flibe loop given the following
 /// best estimate parameters.

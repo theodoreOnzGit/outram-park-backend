@@ -14,6 +14,9 @@
 //! `AGENTS.md`, "Crate-level interfaces may follow SOLID principles"): RAFFLES
 //! owns the implementer by value, so no lifetime is needed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::dataset::{Dataset, Split};
 use super::quantities::Quantities;
 use super::space::ParameterSpace;

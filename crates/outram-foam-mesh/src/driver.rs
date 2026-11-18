@@ -83,6 +83,9 @@
 //! validated against OpenFOAM output**; treat the layer phase as the least
 //! trustworthy part of the pipeline.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::io::PolyMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
@@ -311,6 +314,7 @@ pub struct GeneratedMesh {
 }
 
 impl GeneratedMesh {
+    #[cfg(feature = "std")]
     /// Write an OpenFOAM case skeleton: `<case_dir>/constant/polyMesh/{points,
     /// faces, owner, neighbour, boundary}`.
     ///
@@ -580,7 +584,7 @@ mod tests {
         assert_eq!(out.quality.n_severely_non_ortho_faces, 0);
         assert_eq!(out.quality.verdict(), QualityVerdict::Good);
         // Retained volume ≈ 64 − 4.19 = 59.81 m³ (staircase agreement ~0.3 %).
-        let analytic = 64.0 - 4.0 / 3.0 * std::f64::consts::PI;
+        let analytic = 64.0 - 4.0 / 3.0 * core::f64::consts::PI;
         assert!(
             (out.quality.total_volume - analytic).abs() < 0.5,
             "retained volume {} m^3 vs analytic {analytic}",
@@ -630,7 +634,7 @@ mod tests {
             "snapping must deform the mesh: {}",
             snapped.quality.max_non_ortho_deg
         );
-        let analytic = 64.0 - 4.0 / 3.0 * std::f64::consts::PI;
+        let analytic = 64.0 - 4.0 / 3.0 * core::f64::consts::PI;
         assert!(
             (snapped.quality.total_volume - analytic).abs()
                 < (cast.quality.total_volume - analytic).abs(),

@@ -94,8 +94,11 @@
 //! thermodynamic loops; the quantities here are plain scalars, so no `uom`
 //! type-aliasing is needed (contrast the crate's EOS public surface).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// Coordination number `z` of the UNIFAC/UNIQUAC lattice (dimensionless).
 /// Fixed at 10 (as in classic UNIFAC and the Dortmund model); enters the

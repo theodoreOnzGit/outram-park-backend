@@ -32,6 +32,9 @@
 //!
 //! > Untrusted AI-generated draft until a human reviews it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::regression::{
     RegressionCoupler, RegressionCurves, RegressionDeck, RegressionFace, RegressionFlowValue,
     RegressionPermeabilityFunction, RegressionSaturationFunction,
@@ -396,7 +399,7 @@ impl Stepper {
             .filter(|t| *t > 0.0)
             .collect();
         wp.push(deck.time.final_time_s);
-        wp.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        wp.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
         wp.dedup();
         Self {
             dt: deck.time.initial_dt_s.unwrap_or(1.0),

@@ -7,6 +7,9 @@
 //! Merkel-method/NTU cooling-tower physics itself is new (no DWSIM
 //! equivalent to port).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::humid_air::HumidAirState;
 use crate::TampinesError;
 use uom::si::f64::{TemperatureInterval, ThermodynamicTemperature, VolumeRate};

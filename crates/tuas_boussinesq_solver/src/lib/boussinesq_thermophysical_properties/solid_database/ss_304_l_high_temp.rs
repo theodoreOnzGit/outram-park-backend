@@ -75,6 +75,9 @@
 //! is untrusted AI-assisted draft material until a human reviews it. See the
 //! unit tests at the bottom of this file for the measured agreement.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -890,6 +893,7 @@ fn kim_304l_covers_htgr_envelope_through_public_api() {
         let cp_joule_per_kg_kelvin = cp.get::<joule_per_kilogram_kelvin>();
         let k_watt_per_meter_kelvin = thermal_conductivity.get::<watt_per_meter_kelvin>();
 
+        #[cfg(feature = "std")]
         println!(
             "T = {:8.2} K ({:8.2} degC): rho = {:8.2} kg/m^3, \
              cp = {:7.2} J/(kg K), k = {:7.3} W/(m K)",
@@ -1077,6 +1081,7 @@ fn existing_ss304l_zou_zweibaum_material_is_unchanged() {
     .unwrap()
     .get::<kilogram_per_cubic_meter>();
 
+    #[cfg(feature = "std")]
     println!(
         "at 800 K: SteelSS304L rho = {old_density_800k:.2} kg/m^3, \
          SteelSS304LHighTemp rho = {kim_density_800k:.2} kg/m^3"

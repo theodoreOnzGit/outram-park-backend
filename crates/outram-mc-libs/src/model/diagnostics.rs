@@ -40,6 +40,9 @@
 //! Not here: MGXS (the medium-level API, #845 / #848), per-nuclide reaction
 //! rates (no nuclide filter exists in `tally` yet).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::energy::electronvolt;
 use uom::si::f64::{Energy, Length};
 use uom::si::length::centimeter;
@@ -313,8 +316,8 @@ impl Mesh {
                 }
                 let (l, u) = bounds(b)?;
                 let n: [usize; 3] =
-                    std::array::from_fn(|i| ((u[i] - l[i]) / cell_cm[i]).ceil().max(1.0) as usize);
-                let upper: [f64; 3] = std::array::from_fn(|i| l[i] + n[i] as f64 * cell_cm[i]);
+                    core::array::from_fn(|i| ((u[i] - l[i]) / cell_cm[i]).ceil().max(1.0) as usize);
+                let upper: [f64; 3] = core::array::from_fn(|i| l[i] + n[i] as f64 * cell_cm[i]);
                 Ok(crate::tally::mesh::RegularMesh {
                     lower_left: l,
                     upper_right: upper,

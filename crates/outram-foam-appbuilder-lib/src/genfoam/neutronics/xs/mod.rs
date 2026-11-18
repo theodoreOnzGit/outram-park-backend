@@ -93,6 +93,9 @@
 //! [`crate::genfoam::multi_region::rbf_mapping`] so there is a single
 //! implementation of the algorithm.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod error;
 pub mod group_constants;
 pub mod input;
@@ -104,7 +107,7 @@ pub mod zone_data;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 pub use error::XsError;
 pub use group_constants::{GroupConstants, PrecursorConstants};

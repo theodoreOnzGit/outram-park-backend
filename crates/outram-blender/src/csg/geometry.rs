@@ -42,6 +42,9 @@
 //! `cells`, `universes`, `lattices`, plus the `root_universe`. It is read-only
 //! after construction, so transport threads share it as `Arc<Geometry>`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cell::{CellFill, SurfaceToken};
 use super::lattice::Lattice;
 use super::position::{Direction, Position};

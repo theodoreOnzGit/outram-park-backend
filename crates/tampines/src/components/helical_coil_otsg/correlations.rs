@@ -58,6 +58,9 @@
 //! - Neither adaptation has been validated against helical-coil boiling
 //!   data in this workspace (see the V&V record).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Lower Reynolds number of the fully turbulent coil heat-transfer
@@ -69,7 +72,7 @@ pub const RE_TURBULENT_HEAT_TRANSFER: f64 = 2.2e4;
 /// with `D_w` the helix (coil) diameter at the tube centreline and `h` the
 /// pitch (rise per turn). For `h → 0` it is `D_w` (a torus).
 pub fn curvature_diameter(coil_diameter_m: f64, pitch_m: f64) -> f64 {
-    let r = pitch_m / (std::f64::consts::PI * coil_diameter_m);
+    let r = pitch_m / (core::f64::consts::PI * coil_diameter_m);
     coil_diameter_m * (1.0 + r * r)
 }
 
@@ -267,7 +270,7 @@ mod tests {
         let (m, x, d) = (0.106, 0.2, 0.0212);
         let (rhol, rhog, mul, mug, kl, cpl, hvap, sigma) =
             (567.0, 18.09, 156e-6, 7.11e-6, 0.086, 2730.0, 2e5, 0.02);
-        let g = m / (std::f64::consts::PI / 4.0 * d * d);
+        let g = m / (core::f64::consts::PI / 4.0 * d * d);
         let re_l = d * g * (1.0 - x) / mul;
         let pr_l = cpl * mul / kl;
         let h_l = 0.023 * re_l.r_powf(0.8) * pr_l.r_powf(0.4) * kl / d;
@@ -285,7 +288,7 @@ mod tests {
     #[test]
     fn lockhart_martinelli_matches_the_fluids_library() {
         let (m, x, rhol, rhog, mul, mug, d) = (0.6, 0.1, 915.0, 2.67, 180e-6, 14e-6, 0.05);
-        let a = 0.25 * std::f64::consts::PI * d * d;
+        let a = 0.25 * core::f64::consts::PI * d * d;
         let (v_l, v_g) = (m * (1.0 - x) / (rhol * a), m * x / (rhog * a));
         let (re_l, re_g) = (rhol * v_l * d / mul, rhog * v_g * d / mug);
         let fd = |re: f64| if re < 2000.0 { 64.0 / re } else { 0.184 * re.r_powf(-0.2) };

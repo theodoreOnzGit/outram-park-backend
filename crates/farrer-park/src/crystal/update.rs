@@ -64,6 +64,9 @@
 //! Stresses, slip resistances and tangent entries in pascals; strains, slips
 //! and exponents dimensionless; the time increment in seconds.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_basic_lib::matrix::SquareMatrix;
 

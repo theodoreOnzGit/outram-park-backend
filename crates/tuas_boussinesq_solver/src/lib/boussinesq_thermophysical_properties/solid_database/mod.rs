@@ -21,6 +21,9 @@
 //! experimental scaffolding and are currently commented out (not part of the
 //! build).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// stainless steel 304L
 pub mod ss_304_l;
 

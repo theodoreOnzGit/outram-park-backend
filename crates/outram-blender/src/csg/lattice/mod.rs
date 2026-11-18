@@ -39,6 +39,9 @@
 //! special kind of universe fill: [`crate::csg::geometry::Geometry`]
 //! descends into it exactly as it would a nested universe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::position::{Direction, Position};
 
 mod hex;

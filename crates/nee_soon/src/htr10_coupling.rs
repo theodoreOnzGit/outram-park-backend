@@ -80,9 +80,13 @@
 //! Status: untrusted AI-generated draft (2026-11-03); research, education and
 //! V&V only, never operation or safety (`RESPONSIBLE_USE.md`).
 
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use alloc::sync::Arc;
+use crate::sync::Mutex;
+use crate::time::Instant;
 
 use njoy_outram_park_fork::endf::tape::Tape as EndfTape;
 use outram_foam_appbuilder_lib::genfoam::multi_region::coupling_fields::CouplingRegion;
@@ -371,6 +375,7 @@ impl Htr10DirectCoupling {
         self.cache.len()
     }
 
+    #[cfg(feature = "std")]
     /// **Iterate to a coupled steady state.** `progress` gets a line per
     /// stage.
     ///
@@ -477,6 +482,7 @@ impl Htr10DirectCoupling {
         })
     }
 
+    #[cfg(feature = "std")]
     /// The nuclide array of `plan`: cached jobs reused, the rest processed
     /// (in parallel) and cached. Returns `(nuclides, processed, cached)`.
     fn nuclides(
@@ -778,6 +784,7 @@ pub fn zone_temperatures_from_rz(core: &Htr10RzTransientCore, t_in: &ZoneTempera
     out
 }
 
+#[cfg(feature = "std")]
 /// **The history as a PNG**: `k` with its one-sigma bars against the
 /// iteration (left), and the fuel, moderator, side-reflector and coolant
 /// temperatures the Monte Carlo ran at (right).

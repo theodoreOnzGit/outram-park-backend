@@ -121,6 +121,9 @@
 //! was wrong, which is the argument for keeping two independent routes to the
 //! same number even when one of them is "analytic".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mathf::RealMath;
 /// First-flight collision probabilities of a concentric-sphere cell, already
 /// closed with a white outer boundary.
@@ -171,7 +174,7 @@ impl CollisionProbabilities {
     /// `P_Si` from a surface source, and nothing in the quadrature enforces the
     /// relation between them.
     pub fn reciprocity_defect(&self, sigma_t: &[f64], r_out: f64) -> f64 {
-        let area = 4.0 * std::f64::consts::PI * r_out * r_out;
+        let area = 4.0 * core::f64::consts::PI * r_out * r_out;
         (0..self.n)
             .map(|i| {
                 let lhs = 4.0 * self.volume[i] * sigma_t[i] * self.p_escape[i];
@@ -261,7 +264,7 @@ pub fn first_flight(radii: &[f64], sigma_t: &[f64], nodes: usize) -> CollisionPr
     }
     assert!(nodes >= 2, "need at least 2 quadrature nodes, got {nodes}");
 
-    let four_pi_over_3 = 4.0 / 3.0 * std::f64::consts::PI;
+    let four_pi_over_3 = 4.0 / 3.0 * core::f64::consts::PI;
     let volume: Vec<f64> = (0..n)
         .map(|k| {
             let inner = if k == 0 { 0.0 } else { radii[k - 1] };
@@ -297,7 +300,7 @@ pub fn first_flight(radii: &[f64], sigma_t: &[f64], nodes: usize) -> CollisionPr
         for (node, weight) in gx.iter().zip(&gw) {
             // Map the [−1, 1] node onto [0, s_max].
             let s = 0.5 * s_max * (node + 1.0);
-            let w = 0.5 * s_max * weight * (2.0 * std::f64::consts::PI * s);
+            let w = 0.5 * s_max * weight * (2.0 * core::f64::consts::PI * s);
             let p2 = (hi * hi - s * s).max(0.0);
 
             // Build inbound leg (outermost shell first), the turning segment,
@@ -354,7 +357,7 @@ pub fn first_flight(radii: &[f64], sigma_t: &[f64], nodes: usize) -> CollisionPr
     }
 
     let r_out = radii[n - 1];
-    let projected = std::f64::consts::PI * r_out * r_out;
+    let projected = core::f64::consts::PI * r_out * r_out;
 
     let mut p_open = vec![0.0_f64; n * n];
     let mut p_escape = vec![0.0_f64; n];
@@ -404,7 +407,7 @@ pub fn gauss_legendre(n: usize) -> (Vec<f64>, Vec<f64>) {
     let m = n.div_ceil(2);
     for i in 0..m {
         // Tricomi's asymptotic guess for the i-th root (1-based).
-        let mut z = (std::f64::consts::PI * (i as f64 + 0.75) / (n as f64 + 0.5)).r_cos();
+        let mut z = (core::f64::consts::PI * (i as f64 + 0.75) / (n as f64 + 0.5)).r_cos();
         for _ in 0..100 {
             // Legendre P_n(z) and its derivative by the recurrence.
             let (mut p0, mut p1) = (1.0_f64, 0.0_f64);

@@ -66,9 +66,12 @@
 //! input change onto a `Vec` and re-summed it on every call. See bead
 //! `op-fm5`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
-use std::collections::VecDeque;
+use alloc::collections::VecDeque;
 
 use uom::{
     si::{f64::*, frequency::hertz, ratio::ratio, time::second},

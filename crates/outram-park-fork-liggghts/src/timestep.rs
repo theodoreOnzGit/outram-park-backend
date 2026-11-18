@@ -70,6 +70,9 @@
 //! upstream's *heuristics*, not theorems — they are reproduced faithfully,
 //! including their approximations.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::granular::GranularMaterial;
 use crate::particle::Particle;
@@ -184,7 +187,7 @@ pub fn rayleigh_time(
     }
     let nu = material.poisson_ratio;
     let shear_mod = material.youngs_modulus / (2.0 * (nu + 1.0));
-    Ok(std::f64::consts::PI * radius * (density / shear_mod).sqrt() / (0.1631 * nu + 0.8766))
+    Ok(core::f64::consts::PI * radius * (density / shear_mod).sqrt() / (0.1631 * nu + 0.8766))
 }
 
 /// Hertz collision time `[s]` at relative approach speed `v_rel` `[m/s]`.
@@ -223,7 +226,7 @@ pub fn hertz_time(
     if v_rel == 0.0 {
         return Ok(f64::INFINITY);
     }
-    let m_eff = 4.0 * radius * radius * radius * std::f64::consts::PI / 3.0 * density;
+    let m_eff = 4.0 * radius * radius * radius * core::f64::consts::PI / 3.0 * density;
     let r_eff = radius / 2.0;
     let e_eff = material.y_eff();
     Ok(2.87 * (m_eff * m_eff / (r_eff * e_eff * e_eff * v_rel)).r_powf(0.2))
@@ -310,7 +313,7 @@ mod tests {
     }
 
     fn sphere(r: f64, v: f64) -> Particle {
-        let m = 2500.0 * 4.0 / 3.0 * std::f64::consts::PI * r * r * r;
+        let m = 2500.0 * 4.0 / 3.0 * core::f64::consts::PI * r * r * r;
         Particle::new(
             Vec3::zero(),
             Vec3::new(v, 0.0, 0.0),
@@ -335,7 +338,7 @@ mod tests {
         let t = rayleigh_time(5.0e-3, 2500.0, &m).unwrap();
         let g = 1.0e7 / (2.0 * 1.3);
         let hand =
-            std::f64::consts::PI * 5.0e-3 * (2500.0_f64 / g).sqrt() / (0.1631 * 0.3 + 0.8766);
+            core::f64::consts::PI * 5.0e-3 * (2500.0_f64 / g).sqrt() / (0.1631 * 0.3 + 0.8766);
         assert_abs_diff_eq!(t, hand, epsilon = hand * 1e-12);
         assert!(rayleigh_time(0.0, 2500.0, &m).is_err());
         assert!(rayleigh_time(5e-3, -1.0, &m).is_err());
@@ -352,7 +355,7 @@ mod tests {
         let m = mat();
         let r = 5.0e-3;
         let t = hertz_time(r, 2500.0, 2.0, &m).unwrap();
-        let m_eff = 4.0 * r * r * r * std::f64::consts::PI / 3.0 * 2500.0;
+        let m_eff = 4.0 * r * r * r * core::f64::consts::PI / 3.0 * 2500.0;
         let hand = 2.87 * (m_eff * m_eff / ((r / 2.0) * m.y_eff().r_powi(2) * 2.0)).r_powf(0.2);
         assert_abs_diff_eq!(t, hand, epsilon = hand * 1e-12);
         assert!(hertz_time(r, 2500.0, 0.0, &m).unwrap().is_infinite());

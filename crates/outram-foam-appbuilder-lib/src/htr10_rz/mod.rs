@@ -43,6 +43,9 @@
 //! licensing or any safety-critical use. Every region extent is
 //! **Uncertain** (read from a figure by the input sheet).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod flow;
 pub mod fpic;
 pub mod geometry;

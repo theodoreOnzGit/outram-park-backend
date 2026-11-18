@@ -66,7 +66,10 @@
 //! The linear solver is basic-lib's ILU(0) BiCGStab (the analogue of
 //! `PBiCGStab`/`DILU`), stopping on `||r||/||b||`, not upstream's residual.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{
     fvm, BoundaryCondition, Field, FvMesh, KrylovOptions, SolverSettings, SurfaceScalarField,

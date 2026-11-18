@@ -73,7 +73,10 @@
 //! unit-agnostic. The physical `uom` quantities live in the coupling layer that
 //! *reads* the mapped fields ([`super::outer_iteration`]).
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::vol_field::{VolScalarField, VolVectorField};
 use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;

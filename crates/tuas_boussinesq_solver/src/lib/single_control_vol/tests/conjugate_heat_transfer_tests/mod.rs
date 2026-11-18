@@ -4,6 +4,9 @@
 //! nodalisation/speedup variants of the heater v2.0 steady state, comparing
 //! computed node temperatures (degC) against the expected heater response.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Emulates Frequency Response test by Chris Poresky,
 /// Poresky, C. (2017). Frequency response testing in the ciet facility. Berkeley, CA.
 mod one_dimension_heater;

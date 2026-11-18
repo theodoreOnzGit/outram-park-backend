@@ -1,7 +1,10 @@
 //! The ACE way into [`super::NuclearData`] (gh #936): tables read as they
 //! are. See [`super::NuclearData::from_ace_files`] for the rules.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use njoy_outram_park_fork::acer::ace_set::{AceLookupError, AceSet, AceSetTable};
 use njoy_outram_park_fork::acer::read::AceClass;
@@ -74,7 +77,7 @@ impl AceData {
         s
     }
 
-    fn err(&self, what: String, reason: impl std::fmt::Display) -> DataError {
+    fn err(&self, what: String, reason: impl core::fmt::Display) -> DataError {
         DataError::Ace {
             library: self.name.clone(),
             what,

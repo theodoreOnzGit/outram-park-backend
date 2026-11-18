@@ -49,8 +49,11 @@
 //!   (FlowsheetSolver.vb:1628-1665, commented out even upstream). Remote solver
 //!   clients are out of scope for this port — see [`SolverMode`].
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::sync::atomic::{AtomicBool, Ordering};
+use alloc::sync::Arc;
 
 use crate::flowsheet::ObjectType;
 

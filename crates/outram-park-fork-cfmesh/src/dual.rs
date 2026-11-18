@@ -153,9 +153,13 @@
 //! (true for structured/graded blocks); [`VolumeMesh::validate`] is the gate
 //! that catches any cell that is not. Pure Rust, Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::volume_mesh::{from_cell_faces, VolumeMesh};
-use std::collections::{BTreeMap, HashMap};
+use alloc::collections::{BTreeMap};
+use crate::hash::{HashMap};
 
 /// Build the polyhedral **median dual** of `mesh`: one polyhedral cell per
 /// primal vertex. See the module docs for the construction and its guarantees.

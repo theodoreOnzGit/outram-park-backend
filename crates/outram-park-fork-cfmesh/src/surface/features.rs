@@ -37,9 +37,12 @@
 //! Feature edges, patching and edge classification of a [`TriSurf`]
 //! (gh:#1276, `docs/upstream_coverage.md` §4 item 22).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mesh_octree::{help, BoundBox, CubeType, MeshOctree, SurfacePatch, TriSurf, VSMALL};
 use petir::mathf::RealMath;
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// `triSurfaceDetectFeatureEdges`' flag bits on `featureEdges_`.
 pub struct FeatureFlag;
@@ -90,7 +93,7 @@ impl TriSurfaceDetectFeatureEdges {
     /// traverse their shared edge in the same direction (an inconsistently
     /// oriented pair), as upstream does.
     pub fn new(surf: &TriSurf, angle_deviation: f64) -> Self {
-        let tol = (angle_deviation * std::f64::consts::PI / 180.0).r_cos();
+        let tol = (angle_deviation * core::f64::consts::PI / 180.0).r_cos();
         let normals = surf.facet_normals();
         let mut flags = vec![0u8; surf.edges.len()];
         for (e, ef) in surf.edge_facets.iter().enumerate() {
@@ -450,9 +453,9 @@ fn check_orientation(octree: &MeshOctree) -> (Vec<u8>, usize) {
     let outward: Vec<u8> = votes
         .iter()
         .map(|&(p, m)| match p.cmp(&m) {
-            std::cmp::Ordering::Greater => 1,
-            std::cmp::Ordering::Less => 2,
-            std::cmp::Ordering::Equal => 0,
+            core::cmp::Ordering::Greater => 1,
+            core::cmp::Ordering::Less => 2,
+            core::cmp::Ordering::Equal => 0,
         })
         .collect();
     ((0..n).map(|t| outward[group[t].unwrap_or(0)]).collect(), n_groups)

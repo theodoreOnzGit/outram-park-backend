@@ -233,19 +233,17 @@ struct Case {
 
 fn case(name: &str) -> Case {
     match name {
-        // godiva_keff_endf_local.rs: HEU-MET-FAST-001, r = 8.7407 cm.
+        // godiva_keff_endf_local.rs: HEU-MET-FAST-001, r = 8.7407 cm, from
+        // `vv::godiva` (this example's identical copy removed 2026-11-18,
+        // gh:#1647; nuclide indices still come from `TAPES` by name).
         "godiva" => Case {
             materials: vec![(
                 "Godiva HEU",
-                vec![
-                    ("U234", 4.9184e-4),
-                    ("U235", 4.4994e-2),
-                    ("U238", 2.4984e-3),
-                ],
+                vv::godiva::NUCLIDES.iter().map(|&(n, _, d)| (n, d)).collect(),
             )],
             sab_on_h1: false,
             sab_graphite: false,
-            model: Model::Sphere(8.7407),
+            model: Model::Sphere(vv::godiva::RADIUS_CM),
             defaults: (5000, 40, 120),
         },
         // IEU-MET-FAST-002, four-cell cylinder: `vv::jemima`, the model
@@ -1244,10 +1242,14 @@ mod draw_tests {
         assert_eq!(case_label("lct008", true), "lct008");
         assert_eq!(case_label("hst009", false), "hst009");
         let summary = include_str!("../verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv");
-        // The full model's own route-1 row (2026-10-14, 8 seeds), never the
-        // 11-nuclide one.
+        // The full model's own route-1 row, never the 11-nuclide one.
+        // ~~(2026-10-14, 8 seeds): (1.001682, 0.000227)~~ **RE-PINNED
+        // 2026-11-18 (gh:#1647):** the row was re-run at 32 seeds on
+        // 2026-10-15 (a084bdf62) and this pin was not moved with it; the
+        // CSV has read (1.001606, 0.000128) since. A data refresh, not a
+        // code change.
         let (k, sem) = route1_reference(summary, "lct008-full").expect("lct008-full route 1");
-        assert_eq!((k, sem), (1.001682, 0.000227));
+        assert_eq!((k, sem), (1.001606, 0.000128));
         assert_ne!(route1_reference(summary, "lct008").unwrap().0, k);
         // Run size by default: 10 000 × [40 + 120] since 2026-10-15
         // (maintainer direction), the other cases 5000 × [40 + 120].
@@ -1275,6 +1277,9 @@ mod draw_tests {
             SurfaceKind::Sphere(s) => assert!((s.r - 8.7407).abs() < 1e-12),
             _ => panic!("Godiva is drawn as a sphere"),
         }
-        assert_eq!(SLICES.len(), 6);
+        // ~~6~~ **RE-PINNED 2026-11-18 (gh:#1647):** 7 since the MSRE
+        // stringer-cell slice was added (3e9a239f2); this pin was not moved
+        // with it.
+        assert_eq!(SLICES.len(), 7);
     }
 }

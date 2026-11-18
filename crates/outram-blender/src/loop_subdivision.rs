@@ -59,9 +59,13 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
-use std::collections::{BTreeMap, HashMap};
+use alloc::collections::BTreeMap;
+use crate::hash::HashMap;
 
 /// Apply `iterations` steps of **Loop subdivision** to `mesh`, returning the
 /// refined triangle mesh.

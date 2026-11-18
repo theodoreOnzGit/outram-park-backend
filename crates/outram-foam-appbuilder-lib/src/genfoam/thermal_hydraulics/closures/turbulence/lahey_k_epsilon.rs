@@ -46,6 +46,9 @@
 //! `Cd()` is shared with `mixtureKEpsilon` and lives at
 //! [`super::drag_coefficient_from_kd`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::drag_coefficient_from_kd;
 use super::units::{

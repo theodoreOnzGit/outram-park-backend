@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Per-nuclide microscopic cross sections — the seam into the nuclear-data crate.
 ///
 /// C++ analogue: `src/nuclide.cpp`, `include/openmc/nuclide.h`.
@@ -210,13 +213,13 @@ impl SectionIndex {
 ///   (`nuclide.cpp:857`, `sab_frac = 1` here), not rebuilt as
 ///   `absorption + inelastic + n2n + thermal`.
 pub(crate) fn legacy_xs_details() -> bool {
-    use std::sync::atomic::{AtomicU8, Ordering};
+    use core::sync::atomic::{AtomicU8, Ordering};
     static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
     let cached = FLAG.load(Ordering::Relaxed);
     if cached != u8::MAX {
         return cached == 1;
     }
-    let on = match std::env::var("OUTRAM_MC_LEGACY_XS_DETAILS") {
+    let on = match crate::env::var("OUTRAM_MC_LEGACY_XS_DETAILS") {
         Ok(v) => !v.is_empty() && v != "0",
         Err(_) => false,
     };
@@ -467,9 +470,10 @@ pub struct Nuclide {
     /// tables at their build temperature. Attached only through the checked
     /// [`Nuclide::with_multipole`], which refuses data of another evaluation.
     /// Always `None` on the LOW (`Core`) tier, whose WMP is its `XsSource`.
-    multipole: Option<std::sync::Arc<WindowedMultipole>>,
+    multipole: Option<alloc::sync::Arc<WindowedMultipole>>,
 }
 
+#[cfg(feature = "std")]
 mod hdf5_read;
 mod multipole;
 pub use multipole::{MultipoleAttachError, MultipoleConsistency, MULTIPOLE_EVALUATION_TOLERANCE};
@@ -582,6 +586,7 @@ fn elastic_0k_from_ace(
         .collect()
 }
 
+#[cfg(feature = "std")]
 /// Where a 0 K companion table for the broadened ACE file at `path` would be.
 ///
 /// The paths, in search order, that [`Nuclide::from_ace_file`] tries. ACE
@@ -1727,6 +1732,7 @@ impl Nuclide {
         Ok(self.with_dbrc(DBRC_DEFAULT_E_MAX_EV))
     }
 
+    #[cfg(feature = "std")]
     /// Build from an ACE **file**, pairing the 0 K companion automatically when
     /// one is where a library puts it — GitHub #307 item 4.
     ///
@@ -1784,6 +1790,7 @@ impl Nuclide {
         Ok(built)
     }
 
+    #[cfg(feature = "std")]
     /// What [`Self::from_ace_file`] looked for, and what it found — the
     /// diagnostic half of the pairing.
     ///
@@ -1975,6 +1982,7 @@ impl Nuclide {
         Self::from_tape(&tape, mat, name, temp_k, tolerance)
     }
 
+    #[cfg(feature = "std")]
     /// Build a nuclide from an ENDF file **on disk** — the ordinary case.
     ///
     /// Supply the evaluation yourself, point at it, get a transport-ready
@@ -2769,6 +2777,7 @@ impl Nuclide {
         Ok(Self::from_tape_with_broadr_tolerance(tape, mat, name, temp_k, tol, tol)?.with_speed(speed))
     }
 
+    #[cfg(feature = "std")]
     /// Build a nuclide from an ENDF **file** at a [`SpeedTier`]. The file's
     /// first material is used, as in [`Self::from_endf_file`].
     ///

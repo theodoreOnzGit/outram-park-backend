@@ -64,6 +64,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use teh_o_prke::prelude::{
     AnsDecayHeat, FissionPowerConversion, FissioningNuclide, FissioningNuclideType, PointKinetics,
     PointReactor, Xenon135Poisoning, NOMINAL_ENERGY_PER_FISSION_MEV,
@@ -92,7 +95,7 @@ const KEEPIN_HALF_LIVES_S: [f64; 6] = [55.72, 22.72, 6.22, 2.30, 0.610, 0.230];
 /// Keepin U-235 thermal relative abundances `a_i = beta_i / beta`.
 const KEEPIN_ABUNDANCES: [f64; 6] = [0.033, 0.219, 0.196, 0.395, 0.115, 0.042];
 
-fn teho_err(e: impl std::fmt::Display) -> TampinesError {
+fn teho_err(e: impl core::fmt::Display) -> TampinesError {
     TampinesError::Numerical(format!("teh-o-prke: {e}"))
 }
 

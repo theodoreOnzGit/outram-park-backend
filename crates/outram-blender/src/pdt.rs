@@ -46,6 +46,9 @@
 //! Positions/lengths are dimensionless model-space quantities; angles radians;
 //! `Percent` is a literal percentage (`50.0` = halfway).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::draw_tool::WorkPlane;
 use crate::math::Vec3;
@@ -136,12 +139,12 @@ pub fn three_point_arc(p0: Vec3, p1: Vec3, p2: Vec3, segments: usize) -> Vec<Vec
         d.dot(v).r_atan2(d.dot(u))
     };
     // Sweep from 0 in whichever direction keeps p1 on the arc to p2.
-    let a1 = ang(p1).rem_euclid(std::f64::consts::TAU);
-    let a2 = ang(p2).rem_euclid(std::f64::consts::TAU);
+    let a1 = ang(p1).rem_euclid(core::f64::consts::TAU);
+    let a2 = ang(p2).rem_euclid(core::f64::consts::TAU);
     let end = if a1 < a2 {
         a2
     } else {
-        a2 - std::f64::consts::TAU
+        a2 - core::f64::consts::TAU
     };
     (0..=seg)
         .map(|i| {
@@ -190,7 +193,7 @@ pub fn fillet(prev: Vec3, corner: Vec3, next: Vec3, radius: f64, segments: usize
     let u1 = d1.scale(1.0 / l1);
     let cos_full = u0.dot(u1).clamp(-1.0, 1.0);
     let half = (cos_full.r_acos()) * 0.5;
-    if half <= 1e-6 || half >= std::f64::consts::FRAC_PI_2 - 1e-6 {
+    if half <= 1e-6 || half >= core::f64::consts::FRAC_PI_2 - 1e-6 {
         return Vec::new();
     }
     // Distance from corner to each tangent point.
@@ -319,7 +322,7 @@ pub fn mirror_vertices(mesh: &Mesh, verts: &[VertexId], plane: &WorkPlane) -> Me
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::f64::consts::{FRAC_PI_2, PI, TAU};
+    use core::f64::consts::{FRAC_PI_2, PI, TAU};
 
     #[test]
     fn placement_modes() {

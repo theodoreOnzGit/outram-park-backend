@@ -28,6 +28,9 @@
 //! - [`postprocessing`] — read back the shell and fluid nodal temperature vectors.
 //! - [`type_conversion`] — convert into a `FluidComponent`.
 //! - [`calibration`] — override the fluid Nusselt correlation.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;

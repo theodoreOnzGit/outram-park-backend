@@ -72,6 +72,9 @@
 //! the reference slip rate per second, the time increment in seconds.
 //! Orientations and Schmid tensors are dimensionless.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod elastic;
 pub mod flow;
 pub mod orient;

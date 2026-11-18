@@ -36,6 +36,9 @@
 //!
 //! Positions are dimensionless model-space quantities (see [`crate::math`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::draw_tool::WorkPlane;
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, Mesh, VertexId};
@@ -206,7 +209,7 @@ mod tests {
             .map(EdgeId)
             .find(|&e| {
                 let ed = m.edge(e).unwrap();
-                let s: std::collections::BTreeSet<usize> = [ed.verts[0].0, ed.verts[1].0].into();
+                let s: alloc::collections::BTreeSet<usize> = [ed.verts[0].0, ed.verts[1].0].into();
                 s == [1usize, 2].into()
             })
             .unwrap();

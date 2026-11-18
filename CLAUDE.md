@@ -342,7 +342,11 @@ paper — in the relevant `docs/` development-history entry.
 **Maintainer judgment, 2026-10-20.** When a port is compared against its upstream
 (or two routes are compared), **bit-identity is the goal, but a round-off-level
 difference — e.g. 1 ulp from a different `libm`, a vectorised `exp`, or a changed
-operation order — is acceptable when the relative difference is below 1e-8.**
+operation order — is acceptable when the relative difference is below ~~1e-8~~
+**1e-9** (CORRECTED 2026-11-17, maintainer: "1e-9 supercedes").** Comparisons
+already accepted between 1e-9 and 1e-8 **stay accepted**, flagged (maintainer:
+"those which need 1e-8 and are accepted shld be acceptable"); they are listed
+on gh:#1614. A new one needs 1e-9.
 
 - **Bit-identical is still strongly preferred** (maintainer, same day): it is a
   yes/no check that automation can judge alone. **The moment a residual appears,
@@ -359,6 +363,17 @@ operation order — is acceptable when the relative difference is below 1e-8.**
 - **It does not relax physics V&V gates** (benchmark residuals, pcm, experimental
   tolerances), nor a bit-identity pin a test already holds — moving such a pin
   still needs the reasons the "PROCESS right first" section demands.
+- **Moving a pin for rounding (maintainer, 2026-11-17):** "Pins can move if they
+  r due to rounding errors, is ok. 1e-9 for most errors, 1e-4 for propagated
+  error." A pin may be re-pinned when its value moved by round-off: up to
+  **1e-9 relative** for a direct difference, and up to **1e-4 relative** for a
+  *propagated* one (a last-bit change carried forward, e.g. a Monte Carlo
+  random walk diverging after one rounded collision). Record the old and new
+  values and the relative change where the pin lives. A move beyond those
+  bounds, or one with an unexplained cause, still needs the reasons above.
+  First use: gh:#1613 (Godiva k-trace, 4.6e-6 propagated). ~~Not reconciled
+  yet with the 1e-8 code-to-code allowance above~~ Reconciled 2026-11-17: 1e-9
+  supersedes 1e-8 there too.
 
 
 ## Search the workspace before building anything (HARD RULE)
@@ -733,6 +748,8 @@ Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/
   `Arc<T>`; no channels for simulation state.
 - **`uom` everywhere** a physical quantity crosses an API, with named type
   aliases for complex quantities.
+- **`no_std` maps are `hashbrown`**, through each crate's `crate::hash`
+  module; never a `BTreeMap as HashMap` stand-in (maintainer, 2026-11-16).
 
 Full text, with the enum-dispatch pattern: [`docs/claude-md/rust-design-rules.md`](docs/claude-md/rust-design-rules.md).
 

@@ -53,9 +53,12 @@
 //! its inner copy coincides with the outer vertex instead of flying off to a
 //! non-finite coordinate. No `faer`, no external dependency; Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::HashSet;
+use crate::hash::HashSet;
 
 /// Extrude `mesh` into a closed shell of the given `thickness`, returning the
 /// solidified mesh.

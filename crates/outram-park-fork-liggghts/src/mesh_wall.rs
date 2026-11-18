@@ -135,6 +135,9 @@
 //!   treatment in the granular literature (closest-point-on-facet contact
 //!   detection); this is an independent reimplementation of that public method.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::boundary::{Boundary, Contact};
 use crate::particle::{Particle, Vec3};
@@ -982,7 +985,7 @@ fn harmonics(
     for j in 0..n {
         a[j] = amplitude[j];
         ph[j] = phase[j];
-        om[j] = 2. * std::f64::consts::PI / period[j];
+        om[j] = 2. * core::f64::consts::PI / period[j];
     }
     Some((n, a, ph, om))
 }
@@ -1007,7 +1010,7 @@ impl MovingBoundary {
         let norm = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt();
         let inv = if norm == 0. { 0. } else { 1. / norm };
         let u = Vec3::new(a[0] * inv, a[1] * inv, a[2] * inv);
-        let omega = 2. * std::f64::consts::PI / period;
+        let omega = 2. * core::f64::consts::PI / period;
         let mut m = Self::new(geometry, Vec3::zero(), u.scale(omega), origin);
         m.rotation = Some(MeshRotation { axis: u, omega });
         m
@@ -1150,7 +1153,7 @@ impl MovingBoundary {
     /// `fix move/mesh ... wiggle amplitude <a> period <T>`.
     #[must_use]
     pub fn wiggle(geometry: WallGeometry, amplitude: Vec3, period: f64) -> Self {
-        let omega = 2. * std::f64::consts::PI / period;
+        let omega = 2. * core::f64::consts::PI / period;
         Self::with_motion(
             geometry,
             Vec3::zero(),
@@ -1196,8 +1199,8 @@ impl MovingBoundary {
             geometry,
             origin,
             MeshMotion::Riggle {
-                amplitude: std::f64::consts::PI * amplitude_deg / 180.,
-                omega: 2. * std::f64::consts::PI / period,
+                amplitude: core::f64::consts::PI * amplitude_deg / 180.,
+                omega: 2. * core::f64::consts::PI / period,
                 axis: unit_vector(axis),
             },
         )
@@ -1831,7 +1834,7 @@ mod tests {
             stages += 1;
             // Probes hugging the wall at several heights and angles.
             for a in 0..6 {
-                let ang = std::f64::consts::TAU * f64::from(a) / 6.0;
+                let ang = core::f64::consts::TAU * f64::from(a) / 6.0;
                 for h in 0..2 {
                     let z = 0.02 + 0.05 * f64::from(h);
                     let p = Particle::new(
@@ -1868,7 +1871,7 @@ mod tests {
         wall.angular_velocity = Vec3::new(0.3, 0.2, 0.0);
         wall.advance(0.1);
         for a in 0..12 {
-            let ang = std::f64::consts::TAU * f64::from(a) / 12.0;
+            let ang = core::f64::consts::TAU * f64::from(a) / 12.0;
             let p = Particle::new(
                 Vec3::new(0.0485 * ang.r_cos(), 0.0485 * ang.r_sin(), 0.05),
                 Vec3::zero(),
@@ -2307,7 +2310,7 @@ endsolid test
         let mut spin = MovingBoundary::new(
             WallGeometry::Mesh(MeshWall::new(vec![tri]).unwrap()),
             Vec3::zero(),
-            Vec3::new(0.0, 0.0, std::f64::consts::FRAC_PI_2),
+            Vec3::new(0.0, 0.0, core::f64::consts::FRAC_PI_2),
             Vec3::zero(),
         );
         spin.advance(1.0); // rotation angle = π/2 about +z

@@ -68,7 +68,10 @@
 //! divergence from upstream. Stated because the opposite is the natural
 //! assumption from reading `settings.h`.
 
-use std::collections::HashSet;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashSet;
 
 use super::fault_tree::{Arg, Connective, FaultTree, Gate};
 use super::probability::CutSet;
@@ -371,7 +374,7 @@ fn is_subset(small: &[usize], large: &[usize]) -> bool {
 mod tests {
     use super::*;
     use crate::scram::fault_tree::FaultTreeBuilder;
-    use std::collections::BTreeSet;
+    use alloc::collections::BTreeSet;
 
     /// Cut sets as sets of names, so a comparison cannot silently depend on
     /// index order.

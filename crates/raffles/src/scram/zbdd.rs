@@ -102,7 +102,10 @@
 //! assert!(cut_sets.iter().all(|c| c.order() == 2));
 //! ```
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use super::bdd::{self, Bdd};
 use super::fault_tree::{Arg, Connective, FaultTree};

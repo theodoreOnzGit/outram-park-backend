@@ -35,6 +35,9 @@
 //! water vapour (TECDOC-978 Eq. 5-3, the `h_o` factors), and iodine or metal
 //! release from hydrolysed kernels.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::pressure::pascal;

@@ -89,6 +89,9 @@
 //! assert_eq!(lib.n_groups(), 1);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::SurfaceToken;
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{stream, Direction, Position};
@@ -1066,6 +1069,7 @@ mod tests {
         };
         let result = run_keff_mg(&geom, &lib, src, &settings);
 
+        #[cfg(feature = "std")]
         eprintln!(
             "[mg k∞] k = {:.5} ± {:.5}  (analytic {:.5}, {}p × [{}+{}] gen)",
             result.k_mean,
@@ -1213,6 +1217,7 @@ mod tests {
             src,
             &settings,
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "[mg mult] on k = {:.5} ± {:.5} (analytic {K_TRUE:.5}); ablated k = {:.5} ± {:.5} (analytic {K_ABLATED:.5})",
             on.k_mean, on.k_std, off.k_mean, off.k_std

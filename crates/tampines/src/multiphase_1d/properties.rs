@@ -49,6 +49,9 @@
 //! SI — pascal, kelvin, `J/kg`, `kg/m³`, `Pa·s` — because these are read inside
 //! the per-cell loop.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines_steam_tables::dynamic_viscosity::mu_tp_eqm_two_phase;
 use tampines_steam_tables::region_1_subcooled_liquid::{cp_tp_1, h_tp_1, v_tp_1};
 use tampines_steam_tables::region_2_vapour::{cp_tp_2, h_tp_2, v_tp_2};

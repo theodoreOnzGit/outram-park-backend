@@ -74,10 +74,13 @@
 //! println!("k_eff = {:.5} ± {:.5}", result.k_mean, result.k_std);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::blender_bridge::to_mc_geometry;
 use outram_blender::export::ExportError;
 use outram_blender::mesh::Mesh;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -144,8 +147,8 @@ pub enum SimError {
     Export(ExportError),
 }
 
-impl std::fmt::Display for SimError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for SimError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SimError::Nuclide(m) => {
                 write!(f, "nuclide not available in the CORE data library: {m}")
@@ -156,7 +159,7 @@ impl std::fmt::Display for SimError {
         }
     }
 }
-impl std::error::Error for SimError {}
+impl core::error::Error for SimError {}
 
 impl From<ExportError> for SimError {
     fn from(e: ExportError) -> Self {

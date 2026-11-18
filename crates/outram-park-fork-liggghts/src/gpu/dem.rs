@@ -66,6 +66,9 @@
 //! - **Cell list** of edge `2 r_max`, at most `CELL_CAP` entries a cell;
 //!   overflows of either table are counted and reported ([`GpuDem::errors`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::boundary::Boundary;
 use crate::granular::{GranularNormalModel, RollingModel, TangentialModel};
 use crate::granular_system::GranularSystem;
@@ -715,10 +718,10 @@ impl GpuDem {
     /// buffer between tasks). Natively the device is polled until it does.
     async fn read_async(&self, buf: &wgpu::Buffer, bytes: u64) -> Option<Vec<u8>> {
         let rb = self.readback(buf, bytes);
-        let shared = std::sync::Arc::new(std::sync::Mutex::new(super::Mapped::default()));
+        let shared = alloc::sync::Arc::new(std::sync::Mutex::new(super::Mapped::default()));
         rb.slice(..)
             .map_async(wgpu::MapMode::Read, super::mapped_callback(shared.clone()));
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         self.ctx
             .device
             .poll(wgpu::PollType::wait_indefinitely())
@@ -736,7 +739,7 @@ impl GpuDem {
     pub async fn states_async(&self) -> Vec<GpuState> {
         let n = self.setup.particles.len();
         match self
-            .read_async(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64)
+            .read_async(&self.state, (n * core::mem::size_of::<GpuParticle>()) as u64)
             .await
         {
             Some(b) => decode_states(&b),
@@ -749,7 +752,7 @@ impl GpuDem {
         decode_errors(self.read_async(&self.errs, 16).await)
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     fn read(&self, buf: &wgpu::Buffer, bytes: u64) -> Option<Vec<u8>> {
         let device = &self.ctx.device;
         let rb = self.readback(buf, bytes);
@@ -763,17 +766,17 @@ impl GpuDem {
 
     /// Every particle's state now (waits for the submitted steps).
     #[must_use]
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn states(&self) -> Vec<GpuState> {
         let n = self.setup.particles.len();
-        self.read(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64)
+        self.read(&self.state, (n * core::mem::size_of::<GpuParticle>()) as u64)
             .map_or_else(Vec::new, |b| decode_states(&b))
     }
 
     /// Each particle's last computed (force, torque) (waits for the
     /// submitted steps): what a check compares with the CPU's contact law.
     #[must_use]
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn forces(&self) -> Vec<(Vec3, Vec3)> {
         let n = self.setup.particles.len();
         let Some(b) = self.read(&self.ft, (n * 32) as u64) else {
@@ -795,7 +798,7 @@ impl GpuDem {
 
     /// Overflow counts since the start (waits for the submitted steps).
     #[must_use]
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn errors(&self) -> GpuErrors {
         decode_errors(self.read(&self.errs, 16))
     }
@@ -803,7 +806,7 @@ impl GpuDem {
 
 fn decode_states(bytes: &[u8]) -> Vec<GpuState> {
     bytes
-        .chunks_exact(std::mem::size_of::<GpuParticle>())
+        .chunks_exact(core::mem::size_of::<GpuParticle>())
         .map(|b| {
             let f =
                 |k: usize| f32::from_ne_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]);

@@ -66,6 +66,9 @@
 //! (`r = tan(theta/2) a` for a rotation of `theta` about the unit axis `a`).
 //! Euler angles are in radians unless the constructor's name says degrees.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{FemError, Result};
 use crate::tensor::Voigt6;
@@ -236,7 +239,7 @@ impl Orientation {
     /// **degrees**, which is how Euler angles are normally tabulated.
     #[must_use]
     pub fn from_bunge_euler_degrees(phi1: f64, cap_phi: f64, phi2: f64) -> Self {
-        let d = std::f64::consts::PI / 180.0;
+        let d = core::f64::consts::PI / 180.0;
         Orientation::from_bunge_euler_radians(phi1 * d, cap_phi * d, phi2 * d)
     }
 
@@ -306,7 +309,7 @@ impl Orientation {
     /// `[0, 1)` are not rejected but no longer give a uniform distribution.
     #[must_use]
     pub fn uniform_from_unit_cube(u: [f64; 3]) -> Self {
-        let two_pi = 2.0 * std::f64::consts::PI;
+        let two_pi = 2.0 * core::f64::consts::PI;
         let (a, b) = ((1.0 - u[0]).max(0.0).sqrt(), u[0].max(0.0).sqrt());
         Orientation::from_quaternion(
             a * (two_pi * u[1]).r_sin(),
@@ -476,7 +479,7 @@ mod tests {
 
         let mut worst = 0.0f64;
         for degrees in [10.0, 37.0, 90.0, 155.0] {
-            let theta: f64 = degrees * std::f64::consts::PI / 180.0;
+            let theta: f64 = degrees * core::f64::consts::PI / 180.0;
             let rodrigues = Orientation::from_rodrigues([0.0, 0.0, (theta / 2.0).r_tan()]);
             let bunge = Orientation::from_bunge_euler_degrees(degrees, 0.0, 0.0);
             let quaternion = Orientation::from_quaternion(

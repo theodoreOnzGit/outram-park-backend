@@ -52,9 +52,13 @@
 //! are left uncapped. `width` must be smaller than half the shortest edge, or a
 //! face can invert. No `faer`, no external dependency; Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use alloc::collections::BTreeMap;
+use crate::hash::{HashMap, HashSet};
 
 /// Chamfer every edge of `mesh` by `width`, returning the beveled mesh.
 ///

@@ -65,6 +65,9 @@
 //! - **No separate fuel and moderator temperatures** (#852): every material
 //!   is at the case temperature.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cases;
 pub mod cells;
 pub mod groups;
@@ -73,5 +76,10 @@ pub mod run;
 
 pub use cases::{CaseModel, MgxsCase};
 pub use groups::Collapse;
-pub use record::{write_index, CaseRecord, Provenance};
-pub use run::{run_case, CaseError};
+pub use record::{CaseRecord, Provenance};
+#[cfg(feature = "std")]
+#[cfg(feature = "std")]
+pub use record::{write_index};
+pub use run::{CaseError};
+#[cfg(feature = "std")]
+pub use run::{run_case};

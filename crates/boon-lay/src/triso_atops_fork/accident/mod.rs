@@ -54,6 +54,9 @@
 //! accident source term especially must not be presented as authoritative for
 //! emergency planning, emergency response or licensing. See the crate docs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::nuclide_model::ElementGroup;
 use super::variant::{AccidentInventory, SilverAccidentInventory, TrisoAtopsVariant};
 use uom::si::f64::{Pressure, ThermodynamicTemperature, Time};

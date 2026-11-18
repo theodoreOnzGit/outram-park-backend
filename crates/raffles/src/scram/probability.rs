@@ -31,6 +31,9 @@
 //! Three quantifications, and the difference between them matters more than
 //! the arithmetic does — see [`Approximation`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{RafflesError, Result};
 
 /// A minimal cut set: the basic events that together cause the top event.

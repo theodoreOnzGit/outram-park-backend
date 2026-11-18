@@ -42,6 +42,9 @@
 //! `None`, so [`HardwareCapabilities::with_gpu`] is built with `gpu: None`,
 //! which every split policy already handles as "all CPU".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Broad class of a compute adapter, mirroring `wgpu::DeviceType` but without
 /// depending on `wgpu` (so this module builds on Android).
 ///
@@ -138,7 +141,7 @@ impl GpuLimits {
 
     /// Build from a live `wgpu` adapter — the only function here that touches
     /// `wgpu`, and the only one absent on Android.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     pub fn from_adapter(adapter: &wgpu::Adapter) -> Self {
         let info = adapter.get_info();
         let limits = adapter.limits();
@@ -192,7 +195,7 @@ impl HardwareCapabilities {
 
 /// Usable CPU threads, or 1 when the platform will not say.
 pub fn cpu_threads() -> usize {
-    std::thread::available_parallelism()
+    crate::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(1)
 }

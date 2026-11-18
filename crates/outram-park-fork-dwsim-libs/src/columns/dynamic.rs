@@ -84,6 +84,9 @@
 //! - Quasi-steady energy (`op-7oj5`) and perfect level control (`op-cnpo`) as
 //!   noted above.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::columns::model::{ColumnError, ColumnSolverInput, ColumnType, CondenserType};
 use crate::columns::thermo_bridge::ColumnThermo;
 

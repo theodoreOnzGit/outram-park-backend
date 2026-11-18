@@ -35,6 +35,9 @@
 //! (predictions committed before this code); differential tests against SMT
 //! in `tests/smt_kriging_gh1190.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod core;
 pub mod krg;
 pub mod linalg;

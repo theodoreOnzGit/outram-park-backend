@@ -89,6 +89,9 @@
 //! `model` and `adjust` are generic closure parameters, never boxed and never
 //! stored in a struct.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::depletion::chain::DepletionChain;
 use crate::depletion::integrators::{
     CramSolver, DepletionError, DepletionIntegrator, Integrator, MicroXs, OneGroupOperator,
@@ -105,7 +108,7 @@ use crate::physics::search::{
 };
 use crate::physics::search_grsecant::{grsecant_search_for_keff, GrSecantSettings};
 use petir::depletion::TransportOperator;
-use std::convert::Infallible;
+use core::convert::Infallible;
 
 /// Which search the hook runs at each step.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -316,8 +319,8 @@ pub enum KeffSearchDepletionError {
     },
 }
 
-impl std::fmt::Display for KeffSearchDepletionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for KeffSearchDepletionError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::UnsupportedIntegrator(i) => write!(
                 f,
@@ -341,7 +344,7 @@ impl std::fmt::Display for KeffSearchDepletionError {
     }
 }
 
-impl std::error::Error for KeffSearchDepletionError {}
+impl core::error::Error for KeffSearchDepletionError {}
 
 /// The burnup inventory `(name, density)` for a density vector in chain order.
 fn inventory_of(names: &[&str], d: &[f64]) -> Vec<(String, f64)> {

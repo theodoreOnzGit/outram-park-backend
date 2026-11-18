@@ -30,6 +30,9 @@
 //! criterion carries a small latch (`time0`) so the optional `time_delay`
 //! confirmation window is measured from first crossing, faithfully to upstream.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Time;
 
 /// Which extremum of the monitored field the `fieldValue` criterion reduces to.

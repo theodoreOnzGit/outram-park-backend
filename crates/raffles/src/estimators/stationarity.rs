@@ -62,6 +62,9 @@
 //! - R. E. Kass and A. E. Raftery (1995). Bayes factors. *JASA, 90*(430),
 //!   773–795.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::model_selection::{ln_bayes_factor, EvidenceStrength, ModelEvidence};
 
@@ -265,7 +268,7 @@ pub fn change_point(x: &[f64], batch_size: usize) -> Option<ChangePoint> {
 
     // BIC: Gaussian max log-likelihood -n/2 (ln(2π S/n) + 1); p = 2 (μ, σ)
     // without a change, p = 4 (μ₁, μ₂, σ, τ) with one.
-    let ln_l = |s: f64| -0.5 * n * ((2.0 * std::f64::consts::PI * s / n).r_ln() + 1.0);
+    let ln_l = |s: f64| -0.5 * n * ((2.0 * core::f64::consts::PI * s / n).r_ln() + 1.0);
     let ln_z0 = ln_l(s0) - 1.0 * n.r_ln();
     let ln_z1 = ln_l(s_min) - 2.0 * n.r_ln();
     let (e0, e1) = match (

@@ -54,6 +54,9 @@
 //!   inputs (a missing required key, for example). Here **every** failure is
 //!   an [`UpstreamRunFileError`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 

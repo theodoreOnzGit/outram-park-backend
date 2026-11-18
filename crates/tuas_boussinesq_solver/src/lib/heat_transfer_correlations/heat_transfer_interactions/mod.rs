@@ -19,6 +19,9 @@
 //!
 //! [`HeatTransferInteractionType`]: heat_transfer_interaction_enums::HeatTransferInteractionType
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// for solid-solid and solid-fluid interaction, heat transfer can
 /// be expressed in terms of thermal conductance or thermal
 /// resistance

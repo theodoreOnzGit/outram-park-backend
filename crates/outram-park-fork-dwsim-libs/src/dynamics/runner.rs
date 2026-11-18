@@ -130,10 +130,14 @@
 //!   series and the step counters remain readable after a failed run. Check
 //!   [`RunReport::succeeded`].
 
-use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
+use core::sync::atomic::{AtomicBool, Ordering};
+use alloc::sync::Arc;
+use core::time::Duration;
+use crate::time::Instant;
 
 use uom::si::f64::Time;
 use uom::si::time::second;

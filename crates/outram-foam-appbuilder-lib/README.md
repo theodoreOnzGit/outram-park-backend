@@ -239,6 +239,29 @@ vanishes with buoyancy ablated (`NC-OFF`). Drawings and the coupled LOFC /
 CRW validation: `crates/nee_soon/verification_and_validation/htr10_rz_transients/README.md`.
 Not validated: the coupled LOFC re-criticality is ~3400 s late (see there).
 
+## `no_std` + `alloc` (gh:#1633)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every solver, closure and model builds
+without it: the OpenFOAM solvers, the GeN-Foam port (thermal-hydraulics,
+neutronics, closures), the HTGR closures and the HTR-10 R-Z model. What `std`
+adds is the **filesystem**:
+
+- the case readers and writers: `io::poly_mesh`, `io::field_reader`,
+  `io::nuclear_data`, the `read` constructors of `ControlDict`, `FvSchemes`,
+  `FvSolution` and the S_N `QuadratureSet`, `io::output`, the GeN-Foam case
+  readers, and `case_runner`;
+- the `AppBuilderError::Io` variant;
+- `serde` (a dependency nothing in `src/` uses).
+
+Without `std` there is no filesystem, so `crate::path::PathBuf` is a `String`
+(the case label in error messages); with it, it is `std::path::PathBuf`. Maps
+are std's with `std` and `hashbrown` without. The root workspace entry is
+`default-features = false`, so a member that wants `std` asks for it. With
+`std` on (the default) nothing changes.
+
 ## Limitations
 
 This crate is at an early stage of a large port. The following are **known,

@@ -36,6 +36,9 @@
 //! > Research, education and V&V only. Not for licensing, operation or
 //! > safety decisions. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod core_model;
 pub mod data;
 pub mod lumped_core;

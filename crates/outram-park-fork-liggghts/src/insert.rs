@@ -120,10 +120,13 @@
 //! trial `all_in yes` can make (an `all_in no` trial centred in the region can
 //! overlap an atom up to `r_j` outside, which `is_nearby` also keeps).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 use uom::si::f64::{Length, MassDensity, Velocity};
 use uom::si::{length::meter, mass_density::kilogram_per_cubic_meter, velocity::meter_per_second};
 
@@ -663,7 +666,7 @@ impl ParticleTemplateSphere {
     /// `volume_expect = cubic_expectancy * 4 * pi / 3` (upstream's order).
     #[must_use]
     pub fn volexpect(&self) -> f64 {
-        (self.radius * self.radius * self.radius) * 4.0 * std::f64::consts::PI / 3.0
+        (self.radius * self.radius * self.radius) * 4.0 * core::f64::consts::PI / 3.0
     }
 
     /// `mass_expect = E[density] * volume_expect`.
@@ -676,7 +679,7 @@ impl ParticleTemplateSphere {
     fn randomize_one(&self) -> ParticleToInsert {
         let radius = self.radius;
         let density = self.density;
-        let volume = radius * radius * radius * 4.0 * std::f64::consts::PI / 3.0;
+        let volume = radius * radius * radius * 4.0 * core::f64::consts::PI / 3.0;
         ParticleToInsert {
             radius,
             density,
@@ -1734,7 +1737,7 @@ impl InsertFix {
     fn calc_ninsert_this(&mut self, atoms: &[Particle], census: &ClumpCensus) -> i64 {
         match self.mode {
             InsertMode::Pack(target) => {
-                let four_pi_3 = 4.0 * std::f64::consts::PI / 3.0;
+                let four_pi_3 = 4.0 * core::f64::consts::PI / 3.0;
                 let (mut np_region, mut vol_region, mut mass_region) = (0_i64, 0.0, 0.0);
                 for (i, a) in atoms.iter().enumerate() {
                     // `if(fix_multisphere && fix_multisphere->belongs_to(i) >= 0) continue;`

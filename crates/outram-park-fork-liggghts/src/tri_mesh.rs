@@ -58,6 +58,9 @@
 //! constant (`EPSILON_PRECISION = 1e-8`, `EPSILON_CURVATURE = 1e-5`,
 //! `SMALL_TRIMESH = 1e-10`, `LARGE_TRIMESH = 1e6`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::particle::Vec3;
 
@@ -1227,7 +1230,7 @@ mod tests {
         let mut s = TriMeshState::new(&nodes);
         s.rotate_incremental(
             &mut nodes,
-            std::f64::consts::FRAC_PI_2,
+            core::f64::consts::FRAC_PI_2,
             &[0., 0., 1.],
             &[0.; 3],
         );
@@ -1249,7 +1252,7 @@ mod tests {
         let orig = vec![tri([0., 0., 0.], [1., 0., 0.], [0., 1., 0.])];
         let mut s = TriMeshState::new(&orig);
         let mut nodes = orig.clone();
-        let q = std::f64::consts::FRAC_PI_2;
+        let q = core::f64::consts::FRAC_PI_2;
         s.rotate_total(&orig, &mut nodes, q, q / 2.0, &[0., 0., 1.], &[1., 0., 0.]);
         assert!((nodes[0][0][0] - 1.0).abs() < 1e-15 && (nodes[0][0][1] + 1.0).abs() < 1e-15);
         let c = (0.5_f64).sqrt();

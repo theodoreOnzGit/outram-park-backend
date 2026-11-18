@@ -88,6 +88,9 @@
 //! square metres per unit thickness in a two-dimensional analysis, which
 //! cancels in the average).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::crystal::{CrystalState, SlipFamily, MAX_SLIP_SYSTEMS};
 use crate::error::{FemError, Result};
 use crate::tensor::Voigt6;
@@ -451,7 +454,7 @@ pub fn rank_regions(regions: &[RegionFip]) -> Vec<usize> {
         regions[*b]
             .fip
             .partial_cmp(&regions[*a].fip)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .unwrap_or(core::cmp::Ordering::Equal)
     });
     order
 }

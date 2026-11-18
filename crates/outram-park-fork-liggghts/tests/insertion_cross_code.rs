@@ -63,7 +63,7 @@
 //!   exactly as upstream does, so I predict bit-identity there too; if it
 //!   breaks, the first broken frame and its size are the finding. Pass
 //!   criterion for frames from 20 000: identical particle counts and every
-//!   field within `1e-8` relative to the largest magnitude of that field
+//!   field within ~~`1e-8`~~ `1e-9` (gh:#1614) relative to the largest magnitude of that field
 //!   (workspace round-off allowance), with the measured values printed.
 //!
 //! ## Result
@@ -342,7 +342,8 @@ fn report(deck: &str) {
             );
         } else {
             assert!(
-                *rel <= 1e-8,
+                // ~~1e-8~~ 1e-9 (gh:#1614, 2026-11-17): worst measured 0.
+                *rel <= 1e-9,
                 "{deck} step {step}: worst relative difference {rel:e} (bit-identical {same}/{n})"
             );
         }

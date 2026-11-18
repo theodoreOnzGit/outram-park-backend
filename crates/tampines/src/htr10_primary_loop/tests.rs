@@ -3,6 +3,9 @@
 //! tests (kinetics, LOFC) moved to `nee_soon::htr10_th_transient` on
 //! 2026-11-03; see `crates/tampines/verification_and_validation/htr10_primary_loop/README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{MassRate, Power, Pressure, ThermodynamicTemperature};
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;

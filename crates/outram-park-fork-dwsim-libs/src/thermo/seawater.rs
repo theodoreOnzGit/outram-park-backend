@@ -112,6 +112,9 @@
 //! facility operation, reactor control, safety-critical, or licensing
 //! decisions. Independent OUTRAM PARK fork, not the official DWSIM.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{
     MassDensity, Pressure, SpecificHeatCapacity, SurfaceTension, TemperatureInterval,

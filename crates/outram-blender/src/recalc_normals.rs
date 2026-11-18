@@ -59,9 +59,12 @@
 //! spanning tree, matching Blender's own behaviour. No `faer`, no external
 //! dependency; Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// Return `mesh` with every face rewound so the surface is consistently wound
 /// and each connected component faces outward (positive enclosed volume).
@@ -132,7 +135,7 @@ pub fn recalculate_normals(mesh: &Mesh) -> Mesh {
         let mut comp = Vec::new();
         visited[seed] = true;
         component[seed] = comp_id;
-        let mut queue = std::collections::VecDeque::new();
+        let mut queue = alloc::collections::VecDeque::new();
         queue.push_back(seed);
         while let Some(f) = queue.pop_front() {
             comp.push(f);
@@ -420,7 +423,7 @@ mod tests {
     use petir::mathf::RealMath;
     use super::*;
     use crate::primitives;
-    use std::collections::HashSet;
+    use crate::hash::HashSet;
 
     /// True when every directed half-edge is unique and its reverse is present.
     fn is_watertight_consistent(mesh: &Mesh) -> bool {
@@ -547,9 +550,9 @@ mod tests {
         let mut pts = Vec::new();
         for j in 0..=lat {
             // Only the upper half: theta from 0 (pole) to pi/2 (equator).
-            let theta = std::f64::consts::FRAC_PI_2 * (j as f64) / (lat as f64);
+            let theta = core::f64::consts::FRAC_PI_2 * (j as f64) / (lat as f64);
             for i in 0..lon {
-                let phi = std::f64::consts::TAU * (i as f64) / (lon as f64);
+                let phi = core::f64::consts::TAU * (i as f64) / (lon as f64);
                 pts.push(Vec3::new(
                     centre.x + radius * theta.r_sin() * phi.r_cos(),
                     centre.y + radius * theta.r_sin() * phi.r_sin(),

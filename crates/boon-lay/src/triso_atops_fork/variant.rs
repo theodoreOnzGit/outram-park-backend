@@ -78,9 +78,12 @@
 //! [`crate::triso_atops_fork::diffusion::integrate_diffusion_over_time_for`],
 //! [`crate::triso_atops_fork::accident::release_activity_for`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use petir::specfunc::erfc;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 use uom::si::f64::Length;
 use uom::si::length::meter;
 

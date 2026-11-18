@@ -183,6 +183,8 @@
 //! workspace's own njoy port, so these are **internal-consistency** gates, not
 //! an independent NJOY/OpenMC-ACE oracle. The geometry is a packed cube, not
 //! HTR-10. AI-assisted draft, not human-reviewed.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 // gh:#462, #1581, #1635: every nuclide is loaded FREE and the graphite law is
 // associated per material in `model`, so the deprecated nuclide-level binding is
 // no longer used here (its `#![allow(deprecated)]` marker was removed).

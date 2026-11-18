@@ -84,9 +84,12 @@
 //! in `tests/pair_gran_local_cross_code.rs` output and in
 //! `verification_and_validation/neighbor_order.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::Vec3;
 use crate::DemError;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// How [`GranularSystem`](crate::granular_system::GranularSystem) orders the
 /// particle pairs it sums contact forces over.

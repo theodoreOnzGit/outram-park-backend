@@ -60,6 +60,9 @@
 //! geometry in its last bit (measured 2026-10-05 by
 //! `the_default_design_builds_the_geometry_unchanged`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::control_rod::{LOWER_END_INSERTED_CM, LOWER_END_WITHDRAWN_CM, N_CONTROL_RODS};
 use super::explicit_bed::{FUEL_ZONE_RADIUS_CM, PEBBLE_RADIUS_CM};
 

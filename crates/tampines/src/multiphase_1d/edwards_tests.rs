@@ -217,6 +217,9 @@
 //! `EDF_CELLS`, `EDF_DT_US`, `EDF_TEND`, `EDF_C0`, `EDF_VGJ` and `EDF_TAU`
 //! from the environment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::angle::radian;
 use uom::si::f64::{Angle, Length, Pressure, ThermodynamicTemperature, Time};
 use uom::si::length::meter;

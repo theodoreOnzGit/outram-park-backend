@@ -85,7 +85,10 @@
 //! (`MATERIAL_VOID`), "not found" `-2`, an overlap `-3` in every channel
 //! (`src/plot.cpp:43-79`).
 
-use std::fmt::Write as _;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt::Write as _;
 
 use crate::csg::cell::{CellFill, RegionToken};
 use crate::csg::position::Position;
@@ -220,8 +223,8 @@ pub enum ModelPlotError {
     MaterialIndex(usize),
 }
 
-impl std::fmt::Display for ModelPlotError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ModelPlotError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Pixels => write!(f, "pixels must be > 0"),
             Self::PlaneTolerance => write!(f, "plane_tolerance must be > 0"),
@@ -235,7 +238,7 @@ impl std::fmt::Display for ModelPlotError {
     }
 }
 
-impl std::error::Error for ModelPlotError {}
+impl core::error::Error for ModelPlotError {}
 
 /// **`openmc.Model.plot`, ported.** Build with [`ModelPlot::new`] (upstream's
 /// defaults), set fields, then [`ModelPlot::emit`] the script.
@@ -783,9 +786,9 @@ fn overlap_id_map<M: MaterialIdentity>(
     sp: &SlicePlot,
     materials: &[M],
 ) -> Result<(Vec<i32>, Vec<i32>), ModelPlotError> {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par::prelude::*;
     use crate::csg::cell::SurfaceToken;
 

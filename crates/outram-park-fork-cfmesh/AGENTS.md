@@ -2,6 +2,20 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `outram-park-fork-cfmesh` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1639, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob; maps come from `crate::hash` (std's with `std`, so the fingerprint pins
+  hold; `hashbrown` without).
+- Clocks are `crate::time::Instant`, trace switches `crate::env::var`, and a
+  thread pool is `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`
+  with a serial path beside it.
+- Files and printing are `#[cfg(feature = "std")]` (one attribute per
+  `println!`), and so is any test or example that reads files.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

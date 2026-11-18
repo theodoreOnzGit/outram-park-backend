@@ -26,6 +26,122 @@
 // anchored snippets and link to GitHub at the build commit instead.
 #![doc(html_no_source)]
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1605, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports))]
+
+extern crate alloc;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+/// `std::sync::{RwLock, PoisonError}` in a `std` build, unchanged. Without
+/// `std` (gh:#1605), a `spin::RwLock` behind the same `new` / `read` /
+/// `write` signatures: a spin lock is never poisoned, so its `Result` is
+/// always `Ok`, and `PoisonError::into_inner` keeps the `std` call sites'
+/// `.unwrap_or_else(PoisonError::into_inner)` building unchanged.
+pub(crate) mod sync {
+    #[cfg(feature = "std")]
+    pub(crate) use std::sync::{PoisonError, RwLock};
+
+    #[cfg(not(feature = "std"))]
+    pub(crate) use nostd::{PoisonError, RwLock};
+
+    #[cfg(not(feature = "std"))]
+    mod nostd {
+        /// Never constructed: a spin lock cannot be poisoned.
+        #[derive(Debug)]
+        pub(crate) struct PoisonError<T>(T);
+
+        impl<T> PoisonError<T> {
+            pub(crate) fn into_inner(self) -> T {
+                self.0
+            }
+        }
+
+        #[derive(Debug, Default)]
+        pub(crate) struct RwLock<T>(spin::RwLock<T>);
+
+        impl<T> RwLock<T> {
+            pub(crate) const fn new(value: T) -> Self {
+                Self(spin::RwLock::new(value))
+            }
+
+            pub(crate) fn read(
+                &self,
+            ) -> Result<spin::RwLockReadGuard<'_, T>, PoisonError<spin::RwLockReadGuard<'_, T>>> {
+                Ok(self.0.read())
+            }
+
+            pub(crate) fn write(
+                &self,
+            ) -> Result<spin::RwLockWriteGuard<'_, T>, PoisonError<spin::RwLockWriteGuard<'_, T>>>
+            {
+                Ok(self.0.write())
+            }
+        }
+    }
+}
+
+/// `std::env::var` in a `std` build, unchanged. Without `std` (gh:#1605)
+/// there is no environment, so every variable reads as unset and each
+/// `OUTRAM_MC_*` switch takes its default.
+pub(crate) mod env {
+    #[cfg(feature = "std")]
+    pub(crate) use std::env::var;
+
+    /// The one error a `no_std` lookup gives: not present.
+    #[cfg(not(feature = "std"))]
+    #[derive(Debug)]
+    pub(crate) struct VarError;
+
+    #[cfg(not(feature = "std"))]
+    pub(crate) fn var(_key: &str) -> Result<alloc::string::String, VarError> {
+        Err(VarError)
+    }
+}
+
+/// `std::thread::available_parallelism` in a `std` build, unchanged.
+/// Without `std` (gh:#1605) there are no threads: one.
+pub(crate) mod thread {
+    #[cfg(feature = "std")]
+    pub(crate) use std::thread::available_parallelism;
+
+    #[cfg(not(feature = "std"))]
+    pub(crate) fn available_parallelism() -> Result<core::num::NonZeroUsize, ()> {
+        Ok(core::num::NonZeroUsize::MIN)
+    }
+}
+
+/// `HashMap` / `HashSet`: `std`'s in a `std` build, `hashbrown`'s without
+/// (workspace rule, `docs/claude-md/rust-design-rules.md`).
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
 /// The error type every ENDF-reading entry point in this crate returns
 /// (`Nuclide::from_endf_file`, `from_tape`, `from_endf`).
 ///
@@ -63,12 +179,15 @@ pub mod gpu;
 /// and renders a self-service "what performance is available on my PC" markdown
 /// report from measured benchmark timings. Machine-specific output is written to
 /// a gitignored local path — see [`perf_report`].
+#[cfg(feature = "std")]
 pub mod perf_report;
 /// Per-run diagnostic record: which nuclear-data files a run used, how long
 /// each took to process, and how long transport took — reported separately,
 /// because they scale with different things. Written to the gitignored
 /// local-perf directory. See [`run_diagnostics`].
+#[cfg(feature = "std")]
 pub mod run_diagnostics;
+#[cfg(feature = "std")]
 pub mod vv;
 /// Statistics for Monte Carlo results on top of RAFFLES (epic GitHub #493):
 /// seed ensembles, correlated-sample `σ`, source-convergence diagnostics,
@@ -84,5 +203,5 @@ pub mod prelude;
 
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
 /// `rayon` does not build. Numerically exact here — see the module docs.
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 mod wasm_par;

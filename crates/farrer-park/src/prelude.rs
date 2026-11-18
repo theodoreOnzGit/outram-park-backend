@@ -61,6 +61,9 @@
 //! modules; keeping them out of the prelude is what stops it from becoming a
 //! second, undocumented copy of the crate's API.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::assembly::{
     interpolate, Assembled, BodyForce, Formulation, System, SystemOptions,
 };

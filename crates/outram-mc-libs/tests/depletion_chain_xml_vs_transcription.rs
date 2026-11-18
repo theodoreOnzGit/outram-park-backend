@@ -53,6 +53,8 @@
 //! folder's `README.md` for its source, commit, licence and (absence of)
 //! processing.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use std::path::{Path, PathBuf};
 
 use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;

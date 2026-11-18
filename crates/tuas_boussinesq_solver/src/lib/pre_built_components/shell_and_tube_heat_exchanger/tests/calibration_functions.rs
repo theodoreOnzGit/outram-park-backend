@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// based on
 /// Zweibaum's unpublished data:
 /// dataset number,pri loop mass flowrate (kg/s),DRACS loop mass flowrate (kg/s),DHX shell top inlet (DegC),DHX tube bottom inlet(DegC),DHX shell bottom outlet (DegC),DHX tube top outlet (DegC),
@@ -303,6 +306,7 @@ pub fn dhx_calibration_regression_unit_test_shell_to_tube_only(
 
         let debug_on = false;
         if debug_on {
+            #[cfg(feature = "std")]
             dbg!(&(
                 dhx_shell_outlet_actual_temperature.get::<degree_celsius>(),
                 dhx_tube_outlet_actual_temperature.get::<degree_celsius>()
@@ -403,6 +407,7 @@ pub fn dhx_calibration_regression_unit_test_shell_to_tube_only(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         dhx_shell_side_inlet_temperature.get::<degree_celsius>(),
         dhx_tube_side_inlet_temperature.get::<degree_celsius>(),
@@ -427,6 +432,7 @@ pub fn dhx_calibration_regression_unit_test_shell_to_tube_only(
     let inner_tube_wall_prandtl = dhx_sthe.wall_prandtl_number_shell_side_fluid_for_inner_tube();
     let nusselt_number_shell_side_to_tubes = dhx_sthe.nusselt_number_shell_side_to_tubes();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         shell_side_reynolds,
         shell_side_bulk_prandtl,
@@ -436,6 +442,7 @@ pub fn dhx_calibration_regression_unit_test_shell_to_tube_only(
     let outer_tube_wall_prandtl = dhx_sthe.wall_prandtl_number_shell_side_fluid_for_outer_tube();
     let nusselt_number_shell_side_parasitic = dhx_sthe.nusselt_number_shell_side_parasitic();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         shell_side_reynolds,
         shell_side_bulk_prandtl,
@@ -461,6 +468,7 @@ pub fn dhx_calibration_regression_unit_test_shell_to_tube_only(
         + dhx_sthe.get_inner_tubes_convective_thermal_resistance_based_on_wetted_perimeter()
         + dhx_sthe.get_inner_tubes_cylindrical_thermal_resistance();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         thermal_resistance_overall_expected,
         thermal_resistance_overall_actual
@@ -553,6 +561,7 @@ pub fn dhx_calibration_regression_unit_test_shell_to_tube_only(
         )
         .recip();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         thermal_resistance_overall_expected,
         thermal_resistance_based_on_expt_data,
@@ -615,6 +624,7 @@ pub fn dhx_calibration_regression_unit_test_shell_to_tube_only(
             is_counter_current,
         );
 
+    #[cfg(feature = "std")]
     dbg!(&(
         nusselt_number_shell_side_to_tubes,
         nusselt_number_shell_side_to_tubes_actual,
@@ -819,6 +829,7 @@ pub fn dhx_calibration_regression_unit_test_parasitic_heat_loss_only(
 
         let debug_on = false;
         if debug_on {
+            #[cfg(feature = "std")]
             dbg!(&(
                 dhx_shell_outlet_actual_temperature.get::<degree_celsius>(),
                 dhx_tube_outlet_actual_temperature.get::<degree_celsius>()
@@ -919,6 +930,7 @@ pub fn dhx_calibration_regression_unit_test_parasitic_heat_loss_only(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         dhx_shell_side_inlet_temperature.get::<degree_celsius>(),
         dhx_tube_side_inlet_temperature.get::<degree_celsius>(),
@@ -943,6 +955,7 @@ pub fn dhx_calibration_regression_unit_test_parasitic_heat_loss_only(
     let inner_tube_wall_prandtl = dhx_sthe.wall_prandtl_number_shell_side_fluid_for_inner_tube();
     let nusselt_number_shell_side_to_tubes = dhx_sthe.nusselt_number_shell_side_to_tubes();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         shell_side_reynolds,
         shell_side_bulk_prandtl,
@@ -952,6 +965,7 @@ pub fn dhx_calibration_regression_unit_test_parasitic_heat_loss_only(
     let outer_tube_wall_prandtl = dhx_sthe.wall_prandtl_number_shell_side_fluid_for_outer_tube();
     let nusselt_number_shell_side_parasitic = dhx_sthe.nusselt_number_shell_side_parasitic();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         shell_side_reynolds,
         shell_side_bulk_prandtl,
@@ -977,6 +991,7 @@ pub fn dhx_calibration_regression_unit_test_parasitic_heat_loss_only(
         + dhx_sthe.get_inner_tubes_convective_thermal_resistance_based_on_wetted_perimeter()
         + dhx_sthe.get_inner_tubes_cylindrical_thermal_resistance();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         thermal_resistance_overall_expected,
         thermal_resistance_overall_actual
@@ -1070,6 +1085,7 @@ pub fn dhx_calibration_regression_unit_test_parasitic_heat_loss_only(
             shell_mass_flowrate,
         );
 
+    #[cfg(feature = "std")]
     dbg!(&(
         thermal_resistance_for_shell_side_parasitic,
         outer_shell_cylindrical_thermal_resistance,
@@ -1102,6 +1118,7 @@ pub fn dhx_calibration_regression_unit_test_parasitic_heat_loss_only(
             shell_mass_flowrate,
         );
 
+    #[cfg(feature = "std")]
     dbg!(&(
         parasitic_loss_rate,
         tube_side_heat_transfer_rate,

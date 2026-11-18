@@ -33,6 +33,9 @@
 //! its tally bin. Standard errors ignore cycle-to-cycle correlation, as
 //! `k`'s does (see `RunProvenance::sigma_batch_means`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::geometry::cell::CellFill;
 use crate::physics::ifp::IfpSettings;
@@ -416,7 +419,7 @@ enum Plan {
     Leakage {
         leak: usize,
         /// Index range of the grid's own bins inside the leak grid.
-        inner: std::ops::Range<usize>,
+        inner: core::ops::Range<usize>,
         edges: Vec<f64>,
         /// Per generation: leak total, ends.
         series: Vec<Vec<f64>>,
@@ -435,7 +438,7 @@ enum Plan {
         label: String,
         tally: usize,
         n_cells: usize,
-        inner: std::ops::Range<usize>,
+        inner: core::ops::Range<usize>,
         edges: Vec<f64>,
         /// Per bin (all bins incl. under/overflow), the region's sum.
         bins: Vec<TallyBin>,
@@ -512,7 +515,7 @@ fn add_leak(extra: &mut ExtraScoring, edges: Vec<f64>) -> usize {
 /// `edges` with an underflow bin below (from 0) and an overflow bin above
 /// (to `f64::MAX`) when the grid does not already reach them; returns the
 /// padded edges and the range of the grid's own bins.
-fn padded(edges: &[f64]) -> (Vec<f64>, std::ops::Range<usize>) {
+fn padded(edges: &[f64]) -> (Vec<f64>, core::ops::Range<usize>) {
     let mut v = Vec::with_capacity(edges.len() + 2);
     let lo = edges[0] > 0.0;
     let hi = *edges.last().unwrap_or(&0.0) < f64::MAX;
@@ -1273,11 +1276,11 @@ impl Collector {
 /// JavaScript, which a WASI host does not have, and a page should not be
 /// probed as a side effect of a run): it says so instead.
 fn hardware_headline() -> String {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     {
         crate::perf_report::HardwareInfo::detect().headline()
     }
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     {
         "wasm32: hardware not detected (write it in by hand with the timing)".to_string()
     }

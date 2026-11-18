@@ -13,6 +13,8 @@
 //!
 //! Result (2026-11-14): see the test output recorded on #462.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};

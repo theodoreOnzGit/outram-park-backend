@@ -53,6 +53,9 @@
 //!   out-of-range patch index, a field/mesh size mismatch, or an empty
 //!   reduction domain panics rather than returning a default value.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod field_diff_extents;
 pub mod field_integral;
 pub mod mass_flow;

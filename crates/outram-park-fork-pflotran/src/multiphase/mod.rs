@@ -79,6 +79,9 @@
 //! > **Untrusted AI draft — verification only**, per the workspace
 //! > `RESPONSIBLE_USE.md`. Not for facility operation or any safety-critical use.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 use crate::grid::{BoundaryLocation, CartesianGrid};
 use crate::properties::CharacteristicCurves;
@@ -86,7 +89,10 @@ use crate::solver::block::{
     BlockLduMatrix, BlockNewtonConfig, BlockNewtonReport, BlockNewtonSolver, BlockNonlinearSystem,
 };
 
+#[cfg(feature = "std")]
 use rayon::prelude::*;
+#[cfg(not(feature = "std"))]
+use crate::par::prelude::*;
 use uom::si::f64::{Pressure, Ratio};
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;

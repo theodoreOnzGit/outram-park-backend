@@ -131,6 +131,8 @@
 //! kernel the mirror left 838 of 2000 alive with 420 collision records, so the
 //! gate can fail.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::gpu::batched_event::{
     advance_generation_cpu_mirror_banking, EventBatch, EventFissionBanking, EventSiteRecord,
     EventSphere, EventTablesF32, FISS_NONE,

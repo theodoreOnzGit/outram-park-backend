@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 #[warn(missing_docs)]
 // This library was developed for use in my PhD thesis under supervision
@@ -207,7 +210,8 @@ pub fn get_flibe_dynamic_viscosity(
 pub fn flibe_salt_test_viscosity() {
     use uom::si::thermodynamic_temperature::kelvin;
     use uom::si::dynamic_viscosity::centipoise;
-    extern crate approx;
+    // `approx` reaches this crate as `approx-nostd`, aliased at the crate
+    // root (gh:#1601), so no `extern crate` is needed here.
     // let's try the 900 F one first
     let temperature_900_k = ThermodynamicTemperature::new::<kelvin>(900.0);
 

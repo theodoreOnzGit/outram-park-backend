@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use fission_yields_data::prelude::Nuclide;
 use outram_mc_libs::rng::lcg::Lcg64 as Rand64;
 use uom::si::f64::*;
@@ -223,6 +226,7 @@ fn stochastic_half_life_calculator() {
 
 // in this case, thorium 232 goes via a series of decays, well known
 // to Pb208
+#[cfg(feature = "std")]
 #[test]
 fn decay_chain_th232() {
     let th232 = Nuclide::Th232;

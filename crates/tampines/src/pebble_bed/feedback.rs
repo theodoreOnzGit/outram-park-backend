@@ -84,6 +84,9 @@
 //! its reactivity mapping. **Does not belong here:** point kinetics, fuel
 //! Doppler, decay heat, or the neutronics that produces the coefficient.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{
     Area, HeatCapacity, HeatTransfer, Mass, Power, Ratio, SpecificHeatCapacity,
     TemperatureCoefficient, TemperatureInterval, ThermalConductance, ThermodynamicTemperature,
@@ -637,7 +640,7 @@ mod tests {
         );
 
         let timestep = Time::new::<second>(tau_seconds / 2000.0);
-        let target_excursion = initial_excursion / std::f64::consts::E;
+        let target_excursion = initial_excursion / core::f64::consts::E;
 
         let mut elapsed = 0.0;
         let mut previous_excursion = initial_excursion;

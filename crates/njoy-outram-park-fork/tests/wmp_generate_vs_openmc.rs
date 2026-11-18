@@ -419,6 +419,9 @@ fn mg26_generation_matches_openmc_stage_by_stage() {
 /// OpenMC" in the binding test above.
 #[test]
 #[cfg_attr(not(feature = "long-tests"), ignore = "~10 min: two vector-fitting order searches and four windowings; runs by default")]
+// Accepted above the 1e-9 round-off allowance (gh:#1390); flagged on
+// gh:#1614, 2026-11-17. Measured that day: vectfit pole 7.3e-8, fixed-window
+// curve fit 1.6e-7.
 fn mg26_coefficients_within_accepted_tolerance() {
     let Some(m) = run_stages() else { return };
     assert!(m.vf1_pole < 8e-8, "one vectfit call: pole {:.3e}", m.vf1_pole);

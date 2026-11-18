@@ -66,6 +66,9 @@
 //! [`collision_integrals`] (`C_12`), [`diffusion`] (`diffusionH2`, the pure-H2
 //! self-diffusivity), and [`equation_of_state`] (`psi`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod collision_integrals;
 mod constants;
 mod diffusion;

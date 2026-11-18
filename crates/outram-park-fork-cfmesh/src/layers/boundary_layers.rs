@@ -88,13 +88,16 @@
 //! upstream's `addLayerForPatch` when they are (one patch, or patches
 //! meeting at convex edges under 135°).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{build_layered_variable_with_columns, layer_setup};
 use crate::math::Vec3;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner, VSMALL};
 use crate::surface_optimizer::check_inverted_vertices;
 use crate::topology::TopoMesh;
 use crate::volume_mesh::VolumeMesh;
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 use petir::mathf::RealMath;
 
 /// `boundaryLayers` settings (the `boundaryLayers` sub-dictionary of
@@ -425,7 +428,7 @@ pub fn angle_between_faces(points: &[Vec3], f1: &[usize], f2: &[usize]) -> Optio
         let n_nei = points[nei[1]].sub(points[nei[0]]).cross(points[nei[2]].sub(points[nei[0]]));
         let n_nei = n_nei.scale(1.0 / (n_nei.length() + VSMALL));
         let dot = n_own.dot(n_nei).clamp(-1.0, 1.0);
-        angle += if *vol > -VSMALL { dot.r_acos() + std::f64::consts::PI } else { (-dot).r_acos() };
+        angle += if *vol > -VSMALL { dot.r_acos() + core::f64::consts::PI } else { (-dot).r_acos() };
     }
     Some(angle / tets.len() as f64)
 }
@@ -482,7 +485,7 @@ pub fn find_patches_to_be_treated_together(mesh: &VolumeMesh, treated_patch: &[b
             continue;
         }
         let (f1, f2) = (&engine.face_rings[ef[0]], &engine.face_rings[ef[1]]);
-        let concave = !is_shared_edge_convex(&mesh.points, f1, f2) || angle_between_faces(&mesh.points, f1, f2).unwrap_or(0.0) > 0.75 * std::f64::consts::PI;
+        let concave = !is_shared_edge_convex(&mesh.points, f1, f2) || angle_between_faces(&mesh.points, f1, f2).unwrap_or(0.0) > 0.75 * core::f64::consts::PI;
         let entry = classes.entry((p0.min(p1), p0.max(p1))).or_insert((0, 0));
         if concave {
             entry.1 += 1;
@@ -1004,7 +1007,7 @@ pub fn generate_layer(mesh: &VolumeMesh, request: &LayerRequest, c: &BoundaryLay
 /// the mesh and the number of boundary faces that do not match `bnd` (a face
 /// on one side only, or listed and not a boundary face).
 pub(crate) fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], first_layer_cell: usize, bnd: &[(Vec<usize>, usize)], names: &[String]) -> (VolumeMesh, usize) {
-    use std::collections::HashMap;
+    use crate::hash::HashMap;
     let key = |ring: &[usize]| -> Vec<usize> {
         let mut k = ring.to_vec();
         k.sort_unstable();
@@ -1457,6 +1460,7 @@ pub(crate) mod tests {
         let (b, ob) = super::super::add_boundary_layers_back_off(&m, &["walls"], 1, 0.125, 1.0);
         let setup = super::super::layer_setup(&m, &["walls"], 1, 0.125, 1.0).unwrap();
         let (qc, qb) = (check_quality(&l), check_quality(&b));
+        #[cfg(feature = "std")]
         println!("cfMesh: {} cells, V {:.15}, non-ortho {:.2}, skew {:.3}; back-off: {} cells, V {:.15}, non-ortho {:.2}, skew {:.3}, tries {}", l.cell_count(), l.total_volume(), qc.max_non_orthogonality_deg, qc.max_skewness, b.cell_count(), b.total_volume(), qb.max_non_orthogonality_deg, qb.max_skewness, ob.iterations);
         assert_eq!((l.cell_count(), b.cell_count()), (128, 128));
         assert!((b.total_volume() - 1.0).abs() < 1e-12 && (l.total_volume() - 1.0).abs() < 1e-12);
@@ -1477,6 +1481,7 @@ pub(crate) mod tests {
                 assert!(p.n_other_patches == 0 && !mid(p.wall.y) && !mid(p.wall.z), "{p:?}");
             }
         }
+        #[cfg(feature = "std")]
         println!("column lengths equal at {same_len}, corners differing {corner_diff}, directions differing {dir_diff}");
         assert_eq!((same_len, corner_diff, dir_diff), (72, 8, 24));
     }
@@ -1509,7 +1514,9 @@ pub(crate) mod tests {
         let (rmin, _, rmax) = stats(&ratios);
         let rim: Vec<(f64, f64)> = o.points.iter().zip(&ob.points).filter(|(p, _)| p.n_other_patches > 0).map(|(p, q)| (p.thickness(), q.2)).collect();
         let (cs, bs) = (stats(&tc), stats(&tb));
+        #[cfg(feature = "std")]
         println!("{label}: bare {} cells, {n_wall} wall faces, {} wall points ({} on the rim)", bare.cell_count(), o.points.len(), rim.len());
+        #[cfg(feature = "std")]
         println!(
             "  cfMesh: {} cells, dV/V {:.2e}, first layer min/mean/max {:.3}/{:.3}/{:.3} mm, non-ortho {:.1}, skew {:.2}, inverted {}, neg pyramids {}, min det {:.3}",
             l.cell_count(),
@@ -1523,6 +1530,7 @@ pub(crate) mod tests {
             qc.n_negative_pyramid_faces,
             qc.min_cell_determinant
         );
+        #[cfg(feature = "std")]
         println!(
             "  back-off: {} cells, dV/V {:.2e}, first layer min/mean/max {:.3}/{:.3}/{:.3} mm, non-ortho {:.1}, skew {:.2}, inverted {}, neg pyramids {}, min det {:.3}, tries {}",
             b.cell_count(),
@@ -1539,6 +1547,7 @@ pub(crate) mod tests {
         );
         let rim_c = stats(&rim.iter().map(|r| r.0).collect::<Vec<_>>());
         let rim_b = stats(&rim.iter().map(|r| r.1).collect::<Vec<_>>());
+        #[cfg(feature = "std")]
         println!(
             "  PATCHNODE length ratio back-off/cfMesh min {rmin:.15} max {rmax:.15}; rim cfMesh {:.3}/{:.3}/{:.3} mm, back-off {:.3}/{:.3}/{:.3} mm",
             rim_c.0 * 1e3,
@@ -1556,11 +1565,13 @@ pub(crate) mod tests {
                 let zs: Vec<f64> = patch_faces(m, end).iter().flat_map(|&f| m.faces[f].iter().map(|&v| m.points[v].z)).collect();
                 let (lo, hi) = zs.iter().fold((f64::MAX, f64::MIN), |(a, c), &z| (a.min(z), c.max(z)));
                 let dv: f64 = (0..m.face_count()).filter(|&f| m.neighbour[f].is_none()).map(|f| m.face_centroid(f).dot(m.face_area_vector(f))).sum::<f64>() / 3.0;
+                #[cfg(feature = "std")]
                 println!("  {name} {end}: z spread {:.3e} m ({} faces); volume {dv:.12e}", hi - lo, patch_faces(m, end).len());
             }
         }
         let wall_v = |m: &VolumeMesh, pname: &str| -> f64 { patch_faces(m, pname).iter().map(|&f| m.face_centroid(f).dot(m.face_area_vector(f))).sum::<f64>() / 3.0 };
         for pname in ["walls", "inlet", "outlet"] {
+            #[cfg(feature = "std")]
             println!("  patch {pname}: Σ c·S/3 bare {:.12e}, cfMesh {:.12e}, back-off {:.12e}", wall_v(bare, pname), wall_v(&l, pname), wall_v(&b, pname));
         }
         (l.cell_count(), b.cell_count(), bare.cell_count() + n_wall, ob.iterations, rmin, rmax, 0.6f64.powi(ob.iterations.max(1) as i32 - 1))
@@ -1650,6 +1661,7 @@ pub(crate) mod tests {
         let mut bl = BoundaryLayers::new(m, BoundaryLayersControls::default());
         let o = bl.add_layer_for_all_patches().unwrap();
         let l = &bl.mesh;
+        #[cfg(feature = "std")]
         println!("B6: groups {:?}; cells {} (face {}, edge {}, corner {}), unmatched {}, V {:.15}, non-positive {}", o.groups, l.n_cells, o.n_face_cells, o.n_edge_cells, o.n_corner_cells, o.n_unmatched_boundary_faces, l.total_volume(), n_nonpositive(l));
         assert_eq!(o.groups.len(), 6);
         assert!(o.groups.iter().all(|g| g.len() == 1));
@@ -1679,6 +1691,7 @@ pub(crate) mod tests {
         let mut bl = BoundaryLayers::new(m.clone(), BoundaryLayersControls::default());
         let o = bl.add_layer_for_all_patches().unwrap();
         let l = &bl.mesh;
+        #[cfg(feature = "std")]
         println!("B3 patch-wise: groups {:?}; cells {} (face {}, edge {}, corner {}), unmatched {}, V {:.15}, non-positive {}", o.groups, l.n_cells, o.n_face_cells, o.n_edge_cells, o.n_corner_cells, o.n_unmatched_boundary_faces, l.total_volume(), n_nonpositive(l));
         assert_eq!(o.groups.len(), 3);
         assert_eq!((l.n_cells, o.n_edge_cells, o.n_corner_cells, o.n_unmatched_boundary_faces), (192, 32, 0, 0));
@@ -1689,6 +1702,7 @@ pub(crate) mod tests {
         ot.create_o_topology_layers();
         let oo = ot.add_layer_for_all_patches().unwrap();
         let (one, _) = boundary_layers_add_layer(&m, &["walls", "inlet", "outlet"], &BoundaryLayersControls::default()).unwrap();
+        #[cfg(feature = "std")]
         println!("B3 O-topology: {} cells ({} face cells)", ot.mesh.n_cells, oo.n_face_cells);
         assert_eq!(ot.mesh.n_cells, 160);
         assert_eq!((&ot.mesh.points, &ot.mesh.faces, &ot.mesh.owner), (&one.points, &one.faces, &one.owner));
@@ -1704,6 +1718,7 @@ pub(crate) mod tests {
         let l = &bl.mesh;
         let nb: usize = bare.patches.iter().map(|p| p.n_faces).sum();
         let v0 = bare.total_volume();
+        #[cfg(feature = "std")]
         println!(
             "P patch-wise: groups {:?}; bare {} cells, {nb} boundary faces; {} cells (face {}, edge {}, corner {}), unmatched {}, dV/V {:.3e}, non-positive {}",
             o.groups,
@@ -1717,7 +1732,9 @@ pub(crate) mod tests {
             n_nonpositive(l)
         );
         let q = check_quality(l);
+        #[cfg(feature = "std")]
         println!("  non-ortho {:.1}, skew {:.2}, neg pyramids {}", q.max_non_orthogonality_deg, q.max_skewness, q.n_negative_pyramid_faces);
+        #[cfg(feature = "std")]
         println!("  edge classification (convex, concave) by patch pair: {:?} (patches {:?})", bl.edge_classification, bare.patches.iter().map(|p| p.name.clone()).collect::<Vec<_>>());
         // why the rim edges are concave: the tet test and the angle, per edge
         let engine = SurfaceEngine::new(&bare);
@@ -1730,9 +1747,10 @@ pub(crate) mod tests {
             let a = angle_between_faces(&bare.points, f1, f2).unwrap();
             angles.push(a.to_degrees());
             not_convex += usize::from(!is_shared_edge_convex(&bare.points, f1, f2));
-            wide += usize::from(a > 0.75 * std::f64::consts::PI);
+            wide += usize::from(a > 0.75 * core::f64::consts::PI);
         }
         angles.sort_by(f64::total_cmp);
+        #[cfg(feature = "std")]
         println!("  rim edges {}: not convex by the tet test {not_convex}, angle > 135° {wide}; angle min/median/max {:.1}/{:.1}/{:.1}°", angles.len(), angles[0], angles[angles.len() / 2], angles[angles.len() - 1]);
         let (mut n_cmp, mut n_bit) = (0, 0);
         for (key, g) in o.groups.iter().enumerate() {
@@ -1750,6 +1768,7 @@ pub(crate) mod tests {
         let (_, onew) = boundary_layers_add_layer(&bare, &["walls"], &BoundaryLayersControls::default()).unwrap();
         let mut ow = bare.clone();
         ow = boundary_layers_add_layer(&ow, &["walls"], &BoundaryLayersControls::default()).unwrap().0;
+        #[cfg(feature = "std")]
         println!("  displacements bit for bit {n_bit} of {n_cmp}; one-group walls: {} points, non-positive {}", onew.points.len(), n_nonpositive(&ow));
         assert_eq!(n_bit, n_cmp);
         assert_eq!((o.n_corner_cells, o.n_unmatched_boundary_faces), (0, 0));
@@ -1768,6 +1787,7 @@ pub(crate) mod tests {
         bl.add_layer_for_patch("y0").unwrap().unwrap();
         let n2 = bl.mesh.n_cells;
         assert!(bl.add_layer_for_patch("x0").unwrap().is_none());
+        #[cfg(feature = "std")]
         println!("x0 then y0: {n1} then {n2} cells, V {:.15}", bl.mesh.total_volume());
         assert_eq!((n1, n2), (80, 100));
         bl.mesh.validate().unwrap();
@@ -1795,6 +1815,7 @@ pub(crate) mod tests {
         let n = bl.add_wrapper_layer();
         let (vols, _) = crate::checks::cell_geometry(&bl.mesh);
         let n_zero = vols.iter().filter(|v| v.abs() < 1e-15).count();
+        #[cfg(feature = "std")]
         println!("wrapper: {n} layer cells, {} cells, {n_zero} of zero volume, V {:.15}", bl.mesh.n_cells, bl.mesh.total_volume());
         assert_eq!((n, bl.mesh.n_cells, n_zero), (96, 160, 96));
         assert!((bl.mesh.total_volume() - 1.0).abs() < 1e-12);
@@ -1822,6 +1843,7 @@ pub(crate) mod tests {
         bp.treat_with[w] = vec![w.min(i), w.max(i)];
         bp.treat_with[i] = vec![w.min(i), w.max(i)];
         let r = bp.check_topology_of_boundary_faces(&[w]);
+        #[cfg(feature = "std")]
         println!("pipe, walls+inlet forced: {r:?}");
         assert!(matches!(r, Err(BoundaryLayersError::CriticalNotTested { n_decomposed }) if n_decomposed > 0));
     }
@@ -1837,10 +1859,11 @@ pub(crate) mod tests {
         let bottom = [0, 3, 2, 1];
         let side = [0, 1, 5, 4];
         assert!(is_shared_edge_convex(&p, &bottom, &side));
-        assert!((angle_between_faces(&p, &bottom, &side).unwrap() - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+        assert!((angle_between_faces(&p, &bottom, &side).unwrap() - core::f64::consts::FRAC_PI_2).abs() < 1e-12);
         let fold = [1, 7, 6, 0];
         assert!(!is_shared_edge_convex(&p, &bottom, &fold));
+        #[cfg(feature = "std")]
         println!("folded angle {}", angle_between_faces(&p, &bottom, &fold).unwrap());
-        assert!((angle_between_faces(&p, &bottom, &fold).unwrap() - 1.5 * std::f64::consts::PI).abs() < 1e-12);
+        assert!((angle_between_faces(&p, &bottom, &fold).unwrap() - 1.5 * core::f64::consts::PI).abs() < 1e-12);
     }
 }

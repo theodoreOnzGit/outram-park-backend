@@ -24,6 +24,9 @@
 //! Split out because these are the figure-independent facts about a particle:
 //! every other module here consumes them and none of them depends on the rest.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio, Time, Velocity};
 use uom::si::ratio::ratio;
@@ -60,8 +63,8 @@ pub enum SicLayerError {
     OuterNotBeyondInner(f64, f64),
 }
 
-impl std::fmt::Display for SicLayerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for SicLayerError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::NotFinite(ri, ra) => write!(f, "SiC layer radius is not finite: inner {ri} m, outer {ra} m"),
             Self::InnerRadiusNotPositive(ri) => write!(f, "SiC layer inner radius must be positive, got {ri} m"),
@@ -72,7 +75,7 @@ impl std::fmt::Display for SicLayerError {
     }
 }
 
-impl std::error::Error for SicLayerError {}
+impl core::error::Error for SicLayerError {}
 
 /// Why a corrosion rate and an elapsed time cannot be used to thin a layer.
 /// Each case carries the offending value(s) in SI units (m/s, s).
@@ -87,8 +90,8 @@ pub enum CorrosionInputError {
     NegativeTime(f64),
 }
 
-impl std::fmt::Display for CorrosionInputError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for CorrosionInputError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::NotFinite(v, t) => write!(f, "corrosion rate ({v} m/s) or elapsed time ({t} s) is not finite"),
             Self::NegativeRate(v) => write!(f, "corrosion rate must not be negative, got {v} m/s"),
@@ -97,7 +100,7 @@ impl std::fmt::Display for CorrosionInputError {
     }
 }
 
-impl std::error::Error for CorrosionInputError {}
+impl core::error::Error for CorrosionInputError {}
 
 impl SicLayer {
     /// A layer from its inner radius `r_i` and outer radius `r_a`, in that

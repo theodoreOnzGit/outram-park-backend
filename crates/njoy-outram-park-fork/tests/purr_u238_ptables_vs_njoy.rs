@@ -462,6 +462,9 @@ fn purr_probability_tables_match_njoy2016() {
          5.000e-8 (NJOY's print) on 2026-11-14."
     );
     assert!(
+        // Accepted at 1e-8, above the 1e-9 round-off allowance of 2026-11-17:
+        // flagged on gh:#1614. The rms is bounded by NJOY's 7-figure print of
+        // the probabilities (worst 5.0e-8), not by an arithmetic difference.
         prob_rms < 1.0e-8,
         "rms bin-probability difference is {prob_rms:.3e}, above the 1e-8 bound \
          (measured 4.951e-9 on 2026-11-14)."

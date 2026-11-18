@@ -12,6 +12,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::TampinesError;
 
 /// TECDOC-1694 Tab 2.56, the 3 MW LOFC power-density map (cell edges, cm;
@@ -159,7 +162,7 @@ pub fn map_power_in_band_w(map: &[PowerMapCell], z_lo: f64, z_hi: f64) -> f64 {
                 return 0.0;
             }
             c.q_w_per_cm3
-                * std::f64::consts::PI
+                * core::f64::consts::PI
                 * (c.r_cm[1] * c.r_cm[1] - c.r_cm[0] * c.r_cm[0])
                 * (hi - lo)
         })

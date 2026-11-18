@@ -22,6 +22,8 @@
 //!    uncapped draw puts some births above it, so the arm is able to fail.
 //!    Before 2026-09-30 nothing enforced the cap.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::nuclide::Nuclide;
 
 #[test]

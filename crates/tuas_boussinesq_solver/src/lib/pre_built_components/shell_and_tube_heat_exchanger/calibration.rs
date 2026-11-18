@@ -1,5 +1,8 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::{
     f64::*, ratio::ratio, thermal_resistance::kelvin_per_watt, thermodynamic_temperature::kelvin,

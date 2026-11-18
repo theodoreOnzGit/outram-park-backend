@@ -12,8 +12,11 @@
 //! are from `cargo test --release` on 2026-11-03 at the commit that adds this
 //! file.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::angle::radian;
 use uom::si::f64::{
@@ -1019,7 +1022,7 @@ fn cell_exchange_matches_the_fin_solution() {
     let mut f = slab(100, 0.1, 2.0, 1.0e6);
     let n = f.mesh().n_cells();
     f.set_cell_heat_source(&vec![qv(1.0e5); n]).unwrap();
-    let hv = Hv { dimension: std::marker::PhantomData, units: std::marker::PhantomData, value: 2000.0 };
+    let hv = Hv { dimension: core::marker::PhantomData, units: core::marker::PhantomData, value: 2000.0 };
     f.set_cell_exchange(&vec![(hv, kel(300.0)); n]).unwrap();
     f.solve_steady().unwrap();
     let mm = (2000.0_f64 / 2.0).sqrt();

@@ -41,6 +41,8 @@
 //!
 //! Data-gated: skips (passes) when `reference-data/endf/` is absent.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::{Inelastic, Nuclide};

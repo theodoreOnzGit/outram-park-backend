@@ -70,8 +70,11 @@
 //! operators here rebuild a fresh [`Mesh`] through [`Mesh::from_polygons`]
 //! instead), and per-element custom data layers.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// Index of a [`Vertex`] within a [`Mesh`]'s vertex array.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

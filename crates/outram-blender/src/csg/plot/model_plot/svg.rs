@@ -27,6 +27,9 @@
 //! OpenMC's SVG colour table (split out of the model-plot module on
 //! 2026-10-02 to respect the 1000-line file cap).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Look up an SVG colour name as upstream does (`_SVG_COLORS[name.lower()]`).
 #[must_use]
 pub fn svg_colour(name: &str) -> Option<[u8; 3]> {

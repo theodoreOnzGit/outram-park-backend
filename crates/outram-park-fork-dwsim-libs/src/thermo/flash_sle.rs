@@ -117,6 +117,9 @@
 //! > safety-critical use. AI-assisted draft — untrusted until human-reviewed per
 //! > the crate `CLAUDE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::activity::ActivityModel;
 

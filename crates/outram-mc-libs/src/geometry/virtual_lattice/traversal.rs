@@ -4,6 +4,9 @@
 //! the vendored `liangjg/openmc` `virtual_lattice` fork, commit `be04e28`).
 //! See the module-level docs in [`super`] for provenance and the MIT notice.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::VirtualLattice;
 use crate::geometry::position::{Direction, Position};
 use crate::geometry::surface::SurfaceKind;

@@ -1,4 +1,9 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 pub use crate::decay_xml_info_serde;
+#[cfg(feature = "std")]
 pub use crate::decay_xml_info_serde::*;
 
 // --- compute-backend resource switcher (CPU vs wgpu) ---

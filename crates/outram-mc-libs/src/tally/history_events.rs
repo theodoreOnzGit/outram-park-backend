@@ -53,6 +53,9 @@
 //! (one event can match several faces; combining would need a product over
 //! multi-match filters). Time is not reconstructed (`time = 0`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::{RegionToken, SurfaceToken};
 use crate::geometry::geometry::Coord;
 use crate::geometry::distribcell::DistribcellOffsets;
@@ -350,7 +353,7 @@ pub fn regular_mesh_split(mesh: &RegularMesh, r0: Position, r1: Position) -> Vec
             }
         }
     }
-    ts.sort_by(|p, q| p.partial_cmp(q).unwrap_or(std::cmp::Ordering::Equal));
+    ts.sort_by(|p, q| p.partial_cmp(q).unwrap_or(core::cmp::Ordering::Equal));
     let mut out: Vec<(usize, f64)> = Vec::new();
     for pair in ts.windows(2) {
         let frac = pair[1] - pair[0];

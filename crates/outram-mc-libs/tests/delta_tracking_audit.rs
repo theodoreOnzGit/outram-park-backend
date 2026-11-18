@@ -10,6 +10,8 @@
 //!
 //! Methodology, predictions and results are in each test's doc comment.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use std::time::Instant;
 

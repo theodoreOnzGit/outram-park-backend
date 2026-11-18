@@ -40,6 +40,9 @@
 //! The two rings must have the **same** vertex count; unequal-count bridging
 //! (Blender interpolates) is tracked as follow-up under this bead.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
 
@@ -135,7 +138,7 @@ pub fn bridge_edge_loops(
 /// Walk an edge set into its ordered vertex ring, or `None` if it is not a
 /// single simple chain / loop. `closed` in the result says whether it cycles.
 pub fn ordered_ring(mesh: &Mesh, edges: &[crate::mesh::EdgeId]) -> Option<(Vec<VertexId>, bool)> {
-    use std::collections::BTreeSet;
+    use alloc::collections::BTreeSet;
     let set: BTreeSet<crate::mesh::EdgeId> = edges.iter().copied().collect();
     if set.is_empty() {
         return None;
@@ -143,8 +146,8 @@ pub fn ordered_ring(mesh: &Mesh, edges: &[crate::mesh::EdgeId]) -> Option<(Vec<V
     // vertex → incident set-edges. BTreeMap so the start vertex (lowest open
     // end, or lowest vertex of a closed loop) does not depend on a randomly
     // seeded hash order (gh #1002).
-    let mut adj: std::collections::BTreeMap<VertexId, Vec<VertexId>> =
-        std::collections::BTreeMap::new();
+    let mut adj: alloc::collections::BTreeMap<VertexId, Vec<VertexId>> =
+        alloc::collections::BTreeMap::new();
     for &e in &set {
         let ed = mesh.edge(e)?;
         adj.entry(ed.verts[0]).or_default().push(ed.verts[1]);
@@ -257,7 +260,7 @@ mod tests {
         let ring = |z: f64, m: &mut Mesh| -> Vec<VertexId> {
             (0..8)
                 .map(|i| {
-                    let a = std::f64::consts::TAU * i as f64 / 8.0;
+                    let a = core::f64::consts::TAU * i as f64 / 8.0;
                     m.add_vertex(Vec3::new(a.r_cos(), a.r_sin(), z))
                 })
                 .collect()

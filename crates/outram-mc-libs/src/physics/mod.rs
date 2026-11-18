@@ -49,6 +49,9 @@
 //! [`transport`] is a stub retained for the generic history-based loop notes;
 //! the live per-history loop is in [`transport_csg`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod compute;
 pub mod delta_tracking;
 pub mod transport;

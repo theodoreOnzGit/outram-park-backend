@@ -32,6 +32,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{MassRate, Power, Pressure, ThermodynamicTemperature, Time};
 
 use super::lumped_core::LumpedPebbleBedCore;

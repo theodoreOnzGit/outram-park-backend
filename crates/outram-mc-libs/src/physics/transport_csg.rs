@@ -61,6 +61,9 @@
 //! Nuclides without a table (fuel, O, clad) stay free-gas/CE. This makes a
 //! *thermal* LWR pin-cell tractable; see the `pincell` verification test.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::{SurfaceToken, TrackingMethod};
 use crate::physics::delta_tracking::handoff::{
     fly_delta_region, score_real_collision, FlightStart, RegionFlightEnd, StartBins,
@@ -331,8 +334,8 @@ pub struct EmptyFissionBank {
     pub partial: KeffResult,
 }
 
-impl std::fmt::Display for EmptyFissionBank {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for EmptyFissionBank {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "No fission sites banked: the fission bank was empty after {} of {} \
@@ -344,7 +347,7 @@ impl std::fmt::Display for EmptyFissionBank {
     }
 }
 
-impl std::error::Error for EmptyFissionBank {}
+impl core::error::Error for EmptyFissionBank {}
 
 /// [`run_keff_csg`], returning an empty fission bank as an error rather than
 /// a `k` (GitHub #467).
@@ -1252,7 +1255,7 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
         Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
         None => (geom, materials, majorants),
     };
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par as rayon;
 
     let n_bins = tally.as_deref().map(|t| t.n_bins()).unwrap_or(0);
@@ -1461,9 +1464,9 @@ pub(crate) fn transport_generation_par(
     leak_edges_gen: &[f64],
     extra: Option<&ExtraScoring>,
 ) -> Vec<ParChunk> {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par::prelude::*;
 
     let gen_base_seed = future_seed((generation as u64).wrapping_mul(GEN_STRIDE), run_seed);
@@ -2178,7 +2181,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
         // (`initialize_history`, `simulation.cpp:757-761`), so `ww_born`
         // anchors at the source, not at the first surface or collision. A
         // secondary or daughter keeps the anchors it was banked with.
-        if std::mem::take(&mut source_pop)
+        if core::mem::take(&mut source_pop)
             && vr.weight_window_at_birth
             && vr.weight_windows.is_some()
             && weight_window_checkpoint(
@@ -4637,7 +4640,7 @@ mod scored_step_tests {
     /// grids and IFP attached, `k` is unchanged and every tally bin, leak
     /// bin and IFP score is equal bit for bit between 1 and 4 threads. A
     /// population change mid-run is also thread-count independent.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     #[test]
     fn step_par_matches_run_keff_csg_par_on_any_pool() {
         let (g, m, n) = godiva_core();
@@ -4684,7 +4687,7 @@ mod scored_step_tests {
         }
         // Not the single-thread streams: a different estimate.
         let mut seq = CsgPowerIteration::new(&g, &m, &n, sb, &s);
-        let k_seq: Vec<f64> = std::iter::from_fn(|| seq.step(&g, &m, &n).map(|r| r.k)).collect();
+        let k_seq: Vec<f64> = core::iter::from_fn(|| seq.step(&g, &m, &n).map(|r| r.k)).collect();
         assert_ne!(k_seq, reference.k_by_generation);
 
         // Diagnostics and a population change, 1 against 4 threads.

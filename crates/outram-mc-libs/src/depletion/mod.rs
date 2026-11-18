@@ -68,12 +68,22 @@
 //! | One-group scalar flux | neutrons / (cm²·s) |
 //! | One-group microscopic cross section | barn |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod integrators;
 pub mod matrix;
 pub mod cram;
 pub mod chain;
 pub mod operator;
 pub mod keff_search;
+pub mod external_rates;
+pub mod microxs;
+pub mod microxs_transport;
+pub mod coupled_operator;
+pub mod helpers;
+pub mod tracking;
+pub mod spectrum_depletion;
 
 pub use chain::{
     ChainImportError, DecayBranch, DepletionChain, NeutronReaction, NuclideData, ReactionKind,
@@ -82,7 +92,7 @@ pub use chain::{
 pub use matrix::DepletionMatrix;
 pub use operator::deplete_with;
 
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// One-group microscopic **reaction rates** for a single nuclide, in `1/s`.
 ///

@@ -76,6 +76,9 @@
 //! converts a matrix flux to watts, which is what the boundary diagnostics
 //! here return.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::fv_schemes::DdtScheme;
 use crate::solvers::bc_util::capture_bcs;
@@ -84,7 +87,7 @@ use crate::solvers::energy_view_factor::ViewFactorCoupling;
 use outram_foam_basic_lib::radiation::P1Model;
 use crate::solvers::non_orthogonal::{self, LaplacianCorrection};
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 use uom::si::f64::{MassDensity, Power, SpecificHeatCapacity, ThermalConductivity, Time};
 use uom::si::time::second;
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -207,7 +210,7 @@ impl EnergyEquation {
     pub fn with_radiation(mut self, model: P1Model, g0: f64) -> Result<Self, AppBuilderError> {
         if self.view_factor.is_some() {
             return Err(AppBuilderError::Case {
-                case: std::path::PathBuf::from("energy radiation"),
+                case: crate::path::PathBuf::from("energy radiation"),
                 msg: "viewFactor radiation is already attached; a region has one radiation model".to_string(),
             });
         }
@@ -224,7 +227,7 @@ impl EnergyEquation {
     pub fn with_view_factor_radiation(mut self, coupling: ViewFactorCoupling) -> Result<Self, AppBuilderError> {
         if self.radiation.is_some() {
             return Err(AppBuilderError::Case {
-                case: std::path::PathBuf::from("energy view-factor radiation"),
+                case: crate::path::PathBuf::from("energy view-factor radiation"),
                 msg: "P1 radiation is already attached; a region has one radiation model".to_string(),
             });
         }

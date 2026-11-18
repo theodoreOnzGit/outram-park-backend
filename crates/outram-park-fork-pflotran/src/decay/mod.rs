@@ -179,6 +179,9 @@
 //! reference case. Not for nuclear facility operation, safeguards analysis, or
 //! any safety-critical or licensing use — education, research, and V&V only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
@@ -229,7 +232,7 @@ pub enum DecaySolver {
 }
 
 /// Natural logarithm of 2, used to convert a half-life to a decay constant.
-const LN_2: f64 = std::f64::consts::LN_2;
+const LN_2: f64 = core::f64::consts::LN_2;
 
 /// One nuclide in a [`DecayChain`]: its half-life and the branchings to its
 /// daughters.

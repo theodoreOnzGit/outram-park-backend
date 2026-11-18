@@ -13,6 +13,9 @@
 //! - [`tutorial_6`] — a generic Fluoride-salt-cooled High-temperature
 //!   Reactor (gFHR) flow scenario using a custom graphite pipe material.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Tutorial 1 shows how to make a pipe component
 /// and obtain pressure losses given a mass flowrate
 pub mod tutorial_1;

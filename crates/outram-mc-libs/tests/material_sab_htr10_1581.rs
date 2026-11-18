@@ -20,6 +20,8 @@
 //!
 //! **Result (2026-11-14):** see the assertions below; the test passes.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::material::material_sab::{assign_htr10_sab, Htr10SabLaws};
 use outram_mc_libs::material::nuclide::Nuclide;

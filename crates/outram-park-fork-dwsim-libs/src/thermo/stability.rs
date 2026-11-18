@@ -95,6 +95,9 @@
 //! (`Vec<f64>` / `&[f64]`). Inner arithmetic is documented raw `f64` (SI:
 //! K, Pa, mole fractions \[-\]), matching [`crate::thermo::cubic_eos`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::{CubicEos, Phase};
 use crate::thermo::flash::wilson_k_values;

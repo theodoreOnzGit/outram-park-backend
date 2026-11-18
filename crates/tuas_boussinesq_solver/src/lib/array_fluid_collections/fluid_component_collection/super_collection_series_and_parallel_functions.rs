@@ -9,6 +9,9 @@
 // copyleft license which means you cannot use it in proprietary software.
 //
 //
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// License
 ///    This file is part of tuas_boussinesq_solver, a partial library of the
 ///    thermal hydraulics library written in rust meant to help with the
@@ -1175,6 +1178,7 @@ pub trait FluidComponentSuperCollectionParallelAssociatedFunctions {
                 return Pressure::new::<pascal>(pressure_change_pascals_user_specified_flow);
             }
             Err(_error_msg) => {
+                #[cfg(feature = "std")]
                 dbg!("Brent Dekker algo failed, trying regula falsi");
             }
         }
@@ -1193,6 +1197,7 @@ pub trait FluidComponentSuperCollectionParallelAssociatedFunctions {
                 return Pressure::new::<pascal>(pressure_change_pascals_user_specified_flow);
             }
             Err(_error_msg) => {
+                #[cfg(feature = "std")]
                 dbg!("Regula falsi algo failed");
             }
         }

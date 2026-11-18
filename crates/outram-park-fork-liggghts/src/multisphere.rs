@@ -159,6 +159,9 @@
 //! particles are ported in [`crate::superquadric`]; convex hull, ellipsoid,
 //! line and tri particles are not.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
 use uom::si::f64::{Length, Mass, MassDensity, MomentOfInertia};
@@ -2288,7 +2291,7 @@ mod tests {
             1,
         )
         .unwrap();
-        let v_exact = 2.0 * 4.0 / 3.0 * std::f64::consts::PI * 1e-9;
+        let v_exact = 2.0 * 4.0 / 3.0 * core::f64::consts::PI * 1e-9;
         assert!((t.volexpect() / v_exact - 1.0).abs() < 0.02, "volume {}", t.volexpect());
         assert!((t.massexpect() - 1000.0 * t.volexpect()).abs() < 1e-18);
         // bounding sphere encloses both: radius 2 mm about the centre

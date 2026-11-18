@@ -73,11 +73,14 @@
 //! - **Parallel** (`FRONTVERTEXPROCBND`, `createNewFacesParallel`) is not
 //!   applicable.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::math::Vec3;
 use crate::surface_engine::ring_area_vector;
 use crate::topology::TopoMesh;
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// OpenFOAM's `VSMALL` for `double`.
 const VSMALL: f64 = 1e-300;
@@ -103,8 +106,8 @@ pub enum ExtrudeLayerError {
     FaceInMoreThanTwoCells(usize),
 }
 
-impl std::fmt::Display for ExtrudeLayerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ExtrudeLayerError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "extrudeLayer: {self:?}")
     }
 }
@@ -299,7 +302,7 @@ pub fn extrude_layer(w: &TopoMesh, front: &[(usize, usize)], thickness: Option<f
                         extruded[n] = (n_orig_faces + n, f);
                         orientation[n] = false;
                     } else {
-                        let ring = std::mem::take(&mut faces[f]);
+                        let ring = core::mem::take(&mut faces[f]);
                         faces[f] = reverse_face(&ring);
                         faces[n_orig_faces + o] = ring;
                         extruded[o] = (n_orig_faces + o, f);
@@ -310,7 +313,7 @@ pub fn extrude_layer(w: &TopoMesh, front: &[(usize, usize)], thickness: Option<f
                     }
                 }
                 (Some(o), None) => {
-                    let ring = std::mem::take(&mut faces[f]);
+                    let ring = core::mem::take(&mut faces[f]);
                     faces[f] = reverse_face(&ring);
                     faces[n_orig_faces + o] = ring;
                     extruded[o] = (n_orig_faces + o, f);

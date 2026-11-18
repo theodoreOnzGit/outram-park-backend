@@ -112,6 +112,9 @@
 //!   Algorithms* (Springer, 2005) — particle–wall overlap and contact-normal
 //!   conventions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
 
@@ -847,7 +850,7 @@ mod tests {
         );
         assert_abs_diff_eq!(
             b.signed_distance(Vec3::new(3.0, 3.0, 1.0)),
-            -std::f64::consts::SQRT_2,
+            -core::f64::consts::SQRT_2,
             epsilon = 1e-12
         );
     }

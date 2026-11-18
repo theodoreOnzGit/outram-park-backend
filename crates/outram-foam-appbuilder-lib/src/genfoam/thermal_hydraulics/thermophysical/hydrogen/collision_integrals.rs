@@ -44,6 +44,9 @@
 // `H2I.H`, upstream or here. Per the "no orphaned dead code" rule, neither is
 // ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// `Omega^(2,2)_{2,2}` (H-H), single polynomial fit (no low-`T` branch;
 /// atomic hydrogen only appears at high `T` in practice).

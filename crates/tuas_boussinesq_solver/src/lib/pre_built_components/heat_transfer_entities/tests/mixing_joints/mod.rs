@@ -6,6 +6,9 @@
 //! adiabatically mixed temperature (~75 deg C). Split by flow sign into
 //! [`fwd_flow`] (positive/forward) and [`reverse_flow`] (negative/reverse).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this test checks if FluidArrays can form adiabatic mixing joints
 /// with single cvs
 ///

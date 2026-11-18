@@ -106,7 +106,10 @@
 //! > **Untrusted AI draft — verification only.** Not for facility operation or
 //! > any safety-critical use.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::error::PflotranError;
 use crate::grid::{BoundaryLocation, CartesianGrid};
@@ -115,7 +118,10 @@ use crate::solver::block::{
     BlockLduMatrix, BlockNewtonConfig, BlockNewtonReport, BlockNewtonSolver, BlockNonlinearSystem,
 };
 
+#[cfg(feature = "std")]
 use rayon::prelude::*;
+#[cfg(not(feature = "std"))]
+use crate::par::prelude::*;
 use uom::si::f64::{Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::dynamic_viscosity::pascal_second;

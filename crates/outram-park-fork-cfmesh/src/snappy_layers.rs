@@ -75,11 +75,14 @@
 //! inlet is an edge of one layer face, so it does not stop layers there.
 //! What collapses layers at such a rim is the quality check.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::checks::{faces_failing_mesh_quality, MeshQualityControls};
 use crate::layers::{build_layered_faces, build_layered_variable, layer_setup, LayerOutcome, LayerQualityStrategy, LayerSetup};
 use crate::volume_mesh::{cells_faces, from_cell_faces, VolumeMesh};
 use petir::mathf::RealMath;
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// `snappyLayerDriver::extrudeMode`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

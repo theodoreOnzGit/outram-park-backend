@@ -20,6 +20,8 @@
 //! Nothing here is a Monte Carlo comparison — that is
 //! `examples/lump_self_shielding_scan.rs`'s job, and it can only be read once
 //! the reference itself is verified.
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::physics::collision_probability::{
     first_flight, gauss_legendre, sphere_escape_probability,

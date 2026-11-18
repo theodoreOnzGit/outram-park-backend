@@ -21,6 +21,9 @@
 //! Accident at the Fukushima Daiichi Nuclear Power Plant*, NEA No. 7525,
 //! © OECD 2021. Facts and numbers only, cited with acknowledgement.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::{Params, Tag};
 use super::{Mechanisms, Mode, Plant, DT_S};
 
@@ -1887,6 +1890,7 @@ mod tests {
     #[ignore = "multiple hours: 70 network runs of 26 h each"]
     fn the_ablation_table_on_the_network() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
+        #[cfg(feature = "std")]
         println!("{}", report(&runs));
     }
 
@@ -1932,8 +1936,10 @@ mod tests {
     #[ignore = "no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110)"]
     fn the_network_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
+        #[cfg(feature = "std")]
         println!("network baseline: {m:?}");
         let lumped = measure(Mechanisms::default().without_network_containment());
+        #[cfg(feature = "std")]
         println!("lumped baseline: {lumped:?}");
         // Lumped: the pins of `the_uncalibrated_baseline_is_pinned`, again.
         assert!(lumped.lower_head_h.is_some_and(|h| (h - 5.4839).abs() < 0.001) && (lumped.p_dw_peak_mpa - 0.81294607).abs() < 1e-8, "{lumped:?}");

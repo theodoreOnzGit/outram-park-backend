@@ -123,6 +123,9 @@
 //!   Sci.* **59**(3), 525–541 (2004) — the restitution-based damping
 //!   coefficient and Hertz–Mindlin assembly used here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::Pressure;
 use uom::si::pressure::pascal;
@@ -536,7 +539,7 @@ impl HertzContact {
     #[must_use]
     pub fn damping_beta(&self) -> f64 {
         let ln_e = self.restitution.r_ln();
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         ln_e / (ln_e * ln_e + pi * pi).sqrt()
     }
 }
@@ -879,7 +882,7 @@ mod tests {
         );
         // β = ln(0.8)/sqrt(ln(0.8)^2 + π^2)
         let ln_e = 0.8_f64.r_ln();
-        let beta_expected = ln_e / (ln_e * ln_e + std::f64::consts::PI.r_powi(2)).sqrt();
+        let beta_expected = ln_e / (ln_e * ln_e + core::f64::consts::PI.r_powi(2)).sqrt();
         assert_abs_diff_eq!(hertz.damping_beta(), beta_expected, epsilon = 1.0e-15);
         assert!(hertz.damping_beta() < 0.0);
     }

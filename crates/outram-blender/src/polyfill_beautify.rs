@@ -87,6 +87,9 @@
 //!    disagree both answers are equally good by the cost measure.
 //! 4. **Indices, not pointers.** Required by the workspace no-lifetimes rule.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 
 /// Upstream's sentinel for "no such half-edge" (`UINT_MAX`).
@@ -719,7 +722,7 @@ mod tests {
         let n = 16;
         let coords: Vec<[f64; 2]> = (0..n)
             .map(|i| {
-                let t = std::f64::consts::TAU * (i as f64) / (n as f64);
+                let t = core::f64::consts::TAU * (i as f64) / (n as f64);
                 [t.r_cos(), t.r_sin()]
             })
             .collect();

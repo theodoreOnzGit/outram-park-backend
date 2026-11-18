@@ -8,6 +8,9 @@
 //! helper functions, and the heat-transfer interaction enums and geometric
 //! dimension newtypes.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// thermal hydraulics library error
 pub use crate::tuas_lib_error::TuasLibError;
 

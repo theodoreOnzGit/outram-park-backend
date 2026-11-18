@@ -59,6 +59,9 @@
 //! grow as efficiency falls) and self-consistency only. AI-assisted draft
 //! pending human review per `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::properties::{helium_state, helium_state_ph, HeliumState, SpecificEnthalpy};
 use crate::TampinesError;
 use outram_park_fork_coolprop::{state_ps, Fluid};

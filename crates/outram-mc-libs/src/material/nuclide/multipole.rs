@@ -28,12 +28,15 @@
 //! **Opt-in.** No constructor attaches multipole data. The reasons and the
 //! measurements behind them are in the V&V record §7.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::{MicroXS, Nuclide, XsSource};
 use crate::physics::scatter::K_BOLTZMANN_EV_PER_K;
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
 use njoy_outram_park_fork::MtReaction;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Largest difference \[-\] allowed between a multipole set and a nuclide's
 /// own tables, per decade band of `∫σ dE/E` (total and absorption, each
@@ -73,8 +76,8 @@ pub enum MultipoleAttachError {
     EvaluationMismatch(MultipoleConsistency),
 }
 
-impl std::fmt::Display for MultipoleAttachError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for MultipoleAttachError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::NotPointwise => write!(f, "the LOW (Core) tier is already windowed multipole"),
             Self::NoDataTemperature => write!(f, "the nuclide's tables carry no temperature"),
@@ -92,7 +95,7 @@ impl std::fmt::Display for MultipoleAttachError {
     }
 }
 
-impl std::error::Error for MultipoleAttachError {}
+impl core::error::Error for MultipoleAttachError {}
 
 /// How far a multipole set is from a nuclide's own tables, at the tables'
 /// temperature: the worst decade band of `∫σ dE/E` over the multipole
@@ -302,8 +305,10 @@ pub(super) fn structural_nodes(w: &WindowedMultipole) -> Vec<f64> {
 mod tests {
     use super::*;
     use njoy_outram_park_fork::endf::tape::Tape;
+    #[cfg(feature = "std")]
     use njoy_outram_park_fork::reference_data::reference_endf;
 
+    #[cfg(feature = "std")]
     /// The URR gate (upstream `src/nuclide.cpp:826`, `&& !use_mp`). The CORE
     /// data never overlap a URR (U-238's WMP ends at 19999.99 eV, its URR
     /// starts at 20 keV), so the overlap is made here by widening a copy of
@@ -313,6 +318,7 @@ mod tests {
     #[test]
     fn no_urr_band_inside_a_multipole_range() {
         let Some(path) = reference_endf("n-092_U_238-ENDF7.0.endf") else {
+            #[cfg(feature = "std")]
             println!("[skip] U-238 VII.0 absent");
             return;
         };

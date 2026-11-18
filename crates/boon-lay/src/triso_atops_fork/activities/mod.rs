@@ -80,6 +80,9 @@
 //! individual bookkeeping functions are verified against values produced by the
 //! upstream Python on the same inputs (data taken 2026-07-15, commit `de374c8`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod coolant_activity;
 pub mod live_pools;
 pub mod source_terms;

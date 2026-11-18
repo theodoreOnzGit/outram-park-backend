@@ -62,11 +62,14 @@
 //! resulting cosine CDF, and `LANG = 2` inverts the Kalbach-Mann cumulative in
 //! closed form.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::Direction;
 use crate::material::nuclide::sample_continuous_tabular_indexed;
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 use crate::mathf::RealMath;
 
 /// How far `|u|^2` may drift from 1 before a direction is renormalised:
@@ -1184,13 +1187,13 @@ pub fn kalbach_mann_mu_openmc(r: f64, a: f64, xi: f64, seed: &mut u64) -> f64 {
 /// switching it off found in one run what days of accuracy comparisons had
 /// missed. The same shape as the `OUTRAM_RINGRPT_*` ablations.
 pub fn continuum_angular_mode_from_env() -> ContinuumAngularMode {
-    use std::sync::atomic::{AtomicU8, Ordering};
+    use core::sync::atomic::{AtomicU8, Ordering};
     static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
     let cached = FLAG.load(Ordering::Relaxed);
     let on = if cached != u8::MAX {
         cached == 1
     } else {
-        let on = match std::env::var("OUTRAM_MC_ISOTROPIC_CONTINUUM") {
+        let on = match crate::env::var("OUTRAM_MC_ISOTROPIC_CONTINUUM") {
             Ok(v) => !v.is_empty() && v != "0",
             Err(_) => false,
         };
@@ -1254,13 +1257,13 @@ pub enum ScatterKernels {
 /// `OUTRAM_MC_LEGACY_SCATTER_KERNELS` (cached on first read): [`ScatterKernels::Legacy`]
 /// when set to anything but `""`/`"0"`, else [`ScatterKernels::OpenMc`].
 pub fn scatter_kernels_from_env() -> ScatterKernels {
-    use std::sync::atomic::{AtomicU8, Ordering};
+    use core::sync::atomic::{AtomicU8, Ordering};
     static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
     let cached = FLAG.load(Ordering::Relaxed);
     let legacy = if cached != u8::MAX {
         cached == 1
     } else {
-        let on = match std::env::var("OUTRAM_MC_LEGACY_SCATTER_KERNELS") {
+        let on = match crate::env::var("OUTRAM_MC_LEGACY_SCATTER_KERNELS") {
             Ok(v) => !v.is_empty() && v != "0",
             Err(_) => false,
         };
@@ -1297,13 +1300,13 @@ pub enum ReactionOrder {
 
 /// `OUTRAM_MC_LEGACY_REACTION_ORDER` (cached on first read).
 pub fn reaction_order_from_env() -> ReactionOrder {
-    use std::sync::atomic::{AtomicU8, Ordering};
+    use core::sync::atomic::{AtomicU8, Ordering};
     static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
     let cached = FLAG.load(Ordering::Relaxed);
     let legacy = if cached != u8::MAX {
         cached == 1
     } else {
-        let on = match std::env::var("OUTRAM_MC_LEGACY_REACTION_ORDER") {
+        let on = match crate::env::var("OUTRAM_MC_LEGACY_REACTION_ORDER") {
             Ok(v) => !v.is_empty() && v != "0",
             Err(_) => false,
         };
@@ -1339,13 +1342,13 @@ pub enum FissionNeutronOrder {
 /// Read `OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER` / the master legacy switch
 /// (cached on first read).
 pub fn fission_neutron_order_from_env() -> FissionNeutronOrder {
-    use std::sync::atomic::{AtomicU8, Ordering};
+    use core::sync::atomic::{AtomicU8, Ordering};
     static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
     let cached = FLAG.load(Ordering::Relaxed);
     let legacy = if cached != u8::MAX {
         cached == 1
     } else {
-        let set = |k: &str| match std::env::var(k) {
+        let set = |k: &str| match crate::env::var(k) {
             Ok(v) => !v.is_empty() && v != "0",
             Err(_) => false,
         };
@@ -1379,7 +1382,7 @@ pub enum FissionBanking {
     AtFission,
 }
 
-static FISSION_BANKING_OVERRIDE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(u8::MAX);
+static FISSION_BANKING_OVERRIDE: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(u8::MAX);
 
 /// Force a banking mode for the whole process (`None` = back to the environment
 /// switch). For paired A/B tests that run both modes in one process; not for
@@ -1390,12 +1393,12 @@ pub fn set_fission_banking_override(mode: Option<FissionBanking>) {
         Some(FissionBanking::AtFission) => 1,
         None => u8::MAX,
     };
-    FISSION_BANKING_OVERRIDE.store(v, std::sync::atomic::Ordering::Relaxed);
+    FISSION_BANKING_OVERRIDE.store(v, core::sync::atomic::Ordering::Relaxed);
 }
 
 /// Read `OUTRAM_MC_LEGACY_FISSION_BANKING` / the master legacy switch (cached).
 pub fn fission_banking_from_env() -> FissionBanking {
-    use std::sync::atomic::{AtomicU8, Ordering};
+    use core::sync::atomic::{AtomicU8, Ordering};
     match FISSION_BANKING_OVERRIDE.load(Ordering::Relaxed) {
         0 => return FissionBanking::PerCollision,
         1 => return FissionBanking::AtFission,
@@ -1406,7 +1409,7 @@ pub fn fission_banking_from_env() -> FissionBanking {
     let legacy = if cached != u8::MAX {
         cached == 1
     } else {
-        let set = |k: &str| match std::env::var(k) {
+        let set = |k: &str| match crate::env::var(k) {
             Ok(v) => !v.is_empty() && v != "0",
             Err(_) => false,
         };
@@ -2061,6 +2064,7 @@ mod tests {
             worst = worst.max(z.abs());
             assert!(z.abs() < 5.0, "bin {k}: DBRC {p:.5} vs CXS x sigma {q:.5}, z {z:.2}");
         }
+        #[cfg(feature = "std")]
         println!("DBRC vs CXS x sigma_0K: worst |z| over {NB} bins = {worst:.2}");
 
         // The gate: a resonant nuclide's target moves up to the table's

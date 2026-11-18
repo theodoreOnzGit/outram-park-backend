@@ -42,7 +42,7 @@ approx = { workspace = true }
 # draws its Gaussian deviates from RAFFLES' seeded Box-Muller sampler on
 # petir's LCG -- the workspace's random source -- instead of any port of
 # FLEXPART's Numerical Recipes generators (gh:#410).
-raffles = { workspace = true }
+raffles = { workspace = true, features = ["std"] }
 
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # The Gaussian puff field's own thread pool (see `puff::wgsl::pool`) --

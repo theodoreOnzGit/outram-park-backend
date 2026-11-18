@@ -41,6 +41,9 @@
 //! The heads (`Wic`/`Wpc`, Compressor.vb:1012-1022) and the `k`-based discharge
 //! estimate are not ported here; only the enthalpy-based duty/exponent core is.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{AvailableEnergy, MassDensity, MassRate, Power, Pressure, Ratio};
 use uom::si::power::watt;

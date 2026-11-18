@@ -44,6 +44,8 @@
 //!
 //! All pass; the printed numbers are recorded on #407.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::material::material::{urr_xi, Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;

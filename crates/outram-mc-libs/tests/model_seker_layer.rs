@@ -46,6 +46,8 @@
 //! All pass; the counts and the `k` values are printed by the tests (not
 //! physics results: LOW tier, tiny runs).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 #[path = "../examples/common/seker_layer_model.rs"]
 #[allow(dead_code)]

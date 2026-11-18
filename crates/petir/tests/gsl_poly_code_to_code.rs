@@ -251,7 +251,8 @@ fn poly_reproduces_compiled_gsl() {
     }
     // eval_derivs is the one family that is not bit-identical. The bound is
     // round-off from the operation order (see the doc comment), and the
-    // criterion is 1e-8 relative, as CLAUDE.md allows for explained round-off.
+    // criterion is ~~1e-8~~ 1e-9 relative (gh:#1614, 2026-11-17; worst measured
+    // 5.8e-16, 3 ulp), as CLAUDE.md allows for explained round-off.
     let d = &t["eval_derivs"];
-    assert!(d.worst_rel < 1e-8, "eval_derivs worst relative {:e}", d.worst_rel);
+    assert!(d.worst_rel < 1e-9, "eval_derivs worst relative {:e}", d.worst_rel);
 }

@@ -63,6 +63,9 @@
 //!
 //! The model is a generic `FnMut(f64, usize) -> KeffResult`, never boxed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::physics::keff::KeffResult;
 use petir::mathf::RealMath;
 
@@ -198,8 +201,8 @@ pub enum GrSecantError {
     },
 }
 
-impl std::fmt::Display for GrSecantError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for GrSecantError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::InvalidSettings(s) => write!(f, "invalid GRsecant settings: {s}"),
             Self::DegenerateFit { evaluations } => write!(
@@ -214,7 +217,7 @@ impl std::fmt::Display for GrSecantError {
     }
 }
 
-impl std::error::Error for GrSecantError {}
+impl core::error::Error for GrSecantError {}
 
 fn validate(s: &GrSecantSettings) -> Result<(), GrSecantError> {
     let bad = |m: &str| Err(GrSecantError::InvalidSettings(m.to_string()));

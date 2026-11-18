@@ -33,6 +33,9 @@
 //! and the `k` trigger. A run goes to its last generation unless the
 //! population dies out.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     bank_entropy, resample, sample_box_source, transport_history_vr, Site, SourceBox, GEN_STRIDE,
     HIST_STRIDE,

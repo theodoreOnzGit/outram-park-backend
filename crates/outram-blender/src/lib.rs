@@ -192,6 +192,39 @@
 //! assert_eq!(cube.euler_characteristic(), 2);
 //! ```
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1604, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports))]
+
+extern crate alloc;
+extern crate thiserror_nostd as thiserror;
+
+/// `HashMap` / `HashSet`: `std`'s in a `std` build, `hashbrown`'s without
+/// (workspace rule, `docs/claude-md/rust-design-rules.md`).
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
 pub mod arap;
 pub mod bisect;
 pub mod attributes;
@@ -240,7 +273,7 @@ pub mod spatial_mesh;
 pub mod unstructured;
 
 /// Serial `rayon` stand-in for wasm32 (the plotter's `into_par_iter`).
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 mod wasm_par;
 
 /// Volume-meshing bridge (feature `foam-mesh`) — hand a blender surface [`mesh::Mesh`]

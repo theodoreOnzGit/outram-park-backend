@@ -28,6 +28,9 @@
 //! the fluid of a [`HemPipe`] through [`HemPipe::set_cell_heat_input`]; a heat
 //! structure between fuel and coolant is not modelled here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use tampines_steam_tables::hem::{HemEquationOfState, HemError, HemPipe, TimeTable};
 use uom::si::f64::{Power, Time};

@@ -32,6 +32,9 @@
 //! AI-drafted (Claude Opus 5.5 in Claude Code), untrusted until reviewed.
 //! Research, education and V&V only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::dynamic_viscosity::centipoise;
 use uom::si::f64::*;
@@ -151,6 +154,7 @@ mod tests {
     fn flibe_against_the_msre_coolant_salt() {
         let p = Pressure::new::<atmosphere>(1.0);
         let flibe = Material::Liquid(LiquidMaterial::FLiBe);
+        #[cfg(feature = "std")]
         println!("FLiBe/L2B - 1 [%]: t_C, rho, mu, cp, k");
         let mut worst = [0.0_f64; 4];
         for i in 0..=8 {
@@ -164,6 +168,7 @@ mod tests {
                     / try_get_kappa_thermal_conductivity(l2b(), t, p).unwrap(),
             ]
             .map(|r| r.value - 1.0);
+            #[cfg(feature = "std")]
             println!(
                 "FLiBe/L2B: {:5.0} {:+7.3} {:+7.3} {:+7.3} {:+7.3}",
                 t.get::<degree_celsius>(),
@@ -178,6 +183,7 @@ mod tests {
                 }
             }
         }
+        #[cfg(feature = "std")]
         println!(
             "FLiBe/L2B worst [%]: rho {:+.3} (2), mu {:+.3} (15), cp {:+.3} (3), k {:+.3} (10, reported)",
             100.0 * worst[0],

@@ -66,6 +66,10 @@
 //! that is silently ignored is how a deck ends up not describing the run
 //! someone thought it did.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 use crate::smr::{ForwardRate, SmrCase};
@@ -87,8 +91,8 @@ pub enum DeckError {
     Invalid(String),
 }
 
-impl std::fmt::Display for DeckError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for DeckError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             DeckError::Parse(m) => write!(f, "deck does not parse: {m}"),
             DeckError::Invalid(m) => write!(f, "deck is invalid: {m}"),
@@ -96,11 +100,12 @@ impl std::fmt::Display for DeckError {
     }
 }
 
-impl std::error::Error for DeckError {}
+impl core::error::Error for DeckError {}
 
 /// A complete DOVER input deck.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(deny_unknown_fields))]
 pub struct Deck {
     /// Must equal [`SCHEMA_VERSION`].
     pub schema_version: u32,
@@ -113,21 +118,23 @@ pub struct Deck {
     /// The fitted forward rates.
     pub kinetics: KineticsBlock,
     /// Optional single-variable sweep. Absent means one operating point.
-    #[serde(default)]
+    #[cfg_attr(feature = "std", serde(default))]
     pub sweep: Option<SweepBlock>,
 }
 
 /// Case identification. Carries no physics.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(deny_unknown_fields))]
 pub struct CaseBlock {
     /// A short name, echoed into the output so a trace identifies itself.
     pub name: String,
 }
 
 /// Reactor geometry and operating point.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(deny_unknown_fields))]
 pub struct ReactorBlock {
     /// Reactor model. Only `"cstr"` is implemented; naming anything else is
     /// an error rather than a silent fallback.
@@ -141,8 +148,9 @@ pub struct ReactorBlock {
 }
 
 /// Inlet specification.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(deny_unknown_fields))]
 pub struct FeedBlock {
     /// Methane molar flow [mol/s].
     pub methane_mol_s: f64,
@@ -151,8 +159,9 @@ pub struct FeedBlock {
 }
 
 /// The fitted forward Arrhenius pairs — the only calibrated inputs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(deny_unknown_fields))]
 pub struct KineticsBlock {
     /// Forward rate for `CH4 + H2O <=> CO + 3H2`.
     pub reforming: RateBlock,
@@ -161,8 +170,9 @@ pub struct KineticsBlock {
 }
 
 /// One forward Arrhenius pair.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(deny_unknown_fields))]
 pub struct RateBlock {
     /// Pre-exponential factor (units per the reaction's orders).
     pub a_forward: f64,
@@ -171,8 +181,9 @@ pub struct RateBlock {
 }
 
 /// Sweep one variable across a range instead of running a single point.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(deny_unknown_fields))]
 pub struct SweepBlock {
     /// Which variable: `"temperature_k"`, `"pressure_pa"`,
     /// `"steam_to_carbon"` or `"volume_m3"`.
@@ -206,6 +217,7 @@ impl Deck {
     ///
     /// [`DeckError::Parse`] if the TOML is malformed or names an unknown key;
     /// [`DeckError::Invalid`] if it parses but fails [`Deck::validate`].
+    #[cfg(feature = "std")]
     pub fn from_toml(text: &str) -> Result<Self, DeckError> {
         let deck: Deck = toml::from_str(text).map_err(|e| DeckError::Parse(e.to_string()))?;
         deck.validate()?;
@@ -218,6 +230,7 @@ impl Deck {
     ///
     /// [`DeckError::Parse`] if serialisation fails, which in practice it does
     /// not for this schema.
+    #[cfg(feature = "std")]
     pub fn to_toml(&self) -> Result<String, DeckError> {
         toml::to_string_pretty(self).map_err(|e| DeckError::Parse(e.to_string()))
     }

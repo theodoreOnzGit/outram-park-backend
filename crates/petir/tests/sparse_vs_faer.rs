@@ -491,7 +491,8 @@ fn factorisation_time_vs_faer() {
 /// **`SparseBackend::Faer` (feature `faer`) against the ported path** on the
 /// same matrices. Methodology: factorise and solve each matrix with both
 /// backends, count bit-identical solution entries and take the worst
-/// relative difference (to the solution's max norm). Pass: worst < 1e-8,
+/// relative difference (to the solution's max norm). Pass: worst < ~~1e-8~~
+/// 1e-9 (gh:#1614, 2026-11-17),
 /// the root `CLAUDE.md` round-off rule for an understood cause. In a test
 /// build faer has its `std` feature (the dev-dependency names it), so the
 /// faer backend runs with runtime CPU detection here, i.e. as faer's own
@@ -515,7 +516,7 @@ fn faer_backend_matches_the_ported_path() {
         assert_eq!(f.backend(), SparseBackend::Faer);
         let (bits, worst) = max_rel_diff(&f.solve(&b).unwrap(), &p.solve(&b).unwrap());
         println!("RESULT backend lu {name} n={n}: Faer vs Ported {bits}/{n} bit-identical, worst rel {worst:.3e}");
-        assert!(worst < 1e-8, "{name}: {worst:e}");
+        assert!(worst < 1e-9, "{name}: {worst:e}"); // ~~1e-8~~ gh:#1614
     }
     let mut llt_cases: Vec<(String, usize, Vec<(usize, usize, f64)>)> = Vec::new();
     llt_cases.push(("laplace30^2".into(), 900, laplacian_2d_lower(30, 0.7)));
@@ -528,7 +529,7 @@ fn faer_backend_matches_the_ported_path() {
         assert_eq!(f.backend(), SparseBackend::Faer);
         let (bits, worst) = max_rel_diff(&f.solve(&b).unwrap(), &p.solve(&b).unwrap());
         println!("RESULT backend llt {name} n={n}: Faer vs Ported {bits}/{n} bit-identical, worst rel {worst:.3e}");
-        assert!(worst < 1e-8, "{name}: {worst:e}");
+        assert!(worst < 1e-9, "{name}: {worst:e}"); // ~~1e-8~~ gh:#1614
     }
     // errors map the same way on both backends
     let r = CscMatrix::try_from_triplets(2, 3, &[(0, 0, 1.0)]).unwrap();

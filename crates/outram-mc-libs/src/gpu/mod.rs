@@ -44,6 +44,9 @@
 // CPU/GPU work-splitting planner. Plain data only — no `wgpu` types escape it —
 // so it builds and is tested on Android too; only `GpuLimits::from_adapter` is
 // `#[cfg]`-gated.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod capabilities;
 
 pub mod xs_interp;
@@ -79,11 +82,11 @@ pub mod batched_event;
 // ---------------------------------------------------------------------------
 // Desktop (non-Android) path: the real wgpu-backed context + probe.
 // ---------------------------------------------------------------------------
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 mod context {
-    use std::future::Future;
-    use std::pin::pin;
-    use std::sync::Arc;
+    use core::future::Future;
+    use core::pin::pin;
+    use alloc::sync::Arc;
     use std::task::{Context, Poll, Wake, Waker};
     use std::thread;
 
@@ -122,8 +125,8 @@ mod context {
         }
     }
 
-    impl std::fmt::Debug for GpuContext {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    impl core::fmt::Debug for GpuContext {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             f.debug_struct("GpuContext")
                 .field("adapter", &self.info.name)
                 .field("backend", &self.info.backend)
@@ -239,13 +242,13 @@ mod context {
     }
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub use context::{block_on, probe, shared_probe, GpuContext};
 
 // ---------------------------------------------------------------------------
 // Android path: CPU-only shim so call sites compile unchanged (no wgpu there).
 // ---------------------------------------------------------------------------
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", not(feature = "std")))]
 mod context {
     /// An uninhabited stand-in for the desktop GPU context. It can never be
     /// constructed on Android (there is no `wgpu` backend compiled in), which is
@@ -262,15 +265,15 @@ mod context {
     }
 
     /// Android twin of the desktop `shared_probe`: always `None`.
-    pub fn shared_probe() -> Option<std::sync::Arc<GpuContext>> {
+    pub fn shared_probe() -> Option<alloc::sync::Arc<GpuContext>> {
         None
     }
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", not(feature = "std")))]
 pub use context::{probe, shared_probe, GpuContext};
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod shared_probe_tests {
     /// `shared_probe` creates the device once: concurrent callers on many
     /// threads all get the same context (or all get `None` without an

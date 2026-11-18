@@ -40,6 +40,9 @@
 //! conditions, non-constant `Function1` coefficients, topology changers,
 //! `sixDoFRigidBodyMotion`, `multiSolidBodyMotionSolver`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::check_mesh::{esi_geometry, EsiGeometry};
 use crate::snappy_hex_mesh::esi_snap::{self, SnapMesh, V};
 use outram_foam_basic_lib::io::dict::{FoamDict, FoamEntry, FoamValue};
@@ -60,8 +63,8 @@ pub enum DynamicMeshError {
     UnsupportedFunction1(String),
 }
 
-impl std::fmt::Display for DynamicMeshError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for DynamicMeshError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             DynamicMeshError::Entry(k) => write!(f, "dynamicMeshDict: missing or malformed entry '{k}'"),
             DynamicMeshError::UnsupportedFunction(n) => {
@@ -74,7 +77,7 @@ impl std::fmt::Display for DynamicMeshError {
     }
 }
 
-impl std::error::Error for DynamicMeshError {}
+impl core::error::Error for DynamicMeshError {}
 
 /// OpenFOAM `quaternion`: scalar part `w`, vector part `v`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -250,7 +253,7 @@ pub fn transform_points(tr: &Septernion, fld: &[V]) -> Vec<V> {
 
 /// `degToRad(deg) = deg*M_PI/180.0`.
 fn deg_to_rad(deg: f64) -> f64 {
-    deg * std::f64::consts::PI / 180.0
+    deg * core::f64::consts::PI / 180.0
 }
 
 /// The `solidBodyMotionFunction`s ported so far (constant coefficients only).
@@ -554,7 +557,7 @@ mod tests {
 
     #[test]
     fn rotation_by_quarter_turn_maps_x_to_y() {
-        let m = SolidBodyMotion::Rotating { origin: [0.0; 3], axis: [0.0, 0.0, 1.0], omega: std::f64::consts::FRAC_PI_2 };
+        let m = SolidBodyMotion::Rotating { origin: [0.0; 3], axis: [0.0, 0.0, 1.0], omega: core::f64::consts::FRAC_PI_2 };
         let p = transform_points(&m.transformation(1.0), &[[1.0, 0.0, 0.0]]);
         assert!((p[0][0]).abs() < 1e-15 && (p[0][1] - 1.0).abs() < 1e-15);
     }

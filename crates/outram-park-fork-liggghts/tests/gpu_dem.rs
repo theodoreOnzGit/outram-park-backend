@@ -96,6 +96,8 @@
 //! Skips (passes, printing why) when no GPU adapter exists; on a headless
 //! Linux host Mesa's lavapipe (`mesa-vulkan-drivers`) provides one.
 
+#![cfg(feature = "std")] // needs threads, files or the GPU (gh:#1602)
+
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use outram_park_fork_liggghts::boundary::Boundary;

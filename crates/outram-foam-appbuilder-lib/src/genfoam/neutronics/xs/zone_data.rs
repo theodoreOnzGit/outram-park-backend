@@ -43,6 +43,9 @@
 //! fed one data point per reactor state, then [`ZoneNuclearData::build`] solves
 //! every interpolator.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::genfoam::neutronics::xs::input::ZoneStateInput;
 use crate::genfoam::neutronics::xs::nuclear_data_one_energy::NuclearDataOneEnergy;
 use crate::genfoam::neutronics::xs::XsError;

@@ -16,6 +16,9 @@
 //!   absorbed by the FLiBe (W) from the reference test tables to calibrate
 //!   parasitic heat loss / insulation.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// components for first iteration of UW madison FLiBe loop model
 ///
 /// Pipes have

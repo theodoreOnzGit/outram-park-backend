@@ -29,6 +29,8 @@
 //! | Oracle | `reference-data/scram/oracle-deviates.txt`, from the compiled binary |
 //! | Mission time | SCRAM's default, 8760 h |
 
+#![cfg(feature = "std")] // reads MEF XML files (gh:#1610)
+
 use petir::mathf::RealMath;
 use raffles::scram::expression::{Expression, Interval, Parameters, DEFAULT_MISSION_TIME};
 use raffles::distributions::ContinuousDistribution1D;

@@ -42,7 +42,10 @@
 //!   — where upstream swallows, this port either returns an error or records a
 //!   warning on the run report, never both silently.
 
-use std::fmt;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt;
 
 /// Everything that can go wrong while configuring or running a dynamic
 /// simulation.
@@ -186,7 +189,7 @@ impl fmt::Display for StepFailure {
     }
 }
 
-impl std::error::Error for StepFailure {}
+impl core::error::Error for StepFailure {}
 
 impl From<String> for StepFailure {
     fn from(message: String) -> Self {

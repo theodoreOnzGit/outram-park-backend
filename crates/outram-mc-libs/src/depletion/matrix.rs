@@ -14,4 +14,7 @@
 //! rates, fission yields — stays in this crate, in
 //! [`DepletionChain::build_matrix`](super::chain::DepletionChain::build_matrix).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use petir::depletion::matrix::{lincomb, DepletionMatrix, Sign};

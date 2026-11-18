@@ -36,6 +36,9 @@
 //! **OpenDA's ensemble square-root filter, particle filter and steady-state
 //! filter** (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::enkf::move_main_to_mean;
 use super::linalg::{self, axpy, ensemble_average, remove_average};
 use super::models::{Observations, OdaStochModel};
@@ -155,7 +158,7 @@ pub fn residual_resampling(weights: &[f64], draws: &mut DrawSource) -> Result<Ve
     }
     let mut index = Vec::with_capacity(n);
     for (j, s) in sons.iter().enumerate() {
-        index.extend(std::iter::repeat_n(j, *s));
+        index.extend(core::iter::repeat_n(j, *s));
     }
     Ok(index)
 }

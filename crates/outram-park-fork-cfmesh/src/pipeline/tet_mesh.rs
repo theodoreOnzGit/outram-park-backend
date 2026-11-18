@@ -63,6 +63,9 @@
 //! The surface's feature-edge patches (`triSurfacePatchManipulator`) are
 //! still not supported: the surface carries no feature edges.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree::{MeshOctree, TriSurf};
 use crate::mesh_octree_creator::{MeshDict, MeshOctreeCreator};
@@ -78,7 +81,7 @@ use crate::tet_creator_octree::{tet_creator_octree, TetCreatorDefects};
 use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
 use crate::volume_mesh::VolumeMesh;
 use crate::workflow_controls::{MeshMetaData, StepDecision, WorkflowControls, WorkflowSettings, WorkflowStep};
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Settings of [`tet_mesh`] (and [`crate::pipeline::p_mesh::p_mesh`]): the
 /// `meshDict` entries the workflow reads.
@@ -317,8 +320,9 @@ fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[V
     let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
     // gh:#1385: `M1`..`M5` point dumps after each step, as the instrumented `voronoiMeshGenerator::optimiseFinalMesh` prints
     let dump = |tag: &str, m: &VolumeMesh| {
-        if kind == Template::Voronoi && std::env::var("GH1385_TRACE").is_ok() {
+        if kind == Template::Voronoi && crate::env::var("GH1385_TRACE").is_ok() {
             for (i, p) in m.points.iter().enumerate() {
+                #[cfg(feature = "std")]
                 eprintln!("{tag}P {i} {:?} {:?} {:?}", p.x, p.y, p.z);
             }
         }
@@ -632,8 +636,8 @@ pub(crate) mod tests {
     use crate::tet_creator_octree::{tet_creator_octree, tet_volume};
     use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
     use crate::cartesian_mesh::{BoxType, MeshOctreeAddressing};
-    use std::f64::consts::PI;
-    use std::time::Instant;
+    use core::f64::consts::PI;
+    use crate::time::Instant;
 
     /// The pipe of the octree tests: R, L, n sides; regions walls (0),
     /// inlet (z = 0), outlet (z = L).
@@ -704,6 +708,7 @@ pub(crate) mod tests {
         ex.mesh.validate().unwrap();
         let expect = n_cells as f64 * h * h * h - n_bnd_faces as f64 * h * h * h / 6.0;
         let vol = ex.mesh.total_volume();
+        #[cfg(feature = "std")]
         println!(
             "sphere: leaves {} MESHCELL {n_cells} h {h} nodes {} points {} tets {} (dropped {}) negative {n_neg} defects {:?}; \
              mesh cells {} faces {} points {}; volume {vol:.9} expected {expect:.9} (rel {:.2e}), region-boundary faces {n_bnd_faces}",
@@ -719,7 +724,7 @@ pub(crate) mod tests {
             ((vol - expect) / expect).abs()
         );
         // levels of the used leaves, and where the tets lie
-        let mut hist = std::collections::BTreeMap::new();
+        let mut hist = alloc::collections::BTreeMap::new();
         for l in 0..o.number_of_leaves() {
             if a.box_type[l] != BoxType::NONE {
                 *hist.entry((a.box_type[l] & BoxType::MESHCELL != 0, o.return_leaf(l).coords.level)).or_insert(0usize) += 1;
@@ -736,6 +741,7 @@ pub(crate) mod tests {
                 outside_vol += tet_volume(&tc.tet_points, x);
             }
         }
+        #[cfg(feature = "std")]
         println!("sphere: used leaves by (MESHCELL, level): {hist:?}; tets with centroid outside MESHCELL leaves {n_outside}, volume {outside_vol:.6}");
         // MISSED prediction 1 (uniform octree): the OUTSIDE leaves next to
         // the DATA band are coarser, so sub-nodes appear; recorded in the
@@ -758,6 +764,7 @@ pub(crate) mod tests {
         let n_neg = tc.tets.iter().filter(|x| tet_volume(&tc.tet_points, x) <= 0.0).count();
         let ex = tet_mesh_extractor_octree(&tc).unwrap();
         let v = ex.mesh.validate();
+        #[cfg(feature = "std")]
         println!(
             "pipe: leaves {} nodes {} points {} tets {} (dropped {}) negative {n_neg} defects {:?}; mesh cells {} volume {:.6e} validate {:?}",
             o.number_of_leaves(),
@@ -821,11 +828,16 @@ pub(crate) mod tests {
             let o = create_octree(p, t, r, &opts.dict);
             let tm = tet_mesh_extractor_octree(&tet_creator_octree(&o)).unwrap().mesh;
             let qt = check_quality(&tm);
+            #[cfg(feature = "std")]
             println!("{name}: tet_mesh cells {} vol {:.6e} err {err:+.3} % nonpos {} validate {v:?} non-orth {:.2} skew {:.3} time {dt:.2} s", m.n_cells, m.total_volume(), n_nonpositive_cells(&m), q.max_non_orthogonality_deg, q.max_skewness);
+            #[cfg(feature = "std")]
             println!("{name}: template cells {} vol {:.6e} non-orth {:.2} skew {:.3}", tm.n_cells, tm.total_volume(), qt.max_non_orthogonality_deg, qt.max_skewness);
+            #[cfg(feature = "std")]
             println!("{name}: baseline cells {} vol {:.6e} err {berr:+.3} % nonpos {} non-orth {:.2} skew {:.3} time {bt:.2} s", b.n_cells, b.total_volume(), n_nonpositive_cells(&b), qb.max_non_orthogonality_deg, qb.max_skewness);
+            #[cfg(feature = "std")]
             println!("{name}: patches {:?} types {:?}; non-manifold boundary points {}", m.patches.iter().map(|x| (x.name.clone(), x.n_faces)).collect::<Vec<_>>(), rep.patch_types, crate::pipeline::p_mesh::tests::non_manifold_boundary_points(&m));
             for n in &rep.notes {
+                #[cfg(feature = "std")]
                 println!("  {n}");
             }
             v.unwrap();
@@ -877,9 +889,11 @@ pub(crate) mod tests {
             let (mz, _) = run_generator(kind, &p, &t, None, &zero, None).unwrap();
             let nbf = m0.n_boundary_faces();
             for n in rep.notes.iter().filter(|n| n.starts_with("boundaryLayer")) {
+                #[cfg(feature = "std")]
                 println!("  {kind:?}: {n}");
             }
             let q = check_quality(&m1);
+            #[cfg(feature = "std")]
             println!(
                 "{kind:?}: without {} cells, {nbf} boundary faces, V {:.4}; with nLayers 1: {} cells ({} layer cells), V {:.4}, non-positive {}, non-ortho {:.1}",
                 m0.n_cells,

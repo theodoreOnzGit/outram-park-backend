@@ -43,6 +43,9 @@
 //! (Manager.vb:176). This port keeps an `f64`, which removes a lossy formatting
 //! step; nothing else about the sample changes.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::dynamics::errors::DynamicsError;
 use crate::dynamics::property::{convert_from_internal, property_value, DynamicProperty, PropertyRef};
 use crate::dynamics::sim_time::SimInstant;

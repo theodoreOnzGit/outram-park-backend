@@ -39,6 +39,9 @@
 //! incomplete gamma. None of those is reached from the petroleum-
 //! characterization code path, so none is ported here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Maximum iterations for the series / continued-fraction evaluations before
 /// giving up and returning the best estimate so far.
@@ -87,7 +90,7 @@ pub fn ln_gamma(a: f64) -> f64 {
         series += c / (z + k as f64);
     }
     let t = z + LANCZOS_G + 0.5;
-    0.5 * (2.0 * std::f64::consts::PI).r_ln() + (z + 0.5) * t.r_ln() - t + series.r_ln()
+    0.5 * (2.0 * core::f64::consts::PI).r_ln() + (z + 0.5) * t.r_ln() - t + series.r_ln()
 }
 
 /// The gamma function `Γ(a)` for `a > 0`.
@@ -213,7 +216,7 @@ mod tests {
             (4.0, 6.0),
             (5.0, 24.0),
             (6.0, 120.0),
-            (0.5, std::f64::consts::PI.sqrt()),
+            (0.5, core::f64::consts::PI.sqrt()),
         ];
         for (a, expected) in cases {
             let got = gamma(a);

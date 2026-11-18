@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use crate::boussinesq_thermophysical_properties::Material;
 use crate::boussinesq_thermophysical_properties::LiquidMaterial;
@@ -5,7 +8,7 @@ use crate::single_control_vol::SingleCVNode;
 
 use super::SolidColumn;
 
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::f64::*;
 use uom::si::area::square_meter;

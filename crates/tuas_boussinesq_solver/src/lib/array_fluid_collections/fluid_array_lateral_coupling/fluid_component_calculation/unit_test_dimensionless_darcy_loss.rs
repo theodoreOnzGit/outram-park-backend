@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// forward and reverse testing of getting a bejan number from reynolds
 /// number
 #[test]

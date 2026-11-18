@@ -46,6 +46,9 @@
 //! [`raffles::gnn::MessagePassingNet`] and `raffles::gnn::training`. Nothing
 //! here changes how the DEM solver runs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use raffles::gnn::bound::{physics_guided_lower_bound, IterationBound, PdeClass};
 use raffles::gnn::Graph;
 

@@ -39,6 +39,9 @@
 //!
 //! Boundary conditions: Transmissive, Vacuum, Reflective, Periodic, White.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::position::{Direction, Position};
 
 mod quadric;

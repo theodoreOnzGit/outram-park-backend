@@ -4,6 +4,9 @@
 //! calibration helpers, and the Du et al. (2018) HITEC molten-salt to YD-325
 //! oil validation sets. Each submodule groups one family of checks.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// checks if basic things such as obtaining the overall
 /// heat transfer coefficient and shell side area work okay
 pub mod basic_postprocessing;

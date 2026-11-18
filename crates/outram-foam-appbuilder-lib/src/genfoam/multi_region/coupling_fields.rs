@@ -56,8 +56,11 @@
 //! [`outram_foam_basic_lib`] fields); the physical `uom` interpretation is
 //! attached where the values are *used* — see [`super::outer_iteration`].
 
-use std::collections::BTreeMap;
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::fields::vol_field::{VolScalarField, VolVectorField};
 use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
@@ -80,8 +83,8 @@ pub enum CouplingError {
     },
 }
 
-impl std::fmt::Display for CouplingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for CouplingError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             CouplingError::UnknownRegion(r) => write!(f, "unknown region '{r}'"),
             CouplingError::DuplicateRegion(r) => write!(f, "region '{r}' already registered"),
@@ -92,7 +95,7 @@ impl std::fmt::Display for CouplingError {
     }
 }
 
-impl std::error::Error for CouplingError {}
+impl core::error::Error for CouplingError {}
 
 /// Whether a coupling field is scalar or vector valued.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -470,7 +473,7 @@ mod tests {
         let mut pdens = VolScalarField::uniform("powerDensityNeutronics", neutro_mesh.clone(), 0.0);
         for (i, c) in neutro_mesh.cell_centres.iter().enumerate() {
             // A cosine-ish axial power shape.
-            pdens.internal[i] = 1.0e6 * (1.0 + 0.5 * (std::f64::consts::PI * c.x).r_sin());
+            pdens.internal[i] = 1.0e6 * (1.0 + 0.5 * (core::f64::consts::PI * c.x).r_sin());
         }
         neutro.insert_scalar(pdens);
         neutro.insert_scalar(VolScalarField::uniform("TFuel", neutro_mesh.clone(), 0.0));

@@ -17,6 +17,8 @@
 //! # Results
 //! See `verification_and_validation/sonic_foam_vs_openfoam.md`.
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::io::field_reader::{read_vol_scalar_field_full, read_vol_vector_field_full};
 use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;

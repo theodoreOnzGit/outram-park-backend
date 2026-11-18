@@ -23,6 +23,29 @@ those live in dedicated crates. Instead it composes them behind a single,
 human-navigable object-oriented API so a user can assemble the simulation
 pieces they want without wiring the crates together by hand.
 
+## `no_std` + `alloc` (gh:#1640)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p nee_soon --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). The kinetics, the coupling and model
+builders, the HTR-10 / HTTR model plans, the power-shape and MGXS (multigroup
+cross-section) code build without it. What `std` carries:
+
+- **nuclear-data loading**: reading ENDF and LEAPR tapes
+  (`load_htr10_nuclides*`, `load_slots_*`, the tape resolver, the job
+  processing in `data_jobs` / `parametric`), and so the routines that load
+  their own data (`Htr10DirectCoupling::solve`, `run_keff`, `run_case`);
+- files: the MGXS record files (`serde` / `serde_json`, whose derives are
+  `cfg_attr(feature = "std", ...)`), PNG writers, case output;
+- threads, the wall clock (`crate::time`: zero without it), the
+  `OUTRAM_HTR10_*` switches (`crate::env`: unset without it, so every switch
+  takes its default), printing, and `std` in every dependency.
+
+`crate::path::PathBuf` is a `String` without std (a label in configs and
+errors). The root workspace entry is `default-features = false`, so a member
+that wants `std` asks for it.
+
 ## Status — honest summary
 
 **Mostly scaffold; the prompt-excursion path is real.**

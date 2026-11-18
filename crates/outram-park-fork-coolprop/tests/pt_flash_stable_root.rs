@@ -56,8 +56,9 @@ fn saturation_labels_are_ordered_near_the_critical_point() {
     let s = saturation_at_temperature(Fluid::Cyclopentane, 511.61015944850499).expect("solves");
     assert!(s.rho_liquid > s.rho_vapour, "{s:?}");
     // CoolProp (SATS row of the reference): 291.86219414161997 / 258.0645435893633, p 4575583.569887.
-    assert!(rel(s.rho_liquid, 291.86219414161997) < 1e-8, "{s:?}");
-    assert!(rel(s.rho_vapour, 258.0645435893633) < 1e-8, "{s:?}");
+    // ~~1e-8~~ 1e-9 (gh:#1614, 2026-11-17): worst measured 2.6e-14.
+    assert!(rel(s.rho_liquid, 291.86219414161997) < 1e-9, "{s:?}");
+    assert!(rel(s.rho_vapour, 258.0645435893633) < 1e-9, "{s:?}");
     assert!(rel(s.pressure, 4575583.569887) < 1e-9, "{s:?}");
 }
 

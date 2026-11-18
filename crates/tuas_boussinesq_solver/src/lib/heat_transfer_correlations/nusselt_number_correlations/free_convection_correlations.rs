@@ -14,6 +14,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::dynamic_viscosity::pascal_second;

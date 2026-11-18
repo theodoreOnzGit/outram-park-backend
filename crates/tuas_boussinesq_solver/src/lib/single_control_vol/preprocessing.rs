@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::tuas_lib_error::TuasLibError;
 use crate::boussinesq_thermophysical_properties::density::try_get_rho;
 use crate::boussinesq_thermophysical_properties::specific_enthalpy::try_get_temperature_from_h;

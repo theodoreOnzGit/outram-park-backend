@@ -29,6 +29,8 @@
 //!
 //! Recorded in `verification_and_validation/route4_process_931/README.md`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use outram_mc_libs::material::nuclide::Nuclide;

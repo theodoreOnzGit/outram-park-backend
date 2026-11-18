@@ -14,6 +14,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Chen et al. (2009) Fig 6, measured relative fission power, 0-10800 s.
 pub const POWER_LONG_C09_FIG6: &str = include_str!("data/lofc-power-long-c09-fig6.csv");
 /// Chen et al. (2009) Fig 4, measured relative fission power, 0-500 s.

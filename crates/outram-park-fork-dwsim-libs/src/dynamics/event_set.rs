@@ -28,7 +28,10 @@
 //! events by timestamp (Manager.vb:217) — a stable sort leaves equal timestamps
 //! in map order, so a deterministic map makes tie-breaking reproducible.
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeMap;
 
 use crate::dynamics::event::DynamicEvent;
 use crate::dynamics::sim_time::SimInstant;

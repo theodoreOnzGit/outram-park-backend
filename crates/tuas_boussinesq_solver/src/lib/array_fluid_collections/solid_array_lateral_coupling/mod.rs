@@ -18,6 +18,9 @@
 //! - `calculation` — assemble and solve the implicit-Euler conduction matrix
 //!   to advance the node temperatures one timestep;
 //! - `postprocessing` — read back the resulting temperature profile.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::single_control_vol::SingleCVNode;
 use crate::boussinesq_thermophysical_properties::Material;
 use crate::boussinesq_thermophysical_properties::specific_enthalpy::try_get_h;

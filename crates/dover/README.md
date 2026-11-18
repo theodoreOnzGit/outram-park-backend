@@ -129,6 +129,18 @@ experiment or a published reformer.** Specifically:
 
 Do not quote a number out of this as a property of any real reactor.
 
+## `no_std` + `alloc` (gh:#1643)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p deck-based-open-source-visualisation-engine-for-reactors-dover --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). The deck types and their validation, the
+SMR physics and the headless CSV runner (`run_deck`, `run_case`) build
+without it. What `std` carries: the TOML reader and writer
+(`Deck::from_toml`, `Deck::to_toml`, `headless::run_toml`; `toml` 0.8 needs
+std, and the serde derives are `cfg_attr(feature = "std", ...)`), the
+example and the integration tests.
+
 ## Build and test
 
 ```bash

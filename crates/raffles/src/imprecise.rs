@@ -82,6 +82,9 @@
 //! Independent implementations from the published definitions — see the
 //! provenance note in [`crate::bayesian`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::distributions::{Beta, ContinuousDistribution1D};
 use crate::{RafflesError, Result};
 

@@ -58,6 +58,8 @@
 //! from the lin-lin reading, per quantity, is printed by the test and recorded
 //! in `ace_route_physics/interp_regions_2026-09-29.md`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::nuclide::Nuclide;
 use std::path::PathBuf;
 

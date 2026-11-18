@@ -79,6 +79,9 @@
 //! work (see the module TODO in [`co2`]/[`brine`]); they are **not** implemented
 //! here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod brine;
 pub mod co2;
 

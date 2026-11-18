@@ -61,6 +61,9 @@
 //! plus [`equilibrium_k`](PorousKEpsilonClosure::equilibrium_k) — both ported
 //! above.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::units::{
     volumetric_relaxation_coefficient, EddyViscosity, HydraulicDiameter, TurbulentDissipationRate,

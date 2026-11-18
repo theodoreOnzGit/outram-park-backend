@@ -26,6 +26,21 @@ of [`outram-foam-basic-lib`](../outram-foam-basic-lib)'s primitive + FV layer.
 This is an **independent OUTRAM PARK fork**, not the official OpenFOAM software
 and not endorsed by it (see `TRADEMARKS.md`).
 
+## `no_std` + `alloc` (gh:#1638)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-foam-mesh --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every mesher and tool builds without it:
+`blockMesh` from a parsed dictionary, `snappyHexMesh` (castellation, snapping,
+layers), `polyDualMesh`, `checkMesh`, `decomposePar`'s geometric methods, the
+UNV conversion and the STL parsers from bytes or text. What `std` adds is the
+**filesystem**: `read_stl` / `read_stl_zoned`, `block_mesh_from_file`, the UNV
+`convert_file`, reading a dictionary with `#include`, `write_case` and
+`write_processor_cases`. Maps are std's with `std` (so every byte-identity pin
+against ESI holds) and `hashbrown` without. The root workspace entry is
+`default-features = false`, so a member that wants `std` asks for it.
+
 ## Quick start
 
 One function turns a closed surface into an OpenFOAM `polyMesh`:

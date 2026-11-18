@@ -47,11 +47,14 @@
 //!    and opacity tables with `MATERIAL_VOID = -1` — out of bounds. Here a void
 //!    segment is fully transparent and never opaque.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par::prelude::*;
 
 use super::colour::{ColourScheme, PlotColourBy, Rgb, BLACK};
@@ -173,7 +176,7 @@ impl Camera {
         let p1 = self.pixels[1] as f64;
         match self.projection {
             Projection::Perspective { horizontal_fov_deg } => {
-                const DEGREE_TO_RADIAN: f64 = std::f64::consts::PI / 180.0;
+                const DEGREE_TO_RADIAN: f64 = core::f64::consts::PI / 180.0;
                 let horiz_fov_radians = horizontal_fov_deg * DEGREE_TO_RADIAN;
                 let dx = 2.0 * FOCAL_PLANE_DIST * (0.5 * horiz_fov_radians).r_tan();
                 let dy = p1 / p0 * dx;

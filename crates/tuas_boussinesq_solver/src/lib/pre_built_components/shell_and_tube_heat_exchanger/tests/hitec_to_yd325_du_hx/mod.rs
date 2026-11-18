@@ -12,6 +12,9 @@
 //! debugging cross-checks on dimensions, thermophysical properties and the
 //! heat-transfer correlations.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// shell and tube heat exchanger test set A,
 ///
 /// This is where

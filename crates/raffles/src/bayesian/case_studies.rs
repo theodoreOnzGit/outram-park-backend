@@ -55,6 +55,9 @@
 //! the characteristic failure of a poorly-mixing sampler, and it looks like
 //! success from every summary statistic.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Force in a 1-degree-of-freedom linear spring: `F = -k * x`.
 ///

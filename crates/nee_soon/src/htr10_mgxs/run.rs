@@ -18,12 +18,16 @@
 
 //! Running one case: data, model, two passes, condensation, collapse, checks.
 
-use std::time::Instant;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::time::Instant;
 
 use outram_mc_libs::physics::keff::{ComputeType, KeffResult, KeffSettings, ThreadCount};
 use outram_mc_libs::physics::transport_csg::{
     run_keff_csg_hybrid_with_progress, GenerationProgress,
 };
+#[cfg(feature = "std")]
 use outram_mc_libs::run_diagnostics::RunDiagnostics;
 use outram_mc_libs::tally::tally::Tally;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -33,7 +37,9 @@ use super::cells::{CellKind, Htr10Cell};
 use super::groups::{tally_structure, Collapse};
 use super::record::{CaseRecord, Check, CollapsedSummary, PassRecord, Provenance};
 use crate::htr10_rmc::core_model::{assemble_explicit_triso, mat};
-use crate::htr10_rmc::data::{load_htr10_nuclides, Htr10DataConfig, Htr10NuclideLayout};
+use crate::htr10_rmc::data::{Htr10DataConfig, Htr10NuclideLayout};
+#[cfg(feature = "std")]
+use crate::htr10_rmc::data::{load_htr10_nuclides};
 use crate::htr10_rmc::keff_vs_height::{
     bed_majorant, fissile_entropy_mesh, fissile_source_box, RINGS,
 };
@@ -55,6 +61,7 @@ pub enum CaseError {
     NoThreads,
 }
 
+#[cfg(feature = "std")]
 /// Run `case` on `threads` pinned threads and return its record. Nothing is
 /// written; [`CaseRecord::write`] does that.
 ///
@@ -233,7 +240,7 @@ fn transport(
         geometry,
         mats,
         nucs,
-        std::slice::from_ref(majorant),
+        core::slice::from_ref(majorant),
         Some(entropy),
         source,
         settings,

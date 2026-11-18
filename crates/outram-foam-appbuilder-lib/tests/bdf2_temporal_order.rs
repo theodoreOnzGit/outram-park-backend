@@ -97,6 +97,8 @@
 //! (8.04e-3 vs 2.93e-2 m/s at Δt = 1e-3), but it still grows as Δt shrinks
 //! (3.80e-3 → 8.04e-3). See [`study3_steady_state_bdf2_vs_euler_with_each_ddt_corr`].
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::field_reader::{
     read_vol_scalar_field_full, read_vol_vector_field_full,

@@ -40,8 +40,8 @@ petir = { workspace = true }
 # Physics backends this framework visualizes. Real (non-dev) dependencies --
 # unlike tampines, this crate's whole purpose is presentation, so it makes no
 # Android-portability claim and GUI deps are not confined to examples/.
-tampines.workspace = true
-nee_soon.workspace = true
+tampines = { workspace = true, features = ["std"] }
+nee_soon = { workspace = true, features = ["std"] }
 # teh-o-prke: see the single entry below (shared by `msre::model`, gh:#1330,
 # which steps `zero_power_prke::circulating::CirculatingPointKinetics`, and
 # `ebr2::model`, gh:#1331).
@@ -52,9 +52,9 @@ nee_soon.workspace = true
 # so this adds no build work. First consumer: the HIGH-tier Godiva case in
 # `tests/ci_smoke/` (GitHub #415). `njoy-outram-park-fork` is named directly only
 # for `reference_data::reference_endf`, which `outram-mc-libs` does not re-export.
-outram-mc-libs.workspace = true
-njoy-outram-park-fork.workspace = true
-chem-eng-real-time-process-control-simulator.workspace = true
+outram-mc-libs = { workspace = true, features = ["std"] }
+njoy-outram-park-fork = { workspace = true, features = ["std"] }
+chem-eng-real-time-process-control-simulator = { workspace = true, features = ["std"] }
 
 # REAL (non-dev) dependency: `components::TurbineVisual` renders
 # `tampines_steam_tables::steam_turbine_equations::generator::
@@ -68,7 +68,7 @@ chem-eng-real-time-process-control-simulator.workspace = true
 # CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
 # physics half of `TurbineVisual` is back in this crate's `components`, so
 # this entry carries the library edge again.
-tampines-steam-tables.workspace = true
+tampines-steam-tables = { workspace = true, features = ["std"] }
 
 # TUAS is a REAL (non-dev) dependency because the CIET Educational Simulator v2
 # is a `[[bin]]`, and Cargo does not make dev-dependencies available to binary
@@ -83,7 +83,7 @@ tampines-steam-tables.workspace = true
 # double_pipe` runs the TUAS 1-D exchanger (gh:#1178), and `ebr2::model` takes
 # its sodium properties and liquid-metal Nusselt correlations from TUAS. The
 # CIET physics itself still lives under src/bin/ciet_educational_simulator_v2/.
-tuas_boussinesq_solver.workspace = true
+tuas_boussinesq_solver = { workspace = true, features = ["std"] }
 
 # REAL (non-dev) dependency since 2026-11-10 (gh:#1331): `ebr2::model` runs
 # six-group point kinetics, the fast-reactor feedback set
@@ -92,7 +92,7 @@ tuas_boussinesq_solver.workspace = true
 # thiserror, uom and chem-eng-real-time-process-control-simulator only
 # (checked in its Cargo.toml, 2026-11-10), and builds for wasm32. Was a
 # dev-dependency (htgr_sim_v1's kinetics); the entry below is removed.
-teh-o-prke.workspace = true
+teh-o-prke = { workspace = true, features = ["std"] }
 
 # Public API primitives -- dimensioned quantities.
 uom.workspace = true
@@ -108,8 +108,8 @@ uom.workspace = true
 #
 # `outram-foam-appbuilder-lib` was a dev-dependency (htgr_sim_v1's genfoam
 # placeholder); it moved here.
-outram-foam-appbuilder-lib.workspace = true
-outram-foam-mesh.workspace = true
+outram-foam-appbuilder-lib = { workspace = true, features = ["std"] }
+outram-foam-mesh = { workspace = true, features = ["std"] }
 # Names `FvMesh` for the meshes above (was a dev-dependency, below).
 outram-foam-basic-lib = { workspace = true, features = ["std"] }
 
@@ -119,7 +119,7 @@ outram-foam-basic-lib = { workspace = true, features = ["std"] }
 # `Dataset`. No cycle: raffles depends only on thiserror, petir, uom, xml-rs
 # and optional burn (checked in its Cargo.toml, 2026-11-04), and it was already
 # in this crate's tree through `tampines -> raffles`, so it adds no build work.
-raffles.workspace = true
+raffles = { workspace = true, features = ["std"] }
 
 # REAL (non-dev) dependency for `msre::moltres_drift` (maintainer, 2026-11-14:
 # "wire Moltres into the digital twin lib as an explicit dependency"): the
@@ -167,7 +167,7 @@ csv.workspace = true
 # CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
 # physics half of `HeatExchangerVisual` (and `HeatExchangerKindArrangement`) is
 # back in this crate's `components`, so this edge is the library's again.
-outram-park-fork-dwsim-libs.workspace = true
+outram-park-fork-dwsim-libs = { workspace = true, features = ["std"] }
 
 # OPC-UA (IEC 62541) interface layer for the CIET Educational Simulator v2.
 # Pure Rust (RustCrypto, not openssl-sys), so this stays Android/Termux-clean
@@ -237,7 +237,7 @@ egui_extras.workspace = true
 [dev-dependencies]
 # `tests/ci_smoke/edwards.rs` (GitHub #415) names `SlipModel`. The crate is
 # already compiled beneath `tampines`, so this adds no build work.
-outram-foam-multiphase.workspace = true
+outram-foam-multiphase = { workspace = true, features = ["std"] }
 # teh-o-prke is a REAL dependency above since 2026-11-10: `ebr2::model`
 # (gh:#1331) and `msre::model` (gh:#1330) both step kinetics from the
 # library; it stays usable from the examples either way.
@@ -264,7 +264,7 @@ serde.workspace = true
 # flashes themselves, so the example reaches the backend directly -- same
 # precedent as outram-park-fork-dwsim-libs above. Promoting a property
 # accessor into tampines is the tidier long-term home.
-outram-park-fork-coolprop.workspace = true
+outram-park-fork-coolprop = { workspace = true, features = ["std"] }
 
 # htgr_sim_v1's TRISO fission-product release channel
 # (`physics::fission_product_release`) drives `boon-lay`'s Rust fork of Idaho
@@ -276,7 +276,7 @@ outram-park-fork-coolprop.workspace = true
 # existing transitive dependency nameable from the example rather than adding
 # one. AGPL/GPL note: `boon-lay` is GPL-3.0 like this crate, and the TRISO-ATOPS
 # fork inside it carries its upstream MIT notice, which is GPLv3-compatible.
-boon-lay.workspace = true
+boon-lay = { workspace = true, features = ["std"] }
 # The reactor-building CV between the primary leak and the stack (gh:#400).
 bishan.workspace = true
 
@@ -286,7 +286,7 @@ bishan.workspace = true
 # same reason as `boon-lay`: example-only, and this crate's CLAUDE.md forbids
 # new physics in the library. Pure Rust (uom, thiserror, outram-foam-basic-lib,
 # which this crate already uses), so Android and wasm stay clean.
-outram-park-fork-offbeat.workspace = true
+outram-park-fork-offbeat = { workspace = true, features = ["std"] }
 
 # htgr_sim_v1's atmospheric dispersion channel
 # (`physics::atmospheric_dispersion`) takes the TRISO release channel's
@@ -334,7 +334,7 @@ changi = { workspace = true, features = ["gpu", "std"] }
 # Also the map's optional steady Gaussian-plume overlay (gh:#470,
 # `physics::steady_plume_overlay`): buangkok's pyDOSEIA single-plume master
 # equation evaluated per grid cell.
-buangkok = { workspace = true }
+buangkok = { workspace = true, features = ["std"] }
 
 # htgr_sim_v1's map "Bounding air ingress" button (#453): the HTR-10 bounding
 # air-ingress case (1400 C / 140 h, KORA f_ox from IAEA-TECDOC-978 Table 5-7,
@@ -345,7 +345,7 @@ buangkok = { workspace = true }
 # example-only, like buangkok. Direction: sembawang -> boon-lay, changi,
 # buangkok, uom (and outram-mc-libs since 2026-10-17, gh:#951, already a
 # dependency here); nothing in sembawang depends on this crate, so no cycle.
-sembawang = { workspace = true }
+sembawang = { workspace = true, features = ["std"] }
 
 # outram-foam-appbuilder-lib is now a REAL dependency above (gh:#1178's
 # `multifidelity::double_pipe` runs its double-pipe CFD from the library);

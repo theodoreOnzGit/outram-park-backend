@@ -27,6 +27,9 @@
 //! transient flow. See [`RhoPimpleFoam`] for the governing equations and time
 //! loop; a companion stability primer lives in this module's `docs/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod esi;
 
 use crate::error::AppBuilderError;
@@ -36,7 +39,7 @@ use crate::io::fv_solution::FvSolution;
 use crate::solvers::bc_util::{capture_bcs, correct_bcs, correct_bcs_vec};
 use crate::turbulence::TurbulenceClosure;
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Compressible transient PIMPLE solver — rhoPimpleFoam.
 ///
@@ -458,10 +461,14 @@ impl RhoPimpleFoam {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "std")]
     use crate::io::field_reader::{read_vol_scalar_field_full, read_vol_vector_field_full};
+    #[cfg(feature = "std")]
     use crate::io::poly_mesh::read_poly_mesh;
+    #[cfg(feature = "std")]
     use std::path::Path;
 
+    #[cfg(feature = "std")]
     /// Compressible (very low-Mach) lid-driven cavity stability check.
     ///
     /// This is the rhoPimpleFoam analogue of the test that exposed the original

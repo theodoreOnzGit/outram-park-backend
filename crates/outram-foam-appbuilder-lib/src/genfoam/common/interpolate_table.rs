@@ -86,6 +86,9 @@
 //! assert_eq!(table.interpolate(9.0).unwrap(), 30.0);  // clamped to last value
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// How a [`ScalarInterpolateTable`] interpolates between tabulated knots.
 ///
