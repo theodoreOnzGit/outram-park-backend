@@ -188,11 +188,23 @@ fn mean_sem(k: &[f64]) -> (f64, f64) {
     (m, (var / n).sqrt())
 }
 
-/// OpenMC 0.15.3 (`27e38e8`) ensembles, seeds 1..=16, from
+/// OpenMC 0.15.3 (`27e38e8`) ensembles, seeds 1..=16 (the gate's N; the B1
+/// replication on seeds 17-32 is in the README, not here), from
 /// `openmc_inputs/ensemble.py`: `(case, bc, mean, sem over seeds)`.
 /// Filled from `verification_and_validation/white_periodic_vs_openmc_259/
 /// openmc_results/*.json` by `openmc_inputs/analyze.py`.
-const OPENMC: &[(&str, &str, f64, f64)] = &[];
+const OPENMC: &[(&str, &str, f64, f64)] = &[
+    ("A0.5", "reflective", 0.546074, 0.000082),
+    ("A0.5", "white", 0.524712, 0.000075),
+    ("A1.0", "reflective", 0.866375, 0.000098),
+    ("A1.0", "white", 0.853907, 0.000134),
+    ("A3.0", "reflective", 1.395651, 0.000160),
+    ("A3.0", "white", 1.394523, 0.000104),
+    ("B1", "reflective", 1.380647, 0.000110),
+    ("B1", "periodic", 1.358985, 0.000102),
+    ("B0", "reflective", 1.358901, 0.000103),
+    ("B0", "periodic", 1.358970, 0.000114),
+];
 
 fn openmc_ref(case: &str, bc: &str) -> Option<(f64, f64)> {
     OPENMC.iter().find(|r| r.0 == case && r.1 == bc).map(|r| (r.2, r.3))
@@ -233,7 +245,13 @@ fn white_and_periodic_ensembles_match_openmc() {
     let n: usize = std::env::var("OUTRAM_BC259_SEEDS").ok().and_then(|s| s.parse().ok()).unwrap_or(16);
     let first: u64 = std::env::var("OUTRAM_BC259_FIRST").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
     let seeds: Vec<u64> = (first..first + n as u64).collect();
-    let cfgs = configs();
+    // OUTRAM_BC259_ONLY=<case> runs one case only (replication blocks) and
+    // writes the JSON without the cross-case table or the gate.
+    let only = std::env::var("OUTRAM_BC259_ONLY").ok();
+    let mut cfgs = configs();
+    if let Some(o) = &only {
+        cfgs.retain(|c| c.name == o.as_str());
+    }
     for c in &cfgs {
         c.geom.validate_boundary_conditions().expect("boundary conditions implemented");
     }
@@ -253,6 +271,9 @@ fn white_and_periodic_ensembles_match_openmc() {
         }
     }
 
+    if only.is_some() {
+        return;
+    }
     let mut worst: f64 = 0.0;
     println!("case  bc          ours (mean +/- sem)     openmc (mean +/- sem)      z");
     let mut stats = std::collections::BTreeMap::new();
