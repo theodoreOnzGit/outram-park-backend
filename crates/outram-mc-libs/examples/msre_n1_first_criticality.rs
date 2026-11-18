@@ -240,7 +240,18 @@ fn main() {
     // case), for the rod worth (gh:#1128). Default: none, every recorded run.
     let rods_spec = flag(&args, "--rods").unwrap_or_else(|| "none".to_string());
     let rods = m::rods_inserted(&rods_spec);
-    let rodded = rods.iter().any(|&r| r);
+    // `--rod-positions a,b,c`: the rods at ORNL rod positions (inches
+    // withdrawn, 0 the driven lower limit, 51 the upper limit; ORNL-4233
+    // Fig. 2), in `m::OPENINGS` order: rod 2, rod 1, rod 3; `-` leaves a
+    // thimble empty (gh:#1658, `m::geometry_with_rods_at`). Exclusive with
+    // `--rods` (full-length rods).
+    let rod_positions: Option<[Option<f64>; 3]> = flag(&args, "--rod-positions").map(|v| {
+        let p: Vec<Option<f64>> = v.split(',').map(|x| if x.trim() == "-" { None } else { Some(x.trim().parse::<f64>().expect("inches withdrawn")) }).collect();
+        assert_eq!(p.len(), 3, "--rod-positions takes three values (rod 2, rod 1, rod 3)");
+        [p[0], p[1], p[2]]
+    });
+    assert!(rod_positions.is_none() || !rods.iter().any(|&r| r), "--rod-positions and --rods are exclusive");
+    let rodded = rods.iter().any(|&r| r) || rod_positions.is_some();
     if let Some(d) = flag(&args, "--draw") {
         let dims = if hot_dims {
             m::Dims::hot(m::REFERENCE_TEMPERATURE_F, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
@@ -482,7 +493,11 @@ fn main() {
         m::Shield::Tm0728Cylinder => m::geometry_with_shield(t_k, t_g, dims, ends, base_materials),
         m::Shield::Tm0728Full => m::geometry_with_full_shield(t_k, t_g, dims, ends, base_materials),
     };
-    let g = if rodded { m::geometry_with_rods(g, dims, rods, first_rod_material, t_k) } else { g };
+    let g = match rod_positions {
+        Some(p) => m::geometry_with_rods_at(g, dims, p, first_rod_material, t_k),
+        None if rodded => m::geometry_with_rods(g, dims, rods, first_rod_material, t_k),
+        None => g,
+    };
     // `--salt-level-cm z`: the salt surface at z (stringer bottom at 0),
     // void above it (gh:#1659, `m::geometry_with_salt_level`).
     let g = match flag(&args, "--salt-level-cm").map(|v| v.parse::<f64>().expect("cm")) {
@@ -492,7 +507,11 @@ fn main() {
         }
         None => g,
     };
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_minor_u { "" } else { "+u234" } + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + match shield { m::Shield::Tm0728Cylinder => "+shield-tm0728", m::Shield::Tm0728Full => "+shield-tm0728-full", m::Shield::Omitted => "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + if rodded { format!("+rods-{rods_spec}") } else { String::new() }.as_str();
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_minor_u { "" } else { "+u234" } + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + match shield { m::Shield::Tm0728Cylinder => "+shield-tm0728", m::Shield::Tm0728Full => "+shield-tm0728-full", m::Shield::Omitted => "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + match (rod_positions, rodded) {
+        (Some(p), _) => format!("+rodpos-{}", p.iter().map(|x| x.map_or("-".to_string(), |v| format!("{v}"))).collect::<Vec<_>>().join("_")),
+        (None, true) => format!("+rods-{rods_spec}"),
+        (None, false) => String::new(),
+    }.as_str();
     let label = label
         + flag(&args, "--salt-level-cm").map_or(String::new(), |z| format!("+salt-level-{z}cm")).as_str()
         + flag(&args, "--u235-wt").map_or(String::new(), |w| format!("+u235wt-{w}")).as_str();

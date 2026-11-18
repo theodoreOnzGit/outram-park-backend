@@ -66,6 +66,7 @@ pub mod dem_bed;
 pub mod fhr_pebble;
 pub mod htr10;
 pub mod keff_delta;
+pub mod packing_fraction;
 pub mod references;
 #[cfg(feature = "std")]
 pub mod region_bed;

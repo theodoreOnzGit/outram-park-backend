@@ -7,7 +7,7 @@
 //! (`htr10/core/pour.rs` and `screen.rs`, gh:#1244), which now calls these:
 //!
 //! - [`PourDiagnostics`] and [`diagnostics`]: a finished pour measured by the
-//!   whole-core packing fraction and `g(r)` of
+//!   whole-core packing fraction (`outram_mc_libs::pebble_beds::packing_fraction`) and `g(r)` of
 //!   `outram_park_fork_liggghts::rdf::radial_distribution`, the instrument
 //!   `bed_rdf_check` measures the reference bed with; [`g_at`] reads it at
 //!   the second-shell points, [`REFERENCE_G`] is the reference bed's;
@@ -22,7 +22,8 @@
 //! only.
 
 use egui::{Color32, Pos2, Rect, Vec2};
-use outram_park_fork_liggghts::htr10_fill::{surface_height_m, whole_core_fraction, PEBBLE_RADIUS_M};
+use outram_mc_libs::pebble_beds::packing_fraction::{surface_height, whole_core_fraction};
+use outram_park_fork_liggghts::htr10_fill::{CORE_RADIUS_M, PEBBLE_RADIUS_M};
 
 /// Fewest interior centres a `g(r)` is taken over ([`diagnostics`]).
 pub const RDF_MIN_CENTRES: usize = 200;
@@ -88,6 +89,7 @@ pub fn diagnostics(centres_m: &[f32], phi_bulk: f64, secs: f64) -> PourDiagnosti
     use outram_park_fork_liggghts::rdf::{radial_distribution, RdfDomain, RdfSettings};
     let all: Vec<Vec3> = centres_m.chunks_exact(3).map(|c| Vec3::new(f64::from(c[0]), f64::from(c[1]), f64::from(c[2]))).collect();
     let core: Vec<Vec3> = all.iter().copied().filter(|c| c.z > 0.0).collect();
+    let c64: Vec<[f64; 3]> = all.iter().map(|c| [c.x, c.y, c.z]).collect();
     let d = 2.0 * PEBBLE_RADIUS_M;
     let domain = RdfDomain::from_positions(&core);
     let mut r_max_d = 5.0;
@@ -109,8 +111,8 @@ pub fn diagnostics(centres_m: &[f32], phi_bulk: f64, secs: f64) -> PourDiagnosti
     PourDiagnostics {
         n: all.len(),
         n_core: core.len(),
-        surface_cm: surface_height_m(&all).map_or(f64::NAN, |h| 100.0 * h),
-        phi_whole_core: whole_core_fraction(&all),
+        surface_cm: surface_height(&c64, PEBBLE_RADIUS_M).map_or(f64::NAN, |h| 100.0 * h),
+        phi_whole_core: whole_core_fraction(&c64, PEBBLE_RADIUS_M, CORE_RADIUS_M),
         phi_bulk,
         r_over_d,
         g,
