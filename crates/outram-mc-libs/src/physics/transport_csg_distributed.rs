@@ -214,7 +214,7 @@ pub struct ChunkCounts {
 }
 
 impl ChunkCounts {
-    const WORDS: usize = 15;
+    const WORDS: usize = 16;
     fn add(&mut self, o: &ChunkCounts) {
         self.histories += o.histories;
         self.collisions += o.collisions;
@@ -244,6 +244,7 @@ impl ChunkCounts {
             self.ends.fissions_by_energy[0] as f64,
             self.ends.fissions_by_energy[1] as f64,
             self.ends.fissions_by_energy[2] as f64,
+            self.ends.lost as f64,
         ]
     }
     fn from_words(w: &[f64]) -> Self {
@@ -258,7 +259,7 @@ impl ChunkCounts {
             stuck_events: u(6),
             leak_vacuum: u(7),
             leak_infinity: u(8),
-            ends: crate::physics::keff::HistoryCounts { tracked: u(9), leaked: u(10), captured: u(11), fissions_by_energy: [u(12), u(13), u(14)] },
+            ends: crate::physics::keff::HistoryCounts { tracked: u(9), leaked: u(10), captured: u(11), fissions_by_energy: [u(12), u(13), u(14)], lost: u(15) },
         }
     }
 }
@@ -958,10 +959,11 @@ mod tests {
         };
         let c = one_generation(1);
         let e = c.ends;
-        assert_eq!(e.tracked, e.leaked + e.captured + e.fissions());
+        assert_eq!(e.tracked, e.leaked + e.captured + e.fissions() + e.lost);
         assert!(e.tracked >= c.histories && c.histories == s.n_particles as u64);
         assert!(e.leaked > 0 && e.captured > 0 && e.fissions() > 0, "{e:?}");
-        assert_eq!(e.leaked, c.leak_vacuum + c.leak_infinity + c.delta_lost + c.lost_locate + c.stuck_events, "every leak-scored end");
+        assert_eq!(e.leaked, c.leak_vacuum + c.leak_infinity + c.delta_lost, "every leak-scored end");
+        assert_eq!(e.lost, c.lost_locate + c.stuck_events, "every lost end (gh:#699)");
         for n in [3, 7] {
             assert_eq!(one_generation(n), c, "{n} chunks");
         }

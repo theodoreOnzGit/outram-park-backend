@@ -1661,11 +1661,14 @@ pub(crate) struct HistoryOutcome {
     /// **Real** collisions this history underwent. A model where this is near
     /// zero is not absorbing neutrons, it is losing them before they interact.
     pub collisions: u64,
-    /// Histories ended because `Geometry::locate` returned `None`. These are
-    /// scored as leaks so the balance closes, which makes them INVISIBLE in
-    /// `k` alone -- hence the separate count.
+    /// Histories ended LOST: `Geometry::locate` returned `None` after the
+    /// `TINY_BIT` retry, or a negative boundary distance (gh:#699). ~~Scored as
+    /// leaks so the balance closes~~ **CORRECTED 2026-11-19:** weight 0, no leak
+    /// score, counted in `HistoryCounts::lost`; they feed
+    /// `KeffSettings::max_lost_particles`.
     pub lost_locate: u64,
-    /// Histories ended by exhausting `MAX_EVENTS`, likewise scored as leaks.
+    /// Histories cut off at `VarianceReduction::max_particle_events` (weight 0,
+    /// counted in `HistoryCounts::lost`, not in the lost-particle limit).
     pub stuck_events: u64,
     /// Total path length \[cm\] travelled by those stuck histories.
     pub stuck_path_cm: f64,
@@ -2161,8 +2164,8 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
 
     // Safety cap on events per history: a particle in a purely-scattering
     // reflective medium with vanishing absorption could otherwise bounce forever.
-    // 100k events is far beyond any physical history (mean ~tens of collisions).
-    const MAX_EVENTS: u32 = 100_000;
+    // gh:#699 item 5: a setting, default OpenMC's 1e6 (was a constant 100 000).
+    let max_events: u32 = vr.max_particle_events;
 
     // The first pop is the SOURCE particle; every later pop is a split
     // daughter or an (n,2n) / multiplicity secondary, which upstream restores
@@ -2258,18 +2261,17 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
 
         'history: loop {
             events += 1;
-            if events > MAX_EVENTS {
-                // Stuck history (should be vanishingly rare) — count it as a
-                // leak at its last-known energy so the neutron balance still
-                // closes. A small mis-binned population if it ever fires.
+            if events > max_events {
+                // Stuck history (should be vanishingly rare): upstream warns and
+                // sets `wgt = 0`, no leak (`particle.cpp:548-552`). gh:#699 item
+                // 2/5. ~~Counted as a leak at its last-known energy.~~
+                // **CORRECTED 2026-11-19.** Counted in `stuck_events` and
+                // `ends.lost`; not in the lost-particle LIMIT (upstream does not
+                // count it as lost either).
                 stuck_events += 1;
                 stuck_path_cm += path_cm;
                 stuck_last_e = e;
-                score_leak(leak_batch, leak_edges, e, w);
-                if let Some(x) = extra.as_deref_mut() {
-                    x.leak(e, w);
-                }
-                ends.record_leak();
+                ends.record_lost();
                 record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Lost, usize::MAX, None);
                 break 'history;
             }
@@ -2298,13 +2300,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
             };
             let Some(path) = located else {
                 lost_locate += 1;
-                // Lost the particle (numerical edge case) — treat as a leak at
-                // last-known energy, same reasoning as the MAX_EVENTS arm.
-                score_leak(leak_batch, leak_edges, e, w);
-                if let Some(x) = extra.as_deref_mut() {
-                    x.leak(e, w);
-                }
-                ends.record_leak();
+                // gh:#699: lost = weight 0 and NO leak score, as upstream's
+                // `mark_as_lost`. ~~Scored as a leak at last-known energy.~~
+                // **CORRECTED 2026-11-19.** Counted in `ends.lost` and
+                // `lost_locate`, which feeds the lost-particle limit.
+                ends.record_lost();
                 record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Lost, usize::MAX, None);
                 break 'history;
             };
@@ -2319,6 +2319,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
             // scores (gh:#261); `r` is advanced to the flight's end below.
             let r_flight = r;
             hist.located(cell_idx, path.material);
+            hist.set_levels(path.levels.iter().map(|c| (c.cell, c.universe)));
 
             // Advance the URR stream once the energy has changed since the
             // bands were last drawn (a collision changed it). The first flight
@@ -2362,11 +2363,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                 // 2026-11-19.** Ended like a failed locate, so it stays in the
                 // leak-scored balance and in the lost-particle count below.
                 lost_locate += 1;
-                score_leak(leak_batch, leak_edges, e, w);
-                if let Some(x) = extra.as_deref_mut() {
-                    x.leak(e, w);
-                }
-                ends.record_leak();
+                ends.record_lost();
                 record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Lost, usize::MAX, None);
                 break 'history;
             }
@@ -3781,6 +3778,40 @@ mod leakage_tests {
         let closed = heu_sphere(8.7407, BoundaryType::Vacuum);
         let ok = try_run_keff_csg(&closed, &mats, &nucs, src(), &s, None).expect("vacuum loses none");
         assert_eq!(ok.lost_locate, 0);
+    }
+
+    /// gh:#675: a triggered run reports how many active generations it realized
+    /// (the count a tally must be read with), and it is below `n_active`;
+    /// untriggered it equals `n_active`.
+    #[test]
+    fn active_generations_is_the_realization_count_even_when_a_trigger_stops_the_run() {
+        use crate::tally::trigger::{Trigger, TriggerMetric};
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.7407, BoundaryType::Vacuum);
+        let plain = KeffSettings { n_particles: 100, n_inactive: 2, n_active: 30, ..KeffSettings::default() };
+        let r = run_keff_csg(&geom, &mats, &nucs, src(), &plain, None);
+        assert_eq!(r.active_generations(&plain), 30);
+        let trig = Trigger { metric: TriggerMetric::StandardDeviation, threshold: 1.0, ignore_zeros: false };
+        let trg = KeffSettings { keff_trigger: Some(trig), keff_trigger_min_active: 5, ..plain.clone() };
+        let r = run_keff_csg(&geom, &mats, &nucs, src(), &trg, None);
+        assert_eq!(r.active_generations(&trg), 5, "stopped at the minimum, far below n_active");
+    }
+
+    /// gh:#699 items 2 and 5: a history cut off at `max_particle_events` is
+    /// counted stuck and LOST (weight 0), never scored as a leak, and the
+    /// balance `tracked = leaked + captured + fissions + lost` closes. With the
+    /// default cap (1e6) nothing is cut off.
+    #[test]
+    fn a_capped_history_is_lost_not_leaked_and_the_balance_closes() {
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.7407, BoundaryType::Vacuum);
+        let mut vr = crate::physics::variance_reduction::VarianceReduction::default();
+        vr.max_particle_events = 1;
+        let s = KeffSettings { n_particles: 50, n_inactive: 1, n_active: 1, variance_reduction: vr, ..KeffSettings::default() };
+        let r = run_keff_csg(&geom, &mats, &nucs, src(), &s, None);
+        assert!(r.stuck_events > 0, "a 1-event cap cuts histories off");
+        let d = run_keff_csg(&geom, &mats, &nucs, src(), &KeffSettings { n_particles: 50, n_inactive: 1, n_active: 1, ..KeffSettings::default() }, None);
+        assert_eq!(d.stuck_events, 0, "the default cap cuts nothing off");
     }
 
     /// gh:#684: with survival biasing AND weight windows on, the cutoff roulette

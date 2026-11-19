@@ -514,6 +514,9 @@ fn score_length_like(
         // a caller that keeps none), and the particle weight, which was left at
         // the default 1.0 and so made a `WeightFilter` see every event at unit
         // weight.
+        cell_levels: core::array::from_fn(|l| hist.levels[l].0),
+        universe_levels: core::array::from_fn(|l| hist.levels[l].1),
+        n_levels: hist.n_levels,
         cell_born: hist.cell_born,
         position_born: hist.position_born,
         n_collision: hist.n_collision,
@@ -967,6 +970,18 @@ pub fn flush_bins(bins: &mut [TallyBin], batch: &mut [f64]) {
 ///
 /// If any attached filter does not match the event, the collision is not scored
 /// (the filters act as a conjunction).
+///
+/// **Deprecated (gh:#679, 2026-11-19).** This scores every collision straight
+/// into the persistent bins, so each COLLISION is one "realization": its mean is
+/// right only by accident and its `rel_std_dev` is not the variance of batch
+/// totals. It also builds its [`FilterEvent`] without position, direction, time
+/// or `mu`, so spatial, angular and time filters bin it wrongly. Nothing outside
+/// its own unit tests calls it. Use [`score_collision_point`] (per-batch,
+/// full state), as the delta-tracked transport does.
+#[deprecated(
+    since = "0.0.0",
+    note = "per-collision realizations and an incomplete FilterEvent (gh:#679); use score_collision_point"
+)]
 #[allow(clippy::too_many_arguments)]
 pub fn score_collision(
     tally: &mut Tally,
@@ -1067,6 +1082,7 @@ pub fn score_collision(
 
 #[cfg(test)]
 mod tests {
+    #![allow(deprecated)]
     use super::*;
     use crate::tally::filter::{CellFilter, Filter, FilterKind};
     use crate::tally::tally::{Tally, TallyBin};
@@ -1122,6 +1138,31 @@ mod tests {
         let mut b2 = vec![0.0; plain.bins.len()];
         score_scatter_matrix(&mut b2, &plain, 0, 0, 0, 1.0e7, 2.0e6, r, 1.0, ScatterEmission::Primary);
         assert!(b2.iter().all(|v| *v == 0.0), "opt-in: no EnergyOutFilter, no score");
+    }
+
+    /// gh:#677: a flux tally on a CONTAINER cell (filled with a universe or
+    /// lattice) scores the flights of its leaf cells, as OpenMC's `CellFilter`
+    /// matches every coordinate level. The leaf is cell 1 inside container cell 5;
+    /// before, the tally on `[5]` scored 0. A leaf-only event (no path carried)
+    /// keeps the old behaviour, and an unrelated container does not match.
+    #[test]
+    fn a_cell_filter_on_a_container_cell_scores_its_leaf_flights() {
+        use crate::tally::history_events::EventHistory;
+        let t = cell_flux_tally(vec![5]);
+        let r = Position::new(0.0, 0.0, 0.0);
+        let u = Direction::new(1.0, 0.0, 0.0);
+        let mut hist = EventHistory::default();
+        hist.set_levels([(5usize, 0usize), (usize::MAX, 0), (1, 2)].into_iter());
+        let mut batch = vec![0.0; 1];
+        score_track_length_hist(&mut batch, &t, 1, 0, 2, 1.0e6, 3.0, r, None, 1.0, None, 0.0, u, &hist);
+        assert_eq!(batch[0], 3.0, "container cell 5 sees the 3 cm flight in its leaf");
+        let mut b2 = vec![0.0; 1];
+        score_track_length_hist(&mut b2, &t, 1, 0, 2, 1.0e6, 3.0, r, None, 1.0, None, 0.0, u, &EventHistory::default());
+        assert_eq!(b2[0], 0.0, "no path carried: leaf only, as before");
+        let other = cell_flux_tally(vec![9]);
+        let mut b3 = vec![0.0; 1];
+        score_track_length_hist(&mut b3, &other, 1, 0, 2, 1.0e6, 3.0, r, None, 1.0, None, 0.0, u, &hist);
+        assert_eq!(b3[0], 0.0, "an unrelated cell does not match");
     }
 
     /// A collision in a filtered cell scores `1/Σ_t`; a collision in an

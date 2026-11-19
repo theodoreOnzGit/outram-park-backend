@@ -211,6 +211,11 @@ pub struct EventHistory {
     /// nudge [`score_mesh_surface_segment`] undoes.
     pub after_boundary: bool,
     after_collision: bool,
+    /// Cell and universe of each coordinate level of the current path, root
+    /// first (gh:#677); see [`EventHistory::set_levels`].
+    pub levels: [(usize, usize); super::filter::MAX_PATH_LEVELS],
+    /// Valid entries of [`Self::levels`].
+    pub n_levels: usize,
 }
 
 impl Default for EventHistory {
@@ -225,6 +230,8 @@ impl Default for EventHistory {
             material_last: None,
             after_boundary: false,
             after_collision: false,
+            levels: [(usize::MAX, usize::MAX); super::filter::MAX_PATH_LEVELS],
+            n_levels: 0,
         }
     }
 }
@@ -244,6 +251,18 @@ impl EventHistory {
         self.material = material;
         if self.cell_born.is_none() {
             self.cell_born = Some(cell);
+        }
+    }
+
+    /// Record the `(cell, universe)` of every coordinate level of the path just
+    /// located, root first (gh:#677). Levels with no cell yet (a lattice-tile
+    /// coordinate, `usize::MAX`) are kept as they are; beyond
+    /// [`super::filter::MAX_PATH_LEVELS`] the deeper levels are not recorded.
+    pub fn set_levels(&mut self, levels: impl Iterator<Item = (usize, usize)>) {
+        self.n_levels = 0;
+        for (cell, universe) in levels.take(super::filter::MAX_PATH_LEVELS) {
+            self.levels[self.n_levels] = (cell, universe);
+            self.n_levels += 1;
         }
     }
 
