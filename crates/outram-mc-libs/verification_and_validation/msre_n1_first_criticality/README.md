@@ -11,8 +11,17 @@
 > re-measure"), covers HTR-10, FHR, `dh_keff_vv`, HST-009 and MSRE; no graphite or
 > water case moved by an amount its statistics resolve. Re-run with
 > `OUTRAM_SAB_LOG_SPACED_GRID=1` to reproduce the old build.
-> MSRE N-1 there: −183 ± 73 pcm on 2 seeds with no paired control, so not a
-> measurement of the change.
+> MSRE N-1 there: ~~−183 ± 73 pcm on 2 seeds with no paired control, so not a
+> measurement of the change.~~ **CORRECTED 2026-11-19 (third re-measure,
+> `tutorial_rung4/sab_reference_550.md`; seed 1, `OUTRAM_SAB_LOG_SPACED_GRID=1`
+> against the default, same code and seed): the node grid LOWERS N-1 k by
+> −297 ± 73 pcm (z −4.1; 1.019902 ± 0.000544 → 1.016934 ± 0.000488).** The knob-on
+> arm reproduces the pre-flip binary's seed 1 digit for digit; the other +237 pcm
+> since the 2026-11-13 record (seed 1: 1.017528) is other code, not the flip.
+> One seed pair, not replicated, and the predicted −10 pcm missed. **Every k in
+> this README below predates both and is not re-measured: on seed 1 alone the
+> 6-seed headline 1.01807 ± 0.00023 is stale by about −60 pcm net (+237 other
+> code, −297 flip).**
 
 > **DEFAULTS CHANGED 2026-11-13 (maintainer, gh:#1128): "Have a dimension
 > dynamically shifting with temp. Shields all in shld be default … physical
