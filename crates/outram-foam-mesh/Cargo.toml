@@ -25,9 +25,11 @@ exclude = ["verification_and_validation", "tests/fixtures", "docs", "kovan_links
 # 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
 # crate's LOWEST part, with higher-rated modules listed below it.
 [package.metadata.kovan]
-row = 2
-topic = "thermal-hydraulics"
-fidelity = 3
+# ~~row = 2, topic = "thermal-hydraulics", fidelity = 3~~ CHANGED 2026-11-19
+# (gh:#1673, maintainer: "Both mesh and cf mesh shld be row 0 or 1"): a mesh
+# library is a utility, and `outram-park-fork-cfmesh` (row 1) depends on it.
+row = 1
+topic = "utility"
 maturity = 2
 
 [dependencies]
