@@ -184,7 +184,13 @@ dominated by `wgpu`/`egui`/`eframe` and their platform crates, which every
 member that draws a window pulls in. A partition cannot be smaller than its
 largest member's closure, so a finer plan does not help p00; what would is
 indexing several partitions from one loaded dependency database (`ra_ap_*`,
-§3), not started. Sequential wall time is 1.4× the monolithic run, the price
+§3), not started. Two cheaper levers were measured and ruled out
+(2026-11-19): dev-dependencies are not the cause (the engine's library alone
+needs 834 packages, 839 with dev-dependencies; likewise `dhoby-ghaut`
+747/749, `kovan` 707/712), so splitting tests and examples from libraries
+would not help; and rust-analyzer's syntax-tree cache is not either (p00
+with `lru.capacity = 16`: 11,130 MiB against 11,139 MiB), because the peak
+is the semantic database of the closure, held for the whole run. Sequential wall time is 1.4× the monolithic run, the price
 of loading shared dependencies once per partition; on CI the partitions run
 in parallel, so the critical path is the slowest one (350 s plus setup).
 
