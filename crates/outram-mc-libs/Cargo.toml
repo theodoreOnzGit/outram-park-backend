@@ -328,6 +328,10 @@ name = "lct008_pitch_sweep"
 required-features = ["endf-pebble-cases"]
 
 [[example]]
+name = "xs_port_vs_h5_550"
+required-features = ["endf-pebble-cases"]
+
+[[example]]
 name = "b10_thermal_probe"
 required-features = ["endf-pebble-cases"]
 

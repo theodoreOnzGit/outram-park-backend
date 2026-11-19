@@ -1,0 +1,20 @@
+=== k-worth of the S(a,b) emission-tabulation repair ===
+graphite-moderated homogeneous medium, 600 K, C/HM = 400, reflective cube half = 20 cm (k_inf, zero leakage)
+8 replicas x 4000 particles x [20 + 80], 5 tabulations
+
+Reconstructing nuclides (RECONR + BROADR @ 600 K):
+  reconstructing U235   … 152.6s
+  reconstructing U238   … 130.9s
+  reconstructing O16    … 4.0s
+  reconstructing C12    … 1.0s
+  reconstructing C13    … 239.4ms
+  S(a,b) 384x64 (current): built in 18.6s
+  S(a,b) calcem nodes x64 (#550): built in 18.7s
+  replica 0: 384x64 (current) k=1.38479+/-0.00185; calcem nodes x64 (#550) k=1.38283+/-0.00165;
+  replica 1: 384x64 (current) k=1.38424+/-0.00174; calcem nodes x64 (#550) k=1.38399+/-0.00143;
+  replica 2: 384x64 (current) k=1.38613+/-0.00170; calcem nodes x64 (#550) k=1.38356+/-0.00145;
+  replica 3: 384x64 (current) k=1.38399+/-0.00169; calcem nodes x64 (#550) k=1.38446+/-0.00187;
+  replica 4: 384x64 (current) k=1.38333+/-0.00195; calcem nodes x64 (#550) k=1.38714+/-0.00186;
+  replica 5: 384x64 (current) k=1.38410+/-0.00202; calcem nodes x64 (#550) k=1.38334+/-0.00194;
+  replica 6: 384x64 (current) k=1.38243+/-0.00180; calcem nodes x64 (#550) k=1.38292+/-0.00166;
+  replica 7: 384x64 (current) k=1.38326+/-0.00166; calcem nodes x64 (#550) k=1.38307+/-0.00174;

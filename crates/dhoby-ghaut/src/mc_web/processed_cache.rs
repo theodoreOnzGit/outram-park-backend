@@ -87,7 +87,16 @@ use std::collections::HashMap;
 /// ~~`nd-2026-10-15.1`~~ `nd-2026-10-18.1` since gh:#932: products are
 /// `process`'s (PURR 20 / 64 / 10 000 after HEATR, PENDF-rounded 0 K
 /// elastic over the whole range), not the pre-#931 chain's.
-pub const CODE: &str = "nd-2026-10-18.1";
+///
+/// ~~`nd-2026-10-18.1`~~ `nd-2026-11-19.1` since gh:#550: `ThermalScattering::from_tape`
+/// (so THERMR and LEAPR laws) now puts its emission tables on THERMR's own
+/// incident-energy grid, which changes what every cached thermal law holds. The
+/// flip (`44f365bbb`) did not bump this, so a browser cache would have kept
+/// serving pre-flip laws as current; found 2026-11-19 by reading the rule
+/// above against the flip. Neutron products are unchanged (their pinned
+/// hashes below did not move). Nothing in the repository holds a cache: it is
+/// IndexedDB state in each browser, regenerated on first use.
+pub const CODE: &str = "nd-2026-11-19.1";
 
 /// Version of the key layout itself.
 const KEYS: &str = "nd1";
@@ -959,6 +968,35 @@ mod tests {
         assert_eq!(w(&made), w(&direct));
         assert_eq!(w(&cached), w(&direct));
         assert!(matches!(b.sources[0].1, Source::Cached { .. }));
+    }
+
+    /// **The code version also pins the THERMAL laws** (gh:#550, 2026-11-19):
+    /// the test above pins neutron products only, which is how the
+    /// emission-grid flip changed every cached thermal law without failing
+    /// anything. Methodology: the SHA-256 of `ThermalScattering::to_f64s` for
+    /// the ENDF/B-VIII.0 Si-in-SiC law (MAT 43, 300.15 K) from
+    /// `ThermalScattering::from_tape`. Pass: it equals the pinned hash, which
+    /// was taken on the node-grid default of 2026-11-19; a different hash
+    /// means the law changed and [`CODE`] must be bumped. The hash is also
+    /// shown to differ from the explicit pre-flip build
+    /// (`from_tape_log_spaced_grid`), so the pin can fail.
+    #[test]
+    fn the_code_version_pins_the_thermal_law() {
+        let Some(bytes) = tape_bytes("tsl-SiinSiC.endf") else {
+            eprintln!("SKIP: tsl-SiinSiC.endf not in reference-data/endf/");
+            return;
+        };
+        let (tape, _) = read(&bytes);
+        let sha = |t: &ThermalScattering| crate::web_demo::data_cache::words_sha256(&t.to_f64s());
+        let node = ThermalScattering::from_tape(&tape, 43, 300.15, "Si_SiC").expect("law");
+        let log = ThermalScattering::from_tape_log_spaced_grid(&tape, 43, 300.15, "Si_SiC").expect("law");
+        eprintln!("node-grid {} log-spaced {}", sha(&node), sha(&log));
+        assert_ne!(sha(&node), sha(&log), "the pin must be able to tell the two builds apart");
+        assert_eq!(
+            sha(&node),
+            "ef7c770dfdbca2898c67d7d865119a7094ab7a47979d7a87f43cf037de1d6d1a", // 2026-11-19: gh:#550, node-grid default; the pre-flip log-spaced build gives 556208e0cc3a...
+            "the thermal law changed: bump processed_cache::CODE (now {CODE}) and record the new hash"
+        );
     }
 
     /// **The browser store is route 4 and njoy's `process`, bit for bit**

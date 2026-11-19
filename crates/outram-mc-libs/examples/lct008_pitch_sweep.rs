@@ -91,6 +91,8 @@
 //!     [--particles 4000 --inactive 50 --active 150] [--seed 1] \
 //!     [--cheap-nuclides] [--no-soluble-boron] [--csv out.csv] [--plots DIR] \
 //!     [--hdf5-dir DIR_WITH_h5]   # start from an OpenMC library (gh:#303) \
+//!     [--hdf5-nuclides H1,U238]  # with --hdf5-dir: only these from the .h5,
+//!                                # the rest from the ENDF tapes (gh:#550 swap) \
 //!     [--threads N]              # default: every logical core
 //! ```
 
@@ -234,7 +236,16 @@ fn main() {
     // `--hdf5-dir DIR` (gh:#303): start from an OpenMC-format library instead of
     // reconstructing from ENDF tapes. Everything else is unchanged.
     let hdf5_dir = value("--hdf5-dir").map(std::path::PathBuf::from);
-    let (free_nuclides, sab) = load_nuclides(&spec, &slots, tier, hdf5_dir.as_deref());
+    // `--hdf5-nuclides A,B` (gh:#550 per-nuclide swap): with `--hdf5-dir`, only
+    // the listed nuclides come from the `.h5`; every other nuclide of the tier is
+    // reconstructed from its ENDF tape (RECONR + BROADR, the default route).
+    let hdf5_only: Option<Vec<String>> = value("--hdf5-nuclides").map(parse_nuclide_list);
+    assert!(
+        hdf5_only.is_none() || hdf5_dir.is_some(),
+        "--hdf5-nuclides needs --hdf5-dir"
+    );
+    let (free_nuclides, sab) =
+        load_nuclides(&spec, &slots, tier, hdf5_dir.as_deref(), hdf5_only.as_deref());
     // `--sab-ace PATH` (gh:#550 diagnostic A/B): H(H2O) from an NJOY thermal ACE
     // (the table OpenMC's c_H_in_H2O.h5 was made from) instead of the ENDF tape.
     // `--no-sab` (gh:#550 H3 ablation): no S(a,b); H-1 is free gas.
@@ -389,6 +400,38 @@ fn main() {
     }
 }
 
+/// Split a comma-separated nuclide list (`H1,U238`), dropping blanks.
+fn parse_nuclide_list(v: &str) -> Vec<String> {
+    v.split(',')
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+        .collect()
+}
+
+/// Does `name` come from the `.h5`? With no `--hdf5-nuclides` list every
+/// nuclide does (when `--hdf5-dir` is given at all); with a list, only those.
+fn nuclide_from_hdf5(name: &str, only: Option<&[String]>) -> bool {
+    only.map_or(true, |l| l.iter().any(|n| n == name))
+}
+
+#[cfg(test)]
+mod route_tests {
+    use super::*;
+
+    /// The per-nuclide route selector (gh:#550): no list = all from the `.h5`;
+    /// a list = exactly those; parsing drops blanks and spaces.
+    #[test]
+    fn hdf5_nuclide_list_selects_exactly_the_listed() {
+        let l = parse_nuclide_list("H1, U238,,");
+        assert_eq!(l, vec!["H1".to_string(), "U238".to_string()]);
+        assert!(nuclide_from_hdf5("O16", None));
+        assert!(nuclide_from_hdf5("H1", Some(&l)));
+        assert!(nuclide_from_hdf5("U238", Some(&l)));
+        assert!(!nuclide_from_hdf5("U235", Some(&l)));
+        assert!(!nuclide_from_hdf5("H1", Some(&[])));
+    }
+}
+
 /// The reflective square pin cell, centred on the origin: fuel, clad, water
 /// (`outram_mc_libs::vv::lct008::pin_cell`, shared with the web demo's pitch slider).
 fn pin_cell(half: f64) -> Geometry {
@@ -436,9 +479,18 @@ fn load_nuclides(
     slots: &BTreeMap<String, usize>,
     tier: &[(&str, &str)],
     hdf5_dir: Option<&std::path::Path>,
+    hdf5_only: Option<&[String]>,
 ) -> (Vec<Nuclide>, Option<ThermalScattering>) {
     let t0 = Instant::now();
-    if hdf5_dir.is_some() {
+    if let Some(only) = hdf5_only {
+        for n in only {
+            assert!(
+                tier.iter().any(|(t, _)| t == n),
+                "--hdf5-nuclides names {n}, which is not in the tier"
+            );
+        }
+        eprintln!("Per-nuclide route (gh:#550): .h5 for {only:?}, ENDF tapes for the rest:");
+    } else if hdf5_dir.is_some() {
         eprintln!("Reading nuclides from the OpenMC-format library (HDF5):");
     } else {
         eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K, URR + DBRC by default):");
@@ -462,7 +514,7 @@ fn load_nuclides(
     let t_nuclides = Instant::now();
     for (i, name) in by_slot {
         assert_eq!(i, out.len());
-        if let Some(dir) = hdf5_dir {
+        if let Some(dir) = hdf5_dir.filter(|_| nuclide_from_hdf5(name, hdf5_only)) {
             // The library carries `0K` (resonance scattering) and `294K`
             // (293.6 K, the model's temperature); read the cross sections at
             // 294K and only the elastic at 0K, as OpenMC does.
