@@ -1,0 +1,4 @@
+piece 250: sigma from the poles on the 6860 grid points: OpenMC 0 outside rtol/atol of the data, port 0; worst port-vs-OpenMC 8.839e-2 b absolute, 8.311e-4 relative above atol
+piece 250: 6860 points, 50 poles = OpenMC, worst pole 4.048e-3, residue 1.338e0 relative, 821.1 s
+piece 275: 6343 points, port 57 poles, OpenMC 46 poles (DIFFERENT), 1020.6 s
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 1959.63s

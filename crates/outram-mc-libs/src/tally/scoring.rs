@@ -32,6 +32,8 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use super::filter::{FilterEvent, FilterKind};
+use super::history_events::{regular_mesh_split, EventHistory};
+use super::mesh::MeshKind;
 use crate::particle::particle::ParticleType;
 use super::tally::{ScoreType, Tally, TallyBin};
 use crate::geometry::position::{Direction, Position};
@@ -366,6 +368,51 @@ pub fn score_track_length(
         time,
         direction,
         false,
+        &EventHistory::default(),
+    );
+}
+
+/// [`score_track_length`] for a caller that keeps the particle's event history
+/// (gh:#261, 2026-11-18): the filter event additionally carries `cell_born`,
+/// `position_born` and `n_collision` from `hist`, so a `CellBornFilter`,
+/// `MeshBornFilter` or `CollisionFilter` bins the segment as OpenMC does
+/// (`filter_cellborn.cpp`, `filter_meshborn.cpp`, `filter_collision.cpp`). The
+/// event also carries the particle weight, which a `WeightFilter` reads
+/// (`filter_weight.cpp:41`, `wgt_last`, the weight at the start of the flight).
+/// With `EventHistory::default()` it is exactly [`score_track_length`].
+#[allow(clippy::too_many_arguments)]
+pub fn score_track_length_hist(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy: f64,
+    distance: f64,
+    position: Position,
+    macro_xs: Option<&MacroXs>,
+    weight: f64,
+    cell_instance: Option<usize>,
+    time: f64,
+    direction: Direction,
+    hist: &EventHistory,
+) {
+    score_length_like(
+        batch,
+        tally,
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy,
+        distance,
+        position,
+        macro_xs,
+        weight,
+        cell_instance,
+        time,
+        direction,
+        false,
+        hist,
     );
 }
 
@@ -414,6 +461,7 @@ pub fn score_collision_point(
         time,
         direction,
         true,
+        &EventHistory::default(),
     );
 }
 
@@ -435,6 +483,7 @@ fn score_length_like(
     time: f64,
     direction: Direction,
     at_point: bool,
+    hist: &EventHistory,
 ) {
     if distance <= 0.0 || !distance.is_finite() {
         return;
@@ -454,6 +503,15 @@ fn score_length_like(
         // a deliberate distinction rather than an omission; see its note.
         time,
         direction,
+        // Event-history fields (gh:#261, 2026-11-18): from the caller's
+        // `EventHistory` (the defaults, equal to `FilterEvent::default()`, for
+        // a caller that keeps none), and the particle weight, which was left at
+        // the default 1.0 and so made a `WeightFilter` see every event at unit
+        // weight.
+        cell_born: hist.cell_born,
+        position_born: hist.position_born,
+        n_collision: hist.n_collision,
+        weight,
         // This crate transports neutrons only (`ParticleType` reserves the
         // other slots; `physics::photon` is out of scope). Set explicitly so a
         // `ParticleFilter` on a track-length tally bins correctly instead of
@@ -516,7 +574,9 @@ fn score_length_like(
     // a flight centred on the collision site smeared each score along the
     // ray and dropped whatever fell outside the mesh — for a helium collision
     // (`1/Σ_t ~ 5e4 cm`) essentially all of it (gh:#598).
-    if !at_point && tally.filters.iter().any(|f| f.splits_track_length()) {
+    if !at_point
+        && tally.filters.iter().any(|f| f.splits_track_length() || splits_mesh_material(f))
+    {
         score_track_length_split(batch, tally, &ev, distance, macro_xs, weight, energy);
         return;
     }
@@ -539,6 +599,12 @@ fn score_length_like(
             batch[bin * n_scores + s_idx] += val;
         }
     }
+}
+
+/// A mesh-material filter on a regular mesh, which splits a segment among the
+/// mesh elements (gh:#261).
+fn splits_mesh_material(f: &FilterKind) -> bool {
+    matches!(f, FilterKind::MeshMaterial(m) if matches!(m.mesh, MeshKind::Regular(_)))
 }
 
 /// The track-length branch for a tally holding a filter that splits segments
@@ -570,6 +636,29 @@ fn score_track_length_split(
 
     let mut per_filter: Vec<Vec<(usize, f64)>> = Vec::with_capacity(tally.filters.len());
     for f in &tally.filters {
+        // MESH_MATERIAL on a regular mesh splits the segment among the mesh
+        // elements it crosses, inside the one material it flew through, as
+        // OpenMC's `MeshMaterialFilter::get_all_bins` does
+        // (`filter_meshmaterial.cpp`); the midpoint rule of `get_bin` credited
+        // the whole segment to one element (gh:#261, 2026-11-18).
+        if let FilterKind::MeshMaterial(mm) = f {
+            if let MeshKind::Regular(mesh) = &mm.mesh {
+                let bins: Vec<(usize, f64)> = regular_mesh_split(mesh, r0, r1)
+                    .into_iter()
+                    .filter_map(|(elem, frac)| {
+                        mm.pairs
+                            .iter()
+                            .position(|&(e, m)| e == elem && m == ev.material_idx)
+                            .map(|b| (b, frac))
+                    })
+                    .collect();
+                if bins.is_empty() {
+                    return;
+                }
+                per_filter.push(bins);
+                continue;
+            }
+        }
         let bins = match f.track_length_bins(r0, r1) {
             Some(b) => b,
             None => match f.get_bin(ev) {

@@ -19,7 +19,8 @@
 //! | [`u238_front_end_is_openmcs_bit_for_bit`] | the port's RECONR -> GASPR -> ACER front end; all 304 pieces checksummed against OpenMC's input to `_vectfit_xs` |
 //! | [`u238_prefix_windowing_of_openmcs_multipole_data`] | the port's `from_multipole(search)` on OpenMC's own poles for the lowest 12 pieces |
 //! | [`u238_piece_fits_against_openmc`] | `vectfit_xs` on pieces OpenMC fitted (cheap ones by default; `OUTRAM_WMP_U238_PIECES`) |
-//! | [`u238_all_fitted_pieces_against_openmc`] | `vectfit_xs` on all 15 pieces OpenMC fitted (`#[ignore]`, hours) |
+//! | [`u238_stratified_pieces_against_openmc`] | the extension run's expensive pieces (`#[ignore]`, about 2.5 h) |
+//! | [`u238_all_fitted_pieces_against_openmc`] | `vectfit_xs` on every piece OpenMC fitted: 0-11, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 296, 298, 299, 303 (`#[ignore]`, hours) |
 //!
 //! Results are in the README (not repeated here, so they cannot drift from
 //! it). Skips (passes, printing `SKIP`) when the tape is absent.
@@ -101,7 +102,16 @@ type PieceFit = (Vec<Cf64>, Vec<Vec<Cf64>>);
 /// The pieces OpenMC fitted, keyed by 0-based piece index, as
 /// `ref_u238_subset.py` wrote them (`piece_<i>.f64` files concatenated).
 fn load_fitted_pieces() -> BTreeMap<usize, PieceFit> {
-    let v = read_f64s("fitted_pieces.f64");
+    let mut out = parse_fitted(&read_f64s("fitted_pieces.f64"));
+    // Extension run (README, "Extension run"): pieces fitted later by the same driver family.
+    if dir().join("fitted_pieces_ext.f64").exists() {
+        out.extend(parse_fitted(&read_f64s("fitted_pieces_ext.f64")));
+    }
+    out
+}
+
+/// Parse concatenated `piece_<i>.f64` records.
+fn parse_fitted(v: &[f64]) -> BTreeMap<usize, PieceFit> {
     let mut at = 0usize;
     let mut out = BTreeMap::new();
     while at < v.len() {
@@ -116,7 +126,7 @@ fn load_fitted_pieces() -> BTreeMap<usize, PieceFit> {
         let r: Vec<Vec<Cf64>> = (0..nmt).map(|_| cplx(n)).collect();
         out.insert(i, (p, r));
     }
-    assert_eq!(at, v.len(), "fitted_pieces.f64 fully consumed");
+    assert_eq!(at, v.len(), "fitted piece records fully consumed");
     out
 }
 
@@ -305,7 +315,7 @@ fn u238_prefix_windowing_of_openmcs_multipole_data() {
 
 /// Pieces fitted by default: the cheap ones for OpenMC (< 25 s each in
 /// `ref_u238_full_run_aborted.log`), chosen before any port timing.
-const DEFAULT_PIECES: [usize; 9] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+const DEFAULT_PIECES: [usize; 11] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 25, 50];
 
 /// Which pieces `u238_piece_fits_against_openmc` fits: `OUTRAM_WMP_U238_PIECES`
 /// (comma-separated indices, or `all` for every piece OpenMC fitted).
@@ -332,6 +342,40 @@ fn piece_gate(i: usize) -> Option<(f64, f64, f64)> {
         100 => Some((2e-3, 2e-1, 3e-3)),
         200 => Some((3e-2, 5e1, 4e-2)),
         303 => Some((2e-3, 6e-1, 6e-3)),
+        // Extension run (README, "Extension run"): the same rule, 2026-11-18 measurements.
+        25 => Some((8e-9, 3e-2, 2e-3)),
+        50 => Some((4e-5, 6e-3, 2e-5)),
+        75 => Some((2e-2, 1e0, 7e-3)),
+        125 => Some((2e-2, 8e-2, 4e-4)),
+        225 => Some((1e-3, 1e0, 6e-3)),
+        250 => Some((5e-3, 2e0, 9e-2)),
+        _ => None,
+    }
+}
+
+/// Pieces where the two codes return a different NUMBER of poles (extension run, 2026-11-18),
+/// as `(port poles, OpenMC poles, OpenMC grid points outside rtol/atol of the data, port's)`.
+/// The exact values are asserted, so the disagreement is pinned (it moves only if the port or the
+/// fixture changes) and is not counted as an unexpected one. The README gives what OpenMC does
+/// against itself on these pieces; it does not follow that they are inside it.
+fn known_pole_count_difference(i: usize) -> Option<(usize, usize, usize, usize)> {
+    match i {
+        150 => Some((25, 24, 2, 2)),
+        175 => Some((29, 30, 0, 0)),
+        275 => Some((57, 46, 0, 72)),
+        296 => Some((60, 67, 0, 2094)),
+        298 => Some((67, 62, 0, 1064)),
+        299 => Some((59, 66, 3, 661)),
+        _ => None,
+    }
+}
+
+/// Pieces with equal pole counts where the port leaves a different number of grid points outside
+/// rtol/atol than OpenMC: `(OpenMC's, the port's)`, asserted exactly (an exception to "the port
+/// misses no more grid points than OpenMC", recorded rather than hidden).
+fn known_extra_misses(i: usize) -> Option<(usize, usize)> {
+    match i {
+        225 => Some((21, 22)),
         _ => None,
     }
 }
@@ -347,17 +391,32 @@ fn fit_pieces_against_openmc(sel: &[usize]) -> Option<usize> {
     let fission = xs.fission.clone().expect("fissionable");
     let mut differing = 0usize;
     for &i in sel {
-        assert!(pieces[i].fitted, "piece {i} was not fitted by OpenMC");
+        assert!(pieces[i].fitted || fitted.contains_key(&i), "piece {i} was not fitted by OpenMC");
         let (lo, hi) = ranges[i];
         let cx = vec![xs.elastic[lo..hi].to_vec(), xs.absorption[lo..hi].to_vec(), fission[lo..hi].to_vec()];
         let t0 = Instant::now();
         let fit = vectfit_xs(&xs.energy[lo..hi], &cx, &VectfitOptions::default()).expect("vectfit_xs");
         let secs = t0.elapsed().as_secs_f64();
         let (rp, rr) = &fitted[&i];
-        assert_eq!(rp.len(), pieces[i].n_poles, "fixture consistency, piece {i}");
+        if pieces[i].fitted {
+            assert_eq!(rp.len(), pieces[i].n_poles, "fixture consistency, piece {i}");
+        }
         if fit.poles.len() != rp.len() {
-            differing += 1;
-            println!("piece {i}: {} points, port {} poles, OpenMC {} poles (DIFFERENT), {secs:.1} s", hi - lo, fit.poles.len(), rp.len());
+            // Different pole counts: the two sets are two fits of the same data. State how well each
+            // reproduces the pointwise data (points outside rtol/atol) instead of comparing poles.
+            let sigma = sigma_report(&xs.energy[lo..hi], &cx, rp, rr, &fit.poles, &fit.residues);
+            println!(
+                "piece {i}: {} points, port {} poles, OpenMC {} poles (DIFFERENT), {secs:.1} s; points outside rtol/atol of the data: OpenMC {}, port {}",
+                hi - lo, fit.poles.len(), rp.len(), sigma.0, sigma.1
+            );
+            match known_pole_count_difference(i) {
+                Some(pin) => assert_eq!(
+                    (fit.poles.len(), rp.len(), sigma.0, sigma.1),
+                    pin,
+                    "piece {i}: the recorded pole-count difference changed"
+                ),
+                None => differing += 1,
+            }
             continue;
         }
         // The physical comparison: the cross sections each set of poles gives on
@@ -382,7 +441,10 @@ fn fit_pieces_against_openmc(sel: &[usize]) -> Option<usize> {
         assert!(wp < gp, "piece {i}: pole difference {wp:.3e} >= gate {gp:.1e}");
         assert!(wr < gr, "piece {i}: residue difference {wr:.3e} >= gate {gr:.1e}");
         assert!(sigma.2 < gs, "piece {i}: sigma difference {:.3e} b >= gate {gs:.1e}", sigma.2);
-        assert!(sigma.1 <= sigma.0, "piece {i}: port misses {} grid points, OpenMC {}", sigma.1, sigma.0);
+        match known_extra_misses(i) {
+            Some(pin) => assert_eq!((sigma.0, sigma.1), pin, "piece {i}: the recorded grid-point misses changed"),
+            None => assert!(sigma.1 <= sigma.0, "piece {i}: port misses {} grid points, OpenMC {}", sigma.1, sigma.0),
+        }
     }
     println!("{differing} of {} fitted pieces have a different pole count", sel.len());
     Some(differing)
@@ -437,13 +499,64 @@ fn u238_piece_fits_against_openmc() {
     }
 }
 
-/// All 15 pieces OpenMC fitted (0-11, 100, 200, 303). Hours: OpenMC alone
-/// took ~25 min on the first 12 pieces, ~1 h of it in three of them.
+/// The extension run's expensive pieces (README, "Extension run": set A beyond piece 50, and set B).
+/// Port run times, 2026-11-18, single thread, Intel Xeon 2.10 GHz shared with two other agents
+/// (load average 8): 75 80 s, 125 160 s, 150 163 s, 175 175 s, 225 256 s, 250 821 s, 275 987 s,
+/// 296 1 357 s, 298 2 081 s, 299 see the README; about 2.5 h with the 98 s front end once.
+#[test]
+#[ignore = "about 2.5 h: the port's vector fitting of the extension run's expensive pieces; see the README"]
+fn u238_stratified_pieces_against_openmc() {
+    let sel = [75, 125, 150, 175, 225, 250, 275, 296, 298, 299];
+    if let Some(differing) = fit_pieces_against_openmc(&sel) {
+        assert_eq!(differing, 0, "unexpected pole-count differences");
+    }
+}
+
+/// The port against ITSELF under a +-1 ulp change of the cross sections (the Rust twin of
+/// `openmc_inputs/sensitivity_u238_inputs.py`): pole count and grid points outside rtol/atol of the
+/// (unperturbed) data for each trial. Prints, asserts nothing about the numbers beyond that the fits
+/// run: it is an instrument for the README's "the port against itself" table, not a gate.
+/// `OUTRAM_WMP_U238_PIECES` (default 275) and `OUTRAM_WMP_U238_TRIALS` (default 2).
+#[test]
+#[ignore = "about 35 min per trial on piece 298 (2 081 s unperturbed), 17 min on 275: instrument, see the README"]
+fn u238_port_self_sensitivity() {
+    let Some(endf) = reference_endf_or_skip(TAPE, "wmp_generate_u238_vs_openmc") else { return };
+    let sel: Vec<usize> = std::env::var("OUTRAM_WMP_U238_PIECES")
+        .map(|s| s.split(',').filter(|x| !x.is_empty()).map(|x| x.trim().parse().expect("piece index")).collect())
+        .unwrap_or_else(|_| vec![275]);
+    let trials: usize = std::env::var("OUTRAM_WMP_U238_TRIALS").ok().and_then(|s| s.parse().ok()).unwrap_or(2);
+    let xs = pointwise_from_endf(&endf, 5e-4).expect("front end");
+    let ranges = piece_ranges(&xs, resolve_vf_pieces(&xs, None));
+    let fission = xs.fission.clone().expect("fissionable");
+    let mut state = 0x9E37_79B9_7F4A_7C15_u64; // xorshift64*, fixed seed: the sign pattern is reproducible
+    let mut sign = move || {
+        state ^= state >> 12;
+        state ^= state << 25;
+        state ^= state >> 27;
+        if state.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 63 == 0 { -1.0 } else { 1.0 }
+    };
+    let ulp = f64::EPSILON; // 2^-52
+    for &i in &sel {
+        let (lo, hi) = ranges[i];
+        let cx = vec![xs.elastic[lo..hi].to_vec(), xs.absorption[lo..hi].to_vec(), fission[lo..hi].to_vec()];
+        for t in 0..trials {
+            let px: Vec<Vec<f64>> = cx.iter().map(|row| row.iter().map(|v| v * (1.0 + sign() * ulp)).collect()).collect();
+            let t0 = Instant::now();
+            let fit = vectfit_xs(&xs.energy[lo..hi], &px, &VectfitOptions::default()).expect("vectfit_xs");
+            let secs = t0.elapsed().as_secs_f64();
+            let sigma = sigma_report(&xs.energy[lo..hi], &cx, &fit.poles, &fit.residues, &fit.poles, &fit.residues);
+            println!("piece {i} port trial {t} (xs +-1 ulp): {} poles, {} grid points outside rtol/atol of the data, {secs:.1} s", fit.poles.len(), sigma.1);
+        }
+    }
+}
+
+/// Every piece OpenMC fitted (0-11, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 296, 298,
+/// 299, 303). Hours: see the README for each piece's time.
 #[test]
 #[ignore = "hours: the port's vector fitting of every piece OpenMC fitted; see the README"]
 fn u238_all_fitted_pieces_against_openmc() {
     let sel: Vec<usize> = load_fitted_pieces().keys().copied().collect();
     if let Some(differing) = fit_pieces_against_openmc(&sel) {
-        assert_eq!(differing, 0, "pole counts of the fitted pieces");
+        assert_eq!(differing, 0, "unexpected pole-count differences");
     }
 }

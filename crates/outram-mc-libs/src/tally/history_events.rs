@@ -15,16 +15,28 @@
 //! [`MeshSurfaceFilter`](super::filter_extra::MeshSurfaceFilter),
 //! [`CollisionFilter`](super::filter_extra::CollisionFilter) and
 //! [`WeightFilter`](super::filter_extra::WeightFilter) read them. Measured by
-//! `grep` on 2026-11-18: **no code outside `tally/filter*.rs` sets any of those
-//! fields**; `scoring.rs` builds its events with `..Default::default()`. A tally
-//! carrying one of those filters on a real run therefore scores nothing, or bins
-//! every event at the default value.
+//! `grep` on 2026-11-18, **before** the wiring below: ~~no code outside
+//! `tally/filter*.rs` sets any of those fields~~ **CORRECTED 2026-11-18 (gh:#261,
+//! maintainer-confirmed): the surface-tracking path of the real transport now
+//! sets them** (see "Live path" below); the collision-estimator, scatter-matrix
+//! and delta-tracking scoring paths still build their events with
+//! `..Default::default()`, so a history-field filter on those scores at the
+//! default value there.
 //!
-//! The transport function `transport_history_vr` is kovan-reviewed and is not
-//! edited. This module sits **beside** it: it consumes the
-//! [`TraceEvent`] stream the reviewed function already emits through its
-//! observer (`trace_csg_history`), and rebuilds the per-event [`FilterEvent`]s
-//! from it. It draws no random number and changes no transport result.
+//! Two routes exist, and both are kept. The **live** route
+//! ([`EventHistory`], [`score_crossing`], [`score_mesh_surface_segment`], and
+//! `score_track_length_hist` in `scoring.rs`) is called from
+//! `transport_history_vr_urr`, the body behind the kovan-reviewed
+//! `transport_history_vr` wrapper (the wrapper itself is not edited). The
+//! **driver** route below consumes the [`TraceEvent`] stream
+//! (`trace_csg_history`) and rebuilds the same events after the fact; it is
+//! the oracle the live route is checked against (it is the older, separately
+//! verified implementation), and the only route for the analog-scatter
+//! Legendre tally. Neither draws a random number or changes a transport result.
+//! They differ in one place: after a collision the driver's re-locate resets
+//! `material_last`, where the live route follows OpenMC and leaves it cleared;
+//! only a history that collides and then leaks in the same cell can tell them
+//! apart, and no recorded comparison contains one.
 //!
 //! # Upstream semantics mirrored (OpenMC 0.15.3, `27e38e89`)
 //!
@@ -162,6 +174,230 @@ pub fn crossing_mu(
 
 fn advance(r: Position, u: Direction, d: f64) -> Position {
     Position { x: r.x + d * u.u, y: r.y + d * u.v, z: r.z + d * u.w }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Live path (gh:#261, 2026-11-18, maintainer-confirmed): the same event-history
+// fields, kept by the real transport loop and scored while it runs.
+// ────────────────────────────────────────────────────────────────────────────
+
+/// Per-particle event-history state the real transport keeps so that the
+/// history-field filters have something to read (gh:#261).
+///
+/// One is made per particle popped from the history stack, because OpenMC
+/// resets these on every `from_source` (`particle.cpp:115-121,135`: `cell_born`,
+/// `n_collision`, `r_born`), which also covers (n,2n) secondaries and weight-
+/// window daughters, which come back through the bank. Updating it draws no
+/// random number and takes no decision, so a run with it is the run without it
+/// bit for bit.
+///
+/// `material_last` follows OpenMC: it is set to the previous material by every
+/// cell search (`geometry.cpp:176`) and cleared by a collision
+/// (`particle.cpp:392`); the relocation the CSG loop does after a collision is
+/// **not** a cell search upstream, so it leaves `material_last` cleared.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EventHistory {
+    /// Lowest-level cell of the first locate (`particle.cpp:188`).
+    pub cell_born: Option<usize>,
+    /// Birth position (`particle.cpp:135`).
+    pub position_born: Position,
+    /// Collisions completed so far by this particle (`physics.cpp:46`).
+    pub n_collision: u32,
+    /// Material of the cell the particle is in (`None` in a void).
+    pub material: Option<usize>,
+    /// OpenMC's `material_last`.
+    pub material_last: Option<usize>,
+    /// The current flight began at a surface or lattice crossing, whose 1e-9 cm
+    /// nudge [`score_mesh_surface_segment`] undoes.
+    pub after_boundary: bool,
+    after_collision: bool,
+}
+
+impl Default for EventHistory {
+    /// The state of no history at all: what a caller that does not track one
+    /// gets, equal to the fields `FilterEvent::default()` carries.
+    fn default() -> Self {
+        EventHistory {
+            cell_born: None,
+            position_born: Position::ZERO,
+            n_collision: 0,
+            material: None,
+            material_last: None,
+            after_boundary: false,
+            after_collision: false,
+        }
+    }
+}
+
+impl EventHistory {
+    /// A particle born at `r`.
+    pub fn at_birth(r: Position) -> Self {
+        EventHistory { position_born: r, ..Default::default() }
+    }
+
+    /// The loop located the particle in `cell` with `material`.
+    pub fn located(&mut self, cell: usize, material: Option<usize>) {
+        if !self.after_collision {
+            self.material_last = self.material;
+        }
+        self.after_collision = false;
+        self.material = material;
+        if self.cell_born.is_none() {
+            self.cell_born = Some(cell);
+        }
+    }
+
+    /// A real collision was completed.
+    pub fn collided(&mut self) {
+        self.n_collision += 1;
+        self.material_last = None;
+        self.after_collision = true;
+        self.after_boundary = false;
+    }
+
+    /// The flight ended at a surface or lattice boundary.
+    pub fn crossed_boundary(&mut self) {
+        self.after_boundary = true;
+    }
+}
+
+/// The start and end of a flight as `score_surface_tally` sees them for a
+/// mesh-surface tally: the start is moved back over the transport's crossing
+/// nudge when the flight began at a boundary, and the end of a flight that
+/// leaves through a vacuum surface is pushed on by [`TINY_BIT`]
+/// (`particle.cpp:638-642`).
+pub fn flight_track_ends(
+    r: Position,
+    u: Direction,
+    d: f64,
+    after_boundary: bool,
+    leaks: bool,
+) -> (Position, Position) {
+    let end = advance(r, u, d);
+    let track_end = if leaks { advance(end, u, TINY_BIT) } else { end };
+    let start = if after_boundary { advance(r, u, -TRANSPORT_NUDGE) } else { r };
+    (start, track_end)
+}
+
+/// Whether `tally` is one [`score_crossing`] scores: a `Current` score on a
+/// `SurfaceFilter`, without a mesh-surface filter (that one scores per flight).
+pub fn scores_crossings(tally: &Tally) -> bool {
+    tally.scores.iter().any(|s| matches!(s, ScoreType::Current))
+        && tally.filters.iter().any(|f| matches!(f, FilterKind::Surface(_)))
+        && !tally.filters.iter().any(|f| matches!(f, FilterKind::MeshSurface(_)))
+}
+
+/// Score one surface crossing into `batch` (`tally.bins.len()` entries) for a
+/// tally [`scores_crossings`] accepts; any other tally is left alone.
+///
+/// The event is built exactly as [`history_events`] builds a crossing:
+/// `r_flight`, `u` and `d` are the flight that ended at `surface`, `levels` the
+/// coordinate stack it flew in, `leaked` whether the crossing killed the
+/// particle (then `material_from` is OpenMC's stale `material_last`). The
+/// weight is the particle's, signed by [`crossing_sign`].
+#[allow(clippy::too_many_arguments)]
+pub fn score_crossing(
+    batch: &mut [f64],
+    tally: &Tally,
+    geom: &Geometry,
+    levels: &[Coord],
+    hist: &EventHistory,
+    cell_idx: usize,
+    universe_idx: usize,
+    energy: f64,
+    weight: f64,
+    surface: usize,
+    r_flight: Position,
+    u: Direction,
+    d: f64,
+    leaked: bool,
+    cell_instance: Option<usize>,
+) {
+    if !scores_crossings(tally) {
+        return;
+    }
+    let sign = crossing_sign(geom, levels, surface, d);
+    let end = advance(r_flight, u, d);
+    let ev = FilterEvent {
+        cell_idx,
+        material_idx: hist.material.unwrap_or(usize::MAX),
+        universe_idx,
+        energy,
+        surface_idx: surface,
+        position_last: r_flight,
+        position: end,
+        direction: u,
+        n_collision: hist.n_collision,
+        cell_from: Some(cell_idx),
+        cell_born: hist.cell_born,
+        material_from: if leaked { hist.material_last } else { hist.material },
+        surface_mu: crossing_mu(geom, surface, end, u, sign),
+        position_born: hist.position_born,
+        weight,
+        cell_instance,
+        ..Default::default()
+    };
+    let mut bin = 0usize;
+    for f in &tally.filters {
+        match f.get_bin(&ev) {
+            Some(b) => bin = bin * f.n_bins() + b,
+            None => return,
+        }
+    }
+    let n_scores = tally.scores.len();
+    for (s, sc) in tally.scores.iter().enumerate() {
+        if matches!(sc, ScoreType::Current) {
+            batch[bin * n_scores + s] += weight * sign;
+        }
+    }
+}
+
+/// Score the faces one flight crosses into `batch` for a tally whose only
+/// filter is a mesh-surface filter and whose score is `Current`
+/// (`filter_meshsurface.cpp`); any other tally is left alone. `crossing` is the
+/// surface the flight ended on (`None` for a collision or a lattice boundary),
+/// `collides` whether it ended in a collision.
+#[allow(clippy::too_many_arguments)]
+pub fn score_mesh_surface_segment(
+    batch: &mut [f64],
+    tally: &Tally,
+    geom: &Geometry,
+    hist: &EventHistory,
+    cell_idx: usize,
+    energy: f64,
+    weight: f64,
+    crossing: Option<usize>,
+    collides: bool,
+    r_flight: Position,
+    u: Direction,
+    d: f64,
+) {
+    let [FilterKind::MeshSurface(f)] = tally.filters.as_slice() else { return };
+    let leaks = !collides
+        && crossing.is_some_and(|sf| {
+            matches!(geom.surfaces[sf].bc(), crate::geometry::surface::BoundaryType::Vacuum)
+        });
+    let (start, track_end) = flight_track_ends(r_flight, u, d, hist.after_boundary, leaks);
+    let ev = FilterEvent {
+        cell_idx,
+        energy,
+        position_last: start,
+        position: track_end,
+        direction: u,
+        n_collision: hist.n_collision,
+        cell_born: hist.cell_born,
+        position_born: hist.position_born,
+        weight,
+        ..Default::default()
+    };
+    let n_scores = tally.scores.len();
+    for b in f.matches(&ev) {
+        for (s, sc) in tally.scores.iter().enumerate() {
+            if matches!(sc, ScoreType::Current) {
+                batch[b * n_scores + s] += weight;
+            }
+        }
+    }
 }
 
 /// Rebuild the tallying events of one history from its [`TraceEvent`] stream.

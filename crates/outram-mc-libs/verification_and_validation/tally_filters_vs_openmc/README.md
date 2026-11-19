@@ -69,8 +69,10 @@ registered 2e-8.
 * **MESH_MATERIAL as shipped (25 bins).** Predicted. `MeshMaterialFilter::get_bin` bins the
   segment midpoint, so a flight crossing a mesh edge inside one material is credited to one
   element; OpenMC splits it (`filter_meshmaterial.cpp`). The new `regular_mesh_split` splits it:
-  0 misses. The shipped path is **not** fixed (the fix belongs in `scoring.rs`, outside "beside
-  the port"); `mesh_material_vs_openmc` stays red. The same gap exists for the older `MeshFilter`
+  0 misses. ~~The shipped path is **not** fixed (the fix belongs in `scoring.rs`, outside "beside
+  the port"); `mesh_material_vs_openmc` stays red.~~ **CORRECTED 2026-11-18 (maintainer-confirmed
+  edit): `score_length_like` in `scoring.rs` now splits a MESH_MATERIAL track across the regular
+  mesh with `regular_mesh_split`; `mesh_material_vs_openmc` passes (0 / 432 bins, worst 1.6e-8).** The same gap exists for the older `MeshFilter`
   on a regular mesh (`FilterKind::splits_track_length` is false for it): not measured here.
 * **MESH_SURFACE, 16 bins (registered mesh) and 1 bin (A2).** At sites 1, 4, 16, 17 of the
   registered experiment every flight that crosses a tile edge ends or starts exactly on a mesh
@@ -135,9 +137,10 @@ reads as noise, but the first-run gate stays red and is reported as such.
 | 13 | CELLBORN | yes | exact, 0 misses |
 | 14 | MATERIALFROM | yes | exact, 0 misses |
 | 15 | MUSURFACE | yes | exact, 0 misses |
-| 16 | WEIGHT | yes | **not done**: needs survival biasing through a traced entry point (`trace_csg_history` is analog; `transport_history_vr` is `pub(crate)`) and an absorbing nuclide |
+| 16 | WEIGHT | yes | ~~**not done**: needs survival biasing through a traced entry point~~ **CORRECTED 2026-11-18**: done through the real runner (`FixedSourceSettings::variance_reduction`), Experiment C below: worst \|z\| 1.06 |
 
-Ten of the comparisons (CELL_INSTANCE, CELLFROM, CELLBORN, MATERIALFROM, MUSURFACE, MESHBORN,
+~~**Superseded 2026-11-18, see the last section:** all but CELL_INSTANCE and LEGENDRE are now also
+scored through the real transport.~~ Ten of the comparisons (CELL_INSTANCE, CELLFROM, CELLBORN, MATERIALFROM, MUSURFACE, MESHBORN,
 MESH_SURFACE, MESH_MATERIAL with splitting, COLLISION, LEGENDRE) are scored through the new history
 driver, not the real transport. Wiring those fields into the transport needs an edit to the
 reviewed `transport_history_vr` and is left for the maintainer's confirmation (not touched).
@@ -254,3 +257,75 @@ for name, rows in results.items():
                 f.write("%d %d %.17g\n" % (i, b, v))
 print("sites", len(sites), "runs", len(sites), "wall_s %.1f" % wall)
 ```
+
+## Real-transport wiring pass (gh:#261, 2026-11-18, maintainer-confirmed) -- PREDICTIONS
+
+Written and committed before any run of the wired code. Full text: amendment 3 of
+[`prediction_before_measuring.md`](prediction_before_measuring.md). Summary: bit-identical k and
+existing pins (no random number drawn; no re-pin); real-transport Experiment A: CELLBORN, MESHBORN,
+CELLFROM, MATERIALFROM, MUSURFACE 0 misses (the three currents exact); MESH_MATERIAL 0 misses on
+both meshes after the split fix; MESH_SURFACE the same ties as the driver (16 on the registered
+mesh, 1 on A2); Experiment B COLLISION |z| <= 2 on a fresh stream; WEIGHT (new Experiment C,
+survival biasing in both codes) |z| <= 2. (B-10 became Li-6 before Experiment C was run: NJOY2016
+ACER refuses ENDF/B-VIII.0 B-10, amendment 4.)
+
+### Results (2026-11-18)
+
+**What was edited.** `transport_history_vr_urr` (`src/physics/transport_csg.rs`; the body behind the
+kovan-reviewed `transport_history_vr`, fn id `fn:cef42e1a8f2fd45a`, which is a forwarding wrapper
+left **unedited**; `_urr` is `fn:bf052a3604a90ca7` and carries no review stamp): a per-particle
+`EventHistory` and four calls. `tally/scoring.rs`: `score_length_like` takes the history and sets
+`weight`, `cell_born`, `position_born`, `n_collision` on the event; new `score_track_length_hist`;
+MESH_MATERIAL on a regular mesh splits the track. `tally/history_events.rs`: `EventHistory`,
+`score_crossing`, `score_mesh_surface_segment`, `flight_track_ends`. `tally/review.md` holds no
+review stamp, so no other reviewed function was touched.
+
+**k and pins: bit-identical, as predicted.** `stats_move_fingerprints` (9 tests, incl. the nested
+lattice k and the FHR delta-tracking pebble), `distribcell_end_to_end`, `particle_clock`,
+`every_filter_kind_is_reachable`, `filter_extra_vs_upstream` all pass unchanged; no re-pin.
+`history_tallies_do_not_perturb_the_run`: a CellBorn-binned and an unbinned flux tally from one
+seed agree bit for bit.
+
+**Experiment A through the real runner** (18 sites, `run_fixed_source_traced`):
+
+| filter | bins | misses | worst scaled diff | prediction |
+|---|---|---|---|---|
+| CELLBORN | 36 | 0 | 9.5e-10 | held |
+| MESHBORN (registered mesh / A2) | 216 / 270 | 0 / 0 | 9.5e-10 | held |
+| MESH_MATERIAL, shipped path now (registered / A2) | 432 / 540 | **0 / 0** (was 25 / 0 reported) | 1.6e-8 / 1.4e-8 | held |
+| CELLFROM | 252 | 0 | 0 (exact) | held |
+| MATERIALFROM | 252 | 0 | 0 (exact) | held |
+| MUSURFACE | 1008 | 0 | 0 (exact) | held |
+| MESH_SURFACE, registered mesh | 2592 | **16** (same 4 sites, same bins as the driver) | 1 | held (ties) |
+| MESH_SURFACE, A2 mesh | 3240 | **1** (site 17, bin 142) | 1 | held (tie) |
+
+CELL_INSTANCE is not reachable through the runner for both cells at once (one distribcell table per
+run); DISTRIBCELL, ENERGY_FUNCTION went through the runner already.
+
+**Experiment B through the real runner** (20 x 50 000, seed 261): COLLISION worst \|z\| **2.56**
+(bins 2 and 4, +2.56 and +2.55): **a miss of the registered criterion, prediction \|z\| <= 2
+not met**, in the direction of the driver's first run. Replication plan fixed beforehand
+(amendment 5): 8 seed pairs pooled, worst \|z\| **1.39** (bin 4: ours 0.749141 +- 0.000783,
+OpenMC 0.747317 +- 0.001057). Read as noise (OpenMC's own first-run bin 4, 0.744105, is 1.3 sigma
+below its pooled value); the first-run gate `real_b_collision_vs_openmc` stays red.
+
+**Experiment C, WEIGHT under survival biasing** (Li-6 0.05 atoms/b-cm, r = 10 cm, 300 keV isotropic
+point source, cutoff 0.25 / survive 1.0 both codes, 20 x 50 000, `make_li6_lib.py`,
+[`exp_c_weight.py`](openmc_inputs/exp_c_weight.py)): bins 0-1 empty in both codes (roulette),
+bin 2 ours 1.968699 +- 0.001685 vs OpenMC 1.965959 +- 0.001969 (z +1.06), bin 3 1.529552 vs 1.529379
+(+0.07), bin 4 5.663063 vs 5.662350 (+0.13). Worst \|z\| **1.06**, prediction held. Hardware as in
+the provenance table (4-core Xeon 2.10 GHz, shared); ours 4.4 s per 1e6 histories (O-16 run).
+
+**The red gates now.** Of the original four: `mesh_material_vs_openmc` is **green**.
+`mesh_surface_vs_openmc` and `a2_mesh_surface_vs_openmc` (driver oracle) stay red on the tie
+misses; their real-transport twins pass only because they pin the counts 16 and 1, not zero.
+`b_collision_and_legendre_vs_openmc` (driver, first run, 2.87) stays red, and its real-transport
+twin `real_b_collision_vs_openmc` (2.56) is red too. Four red gates remain, one of them new.
+
+**Not wired (stated):** the collision-estimator (`score_collision`), scatter-matrix
+(`score_scatter_matrix`), fission-birth and delta-tracking scoring paths still build their events
+with the defaults, so a history-field filter there scores at the default value; LEGENDRE x scatter
+has no real-transport route and stays on the driver; plain MESH on a regular mesh still bins the
+segment midpoint (same gap as MESH_MATERIAL had, unmeasured); PARENT_NUCLIDE, REACTION and
+PARTICLE_PRODUCTION as before; `CellFromFilter` still holds one (leaf) cell where upstream loops
+over all levels.

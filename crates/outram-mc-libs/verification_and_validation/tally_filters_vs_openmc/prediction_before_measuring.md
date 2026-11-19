@@ -125,3 +125,83 @@ OpenMC `seed` 1001..1008, same model), pooled per bin as mean of the 8 run means
 standard error from their scatter; pass criterion unchanged, |z| <= 2 on the pooled bins.
 Expectation: if collision bin 4 is noise the pooled |z| falls under 2 (about 1); if it is a
 defect of ours the pooled |z| exceeds ~2.5 and the +1.2 % persists.
+
+## Amendment 3 -- PREDICTIONS for the real-transport wiring pass (2026-11-18, written and committed BEFORE any run of the wired code)
+
+Maintainer-confirmed edits (gh:#261, 2026-11-18): (1) fill the event-history fields of
+`FilterEvent` in the real transport; (2) split MESH_MATERIAL tracks across mesh elements in
+`tally/scoring.rs`. Design (from reading the code, not from a run): the transport body that
+carries the logic is `transport_history_vr_urr` (the `kovan`-reviewed `transport_history_vr`
+is a 40-line forwarding wrapper that calls it and is NOT edited). A per-particle
+`EventHistory` (cell_born, position_born, n_collision, material, material_last) is kept in
+the loop and handed to new scoring functions; no random number is drawn by any of it.
+
+**Bit-identity of k and of every existing tally (predicted before running):** bit-identical.
+The new code reads state and adds to tallies; it takes no branch the transport takes and
+draws no variate. Existing pins (`stats_move_fingerprints`, `variance_reduction_is_bit_identical_when_analog`,
+the Godiva k-trace pin, ...) predicted to stay bit-identical, **no re-pin**. The one existing
+behaviour that changes: a `WeightFilter` on a track-length tally used to see the default
+weight 1.0 and now sees the particle weight `w`; any test that pins a WeightFilter
+track-length tally is predicted to move (none expected; a grep before the run will say).
+
+**Experiment A through the real runner (`run_fixed_source_traced`), same 18 sites, same
+criteria as amendment 1:**
+
+| filter | prediction |
+|---|---|
+| CELLBORN, MESHBORN (flux) | 0 misses of 36 / 216 (+270 on A2) bins, worst scaled diff about 1e-9 |
+| CELLFROM, MATERIALFROM, MUSURFACE (current) | 0 misses of 252 / 252 / 1008 bins, **exact**: the live scoring replays the verified driver's rules (sign in the level frame, vacuum-leak `material_last`, global-position normal) |
+| MESH_MATERIAL, registered mesh and A2 | **0 misses** of 432 and 540 bins after the splitting fix (the driver version of the same split gave 0), worst scaled diff about 1.6e-8 (the transport's 1e-9 cm nudge) |
+| MESH_SURFACE, registered 6x2x1 mesh | **16 misses at the same 4 sites (ties on mesh planes)**: the live segment start/end are the same floating-point numbers the driver reconstructs |
+| MESH_SURFACE, A2 mesh | **1 miss** (site 17, the box-edge tie), unchanged |
+
+**Experiment B through the real runner** (CE O-16 sphere, 1 MeV isotropic point source, 20 x
+50 000 histories; a different random stream from the driver run, since the runner draws the
+source itself): COLLISION flux, 6 bins: all |z| <= 2 expected (the earlier first-run 2.87 was
+judged noise by the 8-seed pooling; if the real-transport run again shows bin 4 high by
+about +1.2 % the noise reading is wrong). LEGENDRE is not reachable through real transport
+(no analog-scatter Legendre scoring exists in the CSG transport) and stays on the driver.
+
+**WEIGHT (Experiment C, new): B-10 gas sphere, survival biasing on in both codes** (OpenMC
+`survival_biasing`, cutoff 0.25, survive 1.0, its defaults; ours `VarianceReduction`
+likewise), 1 MeV source, track-length flux binned in weight. Bins: [0, 0.1, 0.25, 0.5, 0.75, 1.0].
+Prediction: all |z| <= 2; weights are (1 - Sa/St)^k so several bins are populated. OpenMC's
+filter reads `wgt_last` (weight at the start of the event) and ours the flight weight; they
+agree because the weight only changes at collisions, after the segment is scored. Expected
+worst |z| about 1.5 over 5 bins.
+
+**The 4 red gates (predicted):** `mesh_material_vs_openmc` goes green (shipped path split);
+`mesh_surface_vs_openmc` and `a2_mesh_surface_vs_openmc` stay red on the same ties (the
+driver-based tests are kept as the oracle; new real-transport tests are added beside them and
+are predicted to show the same 16 and 1); the first-run COLLISION gate of the driver stays
+red as recorded (its numbers do not change), while its real-transport twin is predicted
+green.
+
+### Amendment 4 (2026-11-18, written BEFORE Experiment C is run; two things that happened after amendment 3)
+
+1. **Measured since amendment 3 (Experiment A through the real runner, recorded in the README):**
+   every prediction in the table above held (all filters, including the 16 and 1 tie misses and
+   the exact currents); existing bit-identity pins unmoved. That is not repeated here.
+2. **Experiment C absorber changed, forced by the data tool, not by a result.** NJOY2016's
+   ACER refuses ENDF/B-VIII.0 B-10 (`***error in change***Undefined law for dlwh block: 0`,
+   exit 77), so B-10 cannot be built into an OpenMC library here. **Li-6** (n,t) replaces it:
+   sphere r = 10 cm, Li-6 0.05 atoms/b-cm, isotropic **300 keV** point source (on the (n,t)
+   resonance, where Sa/St is large so weights spread), survival biasing on in both codes
+   (cutoff 0.25, survive 1.0), 20 x 50 000 histories, track-length flux in WeightFilter bins
+   [0, 0.1, 0.25, 0.5, 0.75, 1.0]. Prediction unchanged in kind: all 5 bins |z| <= 2, worst
+   about 1.5. If a bin is a miss at the first run, the replication plan is fixed here: 8
+   further seed pairs (1001..1008) pooled as for Experiment B, criterion |z| <= 2 pooled.
+
+### Amendment 5 (2026-11-18, written after the first real-transport run of Experiment B/C, before any replication)
+
+First real-transport runs (seed 261, recorded in the README): WEIGHT worst |z| 1.06 (prediction
+held); **COLLISION worst |z| 2.56 (bins 2 and 4: +2.56 and +2.55), a miss of the registered
+criterion**, in the same direction as the driver's first run (bin 4 +1.1 % here, +1.2 % there).
+Stays reported as a miss. Replication plan fixed now, before running it: the same 8 seed pairs
+as before (ours seeds 1001..1008 through the real runner, OpenMC `expB_collision_s1001..1008`
+already committed), pooled per bin as mean of the 8 run means with standard error from their
+scatter, criterion |z| <= 2 on the pooled bins. Expectation: the OpenMC first-run bin-4 value
+(0.744105) is itself low against OpenMC's own 8-seed pooled 0.7473, so the first-run miss is
+mostly the reference's draw; the pooled worst |z| falls under 2 (about 1.2). If it stays above
+2.5 the noise reading is wrong and the collision-number binning (n_collision off by one at a
+secondary or after a split) is the suspect.
