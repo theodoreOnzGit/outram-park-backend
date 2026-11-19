@@ -156,6 +156,16 @@ pub const DEFAULT_THERMAL_CUTOFF_EV: f64 = 4.0;
 /// bracket search is binary rather than linear: 10.33 Msample/s at 384 against
 /// 11.22 at 48, i.e. **−8 %** of the thermal sampling rate. Before that change
 /// the same step cost −33 %.
+///
+/// **Status since 2026-11-19 (gh:#550):** this is no longer the default build.
+/// ~~The ENDF-route tables sit at this many log-spaced energies.~~ **CORRECTED
+/// 2026-11-19:** `from_tape` puts one table at each `calcem` incident energy;
+/// this constant sizes only the explicit ablation
+/// `ThermalScattering::from_tape_log_spaced_grid`. The sizing above was
+/// measured against THERMR at probe energies where the two builds agree
+/// (graphite and H-in-H2O golden gates re-run both ways 2026-11-19: `<E'>/E`
+/// rows equal to 5 digits, 2e-5 at worst); the builds differ BETWEEN `calcem`
+/// nodes (`sab_reference_550.md`).
 const N_EMIT_GRID: usize = 384;
 /// Equally-probable outgoing energies per emission table (NJOY-typical).
 ///

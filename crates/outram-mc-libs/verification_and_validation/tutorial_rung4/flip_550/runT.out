@@ -1,0 +1,84 @@
+=== thermal_kernel_stationary_distribution
+test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 56.68s
+thermal_kernel_stationary_distribution rc done
+3.3G
+=== thermal_laws_vs_njoy_thermr
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 206.44s
+thermal_laws_vs_njoy_thermr rc done
+3.3G
+=== thermal_standards
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.62s
+thermal_standards rc done
+3.3G
+=== thermal_h2o_leapr_vs_tsl
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 116.01s
+thermal_h2o_leapr_vs_tsl rc done
+3.3G
+=== thermal_graphite_elastic
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 497.87s
+thermal_graphite_elastic rc done
+3.3G
+=== thermal_lthr3_mixed_634
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 106.03s
+thermal_lthr3_mixed_634 rc done
+3.3G
+=== thermal_endf_route_xs_vs_njoy
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+thermal_endf_route_xs_vs_njoy rc done
+3.3G
+=== thermal_cutoff_is_tape_emax
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 33.31s
+thermal_cutoff_is_tape_emax rc done
+3.3G
+=== light_water_thermal_scattering
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 156.74s
+light_water_thermal_scattering rc done
+3.3G
+=== triso_shell_thermal_scattering
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 115.02s
+triso_shell_thermal_scattering rc done
+3.3G
+=== htr10_graphite_thermal_scattering_pebble_bed
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 81.51s
+htr10_graphite_thermal_scattering_pebble_bed rc done
+3.3G
+=== material_sab_462_transport
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 96.81s
+material_sab_462_transport rc done
+3.2G
+=== processed_evaluation_round_trip
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 58.14s
+processed_evaluation_round_trip rc done
+3.2G
+=== total_fast_path_matches_full
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 229.72s
+total_fast_path_matches_full rc done
+3.2G
+=== speed_tier_fast_is_exact
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 147.62s
+speed_tier_fast_is_exact rc done
+3.2G
+=== majorant_bounds_endf
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 984.09s
+majorant_bounds_endf rc done
+3.2G
+=== temperature_precedence
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+temperature_precedence rc done
+3.2G
+=== elastic_xi_h1_o16
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 56.34s
+elastic_xi_h1_o16 rc done
+3.2G
+=== openmc_xs_details_463
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 65.79s
+openmc_xs_details_463 rc done
+3.2G
+=== correct_physics_is_default
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 301.03s
+correct_physics_is_default rc done
+3.2G
+=== thermal_emission_on_thermr_grid_550
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 100.03s
+thermal_emission_on_thermr_grid_550 rc done
+3.2G
