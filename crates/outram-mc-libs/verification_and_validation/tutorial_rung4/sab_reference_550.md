@@ -500,7 +500,7 @@ expected under zero true difference.
 | `dh_keff_vv` ring-RPT (G5) | +192 +- 82 | +2.3 | -10 | **missed, wrong sign** |
 | HST-009 route 4 (W2) | +73 +- 47 | +1.5 | +40 | held |
 | MSRE unit cell route 4 (W3) | -25 +- 50 | -0.5 | -10 | held |
-| MSRE N-1 (W1) | -183 +- 73 (uncontrolled) | -2.5 | -10 | **missed; not attributable to the flip** |
+| MSRE N-1 (W1) | ~~-183 +- 73 (uncontrolled)~~ | -2.5 | -10 | ~~**missed; not attributable to the flip**~~ **CORRECTED 2026-11-19 (third re-measure, below): the paired knob-on control gives the flip's own move, -297 +- 73 pcm (z -4.1, one seed pair), with +237 from other code; the earlier statement that it was not attributable to the flip was wrong** |
 | processed-law cache version | `CODE` not bumped by the flip | | | defect fixed |
 
 What the pass supports: no graphite or water system moved by an amount the
@@ -729,3 +729,92 @@ solves show no resolved move. What it does not add: any resolution below about
 100 pcm on the FHR solves; the 36-nuclide tier; the 35-nuclide lattice, MSRE N-1
 (still the uncontrolled W1 of the second re-measure), `nee_soon::htr10_rmc`.
 Nothing was tuned, no tolerance moved, no pin changed.
+
+**UPDATED 2026-11-19:** MSRE N-1 and `nee_soon::htr10_rmc` were re-measured as paired runs in the second part of the third re-measure, below.
+
+## Third re-measure, part 2 (2026-11-19, gh:#550): HTR-10 whole core and MSRE N-1, paired
+
+Plan and signed predictions, committed before any paired run:
+`sab_reference_550_remeasure3_core_plan.md` (commit `3f0b2d35f`, committed as `sab_reference_550_remeasure3_plan.md` and renamed at the merge with part 1). Raw outputs:
+`remeasure3_550/`. Research, education and V&V only. Base `6b3b64807`,
+`--release`, knob = `OUTRAM_SAB_LOG_SPACED_GRID=1`. Difference = default (node
+grid) minus knob-on (log-spaced).
+
+Hardware for every run: Intel Xeon @ 2.10 GHz (cloud container, KVM), 4 logical
+cores, 15.7 GiB RAM, Linux 6.18.44, CPU only; the box was shared with another
+agent (load average 6 to 12), so timings are indicative only.
+
+| id | case | old (knob on) | new (default) | new - old +- sigma | z | predicted | outcome |
+|---|---|---|---|---|---|---|---|
+| H1 | `htr10_rmc_keff` (the `nee_soon::htr10_rmc` model, default LEAPR laws), 4000 x [5+90], seed 20260917, 14 rings x 12 layers, 1 thread per arm, two arms side by side | 0.991743 +- 0.001673 | 0.991090 +- 0.001686 | **-65 +- 237 pcm** | -0.27 | -10 (-80 .. +60) at an expected sigma of 300; refuted only outside +-600 | **held, unresolved**: inside the range, but sigma 237 cannot resolve tens of pcm |
+| M1 | `msre_n1_first_criticality --mo natural --seeds 1 --threads 2`, 20000 x [100+200], default model | 1.019902 +- 0.000544 | 1.016934 +- 0.000488 (second re-measure, same code) | **-297 +- 73 pcm** | **-4.1** | -10 (-80 .. +60), and "the earlier -183 is not the flip" (knob-on should read about 1.0162) | **missed, both statements; resolved on one seed pair** |
+
+### H1: HTR-10 whole core
+
+The two arms ran the same commit, seed and statistics (380000 histories each,
+360000 active), one thread each, as the plan fixed. Data 491.7 s (default) and
+492.6 s (knob), transport 7490.9 s and 7467.1 s. Both: 0 lost, 0 stuck, 0
+majorant violations. The arms' internal sd came out at 169 and 167 pcm, below
+the 213 expected, so the difference's sigma is 237, not 300. The difference,
+-65 +- 237 pcm (z -0.27), is inside the predicted range and far inside the
++-600 refutation band; it **bounds |flip| below about 475 pcm at 2 sigma at this
+size and resolves nothing finer**. It is consistent with zero and with the -10
+predicted, and equally with -300. (Against RMC 1.004288: -1320 pcm default,
+-1255 knob-on; the benchmark gate is not what this pair tests.)
+
+A second finding the pair does show: **both arms sit below the 2026-11-05
+record** (0.995309 +- 0.001098, 10000 x [5+135], 16 threads): -422 +- 201 pcm
+(default, z -2.1) and -357 +- 200 pcm (knob on, z -1.8). Because the knob-on arm
+reproduces the pre-flip build and sits as low as the default, this is **not the
+flip**. It is code drift since 2026-11-05, or the different protocol (4000 x
+[5+90] against 10000 x [5+135], one thread against sixteen: the CSG hybrid
+driver's thread-count independence is assumed, not tested, see the example's
+doc), or a seed draw; I did not decompose it. The record 0.995309 is not
+reproduced on today's code at this size, and should not be quoted as the current
+value until a like-for-like re-run decides which.
+
+`htr10_correct_physics_is_default` (nee_soon) builds no data and cannot move; it
+is run as a test, see the hand-off.
+
+### M1: MSRE N-1
+
+**The control is exact.** The knob-on seed 1 is 1.019902 +- 0.000544, to every
+printed digit the value the msre_n1 README records for "the default re-run on a
+later binary (`42b372a59`, 2026-11-19, before the flip)". The knob therefore
+reproduces the pre-flip build on a third case, and the drift is separated:
+11-13 binary seed 1 = 1.017528 -> pre-flip same-day seed 1 = 1.019902 (+237 pcm,
+other code, not the flip) -> default seed 1 = 1.016934 (**-297 +- 73 pcm, the
+flip**).
+
+The default arm is the second re-measure's seed 1 (`remeasure2_550/msre_new.csv`),
+not re-run: no `crates/*/src` file changed between its commit and base, and runs
+are deterministic for a fixed seed and thread count (2); that is an assumption I
+did not test with a repeat run. **One seed pair only**: seed 2's knob-on arm was
+not run (about 55 min, over budget), so the second re-measure's seed 2 default
+(1.015550) has no control. Sigma is the two runs' internal sd in quadrature; the
+six-seed record's seed-to-seed sd is about 56 pcm, consistent with it.
+
+What this says. The earlier "-183 +- 73 pcm against the 11-13 record, not
+attributable to the flip" was wrong in its attribution: **the flip itself moves
+N-1 by -297 +- 73 pcm (4.1 sigma) on seed 1**, more than the -183, partly offset
+by +237 from other code. Both of my predictions missed: -10 (-80 .. +60), and the
+attribution (knob-on about 1.0162; it read 1.0199). The direction, lower k, moves
+N-1 toward k_ref 1.00080, **which flatters the model, and is a reason to look
+harder and not to accept**: the node grid changes the carbon S(a,b) at 911 K
+(LEAPR deck) and H(H2O) in the shield, and I did not separate the two. One
+4 sigma pair among about thirty comparisons made today is possible under no
+effect, so a replication (knob-on seeds 2 and 3) is what would settle it. It is
+the largest flip-caused move of the #550 series (water systems +30 to +110 pcm,
+graphite pebbles unresolved at 100 to 300).
+
+**No pin moved**: nothing in the crates' tests pins the MSRE N-1 k (searched).
+The msre_n1 README headline (+1726 pcm, 6 seeds, 2026-11-13) is unchanged but is
+stale in two ways, the +237 other-code drift and this flip; not re-measured at
+six seeds.
+
+### Not done in this pass
+
+- MSRE N-1 knob-on seeds 2 and 3, and the default seed 3.
+- A like-for-like HTR-10 re-run at the record's protocol, to explain the -400 pcm
+  against 0.995309.
+- Separating the carbon and H2O contributions to M1.

@@ -1,0 +1,53 @@
+HTR-10 core k-eff vs Li, Yu & Wei (2014), RMC 1.004288
+=========================================================
+  ENDF/B-VIII.0 (RMC used VII.0 -- offset NOT corrected)
+  explicit TRISO, hybrid delta/surface tracking, TECDOC reflector
+
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  reflector zone: 22 (C 8.8242e-2 x1.000, natural B 4.7377e-7)
+  fuel zone: explicit TRISO lattice
+  tracking: hybrid (delta bed)
+  geometry: 22974 tiles, 43452 cells, 1502 universes
+  1000 histories x [2 inactive + 3 active], seed 20260917
+
+  nuclear data processed in 432.3 s (43 items)
+
+  BALL-COUNT MATCH (gh:#472): 16681 balls in a 123.576 cm bed; Şeker's model holds that many at 122.091 cm
+
+  HEIGHT-MATCHED: bed 123.576 cm built; reference read at 122.091 cm (equal ball count, gh:#472) -> RMC(interp) = 0.999419
+  (the 1.004288 headline is RMC at 123.576 cm; difference +487 pcm is comparison point, NOT model)
+  GAUGE (not a reference): MCNP at this height, Table 3 0.998250 (-152 pcm), Table 4 0.999476 (-274 pcm)
+  dk height-matched = -269 pcm   (against 0.999419, not 1.004288)
+  k_eff        = 0.996732 +/- 0.020248
+  RMC          = 1.004288
+  difference   = -756 pcm   (our sigma 2025 pcm)
+  virtual coll = 44960392
+  histories    = 5000 (planned 5000)
+  collisions   = 1575472 (315.09 per history)
+  lost locate  = 0 (0.000 %)
+  majorant violations = 0
+  delta lost   = 0
+  stuck events = 0 (0.000 %)
+  neg distance = 0 (worst 0.0000e0 cm, level 0)
+      from lattice = 0, from surface = 0
+  leak vacuum  = 1 (0.020 %)
+  leak infinity= 0 (0.000 %)
+  wall clock   = 44.8 s
+  generations reported: 5
+  generations with k > 0: 5
+    gen 0: k = 0.953637
+    gen 1: k = 1.049900
+    gen 2: k = 1.020132
+    gen 3: k = 1.013656
+    gen 4: k = 0.956409
+  entropy trace: 5.475 5.486 5.494 5.502 5.411
+  entropy      = 5.4751 -> 5.4110 bits (ceiling 6.0000)
+
+  Gate is 500-1000 pcm. Full-radius bed, 12 Seker layers = 123.576 cm built, reference read at 122.091 cm; VIII.0 runs carry the VIII.0-vs-VII.0 offset.
+
+  --- timing, data processing vs transport ---
+  hardware     : llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.10GHz, 15.7 GiB RAM
+  nuclear data :    432.3 s
+  transport    :     44.8 s
+  total        :    477.1 s
+  diagnostics  : verification_and_validation/local_perf/run-htr10-rmc-keff-1795088149.md
