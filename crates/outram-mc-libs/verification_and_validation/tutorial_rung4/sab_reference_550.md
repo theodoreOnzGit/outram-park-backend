@@ -349,3 +349,101 @@ because the stationary-distribution pins moved most there in relative terms.
   committed golden tables have no between-node probe, so no THERMR comparison of
   the flip exists; the evidence for it is the direct integral above.
 - Timings of the node-grid build against the log-spaced one.
+
+**CORRECTED 2026-11-19 (gh:#550, "Re-measure the rest"):** most of the list
+above is measured in "Second re-measure" below, which also says which items
+were not reached. The list stands as the state of `33af080b9`.
+
+## Second re-measure (2026-11-19, gh:#550, maintainer decision "Re-measure the rest")
+
+Plan and signed predictions, committed before any run:
+`sab_reference_550_remeasure2_plan.md` (two addenda, the second written
+after block 1 of G1 and before block 2's output was read). Raw outputs and the
+comparison script: `remeasure2_550/` (`python3 -I analyse.py NEW OLD`).
+Research, education and V&V only. The LCT-008 cases were not run (another
+agent owns the 2.40 cm pin-cell gap).
+
+**The old-build control.** `from_tape` and `from_tape_with_options` now honour
+`OUTRAM_SAB_LOG_SPACED_GRID=1` (named ablation; unset, empty or `0` = default).
+It reaches every consumer, so an unchanged example is its own paired control.
+**It is a true old-build control:** `htr10_fuel_zone_kinf` with the knob on
+reproduces the 2026-11-17 record's means and sds exactly (het 1.57302, sd 279
+pcm; hom 1.44751, sd 268 pcm, 12 seeds), and `fhr_pebble_target_at_rest_ablation`
+(MOVING) with the knob on reproduces the record's seeds 1 and 2 to every
+printed digit (1.36355 +- 0.00184, 1.36228 +- 0.00172). I stopped the FHR
+ablation after those two seeds and use the record's per-seed values as the
+control for seeds 1-8 (not verified for seeds 3-8).
+
+Hardware for every run below: Intel Xeon @ 2.10 GHz (cloud container, KVM),
+4 logical cores, 15 GB RAM, Linux 6.18.44, CPU only; shared with another
+agent (load average 1.6 to 10 over the session), two to three processes of mine
+at once, 1-2 threads each. Timings are indicative only and not tabulated.
+Code: `4c29b7f58` plus the knob (this change), `--release`.
+
+### Graphite: k moves, with their predictions
+
+| id | case | old | new | new - old +- sigma | z | predicted |
+|---|---|---|---|---|---|---|
+| G1 | graphite medium k_inf, `thermal_kernel_keff_worth`, 600 K, 4000 x [20+80], 8 replicas paired by master seed, node grid minus log-spaced 384x64, block 1 (seeds 20260912-19) | 1.38590 +- 0.00068 | 1.38356 +- 0.00102 | **-234 +- 108 pcm** | -2.16 | -15 (-90 .. +60): **missed**, same sign, outside the range |
+| G1 | same, block 2 (seeds 20261912-19, replication announced before reading) | 1.38403 +- 0.00039 | 1.38391 +- 0.00050 | **-12 +- 68 pcm** | -0.18 | -15 (-230 .. +200) if no effect, -230 (-450 .. -10) if real: **consistent with no effect, 1.7 sigma from block 1** (222 +- 128) |
+| G1 | pooled N = 16 (pre-announced pool) | | | **-123 +- 68 pcm** | -1.80 | -15: 1.6 sigma from it; **not resolved**; negative in both blocks |
+| G2 | `htr10_fuel_zone_kinf` heterogeneous, 2000 x [20+60], 12 seeds, paired with the knob | 1.57302 (sd 279) | 1.57253 (sd 314) | **-49 +- 121 pcm** (paired -49 +- 119) | -0.41 | -10 (-80 .. +60): held |
+| G2 | homogenised | 1.44751 (sd 268) | 1.44731 (sd 287) | -20 +- 113 (paired -20 +- 133) | -0.17 | |
+| G2 | double-heterogeneity worth (hom - het) | -12552 | -12522 | +30 +- 175 | +0.17 | unchanged within 150: held |
+| G3 | `htr10_pebble_delta_tracking` natural B (atom ppm), 300 x [20+60], 12 seeds against the record's 24 | 1.68681 (sd 589, N 24) | 1.68456 (sd 573) | -225 +- 205 pcm | -1.10 | -15; resolution 250: unresolved |
+| G3 | weight-ppm arm | 1.68667 | 1.68511 (sd 1021) | -156 +- 317 | -0.49 | |
+| G3 | no boron | 1.70078 | 1.69998 | -80 +- 169 | -0.48 | |
+| G3 | graphite boron only | 1.68796 | 1.69074 | +278 +- 222 | +1.25 | |
+| G3 | ppm as elemental B-10 | 1.64516 | 1.64357 | -159 +- 207 | -0.77 | |
+| G3 | paired control, seeds 1-3 with the knob, five arms | | | per-arm mean differences +112, -447, -189, +674, -280 pcm (single-seed differences swing +-1000) | | noise: **nothing is resolved**; the five-arm mean of the unpaired differences above is -68 pcm |
+| G4 | FHR ring-RPT pebble, MOVING (the `fhr_ring_rpt_endf` CSG solve; per-seed identical to it in the record), 4000 x [30+80], 600 K, 8 seeds | 1.36307 (sd 117) | 1.36384 (sd 214) | **+77 +- 86 pcm** (paired +77 +- 74) | +0.89 | -10 (-90 .. +70): inside the range, sign wrong |
+| G4 | AT-REST | 1.36154 (sd 141) | 1.36123 (sd 206) | -31 +- 88 | -0.35 | |
+| G4 | worth AT-REST - MOVING | -153 +- 43 | **-261 +- 107** | -108 +- 115 | -0.94 | unchanged within 100: held. The driver's own gate against -153 prints HELD, 1.0 sigma |
+
+Reading G1 to G4 together. The graphite medium (G1) is the one graphite
+instrument built to resolve a kernel effect, and its two blocks disagree by
+1.7 sigma (-234, -12); the pooled -123 +- 68 pcm is below 2 sigma and I do not
+call it a measurement. Its sign is negative in both blocks, as the hotter
+graphite stationary-distribution neutron temperature (+2.1 K) predicted, but
+the size block 1 suggested is not supported by block 2. The pebble cases (G2
+to G4) carry seed sds of 120 to 1000 pcm and resolve nothing under 100 to 300
+pcm: G2 and G3 are consistent with zero and with the pooled G1 value; G4's
+MOVING arm moved up, not down, by +77 +- 86 pcm (0.9 sigma). The FHR
+seed-to-seed sd is 214 pcm against 117 in the record (variance ratio 3.3 on 7
+and 7 degrees of freedom): a fluctuation I cannot exclude, and it is what
+makes -261 +- 107 against -153 +- 43 unresolved. No threshold or pin was moved
+for these.
+
+### Graphite pebble with the double-heterogeneity treatments: `dh_keff_vv`
+
+| id | case | old (knob on) | new | new - old +- sigma | z | predicted |
+|---|---|---|---|---|---|---|
+| G5 | delta tracking (explicit TRISO), 7200 x [15+40], 600 K, 8 draws, single thread | 1.38363 (sd 122 pcm) | 1.38307 (sd 128) | **-56 +- 62 pcm** (paired by draw -56 +- 29, z -1.93) | -0.89 | -10 (sigma 210 per single draw): inside, sign right |
+| G5 | ring-RPT (OpenMC-fitted r_inner 1.4934 cm) | 1.38145 (sd 145) | 1.38337 (sd 183) | **+192 +- 82 pcm** (paired +192 +- 105, z +1.83) | **+2.33** | -10: **missed, wrong sign, 2.3 sigma** |
+
+Draw 1 of the delta arm is the same run as the two-draw probe made first
+(1.38385 both times: the program is deterministic for a fixed seed). The ring
+arm's +192 pcm is the largest unflattering move of this pass. It is a single
+comparison among about twenty made today, so a 2.3 sigma value is not unusual
+under a zero true difference, and the delta arm on the identical pebble moves
+the other way (-56), but I cannot call it noise either; the ring-RPT pebble
+is the same model as G4's, whose MOVING arm also moved up (+77 +- 86). The
+two graphite-pebble ring-RPT numbers together (+192 +- 82 and +77 +- 86,
+independent runs) average +137 +- 59 pcm (2.3 sigma, a combination chosen after
+seeing both). The graphite medium of G1 moved the other way. I cannot
+reconcile these with one sign for graphite, and I do not claim to. The
+reference OpenMC value for this pebble is k = 1.36510 +- 0.00063
+(explicit TRISO); the delta and ring arms sit about +1800 pcm above it both
+before and after the flip, a gap of another origin and not moved by it.
+
+### Water systems and the LEAPR route
+
+| id | case | old | new | new - old +- sigma | z | predicted |
+|---|---|---|---|---|---|---|
+| W2 | `icsbep_five_route_keff --case hst009 --route endf` (route 4, H(H2O) from the LEAPR deck, which also flips), 5000 x [40+120], 16 seeds | 1.00080 (sd 152, N 16, `501c16264`) | **1.00152** (sd 113) | **+73 +- 47 pcm** (paired by seed +73 +- 49) | +1.53 | +40 (-30 .. +120): **held** |
+| W2 | control: the knob on, seed 1 | record seed 1 1.00128 | 1.00128 +- 0.00143 | bit-identical | | the old build is reproduced; seeds 2 and 3 with the knob: 0.99926, 0.99853; new minus knob over seeds 1-3: -99, +335, +258, mean +165 +- 134 pcm |
+| W3 | `msre` unit cell (graphite, route 4) | see below | | | | |
+
+Both water numbers agree in sign and size with the first pass (HST-009
++39 +- 26; the pin cells +32, +107, +64): the node grid raises k in
+H-in-H2O systems by tens of pcm, +73 +- 47 here.

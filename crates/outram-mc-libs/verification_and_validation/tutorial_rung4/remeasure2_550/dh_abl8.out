@@ -1,0 +1,78 @@
+Reconstructing ENDF/B-VIII.0 cross sections at 600 K (setup, not transport):
+  data ready in 330.5 s
+
+DH treatment V&V — FHR reference UNIT CELL, every treatment
+===========================================================
+  histories  : 7200 x [15 inactive + 40 active]
+  data       : HIGH tier, ENDF/B-VIII.0 + crystalline-graphite S(a,b), 600 K
+  geometry   : 1.9 cm fuel zone / 2.0 cm pebble / FLiBe to r = 3.0 cm, reflective
+  reference  : OpenMC explicit TRISO k = 1.36510 +/- 0.00063
+
+(ring-RPT uses the OpenMC-fitted r_inner = 1.4934 cm; set OUTRAM_DH_VV_FIT_RPT=1
+ to fit this code's own radius instead — about a dozen extra solves)
+
+  delta tracking               k = 1.38514 +/- 0.00207     151.6 s   26795 particles stored
+      draw 1/8: k = 1.38514 +/- 0.00207  (151.6 s)
+  delta tracking               k = 1.38197 +/- 0.00166     152.7 s   26795 particles stored
+      draw 2/8: k = 1.38197 +/- 0.00166  (152.7 s)
+  delta tracking               k = 1.38277 +/- 0.00137     148.3 s   26755 particles stored
+      draw 3/8: k = 1.38277 +/- 0.00137  (148.3 s)
+  delta tracking               k = 1.38369 +/- 0.00207     187.7 s   26755 particles stored
+      draw 4/8: k = 1.38369 +/- 0.00207  (187.7 s)
+  delta tracking               k = 1.38548 +/- 0.00170     207.8 s   26774 particles stored
+      draw 5/8: k = 1.38548 +/- 0.00170  (207.8 s)
+  delta tracking               k = 1.38398 +/- 0.00207     241.9 s   26774 particles stored
+      draw 6/8: k = 1.38398 +/- 0.00207  (241.9 s)
+  delta tracking               k = 1.38331 +/- 0.00156     238.5 s   26766 particles stored
+      draw 7/8: k = 1.38331 +/- 0.00156  (238.5 s)
+  delta tracking               k = 1.38267 +/- 0.00164     245.2 s   26766 particles stored
+      draw 8/8: k = 1.38267 +/- 0.00164  (245.2 s)
+    POOLED delta tracking           k = 1.38362  sd = 0.00122  sem = +/-0.00043  (8 draws)
+  ring-RPT (fitted annulus)    k = 1.38217 +/- 0.00211     161.1 s   0 particles stored
+      draw 1/8: k = 1.38217 +/- 0.00211  (161.1 s)
+  ring-RPT (fitted annulus)    k = 1.37858 +/- 0.00196     156.0 s   0 particles stored
+      draw 2/8: k = 1.37858 +/- 0.00196  (156.0 s)
+  ring-RPT (fitted annulus)    k = 1.38250 +/- 0.00187     158.7 s   0 particles stored
+      draw 3/8: k = 1.38250 +/- 0.00187  (158.7 s)
+  ring-RPT (fitted annulus)    k = 1.38080 +/- 0.00162     159.0 s   0 particles stored
+      draw 4/8: k = 1.38080 +/- 0.00162  (159.0 s)
+  ring-RPT (fitted annulus)    k = 1.38040 +/- 0.00155     156.5 s   0 particles stored
+      draw 5/8: k = 1.38040 +/- 0.00155  (156.5 s)
+  ring-RPT (fitted annulus)    k = 1.38209 +/- 0.00217     158.3 s   0 particles stored
+      draw 6/8: k = 1.38209 +/- 0.00217  (158.3 s)
+  ring-RPT (fitted annulus)    k = 1.38202 +/- 0.00188     151.5 s   0 particles stored
+      draw 7/8: k = 1.38202 +/- 0.00188  (151.5 s)
+  ring-RPT (fitted annulus)    k = 1.38304 +/- 0.00183     116.8 s   0 particles stored
+      draw 8/8: k = 1.38304 +/- 0.00183  (116.8 s)
+    POOLED ring-RPT (fitted annulus) k = 1.38145  sd = 0.00145  sem = +/-0.00051  (8 draws)
+
+=== Bias vs the exact (delta-tracked) treatment ===
+  Reference: k = 1.38267 +/- 0.00164  (delta tracking is exact by construction)
+
+  treatment                      dk [pcm]  combined sd     sigma      verdict
+  ------------------------------------------------------------------------------
+  ring-RPT (fitted annulus)          37          246       0.2  not resolved at this n
+
+=== Code-to-code against OpenMC: see examples/fhr_ring_rpt_endf.rs ===
+  That deck builds the reference materials and geometry properly and measures
+  explicit TRISO, delta-tracked, at k = 1.36547 +/- 0.00229 against OpenMC's
+  1.36510 +/- 0.00063 — +37 pcm (0.2 sigma). Its ring-RPT arm reads -116 pcm
+  (0.5 sigma) against OpenMC's 1.36479 +/- 0.00067.
+  Both are SINGLE DRAWS carrying ~230 pcm of statistics; a same-day re-run of
+  the explicit case gave -466 pcm, which is 1.5 sigma of ordinary noise rather
+  than a change. Pooling over seeds is gh:#196 / bn:op-awwi, and is not done.
+  Source: verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md
+
+  THIS example's arms are NOT comparable to those numbers: illustrative
+  materials, and a realised packing fraction of 0.2894 against a requested
+  0.30. Its delta arm sits +1757 pcm from the OpenMC explicit result for those
+  reasons, not because the two codes disagree. Use it for the treatment
+  comparison above, which shares every one of those offsets across all arms.
+
+=== Accuracy bought per unit speed ===
+  delta tracking                1.00x   (reference)
+  ring-RPT (fitted annulus)     2.10x   costs +37 pcm
+
+  A treatment is worth taking only if its bias is small against the
+  tolerance of the question being asked. A bias that is 'not resolved'
+  here means this run could not measure it -- NOT that it is zero.

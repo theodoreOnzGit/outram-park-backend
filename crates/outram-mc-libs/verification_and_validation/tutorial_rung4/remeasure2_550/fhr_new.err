@@ -1,0 +1,43 @@
+=== FHR ring-RPT pebble: free-gas target motion, priced with the in-process hook ===
+
+Reconstructing nuclides (RECONR + BROADR @ 600 K):
+  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok
+  reconstructing U235   … 155.1s
+  reconstructing U238   … 133.4s
+  reconstructing O16    … 4.1s
+  reconstructing C12    … 1.1s
+  reconstructing C13    … 210.1ms
+  reconstructing C12    … 1.1s
+  reconstructing C13    … 207.7ms
+  reconstructing Si28   … 1.7s
+  reconstructing Si29   … 1.7s
+  reconstructing Si30   … 1.4s
+  reconstructing F19    … 295.1ms
+  reconstructing Li6    … 107.7ms
+  reconstructing Li7    … 89.5ms
+  reconstructing Be9    … 175.9ms
+  resonance elastic scattering (DBRC/RVS table) on 16 of 16 nuclides
+  control: kinematics kT 5.170400e-2 -> 0 eV on all 16 nuclides (S(alpha,beta) moderators included)
+  ring-RPT fuel shell: 1.493359 < r < 1.753118 cm; pebble 2, reflective root 3
+Nuclear data + materials ready in 323.0 s.
+
+8 seeds per arm, 4000 histories × [30 inactive + 80 active]:
+    MOVING  seed   1: kfull = 1.366839364947020 k = 1.36684 ± 0.00178, p = 0.4828, eps = 1.5056  [240.8 s]
+    MOVING  seed   2: kfull = 1.365610131012042 k = 1.36561 ± 0.00191, p = 0.4839, eps = 1.5039  [249.1 s]
+    MOVING  seed   3: kfull = 1.364656159358087 k = 1.36466 ± 0.00172, p = 0.4837, eps = 1.5036  [248.5 s]
+    MOVING  seed   4: kfull = 1.362650254894882 k = 1.36265 ± 0.00187, p = 0.4833, eps = 1.5048  [242.8 s]
+    MOVING  seed   5: kfull = 1.365636504891107 k = 1.36564 ± 0.00188, p = 0.4828, eps = 1.5060  [249.8 s]
+    MOVING  seed   6: kfull = 1.361608076596905 k = 1.36161 ± 0.00170, p = 0.4825, eps = 1.5058  [244.6 s]
+    MOVING  seed   7: kfull = 1.362815164061505 k = 1.36282 ± 0.00166, p = 0.4839, eps = 1.5048  [220.4 s]
+    MOVING  seed   8: kfull = 1.360904138468223 k = 1.36090 ± 0.00175, p = 0.4832, eps = 1.5052  [227.4 s]
+  MOVING  arm done in 1923.5 s
+    AT-REST seed   1: kfull = 1.361518064187646 k = 1.36152 ± 0.00183, p = 0.4852, eps = 1.4993  [224.6 s]
+    AT-REST seed   2: kfull = 1.360095723115570 k = 1.36010 ± 0.00177, p = 0.4840, eps = 1.5007  [228.1 s]
+    AT-REST seed   3: kfull = 1.360583251034949 k = 1.36058 ± 0.00154, p = 0.4852, eps = 1.5001  [230.8 s]
+    AT-REST seed   4: kfull = 1.360857160151957 k = 1.36086 ± 0.00170, p = 0.4845, eps = 1.5009  [229.1 s]
+    AT-REST seed   5: kfull = 1.361385182580799 k = 1.36139 ± 0.00179, p = 0.4856, eps = 1.4990  [299.3 s]
+    AT-REST seed   6: kfull = 1.357788305296504 k = 1.35779 ± 0.00177, p = 0.4841, eps = 1.5011  [328.2 s]
+    AT-REST seed   7: kfull = 1.364956613054227 k = 1.36496 ± 0.00168, p = 0.4862, eps = 1.4986  [392.1 s]
+    AT-REST seed   8: kfull = 1.362652508588581 k = 1.36265 ± 0.00197, p = 0.4844, eps = 1.5008  [319.5 s]
+  AT-REST arm done in 2251.7 s
+

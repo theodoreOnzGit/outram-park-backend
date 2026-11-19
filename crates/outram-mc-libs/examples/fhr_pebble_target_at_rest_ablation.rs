@@ -82,6 +82,15 @@
 //! README "gh:#1636"). Not done: building `f8dbb4951` and its parent to separate
 //! DBRC-on from the RVS method switch (the ablation removes both together).
 //!
+//! **Re-measured 2026-11-19 after the S(a,b) emission-grid flip (gh:#550),
+//! 8 seeds, same protocol:** MOVING 1.36384 (record 1.36307, +77 +/- 86 pcm,
+//! 0.9 sigma), AT-REST 1.36123 (record 1.36154, -31 +/- 88), worth **-261 +/- 107
+//! pcm** against the -153 +/- 43 below (-108 +/- 115, 0.9 sigma: unresolved, so
+//! `SESSION_PCM` is not moved). The seed sd rose to 214 pcm from 117. With
+//! `OUTRAM_SAB_LOG_SPACED_GRID=1` (the old build) seeds 1 and 2 of MOVING
+//! reproduce the record to every printed digit. Record:
+//! `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
 //! Note what the +/- is: a seed-to-seed standard error over an ensemble, not
 //! one run's within-run `k_std` as in gh:#193's single-seed row.
 //!

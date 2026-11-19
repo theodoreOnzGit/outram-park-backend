@@ -69,6 +69,21 @@
 //!     --example thermal_kernel_keff_worth -- [particles] [inactive] [active] [replicas]
 //! ```
 //!
+//! # The gh:#550 arm (2026-11-19)
+//!
+//! `ThermalScattering::from_tape` now builds on THERMR's `calcem` node grid,
+//! so the "384x64 (current)" row below is the pre-flip default, built by the
+//! explicit `from_tape_with_grids` and unchanged. A fifth arm,
+//! "calcem nodes x64 (#550)", is `from_tape` itself; `OUTRAM_TKW_PAIR=1` runs
+//! only those two (the first row is then the old default, so the printed delta
+//! is the flip's worth on this medium) and `OUTRAM_TKW_SEED0=n` shifts the
+//! master seeds for a replication block. Measured 2026-11-19, 8 replicas
+//! x 4000 x [20 + 80], 600 K: node grid minus log-spaced **-234 +/- 108 pcm**
+//! (seeds 20260912-19), **-12 +/- 68 pcm** (seeds 20261912-19), pooled
+//! N = 16 **-123 +/- 68 pcm** (1.8 sigma, not resolved). Record:
+//! `verification_and_validation/tutorial_rung4/sab_reference_550.md`,
+//! "Second re-measure".
+//!
 //! # Results
 //!
 //! ~~Recorded in the doc comment of
@@ -185,7 +200,7 @@ fn main() {
          reflective cube half = {HALF_CM} cm (k_inf, zero leakage)\n\
          {n_replicas} replicas x {n_particles} particles x [{n_inactive} + {n_active}], \
          {} tabulations\n",
-        CONFIGS.len()
+        CONFIGS.len() + 1 // the fifth is the gh:#550 node-grid arm; OUTRAM_TKW_PAIR=1 runs two
     );
 
     let tape = {
@@ -203,11 +218,27 @@ fn main() {
     // The one medium has every carbon bound, so both carbon slots take the
     // table in that one material (per-material S(a,b), gh:#462 / #1581).
     let mut bound_material: Option<Material> = None;
-    for &(n_emit, n_out, label) in CONFIGS {
+    // gh:#550 (2026-11-19): a fifth arm, `ThermalScattering::from_tape`, which
+    // is now THERMR's `calcem` node grid. `OUTRAM_TKW_PAIR=1` runs only the
+    // log-spaced 384x64 arm (the default before the flip) and the node-grid
+    // arm, so the first row, which every delta is taken against, is the old
+    // default and the printed delta is the flip's worth on this medium.
+    let pair_only = std::env::var_os("OUTRAM_TKW_PAIR").is_some_and(|v| !v.is_empty() && v != "0");
+    let mut arms: Vec<(Option<(usize, usize)>, &str)> = CONFIGS
+        .iter()
+        .filter(|c| !pair_only || c.2.starts_with("384x64"))
+        .map(|&(n_emit, n_out, label)| (Some((n_emit, n_out)), label))
+        .collect();
+    arms.push((None, "calcem nodes x64 (#550)"));
+    for (grid, label) in arms {
         let t0 = std::time::Instant::now();
-        let sab =
-            ThermalScattering::from_tape_with_grids(&tape, 30, TEMP_K, "c_Graphite", n_emit, n_out)
-                .expect("S(a,b) tables");
+        let sab = match grid {
+            Some((n_emit, n_out)) => {
+                ThermalScattering::from_tape_with_grids(&tape, 30, TEMP_K, "c_Graphite", n_emit, n_out)
+            }
+            None => ThermalScattering::from_tape(&tape, 30, TEMP_K, "c_Graphite"),
+        }
+        .expect("S(a,b) tables");
         eprintln!("  S(a,b) {label}: built in {:.1?}", t0.elapsed());
         let mut entries = MaterialSab::for_materials_containing(
             std::slice::from_ref(&material),
@@ -245,6 +276,9 @@ fn main() {
         }
         return;
     }
+    // `OUTRAM_TKW_SEED0=<n>` shifts every master seed by n (gh:#550), for a
+    // replication block that does not overlap an earlier one. Unset: 0.
+    let seed_offset: u64 = std::env::var("OUTRAM_TKW_SEED0").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
     // k[config][replica], and the run's own generation-spread sigma alongside.
     let mut k: Vec<Vec<f64>> = vec![Vec::with_capacity(n_replicas); sets.len()];
     let mut ks: Vec<Vec<f64>> = vec![Vec::with_capacity(n_replicas); sets.len()];
@@ -254,7 +288,7 @@ fn main() {
             n_inactive,
             n_active,
             temperature_k: TEMP_K,
-            seed: 20_260_912 + r as u64,
+            seed: 20_260_912 + seed_offset + r as u64, // OUTRAM_TKW_SEED0 (gh:#550): a non-overlapping replication block
             compute: ComputeType::CpuMultiThread(Default::default()),
             ..KeffSettings::default()
         };

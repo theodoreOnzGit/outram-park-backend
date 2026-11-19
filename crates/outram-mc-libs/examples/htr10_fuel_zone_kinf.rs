@@ -103,6 +103,16 @@
 //!   this crate cannot reproduce an OpenMC sequence bit-for-bit. (Not
 //!   re-checked 2026-10-05.)
 //!
+//! # Re-measured 2026-11-19 after the S(a,b) emission-grid flip (gh:#550)
+//!
+//! `OUTRAM_FZ_SEEDS=12 -- 2000 20 60`, seeds 1-12, default (node grid) against
+//! `OUTRAM_SAB_LOG_SPACED_GRID=1` (the old build, which reproduces the
+//! 2026-11-17 record's means and sds exactly): heterogeneous 1.57253 (sd 314
+//! pcm) against 1.57302 (sd 279), **-49 +/- 121 pcm** (0.4 sigma); homogenised
+//! 1.44731 against 1.44751, -20 +/- 113; worth -12522 against -12552,
+//! +30 +/- 175. Nothing resolved. Record:
+//! `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
 //! # Reproducibility
 //!
 //! Everything needed to re-run this is printed by the program itself: the RNG

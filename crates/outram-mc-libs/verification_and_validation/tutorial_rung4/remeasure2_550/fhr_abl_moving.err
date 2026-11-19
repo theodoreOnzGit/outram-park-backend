@@ -1,0 +1,26 @@
+=== FHR ring-RPT pebble: free-gas target motion, priced with the in-process hook ===
+
+Reconstructing nuclides (RECONR + BROADR @ 600 K):
+  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok
+  reconstructing U235   … 162.1s
+  reconstructing U238   … 144.9s
+  reconstructing O16    … 4.3s
+  reconstructing C12    … 1.4s
+  reconstructing C13    … 286.7ms
+  reconstructing C12    … 1.3s
+  reconstructing C13    … 214.9ms
+  reconstructing Si28   … 1.7s
+  reconstructing Si29   … 1.6s
+  reconstructing Si30   … 1.3s
+  reconstructing F19    … 287.8ms
+  reconstructing Li6    … 107.5ms
+  reconstructing Li7    … 86.9ms
+  reconstructing Be9    … 116.7ms
+  resonance elastic scattering (DBRC/RVS table) on 16 of 16 nuclides
+  control: kinematics kT 5.170400e-2 -> 0 eV on all 16 nuclides (S(alpha,beta) moderators included)
+  ring-RPT fuel shell: 1.493359 < r < 1.753118 cm; pebble 2, reflective root 3
+Nuclear data + materials ready in 338.8 s.
+
+8 seeds per arm, 4000 histories × [30 inactive + 80 active]:
+    MOVING  seed   1: kfull = 1.363552214451765 k = 1.36355 ± 0.00184, p = 0.4838, eps = 1.5036  [332.2 s]
+    MOVING  seed   2: kfull = 1.362281591315314 k = 1.36228 ± 0.00172, p = 0.4822, eps = 1.5059  [326.7 s]

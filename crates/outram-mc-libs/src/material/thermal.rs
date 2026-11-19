@@ -167,6 +167,21 @@ pub const DEFAULT_THERMAL_CUTOFF_EV: f64 = 4.0;
 /// rows equal to 5 digits, 2e-5 at worst); the builds differ BETWEEN `calcem`
 /// nodes (`sab_reference_550.md`).
 const N_EMIT_GRID: usize = 384;
+
+/// The named environment ablation of the gh:#550 flip (2026-11-19):
+/// `OUTRAM_SAB_LOG_SPACED_GRID=1` makes [`ThermalScattering::from_tape`] and
+/// [`ThermalScattering::from_tape_with_options`] build the pre-flip
+/// log-spaced emission tables instead of the `calcem` node grid, so that a
+/// consumer far from the constructors (an example, `nee_soon`, a LEAPR route)
+/// can be re-run as a paired old-build control without a second checkout.
+/// Unset, empty or `0` is the default (physics on). Read on every call, not
+/// cached. Always `false` without `std`.
+fn log_spaced_grid_ablation_requested() -> bool {
+    match crate::env::var("OUTRAM_SAB_LOG_SPACED_GRID") {
+        Ok(v) => !v.is_empty() && v != "0",
+        Err(_) => false,
+    }
+}
 /// Equally-probable outgoing energies per emission table (NJOY-typical).
 ///
 /// **Raised from 16 to 64 on 2026-09-12**, by the same sweep that sized
@@ -930,6 +945,9 @@ impl ThermalScattering {
         temperature_k: f64,
         name: &str,
     ) -> Result<Self, NjoyError> {
+        if log_spaced_grid_ablation_requested() {
+            return Self::from_tape_log_spaced_grid(tape, mat, temperature_k, name);
+        }
         Self::from_tape_on_calcem_grid(tape, mat, temperature_k, name)
     }
 
@@ -985,6 +1003,17 @@ impl ThermalScattering {
     ) -> Result<Self, NjoyError> {
         // gh:#550: the default is THERMR's own incident-energy grid; the
         // log-spaced build is `from_tape_with_grids_and_options`.
+        if log_spaced_grid_ablation_requested() {
+            return Self::from_tape_with_grids_and_options(
+                tape,
+                mat,
+                temperature_k,
+                name,
+                N_EMIT_GRID,
+                N_OUTGOING,
+                options,
+            );
+        }
         Self::from_tape_on_calcem_grid_and_options(tape, mat, temperature_k, name, N_OUTGOING, options)
     }
 
