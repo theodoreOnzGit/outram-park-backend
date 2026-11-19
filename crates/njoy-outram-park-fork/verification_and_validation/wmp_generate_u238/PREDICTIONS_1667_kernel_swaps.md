@@ -66,3 +66,28 @@ any single swap, and either sign is possible for R alone.
 
 A nuisance I expect: the port's kernels are 2 to 4 times slower than LAPACK's on the 15 578 x 131 residue matrices, so
 the swapped runs may be limited to fewer orders than the baseline; the baseline is then restricted to the same orders.
+
+## Addendum, written after the first swap result and BEFORE the balancing variants were run (2026-11-19 23:10 UTC)
+
+Seen so far (not yet predicted-against, stated for honesty): the E swap, trial t0, gave 360 iterations (the acceleration
+rule stopped the 98 to 130 list after 12 orders because quality stayed low), unusable share 46.4 % (OpenMC baseline 55.6 %,
+port 46.3 %), 1 of 360 above 1.5, per-order best median 1.17 (baseline 1.46, port 1.38). The new-protocol OpenMC baseline
+(`base1_t0`, one BLAS thread, fixed list 98:130) reproduces the old five-trial pool: 9 of 510 above 1.5, unusable 55.7 %,
+per-order best median 1.45. **So the eigensolver swap moves OpenMC toward the port, in contrast to what I predicted at
+25 %.** The eigensolver in the port is petir's `eigen_nonsymm(balance = true)`: GSL's `gsl_linalg_balance_matrix`
+(off-diagonal 1-norms, radix-squared steps, no permutation), where DGEEV balances with LAPACK's DGEBAL (2-norms including
+the diagonal, permutation first). petir carries a DGEBAL port (`petir::linalg::dgebal`), unused by `eigvals`. Variants,
+served by op 6 of `trace_server.rs`, same loop, same inputs:
+
+| id | swap | what it isolates | probability the tail returns to OpenMC's baseline (>= 0.9 %, unusable >= 52 %) | otherwise |
+|---|---|---|---|---|
+| E2 | port Francis QR, balanced by LAPACK `dgebal('B')` instead of GSL's balance | balancing alone | 55 % | stays port-like (<= 0.5 %, unusable 44 to 48 %) |
+| E1 | port Francis QR, no balancing | whether balancing helps at all | 15 % | port-like or worse: tail <= 0.5 %, unusable <= 48 % |
+
+Reasoning for the sign: the unusable share equals the port's under the E swap, which says the eigenvalues, not the least
+squares, set how often a fit has a negative cross section. A different balancing gives the Hessenberg reduction a
+different input, so it changes round-off by percent in the poles of a near-defective matrix and cannot be neutral; if
+balancing is the cause, E2 should move the share back up to 55 % and E1 should not. If E2 does not restore it, the cause
+is in the Francis QR itself (GSL deflation and shifts against DHSEQR's aggressive early deflation, n = 99 to 131 > NMIN = 75).
+Static prediction: the port's eigenvalues have a larger error than DGEEV's against the extended-precision reference
+(60 %: median error ratio port / DGEEV between 2 and 20; 25 %: about 1, errors of both set by conditioning; 15 %: port smaller).
