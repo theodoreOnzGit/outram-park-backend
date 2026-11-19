@@ -500,7 +500,7 @@ expected under zero true difference.
 | `dh_keff_vv` ring-RPT (G5) | +192 +- 82 | +2.3 | -10 | **missed, wrong sign** |
 | HST-009 route 4 (W2) | +73 +- 47 | +1.5 | +40 | held |
 | MSRE unit cell route 4 (W3) | -25 +- 50 | -0.5 | -10 | held |
-| MSRE N-1 (W1) | -183 +- 73 (uncontrolled) | -2.5 | -10 | **missed; not attributable to the flip** |
+| MSRE N-1 (W1) | ~~-183 +- 73 (uncontrolled)~~ | -2.5 | -10 | ~~**missed; not attributable to the flip**~~ **CORRECTED 2026-11-19 (third re-measure, below): the paired knob-on control gives the flip's own move, -297 +- 73 pcm (z -4.1, one seed pair), with +237 from other code; the earlier statement that it was not attributable to the flip was wrong** |
 | processed-law cache version | `CODE` not bumped by the flip | | | defect fixed |
 
 What the pass supports: no graphite or water system moved by an amount the
@@ -524,17 +524,297 @@ hash of the processed-law cache.
   -> `from_tape`, `data.rs`, `data_jobs.rs`). The graphite instruments that can
   resolve something are G1 to G5 above, and they are the evidence for graphite.
   The `htr10_correct_physics_is_default` test of `nee_soon` was not run.
-- `icsbep_five_route_keff` routes 3 and 5, and the HST-009 / MSRE cases at the
+- ~~`icsbep_five_route_keff` routes 3 and 5~~ **MEASURED 2026-11-19, see
+  "Third re-measure": bit-identical, as they cannot reach the ENDF thermal
+  build.** The HST-009 / MSRE cases at the
   2026-11-17 record's 16 and 8 seeds on the knob-on side (only 3 knob-on seeds
-  of HST-009 were run, as a control).
-- `fhr_ring_rpt_endf`'s other six solves (explicit TRISO, ring-RPT and naive
+  of HST-009 were run, as a control) remain as stated.
+- ~~`fhr_ring_rpt_endf`'s other six solves (explicit TRISO, ring-RPT and naive
   homogenised, cube and sphere, delta-tracked): the driver has no seed loop
   (see `sab_per_material_1581`); its CSG solve is G4. G5 is the nearest
-  delta-tracked ring-RPT pebble.
+  delta-tracked ring-RPT pebble.~~ **CORRECTED 2026-11-19:** the driver has no
+  seed LOOP, but it has had the per-process knob `OUTRAM_FHR_ALL_SEED=S`
+  (gh:#1635 item 1, `sab_per_material_1581`) since 2026-11-18, which sets the
+  master seed of all seven solves; the third re-measure ran the seven solves
+  as a knob pair per seed, see "Third re-measure".
 - The 24-seed G3 protocol (12 were run), and the FHR AT-REST arm with the knob
   on (the control for it is the 2026-11-17 record, checked only through the
   MOVING arm's seeds 1 and 2).
 - `dh_keff_vv`'s older single-draw doc record (1.38647 +- 0.00211, another
   machine and commit) is not a comparison here; the paired knob-on arm is.
 - Timings of the node-grid build against the log-spaced one.
-- LCT-008 cases, deliberately.
+- ~~LCT-008 cases, deliberately.~~ **The LCT-008 pin cell at 1.63576 and 1.75
+  cm was extended to 24 seeds in the third re-measure** (2.40 cm is
+  `gap_240_550.md`); the 36-nuclide tier at 2.40 cm and the 35-nuclide lattice
+  were not re-measured.
+
+## Third re-measure (2026-11-19, gh:#550, "finish the rest")
+
+Plan and signed predictions, committed before any run:
+`sab_reference_550_remeasure3_plan.md` (commit `c025f2007`). Raw outputs, run
+scripts and the analysis script: `remeasure3_550/` (`python3 -I
+analyse_pitches.py`). Research, education and V&V only. No library function was
+changed and no example was changed (the FHR seed knob `OUTRAM_FHR_ALL_SEED`
+already existed, gh:#1635 item 1); no `review.md` was touched; no tolerance,
+threshold or pin was moved; nothing is re-pinned.
+
+Hardware for every run: Intel Xeon @ 2.10 GHz (cloud container, KVM), 4 logical
+cores, 15 GB RAM, Linux 6.18.44, CPU only; a VM shared with other agents (load
+average 3 to 12 over the session); 2 threads per transport process (1 for the
+five-route runs), two heavy processes at a time plus niced side jobs. Timings
+are indicative only. Code: `c025f2007` (the plan commit; the library is that of
+`6b3b64807`), `--release`.
+
+### Item 1: LCT-008 pin cell at 1.63576 and 1.75 cm, default route, 24 seeds
+
+Protocol as `gap_240_550.md` step 1: case-1 borated water, 11 nuclides,
+5000 x [50 + 200], 293.6 K, tape data, node-grid S(a,b). Seeds 1-8 are the
+recorded `flip_550/pitch_flip.csv`; seeds 9-24 are new (`remeasure3_550/def_s9.csv`,
+`def_s17.csv`, one process each, both pitches per seed). **Reproducibility
+check, run because the 1.63576 block of seeds 9-24 disagrees with seeds 1-8:**
+seed 1 at both pitches re-run on this binary gives 1.064450 and 1.010059,
+identical to the recorded values to every printed digit
+(`remeasure3_550/repro_s1.csv`), so the recorded 8-seed blocks are what the code
+gives, as at 2.40 cm.
+
+**OpenMC reference.** The plan named the existing 16 OpenMC seeds and allowed
+more "only if time allows, announced". I added OpenMC seeds 17-24 at both
+pitches (OpenMC 0.15.3, same deck, same NJOY `.h5` library, same settings,
+`remeasure3_550/openmc_extra.csv`) after the 16-vs-24 results were in, so that
+the reference is 24 seeds as the outram side is; the 24-vs-24 figure is the
+headline and the 24-vs-16 figure (the one the plan's z values referred to) is
+shown beside it.
+
+| pitch | outram seeds | outram k | OpenMC | outram minus OpenMC | z | predicted (range) | outcome |
+|---|---|---|---|---|---|---|---|
+| 1.63576 | 1-8 (recorded) | 1.06323 +- 0.00039 | 24 seeds, 1.06232 +- 0.00019 | +92 +- 44 | +2.09 | | |
+| 1.63576 | 9-24 (new) | 1.06177 +- 0.00022 | | -55 +- 29 | -1.91 | | |
+| **1.63576** | **1-24** | **1.06225 +- 0.00024** (sd 117) | 24 seeds | **-6 +- 31** | **-0.20** | +45 (-30 .. +120) | **inside the range, 51 pcm below the central value; gate passes** |
+| 1.63576 | 1-24 | same | 16 seeds, 1.06253 +- 0.00022 | -27 +- 32 | -0.85 | +45 (-30 .. +120) | inside the range by 3 pcm, 72 pcm below the central value |
+| 1.75 | 1-8 (recorded) | 1.01168 +- 0.00033 | 24 seeds, 1.01130 +- 0.00026 | +39 +- 42 | +0.93 | | |
+| 1.75 | 9-24 (new) | 1.01153 +- 0.00027 | | +23 +- 37 | +0.62 | | |
+| **1.75** | **1-24** | **1.01158 +- 0.00021** (sd 102) | 24 seeds | **+28 +- 33** | **+0.86** | +55 (-20 .. +130) | **held, 27 pcm below the central value; gate passes** |
+| 1.75 | 1-24 | same | 16 seeds, 1.01104 +- 0.00033 | +54 +- 39 | +1.38 | +55 (-20 .. +130) | held (the plan's z, +1.4, matches) |
+
+- Both pitches pass the |z| <= 2 gate against OpenMC, with either reference. The
+  refutation conditions of the plan: (a) outside the range, no, though 1.63576 cm
+  sits at the low edge against the 16-seed reference; (b) negative beyond -30,
+  no (-27 and -6); (c) |z| > 2, no.
+- **1.63576 cm: the 8-seed block that the first re-measure quoted (+107 +- 50
+  from the log-spaced build, +71 to +92 against OpenMC) was a high draw**:
+  seeds 9-24 minus seeds 1-8 is **-147 +- 45 pcm (z -3.3, a post-hoc look at a
+  block difference, so not a 3.3 sigma finding)**; at 1.75 cm the same split is
+  -16 +- 43. The first 8 seeds are exactly reproducible (above), so this is the
+  random-number draw of those seeds, as at 2.40 cm (seeds 1-8 low there, here
+  high). Quote the **24-seed values**; the 8-seed values of the first
+  re-measure and of `pitch_sweep.md` ("1.06323 +- 0.00040, +107 +- 50 from the
+  log-spaced build") are superseded.
+- **What the flip did, with the 24 seeds, per pitch** (new minus the 2026-11-18
+  log-spaced 16-seed outram values, 1.06216 and 1.01104): **+9 +- 39 pcm** at
+  1.63576 cm, **+54 +- 37 pcm** at 1.75 cm, and at 2.40 cm +106 +- 36 pcm
+  (`gap_240_550.md`: 0.70536 to 0.70642). The three average +56 +- 22 pcm; this
+  combination was chosen after seeing the three, and per pitch only 2.40 cm and
+  1.75 cm are above 1.4 sigma. The first re-measure's reading (the node grid
+  raises k in H-in-H2O systems by tens of pcm) stands as a pooled statement and
+  is **not** resolved at 1.63576 cm.
+- My prediction missed on the central values (+45 predicted, -6 or -27
+  measured, i.e. 1.6 to 2.2 of the 32 pcm sigma at 1.63576 cm; +55 predicted, +28
+  measured at 1.75 cm): the model "pre-flip offset plus about +80 pcm" is too high at
+  1.63576 cm. The 8-seed number I shrunk from was the high block.
+
+**Not done:** the 36-nuclide tier at 2.40 cm (the plan made it conditional; the
+clock went to the other items, and its OpenMC side is a single run per pitch, so
+no gate could be claimed). Its status is unchanged: not re-measured.
+
+### Item 2: `icsbep_five_route_keff`, routes 3 and 5
+
+Read from the code first (plan): the `"ace"` arm builds H(H2O) with
+`ThermalScattering::from_ace` on `293.6K/HinH2O.ace`, and the knob is read only in
+`from_tape` / `from_tape_with_options`, so routes 3 and 5 cannot move.
+**Measured**: HST-009, 5000 x [40 + 120], seeds 1-3, each route as a knob pair
+(`OUTRAM_SAB_LOG_SPACED_GRID` unset against `=1`), 1 thread, same binary:
+
+| route | seed | k, knob off (default) | k, knob on (old build) | difference |
+|---|---|---|---|---|
+| 3 (NJOY2016 ACE) | 1, 2, 3 | 1.001330, 1.001075, 1.001708 | 1.001330, 1.001075, 1.001708 | **0.000000 each (bit-identical, k and k_std)** |
+| 5 (Rust-NJOY ACE) | 1, 2, 3 | 1.001330, 1.001075, 1.001708 | 1.001330, 1.001075, 1.001708 | **0.000000 each** |
+| 4 (ENDF + LEAPR), positive control | 1 | 1.00029 +- 0.00127 | 1.00128 +- 0.00143 | **-99 pcm** (the second re-measure's seed-1 control gave -99 too; the knob is live in this binary) |
+
+**Prediction held exactly** (difference exactly 0 on routes 3 and 5; route 4
+must differ). Two things worth knowing: (i) routes 3 and 5 also agree with each
+other to every digit at these seeds, as they do in the committed campaign
+(`data/per_seed_keff.csv`: both read 1.000823, 1.001497, 1.001068 at seeds 1-3 for
+its run size); the Rust-NJOY ACE files differ from NJOY2016's in the header
+words only (`cmp` stops at byte 38 / 3), consistent with the earlier
+word-for-word record; (ii) the absolute k differs from the campaign's (1.00133 vs
+1.000823 at seed 1) because this run is 1 thread with the present code and a
+library I assembled in scratch (below), where the campaign's run was at a
+different commit; **it is not compared and not a result**, only the knob pairs
+are. Libraries (not committed, scratch): route 3's from the submodule's U-234/235/
+236/238 tables, the 12 HST-009 nuclides' other tables built with
+`scripts/make_njoy_library.sh` on the shared NJOY2016 build (F-19, and the U-236 /
+U-238 / F-19 0 K companions; Al-27, Mn-55, O-16, Si, H-1 and U-234 symlinked from
+an earlier scratch library of the same recipe, `remeasure3_550/fiveroute/njoylib.log`);
+route 5's from `write_ace_library` with `--thermal-leapr` as `run_all.sh` does
+(`rustlib.log`). All 12 nuclides carry DBRC, 5 carry URR, S(a,b) on, in both
+(each `.err`).
+
+**Not run, and why:** Godiva and Jemima (no S(a,b); nothing for the flip to
+reach); the 35-nuclide lattice on routes 3 and 5 (the same `from_ace` line as
+HST-009; 35 nuclides x two libraries for a fixed result); `msre` is refused on
+these routes by the driver. The statement "routes 3 and 5 do not move" is
+therefore **measured on HST-009 (3 seeds, 0 pcm) and read from the code for the
+rest**.
+
+### Item 3: `fhr_ring_rpt_endf`, all seven solves
+
+`OUTRAM_FHR_ALL_SEED=S` (existing knob), the whole driver per seed (explicit
+TRISO, ring-RPT and naive-homogenised on the r = 3 sphere and the cube, plus
+the ring-RPT CSG sphere), 4000 x [30 + 80], 600 K, default arm against
+`OUTRAM_SAB_LOG_SPACED_GRID=1`, seeds 1-4 (3 and 4 were added by the clock
+rule in the plan, before any seed-1-2 comparison was read; a fifth seed was
+started and stopped unread for lack of time). Raw: `remeasure3_550/fhr/`;
+arithmetic with `sab_per_material_1581/ensembles_1635_item1/fhr_extract.awk`
+and `fhr_stat.awk` (old = knob on, new = default; sem = sd/sqrt(N)).
+
+**Controls, held exactly.** The knob-on arm reproduces the 2026-11-18 record's
+build on all seven solves and four seeds (e.g. means 1.36053, 1.40162, 1.36141,
+1.39714, 1.33093, 1.37865, 1.36336, identical to `sab_per_material_1581`'s "new"
+column), and the default arm's CSG solve gives 1.36684, 1.36561, 1.36466, 1.36265
+at seeds 1-4, identical to `remeasure2_550/fhr_new.err` MOVING seeds 1-4.
+
+| solve | old (knob on) mean (sd) | new (default) mean (sd) | new - old +- sigma (pcm) | z |
+|---|---|---|---|---|
+| explicit TRISO, sphere | 1.36053 (200) | 1.36110 (237) | +57 +- 155 | +0.37 |
+| explicit TRISO, cube | 1.40162 (335) | 1.40167 (68) | +5 +- 171 | +0.03 |
+| ring-RPT, sphere | 1.36141 (107) | 1.36285 (255) | +144 +- 138 | +1.04 |
+| ring-RPT, cube | 1.39714 (137) | 1.39691 (195) | -23 +- 119 | -0.19 |
+| naive homogenised, sphere | 1.33093 (302) | 1.32966 (85) | -127 +- 157 | -0.81 |
+| naive homogenised, cube | 1.37865 (96) | 1.37920 (124) | +55 +- 79 | +0.70 |
+| ring-RPT, CSG sphere | 1.36336 (126) | 1.36494 (177) | +158 +- 109 | +1.45 |
+
+Mean of the seven: **+38 pcm**. **Nothing is resolved**: every |z| <= 1.5, six
+of seven are inside 160 pcm, resolution at N = 4 is 80-170 pcm. The prediction
+(consistent with zero, mean within +-300, no single solve beyond 3.5 sigma)
+**held on the four-seed result**. Disclosure: at N = 3, a look I took when the
+seed-4 runs started, the CSG solve read +291 +- 74 pcm (z +3.9), above the 3.5
+sigma refutation line I had written down; the per-seed CSG differences were
++329, +333, +211, and then -242 at seed 4. The plan fixed N by the clock, and 4
+is the final N, but the N = 3 excursion is recorded: it is what a single noisy
+solve looks like with a staircase of 100-250 pcm per-seed sd, and the CSG solve's
+8-seed value in the second re-measure (+77 +- 86) is the better estimate.
+Seven comparisons: about a 30 % chance of at least one |z| > 2 under the null,
+and none is above 1.5. The ring-RPT sphere and CSG solves lean positive
+(+144, +158), as G4 (+77) and G5-ring (+192) did, all below 2.3 sigma; the
+explicit-TRISO solves, the same graphite physics without the ring, do not
+(+57, +5), and the naive homogenised sphere leans the other way (-127). I
+cannot give the graphite-pebble ring-RPT a single sign from these data, and do
+not claim one.
+
+### Summary of this pass
+
+| case | move or result | z | predicted | outcome |
+|---|---|---|---|---|
+| LCT-008 1.63576 cm, 24 seeds vs OpenMC 24 / 16 | -6 +- 31 / -27 +- 32 | -0.20 / -0.85 | +45 (-30 .. +120) | inside; central value missed by 51 / 72 pcm; gate passes |
+| LCT-008 1.75 cm, 24 seeds vs OpenMC 24 / 16 | +28 +- 33 / +54 +- 39 | +0.86 / +1.38 | +55 (-20 .. +130) | held; gate passes |
+| HST-009 route 3, knob pair, 3 seeds | 0 pcm, bit-identical | | exactly 0 | held |
+| HST-009 route 5, knob pair, 3 seeds | 0 pcm, bit-identical | | exactly 0 | held |
+| HST-009 route 4 control, seed 1 | -99 pcm | | must differ | held |
+| FHR seven solves, 4 seeds, new minus old | +38 pcm mean of seven; extremes +158 (CSG) and -127 (naive sphere) | all <= 1.5 | consistent with zero | held (N = 3 excursion disclosed) |
+
+What this pass adds: the LCT-008 pin cell agrees with OpenMC at all three
+pitches within the gate on the default (node-grid) route, at 24 seeds; the ACE
+routes 3 and 5 are not touched by the flip (measured); the FHR pebble's seven
+solves show no resolved move. What it does not add: any resolution below about
+100 pcm on the FHR solves; the 36-nuclide tier; the 35-nuclide lattice, MSRE N-1
+(still the uncontrolled W1 of the second re-measure), `nee_soon::htr10_rmc`.
+Nothing was tuned, no tolerance moved, no pin changed.
+
+**UPDATED 2026-11-19:** MSRE N-1 and `nee_soon::htr10_rmc` were re-measured as paired runs in the second part of the third re-measure, below.
+
+## Third re-measure, part 2 (2026-11-19, gh:#550): HTR-10 whole core and MSRE N-1, paired
+
+Plan and signed predictions, committed before any paired run:
+`sab_reference_550_remeasure3_core_plan.md` (commit `3f0b2d35f`, committed as `sab_reference_550_remeasure3_plan.md` and renamed at the merge with part 1). Raw outputs:
+`remeasure3_550/`. Research, education and V&V only. Base `6b3b64807`,
+`--release`, knob = `OUTRAM_SAB_LOG_SPACED_GRID=1`. Difference = default (node
+grid) minus knob-on (log-spaced).
+
+Hardware for every run: Intel Xeon @ 2.10 GHz (cloud container, KVM), 4 logical
+cores, 15.7 GiB RAM, Linux 6.18.44, CPU only; the box was shared with another
+agent (load average 6 to 12), so timings are indicative only.
+
+| id | case | old (knob on) | new (default) | new - old +- sigma | z | predicted | outcome |
+|---|---|---|---|---|---|---|---|
+| H1 | `htr10_rmc_keff` (the `nee_soon::htr10_rmc` model, default LEAPR laws), 4000 x [5+90], seed 20260917, 14 rings x 12 layers, 1 thread per arm, two arms side by side | 0.991743 +- 0.001673 | 0.991090 +- 0.001686 | **-65 +- 237 pcm** | -0.27 | -10 (-80 .. +60) at an expected sigma of 300; refuted only outside +-600 | **held, unresolved**: inside the range, but sigma 237 cannot resolve tens of pcm |
+| M1 | `msre_n1_first_criticality --mo natural --seeds 1 --threads 2`, 20000 x [100+200], default model | 1.019902 +- 0.000544 | 1.016934 +- 0.000488 (second re-measure, same code) | **-297 +- 73 pcm** | **-4.1** | -10 (-80 .. +60), and "the earlier -183 is not the flip" (knob-on should read about 1.0162) | **missed, both statements; resolved on one seed pair** |
+
+### H1: HTR-10 whole core
+
+The two arms ran the same commit, seed and statistics (380000 histories each,
+360000 active), one thread each, as the plan fixed. Data 491.7 s (default) and
+492.6 s (knob), transport 7490.9 s and 7467.1 s. Both: 0 lost, 0 stuck, 0
+majorant violations. The arms' internal sd came out at 169 and 167 pcm, below
+the 213 expected, so the difference's sigma is 237, not 300. The difference,
+-65 +- 237 pcm (z -0.27), is inside the predicted range and far inside the
++-600 refutation band; it **bounds |flip| below about 475 pcm at 2 sigma at this
+size and resolves nothing finer**. It is consistent with zero and with the -10
+predicted, and equally with -300. (Against RMC 1.004288: -1320 pcm default,
+-1255 knob-on; the benchmark gate is not what this pair tests.)
+
+A second finding the pair does show: **both arms sit below the 2026-11-05
+record** (0.995309 +- 0.001098, 10000 x [5+135], 16 threads): -422 +- 201 pcm
+(default, z -2.1) and -357 +- 200 pcm (knob on, z -1.8). Because the knob-on arm
+reproduces the pre-flip build and sits as low as the default, this is **not the
+flip**. It is code drift since 2026-11-05, or the different protocol (4000 x
+[5+90] against 10000 x [5+135], one thread against sixteen: the CSG hybrid
+driver's thread-count independence is assumed, not tested, see the example's
+doc), or a seed draw; I did not decompose it. The record 0.995309 is not
+reproduced on today's code at this size, and should not be quoted as the current
+value until a like-for-like re-run decides which.
+
+`htr10_correct_physics_is_default` (nee_soon) builds no data and cannot move; it
+is run as a test, see the hand-off.
+
+### M1: MSRE N-1
+
+**The control is exact.** The knob-on seed 1 is 1.019902 +- 0.000544, to every
+printed digit the value the msre_n1 README records for "the default re-run on a
+later binary (`42b372a59`, 2026-11-19, before the flip)". The knob therefore
+reproduces the pre-flip build on a third case, and the drift is separated:
+11-13 binary seed 1 = 1.017528 -> pre-flip same-day seed 1 = 1.019902 (+237 pcm,
+other code, not the flip) -> default seed 1 = 1.016934 (**-297 +- 73 pcm, the
+flip**).
+
+The default arm is the second re-measure's seed 1 (`remeasure2_550/msre_new.csv`),
+not re-run: no `crates/*/src` file changed between its commit and base, and runs
+are deterministic for a fixed seed and thread count (2); that is an assumption I
+did not test with a repeat run. **One seed pair only**: seed 2's knob-on arm was
+not run (about 55 min, over budget), so the second re-measure's seed 2 default
+(1.015550) has no control. Sigma is the two runs' internal sd in quadrature; the
+six-seed record's seed-to-seed sd is about 56 pcm, consistent with it.
+
+What this says. The earlier "-183 +- 73 pcm against the 11-13 record, not
+attributable to the flip" was wrong in its attribution: **the flip itself moves
+N-1 by -297 +- 73 pcm (4.1 sigma) on seed 1**, more than the -183, partly offset
+by +237 from other code. Both of my predictions missed: -10 (-80 .. +60), and the
+attribution (knob-on about 1.0162; it read 1.0199). The direction, lower k, moves
+N-1 toward k_ref 1.00080, **which flatters the model, and is a reason to look
+harder and not to accept**: the node grid changes the carbon S(a,b) at 911 K
+(LEAPR deck) and H(H2O) in the shield, and I did not separate the two. One
+4 sigma pair among about thirty comparisons made today is possible under no
+effect, so a replication (knob-on seeds 2 and 3) is what would settle it. It is
+the largest flip-caused move of the #550 series (water systems +30 to +110 pcm,
+graphite pebbles unresolved at 100 to 300).
+
+**No pin moved**: nothing in the crates' tests pins the MSRE N-1 k (searched).
+The msre_n1 README headline (+1726 pcm, 6 seeds, 2026-11-13) is unchanged but is
+stale in two ways, the +237 other-code drift and this flip; not re-measured at
+six seeds.
+
+### Not done in this pass
+
+- MSRE N-1 knob-on seeds 2 and 3, and the default seed 3.
+- A like-for-like HTR-10 re-run at the record's protocol, to explain the -400 pcm
+  against 0.995309.
+- Separating the carbon and H2O contributions to M1.

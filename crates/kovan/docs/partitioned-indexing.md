@@ -291,7 +291,7 @@ key, coverage, settings and `#[path]` ownership
 | B `index-partition` | done; every member measured (§5.1) |
 | C `scip-merge` + equivalence | done; 100 % recall on an identical tree (§5.2) |
 | D `index-plan` + Pages matrix | done; ~~**not yet run on GitHub**~~ **first GitHub run passed 2026-11-19** (§5.6) |
-| E partition cache key | done (members' call-graph keys + `Cargo.lock` + host + rustc + rust-analyzer + schema); reuse shown locally |
+| E partition cache key | done (members' call-graph keys + `Cargo.lock` + host + rustc + rust-analyzer + schema); reuse shown locally and on GitHub (§5.6, run 778: 7 of 7 restored) |
 | F local Index | done |
 | G default + fallback | partitioned is the default on Linux/macOS; monolithic kept as `KOVAN_INDEXER=monolithic` until several CI builds have matched (brief §12) |
 
@@ -341,6 +341,13 @@ seven started together at 12:43:34 UTC.
   unchanged) and missed. So partitions are reused between runs of the same
   branch (consecutive deploys; consecutive nightlies on `develop`), not
   across branches, until a `main` run seeds the shared scope.
+- **Reuse on GitHub, observed (2026-11-19):** two `develop` dispatches on
+  the same commit `78a144929`. Run 777 (cold) indexed and saved all seven;
+  run 778 restored **all seven** from cache: in every partition job
+  `Index the partition`, rust-cache and cache-save were skipped, each job
+  took ~1 min (3–7 min cold), `index-unify` merged them and `callgraph`
+  built from the merged index (fallback skipped). Start to call graph:
+  **16 min warm** (16:03 → 16:19) against **36 min cold** (run 773).
 - **Plan job had no rust-analyzer (fixed the same day):** its key read
   "rust-analyzer missing" rather than the version the partitions index
   with, so a rust-analyzer update would not have invalidated a cached
