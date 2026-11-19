@@ -54,6 +54,10 @@ mod windowing;
 #[cfg(test)]
 mod tests;
 
+// Diagnostic for gh:#1390 (a logged copy of the order loop); test-only, ignored by default.
+#[cfg(all(test, feature = "std"))]
+mod trace;
+
 #[cfg(feature = "std")]
 use std::path::Path;
 
