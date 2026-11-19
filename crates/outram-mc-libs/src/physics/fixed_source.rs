@@ -241,6 +241,14 @@ pub struct FixedSourceResult {
     /// (`Σ ν·σ_f / σ_t` over collisions) — the sub-critical multiplication `M`.
     /// `0` for a non-fissile (shielding) system.
     pub multiplication: f64,
+    /// Fission secondaries **discarded** because a source particle's chain hit
+    /// [`FixedSourceSettings::max_secondaries`] (gh:#685). Non-zero means
+    /// `multiplication` and any tally are **biased low**: upstream aborts here
+    /// (`fatal_error`, `src/physics.cpp:122-130`) rather than truncating, and
+    /// this port reports instead of aborting, so check this field. Near
+    /// critical (`k -> 1`) the expected chain length is `1/(1-k)`, so a fixed
+    /// cap truncates a growing share of the answer.
+    pub dropped_secondaries: usize,
 }
 
 /// Run a fixed-source transport calculation.
@@ -329,6 +337,7 @@ pub fn run_fixed_source_traced(
     let per_batch = n.div_ceil(n_batches);
 
     let mut total_histories = 0usize;
+    let mut dropped_secondaries = 0usize;
     let mut production_sum = 0.0;
     let mut done = 0usize;
 
@@ -409,6 +418,8 @@ pub fn run_fixed_source_traced(
                     if secondaries < settings.max_secondaries {
                         bank.push(s);
                         secondaries += 1;
+                    } else {
+                        dropped_secondaries += 1;
                     }
                 }
             }
@@ -431,6 +442,7 @@ pub fn run_fixed_source_traced(
         source_particles: done,
         total_histories,
         multiplication: production_sum / done.max(1) as f64,
+        dropped_secondaries,
     }
 }
 
@@ -595,5 +607,45 @@ mod tests {
             "secondaries were transported"
         );
         assert!(tally.bins[0].sum > 0.0, "flux tally is positive");
+        assert_eq!(res.dropped_secondaries, 0, "default cap not reached here");
+    }
+
+    /// gh:#685: a cap that truncates a chain is REPORTED, not silent. The same
+    /// strongly sub-critical HEU sphere with `max_secondaries = 1` must drop
+    /// secondaries and say so, and the default cap drops none.
+    #[test]
+    fn a_truncating_secondary_cap_is_reported() {
+        use crate::material::material::{Material, NuclideComponent};
+        use crate::material::nuclide::Nuclide;
+        let nuclides = vec![
+            Nuclide::from_core("U234").unwrap(),
+            Nuclide::from_core("U235").unwrap(),
+            Nuclide::from_core("U238").unwrap(),
+        ];
+        let heu = Material {
+            id: 1,
+            name: "HEU".into(),
+            temperature: 293.6,
+            components: vec![
+                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
+                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
+                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+            ],
+        };
+        let geom = sphere_geom(4.0, BoundaryType::Vacuum, CellFill::Material(0));
+        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 2.0e6 };
+        let run = |cap: usize| {
+            run_fixed_source(
+                &geom,
+                &[heu.clone()],
+                &nuclides,
+                &src,
+                &FixedSourceSettings { n_particles: 200, n_batches: 2, max_secondaries: cap, ..Default::default() },
+                None,
+            )
+        };
+        let capped = run(1);
+        assert!(capped.dropped_secondaries > 0, "cap of 1 must truncate");
+        assert_eq!(run(10_000).dropped_secondaries, 0);
     }
 }

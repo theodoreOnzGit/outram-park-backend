@@ -206,6 +206,60 @@ impl TallyDerivative {
         Ok(())
     }
 
+    /// Accumulate this derivative's **streaming (track) term** over a flight of
+    /// `distance` \[cm\] in `material` — `score_track_derivative`
+    /// (`src/tallies/derivative.cpp:566, 573`), the counterpart of
+    /// [`Self::accumulate_at_collision`] (gh:#683). Without it
+    /// `(1/phi) d phi/d p` can only grow along a history.
+    ///
+    /// - density: `flux_deriv -= distance * Sigma_t / rho` (`rho` the total atom
+    ///   density, so `d Sigma_t / d rho = Sigma_t / rho`);
+    /// - nuclide density: `flux_deriv -= distance * sigma_t(nuclide)`.
+    ///
+    /// A flight in another material contributes nothing.
+    ///
+    /// # Errors
+    ///
+    /// A temperature derivative (needs `d Sigma_t / d T`, which this port does
+    /// not have; see the module docs), or a void under a density derivative.
+    pub fn accumulate_along_track(
+        &self,
+        flux_deriv: &mut FluxDerivative,
+        material_idx: usize,
+        material: &Material,
+        nuclides: &[Nuclide],
+        distance: f64,
+        e: f64,
+    ) -> Result<(), String> {
+        if material_idx != self.material_idx {
+            return Ok(());
+        }
+        match self.variable {
+            DerivativeVariable::Density => {
+                let rho: f64 = material.components.iter().map(|c| c.atom_density).sum();
+                if !(rho > 0.0) {
+                    return Err(format!(
+                        "material {material_idx} has total atom density {rho}; a density \
+                         derivative of a void is undefined, not zero"
+                    ));
+                }
+                flux_deriv.value -= distance * material.macro_xs(e, nuclides).total / rho;
+            }
+            DerivativeVariable::NuclideDensity { nuclide_idx } => {
+                let sigma_t = nuclides[nuclide_idx].xs_at_energy(e, material.temperature).total;
+                flux_deriv.value -= distance * sigma_t;
+            }
+            DerivativeVariable::Temperature => {
+                return Err(
+                    "the streaming term of a temperature derivative needs d(Sigma_t)/dT, \
+                     which this port does not have (see the module docs)"
+                        .into(),
+                );
+            }
+        }
+        Ok(())
+    }
+
     /// Turn a score into its derivative —
     /// `apply_derivative_to_score` (`src/tallies/derivative.cpp`).
     ///
@@ -271,6 +325,14 @@ impl TallyDerivative {
                         self.material_idx
                     ));
                 };
+                // **KNOWN DEFECT (gh:#683 item 2, not fixed here):** `1/N_i` is
+                // upstream's term only for a score ON this nuclide. For a
+                // material-total score upstream uses `sigma_i / Sigma`
+                // (`derivative.cpp:211-271`), which needs the event's cross
+                // sections that this signature does not carry. Likewise the
+                // analog-only / `event_nuclide` guards (item 3) are not
+                // enforced. Do not wire this up for material-total scores
+                // until a `sigma_i / Sigma` form exists.
                 match score_type {
                     ScoreType::Total
                     | ScoreType::Scatter
@@ -482,5 +544,40 @@ mod tests {
                 .unwrap(),
             0.0
         );
+    }
+
+    /// gh:#683: the streaming term has the sign and size that make an infinite
+    /// medium's logarithmic density derivative cancel. Over a flight of mean
+    /// length `1/Sigma_t` the track term is `-1/rho`, exactly undoing the
+    /// collision term `+1/rho`; a flight in another material, or a
+    /// temperature derivative, behaves as documented.
+    #[test]
+    fn the_streaming_term_cancels_the_collision_term_over_a_mean_flight() {
+        use crate::material::nuclide::Nuclide;
+        let nucs = vec![Nuclide::from_core("U238").unwrap(), Nuclide::from_core("U235").unwrap()];
+        let m = two_nuclide_material();
+        let d = TallyDerivative { material_idx: 3, variable: DerivativeVariable::Density };
+        let e = 1.0e6;
+        let sigma_t = m.macro_xs(e, &nucs).total;
+        assert!(sigma_t > 0.0);
+        let mut f = FluxDerivative::default();
+        d.accumulate_along_track(&mut f, 3, &m, &nucs, 1.0 / sigma_t, e).unwrap();
+        let rho: f64 = m.components.iter().map(|c| c.atom_density).sum();
+        assert!((f.value + 1.0 / rho).abs() < 1e-9 * (1.0 / rho), "track term {}", f.value);
+        d.accumulate_at_collision(&mut f, 3, &m, &nucs, 0, e).unwrap();
+        assert!(f.value.abs() < 1e-9 / rho, "net {}", f.value);
+        // Another material: nothing.
+        let mut g = FluxDerivative::default();
+        d.accumulate_along_track(&mut g, 7, &m, &nucs, 5.0, e).unwrap();
+        assert_eq!(g.value, 0.0);
+        // Nuclide density: -distance * sigma_t(nuclide).
+        let dn = TallyDerivative { material_idx: 3, variable: DerivativeVariable::NuclideDensity { nuclide_idx: 0 } };
+        let mut h = FluxDerivative::default();
+        dn.accumulate_along_track(&mut h, 3, &m, &nucs, 2.0, e).unwrap();
+        let st0 = nucs[0].xs_at_energy(e, m.temperature).total;
+        assert!((h.value + 2.0 * st0).abs() < 1e-12 * st0.abs().max(1.0));
+        // Temperature: refused, not zero.
+        let dt = TallyDerivative { material_idx: 3, variable: DerivativeVariable::Temperature };
+        assert!(dt.accumulate_along_track(&mut FluxDerivative::default(), 3, &m, &nucs, 1.0, e).is_err());
     }
 }

@@ -30,7 +30,13 @@ pub enum ScoreType {
     /// to a target reactor thermal power (the `tally-power-normalization`
     /// notebook).
     KappaFission,
-    ScatterN, // (n,xn) scatter
+    /// ~~`(n,xn)` scatter~~ **CORRECTED 2026-11-19** (gh:#680): the track-length
+    /// and collision estimators score the **elastic** channel only; the
+    /// scatter matrix ([`super::scoring::score_scatter_matrix`]) scores
+    /// **every** scattering reaction weighted by its multiplicity, i.e. a
+    /// *nu*-scatter matrix. Its row sum therefore differs from a track-length
+    /// `ScatterN` (and from `Scatter`) by construction, by the (n,xn) excess.
+    ScatterN,
     Current,
     Events,
 

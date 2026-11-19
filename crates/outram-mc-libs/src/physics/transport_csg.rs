@@ -2697,7 +2697,13 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     } else {
                         (vr.weight_cutoff, vr.weight_survive)
                     };
-                    if w < cutoff {
+                    // gh:#684: upstream plays this roulette only when weight
+                    // windows are OFF (`if (!settings::weight_windows_on)
+                    // apply_russian_roulette(p)`, `src/physics.cpp:169-171`); with
+                    // windows on, roulette happens only where the window game
+                    // finds no window. ~~It was played with windows on too.~~
+                    // **CORRECTED 2026-11-19.**
+                    if w < cutoff && vr.weight_windows.is_none() {
                         w = russian_roulette(w, survive, seed);
                         if w == 0.0 {
                             record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, cell_idx, Some(m));
@@ -3775,6 +3781,38 @@ mod leakage_tests {
         let closed = heu_sphere(8.7407, BoundaryType::Vacuum);
         let ok = try_run_keff_csg(&closed, &mats, &nucs, src(), &s, None).expect("vacuum loses none");
         assert_eq!(ok.lost_locate, 0);
+    }
+
+    /// gh:#684: with survival biasing AND weight windows on, the cutoff roulette
+    /// is not played. A window that covers every weight (lower bound far below
+    /// any weight) never acts itself, so a run with `weight_cutoff = 1.0` (roulette
+    /// at every sub-unit weight) must equal, bit for bit, the same run with
+    /// `weight_cutoff = 0.0` (never). Control: without the window the cutoff DOES
+    /// change the run.
+    #[test]
+    fn survival_biasing_with_weight_windows_plays_no_cutoff_roulette() {
+        use crate::physics::weight_windows::WeightWindows;
+        use crate::tally::mesh::RegularMesh;
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.7407, BoundaryType::Vacuum);
+        let mesh = RegularMesh {
+            lower_left: [-10.0; 3],
+            upper_right: [10.0; 3],
+            dimension: [1, 1, 1],
+        };
+        let ww = WeightWindows::new(mesh, vec![0.0, 2.0e7], vec![1.0e-9], vec![1.0e9]).unwrap();
+        let run = |cutoff: f64, windowed: bool| {
+            let mut vr = crate::physics::variance_reduction::VarianceReduction::default();
+            vr.survival_biasing = true;
+            vr.weight_cutoff = cutoff;
+            if windowed {
+                vr = vr.with_weight_windows(ww.clone());
+            }
+            let s = KeffSettings { n_particles: 100, n_inactive: 1, n_active: 2, variance_reduction: vr, ..KeffSettings::default() };
+            run_keff_csg(&geom, &mats, &nucs, src(), &s, None).k_by_generation
+        };
+        assert_eq!(run(1.0, true), run(0.0, true), "windows on: the cutoff must not act");
+        assert_ne!(run(1.0, false), run(0.0, false), "control: windows off, it does");
     }
 
     /// gh:#703: the `k` trigger is not evaluated before
