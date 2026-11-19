@@ -265,3 +265,47 @@ fn resonance_scattering_method_defaults_to_upstreams_rvs() {
     assert_eq!(t.method(), ResonanceScatteringMethod::Rvs);
     assert_eq!(t.with_method(ResonanceScatteringMethod::Dbrc).method(), ResonanceScatteringMethod::Dbrc);
 }
+
+
+/// **The ENDF-route H-in-H2O S(alpha,beta) emission tables sit on THERMR's own
+/// incident-energy grid by default** (gh:#550, flipped 2026-11-19).
+///
+/// Methodology: build through the ordinary paths (`from_tape`,
+/// `from_tape_with_options` with default options) and through the explicit
+/// node-grid constructor and the explicit log-spaced ablation
+/// (`from_tape_log_spaced_grid`). Sample `sample_inelastic` with one seed
+/// at energies between `calcem` nodes. Pass criterion: the ordinary paths are
+/// bit-identical to the node-grid build and differ from the log-spaced
+/// ablation (which is the staircase, +1.46 % in mean E' at 1 eV).
+/// Result: see the test output and `sab_reference_550.md`.
+#[test]
+fn endf_thermal_emission_is_on_the_calcem_grid_by_default() {
+    use njoy_outram_park_fork::endf::tape::Tape;
+    use outram_mc_libs::material::thermal::{EndfElasticOptions, ThermalScattering};
+
+    let Some(p) = njoy_outram_park_fork::reference_data::reference_endf("tsl-HinH2O.endf") else {
+        println!("tsl-HinH2O.endf absent: skipping");
+        return;
+    };
+    let tape = Tape::read_file(&p).expect("tape");
+    let def = ThermalScattering::from_tape(&tape, 1, 293.6, "w").expect("from_tape");
+    let opt = ThermalScattering::from_tape_with_options(&tape, 1, 293.6, "w", EndfElasticOptions::default())
+        .expect("from_tape_with_options");
+    let node = ThermalScattering::from_tape_on_calcem_grid(&tape, 1, 293.6, "w").expect("node grid");
+    let log = ThermalScattering::from_tape_log_spaced_grid(&tape, 1, 293.6, "w").expect("log grid");
+
+    let draw = |th: &ThermalScattering, e: f64| -> Vec<u64> {
+        let mut seed = 77_u64;
+        (0..200)
+            .map(|_| th.sample_inelastic(e, &mut seed).expect("inside").0.to_bits())
+            .collect()
+    };
+    let mut log_differs = false;
+    for e in [0.025, 0.1, 0.4, 1.0, 3.5] {
+        let n = draw(&node, e);
+        assert_eq!(draw(&def, e), n, "from_tape is not the node-grid build at {e} eV");
+        assert_eq!(draw(&opt, e), n, "from_tape_with_options is not the node-grid build at {e} eV");
+        log_differs |= draw(&log, e) != n;
+    }
+    assert!(log_differs, "the log-spaced ablation equals the default; the ablation is not an ablation");
+}

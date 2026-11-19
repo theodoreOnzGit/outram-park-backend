@@ -903,13 +903,24 @@ impl ThermalScattering {
         }
     }
 
+    /// The ENDF-route default build. **Since 2026-11-19 (gh:#550, maintainer
+    /// decision "flip and re-measure") the emission tables sit on THERMR's own
+    /// incident-energy grid** ([`from_tape_on_calcem_grid`](Self::from_tape_on_calcem_grid)),
+    /// as NJOY's ACE stores them. ~~Until then this called
+    /// [`from_tape_with_grids`](Self::from_tape_with_grids) at `N_EMIT_GRID`
+    /// log-spaced energies, each labelled with an energy whose `calcem` record
+    /// was the nearest node, a staircase in incident energy (mean E' off the
+    /// evaluation by up to 2.3 %).~~ **CORRECTED 2026-11-19.** The old build is
+    /// the explicit ablation [`from_tape_with_grids`](Self::from_tape_with_grids).
+    /// Record and re-measured numbers:
+    /// `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
     pub fn from_tape(
         tape: &njoy_outram_park_fork::endf::tape::Tape,
         mat: i32,
         temperature_k: f64,
         name: &str,
     ) -> Result<Self, NjoyError> {
-        Self::from_tape_with_grids(tape, mat, temperature_k, name, N_EMIT_GRID, N_OUTGOING)
+        Self::from_tape_on_calcem_grid(tape, mat, temperature_k, name)
     }
 
     #[cfg(feature = "std")]
@@ -932,6 +943,23 @@ impl ThermalScattering {
         Self::from_tape_with_options(&tape, mat, temperature_k, name, options)
     }
 
+    /// **The explicit ABLATION of the gh:#550 flip:** the pre-2026-11-19 default
+    /// build, emission tables at `N_EMIT_GRID` log-spaced energies, each filled
+    /// with the nearest `calcem` record (a staircase in incident energy; mean
+    /// E' off the evaluation by up to 2.3 %). Use it only to reproduce numbers
+    /// recorded before the flip; [`from_tape`](Self::from_tape) is the physics.
+    ///
+    /// # Errors
+    /// As [`from_tape`](Self::from_tape).
+    pub fn from_tape_log_spaced_grid(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_grids(tape, mat, temperature_k, name, N_EMIT_GRID, N_OUTGOING)
+    }
+
     /// [`from_tape`](Self::from_tape) with explicit [`EndfElasticOptions`]
     /// (gh:#634). `EndfElasticOptions::default()` is exactly `from_tape`.
     ///
@@ -945,15 +973,9 @@ impl ThermalScattering {
         name: &str,
         options: EndfElasticOptions,
     ) -> Result<Self, NjoyError> {
-        Self::from_tape_with_grids_and_options(
-            tape,
-            mat,
-            temperature_k,
-            name,
-            N_EMIT_GRID,
-            N_OUTGOING,
-            options,
-        )
+        // gh:#550: the default is THERMR's own incident-energy grid; the
+        // log-spaced build is `from_tape_with_grids_and_options`.
+        Self::from_tape_on_calcem_grid_and_options(tape, mat, temperature_k, name, N_OUTGOING, options)
     }
 
     /// [`from_tape`](Self::from_tape) with the **two emission-table dimensions
@@ -977,6 +999,9 @@ impl ThermalScattering {
     /// and memory scale linearly in `n_emit` and in `n_outgoing`, so neither is
     /// a free knob.
     ///
+    /// **This is the explicit LOG-SPACED ABLATION since 2026-11-19 (gh:#550):
+    /// [`from_tape`](Self::from_tape) now builds on THERMR's own grid.**
+    ///
     /// **Caveat found 2026-11-18 (GitHub #550):** each table here is
     /// `IncoherentInelasticScattering::emission` at a log-spaced energy, and
     /// `emission` answers with the `calcem` record **nearest** that energy, so
@@ -987,10 +1012,9 @@ impl ThermalScattering {
     /// records). [`from_tape_on_calcem_grid`](Self::from_tape_on_calcem_grid)
     /// puts the tables on THERMR's own grid and is within 6.4e-4 of the
     /// evaluation at every energy measured. This function is kept for the
-    /// convergence study that sized the defaults. **[`from_tape`](Self::from_tape)
-    /// still uses this log-spaced grid** (not flipped in #550's change: every
-    /// ENDF-route thermal V&V number would have to be re-measured first, a
-    /// maintainer decision recorded in the #550 record).
+    /// convergence study that sized the defaults and as the ablation.
+    /// ~~**[`from_tape`](Self::from_tape) still uses this log-spaced grid**~~
+    /// **CORRECTED 2026-11-19:** flipped; `from_tape` uses the node grid.
     ///
     /// Transport callers should use [`from_tape`](Self::from_tape) and get the
     /// validated defaults. A zero in either dimension is rejected as

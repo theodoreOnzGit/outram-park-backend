@@ -9,7 +9,7 @@
 //! log-spaced energy but fills it from `IncoherentInelasticScattering::emission`,
 //! which returns the `calcem` record **nearest** that energy (4 to 10 % away).
 //! The sampled outgoing energy is therefore a staircase in incident energy.
-//! `from_tape_on_calcem_grid` puts one table at each `calcem` energy, as NJOY's
+//! `from_tape_on_calcem_grid` (the default `from_tape` since 2026-11-19) puts one table at each `calcem` energy, as NJOY's
 //! ACE does, so `sample_inelastic` interpolates between true records.
 //!
 //! Reference: the direct integral of the evaluation's own S(alpha,beta)
@@ -70,7 +70,9 @@ fn node_grid_emission_follows_the_evaluation_between_nodes() {
     };
     let tape = Tape::read_file(&p).expect("tape");
     let node = ThermalScattering::from_tape_on_calcem_grid(&tape, 1, 293.6, "c_H_in_H2O").expect("node");
-    let legacy = ThermalScattering::from_tape(&tape, 1, 293.6, "c_H_in_H2O").expect("legacy");
+    // The log-spaced build is the explicit ablation since the 2026-11-19 flip.
+    let legacy = ThermalScattering::from_tape_log_spaced_grid(&tape, 1, 293.6, "c_H_in_H2O")
+        .expect("legacy");
 
     // 1. against the direct integral of the tape's S(alpha,beta).
     for (e, reference) in [(0.1, 0.082_286_07), (1.0, 0.568_762_30)] {
