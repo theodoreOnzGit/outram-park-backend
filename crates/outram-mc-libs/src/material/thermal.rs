@@ -269,6 +269,16 @@ const N_EMIT_GRID: usize = 384;
 const N_OUTGOING: usize = 64;
 /// Equally-probable cosines per outgoing-energy bin (NJOY-typical).
 const N_COSINES: usize = 8;
+
+/// Where the incident-energy points of the emission tables sit (GitHub #550).
+#[derive(Debug, Clone, Copy)]
+enum EmissionGridKind {
+    /// `n` log-spaced energies (the density scaled to the cutoff); each table
+    /// is the `calcem` record nearest its label.
+    LogSpaced(usize),
+    /// THERMR's own incident-energy grid, one table per `calcem` record.
+    CalcemNodes,
+}
 /// Bottom of the pre-tabulation grid \[eV\] — the thermal tail of a Maxwellian.
 const E_MIN_GRID_EV: f64 = 1.0e-5;
 /// Upper end of the span on which `N_EMIT_GRID` was sized
@@ -967,6 +977,21 @@ impl ThermalScattering {
     /// and memory scale linearly in `n_emit` and in `n_outgoing`, so neither is
     /// a free knob.
     ///
+    /// **Caveat found 2026-11-18 (GitHub #550):** each table here is
+    /// `IncoherentInelasticScattering::emission` at a log-spaced energy, and
+    /// `emission` answers with the `calcem` record **nearest** that energy, so
+    /// a table labelled `E` holds the outgoing energies of a node 4 to 10 %
+    /// away. Between THERMR's nodes the sampled `<E'>` is off the evaluation by
+    /// up to 2.3 % (0.025 eV: +0.86 %, 0.1 eV: -1.1 %, 1 eV: +1.5 %, 3.5 eV:
+    /// -2.3 %), and a finer `n_emit` does not help (it adds labels, not
+    /// records). [`from_tape_on_calcem_grid`](Self::from_tape_on_calcem_grid)
+    /// puts the tables on THERMR's own grid and is within 6.4e-4 of the
+    /// evaluation at every energy measured. This function is kept for the
+    /// convergence study that sized the defaults. **[`from_tape`](Self::from_tape)
+    /// still uses this log-spaced grid** (not flipped in #550's change: every
+    /// ENDF-route thermal V&V number would have to be re-measured first, a
+    /// maintainer decision recorded in the #550 record).
+    ///
     /// Transport callers should use [`from_tape`](Self::from_tape) and get the
     /// validated defaults. A zero in either dimension is rejected as
     /// [`NjoyError::NotPorted`] rather than silently producing a law that cannot
@@ -1009,11 +1034,98 @@ impl ThermalScattering {
         n_outgoing: usize,
         options: EndfElasticOptions,
     ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_emission_grid(
+            tape,
+            mat,
+            temperature_k,
+            name,
+            EmissionGridKind::LogSpaced(n_emit),
+            n_outgoing,
+            options,
+        )
+    }
+
+    /// **The emission tables on THERMR's own incident-energy grid**, as NJOY's
+    /// ACE stores them and OpenMC reads them (GitHub #550).
+    ///
+    /// [`from_tape_with_grids`](Self::from_tape_with_grids) places its emission
+    /// tables on a log-spaced grid of `n_emit` energies and asks
+    /// `IncoherentInelasticScattering::emission` for each. That function returns
+    /// the `calcem` record **nearest** the requested energy, so a table labelled
+    /// `E` carries the outgoing energies of a node up to half a node spacing
+    /// (4 to 10 % of `E`) away: the emission law becomes a staircase in
+    /// incident energy, where OpenMC's sampler expects a table at each of its
+    /// own grid points and interpolates the outgoing energy between them. Here
+    /// each table is the `calcem` record at its own energy, labelled with it,
+    /// so [`sample_inelastic`](Self::sample_inelastic) interpolates exactly as
+    /// it does for an ACE table. `n_outgoing` is the number of equiprobable
+    /// outgoing energies per table (the crate default is 64, NJOY's ACE
+    /// `NIEB` for the OpenMC decks).
+    ///
+    /// Measurement: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+    ///
+    /// # Errors
+    /// As [`from_tape_with_grids_and_options`](Self::from_tape_with_grids_and_options).
+    pub fn from_tape_on_calcem_grid_and_options(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        n_outgoing: usize,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_emission_grid(
+            tape,
+            mat,
+            temperature_k,
+            name,
+            EmissionGridKind::CalcemNodes,
+            n_outgoing,
+            options,
+        )
+    }
+
+    /// [`from_tape_on_calcem_grid_and_options`](Self::from_tape_on_calcem_grid_and_options)
+    /// with default [`EndfElasticOptions`] and the crate's default outgoing
+    /// bin count.
+    ///
+    /// # Errors
+    /// As [`from_tape`](Self::from_tape).
+    pub fn from_tape_on_calcem_grid(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        Self::from_tape_on_calcem_grid_and_options(
+            tape,
+            mat,
+            temperature_k,
+            name,
+            N_OUTGOING,
+            EndfElasticOptions::default(),
+        )
+    }
+
+    /// The one body behind the log-spaced and the node-grid constructors.
+    fn from_tape_with_emission_grid(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        grid_kind: EmissionGridKind,
+        n_outgoing: usize,
+        options: EndfElasticOptions,
+    ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
         use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
         use uom::si::{energy::electronvolt, thermodynamic_temperature::kelvin};
 
         options.validate()?;
+        let n_emit = match grid_kind {
+            EmissionGridKind::LogSpaced(n) => n,
+            EmissionGridKind::CalcemNodes => 1,
+        };
         if n_emit == 0 || n_outgoing == 0 {
             return Err(NjoyError::NotPorted(
                 "ThermalScattering: an emission table with a zero dimension cannot sample",
@@ -1071,7 +1183,12 @@ impl ThermalScattering {
 
         // Emission grid — a coarser log-spaced incident-energy grid, each point
         // carrying an equiprobable (E', μ) table.
-        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, dens(n_emit));
+        let emit_e = match grid_kind {
+            EmissionGridKind::LogSpaced(_) => log_grid(E_MIN_GRID_EV, cutoff_ev, dens(n_emit)),
+            // THERMR's own incident grid: the energies of the sigma table, each
+            // of which is a `calcem` record (and so an exact request below).
+            EmissionGridKind::CalcemNodes => xs_e.clone(),
+        };
         let emit_tables: Vec<EmissionTable> = emit_e
             .iter()
             .map(|&e| {

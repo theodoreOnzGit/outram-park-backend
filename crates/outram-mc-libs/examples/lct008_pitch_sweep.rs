@@ -256,6 +256,16 @@ fn main() {
             ThermalScattering::from_tape_with_grids(&tape, 1, TEMP_K, "c_H_in_H2O", ne, no)
                 .expect("S(a,b) on a custom grid")
         })
+    } else if flag("--sab-node-grid") {
+        // `--sab-node-grid` (gh:#550): the ENDF-built table with its emission
+        // tables on THERMR's own incident grid, as NJOY's ACE has them.
+        eprintln!("  S(a,b) for H in H2O from the ENDF tape on THERMR's incident grid (--sab-node-grid)");
+        sab.map(|_| {
+            let p = reference_endf("tsl-HinH2O.endf").expect("H(H2O) tape");
+            let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+            ThermalScattering::from_tape_on_calcem_grid(&tape, 1, TEMP_K, "c_H_in_H2O")
+                .expect("S(a,b) on THERMR's grid")
+        })
     } else if flag("--no-sab") {
         eprintln!("  S(a,b) REMOVED (--no-sab ablation): H-1 is free gas");
         None
