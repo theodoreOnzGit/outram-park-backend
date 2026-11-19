@@ -102,6 +102,14 @@
 //! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 //!
+//! ## RE-MEASURED 2026-11-19 (gh:#550): S(a,b) emission tables on THERMR's grid
+//!
+//! `ThermalScattering::from_tape` now builds on the `calcem` grid. 32 seeds,
+//! 5000 x [40+120]: **+119 pcm, sem +/-23, sd 131** against +80 +/- 13 (128
+//! seeds below): move +39 +/- 26 pcm (z +1.5); predicted +40 before the run.
+//! Xeon 2.10 GHz, 4 shared logical cores (2 threads), transport 4282 s.
+//! Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
 //! ## MIGRATED to per-material S(a,b) 2026-11-14 (gh:#462)
 //!
 //! H-1 is no longer bound in its nuclide entry; `assign_material_sab` names

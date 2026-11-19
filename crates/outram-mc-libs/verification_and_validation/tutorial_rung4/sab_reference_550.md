@@ -188,7 +188,7 @@ direct integral at 0.1 and 1.0 eV within 5e-4: measured -2.4e-5 and -4.0e-5;
 against an independent node interpolation: 0.082284 vs 0.082290; the
 log-spaced table still +1.46e-2 off at 1.0 eV, pinned as the contrast; sigma
 bit-identical). `lct008_pitch_sweep` gained `--sab-node-grid`.
-**`from_tape` still builds the log-spaced table**: flipping the default
+~~**`from_tape` still builds the log-spaced table**~~ **CORRECTED 2026-11-19: flipped, see "Flip and re-measure" at the end.** (Text as written 2026-11-18:) flipping the default
 moves every ENDF-route thermal number in the workspace (HST-009, LCT-008, the
 pebble beds with H2O, the shipped processed laws) and each needs
 re-measuring first. That is recorded here as the recommended next step, not
@@ -271,3 +271,81 @@ representation, not of either table.
 - Pitches other than 1.63576, 1.75 and 2.40 cm; k of HST-009, the full
   LCT-008 lattice, or any pin that uses the tape-built table. All are built
   by the same construction and none was re-measured.
+
+## Flip and re-measure (2026-11-19, maintainer decision "Flip and re-measure")
+
+Plan and signed predictions, committed before any run: `sab_reference_550_flip_plan.md`.
+Raw outputs: `flip_550/`. Research, education and V&V only.
+
+**What changed.** `ThermalScattering::from_tape` and `from_tape_with_options`
+(and so `from_endf_file*`, `from_leapr`, `from_embedded_leapr_deck`) now call
+the node-grid body, `from_tape_on_calcem_grid[_and_options]`. The old build is
+the explicit ablation `from_tape_log_spaced_grid` (and `from_tape_with_grids`).
+The flip was two lines, not one (`from_tape` did not route through
+`from_tape_with_options`). No kovan-reviewed function was touched
+(`src/material/review.md` holds no review block). Pinned by
+`tests/correct_physics_is_default.rs::endf_thermal_emission_is_on_the_calcem_grid_by_default`
+(ordinary paths bit-identical to the node-grid build, different from the ablation).
+
+Hardware for every run below: Intel Xeon @ 2.10 GHz, 4 logical cores, 15 GB RAM,
+Linux 6.18.44, CPU only; shared VM, two heavy processes of mine at a time,
+2 threads each, load average above 4 throughout, so timings are indicative only.
+Code: the commit that flips the default, `--release`.
+
+### k-effective numbers (outram-mc, ENDF tapes through RECONR/BROADR, new default)
+
+Old values are the records named; "move" is new minus old, sigma is the
+quadrature of the two sems (unpaired), z = move / sigma.
+
+| id | case | old | new | move | z | predicted |
+|---|---|---|---|---|---|---|
+| N1 | LCT-008 pin cell 2.40 cm, 5000 x [50+200], 11 nuclides | 0.70536 +- 0.00027 (16 seeds) | 0.70568 +- 0.00024 (8 seeds, sd 68 pcm) | **+32 +- 36 pcm** | +0.88 | +90 (+10 .. +170): **missed low**, inside the range |
+| N1' | same, outram-mc minus OpenMC (0.70653 +- 0.00029, 16 seeds) | -117 +- 39 pcm (z -2.97) | **-85 +- 38 pcm** | +32 | z -2.26 | gap to shrink to about -30: **not met**; the |z| <= 2 gate still misses |
+| N2 | same, 1.63576 cm | 1.06216 +- 0.00031 (16) | 1.06323 +- 0.00040 (8, sd 112) | **+107 +- 50 pcm** | +2.14 | +40 (-40 .. +120): inside the range (upper end +120); sign right, size 2.7 x the central value |
+| N3 | same, 1.75 cm | 1.01104 +- 0.00016 (16) | 1.01168 +- 0.00033 (8, sd 93) | **+64 +- 37 pcm** | +1.76 | +10 (-60 .. +80): inside the range, larger than central |
+| N4 | HST-009 case 1, 5000 x [40+120], 32 seeds | +80 +- 13 pcm (128 seeds, 2026-11-12); +80 +- 22 (32 seeds, 2026-11-14) | **+119 +- 23 pcm** (sd 131; k 1.00119) | **+39 +- 26** (vs 128) / +39 +- 32 (vs 32) | +1.5 / +1.2 | +40 (-30 .. +120): **held** |
+| N5 | LCT-008 full lattice case 1, 4000 x [120+250], 35 nuclides, 32 seeds | +172 +- 22 pcm (32 seeds, 2026-11-12) | **+148 +- 21 pcm** (sd 117) | **-24 +- 30** | -0.8 | +40 (-30 .. +110): **sign wrong**, inside the range |
+
+Summary of the pin-cell result against what the diagnosis above suggested:
+the three pitch moves are all positive (+32, +107, +64 pcm), the same sign as
+arm E, and each is below 2.2 sigma on its own. At 8 seeds I cannot call any one
+of them resolved; the three together average +68 pcm with sigma about 26 pcm
+(treating the three as independent, 2.6 sigma), a combination chosen after
+seeing the data. **The 2.40 cm gap to OpenMC is not closed on the default
+(tape-data) route**: -85 +- 38 pcm (z -2.26). Arm E closed it (-1 +- 44) with
+OpenMC's `.h5` neutron data; the two routes differ in neutron data (RECONR/BROADR
+against NJOY ACE), so the E result and this one are not the same experiment,
+and the flip's +32 +- 36 on tape data is smaller than E minus B (+92 +- 47)
+by 60 +- 59 pcm (1.0 sigma). I do not claim the S(a,b) staircase explains the
+2.40 cm miss on the default route. The seed set 1-8 is a subset of the old
+16-seed ensemble's seeds, but the code and random streams differ, so the
+comparison is unpaired.
+
+### Tests and kernel gates
+
+| id | item | old | new | verdict |
+|---|---|---|---|---|
+| N7 | `thermal_kernel_stationary_distribution`, c_H_in_H2O fixed point | 292.96 K, shape 1.6660 | **294.31 K**, shape 1.6557 (hot-cold +0.73 K, 2.22 sigma) | **re-pinned**; water shift +1.35 K, predicted under 1 K: **missed**. Moves from -0.22 % to +0.24 % of nominal and from -0.04 % to -0.66 % of 5/3: **further from a Maxwellian** (unflattering) |
+| N7 | same, c_Graphite | 604.17 K, shape 1.6456 | **606.29 K**, shape 1.6448 (hot-cold +0.95 K, 0.76 sigma) | **re-pinned** (+2.12 K, outside the 2.0 K gate); from +0.70 % to +1.05 % above nominal: **further from nominal** (unflattering). Tolerances unchanged |
+| N6 | graphite golden gate `<E'>/E` vs NJOY THERMR, 10 energies | worst +0.301 % at 0.01 eV | identical to 5 digits except 0.11157 eV (1.01175 -> 1.01173) | unchanged: THERMR's probe energies are `calcem` nodes, where the two builds agree; the staircase lives between nodes and these gates cannot see it |
+| N6 | H-in-H2O golden gate, 11 energies | worst +0.098 % at 1.5 meV | identical | unchanged, same reason. The example's last assertion (a 5-sigma check that the OLD #188 defect is still visible, 0.10 % vs 0.15 % sigma) panics with the old build and the new one alike: a stale gate from before #407, not caused by this flip, and **not edited** (tightening it is a maintainer decision) |
+| N8 | `thermal_standards`, `thermal_laws_vs_njoy_thermr` (8), `thermal_graphite_elastic` (8), `thermal_lthr3_mixed_634`, `thermal_endf_route_xs_vs_njoy`, `thermal_cutoff_is_tape_emax`, `light_water_thermal_scattering` (5), `triso_shell_thermal_scattering`, `htr10_graphite_thermal_scattering_pebble_bed`, `elastic_xi_h1_o16` | pass | pass, no re-pin | **held** |
+| N9 | `material_sab_462_transport`, `processed_evaluation_round_trip`, `total_fast_path_matches_full`, `speed_tier_fast_is_exact`, `majorant_bounds_endf`, `temperature_precedence`, `openmc_xs_details_463`, `thermal_h2o_leapr_vs_tsl` | pass | pass | **held** |
+
+### Not re-measured
+
+Every number below was taken with the log-spaced build and **has not been
+re-measured**; read each as pre-flip. Graphite is the case most worth a look,
+because the stationary-distribution pins moved most there in relative terms.
+
+- Pebble-bed and graphite k: HTR-10 pebble beds and `nee_soon::htr10_rmc`,
+  FHR ring RPT (`fhr_ring_rpt_endf`), FHR pebble ablation, MSRE N-1 and NC-1.
+- `sab_per_material_1581` ensembles, `icsbep_five_route_keff` (five routes;
+  routes 4 and 5 take the LEAPR deck, which also flips), `pincell_depletion_vs_openmc`,
+  `dh_keff_vv`, the `openmc_notebooks/pincell` test (not run), `dhoby-ghaut`'s processed-law cache.
+- LCT-008 pin cell: the unborated points and the 36-nuclide tier; pitches other
+  than the three above; and 16 seeds at each of the three (8 were run).
+- The graphite/H2O kernel at between-node energies against THERMR: the
+  committed golden tables have no between-node probe, so no THERMR comparison of
+  the flip exists; the evidence for it is the direct integral above.
+- Timings of the node-grid build against the log-spaced one.

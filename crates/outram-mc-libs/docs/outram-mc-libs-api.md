@@ -8999,11 +8999,17 @@ pub struct ThermalScattering {
 - ```rust
   pub fn from_tape(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, temperature_k: f64, name: &str) -> Result<Self, NjoyError> { /* ... */ }
   ```
+  The ENDF-route default build. **Since 2026-11-19 (gh:#550, maintainer
 
 - ```rust
   pub fn from_endf_file_with_options<P: AsRef<std::path::Path>>(path: P, mat: i32, temperature_k: f64, name: &str, options: EndfElasticOptions) -> Result<Self, NjoyError> { /* ... */ }
   ```
   [`from_endf_file`](Self::from_endf_file) with explicit
+
+- ```rust
+  pub fn from_tape_log_spaced_grid(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, temperature_k: f64, name: &str) -> Result<Self, NjoyError> { /* ... */ }
+  ```
+  **The explicit ABLATION of the gh:#550 flip:** the pre-2026-11-19 default
 
 - ```rust
   pub fn from_tape_with_options(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, temperature_k: f64, name: &str, options: EndfElasticOptions) -> Result<Self, NjoyError> { /* ... */ }
@@ -53953,6 +53959,22 @@ the same constants), with a top plane 3 m up. Poured with
 
 ```rust
 pub fn htr10_vessel_geometry(unit: LengthUnit) -> crate::geometry::geometry::Geometry { /* ... */ }
+```
+
+#### Function `axisym_vessel`
+
+Cell `cell` of `geom` (in `unit`) as the DEM's axisymmetric vessel, in
+metres (gh:#1655): the region must be a vessel stacked along z (module
+docs). For a pour stepped by its caller, e.g.
+`outram_park_fork_liggghts::htr10_fill::Htr10Fill::in_vessel`; with
+[`htr10_vessel_geometry`] it is `AxisymVessel::htr10()`, bit for bit.
+
+# Errors
+[`RegionBedError::NoSuchCell`]; [`RegionBedError::UnsupportedWall`] if
+the region is not a z-stack, or its wall steps or its slabs leave a gap.
+
+```rust
+pub fn axisym_vessel(geom: &crate::geometry::geometry::Geometry, cell: usize, unit: LengthUnit) -> Result<outram_park_fork_liggghts::axisym_vessel::AxisymVessel, RegionBedError> { /* ... */ }
 ```
 
 ## Module `sphere_packing`

@@ -590,3 +590,14 @@ B - baseline = +23 +- 38 (z +0.60); D - B = -1 +- 43 (z -0.03); A - D = +134
 - Timings (indicative only, shared VM): outram-mc transport 320-490 s per
   seed with S(a,b) at load average ~9, 190 s when the machine was quiet;
   OpenMC 75-115 s per seed on 2 threads. Data loading from the `.h5` plus S(a,b): 35-88 s per process (the logs print 55, 55, 88 and 35 s for arms A-D under varying load), so it is not a useful timing.
+
+
+## CORRECTED 2026-11-19 (gh:#550): the default S(a,b) build changed
+
+The ensemble and sweep numbers above were taken with the log-spaced emission
+build. `ThermalScattering::from_tape` now puts its tables on THERMR's own
+incident-energy grid. Re-measured on the tape-data route (8 seeds, same
+protocol): 2.40 cm 0.70568 +- 0.00024 (was 0.70536, +32 +- 36 pcm), 1.63576 cm
+1.06323 +- 0.00040 (was 1.06216, +107 +- 50), 1.75 cm 1.01168 +- 0.00033 (was
+1.01104, +64 +- 37). The 2.40 cm gap to OpenMC is now -85 +- 38 pcm (z -2.26),
+~~-117 +- 39 (z -2.97)~~. Record: `sab_reference_550.md`, "Flip and re-measure".

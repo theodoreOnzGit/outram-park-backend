@@ -452,9 +452,7 @@ Reading: the pole-count differences of the dense pieces are consistent with a se
 poles in both codes, and I found no evidence of a defect in the port. It is **not shown** that the port's miss
 rate matches OpenMC's: unperturbed, OpenMC missed 0, 0, 0 and 3 grid points on four pieces and the port 72 to
 2 094; OpenMC's perturbed 296 left 66 outside and its perturbed 250 left 186. That is a handful of pieces, not a distribution.
-Not done, and what would settle it: the port's order search traced against OpenMC's (which order each ends on, the
-quality value reached) on one dense piece, and several +-1 ulp trials of both codes on 296 and 298 with the
-points-outside count. Nothing was changed in the port.
+~~Not done, and what would settle it: the port's order search traced against OpenMC's ... and several +-1 ulp trials of both codes on 296 and 298 with the points-outside count.~~ **Done 2026-11-19 on piece 296** ("Diagnosis of the dense end on piece 296" below): the reading above, "no evidence of a defect", holds for the search logic, but the two codes' outcomes are not identically distributed. Nothing was changed in the port.
 
 ### Predictions against results (extension)
 
@@ -491,7 +489,7 @@ pins and gates are the printed values and have not been re-run in the committed 
 - OpenMC self-sensitivity of piece 299 (not reached), a second perturbed trial of 75, 125, 225, 296
   and 298, and OpenMC's perturbed trials of 275 with the points-outside count.
 - The 304-piece fit, the whole-library pole count and the window parameters of the whole library.
-- Any diagnosis of the dense-end difference above. No change was made to the port.
+- ~~Any diagnosis of the dense-end difference above. No change was made to the port.~~ **CORRECTED 2026-11-19**: diagnosed on piece 296, see "Diagnosis of the dense end on piece 296" below; still no change to the port.
 
 ## Appendix: the reference driver, verbatim
 
@@ -611,3 +609,253 @@ json.dump({"n_poles": int(wmp.n_poles), "n_windows": int(wmp.n_windows), "fit_or
           open(os.path.join(out_dir, "library_prefix_meta.json"), "w"))
 print("done: prefix poles", wmp.n_poles, "windows", wmp.n_windows, "fit_order", wmp.fit_order, flush=True)
 ```
+
+## Diagnosis of the dense end on piece 296 (gh:#1390, 2026-11-19)
+
+Maintainer decision 2026-11-19: "Diagnose one dense piece". Question: why does the port's fit disagree with
+OpenMC's on the densest pieces (275, 296, 298, 299), and is that chaos in the fit-order search or a port defect?
+The predictions, the side-by-side reading and the method were committed **before** any trace ran:
+[`PREDICTIONS_1390_dense_piece.md`](PREDICTIONS_1390_dense_piece.md) (commit `cc2095b08`). Everything below is piece
+296 (7 789 points, 3 reactions, 49 peaks, orders 98 to 200 in steps of 2), OpenMC `8f79d9d` pure Python
+(unmodified; only module-level names are wrapped to log), the same input files for both codes. Hardware for every
+timing: Intel Xeon @ 2.10 GHz, 4 logical cores shared with other agents (load average 8 to 13 for most of this work,
+and some runs were SIGSTOPped while another instrument ran), OpenMC `OMP_NUM_THREADS=2`, the port single-threaded,
+`ulimit -v 12582912`: quote no second of it as a speed. Data, logs and analysis outputs:
+[`diagnosis_296/`](diagnosis_296/).
+
+### Step 1: side-by-side reading of upstream and the port (no run)
+
+Upstream `_vectfit_xs` (`multipole.py:144-385`) against `generate/fit.rs::vectfit_xs`, `vectfit.py` against
+`generate/vectfit.rs`, the numpy/scipy primitives against `generate/npy.rs`. **No difference in control flow, bounds,
+tie-breaking or defaults was found**: order list, initial poles and their sort, 30 iterations per order restarting
+from the *un-split* poles, the real-pole split and the second `skip_pole_update` call, the 10x test grid and
+`np.interp` (NaN fall-backs included), `ratio`/`ratio2`/`maxre`/`quality` with their NaN and `min(., 1)` semantics,
+the strict `quality > best_quality`, `best_ratio >= 1` as the only ideal stop, and the acceleration rule. The same
+holds for the vector-fitting core (`compute_dk`, constrained and unconstrained QR blocks, `wlstsq` scaling, the
+relaxed pole matrix, `label_conjugate_poles`). Three places differ in *numerics* only (`lstsq`: QR plus
+Golub-Reinsch SVD against DGELSD; blocked against unblocked QR; petir's balanced Francis QR against DGEEV; the
+summation order of `evaluate`). The comparison table is in the predictions file. A missing limit or tie-break, the
+most likely port defect, **is not there**.
+
+### Step 2: instruments
+
+* Port: `src/wmp/generate/trace.rs` (test-only, `#[ignore]`) is a logged copy of the order loop that calls the
+  library's unchanged `vectfit` and `evaluate`. `trace_reproduces_vectfit_xs` shows it returns **bit-identical poles
+  and residues** to `vectfit_xs` on piece 50 (12 poles, 111 s), and on 296 it returns the pinned 60 poles and 2 094
+  points outside. `trace_step.rs` (one relocation step from OpenMC's logged poles) and `trace_kernel.rs` (the port's
+  `lstsq`/`eigvals` on OpenMC's matrices) call `npy.rs` and `vectfit` unchanged.
+* OpenMC: `openmc_inputs/trace_openmc.py` wraps `multipole.evaluate` and `vectfit.lstsq`, recomputes the metric
+  from the test grid and returns the originals' values unchanged. The unperturbed trace reproduces the fixture (67 poles,
+  0 points outside). Bookkeeping bug in that script's own summary file, found afterwards and handled in the analysis
+  instead of re-running 45 minutes: it logged `order` as the size of `new_poles` (`order` plus the number of split
+  real poles), so `orders_visited` and `last_order_visited` in the OpenMC `*.summary.txt` files are wrong;
+  `compare_traces.py` and `pool_traces.py` recover the true order as `first_order + 2 * (row // 30)`, valid
+  because every order runs 30 iterations. The fit results in those files are right.
+
+### Step 3: order-by-order trace of the unperturbed run (`diagnosis_296/compare_t0.txt`)
+
+| | OpenMC | port |
+|---|---|---|
+| orders visited | 98 to 138 (21) | 98 to 130 (17) |
+| stop | acceleration, ten orders without improvement; best at order 118, quality 1.661 | acceleration, ten orders without improvement; best at order 110, quality 1.469 |
+| `best_ratio` | 0.78: **neither code reaches an ideal fit** (`ratio` is on the 10x test grid, so 0 grid-point misses coexist with 22 % of test points outside) | 0.72 |
+| final poles / grid points outside | 67 / 0 | 60 / 2 094 |
+
+The two searches take **the same control path and stop by the same rule**; the port does not stop early through a
+mis-implemented limit. OpenMC drew one better fit (order 118: 51 336 of 233 643 test points outside, against a
+usual per-order best of 55 000 to 67 000) and the port's best was 64 882. Inside an order the iteration is wildly
+unstable in both codes: 53 to 60 % of OpenMC's iterations (five trials) and 45 to 49 % of the port's (five
+trials) give an unusable fit (`quality = -inf`, a negative cross section), and a good fit appears at any iteration
+from the 12th to the 29th. At iteration 1 of each order (same deterministic initial poles) the relocated poles
+already differ between the codes by 7.5e-3 to 3.5e-2 (largest over the poles; median 2.0e-2) at all 17 common
+orders, and no test-grid count agrees.
+
+### Step 4: where the divergence starts (`single_step.txt`, `iter1_null_t0.tsv`, `kernel_*`)
+
+**Single relocation steps, 188 of them.** `vectfit` called on the exact poles OpenMC logged at iteration k (real-pole
+split undone), compared with OpenMC's logged k + 1 by the largest relative distance of a pole to its nearest match.
+OpenMC itself (`step_openmc.py`) reproduces its logged step with difference 0 in 180 of 188 steps (the other 8 not
+investigated).
+
+| percentile of the max-over-poles relative difference | 10 | 25 | 50 | 75 | 90 |
+|---|---|---|---|---|---|
+| port against OpenMC | 1.9e-3 | 2.6e-2 | 1.0 | 2.6 | 8.6 |
+| OpenMC DGELSS against OpenMC DGELSD | 8.6e-4 | 2.2e-2 | 1.0 | 1.9 | 8.0 |
+| OpenMC, every input pole component changed by 1 ulp | 3.5e-4 | 4.1e-3 | 0.99 | 1.8 | 7.3 |
+
+A single step already moves the largest pole by 100 % (median) under any of the three changes, and the three
+distributions overlap at every percentile. By iteration, median of the maximum: iterations 1 to 3 (n = 20) port 7.9e-3,
+DGELSS 7.3e-3, 1 ulp 6.7e-4; 4 to 8 (n = 42) 0.34, 0.22, 0.076; 9 to 15 (n = 42) 1.0, 1.0, 1.1; 16 to 29 (n = 84) 1.4,
+1.0, 1.2.
+
+**The matrix, iteration 1** (`dump_kernel_inputs.py`, `trace_kernel.rs::kernel_differential`, `kernel_null.py`; orders
+98, 106, 110, 120, 130; the pole-identification solve, the column-normalised `3(n+1) x (n+1)` matrix `wlstsq` hands to
+`lstsq`):
+
+* numerical rank 17 of 99 to 131 columns in both; the last kept singular value is `s_17 / s_max = 1.0e-15`, the first
+  dropped one `s_18 / s_max = 1.2e-16 to 1.5e-16`, **below the cutoff `eps = 2.2e-16`**; 85 to 117 singular values
+  lie within a factor 100 of the cutoff (same count in LAPACK and the port);
+* the port's singular values agree with LAPACK's to 8.7e-17 to 5.6e-16 of `s_max`; the solutions differ by
+  `|dx| / |x|_max` = 3.3e-2, 2.8e-2, 2.9e-2, 2.0e-2, 9.6e-2;
+* LAPACK's own sensitivity on the same matrices: DGELSD with every entry changed by 1 ulp moves the solution by 7.7e-2 to
+  1.9e-1 (five orders), DGELSY by 0.07 to 0.28, DGELSS by 3.6e-4 to 5.2e-2. **The port's 2e-2 to 1e-1 lies inside what a
+  1-ulp change does to DGELSD itself.** Eigenvalues of the relocation matrix: port against DGEEV 7.7e-4 to 3.0e-3,
+  DGEEV against DGEEV on a 1-ulp-changed matrix 1.8e-4 to 3.1e-3.
+
+So each relocation rests on a truncated SVD whose truncation point sits a factor of two from the round-off floor, and
+any change at the 1e-16 level (another LAPACK routine, another SVD, one ulp in the data) changes the answer by percent
+and, after a few iterations, the poles by order one. That is upstream's algorithm (`cond = eps` on a rank-deficient
+system), and the port reproduces it.
+
+At iteration 1 the port is 10 to 100 times further from DGELSD in the poles (7.5e-3 to 3.5e-2) than DGELSS is (8e-5 to
+3.1e-3, median 7.4e-4, 21 orders). The next step shows that this is a systematic difference with DGELSD, and not
+noise.
+
+### Step 5: a systematic difference found: DGELSD keeps one more singular value than any other SVD routine, and the port does not
+
+`dump_kernel_rows.py` dumped the pole-identification matrix of 42 relocation calls (every 15th row of the unperturbed
+OpenMC trace, orders 98 to 138, iterations 1 to 30) and `trace_kernel.rs::rank_differential` solved each with the port;
+`rank_null.py` counted singular values above `eps * s_max` with DGELSS, DGESDD and DGESVD.
+`diagnosis_296/rank_t0.txt`, `rank_null_t0.txt`.
+
+| | result over 42 matrices (ranks 78 to 131) |
+|---|---|
+| DGELSS = DGESDD = DGESVD | identical rank in **42 of 42** |
+| DGELSD against those three | **higher by one in 17, equal in 25, lower in 0** |
+| port against DGELSD | lower by 1 in 16, equal in 26, higher in 0 |
+| port against DGELSS | **equal in 41 of 42** (the exception is one of the 17 where the port equals DGELSD's higher rank) |
+| DGELSD on the matrix with every entry changed by 1 ulp (3 draws) | the same rank as unperturbed DGELSD in 123 of 126 (the three others differ by 1) |
+
+So the one-sided shift is not noise, and it is not the port: **three independent LAPACK SVD routines agree with the
+port, and DGELSD alone ranks one higher in 40 % of the calls**, never lower, and it does that reproducibly under 1-ulp
+changes. The port re-expresses DGELSD as "QR, SVD of the triangle, drop `s <= eps * s_max`" (`npy.rs::lstsq`), which
+is the exact-SVD rank; DGELSD's divide and conquer (`DLALSD`) applies the same `rcond` test to singular values of its
+own sub-problems, and keeps one more. The 6 residue solves dumped (2 rows) show no one-sided pattern (port minus
+DGELSD: -1, 0, 0, 0, +1, +2).
+
+### Step 6: several +-1 ulp trials of both codes (same input files)
+
+Inputs `in_296_t<k>` (`make_trial_inputs.py`): t0 unperturbed, t1 to t4 every cross-section value times `1 +- 2^-52`,
+sign per value from `default_rng(1000 + k)`. Both codes read the same files. Points outside rtol/atol are counted on
+the 7 789 grid points against the **unperturbed** data (`pool_traces.py`).
+
+| trial | OpenMC poles | OpenMC outside | OpenMC best quality | port poles | port outside | port best quality |
+|---|---|---|---|---|---|---|
+| t0 (unperturbed) | 67 | 0 | 1.661 | 60 | 2094 | 1.469 |
+| t1 | 58 | 220 | 1.666 | 77 | 710 | 1.504 |
+| t2 | 67 | 257 | 1.651 | 60 | 737 | 1.532 |
+| t3 | 62 | 826 | 1.537 | 55 | 1944 | 1.475 |
+| t4 | 67 | 1167 | 1.581 | 63 | 731 | 1.529 |
+
+OpenMC: poles {58, 62, 67, 67, 67}, points outside {0, 220, 257, 826, 1 167} (median 257), best quality {1.537, 1.581, 1.651, 1.661, 1.666}.
+Port: poles {55, 60, 60, 63, 77}, points outside {710, 731, 737, 1 944, 2 094} (median 737), best quality {1.469, 1.475, 1.504, 1.529, 1.532}.
+The supports **overlap** in poles (55 to 77 against 58 to 67; three of the port's five counts are inside OpenMC's range) and in
+points outside (the port's 710, 731 and 737 lie inside OpenMC's 0 to 1 167; OpenMC's 826 and 1 167 lie inside the port's
+710 to 2 094; the port's t0 result, 2 094, is the largest of the ten, and the previous record of OpenMC's own
+single perturbed trials, 66 outside on 296 and 186 on 250, shows the same kind of excursion). Mann-Whitney on the
+number outside: U = 19 of 25 (port larger), two-sided p about 0.10: **not resolved**. **But the best quality
+reached is separated completely: every one of the port's five (1.469 to 1.532) is below every one of OpenMC's five
+(1.537 to 1.666), exact two-sided p = 2 / 252 = 0.008.** The per-order best (fewest of the 30 iterations of an order)
+number of test-grid points outside, pooled over trials: OpenMC median 66 937 (quartiles 58 892 and 81 452, 99 orders),
+port median 76 119 (65 015 and 110 097, 96 orders), z = +3.4 (the orders of one trial are not independent, so
+indicative only). Usable iterations are alike (quality median 1.03 against 1.04 for iterations 11 to 30, 90th percentile 1.44 against 1.44);
+the difference is in the upper tail: 36 of OpenMC's 1 301 usable iterations have quality above 1.5 (2.8 %) against
+4 of the port's 1 223 (0.3 %; trials t0 to t3), and the port's per-order best clusters at 1.45 to 1.47 where OpenMC's reaches 1.50 to 1.67.
+Elapsed times are loaded wall seconds and not comparable (the port 1 071 to 4 455 s, OpenMC 1 377 to 2 807 s).
+
+**Is the DGELSD rank rule the cause of the port's lower quality?** The test: OpenMC's loop with `scipy.linalg.lstsq`
+told to use DGELSS (`TRACE_LSTSQ_DRIVER=gelss`, nothing else changed; its rank equals the port's in 41 of 42 matrices,
+Step 5), on the same input files. If the rank rule drove the shift, those runs should look like the port's (best quality
+1.47 to 1.53). OpenMC with DGELSS (4 trials, t0, t1, t2, t3): t0: 74 poles, 129 outside, best quality 1.650; t1: 76 poles, 478 outside, best quality 1.632; t2: 64 poles, 807 outside, best quality 1.540; t3: 66 poles, 656 outside, best quality 1.540. They stay in OpenMC's range (1.54 to 1.67) rather than
+moving to the port's, but two of the four (1.540) are at its bottom edge, 0.008 above the port's best. **The DGELSD rank rule is
+not shown to be what shifts the port's distribution** (none of the 4 trials is below 1.53, where the port's five all are), and four trials cannot
+exclude a partial contribution.
+
+### Conclusion
+
+**Answer to the maintainer's question: it is chaos in the fit-order search, amplified by an ill-posed truncated SVD, that makes
+the codes disagree on individual pieces; no port defect in the search logic exists; but the port's outcome distribution
+is not identical to OpenMC's, and the reason for that shift was not found.**
+
+1. **No difference in the search logic.** Side-by-side reading of upstream and the port found none in control flow, bounds,
+   tie-breaking or defaults (Step 1). The port's logged loop reproduces `vectfit_xs` bit for bit (piece 50) and the pinned
+   result (piece 296), and its trace follows the same path and stops by the same rule as OpenMC's (Step 3). The pinned
+   `known_pole_count_difference` / `known_extra_misses` values stay as they are: no library result moved.
+2. **The divergence is created in the very first relocation step and is intrinsic.** The pole-identification least squares
+   has numerical rank 17 of 99 to 131 with the cutoff `eps * s_max` 1.5 to 1.9 times above the first dropped singular value and
+   85 to 117 singular values within a factor 100 of it; a 1-ulp change of the matrix moves LAPACK's own solution by 8 to 19 %, the
+   port's solution differs from LAPACK's by 2 to 10 %. Single relocation steps differ by 100 % (median) between the port
+   and OpenMC, between two LAPACK drivers, and under a 1-ulp change of the input poles, with overlapping distributions at every
+   percentile (Step 4). Half of all iterations produce an unusable fit in both codes and the best of 30 per order is a draw
+   from a heavy tail.
+3. **The final results overlap, as chaos predicts**: OpenMC alone gives 58 to 67 poles and 0 to 1 167 grid points outside over five
+   inputs; the port gives 55 to 77 and 710 to 2 094 (Step 6). The 0 against 2 094 of the unperturbed pair, which started
+   this, is one draw of each, not a systematic gap of that size: the port's t1, t2 and t4 (710, 737, 731 outside) are inside
+   OpenMC's range.
+4. **What chaos does not explain: a shift in the best quality reached.** The port's five best qualities are all below OpenMC's five
+   (exact p = 0.008; pooled per-order bests z = +3.4), concentrated in the upper tail of the per-iteration quality. A
+   consistent cause was searched for and **not found**:
+   * the kernel differential (Step 4) puts the port inside LAPACK's own sensitivity for the least-squares solve, the
+     eigenvalues and the single step;
+   * the one systematic kernel difference found (Step 5, DGELSD keeping one more singular value than DGELSS, DGESDD and
+     DGESVD in 40 % of the pole-identification solves, which the port, like those three, does not) is **not shown to be the cause**: OpenMC
+     run with DGELSS kept its quality (previous paragraph; four trials).
+   Candidates not tested: petir's eigenvalue solver against DGEEV on the many near-degenerate poles (single-step eigenvalue
+   agreement was measured on five matrices only), the unblocked QR, `evaluate`'s summation order inside the quality
+   metric (every test-grid count passes through it), and the residue solves (six matrices measured). Each of them is a
+   round-off-level difference whose effect the chaos magnifies, which is why no single-step measurement can see it.
+5. **No fix was made.** (a) The only systematic difference found, DGELSD's rank rule, would need `DLALSD`'s divide and
+   conquer ported (thousands of lines) and does not explain the shift. (b) Changing `rcond` or the truncation to make the port
+   match would be fitting the comparison, which the process rule forbids. The function (`npy.rs::lstsq`) is not
+   kovan-reviewed (its folder's `review.md` holds no `kind = "review"` block). The doc comment in `npy.rs` that said the
+   truncation rule is the same as DGELSD's was corrected (comment only).
+
+For the maintainer: the dense-piece disagreement should be read as chaos plus an unexplained mild bias toward worse
+quality in the port's tail; the useful next experiments are (i) the same trials on piece 298 or 275, (ii) the port run with
+DGEEV-equivalent eigenvalues (for example the pole matrix passed through a higher-precision solve) to test the eigenvalue
+candidate, (iii) the test-grid `evaluate` with a compensated sum. A pure-chaos claim would need the five-against-five
+separation above to disappear with more trials.
+
+### Predictions against results (this diagnosis)
+
+| prediction (PREDICTIONS_1390_dense_piece.md) | outcome |
+|---|---|
+| H-chaos 55 %, H-defect 30 %, in between 15 % | mechanism: chaos; logic defect: none; the "in between" case (both noisy, port's distribution shifted) is the one observed |
+| iteration 1 of each order agrees on quality, ratio and count outside in at least 80 % of orders | **missed**: iteration 1 is unusable (`-inf`) in both codes at all 17 common orders, so quality is uninformative; the poles differ by 7.5e-3 to 3.5e-2 and no test-grid count agrees; the cause is the truncated SVD at the round-off floor (Step 4) |
+| iterations 2 to 30 drift apart gradually | **missed**: the pole sets differ past 1e-6 already at iteration 1 in 17 of 17 orders |
+| OpenMC's unperturbed run reaches an ideal fit (`ratio >= 1`), the port near-ideal but not exactly | **wrong**: neither code ever reaches an ideal fit on this piece (best ratio 0.78 and 0.72); OpenMC stops by the acceleration rule too |
+| the port stops by the acceleration rule, OpenMC by `found_ideal` | port: held; OpenMC: **wrong**, also acceleration |
+| trials: at least one port trial with fewer than 100 points outside | **missed**: the port's smallest is 710 |
+| trials: at least one OpenMC trial with more than 100 outside or a count other than 67 | held (4 of 5) |
+| pole counts span at least 6 values per code | **missed**: OpenMC 3 values, port 5 values over five trials |
+| means of the two codes differ by less than the pooled spread | poles and points outside: held (supports overlap); best quality: **missed** (complete separation, p = 0.008) |
+| a defect needs (a) systematic iteration-1 gaps at many orders and (b) a named kernel departing from LAPACK by more than LAPACK's own sensitivity | (a) found for DGELSD's rank (17 of 42), (b) **not met**: the port is inside LAPACK's sensitivity everywhere measured, and the one named difference is not the cause |
+
+### Verification run (this diagnosis)
+
+Run in release on the machine above after the last source edit (the new test files `trace.rs`, `trace_step.rs`,
+`trace_kernel.rs` are `#[cfg(test)]` and `#[ignore]`; the only other source change is a comment in `npy.rs`):
+`cargo check --release -p njoy-outram-park-fork --lib --tests --examples -j 2` passes;
+`cargo check --release -p njoy-outram-park-fork --lib --no-default-features --target x86_64-unknown-none -j 2` passes;
+`cargo test --release -p petir --test no_platform_libm -j 2`: 4 passed (it first failed on two `powi` calls in the new
+diagnostics, which were replaced by products);
+`cargo test --release -p njoy-outram-park-fork --test wmp_generate_u238_vs_openmc -j 2` (the default, non-ignored
+tests): 3 passed, 3 ignored, 210 s (front end 304 of 304 pieces bit-identical, prefix windowing, the cheap piece fits).
+The pinned `known_pole_count_difference` / `known_extra_misses` values were not touched: the library's results did not
+change and the unperturbed port trace reproduces 60 poles and 2 094 outside on piece 296. The ignored diagnostics:
+`cargo test --release -p njoy-outram-park-fork --lib wmp::generate::trace -- --ignored` (environment variables in each
+file's `//!` comment); `trace_reproduces_vectfit_xs` passed on piece 50.
+
+
+### What was not done (this diagnosis)
+
+* Pieces 275, 298 and 299 were not traced; everything above is one piece (296). 298 was not needed, 296 was fast enough.
+* The residue-solve ranks were dumped for two rows only (six matrices, about 16 MB each): too few to say whether DGELSD's
+  extra singular value also appears there.
+* The 8 of 188 steps where OpenMC did not reproduce its own logged step to the bit (a different BLAS thread schedule is the
+  likely cause; not checked).
+* DGELSD's rank rule was not ported (`DLALSD`, `DLASDA`, `DLALSA`, `DLASD0`..`DLASD8`: several thousand lines) and the port
+  was not changed. No pin in `wmp_generate_u238_vs_openmc.rs` moved.
+* The cause of the one-sided DGELSD rank was identified by comparing five routines, not by reading `DLALSD`'s Fortran
+  line by line (the LAPACK source is not in this repository): the statement about its sub-problem test is the
+  expected mechanism, **Not re-checked** against `dlalsd.f`.
