@@ -1,0 +1,12 @@
+piece 25 FITTED points 884 poles 10 seconds 291.6 kwargs {}
+piece 50 FITTED points 1546 poles 12 seconds 528.0 kwargs {}
+piece 75 FITTED points 2791 poles 16 seconds 730.1 kwargs {}
+piece 125 FITTED points 3508 poles 20 seconds 818.0 kwargs {}
+piece 150 FITTED points 4176 poles 24 seconds 465.5 kwargs {}
+piece 175 FITTED points 4101 poles 30 seconds 716.3 kwargs {}
+piece 225 FITTED points 5022 poles 34 seconds 403.3 kwargs {}
+piece 250 FITTED points 6860 poles 50 seconds 778.7 kwargs {}
+piece 275 FITTED points 6343 poles 46 seconds 594.7 kwargs {}
+piece 298 FITTED points 7929 poles 62 seconds 1221.6 kwargs {}
+piece 296 FITTED points 7789 poles 67 seconds 1318.6 kwargs {}
+piece 299 FITTED points 7689 poles 66 seconds 959.0 kwargs {}
