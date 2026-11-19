@@ -1,0 +1,20 @@
+== pitch 1.63576 cm ==
+  outram seeds 1-8 (recorded)   n= 8 k=1.06323 +- 0.00039 sd 112 pcm
+  outram seeds 9-24 (new)       n=16 k=1.06177 +- 0.00022 sd 86 pcm
+  outram seeds 1-24             n=24 k=1.06225 +- 0.00024 sd 117 pcm
+  OpenMC n=24 k=1.06232 +- 0.00019 sd 94 pcm
+  outram 1-8 minus OpenMC: +92 +- 44 pcm (z +2.09)
+  outram 9-24 minus OpenMC: -55 +- 29 pcm (z -1.91)
+  outram 1-24 minus OpenMC: -6 +- 31 pcm (z -0.20)
+  seeds 9-24 minus seeds 1-8: -147 +- 45 pcm (z -3.27)
+  predicted +45 (-30 .. +120); measured -6; in range: True; gate |z|<=2: True
+== pitch 1.75 cm ==
+  outram seeds 1-8 (recorded)   n= 8 k=1.01168 +- 0.00033 sd 93 pcm
+  outram seeds 9-24 (new)       n=16 k=1.01153 +- 0.00027 sd 108 pcm
+  outram seeds 1-24             n=24 k=1.01158 +- 0.00021 sd 102 pcm
+  OpenMC n=24 k=1.01130 +- 0.00026 sd 126 pcm
+  outram 1-8 minus OpenMC: +39 +- 42 pcm (z +0.93)
+  outram 9-24 minus OpenMC: +23 +- 37 pcm (z +0.62)
+  outram 1-24 minus OpenMC: +28 +- 33 pcm (z +0.86)
+  seeds 9-24 minus seeds 1-8: -16 +- 43 pcm (z -0.37)
+  predicted +55 (-20 .. +130); measured +28; in range: True; gate |z|<=2: True

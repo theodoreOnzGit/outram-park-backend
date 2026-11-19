@@ -597,7 +597,13 @@ B - baseline = +23 +- 38 (z +0.60); D - B = -1 +- 43 (z -0.03); A - D = +134
 The ensemble and sweep numbers above were taken with the log-spaced emission
 build. `ThermalScattering::from_tape` now puts its tables on THERMR's own
 incident-energy grid. Re-measured on the tape-data route (8 seeds, same
-protocol): 2.40 cm 0.70568 +- 0.00024 (was 0.70536, +32 +- 36 pcm), 1.63576 cm
+protocol): 2.40 cm 0.70568 +- 0.00024 (was 0.70536, +32 +- 36 pcm), ~~1.63576 cm
 1.06323 +- 0.00040 (was 1.06216, +107 +- 50), 1.75 cm 1.01168 +- 0.00033 (was
-1.01104, +64 +- 37). ~~The 2.40 cm gap to OpenMC is now -85 +- 38 pcm (z -2.26),~~ **CORRECTED 2026-11-19 (`gap_240_550.md`): 24 seeds give -10 +- 28 pcm (z -0.37); the 8-seed -85 was a fluctuation.** (Original: the gap was -85 +- 38 (z -2.26),
+1.01104, +64 +- 37).~~ **CORRECTED 2026-11-19 (`sab_reference_550.md`, "Third
+re-measure"): at 24 seeds, 1.63576 cm reads 1.06225 +- 0.00024 (was 1.06216: +9 +- 39
+pcm; -6 +- 31 pcm against OpenMC at 24 seeds, z -0.20) and 1.75 cm reads 1.01158
++- 0.00021 (was 1.01104: +54 +- 37; +28 +- 33 pcm against OpenMC, z +0.86); the 8-seed
+values above were a high block at 1.63576 cm (seeds 9-24 are -147 +- 45 pcm
+below seeds 1-8, post-hoc), reproducible per seed.** (Original text: 1.63576 cm
+1.06323, 1.75 cm 1.01168 as struck through above.) ~~The 2.40 cm gap to OpenMC is now -85 +- 38 pcm (z -2.26),~~ **CORRECTED 2026-11-19 (`gap_240_550.md`): 24 seeds give -10 +- 28 pcm (z -0.37); the 8-seed -85 was a fluctuation.** (Original: the gap was -85 +- 38 (z -2.26),
 ~~-117 +- 39 (z -2.97)~~. Record: `sab_reference_550.md`, "Flip and re-measure".
