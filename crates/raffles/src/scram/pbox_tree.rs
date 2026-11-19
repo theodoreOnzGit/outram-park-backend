@@ -43,7 +43,10 @@
 //! `min`-subset, at most [`MAX_ATLEAST_SUBSETS`] subsets), because the subsets
 //! share events.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use super::fault_tree::{Arg, Connective, FaultTree};
 use super::pba::{

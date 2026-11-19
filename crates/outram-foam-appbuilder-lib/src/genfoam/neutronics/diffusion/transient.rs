@@ -33,6 +33,9 @@
 
 //! One backward-Euler transient time step (see [`super`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::{fvm, Field, VolScalarField};
 use uom::si::f64::Time;
 use uom::si::time::second;

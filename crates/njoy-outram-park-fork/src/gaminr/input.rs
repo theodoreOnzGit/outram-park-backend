@@ -28,6 +28,9 @@
 //! | 6 | `mfd mtd mtname` (repeat) | always; `mfd=0` ends material, `mfd=-1` = all |
 //! | 7 | `matd` (next material; `0` ends run) | always (`gaminr.f90:516`) |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::gaminr::photon_groups::PhotonGroupStructure;
 use crate::gaminr::weights::WeightOption;
 use crate::NjoyError;

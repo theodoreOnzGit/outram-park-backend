@@ -42,7 +42,7 @@ approx = { workspace = true }
 # draws its Gaussian deviates from RAFFLES' seeded Box-Muller sampler on
 # petir's LCG -- the workspace's random source -- instead of any port of
 # FLEXPART's Numerical Recipes generators (gh:#410).
-raffles = { workspace = true }
+raffles = { workspace = true, features = ["std"] }
 
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # The Gaussian puff field's own thread pool (see `puff::wgsl::pool`) --
@@ -56,9 +56,13 @@ raffles = { workspace = true }
 # falls back to the serial `field_serial` kernel under the same name rather
 # than depending on rayon at all -- see that function's doc comment.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = { workspace = true }
+rayon = { workspace = true, optional = true }
 
 [features]
+# `std` (default, gh:#1587): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`.
+default = ["std"]
+std = ["dep:rayon"]
 # gpu — dispatches `puff::wgsl::field_gpu`/`field_auto`'s GPU path through
 # PETIR's headless runner. OFF BY DEFAULT, matching `petir/wgpu`'s own
 # default: a host with no adapter (or this feature disabled) simply uses
@@ -66,4 +70,4 @@ rayon = { workspace = true }
 # paths must exist -- `outram-mc-libs/CLAUDE.md`'s GPU policy is a hard rule
 # across this workspace, and `petir/wgpu` is itself target-gated off Android
 # and wasm, which this feature does not change.
-gpu = ["petir/wgpu"]
+gpu = ["std", "petir/wgpu"]

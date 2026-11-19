@@ -5,6 +5,9 @@
 //! (kg/s), hydraulic diameter (m), cross-sectional area (m^2) and fluid
 //! properties — to the component's inner `pipe_fluid_array`, so the component
 //! can be dropped into fluid-component collections and pressure-drop solvers.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 

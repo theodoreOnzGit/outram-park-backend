@@ -46,6 +46,9 @@
 //! `executables/` and `utilities/`: only its own files and `Make/files`).
 //! It is ported as a callable step; no pipeline calls it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::correct_edges::foam_face_centre;
 use crate::topology::{decompose_cells, TopoMesh};
 
@@ -162,6 +165,7 @@ mod tests {
             out.validate().unwrap();
             let (vols, _) = cell_geometry(&out);
             let vmin = vols.iter().cloned().fold(f64::MAX, f64::min);
+            #[cfg(feature = "std")]
             println!("corner at z {z}: {r:?}, cells {}, volume {} (before {v0}), min cell volume {vmin:e}", out.n_cells, out.total_volume());
             assert!((out.total_volume() - v0).abs() < 1e-12);
             if expect_fanned {

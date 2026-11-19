@@ -20,7 +20,10 @@
 //! finite-element view) and from **polyhedral faces** (the `polyMesh` view).
 //! Each derives what the other view needs.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use super::element::{BoundarySpec, Element, ElementKind, LengthUnit, Patch, PatchKind, PolyFace, Zone};
 use super::mesh::{CellRecord, UnstructuredMesh, UnstructuredMeshError};
@@ -202,7 +205,7 @@ impl UnstructuredMesh {
             if let Some(&bad) = face.verts.iter().find(|&&v| v >= n_points) {
                 return Err(UnstructuredMeshError::PointOutOfRange { context: "face vertex", index: bad, n_points });
             }
-            for c in std::iter::once(face.owner).chain(face.neighbour) {
+            for c in core::iter::once(face.owner).chain(face.neighbour) {
                 if c >= n_cells {
                     return Err(UnstructuredMeshError::CellOutOfRange { context: "face owner/neighbour", index: c, n_cells });
                 }

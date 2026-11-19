@@ -14,6 +14,9 @@
 //! the deck driver stays in step with the stream: the next record is the next
 //! module's name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::deck::cards::{CardReader, Slot};
 use crate::groupr::{
     input::neutron_group_from_ign, GrouprInput, PhotonGroupStructure, PrintOption, ReactionRequest, SmoothingOption,
@@ -366,14 +369,33 @@ pub struct GrouprJob {
     /// Card 8a/8b/8d extras that [`GrouprInput`] does not carry: the raw
     /// values read (flux calculator `fehi, sigpot, nflmax, ninwt, jsigz,
     /// alpha2, sam, beta, alpha3, gamma`, or the TAB1 weight values, or
-    /// `ninwt`), in card order.
+    /// `ninwt`), in card order. Card 8b's 10 000 words are `NaN` past the
+    /// last one the card gives (gh:#1370).
     pub weight_cards: Vec<Vec<f64>>,
-    /// Card 9a extended requests `(mfd, mtd, izar, lfs)`.
-    pub extended: Vec<[i32; 4]>,
+    /// Card 9a extended requests `(mfd, mtd, izar, lfs)`, each with its
+    /// position in the card-9 list: the number of plain requests
+    /// ([`GrouprInput::reactions`]) read before it. GROUPR processes the list
+    /// in card order (`groupr.f90:655-676`, gh:#1369, upstream test 86).
+    pub extended: Vec<(usize, [i32; 4])>,
+    /// Card 9 (and 9a) lists for the second and later temperatures: upstream reads
+    /// one list, ended by `mfd = 0`, per temperature (`groupr.f90:586-630`,
+    /// label 590 loops back to label 360). The first temperature's list is
+    /// [`GrouprInput::reactions`] and [`GrouprJob::extended`].
+    pub later_temperatures: Vec<(Vec<ReactionRequest>, Vec<(usize, [i32; 4])>)>,
     /// Further materials requested by card 10, each with its own sign
     /// (negative = add/replace); the terminating `0` is not stored.
     pub more_materials: Vec<i32>,
+    /// Each card-10 material with its own card-9 lists, one per temperature
+    /// (`groupr.f90:990-1001` goes back to label 120, and the card-9 reads at
+    /// label 360 run again for every temperature), gh:#1370. ~~Card 10 was read
+    /// "until 0" straight after the first material~~ **CORRECTED 2026-11-14**: that
+    /// read a second material's card 9 as card 10.
+    pub material_lists: Vec<(i32, Vec<GrouprCard9List>)>,
 }
+
+/// One GROUPR card-9 list (ended by `mfd = 0`): the plain requests, and the
+/// card-9a extended ones with their positions.
+pub type GrouprCard9List = (Vec<ReactionRequest>, Vec<(usize, [i32; 4])>);
 
 /// Read GROUPR's cards: `ruinb` (`groupr.f90:1061-1125`), the group structure
 /// and weight readers (`gengpn`, `gengpg`, `genwtf`), card 9 until `mfd = 0`,
@@ -450,7 +472,9 @@ pub fn read_groupr(r: &mut CardReader) -> Result<GrouprJob, NjoyError> {
             let ninwt = r.read_ints(&[0])?[0];
             input.weight = WeightSelection::ReadResonanceFlux { ninwt: ninwt.abs() };
         }
-        1 => weight_cards.push(r.read_reals(&vec![0.0; 10000])?),
+        // `NaN` marks a word the card does not give: upstream's `tmp` is
+        // `allocate`d, not set, so `genwtf_iwt1` refuses to read one (gh:#1370).
+        1 => weight_cards.push(r.read_reals(&vec![f64::NAN; 10000])?),
         4 => {
             let v = r.read_reals(&[0.0, 0.0, 0.0, 0.0])?;
             input.thermal_fission_params = Some(crate::groupr::ThermalFissionParams {
@@ -462,7 +486,49 @@ pub fn read_groupr(r: &mut CardReader) -> Result<GrouprJob, NjoyError> {
         }
         _ => {}
     }
-    // card 9
+    // A negative first `matb` stops upstream before any card 9 is read: with
+    // `ngout1 /= 0`, `findf` finds no MAT `matb` (`ruinb` keeps the sign); with
+    // `ngout1 = 0`, label 170 reads `nendf`'s label as a head and never returns
+    // (gh:#1370). `run_groupr` refuses both by name.
+    if matb < 0 {
+        return Ok(GrouprJob { input, weight_cards, extended: Vec::new(), later_temperatures: Vec::new(), more_materials: Vec::new(), material_lists: Vec::new() });
+    }
+    // card 9, once per temperature (`:586-630`)
+    let ntemp = input.temperatures.len();
+    let (reactions, extended) = read_groupr_card9(r)?;
+    input.reactions = reactions;
+    let mut later_temperatures = Vec::new();
+    for _ in 1..ntemp {
+        later_temperatures.push(read_groupr_card9(r)?);
+    }
+    // card 10 (`:993`), then that material's card-9 lists, until `matb = 0`.
+    let mut more = Vec::new();
+    let mut material_lists = Vec::new();
+    loop {
+        let m = ints(r, &[0])?[0];
+        if m == 0 {
+            break;
+        }
+        more.push(m);
+        if m < 0 && units.ngout1 == 0 {
+            // `iaddmt = -1`: label 170 never returns (see above); nothing more is read.
+            material_lists.push((m, Vec::new()));
+            break;
+        }
+        let mut lists = Vec::with_capacity(ntemp);
+        for _ in 0..ntemp {
+            lists.push(read_groupr_card9(r)?);
+        }
+        material_lists.push((m, lists));
+    }
+    input.next_material = more.first().copied();
+    Ok(GrouprJob { input, weight_cards, extended, later_temperatures, more_materials: more, material_lists })
+}
+
+/// One GROUPR card-9 list, until `mfd = 0` (`groupr.f90:365-383`): the plain
+/// requests and the card-9a extended ones (`mfd = -1`).
+fn read_groupr_card9(r: &mut CardReader) -> Result<GrouprCard9List, NjoyError> {
+    let mut reactions = Vec::new();
     let mut extended = Vec::new();
     loop {
         let mut c = [Slot::Int(0), Slot::Int(-1000), Slot::string(60, "")];
@@ -473,22 +539,12 @@ pub fn read_groupr(r: &mut CardReader) -> Result<GrouprJob, NjoyError> {
         }
         if mfd == -1 {
             let e = ints(r, &[0, 0, 0, 0])?;
-            extended.push([e[0], e[1], e[2], e[3]]);
+            extended.push((reactions.len(), [e[0], e[1], e[2], e[3]]));
             continue;
         }
-        input.reactions.push(ReactionRequest { mfd, mtd: c[1].int(), name: c[2].text().to_string() });
+        reactions.push(ReactionRequest { mfd, mtd: c[1].int(), name: c[2].text().to_string() });
     }
-    // card 10
-    let mut more = Vec::new();
-    loop {
-        let m = ints(r, &[0])?[0];
-        if m == 0 {
-            break;
-        }
-        more.push(m);
-    }
-    input.next_material = more.first().copied();
-    Ok(GrouprJob { input, weight_cards, extended, more_materials: more })
+    Ok((reactions, extended))
 }
 
 // ── UNRESR ──────────────────────────────────────────────────────────────
@@ -548,7 +604,9 @@ pub struct PurrMaterial {
     pub nladr: i32,
     /// `iprint` (default 1).
     pub iprint: i32,
-    /// `nunx`: extra unresolved energies (default 0).
+    /// `nunx`: ~~extra unresolved energies~~ the number of unresolved energies
+    /// processed, `0` (default) all of them (`purr.f90:98`, `:283-292`; corrected
+    /// 2026-11-12, gh:#1498).
     pub nunx: i32,
     /// Temperatures \[K\].
     pub temps: Vec<f64>,
@@ -747,4 +805,29 @@ pub fn read_acer(r: &mut CardReader) -> Result<AcerCards, NjoyError> {
         _ => {}
     }
     Ok(a)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Upstream deck 02's GROUPR cards, shortened (`ntemp = 3`): one card-9 list
+    /// per temperature, then card 10 (`groupr.f90:586-630`, `:993`). Before
+    /// gh:#1369 round 3 the second list's first card was read as card 10.
+    #[test]
+    fn groupr_reads_one_card9_list_per_temperature() {
+        let deck = " -21 -24 0 -25/\n 1050 5 0 4 3 3 7 1/\n '94-pu-238'/\n 300. 900. 2100./\n \
+            1.e10 1.e5 1.e4 1000. 100. 10. 1/\n .1 0.025 0.8208e06 1.4e06/\n 3 1 'total'/\n 6 -59 'c'/\n 0/\n \
+            3 1 'total'/\n 3 2 'elastic'/\n 0/\n 3 1 'total'/\n 6 2 'elastic'/\n 0/\n 0/\nccccr\n";
+        let mut r = CardReader::new(deck);
+        let job = read_groupr(&mut r).unwrap();
+        assert_eq!(job.input.reactions.len(), 2);
+        assert_eq!(job.input.reactions[1].mtd, -59);
+        assert_eq!(job.later_temperatures.len(), 2);
+        let pairs = |v: &[ReactionRequest]| v.iter().map(|q| (q.mfd, q.mtd)).collect::<Vec<_>>();
+        assert_eq!(pairs(&job.later_temperatures[0].0), vec![(3, 1), (3, 2)]);
+        assert_eq!(pairs(&job.later_temperatures[1].0), vec![(3, 1), (6, 2)]);
+        assert!(job.more_materials.is_empty());
+        assert_eq!(job.input.sigma_zeros.len(), 7);
+    }
 }

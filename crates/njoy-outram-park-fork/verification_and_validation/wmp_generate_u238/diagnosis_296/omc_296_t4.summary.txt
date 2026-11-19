@@ -1,0 +1,15 @@
+{
+ "code": "openmc",
+ "input": "/tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/wmp1390d/in_296_t4.f64",
+ "n_peaks": 49,
+ "first_order": 98,
+ "last_order_in_list": 200,
+ "last_order_visited": 158,
+ "orders_visited": 557,
+ "stop": "acceleration",
+ "final_poles": 67,
+ "grid_points_outside": 1167,
+ "seconds": 1585.3585920333862,
+ "best_quality": 1.580614747354442,
+ "best_ratio": 0.7597274474304816
+}

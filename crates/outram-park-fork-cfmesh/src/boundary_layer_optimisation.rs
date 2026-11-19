@@ -92,6 +92,9 @@
 //! `reCalculateNormals true` ([`BoundaryLayerOptimisationControls`]).
 //! cfMesh has no `featureAngle` setting in this class.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::layers::{assemble_layered, layer_columns, layer_setup, LayerOutcome, LayerQualityStrategy, LayerSetup, LayerVertex};
 use crate::math::Vec3;
 use crate::mesh_optimizer::{
@@ -102,7 +105,7 @@ use crate::layers::refine_boundary_layers::detect_boundary_layers;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
 use crate::volume_mesh::{cells_faces, from_cell_faces, VolumeMesh};
 use petir::mathf::RealMath;
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// `boundaryLayerOptimisation`'s settings (`optimisationParameters` in
 /// `meshDict`). Defaults: the values of the constructor
@@ -911,6 +914,7 @@ pub fn add_boundary_layers_cfmesh_on_surface(
         stop_on_stall,
         boundary_moves: bmoves,
         mesh_untangler: controls.untangle_mesh_untangler,
+        boundary_calls: crate::mesh_optimizer::BoundaryMoveCalls::AsDocumented,
     };
     if controls.optimize_mesh_fv_laplace {
         MeshOptimizer::new(&m1).optimize_laplacian(&mut m1, LaplaceKind::PointCells, 5);
@@ -1154,12 +1158,15 @@ mod tests {
         for h in &hairs.hairs {
             *kinds.entry(h.kind).or_insert(0) += 1;
         }
+        #[cfg(feature = "std")]
         println!("DIAG hairs {} shared {shared} base {} cells {} kinds {kinds:?}", hairs.hairs.len(), is_base.iter().filter(|&&b| b).count(), cells.len());
         let bend = hairs.hairs.iter().filter(|h| hairs.engine.bp[h.end] != crate::surface_engine::NOT_BOUNDARY).count();
+        #[cfg(feature = "std")]
         println!("DIAG hairs ending on the boundary {bend}; off-plane before {}", off_plane(&m).len());
         let c = BoundaryLayerOptimisationControls::default();
         let mut m1 = m.clone();
         hairs.optimise_normals_at_the_boundary(&mut m1, &c);
+        #[cfg(feature = "std")]
         println!("DIAG after normals at boundary: off-plane {}", off_plane(&m1).len());
         let mut patch_of = vec![usize::MAX; m.face_count()];
         for (bf, &f) in hairs.engine.boundary_faces.iter().enumerate() {
@@ -1168,10 +1175,13 @@ mod tests {
         let mut h2 = Hairs::from_mesh(&m).0;
         let cf = crate::mesh_optimizer::cell_faces(&m1);
         h2.optimise_thickness_variation(&mut m1, BOUNDARY, &cf, &c);
+        #[cfg(feature = "std")]
         println!("DIAG after thickness BOUNDARY: off-plane {}", off_plane(&m1).len());
         h2.optimise_normals_inside(&mut m1, &c, &patch_of);
+        #[cfg(feature = "std")]
         println!("DIAG after normals inside: off-plane {}", off_plane(&m1).len());
         h2.optimise_thickness_variation(&mut m1, INSIDE, &cf, &c);
+        #[cfg(feature = "std")]
         println!("DIAG after thickness INSIDE: off-plane {}, volume {}", off_plane(&m1).len(), m1.total_volume());
         {
             let mut m3 = m.clone();
@@ -1184,9 +1194,11 @@ mod tests {
                 let b = off_plane(&m3).len();
                 h3.optimise_normals_inside(&mut m3, &c, &patch_of);
                 h3.optimise_thickness_variation(&mut m3, INSIDE, &cf, &c);
+                #[cfg(feature = "std")]
                 println!("DIAG pass {pass}: off-plane {a} {b} {}, bad {}", off_plane(&m3).len(), crate::mesh_optimizer::find_bad_faces(&m3).iter().filter(|&&x| x).count());
                 for &p in off_plane(&m3).iter().take(2) {
                     let hs: Vec<_> = h3.hairs.iter().filter(|h| h.end == p || h.start == p).map(|h| (h.start, h.end, h.kind, m.points[h.start], m.points[h.end], m3.points[h.end])).collect();
+                    #[cfg(feature = "std")]
                     println!("DIAG   off {p}: {hs:?}");
                 }
             }
@@ -1196,10 +1208,12 @@ mod tests {
             let un = UntangleControls { max_global_iterations: 10, max_iterations: 50, max_surface_iterations: 2, boundary_moves: bm, mesh_untangler: true, ..UntangleControls::default() };
             let s = OptimizeBoundaryLayerSettings { optimise_layer: true, add_buffer_layer: false, controls: c.clone(), untangle: un };
             let r = optimize_boundary_layer(&mut m2, &s);
+            #[cfg(feature = "std")]
             println!("DIAG full boundary_moves {bm}: off-plane {}, volume {}, reports {:?}", off_plane(&m2).len(), m2.total_volume(), r.optimisation.iter().map(|o| (o.flagged_before, o.flagged_after, o.surface_iterations)).collect::<Vec<_>>());
         }
         for &p in off_plane(&m1).iter().take(4) {
             let hs: Vec<_> = h2.hairs.iter().filter(|h| h.end == p || h.start == p).map(|h| (h.start, h.end, h.kind, m.points[h.start], m.points[h.end], m1.points[h.end])).collect();
+            #[cfg(feature = "std")]
             println!("DIAG off {p}: {hs:?}");
         }
     }

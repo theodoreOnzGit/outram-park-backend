@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolScalarField;
@@ -302,6 +305,26 @@ pub fn laplacian_with_delta_and_source(
     mode: DeltaCoeff,
     source0: Option<&[f64]>,
 ) -> FvMatrix {
+    laplacian_with_delta_diag_and_source(gamma, phi, mode, None, source0)
+}
+
+/// [`laplacian_with_delta_and_source`] with an implicit-sink diagonal `sp_diag`
+/// added AFTER the interior faces and BEFORE the boundary coefficients (gh:#1379).
+///
+/// Upstream's `fvm::laplacian(gamma, G) - fvm::Sp(a, G)` has `-V a` in the
+/// diagonal on top of the interior-face sum, and `fvMatrix::solve` then adds the
+/// boundary `internalCoeffs`. Floating-point addition is not associative, so a
+/// sink added to the finished matrix instead differs by an ulp in boundary
+/// cells. `sp_diag` (this matrix's sign convention: positive for an implicit
+/// sink, i.e. `V a`, one entry per cell) goes in at upstream's position.
+/// `None` is exactly [`laplacian_with_delta_and_source`].
+pub fn laplacian_with_delta_diag_and_source(
+    gamma: &SurfaceScalarField,
+    phi: &VolScalarField,
+    mode: DeltaCoeff,
+    sp_diag: Option<&[f64]>,
+    source0: Option<&[f64]>,
+) -> FvMatrix {
     let mesh = phi.mesh.clone();
     let mut mat = FvMatrix::new(mesh.clone());
     if let Some(s0) = source0 {
@@ -330,6 +353,13 @@ pub fn laplacian_with_delta_and_source(
         mat.ldu.diag[n] += coeff;
         mat.ldu.upper[f] = -coeff;
         mat.ldu.lower[f] = -coeff;
+    }
+
+    // Implicit sink (after the interior faces, before the boundary coefficients).
+    if let Some(d) = sp_diag {
+        for (c, v) in d.iter().enumerate() {
+            mat.ldu.diag[c] += *v;
+        }
     }
 
     // Boundary faces
@@ -497,7 +527,7 @@ mod tests {
     use crate::fields::vol_field::VolScalarField;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
         Arc::new(
@@ -789,7 +819,7 @@ mod tests {
     /// stencil (diag = 2Γ·A/h, off-diag = −Γ·A/h). This is the reference a
     /// cyclic `periodic_1d(n, n·h, A)` mesh must reproduce.
     fn ring_mesh(n: usize, h: f64, area: f64) -> Arc<crate::mesh::fv_mesh::FvMesh> {
-        use std::f64::consts::PI;
+        use core::f64::consts::PI;
         let r = h / (2.0 * (PI / n as f64).r_sin());
         // n internal faces: face f couples cell f and cell (f+1) mod n.
         let owner: Vec<usize> = (0..n).collect();

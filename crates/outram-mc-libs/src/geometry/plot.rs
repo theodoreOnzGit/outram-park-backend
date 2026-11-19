@@ -7,6 +7,9 @@
 //! [`MaterialIdentity`], which this crate implements for its
 //! [`Material`](crate::material::material::Material) below.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use outram_blender::csg::plot::*;
 
 impl MaterialIdentity for crate::material::material::Material {

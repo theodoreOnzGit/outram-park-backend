@@ -6,6 +6,9 @@
 
 //! Closed-form verification of [`super::PhasicWallHeat`] (gh:#1062).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use uom::si::f64::{HeatFluxDensity, HeatTransfer};
 

@@ -34,6 +34,9 @@
 //! flags with unrelated meanings) is **not ported**, consistent with this
 //! crate's existing `f6ddx`/`f6cm` LANG scope; see [`f6lab`]'s `Err` docs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cm::Cm6Point;
 use super::shared::EMAX;
 use crate::endf::interp::{terp1, IntLaw};

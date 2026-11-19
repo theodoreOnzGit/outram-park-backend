@@ -50,13 +50,14 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 | Solver | Status |
 |---|---|
 | `pimple_foam` | Incompressible transient PISO/PIMPLE (pimpleFoam ≡ icoFoam at `nOuterCorrectors 1`). Implemented; validated against an icoFoam lid-driven-cavity reference (`tutorials/pimple_foam_cavity.rs`). Open boundaries since gh:#1154; `Gauss linear corrected` non-orthogonal correction (default, ablation `without_non_orthogonal_correction`) since gh:#1161 (`verification_and_validation/non_orthogonal_correction_gh1161.md`); laminar pipe V&V (Hagen–Poiseuille, f·Re → 64.09, development length +1.4 % against Durst et al. 2005) in `verification_and_validation/laminar_pipe_gh1155.md`. **Differential against OpenFOAM-dev icoFoam (gh:#1363)**, cavity, 20×20, 100 steps, `Gauss linear`: U, p, phi per cell agree to ≤ 1.3e-13 of the field range at all of 7 snapshots (not bit-identical: different linear solvers); record `verification_and_validation/pimple_foam_vs_openfoam.md`, test `tests/upstream_cavity_gh1363.rs`. |
-| `energy` | The incompressible, constant-property energy equation (gh:#1156) — `EnergyEquation` (T, `IncompressibleThermo`, Euler or steady), attached to `PimpleFoam::energy` for forced convection (solved after the PISO loop with the corrected flux; `None` by default, which leaves every flow bit-identical) or held by a solid region. Upwind convection, the flow's Laplacian (default `Gauss linear corrected`), BiCGStab with iterative refinement. Verified: developed Nusselt numbers (constant flux → 4.364, constant T → the Graetz eigenvalue incl. axial diffusion, both converging at first order) and discrete energy closure to ≤ 2e-10, in `verification_and_validation/cht_double_pipe_gh1156.md`. Compressible terms (kinetic energy, pressure work, buoyancy, radiation) are **not** carried. |
-| `cht_multi_region_foam` | chtMultiRegionFoam's multi-region coupling (gh:#1156): fluid regions (`PimpleFoam` + energy) and `SolidRegion`s on separate meshes, joined by `CoupledTemperature`, a port of OpenFOAM-8's `compressible::turbulentTemperatureCoupledBaffleMixed` (mixed condition, `thicknessLayers`/`kappaLayers` contact layers), solved fluid-then-solid per outer pass with upstream's `frozenFlow`. Coupling on by default; ablation `without_interface_coupling`. Verified against the analytic composite slab (to ≤ 8e-9 K, the solve tolerance) and on a counterflow double pipe against ε-NTU. |
+| `energy` | The incompressible, constant-property energy equation (gh:#1156) — `EnergyEquation` (T, `IncompressibleThermo`, Euler or steady), attached to `PimpleFoam::energy` for forced convection (solved after the PISO loop with the corrected flux; `None` by default, which leaves every flow bit-identical) or held by a solid region. Upwind convection, the flow's Laplacian (default `Gauss linear corrected`), BiCGStab with iterative refinement. Verified: developed Nusselt numbers (constant flux → 4.364, constant T → the Graetz eigenvalue incl. axial diffusion, both converging at first order) and discrete energy closure to ≤ 2e-10, in `verification_and_validation/cht_double_pipe_gh1156.md`. Compressible terms (kinetic energy, pressure work, buoyancy) are **not** carried. ~~Radiation is not carried.~~ **CHANGED 2026-11-13 (gh:#1531):** opt-in P1 thermal radiation, `EnergyEquation::with_radiation(P1Model, g0)` (`solvers::energy_radiation::RadiationCoupling`): ESI's `rad.Sh(thermo, he)` source in the energy equation and `rad.correct()` after each solve (G warm-started, `solverFreq`); off (`None`) by default. Compared with ESI v2506 `chtMultiRegionFoam` + `radiationModel P1` on the gh:#1363 case: fluid T within 1.1e-11 K, G within 1.5e-13 relative over 50 steps (`verification_and_validation/upstream_radiation_gh1531/README.md`). ~~The radiative wall flux `qr` is not fed to the coupled interface condition.~~ **CORRECTED 2026-11-14 (gh:#1531):** it is, by default: `CoupledTemperature` adds `(qr + qrNbr)/kappa` as `refGrad` (`turbulentTemperatureRadCoupledMixed`), fluid T within 1.0e-11 K of ESI with `qr qr`/`qrNbr qr`; ablate with `without_radiative_flux_coupling`. **ADDED 2026-11-14 (gh:#1541):** opt-in ESI `viewFactor` surface radiation beside P1, `EnergyEquation::with_view_factor_radiation(ViewFactorCoupling)` (`solvers::energy_view_factor`; `ViewFactorCoupling::generate` builds F with the Rust `viewFactorsGen`); no volumetric source, `qr` on the radiating patches enters the interface condition as for P1; exclusive with P1. With ESI's own F: fluid T within 1.1e-11 K, `qr` within 3.7e-12 of ESI over 50 steps; with Rust-generated F 1.7e-8 K / 2.5e-3 (generator residual gh:#1564), `verification_and_validation/upstream_view_factor_gh1541/README.md`. |
+| `cht_multi_region_foam` | chtMultiRegionFoam's multi-region coupling (gh:#1156): fluid regions (`PimpleFoam` + energy) and `SolidRegion`s on separate meshes, joined by `CoupledTemperature`, a port of OpenFOAM-8's `compressible::turbulentTemperatureCoupledBaffleMixed` (mixed condition, `thicknessLayers`/`kappaLayers` contact layers), solved fluid-then-solid per outer pass with upstream's `frozenFlow`. Coupling on by default; ablation `without_interface_coupling`. Verified against the analytic composite slab (to ≤ 8e-9 K, the solve tolerance) and on a counterflow double pipe against ε-NTU. Since gh:#1363 row 4 also compared with ESI v2506 `chtMultiRegionFoam` (a dump driver on the real thermo and the real `turbulentTemperatureRadCoupledMixed`) on a frozen-flow fluid at rest + solid: cells within 1.1e-11 K over 50 steps, not bit-identical (T-form vs upstream's h-form); flowing, buoyant or compressible CHT is not compared. Since gh:#1531 a fluid region can carry opt-in P1 radiation, compared with ESI on the same case; since 2026-11-14 the interface takes the radiative flux `qr`/`qrNbr` by default when a fluid radiates (`InterfaceRadiation::Auto`, `with_radiative_flux`, `without_radiative_flux`), fluid T within 1.04e-11 K of ESI. Layers combined with `qr` are not compared (the port's layered mode is `baffleMixed`'s). |
 | `non_orthogonal` | The `Gauss linear corrected` pieces `PimpleFoam` applies (gh:#1161): `LaplacianCorrection`, the explicit face corrections, the vector-matrix re-stamp to `1/(n·d)`. |
-| `melt_foam` | Incompressible buoyant PIMPLE with phase change — pimpleFoam's PISO loop plus a temperature equation and `FvModels` wiring, so `solidificationMelting` can act on **both** the momentum and the energy equation. Not a port of any single upstream application (upstream composes this at runtime through a dictionary). Implemented; **verified** against the closed-form Stefan similarity solution (-0.035 % in integrated melt thickness) and a discrete energy-conservation check (imbalance -2.71e-4 J/m², -1.27e-5 %) in `tests/melting_vv_cases/`. The gallium cavity in the same file is a **demonstration only — no benchmark data, see its `References.md`**. |
+| `melt_foam` | Incompressible buoyant PIMPLE with phase change — pimpleFoam's PISO loop plus a temperature equation and `FvModels` wiring, so `solidificationMelting` can act on **both** the momentum and the energy equation. Not a port of any single upstream application (upstream composes this at runtime through a dictionary). Implemented; **verified** against the closed-form Stefan similarity solution (-0.035 % in integrated melt thickness) and a discrete energy-conservation check (imbalance -2.71e-4 J/m², -1.27e-5 %) in `tests/melting_vv_cases/`. The gallium cavity in the same file is a **demonstration only — no benchmark data, see its `References.md`**. Since gh:#1363 row 6 its energy side is also compared with ESI v2506's `solidificationMeltingSource` fvOption (in a solid's energy equation, 1-D slab, `solidus == liquidus`): T within 3.4e-11 K over 200 steps; the momentum side (Darcy drag, buoyancy) is not compared, and ESI ships no melting solver. |
 | `rho_central_foam` | Kurganov-Noelle-Petrova (KNP) central-upwind explicit compressible (rhoCentralFoam). Implemented; **validated** against Sod (1978) Table II and an OpenFOAM reference run (`tests/sod_shock_tube_validation/`, `tutorials/rho_central_foam_shock_tube.rs`). **Since gh:#1363 `step` is a translation of OpenFOAM-v2506 `rhoCentralFoam.C` (inviscid) and is BIT-IDENTICAL to it on the shockTube** (rho, U, T, p, e, 100/100 cells at 15 steps up to t = 0.007 s; `verification_and_validation/rho_central_foam_vs_openfoam.md`, `tests/upstream_shock_tube_gh1363.rs`); the gas is `PerfectGas` (default γ = 1.4; `with_gas` for a `Cp`/`molWeight` case), viscous branches not ported. |
-| `rho_pimple_foam` | Compressible transient PIMPLE (rhoPimpleFoam), ideal-gas `ρ = ψ·p` closure. Implemented; exercised by a subsonic NACA 0012 tutorial (`tutorials/rho_pimple_foam_aerofoil_naca0012.rs`). |
-| `sonic_foam` | Transonic/supersonic ψ-based solver (sonicFoam). Implemented, but the implicit `fvm::div` scalar-convection operator is absent from basic-lib, so convection is treated **explicitly** via `fvc::div`. **No tutorial or validation case — unexercised.** |
+| `rho_pimple_foam` | Compressible transient PIMPLE (rhoPimpleFoam), ideal-gas `ρ = ψ·p` closure. Implemented; exercised by a subsonic NACA 0012 tutorial (`tutorials/rho_pimple_foam_aerofoil_naca0012.rs`). `rho_pimple_foam::esi::RhoPimpleFoamEsi` translates ESI v2506 `rhoPimpleFoam` (h-form, 1-D inviscid) and matches an upstream driver bit for bit. |
+| `solid_displacement_foam` | `SolidDisplacementFoamEsi`: translation of ESI v2506 `solidDisplacementFoam` (compactNormalStress, steadyState d2dt2, optional thermal stress, PCG/DIC). Bit-identical to the real binary on a 6x4x3 graded block, 3 variants x 6 steps (D, T, sigma, sigmaEq, every residual and iteration count): `verification_and_validation/upstream_solid_displacement_gh1383/README.md`. Not ported: `compactNormalStress no`, transient d2dt2, `tractionDisplacement`, GAMG. |
+| `sonic_foam` | Transonic/supersonic ψ-based solver (sonicFoam). `SonicFoam` is an explicit-convection sketch (**unexercised**); `sonic_foam::esi::SonicFoamEsi` translates ESI v2506 `sonicFoam` (implicit convection, energy equation, `hePsiThermo`) and matches an upstream driver bit for bit on the laminar shockTube (1-D, inviscid, closed ends). |
 | `hrm_foam` | Homogeneous Relaxation Model two-phase (HRMFoam), Downar-Zapolski (1996) relaxation. Implemented. **No tutorial or validation case — unexercised.** |
 | `reacting_two_phase_euler_foam` | Reacting two-phase Euler-Euler (OpenFOAM-dev's `multiphaseEuler`, historic `reactingTwoPhaseEulerFoam`). Composes the `outram-foam-multiphase` hydrodynamic core (`TwoFluidPimple`) and adds per-phase conservative enthalpy equations, one-resistance interfacial heat transfer (Spherical / Ranz-Marshall / constant-Nu), operator-split phase change with latent heat, an optional single-phase multicomponent composition, and a global Arrhenius reaction. Implemented; demonstrated by `examples/reacting_two_phase_euler_combustion.rs`. **Verification-tested only — no benchmark validation.** |
 
@@ -238,6 +239,29 @@ vanishes with buoyancy ablated (`NC-OFF`). Drawings and the coupled LOFC /
 CRW validation: `crates/nee_soon/verification_and_validation/htr10_rz_transients/README.md`.
 Not validated: the coupled LOFC re-criticality is ~3400 s late (see there).
 
+## `no_std` + `alloc` (gh:#1633)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every solver, closure and model builds
+without it: the OpenFOAM solvers, the GeN-Foam port (thermal-hydraulics,
+neutronics, closures), the HTGR closures and the HTR-10 R-Z model. What `std`
+adds is the **filesystem**:
+
+- the case readers and writers: `io::poly_mesh`, `io::field_reader`,
+  `io::nuclear_data`, the `read` constructors of `ControlDict`, `FvSchemes`,
+  `FvSolution` and the S_N `QuadratureSet`, `io::output`, the GeN-Foam case
+  readers, and `case_runner`;
+- the `AppBuilderError::Io` variant;
+- `serde` (a dependency nothing in `src/` uses).
+
+Without `std` there is no filesystem, so `crate::path::PathBuf` is a `String`
+(the case label in error messages); with it, it is `std::path::PathBuf`. Maps
+are std's with `std` and `hashbrown` without. The root workspace entry is
+`default-features = false`, so a member that wants `std` asks for it. With
+`std` on (the default) nothing changes.
+
 ## Limitations
 
 This crate is at an early stage of a large port. The following are **known,
@@ -291,16 +315,29 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
   the exchanger's effectiveness carries an O(Δz) error (measured: the gap to
   ε-NTU falls as 1/nz). Only conformal interfaces have been exercised
   (nearest-face pairing; `max_pairing_gap` checks it).
-- `sonic_foam` and `hrm_foam` are **implemented but have no tutorial or
-  validation case** — they are unexercised and should be treated as unverified.
-- `sonic_foam` uses **explicit** convection (`fvc::div`) because basic-lib has
-  no implicit `fvm::div` scalar-convection operator; expect the accompanying
-  stability/CFL constraints of an explicit scheme.
+- ~~`sonic_foam` and `hrm_foam` are **implemented but have no tutorial or
+  validation case** — they are unexercised and should be treated as unverified.~~
+  **CORRECTED 2026-11-12 (gh:#1363, row 3b):** `hrm_foam` still has none.
+  `sonic_foam::SonicFoam::step` (the sketch below) is still unexercised and
+  unverified, but `sonic_foam::esi::SonicFoamEsi` is a translation of ESI
+  v2506 `sonicFoam` that is **bit-identical** to a driver of the upstream
+  solver on the laminar shockTube for 700 steps (`tests/upstream_sonic_gh1363.rs`,
+  `verification_and_validation/sonic_foam_vs_openfoam.md`; inviscid, 1-D,
+  closed `zeroGradient` ends only, other cases are refused by name).
+- `sonic_foam::SonicFoam::step` uses **explicit** convection (`fvc::div`); the
+  claim that basic-lib has no implicit `fvm::div` scalar convection is
+  ~~still true~~ **outdated**: `fvm::div` exists (basic-lib `fvm::div`,
+  `div_vec`), and `SonicFoamEsi` assembles the implicit convection matrices
+  itself, with upstream's `upwind`/`limitedLinear` weights.
 - `rho_central_foam` (Sod shock tube) and `melt_foam` (Stefan similarity
   solution) are the two solvers checked against a closed-form/published
   reference. `pimple_foam` is checked against both an OpenFOAM (icoFoam)
-  reference and Ghia et al. (1982) Table I. `rho_pimple_foam` has a tutorial
-  but no hard-asserted V&V gate; `sonic_foam` and `hrm_foam` have neither.
+  reference and Ghia et al. (1982) Table I. `rho_pimple_foam::RhoPimpleFoam` has a tutorial
+  but no hard-asserted V&V gate; ~~`sonic_foam` and `hrm_foam` have neither~~
+  **CORRECTED 2026-11-12:** `rho_pimple_foam::esi::RhoPimpleFoamEsi` and
+  `sonic_foam::esi::SonicFoamEsi` are each pinned bit for bit against an
+  ESI v2506 driver (`verification_and_validation/rho_pimple_foam_vs_openfoam.md`,
+  `sonic_foam_vs_openfoam.md`); only `hrm_foam` has no gate.
 
 ### Turbulence
 

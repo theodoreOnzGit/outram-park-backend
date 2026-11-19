@@ -416,10 +416,13 @@
 //! assert_eq!(system.non_finite_jacobians(), 0);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::compute::ComputeBackend;
 use crate::matrix::SquareMatrix;

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// dataset number,pri loop mass flowrate (kg/s),DHX shell bottom (DegC),Heater inlet (DegC),
 /// C-1,0.02003,53.60943,50.45784,
 #[test]
@@ -617,6 +620,7 @@ pub fn cold_leg_insulation_thickness_validation_test_v1(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         heater_inlet_temperature_set_point.get::<degree_celsius>(),
         heater_inlet_actual_temperature.get::<degree_celsius>(),

@@ -1,7 +1,11 @@
-use std::f64::consts::PI;
-use std::ops::{DerefMut, Deref};
-use std::sync::{Arc, Mutex};
-use std::thread;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
+use core::ops::{DerefMut, Deref};
+use alloc::sync::Arc;
+    use crate::sync::Mutex;
+use crate::thread;
 
 use crate::boundary_conditions::BCType;
 use crate::boussinesq_thermophysical_properties::thermal_diffusivity::try_get_alpha_thermal_diffusivity;
@@ -313,6 +317,7 @@ use uom::si::time::second;
 /// with improved API for conveneince
 #[test]
 //#[ignore = "lumped lumped-capacitance-test takes about 1 min, too long"]
+#[cfg(feature = "std")]
 fn lumped_capacitance_timestep_adjustment() -> Result<(), TuasLibError> {
     // first, a steel control vol
     // determine parameters first
@@ -384,6 +389,7 @@ fn lumped_capacitance_timestep_adjustment() -> Result<(), TuasLibError> {
 
         // let's make a csv writer too
 
+        #[cfg(feature = "std")]
         use csv::Writer;
         let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path(
             "air_cooled_steel_sphere_auto_timestep_test.csv",
@@ -547,6 +553,7 @@ fn lumped_capacitance_timestep_adjustment() -> Result<(), TuasLibError> {
 
     // let's check the final enthalpy vec
 
+    #[cfg(feature = "std")]
     println!("{:?}", enthalpy_vec_final);
 
     return Ok(());
@@ -556,6 +563,7 @@ fn lumped_capacitance_timestep_adjustment() -> Result<(), TuasLibError> {
 
 #[test]
 //#[ignore = "lumped lumped-capacitance-test takes about 1 min, too long"]
+#[cfg(feature = "std")]
 fn lumped_capacitance_timestep_adjustment_improved_api() -> Result<(), TuasLibError> {
     // first, a steel control vol
     // determine parameters first
@@ -627,6 +635,7 @@ fn lumped_capacitance_timestep_adjustment_improved_api() -> Result<(), TuasLibEr
 
         // let's make a csv writer too
 
+        #[cfg(feature = "std")]
         use csv::Writer;
         let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path(
             "air_cooled_steel_sphere_auto_timestep_test.csv",
@@ -801,11 +810,13 @@ fn lumped_capacitance_timestep_adjustment_improved_api() -> Result<(), TuasLibEr
 
     // let's check the final enthalpy vec
 
+    #[cfg(feature = "std")]
     println!("{:?}", enthalpy_vec_final);
 
     return Ok(());
 }
 
+#[cfg(feature = "std")]
 /// this is a shorter version of the lumped lumped-capacitance-test with
 /// automatic_timestep adjustment.
 ///
@@ -885,6 +896,7 @@ fn short_version_lumped_capacitance_timestep_adjustment_improved_api() -> Result
 
         // let's make a csv writer too
 
+        #[cfg(feature = "std")]
         use csv::Writer;
         let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path(
             "short_version_air_cooled_steel_sphere_auto_timestep_test.csv",
@@ -1059,6 +1071,7 @@ fn short_version_lumped_capacitance_timestep_adjustment_improved_api() -> Result
 
     // let's check the final enthalpy vec
 
+    #[cfg(feature = "std")]
     println!("{:?}", enthalpy_vec_final);
 
     return Ok(());

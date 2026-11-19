@@ -14,6 +14,9 @@
 //!   discrepancy between the analytical and computed outlet temperatures.
 //! - [`fluid_mechanics`] — internal pressure-source behaviour.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this gives some basic tests to see what is optimal for parasitic heat loss
 pub mod preliminaries;
 

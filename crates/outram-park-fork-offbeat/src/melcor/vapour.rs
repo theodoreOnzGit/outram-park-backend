@@ -35,6 +35,9 @@
 //! unchanged: built from the public MELCOR manuals and open literature only,
 //! never MELCOR, MAAP or other code source (see [`super`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::R_GAS;
 use petir::mathf::RealMath;
 

@@ -81,6 +81,9 @@
 //! (`1e-6 K m² kg⁻¹ s⁻¹`), sign as upstream (positive in the northern
 //! hemisphere for a stable atmosphere).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::boundary_layer::richardson;

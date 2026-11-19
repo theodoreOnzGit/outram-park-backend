@@ -36,6 +36,9 @@
 //! **OpenDA's Gaussian uncertainty** (`StochVector`) and the source of its
 //! random draws (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::jama::Rows;
 use super::linalg;
@@ -255,7 +258,7 @@ impl StochVector {
         }
         let mut prob = 1.0;
         for t in &diff {
-            prob *= (0.5 / std::f64::consts::PI).sqrt() * (-0.5 * t * t).r_exp();
+            prob *= (0.5 / core::f64::consts::PI).sqrt() * (-0.5 * t * t).r_exp();
         }
         Ok(prob / sqrt_det_cov)
     }
@@ -312,7 +315,7 @@ mod tests {
         assert!(m.abs() < 0.03 && (v - 1.0).abs() < 0.05);
         assert!((0..100).all(|_| l.int_below(7).unwrap() < 7) && l.uniform().unwrap() < 1.0);
         // PDF at the mean: Π √(1/2π), times Πσ = 1 here (independent branch).
-        let dens = (0.5 / std::f64::consts::PI).sqrt().powi(2);
+        let dens = (0.5 / core::f64::consts::PI).sqrt().powi(2);
         assert!((sv.evaluate_pdf(&[1.0, -2.0]).unwrap() - dens * 1.0).abs() < 1e-15);
         let c = StochVector::correlated(vec![0.0, 0.0], vec![vec![4.0, 0.0], vec![0.0, 1.0]], false).unwrap();
         assert!((c.std[0] - 2.0).abs() < 1e-14);

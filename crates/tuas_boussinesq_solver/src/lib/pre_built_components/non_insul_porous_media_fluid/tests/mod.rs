@@ -5,6 +5,9 @@
 //! data (Ong 2024, PhD thesis), and regression tests confirm the generalised
 //! porous-media component reproduces the original CIET-heater-v2 code path.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// heater with struct supports, mx 10, and top and bottom head,
 /// has a csv writer for results
 #[cfg(test)]

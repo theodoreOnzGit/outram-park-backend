@@ -23,6 +23,9 @@
 //!   full four-branch primary + intermediate loop, including the zero-flow
 //!   (pumps off) case.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// contains code for fluid mechanics solvers
 /// for the gFHR branches
 pub mod fluid_mechanics_solvers;
@@ -256,6 +259,7 @@ pub(crate) fn test_fhr_four_branch_full_th_long_regression() {
         simulation_time += timestep;
     }
 
+    #[cfg(feature = "std")]
     dbg!(&fhr_state);
     // flowrates
     reactor_branch_flow = fhr_state.reactor_branch_flow;

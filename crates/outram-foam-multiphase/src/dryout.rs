@@ -105,6 +105,9 @@
 //! value, enum-dispatch coverage, clean `NotImplemented` errors), **not**
 //! *validation* against experimental boiling-crisis data.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::MultiphaseError;
 use uom::si::f64::{

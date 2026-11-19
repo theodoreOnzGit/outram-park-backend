@@ -49,6 +49,9 @@
 //! [`crate::mesh_octree_creator`], where upstream applies it
 //! (`setRootCubeSizeAndRefParameters`); the tests are here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree::{mag_sqr, BoundBox, CubeType, MeshOctree, SMALL, VSMALL};
 
@@ -288,7 +291,7 @@ mod tests {
     use crate::mesh_octree::TriSurf;
     use crate::mesh_octree_creator::tests::create;
     use crate::mesh_octree_creator::{LocalRefinement, MeshDict, PatchRefinement};
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// The cube `[0, 8]^3`, one region per side (`-Z, +Z, -Y, +Y, +X, -X`).
     fn cube8() -> Arc<TriSurf> {
@@ -393,7 +396,8 @@ mod tests {
             }
             assert!(n_target > 0, "{shape:?}");
             assert!(max_jump(&o) <= 1, "{shape:?}");
-            println!("{:?}: {} leaves, {n_target} at level 7", std::mem::discriminant(&shape), o.number_of_leaves());
+            #[cfg(feature = "std")]
+            println!("{:?}: {} leaves, {n_target} at level 7", core::mem::discriminant(&shape), o.number_of_leaves());
         }
     }
 
@@ -474,6 +478,7 @@ mod tests {
                 }
             }
         }
+        #[cfg(feature = "std")]
         println!("other-region triangle leaves {n_other}, lifted to level 6: {n_lifted}");
         assert_eq!((n_other, n_lifted), PATCH_PINS);
         let mut d2 = dict;

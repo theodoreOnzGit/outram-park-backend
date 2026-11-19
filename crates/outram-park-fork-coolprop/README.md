@@ -16,7 +16,10 @@ this fork. See NOTICE / TRADEMARKS.md.
 > compiles and its automated tests pass (self-consistency checks and spot
 > checks against primary standards — IAPWS-95, ASHRAE, NIST/literature, T66),
 > but **no human-reviewed validation against CoolProp's own reference outputs
-> exists yet** (planned, bead op-kbc.3). Like all code in this workspace it is
+> exists yet** ~~(planned, bead op-kbc.3)~~ **CORRECTED 2026-11-13 (gh:#1349):** a
+> machine-run differential against CoolProp's own output (commit `0e67fe7`, built from
+> source) now exists, `verification_and_validation/coolprop_differential/`: it is not
+> human-reviewed, and it found and fixed four defects (see its `RESULTS.md`). Like all code in this workspace it is
 > **unverified and untrusted** until a specific V&V case — human-reviewed and
 > intended for journal / arXiv publication — demonstrates otherwise. See the
 > workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for
@@ -53,6 +56,15 @@ it (see `TRADEMARKS.md`). Ported from
 [`CoolProp/CoolProp`](https://github.com/CoolProp/CoolProp), `master` branch,
 commit `0e67fe74b30a2fe9526af9bc64ea026a96f56ebf` (2026-07-05) — see
 `upstream_source/README.md` for the full provenance record.
+
+## `no_std` + `alloc` (gh:#1598)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-park-fork-coolprop --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every fluid, equation of state and
+transport model stays. `std` here only turns on `outram-foam-basic-lib`'s
+`std`. With `std` on (the default) nothing changes.
 
 ## What's different from CoolProp
 
@@ -413,8 +425,14 @@ performed yet — use at your own risk** (see the banner above).
 - **Known limitations:** transport (μ,λ) for only 48/137 fluids (CS fallback
   returns `None`); surface tension and melting lines absent; humid air has no
   cp/cv/transport and no ice branch; mixtures have no flash/VLE and are not yet
-  validated against GERG-2008; no systematic CoolProp-oracle cross-check yet
-  (planned, bead op-kbc.3). Property/flash APIs currently return raw `f64` SI
+  validated against GERG-2008; ~~no systematic CoolProp-oracle cross-check yet
+  (planned, bead op-kbc.3)~~ **CORRECTED 2026-11-13 (gh:#1349):** the pure-fluid
+  Helmholtz terms, `(T, rho)` properties, saturation, the `(p, T)` flash and transport
+  were swept against CoolProp output for all 137 fluids
+  (`verification_and_validation/coolprop_differential/RESULTS.md`); incompressibles,
+  humid air and mixtures are still only checked against literature, and the `(p, h)` /
+  `(p, s)` flashes fail on about 10 % of single-phase states (gh:#1350).
+  Property/flash APIs currently return raw `f64` SI
   (only the `OPCPFluidSingleCV`/`OPCPFluidArray` control volumes are `uom`-typed).
 
 ## Copyright

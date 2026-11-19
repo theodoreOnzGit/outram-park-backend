@@ -45,6 +45,9 @@
 //! because concluding otherwise would have blocked this issue on a false
 //! premise.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::Path;
 
 use hdf5_pure::{AttrValue, FileBuilder};

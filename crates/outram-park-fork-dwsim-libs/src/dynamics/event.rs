@@ -34,6 +34,9 @@
 //!   runs the script from the integrator loop, it only stores the `ScriptID`.
 //!   The IronPython scripting host is excluded crate-wide.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::dynamics::property::{DynamicProperty, PropertyRef};
 use crate::dynamics::sim_time::SimInstant;
 use crate::flowsheet::objects::ObjectId;

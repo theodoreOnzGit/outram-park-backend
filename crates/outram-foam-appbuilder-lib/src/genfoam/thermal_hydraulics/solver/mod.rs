@@ -44,6 +44,9 @@
 //! point every `match` on this enum becomes a compile error until updated — the
 //! exhaustiveness the rule buys.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod one_phase;
 pub mod porous_drag;
 pub mod two_phase;

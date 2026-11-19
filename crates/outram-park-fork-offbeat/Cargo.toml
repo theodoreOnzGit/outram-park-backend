@@ -28,6 +28,12 @@ topic = "fuel-performance"
 fidelity = 3
 maturity = 2
 
+[features]
+# `std` (default, gh:#1596): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`.
+default = ["std"]
+std = ["outram-foam-basic-lib/std", "thiserror-nostd/std"]
+
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
@@ -38,8 +44,8 @@ petir = { workspace = true }
 # LDU matrix and Krylov solvers) is reused from the Layer-1-4 crate, which is
 # pure-Rust throughout — so this crate stays Android/Termux-buildable.
 uom.workspace = true
-thiserror.workspace = true
-outram-foam-basic-lib.workspace = true
+thiserror-nostd.workspace = true
+outram-foam-basic-lib = { workspace = true }
 
 [dev-dependencies]
 approx.workspace = true

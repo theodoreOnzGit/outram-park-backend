@@ -1,0 +1,562 @@
+    Blocking waiting for file lock on build directory
+   Compiling njoy-outram-park-fork v0.0.7 (/home/user/outram-park-backend/.claude/worktrees/agent-a6798de59920fe9dd/crates/njoy-outram-park-fork)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:27:9
+   |
+27 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+28 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+29 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1135:7
+     |
+1135 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+warning: unused variable: `kmt`
+   --> crates/njoy-outram-park-fork/src/acer/acelcp.rs:352:20
+    |
+352 |         for &(kmf, kmt) in keys.iter().filter(|&&(_, kmt)| kmt == mt) {
+    |                    ^^^ help: if this is intentional, prefix it with an underscore: `_kmt`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `njoy-outram-park-fork` (lib) generated 1 warning (run `cargo fix --lib -p njoy-outram-park-fork` to apply 1 suggestion)
+   Compiling outram-mc-libs v0.0.7 (/home/user/outram-park-backend/.claude/worktrees/agent-a6798de59920fe9dd/crates/outram-mc-libs)
+warning: unused import: `transport_history_vr`
+  --> crates/outram-mc-libs/src/physics/fixed_source.rs:38:37
+   |
+38 | use crate::physics::transport_csg::{transport_history_vr, Site};
+   |                                     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::energy::EnergyDist`
+  --> crates/outram-mc-libs/src/source/source.rs:16:5
+   |
+16 | use super::energy::EnergyDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::spatial::SpatialDist`
+  --> crates/outram-mc-libs/src/source/source.rs:17:5
+   |
+17 | use super::spatial::SpatialDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> crates/outram-mc-libs/src/material/nuclide/hdf5_real_tests.rs:163:9
+    |
+163 |     let mut expect_same = |f: &mut Findings, what: &str, ok: bool| {
+    |         ----^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:183:19
+    |
+170 | impl Site {
+    | --------- associated function in this implementation
+...
+183 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib test) generated 5 warnings (run `cargo fix --lib -p outram-mc-libs --tests` to apply 2 suggestions)
+    Finished `release` profile [optimized] target(s) in 3m 31s
+     Running unittests src/lib.rs (/tmp/claude-0/-home-user-outram-park-backend/208a80c6-8981-41e3-ac0f-1769a3a0e997/scratchpad/target-njoy/release/deps/outram_mc_libs-e5658eee8e2d0044)
+
+running 8 tests
+test material::nuclide::hdf5_laws::tests::cosine_rows_follow_the_ace_spelling ... ok
+test material::nuclide::hdf5_laws::tests::delayed_groups_on_different_grids_use_the_union ... ok
+test material::nuclide::hdf5_laws::tests::delayed_yields_rebuild_total_and_shares ... ok
+test material::nuclide::hdf5_laws::tests::discrete_lines_are_scaled_like_the_ace_reader ... ok
+test material::nuclide::hdf5_laws::tests::incident_regions_map_back_to_ace_spelling ... ok
+test material::nuclide::hdf5_laws::tests::no_delayed_product_gives_none ... ok
+test material::nuclide::hdf5_read::tests::a_tabulated_function_becomes_an_endf_tab1 ... ok
+test material::nuclide::hdf5_real_tests::the_lct008_library_converts_and_matches_the_ace_route ... == H1 (read 663.92µs, from_hdf5 136.38µs; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 377/1262 words differ, worst relative 4.43e-9 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 9.000000e6 eV: h5 1.026528015e0 vs ESZ 1.026528020e0 b
+   sampled cross sections (MT != 1): 0/2524 words differ
+   delayed: none on both
+== B10 (read 16.31ms, from_hdf5 566.97µs; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: 12 words differ (worst rel 2.02e-16), 0 histogram flags, 0 shape mismatches
+   inelastic_angular MT=51: 4 words differ (worst rel 1.48e-16), 0 histogram flags, 0 shape mismatches
+   inelastic_angular MT=52: 3 words differ (worst rel 1.48e-16), 0 histogram flags, 0 shape mismatches
+   inelastic_angular MT=53: 3 words differ (worst rel 1.48e-16), 0 histogram flags, 0 shape mismatches
+   inelastic_angular MT=54: 2 words differ (worst rel 1.48e-16), 0 histogram flags, 0 shape mismatches
+   inelastic_angular MT=55: 2 words differ (worst rel 1.48e-16), 0 histogram flags, 0 shape mismatches
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 941/1882 words differ, worst relative 9.98e-7 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 3.125000e1 eV: h5 1.111885260e2 vs ESZ 1.111884150e2 b
+   sampled cross sections (MT != 1): 0/21832 words differ
+   delayed: none on both
+== O16 (read 26.91ms, from_hdf5 2.87ms; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: identical
+   inelastic_angular MT=51: identical
+   inelastic_angular MT=52: identical
+   inelastic_angular MT=53: identical
+   inelastic_angular MT=54: identical
+   inelastic_angular MT=55: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 2928/6162 words differ, worst relative 7.13e-8 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 6.500000e6 eV: h5 6.961149464e-1 vs ESZ 6.961149960e-1 b
+   sampled cross sections (MT != 1): 0/50954 words differ
+   delayed: none on both
+== Al27 (read 134.04ms, from_hdf5 956.79µs; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: identical
+   inelastic_angular MT=51: identical
+   inelastic_angular MT=52: identical
+   inelastic_angular MT=53: identical
+   inelastic_angular MT=54: identical
+   inelastic_angular MT=55: identical
+   inelastic_angular MT=56: identical
+   inelastic_angular MT=57: identical
+   inelastic_angular MT=58: identical
+   inelastic_angular MT=59: identical
+   inelastic_angular MT=60: identical
+   inelastic_angular MT=61: identical
+   inelastic_angular MT=62: identical
+   inelastic_angular MT=63: identical
+   inelastic_angular MT=64: identical
+   inelastic_angular MT=65: identical
+   inelastic_angular MT=66: identical
+   inelastic_angular MT=67: identical
+   inelastic_angular MT=68: identical
+   inelastic_angular MT=69: identical
+   inelastic_angular MT=70: identical
+   inelastic_angular MT=71: identical
+   inelastic_angular MT=72: identical
+   inelastic_angular MT=73: identical
+   inelastic_angular MT=74: identical
+   inelastic_angular MT=75: identical
+   inelastic_angular MT=76: identical
+   inelastic_angular MT=77: identical
+   inelastic_angular MT=78: identical
+   inelastic_angular MT=79: identical
+   inelastic_angular MT=80: identical
+   inelastic_angular MT=81: identical
+   inelastic_angular MT=82: identical
+   inelastic_angular MT=83: identical
+   inelastic_angular MT=84: identical
+   inelastic_angular MT=85: identical
+   inelastic_angular MT=86: identical
+   inelastic_angular MT=87: identical
+   inelastic_angular MT=88: identical
+   inelastic_angular MT=89: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 4613/11126 words differ, worst relative 3.11e-8 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 1.360000e7 eV: h5 1.738999786e0 vs ESZ 1.738999840e0 b
+   sampled cross sections (MT != 1): 0/90706 words differ
+   delayed: none on both
+== Si28 (read 33.52ms, from_hdf5 1.04ms; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: identical
+   inelastic_angular MT=51: identical
+   inelastic_angular MT=52: identical
+   inelastic_angular MT=53: identical
+   inelastic_angular MT=54: identical
+   inelastic_angular MT=55: identical
+   inelastic_angular MT=56: identical
+   inelastic_angular MT=57: identical
+   inelastic_angular MT=58: identical
+   inelastic_angular MT=59: identical
+   inelastic_angular MT=60: identical
+   inelastic_angular MT=61: identical
+   inelastic_angular MT=62: identical
+   inelastic_angular MT=63: identical
+   inelastic_angular MT=64: identical
+   inelastic_angular MT=65: identical
+   inelastic_angular MT=66: identical
+   inelastic_angular MT=67: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 6014/14894 words differ, worst relative 5.76e-8 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 1.250000e7 eV: h5 1.770917268e0 vs ESZ 1.770917370e0 b
+   sampled cross sections (MT != 1): 0/61406 words differ
+   delayed: none on both
+== Si29 (read 47.40ms, from_hdf5 1.04ms; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: identical
+   inelastic_angular MT=51: identical
+   inelastic_angular MT=52: identical
+   inelastic_angular MT=53: identical
+   inelastic_angular MT=54: identical
+   inelastic_angular MT=55: identical
+   inelastic_angular MT=56: identical
+   inelastic_angular MT=57: identical
+   inelastic_angular MT=58: identical
+   inelastic_angular MT=59: identical
+   inelastic_angular MT=60: identical
+   inelastic_angular MT=61: identical
+   inelastic_angular MT=62: identical
+   inelastic_angular MT=63: identical
+   inelastic_angular MT=64: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 4051/9720 words differ, worst relative 5.29e-8 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 8.829400e6 eV: h5 1.762718977e0 vs ESZ 1.762719070e0 b
+   sampled cross sections (MT != 1): 0/61202 words differ
+   delayed: none on both
+== Si30 (read 13.95ms, from_hdf5 775.90µs; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: identical
+   inelastic_angular MT=51: identical
+   inelastic_angular MT=52: identical
+   inelastic_angular MT=53: identical
+   inelastic_angular MT=54: identical
+   inelastic_angular MT=55: identical
+   inelastic_angular MT=56: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 4633/11754 words differ, worst relative 5.66e-9 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 1.181870e7 eV: h5 1.794352370e0 vs ESZ 1.794352360e0 b
+   sampled cross sections (MT != 1): 0/43278 words differ
+   delayed: none on both
+== Mn55 (read 99.47ms, from_hdf5 4.88ms; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: identical
+   inelastic_angular MT=51: identical
+   inelastic_angular MT=52: identical
+   inelastic_angular MT=53: identical
+   inelastic_angular MT=54: identical
+   inelastic_angular MT=55: identical
+   inelastic_angular MT=56: identical
+   inelastic_angular MT=57: identical
+   inelastic_angular MT=58: identical
+   inelastic_angular MT=59: identical
+   inelastic_angular MT=60: identical
+   inelastic_angular MT=61: identical
+   inelastic_angular MT=62: identical
+   inelastic_angular MT=63: identical
+   inelastic_angular MT=64: identical
+   inelastic_angular MT=65: identical
+   inelastic_angular MT=66: identical
+   inelastic_angular MT=67: identical
+   inelastic_angular MT=68: identical
+   inelastic_angular MT=69: identical
+   inelastic_angular MT=70: identical
+   inelastic_angular MT=71: identical
+   inelastic_angular MT=72: identical
+   inelastic_angular MT=73: identical
+   inelastic_angular MT=74: identical
+   inelastic_angular MT=75: identical
+   inelastic_angular MT=76: identical
+   inelastic_angular MT=77: identical
+   inelastic_angular MT=78: identical
+   inelastic_angular MT=79: identical
+   inelastic_angular MT=80: identical
+   inelastic_angular MT=81: identical
+   inelastic_angular MT=82: identical
+   inelastic_angular MT=83: identical
+   inelastic_angular MT=84: identical
+   inelastic_angular MT=85: identical
+   inelastic_angular MT=86: identical
+   inelastic_angular MT=87: identical
+   inelastic_angular MT=88: identical
+   inelastic_angular MT=89: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 6408/27604 words differ, worst relative 5.00e-9 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 8.662937e4 eV: h5 1.000812545e1 vs ESZ 1.000812550e1 b
+   sampled cross sections (MT != 1): 0/62310 words differ
+   delayed: none on both
+== U234 (read 11.62ms, from_hdf5 3.04ms; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: identical
+   inelastic_angular MT=51: identical
+   inelastic_angular MT=52: identical
+   inelastic_angular MT=53: identical
+   inelastic_angular MT=54: identical
+   inelastic_angular MT=55: identical
+   inelastic_angular MT=56: identical
+   inelastic_angular MT=57: identical
+   inelastic_angular MT=58: identical
+   inelastic_angular MT=59: identical
+   inelastic_angular MT=60: 1 words differ (worst rel 1.19e-16), 0 histogram flags, 0 shape mismatches
+   inelastic_angular MT=61: identical
+   inelastic_angular MT=62: identical
+   inelastic_angular MT=63: identical
+   inelastic_angular MT=64: identical
+   inelastic_angular MT=65: identical
+   inelastic_angular MT=66: identical
+   inelastic_angular MT=67: identical
+   inelastic_angular MT=68: identical
+   inelastic_angular MT=69: identical
+   inelastic_angular MT=70: identical
+   inelastic_angular MT=71: identical
+   inelastic_angular MT=72: identical
+   inelastic_angular MT=73: identical
+   inelastic_angular MT=74: identical
+   inelastic_angular MT=75: identical
+   inelastic_angular MT=76: identical
+   inelastic_angular MT=77: identical
+   inelastic_angular MT=78: identical
+   inelastic_angular MT=79: identical
+   inelastic_angular MT=80: identical
+   inelastic_angular MT=81: identical
+   inelastic_angular MT=82: identical
+   inelastic_angular MT=83: identical
+   inelastic_angular MT=84: identical
+   inelastic_angular MT=85: identical
+   inelastic_angular MT=86: identical
+   inelastic_angular MT=87: identical
+   inelastic_angular MT=88: identical
+   inelastic_angular MT=89: identical
+   inelastic_angular MT=90: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 21084/50786 words differ, worst relative 5.04e-9 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 2.451501e2 eV: h5 1.008952175e1 vs ESZ 1.008952180e1 b
+   sampled cross sections (MT != 1): 0/180854 words differ
+   delayed: 6 groups vs 6, lambda rel 0.00e0, nu_d rel 1.34e-16, p_k worst rel 2.83e-16, spectra identical
+== U235 (read 128.27ms, from_hdf5 44.52ms; DBRC h5 true / ace true)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: identical
+   dbrc: identical
+   elastic_angular: identical
+   inelastic_angular MT=51: identical
+   inelastic_angular MT=52: identical
+   inelastic_angular MT=53: identical
+   inelastic_angular MT=54: identical
+   inelastic_angular MT=55: identical
+   inelastic_angular MT=56: identical
+   inelastic_angular MT=57: identical
+   inelastic_angular MT=58: identical
+   inelastic_angular MT=59: identical
+   inelastic_angular MT=60: identical
+   inelastic_angular MT=61: identical
+   inelastic_angular MT=62: identical
+   inelastic_angular MT=63: identical
+   inelastic_angular MT=64: identical
+   inelastic_angular MT=65: identical
+   inelastic_angular MT=66: identical
+   inelastic_angular MT=67: identical
+   inelastic_angular MT=68: identical
+   inelastic_angular MT=69: identical
+   inelastic_angular MT=70: identical
+   inelastic_angular MT=71: identical
+   inelastic_angular MT=72: identical
+   inelastic_angular MT=73: identical
+   inelastic_angular MT=74: identical
+   inelastic_angular MT=75: identical
+   inelastic_angular MT=76: identical
+   inelastic_angular MT=77: identical
+   inelastic_angular MT=78: identical
+   inelastic_angular MT=79: identical
+   inelastic_angular MT=80: identical
+   inelastic_angular MT=81: identical
+   inelastic_angular MT=82: 1 words differ (worst rel 2.08e-16), 0 histogram flags, 0 shape mismatches
+   inelastic_angular MT=83: identical
+   inelastic_angular MT=84: identical
+   inelastic_angular MT=85: identical
+   inelastic_angular MT=86: identical
+   inelastic_angular MT=87: identical
+   inelastic_angular MT=88: identical
+   inelastic_angular MT=89: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 76027/152054 words differ, worst relative 4.98e-9 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 1.607334e2 eV: h5 1.019023165e2 vs ESZ 1.019023170e2 b
+   sampled cross sections (MT != 1): 0/906610 words differ
+   delayed: 6 groups vs 6, lambda rel 0.00e0, nu_d rel 1.93e-16, p_k worst rel 3.22e-16, spectra identical
+== U238 (read 68.47ms, from_hdf5 27.35ms; DBRC h5 true / ace false)
+   awr: identical
+   nu: identical
+   chi: identical
+   continuum.mt91: identical
+   continuum.mt16: identical
+   continuum.mt17: identical
+   continuum.mt5: identical
+   continuum.uncorrelated: identical
+   other_channels: identical
+   urr: identical
+   elastic_0k: the ACE route has no 0 K companion here; h5 carries 447686 points (DBRC true)
+   elastic_angular: identical
+   inelastic_angular MT=51: identical
+   inelastic_angular MT=52: identical
+   inelastic_angular MT=53: identical
+   inelastic_angular MT=54: identical
+   inelastic_angular MT=55: identical
+   inelastic_angular MT=56: identical
+   inelastic_angular MT=57: identical
+   inelastic_angular MT=58: identical
+   inelastic_angular MT=59: identical
+   inelastic_angular MT=60: identical
+   inelastic_angular MT=61: identical
+   inelastic_angular MT=62: identical
+   inelastic_angular MT=63: identical
+   inelastic_angular MT=64: identical
+   inelastic_angular MT=65: identical
+   inelastic_angular MT=66: identical
+   inelastic_angular MT=67: identical
+   inelastic_angular MT=68: identical
+   inelastic_angular MT=69: identical
+   inelastic_angular MT=70: identical
+   inelastic_angular MT=71: identical
+   inelastic_angular MT=72: identical
+   inelastic_angular MT=73: identical
+   inelastic_angular MT=74: identical
+   inelastic_angular MT=75: identical
+   inelastic_angular MT=76: identical
+   inelastic_angular MT=77: identical
+   inelastic_angular MT=78: identical
+   inelastic_angular MT=79: identical
+   inelastic_angular MT=80: identical
+   inelastic_angular MT=81: identical
+   inelastic_angular MT=82: identical
+   inelastic_angular MT=83: identical
+   inelastic_angular MT=84: identical
+   inelastic_angular MT=85: identical
+   inelastic_angular MT=86: identical
+   inelastic_angular MT=87: identical
+   inelastic_angular MT=88: identical
+   inelastic_angular MT=89: identical
+   inelastic_angular table count: identical
+   inelastic levels: identical
+   section MT list: identical
+   MT=1 total: 155207/310414 words differ, worst relative 5.04e-9 (predicted <= 1e-8; pinned at 1e-6 after the first run, see the V&V record)
+      worst at E = 1.882954e3 eV: h5 1.009430715e1 vs ESZ 1.009430720e1 b
+   sampled cross sections (MT != 1): 0/1564692 words differ
+   delayed: 6 groups vs 6, lambda rel 2.21e-16, nu_d rel 0.00e0, p_k worst rel 2.19e-16, spectra identical
+ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 622 filtered out; finished in 4.31s
+

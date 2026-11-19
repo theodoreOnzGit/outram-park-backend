@@ -18,12 +18,29 @@
 //! `outram-foam-basic-lib` types).
 
 use outram_foam_basic_lib::io::poly_mesh::{MeshFace as IoMeshFace, PolyMesh as IoPolyMesh};
-use outram_foam_cli::{CaseArgs, CliError};
+use clap::Parser;
+use outram_foam_basic_lib::io::esi::{write_cell_zones_esi, EsiWriteOptions};
+use outram_foam_cli::{CaseArgs, CliError, WriteFlavour};
 use outram_foam_mesh::block_mesh;
 
+const ESI_BLOCK_MESH_MIN_PRECISION: usize = 10;
+
+/// The utility's command line: `-case`, and `-flavour default|esi` (gh:#1363
+/// row 7) choosing the layout of the written `polyMesh` files.
+#[derive(Debug, Clone, Parser)]
+pub struct BlockMeshArgs {
+    /// `-case` directory.
+    #[command(flatten)]
+    pub case: CaseArgs,
+    /// File layout: `default` (this project's) or `esi` (OpenFOAM v2506's).
+    #[arg(long = "flavour", default_value = "default")]
+    pub flavour: String,
+}
+
 fn main() {
-    let args = outram_foam_cli::openfoam_args();
-    if let Err(e) = run(&args) {
+    let args = BlockMeshArgs::parse_from(outram_foam_cli::openfoam_argv(std::env::args_os()));
+    let result = WriteFlavour::parse(&args.flavour).and_then(|f| run_with_flavour(&args.case, f));
+    if let Err(e) = result {
         eprintln!("blockMesh: error: {e}");
         std::process::exit(1);
     }
@@ -37,6 +54,15 @@ fn main() {
 /// - [`CliError::Io`] if the dict is missing or the `polyMesh` cannot be written.
 /// - [`CliError::Tool`] if `blockMesh` fails to parse or build the dict.
 pub fn run(args: &CaseArgs) -> Result<(), CliError> {
+    run_with_flavour(args, WriteFlavour::Default)
+}
+
+/// [`run`] with the written file layout chosen: [`WriteFlavour::Esi`] writes
+/// ESI v2506's bytes at the case's `writePrecision` (default 6).
+///
+/// # Errors
+/// As [`run`].
+pub fn run_with_flavour(args: &CaseArgs, flavour: WriteFlavour) -> Result<(), CliError> {
     let case = args.case_dir()?;
     let dict_path = case.join("system").join("blockMeshDict");
     if !dict_path.is_file() {
@@ -52,13 +78,24 @@ pub fn run(args: &CaseArgs) -> Result<(), CliError> {
     let io_mesh = bridge(&mesh);
 
     let poly_dir = case.join("constant").join("polyMesh");
-    io_mesh
-        .write(&poly_dir)
-        .map_err(|e| CliError::Io(e.to_string()))?;
+    // ESI `blockMesh.C` calls `IOstream::minPrecision(10)`: everything it
+    // writes has at least 10 significant digits whatever `writePrecision` says.
+    let esi_opts = EsiWriteOptions::default()
+        .with_precision(outram_foam_cli::write_precision(&case).max(ESI_BLOCK_MESH_MIN_PRECISION));
+    match flavour {
+        WriteFlavour::Default => io_mesh.write(&poly_dir),
+        WriteFlavour::Esi => io_mesh.write_esi(&poly_dir, "constant/polyMesh", &esi_opts),
+    }
+    .map_err(|e| CliError::Io(e.to_string()))?;
 
     // Named block zones become `cellZones` (blockMesh.C, "Adding cell zones").
-    IoPolyMesh::write_cell_zones(&poly_dir, &mesh.cell_zones)
-        .map_err(|e| CliError::Io(e.to_string()))?;
+    match flavour {
+        WriteFlavour::Default => IoPolyMesh::write_cell_zones(&poly_dir, &mesh.cell_zones),
+        WriteFlavour::Esi => {
+            write_cell_zones_esi(&poly_dir, "constant/polyMesh", &mesh.cell_zones, &esi_opts)
+        }
+    }
+    .map_err(|e| CliError::Io(e.to_string()))?;
 
     print_summary(&mesh, &poly_dir);
     Ok(())

@@ -42,6 +42,8 @@
 //! `tests/thermal_laws_vs_njoy_thermr.rs`). This file tests the branch in
 //! between, which is where resonance escape is decided.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;

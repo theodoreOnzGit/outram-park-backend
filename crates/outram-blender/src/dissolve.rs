@@ -36,7 +36,11 @@
 //!   `angle` of coplanar — the planar cleanup pass.
 //! - [`delete`] is the delete/erase matrix ([`DeleteMode`]).
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::{BTreeMap, BTreeSet};
+use crate::hash::{HashMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};

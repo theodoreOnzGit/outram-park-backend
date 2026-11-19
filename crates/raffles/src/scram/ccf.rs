@@ -57,7 +57,10 @@
 //! [`super::mef::MefModel::without_ccf`] is the visible ablation, and both
 //! paths are verified against the corresponding SCRAM run.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use super::expression::{ensure_probability, Expression, Parameters};
 use crate::{RafflesError, Result};

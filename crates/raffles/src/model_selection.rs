@@ -49,6 +49,9 @@
 //!   — model class selection from TMCMC evidence, which is what this module
 //!   consumes.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 

@@ -238,6 +238,8 @@
 //! | `csg_nested_lattice_navigation` | `0x8c30242091a4ade8` | `0x652daec672ff2e60` | counts unchanged; the hash includes `hit.distance` of every located point and flight event |
 //! | `csg_nested_lattice_keff` | `0x8931164ebf355c38` | `0x20e5b4eeeede18f1` | k 1.72559 +/- 0.01517 -> **1.72835 +/- 0.01486** (+276 pcm, 0.1 combined sigma) |
 //!
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -458,7 +460,11 @@ fn two_group_mg_sphere_is_bit_identical() {
     check(
         "mg_sphere",
         fp.0,
-        0xcafa58c94439199d,
+        // Re-pinned (GitHub #259 diagnosis): the MG driver now resamples the bank by the comb
+        // instead of with replacement, so its random stream moved. Was 0xcafa58c94439199d,
+        // k = 0.66115 +/- 0.00639; now k = 0.65646 +/- 0.00676 (single seed, 800 histories:
+        // -0.7 sigma of the run's own k_std, as a stream change gives).
+        0xf4e640eec4a8087b,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

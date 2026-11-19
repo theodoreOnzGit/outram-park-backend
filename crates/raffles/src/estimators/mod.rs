@@ -48,6 +48,9 @@
 // so the bit-identity contract on the moved functions is untouched.
 // ---------------------------------------------------------------------------
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Seed-ensemble consistency: `χ²/dof` of seed values against their internal
 /// `σ`, a fixed 95 % band, leave-one-out outlier flags (GitHub #494).

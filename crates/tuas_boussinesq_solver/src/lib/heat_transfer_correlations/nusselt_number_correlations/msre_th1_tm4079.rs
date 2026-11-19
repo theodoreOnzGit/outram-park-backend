@@ -75,6 +75,9 @@
 //!   enough to move Re, Pr and Nu by comparable amounts. This is a
 //!   residual, not a calibration target. No constant was adjusted.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(test)]
 use petir::mathf::RealMath;
 
@@ -225,6 +228,7 @@ mod tests {
         // 2 default without the entrance factor (Re > 4000),
         // 3 default without the Pr-ratio correction.
         let mut res: [[Vec<f64>; 4]; 3] = Default::default();
+        #[cfg(feature = "std")]
         println!("TH-1: run, V, Re, Pr, Pr_w, Nu_meas, TUAS, TUAS/meas-1 [%], DB/meas-1 [%]");
         for run in TM4079_TABLE_B1.iter() {
             let pr_w = wall_prandtl(run);
@@ -246,6 +250,7 @@ mod tests {
                 res[g][2].push(developed / run.nu - 1.0);
             }
             res[g][3].push(no_pr_ratio / run.nu - 1.0);
+            #[cfg(feature = "std")]
             println!(
                 "TH-1: {:4} {} {:7.0} {:5.2} {:5.2} {:6.1} {:6.1} {:+7.1} {:+7.1}",
                 run.run,
@@ -267,6 +272,7 @@ mod tests {
                     continue;
                 }
                 let (n, mean, mean_abs, min, max) = stats(&res[g][m]);
+                #[cfg(feature = "std")]
                 println!(
                     "TH-1 {name:24} {model:30} n = {n:2}: mean {:+6.1} %, mean |.| {:5.1} %, range {:+6.1} to {:+6.1} %",
                     100.0 * mean,

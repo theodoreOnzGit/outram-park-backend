@@ -125,7 +125,14 @@ Every crate reaching `r_hypot` / `Real::hypot`:
 - Passed, run as subsets: `outram-mc-libs` lib plus the three tests that reach
   it, 499; `kovan` digitiser 131; digital-twin-engine `excursion` 13.
 - Failed, but not because of this change: `changi` (7 failures, all in the
-  FLEXPART code-to-code tests) and `nee_soon` lib
+  FLEXPART code-to-code tests; ~~still failing~~ **CORRECTED 2026-11-13
+  (gh:#1428):** all 7 pass at the current tree, 295 of 295 tests in `changi`
+  (`--release --lib --tests`). They were `cxy2ll`, `cg2cxy`, `outgrid_init.cell`,
+  `outgrid_init_nest.cell`, `cbl`, `clustering` and the evaluation half of
+  `calcpar_inputs_identical_in_both_builds`; the same day's commits
+  `db1335541` and `11a678aed` closed them by moving the gates (derived bounds,
+  and the maintainer's "less than 1e-10"), not by a code change. The cause was
+  the PETIR libm, gh:#985, and the `nee_soon` claim below was not re-run) and `nee_soon` lib
   (`the_default_design_builds_the_geometry_unchanged`, 43 452 cells against a
   pinned 43 445). Both fail identically with the `hypot` routes pointed back
   at `libm` (A/B, same tree), so the cause predates gh:#997.

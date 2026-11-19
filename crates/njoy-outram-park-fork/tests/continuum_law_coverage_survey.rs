@@ -104,6 +104,9 @@
 //! `mf6_continuum_angular_vs_endf.rs`, and `outram-mc-libs`'s
 //! `mt91_transfer_vs_openmc.rs`).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
 use njoy_outram_park_fork::reference_data::reference_data_dir;

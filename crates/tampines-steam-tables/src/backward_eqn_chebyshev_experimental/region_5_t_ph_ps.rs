@@ -43,6 +43,9 @@
 //! against published IAPWS backward-equation reference values is possible,
 //! because no such published backward equations exist for Region 5.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal,

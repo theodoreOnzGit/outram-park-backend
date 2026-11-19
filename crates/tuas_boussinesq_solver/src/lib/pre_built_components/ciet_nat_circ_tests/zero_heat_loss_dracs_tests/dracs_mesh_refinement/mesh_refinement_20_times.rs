@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::angle::degree;
 use uom::si::area::square_meter;
 use uom::si::f64::*;
@@ -869,10 +872,15 @@ fn verify_isolated_dhx_sam_solution(
             // tchx outlet temperature
             // current sim time
             // and tchx heat trf coeff
+            #[cfg(feature = "std")]
             dbg!(&input_power);
+            #[cfg(feature = "std")]
             dbg!(&mass_flowrate_absolute);
+            #[cfg(feature = "std")]
             dbg!(&tchx_outlet_temperature);
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
+            #[cfg(feature = "std")]
             dbg!(&tchx_heat_transfer_coeff);
         }
     }
@@ -880,6 +888,7 @@ fn verify_isolated_dhx_sam_solution(
     // panic to see debug messages
 
     //panic!();
+    #[cfg(feature = "std")]
     dbg!(&(sam_solution_mass_flowrate_kg_per_sm, final_mass_flowrate));
 
     approx::assert_relative_eq!(

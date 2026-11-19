@@ -67,10 +67,13 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::boolean_predicates::orient3d;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::{HashMap, HashSet};
+use crate::hash::{HashMap, HashSet};
 
 /// Errors from [`convex_hull`].
 #[derive(Debug, thiserror::Error)]

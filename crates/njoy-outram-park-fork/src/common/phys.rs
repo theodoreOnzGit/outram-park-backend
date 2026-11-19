@@ -6,8 +6,11 @@
 //!
 //! NJOY's `kr` kind is `real(8)` = `f64`, so all values are `f64`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// π
-pub const PI: f64 = std::f64::consts::PI;
+pub const PI: f64 = core::f64::consts::PI;
 
 /// Euler–Mascheroni constant γ ≈ 0.5772156…
 pub const EULER: f64 = 0.577_215_664_901_532_86;

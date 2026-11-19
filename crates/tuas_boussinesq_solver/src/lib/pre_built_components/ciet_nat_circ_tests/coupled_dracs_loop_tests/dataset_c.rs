@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// regression test checked steady state and temp profile
 /// 8:08 am 02 jul 2025
 ///
@@ -29,6 +32,7 @@
     not(feature = "long-tests"),
     ignore = "long test (measured 664 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_c1() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -70,6 +74,7 @@ pub fn ciet_coupled_nat_circ_set_c1() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -159,6 +164,7 @@ pub fn ciet_coupled_nat_circ_set_c1() {
     not(feature = "long-tests"),
     ignore = "long test (measured 605 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_c2() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -189,6 +195,7 @@ pub fn ciet_coupled_nat_circ_set_c2() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -276,6 +283,7 @@ pub fn ciet_coupled_nat_circ_set_c2() {
     not(feature = "long-tests"),
     ignore = "long test (measured 595 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_c3() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -306,6 +314,7 @@ pub fn ciet_coupled_nat_circ_set_c3() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -393,6 +402,7 @@ pub fn ciet_coupled_nat_circ_set_c3() {
     not(feature = "long-tests"),
     ignore = "long test (measured 605 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_c4() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -423,6 +433,7 @@ pub fn ciet_coupled_nat_circ_set_c4() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -511,6 +522,7 @@ pub fn ciet_coupled_nat_circ_set_c4() {
     not(feature = "long-tests"),
     ignore = "long test (measured 583 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_c5() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -541,6 +553,7 @@ pub fn ciet_coupled_nat_circ_set_c5() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -628,6 +641,7 @@ pub fn ciet_coupled_nat_circ_set_c5() {
     not(feature = "long-tests"),
     ignore = "long test (measured 572 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_c6() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -658,6 +672,7 @@ pub fn ciet_coupled_nat_circ_set_c6() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -746,6 +761,7 @@ pub fn ciet_coupled_nat_circ_set_c6() {
     not(feature = "long-tests"),
     ignore = "long test (measured 572 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_c7() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -776,6 +792,7 @@ pub fn ciet_coupled_nat_circ_set_c7() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -863,6 +880,7 @@ pub fn ciet_coupled_nat_circ_set_c7() {
     not(feature = "long-tests"),
     ignore = "long test (measured 717 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_c8() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -893,6 +911,7 @@ pub fn ciet_coupled_nat_circ_set_c8() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -980,6 +999,7 @@ pub fn ciet_coupled_nat_circ_set_c8() {
     not(feature = "long-tests"),
     ignore = "long test (measured 821 s, 2026-09-16); runs by default, skipped under --no-default-features"
 )]
+#[cfg(feature = "std")]
 pub fn ciet_coupled_nat_circ_set_c9() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -1010,6 +1030,7 @@ pub fn ciet_coupled_nat_circ_set_c9() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -1069,6 +1090,7 @@ pub fn ciet_coupled_nat_circ_set_c9() {
     .unwrap();
 }
 
+#[cfg(feature = "std")]
 /// for dracs calibration version 7, in comparison to version 6,
 /// pipe 3's K values were adjusted from 3.15 in the RELAP model to
 /// 17.15 used in the SAM model.
@@ -1654,6 +1676,7 @@ pub fn regression_coupled_dracs_loop_version_7(
         let debug_settings = false;
 
         if debug_settings == true {
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
             // temperatures before and after heater
             let ((_bt_11, _wt_10), (_bt_12, _wt_13)) = pri_loop_heater_temperature_diagnostics(
@@ -1716,6 +1739,7 @@ pub fn regression_coupled_dracs_loop_version_7(
 
     let simulated_heater_avg_surf_temp_degc: f64 = heater_avg_surf_temp.get::<degree_celsius>();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         input_power,
         final_mass_flowrate_dracs_loop,

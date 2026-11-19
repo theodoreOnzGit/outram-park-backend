@@ -15,7 +15,7 @@ categories.workspace = true
 # openfoam` is the reference OpenFOAM C++ clone kept in-repo for provenance
 # only — it is not crate content and must not be packaged (the small
 # `upstream_source/README.md` provenance record stays in the package).
-exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/openfoam"]
+exclude = ["verification_and_validation", "docs", "upstream_source/openfoam", "kovan_links.json"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
@@ -48,21 +48,35 @@ maturity = 2
 # Android rule forbids GPU dependencies in a library build. Enabling `gpu` on
 # an Android target therefore yields a build with no GPU backend rather than a
 # broken one, and dispatch falls back to CpuMulti or Serial.
+#
+# `std` (default, gh:#1586): without it the crate is `no_std` + `alloc` (the
+# physics: meshes, fields, the FV operators, the LDU solvers, ODEs,
+# thermophysics), checked on a bare-metal target (`x86_64-unknown-none`).
+# It carries what needs an operating system: the case reader/writer's files
+# (`io`), wall-clock timing, the thread pools of `math::parallel` and
+# `ode::parallel`, and the compute-backend probe. `parallel`, `gpu` and
+# `blas-bench` imply it.
 [features]
-default = []
-parallel = ["dep:rayon"]
-gpu = ["dep:wgpu"]
+default = ["std"]
+std = ["thiserror-nostd/std"]
+parallel = ["std", "dep:rayon"]
+gpu = ["std", "dep:wgpu"]
 # Opt-in LAPACK comparison benchmark. Off by default so neither the fast suite
 # nor CI needs a system BLAS -- see the dependency tables below.
-blas-bench = ["dep:ndarray-linalg"]
+blas-bench = ["std", "dep:ndarray-linalg"]
 
 [dependencies]
 # erf / erfc / tgamma / lgamma in pure Rust, replacing the `extern "C"` calls
 # into the system C libm (bn:op-chyp.6). PETIR is no_std with only `libm`.
 petir.workspace = true
-thiserror.workspace = true
+# `thiserror` with its `std` default off (the root's `thiserror-nostd` key);
+# `std` above turns it back on. Renamed in `lib.rs`, so the code still says
+# `thiserror::Error`.
+thiserror-nostd.workspace = true
 uom.workspace = true
-ndarray.workspace = true
+# ~~ndarray.workspace = true~~ ~~miniz_oxide.workspace = true~~ REMOVED
+# 2026-11-16 (gh:#1586): nothing in `src/` uses either; the tests that do
+# keep them as dev-dependencies below.
 rayon = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
@@ -71,6 +85,7 @@ wgpu = { workspace = true, optional = true }
 [dev-dependencies]
 approx.workspace = true
 ndarray.workspace = true
+miniz_oxide.workspace = true
 
 # `ndarray-linalg` is OPT-IN, behind `blas-bench`, and is NOT a dev-dependency.
 #

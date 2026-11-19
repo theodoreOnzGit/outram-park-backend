@@ -37,6 +37,8 @@
 //! nothing route 4 transports; the deck's own constants (its `EVAL` date)
 //! reproduce the published tape to the bit.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;

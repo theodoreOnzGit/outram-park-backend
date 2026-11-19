@@ -95,6 +95,9 @@
 //! and published correlation properties. AI-assisted draft pending human
 //! review per `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::properties::{helium_state, helium_state_ph, HeliumState, SpecificEnthalpy};
 use super::MassFlux;
@@ -342,8 +345,8 @@ impl GasDuct {
         let d = diameter.get::<meter>();
         Self {
             hydraulic_diameter: diameter,
-            flow_area: Area::new::<square_meter>(std::f64::consts::FRAC_PI_4 * d * d),
-            wetted_perimeter: Length::new::<meter>(std::f64::consts::PI * d),
+            flow_area: Area::new::<square_meter>(core::f64::consts::FRAC_PI_4 * d * d),
+            wetted_perimeter: Length::new::<meter>(core::f64::consts::PI * d),
             length,
             roughness,
             heat_transfer: HeatTransferCorrelation::default(),

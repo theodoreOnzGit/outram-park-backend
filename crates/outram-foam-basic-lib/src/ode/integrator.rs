@@ -109,7 +109,10 @@
 //! assert!((y[0] - (-1.0_f64).exp()).abs() < 1e-8);
 //! ```
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use super::{Euler, OdeError, OdeSolverConfig, OdeSystem, Rkf45, Rosenbrock23};
 
@@ -258,6 +261,28 @@ impl OdeSolver {
             Self::Rosenbrock23(s) => s.integrate(ode, x_start, x_end, y, dx_est),
         }
     }
+
+    /// [`Self::integrate`] with OpenFOAM-v2506's `ODESolver::solve(xStart, xEnd, y,
+    /// dxTry)` loop: bit-identical to ESI on `Test-ODE.C` (gh:#1362 row 6).
+    /// `integrate` is kept unchanged.
+    ///
+    /// # Errors
+    ///
+    /// [`OdeError::StepSizeUnderflow`] or [`OdeError::MaxStepsExceeded`].
+    pub fn integrate_esi_v2506<Sys: OdeSystem + ?Sized>(
+        &mut self,
+        ode: &Sys,
+        x_start: f64,
+        x_end: f64,
+        y: &mut Vec<f64>,
+        dx_est: &mut f64,
+    ) -> Result<(), OdeError> {
+        match self {
+            Self::Euler(s) => s.integrate_esi_v2506(ode, x_start, x_end, y, dx_est),
+            Self::Rkf45(s) => s.integrate_esi_v2506(ode, x_start, x_end, y, dx_est),
+            Self::Rosenbrock23(s) => s.integrate_esi_v2506(ode, x_start, x_end, y, dx_est),
+        }
+    }
 }
 
 // ── The placeholder system type ──────────────────────────────────────────────
@@ -362,8 +387,8 @@ pub struct DynSystemIntegrator {
 }
 
 // `dyn OdeSystem` is not `Debug`, so derive cannot produce this.
-impl std::fmt::Debug for DynSystemIntegrator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for DynSystemIntegrator {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("DynSystemIntegrator")
             .field("solver", &self.solver)
             .field(

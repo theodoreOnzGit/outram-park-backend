@@ -11,6 +11,9 @@
 //! in pascals (Pa), times in seconds (s), permeability in m^2, van-Genuchten /
 //! Brooks-Corey `alpha` in 1/Pa, and Darcy fluxes in m/s.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// A parsed v1 input deck.
 ///
 /// All quantities use SI: lengths in metres, pressures in pascals (Pa), times

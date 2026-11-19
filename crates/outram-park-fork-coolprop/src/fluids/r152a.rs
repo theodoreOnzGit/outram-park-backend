@@ -4,6 +4,9 @@
 //! CoolProp `R152A` Helmholtz EOS, as hardcoded `const` data.
 #![allow(clippy::approx_constant)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
 use crate::transport::{
@@ -186,6 +189,7 @@ pub static R152A_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.894e-10,
             qd: 2288329519.45,
             t_ref: -1.0,
+            p_reducing: 4520000.0,
         }),
     }),
 };

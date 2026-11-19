@@ -16,6 +16,9 @@
 //! below 3e-4 relative on `T_sat`, `v_f`, `v_g`, `u_f`, `u_g`, `h_f`, `h_g`
 //! at the midpoints of the table between 0.05 and 9 MPa.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use tampines_steam_tables::prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
@@ -210,6 +213,7 @@ mod tests {
                 }
             }
         }
+        #[cfg(feature = "std")]
         println!("worst relative interpolation error: {worst:e} (0.05-9 MPa), {worst_high:e} (9-20 MPa)");
         assert!(worst < 3e-4 && worst_high < 3e-4, "worst relative interpolation error {worst:e}, {worst_high:e}");
     }

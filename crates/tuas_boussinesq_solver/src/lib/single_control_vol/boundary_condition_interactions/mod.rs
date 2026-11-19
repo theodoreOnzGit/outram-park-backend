@@ -10,6 +10,9 @@
 //! the boundary temperature (K); constant-heat-addition boundaries inject a
 //! fixed power (W).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// for advection calculations with heat flux or heat addition BC,
 /// the temperature of flows flowing in and out of the BC will be
 /// determined by that of the control volume

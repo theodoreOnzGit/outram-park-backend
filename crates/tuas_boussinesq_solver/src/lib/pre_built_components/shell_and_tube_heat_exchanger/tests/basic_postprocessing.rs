@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this is a basic test for shell and tube heat exchanger
 ///
 /// I'm assuming an adiabatic bc to the outside
@@ -8,7 +11,7 @@
 /// = exp ( [UA]/[m_t c_p] )
 #[test]
 pub fn overall_htc_postprocessing_basic_test_shell_and_tube_heat_exchanger() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::angle::degree;
     use uom::si::heat_transfer::watt_per_square_meter_kelvin;
@@ -207,7 +210,7 @@ pub fn overall_htc_postprocessing_basic_test_shell_and_tube_heat_exchanger() {
 /// computed correctly for a one-shell one-tube geometry
 #[test]
 pub fn shell_side_tube_bundle_area_basic_test_shell_and_tube_heat_exchanger() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::angle::degree;
     use uom::si::length::{meter, millimeter};

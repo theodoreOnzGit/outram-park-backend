@@ -28,6 +28,9 @@
 //! degree <= 2 only ([`roots_deg_le_2`]); higher degrees are the follow-up
 //! bead's business, not a half-implemented eigensolver here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cplx::Cplx;
 
 /// Removes trailing (highest-power) coefficients smaller in magnitude than

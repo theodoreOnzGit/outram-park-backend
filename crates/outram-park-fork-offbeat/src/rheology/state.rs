@@ -21,6 +21,9 @@
 //! it has already crept, changes what it does next. That history is
 //! [`RheologyState`], and it is the caller's to store, one per cell.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
 use crate::materials::MaterialState;

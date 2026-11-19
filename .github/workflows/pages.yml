@@ -14,8 +14,10 @@
 # build jobs on any branch (to test a change to this workflow or to the build
 # before merging) but the `deploy` job runs only from `web-deploy`, and the
 # `github-pages` environment only accepts that branch (and develop/main).
-# Breakage is caught earlier, at push to develop, by the `wasm-demos` job of
-# `fast tests` (scripts/check-wasm-demos.sh, gh:#1304).
+# Breakage is caught earlier, at push to develop, by ~~the `wasm-demos` job of
+# `fast tests`~~ **CORRECTED 2026-11-14:** the separate `wasm demos` workflow
+# (`wasm-demos.yml`; `fast tests` has been `disabled_manually` since
+# 2026-09-29) (scripts/check-wasm-demos.sh, gh:#1304).
 #
 # What it builds: `scripts/build-pages.sh`, ~~the tabbed main menu~~ the
 # landing page, its three pathways and the search index (docs/site/; the
@@ -34,6 +36,21 @@
 #   assemble   whole-site passes (code links, nav, link check, search text)
 #   deploy     only from web-deploy
 # Every job has its own rust-cache key. The record of timings is on #1305.
+#
+# PARTITIONED INDEX (GitHub #1668, 2026-11-19). The call graph's SCIP index
+# is no longer one whole-workspace `rust-analyzer scip` (~16 GiB, swap
+# thrashing on these 16 GB runners, 27-60 min). Instead:
+#   index-plan       `kovan-cli index-plan`: every member in one partition
+#   index-partition  one runner per partition (matrix): `kovan-cli
+#                    index-partition`, rust-analyzer loads only that
+#                    partition's dependency closure (measured 4-10.5 GiB);
+#                    cached by the partition's content key (#1672)
+#   index-unify      `kovan-cli scip-merge --plan`: refuses an incomplete or
+#                    overlapping set, so an incomplete index is never used
+# `callgraph` uses the merged index when index-unify succeeded, else runs the
+# monolithic `rust-analyzer scip` as before (the fallback kept until the
+# partitioned index has matched it on several builds; plan Phase G,
+# crates/kovan/docs/partitioned-indexing.md).
 #
 # Separate from `fast tests`: a broken page fails this workflow only.
 
@@ -107,8 +124,142 @@ jobs:
           # mdBook's `.nojekyll` marker files are hidden files.
           include-hidden-files: true
 
+  # ── index: the partitioned SCIP index (GitHub #1668) ───────────────────────
+  index-plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      # rust-analyzer too (2026-11-19): every partition key includes
+      # `rust-analyzer --version`, and without the component the plan keyed
+      # on "rust-analyzer missing" instead of the version the partitions run,
+      # so a rust-analyzer update would not have invalidated their caches.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+          components: rust-analyzer
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: pages-index-plan
+          cache-on-failure: true
+      - name: Build kovan-cli (shared with the partition jobs)
+        run: cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-cli
+      - name: Plan the partitions
+        id: plan
+        run: |
+          target/release/kovan-cli index-plan --out plan.json
+          echo "matrix=$(target/release/kovan-cli index-plan --matrix)" >> "$GITHUB_OUTPUT"
+          jq -r '.partitions[] | "\(.id) closure \(.closure): \(.members | join(", "))"' plan.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: index-plan
+          path: |
+            plan.json
+            target/release/kovan-cli
+
+  index-partition:
+    needs: index-plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      # One partition's failure must not hide or cancel the others.
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.index-plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      # On disk for rust-analyzer exactly as for the monolithic run.
+      - name: Fetch the reference-data/ace submodule
+        run: git submodule update --init --depth 1 reference-data/ace
+      # rust-src: the generated project points rust-analyzer at the
+      # sysroot's library sources.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+          components: rust-analyzer, rust-src
+      - uses: actions/download-artifact@v4
+        with:
+          name: index-plan
+          path: index-plan
+      - name: kovan-cli
+        run: |
+          install -m 755 index-plan/target/release/kovan-cli /usr/local/bin/kovan-cli 2>/dev/null \
+            || sudo install -m 755 index-plan/target/release/kovan-cli /usr/local/bin/kovan-cli
+          rust-analyzer --version
+      # The key (GitHub #1672) comes with the matrix: index-plan computed
+      # every partition's from the members' call-graph keys, Cargo.lock,
+      # the host, rustc and rust-analyzer.
+      - uses: actions/cache/restore@v4
+        id: cache
+        with:
+          path: part
+          key: kovan-partition-${{ matrix.key }}
+      - uses: Swatinem/rust-cache@v2
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          key: pages-index-${{ matrix.id }}
+          cache-on-failure: true
+      - name: Index the partition
+        if: steps.cache.outputs.cache-hit != 'true'
+        # 14 GiB of a 16 GB runner; 40 min.
+        run: kovan-cli index-partition --crates '${{ matrix.crates }}' --out part --memory-mib 14336 --timeout 2400
+      - name: Record
+        if: always()
+        run: |
+          echo "### ${{ matrix.id }}: ${{ matrix.crates }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "cache hit: ${{ steps.cache.outputs.cache-hit }}" >> "$GITHUB_STEP_SUMMARY"
+          jq '{ok, closure, wall_s, peak_rss_mib, documents, stopped, scip_exit, check_exit}' part/partition.json >> "$GITHUB_STEP_SUMMARY" || true
+          rm -rf part/view part/check.jsonl
+      - uses: actions/cache/save@v4
+        if: steps.cache.outputs.cache-hit != 'true' && success()
+        with:
+          path: part
+          key: kovan-partition-${{ matrix.key }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: index-part-${{ matrix.id }}
+          path: part
+          if-no-files-found: warn
+
+  index-unify:
+    needs: [index-plan, index-partition]
+    # `!cancelled()`, not `always()`: run when a partition failed (the merge
+    # then refuses incomplete coverage), but stop when the run is cancelled.
+    if: ${{ !cancelled() && needs.index-plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: index-plan
+          path: index-plan
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: index-part-*
+          path: parts
+      - name: Merge, checking coverage against the plan
+        run: |
+          chmod +x index-plan/target/release/kovan-cli
+          index-plan/target/release/kovan-cli scip-merge --plan index-plan/plan.json --out merged.scip parts/*
+          ls -l merged.scip | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: index-merged
+          path: merged.scip
+          if-no-files-found: error
+
   # ── callgraph: web-kovan's call graph ──────────────────────────────────────
   callgraph:
+    # The merged index when index-unify succeeded; otherwise the monolithic
+    # fallback below (index-unify failing never stops the site build).
+    # ~~`if: always()`~~ `!cancelled()` (2026-11-19): `always()` also runs on a
+    # cancelled run, so cancelling one fell through to the monolithic fallback
+    # and held the `pages` concurrency slot for ~40 min (run 44532371114).
+    needs: index-unify
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -160,7 +311,23 @@ jobs:
       # scratch disk (/mnt). If it is still not enough, data.sh says so in
       # the log, as a warning annotation and on the page, and publishes the
       # last cached graphs of the crates that changed (Leak Before Break).
+      - uses: actions/download-artifact@v4
+        if: needs.index-unify.result == 'success'
+        with:
+          name: index-merged
+          path: index-merged
+      - name: Use the merged partition index
+        if: needs.index-unify.result == 'success'
+        run: |
+          echo "KOVAN_SCIP_FROM=$PWD/index-merged/merged.scip" >> "$GITHUB_ENV"
+          echo "call graph from the partitioned index (GitHub #1668)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Monolithic fallback (index-unify did not succeed)
+        if: needs.index-unify.result != 'success'
+        run: |
+          echo "::warning title=web-kovan call graph::the partitioned index did not complete; running the monolithic rust-analyzer scip"
+          echo "call graph from the MONOLITHIC fallback: index-unify ${{ needs.index-unify.result }}" >> "$GITHUB_STEP_SUMMARY"
       - name: Swap for rust-analyzer scip
+        if: needs.index-unify.result != 'success'
         run: |
           free -m
           dir=/mnt; [ -d /mnt ] && [ -w /mnt ] || dir=/
@@ -178,6 +345,10 @@ jobs:
         env:
           KOVAN_CALL_GRAPH_BACKEND: scip
           KOVAN_INDEX_BUDGET: "2400"
+          # Stop `rust-analyzer scip` after 35 min and fall back to the cached
+          # graphs (data.sh), before a thrashing runner is lost (~60 min on
+          # 2026-11-17 and 2026-11-18; a healthy run took 27 min, 2026-11-15).
+          KOVAN_SCIP_BUDGET: "2100"
         run: scripts/build-pages.sh target/pages callgraph
       - name: Drop the SCIP index (not for rust-cache)
         if: always()

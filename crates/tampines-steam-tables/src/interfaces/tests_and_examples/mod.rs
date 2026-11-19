@@ -1,5 +1,8 @@
 /// these are tests to check the functionality
 /// of ph flash regions
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod ph_flash_regions;
 
 /// V&V + regression tests for two (p,h)-flash edge cases that used to

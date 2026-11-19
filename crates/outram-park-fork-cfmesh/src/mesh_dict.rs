@@ -107,6 +107,9 @@
 //! `checkForGluedMesh`, `keep`/`removeCellsIntersectingPatches`: their
 //! templates build the addressing without the dictionary).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::anisotropic::{BoxScaling, CoordinateModifier, Modification, PlaneScaling};
 use crate::layers::boundary_layers::BoundaryLayersControls;
 use crate::layers::refine_boundary_layers::{PatchLayerSettings, RefineBoundaryLayersSettings};
@@ -120,7 +123,7 @@ use crate::pipeline::tet_mesh::{BoundaryLayersDict, TetMeshOptions};
 use crate::rename_boundary_patches::{regex_full_match, NewPatch, RenameBoundary};
 use crate::workflow_controls::{WorkflowSettings, WorkflowStep};
 use outram_foam_basic_lib::io::dict::{FoamDict, FoamEntry, FoamValue};
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// The executable whose generator reads the dictionary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1586,8 +1589,10 @@ mod tests {
                 GeneratorOptions::TetMesh(o) | GeneratorOptions::PMesh(o) => o.dict.local_refinement.len(),
                 GeneratorOptions::Cartesian2DMesh(o) => o.dict.local_refinement.len(),
             };
+            #[cfg(feature = "std")]
             println!("{case}: {} points, {} triangles, {} patches; {n_local} localRefinement regions", s.points.len(), s.triangles.len(), s.patches.len());
         }
+        #[cfg(feature = "std")]
         println!("{}", table.join("\n"));
     }
 }

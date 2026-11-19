@@ -48,3 +48,10 @@ sembawang.workspace = true
 changi.workspace = true
 buangkok.workspace = true
 redhill.workspace = true
+
+[features]
+# `std` (default, gh:#1642): forwards `std` to the safety crates. Without it
+# the placeholder is `no_std` on bare metal, checked by
+# `scripts/check-nostd.sh`.
+default = ["std"]
+std = ["raffles/std", "sembawang/std", "changi/std", "buangkok/std"]

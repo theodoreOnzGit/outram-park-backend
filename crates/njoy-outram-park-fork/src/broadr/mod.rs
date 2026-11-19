@@ -43,6 +43,9 @@
 //!   (it is < 10⁻⁷ above that) and matters mainly near thermal energies, where
 //!   it pulls the broadened value back down toward the physical result.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod broadn;
 pub mod joint;
 pub use broadn::{broadn_section, lab_threshold, BroadnTolerances};
@@ -52,9 +55,9 @@ use crate::{
     common::phys::BK_EV_PER_K,
     reconr::{ReconrResult, ReconrSection},
 };
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par::*;
 
 // ── erfc ──────────────────────────────────────────────────────────────────────

@@ -44,6 +44,9 @@
 //! solvers. Field types, meshes, and the differential operators that build these
 //! matrices live in their own modules.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod fv_matrix;
 pub mod fv_vector_matrix;
 pub mod ldu_matrix;
@@ -57,6 +60,8 @@ pub use parallel::{HybridLdu, LduTopology};
 pub use solvers::conjugate_gradient;
 pub use solvers::gamg;
 pub use solvers::gauss_seidel;
+pub use solvers::gauss_seidel_upstream;
+pub use solvers::pbicgstab_dilu::{pbicgstab_dilu, PbicgstabDiluPerformance, PbicgstabDiluSettings};
 pub use solvers::krylov_solve::{
     krylov_solve, krylov_solve_prepared, KrylovMethod, KrylovOptions, PreconditionerKind,
 };

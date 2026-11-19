@@ -99,7 +99,8 @@ fn dev_block_mesh_matches_the_dev_binary() {
 
 /// The three dicts whose points differ from the dev binary only through
 /// petir's `sin`/`cos`/`tan`/`acos`/`asin` against glibc (accepted below the
-/// 1e-8 round-off allowance, flagged for the maintainer; gh:#1364).
+/// ~~1e-8~~ 1e-9 round-off allowance since 2026-11-17, gh:#1614; worst
+/// 1.11e-16; flagged for the maintainer; gh:#1364).
 ///
 /// Methodology: the dev binary's `points` hash (`dev_hashes.py`) is pinned. The
 /// port's points with the listed points replaced by the binary's bit patterns

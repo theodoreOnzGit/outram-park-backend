@@ -31,6 +31,9 @@
 //! Before the `broadn` port H-2 elastic was 5.2× NJOY at 0.01 eV
 //! (`op-tubm`); after it, 5.8e-4.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::broadr::{broaden_result, broadening_limit};
 use njoy_outram_park_fork::endf::interp::eval_tab1;

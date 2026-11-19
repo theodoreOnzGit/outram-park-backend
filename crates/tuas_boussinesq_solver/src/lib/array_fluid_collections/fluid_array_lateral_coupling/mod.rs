@@ -18,6 +18,9 @@
 //! back, `fluid_component_calculation` holds the friction-loss correlations, and
 //! `type_conversion` converts to/from `FluidComponent`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
 use crate::single_control_vol::SingleCVNode;
 use crate::boussinesq_thermophysical_properties::Material;

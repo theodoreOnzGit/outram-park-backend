@@ -19,6 +19,9 @@
 //! 5. **Measurement** — `#[ignore]`d benchmarks whose printed output is the
 //!    source of the crossover tables.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::ode::{OdeError, OdeSystem, Rosenbrock23};
@@ -406,7 +409,7 @@ fn backend_reduction_never_reports_gpu_and_respects_the_size_floors() {
 
 #[test]
 fn evaluation_counts_match_the_documented_cost() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use core::sync::atomic::{AtomicUsize, Ordering};
     for (scheme, want) in [
         (DiffScheme::Forward, 4_usize), // n + 1 with n = 3
         (DiffScheme::Backward, 4),
@@ -1229,13 +1232,13 @@ fn differentiate_crossover_benchmark() {
                     derivative_batch_min(&points, settings, backend, 0, cheap)
                 }
             };
-            std::hint::black_box(run());
+            core::hint::black_box(run());
             let mut best = f64::INFINITY;
             for _ in 0..7 {
                 let t = Instant::now();
                 let out = run();
                 let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(dt);
             }
             best
@@ -1292,13 +1295,13 @@ fn differentiate_crossover_benchmark() {
                     jacobian_batch_min(&points, n, settings, backend, 0, cheap)
                 }
             };
-            std::hint::black_box(run());
+            core::hint::black_box(run());
             let mut best = f64::INFINITY;
             for _ in 0..7 {
                 let t = Instant::now();
                 let out = run();
                 let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(dt);
             }
             best
@@ -1360,13 +1363,13 @@ fn jacobian_column_crossover_benchmark() {
         };
         let time = |backend: ComputeBackend| -> f64 {
             let run = || jacobian_columns_min(0, &x, settings, backend, 0, &f);
-            std::hint::black_box(run());
+            core::hint::black_box(run());
             let mut best = f64::INFINITY;
             for _ in 0..7 {
                 let t = Instant::now();
                 let out = run();
                 let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(dt);
             }
             best
@@ -1406,7 +1409,7 @@ fn differentiate_thread_scaling_benchmark() {
     for _ in 0..7 {
         let t = Instant::now();
         let out = derivative_batch_min(&points, settings, ComputeBackend::Serial, 0, f);
-        std::hint::black_box(&out);
+        core::hint::black_box(&out);
         serial_us = serial_us.min(t.elapsed().as_secs_f64() * 1.0e6);
     }
 
@@ -1438,7 +1441,7 @@ fn differentiate_thread_scaling_benchmark() {
             for _ in 0..7 {
                 let t = Instant::now();
                 let out = derivative_batch_min(&points, settings, ComputeBackend::CpuMulti, 0, f);
-                std::hint::black_box(&out);
+                core::hint::black_box(&out);
                 best = best.min(t.elapsed().as_secs_f64() * 1.0e6);
             }
             (best, identical)

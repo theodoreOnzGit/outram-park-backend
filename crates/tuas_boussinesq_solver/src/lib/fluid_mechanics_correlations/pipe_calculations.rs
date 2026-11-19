@@ -6,6 +6,9 @@
 //! non-dimensionalisation with the Churchill friction factor, take `uom`-typed
 //! pipe geometry and fluid properties, and handle reverse (negative) flow.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 
 use super::{churchill_friction_factor, dimensionalisation};

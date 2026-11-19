@@ -39,6 +39,9 @@
 //! [`HemError::EquationOfState`]; nothing here panics on a state outside the
 //! envelope.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
     AvailableEnergy, MassDensity, MassFlux, Pressure, Ratio, SpecificVolume,

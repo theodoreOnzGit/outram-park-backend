@@ -41,6 +41,9 @@
 //! (`acer`, `interface`) now uses [`heatr_kerma`]. Still AI-assisted draft
 //! pending human review, per `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod conbar;
 mod disbar;
 mod flat;
@@ -182,21 +185,22 @@ pub struct HeatrOutput {
 /// The elapsed seconds the listing prints, as upstream's `timer` does.
 /// `std::time::Instant` aborts on `wasm32-unknown-unknown` (no clock), which
 /// took down the browser demo's ACE generator whenever HEATR was in the deck
-/// ("RuntimeError: unreachable", 2026-10-14), so there the listing reads 0.0 s.
+/// ("RuntimeError: unreachable", 2026-10-14), so there the listing reads 0.0 s. The same without `std` (no clock on bare
+/// metal, gh:#1592).
 #[derive(Clone, Copy)]
-struct Clock(#[cfg(not(target_arch = "wasm32"))] std::time::Instant);
+struct Clock(#[cfg(all(feature = "std", not(target_arch = "wasm32")))] std::time::Instant);
 
 impl Clock {
     fn start() -> Self {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         return Clock(std::time::Instant::now());
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(any(not(feature = "std"), target_arch = "wasm32"))]
         return Clock();
     }
     fn secs(self) -> f64 {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         return self.0.elapsed().as_secs_f64();
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(any(not(feature = "std"), target_arch = "wasm32"))]
         return 0.0;
     }
 }
@@ -398,7 +402,7 @@ pub fn pendf_for_heatr(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResul
     let iverf = endf
         .section(mat, 1, 451)
         .map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
-    let header = Tape::pendf_from_pointwise(mat, iverf, za, awr, 0.0, std::iter::empty());
+    let header = Tape::pendf_from_pointwise(mat, iverf, za, awr, 0.0, core::iter::empty());
     let mut secs: Vec<Section> = header.sections().to_vec();
     for sec in &recon.sections {
         let mt = sec.mt.number();
@@ -479,9 +483,8 @@ pub fn heatr_kerma_with_partials_ed(
     // grid that moved the heating number by up to 25 % at alternate points
     // (0 K, against NJOY2016 with HEATR, 2026-10-15).
     let written = if text {
-        let mut buf = Vec::new();
-        out.tape.write(&mut buf)?;
-        Tape::read(&buf[..])?
+        let buf = out.tape.to_text()?;
+        Tape::from_bytes(buf.as_bytes())?
     } else {
         out.tape.clone()
     };

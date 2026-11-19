@@ -2,6 +2,9 @@
 //! `tampines::htr10_primary_loop` on 2026-11-03 unchanged. Results are
 //! recorded in `crates/nee_soon/verification_and_validation/htr10_loop_lofc/README.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Length, Power, ThermodynamicTemperature, Time};
 use uom::si::length::meter;
 use uom::si::power::watt;
@@ -48,6 +51,7 @@ fn delayed_sets_and_bypass_splits() {
         let m: f64 = b.iter().zip(l.iter()).map(|(b, l)| b.get::<ratio>() / l.get::<uom::si::frequency::hertz>()).sum();
         means.push(m);
     }
+    #[cfg(feature = "std")]
     println!("sum beta_i/lambda_i: Keepin {:.5} s, teh-o-prke {:.5} s, one-group {:.5} s", means[0], means[1], means[2]);
     assert!((means[0] - means[2]).abs() < 1e-12);
     for b in [BypassSplit::tecdoc1694(), BypassSplit::g02(), BypassSplit::s5_control_rods(), BypassSplit::no_leakage()] {
@@ -65,6 +69,7 @@ fn kinetics_is_critical_at_reference_and_xenon_builds() {
     let refs = FeedbackTemperatures { fuel: k(900.0), moderator: k(850.0), reflector: k(500.0) };
     let mut kin = Htr10Kinetics::new(KineticsParameters::htr10_base(), Power::new::<watt>(3.315e6), refs).unwrap();
     let p0 = kin.total_power().get::<watt>();
+    #[cfg(feature = "std")]
     println!(
         "initial: total {p0:.1} W, fission {:.1} W, decay {:.1} W; equilibrium Xe worth {:.1} pcm",
         kin.fission_power().get::<watt>(),
@@ -82,6 +87,7 @@ fn kinetics_is_critical_at_reference_and_xenon_builds() {
         kin.step(s(1.0), &cold).unwrap();
     }
     let r = kin.reactivity(&cold);
+    #[cfg(feature = "std")]
     println!("after 1 h shut down: relative Xe {:.4}, Xe reactivity {:.1} pcm", kin.relative_xenon(), r.xenon * 1e5);
     assert!(kin.relative_xenon() > 1.0 && r.xenon < 0.0);
     let mut off = KineticsParameters::htr10_base();
@@ -100,6 +106,7 @@ fn coupled_initial_state_is_steady() {
     case.loop_config.trip_time = None;
     let mut sim = CoupledTransient::new(&case).unwrap();
     let r0 = sim.initial_response();
+    #[cfg(feature = "std")]
     println!(
         "initial: head {:.1} Pa, SG outlet {:.3} C, circulator rise {:.4} K, outlet {:.2} C",
         sim.primary_loop().initial_head().get::<pascal>(),
@@ -112,6 +119,7 @@ fn coupled_initial_state_is_steady() {
         last = Some(sim.step(s(0.1)).unwrap());
     }
     let l = last.unwrap();
+    #[cfg(feature = "std")]
     println!("after 60 s: flow {:.6} kg/s, total {:.3} W", l.mass_flow_kg_s, l.total_power_w);
     assert!((l.mass_flow_kg_s / 1.457 - 1.0).abs() < 1e-4);
     assert!((l.total_power_w / 3.315e6 - 1.0).abs() < 1e-4);
@@ -142,6 +150,7 @@ fn coastdown_flow_follows_speed_then_baffle_closes() {
     let a = run(1.0);
     let b = run(10.0);
     for x in &a {
+        #[cfg(feature = "std")]
         println!("t {:5.1} s  speed {:.4}  W/W0 {:.4}", x.time_s, x.speed, x.mass_flow_kg_s / 1.457);
     }
     for (x, y) in a.iter().zip(b.iter()).take(11) {
@@ -153,6 +162,7 @@ fn coastdown_flow_follows_speed_then_baffle_closes() {
     assert!((inert.speed(49.0) - 0.5).abs() < 1e-12 && inert.speed(-1.0) == 1.0);
     assert_eq!(CoastdownModel::Instantaneous.speed(1.0), 0.0);
     let j = CoastdownModel::j09_flow().unwrap();
+    #[cfg(feature = "std")]
     println!("J09 flow fraction at 10 s {:.3}, 60 s {:.3}", j.speed(10.0), j.speed(60.0));
 }
 
@@ -170,6 +180,7 @@ fn natural_circulation_with_the_baffle_open() {
         case.duration = s(600.0);
         let (_, trace) = run_lofc(&case).unwrap();
         let at = |t: f64| trace.iter().find(|x| x.time_s >= t).unwrap();
+        #[cfg(feature = "std")]
         println!(
             "H_sg = {h} m: W(100 s) {:.4}, W(300 s) {:.4}, W(600 s) {:.4} kg/s; speed(600 s) {:.3}",
             at(100.0).mass_flow_kg_s,
@@ -184,6 +195,7 @@ fn natural_circulation_with_the_baffle_open() {
 fn summarise(name: &str, trace: &[TransientSample]) -> LofcMetrics {
     let m = lofc_metrics(trace);
     let p0 = trace[0].fission_power_w;
+    #[cfg(feature = "std")]
     println!(
         "| {name} | {} | {:.0} pcm @ {:.0} s | {} | {} | {} | {:.0} kW |",
         m.time_to_one_percent_s.map_or("-".into(), |t| format!("{t:.0} s")),
@@ -206,15 +218,18 @@ fn summarise(name: &str, trace: &[TransientSample]) -> LofcMetrics {
 fn lofc_atws_base_case_against_the_measured_trace() {
     let case = LofcCase::base().unwrap();
     let (_, trace) = run_lofc(&case).unwrap();
+    #[cfg(feature = "std")]
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min |");
     let m = summarise(&case.name, &trace);
     // Short-term comparison against the digitised measured power.
     let short = TabulatedSeries::from_csv_columns(POWER_SHORT_C09_FIG4, 0, 1).unwrap();
     let long = TabulatedSeries::from_csv_columns(POWER_LONG_C09_FIG6, 0, 1).unwrap();
     let p0 = trace[0].fission_power_w;
+    #[cfg(feature = "std")]
     println!("t (s) | model P/P0 | measured P/P0 | fuel C | moderator C | reflector C | Xe pcm | rho pcm");
     for t in [10.0, 20.0, 30.0, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0, 400.0] {
         let x = trace.iter().find(|x| x.time_s >= t).unwrap();
+        #[cfg(feature = "std")]
         println!(
             "{t:6.0} | {:.4} | {:.4} | {:.1} | {:.1} | {:.1} | {:.1} | {:.1}",
             x.fission_power_w / p0,
@@ -228,6 +243,7 @@ fn lofc_atws_base_case_against_the_measured_trace() {
     }
     for t in [1000.0, 2000.0, 3000.0, 4000.0, 4400.0, 5000.0, 6000.0, 7200.0, 9000.0, 10_800.0] {
         let x = trace.iter().find(|x| x.time_s >= t - 1e-9).unwrap_or(trace.last().unwrap());
+        #[cfg(feature = "std")]
         println!(
             "{t:6.0} | {:.4} | {:.4} | {:.1} | {:.1} | {:.1} | {:.1} | {:.1} | decay {:.1} kW, RCCS {:.1} kW",
             x.fission_power_w / p0,
@@ -306,7 +322,9 @@ fn lofc_atws_sensitivity_cases() {
     );
     cases.push(base.clone().named("TR-HU").with_initial(InitialState::hu2006()));
     cases.push(base.clone().named("TR-SPEC").with_initial(InitialState::spec()));
+    #[cfg(feature = "std")]
     println!("| case | to 1 % | min rho | rho = 0 | power back > 1 % | first peak | mean P, last 30 min |");
+    #[cfg(feature = "std")]
     println!("|---|---|---|---|---|---|---|");
     let mut base_t1 = None;
     for case in &cases {
@@ -357,8 +375,9 @@ fn helical_coil_steam_generator_in_the_loop() {
     let core = CoreModel::LumpedStandIn(LumpedPebbleBedCore::htr10(BypassSplit::tecdoc1694(), k(700.0)).unwrap());
     let mut sim = CoupledTransient::with_parts(&case, core, sg).unwrap();
     let hot = sim.initial_response().outlet_temperature;
-    let started = std::time::Instant::now();
+    let started = crate::time::Instant::now();
     let mut loop_ref = sim.settle_steam_generator(hot, s(300.0)).unwrap().get::<kelvin>();
+    #[cfg(feature = "std")]
     println!(
         "feedwater {feed:.4} kg/s; SG helium outlet after 300 s settle at the as-run hot inlet {:.2} C (measured RPV inlet 212 C); {:.1} s wall",
         loop_ref - 273.15,
@@ -368,6 +387,7 @@ fn helical_coil_steam_generator_in_the_loop() {
         sim.step(s(0.1)).unwrap();
     }
     loop_ref = sim.primary_loop().sg_outlet_temperature().get::<kelvin>();
+    #[cfg(feature = "std")]
     println!("after 20 s of LOFC: SG helium outlet {:.2} C, flow {:.4} kg/s", loop_ref - 273.15, sim.primary_loop().mass_flow().get::<kilogram_per_second>());
     assert!(loop_ref.is_finite());
 }

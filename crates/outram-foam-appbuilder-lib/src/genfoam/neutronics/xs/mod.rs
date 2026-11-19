@@ -81,8 +81,9 @@
 //! materialisation has since landed next door, in
 //! [`DiffusionXsFields`](crate::genfoam::neutronics::diffusion::DiffusionXsFields)
 //! and its SP3 counterpart. **Control-rod driveline motion and
-//! discontinuity-factor adjustment remain deferred** (tracked in beads under
-//! the `neutronics` epic). The evaluation methods below are exactly the per-cell `.get(...)` call
+//! discontinuity-factor adjustment remain deferred** (~~tracked in beads under
+//! the `neutronics` epic~~ **CORRECTED 2026-11-12**: the beads tracker is retired;
+//! they are gh:#1474). The evaluation methods below are exactly the per-cell `.get(...)` call
 //! GeN-Foam performs in `setNeutronicsVariables.H`, lifted out of the cell loop.
 //!
 //! ## Dependency on `genfoam::common`
@@ -92,6 +93,9 @@
 //! [`crate::genfoam::multi_region::rbf_mapping`] so there is a single
 //! implementation of the algorithm.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod error;
 pub mod group_constants;
 pub mod input;
@@ -103,7 +107,7 @@ pub mod zone_data;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 pub use error::XsError;
 pub use group_constants::{GroupConstants, PrecursorConstants};

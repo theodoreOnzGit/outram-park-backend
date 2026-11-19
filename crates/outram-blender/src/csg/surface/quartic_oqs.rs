@@ -44,8 +44,11 @@
 //!   `csqrt`/`__divdc3`, so those roots are not claimed bit-identical (and are
 //!   never used).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// `pow(DBL_MAX, 1/3) / 1.618034`.
 const CUBIC_RESCAL_FACT: f64 = 3.488062113727083e+102;

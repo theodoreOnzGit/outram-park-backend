@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Example 2:
 ///
 /// We saw previously how to create an air pipe
@@ -11,7 +14,7 @@
 ///
 #[test]
 pub fn water_pipe_with_internal_pump_example_2() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
     use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidPipeCalcPressureChange;

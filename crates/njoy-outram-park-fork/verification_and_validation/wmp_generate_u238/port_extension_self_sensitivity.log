@@ -1,0 +1,2 @@
+piece 275 port trial 0 (xs +-1 ulp): 55 poles, 0 grid points outside rtol/atol of the data, 925.0 s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 1041.85s

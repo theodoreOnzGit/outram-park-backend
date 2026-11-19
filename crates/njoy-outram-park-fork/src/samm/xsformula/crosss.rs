@@ -17,6 +17,9 @@
 //! **Not ported:** the `Want_Angular_Dist` bookkeeping (`setleg`, `cscs`)
 //! and `derext` (background R-matrix parameters).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::samm::betset::ResonanceAmplitudes;
 use crate::samm::context::{ChannelKinematics, GroupQuantumInfo};
 use crate::samm::mf2::RmlSection;

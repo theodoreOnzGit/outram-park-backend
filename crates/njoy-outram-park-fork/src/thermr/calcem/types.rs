@@ -10,6 +10,9 @@
 //! MF=6/ACE writer to consume. See the `calcem` module docs for what is and
 //! is not covered by "the physics is ported".
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// One outgoing-energy row of the `iform=0` (equally-probable-cosine,
 /// `LANG=3`) distribution at a single incident energy — `thermr.f90`
 /// `calcem` labels 360-430 (lines 2098-2274).

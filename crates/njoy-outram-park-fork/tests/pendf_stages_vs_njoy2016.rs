@@ -49,6 +49,9 @@
 //! compared by `examples/pendf_stage_vs_njoy.rs`. They are not committed:
 //! U-238's pair is 138 MB.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::broadr::broaden_result;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;

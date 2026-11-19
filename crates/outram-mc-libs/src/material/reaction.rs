@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Reaction types and secondary particle sampling.
 ///
 /// C++ source: `src/reaction.cpp` (424 LOC), `include/openmc/reaction.h`.

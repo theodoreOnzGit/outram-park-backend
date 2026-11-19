@@ -28,6 +28,9 @@
 //! state (`ip`, `ir`, `xlast`, `ylast`) is kept because it is *semantic* here,
 //! not an optimisation: `xlast` is what the "below the range" branch returns.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::{terp1, IntLaw};
 use crate::endf::records::Tab1;
 

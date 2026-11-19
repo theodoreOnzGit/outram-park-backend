@@ -130,6 +130,9 @@
 //!   (`SolarPanel.vb:258`; `WindTurbine.vb:348-351`), replaced by plain
 //!   inputs as described above.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod hydroelectric_turbine;
 pub mod pem_fuel_cell;
 pub mod solar_panel;

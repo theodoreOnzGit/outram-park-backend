@@ -24,7 +24,10 @@
 //! Components are dimensionless `f64`; the same type is reused for positions,
 //! velocities, forces, etc. with the physical dimension carried by the caller.
 
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// 3-component vector. Maps to `Foam::vector` (`Foam::Vector<scalar>`).
 /// Component layout: x, y, z.

@@ -39,14 +39,19 @@
 //! Belongs here: the linear-solver kernels only. The matrix assembly and the
 //! `FvMatrix`/`FvVectorMatrix` wrappers that call them live one level up.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod conjugate_gradient;
 pub mod gamg;
 pub mod gauss_seidel;
 pub mod krylov_solve;
+pub mod pbicgstab_dilu;
 
 pub use conjugate_gradient::conjugate_gradient;
 pub use gamg::gamg;
-pub use gauss_seidel::gauss_seidel;
+pub use gauss_seidel::{gauss_seidel, gauss_seidel_upstream};
+pub use pbicgstab_dilu::{pbicgstab_dilu, PbicgstabDiluPerformance, PbicgstabDiluSettings};
 pub use krylov_solve::{
     krylov_solve, krylov_solve_prepared, KrylovMethod, KrylovOptions, PreconditionerKind,
 };

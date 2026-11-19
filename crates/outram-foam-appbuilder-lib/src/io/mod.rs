@@ -46,6 +46,9 @@
 //! typed enums, so a scheme or solver selection that OpenFOAM would accept
 //! silently and misinterpret is instead a compile error here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod control_dict;
 pub mod field_reader;
 pub mod fv_schemes;

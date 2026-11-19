@@ -140,13 +140,21 @@
 //! temperature), not per run. A device that cannot afford even that should
 //! point [`SabSource::EndfTape`] at a tape instead.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
+#[cfg(feature = "std")]
 use std::collections::HashMap;
+#[cfg(feature = "std")]
 use std::path::PathBuf;
-use std::sync::{Arc, OnceLock, RwLock};
+use alloc::sync::Arc;
+#[cfg(feature = "std")]
+use std::sync::{OnceLock, RwLock};
 
 use uom::si::thermodynamic_temperature::kelvin;
 
+#[cfg(feature = "std")]
 use crate::acquire::EndfCache;
 use crate::endf::tape::Tape;
 use crate::leapr::coher::{
@@ -160,7 +168,9 @@ use crate::leapr::deck::LeaprDeck;
 use crate::leapr::coldh::add_cold_hydrogen;
 use crate::leapr::SabMatrix;
 use crate::leapr::input::ColdOption;
-use crate::leapr::decks::{embedded_deck_text, locate_deck, DeckSource, SabMaterial};
+use crate::leapr::decks::{embedded_deck_text, DeckSource, SabMaterial};
+#[cfg(feature = "std")]
+use crate::leapr::decks::locate_deck;
 use crate::leapr::skold::apply_skold;
 use crate::leapr::endout::{endout, ElasticOutput, LeaprOutput};
 use crate::leapr::frequency::FrequencyModel;
@@ -326,7 +336,8 @@ pub enum SabSource {
     /// Nothing is generated and nothing is cached; the tape is parsed as-is.
     /// Its tabulated temperatures are whatever the evaluator chose, so the
     /// requested temperature must be one of them (within
-    /// [`crate::thermr::mf7::temperature_match_tolerance_k`]).
+    /// [`crate::thermr::mf7::temperature_match_tolerance_k`]). Needs `std`.
+    #[cfg(feature = "std")]
     EndfTape(PathBuf),
 }
 
@@ -398,6 +409,7 @@ impl SabRequest {
         self
     }
 
+    #[cfg(feature = "std")]
     /// Take the law from an existing ENDF tape instead of regenerating it.
     pub fn with_tape(mut self, path: impl Into<PathBuf>) -> Self {
         self.source = SabSource::EndfTape(path.into());
@@ -428,6 +440,7 @@ impl SabRequest {
     /// they are the published evaluation itself, not something this crate
     /// computed. See the [module docs](self) for the measured figures.
     pub fn validation(&self) -> (ChannelValidation, ChannelValidation) {
+        #[cfg(feature = "std")]
         if matches!(self.source, SabSource::EndfTape(_)) {
             return (
                 ChannelValidation::ValidatedAgainstReferenceTape,
@@ -573,7 +586,7 @@ impl GenerationRecipe {
 /// Lowercase-hex SHA-256, for cache keys and provenance records.
 fn sha256_hex(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
-    use std::fmt::Write;
+    use core::fmt::Write;
     let digest = Sha256::digest(bytes);
     let mut s = String::with_capacity(64);
     for b in digest {
@@ -1143,13 +1156,16 @@ fn per_atom_debye_waller(
 /// map lives for the life of the process; a handful of materials at a handful
 /// of temperatures is on the order of a megabyte each, which is the point —
 /// re-parsing that per query is what this avoids.
+#[cfg(feature = "std")]
 static MEMO: OnceLock<RwLock<HashMap<String, Arc<Mf7>>>> = OnceLock::new();
 
 /// Get the memo, initialising it on first use.
+#[cfg(feature = "std")]
 fn memo() -> &'static RwLock<HashMap<String, Arc<Mf7>>> {
     MEMO.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
+#[cfg(feature = "std")]
 /// Resolve a thermal scattering law for `request` — **regenerating from the
 /// LEAPR deck by default**, and reading a tape only when asked to.
 ///
@@ -1173,6 +1189,7 @@ pub fn thermal_scattering_law(request: &SabRequest) -> Result<Arc<Mf7>, NjoyErro
     }
 }
 
+#[cfg(feature = "std")]
 /// The whole ENDF **tape** for a request, where
 /// [`thermal_scattering_law`] gives just the parsed MF=7.
 ///
@@ -1233,6 +1250,7 @@ fn build_recipe(
     }
 }
 
+#[cfg(feature = "std")]
 /// Resolve the on-disk cached tape for a [`CachePolicy::UseCacheIfAvailable`]
 /// request: reuse it if present (logging the accuracy/speed tradeoff — see
 /// [`CachePolicy`]), otherwise generate fresh and populate the cache for next
@@ -1286,6 +1304,7 @@ fn disk_cache_path(
     Ok((path, key))
 }
 
+#[cfg(feature = "std")]
 /// The regeneration path of [`thermal_scattering_law`]: memo, then disk cache,
 /// then generate.
 fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
@@ -1390,6 +1409,7 @@ mod tests {
         Temperature::new::<kelvin>(k)
     }
 
+    #[cfg(feature = "std")]
     /// The defaults are the ones the maintainer asked for: regenerate, both
     /// channels.
     ///
@@ -1421,6 +1441,7 @@ mod tests {
     /// without this lock they could stomp on each other's env var.
     static CACHE_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+    #[cfg(feature = "std")]
     /// `CachePolicy::AlwaysRegenerate` (the default) never returns a stale
     /// disk-cached tape — it does not even look at the disk cache.
     ///
@@ -1473,6 +1494,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     /// `CachePolicy::UseCacheIfAvailable` reuses a hit and falls back
     /// gracefully — never an error — on a miss.
     ///
@@ -1524,6 +1546,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     /// The per-channel validation status is reported honestly, and differs
     /// between the generated and tape sources.
     ///
@@ -1611,6 +1634,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     /// The cache key changes when — and only when — something that changes the
     /// output bytes changes.
     ///
@@ -1693,6 +1717,7 @@ mod tests {
         assert!(name.ends_with(".endf"));
     }
 
+    #[cfg(feature = "std")]
     /// The canonical recipe text records everything an auditor needs, including
     /// the constant that makes the numbers reproducible.
     ///

@@ -54,10 +54,13 @@
 //! copies. Off-axis profiles need no post-processing. No `faer`, no external
 //! dependency; Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::f64::consts::TAU;
+use core::f64::consts::TAU;
 
 /// Sweep `profile` around the axis through `axis_point` along `axis_dir` by
 /// `angle` radians in `segments` steps, returning the surface of revolution.
@@ -144,8 +147,8 @@ fn rotate_about_axis(p: Vec3, axis_point: Vec3, k: Vec3, theta: f64) -> Vec3 {
 mod tests {
     use super::*;
     use crate::fill_holes::fill_holes;
-    use std::collections::HashSet;
-    use std::f64::consts::PI;
+    use crate::hash::HashSet;
+    use core::f64::consts::PI;
 
     /// Six times the signed volume of the mesh as-wound.
     fn signed_volume6(mesh: &Mesh) -> f64 {

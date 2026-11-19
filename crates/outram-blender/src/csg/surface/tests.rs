@@ -28,6 +28,9 @@
 
 //! Surface unit tests (split out of the surface module, 2026-10-02).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::torus::*;
 use super::*;
 use crate::csg::position::{Direction, Position};

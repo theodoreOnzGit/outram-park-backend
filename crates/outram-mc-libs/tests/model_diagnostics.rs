@@ -44,6 +44,8 @@
 //! not benchmark numbers (LOW tier, tiny run). The ENDF/B-VIII.0 run and the
 //! OpenMC comparison are in `verification_and_validation/diagnostics/README.md`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf_dir;
 use outram_mc_libs::material::nuclide::Nuclide;

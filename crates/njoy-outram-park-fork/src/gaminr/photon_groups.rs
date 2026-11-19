@@ -48,6 +48,9 @@
 //! | 9  | VITAMIN-E | 38 |
 //! | 10 | VITAMIN-J | 42 |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::NjoyError;
 
 /// One MeV expressed in eV — the `mev` conversion factor (`gaminr.f90:667`).

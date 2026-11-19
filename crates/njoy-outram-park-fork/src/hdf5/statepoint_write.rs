@@ -46,6 +46,9 @@
 //! `n` cannot be combined with another file's, and combining state points is
 //! most of why one writes them.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::Path;
 
 use hdf5_pure::{AttrValue, FileBuilder};

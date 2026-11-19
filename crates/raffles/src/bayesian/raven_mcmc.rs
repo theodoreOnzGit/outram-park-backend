@@ -95,6 +95,9 @@
 //! Against RAVEN itself (`Draws::Replay` on RAVEN's recorded draws) and
 //! against closed-form posteriors (`Draws::Lcg`): see the tests below.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use petir::rng::lcg::prn;
 

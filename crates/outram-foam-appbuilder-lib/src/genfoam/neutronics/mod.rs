@@ -58,9 +58,13 @@
 //! [`NeutronicsModel::kind`] — is what a coupling/driver layer calls without
 //! knowing which model it holds.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod albedo;
 pub mod diffusion;
 pub mod point_kinetics;
+pub mod pseudo_time;
 pub mod sn;
 pub mod sp3;
 pub mod state;
@@ -272,7 +276,7 @@ impl NeutronicsModel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
     use uom::si::area::square_meter;

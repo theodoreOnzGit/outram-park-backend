@@ -28,6 +28,9 @@
 // UNTRUSTED AI-DRAFT: drafted with AI assistance; verified by the unit tests in
 // `mod tests`, but still requires human review before it is trusted.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::path::PathBuf;
 
 /// A snapshot of the host machine's compute-relevant hardware, for the report
@@ -97,14 +100,14 @@ fn detect_memory_gib() -> Option<f64> {
 
 /// Detect the GPU adapter (desktop path): probe `wgpu` and format the adapter
 /// name + backend. Creating a probe device is cheap and headless.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn detect_gpu() -> Option<String> {
     crate::gpu::probe().map(|ctx| format!("{} / {:?}", ctx.info.name, ctx.info.backend))
 }
 
 /// Android has no `wgpu` backend compiled in, so there is never a GPU adapter to
 /// report — always `None` (the report then reads "CPU only").
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", not(feature = "std")))]
 fn detect_gpu() -> Option<String> {
     None
 }
@@ -116,7 +119,7 @@ impl HardwareInfo {
     /// released immediately. On a machine with no GPU it returns `gpu: None`
     /// without error.
     pub fn detect() -> Self {
-        let cpu_logical_cores = std::thread::available_parallelism()
+        let cpu_logical_cores = crate::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(1);
         Self {

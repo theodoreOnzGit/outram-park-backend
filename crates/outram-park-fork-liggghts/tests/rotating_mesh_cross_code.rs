@@ -97,7 +97,15 @@ struct Stats {
 
 /// Run the case and compare every value of every frame.
 fn run_case() -> Option<Stats> {
-    let (Some(csv), Some(stl)) = (read("rotating_plate.csv"), read("plate_square.stl")) else {
+    run_case_against("rotating_plate.csv", None)
+}
+
+/// [`run_case`] against reference `csv`; `second_run = Some((b, true))`: the
+/// deck's second `run` starts at step `b`, so `GranularSystem::begin_run` is
+/// called there (gh:#1510); `Some((b, false))` skips it (the continuous
+/// control).
+fn run_case_against(csv: &str, second_run: Option<(usize, bool)>) -> Option<Stats> {
+    let (Some(csv), Some(stl)) = (read(csv), read("plate_square.stl")) else {
         eprintln!("skipping: reference-data/liggghts/ not present");
         return None;
     };
@@ -155,6 +163,15 @@ fn run_case() -> Option<Stats> {
     let mut last = 0_usize;
     for row in &rows {
         let step = row[0] as usize;
+        if let Some((b, begin)) = second_run {
+            if last <= b && b < step {
+                sys.run(b - last);
+                last = b;
+                if begin {
+                    sys.begin_run().expect("run set-up");
+                }
+            }
+        }
         sys.run(step - last);
         last = step;
         let q = sys.particles()[0];
@@ -191,4 +208,37 @@ fn rotating_plate_matches_liggghts() {
         "not bit-identical vs LIGGGHTS: {}/{} values differ, first {:?}",
         st.mismatched, st.total, st.first
     );
+}
+
+/// **Two runs** (gh:#1510): `in.rotating_plate_2run` is this deck as `run
+/// 5000` + `run 5000`. At the second set-up `FixMesh::setup_pre_force`
+/// recomputes the rotating mesh's edge vectors and normals from its nodes
+/// (`refreshOwned(1)`; between neighbour rebuilds they are otherwise rotated
+/// incrementally) and `FixMoveMesh::setup` zeroes the node velocities after
+/// the wall's set-up `post_force`; the mover's `time_` persists.
+///
+/// **Prediction (2026-11-13, before the first run):** bit-identical.
+/// **Result:** see the assertion message; a continuous run against the same
+/// reference must differ (control).
+#[test]
+fn rotating_plate_two_runs_match_liggghts() {
+    let Some(st) = run_case_against("rotating_plate_2run.csv", Some((5_000, true))) else {
+        return;
+    };
+    eprintln!(
+        "rotating_plate_2run: {}/{} differ, first {:?}",
+        st.mismatched, st.total, st.first
+    );
+    assert_eq!(
+        st.mismatched, 0,
+        "not bit-identical vs LIGGGHTS: {}/{} values differ, first {:?}",
+        st.mismatched, st.total, st.first
+    );
+    let control = run_case_against("rotating_plate_2run.csv", Some((5_000, false)))
+        .expect("reference present");
+    eprintln!(
+        "rotating_plate_2run continuous control: {}/{} differ",
+        control.mismatched, control.total
+    );
+    assert!(control.mismatched > 0, "a continuous run reproduced the two-run deck");
 }

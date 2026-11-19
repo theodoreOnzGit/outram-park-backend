@@ -70,7 +70,10 @@
 //! - OpenFOAM.com's `polyDualMesh` also carries fields and writes the face
 //!   zones of the dual; neither is done here.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use petir::mathf::RealMath;
 
@@ -864,7 +867,7 @@ fn simple_mark_features(
     f_areas: &[V],
 ) -> Result<Features, MeshError> {
     let m = t.m;
-    let min_cos = (opts.feature_angle_deg * std::f64::consts::PI / 180.0).r_cos();
+    let min_cos = (opts.feature_angle_deg * core::f64::consts::PI / 180.0).r_cos();
     let mut feature_edge_set = FoamLabelHashSet::new();
     let mut single = FoamLabelHashSet::new();
     let mut multi = FoamLabelHashSet::new();

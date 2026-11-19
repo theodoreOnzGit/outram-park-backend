@@ -25,6 +25,9 @@
 //!    [`s_ph_eqm`], and
 //! 5. confirm the state really is two-phase with [`x_ph_flash`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal,
     specific_heat_capacity::kilojoule_per_kilogram_kelvin, thermodynamic_temperature::kelvin,

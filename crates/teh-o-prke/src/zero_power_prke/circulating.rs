@@ -74,7 +74,10 @@
 //! implies 310 pcm, importance-weighted, from its static and circulating
 //! β_eff; the measured loss is MSRE N-4) is validation, gh:#1130.
 
-use std::collections::VecDeque;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::VecDeque;
 
 use petir::mathf::RealMath;
 use uom::si::f64::*;
@@ -246,7 +249,7 @@ impl CirculatingPointKinetics {
                     / (self.generation_time * (self.decay_constants[i] + self.drift_rate(i)))
             })
             .collect();
-        self.history = std::iter::repeat(self.c.clone()).take(self.loop_steps).collect();
+        self.history = core::iter::repeat(self.c.clone()).take(self.loop_steps).collect();
     }
 
     /// The circulating in-hour equation, `ρ(ω) = ωΛ + β − Σ λ_i β_i / (ω +

@@ -26,6 +26,20 @@ and .NET Framework 4.6.2 on Windows.  No existing Rust or C bindings.
 
 ---
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1591, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (copy it from any module).
+- Maps come from `crate::hash` (std's with `std`, `hashbrown` without), never
+  `std::collections::HashMap` and never a `BTreeMap` stand-in.
+- The wall clock is `crate::time::Instant`, not `std::time::Instant`;
+  `Duration` is `core::time::Duration`.
+- Files, `zip` (`flowsheet::import`) and printing are `#[cfg(feature = "std")]`,
+  and so is any integration test that uses them.
+
 ## Build and test
 
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.

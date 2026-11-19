@@ -3,6 +3,9 @@
 //!
 //! Split out of `heatr/mod.rs` (see the module doc there for the physics).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::MtReaction;
 use crate::reconr::{eval_lin_lin, ReconrResult};

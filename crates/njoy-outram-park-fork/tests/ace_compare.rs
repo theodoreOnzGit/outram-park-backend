@@ -37,6 +37,9 @@
 //! (`   mat9225`) where it had written the ZA (`mat92234`), the one header
 //! difference a browser build of the same deck exposed.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::compare::{compare, Verdict, CE_BLOCKS, THERMAL_BLOCKS};
 use njoy_outram_park_fork::acer::read::{self, AceFileType, RawAceTable};

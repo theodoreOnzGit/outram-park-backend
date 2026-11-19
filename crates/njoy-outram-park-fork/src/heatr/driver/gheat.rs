@@ -20,6 +20,9 @@
 //! this is HEATR's routine on HEATR's grid, with the partial kermas, the
 //! capture damage and MT=443's capture term.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::conbar::tabbar;
 use super::flat::{nint, tab1_flat, tab2_flat, terp1, terpa, QP4, QW4};
@@ -214,7 +217,7 @@ impl Heatr {
                     }
                     // 160: all energies of the grid.
                     for i in 1..=self.ne {
-                        let mut c = std::mem::take(&mut self.rows[i - 1]);
+                        let mut c = core::mem::take(&mut self.rows[i - 1]);
                         let e = sigfig(c[1], 9, 0);
                         let inside = !(e < elow * (1.0 - SMALL) || e > ehigh * (1.0 + SMALL));
                         if inside {

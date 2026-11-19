@@ -3032,9 +3032,9 @@ name = "fly_delta_region"
 qual = "fly_delta_region"
 lines = [
     186,
-    328,
+    338,
 ]
-hash = "sha256:31bd1de04aa18c2a4991a45fc5f346113c969c9d4209e19cae522e4bf3e88fa0"
+hash = "sha256:749e289d503cef3d5461d0ddc1c54109f016cdcdec0ac2a4169e6059794e7112"
 doc_hash = "sha256:5079708cff3949d63bf006720046ad859e654596ef0b06f9429eb9540d85e477"
 callees = [
     "fn:2807cdd6b77eecb7",
@@ -3154,16 +3154,17 @@ reached_by = [
     "#130",
     "#131",
 ]
+index_out_of_date = true
 
 [[module."handoff.rs".function]]
 id = "fn:f867b08a2a68f27e"
 name = "score_real_collision"
 qual = "score_real_collision"
 lines = [
-    330,
-    366,
+    340,
+    377,
 ]
-hash = "sha256:57d72b28d66d8be4bfc539220bc45bedb054dceed1099c6a50d72d62f7b79334"
+hash = "sha256:83c6a2c92625ebc73e6ad23ecf68393f0d131a1919cb0de680492e7a0de94e1e"
 doc_hash = "sha256:487fd584309bbcdd8234580651fa30cdfcafe11ebb115be500a240a90e4aa825"
 callees = [
     "fn:1f3f471fa1dca083",
@@ -3263,6 +3264,7 @@ reached_by = [
     "#130",
     "#131",
 ]
+index_out_of_date = true
 
 [module."majorant.rs"]
 path = "crate::physics::delta_tracking::majorant"
@@ -3275,9 +3277,9 @@ item = "type"
 shape = "struct"
 lines = [
     41,
-    54,
+    58,
 ]
-hash = "sha256:e6bc74caf0ba058d920bf1711788f297cda7fa28e5e3a3be4bd771987d673510"
+hash = "sha256:384c76e3606efc4bb63b1bb0317e83f1886a0c15e52f14f9643819f62e122f83"
 doc_hash = "sha256:4a23f03016faced710ed0d59b2ece3db71cf8260272111f21fa3fa9eb0c80197"
 reached_by = [
     "#0",
@@ -3392,32 +3394,34 @@ reached_by = [
     "#130",
     "#131",
 ]
+index_out_of_date = true
 
 [[module."majorant.rs".function]]
 id = "fn:ab058d1967bb2b6b"
 name = "uniform"
 qual = "Majorant::uniform"
 lines = [
-    57,
-    67,
+    61,
+    72,
 ]
-hash = "sha256:2c392aab4ad4ff2e1215d81436c21518df86bb58b8ef9e7ccba83c6c61b805df"
+hash = "sha256:5bfacb853e6df6e62af3b004a119e0ecb6bd1e524427e71046417edd6fd5803d"
 doc_hash = "sha256:bf30e1985c5d15445d4077e2fa20a2298ceef6b8f814abec4bb5b9c4f0a381b3"
 uses = ["fn:ff4dfa6416cdd4fc"]
 reached_by = [
     "#28",
     "#62",
 ]
+index_out_of_date = true
 
 [[module."majorant.rs".function]]
 id = "fn:233223fccf686958"
 name = "from_materials"
 qual = "Majorant::from_materials"
 lines = [
-    69,
-    141,
+    74,
+    147,
 ]
-hash = "sha256:4fc66f17114bce6344fe4a137d9cbff77bd0cd7dd990a1cfc35ce8ffe64fab15"
+hash = "sha256:8078329c98dada30e135b27ca4fa5f7ca7e1f70d191ea9136d82c9b10ab7d095"
 doc_hash = "sha256:3a0075fda770b5061f2b819adf79bf8ed20d1dae9ba824580b48f429cb03c140"
 callees = [
     "fn:2ce23f3ec4ef35df",
@@ -3462,16 +3466,17 @@ reached_by = [
     "#124",
     "#125",
 ]
+index_out_of_date = true
 
 [[module."majorant.rs".function]]
 id = "fn:2ce23f3ec4ef35df"
 name = "from_materials_without_breakpoints"
 qual = "Majorant::from_materials_without_breakpoints"
 lines = [
-    143,
-    170,
+    149,
+    177,
 ]
-hash = "sha256:c64dd59bc7bcb009a9ab6486e3dfe42ccc8f6102107a2b2cf097b1f10df6bf24"
+hash = "sha256:3f0bcdcc2ac8ba5828b6c3cac2a97a3f690473188a88f87d4e914fb18d1eda11"
 doc_hash = "sha256:7f1a3d95c6d8470949fc381df8b02e2c889c6b44aef36c014031e98563e3c3b4"
 callees = ["fn:30dc83edb2a1c524"]
 uses = [
@@ -3510,14 +3515,15 @@ reached_by = [
     "#124",
     "#125",
 ]
+index_out_of_date = true
 
 [[module."majorant.rs".function]]
 id = "fn:1c96e801071625a8"
 name = "over_indices"
 qual = "Majorant::over_indices"
 lines = [
-    172,
-    220,
+    179,
+    227,
 ]
 hash = "sha256:04dcabf236166a57dc8c14dbe9c6ff6b64e0eb663f67fc5bbdfcc6d4b478252c"
 doc_hash = "sha256:cb9c46f1f5d1f764106931031984e3396ae8ee40e0492bd3d42ebc154a6fdbe0"
@@ -3552,8 +3558,8 @@ id = "fn:5c4cc3c4bfe8fcce"
 name = "over_indices_without_breakpoints"
 qual = "Majorant::over_indices_without_breakpoints"
 lines = [
-    222,
-    237,
+    229,
+    244,
 ]
 hash = "sha256:6034c6df8404b5568b22c5ae32dd6e9985a206f6395951af87a07ee79a831635"
 doc_hash = "sha256:c4747f929ce090c0324e2e2152a5e880dc3d7f97314e72c1e732117fe069ed56"
@@ -3569,10 +3575,10 @@ id = "fn:a051bd1637f9435b"
 name = "bounding"
 qual = "Majorant::bounding"
 lines = [
-    239,
-    353,
+    246,
+    361,
 ]
-hash = "sha256:19c6b6d4cf98970b364718c6538ee1cb4626a8e2a88c72af6b5b9cc4da841a02"
+hash = "sha256:b739205a2f3474941a98e4fc09bd9f3ea724b1f7a4ab863c7b9a0464b554dd97"
 doc_hash = "sha256:4e99364c216fedfd479f1b4d2729851b68f229ab4af71a5dcaf09cc76cddefb4"
 callees = [
     "fn:05087ca44973e98a",
@@ -3605,14 +3611,15 @@ reached_by = [
     "#101",
     "#102",
 ]
+index_out_of_date = true
 
 [[module."majorant.rs".function]]
 id = "fn:0883101f5022f452"
 name = "bounding_without_breakpoints"
 qual = "Majorant::bounding_without_breakpoints"
 lines = [
-    355,
-    381,
+    363,
+    389,
 ]
 hash = "sha256:086c5d85f98a51e9cf6147c7fc1aaf66bcc8cc43ce7e8409f10d458a09494d48"
 doc_hash = "sha256:7c7cffd23411fd646b346fb7b927d2c4d77ddf19ba4b064881afb6d46ee35cbf"
@@ -3629,8 +3636,8 @@ id = "fn:9603fb2b6435f47a"
 name = "audit"
 qual = "Majorant::audit"
 lines = [
-    383,
-    450,
+    391,
+    458,
 ]
 hash = "sha256:a9aa4cfa621ce3f81004c60b769d5461db278e7a97e10fc01ddd037f24c34bc1"
 doc_hash = "sha256:b5863501effb0838d74742b30a75290d51c8d13ac0220c92892027206d2f66d5"
@@ -3658,8 +3665,8 @@ id = "fn:358439787cf5c0b0"
 name = "len"
 qual = "Majorant::len"
 lines = [
-    452,
-    455,
+    460,
+    463,
 ]
 hash = "sha256:98c4000260dc59bd865c851fd0b7701e147d967c5c2c5359a5630c406784cdb2"
 doc_hash = "sha256:a806808dd37f25d65cadbf164d339942dbb1bcbb2a719b017b5fbcbe2aaa2bc6"
@@ -3674,8 +3681,8 @@ id = "fn:0dc7aa4ebc2e5282"
 name = "is_empty"
 qual = "Majorant::is_empty"
 lines = [
-    457,
-    460,
+    465,
+    468,
 ]
 hash = "sha256:176118856df035cf532f0e8709ab4ee7ff6d72a020e9d1bdc769d084fb4ca296"
 doc_hash = "sha256:30d000c9f21ad4b7bad24c0e402c4aed120ff4bd37dc103435c98e159da5f9f4"
@@ -3686,10 +3693,10 @@ id = "fn:2f723c0969656215"
 name = "scaled"
 qual = "Majorant::scaled"
 lines = [
-    462,
-    476,
+    470,
+    489,
 ]
-hash = "sha256:15b4f5d884e73952423d7d8974ce6c34be9a3f0af8800d6c64e89fbe4509f3f8"
+hash = "sha256:a215fcc0be310e9f0fc25a4f548976d1c46f63e525ae1ab31cd1ed436a710a6c"
 doc_hash = "sha256:c393a093428c2c2a1378a9d25b975dc66bf4e7df20b076e203b77c428f21c7c6"
 uses = ["fn:ff4dfa6416cdd4fc"]
 reached_by = [
@@ -3697,16 +3704,17 @@ reached_by = [
     "#4",
     "#122",
 ]
+index_out_of_date = true
 
 [[module."majorant.rs".function]]
 id = "fn:553674e261568aad"
 name = "at"
 qual = "Majorant::at"
 lines = [
-    478,
-    524,
+    491,
+    540,
 ]
-hash = "sha256:5585ca8bce298054b3c03acede90057bc10a517707aa21f1b684fb70790df290"
+hash = "sha256:a80da642b1173b9a7fa9c0f13c5f7c17660635791409e408ff463594a4312a8d"
 doc_hash = "sha256:e70ecafdcb6a4624e08412d3eefe977675f8c302abced2ff0f7867140f3e036c"
 callees = ["fn:06de556e496fff77"]
 uses = ["fn:ff4dfa6416cdd4fc"]
@@ -3823,6 +3831,19 @@ reached_by = [
     "#130",
     "#131",
 ]
+index_out_of_date = true
+
+[[module."majorant.rs".function]]
+id = "fn:5a6943ba9a5931e3"
+name = "widened_over"
+qual = "Majorant::widened_over"
+lines = [
+    544,
+    599,
+]
+hash = "sha256:a4e45f5f2ef1d93cdfc9597710fa29d267ab5bfa50d1f2e1d1eec6dd6d3242bc"
+doc_hash = "sha256:878d0c74a59f8967645f6b8640b62cb5e19ef4dff6db27adc014e484bacfaa03"
+index_out_of_date = true
 
 [[module."majorant.rs".function]]
 id = "fn:46c6499d93195c71"
@@ -3831,8 +3852,8 @@ qual = "MajorantAudit"
 item = "type"
 shape = "struct"
 lines = [
-    527,
-    539,
+    602,
+    614,
 ]
 hash = "sha256:53489c7a7c41d7f0c8f3f8bb9d598e882b140b6cedb1cf86231deb8035225c50"
 doc_hash = "sha256:9abf90cae7a0b95050ea323c711dd14bca91dbf10dc4dff89ec3e093e1a7b98f"
@@ -3847,8 +3868,8 @@ id = "fn:b9861889cc9e3d67"
 name = "bounding_audit_line"
 qual = "bounding_audit_line"
 lines = [
-    541,
-    590,
+    616,
+    665,
 ]
 hash = "sha256:d9f9ea9fc39f39c9b4dd7977e557ef4f2aa60bcd1033594794642d94643e9a4f"
 doc_hash = "sha256:4079ac3f612c35b3a0555b6ad06b8b9b453b08a27fa96383dc68f3c1345c4dee"
@@ -3870,8 +3891,8 @@ id = "fn:5c8c87d0eaa4468b"
 name = "used_nuclides"
 qual = "used_nuclides"
 lines = [
-    592,
-    601,
+    667,
+    676,
 ]
 hash = "sha256:599ecc4c8687b4e2d8c72a25afd0c6225e6cb4a09486dd203a56f47336ab9641"
 doc_hash = "sha256:357556e3e6ec8917a26401369541bbb8f3fb8225d24b031503a7b716fba1e64b"
@@ -3929,10 +3950,10 @@ id = "fn:05087ca44973e98a"
 name = "sampled_envelope"
 qual = "sampled_envelope"
 lines = [
-    603,
-    643,
+    678,
+    725,
 ]
-hash = "sha256:8f665f57b65595b9150e59f31d1dad3010486322f541974daf3347146c586f91"
+hash = "sha256:3aa1a9e19391abcf6cc6dd941a8f411091ed287a7e21b2e9ee7703de9a6a9c9d"
 doc_hash = "sha256:62ffe6f63996935b7f09de442c8ad8814db6b749cd84bcbcbab13710bf698ea2"
 callees = [
     "fn:30dc83edb2a1c524",
@@ -3963,14 +3984,15 @@ reached_by = [
     "#101",
     "#102",
 ]
+index_out_of_date = true
 
 [[module."majorant.rs".function]]
 id = "fn:0041ebd352da4cbd"
 name = "majorant_bounds_sigma_t_below_its_grid_floor"
 qual = "majorant_bounds_sigma_t_below_its_grid_floor"
 lines = [
-    649,
-    712,
+    731,
+    794,
 ]
 hash = "sha256:a337d88b1c03eb82e7dc5454cf15afb51ad7effec5fb61965f570590b41fe504"
 doc_hash = "sha256:916161cebd10b3e48e6f482922e9ae6abcb3762cfd7f4b0b78707366f8265550"
@@ -3994,10 +4016,10 @@ id = "fn:5d1e6aa230a1e5e3"
 name = "majorant_bounds_every_material"
 qual = "majorant_bounds_every_material"
 lines = [
-    714,
-    753,
+    796,
+    835,
 ]
-hash = "sha256:da8968f57b3c63c6083c83d55fac4a1d1706ac1380c7ae9073bb0ef4d45533c3"
+hash = "sha256:d838a92b06542dcaa42431564bd6174aac0f4af093a0e4db28c10cf3b422ab2d"
 doc_hash = "sha256:f703dd87b45512c08e80097b96cb5929ae8e5f3758eedaf7d3d2df4e4d7b1f23"
 callees = [
     "fn:233223fccf686958",
@@ -4012,9 +4034,342 @@ uses = [
     "fn:ff4dfa6416cdd4fc",
 ]
 test = true
+index_out_of_date = true
 
 [module."mod.rs"]
 path = "crate::physics::delta_tracking"
+
+[module."temperature_cover.rs"]
+path = "?"
+
+[[module."temperature_cover.rs".function]]
+id = "fn:a32d78f8c8c73b19"
+name = "DEFAULT_T_MARGIN"
+qual = "DEFAULT_T_MARGIN"
+item = "const"
+shape = "const"
+lines = [
+    74,
+    82,
+]
+hash = "sha256:1f148c20a9052f9c5f1d120aca80b136c552a15d19103a0acaa8a96ed2021013"
+doc_hash = "sha256:d2edabeb2ce4e009984ea4cda954fc3cf4be0e1e200736898b773d46065a3c67"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:1cfbbdb1701981cf"
+name = "W_MAX"
+qual = "W_MAX"
+item = "const"
+shape = "const"
+lines = [
+    84,
+    86,
+]
+hash = "sha256:57564c944914318a88ccb7381ca6e75bfd35f53649d0a534bf7ab309e3d7b7d5"
+doc_hash = "sha256:475f63cab78bf1d5803557eb3e05e204af9417f8d52960ce2170d89b02a62e85"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:0a64a13e47e5fa88"
+name = "CoverSettings"
+qual = "CoverSettings"
+item = "type"
+shape = "struct"
+lines = [
+    88,
+    100,
+]
+hash = "sha256:9a64c6d85b1d0feb881dd859720db14c30d2ca8aa7aede0c0097119020c77867"
+doc_hash = "sha256:a09b97ce0d73d7ca06f1198f8fab51dc3838d641b3ecf0cd59dd3929c0557cc7"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:f858b7279f0f19eb"
+name = "default"
+qual = "CoverSettings::default"
+lines = [
+    103,
+    117,
+]
+hash = "sha256:d4b91c37589f67617362c1320729698003b91c13a61d2ca9c1b47a664f10abf3"
+doc_hash = "sha256:801a1b5978d495bdf1143e6be96274097d812d9a3c3bc90ca39a6fed26ea2bdc"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:a1dd3ecc8a6657c5"
+name = "CoverBand"
+qual = "CoverBand"
+item = "type"
+shape = "struct"
+lines = [
+    120,
+    130,
+]
+hash = "sha256:fc709a134c3a5ffd0cd7dcdfd37921e8362ebc6c8b6999a6cc0592b69836e5ee"
+doc_hash = "sha256:5817b4ab1b82a6238c13fb4ccf579210c92694b027f9dd8c91f38f1e7c19c6de"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:926b511824310aba"
+name = "scaled"
+qual = "CoverBand::scaled"
+lines = [
+    133,
+    137,
+]
+hash = "sha256:f2befc3cbf6b1697a17ab09708fb5c157eaf15b9dce22d93922010101df1260d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:670ff857fc54d84a"
+name = "poly"
+qual = "CoverBand::poly"
+lines = [
+    139,
+    148,
+]
+hash = "sha256:3afe53184fedfbab8e3823e347b8f48831df02e7c05565afa9e5212f7d0ceff4"
+doc_hash = "sha256:9904c9426969ad7280f95d1ce530ac72488e1c22bda6c108ae87999b1f7c92a8"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:521b7219eedb101f"
+name = "x_of"
+qual = "CoverBand::x_of"
+lines = [
+    150,
+    156,
+]
+hash = "sha256:65fffcf7709345d9b05235fdd4963892e7dbfc5b27134785b9d0eca1a72f99fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:d2af331a18682203"
+name = "value"
+qual = "CoverBand::value"
+lines = [
+    158,
+    160,
+]
+hash = "sha256:a95021524b3d795ffc2715d67cdbed1ba6eccb1401d575a826fa085bebf35c35"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:67ac6368d89a2083"
+name = "lipschitz"
+qual = "CoverBand::lipschitz"
+lines = [
+    162,
+    169,
+]
+hash = "sha256:697588f8784cf7e5f157ebaccc72ec6b2c8dd64042b2a4add492f7caeff6c0e6"
+doc_hash = "sha256:9a82b1d75840830da3e1beede1318bbd6d997407181f492a083f2b7ce5700149"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:2e2d54b40872e265"
+name = "cover_at"
+qual = "cover_at"
+lines = [
+    172,
+    185,
+]
+hash = "sha256:5134e803bd674f3ace50a897a04dea4a6cb009c073d7fca0b9d774d7dc278b00"
+doc_hash = "sha256:7dfa65a8202da3083b84d72f1bdf2281effc184d06cf9cb7e3cd933daa0ade75"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:22bcc6807c42d1ff"
+name = "TemperatureAudit"
+qual = "TemperatureAudit"
+item = "type"
+shape = "struct"
+lines = [
+    187,
+    199,
+]
+hash = "sha256:b090ca17a7907d7ab213623873ff11f0875d0427ef05364fed1049293960fca3"
+doc_hash = "sha256:7a03fd0e46eeb962b01a8032d313ce9d11300090986db62eff10dfacf0d9d93e"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:74e81cbb2ffa72da"
+name = "over_temperature_tables"
+qual = "Majorant::over_temperature_tables"
+lines = [
+    202,
+    231,
+]
+hash = "sha256:cc92f4f16870185b4ab98396127cb5937cf3922570ab9c75146108409cce0d86"
+doc_hash = "sha256:4983eeb8f4a02e544fd048cdcd26db5b9e254eb6c1185bcc4e84308f71d533ef"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:f45d2f07a05d5d81"
+name = "chebyshev_cover"
+qual = "Majorant::chebyshev_cover"
+lines = [
+    233,
+    265,
+]
+hash = "sha256:1ba85ebce62ab8f6046f6bf5f93805c9d5fea9a18edc41f6af9c15821cd4f847"
+doc_hash = "sha256:71b6111d48894a02fcf822e14dcb36fb0d8ca1d875926156414851d07a5f6095"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:44d9945e4c9f226e"
+name = "fit_band"
+qual = "Majorant::fit_band"
+lines = [
+    267,
+    309,
+]
+hash = "sha256:d2e4b3f78cf02456dc8f4ad03c99a0747bf5ac7eeac7711a84cdf4320c887a47"
+doc_hash = "sha256:6337275d799105d5c5acb51477d1fbd9f4df84b54719bcf9791093ded2deb403"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:62d7cc82f2c4f0cd"
+name = "fit_band_degree"
+qual = "Majorant::fit_band_degree"
+lines = [
+    311,
+    380,
+]
+hash = "sha256:42a31fa7e1ce5176d503330a19b2f359575d51b161a5ab2c5e1c3e7f1a25483b"
+doc_hash = "sha256:7fb202b3263b6290cd49d9906852823a32d627887cfb381b5ccf67f8aee2e29a"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:7af0d7e77c274c91"
+name = "cover_bands"
+qual = "Majorant::cover_bands"
+lines = [
+    382,
+    385,
+]
+hash = "sha256:312677e9d0e3dcb61717e66775b1b4f887ef51b6b16c605b93ecb30cd3989f9f"
+doc_hash = "sha256:a35d0fae0c1563d7f9e407ffc54981b621df8b16cc4e73073ce853116c71f93e"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:47bbd1e4b08c0480"
+name = "audit_over_temperatures"
+qual = "Majorant::audit_over_temperatures"
+lines = [
+    387,
+    415,
+]
+hash = "sha256:bc383a773f73dc2c28a183235ef3c2d6e245ae01bf8ed6db49c5acce02780a8a"
+doc_hash = "sha256:d957b9431d4f8f3dd017c7de7d30ae7c7af4ffa56f8e43b3f1b9eb957f6f1a58"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:ad657340c206912d"
+name = "mean_overhead"
+qual = "Majorant::mean_overhead"
+lines = [
+    417,
+    445,
+]
+hash = "sha256:44f1ce4cb3dedd41f592aeec2d175f1f1d2e1e3e36ba628ef5efdfa70efae85b"
+doc_hash = "sha256:fa634e663854b86c5f134ba5109b32e704120d12dd20854158e627eabdc23e0d"
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:5a6b481382cc0b85"
+name = "table"
+qual = "table"
+lines = [
+    452,
+    458,
+]
+hash = "sha256:b1f463fe993097b6d8f9a1bee9adbe083ce9410b89f5b70a6b54187bd9e9707e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:4f15202aa59c94bf"
+name = "spiky"
+qual = "spiky"
+lines = [
+    460,
+    480,
+]
+hash = "sha256:cde416646b83708a1f9061f4adb073568d9d132d90c30191f346d500a679fef9"
+doc_hash = "sha256:52bed4a54e24a5b74c3d1ef3988db9b37650a4d70aa668fd8db442c3212ee1d2"
+test = true
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:869ba207a695f565"
+name = "over_temperature_tables_is_the_pointwise_max"
+qual = "over_temperature_tables_is_the_pointwise_max"
+lines = [
+    482,
+    494,
+]
+hash = "sha256:c115c6e09e3a6db38986be4d3c79644d4e3a21ab71b37dd84314f8e636753fdf"
+doc_hash = "sha256:1dc07e788ee8118ca91b7e4317d8c52cf5e6b80c8b35cae88df64b8985a9edd6"
+test = true
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:3144230bd0b74b91"
+name = "chebyshev_cover_is_never_below_its_table"
+qual = "chebyshev_cover_is_never_below_its_table"
+lines = [
+    496,
+    522,
+]
+hash = "sha256:97edc4759931d6f7f2f3963092e5761ccc7359b07395ac16f61d1636dfa28616"
+doc_hash = "sha256:9b34b24481a024218532911d3ee99bf0ca42fbb99ba4571029900fc0f47ba51b"
+test = true
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:5619a0fcf2a4efc2"
+name = "more_bands_cover_tighter_and_scaling_scales"
+qual = "more_bands_cover_tighter_and_scaling_scales"
+lines = [
+    524,
+    553,
+]
+hash = "sha256:ea3115c2edecd060ac498ce025ded0ce5662050ed487674322ec8f74e72f16ae"
+doc_hash = "sha256:55f6b766340656b32a91e5206c80b15d54dbacac163dab279571f37cc29042b4"
+test = true
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:720d40e9c6b4128d"
+name = "a_higher_degree_is_never_costlier_in_mean_overhead"
+qual = "a_higher_degree_is_never_costlier_in_mean_overhead"
+lines = [
+    555,
+    577,
+]
+hash = "sha256:d8402f351ec96042bf91aa21437120a186be53367f55599d85dc5787c409e84c"
+doc_hash = "sha256:f0122aa0b96af45948103b7d7e734b5de73e369cea4fcc9bb2516daf07bab830"
+test = true
+index_out_of_date = true
+
+[[module."temperature_cover.rs".function]]
+id = "fn:8587cb585d2dad97"
+name = "audit_and_overhead_on_no_materials"
+qual = "audit_and_overhead_on_no_materials"
+lines = [
+    579,
+    591,
+]
+hash = "sha256:ba38a18da640339a6bd34cbe4a296055c1df4cf6d05b90edc3424a630f2a4a50"
+doc_hash = "sha256:484e0f64fa3a8867682195f93aac8bec83de4a21002813698ba25acb735fa32c"
+test = true
+index_out_of_date = true
 
 [test_run]
 commit = "13e891e5b491e162abaf022ef19097f07222b12e"
@@ -4141,3 +4496,8 @@ passed = [
     "#132",
 ]
 failed = []
+
+[[review]]
+function = "fn:ff4dfa6416cdd4fc"
+by = "github:theodoreOnzGit"
+artifact = "review-majorant-theodoreonzgit-ff4dfa64"

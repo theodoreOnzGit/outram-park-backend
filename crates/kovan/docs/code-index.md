@@ -62,7 +62,12 @@ no second indexer.
   works: new ids are minted with the all-zero commit, and the run says so.
 
 Cost: the only measured reference is outram-park-backend (48 crates):
-about 4–7 min and a 15–16 GB rust-analyzer peak. A target's own cost is not
+~~about 4–7 min and a 15–16 GB rust-analyzer peak~~ **CORRECTED
+2026-11-19 (#1668):** that was the monolithic index; the default on Linux and
+macOS is now partitioned, 49 crates in 7 partitions run one at a time, about
+23 min with a 12.0 GiB peak (the monolithic run, still
+`KOVAN_INDEXER=monolithic`, took 16 min at 13.2 GiB on the same 4-core
+machine): `docs/partitioned-indexing.md` §5. A target's own cost is not
 known in advance; the dialog says so with its crate, file and line counts.
 Measured 2026-10-07: a copy of `syn` 2.0.119 (one crate, 65 k lines) took
 about 14 s end to end.

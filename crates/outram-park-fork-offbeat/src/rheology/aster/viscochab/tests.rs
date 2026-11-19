@@ -21,6 +21,9 @@
 //! `cargo test -p outram-park-fork-offbeat --lib --release
 //! rheology::aster::viscochab -- --nocapture`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use outram_foam_basic_lib::ode::{OdeIntegrator, OdeSolver, OdeSystem};
@@ -145,7 +148,7 @@ fn aster_coefficient_map_matches_cvmmat() {
     ];
     assert_eq!(ASTER_COEFFICIENT_NAMES, upstream_nomc_4_to_28);
 
-    let coeft: [f64; 25] = std::array::from_fn(|i| (i + 1) as f64);
+    let coeft: [f64; 25] = core::array::from_fn(|i| (i + 1) as f64);
     let p = ViscoplasticChabocheParameters::from_aster_coefficients(coeft);
     assert_eq!(p.to_aster_coefficients(), coeft);
 
@@ -463,12 +466,12 @@ fn rkdcha_alpha2_reuses_d1_upstream_typo() {
     let gamma2 = params.dynamic_recovery_2 * ccin;
     let smx_c = smx.components();
     let a2 = state.back_strain_2.components();
-    let petin: [f64; 6] = std::array::from_fn(|i| SQRT_1_5 * smx_c[i] / j);
-    let devi: [f64; 6] = std::array::from_fn(|i| 1.5 * (smx_c[i] / j) * p_dot);
+    let petin: [f64; 6] = core::array::from_fn(|i| SQRT_1_5 * smx_c[i] / j);
+    let devi: [f64; 6] = core::array::from_fn(|i| 1.5 * (smx_c[i] / j) * p_dot);
     let na2: f64 = (0..6).map(|i| a2[i] * petin[i]).sum();
 
     let candidate = |split: f64| -> [f64; 6] {
-        std::array::from_fn(|i| {
+        core::array::from_fn(|i| {
             let inner =
                 params.back_stress_recovery_split_2 * a2[i] + (1.0 - split) * na2 * petin[i];
             devi[i] - gamma2 * inner * p_dot

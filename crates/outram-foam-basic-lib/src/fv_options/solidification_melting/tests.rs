@@ -34,9 +34,12 @@
 //! is deliberate: it makes a missing or doubled volume factor visible instead
 //! of invisible.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::mesh::FvMesh;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 const T_SOL: f64 = 302.0;
 const T_LIQ: f64 = 304.0;

@@ -102,7 +102,7 @@ fn main() {
 mod desktop {
     use petir::mathf::RealMath;
     use njoy_outram_park_fork::reference_data::reference_endf;
-    use outram_mc_libs::material::material::{Material, NuclideComponent};
+    use outram_mc_libs::vv::godiva;
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
     use outram_mc_libs::pebble_beds::keff_delta::{run_keff_delta_in, DeltaDomain};
@@ -111,21 +111,17 @@ mod desktop {
     use std::time::Instant;
 
     /// Godiva's fuel temperature \[K\] — the tapes are broadened to it.
-    const TEMP_K: f64 = 293.6;
+    const TEMP_K: f64 = godiva::TEMPERATURE_K;
     /// ICSBEP HEU-MET-FAST-001 sphere radius \[cm\].
-    const RADIUS_CM: f64 = 8.7407;
+    const RADIUS_CM: f64 = godiva::RADIUS_CM;
     /// Histories per generation, and the generation split.
     const HISTORIES: usize = 5000;
     const INACTIVE: usize = 40;
     const ACTIVE: usize = 120;
 
-    /// `(tape file, nuclide name, atom density \[atoms/barn·cm\])` — the three
-    /// ICSBEP nuclides, same numbers as `godiva_keff_endf_local`.
-    const NUCLIDES: &[(&str, &str, f64)] = &[
-        ("n-092_U_234-ENDF8.0.endf", "U234", 4.9184e-4),
-        ("n-092_U_235-ENDF8.0.endf", "U235", 4.4994e-2),
-        ("n-092_U_238.endf", "U238", 2.4984e-3),
-    ];
+    // The Godiva model (radius, temperature, the three ICSBEP nuclides as
+    // `(name, tape, atoms/b-cm)`, the material) is `vv::godiva`; this
+    // example's identical copy was removed 2026-11-18 (gh:#1647).
 
     /// Energy span the majorant must bound \[eV\] — birth energy down to the
     /// lowest energy any history reaches.
@@ -160,9 +156,9 @@ mod desktop {
     pub fn run() {
         let t0 = Instant::now();
         println!("Reconstructing HEU isotopes from ENDF/B-VIII.0 (RECONR + BROADR @ {TEMP_K} K)…");
-        let nuclides: Vec<Nuclide> = NUCLIDES
+        let nuclides: Vec<Nuclide> = godiva::NUCLIDES
             .iter()
-            .map(|(file, name, _)| {
+            .map(|(name, file, _)| {
                 let p =
                     reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
                 Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
@@ -174,19 +170,7 @@ mod desktop {
             t0.elapsed().as_secs_f64()
         );
 
-        let material = Material {
-            id: 1,
-            name: "Godiva HEU".into(),
-            temperature: TEMP_K,
-            components: NUCLIDES
-                .iter()
-                .enumerate()
-                .map(|(i, (_, _, dens))| NuclideComponent {
-                    nuclide_idx: i,
-                    atom_density: *dens,
-                })
-                .collect(),
-        };
+        let material = godiva::material();
         let materials = vec![material.clone()];
 
         // The majorant must bound Sigma_t EVERYWHERE, not just at grid points --

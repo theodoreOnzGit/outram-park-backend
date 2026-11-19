@@ -7,6 +7,9 @@
 //! "Monte Carlo core" half of the plan-named boundary, ladder generation
 //! lives in [`super::ladder`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::ladder::{generate_ladder, InfiniteDilutionResult, LadderResonance, Rng, SequenceLadderParams};
 use super::wfun::DopplerTable;
 use crate::NjoyError;
@@ -223,7 +226,7 @@ fn sample_one_ladder(
     mut keep: Option<&mut Vec<Vec<LadderResonance>>>,
 ) {
     let (ntemp, nsamp) = (temp.len(), es.len());
-    let rpi = std::f64::consts::PI.sqrt();
+    let rpi = core::f64::consts::PI.sqrt();
     // purr.f90:1904-1913 — random energy grid, sorted.
     for ie in 0..nsamp {
         es[ie] = span.emin + span.espan * rng.next();

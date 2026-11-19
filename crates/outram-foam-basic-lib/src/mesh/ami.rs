@@ -76,6 +76,9 @@
 //! conservative). This code is an **untrusted AI-assisted draft pending human
 //! V&V review** (2026-08-04).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use crate::primitives::Vector3;
 

@@ -85,7 +85,10 @@
 //! Status: untrusted AI-generated draft (2026-11-03), research, education and
 //! V&V only (`RESPONSIBLE_USE.md`).
 
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solid_conduction::RzMesh;
 use outram_foam_basic_lib::prelude::FvMesh;
@@ -1118,6 +1121,7 @@ impl PowerShape {
 
     // ── Pictures ────────────────────────────────────────────────────────
 
+    #[cfg(feature = "std")]
     /// **Draw the shape in R-Z** (the `x >= 0, y = 0` half-plane, Monte
     /// Carlo frame) as a PNG with a colour key, `px_per_cm` pixels per cm.
     /// Colours run from white (0) through yellow and orange to dark red (the
@@ -1146,6 +1150,7 @@ impl PowerShape {
         write_scalar_png(path.as_ref(), title, w, h, &v)
     }
 
+    #[cfg(feature = "std")]
     /// **Draw the shape on the plane `z` (Monte Carlo frame)**, `x, y` in
     /// `[-half_width, half_width]`, as [`Self::write_rz_png`] does in R-Z.
     ///
@@ -1395,6 +1400,7 @@ pub fn zernike_disc_integral(zernike: &[f64], disc_radius: Length) -> f64 {
     PI * cm(disc_radius).r_powi(2) * zernike.first().copied().unwrap_or(0.0)
 }
 
+#[cfg(feature = "std")]
 /// **Picture: a Zernike radial profile against its Fourier-Bessel
 /// reconstructions** with `n_terms` of each listed count, both boundaries.
 ///
@@ -1593,6 +1599,7 @@ fn converge(f: impl Fn(usize) -> f64, rel: f64, max_s: usize) -> f64 {
     prev
 }
 
+#[cfg(feature = "std")]
 /// A scalar field as a PNG with a ten-step colour key.
 fn write_scalar_png(path: &std::path::Path, title: &str, w: usize, h: usize, v: &[f64]) -> std::io::Result<()> {
     let vmax = v.iter().fold(0.0f64, |a, b| a.max(b.abs()));
@@ -1629,7 +1636,7 @@ fn write_scalar_png(path: &std::path::Path, title: &str, w: usize, h: usize, v: 
             let t = k as f64 / 5.0;
             LegendEntry::new(colour(t * vmax), format!("{:.1} OF MAX", t))
         })
-        .chain(std::iter::once(LegendEntry::new(colour(-vmax), "NEGATIVE")))
+        .chain(core::iter::once(LegendEntry::new(colour(-vmax), "NEGATIVE")))
         .collect();
     annotate_image(&img, title, &legend).write_png(path)
 }

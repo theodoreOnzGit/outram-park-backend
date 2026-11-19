@@ -77,10 +77,17 @@
 //! 2026-09-28**: QAGS is ported ([`qags`], `integration/qags.rs`), for
 //! `buangkok`'s plume-shine integral. [`qag`] still grinds through its
 //! iteration limit on an endpoint singularity and reports
-//! [`PetirError::MaxIterations`]; use [`qags`] there. Not ported: the
+//! [`PetirError::MaxIterations`]; use [`qags`] there. ~~Not ported: the
 //! infinite-range transforms (`QAGI`, `QAGIU`, `QAGIL`, which live in the same
 //! `qags.c` and would reuse its core with the 15-point rule), the weighted
-//! rules (`QAWO`, `QAWS`, `QAWC`), and the non-adaptive `QNG`.
+//! rules (`QAWO`, `QAWS`, `QAWC`), and the non-adaptive `QNG`.~~
+//! **CORRECTED 2026-11-17 (gh:#1340, checked against `pub use` in this
+//! file):** all of those are now ported — [`qagi`]/[`qagiu`]/[`qagil`],
+//! [`qagp`], [`qawc`], [`qaws`], [`qawo`]/[`qawf`], [`qng`] — together with
+//! [`cquad`], Romberg, `glfixed` and the IQPACK fixed-order rules
+//! ([`FixedWorkspace`]), each compared with compiled GSL 2.8 (record:
+//! `verification_and_validation/integration_family_gh1340.md`). The rest of
+//! GSL's `integration/` directory is ported.
 //!
 //! This is the honest boundary of the port, and worth reading before assuming
 //! a hard integral will work.
@@ -100,7 +107,60 @@ pub mod gauss_legendre_tables;
 /// QAGS: adaptive Gauss-Kronrod with Wynn epsilon extrapolation, ported from
 /// GSL `integration/qags.c` and its helpers.
 mod qags;
+/// QAGI, QAGIU, QAGIL: infinite ranges by the QAGS transformations of GSL
+/// `integration/qags.c` (gh:#1340).
+mod qagi;
+/// QNG: non-adaptive Gauss-Kronrod-Patterson, GSL `integration/qng.c`
+/// (gh:#1340).
+#[allow(clippy::excessive_precision)]
+mod qng;
 
+/// Gauss-Legendre tables copied from GSL `integration/glfixed.c`.
+#[rustfmt::skip]
+mod glfixed_tables;
+/// Fixed-order Gauss-Legendre quadrature, GSL `integration/glfixed.c`
+/// (gh:#1340).
+mod glfixed;
+
+pub use glfixed::{glfixed, glfixed_point, glfixed_table_alloc, GlFixedTable};
+/// QAGP: break points, GSL `integration/qagp.c` (gh:#1340).
+mod qagp;
+
+/// Chebyshev approximations for QAWC/QAWS, GSL `integration/qcheb.c`.
+mod qcheb;
+/// QAWC: Cauchy principal value, GSL `integration/qawc.c` and `qc25c.c`
+/// (gh:#1340).
+mod qawc;
+
+/// QAWS: algebraic-logarithmic end-point weights, GSL `integration/qaws.c`,
+/// `qc25s.c`, `qmomo.c` (gh:#1340).
+mod qaws;
+
+/// QAWO and QAWF: trigonometric-weight and Fourier integrals, GSL
+/// `integration/qawo.c`, `qawf.c`, `qc25f.c`, `qmomof.c` (gh:#1340).
+mod qawo;
+/// CQUAD constants, copied from GSL `integration/cquad_const.c` by script
+/// (gh:#1340).
+mod cquad_tables;
+
+/// CQUAD: doubly-adaptive Clenshaw-Curtis quadrature, GSL
+/// `integration/cquad.c` (gh:#1340).
+mod cquad;
+/// Fixed-order Gaussian quadrature (IQPACK), GSL `integration/fixed.c` and
+/// the nine weight types (gh:#1340).
+mod fixed;
+/// Romberg integration, GSL `integration/romberg.c` (gh:#1340).
+mod romberg;
+
+pub use qagp::{qagp, qagp_with_status};
+pub use qaws::{qaws, qaws_with_status, QawsTable};
+pub use romberg::{romberg, romberg_with_status, RombergOutcome};
+pub use cquad::{cquad, cquad_with_status, CquadOutcome};
+pub use fixed::{FixedType, FixedWorkspace};
+pub use qawc::{qawc, qawc_with_status};
+pub use qawo::{qawf, qawf_with_status, qawo, qawo_with_status, QawoKind, QawoOutcome, QawoTable};
+pub use qng::{qng, qng_with_status, QngOutcome};
+pub use qagi::{qagi, qagil, qagil_with_status, qagi_with_status, qagiu, qagiu_with_status};
 pub use qags::{qags, qags_with_status, QagsOutcome};
 
 use alloc::vec;
@@ -370,7 +430,8 @@ pub struct Integral {
 /// # Errors
 ///
 /// - [`PetirError::Domain`] if `a` or `b` is not finite. Infinite ranges need
-///   the `QAGI` transforms, which are not ported.
+///   the `QAGI` transforms, ~~which are not ported~~ **CORRECTED 2026-11-17**:
+///   ported as [`qagi`], [`qagiu`] and [`qagil`] (gh:#1340).
 /// - [`PetirError::Tolerance`] if both tolerances are effectively zero — GSL
 ///   refuses `epsabs <= 0` together with `epsrel < 50 * eps`, because no
 ///   subdivision can meet it.

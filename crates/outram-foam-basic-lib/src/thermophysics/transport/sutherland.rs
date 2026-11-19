@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::traits::TransportModel;
 use crate::thermophysics::eos::EquationOfState;
@@ -225,5 +228,20 @@ mod tests {
             .get::<pascal_second>();
         assert_relative_eq!(got1, mu1_val, epsilon = 1e-8);
         assert_relative_eq!(got2, mu2_val, epsilon = 1e-8);
+    }
+}
+
+/// Upstream `sutherlandTransport::operator+=`: `As_` and `Ts_` linear (gh:#1378).
+impl<T: ThermoModel + crate::thermophysics::mixture::Mixable> crate::thermophysics::mixture::Mixable
+    for SutherlandTransport<T>
+{
+    fn set_mol_weight(&mut self, w: MolarMass) {
+        self.thermo.set_mol_weight(w);
+    }
+
+    fn mix_params(&mut self, y1: f64, y2: f64, other: &Self) {
+        self.thermo.mix_params(y1, y2, &other.thermo);
+        self.as_ = y1 * self.as_ + y2 * other.as_;
+        self.ts = y1 * self.ts + y2 * other.ts;
     }
 }

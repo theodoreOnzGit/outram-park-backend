@@ -28,6 +28,9 @@
 //! by default. [`exchange`] is [`exchange_mixture`] with only N2, bit for
 //! bit.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::components::wall_condensation::{Atmosphere as WallAtmosphere, GasMixtureAtmosphere};
 use tampines_steam_tables::gas_mixture::NonCondensable;
@@ -261,7 +264,7 @@ pub fn exchange_mixture(pool: &PoolState, atm: &GasMixtureAtmosphere, surface: &
     let (_, rho_a, cp_a) = atm.mass_properties();
     let (mu_p, k_p) = (table(pool.t_k, &MU_WATER), table(pool.t_k, &K_WATER));
     let beta_p = water_beta(pool.t_k, atm.p_pa);
-    let d_s = (4.0 * surface.area_m2 / std::f64::consts::PI).sqrt();
+    let d_s = (4.0 * surface.area_m2 / core::f64::consts::PI).sqrt();
     let h_p = |t_l: f64| {
         h_free(true, k_p, mu_p, pool.rho, pool.cp, beta_p, pool.t_k - t_l, d_s, surface.pool_depth_m)
             + SIGMA * (pool.t_k * pool.t_k + t_l * t_l) * (pool.t_k + t_l)

@@ -11,6 +11,9 @@
 //! `test` limit compounds by 0.1 % per energy; law 44/61 passes `zmax`
 //! through `ascll` twice; `getl7`'s initialising call overwrites its `ep`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::angular_pages::emission_title;
 use super::fmt::{hk_it, nint, AceTable, Plot};
 use super::scale::{ascle, ascll, plot_name};

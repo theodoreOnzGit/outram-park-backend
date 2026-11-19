@@ -45,6 +45,9 @@
 //! A real Monte Carlo `k` on the evolved actinide inventory is available via
 //! [`mc_keff_of_actinide_sphere`] to demonstrate the transport path is wired.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::chain::DepletionChain;
 use super::integrators::Integrator;
@@ -200,7 +203,7 @@ impl Default for BurnupSettings {
         // height π r² = 0.5542 cm³; six 30-day steps for a six-month cycle.
         Self {
             power_watts: 174.0,
-            fuel_volume_cm3: std::f64::consts::PI * 0.42 * 0.42,
+            fuel_volume_cm3: core::f64::consts::PI * 0.42 * 0.42,
             step_days: 30.0,
             n_steps: 6,
             temperature_k: 293.6,
@@ -631,7 +634,7 @@ pub fn deplete_coupled(
 /// lethargy units, which resolves the slowly varying part of `sigma` without
 /// pretending to resolve individual resonances — a group structure that puts a
 /// resonance inside a group has already made that decision.
-const DEFAULT_GROUP_SUB_POINTS: usize = 8;
+pub(crate) const DEFAULT_GROUP_SUB_POINTS: usize = 8;
 
 /// Run a predictor (forward-Euler) burnup calculation on `chain`, starting from
 /// the inventory `initial` (`(nuclide_name, atom_density)` in atoms/(barn·cm)).

@@ -5,6 +5,9 @@
 
 //! Writing a ZIP archive in memory, DEFLATE over `miniz_oxide`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::crc32;
 use crate::NjoyError;
 

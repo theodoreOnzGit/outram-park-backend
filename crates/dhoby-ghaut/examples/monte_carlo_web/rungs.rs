@@ -182,13 +182,9 @@ pub trait LoadedRung {
     }
 }
 
-/// A pooled run's initial source ([`LoadedRung::pool_source`]).
-pub struct PoolSource {
-    pub sites: Vec<outram_mc_libs::physics::transport_csg::distributed::SourceSite>,
-    /// The sequential source stream's state after sampling them.
-    pub seed: u64,
-    pub mesh: outram_mc_libs::tally::mesh::RegularMesh,
-}
+/// A pooled run's initial source ([`LoadedRung::pool_source`]): the
+/// library's (gh:#1572).
+pub use dhoby_ghaut::mc_web::pool::PoolSource;
 
 /// Everything about one rung that the engine and the app need. Implemented
 /// by a marker type in the rung's `mod.rs`.

@@ -53,6 +53,25 @@ backronym = "Digital High-fidelity Orchestration by GUI for a Human-friendly Aut
 [[bin]]
 name = "dhoby-ghaut"
 path = "src/bin/dhoby-ghaut/main.rs"
+required-features = ["workbench"]
+
+[features]
+# `workbench` (on by default, gh:#1578): the high-fidelity workbench's library
+# half (`dhoby_ghaut::workbench`) and the `dhoby-ghaut` binary, with their
+# stack (kovan, eframe, nee_soon, outram-blender's GPU tracer, the foam and
+# DEM ports, kopitiam-pdf). A crate that wants only the browser pipeline
+# (`outram-park-digital-twin-engine`'s `msre::web`) depends with
+# `default-features = false, features = ["mc_web"]` and gets none of it.
+default = ["workbench"]
+workbench = [
+    "dep:kovan", "dep:serde", "dep:toml", "dep:uom", "dep:sha2",
+    "dep:eframe", "dep:egui_plot", "dep:egui-file-dialog", "dep:nee_soon",
+    "dep:njoy-outram-park-fork", "dep:outram-mc-libs", "dep:outram-blender",
+    "dep:outram-park-fork-liggghts", "dep:tampines", "dep:outram-park-fork-cfmesh",
+    "dep:outram-foam-appbuilder-lib", "dep:outram-foam-basic-lib", "dep:kopitiam-pdf",
+]
+# The browser Monte Carlo pipeline (gh:#1572): `dhoby_ghaut::mc_web`.
+mc_web = ["dep:outram-mc-libs", "dep:njoy-outram-park-fork", "dep:miniz_oxide", "dep:log", "dep:uom"]
 
 [dependencies]
 
@@ -66,17 +85,17 @@ path = "src/bin/dhoby-ghaut/main.rs"
 # Gated off wasm32: kovan carries gix, directories and the kopitiam crates,
 # none of which belong in the browser demos that build this library for wasm.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.4", default-features = false }
+kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.4", default-features = false, optional = true }
 # The recipe schema (`src/workbench/recipe.rs`): serde for the settings
 # tables, toml to read/write them, uom for the quantities that leave it.
-serde = { workspace = true }
-toml = { workspace = true }
-uom = { workspace = true }
+serde = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+uom = { workspace = true, optional = true }
 # Step 6's reactivity map (gh:#571): the Chebyshev basis and the Householder
 # QR least squares of the GSL port, rather than a second fitter here; sha2 for
 # the recipe hash in the map's provenance (already in kovan's tree).
 petir = { workspace = true }
-sha2 = { workspace = true }
+sha2 = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }
@@ -91,6 +110,17 @@ bugis = { workspace = true, features = ["web_demo"] }
 # Added 2026-10-21: without it `cargo check -p dhoby-ghaut --lib --target
 # wasm32-unknown-unknown` failed with "cannot find crate `petir`".
 petir = { workspace = true }
+# `mc_web` (gh:#1572): the browser Monte Carlo pipeline as a library
+# (`src/mc_web/`: tapes, the processed-data cache, the k_eff settings and
+# summary, and the worker-pool protocol), promoted from the
+# `monte_carlo_web` example so the MSRE simulator can call it too. Optional:
+# a demo that runs no Monte Carlo builds none of this. Wasm-safe (the
+# example already builds all of it for wasm32).
+outram-mc-libs = { workspace = true, optional = true, features = ["std"] }
+njoy-outram-park-fork = { workspace = true, optional = true, features = ["std"] }
+miniz_oxide = { workspace = true, optional = true }
+log = { workspace = true, optional = true }
+uom = { workspace = true, optional = true }
 
 # The `dhoby-ghaut` BINARY (src/bin/dhoby-ghaut/): the guided high-fidelity
 # workbench (gh:#561). Maintainer, 2026-10-05: "dhoby-ghaut is to be a
@@ -98,40 +128,40 @@ petir = { workspace = true }
 # off Android (the windowing exemption) and off wasm32 (a native desktop app;
 # the browser demos build this library for wasm and must not pull nee_soon).
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
-eframe = { workspace = true }
-egui_plot = { workspace = true }
+eframe = { workspace = true, optional = true }
+egui_plot = { workspace = true, optional = true }
 # Step 0's folder picker for the unzipped ENDF library (the same picker kovan
 # and tampines-steam-tables-gui use).
-egui-file-dialog = { workspace = true }
-nee_soon = { workspace = true }
+egui-file-dialog = { workspace = true, optional = true }
+nee_soon = { workspace = true, optional = true, features = ["std"] }
 # Step 0's folder scan and the tape lookup the nuclear-data load shares with
 # it (`endf_folder`, gh:#581).
-njoy-outram-park-fork = { workspace = true }
-outram-mc-libs = { workspace = true }
+njoy-outram-park-fork = { workspace = true, optional = true, features = ["std"] }
+outram-mc-libs = { workspace = true, optional = true, features = ["std"] }
 # The GPU ray tracer of the 3D view and the slices (gh:#587,
 # `outram_blender::csg::gpu`): its `gpu` feature, on eframe's own wgpu
 # device. Same wgpu as eframe's (the workspace pins them together).
-outram-blender = { workspace = true, features = ["gpu", "foam-mesh", "fem-export"] }
+outram-blender = { workspace = true, features = ["gpu", "foam-mesh", "fem-export"], optional = true }
 # Step 1's fresh DEM pour (`htr10_fill`, the LIGGGHTS port's GranularSystem).
-outram-park-fork-liggghts = { workspace = true }
+outram-park-fork-liggghts = { workspace = true, optional = true, features = ["std"] }
 # Step 10's coupled run (gh:#574): helium properties, KTA bed friction, Wakao
 # film coefficient and the HTR-10 pebble conduction (`tampines::gas_phase`,
 # `tampines::pebble_bed`).
-tampines = { workspace = true }
+tampines = { workspace = true, optional = true, features = ["std"] }
 # Steps 7-8 (gh:#572, #573): outram-blender's meshing nexus (its `foam-mesh`
 # and `fem-export` features, on the line above: (neutral mesh, cfMesh bridge,
 # farrer-park FEM bridge, mesh-to-mesh overlap, mesh plots); the cfMesh port
 # itself (named patches, boundary layers on one patch, polyMesh writer,
 # quality checks), and the GeN-Foam port's nuclearData writer/reader.
-outram-park-fork-cfmesh = { workspace = true, features = ["foam-export"] }
-outram-foam-appbuilder-lib = { workspace = true }
+outram-park-fork-cfmesh = { workspace = true, features = ["std", "foam-export"], optional = true }
+outram-foam-appbuilder-lib = { workspace = true, optional = true, features = ["std"] }
 # Step 10's spatial neutronics (gh:#591): the flux boundary conditions and the
 # FvMesh the GeN-Foam port's DiffusionNeutronics is built on.
-outram-foam-basic-lib = { workspace = true }
+outram-foam-basic-lib = { workspace = true, features = ["std"], optional = true }
 # The literature pane renders PDF pages with the engine kovan's own reader
 # uses (AGPL-3.0-only, like this crate since 2026-10-05; see NOTICE). Same
 # version and features as `crates/kovan`.
-kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"] }
+kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # ~~`web_demo::data_cache` (gh:#818)~~ (moved to bugis 2026-11-02, gh:#1112;
@@ -157,24 +187,27 @@ web-sys = { workspace = true, features = [
 # Android (the workspace's single windowing exemption): eframe pulls in
 # android-activity. Nothing else in the workspace should carry these.
 [target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# The examples call this crate's own `mc_web` library module (gh:#1572):
+# a dev-dependency on itself switches the feature on for them alone.
+dhoby-ghaut = { path = ".", features = ["mc_web"] }
 eframe = { workspace = true }
 egui = { workspace = true }
 # The TRISO pebble demo, which ALSO builds for wasm32: continuous-energy
 # transport, the in-repo NJOY port that processes the real ENDF tapes it runs
 # on, and zlib for the covariance-stripped tapes the browser downloads.
-outram-mc-libs = { workspace = true }
+outram-mc-libs = { workspace = true, features = ["std"] }
 njoy-outram-park-fork = { workspace = true }
 miniz_oxide = { workspace = true }
 log = { workspace = true }
 # The dispersion demo (gh:#530), which also builds for wasm32: buangkok's
 # pyDOSEIA plume, rise, wake and deposition velocities, changi's puff kernel
 # and decay transfer function. Both are wasm in-scope crates.
-changi = { workspace = true }
-buangkok = { workspace = true }
+changi = { workspace = true, features = ["std"] }
+buangkok = { workspace = true, features = ["std"] }
 # The TRISO-ATOPS and fuel failure demo (gh:#540): boon-lay's TRISO geometry,
 # decay chains, Walk-on-Spheres, fuel failure, chemistry and TRISO-ATOPS
 # release. A wasm in-scope crate (its `wasm_par` shim stands in for rayon).
-boon-lay = { workspace = true }
+boon-lay = { workspace = true, features = ["std"] }
 # The nuclear data demo's THERMR rung names energies and cross sections in
 # njoy-outram-park-fork's `uom` units (gh:#529).
 uom = { workspace = true }
@@ -182,11 +215,11 @@ uom = { workspace = true }
 # nee_soon's `assemble_explicit_triso`, the builder the recorded runs use, so
 # the zoom ladder shows the solver's geometry, not a re-model. A wasm in-scope
 # crate.
-nee_soon = { workspace = true }
+nee_soon = { workspace = true, features = ["std", "dem_ui"] }
 # The DEM pour demo (gh:#787): the LIGGGHTS port's `htr10_fill` pour, run in
 # the browser's worker, and the `htr10` rung's baked DEM bed. A wasm in-scope
 # crate (its `wasm_par` shim stands in for rayon).
-outram-park-fork-liggghts = { workspace = true }
+outram-park-fork-liggghts = { workspace = true, features = ["std"] }
 # ~~The Fukushima Daiichi Unit 1 demo (gh:#986): the digital-twin engine's
 # widget library, tampines' valve, sembawang's `bwr_mark1` and egui_plot ...
 # "no cycle: none of them depends on dhoby-ghaut".~~ CORRECTED 2026-11-05
@@ -202,13 +235,13 @@ outram-park-fork-liggghts = { workspace = true }
 # table, raffles.
 # The DWSIM port's heat-exchanger correlations, for Foam Studio's 1-D
 # comparison (`foam_studio_web/engine.rs`).
-outram-park-fork-dwsim-libs = { workspace = true }
+outram-park-fork-dwsim-libs = { workspace = true, features = ["std"] }
 # Foam Studio (`foam_studio_web`, gh:#1155): the O-grid / box meshers and
 # the pimpleFoam port, run in the page's worker too. All wasm in-scope (the
 # stage 0 gate, gh:#1154, ran them in a Worker with no host imports).
-outram-foam-appbuilder-lib = { workspace = true }
-outram-foam-basic-lib = { workspace = true }
-outram-foam-mesh = { workspace = true }
+outram-foam-appbuilder-lib = { workspace = true, features = ["std"] }
+outram-foam-basic-lib = { workspace = true, features = ["std"] }
+outram-foam-mesh = { workspace = true, features = ["std"] }
 # Foam Studio's unstructured pipe (gh:#1202): outram-blender's cylinder and
 # its cfMesh bridge (`foam-mesh`), and the neutral -> polyMesh converter
 # (`foam-export`), in the worker too. Both features are wasm in-scope
@@ -218,7 +251,7 @@ outram-blender = { workspace = true, features = ["foam-mesh", "foam-export"] }
 # gh:#1240: the cfMesh port's dual kinds (`dual::DualKind`), the cell-centre
 # one through outram-foam-mesh's polyDualMesh (`cell-centre-dual`, pure Rust,
 # wasm in-scope); the same crate outram-blender's `foam-mesh` pulls.
-outram-park-fork-cfmesh = { workspace = true, features = ["foam-export", "cell-centre-dual"] }
+outram-park-fork-cfmesh = { workspace = true, features = ["std", "foam-export", "cell-centre-dual"] }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature
@@ -273,7 +306,7 @@ eframe = { workspace = true }
 # browser. Natively tampines is a normal dependency (the studios), but that
 # section is off on wasm32; dropping the dev-dependency on 2026-11-05
 # (a2be2b83f) broke the Pages build of this demo.
-tampines = { workspace = true }
+tampines = { workspace = true, features = ["std"] }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }

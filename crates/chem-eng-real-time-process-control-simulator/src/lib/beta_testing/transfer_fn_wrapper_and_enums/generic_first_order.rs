@@ -1,3 +1,7 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use csv::Writer;
 use uom::si::ratio::ratio;
 use uom::si::f64::*;
@@ -109,6 +113,7 @@ impl TransferFnTraits for TransferFnFirstOrder {
         }
     }
 
+    #[cfg(feature = "std")]
     fn spawn_writer(
         &mut self,
         name: String,
@@ -125,6 +130,7 @@ impl TransferFnTraits for TransferFnFirstOrder {
         Ok(wtr)
     }
 
+    #[cfg(feature = "std")]
     fn csv_write_values(
         &mut self,
         wtr: &mut Writer<std::fs::File>,

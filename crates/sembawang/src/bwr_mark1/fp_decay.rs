@@ -36,9 +36,12 @@
 //! heat. A test regenerates it and compares it byte for byte; re-bless with
 //! `FUKUSHIMA_BLESS=1`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::Params;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// The fission-product elements, by atomic number (Ti to Er).
 const ELEMENTS: [(u32, &str); 47] = [
@@ -65,6 +68,7 @@ struct Nuc {
 /// branches)`.
 type Raw = (String, Option<f64>, Option<f64>, Vec<(String, f64)>);
 
+#[cfg(feature = "std")]
 /// Library A (`openmc-endf-8-depletion-lib-a`): one element's records as `Raw`.
 fn raw_from_lib_a(lib: openmc_endf_8_depletion_lib_a::decay_xml_info_serde::SerdeNuclideVec) -> Vec<Raw> {
     lib.nuclides
@@ -76,6 +80,7 @@ fn raw_from_lib_a(lib: openmc_endf_8_depletion_lib_a::decay_xml_info_serde::Serd
         .collect::<Vec<Raw>>()
 }
 
+#[cfg(feature = "std")]
 /// Library B (`openmc-endf-8-depletion-lib-b`): one element's records as `Raw`.
 fn raw_from_lib_b(lib: openmc_endf_8_depletion_lib_b::decay_xml_info_serde::SerdeNuclideVec) -> Vec<Raw> {
     lib.nuclides
@@ -87,8 +92,11 @@ fn raw_from_lib_b(lib: openmc_endf_8_depletion_lib_b::decay_xml_info_serde::Serd
         .collect::<Vec<Raw>>()
 }
 
+#[cfg(feature = "std")]
 fn raw_data() -> Vec<Raw> {
+    #[cfg(feature = "std")]
     use openmc_endf_8_depletion_lib_a as a;
+    #[cfg(feature = "std")]
     use openmc_endf_8_depletion_lib_b as b;
     let mut v = Vec::new();
     v.extend(raw_from_lib_a(a::decay_xml_info_serde::titanium::get_titanium_xml_serde_data()));
@@ -153,6 +161,7 @@ fn yield_name(name: &str) -> String {
     name.replace("_m1", "m").replace("_m2", "n")
 }
 
+#[cfg(feature = "std")]
 /// The decay graph in topological order (parents before daughters).
 fn graph() -> Vec<Nuc> {
     let z_of: HashMap<&str, usize> = ELEMENTS.iter().enumerate().map(|(i, (_, s))| (*s, i)).collect();
@@ -194,7 +203,7 @@ fn graph() -> Vec<Nuc> {
         .iter()
         .map(|&i| {
             let r = &raw[i];
-            let lambda = r.1.filter(|&h| h > 0.0).map(|h| std::f64::consts::LN_2 / h).unwrap_or(0.0);
+            let lambda = r.1.filter(|&h| h > 0.0).map(|h| core::f64::consts::LN_2 / h).unwrap_or(0.0);
             Nuc {
                 name: r.0.clone(),
                 element: z_of[symbol(&r.0)],
@@ -211,7 +220,7 @@ fn graph() -> Vec<Nuc> {
 /// every nuclide of `nucs`.
 fn sources(prm: &Params, nucs: &[Nuc]) -> Vec<f64> {
     use fission_yields_data::prelude::{fission_yield_linear_interpolation, Nuclide};
-    use std::str::FromStr;
+    use core::str::FromStr;
     use uom::si::energy::{electronvolt, kiloelectronvolt};
     use uom::si::f64::Energy;
     use uom::si::ratio::ratio;
@@ -258,6 +267,7 @@ impl Summation {
     }
 }
 
+#[cfg(feature = "std")]
 /// The summation (see the module doc).
 pub fn compute(prm: &Params) -> Summation {
     let nucs = graph();
@@ -421,6 +431,7 @@ impl ElementShares {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "std")]
     /// The graph holds every element, and its topological order puts
     /// parents first: I-135 before Xe-135, Te-132 before I-132.
     #[test]
@@ -434,6 +445,7 @@ mod tests {
         assert!(g.len() > 1000, "{}", g.len());
     }
 
+    #[cfg(feature = "std")]
     /// Cesium-137's share of the cesium mass at the scram, from the
     /// summation (for the Cs-137 release against BSAF Fig 5.1, gh:#1040).
     /// Results (2026-10-29): Cs-137 30.09 kg of 95.01 kg, a share of
@@ -451,6 +463,7 @@ mod tests {
         assert_eq!(sum.nuclide_mass_kg("NotANuclide"), 0.0);
     }
 
+    #[cfg(feature = "std")]
     /// The committed table is what the summation computes (regenerated
     /// byte for byte; `FUKUSHIMA_BLESS=1` rewrites it), and its total is
     /// checked against the ANS-1979 fission-product curve of `decay.rs`

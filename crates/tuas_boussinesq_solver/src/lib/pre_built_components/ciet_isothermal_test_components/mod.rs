@@ -24,7 +24,10 @@
 //! [`isothermal_ctah_heater_dhx_branch_test`] verify the resulting mass
 //! flow rates (kg/s) against the applied pressure change (Pa).
 
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use uom::si::angle::degree;
 use uom::si::area::square_meter;

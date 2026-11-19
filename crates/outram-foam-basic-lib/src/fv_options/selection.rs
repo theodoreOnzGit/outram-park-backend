@@ -12,7 +12,10 @@
 
 //! Which cells a source term applies over.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 /// The set of cells a source term acts on.
 ///

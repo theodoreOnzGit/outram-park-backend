@@ -46,6 +46,9 @@
 //! on an early break, and the lagged output state shared with
 //! [`crate::diffusion_solverxyz`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::calc_abefghxyz::calc_abefghxyz;
 use crate::calc_bucklingxyz::BucklingCache;
 use crate::calc_relpower3d::calc_relpower3d;

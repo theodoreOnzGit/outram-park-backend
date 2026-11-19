@@ -4,38 +4,130 @@
 > unreviewed. **Validation** against a measurement, on a model with stated
 > simplifications.
 
-## Numbers to quote (summary, 2026-11-12)
+> **S(α,β) DEFAULT CHANGED 2026-11-19 (gh:#550, commit 44f365bbb): ENDF thermal
+> emission is now built on THERMR's `calcem` node grid.** The k values below were
+> measured on the earlier log-spaced build and have **not been re-measured** here.
+> The second re-measure, in `tutorial_rung4/sab_reference_550.md` ("Second
+> re-measure"), covers HTR-10, FHR, `dh_keff_vv`, HST-009 and MSRE; no graphite or
+> water case moved by an amount its statistics resolve. Re-run with
+> `OUTRAM_SAB_LOG_SPACED_GRID=1` to reproduce the old build.
+> MSRE N-1 there: ~~−183 ± 73 pcm on 2 seeds with no paired control, so not a
+> measurement of the change.~~ **CORRECTED 2026-11-19 (third re-measure,
+> `tutorial_rung4/sab_reference_550.md`; seed 1, `OUTRAM_SAB_LOG_SPACED_GRID=1`
+> against the default, same code and seed): the node grid LOWERS N-1 k by
+> −297 ± 73 pcm (z −4.1; 1.019902 ± 0.000544 → 1.016934 ± 0.000488).** The knob-on
+> arm reproduces the pre-flip binary's seed 1 digit for digit; the other +237 pcm
+> since the 2026-11-13 record (seed 1: 1.017528) is other code, not the flip.
+> One seed pair, not replicated, and the predicted −10 pcm missed. **Every k in
+> this README below predates both and is not re-measured: on seed 1 alone the
+> 6-seed headline 1.01807 ± 0.00023 is stale by about −60 pcm net (+237 other
+> code, −297 flip).**
 
-The default model is **arm C (natural Mo), RVS, 30P graphite, cold
-dimensions, no shield, rods out**. σ comes from the seed spread. Every row
+> **DEFAULTS CHANGED 2026-11-13 (maintainer, gh:#1128): "Have a dimension
+> dynamically shifting with temp. Shields all in shld be default … physical
+> realism without crippling the simulation."** The model now expands each
+> solid to its own temperature (`Dims::at`) and carries the whole TM-0728
+> shield (`Shield::Tm0728Full`). `--cold-dims` and `--shield none` are the
+> ablations. ~~Every number in the summary below was measured on the
+> previous default (cold, no shield) and is being re-measured.~~ **Re-measured
+> 2026-11-13**: the summary below is the new default, with the previous
+> default's values struck beside them. The ablation table further down was
+> measured on the previous default; its re-run on the new one is in
+> progress (predictions on gh:#1128).
+
+## Numbers to quote (summary, 2026-11-13)
+
+The default model is **arm C (natural Mo), RVS, 30P graphite, ~~cold
+dimensions, no shield,~~ dimensions following temperature and the whole
+TM-0728 shield (since 2026-11-13), rods out, and since 2026-11-12
+U-234/U-236 in the salt** (TM-0730's 93 % uranium; maintainer: "More physical model is
+better"). σ is the larger of the seed sem and the internal σ/√n. Every row
 links to the section that holds its method, data and caveats. This summary
 adds no number of its own.
 
 | quantity | this model | reference | section |
 |---|---|---|---|
-| N-1 k at 1181 °F (6 seeds) | 1.00882 ± 0.00022, **+801 ± 22 pcm** | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [N-1](#n-1-2026-11-09) |
-| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **passes** | — | [Methodology](#methodology) |
-| ²³⁵U concentration coefficient | **0.231 ± 0.005** | measured 0.223; ORNL calc. 0.234–0.248 | [concentration coefficient](#n-1-the-²³⁵u-concentration-coefficient-2026-11-11-gh1128) |
-| equivalent ²³⁵U excess behind +801 pcm | about 1.14 g/L (3.5 %) | measured 32.8 ± 0.3 g/L | same |
-| α_iso (×10⁻⁵ /°F) | **−7.54 ± 0.40** | measured −7.24 | [N-3](#n-3-isothermal-temperature-coefficient-2026-11-09-gh1129) |
-| fuel coefficient | **−4.44 ± 0.40** | measured −4.7 ± 0.7 (found after the run) | same |
-| graphite coefficient | **−2.82 ± 0.43** | not measured | same |
-| T-1 natural periods, with the arm-C split | **−11 % to +8 %** of TM-1647 | — | nee_soon T-1 README |
+| N-1 k at 1181 °F (6 seeds) | **1.01807 ± 0.00023, +1726 ± 23 pcm** (~~1.00536, +455 ± 23~~ previous default; ~~1.00882, +801 ± 22~~ before U-234) | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [new default](#re-measured-on-the-2026-11-13-default-dimensions-at-temperature-and-the-whole-shield-gh1128-gh1129) |
+| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **fails, by 726 pcm** (~~passes~~ on the previous default) | — | [Methodology](#methodology) |
+| ²³⁵U concentration coefficient | **0.208 ± 0.004** (~~0.235 ± 0.006~~) | measured 0.223; ORNL calc. 0.234–0.248 | new default |
+| equivalent ²³⁵U excess behind the N-1 residual | **about 2.7 g/L (8.3 %)** (~~0.63 g/L, 1.9 %~~) | measured 32.8 ± 0.3 g/L | same |
+| α_iso (×10⁻⁵ /°F) | **−7.17 ± 0.42** (~~−7.69 ± 0.35~~) | measured −7.24 | same |
+| fuel coefficient | **−3.79 ± 0.37** (~~−4.18 ± 0.35~~) | measured −4.7 ± 0.7 | same |
+| graphite coefficient | **−3.26 ± 0.33** (~~−3.08 ± 0.35~~) | not measured | same |
+| T-1 natural periods, with this split | **−9 % to +21 %** of TM-1647 (~~−11 % to +12 %~~) | — | nee_soon T-1 README |
 
-**Ablations.** None of these is in the default; each is the maintainer's
-call.
+**Ablations on the 2026-11-13 default** (hot dimensions + whole shield; three
+seeds each, against the new default's 1.01807 ± 0.00023, same σ
+convention as below; predictions posted on gh:#1128 before the runs; wall
+times inflated by a concurrent release suite, not recorded as timings):
 
-| change | effect on N-1 k | N-1 against the band |
-|---|---|---|
-| hot dimensions | +193 ± 23 pcm (12 seeds, paired) | +992, inside by 8 pcm |
-| 10P / crystalline graphite law | −71 ± 32 / −70 ± 35 pcm | passes |
-| TM-0730 end regions | +20 ± 45 pcm | passes |
-| thermal shield (stated / close-packed) | +779 ± 43 / +895 ± 66 pcm | fails |
-| 99.9926 % Li-7 | +730 ± 60 pcm | fails |
-| INOR-8's Mo omitted (arm A, measured under DBRC) | +441 ± 45 pcm | +1197, fails |
+| change | effect on N-1 k | predicted (posted) | on the previous default | N-1 against the band |
+|---|---|---|---|---|
+| `--minor-uranium none` | **+414 ± 41 pcm** | +200 to +450 | +326 ± 83 | +2139, fails |
+| 99.9926 % Li-7 | **+755 ± 40 pcm** | +600 to +830 | +714 ± 39 | +2480, fails |
+| INOR-8's Mo omitted | **+632 ± 38 pcm** | +300 to +530 | +418 ± 39 | +2357, fails — **miss** |
+| TM-0730 end regions | **+45 ± 40 pcm** | −80 to +150 | +36 ± 46 | +1770, fails |
+| 10P graphite law | **−9 ± 39 pcm** | −170 to +70 | −52 ± 48 | +1716, fails |
+| crystalline graphite law | **−52 ± 39 pcm** | −170 to +60 | −58 ± 38 | +1674, fails |
+| `--cold-dims` / `--shield none` | −224 / −1063 (measured on the previous default; additive, interaction −24 ± 63) | — | — | — |
+
+- **Five of six inside their predictions**; each within 1.3σ of its
+  previous-default value except Mo.
+- **Mo is a miss: +632 against +418 on the previous default, 214 ± 54
+  pcm (4σ) more.** `--mo` changes only the INOR-8 (vessel, can, thimbles,
+  heads) and the sample basket. ~~Hypothesis, untested at this writing:~~
+  **Tested 2026-11-14 and supported:** the whole shield returns thermal
+  neutrons to the vessel wall, so its Mo absorbs more. Test: Mo omitted
+  at hot dimensions with `--shield none`, seeds 1–3: 1.01287, 1.01155,
+  1.01274, mean **1.01239 ± 0.00042**. Against hot dims, no shield,
+  natural Mo (1.00760 ± 0.00022, 6 seeds), that is **+479 ± 47 pcm**.
+  It falls inside the +330 to +510 posted before the run for "the shield
+  is the cause", and is consistent with the previous default's +418
+  (61 ± 61). **The shield adds 153 ± 60 pcm (2.5σ) to the Mo's worth.**
+  That is supported but not resolved beyond 2.5σ. Its location (vessel
+  wall rather than the core can) is not separated.
+- On this default every ablation fails the band; none brings N-1 inside it.
+
+Data: `data/keff.csv`, labels `…+hot-dims…+shield-tm0728-full`.
+
+The table below is the previous default's record.
+
+**Ablations** (~~None of these is in the default~~ hot dimensions and the whole shield became the default on 2026-11-13; the rest remain ablations). Each is the maintainer's
+call. ~~Measured on the previous default salt (without U-234/U-236); the
+shifts are differences and were not re-run. The last column adds each
+shift to the current +455 pcm, an estimate, not a run.~~ **RE-MEASURED
+2026-11-13 on the current default (U-234/U-236 salt, arm C, RVS)**, three
+seeds per arm (six for hot dimensions; crystalline and close-packed re-run the same day as a second batch), each against the default's
+1.00536 ± 0.00023. The shift's σ is the arm's (the larger of seed sem and
+internal σ/√n) combined in quadrature with the default's. The last column
+is now the arm's own N-1, a run, not an estimate. Every shift fell inside
+the range posted on gh:#1128 before the runs.
+
+| change | effect on N-1 k | predicted (posted) | N-1 against the band |
+|---|---|---|---|
+| hot dimensions | **+224 ± 32 pcm** (6 seeds; ~~+193 ± 23, 12 seeds paired, old salt~~) | +120 to +270 | **+679 ± 22, passes** (~~about +648~~) |
+| 10P graphite law | **−52 ± 48 pcm** (~~−71 ± 32~~) | −150 to +10 | **+404 ± 42, passes** |
+| crystalline graphite law | **−58 ± 38 pcm** (~~−70 ± 35, old salt~~) | −160 to +20 | **+397 ± 30, passes** |
+| TM-0730 end regions | **+36 ± 46 pcm** (~~+20 ± 45~~) | −70 to +110 | **+491 ± 40, passes** |
+| thermal shield cylinder, stated (`--shield tm0728`) | **+818 ± 52 pcm** (~~+779 ± 43~~) | +690 to +870 | **+1273 ± 47, fails** (~~about +1234~~) |
+| thermal shield cylinder, close-packed (`--shield tm0728-packed`) | **+928 ± 48 pcm** (~~+895 ± 66, old salt~~) | +760 to +1030 | **+1383 ± 42, fails** (~~about +1350~~) |
+| **whole thermal shield, TM-0728 Fig. 5.2** (measured on the current default) | **+1063 ± 39 pcm** | +850 to +1200 | **+1519 ± 31, fails** |
+| 99.9926 % Li-7 | **+714 ± 39 pcm** (~~+730 ± 60~~) | +600 to +860 | **+1169 ± 32, fails** (~~about +1185~~) |
+| INOR-8's Mo omitted (arm A) | **+418 ± 39 pcm** (~~+441 ± 45, under DBRC~~) | +350 to +530 | **+874 ± 32, passes** (~~about +896~~) |
+| ~~U-234/U-236 per TM-0730's 93 % uranium~~ now the default; `--minor-uranium none` removes them | −326 ± 83 pcm | — | (the default) |
+
+Every re-measured shift is within 1σ of its old-salt value, as expected
+for a difference: the U-234/U-236 change does not move them. Hardware:
+llvmpipe / Vulkan, 4 cores, Intel Xeon, 15.7 GiB RAM, 4 threads, about
+13 min a seed plus 145 s of data loading. Data: `data/keff.csv`, labels
+`+u234+<ablation>` (Mo omitted: `mo-omitted@…+u234`).
 
 **Open, waiting on the maintainer:**
-- the rod worth, whose geometry is built but needs the Gd tapes;
+- ~~the rod worth, whose geometry is built but needs the Gd tapes;~~
+  **CORRECTED 2026-11-19:** the Gd tapes are in `reference-data/ace`
+  (20cbe5e). The seed-1 worths are recorded in "The k_eff tab's parameters"
+  below (rod 1 and the bank about 10.5 % above ORNL-4233's measurements),
+  and the six-seed runs and rod 1's integral curve are running (gh:#1658);
 - the defaults in the ablation table above.
 
 ## Methodology
@@ -45,7 +137,7 @@ call.
 - **State:** 1181 °F, pump off, rod poisoning 0.08 % δk/k.
 - **Critical ²³⁵U concentration:** 32.8 ± 0.3 g/L (book, corrected for flush-salt dilution) or 32.4 ± 0.3 g/L (analytical).
 - **Concentration coefficient:** (δk/k)/(δC/C) = 0.223, measured, p. 19. So ±0.3 g/L is worth ±200 pcm.
-- **Pass criterion:** ~~none is set. This is a validation, and the finding is the disagreement.~~ **SET 2026-11-10 by the maintainer (gh:#1128): |Δρ| ≤ 1000 pcm is the acceptable band for a full-core model.** The maintainer set it after the results below were known. So it judges these numbers and does not pre-register them, and it was not chosen by fitting any input. Against it:
+- **Pass criterion:** ~~none is set. This is a validation, and the finding is the disagreement.~~ **SET 2026-11-10 by the maintainer (gh:#1128): |Δρ| ≤ 1000 pcm is the acceptable band for a full-core model.** The maintainer set it after the results below were known. So it judges these numbers and does not pre-register them, and it was not chosen by fitting any input. Against it: *(the list below is the record at the time the band was set, on the old default; the current numbers are the ablation table at the top, re-measured 2026-11-13: the same three ablations fail)*
   - the default model (arm C, RVS, +801 ± 22 pcm) **passes**;
   - these pass:
     - hot dimensions, +959 ± 45 pcm, with 41 pcm of margin;
@@ -105,8 +197,14 @@ DBRC runs before them. Since then the binary's untagged rows are RVS. So:
   - every `mo-natural@…` row in `n3.csv`.
 
   Each of these is stated as RVS in its own section.
-- The 6-seed default of 1.00882 is the `mo-natural+rvs@salt1181F/graphite1181F`
-  seeds 1–6. Seeds 1–3 appear twice, with identical values.
+- ~~The 6-seed default of 1.00882~~ The previous default's 6-seed 1.00882
+  is the `mo-natural+rvs@salt1181F/graphite1181F` seeds 1–6. Seeds 1–3
+  appear twice, with identical values.
+- **U-234 and U-236 in the salt:** `+minorU-tm0730` marks the three-seed
+  sensitivity run (pre-#1386 binary, when they were an option), and
+  **`+u234`** every run on the 2026-11-12 default (merged binary), which
+  the example now writes itself. Both are RVS. The 2026-11-12 default's N-1
+  is the six `mo-natural@salt1181F/graphite1181F+u234` seeds.
 
 **Data and code:**
 
@@ -234,7 +332,10 @@ Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
   ignore expansion over their ±50 °F swing (~~not measured~~ **measured 2026-11-11 as an ablation, N-3 section: −0.69 ± 0.54, not resolved**). If the +158 pcm over 1111 °F
   is linear, expansion adds about **+0.14 × 10⁻⁵ /°F** (14 pcm over the
   100 °F swing): about 2 % of α_iso, positive, and inside N-3's ±0.5–0.7
-  σ. Not measured at N-3's temperatures.
+  σ. ~~Not measured at N-3's temperatures.~~ **CORRECTED 2026-11-13:**
+  measured at 1131/1231 °F on 2026-11-11 (N-3 section, hot-dims
+  ablation): −0.69 ± 0.54 × 10⁻⁵ /°F, the opposite sign to this
+  estimate, but not resolved from zero.
 
 ### N-1 residual: graphite thermal-scattering law (2026-11-10, gh:#1128)
 
@@ -432,7 +533,9 @@ Linux, CPU only).
     implied by its 70 tons of balls);
   - the insulation, modelled as void;
   - the cylinder's elevation;
-  - the missing base and cover, which would add to the worth, not subtract.
+  - ~~the missing base and cover, which would add to the worth, not subtract.~~
+    **MEASURED 2026-11-12:** the whole shield (base, cylinder and cover, TM-0728
+    Fig. 5.2) is worth +1063 ± 39 pcm on the current default (section below).
 - **The default is not changed.** Whether the comparison should carry the
   shield is the maintainer's call. A real reactor had it, so the model
   without it is missing a positive term of this size.
@@ -524,6 +627,74 @@ stated zone at 6/14 to 1e-12 (tested).
 - **Statistics:** the seeds spread 0.00108 (sd), about 1.7× their internal
   σ, as in the drained run. The quoted σ is the seed sem.
 - **The default is not changed.**
+
+### N-1 residual: the whole thermal shield, base, cylinder and cover (2026-11-12, gh:#1128)
+
+**Why:** every shield run above (`tm0728-cylinder`, `-packed`, the drained
+and steel/water splits) models the cylinder only, centred on the vessel,
+with the vessel's top and bottom open to vacuum. TM-0728 §5.3.10 and
+Fig. 5.2 also give an 18 in base under the vessel and a 16 in cover inside
+the cylinder's top, and Fig. 5.2 places the vessel about 7 in below the
+cylinder's centre. Fig. 5.2 was digitised into
+`data/tm0728_fig5_2_reactor_cell.csv` (method and caveats in the `.md`
+beside it): it is a dimensioned drawing, not a schematic, and every scaled
+length carries about ±3 in.
+
+**Ablation:** `--shield tm0728-full` (`Shield::Tm0728Full`,
+`geometry_with_full_shield`, `full_shield_materials`):
+
+- **Placement:** the vessel's mid-height 68.5 in above the cylinder's bottom
+  (`FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM`; Fig. 5.2, ±3 in).
+- **Base:** 18 in thick at the cylinder's OD, homogenised to 8.3 % 304,
+  4.8 % carbon steel, the rest water.
+- **Cover:** 16 in thick, inside the cylinder's top, 79¾ in OD with a
+  22⅝ in hole; 22.1 % 304 (plates and twelve radial webs), 25 % carbon
+  steel, the rest water.
+- **Ball annulus:** 0.60 balls, from "70 tons (475 ft³)" in short tons
+  (`SHIELD_BALL_FRACTION_TM0728_TONS`; the stated 50/50 and close-packed
+  0.64 are the runs above), with the twelve 1 in webs at 3.5 %.
+- **Left void:** the 6 in insulation and the furnace annulus, whose
+  materials are not given.
+- **Vacuum boundaries:** the shield's outer radius, the base's bottom and
+  the cylinder's top.
+
+Drawn from the assembled CSG and shown to the maintainer before the runs:
+`images/msre_n1_fullshield_xz.png`, `…_xy_cover.png`, `…_xy_base.png`, with
+TM-0728's own figure in `images/tm0728_fig5_2_vessel_in_shield.png`. A unit
+test (`full_tm0728_shield_places_base_cylinder_and_cover_by_fig_5_2`) pins
+the placement and each zone's extent.
+
+**Prediction** (posted on gh:#1128 before the run): **+850 to +1200 pcm**
+against no shield. The cylinder alone was worth +779 ± 43 (stated) to
++895 ± 66 (packed); the base and cover were expected to add reflection at
+the vessel's ends.
+
+**Run:** on the 2026-11-12 default (U-234/U-236, merged binary), arm C,
+RVS, 30P, cold, seeds 1–3: 1.01630, 1.01583, 1.01584 (each ± 0.0005–0.0006).
+About 890 s per seed (4-core Intel Xeon, 4 threads, 15.7 GiB RAM, Linux,
+CPU only). Rows `…+u234+shield-tm0728-full` in `data/keff.csv`.
+
+| shield | k | vs k_ref | shift vs no shield |
+|---|---|---|---|
+| none (2026-11-12 default, 6 seeds) | 1.00536 ± 0.00023 | +455 pcm | — |
+| **whole shield, Fig. 5.2** (3 seeds) | **1.01599 ± 0.00031** | **+1519 pcm** | **+1063 ± 39 pcm** |
+| cylinder only, stated 50/50 (previous default salt) | — | — | +779 ± 43 pcm |
+| cylinder only, close-packed (previous default salt) | — | — | +895 ± 66 pcm |
+
+- **Inside the prediction**, in its upper half.
+- **The base and cover add roughly +170 to +280 pcm** over the cylinder-only
+  runs. That comparison crosses the salt change, so it is an estimate: the
+  shield's worth is a difference, which the U-234 change should move far
+  less than these σ, but the cylinder-only runs were not repeated.
+- **Against the maintainer's 1000 pcm band: fails**, at +1519 ± 31 pcm. The
+  more completely the shield is modelled, the further N-1 moves from the
+  measurement. The finding is the disagreement; nothing was adjusted.
+- **Statistics:** the three seeds spread 27 pcm (sd), below their ≈54 pcm
+  internal σ; the quoted σ is the internal σ/√3.
+- **The default is not changed.** It is the maintainer's call. If the shield
+  is adopted, the residual it exposes, about +1500 pcm, is what the model
+  then has to explain; the neutron balance above already locates the
+  missing absorption in the salt (Zr and F), not in leakage.
 
 ### N-1: the ²³⁵U concentration coefficient (2026-11-11, gh:#1128)
 
@@ -637,6 +808,35 @@ table, which closes at exactly 10⁵, folds that gain the same way.
   because the tally has no nuclide filter. That split is the next measurement.
 - **Not a validation, and the default is not changed.**
 
+**Re-measured on the 2026-11-13 default (hot dimensions + whole shield),
+2026-11-14.** Same instrument, seeds 1–3; k is bit-identical to the
+default's rows with the tally on. Predictions posted on gh:#1128 before the
+run. Per-seed sums: `data/balance.csv`, label
+`…+hot-dims+shield-tm0728-full`.
+
+| per 10⁵ neutrons produced | new default | previous default | ORNL fuel C | predicted | |
+|---|---|---|---|---|---|
+| salt | 65,510 ± 10 | 64,957 ± 19 | 65,826 | 64,800–66,200 | inside |
+| graphite | 1,212 ± 0 | 1,244 ± 1 | 796 | 1,150–1,350 | inside |
+| INOR-8 | **9,747 ± 12** | 8,304 ± 4 | 9,682 | 8,400–9,300 | **miss, high** |
+| sample baskets | 783 ± 2 | 817 ± 2 | — | — | |
+| shield: 304 plates / balls + water / base / cover | 4,657 / 12,112 / 2,281 / 1,788 (20,838) | — | — | — | |
+| escape to vacuum, with (n,2n) gain | 143 ± 27 | 23,771 ± 33 | 23,696 | — | |
+| **leaving the vessel (shield + escape)** | **20,981** | 23,771 | 23,696 | 19,500–22,500 | inside |
+| total losses (10⁵/k) | 98,232 ± 26 | 99,092 ± 32 | 100,000 | 98,226 | |
+
+- **The shield absorbs almost everything that leaves the vessel.** Only
+  143 per 10⁵ escape the model. Neutrons leaving the vessel fall by 2,790
+  per 10⁵; that drop is the shield's worth.
+- **INOR-8 rose by 1,443, more than predicted.** The shield returns thermal
+  neutrons to the vessel wall, the same mechanism the Mo test located
+  (ablation section). INOR-8 now sits within 65 of ORNL's 9,682. That
+  agreement is **not evidence**: TM-0730's model ended at the vessel,
+  so the two numbers come from different boundary treatments.
+- The previous default's leakage agreement with ORNL (0.3 %) compared two
+  shield-less models. With the reactor's shield in, the vessel's leakage
+  is no longer comparable to TM-0730's.
+
 ### N-1: the salt's absorption by nuclide (2026-11-12, gh:#1128)
 
 **Question:** the balance above puts the excess in the salt. Which salt
@@ -691,9 +891,421 @@ range.
   table carries 262 absorptions in them. `scripts/salt.py` counts the
   enriched lot's 7 % non-²³⁵U as U-238. TM-0730 Table 3.2 (p. 21) assumes
   the 93 % uranium to be **1 / 93 / 1 / 5 atom %** U-234 / U-235 / U-236 /
-  U-238. That is a design assumption, not an assay of the as-loaded lot. A
-  sensitivity run with that composition is the next measurement.
+  U-238. That is a design assumption, not an assay of the as-loaded lot.
+  ~~A sensitivity run with that composition is the next measurement.~~
+  **Measured the same day:** see the next section.
 - **Not a validation, and the default is not changed.**
+
+**Follow-up: is the Zr and F gap composition or cross section? (2026-11-12, gh:#1128).**
+Fuel C is TM-0730's design salt (Table 3.2, p. 21): LiF-BeF₂-ZrF₄-UF₄
+65 / 29.2 / 5 / 0.8 mol %, uranium 0.3 / 35 / 0.3 / 64.4 atom % U-234 / 235
+/ 236 / 238. Ours is the as-loaded salt of `scripts/salt.py`, 31.3 % U-235.
+Dividing each nuclide's absorptions by U-235's removes most of the flux
+level; dividing again by the atom ratio removes the composition:
+
+| nuclide | atoms per U-235, ours / fuel C | absorptions per U-235 absorption, ORNL / ours | per-atom, ORNL / ours |
+|---|---|---|---|
+| Zr | 19.6 / 17.9 | 2.28 | **2.50** |
+| F | 591 / 524 | 1.61 | **1.82** |
+| Be | 118 / 104 | 1.00 | 1.14 |
+| Li-7 | 264 / 232 | 0.67 | 0.76 |
+
+- **Composition does not explain the gap.** Per U-235 atom our salt has 10–14 %
+  *more* Zr, F, Be and Li-7 than fuel C. So the per-atom gap is larger
+  than the raw one: ORNL's Zr absorbs 2.5 times, and its F 1.8 times, what
+  ours does, relative to U-235.
+- **Caveat on the instrument.** The last column assumes both calculations
+  give U-235 the same spectrum-averaged cross section. A harder or softer
+  spectrum moves every row together; it cannot make Zr 2.5 and Li-7 0.76.
+  **Tested 2026-11-13 against ORNL-4449 (Prince, Table 2.1, p. 23).** That
+  table gives ORNL's reactor-averaged cross sections in the MSRE at minimum
+  critical loading (1200 °F, rods out), defined as total reaction rate per
+  atom over the salt's thermal flux (E_c = 0.876 eV, GAM-II + THERMOS +
+  EXTERMINATOR). Its ratios to U-235 absorption are therefore the same
+  quantity as ours, per-atom absorption relative to U-235, from the
+  energy-band run (`data/salt_bands.csv`, three seeds, current default):
+
+  | nuclide | ours | ORNL pre-1965 data | ORNL ENDF/B (1969) |
+  |---|---|---|---|
+  | Li-6 (1/v) | 1.3588 | 1.3538 (ours +0.4 %) | 1.4073 (−3.4 %) |
+  | U-234 | 0.3924 | 0.4058 (−3.3 %) | 0.3934 (−0.3 %) |
+  | U-236 | 0.1612 | 0.1549 (+4.0 %) | 0.1542 (+4.5 %) |
+  | U-238 | 0.0863 | 0.0773 (+11.7 %) | 0.0835 (+3.4 %) |
+
+  **Our salt spectrum matches ORNL's to within a few percent.** Li-6, a
+  nearly pure 1/v absorber and so a direct spectrum probe, agrees to 0.4 %
+  with ORNL's own pre-1965 set. The resonance absorbers agree to 0.3–4.5 %
+  with ORNL's ENDF/B set. **So the Zr 2.5× and F 1.8× gaps are not a
+  spectrum difference**; they are in the Zr and F data or in how TM-0730
+  treated them. The same argument makes Li-7's 0.76 a Li-7 cross-section
+  difference, since Li-6 shows the 1/v spectrum agrees. That is consistent with an older
+  2200 m/s Li-7 capture value about a quarter below ENDF/B-VIII.0's.
+  ~~both values here are from memory~~ **ENDF/B-VIII.0's is read from
+  `reference-data/endf/n-003_Li_007-ENDF8.0.endf`** (MF3 MT102 at
+  0.0253 eV: 45.4 mb; Be-9 10.0 mb and F-19 9.58 mb on the same read,
+  log-log interpolation). The older value, about 33 mb, is still from memory
+  and **not checked against BNL-325**.
+  Table 2.1 lists no Zr, F or Be, so it cannot close the gap itself.
+  It is a later ORNL calculation than TM-0730, with the same codes.
+- **Where TM-0730's cross sections came from** (§3.4, pp. 20–23; refs. 2, 3,
+  10, 11): BNL-325 (2nd ed., 1958) for the early GNU runs; the GAM-1 library
+  for 32 fast groups, which **lacked Li-6, Li-7 and F-19**, so their fast
+  cross sections "were compiled from basic cross-section data" and their
+  slowing-down was simulated with oxygen; THERMOS and a Wilkins heavy-gas
+  model for the thermal group. TM-0730 gives no Zr or F values and does not
+  mention hafnium.
+- **Not resolved, and not guessed.** BNL-325 and ORNL CF-60-3-35 (Nestor's
+  multigroup set) are not in the open corpus, so the 1960s Zr and F values
+  cannot be read against ENDF/B-VIII.0 here. The pattern is a large gap in
+  Zr and F, a small one in Be, and the opposite sign in Li-7, whose
+  absorption is 1/v and so thermal. That suggests the epithermal and fast
+  data rather than the thermal. **This is a hypothesis.** ~~The salt-spectrum
+  instrument records totals per nuclide, not per energy band, so this page
+  has not measured how much of our Zr and F absorption is epithermal. An
+  energy-banded fold of the existing tally would test that cheaply.~~
+  **MEASURED 2026-11-13**, below: most of our Zr and F absorption is above
+  thermal, and Li-7's is not. **The maintainer supplies the literature**; this is
+  recorded as a request on gh:#1128.
+
+**Energy bands of the salt absorption (2026-11-13, gh:#1128).**
+
+- **Method.** `--salt-spectrum-csv` now splits each salt nuclide's
+  absorption, folded from the salt's group flux tally as before, into
+  thermal (< 0.625 eV), epithermal (0.625 eV – 100 keV) and fast
+  (> 100 keV). Each group goes whole to the band that holds its lower edge,
+  with the cross section taken at the group's geometric midpoint, as the
+  totals always were. The three bands sum to the old total exactly, by
+  construction, so that sum checks the bookkeeping and not the physics. Default model, seeds 1–3: k = 1.00498,
+  1.00600, 1.00594 (mean 1.00564, +28 pcm against the default's 1.00536,
+  within σ). About 37–41 min a seed with the tally on, same hardware.
+- **Prediction** (posted on gh:#1128 before the run), the share above
+  0.625 eV: Zr 40–70 %, F 60–90 %, Be 30–70 %, Li-7 < 10 %, U-235 15–35 %.
+
+| element | thermal | epithermal | fast | above thermal | predicted | |
+|---|---|---|---|---|---|---|
+| Zr | 0.293 | 0.672 | 0.035 | **70.7 %** | 40–70 % | just outside |
+| F | 0.406 | 0.163 | 0.431 | **59.4 %** | 60–90 % | just outside |
+| Be | 0.244 | 0.036 | 0.720 | **75.6 %** | 30–70 % | miss |
+| Li-7 | 0.871 | 0.128 | 0.000 | **12.9 %** | < 10 % | miss |
+| U-235 | 0.801 | 0.195 | 0.003 | **19.9 %** | 15–35 % | inside |
+
+  Shares are summed over the three seeds; per-seed shares agree within
+  0.1 percentage point, so the statistics do not limit them. Zr-91 is 63 %
+  of the element's absorption, 67 % of it above thermal. Data:
+  `data/salt_bands.csv`.
+- **What it says.**
+  - **Only U-235 fell inside its range.** Zr and F missed by less than one
+    point. Be and Li-7 missed by more. I under-predicted the
+    above-thermal share of Be, whose (n,α) is a fast threshold reaction,
+    and of Li-7, whose 1/v tail still takes 13 %.
+  - **The ordering supports the hypothesis, and does not prove it.** The
+    nuclides with large ORNL/ours gaps, Zr (2.50) and F (1.82), absorb
+    71 % and 59 % above thermal. Li-7, with the opposite gap (0.76),
+    absorbs 87 % thermally. **Be breaks the pattern.** It absorbs 76 %
+    above thermal yet has a small gap (1.14), so "above thermal" alone
+    does not predict a gap. What separates Zr is *epithermal resonance*
+    absorption, 67 %. F's is split between epithermal (16 %) and a fast
+    threshold (n,α) part (43 %). Be's is almost all fast.
+  - **For F, TM-0730 itself is a check.** Table 3.7 splits F into (n,α) 828
+    and (n,γ) 621. That is 57 % (n,α), against our 43 % fast. Our fast band
+    is a proxy for (n,α), since the tally does not split by reaction. So the
+    two calculations put F's absorption in similar places, and the 1.82 is
+    more likely in magnitude than in where it sits.
+  - **Still not resolved.** A 2.5× gap concentrated in Zr's epithermal
+    resonances is what a 1950s Zr resonance integral, or hafnium left in
+    the zirconium, would produce. ~~Neither is measured here.~~ BNL-325 and
+    CF-60-3-35 are still the request on gh:#1128.
+  - **Hafnium, bounded (2026-11-13).** ORNL-4616 (Shaffer 1971, p. 4)
+    says the MSRE's ZrF₄ was bought "essentially 'hafnium free' (<50 ppm
+    Hf)". It also says commercial grades carry 1–3 % hafnium, which "would invoke a severe penalty in
+    neutron economy". Taking 50 ppm by weight of ZrF₄ gives 4.7 × 10⁻⁵
+    Hf atoms per Zr atom. With the standard natural-element values (Hf: 104 b at
+    2200 m/s, resonance integral about 1990 b; Zr: 0.185 b and about
+    0.95 b; quoted from memory of Mughabghab's *Atlas*, not read from a tape
+    here, since no Hf evaluation is in `reference-data/`) and our Zr band
+    split, hafnium at the specification limit adds **about 7 %** to the Zr
+    absorption: 2.6 % thermal and 9.8 % epithermal, weighted 29/67.
+    The gap needs **+150 %**. **Hafnium in the as-built salt is ruled out as
+    the cause, by a factor of about 20**, even at the limit. TM-0730 does
+    not mention hafnium, so there is no sign that its design calculation
+    carried any. This is an estimate, not a run. A Hf ablation would need
+    the Hf tapes, which wait on the maintainer like the Gd ones. What is
+    left is the 1960s Zr and F cross sections themselves.
+
+**Salt absorption re-measured on the 2026-11-13 default (hot dimensions
++ whole shield), 2026-11-14.** Same instrument (`--salt-spectrum-csv` with
+energy bands), seeds 1–3; k bit-identical to the default's rows.
+Prediction posted on gh:#1128 before the run: per-atom ratios to U-235
+within ±5 % of the previous default's. Data: `data/salt_bands.csv`, label
+`…+hot-dims+shield-tm0728-full`.
+
+| element | absorption / U-235's, new ÷ previous default | share above 0.625 eV, previous → new |
+|---|---|---|
+| Zr | 1.017 | 70.7 % → 71.3 % |
+| F | 1.002 | 59.4 % → 59.7 % |
+| Be | 1.003 | 75.6 % → 75.8 % |
+| Li-7 | 0.998 | 12.9 % → 13.2 % |
+| U-234/236/238 | 1.017 | 95.5 % → 95.6 % |
+
+- **Inside the prediction; every element moves by under 2 %.** The salt's
+  spectrum barely moves with the new default. The returned shield neutrons
+  are absorbed mostly in the vessel wall (balance above), not in the core
+  salt.
+- **The Zr and F gaps against TM-0730 stand:** about **2.46×** and
+  **1.82×** per atom (from 2.50 and 1.82). They remain the leading open
+  explanation of the +1726 pcm, pending BNL-325 / CF-60-3-35.
+
+### N-1 residual: U-234 and U-236 in the salt (2026-11-12, gh:#1128)
+
+**Ablation:** `--minor-uranium tm0730` (`salt_with_tm0730_minor_uranium`). It
+splits the enriched lot's non-²³⁵U as TM-0730 Table 3.2 assumes for 93 %
+uranium: 1 / 93 / 1 / 5 atom % U-234 / U-235 / U-236 / U-238. This replaces
+`salt.py`'s all-U-238. U-235 is unchanged, and U-234 and U-236 are added at
+8.99e-7 atoms/b-cm each. A unit test pins every ratio. **The composition is a
+design assumption.** No as-loaded assay was found in ORNL-4233, TM-0728,
+TM-0730, ORNL-4396 or ORNL-4449.
+
+**Prediction** (posted on gh:#1128 before the run): **−150 to −350 pcm**,
+estimated at about −240.
+
+**Run:** arm C, RVS, 30P, cold, seeds 1–3: 1.00398, 1.00668 and 1.00587
+(each ± 0.0006–0.0007). About 750 s per seed, same hardware.
+
+| salt | k | vs k_ref |
+|---|---|---|
+| default (`salt.py`, no U-234/236; 6 seeds) | 1.00882 ± 0.00022 | +801 pcm |
+| **TM-0730's 93 % composition** (3 seeds) | **1.00551 ± 0.00080** | **+471 pcm** |
+| **shift** | **−326 ± 83 pcm** (seed-paired −359 ± 105) | |
+
+- **Inside the prediction,** on the larger side of the estimate.
+- **The first composition lever that moves N-1 toward the measurement by
+  several σ.** It removes about 40 % of the residual. That holds if the
+  1965 lot was like TM-0730's assumed 93 % uranium.
+- **The three seeds spread 138 pcm (sd),** about twice their internal σ,
+  as on other runs of this model. The σ quoted is the larger of the seed
+  sem and the internal σ/√3.
+- ~~**The default is not changed.** Real 93 % uranium does carry U-234
+  (TM-0730 itself puts it at 1 %), so a model with U-234 and U-236 is the
+  more physical one. Which isotopics to adopt without an assay is the
+  maintainer's call.~~ **CHANGED 2026-11-12** (maintainer: "More physical
+  model is better"): `default_salt()` now carries U-234 and U-236, and
+  `--minor-uranium none` is the ablation. Re-measured below.
+
+
+### Re-measured on the 2026-11-13 default: dimensions at temperature and the whole shield (gh:#1128, gh:#1129)
+
+**What changed** (maintainer, 2026-11-13): "Have a dimension dynamically
+shifting with temp. Shields all in shld be default … physical realism
+without crippling the simulation."
+- `Dims::at(salt_f, graphite_f)`: graphite expands from 70 °F to its own
+  temperature, and INOR-8 to the salt's (TM-0728 §5.3 coefficients).
+- `Shield::default()` is `Tm0728Full`.
+- Both are pinned by `defaults_are_the_whole_shield_and_dims_at_temperature`.
+- Ablations: `--cold-dims`, `--shield none`.
+- **Cost:** about 875 s a seed against 790 s, **+11 %** (llvmpipe/Vulkan,
+  4 cores, Intel Xeon, 15.7 GiB, 4 threads).
+- **Bit-identity check:** seeds 1–3 reproduce the earlier
+  `--hot-dims --shield tm0728-full` runs digit for digit, as predicted. So
+  the isothermal `Dims::at` is the old `--hot-dims` exactly, and the develop
+  merges did not change the CPU transport path.
+
+**Predictions** posted on gh:#1128 before the runs, and the results
+(binary built from 0dd316cb9; data: `data/keff.csv`, `data/n3.csv`, rows
+`+u234+hot-dims+shield-tm0728-full`):
+
+| quantity | seeds | result | prediction | |
+|---|---|---|---|---|
+| N-1 k, 1181 °F | 6 | **1.01807 ± 0.00023, +1726 ± 23 pcm** | +1600 to +1850 | inside; **fails the band** |
+| concentration coefficient (×0.95 / ×1.05) | 3 + 3 | 1.00736 / 1.02889, **0.208 ± 0.004** | 0.225–0.245 | **miss** |
+| N-3: 1131 / 1231 °F | 6 + 6 | 1.02232 ± 0.00026 / 1.01488 ± 0.00035, **α_iso −7.17 ± 0.42** | −7.6 to −6.4 | inside; 0.2σ from the measured −7.24 |
+| split: salt 1231 / graphite 1131 (C) | 6 | 1.01837 ± 0.00029, **fuel −3.79 ± 0.37** | −4.6 to −3.4 | inside; 1.1σ from the measured −4.7 ± 0.7 |
+| split: salt 1131 / graphite 1231 (D) | 6 | 1.01892 ± 0.00022, **graphite −3.26 ± 0.33** | −3.6 to −2.4 | inside |
+
+- **N-1 fails the 1000 pcm band, by 726 pcm.** The more physical model
+  raises k. The combined run measured the two changes as additive: the
+  interaction is −24 ± 63 pcm. The residual is now about 8.3 % too much
+  ²³⁵U, **about 2.7 g/L**, against the measured 32.8 ± 0.3 g/L. Since the
+  spectrum agrees with ORNL's (ORNL-4449 Table 2.1, salt-absorption
+  section), the leading open candidate is the absorption data: the Zr and F
+  gap against TM-0730, which awaits BNL-325 / CF-60-3-35.
+- **The concentration coefficient missed low.** The formula reproduces the
+  previous default's 0.234 from its stored rows. On the overlapping k range
+  (about 1.006–1.017), the previous default's upper half-interval gives
+  0.229 and this default's lower half 0.209. **So the drop is the model
+  change, not the higher k.** ~~Its mechanism is not identified.~~ Against the
+  measured 0.223, the model went from 0.012 high to 0.015 low.
+  **Located 2026-11-14:** U-235 ×0.95 / ×1.05 at hot dimensions with
+  `--shield none` (seeds 1–3 each: 0.99593 ± 0.00030 / 1.01855 ± 0.00033)
+  gives **0.223 ± 0.004**, inside the 0.220–0.245 posted on gh:#1128 for
+  "the shield causes the drop". Both changes lower the coefficient. Hot
+  dimensions take it 0.235 → 0.223 (−0.012 ± 0.007, 1.7σ), and the shield
+  0.223 → 0.208 (−0.015 ± 0.006, 2.6σ), the larger step. The hot-dims,
+  no-shield value lands on the measured 0.223. That is noted, not used:
+  the shield stays the default by the maintainer's choice, and a coefficient
+  is not a reason to drop physics the reactor had.
+- **N-3 improved:** α_iso is now 0.07 from the measurement, where it was
+  0.45. The fuel term moved from −4.18 to −3.79, further from the measured
+  −4.7 ± 0.7, though still inside 1.1σ.
+- **The split is self-consistent.** Fuel plus graphite is −7.05, against
+  α_iso −7.17, so the non-additivity is −0.12 ± 0.6. The other pairing,
+  from 1231 °F, gives fuel −3.91 and graphite −3.38. This is the first
+  split in which graphite expands with its own temperature, so its
+  expansion now counts in the graphite term.
+- **T-1 with this split:** −9 % to +21 % of TM-1647, worse at high power
+  than the previous −11 % to +12 % (nee_soon T-1 README). **No T-1
+  prediction was posted before that run.**
+
+### Re-measured on the 2026-11-12 default salt, with U-234 and U-236 (gh:#1128, gh:#1129)
+
+**Why:** the correct-physics rule requires every V&V number that depended on
+a default to be re-measured when the default changes. Two defaults changed on
+2026-11-12: the salt (above), and develop's transport defaults (#1386:
+seeding, reaction order, per-collision fission banking, fission-neutron
+order), merged before these runs. Every run below is on that merged binary
+(branch commit `090fb2703`), arm C, RVS, 30P, cold dimensions, no shield.
+About 800 s per seed (4-core Intel Xeon, 4 threads, 15.7 GiB RAM, Linux, CPU
+only; nuclear data 144 s, 37 nuclides). Rows carry `+u234` in their label
+in `data/keff.csv` and `data/n3.csv`. σ is the larger of the seed sem and
+the internal σ/√n.
+
+**Predictions** (posted on gh:#1128 before the runs): N-1 +380 to +560 pcm;
+α_iso within ±0.6 of −7.54; each split component within ±0.8 of its
+previous value; concentration coefficient 0.219–0.243.
+
+| quantity | previous default | **2026-11-12 default** | reference | prediction |
+|---|---|---|---|---|
+| N-1 k at 1181 °F (6 seeds) | 1.00882 ± 0.00022 (+801) | **1.00536 ± 0.00023, +455 ± 23 pcm** | k_ref 1.00080 | inside |
+| α_iso (×10⁻⁵ /°F) | −7.54 ± 0.40 | **−7.69 ± 0.35** | measured −7.24 | inside |
+| fuel | −4.44 ± 0.40 | **−4.18 ± 0.35** | measured −4.7 ± 0.7 | inside |
+| graphite | −2.82 ± 0.43 | **−3.08 ± 0.35** | not measured | inside |
+| (δk/k)/(δM/M), central | 0.231 ± 0.005 | **0.235 ± 0.006** | measured 0.223 | inside |
+
+**N-1 seeds:** 1.00498, 1.00600, 1.00594, 1.00493, 1.00561, 1.00470 (sd
+57 pcm, internal σ ≈ 57 pcm). Against the three-seed U-234 run on the
+pre-#1386 binary (+471 ± 80): −16 ± 83 pcm, so **the #1386 transport
+defaults make no visible difference on this model.**
+
+**N-3 runs** (6 seeds each):
+
+| run (salt / graphite °F) | k | seed sd | internal σ |
+|---|---|---|---|
+| 1131 / 1131 | 1.00917 ± 0.00027 | 67 pcm | 55 pcm |
+| 1231 / 1231 | 1.00140 ± 0.00022 | 40 pcm | 54 pcm |
+| C 1231 / 1131 | 1.00493 ± 0.00022 | 47 pcm | 54 pcm |
+| D 1131 / 1231 | 1.00605 ± 0.00023 | 43 pcm | 56 pcm |
+
+- **α_iso −7.69 ± 0.35** is −0.45 from the measured −7.24 (1.3σ), and moves
+  −0.15 ± 0.53 from the previous default: not resolved.
+- **The split adds:** −4.18 − 3.08 = −7.26 against −7.69 isothermal.
+- **Fuel −4.18 ± 0.35** is +0.52 ± 0.78 (0.7σ) from ORNL's measured
+  −4.7 ± 0.7, which was found after the previous runs (see N-3 below).
+- **Consistency with N-1:** the mean of 1131 and 1231 °F, 1.00528, sits
+  −8 ± 40 pcm from the 1181 °F value.
+- **T-1 re-run with this split:** −11 % to +12 % of TM-1647's measured
+  periods (nee_soon T-1 README).
+
+**Concentration coefficient** (3 seeds at each scale): × 0.95 0.99384,
+0.99326, 0.99319 → 0.99343 ± 0.00031; × 1.05 1.01782, 1.01624, 1.01712 →
+1.01706 ± 0.00046.
+
+| form | value |
+|---|---|
+| **central, (k₊ − k₋)/(k₀ · 0.10)** | **0.235 ± 0.006** |
+| logarithmic | 0.235 |
+| upper half | 0.233 ± 0.010 |
+| lower half | 0.237 ± 0.008 |
+
+- **+5 % from the measured 0.223 (2σ** of our statistics alone, with no σ on
+  the measurement), and inside ORNL's own calculated 0.234–0.248. The
+  previous 0.231 ± 0.005 is +0.004 ± 0.008 away: not resolved.
+- **The halves now agree** (0.004 ± 0.013); the previous 0.016 split was
+  noise, as flagged.
+- **What it implies for the residual.** At 0.235, the +455 pcm is the
+  reactivity of **1.9 % too much ²³⁵U, about 0.63 g/L** against the measured
+  32.8 ± 0.3 g/L; the model would go critical at about 32.2 g/L. That is
+  about twice the measurement's own ±0.3 g/L.
+
+**Quote these numbers for the default model.** ~~The ablation rows in the
+summary table were measured on the previous default salt; their shifts are
+differences, which the U-234 change should move by much less than their σ,
+but they were not re-run.~~ **2026-11-13:** the ablation rows were re-run on
+this default; each moved by less than 1σ.
+
+### The k_eff tab's parameters: salt level, enrichment, rods (2026-11-19, gh:#1658, #1659, #1660)
+
+**Methodology.**
+- **Model:** the default (`--mo natural`, hot dimensions, full TM-0728 shield).
+- **Settings:** the record's, 20 000 × [100 + 200], 4 threads, seed 1 unless stated.
+- **Binaries:** `msre_n1_params` (42b372a59) and `msre_n1_rods` (54d472f7f).
+- **Hardware:** llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, Intel Xeon, 15.7 GiB RAM, Linux, CPU transport. The machine was shared with builds, so wall times are not quoted.
+- **Data:** `data/` labels `+salt-level-<z>cm`, `+u235wt-<w>`, `+rodpos-<a>_<b>_<c>`.
+- **Comparison:** each case against the default re-run on the same binary, k = **1.019902 ± 0.000544**. That re-run is **+237 pcm** from the 2026-11-13 binary's 1.017528 ± 0.000538. The shift is not from these parameters, whose `None` defaults are pinned to today's geometry and salt; it is reported on gh:#1128 and ~~not yet bisected~~ **bisected 2026-11-19, part found** (see "The +237 pcm code shift" below).
+- **Predictions:** posted on each issue before its runs.
+
+**Salt level (#1659).** Salt below `z` (above the stringer bottom), void above it. Drawn at 162.8, 100 and 40 cm in `images/parameters/`. There is **no reference**: ORNL-4233 measured nothing against level.
+
+| z (cm) | k | Δk vs full | predicted |
+|---|---|---|---|
+| 162.8 (graphite top) | 1.005016 ± 0.000526 | −1489 pcm | ≈ −600 (**missed**, 2.5×) |
+| 140 | 0.994181 ± 0.000536 | −2572 | ≈ −2600 |
+| 120 | 0.973990 ± 0.000555 | −4591 | ≈ −5200 |
+| 100 | 0.941381 ± 0.000580 | −7852 | ≈ −9100 |
+
+The one-group prediction undervalued the upper head's 26 cm of salt. That salt both fissions and reflects, and the prediction counted it as about 9 cm of height. Below the graphite top the prediction holds within 15 %.
+
+**Enrichment (#1660).** U-235 wt fraction w of the uranium, at fixed uranium atoms. The default is w₀ = 0.30993.
+
+| w | k | Δk vs w₀ | predicted |
+|---|---|---|---|
+| 0.34 (N₅ +9.7 %) | 1.042589 ± 0.000497 | +2269 pcm | +2200 to +2400 |
+| 0.28 (N₅ −9.7 %) | 0.990600 ± 0.000540 | −2930 pcm | −2200 to −2400 (**missed** by 530 pcm) |
+
+- **Up side:** gives a coefficient of 0.234 against ORNL-4233's measured 0.223 (+5 %). This is the side ORNL measured, by adding enriching salt.
+- **Down side:** 0.30. k(N₅) is concave, which the prediction did not carry.
+
+**Rods (#1658).** Positions are ORNL inches withdrawn (rod 2, rod 1, rod 3), with poison placed by ORNL-4233 Fig. 2. Worth Δρ = 1/k₂ − 1/k₁.
+
+| configuration | k | compared with | Δρ | ORNL-4233 measured | predicted |
+|---|---|---|---|---|---|
+| all at 51 in | 1.017298 ± 0.000536 | no rods | −251 ± 74 pcm | 80 pcm (an estimate) | −50 to −150 (**missed**) |
+| rod 1 at 0 | 0.992089 ± 0.000543 | all at 51 | **2.498 ± 0.076 %** | **2.26 %** | 1.9 to 2.6 |
+| all at 0 | 0.956938 ± 0.000612 | all at 51 | **6.200 ± 0.085 %** | **5.59 %** | 4.8 to 6.2 |
+
+- **Interpretation:** rod 1 and the bank both come out about **10.5 % above** the measured worths, at 3.1σ and 7.2σ. Their ratio agrees: 2.48 against ORNL's 2.47. So a single cause scales the whole poison worth.
+- **Suspects, not yet tested:**
+  - the poison's Gd₂O₃ content or density (TM-0728 Table 5.4);
+  - the axial smearing of the elements;
+  - the static-worth normalisation.
+- **Statistics:** these are single seeds. The six-seed runs at all three configurations, and rod 1 at 40, 30, 20 and 10 in for its integral curve, were launched 2026-11-19. Their curve prediction is on gh:#1658. ORNL-4233 Figs. 5–6, the measured curve, are not digitised here.
+
+#### The +237 pcm code shift, bisected (2026-11-19, gh:#1128)
+
+- **Method:** `git bisect` from 0dd316cb (good, the 2026-11-13 binary) to 57b484bc (bad). Each step builds the N-1 example at that commit and runs the default, seed 1, on today's data and today's checkout of `reference-data`. A step is good only if k is **exactly** 1.017528. A commit that does not compile is skipped. Each step takes about 50 min.
+- **Results:**
+
+| commit | k |
+|---|---|
+| 9fb69f83, 3f6338c9, 651dcd74, c0171d11 | 1.017528 (good) |
+| **323d5d93**, 66ff395c, a97ca6da | **1.018617** (+109 pcm) |
+| cedf0a10, 46d78180 | 1.019902 (+237 pcm) |
+| c1c427c5 | does not compile (duplicated `RealMath`), skipped |
+
+- **First change, +109 pcm: 323d5d93.** That commit makes four cross-section details match OpenMC by default (gh:#463 items 5, 6, 7 and 11):
+  - ν-fission is interpolated as a product;
+  - the energy grid extrapolates beyond its ends;
+  - S(α,β) is dropped only for E > E_max, where before it was dropped at E ≥ E_max;
+  - the S(α,β) total is computed as total + thermal − elastic.
+  
+  It is the commit predicted on gh:#1128 before the last steps ran. 66ff395c, the next commit, only adds a test, so it cannot move k.
+- **CAVEAT, added 2026-11-19 20:00 UTC: the test cannot tell a physics change from a change of random path.** A step is good only if k is exactly 1.017528. So any commit that changes which random numbers a history consumes reads as bad, physics or not. 323d5d93's own record puts its largest cross-section move at 6.9e-7 relative.
+  - Two single seeds of the same physics differ with sd ≈ 78 pcm, so +109 is 1.4σ and is **not resolved** as a physics shift.
+  - The comparison that can resolve it is today's six-seed default mean against 1.01807 ± 0.00023 (2026-11-13). That run is queued, with its prediction on gh:#1128.
+  - ~~**Interpretation:** this is a correction toward the upstream rule, not a defect.~~ The interpretation below holds for the commit, not for the size of the shift.
+- **Interpretation:** this is a correction toward the upstream rule, not a defect. It is kept, as "correct physics is the default" requires, and it moves N-1 further from the reference. `OUTRAM_MC_LEGACY_XS_DETAILS=1` restores all four details together. Which of the four carries the +109 pcm is **not yet measured**.
+- **The remaining +128 pcm** (also 1.6σ, so not resolved either) ~~comes from~~ is a change of k at a later commit, between a97ca6da and cedf0a10.
+  - **Bisected 2026-11-19 20:52 UTC:** the change is at **5d7c7644**, which was predicted on gh:#1128 before the last steps. Its parent 71025161 and fde69485 give 1.018617; 5d7c7644 and 0aadb663 give 1.019902. The runner-up, 970191bf, is inside fde69485, so it is ruled out.
+  - **What 5d7c7644 changes:** it moves the N-1 driver's S(α,β) from the C-12 and C-13 **nuclides** to the **materials** containing them (`assign_material_sab`, gh:#462, #1581). Its audit says the bound set is unchanged: C-12 and C-13 appear only in graphite compositions, and H-1 only in the shield water. The nuclide list is renumbered, so histories draw different random streams.
+  - **Reading:** a change of path, with no physics change claimed. Whether the k moved is decided by the six-seed comparison of today's default against 1.01807 ± 0.00023, not by this bisect. That run started 20:54 UTC, with its prediction on gh:#1128. A second bisect over that range was launched at 15:47 UTC, with a step good only if k is exactly 1.018617.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
@@ -936,6 +1548,46 @@ cold and hot. The prediction posted before the run: seeds 7–12 alone give
 - **α_iso with twelve seeds at 1131 °F** (six at 1231 °F): cold **−7.52 ±
   0.32**, hot **−8.04 ± 0.33**, shift **−0.52 ± 0.46 (1.1σ)**. The cold value
   agrees with the six-seed −7.54 ± 0.40, which stays the quoted number.
+
+**N-3 with hot dimensions on the current default (2026-11-13, gh:#1129).**
+The hot-dims ablation above was measured on the old salt. This re-measures
+it on the default salt with U-234/U-236 (arm C, RVS, 30P), as evidence for the open
+hot-dims default question.
+
+- **Runs:** `--hot-dims --temp-f 1131` and `--temp-f 1231`, seeds 1–6 each.
+  A container restart killed the 1231 °F run after seed 2. Seeds 3–6
+  were resumed with `--seeds 3-6`, and each seed is an independent stream.
+  About 790 s a seed plus 145 s of data loading, on llvmpipe/Vulkan,
+  4 cores, Intel Xeon, 15.7 GiB.
+- **Prediction** (posted on gh:#1129 before the runs): α_iso(hot) **−9.2 to
+  −7.6** × 10⁻⁵ /°F, and hot − cold −1.5 to +0.1. Both were centred on the
+  old-salt shift of −0.69.
+
+| default salt | 1131 °F k | 1231 °F k | α_iso (×10⁻⁵ /°F) |
+|---|---|---|---|
+| cold dimensions (the default) | 1.00917 ± 0.00027 | 1.00140 ± 0.00022 | −7.69 ± 0.35 |
+| **hot dimensions** | **1.01133 ± 0.00023** | **1.00425 ± 0.00022** | **−6.97 ± 0.31** |
+| hot − cold | +216 ± 40 pcm (paired) | +285 ± 16 pcm (paired) | **+0.72 ± 0.47** (paired +0.72 ± 0.42) |
+
+- **Missed the prediction.** α_iso(hot) is outside the posted range, and the
+  shift has the opposite sign to the old-salt −0.69 ± 0.54. The two shifts
+  differ by 1.41 ± 0.72 (2.0σ). Neither is resolved from zero on its own:
+  1.5σ here and 1.3σ there. Pooled by inverse variance, assuming the salt
+  change does not alter the expansion effect, they give **+0.11 ± 0.35**:
+  hot dimensions do not move α_iso at this precision. The prediction was
+  wrong because it was centred on one unresolved number.
+- **Same pattern in the pairs.** On the old salt, hot − cold fell from
+  +262 (1131 °F) to +210 (1231 °F). Here it rises from +216 to +285. The
+  slope of the hot − cold pair is the α shift, and it has flipped with the
+  same σ. That is noise at about 2σ, not a physical effect anyone has
+  identified.
+- **Against the measured −7.24:** hot dimensions give −6.97, 0.27 above it
+  (0.9σ on the model's σ). Cold dimensions give −7.69, 0.45 below (1.3σ).
+  Both are inside the measurement's own comparison band. **N-3 does not
+  discriminate between hot and cold dimensions.** N-1 moves +224 pcm,
+  still inside its band. The default is not changed: that is the
+  maintainer's call.
+- Data: `data/n3.csv`, rows `+u234+hot-dims`.
 
 ### A finding about the statistics
 

@@ -135,6 +135,9 @@
 //!   treatment in the granular literature (closest-point-on-facet contact
 //!   detection); this is an independent reimplementation of that public method.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::boundary::{Boundary, Contact};
 use crate::particle::{Particle, Vec3};
@@ -982,7 +985,7 @@ fn harmonics(
     for j in 0..n {
         a[j] = amplitude[j];
         ph[j] = phase[j];
-        om[j] = 2. * std::f64::consts::PI / period[j];
+        om[j] = 2. * core::f64::consts::PI / period[j];
     }
     Some((n, a, ph, om))
 }
@@ -1007,7 +1010,7 @@ impl MovingBoundary {
         let norm = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt();
         let inv = if norm == 0. { 0. } else { 1. / norm };
         let u = Vec3::new(a[0] * inv, a[1] * inv, a[2] * inv);
-        let omega = 2. * std::f64::consts::PI / period;
+        let omega = 2. * core::f64::consts::PI / period;
         let mut m = Self::new(geometry, Vec3::zero(), u.scale(omega), origin);
         m.rotation = Some(MeshRotation { axis: u, omega });
         m
@@ -1066,6 +1069,15 @@ impl MovingBoundary {
             let area = (0..m.triangles.len()).map(|i| m.state.area(i)).collect();
             self.stress = Some(MeshStress::new(p_ref, area));
         }
+        self
+    }
+
+    /// `wear finnie` on this wall's `fix mesh/surface/stress` (call after
+    /// [`MovingBoundary::with_stress`]; a no-op without it): `k_finnie[t]` is
+    /// the coefficient against particle type `t` (0-based). gh:#1491.
+    #[must_use]
+    pub fn with_wear_finnie(mut self, k_finnie: Vec<f64>) -> Self {
+        self.stress = self.stress.map(|s| s.with_wear_finnie(k_finnie));
         self
     }
 
@@ -1141,7 +1153,7 @@ impl MovingBoundary {
     /// `fix move/mesh ... wiggle amplitude <a> period <T>`.
     #[must_use]
     pub fn wiggle(geometry: WallGeometry, amplitude: Vec3, period: f64) -> Self {
-        let omega = 2. * std::f64::consts::PI / period;
+        let omega = 2. * core::f64::consts::PI / period;
         Self::with_motion(
             geometry,
             Vec3::zero(),
@@ -1187,8 +1199,8 @@ impl MovingBoundary {
             geometry,
             origin,
             MeshMotion::Riggle {
-                amplitude: std::f64::consts::PI * amplitude_deg / 180.,
-                omega: 2. * std::f64::consts::PI / period,
+                amplitude: core::f64::consts::PI * amplitude_deg / 180.,
+                omega: 2. * core::f64::consts::PI / period,
                 axis: unit_vector(axis),
             },
         )
@@ -1388,6 +1400,10 @@ impl MovingBoundary {
         let Some((servo, orig)) = &mut self.servo else {
             return;
         };
+        // only if the wall should move (`integrate stop`, gh:#1510)
+        if !servo.is_integrating() {
+            return;
+        }
         let mv = servo.initial_integrate();
         let WallGeometry::Mesh(m) = &mut self.geometry else {
             return;
@@ -1442,6 +1458,11 @@ impl MovingBoundary {
             ServoCtrl::Torque => st.torque_total(),
         };
         let v = servo.final_integrate_pv(pv, self.servo_contacts);
+        // `integrate stop`: `set_v_node` is not called, the nodes keep their
+        // velocities (gh:#1510)
+        if !servo.is_integrating() {
+            return;
+        }
         if let WallGeometry::Mesh(m) = &mut self.geometry {
             match servo.ctrl() {
                 ServoCtrl::Force => {
@@ -1458,6 +1479,90 @@ impl MovingBoundary {
                     }
                 }
             }
+        }
+    }
+
+    /// The `init()` and `setup_pre_force()` of a new `run` for this wall
+    /// (gh:#1510); a no-op for an analytic wall.
+    ///
+    /// * `MeshModuleStressServo::init`: [`MeshServo::init_run`] with `r_min`
+    ///   the smallest radius of `particles` (upstream `BIG = 1e6` if none) and
+    ///   the current nodes; `p_ref = xcm` on the stress module.
+    /// * `MeshModuleStressServo::setup_pre_force` ([`MeshServo::setup_pre_force`])
+    ///   and `FixMesh::setup_pre_force` -> `pbcExchangeBorders(1)` ->
+    ///   `refreshOwned(1)`: the current nodes become the original nodes the
+    ///   servo moves from (`storeNodePosOrig`), and the facet geometry, the
+    ///   rebuild reference nodes and the stress module's facet areas are
+    ///   recomputed from the nodes (`recalcLocalSurfProperties`,
+    ///   `storeNodePosRebuild`).
+    ///
+    /// Everything else persists: the servo's integral and derivative state,
+    /// its velocity and the node velocities, the stress totals, the wear, the
+    /// mover's time.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`MeshServo::init_run`] reports (upstream's `init()` aborts).
+    pub fn begin_run(&mut self, particles: &[Particle]) -> Result<(), DemError> {
+        let WallGeometry::Mesh(m) = &mut self.geometry else {
+            return Ok(());
+        };
+        if let Some((servo, orig)) = &mut self.servo {
+            // r = r_min = BIG; r_min = MIN(r_min, r) over the atoms
+            let r_min = particles
+                .iter()
+                .fold(1.0e6_f64, |r_min, p| if r_min < p.radius { r_min } else { p.radius });
+            servo.init_run(r_min, &m.nodes())?;
+            if let Some(st) = &mut self.stress {
+                st.p_ref = vec3(servo.xcm());
+            }
+            servo.setup_pre_force();
+            *orig = m.nodes();
+        }
+        self.refresh_mesh();
+        Ok(())
+    }
+
+    /// `pbcExchangeBorders` -> `SurfaceMesh::refreshOwned` ->
+    /// `recalcLocalSurfProperties` (`surface_mesh_I.h`, LIGGGHTS-PUBLIC
+    /// `3d5c00f2`) for this wall's mesh: the facet geometry (edge vectors and
+    /// lengths, normals, obtuse index) and the rebuild reference nodes from the
+    /// current nodes ([`MeshWall::refresh_geometry`]), and the facet areas the
+    /// stress module divides by (`area(i) = calcArea(i)`, read by
+    /// `MeshModuleStress` as `areaElem`). Upstream runs it at a run's set-up
+    /// and, for a moving mesh, at every re-neighbouring (`FixMesh::pre_force`
+    /// with `pOpFlag_`), before the force compute (gh:#1512). A no-op for an
+    /// analytic wall.
+    pub fn refresh_mesh(&mut self) {
+        let WallGeometry::Mesh(m) = &mut self.geometry else {
+            return;
+        };
+        m.refresh_geometry();
+        if let Some(st) = &mut self.stress {
+            st.refresh_area((0..m.triangles.len()).map(|i| m.state.area(i)).collect());
+        }
+    }
+
+    /// `FixMoveMesh::setup` of a new `run`: the node velocities of a mesh
+    /// moved by a `fix move/mesh` are zeroed (`v->setAll(0.)` when the mover
+    /// is the first on the mesh). Upstream does this in the fix's own
+    /// `setup`, i.e. after the `fix wall/gran` set-up evaluation when the
+    /// `move/mesh` is declared after the wall, which is the order this
+    /// crate's fix order assumes. A no-op for a servo mesh, a static mesh and
+    /// an analytic wall (gh:#1510).
+    pub fn move_mesh_setup(&mut self) {
+        if self.servo.is_some() {
+            return;
+        }
+        let moved = !matches!(self.motion, MeshMotion::None)
+            || self.rotation.is_some()
+            || self.velocity != Vec3::zero()
+            || self.angular_velocity != Vec3::zero();
+        if !moved {
+            return;
+        }
+        if let WallGeometry::Mesh(m) = &mut self.geometry {
+            m.state.node_velocity.fill([[0.0; 3]; 3]);
         }
     }
 
@@ -1729,7 +1834,7 @@ mod tests {
             stages += 1;
             // Probes hugging the wall at several heights and angles.
             for a in 0..6 {
-                let ang = std::f64::consts::TAU * f64::from(a) / 6.0;
+                let ang = core::f64::consts::TAU * f64::from(a) / 6.0;
                 for h in 0..2 {
                     let z = 0.02 + 0.05 * f64::from(h);
                     let p = Particle::new(
@@ -1766,7 +1871,7 @@ mod tests {
         wall.angular_velocity = Vec3::new(0.3, 0.2, 0.0);
         wall.advance(0.1);
         for a in 0..12 {
-            let ang = std::f64::consts::TAU * f64::from(a) / 12.0;
+            let ang = core::f64::consts::TAU * f64::from(a) / 12.0;
             let p = Particle::new(
                 Vec3::new(0.0485 * ang.r_cos(), 0.0485 * ang.r_sin(), 0.05),
                 Vec3::zero(),
@@ -2205,7 +2310,7 @@ endsolid test
         let mut spin = MovingBoundary::new(
             WallGeometry::Mesh(MeshWall::new(vec![tri]).unwrap()),
             Vec3::zero(),
-            Vec3::new(0.0, 0.0, std::f64::consts::FRAC_PI_2),
+            Vec3::new(0.0, 0.0, core::f64::consts::FRAC_PI_2),
             Vec3::zero(),
         );
         spin.advance(1.0); // rotation angle = π/2 about +z

@@ -56,12 +56,19 @@
 //! The stochastic-media geometry work draws on Zhe Chuan Tan et al.'s dispersion-fuel
 //! papers in the RMC code; the machine-readable citations are in [`references`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod crp_packing;
 pub mod delta_tracking;
+#[cfg(feature = "std")]
 pub mod dem_bed;
 pub mod fhr_pebble;
 pub mod htr10;
 pub mod keff_delta;
+pub mod packing_fraction;
 pub mod references;
+#[cfg(feature = "std")]
+pub mod region_bed;
 pub mod sphere_packing;
 pub mod triso_lattice;

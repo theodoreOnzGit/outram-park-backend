@@ -27,6 +27,9 @@
 //! Bounding boxes and domain order for [`super::ModelPlot`] (split out of
 //! the model-plot module on 2026-10-02 to respect the 1000-line file cap).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::csg::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use crate::csg::geometry::Geometry;
 use crate::csg::lattice::Lattice;
@@ -225,7 +228,13 @@ pub(crate) fn region_tree(region: &[RegionToken]) -> Option<(Vec<Node>, usize)> 
         nodes.push(n);
         stack.push(nodes.len() - 1);
     }
-    let root = stack.pop()?;
+    // Operands left with no operator between them are implicitly intersected
+    // (OpenMC `src/cell.cpp:626`, GitHub #1576).
+    let mut root = stack.pop()?;
+    while let Some(a) = stack.pop() {
+        nodes.push(Node::And(a, root));
+        root = nodes.len() - 1;
+    }
     Some((nodes, root))
 }
 

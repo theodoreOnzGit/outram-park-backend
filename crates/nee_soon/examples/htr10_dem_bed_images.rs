@@ -42,12 +42,13 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use nee_soon::htr10_rmc::bed::PebbleBed;
-use nee_soon::htr10_rmc::core_model::{mat, HTR10_DISCHARGE_TUBE_RADIUS_CM, HTR10_REFLECTOR_OUTER_CM};
+use nee_soon::htr10_rmc::core_model::find_kernel_near;
+use nee_soon::htr10_rmc::core_model::{HTR10_DISCHARGE_TUBE_RADIUS_CM, HTR10_REFLECTOR_OUTER_CM};
+use outram_mc_libs::geometry::cell::SurfaceToken;
 use nee_soon::htr10_rmc::explicit_bed::{
     assemble_explicit_triso_from_centres, paper_fuel_assignment, ExplicitBallSource,
 };
 use nee_soon::htr10_rmc::keff_vs_height::{RINGS, TEMPERATURE_K};
-use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::plot::{
     annotate_slice, render_material_slice, ColourScheme, LegendEntry, PlotBasis, PlotColourBy, Rgb,
@@ -126,24 +127,10 @@ fn load_csv(path: &PathBuf) -> Vec<[f64; 3]> {
 /// A fuel pebble's centre near `near` and one of its TRISO particles' centre,
 /// read off the located path (as `htr10_geometry_images`).
 fn find_kernel(g: &Geometry, near: [f64; 3]) -> Option<Position> {
-    let u = Direction::new(0.0, 0.0, 1.0);
-    for kz in 0..20 {
-        for j in 0..40 {
-            for i in 0..400 {
-                let p = Position::new(
-                    near[0] - 2.0 + 0.01 * f64::from(i),
-                    near[1] + 0.01 * f64::from(j),
-                    near[2] + 0.01 * f64::from(kz),
-                );
-                if let Some(path) = g.locate(p, u, SurfaceToken::NONE) {
-                    if path.material == Some(mat::KERNEL) {
-                        return path.levels.last().map(|c| c.offset);
-                    }
-                }
-            }
-        }
-    }
-    None
+    // The scan is the library's `find_kernel_near` (moved there 2026-11-17):
+    // from 2 cm below `near` in x, 400 steps, any coordinate depth.
+    let start = Position::new(near[0] - 2.0, near[1], near[2]);
+    find_kernel_near(g, start, 400, 0)?.levels.last().map(|c| c.offset)
 }
 
 #[allow(clippy::too_many_lines)]

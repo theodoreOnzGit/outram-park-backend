@@ -27,6 +27,9 @@
 //! line, [`section_layout`] returns `None` and the writer falls back to
 //! writing every field as `a11`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// How one line of a section is formatted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LineKind {

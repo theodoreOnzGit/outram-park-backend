@@ -15,34 +15,84 @@
 //! `.map(Nuclide::with_target_at_rest)`, applied per nuclide **in process**.
 //!
 //! The question is **not** "is free-gas target motion worth something on a
-//! thermal pebble" — that is already known to be worth about −2242 pcm. It is
-//! whether the **new in-process hook reproduces the old whole-material
-//! switch**. gh:#193's pricing table got its −2242 pcm by setting
-//! `OUTRAM_RINGRPT_TARGET_AT_REST=1` in `examples/fhr_ring_rpt_endf.rs`, which
-//! zeroes `KeffSettings::temperature_k` for the **whole run** — including the
-//! S(α,β) moderators, whose bound-atom law is a different code path from the
-//! free-gas kernel this hook reaches.
+//! thermal pebble" -- that is already known. It is whether the **new in-process
+//! hook reproduces the old whole-material switch**. gh:#193's pricing table got
+//! its number by setting `OUTRAM_RINGRPT_TARGET_AT_REST=1` in
+//! `examples/fhr_ring_rpt_endf.rs`, which at that commit (`75615b678`) set
+//! `KeffSettings::temperature_k = 0.0` for the **whole run** and edited no
+//! nuclide.
 //!
-//! So a materially different number is a **real finding, not a failure**: it
-//! would mean the per-nuclide hook reaches a different set of nuclides than
-//! zeroing the temperature did, which is plausible and worth knowing.
+//! **That switch no longer exists** (gh:#1617). gh:#313 (`0414bc827`,
+//! 2026-09-30) made the CSG kernel stop reading `KeffSettings::temperature_k`
+//! (`tests/temperature_precedence.rs` pins it), and moved the env var onto
+//! `Nuclide::with_target_at_rest`. So on today's build there is no second route
+//! to compare against; the like-for-like number below was measured by
+//! replaying the old switch on the last build that has it.
 //!
-//! # Prediction on record, made before any measurement
+//! # Prediction on record
 //!
-//! **−2242 pcm**, because that is what the environment-variable route measured
-//! in gh:#193's pricing table on this case:
+//! ~~**-2242 pcm**, k_MOVING 1.40546 +/- 0.00234 (gh:#193's table, 2026-09-12,
+//! one seed a side, +/- 323 pcm within-run)~~ **CORRECTED 2026-11-17 (gh:#1617)**
+//! -- stale, not a like-for-like number: both figures predate the F-19
+//! sub-threshold inelastic fix `45f8d72d` (k_MOVING 1.40546 before it, 1.36140
+//! after; tests/inelastic_channel_vs_endf.rs, gh:#193's closing comment). The
+//! F-19 defect made p +8.54 % over OpenMC; the ablation acts on that same
+//! slowing-down balance, so the -2242 was measured on a broken model.
 //!
-//! ```text
-//!   target motion     k_eff (ring-RPT CSG)   p vs OpenMC   eps vs OpenMC
-//!   sampled (correct) 1.40546 +/- 0.00234    +8.54 %       -4.99 %
-//!   AT REST (broken)  1.38304 +/- 0.00223    +6.03 %       -3.69 %
-//!   difference        -2242 +/- 323 pcm      -2.51 points  +1.30 points
-//! ```
+//! **Re-baselined: -556 +/- 87 pcm** (paired, 8 seeds, 4000 x [30 + 80]),
+//! k_MOVING = 1.36625, k_AT-REST = 1.36069, produced 2026-11-17 by replaying
+//! the whole-run switch (`KeffSettings::temperature_k = 0.0`, nuclides
+//! untouched) on commit `60f6bb261` (post-F-19, pre-#313; the last kind of
+//! build that has the switch), next to the per-nuclide hook on the same build.
+//! The prediction for that replay was committed first
+//! (`verification_and_validation/sab_per_material_1581/README.md`, "gh:#1617")
+//! and held on every count: the switch arm is **bit-identical to the hook arm on
+//! 8 of 8 seeds** (k, p and eps), MOVING seed 1 reproduced 1.36662 +/- 0.00210,
+//! and the difference equals the 2026-09-17 record of -556 +/- 87 pcm. So the
+//! two routes are the same arithmetic, and **-556 is both the whole-material
+//! and the per-nuclide value on that build**. It was not tuned: it is what the
+//! replay returned. Raw output: `ensembles_1617/`.
 //!
-//! Note what that row's `± 323` is and is not: it is the two runs' **own
-//! within-run** `k_std` added in quadrature, from **one seed a side**. This
-//! program instead runs an ensemble of seeds and quotes the seed-to-seed
-//! standard error, which is the statistic the difference actually needs.
+//! It is the pass criterion below because it is the only like-for-like
+//! whole-material number there is, with the caveat that **it was measured on
+//! `60f6bb261`, not on the build running this driver**: anything that moved
+//! between that commit and now (gh:#313's free-gas kT, `81ec018c3`'s URR/DBRC/
+//! equiprobable S(a,b) sampling, gh:#1581's per-material S(a,b)) can move this
+//! driver's number away from it without the hook being wrong. The first
+//! post-1617 measurement here, 2026-11-17 (`7b5dd858d`, 8 seeds), was
+//! -153 +/- 43 pcm paired, 4.2 sigma from -556 with k_MOVING 1.36307; ~~the cause
+//! is not isolated (the MOVING arm moved -318 pcm and the AT-REST arm +85 pcm)~~
+//! **CORRECTED 2026-11-17 (gh:#1636): isolated.** `60f6bb261`'s `Nuclide` carried
+//! no resonance elastic scattering table (`git grep -i dbrc 60f6bb261 --
+//! crates/outram-mc-libs/src` hits only `physics/scatter.rs`); `f8dbb4951`
+//! (2026-09-20, "correct physics is the DEFAULT") attached DBRC by default and
+//! `457d4ca97` (gh:#1311) made upstream's RVS the method. It acts only at target
+//! kT > 0, so it is in the MOVING arm and absent from the AT-REST arm, which is
+//! exactly the signature (MOVING -318 +/- 50 pcm, AT-REST +85 +/- 105, 0.8 sigma).
+//! Removing it (`OUTRAM_FHR_NO_RESONANCE_SCATTERING=1`, `Nuclide::without_dbrc`)
+//! gives, 8 seeds, same session build: MOVING 1.36570 (+263 +/- 74 pcm over the
+//! default, 3.6 sigma), AT-REST bit-identical seed for seed, worth **-416 +/- 79
+//! pcm**, 1.2 sigma from -556 +/- 87. The legacy scatter kernels (gh:#1386) move
+//! MOVING by -32 +/- 47 pcm (0.7 sigma): not the cause. So the default-build
+//! worth is **-153 +/- 43 pcm** (`SESSION_PCM`), and -556 is the worth of a model
+//! without resonance scattering. Correct physics (default on, maintainer-decided),
+//! so this is a re-baseline, not a revert. Raw outputs, analysis and the
+//! predictions written before the runs:
+//! `verification_and_validation/sab_per_material_1581/` (`ensembles_1636/`,
+//! README "gh:#1636"). Not done: building `f8dbb4951` and its parent to separate
+//! DBRC-on from the RVS method switch (the ablation removes both together).
+//!
+//! **Re-measured 2026-11-19 after the S(a,b) emission-grid flip (gh:#550),
+//! 8 seeds, same protocol:** MOVING 1.36384 (record 1.36307, +77 +/- 86 pcm,
+//! 0.9 sigma), AT-REST 1.36123 (record 1.36154, -31 +/- 88), worth **-261 +/- 107
+//! pcm** against the -153 +/- 43 below (-108 +/- 115, 0.9 sigma: unresolved, so
+//! `SESSION_PCM` is not moved). The seed sd rose to 214 pcm from 117. With
+//! `OUTRAM_SAB_LOG_SPACED_GRID=1` (the old build) seeds 1 and 2 of MOVING
+//! reproduce the record to every printed digit. Record:
+//! `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
+//! Note what the +/- is: a seed-to-seed standard error over an ensemble, not
+//! one run's within-run `k_std` as in gh:#193's single-seed row.
 //!
 //! # Statistics
 //!
@@ -97,6 +147,7 @@ mod desktop {
     };
     use outram_mc_libs::geometry::position::Position;
     use outram_mc_libs::geometry::surface::BoundaryType;
+    use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
     use outram_mc_libs::material::thermal::ThermalScattering;
     use std::path::PathBuf;
     use std::time::Instant;
@@ -170,7 +221,7 @@ mod desktop {
         n
     }
 
-    fn nuclides() -> Vec<Nuclide> {
+    fn nuclides() -> (Vec<Nuclide>, ThermalScattering) {
         // C12 / C13 (fuel kernel) stay free-gas. C12G / C13G (buffer, PyC,
         // matrix, shell) carry the ENDF/B-VIII.0 crystalline-graphite S(α,β)
         // law — below ~4 eV they scatter off the bound lattice (coherent Bragg
@@ -179,14 +230,16 @@ mod desktop {
         // spectrum sits ~1700 pcm too high (tests/htr10_graphite_thermal_scatt…).
         let sab = graphite_sab();
         eprintln!("  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok");
-        vec![
+        let nuclides = vec![
             load("U235", "n-092_U_235-ENDF8.0.endf"),
             load("U238", "n-092_U_238.endf"),
             load("O16", "n-008_O_016-ENDF8.0.endf"),
             load("C12", "n-006_C_012-ENDF8.0.endf"),
             load("C13", "n-006_C_013-ENDF8.0.endf"),
-            load("C12", "n-006_C_012-ENDF8.0.endf").with_thermal_scattering(sab.clone()),
-            load("C13", "n-006_C_013-ENDF8.0.endf").with_thermal_scattering(sab),
+            // Loaded free; c_Graphite is attached per material in `run`
+            // (gh:#1581).
+            load("C12", "n-006_C_012-ENDF8.0.endf"),
+            load("C13", "n-006_C_013-ENDF8.0.endf"),
             load("Si28", "n-014_Si_028-ENDF8.0.endf"),
             load("Si29", "n-014_Si_029-ENDF8.0.endf"),
             load("Si30", "n-014_Si_030-ENDF8.0.endf"),
@@ -194,7 +247,8 @@ mod desktop {
             load("Li6", "n-003_Li_006-ENDF8.0.endf"),
             load("Li7", "n-003_Li_007-ENDF8.0.endf"),
             load("Be9", "n-004_Be_009-ENDF8.0.endf"),
-        ]
+        ];
+        (nuclides, sab)
     }
 
     fn graphite_sab() -> ThermalScattering {
@@ -514,8 +568,9 @@ mod desktop {
                 run_keff_reactor_physics(&pebble, mats, nucs, &cfg).expect("CSG reactor physics");
             let (_e2, _f2, p2, eps2) = r.six_factors.two_group_openmc_convention();
             eprintln!(
-                "    {label} seed {seed:>3}: k = {:.5} ± {:.5}, p = {p2:.4}, eps = {eps2:.4}  \
-                 [{:.1} s]",
+                "    {label} seed {seed:>3}: kfull = {:.15} k = {:.5} ± {:.5}, p = {p2:.4}, \
+                 eps = {eps2:.4}  [{:.1} s]",
+                r.keff.k_mean,
                 r.keff.k_mean,
                 r.keff.k_std,
                 t.elapsed().as_secs_f64()
@@ -534,7 +589,35 @@ mod desktop {
         eprintln!();
         let t0 = Instant::now();
         eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K):");
-        let moving = nuclides();
+        let (free_nuclides, sab) = nuclides();
+        let (mats, spec) = build_materials();
+        // S(a,b) per material, as OpenMC does (gh:#462, #1581): every material
+        // that references C12G / C13G (buffer, PyC1, PyC2, graphite and the
+        // naive-homogenised zone, which holds the matrix graphite) gets
+        // c_Graphite; the kernel, SiC and the free-gas homogenised TRISO carbon
+        // (C12 / C13) stay free. The bound copies are appended to the array.
+        let mut sab_entries = MaterialSab::for_materials_containing(&mats, nx::C12G, 0, &[]);
+        sab_entries.extend(MaterialSab::for_materials_containing(&mats, nx::C13G, 0, &[]));
+        let (mats, moving) = assign_material_sab(&mats, &free_nuclides, &[sab], &sab_entries)
+            .expect("S(a,b) per material");
+        // gh:#1636: `OUTRAM_FHR_NO_RESONANCE_SCATTERING=1` removes the default-on
+        // resonance elastic scattering (RVS/DBRC table) from BOTH arms, to price it.
+        // Off by default: the ordinary run keeps the physics (CLAUDE.md, correct
+        // physics is the default).
+        let no_res = std::env::var("OUTRAM_FHR_NO_RESONANCE_SCATTERING")
+            .map(|v| !v.is_empty() && v != "0")
+            .unwrap_or(false);
+        let moving: Vec<Nuclide> = if no_res {
+            moving.into_iter().map(Nuclide::without_dbrc).collect()
+        } else {
+            moving
+        };
+        eprintln!(
+            "  resonance elastic scattering (DBRC/RVS table) on {} of {} nuclides{}",
+            moving.iter().filter(|n| n.has_dbrc()).count(),
+            moving.len(),
+            if no_res { " (ABLATED, gh:#1636)" } else { "" }
+        );
         let at_rest: Vec<Nuclide> = moving
             .iter()
             .cloned()
@@ -579,7 +662,6 @@ mod desktop {
             moving.len()
         );
 
-        let (mats, spec) = build_materials();
         let r_fuel = rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
         eprintln!(
             "  ring-RPT fuel shell: {R_RPT_INNER:.6} < r < {r_fuel:.6} cm; pebble {R_PEBBLE}, \
@@ -593,9 +675,34 @@ mod desktop {
         let n = n_seeds();
         let seeds: Vec<u64> = (1..=n as u64).collect();
         eprintln!("{n} seeds per arm, 4000 histories × [30 inactive + 80 active]:");
+        // `OUTRAM_FHR_ARMS=at-rest` runs only the ablated arm (so the two arms can
+        // run as two processes); the per-seed lines are merged by hand afterwards.
+        if std::env::var("OUTRAM_FHR_ARMS").as_deref() == Ok("at-rest") {
+            let b = run_arm(&at_rest, &mats, r_fuel, &seeds, "AT-REST");
+            let (kb, skb, ekb) = stats(&b.k);
+            println!(
+                "AT-REST-only: n = {} k_AT-REST = {kb:.5}, sd = {:.0} pcm, sem = {:.0} pcm",
+                b.k.len(),
+                skb * 1.0e5,
+                ekb * 1.0e5
+            );
+            return;
+        }
         let t = Instant::now();
         let a = run_arm(&moving, &mats, r_fuel, &seeds, "MOVING ");
         eprintln!("  MOVING  arm done in {:.1} s", t.elapsed().as_secs_f64());
+        // gh:#1636: `OUTRAM_FHR_ARMS=moving` screens the unablated arm alone (a
+        // legacy-knob run needs only that arm; the at-rest arm is half the cost).
+        if std::env::var("OUTRAM_FHR_ARMS").as_deref() == Ok("moving") {
+            let (ka, ska, eka) = stats(&a.k);
+            println!(
+                "MOVING-only: n = {} k_MOVING = {ka:.5}, sd = {:.0} pcm, sem = {:.0} pcm",
+                a.k.len(),
+                ska * 1.0e5,
+                eka * 1.0e5
+            );
+            return;
+        }
         let t = Instant::now();
         let b = run_arm(&at_rest, &mats, r_fuel, &seeds, "AT-REST");
         eprintln!("  AT-REST arm done in {:.1} s\n", t.elapsed().as_secs_f64());
@@ -663,95 +770,166 @@ mod desktop {
             (md, edp)
         };
 
-        const REFERENCE_PCM: f64 = -2242.0;
+        // gh:#1636: the -556 record was measured on a build with NO resonance elastic
+        // scattering; the default build carries it, which acts on the MOVING arm only.
+        // So each configuration is judged against its own like-for-like record.
+        let (r_pcm, r_err, r_k, r_build, r_what) = if no_res {
+            (
+                REFERENCE_PCM,
+                REFERENCE_ERR_PCM,
+                REFERENCE_K_MOVING,
+                REFERENCE_BUILD,
+                "the whole-run switch replayed on that commit (gh:#1617), a build without \
+                 resonance scattering; here with it ablated (gh:#1636 measured -416 +/- 79)",
+            )
+        } else {
+            (
+                SESSION_PCM,
+                SESSION_ERR_PCM,
+                SESSION_K_MOVING,
+                SESSION_BUILD,
+                "this driver on the default build, 8 seeds (gh:#1636, 2026-11-17); the -556 \
+                 of 60f6bb261 is reproduced only with resonance scattering ablated",
+            )
+        };
+        let verdict = judge_against(r_pcm, r_err, r_k, quote, qerr, ka, eka);
         println!();
-        println!("  Prediction on record, made before any measurement: {REFERENCE_PCM:+.0} pcm,");
-        println!("  because that is what the environment-variable route (which zeroes the whole");
-        println!("  run's transport temperature, S(alpha,beta) moderators included) measured on");
-        println!("  this same case in gh:#193's pricing table. The question is whether the new");
-        println!("  PER-NUCLIDE hook reaches the same set of nuclides that did.");
+        println!("  Prediction on record: {r_pcm:+.0} +/- {r_err:.0} pcm, {r_what}; build {r_build}.");
+        println!(
+            "  (-2242 pcm / k 1.40546 predates the F-19 fix 45f8d72d; -556 / 60f6bb261 predates \
+             default resonance scattering; both struck through in the doc comment.)"
+        );
+        println!(
+            "  Unablated arm: k_MOVING {ka:.5} vs the reference build's {r_k:.5}: \
+             {:+.0} pcm ({:+.1} sigma of this run's own sem).",
+            verdict.moving_shift_pcm, verdict.moving_shift_sigma
+        );
         println!();
         println!("  VERDICT:");
-        let gap = quote - REFERENCE_PCM;
-        if qerr > 0.0 && gap.abs() < 3.0 * qerr {
-            println!(
-                "    HELD. {quote:+.0} ± {qerr:.0} pcm is {:+.0} pcm from the recorded \
-                 {REFERENCE_PCM:+.0} pcm,",
-                gap
-            );
-            println!(
-                "    which is {:.1} sigma of this run's own statistics. The in-process hook \
-                 reproduces",
-                (gap / qerr).abs()
-            );
-            println!("    the whole-material switch on this case.");
+        println!(
+            "    gap {:+.0} pcm from the reference, {:.1} sigma of (this run + reference) errors \
+             (gh:#1636 task gate abs(z) <= 2; HELD below is the older 3 sigma).",
+            verdict.gap_pcm, verdict.gap_sigma
+        );
+        if verdict.held {
+            println!("    HELD. The in-process hook reproduces the recorded like-for-like value.");
         } else {
-            println!(
-                "    FAILED as stated: {quote:+.0} ± {qerr:.0} pcm is {gap:+.0} pcm from the \
-                 recorded"
+            println!("    FAILED as stated. At 60f6bb261 the hook and the switch were BIT-IDENTICAL");
+            println!("    on 8 of 8 seeds, so this is not a hook-versus-switch disagreement; compare");
+            println!("    the unablated-arm line above and re-baseline only with a mechanism, as");
+            println!("    gh:#1636 did for resonance scattering.");
+        }
+    }
+
+    /// Outcome of comparing a measured difference with the re-baselined value.
+    pub struct Verdict {
+        pub gap_pcm: f64,
+        pub gap_sigma: f64,
+        pub held: bool,
+        pub moving_shift_pcm: f64,
+        pub moving_shift_sigma: f64,
+    }
+
+    /// Re-baselined like-for-like prediction (gh:#1617, 2026-11-17): the
+    /// whole-run switch replayed on `REFERENCE_BUILD`, 8 seeds paired. Fixed
+    /// from that replay; never retuned to a result of this driver.
+    pub const REFERENCE_PCM: f64 = -556.0;
+    /// Seed-to-seed standard error of [`REFERENCE_PCM`] (paired, 8 seeds).
+    pub const REFERENCE_ERR_PCM: f64 = 87.0;
+    /// k_MOVING of the replay's unablated arm (8-seed mean).
+    pub const REFERENCE_K_MOVING: f64 = 1.36625;
+    /// The commit the reference was measured on.
+    pub const REFERENCE_BUILD: &str = "60f6bb261";
+
+    /// Compare `quote +/- qerr` (pcm) with the re-baselined reference, in
+    /// quadrature with the reference's own error; HELD within 3 sigma.
+    /// `k_moving` (+/- `k_moving_sem`) is this run's unablated mean, reported against the
+    /// reference build's so a shifted baseline is visible.
+    pub fn judge(quote: f64, qerr: f64, k_moving: f64, k_moving_sem: f64) -> Verdict {
+        judge_against(
+            REFERENCE_PCM,
+            REFERENCE_ERR_PCM,
+            REFERENCE_K_MOVING,
+            quote,
+            qerr,
+            k_moving,
+            k_moving_sem,
+        )
+    }
+
+    /// The default build's own record (gh:#1636, 2026-11-17): this driver, session
+    /// build, 8 seeds, resonance scattering on. Measured, with its mechanism
+    /// established by ablation (`REFERENCE_PCM` comes back when it is removed);
+    /// not tuned.
+    pub const SESSION_PCM: f64 = -153.0;
+    /// Paired seed-to-seed standard error of [`SESSION_PCM`].
+    pub const SESSION_ERR_PCM: f64 = 43.0;
+    /// k_MOVING of that run.
+    pub const SESSION_K_MOVING: f64 = 1.36307;
+    /// Commit the first measurement was taken on (gh:#1583), reproduced seed for
+    /// seed by the gh:#1636 step-0 determinism check.
+    pub const SESSION_BUILD: &str = "7b5dd858d";
+
+    /// [`judge`] against an explicit reference.
+    pub fn judge_against(
+        ref_pcm: f64,
+        ref_err: f64,
+        ref_k_moving: f64,
+        quote: f64,
+        qerr: f64,
+        k_moving: f64,
+        k_moving_sem: f64,
+    ) -> Verdict {
+        let gap = quote - ref_pcm;
+        let err = (qerr * qerr + ref_err * ref_err).sqrt();
+        let shift = (k_moving - ref_k_moving) * 1.0e5;
+        Verdict {
+            gap_pcm: gap,
+            gap_sigma: gap.abs() / err,
+            held: gap.abs() < 3.0 * err,
+            moving_shift_pcm: shift,
+            moving_shift_sigma: shift / (k_moving_sem * 1.0e5),
+        }
+    }
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// gh:#1636: the default build holds against its own record; the
+        /// resonance-scattering-ablated measurement (-416 +/- 79 pcm) is within
+        /// 2 sigma of the 60f6bb261 record (-556 +/- 87), the default one is not.
+        #[test]
+        fn judge_against_session_and_ablated_records() {
+            let own = judge_against(
+                SESSION_PCM,
+                SESSION_ERR_PCM,
+                SESSION_K_MOVING,
+                SESSION_PCM,
+                43.0,
+                SESSION_K_MOVING,
+                0.0004,
             );
-            println!(
-                "    {REFERENCE_PCM:+.0} pcm ({:.1} sigma). Per the hand-off this is a REAL \
-                 FINDING, not a",
-                (gap / qerr).abs()
-            );
-            println!(
-                "    failure. But it is NOT the hand-off's stated explanation -- that the \
-                 per-nuclide"
-            );
-            println!(
-                "    hook reaches a different set of nuclides than zeroing the temperature did, \
-                 the"
-            );
-            println!(
-                "    S(alpha,beta) moderators in particular. Reading the code refutes that \
-                 mechanism:"
-            );
-            println!(
-                "      - XsSource::Pointwise never passes temp_k to recon.eval_mt, and every \
-                 nuclide"
-            );
-            println!(
-                "        on this case is HIGH tier, so zeroing the temperature moves no cross \
-                 section;"
-            );
-            println!(
-                "      - Nuclide::sample_thermal takes NO temperature argument at all -- the \
-                 S(alpha,beta)"
-            );
-            println!(
-                "        tables are fixed at construction, so the env var cannot reach the \
-                 bound-atom law;"
-            );
-            println!(
-                "      - free_gas_kt(temp) is the ONLY consumer of the run temperature in the \
-                 collision"
-            );
-            println!(
-                "        kernel (until GitHub #313, 2026-09-30, made it the data temperature), and \
-                 with_target_at_rest makes that same function return 0.0."
-            );
-            println!(
-                "    The two routes are therefore mechanically identical on this case, and the \
-                 gap is"
-            );
-            println!(
-                "    CRATE DRIFT: the reference predates gh:#193's F-19 inelastic fix and \
-                 op-tm9f /"
-            );
-            println!(
-                "    op-og56. Check the unablated arm against the recorded k_eff 1.40546 and \
-                 against"
-            );
-            println!(
-                "    OpenMC's p 0.4842 / eps 1.5043 before reading the difference as a hook \
-                 defect."
-            );
-            println!(
-                "    Note also that the {REFERENCE_PCM:+.0} pcm reference carries a ONE-SEED \
-                 within-run"
-            );
-            println!("    error bar (±323 pcm), not an ensemble one; part of any gap may be that.");
+            assert!(own.held && own.gap_sigma < 1e-9);
+            let ablated = judge(-416.0, 79.0, 1.36570, 0.0006);
+            assert!(ablated.held && ablated.gap_sigma < 2.0, "{}", ablated.gap_sigma);
+            let default_vs_old = judge(SESSION_PCM, SESSION_ERR_PCM, SESSION_K_MOVING, 0.0004);
+            assert!(default_vs_old.gap_sigma > 2.0);
+        }
+
+        /// The verdict logic is pinned on three cases: the reference itself
+        /// holds; the stale -2242 does not; and the 2026-11-17 first
+        /// measurement (-153 +/- 43 pcm, k_MOVING 1.36307 +/- 0.00041) fails at
+        /// about 4 sigma with the baseline visibly shifted by about -318 pcm.
+        #[test]
+        fn judge_reference_holds_stale_and_shifted_do_not() {
+            let v = judge(REFERENCE_PCM, 87.0, REFERENCE_K_MOVING, 0.0004);
+            assert!(v.held && v.gap_sigma < 1e-9);
+            let stale = judge(-2242.0, 87.0, REFERENCE_K_MOVING, 0.0004);
+            assert!(!stale.held && stale.gap_sigma > 10.0);
+            let today = judge(-153.0, 43.0, 1.36307, 0.00041);
+            assert!(!today.held);
+            assert!((today.gap_sigma - 4.15).abs() < 0.05, "{}", today.gap_sigma);
+            assert!((today.moving_shift_pcm + 318.0).abs() < 1.0);
         }
     }
 }

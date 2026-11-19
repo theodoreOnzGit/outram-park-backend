@@ -35,6 +35,9 @@
 //! compared and are not ported. `dump mesh/stl`'s `ghost`/`all` selectors
 //! (parallel ghost facets) and tet-mesh regions have no serial counterpart.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mesh_wall::MeshWall;
 
 /// One facet as `dump mesh/stl` writes it.

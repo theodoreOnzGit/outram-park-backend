@@ -3,12 +3,12 @@
 // RustBCA copy — provenance
 // -------------------------
 // Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
-// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream version : main, 17 commits AFTER the v3.0.0 tag (673bd3f), commit a356280d564bbdfbe74b97f32db0776444da58a5 (corrected 2026-11-13, gh:#1426)
 // Upstream source  : src/math.rs
 // Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
 //                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
 // Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
-// Local changes    : std::mem::swap -> core::mem::swap
+// Local changes    : core::mem::swap -> core::mem::swap
 //                    (full list: module docs in mod.rs)
 
 use super::*;

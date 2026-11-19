@@ -217,5 +217,6 @@ fn nonsymm_eigenvalues_agree_with_stock_gsl() {
         raw.summary("nonsymm eigenvalues vs stock GSL 2.8, in order (not gated)")
     );
     eprintln!("nonsymm vs stock GSL: worst matched eigenvalue difference {worst:e} of max|lambda| at {worst_where}");
-    assert!(worst < 1e-8, "{worst:e} at {worst_where}");
+    // ~~1e-8~~ 1e-9 (gh:#1614, 2026-11-17): worst measured 3.7e-15.
+    assert!(worst < 1e-9, "{worst:e} at {worst_where}");
 }

@@ -140,6 +140,14 @@ provenance, the model is isothermal, the volumetric flow is held constant while
 reforming doubles the mole count, and there is no adsorption term. Do not quote
 a number out of it as a property of any real reactor.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1643, 2026-11-18)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way: new code
+uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*` glob; only
+TOML parsing and serialisation (and the serde derives) are `std`, so a deck
+built in code runs without std.
+
 ## Hard rules for this crate
 
 - **Do not infer the details from the name or the role.** Beyond the SMR CSTR

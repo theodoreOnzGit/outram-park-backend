@@ -24,6 +24,9 @@
 //! an ENDF-4/5 thermal tape, a THERMR run with `iinc = 1`, mcnpx formats, ACER
 //! `itype != 1`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::fortran_fmt::{fortran_e, fortran_f};
 use crate::acer::thermal::{ace_incident_grid, ElasticRead, IncidentPendf, InelasticForm, ThermalAceOptions};
 use crate::acer::AceTable;

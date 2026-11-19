@@ -43,9 +43,16 @@
 //! that point, so even a perfect surrogate has an expected LOO RMS of about
 //! `σ·sqrt(1 + p/n)` (`p` coefficients) — **above** `σ`. Read literally, the
 //! gate is expected to fail for a correct surrogate. [`LooGate`] therefore
-//! reports the literal comparison, the noise-floor-aware one
-//! (`χ²` per point against `1 + p/(n − p)`), and both verdicts; which one the
-//! gate means is the maintainer's call, flagged on #499, not decided here.
+//! reports the literal comparison and the noise-floor-aware one (`χ²` per
+//! point against `1 + p/(n − p)`), both verdicts.
+//!
+//! ~~Which one the gate means is the maintainer's call, flagged on #499, not
+//! decided here.~~ **DECIDED 2026-11-17 (maintainer, gh:#499):** the gate's
+//! pass/fail is the **noise-floor-aware** reading ([`LooGate::passes`] =
+//! `floor_aware_pass`). The literal "LOO ≤ per-run σ" reading is still
+//! computed and printed (`literal_pass`) but is **not gating**. Degree 2 stays
+//! the gated degree; degree 3 stays a labelled study. The degree-2 FAIL below
+//! is the recorded finding: lack of fit of a quadratic in height.
 //!
 //! ~~**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**~~
 //! **Result (CORRECTED 2026-10-07, gh:#782; first measurement, on the
@@ -61,6 +68,9 @@
 //! runner: `examples/stats_sweep_loo.rs` (reads the committed CSV, no
 //! transport).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use raffles::surrogate::validation::LeaveOneOut;
 use raffles::surrogate::PolynomialSurrogate;
@@ -93,7 +103,8 @@ pub struct SurrogatePrediction {
     pub nearest_run_distance: f64,
 }
 
-/// The held-out comparison #499 asks for, both readings.
+/// The held-out comparison #499 asks for, both readings; the noise-floor-aware
+/// one gates ([`LooGate::passes`]), the literal one is reported.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LooGate {
     /// Number of full runs.
@@ -104,17 +115,27 @@ pub struct LooGate {
     pub loo_rmse: f64,
     /// RMS of the runs' own `σ`.
     pub rms_sigma: f64,
-    /// Literal gate: `loo_rmse ≤ rms_sigma`.
+    /// Literal reading: `loo_rmse ≤ rms_sigma`. Reported, **not gating**
+    /// (maintainer, 2026-11-17: a perfect surrogate cannot meet it).
     pub literal_pass: bool,
     /// `Σ (r_i/σ_i)² / n`.
     pub chi2_per_point: f64,
     /// Expected `chi2_per_point` for a perfect surrogate, `1 + p/(n − p)`
     /// (the noise floor; infinite when `n ≤ p`).
     pub noise_floor: f64,
-    /// Noise-floor gate: `chi2_per_point / noise_floor` within the two-sided
-    /// 95 % band of `χ²_n / n`. Approximate: LOO residuals are not
-    /// independent, so the band is a guide, not an exact test.
+    /// Noise-floor-aware reading, **the gating one** (maintainer, 2026-11-17):
+    /// `chi2_per_point / noise_floor` within the two-sided 95 % band of
+    /// `χ²_n / n`. Approximate: LOO residuals are not independent, so the band
+    /// is a guide, not an exact test.
     pub floor_aware_pass: bool,
+}
+
+impl LooGate {
+    /// The gate's verdict: the noise-floor-aware reading (`floor_aware_pass`).
+    /// The literal reading is reported beside it but does not decide.
+    pub fn passes(&self) -> bool {
+        self.floor_aware_pass
+    }
 }
 
 /// A fitted sweep surrogate with its leave-one-out validation.
@@ -269,7 +290,8 @@ mod tests {
     /// between runs returns its interval and a nearest-run distance of 5.
     ///
     /// **Result:** NOT YET MEASURED (testing deferred by maintainer,
-    /// 2026-10-03).
+    /// 2026-10-03). The gate's verdict (`passes`) is the floor-aware reading
+    /// since 2026-11-17; `gate_verdict_is_the_floor_aware_reading` pins that.
     #[test]
     fn exact_quadratic_sweep() {
         let s = SweepSurrogate::fit(runs(|h| 0.9 + 2e-3 * h - 4e-6 * h * h), 2, 0.0).unwrap();
@@ -305,5 +327,23 @@ mod tests {
             0.0
         )
         .is_err());
+    }
+
+    /// **Methodology (gh:#499, decision 2026-11-17).** The gate's verdict is
+    /// the noise-floor-aware reading, not the literal one. A quadratic fitted
+    /// to a strongly curved `k(H)` (a sine, 1e-3 sigma) fails; `passes()`
+    /// equals `floor_aware_pass` whatever `literal_pass` says, also on exact
+    /// quadratic data.
+    ///
+    /// **Result:** by construction (`passes` returns `floor_aware_pass`);
+    /// asserted over a failing and a second case.
+    #[test]
+    fn gate_verdict_is_the_floor_aware_reading() {
+        let bad = SweepSurrogate::fit(runs(|h| 1.0 + 0.05 * (h / 20.0).r_sin()), 2, 0.0).unwrap();
+        let g = bad.loo_gate();
+        assert!(!g.passes() && !g.floor_aware_pass, "{g:?}");
+        let exact = SweepSurrogate::fit(runs(|h| 0.9 + 2e-3 * h - 4e-6 * h * h), 2, 0.0).unwrap();
+        let g = exact.loo_gate();
+        assert_eq!(g.passes(), g.floor_aware_pass);
     }
 }

@@ -42,6 +42,9 @@
 //! Bare `f64` in FLEXPART's units: velocities m/s, heights and `L` m, times s,
 //! density kg/m³, density gradient kg/m⁴.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::constants::PI;

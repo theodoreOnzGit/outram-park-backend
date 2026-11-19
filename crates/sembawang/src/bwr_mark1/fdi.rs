@@ -31,6 +31,9 @@
 //!   leaves), oxidation of the falling metal (MELCOR's LPME has none
 //!   either), and a steam explosion (nor does MELCOR).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::*;
 use super::pool_surface::{steam_conductivity, steam_viscosity};
 use petir::mathf::RealMath;

@@ -229,7 +229,10 @@ impl MsreConfig {
     /// coefficients (fuel −4.84, graphite −3.7 × 10⁻⁵ /°F), the radiator air
     /// flow proportional to power, and the 100 °F air inlet of TM-0728
     /// Table 8.2. For the workspace's own Monte Carlo coefficients (MSRE N-3,
-    /// gh:#1129: fuel −3.82 ± 0.44, graphite −3.77 ± 0.65 × 10⁻⁵ /°F), set the
+    /// gh:#1129: ~~fuel −3.82 ± 0.44, graphite −3.77 ± 0.65 × 10⁻⁵ /°F~~
+    /// **CORRECTED 2026-11-14:** on the N-1 model's current default, fuel
+    /// −3.79 ± 0.37, graphite −3.26 ± 0.33 × 10⁻⁵ /°F, the values in
+    /// [`super::session::Coefficients::MonteCarloN3`]), set the
     /// two coefficient fields with [`super::design::per_f`].
     ///
     /// The circulating-fuel kinetics are ORNL-TM-1626's importance-weighted
@@ -671,6 +674,27 @@ impl MsreModel {
     /// step.
     pub fn set_rod_reactivity(&mut self, rho: Ratio) {
         self.rho_rod = rho.get::<ratio>();
+    }
+
+    /// **Change the fuel and graphite temperature coefficients while the
+    /// plant runs** (gh:#1574, "send to plant" from the simulator's k_eff
+    /// tab), as `htgr_sim_v1`'s kinetics rebuild their feedback split in
+    /// place: the plant's state and the reference temperatures the feedback
+    /// is measured from are kept, and the next step uses the new
+    /// coefficients. The conversion is the constructor's
+    /// (`MsreLoopModel::tm1070`: per kelvin / 1.8 = per °F), so a model
+    /// switched to a set steps exactly as one built with it from the same
+    /// state would.
+    ///
+    /// **Not a real-plant operation**: a reactor's coefficients are not set
+    /// by an operator. Physically it is a change of model. Because the
+    /// feedback is `α_f (T_f − T_f,ref) + α_g (T_g − T_g,ref)`, a plant away
+    /// from its reference temperatures sees its reactivity step by
+    /// `Δα · (T − T_ref)` at the switch; at the initial steady state that
+    /// step is zero.
+    pub fn set_temperature_coefficients(&mut self, fuel: TemperatureCoefficient, graphite: TemperatureCoefficient) {
+        self.params.alpha_fuel = fuel.get::<per_kelvin>() / 1.8;
+        self.params.alpha_graphite = graphite.get::<per_kelvin>() / 1.8;
     }
 
     /// Set the radiator air flow as a fraction of the 10 MW design flow

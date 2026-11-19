@@ -17,6 +17,10 @@
 //! > validated against published PFLOTRAN reference cases. See the crate README
 //! > "Bookkeeping status" and `docs/ai-directed-decisions.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+pub mod regression_run;
 pub mod richards;
 
 pub use richards::{

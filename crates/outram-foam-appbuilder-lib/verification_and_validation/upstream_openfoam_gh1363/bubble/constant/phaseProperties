@@ -1,0 +1,22 @@
+FoamFile { version 2.0; format ascii; class dictionary; object phaseProperties; }
+phases (air water);
+air   { diameterModel constant; constantCoeffs { d 3e-3; } residualAlpha 1e-6; }
+water { diameterModel constant; constantCoeffs { d 1e-4; } residualAlpha 1e-6; }
+blending { default { type none; continuousPhase water; } }
+sigma ( (air and water) 0.07 );
+aspectRatio ( (air in water) { type constant; E0 1.0; } (water in air) { type constant; E0 1.0; } );
+drag
+(
+    (air in water) { type SchillerNaumann; residualRe 1e-3; swarmCorrection { type none; } }
+    (water in air) { type SchillerNaumann; residualRe 1e-3; swarmCorrection { type none; } }
+);
+virtualMass ( );
+heatTransfer
+(
+    (air in water) { type RanzMarshall; residualAlpha 1e-4; }
+    (water in air) { type RanzMarshall; residualAlpha 1e-4; }
+);
+lift ( );
+wallLubrication ( );
+turbulentDispersion ( );
+pMin -1e9;

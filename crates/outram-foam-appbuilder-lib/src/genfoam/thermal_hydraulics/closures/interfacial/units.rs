@@ -42,6 +42,9 @@
 //! this bead's lane); flagged in the bead's hand-off report for whoever ports
 //! `ff_drag`/`heat_transfer` next to hoist it if it turns out to be shared.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Length, ReciprocalLength};
 use uom::si::length::meter;
 use uom::si::reciprocal_length::reciprocal_meter;

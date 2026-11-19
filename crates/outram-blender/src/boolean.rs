@@ -68,6 +68,9 @@
 //! > `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control,
 //! > safety-critical, or licensing decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
@@ -338,7 +341,7 @@ fn build_cap(points: &[Vec3], n: Vec3, weld: f64) -> Option<Poly> {
     uniq.sort_by(|a, b| {
         let aa = a.sub(g).dot(w).r_atan2(a.sub(g).dot(u));
         let ab = b.sub(g).dot(w).r_atan2(b.sub(g).dot(u));
-        aa.partial_cmp(&ab).unwrap_or(std::cmp::Ordering::Equal)
+        aa.partial_cmp(&ab).unwrap_or(core::cmp::Ordering::Equal)
     });
 
     // Ensure the winding gives an outward normal aligned with n.
@@ -661,7 +664,7 @@ mod tests {
     /// the axis-aligned/translated cases above and note it here.
     #[test]
     fn intersect_rotated_and_axis_cube_is_octagonal_prism() {
-        let angle = std::f64::consts::FRAC_PI_4; // 45 degrees
+        let angle = core::f64::consts::FRAC_PI_4; // 45 degrees
         let (s, c) = (angle.r_sin(), angle.r_cos());
         let a = primitives::cube(2.0);
         let b = map_positions(&primitives::cube(2.0), |p| {

@@ -10,6 +10,19 @@ pebble/packed-bed physics. Ports LIGGGHTS/LAMMPS-granular.
 > `[workspace.dependencies]` — do not pin versions in this crate's
 > `Cargo.toml`.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1602, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (copy it from any module).
+- Maps come from `crate::hash` (`hashbrown` without std, the workspace rule).
+- A `rayon` import takes `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`,
+  with the `wasm_par` stand-in on `any(target_arch = "wasm32", not(feature = "std"))`.
+- GPU code is `#[cfg(all(feature = "std", not(target_os = "android")))]`.
+- Files and printing are `#[cfg(feature = "std")]`.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -333,8 +346,8 @@ are different claims and this entry keeps them apart.
 
 Modules: `bonded`, `boundary`, `capillary` (liquid-bridge cohesion, gh:#1411), `compute`, `contact`, `coupling`, `gnn_bridge`
 (feature `gnn`), `gpu` (non-Android; ~~non-wasm~~ wasm since 2026-11-05), `granular`, `granular_system`,
-`htr10_fill`, `integrator`, `mesh_wall`, `particle`, `rdf`, `rolling`,
-`simulation`, `thermal`, `thermal_radiation`, `timestep`.
+`htr10_fill`, `integrator`, `mesh_wall`, `multisphere` (rigid clumps, gh:#1415), `particle`, `rdf`, `rolling`,
+`simulation`, `superquadric` (superquadric particles, gh:#1415), `thermal`, `thermal_radiation`, `timestep`.
 
 **`htr10_fill` (2026-10-05, gh:#561)** pours `N` pebbles into the HTR-10 vessel
 from empty and settles them in chunks a UI drives (`Htr10Fill::advance`); the

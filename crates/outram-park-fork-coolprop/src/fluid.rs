@@ -8,6 +8,9 @@
 //! `NHeptane`, `R1234ze(E)` → `R1234zeE`); [`Fluid::name`] returns the
 //! original CoolProp name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::ancillaries::FluidAncillaries;
 use crate::eos::FluidEos;
 use crate::fluids;

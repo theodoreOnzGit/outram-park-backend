@@ -51,6 +51,9 @@
 //! reactor operation, licensing or any safety-critical use. The V&V record is
 //! `verification_and_validation/htr10_th_closures_vs_tecdoc1694.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod bed_conductivity;
 pub mod helium;
 pub mod kta;

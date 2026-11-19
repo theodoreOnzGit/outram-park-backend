@@ -7,6 +7,9 @@
 //! the ASSEMBLED geometry (`Geometry::locate`, `Cell::contains`), not the bed
 //! description it was built from.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -147,6 +150,7 @@ fn a_seker_bed_rebuilt_from_its_centres_is_the_same_bed() {
             .map(|q| q.material);
         bad += usize::from(ma != mb);
     }
+    #[cfg(feature = "std")]
     println!(
         "Şeker N=2 rebuilt: {} balls listed, {} built, core balls {:?}, {} mismatched materials in {n} points",
         centres.len(),
@@ -259,9 +263,10 @@ fn an_overlapping_pair_is_split_by_its_bisector() {
         assert_eq!(hits.len(), 1, "point {p:?} is in {} cells", hits.len());
         around += 1;
     }
-    let v_ball = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
+    let v_ball = 4.0 / 3.0 * core::f64::consts::PI * r.r_powi(3);
     let lens: f64 = [5.95, 5.90, 5.90].iter().map(|&d| lens_volume(r, d)).sum();
     let want = lens / (v_ball * eb.centres.len() as f64);
+    #[cfg(feature = "std")]
     println!(
         "{checked} lens points, {around} points round the balls; max overlap {:.4} cm, \
          lens fraction {:.3e} (analytic {want:.3e}); {} filler balls",
@@ -282,7 +287,7 @@ fn an_overlapping_pair_is_split_by_its_bisector() {
 fn the_lens_volume_has_the_right_limits() {
     let r = 3.0;
     assert!(lens_volume(r, 2.0 * r).abs() < 1e-12);
-    let v = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
+    let v = 4.0 / 3.0 * core::f64::consts::PI * r.r_powi(3);
     assert!((lens_volume(r, 0.0) - v).abs() < 1e-9 * v);
 }
 
@@ -395,6 +400,7 @@ fn a_liggghts_bed_builds_with_one_cell_per_point() {
             Some(path) => ambiguous += usize::from(check_cell_overlap(g, &path)),
         }
     }
+    #[cfg(feature = "std")]
     println!(
         "DEM bed: {} balls, {} pairs, max overlap {:.5} cm, lens {:.3e}; {n} points, {lost} lost, {ambiguous} ambiguous",
         eb.centres.len(),
@@ -524,10 +530,12 @@ fn the_dem_bed_cut_to_the_lattice_ball_count_is_the_beds_view_cut() {
             ExplicitBallSource::Dem(_) => {}
         }
     }
+    #[cfg(feature = "std")]
     println!(
         "lattice N = 12: {n_core} core balls, bed {:.3} cm, conus {l_cone}, tube {l_tube}",
         2.0 * lattice.bed_half_height
     );
+    #[cfg(feature = "std")]
     println!(
         "DEM cut: {} core balls (fuel {f} of {e}), bed {:.3} cm (p99 surface {:.3} cm), \
          conus {d_cone}, tube {d_tube_dem} DEM + {d_filler} filler (gap {:.3} cm), \

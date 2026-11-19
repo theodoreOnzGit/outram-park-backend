@@ -3,7 +3,7 @@
 // RustBCA copy — provenance
 // -------------------------
 // Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
-// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream version : main, 17 commits AFTER the v3.0.0 tag (673bd3f), commit a356280d564bbdfbe74b97f32db0776444da58a5 (corrected 2026-11-13, gh:#1426)
 // Upstream source  : src/sphere.rs
 // Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
 //                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
@@ -13,7 +13,9 @@
 
 use super::*;
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct InputSphere {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
@@ -42,7 +44,9 @@ impl InputFile for InputSphere {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct SphereInput {
     pub length_unit: String,
     pub radius: f64,

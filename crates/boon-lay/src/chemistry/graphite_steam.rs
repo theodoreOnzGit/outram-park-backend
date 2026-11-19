@@ -33,6 +33,9 @@
 //! H2O(g) -241.83 kJ/mol (NIST Chemistry WebBook, SRD 69; public data). Its
 //! temperature dependence (a few kJ/mol up to 1300 K) is not carried.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Pressure, ThermodynamicTemperature};
 use uom::si::frequency::hertz;

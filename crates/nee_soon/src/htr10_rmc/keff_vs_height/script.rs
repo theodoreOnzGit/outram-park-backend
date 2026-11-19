@@ -37,8 +37,11 @@
 //! ±500/±1000 pcm band edges) are dashed. Every series names its source in
 //! the legend, and the footer carries the key.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::fmt::Write as _;
+use core::fmt::Write as _;
 
 use super::super::{MCNP_TABLE3_KEFF_VS_HEIGHT, MCNP_TABLE4_KEFF_VS_HEIGHT, RMC_KEFF_VS_HEIGHT};
 use super::{HeightPoint, SweepStatistics, RINGS, TEMPERATURE_K};

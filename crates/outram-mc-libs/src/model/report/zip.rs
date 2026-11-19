@@ -14,6 +14,9 @@
 //! diagnostics report does by orders of magnitude (checked; an `Err` past
 //! it).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_blender::csg::plot::image::crc32;
 
 /// Why the archive could not be written.

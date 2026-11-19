@@ -30,6 +30,9 @@
 //!
 //! A caller wanting fuel temperatures wants [`crate::fuelrodheat_1dcylnd`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matlab::SparseMatrix;
 use crate::types::FuelGeometry;
 

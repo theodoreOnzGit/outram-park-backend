@@ -22,6 +22,9 @@
 //! SISO continuous-time transfer functions as polynomial coefficient
 //! vectors — the minimal `tf` surface the `c2d`/`d2c` port needs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{f64::*, ratio::ratio, time::second};
 
 use super::polynomial;

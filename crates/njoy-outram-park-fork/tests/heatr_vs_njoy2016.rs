@@ -53,6 +53,9 @@
 //! Both facts are asserted below. Above ~1 MeV the H5 channels diverge for
 //! reasons this comparison cannot separate, so they are printed, not asserted.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;

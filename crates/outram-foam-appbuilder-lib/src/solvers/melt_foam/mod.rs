@@ -135,6 +135,9 @@
 //! the latent-heat source by ρ (a factor of ~6000 for gallium) and freeze the
 //! melt front in place.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
@@ -142,7 +145,7 @@ use crate::io::fv_solution::FvSolution;
 use crate::solvers::bc_util::{capture_bcs, correct_bcs, correct_bcs_vec};
 use crate::solvers::pimple_foam::PressureSolver;
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Incompressible transient buoyant PIMPLE solver with phase change.
 ///
@@ -276,9 +279,12 @@ impl MeltFoam {
     ///
     /// # Parameters and units
     ///
-    /// - `solidus`, `liquidus` — \[K\]. `liquidus` must exceed `solidus`; a pure
-    ///   metal needs an artificial mushy interval of order 0.1–1 K, since a true
-    ///   step function makes the liquid fraction non-differentiable.
+    /// - `solidus`, `liquidus` — \[K\]. ~~`liquidus` must exceed `solidus`; a pure
+    ///   metal needs an artificial mushy interval of order 0.1–1 K~~
+    ///   **CORRECTED 2026-11-12** (gh:#1363 row 6): nothing checks this, and
+    ///   `liquidus == solidus` reproduces ESI v2506's single-`Tmelt` option to
+    ///   3.4e-11 K over 200 steps (`melt_foam_vs_openfoam.md`). A mushy
+    ///   interval is still the usual choice for an alloy.
     /// - `latent_heat` — latent heat of fusion `L` \[J/kg\].
     /// - `specific_heat` — `Cp` \[J/(kg·K)\].
     /// - `density` — the material density ρ \[kg/m³\], used **only** to convert

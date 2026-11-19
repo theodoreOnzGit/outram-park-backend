@@ -10,6 +10,9 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::matlab::SparseMatrix;
 
 /// `newmat = convertsparsekey3d(mat, key, lennew)`.
@@ -98,6 +101,7 @@ pub fn convertsparsekey3d(
             let iz = (ik - 1) % 19 + 1;
             let iy = (ik - iz) % (19 * 17) / 19 + 1;
             let ix = (ik - (iy - 1) * 19 - iz) % (19 * 17 * 17) / 19 / 17 + 1;
+            #[cfg(feature = "std")]
             eprintln!(
                 "convertsparsekey3d: absent key at k={}, i={}, j={}, v={} \
                  (decoded ix={ix}, iy={iy}, iz={iz} — valid only for a 17x17x19 grid)",

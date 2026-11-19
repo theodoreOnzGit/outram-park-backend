@@ -19,6 +19,9 @@
 //! and slowing-down power (4 figures), the resonance-integral tables (6
 //! figures) and the P1 rows (4 figures).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use njoy_outram_park_fork::wimsr::{run_gendf, WimsrInput};

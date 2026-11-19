@@ -14,6 +14,9 @@
 //! "what precision do I need?", which is the question that actually has an
 //! answer.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Which uncertainty measure a trigger watches. `openmc::TriggerMetric`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TriggerMetric {

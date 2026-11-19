@@ -32,8 +32,11 @@
 //! and MATPRO correlations against their source data is separate, unstarted
 //! work.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::primitives::SymmTensor;
 

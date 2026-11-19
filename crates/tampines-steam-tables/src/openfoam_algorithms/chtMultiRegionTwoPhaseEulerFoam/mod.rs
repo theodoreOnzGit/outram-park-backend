@@ -11,6 +11,9 @@
 //! to Rust; kept here as study material (see the module-level note in
 //! `openfoam_algorithms/mod.rs` for why this model was judged too complex
 //! for a first port).
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /*
 /*---------------------------------------------------------------------------*\
   =========                 |

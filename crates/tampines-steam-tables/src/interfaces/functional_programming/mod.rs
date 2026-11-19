@@ -7,6 +7,9 @@
 ///
 /// water/steam is assumed at thermodynamic equilibrium,
 /// ie not metastable
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod pt_flash_eqm;
 
 /// allows for pressure enthalpy flash

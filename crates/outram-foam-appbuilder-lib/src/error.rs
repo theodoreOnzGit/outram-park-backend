@@ -34,7 +34,10 @@
 //! returning an error variant. `AppBuilderError` reports genuine runtime
 //! failures, not missing features.
 
-use std::path::PathBuf;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::path::PathBuf;
 use thiserror::Error;
 
 /// Errors returned by this crate's case I/O and solver-loop entry points.
@@ -46,6 +49,9 @@ use thiserror::Error;
 pub enum AppBuilderError {
     /// An OS-level I/O failure while reading a case file; `path` is the file
     /// that could not be read and `source` is the underlying [`std::io::Error`].
+    ///
+    /// `std` only (gh:#1633): without it there are no files to read.
+    #[cfg(feature = "std")]
     #[error("I/O error reading {path}: {source}")]
     Io {
         path: PathBuf,

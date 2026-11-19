@@ -28,6 +28,9 @@
 //! - `twt`, `tbeta`, `weight` — dimensionless mode weights (sum to 1).
 //! - `c` — dimensionless diffusion constant (0 => free gas).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::leapr::vintage::PhysicalConstants;
 
 /// Coherent-elastic (Bragg) lattice option (card 5 `iel`), selecting which

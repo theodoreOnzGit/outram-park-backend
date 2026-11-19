@@ -116,6 +116,10 @@
 //! [`select_backend`]: crate::compute::select_backend
 //! [`gpu_adapter_present`]: crate::compute::gpu_adapter_present
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::sync::OnceLock;
 
 /// Which execution backend a numerical kernel should use.
@@ -378,11 +382,16 @@ impl ThreadCount {
     /// ```
     #[must_use]
     pub fn resolve(self) -> usize {
+        // Without `std` (gh:#1586) there is no operating system to ask, and
+        // this crate starts no threads: one core.
+        #[cfg(feature = "std")]
         let cores = || {
             std::thread::available_parallelism()
-                .map(std::num::NonZeroUsize::get)
+                .map(core::num::NonZeroUsize::get)
                 .unwrap_or(1)
         };
+        #[cfg(not(feature = "std"))]
+        let cores = || 1_usize;
         match self {
             Self::Auto => cores(),
             Self::Fixed(n) => n.max(1),
@@ -399,6 +408,7 @@ impl ThreadCount {
 
 /// Cached answer to "is there a usable GPU adapter on this machine?", so the
 /// probe runs at most once per process.
+#[cfg(feature = "std")]
 static GPU_PRESENT: OnceLock<bool> = OnceLock::new();
 
 /// Whether a usable GPU compute adapter exists, probed once and cached.
@@ -416,12 +426,16 @@ static GPU_PRESENT: OnceLock<bool> = OnceLock::new();
 /// `true` only if a GPU kernel could actually be dispatched.
 #[must_use]
 pub fn gpu_adapter_present() -> bool {
-    *GPU_PRESENT.get_or_init(probe_gpu_adapter)
+    // `gpu` implies `std`; a `no_std` build has no adapter to probe (gh:#1586).
+    #[cfg(feature = "std")]
+    return *GPU_PRESENT.get_or_init(probe_gpu_adapter);
+    #[cfg(not(feature = "std"))]
+    false
 }
 
 /// The one-shot probe behind [`gpu_adapter_present`] — Android and
 /// feature-disabled builds.
-#[cfg(any(not(feature = "gpu"), target_os = "android"))]
+#[cfg(all(feature = "std", any(not(feature = "gpu"), target_os = "android")))]
 fn probe_gpu_adapter() -> bool {
     false
 }
@@ -445,10 +459,11 @@ fn probe_gpu_adapter() -> bool {
 /// because it exists only to make one `wgpu` call blocking.
 #[cfg(all(feature = "gpu", not(target_os = "android")))]
 mod pollster_lite {
-    use std::future::Future;
-    use std::pin::Pin;
-    use std::sync::Arc;
-    use std::task::{Context, Poll, Wake, Waker};
+    use core::future::Future;
+    use core::pin::Pin;
+    use alloc::sync::Arc;
+    use alloc::task::Wake;
+    use core::task::{Context, Poll, Waker};
 
     struct ThreadWaker(std::thread::Thread);
 
@@ -461,7 +476,7 @@ mod pollster_lite {
     /// Drive `future` to completion on the calling thread, parking between
     /// polls.
     pub fn block_on<F: Future>(future: F) -> F::Output {
-        let mut future = std::pin::pin!(future);
+        let mut future = core::pin::pin!(future);
         let waker = Waker::from(Arc::new(ThreadWaker(std::thread::current())));
         let mut context = Context::from_waker(&waker);
         loop {

@@ -159,7 +159,10 @@
 //!   **159**, 98–103 (1967); W. C. Swope et al., *J. Chem. Phys.* **76**, 637
 //!   (1982) — the velocity-Verlet integrator used per particle.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::boundary::{Boundary, Contact};
 use crate::contact::ContactModel;

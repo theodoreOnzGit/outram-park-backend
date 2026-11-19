@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;

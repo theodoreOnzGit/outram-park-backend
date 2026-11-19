@@ -60,9 +60,13 @@ validation, no human V&V**:
 | Reactive transport | `reactive_transport` | **real (verif-only)** — SNIA transport↔geochemistry coupling |
 | GENERAL multiphase | `multiphase` | **real (verif-only)** — two-phase air–water on the block solver (2 unknowns/cell) |
 
-**Test suite:** 105 unit + 5 integration + 1 regression + 3 verification (114
+**Test suite:** ~~105 unit + 5 integration + 1 regression + 3 verification (114
 total; MMS 2nd-order, hydrostatic gravity, closed-form advection–diffusion, TVD
-error reduction), all green in release mode; both crates cross-compile to
+error reduction), all green in release mode;~~ **CORRECTED 2026-11-13** (counted
+from `cargo test --release -p outram-park-fork-pflotran --lib --tests`): 287
+unit + 5 integration + 1 regression (+1 ignored) + 3 verification + 11 upstream
+differential (gh:#1422) + 1 MPI sensitivity (gh:#1435) = 308 passed, all green
+in release mode; both crates cross-compile to
 `aarch64-linux-android`. The `outram-foam-basic-lib` `krylov`, `limiters` (OpenFOAM
 TVD, translated from upstream), and `solver::block` machinery back all of this.
 
@@ -138,6 +142,23 @@ AI-assessed from the code; bead closure is the maintainer's decision.
 - **op-v6s.8** — RICHARDS flow mode — first end-to-end solve — *implemented (verification-only)*
 - **op-v6s.9** — V&V strategy + first RICHARDS benchmark (vs PFLOTRAN gold-files) — *partial: MMS + analytical verification done; validation vs published gold-files still open*
 - **op-v6s.10 .. op-v6s.14** — TH, solute transport, reactive geochemistry, GENERAL multiphase, parallelism — ~~*not started*~~ **CORRECTED 2026-10-18:** TH, solute transport, reactive geochemistry and GENERAL multiphase are implemented as verification-only modules (see "What exists today"; module and `#[test]` counts checked, tests not re-run); only parallelism is deferred
+
+## `no_std` + `alloc` (gh:#1603)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-park-fork-pflotran --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). The flow modes, transport, geochemistry,
+EOS, solvers and deck parsing build without it. What `std` adds:
+
+- `rayon`. Without it the per-cell loops run serially through `crate::par`;
+  each is an ordered `map`/`collect` or writes only its own element, so the
+  values are the same.
+- `decomposition`, the MPI-style domain decomposition: `outram-park-mpi` runs
+  its ranks as OS threads.
+- `hdf5_io` (files) and the `gpu` module (`wgpu`).
+
+With `std` on (the default) nothing changes.
 
 ## Design rules (workspace mandate)
 

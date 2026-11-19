@@ -73,6 +73,9 @@
 //! constants, which makes them a genuine external reference rather than a
 //! self-consistency check.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 

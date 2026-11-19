@@ -62,6 +62,9 @@
 //! Mass-based SI: `T` \[K\], `p` \[Pa\], density \[kg/m³\], `c` \[J/(kg·K)\],
 //! `λ` \[W/(m·K)\], `μ` \[Pa·s\].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 mod fluid_enum;
 pub mod fluids;

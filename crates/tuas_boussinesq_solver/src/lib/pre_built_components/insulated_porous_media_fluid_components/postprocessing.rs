@@ -2,6 +2,9 @@
 //!
 //! Extracts the nodal temperature profiles (K) of the pipe shell, shell fluid,
 //! insulation and porous-media interior arrays, plus the total node count.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 
 use super::InsulatedPorousMediaFluidComponent;

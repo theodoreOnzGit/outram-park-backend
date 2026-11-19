@@ -89,10 +89,13 @@
 //! assert_eq!(lib.n_groups(), 1);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::SurfaceToken;
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{stream, Direction, Position};
-use crate::physics::fission::sample_num_neutrons;
+use crate::physics::fission::{comb_resample, sample_num_neutrons};
 use crate::physics::keff::KeffResult;
 use crate::physics::transport_csg::SourceBox;
 use crate::physics::scatter::rotate_direction;
@@ -875,19 +878,18 @@ fn transport_history(
     production
 }
 
-/// Resample `n` sites uniformly with replacement — crude fixed-size population
-/// control for the fission bank each generation. ~~(mirrors the CE drivers)~~
-/// **CORRECTED 2026-10-03:** the CE drivers (`keff`, `transport_csg`,
-/// `keff_delta`) use [`super::fission::comb_resample`] since GitHub #460; this
-/// multigroup path still draws with replacement.
+/// Resample the fission bank to `n` sites by the comb ([`comb_resample`]),
+/// the fixed-size population control the CE drivers use.
+///
+/// ~~Resample `n` sites uniformly with replacement -- crude fixed-size
+/// population control; this multigroup path still draws with replacement.~~
+/// **CORRECTED (GitHub #259 diagnosis, README `white_periodic_vs_openmc_259`):**
+/// the with-replacement draw was the leftover from GitHub #460 that the CE
+/// drivers had already dropped. It is unbiased per generation but its
+/// multinomial site multiplicities enlarge the finite-N population-control
+/// bias (negative, O(1/N)); OpenMC keeps each site once.
 fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
-    let len = bank.len();
-    (0..n)
-        .map(|_| {
-            let idx = ((prn(seed) * len as f64) as usize).min(len - 1);
-            bank[idx]
-        })
-        .collect()
+    comb_resample(bank, n, seed)
 }
 
 /// Mean and standard error of the mean (1σ) of the active-generation
@@ -1066,6 +1068,7 @@ mod tests {
         };
         let result = run_keff_mg(&geom, &lib, src, &settings);
 
+        #[cfg(feature = "std")]
         eprintln!(
             "[mg k∞] k = {:.5} ± {:.5}  (analytic {:.5}, {}p × [{}+{}] gen)",
             result.k_mean,
@@ -1213,6 +1216,7 @@ mod tests {
             src,
             &settings,
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "[mg mult] on k = {:.5} ± {:.5} (analytic {K_TRUE:.5}); ablated k = {:.5} ± {:.5} (analytic {K_ABLATED:.5})",
             on.k_mean, on.k_std, off.k_mean, off.k_std

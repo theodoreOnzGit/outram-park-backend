@@ -4,6 +4,9 @@
 //! CoolProp `Air` Helmholtz EOS, as hardcoded `const` data.
 #![allow(clippy::approx_constant)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::transport::{
     FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ConductivityModel,
@@ -139,6 +142,7 @@ pub static AIR_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.1e-10,
             qd: 3225806451.6,
             t_ref: 265.262,
+            p_reducing: 3785020.0,
         }),
     }),
 };

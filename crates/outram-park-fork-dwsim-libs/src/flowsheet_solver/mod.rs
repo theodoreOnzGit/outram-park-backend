@@ -169,6 +169,9 @@
 //!   so [`ordering`]'s dynamic-mode addendum applies to every disconnected unit
 //!   operation rather than only those declaring support.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod adjust;
 pub mod errors;
 pub mod evaluator;
@@ -220,7 +223,7 @@ mod tests {
 
     use super::*;
     use crate::flowsheet::{CalculationArgs, Flowsheet, ObjectId, ObjectType, PhaseIndex};
-    use std::collections::HashMap;
+    use crate::hash::HashMap;
 
     fn add_water(fs: &mut Flowsheet, id: &ObjectId) {
         let ms = fs.object_mut(id).unwrap().data.as_material_mut().unwrap();

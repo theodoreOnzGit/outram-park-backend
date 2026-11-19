@@ -19,10 +19,13 @@
 
 //! **Slice plots** — OpenMC's `<plot type="slice">`, rasterised in Rust.
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par::prelude::*;
 
 use super::colour::{ColourScheme, PlotColourBy, Rgb, BLACK, WHITE};

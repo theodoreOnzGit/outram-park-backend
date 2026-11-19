@@ -14,11 +14,14 @@
 //! Every number quoted in a doc comment below was printed by the test that
 //! quotes it and transcribed. None is predicted.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::*;
 use crate::rheology::aster::integration::{brent, SolverControl};
 use approx::assert_relative_eq;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// A representative reactor-pressure-vessel ferritic steel: `E = 200 GPa`,
 /// `nu = 0.3`. Chosen because `nu = 0.3` makes the plane-strain/plane-stress

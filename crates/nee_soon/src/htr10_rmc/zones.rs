@@ -26,6 +26,9 @@
 //!
 //! Orchestration only: no physics is implemented here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_mc_libs::geometry::cell::CellFill;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -425,7 +428,7 @@ pub fn set_cell_temperatures(geometry: &mut Geometry, mats: &[Material]) {
     for c in &mut geometry.cells {
         if let CellFill::Material(m) = c.fill {
             if let Some(mm) = mats.get(m) {
-                c.temperature = mm.temperature;
+                c.temperature = Some(mm.temperature);
             }
         }
     }
@@ -489,7 +492,7 @@ mod tests {
         // The drawing's palette: one entry per slot, one colour per zone.
         let pal = zone_palette();
         assert_eq!(pal.len(), mat::ZONED_COUNT);
-        let names: std::collections::BTreeSet<&str> = pal.iter().map(|(_, n)| *n).collect();
+        let names: alloc::collections::BTreeSet<&str> = pal.iter().map(|(_, n)| *n).collect();
         assert_eq!(names.len(), 8);
     }
 

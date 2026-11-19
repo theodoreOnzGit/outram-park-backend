@@ -22,6 +22,9 @@
 //!   `LT = ntempr-1` layout, the two `T_eff` TAB1s of the mixed moderator
 //!   and the incoherent-elastic TAB1 at once.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::path::Path;
 
 use njoy_outram_park_fork::endf::tape::Tape;

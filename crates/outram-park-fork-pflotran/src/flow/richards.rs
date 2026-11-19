@@ -32,13 +32,19 @@
 //! > (esp. D6, D8) and the crate README "Bookkeeping status". No validation
 //! > against published PFLOTRAN results has been done.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 use crate::grid::{BoundaryLocation, CartesianGrid};
 use crate::io::{BoundaryKindSpec, BoundaryLocationSpec, CurveModel, InputDeck};
 use crate::properties::{BrooksCorey, CharacteristicCurves, LiquidWaterEos, VanGenuchten};
 use crate::solver::{NewtonConfig, NewtonSolver, NonlinearSystem};
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
+#[cfg(feature = "std")]
 use rayon::prelude::*;
+#[cfg(not(feature = "std"))]
+use crate::par::prelude::*;
 
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{Length, Pressure, Ratio};

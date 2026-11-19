@@ -53,6 +53,8 @@
 //! with the separation from the old scheme. U-235 MT=91 at 5 MeV:
 //! OpenMC `<mu_cm>` 0.02017, old scheme 0.01561.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::scatter::{sample_continuum_branch, ContinuumAngularMode};

@@ -8,6 +8,9 @@
 // eframe = "0.27"
 // egui = "0.27"
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use eframe::{
     egui,
     egui::{Color32, Pos2, Stroke, Widget},

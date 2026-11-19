@@ -15,6 +15,9 @@
 //! `temperature_from_specific_enthalpy` holds the inverse (root-finding /
 //! spline) maps.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 
 use crate::tuas_lib_error::TuasLibError;

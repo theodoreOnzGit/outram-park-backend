@@ -85,6 +85,14 @@
 //! Fixed by `Geometry::cross_surface_in_frame`; diagnosis in
 //! `tests/openmc_notebooks/triso.rs::triso_nested_lattice_surface_vs_delta_keff`.
 //!
+//! ## RE-MEASURED 2026-11-19 (gh:#550): S(a,b) emission tables on THERMR's grid
+//!
+//! `ThermalScattering::from_tape` now builds on the `calcem` grid. Case 1,
+//! 32 seeds: **+148 pcm, sem +/-21, sd 117** against +172 +/- 22 (32 seeds,
+//! 2026-11-12): move -24 +/- 30 pcm (z -0.8); predicted +40, sign missed.
+//! Xeon 2.10 GHz, 4 shared logical cores (2 threads), transport 6405 s.
+//! Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
 //! ## The spread across cases is what identified it, and this file already had that argument
 //!
 //! The CORRECTION below refuted a U-238 resonance-escape explanation on exactly
@@ -603,8 +611,15 @@ fn main() {
         eprintln!("Nuclide route: ENDF -> ACER -> .ace -> from_ace (--via-ace)");
         d
     });
-    let (nuclides, slots, omitted) = load_nuclides(&spec, res_opts, ace_scratch.clone());
+    let (free_nuclides, slots, omitted, sab) =
+        load_nuclides(&spec, res_opts, ace_scratch.clone());
     let (materials, clad_idx) = build_materials(&spec, &slots, &omitted, false);
+    // Per-material H(H2O), as the model's <sab> cards say (gh:#462, #1581).
+    let (materials, nuclides) =
+        assign_spec_sab(&spec, &materials, &free_nuclides, &slots, sab.as_ref());
+    if sab.is_some() {
+        eprintln!("    H1 carries c_H_in_H2O in the materials whose <sab> card names it");
+    }
     report_omissions(&spec, &omitted);
     // `check_geometry`'s hand-written predicate resolves materials by the model's
     // own ids through `PIN_SHELLS`, but it does assume the file lists them in id
@@ -757,6 +772,7 @@ fn main() {
     if clad_bound {
         eprintln!("\n  bounding the clad omission: omitted density re-added as Mn-55 …");
         let (bounded, _) = build_materials(&spec, &slots, &omitted, true);
+        let (bounded, _) = assign_spec_sab(&spec, &bounded, &free_nuclides, &slots, sab.as_ref());
         let geom2 = build_geometry(&bounded, true);
         let src2 = SourceBox {
             lower: Position::new(-R_CORE, -R_CORE, Z_LO),
@@ -879,7 +895,12 @@ fn load_nuclides(
     spec: &[MaterialSpec],
     opts: ResonanceOptions,
     ace_scratch: Option<std::path::PathBuf>,
-) -> (Vec<Nuclide>, BTreeMap<String, usize>, BTreeMap<String, f64>) {
+) -> (
+    Vec<Nuclide>,
+    BTreeMap<String, usize>,
+    BTreeMap<String, f64>,
+    Option<ThermalScattering>,
+) {
     let mut wanted: Vec<&str> = Vec::new();
     let mut omitted: BTreeMap<String, f64> = BTreeMap::new();
     for m in spec {
@@ -911,7 +932,6 @@ fn load_nuclides(
         .expect("H(H2O) S(a,b)")
     });
 
-    let mut sab = sab;
     let mut nuclides = Vec::new();
     let mut slots = BTreeMap::new();
     for name in wanted {
@@ -949,17 +969,13 @@ fn load_nuclides(
                 }
             }
         }
-        if name == "H1" {
-            if let Some(s) = sab.take() {
-                n = n.with_thermal_scattering(s);
-                eprintln!("    H1 carries c_H_in_H2O");
-            }
-        }
+        // H-1 stays free here; `assign_spec_sab` attaches c_H_in_H2O to the
+        // materials whose `<sab>` card names it (gh:#462, #1581).
         slots.insert(name.to_string(), nuclides.len());
         nuclides.push(n);
     }
     eprintln!("Nuclear data ready in {:.1} s.", t0.elapsed().as_secs_f64());
-    (nuclides, slots, omitted)
+    (nuclides, slots, omitted, sab)
 }
 
 /// The ACE temperature in MeV, for the ACE route's ZAID header.

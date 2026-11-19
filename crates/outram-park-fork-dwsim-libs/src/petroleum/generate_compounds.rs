@@ -103,6 +103,9 @@
 //! (matching upstream exactly). The difference is confined to the top of the
 //! grid.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{KinematicViscosity, MolarMass, Ratio, ThermodynamicTemperature};
 use uom::si::kinematic_viscosity::square_meter_per_second;

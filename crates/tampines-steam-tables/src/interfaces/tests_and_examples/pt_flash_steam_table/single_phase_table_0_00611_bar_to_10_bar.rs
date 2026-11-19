@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::dynamic_viscosity::micropascal_second;
 use uom::si::thermal_conductivity::milliwatt_per_meter_kelvin;
 use uom::si::{available_energy::kilojoule_per_kilogram, temperature_interval};

@@ -78,6 +78,21 @@ pub fn build(i: usize) -> Result<DhUniverse, String> {
     DhUniverse::pebble(params, t).map_err(|e| format!("{}: {e}", t.name()))
 }
 
+/// [`build`] with the materials supplied: the live run builds its universe
+/// with the materials whose carbon carries the graphite law per material
+/// (`super::data::DataBuilder::finish`, GitHub #1635 item 3), indexed as
+/// `fhr::materials()` is.
+pub fn build_with(i: usize, materials: Vec<outram_mc_libs::material::material::Material>) -> Result<DhUniverse, String> {
+    let t = *TREATMENTS
+        .get(i)
+        .ok_or_else(|| format!("no treatment {i}"))?;
+    let params = PebbleParams {
+        seed: seed(),
+        ..PebbleParams::fhr_unit_cell().with_materials(materials)
+    };
+    DhUniverse::pebble(params, t).map_err(|e| format!("{}: {e}", t.name()))
+}
+
 /// Rasterise `req` on `u` (worker side): one byte per pixel, row 0 on top, the
 /// material index `material_at` returns, or [`OUTSIDE`] beyond the reflective
 /// sphere. SCLS's in-progress flight is reset once per row
@@ -87,14 +102,15 @@ pub fn raster(u: &DhUniverse, req: &RasterReq) -> Vec<u8> {
     let plot = SlicePlot::new(req.basis.plot(), req.basis.origin(req.centre, req.depth), req.width, req.px);
     let r_out = boundary_radius();
     let mut out = Vec::with_capacity(req.px[0] * req.px[1]);
+    let mut state = u.query_state();
     for y in 0..req.px[1] {
-        (&u).begin_history();
+        (&u).begin_history(&mut state);
         for x in 0..req.px[0] {
             let p = plot.pixel_centre(x, y);
             out.push(if p.norm() > r_out {
                 OUTSIDE
             } else {
-                u.material_at(p).map_or(OUTSIDE, |m| m.min(252) as u8)
+                u.material_at(&mut state, p).map_or(OUTSIDE, |m| m.min(252) as u8)
             });
         }
     }

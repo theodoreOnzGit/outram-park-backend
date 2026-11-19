@@ -28,6 +28,9 @@
 //! code-to-code fixture uses (`sc.temps[r][t][k]`), so a caller moving between
 //! the two does not have to transpose.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{ThermodynamicTemperature, Time};
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;

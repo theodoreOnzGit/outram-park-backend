@@ -59,7 +59,10 @@
 //!   excluded by the porting brief.
 //! - `SaveData` / `LoadData` / `CloneXML` XML serialization.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::flowsheet::connectors::{ConType, ConnectionPoint, ConnectorLayout};
 use crate::flowsheet::streams::{EnergyStreamData, MaterialStreamData};

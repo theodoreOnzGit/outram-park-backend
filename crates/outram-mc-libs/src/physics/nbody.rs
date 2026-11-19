@@ -26,10 +26,13 @@
 //! compiled upstream (bit identity of `E'`, `mu` and the end state). Transport
 //! still reads the tabulated form (see the status note in the crate README).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mathf::RealMath;
 use crate::rng::distributions::{maxwell, uniform};
 use crate::rng::lcg::prn;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// An `n`-body phase-space emission law (`NBodyPhaseSpace`, OpenMC
 /// `secondary_nbody.h`). Isotropic in the centre of mass by definition.

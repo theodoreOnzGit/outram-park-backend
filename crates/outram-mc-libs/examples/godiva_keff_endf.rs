@@ -49,7 +49,7 @@
 //! # V&V — methodology and results
 //!
 //! **Methodology.** Same Godiva model as the LOW run (bare HEU sphere,
-//! r = 8.7407 cm, atom densities below), same power iteration (5000 histories ×
+//! r = 8.7407 cm, atom densities in `vv::godiva`), same power iteration (5000 histories ×
 //! [40 inactive + 120 active]), judged against ICSBEP HEU-MET-FAST-001
 //! (k_eff = 1.0000 ± 0.0010). The only variable changed is the cross-section
 //! source: continuous-energy ENDF/B-VII.1 reconstructed on device (RECONR 0.1%
@@ -129,12 +129,12 @@ fn main() {
 #[cfg(feature = "net-fetch")]
 fn main() {
     use njoy_outram_park_fork::acquire::EndfLibrary;
-    use outram_mc_libs::material::material::{Material, NuclideComponent};
+    use outram_mc_libs::vv::godiva;
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
     use std::time::Instant;
 
-    let temp_k = 293.6; // Godiva material temperature
+    let temp_k = godiva::TEMPERATURE_K; // Godiva material temperature
     let lib = EndfLibrary::EndfBVII1;
 
     // ── Nuclear data: reconstruct the three HEU isotopes from raw ENDF. ───────
@@ -149,15 +149,10 @@ fn main() {
     let mut used_local = false;
 
     // The repo's own ENDF/B-VIII.0 tapes, used when the fetch cannot reach the
-    // IAEA. Same three isotopes, same names `examples/godiva_keff_endf_local.rs`
-    // reads.
-    const LOCAL_TAPES: [(&str, &str); 3] = [
-        ("U234", "n-092_U_234-ENDF8.0.endf"),
-        ("U235", "n-092_U_235-ENDF8.0.endf"),
-        ("U238", "n-092_U_238.endf"),
-    ];
-
-    for (name, local_file) in LOCAL_TAPES {
+    // IAEA: `godiva::NUCLIDES`, the same three isotopes and names
+    // `examples/godiva_keff_endf_local.rs` reads (this example's identical
+    // `LOCAL_TAPES` copy removed 2026-11-18, gh:#1647).
+    for &(name, local_file, _) in &godiva::NUCLIDES {
         let t = Instant::now();
         let fetched = if used_local {
             // Already fell back once; don't re-attempt a network call per isotope.
@@ -227,26 +222,10 @@ fn main() {
         t0.elapsed().as_secs_f64()
     );
 
-    // ── Material: Godiva atom densities [atoms/barn·cm] (HEU-MET-FAST-001). ────
-    let material = Material {
-        id: 1,
-        name: "Godiva HEU".into(),
-        temperature: temp_k,
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: 0,
-                atom_density: 4.9184e-4,
-            }, // U-234
-            NuclideComponent {
-                nuclide_idx: 1,
-                atom_density: 4.4994e-2,
-            }, // U-235
-            NuclideComponent {
-                nuclide_idx: 2,
-                atom_density: 2.4984e-3,
-            }, // U-238
-        ],
-    };
+    // ── Material: Godiva atom densities [atoms/barn·cm] (HEU-MET-FAST-001),
+    //    `vv::godiva` (this example's identical copy removed 2026-11-18,
+    //    gh:#1647). ─────────────────────────────────────────────────────────
+    let material = godiva::material();
 
     // ── Power iteration (same settings as the LOW-tier example). ──────────────
     let settings = KeffSettings {
@@ -257,7 +236,7 @@ fn main() {
         ..KeffSettings::default()
     };
 
-    let radius_cm = 8.7407;
+    let radius_cm = godiva::RADIUS_CM;
     println!("Godiva bare-sphere Keff — HIGH fidelity  (r = {radius_cm} cm)");
     println!(
         "  {} histories/gen, {} inactive + {} active generations\n",

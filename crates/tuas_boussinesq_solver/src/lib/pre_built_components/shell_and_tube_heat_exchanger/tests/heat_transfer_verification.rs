@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this is a basic test for shell and tube heat exchanger
 ///
 /// I'm assuming an adiabatic bc to the outside
@@ -5,9 +8,9 @@
 ///
 #[test]
 pub fn basic_test_shell_and_tube_heat_exchanger() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
-    use std::thread;
+    use crate::thread;
 
     use uom::si::time::second;
     use uom::si::thermodynamic_temperature::kelvin;
@@ -369,6 +372,7 @@ pub fn basic_test_shell_and_tube_heat_exchanger() {
             *temperature_vec_shell_side.first().unwrap()
         };
 
+        #[cfg(feature = "std")]
         dbg!(&(
             tube_inlet_temperature.get::<degree_celsius>(),
             shell_inlet_temperature.get::<degree_celsius>(),
@@ -540,9 +544,9 @@ pub fn basic_test_shell_and_tube_heat_exchanger() {
 /// reaches steady state faster
 #[test]
 pub fn basic_test_shell_and_tube_heat_exchanger_set_two() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
-    use std::thread;
+    use crate::thread;
 
     use uom::si::time::second;
     use uom::si::thermodynamic_temperature::kelvin;
@@ -904,6 +908,7 @@ pub fn basic_test_shell_and_tube_heat_exchanger_set_two() {
             *temperature_vec_shell_side.first().unwrap()
         };
 
+        #[cfg(feature = "std")]
         dbg!(&(
             tube_inlet_temperature.get::<degree_celsius>(),
             shell_inlet_temperature.get::<degree_celsius>(),
@@ -1075,9 +1080,9 @@ pub fn basic_test_shell_and_tube_heat_exchanger_set_two() {
 /// similar to Du
 #[test]
 pub fn basic_test_shell_and_tube_heat_exchanger_set_three() {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
-    use std::thread;
+    use crate::thread;
 
     use uom::si::time::second;
     use uom::si::thermodynamic_temperature::kelvin;
@@ -1461,6 +1466,7 @@ pub fn basic_test_shell_and_tube_heat_exchanger_set_three() {
             tube_side_inlet_cv_temperature
         };
 
+        #[cfg(feature = "std")]
         dbg!(&(
             tube_inlet_temperature.get::<degree_celsius>(),
             tube_side_inlet_cv_temperature.get::<degree_celsius>(),

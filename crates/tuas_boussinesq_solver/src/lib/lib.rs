@@ -69,6 +69,125 @@
 //! Btw, I no affiliation with the Rust Foundation.
 //!
 #![warn(missing_docs)]
+// `no_std` + `alloc` without the default `std` feature (gh:#1601, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports, unused_variables, unused_mut))]
+
+extern crate alloc;
+extern crate approx_nostd as approx;
+extern crate ndarray_nostd as ndarray;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
+/// `std::thread`'s `spawn`, `JoinHandle` and `sleep` in a `std` build,
+/// unchanged. Without `std` (gh:#1601) there are no threads: `spawn` runs
+/// its closure at once and `join` hands back the result. Every spawned
+/// closure in this crate works on its own clone and is joined before its
+/// result is used, so the numbers, and the order they are combined in, are
+/// the same. `sleep` returns at once.
+pub mod thread {
+    #[cfg(any(feature = "std", test))]
+    pub use std::thread::{sleep, spawn, Builder, JoinHandle};
+
+    /// A finished "thread": the closure has already run.
+    #[cfg(not(any(feature = "std", test)))]
+    #[derive(Debug)]
+    pub struct JoinHandle<T>(T);
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl<T> JoinHandle<T> {
+        /// The closure's result. Never an error: nothing can panic across
+        /// a thread boundary that does not exist.
+        pub fn join(self) -> Result<T, core::convert::Infallible> {
+            Ok(self.0)
+        }
+    }
+
+    /// Run `f` now.
+    #[cfg(not(any(feature = "std", test)))]
+    pub fn spawn<F, T>(f: F) -> JoinHandle<T>
+    where
+        F: FnOnce() -> T,
+    {
+        JoinHandle(f())
+    }
+
+    /// No clock to wait on without `std`.
+    #[cfg(not(any(feature = "std", test)))]
+    pub fn sleep(_dur: core::time::Duration) {}
+}
+
+/// `std::sync::Mutex` in a `std` build, unchanged. Without `std`
+/// (gh:#1601), a `spin::Mutex` behind the same `new` / `lock` signatures; a
+/// spin lock is never poisoned, so `lock` always returns `Ok`.
+pub mod sync {
+    #[cfg(any(feature = "std", test))]
+    pub use std::sync::Mutex;
+
+    /// A spin lock standing in for `std::sync::Mutex`.
+    #[cfg(not(any(feature = "std", test)))]
+    #[derive(Debug, Default)]
+    pub struct Mutex<T>(spin::Mutex<T>);
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl<T> Mutex<T> {
+        /// Wrap `value`.
+        pub const fn new(value: T) -> Self {
+            Self(spin::Mutex::new(value))
+        }
+        /// Lock; never poisoned.
+        pub fn lock(&self) -> Result<spin::MutexGuard<'_, T>, core::convert::Infallible> {
+            Ok(self.0.lock())
+        }
+    }
+}
+
+/// `std::time::SystemTime` in a `std` build, unchanged. Without `std`
+/// (gh:#1601) there is no clock: `now()` is a fixed instant and `elapsed()`
+/// is zero, so wall-clock timing reads 0 s and real-time pacing does not
+/// wait.
+pub mod time {
+    #[cfg(any(feature = "std", test))]
+    pub use std::time::SystemTime;
+
+    /// A clock reading without a clock.
+    #[cfg(not(any(feature = "std", test)))]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    pub struct SystemTime;
+
+    #[cfg(not(any(feature = "std", test)))]
+    impl SystemTime {
+        /// The only instant there is.
+        pub fn now() -> Self {
+            SystemTime
+        }
+        /// Always zero.
+        pub fn elapsed(&self) -> Result<core::time::Duration, core::convert::Infallible> {
+            Ok(core::time::Duration::ZERO)
+        }
+    }
+}
+
 extern crate uom;
 
 // /// for mostly incompressible fluids using the Boussinesq Approximation

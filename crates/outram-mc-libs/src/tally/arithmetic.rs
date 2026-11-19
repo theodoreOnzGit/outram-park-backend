@@ -40,6 +40,9 @@
 //! No `Box`, no trait objects, no lifetime parameters — a plain owned struct of two
 //! `Vec<f64>` (per the crate's Rust design rules).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::tally::{Tally, TallyBin};
 // The propagation formulas are RAFFLES' since 2026-10-02 (GitHub #500); which
 // tallies are combined, and how a bin is read out, stays here.

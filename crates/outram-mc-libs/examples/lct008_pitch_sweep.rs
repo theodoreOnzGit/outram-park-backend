@@ -61,8 +61,22 @@
 //!   LCT-008's pitch is then slightly under-moderated (1.34838 ± 0.00112).
 //! - **OpenMC (NJOY2016 ACE, same tier).** The 11 borated points differ by
 //!   −409 to +342 pcm with no trend: mean −53 pcm, χ² = 21.9 for 11 points.
-//!   Three points sit at 2.0–2.4σ of the single-run σ. This is mild
-//!   tension, not a clean pass, and is unresolved without a seed ensemble.
+//!   Three points sit at 2.0–2.4σ of the single-run σ. ~~This is mild
+//!   tension, not a clean pass, and is unresolved without a seed ensemble.~~
+//!   **CORRECTED 2026-11-18 (gh:#550):** the seed ensemble was run, 16
+//!   seeds per code at those three pitches (OpenMC 0.15.3, the same 11-nuclide
+//!   tier and settings). The differences were −37 ± 38 pcm (z −0.97) at
+//!   1.63576 cm and −1 ± 37 pcm (z −0.01) at 1.75 cm, so those single-run
+//!   tensions were fluctuations. At 2.40 cm it was **−117 ± 39 pcm (z −2.97),
+//!   a miss** of the |z| ≤ 2 gate, ~~cause not investigated~~ **diagnosed the
+//!   same day (gh:#550): localised to the H-in-H2O S(a,b) table.** With the
+//!   neutron data from OpenMC's own `.h5`, swapping only the S(a,b) for NJOY's
+//!   (`--sab-ace`) moves k by +135 ± 35 pcm and leaves +42 ± 31 pcm (z +1.36)
+//!   against OpenMC; the neutron data (+23 ± 38 pcm), the S(a,b) cross sections
+//!   (1.3e-4) and the emission-grid density (−1 ± 43 pcm) are ruled out; which
+//!   feature of the kernel differs is not isolated. Record ("2.40 cm miss:
+//!   diagnosis"):
+//!   `verification_and_validation/tutorial_rung4/pitch_sweep.md`.
 //!   The 4 unborated points agree within 1σ.
 //! - **Predictions 3 and 4** (borated peak at V_m/V_f ≈ 2–3, LCT-008
 //!   under-moderated) were **refuted**.
@@ -75,7 +89,11 @@
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \
 //!     --example lct008_pitch_sweep -- [--pitches 1.25,1.63576,2.4] \
 //!     [--particles 4000 --inactive 50 --active 150] [--seed 1] \
-//!     [--cheap-nuclides] [--no-soluble-boron] [--csv out.csv] [--plots DIR]
+//!     [--cheap-nuclides] [--no-soluble-boron] [--csv out.csv] [--plots DIR] \
+//!     [--hdf5-dir DIR_WITH_h5]   # start from an OpenMC library (gh:#303) \
+//!     [--hdf5-nuclides H1,U238]  # with --hdf5-dir: only these from the .h5,
+//!                                # the rest from the ENDF tapes (gh:#550 swap) \
+//!     [--threads N]              # default: every logical core
 //! ```
 
 use njoy_outram_park_fork::reference_data::reference_endf;
@@ -94,9 +112,7 @@ use std::time::Instant;
 
 #[path = "common/lct008_model.rs"]
 mod lct008_model;
-#[path = "common/lct008_pin_cell.rs"]
-mod lct008_pin_cell;
-use lct008_pin_cell::HALF_Z;
+use outram_mc_libs::vv::lct008::HALF_Z;
 use lct008_model::{R_CLAD, R_FUEL, TEMP_K};
 
 /// LCT-008's own lattice pitch [cm], from the committed `geometry.xml`
@@ -217,7 +233,59 @@ fn main() {
     );
     assert_eq!(clad_idx, 2);
 
-    let nuclides = load_nuclides(&spec, &slots, tier);
+    // `--hdf5-dir DIR` (gh:#303): start from an OpenMC-format library instead of
+    // reconstructing from ENDF tapes. Everything else is unchanged.
+    let hdf5_dir = value("--hdf5-dir").map(std::path::PathBuf::from);
+    // `--hdf5-nuclides A,B` (gh:#550 per-nuclide swap): with `--hdf5-dir`, only
+    // the listed nuclides come from the `.h5`; every other nuclide of the tier is
+    // reconstructed from its ENDF tape (RECONR + BROADR, the default route).
+    let hdf5_only: Option<Vec<String>> = value("--hdf5-nuclides").map(parse_nuclide_list);
+    assert!(
+        hdf5_only.is_none() || hdf5_dir.is_some(),
+        "--hdf5-nuclides needs --hdf5-dir"
+    );
+    let (free_nuclides, sab) =
+        load_nuclides(&spec, &slots, tier, hdf5_dir.as_deref(), hdf5_only.as_deref());
+    // `--sab-ace PATH` (gh:#550 diagnostic A/B): H(H2O) from an NJOY thermal ACE
+    // (the table OpenMC's c_H_in_H2O.h5 was made from) instead of the ENDF tape.
+    // `--no-sab` (gh:#550 H3 ablation): no S(a,b); H-1 is free gas.
+    let sab = if let Some(p) = value("--sab-ace") {
+        let raw = njoy_outram_park_fork::acer::read::read(p)
+            .unwrap_or_else(|e| panic!("read {p}: {e}"));
+        eprintln!("  S(a,b) for H in H2O from {p} (--sab-ace)");
+        sab.map(|_| ThermalScattering::from_ace(&raw, "c_H_in_H2O").expect("S(a,b) from ACE"))
+    } else if let Some(g) = value("--sab-grids") {
+        // `--sab-grids N_EMIT,N_OUT` (gh:#550 H6): the ENDF-built table on a
+        // different emission grid (crate defaults: 384 incident energies, 64
+        // outgoing bins) to test the kernel's grid convergence.
+        let (ne, no) = g.split_once(',').expect("--sab-grids N_EMIT,N_OUT");
+        let (ne, no): (usize, usize) = (ne.parse().expect("n_emit"), no.parse().expect("n_out"));
+        eprintln!("  S(a,b) for H in H2O from the ENDF tape on a {ne} x {no} emission grid (--sab-grids)");
+        sab.map(|_| {
+            let p = reference_endf("tsl-HinH2O.endf").expect("H(H2O) tape");
+            let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+            ThermalScattering::from_tape_with_grids(&tape, 1, TEMP_K, "c_H_in_H2O", ne, no)
+                .expect("S(a,b) on a custom grid")
+        })
+    } else if flag("--sab-node-grid") {
+        // `--sab-node-grid` (gh:#550): the ENDF-built table with its emission
+        // tables on THERMR's own incident grid, as NJOY's ACE has them.
+        eprintln!("  S(a,b) for H in H2O from the ENDF tape on THERMR's incident grid (--sab-node-grid)");
+        sab.map(|_| {
+            let p = reference_endf("tsl-HinH2O.endf").expect("H(H2O) tape");
+            let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+            ThermalScattering::from_tape_on_calcem_grid(&tape, 1, TEMP_K, "c_H_in_H2O")
+                .expect("S(a,b) on THERMR's grid")
+        })
+    } else if flag("--no-sab") {
+        eprintln!("  S(a,b) REMOVED (--no-sab ablation): H-1 is free gas");
+        None
+    } else {
+        sab
+    };
+    // Per-material H(H2O), as the model's <sab> card says (gh:#462, #1581).
+    let (materials, nuclides) =
+        lct008_model::assign_spec_sab(&spec, &materials, &free_nuclides, &slots, sab.as_ref());
 
     let mut csv_file = csv.map(|p| {
         let new = !p.is_file();
@@ -242,6 +310,16 @@ fn main() {
         "\n  pitch    p/d    Vm/Vf   k_inf ± σ              eta     f       p       eps     \
          leak     t[s]"
     );
+    // `OUTRAM_PITCH_SEEDS=N` (gh:#1583): N consecutive master seeds from `--seed`
+    // inside this one process (the ENDF load is paid once); seed loop OUTER, so
+    // a run cut short holds equal N at every pitch. Default 1 = unchanged.
+    let seed_base = seed;
+    let n_seeds: u64 = std::env::var("OUTRAM_PITCH_SEEDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1);
+    for seed_i in 0..n_seeds {
+    let seed = seed_base + seed_i;
     for &pitch in &pitches {
         let geom = pin_cell(0.5 * pitch);
         let vm_vf = (pitch * pitch - std::f64::consts::PI * R_CLAD * R_CLAD)
@@ -254,7 +332,11 @@ fn main() {
             n_inactive,
             n_active,
             temperature_k: TEMP_K,
-            compute: ComputeType::CpuMultiThread(Default::default()),
+            compute: ComputeType::CpuMultiThread(
+                value("--threads").map_or(Default::default(), |v| {
+                    outram_mc_libs::physics::compute::ThreadCount::Fixed(v.parse().expect("threads"))
+                }),
+            ),
             seed,
             ..KeffSettings::default()
         };
@@ -284,6 +366,9 @@ fn main() {
             sf.epsilon.mean,
             rep.leakage_total.mean,
         );
+        if n_seeds > 1 {
+            println!("SEED {pitch} {seed} {:.5} {:.5}", rep.keff.k_mean, rep.keff.k_std);
+        }
         if let Some(f) = csv_file.as_mut() {
             writeln!(
                 f,
@@ -312,12 +397,45 @@ fn main() {
             .expect("csv row");
         }
     }
+    }
+}
+
+/// Split a comma-separated nuclide list (`H1,U238`), dropping blanks.
+fn parse_nuclide_list(v: &str) -> Vec<String> {
+    v.split(',')
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+        .collect()
+}
+
+/// Does `name` come from the `.h5`? With no `--hdf5-nuclides` list every
+/// nuclide does (when `--hdf5-dir` is given at all); with a list, only those.
+fn nuclide_from_hdf5(name: &str, only: Option<&[String]>) -> bool {
+    only.map_or(true, |l| l.iter().any(|n| n == name))
+}
+
+#[cfg(test)]
+mod route_tests {
+    use super::*;
+
+    /// The per-nuclide route selector (gh:#550): no list = all from the `.h5`;
+    /// a list = exactly those; parsing drops blanks and spaces.
+    #[test]
+    fn hdf5_nuclide_list_selects_exactly_the_listed() {
+        let l = parse_nuclide_list("H1, U238,,");
+        assert_eq!(l, vec!["H1".to_string(), "U238".to_string()]);
+        assert!(nuclide_from_hdf5("O16", None));
+        assert!(nuclide_from_hdf5("H1", Some(&l)));
+        assert!(nuclide_from_hdf5("U238", Some(&l)));
+        assert!(!nuclide_from_hdf5("U235", Some(&l)));
+        assert!(!nuclide_from_hdf5("H1", Some(&[])));
+    }
 }
 
 /// The reflective square pin cell, centred on the origin: fuel, clad, water
-/// (`common/lct008_pin_cell.rs`, shared with the web demo's pitch slider).
+/// (`outram_mc_libs::vv::lct008::pin_cell`, shared with the web demo's pitch slider).
 fn pin_cell(half: f64) -> Geometry {
-    lct008_pin_cell::pin_cell(half, R_FUEL, R_CLAD, TEMP_K)
+    outram_mc_libs::vv::lct008::pin_cell(half, R_FUEL, R_CLAD, TEMP_K)
 }
 
 /// Draw what the solver sees: an x-y slice of the ASSEMBLED pin cell, by
@@ -360,11 +478,25 @@ fn load_nuclides(
     spec: &[lct008_model::MaterialSpec],
     slots: &BTreeMap<String, usize>,
     tier: &[(&str, &str)],
-) -> Vec<Nuclide> {
+    hdf5_dir: Option<&std::path::Path>,
+    hdf5_only: Option<&[String]>,
+) -> (Vec<Nuclide>, Option<ThermalScattering>) {
     let t0 = Instant::now();
-    eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K, URR + DBRC by default):");
+    if let Some(only) = hdf5_only {
+        for n in only {
+            assert!(
+                tier.iter().any(|(t, _)| t == n),
+                "--hdf5-nuclides names {n}, which is not in the tier"
+            );
+        }
+        eprintln!("Per-nuclide route (gh:#550): .h5 for {only:?}, ENDF tapes for the rest:");
+    } else if hdf5_dir.is_some() {
+        eprintln!("Reading nuclides from the OpenMC-format library (HDF5):");
+    } else {
+        eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K, URR + DBRC by default):");
+    }
     let sab_needed = spec.iter().any(|m| m.sab.as_deref() == Some("c_H_in_H2O"));
-    let mut sab = sab_needed.then(|| {
+    let sab = sab_needed.then(|| {
         ThermalScattering::from_endf_file(
             reference_endf("tsl-HinH2O.endf")
                 .expect("H(H2O) tape")
@@ -379,19 +511,39 @@ fn load_nuclides(
     let mut by_slot: Vec<(usize, &str)> = slots.iter().map(|(n, &i)| (i, n.as_str())).collect();
     by_slot.sort_unstable();
     let mut out = Vec::with_capacity(by_slot.len());
+    let t_nuclides = Instant::now();
     for (i, name) in by_slot {
         assert_eq!(i, out.len());
+        if let Some(dir) = hdf5_dir.filter(|_| nuclide_from_hdf5(name, hdf5_only)) {
+            // The library carries `0K` (resonance scattering) and `294K`
+            // (293.6 K, the model's temperature); read the cross sections at
+            // 294K and only the elastic at 0K, as OpenMC does.
+            let t = Instant::now();
+            let read = njoy_outram_park_fork::hdf5::nuclide_read::read_nuclide_selected(
+                dir.join(format!("{name}.h5")),
+                Some("294K"),
+                &["0K"],
+            )
+            .unwrap_or_else(|e| panic!("read {name}.h5: {e}"));
+            let t_read = t.elapsed().as_secs_f64();
+            let n = Nuclide::from_hdf5(&read, name)
+                .unwrap_or_else(|e| panic!("from_hdf5({name}): {e}"));
+            eprintln!(
+                "  {name:<6} {:6.2} s (read {t_read:.2} s)  urr={} dbrc={}",
+                t.elapsed().as_secs_f64(),
+                n.urr_range_ev().is_some(),
+                n.has_dbrc(),
+            );
+            out.push(n);
+            continue;
+        }
         let file = tier.iter().find(|(n, _)| *n == name).expect("tape").1;
         let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
         let t = Instant::now();
-        let mut n =
+        let n =
             Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, outram_mc_libs::vv::bench_speed())
                 .unwrap_or_else(|e| panic!("from_endf_file_with_speed({}): {e}", p.display()));
-        if name == "H1" {
-            if let Some(s) = sab.take() {
-                n = n.with_thermal_scattering(s);
-            }
-        }
+        // H-1 stays free; `assign_spec_sab` binds it per material (gh:#1581).
         eprintln!(
             "  {name:<6} {:6.1} s  urr={} dbrc={} sab={}",
             t.elapsed().as_secs_f64(),
@@ -401,6 +553,11 @@ fn load_nuclides(
         );
         out.push(n);
     }
-    eprintln!("Nuclear data ready in {:.1} s.", t0.elapsed().as_secs_f64());
-    out
+    eprintln!(
+        "Nuclear data ready in {:.1} s ({:.1} s of it the {} nuclides, the rest the S(a,b)).",
+        t0.elapsed().as_secs_f64(),
+        t_nuclides.elapsed().as_secs_f64(),
+        out.len()
+    );
+    (out, sab)
 }

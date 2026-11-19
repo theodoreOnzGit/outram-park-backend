@@ -34,6 +34,7 @@
 //! channel standing in for it (2026-10-23): rod 3, the channel at 81°.
 
 use crate::keff::KeffConfig;
+use dhoby_ghaut::mc_web::rod_bank::RodBank;
 use egui::{Color32, Pos2, Rect, Stroke, Vec2};
 use petir::mathf::RealMath;
 use nee_soon::htr10_rmc::control_rod::{BANK_CURVE_ZT_CM, LOWER_END_INSERTED_CM, LOWER_END_WITHDRAWN_CM, N_CONTROL_RODS};
@@ -88,61 +89,59 @@ impl Default for RodControls {
     }
 }
 
+// The slider methods serve the tests (the UI drives the library bank).
+#[cfg_attr(not(test), allow(dead_code))]
 impl RodControls {
+    /// The library's [`RodBank`] holding this setting (gh:#1654: the slider
+    /// logic is the library's; this type keeps the rung's fixed-size array).
+    pub fn bank(&self) -> RodBank {
+        RodBank { sync: self.sync, master: self.master, rods: self.rods.to_vec(), selected: self.selected }
+    }
+
+    /// Take a [`RodBank`] of [`N`] rods back.
+    pub fn take(&mut self, b: RodBank) {
+        self.sync = b.sync;
+        self.master = b.master;
+        self.rods.copy_from_slice(&b.rods);
+        self.selected = b.selected;
+    }
+
     /// Sync on puts every rod at the master's position; off leaves them.
     pub fn set_sync(&mut self, on: bool) {
-        self.sync = on;
-        if on {
-            self.rods = [self.master; N];
-        }
+        let mut b = self.bank();
+        b.set_sync(on);
+        self.take(b);
     }
 
     /// The master slider: moves every rod when synced.
     pub fn set_master(&mut self, f: f64) {
-        self.master = f.clamp(0.0, 1.0);
-        if self.sync {
-            self.rods = [self.master; N];
-        }
+        let mut b = self.bank();
+        b.set_master(f);
+        self.take(b);
     }
 
     /// Rod `i`'s slider: synced, it is the master (all follow); otherwise
     /// it moves rod `i` alone. Either way rod `i` becomes the selected rod.
     pub fn set_rod(&mut self, i: usize, f: f64) {
-        self.selected = i.min(N - 1);
-        if self.sync {
-            self.set_master(f);
-        } else {
-            self.rods[self.selected] = f.clamp(0.0, 1.0);
-        }
+        let mut b = self.bank();
+        b.set_rod(i, f);
+        self.take(b);
     }
 
     /// The rods a page URL asks for (`?rods=` ten insertions in %,
     /// comma-separated, or one value for all; `?sync=0` unsyncs; `?rod=`
     /// the selected rod, 1..10). Anything unreadable leaves the default.
     pub fn from_query(query: &[(String, String)]) -> Self {
-        let get = |k: &str| query.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str());
         let mut c = Self::default();
-        if let Some(v) = get("rod").and_then(|v| v.parse::<usize>().ok()).filter(|v| (1..=N).contains(v)) {
-            c.selected = v - 1;
-        }
-        let vals: Vec<f64> = get("rods").map_or(Vec::new(), |v| v.split(',').filter_map(|x| x.trim().parse::<f64>().ok()).map(|x| (x / 100.0).clamp(0.0, 1.0)).collect());
-        if vals.len() == 1 {
-            c.set_master(vals[0]);
-        } else if vals.len() == N {
-            c.sync = false;
-            c.rods.copy_from_slice(&vals);
-            c.master = vals[0];
-        }
-        if get("sync") == Some("0") {
-            c.sync = false;
-        }
+        c.take(RodBank::from_query(N, S3_ROD, query));
         c
     }
 
     /// Withdraw every rod (and the master).
     pub fn withdraw_all(&mut self) {
-        self.master = 0.0;
-        self.rods = [0.0; N];
+        let mut b = self.bank();
+        b.withdraw_all();
+        self.take(b);
     }
 
     /// What the setting is, for the recorded curves.
@@ -387,7 +386,7 @@ impl LiveSweep {
             return SweepStep::Done;
         }
         if let Some(epoch) = self.started {
-            let Some(run) = s.run.as_ref().filter(|r| r.epoch == epoch) else {
+            let Some(run) = s.keff.run.as_ref().filter(|r| r.epoch == epoch) else {
                 self.failed = Some("the run was replaced by another one".into());
                 return SweepStep::Failed(self.failed.clone().unwrap_or_default());
             };
@@ -415,7 +414,7 @@ impl LiveSweep {
                 _ => "the nuclear data are not ready yet".into(),
             });
         }
-        if s.run.as_ref().is_some_and(|r| r.going()) {
+        if s.keff.run.as_ref().is_some_and(|r| r.going()) {
             return SweepStep::Waiting("another run is going".into());
         }
         let want = self.targets[self.next];
@@ -430,7 +429,7 @@ impl LiveSweep {
         }
         match s.start_run(self.cfg, now_s) {
             Ok(()) => {
-                self.started = s.run.as_ref().map(|r| r.epoch);
+                self.started = s.keff.run.as_ref().map(|r| r.epoch);
                 SweepStep::Running { i: self.next, n }
             }
             Err(e) => {
@@ -460,44 +459,19 @@ pub fn summary(rods: &[f64; N]) -> String {
 /// rod sliders, "Withdraw all". GUI code, not reached by a test (exempt);
 /// its decisions are [`RodControls`]', which are.
 pub fn controls_ui(ui: &mut egui::Ui, rods: &mut RodControls) -> bool {
-    let before = rods.clone();
-    ui.label("Ten B4C rods in the side reflector (IAEA-TECDOC-1382 § 4.1.1.5): 0 % withdrawn (lower end z_T 119.2 cm, the benchmark state), 100 % fully in (394.2 cm).");
-    let mut sync = rods.sync;
-    if ui.checkbox(&mut sync, "Sync all rods").changed() {
-        rods.set_sync(sync);
-    }
-    ui.weak(if rods.sync {
-        "Synced: the master slider moves all ten together and every rod slider follows. Moving any rod slider moves them all."
-    } else {
-        "Not synced: each slider moves its own rod alone. Turning sync on puts every rod at the master slider's position."
-    });
-    let mut m = rods.master;
-    ui.add_enabled_ui(rods.sync, |ui| {
-        if ui.add(egui::Slider::new(&mut m, 0.0..=1.0).text("all rods").custom_formatter(|v, _| format!("{:.0} %", 100.0 * v))).changed() {
-            rods.set_master(m);
-        }
-    });
     let az = nee_soon::htr10_rmc::reflector_geometry::control_rod_azimuths_deg();
-    egui::CollapsingHeader::new("Each rod").default_open(!rods.sync).show(ui, |ui| {
-        egui::Grid::new("rod-sliders").num_columns(2).spacing([6.0, 4.0]).show(ui, |ui| {
-            for i in 0..N {
-                let sel = rods.selected == i;
-                if ui.selectable_label(sel, format!("{} · {:.0}°", rod_label(i), az[i])).clicked() {
-                    rods.selected = i;
-                }
-                let mut f = rods.rods[i];
-                if ui.add(egui::Slider::new(&mut f, 0.0..=1.0).show_value(true).custom_formatter(|v, _| format!("{:.0} %", 100.0 * v))).changed() {
-                    rods.set_rod(i, f);
-                }
-                ui.end_row();
-            }
-        });
-        ui.weak("\"S3\" is a label: TECDOC Fig. 4.7 names the measured rod S3 but no source places it in a channel; rod 3 (81°) stands in for it under the model's symmetry. Tap a rod's name to cut the side view (in Views) through it.");
-    });
-    if ui.button("Withdraw all").clicked() {
-        rods.withdraw_all();
-    }
-    *rods != before
+    let labels: Vec<String> = (0..N).map(|i| format!("{} · {:.0}°", rod_label(i), az[i])).collect();
+    let mut b = rods.bank();
+    let changed = dhoby_ghaut::mc_web::rod_bank::controls_ui(
+        ui,
+        "htr10-rods",
+        &mut b,
+        &labels,
+        "Ten B4C rods in the side reflector (IAEA-TECDOC-1382 § 4.1.1.5): 0 % withdrawn (lower end z_T 119.2 cm, the benchmark state), 100 % fully in (394.2 cm).",
+        Some("\"S3\" is a label: TECDOC Fig. 4.7 names the measured rod S3 but no source places it in a channel; rod 3 (81°) stands in for it under the model's symmetry. Tap a rod's name to cut the side view (in Views) through it."),
+    );
+    rods.take(b);
+    changed
 }
 
 /// What the native records say about this setting, and the benchmark
@@ -518,7 +492,7 @@ pub fn recorded_ui(ui: &mut egui::Ui, curves: &[RecordedCurve], rods: &[f64; N])
 pub fn sweeps_ui(ui: &mut egui::Ui, core: &mut super::core::screen::CoreScreen) {
     ui.weak("Several runs one after another on the worker pool, each at the statistics above: the workers rebuild the core with each position's rods first.");
     let ready = core.pool.as_ref().is_some_and(|p| p.state.phase == super::core::pool::PoolPhase::Ready);
-    let busy = core.sweep.is_some() || core.pool.as_ref().and_then(|p| p.state.run.as_ref()).is_some_and(|r| r.going());
+    let busy = core.sweep.is_some() || core.pool.as_ref().and_then(|p| p.state.keff.run.as_ref()).is_some_and(|r| r.going());
     let sel = core.rods.selected;
     ui.add_enabled_ui(ready && !busy, |ui| {
         if ui.button("Worth curve: all ten rods (9 positions)").clicked() {
@@ -533,7 +507,7 @@ pub fn sweeps_ui(ui: &mut egui::Ui, core: &mut super::core::screen::CoreScreen) 
     }
     if let Some(sw) = core.sweep.as_ref() {
         let (d, n) = sw.progress();
-        let gen = core.pool.as_ref().and_then(|p| p.state.run.as_ref()).map(|r| (r.gens.len(), r.cfg.n_inactive + r.cfg.n_active));
+        let gen = core.pool.as_ref().and_then(|p| p.state.keff.run.as_ref()).map(|r| (r.gens.len(), r.cfg.n_inactive + r.cfg.n_active));
         ui.label(format!("{d} of {n} positions done · {}", core.sweep_status));
         if let Some((g, t)) = gen {
             ui.add(egui::ProgressBar::new((d as f32 + g as f32 / t.max(1) as f32) / n as f32).text(format!("generation {g} of {t}")));
@@ -847,30 +821,18 @@ const BED: Color32 = Color32::from_rgb(40, 80, 50);
 /// foot, the selected rod outlined. GUI drawing, not reached by a test (the
 /// test rule's exception); its positions are [`zt`]'s, which is tested.
 pub fn draw_bank(painter: &egui::Painter, rect: Rect, rods: &[f64; N], selected: usize, text: f32) {
-    let ink = bugis::Ink::of_ctx(painter.ctx());
-    painter.rect_filled(rect, 4.0, ink.card);
-    let f = egui::FontId::proportional((text * 0.8).max(8.0));
-    let top = rect.top() + text + 6.0;
-    let bottom = rect.bottom() - text - 4.0;
-    let y = |z_t: f64| top + (bottom - top) * ((z_t - 0.0) / 450.0) as f32;
-    painter.text(rect.left_top() + Vec2::new(6.0, 3.0), egui::Align2::LEFT_TOP, "Rods (side, z_T down): B4C in red, bed in green", f.clone(), ink.muted);
-    let left = rect.left() + 34.0;
-    let w = (rect.right() - 6.0 - left) / N as f32;
-    let bed = Rect::from_min_max(Pos2::new(left, y(BED_TOP_ZT_CM)), Pos2::new(rect.right() - 6.0, y(BED_FOOT_ZT_CM)));
-    painter.rect_filled(bed, 0.0, BED);
-    painter.text(Pos2::new(rect.left() + 4.0, bed.top()), egui::Align2::LEFT_CENTER, "bed", f.clone(), ink.muted);
-    for (i, &fr) in rods.iter().enumerate() {
-        let x0 = left + w * i as f32 + w * 0.25;
-        let x1 = left + w * (i as f32 + 0.75);
-        let lo = zt(fr);
-        let hi = lo - nee_soon::htr10_rmc::control_rod::AXIAL_SECTIONS_CM.iter().sum::<f64>();
-        let r = Rect::from_min_max(Pos2::new(x0, y(hi.max(0.0))), Pos2::new(x1, y(lo)));
-        painter.rect_filled(r, 1.0, B4C);
-        if i == selected {
-            painter.rect_stroke(r.expand(2.0), 2.0, Stroke::new(1.5, ink.text), egui::StrokeKind::Outside);
-        }
-        painter.text(Pos2::new(0.5 * (x0 + x1), bottom + 2.0), egui::Align2::CENTER_TOP, format!("{}", i + 1), f.clone(), if i == selected { ink.text } else { ink.muted });
-    }
+    let style = dhoby_ghaut::mc_web::rod_bank::BankStyle {
+        title: "Rods (side, z_T down): B4C in red, bed in green".into(),
+        depth_top: 0.0,
+        depth_bottom: 450.0,
+        core: (BED_TOP_ZT_CM, BED_FOOT_ZT_CM),
+        core_label: "bed".into(),
+        absorber: B4C,
+        core_colour: BED,
+    };
+    let length: f64 = nee_soon::htr10_rmc::control_rod::AXIAL_SECTIONS_CM.iter().sum();
+    let spans: Vec<(f64, f64)> = rods.iter().map(|&f| (zt(f) - length, zt(f))).collect();
+    dhoby_ghaut::mc_web::rod_bank::draw_bank(painter, rect, &style, &spans, selected, text);
 }
 
 /// k against the rod's lower end: recorded curves (markers with ±1σ bars),
@@ -1086,7 +1048,7 @@ mod tests {
         assert_eq!(s.phase, PoolPhase::Ready);
         // Withdrawn is what the pool holds: the run starts at once.
         assert_eq!(sw.step(&mut s, 1.0), SweepStep::Running { i: 0, n: 9 });
-        assert!(s.run.as_ref().is_some_and(|r| r.going()));
+        assert!(s.keff.run.as_ref().is_some_and(|r| r.going()));
         s.stop_run();
         assert!(matches!(sw.step(&mut s, 2.0), SweepStep::Failed(m) if m == "stopped"));
         // A one-off at another setting rebuilds first.
@@ -1103,10 +1065,10 @@ mod tests {
         // The run remembers the core it ran on (2026-10-25): rebuilding the
         // pool with other rods afterwards does not change what its k is
         // compared with.
-        assert_eq!(s.run.as_ref().map(|r| (r.layers, r.rods)), Some((12, [0.5; N])));
+        assert_eq!(s.keff.run.as_ref().map(|r| (r.model.layers, r.model.rods)), Some((12, [0.5; N])));
         s.stop_run();
         s.set_rods([1.0; N]).expect("between runs");
         assert_eq!(s.rods, [1.0; N]);
-        assert_eq!(s.run.as_ref().map(|r| r.rods), Some([0.5; N]));
+        assert_eq!(s.keff.run.as_ref().map(|r| r.model.rods), Some([0.5; N]));
     }
 }

@@ -141,6 +141,9 @@
 //!   consulted or copied. The Floater-Hormann interpolation reuses the crate's
 //!   existing [`crate::interpolation::floater_hormann`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod assay;
 pub mod aux_props;
 pub mod curve_characterization;

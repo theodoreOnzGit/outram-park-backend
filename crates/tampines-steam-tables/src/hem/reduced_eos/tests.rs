@@ -13,6 +13,9 @@
 //! [`StiffenedGasHem::water_vapour_le_metayer_2004`]); the miss is pinned, not
 //! hidden. Full record: `verification_and_validation/hem_reduced_eos_vs_iapws97.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::hem::{
     HemBoundary, HemInitialCondition, HemNumerics, HemPipe, HemPipeGeometry, Iapws97Hem, PipeEnd,

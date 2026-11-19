@@ -31,6 +31,9 @@
 //! to catch it either way; this port does not silently "fix" it, per this
 //! crate's guardrail against papering over upstream behaviour).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::constants::{W, W_H};
 use super::equation_of_state::MassBasisEosState;

@@ -97,6 +97,9 @@
 //! `run_keff_csg_hybrid` (multi-thread: its `CpuMultiThread` route; one
 //! thread: its `CpuSingleThread` route).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use raffles::estimators::autocorrelation::CorrelatedMean;
 use raffles::estimators::normality::dagostino_pearson;
 use raffles::estimators::mean_and_stderr;
@@ -543,8 +546,8 @@ pub struct Keff {
     pub std: f64,
 }
 
-impl std::fmt::Display for Keff {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Keff {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:.5} ± {:.5}", self.mean, self.std)
     }
 }
@@ -757,8 +760,8 @@ impl KeffRun {
     }
 }
 
-impl std::fmt::Display for KeffRun {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for KeffRun {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let p = &self.provenance;
         writeln!(f, "k_eff = {}", self.keff)?;
         if let Some(s) = p.sigma_batch_means {
@@ -1021,7 +1024,7 @@ impl AssembledModel {
         if let Some(s) = collector.as_ref().and_then(Collector::ifp) {
             it.enable_ifp(s).map_err(RunError::InvalidSettings)?;
         }
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         let clock = std::time::Instant::now();
         let placed = it.source_positions().len();
         if placed < p.start_particles {
@@ -1083,6 +1086,7 @@ impl AssembledModel {
             tr.n.push(n);
             if print {
                 let average = tr.first_active.map(|a| &tr.k[a..]);
+                #[cfg(feature = "std")]
                 println!(
                     "{}",
                     generation_line(tr.k.len(), n, r.k, tr.h[tr.h.len() - 1], average)
@@ -1092,6 +1096,7 @@ impl AssembledModel {
         };
         let say = |line: String| {
             if print {
+                #[cfg(feature = "std")]
                 println!("{line}");
             }
         };
@@ -1264,9 +1269,9 @@ impl AssembledModel {
             ablations,
             convergence,
         };
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         let transport_seconds = Some(clock.elapsed().as_secs_f64());
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
         let transport_seconds = None;
         let diagnostics = match collector {
             None => Vec::new(),
@@ -1337,11 +1342,11 @@ impl AssembledModel {
 /// Threads in rayon's current pool (1 on `wasm32`, where the parallel
 /// adapters run serially).
 fn current_threads() -> usize {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     {
         rayon::current_num_threads()
     }
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     {
         1
     }
@@ -1574,7 +1579,7 @@ mod tests {
             ((s >> 11) as f64 + 0.5) / (1u64 << 53) as f64
         };
         let gauss = |u: &mut dyn FnMut() -> f64| {
-            (-2.0 * u().r_ln()).sqrt() * (2.0 * std::f64::consts::PI * u()).r_cos()
+            (-2.0 * u().r_ln()).sqrt() * (2.0 * core::f64::consts::PI * u()).r_cos()
         };
         let h: Vec<f64> = (0..30).map(|_| 6.0 + 1e-4 * (u() - 0.5)).collect();
         let normal: Vec<f64> = (0..30).map(|_| 1.0 + 0.01 * gauss(&mut u)).collect();

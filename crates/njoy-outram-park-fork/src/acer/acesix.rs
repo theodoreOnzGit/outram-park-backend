@@ -48,6 +48,9 @@
 //! keeps the law's own points, storing `(E', pdf, cdf)` and the cosines at each
 //! one. See [`acesix_tabulated`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermr::calcem::types::EqualProbableRow;
 
@@ -287,17 +290,21 @@ pub fn normalized_rows(rows: &[EqualProbableRow]) -> Vec<EqualProbableRow> {
 /// # Errors
 /// Only if this crate's own `a11` port wrote text its ENDF reader cannot read.
 pub fn pendf_text(x: f64) -> Result<f64, crate::NjoyError> {
-    if BINARY_UNITS.with(std::cell::Cell::get) {
+    if BINARY_UNITS.with(core::cell::Cell::get) {
         return Ok(x);
     }
     crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(x))
 }
 
+#[cfg(any(feature = "std", test))]
 thread_local! {
     /// Set by [`with_binary_units`] while a thermal table is built for a deck
     /// whose THERMR/ACER units are negative (blocked binary).
-    static BINARY_UNITS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
+    static BINARY_UNITS: core::cell::Cell<bool> = const { core::cell::Cell::new(false) };}
+#[cfg(not(any(feature = "std", test)))]
+/// Set by [`with_binary_units`] while a thermal table is built for a deck
+/// whose THERMR/ACER units are negative (blocked binary).
+static BINARY_UNITS: crate::nostd_sync::Local<core::cell::Cell<bool>> = crate::nostd_sync::Local::new(core::cell::Cell::new(false));
 
 /// Run `f` with [`pendf_text`] as the identity when `binary` (gh:#1369).
 ///

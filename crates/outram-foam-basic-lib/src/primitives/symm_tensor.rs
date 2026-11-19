@@ -26,7 +26,10 @@
 //! and the double contraction count the off-diagonal terms twice, matching
 //! OpenFOAM.
 
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use super::spherical_tensor::SphericalTensor;
 use super::vector::Vector3;

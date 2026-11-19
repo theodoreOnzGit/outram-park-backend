@@ -92,6 +92,7 @@
 //! and the burns are not reached in 300 s of relief steam. The water
 //! residuals are round-off on 3e6 kg (one ulp there is 4.7e-10 kg).
 
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 use sembawang::bwr_mark1::containment::ContainmentSnapshot;
 use sembawang::bwr_mark1::containment_network::{ContainmentNetwork, NetworkConfig, NetworkMechanisms, NetworkResult};
 use sembawang::bwr_mark1::params::Params;

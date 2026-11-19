@@ -40,10 +40,13 @@
 //!   unit-tested against central finite differences, but the curves have not
 //!   been validated against a published PFLOTRAN reference case.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod curves;
 mod eos;
 mod thermal;
 
-pub use curves::{BrooksCorey, CharacteristicCurves, Haverkamp, VanGenuchten};
+pub use curves::{BrooksCorey, CharacteristicCurves, Haverkamp, Linear, VanGenuchten};
 pub use eos::LiquidWaterEos;
 pub use thermal::{RockThermalProperties, ThermalWaterProperties};

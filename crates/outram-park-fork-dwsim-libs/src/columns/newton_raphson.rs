@@ -108,6 +108,9 @@
 //!   `Lj(ns) / (spval2 / M_mix · 1000)` (line 484) — the reported value and the
 //!   driven value are inconsistent by a factor of `M_mix²/1000²`. Preserved.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::columns::bubble_point::WangHenkeSolver;
 use crate::columns::linalg::{broyden_root, newton_root, RootFindOptions};

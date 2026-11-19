@@ -51,6 +51,7 @@ use crate::triso::model::splitmix;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::Material;
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::fixed_source::{run_fixed_source_traced, FixedSource, FixedSourceSettings};
@@ -166,11 +167,19 @@ impl<C: CsgCase> RungBuilder for Builder<C> {
             return Err(format!("{} of {want} nuclides done", self.nuclides.len()));
         }
         let mut nuclides = self.nuclides;
+        let mut materials = C::materials();
         if let Some(law) = C::thermal() {
             let s = self.law.ok_or("the thermal scattering law was not processed")?;
-            nuclides[law.nuclide] = nuclides[law.nuclide].clone().with_thermal_scattering(s);
+            // Per-material S(a,b), as OpenMC does (gh:#462, #1581): the law goes
+            // to every material that holds the nuclide. Audited 2026-11-14 for
+            // the one case that names a law (hst009): H-1 is in the solution
+            // and the water reflector, and the tank holds none.
+            let entries = MaterialSab::for_materials_containing(&materials, law.nuclide, 0, &[]);
+            (materials, nuclides) = assign_material_sab(&materials, &nuclides, &[s], &entries)?;
         }
-        Ok(Loaded { phys: Physics::new::<C>(nuclides), chain: Chain::new(crate::engine::CHAIN_SEED), keff: None, case: PhantomData })
+        let mut phys = Physics::new::<C>(nuclides);
+        phys.materials = materials;
+        Ok(Loaded { phys, chain: Chain::new(crate::engine::CHAIN_SEED), keff: None, case: PhantomData })
     }
 }
 
@@ -339,21 +348,18 @@ pub fn start_box(source_box: SourceBox, cfg: KeffConfig) -> SourceBox {
 // It is NOT bit for bit the serial `CsgPowerIteration` ([`Keff`]), which uses
 // one sequential random stream; the two agree statistically.
 
-/// A pool member's answer to "sample the initial source".
+/// A pool member's answer to "sample the initial source": the library's
+/// [`dhoby_ghaut::mc_web::pool::csg_source`] (gh:#1572) at this case's start
+/// box, entropy mesh and settings.
 pub fn pool_source(phys: (&Geometry, &[Material], &[Nuclide]), source_box: SourceBox, entropy_box: SourceBox, temperature_k: f64, cfg: KeffConfig) -> crate::rungs::PoolSource {
-    use outram_mc_libs::physics::transport_csg::distributed::DistributedPowerIteration;
-    let (sites, seed) = DistributedPowerIteration::initial_source(phys.0, phys.1, phys.2, start_box(source_box, cfg), &run_settings(cfg, temperature_k));
-    crate::rungs::PoolSource { sites, seed, mesh: entropy_mesh(entropy_box) }
+    dhoby_ghaut::mc_web::pool::csg_source(phys, start_box(source_box, cfg), entropy_mesh(entropy_box), &run_settings(cfg, temperature_k))
 }
 
-/// A pool member's answer to "transport this chunk": surface tracking (no
-/// majorants), its tracks thinned to what is drawn.
+/// A pool member's answer to "transport this chunk": the library's
+/// [`dhoby_ghaut::mc_web::pool::csg_chunk`] (gh:#1572; surface tracking, no
+/// majorants, tracks thinned to what is drawn) at this case's settings.
 pub fn pool_chunk(phys: (&Geometry, &[Material], &[Nuclide]), temperature_k: f64, cfg: KeffConfig, chunk: &[f64]) -> Result<Vec<f64>, String> {
-    use outram_mc_libs::physics::transport_csg::distributed::{transport_chunk, GenerationChunk};
-    let c = GenerationChunk::from_f64s(chunk)?;
-    let mut r = transport_chunk(phys.0, phys.1, phys.2, &[], &run_settings(cfg, temperature_k), &c);
-    crate::htr10::core::thin_tracks(&mut r);
-    Ok(r.to_f64s())
+    dhoby_ghaut::mc_web::pool::csg_chunk(phys, &run_settings(cfg, temperature_k), chunk)
 }
 
 /// A CSG generation as the page's shared [`GenerationReport`]: `entropy` is

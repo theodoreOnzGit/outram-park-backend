@@ -63,6 +63,9 @@
 //! `Eq` is deliberately **not** derived: [`ThreadCount::Fraction`] carries an
 //! `f64`, which is only `PartialEq`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Which compute backend a DEM driver or bulk analysis kernel uses.
 ///
 /// | This enum | Meaning |
@@ -171,10 +174,16 @@ impl ThreadCount {
     /// Android — a phone simply reports fewer cores).
     #[must_use]
     pub fn resolve(self) -> usize {
+        #[cfg(feature = "std")]
         fn logical_cores() -> usize {
             std::thread::available_parallelism()
                 .map(|n| n.get())
                 .unwrap_or(1)
+        }
+        /// No threads without `std` (gh:#1602): one core.
+        #[cfg(not(feature = "std"))]
+        fn logical_cores() -> usize {
+            1
         }
         match self {
             ThreadCount::Auto => logical_cores(),

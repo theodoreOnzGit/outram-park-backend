@@ -36,8 +36,16 @@
 //! branches [`super::resprx`] lists (`LCOMP=0`, `LRF=1/3` sensitivities,
 //! INTG correlations in the ERRORJ branch), ENDF/B-IV tapes,
 //! ratio-to-standard NC-type records (`LTY` 1–3), MF=31/34/35/40, `iread`
-//! 1/2, GENDF input (`colaps`).
+//! 1/2, GENDF input (`colaps`). (~~MF=35 from a GENDF is a separate path,
+//! [`super::mf35::run_mf35`], gh:#1369; `colaps` is not wired into this one.~~
+//! **CORRECTED 2026-11-13, gh:#1369:** this function still takes a PENDF only, but
+//! the other files have their own paths: MF=31 and MF=33 from a GENDF through
+//! `colaps` ([`super::mf31::run_cov_gendf`]), MF=34 ([`super::mf34`]) and MF=35
+//! ([`super::mf35::run_mf35`]). MF=40 is not ported.)
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;
@@ -76,11 +84,13 @@ pub struct Mf33Config {
     /// as a fraction of `AP` for every MF=32 range (`isru`); `0` takes
     /// `DAP` from the file. Ignored without MF=32.
     pub dap: f64,
+    /// Cards 8-9 (`iread = 1`, gh:#1371); `None` for `iread = 0`.
+    pub card8: Option<super::gridd::Card8>,
 }
 
 /// `iverf` of a material from its MF=1/MT=451 header
 /// (`errorr.f90:456-466`).
-fn endf_version(tape: &Tape, mat: i32) -> Result<i32, NjoyError> {
+pub(crate) fn endf_version(tape: &Tape, mat: i32) -> Result<i32, NjoyError> {
     let sec = tape
         .section(mat, 1, 451)
         .ok_or(NjoyError::SectionNotFound {
@@ -102,7 +112,7 @@ fn endf_version(tape: &Tape, mat: i32) -> Result<i32, NjoyError> {
 
 /// The temperature carried by a PENDF material's MF=1/MT=451 `hdatio`
 /// record (`grpav`, `errorr.f90:8919-8931`).
-fn pendf_temperature(pendf: &Tape, mat: i32, iverf: i32) -> Result<f64, NjoyError> {
+pub(crate) fn pendf_temperature(pendf: &Tape, mat: i32, iverf: i32) -> Result<f64, NjoyError> {
     let sec = pendf
         .section(mat, 1, 451)
         .ok_or(NjoyError::SectionNotFound {
@@ -165,6 +175,7 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
 
     // dictionary + covariance energies + derivation coefficients
     let mut reactions = scan_reactions(endf, matd)?;
+    reactions.card8 = cfg.card8.clone();
     let g = gridd(endf, matd, &mut reactions)?;
     lumpmt(endf, matd, &mut reactions)?;
 
@@ -186,11 +197,13 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
     // covcal: absolute covariances on the union grid
     let fine = covcal(endf, matd, &reactions, &groups, &flx)?;
 
-    // za/awr from the first MF=33 section with NL > 0 (covcal, errorr.f90:1935-1938)
+    // za/awr from the first MF=33 section with NL > 0 (covcal, errorr.f90:1935-1938);
+    // with iread = 1, the first one on card 8a, as covcal skips the rest (gh:#1371).
     let (za, awr) = endf
         .sections()
         .iter()
         .filter(|s| s.key.mat == matd && s.key.mf == 33)
+        .filter(|s| reactions.card8.as_ref().is_none_or(|c8| c8.mts.contains(&s.key.mt)))
         .find_map(|s| {
             let r = s.rows.first()?;
             (r[5] != 0.0).then_some((r[0], r[1]))

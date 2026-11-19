@@ -25,6 +25,9 @@
 //! [`Nuclide::from_endf_file_with_speed`]: crate::material::nuclide::Nuclide::from_endf_file_with_speed
 //! [`Nuclide::with_speed`]: crate::material::nuclide::Nuclide::with_speed
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// How much a nuclide may trade for speed: `Standard`, `Fast` or `VeryFast`.
 ///
 /// `Fast` is the default. `Standard` is the unoptimized reference that `Fast`
@@ -108,9 +111,9 @@ impl SpeedTier {
     }
 }
 
-impl std::fmt::Display for SpeedTier {
+impl core::fmt::Display for SpeedTier {
     /// `standard`, `fast` or `very-fast`: the spelling [`str::parse`] accepts.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(match self {
             SpeedTier::Standard => "standard",
             SpeedTier::Fast => "fast",
@@ -119,7 +122,7 @@ impl std::fmt::Display for SpeedTier {
     }
 }
 
-impl std::str::FromStr for SpeedTier {
+impl core::str::FromStr for SpeedTier {
     type Err = String;
 
     /// Parse `standard`, `fast` or `very-fast`, ignoring case; `veryfast` and

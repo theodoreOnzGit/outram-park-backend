@@ -1,0 +1,8 @@
+FoamFile { version 2.0; format ascii; class dictionary; object radiationProperties; }
+radiation on;
+radiationModel viewFactor;
+viewFactorCoeffs { smoothing @SMOOTH@; constantEmissivity @CONSTE@; useDirectSolver true; }
+solverFreq 1;
+absorptionEmissionModel none;
+scatterModel none;
+sootModel none;

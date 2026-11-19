@@ -2,6 +2,21 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `sembawang` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1641, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob; maps `crate::hash`, one-time initialisation `crate::sync::OnceLock`.
+  Inside `bwr_mark1`, write `::core::` (the local `mod core` shadows `core`).
+- Only the OpenMC decay-data **loading** is `std`
+  (`bwr_mark1::fp_decay::{raw_data, graph, compute}`, which read the
+  `openmc-endf-8-depletion-lib-a`/`-b` crates); the committed element tables
+  (`ElementShares::committed`) the plant model uses build without it.
+- Printing is gated one statement at a time; integration tests and examples
+  are `std` only, as are the four unit tests that call `compute`.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the

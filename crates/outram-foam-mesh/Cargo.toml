@@ -11,7 +11,7 @@ categories.workspace = true
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate. `docs/` (incl. the generated
 # docs/api.md rustdoc mirror) isn't crate content either.
-exclude = ["verification_and_validation/*.csv", "docs"]
+exclude = ["verification_and_validation", "tests/fixtures", "docs", "kovan_links.json"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
@@ -25,18 +25,28 @@ exclude = ["verification_and_validation/*.csv", "docs"]
 # 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
 # crate's LOWEST part, with higher-rated modules listed below it.
 [package.metadata.kovan]
-row = 2
-topic = "thermal-hydraulics"
-fidelity = 3
+# ~~row = 2, topic = "thermal-hydraulics", fidelity = 3~~ CHANGED 2026-11-19
+# (gh:#1673, maintainer: "Both mesh and cf mesh shld be row 0 or 1"): a mesh
+# library is a utility, and `outram-park-fork-cfmesh` (row 1) depends on it.
+row = 1
+topic = "utility"
 maturity = 2
 
 [dependencies]
 # Deterministic transcendentals (gh:#985): petir::mathf::RealMath, no_std.
 petir = { workspace = true }
-thiserror.workspace = true
+thiserror-nostd = { workspace = true }
 uom.workspace = true
-ndarray.workspace = true
-outram-foam-basic-lib.workspace = true
+ndarray-nostd = { workspace = true }
+hashbrown = { workspace = true }
+outram-foam-basic-lib = { workspace = true }
+
+# `no_std` + `alloc` without `std` (gh:#1638, epic gh:#1637). `std` carries
+# the file readers and writers (STL, blockMeshDict, I-DEAS UNV, case output),
+# printing, and `std` in the dependencies.
+[features]
+default = ["std"]
+std = ["thiserror-nostd/std", "ndarray-nostd/std", "outram-foam-basic-lib/std"]
 
 [dev-dependencies]
 approx.workspace = true
@@ -48,3 +58,48 @@ miniz_oxide = { workspace = true }
 [lib]
 name = "outram_foam_mesh"
 path = "src/lib.rs"
+
+# Reads and writes case files: `std` only (gh:#1638).
+[[example]]
+name = "decompose_par"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "compare_polymesh"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "compare_check_mesh"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "dump_castellation"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "compare_dual_modes"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "dump_block_mesh"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "sphere_in_box"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "draw_poly_dual_mesh"
+required-features = ["std"]
+
+# Reads or writes case files: `std` only (gh:#1638).
+[[example]]
+name = "dump_dual_features"
+required-features = ["std"]

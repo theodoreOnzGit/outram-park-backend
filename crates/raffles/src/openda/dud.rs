@@ -38,6 +38,9 @@
 //! **OpenDA's DUD** ("doesn't use derivatives"), a secant Gauss–Newton for
 //! weighted least squares (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::cost::{CostFunction, LeastSquaresView};
 use super::jama::Rows;
 use super::linalg::{self, axpy, pointwise_divide};

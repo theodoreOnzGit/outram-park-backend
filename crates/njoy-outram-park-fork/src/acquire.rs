@@ -2,7 +2,8 @@
 //!
 //! # Two halves, gated differently
 //!
-//! **[`EndfCache`] — always compiled.** One caching layer for every large
+//! **[`EndfCache`] — ~~always compiled~~ compiled with the default `std`
+//! feature** (CORRECTED 2026-11-16 (gh:#1592)). One caching layer for every large
 //! derived artifact this crate produces or fetches. Its contract
 //! (`docs/data-acquisition.md`) is: check the cache, take a per-artifact
 //! advisory lock, re-check (a peer may have finished while we waited), write to
@@ -61,17 +62,25 @@
 //! # }
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::fs::{self, File};
+#[cfg(feature = "std")]
 use std::io::Write;
+#[cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use fs2::FileExt;
+#[cfg(feature = "std")]
 use sha2::{Digest, Sha256};
 
 use crate::NjoyError;
 
 #[cfg(feature = "net-fetch")]
+#[cfg(feature = "std")]
 use std::io::Read;
 #[cfg(feature = "net-fetch")]
 use crate::endf::tape::Tape;
@@ -544,12 +553,15 @@ pub fn parse_nuclide(name: &str) -> Result<(u32, u32, &'static str), NjoyError> 
 /// unique `.part` file, `fsync`, then **atomically rename** into place. Readers
 /// therefore only ever see complete files, and N processes racing for the same
 /// nuclide do the download exactly once.
+#[cfg(feature = "std")]
 #[derive(Debug, Clone)]
 pub struct EndfCache {
     dir: PathBuf,
 }
 
+#[cfg(feature = "std")]
 impl EndfCache {
+    #[cfg(feature = "std")]
     /// The directory [`EndfCache::new`] would use — the [`CACHE_DIR_ENV`]
     /// override if set, else the platform cache directory (XDG on Linux,
     /// `AppData` on Windows, `~/Library/Caches` on macOS).
@@ -575,6 +587,7 @@ impl EndfCache {
         Ok(EndfCache { dir })
     }
 
+    #[cfg(feature = "std")]
     /// Open a cache rooted at an explicit directory (created if needed). Useful
     /// for tests and for pointing several runs at a shared scratch area.
     pub fn with_dir(dir: impl Into<PathBuf>) -> Result<Self, NjoyError> {
@@ -583,11 +596,13 @@ impl EndfCache {
         Ok(EndfCache { dir })
     }
 
+    #[cfg(feature = "std")]
     /// The cache directory root.
     pub fn dir(&self) -> &Path {
         &self.dir
     }
 
+    #[cfg(feature = "std")]
     /// The final cached (extracted) tape path for a nuclide of `library`:
     /// `<root>/<library>/n_<MAT>_<Z>-<Sym>-<A>.endf`.
     pub fn path_for(
@@ -603,6 +618,7 @@ impl EndfCache {
             .join(tape_filename(mat, z, a, symbol))
     }
 
+    #[cfg(feature = "std")]
     /// Fetch a nuclide's raw ENDF tape (downloading and unzipping if needed),
     /// returning the path to the cached, extracted `.endf` file.
     ///
@@ -624,6 +640,7 @@ impl EndfCache {
         self.fetch_to_path(&url, final_path)
     }
 
+    #[cfg(feature = "std")]
     /// **The cache core.** Return `final_path` if it is already cached; otherwise
     /// run `produce` exactly once (across processes) and publish its bytes there
     /// atomically.
@@ -726,6 +743,7 @@ impl EndfCache {
         result
     }
 
+    #[cfg(feature = "std")]
     /// Download `url` (a single-member zip of one ENDF tape) into `final_path`,
     /// returning the cached, extracted path.
     ///
@@ -743,6 +761,7 @@ impl EndfCache {
         })
     }
 
+    #[cfg(feature = "std")]
     /// The final cached (extracted) tape path for a tsl material of `library`:
     /// `<root>/<library>/<base>.endf` (e.g.
     /// `<root>/ENDF-B-VIII.0/tsl-crystalline-graphite.endf`).
@@ -752,6 +771,7 @@ impl EndfCache {
             .join(format!("{tsl_base}.endf"))
     }
 
+    #[cfg(feature = "std")]
     /// Fetch a **thermal-scattering-law** tape (downloading + unzipping if needed),
     /// returning the path to the cached, extracted `.endf`. The tsl counterpart of
     /// [`Self::fetch`]; same lock / atomic-publish / SHA-256 discipline via the
@@ -765,6 +785,7 @@ impl EndfCache {
         self.fetch_to_path(&url, final_path)
     }
 
+    #[cfg(feature = "std")]
     /// Fetch a tsl tape by a friendly registry key (see [`well_known_tsl`]) — e.g.
     /// `"graphite"`, `"reactor-graphite-10P"`, `"HinH2O"`. Errors if the key is not
     /// in the built-in registry; pass an explicit basename to [`Self::fetch_tsl`]
@@ -839,6 +860,7 @@ impl EndfCache {
         )
     }
 
+    #[cfg(feature = "std")]
     /// Fetch a nuclide addressed by GNDS name (e.g. `"U235"`), looking up its MAT
     /// from [`well_known_mat`]. Errors if the nuclide is not in the built-in MAT
     /// table — use [`EndfCache::fetch`] with an explicit MAT for others.
@@ -893,6 +915,7 @@ fn http_get(url: &str) -> Result<Vec<u8>, NjoyError> {
     Ok(buf)
 }
 
+#[cfg(feature = "std")]
 /// Extract the single ENDF member from an IAEA `.zip` archive in memory.
 ///
 /// IAEA `download-endf` neutron files are one ENDF tape per zip. Returns the first
@@ -942,11 +965,12 @@ pub(crate) fn validate_endf(bytes: &[u8], url: &str) -> Result<(), NjoyError> {
 }
 
 /// Lowercase hex SHA-256 of `bytes`.
+#[cfg(feature = "std")]
 fn hex_sha256(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let mut s = String::with_capacity(64);
     for b in digest {
-        use std::fmt::Write;
+        use core::fmt::Write;
         let _ = write!(s, "{b:02x}");
     }
     s
@@ -954,6 +978,7 @@ fn hex_sha256(bytes: &[u8]) -> String {
 
 /// A short unique-ish suffix (nanos since the epoch) to name a per-process
 /// `.part` file without pulling in a random-number dependency.
+#[cfg(feature = "std")]
 fn unique_suffix() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -979,6 +1004,7 @@ mod tests {
         assert_eq!(tape_filename(9228, 92, 235, "U"), "n_9228_92-U-235.endf");
     }
 
+    #[cfg(feature = "std")]
     /// The thermal-scattering-law (tsl) acquire path builds the IAEA NDS
     /// `<library>/tsl/<base>.zip` URL and the `<library>/<base>.endf` cache path
     /// for the HTR-10 graphite moderators and light-water H-in-H₂O (bead op-6tz.28).
@@ -1091,6 +1117,7 @@ mod tests {
         assert!(parse_nuclide("Xx12").is_err()); // unknown element
     }
 
+    #[cfg(feature = "std")]
     /// The cache builds `<root>/<library>/<file>.endf` and honours an explicit dir.
     #[test]
     fn cache_path_layout() {

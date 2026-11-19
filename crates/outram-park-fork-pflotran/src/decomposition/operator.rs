@@ -25,6 +25,9 @@
 //! preconditioner, and 2-D/3-D/unstructured coefficient operators remain the
 //! op-gj5 follow-ups.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_park_mpi::{Communicator, MpiResult};
 
 use super::krylov::{distributed_cg_with, distributed_pcg_with};

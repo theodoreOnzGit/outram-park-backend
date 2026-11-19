@@ -88,7 +88,10 @@
 //! sound to <0.1%), R32–R125 (a real `F ≠ 0` departure function, part of the
 //! R410A refrigerant blend), and a 840-pair smoke test. No flash/VLE.
 //!
-//! `rfluids` oracle verification is planned (bead op-kbc.3).
+//! ~~`rfluids` oracle verification is planned (bead op-kbc.3).~~ **CORRECTED 2026-11-13
+//! (gh:#1349):** pure-fluid terms, properties, saturation, the `(p, T)` flash and transport
+//! are checked against CoolProp's own output for all 137 fluids, not through `rfluids`: see
+//! `verification_and_validation/coolprop_differential/`. Mixtures remain unchecked against it.
 //!
 //! ## Example
 //!
@@ -104,6 +107,29 @@
 //! saturated-liquid value gives a small *negative* pressure — the metastable
 //! tension region. `(T, ρ)` inputs are literal EOS evaluations, not a
 //! phase-stable flash.)
+
+// `no_std` + `alloc` without the default `std` feature (gh:#1598, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+
+extern crate alloc;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
 
 pub mod ancillaries;
 pub mod eos;

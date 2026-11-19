@@ -40,6 +40,25 @@ License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:
 
 ---
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1601, 2026-11-17)
+
+Without its default `std` feature the library is `no_std` + `alloc`, checked
+on a bare-metal target by `scripts/check-nostd.sh`. The README lists what
+`std` carries. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (copy it from any module).
+- Threads, locks and clocks come from `crate::thread`, `crate::sync::Mutex`
+  and `crate::time::SystemTime`, never from `std::` directly. Each is std's
+  own item in a std build or a test.
+- A spawned closure must work on its own data and be joined before its
+  result is used: that is what makes the no-std "run it now" `spawn` give
+  the same numbers.
+- A print is a `#[cfg(feature = "std")]` statement, not a gated function.
+- `approx`, `ndarray` and `thiserror` come in as their `-nostd` workspace
+  keys, aliased in `lib.rs`.
+- A test that writes a CSV file is `#[cfg(feature = "std")]`.
+
 ## Prerequisites
 
 **Linux (Debian/Ubuntu/Mint):**

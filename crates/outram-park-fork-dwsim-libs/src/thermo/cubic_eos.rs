@@ -65,6 +65,9 @@
 //! > operation, reactor control, safety-critical, or licensing decisions.
 //! > Independent OUTRAM PARK fork, not the official DWSIM.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::thermo::Component;
 
@@ -613,7 +616,7 @@ fn real_cubic_roots(c2: f64, c1: f64, c0: f64) -> Vec<f64> {
         let m = 2.0 * (-third_p).sqrt();
         let theta = (3.0 * q / (p * m)).clamp(-1.0, 1.0).r_acos() / 3.0;
         for k in 0..3 {
-            let t = m * (theta - 2.0 * std::f64::consts::PI * f64::from(k) / 3.0).r_cos();
+            let t = m * (theta - 2.0 * core::f64::consts::PI * f64::from(k) / 3.0).r_cos();
             roots.push(t - shift);
         }
     }
@@ -781,8 +784,8 @@ mod tests {
         let bi = pr.b_i(&co2);
 
         // Single component.
-        let a1 = pr.a_mix(std::slice::from_ref(&co2), &[1.0], t, None);
-        let b1 = pr.b_mix(std::slice::from_ref(&co2), &[1.0]);
+        let a1 = pr.a_mix(core::slice::from_ref(&co2), &[1.0], t, None);
+        let b1 = pr.b_mix(core::slice::from_ref(&co2), &[1.0]);
         assert_relative_eq!(a1, ai, max_relative = 1e-12);
         assert_relative_eq!(b1, bi, max_relative = 1e-12);
 
@@ -1059,7 +1062,7 @@ mod tests {
 
         for (name, comp, t, p, reference_rho) in cases {
             let z = CubicEos::PengRobinson
-                .z_factor(std::slice::from_ref(comp), &[1.0], t, p, Phase::Vapor, None)
+                .z_factor(core::slice::from_ref(comp), &[1.0], t, p, Phase::Vapor, None)
                 .unwrap_or_else(|| panic!("{name}: no vapour root"));
             assert!(z.is_finite() && z > 0.0, "{name}: non-physical Z = {z}");
 

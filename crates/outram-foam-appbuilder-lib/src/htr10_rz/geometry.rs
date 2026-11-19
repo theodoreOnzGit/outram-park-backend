@@ -26,6 +26,9 @@
 //! The mesh lines are the Fig 2.5 printed labels (Quoted from legible
 //! labels), so every region boundary lies on a face.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::materials::RegionMaterial;
 
 /// How a region's extent is known (the input sheet's confidence levels,

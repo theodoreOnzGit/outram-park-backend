@@ -1,0 +1,50 @@
+# cohesion washino/capillary/viscous against a MESH wall carrying a liquid film
+# (gh:#1487): plate_square.stl (2 facets, z = 0, diagonal y = x) declared
+# mesh/surface/liquidtransfer, wall_thickness 1 mm, initial_liquid_content 0.1.
+# The wall's liquid volume enters the bridge, V_b = f (V_Li + LC A_c 1000 t),
+# A_c = min(pi r^2, A_tri). Both d = 10 mm spheres sit over facet 0 (y < x),
+# 55+ mm from its edges and the diagonal. Sphere 1 starts 3 mm above at
+# 0.4 m/s down: Washino forms the bridge OUT of contact (dist < d_max ~ 1.8 mm),
+# touches (upstream's wall surfacesIntersect reads sidata.radj = 0, so the
+# capillary/viscous force in contact is a signed zero), rebounds, and the bridge
+# ruptures at d_max, moving (0.5 V_b - f V_Li)/dt between the sphere and the
+# facet. Sphere 2 starts 1 mm above at 5 mm/s and stays bridged; it feels the
+# facet film that sphere 1 changed. Dumps every 200 steps.
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.2 0.2 -0.2 0.2 -0.05 0.4 units box
+create_box	1 reg
+neighbor	0.004 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+fix 		c1 all property/global surfaceLiquidContentInitial scalar 0.1
+fix 		c2 all property/global surfaceTension scalar 0.072
+fix 		c3 all property/global fluidViscosity scalar 1.0e-3
+fix 		c4 all property/global contactAngle peratomtype 0.3
+fix 		c5 all property/global minSeparationDistanceRatio scalar 0.01
+fix 		c6 all property/global maxSeparationDistanceRatio scalar 2.0
+pair_style	gran model hertz tangential history cohesion washino/capillary/viscous
+pair_coeff	* *
+timestep	1e-6
+fix		floor all mesh/surface/liquidtransfer file plate_square.stl type 1 wall_thickness 0.001 initial_liquid_content 0.1
+fix		wmesh all wall/gran model hertz tangential history cohesion washino/capillary/viscous mesh n_meshes 1 meshes floor
+create_atoms	1 single 0.06 -0.06 0.008 units box
+create_atoms	1 single 0.09 -0.02 0.006 units box
+set		atom 1 diameter 0.01 density 2500 vx 0.2 vy 0.1 vz -0.4 omegax 10.0 omegay 30.0 omegaz 5.0
+set		atom 2 diameter 0.01 density 2500 vx -0.02 vy 0.01 vz -0.005 omegax -5.0 omegay 8.0 omegaz 20.0
+fix		integr all nve/sphere
+thermo		1000
+thermo_modify	lost ignore norm no
+run		0
+set		atom 1 property/atom surfaceLiquidContent 0.2
+set		atom 2 property/atom surfaceLiquidContent 0.15
+dump		d1 all custom 200 dump.cap_washino_mesh id x y z vx vy vz omegax omegay omegaz fx fy fz f_surfaceLiquidContent f_liquidFlux
+dump_modify	d1 sort id
+run		40000

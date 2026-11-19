@@ -78,11 +78,14 @@
 //!   to the same constant; `Σ V φ` of a linear field is conserved both ways
 //!   (the property GeN-Foam's power and temperature coupling rely on).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par::prelude::*;
 
 use super::mesh::UnstructuredMesh;
@@ -138,7 +141,7 @@ fn prism_tets(a: [P; 3], b: [P; 3], out: &mut Vec<[P; 4]>) {
 /// Port of `tetrahedron::sliceWithPlane` keeping the inside: the part of `t`
 /// where the plane function is positive, as tets appended to `out`.
 fn slice_inside(t: &[P; 4], pl: &Plane, out: &mut Vec<[P; 4]>) {
-    let d: [f64; 4] = std::array::from_fn(|k| dot(pl.0, sub(t[k], pl.1)));
+    let d: [f64; 4] = core::array::from_fn(|k| dot(pl.0, sub(t[k], pl.1)));
     let inside: Vec<usize> = (0..4).filter(|&k| d[k] > 0.0).collect();
     let outside: Vec<usize> = (0..4).filter(|&k| d[k] <= 0.0).collect();
     let cut = |i: usize, o: usize| lerp(t[i], t[o], d[i] / (d[i] - d[o]));
@@ -195,7 +198,7 @@ pub fn tet_tet_overlap(a: &[P; 4], b: &[P; 4]) -> f64 {
         if next.is_empty() {
             return 0.0;
         }
-        std::mem::swap(&mut pieces, &mut next);
+        core::mem::swap(&mut pieces, &mut next);
     }
     pieces.iter().map(tet_volume).sum()
 }

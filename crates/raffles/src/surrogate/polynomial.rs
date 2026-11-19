@@ -41,6 +41,9 @@
 //!   24*(2), 619–644. doi:
 //!   [10.1137/S1064827501387826](https://doi.org/10.1137/S1064827501387826)
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 

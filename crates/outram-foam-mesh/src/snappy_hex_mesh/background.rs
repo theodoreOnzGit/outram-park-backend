@@ -27,6 +27,9 @@
 //! into a uniform `nx × ny × nz` grid of hexahedral cells. Everything downstream
 //! (the octree) subdivides these level-0 cells.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::Vector3;
 
 /// Axis-aligned bounding box `[m]`.

@@ -31,12 +31,12 @@ maturity = 1
 thiserror.workspace = true
 uom.workspace = true
 clap.workspace = true
-outram-foam-basic-lib.workspace = true
-outram-foam-mesh.workspace = true
-outram-foam-appbuilder-lib.workspace = true
+outram-foam-basic-lib = { workspace = true, features = ["std"] }
+outram-foam-mesh = { workspace = true, features = ["std"] }
+outram-foam-appbuilder-lib = { workspace = true, features = ["std"] }
 # gh:#1476: the cfMesh executables (cartesianMesh, tetMesh, pMesh,
 # cartesian2DMesh): the meshDict reader, STL surfaceFile and polyMeshGen write.
-outram-park-fork-cfmesh = { workspace = true, features = ["foam-export", "surface-file"] }
+outram-park-fork-cfmesh = { workspace = true, features = ["std", "foam-export", "surface-file"] }
 
 [dev-dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
@@ -46,7 +46,7 @@ petir = { workspace = true }
 # op-cdte): the OFFBEAT small-strain mechanics solver is run alongside the
 # GeN-Foam one on a mesh this crate's own `blockMesh` tool writes. The CLI
 # binaries do not link OFFBEAT.
-outram-park-fork-offbeat.workspace = true
+outram-park-fork-offbeat = { workspace = true, features = ["std"] }
 # gh:#1483: tests/cfmesh_patch_types.rs inflates the committed upstream cfMesh
 # `boundary.gz` files it compares the written boundary with.
 miniz_oxide = { workspace = true }
@@ -108,3 +108,11 @@ path = "src/bin/p_mesh.rs"
 [[bin]]
 name = "cartesian2DMesh"
 path = "src/bin/cartesian_2d_mesh.rs"
+
+[[bin]]
+name = "setFields"
+path = "src/bin/set_fields.rs"
+
+[[bin]]
+name = "topoSet"
+path = "src/bin/topo_set.rs"

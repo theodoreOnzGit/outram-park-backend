@@ -106,8 +106,61 @@ seeds per run, RVS; record in the outram-mc-libs V&V README). Run with
 **−11 % to +8 %**, against −14 % to +6 % with arm A's split. The graphite
 coefficient is 0.5 smaller in magnitude (about 1σ), which lengthens the
 low-power periods and shortens nothing; the change is inside the
-coefficients' statistics. **~~Quote the arm-A RVS table~~ Quote this table
-under the current default model** (arm C, RVS).
+coefficients' statistics. ~~Quote this table under the current default model (arm C,
+RVS).~~ **Superseded 2026-11-12 by
+the U-234/U-236 table below, when the default salt changed.**
+
+### T-1 on the 2026-11-12 default salt, with U-234 and U-236 (gh:#1129)
+
+On 2026-11-12 the N-1 default salt gained TM-0730's U-234 and U-236
+(maintainer: "More physical model is better"), and develop's transport
+defaults changed (#1386). The split re-measured on that model is **fuel
+−4.18 ± 0.35, graphite −3.08 ± 0.35 × 10⁻⁵ /°F** (six seeds per run;
+record in the outram-mc-libs V&V README). Run with
+`--fuel-per-f -4.18e-5 --graphite-per-f -3.08e-5`.
+
+| P [MW] | measured [min] | model [min] | model / measured |
+|---|---|---|---|
+| 0.076 | 29.91 | 26.66 | 0.891 |
+| 0.467 | 11.01 | 10.90 | 0.990 |
+| 1.004 | 7.16 | 7.35 | 1.027 |
+| 2.448 | 4.33 | 4.41 | 1.019 |
+| 4.848 | 2.41 | 2.69 | 1.118 |
+| 6.735 | 1.85 | 2.05 | 1.108 |
+| 7.306 | 1.71 | 1.92 | 1.122 |
+
+**−11 % to +12 %**, against −11 % to +8 % with the previous split. The fuel
+coefficient is 0.26 smaller in magnitude and the graphite 0.26 larger, each
+under 1σ; the smaller fuel coefficient lengthens the high-power periods.
+The change is inside the coefficients' statistics. ~~**Quote this table under
+the current default model.**~~ **Superseded 2026-11-13** by the table below,
+when the N-1 default gained temperature-following dimensions and the whole
+shield.
+
+### T-1 on the 2026-11-13 default: dimensions at temperature and the whole shield (gh:#1129)
+
+On 2026-11-13 the N-1 default model gained dimensions that follow each
+solid's temperature and the whole TM-0728 thermal shield (maintainer:
+"physical realism without crippling the simulation"). The split
+re-measured on it is **fuel −3.79 ± 0.37, graphite −3.26 ± 0.33 × 10⁻⁵ /°F**
+(six seeds per run; record in the outram-mc-libs V&V README). Run with
+`--fuel-per-f -3.79e-5 --graphite-per-f -3.26e-5`.
+
+| P [MW] | measured [min] | model [min] | model / measured |
+|---|---|---|---|
+| 0.076 | 29.91 | 27.12 | 0.907 |
+| 0.467 | 11.01 | 11.18 | 1.016 |
+| 1.004 | 7.16 | 7.59 | 1.060 |
+| 2.448 | 4.33 | 4.62 | 1.066 |
+| 4.848 | 2.41 | 2.88 | 1.195 |
+| 6.735 | 1.85 | 2.20 | 1.190 |
+| 7.306 | 1.71 | 2.06 | 1.205 |
+
+**−9 % to +21 %**, against −11 % to +12 % with the previous split. The fuel
+coefficient is 0.39 smaller in magnitude (about 0.8σ combined), and the
+smaller fuel coefficient lengthens the high-power periods, as it did last
+time. **No prediction was posted before this run.** **Quote this table
+under the current default model.**
 
 ### A finding on the way: the circulation loss
 

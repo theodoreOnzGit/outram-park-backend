@@ -4,6 +4,9 @@
 //! when `eta` isn't large enough for [`super::dispatch::bigeta`]'s Bessel-
 //! function approach.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::{EULER, PI};
 

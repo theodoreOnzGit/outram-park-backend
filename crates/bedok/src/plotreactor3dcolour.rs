@@ -56,6 +56,9 @@
 //! collapsed map. That is not a defect — it makes the map a fraction of total
 //! core power per unit volume — but it does mean the map does not sum to 1.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::types::{Geometry, Params};
 
 /// The scaled power map, and what the collapse did to get there.

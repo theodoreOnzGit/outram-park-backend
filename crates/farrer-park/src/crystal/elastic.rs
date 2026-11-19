@@ -52,6 +52,9 @@
 //! Every stiffness constant is in pascals (newton per square metre); the
 //! Zener anisotropy ratio is dimensionless.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::crystal::orient::Orientation;
 use crate::error::{FemError, Result};
 use crate::material::LinearElastic;

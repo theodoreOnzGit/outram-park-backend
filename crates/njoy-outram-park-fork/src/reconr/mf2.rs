@@ -19,6 +19,9 @@
 //!     LRU=2: SPI/AP header kept, the rest of the body stepped over
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::{
     endf::{records::SectionCursor, tape::Section},
     samm::mf2::RmlSection,
@@ -51,10 +54,11 @@ pub enum ResonanceFormalism {
     ///
     /// Sr-88 (MAT 3837, ~~the only LRF=7 evaluation in `reference-data/endf/`~~
     /// **CORRECTED 2026-10-01**: one of seven there; see `crate::samm`'s doc)
-    /// reproduces NJOY2016 2016.79 to within the reconstruction tolerance over
+    /// reproduces NJOY2016 2016.79 ~~to within the reconstruction tolerance~~ over
     /// **all 44,326 points of NJOY's own grid** inside the resolved range:
-    /// worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,
-    /// `2.39e-3`. Full record:
+    /// ~~worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,
+    /// `2.39e-3`~~ **CORRECTED 2026-11-14 (gh:#1366): every pair bit-identical**
+    /// after PENDF text, MT=1/2/102. Full record:
     /// `verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; gate:
     /// `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`.
     ///
@@ -552,6 +556,11 @@ fn parse_lru1(
         3 => parse_reich_moore(cur, el, eh, naps),
         4 => parse_adler_adler(cur, el, eh, naps),
         7 => parse_rml(cur, el, eh, naps, awr),
+        // gh:#1375: no evaluation held here or in NJOY2016's tests/resources uses
+        // LRF = 6 (surveyed 2026-11-14), so it is refused by name, not translated.
+        6 => Err(NjoyError::NotPorted(
+            "RECONR LRU = 1, LRF = 6 hybrid R-function (rdf2hy, cshybr: reconr.f90:1116-1224, 3609-3824)",
+        )),
         other => Err(NjoyError::EndfParse(format!(
             "unknown resolved-resonance LRF={other}"
         ))),
@@ -935,4 +944,19 @@ fn parse_lru2_header(
         nro: 0,
         ap_table: None,
     })
+}
+
+#[cfg(test)]
+mod lrf6_tests {
+    use super::*;
+
+    /// gh:#1375: `LRF = 6` (hybrid R-function, `rdf2hy`/`cshybr`) is refused by
+    /// name before any record is read; no held evaluation uses it.
+    #[test]
+    fn lrf6_is_refused_by_name() {
+        let rows: Vec<[f64; 6]> = Vec::new();
+        let mut cur = SectionCursor::new(&rows);
+        let r = parse_lru1(&mut cur, 1.0, 1.0e3, 6, 0, 1.0);
+        assert!(matches!(r, Err(NjoyError::NotPorted(m)) if m.contains("rdf2hy")));
+    }
 }

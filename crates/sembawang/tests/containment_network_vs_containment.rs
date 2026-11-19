@@ -103,6 +103,7 @@
 //! layers (re-run and passing); the default's are pinned beside them, set
 //! after the run and labelled so.
 
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 use sembawang::bwr_mark1::containment::{Containment, ContainmentSnapshot};
 use sembawang::bwr_mark1::containment_network::{ContainmentNetwork, NetworkConfig, NetworkMechanisms, NetworkResult, TorusShape};
 use sembawang::bwr_mark1::params::Params;

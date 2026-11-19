@@ -7,6 +7,9 @@
 //! the saturated-liquid (bubble) and saturated-vapour (dew) lines, and the
 //! B13 (Region 1/3) and B23 (Region 2/3) inter-region boundaries.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(test)]
 mod tests;
 

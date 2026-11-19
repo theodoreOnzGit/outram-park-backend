@@ -47,7 +47,10 @@
 //! Rebuild a [`MeshTopology`] after any operator that changes topology — like
 //! any index into the mesh, it goes stale.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::HashMap;
 
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};
 
@@ -228,7 +231,7 @@ impl MeshTopology {
         if at_pivot.len() != 4 {
             return None;
         }
-        let here: std::collections::BTreeSet<FaceId> =
+        let here: alloc::collections::BTreeSet<FaceId> =
             self.edge_faces(edge).iter().copied().collect();
         at_pivot
             .iter()
@@ -352,7 +355,7 @@ pub fn shortest_vertex_path(
     from: VertexId,
     to: VertexId,
 ) -> Vec<VertexId> {
-    use std::collections::BinaryHeap;
+    use alloc::collections::BinaryHeap;
 
     if from == to {
         return vec![from];
@@ -360,14 +363,14 @@ pub fn shortest_vertex_path(
     let nv = mesh.vertex_count();
     let mut dist = vec![f64::INFINITY; nv];
     let mut prev: Vec<Option<VertexId>> = vec![None; nv];
-    let mut heap: BinaryHeap<(std::cmp::Reverse<OrdF64>, VertexId)> = BinaryHeap::new();
+    let mut heap: BinaryHeap<(core::cmp::Reverse<OrdF64>, VertexId)> = BinaryHeap::new();
     if from.0 >= nv {
         return Vec::new();
     }
     dist[from.0] = 0.0;
-    heap.push((std::cmp::Reverse(OrdF64(0.0)), from));
+    heap.push((core::cmp::Reverse(OrdF64(0.0)), from));
 
-    while let Some((std::cmp::Reverse(OrdF64(d)), v)) = heap.pop() {
+    while let Some((core::cmp::Reverse(OrdF64(d)), v)) = heap.pop() {
         if d > dist[v.0] {
             continue;
         }
@@ -390,7 +393,7 @@ pub fn shortest_vertex_path(
             if nd < dist[n.0] {
                 dist[n.0] = nd;
                 prev[n.0] = Some(v);
-                heap.push((std::cmp::Reverse(OrdF64(nd)), n));
+                heap.push((core::cmp::Reverse(OrdF64(nd)), n));
             }
         }
     }
@@ -414,11 +417,12 @@ pub fn shortest_vertex_path(
 /// including both ends, or empty if disconnected.
 pub fn shortest_hop_path<T, F, I>(from: T, to: T, mut adjacent: F) -> Vec<T>
 where
-    T: Copy + Eq + std::hash::Hash,
+    T: Copy + Eq + core::hash::Hash,
     F: FnMut(T) -> I,
     I: IntoIterator<Item = T>,
 {
-    use std::collections::{HashMap, VecDeque};
+    use alloc::collections::VecDeque;
+    use crate::hash::HashMap;
 
     if from == to {
         return vec![from];
@@ -457,15 +461,15 @@ where
 struct OrdF64(f64);
 impl Eq for OrdF64 {}
 impl PartialOrd for OrdF64 {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 impl Ord for OrdF64 {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.0
             .partial_cmp(&other.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .unwrap_or(core::cmp::Ordering::Equal)
     }
 }
 
@@ -531,7 +535,7 @@ mod tests {
         let n = next.unwrap();
         assert_ne!(n, e);
         // The next edge shares no face with e.
-        let ef: std::collections::BTreeSet<_> = t.edge_faces(e).iter().copied().collect();
+        let ef: alloc::collections::BTreeSet<_> = t.edge_faces(e).iter().copied().collect();
         assert!(t.edge_faces(n).iter().all(|f| !ef.contains(f)));
     }
 

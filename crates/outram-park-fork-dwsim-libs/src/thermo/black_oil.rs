@@ -132,6 +132,9 @@
 // Named type aliases — SI at the public boundary (crate `CLAUDE.md`).
 // ---------------------------------------------------------------------------
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Absolute pressure, pascals (Pa). SI.
 pub type Pascals = f64;

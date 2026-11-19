@@ -7,6 +7,9 @@
 //! unchanged: built from the public MELCOR manuals and open literature only,
 //! never MELCOR, MAAP or other code source (see [`super`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[derive(Default)]
 pub struct Writer(pub Vec<f64>);
 

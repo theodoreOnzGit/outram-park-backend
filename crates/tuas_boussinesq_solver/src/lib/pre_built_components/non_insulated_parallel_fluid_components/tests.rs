@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// for coupled dracs loop, first thing first is to
 /// debug parallel bare pipes
 ///
@@ -865,6 +868,7 @@ pub fn parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia() {
 
         adiabatic_dhx_tube_side_30_outlet_temp = outlet_temperature;
 
+        #[cfg(feature = "std")]
         dbg!(&adiabatic_dhx_tube_side_30_outlet_temp);
 
         // moving on timestep
@@ -985,6 +989,7 @@ pub fn parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia() {
             .unwrap();
 
         parallel_adiabatic_dhx_tube_side_30_outlet_temp = outlet_temperature;
+        #[cfg(feature = "std")]
         dbg!(&parallel_adiabatic_dhx_tube_side_30_outlet_temp);
 
         // moving on timestep

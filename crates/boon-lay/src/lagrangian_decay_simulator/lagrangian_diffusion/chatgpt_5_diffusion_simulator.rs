@@ -1,6 +1,9 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::rng::{distributions::sample_exp, lcg::prn};
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Copy)]

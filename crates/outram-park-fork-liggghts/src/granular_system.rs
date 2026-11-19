@@ -60,16 +60,19 @@
 //! all-pairs scan below [`GranularSystem::BRUTE_FORCE_THRESHOLD`] and a
 //! uniform linked-cell grid above it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::force_fixes::ForceFix;
 use crate::variable::VarContext;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par as rayon;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 use crate::wasm_par::prelude::*;
 
 use crate::boundary::Boundary;
@@ -79,6 +82,7 @@ use crate::granular::{
 };
 use crate::heat_gran::HeatGranConduction;
 use crate::integrator::VelocityVerlet;
+use crate::mesh_stress::WearContact;
 use crate::mesh_wall::{MovingBoundary, WallGeometry};
 use crate::neighbor_list::{self, LiggghtsNeighbor, NeighborOrder};
 use crate::particle::{Particle, Vec3};
@@ -272,6 +276,12 @@ pub struct GranularSystem {
     /// `NeighborOrder::Liggghts` only: `perm[l]` is the particle index sitting
     /// in upstream's local atom slot `l` (the `Atom::sort` order).
     perm: Vec<usize>,
+    /// `NeighborOrder::Liggghts` only: per particle, its neighbour bin
+    /// `(ix, iy, iz)` at the last list build (`Neighbor::bin_atoms` on the
+    /// positions of that build). Fixes the order of each facet's mesh
+    /// neighbour list, which walks its bins in `ix, iy, iz` loop order
+    /// (`FixNeighlistMesh::generate_bin_list`/`handleTriangle`, gh:#1491).
+    nbin_of: Vec<(i32, i32, i32)>,
     /// Upstream's `update->ntimestep` (steps taken by this system).
     step_count: u64,
     /// `atom->nextsort`.
@@ -287,7 +297,7 @@ pub struct GranularSystem {
     inserters: Vec<crate::insert::InsertFix>,
     /// `fix insert/stream` fixes and the shared release data (by tag).
     stream_inserters: Vec<crate::insert_stream::InsertStreamFix>,
-    stream_release: std::collections::BTreeMap<u64, crate::insert_stream::Release>,
+    stream_release: alloc::collections::BTreeMap<u64, crate::insert_stream::Release>,
     /// `fix heat/gran/conduction`, if attached ([`GranularSystem::with_heat_conduction`]).
     heat: Option<HeatGranConduction>,
     /// Heat flux into each particle `[W]` from the last step's contact
@@ -298,6 +308,37 @@ pub struct GranularSystem {
     /// The `liquidtransfer` state of a capillary cohesion model, if attached
     /// ([`GranularSystem::with_capillary`], gh:#1411).
     capillary: Option<crate::capillary::CapillaryState>,
+    /// `fix multisphere`: created when the first clump is inserted (gh:#1415).
+    multisphere: Option<crate::multisphere::Multisphere>,
+    /// The clump fix is `fix multisphere/nointegration` (gh:#1415).
+    ms_nointegration: bool,
+    /// `fix multisphere ... allow_group_and_set yes` (gh:#1415): `set` may
+    /// change atoms while clumps exist.
+    ms_allow_group_and_set: bool,
+    /// `fix multisphere/break ... trigger_threshold T trigger_timeStep S`:
+    /// `(T, S)` (gh:#1415).
+    ms_break: Option<(f64, i64)>,
+    /// The break trigger (`fix property/atom`, default 0) of each atom, by
+    /// tag.
+    break_trigger: alloc::collections::BTreeMap<u64, f64>,
+    /// `boundary f f f` with `thermo_modify lost ignore`: the box whose
+    /// leavers `Comm::exchange` drops at a rebuild
+    /// ([`GranularSystem::with_lost_atoms`], gh:#1415).
+    lost_atoms_box: Option<(Vec3, Vec3)>,
+}
+
+/// Where a capillary mesh-facet `surfacesClose` happens (gh:#1487): the
+/// moving-wall index, the bridge key `(tag, wall id, facet)`, the particle
+/// index and type, the facet velocity at the contact and the facet area.
+#[derive(Debug, Clone, Copy)]
+struct MeshCloseSite {
+    wall: usize,
+    key: (u64, usize, usize),
+    i: usize,
+    atype: usize,
+    v_wall: Vec3,
+    area: f64,
+    dt: f64,
 }
 
 /// One candidate pair's resolved contact, staged by the parallel force loop so
@@ -349,6 +390,28 @@ impl PairOutcome {
             z: 0.0,
         },
     };
+}
+
+/// One particle-facet contact's contribution to `fix mesh/surface/stress`
+/// (`add_particle_contribution(ip, f_pw, -sidata.delta, iTri, v_wall)`),
+/// staged so the totals can be summed in upstream's order.
+struct StressContribution {
+    /// Particle index.
+    i: usize,
+    /// Facet.
+    tri: usize,
+    /// `f_pw`, the contact force on the particle.
+    f_pw: [f64; 3],
+    /// Particle centre.
+    x: [f64; 3],
+    /// `-sidata.delta`.
+    delta: [f64; 3],
+    /// Particle velocity.
+    v: [f64; 3],
+    /// Mesh velocity at the contact.
+    v_wall: [f64; 3],
+    /// Unit normal of the facet (`surfaceNorm`).
+    norm: [f64; 3],
 }
 
 impl GranularSystem {
@@ -411,17 +474,24 @@ impl GranularSystem {
             cell_items: Vec::new(),
             neighbor_order: NeighborOrder::CellGrid,
             perm: Vec::new(),
+            nbin_of: Vec::new(),
             step_count: 0,
             next_sort: 0,
             rebuild_now: false,
             wall_near: Vec::new(),
             inserters: Vec::new(),
             stream_inserters: Vec::new(),
-            stream_release: std::collections::BTreeMap::new(),
+            stream_release: alloc::collections::BTreeMap::new(),
             heat: None,
             heat_flux: Vec::new(),
             massflow: Vec::new(),
             capillary: None,
+            multisphere: None,
+            ms_nointegration: false,
+            ms_allow_group_and_set: false,
+            ms_break: None,
+            break_trigger: alloc::collections::BTreeMap::new(),
+            lost_atoms_box: None,
         };
         s.compute_forces_setup();
         Ok(s)
@@ -464,6 +534,14 @@ impl GranularSystem {
     #[must_use]
     pub fn mesh_servo_xcm(&self, wall: usize, n: usize) -> Option<f64> {
         self.moving_walls[wall].servo.as_ref().map(|s| s.0.xcm()[n])
+    }
+
+    /// Accumulated Finnie wear of facet `tri` of moving wall `wall`
+    /// (`fix mesh/surface/stress ... wear finnie`, the element property
+    /// `wear`); `None` when that wall tracks no wear. gh:#1491.
+    #[must_use]
+    pub fn facet_wear(&self, wall: usize, tri: usize) -> Option<f64> {
+        self.moving_walls[wall].stress.as_ref().and_then(|s| s.wear(tri))
     }
 
     /// Servo velocity `vcm_` (force servo) or angular velocity `omegacm_`
@@ -603,6 +681,288 @@ impl GranularSystem {
         self.setup_phase = false;
     }
 
+    /// **Begin a new `run`**, as every `run` command of a LIGGGHTS deck does
+    /// (`Run::command` -> `lmp->init()` -> `Verlet::setup()`; gh:#1510).
+    /// [`GranularSystem::run`] continues the current run; a deck with two
+    /// `run` commands is reproduced by `run(n1); begin_run()?; run(n2)`, and
+    /// differs from one continuous run even with nothing changed in between,
+    /// because the set-up evaluates the forces again at the full-step
+    /// velocities. A `run N pre no` is a plain [`GranularSystem::run`] (no
+    /// `init`, no set-up). Construction already performs the first run's
+    /// set-up.
+    ///
+    /// What is reset, read from LIGGGHTS-PUBLIC `3d5c00f2`:
+    ///
+    /// * **`init()`** of every fix (`Modify::init`): the servo re-sets
+    ///   `p_ref = xcm`, `vel_min_` from the present smallest radius and the
+    ///   torque servo's `rPaMax` from the present nodes, and re-checks its
+    ///   aborts ([`MovingBoundary::begin_run`]). The other fixes' `init()`
+    ///   only look up variables, properties and pointers.
+    /// * **`Verlet::setup()`**: the atom sort and neighbour build (under
+    ///   [`NeighborOrder::Liggghts`]: `nextsort` re-based, the half list,
+    ///   the primitive-wall lists, `xhold`); `FixMesh::setup_pre_force`
+    ///   (each mesh's geometry and original nodes from its present nodes);
+    ///   `FixNeighlistMesh::setup_pre_force` (the servo contact count and the
+    ///   massflow lists); the servo's `setup_pre_force` (`xcm_orig = xcm`,
+    ///   `totalPhi = 0`); the pair compute and every fix's `setup` with
+    ///   `shearupdate = 0` (the same evaluation construction does); and
+    ///   `FixMoveMesh::setup`, which zeroes a moved mesh's node velocities
+    ///   ([`MovingBoundary::move_mesh_setup`]).
+    /// * **With clumps** (gh:#1415, added 2026-11-14): `FixMultisphere`'s
+    ///   `setup_pre_exchange` (delete the atoms of lost clumps),
+    ///   `Comm::exchange` (under [`GranularSystem::with_lost_atoms`]),
+    ///   `setup_pre_neighbor` (`check_lost_atoms`), and after the set-up
+    ///   forces `setup_pre_force` + `setup`: each body's `fcm` and `torque`
+    ///   are re-summed from them (`calc_force(true)`). ~~A second run with
+    ///   clumps is refused.~~ **CORRECTED 2026-11-14:** ported, bit-identical
+    ///   (`tests/multisphere_cross_code.rs`, `ms_rerun`).
+    ///
+    /// What **persists**, as upstream: pair, wall and mesh contact history;
+    /// the servo's integral term, last process value, velocity and node
+    /// velocities; the stress totals (`MeshModuleStress::pre_force` does not
+    /// run at set-up, so the set-up contributions add to the last step's,
+    /// which is what a `thermo` line printed at set-up shows); the wear
+    /// (`wear_step` is zero after the last step, so the set-up's wear enters
+    /// the next step); insertion schedules and counters
+    /// (`FixInsert::setup` acts on the first run only); massflow counters;
+    /// heat and liquid content; a mesh's pending re-neighbour request
+    /// (`next_reneighbor`); `step` and `time`.
+    ///
+    /// **Not modelled:** `ramp()` and other run-bounded quantities in
+    /// variables (the crate's variable contexts take `begin_step = 0`), the
+    /// reference point a superposed `move/mesh` resets
+    /// (`FixMoveMesh::reset_reference_point`), and the slot compaction of the
+    /// mesh contact history (`FixContactHistoryMesh::sort_contacts`), which
+    /// the port does not model at re-neighbouring either.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] where a fix's `init()` aborts (see
+    /// [`crate::mesh_stress::MeshServo::init_run`]), or where
+    /// `Atom::setup_sort_bins` does (the sort on with a zero cut; see
+    /// [`GranularSystem::try_with_liggghts_neighbor_order`]).
+    pub fn begin_run(&mut self) -> Result<(), DemError> {
+        // lmp->init(): Modify::init -> fix->init(); then Verlet::setup's
+        // setup_pre_force of the meshes (no fix reads another in between).
+        // Not modelled: a mesh's setup_pre_force follows the exchange below
+        // upstream; no deck here has both a servo mesh and lost atoms.
+        for w in &mut self.moving_walls {
+            w.begin_run(&self.particles)?;
+        }
+        // Verlet::setup -> Atom::setup -> setup_sort_bins (gh:#1568)
+        self.check_sort_setup()?;
+        // modify->setup_pre_exchange (`FixMultisphere::pre_exchange`),
+        // comm->exchange, modify->setup_pre_neighbor (`check_lost_atoms`);
+        // each a no-op without clumps / lost atoms (gh:#1415)
+        self.multisphere_pre_exchange();
+        self.exchange_lost_atoms();
+        self.multisphere_pre_neighbor();
+        // neighbor->build (the LIGGGHTS-order rebuild in the set-up
+        // evaluation also does this) and the mesh neighbour lists
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.update_servo_contacts();
+        self.rebuild_massflow_lists();
+        // pair compute and modify->setup (wall/gran, gravity, force fixes)
+        self.compute_forces_setup();
+        // `FixMultisphere::setup_pre_force` -> `reset_forces(false)`, then
+        // `FixMultisphere::setup` -> `calc_force(true)` on the set-up forces
+        // (gh:#1415); the next step's first half-kick uses them
+        self.multisphere_setup_force();
+        // FixMoveMesh::setup, declared after its wall/gran
+        for w in &mut self.moving_walls {
+            w.move_mesh_setup();
+        }
+        Ok(())
+    }
+
+    /// Make this system's clump fix `fix multisphere/nointegration`
+    /// ([`crate::multisphere::Multisphere::without_integration`]; gh:#1415):
+    /// the bodies are not integrated, and their member atoms move by the atom
+    /// integrator alone. Call before the first clump is inserted.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a clump already exists (upstream's fix
+    /// style is fixed when the fix is defined).
+    pub fn with_multisphere_nointegration(mut self) -> Result<Self, DemError> {
+        if self.ms_break.is_some() {
+            return Err(DemError::InvalidInput(
+                "multisphere/nointegration and multisphere/break are two styles of one fix".into(),
+            ));
+        }
+        if self.multisphere.is_some() {
+            return Err(DemError::InvalidInput(
+                "multisphere/nointegration must be chosen before the first clump is inserted".into(),
+            ));
+        }
+        self.ms_nointegration = true;
+        Ok(self)
+    }
+
+    /// `FixMultisphere::setup` at a `run` set-up: the bodies' force and torque
+    /// reset (`setup_pre_force`) and summed from the set-up forces in local
+    /// atom order, plus `m g` (`calc_force(true)`; no heat transfer, so the
+    /// `setupflag` branch does not arise). No-op without clumps.
+    fn multisphere_setup_force(&mut self) {
+        if self.multisphere.is_none() {
+            return;
+        }
+        let order = self.local_order_indices();
+        let gravity = self.gravity;
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.reset_forces(false);
+            ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
+            // the heat branch of `calc_force(true)` (no-op without heat/gran)
+            ms.heat_transfer(&mut self.particles, &order, true);
+        }
+    }
+
+    /// `fix multisphere/break ... trigger_name f_<trig> trigger_threshold
+    /// <threshold> trigger_timeStep <trigger_time_step>` (gh:#1415, fourth
+    /// pass; `FixMultisphereBreak`, LIGGGHTS-PUBLIC `3d5c00f2`). The clumps
+    /// integrate as under `fix multisphere`; after `final_integrate` on every
+    /// step after `trigger_time_step`, a clump with a member atom whose
+    /// trigger ([`GranularSystem::set_type_break_trigger`], a `fix
+    /// property/atom` defaulting to 0) is `>= threshold` breaks into free
+    /// spheres ([`crate::multisphere::Multisphere::break_bodies`]). The freed
+    /// spheres move by the atom integrator (upstream needs `fix nve/sphere`
+    /// for them). Call before the first clump is inserted.
+    ///
+    /// Only the `f_` trigger is ported; an atom-style variable (`v_`) is not.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a clump already exists, for a
+    /// non-finite threshold, or together with
+    /// [`GranularSystem::with_multisphere_nointegration`] (another style of
+    /// the same fix).
+    pub fn with_multisphere_break(mut self, threshold: f64, trigger_time_step: i64) -> Result<Self, DemError> {
+        if self.multisphere.is_some() {
+            return Err(DemError::InvalidInput(
+                "multisphere/break must be chosen before the first clump is inserted".into(),
+            ));
+        }
+        if self.ms_nointegration {
+            return Err(DemError::InvalidInput(
+                "multisphere/nointegration and multisphere/break are two styles of one fix".into(),
+            ));
+        }
+        if !threshold.is_finite() {
+            return Err(DemError::InvalidInput("trigger_threshold must be finite".into()));
+        }
+        self.ms_break = Some((threshold, trigger_time_step));
+        Ok(self)
+    }
+
+    /// `set type T property/atom <trig> v` for the break trigger of
+    /// [`GranularSystem::with_multisphere_break`] (gh:#1415): every atom of
+    /// LIGGGHTS type `liggghts_type` (1-based) takes trigger `v`.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for type 0, a non-finite value, no
+    /// `multisphere/break`, or clumps without
+    /// [`GranularSystem::with_multisphere_allow_group_and_set`] (upstream:
+    /// "Set command may not be used together with fix multisphere").
+    pub fn set_type_break_trigger(&mut self, liggghts_type: usize, v: f64) -> Result<(), DemError> {
+        if liggghts_type == 0 {
+            return Err(DemError::InvalidInput("set: atom types are 1-based".into()));
+        }
+        if !v.is_finite() {
+            return Err(DemError::InvalidInput(format!("set: trigger {v} must be finite")));
+        }
+        if self.ms_break.is_none() {
+            return Err(DemError::InvalidInput("set: no fix multisphere/break trigger exists".into()));
+        }
+        if self.multisphere.is_some() && !self.ms_allow_group_and_set {
+            return Err(DemError::InvalidInput(
+                "Set command may not be used together with fix multisphere (use allow_group_and_set)".into(),
+            ));
+        }
+        for (k, &ty) in self.types.iter().enumerate() {
+            if ty + 1 == liggghts_type {
+                self.break_trigger.insert(self.tags[k], v);
+            }
+        }
+        Ok(())
+    }
+
+    /// `fix multisphere ... allow_group_and_set yes` (gh:#1415, fourth pass):
+    /// [`GranularSystem::set_type_temperature`] may change atoms while clumps
+    /// exist. Upstream reads the keyword only in `set.cpp` and `variable.cpp`;
+    /// it changes nothing else.
+    #[must_use]
+    pub fn with_multisphere_allow_group_and_set(mut self) -> Self {
+        self.ms_allow_group_and_set = true;
+        self
+    }
+
+    /// `set type T property/atom Temp v` (`Set::command`; gh:#1415): every
+    /// atom of LIGGGHTS type `liggghts_type` (1-based, as the deck writes it)
+    /// takes temperature `t` `[K]`. A clump's body temperature follows at the
+    /// next `run` set-up ([`GranularSystem::begin_run`], the set-up branch of
+    /// `FixMultisphere::calc_force`).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for type 0, a non-positive or non-finite
+    /// `t` (a [`Particle`] temperature is strictly positive), or clumps
+    /// without [`GranularSystem::with_multisphere_allow_group_and_set`]
+    /// (upstream: "Set command may not be used together with fix
+    /// multisphere").
+    pub fn set_type_temperature(&mut self, liggghts_type: usize, t: f64) -> Result<(), DemError> {
+        if liggghts_type == 0 {
+            return Err(DemError::InvalidInput("set: atom types are 1-based".into()));
+        }
+        if !(t.is_finite() && t > 0.0) {
+            return Err(DemError::InvalidInput(format!("set: temperature {t} must be finite and > 0")));
+        }
+        if self.multisphere.is_some() && !self.ms_allow_group_and_set {
+            return Err(DemError::InvalidInput(
+                "Set command may not be used together with fix multisphere (use allow_group_and_set)".into(),
+            ));
+        }
+        for (p, &ty) in self.particles.iter_mut().zip(&self.types) {
+            if ty + 1 == liggghts_type {
+                p.temperature = t;
+            }
+        }
+        Ok(())
+    }
+
+    /// `fix_modify <ms> fflag x y z` / `tflag x y z`
+    /// (`FixMultisphere::modify_param`, gh:#1415): the flags of **every
+    /// existing body** are replaced; a clump inserted later takes its
+    /// template's flags. Upstream issues it between two `run` commands, so
+    /// call [`GranularSystem::begin_run`] afterwards. Before the first clump
+    /// exists it changes nothing, as upstream's loop over zero bodies does.
+    pub fn fix_modify_multisphere(&mut self, m: crate::multisphere::MultisphereModify) {
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.modify_param(m);
+        }
+    }
+
+    /// `fix_modify <mesh> servo/<keyword> ...` on the servo of moving wall
+    /// `wall` (`MeshModuleStressServo::modify_param`, gh:#1510). Upstream
+    /// issues it between two `run` commands, and the values reach the
+    /// controller through the next `init()`, so call
+    /// [`GranularSystem::begin_run`] afterwards.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if `wall` has no servo, or where upstream
+    /// aborts (see [`crate::mesh_stress::MeshServo::modify_param`]).
+    pub fn fix_modify_servo(
+        &mut self,
+        wall: usize,
+        m: crate::mesh_stress::ServoModify,
+    ) -> Result<(), DemError> {
+        match self.moving_walls.get_mut(wall).and_then(|w| w.servo.as_mut()) {
+            Some((servo, _)) => servo.modify_param(m),
+            None => Err(DemError::InvalidInput(format!("moving wall {wall} has no servo"))),
+        }
+    }
+
     /// Recount the servo meshes' neighbour-list contacts
     /// (`getTotalNumContacts`, read by `mode auto`); done where upstream
     /// rebuilds its neighbour list.
@@ -614,21 +974,27 @@ impl GranularSystem {
     }
 
     /// The neighbour-rebuild decision and mesh refresh that follow the walls'
-    /// move in a step (`Neighbor::decide`, `FixMesh::pre_force`).
+    /// move in a step (`Neighbor::decide`, `FixMesh::pre_force`). The refresh
+    /// includes the stress module's facet areas, as upstream's
+    /// `recalcLocalSurfProperties` does (gh:#1512).
     fn refresh_moving_meshes(&mut self) {
         let skin = self.neigh_skin;
         if skin <= 0.0 {
             for w in &mut self.moving_walls {
                 if w.is_rotating() {
-                    if let WallGeometry::Mesh(m) = &mut w.geometry {
-                        m.refresh_geometry();
-                    }
+                    w.refresh_mesh();
                 }
             }
             return;
         }
         let triggersq = 0.25 * skin * skin;
-        let mut rebuild = self.mesh_rebuild_pending;
+        // `Neighbor::decide`: a fix's `next_reneighbor` (fix multisphere after
+        // freeing a lost clump's atoms, gh:#1415) forces the rebuild
+        let ms_forced = self
+            .multisphere
+            .as_ref()
+            .is_some_and(|m| m.next_reneighbor() == Some(self.step_count));
+        let mut rebuild = self.mesh_rebuild_pending || ms_forced;
         if !rebuild {
             for (p, h) in self.particles.iter().zip(&self.xhold) {
                 let d = p.position.sub(*h);
@@ -641,9 +1007,7 @@ impl GranularSystem {
         self.rebuild_now = rebuild;
         if rebuild {
             for w in &mut self.moving_walls {
-                if let WallGeometry::Mesh(m) = &mut w.geometry {
-                    m.refresh_geometry();
-                }
+                w.refresh_mesh();
             }
             self.xhold = self.particles.iter().map(|p| p.position).collect();
             self.mesh_rebuild_pending = false;
@@ -684,6 +1048,22 @@ impl GranularSystem {
         self.mesh_rebuild_pending = false;
         self.compute_forces_setup();
         self
+    }
+
+    /// [`GranularSystem::with_liggghts_neighbor_order`], refusing the set-up
+    /// where upstream does (gh:#1568): with the atom sort on
+    /// (`sort_every > 0`) and `cutneighmax = 0` (no atoms and no insertion
+    /// fix), `Atom::setup_sort_bins` stops with "Atom sorting has bin size =
+    /// 0.0" (LIGGGHTS-PUBLIC `3d5c00f2`, `atom.cpp`). The infallible form
+    /// does not refuse: it sorts the zero atoms, which does nothing.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] with upstream's message in that case.
+    pub fn try_with_liggghts_neighbor_order(self, cfg: LiggghtsNeighbor) -> Result<Self, DemError> {
+        let sys = self.with_liggghts_neighbor_order(cfg);
+        sys.check_sort_setup()?;
+        Ok(sys)
     }
 
     /// Enable the multicontact surface model and `fix multicontact/halfspace`
@@ -770,7 +1150,7 @@ impl GranularSystem {
     /// history writes (`pair_gran_base.h` compute + the surface model).
     fn resolve_pairs_mc(&mut self) {
         let setup = self.setup_phase;
-        let pairs = std::mem::take(&mut self.pairs);
+        let pairs = core::mem::take(&mut self.pairs);
         for &(i, j) in &pairs {
             let (i, j) = (i as usize, j as usize);
             let (ti, tj) = (self.tags[i] as usize, self.tags[j] as usize);
@@ -841,8 +1221,15 @@ impl GranularSystem {
     /// # Errors
     ///
     /// [`DemError::InvalidInput`] if a particle's atom type has no entry in
-    /// the fix's per-type properties.
+    /// the fix's per-type properties, or if a clump already exists: with
+    /// clumps, attach the fix before the first one is inserted, so each body
+    /// starts at `T0` (gh:#1415; `Multisphere::with_heat_transfer`).
     pub fn with_heat_conduction(mut self, heat: HeatGranConduction) -> Result<Self, DemError> {
+        if self.multisphere.is_some() {
+            return Err(DemError::InvalidInput(
+                "attach fix heat/gran/conduction before the first clump is inserted".into(),
+            ));
+        }
         if let Some(bad) = self.types.iter().find(|&&t| t >= heat.n_types()) {
             return Err(DemError::InvalidInput(format!(
                 "atom type {bad} has no thermal properties ({} given)",
@@ -877,8 +1264,16 @@ impl GranularSystem {
     ///
     /// [`DemError::InvalidInput`] unless the model's cohesion is
     /// `Capillary`, the system uses [`NeighborOrder::Liggghts`] (bridges live
-    /// on upstream's list), has no walls (particle-wall bridges are not
-    /// ported) and no per-pair coefficient table.
+    /// on upstream's list) and no per-pair coefficient table. ~~has no walls
+    /// (particle-wall bridges are not ported)~~ **CORRECTED 2026-11-12
+    /// (gh:#1487):** particle-wall bridges are ported (Easo dry walls, Washino
+    /// with [`GranularSystem::with_mesh_liquid_transfer`]). Attach the walls
+    /// first. Refused, because the crate cannot represent them exactly: a
+    /// static boundary other than a two-sided axis-aligned
+    /// [`Boundary::Plane`] or axis-aligned [`Boundary::Cylinder`], a moving wall
+    /// that is not a mesh, and walls together with more than one particle type
+    /// (every wall contact here is resolved with the particle's own type, so
+    /// the deck's wall `type` must be the particles').
     pub fn with_capillary(mut self) -> Result<Self, DemError> {
         let GranularCohesion::Capillary(mut p) = self.model.cohesion else {
             return Err(DemError::InvalidInput(
@@ -890,13 +1285,7 @@ impl GranularSystem {
                 "capillary bridges need the LIGGGHTS neighbour order (with_liggghts_neighbor_order)".into(),
             ));
         };
-        if !self.boundaries.is_empty() || !self.moving_walls.is_empty() {
-            return Err(DemError::InvalidInput(
-                "capillary bridges to walls are not ported (upstream: Easo dry walls, Washino mesh \
-                 liquid content); use a system without walls"
-                    .into(),
-            ));
-        }
+        self.check_capillary_walls()?;
         if self.model.pair_models.is_some() {
             return Err(DemError::InvalidInput(
                 "capillary cohesion with a per-pair coefficient table is not supported".into(),
@@ -922,6 +1311,88 @@ impl GranularSystem {
         ));
         self.compute_forces_setup();
         Ok(self)
+    }
+
+    /// The walls a capillary model can bridge to exactly (gh:#1487); see
+    /// [`GranularSystem::with_capillary`].
+    fn check_capillary_walls(&self) -> Result<(), DemError> {
+        if let Some(b) = self.boundaries.iter().find(|b| !b.is_upstream_primitive()) {
+            return Err(DemError::InvalidInput(format!(
+                "capillary wall bridges need a two-sided axis-aligned plane or an axis-aligned \
+                 cylinder (upstream's primitive walls); got {b:?}"
+            )));
+        }
+        if self
+            .moving_walls
+            .iter()
+            .any(|m| !m.contactless && !matches!(m.geometry, WallGeometry::Mesh(_)))
+        {
+            return Err(DemError::InvalidInput(
+                "capillary wall bridges on a moving analytic wall are not ported; use a mesh".into(),
+            ));
+        }
+        let has_walls = !self.boundaries.is_empty() || self.moving_walls.iter().any(|m| !m.contactless);
+        if has_walls && self.types.iter().any(|&t| t != self.types[0]) {
+            return Err(DemError::InvalidInput(
+                "capillary wall bridges with more than one particle type: the wall's atom type \
+                 (its contactAngle) is not represented here"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Declare moving wall `wall` (a mesh) as `fix mesh/surface/liquidtransfer
+    /// ... wall_thickness t initial_liquid_content c`
+    /// (`MeshModuleLiquidTransfer`, [`crate::capillary::MeshLiquid`], gh:#1487):
+    /// every facet carries a liquid film the Washino model bridges to and
+    /// exchanges liquid with at rupture. The Easo model ignores it (dry
+    /// walls). The set-up evaluation is re-done.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] without a capillary model, for a wall that
+    /// is not a mesh, or a thickness or initial content below `1e-12`
+    /// (upstream's "have to define").
+    pub fn with_mesh_liquid_transfer(
+        mut self,
+        wall: usize,
+        wall_thickness: f64,
+        initial_liquid_content: f64,
+    ) -> Result<Self, DemError> {
+        let n_tri = match self.moving_walls.get(wall).map(|m| &m.geometry) {
+            Some(WallGeometry::Mesh(mesh)) => mesh.triangles.len(),
+            _ => {
+                return Err(DemError::InvalidInput(format!(
+                    "liquidtransfer needs moving wall {wall} to be a mesh"
+                )))
+            }
+        };
+        let module = crate::capillary::MeshLiquid::new(n_tri, wall_thickness, initial_liquid_content)?;
+        let Some(c) = self.capillary.as_mut() else {
+            return Err(DemError::InvalidInput(
+                "with_mesh_liquid_transfer needs with_capillary first".into(),
+            ));
+        };
+        c.mesh_liquid.insert(wall, module);
+        self.compute_forces_setup();
+        Ok(self)
+    }
+
+    /// `LiquidContent` of each facet of moving wall `wall` (empty unless it
+    /// carries [`GranularSystem::with_mesh_liquid_transfer`]).
+    #[must_use]
+    pub fn mesh_liquid_content(&self, wall: usize) -> &[f64] {
+        self.capillary
+            .as_ref()
+            .and_then(|c| c.mesh_liquid.get(&wall))
+            .map_or(&[], |m| &m.content)
+    }
+
+    /// Number of particle-wall liquid bridges (`contflag == 1`, gh:#1487).
+    #[must_use]
+    pub fn wall_bridge_count(&self) -> usize {
+        self.capillary.as_ref().map_or(0, |c| c.wall_bridges.len())
     }
 
     /// `surfaceLiquidContent` of each particle (empty without a capillary model).
@@ -1015,7 +1486,7 @@ impl GranularSystem {
         let mut cap = self.capillary.take().expect("capillary state");
         cap.content.resize(self.particles.len(), p.initial_liquid_content);
         cap.flux.resize(self.particles.len(), 0.0);
-        let pairs = std::mem::take(&mut self.pairs);
+        let pairs = core::mem::take(&mut self.pairs);
         for &(i, j) in &pairs {
             let (i, j) = (i as usize, j as usize);
             let a = self.particles[i];
@@ -1076,6 +1547,8 @@ impl GranularSystem {
                     liquid_j: cap.content[j],
                     bridge: cap.bridges.contains(&pair_key),
                     dt: self.dt,
+                    is_wall: false,
+                    wall_liquid_vol1000: None,
                 });
                 match outcome {
                     CloseOutcome::NoBridge => {}
@@ -1099,6 +1572,10 @@ impl GranularSystem {
                         cap.flux[i] += flux_i;
                         cap.flux[j] += flux_j;
                     }
+                    // a pair never returns the wall outcome
+                    CloseOutcome::WallBreaks { .. } => {
+                        cap.bridges.remove(&pair_key);
+                    }
                 }
             }
         }
@@ -1112,16 +1589,11 @@ impl GranularSystem {
         self.neighbor_order
     }
 
-    /// Sort (if due) and rebuild the LIGGGHTS-order half list from the current
-    /// positions: `Atom::sort` then `Neighbor::build`.
-    fn rebuild_liggghts_list(&mut self, cfg: LiggghtsNeighbor) {
-        let n = self.particles.len();
-        if self.perm.len() != n {
-            self.perm = (0..n).collect();
-        }
+    /// `neighbor->cutneighmax` for `cfg`: the largest radius present, or that a
+    /// `fix insert` can still add (`PairGran::init_style`: `max_rad(type)` of
+    /// fixes), through [`LiggghtsNeighbor::cutneighmax`].
+    fn liggghts_cutneighmax(&self, cfg: &LiggghtsNeighbor) -> f64 {
         let max_radius = self.particles.iter().fold(0.0_f64, |m, p| m.max(p.radius));
-        // upstream's cut radius includes the largest particle a `fix insert`
-        // can still add (`PairGran::init_style`: `max_rad(type)` of fixes)
         let max_radius = self
             .inserters
             .iter()
@@ -1130,7 +1602,28 @@ impl GranularSystem {
             .stream_inserters
             .iter()
             .fold(max_radius, |m, f| m.max(f.max_rad()));
-        let cut = cfg.cutneighmax(max_radius);
+        cfg.cutneighmax(max_radius)
+    }
+
+    /// `Atom::setup()` at a run set-up under [`NeighborOrder::Liggghts`]: with
+    /// the sort on, `setup_sort_bins` refuses a zero bin size (gh:#1568).
+    fn check_sort_setup(&self) -> Result<(), DemError> {
+        if let NeighborOrder::Liggghts(cfg) = self.neighbor_order {
+            if cfg.sort_every > 0 {
+                neighbor_list::sort_bin_size(self.liggghts_cutneighmax(&cfg))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Sort (if due) and rebuild the LIGGGHTS-order half list from the current
+    /// positions: `Atom::sort` then `Neighbor::build`.
+    fn rebuild_liggghts_list(&mut self, cfg: LiggghtsNeighbor) {
+        let n = self.particles.len();
+        if self.perm.len() != n {
+            self.perm = (0..n).collect();
+        }
+        let cut = self.liggghts_cutneighmax(&cfg);
         if cfg.sort_every > 0 && (self.setup_phase || self.step_count >= self.next_sort) {
             let x: Vec<Vec3> = self
                 .perm
@@ -1213,6 +1706,8 @@ impl GranularSystem {
                 .map(|&(a, b)| (self.perm[a as usize] as u32, self.perm[b as usize] as u32)),
         );
         self.xhold = self.particles.iter().map(|p| p.position).collect();
+        let grid = neighbor_list::BinGrid::new(&cfg, cut);
+        self.nbin_of = self.particles.iter().map(|p| grid.coord2bin(p.position)).collect();
         // `FixWallGran::pre_neighbor`: rebuild each primitive wall's list with
         // threshold = skin and the atom radius
         let skin = cfg.skin;
@@ -1502,6 +1997,9 @@ impl GranularSystem {
             self.torques.swap_remove(i);
         }
         if !removed.is_empty() {
+            // a clump that lost a member is freed as at a rebuild's
+            // `FixMultisphere::pre_neighbor` (gh:#1415); no-op without clumps
+            self.multisphere_pre_neighbor();
             self.compute_forces();
         }
         removed
@@ -1555,6 +2053,10 @@ impl GranularSystem {
     fn run_insertions(&mut self) {
         let step = self.step_count as u64;
         for k in 0..self.stream_inserters.len() {
+            if self.stream_inserters[k].has_clumps() {
+                self.run_stream_clump_insertion(k, step);
+                continue;
+            }
             let ins = match self.stream_inserters[k].pre_exchange(step, &self.particles) {
                 Ok(v) => v,
                 Err(e) => panic!("fix insert/stream: {e}"),
@@ -1575,20 +2077,264 @@ impl GranularSystem {
             return;
         }
         for k in 0..self.inserters.len() {
-            let new = match self.inserters[k].pre_exchange(step, &self.particles) {
+            let census = self.clump_census();
+            let new = match self.inserters[k].pre_exchange_any(step, &self.particles, &census) {
                 Ok(v) => v,
                 Err(e) => panic!("fix insert: {e}"),
             };
-            for ip in new {
-                let tag = self.next_tag;
-                self.next_tag += 1;
-                self.note_inserted();
-                self.particles.push(ip.particle);
-                self.tags.push(tag);
-                self.types.push(ip.atom_type - 1);
-                self.forces.push(Vec3::zero());
-                self.torques.push(Vec3::zero());
+            let mut clumps_added = false;
+            for item in new {
+                match item {
+                    crate::insert::Inserted::Sphere(ip) => {
+                        self.push_inserted_atom(ip.particle, ip.atom_type);
+                    }
+                    crate::insert::Inserted::Clump(c) => {
+                        self.insert_clump(&c);
+                        clumps_added = true;
+                    }
+                }
             }
+            // `FixTemplateMultisphere::finalize_insertion` -> `add_body_finalize`
+            if clumps_added {
+                if let Some(ms) = self.multisphere.as_mut() {
+                    ms.add_body_finalize(&mut self.particles);
+                }
+            }
+        }
+    }
+
+    /// `ParticleToInsertMultisphere::insert`: the member atoms first, then
+    /// `Multisphere::add_body` (creating the clump fix on the first clump).
+    fn insert_clump(&mut self, c: &crate::multisphere::ClumpToInsert) {
+        let first = self.particles.len();
+        for p in c.atoms() {
+            self.push_inserted_atom(p, c.atom_type());
+        }
+        let dt = self.dt;
+        let noint = self.ms_nointegration;
+        let brk = self.ms_break.is_some();
+        // `FixMultisphere::init` finds `fix heat/gran`; its
+        // T0 is the port's inserted-atom temperature
+        let heat = self.heat.is_some();
+        self.multisphere
+            .get_or_insert_with(|| {
+                let mut ms = crate::multisphere::Multisphere::new(dt);
+                if heat {
+                    ms = ms.with_heat_transfer(crate::multisphere::INSERTED_TEMPERATURE);
+                }
+                if brk {
+                    ms = ms.with_break();
+                }
+                if noint {
+                    ms.without_integration()
+                } else {
+                    ms
+                }
+            })
+            .add_body(c, first);
+    }
+
+    /// `FixInsert::pre_exchange` of `fix insert/stream` with clumps (gh:#1415,
+    /// fourth pass): `x_v_omega`, the clumps' insertion (atoms, `add_body`),
+    /// the template's `finalize_insertion` (`add_body_finalize`), then
+    /// `FixInsertStream::finalize_insertion`: per new atom,
+    /// `Multisphere::calc_n_steps` and the release data.
+    fn run_stream_clump_insertion(&mut self, k: usize, step: u64) {
+        let clumps = match self.stream_inserters[k].pre_exchange_clumps(step, &self.particles) {
+            Ok(v) => v,
+            Err(e) => panic!("fix insert/stream: {e}"),
+        };
+        if clumps.is_empty() {
+            return;
+        }
+        let ilo = self.particles.len();
+        for c in &clumps {
+            self.insert_clump(c);
+        }
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.add_body_finalize(&mut self.particles);
+        }
+        let (p_ref, normal, v_normal) = self.stream_inserters[k].stream_geometry();
+        for i in ilo..self.particles.len() {
+            let n_steps = match self.multisphere.as_mut() {
+                Some(ms) => ms.calc_n_steps(i, &p_ref, &normal, &v_normal, step),
+                None => None,
+            };
+            let Some(n_steps) = n_steps else {
+                panic!("fix insert/stream: a streamed clump atom is in no body");
+            };
+            let x = self.particles[i].position;
+            let rel = self.stream_inserters[k].clump_release(x, step, n_steps);
+            self.stream_release.insert(self.tags[i], rel);
+        }
+    }
+
+    /// Append one inserted atom (new tag, last local slot).
+    fn push_inserted_atom(&mut self, p: Particle, atom_type: usize) {
+        let tag = self.next_tag;
+        self.next_tag += 1;
+        self.note_inserted();
+        self.particles.push(p);
+        self.tags.push(tag);
+        self.types.push(atom_type - 1);
+        self.forces.push(Vec3::zero());
+        self.torques.push(Vec3::zero());
+    }
+
+    /// The clumps present, as an insertion fix counts them (gh:#1415).
+    fn clump_census(&self) -> crate::insert::ClumpCensus {
+        match &self.multisphere {
+            None => crate::insert::ClumpCensus::default(),
+            Some(ms) => crate::insert::ClumpCensus {
+                in_body: (0..self.particles.len()).map(|i| ms.body_of(i).is_some()).collect(),
+                bodies: ms
+                    .bodies()
+                    .iter()
+                    .map(|b| (b.x_bound(), b.mass, b.density))
+                    .collect(),
+            },
+        }
+    }
+
+    /// Each particle's atom type, **0-based** (LIGGGHTS type `t` is `t - 1`
+    /// here), in particle order.
+    #[must_use]
+    pub fn atom_types(&self) -> &[usize] {
+        &self.types
+    }
+
+    /// `f_bond_random_id`, the per-atom property a multisphere template with
+    /// `bonded yes` creates
+    /// ([`crate::multisphere::ParticleTemplateMultisphere::with_bonded`];
+    /// gh:#1415), in particle order; `None` when no attached insertion fix
+    /// has such a template (upstream: no such property, and a dump of it is
+    /// an error). Clump insertion never sets it, so every atom holds the
+    /// property's default, `-1`, as upstream's dump shows.
+    #[must_use]
+    pub fn bond_random_id(&self) -> Option<Vec<f64>> {
+        if self.inserters.iter().any(crate::insert::InsertFix::creates_bond_random_id) {
+            Some(vec![-1.0; self.particles.len()])
+        } else {
+            None
+        }
+    }
+
+    /// The `fix multisphere` state, once a clump has been inserted (gh:#1415).
+    #[must_use]
+    pub fn multisphere(&self) -> Option<&crate::multisphere::Multisphere> {
+        self.multisphere.as_ref()
+    }
+
+    /// Whether particle `i` is a member of a clump.
+    fn in_body(&self, i: usize) -> bool {
+        self.multisphere.as_ref().is_some_and(|m| m.body_of(i).is_some())
+    }
+
+    /// `neigh_modify exclude molecule`: drop the pairs of two atoms of the same
+    /// clump from the pair list, keeping the order of the rest
+    /// (`Neighbor::exclusion`, gh:#1415). No-op without clumps.
+    fn exclude_body_pairs(&mut self) {
+        if let Some(ms) = &self.multisphere {
+            self.pairs.retain(|&(i, j)| {
+                let (bi, bj) = (ms.body_of(i as usize), ms.body_of(j as usize));
+                !(bi.is_some() && bi == bj)
+            });
+        }
+    }
+
+    /// `boundary f f f` + `thermo_modify lost ignore` (gh:#1415): at every
+    /// neighbour-list rebuild, `Comm::exchange` drops each atom outside the
+    /// box `[box_lo, box_hi)` of the LIGGGHTS neighbour configuration,
+    /// dimension by dimension (x, then y, then z), the last local atom taking
+    /// the hole. A clump that loses an atom this way is freed and deleted by
+    /// `fix multisphere` ([`crate::multisphere::Multisphere`]). Opt-in, since
+    /// the port does not otherwise know the deck's boundary style; without it
+    /// an atom that leaves the box is kept, which no upstream run with `f`
+    /// boundaries does.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless the system is under
+    /// [`NeighborOrder::Liggghts`] with the atom sort off (`sort_every == 0`):
+    /// the deletion walks the local order, which only that set-up keeps equal
+    /// to the particle order.
+    pub fn with_lost_atoms(mut self) -> Result<Self, DemError> {
+        match self.neighbor_order {
+            NeighborOrder::Liggghts(cfg) if cfg.sort_every == 0 => {
+                self.lost_atoms_box = Some((cfg.box_lo, cfg.box_hi));
+                Ok(self)
+            }
+            _ => Err(DemError::InvalidInput(
+                "lost atoms are ported with the LIGGGHTS neighbour order and 'atom_modify sort 0 0' only"
+                    .into(),
+            )),
+        }
+    }
+
+    /// Remove atom `i` the way `AtomVec::copy(nlocal-1, i, 1)` does: the last
+    /// atom takes slot `i` in every per-atom array.
+    fn swap_remove_atom(&mut self, i: usize) -> Particle {
+        self.note_removed(i);
+        let p = self.particles.swap_remove(i);
+        self.tags.swap_remove(i);
+        self.types.swap_remove(i);
+        self.forces.swap_remove(i);
+        self.torques.swap_remove(i);
+        p
+    }
+
+    /// `FixMultisphere::pre_exchange`: `next_reneighbor = -1`, then delete the
+    /// atoms marked by `check_lost_atoms`, walking the local order with the
+    /// last atom filling each hole. No-op without clumps.
+    fn multisphere_pre_exchange(&mut self) {
+        let Some(ms) = self.multisphere.as_mut() else { return };
+        ms.pre_exchange_reset();
+        let mut any = false;
+        let mut i = 0;
+        while i < self.particles.len() {
+            if self.multisphere.as_ref().is_some_and(|m| m.delflag(i)) {
+                self.swap_remove_atom(i);
+                any = true;
+            } else {
+                i += 1;
+            }
+        }
+        if any {
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+        }
+    }
+
+    /// `Comm::exchange` on one process with `f` boundaries: per dimension,
+    /// drop every atom with `x < lo || x >= hi`. No-op unless
+    /// [`GranularSystem::with_lost_atoms`] was called.
+    fn exchange_lost_atoms(&mut self) {
+        let Some((lo, hi)) = self.lost_atoms_box else { return };
+        let (lo, hi) = ([lo.x, lo.y, lo.z], [hi.x, hi.y, hi.z]);
+        let mut any = false;
+        for dim in 0..3 {
+            let mut i = 0;
+            while i < self.particles.len() {
+                let p = self.particles[i].position;
+                let x = [p.x, p.y, p.z][dim];
+                if x < lo[dim] || x >= hi[dim] {
+                    self.swap_remove_atom(i);
+                    any = true;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+        if any {
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+        }
+    }
+
+    /// `FixMultisphere::pre_neighbor` (`check_lost_atoms`); no-op without
+    /// clumps.
+    fn multisphere_pre_neighbor(&mut self) {
+        let step = self.step_count;
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.pre_neighbor(&mut self.particles, step);
         }
     }
 
@@ -1606,6 +2352,15 @@ impl GranularSystem {
     /// the hole (`AtomVec::copy(nlocal-1, i)`), and the particle array's own
     /// `swap_remove` moves its last particle into slot `i`.
     fn note_removed(&mut self, i: usize) {
+        // ~~the per-atom body arrays of `fix multisphere` are not compacted
+        // (lost-atom/body deletion is not ported, gh:#1415)~~ CORRECTED
+        // 2026-11-14 (gh:#1415): they are compacted as `AtomVec::copy` does
+        // (`FixMultisphere::copy_arrays`); a clump that lost an atom is freed
+        // at the next `pre_neighbor` (`Multisphere::pre_neighbor`).
+        let n = self.particles.len();
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.swap_remove_atom(i, n);
+        }
         if let Some(c) = self.capillary.as_mut() {
             // the removed atom's liquid and bridges leave with it; the last
             // atom takes its slot (`swap_remove`, as the particle array does)
@@ -1615,6 +2370,7 @@ impl GranularSystem {
             }
             let tag = self.tags[i];
             c.bridges.retain(|&(a, b)| a != tag && b != tag);
+            c.wall_bridges.retain(|&(t, _, _)| t != tag);
         }
         if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
             let last = self.particles.len() - 1;
@@ -1714,7 +2470,7 @@ impl GranularSystem {
         let del = a.position.sub(b.position);
         let rsq = del.x * del.x + del.y * del.y + del.z * del.z;
         let r = rsq.sqrt();
-        let contact_area = -std::f64::consts::PI / 4.0
+        let contact_area = -core::f64::consts::PI / 4.0
             * ((r - radi - radj) * (r + radi - radj) * (r - radi + radj) * (r + radi + radj))
             / rsq;
         Some(PairLocalRecord {
@@ -1797,7 +2553,7 @@ impl GranularSystem {
                         force: gf.force_i,
                         torque: gf.torque_i,
                         history: hist,
-                        contact_area: (p.radius * p.radius - rsq) * std::f64::consts::PI,
+                        contact_area: (p.radius * p.radius - rsq) * core::f64::consts::PI,
                         delta: p.radius - rsq.sqrt(),
                     });
                 }
@@ -1863,6 +2619,13 @@ impl GranularSystem {
         let (f, t) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .initial_integrate(&mut self.particles, &f, &t);
+        // `FixMultisphere::initial_integrate`: the bodies move and `set_xv`
+        // overwrites their member atoms' x, v, omega (gh:#1415)
+        let has_stream = !self.stream_inserters.is_empty();
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.set_stream_step(has_stream, self.step_count as u64);
+            ms.initial_integrate(&mut self.particles);
+        }
         // Walls drift with the particles (upstream advances mesh nodes in the
         // same half-step as the particle positions).
         for w in &mut self.moving_walls {
@@ -1871,6 +2634,13 @@ impl GranularSystem {
         // `post_integrate` of `fix massflow/mesh`: after the move, before the
         // neighbour decision and the force evaluation.
         for k in 0..self.massflow.len() {
+            // `fix_volumeweight_ms_` exists once a `fix multisphere` does
+            if let Some(ms) = &self.multisphere {
+                let w: Vec<f64> = (0..self.particles.len()).map(|i| ms.volume_weight(i)).collect();
+                if let Err(e) = self.massflow[k].set_volume_weights(w) {
+                    panic!("{e}");
+                }
+            }
             match self.massflow[k].wall() {
                 Some(w) => {
                     if let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry {
@@ -1890,15 +2660,25 @@ impl GranularSystem {
             self.delete_massflow_marked();
         }
         self.run_insertions();
+        // a rebuild step: `FixMultisphere::pre_exchange` (deletes the atoms of
+        // lost clumps), `Comm::exchange` (drops atoms that left an `f` box),
+        // `FixMultisphere::pre_neighbor` (`check_lost_atoms`); gh:#1415
+        if self.rebuild_now || self.neigh_skin <= 0.0 {
+            self.multisphere_pre_exchange();
+            self.exchange_lost_atoms();
+            self.multisphere_pre_neighbor();
+        }
         // the mesh neighbour lists rebuild when the neighbour list does (every
         // step when no skin was given)
         if self.rebuild_now || self.neigh_skin <= 0.0 {
             self.update_servo_contacts();
             self.rebuild_massflow_lists();
         }
-        // `MeshModuleStress::pre_force`
+        // `FixMesh::pre_force` -> `clearReverse` (per-facet `f`, `wear_step`;
+        // gh:#1512), then `MeshModuleStress::pre_force`
         for w in &mut self.moving_walls {
             if let Some(st) = &mut w.stress {
+                st.clear_reverse();
                 st.pre_force();
             }
         }
@@ -1918,6 +2698,32 @@ impl GranularSystem {
         let (f2, t2) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .final_integrate(&mut self.particles, &f2, &t2);
+        // `FixMultisphere::final_integrate`: sum the member atoms' forces in
+        // local order, then the body half-kick and `set_v` (gh:#1415)
+        if self.multisphere.is_some() {
+            let order = self.local_order_indices();
+            let gravity = self.gravity;
+            if let Some(ms) = self.multisphere.as_mut() {
+                // `FixMultisphere::pre_force` -> `reset_forces(false)`; nothing
+                // adds to a body's force between it and `calc_force` here
+                ms.reset_forces(false);
+                ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
+                ms.final_integrate(&mut self.particles);
+            }
+            // `FixMultisphereBreak::final_integrate` (gh:#1415)
+            if let Some((threshold, trigger_step)) = self.ms_break {
+                if self.step_count as i64 > trigger_step {
+                    let trigger: Vec<f64> = self
+                        .tags
+                        .iter()
+                        .map(|t| self.break_trigger.get(t).copied().unwrap_or(0.0))
+                        .collect();
+                    if let Some(ms) = self.multisphere.as_mut() {
+                        ms.break_bodies(&mut self.particles, &trigger, &order, threshold);
+                    }
+                }
+            }
+        }
         // `MeshModuleStress::final_integrate` (calc_total_force)
         for w in &mut self.moving_walls {
             if let (Some(st), WallGeometry::Mesh(m)) = (&mut w.stress, &w.geometry) {
@@ -1935,9 +2741,23 @@ impl GranularSystem {
             // final_integrate of the scalar transport equation
             heat.advance(&mut self.particles, &self.types, &self.heat_flux, self.dt);
         }
+        // the heat branch of `FixMultisphere::calc_force(false)` (gh:#1415):
+        // with `heat/gran` defined before `fix multisphere`, it follows the
+        // transport equation's update; the rigid-body part above reads no
+        // temperature, so running it here keeps upstream's order
+        if self.heat.is_some() && self.multisphere.is_some() {
+            let order = self.local_order_indices();
+            if let Some(ms) = self.multisphere.as_mut() {
+                ms.heat_transfer(&mut self.particles, &order, false);
+            }
+        }
         if let Some(c) = self.capillary.as_mut() {
             // final_integrate of `liquidtransfer`: L += flux * dt
             c.advance(self.dt);
+            // `MeshModuleLiquidTransfer::final_integrate`
+            for m in c.mesh_liquid.values_mut() {
+                m.advance(self.dt);
+            }
         }
         self.stream_end_of_step();
         self.time += self.dt;
@@ -1956,8 +2776,16 @@ impl GranularSystem {
             let Some(rel) = self.stream_release.get(&tag) else {
                 continue;
             };
+            let member = self.multisphere.as_ref().is_some_and(|ms| ms.body_of(i).is_some());
             match crate::insert_stream::end_of_step_state(rel, step, self.dt) {
                 None => finished.push(tag),
+                Some((_, v, w, true)) if member => {
+                    // `fix_multisphere->release`: the body takes the release
+                    // velocity; the atom is left as it is (gh:#1415)
+                    if let Some(ms) = self.multisphere.as_mut() {
+                        ms.release(i, v, w, step);
+                    }
+                }
                 Some((x, v, w, _released)) => {
                     self.particles[i].position = x;
                     self.particles[i].velocity = v;
@@ -1999,6 +2827,12 @@ impl GranularSystem {
         self.mc_pre_force();
 
         self.sync_capillary();
+        // `MeshModuleLiquidTransfer::pre_force` (and `setup_pre_force`)
+        if let Some(c) = self.capillary.as_mut() {
+            for m in c.mesh_liquid.values_mut() {
+                m.reset_flux();
+            }
+        }
 
         // --- particle-particle ---
         // Both paths accumulate in the SAME order (ascending candidate-pair
@@ -2037,7 +2871,13 @@ impl GranularSystem {
         };
         for slot in order {
             match slot {
-                FixSlot::PrimitiveWall(w) => self.primitive_wall_forces(w),
+                FixSlot::PrimitiveWall(w) => {
+                    if self.capillary.is_some() {
+                        self.primitive_wall_forces_capillary(w);
+                    } else {
+                        self.primitive_wall_forces(w);
+                    }
+                }
                 FixSlot::MovingWall(w) => {
                     if self.moving_walls[w].contactless {
                         // `fix mesh/surface` with no `fix wall/gran`: moves, never touches
@@ -2049,6 +2889,11 @@ impl GranularSystem {
                 }
                 FixSlot::Gravity => {
                     for i in 0..n {
+                        // `FixGravity::post_force` skips clump members; the body
+                        // gets `m g` in `calc_force` (gh:#1415)
+                        if self.in_body(i) {
+                            continue;
+                        }
                         let m = self.particles[i].mass;
                         self.forces[i] = self.forces[i].add(self.gravity.scale(m));
                     }
@@ -2236,6 +3081,100 @@ impl GranularSystem {
         }
     }
 
+    /// One primitive wall's contacts with a capillary cohesion model attached
+    /// (gh:#1487): `FixWallGran::post_force_primitive` (LIGGGHTS-PUBLIC
+    /// `3d5c00f2`). A particle in the wall's neighbour list (rebuilt with the
+    /// skin) is resolved by `PrimitiveWall::resolveContact`; an overlap goes
+    /// through the contact law with the bridge's `surfacesIntersect` (flag set,
+    /// liquid limited), a gap `deltan < (cdf - 1) radius` through the
+    /// capillary `surfacesClose` (`r = radi - sidata.deltan`, `radsum = radi`,
+    /// wall velocity 0), and anything farther zeroes the contact history, the
+    /// bridge flag included, with no rupture flux. A primitive wall is dry.
+    fn primitive_wall_forces_capillary(&mut self, w: usize) {
+        use crate::capillary::{CloseInput, CloseOutcome};
+        let setup = self.setup_phase;
+        let GranularCohesion::Capillary(p) = self.model.cohesion else {
+            return;
+        };
+        let cdf = match self.neighbor_order {
+            NeighborOrder::Liggghts(cfg) => cfg.contact_distance_factor,
+            NeighborOrder::CellGrid => 1.0,
+        };
+        let contact_distance_multiplier = cdf - 1.0;
+        let mut cap = self.capillary.take().expect("capillary state");
+        for i in 0..self.particles.len() {
+            if !self.wall_near.get(w).is_none_or(|v| v.get(i).copied().unwrap_or(true)) {
+                continue;
+            }
+            let part = self.particles[i];
+            let Some((deltan, delta)) = self.boundaries[w].upstream_resolve(&part) else {
+                continue;
+            };
+            let tag = self.tags[i];
+            let key = (tag, w, 0_usize);
+            let t = self.types[i];
+            if deltan <= 0.0 {
+                // surfacesIntersect: contflag = 1, limit the liquid, bridge force
+                cap.wall_bridges.insert(key);
+                cap.content[i] = p.limit_content(cap.content[i], t);
+                let k = ContactKinematics::mesh_wall(&part, delta, -deltan, Vec3::zero())
+                    .with_types(t, t)
+                    .with_liquid(cap.content[i], 0.0);
+                let gf = resolve_c(
+                    &self.model,
+                    setup,
+                    ContactKey::wall(tag as usize, w),
+                    &k,
+                    &mut self.history,
+                    self.dt,
+                );
+                self.forces[i] = self.forces[i].add(gf.force_i);
+                self.torques[i] = self.torques[i].add(gf.torque_i);
+            } else if deltan < contact_distance_multiplier * part.radius {
+                cap.content[i] = p.limit_content(cap.content[i], t);
+                // `sidata.r = sidata.radi - sidata.deltan`, `sidata.deltan = -deltan`
+                let r = part.radius - (-deltan);
+                let outcome = p.close(&CloseInput {
+                    delta,
+                    rsq: r * r,
+                    rad_i: part.radius,
+                    rad_j: part.radius,
+                    radsum: part.radius,
+                    itype: t,
+                    jtype: t,
+                    v_i: part.velocity,
+                    v_j: Vec3::zero(),
+                    omega_i: part.angular_velocity,
+                    omega_j: Vec3::zero(),
+                    liquid_i: cap.content[i],
+                    liquid_j: 0.0,
+                    bridge: cap.wall_bridges.contains(&key),
+                    dt: self.dt,
+                    is_wall: true,
+                    wall_liquid_vol1000: None,
+                });
+                match outcome {
+                    CloseOutcome::NoBridge => {}
+                    CloseOutcome::ActiveNoForce => {
+                        cap.wall_bridges.insert(key);
+                    }
+                    CloseOutcome::Force { force_i, torque_i, .. } => {
+                        cap.wall_bridges.insert(key);
+                        self.forces[i] = self.forces[i].add(force_i);
+                        self.torques[i] = self.torques[i].add(torque_i);
+                    }
+                    CloseOutcome::Breaks { .. } | CloseOutcome::WallBreaks { .. } => {
+                        cap.wall_bridges.remove(&key);
+                    }
+                }
+            } else {
+                // `vectorZeroizeN(c_history[iPart], dnum_)`
+                cap.wall_bridges.remove(&key);
+            }
+        }
+        self.capillary = Some(cap);
+    }
+
     /// One non-mesh moving wall's contacts for every particle.
     fn moving_primitive_wall_forces(&mut self, w: usize) {
         let setup = self.setup_phase;
@@ -2303,6 +3242,16 @@ impl GranularSystem {
     /// (`FixContactHistoryMesh::handleContact`). gh:#1416.
     fn compute_mesh_wall_forces(&mut self, w: usize) {
         let setup = self.setup_phase;
+        if setup {
+            // ~~the set-up evaluation's wear goes into step 1 (nothing zeroes
+            // `wear_step` before `final_integrate`)~~ CORRECTED 2026-11-13
+            // (gh:#1512): step 1's `FixMesh::pre_force` -> `clearReverse`
+            // discards it (`MeshStress::clear_reverse`); a repeated set-up here
+            // replaces, not adds to, it
+            if let Some(st) = self.moving_walls[w].stress.as_mut() {
+                st.begin_setup_wear();
+            }
+        }
         let n = self.particles.len();
         let nb = self.boundaries.len();
         {
@@ -2310,7 +3259,7 @@ impl GranularSystem {
                 return;
             };
             let has_stress = self.moving_walls[w].stress.is_some();
-            let mut contributions: Vec<(usize, usize, [f64; 3], [f64; 3], [f64; 3])> = Vec::new();
+            let mut contributions: Vec<StressContribution> = Vec::new();
             // markAllContacts
             for (key, slots) in self.mesh_partners.iter_mut() {
                 if key.1 == w {
@@ -2344,6 +3293,13 @@ impl GranularSystem {
                             (c1.deltan <= 0.0 || c1.deltan < margin).then_some(c1)
                         })
                         .collect::<Vec<_>>()
+                } else if self.capillary.is_some() {
+                    // capillary bridges: `deltan < (cdf - 1) * radius` too (gh:#1487)
+                    let cdf = match self.neighbor_order {
+                        NeighborOrder::Liggghts(cfg) => cfg.contact_distance_factor,
+                        NeighborOrder::CellGrid => 1.0,
+                    };
+                    mesh.sphere_contacts_within(p.position, p.radius, (cdf - 1.0) * p.radius)
                 } else {
                     mesh.sphere_contacts(p.position, p.radius)
                 };
@@ -2376,7 +3332,10 @@ impl GranularSystem {
                                 continue;
                             }
                         }
-                        // addNewTriContactToExistingParticle
+                        // addNewTriContactToExistingParticle (history zeroed)
+                        if let Some(cap) = self.capillary.as_mut() {
+                            cap.wall_bridges.remove(&(tag as u64, nb + w, c.tri));
+                        }
                         let new = Some((id, true));
                         if let Some(slot) = slots.iter_mut().find(|s| s.is_none()) {
                             *slot = new;
@@ -2396,6 +3355,19 @@ impl GranularSystem {
                             }
                             if let Some(h) = inherit {
                                 self.history.seed(ContactKey::tri(tag, nb + w, c.tri), h);
+                            }
+                            // the capillary bridge flag is in the same history
+                            // array (`checkCoplanarContactHistory`, gh:#1487)
+                            if let Some(cap) = self.capillary.as_mut() {
+                                let mut flag = None;
+                                for s in slots.iter().flatten() {
+                                    if s.0 != id && mesh.coplanar_node_neighs(s.0 as usize, c.tri) {
+                                        flag = Some(cap.wall_bridges.contains(&(tag as u64, nb + w, s.0 as usize)));
+                                    }
+                                }
+                                if flag == Some(true) {
+                                    cap.wall_bridges.insert((tag as u64, nb + w, c.tri));
+                                }
                             }
                             // the multicontact history lives in the same
                             // contact history, so it is inherited too
@@ -2417,6 +3389,31 @@ impl GranularSystem {
                     if let Some(mc) = &self.mc {
                         p.radius += mc.data.wall_expansion(nb + w, mc.local_of[i], c.tri);
                     }
+                    if c.deltan > 0.0 && self.capillary.is_some() {
+                        // capillary `surfacesClose` on a facet (gh:#1487)
+                        if let (Some(cap), GranularCohesion::Capillary(cp)) =
+                            (self.capillary.as_mut(), self.model.cohesion)
+                        {
+                            Self::mesh_close_capillary(
+                                &cp,
+                                cap,
+                                MeshCloseSite {
+                                    wall: w,
+                                    key: (tag as u64, nb + w, c.tri),
+                                    i,
+                                    atype: self.types[i],
+                                    v_wall: mesh.wall_velocity(c.tri, &c.bary),
+                                    area: mesh.state.area(c.tri),
+                                    dt: self.dt,
+                                },
+                                &p,
+                                &c,
+                                &mut self.forces[i],
+                                &mut self.torques[i],
+                            );
+                        }
+                        continue;
+                    }
                     if c.deltan > 0.0 {
                         // `surfacesClose`: history only, no force
                         if let Some(mc) = self.mc.as_mut().filter(|_| !setup) {
@@ -2429,8 +3426,21 @@ impl GranularSystem {
                     let v_wall = mesh.wall_velocity(c.tri, &c.bary);
                     let delta = Vec3::new(-c.delta[0], -c.delta[1], -c.delta[2]);
                     let overlap = -c.deltan;
-                    let k = ContactKinematics::mesh_wall(&p, delta, overlap, v_wall)
+                    let mut k = ContactKinematics::mesh_wall(&p, delta, overlap, v_wall)
                         .with_types(self.types[i], self.types[i]);
+                    if let (Some(cap), GranularCohesion::Capillary(cp)) =
+                        (self.capillary.as_mut(), self.model.cohesion)
+                    {
+                        // capillary `surfacesIntersect`: contflag = 1, limit
+                        // the particle's liquid, the facet's film (gh:#1487)
+                        cap.wall_bridges.insert((tag as u64, nb + w, c.tri));
+                        cap.content[i] = cp.limit_content(cap.content[i], self.types[i]);
+                        let vol = cap
+                            .mesh_liquid
+                            .get(&w)
+                            .map_or(0.0, |m| m.wall_volume1000(c.tri, p.radius, mesh.state.area(c.tri)));
+                        k = k.with_liquid(cap.content[i], 0.0).with_wall_liquid(vol);
+                    }
                     let gf = resolve_c(
                         &self.model,
                         setup,
@@ -2452,26 +3462,53 @@ impl GranularSystem {
                     self.torques[i] = self.torques[i].add(gf.torque_i);
                     if has_stress {
                         let f_pw = self.forces[i].sub(before);
-                        contributions.push((i, c.tri, arr(f_pw), arr(p.position), c.delta));
+                        contributions.push(StressContribution {
+                            i,
+                            tri: c.tri,
+                            f_pw: arr(f_pw),
+                            x: arr(p.position),
+                            delta: c.delta,
+                            v: arr(p.velocity),
+                            v_wall: arr(v_wall),
+                            norm: mesh.state.surface_norm(c.tri),
+                        });
                     }
                 }
             }
             if let Some(st) = &mut self.moving_walls[w].stress {
                 // Upstream's `post_force_mesh` loops facets outermost and, within a
-                // facet, the particles of that facet's mesh neighbour list, which
-                // is in ascending local (atom-sort) slot order. The totals of
-                // `fix mesh/surface/stress` are floating-point sums, so they are
-                // accumulated in that order (the per-contact forces do not depend
-                // on it). gh:#1416, `tests/htr10_conus_massflow_stress_cross_code.rs`.
+                // facet, the particles of that facet's mesh neighbour list. That
+                // list (`FixNeighlistMesh::handleTriangle`) walks the facet's bins
+                // in the `ix, iy, iz` loop order of `generate_bin_list` (`iz`
+                // innermost) and each bin's linked list in ascending local
+                // (atom-sort) slot, on the bins of the last list build. The
+                // totals of `fix mesh/surface/stress` are floating-point sums, so
+                // they are accumulated in that order (the per-contact forces do
+                // not depend on it). gh:#1416, gh:#1491,
+                // `tests/htr10_conus_massflow_stress_cross_code.rs`.
                 if self.perm.len() == n && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
                     let mut local_of = vec![0usize; n];
                     for (l, &pi) in self.perm.iter().enumerate() {
                         local_of[pi] = l;
                     }
-                    contributions.sort_by_key(|c| (c.1, local_of[c.0]));
+                    let bins = &self.nbin_of;
+                    let bin = |i: usize| if bins.len() == n { bins[i] } else { (0, 0, 0) };
+                    contributions.sort_by_key(|c| (c.tri, bin(c.i), local_of[c.i]));
                 }
-                for (_, tri, f_pw, x, d) in contributions {
-                    st.add_particle_contribution(f_pw, x, d, tri);
+                for c in contributions {
+                    st.add_particle_contribution(c.f_pw, c.x, c.delta, c.tri);
+                    // `trackWear()`: the same call, after the stress part
+                    st.add_wear_contribution(&WearContact {
+                        frc: c.f_pw,
+                        x: c.x,
+                        v: c.v,
+                        delta: c.delta,
+                        v_wall: c.v_wall,
+                        tri: c.tri,
+                        norm: c.norm,
+                        atom_type: self.types[c.i],
+                        dt: self.dt,
+                    });
                 }
             }
             // cleanUpContacts
@@ -2486,6 +3523,17 @@ impl GranularSystem {
             }
             self.mesh_partners
                 .retain(|_, v| v.iter().any(Option::is_some));
+            if let Some(cap) = self.capillary.as_mut() {
+                // cleanUpContacts zeroes the history of a facet no longer in
+                // contact, the bridge flag included (gh:#1487)
+                let mp = &self.mesh_partners;
+                cap.wall_bridges.retain(|&(t, ww, tri)| {
+                    ww != nb + w
+                        || mp
+                            .get(&(t as usize, w))
+                            .is_some_and(|sl| sl.iter().flatten().any(|s| s.0 as usize == tri))
+                });
+            }
             if let Some(mc) = self.mc.as_mut() {
                 let mp = &self.mesh_partners;
                 mc.mesh_hist.retain(|&(t, ww, id), _| {
@@ -2496,11 +3544,81 @@ impl GranularSystem {
         }
     }
 
+    /// The capillary `surfacesClose` of particle `i` with facet `c.tri` of
+    /// mesh wall `w` (`FixWallGran::post_force_mesh` -> `compute_force` ->
+    /// `surfacesClose`, gh:#1487): `sidata.delta = -delta`,
+    /// `r = radi - sidata.deltan`, `radsum = radi`, `v_j` the facet velocity
+    /// at the contact; Washino reads the facet's film when the mesh carries
+    /// `liquidtransfer` and, at rupture, moves liquid between the particle and
+    /// the facet (`add_liquid_flux`).
+    fn mesh_close_capillary(
+        cp: &crate::capillary::CapillaryParams,
+        cap: &mut crate::capillary::CapillaryState,
+        site: MeshCloseSite,
+        p: &Particle,
+        c: &crate::mesh_wall::MeshContact,
+        force: &mut Vec3,
+        torque: &mut Vec3,
+    ) {
+        use crate::capillary::{CloseInput, CloseOutcome};
+        let MeshCloseSite { wall: w, key, i, atype: t, v_wall, area, dt } = site;
+        cap.content[i] = cp.limit_content(cap.content[i], t);
+        let wall_vol = cap.mesh_liquid.get(&w).map(|m| m.wall_volume1000(c.tri, p.radius, area));
+        let r = p.radius - (-c.deltan);
+        let outcome = cp.close(&CloseInput {
+            delta: Vec3::new(-c.delta[0], -c.delta[1], -c.delta[2]),
+            rsq: r * r,
+            rad_i: p.radius,
+            rad_j: p.radius,
+            radsum: p.radius,
+            itype: t,
+            jtype: t,
+            v_i: p.velocity,
+            v_j: v_wall,
+            omega_i: p.angular_velocity,
+            omega_j: Vec3::zero(),
+            liquid_i: cap.content[i],
+            liquid_j: 0.0,
+            bridge: cap.wall_bridges.contains(&key),
+            dt,
+            is_wall: true,
+            wall_liquid_vol1000: wall_vol,
+        });
+        match outcome {
+            CloseOutcome::NoBridge => {}
+            CloseOutcome::ActiveNoForce => {
+                cap.wall_bridges.insert(key);
+            }
+            CloseOutcome::Force { force_i, torque_i, .. } => {
+                cap.wall_bridges.insert(key);
+                *force = force.add(force_i);
+                *torque = torque.add(torque_i);
+            }
+            CloseOutcome::Breaks { .. } => {
+                cap.wall_bridges.remove(&key);
+            }
+            CloseOutcome::WallBreaks { transfer } => {
+                cap.wall_bridges.remove(&key);
+                if let Some(tr) = transfer {
+                    cap.flux[i] += tr.flux_i;
+                    let (limit, max) = if cp.limit_liquid_content {
+                        (true, cp.max_liquid_content[t])
+                    } else {
+                        (false, 0.0)
+                    };
+                    if let Some(m) = cap.mesh_liquid.get_mut(&w) {
+                        m.add_liquid_flux(c.tri, tr.vol_flux, area, limit, max);
+                    }
+                }
+            }
+        }
+    }
+
     /// Scalar particle-particle force accumulation — the trusted reference
     /// path, used by [`ComputeType::CpuSingleThread`] and [`ComputeType::Gpu`].
     fn resolve_pairs_serial(&mut self) {
         let setup = self.setup_phase;
-        let pairs = std::mem::take(&mut self.pairs);
+        let pairs = core::mem::take(&mut self.pairs);
         for &(i, j) in &pairs {
             let (i, j) = (i as usize, j as usize);
             let a = self.particles[i];
@@ -2565,9 +3683,9 @@ impl GranularSystem {
     /// serial tail does not dominate.
     fn resolve_pairs_parallel(&mut self) {
         let threads = self.compute.threads();
-        let pairs = std::mem::take(&mut self.pairs);
-        let mut outcomes = std::mem::take(&mut self.outcomes);
-        let mut chunk_counts = std::mem::take(&mut self.chunk_counts);
+        let pairs = core::mem::take(&mut self.pairs);
+        let mut outcomes = core::mem::take(&mut self.outcomes);
+        let mut chunk_counts = core::mem::take(&mut self.chunk_counts);
 
         // Enough tasks to balance a ragged bed, few enough that per-task
         // overhead stays negligible against the contact arithmetic.
@@ -2693,17 +3811,19 @@ impl GranularSystem {
         if let NeighborOrder::Liggghts(cfg) = self.neighbor_order {
             if self.setup_phase || self.rebuild_now || self.perm.len() != self.particles.len() {
                 self.rebuild_liggghts_list(cfg);
+                self.exclude_body_pairs();
                 self.rebuild_now = false;
             }
             return;
         }
-        let mut pairs = std::mem::take(&mut self.pairs);
-        let mut offsets = std::mem::take(&mut self.cell_offsets);
-        let mut items = std::mem::take(&mut self.cell_items);
+        let mut pairs = core::mem::take(&mut self.pairs);
+        let mut offsets = core::mem::take(&mut self.cell_offsets);
+        let mut items = core::mem::take(&mut self.cell_items);
         Self::build_pairs(&self.particles, &mut pairs, &mut offsets, &mut items);
         self.pairs = pairs;
         self.cell_offsets = offsets;
         self.cell_items = items;
+        self.exclude_body_pairs();
     }
 
     /// Above this many grid cells, the dense flat grid is abandoned for the
@@ -2723,7 +3843,7 @@ impl GranularSystem {
     /// # Determinism is the point, not a side effect
     ///
     /// ~~Cells were held in a `HashMap` and iterated directly~~ **CORRECTED
-    /// 2026-09-17** — `std::collections::HashMap` seeds its hasher randomly
+    /// 2026-09-17** — `crate::hash::HashMap` seeds its hasher randomly
     /// *per process*, so that loop visited cells in a different order on every
     /// run. Since `forces[i] += …` is a floating-point accumulation and
     /// addition is not associative, the bed's trajectory differed run to run in
@@ -2903,7 +4023,7 @@ impl GranularSystem {
         pairs: &mut Vec<(u32, u32)>,
         icell: impl Fn(Vec3) -> (i64, i64, i64),
     ) {
-        use std::collections::BTreeMap;
+        use alloc::collections::BTreeMap;
         const FORWARD: [(i64, i64, i64); 13] = [
             (1, 0, 0),
             (-1, 1, 0),
@@ -2953,6 +4073,15 @@ impl GranularSystem {
 /// A **dedicated** pool is used rather than rayon's implicit global one (the
 /// same choice `outram-mc-libs` makes) so that a caller who is themselves
 /// inside a rayon scope cannot oversubscribe the machine or deadlock.
+#[cfg(not(feature = "std"))]
+fn shared_pool(_threads: usize) -> &'static rayon::ThreadPool {
+    // Without `std` (gh:#1602) `rayon` is the serial `wasm_par` stand-in: one
+    // pool, no registry needed.
+    static POOL: rayon::ThreadPool = rayon::ThreadPool;
+    &POOL
+}
+
+#[cfg(feature = "std")]
 fn shared_pool(threads: usize) -> &'static rayon::ThreadPool {
     use std::sync::{Mutex, OnceLock};
     static POOLS: OnceLock<Mutex<HashMap<usize, &'static rayon::ThreadPool>>> = OnceLock::new();
@@ -2985,7 +4114,7 @@ mod tests {
     }
 
     fn sphere(pos: Vec3, vel: Vec3) -> Particle {
-        let m = 2500.0 * std::f64::consts::PI / 6.0 * 1.0e-6;
+        let m = 2500.0 * core::f64::consts::PI / 6.0 * 1.0e-6;
         Particle::new(
             pos,
             vel,
@@ -2995,6 +4124,49 @@ mod tests {
             ThermodynamicTemperature::new::<kelvin>(300.0),
         )
         .unwrap()
+    }
+
+    /// gh:#1568. An empty system with the atom sort on and nothing to insert
+    /// has `cutneighmax = 0`. Upstream refuses the run set-up
+    /// (`Atom::setup_sort_bins`: "Atom sorting has bin size = 0.0"); the port
+    /// used to panic on an integer overflow in `atom_sort_permutation`.
+    /// `try_with_liggghts_neighbor_order` and `begin_run` refuse as upstream;
+    /// the infallible builder sorts the zero atoms (a no-op) and runs.
+    #[test]
+    fn empty_system_sort_on_refuses_like_upstream() {
+        let model = GranularContactModel::hertz_history(mat(0.4));
+        let cfg = LiggghtsNeighbor::new(
+            Vec3::new(-0.05, -0.05, 0.0),
+            Vec3::new(0.05, 0.05, 0.1),
+            0.002,
+        )
+        .unwrap();
+        assert_eq!(cfg.sort_every, 1000, "the sort is on by default");
+        let empty = GranularSystem::new(Vec::new(), vec![], model, Vec3::zero(), 1e-5).unwrap();
+        let err = empty.clone().try_with_liggghts_neighbor_order(cfg).unwrap_err();
+        assert!(err.to_string().contains("Atom sorting has bin size = 0.0"), "{err}");
+        let mut sys = empty.with_liggghts_neighbor_order(cfg);
+        sys.run(10);
+        assert_eq!(sys.particles().len(), 0);
+        let err = sys.begin_run().unwrap_err();
+        assert!(err.to_string().contains("Atom sorting has bin size = 0.0"), "{err}");
+        // with the sort off, upstream never calls setup_sort_bins
+        let mut off = cfg;
+        off.sort_every = 0;
+        let mut sys = GranularSystem::new(Vec::new(), vec![], model, Vec3::zero(), 1e-5)
+            .unwrap()
+            .try_with_liggghts_neighbor_order(off)
+            .unwrap();
+        sys.run(10);
+        sys.begin_run().unwrap();
+        // one atom gives a positive cut, and the set-up goes through
+        let one = vec![sphere(Vec3::new(0.0, 0.0, 0.05), Vec3::zero())];
+        let mut sys = GranularSystem::new(one, vec![], model, Vec3::zero(), 1e-5)
+            .unwrap()
+            .try_with_liggghts_neighbor_order(cfg)
+            .unwrap();
+        sys.run(10);
+        sys.begin_run().unwrap();
     }
 
     /// **Methodology.** Head-on elastic collision, `e = 1` (no dissipation), two
@@ -3204,7 +4376,7 @@ mod tests {
     /// removed), which fails this test as intended.
     #[test]
     fn half_stencil_enumerates_the_same_pairs_as_the_full_stencil() {
-        use std::collections::HashMap;
+        use crate::hash::HashMap;
         let mut ps = Vec::new();
         let d = 0.0098;
         for i in 0..8 {

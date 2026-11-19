@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{f64::*, ratio::ratio};
 
 use crate::region_3_single_phase_plus_supercritical_steam::{

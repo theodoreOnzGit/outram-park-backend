@@ -1,0 +1,5 @@
+FoamFile { version 2.0; format ascii; class dictionary; object fvSolution; }
+solvers
+{
+    G { solver PCG; preconditioner DIC; tolerance 1e-10; relTol 0; }
+}

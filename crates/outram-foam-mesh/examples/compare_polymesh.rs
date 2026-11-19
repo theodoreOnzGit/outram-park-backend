@@ -102,6 +102,16 @@ fn main() {
         d.build().expect("our blockMesh").to_foam_poly_mesh()
     };
 
+    // `DUMP_POINTS=path`: write the port's points as `index xbits ybits zbits`
+    // (hex), for building a pin table of the points that differ (gh:#1364).
+    if let Ok(path) = std::env::var("DUMP_POINTS") {
+        let mut s = String::new();
+        for (i, p) in m.points.iter().enumerate() {
+            s.push_str(&format!("{i} {:016x} {:016x} {:016x}\n", p.x.to_bits(), p.y.to_bits(), p.z.to_bits()));
+        }
+        std::fs::write(path, s).expect("write DUMP_POINTS");
+    }
+
     // points
     let t = body_tokens(&dir.join("points"));
     let n: usize = t[0].parse().unwrap();

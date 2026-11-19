@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// from 212.7 C to 279.6 C prandtl number of
 /// hitec salt should vary from 14.2 to 23.3
 #[test]
@@ -139,7 +142,7 @@ pub fn yd325_tube_reynolds_prandtl_nusselt() {
     use uom::si::f64::*;
     use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::si::pressure::atmosphere;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     use uom::si::{ratio::ratio, volume_rate::cubic_meter_per_hour};
     use uom::si::length::meter;
@@ -193,6 +196,7 @@ pub fn yd325_tube_reynolds_prandtl_nusselt() {
         )
         .unwrap();
 
+        #[cfg(feature = "std")]
         dbg!(&(
             roughness_ratio,
             (pipe_length / d_i),
@@ -212,6 +216,7 @@ pub fn yd325_tube_reynolds_prandtl_nusselt() {
 
         let nusselt_calculated: Ratio = tube_side_nusselt_correlation.try_get_nusselt().unwrap();
 
+        #[cfg(feature = "std")]
         dbg!(&(
             temp,
             nu,

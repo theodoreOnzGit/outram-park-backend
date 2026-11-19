@@ -20,6 +20,9 @@
 //! hydrostatic_pressure_change + internal_pressure_source`; gravity is taken as
 //! 9.81 m/s^2 and hydrostatic head as `rho * g * L * sin(incline_angle)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::acceleration::meter_per_second_squared;

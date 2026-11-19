@@ -1,0 +1,14 @@
+
+running 5 tests
+test bound_graphite_and_free_gas_agree_once_target_motion_is_sampled ... [op-50vu free gas vs bound graphite] free-gas k = 1.93405 +/- 0.00852 | bound k = 1.94577 +/- 0.00635
+ok
+test diagnose_thermal_spectrum_reach ... ignored, diagnostic sweep, asserts nothing about pass/fail -- run explicitly with --ignored
+test graphite_thermal_law_reaches_the_transport_kernel ... [op-hc2o S(a,b) liveness] <E'/E> at 0.0253 eV: free gas 1.13863 +/- 0.00123 | bound 1.03807 +/- 0.00065
+ok
+test majorant_still_bounds_total_xs_with_bound_graphite ... [op-hc2o majorant check] worst Sigma_t/Sigma_maj = 0.909093 at E = 4.850698e0 eV (material 0), thermal cutoff = 5.3500 eV, 200000 sample points over [1.0e-4, 5.618] eV
+ok
+test regenerated_graphite_thermal_scattering_has_the_expected_shape ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 97.42s
+
+EXIT 0

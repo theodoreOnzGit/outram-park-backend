@@ -19,6 +19,9 @@
 //! Tests of the beginner thermal profile (gh:#949). Numbers in the doc
 //! comments were measured by running these tests.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_foam_basic_lib::steady_conduction::{
     RadialClosedForm, RadialGeometry, RadialLayer, ThermalBoundary,
@@ -124,7 +127,7 @@ fn csg_sphere_matches_closed_form() {
     let geometry = nested_spheres(1.0, 2.0);
     let r_cm = 1.0;
     let q = 3.0e8;
-    let volume = 4.0 / 3.0 * std::f64::consts::PI * (r_cm * 1e-2_f64).r_powi(3);
+    let volume = 4.0 / 3.0 * core::f64::consts::PI * (r_cm * 1e-2_f64).r_powi(3);
     let power = Power::new::<watt>(q * volume);
     let profile = ThermalProblem::uniform_heat(power)
         .removed_by(HeatRemoval::WaterCooled)
@@ -153,6 +156,7 @@ fn csg_sphere_matches_closed_form() {
     let exact_mean = exact_surface + q * r_m * r_m / (15.0 * 3.0);
     let surf = profile.mean_surface_temperature.get::<kelvin>();
     let mean = profile.mean_heated_temperature.get::<kelvin>();
+    #[cfg(feature = "std")]
     println!(
         "CSG sphere: surface {surf:.3} K (exact {exact_surface:.3}), mean {mean:.3} K (exact {exact_mean:.3}), \
          peak {:.3} K (exact centre {:.3}), voxels {}, imbalance {:.2e}, faces without normal {}",
@@ -200,6 +204,7 @@ fn nested_uo2_in_steel_air_cooled_runs_and_reports_out_of_range() {
             &box_of(1.5, 24),
         )
         .unwrap();
+    #[cfg(feature = "std")]
     println!(
         "UO2 in steel, air: peak {:.1} K, heated mean {:.1} K, surface {:.1} K, imbalance {:.2e}",
         profile.peak_temperature.get::<kelvin>(),
@@ -354,6 +359,7 @@ fn correlations_reproduce_their_sources() {
     let ss = k(ThermalMaterial::StainlessSteel304L, 300.0);
     assert!((ss - 14.0).abs() / 14.0 < 0.03, "304L at 300 K = {ss}");
     let uo2 = k(ThermalMaterial::UraniumDioxide, 300.0);
+    #[cfg(feature = "std")]
     println!("UO2 at 300 K = {uo2:.3} W/(m K)");
     assert!((uo2 - 1.0 / (0.0452 + 2.46e-4 * 300.0)).abs() < 1e-6);
     assert!(k(ThermalMaterial::UraniumDioxide, 1500.0) < uo2);

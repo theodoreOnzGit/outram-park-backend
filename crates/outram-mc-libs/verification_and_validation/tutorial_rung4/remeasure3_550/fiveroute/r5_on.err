@@ -1,0 +1,18 @@
+== hst009 / route ace (route5_on) ==
+  nuclear data ready in 3.9 s
+    U234  URR true  DBRC true  URR [1.500e3, 1.000e5] eV
+    U235  URR true  DBRC true  URR [2.250e3, 2.500e4] eV
+    U236  URR true  DBRC true  URR [1.500e3, 1.000e5] eV
+    U238  URR true  DBRC true  URR [2.000e4, 1.490e5] eV
+    F19   URR false DBRC true  
+    O16   URR false DBRC true  
+    H1    URR false DBRC true  
+    Al27  URR false DBRC true  
+    Si28  URR false DBRC true  
+    Si29  URR false DBRC true  
+    Si30  URR false DBRC true  
+    Mn55  URR true  DBRC true  URR [1.250e5, 1.000e6] eV
+  URR on 5/12 nuclides, DBRC on 12/12, S(a,b) true
+  seed 1: k = 1.00133 +/- 0.00128   (76.6 s)
+  seed 2: k = 1.00107 +/- 0.00146   (77.2 s)
+  seed 3: k = 1.00171 +/- 0.00129   (76.9 s)

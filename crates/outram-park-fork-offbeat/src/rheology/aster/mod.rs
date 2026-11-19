@@ -94,6 +94,9 @@
 //! and `data` repositories carry material that may not be freely distributed
 //! and are out of scope per `DATA_POLICY.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod catalogue;
 pub mod chaboche;
 pub mod damage;

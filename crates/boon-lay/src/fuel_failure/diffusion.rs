@@ -73,6 +73,9 @@
 //! illustrative. Anyone comparing against Fig. 2 should expect the offset
 //! above and should not "fix" it by tuning.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Ratio, ThermodynamicTemperature};
 use uom::si::frequency::hertz;

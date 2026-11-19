@@ -39,6 +39,9 @@
 //! **OpenDA's `Matrix` and `Vector` kernels**, in Java's rounding order
 //! (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::jama::{self, Rows};
 use crate::{RafflesError, Result};
 

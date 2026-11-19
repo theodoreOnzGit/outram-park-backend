@@ -37,7 +37,10 @@
 //! The base and brushes are unchanged by any call here — that is what makes
 //! the stack "non-destructive"; `bake` returns a fresh [`Mesh`].
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::boolean::{boolean, BooleanError};
 use crate::mesh::Mesh;

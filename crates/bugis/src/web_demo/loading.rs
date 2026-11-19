@@ -36,27 +36,45 @@ impl Loading {
     pub fn done(&self) -> usize {
         self.job_secs.iter().filter(|s| s.is_some()).count()
     }
-    /// The job running now, if any.
+    /// The job running now, if any (the first, when a pool runs several).
     pub fn current(&self) -> Option<usize> {
-        (0..self.labels.len()).find(|&i| self.job_started[i].is_some() && self.job_secs[i].is_none())
+        self.running().first().copied()
     }
-    /// Finished jobs by weight, plus the running job's elapsed share of its
-    /// expected time, capped short of done.
+    /// Every job started and not yet done (several at once on a pool of
+    /// workers, in any order).
+    pub fn running(&self) -> Vec<usize> {
+        (0..self.labels.len()).filter(|&i| self.job_started[i].is_some() && self.job_secs[i].is_none()).collect()
+    }
+    /// Finished jobs by weight, plus each running job's elapsed share of its
+    /// expected time (its weight, read as seconds), capped short of done.
     pub fn fraction(&self, now: f64) -> f32 {
-        let total: f64 = self.weights.iter().sum::<f64>().max(1e-9);
-        let mut f: f64 = (0..self.labels.len()).filter(|&i| self.job_secs[i].is_some()).map(|i| self.weights[i]).sum();
-        if let Some(i) = self.current() {
+        // Folded from +0.0: `Iterator::sum` of no `f64`s is −0.0, which the
+        // card printed as "−0 %" before the first job finished.
+        let total: f64 = self.weights.iter().fold(0.0, |a, w| a + w).max(1e-9);
+        let mut f: f64 = (0..self.labels.len()).filter(|&i| self.job_secs[i].is_some()).fold(0.0, |a, i| a + self.weights[i]);
+        for i in self.running() {
             let t = now - self.job_started[i].unwrap_or(now);
             f += self.weights[i] * (t / self.weights[i].max(0.05)).min(0.95);
         }
         (f / total).clamp(0.0, 1.0) as f32
     }
+    /// What is running and how many are done: "U235, U238 · 3 of 54 done".
+    /// ~~"U235 (4 of 54)"~~: that was the job's place in the list, which read
+    /// as a count of jobs done once a pool ran them out of order (gh:#1578).
     pub fn status_line(&self) -> String {
-        match self.current() {
-            Some(i) => format!("{} ({} of {})", self.labels[i], i + 1, self.labels.len()),
-            None if self.done() == 0 => "Downloading".into(),
-            None => "Assembling the model".into(),
+        let (n, done) = (self.labels.len(), self.done());
+        let running = self.running();
+        if running.is_empty() {
+            return match done {
+                0 => "Downloading".into(),
+                d if d == n => "Assembling the model".into(),
+                d => format!("{d} of {n} done"),
+            };
         }
+        let names = running.iter().take(3).map(|&i| self.labels[i]).collect::<Vec<_>>().join(", ");
+        let more = running.len().saturating_sub(3);
+        let extra = if more > 0 { format!(" and {more} more") } else { String::new() };
+        format!("{names}{extra} · {done} of {n} done")
     }
     /// `(label, seconds)` per finished job.
     pub fn timings(&self) -> Vec<(&'static str, f64)> {
@@ -134,6 +152,7 @@ mod tests {
     #[test]
     fn progress_is_weighted_and_capped_while_running() {
         let mut l = Loading::new(vec!["small", "big"], vec![1.0, 99.0]);
+        assert!(l.fraction(0.0).is_sign_positive(), "+0 before any job, not -0");
         l.job_done(0, 0.1);
         assert!((l.fraction(0.0) - 0.01).abs() < 1e-6);
         l.started_at(1, 0.0);
@@ -142,5 +161,36 @@ mod tests {
         l.job_done(1, 2.0);
         assert_eq!(l.done(), 2);
         assert!((l.fraction(0.0) - 1.0).abs() < 1e-6);
+    }
+
+    /// On a pool, jobs run out of order and several at once: the line names
+    /// those running and counts those done (it used to print the running
+    /// job's place in the list, "U235 (4 of 54)", read as a count; gh:#1578),
+    /// and the bar counts every running job.
+    #[test]
+    fn the_status_line_counts_done_jobs_on_a_pool() {
+        let mut l = Loading::new(vec!["H1", "C12", "Li7", "U235", "U238"], vec![1.0, 1.0, 1.0, 58.0, 47.0]);
+        assert_eq!(l.status_line(), "Downloading");
+        l.started_at(3, 0.0);
+        l.started_at(4, 0.0);
+        assert_eq!(l.status_line(), "U235, U238 · 0 of 5 done");
+        let both = l.fraction(10.0);
+        l.job_started[4] = None;
+        assert!(both > l.fraction(10.0), "both running jobs move the bar");
+        l.started_at(4, 0.0);
+        for i in 0..3 {
+            l.started_at(i, 0.0);
+        }
+        assert_eq!(l.status_line(), "H1, C12, Li7 and 2 more · 0 of 5 done");
+        for i in 0..3 {
+            l.job_done(i, 1.0);
+        }
+        assert_eq!(l.status_line(), "U235, U238 · 3 of 5 done");
+        l.job_done(3, 500.0);
+        l.job_done(4, 400.0);
+        assert_eq!(l.status_line(), "Assembling the model");
+        l.job_secs[4] = None;
+        l.job_started[4] = None;
+        assert_eq!(l.status_line(), "4 of 5 done");
     }
 }

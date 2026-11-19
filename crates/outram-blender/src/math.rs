@@ -35,6 +35,9 @@
 //! attached here** — a mesh is dimensionless geometry until an [`crate::export`]
 //! bridge assigns it a length unit for a solver.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// A 3-component vector in model space, stored as `f64` components.
 ///
 /// Used both for vertex positions and for direction vectors (normals, offsets).

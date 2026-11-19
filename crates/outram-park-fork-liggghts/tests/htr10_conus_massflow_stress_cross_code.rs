@@ -108,13 +108,10 @@ const THERMO_EVERY: usize = 500;
 
 /// The last sampled step at which all 21 thermo values are bit-identical to
 /// LIGGGHTS. A measurement (see the results in the test's doc comment), not a
-/// tolerance.
-const BIT_IDENTICAL_UNTIL: usize = 2500;
-
-/// Round-off bound on the total force and torque after `BIT_IDENTICAL_UNTIL`,
-/// relative to the norm of the 3-vector: the workspace's code-to-code
-/// allowance (CLAUDE.md, 2026-10-20), `1e-8`. The measured worst is far below.
-const ROUND_OFF_BOUND: f64 = 1.0e-8;
+/// tolerance. ~~2500~~ **CORRECTED 2026-11-12 (gh:#1491): 20 000, the whole
+/// run**, once the stress totals are summed in the mesh neighbour list's
+/// within-facet bin order.
+const BIT_IDENTICAL_UNTIL: usize = 20_000;
 
 fn data_path(name: &str) -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -192,6 +189,16 @@ fn compare_state(sys: &GranularSystem, reference: &[[f64; 6]]) -> (usize, usize,
 /// `docs/verification-and-validation.md`); before the facet-major reordering
 /// in `compute_mesh_wall_forces` the worst was 1.1e-13 of a component.
 /// Prediction partly missed: the totals are not bit-identical beyond 2 500.
+///
+/// **CORRECTED 2026-11-12 (gh:#1491, Rust 1.99.1, 966 s): all 41 rows of all
+/// 21 values bit-identical, force and torque included (worst difference 0).**
+/// The 8.46e-16 residual above was the within-facet order: upstream's mesh
+/// neighbour list (`FixNeighlistMesh::handleTriangle`) walks each facet's bins
+/// in the `ix, iy, iz` loop order of `generate_bin_list` (`iz` innermost) and
+/// each bin in ascending local slot, from the positions of the last neighbour
+/// build. Sorting the stress contributions by `(facet, ix, iy, iz, slot)`
+/// instead of `(facet, slot)` closed it; the pebbles and mass flows are
+/// unchanged (bit-identical before and after).
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
@@ -273,6 +280,7 @@ fn conus_massflow_and_stress_match_liggghts() {
     let mut worst_overall = 0.0_f64;
     for th in &thermo {
         let step = th[0] as usize;
+        assert_eq!(step % THERMO_EVERY, 0, "thermo rows every {THERMO_EVERY} steps");
         sys.run(step - last);
         last = step;
         let mut got = Vec::with_capacity(21);
@@ -309,9 +317,7 @@ fn conus_massflow_and_stress_match_liggghts() {
         let non_ft_differ = (6..21).any(|k| got[k].to_bits() != th[1 + k].to_bits());
         assert!(!non_ft_differ, "step {step}: a mass-flow value or the reference point differs");
         if step <= BIT_IDENTICAL_UNTIL {
-            assert!(differing.is_empty(), "step {step}: values {differing:?} differ in the bit-identical window");
-        } else {
-            assert!(worst_ft < ROUND_OFF_BOUND, "step {step}: force/torque differ by {worst_ft:.2e} of the norm");
+            assert!(differing.is_empty(), "step {step}: values {differing:?} differ in the bit-identical window (worst {worst_ft:.2e} of the norm)");
         }
         eprintln!(
             "step {step:6}: F=({:.6e},{:.6e},{:.6e}) N  T=({:.5e},{:.5e},{:.5e}) Nm  counts \
@@ -349,5 +355,6 @@ fn conus_massflow_and_stress_match_liggghts() {
         first_mismatch
     );
     eprintln!("worst force/torque difference over the run: {worst_overall:.2e} of the vector norm");
-    assert_eq!(first_mismatch, Some(BIT_IDENTICAL_UNTIL + THERMO_EVERY));
+    assert_eq!(first_mismatch, None);
+    assert_eq!(bit_identical_rows, thermo.len());
 }

@@ -32,6 +32,9 @@
 //! - `BrowningPotter`: Browning & Potter correlation, ANL-RE-95/2,
 //!   <https://www.ne.anl.gov/eda/ANL-RE-95-2.pdf>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::SaturationPressureSlope;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};

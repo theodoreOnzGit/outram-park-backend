@@ -48,8 +48,11 @@ inside the resolved range — so the crate is judged where the reference chose t
 place points, not where it placed its own. Duplicate energies (NJOY writes them
 at MF=3 discontinuities) keep the first.
 
-**Pass criterion.** Worst relative deviation ≤ 2e-2 per MT at `err = 0.001`,
-plus the three gh:#202 values to < 1e-5 relative. Gate in
+**Pass criterion.** ~~Worst relative deviation ≤ 2e-2 per MT at `err = 0.001`,~~
+**CORRECTED 2026-11-14 (gh:#1366 §2 item 3):** every `(E, sigma)` pair NJOY
+writes inside the resolved range is bit-identical to the port's after the
+port's result goes through PENDF text (`ReconrResult::through_pendf_text`,
+NJOY's `a11`), with the same pair count; plus the three gh:#202 values to < 1e-5 relative. Gate in
 `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`.
 
 ## The defect
@@ -97,21 +100,35 @@ At the three energies gh:#202 recorded NJOY values for:
 | 1.03125e-5 | 8.838604 | 4.969327 | 8.838613 | 9.79e-7 |
 | 1.06250e-5 | 8.834137 | 4.969327 | 8.834151 | 1.62e-6 |
 
+### Re-measured 2026-11-14 (develop `7ab655456`, same NJOY tape)
+
+| MT | unrounded `eval_mt` vs NJOY text, worst relative | pairs through `a11`, differing |
+|---|---|---|
+| 1 (total) | 6.88e-8 | **0 of 44 326** |
+| 2 (elastic) | 9.30e-8 | **0 of 44 326** |
+| 102 (capture) | 1.70e-7 | **0 of 44 326** |
+
+The first column is NJOY's own 7-figure print rounding (at most 5e-7). The
+September residual was a grid difference, removed by the 2026-09-26 RECONR
+fixes (#340); `pendf_stages_vs_njoy2016` has been word-identical on this deck
+since then. Prediction and result: gh:#1366 comments of 2026-11-14.
+
 ## Interpretation
 
-**The residual is linearisation, not physics — measured, not assumed.**
+~~**The residual is linearisation, not physics — measured, not assumed.**
 Tightening `err` tenfold shrank the worst deviation by very close to tenfold on
 MT=2 (1.00e-2 → 9.97e-4) and MT=102 (9.98e-3 → 1.00e-3). A physics error does
 not scale with the reconstruction tolerance. Grid parity against NJOY is a
-known separate matter (`bn:op-428f`).
+known separate matter (`bn:op-428f`).~~ (2026-09-14; superseded, no residual is left.)
 
-**One divergence is left standing deliberately.** NJOY's MT=1 is the sum of all
+~~**One divergence is left standing deliberately.** NJOY's MT=1 is the sum of all
 partials (`reconr.f90:73`); this crate builds MT=1 as its own MF=3 background
 plus the resonance total. At 1e-5 eV NJOY's total (9.047157 b) equals *this
 crate's own* MT=2 + MT=102 (8.843210 + 0.203947) exactly, while the crate
 reports 9.025528 b — short by 2.1629e-2 b, precisely the MF=3 MT=102 background
 it omits from the total. This is why MT=1 is the one column above that does not
-scale cleanly with `err`. Filed separately; not fixed here.
+scale cleanly with `err`. Filed separately; not fixed here.~~ **CORRECTED
+2026-11-14:** gone; MT=1 is NJOY's in all 44 326 pairs.
 
 ## What this does NOT establish
 

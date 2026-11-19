@@ -8,7 +8,9 @@
 //! |---|---|---|
 //! | [`design`] | Cited plant constants (TM-0728 design point, TM-1070 kinetics and lumps, TM-1626 measured circulation loss) | here, re-exporting `nee_soon`'s where they exist |
 //! | [`model::MsreModel`] | A stepping simulator: circulating-fuel kinetics with fuel and graphite feedback, heat exchanger, coolant loop, radiator, piping lags, and (since gh:#1332) fuel- and coolant-pump trips and start-ups | here; TM-1070's equations, ~~composes `teh_o_prke`~~ kinetics from [`circulation`] (equal to `teh_o_prke`'s at full flow) |
+//! | [`moltres_drift`] | Moltres's finite-volume precursor drift (`outram_park_fork_moltres::precursors`) on TM-1626's flow path: the circulation loss solved spatially, checked against [`circulation`]'s line model, and [`moltres_drift::LoopDrift`], the drift stepped beside the plant (gh:#1575) | `outram_park_fork_moltres`, re-exported |
 //! | [`circulation`] | Circulating-fuel kinetics at variable flow: ~~TM-1070's well-stirred core (default) or TM-1626's importance-weighted line model~~ TM-1626's importance-weighted line model (the default since 2026-11-11, gh:#1330) or TM-1070's well-stirred core (the ablation `MsreConfig::without_line_model`) (gh:#1330, gh:#1332) | here |
+//! | [`session::Session`] | An operator session in plain numbers: commands (rods, ideal flux servo, radiator air, pump trips and starts), a flat [`session::Snapshot`] in °F / MW / pcm, the deterministic [`session::headless_csv`] and the T-1 [`session::natural_periods`] table, for GUIs and web workers (the museum MSRE simulator, gh:#1570). No physics of its own | here |
 //! | [`pumps`] | Pump flow schedules: ORNL-4233 Fig. 23's measured coast-downs, TM-0728's start-up, caller tables, `tampines`' inertial coast-down | here |
 //! | [`frequency_response`] | The linear frequency-domain model and TM-1647's measured natural periods (MSRE T-1, gh:#1132) | `nee_soon::msre_frequency_response` |
 //! | [`first_criticality`] | The full-core Monte Carlo geometry and materials of first criticality (MSRE N-1, gh:#1128) | `outram_mc_libs::vv::msre_n1` |
@@ -49,11 +51,19 @@
 //! demonstration, never for operation (`RESPONSIBLE_USE.md`).
 //!
 //! GUI-free and not target-gated: it builds for `wasm32-unknown-unknown`.
+//! The exception is [`web`] (gh:#1578), the demo's engine and k_eff pool:
+//! it rides on the web-demo link layer, which is off Android.
 
 pub mod circulation;
 pub mod design;
 pub mod model;
+pub mod moltres_drift;
 pub mod pumps;
+pub mod session;
+/// The simulator's engine, k_eff workers and pool as a library (gh:#1578):
+/// built on `dhoby_ghaut::mc_web` and `bugis::web_demo`, so off Android.
+#[cfg(not(target_os = "android"))]
+pub mod web;
 
 /// MSRE T-1's linear frequency-domain model and TM-1647's measured natural
 /// periods: `nee_soon::msre_frequency_response`, re-exported.

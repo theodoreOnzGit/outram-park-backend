@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::constants::T_C_KELVIN;
 use crate::region_1_subcooled_liquid::s_tp_1;
 use crate::region_2_vapour::s_tp_2;

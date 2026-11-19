@@ -6,6 +6,9 @@
 //! (kg/s) in both loops against Zweibaum's CIET set-C data. Heater powers span
 //! ~841-2765 W with the TCHX outlet held at 40 degC.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Quick smoke test of the uncalibrated coupled DRACS loop: runs 400 s of
 /// simulated time at 2764.53 W and checks the DRACS/primary mass flow rates
 /// (kg/s) against set-C9 data with loose tolerances (3% primary, 40% DRACS) -
@@ -82,7 +85,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
     // since the simulation time is 3000s, and the computation time is
     // 210s at most, real-time simulation capability has been demonstrated
 
-    use std::thread;
+    use crate::thread;
 
     use regression_dracs_loop_v1::*;
 
@@ -106,6 +109,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 simulated_expected_pri_mass_flowrate_kg_per_s,
             ) = (841.02, 40.0, 2.6860e-2, 2.0030e-2, 3.0228e-2, 2.2930e-2);
 
+            #[cfg(feature = "std")]
             dbg!(
                 max_simulation_time_seconds,
                 pri_loop_relative_tolerance,
@@ -147,6 +151,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 simulated_expected_pri_mass_flowrate_kg_per_s,
             ) = (1158.69, 40.0, 3.0550e-2, 2.3670e-2, 3.5059e-2, 2.6943e-2);
 
+            #[cfg(feature = "std")]
             dbg!(
                 max_simulation_time_seconds,
                 pri_loop_relative_tolerance,
@@ -187,6 +192,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 simulated_expected_pri_mass_flowrate_kg_per_s,
             ) = (1409.22, 40.0, 3.3450e-2, 2.6350e-2, 3.8280e-2, 2.9594e-2);
 
+            #[cfg(feature = "std")]
             dbg!(
                 max_simulation_time_seconds,
                 pri_loop_relative_tolerance,
@@ -228,6 +234,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 simulated_expected_pri_mass_flowrate_kg_per_s,
             ) = (1736.11, 40.0, 3.6490e-2, 2.9490e-2, 4.1957e-2, 3.2558e-2);
 
+            #[cfg(feature = "std")]
             dbg!(
                 max_simulation_time_seconds,
                 pri_loop_relative_tolerance,
@@ -269,6 +276,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 simulated_expected_pri_mass_flowrate_kg_per_s,
             ) = (2026.29, 40.0, 3.8690e-2, 3.1900e-2, 4.4852e-2, 3.4827e-2);
 
+            #[cfg(feature = "std")]
             dbg!(
                 max_simulation_time_seconds,
                 pri_loop_relative_tolerance,
@@ -310,6 +318,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 simulated_expected_pri_mass_flowrate_kg_per_s,
             ) = (2288.83, 40.0, 4.1150e-2, 3.4120e-2, 4.7236e-2, 3.6613e-2);
 
+            #[cfg(feature = "std")]
             dbg!(
                 max_simulation_time_seconds,
                 pri_loop_relative_tolerance,
@@ -351,6 +360,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 simulated_expected_pri_mass_flowrate_kg_per_s,
             ) = (2508.71, 40.0, 4.3120e-2, 3.5620e-2, 4.9099e-2, 3.7954e-2);
 
+            #[cfg(feature = "std")]
             dbg!(
                 max_simulation_time_seconds,
                 pri_loop_relative_tolerance,
@@ -392,6 +402,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 simulated_expected_pri_mass_flowrate_kg_per_s,
             ) = (2685.83, 40.0, 4.5090e-2, 3.5930e-2, 5.0522e-2, 3.8958e-2);
 
+            #[cfg(feature = "std")]
             dbg!(
                 max_simulation_time_seconds,
                 pri_loop_relative_tolerance,
@@ -433,6 +444,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 simulated_expected_pri_mass_flowrate_kg_per_s,
             ) = (2764.53, 40.0, 4.6990e-2, 3.5470e-2, 5.1134e-2, 3.9384e-2);
 
+            #[cfg(feature = "std")]
             dbg!(
                 max_simulation_time_seconds,
                 pri_loop_relative_tolerance,

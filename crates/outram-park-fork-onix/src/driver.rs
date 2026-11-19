@@ -20,10 +20,15 @@
 //! Independent Rust re-implementation; OUTRAM PARK fork relicenses under
 //! **GPL-3.0-only** (MIT is GPL-3.0-compatible).
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+// A `BTreeMap` (gh:#1589: `alloc`, so `no_std`), ~~`std::collections::HashMap`~~:
+// only looked up by key, never iterated, so the map type changes no result.
+use alloc::collections::BTreeMap;
 
 use crate::chain::{DecayData, FissionYields, ReactionRates};
-use crate::cram::{cram16, CramError};
+use crate::cram::{clamp_nonnegative, cram16, CramError};
 use crate::matrix::BurnupMatrix;
 use crate::nuclide::{Nuclide, ZamId};
 
@@ -65,7 +70,7 @@ pub enum DepletionError {
 #[derive(Debug, Clone)]
 pub struct DepletionSystem {
     nuclides: Vec<Nuclide>,
-    index: HashMap<ZamId, NuclideIndex>,
+    index: BTreeMap<ZamId, NuclideIndex>,
     decay: Vec<DecayData>,
     rates: Vec<ReactionRates>,
     fission_yields: Vec<FissionYields>,
@@ -82,7 +87,7 @@ impl DepletionSystem {
     pub fn new() -> Self {
         Self {
             nuclides: Vec::new(),
-            index: HashMap::new(),
+            index: BTreeMap::new(),
             decay: Vec::new(),
             rates: Vec::new(),
             fission_yields: Vec::new(),
@@ -252,8 +257,10 @@ impl DepletionSystem {
     /// Multi-step depletion with a fixed matrix over each `dt` in `steps`.
     ///
     /// Chains single steps: the output of one step is the input to the next.
-    /// The burnup matrix is **re-assembled at each step** from the current
-    /// reaction rates, so to model a changing flux, call
+    /// ~~The burnup matrix is **re-assembled at each step** from the current
+    /// reaction rates~~ **CORRECTED 2026-11-13 (gh:#1404, read from the code
+    /// below, and pinned by `tests/onix_differential.rs`):** the matrix is
+    /// assembled **once**, before the loop, and reused for every step. To model a changing flux, call
     /// [`DepletionSystem::set_reaction_rates`] between the individual
     /// [`DepletionSystem::deplete`] calls instead. This convenience method
     /// keeps rates constant across all `steps`; each `dt` is in **seconds**.
@@ -266,6 +273,33 @@ impl DepletionSystem {
             n = cram16(&a, dt, &n)?;
         }
         Ok(n)
+    }
+
+    /// Multi-step depletion that applies ONIX's density floor after every step,
+    /// returning the inventory after **each** step (one vector per entry of
+    /// `steps`).
+    ///
+    /// This is the arithmetic of one ONIX `burn_microstep` repeated at constant
+    /// flux (`onix/salameche/burn.py:215-229`): `A = B*1e-24*flux + C`,
+    /// `At = A*dt`, `N = CRAM16(At, N)`, then `CRAM_density_check`
+    /// (`onix/salameche/cram.py:127-163`), which sets every density below `floor`
+    /// (ONIX: `1e-24`) to zero, negatives included. [`DepletionSystem::deplete_multi`]
+    /// does not apply the floor. The matrix is assembled once; `dt` in seconds.
+    pub fn deplete_steps_floored(
+        &self,
+        n0: &[f64],
+        steps: &[f64],
+        floor: f64,
+    ) -> Result<Vec<Vec<f64>>, DepletionError> {
+        let a = self.build_matrix();
+        let mut n = n0.to_vec();
+        let mut history = Vec::with_capacity(steps.len());
+        for &dt in steps {
+            n = cram16(&a, dt, &n)?;
+            clamp_nonnegative(&mut n, floor);
+            history.push(n.clone());
+        }
+        Ok(history)
     }
 }
 

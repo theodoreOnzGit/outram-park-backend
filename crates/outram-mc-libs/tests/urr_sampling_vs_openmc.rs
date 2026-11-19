@@ -49,6 +49,8 @@
 //! as predicted before measuring):
 //! `verification_and_validation/ace_route_physics/urr_sampling_2026-09-29.md`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::acer::read;
 use njoy_outram_park_fork::reference_data::ace_reference_file_or_skip;
 use outram_mc_libs::material::nuclide::Nuclide;

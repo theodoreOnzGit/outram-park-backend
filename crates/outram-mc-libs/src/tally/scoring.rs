@@ -28,11 +28,16 @@
 //! scores a collision estimator at a POINT with [`score_collision_point`]
 //! (gh:#598), by default at every tentative collision with `1/Σ_maj`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::filter::{FilterEvent, FilterKind};
+use super::history_events::{regular_mesh_split, EventHistory};
+use super::mesh::MeshKind;
 use crate::particle::particle::ParticleType;
 use super::tally::{ScoreType, Tally, TallyBin};
 use crate::geometry::position::{Direction, Position};
-use crate::material::material::MacroXs;
+use crate::material::material::{MacroXs, MAX_DELAYED_GROUPS};
 
 /// Recoverable energy per fission `Q` \[J\] — the constant multiplier of the
 /// [`ScoreType::KappaFission`] score.
@@ -118,6 +123,87 @@ fn filter_bin(tally: &Tally, ev: &FilterEvent) -> Option<usize> {
     Some(bin)
 }
 
+/// Position of the [`FilterKind::DelayedGroup`] filter on `tally`, if any.
+///
+/// A tally carrying one resolves its delayed-group quantities through
+/// upstream's **analytic** route (`src/tallies/tally_scoring.cpp:705`, `:773`)
+/// instead of through [`filter_bin`]: upstream's filter `get_all_bins` puts the
+/// event in bin 0 unconditionally and the scoring loop deposits into every
+/// group bin itself (`filter_delayedgroup.cpp`: "bins outside zero are tallied
+/// to regardless"). GitHub #262.
+fn delayed_group_position(tally: &Tally) -> Option<usize> {
+    tally
+        .filters
+        .iter()
+        .position(|f| matches!(f, FilterKind::DelayedGroup(_)))
+}
+
+/// The flat filter bin of `ev` with the delayed-group filter at `dg_pos`
+/// pinned to its bin `d_bin` (upstream's `score_fission_delayed_dg`): the
+/// other filters are matched as usual and the delayed-group digit of the
+/// row-major index is replaced.
+fn filter_bin_with_group(
+    tally: &Tally,
+    ev: &FilterEvent,
+    dg_pos: usize,
+    d_bin: usize,
+) -> Option<usize> {
+    let mut bin = 0usize;
+    for (i, f) in tally.filters.iter().enumerate() {
+        let b = if i == dg_pos { d_bin } else { f.get_bin(ev)? };
+        bin = bin * f.n_bins() + b;
+    }
+    Some(bin)
+}
+
+/// Per-group macroscopic weight of `score` in `x` for the two scores upstream
+/// resolves by delayed group analytically (`delayed-nu-fission`,
+/// `decay-rate`); `None` for every other score, which upstream refuses with a
+/// delayed-group filter (`tally.cpp:569`; [`Tally::validate`] reports it).
+fn delayed_group_xs(score: &ScoreType, x: &MacroXs, group: usize) -> Option<f64> {
+    match score {
+        ScoreType::DelayedNuFission => Some(x.nu_fission_delayed_group[group]),
+        ScoreType::DecayRate => Some(x.decay_rate_group[group]),
+        _ => None,
+    }
+}
+
+/// Every `(flat bin·n_scores + score, value)` deposit of one event on a tally
+/// with a delayed-group filter at `dg_pos`: `scale · Σ_x,k` per group bin.
+/// `scale` is `w·d` (track-length) or `w/Σ_t` (collision). A void
+/// (`macro_xs = None`) deposits nothing; non-finite values are dropped as in
+/// the ordinary path.
+fn delayed_group_deposits(
+    tally: &Tally,
+    ev: &FilterEvent,
+    dg_pos: usize,
+    macro_xs: Option<&MacroXs>,
+    scale: f64,
+) -> Vec<(usize, f64)> {
+    let mut out = Vec::new();
+    let (Some(x), FilterKind::DelayedGroup(dg)) = (macro_xs, &tally.filters[dg_pos]) else {
+        return out;
+    };
+    let n_scores = tally.scores.len();
+    for (d_bin, &group) in dg.groups.iter().enumerate() {
+        if group >= MAX_DELAYED_GROUPS {
+            continue;
+        }
+        let Some(bin) = filter_bin_with_group(tally, ev, dg_pos, d_bin) else {
+            continue;
+        };
+        for (s_idx, score) in tally.scores.iter().enumerate() {
+            if let Some(xs) = delayed_group_xs(score, x, group) {
+                let v = scale * xs;
+                if v.is_finite() {
+                    out.push((bin * n_scores + s_idx, v));
+                }
+            }
+        }
+    }
+    out
+}
+
 /// Track-length contribution of one score over a streamed segment of length `d`
 /// \[cm\] at weight `w`, given the material's macroscopic cross sections at the
 /// segment energy (`None` in a void — only the flux score is defined there).
@@ -158,14 +244,15 @@ fn track_length_value(
         // come from separate tabulations and their difference can dip very
         // slightly negative through interpolation alone.
         (ScoreType::Scatter, Some(x)) => wd * (x.total - x.absorption).max(0.0),
-        // `SCORE_NU_SCATTER` weights each scatter by the neutrons it emits.
-        // **This port scores it identically to `Scatter`**, because the
-        // per-reaction (n,xn) yields are not carried on `MacroXs`. That is a
-        // KNOWN UNDERCOUNT wherever (n,2n) is significant - a fast metal
-        // system - and it is stated here rather than left to be discovered
-        // from a number that looks right. Do not quote a nu-scatter rate from
-        // this port as if the multiplicity were included.
-        (ScoreType::NuScatter, Some(x)) => wd * (x.total - x.absorption).max(0.0),
+        // `SCORE_NU_SCATTER` is analog-only in CE mode upstream
+        // (`tally.cpp:612`: "estimator_ = ANALOG"; `tally_scoring.cpp:1176`:
+        // "Only analog estimators are available"). ~~This port scored it
+        // identically to `Scatter` here, a known undercount wherever (n,2n)
+        // matters.~~ **CORRECTED 2026-11-14 (gh:#262):** the length-type
+        // estimators score nothing for it; the analog event hook
+        // `score_scatter_matrix` scores each emitted neutron, so the
+        // multiplicity is included.
+        (ScoreType::NuScatter, _) => 0.0,
         (ScoreType::DelayedNuFission, Some(x)) => wd * x.nu_fission_delayed,
         (ScoreType::PromptNuFission, Some(x)) => {
             wd * (x.nu_fission - x.nu_fission_delayed).max(0.0)
@@ -281,6 +368,51 @@ pub fn score_track_length(
         time,
         direction,
         false,
+        &EventHistory::default(),
+    );
+}
+
+/// [`score_track_length`] for a caller that keeps the particle's event history
+/// (gh:#261, 2026-11-18): the filter event additionally carries `cell_born`,
+/// `position_born` and `n_collision` from `hist`, so a `CellBornFilter`,
+/// `MeshBornFilter` or `CollisionFilter` bins the segment as OpenMC does
+/// (`filter_cellborn.cpp`, `filter_meshborn.cpp`, `filter_collision.cpp`). The
+/// event also carries the particle weight, which a `WeightFilter` reads
+/// (`filter_weight.cpp:41`, `wgt_last`, the weight at the start of the flight).
+/// With `EventHistory::default()` it is exactly [`score_track_length`].
+#[allow(clippy::too_many_arguments)]
+pub fn score_track_length_hist(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy: f64,
+    distance: f64,
+    position: Position,
+    macro_xs: Option<&MacroXs>,
+    weight: f64,
+    cell_instance: Option<usize>,
+    time: f64,
+    direction: Direction,
+    hist: &EventHistory,
+) {
+    score_length_like(
+        batch,
+        tally,
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy,
+        distance,
+        position,
+        macro_xs,
+        weight,
+        cell_instance,
+        time,
+        direction,
+        false,
+        hist,
     );
 }
 
@@ -329,6 +461,7 @@ pub fn score_collision_point(
         time,
         direction,
         true,
+        &EventHistory::default(),
     );
 }
 
@@ -350,6 +483,7 @@ fn score_length_like(
     time: f64,
     direction: Direction,
     at_point: bool,
+    hist: &EventHistory,
 ) {
     if distance <= 0.0 || !distance.is_finite() {
         return;
@@ -369,6 +503,15 @@ fn score_length_like(
         // a deliberate distinction rather than an omission; see its note.
         time,
         direction,
+        // Event-history fields (gh:#261, 2026-11-18): from the caller's
+        // `EventHistory` (the defaults, equal to `FilterEvent::default()`, for
+        // a caller that keeps none), and the particle weight, which was left at
+        // the default 1.0 and so made a `WeightFilter` see every event at unit
+        // weight.
+        cell_born: hist.cell_born,
+        position_born: hist.position_born,
+        n_collision: hist.n_collision,
+        weight,
         // This crate transports neutrons only (`ParticleType` reserves the
         // other slots; `physics::photon` is out of scope). Set explicitly so a
         // `ParticleFilter` on a track-length tally bins correctly instead of
@@ -385,6 +528,17 @@ fn score_length_like(
         // one, which is what `time` and `direction` were.
         ..Default::default()
     };
+
+    // Delayed-group path (gh:#262): `delayed-nu-fission` and `decay-rate`
+    // are deposited into every group bin analytically, as upstream does
+    // (`tally_scoring.cpp:705`, `:773`). No other score is defined with this
+    // filter ([`Tally::validate`]), so this path scores nothing else.
+    if let Some(dg_pos) = delayed_group_position(tally) {
+        for (i, v) in delayed_group_deposits(tally, &ev, dg_pos, macro_xs, weight * distance) {
+            batch[i] += v;
+        }
+        return;
+    }
 
     // Functional-expansion path: a lone expansion filter (SpatialLegendreFilter)
     // deposits w·d·Σ_x·P_n(ξ) into every moment bin n simultaneously, the faithful
@@ -420,7 +574,9 @@ fn score_length_like(
     // a flight centred on the collision site smeared each score along the
     // ray and dropped whatever fell outside the mesh — for a helium collision
     // (`1/Σ_t ~ 5e4 cm`) essentially all of it (gh:#598).
-    if !at_point && tally.filters.iter().any(|f| f.splits_track_length()) {
+    if !at_point
+        && tally.filters.iter().any(|f| f.splits_track_length() || splits_mesh_material(f))
+    {
         score_track_length_split(batch, tally, &ev, distance, macro_xs, weight, energy);
         return;
     }
@@ -443,6 +599,12 @@ fn score_length_like(
             batch[bin * n_scores + s_idx] += val;
         }
     }
+}
+
+/// A mesh-material filter on a regular mesh, which splits a segment among the
+/// mesh elements (gh:#261).
+fn splits_mesh_material(f: &FilterKind) -> bool {
+    matches!(f, FilterKind::MeshMaterial(m) if matches!(m.mesh, MeshKind::Regular(_)))
 }
 
 /// The track-length branch for a tally holding a filter that splits segments
@@ -474,6 +636,29 @@ fn score_track_length_split(
 
     let mut per_filter: Vec<Vec<(usize, f64)>> = Vec::with_capacity(tally.filters.len());
     for f in &tally.filters {
+        // MESH_MATERIAL on a regular mesh splits the segment among the mesh
+        // elements it crosses, inside the one material it flew through, as
+        // OpenMC's `MeshMaterialFilter::get_all_bins` does
+        // (`filter_meshmaterial.cpp`); the midpoint rule of `get_bin` credited
+        // the whole segment to one element (gh:#261, 2026-11-18).
+        if let FilterKind::MeshMaterial(mm) = f {
+            if let MeshKind::Regular(mesh) = &mm.mesh {
+                let bins: Vec<(usize, f64)> = regular_mesh_split(mesh, r0, r1)
+                    .into_iter()
+                    .filter_map(|(elem, frac)| {
+                        mm.pairs
+                            .iter()
+                            .position(|&(e, m)| e == elem && m == ev.material_idx)
+                            .map(|b| (b, frac))
+                    })
+                    .collect();
+                if bins.is_empty() {
+                    return;
+                }
+                per_filter.push(bins);
+                continue;
+            }
+        }
         let bins = match f.track_length_bins(r0, r1) {
             Some(b) => b,
             None => match f.get_bin(ev) {
@@ -677,11 +862,17 @@ pub fn score_scatter_matrix(
     // into the same bin. The presence of an `EnergyOutFilter` is what
     // distinguishes "I want the matrix" from "I want the group total", so it is
     // the gate.
-    if !tally
+    let matrix = tally
         .filters
         .iter()
-        .any(|f| matches!(f, FilterKind::EnergyOut(_)))
-    {
+        .any(|f| matches!(f, FilterKind::EnergyOut(_)));
+    // `NuScatter` is analog-only in CE mode upstream (`tally.cpp:612` forces
+    // the analog estimator; `tally_scoring.cpp:1176` scores only on a scatter
+    // event), so it fires here with or without an outgoing-energy filter.
+    // Each emitted neutron carries `weight`, so an (n,2n) scores twice,
+    // which is upstream's `(wgt_last - wgt_absorb) * yield`. GitHub #262.
+    let has_nu_scatter = tally.scores.iter().any(|s| matches!(s, ScoreType::NuScatter));
+    if !matrix && !has_nu_scatter {
         return;
     }
     let ev = FilterEvent {
@@ -701,6 +892,8 @@ pub fn score_scatter_matrix(
     let n_scores = tally.scores.len();
     for (s_idx, score) in tally.scores.iter().enumerate() {
         let val = match (score, emission) {
+            (ScoreType::NuScatter, _) => weight,
+            _ if !matrix => 0.0,
             (ScoreType::ScatterN | ScoreType::Events, _) => weight,
             (ScoreType::Scatter, ScatterEmission::Primary) => weight,
             _ => 0.0,
@@ -796,6 +989,17 @@ pub fn score_collision(
         ..Default::default()
     };
 
+    // Delayed-group path (gh:#262), collision estimator: `w·Σ_x,k/Σ_t` per
+    // group bin. See the track-length branch.
+    if let Some(dg_pos) = delayed_group_position(tally) {
+        let deposits =
+            delayed_group_deposits(tally, &ev, dg_pos, Some(macro_xs), weight / sigma_t);
+        for (i, v) in deposits {
+            tally.bins[i].score(v);
+        }
+        return;
+    }
+
     // Map the event through every filter to a flat bin index (row-major, first
     // filter slowest-varying). A rejecting filter drops the score.
     let Some(bin) = filter_bin(tally, &ev) else {
@@ -819,11 +1023,12 @@ pub fn score_collision(
             ScoreType::Absorption => weight * macro_xs.absorption.max(0.0) / sigma_t,
             ScoreType::ScatterN => weight * macro_xs.elastic / sigma_t,
             // ── GitHub #262 ─────────────────────────────────────────────────
-            ScoreType::Scatter | ScoreType::NuScatter => {
-                // See the track-length arm: `NuScatter` is deliberately
-                // identical here and is a known undercount.
+            ScoreType::Scatter => {
                 weight * (macro_xs.total - macro_xs.absorption).max(0.0) / sigma_t
             }
+            // Analog-only upstream; scored by `score_scatter_matrix`. See the
+            // track-length arm.
+            ScoreType::NuScatter => 0.0,
             ScoreType::DelayedNuFission => weight * macro_xs.nu_fission_delayed / sigma_t,
             ScoreType::PromptNuFission => {
                 weight * (macro_xs.nu_fission - macro_xs.nu_fission_delayed).max(0.0) / sigma_t
@@ -924,6 +1129,7 @@ mod tests {
             absorption: 0.08,
             nu_fission_delayed: 0.0,
             decay_rate: 0.0,
+            ..Default::default()
         };
         // Two collisions in cell 0 (Σ_t = 0.5 ⇒ 2 cm each), one in cell 5 (ignored).
         score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
@@ -949,7 +1155,7 @@ mod tests {
         use crate::tally::filter::{EnergyFilter, MeshFilter};
         use crate::tally::mesh::MeshKind;
         use outram_blender::unstructured::{Element, ElementKind, LengthUnit, UnstructuredMesh};
-        use std::sync::Arc;
+        use alloc::sync::Arc;
 
         let mut pts = Vec::new();
         for x in [0.0, 1.0, 2.0] {
@@ -989,5 +1195,101 @@ mod tests {
         );
         assert!((batch[0] - 0.75).abs() < 1e-12, "cell 0 got {}", batch[0]);
         assert!((batch[1] - 0.75).abs() < 1e-12, "cell 1 got {}", batch[1]);
+    }
+
+    fn dg_xs() -> MacroXs {
+        let mut x = MacroXs { total: 1.0, fission: 0.2, nu_fission: 0.5, ..Default::default() };
+        x.nu_fission_delayed_group[0] = 0.001;
+        x.nu_fission_delayed_group[2] = 0.003;
+        x.decay_rate_group[0] = 0.001 * 0.0133;
+        x.decay_rate_group[2] = 0.003 * 0.1208;
+        x.nu_fission_delayed = 0.004;
+        x
+    }
+
+    fn dg_tally() -> Tally {
+        use crate::tally::filter::DelayedGroupFilter;
+        Tally {
+            id: 9,
+            name: "dg".into(),
+            filters: vec![
+                FilterKind::Cell(CellFilter { cell_indices: vec![0, 1] }),
+                FilterKind::DelayedGroup(DelayedGroupFilter::new(vec![2, 0]).unwrap()),
+            ],
+            scores: vec![ScoreType::DelayedNuFission, ScoreType::DecayRate],
+            bins: vec![TallyBin::default(); 2 * 2 * 2],
+        }
+    }
+
+    /// Track-length delayed-group scoring: `w d Sigma_x,k`, deposited into the
+    /// bin of each listed group in the filter's own order (group 2 is bin 0,
+    /// group 0 is bin 1 here), in the matched cell only. Expected values are
+    /// the hand product of the inputs.
+    #[test]
+    fn delayed_group_track_length_deposits_per_group() {
+        let t = dg_tally();
+        t.validate().unwrap();
+        let x = dg_xs();
+        let mut batch = vec![0.0; t.bins.len()];
+        score_track_length(
+            &mut batch, &t, 1, 0, 0, 1.0e6, 2.0, Position::ZERO, Some(&x), 0.5, None, 0.0,
+            Direction::new(1.0, 0.0, 0.0),
+        );
+        // layout: ((cell * 2 + dg_bin) * 2 + score); cell 1
+        let at = |dg: usize, s: usize| batch[((2 + dg) * 2) + s];
+        let wd = 0.5 * 2.0;
+        assert!((at(0, 0) - wd * 0.003).abs() < 1e-15);
+        assert!((at(1, 0) - wd * 0.001).abs() < 1e-15);
+        assert!((at(0, 1) - wd * 0.003 * 0.1208).abs() < 1e-15);
+        assert!((at(1, 1) - wd * 0.001 * 0.0133).abs() < 1e-15);
+        assert!(batch[..4].iter().all(|v| *v == 0.0), "cell 0 is not hit");
+    }
+
+    /// Collision estimator: `w Sigma_x,k / Sigma_t`.
+    #[test]
+    fn delayed_group_collision_estimator_deposits_per_group() {
+        let mut t = dg_tally();
+        score_collision(&mut t, 0, 0, 0, 1.0e6, 2.0, &dg_xs(), 4.0, None);
+        assert!((t.bins[0].sum - 4.0 / 2.0 * 0.003).abs() < 1e-15);
+        assert!((t.bins[2].sum - 4.0 / 2.0 * 0.001).abs() < 1e-15);
+    }
+
+    /// Upstream refuses other scores with a delayed-group filter.
+    #[test]
+    fn delayed_group_filter_refuses_other_scores_and_bad_groups() {
+        use crate::tally::filter::DelayedGroupFilter;
+        let mut t = dg_tally();
+        t.scores.push(ScoreType::Flux);
+        assert!(t.validate().is_err());
+        assert!(DelayedGroupFilter::new(vec![]).is_err());
+        assert!(DelayedGroupFilter::new(vec![1, 1]).is_err());
+        assert!(DelayedGroupFilter::new(vec![MAX_DELAYED_GROUPS]).is_err());
+        assert!(DelayedGroupFilter::new(vec![0, 5]).is_ok());
+    }
+
+    /// `NuScatter` is analog-only: an (n,2n) (primary plus one secondary)
+    /// scores 2 w, with no `EnergyOutFilter` needed, and the length-type
+    /// estimators score nothing for it.
+    #[test]
+    fn nu_scatter_counts_every_emitted_neutron_and_is_analog_only() {
+        let t = Tally {
+            id: 3,
+            name: "nu".into(),
+            filters: vec![FilterKind::Cell(CellFilter { cell_indices: vec![0] })],
+            scores: vec![ScoreType::NuScatter, ScoreType::ScatterN],
+            bins: vec![TallyBin::default(); 2],
+        };
+        let r = Position::ZERO;
+        let mut batch = vec![0.0; 2];
+        score_scatter_matrix(&mut batch, &t, 0, 0, 0, 1.0e7, 2.0e6, r, 0.5, ScatterEmission::Primary);
+        score_scatter_matrix(&mut batch, &t, 0, 0, 0, 1.0e7, 5.0e5, r, 0.5, ScatterEmission::Secondary);
+        assert_eq!(batch[0], 1.0, "two neutrons of weight 0.5");
+        assert_eq!(batch[1], 0.0, "ScatterN without EnergyOut stays track-length only");
+        let x = MacroXs { total: 1.0, absorption: 0.2, ..Default::default() };
+        let mut b2 = vec![0.0; 2];
+        score_track_length(
+            &mut b2, &t, 0, 0, 0, 1.0e6, 1.0, r, Some(&x), 1.0, None, 0.0, Direction::new(1.0, 0.0, 0.0),
+        );
+        assert_eq!(b2[0], 0.0);
     }
 }

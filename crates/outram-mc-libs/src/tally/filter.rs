@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Tally filters — constrain which phase-space events are scored.
 ///
@@ -700,60 +703,47 @@ impl Filter for ParticleFilter {
 /// rather than left to the reader.
 ///
 /// A prompt neutron or a non-fission event carries
-/// [`FilterEvent::delayed_group`] `= None` and is rejected.
+/// [`FilterEvent::delayed_group`] `= None` and is rejected by [`Filter::get_bin`].
+///
+/// **On a tally, `delayed-nu-fission` and `decay-rate` do not go through
+/// `get_bin`** (gh:#262): as upstream's, the scoring code deposits into every
+/// group bin analytically (`MacroXs::nu_fission_delayed_group`). Only those two
+/// scores are allowed with this filter; [`super::tally::Tally::validate`]
+/// refuses the rest.
 pub struct DelayedGroupFilter {
     /// 0-based precursor group indices. One bin per entry.
     pub groups: Vec<usize>,
 }
 
 impl DelayedGroupFilter {
-    /// **This filter cannot currently tally anything, and saying so is the
-    /// point of this constructor.** GitHub #262.
+    /// Build a delayed-group filter over the **0-based** groups `groups`.
     ///
-    /// # Why it is refused rather than left constructible
-    ///
-    /// Audited 2026-09-22
-    /// (`verification_and_validation/delayed_neutrons/audit_2026_09_22.md`):
-    /// **nothing in this crate ever sets [`FilterEvent::delayed_group`].**
-    /// Every site that assigns `Some(..)` is a test. `physics::fission` folds
-    /// delayed neutrons into the total ν̄ and treats them as prompt — a
-    /// legitimate, clearly-labelled eigenvalue approximation — so no precursor
-    /// group is ever sampled to put on an event.
-    ///
-    /// A filter in that state does not fail. It sees `None` at every event,
-    /// bins nothing, and the tally returns **exactly zero** with no error and
-    /// no empty-result diagnostic.
-    ///
-    /// That is worse than the usual silent-wrong-answer, because **zero is a
-    /// value a physicist might accept**: a delayed-group tally over a
-    /// non-fissile region genuinely should be zero, so the wrong answer is
-    /// indistinguishable from a right one without knowing the geometry.
-    ///
-    /// # When this starts working
-    ///
-    /// When ν̄ is split into prompt and delayed in the transport loop and the
-    /// sampled precursor group is recorded on the event. The data is already
-    /// in the workspace and unused — `njoy-outram-park-fork`'s
-    /// `nuclear_data::delayed` carries MF=1/455 (λ_k, ν̄_d(E)) and MF=5/455
-    /// (abundances, delayed spectra). See #262 scope items 2 and 3. At that
-    /// point this constructor returns `Ok` and the struct's `Filter` impl
-    /// below already does the right thing unchanged.
-    ///
-    /// # Errors
-    ///
-    /// Always, until the above lands. The error names the audit so a caller
-    /// who hits it can read why rather than guess.
+    /// ~~**This filter cannot currently tally anything**: nothing set
+    /// `FilterEvent::delayed_group`, so it was refused (audit 2026-09-22,
+    /// `verification_and_validation/delayed_neutrons/audit_2026_09_22.md`).~~
+    /// **CORRECTED 2026-11-14 (gh:#262):** `delayed-nu-fission` and
+    /// `decay-rate` tallies carrying this filter are resolved by group
+    /// analytically, as upstream does (`tally_scoring.cpp:705`, `:773`;
+    /// `MacroXs::{nu_fission_delayed_group, decay_rate_group}`), so the filter
+    /// measures something real. Mirroring `filter_delayedgroup.cpp`, an empty
+    /// list, a duplicate, or a group at or beyond
+    /// [`crate::material::material::MAX_DELAYED_GROUPS`] is an error.
     pub fn new(groups: Vec<usize>) -> Result<Self, String> {
-        Err(format!(
-            "a DelayedGroupFilter over {} group(s) would tally exactly ZERO: nothing in \
-             this crate sets FilterEvent::delayed_group, because physics::fission folds \
-             delayed neutrons into the total nu-bar and treats them as prompt. See \
-             GitHub #262 and \
-             verification_and_validation/delayed_neutrons/audit_2026_09_22.md. \
-             Refused rather than returning a silent zero, which is indistinguishable \
-             from a correct result over a non-fissile region.",
-            groups.len()
-        ))
+        use crate::material::material::MAX_DELAYED_GROUPS;
+        if groups.is_empty() {
+            return Err("a DelayedGroupFilter needs at least one group".into());
+        }
+        for (i, &g) in groups.iter().enumerate() {
+            if g >= MAX_DELAYED_GROUPS {
+                return Err(format!(
+                    "delayed group {g} (0-based) is not below MAX_DELAYED_GROUPS = {MAX_DELAYED_GROUPS}"
+                ));
+            }
+            if groups[..i].contains(&g) {
+                return Err(format!("delayed group {g} listed twice"));
+            }
+        }
+        Ok(Self { groups })
     }
 }
 
@@ -958,7 +948,7 @@ fn factorial(k: usize) -> f64 {
 /// filter scored with rather than a re-derivation that could drift.
 pub fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f64> {
     let mut out = Vec::with_capacity((order + 1) * (order + 1));
-    let four_pi = 4.0 * std::f64::consts::PI;
+    let four_pi = 4.0 * core::f64::consts::PI;
     for l in 0..=order {
         for m in -(l as i32)..=(l as i32) {
             let am = m.unsigned_abs() as usize;
@@ -968,9 +958,9 @@ pub fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f
             let v = if m == 0 {
                 norm * p
             } else if m > 0 {
-                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_cos()
+                core::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_cos()
             } else {
-                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_sin()
+                core::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_sin()
             };
             out.push(v);
         }

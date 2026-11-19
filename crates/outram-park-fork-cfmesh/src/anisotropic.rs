@@ -70,6 +70,9 @@
 //! revert inside `generateBoundaryLayers` in 2D. Record:
 //! `verification_and_validation/anisotropic_gh1279/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 
 /// OpenFOAM's `SMALL` for `double`.
@@ -374,14 +377,45 @@ pub struct BackScalingReport {
 /// (bit-identical to the brute-force nearest point, gh:#1263). The caller
 /// then runs its `optimiseFinalMesh` again on the original surface.
 ///
+/// **gh:#1385 round 5:** `cartesianMesh` no longer calls this; it uses
+/// [`revert_and_project_octree`] (upstream's new octree and
+/// `findNearestSurfacePoint`). `tetMesh` and `pMesh` still do (not yet compared
+/// with a staged upstream anisotropic run).
+///
 /// [`SurfaceSearch::Octree`]: crate::mesh_octree_queries::SurfaceSearch::Octree
 pub fn revert_and_project(m: &mut crate::volume_mesh::VolumeMesh, cm: &CoordinateModifier, points: &[Vec3], tris: &[[usize; 3]]) -> BackScalingReport {
     revert_points(&mut m.points, cm);
+    crate::pipeline::cartesian_mesh::dump_points("B_after_revert", m);
     let mapped = crate::snap::snap_to_surface_with(m, points, tris, crate::mesh_octree_queries::SurfaceSearch::Octree);
     let max_projection_move = mapped.points.iter().zip(&m.points).map(|(a, b)| a.sub(*b).length()).fold(0.0, f64::max);
     let n_points_reverted = m.points.len();
     *m = mapped;
+    crate::pipeline::cartesian_mesh::dump_points("C_after_map", m);
     BackScalingReport { n_points_reverted, max_projection_move }
+}
+
+/// [`revert_and_project`] as `cartesianMeshGenerator::projectSurfaceAfterBackScaling`
+/// does it (gh:#1385 round 5): `revertGeometryModification`, then
+/// `meshSurfaceMapper(mse, octree).mapVerticesOntoSurface()` with a **new
+/// octree on the original surface** (`meshOctree(*surfacePtr_)` +
+/// `createOctreeWithRefinedBoundary(20, 30)`, built by the caller and passed
+/// as `octree`): every boundary point to the octree's `findNearestSurfacePoint`
+/// (not an exact nearest point, so not [`crate::snap`]'s), with no
+/// untangling. The caller then runs its `optimiseFinalMesh` again with the
+/// same octree, as upstream does. [`revert_and_project`] is the earlier
+/// route (exact nearest point) that `tetMesh` and `pMesh` still call.
+pub fn revert_and_project_octree(m: &mut crate::volume_mesh::VolumeMesh, cm: &CoordinateModifier, octree: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions) -> BackScalingReport {
+    revert_points(&mut m.points, cm);
+    crate::pipeline::cartesian_mesh::dump_points("B_after_revert", m);
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(alloc::sync::Arc::new(octree.clone()));
+    let engine = crate::surface_engine::SurfaceEngine::new(m);
+    let before = m.points.clone();
+    for &v in &engine.boundary_points {
+        m.points[v] = q.nearest(before[v]);
+    }
+    let max_projection_move = m.points.iter().zip(&before).map(|(a, b)| a.sub(*b).length()).fold(0.0, f64::max);
+    crate::pipeline::cartesian_mesh::dump_points("C_after_map", m);
+    BackScalingReport { n_points_reverted: m.points.len(), max_projection_move }
 }
 
 /// `scaleMesh` / `scaleSurfaceMesh`: every point times `factor`.
@@ -509,6 +543,7 @@ mod tests {
             let moved = pts.iter().zip(&pts0).filter(|(a, b)| a != b).count();
             revert_points(&mut pts, &cm);
             let err = pts.iter().zip(&pts0).map(|(a, b)| a.sub(*b).length()).fold(0.0, f64::max);
+            #[cfg(feature = "std")]
             println!("{:?}: {moved} of {} points moved, max revert error {err:e}", mods.iter().map(|m| m.name()).collect::<Vec<_>>(), pts0.len());
             assert!(moved > 0);
             assert!(err < 1e-12, "{err}");
@@ -518,6 +553,7 @@ mod tests {
         let cover = Modification::Box(BoxScaling { name: "x2".into(), centre: Vec3::new(0.5, 0.5, 0.5), length: Vec3::new(1.0, 1.0, 1.0), scale: Vec3::new(0.5, 1.0, 1.0) });
         let cm = CoordinateModifier::new(vec![cover]).unwrap();
         modify_points(&mut m.points, &cm);
+        #[cfg(feature = "std")]
         println!("x2 box volume {}", m.total_volume());
         assert!((m.total_volume() - 2.0).abs() < 1e-12);
         // Refusals.
@@ -551,6 +587,7 @@ mod tests {
         assert_eq!(out.triangles.len(), s.triangles.len() + 12);
         assert_eq!(out.patches.len(), 1 + 6);
         let boxv = crate::shapes::surface_volume(&out.points, &out.triangles[s.triangles.len()..]);
+        #[cfg(feature = "std")]
         println!("bounding box signed volume {boxv}");
         assert!((boxv - 27.0).abs() < 1e-9, "{boxv}");
     }
@@ -588,6 +625,7 @@ mod tests {
         let o2 = crate::pipeline::cartesian_2d_mesh::Cartesian2DMeshOptions { dict: MeshDict::with_max_cell_size(0.05), ..Default::default() };
         let (m2, _) = crate::pipeline::cartesian_2d_mesh::cartesian_2d_mesh(&cp, &ct, Some(&cr), &o2).unwrap();
         let got = [mesh_fingerprint(&mc), mesh_fingerprint(&mt), mesh_fingerprint(&mp), mesh_fingerprint(&m2)];
+        #[cfg(feature = "std")]
         println!("fingerprints cartesian {} tet {} p {} 2D {}; cells {} {} {} {}", got[0], got[1], got[2], got[3], mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells);
         // Re-pinned 2026-11-11 (gh:#1385), by decision of the task that made
         // the generators follow upstream bit for bit (the cell counts did not
@@ -742,16 +780,19 @@ mod tests {
     #[test]
     fn anisotropic_sources_through_the_generators() {
         let (sp, st) = crate::shapes::sphere_surface(Vec3::ZERO, 3.0, 24, 48);
-        let exact = 4.0 / 3.0 * std::f64::consts::PI * 27.0;
+        let exact = 4.0 / 3.0 * core::f64::consts::PI * 27.0;
         let nonpos = |m: &crate::volume_mesh::VolumeMesh| crate::checks::cell_geometry(m).0.iter().filter(|&&v| v <= 0.0).count();
         let e = 1e-9;
         let in_slab = |c: &(bool, Vec3, Vec3)| c.1.z >= -1.0 - e && c.2.z <= 1.0 + e;
         let outside = |c: &(bool, Vec3, Vec3)| c.1.z >= 1.0 - e || c.2.z <= -1.0 + e;
         let no_skip = |_: &str| false;
+        #[cfg(feature = "std")]
         println!("| generator | run | rings | cells | volume error | non-positive | closed | interior cells in slab: n, mean dz/mean dx, min..max | outside: n, ratio, min..max | max boundary distance |");
+        #[cfg(feature = "std")]
         println!("|---|---|---|---|---|---|---|---|---|---|");
         for (name, iso, ani, notes) in sphere_runs() {
             for n in &notes {
+                #[cfg(feature = "std")]
                 println!("  {name}: {n}");
             }
             for (run, m, rings) in [("isotropic", &iso, 1), ("slab", &ani, 1), ("isotropic", &iso, 2), ("slab", &ani, 2)] {
@@ -761,6 +802,7 @@ mod tests {
                 let pick_out = |c: &(bool, Vec3, Vec3)| outside(c) && (!hex_only || c.0);
                 let a = extent_ratio(&cells, &pick_in);
                 let b = extent_ratio(&cells, &pick_out);
+                #[cfg(feature = "std")]
                 println!(
                     "| {name} | {run} | {rings} | {} | {:+.3} % | {} | {} | {}, {:.6}, {:.6}..{:.6} | {}, {:.6}, {:.6}..{:.6} | {:.3e} |",
                     m.n_cells,
@@ -784,6 +826,7 @@ mod tests {
         // 2D
         let (iso2, ani2, notes2) = channel_runs();
         for n in &notes2 {
+            #[cfg(feature = "std")]
             println!("  cartesian_2d_mesh: {n}");
         }
         let empty = |s: &str| s.ends_with("EmptyFaces");
@@ -795,6 +838,7 @@ mod tests {
             let left = extent_ratio(&yz, &|c| c.2.z <= 0.5 + e);
             let right = extent_ratio(&yz, &|c| c.1.z >= 0.5 - e);
             let area = m.total_volume() / zt;
+            #[cfg(feature = "std")]
             println!(
                 "2D {run}: cells {} area {area:.15} ({:+.3e}) non-positive {} closed {} | interior x <= 0.5: {} cells, dx/dy {:.6} ({:.6}..{:.6}) | x >= 0.5: {} cells, dx/dy {:.6} ({:.6}..{:.6}) | z in [{}, {zt}]",
                 m.n_cells,
@@ -822,11 +866,13 @@ mod tests {
         let stop = CartesianMeshGeneratorOptions { workflow: WorkflowSettings { stop_after: Some(WorkflowStep::EdgeExtraction), restart_from_latest_step: false }, ..base.clone() };
         let (stopped, srep) = cartesian_mesh(&sp, &st, None, &stop).unwrap();
         let zmax = stopped.points.iter().map(|q| q.z).fold(f64::MIN, f64::max);
+        #[cfg(feature = "std")]
         println!("W8: the mesh stopped after edgeExtraction reaches z {zmax:.4} (modified space: the sphere's top is at 5)");
         let saved = crate::pipeline::tet_mesh::SavedMesh { mesh: stopped, patch_types: srep.patch_types.clone(), meta: srep.meta.clone() };
         let restart = CartesianMeshGeneratorOptions { workflow: WorkflowSettings { stop_after: None, restart_from_latest_step: true }, ..base.clone() };
         let (resumed, _) = cartesian_mesh_restart(&sp, &st, None, &restart, &saved).unwrap();
         let same = crate::tet_mesh_extractor_octree::same_mesh(&resumed, &full);
+        #[cfg(feature = "std")]
         println!("W8: restarted run equals the full run bit for bit: {same}");
         assert!(same);
         assert!(zmax > 4.0);
@@ -874,6 +920,7 @@ mod tests {
             let (m, _) = cartesian_mesh(&p, &t, None, &o).unwrap();
             let c = interior_cells(&m, &|_: &str| false, 2);
             let r = extent_ratio(&c, &|c| c.0);
+            #[cfg(feature = "std")]
             println!("after {st:?}: {} cells, ring-2 hexes {} ratio {:.6} {:.6}..{:.6}", m.n_cells, r.0, r.1, r.2, r.3);
             if st != WorkflowStep::MeshOptimisation {
                 assert!((r.2 - 1.0).abs() < 1e-12 && (r.3 - 1.0).abs() < 1e-12, "{st:?}");

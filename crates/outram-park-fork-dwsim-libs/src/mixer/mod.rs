@@ -40,6 +40,9 @@
 //! (`GetPropertyValue`/`GetProperties`/`GetPropertyUnit`, :263-300). DWSIM's
 //! six-inlet GUI cap is dropped — this port accepts any number of inlets.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{AvailableEnergy, MassRate, MolarMass, Pressure, Ratio};
 use uom::si::mass_rate::kilogram_per_second;
@@ -140,7 +143,7 @@ impl core::fmt::Display for MixerError {
     }
 }
 
-impl std::error::Error for MixerError {}
+impl core::error::Error for MixerError {}
 
 /// Total outlet mass flow `w = Σ w_i` (Mixer.vb:143-144).
 ///

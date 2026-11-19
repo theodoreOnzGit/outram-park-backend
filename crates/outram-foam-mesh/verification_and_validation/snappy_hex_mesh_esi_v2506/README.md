@@ -227,8 +227,15 @@ first (`processorMeshes.H`, `decompositionModel.H`); then the application with
 its `Make/options` edited (original kept as `Make/options.orig`) to drop the
 dummy `-L$(FOAM_LIBBIN)/dummy -lkahipDecomp -lmetisDecomp -lptscotchDecomp
 -lscotchDecomp` line, which the dummy-Pstream tree does not provide and the
-serial run does not need. Scripts: `/home/user/upstream-build/scripts/build-snappy.sh`
-and `build-snappy-exe.sh`; logs `build-snappy-*.log` beside them. Whole build
+serial run does not need. ~~Scripts: `/home/user/upstream-build/scripts/build-snappy.sh`
+and `build-snappy-exe.sh`; logs `build-snappy-*.log` beside them.~~ **CORRECTED
+2026-11-13** (container reset wiped `/home/user/upstream-build`; those two
+scripts were outside the repo and are gone): rebuild with
+`scripts/upstream/build-esi-v2506-and-genfoam.sh` (stages `closure` and
+`meshing`), logs in `/home/user/upstream-build/logs/`. It builds the full
+`liboverset` (in the closure) instead of the pruned `overset` + one-file edit
+above, and builds `fvMotionSolvers` unmodified because `libfvOptions` now
+exists; the `snappyHexMesh` application edit is unchanged. Whole build
 about 25 minutes at `WM_NCOMPPROCS=2`, all at the tree's default `-O3` (no
 `-O0` was needed).
 
@@ -681,3 +688,1051 @@ removal modes are untouched. Defects found: (1) final assembler wrote T-junction
 (fixed, opt-in path); (2) the "649-face problem-face miss" was the visit order, not a missing
 rule (README round 2 corrected); (3) in this round's own port, the edge renumbering of
 `calcEdges` (fixed before the first commit that claims P23).
+
+## Round 4, tasks 1 and 2: the nine face checks and `scaleMesh` (predictions)
+
+Written and committed before any round-4 port code exists.
+
+**Correction of a round-3 statement, from reading `motionSmootherAlgoCheck.C` again
+before porting.** Round 3 recorded that ESI calls `checkFacePyramids(report,
+minTetQuality, ...)`. That is true of the OVERLOAD that takes a `polyMeshGeometry`
+(`checkMesh(report, dict, meshGeom, points, checkFaces, ...)`, line 503 onwards, used by
+`snappyLayerDriver`). `snappySnapDriver::scaleMesh` calls `meshMover.scaleMesh(checkFaces,
+baffles, true, nInitErrors)`, which calls the OTHER overload,
+`checkMesh(false, mesh_, meshQualityDict, checkFaces, baffles, wrongFaces)` (line 59), and
+that one passes `minVol` (1e-13) to `polyMeshGeometry::checkFacePyramids`, using the
+mesh's own `cellCentres()` / `faceCentres()` / `faceAreas()` (`primitiveMeshTools`, as
+`polyMesh::movePoints` computes them), not `polyMeshGeometry`'s incremental ones. The
+snapping port therefore uses the mesh overload. On the flange the distinction cannot be
+seen in the result: ESI `checkMesh -meshQuality` at time 35 finds the same 4 pyramid faces
+with `minVol` 1e-13 and with 1e-15.
+
+**Reference (new, `tests/fixtures/esi_v2506_flange/esi_t35_wrong_faces_by_check.txt.gz`).**
+A fresh ESI run of `snappyHexMeshDict.snap` (`debugFlags (mesh)`, binary write). It
+reproduces `snap_points_32/35/36` bit for bit **only if `blockMesh` is run first with the
+ASCII `controlDict`, `writePrecision 16`: with a binary controlDict the background points
+are exact doubles and every point differs by up to 7e-16.** Then `checkMesh -meshQuality
+-time 35` (the mesh overload of `motionSmootherAlgo::checkMesh`), once per check with the
+other eight disabled, gives the exact face sets of the time-35 mesh (scaling iteration 0,
+full displacement). Faces in error: pyramids {56918, 58032, 58040, 58067}; tet quality
+{15275, 28221, 56918, 58032, 58040, 58067}; twist {51965, 56915, 56918, 58032, 58040,
+58067}; non-orthogonality, concavity, skewness, weights, volume ratio, determinant: none.
+Union 8 faces. ESI's log counts are cumulative-new per check (4, +2, +2); the port will
+print the same.
+
+| # | prediction (committed before the port code) |
+|---|---|
+| P26 | The ported nine checks (`check_mesh::esi_*`: `checkFaceDotProduct`, `checkFacePyramids`, `checkFaceTets` incl. `polyMeshTetDecomposition`, `checkFaceAngles`, `checkFaceSkewness`, `checkFaceWeights`, `checkVolRatio`, `checkFaceTwist`, `checkCellDeterminant`) on ESI's time-35 mesh give **exactly** the per-check face sets above (pyramids 4, tets 6, twist 6, the other six checks empty; union 8) and **zero** faces on ESI's time-32 (castellated) and time-36 (snapped) meshes. Pass/fail is discrete, so bit identity of the metric is not needed, only that no face lies within round-off of a threshold; none is expected to. |
+| P27 | `scaleMesh` ported (`errorReduction 0.75`, `nSmoothScale 4`, `calcEdgeWeights(oldPoints)`, `minSmooth` over patch points then internal points, `getAffectedFacesAndPoints`) from the time-34 displacement and the castellated points: iteration 0 finds the 8 faces above, iteration 1 (scale min 0.75, max 1) finds none, and the resulting points equal ESI's time 36 **bit for bit on all 79986 components**. The operations are `+ - * /`, `min` and `sqrt` in upstream's order; the earlier stages were bit-identical for the same reason. Expected failure mode if wrong: the affected-point set (`pointCells` growth) or the order of `scale_ *= errorReduction` before `minSmooth`. |
+| P28 | `checkMesh` of the port's scaled mesh: **0 faces for all nine checks**, as ESI's "Moved mesh" iteration 1 and `checkMesh -meshQuality -time 36`. |
+
+### Round 4, tasks 1 and 2: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_scale.rs`)
+
+Code: `check_mesh::esi_*` (the nine checks, `esi_check_mesh`, `EsiQualityControls`,
+`EsiGeometry`; beside the older `check_quality`, which is untouched; no kovan review
+stamp exists in this crate) and `esi_snap::{scale_mesh, scale_mesh_loop, MotionSmoother,
+affected_faces_and_points}`. `esi_snap::cell_centres` now delegates to the new
+`cell_centres_vols` (same operations); the vector helpers became `pub(crate)`.
+
+| stage | compared with | result |
+|---|---|---|
+| nine checks alone, ESI time-35 mesh | `checkMesh -meshQuality` with one check enabled | **all nine face sets equal**: pyramids {56918, 58032, 58040, 58067}, tets 6, twist 6, the other six empty; union 8; cumulative-new counts 0, 4, +2, 0, 0, 0, 0, +2, 0 as ESI's log |
+| same checks, threshold `minVol` 1e-15 | ESI with 1e-15 | same 4 faces |
+| ESI time-32 and time-36 meshes | ESI "Mesh OK" | 0 faces |
+| `oldPoints + 1 * displacement` | ESI time 35 | **bit-identical, 79986 of 79986** |
+| `scaleMesh` loop (2 iterations: 8 faces at scale 1, 0 faces at scale min 0.75) | ESI log iterations 0 and 1 | same counts and same 8 faces |
+| snapped points | ESI time 36 | **bit-identical, 79986 of 79986** |
+
+**Ledger.** P26 **held**, P27 **held**, P28 **held**; no round-off residual to count
+(no transcendental other than `cos`/`sin` of the two thresholds, through
+`RealMath`, and they agree). One pre-declared alternative was measured and refuted
+rather than tuned: whether `curPoints` scales PATCH points by the scale field (the
+`scale_*displacement_` product's boundary values might have stayed 1). With patch
+points unscaled the run does not converge (10 iterations, 77664 of 79986 bit-identical,
+worst 1.2e-4 m), so ESI does scale them; pinned by
+`unscaled_patch_points_reading_is_refuted`. Round-3 statement "unscaled mesh differs
+from time 36 by at most 6.0e-5 m" is now explained: that was the scaling of the 8 faces'
+neighbourhood. Pins moved: none. Defects: the round-3 pyramid-threshold note (above).
+Not covered by the port: baffles, coupled patches, `minArea`, `minTriangleTwist`,
+`minFaceFlatness`, `minEdgeLength` (all -1 or absent in `meshQualityDict`), the
+`polyMeshGeometry` overload used by layer addition. No picture drawn for this stage:
+the change (8 faces' points scaled by at most 0.25 of a sub-0.1 mm displacement) is
+below a pixel, as for round 3.
+
+## Round 4, task 3a: `repatchToSurface` (predictions)
+
+Committed before the port code. `snappySnapDriver::repatchToSurface` (v2506 `:2275`): per
+boundary face `faceSnapDist` = max over its points of `calcSnapDistance` (snap tolerance 1.0
+times the longest incident edge, evaluated on the SNAPPED mesh), `findNearestRegion` of the
+face centre (`mesh.faceCentres()`) against the unzoned surfaces within `sqr(faceSnapDist)`, and
+the face goes to the patch of the hit region (`globalToMasterPatch_`; here STL region k to
+`flange_patch(k+1)`); `createBaffles(ownPatch, neiPatch)` with equal arrays only changes the
+patch. Reference: the same ESI run with `mergePatchFaces false` (top level; `mergeType
+NONE`, so neither merge happens), whose final mesh is the repatched mesh; ESI log "Repatched
+42 faces". Faces are matched by (owner cell, ring up to rotation).
+
+| # | prediction |
+|---|---|
+| P29 | Starting from ESI's castellated patch assignment and the snapped (time 36) points, the port repatches **exactly 42 faces**, the same 42 faces as ESI, each to the same patch (compared on all 12136 boundary faces: 0 differing). Risk: a face centre at equal distance from triangles of two regions (tie-break by ESI's octree order), which the brute-force nearest triangle (first minimum) may resolve differently. |
+
+### Round 4, task 3a: result (2026-11-12, `tests/snappy_hex_mesh_esi_scale.rs`)
+
+`esi_snap::repatch_to_surface`, from the castellated patch assignment and ESI's time-36
+points: **42 faces repatched, the same 42 faces and the same new patch for each as ESI's
+`mergePatchFaces false` run** (reference `esi_repatch_changes.txt.gz`: mesh face index in
+the castellated mesh, old patch, new patch; faces matched by owner and ring up to rotation
+and orientation across all 63194 faces, every face found). P29 **held**. Patch sizes after:
+9336 / 1162 / 238 / 1400 (from 9310 / 1182 / 248 / 1396). Bit-level: no arithmetic beyond the
+nearest-point routine already used in P21; the face centre and snap distance are the
+earlier ported functions.
+
+### Round 4: not done
+
+`mergePatchFaces` / `mergeEdges` (`meshRefinement::mergePatchFacesUndo`,
+`mergeEdgesUndo`: 2118 face sets, 2005 straight-edge points, 63194 to 61034 faces, with the
+edge-intersection test and the undo/quality loop) are NOT ported. Read for the next round:
+the merge runs only with `mergePatchFaces` true (default); `featureCos` comes from
+`resolveFeatureAngle`; ESI's `Undo iteration 0` re-runs the nine checks (now available as
+`check_mesh::esi_check_mesh`) on the merged mesh and found 0 faces, so no merge is undone on
+the flange. Reference runs for it: this section's case with `mergePatchFaces` true gives the
+final mesh (time 40 in the log of the castellated+snap run).
+
+### Round 4 summary of the ledger
+
+| # | outcome |
+|---|---|
+| P26 | held (nine face sets equal ESI's; 8 faces; 0 on times 32 and 36) |
+| P27 | held (scaleMesh: 2 iterations, snapped points bit-identical to time 36, 79986 of 79986) |
+| P28 | held (0 faces after scaling) |
+| P29 | held (42 faces, same patches) |
+
+## Round 5: `mergePatchFaces` / `mergeEdges` (predictions, committed before the port exists)
+
+**Source read first** (v2506): `snappySnapDriver.C:3640-3660` (after `repatchToSurface`:
+`mergePatchFacesUndo(featureCos, featureCos, meshedPatches, motionDict, duplicateFace,
+GEOMETRIC)` then `mergeEdgesUndo(featureCos, motionDict)`, `featureCos = cos(degToRad(30))`
+= 0.8660254037844387 from `resolveFeatureAngle 30`), `meshRefinementMerge.C`,
+`combineFaces.C` (`getMergeSets`, `regioniseFaces`, `faceNeighboursValid`, `validFace`,
+`getOutsideFace`, `setRefinement`), `removePoints.C` (`countPointUsage`, `setRefinement`),
+`polyTopoChange.C` (`getFaceOrder`: internal faces by (cell, neighbour), boundary faces by
+patch then OLD face label; `compact`: points keep their order when `orderPoints` is false;
+`changeMesh(mesh, false, true)` so cells and points are not reordered).
+Ordering that decides the numbering and that the port must replicate: the master face of
+a set is `setFaces[0]`, i.e. the first face of the region in the iteration order of
+`Map<label> faceRegion`, an OpenFOAM `HashTable` (power-of-two capacity >= 8, identity hash
+`Hash<label>` = the label, insertion at the chain head, growth x2 at load 0.8, iteration by
+bucket then chain), and the insertion order of that map follows `cellEdges(celli, set,
+storage)` = the iteration order of a `labelHashSet` of capacity 128 (when `cellEdges()` is not
+cached). ESI reference run: `snappyHexMeshDict.snap`, `debugFlags (mesh)`, ASCII precision 17;
+time 36 snapped, 37 after faces, 38/40 after edges (log: 2118 sets, 2005 points, 63194 to 61034
+faces, 26662 to 24615 points, both undo loops find 0 faces in error). Fixtures:
+`extract_merge_fixtures.py`, `tests/fixtures/esi_v2506_flange/esi_merge_*.txt.gz`.
+
+| # | prediction (before any merge code exists) |
+|---|---|
+| P30 | `getMergeSets` on the repatched time-36 mesh (patches from the P29 port, `GEOMETRIC`, `minCos = concaveCos = cos 30 deg`) finds **2118** sets whose faces union to ESI's `allFaceSets` (**4278** faces, same labels). Reason: the rules (same non-constraint patch, normal dot > minCos, fan validity, convexity) are deterministic and ported literally. Fails if face area normals differ at a threshold. |
+| P31 | After `setRefinement` + the `polyTopoChange` renumbering, the mesh has **61034 faces**, **26620 points** (42 unused points removed; ESI time 37), patch sizes 7432/1162/238/1144, cells unchanged. |
+| P32 | Face numbering equals ESI's: face `i` of the port equals face `i` of ESI's final mesh as a vertex ring up to rotation, **all 61034 faces including orientation, owner, neighbour and patch**, i.e. the master choice (hash iteration order) is reproduced. This is the risky one: if `cellEdges()` is cached in ESI at that point the insertion order differs and some masters (so face labels) differ while the face SET still equals ESI's. |
+| P33 | Ring start vertex (rotation) of a merged face equals ESI's for **at least 90 %** of the 2118 merged faces (it follows `edgeLoops()[0]`, which starts at the first boundary edge of the patch built in set-face order); an inequality is a rotation only. |
+| P34 | `countPointUsage` at `cos 30 deg` marks **2005** points; after removal the mesh has **24615** points, the surviving points are ESI's (labels `esi_merge_final_points`, coordinates unchanged bit for bit), and every face equals ESI's final face `i` up to rotation. |
+| P35 | The undo loops re-run the nine face checks on the merged mesh (`check_mesh::esi_check_mesh`, all faces): **0 faces in error** after the face merge and after the point removal, so nothing is restored (`setUnrefinement` is not needed on the flange and is NOT ported; the port reports the count and stops if it is ever above 0). |
+
+### Round 5: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_merge.rs`)
+
+Code: `src/snappy_hex_mesh/esi_merge.rs` (opt-in; nothing existing calls it). Start: ESI's
+time-36 snapped mesh read in, `repatch_to_surface` (P29) and the `polyTopoChange`
+renumbering of the repatch, then `merge_patch_faces_undo` and `merge_edges_undo`.
+
+| stage | compared with | result |
+|---|---|---|
+| merge sets (`getMergeSets`, GEOMETRIC, `cos 30 deg`) | `36/polyMesh/sets/allFaceSets` | **2118 sets, union 4278 faces, equal** |
+| `combineFaces::setRefinement` + renumbering | ESI time 37 | 61034 faces, 26620 points (42 unused removed, the same 42 labels); **all 61034 faces equal ESI per face index: same ring, same start vertex, same orientation, same owner and neighbour** |
+| undo loop, faces step | `checkMesh` of the merged mesh | 0 faces in error, 1 iteration, nothing restored (ESI: same) |
+| `countPointUsage` + `removePoints::setRefinement` | ESI times 38/40 | **2005 points removed, 24615 points left; the surviving points are ESI's by label and bit-identical in coordinates** (ESI's final points equal the time-36 points as exact text, checked in `extract_merge_fixtures.py`) |
+| final mesh | ESI time 40 (final) | **61034 faces: all equal per face index** (ring, start vertex, orientation), owner 61034 of 61034, neighbour 51058 of 51058, patch 9976 of 9976; patches start at 51058, 58490, 59652, 59890 (sizes 7432, 1162, 238, 1144) |
+| undo loop, edges step | `checkMesh` | 0 faces in error (ESI: same) |
+
+**Numbering IS reachable and equal.** Face, point and owner/neighbour numbering equal
+ESI's, not just the sets, because the three things that decide it are reproduced: (1) the
+master face of a set is the first face of its region in the iteration order of the OpenFOAM
+`Map<label>` (`FoamHashMap`: identity hash, head insertion, growth at 0.8); (2) its
+insertion order follows the `labelHashSet` of `cellEdges` (capacity 128), which ESI uses
+because `cellEdges()` is not cached at that point; (3) `polyTopoChange::getFaceOrder`
+(internal faces by lower cell then higher cell, boundary faces by patch then OLD label),
+with points keeping their order. **Negative control**
+(`lowest_label_master_is_refuted_by_esi_numbering`): taking the lowest face label as master
+instead changes the master of 831 of 2118 sets and **8477 faces** differ from the hash-order
+result, so the equality is not an accident of the data. Cells are not renumbered (no cell is
+removed; `orderCells` false).
+
+**Prediction ledger.** P30 held (2118, 4278, equal). P31 held. P32 held (all 61034, the
+risky prediction). P33 held beyond the prediction: **61034 of 61034** start vertices equal,
+not 90 %: the ring start of a merged face follows `edgeLoops()[0]` of the patch built in
+set-face order, as read. P34 held. P35 held. No prediction failed; I did not tune anything:
+the first run of the port against ESI gave all of the above.
+
+**Not ported (stated):** `combineFaces::setUnrefinement` and `removePoints::setUnrefinement`
+(restoring merged faces/points when a face check fails after merging). The loops run the checks
+and return `MergeError::UndoNeeded(n)` instead of restoring; ESI restores nothing on the flange
+so this path has NO ESI reference and no test beyond the type. Also not done: merging across
+patches (`IGNOREPATCH`) is implemented in `get_merge_sets` (largest-face master) but has no ESI
+comparison; `preserveFaces`/baffles and face zones are not modelled. No picture this round:
+the merged mesh differs from the unmerged one only in faces that are coplanar within `cos 30`
+and the equality is by number; a slice would show nothing the counts do not.
+
+**Moved pins:** none. **Defects found:** none in the port this round; one in the record: the
+fixture `esi_merge_all_face_sets` holds labels of the REPATCHED mesh (the set is written after
+`repatchToSurface`), recorded in `extract_merge_fixtures.py`. PETIR residuals: the only
+transcendental is `cos(degToRad(30))` through `RealMath::r_cos`, equal to ESI's printed
+0.8660254037844387; count 0 differing.
+
+## Round 6: explicit feature snapping (gh:#1467, epic #1459 / #1336), predictions
+
+**Written and committed BEFORE any feature-snap port code exists.** Upstream read first
+(ESI v2506 `snappySnapDriverFeature.C`, 4467 lines; `snappySnapDriver.C::doSnap`
+`:2574-3660`; `refinementFeatures.C`; `snapParameters.C`; `plane.C`, `pointConstraintI.H`,
+`TensorI.H`, `PatchToolsNormals.C`, `PrimitivePatchMeshData.C`, `face.C`).
+
+**Tool built.** `surfaceFeatureExtract` was not built (round 3 said so). Built with
+`wmake -j1 libso extractionMethod && wmake -j1` in
+`applications/utilities/surface/surfaceFeatureExtract` under `with-of.sh`: 15 s, no
+other library needed, a few MB. Run on `flange.stl` with the tutorial's
+`surfaceFeatureExtractDict` (`extractFromSurface`, `includedAngle 150`; copy
+`surfaceFeatureExtractDict.flange`): 767 points (4 convex, 4 concave, 10 mixed
+feature points, 749 non-feature), 776 edges (488 external, 198 internal, 90 flat),
+376 region edges, written as `constant/extendedFeatureEdgeMesh/flange.extendedFeatureEdgeMesh`
+(ASCII, `writePrecision 16`; committed gzipped as
+`tests/fixtures/esi_v2506_flange/flange.extendedFeatureEdgeMesh.gz`, the **input**
+of both ESI and the port, so its rounding is common to both).
+
+**Case.** `snappyHexMeshDict.feature` = the round-3 reduced flange dictionary
+(`snappyHexMeshDict.snap`) with exactly two changes: `features ( { file
+"flange.extendedFeatureEdgeMesh"; level 0; } )` (level 0: castellation is unchanged,
+ESI log "Selected for feature refinement : 0 cells") and `snapControls { nSmoothPatch 3;
+tolerance 1.0; nSolveIter 300; nRelaxIter 5; nFeatureSnapIter 10; implicitFeatureSnap
+false; explicitFeatureSnap true; multiRegionFeatureSnap false; }`. `multiRegionFeatureSnap`
+is false here; the round-3 remark that the tutorial's `true` attracts "24 feature points
+and 1446 feature-edge points" is the same as this explicit-only count (identical in
+iteration 0). The tutorial's `refineHole` sphere is still not ported. The other
+`snapParameters` are upstream's defaults (read from `snapParameters.C`, not assumed):
+`releasePoints false`, `stringFeatures true`, `avoidDiagonal false`, `detectBaffles
+true`, `baffleFeaturePoints false`, `detectNearSurfacesSnap true`, `strictRegionSnap
+false`, `nFaceSplitInterval` unset (`labelMin`, so no face splitting and
+`alignMeshEdges` true). Reference run: `blockMesh` with the ASCII `controlDict`
+(`writePrecision 16`) first, then `snappyHexMesh` with `writeFormat binary` (exact
+doubles; the round-3 note on blockMesh precision applies). The log is
+`esi_feature_log.txt.gz`; it equals the ASCII run's log apart from timings.
+
+**What ESI does (the reference numbers).** 18278 cells, 63194 faces, 26662 points
+castellated, unchanged by the feature file (so rounds 1-5 carry over). `doSnap` runs
+`nFeatIter = 10` morph iterations, each: `calcNearestSurface`, `detectNearSurfaces`,
+`calcNearestSurfaceFeature` (blend factor `featureAttract = (iter+1)/10`),
+`outwardsDisplacement` (a warning only), `setDisplacement`, `smoothDisplacement`,
+`scaleMesh`, `meshMover.correct()`; then `repatchToSurface` and the two merges. Final
+mesh (time 81): 18278 cells, **60813 faces, 24311 points** (the plain snap gives
+61034 / 24615). Per iteration the log prints (the gates of this round):
+
+| it | wanted displacement mean | raw point / edge | reverse-attract grown (initial) | after reverse point / edge | stringing | final point / edge | gap overrides | scale passes |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1.688540950712846e-4 | 24 / 1446 | 4312 (1470) | 18 / 1306 | 101 1 1 2 1 1 0 | 26 / 1405 | 0 | 1 |
+| 1 | 1.557839932393523e-4 | 24 / 1446 | 4321 (1470) | 18 / 1300 | 109 4 1 2 1 0 | 26 / 1409 | 0 | 1 |
+| 2 | 1.311383484862793e-4 | 28 / 1444 | 4323 (1472) | 18 / 1306 | 102 1 1 2 1 0 | 26 / 1405 | 0 | 1 |
+| 3 | 9.992840140840707e-5 | 28 / 1444 | 4324 (1472) | 18 / 1310 | 98 2 0 | 26 / 1402 | 0 | 1 |
+| 4 | 6.830408578944219e-5 | 28 / 1420 | 4271 (1448) | 18 / 1310 | 96 1 0 | 26 / 1399 | 0 | 1 |
+| 5 | 4.103490302037604e-5 | 28 / 1414 | 4246 (1442) | 18 / 1318 | 88 0 | 24 / 1400 | 0 | 1 |
+| 6 | 2.122369759119509e-5 | 26 / 1414 | 4228 (1442) | 18 / 1320 | 93 0 | 27 / 1404 | 0 | 7 |
+| 7 | 1.238645002129053e-5 | 26 / 1414 | 4226 (1442) | 18 / 1328 | 85 0 | 27 / 1404 | 0 | 7 |
+| 8 | 7.423801224059679e-6 | 24 / 1414 | 4223 (1439) | 18 / 1362 | 51 0 | 29 / 1402 | 0 | 7 |
+| 9 | 3.265670138296469e-6 | 25 / 1413 | 4223 (1439) | 18 / 1383 | 28 0 | 28 / 1401 | **2** | 7 |
+
+(Nearest-surface count 10660 and "rest" 0 at the raw stage; ~~0 baffle edges in all
+iterations~~ **CORRECTED 2026-11-12 (round 7): 0 in iterations 0-5, then 2, 2, 1, 2**; "scale passes" is the number of `Moving mesh using displacement scaling`
+passes, i.e. the `scaleMesh` loop of round 4.) Iteration `k` writes its smoothed mesh
+and displacement at times 34, 36, 38, 40, 42, 44, 46, 54, 62, 70 and its last scaled
+mesh at 35, 37, 39, 41, 43, 45, 53, 61, 69, 77.
+
+**Inventory of this round (new code in `src/snappy_hex_mesh/esi_feature.rs`, opt-in,
+nothing existing calls it):** the `extendedFeatureEdgeMesh` ASCII reader; `plane`
+(`planeIntersect`, `planePlaneIntersect` with `Tensor::inv`); `pointConstraint`
+(`applyConstraint`); `calcNearestFace`, `calcNearestFacePointProperties`; the per-point
+`featureAttractionUsingReconstruction`; `determineFeatures` (single-region and
+`multiRegionFeatureSnap` branches); `findNearFeatureEdge/Point`;
+`determineBaffleFeatures` (~~detection only: it reports an error if a baffle edge is
+found, none is on the flange~~ **CORRECTED 2026-11-12**: the log has 2, 2, 1, 2 baffle edges
+in iterations 6-9; the attraction of their end points is ported in round 7); `reverseAttractMeshPoints`; `stringFeatureEdges`;
+`preventFaceSqueeze`; `PatchTools::pointNormals`; `smoothAndConstrain`; the tail of
+`calcNearestSurfaceFeature`; and a `doSnap` morph loop reusing rounds 3-5. NOT ported:
+the mesh-wide `implicitFeatureSnap` driver (its per-point reconstruction is ported because
+`determineFeatures` calls it), `releasePointsNextToMultiPatch`, `avoidDiagonalAttraction`,
+`splitDiagonals` (face splitting), baffle point attraction, `detectNearSurfaces` (0
+overrides in iterations 0-8, **2 in iteration 9**, see P41).
+
+### Predictions (committed before the port code)
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P36 | The reader gives 767 points, 776 edges, `concaveStart 4 mixedStart 8 nonFeatureStart 18`, 376 region edges, and exact coordinates (no arithmetic). | file layout surprises |
+| P37 | **Tie count.** Upstream searches feature edges, feature points and patch points through `indexedOctree::findNearest`; the port brute-forces (first minimum in index order). They differ only when two shapes are at exactly equal distance. The port counts exact-equal-distance ties per query class and reports them. Prediction: ties occur for **feature-edge queries** at shared edge vertices (a sample projecting beyond both edges clamps to the same vertex, so the two distances are bit-equal), a few tens of queries per iteration; **zero** for feature-point and patch-point queries. If a tie changes a later stage the octree traversal order has to be ported; if it does not (both edges give the same point, and `reverseAttract` reads only the points) the brute force stands and the tie count is pinned. | ties are more frequent than guessed, or reach `reverseAttract` through the processing order of `edgeAttractors[feati][edge]` |
+| P38 | Iteration 0, started from ESI's time-33 points (`snap_points_33_n3`) and the castellated topology, reproduces **every count of table row 0**: raw 24 / 1446 / 10660 / 0; 0 baffle edges; reverse-attract selection 1470 then 4312; after reverse 18 / 1306 / 0 / 10806; stringing 101 1 1 2 1 1 0; final 26 / 1405 / 0 / 10699, and the `Attraction: linear max` line exactly. Rows 1-8 likewise, started from ESI's own mesh at the start of that iteration. | any divergence in `calcNearestFace` or the plane arithmetic changes which points are attracted; the count table localises it |
+| P39 | The smoothed displacement of iteration 0 equals ESI's `34/displacement` **bit for bit on all 79986 components** (patch displacement from `calcNearestSurfaceFeature`, then round 3's `smoothDisplacement`), and the scaled points equal `35/polyMesh/points`. The operations are `+ - * /`, `sqrt`, `min`, in upstream's order; `inv(a)` is `adjunct()/det()`. | the nearest-surface triangle search (round 3: one component differed by 2.2e-19 m), the face-fan normals of `PatchTools::pointNormals`, a summation order in `smoothAndConstrain` |
+| P40 | Iterations 1-5 (one scale pass each) are bit-identical to ESI's meshes at times 36/37 ... 44/45 when each is started from ESI's mesh, and chained they stay bit-identical. Iterations 6-8 (7 scale passes) are bit-identical if round 4's `scale_mesh_loop` is. | accumulated 1-ulp differences; iteration 6's later passes test the `errorReduction 0` branch (from pass `nRelaxIter` = 5 on) |
+| P41 | Iteration 9 is **not** bit-identical: ESI's `detectNearSurfaces` overrides the nearest displacement at 2 points there and the port does not have it. First divergent operation: the nearest-surface displacement at those two points. | none: an inventory gap stated in advance; porting `detectNearSurfaces` is the fix |
+| P42 | After the ten iterations (with ESI's iteration-9 displacement supplied if `detectNearSurfaces` is not ported), `repatchToSurface` + `mergePatchFacesUndo` + `mergeEdgesUndo` give ESI's final mesh: **60813 faces, 24311 points, 18278 cells, all faces equal per index** (rounds 4-5 machinery; only the point positions change, but the merge sets depend on them). | merge thresholds near `cos 30 deg` on features: a merge set could differ by a face |
+| P43 | PETIR (`RealMath`) residuals: the transcendentals are `cos(degToRad(30))` (featureCos) and `cos(degToRad(110))` (baffleFeatureCos); both agree with ESI as in round 5; count of differing values 0. | |
+
+Method: each stage is run from ESI's own previous-stage data first (isolating that
+stage), then chained; every difference is explained by its first divergent operation;
+no tolerance is relaxed and no input is tuned.
+
+### Round 6: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_feature.rs`)
+
+Code: `src/snappy_hex_mesh/esi_feature.rs` (opt-in; nothing existing calls it). Iteration 0
+started from ESI's time-33 points and the castellated topology.
+
+| stage | compared with | result |
+|---|---|---|
+| eMesh reader (P36) | `flange.extendedFeatureEdgeMesh` | **held**: 767 points, 776 edges, starts 4 / 8 / 18, 376 region edges |
+| wanted displacement | log line | min and max **exactly** (6.548561578869996e-8, 7.516794439290358e-4), mean to 1e-18 |
+| raw analysis, baffles, reverse attraction, stringing, final (P38, single region) | log row 0 | **every count equal**: 24 / 1446 / 10660 / 0; 0 baffle edges; 1470 -> 4312; 18 / 1306; 101 1 1 2 1 1 0; 26 / 1405 / 0 / 10699 |
+| `Attraction: linear` (max and average), `feature` max | log | **equal in all printed digits** |
+| `Attraction: feature` average | log | equal to ~1e-16 absolute, not in the last digits (summation order of `gAverage` or an ulp in a few attractions; not resolved) |
+| same, `multiRegionFeatureSnap true` | `esi_feature_multiregion_log.txt.gz` (new ESI run) | **every count equal**: raw 24 / 1651; 1675 -> 4745; 18 / 1495; 119 1 1 2 1 1 0; 26 / 1612 |
+| smoothed displacement (P39) | `34/displacement` | **NOT met: 37365 of 79986 components bit-identical**, worst 1.4e-6 m |
+| points after the move | `35/polyMesh/points` | 42862 of 79986 bit-identical, worst 1.4e-6 m, 1 scale pass as ESI |
+
+**P39 failed; first divergence localised, cause not found.** Patch points by final
+constraint (identical / all): feature points 26 / 26, **feature edges 1401 / 1405**, free
+points 10231 / 10699. The 468 free points are the neighbourhood of the 4 edge points, which
+are the four mirror-image valence-3 corner points mesh 6704, 6710, 6738, 6744: their
+displacement agrees in z to the bit and differs in x, y by (1.4e-6, 1.2e-6) m, i.e. a shift
+along the horizontal feature edge direction (0.605, 0.796, 0), after the 20-pass
+`smoothAndConstrain` has spread it to the free points around. So the first divergent
+quantity is the feature attraction of an edge-constrained neighbour (mesh 7 or 16888), not
+the arithmetic of the smoothing. Variants tried and **refuted** (each measured against the
+79986 components; none was tuned to ESI, each is a falsified alternative reading):
+brute-force ties resolved by the LAST minimum for triangles (26 / 1405 becomes 30 / 1397,
+26647 identical), for feature edges (35171 identical), and per single edge tie (14 toggles:
+none improves, two worsen to 35449 / 35455); `preventFaceSqueeze` off (no change, 37365);
+`stringFeatures` off (18793); `nbrFeatVec` read from the neighbour instead of the point as
+upstream writes it (27763). Remaining candidates, not tested: the octree order for the 190
+triangle ties (a different triangle gives the same nearest point but a different normal and
+region), the `PrimitivePatch` edge order in `pointEdges` for the summation in
+`smoothAndConstrain` (ported from `calcAddressing`, not compared with ESI directly), and
+`face::unitNormal` of the patch versus the mesh-level normal. **Next step:** dump ESI's
+`patchAttraction` (a `debugFlags (attraction)` run writes `patchAttraction_<iter>.obj`)
+and compare it per point, which separates the attraction from the smoothing.
+
+**Tie counts (P37, partly refuted).** Feature-edge ties 14 per iteration-0 run (as
+predicted: edges sharing a vertex), feature-point ties 0, patch-point ties 0 (as
+predicted); **triangle ties 190**, which P37 did not predict (face centres on a shared
+triangle edge give the same nearest point for two triangles with different normals and,
+at region boundaries, different regions). The first-minimum rule reproduces all log counts;
+the octree order is not ported and is the main open suspect above.
+
+**Not done this round:** iterations 1-9, the chained run, P40-P42 (final mesh 60813 faces),
+`detectNearSurfaces` (P41), because P39 is open and everything chained depends on it.
+**Moved numbers:** none. **Defects found in the existing port:** none confirmed (the
+existing `calc_nearest_surface` compares `mag_sqr`, upstream compares `sqr(mag)`; the new
+`calc_nearest_surface_sqr_mag` does the latter; whether it removes round 3's one 2.2e-19 m
+component was not re-measured). PETIR: no transcendental in the new code (callers pass
+`featureCos`); count of differing values 0.
+
+**Ledger.** P36 held. P37 partly refuted (190 triangle ties). P38 held (counts, both
+single-region and multi-region). P39 **failed** (37365 / 79986). P40-P43 untested.
+
+---
+
+# Round 7 (2026-11-12): the first divergence of round 6, found and fixed
+
+## Evidence gathered BEFORE the port change (disclosed, not predictions)
+
+1. **ESI reference rebuilt** (the round-6 run directory was gone): `blockMesh` (ASCII,
+   `writePrecision 16`) then `snappyHexMesh` (binary) on `snappyHexMeshDict.feature`
+   reproduces `esi_feature_log.txt.gz` line for line (apart from the case path), 9 s.
+2. **A dump patch in `snappySnapDriverFeature.C`** (upstream edited in place, then restored
+   and the library rebuilt from the restored source; the original `libsnappyHexMesh.so` and
+   `.C` were backed up first, and the rebuilt library has the same size, 5027088 bytes).
+   `calcNearestSurfaceFeature` wrote, per iteration, raw doubles of `ppLocalPoints`,
+   `nearestDisp`, the final `patchAttraction`, `patchConstraints` (count and direction),
+   and after smoothing `smoothedPatchDisp`, `tangPatchDisp`, `pointNormals`. The patched
+   run gave `34/displacement` and `77/polyMesh/points` byte-identical to the unpatched run.
+3. **Port vs the dump, iteration 0, per point (12130 patch points):** patch points 36390 of
+   36390 components bit-identical; **constraints differ at exactly 4 points** and
+   **attraction at exactly the same 4** (mesh points 6704, 6710, 6738, 6744). ESI's
+   constraint direction there is (+-0.80286, +-0.59617, 0), the port's (+-0.60532, +-0.79598, 0):
+   the points were attracted along a *different feature edge*, both edges at the same
+   distance from the sample, ending at the same feature vertex (a tie; `TieCounts.edge` is
+   14 per run). The z attraction agrees to the bit (the shared vertex), which is why round 6
+   saw only an along-edge shift. So the divergence starts in the attraction, not in the
+   smoothing.
+4. Round 6's "single edge-tie toggles refuted" tested the wrong thing: a toggle flips the
+   rule for one tie, not the per-query traversal order of upstream's octree.
+
+**Cause (hypothesis, to be confirmed by the run below):** `refinementFeatures::findNearestEdge`
+calls `indexedOctree<treeDataEdge>::findNearest`; among equidistant edges the first one the
+traversal reaches wins (`distSqr < nearestDistSqr`). The port searched in index order.
+
+## Port change (written after the evidence above, before the stage runs below)
+
+`src/snappy_hex_mesh/esi_octree.rs` (new, opt-in; **MOVED 2026-11-14 (gh:#1564)**: the generic `indexedOctree`/`treeBoundBox`/`Random` part now lives in `outram_foam_basic_lib::esi_octree` and is re-exported here, with `findLine` added there; `EdgeShapes`, `TriShapes`, `surface_tree`, `edge_tree` stay in this file; results unchanged, the 34 `esi_*` lib tests and `snappy_hex_mesh_esi_feature`/`_flange` re-run green): `indexedOctree` build and `findNearest`,
+`treeBoundBox` (`subBbox`, `searchOrder`, sphere and box `subOverlaps`, segment `intersects`,
+the separating-axis triangle test), `Random` (`Rand48` + libstdc++ `generate_canonical`)
+for `inflate`, `treeDataEdge`, `treeDataTriSurface`. `FeatureSet::new` builds the edge and
+region-edge trees as `refinementFeatures` does (`Random(65431)`, `inflate(rndGen, 1e-4,
+ROOTVSMALL)`, `maxLevel 8`, leaf 10, duplicity 3); `FeatureSurface` builds
+`triSurfaceSearch::tree()` (`maxTreeDepth 10`). The brute-force searches stay as `*_brute`
+twins so tests can count where the two differ.
+
+## PREDICTIONS (committed before the stage runs)
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P44 | With the octree, iteration 0 (from ESI's time-33 points) has **all 12130 constraints and attractions bit-identical** to the dump, and `34/displacement` is **79986 of 79986** bit-identical. | the 4 points were not the only divergence, or smoothing has its own one |
+| P45 | The octree and the brute force differ in **at least 4** edge queries and in **0 or few** triangle queries of iteration 0 (190 triangle ties; a different triangle gives the same point). | the tie classes behave the other way |
+| P46 | Iterations 1-8, each started from ESI's mesh at the start of that iteration (`feat_points_*`), are bit-identical in displacement and scaled points; chained they stay so. Iterations 6-8 pass through 7 scale passes (round 4 machinery). | accumulated ulp, or `scaleMesh` on the `errorReduction 0` branch |
+| P47 | Iteration 9 is NOT bit-identical without `detectNearSurfaces` (2 overrides); with it ported, it is. | |
+| P48 | After ten iterations (+ `detectNearSurfaces`), `repatchToSurface` + merges give ESI's final mesh, 60813 faces, 24311 points, all faces equal per index. | merge sets near `cos 30 deg` |
+
+## Round 7: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_feature.rs`)
+
+Reference: the rebuilt ESI run (binary, `blockMesh` ASCII `writePrecision 16`), identical in
+log to round 6's; exact doubles per iteration as in `extract_feature_fixtures.py`. The
+per-iteration meshes are 640 KB each and are not committed: the test pins the **64-bit FNV-1a
+digest of ESI's binary file** (`ESI_DIGESTS`), so a digest match is equality of all 79986
+components. Final-mesh fixtures (`esi_feat_final_faces/points/boundary`, `esi_feat_all_face_sets`)
+come from a second ESI run of the same case with ASCII `writePrecision 17`, through
+`extract_merge_fixtures.py` run on a directory whose `36`, `37`, `40` are symlinks to ESI times
+77, 78, 81.
+
+| stage | compared with | result |
+|---|---|---|
+| per-point attraction, iteration 0 (P44) | ESI dump, 12130 patch points | **0 differing** constraints and attractions (were 4, mesh 6704, 6710, 6738, 6744) |
+| smoothed displacement and scaled points, iteration 0 (P44) | `34/displacement`, `35/polyMesh/points` | **79986 of 79986 each** (was 37365 / 42862) |
+| iterations 1-9, each from ESI's mesh and ESI's previous displacement (P46) | `N/displacement`, scaled points | **79986 of 79986, both, all nine** |
+| iterations 0-9 **chained** from the port's own state (P46) | digests of ESI's files | **identical, ten of ten, both fields** |
+| log counts per iteration | table above | all equal (raw, reverse, stringing, final), scale passes 1,1,1,1,1,1,7,7,7,7 |
+| `repatchToSurface` | ESI log "Repatched 26 faces" | 26 faces |
+| merge sets | `allFaceSets` | 4666 faces equal (2285 sets) |
+| final mesh | ESI time 81 | **60813 faces, 24311 points, 18278 cells; all 60813 faces equal per index, ring and start vertex; owner 60813/60813; neighbour 51058/51058; patch 9755/9755**; patch starts 51058 / 58275 / 59449 / 59689 / 60813; surviving points are ESI's, coordinates bit-identical |
+
+### What the dump found, in order (each fix measured before the next)
+
+1. **Edge search order** (the round-6 miss): octree traversal. After porting it, iteration 0
+   attraction and constraint differences: 4 -> 0; displacement 37365 -> 79986.
+2. **Iteration 1 onward: the displacement field persists in `meshMover`.** With iteration 0
+   exact, chained iterations still differed by up to 1.1e-11 m (37868 of 79986 components
+   bit-identical in iteration 1) although `nearestDisp`, the constraints, the attraction and the
+   patch displacement were all bit-identical to the dump. First divergent operation: the
+   interior points. `motionSmootherAlgo::setDisplacement` writes only the patch points, so the
+   interior starts the next 300 `smoothDisplacement` passes from the previous iteration's smoothed
+   values, not zero (the port zeroed it; 300 passes leave ~1e-11 of the start). Fixed by
+   `FeatureSnap::morph_iteration_from(.., prev)`; iterations 0-5: 79986 of 79986.
+3. **Baffle edges.** Iteration 6 stopped with the round-6 `NotPorted` error because the port
+   detected 2 baffle edges. **Round 6's record "0 baffle edges in all iterations" was wrong**:
+   ESI's log has them in iterations 6-9. ~~0 baffle edges in all iterations~~ **CORRECTED
+   2026-11-12**: ESI detects 2, 2, 1, 2 baffle edges (4, 4, 2, 3 baffle points, all attracted to a
+   feature edge, 0 to a feature point) in iterations 6, 7, 8, 9, and "After baffle feature
+   analysis" reads 26 / 1416, 26 / 1416, 24 / 1415, 25 / 1414 (feature point / feature edge); the
+   port now reproduces all of these. `determineBaffleFeatures` with `baffleFeaturePoints false`
+   is a loop over baffle-edge end points calling `findNearFeatureEdge` in point order (the
+   feature-point loop and the `pointStatus == 1` branch are commented out or unreachable
+   upstream), ported as `determine_baffle_features`. Iterations 6-9: 79986 of 79986.
+
+### P41 refuted in effect; what `detectNearSurfaces` does (not ported)
+
+ESI overrides the nearest displacement at 2 points in iteration 9 (log: "Overriding nearest
+with intersection of close gaps at 2 out of 12130 points"; mesh points 19516 and 25248; the
+port's nearest differs from ESI's there by up to 3.5e-8 m, measured against the dump). The
+iteration is nevertheless bit-identical without it: at `featureAttract = 1` the displacement
+of a feature-constrained point is its attraction, `(1-1)*nearest + 1*attraction`, and both
+points are feature-constrained (constraints and attractions equal the dump at every point).
+So the first divergent operation is the one predicted in P41, but it has no effect on the
+result of this case. The port is therefore **not shown to be correct for a case whose overridden
+points are free (nearest-surface) points**; `detectNearSurfaces` is still to be ported before the
+feature snap is claimed for other geometry.
+
+### Octree vs brute force (P45), measured
+
+Triangle search at the 12130 patch points of iteration 0: the two searches return a different
+triangle at **8** points and the same nearest point at **all** of them (equidistant
+triangles). Round 6's "190 triangle ties" counted face-centre queries as well, which are not
+in this comparison. Feature-edge search: the four corner points above. 410 s -> 0.2 s for the
+per-point stage, since the nearest-triangle search is now O(log n).
+
+### Moved numbers (old -> new)
+
+| quantity | round 6 | round 7 |
+|---|---|---|
+| `34/displacement` bit-identical components | 37365 / 79986 (worst 1.4e-6 m) | **79986 / 79986** |
+| `35/polyMesh/points` bit-identical | 42862 / 79986 | **79986 / 79986** |
+| patch points, feature-edge class bit-identical | 1401 / 1405 | 1405 / 1405 |
+| patch points, free class bit-identical | 10231 / 10699 | 10699 / 10699 |
+| iterations 1-9 | not run | all bit-identical (single and chained) |
+| baffle edges, iterations 6-9 | "0" (wrong) | 2, 2, 1, 2 (ESI's) |
+| final mesh | not run | 60813 faces / 24311 points, all equal per index |
+
+### PETIR (P43)
+
+The only transcendentals are `cos(degToRad(30))` and `cos(degToRad(110))`, both through
+`RealMath` (`r_cos`) and equal to ESI's as in round 5; **0 differing values**. The octree code
+uses only `+ - * /`, `sqrt`, `min`, `max`; `Random` is integer arithmetic plus one
+`u64 -> f64` conversion and a division, no libm.
+
+### Ledger, round 7
+
+P44 held. P45 held (differences exist, all nearest points equal; count 8, not the predicted
+"0 or few" of triangle index differences only in the sense of "few"). P46 held (single and
+chained, after the two further fixes above, neither of which was predicted: the persistent
+displacement field and the baffle attraction). P47 refuted in effect (iteration 9 is
+bit-identical without `detectNearSurfaces`; the override exists and is inert here). P48
+held. P43 held.
+
+### Honest limits
+
+- The match is for this one case (reduced flange, one surface, serial, `multiRegionFeatureSnap
+  false`). The multi-region counts are pinned for iteration 0 only (not chained).
+- `detectNearSurfaces`, `baffleFeaturePoints true`, `implicitFeatureSnap`, face splitting and
+  the `setUnrefinement` undo paths are not ported.
+- The per-iteration references are pinned by a 64-bit digest, not stored; the iteration-0
+  and scaled-iteration-0 meshes are stored (`feat_disp_34`, `feat_points_35`).
+- ~~`addLayers` was not started.~~ **CORRECTED 2026-11-12:** round 8 starts it (below).
+- The ESI dump patch (a copy of `snappySnapDriverFeature.C` edited in place, original and
+  rebuilt library restored) is not committed; its layout is described above.
+
+# Round 8 (2026-11-12): `addLayers`, ESI v2506 `snappyLayerDriver`
+
+**Inventory first (search-before-building).** The workspace holds two layer codes and neither is
+the ESI one: `src/snappy_hex_mesh/layers.rs` (an own interior shrink-and-insert with a global
+layer-count fallback; its header says so) and `outram_park_fork_cfmesh::snappy_layers` (a
+per-point port of the *Foundation*-style `extrudeMode` loop for cfMesh). Neither has
+`layerParameters`, `medialAxisMeshMover`, `addPatchCellLayer` or ESI's `checkAndUnmark` loop;
+`grep` for `addPatchCellLayer`, `medialAxis`, `layerParameters` over the workspace finds only
+doc comments and the Foundation-style paths, which stay callable and are not touched.
+
+## ESI reference run
+
+Case `snappyHexMeshDict.layers`: the round-7 flange dictionary (explicit feature snap, 10
+iterations) plus `addLayers true` with `layers { "flange_.*" { nSurfaceLayers 1; } }`,
+`expansionRatio 1.0`, `finalLayerThickness 0.3`, `minThickness 0.25`, `nGrow 0`, `featureAngle
+30`, and the tutorial's defaults for everything else (`nRelaxIter 5`, `nSmoothSurfaceNormals 1`,
+`nSmoothNormals 3`, `nSmoothThickness 10`, `maxFaceThicknessRatio 0.5`,
+`maxThicknessToMedialRatio 0.3`, `minMedialAxisAngle 90`, `nBufferCellsNoExtrude 0`,
+`nLayerIter 50`, `nRelaxedIter 20`). The flange is one STL; ESI splits it into four region
+patches `flange_patch1..4`, so "one surface" means four patches here, all matched by the regex.
+Run: `blockMesh` (ASCII, `writePrecision 16`), `surfaceFeatureExtract`
+(`surfaceFeatureExtractDict.flange`), `snappyHexMesh -noFunctionObjects` (binary), 19 s. The
+snapped mesh (time 81) is the round-7 final mesh (60813 faces, checked against
+`esi_feat_final_faces`, 0 differing). `debugFlags (mesh)` writes: 82/83 merged faces/edges (before
+layers), 84 baffled, then per layer iteration the shrunk mesh (85, 87, 89) and the layer mesh (86,
+88, 90); 91 final (26920 cells, 85399 faces, 31644 points). Log numbers: 1269 feature edges;
+"Layers to add in current iteration : 8521"; three layer iterations (17, 2, 0 faces unextruded by
+`checkAndUnmark`; 8724, 8658, 8642 of 9747 faces extruded); medial-axis scaling retries 6, 6, 0 in
+the three iterations (displacement scaling down to 0 in iteration 0).
+
+## PREDICTIONS (committed before any round-8 port code exists)
+
+Written from reading `snappyLayerDriver.C` `addLayers` / `setPointNumLayers` /
+`calculateLayerThickness`, `layerParameters.C` and `snappyLayerDriver::doLayers` (v2506); the
+only ESI results used are the numbers quoted in the paragraph above.
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P49 | `mergePatchFacesUndo` + `mergeEdgesUndo` of `doLayers` on the round-7 final mesh (the existing `esi_merge`, same `cos 30 deg`) find **6 face sets and remove 4 points**, giving **60805 faces, 24305 points**, all faces equal per index to ESI time 83 (ring, start vertex, owner, neighbour, patch); time 84 equals 83. | the merge's master/hash order only held for the 2118-set case |
+| P50 | `layerParameters` selects `FINAL_AND_EXPANSION`; per point `thickness = finalLayerThickness * edgeLen * nLayers` with `edgeLen = edge0 / 2^maxPointLevel` (level 2: `0.06/20/4 = 7.5e-4`), so **near-wall thickness 2.25e-4 m on all four patches** (the ESI table) and `overall` = near-wall times the fraction of points with `nLayers 1` (points with `nLayers 0` contribute 0). | the table averages by master point; a point on two patches takes the min |
+| P51 | `setNumLayers` + `handleNonStringConnected` + `handleNonManifolds` + `handleFeatureAngle(30)` + `handleWarpedFaces` leave **exactly 8521 pp points with `EXTRUDE`** (ESI: "Layers to add 8521" = sum of `deltaNLayers`), **1269 feature edges**, 0 non-manifold points, 0 warped faces, and the four per-patch `overall` averages of the ESI table (1.89e-4, 1.72e-4, 1.84e-4, 1.98e-4 to 3 s.f.). | a one-point difference would show in the 3rd figure of the average |
+
+## Round 8, stage 1: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_layers.rs`)
+
+Code: `src/snappy_hex_mesh/esi_layers.rs` (new, opt-in, serial, no faceZones): `layerParameters`
+(all six thickness models, `calculateLayerParameters`, `layerThickness` slices), the layer patch
+(`makePatch`), `setNumLayers`, `handleNonStringConnected`, `handleNonManifolds`,
+`handleFeatureAngle`, `handleWarpedFaces`, `growNoExtrusion`, `calculateLayerThickness`.
+Start: ESI's own time-81 snapped mesh (`layer_points_81.bin.gz` exact doubles, faces equal to
+`esi_feat_final_faces`).
+
+| stage | compared with | result |
+|---|---|---|
+| `mergePatchFacesUndo` + `mergeEdgesUndo` of `doLayers` | ESI time 83 | **6 sets, 4 points removed, 60805 faces, 24305 points; ring (start vertex included) 60805/60805, owner 60805/60805, neighbour 51058/51058, patch 9747/9747**; surviving points bit-identical to time 81's |
+| `setPointNumLayers` | log | `pp` 9747 faces, 9773 points; **1269 feature edges, 0 non-manifold points, 0 warped faces, 8521 points `EXTRUDE`** (= "Layers to add 8521"), 9747 ideal added cells (= the "out of 9747" of the log) |
+| `calculateLayerThickness` table | log, `setprecision(3)` | near-wall 2.25e-4 on all four patches; overall **1.89e-4, 1.72e-4, 1.84e-4, 1.98e-4**; faces 7209, 1174, 240, 1124: all equal |
+
+**Ledger.** P49 held in outcome, but **the prediction text was partly wrong**: it said the merge
+used "the same `cos 30 deg`". `snappyLayerDriver::mergePatchFacesUndo` passes
+`concaveCos = cos(degToRad(concaveAngle))` with `concaveAngle` defaulting to **90**, while the snap
+driver's call uses `featureCos` for both. With 30 degrees as concave limit the port found **0 sets**
+(first run, kept as the negative control); with 90 degrees it found ESI's 6. P50 held. P51 held.
+Nothing was tuned: the first run with the corrected call gave all of the above, and the 3-figure
+averages first failed only because my test formatted four significant figures.
+
+**Not verified at exact-double level.** The per-point thickness and `minThickness` arrays are
+checked through the three-figure table and the integer counts, not bit for bit (ESI does not
+write them). `PrimitivePatch` edge order is first-appearance (not ESI's), unused so far.
+PETIR: `pow` goes through `r_powf` (only called for `expansionRatio != 1`, which this case never
+does) and `cos(degToRad(30))`, `cos(degToRad(90))` through `r_cos`; 0 differing values (the
+merge reproduces ESI's sets with both).
+
+## Round 8, stage 2: `medialAxisMeshMover`, iteration 0 (predictions, committed before the port exists)
+
+Written from reading `medialAxisMeshMover.C` (`update`, `isMaxEdge`, `calculateDisplacement`,
+`findIsolatedRegions`, `handleFeatureAngleLayerTerminations`, `shrinkMesh`, `move`),
+`fieldSmoother.C` (`smoothPatchNormals`, `smoothNormals`, `minSmoothField`),
+`meshRefinement::calculateEdgeWeights/weightedSum`, `PatchTools::pointNormals`,
+`PrimitivePatch::calcAddressing`, `PointData`/`pointEdgePoint`, `motionSmootherAlgo::scaleMesh`
+and `snappyLayerDriver::getPatchDisplacement`/`syncPatchDisplacement`/`makeLayerDisplacementField`.
+ESI numbers available from the log (printed to 16 digits): normal-smoothing residual of the patch
+normals `0.07867287997577262`, of the interior normals `0.1764300260321269`, of the thickness
+smoothing `9.162494450008907e-06` (all "Iteration 0"); 20 nodes with reduced thickness; 975
+isolated points; scaling iterations 0-6 with faces in error 8, 8, 8, 6, 6, 4, 0 and scaling
+min 1, 0.75, 0.5625, 0.421875, 0.31640625, 0.2373046875, 0. Exact doubles: the shrunk mesh of
+iteration 0 is `85/polyMesh/points` (binary).
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P52 | The three printed residuals equal ESI's to all 16 digits (same edge order from `calcAddressing`, same accumulation, same `calculateEdgeWeights`). | a different summation order of `weightedSum` (patch edges are in `calcAddressing` order, mesh edges in `calcEdges` order); `gAverage` sums in point order |
+| P53 | Counts equal the log: 20 reduced-thickness nodes, 975 isolated points, faces in error 8, 8, 8, 6, 6, 4, 0 over scaling iterations 0-6 and the scale minima above (the scale schedule is `0.75^k`, then 0 at iteration 5 as `nRelaxIter 5`). | the three PointEdgeWaves choose different origins at ties |
+| P54 | The shrunk points of iteration 0 equal `85/polyMesh/points` in **all 24305 points, bit for bit**. | long chain (3 waves, 3 smoothers, 7 scalings); expect at best a few ulp; if not equal, the first divergent stage is found with a dump patch of `medialAxisMeshMover` (original source and library restored, size/hash verified) |
+
+## Round 8, stage 2: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_layers.rs`)
+
+Code: `src/snappy_hex_mesh/esi_medial.rs` (new, opt-in): `getPatchDisplacement` +
+`syncPatchDisplacement`, `PatchTools::pointNormals`, a generic `PointEdgeWave` with `PointData`,
+`fieldSmoother` (`smoothPatchNormals`, `smoothNormals`, `minSmoothField`),
+`medialAxisMeshMover::update`, `calculateDisplacement` (thickness truncation,
+`findIsolatedRegions`, `handleFeatureAngleLayerTerminations`), and `move`/`shrinkMesh` on the
+existing `esi_snap` `scaleMesh` machinery. `esi_layers::LayerPatch` now follows
+`PrimitivePatch::calcAddressing` exactly (edges, edgeFaces, faceEdges, pointEdges).
+
+| quantity (iteration 0) | ESI | port |
+|---|---|---|
+| patch-normal smoothing residual | 0.07867287997577262 | 0.07867287997577262 |
+| interior-normal smoothing residual | 0.1764300260321269 | 0.1764300260321269 |
+| thickness-smoothing residual | 9.162494450008907e-06 | 9.162494450008907e-06 (16 digits) |
+| nodes with reduced thickness / isolated points | 20 / 975 | 20 / 975 |
+| scaling iterations: scale min, faces in error | 1,.75,.5625,.421875,.31640625,.2373046875,0; 8,8,8,6,6,4,0 | equal |
+| **shrunk points (`85/polyMesh/points`), all 24305 points** | | **72915 of 72915 components bit-identical** |
+
+**Ledger.** P52, P53 and P54 held, but **not on the first run**, and the two causes are results:
+
+1. **First run: 71591 of 72915 components identical, 1303 points differing, worst 3.5e-18 m (1-2
+   ulp).** The ESI dump patch (below) localised the first divergent stage: `medialDist` /
+   `medialVec` (1507 / 2617 values), upstream of everything else (`dispVec`, the three wave
+   results at the patch, were identical). Cause 1: **`esi_snap::mesh_edges` oriented every edge
+   in creation order; ESI's `getEdge` (`primitiveMeshEdges.C:40`) creates `(lower, higher)`
+   point**, so `edge.vec()` and the `medialAxisPt = p0 + (s-dist0) eVec` rounded differently.
+   The doc comment claiming creation order is struck through and corrected in `esi_snap.rs`; the
+   snap tests (all 15 across `snappy_hex_mesh_esi_snap/feature/scale/merge`) still pass, as
+   expected since the snap only uses edges symmetrically. After this fix medial fields were
+   bit-identical but the patch displacement still differed by 1 ulp (16470 of 29319 values).
+   Cause 2: **`level0Edge` printed by ESI (0.002999999999999978) has 16 digits and is not the
+   double**; the double is `sqrt(min edge magSqr)` of the blockMesh points as `snappyHexMesh`
+   reads them (16-digit ASCII), **0.0029999999999999784**, derived in
+   `derive_level0_edge.py` from the case's `constant/polyMesh/points`, not tuned. With it all
+   per-stage dumps are identical.
+2. Dump patch: `medialAxisMeshMover.C` edited in place to append binary doubles of `medialRatio_`,
+   `medialDist_`, `medialVec_`, `dispVec_`, the smoothed thickness, `patchDisp` after the
+   isolated-region step and the displacement (the run with it gave the same `91/polyMesh/points`
+   as the unpatched run, `cmp`); the original `.C` (sha256 `49384a3b...`) and
+   `libsnappyHexMesh.so` (sha256 `092cd572...`, 5027088 bytes) were backed up first and
+   **restored and verified by hash** (rebuilt library hash equals the original). The dumps are
+   not committed; the env-gated test `medial_stages_against_esi_dump` (`LAYER_DUMP_DIR`) is the
+   comparison; the end-to-end pin is `medial_axis_first_iteration_against_esi` against the
+   committed `layer_points_85.bin.gz`.
+
+PETIR: `cos(degToRad(90))`, `cos(degToRad(15))`, `cos(degToRad(30))` via `r_cos`; the rest is
+`+ - * /` and `sqrt`; 0 differing values.
+
+**Not done in stage 2.** Iterations 1 and 2 of the layer loop (they need `truncateDisplacement`,
+`addPatchCellLayer` and `checkAndUnmark` first); `nSmoothDisplacement > 0`; non-adapt patches
+with points (slip / fixedValue); `detectExtrusionIsland true` is implemented but has no ESI
+reference.
+
+## Round 8: what remains (not started, stated)
+
+**CORRECTED 2026-11-12 (round 9):** the first four bullets below are ~~not started~~ **done**
+(`truncateDisplacement`, `setupLayerInfoTruncation`, `addPatchCellLayer::setRefinement` with `polyTopoChange`
+numbering, `checkAndUnmark`, the loop, medial iterations 1-2, final mesh 91 and the `printLayerData` table):
+see "Round 9: results". ~~Still open: multi-layer runs, `nOuterIter != 1`, faceZones, non-adapt patch seeds.~~
+**UPDATED 2026-11-13 (round 10):** multi-layer runs are done; still open: `nOuterIter != 1`, `nBufferCellsNoExtrude > 0` on ESI data, faceZones, non-adapt patch seeds.
+
+- `truncateDisplacement` (+ `getVertexString`, `sameEdgeNeighbour`): 0 faces unextruded in
+  iteration 0 of the ESI log, 2 in iteration 1; not ported.
+- `setupLayerInfoTruncation` and **`addPatchCellLayer::setRefinement`** (3517 lines upstream) with
+  `polyTopoChange::makeMesh` numbering: the reference is `86/polyMesh` (31742 points, 85701 faces),
+  `88`, `90`; the layer mesh is NOT built by the port. The existing `layers.rs` and
+  `outram_park_fork_cfmesh::snappy_layers` are Foundation-style and are not ESI's topology.
+- `checkAndUnmark` and the outer loop (ESI: 17, 2, 0 faces unextruded over three iterations,
+  8642 of 9747 faces extruded at the end; `getLayerCellsFaces`, `printLayerData` table), `growNoExtrusion` between iterations (nGrow 0
+  here), the final mesh `91` (26920 cells, 85399 faces, 31644 points).
+- Layer iterations 1 and 2 of the medial mover (they start from `oldPoints`, so the mover itself needs
+  no new code beyond the new `extrudeStatus`).
+- Multi-layer (expansion ratio != 1) runs, `nOuterIter != 1`, faceZones, non-adapt patch seeds.
+- `docs/outram-foam-mesh-api.md` is not regenerated (no `kovan-cli` in this environment).
+
+# Round 9 (2026-11-12): `truncateDisplacement`, `addPatchCellLayer::setRefinement`, the layer loop
+
+**Inventory first (search-before-building).** Re-grepped `polyTopoChange`, `topo_change`,
+`renumber`, `addPatchCellLayer` over the workspace including cfmesh. Present: `esi_merge::change_mesh`
+(removals and modifications only: assumes `owner < neighbour`, no added points, faces or cells) and
+`poly_dual_mesh_upstream` (meshDualiser, its own builder, adds cells and faces but not through a
+reusable change object). Neither contains `addPatchCellLayer` (cfmesh's and `layers.rs` are
+Foundation-style, not ESI's, as in round 8). So the layer-topology builder is new, written beside
+`esi_merge::change_mesh` and following `polyTopoChange::getFaceOrder` (cells in order, faces of a
+cell sorted by neighbour, then patch faces by patch and `polyTopoChange` label).
+
+**ESI side, re-run this round** (the round-8 run directory was not kept): `snappyHexMeshDict.layers`,
+same blockMesh, 18 s. Counts reproduce round 8: three layer iterations, 17 / 2 / 0 faces removed,
+final mesh 91: 31644 points, 85399 faces. **Pre-run observation, disclosed (not a prediction):**
+the first 24305 points of `86/polyMesh/points` are bit-identical to `85/polyMesh/points` (the
+shrunk mesh), i.e. `addPatchCellLayer` keeps the old point labels and appends the new points.
+The extra detail in the log: iteration 0 `Added 8743 out of 9747 cells`, 8724 faces extruded.
+
+## PREDICTIONS (committed before the round-9 port code exists)
+
+Written from reading `snappyLayerDriver::truncateDisplacement`, `getVertexString`,
+`setupLayerInfoTruncation`, `checkAndUnmark`, `getLayerCellsFaces`, `addLayers` (the loop),
+`addPatchCellLayer::setRefinement` (+ `getEdgeString`, `addSideFace`, `findDuplicatedPoints`) and
+`polyTopoChange::getFaceOrder`, v2506.
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P55 | `truncateDisplacement` after the iteration-0 medial move unmarks **0 and 0** faces (ESI log), leaving 7437 points (31742 - 24305) with `nPatchPointLayers = 1`, and `setupLayerInfoTruncation` (`nBufferCellsNoExtrude 0`) gives **8743 faces with `nPatchFaceLayers = 1`** (ESI: "Writing 8743 added cells"). | the face-layer rule for faces with a non-extruded point (`maxLevel`) |
+| P56 | `addPatchCellLayer::setRefinement` + `polyTopoChange` numbering reproduces `86/polyMesh`: **31742 points** (first 24305 unchanged, new points bit-identical), **85701 faces**, old cells + 8743 added; **all faces equal per index** (ring including start vertex, owner, neighbour, patch) on the first run. | the ring start of the side faces (edge strings), the neighbour tie order of `getFaceOrder`, the order of `addSideFace` calls |
+| P57 | `checkAndUnmark` on layer mesh 86 finds **2 non-orthogonal and 15 tet-quality faces, 17 illegal faces**, and unmarks the extrusion at **17 pp faces** (8724 extruded). | the checks are those of round 4, on a mesh with new boundary faces |
+| P58 | Layer iterations 1 and 2: the shrunk meshes `87`, `89` equal ESI bit for bit (24305 points), `truncateDisplacement` iteration 1 prints 2, 0 then 0, 0; layer meshes `88`, `90` equal per index; extruded faces 8658 and 8642. | the mover's persistent state between iterations (displacement field), `unmarkExtrusion` of faces, `growNoExtrusion` |
+| P59 | The final mesh (91, 31644 points, 85399 faces) equals `layer_mesh_91` per index and the `printLayerData` table equals ESI's. | `doLayers` does more after the loop than the outer loop shows |
+
+## Round 9: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_layers.rs::layer_loop_against_esi`)
+
+Code (all new, opt-in, serial, no face zones, `nOuterIter 1`): `src/snappy_hex_mesh/esi_layer_topo.rs`
+(`truncate_displacement` with `get_vertex_string`, `setup_layer_info_truncation`, `count_extrusion`,
+`add_patch_cell_layer` = `addPatchCellLayer::setRefinement` + `findDuplicatedPoints` + `getEdgeString` +
+`addSideFace` + `polyTopoChange` `makeCells`/`getFaceOrder` numbering, `determine_side_patches`,
+`get_layer_cells_faces`, `check_and_unmark`) and `src/snappy_hex_mesh/esi_layer_loop.rs` (the `addLayers`
+iteration loop and the `printLayerData` table). The references are a fresh ESI run of the same case (the
+round-8 run directory was gone); fixtures `layer_mesh_{86,88,90,91}.txt.gz`, `layer_points_{86..90}.bin.gz`.
+
+| quantity | ESI v2506 | port |
+|---|---|---|
+| `truncateDisplacement` passes, iterations 0 / 1 / 2 | (0,0) / (2,0),(0,0) / (0,0) | equal |
+| iteration 0: faces with layers / points with layers | 8743 (log "8743 added cells") / 7437 (31742-24305) | 8743 / 7437 |
+| iteration 0: layer mesh 86 | 31742 points, 85701 faces | points **31742 / 31742 bit-identical**; ring, owner **85701 / 85701**; neighbour **75954 / 75954**; patch **9747 / 9747** |
+| `checkAndUnmark` iteration 0: non-orthogonal / tet quality / removed faces / extruded | 2 / 15 / 17 / 8724 | 2 / 15 / 17 / 8724 |
+| iteration 1: shrunk mesh 87, layer mesh 88 (31658 points, 85449 faces); removed / extruded / added cells | 2 / 8658 / 8660 | 87: 24305 / 24305 points bit-identical; 88: points, ring, owner, neighbour, patch all equal; 2 / 8658 / 8660 |
+| iteration 2: shrunk 89, layer mesh 90 (31644 points, 85399 faces); removed / extruded / added | 0 / 8642 / 8642 | equal in every item, loop ends by itself |
+| final mesh 91 (26920 cells, 85399 faces, 31644 points) | ESI drops the empty `allBoundary` | every face ring, owner, neighbour, patch equal; points bit-identical |
+| `printLayerData` table (faces, mean layers, thickness [m], [%]) | 7209 0.874 0.000155 78.8; 1174 0.983 0.000178 92.2; 240 0.933 0.000162 82.3; 1124 0.859 0.000173 81.7 | equal to 3 figures in all 16 entries |
+
+**Ledger.** P55, P56, P57, P58 held on the first run of the finished code. P59 held for the mesh and the
+table. Nothing was tuned. **What the prediction text got wrong (found by reading, before the first run):**
+I had assumed `addPatchCellLayer(mesh)` has `extrude = false`; the constructor default is
+**`extrude = true`** (`addPatchCellLayer.H:318`). With it the original patch face becomes the internal
+face between its old owner and layer 0, the last layer face is the new boundary face (patch of the old
+face, owner = the outermost layer cell), the old cells are NOT re-pointed (`findDuplicatedPoints` only
+affects the neighbour cell of internal patch faces) and side faces are not reversed. The first unit test
+(written with the wrong assumption) failed on exactly this, then the code was corrected from the source
+before any ESI comparison. A second small defect, `n_cells_of` took only the owner maximum (the last cell can own
+no face), was found by the first run (out-of-bounds panic), not by the comparison.
+The persistent-state worry of P58 did not materialise: the mover is re-run from the original points each
+iteration with the new extrude status and the shrunk meshes of iterations 1 and 2 are bit-identical.
+
+**Not verified / limits.** One case; `nOuterIter 1`; ~~one layer per point (`offset` branches of
+`getEdgeString`/`addSideFace` for unequal layer counts are translated but only unit-covered by the
+single-layer case)~~ **CORRECTED 2026-11-13 (round 10): the `offset` branches have run on ESI data, 3 layers with
+expansion 1.2, bit-identical**; `nBufferCellsNoExtrude > 0` loop translated, not run on ESI data; ~~relaxed quality dict
+(iteration >= `nRelaxedIter`) not reached by this case (the port passes the default controls)~~ **CORRECTED
+2026-11-13 (round 10): reached with `nRelaxedIter 1`, bit-identical to ESI** (the round-9 test itself still passes the
+default controls); no face
+zones, baffles, flip map or parallel; `polyTopoChange` is modelled only for the changes `addPatchCellLayer`
+makes. The `mapPolyMesh` maps are not produced (the face map `AddedLayers::face_map` is enough for the table).
+~~`doLayers` steps after `addLayers` that are not ported: the final `checkMesh`, removing the empty
+`allBoundary` patch (only compared), `writeLayerData`.~~ **CORRECTED 2026-11-13 (round 10): ported in
+`esi_layer_final.rs` (`final_check_mesh`, `remove_empty_patches`, `layer_data_fields`), and equal to ESI;
+the "`doLayers`" tail is in fact in the `snappyHexMesh` application plus `addLayers`.**
+PETIR: the new code uses `+ - * /`, `sqrt` and comparisons only (no transcendental), 0 libm-dependent values.
+
+# Round 10 (2026-11-13): multi-layer runs, the relaxed-quality path
+
+**Environment note, disclosed before any prediction.** The ESI environment was wiped and rebuilt
+between rounds 9 and 10. The reference runs were regenerated from the committed dictionaries
+(`mkcase`: `blockMesh` with the ASCII `controlDict`, `writePrecision 16`; `surfaceFeatureExtract`;
+`snappyHexMesh -noFunctionObjects`, `writeFormat binary` set after `blockMesh`). Two observations
+made before the port was run on any new case:
+
+1. The regenerated base case (`snappyHexMeshDict.layers`) reproduces round 9's **log** exactly (three
+   iterations, 17 / 2 / 0 faces unextruded, 26920 cells, 85399 faces, 31644 points) and its final
+   **faces** (`layer_mesh_91.txt.gz`, 85399 of 85399 lines byte-equal).
+2. It does **not** reproduce round 9's **points**: time 81 (the snapped mesh) differs from the committed
+   `layer_points_81.bin.gz` in 16613 of 72933 components, worst 1.4e-17 m (1 ulp at 0.1 m), and so do
+   all later times. A second run of the rebuilt ESI gives byte-identical `81/polyMesh/points`, so the
+   rebuilt tree is deterministic, but it is not the build the round 3-9 fixtures came from (a libm or
+   compiler difference in the snap stage). Consequence: the layer-stage references of this round start
+   from the NEW time-81 points (committed, `layer_points_81_r10.bin.gz`), never from the old ones. The
+   round 3-9 tests keep passing against their own committed fixtures; they were not re-pinned.
+   Not investigated further (which operation differs): it needs the old build, which is gone.
+
+Case `snappyHexMeshDict.layers3`: the base dictionary with `nSurfaceLayers 3`, `expansionRatio 1.2`
+(`finalLayerThickness 0.3`, `minThickness 0.25`, all else unchanged). **ESI log read before the
+predictions below were written (a disclosed observation, so the numeric predictions are targets the port
+is held to, not blind guesses):** "Layers to add in current iteration : 25563", table near-wall
+1.75e-4 / 1.83e-4 / 1.77e-4 / 1.70e-4 m and overall 4.77e-4 / 4.35e-4 / 4.64e-4 / 4.99e-4 m; **four**
+layer iterations; removed faces 12 / 4 / 2 / 0; extruded faces 8769 / 8733 / 8723 / 8723; added cells
+18918 / 18767 / 18727 / 18711; layer meshes 86 (44175 points, 118421 faces), 88 (44028, 117970), 90
+(43990, 117852), 92 (43968, 117798); final mesh 93 = 92 (36989 cells, 117798 faces, 43968 points).
+
+## PREDICTIONS (committed before the round-10 port code and tests exist)
+
+Written from reading `layerParameters` (`FINAL_AND_EXPANSION`), `setupLayerInfoTruncation`,
+`addPatchCellLayer::setRefinement` / `getEdgeString` / `addSideFace` and `getLayerCellsFaces` (v2506).
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P60 | The base case from the new time-81 points: the port's three layer meshes and final mesh digest-equal ESI's new 86/88/90/91 (faces and points). | the rebuilt ESI differs from the old one in the layer stage, not only in the snap stage |
+| P61 | `nSurfaceLayers 3`, `expansionRatio 1.2`: `setPointNumLayers` + thickness give 25563 layers to add (3 x 8521) and the four near-wall / overall pairs of the ESI table to 3 figures. | thickness for `nLayers 3` with an expansion ratio goes through `finalLayerThickness`/`expansionRatio` conversions not exercised at 1 layer |
+| P62 | The loop runs 4 iterations with 12 / 4 / 2 / 0 faces removed, 8769 / 8733 / 8723 / 8723 extruded faces, 18918 / 18767 / 18727 / 18711 added cells; shrunk meshes 85/87/89/91 bit-identical. | the shrunk meshes depend on the 3-layer thickness through the medial scaling: a 1-ulp slip in `finalLayerThicknessRatio` moves them |
+| P63 | Layer meshes 86/88/90/92 equal ESI per index (points bit-identical, ring, owner, neighbour, patch). **My expectation is that this FAILS on the first run**: the `offset` branches of `getEdgeString` and `addSideFace` (faces at the boundary of the extruded region, where adjacent points carry 1, 2 or 3 layers) and `getLayerCellsFaces` multi-layer cell/face bookkeeping have never met ESI data. | any of those |
+| P64 | Final mesh 93 and the `printLayerData` table (mesh layers 1.86 / 2.03 / 1.93 / 2.21; thickness 2.56e-4 / 3.08e-4 / 2.96e-4 / 2.72e-4 m; 49 / 59.7 / 57.8 / 49.9 %) equal ESI's. | as P63 |
+| P65 | `snappyHexMeshDict.layers_relaxed` (`nRelaxedIter 1`, base case otherwise): iteration 0 is unchanged from the base case (17 removed, `meshQualityControls` used) and iterations >= 1 use `relaxed { maxNonOrtho 75; }` for the mover AND `checkAndUnmark`, so the 2 non-orthogonal faces of base iteration 0 (> 65 deg) count as failures only if above 75 deg; the port equals ESI per index at every iteration. | the port passes the relaxed controls to only one of the two users; `relaxed` merges over the base keys, it does not replace them |
+
+## Round 10, task 3: the tail after the layer loop (predictions, committed before the code is run)
+
+ESI does three things after `addLayers`: the application's `fvMeshTools::removeEmptyPatches`, the
+"Checking final mesh ..." step (`motionSmoother::checkMesh(false, mesh, motionDict, wrongFaces)` with
+the BASE `meshQualityControls`, never the relaxed ones; a non-empty `wrongFaces` is written as a faceSet
+and the log says "Finished meshing with N illegal faces"), and `writeLayerData` (inside `addLayers`,
+before the empty patch goes; `writeFlags (layerFields)` writes `nSurfaceLayers`, `thickness`,
+`thicknessFraction`, `layerSets` the cell/face sets). Reference runs with `layerFields` added to
+`writeFlags` (`l3lf`, `r1lf`) leave the final meshes byte-identical (faces compared). Observed in the
+ESI logs before this prediction (disclosed): the relaxed case ends with "Finished meshing with 2 illegal
+faces" (the 2 faces above 65 degrees that the relaxed iteration accepted), `wrongFaces` = {20914, 44803};
+the base and 3-layer cases end "without any errors".
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P66 | `remove_empty_patches` on the final layer mesh with ESI's empty `allBoundary` restored as patch 0 returns `newToOld = [1,2,3,4]` and a mesh whose face digest equals ESI's final mesh (base 91, 3-layer 93, relaxed 89). | none expected: it renumbers 4 labels |
+| P67 | `final_check_mesh` with the base controls: relaxed case **2 faces, both non-orthogonality, labels {20914, 44803}**; base and 3-layer cases 0 faces. | the check set on a mesh with partially extruded layers differs from the one in the loop |
+| P68 | `layer_data_fields`: `nSurfaceLayers` (cells and patches, integers) equal bit for bit in the 3-layer and relaxed cases; `thickness` and `thicknessFraction` patch values: **not necessarily bit-identical** (round 9 matched them only to 3 figures); I expect most values bit-identical with a minority differing by an ulp from the operation order of the `faceRealThickness` sums, and will count them. | either direction |
+
+## Round 10: results (2026-11-13, release, `tests/snappy_hex_mesh_esi_layers_multi.rs`)
+
+Code: new `src/snappy_hex_mesh/esi_layer_final.rs` (`remove_empty_patches`, `final_check_mesh`,
+`layer_data_fields`, `layer_field_bytes`; opt-in, serial). **No existing function was changed**: the
+multi-layer and relaxed cases ran on the round-9 code as it stood. References: ESI v2506 runs of
+`snappyHexMeshDict.layers` (`base`), `.layers3` (`l3`), `.layers_relaxed` (`r1`) and the two with
+`writeFlags (scalarLevels layerFields)` (`l3lf`, `r1lf`), reduced by `extract_layer_fixtures.py` /
+`extract_layer_fields.py` and pinned as FNV-1a 64 digests (`digest_layer_mesh.py`; a digest equals only if
+every face ring, owner, neighbour, patch and every point bit is equal). One new fixture,
+`layer_points_81_r10.bin.gz` (505 KB, the rebuilt ESI's time-81 points). No other fixture added.
+
+| case | quantity | ESI v2506 (rebuilt) | port |
+|---|---|---|---|
+| base, 1 layer, 3 iterations | shrunk meshes 85/87/89, layer meshes 86/88/90, final 91 | digests | **all equal** (P60) |
+| 3 layers, expansion 1.2 | "Layers to add", near-wall / overall thickness table | 25563; 1.75 / 1.83 / 1.77 / 1.70e-4, 4.77 / 4.35 / 4.64 / 4.99e-4 m | equal (P61) |
+| | iterations; removed; extruded faces; added cells | 4; 12/4/2/0; 8769/8733/8723/8723; 18918/18767/18727/18711 | equal (P62) |
+| | shrunk 85/87/89/91; layer meshes 86/88/90/92 (44175/44028/43990/43968 points, 118421/117970/117852/117798 faces); final 93 | digests | **all 4 + 4 + 1 equal**, points and faces (P62, P63, P64) |
+| | `printLayerData` (layers, thickness, %) | 1.86 2.56e-4 49 / 2.03 3.08e-4 59.7 / 1.93 2.96e-4 57.8 / 2.21 2.72e-4 49.9 | equal to 3 figures (P64) |
+| `nRelaxedIter 1` | iteration 1 uses `relaxed` | removed 17, 0; extruded 8724, 8660; final 26938 cells, 85449 faces, 31658 points | equal, shrunk, layer and final meshes (P65) |
+| tail | `remove_empty_patches` (empty `allBoundary` restored as patch 0) | final meshes | equal, `newToOld = [1,2,3,4]` (P66) |
+| | `final_check_mesh`, base controls | relaxed: 2 faces {20914, 44803}, both non-orthogonality; base and 3 layers: none | equal (P67) |
+| | `layer_data_fields` (`nSurfaceLayers` 36989/36685 cells + patches, `thickness`, `thicknessFraction`) | 529840 / 449432 bytes | **bit-identical** (P68) |
+
+**Ledger.** P60, P61, P62, P64, P65, P66, P67 held on the first run of the finished code. **P63 and P68 were
+WRONG in the pessimistic direction:** I expected the `offset` branches (P63) and the real-thickness sums
+(P68) to expose a defect or an ulp-level difference, and neither did; the multi-layer topology and the
+fields are bit-identical on the first run. This is a result about my expectation, not a claim that the
+branches are covered: the case exercises faces whose points carry 1, 2 and 3 layers (mean layers per face
+1.86-2.21 of 3); which combinations of per-point layer counts occur was not tabulated, so the coverage of
+individual `offset` branches is not measured. Nothing was tuned; no tolerance exists in these tests (digest equality).
+
+The relaxed case's effect: iterations 0 and 1 are bit-identical to the base case's (digests of 85-88
+equal), and the relaxed controls only change what `checkAndUnmark` accepts in iteration 1 (0 faces removed
+where the base case removes 2), so the loop ends one iteration earlier with a different final mesh (26938
+cells against 26920). The 2 faces above 65 degrees that the relaxed iteration accepts are then reported by
+the final check with the base controls ("Finished meshing with 2 illegal faces"), which the port reproduces.
+
+**Disclosed, not investigated.** The rebuilt ESI differs by 1 ulp from the one that made the round 3-9
+fixtures in 16613 of 72933 components of the snapped points (see the environment note). The port, fed the
+new points, reproduces the new layer stage bit for bit in all three cases, so the layer stage is not
+sensitive to it; whether the round 7 feature snap is still bit-identical to the REBUILT ESI is not
+measured (it needs a snap-stage comparison from the blockMesh mesh against the new time-35..81 points; the
+committed round 3-7 tests keep passing against their own fixtures).
+
+**Not done (deferred, recorded on gh:#1467).**
+- `nOuterIter > 1`: ESI with `nOuterIter 2` on the 3-layer case, outer iteration 0
+  ("Layers to add 17042" against 25563 with `nOuterIter 1`; 14728 added; mesh 32984 cells / 104885 faces /
+  39033 points) and outer iteration 1 extrudes 0 of 9747 faces ("Layers to add 7364", 0
+  added). Porting needs the outer loop (re-derive the layer patch and medial axis on the layer mesh, the
+  per-slice thickness, `nAddedLayers` bookkeeping): not cheap, not started.
+- `nBufferCellsNoExtrude > 0`, face zones, non-adapt patch seeds, `layerSets` (cellSet/faceSet writing).
+- A stricter `meshQualityControls` case: the base quality also drives the snap stage, so changing it
+  moves the snapped mesh (a new 500 KB start fixture per case); not built.
+PETIR: the new code adds no transcendental function; 0 libm-dependent values.
+
+# Round 11 (2026-11-13): provenance of the 1-ulp shift, `nOuterIter > 1`
+
+## Task 1: provenance of the round-10 1-ulp shift (disclosed observation, then predictions)
+
+**Disclosed before any prediction (not a blind guess).** The ESI tree was rebuilt again for this round
+(`scripts/upstream/build-esi-v2506-and-genfoam.sh`; gcc 13.3.0 Ubuntu 24.04, glibc 2.39, `-O3`, no
+`-march`, so no FMA contraction in compiled code; CPU has FMA, so glibc's ifunc FMA `libm` variants are
+selected on this host). The base case `snappyHexMeshDict.layers` was run once on this build exactly as
+the round-8/9 recipe says (`blockMesh` with the **ASCII** `controlDict`, `writePrecision 16`, then
+`writeFormat binary`). Result: the time-81 points equal the **OLD** `layer_points_81.bin.gz`
+in 72933 of 72933 components, and differ from round 10's `layer_points_81_r10.bin.gz` in 16613. So the
+shift is **not** this build against the old build; it is round 10's run against this one.
+
+| # | prediction (written before the run) | how it can fail |
+|---|---|---|
+| P69 | Round 10's run used a **binary** `controlDict` when `blockMesh` ran (exact-double background points; round 3's note says this shifts every point by up to 7e-16). Running `blockMesh` with `writeFormat binary` on this build and then `snappyHexMesh` reproduces `layer_points_81_r10.bin.gz` in 72933 of 72933 components (differ count 0). | the shift has another cause (e.g. a different build then) |
+| P70 | Consequently the port, fed the 16-digit ASCII background (as in rounds 3-9), equals this build's time-81 points; fed exact-double background it equals `_r10`. The port is not at fault in either case. | the port's background construction is the same in both |
+
+**P69 REFUTED (run).** With a binary `controlDict` at `blockMesh` time the snapped mesh has **24312
+points** (round 10's has 24311), so a different topology, not a 1-ulp shift: this is not how round 10's
+points arose. P70 is moot. **Next prediction, committed before the run.**
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P71 | Round 10's run was made under a different `libm` code path (glibc selects FMA/AVX2 ifunc variants of `exp`, `log`, `pow`, `sin`, `cos`, `atan2` on a CPU with FMA; a host without them, or `GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA,-AVX2`, takes the non-FMA path). Running the ASCII-`blockMesh` base case on this build with FMA ifuncs disabled gives time-81 points that **differ from this build's default run** (and so from the old fixture) in some of the 72933 components. It need not equal `_r10`. | `libm` is not reached by the snap stage on the flange, so the points are identical with and without FMA |
+
+**P71 REFUTED (run).** With `GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA,-AVX2,-AVX2_Usable,-FMA_Usable` the
+ASCII-`blockMesh` base case gives time-81 points **identical** to the default run (0 of 72933 differ) and to
+the OLD fixture. The tunable does take effect on this host (a small `libm` hash program, `exp`, `pow`,
+`sin`, `atan2` over 2e6 arguments, gives `696b3a29...` with and `162b201c...` without it), so the
+flange snap path is insensitive to glibc's FMA `libm` variants: the 1-ulp shift is **not** a libm
+difference either.
+
+**Finding of task 1 (measured, 2026-11-13, this build).** The ESI built for this round reproduces the
+rounds 3-9 fixtures **bit for bit in every stage compared**, so the "rebuilt ESI" of round 10 was not
+this build; round 10's `layer_points_81_r10.bin.gz` is not reproduced by the recorded recipe here. What
+was run (ASCII `blockMesh`, `writePrecision 16`, then `writeFormat binary`, `-noFunctionObjects`):
+
+| stage (dictionary) | compared with the committed fixture | result |
+|---|---|---|
+| castellation (`.reduced`) | `esi_final_faces`, `esi_final_cells_ordered`, `esi_final_points`, `esi_final_boundary`, `esi_baffle_cell_order`, `esi_problem_faces` | all 6 byte-equal |
+| snap (`.snap`) | `snap_points_32`, `_33_n3`, `snap_disp_34`, `_35`, `_36` | 0 of 79986 components differ, each |
+| feature snap (`.feature`, 10 iterations) | `feat_disp_34`, `feat_points_35, 37, 39, 41, 43, 45` | 0 of 79986 differ, each |
+| layers (`.layers`) | `layer_points_81, 85, 86, 87, 88, 89, 90` (72933 / 72915 / 95226 / 72915 / 94974 / 72915 / 94932 values), `layer_mesh_83, 86, 88, 90, 91` faces | 0 differ; all 5 face files byte-equal |
+
+Because the committed port tests (rounds 1-9) are pinned to those fixtures and pass, **the port equals
+this build in each of those stages** (transitively; the tests are re-run in this round, see the results
+below). The cause of round 10's shift is **not identified**: it was not the ASCII/binary `controlDict`
+(P69), not glibc's FMA `libm` (P71), and not `-O` or `-march` (no `-march` appears in
+`wmake/rules/linux64Gcc`, `c++OPT = -O3`, gcc 13.3.0, glibc 2.39). The round-10 build is gone and nothing
+in the repository records its compiler.
+**Decision (nothing needs the maintainer, nothing re-pinned):** the round 3-9 fixtures stay as they are
+(this build confirms them); round 10's `_r10` start stays documented as the output of a build that is not
+reproducible, and its tests keep passing against their own digests; round 11 adds the same three cases
+started from the old (= this build's) time-81 points, with this build's digests (old -> new below).
+
+| # | prediction (committed before the new tests are run; the ESI digests were read first, disclosed) | how it can fail |
+|---|---|---|
+| P72 | The port started from `layer_points_81.bin.gz` equals this build's ESI in base, `layers3` (3 layers, expansion 1.2) and `relaxed`: every shrunk-points, layer-faces, layer-points and final-faces digest, and the `writeLayerData` fields of the last two. The **faces** digests equal round 10's (topology does not see 1 ulp); only point and field digests move. | the layer stage is sensitive to a 1-ulp start in a way round 10's own run hid |
+
+## Task 2: `nOuterIter > 1` (reference runs and predictions, committed before the port code exists)
+
+Upstream read first (`snappyLayerDriver::addLayers`, the outer overload, v2506 lines 4692-5372; the
+inner overload 3922-4690; `updatePatch`, `unmarkExtrusion`; `layerParameters::layerThickness`): per outer
+iteration it (1) breaks if `sum(deltaNLayers) == 0`, (2) takes `patchNLayers = deltaNLayers`,
+`extrudeStatus = baseExtrudeStatus`, `patchDisp = basePatchDisp`, and the slice thickness
+`layerThickness(basePatchNLayers, baseThickness, baseExpansionRatio, basePatchNLayers - nAddedLayers -
+patchNLayers, patchNLayers)`; (3) runs the inner loop (round 9) on the CURRENT mesh with a medial axis
+rebuilt on it; (4) breaks if nothing was added; (5) `nAddedLayers += patchNLayers`, points that got no
+layer are `unmarkExtrusion`-ed in the base arrays and `basePatchNLayers = nAddedLayers`, the others
+get `deltaNLayers = max(0, min(deltaNLayers, basePatchNLayers - nAddedLayers))`; (6) applies the layer
+mesh, accumulates `cellNLayers` / `faceRealThickness` through the face and cell maps (`+=` the slice's
+values), maps `faceWantedThickness`, prints the layer table; (7) `updatePatch` re-makes the layer
+patch from the new mesh and maps every per-point array through `newToOldPatchPoints`.
+`deltaNLayers = (basePatchNLayers + nOuterIter - 1) / nOuterIter`. Nothing else differs from the
+`nOuterIter 1` path, so the inner loop of round 9 is reused unchanged.
+
+**ESI reference runs** (this build, `snappyHexMeshDict.layers3` and a 2-layer variant with
+`nOuterIter` added, `debugFlags (mesh)`; the logs were read BEFORE the predictions, so the numbers are
+targets the port is held to):
+
+| case | dictionary change | ESI log |
+|---|---|---|
+| `o2` | `layers3` (3 layers, expansion 1.2) + `nOuterIter 2` | outer 0: "Layers to add 17042", 3 inner iterations, extruding 8732 / 8668 / 8660, removed 15 / 4 / 0, "Added 14728 out of 17042", `Mesh with layers : cells:32984 faces:104885 points:39033`, table layers 1.47 / 1.66 / 1.6 / 1.59, thickness 2.1e-4 / 2.55e-4 / 2.29e-4 / 2.2e-4 m, 40.7 / 50 / 44.6 / 40.5 %. Outer 1: "Layers to add 7364", **extruding 0 of 9747**, "Added 0 out of 7364", break. |
+| `p2` | `nSurfaceLayers 2`, `expansionRatio 1.0`, `nOuterIter 2` | outer 0: "Layers to add 8521", extruding 8724 / 8658 / 8642 (as the 1-layer case), "Added 7339 out of 8521". Outer 1: "Layers to add 7339", **16** inner iterations extruding 7892 / 7391 / 7133 / 7015 / 6931 / 6882 / 6838 / 6776 / 6750 / 6734 / 6716 / 6694 / 6678 / 6670 / 6666 / 6662 faces (removed 60 / 213 / 98 / 72 / 44 / 42 / 30 / 26 / 20 / 16 / 16 / 12 / 6 / 4 / 4 / 0), "Added 5666 out of 7339", `Mesh with layers : cells:33582 faces:104369 points:37310`, table 1.51 / 1.88 / 1.71 / 1.61, 2.69e-4 / 3.37e-4 / 2.84e-4 / 3.23e-4 m, 66.4 / 86.5 / 70.3 / 75 %. |
+
+`p2` is the real test of the outer loop (a second slice is extruded on a mesh that already has
+layers); `o2` is the case round 10 measured (the second slice is truncated away entirely). ESI times
+`o2`: 85-90 outer 0, 91 the layer mesh again (digest-equal to 90), 92 shrunk, 93 final (equal to 91 minus
+the empty patch). ESI times `p2`: 85-90 outer 0 (digest-equal to the 1-layer base case's 85-90),
+92-123 outer 1 (even = shrunk, odd = layer mesh), 124 final. References are FNV-1a digests as in round 10.
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P73 | **`o2`**: the port started from the old time-81 points reproduces the log counts above (17042; removed 15/4/0; extruded 8732/8668/8660; 14728 added; 32984 cells / 104885 faces / 39033 points; the table), meshes 85-90 digest-equal ESI, and outer 1 extrudes 0 of 9747 faces with its shrunk points digest-equal to the layer mesh's (the mover moves nothing), final mesh = the outer-0 layer mesh (faces digest `5e366de6f45a10ed` once the empty patch is removed, points `4ccdfe0327eae64e`). | slice thickness (`layer_thickness_slice` uses `pow`; PETIR vs glibc may differ by 1 ulp, which would move every later digest); the log of ESI shows the extrusion truncated to 0 by `minThickness`, which the port must reach by the same road |
+| P74 | **`p2`**, outer 0: meshes 85-90 digest-equal ESI's (they equal the 1-layer base case), "Layers to add 8521", 7339 added, per-point `deltaNLayers`/`nAddedLayers` after the update: 7339 points with `deltaNLayers 1`. | the base-case equality is only a prediction because the 2-layer slice thickness differs |
+| P75 | **`p2`**, outer 1: **I expect this to fail on the first run**, in the first inner iteration: it is the first time the medial axis, `getPatchDisplacement`, `determineSidePatches`, `truncateDisplacement` and `addPatchCellLayer` run on a mesh that already has layers, a patch whose points are the added points of the previous slice, and a non-trivial `newToOldPatchPoints`. If it does not fail: 16 inner iterations, removed/extruded as in the table, shrunk and layer meshes 92-123 digest-equal, final 124 (faces 936f440a7e533447 with patch offset 0, points 6bbdcca29ee1abde), 33582 cells / 104369 faces / 37310 points, the table equal to 3 figures. | any of those, or the cell/face map bookkeeping of `cellNLayers`/`faceRealThickness` (affects only the table and the fields, not the mesh) |
+| P76 | The accumulated `writeLayerData` fields (`nSurfaceLayers`, `thickness`, `thicknessFraction`) of `p2` and `o2` equal ESI's bit for bit. | accumulation order through the face map; `thickness` of faces that were boundary in slice 0 and are internal in slice 1 |
+
+## Round 11: results (2026-11-13, release, `tests/snappy_hex_mesh_esi_layers_multi.rs`)
+
+### Task 1: provenance (P69-P72)
+
+The finding is in the table above: the ESI build of this round reproduces the round 3-9 fixtures bit for
+bit in castellation, snap, feature snap and layers; the round-10 time-81 points are the odd one out and
+were not reproduced by the recorded recipe. P69 (binary `controlDict`) and P71 (glibc FMA `libm`)
+**refuted**; the cause is **not identified** (the round-10 build is gone, its compiler is unrecorded).
+**P72 held on the first run**: the port started from the old points equals this build's ESI in all three
+cases (base, `layers3`, `relaxed`): every shrunk-points, layer-faces, layer-points and final-faces digest and
+both `writeLayerData` field digests. Moved digests, round 10 start -> old (= round 11 ESI) start:
+
+| item | round 10 (`_r10` start) | round 11 (old start) |
+|---|---|---|
+| base 85 shrunk / 86 layer points / 90 layer points | `b4fd754f...` / `52cf490a...` / `fcc9d627...` | `ab189caf...` / `4fe8fe98...` / `edc9b810...` |
+| `layers3` 85 shrunk / 92 layer points | `f7f8ffcc...` / `454f4928...` | `88bd2e5b...` / `f71d2d75...` |
+| `layers3` fields | `01c12c5a53e2769e` | `e1ee47ca2800ad5a` |
+| `relaxed` fields | `db8997693ba42b73` | `4d6282e59593ad13` |
+| every layer / final **faces** digest, all three cases | unchanged | unchanged (a 1-ulp start does not touch topology) |
+
+Both starts stay pinned; the old fixtures are kept (this build confirms them) and `_r10` is kept because
+its tests pass. Nothing was re-pinned. ~~Round 10: "it is not the build the round 3-9 fixtures came from
+(a libm or compiler difference in the snap stage)"~~ **CORRECTED 2026-11-13**: not a libm difference
+(P71, measured); the snap stage of this build is insensitive to glibc's FMA variants, and this build equals
+the old fixtures. Also ~~"whether the round 7 feature snap is still bit-identical to the REBUILT ESI is
+not measured"~~ **measured**: `feat_disp_34`, `feat_points_35..45` equal this build's, 0 of 79986 differ.
+
+### Task 2: `nOuterIter 2` (P73-P76)
+
+Code: new `src/snappy_hex_mesh/esi_layer_outer.rs` (`add_layers_outer`, `slice_thickness`,
+`layer_data_table_accumulated`, `layer_data_fields_accumulated`; private maps `point_master`,
+`new_to_old_patch_points`, `cell_and_face_maps`). **No existing function was changed**: the inner loop of
+round 9 ran unchanged per outer iteration. Tests `outer2_two_layers_second_slice_extruded` (`p2`) and
+`outer2_three_layers_second_slice_truncated` (`o2`).
+
+| case | quantity | ESI v2506 | port |
+|---|---|---|---|
+| `o2` (3 layers, 1.2, outer 2) | layers to add; added; extruded faces per inner iteration | 17042 / 7364; 14728 / 0; 8732, 8668, 8660, 0 | equal |
+| | shrunk 85/87/89, layer 86/88/90 (faces and points), outer-1 shrunk 92 | digests | all equal |
+| | table after outer 0 (layers, thickness, %) | 1.47 2.1e-4 40.7 / 1.66 2.55e-4 50 / 1.6 2.29e-4 44.6 / 1.59 2.2e-4 40.5 | equal to 3 figures |
+| | final mesh (32984 cells, 104885 faces, 39033 points), faces digest after `remove_empty_patches`, points | `5e366de6f45a10ed`, `4ccdfe0327eae64e` | equal |
+| | accumulated `writeLayerData` fields | `10ac833310ebb486` | equal |
+| `p2` (2 layers, 1.0, outer 2) | layers to add; added | 8521 / 7339; 7339 / 5666 | equal |
+| | 19 inner iterations (3 + 16): extruded faces; shrunk points, layer faces, layer points of each | 8724, 8658, 8642, then 7892 ... 6662; 57 digests | all equal |
+| | table after outer 1 | 1.51 2.69e-4 66.4 / 1.88 3.37e-4 86.5 / 1.71 2.84e-4 70.3 / 1.61 3.23e-4 75 | equal to 3 figures |
+| | final mesh (33582 cells, 104369 faces, 37310 points), faces, points | `936f440a7e533447`, `6bbdcca29ee1abde` | equal |
+| | accumulated fields | `a2ad801613f6c5db` | equal |
+
+**Ledger.** P73, P74, P76 held, **and P75 was WRONG in the pessimistic direction**: I expected the first
+extrusion on a mesh that already has layers to fail, and all 57 digests of the 19 inner iterations, the table,
+the final mesh and the fields were equal on the first run. This says my expectation was too gloomy, not
+that the corners are covered (see limits). Nothing was tuned; no tolerance exists in these tests except
+the 3-figure table comparison, which round 9 already used. One defect of mine was caught by the first run
+(not by the comparison): the initial `cellNLayers` was sized from the owner maximum, which misses a last
+cell that owns no face (the same slip as round 9's `n_cells_of`).
+
+**Honest limits.**
+- Closed layer patches only (asserted): ESI's `inflateFaceID` of boundary side faces is not tracked, so
+  the face map of such faces would be a guess; both cases here have no patch boundary edge.
+- Two outer iterations only; a third (`nOuterIter 3`, 3 layers) was run in ESI (second slice also
+  truncated to 0 extruded faces, 7339 to add) but not compared.
+- `unmarkExtrusion` on the base arrays at a point that got no layer in a slice was exercised by `p2`
+  (5666 of 7339 layers added), but I did not tabulate how many points hit it.
+- `pow` in `layer_thickness_slice` is PETIR's; the slices here matched bit for bit, so no 1-ulp libm
+  difference showed. PETIR (`no_platform_libm`): 4 passed; the new code adds no transcendental of its own.
+- The ESI run directory for `p2` (about 540 MB with `debugFlags (mesh)`) is not committed; digests only.
+
+~~`nOuterIter > 1`: ... not cheap, not started.~~ **CORRECTED 2026-11-13 (round 11): done for closed patches,
+see above.** Still open: `nBufferCellsNoExtrude > 0` on ESI data, face zones, non-adapt patch seeds, open
+layer patches with `nOuterIter > 1`, `layerSets`.

@@ -33,11 +33,32 @@ maturity = 2
 backronym = "NEutron Energy-dependent Simulation using Open-source Object-Oriented Numerics"
 
 [features]
-default = ["long-tests"]
+default = ["std", "long-tests"]
+# `no_std` + `alloc` without `std` (gh:#1640, epic gh:#1637). `std` carries
+# file I/O (cross-section libraries, the DEM bed, case output), serde/JSON
+# (the MGXS library file format), threads, the wall clock, the
+# OUTRAM_HTR10_* environment switches, printing, and `std` in every
+# dependency.
+std = [
+    "thiserror-nostd/std",
+    "dep:serde",
+    "dep:serde_json",
+    "njoy-outram-park-fork/std",
+    "outram-mc-libs/std",
+    "teh-o-prke/std",
+    "outram-foam-appbuilder-lib/std",
+    "outram-foam-basic-lib/std",
+    "outram-blender/std",
+    "tampines/std",
+]
 # Tests over five minutes, or that need the reference nuclear data, are
 # gated behind this feature, on by default
 # (docs/claude-md/long-tests-and-ci.md). Added 2026-10-13 (gh:#849).
 long-tests = []
+# The DEM pour's diagnostics and drawings for pebble-bed k_eff simulators
+# (gh:#1655): `dem_pour`. GUI and std only, so the no_std core and the
+# Android build are unaffected (gh:#1640).
+dem_ui = ["std", "dep:egui", "dep:bugis", "dep:outram-park-fork-liggghts", "dep:wasm-bindgen"]
 
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
@@ -68,16 +89,26 @@ tampines              = { workspace = true }
 # Public API primitives — dimensioned quantities and error types for the
 # object-oriented surface.
 uom                   = { workspace = true }
-thiserror             = { workspace = true }
+thiserror-nostd       = { workspace = true }
+hashbrown             = { workspace = true }
+spin                  = { workspace = true }
 # Saved MGXS case records (`htr10_mgxs`): the library and run metadata as JSON,
 # so an expensive Monte Carlo run is reloaded rather than repeated.
-serde                 = { workspace = true }
-serde_json            = { workspace = true }
+serde                 = { workspace = true, optional = true }
+serde_json            = { workspace = true, optional = true }
+egui                  = { workspace = true, optional = true }
+bugis                 = { workspace = true, optional = true, features = ["web_demo"] }
+outram-park-fork-liggghts = { workspace = true, optional = true, features = ["std"] }
+
+# The pour engine's Web Worker messages (`dem_pour::engine`, gh:#1655):
+# `bugis::web_demo::link::Message` speaks `JsValue` on wasm32 only.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 # Steam states of the helical-coil SG test in `htr10_th_transient` (moved
 # from tampines, gh:#1151). Pure Rust; Android- and wasm-clean.
-tampines-steam-tables = { workspace = true }
+tampines-steam-tables = { workspace = true, features = ["std"] }
 # Also used by the fhr_sim_v2 example (steam tables, turbine generator).
 
 # The fhr_sim_v2 GUI example, MOVED 2026-11-05 from
@@ -94,7 +125,7 @@ tampines-steam-tables = { workspace = true }
 # not Sync on wasm, so the block is gated off both (dev-dependencies apply to
 # tests too). The example carries `#![cfg(not(target_os = "android"))]`.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
-tuas_boussinesq_solver.workspace = true
+tuas_boussinesq_solver = { workspace = true, features = ["std"] }
 ndarray.workspace = true
 egui.workspace = true
 bugis.workspace = true
@@ -106,4 +137,140 @@ egui_extras.workspace = true
 # MOVED 2026-11-05 from tampines (see the dev-dependency block above).
 [[example]]
 name = "fhr_sim_v2"
+required-features = ["std"]
 path = "examples/fhr_sim_v2/main.rs"
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_direct_coupling"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_mgxs_genfoam"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_rod_images"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_random_triso_images"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "httr_geometry_images"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_graphite_zone_worth"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_endf8_kvsh_heavy"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_endf8_kvsh_quick"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_rod_metal_full"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_rod_metal_simplified"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_endf8_height_sweep"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_majorant_diagnosis"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_rmc_keff"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "power_shape_images"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_deterministic_vs_mc"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_mgxs_genfoam_rz"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "httr_keff"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_material_check"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_geometry_images"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_parametric"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_rod_curve"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_mgxs_cell_images"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_pooled_study"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_zone_images"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_dem_bed_images"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_mgxs_case"
+required-features = ["std"]
+
+# Needs nuclear data files or file output: `std` only (gh:#1640).
+[[example]]
+name = "htr10_mat_xs"
+required-features = ["std"]

@@ -66,6 +66,9 @@
 //!    that feeds V&V or a solver stays CPU-deterministic. GPU is *acceleration
 //!    only*, and [`crate::gpu::transform_vertices_gpu`] returns `f32`-precision results.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::transform::Affine3;
 use core::future::Future;
@@ -625,7 +628,7 @@ pub(crate) fn block_on<F: Future>(future: F) -> F::Output {
     }
     let waker = Waker::from(Arc::new(ThreadWaker(std::thread::current())));
     let mut cx = Context::from_waker(&waker);
-    let mut future = std::pin::pin!(future);
+    let mut future = core::pin::pin!(future);
     loop {
         match future.as_mut().poll(&mut cx) {
             Poll::Ready(val) => return val,

@@ -3,6 +3,20 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `nee_soon` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1640, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob; maps `crate::hash`, paths `crate::path`, clocks `crate::time`,
+  environment switches `crate::env`, mutexes `crate::sync`.
+- Keep data **loading** (ENDF/LEAPR tapes, record files) separate from the
+  code that **uses** the data, and put only the loading behind
+  `#[cfg(feature = "std")]`; a builder that takes loaded data stays available.
+- Printing is gated one statement at a time; tests and examples that load
+  data are `std` only.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -282,6 +296,16 @@ resonance-scattering sampler**, now an option beside the default RVS
 ResonanceScatteringMethod::Dbrc)` as well. With both, the rod-bank test's
 2026-10-23 k reproduced bit for bit on 2026-11-11. Re-measuring those
 records under the new default is gh:#1145.
+
+**The DEM pour interface for pebble-bed k_eff simulators (gh:#1655,
+2026-11-18).** `dem_pour` (feature `dem_ui`: std, egui, bugis, the LIGGGHTS
+port; off by default, so the no_std core and Android build are untouched)
+holds the pour's diagnostics (`PourDiagnostics`, `diagnostics`: whole-core φ
+and g(r) by `outram_park_fork_liggghts::rdf`, against `REFERENCE_G`), the g(r)
+graph (`rdf_plot`) and the side-on pour drawing for any container
+(`draw_pour` with a `PourFrame`). Moved from `dhoby-ghaut`'s HTR-10 rung,
+which calls it; a new pebble-bed simulator uses it rather than copying the
+rung. The pour engine itself is still the rung's (`dem_web/engine.rs`).
 
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.

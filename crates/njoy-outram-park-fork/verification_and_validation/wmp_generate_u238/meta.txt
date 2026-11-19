@@ -1,0 +1,7 @@
+# U-238 subset run (gh:#1390)
+K 12
+awr 236.0058
+e_min 9.999999999999999e-06
+e_max_prefix 31.19734120426921
+e_max_full 19999.989999999998
+n_pieces 304

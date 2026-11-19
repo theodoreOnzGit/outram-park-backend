@@ -38,8 +38,11 @@
 //! - Simple hole capping is [`crate::fill_holes`]; the F-fill of an *edge net*
 //!   into multiple faces is tracked as follow-up.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};

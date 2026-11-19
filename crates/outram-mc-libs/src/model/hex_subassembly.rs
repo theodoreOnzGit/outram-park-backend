@@ -47,6 +47,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_blender::csg::lattice::{HexLattice, HexOrientation};
 use outram_blender::csg::position::Position;
 use petir::mathf::RealMath;
@@ -270,7 +273,7 @@ impl HexSubassembly {
     /// `(diameter, cos theta)` of the wire, if any.
     fn wire_geometry(&self) -> Option<(f64, f64)> {
         self.wire.map(|(s, lead)| {
-            let helix = std::f64::consts::PI * (2.0 * self.clad_outer_radius_cm + s);
+            let helix = core::f64::consts::PI * (2.0 * self.clad_outer_radius_cm + s);
             (s, lead / lead.r_hypot(helix))
         })
     }
@@ -279,7 +282,7 @@ impl HexSubassembly {
     /// `(pi s^2 / 4) / cos(theta)`; zero without a wire.
     pub fn wire_area_cm2(&self) -> f64 {
         self.wire_geometry().map_or(0.0, |(s, cos_theta)| {
-            0.25 * std::f64::consts::PI * s * s / cos_theta
+            0.25 * core::f64::consts::PI * s * s / cos_theta
         })
     }
 
@@ -362,7 +365,7 @@ impl HexSubassembly {
     /// [`Self::wire_area_cm2`], over the duct's outer hexagon.
     pub fn volume_fractions(&self) -> SubassemblyVolumeFractions {
         let hex = |f: f64| 0.5 * 3.0_f64.sqrt() * f * f;
-        let circle = |r: f64| std::f64::consts::PI * r * r;
+        let circle = |r: f64| core::f64::consts::PI * r * r;
         let n = self.pin_count() as f64;
         let outer = hex(self.duct_inner_flat_to_flat_cm + 2.0 * self.duct_wall_cm);
         let inner = hex(self.duct_inner_flat_to_flat_cm);

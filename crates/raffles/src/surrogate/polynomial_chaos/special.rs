@@ -35,6 +35,9 @@
 //! The special functions and Gauss rules RAVEN takes from SciPy, ported in
 //! SciPy's operation order so the differential test can compare bits.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::{RafflesError, Result};
@@ -240,7 +243,33 @@ pub(crate) fn pairwise_sum(a: &[f64]) -> f64 {
 #[must_use]
 pub fn numpy_around(x: f64, decimals: i32) -> f64 {
     let f = 10.0_f64.r_powi(decimals);
-    (x * f).round_ties_even() / f
+    round_ties_even(x * f) / f
+}
+
+/// `f64::round_ties_even`, which is in `std` but not `core`.
+#[cfg(any(feature = "std", test))]
+fn round_ties_even(y: f64) -> f64 {
+    y.round_ties_even()
+}
+
+#[cfg(not(any(feature = "std", test)))]
+fn round_ties_even(y: f64) -> f64 {
+    round_ties_even_core(y)
+}
+
+/// `f64::round_ties_even` from `core` alone (gh:#1610), used by the `no_std`
+/// build: round half away from zero, and where `y` sat exactly halfway, take
+/// the even neighbour instead. `y / 2` is exact (a power of two), so this is
+/// exact for every finite `y`. Always compiled so a test can hold it to
+/// `std`'s answer.
+#[cfg_attr(any(feature = "std", test), allow(dead_code))]
+fn round_ties_even_core(y: f64) -> f64 {
+    let r = y.round();
+    if (r - y).abs() == 0.5 {
+        2.0 * (y / 2.0).round()
+    } else {
+        r
+    }
 }
 
 /// Eigenvalues, ascending, of the symmetric tridiagonal Jacobi matrix with
@@ -404,6 +433,23 @@ mod tests {
                 assert!((q - moment).abs() < 1e-10 * moment, "Hermite n {n} deg {deg}");
                 moment *= deg as f64 + 1.0; // E[x^(k+2)] = (k+1) E[x^k]
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod round_ties_even_tests {
+    /// The `core`-only rounding agrees with `std`'s, bit for bit, on the
+    /// halfway cases, their neighbours, signed zeros and large values.
+    #[test]
+    fn the_core_rounding_matches_std() {
+        let mut xs = vec![0.0, -0.0, 0.5, -0.5, 1.5, -1.5, 2.5, -2.5, 3.5, 1e15 + 0.5, -1e15 - 0.5, 4.5e15, 0.49999999999999994, 2.5000000000000004, 1e300];
+        for k in -2000..2000 {
+            xs.push(k as f64 * 0.25);
+            xs.push(k as f64 * 0.1);
+        }
+        for x in xs {
+            assert_eq!(super::round_ties_even_core(x).to_bits(), x.round_ties_even().to_bits(), "x = {x:e}");
         }
     }
 }

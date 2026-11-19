@@ -61,6 +61,9 @@
 //! Nuclides without a table (fuel, O, clad) stay free-gas/CE. This makes a
 //! *thermal* LWR pin-cell tractable; see the `pincell` verification test.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::{SurfaceToken, TrackingMethod};
 use crate::physics::delta_tracking::handoff::{
     fly_delta_region, score_real_collision, FlightStart, RegionFlightEnd, StartBins,
@@ -92,9 +95,10 @@ use crate::physics::variance_reduction::{
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
 use crate::rng::openmc_seeding::{comb_resample_openmc, OpenMcRunLayout, SeedingMode};
+use crate::tally::history_events::{score_crossing, score_mesh_surface_segment, EventHistory};
 use crate::tally::scoring::{
     flush_batch, flush_bins, score_fission_birth, score_scatter_matrix, ScatterEmission,
-    score_track_length,
+    score_track_length_hist,
 };
 use crate::tally::tally::{Tally, TallyBin};
 use crate::mathf::RealMath;
@@ -306,7 +310,70 @@ pub fn run_keff_csg(
     settings: &KeffSettings,
     tally: Option<&mut Tally>,
 ) -> KeffResult {
-    run_keff_csg_inner(
+    // ~~Returned `k = 0 ± 0` when the fission bank died before the active
+    // generations.~~ **CORRECTED 2026-11-14 (GitHub #467):** that is now a
+    // panic carrying upstream's fatal message, as OpenMC aborts there
+    // (`synchronize_bank`, `src/eigenvalue.cpp:122`). Use
+    // [`try_run_keff_csg`] to get it as an error value instead.
+    try_run_keff_csg(geom, materials, nuclides, source_box, settings, tally)
+        .unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// The fission bank was empty before the requested generations completed
+/// (GitHub #467): OpenMC's `fatal_error("No fission sites banked ...")` in
+/// `synchronize_bank` (`src/eigenvalue.cpp:122`).
+#[derive(Debug, Clone)]
+pub struct EmptyFissionBank {
+    /// Generations that completed before the bank (or the initial source)
+    /// was empty.
+    pub generations_completed: usize,
+    /// Generations asked for, `n_inactive + n_active`.
+    pub generations_requested: usize,
+    /// The run as far as it got, for diagnosis. Its `k_mean` is NOT an
+    /// eigenvalue: it averages the active generations that ran, or is 0 when
+    /// none did.
+    pub partial: KeffResult,
+}
+
+impl core::fmt::Display for EmptyFissionBank {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "No fission sites banked: the fission bank was empty after {} of {} \
+             generations (OpenMC aborts here, src/eigenvalue.cpp:122; GitHub #467). \
+             The system is too subcritical, or too few histories were run, for a \
+             power iteration; run more particles per generation.",
+            self.generations_completed, self.generations_requested
+        )
+    }
+}
+
+impl core::error::Error for EmptyFissionBank {}
+
+/// [`run_keff_csg`], returning an empty fission bank as an error rather than
+/// a `k` (GitHub #467).
+///
+/// NEW WORK beside the kovan-reviewed drivers, which are closed to
+/// modification: the drivers stop on an empty bank and report what ran. A
+/// run stopped early for any other reason can only be its `k` trigger
+/// (`keff_trigger_met`); so a run with fewer generations than asked for and
+/// no trigger met had an empty bank (or an empty initial source).
+///
+/// A bank that empties in the LAST requested generation is detected too (see
+/// [`check_fission_bank_survived`]).
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`] as described.
+pub fn try_run_keff_csg(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let result = run_keff_csg_inner(
         geom,
         materials,
         nuclides,
@@ -315,7 +382,159 @@ pub fn run_keff_csg(
         source_box,
         settings,
         tally,
-    )
+    );
+    check_fission_bank_survived(settings, result)
+}
+
+/// [`run_keff_csg_seq`] returning an empty fission bank as an error rather
+/// than a partial result (GitHub #467, the entry points the first fix left).
+///
+/// NEW WORK beside the driver: same arguments, same run (so `Ok` is
+/// bit-identical to [`run_keff_csg_seq`]), then [`check_fission_bank_survived`].
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`], as [`try_run_keff_csg`].
+#[allow(clippy::too_many_arguments)]
+pub fn try_run_keff_csg_seq(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+    leak_edges: &[f64],
+    leak_bins: Option<&mut Vec<TallyBin>>,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let result = run_keff_csg_seq(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+        leak_edges,
+        leak_bins,
+    );
+    check_fission_bank_survived(settings, result)
+}
+
+/// [`run_keff_csg_par`] returning an empty fission bank as an error rather
+/// than a partial result (GitHub #467). See [`try_run_keff_csg_seq`].
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`], as [`try_run_keff_csg`].
+#[allow(clippy::too_many_arguments)]
+pub fn try_run_keff_csg_par(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+    leak_edges: &[f64],
+    leak_bins: Option<&mut Vec<TallyBin>>,
+    thread_count: ThreadCount,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let result = run_keff_csg_par(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+        leak_edges,
+        leak_bins,
+        thread_count,
+    );
+    check_fission_bank_survived(settings, result)
+}
+
+/// [`run_keff_csg_hybrid`] returning an empty fission bank as an error rather
+/// than a partial result (GitHub #467). See [`try_run_keff_csg_seq`].
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`], as [`try_run_keff_csg`].
+pub fn try_run_keff_csg_hybrid(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let result = run_keff_csg_hybrid(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+    );
+    check_fission_bank_survived(settings, result)
+}
+
+/// The check behind [`try_run_keff_csg`] and its `_seq` / `_par` / `_hybrid`
+/// siblings, on a finished run's result; use it directly on the result of a
+/// `_progress` driver.
+///
+/// A run is an empty-bank failure when
+///
+/// * it stopped before `n_inactive + n_active` generations without its `k`
+///   trigger being met (the drivers `break` on an empty bank), or
+/// * it ran all generations but the LAST banked nothing. That generation's
+///   `k` is then exactly `0.0` (`production / n_particles` with no site
+///   banked), where upstream still aborts in that generation's
+///   `synchronize_bank`. ~~Not detected~~ **CORRECTED 2026-11-14:** detected
+///   here, with `generations_completed` one short of the requested count.
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`] as described.
+pub fn check_fission_bank_survived(
+    settings: &KeffSettings,
+    result: KeffResult,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let requested = settings.n_inactive + settings.n_active;
+    let completed = result.k_by_generation.len();
+    if completed >= requested {
+        if requested > 0 && result.k_by_generation[requested - 1] == 0.0 {
+            return Err(EmptyFissionBank {
+                generations_completed: requested - 1,
+                generations_requested: requested,
+                partial: result,
+            });
+        }
+        return Ok(result);
+    }
+    let active_k: Vec<f64> = result
+        .k_by_generation
+        .iter()
+        .skip(settings.n_inactive)
+        .copied()
+        .collect();
+    if keff_trigger_met(settings, !active_k.is_empty(), &active_k) {
+        return Ok(result);
+    }
+    Err(EmptyFissionBank {
+        generations_completed: completed,
+        generations_requested: requested,
+        partial: result,
+    })
 }
 
 /// **One surface-tracked history, step by step** (gh:#784): the neutron at
@@ -343,6 +562,12 @@ pub fn trace_csg_history<O: FnMut(TraceEvent)>(
     seed: &mut u64,
     mut observe: O,
 ) -> f64 {
+    // Cell temperatures are the default (GitHub #313): see `run_keff_csg_par_progress`.
+    let bound = crate::material::cell_temperature::with_cell_temperatures(geom, materials);
+    let (geom, materials): (&Geometry, &[Material]) = match &bound {
+        Some((g, m)) => (g, m.as_slice()),
+        None => (geom, materials),
+    };
     let (mut bank, mut batch, mut leak_batch) = (Vec::new(), Vec::new(), Vec::new());
     transport_history_vr(
         Site::new(r, u, e),
@@ -677,6 +902,19 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
     mut leak_bins: Option<&mut Vec<TallyBin>>,
     on_generation: &mut G,
 ) -> KeffResult {
+    // Cell temperatures are the default (GitHub #313, 2026-11-14): a material
+    // cell whose declared temperature differs from its material's is pointed at
+    // a copy of that material at the cell's temperature, as OpenMC's per-cell
+    // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
+    // The majorants are widened over the rebound copies, so they bound what
+    // transport reads (GitHub #1577).
+    let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+        geom, materials, nuclides, majorants,
+    );
+    let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+        Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+        None => (geom, materials, majorants),
+    };
     let mut seed = settings.seed;
 
     let mut source = initial_source(
@@ -776,6 +1014,10 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
         // tally as one realization (mean/variance are over active generations).
         if active {
             if let Some(t) = tally.as_deref_mut() {
+                // Report-only per-batch log (GitHub #506): reads, draws nothing.
+                if let Some(log) = &settings.tally_batch_log {
+                    log.push(&batch);
+                }
                 flush_batch(t, &mut batch);
             }
             if let Some(lb) = leak_bins.as_deref_mut() {
@@ -1001,7 +1243,20 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     thread_count: ThreadCount,
     on_generation: &mut G,
 ) -> KeffResult {
-    #[cfg(target_arch = "wasm32")]
+    // Cell temperatures are the default (GitHub #313, 2026-11-14): a material
+    // cell whose declared temperature differs from its material's is pointed at
+    // a copy of that material at the cell's temperature, as OpenMC's per-cell
+    // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
+    // The majorants are widened over the rebound copies, so they bound what
+    // transport reads (GitHub #1577).
+    let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+        geom, materials, nuclides, majorants,
+    );
+    let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+        Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+        None => (geom, materials, majorants),
+    };
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par as rayon;
 
     let n_bins = tally.as_deref().map(|t| t.n_bins()).unwrap_or(0);
@@ -1107,6 +1362,10 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             // tally as one realization (mean/variance over active generations).
             if active {
                 if let Some(t) = tally.as_deref_mut() {
+                    // Report-only per-batch log (GitHub #506): reads, draws nothing.
+                    if let Some(log) = &settings.tally_batch_log {
+                        log.push(&batch);
+                    }
                     flush_batch(t, &mut batch);
                 }
                 if leak_this_gen {
@@ -1206,9 +1465,9 @@ pub(crate) fn transport_generation_par(
     leak_edges_gen: &[f64],
     extra: Option<&ExtraScoring>,
 ) -> Vec<ParChunk> {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par::prelude::*;
 
     let gen_base_seed = future_seed((generation as u64).wrapping_mul(GEN_STRIDE), run_seed);
@@ -1255,6 +1514,10 @@ pub(crate) fn transport_generation_par(
                     // hard-coded analog~~ until 2026-09-30: survival
                     // biasing and weight windows were silently dropped
                     // under `CpuMultiThread`.
+                    if let Some(x) = scratch.as_mut() {
+                        // Collision tracks (gh:#1392): OpenMC's particle id on one rank.
+                        x.begin_history(hist_idx as i64 + 1);
+                    }
                     let outcome = transport_history_vr_urr(
                         source[hist_idx],
                         geom,
@@ -1411,6 +1674,71 @@ fn record_track_state<O: FnMut(TraceEvent)>(
     observe(TraceEvent::State(state));
 }
 
+/// Collision tracks (gh:#1392): hand one collision to the bank in `extra`,
+/// in the identifiers OpenMC records (ids, not indices). Called only when a
+/// bank is attached; reads state and draws no random number.
+#[allow(clippy::too_many_arguments)]
+fn record_collision_track(
+    extra: &mut Option<&mut ExtraScoring>,
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    r: Position,
+    u: Direction,
+    e_last: f64,
+    e: f64,
+    time_s: f64,
+    wgt: f64,
+    event_mt: i32,
+    delayed_group: Option<usize>,
+    cell_idx: usize,
+    universe: usize,
+    m: usize,
+    nuclide_idx: usize,
+    n_collision: u64,
+    progeny: u64,
+) {
+    if let Some(x) = extra.as_deref_mut() {
+        x.record_collision(
+            crate::physics::collision_track::CollisionRecord {
+                r: [r.x, r.y, r.z],
+                u: [u.u, u.v, u.w],
+                e_last,
+                e,
+                time: time_s,
+                wgt,
+                event_mt,
+                delayed_group,
+                cell_id: geom.cells.get(cell_idx).map_or(0, |c| c.id),
+                universe_id: geom.universes.get(universe).map_or(0, |v| v.id),
+                material_id: materials.get(m).map_or(0, |v| v.id),
+                nuclide_idx,
+                n_collision,
+                progeny,
+            },
+            nuclides,
+        );
+    }
+}
+
+/// The ENDF MT a collision-track record carries for a reaction group
+/// (gh:#1392): OpenMC's `p.event_mt()` after `collision()`. A discrete
+/// inelastic level and an "other" channel overwrite it with their own MT at
+/// the collision site; 91 stands for the continuum.
+fn collision_track_group_mt(group: crate::physics::scatter::ReactionGroup) -> i32 {
+    use crate::physics::scatter::ReactionGroup as Rg;
+    match group {
+        Rg::Fission => 18,
+        Rg::Capture => 101,
+        Rg::Elastic => 2,
+        Rg::Inelastic(_) => 91,
+        Rg::N2n => 16,
+        Rg::N3n => 17,
+        Rg::Mt5 => 5,
+        Rg::Other => 0,
+    }
+}
+
 /// One weight-window checkpoint. Upstream has two,
 /// `weight_window_checkpoint_surface` and `weight_window_checkpoint_collision`;
 /// both call the same routine, so this is written once and called at both
@@ -1422,6 +1750,13 @@ fn record_track_state<O: FnMut(TraceEvent)>(
 /// it anywhere would double-count the weight the survivors already carry.
 /// On `Survived` / `Split` the weight `w` is updated in place; a split pushes
 /// `copies - 1` daughters onto `stack`.
+///
+/// `set_born_one` is true for the two call sites that go through upstream's
+/// `apply_weight_windows` (surface checkpoint and birth), which sets
+/// `wgt_ww_born = 1` when no valid window is found; the collision checkpoint
+/// calls `apply_weight_window` directly and does not (`physics.cpp:67-76`).
+/// Callers pass `VarianceReduction::weight_window_no_window_born_one` there
+/// (gh:#1582).
 #[allow(clippy::too_many_arguments)]
 fn weight_window_checkpoint(
     vr: &VarianceReduction,
@@ -1434,6 +1769,7 @@ fn weight_window_checkpoint(
     my_group: Option<usize>,
     time_s: f64,
     stack: &mut Vec<(Site, f64, Option<u64>, WindowState, f64)>,
+    set_born_one: bool,
 ) -> bool {
     /// Jump-ahead distance between a weight-window split child's stream and
     /// its parent's. `DEFAULT_STRIDE` is the per-particle stride the crate
@@ -1442,7 +1778,16 @@ fn weight_window_checkpoint(
     /// are of each other.
     const SPLIT_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
     if let Some(ww) = vr.weight_windows.as_ref() {
-        if let Some(window) = ww.look_up(r, e) {
+        let found = ww.look_up(r, e).filter(|w| w.is_valid());
+        if found.is_none() && ww_state.ww_born == -1.0 && set_born_one {
+            // `apply_weight_windows` (`weight_windows.cpp:965-967`): no valid
+            // window sets `wgt_ww_born = 1` while it is still unset. Skipped
+            // for a dead or zero-energy particle, as upstream (`:952`).
+            if e > 0.0 && *w > 0.0 {
+                ww_state.ww_born = 1.0;
+            }
+        }
+        if let Some(window) = found {
             match apply_window(window, ww_state, *w, seed) {
                 WindowOutcome::Unchanged => {}
                 WindowOutcome::Killed => return true,
@@ -1472,7 +1817,16 @@ fn weight_window_checkpoint(
                             // birth anchors, so the cascade is
                             // bounded and the window they see is
                             // the window the parent saw.
-                            *ww_state,
+                            WindowState {
+                                // Upstream's `split` does not bank
+                                // `ww_factor` (`particle.cpp:122-145`).
+                                ww_factor: if vr.weight_window_split_keeps_ww_factor {
+                                    ww_state.ww_factor
+                                } else {
+                                    0.0
+                                },
+                                ..*ww_state
+                            },
                             // A split daughter is the SAME particle
                             // continuing, so its clock is the
                             // parent's reading, not zero.
@@ -1615,6 +1969,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
 ) -> HistoryOutcome {
     // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
     let e_cap_fission = library_energy_max_ev(nuclides);
+    // Collision tracks (gh:#1392): off unless a bank rides in `extra`.
+    // Building a record draws no random number, so the history is the same.
+    let ct_on = extra.as_deref().is_some_and(ExtraScoring::records_collisions);
+    let ct_bank_start = next_bank.len();
+    let mut ct_pops: u64 = 0;
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
     let mut virtual_collisions: u64 = 0;
@@ -1755,7 +2114,13 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
     // 100k events is far beyond any physical history (mean ~tens of collisions).
     const MAX_EVENTS: u32 = 100_000;
 
+    // The first pop is the SOURCE particle; every later pop is a split
+    // daughter or an (n,2n) / multiplicity secondary, which upstream restores
+    // from the bank without a birth window (`is_secondary`,
+    // `simulation.cpp:757-761`).
+    let mut source_pop = true;
     while let Some((start, start_wgt, own_seed, start_ww, start_time)) = stack.pop() {
+        ct_pops += 1;
         time_s = start_time;
         // A newly popped particle keeps the history's URR stream as it stands
         // and draws its first bands at its own energy without advancing it,
@@ -1792,6 +2157,9 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
         let mut ww_state = start_ww;
         let w_birth = ww_state.weight_born;
         observe(TraceEvent::Start { r, u, e });
+        // Event-history state for the history-field tally filters (gh:#261,
+        // 2026-11-18): reads and tallies only, no random number, no decision.
+        let mut hist = EventHistory::at_birth(r);
 
         if let Some(t) = tracks.as_deref_mut() {
             // Unconditionally: `begin` is what counts a refused track, and
@@ -1810,6 +2178,32 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     event: TrackEvent::Born,
                 });
             }
+        }
+
+        // gh:#1582 item 2. Upstream sets `wgt_ww_born = -1` and plays the window
+        // game on a source particle BEFORE its first flight
+        // (`initialize_history`, `simulation.cpp:757-761`), so `ww_born`
+        // anchors at the source, not at the first surface or collision. A
+        // secondary or daughter keeps the anchors it was banked with.
+        if core::mem::take(&mut source_pop)
+            && vr.weight_window_at_birth
+            && vr.weight_windows.is_some()
+            && weight_window_checkpoint(
+                vr,
+                r,
+                u,
+                e,
+                &mut w,
+                &mut ww_state,
+                seed,
+                my_group,
+                time_s,
+                &mut stack,
+                vr.weight_window_no_window_born_one,
+            )
+        {
+            record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, usize::MAX, None);
+            continue;
         }
 
         'history: loop {
@@ -1849,6 +2243,10 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
             // what is being tallied.
             let cell_instance =
                 distribcell.and_then(|d| d.instance_of(geom, &path.levels));
+            // The flight's start, kept for the crossing and mesh-surface
+            // scores (gh:#261); `r` is advanced to the flight's end below.
+            let r_flight = r;
+            hist.located(cell_idx, path.material);
 
             // Advance the URR stream once the energy has changed since the
             // bands were last drawn (a collision changed it). The first flight
@@ -2007,21 +2405,36 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         // representative point of the free flight (constant
                         // energy, single cell over the segment).
                         let mid = stream(r, u, 0.5 * seg);
+                        // The surface this flight ends on, for a mesh-surface tally.
+                        let ends_on = match d_bound.crossing {
+                            Crossing::Surface(i) => Some(i),
+                            Crossing::Lattice | Crossing::None => None,
+                        };
+                        let collides = d_col < d_bound.distance;
                         if let Some(t) = tally {
-                            score_track_length(
+                            score_track_length_hist(
                                 batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
                                 mxs.as_ref(), w, cell_instance,
                                 // Clock at the START of this segment: the flight
                                 // has not been added yet at this point.
                                 time_s,
                                 u,
+                                &hist,
+                            );
+                            score_mesh_surface_segment(
+                                batch, t, geom, &hist, cell_idx, e, w, ends_on, collides,
+                                r_flight, u, seg,
                             );
                         }
                         if let Some(x) = extra.as_deref_mut() {
                             x.each_tally(|t, batch| {
-                                score_track_length(
+                                score_track_length_hist(
                                     batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
-                                    mxs.as_ref(), w, cell_instance, time_s, u,
+                                    mxs.as_ref(), w, cell_instance, time_s, u, &hist,
+                                );
+                                score_mesh_surface_segment(
+                                    batch, t, geom, &hist, cell_idx, e, w, ends_on, collides,
+                                    r_flight, u, seg,
                                 );
                             });
                         }
@@ -2061,6 +2474,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
 
             if d_col < d_bound.distance {
                 collisions += 1;
+                hist.collided();
                 // ── Collision ──────────────────────────────────────────────
                 time_s += flight_time(d_col, e);
                 r = stream(r, u, d_col);
@@ -2095,6 +2509,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                 let mat_temp = material.temperature;
                 let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
                 let nuc_idx = material.components[ci].nuclide_idx;
+                let ct_e_last = e;
                 observe(TraceEvent::Collision {
                     r,
                     material: m,
@@ -2231,6 +2646,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     xi,
                 );
                 use crate::physics::scatter::ReactionGroup as Rg;
+                let mut ct_mt = collision_track_group_mt(group);
                 if group == Rg::Fission {
                     let nu_bar = if x.fission > 0.0 {
                         x.nu_fission / x.fission
@@ -2307,10 +2723,24 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     }
                     ends.record_fission_end(e);
                     record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Fission, cell_idx, Some(m));
+                    if ct_on {
+                        let progeny = (next_bank.len() - ct_bank_start) as u64 + ct_pops - 1 + stack.len() as u64;
+                        record_collision_track(
+                            &mut extra, geom, materials, nuclides, r, u, ct_e_last, e, time_s, 0.0, ct_mt,
+                            my_group, cell_idx, leaf.universe, m, nuc_idx, collisions, progeny,
+                        );
+                    }
                     break 'history; // fission absorbs the incident neutron
                 } else if group == Rg::Capture {
                     ends.record_capture();
                     record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Absorption, cell_idx, Some(m));
+                    if ct_on {
+                        let progeny = (next_bank.len() - ct_bank_start) as u64 + ct_pops - 1 + stack.len() as u64;
+                        record_collision_track(
+                            &mut extra, geom, materials, nuclides, r, u, ct_e_last, e, time_s, 0.0, ct_mt,
+                            my_group, cell_idx, leaf.universe, m, nuc_idx, collisions, progeny,
+                        );
+                    }
                     break 'history; // capture
                 } else if let Rg::Inelastic(level_cutoff) = group {
                     let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
@@ -2320,6 +2750,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         // collision isotropically understates <mu>, inflating
                         // Sigma_tr, suppressing leakage and raising k.
                         Inelastic::Level { q, mt } => {
+                            ct_mt = mt as i32;
                             nuc.sample_level_inelastic_scatter(mt, q, e, u, seed)
                         }
                         Inelastic::Continuum { q } => {
@@ -2586,6 +3017,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // before this they fell through to ELASTIC and lost their
                     // extra neutrons. Kept in lockstep with the MT=5 arm above.
                     let o = nuc.sample_other_emission(e, u, seed);
+                    ct_mt = o.mt;
                     if o.n_emit == 0 {
                         break;
                     }
@@ -2653,6 +3085,13 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     u = u2;
                 }
                 record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Scatter, cell_idx, Some(m));
+                if ct_on {
+                    let progeny = (next_bank.len() - ct_bank_start) as u64 + ct_pops - 1 + stack.len() as u64;
+                    record_collision_track(
+                        &mut extra, geom, materials, nuclides, r, u, ct_e_last, e, time_s, w, ct_mt,
+                        my_group, cell_idx, leaf.universe, m, nuc_idx, collisions, progeny,
+                    );
+                }
                 // `weight_window_checkpoint_collision` — AFTER the outgoing
                 // energy is set, because the window is resolved in energy and
                 // the particle's importance is that of where it is going, not
@@ -2668,12 +3107,14 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     my_group,
                     time_s,
                     &mut stack,
+                    false,
                 ) {
                     record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, cell_idx, Some(m));
                     break 'history;
                 }
             } else {
                 // ── Boundary crossing ──────────────────────────────────────
+                hist.crossed_boundary();
                 path_cm += d_bound.distance;
                 time_s += flight_time(d_bound.distance, e);
                 r = stream(r, u, d_bound.distance);
@@ -2710,6 +3151,25 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         }
                         let crossed =
                             geom.cross_surface_in_frame(i_surf, &path, d_bound.coord_level, r, u, seed);
+                        // Surface-current scores (gh:#261): taken before the
+                        // state changes, with the pre-crossing direction, as
+                        // `score_surface_tally` does.
+                        if let Some(t) = tally {
+                            score_crossing(
+                                batch, t, geom, &path.levels, &hist, cell_idx, leaf.universe,
+                                e, w, i_surf, r_flight, u, d_bound.distance, !crossed.alive,
+                                cell_instance,
+                            );
+                        }
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.each_tally(|t, batch| {
+                                score_crossing(
+                                    batch, t, geom, &path.levels, &hist, cell_idx,
+                                    leaf.universe, e, w, i_surf, r_flight, u, d_bound.distance,
+                                    !crossed.alive, cell_instance,
+                                );
+                            });
+                        }
                         if !crossed.alive {
                             // Vacuum leak — `e` is the true escape energy
                             // (unchanged since the last collision).
@@ -2744,7 +3204,8 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             }
                         }
                         // `weight_window_checkpoint_surface`.
-                        if weight_window_checkpoint(
+                        if vr.weight_window_checkpoint_surface
+                            && weight_window_checkpoint(
                             vr,
                             r,
                             u,
@@ -2755,6 +3216,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             my_group,
                             time_s,
                             &mut stack,
+                            vr.weight_window_no_window_born_one,
                         ) {
                             record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Rouletted, cell_idx, path.material);
                             break 'history;
@@ -3459,6 +3921,10 @@ pub struct ExtraScoring {
     leak_edges: Vec<Vec<f64>>,
     leak_bins: Vec<Vec<TallyBin>>,
     leak_batches: Vec<Vec<f64>>,
+    /// Collision tracks (gh:#1392). `None` unless
+    /// [`Self::with_collision_track`] was called, which is every run before
+    /// it: nothing recorded, nothing drawn.
+    collision_track: Option<crate::physics::collision_track::CollisionTrackBank>,
 }
 
 impl ExtraScoring {
@@ -3522,8 +3988,65 @@ impl ExtraScoring {
         &self.leak_batches[i]
     }
 
+    /// **Record collision tracks** (OpenMC's `<collision_track>`, gh:#1392):
+    /// the CSG kernel hands every surface-tracked collision to a
+    /// [`crate::physics::collision_track::CollisionTrackBank`] under `config`.
+    /// Recording draws no random number, so the histories are those of a run
+    /// without it, bit for bit. [`Self::flush`] keeps an active generation's
+    /// records and [`Self::discard`] drops an inactive one's.
+    pub fn with_collision_track(
+        mut self,
+        config: crate::physics::collision_track::CollisionTrackConfig,
+    ) -> Self {
+        self.collision_track = Some(crate::physics::collision_track::CollisionTrackBank::new(config));
+        self
+    }
+
+    /// The collision-track bank, when recording.
+    pub fn collision_track(&self) -> Option<&crate::physics::collision_track::CollisionTrackBank> {
+        self.collision_track.as_ref()
+    }
+
+    /// The collision-track bank, mutably (to call
+    /// [`crate::physics::collision_track::CollisionTrackBank::flush_bank`] at a
+    /// batch end).
+    pub fn collision_track_mut(
+        &mut self,
+    ) -> Option<&mut crate::physics::collision_track::CollisionTrackBank> {
+        self.collision_track.as_mut()
+    }
+
+    /// Whether collisions are recorded at all.
+    #[inline]
+    pub(crate) fn records_collisions(&self) -> bool {
+        self.collision_track.is_some()
+    }
+
+    /// The particle id the next history's records carry.
+    #[inline]
+    pub(crate) fn begin_history(&mut self, id: i64) {
+        if let Some(b) = self.collision_track.as_mut() {
+            b.begin_history(id);
+        }
+    }
+
+    /// Hand one collision to the bank, if recording.
+    #[inline]
+    pub(crate) fn record_collision(
+        &mut self,
+        rec: crate::physics::collision_track::CollisionRecord,
+        nuclides: &[Nuclide],
+    ) {
+        if let Some(b) = self.collision_track.as_mut() {
+            b.record(rec, nuclides);
+        }
+    }
+
     /// Close the generation as one realization of every tally and grid.
     pub fn flush(&mut self) {
+        if let Some(b) = self.collision_track.as_mut() {
+            b.flush_generation();
+        }
         for (t, b) in self.tallies.iter_mut().zip(self.batches.iter_mut()) {
             flush_batch(t, b);
         }
@@ -3534,6 +4057,9 @@ impl ExtraScoring {
 
     /// Drop the generation's scores (an inactive generation).
     pub fn discard(&mut self) {
+        if let Some(b) = self.collision_track.as_mut() {
+            b.discard_generation();
+        }
         for b in self.batches.iter_mut().chain(self.leak_batches.iter_mut()) {
             b.iter_mut().for_each(|x| *x = 0.0);
         }
@@ -3567,11 +4093,18 @@ impl ExtraScoring {
                 .iter()
                 .map(|b| vec![0.0; b.len()])
                 .collect(),
+            collision_track: self
+                .collision_track
+                .as_ref()
+                .map(crate::physics::collision_track::CollisionTrackBank::scratch),
         }
     }
 
     /// Add a [`Self::scratch`]'s batches into this generation's batches.
     pub(crate) fn absorb(&mut self, chunk: &Self) {
+        if let (Some(b), Some(c)) = (self.collision_track.as_mut(), chunk.collision_track.as_ref()) {
+            b.absorb(c);
+        }
         for (b, c) in self.batches.iter_mut().zip(&chunk.batches) {
             for (x, y) in b.iter_mut().zip(c) {
                 *x += y;
@@ -3693,6 +4226,19 @@ impl CsgPowerIteration {
         if self.finished {
             return None;
         }
+        // Cell temperatures are the default (GitHub #313, 2026-11-14): a material
+        // cell whose declared temperature differs from its material's is pointed at
+        // a copy of that material at the cell's temperature, as OpenMC's per-cell
+        // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
+        // The majorants are widened over the rebound copies, so they bound what
+        // transport reads (GitHub #1577).
+        let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+            geom, materials, nuclides, &self.majorants,
+        );
+        let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+            Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+            None => (geom, materials, &self.majorants),
+        };
         let n = self.settings.n_particles;
         let mut next_bank: Vec<Site> = Vec::with_capacity(n);
         let mut next_lineage: Vec<IfpLineage> = Vec::new();
@@ -3716,12 +4262,16 @@ impl CsgPowerIteration {
                 None => self.seed,
             };
             let urr_start = openmc.map(|(_, urr)| urr);
+            if let Some(x) = extra.as_deref_mut() {
+                // Collision tracks (gh:#1392): OpenMC's particle id on one rank.
+                x.begin_history(i as i64 + 1);
+            }
             let outcome = transport_history_vr_urr(
                 *site,
                 geom,
                 materials,
                 nuclides,
-                &self.majorants,
+                majorants,
                 self.k_running,
                 &mut next_bank,
                 &mut hseed,
@@ -3797,12 +4347,25 @@ impl CsgPowerIteration {
         if self.finished {
             return None;
         }
+        // Cell temperatures are the default (GitHub #313, 2026-11-14): a material
+        // cell whose declared temperature differs from its material's is pointed at
+        // a copy of that material at the cell's temperature, as OpenMC's per-cell
+        // `sqrtkT`. `Geometry::without_cell_temperatures` is the ablation.
+        // The majorants are widened over the rebound copies, so they bound what
+        // transport reads (GitHub #1577).
+        let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+            geom, materials, nuclides, &self.majorants,
+        );
+        let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+            Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+            None => (geom, materials, &self.majorants),
+        };
         let chunks = transport_generation_par(
             &self.source,
             geom,
             materials,
             nuclides,
-            &self.majorants,
+            majorants,
             self.k_running,
             self.settings.seed,
             self.generation,
@@ -4121,7 +4684,7 @@ mod scored_step_tests {
     /// grids and IFP attached, `k` is unchanged and every tally bin, leak
     /// bin and IFP score is equal bit for bit between 1 and 4 threads. A
     /// population change mid-run is also thread-count independent.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     #[test]
     fn step_par_matches_run_keff_csg_par_on_any_pool() {
         let (g, m, n) = godiva_core();
@@ -4168,7 +4731,7 @@ mod scored_step_tests {
         }
         // Not the single-thread streams: a different estimate.
         let mut seq = CsgPowerIteration::new(&g, &m, &n, sb, &s);
-        let k_seq: Vec<f64> = std::iter::from_fn(|| seq.step(&g, &m, &n).map(|r| r.k)).collect();
+        let k_seq: Vec<f64> = core::iter::from_fn(|| seq.step(&g, &m, &n).map(|r| r.k)).collect();
         assert_ne!(k_seq, reference.k_by_generation);
 
         // Diagnostics and a population change, 1 against 4 threads.
@@ -4216,5 +4779,116 @@ mod scored_step_tests {
             tot1.iter().map(|t| t.histories).sum::<u64>(),
             300 * 4 + 450 * 4
         );
+    }
+}
+
+/// gh:#1582: the checkpoint-level parity knobs, reached through
+/// `weight_window_checkpoint`. The end-to-end birth anchor is exercised in
+/// `tests/variance_reduction_parallel_and_weighted_fission.rs`.
+#[cfg(test)]
+mod weight_window_parity_tests {
+    use super::*;
+    use crate::physics::weight_windows::WeightWindows;
+    use crate::tally::mesh::RegularMesh;
+
+    fn windows(max_lb_ratio: f64) -> WeightWindows {
+        let mesh = RegularMesh {
+            lower_left: [0.0, 0.0, 0.0],
+            upper_right: [1.0, 1.0, 1.0],
+            dimension: [1, 1, 1],
+        };
+        // The one cell has a valid window only above 1 MeV; below it the
+        // lower bound is -1, i.e. "no window here".
+        let mut ww = WeightWindows::new(
+            mesh,
+            vec![0.0, 1.0e6, 2.0e7],
+            vec![-1.0, 0.25],
+            vec![-1.0, 1.0],
+        )
+        .unwrap();
+        ww.max_lb_ratio = max_lb_ratio;
+        ww
+    }
+
+    fn call(
+        vr: &VarianceReduction,
+        e: f64,
+        w: &mut f64,
+        st: &mut WindowState,
+        stack: &mut Vec<(Site, f64, Option<u64>, WindowState, f64)>,
+        born_one: bool,
+    ) -> bool {
+        let mut seed = 7u64;
+        weight_window_checkpoint(
+            vr,
+            Position::new(0.5, 0.5, 0.5),
+            Direction::new(0.0, 0.0, 1.0),
+            e,
+            w,
+            st,
+            &mut seed,
+            None,
+            0.0,
+            stack,
+            born_one,
+        )
+    }
+
+    /// Item 4: no valid window sets `ww_born = 1` where upstream goes through
+    /// `apply_weight_windows` (surface, birth) and not at the collision
+    /// checkpoint, only while `ww_born` is still unset, and a window-less call
+    /// afterwards leaves that anchor alone.
+    #[test]
+    fn a_window_less_checkpoint_sets_ww_born_to_one_only_where_upstream_does() {
+        let vr = VarianceReduction::default().with_weight_windows(windows(1.0));
+        let mut stack = Vec::new();
+        // Collision call (born_one = false): untouched.
+        let mut st = WindowState::default();
+        let mut w = 1.0;
+        assert!(!call(&vr, 1.0e5, &mut w, &mut st, &mut stack, false));
+        assert_eq!(st.ww_born, -1.0);
+        // Surface / birth call: anchored at 1.
+        assert!(!call(&vr, 1.0e5, &mut w, &mut st, &mut stack, true));
+        assert_eq!(st.ww_born, 1.0);
+        // Already anchored: a later window-less call does not move it.
+        st.ww_born = 0.625;
+        assert!(!call(&vr, 1.0e5, &mut w, &mut st, &mut stack, true));
+        assert_eq!(st.ww_born, 0.625);
+        // An out-of-energy-range call is also "no window".
+        let mut st = WindowState::default();
+        assert!(!call(&vr, 3.0e7, &mut w, &mut st, &mut stack, true));
+        assert_eq!(st.ww_born, 1.0);
+        // A dead particle is skipped, as `apply_weight_windows` does.
+        let mut st = WindowState::default();
+        let mut dead = 0.0;
+        assert!(!call(&vr, 1.0e5, &mut dead, &mut st, &mut stack, true));
+        assert_eq!(st.ww_born, -1.0);
+        assert!(stack.is_empty());
+    }
+
+    /// Item 3: a split daughter does not carry `ww_factor` (upstream's
+    /// `Particle::split`), unless the legacy knob asks for it; the parent
+    /// keeps its own factor, and `ww_born` / `n_split` are inherited either way.
+    #[test]
+    fn a_split_daughter_does_not_inherit_ww_factor_unless_asked() {
+        for keeps in [false, true] {
+            let vr = VarianceReduction::default()
+                .with_weight_windows(windows(2.0))
+                .with_weight_window_split_keeps_ww_factor(keeps);
+            let mut stack = Vec::new();
+            // A factor set earlier in the history (2.0) scales the window to
+            // [0.8, 3.2]; weight 10 is still above it, so the particle splits.
+            let mut st = WindowState { ww_born: 0.625, ww_factor: 2.0, ..WindowState::default() };
+            let mut w = 10.0;
+            assert!(!call(&vr, 5.0e6, &mut w, &mut st, &mut stack, true));
+            assert!(st.ww_factor > 1.0, "the parent keeps its factor");
+            assert!(!stack.is_empty(), "the particle must split");
+            for (_, dw, _, dst, _) in &stack {
+                assert_eq!(dst.ww_factor, if keeps { st.ww_factor } else { 0.0 });
+                assert_eq!(dst.ww_born, st.ww_born);
+                assert_eq!(dst.n_split, st.n_split);
+                assert_eq!(*dw, w, "every copy carries the same weight");
+            }
+        }
     }
 }

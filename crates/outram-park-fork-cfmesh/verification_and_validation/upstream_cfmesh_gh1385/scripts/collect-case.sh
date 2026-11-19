@@ -3,7 +3,7 @@
 # into the V&V folder runs/<name>/.
 name=$1
 R=/home/user/upstream-build/runs/$name
-V=/home/user/outram-park-backend/crates/outram-park-fork-cfmesh/verification_and_validation/upstream_cfmesh_gh1385/runs/$name
+V=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/runs/$name
 rm -rf "$V"; mkdir -p "$V/constant/polyMesh" "$V/system"
 cp "$R"/system/meshDict "$R"/system/controlDict "$V/system/"
 for f in "$R"/constant/polyMesh/*; do

@@ -11,6 +11,10 @@
 //! and the binary RESXS writer are not ported, so [`run`] returns
 //! [`NjoyError::NotPorted`] rather than fabricating an output file.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::io::Write;
 
 use crate::endf::records::SectionCursor;
@@ -125,6 +129,7 @@ fn read_pendf_temperature_blocks(
     Ok(blocks)
 }
 
+#[cfg(feature = "std")]
 /// Functional RESXSR driver: read each material's PENDF tape, assemble + thin the
 /// resonance cross sections, and write a RESXS file to `out`
 /// (`resxsr.f90:250-501`).
@@ -279,6 +284,7 @@ mod tests {
     /// **Result (2026-07-15, commit ac5adf5).** One material `u238`, `nreac == 2`,
     /// recovered energies span `[4, 200]` eV, `ivers == 1`, and the file-control
     /// `nmat == 1`.
+    #[cfg(feature = "std")]
     #[test]
     fn run_resxs_roundtrips() {
         use crate::endf::tape::{Section, Tape};

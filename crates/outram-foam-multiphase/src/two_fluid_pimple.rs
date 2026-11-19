@@ -94,6 +94,16 @@
 //! oscillation; the flux reconstruction is clean, giving exact `U_k = 0` for the
 //! at-rest and hydrostatic balances.
 //!
+//! ## ESI v2506 form (gh:#1363 row 5)
+//!
+//! This dev form is NOT the algorithm of ESI v2506 `twoPhaseEulerFoam` (alpha
+//! advanced last, a momentum solve with `grad p`, explicit drag split, no
+//! `H()` off-diagonal terms): against the real solver on a closed bubble
+//! cloud it differs by 46 % in `U.air` at step 1 (dt = 1e-3 s) and 23 % /
+//! 75 % (`U.air` / `U.water`) at step 10. [`crate::two_fluid_pimple_esi`] is a
+//! translation of ESI's step that agrees with it to about 1e-12 of the field
+//! peak. This dev form is unchanged and stays callable.
+//!
 //! ## Honest scope — what is **NOT** modelled here
 //!
 //! This is a **tested foundation**, not a validated or converged coupled
@@ -141,6 +151,9 @@
 //! against experimental or reference-solver data. Nothing here is validated
 //! multiphase CFD and it must not be described as such.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::two_fluid::{DragModel, TwoFluidSystem};
 use crate::MultiphaseError;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
@@ -148,7 +161,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMesh, PatchField, SolverSettings, SurfaceScalarField, Vector3, VolScalarField,
     VolVectorField,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 use uom::si::kinematic_viscosity::square_meter_per_second;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 

@@ -54,6 +54,9 @@
 //!   copy-on-write sense — the local copy only, but it means the crod table's
 //!   own `ref` field is ignored and forced to zero. Reproduced.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::BedokError;
 use crate::fixnegativematrix::fixnegativematrix_dense;
 use crate::handle3dcoords::handle3dcoords;

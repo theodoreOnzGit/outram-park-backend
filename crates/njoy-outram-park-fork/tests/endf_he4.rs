@@ -9,6 +9,9 @@
 //! cargo test -p njoy-outram-park-fork --release -- --include-ignored
 //! ```
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::fs::File;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::endf::records::SectionCursor;

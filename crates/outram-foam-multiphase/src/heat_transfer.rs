@@ -100,6 +100,9 @@
 //! `W/(m³·K)` for the result — because a 1-D system-code march calls it once
 //! per cell per step.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, ThermalConductivity};
 use uom::si::length::meter;

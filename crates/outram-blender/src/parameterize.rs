@@ -67,6 +67,9 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::laplacian::{
     edge_weights_from, factor_spd_lower, mesh_triangles, solve_columns, LaplacianWeighting,
@@ -74,8 +77,8 @@ use crate::laplacian::{
 };
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::HashMap;
-use std::f64::consts::PI;
+use crate::hash::HashMap;
+use core::f64::consts::PI;
 
 /// The convex boundary shape the mesh's border is pinned to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

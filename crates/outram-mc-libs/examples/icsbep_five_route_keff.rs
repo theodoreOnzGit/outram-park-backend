@@ -136,6 +136,7 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
@@ -232,19 +233,17 @@ struct Case {
 
 fn case(name: &str) -> Case {
     match name {
-        // godiva_keff_endf_local.rs: HEU-MET-FAST-001, r = 8.7407 cm.
+        // godiva_keff_endf_local.rs: HEU-MET-FAST-001, r = 8.7407 cm, from
+        // `vv::godiva` (this example's identical copy removed 2026-11-18,
+        // gh:#1647; nuclide indices still come from `TAPES` by name).
         "godiva" => Case {
             materials: vec![(
                 "Godiva HEU",
-                vec![
-                    ("U234", 4.9184e-4),
-                    ("U235", 4.4994e-2),
-                    ("U238", 2.4984e-3),
-                ],
+                vv::godiva::NUCLIDES.iter().map(|&(n, _, d)| (n, d)).collect(),
             )],
             sab_on_h1: false,
             sab_graphite: false,
-            model: Model::Sphere(8.7407),
+            model: Model::Sphere(vv::godiva::RADIUS_CM),
             defaults: (5000, 40, 120),
         },
         // IEU-MET-FAST-002, four-cell cylinder: `vv::jemima`, the model
@@ -977,26 +976,15 @@ fn main() {
     } else {
         sab
     };
-    if let Some(s) = sab {
-        let i = names
-            .iter()
-            .position(|n| *n == "H1")
-            .expect("S(a,b) needs H1 in the case");
-        let h = nuclides.remove(i);
-        nuclides.insert(i, h.with_thermal_scattering(s));
-    }
-    // Reactor graphite (30P) on C-12 and C-13, LEAPR at the run temperature
-    // (route 4 only; the ACE routes refuse this case above). `--no-sab`
-    // ablates it as it ablates H(H2O).
-    if c.sab_graphite && !args.iter().any(|a| a == "--no-sab") {
-        let law = graphite_from_leapr();
-        for carbon in ["C12", "C13"] {
-            if let Some(i) = names.iter().position(|n| *n == carbon) {
-                let nuc = nuclides.remove(i);
-                nuclides.insert(i, nuc.with_thermal_scattering(law.clone()));
-            }
-        }
-    }
+    // S(a,b) is attached per material once the materials exist (gh:#462,
+    // #1581): H(H2O) to every material that holds H-1, and (msre) reactor
+    // graphite (30P) to every material that holds C-12 / C-13, LEAPR at the
+    // run temperature (route 4 only; the ACE routes refuse this case above).
+    // `--no-sab` ablates both, as before. The nuclide array holds both free
+    // until then, so the `--ablate` switches below see the same nuclides.
+    let sab_law: Option<ThermalScattering> = sab;
+    let graphite_law = (c.sab_graphite && !args.iter().any(|a| a == "--no-sab"))
+        .then(graphite_from_leapr);
     // `--ablate a,b` (diagnostic): explicit, visible ablations applied to every
     // nuclide, for localising a route difference. Recorded in the CSV `route`
     // label by the caller; the campaign itself never passes this flag.
@@ -1082,6 +1070,38 @@ fn main() {
         })
         .collect();
 
+    // Per-material S(a,b), as OpenMC does (gh:#462, #1581). Audited
+    // 2026-11-14: H-1 is in the water (lct008), the solution and the water
+    // reflector (hst009; the tank holds none); C-12/C-13 are in the msre
+    // graphite only (the fuel salt holds no carbon). No free material
+    // references a bound copy.
+    let n_loaded = nuclides.len();
+    let (materials, nuclides) = {
+        let mut tables: Vec<ThermalScattering> = Vec::new();
+        let mut entries: Vec<MaterialSab> = Vec::new();
+        if let Some(law) = sab_law {
+            let ti = tables.len();
+            entries.extend(MaterialSab::for_materials_containing(&materials, idx("H1"), ti, &[]));
+            tables.push(law);
+        }
+        if let Some(law) = graphite_law {
+            let ti = tables.len();
+            for carbon in ["C12", "C13"] {
+                if names.iter().any(|n| *n == carbon) {
+                    entries.extend(MaterialSab::for_materials_containing(
+                        &materials,
+                        idx(carbon),
+                        ti,
+                        &[],
+                    ));
+                }
+            }
+            tables.push(law);
+        }
+        assign_material_sab(&materials, &nuclides, &tables, &entries)
+            .expect("S(a,b) per material")
+    };
+
     let base = KeffSettings {
         n_particles: np,
         n_inactive: ni,
@@ -1125,7 +1145,7 @@ fn main() {
             "{case_label},{label},outram-mc,{seed},{:.6},{:.6},{np},{ni},{na},{threads},{wall:.1},{load_s:.1},{},{n_urr},{n_dbrc},{},{commit},",
             r.k_mean,
             r.k_std,
-            nuclides.len(),
+            n_loaded,
             c.sab_on_h1 || c.sab_graphite
         )
         .expect("csv row");
@@ -1222,10 +1242,14 @@ mod draw_tests {
         assert_eq!(case_label("lct008", true), "lct008");
         assert_eq!(case_label("hst009", false), "hst009");
         let summary = include_str!("../verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv");
-        // The full model's own route-1 row (2026-10-14, 8 seeds), never the
-        // 11-nuclide one.
+        // The full model's own route-1 row, never the 11-nuclide one.
+        // ~~(2026-10-14, 8 seeds): (1.001682, 0.000227)~~ **RE-PINNED
+        // 2026-11-18 (gh:#1647):** the row was re-run at 32 seeds on
+        // 2026-10-15 (a084bdf62) and this pin was not moved with it; the
+        // CSV has read (1.001606, 0.000128) since. A data refresh, not a
+        // code change.
         let (k, sem) = route1_reference(summary, "lct008-full").expect("lct008-full route 1");
-        assert_eq!((k, sem), (1.001682, 0.000227));
+        assert_eq!((k, sem), (1.001606, 0.000128));
         assert_ne!(route1_reference(summary, "lct008").unwrap().0, k);
         // Run size by default: 10 000 × [40 + 120] since 2026-10-15
         // (maintainer direction), the other cases 5000 × [40 + 120].
@@ -1253,6 +1277,9 @@ mod draw_tests {
             SurfaceKind::Sphere(s) => assert!((s.r - 8.7407).abs() < 1e-12),
             _ => panic!("Godiva is drawn as a sphere"),
         }
-        assert_eq!(SLICES.len(), 6);
+        // ~~6~~ **RE-PINNED 2026-11-18 (gh:#1647):** 7 since the MSRE
+        // stringer-cell slice was added (3e9a239f2); this pin was not moved
+        // with it.
+        assert_eq!(SLICES.len(), 7);
     }
 }

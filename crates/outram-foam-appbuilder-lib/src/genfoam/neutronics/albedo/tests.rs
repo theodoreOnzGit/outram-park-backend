@@ -5,11 +5,14 @@
 
 //! Unit tests for the albedo (Robin) boundary condition.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use outram_foam_basic_lib::fv_operators::fvm::DeltaCoeff;
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// A uniform 1-D bar of `n` cells over `[0, L]`, unit cross-section, with the
 /// `right` (x = L) patch first and `left` (x = 0) second — the patch ordering

@@ -47,6 +47,9 @@
 //!   use MIXR's default seeds (`mixr.f90:147-149`) rather than being read back
 //!   from the first input's MF=1 header.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::interp::eval_tab1;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::{Section, Tape};
@@ -655,6 +658,7 @@ mod tests {
 
     // ----- end-to-end tape assembly + round-trip ------------------------
 
+    #[cfg(feature = "std")]
     #[test]
     fn mix_produces_roundtrippable_tape() {
         // Methodology: the full engine builds a Tape with MF=1/451 + MF=3, and

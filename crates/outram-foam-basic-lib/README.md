@@ -31,6 +31,19 @@ tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics,
 fields, mesh, FV operators, and fluid/solid thermodynamics needed to build
 compressible and conjugate-heat-transfer CFD solvers.
 
+## `no_std` + `alloc` (gh:#1586)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check -p outram-foam-basic-lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Everything numerical stays: meshes,
+fields, the finite-volume operators, the LDU and Krylov solvers, ODEs,
+thermophysics, radiation, the `FoamFile` dictionary parser. `std` carries
+what needs an operating system: reading and writing case files (`io`'s
+`read_*` / `write_*`, `io::case`), wall-clock timing, the thread-count and
+GPU probes. `parallel`, `gpu` and `blas-bench` imply `std`. With `std` on
+(the default) nothing changes.
+
 ## Quick start
 
 ```toml
@@ -125,9 +138,11 @@ reference implementation the other backends are verified against.
 | `ode` | `Euler`, `Rkf45`, `Rosenbrock23` | Adaptive explicit (RKF45) and stiff (W-method) solvers; `OdeSystem` trait |
 | `ode::integrator` | `OdeSolver`, `OdeIntegrator`, `TypedStateIntegrator`, `DynSystemIntegrator`, `SharedOdeSystem`, `NoTypedSystem` | No C++ counterpart — replaces OpenFOAM's `ODESolver::New` runtime-selection table. Enum dispatch over stepper choice *and* over how the system is owned: `TypedState` (concrete system by value, static dispatch, preferred) or `DynSystem` (`Arc<dyn OdeSystem + Send + Sync>`, kept by maintainer decision for flexibility). Neither borrows, so an integrator is storable as a struct field with no lifetime parameter. |
 | `interpolation` | `interpolate_xy`, `interpolate_spline_xy` | Linear and Catmull-Rom cubic 1-D |
-| `thermophysics::eos` | `PerfectGas`, `RhoConst`, `IcoPolynomial<N>`, `PengRobinsonGas` | `EquationOfState` trait; ρ, ψ, Z, departure functions |
-| `thermophysics::thermo` | `HConstThermo`, `JanafThermo`, `HPolynomialThermo<N>`, `HTabulatedThermo` | `ThermoModel` trait; Cp, Ha, Hs, S; Newton T(H) iteration |
-| `thermophysics::transport` | `ConstTransport`, `SutherlandTransport`, `PolynomialTransport<N>`, `TabulatedTransport` | `TransportModel` trait; μ, κ |
+| `thermophysics::eos` | `PerfectGas`, `RhoConst`, `IcoPolynomial<N>`, `PengRobinsonGas`, `IncompressiblePerfectGas`, `BoussinesqEos`, `AdiabaticPerfectFluid`, `PerfectFluid`, `RPolynomialEos`, `LinearEos` (gh:#1378, bit-identical with v2506) | `EquationOfState` trait; ρ, ψ, Z, departure functions; `GasConstant` (CODATA 2019 default, `EsiV2506` option) and `PengRobinsonForm` (`Port` default, `EsiV2506` option), gh:#1362 |
+| `thermophysics::thermo` | `HConstThermo`, `JanafThermo`, `HPolynomialThermo<N>`, `HTabulatedThermo`, `HPowerThermo`, `EConstThermo` (gh:#1378; `EConstThermo` Cp/Hs/Ha/S are Foundation readings, undefined in v2506) | `ThermoModel` trait; Cp, Ha, Hs, S; Newton T(H) iteration; ESI v2506 forms (gh:#1362): `HPolynomialThermo::new_esi_v2506`, `HTabulatedEsiThermo` (with `thermophysics::table`), `JanafThermo::with_temperature_clamp`, `TabulatedTransport::new_esi_v2506`. Bit-identical to v2506 on a 64-combination grid: `verification_and_validation/upstream_thermo_gh1362/` |
+| `thermophysics::reaction_rate` | `ArrheniusReactionRate`, `ThirdBodyArrheniusReactionRate`, `LandauTellerReactionRate`, `PowerSeriesReactionRate`, `JanevReactionRate`, `LangmuirHinshelwoodReactionRate`, `InfiniteReactionRate`, `ThirdBodyEfficiencies`, `FallOffFunction`, `FallOffReactionRate`, `ChemicallyActivatedReactionRate`, `ReactionRate` | ESI v2506 `specie/reaction/reactionRate`; 657/672 values bit-identical, 15 at 1-6 ulp from PETIR vs glibc `cbrt`/`exp`/`log10`/`pow` (gh:#1378) |
+| `thermophysics::mixture` | `Mixable`, `MixtureComponent`, `cell_mixture`, `cell_vol_mixture`, `correct_mass_fractions`, `molar_mass_from_kg_per_kmol` | ESI v2506 `specie::operator+=` and `multiComponentMixture::{cellMixture, cellVolMixture, correctMassFractions}` for perfectGas, rhoConst, hConst, const and sutherland; 46/48 mixtures bit-identical, 2 differ through the kg/mol unit round trip (gh:#1378) |
+| `thermophysics::transport` | `ConstTransport`, `SutherlandTransport`, `PolynomialTransport<N>`, `TabulatedTransport`, `WlfTransport`, `LogPolynomialTransport<N>` (gh:#1378) | `TransportModel` trait; μ, κ |
 
 ### Layer 2 — Fields and mesh
 
@@ -154,6 +169,8 @@ reference implementation the other backends are verified against.
 | `mesh::ami` | `AmiCoupling`, `AmiWeight`, `AmiOverlap`, `overlap_weights_1d`, `FvMesh::periodic_ring_ami`, `PatchKind::CyclicAmi` | `cyclicAMIPolyPatch` / `AMIInterpolation` — **non-conformal** periodic (arbitrary-mesh-interface) seams: each target face couples to a geometric-overlap-weighted set of source cells (Σ weights = 1, conservative). `overlap_weights_1d` computes planar/1-D-structured interval overlaps; `periodic_ring_ami` builds a non-conformal periodic ring programmatically. **First pass: 1-D/planar-structured overlap only** — general 3-D polygon clipping, two-axis tiling, and rotational transforms deferred |
 | `mesh` | `RegionInterface` | Matching and non-matching multi-region face coupling for CHT |
 | `ldu_matrix` | `LduMatrix`, `FvMatrix`, `FvVectorMatrix` | Sparse LDU system; scalar and vector implicit equation assembly |
+| `ldu_matrix` | `pbicgstab_dilu`, `PbicgstabDiluSettings`, `PbicgstabDiluPerformance` | `PBiCGStab` with the **DILU** preconditioner in OpenFOAM-v2506 operation order (`PBiCGStab.C`, `DILUPreconditioner.C`); the crate's `krylov::bicgstab` uses ILU(0), which differs from the first iteration (gh:#1362 row 3) |
+| `ldu_matrix` | `gauss_seidel_upstream` | Fixed-sweep Gauss-Seidel in `GaussSeidelSmoother::smooth` arithmetic (`psii /= diag`, `bPrime` accumulation); `gauss_seidel` multiplies by `1/diag` and differs from upstream by ~3e-13 after 30 sweeps (gh:#1362 row 3) |
 | `ldu_matrix` | `gauss_seidel`, `conjugate_gradient` | Iterative LDU solvers (no external BLAS). CG is **DIC-preconditioned** (`Foam::DICPreconditioner`) and accepts an optional initial guess (`x0`) for warm starts |
 | `ldu_matrix` | `gamg` | Algebraic multigrid (`Foam::GAMGSolver` + `algebraicPairGAMGAgglomeration`) for symmetric systems; near mesh-independent V-cycle count |
 | `ldu_matrix` | `FvMatrix::solve_cg`, `FvMatrix::solve_cg_with_guess` | Cold- and warm-started PCG for the symmetric pressure system |
@@ -166,6 +183,11 @@ reference implementation the other backends are verified against.
 | `krylov` | `Preconditioner` (`Identity`/`Jacobi`/`Ilu0`) | Enum-dispatched preconditioners; ILU(0) is a genuine incomplete-LU (exact for tridiagonal), Jacobi the robust fallback |
 | `krylov` | `KrylovSettings`, `KrylovResult`, `vecops` | Tolerance/restart control, convergence reporting, and BLAS-1 helpers (`dot`/`nrm2`/`axpy`/`scal`) |
 | `limiters` | `FluxLimiter` (`psi(r)`) | Field-agnostic TVD flux limiters translated from OpenFOAM `limitedSchemes/` (`vanLeer`/`vanAlbada`/`Minmod`/`SuperBee`/`MUSCL`/`UMIST`/`OSPRE`/`limitedLinear`). r-based only; NVD schemes (QUICK/Gamma) omitted. Reusable by any FV code (e.g. pflotran transport TVD) |
+| `radiation` | `P1Model`, `P1PatchModel`, `P1Solution`, `ConstantAbsorptionEmission`, `stefan_boltzmann_esi_v2506` | ESI v2506 `radiationModels/P1/P1.C`, `MarshakRadiation`, `MarshakRadiationFixedTemperature`, `constantAbsorptionEmission`, `noScatter`, `radiationModel::ST/Sh`, `physicoChemical::sigma` | gh:#1379. Gray P1: `G` equation (PCG/DIC), Marshak walls (constant per-patch emissivity = `boundaryRadiationProperties` `lookup`), `qr`, `Ru`/`Rp`, and the `ST`/`Sh` energy-source matrices (this crate's sign convention = upstream negated). **Bit-identical to ESI v2506 on 4 cases** (`tests/radiation_vs_openfoam.rs`) and second-order against the closed-form slab (`tests/radiation_p1_analytic.rs`). Opt-in: no solver calls it by default. ~~No solver calls it.~~ **CHANGED 2026-11-13 (gh:#1531):** `outram-foam-appbuilder-lib`'s `EnergyEquation::with_radiation` calls it (warm-started `solve_from`, `initial_solution`), compared with ESI `chtMultiRegionFoam` + P1; `viewFactor` (gh:#1529) is the model for surface cavities. ~~`viewFactor`~~ **CORRECTED 2026-11-13 (gh:#1529): `viewFactor` is ported (next row)**; `fvDOM`, `solarLoad`, bands, soot, scatter models NOT ported (survey in the V&V README) |
+| `view_factor_radiation` | `ViewFactorModel`, `ViewFactorPatch`, `GreyDiffusiveViewFactorPatch`, `ViewFactorSolution`, `parse_scalar_list_list`, `parse_label_list_list` | ESI v2506 `radiationModels/viewFactor/viewFactor.C` (direct dense solve, serial), `greyDiffusiveViewFactor` BC, `LUDecompose`/`LUBacksubstitute` | gh:#1529. Reads upstream `viewFactorsGen`/`faceAgglomerate` output (`F`, `globalFaceFaces`, `finalAgglom`); smoothing, variable and `constantEmissivity` (cached LU) branches, `qr` on patches, `Ru`/`Rp` = 0. **qr bit-identical to ESI on 7 cases, 1,344 of 1,344 values** (`tests/view_factor_vs_openfoam.rs`); concentric-cylinder and parallel-plate analytic checks (`tests/view_factor_concentric_cylinders.rs`). ~~The generator, the iterative solver, bands, solar load and parallel are NOT ported.~~ **CORRECTED 2026-11-14 (gh:#1540)**: the serial no-agglomeration generator is ported (next row); the iterative solver, bands, solar load, parallel and `faceAgglomerate` are NOT. Opt-in |
+| `view_factor_generation` | `generate_view_factors`, `ViewFactorGenInput`, `ViewFactorGenSettings`, `GeneratedViewFactors`, `write_scalar_list_list_file`, `write_label_list_list_file`, `write_map_dist_file`, `format_g17` | ESI v2506 `applications/utilities/preProcessing/viewFactorsGen` (`viewFactorsGen.C`, `shootRays.H`, `-DNO_CGAL`) | gh:#1540. Serial, 3-D, no agglomeration: 2AI far / 2LI near with Gauss order 1..5, ray visibility through the `esi_octree` `findLine` (~~brute force over all triangles~~ **CORRECTED 2026-11-14 gh:#1564**: bit-identical to ESI on convex AND non-convex/thin cases), `trace_candidate_rays` diagnostic, writes `F`/`globalFaceFaces`/`mapDist`. Agglomeration (`faceAgglomerate`), 2-D branch and parallel NOT ported. Results: `verification_and_validation/upstream_view_factor_gh1529/README.md`. Opt-in |
+| `esi_octree` | `Octree`, `TreeBox`, `EsiRandom`, `OctreeShapes`, `NearestShapes`, `LineShapes`, `LineHit`, `Octree::find_line` | ESI v2506 `indexedOctree.C`, `treeBoundBox.C`, `Random.C` (build, `findNearest`, `findLine`) | Moved here from `outram-foam-mesh` (re-exported there) for gh:#1564; `findLine`/`traverseNode`/`walkToNeighbour` added. Used by `view_factor_generation` and snappyHexMesh. `findLineAny`/`findLineAll`/volume types not ported |
+| `fv_operators::fvm` | `laplacian_with_delta_diag_and_source` | `fvm::laplacian(...) - fvm::Sp(...)` (diagonal order) | gh:#1379. `laplacian_with_delta_and_source` plus an implicit-sink diagonal added after the interior faces and before the boundary coefficients, as upstream orders the sum |
 
 ### Layer 3 — Finite-volume operators
 
@@ -183,6 +205,8 @@ reference implementation the other backends are verified against.
 | `fvm::laplacian_corrected_face_centre(gamma, phi, grad_phi, scheme)` | **Port-original** corrected Laplacian (not upstream): 0.5-weighted face gradient, Dirichlet boundary correction, `Limited(w)` scales by `w`. Exact for a linear field on any mesh when driven by `grad_least_squares_face_centre`; used by `solve_laplacian_non_orthogonal` (V&V in `tests/non_orthogonal_laplacian.rs`) |
 | `fvc::sn_grad_corrected(phi, scheme)`, `fvc::sn_grad_correction_with_grad`, `fvc::non_orth_correction_vectors` | `corrected` / `limited corrected` surface-normal gradient and `nonOrthCorrectionVectors` (`Foam::correctedSnGrad`, `limitedSnGrad`), bit-identical to v2506 (gh:#1362) |
 | `fvc::linear_upwind(phi, flux)`, `linear_upwind_with_grad` | `linearUpwind` face interpolation (`Foam::linearUpwind<scalar>`), bit-identical to v2506 (gh:#1362) |
+| `les_filter::{simple_filter, LaplaceFilter, AnisotropicFilter, LesFilter, surface_sum, surface_integrate}` | ESI v2506 `LESfilters` `simple`/`laplace`/`anisotropic` (generic over scalar, vector, symmTensor, tensor, boundary values carried) and `fvc::surfaceSum`/`surfaceIntegrate`; **bit-identical (0 ulp) to the real classes** on the 360-cell duct for 6 fields x 3 filters, cells and boundary faces (gh:#1544, `outram-foam-turbulence-lib` `openfoam_turbulence_code_to_code.rs`) |
+| `fvc::grad_vec_corrected(u)` | `Foam::fv::gaussGrad<vector>::calcGrad` WITH `correctBoundaryConditions` (owner-cell boundary, then the wall-normal component replaced by the patch `snGrad`); 3240/3240 cell and 3348/3348 boundary-face components bit-identical to the real `fvc::grad(U)` on the duct (gh:#1544). `fvc::grad_vec` keeps the extrapolated boundary |
 | `fvm::solve_laplacian_non_orthogonal(gamma, phi, scheme, n_correctors, settings)` | The deferred-correction loop (`nNonOrthogonalCorrectors`): solve → recompute least-squares gradient → re-assemble → re-solve |
 | `fvm::max_non_orthogonality_deg(mesh)` / `fvm::non_ortho_geometry(sf, d)` / `NonOrthoGeometry` | `checkMesh`-equivalent max non-orthogonality statistic, and the per-face `Δ_f` / `k_f` / angle it is computed from |
 | `fvc::grad(phi)` | Explicit cell-centred Gauss gradient → `VolVectorField`. **Not exact for a linear field on a non-orthogonal mesh** — see `grad_least_squares` |
@@ -254,6 +278,8 @@ dominance exactly where the coefficient is largest; two tests in
 | Module | Rust type / fn | C++ source | Notes |
 |---|---|---|---|
 | `io::poly_mesh` | `PolyMesh::write_cell_zones` | `cellZoneMesh::write`, `blockMesh.C` ("Adding cell zones") | Writes `cellZones` (`N ( name { type cellZone; cellLabels List<label> n (...) ; } )`); empty list writes nothing. Used by the `blockMesh` CLI for zoned blocks. |
+| `io::esi` | `EsiWriteOptions`, `format_g`, `esi_header`, `PolyMesh::write_esi`, `write_cell_zones_esi`, `write_time_file_esi`; `io::field::{write_vol_scalar_field_esi, write_vol_vector_field_esi, write_surface_scalar_field_esi}` | ESI v2506 `IOobject::writeHeader`, `UList::writeList`, `blockMesh.C` (`minPrecision(10)`) | ESI byte layout as an option beside the default writers (gh:#1363 row 7): banner, `arch`, `note`, `%g` at `writePrecision`, short-list rule, `inGroups`. Byte-identical to ESI `blockMesh`/`polyDualMesh`/`icoFoam` on the cavity: see `outram-foam-cli/verification_and_validation/cli_output_vs_openfoam_gh1363.md`. |
+| `io::dict` | `$name;` macro entry in `FoamFile::parse` | `dictionary` macro expansion | `pFinal { $p; relTol 0; }` (shipped tutorial `fvSolution`) merges the named sub-dictionary; later entries override. |
 
 ## Limitations
 

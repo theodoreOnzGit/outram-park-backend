@@ -22,9 +22,12 @@
 //! 1-D mesh the enthalpy-porosity tests use, so a missing or doubled volume
 //! factor shows up rather than cancelling.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::mesh::FvMesh;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 const T_SOLID: f64 = 330.0;
 const T_LIQUID: f64 = 330.5;

@@ -23,6 +23,9 @@
 //! Field names keep the upstream Fortran identifiers in their doc comments so a
 //! discrepancy can be localised to a specific `read(nsysi,*)` statement.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// One material specification (card 5, `resxsr.f90:36-39`, read at `:247`).
 ///
 /// Repeated `nmat` times. Names an ENDF material and the NJOY logical unit that

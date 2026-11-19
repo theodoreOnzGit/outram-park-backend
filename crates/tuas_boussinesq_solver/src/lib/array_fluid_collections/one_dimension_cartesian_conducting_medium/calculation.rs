@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::CartesianConduction1DArray;
 use uom::si::f64::*;
 use uom::si::area::square_meter;

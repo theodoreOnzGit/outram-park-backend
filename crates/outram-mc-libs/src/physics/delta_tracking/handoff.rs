@@ -75,6 +75,9 @@
 //!   surface). Measured before the guard: region `Σ_t` −1.9 % (15 σ) against
 //!   surface track length (`tests/delta_collision_estimator.rs`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::SurfaceToken;
 use crate::geometry::crossing::GeometryExt;
 use crate::geometry::geometry::{Geometry, GeometryPath};

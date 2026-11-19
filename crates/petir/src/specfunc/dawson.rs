@@ -79,7 +79,7 @@
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::cheb_slice::eval_gsl as cheb;
+use crate::specfunc::cheb_eval_e as cheb;
 use crate::specfunc::SQRT_DBL_EPSILON;
 
 /// `1.225 * GSL_SQRT_DBL_EPSILON`, below which `F(x) = x` to working

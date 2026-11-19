@@ -14,11 +14,11 @@
 //! and on `wasm32` the call sites bring in this module instead:
 //!
 //! ```ignore
-//! #[cfg(not(target_arch = "wasm32"))]
+//! #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 //! use rayon::prelude::*;
-//! #[cfg(target_arch = "wasm32")]
+//! #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 //! use crate::wasm_par::prelude::*;
-//! #[cfg(target_arch = "wasm32")]
+//! #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
 //! use crate::wasm_par as rayon;   // so `rayon::ThreadPoolBuilder` resolves here
 //! ```
 //!
@@ -43,6 +43,9 @@
 //! which is intended — extending the shim should be a deliberate act rather
 //! than something a catch-all quietly absorbs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Mirror of `rayon::prelude`, so a call site can swap one import for another.
 pub(crate) mod prelude {
     pub(crate) use super::{IntoParallelIterator, ParallelSlice, ParallelSliceMut};

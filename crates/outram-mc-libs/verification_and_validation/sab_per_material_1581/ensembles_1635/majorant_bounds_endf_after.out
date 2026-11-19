@@ -1,0 +1,16 @@
+
+running 3 tests
+test godiva_heu_is_bounded_on_endf ... Godiva bounding (union grid): 346897 nodes; worst Sigma_t/Sigma_maj = 0.9091 at 2.00000e7 eV in 'Godiva HEU' (3019592 energies)
+Godiva ABLATION bounding_without_breakpoints: 4001 nodes; worst Sigma_t/Sigma_maj = 0.9698 at 1.70182e4 eV in 'Godiva HEU' (3019592 energies)
+ok
+test htr10_kernel_and_matrix_are_bounded_on_endf ... HTR-10 bounding (union grid): 363665 nodes; worst Sigma_t/Sigma_maj = 0.9092 at 9.86315e-5 eV in 'HTR-10 UO2 kernel' (2947440 energies)
+HTR-10 ABLATION bounding_without_breakpoints: 4097 nodes; worst Sigma_t/Sigma_maj = 1.1839 at 1.68934e6 eV in 'HTR-10 UO2 kernel' (2947440 energies)
+HTR-10 from_materials (log grid + breakpoints): 240784 nodes; worst Sigma_t/Sigma_maj = 0.7693 at 9.86315e-5 eV in 'HTR-10 UO2 kernel' (2947440 energies)
+HTR-10 ABLATION from_materials_without_breakpoints: 4096 nodes; worst Sigma_t/Sigma_maj = 14.1820 at 6.61227e2 eV in 'HTR-10 UO2 kernel' (2947440 energies)
+ok
+test union_grid_majorant_is_never_below_the_sampled_one ... TRISO notebook (LOW tier) bounding: 143266 nodes; worst Sigma_t/Sigma_maj = 0.9250 at 1.08832e4 eV in 'HEU kernel' (465164 energies)
+TRISO notebook (LOW tier) bounding at 1024 x 16: 31650 nodes; worst Sigma_t/Sigma_maj = 0.9575 at 5.13272e2 eV in 'HEU kernel' (465164 energies)
+ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1109.93s
+

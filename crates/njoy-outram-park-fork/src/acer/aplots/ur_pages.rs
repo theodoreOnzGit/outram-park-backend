@@ -15,6 +15,9 @@
 //! capture block never setting `nunu` in its `lssf = 0` branch (it keeps the
 //! fission block's value, which is `nure` in that branch).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::{hk_it, nint, AceTable, Plot};
 use super::scale::ascll;
 use crate::endf::interp::{terp1, IntLaw};

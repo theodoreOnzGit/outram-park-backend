@@ -17,6 +17,9 @@
 //! | exponent of 3 digits | tiny/huge values | Fortran drops the `E` |
 //! | `a` of `hk(1:it)` | the page title | `it` is the last non-blank of 70 |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Fortran `Ew.d` (`scale1 = false`) or `1pEw.d` (`scale1 = true`),
 /// right-justified in `w` columns. A value that does not fit gives asterisks,
 /// as Fortran does.

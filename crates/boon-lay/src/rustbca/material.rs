@@ -3,7 +3,7 @@
 // RustBCA copy — provenance
 // -------------------------
 // Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
-// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream version : main, 17 commits AFTER the v3.0.0 tag (673bd3f), commit a356280d564bbdfbe74b97f32db0776444da58a5 (corrected 2026-11-13, gh:#1426)
 // Upstream source  : src/material.rs
 // Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
 //                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
@@ -33,22 +33,23 @@ fn default_vec_float_zero() -> Vec<f64> {
 }
 
 /// Holds material input parameters from [material_params].
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct MaterialParameters {
     pub energy_unit: String,
     pub mass_unit: String,
     pub Eb: Vec<f64>,
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
-    #[serde(default = "default_vec_float_zero")]
+    #[cfg_attr(feature = "std", serde(default = "default_vec_float_zero"))]
     pub Ed: Vec<f64>,
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
-    #[serde(default = "default_vec_zero")]
+    #[cfg_attr(feature = "std", serde(default = "default_vec_zero"))]
     pub interaction_index: Vec<usize>,
-    #[serde(default = "default_surface_binding_model")]
+    #[cfg_attr(feature = "std", serde(default = "default_surface_binding_model"))]
     pub surface_binding_model: SurfaceBindingModel,
-    #[serde(default = "default_bulk_binding_model")]
+    #[cfg_attr(feature = "std", serde(default = "default_bulk_binding_model"))]
     pub bulk_binding_model: BulkBindingModel
 }
 

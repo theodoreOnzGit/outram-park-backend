@@ -50,6 +50,9 @@
 //! These are independent implementations from the published algorithms. See
 //! the provenance note in [`super`] for why that matters here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use petir::rng::lcg::prn;
 

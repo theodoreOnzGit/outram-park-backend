@@ -36,6 +36,9 @@
 //!   `smooth_iters` Laplacian passes. Blender's voxel Remesh (blocks mode at
 //!   `smooth_iters = 0`, voxel/smooth otherwise).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
 
@@ -121,7 +124,7 @@ pub fn mesh_to_volume(mesh: &Mesh, cell: f64) -> VoxelGrid {
 pub fn volume_to_mesh(grid: &VoxelGrid) -> Mesh {
     let mut positions: Vec<Vec3> = Vec::new();
     let mut faces: Vec<Vec<usize>> = Vec::new();
-    let mut lookup: std::collections::HashMap<[i64; 3], usize> = std::collections::HashMap::new();
+    let mut lookup: crate::hash::HashMap<[i64; 3], usize> = crate::hash::HashMap::new();
     let h = grid.cell * 0.5;
 
     let mut corner = |p: Vec3, positions: &mut Vec<Vec3>| -> usize {

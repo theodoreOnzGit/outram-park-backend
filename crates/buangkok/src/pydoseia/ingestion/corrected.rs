@@ -19,6 +19,9 @@
 //! division by a year for a single plume) is upstream's. Not checked against
 //! SRS 19 or TECDOC-1616 beyond what the code comments cite.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::food_chain::{
     animal_products, c14_in_animal, c14_in_plant, deposition_rate_per_day, effective_removal_rates,
     food_crop, per_day, tritium_in_animal, tritium_in_plant, AnimalProduct, Climate,

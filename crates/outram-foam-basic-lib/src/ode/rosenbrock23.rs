@@ -19,8 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use super::{integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
+use super::{integrate_interval, integrate_interval_esi_v2506, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
 use crate::matrix::SquareMatrix;
 
 // Rosenbrock23 coefficients — Foam::Rosenbrock23 constants
@@ -165,7 +168,7 @@ impl Rosenbrock23 {
         let dydx0_snapshot = self.dydx0.clone();
 
         // Temporarily take y_temp out to avoid a double-&mut-self borrow
-        let mut y_temp = std::mem::take(&mut self.y_temp);
+        let mut y_temp = core::mem::take(&mut self.y_temp);
 
         // Non-finite derivative at the ACCEPTED state: the model broke at a
         // state already taken, so no smaller step can recover (bead `op-ad6h`).
@@ -206,7 +209,7 @@ impl Rosenbrock23 {
         };
 
         *x += dx;
-        std::mem::swap(y, &mut y_temp);
+        core::mem::swap(y, &mut y_temp);
         self.y_temp = y_temp;
 
         let threshold = (cfg.max_scale / cfg.safe_scale).r_powf(-1.0 / cfg.alpha_inc);
@@ -233,6 +236,29 @@ impl Rosenbrock23 {
     ) -> Result<(), OdeError> {
         let cfg = self.config.clone();
         integrate_interval(
+            &cfg,
+            &mut |x, y, dx| self.solve_step(ode, x, y, dx),
+            x_start,
+            x_end,
+            y,
+            dx_est,
+        )
+    }
+
+    /// [`Self::integrate`] with OpenFOAM-v2506's `ODESolver::solve(xStart, xEnd, y, dxTry)`
+    /// loop (see `integrate_interval_esi_v2506`): bit-identical to upstream on
+    /// `Test-ODE.C` where `integrate` differs in the last bits and in the final
+    /// step-size estimate. `integrate` is kept unchanged (gh:#1362 row 6).
+    pub fn integrate_esi_v2506<Sys: OdeSystem + ?Sized>(
+        &mut self,
+        ode: &Sys,
+        x_start: f64,
+        x_end: f64,
+        y: &mut Vec<f64>,
+        dx_est: &mut f64,
+    ) -> Result<(), OdeError> {
+        let cfg = self.config.clone();
+        integrate_interval_esi_v2506(
             &cfg,
             &mut |x, y, dx| self.solve_step(ode, x, y, dx),
             x_start,
@@ -339,7 +365,7 @@ mod tests {
         let mut y = vec![1.0_f64, 0.0];
         let mut dx = 0.1;
         solver
-            .integrate(&ode, 0.0, std::f64::consts::PI / 2.0, &mut y, &mut dx)
+            .integrate(&ode, 0.0, core::f64::consts::PI / 2.0, &mut y, &mut dx)
             .unwrap();
         assert!(y[0].abs() < 1e-5, "y0={}", y[0]);
         assert!((y[1] - 1.0).abs() < 1e-5, "y1={}", y[1]);

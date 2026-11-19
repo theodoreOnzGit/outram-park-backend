@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Per-nuclide microscopic cross sections — the seam into the nuclear-data crate.
 ///
 /// C++ analogue: `src/nuclide.cpp`, `include/openmc/nuclide.h`.
@@ -194,11 +197,89 @@ impl SectionIndex {
     }
 }
 
-/// `recon.eval_section(idx, e)`, or `0.0` for a reaction the evaluation does
-/// not carry: exactly [`ReconrResult::eval_mt`]'s value, without its search.
+/// **The pre-2026-11-14 cross-section details**, selected with
+/// `OUTRAM_MC_LEGACY_XS_DETAILS=1` (cached on first use, like
+/// `OUTRAM_MC_LEGACY_SCATTER_KERNELS`). GitHub #463 items 5, 6, 7 and 11, each
+/// now OpenMC's rule by default and kept callable so a paired run can price it:
+///
+/// - 5: `nu_fission` tabulated as `nu(E_i) sigma_f(E_i)` and interpolated
+///   (`nuclide.cpp:438-445`, `:760-761`), not `sigma_f(E) nu(E)` at the exact
+///   energy (the URR branch keeps the exact product, as upstream, `:994`);
+/// - 6: outside the energy grid the cross section extrapolates with `f < 0` or
+///   `f > 1` (`nuclide.cpp:718-744`), not clamped to the end point;
+/// - 7: S(a,b) is dropped only for `E > energy_max` (`material.cpp:866`), not at
+///   `E >= cutoff`;
+/// - 11: with S(a,b) the total is `total + thermal - sab_frac * elastic`
+///   (`nuclide.cpp:857`, `sab_frac = 1` here), not rebuilt as
+///   `absorption + inelastic + n2n + thermal`.
+pub(crate) fn legacy_xs_details() -> bool {
+    use core::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    if cached != u8::MAX {
+        return cached == 1;
+    }
+    let on = match crate::env::var("OUTRAM_MC_LEGACY_XS_DETAILS") {
+        Ok(v) => !v.is_empty() && v != "0",
+        Err(_) => false,
+    };
+    FLAG.store(on as u8, Ordering::Relaxed);
+    on
+}
+
+/// `recon.eval_section(idx, e)` with OpenMC's extrapolation outside the
+/// nuclide's energy grid (GitHub #463 item 6; see [`legacy_xs_details`]).
+///
+/// Inside the grid, and for a threshold section below its first point, this is
+/// [`ReconrResult::eval_section`] to the bit. Outside, OpenMC clamps the grid
+/// index to the first or last interval and leaves the interpolation factor
+/// `f = (E - E_i) / (E_{i+1} - E_i)` below 0 or above 1 (`nuclide.cpp:718-744`),
+/// so the cross section continues the end interval's line. Upstream does not
+/// clamp the result at zero, and neither does this.
+fn eval_section_x(recon: &ReconrResult, idx: usize, e: f64) -> f64 {
+    let v = recon.eval_section(idx, e);
+    if legacy_xs_details() {
+        return v;
+    }
+    let p = &recon.sections[idx].pairs;
+    let n = p.len();
+    if n < 2 {
+        return v;
+    }
+    let (i0, i1) = if e < p[0].0 {
+        // A threshold section is zero below its first point (eval_section).
+        if p[0].0 > njoy_outram_park_fork::reconr::THRESHOLD_FLOOR_EV {
+            return v;
+        }
+        (0, 1)
+    } else if e > p[n - 1].0 {
+        (n - 2, n - 1)
+    } else {
+        return v;
+    };
+    let (x0, y0) = p[i0];
+    let (x1, y1) = p[i1];
+    if (x1 - x0).abs() < 1e-30 {
+        return v;
+    }
+    let f = (e - x0) / (x1 - x0);
+    (1.0 - f) * y0 + f * y1
+}
+
+/// [`eval_section_x`] for a reaction named by MT: [`ReconrResult::eval_mt`]'s
+/// search, `0.0` when the evaluation does not carry it.
+fn eval_mt_x(recon: &ReconrResult, mt: MtReaction, e: f64) -> f64 {
+    match recon.section_index(mt) {
+        Some(i) => eval_section_x(recon, i, e),
+        None => 0.0,
+    }
+}
+
+/// `eval_section_x`, or `0.0` for a reaction the evaluation does not carry:
+/// [`eval_mt_x`] without its search.
 fn eval_at(recon: &ReconrResult, idx: Option<usize>, e: f64) -> f64 {
     match idx {
-        Some(i) => recon.eval_section(i, e),
+        Some(i) => eval_section_x(recon, i, e),
         None => 0.0,
     }
 }
@@ -389,9 +470,15 @@ pub struct Nuclide {
     /// tables at their build temperature. Attached only through the checked
     /// [`Nuclide::with_multipole`], which refuses data of another evaluation.
     /// Always `None` on the LOW (`Core`) tier, whose WMP is its `XsSource`.
-    multipole: Option<std::sync::Arc<WindowedMultipole>>,
+    multipole: Option<alloc::sync::Arc<WindowedMultipole>>,
 }
 
+#[cfg(feature = "std")]
+mod hdf5_laws;
+#[cfg(feature = "std")]
+mod hdf5_read;
+#[cfg(all(test, feature = "std"))]
+mod hdf5_real_tests;
 mod multipole;
 pub use multipole::{MultipoleAttachError, MultipoleConsistency, MULTIPOLE_EVALUATION_TOLERANCE};
 
@@ -503,6 +590,7 @@ fn elastic_0k_from_ace(
         .collect()
 }
 
+#[cfg(feature = "std")]
 /// Where a 0 K companion table for the broadened ACE file at `path` would be.
 ///
 /// The paths, in search order, that [`Nuclide::from_ace_file`] tries. ACE
@@ -651,6 +739,13 @@ impl Nuclide {
         self
     }
 
+    /// Whether this nuclide entry carries a bound-atom S(α,β) law
+    /// ([`Self::with_thermal_scattering`]). Used by
+    /// [`crate::material::material_sab::assign_material_sab`] (GitHub #462).
+    pub fn has_thermal_scattering(&self) -> bool {
+        self.thermal.is_some()
+    }
+
     /// Whether [`Self::with_legacy_thermal_sampling`] is in force. `false` by
     /// default, and pinned by `tests/correct_physics_is_default.rs`.
     pub fn uses_legacy_thermal_sampling(&self) -> bool {
@@ -680,6 +775,27 @@ impl Nuclide {
     /// law. A model with the same isotope both bound and free (water and a
     /// hydride, graphite and a carbonate) needs two entries, one with and one
     /// without the law, each referenced by its own materials.
+    /// **Since 2026-11-14** that is what
+    /// [`crate::material::material_sab::assign_material_sab`] does from
+    /// OpenMC's per-material association (including `sab_frac`), and this
+    /// method is **deprecated** in its favour (GitHub #462). Each remaining
+    /// call site carries a `#![allow(deprecated)]` naming #462, pinned by
+    /// `tests/no_unmarked_nuclide_level_sab_462.rs`. The `Model` API is
+    /// unaffected: it keys nuclides by (isotope, law, temperature), which is
+    /// per-material by construction.
+    ///
+    /// **Migrating can change the random stream, not the physics.** The CSG
+    /// drivers advance the URR stream by `nuclides.len()` (OpenMC does the
+    /// same), and `assign_material_sab` appends a bound copy, so a model with
+    /// URR nuclides draws other URR numbers. Measured on `hst009_keff`: a
+    /// legacy model with one unreferenced nuclide appended gives the same
+    /// `k` as the migrated one, bit for bit.
+    #[deprecated(
+        since = "2026-11-14",
+        note = "binds the law to the nuclide entry, so every material referencing it scatters \
+                with the bound law (GitHub #462); associate it per material with \
+                outram_mc_libs::material::material_sab::assign_material_sab, as OpenMC does"
+    )]
     pub fn with_thermal_scattering(mut self, thermal: ThermalScattering) -> Self {
         self.thermal = Some(thermal);
         self
@@ -1083,6 +1199,47 @@ impl Nuclide {
         } else {
             total
         }
+    }
+
+    /// `nu_fission` \[b\] at `e` as OpenMC computes it: the product
+    /// `nu(E_i) sigma_f(E_i)` is what the library tabulates on the energy grid,
+    /// and the lookup interpolates that product linearly in energy
+    /// (`nuclide.cpp:438-445` builds it, `:760-761` interpolates it). Inside the
+    /// unresolved range upstream multiplies at the exact energy instead
+    /// (`:994`), which is [`Self::xs_at_energy_urr`]'s own line and is left as it
+    /// was. GitHub #463 item 5.
+    ///
+    /// The grid here is the fission section's own: for an ACE table that is
+    /// ESZ's grid from the threshold, for the ENDF route RECONR's union grid.
+    /// Falls back to the exact product (`fission * nu(E)`) where there is no
+    /// interval to interpolate in: no fission section, `e` outside the grid, or
+    /// `OUTRAM_MC_LEGACY_XS_DETAILS`.
+    fn nu_fission_openmc(
+        &self,
+        recon: &ReconrResult,
+        section: Option<usize>,
+        e: f64,
+        fission: f64,
+    ) -> f64 {
+        let exact = fission * self.nu_bar(e);
+        if legacy_xs_details() || !(fission > 0.0) {
+            return exact;
+        }
+        let Some(i) = section else {
+            return exact;
+        };
+        let p = &recon.sections[i].pairs;
+        let n = p.len();
+        if n < 2 || e <= p[0].0 || e >= p[n - 1].0 {
+            return exact;
+        }
+        let hi = p.partition_point(|&(x, _)| x <= e);
+        let ((e0, s0), (e1, s1)) = (p[hi - 1], p[hi]);
+        if (e1 - e0).abs() < 1e-30 {
+            return exact;
+        }
+        let f = (e - e0) / (e1 - e0);
+        (1.0 - f) * (self.nu_bar(e0) * s0) + f * (self.nu_bar(e1) * s1)
     }
 
     /// The incident energy \[eV\] the fission spectrum χ should be evaluated at,
@@ -1493,6 +1650,15 @@ impl Nuclide {
         self
     }
 
+    /// Set the lower energy bound \[eV\] of the resonance-scattering
+    /// treatment, OpenMC's `<resonance_scattering><energy_min>`; the default is
+    /// upstream's 0.01 eV (GitHub #463 item 4). Does nothing on a nuclide
+    /// without 0 K data.
+    pub fn with_resonance_scattering_energy_min(mut self, e_min_ev: f64) -> Self {
+        self.dbrc = self.dbrc.map(|t| t.with_energy_min(e_min_ev));
+        self
+    }
+
     /// **Ablation control for V&V: remove the DBRC correction**, returning the
     /// nuclide to the constant-cross-section free-gas kernel.
     ///
@@ -1570,6 +1736,7 @@ impl Nuclide {
         Ok(self.with_dbrc(DBRC_DEFAULT_E_MAX_EV))
     }
 
+    #[cfg(feature = "std")]
     /// Build from an ACE **file**, pairing the 0 K companion automatically when
     /// one is where a library puts it — GitHub #307 item 4.
     ///
@@ -1627,6 +1794,7 @@ impl Nuclide {
         Ok(built)
     }
 
+    #[cfg(feature = "std")]
     /// What [`Self::from_ace_file`] looked for, and what it found — the
     /// diagnostic half of the pairing.
     ///
@@ -1818,6 +1986,7 @@ impl Nuclide {
         Self::from_tape(&tape, mat, name, temp_k, tolerance)
     }
 
+    #[cfg(feature = "std")]
     /// Build a nuclide from an ENDF file **on disk** — the ordinary case.
     ///
     /// Supply the evaluation yourself, point at it, get a transport-ready
@@ -2612,6 +2781,7 @@ impl Nuclide {
         Ok(Self::from_tape_with_broadr_tolerance(tape, mat, name, temp_k, tol, tol)?.with_speed(speed))
     }
 
+    #[cfg(feature = "std")]
     /// Build a nuclide from an ENDF **file** at a [`SpeedTier`]. The file's
     /// first material is used, as in [`Self::from_endf_file`].
     ///
@@ -3221,7 +3391,7 @@ impl Nuclide {
         if self.other_channels_ablated {
             return 0.0;
         }
-        self.other_channels.iter().map(|c| recon.eval_section(c.section, e)).sum()
+        self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).sum()
     }
 
     /// Sample a collision on the **other neutron-emitting reactions** at `e`
@@ -3251,7 +3421,7 @@ impl Nuclide {
         let XsSource::Pointwise { recon, .. } = &self.xs else {
             return OtherEmission { e, u, extras: [(e, u); 3], n_emit: 1, mt: 0 };
         };
-        let xs: Vec<f64> = self.other_channels.iter().map(|c| recon.eval_section(c.section, e)).collect();
+        let xs: Vec<f64> = self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).collect();
         let total: f64 = xs.iter().sum();
         let target = prn(seed) * total;
         let mut acc = 0.0;
@@ -3494,8 +3664,15 @@ impl Nuclide {
             let sab = th.total_xs(e);
             if sab > 0.0 {
                 let mut x = base;
+                // GitHub #463 item 11: OpenMC corrects the tabulated total,
+                // `total + thermal - sab_frac * elastic` (`nuclide.cpp:857`;
+                // `sab_frac = 1` here), instead of rebuilding it from channels.
+                x.total = if legacy_xs_details() {
+                    x.absorption + x.inelastic + x.n2n + sab
+                } else {
+                    base.total + sab - base.elastic
+                };
                 x.elastic = sab;
-                x.total = x.absorption + x.inelastic + x.n2n + sab;
                 return x;
             }
         }
@@ -3557,8 +3734,24 @@ impl Nuclide {
         if let Some(th) = &self.thermal {
             let sab = th.total_xs(e);
             if sab > 0.0 {
-                let x = self.base_xs_at_energy(e, temp_k);
-                return x.absorption + x.inelastic + x.n2n + sab;
+                if legacy_xs_details() {
+                    let x = self.base_xs_at_energy(e, temp_k);
+                    return x.absorption + x.inelastic + x.n2n + sab;
+                }
+                // Item 11: `total + thermal - elastic`, two section lookups
+                // where the channel rebuild needed ~46.
+                let (total, elastic) = match &self.xs {
+                    XsSource::Pointwise { recon, index, .. }
+                        if self.speed.indexed_lookup() && self.multipole_at(e).is_none() =>
+                    {
+                        (eval_at(recon, index.mt1, e), eval_at(recon, index.mt2, e))
+                    }
+                    _ => {
+                        let b = self.base_xs_at_energy(e, temp_k);
+                        (b.total, b.elastic)
+                    }
+                };
+                return total + sab - elastic;
             }
         }
         if let Some(w) = self.multipole_at(e) {
@@ -3568,7 +3761,7 @@ impl Nuclide {
             XsSource::Pointwise { recon, index, .. } if self.speed.indexed_lookup() => {
                 eval_at(recon, index.mt1, e)
             }
-            XsSource::Pointwise { recon, .. } => recon.eval_mt(MtReaction::Mt1Total, e),
+            XsSource::Pointwise { recon, .. } => eval_mt_x(recon, MtReaction::Mt1Total, e),
             // The LOW tier already carries a tabulated total; its `MicroXS`
             // construction is a handful of field copies, not 46 searches, so
             // there is nothing to gain from a separate path.
@@ -3674,7 +3867,7 @@ impl Nuclide {
                 let total = eval_at(recon, index.mt1, e);
                 let elastic = eval_at(recon, index.mt2, e);
                 let fission = eval_at(recon, index.mt18, e);
-                let inelastic: f64 = inel.iter().map(|l| recon.eval_section(l.section, e)).sum();
+                let inelastic: f64 = inel.iter().map(|l| eval_section_x(recon, l.section, e)).sum();
                 let n2n = eval_at(recon, index.mt16, e);
                 let n3n = eval_at(recon, index.mt17, e);
                 let mt5 = eval_at(recon, index.mt5, e);
@@ -3688,25 +3881,25 @@ impl Nuclide {
                     n3n,
                     mt5,
                     other: self.other_xs(recon, e),
-                    nu_fission: fission * self.nu_bar(e),
+                    nu_fission: self.nu_fission_openmc(recon, index.mt18, e, fission),
                 }
             }
             XsSource::Pointwise { recon, inel, .. } => {
-                let total = recon.eval_mt(MtReaction::Mt1Total, e);
-                let elastic = recon.eval_mt(MtReaction::Mt2Elastic, e);
-                let fission = recon.eval_mt(MtReaction::Mt18Fission, e);
-                let inelastic: f64 = inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum();
+                let total = eval_mt_x(recon, MtReaction::Mt1Total, e);
+                let elastic = eval_mt_x(recon, MtReaction::Mt2Elastic, e);
+                let fission = eval_mt_x(recon, MtReaction::Mt18Fission, e);
+                let inelastic: f64 = inel.iter().map(|l| eval_mt_x(recon, l.mt, e)).sum();
                 // (n,2n) from the reconstructed MF=3 background (threshold reaction,
                 // no resonance contribution). Carried separately so the transport
                 // kernel can give it its yield-2 multiplicity. 0.0 below threshold
                 // or if the evaluation has no MT=16 section.
-                let n2n = recon.eval_mt(MtReaction::Mt16N2n, e);
+                let n2n = eval_mt_x(recon, MtReaction::Mt16N2n, e);
                 // (n,3n). Inside MT=1 like (n,2n), so branching on it
                 // re-partitions the collision rather than adding to it.
-                let n3n = recon.eval_mt(MtReaction::Mt17N3n, e);
+                let n3n = eval_mt_x(recon, MtReaction::Mt17N3n, e);
                 // MT=5 is inside MT=1 like (n,2n)/(n,3n), so branching on it
                 // re-partitions the collision rather than adding to it.
-                let mt5 = recon.eval_mt(MtReaction::Mt5NAny, e);
+                let mt5 = eval_mt_x(recon, MtReaction::Mt5NAny, e);
                 MicroXS {
                     total,
                     elastic,
@@ -3717,7 +3910,7 @@ impl Nuclide {
                     n3n,
                     mt5,
                     other: self.other_xs(recon, e),
-                    nu_fission: fission * self.nu_bar(e),
+                    nu_fission: self.nu_fission_openmc(recon, recon.section_index(MtReaction::Mt18Fission), e, fission),
                 }
             }
         }
@@ -3753,9 +3946,9 @@ impl Nuclide {
         let indexed = self.speed.indexed_lookup();
         let level_xs = |l: &InelasticLevel| {
             if indexed {
-                recon.eval_section(l.section, e)
+                eval_section_x(recon, l.section, e)
             } else {
-                recon.eval_mt(l.mt, e)
+                eval_mt_x(recon, l.mt, e)
             }
         };
         let total: f64 = inel.iter().map(level_xs).sum();
@@ -3979,7 +4172,7 @@ impl Nuclide {
             return None;
         };
         let r = njoy_outram_park_fork::MtReaction::from_any(mt);
-        Some(recon.eval_mt(r, e))
+        Some(eval_mt_x(recon, r, e))
     }
 
     /// The **partial cross section** of one inelastic channel `mt` \[barn\] at
@@ -4003,7 +4196,7 @@ impl Nuclide {
         };
         inel.iter()
             .find(|l| l.mt.number() == mt)
-            .map(|l| recon.eval_mt(l.mt, e))
+            .map(|l| eval_mt_x(recon, l.mt, e))
     }
 
     /// The **sum** of every inelastic channel's partial cross section \[barn\] at
@@ -4017,7 +4210,7 @@ impl Nuclide {
         let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
             return None;
         };
-        Some(inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum())
+        Some(inel.iter().map(|l| eval_mt_x(recon, l.mt, e)).sum())
     }
 
     /// Mean **centre-of-mass** scattering cosine `⟨μ⟩` of one discrete inelastic
@@ -4099,7 +4292,7 @@ impl Nuclide {
     pub fn inelastic_mt4_and_levels(&self, e: f64) -> (f64, usize) {
         match &self.xs {
             XsSource::Pointwise { recon, inel, .. } => {
-                (recon.eval_mt(MtReaction::Mt4Inelastic, e), inel.len())
+                (eval_mt_x(recon, MtReaction::Mt4Inelastic, e), inel.len())
             }
             XsSource::Core { .. } => (0.0, 0),
         }
@@ -4589,11 +4782,11 @@ impl Nuclide {
 fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
     use njoy_outram_park_fork::MtReaction as Mt;
 
-    let mt27 = recon.eval_mt(Mt::Mt27Absorption, e);
+    let mt27 = eval_mt_x(recon, Mt::Mt27Absorption, e);
     if mt27 > 0.0 {
         return mt27;
     }
-    let mt101 = recon.eval_mt(Mt::Mt101AbsorptionTotal, e);
+    let mt101 = eval_mt_x(recon, Mt::Mt101AbsorptionTotal, e);
     if mt101 > 0.0 {
         return fission + mt101;
     }
@@ -4602,7 +4795,7 @@ fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
     fission
         + disappearance()
             .iter()
-            .map(|&mt| recon.eval_mt(mt, e))
+            .map(|&mt| eval_mt_x(recon, mt, e))
             .sum::<f64>()
 }
 

@@ -114,6 +114,9 @@
 //! against the concrete closure enums in this module, rather than have this
 //! module reach into every other closure family's types. **Deferred.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Numeric stand-in for `+-infinity` at the outermost edges of the parameter
 /// axis, matching GeN-Foam's own `+-1e69` literal exactly (see the module docs
 /// for why a literal `f64::INFINITY` does not work here).

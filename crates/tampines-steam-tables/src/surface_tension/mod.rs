@@ -4,6 +4,9 @@
 //! `uom` `RadiantExposure` (J/m^2) because `uom` has no dedicated
 //! surface-tension quantity — the units coincide (kg/s^2).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::{f64::*, radiant_exposure::joule_per_square_meter, ratio::ratio};

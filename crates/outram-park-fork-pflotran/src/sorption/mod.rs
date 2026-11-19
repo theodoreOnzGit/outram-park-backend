@@ -90,6 +90,9 @@
 //!   parallel subsurface simulators: An illustrative example with PFLOTRAN,"
 //!   Water Resour. Res. 50 (2014) 208.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
@@ -247,6 +250,31 @@ impl SorptionIsotherm {
             )));
         }
         Ok(SorptionIsotherm::Freundlich { kf, n })
+    }
+
+    /// Construct a Freundlich isotherm from PFLOTRAN's parameterisation
+    /// (gh:#1422).
+    ///
+    /// **Convention warning.** This crate's [`SorptionIsotherm::Freundlich`]
+    /// stores the EXPONENT: `s = Kf * c^n`, `n` in `(0, 1]`. PFLOTRAN's
+    /// `FREUNDLICH_N` is the INVERSE exponent: `reaction_isotherm.F90`
+    /// (`ReactionIsothermTotalSorbKD`, commit 669fbce) computes
+    /// `one_over_n = 1.d0/eqisothermfreundlichn` and
+    /// `Csorb = Kd*Caq**one_over_n`. The same number passed to the two
+    /// therefore describes different isotherms unless it is 1. This
+    /// constructor takes PFLOTRAN's `n` (`>= 1`) and the coefficient `kd` and
+    /// stores the exponent `1/n`, evaluated as upstream does (`1.d0/n`).
+    ///
+    /// # Errors
+    /// [`PflotranError::InvalidInput`] if `kd <= 0`, `n < 1`, or either is
+    /// non-finite.
+    pub fn new_freundlich_pflotran(kd: f64, n: f64) -> Result<Self, PflotranError> {
+        if !n.is_finite() || n < 1.0 {
+            return Err(PflotranError::InvalidInput(format!(
+                "PFLOTRAN FREUNDLICH_N must be finite and >= 1 for this crate, got {n}"
+            )));
+        }
+        Self::new_freundlich(kd, 1.0 / n)
     }
 }
 

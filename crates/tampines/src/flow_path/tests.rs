@@ -30,6 +30,9 @@
 //! 7. A check valve never flows back; a breaker flows only above its set
 //!    difference.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 
 fn len(x: f64) -> Length {

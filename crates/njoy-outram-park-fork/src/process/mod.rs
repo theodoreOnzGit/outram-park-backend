@@ -78,13 +78,16 @@
 //!
 //! The results, with dates, are in that file's module doc.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod settings;
 mod thermal;
 
 pub use settings::{CrossSectionSettings, PurrSettings, ThermalSettings};
 pub use thermal::{thermal_ace, thermal_scattering, ThermalScatteringLaw};
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use uom::si::thermodynamic_temperature::kelvin;
 
@@ -181,6 +184,9 @@ impl NuclearCrossSections {
             gas: Vec::new(),
             pendf_binary: false,
             endf_binary: false,
+            iopp: true,
+            ismooth: true,
+            gamsum_pendf: None,
         };
         crate::acer::assemble(&self.tape, self.mat, &self.pendf, K_B_MEV * t_k, self.settings.ace_suffix, &modules)
     }

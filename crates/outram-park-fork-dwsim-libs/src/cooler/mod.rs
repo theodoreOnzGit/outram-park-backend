@@ -48,6 +48,9 @@
 //! `HeatRemoved` once the duty is read from the energy stream — but note it
 //! *adds* enthalpy in DWSIM, using the heater sign, Cooler.vb:460).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
     AvailableEnergy, MassRate, Power, Ratio, SpecificHeatCapacity, ThermodynamicTemperature,

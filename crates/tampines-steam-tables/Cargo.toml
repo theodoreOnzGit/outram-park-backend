@@ -112,12 +112,12 @@ level = 3
 why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
 
 [dependencies]
-approx.workspace = true
 # PETIR supplies the Chebyshev evaluation these backward correlations use.
 # It is no_std with only `libm`, so it adds no std/BLAS/toolchain weight.
 petir.workspace = true
-ndarray.workspace = true
-thiserror.workspace = true
+# `thiserror` with its `std` default off (the root's `thiserror-nostd`
+# key, gh:#1599); `std` turns it back on. Renamed in `lib.rs`.
+thiserror-nostd.workspace = true
 uom.workspace = true
 # The FvMesh, MeshError, 1-D mesher and tensor primitives of
 # `openfoam_algorithms::openfoam_source` are re-exported from here (deduped
@@ -126,12 +126,24 @@ uom.workspace = true
 # ours, and its rayon/wgpu are optional and off. Android- and wasm-clean.
 outram-foam-basic-lib.workspace = true
 
+# gh:#1346: inflate the committed gzipped upstream reference files in
+# tests/if97_vs_coolprop_if97.rs. Pure Rust, already a workspace dependency (MIT/Zlib/Apache-2.0).
+[dev-dependencies]
+# MOVED from [dependencies] (gh:#1599): only tests use them, and both
+# would bring `std` into the `no_std` build.
+approx.workspace = true
+ndarray.workspace = true
+miniz_oxide.workspace = true
+
 [features]
 # `long-tests` gates the individual tests that measure over 5 minutes, and is
 # default-on, so a plain `cargo test` runs them. See the "Any test over 5
 # minutes" HARD RULE in the workspace CLAUDE.md. Turn them off while
 # iterating with `cargo quick-test -p tampines-steam-tables`.
-default = ["long-tests"]
+# `std` (gh:#1599): without it the crate is `no_std` + `alloc`, checked on a
+# bare-metal target by `scripts/check-nostd.sh`.
+default = ["long-tests", "std"]
+std = ["outram-foam-basic-lib/std", "thiserror-nostd/std"]
 long-tests = []
 # ~~platform-libm~~ REMOVED 2026-09-17 (bn:op-7kwt), together with the petir
 # feature it passed through to. That hatch could not compile in ANY
@@ -162,9 +174,9 @@ long-tests = []
 # --lib compile gate cannot catch this class: dev-deps are invisible to it.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 # resolves to the in-tree crate rather than crates.io
-tuas_boussinesq_solver.workspace = true
-teh-o-prke.workspace = true
-chem-eng-real-time-process-control-simulator.workspace = true
+tuas_boussinesq_solver = { workspace = true, features = ["std"] }
+teh-o-prke = { workspace = true, features = ["std"] }
+chem-eng-real-time-process-control-simulator = { workspace = true, features = ["std"] }
 egui.workspace = true
 bugis.workspace = true
 eframe.workspace = true

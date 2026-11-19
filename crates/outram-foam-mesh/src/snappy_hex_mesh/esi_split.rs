@@ -66,7 +66,10 @@
 //! `removeEdgeConnectedCells false`, `minVolCollapseRatio` unset), and
 //! `refinementInterfaceRefine`.
 
-use std::collections::{HashMap, HashSet};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use crate::hash::{HashMap, HashSet};
 
 use outram_foam_basic_lib::primitives::Vector3;
 

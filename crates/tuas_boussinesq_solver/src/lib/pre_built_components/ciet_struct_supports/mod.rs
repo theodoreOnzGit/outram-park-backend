@@ -18,7 +18,10 @@
 //! lateral couplings), calculation (advancing the control volumes one
 //! timestep), and postprocessing (reading back temperature profiles).
 
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;

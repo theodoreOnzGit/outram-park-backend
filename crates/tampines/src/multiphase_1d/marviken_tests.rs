@@ -138,6 +138,9 @@
 //! [`marviken_drift_flux_explore`] is `#[ignore]`d and env-driven for
 //! single-point work.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::angle::radian;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{Angle, Length, Pressure, ThermodynamicTemperature, Time};

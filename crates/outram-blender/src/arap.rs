@@ -60,6 +60,9 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::laplacian::{
     edge_weights_from, factor_spd_lower, mesh_triangles, solve_columns, LaplacianWeighting,
     SpdFactorError,
@@ -557,7 +560,7 @@ mod tests {
     fn arap_reproduces_a_rigid_motion() {
         let grid = primitives::grid(5, 5, 2.0);
         let boundary = crate::laplacian::boundary_vertices(&grid);
-        let theta = std::f64::consts::FRAC_PI_6; // 30°
+        let theta = core::f64::consts::FRAC_PI_6; // 30°
         let t = Vec3::new(0.5, -0.3, 0.2);
 
         let handles: Vec<(VertexId, Vec3)> = (0..grid.vertex_count())
@@ -616,7 +619,7 @@ mod tests {
         // Rest edge lengths.
         let edges: Vec<(usize, usize, f64)> = {
             let tris = mesh_triangles(&bar);
-            let mut set = std::collections::HashSet::new();
+            let mut set = crate::hash::HashSet::new();
             let mut v = Vec::new();
             for [a, b, c] in tris {
                 for &(i, j) in &[(a, b), (b, c), (c, a)] {

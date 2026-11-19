@@ -7,6 +7,16 @@ Guidance for Claude Code (and other AI assistants) working in this crate.
 > full consolidation/migration history. Dependencies are inherited from the root
 > `[workspace.dependencies]` — do not pin versions in this crate's `Cargo.toml`.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1600, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way: new code
+uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*` glob (copy
+it from any module); `ndarray` and `thiserror` come in as `ndarray-nostd` /
+`thiserror-nostd` (imported under their usual names in `lib.rs`); printing
+and clocks stay in tests or go behind `#[cfg(feature = "std")]`; a map, if
+one is ever needed, follows the workspace rule (`crate::hash`, `hashbrown`).
+
 ## Maturity: DECLARED MATURE (2026-09-05)
 
 The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
@@ -122,6 +132,14 @@ delayed-neutron precursor groups, reactivity feedback, and decay heat, using
     The rod-worth map errors outside its closed range by default
     (`RodWorthOutOfRange::Error`, both ends in range); GeN-Foam's zero is
     `RodWorthOutOfRange::UpstreamZero` (maintainer decision 2026-11-10).
+    **Differential vs GeN-Foam 652b3da (gh:#1439, 2026-11-13):** bit-identical
+    on 830 fixed-input rows except one Doppler row per history (PETIR `r_ln`,
+    1 ulp in `ln`, 2 ulp in the term); see
+    `verification_and_validation/genfoam_differential/README.md`.
+    `PointKinetics::step_implicit_genfoam_form` (+ `SquareMatrix::
+    solve_gaussian_openfoam`, OpenFOAM's `solve()`) reproduces GeN-Foam's
+    `solvePointKinetics.H` step bit for bit (300/300); `step_implicit` is
+    unchanged and differs by round-off only (the solver, not the scaling).
 - `fuel_temperature_feedback`, `control_rod_feedback`, `decay_heat`.
 - `ans_decay_heat` — ANS standards enum, isotope mix incl. Pu-241, `F_gamma`,
   user-supplied coefficients, `G(t)` (gh:#1080). Only the 1978 draft set is

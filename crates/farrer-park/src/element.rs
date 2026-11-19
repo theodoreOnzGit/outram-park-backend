@@ -63,6 +63,9 @@
 //! Jacobian are in metres; `det J` is in square metres (2-D) or cubic metres
 //! (3-D); physical shape-function gradients `dN/dx` are in reciprocal metres.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::{FemError, Result};
 
 /// Maximum number of nodes any supported element has ([`ElementType::Hex8`]).

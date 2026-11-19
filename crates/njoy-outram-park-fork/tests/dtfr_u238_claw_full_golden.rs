@@ -40,6 +40,9 @@
 //!
 //! All inside the 2e-5 gate (six printed figures): the prediction held.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::dtfr::assemble::assemble_tables;
 use njoy_outram_park_fork::dtfr::input::{DtfrInput, CLAW_HMTID};
 use njoy_outram_park_fork::endf::tape::Tape;

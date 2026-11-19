@@ -45,6 +45,9 @@
 //! and published densities with nothing tuned, and to be reported with its
 //! disagreement rather than corrected into agreement.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::htr10_rmc::control_rod::smeared_composition;
 use crate::mgxs::MgxsLibrary;

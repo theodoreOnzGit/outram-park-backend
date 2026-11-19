@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 const SUBREGION_2A_BACK_COEFFS_PS: [[f64; 3]; 46] = [

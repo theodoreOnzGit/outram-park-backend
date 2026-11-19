@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// External neutron source definition.
 ///
 /// C++ source: `src/source.cpp` (778 LOC), `include/openmc/source.h`.

@@ -81,11 +81,14 @@
 //! faces whose normal is z-dominated go to the empty patches
 //! `unusedFacesBottom` / `unusedFacesTop` ([`create_empty_patches`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree::{help, CubeType, MeshOctree, TriSurf, EDGE_NODES, FACE_EDGES, FACE_NODES, SMALL};
 use crate::mesh_octree_creator::MeshDict;
 use crate::volume_mesh::{BoundaryPatch, VolumeMesh};
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 /// `meshOctreeAddressing::octreeCubeTypes`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1130,7 +1133,7 @@ fn extract_from_addressing(o: &MeshOctree, opts: &CartesianMeshOptions, a: MeshO
         let mut n_faces = vec![0usize; n_cells];
         let mut all_quads = vec![true; n_cells];
         for (f, ring) in faces.iter().enumerate() {
-            for c in std::iter::once(owner[f]).chain(neighbour[f]) {
+            for c in core::iter::once(owner[f]).chain(neighbour[f]) {
                 n_faces[c] += if fan[f] { ring.len() } else { 1 };
                 if fan[f] || ring.len() != 4 {
                     all_quads[c] = false;
@@ -1184,8 +1187,8 @@ mod tests {
     use super::*;
     use crate::mesh_octree_creator::tests::{create, sphere3};
     use crate::mesh_octree_queries::tests::pipe;
-    use std::collections::{BTreeMap, BTreeSet};
-    use std::sync::Arc;
+    use alloc::collections::{BTreeMap, BTreeSet};
+    use alloc::sync::Arc;
 
     /// Per-cell volumes by the divergence theorem over each cell's faces.
     fn cell_volumes(m: &VolumeMesh) -> Vec<f64> {
@@ -1298,6 +1301,7 @@ mod tests {
                 }
                 nf.iter().filter(|&&k| k > 6).count()
             };
+            #[cfg(feature = "std")]
             println!(
                 "{name}: cells {} / {}, faces {} / {}, points {} / {}, volume {vu:.12} / {vr:.12} (rel {:.2e}), \
                  faces only upstream {only_u}, only octree.rs {only_r}, split hexes {n_poly}",
@@ -1365,6 +1369,7 @@ mod tests {
             .sum();
         let hex_split: f64 = vs[..n_kept].iter().sum();
         assert!(((hex_plain - hex_split) / hex_plain).abs() < 1e-12);
+        #[cfg(feature = "std")]
         println!(
             "pipe: {} cells -> {} ({} decomposed), points {} -> {}",
             plain.mesh.n_cells,
@@ -1480,6 +1485,7 @@ mod tests {
             let scale = o.root_box.span().x;
             let oct = edge_keys(&a.octree_points, &a.octree_faces, scale);
             let msh = edge_keys(&cm.mesh.points, &cm.mesh.faces, scale);
+            #[cfg(feature = "std")]
             println!("{name}: octree edges {}, distinct by coordinates {}, mesh edges {}", ea.edges.len(), oct.len(), msh.len());
             assert_eq!(ea.edges.len(), oct.len());
             assert_eq!(oct, msh);
@@ -1579,6 +1585,7 @@ mod tests {
                 }
             }
         }
+        #[cfg(feature = "std")]
         println!(
             "sphere faces: reported {n_rep_f}, geometric {n_geo_f}, missed {missed_f}; edges: reported {n_rep_e}, geometric {n_geo_e}, missed {missed_e}, no intersection point {no_point}"
         );
@@ -1632,6 +1639,7 @@ mod tests {
         let checked = cartesian_mesh_extractor_from_dict(&o, &opts, &checked_dict);
         checked.mesh.validate().expect("closed after the glued check");
         let (c0, c1) = (cell_components(&glued.mesh), cell_components(&checked.mesh));
+        #[cfg(feature = "std")]
         println!(
             "two boxes: cells {} -> {}, components {c0} -> {c1}, leaves made BOUNDARY {}",
             glued.mesh.n_cells,
@@ -1669,6 +1677,7 @@ mod tests {
             let n1 = a.box_type.iter().filter(|&&b| b & BoxType::MESHCELL != 0).count();
             let m = extract_from_addressing(&o, &CartesianMeshOptions::default(), a);
             m.mesh.validate().unwrap_or_else(|e| panic!("{name}: {e}"));
+            #[cfg(feature = "std")]
             println!("{name}: irregular (edges, nodes) per pass {passes:?}; cells {n0} -> {n1}");
             assert!(passes.iter().all(|&(_, nodes)| nodes == 0));
             assert_eq!(passes.last(), Some(&(0, 0)));
@@ -1714,6 +1723,7 @@ mod tests {
         }
         let mut addr = MeshOctreeAddressing::from_box_type(&o, false, bt);
         let passes = addr.check_and_fix_irregular_connections(&o);
+        #[cfg(feature = "std")]
         println!("diagonal pair {a}, {b}: passes {passes:?}");
         assert_eq!(passes, vec![(1, 0), (0, 0)]);
         assert!(addr.box_type.iter().all(|&t| t & BoxType::MESHCELL == 0));
@@ -1743,6 +1753,7 @@ mod tests {
         o.slot.cubes[ci].cube_type = CubeType::UNKNOWN;
         let a2 = cartesian_mesh_extractor_from_dict(&o, &opts, &nm).mesh;
         let b2 = cartesian_mesh_extractor_from_dict(&o, &opts, &keep).mesh;
+        #[cfg(feature = "std")]
         println!("non-manifold: cells {} (keep {}); with one UNKNOWN leaf {} (keep {})", a.n_cells, b.n_cells, a2.n_cells, b2.n_cells);
         assert_eq!((a2.n_cells, b2.n_cells), (a.n_cells, a.n_cells - 1));
         a2.validate().expect("closed");
@@ -1785,6 +1796,7 @@ mod tests {
         let kept = run(MeshDict { keep_cells_intersecting_patches: vec![inlet.clone()], ..MeshDict::default() });
         let kept_s = run(MeshDict { keep_cells_intersecting_patches: vec!["inlet_set".into()], ..MeshDict::default() });
         let ignored = run(MeshDict { keep_cells_intersecting_boundary: true, keep_cells_intersecting_patches: vec![inlet], ..MeshDict::default() });
+        #[cfg(feature = "std")]
         println!(
             "pipe: inlet leaves {n_inlet}; cells plain {}, keep [inlet] {}, DATA {}, DATA remove [inlet] {}",
             plain.n_cells, kept.n_cells, data.n_cells, removed.n_cells

@@ -98,6 +98,9 @@
 //! entry point a mesh operator should call: it preserves the caller's winding
 //! and hence its outward normal.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 
 /// Corner classification, matching upstream's `eSign`.
@@ -540,7 +543,7 @@ mod tests {
             // A convex regular n-gon.
             let coords: Vec<[f64; 2]> = (0..n)
                 .map(|i| {
-                    let t = std::f64::consts::TAU * (i as f64) / (n as f64);
+                    let t = core::f64::consts::TAU * (i as f64) / (n as f64);
                     [t.r_cos(), t.r_sin()]
                 })
                 .collect();
@@ -717,7 +720,7 @@ mod tests {
         let n = 17;
         let coords: Vec<[f64; 2]> = (0..n)
             .map(|i| {
-                let t = std::f64::consts::TAU * (i as f64) / (n as f64);
+                let t = core::f64::consts::TAU * (i as f64) / (n as f64);
                 let r = if i % 3 == 0 { 0.4 } else { 1.0 };
                 [r * t.r_cos(), r * t.r_sin()]
             })

@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.2
+**Version:** 0.0.4
 
 **Format Version:** 61
 
@@ -23,7 +23,8 @@ theirs to steer; changes of direction are their call. See the crate
 This crate is no longer the empty scaffold its first commits described.
 Every module below — [`distributions`], [`samplers`], [`sensitivity`],
 [`bayesian`], [`distance`], [`abc`], [`imprecise`], [`model_selection`],
-[`scram`], [`gnn`] and [`surrogate`] — carries working, unit-tested code
+[`scram`], [`gnn`], [`surrogate`] and [`fidelity`] (the typed
+high-fidelity-to-surrogate interface, gh:#1194) — carries working, unit-tested code
 whose verification methodology and measured results are recorded in the doc
 comments of the tests themselves.
 
@@ -407,6 +408,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -420,6 +422,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -530,6 +533,7 @@ pub struct AbcLikelihood {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -543,6 +547,7 @@ pub struct AbcLikelihood {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -631,6 +636,7 @@ pub struct RejectionAbcResult {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -644,6 +650,7 @@ pub struct RejectionAbcResult {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -848,6 +855,9 @@ The three results that should change how you read this module:
   the one repository in that set that carries a licence. Includes a bimodal
   posterior whose two modes are computable in closed form, which is the
   failure a moment-based check cannot see.
+- [`koh`] — Kennedy–O'Hagan calibration with a GP model discrepancy,
+  translated from LANL's SEPIA (BSD-3, gh:#1180) and sampled with
+  [`transitional`]; differential-tested against SEPIA.
 
 # Conventions used throughout
 
@@ -994,6 +1004,133 @@ must be, rather than looking for "some other cluster".
 pub fn eigenvalue_partner(theta: &[f64]) -> Option<Vec<f64>> { /* ... */ }
 ```
 
+## Module `koh`
+
+**Kennedy–O'Hagan calibration with model discrepancy** (gh:#1180),
+translated from SEPIA's scalar-output model (the GPMSA formulation of
+Higdon et al. 2004, 2008):
+
+```text
+y_obs(x) = η(x, θ) + δ(x) + ε,   η ~ GP over (x, t) fitted to simulator runs,
+                                 δ ~ GP over x,  ε ~ N(0, 1/λ_Os)
+```
+
+(Kennedy & O'Hagan 2001, *J. R. Stat. Soc. B* 63:425.)
+
+- [`KohData`]: SEPIA's transforms (unit cube, standardised y).
+- [`KohModel`]: [`KohForm`] × [`KohPriors`]; [`KohModel::log_lik`],
+  [`KohModel::log_prior`], [`KohModel::log_post`], [`KohModel::predict`]
+  (the conditional Gaussian of (δ, η) at new x), [`EmulatorFactor`] for a
+  fixed emulator.
+- [`KohModel::sample`]: raffles' TMCMC on SEPIA's posterior (not a port).
+
+**Upstream findings that shape this module** (V&V record): SEPIA's own
+univariate setup cannot carry δ (only its likelihood and its dense
+predictor still have the GPMSA branch), and that dense predictor's
+scalar + δ branch places one block wrongly; the port follows upstream's
+own comment there.
+
+The typed route from a `ParametricModel` and a `Dataset` is
+[`crate::fidelity::koh`]. V&V:
+`crates/raffles/verification_and_validation/koh_calibration_gh1180.md`,
+differential tests `tests/koh_sepia_gh1180.rs`.
+
+```rust
+pub mod koh { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `pairwise_sum`
+
+```rust
+pub use data::pairwise_sum;
+```
+
+#### Re-export `KohData`
+
+```rust
+pub use data::KohData;
+```
+
+#### Re-export `cov_cross`
+
+```rust
+pub use model::cov_cross;
+```
+
+#### Re-export `cov_self`
+
+```rust
+pub use model::cov_self;
+```
+
+#### Re-export `EmulatorFactor`
+
+```rust
+pub use model::EmulatorFactor;
+```
+
+#### Re-export `KohForm`
+
+```rust
+pub use model::KohForm;
+```
+
+#### Re-export `KohModel`
+
+```rust
+pub use model::KohModel;
+```
+
+#### Re-export `KohParams`
+
+```rust
+pub use model::KohParams;
+```
+
+#### Re-export `KohPredictive`
+
+```rust
+pub use model::KohPredictive;
+```
+
+#### Re-export `KohPriors`
+
+```rust
+pub use model::KohPriors;
+```
+
+#### Re-export `ParamPrior`
+
+```rust
+pub use model::ParamPrior;
+```
+
+#### Re-export `PriorDist`
+
+```rust
+pub use model::PriorDist;
+```
+
+#### Re-export `KohFree`
+
+```rust
+pub use sample::KohFree;
+```
+
+#### Re-export `KohPosterior`
+
+```rust
+pub use sample::KohPosterior;
+```
+
+#### Re-export `KohSampleConfig`
+
+```rust
+pub use sample::KohSampleConfig;
+```
+
 ## Module `mcmc`
 
 Markov-chain moves: random-walk Metropolis–Hastings and the
@@ -1122,6 +1259,7 @@ where
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1135,6 +1273,7 @@ where
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -1250,6 +1389,7 @@ where
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1263,6 +1403,7 @@ where
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -1404,6 +1545,7 @@ where
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1417,6 +1559,7 @@ where
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -1449,6 +1592,902 @@ where
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `raven_mcmc`
+
+**RAVEN's Metropolis and adaptive Metropolis samplers** (gh:#1193, the
+RAVEN route for calibration, gh:#1180).
+
+A translation of `Samplers/MCMC/`: a random-walk Metropolis chain whose
+proposal scale is tuned on the fly with PyMC3's acceptance table, and
+Haario-style adaptive Metropolis, whose Gaussian proposal covariance
+follows the chain.
+
+# How this relates to [`super::MetropolisHastings`]
+
+The existing kernel ([`super::mcmc`]) is written from the papers, and with
+a fixed scale and unbounded priors it is the same Markov kernel as RAVEN's
+Metropolis with a diagonal Cholesky factor `0.2 σ_i s`. What differs:
+
+| | `MetropolisHastings::step` | RAVEN (`raven_mcmc`) |
+|---|---|---|
+| proposal | `θ + L z`, any `L` | `θ + s · d`, `d_i ~ N(0, 0.2 σ_i)` (Metropolis) or `d ~ N(0, λΣ)` (adaptive) |
+| scale | fixed | tuned every `tune_interval` steps (PyMC3 table); adaptive: Robbins–Monro `λ` and ensemble covariance |
+| target | one `ln_target` | prior and likelihood kept separate; the log-ratio is a sum of per-parameter `ln pdf` differences |
+| outside the prior's support | proposal rejected (`-inf`) | proposal **clamped onto the bound** and evaluated there |
+| NaN log-ratio | rejected | `min(0, NaN) = 0`: **accepted** (Python `min`) |
+| the first step | — | step 1 evaluates the initial point; acceptance rate counts it as accepted |
+
+So `raven_mcmc` does not reuse `MetropolisHastings`: the clamp, the
+separate prior and likelihood, the tuning and the replayable draws are
+what make it RAVEN's, and bit-identity with RAVEN needs RAVEN's operation
+order. The prior is the crate's [`IndependentPrior`].
+
+# V&V
+
+Record: `crates/raffles/verification_and_validation/raven_routes_gh1193.md`.
+Against RAVEN itself (`Draws::Replay` on RAVEN's recorded draws) and
+against closed-form posteriors (`Draws::Lcg`): see the tests below.
+
+```rust
+pub mod raven_mcmc { /* ... */ }
+```
+
+### Types
+
+#### Enum `RavenMcmcKind`
+
+Which RAVEN sampler.
+
+```rust
+pub enum RavenMcmcKind {
+    Metropolis,
+    AdaptiveMetropolis {
+        adaptive_interval: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `Metropolis`
+
+`Samplers/MCMC/Metropolis.py`: one independent Gaussian proposal per
+parameter, `N(0, 0.2 σ_prior)`, times the tuned scale.
+
+###### `AdaptiveMetropolis`
+
+`Samplers/MCMC/AdaptiveMetropolis.py`: one multivariate Gaussian
+proposal `N(0, λ Σ)`, `λ` and `Σ` adapted after the burn-in.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `adaptive_interval` | `usize` | Steps between covariance updates (RAVEN's `<adaptiveInterval>`,<br>default 20). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `LikelihoodForm`
+
+What the likelihood closure returns (RAVEN's `<likelihood log="...">`).
+
+```rust
+pub enum LikelihoodForm {
+    Log,
+    Linear,
+}
+```
+
+##### Variants
+
+###### `Log`
+
+The natural log of the likelihood (`log="True"`).
+
+###### `Linear`
+
+The likelihood itself (RAVEN's default, `log="False"`); its log is
+taken when the ratio is formed.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `BoundHandling`
+
+What to do with a proposal outside a prior's support.
+
+```rust
+pub enum BoundHandling {
+    ClampAsRaven,
+    Reject,
+}
+```
+
+##### Variants
+
+###### `ClampAsRaven`
+
+RAVEN's rule (`Metropolis.py:137-142`, `AdaptiveMetropolis.py:274-285`):
+move it onto the bound and evaluate it there. This leaves an atom on
+the bound, so the chain does not sample the posterior when the
+posterior has mass near a bound (V&V record, A3).
+
+###### `Reject`
+
+Reject the proposal (the Metropolis rule). Not in RAVEN.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RavenMcmcConfig`
+
+Configuration, with RAVEN's names and defaults.
+
+```rust
+pub struct RavenMcmcConfig {
+    pub kind: RavenMcmcKind,
+    pub limit: usize,
+    pub burn_in: usize,
+    pub tune: bool,
+    pub tune_interval: usize,
+    pub initial: Option<Vec<f64>>,
+    pub likelihood: LikelihoodForm,
+    pub bounds: BoundHandling,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `RavenMcmcKind` | Which sampler. |
+| `limit` | `usize` | Total steps, the initial point included (`<limit>`). |
+| `burn_in` | `usize` | Leading steps left out of [`RavenMcmcResult::samples`] (`<burnIn>`,<br>default 0). For adaptive Metropolis it is also where the scale tuning<br>stops and the adaptation starts. |
+| `tune` | `bool` | Tune the proposal scale (`<tune>`, default true). |
+| `tune_interval` | `usize` | Steps between scale tunings (`<tuneInterval>`, default 100). |
+| `initial` | `Option<Vec<f64>>` | The initial point (`<initial>`); `None` draws it from the prior. |
+| `likelihood` | `LikelihoodForm` | What the likelihood closure returns. |
+| `bounds` | `BoundHandling` | What happens at a prior's bounds. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn metropolis(limit: usize) -> Self { /* ... */ }
+  ```
+  RAVEN's `Metropolis` defaults: burn-in 0, tuning on every 100 steps,
+
+- ```rust
+  pub fn adaptive_metropolis(limit: usize) -> Self { /* ... */ }
+  ```
+  RAVEN's `AdaptiveMetropolis` defaults: as [`metropolis`](Self::metropolis),
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Draws`
+
+Where the randomness comes from.
+
+```rust
+pub enum Draws {
+    Lcg {
+        seed: u64,
+    },
+    Replay {
+        increments: Vec<Vec<f64>>,
+        uniforms: Vec<f64>,
+    },
+}
+```
+
+##### Variants
+
+###### `Lcg`
+
+The workspace LCG (`petir::rng::lcg`), from this seed: one standard
+normal per parameter for the proposal, then one uniform for the
+acceptance, every step after the first.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `seed` | `u64` | Stream state. |
+
+###### `Replay`
+
+Recorded draws, consumed in order: for step `k = 2..=limit`,
+`increments[k - 2]` is the proposal draw `d` (before the scale) and
+`uniforms[k - 2]` the acceptance uniform. This is how the port is
+compared with RAVEN; the initial point must then be given.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `increments` | `Vec<Vec<f64>>` | Proposal draws, one vector of length `d` per step after the first. |
+| `uniforms` | `Vec<f64>` | Acceptance uniforms, one per step after the first. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RavenStep`
+
+One step of the chain, as RAVEN's loop leaves it.
+
+```rust
+pub struct RavenStep {
+    pub proposed: Vec<f64>,
+    pub current: Vec<f64>,
+    pub alpha: Option<f64>,
+    pub accepted: bool,
+    pub accept_rate: f64,
+    pub scaling: f64,
+    pub lambda: Option<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `proposed` | `Vec<f64>` | The evaluated point (after the clamp). |
+| `current` | `Vec<f64>` | The chain's state after the decision. |
+| `alpha` | `Option<f64>` | `min(0, log ratio)`; `None` at step 1. |
+| `accepted` | `bool` | Whether the proposal was accepted (false at step 1, as RAVEN's<br>`_accepted` starts). |
+| `accept_rate` | `f64` | RAVEN's running acceptance rate, `(1 + accepted) / counter`. |
+| `scaling` | `f64` | The proposal scale after this step's tuning. |
+| `lambda` | `Option<f64>` | Adaptive Metropolis's `λ` after this step's update. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RavenMcmcResult`
+
+A finished chain.
+
+```rust
+pub struct RavenMcmcResult {
+    pub steps: Vec<RavenStep>,
+    pub burn_in: usize,
+    pub ensemble_mean: Option<Vec<f64>>,
+    pub ensemble_cov: Option<Vec<Vec<f64>>>,
+    pub nan_log_ratios: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steps` | `Vec<RavenStep>` | Every step, the first included. |
+| `burn_in` | `usize` | The burn-in the run used. |
+| `ensemble_mean` | `Option<Vec<f64>>` | Adaptive Metropolis's final ensemble mean. |
+| `ensemble_cov` | `Option<Vec<Vec<f64>>>` | Adaptive Metropolis's final ensemble covariance (row-major, `d × d`). |
+| `nan_log_ratios` | `usize` | Steps whose log ratio was NaN and which RAVEN's `min(0, ·)` therefore<br>accepted. Non-zero means the likelihood or prior has a hole. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn samples(self: &Self) -> Vec<Vec<f64>> { /* ... */ }
+  ```
+  The chain's states after the burn-in: steps with `counter > burn_in`,
+
+- ```rust
+  pub fn accept_rate(self: &Self) -> f64 { /* ... */ }
+  ```
+  Final acceptance rate.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `tune_scaling`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+PyMC3's scale-tuning table, as RAVEN copies it (`MCMC.tuneScalingParam`).
+
+```rust
+pub fn tune_scaling(scale: f64, accept_rate: f64) -> f64 { /* ... */ }
+```
+
+#### Function `raven_mcmc`
+
+Runs RAVEN's Metropolis or adaptive Metropolis on `prior` and the
+caller's `likelihood` (in the form `config.likelihood` says).
+
+# Errors
+
+[`RafflesError::InvalidParameter`] for an invalid configuration;
+[`RafflesError::DimensionMismatch`] for an initial point or a replayed
+draw of the wrong length, or a replay that runs out;
+[`RafflesError::InvalidParameter`] for a replay without an initial point,
+or an adaptive proposal covariance that is not positive definite (LCG
+route only).
+
+```rust
+pub fn raven_mcmc<L>(prior: &super::IndependentPrior, config: &RavenMcmcConfig, likelihood: &L, draws: Draws) -> crate::Result<RavenMcmcResult>
+where
+    L: Fn(&[f64]) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RAVEN_OPTIMAL_ACCEPTANCE`
+
+RAVEN's optimum acceptance rate for adaptive Metropolis
+(`AdaptiveMetropolis._optAlpha`).
+
+```rust
+pub const RAVEN_OPTIMAL_ACCEPTANCE: f64 = 0.234;
+```
+
+#### Constant `RAVEN_DEFAULT_PROPOSAL_FRACTION`
+
+RAVEN's default proposal standard deviation, as a fraction of the prior's
+untruncated standard deviation (`MCMC._stdProposalDefault`).
+
+```rust
+pub const RAVEN_DEFAULT_PROPOSAL_FRACTION: f64 = 0.2;
+```
+
 ## Module `transitional`
 
 Transitional MCMC (TMCMC) and Transitional Ensemble MCMC (TEMCMC).
@@ -1614,6 +2653,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1627,6 +2667,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -1808,6 +2849,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1821,6 +2863,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -1941,6 +2984,7 @@ pub struct TransitionalConfig {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1954,6 +2998,7 @@ pub struct TransitionalConfig {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -2050,6 +3095,7 @@ pub struct StageReport {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2063,6 +3109,7 @@ pub struct StageReport {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -2165,6 +3212,7 @@ pub struct TransitionalResult {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2178,6 +3226,7 @@ pub struct TransitionalResult {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -2405,6 +3454,7 @@ pub struct IndependentPrior {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2418,6 +3468,7 @@ pub struct IndependentPrior {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -2514,6 +3565,7 @@ pub struct SamplerDiagnostics {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2527,6 +3579,7 @@ pub struct SamplerDiagnostics {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -2571,6 +3624,54 @@ pub use mcmc::EnsembleMove;
 
 ```rust
 pub use mcmc::MetropolisHastings;
+```
+
+#### Re-export `raven_mcmc`
+
+```rust
+pub use raven_mcmc::raven_mcmc;
+```
+
+#### Re-export `BoundHandling`
+
+```rust
+pub use raven_mcmc::BoundHandling;
+```
+
+#### Re-export `Draws`
+
+```rust
+pub use raven_mcmc::Draws;
+```
+
+#### Re-export `LikelihoodForm`
+
+```rust
+pub use raven_mcmc::LikelihoodForm;
+```
+
+#### Re-export `RavenMcmcConfig`
+
+```rust
+pub use raven_mcmc::RavenMcmcConfig;
+```
+
+#### Re-export `RavenMcmcKind`
+
+```rust
+pub use raven_mcmc::RavenMcmcKind;
+```
+
+#### Re-export `RavenMcmcResult`
+
+```rust
+pub use raven_mcmc::RavenMcmcResult;
+```
+
+#### Re-export `RavenStep`
+
+```rust
+pub use raven_mcmc::RavenStep;
 ```
 
 #### Re-export `temcmc`
@@ -2933,6 +4034,7 @@ more expensive object.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2946,6 +4048,7 @@ more expensive object.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -3082,10 +4185,10 @@ there is one copy of each.
 Moved byte-for-byte from `outram_mc_libs::rng::distributions`, which
 re-exports them, so `outram-mc-libs`, `boon-lay` and `nee_soon` call sites
 see the same numbers. `ln` is always `petir::real::ln` (as it was through
-outram-mc's `RealMath::r_ln`). `cos` follows outram-mc's routing: the
-platform `f64::cos` by default, and [`petir::real::cos`] under this crate's
-**`deterministic-math`** feature, which `outram-mc-libs`' own
-`deterministic-math` feature forwards. Physics samplers (`maxwell`, `watt`,
+outram-mc's `RealMath::r_ln`). `cos` is [`petir::real::cos`] in every build
+(~~the platform `f64::cos` unless an off-by-default `deterministic-math`
+feature was on~~ removed 2026-10-20, gh:#985: deterministic maths is not a
+choice). Physics samplers (`maxwell`, `watt`,
 `isotropic_direction`) stay in `outram-mc-libs`.
 
 ```rust
@@ -3251,6 +4354,7 @@ pub struct Uniform {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3264,6 +4368,7 @@ pub struct Uniform {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -3399,6 +4504,7 @@ pub struct Normal {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3412,6 +4518,7 @@ pub struct Normal {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -3554,6 +4661,7 @@ pub struct LogNormal {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3567,6 +4675,7 @@ pub struct LogNormal {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -3705,6 +4814,7 @@ pub struct Triangular {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3718,6 +4828,7 @@ pub struct Triangular {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -3853,6 +4964,7 @@ pub struct Exponential {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3866,6 +4978,7 @@ pub struct Exponential {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -4008,6 +5121,7 @@ pub struct Weibull {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4021,6 +5135,7 @@ pub struct Weibull {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -4167,6 +5282,7 @@ pub struct Gamma {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4180,6 +5296,7 @@ pub struct Gamma {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -4334,6 +5451,7 @@ pub struct Beta {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4347,6 +5465,7 @@ pub struct Beta {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -4561,6 +5680,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4574,6 +5694,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -4745,6 +5866,7 @@ pub struct Truncated {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4758,6 +5880,7 @@ pub struct Truncated {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -5020,6 +6143,7 @@ says — seeds that are not independent, or a `σ` that over-states.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5033,6 +6157,7 @@ says — seeds that are not independent, or a `σ` that over-states.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -5120,6 +6245,7 @@ pub struct SeedOutlier {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5133,6 +6259,7 @@ pub struct SeedOutlier {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -5248,6 +6375,7 @@ pub struct SeedConsistency {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5261,6 +6389,7 @@ pub struct SeedConsistency {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -5363,6 +6492,7 @@ pub struct GroupMeanScatter {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5376,6 +6506,7 @@ pub struct GroupMeanScatter {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -5586,6 +6717,7 @@ pub struct AutocorrelationTime {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5599,6 +6731,7 @@ pub struct AutocorrelationTime {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -5692,6 +6825,7 @@ pub struct BatchMeans {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5705,6 +6839,7 @@ pub struct BatchMeans {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -5820,6 +6955,7 @@ pub struct CorrelatedMean {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5833,6 +6969,7 @@ pub struct CorrelatedMean {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6084,6 +7221,7 @@ pub struct SampleMoments {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6097,6 +7235,7 @@ pub struct SampleMoments {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6194,6 +7333,7 @@ pub struct NormalityTest {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6207,6 +7347,7 @@ pub struct NormalityTest {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6424,6 +7565,7 @@ pub struct MserTruncation {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6437,6 +7579,7 @@ pub struct MserTruncation {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6532,6 +7675,7 @@ pub struct GewekeTest {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6545,6 +7689,7 @@ pub struct GewekeTest {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6642,6 +7787,7 @@ pub struct ChangePoint {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6655,6 +7801,7 @@ pub struct ChangePoint {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6807,6 +7954,7 @@ pub struct BinStats {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6820,6 +7968,7 @@ pub struct BinStats {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -7029,6 +8178,1549 @@ Sum of values and the quadrature sum of their σ, `(Σv, sqrt(Σσ²))`.
 
 ```rust
 pub fn sum_with_sigma(values: &[f64], sigmas: &[f64]) -> (f64, f64) { /* ... */ }
+```
+
+## Module `fidelity`
+
+**One common interface from a high-fidelity model to a surrogate**
+(gh:#1194, epic gh:#1177): traits for the caller's models, enums for the
+routes RAFFLES provides, and `uom` quantities at the edge.
+
+# The pieces
+
+| Item | Job |
+|---|---|
+| [`Quantities`], [`quantities!`](crate::quantities), [`Channel`], [`SiQuantity`] | a record of named `uom` quantities (an input `x`, an output `y`, a parameter vector `θ`) mapped one to one onto SI base values |
+| [`ParameterSpace<Q>`] | a bound or a prior per channel, as a RAFFLES [`Distribution`](crate::distributions::Distribution), stated in uom |
+| [`HighFidelityModel`] | `y = f(x)`, implemented by the caller (CFD, Monte Carlo, a toy function) |
+| [`ParametricModel`] | `y = f_LF(x, θ)`, the object of calibration (Kennedy–O'Hagan gh:#1180, DUD gh:#1192) |
+| [`Dataset<I, O>`], [`MultiFidelityDataset`] | runs with provenance, a [`Fidelity`] tag and a [`Split`] fixed at construction |
+| [`SurrogateSpec`], [`Surrogate<I, O>`] | what to fit, and the fitted model: `Polynomial` (one fit per output), `Neural` behind the `burn` feature, since gh:#1193 RAVEN's `PolynomialChaos` and `Kriging { route: RavenSklearn }` (with a σ), since gh:#1190 SMT's `Kriging { route: Smt }` and `CoKriging` (MFK, fitted by `Surrogate::fit_multi` on a `MultiFidelityDataset`) |
+| [`Prediction<O>`] | `mean: O`, `std_dev: Option<O>` (the uncertainty keeps the output's units) |
+| [`ValidationReport<O>`] | held-out RMSE and max error per output in output units, LOO RMSE on the training rows, 2σ coverage when a σ exists |
+| [`CorrectedModel<L>`], [`ThetaEstimate`], [`discrepancy_dataset`] | `y_LF(x, θ) + δ(x)`; since gh:#1180 `ThetaEstimate::Posterior` |
+| [`koh::KohCalibration`], [`koh::KohSpec`] | Kennedy–O'Hagan calibration of a [`ParametricModel`] against a [`Dataset`]'s training rows, with a GP discrepancy (SEPIA's formulation, gh:#1180) |
+| [`build`], [`sample`], [`BuildPlan`], [`HeldOut`] | sample `hf` over a [`Sampler`](crate::samplers::Sampler) design, split, fit, validate |
+| [`StateSpaceModel`], [`Assimilator`], [`Gaussian`], [`AssimilationStep`] | `x_{k+1} = f(x_k)`, `z_k = h(x_k)`, implemented by the caller; FilterPy's EKF / UKF / EnKF ([`crate::filtering`]) run on it, typed (gh:#1191) |
+
+# Design rules it follows
+
+- **Traits between crates, enums within.** [`HighFidelityModel`] and
+  [`ParametricModel`] are implemented in the physics crate and consumed
+  here generically (`M: HighFidelityModel`), never as `dyn` (root
+  `AGENTS.md`, "Crate-level interfaces may follow SOLID principles"). The
+  routes RAFFLES provides are the closed enum [`Surrogate`]. No `dyn`, no
+  `Box`, no lifetimes; `PhantomData` carries `I` and `O`.
+- **uom at the edge, SI `f64` inside.** Every public signature that carries
+  a physical quantity is typed; the numerics (polynomial, network, the
+  ports still to come) run on SI base values, which is what keeps the
+  differential tests of the ports against their upstream unchanged. The
+  round trip is exact (`quantities` module tests).
+- **The held-out split is fixed before fitting**, in the [`Dataset`] or
+  the [`BuildPlan`], and no fit reads a held-out row: the test
+  `poisoned_held_out_outputs_do_not_change_the_fit` pins it.
+- **Routes are added with their ports, not as placeholders.** ~~Kriging and
+  co-kriging (SMT, gh:#1190) become [`SurrogateSpec`] / [`Surrogate`]
+  variants when they land~~ (landed 2026-11-04: `KrigingRoute::Smt`,
+  `SurrogateSpec::CoKriging`; ~~polynomial chaos (RAVEN, gh:#1193)~~ landed
+  2026-11-04 with RAVEN's kriging route); ~~a sibling
+  `StateSpaceModel` trait comes with the Kalman ports (gh:#1191)~~
+  landed 2026-11-04 with them: [`StateSpaceModel`] and [`Assimilator`].
+
+# Scope note
+
+[`build`] runs the caller's model, which the crate's earlier scope ("the
+caller runs their own model and hands RAFFLES arrays of numbers") did not
+do. It does so only through the caller's own trait implementation, with
+no physics here; the maintainer directed the interface (gh:#1194).
+
+# V&V
+
+Record: `crates/raffles/verification_and_validation/fidelity_interface_gh1194.md`
+(predictions written before the runs). The first real implementer is the
+digital twin engine's double-pipe pair
+(`outram_park_digital_twin_engine::multifidelity::double_pipe::fidelity`).
+
+```rust
+pub mod fidelity { /* ... */ }
+```
+
+### Modules
+
+## Module `koh`
+
+**Kennedy–O'Hagan calibration of a [`ParametricModel`] against a
+[`Dataset`]** (gh:#1180): `y_HF(x) = y_LF(x, θ) + δ(x) + ε` with a GP
+emulator of `y_LF` and a GP prior on δ, through SEPIA's scalar model
+([`crate::bayesian::koh`]).
+
+[`KohCalibration::calibrate`]:
+
+1. **Simulator design:** at each caller-given design x, `runs_per_input`
+   points of a seeded Latin hypercube over the calibrated θ coordinates,
+   each mapped to a θ record (uncalibrated channels at
+   [`KohSpec::theta_fixed`]) and run through the low-fidelity model.
+   Running the low-fidelity model at a held-out x reads no held-out
+   output.
+2. **Field data:** the dataset's **training rows only**.
+3. **Emulator hyperparameters** by the highest-posterior particle of a
+   TMCMC run on SEPIA's simulation-only posterior, then
+4. **the KOH posterior** over (θ, β_V, λ_Vz, λ_Os) by TMCMC with the
+   emulator held there (KOH 2001 §4.5's plug-in).
+
+Each coordinate may be taken on a log scale ([`Scale`]); the output must
+be a single-channel record. Predictions ([`KohCalibration::predict`])
+are mixtures over posterior samples of SEPIA's conditional Gaussians, with
+δ's part reported beside the total.
+
+```rust
+pub mod koh { /* ... */ }
+```
+
+### Types
+
+#### Enum `Scale`
+
+The coordinate a channel is calibrated, emulated or modelled on.
+
+```rust
+pub enum Scale {
+    Linear,
+    Log,
+}
+```
+
+##### Variants
+
+###### `Linear`
+
+The SI value itself.
+
+###### `Log`
+
+The natural log of the SI value (which must be positive).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn to_coord(self: Self, si: f64) -> f64 { /* ... */ }
+  ```
+  SI value to the coordinate.
+
+- ```rust
+  pub fn to_si(self: Self, c: f64) -> f64 { /* ... */ }
+  ```
+  The coordinate back to an SI value.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ThetaPrior`
+
+A prior on a calibrated θ coordinate, truncated to the design range.
+
+```rust
+pub enum ThetaPrior {
+    Uniform,
+    Normal {
+        mean: f64,
+        sd: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Uniform`
+
+Flat on the range (SEPIA's default N(0.5, 10²) on the unit scale).
+
+###### `Normal`
+
+Normal on the coordinate (ln of the SI value for [`Scale::Log`], the
+SI value for [`Scale::Linear`]).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mean` | `f64` | Mean, in coordinate units. |
+| `sd` | `f64` | Standard deviation, in coordinate units. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CalibratedParameter`
+
+One calibrated θ channel.
+
+```rust
+pub struct CalibratedParameter {
+    pub name: String,
+    pub scale: Scale,
+    pub prior: ThetaPrior,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | The θ channel's name. |
+| `scale` | `Scale` | Its coordinate. |
+| `prior` | `ThetaPrior` | Its prior on that coordinate. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ObservationError`
+
+A Gamma prior on the observation precision, stated as the error it
+implies: `λ_Os ~ Gamma(shape, mean 1/σ²)`, σ the observation error on
+the output coordinate divided by SEPIA's output standard deviation.
+
+```rust
+pub struct ObservationError {
+    pub sd: f64,
+    pub shape: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sd` | `f64` | The error's standard deviation on the output coordinate. |
+| `shape` | `f64` | The Gamma shape. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KohSpec`
+
+What to calibrate, and how.
+
+```rust
+pub struct KohSpec<T: Quantities> {
+    pub calibrated: Vec<CalibratedParameter>,
+    pub theta_lower: T,
+    pub theta_upper: T,
+    pub theta_fixed: T,
+    pub input_scales: Vec<Scale>,
+    pub output_scale: Scale,
+    pub runs_per_input: usize,
+    pub design_seed: i64,
+    pub observation_error: Option<ObservationError>,
+    pub form: crate::bayesian::koh::KohForm,
+    pub emulator_sampler: crate::bayesian::koh::KohSampleConfig,
+    pub calibration_sampler: crate::bayesian::koh::KohSampleConfig,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `calibrated` | `Vec<CalibratedParameter>` | The calibrated θ channels. |
+| `theta_lower` | `T` | The design range's lower end (only calibrated channels are read). |
+| `theta_upper` | `T` | The design range's upper end. |
+| `theta_fixed` | `T` | Every channel's value when not calibrated, and the **derived value**<br>an ablation resets a calibrated channel to. |
+| `input_scales` | `Vec<Scale>` | The coordinate of each input channel. |
+| `output_scale` | `Scale` | The output coordinate. |
+| `runs_per_input` | `usize` | Low-fidelity runs per design input. |
+| `design_seed` | `i64` | The design's master seed (input `i` uses `seed + i`). |
+| `observation_error` | `Option<ObservationError>` | The observation-precision prior; `None` keeps SEPIA's Gamma(1, 1e-3). |
+| `form` | `crate::bayesian::koh::KohForm` | With or without δ. |
+| `emulator_sampler` | `crate::bayesian::koh::KohSampleConfig` | TMCMC for the emulator's hyperparameters (all free, simulation only). |
+| `calibration_sampler` | `crate::bayesian::koh::KohSampleConfig` | TMCMC for the calibration (`free` is overridden to `CalibrationOnly`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KohPrediction`
+
+The predictive distribution at one x.
+
+```rust
+pub struct KohPrediction<O: Quantities> {
+    pub median: O,
+    pub lower95: O,
+    pub upper95: O,
+    pub mean: f64,
+    pub sd: f64,
+    pub delta_mean: f64,
+    pub delta_sd: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `median` | `O` | The mixture median, in output units. |
+| `lower95` | `O` | The 2.5 % quantile. |
+| `upper95` | `O` | The 97.5 % quantile. |
+| `mean` | `f64` | Mixture mean on the output coordinate. |
+| `sd` | `f64` | Mixture standard deviation on the output coordinate. |
+| `delta_mean` | `f64` | δ's posterior mean on the output coordinate (0 without δ). |
+| `delta_sd` | `f64` | δ's posterior standard deviation on the output coordinate. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KohCalibration`
+
+A finished calibration.
+
+```rust
+pub struct KohCalibration<L: ParametricModel> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn calibrate(lf: L, data: &Dataset<<L as >::Input, <L as >::Output>, design: &[<L as >::Input], spec: KohSpec<<L as >::Theta>) -> Result<Self> { /* ... */ }
+  ```
+  Runs the calibration (module docs).
+
+- ```rust
+  pub fn recalibrate(self: &Self, form: KohForm) -> Result<Self>
+where
+    L: Clone { /* ... */ }
+  ```
+  The same data and emulator, calibrated again as `form` (e.g. without
+
+- ```rust
+  pub fn model(self: &Self) -> &KohModel { /* ... */ }
+  ```
+  The SEPIA model (data, priors).
+
+- ```rust
+  pub fn emulator(self: &Self) -> &KohParams { /* ... */ }
+  ```
+  The emulator's plug-in hyperparameters.
+
+- ```rust
+  pub fn posterior(self: &Self) -> &KohPosterior { /* ... */ }
+  ```
+  The raw posterior.
+
+- ```rust
+  pub fn lf(self: &Self) -> &L { /* ... */ }
+  ```
+  The low-fidelity model.
+
+- ```rust
+  pub fn theta_coordinates(self: &Self) -> Vec<Vec<f64>> { /* ... */ }
+  ```
+  Posterior samples of the calibrated θ coordinates, one row each.
+
+- ```rust
+  pub fn theta_estimate(self: &Self) -> Result<ThetaEstimate<<L as >::Theta>> { /* ... */ }
+  ```
+  The typed posterior of θ (uncalibrated channels at their fixed
+
+- ```rust
+  pub fn predict(self: &Self, xs: &[<L as >::Input], stride: usize, observation_error: bool, reset: Option<&str>) -> Result<Vec<KohPrediction<<L as >::Output>>> { /* ... */ }
+  ```
+  The predictive at each x, a mixture over every `stride`-th posterior
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Re-exports
+
+#### Re-export `build`
+
+```rust
+pub use build::build;
+```
+
+#### Re-export `sample`
+
+```rust
+pub use build::sample;
+```
+
+#### Re-export `BuildPlan`
+
+```rust
+pub use build::BuildPlan;
+```
+
+#### Re-export `HeldOut`
+
+```rust
+pub use build::HeldOut;
+```
+
+#### Re-export `Dataset`
+
+```rust
+pub use dataset::Dataset;
+```
+
+#### Re-export `Fidelity`
+
+```rust
+pub use dataset::Fidelity;
+```
+
+#### Re-export `MultiFidelityDataset`
+
+```rust
+pub use dataset::MultiFidelityDataset;
+```
+
+#### Re-export `SiRows`
+
+```rust
+pub use dataset::SiRows;
+```
+
+#### Re-export `Split`
+
+```rust
+pub use dataset::Split;
+```
+
+#### Re-export `discrepancy_dataset`
+
+```rust
+pub use models::discrepancy_dataset;
+```
+
+#### Re-export `CorrectedModel`
+
+```rust
+pub use models::CorrectedModel;
+```
+
+#### Re-export `HighFidelityModel`
+
+```rust
+pub use models::HighFidelityModel;
+```
+
+#### Re-export `ParametricModel`
+
+```rust
+pub use models::ParametricModel;
+```
+
+#### Re-export `ThetaEstimate`
+
+```rust
+pub use models::ThetaEstimate;
+```
+
+#### Re-export `check_width`
+
+```rust
+pub use quantities::check_width;
+```
+
+#### Re-export `Channel`
+
+```rust
+pub use quantities::Channel;
+```
+
+#### Re-export `Quantities`
+
+```rust
+pub use quantities::Quantities;
+```
+
+#### Re-export `SiQuantity`
+
+```rust
+pub use quantities::SiQuantity;
+```
+
+#### Re-export `ParameterSpace`
+
+```rust
+pub use space::ParameterSpace;
+```
+
+#### Re-export `AssimilationStep`
+
+```rust
+pub use state_space::AssimilationStep;
+```
+
+#### Re-export `Assimilator`
+
+```rust
+pub use state_space::Assimilator;
+```
+
+#### Re-export `Gaussian`
+
+```rust
+pub use state_space::Gaussian;
+```
+
+#### Re-export `StateSpaceModel`
+
+```rust
+pub use state_space::StateSpaceModel;
+```
+
+#### Re-export `KrigingRoute`
+
+```rust
+pub use surrogate::KrigingRoute;
+```
+
+#### Re-export `Prediction`
+
+```rust
+pub use surrogate::Prediction;
+```
+
+#### Re-export `Surrogate`
+
+```rust
+pub use surrogate::Surrogate;
+```
+
+#### Re-export `SurrogateSpec`
+
+```rust
+pub use surrogate::SurrogateSpec;
+```
+
+#### Re-export `ValidationReport`
+
+```rust
+pub use surrogate::ValidationReport;
+```
+
+## Module `filtering`
+
+**State estimation: FilterPy's Kalman filters** (gh:#1191).
+
+Ported from FilterPy (R. Labbe, <https://github.com/rlabbe/filterpy>,
+commit `5df4e095fac0`, 2.0.0, MIT; `LICENSE-MIT-FILTERPY`, crate `NOTICE`):
+
+| Item | Upstream |
+|---|---|
+| [`KalmanFilter`], [`rts_smoother`] | `kalman/kalman_filter.py`: predict, Joseph-form update, batch filter, RTS |
+| [`ExtendedKalmanFilter`] | `kalman/EKF.py` |
+| [`MerweScaledSigmaPoints`] | `kalman/sigma_points.py` |
+| [`UnscentedKalmanFilter`], [`unscented_transform`] | `kalman/UKF.py`, `kalman/unscented_transform.py` |
+| [`EnsembleKalmanFilter`], [`outer_product_sum`] | `kalman/ensemble_kalman_filter.py`, `common/helpers.py` |
+| [`q_discrete_white_noise`], [`q_continuous_white_noise`], [`order_by_derivative`] | `common/discretization.py` |
+
+Written here, not ported: [`Matrix`] and the kernels of
+[`numpy_ops`], which round as numpy/OpenBLAS do (measured, so the
+filters are bit-identical with FilterPy inside the measured envelope);
+[`gaussian_draws`] (the EnKF's own draws on the workspace LCG);
+[`nees`] and [`nis`].
+
+The typed route for a caller's model is
+[`crate::fidelity::StateSpaceModel`] with [`crate::fidelity::Assimilator`].
+
+**Synthetic data only** (`RESPONSIBLE_USE.md`): these filters are for
+twin experiments, teaching and V&V, never for estimating the state of a
+real plant.
+
+V&V: `crates/raffles/verification_and_validation/filterpy_gh1191.md`,
+tests `tests/filterpy_gh1191.rs`.
+
+```rust
+pub mod filtering { /* ... */ }
+```
+
+### Modules
+
+## Module `numpy_ops`
+
+**A small dense matrix and numpy's rounding order** (gh:#1191).
+
+FilterPy is numpy: every `dot` is an OpenBLAS gemm, gemv or ddot, `inv`
+is LAPACK `dgesv`, scipy's `cholesky` is `dpotrf`. For the filters to be
+bit-identical with FilterPy, each operation here rounds exactly as that
+kernel does. The orders were measured, not read from a library
+(`verification_and_validation/filterpy_gh1191.md`, section 2.3):
+
+| numpy call | here | order | measured envelope |
+|---|---|---|---|
+| `dot(A, B)`, both matrices | [`Matrix::dot`] | one FMA chain over k per element | any size tried (≤ 5×5, 3×7·7×3) |
+| `dot(A, x)`, A with ≥ 2 rows | [`Matrix::dot_vec`] | 4-lane FMA blocks reduced `(l0+l2)+(l1+l3)`, then a k mod 4 tail | k ≤ 7, or rows a multiple of 4 |
+| `dot(a, x)`, one row | [`ddot`] | one FMA chain | k ≤ 15 |
+| `dot(w, S)`, 1-D w | [`vec_dot`] | pairs of FMAs in fours, then a chain | S with 2 or 3 columns |
+| `linalg.inv` | [`Matrix::inv`] | left-looking LU, trsm with reciprocal diagonals in power-of-two blocks | n ≤ 5 |
+| `scipy.linalg.cholesky` (upper) | [`Matrix::cholesky_upper`] | `dpotf2` with the gemv's −1 folded into x | n ≤ 4 |
+| `mean(axis=0)`, `sum(axis=0)` | [`mean_rows`], [`sum_matrices`] | sequential over rows; numpy's **pairwise** sum when each row is a single element (the axis is then contiguous) | rows of 1, 2, 3 and stacks of 1×1, 2×1, 1×2, 3×3 (found when D7 first missed) |
+
+Outside an envelope the kernels keep the same structure and are correct
+linear algebra, but are **not claimed bit-identical** to numpy: the
+OpenBLAS kernels there (gemv with 4x2 / 4x1 blocks at k ≥ 8, ddot at
+k ≥ 16, gemv-N with ≥ 4 columns, `inv` beyond 5×5) were not measured
+or did not match. The order is also **CPU-dispatch dependent**: the
+references were made on SkylakeX.
+
+`f64::mul_add` is a correctly rounded fused multiply-add on every target
+(a hardware FMA, or libm's software `fma`), so the results do not depend
+on the build's target features.
+
+```rust
+pub mod numpy_ops { /* ... */ }
+```
+
+### Types
+
+#### Struct `Matrix`
+
+A dense row-major matrix of `f64`.
+
+```rust
+pub struct Matrix {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn zeros(rows: usize, cols: usize) -> Self { /* ... */ }
+  ```
+  A `rows × cols` matrix of zeros.
+
+- ```rust
+  pub fn identity(n: usize) -> Self { /* ... */ }
+  ```
+  The `n × n` identity.
+
+- ```rust
+  pub fn from_row_major(rows: usize, cols: usize, data: Vec<f64>) -> Result<Self> { /* ... */ }
+  ```
+  From row-major data.
+
+- ```rust
+  pub fn from_rows(rows: &[Vec<f64>]) -> Result<Self> { /* ... */ }
+  ```
+  From rows, which must all have the same length (at least one row).
+
+- ```rust
+  pub fn column(v: &[f64]) -> Self { /* ... */ }
+  ```
+  A column vector (`n × 1`), FilterPy's 2-D `x`.
+
+- ```rust
+  pub fn diagonal(d: &[f64]) -> Self { /* ... */ }
+  ```
+  A diagonal matrix.
+
+- ```rust
+  pub fn rows(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of rows.
+
+- ```rust
+  pub fn cols(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of columns.
+
+- ```rust
+  pub fn get(self: &Self, i: usize, j: usize) -> f64 { /* ... */ }
+  ```
+  Element `(i, j)`.
+
+- ```rust
+  pub fn set(self: &mut Self, i: usize, j: usize, v: f64) { /* ... */ }
+  ```
+  Set element `(i, j)`.
+
+- ```rust
+  pub fn row(self: &Self, i: usize) -> &[f64] { /* ... */ }
+  ```
+  Row `i` as a slice.
+
+- ```rust
+  pub fn set_row(self: &mut Self, i: usize, v: &[f64]) -> Result<()> { /* ... */ }
+  ```
+  Replace row `i`.
+
+- ```rust
+  pub fn col(self: &Self, j: usize) -> Vec<f64> { /* ... */ }
+  ```
+  Column `j`, copied.
+
+- ```rust
+  pub fn as_slice(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The row-major data.
+
+- ```rust
+  pub fn to_rows(self: &Self) -> Vec<Vec<f64>> { /* ... */ }
+  ```
+  As nested rows.
+
+- ```rust
+  pub fn diag(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  The main diagonal.
+
+- ```rust
+  pub fn t(self: &Self) -> Self { /* ... */ }
+  ```
+  The transpose.
+
+- ```rust
+  pub fn add(self: &Self, other: &Self) -> Result<Self> { /* ... */ }
+  ```
+  Elementwise `self + other`.
+
+- ```rust
+  pub fn sub(self: &Self, other: &Self) -> Result<Self> { /* ... */ }
+  ```
+  Elementwise `self − other`.
+
+- ```rust
+  pub fn scale(self: &Self, s: f64) -> Self { /* ... */ }
+  ```
+  `s * self` elementwise (numpy's scalar times array).
+
+- ```rust
+  pub fn div_scalar(self: &Self, s: f64) -> Self { /* ... */ }
+  ```
+  `self / s` elementwise.
+
+- ```rust
+  pub fn dot(self: &Self, other: &Self) -> Result<Self> { /* ... */ }
+  ```
+  numpy's `dot(self, other)` for two 2-D arrays, in numpy's dispatch
+
+- ```rust
+  pub fn dot_vec(self: &Self, x: &[f64]) -> Result<Vec<f64>> { /* ... */ }
+  ```
+  numpy's `dot(self, x)` with x 1-D or a column: ddot for one row,
+
+- ```rust
+  pub fn inv(self: &Self) -> Result<Self> { /* ... */ }
+  ```
+  numpy's `linalg.inv` (LAPACK `dgesv` on the identity, OpenBLAS's
+
+- ```rust
+  pub fn cholesky_upper(self: &Self) -> Result<Self> { /* ... */ }
+  ```
+  scipy's `linalg.cholesky(self)` (upper, `U` with `Uᵀ U = self`),
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `ddot`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+numpy's `dot` of two 1-D arrays (OpenBLAS ddot): one FMA chain from 0.
+Measured bit-identical for k ≤ 15 (the vector kernel above that is not
+reproduced).
+
+# Panics
+If the lengths differ (a caller bug; every caller checks first).
+
+```rust
+pub fn ddot(a: &[f64], b: &[f64]) -> f64 { /* ... */ }
+```
+
+#### Function `vec_dot`
+
+numpy's `dot(w, s)` with 1-D `w` (k) and `s` (k × m): ddot for one
+column, otherwise OpenBLAS gemv-N's per-column order (pairs of FMAs in
+fours, then a chain); measured for m = 2, 3.
+
+# Errors
+[`RafflesError::DimensionMismatch`] if `w.len() != s.rows()`.
+
+```rust
+pub fn vec_dot(w: &[f64], s: &Matrix) -> crate::Result<Vec<f64>> { /* ... */ }
+```
+
+#### Function `mean_rows`
+
+numpy's `mean(rows, axis=0)`: a sequential sum over rows, then ÷ N; for
+a one-column matrix numpy's pairwise sum
+([`crate::bayesian::koh::pairwise_sum`], reused), because that axis is
+contiguous.
+
+# Errors
+[`RafflesError::DimensionMismatch`] on an empty matrix.
+
+```rust
+pub fn mean_rows(m: &Matrix) -> crate::Result<Vec<f64>> { /* ... */ }
+```
+
+#### Function `sum_matrices`
+
+numpy's `sum(stack, axis=0)` over a stack of equal-shaped matrices:
+sequential, or numpy's pairwise sum for a stack of 1×1 matrices.
+
+# Errors
+On an empty stack or a shape mismatch.
+
+```rust
+pub fn sum_matrices(stack: &[Matrix]) -> crate::Result<Matrix> { /* ... */ }
+```
+
+#### Function `outer`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+numpy's `outer(a, b)` (exact products).
+
+```rust
+pub fn outer(a: &[f64], b: &[f64]) -> Matrix { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `nees`
+
+```rust
+pub use consistency::nees;
+```
+
+#### Re-export `nis`
+
+```rust
+pub use consistency::nis;
+```
+
+#### Re-export `order_by_derivative`
+
+```rust
+pub use discretization::order_by_derivative;
+```
+
+#### Re-export `q_continuous_white_noise`
+
+```rust
+pub use discretization::q_continuous_white_noise;
+```
+
+#### Re-export `q_discrete_white_noise`
+
+```rust
+pub use discretization::q_discrete_white_noise;
+```
+
+#### Re-export `ExtendedKalmanFilter`
+
+```rust
+pub use ekf::ExtendedKalmanFilter;
+```
+
+#### Re-export `gaussian_draws`
+
+```rust
+pub use enkf::gaussian_draws;
+```
+
+#### Re-export `outer_product_sum`
+
+```rust
+pub use enkf::outer_product_sum;
+```
+
+#### Re-export `EnsembleKalmanFilter`
+
+```rust
+pub use enkf::EnsembleKalmanFilter;
+```
+
+#### Re-export `rts_smoother`
+
+```rust
+pub use kalman::rts_smoother;
+```
+
+#### Re-export `BatchOutput`
+
+```rust
+pub use kalman::BatchOutput;
+```
+
+#### Re-export `KalmanFilter`
+
+```rust
+pub use kalman::KalmanFilter;
+```
+
+#### Re-export `RtsOutput`
+
+```rust
+pub use kalman::RtsOutput;
+```
+
+#### Re-export `Matrix`
+
+```rust
+pub use numpy_ops::Matrix;
+```
+
+#### Re-export `MerweScaledSigmaPoints`
+
+```rust
+pub use sigma_points::MerweScaledSigmaPoints;
+```
+
+#### Re-export `unscented_transform`
+
+```rust
+pub use ukf::unscented_transform;
+```
+
+#### Re-export `UnscentedKalmanFilter`
+
+```rust
+pub use ukf::UnscentedKalmanFilter;
 ```
 
 ## Module `gnn`
@@ -7278,6 +9970,7 @@ simultaneously.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7291,6 +9984,7 @@ simultaneously.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7395,6 +10089,7 @@ pub struct IterationBound {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7408,6 +10103,7 @@ pub struct IterationBound {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7595,6 +10291,7 @@ which is the argument for doing both.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7608,6 +10305,7 @@ which is the argument for doing both.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7711,6 +10409,7 @@ pub struct Tensor {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7724,6 +10423,7 @@ pub struct Tensor {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7849,6 +10549,7 @@ pub struct TorchArchive {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7862,6 +10563,7 @@ pub struct TorchArchive {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -8059,6 +10761,7 @@ pub struct Graph {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8072,6 +10775,7 @@ pub struct Graph {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -8350,6 +11054,7 @@ pub struct Interval {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8363,6 +11068,7 @@ pub struct Interval {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -8470,6 +11176,7 @@ variant is declining to.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8483,6 +11190,7 @@ variant is declining to.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -8605,6 +11313,7 @@ Fields:
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8618,6 +11327,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -8785,6 +11495,7 @@ where
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8798,6 +11509,7 @@ where
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -9018,6 +11730,7 @@ pub enum EvidenceStrength {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9031,6 +11744,7 @@ pub enum EvidenceStrength {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Ord**
   - ```rust
     fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
@@ -9132,6 +11846,7 @@ pub struct ModelEvidence {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9145,6 +11860,7 @@ pub struct ModelEvidence {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -9245,6 +11961,7 @@ pub struct ModelComparison {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9258,6 +11975,7 @@ pub struct ModelComparison {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -9342,6 +12060,4424 @@ Ranks models by evidence and reports the margin.
 
 ```rust
 pub fn compare_models(models: &[ModelEvidence]) -> crate::Result<ModelComparison> { /* ... */ }
+```
+
+## Module `openda`
+
+**OpenDA's data-assimilation and calibration algorithms** (gh:#1192).
+
+Ported from OpenDA (OpenDA Association, Java,
+<https://github.com/OpenDA-Association/OpenDA>, commit `e51565c2c8de`,
+LGPL-3.0-or-later; `LICENSE-LGPL-3.0-OPENDA`, crate `NOTICE`), the
+algorithms and not the Java framework (no XML configuration, no model
+wrappers):
+
+| Item | Upstream |
+|---|---|
+| [`run_sequential`], [`SequentialFilter`] | `AbstractSequentialAlgorithm`, `AbstractSequentialEnsembleAlgorithm` |
+| [`enkf_update`], [`enkf_analysis`], [`Localization`], [`zhang_weights`] | `EnKF`, `EnsembleVectors`, `AutoLocalizationZhang2011` |
+| [`ensr_update`], [`ensr_analysis`] | `EnSR` |
+| [`particle_filter_update`], [`residual_resampling`] | `ParticleFilter` (residual resampling only, as upstream) |
+| [`steady_state_analysis`], [`SteadyStateGain`] | `SteadyStateFilter` |
+| [`Dud`] | `BaseDudCoreOptimizer`, `DudCoreOptimizer` |
+| [`Simplex`] | `SimplexCoreOptimizer` |
+| [`Powell`] | `PowellCoreOptimizer` |
+| [`WeightedLeastSquares`], [`SimulationPredictor`] | `SimulationKwadraticCostFunction` (OpenDA's weighted cost) |
+| [`SimpleCost`], [`RosenbrockCost`], [`simple_least_squares`] | OpenDA's test cost functions |
+| [`StochVector`] | `StochVector`, `SqrtCovariance` (noise and uncertainty) |
+| [`SimpleStochModel`], [`Dynamics`], [`Observations`] | `SimpleStochModelInstance` with the oscillator and Lorenz test models; `CsvStochObserver` |
+| [`linalg`] | `org.openda.utils.Matrix`, `VectorDouble` |
+| [`jama`] | JAMA 1.0.2's SVD (public domain), which OpenDA's `inverse`/`sqrt`/`rightSolve` use |
+
+Written here, not ported: [`DrawSource`] (replays OpenDA's recorded draws
+for differential tests, or draws from the workspace LCG); the
+[`OdaStochModel`], [`CostFunction`] and [`Predictor`] seams (traits
+consumed generically, after OpenDA's interfaces). The typed route for a
+caller's [`crate::fidelity::StateSpaceModel`] is
+[`crate::fidelity::Assimilator::OpenDaEnsemble`].
+
+The kernels round as Java does (sequential IEEE, no FMA), so on the same
+inputs and draws the port is **bit-identical** with OpenDA; upstream
+quirks are ported faithfully and listed in each file's header and in
+`verification_and_validation/openda_gh1192.md` §3.
+
+**Synthetic data only** (`RESPONSIBLE_USE.md`): twin experiments,
+teaching and V&V, never the state of a real plant.
+
+V&V: `crates/raffles/verification_and_validation/openda_gh1192.md`,
+tests `tests/openda_gh1192.rs`.
+
+```rust
+pub mod openda { /* ... */ }
+```
+
+### Modules
+
+## Module `cost`
+
+**OpenDA's cost functions**, including the weighted least-squares cost
+its calibration algorithms minimise (gh:#1192).
+
+```rust
+pub mod cost { /* ... */ }
+```
+
+### Types
+
+#### Struct `CostHistory`
+
+Every evaluation, in order, and the best so far (OpenDA's `allPars`,
+`allCosts`, `allPreds`, `pMin`, `fMin`, `predMin`).
+
+```rust
+pub struct CostHistory {
+    pub parameters: Vec<Vec<f64>>,
+    pub costs: Vec<f64>,
+    pub predictions: Vec<Vec<f64>>,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `parameters` | `Vec<Vec<f64>>` | Evaluated parameters. |
+| `costs` | `Vec<f64>` | Their costs. |
+| `predictions` | `Vec<Vec<f64>>` | Their predictions (least-squares costs only). |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn record(self: &mut Self, p: &[f64], cost: f64, pred: Option<&[f64]>) { /* ... */ }
+  ```
+  Record one evaluation; the best is replaced only on a strict
+
+- ```rust
+  pub fn optimum(self: &Self) -> Option<(f64, &[f64])> { /* ... */ }
+  ```
+  `getOptimalCost()`, `getOptimalParameters()`.
+
+- ```rust
+  pub fn optimal_predictions(self: &Self) -> Option<&[f64]> { /* ... */ }
+  ```
+  The predictions at the optimum.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `LeastSquaresView`
+
+What a least-squares cost exposes to the optimisers.
+
+```rust
+pub struct LeastSquaresView {
+    pub observations: super::noise::StochVector,
+    pub parameters: super::noise::StochVector,
+    pub background: bool,
+    pub last_predictions: Option<Vec<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `observations` | `super::noise::StochVector` | Observations and their (independent) errors. |
+| `parameters` | `super::noise::StochVector` | The parameters' prior uncertainty (search directions, background). |
+| `background` | `bool` | Whether the background term is in the cost. |
+| `last_predictions` | `Option<Vec<f64>>` | Predictions of the last evaluation. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SimpleCost`
+
+OpenDA's `SimpleCostFunction`: `Σ ((p_i − 1)/w_i)²`, `w = (1, 2)`.
+
+```rust
+pub struct SimpleCost {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **CostFunction**
+  - ```rust
+    fn evaluate(self: &mut Self, p: &[f64]) -> Result<f64> { /* ... */ }
+    ```
+
+  - ```rust
+    fn history(self: &Self) -> &CostHistory { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RosenbrockCost`
+
+OpenDA's `RosenbrockCostFunction` (factor 100, pairs of parameters).
+
+```rust
+pub struct RosenbrockCost {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **CostFunction**
+  - ```rust
+    fn evaluate(self: &mut Self, p: &[f64]) -> Result<f64> { /* ... */ }
+    ```
+
+  - ```rust
+    fn history(self: &Self) -> &CostHistory { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IdentityPredictor`
+
+The identity model `y = p` of `SimpleLeastSquaresCostFunction`.
+
+```rust
+pub struct IdentityPredictor;
+```
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Predictor**
+  - ```rust
+    fn predict(self: &Self, p: &[f64]) -> Result<Vec<f64>> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SimulationPredictor`
+
+`SimulationKwadraticCostFunction`'s model run for an [`OdaStochModel`]:
+a fresh copy of the template, `setParameters(p)`, observations
+announced, run to the horizon's end without noise, then observed.
+
+```rust
+pub struct SimulationPredictor<M> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(template: M, observations: &Observations) -> Result<Self> { /* ... */ }
+  ```
+  The observations kept are those in the model's time horizon
+
+- ```rust
+  pub fn observations(self: &Self) -> &Observations { /* ... */ }
+  ```
+  The observations used.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Predictor**
+  - ```rust
+    fn predict(self: &Self, p: &[f64]) -> Result<Vec<f64>> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `WeightedLeastSquares`
+
+OpenDA's weighted cost `J = f·‖(y − h(p))/σ‖² + [f·‖L_p⁻¹(p − p̄)‖²]`,
+`f = factor` (0.5 in OpenDA), each `‖·‖²` as `Math.pow(norm2, 2)`.
+
+```rust
+pub struct WeightedLeastSquares<P> {
+    pub factor: f64,
+    pub background: bool,
+    pub background_first: bool,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `factor` | `f64` | The factor on both terms. |
+| `background` | `bool` | Add the background term. |
+| `background_first` | `bool` | Add Jb before Jo (`SimpleLeastSquaresCostFunction`'s order). |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(predictor: P, observations: StochVector, parameters: StochVector, factor: f64, background: bool) -> Self { /* ... */ }
+  ```
+  From a predictor, observed values with σ, and the parameter prior.
+
+- ```rust
+  pub fn predictor(self: &Self) -> &P { /* ... */ }
+  ```
+  The predictor.
+
+- ```rust
+  pub fn simulation(template: M, observations: &Observations, background: bool) -> Result<Self> { /* ... */ }
+  ```
+  `new SimulationKwadraticCostFunction(factory, observer)` with
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **CostFunction**
+  - ```rust
+    fn evaluate(self: &mut Self, p: &[f64]) -> Result<f64> { /* ... */ }
+    ```
+
+  - ```rust
+    fn history(self: &Self) -> &CostHistory { /* ... */ }
+    ```
+
+  - ```rust
+    fn least_squares(self: &Self) -> Option<LeastSquaresView> { /* ... */ }
+    ```
+
+  - ```rust
+    fn multiplication_factor(self: &Self) -> f64 { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Traits
+
+#### Trait `CostFunction`
+
+OpenDA's `ICostFunction`, consumed generically by [`super::simplex`],
+[`super::powell`] and [`super::dud`].
+
+```rust
+pub trait CostFunction {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `evaluate`: The cost at `p`, recorded in [`CostFunction::history`].
+- `history`: Every evaluation so far.
+
+##### Provided Methods
+
+- ```rust
+  fn least_squares(self: &Self) -> Option<LeastSquaresView> { /* ... */ }
+  ```
+  `Some` for a least-squares cost (Java's `instanceof`).
+
+- ```rust
+  fn multiplication_factor(self: &Self) -> f64 { /* ... */ }
+  ```
+  `getMultiplicationFactor()`.
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `SimpleCost`
+- `RosenbrockCost`
+- `WeightedLeastSquares<P>` with <P: Predictor>
+
+#### Trait `Predictor`
+
+A caller's model for the weighted least-squares cost: predictions of
+the observations at parameters `p`.
+
+```rust
+pub trait Predictor {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `predict`: The predictions.
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `IdentityPredictor`
+- `SimulationPredictor<M>` with <M: OdaStochModel>
+
+### Functions
+
+#### Function `simple_least_squares`
+
+OpenDA's `SimpleLeastSquaresCostFunction`: `y = p`, observations
+(1, 1) ± (1, 2), parameter prior (0, 0) ± (1, 2), factor 1.
+
+# Errors
+Never (fixed, consistent shapes).
+
+```rust
+pub fn simple_least_squares(background: bool) -> crate::Result<WeightedLeastSquares<IdentityPredictor>> { /* ... */ }
+```
+
+## Module `dud`
+
+**OpenDA's DUD** ("doesn't use derivatives"), a secant Gauss–Newton for
+weighted least squares (gh:#1192).
+
+```rust
+pub mod dud { /* ... */ }
+```
+
+### Types
+
+#### Struct `Dud`
+
+OpenDA's `DudCoreOptimizer` (unconstrained).
+
+```rust
+pub struct Dud {
+    pub initial_step: f64,
+    pub max_iterations: usize,
+    pub max_inner_iterations: usize,
+    pub max_total_evaluations: Option<usize>,
+    pub inner_scale_fac: f64,
+    pub min_inner_negative_look: usize,
+    pub max_step: f64,
+    pub abs_tol: f64,
+    pub rel_tol: f64,
+    pub rel_tol_lin_cost: f64,
+    pub compute_error_estimate: bool,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `initial_step` | `f64` | `initialStep` (1.0): the search steps are this times the prior<br>uncertainty's columns. |
+| `max_iterations` | `usize` | `maxit` (3). |
+| `max_inner_iterations` | `usize` | `maxInnerIter` (6). |
+| `max_total_evaluations` | `Option<usize>` | `maxTotalEvaluations` (None = OpenDA's −1, unlimited). |
+| `inner_scale_fac` | `f64` | `innerScaleFac` (0.5). Its sign flips during backtracking. |
+| `min_inner_negative_look` | `usize` | `minInnerNegativeLook` (3). |
+| `max_step` | `f64` | `maxStep` (10), in the basis of the stored parameter differences. |
+| `abs_tol` | `f64` | `absTol` (0.01). |
+| `rel_tol` | `f64` | `relTol` (0.01). |
+| `rel_tol_lin_cost` | `f64` | `relTolLinCost` (0.01). |
+| `compute_error_estimate` | `bool` | `computeErrorEstimate` (true). |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn initialize<C: CostFunction>(self: &mut Self, f: &mut C, p_init: &[f64]) -> Result<()> { /* ... */ }
+  ```
+  `initialize(pInit)`: `pInit` and `pInit + initial_step·L_j` for each
+
+- ```rust
+  pub fn current(self: &Self) -> (&[Vec<f64>], &[f64]) { /* ... */ }
+  ```
+  The stored points, best first.
+
+- ```rust
+  pub fn iterations(self: &Self) -> usize { /* ... */ }
+  ```
+  Outer iterations done.
+
+- ```rust
+  pub fn std_values(self: &Self) -> Option<&[f64]> { /* ... */ }
+  ```
+  The linearised standard deviations of the parameters at the last
+
+- ```rust
+  pub fn sqrt_covariance(self: &Self) -> Option<&Rows> { /* ... */ }
+  ```
+  The linearised square root of the parameters' covariance
+
+- ```rust
+  pub fn optimize<C: CostFunction>(self: &mut Self, f: &mut C) -> Result<()> { /* ... */ }
+  ```
+  `optimize()`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `enkf`
+
+**OpenDA's ensemble Kalman filter** with its localisation options
+(gh:#1192).
+
+```rust
+pub mod enkf { /* ... */ }
+```
+
+### Types
+
+#### Enum `Localization`
+
+OpenDA's `localization` options for the EnKF.
+
+```rust
+pub enum Localization {
+    None,
+    Hamill,
+    AutoZhang {
+        n_bootstrap: usize,
+        sigma_alpha2: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `None`
+
+No localisation.
+
+###### `Hamill`
+
+Hamill et al. (2001): Schur product of each gain column with the
+model's mask ([`OdaStochModel::observed_localization`]).
+
+###### `AutoZhang`
+
+Zhang & Oliver (2011): weights from bootstrap gains.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_bootstrap` | `usize` | Bootstrap gains (OpenDA: 50). |
+| `sigma_alpha2` | `f64` | σ²_α (OpenDA: 0.36, the paper's optimum). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn auto_zhang() -> Self { /* ... */ }
+  ```
+  OpenDA's `autoZhang` settings.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `LocalizationInput`
+
+The localisation an [`enkf_update`] applies, with its input.
+
+```rust
+pub enum LocalizationInput {
+    None,
+    Hamill(Vec<Vec<f64>>),
+    AutoZhang {
+        n_bootstrap: usize,
+        sigma_alpha2: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `None`
+
+None.
+
+###### `Hamill`
+
+Hamill: one mask per observation, each the state's length.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Vec<f64>>` |  |
+
+###### `AutoZhang`
+
+Zhang & Oliver, with OpenDA's settings.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_bootstrap` | `usize` | Bootstrap gains. |
+| `sigma_alpha2` | `f64` | σ²_α. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EnsembleVectors`
+
+OpenDA's `EnsembleVectors`: deviations and mean.
+
+```rust
+pub struct EnsembleVectors {
+    pub ensemble: Vec<Vec<f64>>,
+    pub mean: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ensemble` | `Vec<Vec<f64>>` | Members with the mean removed. |
+| `mean` | `Vec<f64>` | The mean. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_members(members: Vec<Vec<f64>>) -> Self { /* ... */ }
+  ```
+  `getEnsembleVectorsState`/`Prediction`: `ensembleAverage`, then
+
+- ```rust
+  pub fn as_openda_constructor(members: Vec<Vec<f64>>) -> Self { /* ... */ }
+  ```
+  `new EnsembleVectors(IVector[])`: the mean of all members, removed
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EnkfUpdate`
+
+One EnKF analysis on vectors.
+
+```rust
+pub struct EnkfUpdate {
+    pub deltas: Vec<Vec<f64>>,
+    pub gain_pre: Vec<Vec<f64>>,
+    pub gain_post: Vec<Vec<f64>>,
+    pub innovation_covariance: super::jama::Rows,
+    pub predicted_mean: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `deltas` | `Vec<Vec<f64>>` | The increment to add to each member (`axpyOnState(1.0, ·)`). |
+| `gain_pre` | `Vec<Vec<f64>>` | Gain columns, one per observation, before localisation. |
+| `gain_post` | `Vec<Vec<f64>>` | Gain columns after localisation. |
+| `innovation_covariance` | `super::jama::Rows` | `D = PRED·PREDᵀ/(q−1) + R`. |
+| `predicted_mean` | `Vec<f64>` | The forecast mean of the predictions. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `compute_gain`
+
+`computeGainMatrix`: the gain columns `K_i = Σ_j E(j,i)·X_j`, with
+`E = PREDᵀ·inv(D)`, the state deviations scaled by `1/√(q−1)` and
+back by `√(q−1)` **in place**, as OpenDA does.
+
+# Errors
+Shapes, or the SVD inverse's.
+
+```rust
+pub fn compute_gain(obs_std: &[f64], preds: &EnsembleVectors, states: &mut EnsembleVectors) -> crate::Result<(Vec<Vec<f64>>, super::jama::Rows)> { /* ... */ }
+```
+
+#### Function `zhang_weights`
+
+Zhang & Oliver's weights (`AutoLocalizationZhang2011`), ported as
+written: each bootstrap member is the drawn deviation **added to
+itself**, and the bootstrap ensemble is built with
+[`EnsembleVectors::as_openda_constructor`].
+
+# Errors
+From [`compute_gain`], the draws, or a negative C² (OpenDA throws).
+
+```rust
+pub fn zhang_weights(obs_std: &[f64], preds: &EnsembleVectors, states: &EnsembleVectors, n_bootstrap: usize, sigma_alpha2: f64, draws: &mut super::noise::DrawSource) -> crate::Result<Vec<Vec<f64>>> { /* ... */ }
+```
+
+#### Function `enkf_update`
+
+OpenDA's EnKF analysis on vectors: `states` and `preds` are the
+members' forecast states and predictions of `obs`. Gain, localisation,
+then each member's increment from perturbed observations (one draw per
+observation per member, in member order).
+
+# Errors
+Shapes, the inverse, or the draws.
+
+```rust
+pub fn enkf_update(states: Vec<Vec<f64>>, preds: Vec<Vec<f64>>, obs: &super::models::Observations, localization: &LocalizationInput, draws: &mut super::noise::DrawSource) -> crate::Result<EnkfUpdate> { /* ... */ }
+```
+
+#### Function `move_main_to_mean`
+
+`updateMainModel` (also EnSR's and the particle filter's): `main +=
+1.0·(mean − main)`, the mean of the members' current states.
+
+```rust
+pub fn move_main_to_mean<M: OdaStochModel>(members: &[M], main: &mut M) { /* ... */ }
+```
+
+#### Function `enkf_analysis`
+
+OpenDA's `EnKF.analysis` on model members: gathers states and
+predictions, runs [`enkf_update`] (Hamill's mask from member 0),
+applies the increments, and moves `main` to the analysis mean.
+
+# Errors
+From the models or [`enkf_update`].
+
+```rust
+pub fn enkf_analysis<M: OdaStochModel>(members: &mut [M], main: &mut M, obs: &super::models::Observations, localization: Localization, draws: &mut super::noise::DrawSource) -> crate::Result<EnkfUpdate> { /* ... */ }
+```
+
+## Module `ensr`
+
+**OpenDA's ensemble square-root filter, particle filter and steady-state
+filter** (gh:#1192).
+
+```rust
+pub mod ensr { /* ... */ }
+```
+
+### Types
+
+#### Struct `Resampling`
+
+The particle filter's normalised weights and residual-resampling index
+(`index[i]` is the member member `i` becomes a copy of).
+
+```rust
+pub struct Resampling {
+    pub weights: Vec<f64>,
+    pub index: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `weights` | `Vec<f64>` | Normalised weights. |
+| `index` | `Vec<usize>` | Parent of each new member. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SteadyStateGain`
+
+A stored gain for the steady-state filter.
+
+```rust
+pub struct SteadyStateGain {
+    pub columns: Vec<(f64, Vec<f64>)>,
+    pub skip_factor: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `columns` | `Vec<(f64, Vec<f64>)>` | `(observation index, gain column)`. |
+| `skip_factor` | `f64` | `skipAssimilationStandardDeviationFactor` (OpenDA: +∞, none skipped). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `ensr_update`
+
+EnSR (Sakov 2006, symmetric transform) on vectors: OpenDA's increment
+`xChange = x̄_a − x_i + √(q−1)·(L_f·T)_i` for each member.
+
+# Errors
+Shapes, or the SVDs'.
+
+```rust
+pub fn ensr_update(states: &[Vec<f64>], preds: &[Vec<f64>], obs: &super::models::Observations) -> crate::Result<Vec<Vec<f64>>> { /* ... */ }
+```
+
+#### Function `ensr_analysis`
+
+OpenDA's `EnSR.analysis` on model members.
+
+# Errors
+From the models or [`ensr_update`].
+
+```rust
+pub fn ensr_analysis<M: OdaStochModel>(members: &mut [M], main: &mut M, obs: &super::models::Observations) -> crate::Result<()> { /* ... */ }
+```
+
+#### Function `residual_resampling`
+
+Residual resampling (`ParticleFilter.residualResampling`): `⌊N w_i⌋`
+copies each, the rest drawn from the residual weights.
+
+# Errors
+The draws'.
+
+```rust
+pub fn residual_resampling(weights: &[f64], draws: &mut super::noise::DrawSource) -> crate::Result<Vec<usize>> { /* ... */ }
+```
+
+#### Function `particle_filter_update`
+
+The particle filter's weights (`evaluatePDF` of each prediction,
+normalised by their sum) and resampling.
+
+# Errors
+Shapes or the draws'.
+
+```rust
+pub fn particle_filter_update(preds: &[Vec<f64>], obs: &super::models::Observations, draws: &mut super::noise::DrawSource) -> crate::Result<Resampling> { /* ... */ }
+```
+
+#### Function `particle_filter_analysis`
+
+OpenDA's `ParticleFilter.analysis` on model members: members are
+replaced by copies of their parents (`restoreInternalState`).
+
+# Errors
+From the models or [`particle_filter_update`].
+
+```rust
+pub fn particle_filter_analysis<M: OdaStochModel>(members: &mut [M], main: &mut M, obs: &super::models::Observations, draws: &mut super::noise::DrawSource) -> crate::Result<Resampling> { /* ... */ }
+```
+
+#### Function `steady_state_analysis`
+
+`SteadyStateFilter.analysis`: `main += Σ_i (y_i − h_i(main))·K_i`,
+skipping observations with `|innovation| > skip·σ`.
+
+# Errors
+An observation without a gain column (OpenDA throws), or the model's.
+
+```rust
+pub fn steady_state_analysis<M: OdaStochModel>(gain: &SteadyStateGain, main: &mut M, obs: &super::models::Observations) -> crate::Result<()> { /* ... */ }
+```
+
+## Module `jama`
+
+**JAMA's singular value decomposition**, in JAMA's rounding order
+(gh:#1192). Matrices are `Vec<Vec<f64>>`, Java's `double[][]`.
+
+```rust
+pub mod jama { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `Rows`
+
+A Java `double[][]`.
+
+```rust
+pub type Rows = Vec<Vec<f64>>;
+```
+
+#### Struct `JamaSvd`
+
+The decomposition `A = U·diag(s)·Vᵀ` of an `m × n` matrix, `m ≥ n`.
+
+```rust
+pub struct JamaSvd {
+    pub u: Rows,
+    pub s: Vec<f64>,
+    pub v: Rows,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `u` | `Rows` | `m × n` left singular vectors (JAMA's `getU()` for `m ≥ n`). |
+| `s` | `Vec<f64>` | The `n` singular values, decreasing. |
+| `v` | `Rows` | `n × n` right singular vectors. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn s_matrix(self: &Self) -> Rows { /* ... */ }
+  ```
+  JAMA's `getS()`: the `n × n` diagonal matrix of `s`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `hypot`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+JAMA's `Maths.hypot`: `sqrt(a² + b²)` without under/overflow.
+
+```rust
+pub fn hypot(a: f64, b: f64) -> f64 { /* ... */ }
+```
+
+#### Function `svd`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"too_many_lines\" },\nkind: Allow},\nLintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"many_single_char_names\" },\nkind: Allow},\nLintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"needless_range_loop\" },\nkind: Allow}])]")`
+
+JAMA's `SingularValueDecomposition(A)`.
+
+# Errors
+[`RafflesError::DimensionMismatch`] for `m < n`, an empty or ragged `a`.
+
+```rust
+pub fn svd(arg: &[Vec<f64>]) -> crate::Result<JamaSvd> { /* ... */ }
+```
+
+#### Function `times`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"needless_range_loop\" },\nkind: Allow}])]")`
+
+JAMA's `Matrix.times`: column of `B` copied, then one chain per element.
+
+# Errors
+[`RafflesError::DimensionMismatch`] if the inner dimensions differ.
+
+```rust
+pub fn times(a: &[Vec<f64>], b: &[Vec<f64>]) -> crate::Result<Rows> { /* ... */ }
+```
+
+#### Function `transpose`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+JAMA's `Matrix.transpose` (exact).
+
+```rust
+pub fn transpose(a: &[Vec<f64>]) -> Rows { /* ... */ }
+```
+
+## Module `linalg`
+
+**OpenDA's `Matrix` and `Vector` kernels**, in Java's rounding order
+(gh:#1192).
+
+```rust
+pub mod linalg { /* ... */ }
+```
+
+### Functions
+
+#### Function `zeros`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`m × n` zeros.
+
+```rust
+pub fn zeros(m: usize, n: usize) -> super::jama::Rows { /* ... */ }
+```
+
+#### Function `eye`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`Matrix.eye(n)`.
+
+```rust
+pub fn eye(n: usize) -> super::jama::Rows { /* ... */ }
+```
+
+#### Function `diag_matrix`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`Matrix.diag(IVector)` / `Matrix(double[])`: the diagonal matrix of `v`.
+
+```rust
+pub fn diag_matrix(v: &[f64]) -> super::jama::Rows { /* ... */ }
+```
+
+#### Function `diag`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`Matrix.diag()`: the diagonal of `a`.
+
+```rust
+pub fn diag(a: &[Vec<f64>]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `from_columns`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`new Matrix(IVector[])`: each vector is a **column**.
+
+```rust
+pub fn from_columns(v: &[Vec<f64>]) -> super::jama::Rows { /* ... */ }
+```
+
+#### Function `columns`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`Matrix.asVectorArray()`: the columns.
+
+```rust
+pub fn columns(a: &[Vec<f64>]) -> Vec<Vec<f64>> { /* ... */ }
+```
+
+#### Function `scale_matrix`
+
+`Matrix.scale(f)`: `a(i,j) = a(i,j)·f`.
+
+```rust
+pub fn scale_matrix(a: &mut [Vec<f64>], f: f64) { /* ... */ }
+```
+
+#### Function `concat_vertical`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`Matrix.concatVertical(a, b)`.
+
+```rust
+pub fn concat_vertical(a: &[Vec<f64>], b: &[Vec<f64>]) -> super::jama::Rows { /* ... */ }
+```
+
+#### Function `multiply`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"many_single_char_names\" },\nkind: Allow}])]")`
+
+`Matrix.multiply(facAB, A, B, facThis, transa, transb)`: `C = facThis·C +
+facAB·op(A)·op(B)`, element by element: `C *= facThis`, one sum chain,
+then `C += facAB·sum`.
+
+# Errors
+[`RafflesError::DimensionMismatch`] on incompatible shapes.
+
+```rust
+pub fn multiply(c: &mut [Vec<f64>], fac_ab: f64, a: &[Vec<f64>], b: &[Vec<f64>], fac_c: f64, transa: bool, transb: bool) -> crate::Result<()> { /* ... */ }
+```
+
+#### Function `mult`
+
+`Matrix.mult(A, B, ta, tb)`: a zero result, then [`multiply`] with factors 1.
+
+# Errors
+As [`multiply`].
+
+```rust
+pub fn mult(a: &[Vec<f64>], b: &[Vec<f64>], ta: bool, tb: bool) -> crate::Result<super::jama::Rows> { /* ... */ }
+```
+
+#### Function `right_multiply`
+
+`Matrix.rightMultiply(beta, v, alpha, x)`: `x = alpha·x + beta·L·v`, in
+OpenDA's order `temp = alpha·x(i); temp += (beta·L(i,j))·v(j)`. Like
+OpenDA, nothing is done on a shape mismatch.
+
+```rust
+pub fn right_multiply(l: &[Vec<f64>], beta: f64, v: &[f64], alpha: f64, x: &mut [f64]) { /* ... */ }
+```
+
+#### Function `inverse`
+
+`Matrix.inverse()`: JAMA SVD, `V·diag(1/s)·Uᵀ` with `|s| ≤ 1e-7` zeroed.
+
+# Errors
+From the SVD (an empty or wide matrix).
+
+```rust
+pub fn inverse(a: &[Vec<f64>]) -> crate::Result<super::jama::Rows> { /* ... */ }
+```
+
+#### Function `sqrt`
+
+`Matrix.sqrt()`: `U·diag(√s)·Vᵀ` with `|s| < 1e-7` zeroed.
+
+# Errors
+From the SVD, or a non-square matrix.
+
+```rust
+pub fn sqrt(a: &[Vec<f64>]) -> crate::Result<super::jama::Rows> { /* ... */ }
+```
+
+#### Function `svd`
+
+`Matrix.svd()`: `[U, S, V]`, a wide matrix transposed first (and `U`,
+`V` swapped back).
+
+# Errors
+From the SVD.
+
+```rust
+pub fn svd(a: &[Vec<f64>]) -> crate::Result<(super::jama::Rows, super::jama::Rows, super::jama::Rows)> { /* ... */ }
+```
+
+#### Function `right_solve`
+
+`Matrix.rightSolve(v, x)`: the least-squares `x` of `L·x = v`, as OpenDA
+computes it: `xᵀ = vᵀ·U·diag(1/s)·Vᵀ` (1e-7 cut-off), through
+`Jama.Matrix.times`.
+
+# Errors
+From the SVD (OpenDA throws for `m < n` too), or `v` of the wrong length.
+
+```rust
+pub fn right_solve(l: &[Vec<f64>], v: &[f64]) -> crate::Result<Vec<f64>> { /* ... */ }
+```
+
+#### Function `axpy`
+
+`VectorDouble.axpy(alpha, x)`: `y(i) = y(i) + alpha·x(i)`.
+
+```rust
+pub fn axpy(y: &mut [f64], alpha: f64, x: &[f64]) { /* ... */ }
+```
+
+#### Function `scale`
+
+`VectorDouble.scale(alpha)`: `y(i) = alpha·y(i)`.
+
+```rust
+pub fn scale(y: &mut [f64], alpha: f64) { /* ... */ }
+```
+
+#### Function `norm2`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`VectorDouble.norm2()`: `√(Σ y(i)²)`, one chain.
+
+```rust
+pub fn norm2(y: &[f64]) -> f64 { /* ... */ }
+```
+
+#### Function `norm2_squared`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`Math.pow(norm2(y), 2.0)`, which OpenDA's costs use and which equals
+`n·n` on every sample measured (gh:#1192 record, finding 3).
+
+```rust
+pub fn norm2_squared(y: &[f64]) -> f64 { /* ... */ }
+```
+
+#### Function `pointwise_multiply`
+
+`VectorDouble.pointwiseMultiply`.
+
+```rust
+pub fn pointwise_multiply(y: &mut [f64], x: &[f64]) { /* ... */ }
+```
+
+#### Function `pointwise_divide`
+
+`VectorDouble.pointwiseDivide`.
+
+```rust
+pub fn pointwise_divide(y: &mut [f64], x: &[f64]) { /* ... */ }
+```
+
+#### Function `ensemble_average`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`ensembleAverage`: member 0, plus each later member (`axpy(1.0, ·)`),
+then `scale(1.0/n)`.
+
+```rust
+pub fn ensemble_average(v: &[Vec<f64>]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `remove_average`
+
+`removeAverage`: `axpy(-1.0, mean)` on each member.
+
+```rust
+pub fn remove_average(v: &mut [Vec<f64>], mean: &[f64]) { /* ... */ }
+```
+
+## Module `models`
+
+**OpenDA's test models** (oscillator, Lorenz-63), the observer, and the
+model seam the sequential algorithms consume (gh:#1192).
+
+```rust
+pub mod models { /* ... */ }
+```
+
+### Types
+
+#### Struct `Observations`
+
+Observations in OpenDA's `CsvStochObserver` column form, independent
+Gaussian errors.
+
+```rust
+pub struct Observations {
+    pub time: Vec<f64>,
+    pub index: Vec<f64>,
+    pub value: Vec<f64>,
+    pub std: Vec<f64>,
+    pub transform: Option<Vec<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `time` | `Vec<f64>` | Observation time, model time units. |
+| `index` | `Vec<f64>` | State index observed (OpenDA's `index` column). |
+| `value` | `Vec<f64>` | Observed value. |
+| `std` | `Vec<f64>` | Standard deviation. |
+| `transform` | `Option<Vec<f64>>` | OpenDA's `transform` column: `2` observes the square of the state. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(time: Vec<f64>, index: Vec<f64>, value: Vec<f64>, std: Vec<f64>, transform: Option<Vec<f64>>) -> Result<Self> { /* ... */ }
+  ```
+  From columns.
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of observations.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  True if none.
+
+- ```rust
+  pub fn select_span(self: &Self, begin: f64, end: f64) -> Self { /* ... */ }
+  ```
+  `createSelection(span)`: the observations whose time stamp lies in
+
+- ```rust
+  pub fn times(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  The distinct observation times, sorted (`getTimes`).
+
+- ```rust
+  pub fn uncertainty(self: &Self) -> Result<StochVector> { /* ... */ }
+  ```
+  The observation error as a `StochVector`.
+
+- ```rust
+  pub fn realization(self: &Self, draws: &mut DrawSource) -> Result<Vec<f64>> { /* ... */ }
+  ```
+  `getRealizations()`: one perturbed observation vector.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Dynamics`
+
+The right-hand side of a [`SimpleStochModel`].
+
+```rust
+pub enum Dynamics {
+    Oscillator {
+        t_damp: f64,
+        omega: f64,
+    },
+    Lorenz63 {
+        sigma: f64,
+        rho: f64,
+        beta: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Oscillator`
+
+`dx/dt = u`, `du/dt = −ω²x − (2/t_damp)u`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_damp` | `f64` | Damping time scale \[s\]. |
+| `omega` | `f64` | Angular frequency \[rad/s\]. |
+
+###### `Lorenz63`
+
+Lorenz (1963).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sigma` | `f64` | σ. |
+| `rho` | `f64` | ρ. |
+| `beta` | `f64` | β. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn oscillator() -> Self { /* ... */ }
+  ```
+  OpenDA's oscillator defaults: t_damp 8, ω = 0.25·2π.
+
+- ```rust
+  pub fn lorenz63() -> Self { /* ... */ }
+  ```
+  OpenDA's Lorenz defaults: σ 10, ρ 28, β 8/3.
+
+- ```rust
+  pub fn parameters(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  The uncertain parameters, in OpenDA's `stochParNames` order.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SimpleModelConfig`
+
+The XML configuration of OpenDA's simple models, as a struct: `None`
+keeps the model's default (OpenDA's `Initialize`).
+
+```rust
+pub struct SimpleModelConfig {
+    pub timespan: Option<[f64; 3]>,
+    pub parameters: Option<Vec<f64>>,
+    pub parameter_std: Option<Vec<f64>>,
+    pub system_noise: Option<(Vec<f64>, Vec<f64>)>,
+    pub initial_state: Option<Vec<f64>>,
+    pub initial_state_std: Option<Vec<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `timespan` | `Option<[f64; 3]>` | `simulationTimespan`: `[t_start, t_step, t_stop]`. |
+| `parameters` | `Option<Vec<f64>>` | `parameters` (all of them, in `stochParNames` order). |
+| `parameter_std` | `Option<Vec<f64>>` | `parameterUncertainty`: standard deviations (the mean is the<br>parameters' values at that point). |
+| `system_noise` | `Option<(Vec<f64>, Vec<f64>)>` | `systemNoise`: `(mean, std)`. |
+| `initial_state` | `Option<Vec<f64>>` | `initialState`. |
+| `initial_state_std` | `Option<Vec<f64>>` | `initialStateUncertainty` (only read with `initial_state`, as OpenDA). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SimpleStochModel`
+
+OpenDA's `SimpleStochModelInstance`: RK4 with step `t_step`, optional
+system noise `√t_step·w` after each step, and stored states for
+observations.
+
+```rust
+pub struct SimpleStochModel {
+    pub dynamics: Dynamics,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dynamics` | `Dynamics` | The right-hand side and its parameters. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(dynamics: Dynamics, config: &SimpleModelConfig) -> Result<Self> { /* ... */ }
+  ```
+  A model with `dynamics`' defaults overridden by `config`.
+
+- ```rust
+  pub fn with_localization_mask(self: Self, mask: Vec<f64>) -> Self { /* ... */ }
+  ```
+  Replace Hamill's mask (all ones by default) by the same `mask` for
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **OdaStochModel**
+  - ```rust
+    fn state(self: &Self) -> Vec<f64> { /* ... */ }
+    ```
+
+  - ```rust
+    fn axpy_on_state(self: &mut Self, alpha: f64, v: &[f64]) { /* ... */ }
+    ```
+
+  - ```rust
+    fn current_time(self: &Self) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn time_horizon(self: &Self) -> (f64, f64) { /* ... */ }
+    ```
+
+  - ```rust
+    fn compute(self: &mut Self, target: f64, draws: &mut DrawSource) -> Result<()> { /* ... */ }
+    ```
+
+  - ```rust
+    fn announce_observed_values(self: &mut Self, _obs: &Observations) { /* ... */ }
+    ```
+
+  - ```rust
+    fn observed_values(self: &Self, obs: &Observations) -> Result<Vec<f64>> { /* ... */ }
+    ```
+
+  - ```rust
+    fn state_uncertainty(self: &Self) -> Option<StochVector> { /* ... */ }
+    ```
+
+  - ```rust
+    fn parameter_uncertainty(self: &Self) -> Option<StochVector> { /* ... */ }
+    ```
+
+  - ```rust
+    fn set_parameters(self: &mut Self, p: &[f64]) -> Result<()> { /* ... */ }
+    ```
+
+  - ```rust
+    fn set_automatic_noise(self: &mut Self, on: bool) { /* ... */ }
+    ```
+
+  - ```rust
+    fn observed_localization(self: &Self, obs: &Observations) -> Vec<Vec<f64>> { /* ... */ }
+    ```
+
+  - ```rust
+    fn restore_from(self: &mut Self, saved: &Self) { /* ... */ }
+    ```
+    OpenDA restores state, time and step and **stops storing** (it clears
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Traits
+
+#### Trait `OdaStochModel`
+
+The model seam OpenDA's sequential algorithms use (after
+`IStochModelInstance`), consumed generically. RAFFLES implements it for
+its test models ([`SimpleStochModel`]) and for a
+[`crate::fidelity::StateSpaceModel`]; a downstream crate may implement it
+for its own model.
+
+```rust
+pub trait OdaStochModel: Clone {
+    /* Associated items */
+}
+```
+
+> This trait is not object-safe and cannot be used in dynamic trait objects.
+
+##### Required Items
+
+###### Required Methods
+
+- `state`: The state vector.
+- `axpy_on_state`: `x = x + alpha·v`.
+- `current_time`: Current model time.
+- `time_horizon`: Start and end of the time horizon.
+- `compute`: Advance to `target`, drawing system noise from `draws` when automatic
+- `announce_observed_values`: Start storing states for `obs` (OpenDA's announceObservedValues).
+- `observed_values`: The model's prediction of `obs`.
+- `state_uncertainty`: The initial-state uncertainty, if any.
+- `parameter_uncertainty`: The parameter uncertainty, if any.
+- `set_parameters`: Set the uncertain parameters.
+- `set_automatic_noise`: Switch automatic system noise on or off.
+
+##### Provided Methods
+
+- ```rust
+  fn observed_localization(self: &Self, obs: &Observations) -> Vec<Vec<f64>> { /* ... */ }
+  ```
+  Hamill's localisation mask, one state-length vector per observation
+
+- ```rust
+  fn restore_from(self: &mut Self, saved: &Self) { /* ... */ }
+  ```
+  `restoreInternalState(saved)`: become a copy of `saved`'s state.
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `SimpleStochModel`
+
+### Functions
+
+#### Function `java_round`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Java's `Math.round(double)` for the values a step count takes:
+`⌊x + ½⌋` evaluated exactly.
+
+```rust
+pub fn java_round(x: f64) -> i64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `TIME_PRECISION`
+
+OpenDA's time precision, one second in days: `1.0/24.0/60.0/60.0`.
+
+```rust
+pub const TIME_PRECISION: f64 = _;
+```
+
+## Module `noise`
+
+**OpenDA's Gaussian uncertainty** (`StochVector`) and the source of its
+random draws (gh:#1192).
+
+```rust
+pub mod noise { /* ... */ }
+```
+
+### Types
+
+#### Enum `DrawSource`
+
+Where OpenDA's random numbers come from. **Written here, not ported.**
+
+```rust
+pub enum DrawSource {
+    Injected {
+        gaussians: Vec<f64>,
+        uniforms: Vec<f64>,
+        ints: Vec<usize>,
+        cursor: [usize; 3],
+    },
+    Lcg {
+        seed: u64,
+    },
+}
+```
+
+##### Variants
+
+###### `Injected`
+
+Replay recorded upstream draws, each stream in order. A stream that
+runs out is an error (the port consumed more than OpenDA did).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `gaussians` | `Vec<f64>` | `nextGaussian()` of `StochVector`'s generator. |
+| `uniforms` | `Vec<f64>` | `nextDouble()` of the particle filter's generator. |
+| `ints` | `Vec<usize>` | `nextInt(n)` of the Zhang localisation's generator. |
+| `cursor` | `[usize; 3]` | Next unread index of each stream. |
+
+###### `Lcg`
+
+The workspace LCG at this state: Box–Muller normals, `prn` uniforms,
+`⌊n·u⌋` integers.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `seed` | `u64` | LCG state. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn injected(gaussians: Vec<f64>, uniforms: Vec<f64>, ints: Vec<usize>) -> Self { /* ... */ }
+  ```
+  Replay recorded draws.
+
+- ```rust
+  pub fn lcg(seed: u64) -> Self { /* ... */ }
+  ```
+  The workspace LCG.
+
+- ```rust
+  pub fn gaussian(self: &mut Self) -> Result<f64> { /* ... */ }
+  ```
+  A standard normal.
+
+- ```rust
+  pub fn uniform(self: &mut Self) -> Result<f64> { /* ... */ }
+  ```
+  A uniform on `[0, 1)`.
+
+- ```rust
+  pub fn int_below(self: &mut Self, n: usize) -> Result<usize> { /* ... */ }
+  ```
+  An integer in `0..n`.
+
+- ```rust
+  pub fn consumed(self: &Self) -> Option<[usize; 3]> { /* ... */ }
+  ```
+  How many draws of each stream were consumed (injected only).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `StochVector`
+
+OpenDA's `StochVector`: a Gaussian vector, independent (mean and
+standard deviations) or correlated (mean and a square root `L` of the
+covariance, `P = L·Lᵀ`).
+
+```rust
+pub struct StochVector {
+    pub mean: Vec<f64>,
+    pub std: Vec<f64>,
+    pub correlated: Option<(super::jama::Rows, super::jama::Rows)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mean` | `Vec<f64>` | Mean. |
+| `std` | `Vec<f64>` | Standard deviations (√ of the covariance's diagonal when correlated). |
+| `correlated` | `Option<(super::jama::Rows, super::jama::Rows)>` | `Some((P, L))` when correlated. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn independent(mean: Vec<f64>, std: Vec<f64>) -> Result<Self> { /* ... */ }
+  ```
+  Independent elements (`StochVector(mean, std)`).
+
+- ```rust
+  pub fn correlated(mean: Vec<f64>, covariance: Rows, is_square_root: bool) -> Result<Self> { /* ... */ }
+  ```
+  Correlated (`StochVector(mean, covariance, isSquareRoot)`): from `P`
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of elements.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  True for a zero-length vector.
+
+- ```rust
+  pub fn realization(self: &Self, draws: &mut DrawSource) -> Result<Vec<f64>> { /* ... */ }
+  ```
+  `createRealization()`: one standard normal per element, in order;
+
+- ```rust
+  pub fn evaluate_pdf(self: &Self, tv: &[f64]) -> Result<f64> { /* ... */ }
+  ```
+  `evaluatePdf(tv)`, **as OpenDA computes it**. Correlated: the
+
+- ```rust
+  pub fn sqrt_solve(self: &Self, v: &[f64]) -> Result<Vec<f64>> { /* ... */ }
+  ```
+  `getSqrtCovariance().rightSolve(v, x)` (= `leftSolve` here): `v/σ`
+
+- ```rust
+  pub fn sqrt_matrix(self: &Self) -> Rows { /* ... */ }
+  ```
+  `getSqrtCovariance().asMatrix()`: `diag(σ)` or `L`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `powell`
+
+**OpenDA's Powell minimiser** with its bracketing and Brent line search
+(gh:#1192).
+
+```rust
+pub mod powell { /* ... */ }
+```
+
+### Types
+
+#### Struct `Powell`
+
+OpenDA's `PowellCoreOptimizer`.
+
+```rust
+pub struct Powell {
+    pub max_iterations: usize,
+    pub max_brent: usize,
+    pub max_bracket: usize,
+    pub rel_tol: f64,
+    pub abs_tol: f64,
+    pub rel_tol_brent: f64,
+    pub abs_tol_brent: f64,
+    pub bracket_first_try: f64,
+    pub limit: f64,
+    pub tiny: f64,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `max_iterations` | `usize` | `maxitPowell` (200). |
+| `max_brent` | `usize` | `maxitBrent` (200). |
+| `max_bracket` | `usize` | `maxitBracket` (20). |
+| `rel_tol` | `f64` | `relTolPowell` (0.01). |
+| `abs_tol` | `f64` | `absTolPowell` (0.01). |
+| `rel_tol_brent` | `f64` | `relTolBrent` (0.01). |
+| `abs_tol_brent` | `f64` | `absTolBrent` (0.001). |
+| `bracket_first_try` | `f64` | `bracketFirstTry` (1.0). |
+| `limit` | `f64` | `limit` (100). |
+| `tiny` | `f64` | `tiny` (1e-15). |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn initialize<C: CostFunction>(self: &mut Self, f: &mut C, p_init: &[f64], width: f64) -> Result<()> { /* ... */ }
+  ```
+  `initialize(pInit, width)`: directions `width·e_{n−1}`, …,
+
+- ```rust
+  pub fn initialize_with_directions<C: CostFunction>(self: &mut Self, f: &mut C, p_init: &[f64], directions: Vec<Vec<f64>>) -> Result<()> { /* ... */ }
+  ```
+  `initialize(pInit, searchInit)`.
+
+- ```rust
+  pub fn optimum(self: &Self) -> (&[f64], f64) { /* ... */ }
+  ```
+  The best point and cost the optimiser has accepted.
+
+- ```rust
+  pub fn directions(self: &Self) -> &[Vec<f64>] { /* ... */ }
+  ```
+  The current search directions.
+
+- ```rust
+  pub fn iterations(self: &Self) -> usize { /* ... */ }
+  ```
+  Outer iterations done.
+
+- ```rust
+  pub fn optimize<C: CostFunction>(self: &mut Self, f: &mut C) -> Result<()> { /* ... */ }
+  ```
+  `optimize()`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `sequential`
+
+**OpenDA's sequential assimilation loop** and the filter enum (gh:#1192).
+
+```rust
+pub mod sequential { /* ... */ }
+```
+
+### Types
+
+#### Struct `EnsembleOptions`
+
+OpenDA's `ensembleModel@stochInit/stochParameter/stochForcing`.
+
+```rust
+pub struct EnsembleOptions {
+    pub stoch_init: bool,
+    pub stoch_parameter: bool,
+    pub stoch_forcing: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `stoch_init` | `bool` | Add a realisation of the state uncertainty to each member. |
+| `stoch_parameter` | `bool` | Draw each member's parameters from their uncertainty. |
+| `stoch_forcing` | `bool` | Members add system noise while computing. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    OpenDA's defaults: init and forcing on, parameters off.
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SequentialFilter`
+
+The sequential filters RAFFLES ports from OpenDA.
+
+```rust
+pub enum SequentialFilter {
+    EnKf {
+        ensemble_size: usize,
+        localization: super::enkf::Localization,
+        options: EnsembleOptions,
+    },
+    EnSr {
+        ensemble_size: usize,
+        options: EnsembleOptions,
+    },
+    ParticleFilter {
+        ensemble_size: usize,
+        options: EnsembleOptions,
+    },
+    SteadyState(super::ensr::SteadyStateGain),
+}
+```
+
+##### Variants
+
+###### `EnKf`
+
+`EnKF`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ensemble_size` | `usize` | Members. |
+| `localization` | `super::enkf::Localization` | Localisation option. |
+| `options` | `EnsembleOptions` | Ensemble generation. |
+
+###### `EnSr`
+
+`EnSR`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ensemble_size` | `usize` | Members. |
+| `options` | `EnsembleOptions` | Ensemble generation. |
+
+###### `ParticleFilter`
+
+`ParticleFilter` (residual resampling).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ensemble_size` | `usize` | Particles. |
+| `options` | `EnsembleOptions` | Ensemble generation. |
+
+###### `SteadyState`
+
+`SteadyStateFilter`: a stored gain on the main model, no ensemble.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::ensr::SteadyStateGain` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SequentialStep`
+
+One analysis time.
+
+```rust
+pub struct SequentialStep {
+    pub time: f64,
+    pub observations: super::models::Observations,
+    pub forecast: Vec<Vec<f64>>,
+    pub analysis: Vec<Vec<f64>>,
+    pub main_after: Vec<f64>,
+    pub gain: Option<(Vec<Vec<f64>>, Vec<Vec<f64>>)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `time` | `f64` | The analysis time. |
+| `observations` | `super::models::Observations` | The observations assimilated. |
+| `forecast` | `Vec<Vec<f64>>` | Member states before the analysis (the main model for the<br>steady-state filter). |
+| `analysis` | `Vec<Vec<f64>>` | Member states after it. |
+| `main_after` | `Vec<f64>` | The main model's state after it. |
+| `gain` | `Option<(Vec<Vec<f64>>, Vec<Vec<f64>>)>` | EnKF only: gain columns before and after localisation. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SequentialRun`
+
+A whole run.
+
+```rust
+pub struct SequentialRun<M> {
+    pub steps: Vec<SequentialStep>,
+    pub main: M,
+    pub members: Vec<M>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steps` | `Vec<SequentialStep>` | Each analysis. |
+| `main` | `M` | The main model at the end (OpenDA's current state after the last<br>analysis and the final forecast). |
+| `members` | `Vec<M>` | The members at the end. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `run_sequential`
+
+Run `filter` on `template` (a fresh model) against `obs`: OpenDA's
+`setStochComponents`, then `next()` at each distinct observation time
+inside the model's horizon, then the final forecast.
+
+# Errors
+From the models, the analyses or the draws.
+
+```rust
+pub fn run_sequential<M: OdaStochModel>(template: &M, obs: &super::models::Observations, filter: &SequentialFilter, draws: &mut super::noise::DrawSource) -> crate::Result<SequentialRun<M>> { /* ... */ }
+```
+
+## Module `simplex`
+
+**OpenDA's Nelder–Mead simplex** (gh:#1192).
+
+```rust
+pub mod simplex { /* ... */ }
+```
+
+### Types
+
+#### Struct `Simplex`
+
+OpenDA's `SimplexCoreOptimizer`.
+
+```rust
+pub struct Simplex {
+    pub max_iterations: usize,
+    pub abs_tol: f64,
+    pub rel_tol: f64,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `max_iterations` | `usize` | `maxitSimplex` (100). |
+| `abs_tol` | `f64` | `absTolSimplex` (0.01). |
+| `rel_tol` | `f64` | `relTolSimplex` (0.01). |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn initialize<C: CostFunction>(self: &mut Self, f: &mut C, p_init: &[f64], width: f64) -> Result<()> { /* ... */ }
+  ```
+  `initialize(pInit, width)`: `pInit` and `pInit + width·e_i`.
+
+- ```rust
+  pub fn current(self: &Self) -> (&[Vec<f64>], &[f64]) { /* ... */ }
+  ```
+  The vertices and their costs.
+
+- ```rust
+  pub fn iterations(self: &Self) -> usize { /* ... */ }
+  ```
+  Outer iterations done.
+
+- ```rust
+  pub fn std_values(self: &Self) -> Option<&[f64]> { /* ... */ }
+  ```
+  The least-squares standard deviations OpenDA estimates from the
+
+- ```rust
+  pub fn optimize<C: CostFunction>(self: &mut Self, f: &mut C) -> Result<()> { /* ... */ }
+  ```
+  `optimize()`: iterate until a stopping test holds.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `sorted_index`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Indices that sort `v` ascending, stably (`Collections.sort` with
+`Double.compare`).
+
+```rust
+pub fn sorted_index(v: &[f64]) -> Vec<usize> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `simple_least_squares`
+
+```rust
+pub use cost::simple_least_squares;
+```
+
+#### Re-export `CostFunction`
+
+```rust
+pub use cost::CostFunction;
+```
+
+#### Re-export `CostHistory`
+
+```rust
+pub use cost::CostHistory;
+```
+
+#### Re-export `IdentityPredictor`
+
+```rust
+pub use cost::IdentityPredictor;
+```
+
+#### Re-export `LeastSquaresView`
+
+```rust
+pub use cost::LeastSquaresView;
+```
+
+#### Re-export `Predictor`
+
+```rust
+pub use cost::Predictor;
+```
+
+#### Re-export `RosenbrockCost`
+
+```rust
+pub use cost::RosenbrockCost;
+```
+
+#### Re-export `SimpleCost`
+
+```rust
+pub use cost::SimpleCost;
+```
+
+#### Re-export `SimulationPredictor`
+
+```rust
+pub use cost::SimulationPredictor;
+```
+
+#### Re-export `WeightedLeastSquares`
+
+```rust
+pub use cost::WeightedLeastSquares;
+```
+
+#### Re-export `Dud`
+
+```rust
+pub use dud::Dud;
+```
+
+#### Re-export `compute_gain`
+
+```rust
+pub use enkf::compute_gain;
+```
+
+#### Re-export `enkf_analysis`
+
+```rust
+pub use enkf::enkf_analysis;
+```
+
+#### Re-export `enkf_update`
+
+```rust
+pub use enkf::enkf_update;
+```
+
+#### Re-export `zhang_weights`
+
+```rust
+pub use enkf::zhang_weights;
+```
+
+#### Re-export `EnkfUpdate`
+
+```rust
+pub use enkf::EnkfUpdate;
+```
+
+#### Re-export `EnsembleVectors`
+
+```rust
+pub use enkf::EnsembleVectors;
+```
+
+#### Re-export `Localization`
+
+```rust
+pub use enkf::Localization;
+```
+
+#### Re-export `LocalizationInput`
+
+```rust
+pub use enkf::LocalizationInput;
+```
+
+#### Re-export `ensr_analysis`
+
+```rust
+pub use ensr::ensr_analysis;
+```
+
+#### Re-export `ensr_update`
+
+```rust
+pub use ensr::ensr_update;
+```
+
+#### Re-export `particle_filter_analysis`
+
+```rust
+pub use ensr::particle_filter_analysis;
+```
+
+#### Re-export `particle_filter_update`
+
+```rust
+pub use ensr::particle_filter_update;
+```
+
+#### Re-export `residual_resampling`
+
+```rust
+pub use ensr::residual_resampling;
+```
+
+#### Re-export `steady_state_analysis`
+
+```rust
+pub use ensr::steady_state_analysis;
+```
+
+#### Re-export `Resampling`
+
+```rust
+pub use ensr::Resampling;
+```
+
+#### Re-export `SteadyStateGain`
+
+```rust
+pub use ensr::SteadyStateGain;
+```
+
+#### Re-export `Dynamics`
+
+```rust
+pub use models::Dynamics;
+```
+
+#### Re-export `Observations`
+
+```rust
+pub use models::Observations;
+```
+
+#### Re-export `OdaStochModel`
+
+```rust
+pub use models::OdaStochModel;
+```
+
+#### Re-export `SimpleModelConfig`
+
+```rust
+pub use models::SimpleModelConfig;
+```
+
+#### Re-export `SimpleStochModel`
+
+```rust
+pub use models::SimpleStochModel;
+```
+
+#### Re-export `DrawSource`
+
+```rust
+pub use noise::DrawSource;
+```
+
+#### Re-export `StochVector`
+
+```rust
+pub use noise::StochVector;
+```
+
+#### Re-export `Powell`
+
+```rust
+pub use powell::Powell;
+```
+
+#### Re-export `run_sequential`
+
+```rust
+pub use sequential::run_sequential;
+```
+
+#### Re-export `EnsembleOptions`
+
+```rust
+pub use sequential::EnsembleOptions;
+```
+
+#### Re-export `SequentialFilter`
+
+```rust
+pub use sequential::SequentialFilter;
+```
+
+#### Re-export `SequentialRun`
+
+```rust
+pub use sequential::SequentialRun;
+```
+
+#### Re-export `SequentialStep`
+
+```rust
+pub use sequential::SequentialStep;
+```
+
+#### Re-export `Simplex`
+
+```rust
+pub use simplex::Simplex;
 ```
 
 ## Module `samplers`
@@ -9593,6 +16729,7 @@ pub struct MonteCarlo {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9606,6 +16743,7 @@ pub struct MonteCarlo {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -9757,6 +16895,7 @@ pub struct LatinHypercube {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9770,6 +16909,7 @@ pub struct LatinHypercube {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -9892,6 +17032,11 @@ pub struct GridSampler {
   Builds a grid with the same equally spaced levels on every dimension —
 
 - ```rust
+  pub fn equally_spaced_as_raven(dimensions: usize, steps: usize, lower: f64, upper: f64) -> Result<Self> { /* ... */ }
+  ```
+  Builds the same grid as [`equally_spaced`](Self::equally_spaced) but
+
+- ```rust
   pub fn levels(self: &Self) -> &[Vec<f64>] { /* ... */ }
   ```
   The cumulative-probability levels along each dimension, as supplied.
@@ -9928,6 +17073,7 @@ pub struct GridSampler {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9941,6 +17087,7 @@ pub struct GridSampler {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10108,6 +17255,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10121,6 +17269,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10459,6 +17608,7 @@ pub struct Phase {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10472,6 +17622,7 @@ pub struct Phase {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10568,6 +17719,7 @@ pub struct Alignment {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10581,6 +17733,7 @@ pub struct Alignment {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10736,6 +17889,7 @@ pub struct Ite {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10754,6 +17908,7 @@ pub struct Ite {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10893,6 +18048,7 @@ pub struct Bdd {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10906,6 +18062,7 @@ pub struct Bdd {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11097,6 +18254,7 @@ exactly `k` members.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11110,6 +18268,7 @@ exactly `k` members.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -11221,6 +18380,7 @@ pub struct CcfGroup {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11234,6 +18394,7 @@ pub struct CcfGroup {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11318,6 +18479,7 @@ pub struct CcfEvent {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11331,6 +18493,7 @@ pub struct CcfEvent {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11413,7 +18576,7 @@ let e = Expression::exponential(
     Expression::float(1000.0),
 );
 let p = e.value().unwrap();
-assert!((p - (1.0 - (-1e-3f64).exp())).abs() < 1e-15);
+assert!((p - (1.0 - (-1e-3f64).r_exp())).abs() < 1e-15);
 ```
 
 ```rust
@@ -11451,88 +18614,88 @@ pub enum Expression {
     MissionTime,
     Parameter(String),
     Exponential {
-        lambda: std::sync::Arc<Expression>,
-        time: std::sync::Arc<Expression>,
+        lambda: alloc::sync::Arc<Expression>,
+        time: alloc::sync::Arc<Expression>,
     },
     Glm {
-        gamma: std::sync::Arc<Expression>,
-        lambda: std::sync::Arc<Expression>,
-        mu: std::sync::Arc<Expression>,
-        time: std::sync::Arc<Expression>,
+        gamma: alloc::sync::Arc<Expression>,
+        lambda: alloc::sync::Arc<Expression>,
+        mu: alloc::sync::Arc<Expression>,
+        time: alloc::sync::Arc<Expression>,
     },
     Weibull {
-        alpha: std::sync::Arc<Expression>,
-        beta: std::sync::Arc<Expression>,
-        t0: std::sync::Arc<Expression>,
-        time: std::sync::Arc<Expression>,
+        alpha: alloc::sync::Arc<Expression>,
+        beta: alloc::sync::Arc<Expression>,
+        t0: alloc::sync::Arc<Expression>,
+        time: alloc::sync::Arc<Expression>,
     },
     PeriodicTestInstantRepair {
-        lambda: std::sync::Arc<Expression>,
-        tau: std::sync::Arc<Expression>,
-        theta: std::sync::Arc<Expression>,
-        time: std::sync::Arc<Expression>,
+        lambda: alloc::sync::Arc<Expression>,
+        tau: alloc::sync::Arc<Expression>,
+        theta: alloc::sync::Arc<Expression>,
+        time: alloc::sync::Arc<Expression>,
     },
     PeriodicTestInstantTest {
-        lambda: std::sync::Arc<Expression>,
-        mu: std::sync::Arc<Expression>,
-        tau: std::sync::Arc<Expression>,
-        theta: std::sync::Arc<Expression>,
-        time: std::sync::Arc<Expression>,
+        lambda: alloc::sync::Arc<Expression>,
+        mu: alloc::sync::Arc<Expression>,
+        tau: alloc::sync::Arc<Expression>,
+        theta: alloc::sync::Arc<Expression>,
+        time: alloc::sync::Arc<Expression>,
     },
     Add(Vec<Expression>),
     Sub(Vec<Expression>),
     Mul(Vec<Expression>),
     Div(Vec<Expression>),
-    Neg(std::sync::Arc<Expression>),
-    Abs(std::sync::Arc<Expression>),
+    Neg(alloc::sync::Arc<Expression>),
+    Abs(alloc::sync::Arc<Expression>),
     Min(Vec<Expression>),
     Max(Vec<Expression>),
     Mean(Vec<Expression>),
-    Exp(std::sync::Arc<Expression>),
-    Log(std::sync::Arc<Expression>),
-    Log10(std::sync::Arc<Expression>),
-    Pow(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
-    Sqrt(std::sync::Arc<Expression>),
-    Mod(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
-    Trunc(std::sync::Arc<Expression>),
-    Round(std::sync::Arc<Expression>),
-    Floor(std::sync::Arc<Expression>),
-    Ceil(std::sync::Arc<Expression>),
+    Exp(alloc::sync::Arc<Expression>),
+    Log(alloc::sync::Arc<Expression>),
+    Log10(alloc::sync::Arc<Expression>),
+    Pow(alloc::sync::Arc<Expression>, alloc::sync::Arc<Expression>),
+    Sqrt(alloc::sync::Arc<Expression>),
+    Mod(alloc::sync::Arc<Expression>, alloc::sync::Arc<Expression>),
+    Trunc(alloc::sync::Arc<Expression>),
+    Round(alloc::sync::Arc<Expression>),
+    Floor(alloc::sync::Arc<Expression>),
+    Ceil(alloc::sync::Arc<Expression>),
     Ite {
-        condition: std::sync::Arc<Expression>,
-        consequent: std::sync::Arc<Expression>,
-        alternate: std::sync::Arc<Expression>,
+        condition: alloc::sync::Arc<Expression>,
+        consequent: alloc::sync::Arc<Expression>,
+        alternate: alloc::sync::Arc<Expression>,
     },
-    Not(std::sync::Arc<Expression>),
+    Not(alloc::sync::Arc<Expression>),
     And(Vec<Expression>),
     Or(Vec<Expression>),
-    Eq(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
-    Lt(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
-    Gt(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
+    Eq(alloc::sync::Arc<Expression>, alloc::sync::Arc<Expression>),
+    Lt(alloc::sync::Arc<Expression>, alloc::sync::Arc<Expression>),
+    Gt(alloc::sync::Arc<Expression>, alloc::sync::Arc<Expression>),
     UniformDeviate {
-        min: std::sync::Arc<Expression>,
-        max: std::sync::Arc<Expression>,
+        min: alloc::sync::Arc<Expression>,
+        max: alloc::sync::Arc<Expression>,
     },
     NormalDeviate {
-        mean: std::sync::Arc<Expression>,
-        sigma: std::sync::Arc<Expression>,
+        mean: alloc::sync::Arc<Expression>,
+        sigma: alloc::sync::Arc<Expression>,
     },
     LognormalDeviate {
-        mean: std::sync::Arc<Expression>,
-        ef: std::sync::Arc<Expression>,
-        level: std::sync::Arc<Expression>,
+        mean: alloc::sync::Arc<Expression>,
+        ef: alloc::sync::Arc<Expression>,
+        level: alloc::sync::Arc<Expression>,
     },
     LognormalDeviateNormal {
-        mu: std::sync::Arc<Expression>,
-        sigma: std::sync::Arc<Expression>,
+        mu: alloc::sync::Arc<Expression>,
+        sigma: alloc::sync::Arc<Expression>,
     },
     GammaDeviate {
-        k: std::sync::Arc<Expression>,
-        theta: std::sync::Arc<Expression>,
+        k: alloc::sync::Arc<Expression>,
+        theta: alloc::sync::Arc<Expression>,
     },
     BetaDeviate {
-        alpha: std::sync::Arc<Expression>,
-        beta: std::sync::Arc<Expression>,
+        alpha: alloc::sync::Arc<Expression>,
+        beta: alloc::sync::Arc<Expression>,
     },
     Histogram {
         boundaries: Vec<Expression>,
@@ -11586,8 +18749,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `lambda` | `std::sync::Arc<Expression>` | Failure rate, per hour. |
-| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+| `lambda` | `alloc::sync::Arc<Expression>` | Failure rate, per hour. |
+| `time` | `alloc::sync::Arc<Expression>` | Mission time, hours. |
 
 ###### `Glm`
 
@@ -11597,10 +18760,10 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `gamma` | `std::sync::Arc<Expression>` | Probability of failure on demand. |
-| `lambda` | `std::sync::Arc<Expression>` | Failure rate, per hour. |
-| `mu` | `std::sync::Arc<Expression>` | Repair rate, per hour. |
-| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+| `gamma` | `alloc::sync::Arc<Expression>` | Probability of failure on demand. |
+| `lambda` | `alloc::sync::Arc<Expression>` | Failure rate, per hour. |
+| `mu` | `alloc::sync::Arc<Expression>` | Repair rate, per hour. |
+| `time` | `alloc::sync::Arc<Expression>` | Mission time, hours. |
 
 ###### `Weibull`
 
@@ -11610,10 +18773,10 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `alpha` | `std::sync::Arc<Expression>` | Scale parameter. |
-| `beta` | `std::sync::Arc<Expression>` | Shape parameter. |
-| `t0` | `std::sync::Arc<Expression>` | Time shift before failures can begin. |
-| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+| `alpha` | `alloc::sync::Arc<Expression>` | Scale parameter. |
+| `beta` | `alloc::sync::Arc<Expression>` | Shape parameter. |
+| `t0` | `alloc::sync::Arc<Expression>` | Time shift before failures can begin. |
+| `time` | `alloc::sync::Arc<Expression>` | Mission time, hours. |
 
 ###### `PeriodicTestInstantRepair`
 
@@ -11628,10 +18791,10 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `lambda` | `std::sync::Arc<Expression>` | Failure rate while functioning, per hour. |
-| `tau` | `std::sync::Arc<Expression>` | Time between tests, hours. |
-| `theta` | `std::sync::Arc<Expression>` | Time before the first test, hours. |
-| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+| `lambda` | `alloc::sync::Arc<Expression>` | Failure rate while functioning, per hour. |
+| `tau` | `alloc::sync::Arc<Expression>` | Time between tests, hours. |
+| `theta` | `alloc::sync::Arc<Expression>` | Time before the first test, hours. |
+| `time` | `alloc::sync::Arc<Expression>` | Mission time, hours. |
 
 ###### `PeriodicTestInstantTest`
 
@@ -11642,11 +18805,11 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `lambda` | `std::sync::Arc<Expression>` | Failure rate while functioning, per hour. |
-| `mu` | `std::sync::Arc<Expression>` | Repair rate, per hour. |
-| `tau` | `std::sync::Arc<Expression>` | Time between tests, hours. |
-| `theta` | `std::sync::Arc<Expression>` | Time before the first test, hours. |
-| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+| `lambda` | `alloc::sync::Arc<Expression>` | Failure rate while functioning, per hour. |
+| `mu` | `alloc::sync::Arc<Expression>` | Repair rate, per hour. |
+| `tau` | `alloc::sync::Arc<Expression>` | Time between tests, hours. |
+| `theta` | `alloc::sync::Arc<Expression>` | Time before the first test, hours. |
+| `time` | `alloc::sync::Arc<Expression>` | Mission time, hours. |
 
 ###### `Add`
 
@@ -11696,7 +18859,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Abs`
 
@@ -11706,7 +18869,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Min`
 
@@ -11746,7 +18909,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Log`
 
@@ -11756,7 +18919,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Log10`
 
@@ -11766,7 +18929,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Pow`
 
@@ -11776,8 +18939,8 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
-| 1 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
+| 1 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Sqrt`
 
@@ -11787,7 +18950,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Mod`
 
@@ -11797,8 +18960,8 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
-| 1 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
+| 1 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Trunc`
 
@@ -11808,7 +18971,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Round`
 
@@ -11818,7 +18981,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Floor`
 
@@ -11828,7 +18991,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Ceil`
 
@@ -11838,7 +19001,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Ite`
 
@@ -11848,9 +19011,9 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `condition` | `std::sync::Arc<Expression>` | Evaluated as a boolean: non-zero is true. |
-| `consequent` | `std::sync::Arc<Expression>` | Taken when the condition holds. |
-| `alternate` | `std::sync::Arc<Expression>` | Taken otherwise. |
+| `condition` | `alloc::sync::Arc<Expression>` | Evaluated as a boolean: non-zero is true. |
+| `consequent` | `alloc::sync::Arc<Expression>` | Taken when the condition holds. |
+| `alternate` | `alloc::sync::Arc<Expression>` | Taken otherwise. |
 
 ###### `Not`
 
@@ -11860,7 +19023,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `And`
 
@@ -11890,8 +19053,8 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
-| 1 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
+| 1 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Lt`
 
@@ -11901,8 +19064,8 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
-| 1 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
+| 1 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `Gt`
 
@@ -11912,8 +19075,8 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `std::sync::Arc<Expression>` |  |
-| 1 | `std::sync::Arc<Expression>` |  |
+| 0 | `alloc::sync::Arc<Expression>` |  |
+| 1 | `alloc::sync::Arc<Expression>` |  |
 
 ###### `UniformDeviate`
 
@@ -11926,8 +19089,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `min` | `std::sync::Arc<Expression>` | Lower bound. |
-| `max` | `std::sync::Arc<Expression>` | Upper bound. |
+| `min` | `alloc::sync::Arc<Expression>` | Lower bound. |
+| `max` | `alloc::sync::Arc<Expression>` | Upper bound. |
 
 ###### `NormalDeviate`
 
@@ -11937,8 +19100,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mean` | `std::sync::Arc<Expression>` | Mean. |
-| `sigma` | `std::sync::Arc<Expression>` | Standard deviation. |
+| `mean` | `alloc::sync::Arc<Expression>` | Mean. |
+| `sigma` | `alloc::sync::Arc<Expression>` | Standard deviation. |
 
 ###### `LognormalDeviate`
 
@@ -11954,9 +19117,9 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mean` | `std::sync::Arc<Expression>` | Mean of the log-normal distribution (not of the underlying normal). |
-| `ef` | `std::sync::Arc<Expression>` | Error factor. |
-| `level` | `std::sync::Arc<Expression>` | Confidence level the error factor is quoted at, in `(0, 1)`. |
+| `mean` | `alloc::sync::Arc<Expression>` | Mean of the log-normal distribution (not of the underlying normal). |
+| `ef` | `alloc::sync::Arc<Expression>` | Error factor. |
+| `level` | `alloc::sync::Arc<Expression>` | Confidence level the error factor is quoted at, in `(0, 1)`. |
 
 ###### `LognormalDeviateNormal`
 
@@ -11968,8 +19131,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mu` | `std::sync::Arc<Expression>` | Location parameter: mean of `ln X`. |
-| `sigma` | `std::sync::Arc<Expression>` | Scale parameter: standard deviation of `ln X`. |
+| `mu` | `alloc::sync::Arc<Expression>` | Location parameter: mean of `ln X`. |
+| `sigma` | `alloc::sync::Arc<Expression>` | Scale parameter: standard deviation of `ln X`. |
 
 ###### `GammaDeviate`
 
@@ -11979,8 +19142,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `k` | `std::sync::Arc<Expression>` | Shape parameter. |
-| `theta` | `std::sync::Arc<Expression>` | Scale parameter. |
+| `k` | `alloc::sync::Arc<Expression>` | Shape parameter. |
+| `theta` | `alloc::sync::Arc<Expression>` | Scale parameter. |
 
 ###### `BetaDeviate`
 
@@ -11990,8 +19153,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `alpha` | `std::sync::Arc<Expression>` | First shape parameter. |
-| `beta` | `std::sync::Arc<Expression>` | Second shape parameter. |
+| `alpha` | `alloc::sync::Arc<Expression>` | First shape parameter. |
+| `beta` | `alloc::sync::Arc<Expression>` | Second shape parameter. |
 
 ###### `Histogram`
 
@@ -12103,6 +19266,16 @@ Fields:
   ```
   Draws one value — upstream's `Expression::Sample`.
 
+- ```rust
+  pub fn is_deviate_through(self: &Self, definitions: &HashMap<String, Expression>) -> bool { /* ... */ }
+  ```
+  Whether a random deviate is reachable from this expression, **looking
+
+- ```rust
+  pub fn sample_memoised(self: &Self, definitions: &HashMap<String, Expression>, values: &Parameters, round: &mut Parameters, mission_time: f64, seed: &mut u64) -> Result<f64> { /* ... */ }
+  ```
+  One trial's draw of this expression **in upstream's order** — the
+
 ###### Trait Implementations
 
 - **Any**
@@ -12135,6 +19308,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12148,6 +19322,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -12297,9 +19472,10 @@ pub struct Interval {
 
 - **Display**
   - ```rust
-    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12313,6 +19489,7 @@ pub struct Interval {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -12366,6 +19543,25 @@ is involved, and it is the reason [`Expression::interval`] exists.
 
 ```rust
 pub fn ensure_probability(expression: &Expression, parameters: &Parameters, mission_time: f64, what: &str) -> crate::Result<()> { /* ... */ }
+```
+
+#### Function `resolve_parameter_values`
+
+Every parameter's **value** — upstream's `Parameter::value()`, which is
+its expression's value with each deviate at its mean, never a sample.
+
+Parameters may name other parameters, so this resolves them in rounds until
+nothing new resolves. The result does not depend on the map's iteration
+order: each value is a deterministic function of the values it names.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] naming the parameters that never
+resolve: one that names an undefined parameter, or a cycle, which upstream
+rejects when it validates the model.
+
+```rust
+pub fn resolve_parameter_values(definitions: &std::collections::HashMap<String, Expression>, mission_time: f64) -> crate::Result<Parameters> { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -12541,6 +19737,7 @@ would change the tree's shape.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12554,6 +19751,7 @@ would change the tree's shape.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -12678,6 +19876,7 @@ Fields:
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12691,6 +19890,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -12786,6 +19986,7 @@ pub struct Gate {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12799,6 +20000,7 @@ pub struct Gate {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -12914,6 +20116,7 @@ pub struct FaultTree {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12927,6 +20130,7 @@ pub struct FaultTree {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13041,6 +20245,7 @@ pub struct FaultTreeModel {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13054,6 +20259,7 @@ pub struct FaultTreeModel {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13178,6 +20384,7 @@ pub struct FaultTreeBuilder {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13191,6 +20398,7 @@ pub struct FaultTreeBuilder {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13298,6 +20506,7 @@ pub struct ImportanceFactors {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13311,6 +20520,7 @@ pub struct ImportanceFactors {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13558,6 +20768,7 @@ pub struct Element {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13571,6 +20782,7 @@ pub struct Element {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13725,6 +20937,7 @@ Fields:
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13738,6 +20951,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13833,6 +21047,7 @@ pub struct Formula {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13846,6 +21061,7 @@ pub struct Formula {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13952,6 +21168,7 @@ Fields:
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13965,6 +21182,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -14132,6 +21350,7 @@ pub struct MefModel {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -14145,6 +21364,7 @@ pub struct MefModel {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -14174,6 +21394,10 @@ pub struct MefModel {
 ### Functions
 
 #### Function `parse_xml`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/raffles/src/scram/mef.rs:152:7: 152:22 (#0) }])]")`
 
 Parses an XML document into [`Element`]s.
 
@@ -14477,6 +21701,7 @@ pub enum MonotoneOp {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -14490,6 +21715,7 @@ pub enum MonotoneOp {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -14778,6 +22004,7 @@ Fields:
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -14791,6 +22018,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -14881,6 +22109,7 @@ route). Knowingly approximate.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -14894,6 +22123,7 @@ route). Knowingly approximate.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -14986,6 +22216,7 @@ pub struct PboxTreeOptions {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -14999,6 +22230,7 @@ pub struct PboxTreeOptions {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15093,6 +22325,7 @@ pub struct PboxTreeResult {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15106,6 +22339,7 @@ pub struct PboxTreeResult {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15281,6 +22515,7 @@ pub struct CutSet {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15294,6 +22529,7 @@ pub struct CutSet {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15416,6 +22652,7 @@ exceeds 1 by construction, so it needs no clamp.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15429,6 +22666,7 @@ exceeds 1 by construction, so it needs no clamp.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15630,6 +22868,7 @@ pub enum SubstitutionType {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15643,6 +22882,7 @@ pub enum SubstitutionType {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15743,6 +22983,7 @@ Fields:
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15756,6 +22997,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15863,6 +23105,7 @@ pub struct Substitution {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15876,6 +23119,7 @@ pub struct Substitution {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -15961,6 +23205,7 @@ pub struct ProductSubstitution {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15974,6 +23219,7 @@ pub struct ProductSubstitution {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16049,7 +23295,8 @@ the answers.
 
 Upstream's `UncertaintyAnalysis::Analyze`, in three steps:
 
-1. gather the basic events whose expression [`Expression::is_deviate`];
+1. gather the basic events whose expression reaches a deviate
+   ([`Expression::is_deviate_through`], which follows parameter names);
 2. per trial, `Reset()` and `Sample()` each of them, **clamping to
    `[0, 1]`** — upstream's `prob > 1 ? 1 : prob < 0 ? 0 : prob`, which
    matters because a normal deviate reaches outside the unit interval;
@@ -16057,10 +23304,19 @@ Upstream's `UncertaintyAnalysis::Analyze`, in three steps:
 
 **Parameters are sampled once per trial, not once per use.** Upstream
 memoises a draw per expression object per round, so a parameter feeding
-several basic events contributes the same draw to all of them. Here a
+several basic events contributes the same draw to all of them. ~~Here a
 parameter is a name in a table, so the table is sampled first and every
 event evaluated against it — the same thing by construction rather than by
-bookkeeping.
+bookkeeping.~~ **CORRECTED 2026-11-17 (gh:#1611):** sampling the table
+first was NOT the same thing. It drew the parameters in the table's
+`HashMap` order, which std seeds per process, so one shared stream gave
+each parameter a different draw on every run with the same seed; it also
+drew deviate parameters no event uses. Now a parameter is drawn the way
+upstream draws it: lazily, the first time a deviate event's expression
+reaches it, events in index order and arguments depth first, memoised for
+the rest of the trial ([`Expression::sample_memoised`]). A deviate's own
+arguments read their **value**, as upstream's `mean_.value()` does, not
+this trial's sample.
 
 # What this can and cannot be checked against
 
@@ -16147,6 +23403,7 @@ pub struct UncertaintySettings {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16160,6 +23417,7 @@ pub struct UncertaintySettings {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16255,6 +23513,7 @@ pub struct UncertaintyResult {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16268,6 +23527,7 @@ pub struct UncertaintyResult {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -16305,15 +23565,20 @@ probability. Which quantification it uses is the caller's choice, exactly
 as it is upstream: the BDD, inclusion-exclusion over cut sets, or an
 approximation. It is called once per trial, so its cost sets the run's.
 
-`parameters` are the model's parameter **expressions**, sampled once per
+`parameters` are the model's parameter **expressions**. ~~sampled once per
 trial before the basic events are — upstream's memoisation, by
-construction.
+construction.~~ **CORRECTED 2026-11-17 (gh:#1611):** each is drawn at most
+once per trial, lazily, when a deviate basic event first reaches it — the
+order upstream's memoised `Sample()` gives, which does not depend on the
+map's iteration order. A fixed `settings.seed` therefore gives the same
+samples on every run.
 
 # Errors
 
 [`RafflesError::InvalidParameter`] if `settings.trials` is below 2 (the
 variance correction divides by `n - 1`), if a sample or a quantification
-fails, or if the model has no deviate at all — a Monte Carlo over a
+fails, if a parameter does not resolve, or if no basic event reaches a
+deviate — a Monte Carlo over a
 deterministic model reports a spread of zero and is almost always a
 mistake, so it is refused rather than answered.
 
@@ -16529,6 +23794,7 @@ pub struct PrimeImplicant {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16542,6 +23808,7 @@ pub struct PrimeImplicant {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Ord**
   - ```rust
     fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
@@ -17143,6 +24410,7 @@ exactly preserved by any strictly monotone transform, linear or not.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17161,6 +24429,7 @@ exactly preserved by any strictly monotone transform, linear or not.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17316,6 +24585,7 @@ pub struct SobolSampleLayout {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17334,6 +24604,7 @@ pub struct SobolSampleLayout {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17428,6 +24699,7 @@ pub struct SobolIndices {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17441,6 +24713,7 @@ pub struct SobolIndices {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17649,9 +24922,24 @@ Surrogate models — cheap reduced-order stand-ins for an expensive model.
 - **[`validation`]** — leave-one-out cross-validation and jackknife+
   prediction intervals for [`PolynomialSurrogate`] (added 2026-10-03,
   GitHub #499).
+- **[`MultiOutputPolynomial`]** — one [`PolynomialSurrogate`] per output
+  column, each bit-identical to the scalar fit (added 2026-11-04, gh:#1194).
 
-Gaussian process regression / kriging and the sparse-grid polynomial chaos
-route are **not** implemented. ~~Neither is the cross-validation
+**The typed, common interface to these routes is [`crate::fidelity`]**
+(gh:#1194): `uom` records in and out, a `Dataset` with its held-out split
+fixed at construction, `SurrogateSpec` / `Surrogate<I, O>` over the routes
+here, and a `ValidationReport` on the held-out rows. New routes (kriging,
+polynomial chaos, co-kriging) land here as `f64` implementations and as a
+variant there.
+
+~~Gaussian process regression / kriging and the sparse-grid polynomial chaos
+route are **not** implemented.~~ **CORRECTED 2026-11-04 (gh:#1193)** — both
+now are, as RAVEN ports: [`polynomial_chaos`] (RAVEN's `GaussPolynomialRom`
+with its index sets, Smolyak/tensor grids and SciPy's Gauss rules) and
+[`gaussian_process`] (RAVEN's `GaussianProcessRegressor` interface over
+scikit-learn's numerics). ~~HDMR and the SMT kriging route (gh:#1190) are
+not.~~ **CORRECTED 2026-11-04 (gh:#1190)** — [`smt`] ports SMT's KRG,
+KPLS, KPLSK and MFK co-kriging; HDMR is still not ported. ~~Neither is the cross-validation
 machinery;~~ **CORRECTED 2026-10-03** — leave-one-out cross-validation is
 now in [`validation`] (polynomial surrogates only; k-fold and the neural
 surrogate are not covered). The fitted models still report `r_squared` and
@@ -17689,7 +24977,8 @@ change and note it in the README.
 ## Design
 
 Enum dispatch, as everywhere else in this crate — never
-`Box<dyn Surrogate>`. No lifetime parameters.
+`Box<dyn Surrogate>`. No lifetime parameters. The dispatch enum is
+[`crate::fidelity::Surrogate`].
 
 ## Verification requirement
 
@@ -17701,8 +24990,10 @@ metrics. Record the methodology and the measured errors.
 
 ## Provenance
 
-No RAVEN code has been ported into this module. When it is, each derived
-file carries the attribution header shown in the crate `CLAUDE.md`, naming
+~~No RAVEN code has been ported into this module.~~ **CORRECTED
+2026-11-04** — `polynomial_chaos/` and `gaussian_process.rs` are RAVEN
+ports (gh:#1193), with SciPy, NumPy and scikit-learn (BSD-3-Clause) numerics
+beside them. Each derived file carries the attribution header shown in the crate `CLAUDE.md`, naming
 the upstream file under `ravenframework/SupervisedLearning/`, the commit,
 the copyright holder and the licence.
 
@@ -17711,6 +25002,876 @@ pub mod surrogate { /* ... */ }
 ```
 
 ### Modules
+
+## Module `gaussian_process`
+
+**Gaussian-process regression, RAVEN's route**: RAVEN's
+`GaussianProcessRegressor` ROM (its kernel menu and defaults) over
+scikit-learn's numerics (gh:#1193). The SMT kriging port (gh:#1190) is
+the second route; the two are to be cross-checked there.
+
+RAVEN's defaults, which [`GpConfig::raven_defaults`] reproduces: no kernel
+given (so sklearn's `1.0 (fixed) * RBF(1.0, fixed)`, which leaves
+**nothing to optimise**), `alpha = 1e-10`, `normalize_y = false`,
+L-BFGS-B, no restarts. Pick a kernel with [`GpKernel::raven`] to get one
+whose hyperparameters are fitted.
+
+The leave-one-out residuals use the closed form of Rasmussen and
+Williams (2006), *Gaussian Processes for Machine Learning*, eq. 5.12, at
+the fitted hyperparameters (an independent addition, not from either
+upstream).
+
+# V&V
+
+Record: `crates/raffles/verification_and_validation/raven_routes_gh1193.md`;
+differential tests in `tests/raven_routes_gh1193.rs`.
+
+```rust
+pub mod gaussian_process { /* ... */ }
+```
+
+### Types
+
+#### Struct `Hyper`
+
+One scalar hyperparameter: its value, and its bounds (`None` = fixed).
+
+```rust
+pub struct Hyper {
+    pub value: f64,
+    pub bounds: Option<(f64, f64)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `value` | `f64` | The value (not its log). |
+| `bounds` | `Option<(f64, f64)>` | `(lower, upper)`, or `None` for a fixed hyperparameter. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn free(value: f64) -> Self { /* ... */ }
+  ```
+  sklearn's default: value with bounds `(1e-5, 1e5)`.
+
+- ```rust
+  pub fn fixed(value: f64) -> Self { /* ... */ }
+  ```
+  A fixed hyperparameter.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `BaseKernel`
+
+The stationary part of the kernel.
+
+```rust
+pub enum BaseKernel {
+    Rbf,
+    Matern12,
+    Matern32,
+    Matern52,
+}
+```
+
+##### Variants
+
+###### `Rbf`
+
+Squared exponential, `exp(−d²/2)` on scaled distances.
+
+###### `Matern12`
+
+Matérn ν = 1/2.
+
+###### `Matern32`
+
+Matérn ν = 3/2.
+
+###### `Matern52`
+
+Matérn ν = 5/2 (RAVEN's `Matern`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RavenKernel`
+
+RAVEN's kernel names for regression (`pickKernel`).
+
+```rust
+pub enum RavenKernel {
+    Rbf,
+    Matern,
+    ConstantRbf,
+    ConstantMatern,
+    RbfWhite,
+    ConstantRbfWhite,
+}
+```
+
+##### Variants
+
+###### `Rbf`
+
+`RBF`: `RBF(length_scale=1 or ones(d))`.
+
+###### `Matern`
+
+`Matern`: `Matern(length_scale, nu=2.5)`.
+
+###### `ConstantRbf`
+
+`Constant*RBF`.
+
+###### `ConstantMatern`
+
+`Constant*Matern`.
+
+###### `RbfWhite`
+
+`RBF+WhiteNoise`.
+
+###### `ConstantRbfWhite`
+
+`Constant*RBF+WhiteNoise`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GpKernel`
+
+`[amplitude ×] base(length scales) [+ white noise]`.
+
+```rust
+pub struct GpKernel {
+    pub amplitude: Option<Hyper>,
+    pub base: BaseKernel,
+    pub length_scale: Vec<f64>,
+    pub length_scale_bounds: Option<(f64, f64)>,
+    pub white: Option<Hyper>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `amplitude` | `Option<Hyper>` | A `ConstantKernel` factor; `None` for none. |
+| `base` | `BaseKernel` | The stationary kernel. |
+| `length_scale` | `Vec<f64>` | One length scale (isotropic) or one per input (anisotropic). |
+| `length_scale_bounds` | `Option<(f64, f64)>` | Bounds shared by every length scale; `None` = fixed. |
+| `white` | `Option<Hyper>` | A `WhiteKernel` term; `None` for none. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn raven_default() -> Self { /* ... */ }
+  ```
+  sklearn's default when RAVEN passes no kernel:
+
+- ```rust
+  pub fn raven(name: RavenKernel, d: usize, anisotropic: bool) -> Self { /* ... */ }
+  ```
+  RAVEN's `pickKernel`/`customKernel` for `name`, on `d` inputs, with
+
+- ```rust
+  pub fn theta(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  The free hyperparameters, `ln` of each, in sklearn's order.
+
+- ```rust
+  pub fn bounds(self: &Self) -> Vec<(f64, f64)> { /* ... */ }
+  ```
+  Bounds of [`theta`](Self::theta), in log space.
+
+- ```rust
+  pub fn with_theta(self: &Self, theta: &[f64]) -> Result<Self> { /* ... */ }
+  ```
+  A copy with the free hyperparameters set from `theta` (log space,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `GpOptimizer`
+
+How the hyperparameters are chosen.
+
+```rust
+pub enum GpOptimizer {
+    MaximiseLml,
+    None,
+}
+```
+
+##### Variants
+
+###### `MaximiseLml`
+
+Maximise the log marginal likelihood (RAVEN's `fmin_l_bfgs_b`, here a
+bounded BFGS; see the module notes).
+
+###### `None`
+
+Keep the kernel's hyperparameters (RAVEN's `optimizer = None`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GpConfig`
+
+RAVEN's `GaussianProcessRegressor` settings.
+
+```rust
+pub struct GpConfig {
+    pub kernel: GpKernel,
+    pub alpha: f64,
+    pub normalize_y: bool,
+    pub optimizer: GpOptimizer,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kernel` | `GpKernel` | The kernel and its starting hyperparameters. |
+| `alpha` | `f64` | Added to the kernel diagonal in the fit (`<alpha>`, default 1e-10). |
+| `normalize_y` | `bool` | Standardise the targets (`<normalize_y>`, default false). |
+| `optimizer` | `GpOptimizer` | `<optimizer>`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn raven_defaults() -> Self { /* ... */ }
+  ```
+  RAVEN's defaults: [`GpKernel::raven_default`], alpha 1e-10, no target
+
+- ```rust
+  pub fn raven_with_kernel(kernel: GpKernel) -> Self { /* ... */ }
+  ```
+  RAVEN's defaults with a named kernel.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GaussianProcess`
+
+A fitted single-output Gaussian process.
+
+```rust
+pub struct GaussianProcess {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fit(config: &GpConfig, x: &[Vec<f64>], y: &[f64]) -> Result<Self> { /* ... */ }
+  ```
+  Fits one output.
+
+- ```rust
+  pub fn kernel(self: &Self) -> &GpKernel { /* ... */ }
+  ```
+  The fitted kernel.
+
+- ```rust
+  pub fn log_marginal_likelihood(self: &Self) -> f64 { /* ... */ }
+  ```
+  The log marginal likelihood at the fitted hyperparameters
+
+- ```rust
+  pub fn log_marginal_likelihood_at(self: &Self, theta: &[f64]) -> Result<Option<(f64, Vec<f64>)>> { /* ... */ }
+  ```
+  The LML and its gradient at another `theta` (log space), on the
+
+- ```rust
+  pub fn predict(self: &Self, x: &[f64]) -> Result<(f64, f64)> { /* ... */ }
+  ```
+  Predictive mean and standard deviation at `x`.
+
+- ```rust
+  pub fn loo_residuals(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  Leave-one-out residuals `y_i − μ_{−i}` at the fitted hyperparameters,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `SKLEARN_DEFAULT_BOUNDS`
+
+sklearn's default hyperparameter bounds, `(1e-5, 1e5)`.
+
+```rust
+pub const SKLEARN_DEFAULT_BOUNDS: (f64, f64) = _;
+```
 
 ## Module `polynomial`
 
@@ -17863,6 +26024,7 @@ pub struct PolynomialSurrogate {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17876,6 +26038,7 @@ pub struct PolynomialSurrogate {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17908,6 +26071,3149 @@ pub struct PolynomialSurrogate {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+#### Struct `MultiOutputPolynomial`
+
+A multi-output polynomial surrogate: **one independent
+[`PolynomialSurrogate`] per output column**, all at the same degree and
+ridge (added 2026-11-04 for `crate::fidelity`, gh:#1194).
+
+One fit per output, rather than a shared multi-right-hand-side solve, so
+each column's fit is bit-identical to the scalar fit of that column: the
+test `each_output_is_the_scalar_fit` pins it.
+
+```rust
+pub struct MultiOutputPolynomial {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fit(inputs: &[Vec<f64>], outputs: &[Vec<f64>], degree: usize, ridge: f64) -> Result<Self> { /* ... */ }
+  ```
+  Fits one polynomial per column of `outputs` (rows of equal width).
+
+- ```rust
+  pub fn predict(self: &Self, x: &[f64]) -> Result<Vec<f64>> { /* ... */ }
+  ```
+  Evaluates every output's polynomial at `x`.
+
+- ```rust
+  pub fn outputs(self: &Self) -> &[PolynomialSurrogate] { /* ... */ }
+  ```
+  The per-output fits, in column order.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `polynomial_chaos`
+
+**Polynomial chaos: RAVEN's `GaussPolynomialRom`** (gh:#1193), with its
+index sets, Smolyak and tensor quadrature grids and orthonormal
+Legendre/Hermite polynomials ([`grid`]), and the SciPy Gauss rules and
+special functions it delegates to ([`special`]).
+
+The expansion is a **projection**, not a regression: each coefficient is
+the quadrature of `y · Φ_k` on RAVEN's grid, so the training data must be
+the model at the grid's points ([`PolynomialChaosSpec::grid`]). Mean,
+variance and Sobol indices follow from the coefficients alone.
+
+# How this relates to [`super::PolynomialSurrogate`]
+
+The existing polynomial route is a least-squares fit in monomials on any
+design; this one is RAVEN's spectral projection in orthonormal
+polynomials on a quadrature design. Neither replaces the other; both are
+exact for a polynomial inside their basis (the V&V record's A4).
+
+# V&V
+
+Record: `crates/raffles/verification_and_validation/raven_routes_gh1193.md`;
+differential tests in `tests/raven_routes_gh1193.rs`.
+
+```rust
+pub mod polynomial_chaos { /* ... */ }
+```
+
+### Modules
+
+## Module `grid`
+
+RAVEN's index sets, quadrature sparse grids and orthonormal polynomials
+for polynomial chaos.
+
+```rust
+pub mod grid { /* ... */ }
+```
+
+### Types
+
+#### Enum `PceVariable`
+
+One input of a polynomial chaos expansion, with RAVEN's default
+quadrature and polynomial family for it.
+
+```rust
+pub enum PceVariable {
+    Uniform {
+        lower: f64,
+        upper: f64,
+    },
+    Normal {
+        mean: f64,
+        std: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Uniform`
+
+`Uniform(lower, upper)`: Gauss–Legendre points, Legendre polynomials.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lower` | `f64` | Lower bound. |
+| `upper` | `f64` | Upper bound. |
+
+###### `Normal`
+
+Untruncated `Normal(mean, std)`: Gauss–Hermite (probabilists') points,
+Hermite polynomials.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mean` | `f64` | Mean. |
+| `std` | `f64` | Standard deviation. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `IndexSetKind`
+
+Which index set (`<IndexSet>`).
+
+```rust
+pub enum IndexSetKind {
+    TensorProduct,
+    TotalDegree,
+    HyperbolicCross,
+}
+```
+
+##### Variants
+
+###### `TensorProduct`
+
+`max_j(p_j w_j) <= L · mean(w)`.
+
+###### `TotalDegree`
+
+`sum_j p_j w_j <= L · mean(w)`.
+
+###### `HyperbolicCross`
+
+`prod_j (p_j + 1)^(w_j) <= (L + 1)^(mean(w))`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SparseGridKind`
+
+Which grid (`<SparseGrid>`).
+
+```rust
+pub enum SparseGridKind {
+    Smolyak,
+    Tensor,
+}
+```
+
+##### Variants
+
+###### `Smolyak`
+
+Smolyak's combination of tensor rules (RAVEN's default).
+
+###### `Tensor`
+
+The full tensor grid at each dimension's largest order.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `QuadratureGrid`
+
+A quadrature grid: points in the variables' own space, and weights, in
+RAVEN's insertion order.
+
+```rust
+pub struct QuadratureGrid {
+    pub points: Vec<Vec<f64>>,
+    pub weights: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `points` | `Vec<Vec<f64>>` | Points, one row per point. |
+| `weights` | `Vec<f64>` | Weights (on the quadrature measures, before `measureNorm`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `index_set`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`IndexSet.initialize` + the subclass rule + `generateMultiIndex`.
+`importance` is RAVEN's per-variable `weight` (default 1).
+
+```rust
+pub fn index_set(kind: IndexSetKind, order: usize, importance: &[f64]) -> Vec<Vec<usize>> { /* ... */ }
+```
+
+#### Function `quadrature_grid`
+
+`SmolyakSparseGrid.initialize` / `TensorGrid.initialize`.
+
+# Errors
+
+A Gauss rule out of range (more than 150 points in a dimension).
+
+```rust
+pub fn quadrature_grid(vars: &[PceVariable], kind: IndexSetKind, set: &[Vec<usize>], grid: SparseGridKind) -> crate::Result<QuadratureGrid> { /* ... */ }
+```
+
+## Module `special`
+
+The special functions and Gauss rules RAVEN takes from SciPy, ported in
+SciPy's operation order so the differential test can compare bits.
+
+```rust
+pub mod special { /* ... */ }
+```
+
+### Types
+
+#### Enum `GaussRule`
+
+Which Gauss rule.
+
+```rust
+pub enum GaussRule {
+    Legendre,
+    HermiteNorm,
+}
+```
+
+##### Variants
+
+###### `Legendre`
+
+`roots_legendre`: weight 1 on [−1, 1], weights sum to 2.
+
+###### `HermiteNorm`
+
+`roots_hermitenorm`: weight `exp(−x²/2)`, weights sum to `√(2π)`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `eval_legendre`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`scipy.special.eval_legendre(n, x)` for integer `n` (`eval_legendre_l`).
+
+```rust
+pub fn eval_legendre(n: usize, x: f64) -> f64 { /* ... */ }
+```
+
+#### Function `eval_hermitenorm`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`scipy.special.eval_hermitenorm(n, x)`: probabilists' Hermite `He_n`.
+
+```rust
+pub fn eval_hermitenorm(n: usize, x: f64) -> f64 { /* ... */ }
+```
+
+#### Function `numpy_sum`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+NumPy's sum of a contiguous `f64` array: the first element plus the
+pairwise sum of the rest (the add reduction of `loops_utils.h.src`).
+
+```rust
+pub fn numpy_sum(a: &[f64]) -> f64 { /* ... */ }
+```
+
+#### Function `numpy_around`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`np.around(x, decimals)` for `decimals > 0`: multiply, round half to
+even, divide.
+
+```rust
+pub fn numpy_around(x: f64, decimals: i32) -> f64 { /* ... */ }
+```
+
+#### Function `gauss_rule`
+
+`scipy.special.roots_legendre(n)` / `roots_hermitenorm(n)`, `1 <= n <=
+150`: Golub–Welsch eigenvalues, one Newton step, scipy's log-normalised
+weights, symmetrisation, then the weights scaled to `mu0`.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] for `n` outside `1..=150`.
+
+```rust
+pub fn gauss_rule(rule: GaussRule, n: usize) -> crate::Result<(Vec<f64>, Vec<f64>)> { /* ... */ }
+```
+
+### Types
+
+#### Struct `PolynomialChaosSpec`
+
+What to build: the inputs, the index set, the order and the grid.
+
+```rust
+pub struct PolynomialChaosSpec {
+    pub variables: Vec<PceVariable>,
+    pub index_set: IndexSetKind,
+    pub order: usize,
+    pub grid: SparseGridKind,
+    pub importance: Option<Vec<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `variables` | `Vec<PceVariable>` | One entry per input, in input order. |
+| `index_set` | `IndexSetKind` | `<IndexSet>`. |
+| `order` | `usize` | `<PolynomialOrder>` (at least 1, RAVEN's own check). |
+| `grid` | `SparseGridKind` | `<SparseGrid>` (RAVEN's default: Smolyak). |
+| `importance` | `Option<Vec<f64>>` | Per-input importance weights (RAVEN's `<Interpolation weight=...>`,<br>default 1); `None` for all ones. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total_degree(variables: Vec<PceVariable>, order: usize) -> Self { /* ... */ }
+  ```
+  A Smolyak, total-degree, isotropic spec (RAVEN's defaults apart from
+
+- ```rust
+  pub fn index_points(self: &Self) -> Result<Vec<Vec<usize>>> { /* ... */ }
+  ```
+  The index set: the multi-indices of the polynomial terms, in RAVEN's
+
+- ```rust
+  pub fn grid(self: &Self) -> Result<QuadratureGrid> { /* ... */ }
+  ```
+  The quadrature grid the model must be run on, in RAVEN's order.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PolynomialChaos`
+
+A trained expansion, one coefficient vector per output.
+
+```rust
+pub struct PolynomialChaos {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fit(spec: &PolynomialChaosSpec, x: &[Vec<f64>], y: &[Vec<f64>]) -> Result<Self> { /* ... */ }
+  ```
+  Trains on rows `x` / outputs `y` that contain every grid point
+
+- ```rust
+  pub fn spec(self: &Self) -> &PolynomialChaosSpec { /* ... */ }
+  ```
+  The spec it was built from.
+
+- ```rust
+  pub fn index_set(self: &Self) -> &[Vec<usize>] { /* ... */ }
+  ```
+  The multi-indices, aligned with each output's coefficients.
+
+- ```rust
+  pub fn coefficients(self: &Self, k: usize) -> &[f64] { /* ... */ }
+  ```
+  The coefficients of output `k`, aligned with [`index_set`](Self::index_set).
+
+- ```rust
+  pub fn outputs(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of outputs.
+
+- ```rust
+  pub fn predict(self: &Self, x: &[f64]) -> Result<Vec<f64>> { /* ... */ }
+  ```
+  `__evaluateLocal__`: every output at `x`.
+
+- ```rust
+  pub fn mean(self: &Self, k: usize) -> f64 { /* ... */ }
+  ```
+  `__mean__`: the coefficient of the constant term.
+
+- ```rust
+  pub fn variance(self: &Self, k: usize) -> f64 { /* ... */ }
+  ```
+  `__variance__`: `Σ c² − mean²`.
+
+- ```rust
+  pub fn sobol(self: &Self, k: usize) -> Vec<(Vec<usize>, f64, f64)> { /* ... */ }
+  ```
+  `getSensitivities`: Sobol indices and partial variances per subset of
+
+- ```rust
+  pub fn total_sobol(self: &Self, k: usize) -> Vec<(Vec<usize>, f64)> { /* ... */ }
+  ```
+  `getTotalSensitivities`: for each subset, the sum of the Sobol
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `GRID_MATCH_TOLERANCE`
+
+RAVEN's tolerance for matching a training row to a grid point
+(`GaussPolynomialRom._train`, `distance_upper_bound=1e-9`).
+
+```rust
+pub const GRID_MATCH_TOLERANCE: f64 = 1e-9;
+```
+
+### Re-exports
+
+#### Re-export `index_set`
+
+```rust
+pub use grid::index_set;
+```
+
+#### Re-export `quadrature_grid`
+
+```rust
+pub use grid::quadrature_grid;
+```
+
+#### Re-export `IndexSetKind`
+
+```rust
+pub use grid::IndexSetKind;
+```
+
+#### Re-export `PceVariable`
+
+```rust
+pub use grid::PceVariable;
+```
+
+#### Re-export `QuadratureGrid`
+
+```rust
+pub use grid::QuadratureGrid;
+```
+
+#### Re-export `SparseGridKind`
+
+```rust
+pub use grid::SparseGridKind;
+```
+
+## Module `smt`
+
+**SMT's kriging family** (gh:#1190, epic gh:#1177): the second kriging
+route beside RAVEN/sklearn's ([`crate::surrogate::gaussian_process`]).
+
+| SMT | Here |
+|---|---|
+| `KRG` | [`SmtKriging`] with [`SmtPls::None`] |
+| `KPLS` | [`SmtKriging`] with [`SmtPls::Kpls`] (PLS from scikit-learn, [`pls`]) |
+| `KPLSK` | [`SmtKriging`] with [`SmtPls::Kplsk`] |
+| `MFK` | [`Mfk`] |
+
+SMT's defaults are [`SmtKrgConfig::smt_defaults`] and
+[`MfkConfig::smt_defaults`]: `squar_exp`, constant trend, nugget `100 ε`,
+θ0 `1e-2`, θ bounds `[1e-6, 20]`, X and y standardised with the sample
+std, 10-point multistart. **The optimiser is not SMT's** (TNC is not
+ported): it is this crate's bounded BFGS on SMT's own objective, so fits
+agree at optima, not along paths. Typed access goes through
+`fidelity::SurrogateSpec::Kriging { route: KrigingRoute::Smt(..) }` and
+`SurrogateSpec::CoKriging`.
+
+# V&V
+
+Record: `crates/raffles/verification_and_validation/smt_kriging_gh1190.md`
+(predictions committed before this code); differential tests against SMT
+in `tests/smt_kriging_gh1190.rs`.
+
+```rust
+pub mod smt { /* ... */ }
+```
+
+### Modules
+
+## Module `core`
+
+The numerics every SMT kriging route shares: kernels, regression bases,
+standardisation, the reduced likelihood and its gradient, and the
+multistart optimiser over log10 θ.
+
+```rust
+pub mod core { /* ... */ }
+```
+
+### Types
+
+#### Enum `SmtCorrelation`
+
+SMT's correlation functions (`corr`). Each is a product of 1-D kernels on
+the componentwise distances `d_i` (already `|Δx_i|^power`, or their PLS
+projection).
+
+```rust
+pub enum SmtCorrelation {
+    SquarExp,
+    AbsExp,
+    Matern52,
+    Matern32,
+}
+```
+
+##### Variants
+
+###### `SquarExp`
+
+`squar_exp`, SMT's default: `exp(−Σ θ_i d_i)`, `d_i = Δx_i²`.
+
+###### `AbsExp`
+
+`abs_exp`: `exp(−Σ θ_i d_i)`, `d_i = |Δx_i|`.
+
+###### `Matern52`
+
+`matern52`: `Π (1 + √5 l_i + 5/3 l_i²) exp(−√5 Σ l_i)`, `l_i = θ_i |Δx_i|`.
+
+###### `Matern32`
+
+`matern32`: `Π (1 + √3 l_i) exp(−√3 Σ l_i)`, `l_i = θ_i |Δx_i|`.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn power(self: Self) -> f64 { /* ... */ }
+  ```
+  SMT's `_pow_exp_power`: 2 for `squar_exp`, 1 otherwise.
+
+- ```rust
+  pub fn value(self: Self, theta: &[f64], d: &[f64]) -> f64 { /* ... */ }
+  ```
+  The correlation of one pair, from its componentwise distances `d`.
+
+- ```rust
+  pub fn derivative(self: Self, theta: &[f64], d: &[f64], k: usize, r: f64) -> f64 { /* ... */ }
+  ```
+  `∂r/∂θ_k` given `r` (SMT's `corr(d, grad_ind=k)`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SmtRegression`
+
+SMT's regression bases (`poly`, and MFK's `rho_regr`).
+
+```rust
+pub enum SmtRegression {
+    Constant,
+    Linear,
+    Quadratic,
+}
+```
+
+##### Variants
+
+###### `Constant`
+
+`[1]`: ordinary kriging.
+
+###### `Linear`
+
+`[1, x_1, …, x_n]`.
+
+###### `Quadratic`
+
+`[1, x_1, …, x_n, x_1 x_1, x_1 x_2, …, x_n x_n]` (upper triangle, row by row).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn basis(self: Self, x: &[f64]) -> Vec<f64> { /* ... */ }
+  ```
+  The basis at a (standardised) point.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Projection`
+
+How componentwise distances are formed.
+
+```rust
+pub enum Projection {
+    Full,
+    Pls(Vec<Vec<f64>>),
+}
+```
+
+##### Variants
+
+###### `Full`
+
+`|Δx_i|^power` in every input dimension (KRG, MFK, KPLSK's second pass).
+
+###### `Pls`
+
+KPLS: `Δx² · coeff²` (squar_exp) or `|Δx| · |coeff|` (otherwise), one
+column per PLS component; `coeff` is `nx × n_comp`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Vec<f64>>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn distances(self: &Self, corr: SmtCorrelation, dx: &[f64]) -> Vec<f64> { /* ... */ }
+  ```
+  The componentwise distances of one difference vector `dx`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Pairs`
+
+The training pairs `(i, j)`, `i < j`, in SMT's order, and their
+componentwise distances.
+
+```rust
+pub struct Pairs {
+    pub ij: Vec<(usize, usize)>,
+    pub d: Vec<Vec<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ij` | `Vec<(usize, usize)>` | Indices. |
+| `d` | `Vec<Vec<f64>>` | Distances, one row per pair. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(x: &[Vec<f64>], corr: SmtCorrelation, proj: &Projection) -> Self { /* ... */ }
+  ```
+  `cross_distances` then the componentwise transform.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Level`
+
+One level's training problem: standardised inputs' pair distances, the
+regression matrix `F`, the standardised outputs, and how many of `F`'s
+columns are the regression (`p`) and the autoregressive part (`q`).
+
+```rust
+pub struct Level {
+    pub pairs: Pairs,
+    pub f: Vec<Vec<f64>>,
+    pub y: Vec<f64>,
+    pub p: usize,
+    pub q: usize,
+    pub y_std: f64,
+    pub nugget: f64,
+    pub corr: SmtCorrelation,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pairs` | `Pairs` | Pair distances of the standardised inputs. |
+| `f` | `Vec<Vec<f64>>` | `n × (q + p)`. |
+| `y` | `Vec<f64>` | Standardised outputs. |
+| `p` | `usize` | Regression columns. |
+| `q` | `usize` | Autoregressive (ρ) columns, 0 for a single-fidelity model. |
+| `y_std` | `f64` | SMT's `y_std` (scales σ² back to output units). |
+| `nugget` | `f64` | The nugget. |
+| `corr` | `SmtCorrelation` | The correlation. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn evaluate(self: &Self, theta: &[f64]) -> Result<Option<(f64, LevelPar)>> { /* ... */ }
+  ```
+  `_reduced_likelihood_function`: the reduced log10 likelihood and the
+
+- ```rust
+  pub fn gradient(self: &Self, theta: &[f64]) -> Result<Option<(f64, Vec<f64>)>> { /* ... */ }
+  ```
+  `_reduced_likelihood_gradient`: `∂ rlf / ∂ θ` (linear θ), with SMT's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `LevelPar`
+
+What `LikelihoodEvaluator.evaluate` puts in `par`.
+
+```rust
+pub struct LevelPar {
+    pub sigma2: f64,
+    pub beta: Vec<f64>,
+    pub gamma: Vec<f64>,
+    pub c: Vec<Vec<f64>>,
+    pub ft: Vec<Vec<f64>>,
+    pub q: Vec<Vec<f64>>,
+    pub g: Vec<Vec<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sigma2` | `f64` | Process variance, **in output units** (SMT multiplies by `y_std²`). |
+| `beta` | `Vec<f64>` | GLS weights. |
+| `gamma` | `Vec<f64>` | `R⁻¹ (y − F β)`. |
+| `c` | `Vec<Vec<f64>>` | Lower Cholesky factor of `R`. |
+| `ft` | `Vec<Vec<f64>>` | `C⁻¹ F`, `n × (q + p)`. |
+| `q` | `Vec<Vec<f64>>` | `Q` of `Ft = Q G`. |
+| `g` | `Vec<Vec<f64>>` | `G` of `Ft = Q G`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SmtOptimizer`
+
+How the hyperparameters are chosen.
+
+```rust
+pub enum SmtOptimizer {
+    MaximiseLikelihood,
+    None,
+}
+```
+
+##### Variants
+
+###### `MaximiseLikelihood`
+
+Maximise the reduced likelihood over log10 θ within the bounds, from
+every start (SMT's TNC multistart; here this crate's bounded BFGS).
+
+###### `None`
+
+Keep θ0 exactly (SMT's `hyper_opt = "NoOp"`, except that SMT returns
+`10**log10(θ0)`, which can differ from θ0 by an ulp).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SmtStarts`
+
+Starting points of the multistart, in log10 θ.
+
+```rust
+pub enum SmtStarts {
+    Default {
+        n_start: usize,
+        seed: i64,
+    },
+    Explicit(Vec<Vec<f64>>),
+}
+```
+
+##### Variants
+
+###### `Default`
+
+SMT's arrangement: log10 θ0, one uniform draw in the log10 bounds, and
+an `n_start`-point Latin hypercube, drawn from this crate's
+`petir::rng::lcg` streams (`seed`), not numpy's PCG64: the points are
+not SMT's.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_start` | `usize` | SMT's `n_start` (10). |
+| `seed` | `i64` | Master seed of the two designs. |
+
+###### `Explicit`
+
+Given starts (log10 θ rows), e.g. the ones SMT recorded. For KPLSK,
+rows whose length is the input dimension are used in the second pass
+(after the projected θ0), the others in the first.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Vec<f64>>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn smt_default() -> Self { /* ... */ }
+  ```
+  SMT's default: `n_start = 10`, here with seed 41 (SMT's numpy seed,
+
+- ```rust
+  pub fn rows(self: &Self, theta0_log: &[f64], log_bounds: (f64, f64), lhs: bool) -> Result<Vec<Vec<f64>>> { /* ... */ }
+  ```
+  The start rows for `m` hyperparameters, `theta0_log` first; `lhs`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `standardization`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`standardization`: column means and sample stds (`ddof = 1`) of X, a std
+below 100 ε replaced by 1; the mean and sample std of y, a zero std
+replaced by 1. Returns `(x_offset, x_scale, y_mean, y_std)`.
+
+```rust
+pub fn standardization(x: &[Vec<f64>], y: &[f64]) -> (Vec<f64>, Vec<f64>, f64, f64) { /* ... */ }
+```
+
+#### Function `maximise`
+
+The multistart: from every start, the bounded BFGS on `−rlf(10^t)` with
+SMT's gradient by the chain rule; the best end point (lowest `−rlf`, the
+first on a tie, as SMT's `result["fun"] < best["fun"]`). Starts whose
+likelihood is `−inf` are skipped. `None` if every start fails.
+
+# Errors
+[`Level::evaluate`]'s ill-conditioned-F error.
+
+```rust
+pub fn maximise(level: &Level, starts: &[Vec<f64>], log_bounds: (f64, f64)) -> crate::Result<Option<Vec<f64>>> { /* ... */ }
+```
+
+## Module `krg`
+
+**SMT's KRG, KPLS and KPLSK** (gh:#1190): ordinary / universal kriging
+with SMT's kernels, trends, nugget, θ bounds and normalisation, and its
+partial-least-squares reductions. One fitted model per output.
+
+```rust
+pub mod krg { /* ... */ }
+```
+
+### Types
+
+#### Enum `SmtPls`
+
+Which partial-least-squares reduction, if any.
+
+```rust
+pub enum SmtPls {
+    None,
+    Kpls {
+        n_comp: usize,
+    },
+    Kplsk {
+        n_comp: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `None`
+
+KRG: one θ per input.
+
+###### `Kpls`
+
+KPLS: one θ per PLS component (`squar_exp` or `abs_exp`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_comp` | `usize` | Number of components (SMT's `n_comp`, default 1). |
+
+###### `Kplsk`
+
+KPLSK: KPLS's optimum projected to one θ per input, then a full KRG
+optimisation from it (`squar_exp` only).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_comp` | `usize` | Number of components of the first pass. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `TrendVariance`
+
+The trend term of the predictive variance.
+
+```rust
+pub enum TrendVariance {
+    AsSmt,
+    Exact,
+}
+```
+
+##### Variants
+
+###### `AsSmt`
+
+SMT's KRG: `u = diag(G)⁻¹ (Ftᵀ rt − f)`, exact for a constant trend,
+not for `linear` / `quadratic` (V&V record, finding 1).
+
+###### `Exact`
+
+`u = G⁻ᵀ (Ftᵀ rt − f)`, the universal-kriging variance.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SmtKrgConfig`
+
+SMT's KRG-family options.
+
+```rust
+pub struct SmtKrgConfig {
+    pub corr: super::core::SmtCorrelation,
+    pub poly: super::core::SmtRegression,
+    pub theta0: Vec<f64>,
+    pub theta_bounds: (f64, f64),
+    pub nugget: f64,
+    pub optimizer: super::core::SmtOptimizer,
+    pub starts: super::core::SmtStarts,
+    pub pls: SmtPls,
+    pub trend_variance: TrendVariance,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `corr` | `super::core::SmtCorrelation` | `corr` (default `squar_exp`). |
+| `poly` | `super::core::SmtRegression` | `poly` (default `constant`). |
+| `theta0` | `Vec<f64>` | `theta0` (default `[1e-2]`, broadcast); with [`SmtOptimizer::None`]<br>the θ used, exactly. |
+| `theta_bounds` | `(f64, f64)` | `theta_bounds` (default `[1e-6, 20]`). |
+| `nugget` | `f64` | `nugget` (default `100 ε`). |
+| `optimizer` | `super::core::SmtOptimizer` | Optimise or keep θ0. |
+| `starts` | `super::core::SmtStarts` | Multistart points. |
+| `pls` | `SmtPls` | KRG, KPLS or KPLSK. |
+| `trend_variance` | `TrendVariance` | The variance's trend term. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn smt_defaults() -> Self { /* ... */ }
+  ```
+  SMT's `KRG()` defaults.
+
+- ```rust
+  pub fn at_theta(theta: Vec<f64>) -> Self { /* ... */ }
+  ```
+  The defaults at a fixed θ (SMT's `hyper_opt = "NoOp"`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SmtKriging`
+
+A fitted SMT kriging model of one output.
+
+```rust
+pub struct SmtKriging {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fit(config: &SmtKrgConfig, x: &[Vec<f64>], y: &[f64]) -> Result<Self> { /* ... */ }
+  ```
+  Fits one output `y` on inputs `x` (`n × nx`), as SMT's `train()`.
+
+- ```rust
+  pub fn theta(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The hyperparameters (SMT's `optimal_theta`).
+
+- ```rust
+  pub fn reduced_likelihood(self: &Self) -> f64 { /* ... */ }
+  ```
+  The reduced log10 likelihood at [`theta`](Self::theta)
+
+- ```rust
+  pub fn gls(self: &Self) -> (f64, &[f64], &[f64]) { /* ... */ }
+  ```
+  σ² in output units, β, γ (`optimal_par`).
+
+- ```rust
+  pub fn standardisation(self: &Self) -> (&[f64], &[f64], f64, f64) { /* ... */ }
+  ```
+  `(X_offset, X_scale, y_mean, y_std)`.
+
+- ```rust
+  pub fn coeff_pls(self: &Self) -> Option<&[Vec<f64>]> { /* ... */ }
+  ```
+  KPLS's `coeff_pls` (`|x_rotations_|`), if a PLS route.
+
+- ```rust
+  pub fn predict(self: &Self, x: &[f64]) -> Result<(f64, f64)> { /* ... */ }
+  ```
+  The predictive mean and variance (SMT's `predict_values`,
+
+- ```rust
+  pub fn reduced_likelihood_gradient_at(self: &Self, theta: &[f64]) -> Result<Option<(f64, Vec<f64>)>> { /* ... */ }
+  ```
+  The reduced likelihood and its gradient at another θ, on the training
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `linalg`
+
+Dense helpers on `Vec<Vec<f64>>` rows: triangular solves, a Householder
+QR, a symmetric eigenvalue routine for condition estimates, and a small
+inverse.
+
+```rust
+pub mod linalg { /* ... */ }
+```
+
+### Functions
+
+#### Function `forward`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Solves `L z = b` for lower-triangular `L`.
+
+```rust
+pub fn forward(l: &[Vec<f64>], b: &[f64]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `backward_lt`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Solves `Lᵀ x = z` for lower-triangular `L`.
+
+```rust
+pub fn backward_lt(l: &[Vec<f64>], z: &[f64]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `backward_upper`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Solves `U x = b` for upper-triangular `U`.
+
+```rust
+pub fn backward_upper(u: &[Vec<f64>], b: &[f64]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `forward_ut`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Solves `Uᵀ x = b` for upper-triangular `U` (a lower solve).
+
+```rust
+pub fn forward_ut(u: &[Vec<f64>], b: &[f64]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `dot`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`Σ a_i b_i`, in index order.
+
+```rust
+pub fn dot(a: &[f64], b: &[f64]) -> f64 { /* ... */ }
+```
+
+#### Function `columns`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Columns of an `n × p` row-major matrix.
+
+```rust
+pub fn columns(a: &[Vec<f64>]) -> Vec<Vec<f64>> { /* ... */ }
+```
+
+#### Function `householder_qr`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Economic QR of an `n × p` matrix (`n ≥ p`) by Householder reflections:
+`(Q, G)` with `Q` `n × p` (orthonormal columns, row-major) and `G` `p × p`
+upper triangular, `A = Q G`. scipy's `qr(mode="economic")`.
+
+```rust
+pub fn householder_qr(a: &[Vec<f64>]) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) { /* ... */ }
+```
+
+#### Function `symmetric_eigenvalues`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Eigenvalues of a small symmetric matrix (cyclic Jacobi), unordered.
+
+```rust
+pub fn symmetric_eigenvalues(a: &[Vec<f64>]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `singular_value_ratio`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Ratio of the smallest to the largest singular value of `a` (`n × p`),
+from the eigenvalues of `aᵀa`: SMT's `sv[-1] / sv[0]` threshold test. Not
+an accurate condition number near 1e-8 (squaring), which the thresholds
+it feeds (1e-10 on `G`, 1e15 on `F`) do not need to resolve finely.
+
+```rust
+pub fn singular_value_ratio(a: &[Vec<f64>]) -> f64 { /* ... */ }
+```
+
+#### Function `inverse`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Inverse of a small square matrix by Gauss–Jordan with partial pivoting;
+`None` if singular. Stands in for scipy's `pinv` on a full-rank matrix
+(where the two agree) and for `linalg.inv`.
+
+```rust
+pub fn inverse(a: &[Vec<f64>]) -> Option<Vec<Vec<f64>>> { /* ... */ }
+```
+
+## Module `mfk`
+
+**SMT's MFK co-kriging** (gh:#1190, fulfilling gh:#1181's machinery):
+the recursive autoregressive multi-fidelity model of Le Gratiet (2013),
+level by level from the lowest fidelity.
+
+```rust
+pub mod mfk { /* ... */ }
+```
+
+### Types
+
+#### Struct `MfkConfig`
+
+SMT's MFK options.
+
+```rust
+pub struct MfkConfig {
+    pub corr: super::core::SmtCorrelation,
+    pub poly: super::core::SmtRegression,
+    pub rho_regr: super::core::SmtRegression,
+    pub theta0: Vec<Vec<f64>>,
+    pub theta_bounds: (f64, f64),
+    pub nugget: f64,
+    pub optimizer: super::core::SmtOptimizer,
+    pub starts: Vec<super::core::SmtStarts>,
+    pub propagate_uncertainty: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `corr` | `super::core::SmtCorrelation` | `corr` (default `squar_exp`). |
+| `poly` | `super::core::SmtRegression` | `poly` (default `constant`). |
+| `rho_regr` | `super::core::SmtRegression` | `rho_regr` (default `constant`). |
+| `theta0` | `Vec<Vec<f64>>` | θ0 per level (one row, broadcast to every level, or one per level;<br>each row length 1 or `nx`); default `[[1e-2]]`. |
+| `theta_bounds` | `(f64, f64)` | `theta_bounds` (default `[1e-6, 20]`). |
+| `nugget` | `f64` | `nugget` (default `100 ε`). |
+| `optimizer` | `super::core::SmtOptimizer` | Optimise or keep θ0. |
+| `starts` | `Vec<super::core::SmtStarts>` | Starts per level (one entry, used for every level with the seed<br>offset by the level index, or one per level). |
+| `propagate_uncertainty` | `bool` | `propagate_uncertainty` (default true). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn smt_defaults() -> Self { /* ... */ }
+  ```
+  SMT's `MFK()` defaults.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Mfk`
+
+A fitted MFK model of one output.
+
+```rust
+pub struct Mfk {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fit(config: &MfkConfig, levels: &[(Vec<Vec<f64>>, Vec<f64>)]) -> Result<Self> { /* ... */ }
+  ```
+  Fits the levels `(x_l, y_l)`, lowest fidelity first, as SMT's MFK
+
+- ```rust
+  pub fn level_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of levels.
+
+- ```rust
+  pub fn level(self: &Self, lvl: usize) -> Option<(&[f64], f64, f64, &[f64], &[f64])> { /* ... */ }
+  ```
+  Level `lvl`'s θ, reduced log10 likelihood, σ² (output units), β, γ.
+
+- ```rust
+  pub fn standardisation(self: &Self) -> (&[f64], &[f64], f64, f64) { /* ... */ }
+  ```
+  `(X_offset, X_scale, y_mean, y_std)` over all levels concatenated.
+
+- ```rust
+  pub fn predict_all_levels(self: &Self, x: &[f64]) -> Result<(f64, Vec<f64>, Vec<f64>)> { /* ... */ }
+  ```
+  The predictive mean at the highest level, and the variance of every
+
+- ```rust
+  pub fn predict(self: &Self, x: &[f64]) -> Result<(f64, f64)> { /* ... */ }
+  ```
+  The highest level's predictive mean and variance (SMT's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `pls`
+
+`PLSRegression(n_comp).fit(X, y).x_rotations_` for a single output.
+
+```rust
+pub mod pls { /* ... */ }
+```
+
+### Functions
+
+#### Function `x_rotations`
+
+sklearn's `x_rotations_` (`nx × n_comp`) of `PLSRegression(n_comp)`
+fitted to `x` (`n × nx`) and one output `y`.
+
+# Errors
+`n_comp` above `min(n, nx)` (sklearn's bound), fewer than two rows, or a
+singular `Pᵀ W`.
+
+```rust
+pub fn x_rotations(x: &[Vec<f64>], y: &[f64], n_comp: usize) -> crate::Result<Vec<Vec<f64>>> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `SmtCorrelation`
+
+```rust
+pub use self::core::SmtCorrelation;
+```
+
+#### Re-export `SmtOptimizer`
+
+```rust
+pub use self::core::SmtOptimizer;
+```
+
+#### Re-export `SmtRegression`
+
+```rust
+pub use self::core::SmtRegression;
+```
+
+#### Re-export `SmtStarts`
+
+```rust
+pub use self::core::SmtStarts;
+```
+
+#### Re-export `SmtKriging`
+
+```rust
+pub use krg::SmtKriging;
+```
+
+#### Re-export `SmtKrgConfig`
+
+```rust
+pub use krg::SmtKrgConfig;
+```
+
+#### Re-export `SmtPls`
+
+```rust
+pub use krg::SmtPls;
+```
+
+#### Re-export `TrendVariance`
+
+```rust
+pub use krg::TrendVariance;
+```
+
+#### Re-export `Mfk`
+
+```rust
+pub use mfk::Mfk;
+```
+
+#### Re-export `MfkConfig`
+
+```rust
+pub use mfk::MfkConfig;
+```
+
 ## Module `validation`
 
 **Leave-one-out cross-validation and jackknife+ prediction intervals** for
@@ -18035,6 +29341,7 @@ pub struct LeaveOneOut {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -18048,6 +29355,7 @@ pub struct LeaveOneOut {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -18082,10 +29390,82 @@ pub struct LeaveOneOut {
 - **UnwindSafe**
 ### Re-exports
 
+#### Re-export `GaussianProcess`
+
+```rust
+pub use gaussian_process::GaussianProcess;
+```
+
+#### Re-export `GpConfig`
+
+```rust
+pub use gaussian_process::GpConfig;
+```
+
+#### Re-export `GpKernel`
+
+```rust
+pub use gaussian_process::GpKernel;
+```
+
+#### Re-export `GpOptimizer`
+
+```rust
+pub use gaussian_process::GpOptimizer;
+```
+
+#### Re-export `RavenKernel`
+
+```rust
+pub use gaussian_process::RavenKernel;
+```
+
+#### Re-export `MultiOutputPolynomial`
+
+```rust
+pub use polynomial::MultiOutputPolynomial;
+```
+
 #### Re-export `PolynomialSurrogate`
 
 ```rust
 pub use polynomial::PolynomialSurrogate;
+```
+
+#### Re-export `PolynomialChaos`
+
+```rust
+pub use polynomial_chaos::PolynomialChaos;
+```
+
+#### Re-export `PolynomialChaosSpec`
+
+```rust
+pub use polynomial_chaos::PolynomialChaosSpec;
+```
+
+#### Re-export `Mfk`
+
+```rust
+pub use smt::Mfk;
+```
+
+#### Re-export `MfkConfig`
+
+```rust
+pub use smt::MfkConfig;
+```
+
+#### Re-export `SmtKriging`
+
+```rust
+pub use smt::SmtKriging;
+```
+
+#### Re-export `SmtKrgConfig`
+
+```rust
+pub use smt::SmtKrgConfig;
 ```
 
 ## Types
@@ -18113,6 +29493,10 @@ pub enum RafflesError {
     DimensionMismatch {
         expected: usize,
         found: usize,
+    },
+    ModelEvaluation {
+        model: String,
+        reason: String,
     },
 }
 ```
@@ -18149,6 +29533,19 @@ Fields:
 |------|------|---------------|
 | `expected` | `usize` | The length or dimension that was required. |
 | `found` | `usize` | The length or dimension actually supplied. |
+
+##### `ModelEvaluation`
+
+A caller's model, evaluated through [`fidelity::HighFidelityModel`]
+or [`fidelity::ParametricModel`], failed (added 2026-11-04,
+gh:#1194). The implementing crate maps its own error into this.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `model` | `String` | Which model, as its implementer names it. |
+| `reason` | `String` | Its own error message. |
 
 #### Implementations
 
@@ -18190,6 +29587,7 @@ Fields:
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -18203,6 +29601,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -18246,5 +29645,60 @@ Convenient alias for a fallible RAFFLES result.
 
 ```rust
 pub type Result<T> = core::result::Result<T, RafflesError>;
+```
+
+## Macros
+
+### Macro `quantities`
+
+**Attributes:**
+
+- `MacroExport`
+
+Defines a struct of uom fields and derives [`Quantities`] for it.
+
+Attributes (derives, doc comments) pass through to the struct and its
+fields; the struct must be `Clone` (derive it). Every field type must be a
+`uom::si::Quantity<_, _, f64>`, e.g. `uom::si::f64::Length` or a named
+alias of one.
+
+```
+use uom::si::f64::{Length, ThermodynamicTemperature};
+use uom::si::length::millimeter;
+use uom::si::thermodynamic_temperature::degree_celsius;
+use raffles::fidelity::Quantities;
+
+raffles::quantities! {
+    /// A pipe at a temperature.
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub struct Pipe {
+        /// Bore.
+        pub diameter: Length,
+        /// Wall temperature (absolute).
+        pub wall: ThermodynamicTemperature,
+    }
+}
+
+let p = Pipe {
+    diameter: Length::new::<millimeter>(25.0),
+    wall: ThermodynamicTemperature::new::<degree_celsius>(80.0),
+};
+let si = p.to_si(); // metres and kelvin
+assert_eq!(Pipe::from_si(&si)?, p);
+assert_eq!(Pipe::channels()[1].unit, "K");
+# Ok::<(), raffles::RafflesError>(())
+```
+
+```rust
+pub macro_rules! quantities {
+    /* macro_rules! quantities {
+    (
+        $(#[$meta:meta])*
+        $vis:vis struct $name:ident {
+            $( $(#[$fmeta:meta])* $fvis:vis $field:ident : $ty:ty ),+ $(,)?
+        }
+    ) => { ... };
+} */
+}
 ```
 

@@ -5,6 +5,9 @@
 // dome stays inside it on depressurisation (the dome only widens as p
 // falls), so no region switching or flashing event needs handling here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::uom_math::QuantityMath;
 use uom::ConstZero;
 use uom::si::f64::*;

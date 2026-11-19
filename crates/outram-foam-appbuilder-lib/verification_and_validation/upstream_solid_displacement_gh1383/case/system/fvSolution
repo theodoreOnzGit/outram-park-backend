@@ -1,0 +1,19 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      fvSolution;
+}
+
+solvers
+{
+    D { solver PCG; preconditioner DIC; tolerance 1e-12; relTol 0; maxIter 1000; }
+    T { solver PCG; preconditioner DIC; tolerance 1e-14; relTol 0; maxIter 1000; }
+}
+stressAnalysis
+{
+    compactNormalStress yes;
+    nCorrectors     4;
+    D               1e-6;
+}

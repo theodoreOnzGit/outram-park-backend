@@ -118,6 +118,9 @@
 //! }
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod bicgstab;
 mod gmres;
 mod preconditioner;

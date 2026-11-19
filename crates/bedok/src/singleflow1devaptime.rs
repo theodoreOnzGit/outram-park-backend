@@ -54,6 +54,9 @@
 //! inlet flow and a constant 155 bar core pressure. A transient that moved
 //! either — a pump coastdown, a depressurisation — is outside this model.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::singleflow1devap::invert_mixture_enthalpy;
 use crate::types::{FlowDirection, Geometry, Params, Th};
 
@@ -129,7 +132,7 @@ pub fn singleflow1devaptime(
         .collect();
     let cool_linpwrdens: Vec<f64> = (0..es)
         .map(|i| {
-            2.0 * std::f64::consts::PI * rtot * th.heatflux[i] * npin
+            2.0 * core::f64::consts::PI * rtot * th.heatflux[i] * npin
                 + th.coolheatfrac * linpwrdens[i]
         })
         .collect();

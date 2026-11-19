@@ -1,3 +1,7 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use csv::Writer;
 use uom::si::f64::*;
 /// generic enum for a Transfer Function
@@ -36,6 +40,7 @@ impl TransferFnTraits for TransferFn {
         }
     }
 
+    #[cfg(feature = "std")]
     fn spawn_writer(
         &mut self,
         name: String,
@@ -46,6 +51,7 @@ impl TransferFnTraits for TransferFn {
         }
     }
 
+    #[cfg(feature = "std")]
     fn csv_write_values(
         &mut self,
         wtr: &mut Writer<std::fs::File>,
@@ -72,11 +78,13 @@ pub trait TransferFnTraits {
         time_of_input: Time,
     ) -> Result<Ratio, ChemEngProcessControlSimulatorError>;
 
+    #[cfg(feature = "std")]
     fn spawn_writer(
         &mut self,
         name: String,
     ) -> Result<Writer<std::fs::File>, ChemEngProcessControlSimulatorError>;
 
+    #[cfg(feature = "std")]
     fn csv_write_values(
         &mut self,
         wtr: &mut Writer<std::fs::File>,

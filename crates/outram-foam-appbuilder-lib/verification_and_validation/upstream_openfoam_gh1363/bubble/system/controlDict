@@ -1,0 +1,15 @@
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+application twoPhaseEulerFoam;
+startFrom startTime;
+startTime 0;
+stopAt endTime;
+endTime 0.00975;
+deltaT 0.001;
+writeControl timeStep;
+writeInterval 1;
+writeFormat ascii;
+writePrecision 17;
+timeFormat general;
+timePrecision 8;
+runTimeModifiable false;
+adjustTimeStep no;

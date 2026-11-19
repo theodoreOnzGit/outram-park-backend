@@ -75,6 +75,9 @@
 //!    correlations agree there to 0.009-0.015 K, so an endpoint within that
 //!    tolerance is accepted as the root.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
@@ -326,7 +329,7 @@ fn hs_flash_round_trips_across_region_5() {
         println!(
             "  skipped span: T in [{t_lo:.2}, {t_hi:.2}] K, p in [{p_lo:.4e}, {p_hi:.4e}] MPa"
         );
-        let mut cols: std::collections::BTreeMap<String, usize> = Default::default();
+        let mut cols: alloc::collections::BTreeMap<String, usize> = Default::default();
         for (_, p) in &skipped_nodes {
             *cols.entry(format!("{p:.4e}")).or_insert(0) += 1;
         }

@@ -1,0 +1,13 @@
+# Copy to a scratch directory OUTSIDE the workspace as Cargo.toml (not used in place:
+# a nested Cargo.toml here would confuse the workspace). See ../README.md.
+[package]
+name = "rusteam-driver"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# MIT, marciorvneto/rusteam, commit 2b1f74dbed98bcfeaae2d68fa8ebd9d5b4e080b8
+rust-steam = { path = "../rusteam" }
+
+[workspace]

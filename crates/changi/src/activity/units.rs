@@ -20,6 +20,9 @@
 //! same dimension, a **different Rust type**. Converting between the two is
 //! `sembawang`'s job and belongs in exactly one file there, not here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul};
 

@@ -43,6 +43,9 @@
 //! Criteria pre-registered on gh:#1136; see `tests` for the measured
 //! results.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::area::square_meter;
 use uom::si::f64::*;
 use uom::si::heat_flux_density::watt_per_square_meter;

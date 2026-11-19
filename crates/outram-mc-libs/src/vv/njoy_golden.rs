@@ -31,6 +31,9 @@
 //! comments rather than smoothed away — see [`H2O_KERNEL`], whose −2 % to −5.5 %
 //! column is the open defect tracked as GitHub #188.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// One point of a cross-section comparison: `(E [eV], sigma [b])`.
 pub type XsPoint = (f64, f64);
 

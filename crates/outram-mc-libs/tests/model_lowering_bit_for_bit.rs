@@ -32,6 +32,8 @@
 //! DBRC on all three. The k values from these runs are not benchmark
 //! results (LOW tier; tiny runs).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::reference_data::reference_endf_dir;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;

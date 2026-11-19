@@ -38,8 +38,11 @@
 //! - [`orientation_from_selection`] — a [`TransformBasis`] from a
 //!   vertex / edge / face selection (Blender's *Create Orientation*).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};
@@ -343,7 +346,7 @@ fn ortho(v: Vec3, n: Vec3) -> Vec3 {
 /// Connected components of the selected vertex set (by shared edge).
 fn components(mesh: &Mesh, sel: &[usize]) -> Vec<Vec<usize>> {
     let want: BTreeSet<usize> = sel.iter().copied().collect();
-    let mut adj: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+    let mut adj: crate::hash::HashMap<usize, Vec<usize>> = crate::hash::HashMap::new();
     for e in 0..mesh.edge_count() {
         let ed = mesh.edge(EdgeId(e)).unwrap();
         let (a, b) = (ed.verts[0].0, ed.verts[1].0);
@@ -432,7 +435,7 @@ mod tests {
             &[],
             PivotPoint::Cursor,
             Axis::Z,
-            std::f64::consts::FRAC_PI_2,
+            core::f64::consts::FRAC_PI_2,
             Vec3::ZERO,
         );
         // A corner at (1, y, 0) rotates 90° about Z to (~-y, 1, 0)... check a

@@ -16,4 +16,7 @@
 //! correlation:
 //! [`outram_foam_appbuilder_lib::htgr_closures::BedConductivityModel`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use outram_foam_appbuilder_lib::htgr_closures::zbs::*;

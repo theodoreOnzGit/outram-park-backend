@@ -33,6 +33,9 @@
 //! and the `k` trigger. A run goes to its last generation unless the
 //! population dies out.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{
     bank_entropy, resample, sample_box_source, transport_history_vr, Site, SourceBox, GEN_STRIDE,
     HIST_STRIDE,
@@ -426,6 +429,16 @@ pub fn transport_chunk(
     settings: &KeffSettings,
     chunk: &GenerationChunk,
 ) -> ChunkResult {
+    // Cell temperatures are the default (GitHub #313): see `run_keff_csg_par_progress`.
+    // The majorants are widened over the rebound copies, so they bound what
+    // transport reads (GitHub #1577).
+    let bound = crate::material::cell_temperature::with_cell_temperatures_and_majorants(
+        geom, materials, nuclides, majorants,
+    );
+    let (geom, materials, majorants): (&Geometry, &[Material], &[Majorant]) = match &bound {
+        Some((g, m, j)) => (g, m.as_slice(), j.as_slice()),
+        None => (geom, materials, majorants),
+    };
     let gen_base_seed = future_seed(
         (chunk.generation as u64).wrapping_mul(GEN_STRIDE),
         chunk.run_seed,
@@ -791,6 +804,7 @@ mod tests {
                     vec![
                         hs(0, HalfSpaceSense::Outside),
                         hs(1, HalfSpaceSense::Inside),
+                        RegionToken::Intersection,
                     ],
                     1,
                     TEMP,

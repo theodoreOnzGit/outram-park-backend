@@ -71,6 +71,27 @@ The `wmp` module's evaluation algorithm is an independent Rust re-implementation
 (reference: OpenMC's MIT-licensed `src/wmp.cpp`); only the numeric data blob is
 derived from `WMP_Library`.
 
+Windowed-multipole GENERATION (OpenMC — NOT NJOY / NOT LANL)
+------------------------------------------------------------
+
+`src/wmp/generate/` (gh:#1390, 2026-11-14) is a translation of OpenMC's
+`openmc/data/multipole.py` (`WindowedMultipole.from_endf`, `vectfit_nuclide`,
+`_vectfit_xs`, `_windowing`, `from_multipole`), `openmc/data/vectfit.py`, and
+the parts of `openmc/data/njoy.py`, `neutron.py`, `reaction.py` and
+`function.py` that turn an ENDF tape into the pointwise data they fit:
+
+- Source:  OpenMC, https://github.com/openmc-dev/openmc, commit
+  8f79d9d02483c90e4134f03a9df4b75ce6b062bf (2026-11-10).
+- Copyright:  (c) 2011-2025 Massachusetts Institute of Technology, UChicago
+  Argonne LLC, and OpenMC contributors.
+- License:  MIT; the permission notice is reproduced in each ported file's
+  header. MIT is AGPL-compatible.
+- `vectfit.py` credits B. Gustavsen (VECTFIT) and J. Liang
+  (https://github.com/mit-crpg/vectfit) for the vector-fitting algorithm.
+- `src/wmp/generate/npy.rs` follows numpy's (`np.interp`, `np.linspace`,
+  pairwise summation, complex division) and scipy's (`find_peaks`) published
+  algorithms; both are BSD-3-Clause, (c) the NumPy and SciPy developers.
+
 Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-20)
 -----------------------------------------------------
 

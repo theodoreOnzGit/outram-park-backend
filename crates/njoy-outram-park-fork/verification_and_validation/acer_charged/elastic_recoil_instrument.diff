@@ -1,0 +1,54 @@
+--- a/acefc.f90	2026-11-12 22:58:56.437537915 +0000
++++ b/acefc.f90	2026-11-12 22:58:56.452555320 +0000
+@@ -9202,6 +9202,7 @@
+    integer::ia,lll,intmu,iep,llad,mus,nra,npa,npep,intep
+    integer::ki,np,npsx,lld,isocp,llx
+    integer::ipt,mtrh,ntrh,ipn
++   integer::dbgn0,dbgl0,dbgi
+    real(kr)::emc2,thresh,tt,e,y,en,ss,q,amass,ubar,sum,renorm
+    real(kr)::h,awp,aprime,th,r1,r2,betasq,awprec,ee
+    real(kr)::avadd,avlab,avll,test,rkal,ep,akal,del,av
+@@ -9554,6 +9555,10 @@
+             !--just reverse the distribution of scattered particle
+             if (mt.eq.2) then
+                xss(landh+jp-1)=next-andh+1
++               dbgn0=next
++               dbgl0=nint(xss(land))+and-1
++               write(6,'(a,10i10)') 'ERHEAD',land,and,landh+jp-1,andh,hpd,it,nes,esz,next,nint(xss(land))
++               write(6,'(a,2z17.16)') 'ERAWR',awr,awi
+                loce=nint(xss(land))+and-1
+                ne=nint(xss(loce))
+                xss(next)=ne
+@@ -9621,9 +9626,19 @@
+                   e=xss(leee+ie)
+                   scr(llht+6+2*ie)=e
+                   scr(llht+7+2*ie)=2*amass*e*(1+ubar)/(1+amass)**2
++                  write(6,'(a,i6,3z17.16)') 'ERUBAR',ie,e,ubar,scr(llht+7+2*ie)
+                enddo
+                ! add in contribution to heating
+                naa=nint(xss(hpd+1))
++               do dbgi=dbgl0,loce-1
++                  write(6,'(a,i10,z17.16)') 'ERIN',dbgi,xss(dbgi)
++               enddo
++               do dbgi=esz+it-1,esz+nes-1
++                  write(6,'(a,i10,z17.16)') 'ERESZ',dbgi,xss(dbgi)
++               enddo
++               do dbgi=hpd+1,hpd+1+2*naa
++                  write(6,'(a,i10,z17.16)') 'ERHPD',dbgi,xss(dbgi)
++               enddo
+                nrr=1
+                npp=2
+                do ie=it,nes
+@@ -9632,6 +9647,12 @@
+                   xss(hpd+2+naa+ie-it)=xss(hpd+2+naa+ie-it)&
+                     +h*xss(hpd+2+ie-it)
+                enddo
++               do dbgi=dbgn0,next-1
++                  write(6,'(a,i10,z17.16)') 'EROUT',dbgi,xss(dbgi)
++               enddo
++               do dbgi=hpd+2+naa,hpd+1+2*naa
++                  write(6,'(a,i10,z17.16)') 'ERHOUT',dbgi,xss(dbgi)
++               enddo
+ 
+             !--angular representation for neutron capture recoil
+             !--just construct a straight-ahead distribution

@@ -25,6 +25,9 @@
 //! The approximate double-heterogeneity trackings and the other `advanced`
 //! choices named on #943 arrive with the shapes that need them (#926).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Length;
 use uom::si::length::centimeter;
 

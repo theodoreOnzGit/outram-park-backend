@@ -138,6 +138,9 @@
 //! (hPa in `*_hpa`), temperature K, specific humidity kg/kg, heights m above
 //! ground, times s, mass fluxes kg m⁻² s⁻¹, `fmassfrac` kg/m².
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::boundary_layer::f_qvsat;

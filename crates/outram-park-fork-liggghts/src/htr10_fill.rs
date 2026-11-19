@@ -53,6 +53,9 @@
 //! discharge tube to the valve at `z = −0.61946`. The real tube is ~6 m; the
 //! DEM holds only this stub of it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Mass, Pressure, ThermodynamicTemperature, Time};
 use uom::si::length::meter;
@@ -61,11 +64,9 @@ use uom::si::pressure::pascal;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
-use crate::boundary::Boundary;
-use crate::compute::{ComputeType, ThreadCount};
-use crate::granular::{GranularContactModel, GranularMaterial, RollingModel};
+use crate::compute::ThreadCount;
 use crate::granular_system::GranularSystem;
-use crate::mesh_wall::{MeshWall, MovingBoundary, Triangle, WallGeometry};
+use crate::mesh_wall::{MeshWall, Triangle};
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
 
@@ -173,7 +174,7 @@ fn e_drop() -> f64 {
 }
 
 fn pebble_mass() -> f64 {
-    PEBBLE_DENSITY * 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3)
+    PEBBLE_DENSITY * 4.0 / 3.0 * core::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3)
 }
 
 fn pebble(x: Vec3) -> Result<Particle, DemError> {
@@ -196,8 +197,8 @@ pub fn discharge_mesh(segments: usize) -> Result<MeshWall, DemError> {
         |z0: f64, r0: f64, z1: f64, r1: f64, tris: &mut Vec<Triangle>| -> Result<(), DemError> {
             for i in 0..n {
                 let (a0, a1) = (
-                    std::f64::consts::TAU * i as f64 / n as f64,
-                    std::f64::consts::TAU * (i + 1) as f64 / n as f64,
+                    core::f64::consts::TAU * i as f64 / n as f64,
+                    core::f64::consts::TAU * (i + 1) as f64 / n as f64,
                 );
                 let p0 = Vec3::new(r0 * a0.r_cos(), r0 * a0.r_sin(), z0);
                 let p1 = Vec3::new(r0 * a1.r_cos(), r0 * a1.r_sin(), z0);
@@ -231,20 +232,6 @@ pub fn wall_radius_at(z: f64) -> f64 {
     }
 }
 
-/// SplitMix64 in `[0, 1)`: deterministic jitter with no RNG dependency (the
-/// generator `examples/bake_htr10_conus_slab.rs` uses).
-fn splitmix(state: &mut u64) -> f64 {
-    *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-    let mut z = *state;
-    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    z ^= z >> 31;
-    (z >> 11) as f64 / (1u64 << 53) as f64
-}
-
-/// Solid fraction of the loose seed (random sequential placement).
-const SEED_SOLID_FRACTION: f64 = 0.30;
-
 /// `n` pebble centres placed at random without overlap in the vessel, filling
 /// it from the valve upward at a loose solid fraction (0.30), the way
 /// LIGGGHTS' `fix insert/pack` seeds a region (**NOTE 2026-11-11, gh:#1414:** this
@@ -265,79 +252,10 @@ const SEED_SOLID_FRACTION: f64 = 0.30;
 /// after 26 000 steps (307 s, 12 threads) at whole-core φ 0.5954. That φ is
 /// not compared with the package's 0.6047, which is a 27 554-pebble core.
 pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
-    let r = PEBBLE_RADIUS_M;
-    let d = 2.0 * r;
-    let mut state = seed;
-    let mut out: Vec<Vec3> = Vec::with_capacity(n);
-    // Spatial hash of placed centres on a d-sized grid, for O(1) overlap checks.
-    let mut grid: std::collections::BTreeMap<(i64, i64, i64), Vec<usize>> =
-        std::collections::BTreeMap::new();
-    let cell = |p: Vec3| {
-        (
-            (p.x / d).floor() as i64,
-            (p.y / d).floor() as i64,
-            (p.z / d).floor() as i64,
-        )
-    };
-    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
-    // Fill slab by slab (one diameter thick) from the valve up, each slab to
-    // the target solid fraction, so the seed is uniformly loose.
-    let mut z0 = VALVE_Z_M;
-    while out.len() < n {
-        let z1 = z0 + d;
-        // The narrowest wall any sphere centred in this slab can touch.
-        let reach = wall_radius_at(z0 - r).min(wall_radius_at(z1 + r)) - r - 1.0e-3;
-        if reach <= 0.0 {
-            z0 = z1;
-            continue;
-        }
-        let slab_volume = std::f64::consts::PI * (reach + r).r_powi(2) * d;
-        let target = ((SEED_SOLID_FRACTION * slab_volume / v_pebble).round() as usize).max(1);
-        let (mut placed, mut tries) = (0usize, 0usize);
-        while placed < target && out.len() < n && tries < 200 * target {
-            tries += 1;
-            // Uniform in the disc of radius `reach`, uniform in z within the slab.
-            let rr = reach * splitmix(&mut state).sqrt();
-            let th = std::f64::consts::TAU * splitmix(&mut state);
-            let p = Vec3::new(
-                rr * th.r_cos(),
-                rr * th.r_sin(),
-                z0 + (z1 - z0) * splitmix(&mut state),
-            );
-            if p.z - r <= VALVE_Z_M {
-                continue;
-            }
-            let (cx, cy, cz) = cell(p);
-            let mut clear = true;
-            'scan: for dx in -1..=1 {
-                for dy in -1..=1 {
-                    for dz in -1..=1 {
-                        if let Some(ids) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
-                            for &k in ids {
-                                let q = out[k];
-                                if (p.x - q.x).r_powi(2)
-                                    + (p.y - q.y).r_powi(2)
-                                    + (p.z - q.z).r_powi(2)
-                                    < d * d
-                                {
-                                    clear = false;
-                                    break 'scan;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if !clear {
-                continue;
-            }
-            grid.entry((cx, cy, cz)).or_default().push(out.len());
-            out.push(p);
-            placed += 1;
-        }
-        z0 = z1;
-    }
-    out
+    // Since 2026-11-19 (gh:#1656) the algorithm lives in `axisym_vessel`,
+    // shared with `outram-mc-libs`' region pour; HTR-10's vessel gives the
+    // same centres bit for bit (`tests/htr10_fill_fingerprint.rs`).
+    crate::axisym_vessel::seed_in_vessel(&crate::axisym_vessel::AxisymVessel::htr10(), n, seed, PEBBLE_RADIUS_M)
 }
 
 /// Bed surface \[m\]: 99th-percentile centre height over the core (`z > 0`)
@@ -361,8 +279,8 @@ pub fn whole_core_fraction(centres: &[Vec3]) -> f64 {
         return f64::NAN;
     };
     let n = centres.iter().filter(|c| c.z > 0.0).count();
-    let v = 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3);
-    n as f64 * v / (std::f64::consts::PI * CORE_RADIUS_M * CORE_RADIUS_M * top)
+    let v = 4.0 / 3.0 * core::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3);
+    n as f64 * v / (core::f64::consts::PI * CORE_RADIUS_M * CORE_RADIUS_M * top)
 }
 
 impl Htr10Fill {
@@ -373,38 +291,29 @@ impl Htr10Fill {
     /// A [`DemError`] if a setting is out of range (e.g. µ < 0, a non-positive
     /// timestep).
     pub fn new(settings: Htr10FillSettings) -> Result<Self, DemError> {
-        let material = GranularMaterial::new(
-            settings.youngs_modulus.get::<pascal>(),
-            settings.poisson_ratio,
-            settings.restitution,
-            settings.friction,
-        )?;
-        let mut model = GranularContactModel::hertz_history(material);
-        if settings.rolling_friction > 0.0 {
-            model = model.with_rolling(RollingModel::cdt(settings.rolling_friction)?);
-        }
-        let boundaries = vec![
-            Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), CORE_RADIUS_M)?,
-            Boundary::wall(Vec3::new(0.0, 0.0, VALVE_Z_M), Vec3::new(0.0, 0.0, 1.0))?,
-        ];
-        let particles: Vec<Particle> = seed_loose(settings.n_pebbles, settings.seed)
+        Self::in_vessel(settings, &crate::axisym_vessel::AxisymVessel::htr10())
+    }
+
+    /// [`Self::new`] in any `vessel` (gh:#1655): the same seed, walls,
+    /// contact law and gravity (−9.81 m/s² along −z, so `vessel.up` should
+    /// be +z), 120 quads per mesh band. With [`AxisymVessel::htr10`] it is
+    /// [`Self::new`], bit for bit. The progress measures ([`FillProgress`])
+    /// stay HTR-10's: "core" is `z > 0`, the barrel above the conus inlet.
+    ///
+    /// [`AxisymVessel::htr10`]: crate::axisym_vessel::AxisymVessel::htr10
+    ///
+    /// # Errors
+    ///
+    /// A [`DemError`] as [`Self::new`].
+    pub fn in_vessel(settings: Htr10FillSettings, vessel: &crate::axisym_vessel::AxisymVessel) -> Result<Self, DemError> {
+        // Since 2026-11-19 (gh:#1656) the walls and the system come from
+        // `axisym_vessel`, shared with `outram-mc-libs`' region pour; the
+        // fingerprint test pins this to the code it replaced.
+        let particles: Vec<Particle> = crate::axisym_vessel::seed_in_vessel(vessel, settings.n_pebbles, settings.seed, PEBBLE_RADIUS_M)
             .into_iter()
             .map(pebble)
             .collect::<Result<_, _>>()?;
-        let sys = GranularSystem::new(
-            particles,
-            boundaries,
-            model,
-            Vec3::new(0.0, 0.0, -9.81),
-            settings.dt.get::<second>(),
-        )?
-        .with_compute(ComputeType::CpuMultiThread(settings.threads))
-        .with_moving_walls(vec![MovingBoundary::new(
-            WallGeometry::Mesh(discharge_mesh(120)?),
-            Vec3::zero(),
-            Vec3::zero(),
-            Vec3::zero(),
-        )]);
+        let sys = crate::axisym_vessel::vessel_system(vessel, particles, Vec3::new(0.0, 0.0, -9.81), &settings, 120)?;
         Ok(Self {
             sys,
             settings,
@@ -474,7 +383,7 @@ impl Htr10Fill {
 /// state is read back after every [`Self::advance`]). Not bit-identical to
 /// the CPU pour (`gpu::dem`'s trust model); the CPU pour stays the default
 /// and the reference.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub struct Htr10GpuFill {
     dem: crate::gpu::dem::GpuDem,
     settings: Htr10FillSettings,
@@ -484,7 +393,7 @@ pub struct Htr10GpuFill {
     mass: f64,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 impl Htr10GpuFill {
     /// [`Self::new`] without blocking (the browser's way): `ctx` from
     /// `gpu::probe_async`.
@@ -550,7 +459,7 @@ impl Htr10GpuFill {
     ///
     /// # Errors
     /// No GPU adapter, or a setting the CPU pour refuses.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn new(settings: Htr10FillSettings) -> Result<Self, String> {
         let cpu = Htr10Fill::new(settings).map_err(|e| format!("{e:?}"))?;
         let ctx = crate::gpu::probe().ok_or("no GPU adapter")?;
@@ -567,7 +476,7 @@ impl Htr10GpuFill {
     }
 
     /// Step `n` more times (fewer if `max_steps` is reached) and report.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn advance(&mut self, n: usize) -> FillProgress {
         let n = n.min(self.settings.max_steps.saturating_sub(self.steps));
         if n > 0 {
@@ -613,7 +522,7 @@ impl Htr10GpuFill {
 
     /// Table overflows since the start (must be zero for a trusted run).
     #[must_use]
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     pub fn errors(&self) -> crate::gpu::dem::GpuErrors {
         self.dem.errors()
     }

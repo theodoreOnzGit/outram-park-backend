@@ -1,6 +1,9 @@
-use std::f64::consts::PI;
-use std::thread::JoinHandle;
-use std::thread;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
+use crate::thread::JoinHandle;
+use crate::thread;
 
 use uom::si::ratio::ratio;
 use uom::ConstZero;

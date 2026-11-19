@@ -78,8 +78,12 @@
 //! before the reaction draw) is the default in the CSG driver and the sphere drivers
 //! (`physics::scatter::FissionBanking::PerCollision`; legacy bank-at-fission via
 //! `OUTRAM_MC_LEGACY_FISSION_BANKING=1`); paired Godiva
-//! `tests/godiva_fission_banking_paired.rs` +600 pcm, +1.99 sigma. Not done: the GPU
-//! `collide_batched` path still banks at fission. The streams are OpenMC's; the consumption order is closer,
+//! `tests/godiva_fission_banking_paired.rs` +600 pcm, +1.99 sigma. ~~Not done: the GPU
+//! `collide_batched` path still banks at fission.~~ **CORRECTED 2026-11-13 (gh:#1513)**
+//! -- the GPU batched driver's host-side `collide_batched` has banked per collision
+//! since `e83cea6a2` (2026-11-11), the fused kernel since gh:#1444 (e); verified by
+//! `tests/gpu_batched_per_collision_banking.rs` (legacy arm bit-identical to the
+//! pre-`e83cea6a2` run). The streams are OpenMC's; the consumption order is closer,
 //! not identical.
 //!
 //! Indexing: OpenMC's `current_batch` and `current_gen` start at 1 and
@@ -87,6 +91,9 @@
 //! loop) generation `g` (0-based) is batch `g + 1`, so the transport seed of
 //! history `i` (0-based) is `g * n_particles + (i + 1)` on a single rank.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use petir::rng::lcg::{
     future_seed_coefficients, init_particle_seeds, DEFAULT_STRIDE, N_STREAMS, STREAM_SOURCE,
     STREAM_TRACKING, STREAM_URR_PTABLE, STREAM_VOLUME,

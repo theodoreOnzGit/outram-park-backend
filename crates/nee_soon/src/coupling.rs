@@ -72,7 +72,10 @@
 //!   self-consistent, and it is **not** the reactor's eigenvalue whenever
 //!   leakage matters — which for a real core it does.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
     DiffusionNeutronics, DiffusionSettings,

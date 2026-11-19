@@ -46,6 +46,9 @@
 // Main author of the code: Theodore Kay Chen Ong, supervised by
 // Professor Per F. Peterson
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Example 7
 ///
 /// a colletion of fluid component collections is known

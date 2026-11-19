@@ -7,6 +7,14 @@ Reliability Integrated Studio.** The reserved home for an integrated risk and re
 The workspace root `CLAUDE.md` binds here in full. This file adds only what is
 specific to this crate.
 
+## `no_std` placeholder, with a default `std` feature (gh:#1642, 2026-11-18)
+
+`src/lib.rs` is `#![no_std]`. The default `std` feature forwards `std` to
+`raffles`, `sembawang`, `changi` and `buangkok`; without it the crate builds
+on bare metal, checked by `scripts/check-nostd.sh`. ~~Before 2026-11-18 the
+`#![no_std]` declaration did not hold: its `raffles` and `sembawang` edges
+pulled std in.~~ It holds now.
+
 ## What it is: mostly a GUI (maintainer, 2026-10-06)
 
 PASIR RIS is **mostly a GUI**: an egui studio with a thin library under it.

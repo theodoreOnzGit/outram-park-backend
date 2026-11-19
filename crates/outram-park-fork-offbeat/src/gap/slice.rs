@@ -79,6 +79,9 @@
 //! Strict SI raw `f64`: metre for coordinates and heights, m³ for cell volumes.
 //! Averaged quantities carry whatever unit the caller's values carry.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::Vector3;
 
 use crate::error::{OffbeatError, Result};
@@ -933,11 +936,11 @@ mod tests {
         assert!((axial_coordinate_checked(p, z_axis).unwrap() - 0.5).abs() < 1e-15);
 
         let diagonal = Vector3 {
-            x: std::f64::consts::FRAC_1_SQRT_2,
+            x: core::f64::consts::FRAC_1_SQRT_2,
             y: 0.0,
-            z: std::f64::consts::FRAC_1_SQRT_2,
+            z: core::f64::consts::FRAC_1_SQRT_2,
         };
-        let expected = (0.003 + 0.5) * std::f64::consts::FRAC_1_SQRT_2;
+        let expected = (0.003 + 0.5) * core::f64::consts::FRAC_1_SQRT_2;
         assert!((axial_coordinate(p, diagonal) - expected).abs() < 1e-15);
         assert!((expected - 0.355_675).abs() < 1e-5, "expected = {expected}");
 

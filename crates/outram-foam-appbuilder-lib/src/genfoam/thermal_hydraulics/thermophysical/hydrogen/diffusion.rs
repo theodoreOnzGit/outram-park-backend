@@ -26,6 +26,9 @@
 //! exercise it — per this workspace's "no orphaned dead code" rule and to
 //! avoid asserting V&V on a function with no reference data, it is not ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::collision_integrals::omega11_12;
 use super::constants::{W, W_H};

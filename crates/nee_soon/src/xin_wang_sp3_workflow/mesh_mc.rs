@@ -13,6 +13,9 @@
 //! (bead **op-6tz.13**) — are still being built, so this stage composes their
 //! public API only. Tracked by bead **op-fr2.2.3**.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Length;
 use uom::si::length::centimeter;
 

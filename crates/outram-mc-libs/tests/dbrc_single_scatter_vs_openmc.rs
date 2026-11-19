@@ -45,6 +45,8 @@
 //! (|z| ≤ 2.4). A thicker first attempt showed a spurious z ≈ 20 with DBRC off,
 //! from multiple scattering.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;

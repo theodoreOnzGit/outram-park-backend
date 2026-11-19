@@ -10,6 +10,9 @@
 //! `real(4)` 0.1 widened to double (0.10000000149...), and the `1000.`/`10.`
 //! constants of `ascle` are exact. They are written as `f32` casts below.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::AceTable;
 use super::mtname_table::HNDF;
 use petir::mathf::RealMath;

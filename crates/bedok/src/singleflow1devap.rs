@@ -49,6 +49,9 @@
 //! `neacrpd1t` sets, so that a transient starts from a steady state computed by
 //! the *same* model it will be marched with.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::iapws_if97::backward::t_ph;
@@ -165,7 +168,7 @@ pub fn singleflow1devap(params: &Params, geometry: &Geometry, th: &Th, pwrdens: 
         .collect();
     let cool_linpwrdens: Vec<f64> = (0..es)
         .map(|i| {
-            2.0 * std::f64::consts::PI * rtot * th.heatflux[i] * npin
+            2.0 * core::f64::consts::PI * rtot * th.heatflux[i] * npin
                 + th.coolheatfrac * linpwrdens[i]
         })
         .collect();
@@ -383,7 +386,7 @@ pub fn invert_mixture_enthalpy(
             if homogeneous {
                 0.0
             } else {
-                std::f64::consts::SQRT_2
+                core::f64::consts::SQRT_2
                     * ((rl[i] - rg[i]) * G_EARTH * sigma / (rl[i] * rl[i])).r_powf(0.25)
             }
         })

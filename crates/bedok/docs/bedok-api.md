@@ -9,10 +9,11 @@
 **BEDOK** — 3-D nodal-diffusion neutronics coupled to thermal hydraulics.
 
 **B**road-scope **E**nvironment for **D**ual-phase advanced reactor
-**O**peration simulation **K**it (BEDOK) — backronym set by the maintainer
-on 2026-09-25. The name is also established by its publication, Than, Y. R.,
-& Xiao, S. (2026), *BEDOK: An In-House Numerical Reactor Simulator Effort in
-Singapore*, Energy Engineering, 123(9); cite that paper for the method.
+**O**peration simulation **K**it (BEDOK) — ~~backronym set by the maintainer
+on 2026-09-25~~ **CORRECTED 2026-11-16:** the published name, spelled out in
+the abstract of Than, Y. R., & Xiao, S. (2026), *BEDOK: An In-House
+Numerical Reactor Simulator Effort in Singapore*, Energy Engineering, 123(9),
+<https://doi.org/10.32604/ee.2026.082487>; cite that paper for the method.
 
 A Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation, ported
 from the `main_exec_diff3d_standalone` snapshot.

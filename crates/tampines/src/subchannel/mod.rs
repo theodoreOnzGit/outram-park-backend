@@ -91,6 +91,9 @@
 //!
 //! V&V: `crates/tampines/verification_and_validation/subchannel_crossflow_mixing.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod solver;
 #[cfg(test)]
 mod tests;

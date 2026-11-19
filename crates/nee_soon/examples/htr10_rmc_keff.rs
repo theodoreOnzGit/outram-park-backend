@@ -159,7 +159,7 @@ use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 use nee_soon::htr10_rmc::core_model::assemble_explicit_triso;
 use nee_soon::htr10_rmc::data::{
-    load_htr10_nuclides, CarbonTreatment, Coolant, Htr10DataConfig, Htr10DataError,
+    load_htr10_nuclides_free, CarbonTreatment, Coolant, Htr10DataConfig, Htr10DataError,
     Htr10NuclideLayout, NuclearDataLibrary, RodMetalTreatment, ThermalScatteringTreatment,
     TapeSource, U238Evaluation, Uo2Laws,
 };
@@ -393,7 +393,7 @@ fn main() {
         }
     };
     println!("  rod metal: {}", data_cfg.rod_metal.label());
-    let nucs = match load_htr10_nuclides(&data_cfg, &layout, &mut diag) {
+    let free = match load_htr10_nuclides_free(&data_cfg, &layout, &mut diag) {
         Ok(v) => v,
         Err(e @ Htr10DataError::BlockedByGh339) => {
             println!("REFUSED: {e}");
@@ -511,7 +511,7 @@ fn main() {
         let mut stripped = Vec::new();
         for (i, m) in mats.iter_mut().enumerate() {
             let before = m.components.len();
-            m.components.retain(|c| c.nuclide_idx < nucs.len());
+            m.components.retain(|c| c.nuclide_idx < free.nuclides.len());
             if m.components.len() != before {
                 stripped.push(i);
             }
@@ -536,14 +536,21 @@ fn main() {
     for m in &mats {
         for c in &m.components {
             assert!(
-                c.nuclide_idx < nucs.len(),
+                c.nuclide_idx < free.nuclides.len(),
                 "material {} names nuclide slot {} but only {} are loaded",
                 m.name,
                 c.nuclide_idx,
-                nucs.len()
+                free.nuclides.len()
             );
         }
     }
+    // S(a,b) per material (gh:#462, gh:#1635 item 3): every slot was loaded
+    // free; each bound law goes to the materials that reference its slot, on
+    // its own appended copy (OpenMC's association). The array is longer, so
+    // the URR stream differs from the nuclide-level run: same physics.
+    let (mats, nucs) = free
+        .bind_per_material(&mats)
+        .expect("S(a,b) per material (gh:#1635)");
     println!("  fuel zone: explicit TRISO lattice");
     println!(
         "  tracking: {}",

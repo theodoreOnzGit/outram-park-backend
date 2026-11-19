@@ -17,6 +17,9 @@
 //! round trip is pinned bit for bit, in cross sections and in samples, by
 //! `tests/processed_evaluation_round_trip.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use njoy_outram_park_fork::MtReaction;
 use njoy_outram_park_fork::purr::UrrProbabilityTables;
 use njoy_outram_park_fork::reconr::MaterialInfo;

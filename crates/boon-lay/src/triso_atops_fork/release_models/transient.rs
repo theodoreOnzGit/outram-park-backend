@@ -30,8 +30,11 @@
 //! | [`booth_transient`] | `booth_transient` |
 //! | [`rf_graph`] | `RF_Graph` |
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use uom::si::area::square_meter;
 use uom::si::f64::{Area, Length, Ratio};

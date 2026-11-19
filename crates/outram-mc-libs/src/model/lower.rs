@@ -17,6 +17,9 @@
 //! container's material, and the container one fill cell. Universes are
 //! numbered in creation order and the root comes last.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::masses::AtomicMasses;
 use super::material::{to_atoms_per_barn_cm, Material};
 use super::model::{ModelError, NuclideKey};
@@ -84,8 +87,8 @@ pub(crate) struct Lowering {
     /// other pieces of balls already counted, and carry no volume of their
     /// own in the census.
     pub(crate) in_image: bool,
-    pub(crate) image_cells: Vec<std::ops::Range<usize>>,
-    pub(crate) image_pools: Vec<std::ops::Range<usize>>,
+    pub(crate) image_cells: Vec<core::ops::Range<usize>>,
+    pub(crate) image_pools: Vec<core::ops::Range<usize>>,
     /// The census of each stacked bed lowered (`Lattice::hex_bed`).
     pub(crate) beds: Vec<super::bed::BedCensus>,
     far_plane: Option<usize>,

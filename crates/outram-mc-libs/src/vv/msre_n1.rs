@@ -75,6 +75,9 @@
 //!   ([`MoTreatment::Natural`]); the other arms are kept as ablations. The script is `scripts/inor8.py` beside
 //!   `salt.py`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use crate::geometry::geometry::Geometry;
 use crate::geometry::lattice::{Lattice, RectLattice};
@@ -82,6 +85,10 @@ use crate::geometry::position::Position;
 use crate::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZCylinder, ZPlane};
 use crate::geometry::universe::Universe;
 use crate::physics::transport_csg::SourceBox;
+
+/// The N-1 balance, salt-spectrum and N-4 axial tallies (moved from the
+/// example 2026-11-17).
+pub mod tallies;
 
 /// One inch \[cm\].
 pub const INCH: f64 = 2.54;
@@ -341,6 +348,37 @@ pub fn kelvin_from_f(t_f: f64) -> f64 {
     (t_f - 32.0) * 5.0 / 9.0 + 273.15
 }
 
+/// The default fuel salt: [`SALT`] (from `scripts/salt.py`) with the
+/// enriched lot's U-234 and U-236 as TM-0730 Table 3.2 assumes them
+/// ([`salt_with_tm0730_minor_uranium`]).
+///
+/// **Default since 2026-11-12** (maintainer: "More physical model is
+/// better"). Real 93 % uranium carries about 1 % U-234, so the model with it
+/// is the more physical one, though the isotopics are a design assumption,
+/// not an assay. Measured worth: −326 ± 83 pcm on N-1 (gh:#1128). Every
+/// record before this date was made without U-234/U-236; the ablation is
+/// [`salt_without_minor_uranium`] (`--minor-uranium none` in the example).
+/// Pinned by `the_default_salt_carries_u234_and_u236`.
+pub fn default_salt() -> Vec<(&'static str, f64)> {
+    salt_with_tm0730_minor_uranium(&SALT)
+}
+
+/// The ablation of [`default_salt`]'s U-234/U-236: `salt` with U-234 and
+/// U-236 removed and the U-238 and F-19 that
+/// [`salt_with_tm0730_minor_uranium`] moved put back, so that
+/// `salt_without_minor_uranium(&default_salt())` is [`SALT`] (tested).
+pub fn salt_without_minor_uranium(salt: &[(&'static str, f64)]) -> Vec<(&'static str, f64)> {
+    let with = salt_with_tm0730_minor_uranium(&SALT);
+    let get = |v: &[(&str, f64)], n: &str| v.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+    salt.iter()
+        .filter(|e| e.0 != "U234" && e.0 != "U236")
+        .map(|&(n, v)| match n {
+            "U238" | "F19" => (n, v - get(&with, n) + get(&SALT, n)),
+            _ => (n, v),
+        })
+        .collect()
+}
+
 /// The materials at `t_f` °F, for the isothermal coefficient (MSRE N-3,
 /// gh:#1129). Only the salt's density moves, by [`SALT_EXPANSION_PER_F`]
 /// from the reference state, in the salt and in the basket's salt share.
@@ -349,7 +387,7 @@ pub fn kelvin_from_f(t_f: f64) -> f64 {
 /// out).
 pub fn materials_at(mo: MoTreatment, t_f: f64) -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
     let f = 1.0 + SALT_EXPANSION_PER_F * (t_f - REFERENCE_TEMPERATURE_F);
-    let salt: Vec<(&'static str, f64)> = SALT.iter().map(|&(n, d)| (n, d * f)).collect();
+    let salt: Vec<(&'static str, f64)> = default_salt().into_iter().map(|(n, d)| (n, d * f)).collect();
     let (fi, fg, fs) = basket_fractions();
     let mut basket: Vec<(&'static str, f64)> = Vec::new();
     let parts: [(f64, Vec<(&'static str, f64)>); 3] =
@@ -404,7 +442,8 @@ fn zcyl(x0: f64, y0: f64, r: f64, bc: BoundaryType) -> SurfaceKind {
 
 /// Linear scale factors applied to the cold (as-drawn) dimensions: one for
 /// everything graphite, one for everything INOR-8. Both 1.0 is the cold
-/// geometry every N-1 and N-3 record used.
+/// geometry every N-1 and N-3 record used ~~.~~ before 2026-11-13; since
+/// then [`Dims::at`] is the default and [`Dims::COLD`] the ablation.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Dims {
     /// Graphite: stringer pitch and passages, core radius and height, the
@@ -434,6 +473,21 @@ impl Dims {
     pub fn hot(t_f: f64, graphite_per_f: f64, inor8_per_f: f64) -> Dims {
         let dt = t_f - COLD_TEMPERATURE_F;
         Dims { graphite: 1.0 + graphite_per_f * dt, inor8: 1.0 + inor8_per_f * dt }
+    }
+
+    /// **The default dimensions** (since 2026-11-13, maintainer: "have a
+    /// dimension dynamically shifting with temp"): each solid expanded from
+    /// [`COLD_TEMPERATURE_F`] to its own temperature, with TM-0728 §5.3's
+    /// coefficients. Graphite follows `graphite_f`. INOR-8 (core can,
+    /// vessel, heads, thimbles) follows `salt_f`, the salt it is wetted by.
+    /// Isothermal, this is `Dims::hot(t, ..)` exactly. [`Dims::COLD`] is the
+    /// ablation (`--cold-dims`). The shield is water-cooled and keeps its
+    /// drawn dimensions.
+    pub fn at(salt_f: f64, graphite_f: f64) -> Dims {
+        Dims {
+            graphite: 1.0 + GRAPHITE_EXPANSION_PER_F * (graphite_f - COLD_TEMPERATURE_F),
+            inor8: 1.0 + INOR8_EXPANSION_PER_F * (salt_f - COLD_TEMPERATURE_F),
+        }
     }
 }
 
@@ -731,11 +785,17 @@ pub fn geometry_with_ends(t_salt_k: f64, t_graphite_k: f64, d: Dims, ends: Ends)
     }
 }
 
-/// Whether the thermal shield is modelled (N-1 residual ablation, gh:#1128).
+/// Whether the thermal shield is modelled (gh:#1128).
+///
+/// **The default is [`Shield::Tm0728Full`]** since 2026-11-13 (maintainer:
+/// "Shields all in shld be default"; pinned by
+/// `tests::defaults_are_the_whole_shield_and_dims_at_temperature`).
+/// [`Shield::Omitted`] is the ablation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Shield {
-    /// Vacuum outside the vessel: every recorded N-1 and N-3 result.
-    #[default]
+    /// Vacuum outside the vessel: ~~every recorded N-1 and N-3 result~~
+    /// every N-1 and N-3 result recorded before 2026-11-13, and now the
+    /// ablation (`--shield none`).
     Omitted,
     /// The shield's cylindrical section, ORNL-TM-0728 §5.3.10.1 (report
     /// p. 128): 151 in high, 125 in OD and 93 in ID, two 1 in Type 304 walls
@@ -750,7 +810,185 @@ pub enum Shield {
     /// - **The cylinder's height relative to the vessel is not given either.**
     ///   It is centred on the vessel's mid-height here; at 151 in it overlaps
     ///   the whole vessel (about 80 in) either way.
+    ///   ~~not given~~ **Measured 2026-11-12** from TM-0728 Fig. 5.2: the
+    ///   vessel sits about 7 in below the cylinder's centre. That is used by
+    ///   [`Shield::Tm0728Full`]; this variant stays centred, so its recorded
+    ///   results are reproducible.
     Tm0728Cylinder,
+    /// The whole shield as TM-0728 §5.3.10 and Fig. 5.2 give it
+    /// ([`geometry_with_full_shield`], [`full_shield_materials`]; gh:#1128):
+    /// - the cylinder placed by Fig. 5.2: the vessel's mid-height at
+    ///   [`FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM`] above the cylinder's bottom;
+    /// - the 18 in base below it, at the cylinder's OD;
+    /// - the 16 in cover inside the cylinder's top, with its 22⅝ in hole;
+    /// - the ball annulus at the 0.60 packing that "70 tons (475 ft³)" gives,
+    ///   with the twelve 1 in radial webs.
+    ///
+    /// The 6 in insulation and the furnace annulus stay void. Their materials
+    /// are not given.
+    #[default]
+    Tm0728Full,
+}
+
+/// Height of the vessel's mid-height above the shield cylinder's bottom,
+/// 68.5 in: the vessel spans about 23 to 114 in above it, scaled from
+/// TM-0728 Fig. 5.2 (±3 in; `data/tm0728_fig5_2_reactor_cell.csv`).
+pub const FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM: f64 = 68.5 * INCH;
+/// The base's thickness, an 18 in tank (TM-0728 §5.3.10.1).
+pub const SHIELD_BASE_THICKNESS: f64 = 18.0 * INCH;
+/// The cover: 79¾ in OD, 16 in thick, inside the cylinder's top, with a
+/// 22⅝ in central hole (TM-0728 §5.3.10.1).
+pub const SHIELD_COVER_R: f64 = 79.75 / 2.0 * INCH;
+/// The cover's thickness.
+pub const SHIELD_COVER_THICKNESS: f64 = 16.0 * INCH;
+/// The cover's central hole radius.
+pub const SHIELD_COVER_HOLE_R: f64 = 22.625 / 2.0 * INCH;
+/// Ball packing in the annulus from "approximately 70 tons (475 ft³)" of
+/// 1 in carbon-steel balls (TM-0728 p. 128): 70 short tons (63 503 kg) at
+/// 7 870 kg/m³ is 8.069 m³ of steel in 13.45 m³ of bed.
+pub const SHIELD_BALL_FRACTION_TM0728_TONS: f64 = 63_502.9 / 7870.0 / (475.0 * 0.028_316_846_6);
+
+/// Water at 0.9982 g/cm³ (293.6 K), atoms/b-cm, times `f`.
+fn water(f: f64) -> Vec<(&'static str, f64)> {
+    let molecules = 0.9982 * f * 0.602214076 / 18.0153;
+    vec![("H1", 2.0 * molecules), ("O16", molecules)]
+}
+
+/// Sum of compositions, each scaled by its volume fraction.
+fn mix(parts: &[(f64, Vec<(&'static str, f64)>)]) -> Vec<(&'static str, f64)> {
+    let mut out: Vec<(&'static str, f64)> = Vec::new();
+    for (w, comps) in parts {
+        for &(n, d) in comps {
+            match out.iter_mut().find(|e| e.0 == n) {
+                Some(e) => e.1 += w * d,
+                None => out.push((n, w * d)),
+            }
+        }
+    }
+    out
+}
+
+/// Carbon steel as iron, 7.87 g/cm³, at the shield temperature.
+fn carbon_steel() -> Vec<(&'static str, f64)> {
+    element(7.87, 1.0, 55.845, &FE_NATURAL_SHIELD)
+}
+
+/// Volume fractions of the full shield's homogenised zones, each from
+/// TM-0728 §5.3.10.1:
+/// - **annulus:** twelve 1 in radial 304 webs across the 14 in annulus,
+///   `12 in / (2π × 54.5 in)` = 3.5 %, and balls at
+///   [`SHIELD_BALL_FRACTION_TM0728_TONS`] with water in the rest;
+/// - **base:** 3/4 in 304 top and bottom plates (1.5 of 18 in, 8.3 %), and
+///   fifteen 8 in 20 lb/ft I-beams. Assuming about 10 ft each, that is
+///   1 361 kg of carbon steel in the 3.62 m³ base (4.8 %). Water fills the
+///   rest, because the cooling water "flows in series through the base";
+/// - **cover:** 1 in 304 top and bottom (2 of 16 in, 12.5 %), twelve 1 in
+///   radial 304 webs (`12 / (π × 39.9)`, 9.6 %), four 1 in carbon-steel
+///   plates per segment (4 of 16 in, 25 %), and water in the rest.
+pub const FULL_SHIELD_FRACTIONS: [(&str, f64, f64); 3] = [
+    // (zone, 304 fraction, carbon-steel fraction); water fills the rest
+    ("base", 0.083, 0.048),
+    ("cover", 0.125 + 0.096, 0.25),
+    ("annulus webs", 0.035, 0.0),
+];
+
+/// The full shield's four materials, in the order
+/// [`geometry_with_full_shield`] expects: 304 plate, ball annulus (with
+/// webs), base, cover.
+pub fn full_shield_materials() -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    let f_ball = SHIELD_BALL_FRACTION_TM0728_TONS;
+    let web = FULL_SHIELD_FRACTIONS[2].1;
+    let annulus = mix(&[(web, ss304()), ((1.0 - web) * f_ball, carbon_steel()), ((1.0 - web) * (1.0 - f_ball), water(1.0))]);
+    let zone = |i: usize| {
+        let (_, ss, cs) = FULL_SHIELD_FRACTIONS[i];
+        mix(&[(ss, ss304()), (cs, carbon_steel()), (1.0 - ss - cs, water(1.0))])
+    };
+    vec![
+        ("Thermal shield 304 plate", ss304()),
+        ("Thermal shield ball annulus, 70 tons + webs", annulus),
+        ("Thermal shield base (homogenised)", zone(0)),
+        ("Thermal shield cover (homogenised)", zone(1)),
+    ]
+}
+
+/// The default vessel inside the whole thermal shield ([`Shield::Tm0728Full`]).
+/// Built from [`geometry_with_ends`] unchanged: the vessel's three vacuum
+/// surfaces become transmissive, and the shield's cells are added to the
+/// root universe, closed by vacuum at the shield's outer radius, under the
+/// base and on the cylinder's top. Every cell added is new; the vessel's are
+/// the default build's, cell for cell.
+pub fn geometry_with_full_shield(t_salt_k: f64, t_graphite_k: f64, d: Dims, ends: Ends, first_shield_material: usize) -> Geometry {
+    let mut g = geometry_with_ends(t_salt_k, t_graphite_k, d, ends);
+    let t = BoundaryType::Transmissive;
+    let v = BoundaryType::Vacuum;
+    let mut vac: Vec<usize> = Vec::new();
+    for (i, s) in g.surfaces.iter_mut().enumerate() {
+        match s {
+            SurfaceKind::ZCylinder(c) if c.bc == v => {
+                c.bc = t;
+                vac.push(i);
+            }
+            SurfaceKind::ZPlane(p) if p.bc == v => {
+                p.bc = t;
+                vac.push(i);
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(vac.len(), 3, "the vessel is closed by one cylinder and two planes");
+    let r_vo = vac[0];
+    let (zlb, zut) = match (&g.surfaces[vac[1]], &g.surfaces[vac[2]]) {
+        (SurfaceKind::ZPlane(a), SurfaceKind::ZPlane(b)) if a.z0 < b.z0 => (vac[1], vac[2]),
+        _ => (vac[2], vac[1]),
+    };
+    let z_mid = match (&g.surfaces[zlb], &g.surfaces[zut]) {
+        (SurfaceKind::ZPlane(a), SurfaceKind::ZPlane(b)) => (a.z0 + b.z0) / 2.0,
+        _ => unreachable!("planes"),
+    };
+    let zc0 = z_mid - FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM;
+    let zc1 = zc0 + SHIELD_HEIGHT;
+    let zcov = zc1 - SHIELD_COVER_THICKNESS;
+    let zb = zc0 - SHIELD_BASE_THICKNESS;
+    let mut add = |s: SurfaceKind| {
+        g.surfaces.push(s);
+        g.surfaces.len() - 1
+    };
+    let r1 = add(zcyl(0.0, 0.0, SHIELD_R_IN, t));
+    let r2 = add(zcyl(0.0, 0.0, SHIELD_R_IN + SHIELD_PLATE, t));
+    let r3 = add(zcyl(0.0, 0.0, SHIELD_R_OUT - SHIELD_PLATE, t));
+    let r4 = add(zcyl(0.0, 0.0, SHIELD_R_OUT, v));
+    let rc = add(zcyl(0.0, 0.0, SHIELD_COVER_R, t));
+    let rh = add(zcyl(0.0, 0.0, SHIELD_COVER_HOLE_R, t));
+    let p_b = add(SurfaceKind::ZPlane(ZPlane { z0: zb, bc: v }));
+    let p_c0 = add(SurfaceKind::ZPlane(ZPlane { z0: zc0, bc: t }));
+    let p_cov = add(SurfaceKind::ZPlane(ZPlane { z0: zcov, bc: t }));
+    let p_c1 = add(SurfaceKind::ZPlane(ZPlane { z0: zc1, bc: v }));
+    let tk = SHIELD_TEMPERATURE_K;
+    let (plate, balls, base, cover) = (first_shield_material, first_shield_material + 1, first_shield_material + 2, first_shield_material + 3);
+    let void = |id: i32, r: &[RegionToken]| Cell::fill(id, all_of(r), CellFill::Void, Position::ZERO);
+    let new_cells = vec![
+        // Inside the cylinder, below the cover: void around the vessel.
+        void(80, &[hs(r_vo, false), hs(r1, true), hs(p_c0, false), hs(p_cov, true)]),
+        void(81, &[hs(r_vo, true), hs(p_c0, false), hs(zlb, true)]),
+        void(82, &[hs(r_vo, true), hs(zut, false), hs(p_cov, true)]),
+        // Cover level: the hole, the cover, the gap to the cylinder wall.
+        void(86, &[hs(rh, true), hs(p_cov, false), hs(p_c1, true)]),
+        Cell::material(87, all_of(&[hs(rh, false), hs(rc, true), hs(p_cov, false), hs(p_c1, true)]), cover, tk),
+        void(88, &[hs(rc, false), hs(r1, true), hs(p_cov, false), hs(p_c1, true)]),
+        // The cylinder: plate, ball annulus, plate.
+        Cell::material(83, all_of(&[hs(r1, false), hs(r2, true), hs(p_c0, false), hs(p_c1, true)]), plate, tk),
+        Cell::material(84, all_of(&[hs(r2, false), hs(r3, true), hs(p_c0, false), hs(p_c1, true)]), balls, tk),
+        Cell::material(85, all_of(&[hs(r3, false), hs(r4, true), hs(p_c0, false), hs(p_c1, true)]), plate, tk),
+        // The base under it all.
+        Cell::material(89, all_of(&[hs(r4, true), hs(p_b, false), hs(p_c0, true)]), base, tk),
+    ];
+    let root = g.root_universe;
+    for c in new_cells {
+        g.cells.push(c);
+        let idx = g.cells.len() - 1;
+        g.universes[root].cell_indices.push(idx);
+    }
+    g
 }
 
 /// The shield cylinder's inner radius (93 in ID), TM-0728 p. 128.
@@ -903,6 +1141,51 @@ pub fn salt_with_enriching_salt(salt: &[(&'static str, f64)], u235_scale: f64) -
             (n, v + d)
         })
         .collect()
+}
+
+/// The 93 % uranium's composition as ORNL-TM-0730 Table 3.2 (p. 21) assumes
+/// it, atom %: U-234, U-235, U-236, U-238 = 1, 93, 1, 5. This is a design
+/// assumption, not an assay of the lot loaded in 1965 (none was found).
+pub const ENRICHED_LOT_ATOM_PCT: [f64; 4] = [1.0, 93.0, 1.0, 5.0];
+
+/// Share of the salt's U-235 that came from the enriched lot: in
+/// `scripts/salt.py`, 69.6 kg of U-235 of which 150 kg of depleted uranium
+/// at its assumed 0.2 % assay supplies 0.3 kg.
+pub const U235_FROM_ENRICHED: f64 = (69.6 - 150.0 * 0.002) / 69.6;
+
+/// The extra nuclides [`salt_with_tm0730_minor_uranium`] needs.
+pub const MINOR_U_NUCLIDES: [(&str, &str); 2] = [("U234", "n-092_U_234-ENDF8.0.endf"), ("U236", "n-092_U_236-ENDF8.0.endf")];
+
+/// `salt` with the enriched lot's non-²³⁵U split as TM-0730 assumes it
+/// ([`ENRICHED_LOT_ATOM_PCT`]), in place of `scripts/salt.py`'s "all U-238"
+/// (gh:#1128).
+///
+/// U-235 is unchanged. The lot's U-235, `f N₅` with `f` =
+/// [`U235_FROM_ENRICHED`], brings U-234 and U-236 at 1/93 of it each and
+/// U-238 at 5/93. These replace the U-238 that `salt.py` gave it: 7 % of the
+/// lot's mass, at a lot mass of `f N₅ · 235.0439 / 0.93`. Fluorine follows
+/// the change in uranium atoms, 4 per U. Everything else is unchanged.
+///
+/// The split's total mass is about 1 % above the 7 % it replaces, because
+/// atom % and wt % differ. The volume is held fixed.
+pub fn salt_with_tm0730_minor_uranium(salt: &[(&'static str, f64)]) -> Vec<(&'static str, f64)> {
+    let get = |n: &str| salt.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+    let n5e = U235_FROM_ENRICHED * get("U235");
+    let [p4, p5, p6, p8] = ENRICHED_LOT_ATOM_PCT;
+    let old_u238_from_lot = n5e * 235.043_930 / 0.93 * 0.07 / 238.050_788;
+    let (n4, n6, n8) = (n5e * p4 / p5, n5e * p6 / p5, n5e * p8 / p5);
+    let d_u = n4 + n6 + n8 - old_u238_from_lot;
+    let mut out: Vec<(&'static str, f64)> = salt
+        .iter()
+        .map(|&(n, v)| match n {
+            "U238" => (n, v - old_u238_from_lot + n8),
+            "F19" => (n, v + 4.0 * d_u),
+            _ => (n, v),
+        })
+        .collect();
+    out.push(("U234", n4));
+    out.push(("U236", n6));
+    out
 }
 
 /// [`shield_ball_zone`] with its water removed: the same balls, the space
@@ -1150,6 +1433,225 @@ pub fn geometry_with_rods(mut g: Geometry, d: Dims, inserted: [bool; 3], first_r
     g
 }
 
+/// Rod travel, TM-0728 Table 5.4 \[in\].
+pub const ROD_TRAVEL_IN: f64 = 51.0;
+/// Poison section length, TM-0728 Table 5.4 (59.36 in; §5.3.5.2 rounds it
+/// to 59.4) \[in\].
+pub const ROD_POISON_LENGTH_IN: f64 = 59.36;
+/// Height of a rod's lower end at rod position 0 ("driven rod lower
+/// limit"), above the bottom of the 64 in stringers \[in\].
+///
+/// From ORNL-4233 Fig. 2 (ORNL-DWG 65-7573), which draws the rod-position
+/// scale against the vessel's elevations: position 0 is at 829 ft 0 in,
+/// position 51 ("upper rod limit") at 833 ft 3 in, the graphite matrix
+/// (65.5 in) from 828 ft 0¼ in to the top of most graphite at
+/// 833 ft 5¾ in. The model's 64 in stringers ([`H_CORE`]) are taken to end
+/// at that top, so they start 1.5 in above the matrix bottom (the
+/// horizontal graphite under them), at 828 ft 1¾ in. Then position 0 is
+/// 10.25 in above the stringer bottom, and position 51 is 2.75 in below
+/// their top: anchored at the top or the bottom, the two readings agree.
+///
+/// So a fully withdrawn rod still holds 2.75 in of poison in the top of the
+/// graphite. That is the "0.08 % δk/k rod poisoning" ORNL-4233 quotes for
+/// rods withdrawn, which [`REFERENCE_K`] removes from the measured state.
+pub const ROD_DRIVEN_LOWER_END_IN: f64 = 10.25;
+/// The scrammed rod's lower limit, rod position −4 in (ORNL-4233 Fig. 2).
+pub const ROD_SCRAM_POSITION_IN: f64 = -4.0;
+
+/// ORNL's rod position ("inches withdrawn", 0 = driven lower limit, 51 =
+/// upper limit) of a rod inserted by fraction `f` of its travel: 0 is the
+/// upper limit, 1 the driven lower limit. Clamped to 0..=1.
+pub fn rod_position_in(f: f64) -> f64 {
+    ROD_TRAVEL_IN * (1.0 - f.clamp(0.0, 1.0))
+}
+
+/// `z` \[cm\] of a rod's lower end at rod position `position_in` (ORNL's
+/// inches withdrawn, [`ROD_SCRAM_POSITION_IN`] to [`ROD_TRAVEL_IN`]). The
+/// position is measured against the graphite, so it scales with the
+/// graphite's expansion `d.graphite`; the rod's own expansion and the
+/// drive's are not modelled (a few tenths of an inch at most).
+pub fn rod_lower_end_z(position_in: f64, d: Dims) -> f64 {
+    (ROD_DRIVEN_LOWER_END_IN + position_in) * INCH * d.graphite
+}
+
+/// `g` with control rods at partial insertion (gh:#1658): rod `i` at
+/// ORNL rod position `positions_in[i]` (inches withdrawn; `None` leaves the
+/// thimble empty, as [`Study`]'s default does).
+///
+/// Each rod is [`geometry_with_rods`]' concentric section (element shell,
+/// ceramic, gaps; TM-0728 Table 5.4), but only over its poison section:
+/// from its lower end ([`rod_lower_end_z`]) up [`ROD_POISON_LENGTH_IN`].
+/// Inside the shell's outer radius, below and above that section the
+/// thimble is void (the flexible hose above the poison and the cables are
+/// omitted, as in [`geometry_with_rods`]). Rod dimensions are cold. New
+/// cells are numbered 200 + 10 i + k (rings) and 209 + 10 i (the void
+/// outside the section).
+pub fn geometry_with_rods_at(mut g: Geometry, d: Dims, positions_in: [Option<f64>; 3], first_rod_material: usize, t_k: f64) -> Geometry {
+    let t = BoundaryType::Transmissive;
+    let radii = [
+        ROD_SHELL_R_IN,
+        ROD_SHELL_R_IN + ROD_CLAD,
+        ROD_CERAMIC_R_IN,
+        ROD_CERAMIC_R_OUT,
+        ROD_SHELL_R_OUT - ROD_CLAD,
+        ROD_SHELL_R_OUT,
+    ];
+    let (inconel, poison) = (first_rod_material, first_rod_material + 1);
+    let fills = [None, Some(inconel), None, Some(poison), None, Some(inconel)];
+    let root = g.root_universe;
+    for (i, &(x, y)) in OPENINGS[..3].iter().enumerate() {
+        let Some(p) = positions_in[i] else { continue };
+        let idx = g.cells.iter().position(|c| c.id == 20 + i as i32).expect("thimble void cell");
+        let base = g.cells[idx].region.clone();
+        let s: Vec<usize> = radii
+            .iter()
+            .map(|&r| {
+                g.surfaces.push(zcyl(x * d.graphite, y * d.graphite, r, t));
+                g.surfaces.len() - 1
+            })
+            .collect();
+        let z_lo = rod_lower_end_z(p, d);
+        let z_hi = z_lo + ROD_POISON_LENGTH_IN * INCH * d.graphite;
+        g.surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: z_lo, bc: t }));
+        let p_lo = g.surfaces.len() - 1;
+        g.surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: z_hi, bc: t }));
+        let p_hi = g.surfaces.len() - 1;
+        // The thimble's own void keeps only the gap outside the rod.
+        g.cells[idx].region.push(hs(s[5], false));
+        g.cells[idx].region.push(RegionToken::Intersection);
+        let push = |g: &mut Geometry, cell: Cell| {
+            g.cells.push(cell);
+            let n = g.cells.len() - 1;
+            g.universes[root].cell_indices.push(n);
+        };
+        for (k, fill) in fills.iter().enumerate() {
+            let mut region = base.clone();
+            region.push(hs(s[k], true));
+            region.push(RegionToken::Intersection);
+            if k > 0 {
+                region.push(hs(s[k - 1], false));
+                region.push(RegionToken::Intersection);
+            }
+            region.extend([hs(p_lo, false), RegionToken::Intersection, hs(p_hi, true), RegionToken::Intersection]);
+            let id = 200 + 10 * i as i32 + k as i32;
+            let cell = match fill {
+                Some(m) => Cell::material(id, region, *m, t_k),
+                None => Cell::fill(id, region, CellFill::Void, Position::ZERO),
+            };
+            push(&mut g, cell);
+        }
+        let mut outside = base.clone();
+        outside.push(hs(s[5], true));
+        outside.push(RegionToken::Intersection);
+        outside.extend(any_of(vec![vec![hs(p_lo, true)], vec![hs(p_hi, false)]]));
+        outside.push(RegionToken::Intersection);
+        push(&mut g, Cell::fill(209 + 10 * i as i32, outside, CellFill::Void, Position::ZERO));
+    }
+    g
+}
+
+/// `g` with the fuel salt only up to `z_level` \[cm\] (gh:#1659): above
+/// it, every space the salt filled is void (helium cover gas, at a density
+/// that does not matter to neutrons).
+///
+/// Salt cells of the root universe (heads, plenums, the annulus, the
+/// openings) are split by a plane at `z_level`. The stringer lattice is
+/// not split inside its universe; instead the root cell holding it is
+/// split at the plane, and above it holds a twin lattice whose stringers
+/// have empty channels (cell 103 for the channels, universe and lattice
+/// id 2). Split-off cells take id + 1000. A level above the salt changes
+/// nothing a particle can see.
+pub fn geometry_with_salt_level(mut g: Geometry, z_level: f64) -> Geometry {
+    let t = BoundaryType::Transmissive;
+    g.surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: z_level, bc: t }));
+    let plane = g.surfaces.len() - 1;
+    let root = g.root_universe;
+    // The dry twin of the stringer universe and of its lattice.
+    let wet_universe = 1;
+    let dry_cells: Vec<Cell> = g.universes[wet_universe]
+        .cell_indices
+        .iter()
+        .map(|&c| {
+            let cell = &g.cells[c];
+            match cell.fill {
+                CellFill::Material(m) if m == SALT_IDX => Cell::fill(103, cell.region.clone(), CellFill::Void, Position::ZERO),
+                _ => cell.clone(),
+            }
+        })
+        .collect();
+    let first = g.cells.len();
+    let n_dry = dry_cells.len();
+    g.cells.extend(dry_cells);
+    let dry_universe = g.universes.len();
+    g.universes.push(Universe { id: 2, cell_indices: (first..first + n_dry).collect() });
+    let dry_lattice = match &g.lattices[0] {
+        Lattice::Rect(l) => {
+            let mut d = l.clone();
+            d.id = 2;
+            d.universes = vec![dry_universe; l.universes.len()];
+            Lattice::Rect(d)
+        }
+        other => other.clone(),
+    };
+    g.lattices.push(dry_lattice);
+    let dry_lattice_idx = g.lattices.len() - 1;
+    let root_cells: Vec<usize> = g.universes[root].cell_indices.clone();
+    for c in root_cells {
+        let twin_fill = match g.cells[c].fill {
+            CellFill::Material(m) if m == SALT_IDX => CellFill::Void,
+            CellFill::Lattice(0) => CellFill::Lattice(dry_lattice_idx),
+            _ => continue,
+        };
+        let mut above = g.cells[c].region.clone();
+        above.extend([hs(plane, false), RegionToken::Intersection]);
+        let twin = Cell { id: g.cells[c].id + 1000, region: above, fill: twin_fill, ..g.cells[c].clone() };
+        g.cells[c].region.extend([hs(plane, true), RegionToken::Intersection]);
+        g.cells.push(twin);
+        let n = g.cells.len() - 1;
+        g.universes[root].cell_indices.push(n);
+    }
+    g
+}
+
+/// `salt` with its uranium's ²³⁵U weight fraction set to `w` at the same
+/// number of uranium atoms (gh:#1660). ²³⁴U and ²³⁶U stay in their
+/// proportion to ²³⁵U (so in TM-0730's enriched-lot ratio when the salt
+/// carries them, [`salt_with_tm0730_minor_uranium`]); ²³⁸U takes the rest.
+/// Fluorine is unchanged (UF₄: the U atoms are), and so is everything else.
+/// The volume is held fixed.
+///
+/// # Panics
+/// If `w` asks for more ²³⁵U, with its minor isotopes, than the uranium
+/// atoms hold (the ²³⁸U would go negative), or the salt has no ²³⁵U.
+pub fn salt_with_enrichment(salt: &[(&'static str, f64)], w: f64) -> Vec<(&'static str, f64)> {
+    let get = |n: &str| salt.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+    let (n4, n5, n6, n8) = (get("U234"), get("U235"), get("U236"), get("U238"));
+    assert!(n5 > 0.0, "the salt has no U-235");
+    let (m4, m5, m6, m8) = (234.040_952, 235.043_930, 236.045_568, 238.050_788);
+    let (r4, r6) = (n4 / n5, n6 / n5);
+    let n_u = n4 + n5 + n6 + n8;
+    // w (a (m5 + r4 m4 + r6 m6) + (N_U - a (1 + r4 + r6)) m8) = a m5, linear in a.
+    let a = w * n_u * m8 / (m5 - w * (m5 + r4 * m4 + r6 * m6) + w * (1.0 + r4 + r6) * m8);
+    let new8 = n_u - a * (1.0 + r4 + r6);
+    assert!(new8 >= 0.0, "enrichment {w} needs more U-235 than the uranium atoms hold");
+    salt.iter()
+        .map(|&(n, v)| match n {
+            "U235" => (n, a),
+            "U234" => (n, a * r4),
+            "U236" => (n, a * r6),
+            "U238" => (n, new8),
+            _ => (n, v),
+        })
+        .collect()
+}
+
+/// The ²³⁵U weight fraction of `salt`'s uranium.
+pub fn u235_weight_fraction(salt: &[(&'static str, f64)]) -> f64 {
+    let get = |n: &str| salt.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+    let m5 = get("U235") * 235.043_930;
+    m5 / (get("U234") * 234.040_952 + m5 + get("U236") * 236.045_568 + get("U238") * 238.050_788)
+}
+
 /// Fission source box: the graphite core.
 pub fn source_box() -> SourceBox {
     SourceBox {
@@ -1158,10 +1660,205 @@ pub fn source_box() -> SourceBox {
     }
 }
 
+// ─── The default model as one call (gh:#1571) ───────────────────────────────
+
+/// **The N-1 model as the V&V record runs it, as a library call** (gh:#1571,
+/// for the museum MSRE simulator's in-browser k_eff tab). Until then the
+/// default was assembled inside the `msre_n1_first_criticality` example's
+/// `main`, where no other program could reach it.
+///
+/// This adds no model of its own: [`Study::plan`] and [`Study::geometry`]
+/// call the functions above in the same order as the example's `main` does
+/// for its defaults, so the recorded default is reproduced:
+/// - natural Mo ([`MoTreatment::Natural`], arm C);
+/// - the volume-equivalent end plenums ([`Ends::VolumeEquivalent`]);
+/// - dimensions following each solid's temperature ([`Dims::at`]);
+/// - the whole thermal shield ([`Shield::Tm0728Full`]) or none
+///   ([`Study::shield`] false, the ablation);
+/// - the default salt with U-234/U-236 ([`default_salt`]);
+/// - rods out: the thimbles empty ([`Study::rods`] `None`);
+/// - a full vessel ([`Study::salt_level_cm`] `None`) and the salt's own
+///   enrichment ([`Study::u235_enrichment`] `None`);
+/// - reactor graphite 30P S(α,β) on C-12 and C-13 at the graphite's
+///   temperature;
+/// - the shield water's H-1 bound in H₂O at [`SHIELD_TEMPERATURE_K`].
+///
+/// Note the example's `--mo` flag defaults to `omitted`; the record's
+/// default (README, "arm C") is run with `--mo natural`, which this is.
+///
+/// **The example's nuclide temperatures are by name, and so are these**: a
+/// nuclide is loaded once, at the graphite's temperature if it is graphite's
+/// (C-12, C-13, B-10, B-11), at [`SHIELD_TEMPERATURE_K`] if it is one of
+/// [`SHIELD_NUCLIDES`] (named apart, `Fe56s` and so on, on the same tapes as
+/// INOR-8's, so INOR-8's own iron stays at the salt's), and at the salt's
+/// otherwise.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Study {
+    /// Fuel-salt temperature, °F (sets its density and the dimensions of
+    /// INOR-8).
+    pub salt_f: f64,
+    /// Graphite temperature, °F.
+    pub graphite_f: f64,
+    /// The salt's U-235 as a multiple of the default, by ORNL-4233's
+    /// enriching salt ([`salt_with_enriching_salt`]); 1 changes nothing.
+    pub u235_scale: f64,
+    /// The whole TM-0728 shield (`true`, the default) or vacuum outside the
+    /// vessel (the ablation).
+    pub shield: bool,
+    /// The three control rods' insertion, each a fraction of the 51 in
+    /// travel (0 the upper limit, 1 the driven lower limit; rods 2, 1, 3 in
+    /// [`OPENINGS`] order, as [`rods_inserted`]), modelled by
+    /// [`geometry_with_rods_at`] (gh:#1658). `None`, the default, leaves the
+    /// thimbles empty, as every N-1 record ran: the withdrawn rods' 0.08 %
+    /// δk/k is then taken out of the measurement by [`REFERENCE_K`] rather
+    /// than modelled. Needs the seven Gd tapes of [`ROD_NUCLIDES`].
+    pub rods: Option<[f64; 3]>,
+    /// The fuel salt's surface, `z` in cm (stringer bottom at 0), by
+    /// [`geometry_with_salt_level`] (gh:#1659). `None`, the default, is a
+    /// full vessel.
+    pub salt_level_cm: Option<f64>,
+    /// The ²³⁵U weight fraction of the salt's uranium at the same uranium
+    /// atoms, by [`salt_with_enrichment`] (gh:#1660), applied after
+    /// [`Study::u235_scale`]. `None`, the default, leaves the composition.
+    pub u235_enrichment: Option<f64>,
+}
+
+impl Default for Study {
+    fn default() -> Self {
+        Self { salt_f: REFERENCE_TEMPERATURE_F, graphite_f: REFERENCE_TEMPERATURE_F, u235_scale: 1.0, shield: true, rods: None, salt_level_cm: None, u235_enrichment: None }
+    }
+}
+
+/// One nuclide to load: its name, its tape (relative to
+/// `reference-data/endf/`) and the temperature it is processed at, K.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NuclideJob {
+    pub name: &'static str,
+    pub tape: &'static str,
+    pub temperature_k: f64,
+}
+
+/// What [`Study::plan`] gives: the materials (name and atom densities, in
+/// the geometry's material order), each one's temperature, and the
+/// nuclides to load (in the order the materials' indices refer to).
+#[derive(Debug, Clone, PartialEq)]
+pub struct StudyPlan {
+    pub materials: Vec<(&'static str, Vec<(&'static str, f64)>)>,
+    pub material_temperatures_k: Vec<f64>,
+    pub nuclides: Vec<NuclideJob>,
+    /// Salt and graphite temperatures, K.
+    pub salt_k: f64,
+    pub graphite_k: f64,
+}
+
+/// The ENDF/B-VIII.0 thermal-scattering tape of the shield water's H-1.
+pub const H_IN_H2O_TAPE: &str = "tsl-HinH2O.endf";
+
+impl Study {
+    /// The materials, temperatures and nuclides (see [`Study`]).
+    ///
+    /// # Panics
+    /// Never for the tapes this module lists (a nuclide without a tape
+    /// would be a defect in the lists above).
+    pub fn plan(&self) -> StudyPlan {
+        let (t_k, t_g) = (kelvin_from_f(self.salt_f), kelvin_from_f(self.graphite_f));
+        let dims = Dims::at(self.salt_f, self.graphite_f);
+        let mut mats = materials_with_dims(MoTreatment::Natural, self.salt_f, dims);
+        let base = mats.len();
+        if self.shield {
+            mats.extend(full_shield_materials());
+        }
+        let after_shield = mats.len();
+        if self.u235_scale != 1.0 {
+            mats[SALT_IDX].1 = salt_with_enriching_salt(&mats[SALT_IDX].1, self.u235_scale);
+        }
+        if let Some(w) = self.u235_enrichment {
+            mats[SALT_IDX].1 = salt_with_enrichment(&mats[SALT_IDX].1, w);
+        }
+        if self.rods.is_some() {
+            mats.extend(rod_materials());
+        }
+        let mut names: Vec<&'static str> = Vec::new();
+        for (_, comps) in &mats {
+            for (n, _) in comps {
+                if !names.contains(n) {
+                    names.push(n);
+                }
+            }
+        }
+        let mo = mo_tapes(MoTreatment::Natural);
+        let tape_of = |n: &str| -> &'static str {
+            NUCLIDES
+                .iter()
+                .chain(mo.iter())
+                .chain(SHIELD_NUCLIDES.iter())
+                .chain(ROD_NUCLIDES.iter())
+                .chain(MINOR_U_NUCLIDES.iter())
+                .find(|(k, _)| *k == n)
+                .unwrap_or_else(|| panic!("no tape for {n}"))
+                .1
+        };
+        let temp_of = |n: &str| {
+            if GRAPHITE_NUCLIDES.contains(&n) {
+                t_g
+            } else if SHIELD_NUCLIDES.iter().any(|(k, _)| *k == n) {
+                SHIELD_TEMPERATURE_K
+            } else {
+                t_k
+            }
+        };
+        let nuclides = names.iter().map(|&n| NuclideJob { name: n, tape: tape_of(n), temperature_k: temp_of(n) }).collect();
+        let material_temperatures_k = (0..mats.len())
+            .map(|i| if i == GRAPHITE_IDX { t_g } else if i >= base && i < after_shield { SHIELD_TEMPERATURE_K } else { t_k })
+            .collect();
+        StudyPlan { materials: mats, material_temperatures_k, nuclides, salt_k: t_k, graphite_k: t_g }
+    }
+
+    /// The assembled geometry, in [`StudyPlan::materials`]' order.
+    pub fn geometry(&self) -> Geometry {
+        let (t_k, t_g) = (kelvin_from_f(self.salt_f), kelvin_from_f(self.graphite_f));
+        let dims = Dims::at(self.salt_f, self.graphite_f);
+        let base = materials_with_dims(MoTreatment::Natural, self.salt_f, dims).len();
+        let mut g = if self.shield {
+            geometry_with_full_shield(t_k, t_g, dims, Ends::VolumeEquivalent, base)
+        } else {
+            geometry_with_ends(t_k, t_g, dims, Ends::VolumeEquivalent)
+        };
+        if let Some(f) = self.rods {
+            let first_rod = base + if self.shield { full_shield_materials().len() } else { 0 };
+            g = geometry_with_rods_at(g, dims, f.map(|x| Some(rod_position_in(x))), first_rod, t_k);
+        }
+        if let Some(z) = self.salt_level_cm {
+            g = geometry_with_salt_level(g, z);
+        }
+        g
+    }
+}
+
+impl StudyPlan {
+    /// The transport materials, each component pointing at its nuclide's
+    /// position in [`StudyPlan::nuclides`].
+    pub fn transport_materials(&self) -> Vec<crate::material::material::Material> {
+        use crate::material::material::{Material, NuclideComponent};
+        let idx = |n: &str| self.nuclides.iter().position(|j| j.name == n).expect("planned nuclide");
+        self.materials
+            .iter()
+            .enumerate()
+            .map(|(i, (name, comps))| Material {
+                id: i as i32 + 1,
+                name: (*name).into(),
+                temperature: self.material_temperatures_k[i],
+                components: comps.iter().map(|(n, d)| NuclideComponent { nuclide_idx: idx(n), atom_density: *d }).collect(),
+            })
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::geometry::plot::{PlotBasis, SlicePlot, SliceHit};
+    use alloc::collections::BTreeMap;
 
     fn census(g: &Geometry, origin: Position, basis: PlotBasis, width: [f64; 2], px: usize) -> (Vec<usize>, usize, usize) {
         let plot = SlicePlot {
@@ -1199,6 +1896,7 @@ mod tests {
         assert_eq!((void, other), (0, 0));
         let total: usize = m.iter().sum();
         let f = m[SALT_IDX] as f64 / total as f64;
+        #[cfg(feature = "std")]
         println!("stringer fuel fraction {f:.5} (analytic {STRINGER_FUEL_FRACTION:.5}, TM-0728 Table 5.4: 0.224)");
         assert!((f - STRINGER_FUEL_FRACTION).abs() < 2e-3, "{f}");
         assert!((STRINGER_FUEL_FRACTION / 0.224 - 1.0).abs() < 0.006);
@@ -1214,12 +1912,14 @@ mod tests {
         let px = 1400;
         let (m, void, outside) = census(&g, Position::new(0.0, 0.0, H_CORE / 2.0), PlotBasis::Xy, [w, w], px);
         // The window's corners lie beyond the vessel: outside the model.
+        #[cfg(feature = "std")]
         println!("pixels outside the model (window corners): {outside}");
         let a_px = (w / px as f64).powi(2);
         // The square window clips the gap/can/downcomer rings; inside the
         // graphite radius only the lattice, openings and thimble voids lie.
         let graphite = m[GRAPHITE_IDX] as f64 * a_px * H_CORE / FT3;
         let salt_all = m[SALT_IDX] as f64 * a_px * H_CORE / FT3;
+        #[cfg(feature = "std")]
         println!("mid-plane census: graphite {graphite:.2} ft3, salt (window incl. gap) {salt_all:.2} ft3, void px {void}");
         assert!((graphite / 69.0 - 1.0).abs() < 0.02, "graphite {graphite}");
     }
@@ -1232,13 +1932,59 @@ mod tests {
     #[test]
     fn cold_dims_build_the_recorded_geometry() {
         let s = format!("{:?}", geometry_at_split(911.0, 950.0));
+        // `Cell::temperature` became `Option<f64>` on 2026-11-14 (GitHub #313):
+        // `Some(t)` prints as `t` and an unset fill cell's `None` as the
+        // `293.6` it used to carry, so the recorded hash is checked on the
+        // text rewritten back to that form (the pin itself is unchanged).
+        let s = legacy_cell_temperature_text(&s);
         let mut h: u64 = 0xcbf29ce484222325;
         for b in s.bytes() {
             h ^= b as u64;
             h = h.wrapping_mul(0x100000001b3);
         }
         assert_eq!((h, s.len()), (0x364611a9909b0605, 14517));
-        assert_eq!(format!("{:?}", geometry_with_dims(911.0, 950.0, Dims::COLD)), s);
+        assert_eq!(
+            legacy_cell_temperature_text(&format!("{:?}", geometry_with_dims(911.0, 950.0, Dims::COLD))),
+            s
+        );
+    }
+
+    /// `Debug` text of a geometry with `temperature: Some(t)` rewritten to
+    /// `temperature: t` and `temperature: None` to `temperature: 293.6`: the
+    /// form the recorded hash was printed from (before GitHub #313).
+    fn legacy_cell_temperature_text(s: &str) -> String {
+        let mut out = String::with_capacity(s.len());
+        let mut rest = s;
+        while let Some(i) = rest.find("temperature: ") {
+            let (head, tail) = rest.split_at(i + "temperature: ".len());
+            out.push_str(head);
+            if let Some(t) = tail.strip_prefix("Some(") {
+                let close = t.find(')').expect("closing paren");
+                out.push_str(&t[..close]);
+                rest = &t[close + 1..];
+            } else if let Some(t) = tail.strip_prefix("None") {
+                out.push_str("293.6");
+                rest = t;
+            } else {
+                rest = tail;
+            }
+        }
+        out.push_str(rest);
+        out
+    }
+
+    /// The defaults the maintainer set on 2026-11-13: the whole shield, and
+    /// dimensions that follow each solid's own temperature (isothermal: the
+    /// old `--hot-dims` exactly; split: graphite by its own temperature).
+    #[test]
+    fn defaults_are_the_whole_shield_and_dims_at_temperature() {
+        assert_eq!(Shield::default(), Shield::Tm0728Full);
+        let hot = Dims::hot(1181.0, GRAPHITE_EXPANSION_PER_F, INOR8_EXPANSION_PER_F);
+        assert_eq!(Dims::at(1181.0, 1181.0), hot);
+        let split = Dims::at(1231.0, 1131.0);
+        assert_eq!(split.inor8, Dims::hot(1231.0, GRAPHITE_EXPANSION_PER_F, INOR8_EXPANSION_PER_F).inor8);
+        assert_eq!(split.graphite, Dims::hot(1131.0, GRAPHITE_EXPANSION_PER_F, INOR8_EXPANSION_PER_F).graphite);
+        assert_eq!(Dims::at(COLD_TEMPERATURE_F, COLD_TEMPERATURE_F), Dims::COLD);
     }
 
     /// Hot dimensions reproduce TM-0728 §5.3's statement that heatup moves
@@ -1307,6 +2053,56 @@ mod tests {
     }
 
     #[test]
+    fn the_default_salt_carries_u234_and_u236() {
+        // Pins the 2026-11-12 default (correct physics is the default).
+        let salt = &materials(MoTreatment::Natural)[SALT_IDX].1;
+        for n in ["U234", "U236"] {
+            assert!(salt.iter().any(|e| e.0 == n && e.1 > 0.0), "default salt lacks {n}");
+        }
+        assert_eq!(*salt, default_salt());
+        // The basket's salt share carries them too.
+        assert!(materials(MoTreatment::Natural)[BASKET_IDX].1.iter().any(|e| e.0 == "U234"));
+        // The ablation restores the recorded composition, to round-off.
+        let back = salt_without_minor_uranium(&default_salt());
+        assert_eq!(back.len(), SALT.len());
+        for ((a, x), (b, y)) in back.iter().zip(SALT.iter()) {
+            assert_eq!(a, b);
+            assert!((x - y).abs() <= 1e-15 * y.abs().max(1e-30) + 1e-22, "{a}: {x} vs {y}");
+        }
+        for (n, file) in MINOR_U_NUCLIDES {
+            assert!(njoy_outram_park_fork::reference_data::reference_endf(file).is_some(), "{n}: {file}");
+        }
+    }
+
+    #[test]
+    fn tm0730_minor_uranium_resplits_only_the_enriched_lot() {
+        let base = SALT.to_vec();
+        let s = salt_with_tm0730_minor_uranium(&base);
+        let get = |v: &[(&str, f64)], n: &str| v.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+        // U-235 untouched; U-234 and U-236 at 1/93 of the lot's U-235.
+        assert_eq!(get(&s, "U235"), get(&base, "U235"));
+        let n5e = U235_FROM_ENRICHED * get(&base, "U235");
+        assert!((get(&s, "U234") / n5e - 1.0 / 93.0).abs() < 1e-12);
+        assert!((get(&s, "U236") / n5e - 1.0 / 93.0).abs() < 1e-12);
+        // The lot's non-235 mass moves by about 1 % (atom % vs wt %), and
+        // the depleted lot's U-238 is untouched.
+        let m_old = n5e * 235.043_930 / 0.93 * 0.07;
+        let m_new = get(&s, "U234") * 234.040_952 + get(&s, "U236") * 236.045_568
+            + (get(&s, "U238") - get(&base, "U238")) * 238.050_788
+            + m_old;
+        assert!((m_new / m_old - 1.0).abs() < 0.015, "{}", m_new / m_old);
+        // Fluorine balances uranium as UF4; nothing else moves.
+        let du: f64 = ["U234", "U235", "U236", "U238"].iter().map(|n| get(&s, n) - get(&base, n)).sum();
+        assert!(((get(&s, "F19") - get(&base, "F19")) - 4.0 * du).abs() < 1e-15);
+        for (n, v) in &base {
+            if !["U238", "F19"].contains(n) {
+                assert_eq!(get(&s, n), *v, "{n}");
+            }
+        }
+        assert!(MINOR_U_NUCLIDES.iter().all(|(k, _)| get(&s, k) > 0.0));
+    }
+
+    #[test]
     fn control_rods_fill_their_thimbles_with_tm0728_poison() {
         // Gd2O3 per rod: 38 elements × 3 cylinders of 0.84 × 1.08 × 0.4383 in
         // at 5.873 g/cm³ and 70 wt %; TM-0728 Table 5.4 says 1.2 kg.
@@ -1360,6 +2156,59 @@ mod tests {
                 assert!((poison as f64 * px / ring - 1.0).abs() < 0.03, "rod {i} z {z}: {poison}");
                 assert!((inconel as f64 * px / shells - 1.0).abs() < 0.10, "rod {i} z {z}: {inconel}");
             }
+        }
+    }
+
+    #[test]
+    fn full_tm0728_shield_places_base_cylinder_and_cover_by_fig_5_2() {
+        let base = geometry_with_ends(TEMPERATURE_K, TEMPERATURE_K, Dims::COLD, Ends::VolumeEquivalent);
+        let mats = materials_with_ends(MoTreatment::Natural, 1181.0, Dims::COLD);
+        let g = geometry_with_full_shield(TEMPERATURE_K, TEMPERATURE_K, Dims::COLD, Ends::VolumeEquivalent, mats.len());
+        // The vessel is the default build, cell for cell; ten cells added.
+        assert_eq!(format!("{:?}", &g.cells[..base.cells.len()]), format!("{:?}", base.cells));
+        assert_eq!(g.cells.len(), base.cells.len() + 10);
+        // 70 short tons in 475 ft3 of bed: packing 0.60.
+        assert!((SHIELD_BALL_FRACTION_TM0728_TONS - 0.600).abs() < 0.005, "{SHIELD_BALL_FRACTION_TM0728_TONS}");
+        // Placement: the vessel's mid-height 68.5 in above the cylinder bottom.
+        let planes: Vec<f64> = g.surfaces[base.surfaces.len()..]
+            .iter()
+            .filter_map(|s| if let SurfaceKind::ZPlane(p) = s { Some(p.z0) } else { None })
+            .collect();
+        let (zb, zc0, zcov, zc1) = (planes[0], planes[1], planes[2], planes[3]);
+        let vessel: Vec<f64> = base.surfaces.iter().filter_map(|s| if let SurfaceKind::ZPlane(p) = s { if p.bc == BoundaryType::Vacuum { Some(p.z0) } else { None } } else { None }).collect();
+        let z_mid = (vessel[0] + vessel[1]) / 2.0;
+        assert!((z_mid - zc0 - 68.5 * INCH).abs() < 1e-9);
+        assert!((zc1 - zc0 - 151.0 * INCH).abs() < 1e-9);
+        assert!((zc0 - zb - 18.0 * INCH).abs() < 1e-9);
+        assert!((zc1 - zcov - 16.0 * INCH).abs() < 1e-9);
+        // The vessel clears the cover and the base.
+        assert!(vessel[0].max(vessel[1]) < zcov && vessel[0].min(vessel[1]) > zc0);
+        // No overlap or hole anywhere in an x-z section of the whole shield,
+        // and every shield material is hit.
+        let all = SHIELD_R_OUT - 1e-3;
+        let plot = SlicePlot {
+            origin: Position::new(0.0, 0.3, (zb + zc1) / 2.0),
+            basis: PlotBasis::Xz,
+            width: [2.0 * all, zc1 - zb - 1e-3],
+            pixels: [500, 700],
+            level: None,
+            show_overlaps: true,
+            meshlines: None,
+        };
+        let ids = plot.id_map(&g);
+        let mut seen = [false; 4];
+        for h in &ids.hits {
+            match *h {
+                SliceHit::Overlap | SliceHit::NotFound => panic!("overlap or hole in the full shield"),
+                SliceHit::Found { material: Some(m), .. } if m >= mats.len() => seen[m - mats.len()] = true,
+                _ => {}
+            }
+        }
+        assert_eq!(seen, [true; 4]);
+        let ms = full_shield_materials();
+        assert_eq!(ms.len(), 4);
+        for (n, _) in ms.iter().flat_map(|m| m.1.clone()) {
+            assert!(SHIELD_NUCLIDES.iter().any(|(k, _)| *k == n), "{n} has no tape");
         }
     }
 
@@ -1444,7 +2293,7 @@ mod tests {
         // The split geometry puts only the stringer graphite at its own
         // temperature.
         let g = geometry_at_split(900.0, 950.0);
-        let hot: Vec<i32> = g.cells.iter().filter(|c| c.temperature == 950.0).map(|c| c.id).collect();
+        let hot: Vec<i32> = g.cells.iter().filter(|c| c.temperature == Some(950.0)).map(|c| c.id).collect();
         assert_eq!(hot, vec![102]);
         assert_eq!(basket_mix(MoTreatment::Omitted), materials(MoTreatment::Omitted)[BASKET_IDX].1);
         // Every tape the model names exists (the first run died on a wrong
@@ -1457,5 +2306,173 @@ mod tests {
             assert!(njoy_outram_park_fork::reference_data::reference_endf(file).is_some(), "{n}: {file}");
         }
     }
-}
 
+    /// gh:#1571: the default study is the record's default (natural Mo,
+    /// whole shield, U-234/U-236, hot dimensions at 1181 °F); every
+    /// nuclide is planned once with a tape; shield nuclides are at the
+    /// shield temperature, graphite's at the graphite's; the shield-off
+    /// ablation drops the shield's materials and the nuclides only they
+    /// carry; a U-235 scale of 1 changes nothing; the transport materials
+    /// point at the planned nuclides, in the geometry's material order.
+    #[test]
+    fn the_study_plans_the_recorded_default() {
+        let d = Study::default().plan();
+        let off = Study { shield: false, ..Study::default() }.plan();
+        assert_eq!(d.materials.len(), off.materials.len() + full_shield_materials().len());
+        assert_eq!(d.materials[SALT_IDX].1, materials_with_dims(MoTreatment::Natural, REFERENCE_TEMPERATURE_F, Dims::at(1181.0, 1181.0))[SALT_IDX].1);
+        for n in ["U234", "U236", "Mo92", "Mo100", "H1"] {
+            assert!(d.nuclides.iter().any(|j| j.name == n), "{n} missing");
+        }
+        assert!(!off.nuclides.iter().any(|j| j.name == "H1"), "no water without the shield");
+        assert!(off.nuclides.len() < d.nuclides.len());
+        let names: alloc::collections::BTreeSet<&str> = d.nuclides.iter().map(|j| j.name).collect();
+        assert_eq!(names.len(), d.nuclides.len(), "each nuclide once");
+        for j in &d.nuclides {
+            let expect = if GRAPHITE_NUCLIDES.contains(&j.name) {
+                d.graphite_k
+            } else if SHIELD_NUCLIDES.iter().any(|(k, _)| *k == j.name) {
+                SHIELD_TEMPERATURE_K
+            } else {
+                d.salt_k
+            };
+            assert_eq!(j.temperature_k, expect, "{}", j.name);
+        }
+        assert_eq!(Study { u235_scale: 1.0, ..Study::default() }.plan(), d);
+        let more = Study { u235_scale: 1.05, ..Study::default() }.plan();
+        let u5 = |p: &StudyPlan| p.materials[SALT_IDX].1.iter().find(|e| e.0 == "U235").map(|e| e.1).unwrap();
+        assert!((u5(&more) / u5(&d) - 1.05).abs() < 1e-9, "{}", u5(&more) / u5(&d));
+        let m = d.transport_materials();
+        assert_eq!(m.len(), d.materials.len());
+        assert!(m.iter().all(|x| x.components.iter().all(|c| c.nuclide_idx < d.nuclides.len())));
+        assert_eq!(m[GRAPHITE_IDX].temperature, d.graphite_k);
+        #[cfg(feature = "std")]
+        println!("MSRE_STUDY nuclides: default {} (shield off {})", d.nuclides.len(), off.nuclides.len());
+        let _ = Study::default().geometry();
+        let _ = Study { shield: false, ..Study::default() }.geometry();
+    }
+
+    /// The material at one point of the assembled geometry (a one-pixel
+    /// slice), panicking on an overlap or a point outside.
+    fn material_at(g: &Geometry, p: Position) -> Option<usize> {
+        let plot = SlicePlot { origin: p, basis: PlotBasis::Xy, width: [1e-4, 1e-4], pixels: [1, 1], level: None, show_overlaps: true, meshlines: None };
+        match plot.id_map(g).hits[0] {
+            SliceHit::Found { material, .. } => material,
+            SliceHit::Overlap => panic!("overlap at {p:?}"),
+            SliceHit::NotFound => panic!("outside at {p:?}"),
+        }
+    }
+
+    /// Pixels by material of a slice, with overlaps and misses counted.
+    fn count(g: &Geometry, origin: Position, basis: PlotBasis, width: [f64; 2], px: usize) -> (BTreeMap<Option<usize>, usize>, usize, usize) {
+        let plot = SlicePlot { origin, basis, width, pixels: [px, px], level: None, show_overlaps: true, meshlines: None };
+        let mut m = BTreeMap::new();
+        let (mut overlap, mut outside) = (0, 0);
+        for h in &plot.id_map(g).hits {
+            match *h {
+                SliceHit::Found { material, .. } => *m.entry(material).or_insert(0) += 1,
+                SliceHit::Overlap => overlap += 1,
+                SliceHit::NotFound => outside += 1,
+            }
+        }
+        (m, overlap, outside)
+    }
+
+    /// ORNL-4233 Fig. 2's rod scale (gh:#1658): position 0 puts the lower
+    /// end 10.25 in above the stringer bottom, position 51 2.75 in below
+    /// the 64 in top; insertion fraction 0 is position 51.
+    #[test]
+    fn rod_positions_follow_ornl_4233_fig_2() {
+        let cold = Dims::COLD;
+        assert!((rod_lower_end_z(0.0, cold) - 10.25 * INCH).abs() < 1e-12);
+        assert!((H_CORE - rod_lower_end_z(ROD_TRAVEL_IN, cold) - 2.75 * INCH).abs() < 1e-12);
+        assert_eq!(rod_position_in(0.0), 51.0);
+        assert_eq!(rod_position_in(1.0), 0.0);
+        assert_eq!(rod_position_in(2.0), 0.0, "clamped");
+        let hot = Dims::at(1181.0, 1181.0);
+        assert!(rod_lower_end_z(51.0, hot) > rod_lower_end_z(51.0, cold), "scales with the graphite");
+    }
+
+    /// Partly inserted rods on the assembled default geometry (gh:#1658):
+    /// rod 2 driven in, rod 1 at its upper limit, rod 3 half way. Each
+    /// rod's ceramic is poison from its lower end up, void just below it;
+    /// a withdrawn rod still has poison 1 in below the top of the graphite
+    /// and none 1 in below its own lower end; the slice through each
+    /// thimble has no overlap and nothing lost.
+    #[test]
+    fn partly_inserted_rods_sit_where_fig_2_puts_them() {
+        let study = Study { rods: Some([1.0, 0.0, 0.5]), ..Study::default() };
+        let plan = study.plan();
+        let g = study.geometry();
+        let poison = plan.materials.iter().position(|(n, _)| n.contains("poison")).expect("rod poison planned");
+        let d = Dims::at(study.salt_f, study.graphite_f);
+        let r_mid = 0.5 * (ROD_CERAMIC_R_IN + ROD_CERAMIC_R_OUT);
+        for (i, f) in [1.0, 0.0, 0.5].into_iter().enumerate() {
+            let (x, y) = (OPENINGS[i].0 * d.graphite + r_mid, OPENINGS[i].1 * d.graphite);
+            let z_lo = rod_lower_end_z(rod_position_in(f), d);
+            assert_eq!(material_at(&g, Position::new(x, y, z_lo + 1.0)), Some(poison), "rod {i} poison above its end");
+            assert_eq!(material_at(&g, Position::new(x, y, z_lo - 1.0)), None, "rod {i} void below its end");
+            let (m, overlap, outside) = count(&g, Position::new(OPENINGS[i].0 * d.graphite, y, H_CORE / 2.0), PlotBasis::Xz, [6.0, H_CORE + 40.0], 240);
+            assert_eq!((overlap, outside), (0, 0), "rod {i}: {m:?}");
+        }
+        // The withdrawn rod (index 1): poison inside the graphite's top 2.75 in.
+        let (x, y) = (OPENINGS[1].0 * d.graphite + r_mid, OPENINGS[1].1 * d.graphite);
+        assert_eq!(material_at(&g, Position::new(x, y, H_CORE * d.graphite - INCH)), Some(poison));
+        // No rods: the thimbles stay empty and the plan has no rod material.
+        let none = Study::default();
+        assert!(!none.plan().materials.iter().any(|(n, _)| n.contains("poison")));
+        assert_eq!(material_at(&none.geometry(), Position::new(x, y, H_CORE / 2.0)), None);
+    }
+
+    /// The salt level (gh:#1659): with the surface at 100 cm, a core
+    /// section at 50 cm holds the same salt as the full vessel and one at
+    /// 130 cm none, the lower plenum is still salt and the upper plenum
+    /// empty, nothing overlaps; a level above the vessel changes no pixel.
+    #[test]
+    fn the_salt_level_empties_everything_above_it() {
+        let full = Study::default().geometry();
+        let part = Study { salt_level_cm: Some(100.0), ..Study::default() }.geometry();
+        let w = 2.0 * R_VESSEL_OUT;
+        let slice = |g: &Geometry, z: f64| count(g, Position::new(0.0, 0.0, z), PlotBasis::Xy, [w, w], 300);
+        let (below_full, o1, _) = slice(&full, 50.0);
+        let (below_part, o2, _) = slice(&part, 50.0);
+        assert_eq!((o1, o2), (0, 0));
+        assert_eq!(below_full.get(&Some(SALT_IDX)), below_part.get(&Some(SALT_IDX)));
+        let (above_full, _, _) = slice(&full, 130.0);
+        let (above_part, o3, _) = slice(&part, 130.0);
+        assert_eq!(o3, 0);
+        assert!(above_full.get(&Some(SALT_IDX)).copied().unwrap_or(0) > 1000);
+        assert_eq!(above_part.get(&Some(SALT_IDX)), None, "no salt above the level");
+        assert_eq!(above_full.get(&Some(GRAPHITE_IDX)), above_part.get(&Some(GRAPHITE_IDX)), "graphite unchanged");
+        assert_eq!(material_at(&part, Position::new(0.0, 0.0, -5.0)), Some(SALT_IDX), "lower plenum");
+        assert_eq!(material_at(&part, Position::new(0.0, 0.0, H_CORE + 5.0)), None, "upper plenum");
+        let over = Study { salt_level_cm: Some(1.0e4), ..Study::default() }.geometry();
+        for z in [-5.0, 50.0, 130.0, H_CORE + 5.0] {
+            assert_eq!(slice(&over, z).0, slice(&full, z).0, "z = {z}");
+        }
+    }
+
+    /// The enrichment (gh:#1660): the salt's own fraction gives it back, a
+    /// new fraction is met at the same uranium atoms with U-234 and U-236
+    /// in the same ratio to U-235, and nothing else moves.
+    #[test]
+    fn enrichment_holds_the_uranium_and_its_minor_isotopes() {
+        let salt = default_salt();
+        let get = |s: &[(&'static str, f64)], n: &str| s.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+        let u = |s: &[(&'static str, f64)]| ["U234", "U235", "U236", "U238"].iter().map(|n| get(s, n)).sum::<f64>();
+        let w0 = u235_weight_fraction(&salt);
+        assert!(w0 > 0.3 && w0 < 0.4, "{w0}");
+        let same = salt_with_enrichment(&salt, w0);
+        for (a, b) in salt.iter().zip(&same) {
+            assert!((a.1 - b.1).abs() <= 1e-12 * a.1.abs().max(1e-30), "{} {} {}", a.0, a.1, b.1);
+        }
+        let more = salt_with_enrichment(&salt, 0.5);
+        assert!((u235_weight_fraction(&more) - 0.5).abs() < 1e-12);
+        assert!((u(&more) / u(&salt) - 1.0).abs() < 1e-12, "uranium atoms held");
+        assert!((get(&more, "U234") / get(&more, "U235") - get(&salt, "U234") / get(&salt, "U235")).abs() < 1e-12);
+        for n in ["F19", "Li7", "Li6", "Be9", "Zr90"] {
+            assert_eq!(get(&more, n), get(&salt, n), "{n}");
+        }
+        let s = Study { u235_enrichment: Some(0.5), ..Study::default() }.plan();
+        assert!((u235_weight_fraction(&s.materials[SALT_IDX].1) - 0.5).abs() < 1e-12);
+    }
+}

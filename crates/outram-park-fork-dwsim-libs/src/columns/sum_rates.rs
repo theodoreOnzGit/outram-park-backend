@@ -81,6 +81,9 @@
 //! - Stage heat duties `Q_j` are **never updated** by this solver — an absorber
 //!   has given duties. They are echoed back unchanged.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::columns::bubble_point::net_flow_sums;
 use crate::columns::model::{ColumnError, ColumnSolverInput, ColumnSolverOutput};

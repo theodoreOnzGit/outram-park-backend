@@ -97,6 +97,9 @@
 //! ratio, every strain and the equivalent plastic strain are dimensionless
 //! (metre per metre). The tangent is in pascals.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Pressure, Ratio};
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;

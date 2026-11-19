@@ -77,31 +77,49 @@ end-to-end pipeline is not wired together.
 
 The numeric engine and its dependencies return `NjoyError::NotPorted`:
 
-- reaction retrieval & feed functions: `getmf6`, `getff`, `getfwt`, `getflx`,
+- reaction retrieval & feed functions: ~~`getmf6`~~ (**CORRECTED 2026-11-13, gh:#1369:** `getmf6` is `mf6_feed.rs`, wired into the deck driver's `panel` for `mfd = 8/18`; `gam102` LAW=2 is `njoy_panel::Gam102`; `conver`'s lists, `nextr` and `getyld`'s MF=6/9 product yields are `deck/groupr_auto.rs`), `getff`, `getfwt`, `getflx`,
   `getyld`, `getsig` (MF=10 photon-production + `MT=257/258/259` derived
   quantities only — the ordinary MF=3/MF=13 case is ported, see
   `pendf_feed.rs`), `getdis` (ported for neutron File-4 two-body channels
   in `two_body.rs` with `getfle`/`getco` in `file4.rs`; charged-particle
-  Coulomb term, `MT=251-253` and File-6 two-body data remain), ~~`getgfl`, `getgyl`~~ **CORRECTED 2026-11-11** - `getgyl` (`mfd = 12` and the `nyl = 1` MF=13 case, with the constant-range scan), `getgfl` (`LI = 1`, and `LTT = 1` for one photon) and `getff` label 300 (incl. `econst`/`jconst` and the label-395 yield-only path) are ported in `photon_prod.rs` (NJOY2016 test 01 MF=16 MT 51 and 102 identical); MF=13 with several photons, `getgfl` with several anisotropic photons, `LTT = 2` and `getsed` photons remain, ~~`getsed`, `anased`~~ **CORRECTED 2026-11-11** — `getsed` (analytic law 9 only) and `anased` law 9 are ported in `continuum.rs` (tape driver, NJOY2016 test 01 MT 91 identical); `getsed` law 1 and `anased` laws 5/7/11/12 remain;
+  Coulomb term~~, `MT=251-253` and File-6 two-body data~~ remain;
+  **CORRECTED 2026-11-14 (gh:#1370):** `MT = 251-253` and MF=6 LAW 2-5 two-body
+  data are written by the deck driver (`deck/groupr.rs`), and `getdis` with
+  `mft = 4` takes `getfle`'s MF=4 AWR, which differs from MF=3's on Be-9), ~~`getgfl`, `getgyl`~~ **CORRECTED 2026-11-11** - `getgyl` (`mfd = 12` and the `nyl = 1` MF=13 case, with the constant-range scan), `getgfl` (`LI = 1`, and `LTT = 1` for one photon) and `getff` label 300 (incl. `econst`/`jconst` and the label-395 yield-only path) are ported in `photon_prod.rs` (NJOY2016 test 01 MF=16 MT 51 and 102 identical); MF=13 with several photons, `getgfl` with several anisotropic photons, `LTT = 2` and `getsed` photons remain, ~~`getsed`, `anased`~~ **CORRECTED 2026-11-11** — `getsed` (analytic law 9 only) and `anased` law 9 are ported in `continuum.rs` (tape driver, NJOY2016 test 01 MT 91 identical); ~~`getsed` law 1 and `anased` laws 5/7/11/12 remain~~ **CORRECTED 2026-11-13 (gh:#1369):** `getsed` law 1 and `anased` laws 5, 7 and 9 are ported (`continuum.rs`, `PhotonSed`; laws 7/9 in round 5, decks 02 and 11 identical), and `anased` laws 11 (`hnab`) and 12 (`e1`, `gami`) remain;
 - quadrature / accumulation: `epanel`, `gengr`, `glmol` (the vector
   `panel`/`displa` reduction is ported — see `panel.rs`; the full matrix
   `panel`/`displa` with Lobatto re-evaluation of the feed function, the
   `rndoff`/`delta` shading and the `ig1`/`iglo`/`igt` bookkeeping is ported
   statement for statement in `matrix_panel.rs`; `matrix.rs` keeps the
   earlier trapezoid reduction for its isotropic kernel);
-- flux calculator & URR self-shielding: `getfwt`; the slowing-down branch of
-  `genflx` (`nflmax > 0`) — the Bondarenko branch and `getunr`/`stounr` are
+- flux calculator & URR self-shielding: ~~`getfwt`~~ (`flux_table::FwtReader`, 2026-11-14); ~~the slowing-down branch of
+  `genflx` (`nflmax > 0`)~~ (**CORRECTED 2026-11-14, gh:#1370:** in the tape
+  driver as `flux_table::genflx_card8a`, `ninwt` included) — the Bondarenko branch and `getunr`/`stounr` are
   ported, see `unresolved.rs`/`urr_pendf.rs`;
 - kinematics / matrix machinery: `cm2lab`, `f6cm`, `f6lab`, `ll2lab`, `getaed`,
-  `aedi`, ~~`getaed`~~, ~~`aedi`~~ (ported 2026-11-11 in `thermal.rs`: inelastic, incoherent and coherent elastic; test 01 MT 221/229/230 identical), `getco`, `gam102`, `conver`, `hnab`;
+  `aedi`, ~~`getaed`~~, ~~`aedi`~~ (ported 2026-11-11 in `thermal.rs`: inelastic, incoherent and coherent elastic; test 01 MT 221/229/230 identical), `getco`, ~~`gam102`~~ (LAW=2 ported 2026-11-13; LAW=4 recoil not), ~~`conver`~~ (the reaction lists only, 2026-11-13; its MF=12 LO=2 conversion and MT=456 insertion are not), `hnab`;
 - the GENDF matrix-record writer is ported (see `matrix.rs`/`gendf.rs`); the
   vector-record writer was already ported before this note.
 
-Also `NotPorted` in the input layer: the flux-calculator card 8a (`iwt < 0`),
+~~Also `NotPorted` in the input layer: the flux-calculator card 8a (`iwt < 0`),
 the TAB1 weight card 8b (`iwt = 1`), the resonance-flux card 8d (`iwt = 0`), the
 card-9a extended residual format (`mfd = -1`), and *evaluation* of the built-in
 tabulated weights (`iwt = 5, 8, 9`) which needs the ENDF TAB1 (`terpa`)
-interpolator. The `run()` entry point returns `NotPorted("groupr")`.
+interpolator.~~ **CORRECTED 2026-11-13 (gh:#1370):** `GrouprInput::parse` still
+refuses cards 8a, 8b, 8d and 9a, but the deck driver reads all four
+(`deck::modules::read_groupr`, `card9a_reaction`; upstream deck 86 is identical).
+The tape driver's `njoy_panel::getwtf` evaluates every `iwt` from 1 to 12, the
+tabulated ones by `terpa` (decks 07 and 11 for `iwt = 9, 5`;
+`tests/deck_driver_groupr_weights_vs_njoy2016.rs` for 1, 7, 8, 10, 11, 12 and for
+`iwt = -3` with one sigma-zero). Still refused: ~~`iwt = 0` (`getfwt`)~~ (**CORRECTED
+2026-11-14, gh:#1370:** `flux_table::genflx_fwt` with `FwtReader`, deck `FW1`), ~~the
+slowing-down flux (`iwt < 0` with `nsigz > 1`; `slowing_down.rs` exists but is not
+wired)~~, and a card 9a with a negative `mtd`. **CORRECTED 2026-11-14 (gh:#1370):**
+`iwt < 0` with `nsigz > 1` is `flux_table::genflx_card8a`, whose solve is
+`slowing_down::solve_flux` (shared with `genflx_slowing_down`); decks `SD0`-`SD3`
+in `tests/deck_driver_groupr_flux_calculator_vs_njoy2016.rs` are identical to
+NJOY2016's GENDF and `ninwt` file. The `run()` entry point returns
+`NotPorted("groupr")`; decks go through `deck::run_deck`.
 
 ## Testing (V&V — methodology + results, 2026-07-15, commit `ac5adf5`)
 
@@ -218,7 +236,13 @@ state and the 235m isomer; see the test's doc comment for the measured
 agreement on NJOY's PENDF table (strict) and on the ENDF table (looser).
 
 Still **not** golden-validated: File-6 continuum feeds,
-`LSSF = 0` materials, and more than one temperature. GAMINR's engine now has
+`LSSF = 0` materials, and more than one temperature. **CORRECTED 2026-11-13
+(gh:#1369):** through the deck driver (`njoy_panel::group_general_nz`,
+`flux_table`), not this engine, NJOY2016's own decks are identical line for
+line with several temperatures and sigma-zeros: deck 11 (Pu-238 ENDF/B-IV,
+`LSSF = 0`, 3 temperatures x 7 sigma-zeros, MF=6 continuum MT=16/17/91) and
+deck 47's second GROUPR (Pu-239, 2 sigma-zeros). See
+`verification_and_validation/deck_driver/README.md` section 16. GAMINR's engine now has
 its own oracle (`src/gaminr/README.md`).
 
 ## Caveats

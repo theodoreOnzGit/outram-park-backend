@@ -43,6 +43,9 @@
 //!   phenomenon in message passing neural PDE solvers: revisiting the CFL
 //!   condition. arXiv:2507.08861. <https://arxiv.org/abs/2507.08861>
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use burn::optim::{AdamConfig, GradientsParams, Optimizer};
 use burn::tensor::backend::AutodiffBackend;
 use burn::tensor::{Tensor, TensorData};

@@ -1,3 +1,7 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use crate::decay_xml_info_serde::*;
 use crate::nuclide_reaction_and_decay_data::NuclideReactionAndDecayData;
 

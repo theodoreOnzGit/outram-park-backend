@@ -34,6 +34,9 @@
 //! centreline. An illustrative chain demonstration within the puff model's
 //! few-km reach, not a reconstruction of the 2011 plume, and no dose.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::compare::Histories;
 use super::fp_decay::Summation;
 use super::params::Params;
@@ -178,9 +181,11 @@ pub fn near_field(term: &SourceTerm, weather: &Weather, distances: &[Length]) ->
 mod tests {
     use super::*;
     use crate::bwr_mark1::compare::histories;
+    #[cfg(feature = "std")]
     use crate::bwr_mark1::fp_decay::compute;
     use crate::bwr_mark1::Mechanisms;
 
+    #[cfg(feature = "std")]
     /// A hand-made history: half the cesium leaves at 1.5 h, the rest at
     /// 3.5 h; hourly windows put each half in its window, decayed from the
     /// scram to the window's middle, and nothing elsewhere. The groups are
@@ -207,6 +212,7 @@ mod tests {
         assert_eq!(st.nuclides[2].deposition_group, DepositionGroup::NobleGas);
     }
 
+    #[cfg(feature = "std")]
     /// The model's first 30 h as a source term, padded for dispersion
     /// (`chain::pad_for_dispersion`, which adds nothing): the Cs-137 total
     /// equals its inventory times the released fraction (Cs-137's decay over
@@ -262,6 +268,7 @@ mod tests {
         assert!((total(&st, 2) / 2.5386e18 - 1.0).abs() < 1e-3, "{:e}", total(&st, 2));
     }
 
+    #[cfg(feature = "std")]
     /// The near-field dispersion run (`near_field`) under the assumed
     /// weather (3 m/s, Pasquill D, 120 m release, held toward the receptors
     /// for 30 h). Methodology: the model's 0-30 h release (the pins above),
@@ -297,6 +304,7 @@ mod tests {
         let air = |k: usize, n: usize| r.at(k)[n].air.becquerel_seconds_per_cubic_meter();
         let ground = |k: usize, n: usize| r.at(k)[n].ground.becquerel_per_square_meter();
         for k in 0..5 {
+            #[cfg(feature = "std")]
             println!(
                 "{} m: Cs-137 {:.3e}, I-131 {:.3e}, Xe-133 {:.3e} Bq s/m3; deposited Cs-137 {:.3e}, I-131 {:.3e} Bq/m2",
                 d[k].get::<meter>(), air(k, 0), air(k, 1), air(k, 2), ground(k, 0), ground(k, 1)

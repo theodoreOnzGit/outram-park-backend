@@ -96,7 +96,10 @@ verified against Nitrogen–Oxygen (`F = 0`, reproducing air's speed of
 sound to <0.1%), R32–R125 (a real `F ≠ 0` departure function, part of the
 R410A refrigerant blend), and a 840-pair smoke test. No flash/VLE.
 
-`rfluids` oracle verification is planned (bead op-kbc.3).
+~~`rfluids` oracle verification is planned (bead op-kbc.3).~~ **CORRECTED 2026-11-13
+(gh:#1349):** pure-fluid terms, properties, saturation, the `(p, T)` flash and transport
+are checked against CoolProp's own output for all 137 fluids, not through `rfluids`: see
+`verification_and_validation/coolprop_differential/`. Mixtures remain unchecked against it.
 
 ## Example
 
@@ -1274,12 +1277,17 @@ A non-physical input (temperature, pressure or density ≤ 0).
 #### Function `density_pt`
 
 Solve for the single-phase mass density `ρ` \[kg/m³\] at temperature `t`
-\[K\] and pressure `p` \[Pa\].
+\[K\] and pressure `p` \[Pa\], on the **stable** branch.
 
-Newton from the ideal-gas guess `ρ₀ = p·M/(R·T)` (which lands on the vapour /
-supercritical branch), with damping to keep `ρ > 0`, and a bracketing
-bisection fallback. Returns [`FlashError::NonConvergent`] if no single-phase
-root with `(∂p/∂ρ)_T > 0` is found (e.g. a two-phase target).
+The branch is chosen first (`pt_branch`, after CoolProp's
+`T_phase_determination_pure_or_pseudopure`): gas and supercritical states take the
+lowest-density root, liquid and supercritical-liquid states the dense root. Before this
+was added (gh:#917, #1349) every state was solved from the ideal-gas guess, which lands
+on the vapour root, so compressed liquids came back as (metastable) vapour. Returns
+[`FlashError::NonConvergent`] if no single-phase root with `(∂p/∂ρ)_T > 0` is found
+(e.g. a two-phase target on a fluid without a saturation ancillary).
+(Mirror edited by hand 2026-11-13: `kovan-cli api-docs` was not built in this session;
+regenerate it when it is.)
 
 ```rust
 pub fn density_pt(fluid: crate::fluid::Fluid, t: f64, p: f64) -> Result<f64, FlashError> { /* ... */ }

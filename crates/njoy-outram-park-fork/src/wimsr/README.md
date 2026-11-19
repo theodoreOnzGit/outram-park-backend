@@ -38,10 +38,17 @@ output (the thermal boundary `nth` found from the first `mti` pass, the
 `l2t .ne. l1t` guard on the P1 bounds, a missing `MF=3/102` at a later
 temperature inheriting the previous one's absorption).
 
-**Not ported:** the card-deck reader; `jp1 > 0` user current spectra are
+**Not ported:** ~~the card-deck reader;~~ `jp1 > 0` user current spectra are
 carried in `WimsrInput::p1flx_user` but untested; WIMS-E (`iverw = 5`)
-output, `ntemp > 1`, `mtc ≠ 0`, `ifprod ≠ 0`, `iburn > 0` burnup tables and
+output, ~~`ntemp > 1`,~~ `mtc ≠ 0`, `ifprod ≠ 0`, `iburn > 0` burnup tables and
 `inorf > 0` are translated from the same lines but have no oracle.
+**CORRECTED 2026-11-13 (gh:#1369):** the card reader is `deck::wimsr` (cards
+1-8 as `wimsr.f90:165-268` reads them), and a binary GENDF unit is read at
+GROUPR's precision by `gendf::read_material_records` / `run_gendf_records`.
+Upstream deck 11 (Pu-238 ENDF/B-IV: `ntemp = 3`, `ires = 3` over 7 sigma-zeros,
+`ip1opt = 1`, `isof = 0`, the 69-group default) gives NJOY2016's library line
+for line (1 169 lines, `test_11_wimsr_whole_deck`). So `ntemp > 1`,
+`ip1opt = 1` and `isof = 0` now have an oracle.
 
 ## Testing
 

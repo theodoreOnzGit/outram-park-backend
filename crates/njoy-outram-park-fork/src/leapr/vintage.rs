@@ -74,6 +74,9 @@
 //! [`PhysicalConstants::for_evaluation_date`] maps it through NJOY's own
 //! constant history. Nothing here is keyed on a material name.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The constant values themselves, per vintage. See [`PhysicalConstants`].
 mod values {
     /// NJOY2016's `src/phys.f90` **at the commit preceding `007828d`**
@@ -349,9 +352,9 @@ impl EvaluationDate {
     }
 }
 
-impl std::fmt::Display for EvaluationDate {
+impl core::fmt::Display for EvaluationDate {
     /// Renders back in the ENDF spelling, e.g. `EVAL-SEP17`.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "EVAL-{}{:02}",

@@ -25,8 +25,18 @@
 //!   with a negative number, or the reverse).
 //! - **A binary tape file on disk cannot be loaded** (needs MODER's `glstio`
 //!   reader, not ported): [`NjoyError::NotPorted`].
+//! - **Only units a module produced are written back** (gh:#1508). Upstream a
+//!   module opens its outputs with `openz(lun,1)` (`status='new'`) and its
+//!   inputs with `openz(lun,0)` (`status='old'`), and never writes an input.
+//!   Here a unit becomes an output by [`TapeUnits::openz`] with `new == 1` or
+//!   by [`TapeUnits::store`]; a unit only loaded from `tape<n>` on disk is an
+//!   input, and [`TapeUnits::write_coded_files`] leaves its file untouched.
 
-use std::collections::BTreeMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::{BTreeMap, BTreeSet};
+#[cfg(feature = "std")]
 use std::path::PathBuf;
 
 use crate::endf::tape::Tape;
@@ -36,8 +46,10 @@ use crate::NjoyError;
 /// What the modules run so far have done to a PENDF unit, beyond its MF=3
 /// content: what ACER needs to know to build the table NJOY's chain would.
 ///
-/// UNRESR's MF=2/MT=152 and PURR's MF=2/MT=153 are **not** written onto the
-/// tape here (their tape writers are not ported); PURR's probability tables
+/// ~~UNRESR's MF=2/MT=152 and PURR's MF=2/MT=153 are **not** written onto the
+/// tape here (their tape writers are not ported)~~ **CORRECTED 2026-11-13
+/// (gh:#1369):** UNRESR's MF=2/MT=152 is written (`unresr::tape`), and PURR's
+/// MT=152/153 are for the common deck (gh:#1498); PURR's probability tables
 /// are computed by ACER from the evaluation, as [`crate::acer::build_deck`]
 /// does, and these flags say that the deck asked for them.
 #[derive(Debug, Clone, Default)]
@@ -49,12 +61,14 @@ pub struct PendfMeta {
     pub heatr_partials: [bool; 3],
     /// HEATR's output unit was negative (blocked binary).
     pub heatr_binary: bool,
-    /// UNRESR ran (its MT=152 is not on the tape, see above).
+    /// UNRESR ran (~~its MT=152 is not on the tape~~ it rewrote MT=152, gh:#1369).
     pub unresr: bool,
     /// PURR ran: `(nbin, nladr, temperatures)` of its cards.
     pub purr: Option<(usize, usize, Vec<f64>)>,
     /// PURR's output unit was negative (blocked binary).
     pub purr_binary: bool,
+    /// PURR card 2's `nunx` (`0`: every unresolved energy), gh:#1498.
+    pub purr_nunx: usize,
     /// The pointwise result of every temperature block on the tape, in tape
     /// order: `(temperature [K], result)`.
     pub blocks: Vec<(f64, ReconrResult)>,
@@ -94,7 +108,19 @@ pub struct Unit {
 pub struct TapeUnits {
     units: BTreeMap<i32, Unit>,
     texts: BTreeMap<i32, String>,
+    /// GENDF records at full precision for a text unit written as blocked binary
+    /// (a negative unit number), gh:#1369: what NJOY's ERRORR reads back.
+    gendf: BTreeMap<i32, crate::errorr::gendf::GendfTape>,
+    /// Units a module opened new or stored a tape on (its outputs), gh:#1508.
+    written: BTreeSet<i32>,
+    #[cfg(feature = "std")]
     workdir: Option<PathBuf>,
+    /// Files a module wrote as raw bytes (CCCCR's unformatted CCCC files,
+    /// gh:#1369), by unit.
+    bytes: BTreeMap<i32, Vec<u8>>,
+    /// `dater`'s `mm/dd/yy` for this run ([`crate::deck::DeckOptions::run_date`]);
+    /// `None`: the clock's, at each call.
+    run_date: Option<String>,
 }
 
 fn unit_err(msg: String) -> NjoyError {
@@ -102,9 +128,72 @@ fn unit_err(msg: String) -> NjoyError {
 }
 
 impl TapeUnits {
+    #[cfg(feature = "std")]
     /// Units backed by files `tape<n>` in `workdir` (`None`: memory only).
     pub fn new(workdir: Option<PathBuf>) -> Self {
-        Self { units: BTreeMap::new(), texts: BTreeMap::new(), workdir }
+        Self {
+            units: BTreeMap::new(),
+            texts: BTreeMap::new(),
+            gendf: BTreeMap::new(),
+            written: BTreeSet::new(),
+            workdir,
+            bytes: BTreeMap::new(),
+            run_date: None,
+        }
+    }
+
+    /// Fix the date `dater` returns for the rest of the run to `mm/dd/yy`
+    /// (gh:#1549).
+    ///
+    /// # Errors
+    /// A date that is not eight characters `dd/dd/dd` (digits and slashes).
+    pub fn set_run_date(&mut self, mmddyy: &str) -> Result<(), NjoyError> {
+        let b = mmddyy.as_bytes();
+        let ok = b.len() == 8
+            && b.iter().enumerate().all(|(i, c)| if i == 2 || i == 5 { *c == b'/' } else { c.is_ascii_digit() });
+        if !ok {
+            return Err(NjoyError::InvalidInput(format!("run date {mmddyy:?} is not mm/dd/yy")));
+        }
+        self.run_date = Some(mmddyy.to_string());
+        Ok(())
+    }
+
+    /// `'  '//dater()` (`util.f90:72-94`): the run date fixed by
+    /// [`Self::set_run_date`], else today's from the clock.
+    pub fn dater(&self) -> String {
+        self.fixed_dater().unwrap_or_else(crate::deck::run::dater)
+    }
+
+    /// `'  mm/dd/yy'` of the date fixed by [`Self::set_run_date`], if any.
+    pub fn fixed_dater(&self) -> Option<String> {
+        self.run_date.as_ref().map(|d| format!("  {d}"))
+    }
+
+    /// Put a file of raw bytes on unit `lun` (a Fortran unformatted file a
+    /// module wrote, such as CCCCR's ISOTXS). It is written to `tape<n>` as is.
+    pub fn put_bytes(&mut self, lun: i32, bytes: Vec<u8>) {
+        self.bytes.insert(lun.abs(), bytes);
+    }
+
+    /// The raw-byte file on unit `lun`, if a module wrote one.
+    pub fn bytes(&self, lun: i32) -> Option<&[u8]> {
+        self.bytes.get(&lun.abs()).map(Vec::as_slice)
+    }
+
+    /// The raw bytes of unit `lun`: what a module wrote with [`Self::put_bytes`],
+    /// else `tape<n>` in the work directory (GROUPR's `ninwt`, gh:#1370).
+    /// Without `std` there is no work directory, so only the first.
+    pub fn bytes_or_file(&self, lun: i32) -> Option<Vec<u8>> {
+        if let Some(b) = self.bytes(lun) {
+            return Some(b.to_vec());
+        }
+        #[cfg(not(feature = "std"))]
+        return None;
+        #[cfg(feature = "std")]
+        {
+            let dir = self.workdir.as_ref()?;
+            std::fs::read(dir.join(format!("tape{}", lun.abs()))).ok()
+        }
     }
 
     /// `openz(lun, new)`: open unit `lun`; with `new == 1` destroy any previous
@@ -130,6 +219,7 @@ impl TapeUnits {
                 nun,
                 Unit { meta: PendfMeta::default(), tape: Tape::from_sections(String::new(), Vec::new()), binary: lun < 0, pointwise: None },
             );
+            self.written.insert(nun);
             return Ok(());
         }
         if !self.units.contains_key(&nun) {
@@ -140,16 +230,23 @@ impl TapeUnits {
 
     fn load_file(&mut self, lun: i32) -> Result<(), NjoyError> {
         let nun = lun.abs();
+        // Without `std` there is no work directory, so always this error.
+        #[cfg(not(feature = "std"))]
+        return Err(unit_err(format!("unit {lun}: no tape and no work directory to read tape{nun} from")));
+        #[cfg(feature = "std")]
         let Some(dir) = &self.workdir else {
             return Err(unit_err(format!("unit {lun}: no tape and no work directory to read tape{nun} from")));
         };
-        let path = dir.join(format!("tape{nun}"));
-        if lun < 0 {
-            return Err(NjoyError::NotPorted("blocked-binary tape file on disk (MODER glstio reader)"));
+        #[cfg(feature = "std")]
+        {
+            let path = dir.join(format!("tape{nun}"));
+            if lun < 0 {
+                return Err(NjoyError::NotPorted("blocked-binary tape file on disk (MODER glstio reader)"));
+            }
+            let tape = Tape::read_file(&path)?;
+            self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: false, pointwise: None });
+            Ok(())
         }
-        let tape = Tape::read_file(&path)?;
-        self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: false, pointwise: None });
-        Ok(())
     }
 
     fn check_mode(&self, lun: i32) -> Result<(), NjoyError> {
@@ -184,6 +281,7 @@ impl TapeUnits {
         }
         if (10..=19).contains(&nun) {
             self.units.remove(&nun);
+            self.written.remove(&nun);
         }
         Ok(())
     }
@@ -214,15 +312,31 @@ impl TapeUnits {
             return Ok(());
         }
         let (tape, pointwise) = if lun > 0 {
-            let mut text = Vec::new();
-            tape.write(&mut text)?;
-            let mut back = Tape::read(&text[..])?;
+            let text = tape.to_text()?;
+            let mut back = Tape::from_bytes(text.as_bytes())?;
             back.copy_closers_from(&tape);
             (back, pointwise.map(|(m, r)| (m, r.through_pendf_text())))
         } else {
             (tape, pointwise)
         };
         self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: lun < 0, pointwise });
+        self.written.insert(nun);
+        Ok(())
+    }
+
+    /// Put an ENDF tape on coded unit `lun` as the text a module wrote, line for
+    /// line (ERRORR's `covadd`, gh:#1369): the unit's tape is that text parsed, not
+    /// re-rendered through [`Tape::write`], so records `Tape::write` does not lay
+    /// out (MF=32) reach the next reader as written, and the file is the text.
+    ///
+    /// # Errors
+    /// Those of [`Tape::from_bytes`].
+    pub fn put_endf_text(&mut self, lun: i32, text: String) -> Result<(), NjoyError> {
+        let nun = lun.abs();
+        let tape = Tape::from_bytes(text.as_bytes())?;
+        self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: lun < 0, pointwise: None });
+        self.written.insert(nun);
+        self.put_text(lun, text);
         Ok(())
     }
 
@@ -235,7 +349,39 @@ impl TapeUnits {
 
     /// Put a non-ENDF text file on unit `lun` (an ACE file, a directory line).
     pub fn put_text(&mut self, lun: i32, text: String) {
+        self.gendf.remove(&lun.abs());
         self.texts.insert(lun.abs(), text);
+    }
+
+    /// Put a GENDF on unit `lun`: its text, and for a negative (blocked-binary)
+    /// unit its records at the precision they were written with.
+    pub fn put_gendf(&mut self, lun: i32, text: String, records: crate::errorr::gendf::GendfTape) {
+        self.put_text(lun, text);
+        if lun < 0 {
+            self.gendf.insert(lun.abs(), records);
+        }
+    }
+
+    /// The full-precision GENDF records kept for binary unit `lun`, if any.
+    pub fn binary_gendf(&self, lun: i32) -> Option<crate::errorr::gendf::GendfTape> {
+        if lun < 0 { self.gendf.get(&lun.abs()).cloned() } else { None }
+    }
+
+    /// The GENDF on unit `lun` as NJOY reads it back: the full-precision records
+    /// of a binary unit, else its text parsed (`None`: no text on the unit).
+    ///
+    /// # Errors
+    /// A text GENDF that does not parse.
+    pub fn gendf(&self, lun: i32) -> Result<Option<crate::errorr::gendf::GendfTape>, NjoyError> {
+        if lun < 0 {
+            if let Some(g) = self.gendf.get(&lun.abs()) {
+                return Ok(Some(g.clone()));
+            }
+        }
+        match self.text(lun) {
+            Some(t) => crate::errorr::gendf::parse_gendf_text(t).map(Some),
+            None => Ok(None),
+        }
     }
 
     /// The text file on unit `lun`, if one was put there.
@@ -245,12 +391,18 @@ impl TapeUnits {
 
     /// The text file on unit `lun`: the one put there by a module, else the
     /// work directory's `tape<n>` (an input file such as an ACER plot file).
+    /// Without `std` there is no work directory, so only the first.
     pub fn text_or_file(&self, lun: i32) -> Option<String> {
         if let Some(t) = self.text(lun) {
             return Some(t.to_string());
         }
-        let dir = self.workdir.as_ref()?;
-        std::fs::read_to_string(dir.join(format!("tape{}", lun.abs()))).ok()
+        #[cfg(not(feature = "std"))]
+        return None;
+        #[cfg(feature = "std")]
+        {
+            let dir = self.workdir.as_ref()?;
+            std::fs::read_to_string(dir.join(format!("tape{}", lun.abs()))).ok()
+        }
     }
 
     /// Unit numbers currently holding a tape, ascending.
@@ -258,14 +410,24 @@ impl TapeUnits {
         self.units.keys().copied().collect()
     }
 
-    /// Write every coded, non-scratch unit (20 and above, plus 8-9) to
-    /// `tape<n>` in the work directory. Returns the numbers written; binary
-    /// units are skipped (no blocked-binary writer).
+    /// `true` if unit `lun` is a module's output in this run (opened new or
+    /// stored to), `false` for an input only read from disk or an unused unit.
+    pub fn is_output(&self, lun: i32) -> bool {
+        self.written.contains(&lun.abs()) || self.texts.contains_key(&lun.abs())
+    }
+
+    #[cfg(feature = "std")]
+    /// Write every coded, non-scratch **output** unit (20 and above, plus 8-9)
+    /// to `tape<n>` in the work directory, every text unit, and every raw-byte
+    /// file ([`TapeUnits::put_bytes`], gh:#1369). Returns the
+    /// numbers written. Binary ENDF/GENDF units are skipped (no blocked-binary writer),
+    /// and so is a unit only read from disk: NJOY never writes a unit it
+    /// opened `old` (`openz`, `util.f90:199-212`; gh:#1508).
     pub fn write_coded_files(&self) -> Result<Vec<i32>, NjoyError> {
         let Some(dir) = &self.workdir else { return Ok(Vec::new()) };
         let mut done = Vec::new();
         for (&n, u) in &self.units {
-            if u.binary || (10..=19).contains(&n) {
+            if u.binary || (10..=19).contains(&n) || !self.written.contains(&n) {
                 continue;
             }
             let mut text = Vec::new();
@@ -277,6 +439,10 @@ impl TapeUnits {
             std::fs::write(dir.join(format!("tape{n}")), t).map_err(NjoyError::Io)?;
             done.push(*n);
         }
+        for (n, b) in &self.bytes {
+            std::fs::write(dir.join(format!("tape{n}")), b).map_err(NjoyError::Io)?;
+            done.push(*n);
+        }
         Ok(done)
     }
 }
@@ -285,6 +451,7 @@ impl TapeUnits {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "std")]
     #[test]
     fn unit_rules_follow_openz() {
         let mut t = TapeUnits::new(None);
@@ -300,5 +467,50 @@ mod tests {
         t.closz(-25).unwrap();
         assert!(t.open_units().contains(&25), "regular unit kept");
         assert!(t.closz(1000).is_err());
+    }
+
+    #[cfg(feature = "std")]
+    /// gh:#1508: a unit read from disk is an input and is not written back;
+    /// a unit opened new or stored to is an output and is.
+    #[test]
+    fn only_output_units_are_written_back() {
+        let dir = std::env::temp_dir().join(format!("njoy-tapes-1508-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = "a tape label                                                         0 0  0\n";
+        std::fs::write(dir.join("tape20"), input).unwrap();
+        let mut t = TapeUnits::new(Some(dir.clone()));
+        t.openz(20, 0).unwrap();
+        assert!(!t.is_output(20));
+        let tape = t.get(20).unwrap().tape.clone();
+        t.openz(21, 1).unwrap();
+        t.store(21, tape, None).unwrap();
+        t.openz(22, 1).unwrap();
+        t.put_text(23, "text\n".into());
+        t.put_bytes(24, vec![4, 0, 0, 0, 9, 4, 0, 0, 0]);
+        assert_eq!(t.bytes(-24).map(<[u8]>::len), Some(9));
+        let done = t.write_coded_files().unwrap();
+        assert_eq!(done, vec![21, 22, 23, 24]);
+        assert_eq!(std::fs::read(dir.join("tape24")).unwrap(), vec![4, 0, 0, 0, 9, 4, 0, 0, 0], "raw bytes as put");
+        assert_eq!(std::fs::read_to_string(dir.join("tape20")).unwrap(), input, "input untouched");
+        assert!(dir.join("tape21").exists() && dir.join("tape22").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(feature = "std")]
+    /// gh:#1549: a fixed run date is `dater`'s for the rest of the run, in
+    /// `'  '//hdate` form; without one, the clock's date in the same form.
+    #[test]
+    fn run_date_is_fixed_or_the_clocks() {
+        let mut t = TapeUnits::new(None);
+        assert_eq!(t.fixed_dater(), None);
+        assert_eq!(t.dater().len(), 10);
+        assert!(t.dater().starts_with("  "));
+        t.set_run_date("11/13/26").unwrap();
+        assert_eq!(t.dater(), "  11/13/26");
+        assert_eq!(t.fixed_dater().as_deref(), Some("  11/13/26"));
+        for bad in ["11-13-26", "1/13/26", "11/13/2026", "ab/cd/ef"] {
+            assert!(t.set_run_date(bad).is_err(), "{bad}");
+        }
+        assert_eq!(t.dater(), "  11/13/26", "a refused date leaves the fixed one");
     }
 }

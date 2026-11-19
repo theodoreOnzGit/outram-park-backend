@@ -38,6 +38,9 @@
 //!
 //! Tracked by bead op-p6p.7.5; see `docs/genfoam-port-plan.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod interfacial;
 mod multipliers;
 

@@ -48,6 +48,9 @@
 //! The residual ~0.6 % that file previously attributed to generation-versus-
 //! evaluation differences was entirely this defect.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::decks::{locate_deck, SabMaterial};
 use njoy_outram_park_fork::leapr::generate::{generate_tape, ElasticChannel};

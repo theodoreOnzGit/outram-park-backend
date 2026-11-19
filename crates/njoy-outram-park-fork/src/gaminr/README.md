@@ -47,7 +47,7 @@ marked `NjoyError::NotPorted` rather than fabricated.
 | Panel quadrature (group-constant integrals) | `gpanel` 874–1011 | `matrix.rs` | **Ported, golden-validated** |
 | Group-constant normalisation / total heating | `dspla` 1013–1131, `toth` 353–359, 400–419 | `matrix.rs` (`dspla`, `TotalHeating`) | **Ported, golden-validated** |
 | Per-reaction driver | `gaminr` 294–395 | `matrix::gaminr_reaction` | **Ported** |
-| ENDF tape control flow + GAM-out header/merge, `akn` cache | `gaminr` 133–292, 319–350, 420–536 | `run_with_input` skeleton | **NotPorted** (documented) |
+| ENDF tape control flow + GAM-out header/merge, `akn` cache | `gaminr` 133–292, 319–350, 420–536 | ~~`run_with_input` skeleton~~ `tape.rs` (`run_gaminr_tape`), `matrix::reaction_groups` | ~~**NotPorted** (documented)~~ **CORRECTED 2026-11-13 (gh:#1369):** **Ported** but the old-tape merge (`ngam1 /= 0`), refused by name; decks 03 and 30 identical |
 
 ### `igg` photon group-structure map (`gaminr.f90:73–86, 585–602`)
 
@@ -126,10 +126,15 @@ integrand is over-weighted (see `gtff::tests::coherent_low_energy_is_rayleigh`).
 
 ## Caveats
 
-- **Untrusted AI draft.** The engine is validated on one synthetic material
+- **Untrusted AI draft.** ~~The engine is validated on one synthetic material
   only; a real photoatomic evaluation (MF=23 with log-log regions, MF=27
   with hundreds of points, RECONR-linearised PENDF) has not been run through
-  it, and the tape control flow is not ported.
+  it, and the tape control flow is not ported.~~ **CORRECTED 2026-11-13 (gh:#1369):** the tape control flow is
+  translated (`tape.rs`) and the gamout tapes of upstream decks 03 (H and U, ENDF-4,
+  DLC-7e) and 30 (H-1 ENDF/B-VIII.0) are NJOY2016.80's line for line
+  (`tests/deck_driver_photon_vs_njoy2016.rs`). Two engine defects were fixed on the
+  way: `gtsig` used a local lookup instead of upstream's `gety1` (threshold), and
+  `EPAIR` was not upstream's expression.
 - **Not required by OpenMC CE neutron transport** — Phase 5.
 - Needs photoatomic evaluations (a different sublibrary from neutron ENDF).
 - The 1/E weight evaluation reproduces in-range ENDF log-log TAB1 interpolation;

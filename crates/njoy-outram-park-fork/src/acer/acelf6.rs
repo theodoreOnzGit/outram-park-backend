@@ -47,6 +47,9 @@
 //! subsections. They are ported line for line; nothing here has compared them
 //! with NJOY.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::interp::{terp1, terpa, IntLaw};
 use crate::endf::records::{SectionCursor, Tab1};
@@ -743,7 +746,7 @@ pub fn ismooth_extend_low_energy(
         let fx = 0.50;
         let mut nn = 0;
         if d[0] > ex {
-            d.splice(0..0, std::iter::repeat(0.0).take(ncyc));
+            d.splice(0..0, core::iter::repeat(0.0).take(ncyc));
             n += 1;
         }
         while d[ncyc] > ex {

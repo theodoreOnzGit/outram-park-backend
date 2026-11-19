@@ -78,7 +78,11 @@
 //! AI-assisted draft with **no human V&V**. The tests verify the queue protocol
 //! and the error policy against the transcribed upstream loop.
 
-use std::time::{Duration, Instant};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::time::Duration;
+use crate::time::Instant;
 
 use crate::flowsheet::{CalculationArgs, CalculationSender, Flowsheet, ObjectId};
 use crate::flowsheet_solver::errors::{AbortFlag, SolverError};

@@ -81,6 +81,9 @@
 //! code-to-code and analytic-limit checks only. AI-assisted draft pending
 //! human review per `RESPONSIBLE_USE.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod circulator;
 pub mod kta_bed;
 pub mod pipe;

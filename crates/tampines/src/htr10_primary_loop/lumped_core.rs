@@ -82,6 +82,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_appbuilder_lib::htgr_closures::{
     kta::kta_3102_2_heat_transfer_coefficient, KtaHelium, StructuralMaterial,
 };
@@ -188,7 +191,7 @@ fn d_idx(k: usize) -> usize {
     }
 }
 
-fn prop_err(e: impl std::fmt::Display) -> TampinesError {
+fn prop_err(e: impl core::fmt::Display) -> TampinesError {
     TampinesError::Numerical(format!("HTR-10 lumped core property: {e}"))
 }
 

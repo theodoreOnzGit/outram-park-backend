@@ -9,6 +9,9 @@
 ///
 /// Values are raw SI (`f64`) so a log line shows exactly what broke without
 /// unit conversion: pressures in Pa, densities in kg/m³, energies in J/kg.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum HemError {
     /// A caller-supplied input is unusable before any physics runs: a zero

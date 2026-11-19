@@ -54,6 +54,9 @@
 //! in their `com_mod` units (PV in pvu, `qv` kg/kg, `tt` K, winds m/s,
 //! density kg/m³, heights m).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::flexpart::constants::{CPA, PI180};

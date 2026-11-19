@@ -53,6 +53,8 @@
 //!   not in any secondary-energy law at all, which would be a genuinely new
 //!   constraint rather than another suspicion.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use outram_mc_libs::material::nuclide::Nuclide;
 

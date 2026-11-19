@@ -37,6 +37,9 @@
 //! thermal ACE ITCE/ITCA blocks and the [`super::scattering`] consumer surface
 //! need.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::mf7::{interp_s_temperature, select_temperature, CoherentElastic, TemperatureSelection};
 use crate::NjoyError;
 
@@ -184,12 +187,14 @@ mod tests {
     use crate::endf::tape::Tape;
     use std::fs::File;
 
+    #[cfg(feature = "std")]
     fn al27_coherent() -> super::CoherentElastic {
         let p = crate::reference_data::reference_endf_dir().join("tsl-013_Al_027-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         parse_mf7(&tape, 53).unwrap().coherent_elastic.unwrap()
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn zero_below_first_bragg_edge() {
         let ce = al27_coherent();
@@ -206,6 +211,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn cross_section_is_s_over_e_and_sawtooths() {
         let ce = al27_coherent();
@@ -227,6 +233,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn bragg_reflection_cosines_are_physical() {
         let ce = al27_coherent();
@@ -248,6 +255,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     /// The Debye-Waller factor suppresses S(E, T) as temperature rises, so at
     /// fixed energy the coherent-elastic cross section must **decrease** with
     /// temperature across every tabulated temperature of the Al-27 fixture.
@@ -273,6 +281,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     /// Temperature interpolation: between two tabulated temperatures the
     /// interpolated σ must lie strictly between the bracketing tabulated
     /// values (S is monotone-decreasing in T at fixed E).
@@ -297,6 +306,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     /// Out-of-range temperatures are refused, never snapped.
     #[test]
     fn out_of_range_temperature_is_an_error() {

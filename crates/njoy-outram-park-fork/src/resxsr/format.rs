@@ -24,6 +24,9 @@
 //! temperatures in **kelvin**, and `amass` is the dimensionless atomic-weight
 //! ratio to the neutron.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Hollerith file-name constant written to the file-identification record.
 ///
 /// Upstream stores `hfile='resxsr'` (`resxsr.f90:214`) and writes it via

@@ -227,3 +227,73 @@ fn insert_stream_rejects_bad_setups() {
     assert!(mk(StreamExtent::ExtrudeLength(0.005), down).is_err());
     assert!(mk(StreamExtent::InsertEvery { every: 10, duration: Some(20) }, down).is_err());
 }
+
+/// ~~Clumps from `insert/stream` are not ported (gh:#1415): the constructor
+/// refuses a multisphere distribution by name, where the port used to panic
+/// at the first insertion (`randomize_list`).~~
+/// **CORRECTED 2026-11-14 (gh:#1415, fourth pass):** clumps are streamed
+/// (`tests/multisphere_cross_code.rs::ms_stream_matches_liggghts`). The
+/// constructor now accepts a clump distribution with a constant velocity and
+/// refuses, by name: a non-constant velocity with clumps (the upstream
+/// error), and a distribution mixing spheres and clumps (not ported).
+#[test]
+fn insert_stream_refuses_clumps() {
+    use outram_park_fork_liggghts::insert::ParticleTemplate;
+    use outram_park_fork_liggghts::multisphere::ParticleTemplateMultisphere;
+    let face = MeshWall::from_ascii_stl(&read("stream_face.stl").unwrap()).unwrap();
+    let clump = || {
+        ParticleTemplateMultisphere::new(
+            15485863,
+            1,
+            MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+            10_000,
+            &[
+                (Vec3::new(0.0, 0.0, 0.0), Length::new::<meter>(0.003)),
+                (Vec3::new(0.003, 0.0, 0.0), Length::new::<meter>(0.003)),
+            ],
+            1,
+        )
+        .unwrap()
+    };
+    let mk = |dist: ParticleDistributionDiscrete, vel: InsertVelocity| {
+        InsertStreamFix::new(
+            32452843,
+            dist,
+            &face,
+            StreamExtent::ExtrudeLength(0.05),
+            Some(RateTotal::Particles(5)),
+            Rate::Particles(100.0),
+            vel,
+            5e-6,
+            BOX_LO,
+            BOX_HI,
+        )
+    };
+    let constant = InsertVelocity::Constant(Vec3::new(0.0, 0.0, -1.0));
+    let ms = || ParticleDistributionDiscrete::new_multisphere(15485867, true, vec![(clump(), 1.0)]).unwrap();
+    assert!(mk(ms(), constant).is_ok(), "clumps with a constant velocity are streamed");
+    let uniform = InsertVelocity::Uniform {
+        v: Vec3::new(0.0, 0.0, -1.0),
+        fluct: Vec3::new(0.05, 0.05, 0.05),
+    };
+    let err = mk(ms(), uniform).unwrap_err();
+    assert!(err.to_string().contains("only supports constant velocity"), "{err}");
+    let sphere = ParticleTemplateSphere::new(
+        15485863,
+        1,
+        Length::new::<meter>(0.003),
+        MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+    )
+    .unwrap();
+    let mixed = ParticleDistributionDiscrete::from_templates(
+        15485867,
+        true,
+        vec![
+            (ParticleTemplate::Multisphere(clump()), 0.5),
+            (ParticleTemplate::Sphere(sphere), 0.5),
+        ],
+    )
+    .unwrap();
+    let err = mk(mixed, constant).unwrap_err();
+    assert!(err.to_string().contains("not ported"), "{err}");
+}

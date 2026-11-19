@@ -19,6 +19,9 @@
 //! `custom_liquid_material` provides generic, user-supplied-correlation
 //! helpers for a liquid not otherwise in the database.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// property correlations for dowtherm_a,
 /// also known as therminol vp1
 pub mod dowtherm_a;

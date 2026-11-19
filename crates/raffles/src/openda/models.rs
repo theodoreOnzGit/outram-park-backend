@@ -42,6 +42,9 @@
 //! **OpenDA's test models** (oscillator, Lorenz-63), the observer, and the
 //! model seam the sequential algorithms consume (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::noise::{DrawSource, StochVector};
 use super::linalg;
 use crate::{RafflesError, Result};
@@ -209,7 +212,7 @@ impl Dynamics {
     /// OpenDA's oscillator defaults: t_damp 8, ω = 0.25·2π.
     #[must_use]
     pub fn oscillator() -> Self {
-        Self::Oscillator { t_damp: 8.0, omega: 0.25 * 2.0 * std::f64::consts::PI }
+        Self::Oscillator { t_damp: 8.0, omega: 0.25 * 2.0 * core::f64::consts::PI }
     }
 
     /// OpenDA's Lorenz defaults: σ 10, ρ 28, β 8/3.
@@ -271,7 +274,7 @@ impl Dynamics {
 
     fn default_parameter_std(&self) -> Vec<f64> {
         match self {
-            Self::Oscillator { .. } => vec![1.0, 0.02 * 2.0 * std::f64::consts::PI],
+            Self::Oscillator { .. } => vec![1.0, 0.02 * 2.0 * core::f64::consts::PI],
             Self::Lorenz63 { .. } => vec![1.0, 2.0, 0.3],
         }
     }
@@ -562,7 +565,7 @@ mod tests {
         m.compute(2.0, &mut d).unwrap();
         let y = m.observed_values(&obs).unwrap();
         // x(t) = 0.8 e^{-t/8}(cos ω_d t + sin(ω_d t)/(8ω_d)), ω_d = √(ω² − 1/64), ω = π/2.
-        let w = (std::f64::consts::FRAC_PI_2.powi(2) - 1.0 / 64.0).sqrt();
+        let w = (core::f64::consts::FRAC_PI_2.powi(2) - 1.0 / 64.0).sqrt();
         let exact = |t: f64| 0.8 * (-t / 8.0).exp() * ((w * t).cos() + (w * t).sin() / (8.0 * w));
         for (t, v) in [0.0, 1.0, 2.0].iter().zip(&y) {
             assert!((v - exact(*t)).abs() < 1e-6, "{t} {v}");

@@ -45,6 +45,9 @@
 //! ([`CartesianGrid::uniform`]) and rectilinear
 //! ([`CartesianGrid::rectilinear`]) meshes are supported by the same type.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::PflotranError;
 use crate::units::GeoLength;
 use uom::si::length::meter;

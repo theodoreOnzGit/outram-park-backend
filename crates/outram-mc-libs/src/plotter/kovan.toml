@@ -304,8 +304,8 @@ qual = "EV_PER_MEV"
 item = "const"
 shape = "const"
 lines = [
-    30,
     31,
+    32,
 ]
 hash = "sha256:cf401ad8d99831e22707ab3aa0f479a0152e96cedd1a52fa5cefef7edeab0e95"
 doc_hash = "sha256:d89086ea28b04a974d6d30cd0f7ca0d97393eb54b4d5c8a69ea98c0892b575f4"
@@ -322,10 +322,10 @@ qual = "Tabulated1D"
 item = "type"
 shape = "struct"
 lines = [
-    33,
-    45,
+    34,
+    46,
 ]
-hash = "sha256:8e555ed6380699b68d4ecfc5bb57a0664098a6b752dc4177c65e929e44f086fe"
+hash = "sha256:2979e60e1b095033412bee873ff419ba91595b16f9629a4a3d915297fb5497ef"
 doc_hash = "sha256:e8d5f8c71b76d7cfb2b7ceabdc345725b0534f278b13efa78d0c23253a1b6440"
 reached_by = [
     "#2",
@@ -333,14 +333,15 @@ reached_by = [
     "#9",
     "#10",
 ]
+index_out_of_date = true
 
 [[module."function1d.rs".function]]
 id = "fn:de6ff3f5abb1a0b6"
 name = "lin_lin"
 qual = "Tabulated1D::lin_lin"
 lines = [
-    48,
-    57,
+    49,
+    58,
 ]
 hash = "sha256:8e0208227aa671cd040d0a2ad90256607ebb597cd2f31e82ed9a7953209a22f3"
 doc_hash = "sha256:8930bd271273309dd3e1ee5995ada4c3f6adcc4805ca2a85ac4a325619b338d9"
@@ -357,10 +358,10 @@ id = "fn:1fd51de133d75c8e"
 name = "eval"
 qual = "Tabulated1D::eval"
 lines = [
-    59,
-    112,
+    60,
+    113,
 ]
-hash = "sha256:7cd32e3f62cca3efa813222ff73d54736f1ca9f0353314673488a7222ebfdf9c"
+hash = "sha256:656df9345fc8bf3d4506a025f940e8184dd9db341713fa4d7ac52521a7568317"
 doc_hash = "sha256:497269c88e56967df10686f01a79d6c417f2cc19b95e39303befe6c187442d67"
 callees = [
     "fn:4cb2c668b961e871",
@@ -373,14 +374,15 @@ reached_by = [
     "#9",
     "#10",
 ]
+index_out_of_date = true
 
 [[module."function1d.rs".function]]
 id = "fn:0e5c94260433a756"
 name = "from_ace"
 qual = "Tabulated1D::from_ace"
 lines = [
-    114,
-    151,
+    115,
+    152,
 ]
 hash = "sha256:4fc32752c25e49a86db588eea5de673199770509edd4d11f224adff56c42bb5a"
 doc_hash = "sha256:38e7e508803e605f6ce1dc3f86fec20b5ed6c3bc28f7b269896e99637f39fce1"
@@ -402,8 +404,8 @@ id = "fn:c37c12c48dca9326"
 name = "px"
 qual = "px"
 lines = [
-    154,
-    165,
+    155,
+    166,
 ]
 hash = "sha256:bc0b6f80844a2dadb1a16c560e4b1999df6336ce463379a95483f4ee18ec3db8"
 doc_hash = "sha256:28d2c088c46437b0c3f87a8cfa817d42d73c234241b821f4869d1b2fc64daf24"
@@ -424,8 +426,8 @@ qual = "Polynomial"
 item = "type"
 shape = "struct"
 lines = [
-    167,
-    172,
+    168,
+    173,
 ]
 hash = "sha256:8360b5679198e5e550557abb72f4de5e3e4f505f994bcfd6e77f5cd6fe4adc8d"
 doc_hash = "sha256:5533d8e13e80236b037a0a8ba527f2d3a4873686fe34875c12af1b188ec48faf"
@@ -441,8 +443,8 @@ id = "fn:04038e87583b1d5d"
 name = "eval"
 qual = "Polynomial::eval"
 lines = [
-    175,
-    192,
+    176,
+    193,
 ]
 hash = "sha256:0d24a322933cc260155b893b7c5feaec30c6683c2844bf16b7883b88206d6e40"
 doc_hash = "sha256:42c23174c4dd13c32788b60fa43d5fd6636069a7f621e355d9884005bbd85639"
@@ -461,8 +463,8 @@ qual = "Function1D"
 item = "type"
 shape = "enum"
 lines = [
-    195,
-    202,
+    196,
+    203,
 ]
 hash = "sha256:3c7bafc009913fb6780d4b219ffd5b0ffad8dc5f894a6d699751e13479468492"
 doc_hash = "sha256:e8cb7879f3c3bb06eb9de218f28271bd499dc36f7ab10ea33dc4871e37cab40a"
@@ -481,8 +483,8 @@ id = "fn:626c39693167ebe2"
 name = "eval"
 qual = "Function1D::eval"
 lines = [
-    205,
-    211,
+    206,
+    212,
 ]
 hash = "sha256:e303dfe54c02654a761d6df246a68d95f4e483f73fb3e7288966f255136dc7a7"
 doc_hash = "sha256:1174de0649044b28d65ccd48e8a0f119052fa8a866ffe2bc25301597198e7f59"
@@ -502,8 +504,8 @@ id = "fn:ae05ff462233c6b7"
 name = "zero_outside_and_snap_at_ends"
 qual = "zero_outside_and_snap_at_ends"
 lines = [
-    218,
-    225,
+    219,
+    226,
 ]
 hash = "sha256:4f3ead21bef75fdaa7c3ac7b5a7ee70cdba00ebf6053e7463af782a1c5a359bd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -519,8 +521,8 @@ id = "fn:c525e0b764cbd0c8"
 name = "polynomial_is_horner_from_the_top"
 qual = "polynomial_is_horner_from_the_top"
 lines = [
-    227,
-    233,
+    228,
+    234,
 ]
 hash = "sha256:9fb3fa31e524c69d8181564118e24d37bf9de4b2f2ad2a533f5d4b116c7b33e8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -538,8 +540,8 @@ qual = "K_BOLTZMANN"
 item = "const"
 shape = "const"
 lines = [
-    49,
     50,
+    51,
 ]
 hash = "sha256:b4e4f319fb309079f1c367b20658e9eb4bc06d5d122a8ed2cce79dee60517c6a"
 doc_hash = "sha256:fe2e1d8504fc4f68a9009c4a8bfff38f7d96db561ad5748078ce5e72f15d99d6"
@@ -551,8 +553,8 @@ qual = "FISSION_MTS"
 item = "const"
 shape = "const"
 lines = [
-    52,
     53,
+    54,
 ]
 hash = "sha256:6b27e8de960695ed1baee3f853366890adf52c8a59d7f403101b5b1c31426e63"
 doc_hash = "sha256:3f678b305bfffeefe225d0820652f480357bf57abcfb370d64556965cc9112b1"
@@ -569,8 +571,8 @@ qual = "Particle"
 item = "type"
 shape = "enum"
 lines = [
-    55,
-    62,
+    56,
+    63,
 ]
 hash = "sha256:9f0a282097a1e29b83e8985b184f157c751b89179dcb548cd574c094f38fe471"
 doc_hash = "sha256:2aa43417728532c65276b85bf4c05132eab7c98b2e69dde97b7500ebf060beb0"
@@ -587,8 +589,8 @@ qual = "EmissionMode"
 item = "type"
 shape = "enum"
 lines = [
-    64,
-    73,
+    65,
+    74,
 ]
 hash = "sha256:36fd81ac13b464031e73cd6fab1bbf6c581b9eaeed96ef1118180fc0b9794e63"
 doc_hash = "sha256:5b51284198566ea975977f6556d68b6f58c9171a7cf63b40474960aacba300c1"
@@ -605,8 +607,8 @@ qual = "Product"
 item = "type"
 shape = "struct"
 lines = [
-    75,
-    84,
+    76,
+    85,
 ]
 hash = "sha256:253ae1546d5732079f771e8a590ab422b5f7e822d27e3df6ab0c7ebfc80dc4e6"
 doc_hash = "sha256:c19911c67a01a151001633f4eb0f5ace241c2fd3f14d306bfd4000f360908400"
@@ -628,8 +630,8 @@ qual = "PlotReaction"
 item = "type"
 shape = "struct"
 lines = [
-    86,
-    102,
+    87,
+    103,
 ]
 hash = "sha256:3e8cf4a2d67f22ce528c6a0d7dacd23c69136eb9f911b5ec138c56c52e8aa944"
 doc_hash = "sha256:5dc1b5c0652b3d28deefb6c4855ad6148126ba159d13b36a07073d0e5ff99987"
@@ -648,8 +650,8 @@ id = "fn:97394024cb50101d"
 name = "has_photon"
 qual = "PlotReaction::has_photon"
 lines = [
-    105,
-    107,
+    106,
+    108,
 ]
 hash = "sha256:7e2fdac991abc61ca449f2d6bf9e4c286f420c12896d54c0c1a2c8d6e4e1f410"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -670,8 +672,8 @@ qual = "IncidentNeutronData"
 item = "type"
 shape = "struct"
 lines = [
-    110,
-    124,
+    111,
+    125,
 ]
 hash = "sha256:314063ef4a91d2d8ca4049ddd6812d6e56f49cceca91a4b9443e5f606eea2eea"
 doc_hash = "sha256:a818c284c317ec0f6cacc05384c761dd81f0195ae75ebf6b261f07c43f91656b"
@@ -687,8 +689,8 @@ id = "fn:b56194e0b30d9f4b"
 name = "from_ace_file"
 qual = "IncidentNeutronData::from_ace_file"
 lines = [
-    127,
-    134,
+    128,
+    135,
 ]
 hash = "sha256:c2585528a943a2263041e726611837e605d50d6ac739a6e93292bf1619a61fff"
 doc_hash = "sha256:d09a415765dbbb441a5a203e73634f7ea52c67d8f876f664a3cdb4ebc2312396"
@@ -711,8 +713,8 @@ id = "fn:d811ea33017000a3"
 name = "from_ace"
 qual = "IncidentNeutronData::from_ace"
 lines = [
-    136,
-    349,
+    137,
+    350,
 ]
 hash = "sha256:4d4d8eb77136739d25aa0c507d590f9f5e5f55977de1b316cc39214664aa5482"
 doc_hash = "sha256:8f6d9c030077b671ba0a0bdcb8716bae7a0e9a1c73c7564c2d695d5fcc862003"
@@ -755,8 +757,8 @@ id = "fn:7380bb4ace47635e"
 name = "first_total_nu"
 qual = "IncidentNeutronData::first_total_nu"
 lines = [
-    351,
-    364,
+    352,
+    365,
 ]
 hash = "sha256:c38c49d19bf30ffb22aaeb9459155dcf302f6932df83b5a6ca0831d576426e70"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -775,8 +777,8 @@ id = "fn:e5458193ad7c20be"
 name = "get_reaction_components"
 qual = "IncidentNeutronData::get_reaction_components"
 lines = [
-    366,
-    381,
+    367,
+    382,
 ]
 hash = "sha256:a9e0c7ccc23edeb4e64410f74f3fc756921540fa501b72de0829c3afe1289af2"
 doc_hash = "sha256:9d44208bba94c6ee9b6c8024bbaa8dfff0382423d202b028af279f00e55953d3"
@@ -793,8 +795,8 @@ id = "fn:c4b9363ac6895132"
 name = "redundant_reaction"
 qual = "IncidentNeutronData::redundant_reaction"
 lines = [
-    383,
-    407,
+    384,
+    408,
 ]
 hash = "sha256:c83bccf88810b6402aa09f873f433b81670d87d25f740d227b621524252c06f2"
 doc_hash = "sha256:1cd71a22d47d427414cdd80c9c39c02666425d8411c382d8588fdae32856337b"
@@ -818,8 +820,8 @@ id = "fn:3bff07387416eeb1"
 name = "temperature_label"
 qual = "IncidentNeutronData::temperature_label"
 lines = [
-    409,
-    412,
+    410,
+    413,
 ]
 hash = "sha256:3f2e631863140aa8d1f4886cc8fa87d63e362879372500551a6cc43d5a18fa1d"
 doc_hash = "sha256:e623673ffaa0cf679bca48d34986f423824677ccd5a772d928a6df2a8a31013b"
@@ -834,8 +836,8 @@ id = "fn:07d7a31956b7a8c2"
 name = "redundant"
 qual = "redundant"
 lines = [
-    415,
-    424,
+    416,
+    425,
 ]
 hash = "sha256:e1d20000a723a4f9d98c9faf5c517532f9926c697eab15ba6014484744e5529a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -854,8 +856,8 @@ id = "fn:c82d5c2ddab1dc6d"
 name = "name_from_zaid"
 qual = "name_from_zaid"
 lines = [
-    426,
-    440,
+    427,
+    441,
 ]
 hash = "sha256:7bdcfd2a5ffbd8e40f6ab79c510f2dff7bea7de60824626312a0e1b031775e94"
 doc_hash = "sha256:4a76acbec450e69c405545248f6cc024f186877b38b9fc57ff5e509d0ca8dffe"
@@ -872,10 +874,10 @@ id = "fn:c37d94600af4242e"
 name = "fission_products_ace"
 qual = "fission_products_ace"
 lines = [
-    442,
-    534,
+    443,
+    535,
 ]
-hash = "sha256:2b5e5bd6dc6f0acfdd423642d527e66dcb9fe664b7817d8b56007ea0415739c1"
+hash = "sha256:5fd136fe467246b38fa1217e7b65d1de0407c13731e826a7f30f8c4c53044df3"
 doc_hash = "sha256:4c7e54aed23e708d3eb2e985068070fe79cbf3e831fe73caffdf6a0d4ca6f920"
 callees = [
     "fn:0a0bc3aa094e434c",
@@ -900,6 +902,7 @@ reached_by = [
     "#9",
     "#10",
 ]
+index_out_of_date = true
 
 [[module."incident_neutron.rs".function]]
 id = "fn:f22989b627e43919"
@@ -908,8 +911,8 @@ qual = "XsLibrary"
 item = "type"
 shape = "struct"
 lines = [
-    536,
-    541,
+    537,
+    542,
 ]
 hash = "sha256:e9deb78df54f5896c1d74609b974d1acdc98355d09ae49862615e63deca2d887"
 doc_hash = "sha256:347775b9b2f49ea626fa77a90c6ff7cc1d86b1b50c3d84ebb8ca4aae623b93a0"
@@ -925,8 +928,8 @@ id = "fn:5c788f4753459f8f"
 name = "new"
 qual = "XsLibrary::new"
 lines = [
-    544,
-    547,
+    545,
+    548,
 ]
 hash = "sha256:547ab483cf3130a6dcc1bf0cafce3a03336ebd889e78a86bab7b18ac945b75a8"
 doc_hash = "sha256:25b0195761291671b748342a520b3d16fc4c69dc4c819023c9b0d70cd49750a7"
@@ -942,8 +945,8 @@ id = "fn:18b968af116ad4bd"
 name = "with_nuclide"
 qual = "XsLibrary::with_nuclide"
 lines = [
-    549,
-    554,
+    550,
+    555,
 ]
 hash = "sha256:f9c6c229b771feb5f75e4d77f58fe63aae3ebd6d951a14a7efcb327617911aa8"
 doc_hash = "sha256:c0689ed973eabec109733180903ded06a1a409153b4050cec2cf35460d30c858"
@@ -962,8 +965,8 @@ id = "fn:9b76ce04f651f377"
 name = "with_ace_file"
 qual = "XsLibrary::with_ace_file"
 lines = [
-    556,
-    559,
+    557,
+    560,
 ]
 hash = "sha256:643c563e9b828da0b1f02ed4620c37e716f9ef2a277ebc3bd48785e4a9d91986"
 doc_hash = "sha256:ad0126fa9a2a0422df8c8e61c04fcf5665188e5478f19b7093e112faabcfec5c"
@@ -982,8 +985,8 @@ id = "fn:227d82148fd80128"
 name = "get_by_material"
 qual = "XsLibrary::get_by_material"
 lines = [
-    561,
-    564,
+    562,
+    565,
 ]
 hash = "sha256:f20719d8e198af52f6274a0cdb2593a6e092e6da125e59f9ebc86ad10e730b7a"
 doc_hash = "sha256:046cc3c345f8351e2cb7eabd8a639ca86ca406f218c367160a106f0434fd3f30"
@@ -1002,8 +1005,8 @@ id = "fn:9115d6d4172d9e17"
 name = "names"
 qual = "XsLibrary::names"
 lines = [
-    566,
-    569,
+    567,
+    570,
 ]
 hash = "sha256:9d70bc364c59005d2638d279fdc81b27917162c5e53fb675cc9f211b192aba00"
 doc_hash = "sha256:3078533970e8ec07e6b4879f63be5b5c921f9a36abc7bfcda0ce6bac547c1cf9"
@@ -1592,8 +1595,8 @@ qual = "PLOT_TYPES"
 item = "const"
 shape = "const"
 lines = [
-    82,
-    96,
+    83,
+    97,
 ]
 hash = "sha256:274e98152356303f97685908e4095ead091f14dc8315e62eba650146941fa013"
 doc_hash = "sha256:ed4eba33175e94c668cdc47b5022448896f324ab818d51f403a5b96b22f4971c"
@@ -1610,8 +1613,8 @@ qual = "PLOT_TYPES_LINEAR"
 item = "const"
 shape = "const"
 lines = [
-    98,
-    104,
+    99,
+    105,
 ]
 hash = "sha256:bfccf1f54b1711b3ec4f8b3877fb9d6680d70502527228e0cd24e963abea7539"
 doc_hash = "sha256:6cb84fd30835232898a16389f4185438d173d83cbda485e977260878a5b05b92"
@@ -1628,8 +1631,8 @@ qual = "UNITY_MT"
 item = "const"
 shape = "const"
 lines = [
-    106,
     107,
+    108,
 ]
 hash = "sha256:100ba2437561c48ecf705d027bfe4d420287bf4d71d8357329f2f7de82d59e8a"
 doc_hash = "sha256:1479e36d0018ad613b0422443b086616ba91c8f763f0f50619b8365147c56bcd"
@@ -1646,8 +1649,8 @@ qual = "XI_MT"
 item = "const"
 shape = "const"
 lines = [
-    108,
     109,
+    110,
 ]
 hash = "sha256:dbe28e3f9aaf6a008c622041c585b0b4808cf89938b3505fc09b9ce231915008"
 doc_hash = "sha256:9c4a8ce50bbe95475de27cf5f30926aae602ea3cc7b227a932a5deae6ce3eb70"
@@ -1664,8 +1667,8 @@ qual = "MIN_E"
 item = "const"
 shape = "const"
 lines = [
-    110,
     111,
+    112,
 ]
 hash = "sha256:b1e1b36fddba01fbfd856de121e22beb508d144d894b1b40c5e52724032ce6ef"
 doc_hash = "sha256:46ab407b2e13e3a2e8d36774866468ad3002a5b6a1ee58a4448ee607a4d9d1a8"
@@ -1682,8 +1685,8 @@ qual = "MAX_E"
 item = "const"
 shape = "const"
 lines = [
-    112,
     113,
+    114,
 ]
 hash = "sha256:c786bf9e05c81c063119b8e853d6e9682ab79f350a345e29c1e133ae1db5cebe"
 doc_hash = "sha256:2544377f02cdeac2281e9fec85275417c9db9a79ef45f3f604117cf5fdc521b2"
@@ -1698,8 +1701,8 @@ id = "fn:ec0b3db6a08b3ef8"
 name = "inelastic"
 qual = "inelastic"
 lines = [
-    115,
-    123,
+    116,
+    124,
 ]
 hash = "sha256:82788a24cc598547dee5dff2dc950645f2c51b13f65f60e3d0526371320dd30c"
 doc_hash = "sha256:4b925f9e750958bb6a1aca527fffe376166980b902152e3ba0a0725b771a951b"
@@ -1715,8 +1718,8 @@ id = "fn:e6fa343296f8abb4"
 name = "plot_types_mt"
 qual = "plot_types_mt"
 lines = [
-    125,
-    144,
+    126,
+    145,
 ]
 hash = "sha256:3c16d6e7f4048e5f4b5ee196fc1e9389cdcd58f2ae9edf7d6b644d5070bd2011"
 doc_hash = "sha256:d74196aeb0fa67ea54b87b2fe8c52865dd92e47a98f9a5e550e2c55619dc5ff0"
@@ -1741,8 +1744,8 @@ qual = "XsType"
 item = "type"
 shape = "enum"
 lines = [
-    146,
-    154,
+    147,
+    155,
 ]
 hash = "sha256:efaf173fdd3aeab8198bb3b584274d868d96524cf458e6b81014bf58a182ba5a"
 doc_hash = "sha256:323634e2c3e6938fe7590a97b6eca46a1b00ec729ec519eacee47730749364b1"
@@ -1757,8 +1760,8 @@ id = "fn:e795575798ad8217"
 name = "from"
 qual = "XsType::from#1"
 lines = [
-    157,
-    159,
+    158,
+    160,
 ]
 hash = "sha256:6d798114e01ba9974bfc3cc20f0e2a55361d06436c123c49a8d1b302377095f3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1774,8 +1777,8 @@ id = "fn:df232efb81857261"
 name = "from"
 qual = "XsType::from#2"
 lines = [
-    163,
-    165,
+    164,
+    166,
 ]
 hash = "sha256:573a35faaaeb2232027b87364eb6b38bac30f915324e289d759af1f2046fe7cf"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1786,8 +1789,8 @@ id = "fn:37666028f5de7dfd"
 name = "fmt"
 qual = "XsType::fmt"
 lines = [
-    169,
-    175,
+    170,
+    176,
 ]
 hash = "sha256:7a52402dcea031c61a2e11a2d4d0b161a1213288f19b94dc4c5982aa569b5092"
 doc_hash = "sha256:5d312bfef584bee266e856ffbb7d665e2b530f428487530eb30d90436ecb643f"
@@ -1798,8 +1801,8 @@ id = "fn:fc9c6d009f080015"
 name = "is"
 qual = "XsType::is"
 lines = [
-    179,
-    181,
+    180,
+    182,
 ]
 hash = "sha256:c54239b246ba0f9ea1ec1ce38442a7b821f53986f16752cc59993956199087b5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1817,8 +1820,8 @@ qual = "PercentType"
 item = "type"
 shape = "enum"
 lines = [
-    184,
-    191,
+    185,
+    192,
 ]
 hash = "sha256:edc10f3aedc33c2700bec05810d1db3ca000b4ce072adb37adebf05a66ceb497"
 doc_hash = "sha256:badb85298356596b919b1153470501ecb27c92b4bf4e7b6ee58888056784581c"
@@ -1835,8 +1838,8 @@ qual = "MaterialDensity"
 item = "type"
 shape = "enum"
 lines = [
-    193,
-    208,
+    194,
+    209,
 ]
 hash = "sha256:d72d893aa020686a79041d35c5a38aec6a041ca65a61e1b1928f77749a7e5029"
 doc_hash = "sha256:fc85d3cd693d680a43ebaf8d45e9f69b4732abb94f67f947cc4c21ef490f17e2"
@@ -1853,8 +1856,8 @@ qual = "MaterialNuclide"
 item = "type"
 shape = "struct"
 lines = [
-    210,
-    219,
+    211,
+    220,
 ]
 hash = "sha256:d5932ec48842cdc231ad755a086e032e8c704eedce3cf98350f9bda7875ec9bc"
 doc_hash = "sha256:d0ed670bde610a4a8c3dd99b9afc1c565318f0c2d3b5969af16be40c4cbc63f1"
@@ -1872,8 +1875,8 @@ qual = "PlotMaterial"
 item = "type"
 shape = "struct"
 lines = [
-    221,
-    236,
+    222,
+    237,
 ]
 hash = "sha256:9954c6eed33ff0ce609d4be7076f7496f99d9ce5e86a9de4a7ba61430e94a521"
 doc_hash = "sha256:bed9bf8d2e6890c0492dfc8bf7c2a206ef2eeb598ecdc1c788bfdc94a9e173b2"
@@ -1892,8 +1895,8 @@ id = "fn:66cdb2c531774622"
 name = "new"
 qual = "PlotMaterial::new"
 lines = [
-    239,
-    249,
+    240,
+    250,
 ]
 hash = "sha256:19feaf11ff81af85e9b42507ddaf1c44389ba11b7173ce46506a3bd4b6d54b5d"
 doc_hash = "sha256:334e0a61bc1bf0624ee57b76144e032b40775d3bd3b5c45bde153d77cee2582f"
@@ -1912,8 +1915,8 @@ id = "fn:232a81f21fbaef33"
 name = "from_transport"
 qual = "PlotMaterial::from_transport"
 lines = [
-    251,
-    266,
+    252,
+    267,
 ]
 hash = "sha256:ab6fb67a1a13975e2769505a6ac79b97fe8360d65f0ec6d2b9007e1acfe0f378"
 doc_hash = "sha256:9c03b58f708417d80efb299343384fbabaa3eb46f6bbadd9f40cbb3c7bbcf39c"
@@ -1932,8 +1935,8 @@ id = "fn:63d3e921f098da8e"
 name = "with_nuclide_ao"
 qual = "PlotMaterial::with_nuclide_ao"
 lines = [
-    268,
-    276,
+    269,
+    277,
 ]
 hash = "sha256:76e5575de046b5466ab9a6a17147fb9fa154a31099f3d24b82fba9a6c8cdc188"
 doc_hash = "sha256:69c870ea6f6a4d6861b01b6b0e99e7381f4be70fff5938fa8ad53f87ae9c5be8"
@@ -1953,8 +1956,8 @@ id = "fn:ddaa811980fdb172"
 name = "with_density"
 qual = "PlotMaterial::with_density"
 lines = [
-    278,
-    282,
+    279,
+    283,
 ]
 hash = "sha256:0c6062044d3f6090e03590ce18bf3ea98d81b816e7a0c6353dabcb4bc1211f62"
 doc_hash = "sha256:f646dd0f884ecd9062a29af5fc8fb040068ca773577c9e98b44c108dafc32f08"
@@ -1973,8 +1976,8 @@ id = "fn:d3c3d91e50a8f218"
 name = "get_nuclide_atom_densities"
 qual = "PlotMaterial::get_nuclide_atom_densities"
 lines = [
-    284,
-    325,
+    285,
+    326,
 ]
 hash = "sha256:51ce4c61d906ecd063ba62b3f79ba65141b2dd3b251f3fa61324deb6e01cec9b"
 doc_hash = "sha256:6f6c6ae057be258a8b73b8ccd9fd0f0db8a5b492285e4504b829fbcd24a865b9"
@@ -1998,8 +2001,8 @@ qual = "PlotTarget"
 item = "type"
 shape = "enum"
 lines = [
-    328,
-    335,
+    329,
+    336,
 ]
 hash = "sha256:a157261c9dd795d8e6afd65e39b1a1066db216f57f2702ccdf0f3f07aeef654e"
 doc_hash = "sha256:3cdb81f566dce45f35f1ae37ff17a0bba792fca8a487a236126b4b3cf439a40b"
@@ -2015,8 +2018,8 @@ id = "fn:abe900b469f9439f"
 name = "from"
 qual = "PlotTarget::from"
 lines = [
-    338,
-    340,
+    339,
+    341,
 ]
 hash = "sha256:40b35f837cb985e1d7abd3dd6eba422594651393b90579f078ab754a1ba098fb"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -2034,8 +2037,8 @@ qual = "EnergyAxisUnits"
 item = "type"
 shape = "enum"
 lines = [
-    343,
-    353,
+    344,
+    354,
 ]
 hash = "sha256:2116fbfdfaccd1c7568fed4bba0bae5f0bc0ba8fd7ec64b59358d06702f42a35"
 doc_hash = "sha256:9228f9042b01a46ace04afd115b18c95e37f466db6b4552ee098450106ef8a23"
@@ -2050,8 +2053,8 @@ id = "fn:6ee373a3c162a305"
 name = "factor"
 qual = "EnergyAxisUnits::factor"
 lines = [
-    356,
-    362,
+    357,
+    363,
 ]
 hash = "sha256:878a7859716b5e0678efdaebd7019a36a66ba7f9b08b183d97b60d39947f5851"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -2067,8 +2070,8 @@ id = "fn:e58ad47d84882887"
 name = "label"
 qual = "EnergyAxisUnits::label"
 lines = [
-    364,
-    370,
+    365,
+    371,
 ]
 hash = "sha256:730be44c2597fc3362e74c25176cd2b63d52fe0aead8facb511a305ecf3409ba"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -2086,8 +2089,8 @@ qual = "PlotXsOptions"
 item = "type"
 shape = "struct"
 lines = [
-    373,
-    388,
+    374,
+    389,
 ]
 hash = "sha256:d3342f2d683ca772b6afa7fde5cd0d4aae07133227bb162548caef4e563404df"
 doc_hash = "sha256:7ce934307637264c20fd2155c6faf1bca8448002f2f2e046b86e253d9e9500c5"
@@ -2106,8 +2109,8 @@ id = "fn:408f6bdba210d71b"
 name = "default"
 qual = "PlotXsOptions::default"
 lines = [
-    391,
-    400,
+    392,
+    401,
 ]
 hash = "sha256:cf56fd09ba24a3b54c07362c48ffadd56dec24672514687033832ac6c585be1f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -2129,8 +2132,8 @@ qual = "XsLine"
 item = "type"
 shape = "struct"
 lines = [
-    403,
-    412,
+    404,
+    413,
 ]
 hash = "sha256:2ca5d0386101fb97ee876ef2a2aa705e95a23935ba8c6e5f0b94bacdc7dcaae0"
 doc_hash = "sha256:ad9a4f83a4aa432ff8c882f3d44861f042ffc6a5a285d75f9d3f9c1a7649c9f1"
@@ -2147,8 +2150,8 @@ qual = "XsFigure"
 item = "type"
 shape = "struct"
 lines = [
-    414,
-    431,
+    415,
+    432,
 ]
 hash = "sha256:91523664020dfd12446838321d8606c11fd309002750c6cff0c08bf69c11c967"
 doc_hash = "sha256:d175f24ae8ff2d56c1e3375e856a95cca0de414ce7a8013cc9d2ba2382761465"
@@ -2167,8 +2170,8 @@ id = "fn:672c31cd2a8ba85c"
 name = "to_python_script"
 qual = "XsFigure::to_python_script"
 lines = [
-    434,
-    463,
+    435,
+    464,
 ]
 hash = "sha256:f69cea5fa2f3228f0cd489a4657a87a8aac84c53dd2037916896a88a265e47d8"
 doc_hash = "sha256:887b31525646ef50aa580cbb5ec11560a090ded9d97139ef5ad152e2b8241922"
@@ -2196,8 +2199,8 @@ id = "fn:17b01db55b2a727a"
 name = "plot_xs"
 qual = "plot_xs"
 lines = [
-    466,
-    566,
+    467,
+    567,
 ]
 hash = "sha256:6d212de064ccc62de4e856dddd8d4ad2fd6881b1ff2bbbbd6cfcf5d2f3614e99"
 doc_hash = "sha256:a571812e008bb0d1388e7084c0be5992d17521b1c86ebe48c404049570cc5f2e"
@@ -2237,8 +2240,8 @@ id = "fn:ea9d0750a09984c0"
 name = "legend_label"
 qual = "legend_label"
 lines = [
-    568,
-    592,
+    569,
+    593,
 ]
 hash = "sha256:0c502737d380b78a161cb79af7e459995b8b3a52ff5a4337af92d522bfb55d49"
 doc_hash = "sha256:a612f18ff7a5406f2dde38f8a8d42000ce695a2c42b2f06a4453ef30f9ccdf49"
@@ -2264,8 +2267,8 @@ id = "fn:4bcb1163c64d675c"
 name = "yaxis_label"
 qual = "yaxis_label"
 lines = [
-    594,
-    628,
+    595,
+    629,
 ]
 hash = "sha256:4dd0cb7e1014bf98d1bb6eafecc9689540b3373daf8c57a1ac6f21fd1550b36b"
 doc_hash = "sha256:65aa367a9dd4133021f7088ab2a3db9d885172acc93a9084c42e22d494685697"
@@ -2285,8 +2288,8 @@ id = "fn:76cb5f0fe08bfc30"
 name = "title"
 qual = "title"
 lines = [
-    630,
-    641,
+    631,
+    642,
 ]
 hash = "sha256:e42a2d240f4fcc46981b04e712f02edc905ed67306fddf1c8a48c5e2e1aafe7c"
 doc_hash = "sha256:06910af34ace43dd13685d8ba0a6c66dba14e7f93f8678092b2ee21c28ac96c6"
@@ -2305,8 +2308,8 @@ id = "fn:9a821a87e2057c60"
 name = "calculate_cexs"
 qual = "calculate_cexs"
 lines = [
-    643,
-    666,
+    644,
+    667,
 ]
 hash = "sha256:d8d014bfd48d839b5be7abf76546148c4f48afa3774a158f10ce129fdc158dc3"
 doc_hash = "sha256:749ab9ad7f72d40a32b4f58f15242d3b91983061e52440662b72106dc7750780"
@@ -2335,8 +2338,8 @@ qual = "Term"
 item = "type"
 shape = "enum"
 lines = [
-    668,
-    680,
+    669,
+    681,
 ]
 hash = "sha256:d61df388656948a9501f4bd9eb348e8c9e8f3a266e2e5d19e41763fbb1fc7788"
 doc_hash = "sha256:0214411eb6f37face89c9dba2ffb16d5372fc892e447ddf48e01513e7c141baf"
@@ -2355,8 +2358,8 @@ id = "fn:f7fe22768a536e70"
 name = "eval"
 qual = "Term::eval"
 lines = [
-    683,
-    703,
+    684,
+    704,
 ]
 hash = "sha256:e9ca2713d08e5c130a7d7e1b6cb0b32d75992d3c48fd8fcdd7475e37fb295480"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -2378,8 +2381,8 @@ qual = "Combination"
 item = "type"
 shape = "struct"
 lines = [
-    706,
-    712,
+    707,
+    713,
 ]
 hash = "sha256:fb8d331681577c73cbb3e58be1185ddc39ef915b6b94ce5acc7cb280d36decf2"
 doc_hash = "sha256:4155e5afafbe0472c266bd9ad67ee56ed44e4bd04fcf95454d321c815366086c"
@@ -2395,8 +2398,8 @@ id = "fn:25aa39ff54fb9b74"
 name = "eval"
 qual = "Combination::eval"
 lines = [
-    715,
-    724,
+    716,
+    725,
 ]
 hash = "sha256:80be675acd9b13d30e21ebc019a6e22ff29d8cbf7eaa83ec98245b512b08343f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -2413,10 +2416,10 @@ id = "fn:d5c10d9db68ff0d6"
 name = "calculate_cexs_nuclide"
 qual = "calculate_cexs_nuclide"
 lines = [
-    727,
-    836,
+    728,
+    837,
 ]
-hash = "sha256:6133f5d246469da600de20411f5a4c122333372501b17ee371378e86d9c85c73"
+hash = "sha256:678c37c350b3494c1c62dc61485c97d7248c49ad46ed99781ea96d7058c4ae3b"
 doc_hash = "sha256:5df42cb67d8f06572d559d7da735c0979520fd30629aade63d2590353c9c788f"
 callees = [
     "fn:227d82148fd80128",
@@ -2442,14 +2445,15 @@ reached_by = [
     "#9",
     "#10",
 ]
+index_out_of_date = true
 
 [[module."xs.rs".function]]
 id = "fn:0c9c25875b2d894a"
 name = "expand_element"
 qual = "expand_element"
 lines = [
-    838,
-    907,
+    839,
+    908,
 ]
 hash = "sha256:85720377a603b7486db241a6b02f83c06f8d4fa39bd97e407d20b8869a92c47d"
 doc_hash = "sha256:f080deb65a980d1ef8ec4ac59318762ccb8fde62d027cbe128c533a5a61a5c6f"
@@ -2474,8 +2478,8 @@ id = "fn:233d98a819aa4110"
 name = "calculate_cexs_elem_mat"
 qual = "calculate_cexs_elem_mat"
 lines = [
-    909,
-    980,
+    910,
+    981,
 ]
 hash = "sha256:6ab863780ade83b1b803cf32061dcb9dd07e0dfc9da4bb61c4cee0b4f0f0c506"
 doc_hash = "sha256:f5db0c525ddb8b0be15243da95dc4da5f618f7402ab48bb15e004d69d9b4ac22"

@@ -1,0 +1,45 @@
+  graphite S(alpha,beta): tsl-reactor-graphite-30P.endf MAT 32, table at 296 K
+  reconstructing U235   from n-092_U_235-ENDF8.0.endf … 125.4s  (URR tables: true, DBRC: true)
+  reconstructing U238   from n-092_U_238.endf … 111.1s  (URR tables: true, DBRC: true)
+  reconstructing O16    from n-008_O_016-ENDF8.0.endf … 3.4s  (URR tables: false, DBRC: true)
+  reconstructing C12    from n-006_C_012-ENDF8.0.endf … 905.4ms  (URR tables: false, DBRC: true)
+  reconstructing C13    from n-006_C_013-ENDF8.0.endf … 161.7ms  (URR tables: false, DBRC: true)
+  reconstructing B10    from n-005_B_010-ENDF8.0.endf … 126.1ms  (URR tables: false, DBRC: true)
+  reconstructing B11    from n-005_B_011-ENDF8.0.endf … 1.0s  (URR tables: false, DBRC: true)
+=== HTR-10 fuel-zone infinite medium — rung 1 step 1a ===
+Data          : IAEA-TECDOC-1382 Table 4-38 atom densities (Open tier)
+Fidelity tier : HIGH: ENDF/B-VIII.0 direct (RECONR + BROADR, tol 1e-3), URR + DBRC on
+Thermal       : bound graphite S(alpha,beta) on C-12 and C-13: tsl-reactor-graphite-30P.endf (MAT 32) at 296 K
+Coatings      : NOT resolved — buffer/IPyC/SiC/OPyC smeared into matrix
+Temperature   : 293.15 K (benchmark B1 core temperature, 20 C)
+Geometry      : reflective cube, half-width 1 cm, zero leakage (k_inf)
+Packing       : 1018 kernels of r = 0.025 cm, target f = 0.008335, realized f = 0.008328, seed 20260811
+Transport     : 2000 particles/generation, 20 inactive + 60 active, RNG seed 1, CpuSingleThread
+
+SEED het    1 1.57311 0.00252 147.1s
+SEED hom    1 1.44756 0.00279 118.6s
+SEED het    2 1.57386 0.00265 171.3s
+SEED hom    2 1.44777 0.00294 148.3s
+SEED het    3 1.56942 0.00265 153.4s
+SEED hom    3 1.44471 0.00259 137.6s
+SEED het    4 1.57123 0.00276 166.4s
+SEED hom    4 1.44688 0.00270 125.4s
+SEED het    5 1.57243 0.00346 167.8s
+SEED hom    5 1.44622 0.00276 129.2s
+SEED het    6 1.57408 0.00322 165.0s
+SEED hom    6 1.45459 0.00274 127.7s
+SEED het    7 1.57341 0.00257 150.5s
+SEED hom    7 1.44834 0.00296 105.8s
+SEED het    8 1.57437 0.00255 135.8s
+SEED hom    8 1.44910 0.00307 107.9s
+SEED het    9 1.57199 0.00279 137.2s
+SEED hom    9 1.45047 0.00342 115.3s
+SEED het   10 1.57396 0.00257 149.6s
+SEED hom   10 1.45044 0.00265 107.4s
+SEED het   11 1.57524 0.00258 157.2s
+SEED hom   11 1.44824 0.00283 271.4s
+SEED het   12 1.57138 0.00283 358.3s
+SEED hom   12 1.44929 0.00278 343.4s
+ENSEMBLE het n=12 mean 1.57287 sd 0.00164 sem 0.00047
+ENSEMBLE hom n=12 mean 1.44864 sd 0.00251 sem 0.00072
+EXIT 0

@@ -8,6 +8,9 @@
 //! Two-dimensional multi-curve plots: axes, curves, error bars, legend blocks
 //! and curve tags.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::state::ViewrState;

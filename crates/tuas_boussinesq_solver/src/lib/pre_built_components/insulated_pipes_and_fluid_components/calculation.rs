@@ -1,8 +1,11 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::InsulatedFluidComponent;
 use uom::si::f64::*;
 use crate::tuas_lib_error::TuasLibError;
-use std::thread::JoinHandle;
-use std::thread;
+use crate::thread::JoinHandle;
+use crate::thread;
 
 impl InsulatedFluidComponent {
     /// advances the timestep for each HeatTransferEntity within this

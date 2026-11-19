@@ -76,6 +76,9 @@
 //! Maxwell law is therefore fully expressible and transportable — which is
 //! what #304's "cannot write a fissile nuclide" actually blocks on.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use hdf5_pure::{AttrValue, GroupBuilder};
 
 use crate::error::NjoyError;
@@ -798,7 +801,14 @@ impl Product {
 
 /// Unresolved-resonance probability tables, ported from `urr.py:132`.
 ///
-/// `table` is rank 3 — `(n_energy, n_bands, 6)` — which is a **dataset**, not
+/// `table` is rank 3 — ~~`(n_energy, n_bands, 6)`~~ **CORRECTED 2026-11-18
+/// (gh:#303): `(n_energy, 6, n_bands)`**, the columns `[probability, total,
+/// elastic, fission, capture, heating]` between energy and band, as OpenMC's
+/// own `U238.h5` stores it (shape `(83, 6, 20)`, h5py) and `urr.py:204`
+/// builds it. `write` below still declares `(n_energy, n_bands, 6)` for the shape it
+/// writes (no in-tree caller builds a `UrrTables` outside a test, so the order
+/// the flat vector must have is the caller's; to match OpenMC it is
+/// `(n_energy, 6, n_bands)`; not changed here) — which is a **dataset**, not
 /// an attribute, so the rank-2 attribute limit does not touch it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UrrTables {

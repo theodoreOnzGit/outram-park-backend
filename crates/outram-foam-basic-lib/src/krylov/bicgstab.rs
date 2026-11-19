@@ -62,7 +62,10 @@
 //! that they differ in the last bits; the measured effect on residual histories
 //! and iteration counts is recorded in `crate::krylov::hybrid_tests`.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use super::{KrylovResult, KrylovSettings, Preconditioner};
 use crate::compute::ComputeBackend;

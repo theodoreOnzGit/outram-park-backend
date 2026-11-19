@@ -17,6 +17,9 @@
 //! [`LiveEnsemble::advance_frame`]:
 //! crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::live::LiveEnsemble::advance_frame
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Which compute backend advances a Walk-on-Spheres ensemble.
 ///
 /// The variants map onto the compute modes named `CPUSingleThread` /
@@ -119,9 +122,14 @@ impl ThreadCount {
     /// Android — a phone just reports fewer cores).
     pub fn resolve(self) -> usize {
         fn logical_cores() -> usize {
-            std::thread::available_parallelism()
+            // Without `std` there are no threads: one core (gh:#1634).
+            #[cfg(feature = "std")]
+            let cores = std::thread::available_parallelism()
                 .map(|n| n.get())
-                .unwrap_or(1)
+                .unwrap_or(1);
+            #[cfg(not(feature = "std"))]
+            let cores = 1;
+            cores
         }
         match self {
             ThreadCount::Auto => logical_cores(),

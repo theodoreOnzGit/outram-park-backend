@@ -21,6 +21,9 @@
 //! >= 0.99) the **gas** temperature is used; for every other cell the
 //! **solid** temperature. Both raw values are kept.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Power, ThermodynamicTemperature};
 use uom::si::length::centimeter;
 use uom::si::mass_rate::kilogram_per_second;
@@ -304,8 +307,8 @@ impl Htr10FpicModel {
                     let t = if h > 0.0 { g.temperature[c] } else { 300.0 };
                     (
                         VolumetricHeatTransferCoefficient {
-                            dimension: std::marker::PhantomData,
-                            units: std::marker::PhantomData,
+                            dimension: core::marker::PhantomData,
+                            units: core::marker::PhantomData,
                             value: h,
                         },
                         ThermodynamicTemperature::new::<kelvin>(t),

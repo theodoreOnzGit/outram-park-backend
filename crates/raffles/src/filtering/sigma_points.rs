@@ -32,6 +32,9 @@
 
 //! Van der Merwe's scaled sigma points (FilterPy's `MerweScaledSigmaPoints`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::numpy_ops::Matrix;
 use crate::{RafflesError, Result};

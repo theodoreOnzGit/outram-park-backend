@@ -1,3 +1,6 @@
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 // SPDX-License-Identifier: GPL-3.0
 
 //! **OpenMC reads a WMP library this workspace wrote** — gh:#270 acceptance

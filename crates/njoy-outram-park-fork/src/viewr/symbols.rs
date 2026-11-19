@@ -9,6 +9,9 @@
 //! `poly2` (background fill) or `moveh`/`drawh` strokes; the order of the
 //! strokes and fills is upstream's, since it is the order of lines in the file.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::graph::Graph;
 
 const W: f64 = 0.01;

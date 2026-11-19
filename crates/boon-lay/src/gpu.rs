@@ -28,7 +28,10 @@
 //! > written to mirror the verified CPU `walk_to_absorbing_sphere` logic; the
 //! > per-thread `f32` RNG is a lightweight xorshift adequate for a demonstrator.
 
-use std::future::Future;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::future::Future;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
@@ -85,8 +88,8 @@ pub enum GpuError {
     MissingDiffusionData(MissingDiffusionData),
 }
 
-impl std::fmt::Display for GpuError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for GpuError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             GpuError::Poll(e) => write!(f, "gpu poll failed: {e}"),
             GpuError::Map(e) => write!(f, "gpu buffer map failed: {e}"),
@@ -96,7 +99,7 @@ impl std::fmt::Display for GpuError {
     }
 }
 
-impl std::error::Error for GpuError {}
+impl core::error::Error for GpuError {}
 
 /// A process-wide cached [`GpuContext`], probed once on first use.
 ///
@@ -888,7 +891,7 @@ fn block_on<F: Future>(future: F) -> F::Output {
     }
     let waker = Waker::from(Arc::new(ThreadWaker(std::thread::current())));
     let mut cx = Context::from_waker(&waker);
-    let mut future = std::pin::pin!(future);
+    let mut future = core::pin::pin!(future);
     loop {
         match future.as_mut().poll(&mut cx) {
             Poll::Ready(val) => return val,

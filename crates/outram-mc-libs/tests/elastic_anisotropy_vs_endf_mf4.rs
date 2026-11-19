@@ -49,6 +49,8 @@
 //! Data-gated: skips (passes) when `reference-data/endf/` is absent, same
 //! contract as `tests/thermal_laws_vs_njoy_thermr.rs`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::nuclide::Nuclide;
 
 /// Temperature \[K\] for the reconstruction. Irrelevant to MF=4 — angular

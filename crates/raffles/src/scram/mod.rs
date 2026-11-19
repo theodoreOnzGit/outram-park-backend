@@ -149,6 +149,9 @@
 //! commit, the one build patch that was needed, and the measured agreement are
 //! recorded in `crates/raffles/docs/scram-port-verification.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod alignment;
 pub mod bdd;
 pub mod ccf;

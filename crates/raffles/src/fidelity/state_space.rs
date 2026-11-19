@@ -26,6 +26,9 @@
 //!
 //! **Synthetic data only** (`RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::quantities::Quantities;
 use crate::filtering::{
     nis, EnsembleKalmanFilter, ExtendedKalmanFilter, Matrix, MerweScaledSigmaPoints, UnscentedKalmanFilter,

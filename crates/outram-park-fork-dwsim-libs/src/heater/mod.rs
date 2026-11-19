@@ -55,6 +55,9 @@
 //! `EnergyStream` mode is arithmetically identical to `HeatAdded` once the
 //! duty is read from the energy stream — use [`outlet_enthalpy_heat_added`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
     AvailableEnergy, MassRate, Power, Pressure, Ratio, SpecificHeatCapacity,

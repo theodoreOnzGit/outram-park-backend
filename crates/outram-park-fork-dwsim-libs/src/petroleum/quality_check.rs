@@ -61,7 +61,10 @@
 //! gravity and API gravity dimensionless. Each [`QualityCheckEntry`] states its
 //! own unit for display.
 
-use std::fmt::{self, Display};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::fmt::{self, Display};
 
 use uom::si::ratio::ratio;
 

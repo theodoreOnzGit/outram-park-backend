@@ -2,6 +2,20 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `outram-park-fork-cfmesh` crate.
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1639, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh`. Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob; maps come from `crate::hash` (std's with `std`, so the fingerprint pins
+  hold; `hashbrown` without).
+- Clocks are `crate::time::Instant`, trace switches `crate::env::var`, and a
+  thread pool is `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`
+  with a serial path beside it.
+- Files and printing are `#[cfg(feature = "std")]` (one attribute per
+  `println!`), and so is any test or example that reads files.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -306,7 +320,19 @@ A run stopped before the revert returns the mesh in the modified space,
 as upstream does. Without sources, all four outputs are pinned to their
 pre-wiring fingerprints
 (`anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit`):
-~~**do not move that pin.**~~ **MOVED 2026-11-11 (gh:#1385, flagged for the maintainer):** all four fingerprints moved (cell counts did not) when the generators were made to follow upstream bit for bit on the sphere; causes in the "Rust-side differential" section of `verification_and_validation/upstream_cfmesh_gh1385/README.md`. The pin guards the anisotropic wiring against *wiring* changes; re-pin again only for a fix that follows upstream. **Moved again 2026-11-11 (gh:#1385 round 4, flagged): the 2D fingerprint, then the `pMesh` one (fifth move)** (`preMapVertices` 2 iterations; the 2D template and `distributeBoundaryFaces` carry the cell lists through `replaceBoundary`); cartesian, tet and p did not move.
+~~**do not move that pin.**~~ **MOVED 2026-11-11 (gh:#1385, ~~flagged for the maintainer~~ accepted by the maintainer 2026-11-12, gh:#1336):** all four fingerprints moved (cell counts did not) when the generators were made to follow upstream bit for bit on the sphere; causes in the "Rust-side differential" section of `verification_and_validation/upstream_cfmesh_gh1385/README.md`. The pin guards the anisotropic wiring against *wiring* changes; re-pin again only for a fix that follows upstream. **Moved again 2026-11-11 (gh:#1385 round 4, ~~flagged~~ accepted by the maintainer 2026-11-12, gh:#1336): the 2D fingerprint, then the `pMesh` one (fifth move)** (`preMapVertices` 2 iterations; the 2D template and `distributeBoundaryFaces` carry the cell lists through `replaceBoundary`); cartesian, tet and p did not move.
+
+**Accepted by the maintainer 2026-11-12 (gh:#1336):** every move of this pin (round 2 cartesian/tet, round 4 2D and pMesh; fingerprints only, cell counts unchanged) is accepted; the pin may still not move except for a fix that follows upstream.
+
+**UPDATED 2026-11-13 (gh:#1385 round 5, `cartesianMesh` only):** the back-scaling's
+`projectSurfaceAfterBackScaling` builds a **new octree on the original surface**
+(`createOctreeWithRefinedBoundary(20, 30)`), maps every boundary point with its
+`findNearestSurfacePoint` and runs the second `optimiseFinalMesh` with that octree
+(`anisotropic::revert_and_project_octree`); ~~the port mapped to the exact nearest point
+and optimised with brute-force searches~~ (`anisotropic::revert_and_project`, which
+`tetMesh`, `pMesh` and the 2D generator still call: not yet compared with a staged
+upstream run). Pinned by `tests/cfmesh_vs_upstream_single_orifice.rs`
+(`cartesianMesh/singleOrifice`, final mesh equal to upstream's up to the pow ulp).
 
 Record and images: `verification_and_validation/anisotropic_gh1279/`.
 
@@ -450,6 +476,13 @@ Rules this taught:
   `asmo_octree_mesh_optimisation_is_within_one_pow_ulp` pins it from above.
   A difference **bigger** than a last-bit cascade is not this: look at the
   traces (`GH1385_TRACE`, patches `gh1385-trace-instrumentation-*.patch`).
+- **C++ default arguments bind a `bool` to the first parameter (gh:#1385 round 5).**
+  `untangleMeshFV` calls `tmo.optimiseBoundaryVolumeOptimizer(true)` and `(false)` against
+  `(const label nIterations = 3, const bool nonShrinking = false)`: one unconstrained
+  iteration below two global iterations, zero from five on. Upstream's comments describe an
+  intent the code does not carry out; `mesh_optimizer::BoundaryMoveCalls::Upstream`
+  (default) follows the code, `AsDocumented` the comments. Read the **signature**, not the
+  comment, before porting a call.
 - **Two face-geometry formulas.** `foam_face_centre` / `ring_area_vector` are
   `face::centre` / `face::areaNormal` (the surface engine, the optimisers);
   `checks::pmg_face_centre_and_area` is the polyMeshGen addressing's own

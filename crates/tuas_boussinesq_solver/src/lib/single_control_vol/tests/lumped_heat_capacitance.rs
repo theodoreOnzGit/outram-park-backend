@@ -1,7 +1,11 @@
-use std::f64::consts::PI;
-use std::ops::{DerefMut, Deref};
-use std::sync::{Arc, Mutex};
-use std::thread;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
+use core::ops::{DerefMut, Deref};
+use alloc::sync::Arc;
+    use crate::sync::Mutex;
+use crate::thread;
 use crate::boundary_conditions::BCType;
 use crate::boussinesq_thermophysical_properties::density::try_get_rho;
 use crate::control_volume_dimensions::{OuterDiameterThermalConduction, SurfaceArea};
@@ -306,6 +310,7 @@ use uom::si::time::second;
 ///
 #[test]
 //#[ignore = "lumped lumped-capacitance-test takes about 1 min, too long"]
+#[cfg(feature = "std")]
 fn lumped_heat_capacitance_steel_ball_in_air() -> Result<(), TuasLibError> {
     // first, a steel control vol
     // determine parameters first
@@ -398,6 +403,7 @@ fn lumped_heat_capacitance_steel_ball_in_air() -> Result<(), TuasLibError> {
 
         // let's make a csv writer too
 
+        #[cfg(feature = "std")]
         use csv::Writer;
         let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path(
             "air_cooled_steel_sphere.csv",
@@ -572,6 +578,7 @@ fn lumped_heat_capacitance_steel_ball_in_air() -> Result<(), TuasLibError> {
 
     // let's check the final enthalpy vec
 
+    #[cfg(feature = "std")]
     println!("{:?}", enthalpy_vec_final);
 
     return Ok(());
@@ -581,6 +588,7 @@ fn lumped_heat_capacitance_steel_ball_in_air() -> Result<(), TuasLibError> {
 /// with improved API for conveneince
 #[test]
 //#[ignore = "lumped lumped-capacitance-test takes about 1 min, too long"]
+#[cfg(feature = "std")]
 fn lumped_heat_capacitance_steel_ball_in_air_improved_api() -> Result<(), TuasLibError> {
     // first, a steel control vol
     // determine parameters first
@@ -654,6 +662,7 @@ fn lumped_heat_capacitance_steel_ball_in_air_improved_api() -> Result<(), TuasLi
 
         // let's make a csv writer too
 
+        #[cfg(feature = "std")]
         use csv::Writer;
         let mut wtr = Writer::from_path(crate::vnv_test_support::vnv_csv_path(
             "air_cooled_steel_sphere_api_test.csv",
@@ -774,6 +783,7 @@ fn lumped_heat_capacitance_steel_ball_in_air_improved_api() -> Result<(), TuasLi
 
     // let's check the final enthalpy vec
 
+    #[cfg(feature = "std")]
     println!("{:?}", enthalpy_vec_final);
 
     return Ok(());

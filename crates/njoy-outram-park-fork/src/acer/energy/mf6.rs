@@ -20,6 +20,9 @@
 //! - [`parse_mf6_law7_lab_angle_energy`] — the `ZAP=1, LAW=7` lab-frame
 //!   angle-then-energy subsection.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::{
     records::{SectionCursor, Tab1},
@@ -932,6 +935,7 @@ mod incident_interp_survey {
     use crate::endf::tape::Tape;
     use crate::reference_data::reference_data_dir;
 
+    #[cfg(feature = "std")]
     /// **Which incident-energy interpolation laws do real evaluations actually
     /// use on MF=6 LAW=1?**
     ///
@@ -972,7 +976,7 @@ mod incident_interp_survey {
             return;
         }
 
-        let mut counts: std::collections::BTreeMap<i32, usize> = Default::default();
+        let mut counts: alloc::collections::BTreeMap<i32, usize> = Default::default();
         let mut non_linlin = Vec::new();
         // Skips are COUNTED, not silent. A survey that quietly drops what it
         // cannot parse reports a clean answer about a fraction of the data --
@@ -985,7 +989,7 @@ mod incident_interp_survey {
         // LANG: which angular representations appear. 11..15 (tabulated
         // cosines) are RETAINED but not sampled, so an evaluation using one
         // would silently fall back to isotropic -- this makes that loud.
-        let mut lang_seen: std::collections::BTreeSet<String> = Default::default();
+        let mut lang_seen: alloc::collections::BTreeSet<String> = Default::default();
         for f in &files {
             let Ok(tape) = Tape::read_file(f) else {
                 continue;

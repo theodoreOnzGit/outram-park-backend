@@ -298,7 +298,8 @@ fn bed_matches_upstream() {
             assert_eq!(bad, vec![0, 0, 0, 0]);
         } else {
             assert!(
-                worst_rel < 1e-8,
+                // ~~1e-8~~ 1e-9 (gh:#1614, 2026-11-17): worst measured 1.1e-13.
+                worst_rel < 1e-9,
                 "cell-grid order: worst relative {worst_rel:e}"
             );
         }

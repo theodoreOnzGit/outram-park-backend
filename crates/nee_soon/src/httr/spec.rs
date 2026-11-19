@@ -35,8 +35,11 @@
 //! axial mid-plane, the core 522 cm tall, the fuel from `z = -145` to
 //! `z = +145`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 // ---------------------------------------------------------------------------
 // TRISO particle and compact (R1 §3.1.2.1, Fig. 3.1 p.192; deck surfaces 1-6,

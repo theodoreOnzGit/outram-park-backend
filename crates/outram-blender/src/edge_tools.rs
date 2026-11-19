@@ -35,7 +35,11 @@
 //!   two face groups the split separates gets its own copy (the Edge Split
 //!   modifier as an operator).
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeSet;
+use crate::hash::{HashMap, HashSet};
 
 use crate::mesh::{EdgeId, Mesh, VertexId};
 use crate::topology::MeshTopology;

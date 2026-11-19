@@ -47,10 +47,11 @@ where the ACE table itself differs (35, 37, 63: PURR words).
 | 24 | Pu-239 | 33 | 0 |
 | 36, 38, 39, 40, 41, 42 | Sn-119, Kr-83, Ni-63, Mn-55, Ge-71, Zn-67 | 43 | 0 |
 | 72 | Be-9 | 43 | 0 |
-| 35 | Ag-109 | 43 | 5 (the ACE differs in 5 PURR words) |
-| 37, 63 | Co-58, Ag-109 | 43 | not reached: the directory unit 42 differs first (PURR block length) |
+| 35 | Ag-109 | 43 | ~~5 (the ACE differs in 5 PURR words)~~ 0 (re-run 2026-11-12, gh:#1498) |
+| 37, 63 | Co-58, Ag-109 | 43 | ~~not reached: the directory unit 42 differs first (PURR block length)~~ 0 (2026-11-12, gh:#1498: RECONR's extra URR-top point on 37, PURR's `nunx` stride on 63) |
 
-Decks 35, 37 and 63 are `#[ignore]`d for that reason. To isolate `aplots` from
+~~Decks 35, 37 and 63 are `#[ignore]`d for that reason.~~ **CORRECTED 2026-11-12
+(gh:#1498):** they are gated end to end, units 34 and 41-45. To isolate `aplots` from
 it, `test_{35,37,63,71}_plot_of_njoys_own_ace` feed **NJOY's own** `iopt = 1`
 file to `acefix` and compare the plot (and the edited ACE) with NJOY's:
 **0 differing lines in all four**.

@@ -36,6 +36,12 @@ backronym = "Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Ope
 # A dose calculation would read CHANGI's air concentrations and deposition
 # and, for uncertainty, RAFFLES; each edge is declared when code here calls
 # into it, not before.
+[features]
+# `std` (default, gh:#1593): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`.
+default = ["std"]
+std = ["changi/std"]
+
 [dependencies]
 # `published::accident_dose_by_distance` re-exports changi's `AccidentCase`
 # so the accident release (changi, Table 8) and dose (here, Table 9) tables
@@ -58,4 +64,4 @@ uom = { workspace = true }
 # (tests/liu_cao_external_dose_cross_check.rs, gh:#379). The README says
 # half-lives come from boon-lay; this is a TEST-only edge, so the library stays
 # free of it. boon-lay does not depend on buangkok, so there is no cycle.
-boon-lay = { workspace = true }
+boon-lay = { workspace = true, features = ["std"] }

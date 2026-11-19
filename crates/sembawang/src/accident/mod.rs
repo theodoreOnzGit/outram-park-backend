@@ -15,6 +15,9 @@
 //! The temperature transient itself is **prescribed by the caller** — see the
 //! crate docs for the full list of what is not computed here.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod release;
 pub mod venting;
 

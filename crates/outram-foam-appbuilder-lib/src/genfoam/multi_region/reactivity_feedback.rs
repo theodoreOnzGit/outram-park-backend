@@ -86,6 +86,9 @@
 //! [`Ratio`]. The per-cell reduction is done in raw `f64` internally (never at
 //! the API boundary).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{MassDensity, Ratio, ThermodynamicTemperature};
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -420,7 +423,7 @@ impl ReactivityFeedback {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     use outram_foam_basic_lib::fields::vol_field::VolScalarField;
     use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;

@@ -58,6 +58,9 @@
 //!
 //! See `docs/genfoam-port-plan.md` for the full translation order.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod interpolate_table;
 pub mod rbf;
 pub mod time_profile;

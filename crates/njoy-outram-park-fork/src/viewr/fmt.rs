@@ -17,6 +17,9 @@
 //! - `Iw`: right-justified integer, `*` fill on overflow.
 //! - `O3.3`: octal with at least three digits.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// `Fw.d` of `x`.
 pub fn f(x: f64, w: usize, d: usize) -> String {
     let mut s = format!("{x:.d$}");

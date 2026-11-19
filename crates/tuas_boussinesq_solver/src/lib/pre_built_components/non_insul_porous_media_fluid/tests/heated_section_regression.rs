@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::thermal_conductance::watt_per_kelvin;
 
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
@@ -13,7 +16,7 @@ use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 #[test]
 //#[ignore = "debugging"]
 pub fn example_heated_section_regression_new_and_old() {
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
 
     use uom::{
         si::{time::second, power::kilowatt},
@@ -167,6 +170,7 @@ pub fn example_heated_section_regression_new_and_old() {
         heater_v2_bare_new_code.advance_timestep(timestep);
 
         // print outlet temperature
+        #[cfg(feature = "std")]
         dbg!(heated_section_exit_temperature
             .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -208,6 +212,7 @@ pub fn example_heated_section_regression_new_and_old() {
         simulation_time += timestep;
 
         let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
+        #[cfg(feature = "std")]
         dbg!(time_taken_for_calculation_loop);
     }
 
@@ -245,7 +250,7 @@ pub fn example_heated_section_regression_new_and_old() {
 /// thermal conductance (W/K) matches the original CIET-heater-v2 value.
 #[test]
 pub fn regression_new_and_old_nodal_conductance_steel_shell_to_ambient() {
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
 
     use uom::{si::time::second, ConstZero};
 
@@ -379,6 +384,7 @@ pub fn regression_new_and_old_nodal_conductance_steel_shell_to_ambient() {
     }
 
     // print outlet temperature
+    #[cfg(feature = "std")]
     dbg!(heated_section_exit_temperature
         .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -397,6 +403,7 @@ pub fn regression_new_and_old_nodal_conductance_steel_shell_to_ambient() {
     simulation_time += timestep;
 
     let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
+    #[cfg(feature = "std")]
     dbg!(time_taken_for_calculation_loop);
 }
 
@@ -404,7 +411,7 @@ pub fn regression_new_and_old_nodal_conductance_steel_shell_to_ambient() {
 /// thermal conductance (W/K) matches the original CIET-heater-v2 value.
 #[test]
 pub fn regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array() {
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
 
     use uom::{si::time::second, ConstZero};
 
@@ -544,6 +551,7 @@ pub fn regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array(
     }
 
     // print outlet temperature
+    #[cfg(feature = "std")]
     dbg!(heated_section_exit_temperature
         .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -562,6 +570,7 @@ pub fn regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array(
     simulation_time += timestep;
 
     let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
+    #[cfg(feature = "std")]
     dbg!(time_taken_for_calculation_loop);
 }
 
@@ -570,7 +579,7 @@ pub fn regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array(
 /// CIET-heater-v2 value.
 #[test]
 pub fn regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array() {
-    use std::time::SystemTime;
+    use crate::time::SystemTime;
 
     use uom::{si::time::second, ConstZero};
 
@@ -710,6 +719,7 @@ pub fn regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array
     }
 
     // print outlet temperature
+    #[cfg(feature = "std")]
     dbg!(heated_section_exit_temperature
         .into_format_args(degree_celsius, uom::fmt::DisplayStyle::Abbreviation));
 
@@ -728,5 +738,6 @@ pub fn regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array
     simulation_time += timestep;
 
     let time_taken_for_calculation_loop = loop_time_start.elapsed().unwrap();
+    #[cfg(feature = "std")]
     dbg!(time_taken_for_calculation_loop);
 }

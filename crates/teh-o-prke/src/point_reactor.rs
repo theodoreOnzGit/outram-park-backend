@@ -42,6 +42,9 @@
 //!
 //! > Research, education and V&V only. AI draft, unreviewed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::areal_number_rate::per_square_meter_second;
 use uom::si::energy::joule;
 use uom::si::f64::*;

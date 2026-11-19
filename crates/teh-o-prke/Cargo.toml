@@ -36,19 +36,34 @@ maturity = 1
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
-approx.workspace = true
-ndarray.workspace = true
-thiserror.workspace = true
+# `ndarray` / `thiserror` without their std defaults (gh:#1600); the `std`
+# feature turns them back on. Imported in lib.rs under their usual names.
+ndarray-nostd.workspace = true
+thiserror-nostd.workspace = true
 uom.workspace = true
 # real (non-dev) dep: nordheim_fuchs's optional reactivity-input driver
 # reuses this crate's TransferFnFirstOrder -- see src/nordheim_fuchs.rs
-chem-eng-real-time-process-control-simulator.workspace = true
+# no_std-capable since gh:#1612; `std` below turns on its CSV helpers.
+chem-eng-real-time-process-control-simulator = { workspace = true }
+
+[features]
+# `std` (default, gh:#1600): without it the crate is `no_std` + `alloc`,
+# checked on a bare-metal target by `scripts/check-nostd.sh`. It carries
+# printing and clocks; every model builds without it.
+std = [
+    "ndarray-nostd/std",
+    "thiserror-nostd/std",
+    "chem-eng-real-time-process-control-simulator/std",
+]
+default = ["std"]
 
 [dev-dependencies]
+# Test-only (gh:#1600: was a normal dependency, used only by tests).
+approx.workspace = true
 env_logger.workspace = true
 local-ip-address.workspace = true
 serde.workspace = true
-tuas_boussinesq_solver.workspace = true
+tuas_boussinesq_solver = { workspace = true, features = ["std"] }
 
 # GUI-only dev-deps for the `fhr_sim_v1` example. These are Android-hostile:
 # egui/eframe pull in `ring` (via ureq/rustls), which needs a C compiler the

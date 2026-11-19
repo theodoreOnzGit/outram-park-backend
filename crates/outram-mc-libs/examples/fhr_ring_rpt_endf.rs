@@ -142,8 +142,12 @@
 //!    are measurements rather than failures to measure.
 //!
 //! 7. **Caveats 4-6 were measured BEFORE the residual was closed.** They are
-//!    still correct as *worth* measurements — that is what they are for, and
-//!    their numbers do not depend on what else was wrong at the time — but read
+//!    still correct as *worth* measurements — that is what they are for, ~~and
+//!    their numbers do not depend on what else was wrong at the time~~
+//!    **CORRECTED 2026-11-17 (gh:#1617)**: the caveat-6 target-motion number
+//!    DID depend on it. Replayed post-F-19 on `60f6bb261`, the same whole-run
+//!    switch gives -556 +/- 87 pcm (8 seeds), not -2242; see
+//!    `examples/fhr_pebble_target_at_rest_ablation.rs` — but read
 //!    them as the elimination trail that led to GitHub #193 rather than as live
 //!    statements about an open gap. The trail was: graphite S(α,β) priced at
 //!    -127 +/- 337 pcm, the MF=4 angular law at -81 +/- 317, a deliberately
@@ -196,6 +200,7 @@ mod desktop {
     use outram_mc_libs::geometry::triso_particle::TrisoMaterials;
     use outram_mc_libs::geometry::position::Position;
     use outram_mc_libs::geometry::surface::BoundaryType;
+    use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
     use outram_mc_libs::material::thermal::ThermalScattering;
     use std::path::PathBuf;
 
@@ -268,7 +273,7 @@ mod desktop {
         n
     }
 
-    fn nuclides() -> Vec<Nuclide> {
+    fn nuclides() -> (Vec<Nuclide>, ThermalScattering) {
         // C12 / C13 (fuel kernel) stay free-gas. C12G / C13G (buffer, PyC,
         // matrix, shell) carry the ENDF/B-VIII.0 crystalline-graphite S(α,β)
         // law — below ~4 eV they scatter off the bound lattice (coherent Bragg
@@ -277,14 +282,16 @@ mod desktop {
         // spectrum sits ~1700 pcm too high (tests/htr10_graphite_thermal_scatt…).
         let sab = graphite_sab();
         eprintln!("  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok");
-        vec![
+        let nuclides = vec![
             load("U235", "n-092_U_235-ENDF8.0.endf"),
             load("U238", "n-092_U_238.endf"),
             load("O16", "n-008_O_016-ENDF8.0.endf"),
             load("C12", "n-006_C_012-ENDF8.0.endf"),
             load("C13", "n-006_C_013-ENDF8.0.endf"),
-            load("C12", "n-006_C_012-ENDF8.0.endf").with_thermal_scattering(sab.clone()),
-            load("C13", "n-006_C_013-ENDF8.0.endf").with_thermal_scattering(sab),
+            // Loaded free; c_Graphite is attached per material in `run`
+            // (gh:#1581).
+            load("C12", "n-006_C_012-ENDF8.0.endf"),
+            load("C13", "n-006_C_013-ENDF8.0.endf"),
             load("Si28", "n-014_Si_028-ENDF8.0.endf"),
             load("Si29", "n-014_Si_029-ENDF8.0.endf"),
             load("Si30", "n-014_Si_030-ENDF8.0.endf"),
@@ -292,7 +299,8 @@ mod desktop {
             load("Li6", "n-003_Li_006-ENDF8.0.endf"),
             load("Li7", "n-003_Li_007-ENDF8.0.endf"),
             load("Be9", "n-004_Be_009-ENDF8.0.endf"),
-        ]
+        ];
+        (nuclides, sab)
     }
 
     fn graphite_sab() -> ThermalScattering {
@@ -565,46 +573,6 @@ mod desktop {
         // scattering is not dominated by the same nuclide its fission is.
         let no_inelastic = std::env::var("OUTRAM_RINGRPT_NO_INELASTIC").unwrap_or_default();
         let isotropic_elastic = std::env::var("OUTRAM_RINGRPT_ISOTROPIC_ELASTIC").is_ok();
-        let nucs = if !no_inelastic.is_empty() {
-            let all = no_inelastic.eq_ignore_ascii_case("all");
-            let wanted: Vec<&str> = no_inelastic.split(',').map(str::trim).collect();
-            eprintln!(
-                "  !! SENSITIVITY MODE: INELASTIC levels dropped for [{no_inelastic}] — those\n\
-                 \x20    collisions scatter elastically. Wrong physics on purpose."
-            );
-            nuclides()
-                .into_iter()
-                .map(|n| {
-                    if all || wanted.iter().any(|w| w.eq_ignore_ascii_case(&n.name)) {
-                        n.without_inelastic()
-                    } else {
-                        n
-                    }
-                })
-                .collect::<Vec<_>>()
-        } else if isotropic_elastic {
-            eprintln!(
-                "  !! SENSITIVITY MODE: elastic scattering forced ISOTROPIC-CM — every\n\
-                 \x20    MF=4 angular distribution dropped. Wrong physics on purpose."
-            );
-            nuclides()
-                .into_iter()
-                .map(Nuclide::with_isotropic_elastic)
-                .collect::<Vec<_>>()
-        } else {
-            nuclides()
-        };
-        // GitHub #313: the free-gas kT of a pointwise nuclide is now its data
-        // temperature, so zeroing `KeffSettings::temperature_k` no longer
-        // removes target motion. The positive control therefore applies the
-        // per-nuclide hook, which the in-process ablation study
-        // (`fhr_pebble_target_at_rest_ablation.rs`) showed to be mechanically
-        // identical to the old whole-run switch.
-        let nucs = if std::env::var("OUTRAM_RINGRPT_TARGET_AT_REST").is_ok() {
-            nucs.into_iter().map(Nuclide::with_target_at_rest).collect::<Vec<_>>()
-        } else {
-            nucs
-        };
         let (mats, spec) = build_materials();
         // ── Sensitivity switch: how much is the graphite S(α,β) law WORTH here? ──
         //
@@ -627,6 +595,56 @@ mod desktop {
             mats.into_iter().map(free_gas_carbon).collect::<Vec<_>>()
         } else {
             mats
+        };
+        // S(a,b) per material, as OpenMC does (gh:#462, #1581): every material
+        // that references C12G / C13G gets c_Graphite; the kernel, SiC and the
+        // free-gas homogenised TRISO carbon stay free. With
+        // OUTRAM_RINGRPT_FREE_GAS_GRAPHITE no material references C12G / C13G
+        // any more, so no bound copy is added.
+        let (free_nucs, sab) = nuclides();
+        let mut sab_entries = MaterialSab::for_materials_containing(&mats, nx::C12G, 0, &[]);
+        sab_entries.extend(MaterialSab::for_materials_containing(&mats, nx::C13G, 0, &[]));
+        let (mats, base_nucs) = assign_material_sab(&mats, &free_nucs, &[sab], &sab_entries)
+            .expect("S(a,b) per material");
+        let nucs = if !no_inelastic.is_empty() {
+            let all = no_inelastic.eq_ignore_ascii_case("all");
+            let wanted: Vec<&str> = no_inelastic.split(',').map(str::trim).collect();
+            eprintln!(
+                "  !! SENSITIVITY MODE: INELASTIC levels dropped for [{no_inelastic}] — those\n\
+                 \x20    collisions scatter elastically. Wrong physics on purpose."
+            );
+            base_nucs
+                .into_iter()
+                .map(|n| {
+                    if all || wanted.iter().any(|w| w.eq_ignore_ascii_case(&n.name)) {
+                        n.without_inelastic()
+                    } else {
+                        n
+                    }
+                })
+                .collect::<Vec<_>>()
+        } else if isotropic_elastic {
+            eprintln!(
+                "  !! SENSITIVITY MODE: elastic scattering forced ISOTROPIC-CM — every\n\
+                 \x20    MF=4 angular distribution dropped. Wrong physics on purpose."
+            );
+            base_nucs
+                .into_iter()
+                .map(Nuclide::with_isotropic_elastic)
+                .collect::<Vec<_>>()
+        } else {
+            base_nucs
+        };
+        // GitHub #313: the free-gas kT of a pointwise nuclide is now its data
+        // temperature, so zeroing `KeffSettings::temperature_k` no longer
+        // removes target motion. The positive control therefore applies the
+        // per-nuclide hook, which the in-process ablation study
+        // (`fhr_pebble_target_at_rest_ablation.rs`) showed to be mechanically
+        // identical to the old whole-run switch.
+        let nucs = if std::env::var("OUTRAM_RINGRPT_TARGET_AT_REST").is_ok() {
+            nucs.into_iter().map(Nuclide::with_target_at_rest).collect::<Vec<_>>()
+        } else {
+            nucs
         };
         eprintln!();
 
@@ -659,6 +677,18 @@ mod desktop {
             temperature_k: TEMP_K,
             compute,
             ..KeffSettings::default()
+        };
+        // `OUTRAM_FHR_ALL_SEED=S` (gh:#1635 item 1): master seed S for EVERY
+        // solve of this run (the TRISO packing seed below is a separate
+        // constant and does not move). Unset, `keff` is untouched and the
+        // output is unchanged. Env glue in an example's `run()`, exempt from
+        // the reached-by-a-test rule: it is exercised by every ensemble run.
+        let keff = match std::env::var("OUTRAM_FHR_ALL_SEED") {
+            Ok(s) => KeffSettings {
+                seed: s.parse().expect("OUTRAM_FHR_ALL_SEED must be a u64"),
+                ..keff
+            },
+            Err(_) => keff,
         };
         // Full-pebble delta domains. The OpenMC deck clips the coolant at a
         // reflective SPHERE r = 3, so `ball` is the matched domain and every
@@ -738,6 +768,22 @@ mod desktop {
         // runs only the surface-tracked CSG case, which is the one that yields
         // the six-factor decomposition. ~5 min instead of ~40.
         if only == "csg" {
+            // `OUTRAM_FHR_RING_SEEDS=N` / `OUTRAM_FHR_RING_SEED0=S` (gh:#1583):
+            // N consecutive master seeds from S inside this one process (the
+            // ENDF load is paid once), CSG arm only. Unset: one solve at the
+            // default seed with unchanged output.
+            let n_seeds_env: Option<u64> = std::env::var("OUTRAM_FHR_RING_SEEDS")
+                .ok()
+                .and_then(|v| v.parse().ok());
+            let seed0: u64 = std::env::var("OUTRAM_FHR_RING_SEED0")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(KeffSettings::default().seed);
+            for seed_i in 0..n_seeds_env.unwrap_or(1) {
+            let mut keff = keff.clone();
+            if n_seeds_env.is_some() {
+                keff.seed = seed0 + seed_i;
+            }
             let r_rpt_fuel_csg =
                 rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
             let pebble_csg = fhr_pebble_geometry(
@@ -786,6 +832,10 @@ mod desktop {
                     "      {name}  {ours:.4} vs {theirs:.4}   {:+.2}%",
                     100.0 * (ours / theirs - 1.0)
                 );
+            }
+            if n_seeds_env.is_some() {
+                eprintln!("SEEDK {} {:.5} {:.5}", keff.seed, r.keff.k_mean, r.keff.k_std);
+            }
             }
             return;
         }

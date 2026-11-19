@@ -55,6 +55,9 @@
 //! [`crate::compute::ComputeBackend::CpuMulti`] or `Serial`. A machine with no
 //! GPU is a normal machine.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
@@ -566,9 +569,10 @@ pub fn bytes_to_u32_vec(bytes: &[u8]) -> Vec<u32> {
 ///
 /// The same device as `crate::compute::pollster_lite` and the equivalents in
 /// `outram-blender` / `njoy-outram-park-fork`. Kept private.
-fn block_on<F: std::future::Future>(future: F) -> F::Output {
-    use std::pin::Pin;
-    use std::task::{Context, Poll, Wake, Waker};
+fn block_on<F: core::future::Future>(future: F) -> F::Output {
+    use core::pin::Pin;
+    use alloc::task::Wake;
+    use core::task::{Context, Poll, Waker};
 
     struct ThreadWaker(std::thread::Thread);
     impl Wake for ThreadWaker {
@@ -577,7 +581,7 @@ fn block_on<F: std::future::Future>(future: F) -> F::Output {
         }
     }
 
-    let mut future = std::pin::pin!(future);
+    let mut future = core::pin::pin!(future);
     let waker = Waker::from(Arc::new(ThreadWaker(std::thread::current())));
     let mut cx = Context::from_waker(&waker);
     loop {
@@ -682,7 +686,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     #[test]
     fn round_trip_through_f32_is_within_f32_epsilon() {
-        let src = vec![1.0, -2.5, 1e6, 1e-6, std::f64::consts::PI];
+        let src = vec![1.0, -2.5, 1e6, 1e-6, core::f64::consts::PI];
         let back = bytes_to_f64_vec(&f64_to_f32_bytes(&src));
         for (a, b) in src.iter().zip(&back) {
             assert!((a - b).abs() <= 1.2e-7 * a.abs().max(1.0));

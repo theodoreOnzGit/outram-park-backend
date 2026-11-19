@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
@@ -16,6 +19,7 @@ impl SolidColumn {
         interaction: HeatTransferInteractionType,
     ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
+            #[cfg(feature = "std")]
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
@@ -43,6 +47,7 @@ impl SolidColumn {
         interaction: HeatTransferInteractionType,
     ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
+            #[cfg(feature = "std")]
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
@@ -71,6 +76,7 @@ impl SolidColumn {
         interaction: HeatTransferInteractionType,
     ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
+            #[cfg(feature = "std")]
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }
@@ -99,6 +105,7 @@ impl SolidColumn {
         interaction: HeatTransferInteractionType,
     ) -> Result<(), TuasLibError> {
         if let HeatTransferInteractionType::Advection(_) = interaction {
+            #[cfg(feature = "std")]
             println!("You cannot have advection interactions for Solid Columns");
             return Err(TuasLibError::WrongHeatTransferInteractionType);
         }

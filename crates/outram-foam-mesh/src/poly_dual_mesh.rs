@@ -131,8 +131,11 @@
 //!   line-for-line `polyDualMesh` + `meshDualiser`, beside this surface-
 //!   preserving default). This default still has none of the three.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
@@ -444,7 +447,7 @@ fn cell_volume_centroid(
         for i in 1..n - 1 {
             let (mut a, mut b) = (pts[lp[i]], pts[lp[i + 1]]);
             if *sign < 0.0 {
-                std::mem::swap(&mut a, &mut b);
+                core::mem::swap(&mut a, &mut b);
             }
             let da = v0 - apex;
             let db = a - apex;
@@ -647,9 +650,9 @@ impl DualMesh {
             if faces.is_empty() {
                 continue;
             }
-            let mut verts: std::collections::HashSet<usize> = std::collections::HashSet::new();
-            let mut edges: std::collections::HashSet<(usize, usize)> =
-                std::collections::HashSet::new();
+            let mut verts: crate::hash::HashSet<usize> = crate::hash::HashSet::new();
+            let mut edges: crate::hash::HashSet<(usize, usize)> =
+                crate::hash::HashSet::new();
             for (f, _) in faces {
                 let lp = &self.faces[*f];
                 let n = lp.len();

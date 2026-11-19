@@ -20,6 +20,9 @@
 //! (gh:#949). Every number below was measured by running these tests; the
 //! predictions were written before the first run.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::area::square_meter;
 use uom::si::f64::{
@@ -356,7 +359,7 @@ fn voxel_sphere(cells_across: usize, film_correction: bool) -> (f64, f64, f64) {
     // Same total power as the exact sphere, so the voxel volume error does
     // not masquerade as a conduction error.
     let qv = 3.0e8;
-    let exact_volume = 4.0 / 3.0 * std::f64::consts::PI * r * r * r;
+    let exact_volume = 4.0 / 3.0 * core::f64::consts::PI * r * r * r;
     let voxel_volume: f64 = mesh.cell_volumes.iter().sum();
     let problem = SteadyConductionProblem::new(
         vm.conduction.clone(),

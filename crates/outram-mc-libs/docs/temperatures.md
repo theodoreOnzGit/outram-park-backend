@@ -12,7 +12,7 @@ controls nothing. Checked 2026-09-27 by reading `physics/transport_csg.rs`,
 | **S(α,β) table temperature** | `ThermalScattering::from_endf_file(.., T, ..)` / `from_leapr(.., T, ..)` | Which bound-scattering table is used (nearest tabulated, reported by `selected_temperature_k`) | used | used |
 | **`Material::temperature`** | the material | Passed to every cross-section lookup (flight distance and collision), and the free-gas kT of a multipole nuclide | **ignored**, unless WMP is attached (`Nuclide::with_multipole`, GitHub #948, opt-in): then it wins inside the WMP range and for the kinematics at every energy | **this one wins** (WMP Doppler evaluator and target motion) |
 | **`KeffSettings::temperature_k`** | the run | CSG drivers: ~~free-gas elastic target motion (`free_gas_kt`) only~~ **nothing** since 2026-09-30 (GitHub #313). Simple drivers in `keff.rs`: the lookup temperature, and the multipole free-gas temperature | not read (CSG) | not read (CSG); lookup and kinematics in the simple drivers |
-| **`Cell::temperature`** | the cell | **Nothing in transport** | not read | not read |
+| **`Cell::temperature`** | the cell | ~~Nothing in transport~~ **CORRECTED 2026-11-14 (GitHub #313):** nothing unless the caller applies `material::cell_temperature::bind_cell_temperatures`, which gives each disagreeing cell a copy of its material at the cell's temperature (OpenMC: `assign_temperatures`, `Particle::sqrtkT` from the cell). ~~Not applied by `run_keff_csg*`~~ **CORRECTED 2026-11-14 (GitHub #313, maintainer direction): applied by default** by every `run_keff_csg*` driver, `CsgPowerIteration::step*`, `run_fixed_source*` and `transport_chunk`; `Cell::temperature` is `Option<f64>` (`None` = the material's), the ablation is `Geometry::without_cell_temperatures`, pinned by `tests/cell_temperature_is_default.rs` | not read (the table is at its build temperature) | read through the bound material |
 
 ## Measured (2026-09-27)
 
@@ -23,7 +23,7 @@ tables at 293.6 K, 1000 × [5 + 10], one seed. One temperature changed to
 | Arm | k |
 |---|---|
 | everything 293.6 K | 1.014852 ± 0.019094 |
-| `Cell::temperature` = 1200 K | 1.014852 ± 0.019094 (bit-identical) |
+| `Cell::temperature` = 1200 K | 1.014852 ± 0.019094 (bit-identical; the cell is now applied, but an ACE table is pointwise and ignores the material temperature it is bound to) |
 | `Material::temperature` = 1200 K | 1.014852 ± 0.019094 (bit-identical) |
 | `KeffSettings::temperature_k` = 1200 K | 1.047207 ± 0.016045 (differs) |
 
@@ -75,7 +75,7 @@ not change.
 S(α,β) tables at T, and set `KeffSettings::temperature_k = T`.** Set
 `Material::temperature = T` as well, which matters only for multipole
 nuclides (the LOW tier, and since 2026-10-18 a pointwise nuclide with WMP
-attached by `Nuclide::with_multipole`, GitHub #948). `Cell::temperature` is descriptive only. (In the CSG drivers the
+attached by `Nuclide::with_multipole`, GitHub #948). ~~`Cell::temperature` is descriptive only.~~ **CORRECTED 2026-11-14 (GitHub #313):** `Cell::temperature` is descriptive to `run_keff_csg*` but is honoured, as OpenMC does, once `bind_cell_temperatures(&geometry, &materials)` has been applied (`tests/cell_temperature_313.rs`; multipole data only). (In the CSG drivers the
 run temperature is no longer read; setting it keeps the simple drivers of
 `keff.rs` consistent.)
 

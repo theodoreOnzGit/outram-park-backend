@@ -37,6 +37,9 @@
 
 //! **OpenDA's sequential assimilation loop** and the filter enum (gh:#1192).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::enkf::{enkf_analysis, Localization};
 use super::ensr::{ensr_analysis, particle_filter_analysis, steady_state_analysis, SteadyStateGain};
 use super::models::{Observations, OdaStochModel, TIME_PRECISION};

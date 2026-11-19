@@ -16,6 +16,9 @@
 //! the polytropic solver's duty are **positive when the expander extracts
 //! power from the fluid** (the physically intuitive case, `H2 < H1`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{AvailableEnergy, MassDensity, MassRate, Power, Pressure, Ratio};
 use uom::si::power::watt;

@@ -29,6 +29,9 @@
 //! offset `lr` is always 0; the sign is kept because the final pass counts
 //! it and a point's sign travels with it through later sections.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::interp::{terp1, IntLaw};
 use crate::mixr::mix::sigfig;

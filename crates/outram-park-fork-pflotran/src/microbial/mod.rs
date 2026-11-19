@@ -107,7 +107,10 @@
 //!   reference implementation this module mirrors. See P. C. Lichtner et al.,
 //!   *PFLOTRAN User Manual*.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::error::PflotranError;
 use outram_foam_basic_lib::ode::{OdeSystem, Rkf45};

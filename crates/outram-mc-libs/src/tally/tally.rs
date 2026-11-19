@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Tally definition — filter composition and accumulator.
 ///
 /// C++ source: `src/tallies/tally.cpp`, `include/openmc/tallies/tally.h`.
@@ -233,6 +236,7 @@ mod bin_variance_tests {
         let naive_mean = bin.sum / n;
         let naive = (bin.sum_sq / n - naive_mean * naive_mean) / (n - 1.0);
 
+        #[cfg(feature = "std")]
         println!(
             "reference {reference:.6e}  welford {:.6e}  naive {naive:.6e}",
             bin.variance()
@@ -327,5 +331,37 @@ impl Tally {
     /// Total number of bins = product of each filter's bin count × number of scores.
     pub fn n_bins(&self) -> usize {
         self.filters.iter().map(|f| f.n_bins()).product::<usize>() * self.scores.len()
+    }
+
+    /// Reject score/filter combinations upstream refuses (GitHub #262).
+    ///
+    /// A [`FilterKind::DelayedGroup`] filter is defined only with
+    /// `delayed-nu-fission` and `decay-rate` (and the IFP beta numerator,
+    /// which this crate accumulates in `physics::ifp`, not as a score):
+    /// OpenMC's `Tally::set_scores` stops with "Cannot tally ... with a
+    /// delayedgroup filter" (`src/tallies/tally.cpp:569`). Here any other
+    /// score would deposit nothing, a silent zero, so it is an error instead.
+    /// A delayed-group filter beside a track-splitting mesh filter is also
+    /// refused: the per-group deposit is not split across mesh cells.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.filters.iter().any(|f| matches!(f, FilterKind::DelayedGroup(_))) {
+            for s in &self.scores {
+                if !matches!(s, ScoreType::DelayedNuFission | ScoreType::DecayRate) {
+                    return Err(format!(
+                        "tally {}: score {:?} cannot be tallied with a delayed-group filter \
+                         (upstream tally.cpp:569 allows only delayed-nu-fission and decay-rate)",
+                        self.id, s
+                    ));
+                }
+            }
+            if self.filters.iter().any(|f| f.splits_track_length()) {
+                return Err(format!(
+                    "tally {}: a delayed-group filter cannot be combined with a mesh filter \
+                     that splits track length",
+                    self.id
+                ));
+            }
+        }
+        Ok(())
     }
 }

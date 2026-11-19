@@ -40,6 +40,9 @@
 //!   numeric overrides and a grid increment into the delta actually applied.
 //! - [`apply_translation`] — move a vertex selection by a delta.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
@@ -284,9 +287,9 @@ fn tokenize(s: &str) -> Option<Vec<Tok>> {
                 }
                 let word: String = chars[start..i].iter().collect::<String>().to_lowercase();
                 let v = match word.as_str() {
-                    "pi" => std::f64::consts::PI,
-                    "tau" => std::f64::consts::TAU,
-                    "e" => std::f64::consts::E,
+                    "pi" => core::f64::consts::PI,
+                    "tau" => core::f64::consts::TAU,
+                    "e" => core::f64::consts::E,
                     _ => return None,
                 };
                 out.push(Tok::Num(v));
@@ -412,8 +415,8 @@ mod tests {
         assert_eq!(eval_expr("-5"), Some(-5.0));
         assert_eq!(eval_expr("2 ^ 10"), Some(1024.0));
         assert_eq!(eval_expr("2 ^ 3 ^ 2"), Some(512.0)); // right-assoc
-        assert!((eval_expr("pi").unwrap() - std::f64::consts::PI).abs() < 1e-12);
-        assert!((eval_expr("tau / 4").unwrap() - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+        assert!((eval_expr("pi").unwrap() - core::f64::consts::PI).abs() < 1e-12);
+        assert!((eval_expr("tau / 4").unwrap() - core::f64::consts::FRAC_PI_2).abs() < 1e-12);
         assert_eq!(eval_expr("1 /"), None);
         assert_eq!(eval_expr("1 + x"), None);
         assert_eq!(eval_expr("1 / 0"), None);
@@ -424,7 +427,7 @@ mod tests {
         let e = NumericEntry::parse("1+1, , pi").unwrap();
         assert_eq!(e.x, Some(2.0));
         assert_eq!(e.y, None);
-        assert!((e.z.unwrap() - std::f64::consts::PI).abs() < 1e-12);
+        assert!((e.z.unwrap() - core::f64::consts::PI).abs() < 1e-12);
     }
 
     #[test]

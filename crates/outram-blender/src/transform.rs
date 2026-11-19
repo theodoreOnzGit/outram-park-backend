@@ -44,6 +44,9 @@
 //! *approximate* match within an `f32`-scale tolerance, not bit-exact — see the
 //! GPU test in [`crate::gpu`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 
 /// A 3D affine transform: a `3x3` linear map `M` followed by a translation `t`,

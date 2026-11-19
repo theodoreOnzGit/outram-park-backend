@@ -89,6 +89,9 @@
 //! **not** *validation* against a CFD/TH solve. See the module tests for
 //! methodology and measured results. Pure Rust, no dependencies, Android-safe.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::carve::carve_box;
 use crate::checks::check_quality;
 use crate::delaunay::flip_to_delaunay;
@@ -951,7 +954,7 @@ pub fn cylinder_tet_dual(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
 
     /// gh:#1286, analytic: a closed 3×1×1 box with one more internal face
     /// between cells 0 and 1 whose three points are collinear (zero area:
@@ -1495,6 +1498,7 @@ pub(crate) mod tests {
 
         // Printed so the numbers recorded in this test's doc comment can be
         // re-derived by anyone with `--nocapture`, per the workspace V&V rule.
+        #[cfg(feature = "std")]
         println!(
             "multipatch box: cells={} volume={:.9} internal_faces={} boundary_faces={} patches={:?} notes={:?}",
             rep.cell_count,
@@ -1744,6 +1748,7 @@ pub(crate) mod tests {
                 worst_a = worst_a.max((x - y).abs() / x.abs());
             }
             let flipped = (0..a.n_internal_faces()).filter(|&f| a.owner[f] > a.neighbour[f].unwrap()).count();
+            #[cfg(feature = "std")]
             println!(
                 "gh1285 {name}: cells {}, internal faces {}, upper-triangular before {} after {}, faces reversed {flipped}; cell volumes bit-identical {same_v}/{} (worst rel {worst_v:e}); face areas bit-identical {same_a}/{} (worst rel {worst_a:e})",
                 a.n_cells,
@@ -1761,6 +1766,7 @@ pub(crate) mod tests {
             let mut sorted: Vec<usize> = (0..a.n_internal_faces()).collect();
             sorted.sort_by_key(|&f| (a.owner[f], a.neighbour[f]));
             let same_as_sorted = flipped == 0 && sorted.iter().enumerate().all(|(i, &f)| a.faces[f] == b.faces[i] && a.owner[f] == b.owner[i] && a.neighbour[f] == b.neighbour[i]);
+            #[cfg(feature = "std")]
             println!("gh1285 {name}: the new internal faces are to_poly_mesh's stable sort of the old ones: {same_as_sorted}");
             for (pa, pb) in a.patches.iter().zip(&b.patches) {
                 assert_eq!((pa.name.as_str(), pa.start_face, pa.n_faces), (pb.name.as_str(), pb.start_face, pb.n_faces));
@@ -1783,7 +1789,7 @@ pub(crate) mod tests {
     #[test]
     #[ignore]
     fn render_gh1285_face_order() {
-        let dir = std::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/upper_triangular_gh1285").to_string());
+        let dir = crate::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/upper_triangular_gh1285").to_string());
         let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
         let o = TetDualOptions { cell_size: 0.004, n_layers: 0, layer_patches: vec!["walls".into()], ..Default::default() };
         for (name, ordered) in [("before", false), ("after", true)] {
@@ -1800,6 +1806,7 @@ pub(crate) mod tests {
             }
             let path = std::path::Path::new(&dir).join(format!("face_order_h4_{name}.png"));
             crate::surface_optimizer::render_gh1259::write_png(&path, w, h, &rgb);
+            #[cfg(feature = "std")]
             println!("wrote {} ({} internal faces, {} cells)", path.display(), ni, m.n_cells);
         }
     }
@@ -1872,6 +1879,7 @@ pub(crate) mod tests {
             (5813, 15315517425586397770),
         ];
         for g in &got {
+            #[cfg(feature = "std")]
             eprintln!("fingerprint {g:?}");
         }
         for (g, want) in got.iter().zip(pinned) {
@@ -1959,6 +1967,7 @@ pub(crate) mod tests {
             assert_eq!(mesh_fingerprint(&a), mesh_fingerprint(&b), "{strategy:?}");
             got.push((a.cell_count(), mesh_fingerprint(&a)));
         }
+        #[cfg(feature = "std")]
         eprintln!("strategy fingerprints {got:?}");
         // Recorded 2026-11-04 (serial smoothing); the threaded smoothing
         // must give the same bits. gh:#1285 (face order only, geometry
@@ -1994,7 +2003,7 @@ pub(crate) mod tests {
             let (m, _) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
             let (_, centres) = crate::checks::cell_geometry(&m);
             let walls = m.patches.iter().find(|q| q.name == "walls").unwrap();
-            let mut per_cell: std::collections::BTreeMap<usize, usize> = std::collections::BTreeMap::new();
+            let mut per_cell: alloc::collections::BTreeMap<usize, usize> = alloc::collections::BTreeMap::new();
             let mut angles = Vec::new();
             for f in walls.start_face..walls.start_face + walls.n_faces {
                 *per_cell.entry(m.owner[f]).or_insert(0) += 1;
@@ -2008,6 +2017,7 @@ pub(crate) mod tests {
             }
             angles.sort_by(|a, b| a.partial_cmp(b).unwrap());
             let q = |f: f64| angles[((angles.len() - 1) as f64 * f) as usize];
+            #[cfg(feature = "std")]
             println!(
                 "{name}: {} wall faces on {} cells; cells by wall-face count 1..7+: {:?}; face-to-owner angle median {:.1}, 90th {:.1}, max {:.1} deg; > 65 deg: {}",
                 walls.n_faces,
@@ -2044,7 +2054,7 @@ pub(crate) mod tests {
             cases.push((format!("duct h5 n{n}"), &bp, &bt, &br, 0.005, n, 100.0));
             cases.push((format!("duct h5 n{n} fa60"), &bp, &bt, &br, 0.005, n, 60.0));
         }
-        let only = std::env::var("CFMESH_CASE").ok();
+        let only = crate::env::var("CFMESH_CASE").ok();
         for (name, sp, st, sr, h, n, fa) in cases {
             if only.as_deref().is_some_and(|o| !name.contains(o)) {
                 continue;
@@ -2056,11 +2066,11 @@ pub(crate) mod tests {
                 let mut snappy = SnappyLayerControls::default();
                 snappy.feature_angle_deg = fa;
                 let o = TetDualOptions { cell_size: h, n_layers: n, first_layer_thickness: 3e-4, expansion: 1.2, layer_patches: vec!["walls".into()], layer_strategy: strategy, snappy_layers: snappy, ..Default::default() };
-                let t0 = std::time::Instant::now();
+                let t0 = crate::time::Instant::now();
                 let (m, rep) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
                 let secs = t0.elapsed().as_secs_f64();
                 // Determinism (a second run) only on request: CFMESH_DET=1.
-                let det = std::env::var("CFMESH_DET").is_err() || {
+                let det = crate::env::var("CFMESH_DET").is_err() || {
                     let (m2, _) = surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o).unwrap();
                     mesh_fingerprint(&m) == mesh_fingerprint(&m2)
                 };
@@ -2087,6 +2097,7 @@ pub(crate) mod tests {
                         let bad = crate::checks::faces_failing_mesh_quality(&m, &c);
                         (0..m.face_count()).filter(|&f| bad[f] && (m.owner[f] >= n0 || m.neighbour[f].is_some_and(|x| x >= n0))).count()
                     };
+                    #[cfg(feature = "std")]
                     println!(
                         "  {name} layer-cell faces failing, one check at a time: nonOrtho65 {} nonOrtho75 {} intSkew4 {} bndSkew20 {} tet {} twist {} det {} weight {} volRatio {}",
                         one(crate::checks::MeshQualityControls { max_non_ortho_deg: 65.0, ..off.clone() }),
@@ -2106,6 +2117,7 @@ pub(crate) mod tests {
                 let mean = |v: &[f64]| if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 };
                 let tot: Vec<f64> = layered.iter().map(|q| q.2).collect();
                 let thinned = layered.iter().filter(|q| q.2 < 0.999 * q.3).count();
+                #[cfg(feature = "std")]
                 println!(
                     "{name} {:?}: {} cells, {secs:.2} s, det {det}; nonortho max {:.1}, >65 {}, >75 {}; skew {:.2}; minDet {:.2e}; minVol {:.2e}; negPyr {}; fail strict {strict} relaxed {relaxed}; cover {:.3}, collapsed pts {:.3}, thinned pts {thinned}/{}, first {:.4} mm, total mean {:.4} min {:.4} mm; iters {}; notes {:?}",
                     strategy,
@@ -2247,6 +2259,7 @@ pub(crate) mod tests {
             let a = area(&mesh, &patch_faces(&mesh, name)) / area(&bare, &patch_faces(&bare, name));
             report.push(format!("{name}: off-plane {:.3} mm (bare {:.3}), area x {a:.6}", 1e3 * o, 1e3 * o0));
         }
+        #[cfg(feature = "std")]
         eprintln!("volume change {rel:.3e} (bound {bound:.2e}); {}", report.join("; "));
         // 4. layers end on the inlet, not grown from it.
         let n0 = bare.cell_count();
@@ -2264,6 +2277,7 @@ pub(crate) mod tests {
         assert_eq!(again.faces, mesh.faces);
         assert_eq!(again.owner, mesh.owner);
         assert!(again.points.iter().zip(&mesh.points).all(|(a, b)| a.x == b.x && a.y == b.y && a.z == b.z));
+        #[cfg(feature = "std")]
         eprintln!(
             "wall-only layers: {} cells ({} + 3 x {n_wall}), prism share of the inlet {frac:.4}, \
              max non-ortho {:.1} deg, max skewness {:.2}",
@@ -2290,6 +2304,7 @@ pub(crate) mod tests {
             let proj = |name: &str| patch_faces(&bare, name).iter().map(|&f| bare.face_area_vector(f).z.abs()).sum::<f64>() / (PI * r * r);
             let (vols, cen) = crate::checks::cell_geometry(&bare);
             let mid: f64 = (0..bare.n_cells).filter(|&c| (cen[c].z - 0.5 * l).abs() < 0.25 * l).map(|c| vols[c]).sum::<f64>() / (0.5 * l) / (PI * r * r);
+            #[cfg(feature = "std")]
             println!("h {h} bare: inlet area/piR2 {:.4}, outlet {:.4}, mid-section area/piR2 {mid:.4}", proj("inlet"), proj("outlet"));
             let opts = TetDualOptions { n_layers: n, first_layer_thickness: 0.0003, expansion: 1.2, layer_patches: vec!["walls".into()], ..base.clone() };
             let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &opts).unwrap();
@@ -2319,6 +2334,7 @@ pub(crate) mod tests {
                     }
                 }
             }
+            #[cfg(feature = "std")]
             println!(
                 "h {h} layers {n}: {} cells, neg pyramids {} (boundary {}), max non-ortho {:.1}, max skew {:.2}, min vol {:.3e}, min det {:.3e}, notes {:?}",
                 m.cell_count(),
@@ -2331,6 +2347,7 @@ pub(crate) mod tests {
                 rep.stage_notes
             );
             for li in lines.iter().take(30) {
+                #[cfg(feature = "std")]
                 println!("{li}");
             }
         }
@@ -2415,7 +2432,7 @@ pub(crate) mod tests {
             for f in 0..m.face_count() {
                 let s = m.face_area_vector(f);
                 let o = m.owner[f];
-                for c in std::iter::once(o).chain(m.neighbour[f]) {
+                for c in core::iter::once(o).chain(m.neighbour[f]) {
                     cmpt[c][0] += s.x.abs();
                     cmpt[c][1] += s.y.abs();
                     cmpt[c][2] += s.z.abs();
@@ -2447,10 +2464,12 @@ pub(crate) mod tests {
                     cnt[class(c)] += 1;
                 }
             }
+            #[cfg(feature = "std")]
             println!("h {h} layers {n}: {} cells, notes {:?}", m.cell_count(), rep.stage_notes);
             for i in 0..k {
                 let name = if i == 0 { "dual".to_string() } else { format!("layer {i}") };
                 let th = if cnt[i] > 0 { format!("{:.3} mm", 1e3 * thick[i] / cnt[i] as f64) } else { "-".into() };
+                #[cfg(feature = "std")]
                 println!("  {name:8}: max non-ortho {:5.1} deg, max skew {:.2}, max aspect {:6.1}, mean thickness {th}", no[i], sk[i], ar[i]);
             }
         }
@@ -2460,7 +2479,7 @@ pub(crate) mod tests {
     /// measures it; per boundary face of `patch`, the angle between its normal
     /// and the line from its owner's centre to its centre (what a prism stacked
     /// on it inherits); and the number of `patch` faces each owner has.
-    fn face_angles(m: &VolumeMesh, patch: &str) -> (Vec<f64>, Vec<f64>, std::collections::BTreeMap<usize, usize>) {
+    fn face_angles(m: &VolumeMesh, patch: &str) -> (Vec<f64>, Vec<f64>, alloc::collections::BTreeMap<usize, usize>) {
         let (_, c) = crate::checks::cell_geometry(m);
         let mut internal = Vec::new();
         for f in 0..m.face_count() {
@@ -2470,7 +2489,7 @@ pub(crate) mod tests {
             }
         }
         let mut wall = Vec::new();
-        let mut per_cell = std::collections::BTreeMap::new();
+        let mut per_cell = alloc::collections::BTreeMap::new();
         if let Some(w) = m.patches.iter().find(|q| q.name == patch) {
             for f in w.start_face..w.start_face + w.n_faces {
                 *per_cell.entry(m.owner[f]).or_insert(0usize) += 1;
@@ -2509,7 +2528,7 @@ pub(crate) mod tests {
         let (p, t, regions) = pipe_surface(r, l, 48);
         let (bp, bt, br) = box_duct_surface(0.02, l);
         let polygon = 0.5 * 48.0 * r * r * (2.0 * PI / 48.0).sin();
-        let env = |k: &str| std::env::var(k).ok();
+        let env = |k: &str| crate::env::var(k).ok();
         let cases: Vec<(String, &[Vec3], &[[usize; 3]], &SurfaceRegions, f64, f64)> = vec![
             ("pipe h4".into(), &p, &t, &regions, 0.004, PI * r * r),
             ("pipe h5".into(), &p, &t, &regions, 0.005, PI * r * r),
@@ -2547,10 +2566,11 @@ pub(crate) mod tests {
                             untangle_mesh_untangler: env("CFMESH_LPU").as_deref() == Some("1"),
                             ..Default::default()
                         }, ..Default::default() };
-                        let t0 = std::time::Instant::now();
+                        let t0 = crate::time::Instant::now();
                         let (m, rep) = match surface_to_tet_dual_mesh_multipatch(sp, st, sr, &o) {
                             Ok(x) => x,
                             Err(e) => {
+                                #[cfg(feature = "std")]
                                 println!("{name} {tag} n{n} {stag}: ERROR {e}");
                                 continue;
                             }
@@ -2572,6 +2592,7 @@ pub(crate) mod tests {
                                 hist[k.min(7)] += 1;
                             }
                             let inlet: f64 = patch_faces(&m, "inlet").iter().map(|&f| m.face_area_vector(f).length()).sum();
+                            #[cfg(feature = "std")]
                             println!(
                                 "{name} {tag} bare: {} cells, {secs:.2} s, valid {}, det {det}, fp {}; wall faces {} on {} cells, per cell 1..7+ {:?}; \
                                  internal NO mean {mean:.1} p50 {:.1} p90 {:.1} p99 {:.1} max {:.1}, >65 {} >70 {} >75 {}; \
@@ -2613,6 +2634,7 @@ pub(crate) mod tests {
                                     let bad = crate::checks::faces_failing_mesh_quality(&m, &c);
                                     (0..m.face_count()).filter(|&f| bad[f] && (m.owner[f] >= n0 || m.neighbour[f].is_some_and(|x| x >= n0))).count()
                                 };
+                                #[cfg(feature = "std")]
                                 println!(
                                     "  {name} {tag} n{n} layer-cell faces failing, one check at a time: nonOrtho65 {} intSkew4 {} bndSkew20 {} tet {} twist {} det {} weight {} volRatio {}",
                                     one(crate::checks::MeshQualityControls { max_non_ortho_deg: 65.0, ..off.clone() }),
@@ -2625,6 +2647,7 @@ pub(crate) mod tests {
                                     one(crate::checks::MeshQualityControls { min_vol_ratio: d.min_vol_ratio, ..off.clone() }),
                                 );
                             }
+                            #[cfg(feature = "std")]
                             println!(
                                 "{name} {tag} n{n} {stag}: {} cells, {secs:.1} s; cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm; NO max {:.1} p99 {:.1}, >65 {} >75 {}; skew {:.2}; minDet {:.2e}; fail strict {strict}; V/(section L) {:.5}, inlet/section {:.5}; notes {:?}",
                                 m.cell_count(),
@@ -2697,6 +2720,7 @@ pub(crate) mod tests {
                 let only_cf = (0..m.face_count()).filter(|&f| cf[f] && !of[f]).collect::<Vec<_>>();
                 let only_of = (0..m.face_count()).filter(|&f| !cf[f] && of[f]).collect::<Vec<_>>();
                 let tri_bnd = only_cf.iter().filter(|&&f| m.neighbour[f].is_none() && m.faces[f].len() == 3).count();
+                #[cfg(feature = "std")]
                 println!(
                     "pipe h5 n{n} {name}: cfMesh {} OpenFOAM {} both {both}; only cfMesh {} ({} boundary triangles); only OpenFOAM {}",
                     cf.iter().filter(|&&b| b).count(),
@@ -2706,6 +2730,7 @@ pub(crate) mod tests {
                     only_of.len()
                 );
             };
+            #[cfg(feature = "std")]
             println!("pipe h5 n{n}: {} cells, {} faces ({} boundary triangles)", m.n_cells, m.face_count(), (m.n_internal_faces()..m.face_count()).filter(|&f| m.faces[f].len() == 3).count());
             cmp("volume ratio 0.01", &check_min_vol_ratio(&m, 0.01, Some(&all)).1, &faces_failing_mesh_quality(&m, &MeshQualityControls { min_vol_ratio: 0.01, ..off.clone() }));
             cmp("twist 0.02", &check_min_twist(&m, 0.02, Some(&all)).1, &faces_failing_mesh_quality(&m, &MeshQualityControls { min_twist: 0.02, ..off.clone() }));
@@ -2722,19 +2747,19 @@ pub(crate) mod tests {
     #[ignore]
     fn diagnose_back_off_on_dual_kinds() {
         let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
-        let h: f64 = std::env::var("CFMESH_H").ok().and_then(|v| v.parse().ok()).unwrap_or(0.005);
+        let h: f64 = crate::env::var("CFMESH_H").ok().and_then(|v| v.parse().ok()).unwrap_or(0.005);
         for kind in [DualKind::MedianPerCorner, DualKind::MedianPerPoint, DualKind::CellCentre] {
-            let fp = if std::env::var("CFMESH_FP").as_deref() == Ok("corners") { FeaturePointRule::Corners } else { FeaturePointRule::OnFeatureEdge };
+            let fp = if crate::env::var("CFMESH_FP").as_deref() == Ok("corners") { FeaturePointRule::Corners } else { FeaturePointRule::OnFeatureEdge };
             let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: fp, ..Default::default() };
             let (bare, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
             for n in [1usize, 3] {
                 let s = crate::layers::layer_setup(&bare, &["walls"], n, 3e-4, 1.2).unwrap();
-                let counts: std::collections::BTreeMap<usize, usize> = s.wall_pts.iter().map(|&wp| (wp, n)).collect();
+                let counts: alloc::collections::BTreeMap<usize, usize> = s.wall_pts.iter().map(|&wp| (wp, n)).collect();
                 let caps: Vec<f64> = s.cap.values().copied().collect();
                 let mut row = Vec::new();
                 for k in 0..10 {
                     let sc = 0.6f64.powi(k);
-                    let per: std::collections::BTreeMap<usize, f64> = s.cap.iter().map(|(&wp, &c)| (wp, c * sc)).collect();
+                    let per: alloc::collections::BTreeMap<usize, f64> = s.cap.iter().map(|(&wp, &c)| (wp, c * sc)).collect();
                     let c = crate::layers::build_layered_variable(&bare, &s.wall_faces, &s.wall_pts, &s.inward, &s.d, &per, &counts);
                     let q = check_quality(&c);
                     row.push(format!(
@@ -2747,6 +2772,7 @@ pub(crate) mod tests {
                         q.min_cell_determinant
                     ));
                 }
+                #[cfg(feature = "std")]
                 println!(
                     "{kind:?} n{n}: {} wall faces, {} wall points, cap min {:.2e} mean {:.2e} m\n  {}",
                     s.wall_faces.len(),
@@ -2782,13 +2808,16 @@ pub(crate) mod tests {
                 n_pyr += 1;
                 if n_pyr <= 12 {
                     let r = (fc.x * fc.x + fc.y * fc.y).sqrt();
+                    #[cfg(feature = "std")]
                     println!("negative pyramid: face {f} ({}), {} verts, centre r {:.3} mm z {:.3} mm, own {own} nb {nb}, min edge {:.2e}", patch(f), ring.len(), 1e3 * r, 1e3 * fc.z, min_edge);
                 }
             }
             if m.neighbour[f].is_none() && min_edge < 1e-9 {
+                #[cfg(feature = "std")]
                 println!("zero edge: face {f} ({}), {} verts, z {:.3} mm, ring {:?}", patch(f), ring.len(), 1e3 * fc.z, ring);
             }
         }
+        #[cfg(feature = "std")]
         println!("{n_pyr} faces with a non-positive pyramid");
     }
 
@@ -2828,6 +2857,7 @@ pub(crate) mod tests {
             if kind != DualKind::MedianPerCorner {
                 assert!(per_cell.values().all(|&k| k <= 2), "{kind:?} {fp:?}");
             }
+            #[cfg(feature = "std")]
             eprintln!("dual fingerprint {kind:?} {fp:?} {}", mesh_fingerprint(&m));
             got.push((kind, fp, mesh_fingerprint(&m), pin));
         }
@@ -2846,7 +2876,7 @@ pub(crate) mod tests {
     fn diagnose_snappy_cascade() {
         use crate::snappy_layers::{FaceLayerCells, SnappyLayerControls};
         let (p, t, regions) = pipe_surface(0.01, 0.2, 48);
-        let env = |k: &str| std::env::var(k).ok();
+        let env = |k: &str| crate::env::var(k).ok();
         let hs: Vec<f64> = env("CFMESH_HS").map_or(vec![0.005], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         let layers: Vec<usize> = env("CFMESH_LAYERS").map_or(vec![1, 2, 3], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         let kinds = [(DualKind::MedianPerPoint, "point"), (DualKind::CellCentre, "centre")];
@@ -2871,6 +2901,7 @@ pub(crate) mod tests {
                     let st = crate::layers::layer_setup(&bare, &["walls"], 3, 3e-4, 1.2).unwrap();
                     let mut caps: Vec<f64> = st.cap.values().copied().collect();
                     caps.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    #[cfg(feature = "std")]
                     println!(
                         "h {:.0} {tag}: wall-face non-planarity p50 {:.3} p90 {:.3} max {:.3} mm; per-point total (cap) p10 {:.3} p50 {:.3} mm; profile d {:?}",
                         h * 1e3,
@@ -2896,16 +2927,18 @@ pub(crate) mod tests {
                             snappy_layers: SnappyLayerControls { face_cells: rule, ..Default::default() },
                             ..Default::default()
                         };
-                        let t0 = std::time::Instant::now();
+                        let t0 = crate::time::Instant::now();
                         let (m, rep) = match surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o) {
                             Ok(x) => x,
                             Err(e) => {
+                                #[cfg(feature = "std")]
                                 println!("h {h} {tag} n{n} {rule:?}: ERROR {e}");
                                 continue;
                             }
                         };
                         let lo = rep.layers.clone().unwrap_or_default();
                         let q = check_quality(&m);
+                        #[cfg(feature = "std")]
                         println!(
                             "h {:.0} {tag} n{n} {rule:?}: {} cells, {:.1} s, cover {:.3}, collapsed pts {:.3}, mean total {:.3} mm, NO max {:.1}, minDet {:.1e}, neg {}, fp {}",
                             h * 1e3,
@@ -2920,9 +2953,11 @@ pub(crate) mod tests {
                             mesh_fingerprint(&m)
                         );
                         for note in lo.notes.iter().filter(|s| s.starts_with("iteration")).take(8) {
+                            #[cfg(feature = "std")]
                             println!("    {note}");
                         }
                         if let Some(last) = lo.notes.last() {
+                            #[cfg(feature = "std")]
                             println!("    {last}");
                         }
                     }
@@ -2947,6 +2982,7 @@ pub(crate) mod tests {
         assert!(rep0.stage_notes.iter().all(|n| !n.starts_with("correctEdgesBetweenPatches")));
         let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &TetDualOptions { correct_edges: true, ..o }).unwrap();
         let note = rep.stage_notes.iter().find(|n| n.starts_with("correctEdgesBetweenPatches:")).expect("the stage reports");
+        #[cfg(feature = "std")]
         println!("{} -> {} cells; {:?}", bare.cell_count(), m.cell_count(), rep.stage_notes);
         assert!(m.cell_count() >= bare.cell_count(), "{note}");
         m.validate().unwrap();
@@ -2974,6 +3010,7 @@ pub(crate) mod tests {
         let o = TetDualOptions { cell_size: 0.006, refinement_levels: 1, n_layers: 0, ..Default::default() };
         let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         let got = (oct.cell_count(), mesh_fingerprint(&oct), m.cell_count(), mesh_fingerprint(&m));
+        #[cfg(feature = "std")]
         println!("octree fingerprints {got:?}");
         assert_eq!(got, OCTREE_PINS);
     }
@@ -2990,7 +3027,7 @@ pub(crate) mod tests {
     /// `meshSurfacePartitioner`'s rule).
     fn patch_correction_candidates(m: &VolumeMesh) -> (usize, Vec<usize>) {
         let patch_of = |f: usize| m.patches.iter().position(|q| f >= q.start_face && f < q.start_face + q.n_faces);
-        let mut edge_faces: std::collections::BTreeMap<(usize, usize), Vec<usize>> = Default::default();
+        let mut edge_faces: alloc::collections::BTreeMap<(usize, usize), Vec<usize>> = Default::default();
         for f in 0..m.face_count() {
             if m.neighbour[f].is_none() {
                 let ring = &m.faces[f];
@@ -3000,9 +3037,9 @@ pub(crate) mod tests {
                 }
             }
         }
-        let feature: std::collections::BTreeSet<(usize, usize)> =
+        let feature: alloc::collections::BTreeSet<(usize, usize)> =
             edge_faces.iter().filter(|(_, fs)| fs.len() == 2 && patch_of(fs[0]) != patch_of(fs[1])).map(|(&e, _)| e).collect();
-        let mut n_at: std::collections::BTreeMap<usize, usize> = Default::default();
+        let mut n_at: alloc::collections::BTreeMap<usize, usize> = Default::default();
         for &(a, b) in &feature {
             *n_at.entry(a).or_default() += 1;
             *n_at.entry(b).or_default() += 1;
@@ -3033,14 +3070,14 @@ pub(crate) mod tests {
         let (r, l) = (0.01, 0.2);
         let (p, t, regions) = pipe_surface(r, l, 48);
         let section = PI * r * r;
-        let hs: Vec<f64> = std::env::var("CFMESH_HS").ok().map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
+        let hs: Vec<f64> = crate::env::var("CFMESH_HS").ok().map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         for h in hs {
             for kind in [DualKind::MedianPerPoint, DualKind::CellCentre] {
                 for (fe, ce) in [(false, false), (true, false), (true, true)] {
                     let o = TetDualOptions { cell_size: h, n_layers: 0, dual_kind: kind, dual_feature_points: FeaturePointRule::Corners, feature_edges: fe, correct_edges: ce, ..Default::default() };
-                    let t0 = std::time::Instant::now();
+                    let t0 = crate::time::Instant::now();
                     let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
-                    if !fe && std::env::var("CFMESH_STEPS").is_ok() {
+                    if !fe && crate::env::var("CFMESH_STEPS").is_ok() {
                         // The correction path stage by stage, from the bare (uncaptured) mesh.
                         let st = |x: &VolumeMesh| {
                             let q = check_quality(x);
@@ -3055,17 +3092,20 @@ pub(crate) mod tests {
                         for &c in bad.iter().take(6) {
                             let nf = (0..mapped.face_count()).filter(|&f| mapped.owner[f] == c || mapped.neighbour[f] == Some(c)).count();
                             let nb = (0..mapped.face_count()).filter(|&f| mapped.owner[f] == c && mapped.neighbour[f].is_none()).count();
+                            #[cfg(feature = "std")]
                             println!("    bad cell {c} (pyramid {}): {nf} faces, {nb} boundary, vol {:.2e}, centre r {:.2} z {:.2} mm", c >= mapped.n_cells - 1000.min(mapped.n_cells), vols[c], (cen[c].x.hypot(cen[c].y)) * 1e3, cen[c].z * 1e3);
                         }
                         let locked = vec![false; mapped.point_count()];
                         let r = crate::mesh_optimizer::untangle_mesh_fv(&mut mapped, &locked, 10, 50, 2, false);
+                        #[cfg(feature = "std")]
                         println!("    untangleMeshFV {r:?}: {}", st(&mapped));
+                        #[cfg(feature = "std")]
                         println!("  steps h {:.0} {kind:?}: pre-map ({n_pre} kept) {}; corrected {crep:?} {}; mapped ({nrev} reverted) {}", h * 1e3, st(&pre), st(&cor), st(&mapped));
                     }
                     let inlet = patch_faces(&m, "inlet");
                     let a_abs: f64 = inlet.iter().map(|&f| m.face_area_vector(f).length()).sum();
                     let a_z: f64 = inlet.iter().map(|&f| m.face_area_vector(f).z).sum::<f64>().abs();
-                    let pts: std::collections::BTreeSet<usize> = inlet.iter().flat_map(|&f| m.faces[f].iter().copied()).collect();
+                    let pts: alloc::collections::BTreeSet<usize> = inlet.iter().flat_map(|&f| m.faces[f].iter().copied()).collect();
                     let rad = |v: usize| (m.points[v].x.powi(2) + m.points[v].y.powi(2)).sqrt();
                     let rmax = pts.iter().map(|&v| rad(v)).fold(0.0, f64::max);
                     let zmax = pts.iter().map(|&v| m.points[v].z.abs()).fold(0.0, f64::max);
@@ -3076,6 +3116,7 @@ pub(crate) mod tests {
                     // Wall faces touching z = 0 and their projected area on the inlet plane.
                     let wall_low: Vec<usize> = wall.iter().copied().filter(|&f| m.face_centroid(f).z < 0.5 * h).collect();
                     let wall_low_z: f64 = wall_low.iter().map(|&f| m.face_area_vector(f).z).sum();
+                    #[cfg(feature = "std")]
                     println!(
                         "h {:.0} {kind:?} capture {fe} correct {ce} ({:.1} s): {} cells, valid {}, NO max {:.1}, fp {}; V/piR2L {:.5}; inlet {} faces, sum|S|/piR2 {:.5}, |sum Sz|/piR2 {:.5}; inlet pts {} (off plane {n_off}, max |z| {:.3} mm), max r {:.4} mm; \
                          feature edges {n_feat}; patchCorrection candidates {} ({cand_in} inlet); wall faces near inlet {} with sum Sz/piR2 {:.5}; notes {:?}",
@@ -3084,7 +3125,7 @@ pub(crate) mod tests {
                     );
                     {
                         // The inlet's rim: inlet-face edges not shared with another inlet face.
-                        let mut cnt: std::collections::BTreeMap<(usize, usize), usize> = Default::default();
+                        let mut cnt: alloc::collections::BTreeMap<(usize, usize), usize> = Default::default();
                         for &f in &inlet {
                             let ring = &m.faces[f];
                             for i in 0..ring.len() {
@@ -3093,7 +3134,7 @@ pub(crate) mod tests {
                             }
                         }
                         let rim: Vec<(usize, usize)> = cnt.iter().filter(|(_, &c)| c == 1).map(|(&e, _)| e).collect();
-                        let rim_pts: std::collections::BTreeSet<usize> = rim.iter().flat_map(|&(a, b)| [a, b]).collect();
+                        let rim_pts: alloc::collections::BTreeSet<usize> = rim.iter().flat_map(|&(a, b)| [a, b]).collect();
                         let shoelace: f64 = rim.iter().map(|&(a, b)| 0.5 * (m.points[a].x * m.points[b].y - m.points[b].x * m.points[a].y)).sum::<f64>().abs();
                         let rs: Vec<f64> = rim_pts.iter().map(|&v| rad(v)).collect();
                         let rmean = rs.iter().sum::<f64>() / rs.len() as f64;
@@ -3103,12 +3144,13 @@ pub(crate) mod tests {
                             a.min(2.0 * PI / 48.0 - a) < 1e-3
                         }).count();
                         // shoelace of rim edges, unordered: only valid when the rim is one loop.
+                        #[cfg(feature = "std")]
                         println!(
                             "    rim: {} edges, {} points (at a 48-gon corner {near_corner}), r mean {:.4} min {:.4} mm; |sum over rim edges of the cross product|/2 /piR2 {:.5} (48-gon {:.5})",
                             rim.len(), rim_pts.len(), rmean * 1e3, rmin * 1e3, shoelace / section, 48.0 * (2.0 * PI / 48.0).sin() / (2.0 * PI)
                         );
                     }
-                    if std::env::var("CFMESH_VERBOSE").is_ok() && fe && ce && kind == DualKind::MedianPerPoint {
+                    if crate::env::var("CFMESH_VERBOSE").is_ok() && fe && ce && kind == DualKind::MedianPerPoint {
                         let desc = |f: usize| -> String {
                             let s = m.face_area_vector(f);
                             let pts: Vec<String> = m.faces[f].iter().map(|&v| format!("({:.2},{:.2})", rad(v) * 1e3, m.points[v].z * 1e3)).collect();
@@ -3117,11 +3159,13 @@ pub(crate) mod tests {
                         for &f in &wall_low {
                             let s = m.face_area_vector(f);
                             if s.z / s.length() < -0.3 || cand.contains(&f) {
+                                #[cfg(feature = "std")]
                                 println!("  {}", desc(f));
                             }
                         }
                         for &f in &cand {
                             if inlet.contains(&f) {
+                                #[cfg(feature = "std")]
                                 println!("  {}", desc(f));
                             }
                         }

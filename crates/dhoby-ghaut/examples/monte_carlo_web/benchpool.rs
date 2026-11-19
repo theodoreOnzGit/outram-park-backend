@@ -121,7 +121,7 @@ impl BenchPool {
                     (Event::Core(ev), Some(s)) => out.extend(s.on_event(w, ev, now)),
                     (Event::Error(m), Some(s)) => {
                         s.on_error(w, m);
-                        if !s.alive[w] {
+                        if !s.keff.alive[w] {
                             link.terminate();
                         }
                     }
@@ -135,8 +135,8 @@ impl BenchPool {
             let mut s = PoolState::ready(self.links.len(), per, now);
             for (w, l) in self.loads.iter().enumerate() {
                 if let Load::Failed(m) = l {
-                    s.alive[w] = false;
-                    s.died[w] = Some(m.clone());
+                    s.keff.alive[w] = false;
+                    s.keff.died[w] = Some(m.clone());
                 }
             }
             self.state = Some(s);

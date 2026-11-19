@@ -41,6 +41,8 @@
 //! The same fix takes H(H2O) against THERMR's MT=222 from −1.39 % to +0.02 %,
 //! and graphite's MT=229 to +0.06 % (`tests/thermal_laws_vs_njoy_thermr.rs`).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::thermal::ThermalScattering;
 use std::path::PathBuf;
 

@@ -1080,13 +1080,13 @@ impl McApp {
                     Err(e) => it.pool_line = format!("Worker pool: {e}"),
                 }
             }
-            let going = s.run.as_ref().is_some_and(|r| r.going());
+            let going = s.keff.run.as_ref().is_some_and(|r| r.going());
             if going {
                 s.set_paused(it.state == RunState::Paused);
                 if it.state == RunState::Done {
                     s.stop_run();
                 }
-                if let Some(why) = s.run.as_ref().and_then(|r| r.failed.clone()) {
+                if let Some(why) = s.keff.run.as_ref().and_then(|r| r.failed.clone()) {
                     if it.state != RunState::Done {
                         it.lines.push(format!(" {why}"));
                         it.done(rung);
@@ -1139,7 +1139,7 @@ impl McApp {
                     Err(e) => k.pool_line = format!("Worker pool: {e}"),
                 }
             }
-            if s.run.as_ref().is_some_and(|r| r.going()) {
+            if s.keff.run.as_ref().is_some_and(|r| r.going()) {
                 s.set_paused(k.state == RunState::Paused);
                 if k.state == RunState::Done {
                     s.stop_run();

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::*;
 
 use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
@@ -655,6 +658,7 @@ pub fn pri_loop_heater_temperature_diagnostics(
 
     // debug
     if print_debug_results {
+        #[cfg(feature = "std")]
         dbg!(&(
             "bulk and wall temp degC, before and after heater respectively",
             bt_11.get::<degree_celsius>(),
@@ -702,6 +706,7 @@ pub fn pri_loop_dhx_shell_temperature_diagnostics(
 
     // debug
     if print_debug_results {
+        #[cfg(feature = "std")]
         dbg!(&(
             "bulk and wall temp degC, before and after dhx_shell respectively",
             bt_21.get::<degree_celsius>(),

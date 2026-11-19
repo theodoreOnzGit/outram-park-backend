@@ -58,6 +58,11 @@
 //!   (`ideasUnvToFoam`).
 //! - [`poly_dual_mesh`] — construct the polyhedral dual of a mesh
 //!   (`polyDualMesh`).
+//! - [`dynamic_mesh`] — solid-body mesh motion and `meshPhi` (gh:#1380),
+//!   bit-identical to OpenFOAM.com v2506 on the ported motions.
+//! - [`particle_tracking`] — barycentric particle tracking on a static `polyMesh`
+//!   (`tetBasePtIs`, `locate`, `track`, `trackToFace`; gh:#1382), bit-identical to
+//!   OpenFOAM.com v2506 `Foam::particle` on a hex and a polyhedral mesh.
 //!
 //! Solver loops, turbulence models, and thermophysics do **not** belong here —
 //! they live in the solver crates and `outram-foam-basic-lib`.
@@ -76,6 +81,45 @@
 //! | [`poly_dual_mesh`] | [`poly_dual_mesh::DualMesh::to_foam_poly_mesh`] |
 //! | [`driver`] | already a `PolyMesh` — [`GeneratedMesh::write_case`] |
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1638, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports, unused_variables, unused_mut))]
+
+extern crate alloc;
+extern crate ndarray_nostd as ndarray;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
+/// Hash maps and sets: std's with `std` (and in tests), so iteration order and
+/// every result are as before; `hashbrown` without it (gh:#1638).
+#[allow(unused_imports)]
+pub(crate) mod hash {
+    #[cfg(any(feature = "std", test))]
+    pub(crate) use std::collections::{HashMap, HashSet};
+    #[cfg(not(any(feature = "std", test)))]
+    pub(crate) use hashbrown::{HashMap, HashSet};
+}
+
 pub mod block_edges;
 pub mod block_mesh;
 pub mod block_primitives;
@@ -85,10 +129,14 @@ pub mod section;
 pub mod driver;
 pub mod ideas_unv_to_foam;
 pub mod check_mesh;
+pub mod decompose;
+pub mod dynamic_mesh;
 pub mod mesh_quality;
+pub mod particle_tracking;
 pub mod poly_dual_mesh;
 pub mod poly_dual_mesh_upstream;
 pub mod snappy_hex_mesh;
+pub mod topo_set;
 
 // The high-level entry points, re-exported at the crate root so they are the
 // first thing a new user meets.

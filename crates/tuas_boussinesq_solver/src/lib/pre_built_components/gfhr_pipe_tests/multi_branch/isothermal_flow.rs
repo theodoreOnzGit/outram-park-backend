@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::pre_built_components::gfhr_pipe_tests::components::{
     new_fhr_pipe_4_ver_2, new_reactor_vessel_pipe_1,
 };
@@ -103,6 +106,7 @@ pub fn test_fhr_four_branch_solver_pri_and_intrmd_loop_isothermal_check() {
         &fhr_pipe_13,
     );
 
+    #[cfg(feature = "std")]
     dbg!(&(
         reactor_flow,
         downcomer_branch_1_flow,
@@ -226,6 +230,7 @@ pub fn test_fhr_four_branch_solver_pri_and_intrmd_loop_zero_flow() {
         &fhr_pipe_13,
     );
 
+    #[cfg(feature = "std")]
     dbg!(&(
         reactor_flow,
         downcomer_branch_1_flow,

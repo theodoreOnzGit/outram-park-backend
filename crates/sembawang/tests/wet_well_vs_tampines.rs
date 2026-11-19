@@ -12,6 +12,7 @@
 //! Geometry: `sembawang`'s Fukushima Daiichi Unit 1 torus (`bwr_mark1::params`):
 //! pool surface 750 m², pool 1750 m³ at 995 kg/m³, gas space 2620 m³.
 
+#![cfg(feature = "std")] // gh:#1641: tests use std (fs, env, prints)
 use sembawang::bwr_mark1::containment::{Containment, ContainmentSnapshot};
 use sembawang::bwr_mark1::params::Params;
 use sembawang::bwr_mark1::{gas, pool_surface};

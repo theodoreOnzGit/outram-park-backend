@@ -11,6 +11,9 @@
 //! Reference: Zou, Hu & Charpentier (2019, ANL/NSE-19/11) and Zou, Hu, O'Grady
 //! & Hu (2021, Nuclear Engineering and Design 377, 111144).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::{frequency::hertz, ratio::ratio, time::millisecond};
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::f64::*;
@@ -85,6 +88,7 @@ use chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::An
 /// 17.8, -0.342%
 #[test]
 //#[ignore = "comment out for debugging"]
+#[cfg(feature = "std")]
 pub fn case_c_tchx_out_313_kelvin_40_celsius_test1() {
     verify_isolated_dhx_sam_solution(
         582.6,     // dhx power (watts)
@@ -95,6 +99,7 @@ pub fn case_c_tchx_out_313_kelvin_40_celsius_test1() {
     .unwrap();
 }
 
+#[cfg(feature = "std")]
 ///
 /// for this test, I calibrated pipe 38 form loss from 0.8
 /// to the following value
@@ -112,6 +117,7 @@ pub fn case_c_tchx_out_313_kelvin_40_celsius_test2() {
     )
     .unwrap();
 }
+#[cfg(feature = "std")]
 /// for this test, I calibrated pipe 38 form loss from 0.8
 /// to the following value
 ///
@@ -128,6 +134,7 @@ pub fn case_c_tchx_out_313_kelvin_40_celsius_test3() {
     )
     .unwrap();
 }
+#[cfg(feature = "std")]
 /// for this test, I calibrated pipe 38 form loss from 0.8
 /// to the following value
 ///
@@ -144,6 +151,7 @@ pub fn case_c_tchx_out_313_kelvin_40_celsius_test4() {
     )
     .unwrap();
 }
+#[cfg(feature = "std")]
 /// for this test, I calibrated pipe 38 form loss from 0.8
 /// to the following value
 ///
@@ -160,6 +168,7 @@ pub fn case_c_tchx_out_313_kelvin_40_celsius_test5() {
     )
     .unwrap();
 }
+#[cfg(feature = "std")]
 /// for this test, I calibrated pipe 38 form loss from 0.8
 /// to the following value
 ///
@@ -177,6 +186,7 @@ pub fn case_c_tchx_out_313_kelvin_40_celsius_test6() {
     )
     .unwrap();
 }
+#[cfg(feature = "std")]
 /// for this test, I calibrated pipe 38 form loss from 0.8
 /// to the following value
 ///
@@ -194,6 +204,7 @@ pub fn case_c_tchx_out_313_kelvin_40_celsius_test7() {
     .unwrap();
 }
 
+#[cfg(feature = "std")]
 /// for this test, I calibrated pipe 38 form loss from 0.8
 /// to the following value
 ///
@@ -211,6 +222,7 @@ pub fn case_c_tchx_out_313_kelvin_40_celsius_test8() {
     .unwrap();
 }
 
+#[cfg(feature = "std")]
 /// for this test, I calibrated pipe 38 form loss from 0.8
 /// to the following value
 ///
@@ -229,6 +241,7 @@ pub fn case_c_tchx_out_313_kelvin_40_celsius_test9() {
     .unwrap();
 }
 
+#[cfg(feature = "std")]
 /// in TUAS
 /// Ong, T. K. C., Xiao, S., & Peterson, P. F. (2024). An open-source
 /// Thermo-hydraulic Uniphase Advection and Convection Solver for
@@ -902,10 +915,15 @@ pub fn verify_isolated_dhx_sam_solution(
             // tchx outlet temperature
             // current sim time
             // and tchx heat trf coeff
+            #[cfg(feature = "std")]
             dbg!(&input_power);
+            #[cfg(feature = "std")]
             dbg!(&mass_flowrate_absolute);
+            #[cfg(feature = "std")]
             dbg!(&tchx_outlet_temperature);
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
+            #[cfg(feature = "std")]
             dbg!(&tchx_heat_transfer_coeff);
         }
     }
@@ -927,6 +945,7 @@ pub fn verify_isolated_dhx_sam_solution(
 
     error_percentage = (error_percentage * 1000.0).round() / 1000.0;
 
+    #[cfg(feature = "std")]
     dbg!(&(
         sam_solution_mass_flowrate_kg_per_s,
         final_mass_flowrate,

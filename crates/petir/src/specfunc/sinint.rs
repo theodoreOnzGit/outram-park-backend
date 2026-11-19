@@ -76,8 +76,9 @@
 // crate::real.
 #[allow(unused_imports)]
 use crate::real::Real;
+use crate::specfunc::trig::TrigKernel;
 
-use crate::cheb_slice::eval_gsl as cheb;
+use crate::specfunc::cheb_eval_e as cheb;
 use crate::specfunc::{SQRT_DBL_EPSILON, SQRT_DBL_MIN};
 
 /// `sqrt(50)`, where `f` and `g` change fit. Upstream writes the rounded
@@ -254,6 +255,19 @@ pub fn si(x: f64) -> f64 {
 /// assert!(ci(1e6).abs() < 1e-6);
 /// ```
 pub fn ci(x: f64) -> f64 {
+    ci_with(x, TrigKernel::Petir)
+}
+
+/// [`ci`] with the `sin x` and `cos x` of the asymptotic branch (`x > 4`)
+/// taken from the chosen [`TrigKernel`] (gh:#1421).
+///
+/// `TrigKernel::Petir` is exactly [`ci`]. `TrigKernel::Gsl` uses GSL's own
+/// `gsl_sf_sin_e`/`gsl_sf_cos_e` (`specfunc/trig.c`, ported as
+/// [`crate::specfunc::trig::sin_gsl`]/[`cos_gsl`](crate::specfunc::trig::cos_gsl)),
+/// as upstream's `gsl_sf_Ci_e` does (`specfunc/sinint.c:374-375`). `x <= 4` is
+/// unaffected. [`si`] is not changed by the kernel: upstream's `gsl_sf_Si_e`
+/// calls libm's `sin`/`cos` directly (`sinint.c:345`).
+pub fn ci_with(x: f64, trig: TrigKernel) -> f64 {
     if x.is_nan() || x <= 0.0 {
         // Upstream's DOMAIN_ERROR.
         return f64::NAN;
@@ -265,9 +279,8 @@ pub fn ci(x: f64) -> f64 {
         lx - 0.5 + cheb((x * x - 8.0) * 0.125, &CI)
     } else {
         let (f, g) = fg_asymp(x);
-        f * Real::sin(x) - g * Real::cos(x)
-    }
-}
+        f * trig.sin(x) - g * trig.cos(x)
+    }}
 
 #[cfg(test)]
 mod tests {

@@ -27,6 +27,9 @@
 //! file's module doc); the output is text and is compared line by line with
 //! NJOY2016's own plot tape in `tests/deck_driver_tapes_vs_njoy2016.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 mod angular_pages;
 mod emission_pages;
 pub(crate) mod fmt;

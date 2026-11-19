@@ -20,6 +20,9 @@
 //! backwards is upstream's `error('advance', ...)` and is an `Err` here; a
 //! forward gap is padded with integers (upstream also prints a message).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fortran_fmt::fortran_e20;
 use crate::NjoyError;
 
@@ -38,6 +41,9 @@ struct Walk<'a> {
     l: usize,
 }
 
+/// `nxss` (`acecm.f90:10`): the length of upstream's `xss` array.
+const NXSS: usize = 50_000_000;
+
 fn err(msg: String) -> NjoyError {
     NjoyError::InvalidInput(format!("change: {msg}"))
 }
@@ -47,16 +53,23 @@ impl Walk<'_> {
         self.at(self.l)
     }
 
+    /// Word `i`. Past the table's last word, upstream reads on in its `xss`
+    /// array, which ACER zeroes at its start (`acefc.f90:113`) and which is
+    /// `nxss` words long (`acecm.f90:10`): 0 there (gh:#1490, a malformed
+    /// DLWH entry walked past the end before `change` stops on its law).
     fn at(&self, i: usize) -> Result<i64, NjoyError> {
-        if i == 0 || i > self.x.len() {
-            return Err(err(format!("xss index {i} outside 1..{}", self.x.len())));
+        if i == 0 || i > NXSS {
+            return Err(err(format!("xss index {i} outside 1..{NXSS}")));
         }
-        Ok(self.x[i - 1].round() as i64)
+        Ok(self.x.get(i - 1).map_or(0, |v| v.round() as i64))
     }
 
     fn put(&mut self, is_int: bool) -> Result<(), NjoyError> {
-        if self.l == 0 || self.l > self.x.len() {
-            return Err(err(format!("xss index {} outside 1..{}", self.l, self.x.len())));
+        if self.l == 0 || self.l > NXSS {
+            return Err(err(format!("xss index {} outside 1..{NXSS}", self.l)));
+        }
+        if self.l > self.kind.len() {
+            self.kind.resize(self.l, None);
         }
         self.kind[self.l - 1] = Some(is_int);
         self.l += 1;
@@ -343,13 +356,14 @@ pub fn xss_lines(xss: &[f64], idx: &AceIndex) -> Result<Vec<String>, NjoyError> 
     let mut cur = String::new();
     let end = w.l - 1;
     for p in 0..end {
+        let v = w.x.get(p).copied().unwrap_or(0.0);
         let s = match w.kind[p] {
-            Some(true) => format!("{:20}", w.x[p].round() as i64),
-            _ => fortran_e20(w.x[p]),
+            Some(true) => format!("{:20}", v.round() as i64),
+            _ => fortran_e20(v),
         };
         cur.push_str(&s);
         if p % 4 == 3 {
-            lines.push(std::mem::take(&mut cur));
+            lines.push(core::mem::take(&mut cur));
         }
     }
     if !cur.is_empty() {
@@ -678,4 +692,32 @@ fn particle_blocks(w: &mut Walk, ntype: i64, ptype: i64, ntro: i64, ploct: i64) 
         ploc += 10;
     }
     Ok(())
+}
+
+/// The Type-1 text of a fast ACE table as `aceout` writes it for `itype = 1`
+/// (`acefc.f90:13006-13024`): the header block, then the XSS array printed
+/// by `change` ([`xss_lines`]) rather than by the builder's own
+/// [`super::AceTable::xss_is_int`] flags.
+///
+/// Why (gh:#1498): which words are integers is decided upstream by `change`'s
+/// block walk, never by how a word was stored. `acelcp`'s MF=4 / capture-recoil
+/// branch writes `xss(hpd+2+ie-it)` from `ie = iaa` (`acefc.f90:9376-9384`), so
+/// when a reaction's threshold index `iaa` is below the particle's `it` it
+/// rewrites, value unchanged, up to `it - iaa` words *before* the HPD block (the
+/// previous particle's last `MTY`, then this HPD's `IE` and `NE`). Upstream's
+/// output is unaffected; a writer that trusted the builder's flags printed them
+/// as reals (upstream tests 39 and 40: 3 and 5 lines of tape41).
+///
+/// # Errors
+/// As [`super::AceTable::to_type1_text`] and [`xss_lines`].
+pub fn type1_text(table: &super::AceTable) -> Result<String, NjoyError> {
+    let text = table.to_type1_text()?;
+    // Header: two title lines, four `(iz, aw)` lines, two NXS and four JXS lines.
+    let mut out: String = text.split_inclusive('\n').take(12).collect();
+    let idx = AceIndex { nxs: table.nxs.map(i64::from), jxs: table.jxs.map(i64::from) };
+    for line in xss_lines(&table.xss, &idx)? {
+        out.push_str(&line);
+        out.push('\n');
+    }
+    Ok(out)
 }

@@ -61,6 +61,9 @@
 //!
 //! [`build_fvmesh`]: PolyPatchMesh::build_fvmesh
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder};
 use outram_foam_basic_lib::primitives::Vector3;
 
@@ -376,7 +379,7 @@ impl PolyPatchMesh {
     }
 
     /// Global face indices belonging to boundary patch `patch_index`.
-    pub fn patch_face_ids(&self, patch_index: usize) -> std::ops::Range<usize> {
+    pub fn patch_face_ids(&self, patch_index: usize) -> core::ops::Range<usize> {
         let p = &self.patches[patch_index];
         p.start..p.end()
     }

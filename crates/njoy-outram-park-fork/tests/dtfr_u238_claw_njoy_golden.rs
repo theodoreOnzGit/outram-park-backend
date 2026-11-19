@@ -31,6 +31,9 @@
 //! group 23). Both inside the 2e-5 gate set by the `1PE12.5` print, so the
 //! prediction held: the residual is NJOY's sixth printed figure.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::dtfr::gendf::build_neutron_table;
 use njoy_outram_park_fork::dtfr::input::DtfrInput;
 use njoy_outram_park_fork::endf::tape::Tape;

@@ -105,6 +105,9 @@
 //! self-consistency and code-equivalence checks against the upstream C++
 //! expressions; none of them is a validation against experiment.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 

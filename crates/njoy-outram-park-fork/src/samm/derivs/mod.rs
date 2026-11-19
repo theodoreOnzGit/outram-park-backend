@@ -37,6 +37,9 @@
 //! `KBK` background terms, so a section carrying them is refused one level
 //! up; the `Want_Angular_Dist` blocks (`D_Coef_Leg`, `tx`, `gcphase`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod energy;
 
 use crate::samm::betset::ResonanceAmplitudes;

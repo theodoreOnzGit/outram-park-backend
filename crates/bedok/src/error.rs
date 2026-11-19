@@ -8,6 +8,9 @@
 //! (`convertsparsekey3d.m`'s debug block, for instance), the translation logs
 //! and continues — the behaviour, not the mechanism, is what is preserved.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Failure conditions raised by the translated reference.
@@ -131,4 +134,4 @@ pub enum BedokError {
 }
 
 /// Result alias for the translated reference.
-pub type Result<T> = std::result::Result<T, BedokError>;
+pub type Result<T> = core::result::Result<T, BedokError>;

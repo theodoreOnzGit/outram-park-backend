@@ -19,7 +19,10 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::ops::{Add, Div, Mul, Sub};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, Div, Mul, Sub};
 
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
@@ -241,7 +244,7 @@ mod tests {
     use crate::fields::vol_field::VolScalarField;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     fn unit_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {
         Arc::new(

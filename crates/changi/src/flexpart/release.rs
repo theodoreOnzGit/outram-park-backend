@@ -90,6 +90,9 @@
 //! Positions in grid units (`xtra1`, `ytra1`), heights m, times s, masses kg
 //! (or whatever unit the release file used), pressures hPa, densities kg/m³.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::advance::NestGeometry;
 use super::calendar::{caldate, juldate};
 use super::constants::R_AIR;
@@ -758,7 +761,7 @@ mod tests {
             bdate: juldate(20_200_115, 0),
             extents: StaticExtents::SHIPPED,
         };
-        let mut d = std::iter::repeat(0.25);
+        let mut d = core::iter::repeat(0.25);
         releaseparticles(
             0,
             &[point(0, 0, npart)],

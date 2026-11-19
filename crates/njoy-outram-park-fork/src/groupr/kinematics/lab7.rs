@@ -20,6 +20,9 @@
 //! format"* — this is the only `ll2lab` in `groupr.f90`, so there is no
 //! similarly-named variant to mis-pick.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::shared::{legndr, LabDistribution, EMAX, GAUSS8_NODES, GAUSS8_WEIGHTS, SMALL};
 use crate::endf::interp::{terp1, IntLaw};
 use crate::endf::records::Tab1;

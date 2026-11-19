@@ -47,11 +47,11 @@
 
 use std::path::PathBuf;
 
-use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat, HTR10_REFLECTOR_OUTER_CM};
-use outram_mc_libs::geometry::cell::SurfaceToken;
+use nee_soon::htr10_rmc::core_model::find_kernel_near;
+use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, HTR10_REFLECTOR_OUTER_CM};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, SlicePlot};
-use outram_mc_libs::geometry::position::{Direction, Position};
+use outram_mc_libs::geometry::position::Position;
 
 fn env_usize(k: &str, d: usize) -> usize {
     std::env::var(k)
@@ -74,37 +74,18 @@ fn palette() -> Vec<(Rgb, &'static str)> {
 /// centre, so the pebble centre is the tile offset PLUS the translation of
 /// the fuel-zone fill cell the point was found in.
 fn find_fuel_pebble(g: &Geometry, near: Position) -> Option<(Position, Position)> {
-    // A 2-D scan: the TRISO lattice puts particle centres at fractional-pitch
-    // offsets (`TRISO_OFFSET` in `core_model`; [0.13, 0.37, 0.71] since
-    // 2026-10-01), so a single line through a pebble centre can miss every
-    // kernel.
-    // Since 2026-10-01 the offset is generic in z too, so the pebble's
-    // mid-plane may cut no kernel: step z through one TRISO pitch (~0.195 cm)
-    // as well.
-    let u = Direction::new(0.0, 0.0, 1.0);
-    for (kz, j) in (0..20).flat_map(|kz| (0..40).map(move |j| (kz, j))) {
-        for i in 0..4000 {
-            let p = Position::new(
-                near.x + 0.01 * i as f64,
-                near.y + 0.01 * j as f64,
-                near.z + 0.01 * kz as f64,
-            );
-            if let Some(path) = g.locate(p, u, SurfaceToken::NONE) {
-                let n = path.levels.len();
-                if path.material == Some(mat::KERNEL) && n >= 3 {
-                    let tile = &path.levels[n - 2];
-                    let peb = tile.offset + g.cells[tile.cell].translation;
-                    let part = path.levels[n - 1].offset;
-                    // Printed because `assemble_explicit_triso`'s docs once
-                    // claimed four levels; the located path is the evidence.
-                    let lats: Vec<Option<usize>> = path.levels.iter().map(|c| c.lattice).collect();
-                    println!("kernel located at coordinate depth {n} (lattice per level {lats:?})");
-                    return Some((peb, part));
-                }
-            }
-        }
-    }
-    None
+    // The scan is the library's `find_kernel_near` (moved there 2026-11-17),
+    // 4000 steps in x, at least three coordinate levels (pebble, then particle).
+    let path = find_kernel_near(g, near, 4000, 3)?;
+    let n = path.levels.len();
+    let tile = &path.levels[n - 2];
+    let peb = tile.offset + g.cells[tile.cell].translation;
+    let part = path.levels[n - 1].offset;
+    // Printed because `assemble_explicit_triso`'s docs once claimed four
+    // levels; the located path is the evidence.
+    let lats: Vec<Option<usize>> = path.levels.iter().map(|c| c.lattice).collect();
+    println!("kernel located at coordinate depth {n} (lattice per level {lats:?})");
+    Some((peb, part))
 }
 
 fn main() {

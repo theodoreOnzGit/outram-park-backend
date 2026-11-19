@@ -15,6 +15,9 @@
 //! "representative isotopic abundance" column, or the "best measurement"
 //! where an interval is given. They are **atom** fractions.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::plotter::endf_tables::{gnds_name, natural_isotopes, zam};
 
 /// One nuclide, by proton number `Z`, mass number `A` and metastable state.
@@ -114,8 +117,8 @@ impl Isotope {
     }
 }
 
-impl std::fmt::Display for Isotope {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Isotope {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(&self.name())
     }
 }
@@ -684,8 +687,8 @@ impl From<Isotope> for Species {
     }
 }
 
-impl std::fmt::Display for Species {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Species {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Species::Isotope(i) => write!(f, "{i}"),
             Species::Natural(e) => write!(f, "natural {}", e.symbol()),

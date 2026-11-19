@@ -19,6 +19,9 @@
 //!   pressure drop (Pa) and mass flow rate (kg/s) across pipes arranged in
 //!   series or parallel.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// contains matrix calculations specific to fluid nodes
 /// arranged in a 1D array
 ///

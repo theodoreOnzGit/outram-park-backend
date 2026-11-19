@@ -28,6 +28,9 @@
 //! `tbar = F_2 / (2 tbeta)`. These are the standard incoherent-Gaussian
 //! Debye-Waller and effective-temperature integrals.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Result of the `start` calculation for one temperature: the integral functions

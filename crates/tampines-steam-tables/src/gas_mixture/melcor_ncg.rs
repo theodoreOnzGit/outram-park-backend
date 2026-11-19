@@ -24,6 +24,9 @@
 //! of the fit inside, linear in `c_v(T_up)` above. `t_dependent = false` is
 //! the constant-value ablation (20.8 and 20.5 J/(mol K)).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Molar mass of H2O, kg/mol (`sembawang::bwr_mark1::params::M_H2O`).

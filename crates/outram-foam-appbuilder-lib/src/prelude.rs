@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::error::AppBuilderError;
 
 // I/O
@@ -45,11 +48,14 @@ pub use crate::io::fv_solution::{FvSolution, LinearSolverConfig, LinearSolverTyp
 // Field readers, which ARE implemented. Previously the prelude exported the
 // mesh reader but none of these, so "read a field from disk" dead-ended on the
 // discovery surface while the functions existed one module away.
+#[cfg(feature = "std")]
 pub use crate::io::field_reader::{
     read_vol_scalar_field, read_vol_scalar_field_full, read_vol_vector_field,
     read_vol_vector_field_full,
 };
+#[cfg(feature = "std")]
 pub use crate::io::poly_mesh::read_poly_mesh;
+#[cfg(feature = "std")]
 pub use crate::io::nuclear_data::{read_nuclear_data, write_nuclear_data};
 
 // GeN-Foam neutronics — point kinetics (0-D)
@@ -82,8 +88,10 @@ pub use crate::genfoam::thermal_hydraulics::solid_conduction::{
 pub use crate::genfoam::thermal_hydraulics::solver::PorousConductivity;
 
 // Solvers
-pub use crate::solvers::cht_multi_region_foam::{ChtMultiRegionFoam, CoupledTemperature, InterfaceMode, RegionId, SolidRegion};
+pub use crate::solvers::cht_multi_region_foam::{ChtMultiRegionFoam, CoupledTemperature, InterfaceMode, InterfaceRadiation, RadiativeFluxTerms, RegionId, SolidRegion};
 pub use crate::solvers::energy::{EnergyEquation, IncompressibleThermo};
+pub use crate::solvers::energy_radiation::RadiationCoupling;
+pub use crate::solvers::energy_view_factor::ViewFactorCoupling;
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
 pub use crate::solvers::melt_foam::MeltFoam;
 pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver, SolveRecord};
@@ -94,7 +102,10 @@ pub use crate::solvers::reacting_two_phase_euler_foam::{
     ReactionMechanism, ReactionSource,
 };
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
+pub use crate::solvers::rho_pimple_foam::esi::RhoPimpleFoamEsi;
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
+pub use crate::solvers::solid_displacement_foam::SolidDisplacementFoamEsi;
+pub use crate::solvers::sonic_foam::esi::SonicFoamEsi;
 pub use crate::solvers::sonic_foam::SonicFoam;
 
 // Turbulence-closure selection (Layer-5 adapter over outram-foam-turbulence-lib)

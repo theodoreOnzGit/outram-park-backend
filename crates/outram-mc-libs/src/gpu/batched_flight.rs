@@ -40,6 +40,9 @@
 // mirror is bit-identical across hosts. The GPU side still uses the WGSL
 // shader intrinsics, which are driver-defined; the mirror/GPU agreement
 // test tolerance covers that difference.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 /// Structure-of-Arrays batch of live neutrons resident for the GPU flight kernel.
@@ -112,8 +115,9 @@ pub struct FlightSphere {
 /// `0 = Leaked`, `1 = Collided`.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum FlightOutcome {
-    /// The particle reached the bounding sphere before colliding (dead here).
-    /// Its position is left unchanged.
+    /// The particle reached the bounding sphere before colliding, or started
+    /// the flight outside it (or on it, moving out; gh:#1507), or saw
+    /// `Sigma_t <= 0` (dead here). Its position is left unchanged.
     Leaked,
     /// The particle collided inside the sphere. Its position in the batch has
     /// been advanced to the collision site; the caller does the collision physics.
@@ -123,7 +127,7 @@ pub enum FlightOutcome {
 impl FlightOutcome {
     /// Decode the shader's `u32` outcome code (`0 = Leaked`, anything else =
     /// `Collided`) into a [`FlightOutcome`]. Used only by the GPU read-back path.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[inline]
     fn from_code(code: u32) -> Self {
         if code == 0 {
@@ -134,12 +138,14 @@ impl FlightOutcome {
     }
 }
 
-// A sentinel "no intersection" distance (cm). Physically the sampled flight
-// distance here is O(10) cm, so this is always larger than any `d_col`. Kept
-// identical to the shader's `BIG` so the CPU mirror matches the GPU exactly.
-const BIG: f32 = 1e30;
-// Coincident-surface epsilon (cm), f32 — identical to the shader's `EPS`.
-const EPS: f32 = 1e-7;
+// ~~A sentinel "no intersection" distance `BIG = 1e30` cm and a
+// "coincident-surface epsilon" `EPS = 1e-7` cm, identical to the shader's.~~
+// REMOVED 2026-11-12 (gh:#1507): OpenMC's `SurfaceSphere::distance` has no
+// 1e-7 floor. The sphere sense and distance are now
+// `batched_event::{sphere_sense_outside_f32, sphere_distance_openmc_f32}`,
+// which carry `BIG = 1e30` and `FP_COINCIDENT = 1e-12`, the same constants
+// both WGSL kernels declare.
+use super::batched_event::{sphere_distance_openmc_f32, sphere_sense_outside_f32};
 
 /// This kernel's own WGSL, which is **not a complete shader on its own**: it
 /// calls `petir_lcg_next`, defined in [`petir::wgsl::LCG`]. Compile
@@ -222,9 +228,21 @@ fn interp_sigma_f32(grid: &[f32], sigma: &[f32], q: f32) -> f32 {
 }
 
 /// Distance (cm) from `(px,py,pz)` along unit direction `(ux,uy,uz)` to the
-/// bounding `sphere`, in **f32**, mirroring the shader and OpenMC
-/// `src/surface.cpp:607-638` (`SurfaceSphere::distance`, coincident = false).
-/// Returns [`BIG`] when the ray misses or both roots are behind the particle.
+/// bounding `sphere`, in **f32**, mirroring the shader's step 6; `None` when
+/// the particle is outside the sphere, i.e. out of its cell, so it leaks.
+///
+/// ~~Mirrors the shader and OpenMC `src/surface.cpp:607-638`
+/// (`SurfaceSphere::distance`, coincident = false).~~ **CORRECTED 2026-11-12
+/// (gh:#1506), FIXED the same day (gh:#1507):** the old body did not mirror
+/// OpenMC. Its `d > EPS (1e-7)` floor on both roots gave no boundary to a
+/// neutron inside within ~1e-7 cm and moving out, and it had no
+/// `Surface::sense` test, so a neutron outside the sphere was transported as
+/// if inside. It now reuses #1506's translation of OpenMC 8f79d9d0:
+/// `Surface::sense` (`src/surface.cpp:118-132`) as
+/// [`sphere_sense_outside_f32`], then `SurfaceSphere::distance`
+/// (`src/surface.cpp:652-690`, coincident = false) as
+/// [`sphere_distance_openmc_f32`]. A coincident particle (`|c| < 1e-12`) is
+/// outside when `(r - c0) . u > 0`. `Some(1e30)` when the ray misses.
 #[inline]
 fn sphere_distance_f32(
     px: f32,
@@ -234,27 +252,16 @@ fn sphere_distance_f32(
     uy: f32,
     uz: f32,
     sphere: FlightSphere,
-) -> f32 {
+) -> Option<f32> {
     let ox = px - sphere.x0;
     let oy = py - sphere.y0;
     let oz = pz - sphere.z0;
-    let k = ox * ux + oy * uy + oz * uz;
+    let kdot = ox * ux + oy * uy + oz * uz;
     let c = ox * ox + oy * oy + oz * oz - sphere.r * sphere.r;
-    let disc = k * k - c;
-    if disc < 0.0 {
-        return BIG;
-    }
-    let sq = disc.sqrt();
-    let d_near = -k - sq;
-    if d_near > EPS {
-        d_near
+    if sphere_sense_outside_f32(c, kdot) {
+        None
     } else {
-        let d_far = -k + sq;
-        if d_far > EPS {
-            d_far
-        } else {
-            BIG
-        }
+        Some(sphere_distance_openmc_f32(c, kdot))
     }
 }
 
@@ -279,8 +286,11 @@ fn sphere_distance_f32(
 ///
 /// # Behaviour per particle
 /// Advance RNG one step → `xi`; interpolate `Sigma_t` at `energy[i]`; if
-/// `Sigma_t <= 0` → `Leaked`; else `d_col = -ln(xi)/Sigma_t`; compute the sphere
-/// distance `d_bound`; if `d_col >= d_bound` → `Leaked` (pos unchanged), else
+/// `Sigma_t <= 0` → `Leaked`; else `d_col = -ln(xi)/Sigma_t`; if the particle is
+/// outside the sphere (OpenMC `Surface::sense`, a coincident one moving out
+/// counts as outside; gh:#1507) → `Leaked` (pos unchanged); else compute the
+/// sphere distance `d_bound` (OpenMC `SurfaceSphere::distance`, no 1e-7 floor);
+/// if `d_col >= d_bound` → `Leaked` (pos unchanged), else
 /// stream `pos += dir * d_col` and mark `Collided`. An empty batch returns an
 /// empty `Vec`.
 ///
@@ -318,7 +328,13 @@ pub fn advance_flight_cpu_mirror(
         let ux = batch.dir[3 * i];
         let uy = batch.dir[3 * i + 1];
         let uz = batch.dir[3 * i + 2];
-        let d_bound = sphere_distance_f32(px, py, pz, ux, uy, uz, sphere);
+        // gh:#1507: a particle outside the sphere (OpenMC `Surface::sense`) has
+        // no cell and leaks with its position unchanged, after its LCG step,
+        // as the fused kernel does since #1506.
+        let Some(d_bound) = sphere_distance_f32(px, py, pz, ux, uy, uz, sphere) else {
+            out.push(FlightOutcome::Leaked);
+            continue;
+        };
 
         // 5. Stream to the nearer event.
         if d_col >= d_bound {
@@ -342,7 +358,7 @@ pub fn advance_flight_cpu_mirror(
 /// `bytemuck` is intentionally not a dependency of this crate; both the CPU
 /// upload and the same-machine GPU agree on byte order, so native-endian is
 /// correct.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -352,7 +368,7 @@ fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
 }
 
 /// Reinterpret an `&[u32]` slice as native-endian bytes for buffer upload.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn u32_slice_to_bytes(data: &[u32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -365,7 +381,7 @@ fn u32_slice_to_bytes(data: &[u32]) -> Vec<u8> {
 /// (16 bytes), then the sphere `vec4<f32>` `(x0, y0, z0, r)` (16 bytes), all
 /// native-endian. Layout mirrors the WGSL `Params` struct (std140 alignment:
 /// the `vec4` sits at offset 16).
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn pack_params(n_grid: u32, n_particle: u32, sphere: FlightSphere) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(32);
     bytes.extend_from_slice(&n_grid.to_ne_bytes());
@@ -380,7 +396,7 @@ fn pack_params(n_grid: u32, n_particle: u32, sphere: FlightSphere) -> Vec<u8> {
 }
 
 /// Rebuild a `Vec<f32>` of length `n` from a native-endian byte view.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_f32_vec(bytes: &[u8], n: usize) -> Vec<f32> {
     let mut out = Vec::with_capacity(n);
     for chunk in bytes.chunks_exact(4).take(n) {
@@ -390,7 +406,7 @@ fn bytes_to_f32_vec(bytes: &[u8], n: usize) -> Vec<f32> {
 }
 
 /// Rebuild a `Vec<u32>` of length `n` from a native-endian byte view.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_u32_vec(bytes: &[u8], n: usize) -> Vec<u32> {
     let mut out = Vec::with_capacity(n);
     for chunk in bytes.chunks_exact(4).take(n) {
@@ -426,7 +442,7 @@ fn bytes_to_u32_vec(bytes: &[u8], n: usize) -> Vec<u32> {
 /// `grid.len() == sigma.len() >= 2`, `grid` sorted ascending; the batch length
 /// invariants in [`FlightBatch`]. An empty batch returns an empty `Vec` without
 /// touching the GPU.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn advance_flight_gpu(
     ctx: &crate::gpu::GpuContext,
     grid: &[f32],
@@ -459,7 +475,7 @@ pub fn advance_flight_gpu(
     let mut state_packed = Vec::with_capacity(3 * n);
     state_packed.extend_from_slice(&batch.rng_hi);
     state_packed.extend_from_slice(&batch.rng_lo);
-    state_packed.extend(std::iter::repeat(0u32).take(n)); // outcome
+    state_packed.extend(core::iter::repeat(0u32).take(n)); // outcome
 
     // --- Read-only input buffers ---------------------------------------------
     let xs_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -492,8 +508,8 @@ pub fn advance_flight_gpu(
     });
 
     // --- Staging buffers (one per read-back array) ---------------------------
-    let pos_size = (batch.pos.len() * std::mem::size_of::<f32>()) as wgpu::BufferAddress;
-    let state_size = (state_packed.len() * std::mem::size_of::<u32>()) as wgpu::BufferAddress;
+    let pos_size = (batch.pos.len() * core::mem::size_of::<f32>()) as wgpu::BufferAddress;
+    let state_size = (state_packed.len() * core::mem::size_of::<u32>()) as wgpu::BufferAddress;
     let make_staging = |label: &str, size: wgpu::BufferAddress| {
         device.create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
@@ -681,10 +697,11 @@ mod tests {
     /// advance bit-for-bit. On CPU-only CI (no adapter) this prints a SKIP line
     /// and returns green. (The f32 *uniform value* intentionally differs from the
     /// CPU `f64 prn` — only the integer state is asserted here.)
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_lcg_state_matches_cpu() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP gpu_lcg_state_matches_cpu: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -742,6 +759,7 @@ mod tests {
             }
         }
         assert_eq!(exact, n, "all {n} LCG states must be bit-exact");
+        #[cfg(feature = "std")]
         eprintln!(
             "gpu_lcg_state_matches_cpu: {exact}/{n} bit-exact on {}",
             ctx.info.name
@@ -777,10 +795,19 @@ mod tests {
     /// flight (RNG → Sigma_t lookup → distance sampling → sphere streaming)
     /// matches the CPU mirror. On CPU-only CI this prints a SKIP line and returns
     /// green (the CPU mirror logic is still a callable reference there).
-    #[cfg(not(target_os = "android"))]
+    ///
+    /// **Re-run 2026-11-12 after gh:#1507** (release, Mesa llvmpipe LLVM 20.1.2):
+    /// outcome mismatches 0 / 4096, max collided-position difference 9.5e-7 cm,
+    /// all RNG states bit-exact. Since #1507 every particle that starts outside
+    /// the sphere (about 70 % of this batch, which fills a cube of half-width
+    /// 1.2 R: `1 - (4/3)pi / 2.4^3`) leaks before the distance test on both sides, as OpenMC's
+    /// `Surface::sense` puts it out of its cell; before, an outside particle
+    /// aimed inward could collide outside the sphere.
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_flight_matches_cpu_mirror() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP gpu_flight_matches_cpu_mirror: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -908,6 +935,7 @@ mod tests {
             frac < 1e-3,
             "outcome mismatches {outcome_mismatch}/{n} exceed 0.1% (near-tangent tolerance)"
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "gpu_flight_matches_cpu_mirror on {}: outcome_mismatch={outcome_mismatch}/{n}, \
              max_pos_diff={max_pos_diff} cm",
@@ -1010,6 +1038,125 @@ mod tests {
         let out = advance_flight_cpu_mirror(&grid, &sigma, &mut batch, sphere);
         assert_eq!(out[0], FlightOutcome::Leaked);
         assert_eq!(batch.pos, vec![r - 1e-4, 0.0, 0.0]);
+    }
+
+    /// gh:#1507 boundary cases: five particles at and beyond the sphere surface,
+    /// one flight each, with the outcome OpenMC 8f79d9d0 gives them.
+    ///
+    /// **Methodology.** `Sigma_t = 1 cm^-1` (so `d_col = -ln(xi)` is O(1) cm,
+    /// far above any boundary distance below) on a sphere of `R = 0.5` cm at
+    /// the origin, every particle flying along `+-x`. Expected outcomes come
+    /// from `Surface::sense` (`src/surface.cpp:118-132`) and
+    /// `SurfaceSphere::distance` (`src/surface.cpp:652-690`), not from a run:
+    ///
+    /// | # | start, direction | OpenMC | old flight kernel |
+    /// |---|---|---|---|
+    /// | 0 | `x = R` (f = 0 exactly), `+x` | coincident, `k > 0`: outside, leaks | `d_far = 0 < EPS`: no boundary, collides outside |
+    /// | 1 | `x = R` (f = 0), `-x` | coincident, `k < 0`: inside, `d = -k + sqrt(quad) = 2R = 1 cm`, so collides iff `d_col < 1` | same distance |
+    /// | 2 | `x` = the f32 just below `R`, `+x` | inside, `d = -k + sqrt(quad)` finite and `< 1e-7`: leaks | `d < EPS`: no boundary, collides outside |
+    /// | 3 | `x = R + 1e-3`, `+x` | outside: leaks | both roots behind: no boundary, collides outside |
+    /// | 4 | `x = R + 1e-3`, `-x` | outside: leaks (no cell) | `d_near = 1e-3`: collides outside if `d_col < 1e-3` |
+    ///
+    /// The mirror must also leave a leaked particle's position unchanged and
+    /// advance every RNG one step. Case 2 is checked directly as well:
+    /// [`sphere_distance_openmc_f32`] returns a finite, positive distance
+    /// below `1e-7` cm there, the value the old `1e-7` floor threw away. When
+    /// an adapter exists (lavapipe counts), the same batch is flown through the
+    /// WGSL and must give the same outcomes and RNG states.
+    ///
+    /// **Results (2026-11-12, release, rustc 1.99.1; GPU arm on Mesa llvmpipe,
+    /// LLVM 20.1.2).** All five outcomes as the table's OpenMC column, on the
+    /// mirror and on the GPU (RNG states bit-exact); case 2's distance is
+    /// 2.98e-8 cm (`2^-25`). The table's "old flight kernel" column is read
+    /// from the replaced code (struck through in `sphere_distance_f32`'s doc),
+    /// not run.
+    #[test]
+    fn mirror_and_gpu_resolve_the_sphere_surface_as_openmc() {
+        let grid = [1.0e-3f32, 2.0e7f32];
+        let sigma = [1.0f32, 1.0f32];
+        let r = 0.5f32;
+        let just_inside = f32::from_bits(r.to_bits() - 1);
+        let starts = [r, r, just_inside, r + 1e-3, r + 1e-3];
+        let dirs = [1.0f32, -1.0, 1.0, 1.0, -1.0];
+        let n = starts.len();
+        let mut pos = Vec::with_capacity(3 * n);
+        let mut dir = Vec::with_capacity(3 * n);
+        for i in 0..n {
+            pos.extend_from_slice(&[starts[i], 0.0, 0.0]);
+            dir.extend_from_slice(&[dirs[i], 0.0, 0.0]);
+        }
+        let seeds: Vec<u64> = (0..n as u64)
+            .map(|i| 0x0123_4567_89AB_CDEF_u64 ^ (i.wrapping_mul(0x9E37_79B9_7F4A_7C15)))
+            .collect();
+        let make = || FlightBatch {
+            pos: pos.clone(),
+            dir: dir.clone(),
+            energy: vec![1.0e3f32; n],
+            rng_hi: seeds.iter().map(|s| (s >> 32) as u32).collect(),
+            rng_lo: seeds.iter().map(|&s| s as u32).collect(),
+        };
+        let sphere = FlightSphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r,
+        };
+
+        // Case 2 directly: f < 0 and the outward root is finite and below 1e-7.
+        let c2 = just_inside * just_inside - r * r;
+        assert!(c2 < 0.0, "case 2 must start inside, f = {c2}");
+        assert!(!sphere_sense_outside_f32(c2, just_inside));
+        let d2 = sphere_distance_openmc_f32(c2, just_inside);
+        assert!(d2 > 0.0 && d2 < 1e-7, "case 2 distance {d2}");
+        assert_eq!(sphere_distance_f32(r, 0.0, 0.0, 1.0, 0.0, 0.0, sphere), None);
+        assert_eq!(sphere_distance_f32(r, 0.0, 0.0, -1.0, 0.0, 0.0, sphere), Some(1.0));
+
+        // Case 1 collides iff d_col = -ln(xi) < 2R = 1 cm.
+        let (_, _, xi1) = lcg_advance((seeds[1] >> 32) as u32, seeds[1] as u32);
+        let case1 = if -xi1.r_ln() < 1.0 {
+            FlightOutcome::Collided
+        } else {
+            FlightOutcome::Leaked
+        };
+        let want = [
+            FlightOutcome::Leaked,
+            case1,
+            FlightOutcome::Leaked,
+            FlightOutcome::Leaked,
+            FlightOutcome::Leaked,
+        ];
+
+        let mut cpu = make();
+        let out = advance_flight_cpu_mirror(&grid, &sigma, &mut cpu, sphere);
+        assert_eq!(out, want, "mirror outcomes");
+        for i in 0..n {
+            assert_eq!(
+                ((cpu.rng_hi[i] as u64) << 32) | cpu.rng_lo[i] as u64,
+                future_seed(1, seeds[i])
+            );
+            if out[i] == FlightOutcome::Leaked {
+                assert_eq!(&cpu.pos[3 * i..3 * i + 3], &pos[3 * i..3 * i + 3]);
+            }
+        }
+
+        #[cfg(all(feature = "std", not(target_os = "android")))]
+        {
+            let Some(ctx) = crate::gpu::shared_probe() else {
+                #[cfg(feature = "std")]
+                eprintln!("SKIP GPU arm of mirror_and_gpu_resolve_the_sphere_surface_as_openmc");
+                return;
+            };
+            let mut gpu = make();
+            let out_gpu = advance_flight_gpu(&ctx, &grid, &sigma, &mut gpu, sphere);
+            assert_eq!(out_gpu, want, "GPU outcomes on {}", ctx.info.name);
+            assert_eq!(gpu.rng_hi, cpu.rng_hi);
+            assert_eq!(gpu.rng_lo, cpu.rng_lo);
+            #[cfg(feature = "std")]
+            eprintln!(
+                "mirror_and_gpu_resolve_the_sphere_surface_as_openmc: {:?} on {}, case-2 d = {d2:e} cm",
+                out_gpu, ctx.info.name
+            );
+        }
     }
 
     /// V&V (CPU mirror): the emulated one-step LCG advance is bit-exact vs the

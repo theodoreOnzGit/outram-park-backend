@@ -1453,8 +1453,8 @@ qual = "KERNELS_PER_BALL"
 item = "const"
 shape = "const"
 lines = [
-    31,
-    31,
+    32,
+    32,
 ]
 hash = "sha256:3414596e46df57d1eaa3bb031dc0110bf41ef0cf27585132e7311d63e291ce45"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1467,8 +1467,8 @@ qual = "FUEL_ZONE_RADIUS"
 item = "const"
 shape = "const"
 lines = [
-    32,
-    32,
+    33,
+    33,
 ]
 hash = "sha256:c1877e23a1c5fa2cd291dc2fd856e47f056838d97b3e240de7b274e129d01ad9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1479,8 +1479,8 @@ id = "fn:3eeef3f3e235ecf6"
 name = "nuclides"
 qual = "nuclides"
 lines = [
-    34,
-    37,
+    35,
+    38,
 ]
 hash = "sha256:f1b4835d94e6dcfd1e5e7304b7c4cf2c271ad312a906016a3a8975596a210017"
 doc_hash = "sha256:2015ae973a047c74de77e3a1ddd558dd3d178afc64ef40ad8bc2fa020775c71c"
@@ -1492,8 +1492,8 @@ id = "fn:3dc8e0046d0777ac"
 name = "b10_inventory"
 qual = "b10_inventory"
 lines = [
-    39,
-    46,
+    40,
+    47,
 ]
 hash = "sha256:90e8dd8803e789029982c0c0da56ef44d94c75a95c27a401ec3807169bff284e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1509,10 +1509,10 @@ id = "fn:09f8d68267a94b58"
 name = "the_tabulated_heavy_metal_loading_closes_to_a_milligram"
 qual = "the_tabulated_heavy_metal_loading_closes_to_a_milligram"
 lines = [
-    48,
-    66,
+    49,
+    67,
 ]
-hash = "sha256:d13dfd9639f6d8cdc7dd732e3856e162dcd3331f4655220151cc2c52b1ea6fd2"
+hash = "sha256:969a3f95754eaa13075654af3bd6209972437d8ce70939c019f4a6b7a6443503"
 doc_hash = "sha256:65cf214205e8ca319371ab17fa4f4e16a609298b278076be74dedb4086e0cd5c"
 callees = ["fn:afd5bfe2623e96dc"]
 uses = [
@@ -1521,16 +1521,17 @@ uses = [
     "fn:fc17976fd006fbe1",
 ]
 test = true
+index_out_of_date = true
 
 [[module."tests.rs".function]]
 id = "fn:16483640f467e1e4"
 name = "the_stored_packing_fraction_is_what_the_geometry_implies"
 qual = "the_stored_packing_fraction_is_what_the_geometry_implies"
 lines = [
-    68,
-    82,
+    69,
+    83,
 ]
-hash = "sha256:1384911de61f09728fb6dd6f91e065069afdc1229b69598729242fc7710e3072"
+hash = "sha256:a21ec3d608bb7fa30e795f317549474c79c02055185669a57294a6a5b9b8d284"
 doc_hash = "sha256:a01291a28bd9ebf84e0d3d0b6b2bfd5950cf5bd340ed5482a2b34368c43bc7d5"
 uses = [
     "fn:59a19448a8bde374",
@@ -1538,14 +1539,15 @@ uses = [
     "fn:fc17976fd006fbe1",
 ]
 test = true
+index_out_of_date = true
 
 [[module."tests.rs".function]]
 id = "fn:f996cbe1db6c6f4e"
 name = "the_boron_readings_are_genuinely_different_compositions"
 qual = "the_boron_readings_are_genuinely_different_compositions"
 lines = [
-    84,
-    119,
+    85,
+    120,
 ]
 hash = "sha256:dd26f7399887f06b5884c28e8b625f1c05c0df81a4eac909fbb713c5c6631d71"
 doc_hash = "sha256:146091759d767e034d760ca398f6c6dde9e5048ce5cadb37229fc3466c449303"
@@ -1564,8 +1566,8 @@ id = "fn:7d6e6a55202a6f8b"
 name = "the_kernel_boron_is_quoted_relative_to_uranium_not_uo2"
 qual = "the_kernel_boron_is_quoted_relative_to_uranium_not_uo2"
 lines = [
-    121,
-    153,
+    122,
+    154,
 ]
 hash = "sha256:d52698448b0d076510f8a8da2d07c854030564fd83336427866b7058e059ee64"
 doc_hash = "sha256:3fc4c71b0842541bfb6b7e9aab399779906cfb6440e401342bfd3de3cee7fb38"
@@ -1585,8 +1587,8 @@ id = "fn:adc8ae81e00b84a7"
 name = "the_material_table_is_seven_entries_in_pebble_order"
 qual = "the_material_table_is_seven_entries_in_pebble_order"
 lines = [
-    155,
-    175,
+    156,
+    176,
 ]
 hash = "sha256:883b2ad160e70bdc2acd442ab05d456895f57ee0a3e71e028f907705e1d4a823"
 doc_hash = "sha256:d547d8bda807dfaaaf48850de0c02a134b012e3f129fa7a370c22974b858d5c6"
@@ -1602,8 +1604,8 @@ id = "fn:2d6fd24d86519d40"
 name = "the_enrichment_basis_is_weight_percent_and_the_difference_is_recorded"
 qual = "the_enrichment_basis_is_weight_percent_and_the_difference_is_recorded"
 lines = [
-    177,
-    194,
+    178,
+    195,
 ]
 hash = "sha256:9a8d57665fba059266613a10bbd7d1bae4e16c27e257d3accaa4fed394ffb196"
 doc_hash = "sha256:ea9bb7efd83d40b49843cd7724f156eca6c9391f6b5f96ba1cb13fe9a12df251"
@@ -1616,8 +1618,8 @@ id = "fn:ac5356a52ec26cc7"
 name = "the_atom_densities_match_values_computed_independently_from_table_2"
 qual = "the_atom_densities_match_values_computed_independently_from_table_2"
 lines = [
-    196,
-    288,
+    197,
+    289,
 ]
 hash = "sha256:3ea515d20a08aae70232cacf5edee2b70cd2f77938672f8c2f70fb3f225d4d60"
 doc_hash = "sha256:6bb1a09b83e7a2364e96969fea3412ac500000ff55d0231ca31ae4d5956770ba"
@@ -1640,8 +1642,8 @@ id = "fn:586983f1ed892f33"
 name = "the_graphite_boron_matches_mits_atom_ppm_table"
 qual = "the_graphite_boron_matches_mits_atom_ppm_table"
 lines = [
-    290,
-    305,
+    291,
+    306,
 ]
 hash = "sha256:d5fa5884e218f8819c17410a8c86455f2c09862145a92cb85f42ae073bc9fb3a"
 doc_hash = "sha256:f1032b61e9da20d884a2914d040a4c1bef9105a182397a46cf615490ad19a024"
@@ -1657,8 +1659,8 @@ id = "fn:7b479476c9e642d1"
 name = "natural_carbon_is_split_c12_c13_and_conserved"
 qual = "natural_carbon_is_split_c12_c13_and_conserved"
 lines = [
-    307,
-    359,
+    308,
+    360,
 ]
 hash = "sha256:6fa8f9c098a38e283dcf35fded4d712cc055359b82d996ff3da9a6468812f8a9"
 doc_hash = "sha256:612535392f478af8b7ad0591ff42c779e769314caec7b71a7d48bc93c6d0f925"

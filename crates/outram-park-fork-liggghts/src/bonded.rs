@@ -154,6 +154,9 @@
 //!   assemblies," *Géotechnique* **29**(1), 47–65 (1979) — the incremental
 //!   small-strain DEM force–displacement philosophy the bond update follows.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Pressure};
 use uom::si::length::meter;
@@ -329,21 +332,21 @@ impl Bond {
     /// Bond cross-sectional area `A = π R̄²` `[m²]`.
     #[must_use]
     pub fn area(&self) -> f64 {
-        std::f64::consts::PI * self.radius * self.radius
+        core::f64::consts::PI * self.radius * self.radius
     }
 
     /// Bond second moment of area (bending) `I = π R̄⁴ / 4` `[m⁴]` — the
     /// resistance of the circular cross-section to bending.
     #[must_use]
     pub fn bending_inertia(&self) -> f64 {
-        std::f64::consts::PI * self.radius.r_powi(4) / 4.0
+        core::f64::consts::PI * self.radius.r_powi(4) / 4.0
     }
 
     /// Bond polar moment of area (twisting) `J = π R̄⁴ / 2 = 2·I` `[m⁴]` — the
     /// resistance of the circular cross-section to torsion about `n̂`.
     #[must_use]
     pub fn polar_inertia(&self) -> f64 {
-        std::f64::consts::PI * self.radius.r_powi(4) / 2.0
+        core::f64::consts::PI * self.radius.r_powi(4) / 2.0
     }
 
     /// Accumulated normal force `F̄_n` `[N]`, tension positive.
@@ -630,15 +633,15 @@ mod tests {
             last = bnd.update_bond(&a, &b, dt);
         }
 
-        let area = std::f64::consts::PI * 0.01 * 0.01;
+        let area = core::f64::consts::PI * 0.01 * 0.01;
         let delta_n = 1.0e-3 * dt * n_steps as f64; // = 1e-5 m
         let f_n_expected = 1.0e9 * area * delta_n; // = π N
 
         assert!(!bnd.is_broken());
         assert_abs_diff_eq!(bnd.normal_force(), f_n_expected, epsilon = 1.0e-9);
-        assert_abs_diff_eq!(bnd.normal_force(), std::f64::consts::PI, epsilon = 1.0e-9);
+        assert_abs_diff_eq!(bnd.normal_force(), core::f64::consts::PI, epsilon = 1.0e-9);
         // Tensile bond pulls a toward b (+x).
-        assert_abs_diff_eq!(last.force_on_a.x, std::f64::consts::PI, epsilon = 1.0e-9);
+        assert_abs_diff_eq!(last.force_on_a.x, core::f64::consts::PI, epsilon = 1.0e-9);
         assert_abs_diff_eq!(last.force_on_a.y, 0.0, epsilon = 1.0e-12);
         assert_abs_diff_eq!(last.force_on_a.z, 0.0, epsilon = 1.0e-12);
         // No shear, no moment.
@@ -684,7 +687,7 @@ mod tests {
             last = bnd.update_bond(&a, &b, dt);
         }
 
-        let area = std::f64::consts::PI * 0.01 * 0.01;
+        let area = core::f64::consts::PI * 0.01 * 0.01;
         let delta_s = 1.0e-3 * dt * n_steps as f64; // = 1e-5 m
         let f_s_expected = 4.0e8 * area * delta_s; // = 0.4π N
 
@@ -692,7 +695,7 @@ mod tests {
         assert_abs_diff_eq!(bnd.shear_force().norm(), f_s_expected, epsilon = 1.0e-9);
         assert_abs_diff_eq!(
             bnd.shear_force().norm(),
-            0.4 * std::f64::consts::PI,
+            0.4 * core::f64::consts::PI,
             epsilon = 1.0e-9
         );
         // Accumulated shear force is along −y; reaction drags a along +y.

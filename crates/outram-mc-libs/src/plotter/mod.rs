@@ -32,6 +32,9 @@
 //!   mesh plots (`Universe.plot`, `Model.plot`, `openmc.lib` plotting), which
 //!   belong to [`crate::geometry::plot`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod endf_tables;
 pub mod function1d;
 pub mod incident_neutron;
@@ -63,8 +66,8 @@ pub enum PlotError {
     Ace(String),
 }
 
-impl std::fmt::Display for PlotError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for PlotError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::TypeError(m) => write!(f, "TypeError: {m}"),
             Self::ValueError(m) => write!(f, "ValueError: {m}"),
@@ -74,4 +77,4 @@ impl std::fmt::Display for PlotError {
     }
 }
 
-impl std::error::Error for PlotError {}
+impl core::error::Error for PlotError {}

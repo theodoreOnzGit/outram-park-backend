@@ -148,6 +148,9 @@
 //! untrusted until reviewed. Not for nuclear facility operation, reactor
 //! control, safety-critical decisions, or licensing.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod cause_and_effect;
 pub mod errors;
 pub mod event;

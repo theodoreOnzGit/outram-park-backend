@@ -43,6 +43,9 @@
 //! AI-drafted (Claude Opus 5.5 in Claude Code), untrusted until reviewed.
 //! Research, education and V&V only.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::dynamic_viscosity::pound_per_foot_hour;
 use uom::si::f64::*;
 use uom::si::mass_density::pound_per_cubic_foot;
@@ -137,6 +140,7 @@ mod tests {
         let cp = try_get_cp(salt(), t, p).unwrap();
         let k = try_get_kappa_thermal_conductivity(salt(), t, p).unwrap();
         let pr = try_get_prandtl(salt(), t, p).unwrap();
+        #[cfg(feature = "std")]
         println!(
             "TH-6 TM-0728 at 1200 F ({:.2} K): rho {:.2} kg/m3, mu {:.4e} Pa s, cp {:.1} J/kg K, k {:.4} W/m K, Pr {:.3}",
             t.get::<kelvin>(),

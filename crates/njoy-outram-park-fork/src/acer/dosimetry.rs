@@ -47,6 +47,9 @@
 //! it is recorded in
 //! `verification_and_validation/acer_dosimetry_vs_njoy2016.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::acer::read::{AceClass, AceFileType, AceHeader, RawAceTable};
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
@@ -287,7 +290,7 @@ pub fn dosimetry_ace(
         xss_is_int.push(true);
     }
     xss.extend_from_slice(&offsets);
-    xss_is_int.extend(std::iter::repeat_n(true, ntr));
+    xss_is_int.extend(core::iter::repeat_n(true, ntr));
     xss.extend_from_slice(&sigd_words);
     xss_is_int.extend_from_slice(&sigd_is_int);
 

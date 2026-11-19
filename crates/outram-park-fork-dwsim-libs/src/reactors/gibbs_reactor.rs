@@ -100,6 +100,9 @@
 //! - **No per-reaction extents.** Being reaction-free, the returned
 //!   [`ReactorOutcome::extents`] is empty (the concept does not apply).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::thermo::gibbs::{FugacityModel, GibbsError, GibbsOptions, GibbsSystem};
 
 use super::{ReactorError, ReactorFeed, ReactorOutcome};

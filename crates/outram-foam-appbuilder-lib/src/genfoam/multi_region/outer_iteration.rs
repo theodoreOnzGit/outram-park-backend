@@ -85,7 +85,10 @@
 //! normalised relative change (a pure `f64`) — it compares each region's
 //! solution to its previous iterate, so it carries no physical unit.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
@@ -162,8 +165,8 @@ pub enum CouplingLoopError {
     },
 }
 
-impl std::fmt::Display for CouplingLoopError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for CouplingLoopError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             CouplingLoopError::MissingField { region, field } => {
                 write!(f, "coupling field '{field}' missing on region '{region}'")
@@ -181,7 +184,7 @@ impl std::fmt::Display for CouplingLoopError {
     }
 }
 
-impl std::error::Error for CouplingLoopError {}
+impl core::error::Error for CouplingLoopError {}
 
 impl From<PointKineticsError> for CouplingLoopError {
     fn from(e: PointKineticsError) -> Self {

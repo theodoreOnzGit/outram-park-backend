@@ -21,6 +21,9 @@
 //! material) ordering the two codes agree on every default colour — verified
 //! pixel-for-pixel in `verification_and_validation/geometry_plotting/`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::rng::lcg::prn;
 
 /// One 8-bit RGB colour. Maps to `openmc::RGBColor` (`include/openmc/plot.h:48-79`).

@@ -93,8 +93,35 @@
 //! - **Pure Rust, Android-safe.** No PETSc, no MPI, no system BLAS, no C/Fortran
 //!   toolchain in the library build.
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1603, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+
+extern crate alloc;
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+
 pub mod activity;
 pub mod deck;
+/// MPI-style domain decomposition on `outram-park-mpi`, whose ranks are OS
+/// threads: `std` only (gh:#1603).
+#[cfg(feature = "std")]
 pub mod decomposition;
 pub mod energy;
 pub mod decay;
@@ -104,14 +131,19 @@ pub mod error;
 pub mod flow;
 pub mod general_mode;
 pub mod geochemistry;
+/// HDF5 snapshot files: `std` only (file I/O, gh:#1603).
+#[cfg(feature = "std")]
 pub mod hdf5_io;
 /// Optional wgpu GPU acceleration — compiled only off Android (the workspace GPU
 /// rule keeps GPU deps out of the Android library build); CPU is the trusted path.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub mod gpu;
 pub mod grid;
 pub mod io;
 pub mod kinetics;
+/// Serial stand-in for `rayon` without `std` (gh:#1603).
+#[cfg(not(feature = "std"))]
+pub(crate) mod par;
 pub mod microbial;
 pub mod multiphase;
 pub mod pitzer;

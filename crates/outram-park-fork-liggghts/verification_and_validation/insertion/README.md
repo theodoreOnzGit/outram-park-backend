@@ -65,7 +65,10 @@ insertions (up to 12 per step) into a pile already falling. The prediction is me
   R = 30 mm wall lost one atom upstream and was redesigned, not worked around).
 * **Not translated**: ~~`fix insert/stream`~~ **CORRECTED 2026-11-11: translated, see below** (`/predefined` is not), multi-sphere and
   superquadric templates, `orientation random` (rejected: it would need
-  `random_unit_quat`), `set_property`, `side out`/dynamic regions, radius/density
+  `random_unit_quat`) (**CORRECTED 2026-11-13, gh:#1415:** multisphere and
+  superquadric templates are translated, and `orientation random` for
+  superquadrics; see `docs/verification-and-validation.md` §§ 4.16 and
+  4.17.2), `set_property`, `side out`/dynamic regions, radius/density
   distributions other than `constant` (upstream's `particletemplate/sphere`
   accepts only `constant` at this commit), multi-process
   `distribute_ninsert_this`, `region` types other than `block` and `cylinder`.
@@ -126,3 +129,20 @@ FixInsertStreamPredefined : public FixInsertStream` with an empty
 `style_fix.h` registration, and `lmp_serial` has no such style. The fix is not
 part of LIGGGHTS-PUBLIC, so there is no behaviour to translate or to compare
 against. Recorded as an upstream absence, not a port gap.
+
+## Multi-`run` pour (gh:#1510, 2026-11-13)
+
+`in.pour_pack_runs` (`reference-data/liggghts/make_multirun_decks.sh`) is
+`in.pour_pack` with a plain `run` at every frame instead of `run N pre no`, so
+LIGGGHTS runs `init()` and `Verlet::setup()` (atom sort, list build, set-up
+force evaluation at full-step velocities) at steps 1, 1000, 1001, 6001, 10001,
+20000, 24000 and 26000. `FixInsert::setup` acts only at the first run, so the
+insertion schedule and counters persist. The port calls
+`GranularSystem::begin_run` at the same steps
+(`insertion_cross_code.rs::pour_pack_multi_run_matches_liggghts`).
+
+Prediction (posted on gh:#1510 before the first run): 9 / 9 frames
+bit-identical. **Result: 9 / 9 frames, every particle and field bit-identical**
+(287 particles at the last frame). Control: the same system run continuously
+misses 3 of the 9 frames of this reference, so the deck does test the
+set-ups.

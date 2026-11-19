@@ -499,9 +499,31 @@ def run_driver(emit, base_config, met_path, met_sheets, met_days):
                  [r["Inhalation dose (mSv)"], r["Ground-shine (mSv)"], r["Submersion (mSv)"],
                   r["Ingestion dose (mSv)"], r["Total Dose (mSv)"]])
         # the text report's plant-boundary totals (printed at pandas' default precision)
-        with quiet():
-            o.output_to_txt(dil, filename="c2c_report.txt", DCFs=DCFs, DOSES=DOSES, INGESTION_DOSES=ING,
-                            PLUME_DOSES=None)
+        # gh:#1429 case 1: the SAME frames, in memory. `output_to_txt` builds one
+        # `df_all` per age (columns ... 'Ingestion (Sum of all pathways)',
+        # 'Total') and writes it with `to_string()`; capture it there, at full
+        # precision, so the port is compared with what upstream computed and
+        # not with what it printed.
+        frames = []
+        orig_to_string = pd.DataFrame.to_string
+
+        def capturing_to_string(self, *a, **k):
+            if "Total" in self.columns and "Ingestion (Sum of all pathways)" in self.columns:
+                frames.append(self.copy())
+            return orig_to_string(self, *a, **k)
+
+        pd.DataFrame.to_string = capturing_to_string
+        try:
+            with quiet():
+                o.output_to_txt(dil, filename="c2c_report.txt", DCFs=DCFs, DOSES=DOSES, INGESTION_DOSES=ING,
+                                PLUME_DOSES=None)
+        finally:
+            pd.DataFrame.to_string = orig_to_string
+        assert len(frames) == len(sc["ages"]), (len(frames), sc["ages"])
+        for ag, fr in zip(sc["ages"], frames):
+            for rad in sc["rads"]:
+                emit("boundary_totals", dict(scenario=name, age=ag, nuclide=rad), "inh_gs_sub_ing_total",
+                     [float(v) for v in fr.loc[rad].to_numpy(dtype=float)])
         for ag, rows in parse_boundary_totals("c2c_report.txt", sc["rads"]).items():
             for rad, vals in rows.items():
                 emit("boundary_totals_text", dict(scenario=name, age=ag, nuclide=rad), "inh_gs_sub_ing_total", vals)

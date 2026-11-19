@@ -87,6 +87,9 @@
 //! without reporting it. Any such surrogate needs its own uncertainty story
 //! before it goes anywhere near a k-eff.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::csg::cell::{Cell, HalfSpaceSense, RegionToken};
 use raffles::gnn::Graph;
 use raffles::{RafflesError, Result};
@@ -170,7 +173,7 @@ mod tests {
             id,
             region,
             fill: CellFill::Void,
-            temperature: 300.0,
+            temperature: Some(300.0),
             translation: Default::default(),
             tracking: None,
         }

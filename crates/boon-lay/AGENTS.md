@@ -13,6 +13,23 @@ The standalone source lives at:
 
 ---
 
+## `no_std` + `alloc`, with a default `std` feature (gh:#1634, 2026-11-17)
+
+Without its default `std` feature this crate is `no_std` + `alloc`, checked on
+a bare-metal target by `scripts/check-nostd.sh` (and the RustBCA copy alone by
+`scripts/check-rustbca-no-std.sh`). Keep it that way:
+
+- New code uses `core::` / `alloc::` paths and the `crate::nostd_prelude::*`
+  glob (outside `src/rustbca/`, whose files import `alloc` items by name).
+- Clocks are `crate::time`, one-time statics `crate::sync::OnceLock`, a
+  `rayon` import takes `#[cfg(all(feature = "std", not(target_arch = "wasm32")))]`
+  with `wasm_par` on `any(target_arch = "wasm32", not(feature = "std"))`.
+- The OpenMC XML data path, files, `serde` and printing are
+  `#[cfg(feature = "std")]`. Keep data *loading* separate from the code that
+  *uses* the data, so the simulators stay available without std.
+- Kovan-reviewed functions are still closed to modification: the 2026-11-17
+  confirmation covered only the mechanical edits listed on gh:#1634.
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -72,7 +89,7 @@ electron/positron port, gh:#976). `outram-mc-libs` owns neutrons only.
 
 - **The first charged-particle code is RustBCA.** It is copied, not taken as a
   dependency, into its own module tree in this crate, with clear attribution:
-  upstream `lcpp-org/RustBCA` v3.0.0 `a356280d`, GPL-3.0, with a provenance
+  upstream `lcpp-org/RustBCA` ~~v3.0.0~~ `a356280d` (**CORRECTED 2026-11-13, gh:#1426:** v3.0.0 plus 17 commits; the tag is `673bd3f`), GPL-3.0, with a provenance
   header on every file and a list of local changes. Its `no_std` + `alloc`
   build is re-exported from here (gh:#876, item 7). It covers fission
   fragments, alphas and recoil knock-ons, all of which are in scope.
@@ -188,7 +205,7 @@ src/
     removal_rates.rs                      ← RemovalRates: k_plate / k_clean per transport group or per element (Z); ::upstream reproduces upstream's routing; per-cycle conversions; liu_cao_2002_htr10 table
     normal_operation.rs                   ← normal_operation_node_with_rates: the ported chain with the rates from a RemovalRates; bit-for-bit equal to the port under ::upstream (336 cases)
   chemistry/                              ← cited rate laws: graphite_air, graphite_steam, kernel_hydrolysis (gh:#401). Added to this map 2026-10-04 (gh:#531)
-  rustbca/                                ← **A COPY of RustBCA** v3.0.0 (lcpp-org, a356280d, GPL-3.0), no_std + alloc, re-exported by boon-lay (gh:#876 item 7). mod.rs holds the attribution and the numbered local-change list; tests.rs is upstream's; local_change_tests.rs is boon-lay's. Added 2026-10-16
+  rustbca/                                ← **A COPY of RustBCA** ~~v3.0.0~~ (lcpp-org, a356280d = v3.0.0 + 17 commits, gh:#1426; GPL-3.0), no_std + alloc, re-exported by boon-lay (gh:#876 item 7). mod.rs holds the attribution and the numbered local-change list; tests.rs is upstream's; local_change_tests.rs is boon-lay's. Added 2026-10-16
   compute.rs                              ← ComputeType / ThreadCount backend selector (CPU single, CPU rayon, wgpu). Added 2026-10-04
   gpu.rs                                  ← optional wgpu Walk-on-Spheres kernel, off Android and wasm; UNVERIFIED (CPU fallback only). Added 2026-10-04
   wasm_par.rs                             ← serial rayon stand-ins on wasm32. Added 2026-10-04

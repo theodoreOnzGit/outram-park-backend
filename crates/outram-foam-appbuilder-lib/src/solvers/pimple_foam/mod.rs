@@ -211,6 +211,9 @@
 //!    by round-off only; V&V record:
 //!    `verification_and_validation/non_orthogonal_correction_gh1161.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
@@ -220,7 +223,7 @@ use crate::solvers::non_orthogonal::{self, LaplacianCorrection};
 use crate::solvers::schemes::DdtCorrForm;
 use crate::turbulence::TurbulenceClosure;
 use outram_foam_basic_lib::prelude::*;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Re-apply a scalar boundary-condition template to a field after a solve has
 /// rebuilt it with zero-gradient boundaries (OpenFOAM `correctBoundaryConditions`).
@@ -533,6 +536,9 @@ impl PimpleFoam {
     /// Whatever the flow or the energy solve returns.
     pub fn step(&mut self) -> Result<(), AppBuilderError> {
         let t_old = self.energy.as_ref().map(|e| e.t.clone());
+        if let Some(e) = self.energy.as_mut() {
+            e.begin_time_step();
+        }
         if !self.solution.pimple.frozen_flow {
             self.step_flow()?;
         }

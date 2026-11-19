@@ -288,6 +288,9 @@
 //! helium -- `fhr_sim_v2` will pass a molten salt through the same
 //! [`CoolPropFluid`] parameter.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::compressible::{CompressibleFluidArray, CoolPropFluid};
 use tampines_steam_tables::TampinesSteamArray;
 use tuas_boussinesq_solver::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
@@ -403,7 +406,7 @@ impl SteamGeneratorGeometry {
     /// Aggregate bore cross-section the water/steam flows through \[m^2\].
     pub fn tube_flow_area(&self) -> Area {
         let d = self.tube_inner_diameter.get::<meter>();
-        Area::new::<square_meter>(self.tube_count * std::f64::consts::PI * 0.25 * d * d)
+        Area::new::<square_meter>(self.tube_count * core::f64::consts::PI * 0.25 * d * d)
     }
 
     /// Aggregate **metal** cross-section of the tube walls \[m^2\]: the annulus
@@ -413,7 +416,7 @@ impl SteamGeneratorGeometry {
         let d_o = self.tube_outer_diameter.get::<meter>();
         let d_i = self.tube_inner_diameter.get::<meter>();
         Area::new::<square_meter>(
-            self.tube_count * std::f64::consts::PI * 0.25 * (d_o * d_o - d_i * d_i),
+            self.tube_count * core::f64::consts::PI * 0.25 * (d_o * d_o - d_i * d_i),
         )
     }
 
@@ -471,7 +474,7 @@ impl SteamGeneratorGeometry {
     pub fn outer_heat_transfer_area(&self) -> Area {
         Area::new::<square_meter>(
             self.tube_count
-                * std::f64::consts::PI
+                * core::f64::consts::PI
                 * self.tube_outer_diameter.get::<meter>()
                 * self.tube_length.get::<meter>(),
         )
@@ -482,7 +485,7 @@ impl SteamGeneratorGeometry {
     pub fn inner_heat_transfer_area(&self) -> Area {
         Area::new::<square_meter>(
             self.tube_count
-                * std::f64::consts::PI
+                * core::f64::consts::PI
                 * self.tube_inner_diameter.get::<meter>()
                 * self.tube_length.get::<meter>(),
         )
@@ -912,8 +915,8 @@ pub enum SteamGeneratorError {
     Array(String),
 }
 
-impl std::fmt::Display for SteamGeneratorError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for SteamGeneratorError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::NonPositiveGeometry => {
                 write!(f, "steam-generator geometry has a non-positive dimension")
@@ -933,7 +936,7 @@ impl std::fmt::Display for SteamGeneratorError {
     }
 }
 
-impl std::error::Error for SteamGeneratorError {}
+impl core::error::Error for SteamGeneratorError {}
 
 /// What one [`NodalisedCounterFlowSteamGenerator::advance_timestep`] produced.
 ///

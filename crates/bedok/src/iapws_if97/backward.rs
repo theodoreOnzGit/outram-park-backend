@@ -25,6 +25,9 @@
 //!
 //! Pressure MPa, enthalpy kJ/kg, temperature K.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::basic::{h1_pt, h2_pt};

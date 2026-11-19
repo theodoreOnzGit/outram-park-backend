@@ -27,6 +27,9 @@
 //! matrix must be present at every temperature or the run stops there
 //! ("mti missing from higher temps").
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::dtfr::gendf::GendfGroupRecord;
 use crate::NjoyError;
@@ -141,7 +144,7 @@ fn d(rec: &GendfGroupRecord, off: i64) -> f64 {
 /// `(ia - l1 + 1, l2 - l1 + 1)` then `xs(ia, l1..=l2)` when `l1 != l2`;
 /// a group with no transfers gives `(1, 0)`.
 fn scatter_block(
-    range: std::ops::RangeInclusive<usize>,
+    range: core::ops::RangeInclusive<usize>,
     ngnd: usize,
     l1: &[usize],
     l2: &[usize],

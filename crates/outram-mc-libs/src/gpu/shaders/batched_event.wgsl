@@ -16,6 +16,8 @@
 //      macroscopic total Sigma_t at the neutron energy (binary search + linear
 //      interp on the shared union grid); sample d_col=-ln(xi)/Sigma_t; find the
 //      distance to the bounding sphere; if the sphere is nearer -> LEAK (dead).
+//      A neutron outside the sphere, or on it moving out, is dead before the
+//      flight (OpenMC `Surface::sense`; gh:#1506).
 //   3. COLLISION (mirrors CPU `collide_batched`, src/physics/keff.rs):
 //        a. stream the neutron to the collision site;
 //        b. sample the collision nuclide j ~ N_j*sigma_t,j(E);
@@ -34,7 +36,8 @@
 //   - LCG state advance: OpenMC src/random_lcg.cpp:32-35, via PETIR's lcg.wgsl
 //     (composed ahead of this file; see the LCG section below).
 //   - Sigma_t grid search + interp: OpenMC src/nuclide.cpp:716-740.
-//   - Sphere distance: OpenMC src/surface.cpp:607-638.
+//   - Sphere sense and distance: OpenMC src/surface.cpp:118-132 (`Surface::sense`)
+//     and 652-690 (`SurfaceSphere::distance`), 8f79d9d0 (gh:#1506).
 //   - Nuclide sampling: src/material/material.rs `sample_nuclide`.
 //   - Reaction partition: src/physics/keff.rs `collide_batched` / `transport_history`.
 //   - Elastic/inelastic kinematics: src/physics/scatter.rs
@@ -112,7 +115,10 @@ struct Params {
 @group(0) @binding(4) var<uniform>              params: Params;
 
 const BIG: f32 = 1e30;
-const EPS: f32 = 1e-7;
+// OpenMC FP_COINCIDENT (include/openmc/constants.h:55), as csg_trace.wgsl
+// carries it. In f32 the band |f| < 1e-12 is below the rounding of f near the
+// surface, so membership is decided by the sign of f except at f == 0 (gh:#1506).
+const FP_COINCIDENT: f32 = 1.0e-12;
 const PI:  f32 = 3.14159265358979323846;
 const FISS_NONE: u32 = 0xFFFFFFFFu; // "did not fission" sentinel in fiss_nuc
 
@@ -166,7 +172,41 @@ fn interp_channel(base: u32, j: u32, loc: GridLoc) -> f32 {
 // direction and advanced seed (one RNG draw for phi).
 struct DirSeed { dir: vec3<f32>, seed: vec2<u32> };
 
+// Direction-norm guard (gh:#1499, the f32 twin of the CPU's gh:#1497 guard,
+// `physics::scatter::renormalise_if_drifted`). NEW WORK, not a port: OpenMC
+// never renormalises. The rotation multiplies a norm error eps = |u|^2 - 1 by
+// about 1 + a^2/b^2 (b = sqrt(1 - w^2)), unbounded near the w pole, and the
+// fused path never rebuilds a direction within a generation.
+// Tolerance sqrt(f32::EPSILON) = 2^-11.5, the f32 analogue of the CPU's
+// sqrt(f64::EPSILON); mirrored by `DIRECTION_NORM_DRIFT_TOL_F32`.
+const DIRECTION_NORM_DRIFT_TOL: f32 = 3.4526698e-4;
+
+// | |u|^2 - 1 |, the quantity the guard tests. One function, so a probe that
+// asks whether the guard should have fired evaluates it the same way.
+fn direction_norm_drift(u: vec3<f32>) -> f32 {
+    return abs(u.x * u.x + u.y * u.y + u.z * u.z - 1.0);
+}
+
+// `u` unchanged (bit for bit) when | |u|^2 - 1 | <= DIRECTION_NORM_DRIFT_TOL,
+// otherwise u / |u|. A NaN norm is returned unchanged (the comparison is false).
+fn renormalise_if_drifted(u: vec3<f32>) -> vec3<f32> {
+    if (direction_norm_drift(u) > DIRECTION_NORM_DRIFT_TOL) {
+        let n = sqrt(u.x * u.x + u.y * u.y + u.z * u.z);
+        return vec3<f32>(u.x / n, u.y / n, u.z / n);
+    }
+    return u;
+}
+
+// The guarded rotation every collision calls: `rotate_direction_unguarded` with
+// its input and output passed through `renormalise_if_drifted`. Identical to it,
+// bit for bit, whenever neither is outside the tolerance.
 fn rotate_direction(u: vec3<f32>, mu: f32, seed_in: vec2<u32>) -> DirSeed {
+    let r = rotate_direction_unguarded(renormalise_if_drifted(u), mu, seed_in);
+    return DirSeed(renormalise_if_drifted(r.dir), r.seed);
+}
+
+// The rotation without the guard (the kernel's rotation before gh:#1499).
+fn rotate_direction_unguarded(u: vec3<f32>, mu: f32, seed_in: vec2<u32>) -> DirSeed {
     let r = petir_lcg_next(seed_in);
     let seed = r.xy;
     let phi = 2.0 * PI * bitcast<f32>(r.z);
@@ -315,25 +355,42 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let d_col = -log(xi_flight) / sigma_t;
 
-    // Distance to the bounding sphere (src/surface.cpp:607-638).
+    // gh:#1506. Cell membership first: OpenMC `Surface::sense`
+    // (src/surface.cpp:118-132, 8f79d9d0). A neutron is in the fuel cell
+    // (-sphere) only when its sense is negative; a coincident one
+    // (|f| < FP_COINCIDENT) takes the side its direction points to
+    // (u . grad f = 2k > 0 means outward). OpenMC never transports a particle
+    // outside its cell: a source or fission site is placed by `find_cell` and a
+    // near-surface collision is re-placed by `reconcile_cell_after_collision`
+    // (src/geometry.cpp:319); outside the vacuum sphere there is no cell, so
+    // the neutron is gone. f32 rounding of the collision site can put a neutron
+    // just outside, where the distance below would never leak it.
     let ox = px - params.sphere.x;
     let oy = py - params.sphere.y;
     let oz = pz - params.sphere.z;
     let kdot = ox * ux + oy * uy + oz * uz;
     let cc = ox * ox + oy * oy + oz * oz - params.sphere.w * params.sphere.w;
+    var outside: bool;
+    if (abs(cc) < FP_COINCIDENT) { outside = kdot > 0.0; } else { outside = cc > 0.0; }
+    if (outside) {
+        istate[2u * nn + i] = 0u; // beyond the vacuum boundary: leaked
+        istate[i] = seed.x; istate[nn + i] = seed.y;
+        return;
+    }
+
+    // Distance to the bounding sphere: OpenMC `SurfaceSphere::distance`
+    // (src/surface.cpp:652-690, 8f79d9d0), coincident = false.
     let disc = kdot * kdot - cc;
     var d_bound: f32;
     if (disc < 0.0) {
         d_bound = BIG;
+    } else if (abs(cc) < FP_COINCIDENT) {
+        if (kdot >= 0.0) { d_bound = BIG; } else { d_bound = -kdot + sqrt(disc); }
+    } else if (cc < 0.0) {
+        d_bound = -kdot + sqrt(disc);
     } else {
-        let sq = sqrt(disc);
-        let d_near = -kdot - sq;
-        if (d_near > EPS) {
-            d_bound = d_near;
-        } else {
-            let d_far = -kdot + sq;
-            if (d_far > EPS) { d_bound = d_far; } else { d_bound = BIG; }
-        }
+        let d = -kdot - sqrt(disc);
+        if (d < 0.0) { d_bound = BIG; } else { d_bound = d; }
     }
 
     if (d_col >= d_bound) {

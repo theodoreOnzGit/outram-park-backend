@@ -8,6 +8,9 @@
 //! Heat flows through the shared end node, so the linking helpers reduce to
 //! the single-CV pairwise interaction routines.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// the baseline for all interactions with other array cvs
 /// is the interaction with single cvs and bcs
 /// this module takes care of the interactions with single cvs

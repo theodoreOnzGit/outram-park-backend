@@ -63,6 +63,9 @@
 //!
 //! This module is **new work**, not an OpenMC port — upstream has no SCLS.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::position::{Direction, Position};
 use crate::rng::lcg::prn;
 use crate::stochastic::cls::sample_chord;
@@ -631,7 +634,7 @@ impl AdaptiveRadius {
 /// `4R/3`), and the centre is offset off the flight axis by `b` at a uniform azimuth,
 /// so the ray enters exactly at `entry` and exits at `entry + 2√(R²−b²)·u`.
 fn fresh_inclusion_center(entry: Position, u: Direction, radius: f64, seed: &mut u64) -> Position {
-    use std::f64::consts::PI;
+    use core::f64::consts::PI;
     let b = radius * prn(seed).sqrt();
     let axial = (radius * radius - b * b).max(0.0).sqrt();
     let phi = 2.0 * PI * prn(seed);

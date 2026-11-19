@@ -39,6 +39,9 @@
 //! writes a negative energy, so on a RECONR PENDF, the only input this
 //! function takes, upstream skips the correction as well.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::{
     common::phys::BK_EV_PER_K,
@@ -51,6 +54,9 @@ use crate::{
 };
 
 use super::BroadnTolerances;
+
+mod thinb;
+pub use thinb::broadr_joint_thinb;
 
 // ── SLATEC erfc (mathm.f90:447-634) ──────────────────────────────────────────
 
@@ -233,7 +239,7 @@ struct ErfcConsts {
 }
 
 fn erfc_consts() -> &'static ErfcConsts {
-    static C: std::sync::OnceLock<ErfcConsts> = std::sync::OnceLock::new();
+    static C: crate::once::OnceLock<ErfcConsts> = crate::once::OnceLock::new();
     C.get_or_init(|| {
         let d1mach1 = f64::MIN_POSITIVE; // tiny(one)
         let d1mach3 = 2.0f64.r_powi(-53); // two**(-digits(one))
@@ -253,8 +259,9 @@ fn erfc_consts() -> &'static ErfcConsts {
 #[allow(clippy::excessive_precision)]
 const SQRTPI: f64 = 1.772_453_850_905_516_027_298_167_483_341_15;
 
-/// SLATEC `derfc` as NJOY carries it (`mathm.f90:447-634`).
-fn erfc(x: f64) -> f64 {
+/// SLATEC `derfc` as NJOY carries it (`mathm.f90:447-634`). Also GROUPR's
+/// `anased` law 7 (`groupr::continuum`), which calls the same `mathm` routine.
+pub(crate) fn erfc(x: f64) -> f64 {
     let c = erfc_consts();
     if x <= c.xsml {
         return 2.0;
@@ -288,7 +295,7 @@ fn erfc(x: f64) -> f64 {
 /// `f(n,a) = ∫_a^∞ z^n exp(-z²) dz / √π`, n = 0..4 (`funky`).
 fn funky(aa: f64) -> [f64; 5] {
     const ALIM: f64 = 10.0;
-    let resqpi = 1.0 / std::f64::consts::PI.sqrt();
+    let resqpi = 1.0 / core::f64::consts::PI.sqrt();
     let a = aa;
     let asq = a * a;
     let mut expo = 0.0;
@@ -325,7 +332,7 @@ fn hnabb(n: i32, aa: f64, bb: f64) -> f64 {
         5.656_854_249_492_4,
     ];
     const EXPLIM: f64 = 100.0;
-    let resqpi = 1.0 / std::f64::consts::PI.sqrt();
+    let resqpi = 1.0 / core::f64::consts::PI.sqrt();
     let (a, b);
     let mut sign = 1.0f64;
     if bb < aa {

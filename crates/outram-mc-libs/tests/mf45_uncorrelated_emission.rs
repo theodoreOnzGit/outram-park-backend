@@ -56,6 +56,8 @@
 //! changes.** What this closes is a silent substitution over data that was
 //! present.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::nuclear_data::secondary::{FissionSpectrum, UncorrelatedEmission};
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;

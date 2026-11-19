@@ -47,7 +47,7 @@
 //!   cell grid here, upstream's bin list), and the sum order changes the last
 //!   bit of the velocity that the next contacts see. Pass criterion for those
 //!   steps: identical contact count, identical contact pairs, and every field
-//!   within `1e-8` relative to the largest magnitude of that field (the
+//!   within ~~`1e-8`~~ `1e-9` (gh:#1614; worst measured 2.0e-14) relative to the largest magnitude of that field (the
 //!   workspace round-off allowance; the measured values are printed).
 //!
 //! ## Result

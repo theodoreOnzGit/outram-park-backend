@@ -63,6 +63,8 @@
 //! Godiva route 3 -54 +/- 40 pcm vs OpenMC (was +1853), Jemima +124 +/- 38 (was
 //! -923; equal to the ENDF route's residual).
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::ce_decode::decode_ce;
 use njoy_outram_park_fork::acer::read;

@@ -40,6 +40,9 @@
 //! Translated as written, with the true peak reported alongside the analysed
 //! one so a caller can see the two diverge.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::handle3dcoords::handle3dcoords;
 use crate::types::{FuelGeometry, Params, Th};
 use crate::w3chf::{w3chf, Chf};

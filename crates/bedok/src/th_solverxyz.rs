@@ -35,6 +35,9 @@
 //! the caller iterates. That is why the channel models take `th.heatflux` as an
 //! input rather than deriving it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::fuelrodheat_1dcylnd::fuelrodheat_1dcylnd;
@@ -275,9 +278,9 @@ pub fn th_solverxyz(
     let pitch = geometry.fuel.pitch;
     let rtot = geometry.fuel.rtot;
     let frad = geometry.fuel.fuelrad;
-    let subarea = pitch * pitch - std::f64::consts::PI * rtot * rtot;
+    let subarea = pitch * pitch - core::f64::consts::PI * rtot * rtot;
     let hydia = 4.0 * subarea
-        / (2.0 * std::f64::consts::PI * rtot + 4.0 * pitch - 8.0 * rtot);
+        / (2.0 * core::f64::consts::PI * rtot + 4.0 * pitch - 8.0 * rtot);
 
     // `real(x^p)` for a real base: negative bases would go complex, and MATLAB's
     // `real` then keeps only the real part. See defect T11.
@@ -287,7 +290,7 @@ pub fn th_solverxyz(
         } else {
             // `(-a)^p = a^p * (cos(pi p) + i sin(pi p))`; `real` keeps the
             // cosine factor.
-            (-x).r_powf(p) * (std::f64::consts::PI * p).r_cos()
+            (-x).r_powf(p) * (core::f64::consts::PI * p).r_cos()
         }
     };
 
@@ -304,7 +307,7 @@ pub fn th_solverxyz(
     let pinpowdens: Vec<f64> = linpwrdens
         .iter()
         .map(|q| {
-            (1.0 - th.coolheatfrac) * q / th.nfuelpin / (std::f64::consts::PI * frad * frad)
+            (1.0 - th.coolheatfrac) * q / th.nfuelpin / (core::f64::consts::PI * frad * frad)
         })
         .collect();
 
@@ -496,9 +499,9 @@ mod tests {
                 // `pitch` and `rtot`. They are separate inputs, and defect T12
                 // is that nothing enforces the agreement — see
                 // `the_stored_and_recomputed_subarea_can_disagree`.
-                subarea: 1.26 * 1.26 - std::f64::consts::PI * 0.476 * 0.476,
-                hydia: 4.0 * (1.26 * 1.26 - std::f64::consts::PI * 0.476 * 0.476)
-                    / (2.0 * std::f64::consts::PI * 0.476 + 4.0 * 1.26 - 8.0 * 0.476),
+                subarea: 1.26 * 1.26 - core::f64::consts::PI * 0.476 * 0.476,
+                hydia: 4.0 * (1.26 * 1.26 - core::f64::consts::PI * 0.476 * 0.476)
+                    / (2.0 * core::f64::consts::PI * 0.476 + 4.0 * 1.26 - 8.0 * 0.476),
                 doppleralpha: 0.3,
                 ..Default::default()
             },

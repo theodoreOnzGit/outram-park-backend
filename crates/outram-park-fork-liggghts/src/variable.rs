@@ -35,9 +35,18 @@
 //! swiggle cwiggle vdisplace` with upstream's argument guards. Not supported
 //! (an `Err` at parse time, never silently wrong): `random`, `normal`,
 //! `stagger`, `logfreq`, group/compute/fix references, atom-style variables.
+//!
+//! The transcendental functions go through PETIR's `RealMath` (the `libm`
+//! crate), not glibc as upstream does. They can differ from upstream by one
+//! ulp: `sin` at 611 of the 20 000 arguments `2*PI*step/4000` (gh:#1491,
+//! `tests/mesh_servo_cross_code.rs`; maintainer decision on gh:#1455: keep
+//! PETIR's maths, pin such residuals).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// Run state a formula is evaluated in (`update->ntimestep`,
 /// `update->beginstep`, `update->endstep`, `update->dt`).
@@ -219,7 +228,7 @@ impl VariableTable {
                         );
                     } else {
                         args.push(match word.as_str() {
-                            "PI" => Expr::Const(std::f64::consts::PI),
+                            "PI" => Expr::Const(core::f64::consts::PI),
                             "step" => Expr::Step,
                             "time" => Expr::Time,
                             "dt" => Expr::Dt,
@@ -326,7 +335,7 @@ fn split_args(s: &str) -> Vec<String> {
                 depth -= 1;
                 cur.push(c);
             }
-            ',' if depth == 0 => out.push(std::mem::take(&mut cur)),
+            ',' if depth == 0 => out.push(core::mem::take(&mut cur)),
             _ => cur.push(c),
         }
     }
@@ -472,7 +481,7 @@ impl Expr {
                         if v[2] == 0.0 {
                             return Err("Invalid math function in variable formula".into());
                         }
-                        let omega = 2.0 * std::f64::consts::PI / v[2];
+                        let omega = 2.0 * core::f64::consts::PI / v[2];
                         if name == "swiggle" {
                             v[0] + v[1] * (omega * delta * ctx.dt).r_sin()
                         } else {
@@ -519,11 +528,11 @@ mod tests {
         t.define_equal("w", "2*PI/0.1").unwrap();
         let e = t.parse("0.3*sin(v_w*time)").unwrap();
         let c = ctx(250);
-        let want = 0.3 * ((2.0 * std::f64::consts::PI / 0.1) * (250.0 * 1e-5)).sin();
+        let want = 0.3 * ((2.0 * core::f64::consts::PI / 0.1) * (250.0 * 1e-5)).sin();
         assert_eq!(e.eval(&c).unwrap().to_bits(), want.to_bits());
         assert_eq!(t.parse("step").unwrap().eval(&c).unwrap(), 250.0);
         assert_eq!(t.parse("dt").unwrap().eval(&c).unwrap(), 1e-5);
-        let w = 2.0 * std::f64::consts::PI / 0.5;
+        let w = 2.0 * core::f64::consts::PI / 0.5;
         let sw = t.parse("swiggle(1,2,0.5)").unwrap().eval(&c).unwrap();
         assert_eq!(sw, 1.0 + 2.0 * (w * 250.0 * 1e-5).sin());
         let cw = t.parse("cwiggle(1,2,0.5)").unwrap().eval(&c).unwrap();

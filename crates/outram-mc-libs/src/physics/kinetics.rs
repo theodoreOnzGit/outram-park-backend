@@ -43,6 +43,9 @@
 //! rather than a second calculation. Like `β_eff` above it is the
 //! **non-adjoint-weighted** form.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;

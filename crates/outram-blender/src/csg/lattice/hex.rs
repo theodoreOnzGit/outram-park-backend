@@ -29,6 +29,9 @@
 //! Hexagonal lattice: orientation, indexing, local positions and tile
 //! distance (split out of the lattice module, 2026-10-02).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[allow(unused_imports)]
 use crate::csg::position::{Direction, Position};
 use super::hex_build::fill_level;

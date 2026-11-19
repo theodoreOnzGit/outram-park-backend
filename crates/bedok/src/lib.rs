@@ -1,10 +1,11 @@
 //! **BEDOK** — 3-D nodal-diffusion neutronics coupled to thermal hydraulics.
 //!
 //! **B**road-scope **E**nvironment for **D**ual-phase advanced reactor
-//! **O**peration simulation **K**it (BEDOK) — backronym set by the maintainer
-//! on 2026-09-25. The name is also established by its publication, Than, Y. R.,
-//! & Xiao, S. (2026), *BEDOK: An In-House Numerical Reactor Simulator Effort in
-//! Singapore*, Energy Engineering, 123(9); cite that paper for the method.
+//! **O**peration simulation **K**it (BEDOK) — ~~backronym set by the maintainer
+//! on 2026-09-25~~ **CORRECTED 2026-11-16:** the published name, spelled out in
+//! the abstract of Than, Y. R., & Xiao, S. (2026), *BEDOK: An In-House
+//! Numerical Reactor Simulator Effort in Singapore*, Energy Engineering, 123(9),
+//! <https://doi.org/10.32604/ee.2026.082487>; cite that paper for the method.
 //!
 //! A Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation, ported
 //! from the `main_exec_diff3d_standalone` snapshot.
@@ -276,6 +277,39 @@
 //! - **Licence:** ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973).
 
 // --- support layer (no `.m` counterpart) ---------------------------------
+// `no_std` + `alloc` without the default `std` feature (gh:#1588, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+// Without `std` (gh:#1588): a few values are read only by `eprintln!`
+// diagnostics, which are compiled out, and `set_sparse_backend`'s fallback arm
+// is unreachable because faer (a `std`-only backend) does not exist.
+#![cfg_attr(not(feature = "std"), allow(unused_variables, unreachable_patterns))]
+
+extern crate alloc;
+// `thiserror` without its `std` default (the root's `thiserror-nostd` key),
+// under the name the code uses.
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
 pub mod driftflux6_solverstatic1d;
 pub mod error;
 pub mod matlab;

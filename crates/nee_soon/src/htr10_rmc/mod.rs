@@ -167,8 +167,11 @@
 //!   withdrawn and panics on entry (it cuts pebbles). `htr10_mgxs_genfoam`
 //!   still calls it (checked: `examples/htr10_mgxs_genfoam.rs`), so that
 //!   example now panics too.
-//! - gh:#313 — `Cell::temperature` is never read by transport and every cell
-//!   hardcodes 293.6 K; the material temperature (300.15 K) is what is used.
+//! - ~~gh:#313 — `Cell::temperature` is never read by transport and every cell
+//!   hardcodes 293.6 K; the material temperature (300.15 K) is what is used.~~
+//!   **CORRECTED 2026-11-14:** cell temperature is now the transport default
+//!   and the HTR-10 cells are `None` (the material's temperature), so the
+//!   hardcoded 293.6 K is gone and cannot override a 300.15 K material.
 //! - gh:#312 — the control-rod smeared composition drops the steel sections
 //!   (not exercised by the rods-out benchmark).
 //!
@@ -253,6 +256,9 @@
 //! agreement to 50 pcm would be suspicious and should prompt a search for a
 //! coincidence rather than a celebration.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use outram_mc_libs::prelude::TrisoSpec;
 
@@ -552,7 +558,7 @@ pub fn heavy_metal_per_ball() -> f64 {
     let x5 = u235_atom_fraction();
     let m_u = x5 * 235.043_930 + (1.0 - x5) * 238.050_788;
     let m_uo2 = m_u + 2.0 * 15.994_914_6;
-    let v_kernel = 4.0 / 3.0 * std::f64::consts::PI * spec.kernel.r_powi(3);
+    let v_kernel = 4.0 / 3.0 * core::f64::consts::PI * spec.kernel.r_powi(3);
     8335.0 * v_kernel * RHO_UO2 * m_u / m_uo2
 }
 

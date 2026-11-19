@@ -80,8 +80,10 @@ const MET_RELEASE_HEIGHT_M: f64 = 30.0;
 /// bit-exact (2026-09-28, x86-64 Linux), but numpy dispatches `exp` to
 /// CPU-specific SIMD kernels that are not guaranteed to round like libm, so
 /// those groups allow a few ulp (`4e-16`; `1e-15` where ~150 such terms are
-/// summed per sector). `speed_means` goes through a pandas mean whose summation
-/// order is not the port's left-to-right sum; measured 4.8e-16 (2 ulp).
+/// summed per sector). ~~`speed_means` goes through a pandas mean whose summation
+/// order is not the port's left-to-right sum; measured 4.8e-16 (2 ulp).~~
+/// **CHANGED 2026-11-13 (gh:#1429):** the port now sums in numpy's pairwise order
+/// and `speed_means` is bit-exact (tolerance 0).
 const TOLERANCES: &[(&str, f64, &str)] = &[
     ("sigmay", 0.0, "one pow, one multiply"),
     ("sigmaz", 0.0, "one pow, multiply, add"),
@@ -94,8 +96,8 @@ const TOLERANCES: &[(&str, f64, &str)] = &[
     ("calm_factors", 0.0, "integer ratios, one division"),
     (
         "speed_means",
-        2.0e-15,
-        "pandas mean summation order (measured 4.8e-16)",
+        0.0,
+        "pandas mean = numpy pairwise sum / n, reproduced in order (~~2e-15, measured 4.8e-16 with a left-to-right sum~~ bit-exact since gh:#1429)",
     ),
     (
         "dilution_met_long_term",
@@ -663,6 +665,23 @@ const KNOWN_DIFFERENCES: &[KnownDifference] = &[
         output: "value",
         measured_rel: 2.884003537404563e-16,
     },
+    // gh:#1429, measured 2026-11-13 (not part of the 2026-10-21 acceptance
+    // above; flagged for the maintainer). One of the 90 `boundary_totals`
+    // values, the total of `long_term_met` SYN-6 at age 18, is one ulp off
+    // through its ingestion column. Cause, localised: the new rows were
+    // generated on a machine whose `np.exp` differs from glibc's `exp` on
+    // 9 190 of 200 000 random inputs, and the SAME machine's `driver` row for
+    // this scenario (distance 300, age 18, `ingestion`) differs from the
+    // committed `driver` row by one ulp in one element (committed
+    // 0.005436349921244836, regenerated ...835). The committed rows were generated
+    // where numpy's `exp` agreed with glibc's, and the port reproduces them
+    // exactly.
+    KnownDifference {
+        group: "boundary_totals",
+        inputs: "scenario=long_term_met;age=18;nuclide=SYN-6",
+        output: "inh_gs_sub_ing_total",
+        measured_rel: 1.1150730118948052e-16,
+    },
 ];
 
 fn known_difference(row: &Row) -> Option<&'static KnownDifference> {
@@ -775,6 +794,34 @@ fn every_fixture_value_is_reproduced_within_its_group_tolerance() {
         "every group in the fixture is exercised"
     );
     assert!(failed.is_empty(), "{failed:#?}");
+}
+
+/// Count of bit-identical values in the two groups gh:#1429 closed, pinned so
+/// a regression to a left-to-right mean, or a new rounding difference, fails
+/// by count and not only by tolerance.
+///
+/// Measured 2026-11-13: `speed_means` 12 of 12 bit-identical; `boundary_totals`
+/// 89 of 90 (the one other value is the pinned known difference above, 1.1e-16).
+#[test]
+fn speed_means_and_boundary_totals_bit_identical_counts_are_pinned() {
+    let inp = inputs();
+    let mut counts: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    for row in fixture() {
+        if row.group != "speed_means" && row.group != "boundary_totals" {
+            continue;
+        }
+        let actual = port(&row, &inp, Variant::Faithful).unwrap();
+        assert_eq!(actual.len(), row.values.len());
+        let e = counts.entry(row.group.clone()).or_insert((0, 0));
+        for (a, x) in actual.iter().zip(&row.values) {
+            e.1 += 1;
+            if a.to_bits() == x.to_bits() {
+                e.0 += 1;
+            }
+        }
+    }
+    assert_eq!(counts["speed_means"], (12, 12));
+    assert_eq!(counts["boundary_totals"], (89, 90));
 }
 
 // --------------------------------------------------------------------------

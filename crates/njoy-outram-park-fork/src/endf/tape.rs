@@ -8,7 +8,14 @@
 //! file), the Rust model owns the tape data in memory. A [`Tape`] is fully
 //! parsed on construction; individual sections are accessed by key.
 
-use std::collections::HashMap;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+// Lookup-only maps (never iterated in an order that reaches output), so the
+// `no_std` build's ~~`BTreeMap`~~ `hashbrown` map (workspace-wide since
+// 2026-11-16, maintainer) gives the same tape (gh:#1592).
+use crate::hash::{HashMap, HashSet};
+#[cfg(feature = "std")]
 use std::io::{BufRead, BufReader, Read, Write};
 
 use crate::endf::parse::parse_line;
@@ -70,7 +77,7 @@ pub struct Tape {
     /// `(mat, mf)`, `{mat, mf: 0, mt: 0}` for the MEND of `mat`. RECONR's
     /// `recout` copies every non-redundant MF=3 section and the files after
     /// it, so its PENDF numbers its lines this way (gh:#1484).
-    copied_closers: std::collections::HashSet<EndfKey>,
+    copied_closers: HashSet<EndfKey>,
 }
 
 /// Whether [`Tape::read`] keeps a section's raw line text (see `raw_mf32`).
@@ -102,6 +109,7 @@ pub fn decode_endf_line(mut bytes: Vec<u8>) -> String {
 }
 
 impl Tape {
+    #[cfg(feature = "std")]
     /// Parse an ENDF ASCII tape from a file on disk.
     ///
     /// [`Tape::read`] is generic over [`Read`], which is right for Rust and
@@ -150,10 +158,33 @@ impl Tape {
     /// (since 2026-11-10, gh:#660): UTF-8 where valid, otherwise one byte per
     /// column (Latin-1), so a non-ASCII character in MF=1/MT=451 text neither
     /// fails the read nor panics the column slicing.
+    #[cfg(feature = "std")]
     pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError> {
-        let mut lines = BufReader::new(reader)
+        let lines = BufReader::new(reader)
             .split(b'\n')
-            .map(|r| r.map(decode_endf_line));
+            .map(|r| r.map(decode_endf_line).map_err(NjoyError::Io));
+        Self::from_lines(lines)
+    }
+
+    /// Parse an ENDF ASCII tape held in memory: what [`Tape::read`] does,
+    /// without `std` (gh:#1592). The lines are split exactly as
+    /// `BufRead::split(b'\n')` splits them (a final `\n` ends the last line
+    /// rather than starting an empty one) and decoded by
+    /// [`decode_endf_line`], so the two give the same tape.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, NjoyError> {
+        let body = bytes.strip_suffix(b"\n").unwrap_or(bytes);
+        let lines = (!bytes.is_empty())
+            .then(|| body.split(|&b| b == b'\n'))
+            .into_iter()
+            .flatten()
+            .map(|l| Ok(decode_endf_line(l.to_vec())));
+        Self::from_lines(lines)
+    }
+
+    /// The body of [`Tape::read`] and [`Tape::from_bytes`]: parse decoded lines.
+    fn from_lines(
+        mut lines: impl Iterator<Item = Result<String, NjoyError>>,
+    ) -> Result<Self, NjoyError> {
         let mut tpid = String::new();
         let mut sections: Vec<Section> = Vec::new();
         let mut index: HashMap<EndfKey, usize> = HashMap::new();
@@ -162,7 +193,7 @@ impl Tape {
         // It has MAT=1 (or 0), MF=0, MT=0 but the data is 17 × 4-char Hollerith —
         // we store it as-is for now and skip the column-66 MAT/MF/MT parsing.
         if let Some(first) = lines.next() {
-            tpid = first.map_err(NjoyError::Io)?;
+            tpid = first?;
         }
 
         let mut current_key: Option<EndfKey> = None;
@@ -171,7 +202,7 @@ impl Tape {
         let mut raw_mf32: HashMap<EndfKey, Vec<String>> = HashMap::new();
 
         for line_res in lines {
-            let line = line_res.map_err(NjoyError::Io)?;
+            let line = line_res?;
             let rl = parse_line(&line)?;
 
             // Sentinel detection: MT=0 (SEND), MF=0 (FEND), MAT=0 (MEND), MAT=-1 (TEND)
@@ -183,13 +214,13 @@ impl Tape {
                     let idx = sections.len();
                     sections.push(Section {
                         key,
-                        rows: std::mem::take(&mut current_rows),
+                        rows: core::mem::take(&mut current_rows),
                     });
                     index.entry(key).or_insert(idx);
                     if keeps_raw(key) {
                         raw_mf32
                             .entry(key)
-                            .or_insert(std::mem::take(&mut current_raw));
+                            .or_insert(core::mem::take(&mut current_raw));
                     }
                     current_raw.clear();
                 }
@@ -208,13 +239,13 @@ impl Tape {
                     let idx = sections.len();
                     sections.push(Section {
                         key: prev_key,
-                        rows: std::mem::take(&mut current_rows),
+                        rows: core::mem::take(&mut current_rows),
                     });
                     index.entry(prev_key).or_insert(idx);
                     if keeps_raw(prev_key) {
                         raw_mf32
                             .entry(prev_key)
-                            .or_insert(std::mem::take(&mut current_raw));
+                            .or_insert(core::mem::take(&mut current_raw));
                     }
                     current_raw.clear();
                 }
@@ -233,13 +264,13 @@ impl Tape {
             let idx = sections.len();
             sections.push(Section {
                 key,
-                rows: std::mem::take(&mut current_rows),
+                rows: core::mem::take(&mut current_rows),
             });
             index.entry(key).or_insert(idx);
             if keeps_raw(key) {
                 raw_mf32
                     .entry(key)
-                    .or_insert(std::mem::take(&mut current_raw));
+                    .or_insert(core::mem::take(&mut current_raw));
             }
         }
 
@@ -311,6 +342,15 @@ impl Tape {
     pub fn copy_raw_mf32_from(&mut self, other: &Tape) {
         for (k, v) in &other.raw_mf32 {
             self.raw_mf32.entry(*k).or_insert_with(|| v.clone());
+        }
+    }
+
+    /// Replace the rows of the section at position `i` of [`Tape::sections`]
+    /// (a module rewriting one section in place, as UNRESR rewrites MF=2/MT=152,
+    /// gh:#1369). Out-of-range `i` does nothing.
+    pub fn set_section_rows(&mut self, i: usize, rows: Vec<[f64; 6]>) {
+        if let Some(s) = self.sections.get_mut(i) {
+            s.rows = rows;
         }
     }
 
@@ -453,20 +493,41 @@ impl Tape {
     /// ~~**Measured against NJOY2016's MODER** (2026-10-05, GitHub #536 …):
     /// only 1 line is byte-identical~~ **CHANGED 2026-10-05 (#553):** see
     /// `tests/moder_vs_njoy2016.rs` for the current comparison.
-    pub fn write<W: Write>(&self, mut w: W) -> Result<(), NjoyError> {
+    #[cfg(feature = "std")]
+    pub fn write<W: Write>(&self, w: W) -> Result<(), NjoyError> {
+        self.write_text(&mut IoText(w))
+    }
+
+    /// The tape as ENDF text in memory: the bytes [`Tape::write`] writes,
+    /// without `std` (gh:#1592).
+    ///
+    /// # Errors
+    /// As [`Tape::write`], less the I/O failures a `String` cannot have.
+    pub fn to_text(&self) -> Result<String, NjoyError> {
+        let mut out = String::new();
+        self.write_text(&mut out)?;
+        Ok(out)
+    }
+
+    /// The body of [`Tape::write`] and [`Tape::to_text`], over either sink.
+    fn write_text<T: TextOut>(&self, w: &mut T) -> Result<(), NjoyError> {
         use crate::endf::parse::format_endf_float;
         use crate::moder::layout::{
             is_group_material, iverf_from_mf1, layout_keeps_every_value, section_layout, LineKind,
         };
 
-        let io = NjoyError::Io;
         let blank66 = " ".repeat(66);
         let i11 = |x: f64| format!("{:>11}", x.round() as i64);
-        writeln!(w, "{}", self.tpid).map_err(io)?;
+        writeln!(w, "{}", self.tpid)?;
 
         let mut seq: i32 = 1;
         let mut iverf = 6;
         let mut group_material = false;
+        // The material whose last MEND was a copy (`tomend`): the count goes
+        // on into that material's next occurrence, a further temperature
+        // (BROADR on a coded unit, upstream test 75, gh:#1369). A different
+        // material restarts at 1, as RECONR's tape does (upstream test 03).
+        let mut after_copied_mend: Option<i32> = None;
         let mut iter = self.sections.iter().peekable();
         while let Some(sec) = iter.next() {
             let k = sec.key;
@@ -474,7 +535,10 @@ impl Tape {
                 // `moder.f90:184-195`: the format version, and `nsh = 1`.
                 iverf = iverf_from_mf1(&sec.rows);
                 group_material = is_group_material(&sec.rows);
-                seq = 1;
+                if after_copied_mend != Some(k.mat) {
+                    seq = 1;
+                }
+                after_copied_mend = None;
             }
             let layout = if group_material {
                 None
@@ -511,17 +575,17 @@ impl Tape {
                     }
                     None => row.iter().map(|&x| format_endf_float(x)).collect(),
                 };
-                writeln!(w, "{body}{:4}{:2}{:3}{:5}", k.mat, k.mf, k.mt, seq).map_err(io)?;
+                writeln!(w, "{body}{:4}{:2}{:3}{:5}", k.mat, k.mf, k.mt, seq)?;
                 seq = if seq >= 99_999 { 1 } else { seq + 1 };
             }
 
             // SEND (`asend`): sequence 99999, then the next section starts at 1.
             if self.copied_closers.contains(&k) {
                 // `tosend`: copied with the running count, which goes on.
-                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, k.mf, 0, seq).map_err(io)?;
+                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, k.mf, 0, seq)?;
                 seq = if seq >= 99_999 { 1 } else { seq + 1 };
             } else {
-                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, k.mf, 0, 99_999).map_err(io)?;
+                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, k.mf, 0, 99_999)?;
                 seq = 1;
             }
 
@@ -534,27 +598,54 @@ impl Tape {
             if next_key.is_none_or(|n| n.mf != k.mf || n.mat != k.mat || new_occurrence(n)) {
                 // FEND (`afend`): sequence 0.
                 if self.copied_closers.contains(&EndfKey { mat: k.mat, mf: k.mf, mt: 0 }) {
-                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, 0, 0, seq).map_err(io)?;
+                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, 0, 0, seq)?;
                     seq = if seq >= 99_999 { 1 } else { seq + 1 };
                 } else {
-                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, 0, 0, 0).map_err(io)?;
+                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, 0, 0, 0)?;
                     seq = 1;
                 }
             }
             if next_key.is_none_or(|n| n.mat != k.mat || new_occurrence(n)) {
                 // MEND (`amend`).
                 if self.copied_closers.contains(&EndfKey { mat: k.mat, mf: 0, mt: 0 }) {
-                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, seq).map_err(io)?;
+                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, seq)?;
                     seq = if seq >= 99_999 { 1 } else { seq + 1 };
+                    after_copied_mend = Some(k.mat);
                 } else {
-                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, 0).map_err(io)?;
+                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, 0)?;
                     seq = 1;
                 }
             }
         }
 
         // TEND (`atend`).
-        writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", -1, 0, 0, 0).map_err(io)?;
+        writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", -1, 0, 0, 0)?;
         Ok(())
+    }
+}
+
+/// Where [`Tape::write_text`] puts its lines: `writeln!` calls this
+/// `write_fmt`, so the same body serves an `io::Write` (with `std`) and a
+/// `String` (with or without it). gh:#1592.
+trait TextOut {
+    fn write_fmt(&mut self, args: core::fmt::Arguments<'_>) -> Result<(), NjoyError>;
+}
+
+/// An `io::Write` as a [`TextOut`]: each line goes straight to the writer,
+/// as `Tape::write` always wrote it, with an I/O failure as [`NjoyError::Io`].
+#[cfg(feature = "std")]
+struct IoText<W: Write>(W);
+
+#[cfg(feature = "std")]
+impl<W: Write> TextOut for IoText<W> {
+    fn write_fmt(&mut self, args: core::fmt::Arguments<'_>) -> Result<(), NjoyError> {
+        Write::write_fmt(&mut self.0, args).map_err(NjoyError::Io)
+    }
+}
+
+impl TextOut for String {
+    fn write_fmt(&mut self, args: core::fmt::Arguments<'_>) -> Result<(), NjoyError> {
+        core::fmt::Write::write_fmt(self, args)
+            .map_err(|e| NjoyError::InvalidInput(format!("formatting an ENDF line: {e}")))
     }
 }

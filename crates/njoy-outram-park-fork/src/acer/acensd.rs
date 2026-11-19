@@ -36,6 +36,9 @@
 //! - `LTT = 0` or `LI = 1` is whole-reaction isotropic: no energies, LAND
 //!   locator `0` (`acefc.f90:5872-5875`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::angular::{ElasticAngular, EnergyAngular};
 use crate::endf::{records::SectionCursor, tape::Section};
 use crate::NjoyError;

@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Angular source distributions.
 ///
@@ -182,7 +185,7 @@ impl PolarAzimuthalAngle {
     /// on the axis -- the classic error, and the reason this constructor
     /// exists rather than leaving a caller to write `Uniform { lo: 0, hi: theta }`.
     pub fn cone(axis: Direction, half_angle_rad: f64) -> Result<Self, String> {
-        if !(0.0..=std::f64::consts::PI).contains(&half_angle_rad) {
+        if !(0.0..=core::f64::consts::PI).contains(&half_angle_rad) {
             return Err(format!(
                 "cone half-angle {half_angle_rad} is outside [0, pi]"
             ));
@@ -202,7 +205,7 @@ impl PolarAzimuthalAngle {
             },
             ScalarDist::Uniform {
                 lo: 0.0,
-                hi: std::f64::consts::TAU,
+                hi: core::f64::consts::TAU,
             },
         )
     }

@@ -1,4 +1,8 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::alpha_nightly::transfer_fn_wrapper_and_enums::{TransferFnFirstOrder, TransferFnTraits};
+#[cfg(feature = "std")]
 use csv::Writer;
 use uom::si::f64::*;
 use uom::ConstZero;
@@ -54,6 +58,7 @@ impl TransferFnTraits for IntegralController {
         return Ok(integral_controller_output);
     }
 
+    #[cfg(feature = "std")]
     fn spawn_writer(
         &mut self,
         name: String,
@@ -64,6 +69,7 @@ impl TransferFnTraits for IntegralController {
         Ok(wtr)
     }
 
+    #[cfg(feature = "std")]
     fn csv_write_values(
         &mut self,
         wtr: &mut csv::Writer<std::fs::File>,

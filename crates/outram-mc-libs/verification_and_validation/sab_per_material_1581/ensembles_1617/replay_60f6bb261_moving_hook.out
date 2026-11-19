@@ -1,0 +1,39 @@
+=== FHR ring-RPT pebble: free-gas target motion, priced with the in-process hook ===
+
+Reconstructing nuclides (RECONR + BROADR @ 600 K):
+  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok
+  reconstructing U235   … 95.8s
+  reconstructing U238   … 154.4s
+  reconstructing O16    … 203.5ms
+  reconstructing C12    … 47.1ms
+  reconstructing C13    … 25.9ms
+  reconstructing C12    … 39.9ms
+  reconstructing C13    … 34.2ms
+  reconstructing Si28   … 176.4ms
+  reconstructing Si29   … 83.6ms
+  reconstructing Si30   … 185.8ms
+  reconstructing F19    … 115.6ms
+  reconstructing Li6    … 63.4ms
+  reconstructing Li7    … 43.8ms
+  reconstructing Be9    … 40.9ms
+  control: kinematics kT 5.170400e-2 -> 0 eV on all 14 nuclides (S(alpha,beta) moderators included)
+  ring-RPT fuel shell: 1.493359 < r < 1.753118 cm; pebble 2, reflective root 3
+Nuclear data + materials ready in 275.4 s.
+
+8 seeds per arm, 4000 histories × [30 inactive + 80 active]:
+    MOVING  seed   1: kfull = 1.366620965107678 k = 1.36662 ± 0.00210, p = 0.4832, eps = 1.5060  [1252.9 s]
+    MOVING  seed   2: kfull = 1.365263700465311 k = 1.36526 ± 0.00238, p = 0.4840, eps = 1.5048  [1193.9 s]
+    MOVING  seed   3: kfull = 1.366041799164809 k = 1.36604 ± 0.00213, p = 0.4819, eps = 1.5081  [1127.0 s]
+    MOVING  seed   4: kfull = 1.366565419117041 k = 1.36657 ± 0.00209, p = 0.4833, eps = 1.5067  [1119.5 s]
+    MOVING  seed   5: kfull = 1.366194794431415 k = 1.36619 ± 0.00237, p = 0.4836, eps = 1.5055  [1254.3 s]
+    MOVING  seed   6: kfull = 1.367760389336913 k = 1.36776 ± 0.00209, p = 0.4843, eps = 1.5050  [1182.1 s]
+    MOVING  seed   7: kfull = 1.366477343681038 k = 1.36648 ± 0.00231, p = 0.4836, eps = 1.5057  [1228.1 s]
+    MOVING  seed   8: kfull = 1.365114312751922 k = 1.36511 ± 0.00224, p = 0.4823, eps = 1.5083  [1093.0 s]
+    HOOK    seed   1: kfull = 1.360950878599100 k = 1.36095 ± 0.00191, p = 0.4849, eps = 1.5004  [610.5 s]
+    HOOK    seed   2: kfull = 1.356959614235443 k = 1.35696 ± 0.00213, p = 0.4836, eps = 1.5023  [580.7 s]
+    HOOK    seed   3: kfull = 1.365649311543329 k = 1.36565 ± 0.00208, p = 0.4851, eps = 1.4995  [577.2 s]
+    HOOK    seed   4: kfull = 1.358806862894121 k = 1.35881 ± 0.00215, p = 0.4848, eps = 1.5007  [582.6 s]
+    HOOK    seed   5: kfull = 1.360870933067463 k = 1.36087 ± 0.00203, p = 0.4832, eps = 1.5030  [588.8 s]
+    HOOK    seed   6: kfull = 1.362685367382041 k = 1.36269 ± 0.00222, p = 0.4836, eps = 1.5029  [589.5 s]
+    HOOK    seed   7: kfull = 1.359285890306704 k = 1.35929 ± 0.00220, p = 0.4832, eps = 1.5029  [575.0 s]
+    HOOK    seed   8: kfull = 1.360320030612570 k = 1.36032 ± 0.00245, p = 0.4846, eps = 1.5001  [585.9 s]

@@ -58,6 +58,9 @@
 //! constant (`EPSILON_PRECISION = 1e-8`, `EPSILON_CURVATURE = 1e-5`,
 //! `SMALL_TRIMESH = 1e-10`, `LARGE_TRIMESH = 1e6`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::particle::Vec3;
 
@@ -502,6 +505,28 @@ impl TriMeshState {
     #[must_use]
     pub fn surface_norm(&self, i: usize) -> V3 {
         self.geo[i].surf_norm
+    }
+
+    /// Everything [`Self::resolve_tri_sphere_contact_bary`] reads about facet
+    /// `i` beside its nodes, for the GPU mirror (`gpu::dem`, gh:#1503):
+    /// `(edge_vec, edge_len, surf_norm, obtuse, r_bound, edge_active,
+    /// corner_active)`.
+    #[must_use]
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn facet_data(
+        &self,
+        i: usize,
+    ) -> ([V3; 3], [f64; 3], V3, Option<usize>, f64, [bool; 3], [bool; 3]) {
+        let g = &self.geo[i];
+        (
+            g.edge_vec,
+            g.edge_len,
+            g.surf_norm,
+            g.obtuse,
+            self.r_bound[i],
+            self.edge_active[i],
+            self.corner_active[i],
+        )
     }
 
     // -------- incremental rotation -----------------------------------------
@@ -1205,7 +1230,7 @@ mod tests {
         let mut s = TriMeshState::new(&nodes);
         s.rotate_incremental(
             &mut nodes,
-            std::f64::consts::FRAC_PI_2,
+            core::f64::consts::FRAC_PI_2,
             &[0., 0., 1.],
             &[0.; 3],
         );
@@ -1227,7 +1252,7 @@ mod tests {
         let orig = vec![tri([0., 0., 0.], [1., 0., 0.], [0., 1., 0.])];
         let mut s = TriMeshState::new(&orig);
         let mut nodes = orig.clone();
-        let q = std::f64::consts::FRAC_PI_2;
+        let q = core::f64::consts::FRAC_PI_2;
         s.rotate_total(&orig, &mut nodes, q, q / 2.0, &[0., 0., 1.], &[1., 0., 0.]);
         assert!((nodes[0][0][0] - 1.0).abs() < 1e-15 && (nodes[0][0][1] + 1.0).abs() < 1e-15);
         let c = (0.5_f64).sqrt();

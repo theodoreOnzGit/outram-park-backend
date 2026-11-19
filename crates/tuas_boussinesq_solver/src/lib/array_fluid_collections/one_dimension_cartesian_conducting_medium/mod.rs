@@ -12,6 +12,9 @@
 //! `postprocessing` submodules (conductance / volumetric-heat-capacity arrays,
 //! the implicit-Euler temperature advance, and temperature retrieval). Transport
 //! or two-dimensional / cylindrical conduction models do not belong here.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use approx::assert_relative_eq;
 use ndarray::*;
 use uom::si::f64::*;

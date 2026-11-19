@@ -31,6 +31,9 @@
 //! Before the `run_deck` fix the para-hydrogen law could not have had 209
 //! betas: `endout` doubles the grid only for an odd `isym`, and `isabt = 0`.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::run::{run_deck_at_temperature, run_deck_text, LeaprRun};

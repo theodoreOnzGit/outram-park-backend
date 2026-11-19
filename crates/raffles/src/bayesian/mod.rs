@@ -133,6 +133,9 @@
 //! under the workspace `RESPONSIBLE_USE.md` rules until the maintainer and the
 //! crate owner review it.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod case_studies;
 pub mod koh;

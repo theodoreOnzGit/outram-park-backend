@@ -26,6 +26,9 @@
 //! reach second order, à la OpenFOAM's `interpolate(field, pos)` /
 //! `interpolate(field, neg)`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{grad, grad_vec, interpolate, linear_weight};
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
@@ -221,7 +224,7 @@ mod tests {
     use super::*;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     // 3-cell 1-D mesh, dx = 1, cells centred at 0.5, 1.5, 2.5.
     fn line_mesh() -> Arc<crate::mesh::fv_mesh::FvMesh> {

@@ -188,6 +188,9 @@
 //! model ([`super::bed_conductivity::BedConductivityModel`], whose
 //! physics default is Breitbach, not this correlation).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio, ThermalConductivity, ThermodynamicTemperature};
 use uom::si::length::meter;

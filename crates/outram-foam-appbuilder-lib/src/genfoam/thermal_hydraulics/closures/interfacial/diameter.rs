@@ -51,6 +51,9 @@
 //! alphaN * Dhs`; see TRACE theory manual eqns. 4-37/4-38,
 //! <https://www.nrc.gov/docs/ML1200/ML120060218.pdf>, pp. 135-136).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::units::{fluid_diameter, FluidDiameter};
 use uom::si::f64::{Pressure, Ratio, ThermodynamicTemperature};

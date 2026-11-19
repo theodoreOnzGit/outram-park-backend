@@ -10,6 +10,9 @@
 //! `(3(1p,e15.8,i6))`, `(i6,1p,e15.8,5i6)`, `(1p,e15.8,2i6)` and the
 //! literal `      999999999` separators of the WIMS-D format.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::common::phys::AMASSN_AMU;
 
 use super::input::WimsrInput;

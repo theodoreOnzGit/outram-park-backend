@@ -115,9 +115,12 @@
 //! component, hand-computed sub-closure values, enum-dispatch reachability,
 //! clean `NotImplemented` errors) — **not** *validation*.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::MultiphaseError;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{

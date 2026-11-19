@@ -27,6 +27,9 @@
 //! and common punctuation; lower case is drawn as upper case) so no font file
 //! or text-rendering dependency is needed.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::colour::{Rgb, BLACK, WHITE};
 use super::image::ImageData;

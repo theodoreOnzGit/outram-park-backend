@@ -60,6 +60,12 @@
 //!   ring of internal faces; no cyclic boundary machinery needed).
 //! - [`materials`] — SI multigroup cross-section records and their
 //!   materialisation to per-cell fields.
+//! - [`tables`] — Moltres temperature-table reader and linear interpolation
+//!   (`GenericMoltresMaterial`, `none`/`linear`), cm -> m conversion.
+//! - [`terms`] — pointwise source terms in Moltres' own operation order.
+//! - [`diffusion`] also carries Moltres' Marshak/Mark/Milne vacuum boundary
+//!   ([`diffusion::VacuumBoundary`]); before gh:#1400 the only "vacuum" was
+//!   zero flux at the face.
 //!
 //! **Prescribed flow only:** the salt velocity is an input (rigid loop
 //! circulation), not solved — full CFD coupling is the appbuilder/GeN-Foam
@@ -87,12 +93,48 @@
 
 #![forbid(unsafe_code)]
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1597, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+
+extern crate alloc;
+// `thiserror` without its `std` default (the root's `thiserror-nostd` key),
+// under the name the code uses.
+extern crate thiserror_nostd as thiserror;
+// `serde_json` without its `std` default (the root's `serde_json-nostd` key,
+// with `alloc`), under the name the code uses.
+extern crate serde_json_nostd as serde_json;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
 pub mod circulating;
 pub mod diffusion;
 pub mod error;
 pub mod materials;
+pub mod moose_interpolation;
 pub mod precursors;
 pub mod ring_mesh;
+pub mod tables;
+pub mod tables_multivar;
+pub mod terms;
 pub mod thermal;
 
 /// Convenience re-exports of the crate's main types.

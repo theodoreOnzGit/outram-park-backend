@@ -53,6 +53,9 @@
 //! without the boundary-vertex cells: the interior cells have the same
 //! corners (compared in the tests).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::tet_creator_octree::TetCreatorOctree;
 use crate::tet_mesh_extractor_octree::{poly_mesh_from_cells, AssembledMesh};
 

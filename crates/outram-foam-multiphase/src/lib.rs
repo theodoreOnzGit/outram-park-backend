@@ -63,6 +63,8 @@
 //! - [`pimple`] — drift-flux **mixture** PISO/PIMPLE: a Rhie-Chow
 //!   pressure-correction loop on the single mixture-momentum field, advancing
 //!   `U_m`–`p`–`α` together.
+//! - [`two_fluid_pimple_esi`] — the ESI v2506 `twoPhaseEulerFoam` step (gh:#1363
+//!   row 5), verified against the real solver on a reduced bubbleColumn.
 //! - [`two_fluid_pimple`] — **shared-pressure Euler-Euler** PISO: two per-phase
 //!   momentum predictors coupled through one mixture-continuity pressure
 //!   equation, advancing `U_d`–`U_c`–`p`–`α_d` together.
@@ -78,6 +80,35 @@
 //! `uom`-typed API boundaries, GPLv3 + OpenFOAM provenance headers on ported
 //! files, Android-buildable (pure-Rust, no system BLAS/GUI).
 
+// `no_std` + `alloc` without the default `std` feature (gh:#1594, epic
+// gh:#1585). Unit tests always build with `std`.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+
+extern crate alloc;
+// `thiserror` without its `std` default (the root's `thiserror-nostd` key),
+// under the name the code uses.
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks (`sqrt`, `floor`, ...). Glob-imported by each
+/// module in `no_std` builds only, so a `std` build resolves every name, and
+/// computes every number, exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use nostd_prelude::*;
+
 pub mod chf;
 pub mod drift_flux;
 pub mod dryout;
@@ -85,6 +116,7 @@ pub mod heat_transfer;
 pub mod pimple;
 pub mod two_fluid;
 pub mod two_fluid_pimple;
+pub mod two_fluid_pimple_esi;
 pub mod wall_boiling;
 
 /// Errors produced by the multiphase solvers in this crate.

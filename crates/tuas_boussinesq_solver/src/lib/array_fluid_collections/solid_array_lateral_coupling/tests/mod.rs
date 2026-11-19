@@ -1,5 +1,9 @@
-use std::ops::{DerefMut, Deref};
-use std::sync::{Arc, Mutex};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{DerefMut, Deref};
+use alloc::sync::Arc;
+    use crate::sync::Mutex;
 use petir::specfunc::erfc;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boundary_conditions::BCType;

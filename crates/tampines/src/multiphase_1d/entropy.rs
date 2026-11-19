@@ -67,6 +67,9 @@
 //! but the check here evaluates the closures themselves, not the stepped
 //! values.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines_steam_tables::region_1_subcooled_liquid::s_tp_1;
 use tampines_steam_tables::region_2_vapour::s_tp_2;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};

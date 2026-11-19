@@ -1,6 +1,9 @@
-use std::f64::consts::PI;
-use std::thread::{self};
-use std::thread::JoinHandle;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
+use crate::thread::{self};
+use crate::thread::JoinHandle;
 
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::heat_transfer_correlations::thermal_resistance::try_get_thermal_conductance_annular_cylinder;

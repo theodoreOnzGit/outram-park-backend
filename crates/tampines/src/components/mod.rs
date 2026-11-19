@@ -17,6 +17,9 @@
 //! CoreChannel, wall heat exchanger), [`reactor_power`] (core power
 //! distribution). The steady wrappers below are not their front end.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod condenser;
 pub mod cooling_tower;
 pub mod drain_tank;

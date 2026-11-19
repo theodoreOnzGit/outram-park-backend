@@ -133,6 +133,9 @@
 //! 0.01 cm to 100 cm and 3 to 24 shells
 //! (`tests/lump_collision_probability.rs`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::cell::SurfaceToken;
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{Direction, Position};
@@ -1044,7 +1047,7 @@ fn advance(r: Position, u: Direction, d: f64) -> Position {
 #[inline]
 fn isotropic(seed: &mut u64) -> (f64, f64, f64) {
     let mu = 2.0 * prn(seed) - 1.0;
-    let phi = std::f64::consts::TAU * prn(seed);
+    let phi = core::f64::consts::TAU * prn(seed);
     let s = (1.0 - mu * mu).max(0.0).sqrt();
     (s * phi.r_cos(), s * phi.r_sin(), mu)
 }
@@ -1130,7 +1133,7 @@ impl ShellCell {
 
     /// Shell volumes \[cm³\].
     pub fn volumes(&self) -> Vec<f64> {
-        let c = 4.0 / 3.0 * std::f64::consts::PI;
+        let c = 4.0 / 3.0 * core::f64::consts::PI;
         (0..self.radii.len())
             .map(|k| {
                 let r_in = if k == 0 { 0.0 } else { self.radii[k - 1] };

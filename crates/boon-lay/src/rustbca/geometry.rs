@@ -3,7 +3,7 @@
 // RustBCA copy — provenance
 // -------------------------
 // Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
-// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream version : main, 17 commits AFTER the v3.0.0 tag (673bd3f), commit a356280d564bbdfbe74b97f32db0776444da58a5 (corrected 2026-11-13, gh:#1426)
 // Upstream source  : src/geometry.rs
 // Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
 //                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
@@ -45,7 +45,9 @@ pub trait GeometryElement: Clone {
     fn get_electronic_stopping_correction_factor(&self) -> f64;
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct Mesh0DInput {
     pub length_unit: String,
     pub densities: Vec<f64>,
@@ -127,7 +129,9 @@ impl Geometry for Mesh0D {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct Mesh1DInput {
     pub length_unit: String,
     pub layer_thicknesses: Vec<f64>,
@@ -284,7 +288,8 @@ impl Geometry for Mesh1D {
 }
 
 #[cfg(any(test, feature = "rustbca-std"))]
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct HomogeneousMesh2DInput {
     pub length_unit: String,
     pub points: Vec<(f64, f64)>,
@@ -399,7 +404,8 @@ impl Geometry for HomogeneousMesh2D {
 
 /// Object that contains raw mesh input data.
 #[cfg(any(test, feature = "rustbca-std"))]
-#[derive(Deserialize, Clone)]
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct Mesh2DInput {
     pub length_unit: String,
     pub triangles: Vec<(usize, usize, usize)>,

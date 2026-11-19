@@ -10,6 +10,9 @@
 //! pressure in Pa); the dimensionless results are returned as `Ratio` (or a
 //! bare `f64` where a Bejan number is taken as input).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 extern crate uom;
 
 use petir::uom_math::QuantityMath;

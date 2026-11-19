@@ -46,9 +46,18 @@
 //!
 //! [`VolField`]: crate::fields::VolField
 
+// gh:#1586: without `std` there are no files, so the text formatters and
+// cursors below, reached only through the file readers and writers, are
+// unused in a `no_std` build.
+#![cfg_attr(not(feature = "std"), allow(dead_code, unused_imports))]
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::Path;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
+use super::esi::{esi_header, format_g, EsiWriteOptions};
 use super::dict::{fmt_scalar, tokenize, write_header, FoamHeader, Token, BANNER, FOOTER, SEPARATOR};
 use super::IoError;
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
@@ -64,6 +73,7 @@ pub type Dimensions = [f64; 7];
 //  Public API
 // ───────────────────────────────────────────────────────────────────────────
 
+#[cfg(feature = "std")]
 /// Read a `volScalarField` file, returning the field and its dimensions.
 ///
 /// The `mesh` supplies the cell count and the boundary-patch order/sizes the
@@ -88,6 +98,7 @@ pub fn read_vol_scalar_field(
     Ok((field, dims))
 }
 
+#[cfg(feature = "std")]
 /// Read a `volVectorField` file, returning the field and its dimensions.
 pub fn read_vol_vector_field(
     path: impl AsRef<Path>,
@@ -108,6 +119,22 @@ pub fn read_vol_vector_field(
     Ok((field, dims))
 }
 
+/// Number formatting of the field writers: this crate's shortest
+/// round-trip form, or C++ `%g` at a `writePrecision` (ESI).
+#[derive(Clone, Copy)]
+enum NumStyle {
+    Shortest,
+    G(usize),
+}
+
+fn fs(st: NumStyle, x: f64) -> String {
+    match st {
+        NumStyle::Shortest => fmt_scalar(x),
+        NumStyle::G(p) => format_g(x, p),
+    }
+}
+
+#[cfg(feature = "std")]
 /// Write a `volScalarField` file to `path` with the given `dimensions`.
 pub fn write_vol_scalar_field(
     path: impl AsRef<Path>,
@@ -116,14 +143,16 @@ pub fn write_vol_scalar_field(
 ) -> Result<(), IoError> {
     let path = path.as_ref();
     let mut s = header_str("volScalarField", &field.name);
-    write_dimensions(&mut s, &dimensions);
-    write_internal_scalar(&mut s, field.internal.as_slice());
-    write_boundary_scalar(&mut s, field);
+    let st = NumStyle::Shortest;
+    write_dimensions(st, &mut s, &dimensions);
+    write_internal_scalar(st, &mut s, field.internal.as_slice());
+    write_boundary_scalar(st, &mut s, field);
     s.push('\n');
     s.push_str(FOOTER);
     std::fs::write(path, s).map_err(|e| IoError::io(path.display().to_string(), e))
 }
 
+#[cfg(feature = "std")]
 /// Write a `volVectorField` file to `path` with the given `dimensions`.
 pub fn write_vol_vector_field(
     path: impl AsRef<Path>,
@@ -132,10 +161,95 @@ pub fn write_vol_vector_field(
 ) -> Result<(), IoError> {
     let path = path.as_ref();
     let mut s = header_str("volVectorField", &field.name);
-    write_dimensions(&mut s, &dimensions);
-    write_internal_vector(&mut s, field.internal.as_slice());
-    write_boundary_vector(&mut s, field);
+    let st = NumStyle::Shortest;
+    write_dimensions(st, &mut s, &dimensions);
+    write_internal_vector(st, &mut s, field.internal.as_slice());
+    write_boundary_vector(st, &mut s, field);
     s.push('\n');
+    s.push_str(FOOTER);
+    std::fs::write(path, s).map_err(|e| IoError::io(path.display().to_string(), e))
+}
+
+#[cfg(feature = "std")]
+/// [`write_vol_scalar_field`] in ESI v2506's layout (gh:#1363 row 7): ESI
+/// banner, `arch`, `location "<location>"` (the time directory name), numbers
+/// as `%g` at `opts.precision`, two blank lines before the footer.
+pub fn write_vol_scalar_field_esi(
+    path: impl AsRef<Path>,
+    field: &VolScalarField,
+    dimensions: Dimensions,
+    location: &str,
+    opts: &EsiWriteOptions,
+) -> Result<(), IoError> {
+    let path = path.as_ref();
+    let mut s = esi_header(opts, &[], "volScalarField", location, &field.name);
+    s.push('\n');
+    let st = NumStyle::G(opts.precision);
+    write_dimensions(st, &mut s, &dimensions);
+    write_internal_scalar(st, &mut s, field.internal.as_slice());
+    write_boundary_scalar(st, &mut s, field);
+    s.push_str("\n\n");
+    s.push_str(FOOTER);
+    std::fs::write(path, s).map_err(|e| IoError::io(path.display().to_string(), e))
+}
+
+#[cfg(feature = "std")]
+/// Write a `surfaceScalarField` (the face flux `phi`) in ESI v2506's layout
+/// (gh:#1363 row 7): `oriented oriented;`, the internal-face values, and per
+/// patch `type empty;` or `type calculated;` with a `value uniform` entry.
+///
+/// A non-uniform boundary `value` is written in the same one-line form as
+/// the volume-field writers (ESI's layout for it is NOT verified; the cavity
+/// flux has all-zero boundary values).
+pub fn write_surface_scalar_field_esi(
+    path: impl AsRef<Path>,
+    field: &crate::fields::SurfaceScalarField,
+    dimensions: Dimensions,
+    location: &str,
+    opts: &EsiWriteOptions,
+) -> Result<(), IoError> {
+    use crate::mesh::PatchKind;
+    let path = path.as_ref();
+    let st = NumStyle::G(opts.precision);
+    let mut s = esi_header(opts, &[], "surfaceScalarField", location, &field.name);
+    s.push('\n');
+    write_dimensions(st, &mut s, &dimensions);
+    s.push_str("oriented        oriented;\n\n");
+    write_internal_scalar(st, &mut s, field.internal.as_slice());
+    s.push_str("boundaryField\n{\n");
+    for (patch, pf) in field.mesh.patches.iter().zip(&field.boundary) {
+        s.push_str(&format!("    {}\n    {{\n", patch.name));
+        if patch.kind == PatchKind::Empty {
+            s.push_str("        type            empty;\n");
+        } else {
+            s.push_str("        type            calculated;\n");
+            write_value_scalar(st, &mut s, pf.values.as_slice());
+        }
+        s.push_str("    }\n");
+    }
+    s.push_str("}\n\n\n");
+    s.push_str(FOOTER);
+    std::fs::write(path, s).map_err(|e| IoError::io(path.display().to_string(), e))
+}
+
+#[cfg(feature = "std")]
+/// [`write_vol_vector_field`] in ESI v2506's layout; see
+/// [`write_vol_scalar_field_esi`].
+pub fn write_vol_vector_field_esi(
+    path: impl AsRef<Path>,
+    field: &VolVectorField,
+    dimensions: Dimensions,
+    location: &str,
+    opts: &EsiWriteOptions,
+) -> Result<(), IoError> {
+    let path = path.as_ref();
+    let mut s = esi_header(opts, &[], "volVectorField", location, &field.name);
+    s.push('\n');
+    let st = NumStyle::G(opts.precision);
+    write_dimensions(st, &mut s, &dimensions);
+    write_internal_vector(st, &mut s, field.internal.as_slice());
+    write_boundary_vector(st, &mut s, field);
+    s.push_str("\n\n");
     s.push_str(FOOTER);
     std::fs::write(path, s).map_err(|e| IoError::io(path.display().to_string(), e))
 }
@@ -560,13 +674,13 @@ fn build_vector_boundary(
 //  Writing
 // ───────────────────────────────────────────────────────────────────────────
 
-fn write_dimensions(s: &mut String, d: &Dimensions) {
+fn write_dimensions(st: NumStyle, s: &mut String, d: &Dimensions) {
     s.push_str("dimensions      [");
     for (i, e) in d.iter().enumerate() {
         if i > 0 {
             s.push(' ');
         }
-        s.push_str(&fmt_scalar(*e));
+        s.push_str(&fs(st, *e));
     }
     s.push_str("];\n\n");
 }
@@ -589,19 +703,49 @@ fn all_equal_vector(v: &[Vector3]) -> Option<Vector3> {
     }
 }
 
-fn fmt_vector(v: Vector3) -> String {
+fn fmt_vector(st: NumStyle, v: Vector3) -> String {
     format!(
         "({} {} {})",
-        fmt_scalar(v.x),
-        fmt_scalar(v.y),
-        fmt_scalar(v.z)
+        fs(st, v.x),
+        fs(st, v.y),
+        fs(st, v.z)
     )
 }
 
-fn write_internal_scalar(s: &mut String, v: &[f64]) {
+
+/// ESI v2506's layout of a nonuniform list entry (`UList::writeList` after
+/// `nonuniform List<T> `, gh:#1384): up to 10 elements on one line as
+/// `N(a b c)`, more in the long form (`\nN\n(\n` one per line `)\n`).
+/// `end` follows the list (`;\n`, or `;\n\n` for the internal field).
+fn esi_nonuniform(s: &mut String, head: &str, type_name: &str, items: &[String], end: &str) {
+    s.push_str(&format!("{head}nonuniform List<{type_name}> "));
+    match super::esi::inline_list(items, true) {
+        Some(t) => s.push_str(&t),
+        None => {
+            s.push_str(&format!("\n{}\n(\n", items.len()));
+            for it in items {
+                s.push_str(it);
+                s.push('\n');
+            }
+            s.push(')');
+            s.push('\n');
+        }
+    }
+    s.push_str(end);
+}
+
+fn is_esi(st: NumStyle) -> bool {
+    matches!(st, NumStyle::G(_))
+}
+
+fn write_internal_scalar(st: NumStyle, s: &mut String, v: &[f64]) {
     match all_equal_scalar(v) {
         Some(u) => {
-            s.push_str(&format!("internalField   uniform {};\n\n", fmt_scalar(u)));
+            s.push_str(&format!("internalField   uniform {};\n\n", fs(st, u)));
+        }
+        None if is_esi(st) => {
+            let items: Vec<String> = v.iter().map(|x| fs(st, *x)).collect();
+            esi_nonuniform(s, "internalField   ", "scalar", &items, ";\n\n");
         }
         None => {
             s.push_str(&format!(
@@ -609,7 +753,7 @@ fn write_internal_scalar(s: &mut String, v: &[f64]) {
                 v.len()
             ));
             for x in v {
-                s.push_str(&fmt_scalar(*x));
+                s.push_str(&fs(st, *x));
                 s.push('\n');
             }
             s.push_str(")\n;\n\n");
@@ -617,10 +761,14 @@ fn write_internal_scalar(s: &mut String, v: &[f64]) {
     }
 }
 
-fn write_internal_vector(s: &mut String, v: &[Vector3]) {
+fn write_internal_vector(st: NumStyle, s: &mut String, v: &[Vector3]) {
     match all_equal_vector(v) {
         Some(u) => {
-            s.push_str(&format!("internalField   uniform {};\n\n", fmt_vector(u)));
+            s.push_str(&format!("internalField   uniform {};\n\n", fmt_vector(st, u)));
+        }
+        None if is_esi(st) => {
+            let items: Vec<String> = v.iter().map(|x| fmt_vector(st, *x)).collect();
+            esi_nonuniform(s, "internalField   ", "vector", &items, ";\n\n");
         }
         None => {
             s.push_str(&format!(
@@ -628,7 +776,7 @@ fn write_internal_vector(s: &mut String, v: &[Vector3]) {
                 v.len()
             ));
             for x in v {
-                s.push_str(&fmt_vector(*x));
+                s.push_str(&fmt_vector(st, *x));
                 s.push('\n');
             }
             s.push_str(")\n;\n\n");
@@ -636,7 +784,7 @@ fn write_internal_vector(s: &mut String, v: &[Vector3]) {
     }
 }
 
-fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
+fn write_boundary_scalar(st: NumStyle, s: &mut String, field: &VolScalarField) {
     s.push_str("boundaryField\n{\n");
     for (patch, pf) in field.mesh.patches.iter().zip(&field.boundary) {
         s.push_str(&format!("    {}\n    {{\n", patch.name));
@@ -645,16 +793,16 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
                 s.push_str("        type            fixedValue;\n");
                 s.push_str(&format!(
                     "        value           uniform {};\n",
-                    fmt_scalar(*v)
+                    fs(st, *v)
                 ));
             }
             BoundaryCondition::FixedField(f) => {
                 s.push_str("        type            fixedValue;\n");
-                write_value_scalar(s, f.as_slice());
+                write_value_scalar(st, s, f.as_slice());
             }
             BoundaryCondition::Calculated(f) => {
                 s.push_str("        type            calculated;\n");
-                write_value_scalar(s, f.as_slice());
+                write_value_scalar(st, s, f.as_slice());
             }
             BoundaryCondition::ZeroGradient => {
                 s.push_str("        type            zeroGradient;\n");
@@ -663,7 +811,7 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
                 s.push_str("        type            fixedGradient;\n");
                 s.push_str(&format!(
                     "        gradient        uniform {};\n",
-                    fmt_scalar(*g)
+                    fs(st, *g)
                 ));
             }
             BoundaryCondition::Mixed {
@@ -674,17 +822,17 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
                 s.push_str("        type            mixed;\n");
                 s.push_str(&format!(
                     "        refValue        uniform {};\n",
-                    fmt_scalar(*ref_value)
+                    fs(st, *ref_value)
                 ));
                 s.push_str(&format!(
                     "        refGradient     uniform {};\n",
-                    fmt_scalar(*ref_grad)
+                    fs(st, *ref_grad)
                 ));
                 s.push_str(&format!(
                     "        valueFraction   uniform {};\n",
-                    fmt_scalar(*value_fraction)
+                    fs(st, *value_fraction)
                 ));
-                write_value_scalar(s, pf.values.as_slice());
+                write_value_scalar(st, s, pf.values.as_slice());
             }
             BoundaryCondition::MixedField {
                 value_fraction,
@@ -694,56 +842,56 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
                 // OpenFOAM's `mixed` with non-uniform coefficient lists.
                 s.push_str("        type            mixed;\n");
                 s.push_str("        refValue        ");
-                write_value_scalar(s, ref_value.as_slice());
+                write_value_scalar(st, s, ref_value.as_slice());
                 s.push_str("        refGradient     ");
-                write_value_scalar(s, ref_grad.as_slice());
+                write_value_scalar(st, s, ref_grad.as_slice());
                 s.push_str("        valueFraction   ");
-                write_value_scalar(s, value_fraction.as_slice());
-                write_value_scalar(s, pf.values.as_slice());
+                write_value_scalar(st, s, value_fraction.as_slice());
+                write_value_scalar(st, s, pf.values.as_slice());
             }
             BoundaryCondition::InletOutlet { inlet_value } => {
                 s.push_str("        type            inletOutlet;\n");
                 s.push_str(&format!(
                     "        inletValue      uniform {};\n",
-                    fmt_scalar(*inlet_value)
+                    fs(st, *inlet_value)
                 ));
-                write_value_scalar(s, pf.values.as_slice());
+                write_value_scalar(st, s, pf.values.as_slice());
             }
             BoundaryCondition::OutletInlet { outlet_value } => {
                 s.push_str("        type            outletInlet;\n");
                 s.push_str(&format!(
                     "        outletValue     uniform {};\n",
-                    fmt_scalar(*outlet_value)
+                    fs(st, *outlet_value)
                 ));
-                write_value_scalar(s, pf.values.as_slice());
+                write_value_scalar(st, s, pf.values.as_slice());
             }
             BoundaryCondition::Freestream { freestream_value } => {
                 s.push_str("        type            freestream;\n");
                 s.push_str(&format!(
                     "        freestreamValue uniform {};\n",
-                    fmt_scalar(*freestream_value)
+                    fs(st, *freestream_value)
                 ));
-                write_value_scalar(s, pf.values.as_slice());
+                write_value_scalar(st, s, pf.values.as_slice());
             }
             BoundaryCondition::PressureInletOutletVelocity => {
                 s.push_str("        type            pressureInletOutletVelocity;\n");
-                write_value_scalar(s, pf.values.as_slice());
+                write_value_scalar(st, s, pf.values.as_slice());
             }
             BoundaryCondition::FixedFluxPressure { gradient } => {
                 s.push_str("        type            fixedFluxPressure;\n");
                 s.push_str(&format!(
                     "        gradient        uniform {};\n",
-                    fmt_scalar(*gradient)
+                    fs(st, *gradient)
                 ));
-                write_value_scalar(s, pf.values.as_slice());
+                write_value_scalar(st, s, pf.values.as_slice());
             }
             BoundaryCondition::TotalPressure { p0 } => {
                 s.push_str("        type            totalPressure;\n");
                 s.push_str(&format!(
                     "        p0              uniform {};\n",
-                    fmt_scalar(*p0)
+                    fs(st, *p0)
                 ));
-                write_value_scalar(s, pf.values.as_slice());
+                write_value_scalar(st, s, pf.values.as_slice());
             }
             BoundaryCondition::FlowRateInletVelocity {
                 volumetric_flow_rate,
@@ -751,9 +899,9 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
                 s.push_str("        type            flowRateInletVelocity;\n");
                 s.push_str(&format!(
                     "        volumetricFlowRate {};\n",
-                    fmt_scalar(*volumetric_flow_rate)
+                    fs(st, *volumetric_flow_rate)
                 ));
-                write_value_scalar(s, pf.values.as_slice());
+                write_value_scalar(st, s, pf.values.as_slice());
             }
             BoundaryCondition::Symmetry => {
                 s.push_str("        type            symmetry;\n");
@@ -776,7 +924,7 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
     s.push_str("}\n");
 }
 
-fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
+fn write_boundary_vector(st: NumStyle, s: &mut String, field: &VolVectorField) {
     s.push_str("boundaryField\n{\n");
     for (patch, pf) in field.mesh.patches.iter().zip(&field.boundary) {
         s.push_str(&format!("    {}\n    {{\n", patch.name));
@@ -785,16 +933,16 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
                 s.push_str("        type            fixedValue;\n");
                 s.push_str(&format!(
                     "        value           uniform {};\n",
-                    fmt_vector(*v)
+                    fmt_vector(st, *v)
                 ));
             }
             BoundaryCondition::FixedField(f) => {
                 s.push_str("        type            fixedValue;\n");
-                write_value_vector(s, f.as_slice());
+                write_value_vector(st, s, f.as_slice());
             }
             BoundaryCondition::Calculated(f) => {
                 s.push_str("        type            calculated;\n");
-                write_value_vector(s, f.as_slice());
+                write_value_vector(st, s, f.as_slice());
             }
             BoundaryCondition::ZeroGradient => {
                 s.push_str("        type            zeroGradient;\n");
@@ -803,7 +951,7 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
                 s.push_str("        type            fixedGradient;\n");
                 s.push_str(&format!(
                     "        gradient        uniform {};\n",
-                    fmt_vector(*g)
+                    fmt_vector(st, *g)
                 ));
             }
             BoundaryCondition::Mixed {
@@ -814,17 +962,17 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
                 s.push_str("        type            mixed;\n");
                 s.push_str(&format!(
                     "        refValue        uniform {};\n",
-                    fmt_vector(*ref_value)
+                    fmt_vector(st, *ref_value)
                 ));
                 s.push_str(&format!(
                     "        refGradient     uniform {};\n",
-                    fmt_vector(*ref_grad)
+                    fmt_vector(st, *ref_grad)
                 ));
                 s.push_str(&format!(
                     "        valueFraction   uniform {};\n",
-                    fmt_scalar(*value_fraction)
+                    fs(st, *value_fraction)
                 ));
-                write_value_vector(s, pf.values.as_slice());
+                write_value_vector(st, s, pf.values.as_slice());
             }
             BoundaryCondition::MixedField {
                 value_fraction,
@@ -834,56 +982,56 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
                 // OpenFOAM's `mixed` with non-uniform coefficient lists.
                 s.push_str("        type            mixed;\n");
                 s.push_str("        refValue        ");
-                write_value_vector(s, ref_value.as_slice());
+                write_value_vector(st, s, ref_value.as_slice());
                 s.push_str("        refGradient     ");
-                write_value_vector(s, ref_grad.as_slice());
+                write_value_vector(st, s, ref_grad.as_slice());
                 s.push_str("        valueFraction   ");
-                write_value_scalar(s, value_fraction.as_slice());
-                write_value_vector(s, pf.values.as_slice());
+                write_value_scalar(st, s, value_fraction.as_slice());
+                write_value_vector(st, s, pf.values.as_slice());
             }
             BoundaryCondition::InletOutlet { inlet_value } => {
                 s.push_str("        type            inletOutlet;\n");
                 s.push_str(&format!(
                     "        inletValue      uniform {};\n",
-                    fmt_vector(*inlet_value)
+                    fmt_vector(st, *inlet_value)
                 ));
-                write_value_vector(s, pf.values.as_slice());
+                write_value_vector(st, s, pf.values.as_slice());
             }
             BoundaryCondition::OutletInlet { outlet_value } => {
                 s.push_str("        type            outletInlet;\n");
                 s.push_str(&format!(
                     "        outletValue     uniform {};\n",
-                    fmt_vector(*outlet_value)
+                    fmt_vector(st, *outlet_value)
                 ));
-                write_value_vector(s, pf.values.as_slice());
+                write_value_vector(st, s, pf.values.as_slice());
             }
             BoundaryCondition::Freestream { freestream_value } => {
                 s.push_str("        type            freestream;\n");
                 s.push_str(&format!(
                     "        freestreamValue uniform {};\n",
-                    fmt_vector(*freestream_value)
+                    fmt_vector(st, *freestream_value)
                 ));
-                write_value_vector(s, pf.values.as_slice());
+                write_value_vector(st, s, pf.values.as_slice());
             }
             BoundaryCondition::PressureInletOutletVelocity => {
                 s.push_str("        type            pressureInletOutletVelocity;\n");
-                write_value_vector(s, pf.values.as_slice());
+                write_value_vector(st, s, pf.values.as_slice());
             }
             BoundaryCondition::FixedFluxPressure { gradient } => {
                 s.push_str("        type            fixedFluxPressure;\n");
                 s.push_str(&format!(
                     "        gradient        uniform {};\n",
-                    fmt_vector(*gradient)
+                    fmt_vector(st, *gradient)
                 ));
-                write_value_vector(s, pf.values.as_slice());
+                write_value_vector(st, s, pf.values.as_slice());
             }
             BoundaryCondition::TotalPressure { p0 } => {
                 s.push_str("        type            totalPressure;\n");
                 s.push_str(&format!(
                     "        p0              uniform {};\n",
-                    fmt_vector(*p0)
+                    fmt_vector(st, *p0)
                 ));
-                write_value_vector(s, pf.values.as_slice());
+                write_value_vector(st, s, pf.values.as_slice());
             }
             BoundaryCondition::FlowRateInletVelocity {
                 volumetric_flow_rate,
@@ -891,9 +1039,9 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
                 s.push_str("        type            flowRateInletVelocity;\n");
                 s.push_str(&format!(
                     "        volumetricFlowRate {};\n",
-                    fmt_scalar(*volumetric_flow_rate)
+                    fs(st, *volumetric_flow_rate)
                 ));
-                write_value_vector(s, pf.values.as_slice());
+                write_value_vector(st, s, pf.values.as_slice());
             }
             BoundaryCondition::Symmetry => {
                 s.push_str("        type            symmetry;\n");
@@ -916,12 +1064,17 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
     s.push_str("}\n");
 }
 
-fn write_value_scalar(s: &mut String, v: &[f64]) {
+fn write_value_scalar(st: NumStyle, s: &mut String, v: &[f64]) {
     if let Some(u) = all_equal_scalar(v) {
         s.push_str(&format!(
             "        value           uniform {};\n",
-            fmt_scalar(u)
+            fs(st, u)
         ));
+        return;
+    }
+    if is_esi(st) {
+        let items: Vec<String> = v.iter().map(|x| fs(st, *x)).collect();
+        esi_nonuniform(s, "        value           ", "scalar", &items, ";\n");
         return;
     }
     s.push_str(&format!(
@@ -932,17 +1085,22 @@ fn write_value_scalar(s: &mut String, v: &[f64]) {
         if i > 0 {
             s.push(' ');
         }
-        s.push_str(&fmt_scalar(*x));
+        s.push_str(&fs(st, *x));
     }
     s.push_str(");\n");
 }
 
-fn write_value_vector(s: &mut String, v: &[Vector3]) {
+fn write_value_vector(st: NumStyle, s: &mut String, v: &[Vector3]) {
     if let Some(u) = all_equal_vector(v) {
         s.push_str(&format!(
             "        value           uniform {};\n",
-            fmt_vector(u)
+            fmt_vector(st, u)
         ));
+        return;
+    }
+    if is_esi(st) {
+        let items: Vec<String> = v.iter().map(|x| fmt_vector(st, *x)).collect();
+        esi_nonuniform(s, "        value           ", "vector", &items, ";\n");
         return;
     }
     s.push_str(&format!(
@@ -953,13 +1111,14 @@ fn write_value_vector(s: &mut String, v: &[Vector3]) {
         if i > 0 {
             s.push(' ');
         }
-        s.push_str(&fmt_vector(*x));
+        s.push_str(&fmt_vector(st, *x));
     }
     s.push_str(");\n");
 }
 
 // ── file helpers ────────────────────────────────────────────────────────────
 
+#[cfg(feature = "std")]
 fn read_to_string(path: &Path) -> Result<String, IoError> {
     std::fs::read_to_string(path).map_err(|e| IoError::io(path.display().to_string(), e))
 }

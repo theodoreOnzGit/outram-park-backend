@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// test series took about 450s seems to be fast enough
 #[cfg(test)]
 #[ignore = "legacy test used for debugging"]
@@ -34,6 +37,7 @@ pub fn ciet_coupled_nat_circ_set_a1_for_three_branch() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -115,6 +119,7 @@ pub fn zero_flow_for_three_branch_ver_1() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -199,6 +204,7 @@ pub fn flow_diode_reverse_flow_for_three_branch_ver1() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -282,6 +288,7 @@ pub fn flow_diode_fwd_flow_for_three_branch_ver1() {
         dracs_loop_hot_leg_insulation_thickness_cm,
     ) = (0.15, 0.24, 3.00, 0.75);
 
+    #[cfg(feature = "std")]
     dbg!(
         max_simulation_time_seconds,
         pri_loop_relative_tolerance,
@@ -1034,6 +1041,7 @@ pub fn three_branch_ciet_ver1(
         let debug_settings = false;
 
         if debug_settings == true {
+            #[cfg(feature = "std")]
             dbg!(&current_simulation_time);
             // temperatures before and after heater
             let ((_bt_11, _wt_10), (_bt_12, _wt_13)) = pri_loop_heater_temperature_diagnostics(
@@ -1084,6 +1092,7 @@ pub fn three_branch_ciet_ver1(
 
     let simulated_heater_avg_surf_temp_degc: f64 = heater_avg_surf_temp.get::<degree_celsius>();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         input_power,
         final_mass_flowrate_pri_loop,

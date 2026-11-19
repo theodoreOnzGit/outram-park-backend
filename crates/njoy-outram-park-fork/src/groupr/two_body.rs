@@ -29,9 +29,19 @@
 //! Neutron-in / neutron-out (`izap = 1`, `aprime = 1`) two-body reactions
 //! from File 4 in the CM frame: elastic (`MT = 2`) and the discrete levels
 //! (`MT = 51-90`, through `q`/`thresh`). Not ported here: the charged-particle
-//! Coulomb term (`:9529-9548`), `MT = 251-253` (`mubar` etc.), the `law = 4`
-//! sign flip of ENDF-5 lab-frame data, and File-6 two-body data (`mft = 8`).
+//! Coulomb term (`:9529-9548`), ~~`MT = 251-253` (`mubar` etc.),~~ the `law = 4`
+//! sign flip of ENDF-5 lab-frame data~~, and File-6 two-body data (`mft = 8`)~~.
+//! **CORRECTED 2026-11-14** (checked against the code): `MT = 251-253` is
+//! [`TwoBodyFeed::for_mf3_ratio`]; File-6 two-body data reaches this feed through
+//! `File4Angular::isotropic_cm` (LAW = 3) and `File4Angular::from_mf6_law2`
+//! (LAW = 2, gh:#1370). **CORRECTED 2026-11-14 (gh:#1370):** the `law = 4` cosine
+//! flip is [`TwoBodyFeed::with_law4_cosine_flip`], for File-6 `LAW = 4`
+//! (`File4Angular::from_mf6_law4`); File-6 `LAW = 5` for a neutron is
+//! `File4Angular::from_mf6_law5`. The Coulomb term is still not ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::groupr::file4::{File4Angular, NLD};
 use crate::groupr::kinematics::legndr;
@@ -206,6 +216,9 @@ pub struct TwoBodyFeed {
     ratio_mt: i32,
     /// `npo += lord` for `mfd = 3` (`:9427`).
     lord_extra: usize,
+    /// File-6 `LAW = 4`: `if (law.eq.4) wqp=-wqp` (`:9519`), the recoil's CM
+    /// cosine is the partner's negated (gh:#1370).
+    law4_flip: bool,
 }
 
 impl TwoBodyFeed {
@@ -275,6 +288,7 @@ impl TwoBodyFeed {
             nqp0: 0,
             ratio_mt: 0,
             lord_extra: 0,
+            law4_flip: false,
         };
         feed.reset();
         Ok(feed)
@@ -286,6 +300,15 @@ impl TwoBodyFeed {
     pub fn for_mf3_ratio(mut self, mtd: i32, lord: usize) -> Self {
         self.ratio_mt = mtd;
         self.lord_extra = lord;
+        self
+    }
+
+    /// Make this a File-6 `LAW = 4` (two-body recoil) feed: `getdis` negates each
+    /// quadrature cosine before evaluating both the angular probability and the
+    /// lab cosine (`if (law.eq.4) wqp=-wqp`, `groupr.f90:9519`), as upstream does,
+    /// with the angular data from [`File4Angular::from_mf6_law4`] (gh:#1370).
+    pub fn with_law4_cosine_flip(mut self) -> Self {
+        self.law4_flip = true;
         self
     }
 
@@ -461,8 +484,11 @@ impl TwoBodyFeed {
             flt.iter_mut().for_each(|x| *x = 0.0);
             let (qp, qw) = quadrature(nqp);
             for iqp in 0..nqp {
-                let wqp = aa + b * qp[iqp];
+                let mut wqp = aa + b * qp[iqp];
                 let wqw = b * qw[iqp];
+                if self.law4_flip {
+                    wqp = -wqp;
+                }
                 let p = legndr(wqp, ld);
                 let mut prob = 0.0;
                 for il in 1..=nld {

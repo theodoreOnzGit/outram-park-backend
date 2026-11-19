@@ -201,6 +201,9 @@
 //! RECONR does not implement the `errint`/`errmax` resonance-integral
 //! relaxation, and the crate's BROADR does not thin (NJOY: 448,168 → 155,207).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::collections::BTreeMap;
 use std::fmt;
 use std::sync::Arc;

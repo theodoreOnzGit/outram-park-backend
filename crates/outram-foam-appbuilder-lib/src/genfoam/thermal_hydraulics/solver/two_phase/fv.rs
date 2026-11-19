@@ -30,7 +30,10 @@
 //! upwind interpolation, `surfaceSum`, `reconstruct` and Gauss `grad`. Mesh
 //! geometry and topology come from basic-lib's [`FvMesh`].
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::*;
 

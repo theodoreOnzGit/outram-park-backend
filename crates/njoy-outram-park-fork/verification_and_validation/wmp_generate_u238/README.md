@@ -1,0 +1,861 @@
+# U-238 windowed-multipole generation against OpenMC (gh:#1390)
+
+> Research, education and V&V only. Not for facility operation, licensing or
+> safety decisions (`RESPONSIBLE_USE.md`). AI-written and unreviewed.
+
+Follows `../wmp_generate/README.md` (Mg-26). That record left U-238, which
+gh:#1390 names, undone because OpenMC could not be run here. This one runs it.
+
+## What is the reference (answers gh:#536)
+
+- **Reference library for this differential: OpenMC's own generator, run on
+  the same ENDF tape.** Tape `reference-data/endf/n-092_U_238.endf`
+  (ENDF/B-VIII.0, MAT 9237, 14 939 396 bytes).
+- **Reference code: OpenMC `8f79d9d02483c90e4134f03a9df4b75ce6b062bf`**
+  (`crates/outram-mc-libs/upstream_source/OpenMC`), the commit the port
+  translates, with its pure-Python `openmc/data/vectfit.py`.
+- **The installed OpenMC 0.15.3 (`27e38e894697bb32a1dac7848d2618818b6b8daf`)
+  could not be used for the fit.** Its `multipole.py` does `import vectfit`,
+  the C++ extension `liangjg/vectfit`. Measured 2026-11-18: `pip download
+  vectfit` finds no distribution on PyPI, and the GitHub repository is not
+  reachable from this session (codeload answers 403, and the request to attach
+  the repository was denied). So 0.15.3's generator cannot run here, and this
+  record does not claim anything about it. It runs `8f79d9d`'s Python on the
+  0.15.3 venv's numpy 2.4.6 / scipy 1.17.1 / h5py, with `PYTHONPATH` set to the
+  `8f79d9d` clone (only `openmc.data` is imported; same recipe as the Mg-26
+  record).
+- **The #536 pole counts (602 against 4 062) are not the reference here.**
+  Both describe the embedded MIT CRPG library the workspace *evaluates*
+  (`src/wmp/`), not a library any generator here made. The workspace record
+  of 2026-10-05 re-counted the embedded table: 4 062 poles, 4 309 windows,
+  fit order 2, `e_max` 2.0e4 eV (`docs/lessons/src/wmp.md`); 602 was the
+  stale figure. That table was built by a different tool chain (and
+  evaluation) from a different tape, so a generator run on VIII.0 is not
+  expected to give 4 062 either; the count that matters is the one OpenMC
+  produces from this tape, recorded below.
+
+## Prediction (written and committed before any U-238 run)
+
+Front end measured before the prediction, by running only OpenMC's NJOY step
+(`openmc_inputs/probe_frontend.py`): 609 072 grid points from 1e-5 eV to
+19 999.99 eV, 3 289 peaks in the total cross section, hence `vf_pieces = 304`
+(`max(5, 3289 // 50, 609072 // 2000)`). NJOY plus `from_njoy` took 242 s on
+this machine under load (below). Three channels are fitted (elastic, MT=27,
+fission).
+
+| quantity | prediction |
+|---|---|
+| front end (grid, elastic, MT=27, MT=18; per-piece checksum) | **bit-identical** in all 304 pieces. The crate's RECONR+ACER is word for word with NJOY2016 on U-238 at 293.6 K (AGENTS.md), but WMP uses the 0 K deck with no BROADR, which the U-238 PENDF gate does not cover. If a piece differs, that is a front-end defect to find. |
+| `vf_pieces`, piece boundaries | identical (follows from the front end). |
+| per-piece pole count | identical in **at least 90 %** of the 304 pieces (>= 274). Reason: the order search keeps the best `quality` over 30 relocation iterations x up to ~90 orders, and a flip needs two candidates within round-off. Mg-26 (one piece) did not flip, but here there are 304 searches and thousands of near-ties are possible. |
+| total pole count | identical with probability about 30 %. A differing total is most likely a handful of +-2 pole differences, within +-1 % of the total. This is the prediction most likely to be falsified. |
+| window parameters (`n_win`, spacing, fit order, poles per window) | identical **if** the total pole count is identical (the `n_win` search grid is `linspace(max(5, n_poles // 20), 8000, 20)`); otherwise they differ because the grid does. A separate stage runs the port's windowing on OpenMC's own multipole data to isolate that: windows, spacing, fit order and used poles **identical**, curve fit ~1e-7 of scale (as Mg-26, conditioning limited). |
+| fit coefficients | not within the 1e-8 code-to-code allowance (Mg-26: poles 2e-3, residues 1e-2 over a whole `_vectfit_xs`); expect equal or worse with thousands of poles. Not claimed bit-identical. |
+| sigma(E, T) of the two libraries at 0, 293.6, 1200 K, ~2 400 points | the cross sections the poles represent are fixed by the data, so: **>= 99 % of values inside `rtol = 1e-3` or `atol = 1e-5` b**, worst relative difference at a sampled point <= 1e-2, median ~1e-6 or better. If the pole counts differ, the two libraries are two valid fits of the same data and differ at the fitting tolerance (~1e-3) instead. |
+| OpenMC run time (`vectfit_nuclide`) | 2 to 10 hours on this machine (Mg-26 took 51.7 s for one 2 115-point piece with 8 poles; here 304 pieces of ~2 000 points, ~11 peaks each, orders from 22 upward). Central estimate 4 h. `from_multipole(search=True)`: 0.5 to 2 h. |
+| port run time | 3 to 6 times OpenMC's (Mg-26: port ~4x), i.e. 10 to 40 h for the whole chain. Whole-chain port runs may therefore not fit in one session; if a measured piece time says so, the port is run on a stated subset of pieces and the rest is reported as not done. |
+
+Hardware for every timing: Intel Xeon @ 2.10 GHz, 4 logical cores, 15 GB RAM,
+shared with two other agents (load average about 8 when this was written),
+`OMP_NUM_THREADS=2`, `OPENBLAS_NUM_THREADS=2`, `ulimit -v 12582912`.
+
+## Files
+
+- `openmc_inputs/probe_frontend.py`: the size probe above (committed verbatim).
+- `openmc_inputs/ref_u238.py`: the full-run driver, committed before it was run; stopped
+  after 12 pieces (`ref_u238_full_run_aborted.log`).
+- `openmc_inputs/ref_u238_subset.py`: the reference driver that produced the fixtures
+  (embedded below); log `ref_u238_subset_run.log`.
+- `openmc_inputs/sensitivity_u238.py`: OpenMC against itself under a 1-ulp input change.
+- `openmc_inputs/to_fixture_u238.py`: run directory to fixtures.
+- Fixtures `pieces.txt`, `meta.txt`, `fitted_pieces.f64`, `library_prefix.f64` (little-endian f64).
+- Run (paths for this machine): `PATH` with NJOY2016.80 `njoy`, `PYTHONPATH` the `8f79d9d`
+  clone, venv Python with numpy 2.4.6, scipy 1.17.1, h5py, `endf` 0.1.12, Python 3.11:
+  `python ref_u238_subset.py reference-data/endf/n-092_U_238.endf <out> 12 100,200,303`, then
+  `python to_fixture_u238.py <out> .`; `python sensitivity_u238.py <tape> <out> 3 5,7,8,100`.
+
+## Plan change, written before the subset run (2026-11-18 11:58 UTC)
+
+The full reference run (`openmc_inputs/ref_u238.py`) was started 11:22 UTC and
+stopped at 11:58 UTC, after 12 of 304 pieces (log:
+`ref_u238_full_run_aborted.log`; its "piece n" is 1-based, so n-1 below).
+Measured on this machine under load (average 10-12 on 4 cores, two threads for
+OpenMC):
+
+| piece (0-based) | points | poles | seconds |
+|---|---|---|---|
+| 0 - 4 | 469, 196, 65, 47, 242 | 3, 3, 5, 4, 5 | 0.0 - 0.1 each |
+| 5 | 905 | 5 | 21.8 |
+| 6 | 1220 | 6 | 15.6 |
+| 7, 8 | 561, 235 | 6, 5 | 2.4, 0.4 |
+| 9 | 866 | 5 | **962.4** |
+| 10 | 1059 | 6 | **398.8** |
+| 11 | 297 | 6 | **157.3** |
+
+A piece whose search never reaches an "ideal" fit runs every order from
+`max(2, 2 n_peaks)` to 200 with 30 relocation iterations each, so the cost
+per piece is hundreds to a thousand seconds almost regardless of size. The
+12 pieces took ~25 min, dominated by three; if the other 292 cost like those
+three the total is days. The prediction table's "2 to 10 hours" is not
+supported by this measurement (not a precise estimate: only 12 pieces, all at
+the lowest energies). Neither OpenMC nor the port fits this session at full
+size, so:
+
+- **What is run instead** (`openmc_inputs/ref_u238_subset.py`, unmodified
+  OpenMC; only `_vectfit_xs` is wrapped): OpenMC's `vectfit_nuclide` runs end
+  to end on the tape, so NJOY, the front end, the 304 piece boundaries and
+  slices are upstream's, and every piece's input is checksummed. Upstream's
+  `_vectfit_xs` is called unchanged only on pieces 0-11 (the "prefix") and on
+  pieces 100, 200 and 303 (middle and high energy, where resonances are
+  dense); every other piece gets an empty stand-in without fitting. Their
+  poles and residues are saved.
+- **Windowing** (`from_multipole(search=True)`) is run by OpenMC and by the
+  port on the prefix: the 12 fitted pieces over their own energy range
+  (`E_max = (sqrt(E_min) + 12 w)^2`, `w` the 304-piece width), a U-238 library
+  of the lowest 12 pieces. It is a windowing differential on U-238 poles, not
+  the whole library.
+- **Not done, stated now**: the 304-piece fit, the whole-chain pole count and
+  window parameters of the full library, and whole-chain sigma(E, T). The
+  `#[ignore]`d test `u238_whole_chain_from_the_tape` is the instrument for
+  that.
+- Predictions for the subset: front end bit-identical in all 304 pieces (as
+  above); pole count identical in at least 3 of the 4 pieces beyond the
+  prefix and in at least 11 of the 12 prefix pieces; prefix windowing:
+  windows, spacing, fit order, used poles identical, curve fit ~1e-7 of scale,
+  sigma within rtol/atol at every sampled value. Port time per fitted piece
+  3 to 6 times OpenMC's.
+
+## Results (2026-11-18)
+
+Hardware for every timing below: Intel Xeon @ 2.10 GHz, 4 logical cores, 15 GB
+RAM, shared with two other agents (load average 8 to 12 early on, falling to
+about 4 toward the end); OpenMC with `OMP_NUM_THREADS=2`,
+`OPENBLAS_NUM_THREADS=2`; the port single-threaded; `ulimit -v 12582912`.
+OpenMC timings therefore carry the load of the time: the same piece 100 fit
+took 613 s in the subset run and 256, 241 and 235 s in the sensitivity run
+later on a quieter machine. Quote the ratios, not the seconds.
+
+Reference run: `openmc_inputs/ref_u238_subset.py`, log
+`ref_u238_subset_run.log`, 11:59 to 13:35 UTC. Fixtures: `pieces.txt`,
+`meta.txt`, `fitted_pieces.f64`, `library_prefix.f64` (made by
+`openmc_inputs/to_fixture_u238.py`). Gate: `tests/wmp_generate_u238_vs_openmc.rs`.
+
+### Front end (all 304 pieces)
+
+| | OpenMC | port | agreement |
+|---|---|---|---|
+| grid points, 0 K, error 5e-4 | 609 072 | 609 072 | identical |
+| `vf_pieces` | 304 (3 289 peaks) | 304 | identical |
+| energy, elastic, MT=27 and MT=18 of every piece (checksums), first and last energy | | | **304 of 304 pieces bit-identical** |
+| time | NJOY + `from_njoy` 242 s (probe, loaded) | RECONR+GASPR+ACER 97.7 s, 99.2 s | - |
+
+Prediction (bit-identical): **held**, including for the 0 K deck the U-238
+PENDF gate does not cover.
+
+### The fit, piece by piece (15 pieces OpenMC fitted)
+
+Port `vectfit_xs` on OpenMC's own input to it. Pole count identical in
+**15 of 15** pieces. Differences are relative (nearest-pole matching; residues
+over entries above zero), "sigma" is the cross section each set of poles gives
+on the piece's grid points: absolute difference between the port's and
+OpenMC's, in barn. "OpenMC vs itself" is `openmc_inputs/sensitivity_u238.py`:
+upstream's `_vectfit_xs` rerun on its own input with the cross sections
+changed by +-1 ulp (random sign per value; 2 or 3 trials; the unperturbed
+rerun reproduces the saved fit exactly, 0 difference).
+
+| piece | points | poles | port - OpenMC: poles | residues | sigma (b) | OpenMC vs itself, +-1 ulp: poles | residues | sigma (b) |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 469 | 3 | 3.3e-9 | 1.5e-8 | 4.7e-9 | - | - | - |
+| 1 | 196 | 3 | 1.5e-12 | 3.6e-12 | 1.3e-11 | - | - | - |
+| 2 | 65 | 3 | 6.0e-11 | 9.3e-10 | 4.7e-13 | - | - | - |
+| 3 | 47 | 5 | 6.7e-10 | 2.6e-7 | 2.0e-12 | - | - | - |
+| 4 | 242 | 4 | 8.7e-12 | 4.8e-10 | 1.3e-12 | - | - | - |
+| 5 | 905 | 5 | 8.0e-8 | 1.6e-6 | 3.6e-8 | 3.9e-8, 7.3e-8 | 1.1e-6, 2.0e-6 | 2.6e-8 |
+| 6 | 1 220 | 6 | 1.5e-9 | 2.2e-8 | 2.8e-8 | - | - | - |
+| 7 | 561 | 6 | 4.2e-10 | 6.1e-5 | 9.5e-7 | 2.0e-9, 4.9e-10 | 5.8e-5, 1.8e-5 | 6.4e-7, 2.7e-7 |
+| 8 | 235 | 5 | 2.7e-8 | 8.5e-6 | 2.5e-10 | 2.9e-8, 1.1e-7 | 8.9e-6, 3.4e-5 | 2.5e-10, 9.4e-10 |
+| 9 | 866 | 5 | 9.8e-9 | 3.3e-7 | 6.1e-9 | - | - | - |
+| 10 | 1 059 | 6 | 2.2e-9 | 2.2e-7 | 6.1e-8 | - | - | - |
+| 11 | 297 | 6 | 3.8e-10 | 7.0e-9 | 5.5e-12 | - | - | - |
+| 100 | 3 058 | 16 | 1.5e-3 | 1.5e-1 | 2.1e-3 | 2.9e-3, 2.7e-3 | 2.8e-1, 2.8e-1 | 4.1e-3, 4.5e-3 |
+| 200 | 5 049 | 34 | 3.0e-2 | 4.1e+1 | 3.9e-2 | 2.8e-2 | 3.6e+1 | 3.6e-2 |
+| 303 | 6 623 | 48 | 1.9e-3 | 5.6e-1 | 5.8e-3 | not run | | |
+
+Points outside `rtol = 1e-3` / `atol = 1e-5` b of the pointwise data (on the
+grid points): pieces 0-11: 0 for both codes; piece 100: OpenMC 3, port 3;
+piece 200: OpenMC 3, port 2; piece 303: OpenMC 21, port 17.
+
+Reading: from piece 100 up (16 to 48 poles) the fit is ill-conditioned enough
+that **OpenMC moves itself by as much as the port differs from it** (piece 100:
+poles 2.9e-3 against 1.5e-3, sigma 4.5e-3 b against 2.1e-3 b; piece 200: poles
+2.8e-2 against 3.0e-2, residues 36 against 41, sigma 3.6e-2 b against 3.9e-2 b),
+so these residuals are not a defect to find in the port: they are what a
+one-ulp change does to the algorithm. A relative residue difference of 41
+(4 100 %) is a residue that is small in magnitude; which pole it is, and its
+contribution to sigma, was not examined (the sigma column is the measure that
+matters: 3.9e-2 b worst at piece 200, with 3.6e-2 b for OpenMC against itself).
+For the 12 small pieces the poles agree within 1e-8 in 10 of 12 (pieces 5,
+8.0e-8, and 8, 2.7e-8, are above); the residues are within 1e-8 in only 4 of
+12 (pieces 1, 2, 4, 11). The pieces measured against OpenMC itself (5, 7, 8)
+show OpenMC moving by the same size as the port differs from it (piece 7
+residues 6.1e-5 against 5.8e-5 and 1.8e-5), so the cause there is the same: the
+conditioning of the fit and different linear algebra (petir's QR, SVD and
+eigensolver in place of LAPACK/OpenBLAS), as for Mg-26. ~~For the other nine
+small pieces no self-sensitivity run was made, so their residuals are
+unexplained beyond that.~~ **CORRECTED 2026-11-19**: made, see "Extension run" below. No bit-identity was reached anywhere.
+
+### Windowing of OpenMC's own poles (the lowest 12 pieces, 0 to 31.2 eV)
+
+OpenMC `from_multipole(search=True)` against the port's `search_windowing` on
+the same 57 poles (19 used): **110 windows, spacing (bit pattern), fit order 5,
+used poles and residues identical**; curve-fit coefficients 0 of 1 980
+bit-identical, worst 7.1e-6 of each vector's largest entry; sigma(E, T) of the
+two libraries at 0, 293.6 and 1 200 K (12 000 values): **0 outside rtol/atol,
+worst absolute difference 1.2e-6 b**. Time: OpenMC 32.9 s, port 9.0 s. The
+curve-fit residual is 40 times the Mg-26 figure (1.6e-7); order 5 is the
+ill-conditioned fixed-order case there too.
+
+### Times
+
+Port against OpenMC, same inputs (OpenMC from the subset run, under load, two
+threads; port single thread):
+
+| piece | OpenMC | port | OpenMC / port |
+|---|---|---|---|
+| 9 | 495 s | 37 s | 13 |
+| 10 | 192 s | 40 s | 4.8 |
+| 11 | 78 s | 17.5 s | 4.4 |
+| 100 | 613 s | 98 s | 6.3 |
+| 200 | 1 599 s | 278 s | 5.8 |
+| 303 | 2 416 s | 654 s | 3.7 |
+
+### Predictions against results
+
+| prediction | outcome |
+|---|---|
+| front end bit-identical in all 304 pieces | **held** |
+| `vf_pieces`, boundaries identical | **held** |
+| pole count identical in >= 90 % of pieces | **held in the 15 fitted pieces (15 of 15)**; 289 pieces were not fitted, so nothing is said about them |
+| total pole count identical (about 30 %) | **not testable**: the 304-piece fit was not run (see below) |
+| window parameters identical if the pole count is | held for the 12-piece prefix; not testable for the whole library |
+| fit coefficients not within 1e-8 | **held** (and for pieces from 100 up, worse than Mg-26: poles 1e-3 to 3e-2) |
+| sigma >= 99 % inside rtol/atol, worst <= 1e-2 relative, median ~1e-6 | prefix windowing: 100 % inside, worst 1.2e-6 b. Piece level: worst port-vs-OpenMC relative difference 1.0e-3 (piece 303), 2.8e-3 (piece 200), 7.4e-5 (piece 100); all well inside 1e-2. **held** |
+| OpenMC run time 2 to 10 h | **wrong**: ~300 s per piece early on, 613 to 2 416 s for the three high pieces; extrapolated total is of order tens of hours (see below) |
+| port 3 to 6 times slower than OpenMC | **wrong in direction**: 3.7 to 13 times faster on the six pieces timed |
+| prefix windowing: windows etc. identical, curve fit ~1e-7 | windows etc. identical **held**; curve fit 7.1e-6, **wrong by 40** |
+
+### Gates and verification run
+
+Each agreement above is a gate in `tests/wmp_generate_u238_vs_openmc.rs`: pole
+count equal, front end bit-identical, windows/spacing/order/used poles
+identical, and every measured difference bounded by its 2026-11-18 value
+rounded up in the first figure (`piece_gate`; curve fit 8e-6, windowed sigma
+2e-6 b), plus "the port misses no more grid points than OpenMC". Run in
+release on this machine after the last edit: the new file's three default
+tests (200 s), the ignored `u238_all_fitted_pieces_against_openmc` (1 201 s,
+passes), `--lib wmp::generate` (11 passed, including the new
+`piece_ranges_cover_the_grid_and_follow_the_piece_rule`), and the Mg-26 file
+`wmp_generate_vs_openmc` (2 passed, 781 s), re-run because
+`vectfit_pointwise` was refactored to call the new `resolve_vf_pieces` and
+`piece_ranges` (no behaviour change; Mg-26 front end bit-identical, 4 poles /
+110 windows / order 2, sigma(E, T) 0 of 2 400 outside rtol/atol, as before).
+Sensitivity log: `sensitivity_u238_run.log`.
+
+## What was not done
+
+- **The 304-piece fit, hence the whole-library pole count, window parameters
+  and whole-chain sigma(E, T) against OpenMC.** OpenMC fitted 15 of 304 pieces
+  in 95 min (the three that cost 10 to 40 min each are at 100, 200, 303; the
+  early pieces cost ~1 to 16 min each); a rough extrapolation by point count
+  puts the full run at tens of hours, and the port, 4 to 13 times faster,
+  at several hours. Neither was started. The `from_endf` call and the
+  comparison are what `tests/wmp_generate_u238_vs_openmc.rs` lacks; the ignored
+  test `u238_all_fitted_pieces_against_openmc` runs what exists.
+  This leaves gh:#1390's "pole counts and window parameters identical" shown
+  for 15 pieces and the 12-piece prefix windowing, not for the full library.
+- ~~Piece 303 has no OpenMC self-sensitivity run (about 40 min per trial).~~ **CORRECTED 2026-11-19**: run, two trials of 1 099 s and 707 s on the quieter machine ("Extension run" below).
+- The installed OpenMC 0.15.3 (27e38e89) was not used for any fit; see the top.
+
+## Extension run, 2026-11-18 evening (maintainer: "run more pieces here", a budget of about 5 h)
+
+Written and committed **before** any run of this extension (started 20:05 UTC).
+Same machine, reference (OpenMC `8f79d9d`, pure Python `vectfit`), tape and drivers as above.
+
+### Fixed rules (chosen from the front-end piece table `pieces.txt`, not from any fit result)
+
+1. **Self-sensitivity** (`openmc_inputs/sensitivity_u238_inputs.py`, 2 trials of +-1 ulp per piece, plus
+   the unperturbed rerun): on every piece fitted so far that lacks it: 0, 1, 2, 3, 4, 6, 9, 10, 11, 303.
+   Order: cheap first, 303 last. "Inside OpenMC's own sensitivity" is stated per metric (poles, residues,
+   sigma): the port-vs-OpenMC value is **inside** if it does not exceed the largest value OpenMC shows
+   against itself on that piece (any trial), **outside** otherwise.
+2. **New pieces to fit with both codes**, `fit_u238_pieces.py` (upstream's `_vectfit_xs`, unmodified, on the
+   inputs captured from `vectfit_nuclide`, each checksum-verified against `pieces.txt`):
+   - set A, stratified: every 25th piece by index, 25, 50, 75, 125, 150, 175, 225, 250, 275 (100, 200
+     are already done);
+   - set B, largest by point count among the 304: 298 (7 929), 296 (7 789), 299 (7 689);
+   - set C (only if budget remains after A and B): the contiguous prefix extension 12, 13, 14, ... upward,
+     for step 3.
+   Execution order: A ascending, then B by size, then C ascending. Pieces are not skipped or reordered
+   after seeing a result; whatever is unfinished at the budget is reported as not done.
+3. **Windowing** (step 3), only on a contiguous prefix: the longest fitted contiguous run from piece 0 at
+   the budget; windows, spacing, fit order and used poles compared exactly, curve fit and sigma(E,T) as
+   for the 12-piece prefix.
+
+### Predictions (written before running)
+
+| quantity | prediction |
+|---|---|
+| pole count, new pieces | identical in at least 90 % of the pieces that finish; most likely a single flip at a dense high-energy piece (30 to 80 poles, thousands of near-tied orders) |
+| port - OpenMC against OpenMC's self-sensitivity | for the 10 small/old pieces (0-4, 6, 9, 10, 11, 303): **inside on all three metrics in at least 7 of 10**; 303 inside (as 100 and 200). For the new pieces with more than 16 poles: inside in at least 75 %. Pieces whose differences are 1e-12 to 1e-9 (0-2, 4, 11) will show an OpenMC self-sensitivity of the same order or larger |
+| points outside rtol/atol of the data | port not worse than OpenMC on at least 80 % of the new pieces (the existing gate "port misses no more grid points than OpenMC" may fail on one) |
+| OpenMC run time | 5 to 60 min per new piece on a quiet machine, growing with energy; at least 6 of the 12 pieces in A and B finish in the budget; the largest of B (7 900 points) probably more than 1 h |
+| port run time | 3 to 13 times shorter than OpenMC (as above) |
+| longer-prefix windowing (if run) | windows, spacing, fit order, used poles identical; curve fit within 1e-4 of scale; sigma 100 % inside rtol/atol |
+
+### Extension run: what was run (20:05 to about 01:00 UTC, 2026-11-18 / 19)
+
+Hardware for every timing in this section: Intel Xeon @ 2.10 GHz, 4 logical cores, 15 GB RAM, shared with two
+other agents (load average 8 for most of the run); OpenMC `OMP_NUM_THREADS=2`, `OPENBLAS_NUM_THREADS=2`;
+the port single-threaded; at most two heavy processes (one OpenMC fit or sensitivity process, one port
+process; the OpenMC sensitivity process was suspended with SIGSTOP while a port run needed its slot,
+so the wall seconds of the sensitivity trials that straddle those pauses, pieces 150 and 175, include the
+pause). `ulimit -v 12582912`. Times are loaded wall times: quote ratios, not seconds.
+
+- Inputs: `openmc_inputs/capture_u238_inputs.py` ran OpenMC's `vectfit_nuclide` once (NJOY + front end,
+  about 4 min) with `_vectfit_xs` replaced by a stand-in that saved every piece's input and checked its
+  checksum against `pieces.txt` (304 of 304 equal). `fit_u238_pieces.py` then ran upstream's `_vectfit_xs` on the
+  saved inputs (the same call `vectfit_nuclide` makes, upstream defaults) for the selected pieces; the
+  port ran `vectfit_xs` on its own front end's input (bit-identical to OpenMC's, the gate above).
+- Fixtures: `fitted_pieces_ext.f64` (OpenMC's poles and residues of the 12 new pieces),
+  `pieces.txt` rows updated (`fitted`, `n_poles`); `openmc_inputs/to_fixture_ext_u238.py`.
+- Logs: `openmc_fit_extension.log` (OpenMC fits, with their seconds), `sensitivity_extension_*.log` (OpenMC against
+  itself; the lines of the first runs, pieces 0 to 11 and 303, are in `sensitivity_extension_early.log`),
+  `port_extension_*.log` (the port's runs).
+- Pieces fitted by both codes, rule 2 above, all run: A = 25, 50, 75, 125, 150, 175, 225, 250, 275;
+  B = 298, 296, 299. **12 new pieces, 27 fitted in all.** Rule 2 set C and rule 3 (a longer prefix, and its
+  windowing) were **not run**: the budget went to the fits, the port runs and the self-sensitivity runs
+  (the OpenMC fits of A and B took until 22:48, and the port runs of the dense pieces take 20 to 35 min each).
+
+### Pole counts and agreement, new pieces
+
+| piece | points | OpenMC poles | port poles | OpenMC fit s | port fit s | points outside rtol/atol of the data: OpenMC | port |
+|---|---|---|---|---|---|---|---|
+| 25 | 884 | 10 | 10 | 292 | 34 | 13 | 13 |
+| 50 | 1 546 | 12 | 12 | 528 | 51 | 0 | 0 |
+| 75 | 2 791 | 16 | 16 | 730 | 80 | 0 | 0 |
+| 125 | 3 508 | 20 | 20 | 818 | 160 | 1 | 1 |
+| 150 | 4 176 | 24 | **25** | 466 | 163 | 2 | 2 |
+| 175 | 4 101 | 30 | **29** | 716 | 175 | 0 | 0 |
+| 225 | 5 022 | 34 | 34 | 403 | 256 | 21 | **22** |
+| 250 | 6 860 | 50 | 50 | 779 | 821 | 0 | 0 |
+| 275 | 6 343 | 46 | **57** | 595 | 987 | 0 | **72** |
+| 296 | 7 789 | 67 | **60** | 1 319 | 1 357 | 0 | **2 094** |
+| 298 | 7 929 | 62 | **67** | 1 222 | 2 081 | 0 | **1 064** |
+| 299 | 7 689 | 66 | **59** | 959 | 1 245 | 3 | **661** |
+
+Pole count identical in **6 of 12** new pieces (50 %), and in **21 of 27** fitted pieces overall (78 %; the 15
+earlier ones 15 of 15). Prediction (at least 90 %): **missed**. The difference is not spread evenly: the counts agree in every fitted
+piece up to 3 508 points (and at 225 and 250), differ by one pole at 150 and 175 (4 100 to 4 200 points), and by 5 to
+11 poles in the four densest pieces (6 343 to 7 929 points, 46 to 67 poles), where **the port also leaves far
+more grid points outside the tolerance than OpenMC** (72, 2 094, 1 064, 661 against 0, 0, 0, 3). The gate "the port misses no more grid
+points than OpenMC" therefore fails on those four and, by one point (22 against 21), on piece 225.
+`known_pole_count_difference` and `known_extra_misses` in the test pin these exact values; they are findings
+to be understood, not accepted behaviour.
+
+Where the pole counts agree (pieces 25, 50, 75, 125, 225, 250), port against OpenMC, same input:
+
+| piece | poles (relative) | residues (relative) | sigma on the grid, worst (b) |
+|---|---|---|---|
+| 25 | 7.3e-9 | 2.2e-2 | 1.7e-3 |
+| 50 | 3.7e-5 | 5.8e-3 | 1.7e-5 |
+| 75 | 1.7e-2 | 9.4e-1 | 6.3e-3 |
+| 125 | 1.6e-2 | 7.5e-2 | 3.8e-4 |
+| 225 | 9.5e-4 | 9.4e-1 | 5.9e-3 |
+| 250 | 4.0e-3 | 1.3 | 8.8e-2 |
+
+### OpenMC against itself (+-1 ulp), every fitted piece that was run
+
+Trials: 2 perturbed per piece unless stated; OpenMC 8f79d9d unmodified, drivers
+`openmc_inputs/sensitivity_u238_inputs.py`. Verdict rule (rule 1): a port-vs-OpenMC value is **in** if it does not
+exceed the largest value OpenMC shows against itself on that metric, **out (xN)** if it exceeds it by the factor
+N. Two trials are a thin sample (see the last paragraph).
+
+| piece | port - OpenMC: poles / residues / sigma | OpenMC vs itself, worst trial: poles / residues / sigma | verdict: poles, residues, sigma |
+|---|---|---|---|
+| 0 | 3.3e-9 / 1.5e-8 / 4.7e-9 | 2.1e-9 / 9.5e-9 / 3.1e-9 | out x1.6, out x1.6, out x1.5 |
+| 1 | 1.5e-12 / 3.6e-12 / 1.3e-11 | 8.6e-12 / 6.0e-11 / 4.9e-12 | in, in, out x2.6 |
+| 2 | 6.0e-11 / 9.3e-10 / 4.7e-13 | 1.3e-10 / 8.5e-10 / 7.1e-13 | in, out x1.1, in |
+| 3 | 6.7e-10 / 2.6e-7 / 2.0e-12 | 5.3e-10 / 1.8e-7 / 1.3e-12 | out x1.3, out x1.4, out x1.6 |
+| 4 | 8.7e-12 / 4.8e-10 / 1.3e-12 | 2.1e-11 / 1.6e-9 / 2.0e-12 | in, in, in |
+| 5 | 8.0e-8 / 1.6e-6 / 3.6e-8 | 7.3e-8 / 2.0e-6 / 2.6e-8 | out x1.1, in, out x1.4 |
+| 6 | 1.5e-9 / 2.2e-8 / 2.8e-8 | 2.4e-10 / 8.0e-8 / 2.3e-8 | out x6, in, out x1.2 |
+| 7 | 4.2e-10 / 6.1e-5 / 9.5e-7 | 2.0e-9 / 5.8e-5 / 6.4e-7 | in, out x1.05, out x1.5 |
+| 8 | 2.7e-8 / 8.5e-6 / 2.5e-10 | 1.1e-7 / 3.4e-5 / 9.4e-10 | in, in, in |
+| 9 | 9.8e-9 / 3.3e-7 / 6.1e-9 | 2.3e-9 / 2.1e-7 / 5.2e-8 | out x4.2, out x1.6, in |
+| 10 | 2.2e-9 / 2.2e-7 / 6.1e-8 | 3.6e-10 / 1.4e-7 / 6.2e-8 | out x6.1, out x1.6, in |
+| 11 | 3.8e-10 / 7.0e-9 / 5.5e-12 | 2.5e-10 / 1.2e-8 / 2.3e-12 | out x1.5, in, out x2.4 |
+| 25 | 7.3e-9 / 2.2e-2 / 1.7e-3 | 1.6e-9 / 2.0e-2 / 1.5e-3 | out x4.7, out x1.1, out x1.1 |
+| 50 | 3.7e-5 / 5.8e-3 / 1.7e-5 | 1.4e-5 / 2.3e-3 / 6.6e-6 | out x2.6, out x2.5, out x2.5 |
+| 75 (1 trial) | 1.7e-2 / 9.4e-1 / 6.3e-3 | 1.1e-3 / 6.2e-2 / 4.0e-4 | out x16, out x15, out x16 |
+| 100 | 1.5e-3 / 1.5e-1 / 2.1e-3 | 2.9e-3 / 2.8e-1 / 4.5e-3 | in, in, in |
+| 200 (1 trial) | 3.0e-2 / 4.1e1 / 3.9e-2 | 2.8e-2 / 3.6e1 / 3.6e-2 | out x1.1, out x1.1, out x1.1 |
+| 303 | 1.9e-3 / 5.6e-1 / 5.8e-3 | 1.5e-3 / 4.8e-1 / 5.5e-3 (the other trial: 1.3e-4 / 3.8e-2 / 3.7e-4) | out x1.2, out x1.2, out x1.1 |
+| 125 (1 trial) | 1.6e-2 / 7.5e-2 / 3.8e-4 | 1.1e-2 / 5.1e-2 / 2.6e-4 | out x1.5, out x1.5, out x1.5 |
+| 225 (1 trial) | 9.5e-4 / 9.4e-1 / 5.9e-3 | 2.4e-3 / 2.3 / 1.4e-2 (23 points outside the data; OpenMC unperturbed 21, port 22) | in, in, in |
+| 150 | pole counts differ (25 against 24) | 4 trials: counts 24, 24, **25**, 24; poles 3.4e-2, 2.0e-2, 2.7e-9; residues 1.0 | count: **inside** (OpenMC itself gives 25) |
+| 175 | pole counts differ (29 against 30) | 4 trials: counts 30, **29**, 30, **29**; poles 1.5e-2, 8.0e-2 | count: **inside** (OpenMC itself gives 29) |
+| 275 | 57 against 46 poles, port 72 points outside | 3 trials: counts **50, 48, 46** (poles 1.9e-4 and residues 0.38 in the one that kept 46) | count: **outside** (46 to 50 against 57), see below |
+| 296 (1 trial) | 60 against 67, port 2 094 points outside | count **74**, 66 points outside | count: outside the one OpenMC trial (74), as is the 67 |
+| 298 (1 trial) | 67 against 62, port 1 064 points outside | count **57**, 0 points outside | count: outside the one OpenMC trial (57), as is the 62 |
+| 250 (1 trial) | 50 = 50 poles; 4.0e-3 / 1.3 / 8.8e-2 | count **49**, **186 grid points outside** the data (unperturbed OpenMC and port: 0) | the port-vs-OpenMC values themselves were not compared with this trial (it changed the pole count) |
+| 299 | | **not run** | not stated |
+
+Tally for the 20 pieces with equal pole counts and a self-sensitivity run (0-11, 25, 50, 75, 100, 125, 200, 225,
+303): all three metrics inside OpenMC's own spread on **4 pieces** (4, 8, 100, 225). Of the 60 comparisons 22
+are inside and 38 outside; of the 38, 26 are outside by a factor of at most 1.6, 9 by 2.4 to 6.1 (poles of pieces
+6, 9, 10, 25; sigma of pieces 1 and 11; all three metrics of piece 50) and 3 by 15 to 16 (all three metrics of piece
+75, whose single OpenMC trial moved 1.1e-3 in the poles against the port's 1.7e-2). Prediction (**inside on all three metrics in at least 7 of the 10 pieces 0-4, 6, 9, 10, 11,
+303**): **missed** (1 of 10: piece 4). Prediction "303 inside": **missed** by a factor 1.1 to 1.2 on the worse
+of two trials.
+
+How to read that. OpenMC's own spread is heavy-tailed, not a fixed size: piece 303's two trials differ by 12 to
+100 times from each other (poles 1.3e-4 and 1.5e-3), piece 150's four by a factor 10^7 (2.7e-9 to 3.4e-2),
+and with two trials the worst one is a lower bound of the tail. A port difference at 1.1 to 2.7 times the worst of
+two OpenMC trials is therefore not evidence of a defect: it is what a third trial would often have supplied. The
+factors of 4.2 to 6.1 on the poles of pieces 6, 9, 10 and 25 are larger than that, but there OpenMC moves its
+poles by 2e-10 to 2e-9 and the port differs by 1.5e-9 to 1.5e-8: both are round-off of different linear algebra
+(petir's QR, SVD and eigensolver in place of LAPACK), not a visible disagreement in the cross section (sigma
+differs by at most 1.7e-3 b at piece 25, whose OpenMC trials differ by 1.5e-3 b). Piece 50 is out by 2.5 to
+2.6 on all three, with a sigma difference of 1.7e-5 b. What the self-sensitivity does **not** explain is the
+dense end, next.
+
+### The dense end (pieces 275, 296, 298, 299)
+
+OpenMC's unperturbed fit reproduces the pointwise data on every grid point (0, 0, 0 and 3 points outside rtol/atol)
+at 46 to 67 poles; the port's fit has 72, 2 094, 1 064 and 661 outside, at 57, 60, 67 and 59 poles.
+
+Two measurements bear on whether that is a defect or the same chaos in the order search that OpenMC shows:
+
+- **OpenMC against itself** (above): its pole count moves when its input moves by one ulp (piece 275: 46, then 50, 48
+  and 46; piece 296: 67, then 74, and the 74-pole fit leaves 66 grid points outside; piece 298: 62, then 57 with 0 outside;
+  piece 250, whose unperturbed fit and the port's both have 0 outside: 50, then 49 poles with **186 grid points outside**).
+  So one ulp is enough to take OpenMC from a perfect fit to hundreds of misses on a 6 900-point piece.
+- **The port against itself**, `u238_port_self_sensitivity` (piece 275, one trial, the cross sections moved by +-1 ulp
+  with a fixed xorshift sign pattern; 925 s): **55 poles and 0 grid points outside**, against 57 poles and 72 outside
+  unperturbed. So the port's search also reaches a fit that reproduces every grid point once the input moves by one
+  ulp, and the 72 misses are not a fixed property of its algorithm on this piece. One trial: it shows that the miss
+  is not stable, not how often it occurs. The same instrument was not run on 296, 298 or 299, and OpenMC's
+  perturbed trials were not run on 275 with the points-outside count printed (the script gained that column after
+  that run).
+
+Reading: the pole-count differences of the dense pieces are consistent with a search that is chaotic at 46 to 67
+poles in both codes, and I found no evidence of a defect in the port. It is **not shown** that the port's miss
+rate matches OpenMC's: unperturbed, OpenMC missed 0, 0, 0 and 3 grid points on four pieces and the port 72 to
+2 094; OpenMC's perturbed 296 left 66 outside and its perturbed 250 left 186. That is a handful of pieces, not a distribution.
+~~Not done, and what would settle it: the port's order search traced against OpenMC's ... and several +-1 ulp trials of both codes on 296 and 298 with the points-outside count.~~ **Done 2026-11-19 on piece 296** ("Diagnosis of the dense end on piece 296" below): the reading above, "no evidence of a defect", holds for the search logic, but the two codes' outcomes are not identically distributed. Nothing was changed in the port.
+
+### Predictions against results (extension)
+
+| prediction | outcome |
+|---|---|
+| pole count identical in at least 90 % of the pieces that finish | **missed**: 6 of 12 new (50 %), 21 of 27 overall (78 %) |
+| inside OpenMC's self-sensitivity on all three metrics in at least 7 of 10 small/old pieces; 303 inside | **missed**: 1 of 10; 303 outside by x1.1 to x1.2 |
+| new pieces with more than 16 poles inside in at least 75 % | **not testable**: self-sensitivity was run on 75, 125, 150, 175, 225, 275, 296, 298 and not on 250, 299; inside on all three metrics at 225 only, outside at 75 (x15 to 16) and 125 (x1.5); pole counts of 150 and 175 inside, of 275, 296 and 298 outside |
+| port not worse than OpenMC on points outside rtol/atol in at least 80 % of the new pieces | **missed**: worse in 6 of 12 (225 by one point; 275, 296, 298, 299 by 72 to 2 094) |
+| OpenMC 5 to 60 min per new piece, at least 6 of the 12 finish | **held**: 4.9 to 22 min per piece (the dense ones 16 to 22 min), all 12 finished |
+| port 3 to 13 times faster than OpenMC | **held up to 4 200 points** (OpenMC / port 8.6, 10.4, 9.1, 5.1, 2.9 (borderline), 4.1 for pieces 25 to 175); **missed from 225 up** (1.6, 0.95, 0.60, 0.97, 0.59, 0.77 for 225, 250, 275, 296, 298, 299: the port is as slow as OpenMC or slower) |
+| longer-prefix windowing | **not run** |
+
+(Ratios use each code's own loaded wall seconds, not run side by side under one load, with the port single-threaded and
+OpenMC on two threads, so they carry the load of the time. That the port is slower at the dense end is as measured; why
+is not examined. A search that never reaches an "ideal" fit goes through every order, which would explain it for
+the pieces where the port misses grid points, but the order the port stopped at was not printed.)
+
+### Verification run (extension)
+
+`cargo check --release -p njoy-outram-park-fork --lib --tests --examples -j 2`: passes (unchanged warnings only).
+`wmp_generate_u238_vs_openmc.rs`, default tests (3 passed, 3 ignored, 327.6 s): front end 304 of 304 pieces
+bit-identical (116.8 s under load), the nine earlier cheap pieces and the new 25 (33 s) and 50 (51 s) within
+their gates, prefix windowing as before. The ignored pins were run on pieces 75, 150, 175 and 225 with the
+final test code (`OUTRAM_WMP_U238_PIECES=75,150,175,225`, passed, 784 s): 75 and 225 within their gates (225 with
+its recorded 21 against 22 misses), 150 and 175 with their recorded pole-count differences. Pieces 125, 250, 275,
+296, 298 and 299 were measured with an earlier build of the same code that printed instead of asserting; their
+pins and gates are the printed values and have not been re-run in the committed form (hours).
+
+### What was not done (extension)
+
+- Rule 2 set C and rule 3: no contiguous prefix beyond piece 11, so no longer windowing differential; the 12-piece
+  prefix stays the only windowing result.
+- OpenMC self-sensitivity of piece 299 (not reached), a second perturbed trial of 75, 125, 225, 296
+  and 298, and OpenMC's perturbed trials of 275 with the points-outside count.
+- The 304-piece fit, the whole-library pole count and the window parameters of the whole library.
+- ~~Any diagnosis of the dense-end difference above. No change was made to the port.~~ **CORRECTED 2026-11-19**: diagnosed on piece 296, see "Diagnosis of the dense end on piece 296" below; still no change to the port.
+
+## Appendix: the reference driver, verbatim
+
+`openmc_inputs/ref_u238_subset.py`, run 2026-11-18 11:59 UTC against OpenMC
+`8f79d9d02483c90e4134f03a9df4b75ce6b062bf`
+(`crates/outram-mc-libs/upstream_source/OpenMC`), tape
+`reference-data/endf/n-092_U_238.endf` (ENDF/B-VIII.0, MAT 9237), NJOY2016.80,
+arguments `12 100,200,303`, upstream defaults otherwise (`njoy_error = 5e-4`,
+`rtol = 1e-3`, `atol = 1e-5`, `n_vf_iter = 30`, automatic pieces).
+
+```python
+"""Reference run of OpenMC 8f79d9d on U-238, fitting a stated SUBSET of the pieces (gh:#1390).
+
+Usage: python ref_u238_subset.py <endf tape> <out dir> <prefix K> <extra pieces, comma separated>
+Environment: njoy (NJOY2016.80) on PATH; OpenMC 8f79d9d on PYTHONPATH.
+
+Why a subset: the full `vectfit_nuclide` on this tape was started with
+`ref_u238.py` and measured at ~300 s per piece for the first 12 of 304
+pieces (see the README), about 25 h in total, which does not fit the session.
+
+What is real and what is a stand-in:
+  * Unmodified OpenMC runs `vectfit_nuclide`: NJOY, the front end, the piece
+    boundaries and the slicing of all 304 pieces are upstream's.
+  * `_vectfit_xs` is wrapped. For every piece it records the size and a
+    checksum of the inputs it was given (the front-end gate covers all 304).
+    For pieces 0..K-1 and the extra pieces it calls upstream's `_vectfit_xs`
+    unchanged and saves poles and residues at once. For every other piece it
+    returns an empty stand-in (0 poles) WITHOUT fitting.
+  * The prefix library: the first K pieces' multipole data, over the energy
+    range of those K pieces (piece width of the full 304-piece split), is
+    given to upstream's `WindowedMultipole.from_multipole(search=True)` and
+    saved. That is a library of the lowest K pieces only.
+
+Checksum (identical in the Rust test): the f64 words of [energy, row 0, row 1,
+row 2] concatenated; h_xor = XOR of all words, h_sum = sum of the words mod
+2^64, h_pos = sum of word*(index+1) mod 2^64.
+"""
+import sys, os, json, time, copy
+from math import sqrt
+import numpy as np
+import openmc.data as d
+from openmc.data import multipole as mp
+
+endf_path, out_dir, K, extra = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
+fit_set = set(range(K)) | {int(x) for x in extra.split(",") if x}
+os.makedirs(out_dir, exist_ok=True)
+
+
+def checksum(energy, ce_xs):
+    w = np.ascontiguousarray(np.concatenate([np.asarray(energy, dtype='<f8')] +
+                                            [np.asarray(r, dtype='<f8') for r in ce_xs])).view('<u8')
+    idx = np.arange(1, w.size + 1, dtype=np.uint64)
+    with np.errstate(over='ignore'):
+        return [int(np.bitwise_xor.reduce(w)), int(w.sum(dtype=np.uint64)), int((w * idx).sum(dtype=np.uint64))]
+
+
+def write_piece(i, p, r):
+    buf = [float(i), float(p.size), float(r.shape[0])]
+    buf += np.column_stack([p.real, p.imag]).ravel().tolist()
+    buf += np.column_stack([r.real.ravel(), r.imag.ravel()]).ravel().tolist()
+    np.array(buf, dtype='<f8').tofile(os.path.join(out_dir, f"piece_{i}.f64"))
+
+
+pieces = []
+fitted = {}
+upstream_vectfit_xs = mp._vectfit_xs
+
+
+def wrap(energy, ce_xs, mts, **kw):
+    i = len(pieces)
+    rec = {"index": i, "n_points": int(energy.size), "e_first": float(energy[0]).hex(),
+           "e_last": float(energy[-1]).hex(), "mts": list(mts), "checksum": checksum(energy, ce_xs)}
+    if i in fit_set:
+        t = time.time()
+        p, r = upstream_vectfit_xs(energy, ce_xs, mts, **kw)
+        rec.update(fitted=True, n_poles=int(p.size), seconds=time.time() - t)
+        write_piece(i, p, r)
+        fitted[i] = (p, r)
+        print(f"piece {i} FITTED points {energy.size} poles {p.size} seconds {rec['seconds']:.1f}", flush=True)
+    else:
+        p, r = np.zeros(0, dtype=complex), np.zeros((len(mts), 0), dtype=complex)
+        rec.update(fitted=False, n_poles=0, seconds=0.0)
+    pieces.append(rec)
+    json.dump(pieces, open(os.path.join(out_dir, "pieces.json"), "w"))
+    return p, r
+
+
+mp._vectfit_xs = wrap
+t0 = time.time()
+mp_data = mp.vectfit_nuclide(endf_path)
+t1 = time.time()
+n_pieces = len(pieces)
+print("vectfit_nuclide seconds (fits of the chosen pieces only)", t1 - t0, "pieces", n_pieces, flush=True)
+
+# prefix multipole data: the first K pieces over their own share of the 304-piece split
+width = (sqrt(mp_data["E_max"]) - sqrt(mp_data["E_min"])) / n_pieces
+e_max_prefix = (sqrt(mp_data["E_min"]) + K * width) ** 2
+prefix = {"name": mp_data["name"], "AWR": mp_data["AWR"], "E_min": mp_data["E_min"], "E_max": e_max_prefix,
+          "poles": [fitted[i][0].copy() for i in range(K)], "residues": [fitted[i][1].copy() for i in range(K)]}
+json.dump({"name": mp_data["name"], "AWR": float(mp_data["AWR"]).hex(), "E_min": float(mp_data["E_min"]).hex(),
+           "E_max_full": float(mp_data["E_max"]).hex(), "E_max_prefix": float(e_max_prefix).hex(), "K": K,
+           "n_pieces": n_pieces, "fit_seconds": t1 - t0}, open(os.path.join(out_dir, "meta.json"), "w"))
+t2 = time.time()
+wmp = d.WindowedMultipole.from_multipole(copy.deepcopy(prefix))
+t3 = time.time()
+print("from_multipole(search) on the prefix seconds", t3 - t2, flush=True)
+lib = [wmp.spacing, wmp.sqrtAWR, wmp.E_min, wmp.E_max, float(wmp.n_poles), float(wmp.data.shape[1]),
+       float(wmp.n_windows), float(wmp.fit_order)]
+lib += np.column_stack([wmp.data.real.ravel(), wmp.data.imag.ravel()]).ravel().tolist()
+lib += np.asarray(wmp.windows, dtype=float).ravel().tolist()
+lib += [float(x) for x in wmp.curvefit.shape]
+lib += wmp.curvefit.ravel().tolist()
+lib += np.asarray(wmp.broaden_poly, dtype=float).ravel().tolist()
+np.array(lib, dtype='<f8').tofile(os.path.join(out_dir, "library_prefix.f64"))
+json.dump({"n_poles": int(wmp.n_poles), "n_windows": int(wmp.n_windows), "fit_order": int(wmp.fit_order),
+           "spacing": float(wmp.spacing).hex(), "from_multipole_seconds": t3 - t2},
+          open(os.path.join(out_dir, "library_prefix_meta.json"), "w"))
+print("done: prefix poles", wmp.n_poles, "windows", wmp.n_windows, "fit_order", wmp.fit_order, flush=True)
+```
+
+## Diagnosis of the dense end on piece 296 (gh:#1390, 2026-11-19)
+
+Maintainer decision 2026-11-19: "Diagnose one dense piece". Question: why does the port's fit disagree with
+OpenMC's on the densest pieces (275, 296, 298, 299), and is that chaos in the fit-order search or a port defect?
+The predictions, the side-by-side reading and the method were committed **before** any trace ran:
+[`PREDICTIONS_1390_dense_piece.md`](PREDICTIONS_1390_dense_piece.md) (commit `cc2095b08`). Everything below is piece
+296 (7 789 points, 3 reactions, 49 peaks, orders 98 to 200 in steps of 2), OpenMC `8f79d9d` pure Python
+(unmodified; only module-level names are wrapped to log), the same input files for both codes. Hardware for every
+timing: Intel Xeon @ 2.10 GHz, 4 logical cores shared with other agents (load average 8 to 13 for most of this work,
+and some runs were SIGSTOPped while another instrument ran), OpenMC `OMP_NUM_THREADS=2`, the port single-threaded,
+`ulimit -v 12582912`: quote no second of it as a speed. Data, logs and analysis outputs:
+[`diagnosis_296/`](diagnosis_296/).
+
+### Step 1: side-by-side reading of upstream and the port (no run)
+
+Upstream `_vectfit_xs` (`multipole.py:144-385`) against `generate/fit.rs::vectfit_xs`, `vectfit.py` against
+`generate/vectfit.rs`, the numpy/scipy primitives against `generate/npy.rs`. **No difference in control flow, bounds,
+tie-breaking or defaults was found**: order list, initial poles and their sort, 30 iterations per order restarting
+from the *un-split* poles, the real-pole split and the second `skip_pole_update` call, the 10x test grid and
+`np.interp` (NaN fall-backs included), `ratio`/`ratio2`/`maxre`/`quality` with their NaN and `min(., 1)` semantics,
+the strict `quality > best_quality`, `best_ratio >= 1` as the only ideal stop, and the acceleration rule. The same
+holds for the vector-fitting core (`compute_dk`, constrained and unconstrained QR blocks, `wlstsq` scaling, the
+relaxed pole matrix, `label_conjugate_poles`). Three places differ in *numerics* only (`lstsq`: QR plus
+Golub-Reinsch SVD against DGELSD; blocked against unblocked QR; petir's balanced Francis QR against DGEEV; the
+summation order of `evaluate`). The comparison table is in the predictions file. A missing limit or tie-break, the
+most likely port defect, **is not there**.
+
+### Step 2: instruments
+
+* Port: `src/wmp/generate/trace.rs` (test-only, `#[ignore]`) is a logged copy of the order loop that calls the
+  library's unchanged `vectfit` and `evaluate`. `trace_reproduces_vectfit_xs` shows it returns **bit-identical poles
+  and residues** to `vectfit_xs` on piece 50 (12 poles, 111 s), and on 296 it returns the pinned 60 poles and 2 094
+  points outside. `trace_step.rs` (one relocation step from OpenMC's logged poles) and `trace_kernel.rs` (the port's
+  `lstsq`/`eigvals` on OpenMC's matrices) call `npy.rs` and `vectfit` unchanged.
+* OpenMC: `openmc_inputs/trace_openmc.py` wraps `multipole.evaluate` and `vectfit.lstsq`, recomputes the metric
+  from the test grid and returns the originals' values unchanged. The unperturbed trace reproduces the fixture (67 poles,
+  0 points outside). Bookkeeping bug in that script's own summary file, found afterwards and handled in the analysis
+  instead of re-running 45 minutes: it logged `order` as the size of `new_poles` (`order` plus the number of split
+  real poles), so `orders_visited` and `last_order_visited` in the OpenMC `*.summary.txt` files are wrong;
+  `compare_traces.py` and `pool_traces.py` recover the true order as `first_order + 2 * (row // 30)`, valid
+  because every order runs 30 iterations. The fit results in those files are right.
+
+### Step 3: order-by-order trace of the unperturbed run (`diagnosis_296/compare_t0.txt`)
+
+| | OpenMC | port |
+|---|---|---|
+| orders visited | 98 to 138 (21) | 98 to 130 (17) |
+| stop | acceleration, ten orders without improvement; best at order 118, quality 1.661 | acceleration, ten orders without improvement; best at order 110, quality 1.469 |
+| `best_ratio` | 0.78: **neither code reaches an ideal fit** (`ratio` is on the 10x test grid, so 0 grid-point misses coexist with 22 % of test points outside) | 0.72 |
+| final poles / grid points outside | 67 / 0 | 60 / 2 094 |
+
+The two searches take **the same control path and stop by the same rule**; the port does not stop early through a
+mis-implemented limit. OpenMC drew one better fit (order 118: 51 336 of 233 643 test points outside, against a
+usual per-order best of 55 000 to 67 000) and the port's best was 64 882. Inside an order the iteration is wildly
+unstable in both codes: 53 to 60 % of OpenMC's iterations (five trials) and 45 to 49 % of the port's (five
+trials) give an unusable fit (`quality = -inf`, a negative cross section), and a good fit appears at any iteration
+from the 12th to the 29th. At iteration 1 of each order (same deterministic initial poles) the relocated poles
+already differ between the codes by 7.5e-3 to 3.5e-2 (largest over the poles; median 2.0e-2) at all 17 common
+orders, and no test-grid count agrees.
+
+### Step 4: where the divergence starts (`single_step.txt`, `iter1_null_t0.tsv`, `kernel_*`)
+
+**Single relocation steps, 188 of them.** `vectfit` called on the exact poles OpenMC logged at iteration k (real-pole
+split undone), compared with OpenMC's logged k + 1 by the largest relative distance of a pole to its nearest match.
+OpenMC itself (`step_openmc.py`) reproduces its logged step with difference 0 in 180 of 188 steps (the other 8 not
+investigated).
+
+| percentile of the max-over-poles relative difference | 10 | 25 | 50 | 75 | 90 |
+|---|---|---|---|---|---|
+| port against OpenMC | 1.9e-3 | 2.6e-2 | 1.0 | 2.6 | 8.6 |
+| OpenMC DGELSS against OpenMC DGELSD | 8.6e-4 | 2.2e-2 | 1.0 | 1.9 | 8.0 |
+| OpenMC, every input pole component changed by 1 ulp | 3.5e-4 | 4.1e-3 | 0.99 | 1.8 | 7.3 |
+
+A single step already moves the largest pole by 100 % (median) under any of the three changes, and the three
+distributions overlap at every percentile. By iteration, median of the maximum: iterations 1 to 3 (n = 20) port 7.9e-3,
+DGELSS 7.3e-3, 1 ulp 6.7e-4; 4 to 8 (n = 42) 0.34, 0.22, 0.076; 9 to 15 (n = 42) 1.0, 1.0, 1.1; 16 to 29 (n = 84) 1.4,
+1.0, 1.2.
+
+**The matrix, iteration 1** (`dump_kernel_inputs.py`, `trace_kernel.rs::kernel_differential`, `kernel_null.py`; orders
+98, 106, 110, 120, 130; the pole-identification solve, the column-normalised `3(n+1) x (n+1)` matrix `wlstsq` hands to
+`lstsq`):
+
+* numerical rank 17 of 99 to 131 columns in both; the last kept singular value is `s_17 / s_max = 1.0e-15`, the first
+  dropped one `s_18 / s_max = 1.2e-16 to 1.5e-16`, **below the cutoff `eps = 2.2e-16`**; 85 to 117 singular values
+  lie within a factor 100 of the cutoff (same count in LAPACK and the port);
+* the port's singular values agree with LAPACK's to 8.7e-17 to 5.6e-16 of `s_max`; the solutions differ by
+  `|dx| / |x|_max` = 3.3e-2, 2.8e-2, 2.9e-2, 2.0e-2, 9.6e-2;
+* LAPACK's own sensitivity on the same matrices: DGELSD with every entry changed by 1 ulp moves the solution by 7.7e-2 to
+  1.9e-1 (five orders), DGELSY by 0.07 to 0.28, DGELSS by 3.6e-4 to 5.2e-2. **The port's 2e-2 to 1e-1 lies inside what a
+  1-ulp change does to DGELSD itself.** Eigenvalues of the relocation matrix: port against DGEEV 7.7e-4 to 3.0e-3,
+  DGEEV against DGEEV on a 1-ulp-changed matrix 1.8e-4 to 3.1e-3.
+
+So each relocation rests on a truncated SVD whose truncation point sits a factor of two from the round-off floor, and
+any change at the 1e-16 level (another LAPACK routine, another SVD, one ulp in the data) changes the answer by percent
+and, after a few iterations, the poles by order one. That is upstream's algorithm (`cond = eps` on a rank-deficient
+system), and the port reproduces it.
+
+At iteration 1 the port is 10 to 100 times further from DGELSD in the poles (7.5e-3 to 3.5e-2) than DGELSS is (8e-5 to
+3.1e-3, median 7.4e-4, 21 orders). The next step shows that this is a systematic difference with DGELSD, and not
+noise.
+
+### Step 5: a systematic difference found: DGELSD keeps one more singular value than any other SVD routine, and the port does not
+
+`dump_kernel_rows.py` dumped the pole-identification matrix of 42 relocation calls (every 15th row of the unperturbed
+OpenMC trace, orders 98 to 138, iterations 1 to 30) and `trace_kernel.rs::rank_differential` solved each with the port;
+`rank_null.py` counted singular values above `eps * s_max` with DGELSS, DGESDD and DGESVD.
+`diagnosis_296/rank_t0.txt`, `rank_null_t0.txt`.
+
+| | result over 42 matrices (ranks 78 to 131) |
+|---|---|
+| DGELSS = DGESDD = DGESVD | identical rank in **42 of 42** |
+| DGELSD against those three | **higher by one in 17, equal in 25, lower in 0** |
+| port against DGELSD | lower by 1 in 16, equal in 26, higher in 0 |
+| port against DGELSS | **equal in 41 of 42** (the exception is one of the 17 where the port equals DGELSD's higher rank) |
+| DGELSD on the matrix with every entry changed by 1 ulp (3 draws) | the same rank as unperturbed DGELSD in 123 of 126 (the three others differ by 1) |
+
+So the one-sided shift is not noise, and it is not the port: **three independent LAPACK SVD routines agree with the
+port, and DGELSD alone ranks one higher in 40 % of the calls**, never lower, and it does that reproducibly under 1-ulp
+changes. The port re-expresses DGELSD as "QR, SVD of the triangle, drop `s <= eps * s_max`" (`npy.rs::lstsq`), which
+is the exact-SVD rank; DGELSD's divide and conquer (`DLALSD`) applies the same `rcond` test to singular values of its
+own sub-problems, and keeps one more. The 6 residue solves dumped (2 rows) show no one-sided pattern (port minus
+DGELSD: -1, 0, 0, 0, +1, +2).
+
+### Step 6: several +-1 ulp trials of both codes (same input files)
+
+Inputs `in_296_t<k>` (`make_trial_inputs.py`): t0 unperturbed, t1 to t4 every cross-section value times `1 +- 2^-52`,
+sign per value from `default_rng(1000 + k)`. Both codes read the same files. Points outside rtol/atol are counted on
+the 7 789 grid points against the **unperturbed** data (`pool_traces.py`).
+
+| trial | OpenMC poles | OpenMC outside | OpenMC best quality | port poles | port outside | port best quality |
+|---|---|---|---|---|---|---|
+| t0 (unperturbed) | 67 | 0 | 1.661 | 60 | 2094 | 1.469 |
+| t1 | 58 | 220 | 1.666 | 77 | 710 | 1.504 |
+| t2 | 67 | 257 | 1.651 | 60 | 737 | 1.532 |
+| t3 | 62 | 826 | 1.537 | 55 | 1944 | 1.475 |
+| t4 | 67 | 1167 | 1.581 | 63 | 731 | 1.529 |
+
+OpenMC: poles {58, 62, 67, 67, 67}, points outside {0, 220, 257, 826, 1 167} (median 257), best quality {1.537, 1.581, 1.651, 1.661, 1.666}.
+Port: poles {55, 60, 60, 63, 77}, points outside {710, 731, 737, 1 944, 2 094} (median 737), best quality {1.469, 1.475, 1.504, 1.529, 1.532}.
+The supports **overlap** in poles (55 to 77 against 58 to 67; three of the port's five counts are inside OpenMC's range) and in
+points outside (the port's 710, 731 and 737 lie inside OpenMC's 0 to 1 167; OpenMC's 826 and 1 167 lie inside the port's
+710 to 2 094; the port's t0 result, 2 094, is the largest of the ten, and the previous record of OpenMC's own
+single perturbed trials, 66 outside on 296 and 186 on 250, shows the same kind of excursion). Mann-Whitney on the
+number outside: U = 19 of 25 (port larger), two-sided p about 0.10: **not resolved**. **But the best quality
+reached is separated completely: every one of the port's five (1.469 to 1.532) is below every one of OpenMC's five
+(1.537 to 1.666), exact two-sided p = 2 / 252 = 0.008.** The per-order best (fewest of the 30 iterations of an order)
+number of test-grid points outside, pooled over trials: OpenMC median 66 937 (quartiles 58 892 and 81 452, 99 orders),
+port median 76 119 (65 015 and 110 097, 96 orders), z = +3.4 (the orders of one trial are not independent, so
+indicative only). Usable iterations are alike (quality median 1.03 against 1.04 for iterations 11 to 30, 90th percentile 1.44 against 1.44);
+the difference is in the upper tail: 36 of OpenMC's 1 301 usable iterations have quality above 1.5 (2.8 %) against
+4 of the port's 1 223 (0.3 %; trials t0 to t3), and the port's per-order best clusters at 1.45 to 1.47 where OpenMC's reaches 1.50 to 1.67.
+Elapsed times are loaded wall seconds and not comparable (the port 1 071 to 4 455 s, OpenMC 1 377 to 2 807 s).
+
+**Is the DGELSD rank rule the cause of the port's lower quality?** The test: OpenMC's loop with `scipy.linalg.lstsq`
+told to use DGELSS (`TRACE_LSTSQ_DRIVER=gelss`, nothing else changed; its rank equals the port's in 41 of 42 matrices,
+Step 5), on the same input files. If the rank rule drove the shift, those runs should look like the port's (best quality
+1.47 to 1.53). OpenMC with DGELSS (4 trials, t0, t1, t2, t3): t0: 74 poles, 129 outside, best quality 1.650; t1: 76 poles, 478 outside, best quality 1.632; t2: 64 poles, 807 outside, best quality 1.540; t3: 66 poles, 656 outside, best quality 1.540. They stay in OpenMC's range (1.54 to 1.67) rather than
+moving to the port's, but two of the four (1.540) are at its bottom edge, 0.008 above the port's best. **The DGELSD rank rule is
+not shown to be what shifts the port's distribution** (none of the 4 trials is below 1.53, where the port's five all are), and four trials cannot
+exclude a partial contribution.
+
+### Conclusion
+
+**Answer to the maintainer's question: it is chaos in the fit-order search, amplified by an ill-posed truncated SVD, that makes
+the codes disagree on individual pieces; no port defect in the search logic exists; but the port's outcome distribution
+is not identical to OpenMC's, and the reason for that shift was not found.**
+
+1. **No difference in the search logic.** Side-by-side reading of upstream and the port found none in control flow, bounds,
+   tie-breaking or defaults (Step 1). The port's logged loop reproduces `vectfit_xs` bit for bit (piece 50) and the pinned
+   result (piece 296), and its trace follows the same path and stops by the same rule as OpenMC's (Step 3). The pinned
+   `known_pole_count_difference` / `known_extra_misses` values stay as they are: no library result moved.
+2. **The divergence is created in the very first relocation step and is intrinsic.** The pole-identification least squares
+   has numerical rank 17 of 99 to 131 with the cutoff `eps * s_max` 1.5 to 1.9 times above the first dropped singular value and
+   85 to 117 singular values within a factor 100 of it; a 1-ulp change of the matrix moves LAPACK's own solution by 8 to 19 %, the
+   port's solution differs from LAPACK's by 2 to 10 %. Single relocation steps differ by 100 % (median) between the port
+   and OpenMC, between two LAPACK drivers, and under a 1-ulp change of the input poles, with overlapping distributions at every
+   percentile (Step 4). Half of all iterations produce an unusable fit in both codes and the best of 30 per order is a draw
+   from a heavy tail.
+3. **The final results overlap, as chaos predicts**: OpenMC alone gives 58 to 67 poles and 0 to 1 167 grid points outside over five
+   inputs; the port gives 55 to 77 and 710 to 2 094 (Step 6). The 0 against 2 094 of the unperturbed pair, which started
+   this, is one draw of each, not a systematic gap of that size: the port's t1, t2 and t4 (710, 737, 731 outside) are inside
+   OpenMC's range.
+4. **What chaos does not explain: a shift in the best quality reached.** The port's five best qualities are all below OpenMC's five
+   (exact p = 0.008; pooled per-order bests z = +3.4), concentrated in the upper tail of the per-iteration quality. A
+   consistent cause was searched for and **not found**:
+   * the kernel differential (Step 4) puts the port inside LAPACK's own sensitivity for the least-squares solve, the
+     eigenvalues and the single step;
+   * the one systematic kernel difference found (Step 5, DGELSD keeping one more singular value than DGELSS, DGESDD and
+     DGESVD in 40 % of the pole-identification solves, which the port, like those three, does not) is **not shown to be the cause**: OpenMC
+     run with DGELSS kept its quality (previous paragraph; four trials).
+   Candidates not tested: petir's eigenvalue solver against DGEEV on the many near-degenerate poles (single-step eigenvalue
+   agreement was measured on five matrices only), the unblocked QR, `evaluate`'s summation order inside the quality
+   metric (every test-grid count passes through it), and the residue solves (six matrices measured). Each of them is a
+   round-off-level difference whose effect the chaos magnifies, which is why no single-step measurement can see it.
+5. **No fix was made.** (a) The only systematic difference found, DGELSD's rank rule, would need `DLALSD`'s divide and
+   conquer ported (thousands of lines) and does not explain the shift. (b) Changing `rcond` or the truncation to make the port
+   match would be fitting the comparison, which the process rule forbids. The function (`npy.rs::lstsq`) is not
+   kovan-reviewed (its folder's `review.md` holds no `kind = "review"` block). The doc comment in `npy.rs` that said the
+   truncation rule is the same as DGELSD's was corrected (comment only).
+
+For the maintainer: the dense-piece disagreement should be read as chaos plus an unexplained mild bias toward worse
+quality in the port's tail; the useful next experiments are (i) the same trials on piece 298 or 275, (ii) the port run with
+DGEEV-equivalent eigenvalues (for example the pole matrix passed through a higher-precision solve) to test the eigenvalue
+candidate, (iii) the test-grid `evaluate` with a compensated sum. A pure-chaos claim would need the five-against-five
+separation above to disappear with more trials.
+
+### Predictions against results (this diagnosis)
+
+| prediction (PREDICTIONS_1390_dense_piece.md) | outcome |
+|---|---|
+| H-chaos 55 %, H-defect 30 %, in between 15 % | mechanism: chaos; logic defect: none; the "in between" case (both noisy, port's distribution shifted) is the one observed |
+| iteration 1 of each order agrees on quality, ratio and count outside in at least 80 % of orders | **missed**: iteration 1 is unusable (`-inf`) in both codes at all 17 common orders, so quality is uninformative; the poles differ by 7.5e-3 to 3.5e-2 and no test-grid count agrees; the cause is the truncated SVD at the round-off floor (Step 4) |
+| iterations 2 to 30 drift apart gradually | **missed**: the pole sets differ past 1e-6 already at iteration 1 in 17 of 17 orders |
+| OpenMC's unperturbed run reaches an ideal fit (`ratio >= 1`), the port near-ideal but not exactly | **wrong**: neither code ever reaches an ideal fit on this piece (best ratio 0.78 and 0.72); OpenMC stops by the acceleration rule too |
+| the port stops by the acceleration rule, OpenMC by `found_ideal` | port: held; OpenMC: **wrong**, also acceleration |
+| trials: at least one port trial with fewer than 100 points outside | **missed**: the port's smallest is 710 |
+| trials: at least one OpenMC trial with more than 100 outside or a count other than 67 | held (4 of 5) |
+| pole counts span at least 6 values per code | **missed**: OpenMC 3 values, port 5 values over five trials |
+| means of the two codes differ by less than the pooled spread | poles and points outside: held (supports overlap); best quality: **missed** (complete separation, p = 0.008) |
+| a defect needs (a) systematic iteration-1 gaps at many orders and (b) a named kernel departing from LAPACK by more than LAPACK's own sensitivity | (a) found for DGELSD's rank (17 of 42), (b) **not met**: the port is inside LAPACK's sensitivity everywhere measured, and the one named difference is not the cause |
+
+### Verification run (this diagnosis)
+
+Run in release on the machine above after the last source edit (the new test files `trace.rs`, `trace_step.rs`,
+`trace_kernel.rs` are `#[cfg(test)]` and `#[ignore]`; the only other source change is a comment in `npy.rs`):
+`cargo check --release -p njoy-outram-park-fork --lib --tests --examples -j 2` passes;
+`cargo check --release -p njoy-outram-park-fork --lib --no-default-features --target x86_64-unknown-none -j 2` passes;
+`cargo test --release -p petir --test no_platform_libm -j 2`: 4 passed (it first failed on two `powi` calls in the new
+diagnostics, which were replaced by products);
+`cargo test --release -p njoy-outram-park-fork --test wmp_generate_u238_vs_openmc -j 2` (the default, non-ignored
+tests): 3 passed, 3 ignored, 210 s (front end 304 of 304 pieces bit-identical, prefix windowing, the cheap piece fits).
+The pinned `known_pole_count_difference` / `known_extra_misses` values were not touched: the library's results did not
+change and the unperturbed port trace reproduces 60 poles and 2 094 outside on piece 296. The ignored diagnostics:
+`cargo test --release -p njoy-outram-park-fork --lib wmp::generate::trace -- --ignored` (environment variables in each
+file's `//!` comment); `trace_reproduces_vectfit_xs` passed on piece 50.
+
+
+### What was not done (this diagnosis)
+
+* Pieces 275, 298 and 299 were not traced; everything above is one piece (296). 298 was not needed, 296 was fast enough.
+* The residue-solve ranks were dumped for two rows only (six matrices, about 16 MB each): too few to say whether DGELSD's
+  extra singular value also appears there.
+* The 8 of 188 steps where OpenMC did not reproduce its own logged step to the bit (a different BLAS thread schedule is the
+  likely cause; not checked).
+* DGELSD's rank rule was not ported (`DLALSD`, `DLASDA`, `DLALSA`, `DLASD0`..`DLASD8`: several thousand lines) and the port
+  was not changed. No pin in `wmp_generate_u238_vs_openmc.rs` moved.
+* The cause of the one-sided DGELSD rank was identified by comparing five routines, not by reading `DLALSD`'s Fortran
+  line by line (the LAPACK source is not in this repository): the statement about its sub-problem test is the
+  expected mechanism, **Not re-checked** against `dlalsd.f`.

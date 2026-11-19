@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Energy source distributions.
 ///
 /// C++ source: `src/distribution_energy.cpp`, `include/openmc/distribution_energy.h`.

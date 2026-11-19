@@ -83,6 +83,9 @@
 //! mechanical means it can be regenerated without overwriting hand-chosen
 //! names; [`AsterBehaviour::aster_name`] is the link between the two.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// One entry of code_aster's behaviour catalogue.
 ///
 /// Every variant corresponds to one `LoiComportement` declaration in

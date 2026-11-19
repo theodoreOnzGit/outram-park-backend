@@ -37,6 +37,9 @@
 //! (`None` is upstream). `createSubsets` (the `badFacets` / `badPointsId`
 //! subsets written for the user to look at) is not ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
 use crate::mesh_octree::SMALL;
 use outram_foam_basic_lib::primitives::eigen::{eigen_values_symm, eigen_vectors_symm_with};

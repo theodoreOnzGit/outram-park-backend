@@ -82,6 +82,9 @@
 //! against a real two-phase energy balance is deferred to when the solver
 //! that assembles `q1`/`q2` from interfacial HTC + area exists.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::{
     phase_change_rate, phase_change_rate_value, InterfacialHeatFlux, LatentHeat, LatentHeatModel,

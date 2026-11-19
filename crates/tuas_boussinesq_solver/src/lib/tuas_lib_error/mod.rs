@@ -8,6 +8,9 @@
 //! interaction / entity / material types, and a catch-all string error. A
 //! `From<String>`/`Into<String>` bridge is provided for interop with the many
 //! string-based error sites in the codebase.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 use uom::si::f64::ThermodynamicTemperature;
 
@@ -271,6 +274,7 @@ mod tests {
             ThermodynamicTemperature::new::<kelvin>(1000.0),
         );
         let msg = err.to_string();
+        #[cfg(feature = "std")]
         println!("rendered message:\n{msg}");
 
         assert!(msg.contains("SteelSS304L"), "must name the material: {msg}");
@@ -318,6 +322,7 @@ mod tests {
             units: "10^25 n/m^2, E > 0.1 MeV".to_string(),
         };
         let msg = err.to_string();
+        #[cfg(feature = "std")]
         println!("rendered message:\n{msg}");
 
         assert!(

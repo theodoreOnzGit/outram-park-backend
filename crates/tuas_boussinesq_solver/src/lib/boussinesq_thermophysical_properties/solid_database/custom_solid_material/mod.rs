@@ -13,6 +13,9 @@
 //! and the inverse specific-enthalpy -> temperature map (solved by bisection).
 //! All inputs and outputs are `uom` dimensioned quantities.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[warn(missing_docs)]
 // This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics

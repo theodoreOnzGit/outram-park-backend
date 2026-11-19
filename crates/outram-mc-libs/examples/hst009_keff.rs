@@ -102,6 +102,27 @@
 //! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 //!
+//! ## RE-MEASURED 2026-11-19 (gh:#550): S(a,b) emission tables on THERMR's grid
+//!
+//! `ThermalScattering::from_tape` now builds on the `calcem` grid. 32 seeds,
+//! 5000 x [40+120]: **+119 pcm, sem +/-23, sd 131** against +80 +/- 13 (128
+//! seeds below): move +39 +/- 26 pcm (z +1.5); predicted +40 before the run.
+//! Xeon 2.10 GHz, 4 shared logical cores (2 threads), transport 4282 s.
+//! Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
+//! ## MIGRATED to per-material S(a,b) 2026-11-14 (gh:#462)
+//!
+//! H-1 is no longer bound in its nuclide entry; `assign_material_sab` names
+//! H in H2O for the solution and the water reflector (the tank has no H).
+//! One seed at 1000 x [10+30] moved from k 0.99397 +/- 0.00763 to
+//! 0.99277 +/- 0.00670, because the URR stream advances by `nuclides.len()`
+//! (as OpenMC's does) and the bound copy lengthens the array: a legacy model
+//! with one unreferenced nuclide appended gives the new k bit for bit. Same
+//! physics, another realisation. Re-measured, 32 seeds, 5000 x [40+120]:
+//! **+80 pcm, sem +/-22** against +80 +/- 13 (128 seeds) below: difference
+//! 0 +/- 26 pcm. Hardware: 4 shared logical cores (2 threads used), RAM not
+//! recorded.
+//!
 //! ## RE-MEASURED 2026-11-12 — 128 seeds, `OUTRAM_BENCH_SEEDS=128` (gh:#1386)
 //!
 //! **Current value: `+80 pcm, sem ±13, seed-to-seed sd 146` (128 seeds)**
@@ -167,44 +188,23 @@
 //! BENCHMARK's uncertainty (ICSBEP `1.0000 ± ~0.006`, i.e. ~600 pcm), not ours — quote agreement against that
 //! band, not against our sem.
 use njoy_outram_park_fork::reference_data::reference_endf;
-use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::geometry::surface::BoundaryType;
-use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::material_sab::{assign_material_sab, MaterialSab};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::pebble_beds::fhr_pebble::fhr_pebble_geometry;
 use outram_mc_libs::physics::compute::ComputeType;
 use outram_mc_libs::physics::keff::KeffSettings;
-use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+use outram_mc_libs::physics::transport_csg::run_keff_csg;
 use outram_mc_libs::vv::assert_reproduces_keff;
 use std::time::Instant;
 
 /// Room temperature. The benchmark states the reflector at 25 °C; 293.6 K is the
 /// tabulated temperature on the `H(H2O)` tape, so no thermal interpolation is
 /// involved and the 4.4 K difference is worth single pcm here.
-const TEMP_K: f64 = 293.6;
+const TEMP_K: f64 = hst009::TEMPERATURE_K;
 
-const R_SOLUTION: f64 = 11.5177;
-const R_TANK: f64 = 11.6764;
-const R_REFLECTOR: f64 = 35.0;
-
-/// Nuclide slots.
-mod nx {
-    pub const U234: usize = 0;
-    pub const U235: usize = 1;
-    pub const U238: usize = 2;
-    pub const F19: usize = 3;
-    pub const O16: usize = 4;
-    pub const H1: usize = 5;
-    pub const AL27: usize = 6;
-    pub const SI28: usize = 7;
-    pub const SI29: usize = 8;
-    pub const SI30: usize = 9;
-    pub const MN55: usize = 10;
-    /// Appended last (2026-10-15, gh:#875) so the earlier slots keep their
-    /// indices.
-    pub const U236: usize = 11;
-}
+// The model (radii, materials, CSG, source box) is the library's
+// `vv::hst009` since 2026-11-17; this example held an identical copy.
+use outram_mc_libs::vv::hst009::{self, R_REFLECTOR, R_SOLUTION, R_TANK};
 
 fn main() {
     eprintln!("HEU-SOL-THERM-009 case 1 — water-reflected sphere of uranium oxyfluoride");
@@ -232,7 +232,7 @@ fn main() {
         load("U238", if std::env::var("OUTRAM_U238_ENDF7").is_ok() { "n-092_U_238-ENDF7.0.endf" } else { "n-092_U_238.endf" }),
         load("F19", "n-009_F_019-ENDF8.0.endf"),
         load("O16", "n-008_O_016-ENDF8.0.endf"),
-        load("H1", "n-001_H_001-ENDF8.0-Beta6.endf").with_thermal_scattering(sab),
+        load("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
         load("Al27", "n-013_Al_027-ENDF8.0.endf"),
         load("Si28", "n-014_Si_028-ENDF8.0.endf"),
         load("Si29", "n-014_Si_029-ENDF8.0.endf"),
@@ -245,70 +245,24 @@ fn main() {
         t0.elapsed().as_secs_f64()
     );
 
-    // Atom densities [atoms/barn·cm] exactly as the benchmark model gives them,
-    // except where the module docs say otherwise.
-    let comp = |v: &[(usize, f64)]| -> Vec<NuclideComponent> {
-        v.iter()
-            .map(|&(nuclide_idx, atom_density)| NuclideComponent {
-                nuclide_idx,
-                atom_density,
-            })
-            .collect()
-    };
-    let materials = vec![
-        Material {
-            id: 1,
-            name: "uranium oxyfluoride solution".into(),
-            temperature: TEMP_K,
-            components: comp(&[
-                (nx::U234, 1.7561e-05),
-                (nx::U235, 1.6626e-03),
-                (nx::U236, 8.8837e-06),
-                (nx::U238, 9.4079e-05),
-                (nx::F19, 3.5663e-03),
-                // O-17 (1.264344e-05) folded into O-16.
-                (nx::O16, 3.334735656e-02 + 1.264344e-05),
-                (nx::H1, 5.9587e-02),
-            ]),
-        },
-        Material {
-            id: 2,
-            name: "1100 aluminium tank".into(),
-            temperature: TEMP_K,
-            components: comp(&[
-                (nx::AL27, 5.9699e-02),
-                (nx::SI28, 5.09126279536e-04),
-                (nx::SI29, 2.5851979832e-05),
-                (nx::SI30, 1.7041740632e-05),
-                (nx::MN55, 1.4853e-05),
-                // Cu (5.14e-5) and Zn (2.5e-5) omitted; see the module docs.
-            ]),
-        },
-        Material {
-            id: 3,
-            name: "water reflector".into(),
-            temperature: TEMP_K,
-            components: comp(&[
-                (nx::H1, 6.6659e-02),
-                (nx::O16, 3.3316368309e-02 + 1.2631691e-05),
-            ]),
-        },
-    ];
+    // Atom densities [atoms/barn·cm] exactly as the benchmark model gives
+    // them, except where the module docs say otherwise (O-17 folded into
+    // O-16; Cu and Zn omitted from the tank): `vv::hst009::MATERIALS`, whose
+    // nuclide order is `vv::hst009::NUCLIDES`, the load order above.
+    let materials = hst009::materials();
 
-    // Three concentric spheres. `fhr_pebble_geometry` is named for the pebble but
-    // is a general concentric-sphere builder: passing `r_inner = 0` drops the
-    // inner ball and leaves exactly the three regions this benchmark needs.
-    let geom = fhr_pebble_geometry(
-        0.0,
-        R_SOLUTION,
-        R_TANK,
-        R_REFLECTOR,
-        0, // solution fills r < R_SOLUTION
-        1, // aluminium tank
-        2, // water reflector, vacuum at R_REFLECTOR
-        BoundaryType::Vacuum,
-        TEMP_K,
-    );
+    // S(a,b) per material, as OpenMC does (gh:#462): H-1 is bound in the
+    // solution (material 0) and the water reflector (material 2); the tank
+    // (material 1) holds no H. The bound copy is appended to the nuclide
+    // array; the entries below are the old nuclide-level binding made
+    // explicit, with the same atom densities and component order.
+    let sab_entries = MaterialSab::for_materials_containing(&materials, hst009::N_H1, 0, &[]);
+    let (materials, nuclides) =
+        assign_material_sab(&materials, &nuclides, &[sab], &sab_entries).expect("S(a,b) per material");
+
+    // Three concentric spheres: solution, aluminium tank, water reflector,
+    // vacuum at R_REFLECTOR (`vv::hst009::geometry`).
+    let geom = hst009::geometry();
 
     // Defaults 5000 x [40 + 120]; OUTRAM_NPART / OUTRAM_NINACTIVE /
     // OUTRAM_NACTIVE override them for profiling (`vv::bench_run_size`).
@@ -322,10 +276,7 @@ fn main() {
         ..KeffSettings::default()
     };
     // Start inside the solution; `only_fissionable` is implicit in the driver.
-    let src = SourceBox {
-        lower: Position::new(-R_SOLUTION, -R_SOLUTION, -R_SOLUTION),
-        upper: Position::new(R_SOLUTION, R_SOLUTION, R_SOLUTION),
-    };
+    let src = hst009::source_box();
 
     eprintln!(
         "solution r < {R_SOLUTION} cm, 1100-Al tank to {R_TANK} cm, water to {R_REFLECTOR} cm \

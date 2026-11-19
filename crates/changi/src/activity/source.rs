@@ -28,6 +28,9 @@
 //! rate. So a window carries **how much was released during it**, and any
 //! consumer that wants a rate divides by the window's own duration.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::{Frequency, Radioactivity, Time};
 use uom::si::radioactivity::becquerel;
 use uom::si::time::second;

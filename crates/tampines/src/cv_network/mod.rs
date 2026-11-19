@@ -151,6 +151,9 @@
 //!   toggle moved about 1.5 times the floor, and Newton still fell back on
 //!   every step (`cv_network.md`, gh:#1124).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use tampines_steam_tables::gas_mixture::{NonCondensable, R_GAS};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::energy::joule;
@@ -694,7 +697,7 @@ impl CvNetwork {
     /// [`TampinesError::InvalidInput`] for no such volume or a non-finite
     /// rate.
     pub fn set_atmosphere_species(&mut self, i: usize, rates: AtmosphereSpeciesRates) -> Result<(), TampinesError> {
-        let all = std::iter::once(rates.steam).chain(rates.ncg);
+        let all = core::iter::once(rates.steam).chain(rates.ncg);
         if all.map(|m| m.get::<kilogram_per_second>()).any(|x| !x.is_finite()) {
             return Err(TampinesError::InvalidInput(format!("species rates {rates:?}")));
         }
@@ -1257,8 +1260,8 @@ impl CvNetwork {
                 transfers.push(t);
             }
             if newton {
-                x2 = std::mem::replace(&mut x1, transfers.iter().map(signed_rate).collect());
-                g2 = std::mem::replace(&mut g1, transfers.iter().map(|t| t.gas_mass_rate.get::<kilogram_per_second>()).collect());
+                x2 = core::mem::replace(&mut x1, transfers.iter().map(signed_rate).collect());
+                g2 = core::mem::replace(&mut g1, transfers.iter().map(|t| t.gas_mass_rate.get::<kilogram_per_second>()).collect());
             }
             // 2–3. Volumes from the start with these outflows and the
             // donors' previous sendings as inflow.

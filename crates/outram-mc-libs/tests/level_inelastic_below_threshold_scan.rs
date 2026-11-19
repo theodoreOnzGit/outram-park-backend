@@ -30,6 +30,8 @@
 //! open at any scanned point below its threshold; those that open inside the
 //! window first do so at the window's top, `threshold x (1 + 1e-7)`.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;
 use uom::si::f64::ThermodynamicTemperature;

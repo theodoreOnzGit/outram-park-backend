@@ -12,11 +12,14 @@
 
 //! Unit + V&V tests for the [`Fluid`](super::Fluid) field-state container.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{Fluid, StateOfMatter};
 use crate::genfoam::thermal_hydraulics::phase::phase_base::volume_fraction;
 use outram_foam_basic_lib::mesh::fv_mesh::{FvMesh, FvMeshBuilder};
 use outram_foam_basic_lib::primitives::Vector3;
-use std::sync::Arc;
+use alloc::sync::Arc;
 use uom::si::mass::kilogram;
 
 /// `n`-cell, no-face, no-patch mesh for pure per-cell field arithmetic.

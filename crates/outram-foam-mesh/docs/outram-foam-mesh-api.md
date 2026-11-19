@@ -5734,6 +5734,472 @@ pub struct MeshQualityControls {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+#### Enum `EsiCheck`
+
+The nine checks in the order `motionSmootherAlgo::checkMesh` runs them (and
+ESI's log prints them).
+
+```rust
+pub enum EsiCheck {
+    NonOrthogonality,
+    FacePyramids,
+    FaceTets,
+    Concavity,
+    Skewness,
+    FaceWeights,
+    VolRatio,
+    FaceTwist,
+    CellDeterminant,
+}
+```
+
+##### Variants
+
+###### `NonOrthogonality`
+
+`checkFaceDotProduct`: non-orthogonality.
+
+###### `FacePyramids`
+
+`checkFacePyramids`.
+
+###### `FaceTets`
+
+`checkFaceTets` (face-decomposition tet quality and the base-point search).
+
+###### `Concavity`
+
+`checkFaceAngles` (concavity).
+
+###### `Skewness`
+
+`checkFaceSkewness`.
+
+###### `FaceWeights`
+
+`checkFaceWeights`.
+
+###### `VolRatio`
+
+`checkVolRatio`.
+
+###### `FaceTwist`
+
+`checkFaceTwist`.
+
+###### `CellDeterminant`
+
+`checkCellDeterminant`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EsiQualityControls`
+
+The `meshQualityControls` keys of ESI v2506 `etc/caseDicts/meshQualityDict`
+that `motionSmootherAlgo::checkMesh` evaluates. A key disables its check with
+ESI's own condition (`maxNonOrtho >= 180 - SMALL`, `minVol <= -GREAT`,
+`minTetQuality <= -GREAT`, `maxConcave >= 180 - SMALL`, both skewness limits
+not positive, `minFaceWeight` outside [0, 1), `minVolRatio < 0`, `minTwist <=
+-1`, `minDeterminant <= -1`). `minArea`, `minTriangleTwist`, `minFaceFlatness`
+and `minEdgeLength` are -1 in that dictionary, so those checks are not ported.
+
+```rust
+pub struct EsiQualityControls {
+    pub max_non_ortho: f64,
+    pub min_vol: f64,
+    pub min_tet_quality: f64,
+    pub max_concave: f64,
+    pub max_internal_skewness: f64,
+    pub max_boundary_skewness: f64,
+    pub min_face_weight: f64,
+    pub min_vol_ratio: f64,
+    pub min_twist: f64,
+    pub min_determinant: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `max_non_ortho` | `f64` | `maxNonOrtho` [degrees]. |
+| `min_vol` | `f64` | `minVol`: the face-pyramid threshold of the MESH overload of `checkMesh`<br>(the one `scaleMesh` uses); the `polyMeshGeometry` overload passes<br>`minTetQuality` instead. |
+| `min_tet_quality` | `f64` | `minTetQuality`. |
+| `max_concave` | `f64` | `maxConcave` [degrees]. |
+| `max_internal_skewness` | `f64` | `maxInternalSkewness`. |
+| `max_boundary_skewness` | `f64` | `maxBoundarySkewness`. |
+| `min_face_weight` | `f64` | `minFaceWeight`. |
+| `min_vol_ratio` | `f64` | `minVolRatio`. |
+| `min_twist` | `f64` | `minTwist`. |
+| `min_determinant` | `f64` | `minDeterminant`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn all_disabled() -> Self { /* ... */ }
+  ```
+  Every check switched off, ESI's way: the base for a one-check run.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    The values of `etc/caseDicts/meshQualityDict` (v2506).
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EsiGeometry`
+
+The mesh geometry `polyMesh::movePoints` leaves in the mesh
+(`primitiveMeshTools::makeFaceCentresAndAreas` and `makeCellCentresAndVols`)
+plus `primitiveMesh::cells()`: what the ESI checks read.
+
+```rust
+pub struct EsiGeometry {
+    pub face_centres: Vec<[f64; 3]>,
+    pub face_areas: Vec<[f64; 3]>,
+    pub cell_centres: Vec<[f64; 3]>,
+    pub cell_volumes: Vec<f64>,
+    pub cell_faces: Vec<Vec<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face_centres` | `Vec<[f64; 3]>` | Face centres. |
+| `face_areas` | `Vec<[f64; 3]>` | Face area vectors. |
+| `cell_centres` | `Vec<[f64; 3]>` | Cell centres. |
+| `cell_volumes` | `Vec<f64>` | Cell volumes. |
+| `cell_faces` | `Vec<Vec<usize>>` | `primitiveMesh::cells()`: per cell the faces it owns (ascending) and then the<br>faces it neighbours (ascending), as `calcCells` fills them. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EsiCheckResult`
+
+Result of [`esi_check_mesh`].
+
+```rust
+pub struct EsiCheckResult {
+    pub wrong_faces: Vec<usize>,
+    pub new_faces: Vec<(EsiCheck, usize)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `wrong_faces` | `Vec<usize>` | Faces in error (`wrongFaces`), ascending. |
+| `new_faces` | `Vec<(EsiCheck, usize)>` | For each enabled check, in ESI's order, the number of faces it ADDED to the set<br>(ESI's log prints this, not the check's own count). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Functions
 
 #### Function `face_non_orthogonality_deg`
@@ -5811,6 +6277,131 @@ face centres, not OpenFOAM's area-weighted ones).
 
 ```rust
 pub fn faces_failing_mesh_quality<F: AsRef<[usize]>>(points: &[outram_foam_basic_lib::primitives::Vector3], faces: &[F], owner: &[usize], neighbour: &[Option<usize>], geom: &CheckGeometry, controls: &MeshQualityControls) -> Vec<bool> { /* ... */ }
+```
+
+#### Function `esi_geometry`
+
+Geometry of `mesh` as ESI computes it after a point move.
+
+```rust
+pub fn esi_geometry(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh) -> EsiGeometry { /* ... */ }
+```
+
+#### Function `esi_face_area_normal`
+
+`face::areaNormal(points)` (v2506 `face.C:576`): centre decomposition, centre
+point last in each triangle, plain triangle for a 3-vertex face.
+
+```rust
+pub fn esi_face_area_normal(points: &[[f64; 3]], f: &[usize]) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `esi_tet_quality`
+
+`tetrahedron::quality()` for the tet (a, b, c, d): `mag/(8/(9 sqrt 3) *
+min(circumRadius, GREAT)^3 + ROOTVSMALL)`, `mag = (1/6) ((b-a) x (c-a)) . (d-a)`.
+
+```rust
+pub fn esi_tet_quality(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> f64 { /* ... */ }
+```
+
+#### Function `esi_check_non_orthogonality`
+
+`checkFaceDotProduct` (internal faces; no coupled patches or baffles): faces whose
+`d.S/(|d||S| + VSMALL)` is below `cos(degToRad(max_non_ortho))`,
+`degToRad(x) = x*M_PI/180`.
+
+```rust
+pub fn esi_check_non_orthogonality(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, max_non_ortho: f64, check_faces: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `esi_check_face_pyramids`
+
+`checkFacePyramids`: the owner pyramid (volume must be below `-min_pyr_vol`) and the
+neighbour pyramid (above `min_pyr_vol`); `pyramid::mag = (1/3) areaNormal . (apex -
+face::centre)`.
+
+```rust
+pub fn esi_check_face_pyramids(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, min_pyr_vol: f64, check_faces: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `esi_check_face_tets`
+
+`checkFaceTets`: each face-decomposition tet of the owner (cell and face centre
+exchanged, as upstream) and of the neighbour must have quality at least
+`min_tet_quality`, and a base point must exist for which the fan decomposition of the
+face is good for both cells (`findSharedBasePoint`, `findBasePoint` on a boundary
+face).
+
+```rust
+pub fn esi_check_face_tets(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, min_tet_quality: f64, check_faces: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `esi_check_face_angles`
+
+`checkFaceAngles`: a face is concave when at one vertex the normal of the two edges
+(their sine at least `sin(degToRad(max_deg))`) points against the face normal.
+
+```rust
+pub fn esi_check_face_angles(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, max_deg: f64, check_faces: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `esi_check_face_skewness`
+
+`checkFaceSkewness`: internal faces above `internal_skew`, boundary faces above
+`boundary_skew`.
+
+```rust
+pub fn esi_check_face_skewness(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, internal_skew: f64, boundary_skew: f64, check_faces: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `esi_check_face_weights`
+
+`checkFaceWeights`: internal faces with `min(dNei, dOwn)/(dNei + dOwn + VSMALL)`
+below `warn_weight`.
+
+```rust
+pub fn esi_check_face_weights(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, warn_weight: f64, check_faces: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `esi_check_vol_ratio`
+
+`checkVolRatio`: internal faces whose neighbouring cells' volume ratio is below
+`warn_ratio`.
+
+```rust
+pub fn esi_check_vol_ratio(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, warn_ratio: f64, check_faces: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `esi_check_face_twist`
+
+`checkFaceTwist`: for faces with more than 3 vertices the dot product of the cell-cell
+(or cell-face) direction with each face-centre triangle's unit normal must be at
+least `min_twist`.
+
+```rust
+pub fn esi_check_face_twist(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, min_twist: f64, check_faces: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `esi_check_cell_determinant`
+
+`checkCellDeterminant`: every face of each cell (among `primitiveMesh::cells()` of the
+faces in `check_faces`, `affectedCells`) whose scaled determinant of
+`sum(S (x) S/(|S| + VSMALL))/(sum |S| + VSMALL)` over `0.037037037037037` is below
+`warn_det`.
+
+```rust
+pub fn esi_check_cell_determinant(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, warn_det: f64, check_faces: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `esi_check_mesh`
+
+`motionSmootherAlgo::checkMesh(false, mesh, dict, checkFaces, baffles, wrongFaces)`
+(v2506 `motionSmootherAlgoCheck.C:59`, the MESH overload `scaleMesh` calls), without
+baffles or coupled patches: the nine checks in ESI's order on `check_faces`.
+
+```rust
+pub fn esi_check_mesh(mesh: &crate::snappy_hex_mesh::esi_snap::SnapMesh, geom: &EsiGeometry, controls: &EsiQualityControls, check_faces: &[usize]) -> EsiCheckResult { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -9399,6 +9990,1054 @@ points).
 pub fn background_from_points(points: &[outram_foam_basic_lib::primitives::Vector3]) -> Result<(crate::snappy_hex_mesh::background::Bounds, [usize; 3]), crate::MeshError> { /* ... */ }
 ```
 
+## Module `esi_merge`
+
+Boundary face merging and straight-edge point removal of ESI v2506 `snappyHexMesh`,
+translated (gh:#1467, epic #1459, round 5): `meshRefinement::mergePatchFacesUndo`,
+`meshRefinement::mergeEdgesUndo` and the pieces they stand on.
+
+**Upstream (OpenFOAM.com ESI v2506):**
+`src/mesh/snappyHexMesh/meshRefinement/meshRefinementMerge.C` (`mergePatchFacesUndo`,
+`mergeEdgesUndo`, `doRemovePoints`, `growFaceCellFace`);
+`src/dynamicMesh/polyTopoChange/polyTopoChange/combineFaces.C` (`getMergeSets`,
+`regioniseFaces`, `faceNeighboursValid`, `validFace`, `convexFace`, `getOutsideFace`,
+`setRefinement`); `removePoints.C` (`countPointUsage`, `setRefinement`);
+`src/meshTools/polyTopoChange/polyTopoChange.C` (`getFaceOrder`, `compact`: the
+numbering a change of the mesh leaves); `PrimitivePatchAddressing.C`
+(`calcAddressing`), `PrimitivePatchEdgeLoops.C`, `PrimitivePatchCheck.C`
+(`checkPointManifold`); `HashTable.C` / `HashTableCore.C` (the iteration order that
+picks the master face of a merge set); `primitiveMeshEdges.C` (`cellEdges`).
+
+**What is translated:** the operation order, including the one thing that decides
+the final NUMBERING: the master face of a set is the first face of its region in the
+iteration order of the OpenFOAM `Map<label>` `faceRegion` (capacity a power of two
+at least 8, identity hash, insertion at the chain head), whose insertion order
+follows the iteration order of the `labelHashSet` of `cellEdges` (capacity 128).
+[`FoamHashMap`] reproduces that. **What is not:** `combineFaces::setUnrefinement` and
+`removePoints::setUnrefinement` (the restoring of merged faces whose merge made a
+face check fail): the loops run the checks and, when anything would have to be
+restored, return an error instead of restoring. ESI restores nothing on the flange.
+Parallel synchronisation, face zones, coupled patches and baffles are not handled
+(serial, no zones); a patch can be marked as a constraint patch. Opt-in; no existing
+path calls this module.
+
+Numerics: plain IEEE arithmetic in upstream's grouping; the only transcendental is
+`cos(degToRad(angle))` at the call site, through `petir::mathf::RealMath`.
+
+```rust
+pub mod esi_merge { /* ... */ }
+```
+
+### Types
+
+#### Struct `FoamHashMap`
+
+An OpenFOAM `HashTable<T, label>` with the identity hash `Hash<label>` of v2506: the
+bucket of a key is `key & (capacity - 1)`, a new entry goes to the head of its
+chain, the table doubles when `0.8*capacity < size`, a rehash walks the old buckets
+in order and each chain from its head, and iteration is bucket by bucket, each chain
+from its head. Only keys, not values, decide the order; this exists to reproduce it.
+
+```rust
+pub struct FoamHashMap<T> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(initial_capacity: usize) -> Self { /* ... */ }
+  ```
+  `HashTable(initialCapacity)`; `0` allocates nothing until the first insertion
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of entries.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  True when empty.
+
+- ```rust
+  pub fn clear(self: &mut Self) { /* ... */ }
+  ```
+  `clear()`: removes the entries, keeps the capacity.
+
+- ```rust
+  pub fn insert(self: &mut Self, key: usize, value: T) -> bool { /* ... */ }
+  ```
+  `insert(key, value)`: false (and no change) when the key is present.
+
+- ```rust
+  pub fn get(self: &Self, key: usize) -> Option<&T> { /* ... */ }
+  ```
+  Value of `key`.
+
+- ```rust
+  pub fn get_mut(self: &mut Self, key: usize) -> Option<&mut T> { /* ... */ }
+  ```
+  Mutable value of `key`.
+
+- ```rust
+  pub fn iter(self: &Self) -> impl Iterator<Item = (usize, &T)> { /* ... */ }
+  ```
+  Entries in OpenFOAM iteration order.
+
+- ```rust
+  pub fn keys(self: &Self) -> Vec<usize> { /* ... */ }
+  ```
+  Keys in OpenFOAM iteration order.
+
+- ```rust
+  pub fn for_each_value_mut<F: FnMut(&mut T)>(self: &mut Self, f: F) { /* ... */ }
+  ```
+  Mutable values in OpenFOAM iteration order.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PrimPatch`
+
+`indirectPrimitivePatch` addressing of a list of faces: local points in order of
+first appearance, `calcAddressing` edges (internal first, in the order the walk over
+the faces creates them, then boundary edges), `edgeFaces`, `faceEdges`, `pointEdges`.
+
+```rust
+pub struct PrimPatch {
+    pub mesh_points: Vec<usize>,
+    pub local_faces: Vec<Vec<usize>>,
+    pub point_faces: Vec<Vec<usize>>,
+    pub edges: Vec<[usize; 2]>,
+    pub n_internal_edges: usize,
+    pub edge_faces: Vec<Vec<usize>>,
+    pub face_edges: Vec<Vec<usize>>,
+    pub point_edges: Vec<Vec<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh_points` | `Vec<usize>` | Mesh label of each local point. |
+| `local_faces` | `Vec<Vec<usize>>` | Faces in local points. |
+| `point_faces` | `Vec<Vec<usize>>` | Faces of each local point, ascending. |
+| `edges` | `Vec<[usize; 2]>` | Edges in local points, as the face that creates them directs them. |
+| `n_internal_edges` | `usize` | Number of internal edges (they come first). |
+| `edge_faces` | `Vec<Vec<usize>>` | Faces of each edge. |
+| `face_edges` | `Vec<Vec<usize>>` | Edges of each face (edge `i` joins vertex `i` and `i+1`). |
+| `point_edges` | `Vec<Vec<usize>>` | Edges of each local point, ascending. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(faces: &[&[usize]]) -> Self { /* ... */ }
+  ```
+  `PrimitivePatch::calcMeshData`, `calcPointFaces` and `calcAddressing`.
+
+- ```rust
+  pub fn edge_loops(self: &Self) -> Vec<Vec<usize>> { /* ... */ }
+  ```
+  `PrimitivePatch::calcEdgeLoops`: the boundary edge loops, each a list of local
+
+- ```rust
+  pub fn check_point_manifold(self: &Self) -> bool { /* ... */ }
+  ```
+  `PrimitivePatch::checkPointManifold(false, nullptr)`: true when some point uses
+
+- ```rust
+  pub fn outside_face(self: &Self) -> Option<Vec<usize>> { /* ... */ }
+  ```
+  `combineFaces::getOutsideFace`: the single boundary loop as a face in mesh point
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MergeMesh`
+
+A polyMesh with its boundary patches (serial, no zones).
+
+```rust
+pub struct MergeMesh {
+    pub mesh: crate::snappy_hex_mesh::esi_snap::SnapMesh,
+    pub face_patch: Vec<usize>,
+    pub n_patches: usize,
+    pub constraint: Vec<bool>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::snappy_hex_mesh::esi_snap::SnapMesh` | Points, faces, owner, neighbour; boundary faces are grouped by patch. |
+| `face_patch` | `Vec<usize>` | Patch of every face, `usize::MAX` for an internal face. |
+| `n_patches` | `usize` | Number of patches (some may be empty). |
+| `constraint` | `Vec<bool>` | `polyPatch::constraintType`: faces of such a patch are never merged. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_patch_starts(mesh: SnapMesh, patch_starts: &[usize]) -> Self { /* ... */ }
+  ```
+  From `patch_starts` (start face of each patch, then the number of faces).
+
+- ```rust
+  pub fn which_patch(self: &Self, f: usize) -> Option<usize> { /* ... */ }
+  ```
+  `whichPatch`: `None` for an internal face.
+
+- ```rust
+  pub fn patch_starts(self: &Self) -> Vec<usize> { /* ... */ }
+  ```
+  Start face of every patch, then the number of faces.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TopoMap`
+
+What `polyTopoChange::changeMesh(mesh, false, true)` did to the numbering.
+
+```rust
+pub struct TopoMap {
+    pub reverse_face: Vec<Option<usize>>,
+    pub reverse_point: Vec<Option<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reverse_face` | `Vec<Option<usize>>` | New label of each old face, `None` when removed. |
+| `reverse_point` | `Vec<Option<usize>>` | New label of each old point, `None` when removed. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TopoChange`
+
+A set of topology changes on a mesh, in the vocabulary of `polyModifyFace`,
+`polyRemoveFace` and `polyRemovePoint`.
+
+```rust
+pub struct TopoChange {
+    pub new_ring: std::collections::HashMap<usize, Vec<usize>>,
+    pub new_patch: std::collections::HashMap<usize, usize>,
+    pub remove_face: Vec<bool>,
+    pub remove_point: Vec<bool>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `new_ring` | `std::collections::HashMap<usize, Vec<usize>>` | New vertex ring of a modified face (old point labels). |
+| `new_patch` | `std::collections::HashMap<usize, usize>` | New patch of a modified boundary face. |
+| `remove_face` | `Vec<bool>` | Faces to remove. |
+| `remove_point` | `Vec<bool>` | Points to remove. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &MergeMesh) -> Self { /* ... */ }
+  ```
+  Empty change for `mesh`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MeshTopo`
+
+Addressing of a mesh as `primitiveMesh` computes it.
+
+```rust
+pub struct MeshTopo {
+    pub cells: Vec<Vec<usize>>,
+    pub edges: Vec<[usize; 2]>,
+    pub face_edges: Vec<Vec<usize>>,
+    pub edge_faces: Vec<Vec<usize>>,
+    pub point_faces: Vec<Vec<usize>>,
+    pub geom: crate::check_mesh::EsiGeometry,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cells` | `Vec<Vec<usize>>` | `cells()`: owned faces ascending, then neighbour faces ascending. |
+| `edges` | `Vec<[usize; 2]>` | `edges()` in `calcEdges` order. |
+| `face_edges` | `Vec<Vec<usize>>` | `faceEdges()`: edge `i` of a face joins vertex `i` and `i+1`. |
+| `edge_faces` | `Vec<Vec<usize>>` | `edgeFaces()`, ascending faces. |
+| `point_faces` | `Vec<Vec<usize>>` | `pointFaces()`, ascending. |
+| `geom` | `crate::check_mesh::EsiGeometry` | Geometry (face areas and centres) as `polyMesh::movePoints` leaves it. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &SnapMesh) -> Self { /* ... */ }
+  ```
+  Addressing and geometry of `mesh`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MergeStats`
+
+What a merging step did.
+
+```rust
+pub struct MergeStats {
+    pub face_sets: Vec<Vec<usize>>,
+    pub n_points_removed: usize,
+    pub removed_points: Vec<usize>,
+    pub error_faces_per_iteration: Vec<usize>,
+    pub last_check: Option<crate::check_mesh::EsiCheckResult>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face_sets` | `Vec<Vec<usize>>` | Merge sets (`mergePatchFacesUndo`; empty for the edge step), master first, in<br>the mesh before the merge. |
+| `n_points_removed` | `usize` | Points removed (by the faces step the unused ones, by the edge step the<br>straight-edge points). |
+| `removed_points` | `Vec<usize>` | Labels (in the mesh before the step) of the points removed, ascending. |
+| `error_faces_per_iteration` | `Vec<usize>` | Faces in error after each undo iteration (all checks, ESI's `checkMesh`). |
+| `last_check` | `Option<crate::check_mesh::EsiCheckResult>` | The result of the last check (counts per check). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `MergeError`
+
+Why a merging step could not finish.
+
+```rust
+pub enum MergeError {
+    UndoNeeded(usize),
+}
+```
+
+##### Variants
+
+###### `UndoNeeded`
+
+The face checks found faces in error whose merge would have to be undone
+(`setUnrefinement`), which is not ported. Holds the number of faces in error.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `canonical_size`
+
+`HashTableCore::canonicalSize`: 0 for a request below 1, else a power of two of at
+least 8.
+
+```rust
+pub fn canonical_size(requested: usize) -> usize { /* ... */ }
+```
+
+#### Function `change_mesh`
+
+`polyTopoChange::changeMesh(mesh, inflate=false, syncParallel=true)` for a change
+that removes and modifies faces and removes points, with cells and points not
+reordered: retained points keep their order; internal faces are renumbered by
+(lower cell, higher cell) (`getFaceOrder`); boundary faces by patch and then by old
+face label.
+
+```rust
+pub fn change_mesh(m: &MergeMesh, change: &TopoChange) -> (MergeMesh, TopoMap) { /* ... */ }
+```
+
+#### Function `repatch`
+
+Apply boundary face patch changes (`repatchToSurface`'s `polyTopoChange`): the
+faces move to their new patch and are numbered by patch then old label.
+
+```rust
+pub fn repatch(m: &MergeMesh, changes: &[(usize, usize)]) -> (MergeMesh, TopoMap) { /* ... */ }
+```
+
+#### Function `convex_face`
+
+`combineFaces::convexFace`: the face is convex up to angles whose cosine is at least
+`min_concave_cos`.
+
+```rust
+pub fn convex_face(min_concave_cos: f64, points: &[crate::snappy_hex_mesh::esi_snap::V], f: &[usize]) -> bool { /* ... */ }
+```
+
+#### Function `valid_face`
+
+`combineFaces::validFace`: one outside loop, point-manifold, convex.
+
+```rust
+pub fn valid_face(min_concave_cos: f64, points: &[crate::snappy_hex_mesh::esi_snap::V], faces: &[&[usize]]) -> bool { /* ... */ }
+```
+
+#### Function `get_merge_sets`
+
+`combineFaces::getMergeSets(featureCos, minConcaveCos, boundaryCells, mergeAcrossPatches)`:
+`boundary_cells` in the iteration order of the `labelHashSet` upstream builds
+(see [`boundary_cells_of`]). Returns the sets of faces, the first face of a set
+being its master.
+
+```rust
+pub fn get_merge_sets(m: &MergeMesh, topo: &MeshTopo, feature_cos: f64, min_concave_cos: f64, boundary_cells: &[usize], merge_across_patches: bool) -> Vec<Vec<usize>> { /* ... */ }
+```
+
+#### Function `boundary_cells_of`
+
+The candidate cells of `mergePatchFacesUndo`: owners of the faces of the non-coupled
+`patch_ids`, in the iteration order of the `labelHashSet(nBoundaryFaces)` upstream
+fills.
+
+```rust
+pub fn boundary_cells_of(m: &MergeMesh, patch_ids: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `combine_faces_set_refinement`
+
+`combineFaces::setRefinement` (not undoable bookkeeping): the master face of each set
+takes the outside ring and stays on its patch, the other faces go, and every point
+that no remaining face uses goes.
+
+```rust
+pub fn combine_faces_set_refinement(m: &MergeMesh, topo: &MeshTopo, face_sets: &[Vec<usize>]) -> TopoChange { /* ... */ }
+```
+
+#### Function `count_point_usage`
+
+`removePoints::countPointUsage`: points used by exactly two mesh edges that make a
+cosine above `min_cos`, and points no edge uses; points of faces that would
+collapse below three vertices are protected.
+
+```rust
+pub fn count_point_usage(m: &MergeMesh, topo: &MeshTopo, min_cos: f64) -> Vec<bool> { /* ... */ }
+```
+
+#### Function `remove_points_set_refinement`
+
+`removePoints::setRefinement`: the points go and every face using one of them is
+modified to the ring without them (same patch, same owner and neighbour).
+
+```rust
+pub fn remove_points_set_refinement(m: &MergeMesh, topo: &MeshTopo, can_delete: &[bool]) -> TopoChange { /* ... */ }
+```
+
+#### Function `merge_patch_faces_undo`
+
+`meshRefinement::mergePatchFacesUndo` (`combineFaces(mesh, true)`, no coupled
+patches): merge the sets of boundary faces of `patch_ids`, then run
+the nine face checks and look for masters to restore. `preserve[f]` true keeps a
+face out of any set (`duplicateFace != -1`).
+
+```rust
+pub fn merge_patch_faces_undo(m: &MergeMesh, min_cos: f64, concave_cos: f64, patch_ids: &[usize], controls: &crate::check_mesh::EsiQualityControls, preserve: &[bool], merge_across_patches: bool) -> Result<(MergeMesh, MergeStats), MergeError> { /* ... */ }
+```
+
+#### Function `merge_edges_undo`
+
+`meshRefinement::mergeEdgesUndo`: remove the points `countPointUsage` selects,
+then run the face checks (an error on a face that was changed would need
+`removePoints::setUnrefinement`, not ported).
+
+```rust
+pub fn merge_edges_undo(m: &MergeMesh, min_cos: f64, controls: &crate::check_mesh::EsiQualityControls) -> Result<(MergeMesh, MergeStats), MergeError> { /* ... */ }
+```
+
 ## Module `esi_snap`
 
 Snapping stages of ESI v2506 `snappyHexMesh`, translated (gh:#1467, epic #1459):
@@ -9420,8 +11059,11 @@ bit for bit; see `verification_and_validation/snappy_hex_mesh_esi_v2506/README.m
 (round 3, task 2) for the stage table. **What is not:** features
 (`snappySnapDriverFeature.C`), `detectNearSurfaces` (ESI overrides 0 of 12130
 points on the flange), `freezeExposedPoints` (no frozen zone), baffles and
-faceZones, parallel synchronisation (serial only), `repatchToSurface`,
-`mergePatchFaces`, and the quality check of `scaleMesh`. Everything here is opt-in; the
+faceZones, parallel synchronisation (serial only). ~~`repatchToSurface`,
+`mergePatchFaces`, and the quality check of `scaleMesh`~~ **CORRECTED 2026-11-12:**
+`scaleMesh` with its checks and `repatch_to_surface` are in this file (round 4);
+face merging and edge removal are in [`crate::snappy_hex_mesh::esi_merge`] (round 5).
+Everything here is opt-in; the
 older [`crate::snappy_hex_mesh::snapping::snap`] is untouched.
 
 Numerics: plain IEEE `+ - * /` and `sqrt` only, in upstream's grouping, no
@@ -9731,6 +11373,501 @@ pub struct MeshEdges {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+#### Enum `PatchPointScaling`
+
+Which displacement the patch points get in `curPoints`.
+
+```rust
+pub enum PatchPointScaling {
+    Scaled,
+    Unscaled,
+}
+```
+
+##### Variants
+
+###### `Scaled`
+
+`scale * displacement` on the patch points too, from the scale field's values
+(the reading of `scaleField(pp.meshPoints(), usedPoints, errorReduction, scale)`).
+
+###### `Unscaled`
+
+Patch points keep the unscaled displacement (the reading in which the scale
+field's boundary values, still 1, are what `curPoints` multiplies there).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ScaleControls`
+
+`scaleMesh` controls: `errorReduction`, `nSmoothScale`, the mesh-quality controls
+and the number of faces `scaleMesh` tolerates (`nAllowableErrors`).
+
+```rust
+pub struct ScaleControls {
+    pub error_reduction: f64,
+    pub n_smooth_scale: usize,
+    pub quality: crate::check_mesh::EsiQualityControls,
+    pub n_allowable_errors: usize,
+    pub patch_scaling: PatchPointScaling,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `error_reduction` | `f64` | `errorReduction`. |
+| `n_smooth_scale` | `usize` | `nSmoothScale`. |
+| `quality` | `crate::check_mesh::EsiQualityControls` | `meshQualityControls`. |
+| `n_allowable_errors` | `usize` | `nAllowableErrors` (the faces in error of the initial mesh). |
+| `patch_scaling` | `PatchPointScaling` | How patch points are displaced. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ScaleTopology`
+
+Cell-face and point-cell addressing for [`affected_faces_and_points`].
+
+```rust
+pub struct ScaleTopology {
+    pub cell_faces: Vec<Vec<usize>>,
+    pub point_cells: Vec<Vec<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell_faces` | `Vec<Vec<usize>>` | Faces of each cell. |
+| `point_cells` | `Vec<Vec<usize>>` | Cells using each point, ascending. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MotionSmoother`
+
+The motion smoother's state: `oldPoints_`, `displacement_`, `scale_`.
+
+```rust
+pub struct MotionSmoother {
+    pub old_points: Vec<V>,
+    pub displacement: Vec<V>,
+    pub scale: Vec<f64>,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `old_points` | `Vec<V>` | Points at construction (`oldPoints_`). |
+| `displacement` | `Vec<V>` | `displacement_` on all points. |
+| `scale` | `Vec<f64>` | `scale_` on all points, initially 1. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &SnapMesh, pa: &PatchAddr, displacement: Vec<V>) -> Self { /* ... */ }
+  ```
+  `motionSmootherData` + `updateMesh`: scale 1, `isInternalPoint_` false on patch points.
+
+- ```rust
+  pub fn cur_points(self: &Self, pa: &PatchAddr, patch_scaling: PatchPointScaling) -> Vec<V> { /* ... */ }
+  ```
+  `motionSmootherAlgo::curPoints`: `oldPoints + scale * displacement`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ScaleIteration`
+
+What one `scaleMesh` call did.
+
+```rust
+pub struct ScaleIteration {
+    pub scale_min: f64,
+    pub scale_max: f64,
+    pub check: crate::check_mesh::EsiCheckResult,
+    pub ok: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `scale_min` | `f64` | Minimum of the scale field when the mesh was moved ("displacement scaling min"). |
+| `scale_max` | `f64` | Maximum of the scale field when the mesh was moved. |
+| `check` | `crate::check_mesh::EsiCheckResult` | The quality check of the moved mesh. |
+| `ok` | `bool` | True when the mesh was accepted (`faces in error <= nAllowableErrors`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Functions
 
 #### Function `patch_addressing`
@@ -9807,6 +11944,15 @@ pub fn smooth_patch_displacement(mesh: &SnapMesh, pa: &PatchAddr) -> Vec<V> { /*
 pub fn cell_centres(mesh: &SnapMesh) -> Vec<V> { /* ... */ }
 ```
 
+#### Function `cell_centres_vols`
+
+`primitiveMeshTools::makeCellCentresAndVols` (v2506): cell centres and volumes (the
+accumulated `3 V` scaled by `1/3` at the end, as upstream).
+
+```rust
+pub fn cell_centres_vols(mesh: &SnapMesh) -> (Vec<V>, Vec<f64>) { /* ... */ }
+```
+
 #### Function `pre_smooth_patch_iteration`
 
 One iteration of `preSmoothPatch`'s loop body when the mesh check finds no face
@@ -9862,6 +12008,63 @@ the patch points (`motionSmootherAlgo::setDisplacement`), zero elsewhere.
 
 ```rust
 pub fn displacement_field(mesh: &SnapMesh, pa: &PatchAddr, patch_disp: &[V]) -> Vec<V> { /* ... */ }
+```
+
+#### Function `scale_topology`
+
+Addressing of `mesh`.
+
+```rust
+pub fn scale_topology(mesh: &SnapMesh) -> ScaleTopology { /* ... */ }
+```
+
+#### Function `affected_faces_and_points`
+
+`motionSmootherAlgo::getAffectedFacesAndPoints`: grow `wrong_faces` by `n_point_iter`
+point-cell-face layers (faces to check next) and mark the points of the layer at
+iteration `n_point_iter - 2` as affected (points to smooth).
+
+```rust
+pub fn affected_faces_and_points(mesh: &SnapMesh, topo: &ScaleTopology, n_point_iter: usize, wrong_faces: &[usize]) -> (Vec<usize>, Vec<bool>) { /* ... */ }
+```
+
+#### Function `scale_mesh`
+
+`motionSmootherAlgo::scaleMesh(checkFaces, baffles, paramDict, meshQualityDict,
+smoothMesh = true, nAllowableErrors)` (v2506 `motionSmootherAlgo.C:821`), serial, no
+baffles: move the mesh to `oldPoints + scale * displacement`, check `check_faces`;
+when too many faces are in error scale the displacement down at their points
+(`errorReduction`), smooth the scale (`nSmoothScale` `minSmooth` passes over patch
+points, then internal points) and replace `check_faces` by the faces to check next.
+
+```rust
+pub fn scale_mesh(mesh: &mut SnapMesh, ms: &mut MotionSmoother, pa: &PatchAddr, me: &MeshEdges, topo: &ScaleTopology, ctl: &ScaleControls, check_faces: &mut Vec<usize>) -> ScaleIteration { /* ... */ }
+```
+
+#### Function `scale_mesh_loop`
+
+`snappySnapDriver::scaleMesh` (v2506 `snappySnapDriver.C:2208`): up to `2 * n_snap`
+scaling iterations over all faces; from iteration `n_snap` on the error reduction is 0.
+Returns every iteration's report.
+
+```rust
+pub fn scale_mesh_loop(mesh: &mut SnapMesh, ms: &mut MotionSmoother, pa: &PatchAddr, me: &MeshEdges, topo: &ScaleTopology, ctl: &ScaleControls, n_snap: usize) -> Vec<ScaleIteration> { /* ... */ }
+```
+
+#### Function `repatch_to_surface`
+
+`snappySnapDriver::repatchToSurface` (v2506 `snappySnapDriver.C:2275`), no zoned
+surfaces or preserved faces: every boundary face whose centre has a surface triangle
+within `faceSnapDist` (the maximum of `calcSnapDistance` over its points, on `mesh`)
+moves to the patch of the region of the nearest triangle (`region_patch[region]`).
+`face_patch[i]` is the current patch of patch face `i` (`pa.face_ids[i]`); returns
+`(mesh face, new patch)` for the faces whose patch changes, in face order.
+`tri_region[t]` is the region of `surface.triangles[t]`. Nearest triangle: first
+minimum of the brute-force search (upstream searches an octree; equal distances to two
+regions are the one place the two can differ).
+
+```rust
+pub fn repatch_to_surface(mesh: &SnapMesh, pa: &PatchAddr, face_patch: &[usize], snap_tol: f64, surface: &crate::snappy_hex_mesh::stl::TriangleSoup, tri_region: &[usize], region_patch: &[usize]) -> Vec<(usize, usize)> { /* ... */ }
 ```
 
 ## Module `esi_split`

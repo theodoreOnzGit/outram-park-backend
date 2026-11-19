@@ -22,6 +22,9 @@
 //! documented here as a cross-reference for whoever eventually verifies this
 //! module against the golden oracle.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::common::phys::PI;
 

@@ -79,6 +79,9 @@
 //! copies — no edition, year or page number is given, and none should be
 //! added without checking.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use uom::si::{angular_velocity::radian_per_second, f64::*, time::second};
@@ -209,7 +212,7 @@ impl DiscreteTransferFn {
 fn prewarp_beta(w0: AngularVelocity, t_s: f64) -> Result<f64, ZDomainError> {
     let w0 = w0.get::<radian_per_second>();
     let half_angle = w0 * t_s / 2.0;
-    if !(w0 > 0.0) || half_angle >= std::f64::consts::FRAC_PI_2 {
+    if !(w0 > 0.0) || half_angle >= core::f64::consts::FRAC_PI_2 {
         return Err(ZDomainError::InvalidPrewarpFrequency);
     }
     Ok(w0 / half_angle.r_tan())
@@ -618,9 +621,12 @@ fn c2d_matched(
 /// branch of upstream `inst/@tf/__d2c__.m` (GPL-3.0-or-later, Lukas F.
 /// Reichlin), restricted to order <= 2.
 ///
-/// Deviation from upstream, documented: upstream's frequency-avoidance
+/// Deviation from upstream, documented: ~~upstream's frequency-avoidance
 /// loop tests `abs([p_d; z_d_orig] - w_d) < tol` but never updates `w_d`
-/// inside the loop, which cannot terminate once entered; this port
+/// inside the loop, which cannot terminate once entered~~ **CORRECTED
+/// 2026-11-13 (gh:#1433):** true of control 4.0.1 `@tf/__d2c__.m`, but
+/// pkg-control 4.3.0 updates `w_d = exp (1j * w_c * tsam)` inside the loop
+/// (diffed against the installed 4.0.1); this port
 /// recomputes `w_d = exp(w_c T)` on every iteration, which is the evident
 /// intent. Additionally, where a lone negative-real discrete pole maps to
 /// a genuinely complex continuous pole (principal-branch logarithm), the

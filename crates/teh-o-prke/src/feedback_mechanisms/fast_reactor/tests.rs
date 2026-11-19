@@ -3,6 +3,9 @@
 //! for the driveline map, otherwise round numbers); none is a reactor's
 //! evaluated coefficient.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::*;
 use crate::feedback_mechanisms::separable::{
     FuelHeatStructure, ModeratorState, ModeratorVolume, SeparableFeedback,

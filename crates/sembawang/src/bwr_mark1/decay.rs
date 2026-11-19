@@ -27,6 +27,9 @@
 //! ablation of the first is the model before gh:#1041: U-235 only, at
 //! equilibrium (infinite irradiation).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::params::Params;
 use petir::mathf::RealMath;
 use teh_o_prke::decay_heat::{DecayHeat, FissioningNuclide};
@@ -236,6 +239,7 @@ mod tests {
         assert!((frac - 1.03e-3).abs() < 0.02e-3, "{frac}");
         for h in [1.0, 3.0, 5.0, 10.0, 25.0] {
             let (new, old) = (at(ALL, h * 3600.0).power_w(), at(OLD, h * 3600.0).power_w());
+            #[cfg(feature = "std")]
             println!("t = {h} h: new/old = {:.4}", new / old);
             assert!(new > old, "{h} h");
         }

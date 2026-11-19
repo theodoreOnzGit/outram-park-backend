@@ -87,11 +87,14 @@
 //! [`source_edge_mesh_geometry`], through gh:#1279's
 //! [`crate::anisotropic`]). Still not ported: the MPI load balancing. Object refinement is [`crate::object_refinement`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::mesh_octree::{BoundBox, CubeType, MeshOctree, TriSurf, SMALL, VSMALL};
 use crate::mesh_octree_automatic_refinement::{AutomaticRefinementReport, MeshOctreeAutomaticRefinement};
 use crate::object_refinement::ObjectRefinement;
-use std::sync::Arc;
-use std::collections::BTreeMap;
+use alloc::sync::Arc;
+use alloc::collections::BTreeMap;
 
 /// A `patchCellSize` entry (`patchRefinement`): the cell size on one
 /// surface region.
@@ -749,7 +752,7 @@ impl MeshOctreeCreator {
 /// upstream's instrumented `createOctreeBoxes` does (`OCT <step> leaves <n>
 /// levels <l>:<count> ...`, gh:#1385).
 fn trace_octree(tag: &str, o: &MeshOctree) {
-    if std::env::var("GH1385_TRACE").is_err() {
+    if crate::env::var("GH1385_TRACE").is_err() {
         return;
     }
     let mut hist = [0usize; 32];
@@ -757,6 +760,7 @@ fn trace_octree(tag: &str, o: &MeshOctree) {
         hist[o.cube(o.leaves[l]).coords.level as usize] += 1;
     }
     let levels: Vec<String> = hist.iter().enumerate().filter(|(_, &n)| n > 0).map(|(l, n)| format!("{l}:{n}")).collect();
+    #[cfg(feature = "std")]
     eprintln!("OCT {tag} leaves {} levels {}", o.number_of_leaves(), levels.join(" "));
 }
 
@@ -959,7 +963,7 @@ pub(crate) mod tests {
     use crate::math::Vec3;
     use crate::mesh_octree::TriSurf;
     use crate::mesh_octree_queries::tests::pipe;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     pub(crate) fn sphere3() -> Arc<TriSurf> {
         let (p, t) = crate::shapes::sphere_surface(Vec3::ZERO, 3.0, 24, 48);
@@ -1095,10 +1099,12 @@ pub(crate) mod tests {
                 }
             }
             let (bad, data_bad, unknown) = compare_with_ray_parity(&o);
+            #[cfg(feature = "std")]
             println!("{name}: {} leaves, {counts:?}; ray-parity disagreements {bad}, revised DATA outside {data_bad}", o.number_of_leaves());
             let n_revised = (0..o.number_of_leaves())
                 .filter(|&l| o.return_leaf(l).has_contained_elements() && o.return_leaf(l).cube_type & CubeType::INSIDE != 0)
                 .count();
+            #[cfg(feature = "std")]
             println!("{name}: DATA leaves revised to INSIDE {n_revised}");
             assert_eq!((bad, unknown), (0, 0), "{name}");
             let pins = if name == "sphere" { CREATOR_PINS[0] } else { CREATOR_PINS[1] };
@@ -1139,6 +1145,7 @@ pub(crate) mod tests {
                 kept_with_data += 1;
             }
         }
+        #[cfg(feature = "std")]
         println!("octree.rs banded {old}; creator INSIDE {inside}, INSIDE + DATA {kept_with_data}");
         assert!(inside * 2 >= old && inside <= old * 2, "within a factor 2");
         assert_eq!((old, inside, kept_with_data), BANDED_PINS);
@@ -1220,6 +1227,7 @@ pub(crate) mod tests {
             ..MeshDict::with_max_cell_size(1.0)
         };
         let b = create(sphere3(), src(None, Some(2))).0;
+        #[cfg(feature = "std")]
         println!("boundaryCellSize route {} leaves, surface-source route {} leaves", a.number_of_leaves(), b.number_of_leaves());
         assert_eq!(leaf_coords(&a), leaf_coords(&b));
         assert_eq!(source_add_levels(1.0, 0.25), 3);
@@ -1227,6 +1235,7 @@ pub(crate) mod tests {
         assert_eq!(levels_to(1.0, 0.3), 2);
         let c = create(sphere3(), src(Some(0.25), None)).0;
         let max_data = (0..c.number_of_leaves()).filter(|&l| c.has_contained_triangles(l)).map(|l| c.return_leaf(l).coords.level).max();
+        #[cfg(feature = "std")]
         println!("cellSize 0.25 source: triangle leaves up to level {max_data:?}, {} leaves", c.number_of_leaves());
         assert_eq!(max_data, Some(7));
     }
@@ -1266,6 +1275,7 @@ pub(crate) mod tests {
             .filter(|&l| thin.return_leaf(l).coords.intersects_line(&thin.root_box, s, e))
             .map(|l| thin.return_leaf(l).coords.level)
             .collect();
+        #[cfg(feature = "std")]
         println!(
             "edge source: leaves plain {}, source {}, source + thickness 1.0 {}; crossed leaves {} at levels {:?}..{:?}",
             plain.number_of_leaves(),
@@ -1312,6 +1322,7 @@ pub(crate) mod tests {
         let mut pts = em.points.clone();
         crate::anisotropic::modify_points(&mut pts, &cm);
         let moved = source_edge_mesh_geometry(&d, &em);
+        #[cfg(feature = "std")]
         println!("edge source under the box scaling: {:?} -> {:?}", em.points, moved.points);
         assert_eq!(moved.points, pts);
         assert_ne!(moved.points, em.points);
@@ -1360,6 +1371,7 @@ pub(crate) mod tests {
         .0;
         let plain = create(Arc::clone(&s), base.clone()).0;
         let unknown = create(Arc::clone(&s), MeshDict { subset_cell_size: vec![SubsetRefinement { subset: "nope".into(), cell_size: 0.0005 }], ..base }).0;
+        #[cfg(feature = "std")]
         println!(
             "pipe leaves: plain {}, patchCellSize {}, subsetCellSize {}, localRefinement patch {} / subset {}",
             plain.number_of_leaves(),

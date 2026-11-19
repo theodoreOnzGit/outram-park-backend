@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// this test checks if FluidArrays can form adiabatic mixing joints
 /// with single cvs
 ///
@@ -202,6 +205,7 @@ pub fn adiabatic_mixing_joint_test_link_to_front_and_back_reverse_flow() {
 
     let outlet_pipe_temp = outlet_pipe.try_get_bulk_temperature().unwrap();
 
+    #[cfg(feature = "std")]
     dbg!(&(
         simulation_time.get::<second>(),
         inlet_pipe_1_temp.get::<degree_celsius>(),
@@ -391,6 +395,7 @@ pub fn adiabatic_mixing_joint_test_hte_single_cv_only() {
 
         let outlet_pipe_temp = outlet_pipe.try_get_bulk_temperature().unwrap();
 
+        #[cfg(feature = "std")]
         dbg!(&(
             simulation_time.get::<second>(),
             inlet_pipe_1_temp.get::<degree_celsius>(),

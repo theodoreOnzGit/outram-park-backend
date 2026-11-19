@@ -84,9 +84,12 @@
 //! in `tests/pair_gran_local_cross_code.rs` output and in
 //! `verification_and_validation/neighbor_order.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::particle::Vec3;
 use crate::DemError;
-use std::collections::HashMap;
+use crate::hash::HashMap;
 
 /// How [`GranularSystem`](crate::granular_system::GranularSystem) orders the
 /// particle pairs it sums contact forces over.
@@ -175,6 +178,24 @@ fn c_int(v: f64) -> i32 {
     v as i32
 }
 
+/// The sort bin size, `0.5 * cutneighmax`, with `Atom::setup_sort_bins`'
+/// guard (LIGGGHTS-PUBLIC `3d5c00f2`, `atom.cpp`; no user bin size, no CUDA,
+/// no `lmp->wb`).
+///
+/// # Errors
+///
+/// [`DemError::InvalidInput`] "Atom sorting has bin size = 0.0" when
+/// `cutneighmax` is 0, as upstream's `error->all` (gh:#1568).
+pub fn sort_bin_size(cutneighmax: f64) -> Result<f64, DemError> {
+    let binsize = 0.5 * cutneighmax;
+    if binsize == 0.0 {
+        return Err(DemError::InvalidInput(
+            "Atom sorting has bin size = 0.0 (LIGGGHTS Atom::setup_sort_bins)".into(),
+        ));
+    }
+    Ok(binsize)
+}
+
 /// The permutation `Atom::sort` applies: element `n` is the old local index of
 /// the atom that becomes local atom `n`. `x` are the local atoms' positions in
 /// their current local order. Returns the identity when there is a single sort
@@ -186,9 +207,18 @@ fn c_int(v: f64) -> i32 {
 /// (at least 1), `bininv = nbin / extent`, atoms binned by
 /// `int((x - lo) * bininv)` clamped to `[0, nbin - 1]`, ordered by
 /// `iz*nbiny*nbinx + iy*nbinx + ix` and, inside a bin, by ascending old index.
+///
+/// With no atoms the permutation is empty whatever the bins: upstream's
+/// binning and copy loops run over `nlocal = 0` atoms (gh:#1568; a zero
+/// `cutneighmax`, which only an empty system without an insertion fix has,
+/// used to overflow the bin count here). Upstream refuses a zero bin size at
+/// the run set-up instead; see [`sort_bin_size`].
 #[must_use]
 pub fn atom_sort_permutation(x: &[Vec3], cfg: &LiggghtsNeighbor, cutneighmax: f64) -> Vec<usize> {
     let n = x.len();
+    if n == 0 {
+        return Vec::new();
+    }
     let binsize = 0.5 * cutneighmax;
     let bininv = 1.0 / binsize;
     let ext = cfg.box_hi.sub(cfg.box_lo);
@@ -237,6 +267,77 @@ pub fn needs_rebuild(x: &[Vec3], xhold: &[Vec3], skin: f64) -> bool {
     flag
 }
 
+/// The neighbour bins of `Neighbor::setup_bins` (orthogonal box, one
+/// processor) and the `coord2bin` that maps a position onto them.
+///
+/// `binsize_optimal = 0.5 * cutneighmax` (the box's x extent when the cutoff
+/// is zero), `nbin = int(extent / binsize_optimal)` (at least 1),
+/// `binsize = extent / nbin`, `bininv = 1 / binsize`. Bin coordinates are
+/// returned without the `mbin*lo` offsets, which only shift every index by
+/// the same amount and so never change an order.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BinGrid {
+    /// `bboxlo`.
+    pub lo: Vec3,
+    /// `bboxhi`.
+    pub hi: Vec3,
+    /// `nbinx, nbiny, nbinz`.
+    pub nbin: (i32, i32, i32),
+    /// `binsizex, binsizey, binsizez` `[m]`.
+    pub binsize: Vec3,
+    /// `bininvx, bininvy, bininvz` `[1/m]`.
+    pub bininv: Vec3,
+}
+
+impl BinGrid {
+    /// `Neighbor::setup_bins` for the box of `cfg` and this `cutneighmax`.
+    #[must_use]
+    pub fn new(cfg: &LiggghtsNeighbor, cutneighmax: f64) -> Self {
+        let (lo, hi) = (cfg.box_lo, cfg.box_hi);
+        let bbox = hi.sub(lo);
+        let binsize_optimal = if cutneighmax == 0.0 {
+            bbox.x
+        } else {
+            0.5 * cutneighmax
+        };
+        let binsizeinv = 1.0 / binsize_optimal;
+        let nb = |e: f64| c_int(e * binsizeinv).max(1);
+        let (nbinx, nbiny, nbinz) = (nb(bbox.x), nb(bbox.y), nb(bbox.z));
+        let binsize = Vec3::new(
+            bbox.x / f64::from(nbinx),
+            bbox.y / f64::from(nbiny),
+            bbox.z / f64::from(nbinz),
+        );
+        let bininv = Vec3::new(1.0 / binsize.x, 1.0 / binsize.y, 1.0 / binsize.z);
+        Self {
+            lo,
+            hi,
+            nbin: (nbinx, nbiny, nbinz),
+            binsize,
+            bininv,
+        }
+    }
+
+    /// `Neighbor::coord2bin(x, ix, iy, iz)` without the `mbin*lo` offsets.
+    #[must_use]
+    pub fn coord2bin(&self, p: Vec3) -> (i32, i32, i32) {
+        let one = |v: f64, lo: f64, hi: f64, bininv: f64, nbin: i32| -> i32 {
+            if v >= hi {
+                c_int((v - hi) * bininv) + nbin
+            } else if v >= lo {
+                c_int((v - lo) * bininv).min(nbin - 1)
+            } else {
+                c_int((v - lo) * bininv) - 1
+            }
+        };
+        (
+            one(p.x, self.lo.x, self.hi.x, self.bininv.x, self.nbin.0),
+            one(p.y, self.lo.y, self.hi.y, self.bininv.y, self.nbin.1),
+            one(p.z, self.lo.z, self.hi.z, self.bininv.z, self.nbin.2),
+        )
+    }
+}
+
 /// Build `granular_bin_no_newton`'s half list for the local atoms `x` with
 /// radii `radius` (both in local order), appending `(i, j)` **local-index**
 /// pairs with `i < j` to `pairs` in upstream's order: `i` ascending, then the
@@ -256,24 +357,11 @@ pub fn half_bin_no_newton(
 ) {
     pairs.clear();
     let n = x.len();
-    let (lo, hi) = (cfg.box_lo, cfg.box_hi);
-    let bbox = hi.sub(lo);
 
     // --- setup_bins ---
-    let binsize_optimal = if cutneighmax == 0.0 {
-        bbox.x
-    } else {
-        0.5 * cutneighmax
-    };
-    let binsizeinv = 1.0 / binsize_optimal;
-    let nb = |e: f64| c_int(e * binsizeinv).max(1);
-    let (nbinx, nbiny, nbinz) = (nb(bbox.x), nb(bbox.y), nb(bbox.z));
-    let (binsizex, binsizey, binsizez) = (
-        bbox.x / f64::from(nbinx),
-        bbox.y / f64::from(nbiny),
-        bbox.z / f64::from(nbinz),
-    );
-    let (bininvx, bininvy, bininvz) = (1.0 / binsizex, 1.0 / binsizey, 1.0 / binsizez);
+    let grid = BinGrid::new(cfg, cutneighmax);
+    let (binsizex, binsizey, binsizez) = (grid.binsize.x, grid.binsize.y, grid.binsize.z);
+    let (bininvx, bininvy, bininvz) = (grid.bininv.x, grid.bininv.y, grid.bininv.z);
     let stencil_extent = |bininv: f64, binsize: f64| -> i32 {
         let mut s = c_int(cutneighmax * bininv);
         if f64::from(s) * binsize < cutneighmax {
@@ -313,29 +401,11 @@ pub fn half_bin_no_newton(
         }
     }
 
-    // --- coord2bin ---
-    let coord2bin = |p: Vec3| -> (i32, i32, i32) {
-        let one = |v: f64, lo: f64, hi: f64, bininv: f64, nbin: i32| -> i32 {
-            if v >= hi {
-                c_int((v - hi) * bininv) + nbin
-            } else if v >= lo {
-                c_int((v - lo) * bininv).min(nbin - 1)
-            } else {
-                c_int((v - lo) * bininv) - 1
-            }
-        };
-        (
-            one(p.x, lo.x, hi.x, bininvx, nbinx),
-            one(p.y, lo.y, hi.y, bininvy, nbiny),
-            one(p.z, lo.z, hi.z, bininvz, nbinz),
-        )
-    };
-
     // --- bin_atoms: `bins` linked list in forward (ascending) order ---
     let mut bins: HashMap<(i32, i32, i32), Vec<u32>> = HashMap::new();
     let mut ibins: Vec<(i32, i32, i32)> = Vec::with_capacity(n);
     for (i, p) in x.iter().enumerate() {
-        let b = coord2bin(*p);
+        let b = grid.coord2bin(*p);
         ibins.push(b);
         bins.entry(b).or_default().push(i as u32);
     }
@@ -454,6 +524,20 @@ mod tests {
             atom_sort_permutation(&x, &c, c.cutneighmax(0.005)),
             vec![0, 1]
         );
+    }
+
+    /// `coord2bin`: owned positions land in `[0, nbin)`, the upper face in the
+    /// last bin, and points outside the box below 0 or at/after `nbin`.
+    #[test]
+    fn coord2bin_matches_setup_bins() {
+        let c = cfg();
+        let cut = c.cutneighmax(0.005);
+        let g = BinGrid::new(&c, cut);
+        // binsize_optimal = 0.5 * 0.013 = 0.0065: int(2/0.0065) = 307 in x
+        assert_eq!(g.nbin, (307, 307, 153));
+        assert_eq!(g.coord2bin(Vec3::new(-1.0, -1.0, 0.0)), (0, 0, 0));
+        assert_eq!(g.coord2bin(Vec3::new(1.0 - 1e-15, 0.0, 0.5)).0, 306);
+        assert_eq!(g.coord2bin(Vec3::new(-1.001, 1.0, 1.0)), (-1, 307, 153));
     }
 
     #[test]

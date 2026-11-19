@@ -39,6 +39,9 @@
 //! checked too because upstream RECONR carries the R-matrix (n,p) channel
 //! into its own MF=3 section (10 730 points on the oracle tape).
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;

@@ -54,8 +54,11 @@
 //! calls it: such a face has no kept edge and is not tie-broken).
 //! `createPolyMeshFromRegion` (debug output) is not ported.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::math::Vec3;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 /// OpenFOAM's `SMALL` for `double`.
 const SMALL: f64 = 1e-15;
@@ -555,6 +558,7 @@ mod tests {
         r.plane_cut(&Plane::new(Vec3::new(1.0, 0.0, 0.0), Vec3::new(-1.0, -1.0, -1.0)));
         assert!(r.is_valid());
         let mut pts: Vec<Vec3> = r.points().to_vec();
+        #[cfg(feature = "std")]
         println!("corners {pts:?}, {} edges, {} faces", r.edges().len(), r.faces().len());
         // Coincident corners may survive as separate points; dedupe at 1e-12.
         pts.dedup_by(|a, b| a.sub(*b).length() < 1e-12);
@@ -610,6 +614,7 @@ mod tests {
         pts[free] = Vec3::new(1.4, 0.0, 0.0);
         assert_eq!(vols(&pts, &tets).iter().filter(|&&v| v <= 0.0).count(), 4);
         assert!(mesh_untangler(&mut pts, &tets, free));
+        #[cfg(feature = "std")]
         println!("symmetric star: point -> {:?}", pts[free]);
         assert!(vols(&pts, &tets).iter().all(|&v| v > 0.0));
         assert!(pts[free].length() < 1e-12, "{:?}", pts[free]);
@@ -622,6 +627,7 @@ mod tests {
         pts[free] = Vec3::new(-0.9, 0.7, 0.5);
         let before = vols(&pts, &tets).iter().filter(|&&v| v <= 0.0).count();
         assert!(mesh_untangler(&mut pts, &tets, free));
+        #[cfg(feature = "std")]
         println!("perturbed star: {before} inverted -> point {:?}, min volume {:.3e}", pts[free], vols(&pts, &tets).iter().copied().fold(f64::MAX, f64::min));
         assert!(before > 0);
         assert!(vols(&pts, &tets).iter().all(|&v| v > 0.0));
@@ -631,6 +637,7 @@ mod tests {
         pts[free] = Vec3::new(0.3, 0.1, 0.2);
         let keep = pts[free];
         let moved = mesh_untangler(&mut pts, &tets, free);
+        #[cfg(feature = "std")]
         println!("infeasible star: moved {moved}, point {:?}", pts[free]);
         assert!(!moved);
         assert_eq!(pts[free], keep);

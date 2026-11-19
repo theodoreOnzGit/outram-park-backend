@@ -40,6 +40,9 @@
 //! The `LCOMP=1` reader (`errorr.f90:3389-3417`) is ported alongside but
 //! has no oracle tape.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::endf::records::SectionCursor;
 use crate::mixr::mix::sigfig;
@@ -332,7 +335,7 @@ struct Evaluator<'a> {
     st: &'a SammSetup,
     ds: &'a crate::samm::derivs::DerivSetup,
     mmtres: &'a [i32],
-    calls: std::cell::Cell<usize>,
+    calls: core::cell::Cell<usize>,
 }
 
 impl Evaluator<'_> {
@@ -434,7 +437,7 @@ pub fn rpxsamm(
         st: &st,
         ds: &ds,
         mmtres,
-        calls: std::cell::Cell::new(0),
+        calls: core::cell::Cell::new(0),
     };
     let mut panels = 0usize;
     let mut sens = vec![vec![vec![0.0f64; nresp]; ngn]; nmt];

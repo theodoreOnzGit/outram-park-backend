@@ -61,6 +61,9 @@
 //! `fldk`, `get_bejan_d`, `get_reynolds_number`) are thin wrappers over
 //! `churchill_friction_factor` that operate on bare `f64` dimensionless inputs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// calculate darcy, fanning friction factor
 /// using churchill correlation
 pub mod churchill_friction_factor;

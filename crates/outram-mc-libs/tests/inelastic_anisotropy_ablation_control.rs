@@ -58,6 +58,8 @@
 //! 512 draws — an independent check that the sampler inverts the same CDF the
 //! parser built, rather than only that it returns *something*.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use outram_mc_libs::material::nuclide::Nuclide;
 

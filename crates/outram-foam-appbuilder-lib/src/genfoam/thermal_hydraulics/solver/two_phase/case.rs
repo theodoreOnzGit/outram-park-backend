@@ -23,8 +23,12 @@
 //! which is recorded in [`TwoPhaseCase::deviations`] because GeN-Foam ships
 //! the alternative and the substitution is the whole point of this slice.
 
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
+use std::path::Path;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::io::dict::FoamFile;
 use outram_foam_basic_lib::io::{FoamDict, FoamEntry, FoamValue};
@@ -43,6 +47,7 @@ use super::{
     ByRegime, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, Structure,
     TimeControls, TwoPhaseControls, TwoPhaseModels,
 };
+#[cfg(feature = "std")]
 use crate::error::AppBuilderError;
 use crate::genfoam::thermal_hydraulics::closures::ff_drag::{FfDragCoefficient, TwoPhaseDragMultiplier};
 use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
@@ -60,6 +65,7 @@ use crate::genfoam::thermal_hydraulics::closures::phase_change::{
 };
 use crate::genfoam::thermal_hydraulics::structure::power_model::FixedPower;
 use crate::genfoam::thermal_hydraulics::structure::power_off::PowerOffCriterion;
+#[cfg(feature = "std")]
 use crate::io::poly_mesh::{read_cell_zones, read_poly_mesh};
 
 /// Everything [`super::TwoPhaseSolver::new`] needs, read from a case.
@@ -94,6 +100,7 @@ pub struct TwoPhaseCase {
     pub deviations: Vec<String>,
 }
 
+#[cfg(feature = "std")]
 fn err(case: &Path, msg: impl Into<String>) -> AppBuilderError {
     AppBuilderError::Case {
         case: case.to_path_buf(),
@@ -102,35 +109,41 @@ fn err(case: &Path, msg: impl Into<String>) -> AppBuilderError {
 }
 
 /// Reading context: the case root, for error messages.
-struct Ctx {
-    root: PathBuf,
+pub(super) struct Ctx {
+    pub(super) root: crate::path::PathBuf,
 }
 
 impl Ctx {
-    fn read(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
+    #[cfg(feature = "std")]
+    pub(super) fn read(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
         let p = self.root.join(rel);
         FoamFile::read(&p)
             .map(|f| f.dict)
             .map_err(|e| err(&self.root, format!("{rel}: {e}")))
     }
 
-    fn e(&self, msg: impl Into<String>) -> AppBuilderError {
+    #[cfg(feature = "std")]
+    pub(super) fn e(&self, msg: impl Into<String>) -> AppBuilderError {
         err(&self.root, msg)
     }
 
-    fn sub<'a>(&self, d: &'a FoamDict, key: &str) -> Result<&'a FoamDict, AppBuilderError> {
+    #[cfg(feature = "std")]
+    pub(super) fn sub<'a>(&self, d: &'a FoamDict, key: &str) -> Result<&'a FoamDict, AppBuilderError> {
         d.get_dict(key).ok_or_else(|| self.e(format!("missing sub-dictionary `{key}`")))
     }
 
-    fn f64(&self, d: &FoamDict, key: &str) -> Result<f64, AppBuilderError> {
+    #[cfg(feature = "std")]
+    pub(super) fn f64(&self, d: &FoamDict, key: &str) -> Result<f64, AppBuilderError> {
         scalar(d, key).ok_or_else(|| self.e(format!("missing scalar `{key}`")))
     }
 
-    fn word(&self, d: &FoamDict, key: &str) -> Result<String, AppBuilderError> {
+    #[cfg(feature = "std")]
+    pub(super) fn word(&self, d: &FoamDict, key: &str) -> Result<String, AppBuilderError> {
         word(d, key).ok_or_else(|| self.e(format!("missing word `{key}`")))
     }
 
-    fn list8(&self, d: &FoamDict, key: &str) -> Result<[f64; 8], AppBuilderError> {
+    #[cfg(feature = "std")]
+    pub(super) fn list8(&self, d: &FoamDict, key: &str) -> Result<[f64; 8], AppBuilderError> {
         let v = match d.get(key) {
             Some(FoamEntry::List(v)) => v,
             _ => return Err(self.e(format!("missing list `{key}`"))),
@@ -146,7 +159,7 @@ impl Ctx {
     }
 }
 
-fn scalar(d: &FoamDict, key: &str) -> Option<f64> {
+pub(super) fn scalar(d: &FoamDict, key: &str) -> Option<f64> {
     match d.get(key)? {
         FoamEntry::Scalar(x) => Some(*x),
         FoamEntry::Dimensioned(dm) => dm.value.first().and_then(FoamValue::as_scalar),
@@ -154,20 +167,20 @@ fn scalar(d: &FoamDict, key: &str) -> Option<f64> {
     }
 }
 
-fn word(d: &FoamDict, key: &str) -> Option<String> {
+pub(super) fn word(d: &FoamDict, key: &str) -> Option<String> {
     match d.get(key)? {
         FoamEntry::Word(w) | FoamEntry::Str(w) => Some(w.clone()),
         _ => None,
     }
 }
 
-fn bool_entry(d: &FoamDict, key: &str) -> Option<bool> {
+pub(super) fn bool_entry(d: &FoamDict, key: &str) -> Option<bool> {
     word(d, key).map(|w| matches!(w.as_str(), "true" | "on" | "yes" | "1"))
 }
 
 /// OpenFOAM keyword regex, restricted to literals and `.*` (all the cases
 /// use): `alpha.*` matches `alpha.vapour`.
-fn key_matches(pattern: &str, name: &str) -> bool {
+pub(super) fn key_matches(pattern: &str, name: &str) -> bool {
     if !pattern.contains(".*") {
         return pattern == name;
     }
@@ -192,15 +205,16 @@ fn key_matches(pattern: &str, name: &str) -> bool {
 
 /// The first entry of `d` whose (regex) key matches `name`, as OpenFOAM
 /// looks up `relaxationFactors` and `solvers`.
-fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
+pub(super) fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
     if let Some(e) = d.get(name) {
         return Some(e);
     }
     d.iter().find(|(k, _)| key_matches(k, name)).map(|(_, e)| e)
 }
 
+#[cfg(feature = "std")]
 /// `internalField uniform v;` (scalar) or the first component of a vector.
-fn uniform_value(ctx: &Ctx, e: Option<&FoamEntry>) -> Result<FoamValue, AppBuilderError> {
+pub(super) fn uniform_value(ctx: &Ctx, e: Option<&FoamEntry>) -> Result<FoamValue, AppBuilderError> {
     match e {
         Some(FoamEntry::Tokens(t)) if t.len() == 2 && t[0].as_word() == Some("uniform") => Ok(t[1].clone()),
         _ => Err(ctx.e("only `uniform` field values are supported")),
@@ -208,12 +222,13 @@ fn uniform_value(ctx: &Ctx, e: Option<&FoamEntry>) -> Result<FoamValue, AppBuild
 }
 
 /// A volume field file: internal value and per-patch BCs.
-struct FieldFile {
-    internal: FoamValue,
-    bcs: Vec<(String, String, Option<FoamValue>)>,
+pub(super) struct FieldFile {
+    pub(super) internal: FoamValue,
+    pub(super) bcs: Vec<(String, String, Option<FoamValue>)>,
 }
 
-fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
+#[cfg(feature = "std")]
+pub(super) fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
     let d = ctx.read(rel)?;
     let internal = uniform_value(ctx, d.get("internalField"))?;
     let bf = ctx.sub(&d, "boundaryField")?;
@@ -232,8 +247,9 @@ fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
     Ok(FieldFile { internal, bcs })
 }
 
+#[cfg(feature = "std")]
 /// Map a scalar field file to [`Bc`]s on the mesh patches.
-fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<Bc>, AppBuilderError> {
+pub(super) fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<Bc>, AppBuilderError> {
     let mut out = Vec::new();
     for p in &g.mesh.patches {
         if p.kind == PatchKind::Empty {
@@ -263,6 +279,19 @@ fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<Bc>, AppBui
 }
 
 impl TwoPhaseCase {
+    /// The ablation of [`TwoPhaseControls::p_patch_from_file`]: the patch values of `p` start as `p_rgh`'s
+    /// (and are reset to `p_rgh + rho gh` after the thermo construction), as the port did before gh:#1361
+    /// round 5. Differs from GeN-Foam 652b3da in steps 1 and 2 only (the `U.vapour` inlet cell of an absent phase).
+    #[must_use]
+    pub fn without_p_patch_from_file(mut self) -> Self {
+        self.controls.p_patch_from_file = false;
+        for (i, v) in self.p.b.iter_mut().enumerate() {
+            *v = self.p_rgh.b[i];
+        }
+        self
+    }
+
+    #[cfg(feature = "std")]
     /// Read the `fluidRegion` of a GeN-Foam case at `root` (the directory
     /// holding `0/`, `constant/`, `system/`).
     ///
@@ -320,6 +349,8 @@ impl TwoPhaseCase {
             margin_to_phase_change: scalar(&cd, "marginToPhaseChange"),
             max_delta_t: scalar(&cd, "maxDeltaT").unwrap_or(f64::MAX),
             write_interval,
+            start_time,
+            esi_adjust_delta_t: true,
         };
         if let Some(rs) = cd.get_dict("regionSolvers") {
             if word(rs, region).as_deref() != Some("twoPhase") {
@@ -338,9 +369,20 @@ impl TwoPhaseCase {
         let p_rgh = Scalar::uniform(&g, p_rgh_f.internal.as_scalar().unwrap_or(0.0), p_rgh_bc);
         let p_f = read_field(&ctx, &format!("{zero}/p"))?;
         let mut p = Scalar::uniform(&g, p_f.internal.as_scalar().unwrap_or(0.0), vec![Bc::Calculated; mesh.patches.len()]);
+        // `p_` is `READ_IF_PRESENT`: its patch values are the file's (`calculated`, `value`), NOT `p_rgh`'s.
+        // They are what the thermo packages are constructed from, so they set the construction-time
+        // patch densities and the `oldTime()` copies of them (gh:#1361 round 5, `U.vapour` at the
+        // inlet of an absent phase). `p_rgh`'s patch is the fallback when the file gives no uniform value.
+        let patch_p_from_file = |f: usize| -> Option<f64> {
+            let name = &g.mesh.patches[g.patch_of[f - g.n_internal()]].name;
+            p_f.bcs
+                .iter()
+                .find(|(n, ty, _)| n == name && ty == "calculated")
+                .and_then(|(_, _, v)| v.as_ref().and_then(FoamValue::as_scalar))
+        };
         for f in g.n_internal()..g.n_faces() {
             if g.active[f] {
-                p.b[f - g.n_internal()] = p_rgh.b[f - g.n_internal()] + 0.0;
+                p.b[f - g.n_internal()] = patch_p_from_file(f).unwrap_or(p_rgh.b[f - g.n_internal()]);
             }
         }
 
@@ -698,6 +740,11 @@ impl TwoPhaseCase {
                 if fluids[0].is_liquid { 1 } else { 0 }
             }
         };
+        let (alpha_solver_tolerance, alpha_solver_rel_tol) =
+            match lookup_regex(solvers, &format!("alpha.{}", names[solve_phase])) {
+                Some(FoamEntry::SubDict(d)) => (ctx.f64(d, "tolerance")?, scalar(d, "relTol").unwrap_or(0.0)),
+                _ => return Err(ctx.e("no linear solver for alpha.<phase>")),
+            };
         if alpha_solver != "implicitUpwind" {
             deviations.push(format!(
                 "alpha solver `{alpha_solver}` is not ported; ran GeN-Foam's implicitUpwind \
@@ -742,6 +789,13 @@ impl TwoPhaseCase {
             p_min: scalar(&pp, "pMin").unwrap_or(0.0),
             max_dpdt: scalar(pimple, "maxDpdt").unwrap_or(1e6),
             dpdt: true,
+            lazy_old_time_first_step: true,
+            stale_pimple_converged_flag: false,
+            p_patch_from_file: true,
+            t_interface_limiter_sees_new_value: true,
+            alpha_solver_tolerance,
+            alpha_solver_rel_tol,
+            alpha_solver_openfoam: true,
         };
         if scalar(pimple, "oscillationLimiterFraction").unwrap_or(0.0) != 0.0 {
             return Err(ctx.e("oscillationLimiterFraction != 0 is not ported"));
@@ -765,6 +819,7 @@ impl TwoPhaseCase {
     }
 }
 
+#[cfg(feature = "std")]
 /// `constant`/`byRegime` scalar model reader.
 fn read_by_regime(
     ctx: &Ctx,
@@ -789,7 +844,8 @@ fn read_by_regime(
     }
 }
 
-fn read_nusselt(ctx: &Ctx, md: &FoamDict) -> Result<FsForcedConvectionHtc, AppBuilderError> {
+#[cfg(feature = "std")]
+pub(super) fn read_nusselt(ctx: &Ctx, md: &FoamDict) -> Result<FsForcedConvectionHtc, AppBuilderError> {
     match ctx.word(md, "type")?.as_str() {
         "NusseltReynoldsPrandtlPower" | "Nusselt" => Ok(FsForcedConvectionHtc::Nusselt {
             a: ctx.f64(md, "const")?,
@@ -802,6 +858,7 @@ fn read_nusselt(ctx: &Ctx, md: &FoamDict) -> Result<FsForcedConvectionHtc, AppBu
     }
 }
 
+#[cfg(feature = "std")]
 fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> {
     match ctx.word(md, "type")?.as_str() {
         "NusseltReynoldsPrandtlPower" | "Nusselt" => Ok(FsHtcModel::Nusselt(read_nusselt(ctx, md)?)),
@@ -841,7 +898,8 @@ fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> 
     }
 }
 
-fn read_thermo(ctx: &Ctx, rel: &str) -> Result<PhaseThermo, AppBuilderError> {
+#[cfg(feature = "std")]
+pub(super) fn read_thermo(ctx: &Ctx, rel: &str) -> Result<PhaseThermo, AppBuilderError> {
     let d = ctx.read(rel)?;
     let tt = ctx.sub(&d, "thermoType")?;
     if ctx.word(tt, "type")? != "heRhoThermo" || ctx.word(tt, "energy")? != "sensibleEnthalpy" {

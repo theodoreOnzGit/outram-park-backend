@@ -30,6 +30,9 @@
 //! and Android-buildable with no external linear-algebra dependency. The large
 //! solves the mesher never needs; all of its geometry is these fixed-size ops.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// A 3-component vector `(x, y, z)` of `f64`s. `Copy`, so pass by value.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec3 {

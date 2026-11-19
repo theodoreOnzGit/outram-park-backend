@@ -92,6 +92,9 @@
 //! assert!(d.millisieverts() > 0.0);
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod assessment;
 pub mod config;
 pub(crate) mod csv;

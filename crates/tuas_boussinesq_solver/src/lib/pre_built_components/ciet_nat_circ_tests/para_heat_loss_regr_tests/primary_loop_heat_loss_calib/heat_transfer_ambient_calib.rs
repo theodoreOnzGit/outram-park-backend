@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// This test attempted to tweak the heat trasnfer coeffcient (htc)
 /// to ambient in order to obtain the correct dhx inlet temperature
 /// unfortunately, the parasitic heat losses were not sufficient
@@ -30,7 +33,7 @@
 #[test]
 pub fn hot_leg_htc_to_ambient_calibration_v1_failed() {
     // checks hot leg to ambient calibration
-    use std::thread;
+    use crate::thread;
 
     // in this test, I attempted to
     // calibrate the heat loss using an increased ambient_heat_transfer_coeff
@@ -228,6 +231,7 @@ pub fn hot_leg_htc_to_ambient_calibration_regression_test_v1_failed(
 
             static_mixer_21_front_single_cv_temperature
         };
+        #[cfg(feature = "std")]
         dbg!(&dhx_inlet_actual_temperature.get::<degree_celsius>());
         ambient_heat_transfer_coeff = {
             // first, calculate the set point error
@@ -434,6 +438,7 @@ pub fn hot_leg_htc_to_ambient_calibration_regression_test_v1_failed(
     }
 
     // after everything, let's dbg the acutal inlet temp of the dhx
+    #[cfg(feature = "std")]
     dbg!(&(
         dhx_inlet_temperature_set_point.get::<degree_celsius>(),
         dhx_inlet_actual_temperature.get::<degree_celsius>(),

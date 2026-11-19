@@ -27,6 +27,45 @@
 //! directory, mirrored from the workspace root) for the full attribution
 //! and non-affiliation notice.
 
+//!
+//! # `no_std` + `alloc` (gh:#1586)
+//!
+//! With its default `std` feature off the crate is `no_std` + `alloc`: the
+//! physics (meshes, fields, the finite-volume operators, the LDU and Krylov
+//! solvers, the ODE integrators, thermophysics, radiation) builds for a
+//! bare-metal target (`cargo check -p outram-foam-basic-lib
+//! --no-default-features --target x86_64-unknown-none`). `std` carries what
+//! needs an operating system: the case reader/writer's files (`io`),
+//! wall-clock timing, the thread pools (`math::parallel`, `ode::parallel`)
+//! and the compute-backend probe. In a `no_std` build the float methods
+//! `core` lacks (`sqrt`, `floor`, `mul_add`, ...) come from
+//! `petir::real::Real` (`libm`); with `std` they are `std`'s own, so a `std`
+//! build computes exactly what it did before. Unit tests always build with
+//! `std`.
+
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
+
+extern crate alloc;
+// `thiserror` without its `std` default (the root's `thiserror-nostd` key,
+// gh:#1586), under the name the code uses.
+extern crate thiserror_nostd as thiserror;
+
+/// What the `std` prelude gives every module and a `no_std` build has to
+/// import: the `alloc` types and macros, and `petir::real::Real` for the
+/// float methods `core` lacks. Each module glob-imports it in `no_std`
+/// builds only, so a `std` build resolves every name exactly as before.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+pub(crate) mod nostd_prelude {
+    pub(crate) use alloc::borrow::ToOwned;
+    pub(crate) use alloc::boxed::Box;
+    pub(crate) use alloc::format;
+    pub(crate) use alloc::string::{String, ToString};
+    pub(crate) use alloc::vec;
+    pub(crate) use alloc::vec::Vec;
+    pub(crate) use petir::real::Real;
+}
+
 /// Cross-layer — where a numerical kernel runs (`ComputeBackend`: serial,
 /// multi-CPU via `rayon`, or GPU via `wgpu`), the worker-count policy, and the
 /// backend-selection rule. Dispatch only, no kernels.
@@ -77,6 +116,16 @@ pub mod ode;
 pub mod polynomial;
 /// Convenience re-exports of the most commonly used types and functions.
 pub mod prelude;
+
+/// P1 thermal radiation (ESI v2506): `G` equation, Marshak BCs, `Ru`/`Rp` (gh:#1379).
+pub mod radiation;
+/// `viewFactor` surface-to-surface radiation (ESI v2506), serial direct solver, reading `viewFactorsGen` output (gh:#1529).
+pub mod view_factor_radiation;
+/// `viewFactorsGen` view-factor generator (ESI v2506), serial, no agglomeration (gh:#1540).
+pub mod view_factor_generation;
+
+/// `indexedOctree` of ESI v2506 (build, `findNearest`, `findLine`), moved here from `outram-foam-mesh` for gh:#1564.
+pub mod esi_octree;
 /// Layer 1a — dimensionless scalar constants and the tensor-algebra
 /// primitives (`Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`).
 pub mod primitives;

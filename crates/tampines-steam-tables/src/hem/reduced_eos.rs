@@ -35,6 +35,9 @@
 //! `0` for a liquid-like closure (`p∞ > 0`, or the barotropic and linear
 //! forms) and `1` for a gas-like one.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{

@@ -1,0 +1,2 @@
+arm,seed,k,k_std,particles,inactive,active,threads,wall_s,load_s,hardware
+mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full,1,1.019902,0.000544,20000,100,200,2,2667.3,399.4,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.10GHz, 15.7 GiB RAM"

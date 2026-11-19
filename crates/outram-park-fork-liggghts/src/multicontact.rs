@@ -29,7 +29,10 @@
 //!
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`).
 
-use std::f64::consts::PI;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::f64::consts::PI;
 
 /// Neighbour contact-distance factor the multicontact surface model registers
 /// (upstream `neighbor->register_contact_dist_factor(2.0)`, "assume it's at
@@ -372,12 +375,12 @@ pub struct MulticontactState {
     pub data: McData,
     /// Pair history keyed by `(lower tag, higher tag)`, stored as
     /// `[rad of lower tag, rad of higher tag, fn]`.
-    pub pair_hist: std::collections::HashMap<(usize, usize), [f64; 3]>,
+    pub pair_hist: crate::hash::HashMap<(usize, usize), [f64; 3]>,
     /// Primitive-wall history keyed by `(tag, wall)`.
-    pub wall_hist: std::collections::HashMap<(usize, usize), [f64; 4]>,
+    pub wall_hist: crate::hash::HashMap<(usize, usize), [f64; 4]>,
     /// Mesh-wall history keyed by `(tag, wall index nb + w, triangle id)`
     /// (upstream's per-facet contact history, gh:#1410).
-    pub mesh_hist: std::collections::HashMap<(usize, usize, u32), [f64; 4]>,
+    pub mesh_hist: crate::hash::HashMap<(usize, usize, u32), [f64; 4]>,
     /// Local index of each particle (inverse of the atom-sort permutation).
     pub local_of: Vec<usize>,
 }
@@ -389,9 +392,9 @@ impl MulticontactState {
         Self {
             fix,
             data: McData::default(),
-            pair_hist: std::collections::HashMap::new(),
-            wall_hist: std::collections::HashMap::new(),
-            mesh_hist: std::collections::HashMap::new(),
+            pair_hist: crate::hash::HashMap::new(),
+            wall_hist: crate::hash::HashMap::new(),
+            mesh_hist: crate::hash::HashMap::new(),
             local_of: Vec::new(),
         }
     }

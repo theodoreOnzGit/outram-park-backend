@@ -18,6 +18,9 @@
 //! midpoint. [`StabilitySet`] carries the one-or-two distinction in the type,
 //! so a caller cannot forget the second class exists.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Velocity;
 use uom::si::velocity::meter_per_second;
 

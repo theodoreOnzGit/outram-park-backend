@@ -23,11 +23,14 @@
 //! difference is in `docs/pydoseia-code-to-code.md` and pinned by
 //! `tests/plume_shine_petir_vs_quadpack.rs`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::Length;
 use uom::si::length::meter;
 
-use std::cell::Cell;
+use core::cell::Cell;
 
 use super::tables::AirPhotonCoefficients;
 use crate::pydoseia::dispersion::{sigma_y, sigma_z, StabilityClass, SECTOR_WIDTH_RAD};

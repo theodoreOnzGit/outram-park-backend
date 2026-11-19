@@ -36,6 +36,178 @@ crate's "no new physics in the library" rule, on the `htr10` pattern.
 | `msre::circulating_kinetics` | MSRE T-C1 circulating point kinetics | `teh-o-prke` re-export |
 | `msre::salts` | MSRE TH-6 fuel and coolant salts | `tuas_boussinesq_solver` re-export |
 
+## The operator session and the museum simulator (2026-11-14, gh:#1570)
+
+`msre::session` drives `MsreModel` for GUIs and web workers, in plain
+numbers (°F, MW, pcm). It adds no physics:
+- commands: rods, the ideal flux servo (`critical_rod_reactivity` applied
+  every 0.01 s step), radiator air, pump trips (ORNL-4233 Fig. 23) and
+  starts (TM-0728);
+- a snapshot of the getters;
+- `below_liquidus` against the cited liquidus temperatures: fuel 840 °F,
+  TM-0728 Table 2.1; coolant 458 °C (856.4 °F), TM-2316;
+- a deterministic `headless_csv`;
+- the T-1 `natural_periods` table.
+
+It is used by the `msre_web` example, published (gated) at `demos/msre/`
+in the demos page's "Museum – historical reactors" section.
+
+### The live plant: self-paced worker and salt-freeze guard (gh:#1573, 2026-11-14)
+
+~~The page drives each step.~~ The plant now paces itself:
+- `session::Pacer` turns wall-clock readings into plant seconds at the
+  chosen speed, with pause. A wall gap is capped at 1 s, so a late tick
+  slows the plant instead of leaping.
+- In the browser, a timer loop in the worker sends itself a tick every
+  100 ms. Natively, a ticker thread does. The page sends only the speed
+  and pause, commands, resets and thaws, so the plant runs from page load
+  whichever tab is open.
+
+`Session::advance_guarded` is the salt-freeze guard, after `fhr_sim_v2`'s
+`salt_freeze_guard`. The model has no freezing, so each stretch runs on the
+live state with a copy kept beside it:
+- If a salt ends the stretch below its liquidus, the copy is put back.
+  The plant is held at the last state with every salt liquid, and the
+  freeze is reported once: the salt, its coldest lump and the refused
+  temperature.
+- `Session::thaw` is a cheat, and the modal says so. It rebuilds the
+  configured hot steady state with the clock running on, and it works
+  once per freeze.
+
+Tests: `msre::session::tests` checks the hold at the last liquid state, that
+the guard leaves a liquid plant bit-identical, that the thaw is consumed once,
+and the pacer. ~~`msre_web`'s `engine::tests`~~ `msre::web::engine::tests`
+(in the library since gh:#1578) checks the ticks and that the freeze is
+posted once. These are harness checks, not V&V.
+
+Found on the way: with the radiator doors left open after a fuel-pump trip,
+the coolant reaches its liquidus within a few hundred seconds. The drift
+test now closes the doors after the trip, as ORNL did.
+
+### The Core k_eff tab and the measured split (gh:#1571, #1572, #1574, 2026-11-14)
+
+**What it runs.** `outram_mc_libs::vv::msre_n1::Study` is the N-1 V&V
+default as one library call:
+- natural Mo;
+- the whole TM-0728 shield;
+- dimensions following temperature;
+- U-234/U-236 in the salt;
+- graphite 30P S(α,β) by LEAPR;
+- the shield water's H in H₂O.
+
+That is 52 nuclides, or 37 with the shield off. It composes the same
+functions in the same order as the `msre_n1_first_criticality` example's
+`main`. The tab runs it on a pool of workers through
+`dhoby_ghaut::mc_web` (gh:#1572):
+- `DataRelay` deals the 54 processing jobs and relays every product.
+- Each worker builds the model through the shared processed-data cache.
+- `KeffPool` runs the power iteration in chunks.
+
+~~The worker is `examples/msre_web/keff.rs` and the page is `keff_tab.rs`;
+moving them into this library is gh:#1578.~~ **MOVED 2026-11-15 (gh:#1578):**
+the worker is `msre::web::keff`, the plant engine `msre::web::engine`, and
+the pool, split and presets `msre::web::keff_pool`, all in this library;
+the example's `keff_tab.rs` keeps only the egui drawing.
+
+**Methodology and results (2026-11-14, CPU only, 4 cores, Intel Xeon @
+2.30 GHz, 15.7 GiB RAM, Linux; the machine was shared with other builds):**
+
+| check | settings | result |
+|---|---|---|
+| native pool vs `run_keff_csg_par` on the real model (~~`keff_tab::tests::`~~ `msre::web::keff_pool::tests::a_pooled_run_is_run_keff_csg_par_bit_for_bit` since gh:#1578, ignored) | default study, 500 × [2 + 3], seed 7, 2 workers / 2 threads | **all 5 generations bit-identical** (k 0.828348478555774426 … 1.07203981664989678; mean 1.03750 ± 0.02557); pool from tapes to k 266 s |
+| browser vs native (headless Chromium, `?workers=2&kcfg=500,2,3,7&krun`) | the same | **all 5 generations equal** to the native values (0.8283484785557744, 1.0209114745691594, 1.0528981026713053, 0.9875693732678972, 1.0720398166498968); data processed and built in about 705 s on 2 Web Workers |
+| the measured split in the browser (`?kmeasure`) | 500 × [2 + 3] for each run | A (1131/1131 °F) k = 1.0503 ± 0.0261, C (salt 1231) 0.9713 ± 0.0291, D (graphite 1231) 0.9909 ± 0.0091; fuel −77 ± 39, graphite −57 ± 25 × 10⁻⁵ /°F. These are statistical noise at 500 histories (the pipeline check, not a measurement). Run D took 69 s against about 450 s for each other run: the salt's products were read back from the browser's cache |
+
+**Re-run after the move into the library (gh:#1578, 2026-11-15, same
+machine, CPU only, 4 cores, Intel Xeon @ 2.30 GHz, 15.7 GiB RAM, shared with
+other builds), at `develop` after #463:**
+
+| check | settings | result |
+|---|---|---|
+| native pool vs `run_keff_csg_par` (`msre::web::keff_pool::tests::a_pooled_run_is_run_keff_csg_par_bit_for_bit`) | default study, 500 × [2 + 3], seed 7, 2 workers / 2 threads | **all 5 generations bit-identical** (0.795546636478280056, 0.930537445868985236, 0.979719628548193056, 1.09317455097742955, 1.00434337451507116; mean 1.02575 ± 0.03446); pool 264.8 s, reference 475.2 s |
+| browser vs native (headless Chromium, `?workers=2&kcfg=500,2,3,7&krun`, the page built by `web/msre/build.sh` from the moved code) | the same | mean **1.0257458513468978 ± 0.0344555**, equal to the native mean of the three active generations to the last digit |
+
+The generations differ from the 2026-11-14 rows above (first generation
+0.8283 then, 0.7955 now) because develop's gh:#463 (OpenMC-parity `nu_fission`
+interpolation, grid extrapolation, S(α,β) cutoff and total) moves every
+history slightly and the run becomes a different random realisation;
+reproduced to every digit with `OUTRAM_MC_LEGACY_XS_DETAILS=1` on study D
+(gh:#1574 comment, 2026-11-15). Not a bias, and not the move: the move is
+pinned by the two equalities in this table.
+
+Pair arithmetic (`session::coefficient_from_pair`): reproduces the N-3
+record's fuel −3.79 and graphite −3.26 × 10⁻⁵ /°F from its own eigenvalues
+(`session::tests`).
+
+**What the reader sees.**
+- The tab shows the model's default at +1726 ± 23 pcm, outside the
+  ±1000 pcm band, as the record does.
+- The accuracy presets' σ are estimates scaled from the record. Quick
+  gives each coefficient about ±2 × 10⁻⁵ /°F; only Careful (about ±0.6)
+  resolves them.
+- The plant takes measured coefficients only from the reader's
+  "Send to plant" button, and states which coefficients it uses.
+- ~~The button resets the plant with them.~~ **CHANGED 2026-11-14
+  (maintainer: "Send to plant should tune the plant online, not after
+  restart"):** the running plant switches to them with its state kept, as
+  `htgr_sim_v1`'s kinetics rebuild their feedback split in place
+  (`MsreModel::set_temperature_coefficients`, `session::Command::Coefficients`).
+  The reference temperatures stay, so a plant away from them sees its
+  reactivity step by Δα·(T − T_ref) at the switch; at the initial steady
+  state the step is zero. Pinned by
+  `session::tests::coefficients_switch_online_and_keep_the_state`: the state
+  is unchanged bit for bit at the switch, the plant then steps exactly as one
+  built with the new coefficients, and the step's sign after a cooling is
+  checked.
+
+### `msre::moltres_drift` (gh:#1575, 2026-11-14)
+
+`outram-park-fork-moltres` is a direct dependency of this crate. The module
+runs Moltres's finite-volume precursor drift (`PrecursorDrift` on a
+`RingMesh`) around TM-1626's flow path. It uses the same Table 1 families
+and Fig. 4 source and importance as the line model.
+
+- `line_loss(cells, flow)` is the steady circulation loss. Checked live
+  against the simulator's line model, with the prediction (|diff| < 5e-6
+  δk/k) written before the run:
+
+  | Model | Circulation loss |
+  |---|---|
+  | Line model | 0.229140 % |
+  | Moltres, 2520 cells | 0.229290 % |
+  | Moltres, 10 080 cells | 0.229303 % |
+
+- `LoopDrift` steps the drift beside the plant at the plant's fuel flow and
+  fission power. It uses 504 cells, measured at −8.5e-7 δk/k from the
+  10 080-cell value. It is fast enough to run in the plant's worker:
+  1008 cells step 10 s of plant time in 0.145 s natively. Results, both
+  predicted on gh:#1575 before running:
+  - Held at full flow, it stays steady to 5.1e-15 δk/k.
+  - After the fuel pump stops, the loss falls monotonically, from 0.2292 %
+    to 0.0195 % at 60 s and 8.0e-6 % at 600 s.
+
+  `msre_web` draws it in its Moltres tab.
+- Only the 1-D loop drift runs live. Moltres's 2-D R-Z diffusion core is
+  much heavier, has not been timed, and is not in the demo.
+
+What its tests found, recorded because it is physics the GUI now warns of:
+- **The salt freezes after a trip if nothing is done.** After a fuel pump
+  trip with the radiator left at full air, the coolant cools toward the
+  100 °F air inlet, well below its 856 °F liquidus. The model has no
+  freezing, so it continues past that point. ORNL closed the radiator
+  doors to prevent it. The headless demo does the same: air to 1 % of
+  design 10 s after the trip.
+- **Second-law floor:** no lump is ever below the 100 °F air inlet,
+  asserted at every sample of the demo.
+- **Shutdown by feedback:** with the fuel stagnant after the trip, the core
+  fuel heats to about 1241 °F and its negative feedback takes the power
+  from 8 MW to under 1 kW within 10 minutes (headless run, 2026-11-14).
+- **The power oscillates:** at 8 MW, +10 pcm of rods gives a power
+  oscillation with a period of about 2 min (TM-1647's measured 1.71 min at
+  7.3 MW). The power peaks above 8 MW, then settles about 0.1 % higher.
+
+Harness checks, not validation; NOT VALIDATED.
+
 ## Methodology
 
 ### The model

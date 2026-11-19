@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Convenience re-export of the most commonly used types.
 ///
 /// ```rust
@@ -17,6 +20,13 @@ pub use crate::geometry::plot::{
 };
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
+// Composite surfaces (gh:#1389). `Axis` is generic, so it is exported as
+// `CompositeAxis`.
+pub use crate::geometry::composite::{
+    Axis as CompositeAxis, Composite, CompositeError, CompositeRegion, ConeOneSided,
+    ConicalFrustum, CruciformPrism, CylinderSector, IsogonalOctagon, Polygon, PolygonBasis,
+    RectangularPrism, Vessel,
+};
 pub use crate::geometry::geometry::{
     BoundaryHit, Coord, Crossing, Geometry, GeometryExt, GeometryPath, SurfaceCrossing,
 };
@@ -30,7 +40,7 @@ pub use crate::material::processed::ProcessedEvaluation;
 pub use crate::material::speed::SpeedTier;
 pub use crate::material::temperature_interpolation::{InterpolationVariable, TableBracket, TemperatureTables};
 pub use crate::material::thermal::{
-    CoherentElasticTable, IncoherentElasticTable, ThermalElastic, ThermalScattering,
+    CoherentElasticTable, EndfElasticOptions, IncoherentElasticTable, ThermalElastic, ThermalScattering,
 };
 pub use crate::tally::tally::{ScoreType, Tally, TallyBin};
 pub use crate::tally::filter::{
@@ -51,8 +61,12 @@ pub use crate::physics::keff::{run_keff, GenerationReport, HistoryCounts, KeffRe
 pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
 };
+pub use crate::physics::search_grsecant::{
+    grsecant_search_for_keff, GrSecantError, GrSecantFlag, GrSecantResult, GrSecantSettings,
+};
 pub use crate::physics::transport_csg::{
-    run_keff_csg, run_keff_csg_reactor_physics, DeltaTallyEstimator, SourceBox,
+    run_keff_csg, run_keff_csg_reactor_physics, try_run_keff_csg, DeltaTallyEstimator,
+    EmptyFissionBank, SourceBox,
 };
 pub use crate::physics::transport_csg::distributed::{
     transport_chunk, ChunkResult, DistributedPowerIteration, GenerationChunk, SourceSite,
@@ -82,11 +96,15 @@ pub use crate::pebble_beds::fhr_pebble::{
 };
 pub use crate::pebble_beds::keff_delta::{run_keff_delta, MaterialQuery};
 pub use crate::physics::tracking_trace::{TraceCounts, TraceEvent};
+pub use crate::physics::collision_track::{
+    CollisionTrackBank, CollisionTrackConfig, CollisionTrackFile, CollisionTrackSite,
+};
 pub use crate::pebble_beds::sphere_packing::{
     pack_spheres, pack_spheres_observed, PackedSpheres, PackingConfig, PackingMethod, RsaPlacement,
 };
 pub use crate::pebble_beds::crp_packing::{pack_spheres_crp, CrpError, MAX_PF_CRP};
 pub use crate::pebble_beds::triso_lattice::{create_triso_lattice, TrisoLattice, TrisoLatticeBase};
+#[cfg(feature = "std")]
 pub use crate::pebble_beds::dem_bed::{DemBed, DemBedError};
 // Stochastic-media research track (beads epic op-eby). The chord statistics,
 // SCLS retention machinery and brute-force index are implemented.
@@ -119,7 +137,7 @@ pub use crate::stochastic::benchmark::{AbsorptionBenchmark, BenchmarkResult};
 // f32 accelerated path, present only off Android.
 pub use crate::gpu::xs_interp::interp_xs_cpu;
 pub use crate::gpu::{probe as gpu_probe, GpuContext};
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub use crate::gpu::xs_interp::interp_xs_gpu;
 // Ray–surface distance for all 15 CSG SurfaceKind variants (op-9s8.2). The
 // encoding (`EncodedSurfaces`/`encode_surfaces`), the query type (`SurfaceQuery`),
@@ -129,7 +147,7 @@ pub use crate::gpu::xs_interp::interp_xs_gpu;
 pub use crate::gpu::surface_distance::{
     encode_surfaces, surface_distance_cpu_f32, EncodedSurfaces, SurfaceQuery, MISS, SURF_STRIDE,
 };
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub use crate::gpu::surface_distance::surface_distance_gpu;
 // Batched next-event GPU flight kernel (event-based transport). `FlightBatch`,
 // `FlightSphere`, `FlightOutcome`, and `advance_flight_cpu_mirror` build on every
@@ -137,7 +155,7 @@ pub use crate::gpu::surface_distance::surface_distance_gpu;
 pub use crate::gpu::batched_flight::{
     advance_flight_cpu_mirror, FlightBatch, FlightOutcome, FlightSphere,
 };
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub use crate::gpu::batched_flight::advance_flight_gpu;
 // Fused flight + collision GPU event kernel (op-u6s.8 collision-on-GPU). The
 // per-nuclide reaction tables (`CollisionTables`), the packed `EventTablesF32`,
@@ -149,10 +167,11 @@ pub use crate::gpu::batched_event::{
     advance_event_cpu_mirror, advance_generation_cpu_mirror, EventBatch, EventSphere,
     EventTablesF32, FISS_NONE,
 };
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub use crate::gpu::batched_event::advance_generation_gpu;
 // Per-machine performance-report generator (detects host GPU/CPU/OS; renders a
 // local, gitignored "what performance is available on my PC" markdown report).
+#[cfg(feature = "std")]
 pub use crate::perf_report::{HardwareInfo, PerfReport, PerfRow};
 
 // The error type the ENDF entry points return, so `use outram_mc_libs::prelude::*`
@@ -162,8 +181,11 @@ pub use crate::NjoyError;
 // Statistics on top of RAFFLES (epic GitHub #493). Report-only or opt-in;
 // nothing here is on any driver's default path.
 pub use crate::stats::ensemble::{run_seeds, EnsembleReport, SeedRun};
-pub use crate::stats::correlated_sigma::{KeffUncertainty, TallyBatchRecorder};
+pub use crate::stats::correlated_sigma::{KeffUncertainty, TallyBatchLog, TallyBatchRecorder};
 pub use crate::stats::convergence::SourceConvergence;
+pub use crate::stats::learned_source_bias::{
+    learned_biased_energy, learned_biased_spatial, with_learned_source_bias, SourceBiasReport,
+};
 pub use crate::stats::learned_importance::{
     learned_weight_windows, FomComparison, LearnedImportanceSettings, VrArm,
 };

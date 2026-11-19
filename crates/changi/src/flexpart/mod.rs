@@ -93,6 +93,9 @@
 //! Research, education and verification/validation only. See the crate-level
 //! documentation for the scope limits, which are binding.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod advance;
 pub mod aerosol;
 pub mod boundary_layer;

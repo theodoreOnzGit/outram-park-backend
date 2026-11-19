@@ -15,6 +15,9 @@
 //! `nee_soon::htr10_rmc::bed::SekerBed::containment` (gh:#472), expression
 //! for expression, so the set of balls a bed keeps is that crate's.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::f64::Length;
 use uom::si::length::centimeter;
@@ -160,7 +163,7 @@ impl Hopper {
     /// Exact volume \[cm³\]: the cylinder, the frustum (`pi h (R² + R r +
     /// r²) / 3`) and the tube.
     pub fn volume_cm3(&self) -> f64 {
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         let (r, ro) = (self.radius_cm, self.outlet_radius_cm);
         let mut v = pi * r * r * self.height_cm;
         if self.has_cone() {
@@ -385,7 +388,7 @@ mod tests {
         );
         assert!((h.radius_at(-100.0) - 25.0).abs() < 1e-9);
         assert_eq!(h.radius_at(1000.0), 0.0);
-        let pi = std::f64::consts::PI;
+        let pi = core::f64::consts::PI;
         let frustum = pi * 36.946 / 3.0 * (8100.0 + 2250.0 + 625.0);
         let want = pi * 8100.0 * 221.818 + frustum + pi * 625.0 * 221.236;
         assert!((h.volume_cm3() / want - 1.0).abs() < 1e-14);

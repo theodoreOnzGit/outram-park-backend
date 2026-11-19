@@ -63,6 +63,9 @@
 //! upstream stops with `FatalError` ("Cannot find cube position"), the port
 //! counts the event and leaves that centre out.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::cartesian_mesh::{BoxType, MeshOctreeAddressing};
 use crate::math::Vec3;
 use crate::mesh_octree::{MeshOctree, EDGE_FACES, EDGE_NODES, FACE_EDGES, FACE_NODES};
@@ -443,7 +446,7 @@ impl Creator<'_> {
                     let mut create = true;
                     let fi = 2 * (ei / 4) + 1;
                     let f_nodes = FACE_NODES[fi];
-                    let edge_cubes: [Label; 4] = std::array::from_fn(|i| self.node_leaf(s, f_nodes[i]));
+                    let edge_cubes: [Label; 4] = core::array::from_fn(|i| self.node_leaf(s, f_nodes[i]));
                     for i in 0..4 {
                         let cl = edge_cubes[i];
                         if cl == -1 || cl < cur as Label || self.level(cl as usize) != level {
@@ -533,7 +536,7 @@ impl Creator<'_> {
                     let mut create = true;
                     let fi = 2 * (ei / 4) + 1;
                     let f_nodes = FACE_NODES[fi];
-                    let edge_cubes: [Label; 4] = std::array::from_fn(|i| self.node_leaf(s, f_nodes[i]));
+                    let edge_cubes: [Label; 4] = core::array::from_fn(|i| self.node_leaf(s, f_nodes[i]));
                     let mut centre_nodes: Vec<Label> = Vec::with_capacity(8);
                     for i in 0..4 {
                         let cl = edge_cubes[i];

@@ -64,6 +64,9 @@
 //! interpolates linearly, and it refuses temperatures outside the drawn span
 //! (no extrapolation).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::areal_number_density::per_square_centimeter;
 use uom::si::f64::{ArealNumberDensity, ThermalConductivity, ThermodynamicTemperature};

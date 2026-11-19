@@ -51,13 +51,22 @@
 //! Provenance: the underlying kernel is a port of NJOY2016 (release 2016.79,
 //! commit `ac5adf5f`) `thermr.f90`; see [`super`] and the crate `NOTICE`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::fs::File;
 use crate::acer::acesix::{acesix_equiprobable, normalized_rows, BinWeights};
 use crate::thermr::calcem::iform0::compute_iform0;
 use crate::thermr::calcem::types::{Iform0Table, IncidentEnergyRecord};
-use std::collections::HashMap;
+// A lookup-only cache (by cosine count), so the `no_std` ~~`BTreeMap`~~
+// `hashbrown` map (workspace-wide since 2026-11-16, maintainer) gives the
+// same tables (gh:#1592).
+use crate::hash::HashMap;
+#[cfg(feature = "std")]
 use std::path::Path;
-use std::sync::{Arc, RwLock};
+use alloc::sync::Arc;
+use crate::once::RwLock;
 
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
@@ -135,6 +144,7 @@ const CALCEM_EMAX_FALLBACK_EV: f64 = 4.0;
 const CALCEM_TOL: f64 = 0.001;
 
 impl IncoherentInelasticScattering {
+    #[cfg(feature = "std")]
     /// Load the incoherent-inelastic S(α,β) for material `mat` from the ENDF
     /// `tsl-*` file at `path`, resolved at `temperature` (tabulated match
     /// within the NJOY tolerance, or `LI`-law interpolation between tabulated
@@ -416,6 +426,7 @@ pub struct CoherentElasticScattering {
 }
 
 impl CoherentElasticScattering {
+    #[cfg(feature = "std")]
     /// Load the coherent-elastic channel for material `mat` from the ENDF
     /// `tsl-*` file at `path`, resolved at `temperature`.
     ///
@@ -655,6 +666,7 @@ pub struct IncoherentElasticScattering {
 }
 
 impl IncoherentElasticScattering {
+    #[cfg(feature = "std")]
     /// Load the incoherent-elastic channel for material `mat` from the ENDF
     /// `tsl-*` file at `path`, for evaluation at `temperature`.
     ///

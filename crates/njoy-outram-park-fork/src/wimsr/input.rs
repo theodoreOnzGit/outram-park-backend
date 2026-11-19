@@ -7,6 +7,9 @@
 //! The WIMSR deck (`wimsr.f90:51-140`) as an owned struct — cards 2–8 with
 //! upstream's defaults; card 1 (unit numbers) is the caller's tape.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Cards 2–8 of the WIMSR deck.
 #[derive(Debug, Clone)]
 pub struct WimsrInput {

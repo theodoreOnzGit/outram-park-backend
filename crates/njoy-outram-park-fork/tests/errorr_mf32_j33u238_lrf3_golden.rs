@@ -65,6 +65,9 @@
 //! element (or listing row) whose row or column partial is under 1e-6 b
 //! in that group. Tier 1 has no floor and pins every element.
 
+// Reads reference files or the deck work directory: needs `std` (gh:#1592).
+#![cfg(feature = "std")]
+
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -303,6 +306,7 @@ fn config() -> Mf33Config {
         tempin: TEMP_K,
         irelco: IRELCO,
         dap: 0.0,
+        card8: None,
     }
 }
 

@@ -106,6 +106,9 @@
 //! import.
 
 // ── Crude oil → cut slate ────────────────────────────────────────────────────
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub use crate::petroleum::crude_distillation::{
     crude_column_setup, solve_crude_column, BlackOilCrude, CrudeColumnConfig, CrudeColumnError,
     CrudeColumnResult, CrudeColumnSetup, CrudeCut, CutResult,

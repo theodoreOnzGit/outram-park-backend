@@ -59,6 +59,9 @@
 //! (upstream `:295`) are not ported: this crate keeps nuclide bookkeeping in
 //! the material layer and nothing here needs it yet.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::geometry::Geometry;
 use crate::geometry::position::{Direction, Position};
 use crate::geometry::cell::SurfaceToken;

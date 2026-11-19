@@ -105,6 +105,11 @@ pub const TOLERANCES: &[(&str, f64, &str)] = &[
         "pandas sums (pairwise and Kahan) reproduced in order",
     ),
     (
+        "boundary_totals",
+        0.0,
+        "upstream's own `df_all` frames captured in memory at full precision (gh:#1429); the rows that go through numpy's exp are pinned in KNOWN_DIFFERENCES",
+    ),
+    (
         "boundary_totals_text",
         6.0e-4,
         "read back from upstream's text report, printed to 4 significant figures",
@@ -889,7 +894,7 @@ pub fn port(
                 r.total,
             ]
         }
-        "boundary_totals_text" => {
+        "boundary_totals" | "boundary_totals_text" => {
             let sc = row.s("scenario");
             let cfg = driver_config(sc);
             let totals = assessment::plant_boundary_totals(

@@ -58,6 +58,9 @@
 //! time-integrated coefficient `∫D dt` has units of m^2 and is returned as an
 //! [`Area`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::area::square_meter;
 use uom::si::diffusion_coefficient::square_meter_per_second;

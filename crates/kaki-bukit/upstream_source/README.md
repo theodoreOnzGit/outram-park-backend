@@ -46,6 +46,16 @@ Cyclus vendors **PyNE**'s `nucname` and `atomic_mass` machinery as
 atomic-mass *data* is deliberately not, because this workspace keeps nuclear
 data in `njoy-outram-park-fork`.
 
+## Differential run (gh:#1431, 2026-11-13)
+
+A plain `--depth 1` clone gives the current head, which is later than the
+pins; fetch the pinned commit explicitly (`fetch --depth 1 origin <sha>`, then
+check it out). The differential in
+`verification_and_validation/cyclus_differential_gh1431/` ran the
+conda-forge **1.6.0** binaries (cyclus 1.6.0, cycamore 1.6.0), not these
+commits; the README there lists which sources are unchanged between 1.6.0 and
+the pins and which are not.
+
 ## Licensing note
 
 Both upstreams are **BSD-3-Clause**, which is GPLv3-compatible. This crate is

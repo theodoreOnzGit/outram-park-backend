@@ -31,6 +31,8 @@
 //! All ten energies agree to the printed precision, including 30 MeV
 //! (6.1855) and 150 MeV (57.1855), where the old clamp gave the 20 MeV value.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use outram_mc_libs::material::nuclide::Nuclide;
 use std::path::PathBuf;
 

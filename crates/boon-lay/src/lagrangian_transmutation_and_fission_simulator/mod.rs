@@ -22,6 +22,9 @@
 //! [`DecayLibrary`]: crate::nuclide_reaction_and_decay_data::decay_library::DecayLibrary
 //! [`Transmutation`]: crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::depletion::Transmutation
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[doc(inline)]
 pub use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::depletion::{
     sample_event_time, DepletionOutcome, Transmutation,

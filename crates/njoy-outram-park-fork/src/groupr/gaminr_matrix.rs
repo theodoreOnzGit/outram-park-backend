@@ -91,7 +91,10 @@
 //! definition; only the matrix-reduction quadrature is line-traceable to
 //! `gaminr.f90`'s `gpanel`/`dspla`.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use crate::groupr::gendf::{GendfGroupRecord, GendfSection};
 use crate::groupr::panel::{GroupFlux, PointwiseXs};

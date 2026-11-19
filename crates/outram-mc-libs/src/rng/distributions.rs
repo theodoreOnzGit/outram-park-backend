@@ -1,9 +1,12 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Probability distribution samplers — port of `src/random_dist.cpp`.
 ///
 /// C++ source: `src/random_dist.cpp`, `include/openmc/random_dist.h`.
 /// Also covers energy/angle distributions from
 /// `src/distribution_energy.cpp`, `src/distribution_angle.cpp`.
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 use super::lcg::prn;
 use crate::mathf::RealMath;

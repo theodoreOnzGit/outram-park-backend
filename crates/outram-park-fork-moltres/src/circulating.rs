@@ -69,7 +69,10 @@
 //! Units: flux `1/(m^2 s)` (normalised), `C_i` `1/m^3`, `u` `m/s`
 //! (`flow` as face flux `m^3/s`), `k_eff` dimensionless.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{fvm, BoundaryCondition, FvMesh, VolScalarField};
 
@@ -82,6 +85,7 @@ use crate::materials::{
     scalar_field, DelayedFamily, FaceFluxField, NeutronFluxField, PrecursorField, TemperatureField,
     XsFields,
 };
+use crate::terms::prompt_fission_source;
 use crate::precursors::PrecursorDrift;
 
 /// Coupled flux + advected-precursor k-eigenvalue model (see module docs).
@@ -226,7 +230,11 @@ impl CirculatingFuelSolver {
                 let sf = s_fis.internal.as_slice();
                 let sd = s_delayed.internal.as_slice();
                 let q_vals: Vec<f64> = (0..n)
-                    .map(|c| chi_p[c] * (1.0 - beta) / k * sf[c] + chi_d[c] * sd[c] + scat[c])
+                    .map(|c| {
+                        prompt_fission_source(sf[c], beta, chi_p[c], k)
+                            + chi_d[c] * sd[c]
+                            + scat[c]
+                    })
                     .collect();
                 let q = scalar_field(&self.mesh, "q", q_vals);
 
@@ -252,6 +260,8 @@ impl CirculatingFuelSolver {
             k = k_new;
 
             flux_residual = relative_l2_change(&flux_before, &self.flux);
+            // A debug trace on stderr: needs `std` (gh:#1597).
+            #[cfg(feature = "std")]
             if std::env::var_os("MOLTRES_DEBUG_OUTER").is_some() && outer % 25 == 0 {
                 eprintln!(
                     "outer {outer}: k = {k:.10}, k_res = {k_residual:.3e}, flux_res = {flux_residual:.3e}"

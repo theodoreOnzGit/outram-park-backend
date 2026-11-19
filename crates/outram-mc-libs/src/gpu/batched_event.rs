@@ -49,6 +49,9 @@
 // mirror is bit-identical across hosts. The GPU side still uses the WGSL
 // shader intrinsics, which are driver-defined; the mirror/GPU agreement
 // test tolerance covers that difference.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use crate::gpu::collision_grid::CollisionTables;
@@ -58,10 +61,10 @@ pub const FISS_NONE: u32 = 0xFFFF_FFFF;
 
 /// Words per fission-site record in the GPU `ctrl` buffer (see the CTRL LAYOUT in
 /// `batched_event.wgsl`).
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 const RECORD_WORDS: usize = 12;
 /// Header words of the GPU `ctrl` buffer before the first record.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 const CTRL_HEADER_WORDS: usize = 4;
 
 /// Where the fused event path banks fission sites (gh:#1444 e, 2026-11-11).
@@ -133,7 +136,63 @@ pub fn sort_site_records(records: &mut [EventSiteRecord]) {
 
 // f32 sentinels/constants kept identical to the WGSL kernel.
 const BIG: f32 = 1e30;
-const EPS: f32 = 1e-7;
+/// OpenMC `FP_COINCIDENT` (`include/openmc/constants.h:55`, 8f79d9d0), kept in
+/// f32 as `outram-blender`'s `csg_trace.wgsl` keeps it. Near the surface the
+/// rounding of `f = |r - c0|^2 - R^2` in f32 is of order 1e-5 cm^2, so the band
+/// `|f| < 1e-12` is in effect `f == 0`: membership goes by the sign of `f`, and
+/// by the direction only at `f == 0` (gh:#1506).
+const FP_COINCIDENT: f32 = 1.0e-12;
+
+/// OpenMC `Surface::sense` (`src/surface.cpp:118-132`, 8f79d9d0) for the
+/// bounding sphere, in f32 as the fused kernel computes it: `true` when the
+/// neutron is on the positive (outside) side. `c = |r - c0|^2 - R^2` and
+/// `kdot = (r - c0) . u`; the sphere's normal is `2 (r - c0)`, so a coincident
+/// neutron is outside when `kdot > 0`.
+///
+/// gh:#1506: OpenMC never transports a particle outside its cell (`find_cell`
+/// at birth, `reconcile_cell_after_collision` after a near-surface collision,
+/// `src/geometry.cpp:319`). Outside the vacuum sphere there is no cell, so the
+/// fused path counts such a neutron as leaked. Without this test a collision
+/// site rounded to just outside the sphere and moving outward got no boundary
+/// distance, collided outside, and its descendants transported in an infinite
+/// medium (fused GPU Godiva k = 1.78).
+#[inline]
+pub fn sphere_sense_outside_f32(c: f32, kdot: f32) -> bool {
+    if c.abs() < FP_COINCIDENT {
+        kdot > 0.0
+    } else {
+        c > 0.0
+    }
+}
+
+/// OpenMC `SurfaceSphere::distance` (`src/surface.cpp:652-690`, 8f79d9d0) with
+/// `coincident = false`, in f32 as the fused kernel computes it; [`BIG`] stands
+/// for `INFTY`. gh:#1506: it replaced a `d_near > 1e-7`, else `d_far > 1e-7`,
+/// else no boundary rule, which gave no boundary to a neutron inside the sphere
+/// within ~1e-7 cm of it and moving outward, so that neutron collided instead
+/// of leaking.
+#[inline]
+pub fn sphere_distance_openmc_f32(c: f32, kdot: f32) -> f32 {
+    let quad = kdot * kdot - c;
+    if quad < 0.0 {
+        BIG
+    } else if c.abs() < FP_COINCIDENT {
+        if kdot >= 0.0 {
+            BIG
+        } else {
+            -kdot + quad.sqrt()
+        }
+    } else if c < 0.0 {
+        -kdot + quad.sqrt()
+    } else {
+        let d = -kdot - quad.sqrt();
+        if d < 0.0 {
+            BIG
+        } else {
+            d
+        }
+    }
+}
 
 /// A batch of neutrons resident for the fused event kernel (Structure-of-Arrays).
 ///
@@ -357,12 +416,60 @@ fn rng_next(lo: u32, hi: u32) -> (u32, u32, f32) {
     petir::wgsl::mirror_lcg::lcg_next(lo, hi)
 }
 
-/// Rotate unit direction `u` by cosine `mu` and a sampled azimuth (one draw).
-/// Mirrors `rotate_direction` (scatter.rs) in f32. Returns `(dir, new_lo, new_hi)`.
+/// How far `|u|^2` may drift from 1 before the fused path renormalises a
+/// direction: `sqrt(f32::EPSILON)` = 2^-11.5 = 3.4526698e-4, the f32 analogue
+/// of the CPU's [`crate::physics::scatter::DIRECTION_NORM_DRIFT_TOL`]
+/// (`sqrt(f64::EPSILON)`, half the stored mantissa lost). Fixed from that
+/// definition, not from any run (gh:#1499). The WGSL kernel declares the same
+/// value as `DIRECTION_NORM_DRIFT_TOL`;
+/// `tests/gpu_direction_norm_drift_guard.rs` pins both.
+pub const DIRECTION_NORM_DRIFT_TOL_F32: f32 = f32::from_bits(0x39B5_04F3);
+
+/// `u` unchanged (bit for bit) when `| |u|^2 - 1 | <= DIRECTION_NORM_DRIFT_TOL_F32`,
+/// otherwise `u / |u|`; a NaN norm is returned unchanged. Mirrors
+/// `renormalise_if_drifted` in `batched_event.wgsl`.
+///
+/// **New work, not a port (gh:#1499)**: the f32 twin of
+/// [`crate::physics::scatter::renormalise_if_drifted`] (gh:#1497). OpenMC never
+/// renormalises; the rotation multiplies a norm error by about `1 + a^2/b^2`,
+/// unbounded near the `w` pole, and the fused path never rebuilds a direction
+/// within a generation.
 #[inline]
-fn rotate_direction(u: [f32; 3], mu: f32, lo: u32, hi: u32) -> ([f32; 3], u32, u32) {
+pub fn renormalise_if_drifted_f32(u: [f32; 3]) -> [f32; 3] {
+    let n2 = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+    if (n2 - 1.0).abs() > DIRECTION_NORM_DRIFT_TOL_F32 {
+        let n = n2.sqrt();
+        [u[0] / n, u[1] / n, u[2] / n]
+    } else {
+        u
+    }
+}
+
+/// The rotation every mirrored collision calls: [`rotate_direction_f32_unguarded`]
+/// with its input and output passed through [`renormalise_if_drifted_f32`]
+/// (gh:#1499). Bit-identical to it whenever neither is outside
+/// [`DIRECTION_NORM_DRIFT_TOL_F32`]. Mirrors `rotate_direction` in
+/// `batched_event.wgsl`. Returns `(dir, new_lo, new_hi)`.
+#[inline]
+pub fn rotate_direction_f32(u: [f32; 3], mu: f32, lo: u32, hi: u32) -> ([f32; 3], u32, u32) {
+    let (dir, lo, hi) = rotate_direction_f32_unguarded(renormalise_if_drifted_f32(u), mu, lo, hi);
+    (renormalise_if_drifted_f32(dir), lo, hi)
+}
+
+/// Rotate unit direction `u` by cosine `mu` and a sampled azimuth (one draw),
+/// without the norm guard: the mirror's rotation before gh:#1499, kept
+/// callable as the reference for the guarded one. Mirrors `rotate_direction`
+/// (scatter.rs) in f32, and `rotate_direction_unguarded` in
+/// `batched_event.wgsl`. Returns `(dir, new_lo, new_hi)`.
+#[inline]
+pub fn rotate_direction_f32_unguarded(
+    u: [f32; 3],
+    mu: f32,
+    lo: u32,
+    hi: u32,
+) -> ([f32; 3], u32, u32) {
     let (lo, hi, xi) = rng_next(lo, hi);
-    let phi = 2.0 * std::f32::consts::PI * xi;
+    let phi = 2.0 * core::f32::consts::PI * xi;
     let (sinphi, cosphi) = phi.r_sin_cos();
     let a = (1.0 - mu * mu).max(0.0).sqrt();
     let b0 = (1.0 - u[2] * u[2]).max(0.0).sqrt();
@@ -413,7 +520,7 @@ fn two_body_with_mu(
     let ap1 = a + 1.0;
     let e_cm_out = (e * (a / ap1) * (a / ap1) + q * a / ap1).max(0.0);
     let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm.clamp(-1.0, 1.0), a);
-    let (dir, lo, hi) = rotate_direction(u, mu_lab, lo, hi);
+    let (dir, lo, hi) = rotate_direction_f32(u, mu_lab, lo, hi);
     (e_out, dir, lo, hi)
 }
 
@@ -499,7 +606,7 @@ fn continuum_inelastic(
     hi = hm;
     let mu_cm = 2.0 * xim - 1.0;
     let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, a);
-    let (dir, lo, hi) = rotate_direction(u, mu_lab, lo, hi);
+    let (dir, lo, hi) = rotate_direction_f32(u, mu_lab, lo, hi);
     (e_out, dir, lo, hi)
 }
 
@@ -582,23 +689,15 @@ pub fn advance_event_cpu_mirror_banking(
         let oz = pz - sphere.z0;
         let kdot = ox * ux + oy * uy + oz * uz;
         let c = ox * ox + oy * oy + oz * oz - sphere.r * sphere.r;
-        let disc = kdot * kdot - c;
-        let d_bound = if disc < 0.0 {
-            BIG
-        } else {
-            let sq = disc.sqrt();
-            let d_near = -kdot - sq;
-            if d_near > EPS {
-                d_near
-            } else {
-                let d_far = -kdot + sq;
-                if d_far > EPS {
-                    d_far
-                } else {
-                    BIG
-                }
-            }
-        };
+        // gh:#1506: cell membership first (OpenMC `Surface::sense`), then
+        // OpenMC's sphere distance; see `sphere_sense_outside_f32`.
+        if sphere_sense_outside_f32(c, kdot) {
+            batch.alive[i] = 0; // beyond the vacuum boundary: leaked
+            batch.seed_lo[i] = lo;
+            batch.seed_hi[i] = hi;
+            continue;
+        }
+        let d_bound = sphere_distance_openmc_f32(c, kdot);
 
         if d_col >= d_bound {
             batch.alive[i] = 0; // leaked
@@ -777,7 +876,7 @@ pub fn advance_generation_cpu_mirror_banking(
 // GPU compute path (non-Android only).
 // ---------------------------------------------------------------------------
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn f32_bytes(data: &[f32]) -> Vec<u8> {
     let mut b = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -786,7 +885,7 @@ fn f32_bytes(data: &[f32]) -> Vec<u8> {
     b
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn u32_bytes(data: &[u32]) -> Vec<u8> {
     let mut b = Vec::with_capacity(data.len() * 4);
     for &x in data {
@@ -795,7 +894,7 @@ fn u32_bytes(data: &[u32]) -> Vec<u8> {
     b
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_f32(bytes: &[u8], n: usize) -> Vec<f32> {
     bytes
         .chunks_exact(4)
@@ -804,7 +903,7 @@ fn bytes_to_f32(bytes: &[u8], n: usize) -> Vec<f32> {
         .collect()
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn bytes_to_u32(bytes: &[u8], n: usize) -> Vec<u32> {
     bytes
         .chunks_exact(4)
@@ -815,7 +914,7 @@ fn bytes_to_u32(bytes: &[u8], n: usize) -> Vec<u32> {
 
 /// Pack the 32-byte `Params` uniform: `n_grid, n_particle, n_nuclide, pad` (16 B)
 /// (`pad` = the `keff_bits` word) then the sphere `vec4<f32>` (16 B), native-endian, matching the WGSL `Params`.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn pack_params(
     n_grid: u32,
     n_particle: u32,
@@ -848,7 +947,7 @@ fn pack_params(
 /// This is the `f32` accelerated counterpart of [`advance_generation_cpu_mirror`];
 /// the per-event GPU logic is held to the CPU mirror by the V&V test in this file.
 /// An empty batch returns `0` without touching the GPU.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn advance_generation_gpu(
     ctx: &crate::gpu::GpuContext,
     tables: &EventTablesF32,
@@ -874,7 +973,7 @@ pub fn advance_generation_gpu(
 /// record buffer starts at `2N + 1024` and the generation is re-run from the
 /// untouched initial batch with a doubled capacity if the kernel reports more
 /// records than fit, so no record is ever dropped.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 pub fn advance_generation_gpu_banking(
     ctx: &crate::gpu::GpuContext,
     tables: &EventTablesF32,
@@ -898,7 +997,7 @@ pub fn advance_generation_gpu_banking(
 
 /// [`advance_generation_gpu_banking`] with an explicit initial record capacity
 /// (tests pass a tiny one to exercise the grow-and-rerun path).
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 #[allow(clippy::too_many_arguments)]
 pub fn advance_generation_gpu_banking_with_capacity(
     ctx: &crate::gpu::GpuContext,
@@ -924,7 +1023,7 @@ pub fn advance_generation_gpu_banking_with_capacity(
 
 /// One attempt at [`advance_generation_gpu_banking`] with a fixed record capacity.
 /// `Err(total_records)` (batch untouched) when the kernel wrote more than `cap`.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "std", not(target_os = "android")))]
 fn advance_generation_gpu_inner(
     ctx: &crate::gpu::GpuContext,
     tables: &EventTablesF32,
@@ -1327,10 +1426,11 @@ mod tests {
     /// (Vulkan); see the committed `docs/gpu_collision_dev_log.md` for the measured
     /// mismatch counts. On CPU-only CI this prints a SKIP line and returns green
     /// (the CPU mirror is still a callable reference there).
-    #[cfg(not(target_os = "android"))]
+    #[cfg(all(feature = "std", not(target_os = "android")))]
     #[test]
     fn gpu_event_matches_cpu_mirror() {
-        let Some(ctx) = crate::gpu::probe() else {
+        let Some(ctx) = crate::gpu::shared_probe() else {
+            #[cfg(feature = "std")]
             eprintln!("SKIP gpu_event_matches_cpu_mirror: no GPU adapter (CPU-only CI)");
             return;
         };
@@ -1397,6 +1497,7 @@ mod tests {
             max_prod_rel < 1e-3,
             "max production rel diff {max_prod_rel}"
         );
+        #[cfg(feature = "std")]
         eprintln!(
             "gpu_event_matches_cpu_mirror on {}: alive_mismatch={alive_mismatch}/{n}, \
              max_e_rel={max_e_rel}, max_prod_rel={max_prod_rel}",

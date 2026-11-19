@@ -6,6 +6,9 @@
 //! suite, but they assert only the thing they are diagnosing, and print the
 //! breakdown a human needs to interpret a moved tolerance.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;

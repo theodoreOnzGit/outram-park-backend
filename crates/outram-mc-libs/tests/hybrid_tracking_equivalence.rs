@@ -63,6 +63,8 @@
 //! time and never accuracy, which is exactly why the cost comparison is the
 //! meaningful one.
 
+#![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
+
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;

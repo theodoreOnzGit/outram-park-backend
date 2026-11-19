@@ -34,6 +34,9 @@
 //! left in place; this engine is additive and is the intended replacement for
 //! the diffusion core.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod depletion;
 pub mod ensemble;
 pub mod interface;

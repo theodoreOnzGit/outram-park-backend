@@ -31,6 +31,9 @@
 
 //! The k-eigenvalue outer power iteration (see [`super`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::{fvm, Field, SurfaceScalarField, VolScalarField};
 
 use super::precursor_drift;

@@ -61,6 +61,9 @@
 //! the spirit of `projectSurfaceAfterBackScaling` (map, then let the
 //! optimiser repair the cells). It is off by default.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls;
 use crate::math::Vec3;
 use crate::mesh_optimizer::{find_bad_faces, optimize_low_quality_faces, untangle_mesh_fv_projected, LaplaceKind, MeshOptimizer, OptimiserReport, UntangleControls};
@@ -204,6 +207,9 @@ pub fn optimise_final_mesh(mesh: &mut VolumeMesh, points: &[Vec3], tris: &[[usiz
         stop_on_stall: controls.stop_untangling_on_stall,
         boundary_moves: controls.untangle_boundary_moves,
         mesh_untangler: controls.untangle_mesh_untangler,
+        // the tet-dual pipeline's opt-in keeps the pre-round-5 calls: Foam
+        // Studio's pins (not run in this gate) depend on them
+        boundary_calls: crate::mesh_optimizer::BoundaryMoveCalls::AsDocumented,
     };
     let (r, pr) = untangle_on_surface(mesh, &none, &c, controls.boundary_projection, Some(&projector));
     notes.push(format!(
@@ -345,6 +351,7 @@ mod tests {
             let (_, pg) = untangle_on_surface(&mut g, &none, &c, BoundaryProjection::AfterUntangle, Some(&pr));
             let plain_off = inlet_off_plane(&a, &m0, &pr, &regions);
             let after_off = inlet_off_plane(&g, &m0, &pr, &regions);
+            #[cfg(feature = "std")]
             println!("{case}: plain (inlet off plane {plain_off:e}): {} -> {}, {} boundary passes; EachPass: {} -> {}, {pe:?}; AfterUntangle {pg:?}, off plane {after_off:e}", ra.flagged_before, ra.flagged_after, ra.surface_iterations, re.flagged_before, re.flagged_after);
             assert!(ra.surface_iterations > 0, "the case exercises the boundary loop");
             assert!(inlet_off_plane(&e, &m0, &pr, &regions) < 1e-9, "{case}: EachPass: inlet off plane by {:e}", inlet_off_plane(&e, &m0, &pr, &regions));
@@ -512,6 +519,7 @@ pub(crate) mod diagnose_gh1283 {
                 assert!((d.dot(s) / (d.length() * s.length())).is_finite(), "face {f}");
             }
         }
+        #[cfg(feature = "std")]
         println!("gh1286: {} cells, notes {:?}", m.cell_count(), rep.stage_notes);
     }
 
@@ -520,12 +528,12 @@ pub(crate) mod diagnose_gh1283 {
     fn diagnose_final_mesh_differential() {
         let (r, l) = (0.01, 0.2);
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(r, l, 48);
-        let env = |k: &str| std::env::var(k).ok();
+        let env = |k: &str| crate::env::var(k).ok();
         let hs: Vec<f64> = env("CFMESH_HS").map_or(vec![0.004, 0.005, 0.006], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         let layers: Vec<usize> = env("CFMESH_LAYERS").map_or(vec![0, 3], |v| v.split(',').filter_map(|x| x.parse().ok()).collect());
         let all = ["base", "us", "bm", "bmE", "bmA", "up", "upE", "upEnl"];
         let names: Vec<String> = env("CFMESH_VARIANTS").map_or(all.iter().map(|s| s.to_string()).collect(), |v| v.split(',').map(String::from).collect());
-        let section = std::f64::consts::PI * r * r;
+        let section = core::f64::consts::PI * r * r;
         for &n in &layers {
             for &h in &hs {
                 for name in &names {
@@ -533,10 +541,11 @@ pub(crate) mod diagnose_gh1283 {
                         continue; // no untangle runs on a bare mesh without optimise_final_mesh
                     }
                     let o = variant(name, h, n);
-                    let t0 = std::time::Instant::now();
+                    let t0 = crate::time::Instant::now();
                     let (m, rep) = match surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o) {
                         Ok(x) => x,
                         Err(e) => {
+                            #[cfg(feature = "std")]
                             println!("h {:.0} n{n} {name}: ERROR {e}", h * 1e3);
                             continue;
                         }
@@ -573,6 +582,7 @@ pub(crate) mod diagnose_gh1283 {
                     let strict = crate::checks::faces_failing_mesh_quality(&m, &crate::checks::MeshQualityControls::default()).iter().filter(|&&b| b).count();
                     let thick = rep.layers.as_ref().map_or(0.0, |lo| 1e3 * lo.mean_total_thickness());
                     let skipped = rep.stage_notes.iter().any(|s| s.contains("skipped") && !s.starts_with("Delaunay"));
+                    #[cfg(feature = "std")]
                     println!(
                         "h {:.0} n{n} {name}: {} cells, {secs:.1} s, NaN-NO faces {n_nan}, NO max {:.1} p99 {:.1}, pyr<=0 {npyr}, inlet/piR2 {:.5}, inlet |z| max {z_in:.2e}, off-surface max {off:.2e}, findBadFaces {bad}, checkMesh fail {strict}, thick {thick:.3} mm, V/piR2L {:.5}, skipped {skipped}, fp {}",
                         h * 1e3,
@@ -585,6 +595,7 @@ pub(crate) mod diagnose_gh1283 {
                     );
                     if env("CFMESH_NOTES").is_some() {
                         for s in &rep.stage_notes {
+                            #[cfg(feature = "std")]
                             println!("    {s}");
                         }
                     }
@@ -604,7 +615,7 @@ pub(crate) mod diagnose_gh1283 {
     #[test]
     #[ignore]
     fn render_final_mesh_inlets() {
-        let dir = std::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| {
+        let dir = crate::env::var("CFMESH_IMG_DIR").unwrap_or_else(|_| {
             concat!(env!("CARGO_MANIFEST_DIR"), "/../outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155/gh1283").to_string()
         });
         let dir = std::path::PathBuf::from(dir);
@@ -621,6 +632,7 @@ pub(crate) mod diagnose_gh1283 {
             let stem = format!("inlet_{name}_h{h_mm}_n{n}");
             crate::surface_optimizer::render_gh1259::draw(&m, &dir.join(format!("{stem}.png")), -0.0105, -0.0105, 0.021);
             crate::surface_optimizer::render_gh1259::draw(&m, &dir.join(format!("{stem}_rim.png")), 0.006, -0.00225, 0.0045);
+            #[cfg(feature = "std")]
             println!("wrote {stem}(.png, _rim.png)");
         }
     }

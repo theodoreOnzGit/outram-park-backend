@@ -29,6 +29,9 @@
 //! - **No accuracy claim of any kind.** The tests below check that the solver
 //!   computes what it says it computes, not that what it says is right.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::angle::radian;
 use uom::si::f64::{Angle, Length, Pressure, Ratio, ThermodynamicTemperature, Time};

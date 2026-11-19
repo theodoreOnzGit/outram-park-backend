@@ -34,6 +34,9 @@
 //! name — that unit choice is the caller's responsibility, not this
 //! function's.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_foam_basic_lib::fields::VolScalarField;
 use outram_foam_basic_lib::mesh::FvMesh;
 
@@ -75,7 +78,7 @@ mod tests {
     use outram_foam_basic_lib::fields::{Field, VolField};
     use outram_foam_basic_lib::mesh::FvMeshBuilder;
     use outram_foam_basic_lib::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     /// Three cells with distinct volumes `[1.0, 2.0, 3.0]` m^3, no faces.
     fn three_cell_mesh() -> Arc<outram_foam_basic_lib::mesh::FvMesh> {

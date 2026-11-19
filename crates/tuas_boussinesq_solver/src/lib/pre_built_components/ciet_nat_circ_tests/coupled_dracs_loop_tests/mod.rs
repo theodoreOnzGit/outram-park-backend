@@ -23,6 +23,9 @@
 //! References throughout are Zou, Hu & Charpentier (2019, ANL/NSE-19/11) and
 //! Zou, Hu, O'Grady & Hu (2021, Nuclear Engineering and Design 377, 111144).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// functions used for calculating the thermal hydraulics inside the DRACS
 /// loop
 ///

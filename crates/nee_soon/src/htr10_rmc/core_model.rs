@@ -36,11 +36,14 @@
 //! model compared against RMC. It is still AI-drafted and awaiting human
 //! review, so its results are tentative (see the parent module docs).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
-use outram_mc_libs::geometry::geometry::Geometry;
+use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
+use outram_mc_libs::geometry::geometry::{Geometry, GeometryPath};
 use outram_mc_libs::geometry::lattice::{HexLattice, HexOrientation, Lattice};
-use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, ZCylinder, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
 
@@ -640,11 +643,11 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // Volume of a sphere of radius `r` after the tile clips it at +/- height/2.
     let clipped = |r: f64| {
         let cap = r - 0.5 * lat_height;
-        let full = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
+        let full = 4.0 / 3.0 * core::f64::consts::PI * r.r_powi(3);
         if cap <= 0.0 {
             full
         } else {
-            full - 2.0 * std::f64::consts::PI * cap * cap * (3.0 * r - cap) / 3.0
+            full - 2.0 * core::f64::consts::PI * cap * cap * (3.0 * r - cap) / 3.0
         }
     };
     // TARGET THE FUEL-ZONE VOLUME FRACTION, NOT THE BALL PACKING.
@@ -739,12 +742,12 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // 1.3. The comment had been copied from the explicit-TRISO path and was
     // never true here. The variable is now honoured below, so the claim holds
     // for both functions.
-    let refl_thickness = if std::env::var("OUTRAM_HTR10_NOREFL").is_ok() {
+    let refl_thickness = if crate::env::var("OUTRAM_HTR10_NOREFL").is_ok() {
         0.0
     } else {
         100.0
     };
-    let outer_bc = if std::env::var("OUTRAM_HTR10_REFLECTIVE").is_ok() {
+    let outer_bc = if crate::env::var("OUTRAM_HTR10_REFLECTIVE").is_ok() {
         BoundaryType::Reflective
     } else {
         BoundaryType::Vacuum
@@ -865,16 +868,16 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 
     // Universe 1 -- fuelled pebble. Universe 2 -- dummy pebble. Both sit in
     // tile-local coordinates, so the spheres are shared.
-    let fuel_zone = Cell::material(10, vec![ins(1)], mat::FUEL, 293.6);
+    let fuel_zone = Cell::material(10, vec![ins(1)], mat::FUEL, None);
     let fuel_shell = Cell::material(
         11,
         vec![out(1), ins(0), RegionToken::Intersection],
         mat::GRAPHITE,
-        293.6,
+        None,
     );
-    let fuel_helium = Cell::material(12, vec![out(0)], mat::HELIUM, 293.6);
-    let dummy_ball = Cell::material(13, vec![ins(0)], mat::GRAPHITE, 293.6);
-    let dummy_helium = Cell::material(14, vec![out(0)], mat::HELIUM, 293.6);
+    let fuel_helium = Cell::material(12, vec![out(0)], mat::HELIUM, None);
+    let dummy_ball = Cell::material(13, vec![ins(0)], mat::GRAPHITE, None);
+    let dummy_helium = Cell::material(14, vec![out(0)], mat::HELIUM, None);
 
     // The bed: a cylinder, DELTA-tracked, filled by the hex lattice.
     let bed_region = vec![
@@ -902,12 +905,12 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     refl_region.extend(bed_region);
     refl_region.push(RegionToken::Complement);
     refl_region.push(RegionToken::Intersection);
-    let reflector = Cell::material(2, refl_region, mat::REFLECTOR, 293.6);
+    let reflector = Cell::material(2, refl_region, mat::REFLECTOR, None);
 
     // OUTRAM_HTR10_ALLFUEL=1 makes EVERY tile a fuelled pebble. Not physical --
     // the first critical core is 57 % fuel / 43 % graphite dummies -- but it is
     // an ABLATION that bounds how much of a k deficit the dilution can explain.
-    let mod_universe = if std::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() {
+    let mod_universe = if crate::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() {
         1
     } else {
         2
@@ -940,7 +943,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
         // a measurement: with no filler, `locate` reports those points as lost,
         // so the lost fraction IS the fraction of the bed cylinder the lattice
         // fails to tile. Formulas for that have been wrong twice here.
-        if std::env::var("OUTRAM_HTR10_NO_OUTER").is_ok() {
+        if crate::env::var("OUTRAM_HTR10_NO_OUTER").is_ok() {
             None
         } else {
             Some(2)
@@ -1152,7 +1155,7 @@ pub fn assemble_explicit_triso_with(
     // to be run, not even as an ablation (maintainer, 2026-10-01). Refuse the
     // old knob loudly rather than ignore it silently.
     assert!(
-        std::env::var("OUTRAM_HTR10_TWO_BALL_CELL").is_err(),
+        crate::env::var("OUTRAM_HTR10_TWO_BALL_CELL").is_err(),
         "OUTRAM_HTR10_TWO_BALL_CELL is withdrawn: the two-ball bed cuts pebbles, which is \
          wrong physics (maintainer, 2026-10-01). Unset it; Şeker's bed keeps every ball whole."
     );
@@ -1265,9 +1268,9 @@ pub fn assemble_explicit_triso_with(
     // OUTRAM_HTR10_ALLFUEL=1 makes EVERY ball fuelled and
     // OUTRAM_HTR10_FUEL_CONUS=1 gives the conus the 57:43 split too. Neither is
     // physical; both are ablation arms, kept from the one-ball construction.
-    let assignment = if std::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() {
+    let assignment = if crate::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() {
         FuelAssignment::AllFuel
-    } else if std::env::var("OUTRAM_HTR10_FUEL_CONUS").is_ok() {
+    } else if crate::env::var("OUTRAM_HTR10_FUEL_CONUS").is_ok() {
         FuelAssignment::FuelledConus
     } else {
         FuelAssignment::Paper
@@ -1288,7 +1291,7 @@ pub fn assemble_explicit_triso_with(
     // OUTRAM_HTR10_REJECT_SIDE_WALL=1 (gh:#331 ablation, 2026-09-27): also
     // reject balls crossing the r = 90 cm side wall instead of cutting them.
     // Two-ball bed only; Şeker's bed always rejects (maintainer, 2026-10-01).
-    let reject_side_wall = std::env::var("OUTRAM_HTR10_REJECT_SIDE_WALL").is_ok();
+    let reject_side_wall = crate::env::var("OUTRAM_HTR10_REJECT_SIDE_WALL").is_ok();
     let bed = if two_ball {
         let b = TwoBallBed::new_with_tube(
             cell,
@@ -1336,9 +1339,9 @@ pub fn assemble_explicit_triso_with(
     // `super::core_shell` (extracted from this function 2026-10-05 so the
     // explicit DEM bed reuses it). Surfaces 0..21 are unchanged.
     let mut sh = CoreShell::new(&frame, site_centres[0], design, r_pebble, majorant_index);
-    let mut surfaces = std::mem::take(&mut sh.surfaces);
-    let mut cells = std::mem::take(&mut sh.cells);
-    let mut universes = std::mem::take(&mut sh.universes);
+    let mut surfaces = core::mem::take(&mut sh.surfaces);
+    let mut cells = core::mem::take(&mut sh.cells);
+    let mut universes = core::mem::take(&mut sh.universes);
     let site_sphere = |site: usize, r: f64| {
         let [x0, y0, z0] = site_centres[site];
         SurfaceKind::Sphere(Sphere {
@@ -1420,7 +1423,7 @@ pub fn assemble_explicit_triso_with(
         lat_height,
         &placeholder,
         // See the OUTRAM_HTR10_NO_OUTER note in `assemble`.
-        if std::env::var("OUTRAM_HTR10_NO_OUTER").is_ok() {
+        if crate::env::var("OUTRAM_HTR10_NO_OUTER").is_ok() {
             None
         } else {
             Some(outer_universe)
@@ -1466,9 +1469,9 @@ pub(crate) fn build_tile_universes(
     moderator_slot: usize,
     cells: &mut Vec<Cell>,
     universes: &mut Vec<Universe>,
-) -> std::collections::BTreeMap<(u32, u32), usize> {
-    let mut key_universe: std::collections::BTreeMap<(u32, u32), usize> =
-        std::collections::BTreeMap::new();
+) -> alloc::collections::BTreeMap<(u32, u32), usize> {
+    let mut key_universe: alloc::collections::BTreeMap<(u32, u32), usize> =
+        alloc::collections::BTreeMap::new();
     assert!(
         keys_used.len() < TILE_VARIANTS_MAX,
         "tile cell ids hold at most {TILE_VARIANTS_MAX} variants, {} needed",
@@ -1502,7 +1505,7 @@ pub(crate) fn build_tile_universes(
                     TILE_DUMMY_BALL_CELL_ID + id,
                     vec![ins(pb)],
                     moderator_slot,
-                    293.6,
+                    None,
                 ));
             }
             helium_region = Some(match helium_region {
@@ -1513,7 +1516,7 @@ pub(crate) fn build_tile_universes(
         match helium_region {
             Some(r) => {
                 idx.push(cells.len());
-                cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
+                cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, None));
             }
             None => {
                 // Every ball of the tile rejected: all helium. Two cells,
@@ -1521,7 +1524,7 @@ pub(crate) fn build_tile_universes(
                 let (_, pb) = site_surfaces[0];
                 for r in [Rgn::ins(pb), Rgn::out(pb)] {
                     idx.push(cells.len());
-                    cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
+                    cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, None));
                 }
             }
         }
@@ -1596,4 +1599,37 @@ pub fn tile_cell_role(cell_id: i32) -> Option<TileCellRole> {
         4 => Some(TileCellRole::Helium),
         _ => None,
     }
+}
+
+/// The first fuel kernel a point scan of `g` finds: from `start`, in 0.01 cm
+/// steps, `nx` steps in x (innermost), 40 in y and 20 in z (outermost), which
+/// covers about one TRISO pitch in y and z, so a scan through a pebble cannot
+/// miss every kernel (the lattice puts particle centres at fractional-pitch
+/// offsets, `TRISO_OFFSET`). Returns the located path of the first point
+/// whose material is [`mat::KERNEL`] at coordinate depth at least `min_depth`
+/// (the pebble is `levels[len - 2]`, the particle `levels[len - 1]` at depth 3
+/// and more).
+///
+/// For drawing and checking the assembled geometry, not for transport.
+/// Moved here from two image examples that each carried a private copy of
+/// this scan (2026-11-17); the scan order and positions are theirs exactly.
+pub fn find_kernel_near(g: &Geometry, start: Position, nx: usize, min_depth: usize) -> Option<GeometryPath> {
+    let u = Direction::new(0.0, 0.0, 1.0);
+    for kz in 0..20 {
+        for j in 0..40 {
+            for i in 0..nx {
+                let p = Position::new(
+                    start.x + 0.01 * i as f64,
+                    start.y + 0.01 * j as f64,
+                    start.z + 0.01 * kz as f64,
+                );
+                if let Some(path) = g.locate(p, u, SurfaceToken::NONE) {
+                    if path.material == Some(mat::KERNEL) && path.levels.len() >= min_depth {
+                        return Some(path);
+                    }
+                }
+            }
+        }
+    }
+    None
 }

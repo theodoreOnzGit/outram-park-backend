@@ -24,8 +24,13 @@
 //! [`FvSolution`], with per-field [`LinearSolverConfig`] and the
 //! [`PimpleControl`] loop parameters.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use crate::error::AppBuilderError;
-use std::collections::HashMap;
+use crate::hash::HashMap;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 /// Parsed `system/fvSolution`.
@@ -90,6 +95,7 @@ pub struct PimpleControl {
 }
 
 impl FvSolution {
+    #[cfg(feature = "std")]
     /// Parse a `system/fvSolution` file from disk.
     ///
     /// **Not yet implemented — calling this panics (`todo!`).** No OpenFOAM

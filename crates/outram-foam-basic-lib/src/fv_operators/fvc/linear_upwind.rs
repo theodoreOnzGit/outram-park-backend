@@ -35,6 +35,9 @@
 //! `tests/operators_vs_openfoam.rs`. Boundary faces carry the patch value
 //! (non-coupled patches); coupled patches are not corrected.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{grad, interpolate};
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
@@ -78,7 +81,7 @@ mod tests {
     use crate::fields::field::Field;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use crate::primitives::Vector3;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     #[test]
     fn linear_field_is_reproduced_exactly_for_either_flux_sign() {

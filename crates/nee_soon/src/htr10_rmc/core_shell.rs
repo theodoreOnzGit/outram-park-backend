@@ -21,6 +21,9 @@
 //! in the same order, so every surface index callers and tests use is
 //! unchanged.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::lattice::{HexLattice, Lattice, RectLattice};
@@ -65,7 +68,7 @@ pub(crate) fn shell(inner: usize, outer: usize, m: usize, id: i32) -> Cell {
         id,
         vec![out(inner), ins(outer), RegionToken::Intersection],
         m,
-        293.6,
+        None,
     )
 }
 
@@ -94,7 +97,7 @@ impl CoreFrame {
         // one configuration directly comparable to the independently measured
         // single-pebble k_inf from the DhUniverse path. Two implementations, one
         // physical problem: they must agree or one of them is wrong.
-        let refl_thickness = if std::env::var("OUTRAM_HTR10_NOREFL").is_ok() {
+        let refl_thickness = if crate::env::var("OUTRAM_HTR10_NOREFL").is_ok() {
             0.0
         } else {
             100.0
@@ -133,7 +136,7 @@ impl CoreFrame {
         };
 
         let has_refl = refl_thickness > 0.0;
-        let explicit_tube = has_refl && std::env::var("OUTRAM_HTR10_HOMOG_TUBE").is_err();
+        let explicit_tube = has_refl && crate::env::var("OUTRAM_HTR10_HOMOG_TUBE").is_err();
         Self {
             bed_radius,
             bed_half_height,
@@ -247,7 +250,7 @@ impl CoreShell {
         // OUTRAM_HTR10_REFLECTIVE=1 closes the outer boundary. NOT physical -- it is
         // a DIAGNOSTIC that separates the two ways k can be low: with no leakage at
         // all, whatever k remains is pure in-model absorption or lost histories.
-        let obc = if std::env::var("OUTRAM_HTR10_REFLECTIVE").is_ok() {
+        let obc = if crate::env::var("OUTRAM_HTR10_REFLECTIVE").is_ok() {
             BoundaryType::Reflective
         } else {
             BoundaryType::Vacuum
@@ -370,8 +373,8 @@ impl CoreShell {
         //   except the boronated bricks at r > 167.793 cm (the reflector before the
         //   zone map), the borings still explicit.
         // - OUTRAM_HTR10_NO_WITHDRAWN_RODS=1: the rod channels are empty.
-        let zone_map = std::env::var("OUTRAM_HTR10_NO_ZONE_MAP").is_err();
-        let withdrawn_rods = std::env::var("OUTRAM_HTR10_NO_WITHDRAWN_RODS").is_err();
+        let zone_map = crate::env::var("OUTRAM_HTR10_NO_ZONE_MAP").is_err();
+        let withdrawn_rods = crate::env::var("OUTRAM_HTR10_NO_WITHDRAWN_RODS").is_err();
         let temperature_zones = design.temperature_zones;
         // Zone 0 lies between the cone and r = 90 cm, below the bed: the
         // bottom reflector when temperature zones are on (gh:#1138).
@@ -446,7 +449,7 @@ impl CoreShell {
                 5,
                 Rgn::ins(7).and(Rgn::out(9)).and(Rgn::ins(16)).0,
                 mat::HELIUM,
-                293.6,
+                None,
             ));
             // TECDOC zone 0: between the cone and r = 90 cm, from the conus top to
             // the conus floor (Fig. 4.10) -- the bottom reflector with its hot
@@ -459,7 +462,7 @@ impl CoreShell {
                     .and(Rgn::out(18))
                     .0,
                 zone_material(0),
-                293.6,
+                None,
             ));
             if !explicit_tube {
                 // ABLATION: the smeared discharge tube, conus floor to model bottom.
@@ -467,7 +470,7 @@ impl CoreShell {
                     17,
                     Rgn::ins(21).and(Rgn::ins(18)).and(Rgn::out(11)).0,
                     mat::HOMOG_DUMMY,
-                    293.6,
+                    None,
                 ));
             }
         }
@@ -745,12 +748,12 @@ impl TrisoBuild {
         vec![
             // 7..12: the TRISO particle's shells, then matrix beyond it
             // (universe TRISO_PARTICLE_UNIVERSE)
-            Cell::material(8, vec![ins(s0)], mat::KERNEL, 293.6),
+            Cell::material(8, vec![ins(s0)], mat::KERNEL, None),
             shell(s0, s0 + 1, mat::BUFFER, 9),
             shell(s0 + 1, s0 + 2, mat::IPYC, 10),
             shell(s0 + 2, s0 + 3, mat::SIC, 11),
             shell(s0 + 3, s0 + 4, mat::OPYC, 12),
-            Cell::material(13, vec![out(s0 + 4)], mat::GRAPHITE, 293.6),
+            Cell::material(13, vec![out(s0 + 4)], mat::GRAPHITE, None),
             // 13, 14: pure matrix, the TRISO lattice's `outer` universe
             // (TRISO_MATRIX_UNIVERSE).
             //
@@ -760,8 +763,8 @@ impl TrisoBuild {
             // non-particle tile, where `locate` finds no cell and the history is
             // lost. Splitting it into inside/outside the same surface covers the
             // tile completely with one material.
-            Cell::material(14, vec![out(s0 + 4)], mat::GRAPHITE, 293.6),
-            Cell::material(15, vec![ins(s0 + 4)], mat::GRAPHITE, 293.6),
+            Cell::material(14, vec![out(s0 + 4)], mat::GRAPHITE, None),
+            Cell::material(15, vec![ins(s0 + 4)], mat::GRAPHITE, None),
         ]
     }
 

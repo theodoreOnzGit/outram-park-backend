@@ -26,6 +26,21 @@ of [`outram-foam-basic-lib`](../outram-foam-basic-lib)'s primitive + FV layer.
 This is an **independent OUTRAM PARK fork**, not the official OpenFOAM software
 and not endorsed by it (see `TRADEMARKS.md`).
 
+## `no_std` + `alloc` (gh:#1638)
+
+The default `std` feature can be turned off: the library is then `no_std` +
+`alloc` and builds for bare metal
+(`cargo check --release -p outram-foam-mesh --lib --no-default-features --target x86_64-unknown-none`,
+gated by `scripts/check-nostd.sh`). Every mesher and tool builds without it:
+`blockMesh` from a parsed dictionary, `snappyHexMesh` (castellation, snapping,
+layers), `polyDualMesh`, `checkMesh`, `decomposePar`'s geometric methods, the
+UNV conversion and the STL parsers from bytes or text. What `std` adds is the
+**filesystem**: `read_stl` / `read_stl_zoned`, `block_mesh_from_file`, the UNV
+`convert_file`, reading a dictionary with `#include`, `write_case` and
+`write_processor_cases`. Maps are std's with `std` (so every byte-identity pin
+against ESI holds) and `hashbrown` without. The root workspace entry is
+`default-features = false`, so a member that wants `std` asks for it.
+
 ## Quick start
 
 One function turns a closed surface into an OpenFOAM `polyMesh`:
@@ -67,6 +82,7 @@ cells, meshed volume 59.8594 m^3 against the analytic box-minus-sphere
 | `snappy_hex_mesh` | `snappyHexMesh` | Split-hex meshing around STL surfaces (castellate → snap → layers) |
 | `ideas_unv_to_foam` | `ideasUnvToFoam` | Import an I-DEAS `.unv` mesh into `polyMesh` |
 | `poly_dual_mesh` | `polyDualMesh` | Polyhedral dual-mesh construction |
+| `decompose` | `decomposePar` (`simple`, `hierarchical`; processor patches, `processorN/constant/polyMesh`), libstdc++ `std::sort` tie order | gh:#1381; byte-identical to ESI v2506 on 1098 files, see `verification_and_validation/decompose_par_gh1381/README.md` |
 
 ### One mesh currency
 
@@ -118,6 +134,15 @@ OpenFOAM-dev C++, with upstream `File.C:line` provenance in the module docs).
     non-orthogonality is 16.7° mean, 47.7° max, and its boundary follows
     upstream (one face per point per feature-bounded sector, patch seams are
     features, `FeaturePoints` rule). Not compared against an OpenFOAM run.
+- **`dynamic_mesh`** (gh:#1380) — solid-body mesh motion
+  (`linearMotion`, `rotatingMotion`, `axisRotationMotion`,
+  `oscillatingLinearMotion` with constant coefficients) and the mesh motion flux
+  `meshPhi` (`face::sweptVol`). Compared with OpenFOAM.com v2506
+  (`dynamicMotionSolverFvMesh` through a `dumpMeshMotion` probe): 245,180 values
+  (points, `meshPhi`, face and cell geometry; 2 meshes x 4 motions x 5 steps)
+  **bit-identical**. Not ported: `displacementLaplacian` and the other solver
+  based motion solvers, motion boundary conditions, topology changers, 6-DoF.
+  Record: `verification_and_validation/dynamic_mesh_gh1380/README.md`.
 
 **Unit-tested ≠ validated.** These are AI-assisted translations checked against
 the upstream source and analytical geometry, not yet validated against OpenFOAM

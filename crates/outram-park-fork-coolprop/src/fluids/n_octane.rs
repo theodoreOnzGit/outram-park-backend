@@ -4,6 +4,9 @@
 //! CoolProp `n-Octane` Helmholtz EOS, as hardcoded `const` data.
 #![allow(clippy::approx_constant)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
 use crate::transport::{
@@ -171,6 +174,7 @@ pub static N_OCTANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.94e-10,
             qd: 1457130000.0,
             t_ref: -1.0,
+            p_reducing: 2483591.199677694,
         }),
     }),
 };

@@ -209,6 +209,9 @@
 //! assert_eq!(roots, serial.roots().unwrap());
 //! ```
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -1574,8 +1577,8 @@ where
         }
         // Re-establish "b is the better estimate".
         if fa.abs() < fb.abs() {
-            std::mem::swap(&mut a, &mut b);
-            std::mem::swap(&mut fa, &mut fb);
+            core::mem::swap(&mut a, &mut b);
+            core::mem::swap(&mut fa, &mut fb);
         }
         // An exact hit ends it immediately, whatever the tolerances say.
         if fb == 0.0 {

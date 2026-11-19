@@ -90,6 +90,9 @@
 //! [D]: AccidentCase::Depressurization
 //! [W]: AccidentCase::WaterIngress
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::f64::Radioactivity;
 use uom::si::radioactivity::becquerel;
 

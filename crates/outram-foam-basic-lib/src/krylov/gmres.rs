@@ -81,8 +81,11 @@
 //! repeat runs and limitations are on the benchmark in
 //! `crate::krylov::hybrid_tests`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::{KrylovResult, KrylovSettings, Preconditioner};
 use crate::compute::ComputeBackend;

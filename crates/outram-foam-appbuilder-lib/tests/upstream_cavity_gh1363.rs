@@ -17,6 +17,8 @@
 //! See `verification_and_validation/pimple_foam_vs_openfoam.md` (the numbers
 //! pinned below are the ones recorded there).
 
+// Reads OpenFOAM case files: `std` only (gh:#1633).
+#![cfg(feature = "std")]
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::field_reader::{

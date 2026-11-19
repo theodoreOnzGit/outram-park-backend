@@ -1,5 +1,8 @@
 // `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
 // semantics (gh:#989); see crate::numerical_methods.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::numerical_methods::{brent_root, SimpleConvergency};
 use uom::si::f64::*;
 use uom::ConstZero;

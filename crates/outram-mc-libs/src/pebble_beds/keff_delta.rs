@@ -57,6 +57,9 @@
 //! (`collision` / `inelastic_scatter`). The reflective-cube flight is new pebble-bed
 //! assembly built on this crate's primitives.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 pub mod distributed;
 
@@ -113,9 +116,10 @@ const GEN_STRIDE: u64 = 1 << 40;
 ///
 /// # Implementing it
 ///
-/// `material_at` takes `&self`, so a stateful implementor needs interior
-/// mutability — `Mutex`/`RwLock`, which is also what satisfies the [`Sync`]
-/// supertrait the multi-threaded backend requires.
+/// `material_at` takes `&self` (shared, `Sync`) and `&mut Self::State` (the
+/// driver's, per run or per history). A lookup with mutable state puts it in
+/// [`Self::State`] and builds it in [`Self::new_state`]; it needs no lock, and
+/// the parallel drivers give every history its own (GitHub #205).
 ///
 /// ```
 /// use outram_mc_libs::pebble_beds::keff_delta::MaterialQuery;
@@ -123,28 +127,51 @@ const GEN_STRIDE: u64 = 1 << 40;
 ///
 /// // A closure is already a MaterialQuery — this is the common case.
 /// let two_zone = |p: Position| Some(if p.norm() < 1.0 { 0 } else { 1 });
-/// assert_eq!(MaterialQuery::material_at(&two_zone, Position::new(0.0, 0.0, 0.5)), Some(0));
+/// let mut state = two_zone.new_state(None);
+/// assert_eq!(MaterialQuery::material_at(&two_zone, &mut state, Position::new(0.0, 0.0, 0.5)), Some(0));
 /// ```
 pub trait MaterialQuery: Sync {
+    /// The mutable state a stateful lookup carries, **owned by the driver**
+    /// (GitHub #205): `()` for a stateless lookup. A chord-length sampler's
+    /// random stream and its retained inclusions live here, passed as
+    /// `&mut` to every query, so no lock is needed and each thread of the
+    /// parallel drivers holds its own.
+    ///
+    /// ~~The state sat behind a global `Mutex` inside the lookup~~
+    /// **CORRECTED 2026-11-14 (GitHub #205).**
+    type State: Send;
+
+    /// A fresh state. `None` is the run's own state, the one the sequential
+    /// drivers thread through every history (and the initial-source
+    /// sampling) in order; `Some((generation, history))` is the state of one
+    /// history of the parallel drivers, which must depend on nothing but
+    /// those two indices so the result is independent of the thread count.
+    fn new_state(&self, history: Option<(usize, usize)>) -> Self::State;
+
     /// Material index at `p`, or `None` if the point is outside the model.
     ///
     /// Returning `None` leaks the history, so a reflective domain should answer
     /// everywhere inside its boundary.
-    fn material_at(&self, p: Position) -> Option<usize>;
+    fn material_at(&self, state: &mut Self::State, p: Position) -> Option<usize>;
 
     /// Called once immediately before each source neutron is transported.
     ///
     /// Stateless lookups need not implement this; the default does nothing.
     /// Implement it to reset any memory that belongs to a single history.
-    fn begin_history(&self) {}
+    fn begin_history(&self, _state: &mut Self::State) {}
 }
 
 impl<F> MaterialQuery for F
 where
     F: Fn(Position) -> Option<usize> + Sync,
 {
+    type State = ();
+
     #[inline]
-    fn material_at(&self, p: Position) -> Option<usize> {
+    fn new_state(&self, _history: Option<(usize, usize)>) -> Self::State {}
+
+    #[inline]
+    fn material_at(&self, _state: &mut Self::State, p: Position) -> Option<usize> {
         self(p)
     }
 }
@@ -547,6 +574,7 @@ fn delta_flight<Q, O>(
     nuclides: &[Nuclide],
     max_virtual: u32,
     material_at: &Q,
+    state: &mut Q::State,
     seed: &mut u64,
     urr_seed: u64,
     observe: &mut O,
@@ -555,9 +583,13 @@ where
     Q: MaterialQuery,
     O: FnMut(TraceEvent),
 {
+    // The flight reads the state through a `RefCell` because `DeltaRegion`
+    // methods take `&self`; the borrow lasts one point query, on one thread,
+    // so there is no lock and no contention (GitHub #205).
+    let state = core::cell::RefCell::new(state);
     let region = DomainRegion {
         domain,
-        material_at: |p: Position| material_at.material_at(p),
+        material_at: |p: Position| material_at.material_at(&mut **state.borrow_mut(), p),
     };
     // The band total the collision will use (GitHub #407); the majorant
     // bounds it (`Majorant` builds on `macro_xs_total_upper_bound`).
@@ -720,8 +752,13 @@ where
     Q: MaterialQuery,
 {
     let mut seed = settings.seed;
+    // One state for the whole run, threaded through the source sampling and
+    // every history in order: the order the old lock saw (GitHub #205).
+    let mut state = material_at.new_state(None);
 
-    let mut source = sample_initial_source(domain, materials, nuclides, &material_at, settings, &mut seed);
+    let mut source = sample_initial_source(
+        domain, materials, nuclides, &material_at, &mut state, settings, &mut seed,
+    );
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -741,6 +778,7 @@ where
                 majorant,
                 k_running,
                 &material_at,
+                &mut state,
                 &mut next_bank,
                 &mut seed,
                 &mut no_trace,
@@ -798,16 +836,35 @@ pub struct DeltaPowerIteration {
 }
 
 impl DeltaPowerIteration {
-    /// Sample the initial source as [`run_keff_delta_seq_in`] does.
-    pub fn new<Q: MaterialQuery>(
+    /// Sample the initial source as [`run_keff_delta_seq_in`] does, for a
+    /// stateless lookup (a closure). A lookup with state uses
+    /// [`Self::new_with_state`].
+    pub fn new<Q: MaterialQuery<State = ()>>(
         domain: DeltaDomain,
         materials: &[Material],
         nuclides: &[Nuclide],
         material_at: &Q,
         settings: &KeffSettings,
     ) -> Self {
+        Self::new_with_state(domain, materials, nuclides, material_at, &mut (), settings)
+    }
+
+    /// [`Self::new`] for a lookup that carries state (GitHub #205): create the
+    /// state with [`MaterialQuery::new_state`]`(None)` and pass the same one
+    /// to every [`Self::step_with_state`], as [`run_keff_delta_seq_in`] threads
+    /// its one state through the run.
+    pub fn new_with_state<Q: MaterialQuery>(
+        domain: DeltaDomain,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        material_at: &Q,
+        state: &mut Q::State,
+        settings: &KeffSettings,
+    ) -> Self {
         let mut seed = settings.seed;
-        let source = sample_initial_source(domain, materials, nuclides, material_at, settings, &mut seed);
+        let source = sample_initial_source(
+            domain, materials, nuclides, material_at, state, settings, &mut seed,
+        );
         let n_gen = settings.n_inactive + settings.n_active;
         Self {
             domain,
@@ -823,26 +880,51 @@ impl DeltaPowerIteration {
 
     /// Transport one generation and resample its fission bank. `None` once
     /// every generation has run or the population has died out.
-    pub fn step<Q: MaterialQuery>(
+    pub fn step<Q: MaterialQuery<State = ()>>(
         &mut self,
         materials: &[Material],
         nuclides: &[Nuclide],
         majorant: &Majorant,
         material_at: &Q,
     ) -> Option<DeltaGenerationReport> {
-        self.step_traced(materials, nuclides, majorant, material_at, no_trace)
+        self.step_with_state(materials, nuclides, majorant, material_at, &mut ())
+    }
+
+    /// [`Self::step`] for a lookup that carries state (GitHub #205).
+    pub fn step_with_state<Q: MaterialQuery>(
+        &mut self,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        majorant: &Majorant,
+        material_at: &Q,
+        state: &mut Q::State,
+    ) -> Option<DeltaGenerationReport> {
+        self.step_traced_with_state(materials, nuclides, majorant, material_at, state, no_trace)
     }
 
     /// [`Self::step`], reporting every step of every history to `observe`
     /// ([`TraceEvent`], gh:#784): the counters of the rung-5 demo's "Run
     /// many". Observing draws no random number, so the generation is the
     /// one [`Self::step`] runs, bit for bit (`tests/tracking_trace.rs`).
-    pub fn step_traced<Q: MaterialQuery, O: FnMut(TraceEvent)>(
+    pub fn step_traced<Q: MaterialQuery<State = ()>, O: FnMut(TraceEvent)>(
         &mut self,
         materials: &[Material],
         nuclides: &[Nuclide],
         majorant: &Majorant,
         material_at: &Q,
+        observe: O,
+    ) -> Option<DeltaGenerationReport> {
+        self.step_traced_with_state(materials, nuclides, majorant, material_at, &mut (), observe)
+    }
+
+    /// [`Self::step_traced`] for a lookup that carries state (GitHub #205).
+    pub fn step_traced_with_state<Q: MaterialQuery, O: FnMut(TraceEvent)>(
+        &mut self,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        majorant: &Majorant,
+        material_at: &Q,
+        state: &mut Q::State,
         mut observe: O,
     ) -> Option<DeltaGenerationReport> {
         if self.finished {
@@ -861,6 +943,7 @@ impl DeltaPowerIteration {
                 majorant,
                 self.k_running,
                 material_at,
+                &mut *state,
                 &mut next_bank,
                 &mut self.seed,
                 &mut observe,
@@ -920,6 +1003,7 @@ where
     O: FnMut(TraceEvent),
 {
     let mut bank = Vec::new();
+    let mut state = material_at.new_state(None);
     transport_history(
         Site { r, u, e },
         domain,
@@ -928,6 +1012,7 @@ where
         majorant,
         1.0,
         material_at,
+        &mut state,
         &mut bank,
         seed,
         &mut observe,
@@ -958,6 +1043,9 @@ where
 ///
 /// The `material_at` geometry lookup is shared across threads by reference, so it
 /// must be [`Sync`] (every packed-sphere / membership lookup in this crate is).
+/// Its mutable state ([`MaterialQuery::State`]) is not shared: each history
+/// creates its own from `(generation, history)` (GitHub #205), so a stateful
+/// lookup such as chord-length sampling is as reproducible as a stateless one.
 pub fn run_keff_delta_par_in<Q>(
     domain: DeltaDomain,
     materials: &[Material],
@@ -970,11 +1058,11 @@ pub fn run_keff_delta_par_in<Q>(
 where
     Q: MaterialQuery,
 {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
     use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par::prelude::*;
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "std")))]
     use crate::wasm_par as rayon;
 
 
@@ -992,8 +1080,12 @@ where
     let mut src_seed = settings.seed;
 
     // Initial source, as the single-thread path, on the sequential src stream.
-    let mut source =
-        sample_initial_source(domain, materials, nuclides, &material_at, settings, &mut src_seed);
+    let mut source = {
+        let mut state = material_at.new_state(None);
+        sample_initial_source(
+            domain, materials, nuclides, &material_at, &mut state, settings, &mut src_seed,
+        )
+    };
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -1018,6 +1110,10 @@ where
                     let mut seed =
                         future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
                     let mut local_bank: Vec<Site> = Vec::new();
+                    // This history's own lookup state, a function of
+                    // (generation, history) alone: no lock, and the result
+                    // does not depend on the thread count (GitHub #205).
+                    let mut state = material_at.new_state(Some((gen, hist_idx)));
                     let production = transport_history(
                         source[hist_idx],
                         domain,
@@ -1026,6 +1122,7 @@ where
                         majorant,
                         k_running,
                         &material_at,
+                        &mut state,
                         &mut local_bank,
                         &mut seed,
                         &mut no_trace,
@@ -1102,6 +1199,7 @@ fn transport_history<Q, O>(
     majorant: &Majorant,
     k_running: f64,
     material_at: &Q,
+    state: &mut Q::State,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
     // Step-level events (gh:#784). Every untraced caller passes `no_trace`;
@@ -1116,7 +1214,7 @@ where
     let e_cap_fission = library_energy_max_ev(nuclides);
     // Safety cap on events per history — a purely-scattering reflective medium with
     // vanishing absorption could otherwise bounce forever (mirrors keff drivers).
-    material_at.begin_history();
+    material_at.begin_history(state);
     const MAX_EVENTS: u32 = 100_000;
     const MAX_VIRTUAL: u32 = 100_000;
     let mut production = 0.0;
@@ -1153,6 +1251,7 @@ where
                 nuclides,
                 MAX_VIRTUAL,
                 material_at,
+                &mut *state,
                 seed,
                 urr_seed,
                 &mut *observe,
@@ -1408,6 +1507,7 @@ fn sample_initial_source<Q: MaterialQuery>(
     materials: &[Material],
     nuclides: &[Nuclide],
     material_at: &Q,
+    state: &mut Q::State,
     settings: &KeffSettings,
     seed: &mut u64,
 ) -> Vec<Site> {
@@ -1420,7 +1520,7 @@ fn sample_initial_source<Q: MaterialQuery>(
         }
         let r = domain.sample_point(seed);
         let fissile = material_at
-            .material_at(r)
+            .material_at(state, r)
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
         if fissile {
@@ -1649,6 +1749,7 @@ mod tests {
 
         let sigma_comb = (seq.k_std.r_powi(2) + par1.k_std.r_powi(2)).sqrt().max(1e-9);
         let dist = (seq.k_mean - par1.k_mean).abs() / sigma_comb;
+        #[cfg(feature = "std")]
         eprintln!(
             "[delta backend agreement] seq = {:.5} ± {:.5}, par = {:.5} ± {:.5}  ({:.2}σ apart)",
             seq.k_mean, seq.k_std, par1.k_mean, par1.k_std, dist
@@ -1874,6 +1975,7 @@ mod tests {
             );
             let sigma = (cube.k_std.r_powi(2) + sphere.k_std.r_powi(2)).sqrt().max(1e-9);
             let dist = (cube.k_mean - sphere.k_mean).abs() / sigma;
+            #[cfg(feature = "std")]
             eprintln!(
                 "[k∞ shape independence, size {size}] cube {:.5} ± {:.5} vs sphere \
                  {:.5} ± {:.5}  ({dist:.2}σ, {:+.0} pcm)",

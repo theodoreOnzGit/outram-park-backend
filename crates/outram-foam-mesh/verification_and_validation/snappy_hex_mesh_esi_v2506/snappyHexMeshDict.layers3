@@ -1,0 +1,51 @@
+FoamFile { version 2.0; format ascii; class dictionary; object snappyHexMeshDict; }
+// gh:#1465/#1466 differential: reduced flange (what the port can express):
+// round 10: the round-8 dictionary with nSurfaceLayers 3 and expansionRatio 1.2 (multi-layer).
+castellatedMesh true;
+snap            true;
+addLayers       true;
+geometry { flange.stl { type triSurfaceMesh; name flange; } }
+castellatedMeshControls
+{
+    maxLocalCells 100000;
+    maxGlobalCells 2000000;
+    minRefinementCells 0;
+    nCellsBetweenLevels 1;
+    features ( { file "flange.extendedFeatureEdgeMesh"; level 0; } );
+    refinementSurfaces { flange { level (2 2); } }
+    resolveFeatureAngle 30;
+    refinementRegions {}
+    locationInMesh (-9.23149e-05 -0.0025 -0.0025);
+    allowFreeStandingZoneFaces true;
+}
+snapControls { nSmoothPatch 3; tolerance 1.0; nSolveIter 300; nRelaxIter 5; nFeatureSnapIter 10; implicitFeatureSnap false; explicitFeatureSnap true; multiRegionFeatureSnap false; }
+addLayersControls
+{
+    relativeSizes true;
+    layers { "flange_.*" { nSurfaceLayers 3; } }
+    expansionRatio 1.2;
+    finalLayerThickness 0.3;
+    minThickness 0.25;
+    nGrow 0;
+    featureAngle 30;
+    nRelaxIter 5;
+    nSmoothSurfaceNormals 1;
+    nSmoothNormals 3;
+    nSmoothThickness 10;
+    maxFaceThicknessRatio 0.5;
+    maxThicknessToMedialRatio 0.3;
+    minMedialAxisAngle 90;
+    nBufferCellsNoExtrude 0;
+    nLayerIter 50;
+    nRelaxedIter 20;
+}
+meshQualityControls
+{
+    #include "meshQualityDict"
+    relaxed { maxNonOrtho 75; }
+    nSmoothScale 4;
+    errorReduction 0.75;
+}
+writeFlags ( scalarLevels );
+debugFlags ( mesh );
+mergeTolerance 1E-6;

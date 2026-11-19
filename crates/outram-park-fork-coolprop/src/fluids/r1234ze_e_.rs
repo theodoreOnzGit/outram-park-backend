@@ -4,6 +4,9 @@
 //! CoolProp `R1234ze(E)` Helmholtz EOS, as hardcoded `const` data.
 #![allow(clippy::approx_constant)]
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
 use crate::transport::{
@@ -182,6 +185,7 @@ pub static R1234ZE_E__TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.94e-10,
             qd: 1713796058.2,
             t_ref: -1.0,
+            p_reducing: 3634870.332779655,
         }),
     }),
 };

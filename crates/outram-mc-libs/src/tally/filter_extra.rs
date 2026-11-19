@@ -23,6 +23,9 @@
 //! and `PARTICLE_PRODUCTION`. `DISTRIBCELL` is the expensive one — it needs the
 //! distribcell offset tables upstream builds in `src/geometry_aux.cpp`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::filter::{Filter, FilterEvent};
 use crate::tally::mesh::MeshKindExt;
 use crate::tally::mesh::RegularMeshExt;

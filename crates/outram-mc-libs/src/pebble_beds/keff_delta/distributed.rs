@@ -21,6 +21,9 @@
 //! it. Delta-tracked histories are not traced here and their ends are not
 //! counted (the chunk reports how many histories it ran).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{sample_initial_source, transport_history, DeltaDomain, MaterialQuery, Site, GEN_STRIDE, HIST_STRIDE};
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
@@ -51,7 +54,10 @@ pub fn initial_source<Q: MaterialQuery>(
     settings: &KeffSettings,
 ) -> (Vec<SourceSite>, u64) {
     let mut seed = settings.seed;
-    let sites = sample_initial_source(domain, materials, nuclides, material_at, settings, &mut seed);
+    let mut state = material_at.new_state(None);
+    let sites = sample_initial_source(
+        domain, materials, nuclides, material_at, &mut state, settings, &mut seed,
+    );
     (sites.iter().map(to_wire).collect(), seed)
 }
 
@@ -72,6 +78,7 @@ pub fn transport_chunk<Q: MaterialQuery>(
     for (k, s) in chunk.sites.iter().enumerate() {
         let hist_idx = chunk.first_index + k;
         let mut seed = future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
+        let mut state = material_at.new_state(Some((chunk.generation, hist_idx)));
         production.push(transport_history(
             from_wire(s),
             domain,
@@ -80,6 +87,7 @@ pub fn transport_chunk<Q: MaterialQuery>(
             majorant,
             chunk.k_running,
             material_at,
+            &mut state,
             &mut bank,
             &mut seed,
             &mut no_trace,

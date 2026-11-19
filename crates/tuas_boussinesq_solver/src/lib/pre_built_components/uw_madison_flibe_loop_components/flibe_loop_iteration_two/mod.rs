@@ -14,6 +14,9 @@
 //!   convective coupling between the tube fluid, inner tube, annular air,
 //!   heating element and insulation layers.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// components for second iteration of UW madison FLiBe loop model
 ///
 /// Pipes have

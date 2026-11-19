@@ -96,6 +96,9 @@
 //! comparison is what found the missing residual rule, the missing RECONR
 //! lumping, and the missing MT=5 yields. **No human V&V.**
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod tape;
 pub use tape::gaspr_tape;
 

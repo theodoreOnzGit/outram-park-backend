@@ -54,7 +54,10 @@
 //! [`RzPatch::Bottom`], [`RzPatch::Top`], then the two wedge (or `empty`)
 //! patches `front`, `back`.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use uom::si::angle::radian;
 use uom::si::f64::{Angle, Length};

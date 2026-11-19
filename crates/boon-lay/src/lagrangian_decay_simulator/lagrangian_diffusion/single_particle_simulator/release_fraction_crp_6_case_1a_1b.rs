@@ -4,6 +4,9 @@
 // 443 (2013) 531–543, doi:10.1016/j.jnucmat.2013.07.070 .
 // Multidimensional multiphysics simulation of TRISO particle fuel,
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 #[cfg(test)]
 mod verification {
 

@@ -44,6 +44,9 @@
 //! with SMT's kernels, trends, nugget, θ bounds and normalisation, and its
 //! partial-least-squares reductions. One fitted model per output.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use super::core::{maximise, Level, LevelPar, Pairs, Projection, SmtCorrelation, SmtOptimizer, SmtRegression, SmtStarts};

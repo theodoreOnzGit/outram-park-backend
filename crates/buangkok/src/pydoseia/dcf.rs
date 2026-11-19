@@ -35,6 +35,9 @@
 //! (`tests/data/pydoseia_synthetic_*.csv`), so no copyrighted coefficient is in
 //! the repository.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// The six age brackets every pyDOSEIA DCF lookup uses, selected from an age in
 /// years with upstream's boundaries (`age <= 1`, `1 < age <= 2`, `2 < age <= 7`,
 /// `7 < age <= 12`, `12 < age <= 17`, `age > 17`).

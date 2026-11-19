@@ -1,8 +1,13 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::ops::DerefMut;
-use std::sync::{Arc, Mutex};
-use std::thread;
+use core::ops::DerefMut;
+use alloc::sync::Arc;
+    use crate::sync::Mutex;
+use crate::thread;
 
+#[cfg(feature = "std")]
 use csv::Writer;
 
 use crate::boundary_conditions::BCType;
@@ -31,6 +36,7 @@ use uom::si::time::second;
 use uom::ConstZero;
 use approx::assert_abs_diff_eq;
 
+#[cfg(feature = "std")]
 /// In this test, we have a one dimensional representation of the
 /// CIET heater v1.0
 ///
@@ -392,6 +398,7 @@ pub fn one_dimension_ciet_heater_v_1_0_test_for_better_sampling_frequency() {
 /// against the expected heater response.
 #[test]
 //#[ignore = "already collected auto timestep test data"]
+#[cfg(feature = "std")]
 pub fn one_dimension_ciet_heater_v_1_0_auto_timestep_test() {
     // okay, let's make two control volumes
     // one cylinder and then the other a shell
@@ -699,6 +706,7 @@ pub fn one_dimension_ciet_heater_v_1_0_auto_timestep_test() {
 /// this is a one dimension heater test, and we only test the functionality
 /// of the API
 
+#[cfg(feature = "std")]
 #[test]
 pub fn one_dimension_ciet_heater_v_1_0_functional_test() {
     // okay, let's make two control volumes

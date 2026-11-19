@@ -15,6 +15,9 @@
 //! so `ggunr1` on such a material would read uninitialised memory — this
 //! port refuses that case instead, see [`super::unresolved`]).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::endf::records::{Cont, List, SectionCursor};
 use crate::endf::tape::Tape;
 use crate::reconr::slbw::WAVE_K;

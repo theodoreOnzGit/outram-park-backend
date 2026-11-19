@@ -12,6 +12,9 @@
 //! the same `Fw.d` fields ([`super::fmt`]). Points are clamped to `[-1000, 2000]`
 //! points as upstream does, and landscape pages swap and mirror the axes.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::fmt::{f, i, o3};
 use super::graph::Graph;
 use super::tables::{IBRGB, IFRGB, ISRGB};

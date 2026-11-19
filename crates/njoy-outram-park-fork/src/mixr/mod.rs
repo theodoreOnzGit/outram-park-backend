@@ -44,10 +44,14 @@
 //! **Upstream:** `mixr.f90` (git `ac5adf5f`). **Manual:** LA-UR-17-20093 §MIXR.
 //! See `README.md` in this directory for theory, fidelity notes, and V&V status.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod driver;
 pub mod input;
 pub mod mix;
 
+#[cfg(feature = "std")]
 pub use driver::run_mix;
 pub use input::{MixComponent, MixrInput};
 pub use mix::{gety_value, mix, mix_reaction, nsub_from_awi, sigfig};

@@ -9,6 +9,9 @@
 
 //! Error type for the fuel-performance crate.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use thiserror::Error;
 
 /// Everything that can go wrong in a fuel-performance calculation.

@@ -45,6 +45,9 @@
 //! which is intended — extending the shim should be a deliberate act rather
 //! than something a catch-all quietly absorbs.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Mirror of `rayon::prelude`, so a call site can swap one import for another.
 pub(crate) mod prelude {
     pub(crate) use super::{ParallelSlice, ParallelSliceMut};

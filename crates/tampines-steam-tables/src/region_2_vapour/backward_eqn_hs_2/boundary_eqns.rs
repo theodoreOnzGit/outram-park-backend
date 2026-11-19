@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use uom::si::ratio::ratio;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;

@@ -29,6 +29,9 @@
 //! upstream is explicit that this model changes neither the temperature nor the
 //! energy balance.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::{CellSelection, TemperatureTable};
 use crate::fields::VolScalarField;
 use crate::ldu_matrix::FvVectorMatrix;

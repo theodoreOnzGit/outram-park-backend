@@ -24,6 +24,9 @@
 //! (~1e-7 relative), which is measured and reported rather than assumed — see
 //! `docs/flexpart-code-to-code.md`.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 /// Circle constant, as written in `par_mod.f90` (`pi=3.14159265`).
 ///
 /// Upstream truncates π to nine significant figures; this port keeps that exact

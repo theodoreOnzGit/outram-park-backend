@@ -1,6 +1,9 @@
 //! (c) and (d): a LEAPR deck and an incident tape to a thermal scattering law
 //! and its thermal ACE table.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use uom::si::thermodynamic_temperature::kelvin;
 
 use super::{cross_sections, ThermalSettings};
@@ -138,7 +141,7 @@ pub fn thermal_scattering(
     }
     let run = run_deck_at_temperature(&deck, t_k)?;
     // THERMR reads LEAPR's tape, so read it back from its text.
-    let leapr_tape = Tape::read(std::io::Cursor::new(run.write_text()?))?;
+    let leapr_tape = Tape::from_bytes(run.write_text()?.as_bytes())?;
     let mf7 = parse_mf7_at_temperature(&leapr_tape, deck.mat, Some(t_k))?;
     let b = mf7
         .incoherent_inelastic

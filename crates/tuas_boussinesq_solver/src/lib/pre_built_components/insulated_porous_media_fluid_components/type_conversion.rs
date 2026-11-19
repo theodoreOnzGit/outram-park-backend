@@ -2,6 +2,9 @@
 //!
 //! Converts the component into a `FluidComponent` (via its inner fluid array)
 //! so it can be stored in fluid-component collections and hydraulic networks.
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
 

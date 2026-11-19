@@ -87,6 +87,9 @@
 //! `INTT` is the outgoing interpolation (1 histogram, 2 lin-lin); the pdf is per
 //! MeV and the cdf runs 0 → 1.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod madland_nix;
 mod core;
 mod mf5;
@@ -94,7 +97,7 @@ pub mod mf6;
 #[cfg(test)]
 mod tests;
 
-pub use core::{build_emissions, build_emissions_mode, build_emissions_newfor, law3_discrete_level, Emission, EnergyLaw, Law4, OutgoingEnergy};
+pub use core::{build_emissions, build_emissions_mode, build_emissions_newfor, build_emissions_smooth, law3_discrete_level, Emission, EnergyLaw, Law4, OutgoingEnergy};
 pub use mf6::parse_mf6_law1_products;
 pub use mf5::{parse_mf5_law4, parse_mf5_section, Applicability, Mf5Law, Mf5Subsection, TabFn};
 pub use mf6::{

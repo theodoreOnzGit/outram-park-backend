@@ -116,9 +116,13 @@
 //! edge remain the dict author's responsibility, exactly as in OpenFOAM
 //! `blockMesh` (a mismatch leaves the shared boundary nodes un-merged).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::hash::HashMap;
+use alloc::sync::Arc;
+#[cfg(feature = "std")]
 use std::path::Path;
 
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
@@ -692,6 +696,7 @@ pub fn block_mesh(dict_text: &str) -> Result<PolyMesh, MeshError> {
     BlockMeshDict::parse(dict_text)?.build()
 }
 
+#[cfg(feature = "std")]
 /// Parse a `blockMeshDict` from a file path and build the [`PolyMesh`].
 ///
 /// # Errors
@@ -898,7 +903,7 @@ type EdgeLambdas = [Vec<f64>; 12];
 /// distribution.
 fn edge_lambdas(edge_grading: &[Grading; 12], cells: [usize; 3]) -> EdgeLambdas {
     let [nx, ny, nz] = cells;
-    std::array::from_fn(|e| {
+    core::array::from_fn(|e| {
         let n = match e / 4 {
             0 => nx,
             1 => ny,
@@ -1169,7 +1174,17 @@ impl BlockMeshDict {
             .zip(&topo.patch_sizes)
             .map(|(&s, &n)| (s, n))
             .collect();
-        if n_default > 0 {
+        // A patch the dictionary itself declares under the default patch's name
+        // takes the unassigned faces (and keeps its declared type), as upstream's
+        // `polyMesh` shape-mesh constructor does (gh:#1363 row 7: the TJunction
+        // tutorials declare `defaultFaces { type wall; faces (); }`; before this
+        // the port wrote that patch empty AND a second `defaultFaces`).
+        let declared_default = if n_default > 0 {
+            patch_names.iter().position(|n| *n == self.default_patch_name)
+        } else {
+            None
+        };
+        if n_default > 0 && declared_default.is_none() {
             patch_names.push(self.default_patch_name.clone());
             patch_kinds.push(self.default_patch_kind);
             ranges.push((topo.default_start, n_default));
@@ -1179,6 +1194,13 @@ impl BlockMeshDict {
             let faces = &topo.faces[start..start + size];
             let owners = &topo.owner[start..start + size];
             patch_faces.push(create_patch_faces(&grids, &shapes, &merge, faces, owners));
+        }
+        if let Some(k) = declared_default {
+            let start = topo.default_start;
+            let faces = &topo.faces[start..start + n_default];
+            let owners = &topo.owner[start..start + n_default];
+            let extra = create_patch_faces(&grids, &shapes, &merge, faces, owners);
+            patch_faces[k].extend(extra);
         }
 
         let sm = mesh_from_shapes(merge.n_points, &cells, &patch_faces, &patch_names)?;
@@ -1241,7 +1263,7 @@ impl BlockMeshDict {
     fn block_grid(&self, block: &Block, curves: &[EdgeCurve]) -> Result<BlockGrid, MeshError> {
         let [nx, ny, nz] = block.cells;
         let (el, ep) = self.edge_data(block, curves);
-        let raw: [Vector3; 8] = std::array::from_fn(|c| self.vertices[block.vertices[c]]);
+        let raw: [Vector3; 8] = core::array::from_fn(|c| self.vertices[block.vertices[c]]);
         let mut points = Vec::with_capacity((nx + 1) * (ny + 1) * (nz + 1));
         for k in 0..=nz {
             for j in 0..=ny {
@@ -1413,7 +1435,7 @@ impl BlockMeshDict {
         block: &Block,
         curves: &[EdgeCurve],
     ) -> (EdgeLambdas, Option<[Vec<Vector3>; 12]>) {
-        let raw: [Vector3; 8] = std::array::from_fn(|c| self.vertices[block.vertices[c]]);
+        let raw: [Vector3; 8] = core::array::from_fn(|c| self.vertices[block.vertices[c]]);
         let mut n_curved = 0usize;
         let mut weights: Vec<Vec<f64>> = Vec::with_capacity(12);
         let mut points: Vec<Vec<Vector3>> = Vec::with_capacity(12);
@@ -1457,11 +1479,11 @@ impl BlockMeshDict {
                 }
             }
         }
-        let el: EdgeLambdas = std::array::from_fn(|e| std::mem::take(&mut weights[e]));
+        let el: EdgeLambdas = core::array::from_fn(|e| core::mem::take(&mut weights[e]));
         if n_curved == 0 {
             return (el, None);
         }
-        let ep: [Vec<Vector3>; 12] = std::array::from_fn(|e| std::mem::take(&mut points[e]));
+        let ep: [Vec<Vector3>; 12] = core::array::from_fn(|e| core::mem::take(&mut points[e]));
         (el, Some(ep))
     }
 }
@@ -1571,7 +1593,10 @@ impl BlockMeshDict {
         let mut fast_merge = false;
         let mut check_face_correspondence = true;
         let mut check_block_face_orientation = true;
-        let mut geometry = Arc::new(Geometry::default());
+        // gh:#1364: the flavour must reach a dict WITHOUT a `geometry` section too
+        // (it was dropped: `Geometry::default()` is the dev flavour), or the ESI
+        // `lineDivide` pow and spline forms were never selected for such dicts.
+        let mut geometry = Arc::new(Geometry { surfaces: Vec::new(), flavour });
         let mut faces: Vec<BlockFace> = Vec::new();
         let mut vertex_projections: Vec<Option<Vec<String>>> = Vec::new();
 
@@ -1726,7 +1751,7 @@ impl BlockMeshDict {
         }
         for f in &faces {
             if let BlockFaceKind::Project(name) = &f.kind {
-                geometry.surface_ids(std::slice::from_ref(name))?;
+                geometry.surface_ids(core::slice::from_ref(name))?;
             }
         }
 
@@ -1783,7 +1808,7 @@ fn tokenize(text: &str) -> Vec<String> {
     let mut word = String::new();
     let flush = |word: &mut String, tokens: &mut Vec<String>| {
         if !word.is_empty() {
-            tokens.push(std::mem::take(word));
+            tokens.push(core::mem::take(word));
         }
     };
     for ch in clean.chars() {
@@ -2387,7 +2412,7 @@ fn parse_edge_grading(cur: &mut Cursor) -> Result<[Grading; 12], MeshError> {
         )));
     }
     let mut it = edges.into_iter();
-    Ok(std::array::from_fn(|_| it.next().unwrap()))
+    Ok(core::array::from_fn(|_| it.next().unwrap()))
 }
 
 /// Decide how a parsed 12-edge `edgeGrading` is realised.
@@ -2554,7 +2579,7 @@ fn resolve_patch_faces(
                             p.name
                         )));
                     }
-                    faces.push(std::array::from_fn(|k| b.vertices[hex[face][k]]));
+                    faces.push(core::array::from_fn(|k| b.vertices[hex[face][k]]));
                 }
             }
         }
@@ -3022,12 +3047,12 @@ mod tests {
     /// shows why the equal-edges fast path stays bit-comparable. Passed.
     #[test]
     fn edge_blend_reduces_to_trilinear() {
-        let corners: [Vector3; 8] = std::array::from_fn(|c| {
+        let corners: [Vector3; 8] = core::array::from_fn(|c| {
             Vector3::new(HEX_CORNER[c][0], HEX_CORNER[c][1], HEX_CORNER[c][2])
         });
 
         // All four x-edges share ratio 4; y and z uniform.
-        let mut eg: [Grading; 12] = std::array::from_fn(|_| Grading::Uniform(1.0));
+        let mut eg: [Grading; 12] = core::array::from_fn(|_| Grading::Uniform(1.0));
         for e in eg.iter_mut().take(4) {
             *e = Grading::Uniform(4.0);
         }

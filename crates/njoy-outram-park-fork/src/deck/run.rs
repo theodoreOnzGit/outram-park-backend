@@ -6,6 +6,10 @@
 
 //! The deck driver: `program njoy`'s module loop, and the modules it can run.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+#[cfg(feature = "std")]
 use std::path::PathBuf;
 
 use crate::broadr::broadn::BroadnTolerances;
@@ -28,9 +32,16 @@ use crate::NjoyError;
 pub struct DeckOptions {
     /// Directory holding `tape<n>` input files (e.g. `tape20`) and receiving
     /// the coded output units. `None`: memory only.
+    #[cfg(feature = "std")]
     pub workdir: Option<PathBuf>,
     /// Read the cards of every module but run none (checks the card stream).
     pub parse_only: bool,
+    /// The date `dater` (`util.f90:72-94`) returns for this run, as its eight
+    /// characters `mm/dd/yy`. `None`: the clock's date at each call, as upstream
+    /// (ACER and DTFR call `dater` when they write). A comparison against an
+    /// NJOY2016 run gives NJOY's date here, so a run that crosses midnight
+    /// stamps both sides alike (gh:#1549).
+    pub run_date: Option<String>,
 }
 
 /// What a deck run produced.
@@ -63,7 +74,14 @@ pub struct DeckRun {
 /// unit error, or a module's own failure.
 pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
     let mut r = CardReader::new(text);
+    #[cfg(feature = "std")]
     let mut units = TapeUnits::new(opts.workdir.clone());
+    // No work directory without `std`: memory only, as `new(None)`.
+    #[cfg(not(feature = "std"))]
+    let mut units = TapeUnits::default();
+    if let Some(d) = &opts.run_date {
+        units.set_run_date(d)?;
+    }
     let mut modules = Vec::new();
     let mut listing = String::new();
     let mut notes: Vec<String> = Vec::new();
@@ -119,12 +137,39 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 let c = read_acer(&mut r)?;
                 if opts.parse_only { Ok(()) } else { run_acer(&c, &mut units, &mut notes) }
             }
+            "leapr" => {
+                let c = crate::deck::leapr::read_leapr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::deck::leapr::run_leapr(&c, &mut units) }
+            }
             "viewr" => {
                 let c = read_viewr(&mut r)?;
                 if opts.parse_only { Ok(()) } else { run_viewr(c, &mut units, &mut viewr_state) }
             }
-            "gaminr" | "errorr" | "covr" | "dtfr" | "ccccr" | "matxsr" | "resxsr"
-            | "powr" | "wimsr" | "plotr" | "mixr" | "leapr" => {
+            "errorr" => crate::deck::errorr::run_errorr(&mut r, &mut units, opts.parse_only),
+            "covr" => crate::deck::covr::run_covr(&mut r, &mut units, opts.parse_only),
+            "wimsr" => {
+                let c = crate::deck::wimsr::read_wimsr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::deck::wimsr::run_wimsr(&c, &mut units) }
+            }
+            "ccccr" => {
+                let c = crate::deck::ccccr::read_ccccr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::deck::ccccr::run_ccccr_deck(&c, &mut units, &mut notes) }
+            }
+            "plotr" => crate::deck::plotr::run_plotr(&mut r, &mut units, opts.parse_only),
+            "gaminr" => {
+                let c = crate::deck::gaminr::read_gaminr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::deck::gaminr::run_gaminr(&c, &mut units) }
+            }
+            "dtfr" => {
+                let c = crate::dtfr::deck::read_dtfr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::dtfr::deck::run_dtfr(&c, &mut units) }
+            }
+            "matxsr" => {
+                let c = crate::matxsr::read_matxsr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::matxsr::run_matxsr_deck(&c, &mut units) }
+            }
+            "powr" => crate::deck::powr::run_powr_deck(&mut r, &mut units, opts.parse_only),
+            "resxsr" | "mixr" => {
                 // The card readers of these modules are a later part of gh:#1369.
                 blocked = Some((name.clone(), "card reader not yet translated".to_string()));
                 break;
@@ -143,6 +188,7 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
             }
         }
     }
+    #[cfg(feature = "std")]
     if opts.workdir.is_some() && !opts.parse_only {
         units.write_coded_files()?;
     }
@@ -167,7 +213,11 @@ fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         ModerCards::Convert { nin, nout } => {
             // A GENDF unit is kept as text (`deck::groupr`); converting it is a copy.
             if let Some(t) = units.text(*nin).map(str::to_string) {
-                units.put_text(*nout, t);
+                // binary to binary keeps the full-precision GENDF records (gh:#1369)
+                match units.binary_gendf(*nin).filter(|_| *nout < 0) {
+                    Some(g) => units.put_gendf(*nout, t, g),
+                    None => units.put_text(*nout, t),
+                }
                 return Ok(());
             }
             units.openz(*nout, 1)?;
@@ -178,6 +228,14 @@ fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             u.tape.clear_copied_closers();
             units.store(*nout, u.tape, u.pointwise)?;
             units.set_meta(*nout, u.meta);
+            Ok(())
+        }
+        ModerCards::Select { nout, nin_flag, tpid, picks } if nin_flag.abs() == 2 && picks.iter().all(|(n, _)| units.text(*n).is_some()) => {
+            // GENDF units are kept as text here (`deck::groupr`); `nin = 2` copies each
+            // material's records as read (`moder.f90:289-330`, labels 700-750).
+            let texts: Vec<(&str, i32)> = picks.iter().map(|&(n, m)| (units.text(n).unwrap_or(""), m)).collect();
+            let out = select_gendf_text(tpid, &texts);
+            units.put_text(*nout, out);
             Ok(())
         }
         ModerCards::Select { nout, tpid, picks, .. } => {
@@ -203,11 +261,51 @@ fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
     }
 }
 
+/// MODER's selection loop on text GENDF tapes (`nin = 2`, `moder.f90:110-205`,
+/// `:289-330`): the tape label (`tpidio`, the card-2 text with `MAT = 1`), then for
+/// each `(text, matd)` pick, in deck order, the material's records from its first
+/// MF=1/MT=451 head through its MEND, every temperature of it (label 740 goes on
+/// while the next head is `matd` or a MEND), copied as read; then TEND. A `matd` not
+/// on its tape is skipped, as upstream's "not found on gendf tape" message does.
+fn select_gendf_text(tpid: &str, picks: &[(&str, i32)]) -> String {
+    let mat_of = |l: &str| l.get(66..70).and_then(|s| s.trim().parse::<i32>().ok());
+    let mut out = format!("{:<66}{:>4}{:>2}{:>3}{:>5}\n", tpid.get(..tpid.len().min(66)).unwrap_or(tpid), 1, 0, 0, 0);
+    for &(text, matd) in picks {
+        let lines: Vec<&str> = text.lines().collect();
+        let Some(start) = lines.iter().position(|l| mat_of(l) == Some(matd)) else { continue };
+        for l in &lines[start..] {
+            match mat_of(l) {
+                Some(m) if m == matd || m == 0 => {
+                    out.push_str(l);
+                    out.push('\n');
+                }
+                _ => break,
+            }
+        }
+    }
+    out.push_str(&format!("{:>66}{:>4}{:>2}{:>3}{:>5}\n", "", -1, 0, 0, 0));
+    out
+}
+
 /// RECONR (`reconr.f90`): one pointwise PENDF per material.
 fn run_reconr(c: &ReconrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
     units.openz(c.nendf, 0)?;
     units.openz(c.npend, 1)?;
     let endf = units.get(c.nendf)?.tape.clone();
+    // A photo-atomic evaluation (MF=23) takes `anlyzd`'s `igam` path
+    // ([`crate::deck::pendf_photon`], gh:#1369 decks 03 and 30).
+    let photo: Vec<bool> = c.materials.iter().map(|m| crate::deck::pendf_photon::is_photoatomic(&endf, m.mat)).collect();
+    if photo.iter().any(|&p| p) {
+        if !photo.iter().all(|&p| p) {
+            return Err(NjoyError::NotPorted("RECONR: photo-atomic and other materials in one run"));
+        }
+        if c.materials.iter().any(|m| !m.enode.is_empty()) {
+            return Err(NjoyError::NotPorted("RECONR user grid energies enode (card 6)"));
+        }
+        let mats: Vec<(i32, Vec<String>, f64, f64)> = c.materials.iter().map(|m| (m.mat, m.cards.clone(), m.err, m.tempr)).collect();
+        let tape = crate::deck::pendf_photon::photon_tape(&endf, &mats, &c.label, c.npend)?;
+        return units.store(c.npend, tape, None);
+    }
     let mut sections: Vec<Section> = Vec::new();
     let mut last: Option<(i32, ReconrResult)> = None;
     for m in &c.materials {
@@ -217,9 +315,9 @@ fn run_reconr(c: &ReconrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         if !m.enode.is_empty() {
             return Err(NjoyError::NotPorted("RECONR user grid energies enode (card 6)"));
         }
-        let res = crate::reconr::reconr_with_errtol(&endf, &ReconrConfig { mat: m.mat, tolerance: m.err, temperature: m.tempr }, errmax, errint)?;
+        let res = crate::reconr::reconr_for_deck(&endf, &ReconrConfig { mat: m.mat, tolerance: m.err, temperature: m.tempr }, errmax, errint, c.npend)?;
         if c.materials.len() == 1 {
-            let tape = crate::deck::pendf::reconr_tape(&endf, m.mat, &res, &c.label, &m.cards, m.err, m.tempr)?;
+            let tape = crate::deck::pendf::reconr_tape(&endf, m.mat, &res, &c.label, &m.cards, m.err, m.tempr, c.npend)?;
             let meta = PendfMeta { blocks: vec![(res.temperature_k, res.clone())], ..PendfMeta::default() };
             units.store(c.npend, tape, Some((m.mat, res)))?;
             units.set_meta(c.npend, meta);
@@ -250,8 +348,29 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         return Err(NjoyError::NotPorted("BROADR with more than one material in one run"));
     }
     for m in &c.materials {
-        if m.istart != 0 || m.temp1 != 0.0 {
-            return Err(NjoyError::NotPorted("BROADR restart / starting temperature (cards 2)"));
+        if m.istart != 0 {
+            return Err(NjoyError::NotPorted("BROADR restart (card 2 istart = 1)"));
+        }
+        // `temp1` (card 2): BROADR takes the block of `mat1` at `temp1`, within
+        // `1 + temp1/1000` K (`broadr.f90:334-412`), and broadens it by
+        // `tempef = temp - temp1` (`:605-610`). Upstream test 60: RECONR wrote
+        // the evaluation's 293.6 K and the card says `temp1 = 293.6`.
+        let tape_temp = input
+            .tape
+            .section(m.mat, 1, 451)
+            .and_then(|s| {
+                let thead = match crate::moder::layout::iverf_from_mf1(&s.rows) {
+                    4 => 1,
+                    5 => 2,
+                    _ => 3,
+                };
+                s.rows.get(thead).map(|r| r[0])
+            })
+            .unwrap_or(0.0);
+        // Only for a non-zero `temp1`: the default 0 keeps this driver's
+        // earlier behaviour (broaden from the input result's own temperature).
+        if m.temp1 != 0.0 && (tape_temp - m.temp1).abs() > 1.0 + m.temp1 / 1000.0 {
+            return Err(NjoyError::InvalidInput("broadr: desired mat and temp not on tape".into()));
         }
         let Some((mat, res)) = &input.pointwise else {
             return Err(NjoyError::NotPorted(
@@ -263,6 +382,10 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         }
         let text_mode = c.nin > 0;
         let mut src = if text_mode { res.through_pendf_text() } else { res.clone() };
+        // `tempin = temp1` (`broadr.f90:605`).
+        if m.temp1 != 0.0 {
+            src.temperature_k = m.temp1;
+        }
         let mut all: Vec<Section> = Vec::new();
         let mut final_out = None;
         let mut meta = input.meta.clone();
@@ -278,7 +401,19 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             if m.errint != 0.0 {
                 tol.errint = m.errint;
             }
-            let out = match broadr_joint(&src, temp, &tol, m.thnmx) {
+            // `tempef <= 0`: upstream only thins (`thinb`, `broadr.f90:1218-1222`).
+            // ~~not ported (gh:#619); refused~~ Ported 2026-11-13 (gh:#619, deck 43):
+            // `broadr::joint::broadr_joint_thinb`.
+            let thin_only = temp - src.temperature_k <= 0.0;
+            if thin_only && m.istrap != 0 {
+                return Err(NjoyError::NotPorted("BROADR thinb with istrap (the bootstrap scratch tape of a thinned pass)"));
+            }
+            let joint = if thin_only {
+                crate::broadr::joint::broadr_joint_thinb(&src, temp, &tol, m.thnmx)?
+            } else {
+                broadr_joint(&src, temp, &tol, m.thnmx)
+            };
+            let out = match joint {
                 Some(b) if text_mode => b.through_pendf_text(),
                 Some(b) => b,
                 None => src.clone(),
@@ -295,6 +430,8 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         }
         let mut tape = Tape::from_sections(input.tape.tpid.clone(), all);
         tape.copy_raw_mf32_from(&input.tape);
+        let copied = crate::deck::pendf::broadr_copied_closers(&tape, m.mat);
+        tape.set_copied_closers(copied);
         units.store(c.nout, tape, final_out.map(|o| (m.mat, o)))?;
         units.set_meta(c.nout, meta);
         return Ok(());
@@ -315,9 +452,23 @@ fn run_heatr(input: &HeatrInput, units: &mut TapeUnits, listing: &mut String) ->
     let pendf = units.get(u.nin)?.clone();
     let out = heatr(&endf, &pendf.tape, input)?;
     listing.push_str(&out.listing);
+    // `nplot != 0`: HEATR's `viewr` plot commands go on that unit
+    // (`heatr.f90:157`, written by the plot block from `:6035`), which a later VIEWR reads (upstream test 24's
+    // `viewr 26 36`, gh:#1369).
+    if u.nplot != 0 {
+        if let Some(p) = out.plot {
+            units.put_text(u.nplot, p);
+        }
+    }
     // HEATR leaves the pointwise cross sections as they were; MF=3 additions
-    // ride on the tape only.
-    units.store(u.nout, out.tape, pendf.pointwise)?;
+    // ride on the tape only. On a coded unit every closer is a copy and keeps
+    // the running count (gh:#1369, upstream test 21).
+    let mut tape = out.tape;
+    if u.nout > 0 {
+        let copied = crate::deck::pendf::heatr_copied_closers(&tape);
+        tape.set_copied_closers(copied);
+    }
+    units.store(u.nout, tape, pendf.pointwise)?;
     let mut meta = pendf.meta;
     meta.heatr = true;
     meta.heatr_binary = u.nout < 0;
@@ -364,21 +515,44 @@ fn pass_through(nin: i32, nout: i32, units: &mut TapeUnits, edit: impl FnOnce(&m
     Ok(())
 }
 
-/// UNRESR (`unresr.f90`): **cards read, tape passed through.** UNRESR's
-/// self-shielded MF=2/MT=152 (`unresr.f90`'s `unresr`, `unresl`, the table
-/// writer) is not written onto the PENDF; ACER does not read it.
-fn run_unresr(c: &UnresrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
+/// UNRESR (`unresr.f90`). ~~**Cards read, tape passed through.** UNRESR's
+/// self-shielded MF=2/MT=152 is not written onto the PENDF; ACER does not read
+/// it.~~ **CORRECTED 2026-11-13 (gh:#1369 round 4):** each temperature's
+/// MF=2/MT=152 is rewritten with UNRESR's table
+/// ([`crate::unresr::tape::unresr_tape`]), which GROUPR's `stounr` reads for
+/// `nsigz > 1`. Everything else on the tape passes through.
+fn run_unresr(c: &UnresrCards, units: &mut TapeUnits, _notes: &mut Vec<String>) -> Result<(), NjoyError> {
     units.openz(c.nendf, 0)?;
     units.openz(c.nin, 0)?;
     units.openz(c.nout, 1)?;
-    notes.push("unresr: MF=2/MT=152 (self-shielded unresolved table) not written (tape writer not ported)".into());
-    pass_through(c.nin, c.nout, units, |m| m.unresr = true)
+    pass_through(c.nin, c.nout, units, |m| m.unresr = true)?;
+    let endf = units.get(c.nendf)?.tape.clone();
+    let mut u = units.get(c.nout)?.clone();
+    for m in &c.materials {
+        u.tape = crate::unresr::tape::unresr_tape(&endf, &u.tape, m.mat, &m.temps, &m.sigz)?;
+    }
+    units.store(c.nout, u.tape, u.pointwise)?;
+    units.set_meta(c.nout, u.meta);
+    Ok(())
 }
 
-/// PURR (`purr.f90`): **cards read, tape passed through.** The probability
-/// tables are made where ACER needs them ([`build_deck`]), from the
-/// evaluation, with PURR's random sequence from its start; PURR's own MT=153
-/// writer is not ported, so the tape carries no MT=153.
+/// PURR (`purr.f90`). The probability tables are made where ACER needs them
+/// ([`build_deck`]), from the evaluation, with PURR's random sequence from its
+/// start. ~~PURR's own MT=152/153 writer is not ported, so the tape carries no
+/// MT=153.~~ **CORRECTED 2026-11-12 (gh:#1498):** for one temperature, one
+/// `sigma_0` and no HEATR on the input, the tape gets PURR's MT=152 and MT=153
+/// ([`crate::deck::pendf::purr_tape`]; unit 34 of upstream tests 35, 36 and
+/// 38-42 is identical), on the `nunx` energies card 2 asks for (`purr.f90:283-292`;
+/// ~~`nunx = 0` only~~ any `nunx` since 2026-11-12, test 63). ~~Other decks pass
+/// the tape through, as before.~~ **EXTENDED 2026-11-13 (gh:#1369):** with HEATR
+/// on the input too (one temperature: [`purr_tables_after_heatr`], test 21),
+/// and for several temperatures or sigma-zeros
+/// ([`crate::purr::tables::multi`], [`crate::deck::pendf::purr_tape_multi`],
+/// with `rdheat`'s heating per temperature: tests 10 and 19). A coded output
+/// unit keeps PURR's running sequence numbers
+/// ([`crate::deck::pendf::purr_copied_closers`]). Only a material whose
+/// PENDF has fewer blocks than temperatures, or no unresolved range, still
+/// passes the tape through with a note.
 fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
     units.openz(c.nendf, 0)?;
     units.openz(c.nin, 0)?;
@@ -387,18 +561,180 @@ fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         return Err(NjoyError::NotPorted("PURR with more than one material in one run"));
     }
     let m = &c.materials[0];
-    notes.push("purr: MF=2/MT=153 (probability tables) not written (tape writer not ported)".into());
+    let prev = units.get(c.nin)?.clone();
+    // PURR's MT=152/153 writer (gh:#1498) covers the common deck: one
+    // temperature, one `sigma_0`, the `nunx` energies PURR keeps, and no
+    // HEATR on the input (`ihave = 0`, a zero heating column). Others keep the
+    // pass-through and say so.
+    // **EXTENDED 2026-11-13 (gh:#1369, upstream test 21):** HEATR on the input
+    // (`ihave = 1/2`) too; the heating column comes from [`purr_tables_after_heatr`].
+    let writable = m.temps.len() == 1 && m.sigz.len() == 1 && prev.meta.blocks.len() == 1;
+    if writable {
+        let endf = units.get(c.nendf)?.tape.clone();
+        let tables = if prev.meta.heatr {
+            purr_tables_after_heatr(&endf, &prev.meta, c, m)?
+        } else {
+            let heating = crate::purr::PurrHeating { binary: c.nout < 0, ..Default::default() };
+            crate::purr::UrrProbabilityTables::from_endf_with_heating_nunx(&endf, m.mat, m.temps[0], m.nbin as usize, m.nladr as usize, 10_000, &heating, m.nunx.max(0) as usize)?
+        };
+        if let (Some(t), Some(mf1)) = (tables, endf.section(m.mat, 1, 451)) {
+            let (za, awr) = (mf1.rows[0][0], mf1.rows[0][1]);
+            let mut tape = crate::deck::pendf::purr_tape(&prev.tape, m.mat, &t, za, awr, m.temps[0], m.sigz[0])?;
+            if c.nout > 0 {
+                tape.set_copied_closers(crate::deck::pendf::purr_copied_closers(&tape, m.mat));
+            }
+            units.store(c.nout, tape, prev.pointwise.clone())?;
+            let mut meta = prev.meta.clone();
+            meta.purr = Some((m.nbin as usize, m.nladr as usize, m.temps.clone()));
+            meta.purr_binary = c.nout < 0;
+            meta.purr_nunx = m.nunx.max(0) as usize;
+            units.set_meta(c.nout, meta);
+            return Ok(());
+        }
+    }
+    // Several temperatures or sigma-zeros, no HEATR on the input (gh:#1369,
+    // upstream test 10): every temperature's MT=152/153 from one `unrest` run
+    // per energy over all of them ([`crate::purr::tables::multi`]).
+    // With HEATR on the input too (upstream test 19): `rdheat` reads each
+    // temperature's MT=301/302/318/402 from PURR's input tape.
+    if !writable && prev.meta.blocks.len() >= m.temps.len() {
+        let endf = units.get(c.nendf)?.tape.clone();
+        let heat = heating_per_temperature(&prev.tape, m.mat, m.temps.len())?;
+        let multi = crate::purr::tables::multi::purr_pendf_multi(&endf, m.mat, &m.temps, &m.sigz, m.nbin as usize, m.nladr as usize, 10_000, m.nunx.max(0) as usize, &heat)?;
+        if let (Some(p), Some(mf1)) = (multi, endf.section(m.mat, 1, 451)) {
+            let (za, awr) = (mf1.rows[0][0], mf1.rows[0][1]);
+            let mut tape = crate::deck::pendf::purr_tape_multi(&prev.tape, m.mat, &p, za, awr, &m.temps, &m.sigz)?;
+            if c.nout > 0 {
+                tape.set_copied_closers(crate::deck::pendf::purr_copied_closers(&tape, m.mat));
+            }
+            units.store(c.nout, tape, prev.pointwise.clone())?;
+            let mut meta = prev.meta.clone();
+            meta.purr = Some((m.nbin as usize, m.nladr as usize, m.temps.clone()));
+            meta.purr_binary = c.nout < 0;
+            meta.purr_nunx = m.nunx.max(0) as usize;
+            units.set_meta(c.nout, meta);
+            return Ok(());
+        }
+    }
+    notes.push("purr: MF=2/MT=153 (probability tables) not written (tape writer not ported for this deck)".into());
     pass_through(c.nin, c.nout, units, |meta| {
         meta.purr = Some((m.nbin as usize, m.nladr as usize, m.temps.clone()));
         meta.purr_binary = c.nout < 0;
+        meta.purr_nunx = m.nunx.max(0) as usize;
     })
 }
 
-/// `dater` (`util.f90:72-94`): `' mm/dd/yy'` of today (UTC).
-fn dater() -> String {
+/// `rdheat`'s reads (`purr.f90:1237-1289`): for each of the first `ntemp`
+/// occurrences of `mat` on PURR's input tape, the MF=3 TAB1 of MT=301, 302, 318
+/// and 402 (`None` when absent). Empty sections everywhere is `ihave = 0`.
+///
+/// # Errors
+/// A malformed MF=3 section.
+fn heating_per_temperature(tape: &Tape, mat: i32, ntemp: usize) -> Result<Vec<[Option<crate::endf::records::Tab1>; 4]>, NjoyError> {
+    let mut out: Vec<[Option<crate::endf::records::Tab1>; 4]> = Vec::new();
+    for s in tape.sections().iter().filter(|s| s.key.mat == mat) {
+        if s.key.mf == 1 && s.key.mt == 451 {
+            if out.len() == ntemp {
+                break;
+            }
+            out.push([None, None, None, None]);
+            continue;
+        }
+        let ix = match (s.key.mf, s.key.mt) {
+            (3, 301) => 0,
+            (3, 302) => 1,
+            (3, 318) => 2,
+            (3, 402) => 3,
+            _ => continue,
+        };
+        if let Some(slot) = out.last_mut() {
+            let mut cur = crate::endf::records::SectionCursor::new(&s.rows);
+            let _ = cur.read_cont()?;
+            slot[ix] = Some(cur.read_tab1()?);
+        }
+    }
+    Ok(out)
+}
+
+/// PURR's tables when HEATR ran on its input PENDF (`rdheat`, `purr.f90:267-279`:
+/// `ihave = 1` with MT=301 alone, `2` with the partials 302/318/402). They are
+/// the tables ACER builds for the same chain ([`crate::acer::deck_modules`]: HEATR
+/// on the PENDF block, then PURR with its MT=301 and partials), so the PENDF's
+/// MT=153 and the ACE's UNR block come from one computation. `rdheat` reads
+/// MT=301 from PURR's input unit: text rounding when it is coded.
+fn purr_tables_after_heatr(
+    endf: &Tape,
+    meta: &PendfMeta,
+    c: &PurrCards,
+    m: &crate::deck::modules::PurrMaterial,
+) -> Result<Option<crate::purr::UrrProbabilityTables>, NjoyError> {
+    let Some((_, res)) = meta.blocks.first() else {
+        return Ok(None);
+    };
+    let deck = AceDeck::default()
+        .with_heatr_partials(meta.heatr_partials)
+        .with_heatr_binary(meta.heatr_binary)
+        .with_purr_binary(c.nout < 0)
+        .with_endf_binary(c.nendf < 0)
+        .with_pendf_binary(c.nin < 0)
+        .with_purr(m.nbin as usize, m.nladr as usize, 10_000)
+        .with_purr_nunx(m.nunx.max(0) as usize)
+        .with_temperature(m.temps[0]);
+    let kt_mev = 8.617_333_262e-11 * m.temps[0];
+    Ok(crate::acer::deck_modules(endf, m.mat, res, kt_mev, &deck)?.urr)
+}
+
+/// The PENDF block whose MF=3 `gamsum` multiplies into GPD, when it is not the
+/// table's own (gh:#1369, upstream test 75).
+///
+/// `gamsum` finds each MF=3 section on `npend` with `findf`
+/// (`acefc.f90:3652`) from where `unionx` left the tape: just past MF=3's FEND
+/// of the block `first` selected (`:1720-1840`). When MF=3 is that block's last
+/// file, the next record is its MEND; `findf` skips it (`math = 0`,
+/// `endf.f90:1504`), reads the next temperature's MF=1 (`mfh < 3`, so it searches
+/// **forward**, `:1516-1517`) and finds the section in that block. With a file
+/// after MF=3 it searches backward into its own block, and with no block after
+/// (`math = -1`) backward too. `None` keeps the table's own block.
+///
+/// Measured on upstream test 75 (Ag-109, BROADR at 293.6 and 600 K, MF=1-3
+/// only): NJOY2016's 293.6 K GPD differs from its own one-temperature run in all
+/// 50 590 GPD words and equals this port's with the 600 K block's MF=3.
+fn gamsum_block(meta: &PendfMeta, tape: &Tape, mat: i32, tempd: f64) -> Option<ReconrResult> {
+    let sel = meta.blocks.iter().position(|(t, _)| (t - tempd).abs() < 1.0)?;
+    let next = meta.blocks.get(sel + 1).map(|(_, r)| r.clone())?;
+    // The selected occurrence of `mat` on the tape: the sections from its
+    // `sel`-th MF=1/MT=451 to the next one.
+    let mut occurrence = 0usize;
+    let mut after_mf3 = false;
+    for s in tape.sections().iter().filter(|s| s.key.mat == mat) {
+        if s.key.mf == 1 && s.key.mt == 451 {
+            if occurrence == sel + 1 {
+                break;
+            }
+            occurrence += 1;
+            continue;
+        }
+        if occurrence == sel + 1 && s.key.mf > 3 {
+            after_mf3 = true;
+        }
+    }
+    (!after_mf3).then_some(next)
+}
+
+/// `dater` (`util.f90:72-94`): `'  mm/dd/yy'` of today (UTC). Upstream's is the
+/// local date (`date_and_time`); this crate has no time-zone source, so the two
+/// differ outside UTC between the two midnights (gh:#1549). A comparison fixes
+/// the date through [`DeckOptions::run_date`].
+///
+/// Without `std` there is no clock: the date is 1970-01-01 (`01/01/70`) unless
+/// the run fixes one through [`DeckOptions::run_date`] (gh:#1592).
+pub(crate) fn dater() -> String {
+    #[cfg(feature = "std")]
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs() as i64);
+    #[cfg(not(feature = "std"))]
+    let secs: i64 = 0;
     let z = secs.div_euclid(86_400) + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z.rem_euclid(146_097);
@@ -416,23 +752,38 @@ fn dater() -> String {
 /// to `nace` with the directory line on `ndir` ([`crate::acer::acefix`]).
 /// `ngend != 0` asks for the plot file (`aplots`), written to that unit.
 fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
-    if c.mcnpx || c.itype != 1 {
-        return Err(NjoyError::NotPorted("ACER iopt = 7 with itype != 1 or mcnpx formats"));
+    // `itype=iopt-6` (`acer.f90:486`): for `iopt = 7` the input and output
+    // files are Type 1 whatever card 2's `itype` says (decks 13 and 14 give
+    // `7 1 2`); card 2's value is only echoed in the listing (`:313`). The
+    // caller sends only `iopt = 7` here; Type-2 input (`iopt = 8`) has no
+    // reader in this driver.
+    if c.mcnpx || c.iopt - 6 != 1 {
+        return Err(NjoyError::NotPorted("ACER iopt = 8 (Type-2 input) or mcnpx formats"));
     }
+    // The ACE file is a module's text output in this run, or an input file
+    // `tape<npend>` in the work directory (upstream test 61 checks a thermal
+    // ACE file supplied as `tape61`).
     let text = units
-        .text(c.npend)
-        .ok_or_else(|| NjoyError::InvalidInput(format!("acer: unit {} holds no ACE file", c.npend)))?
-        .to_string();
+        .text_or_file(c.npend)
+        .ok_or_else(|| NjoyError::InvalidInput(format!("acer: unit {} holds no ACE file", c.npend)))?;
     let req = crate::acer::acefix::AcefixRequest { suff: c.suff, hk: c.hk.clone(), nxtra: c.nxtra, plot: c.ngend != 0 };
     // `acer.f90:508-535`: the class letter of the ZAID picks the fix routine.
-    let thermal = text.lines().next().and_then(|l| l.chars().nth(9)) == Some('t');
-    let out = if thermal { crate::acer::thrfix::thrfix_type1(&text, &req)? } else { crate::acer::acefix::acefix_type1(&text, &req)? };
+    let class = text.lines().next().and_then(|l| l.chars().nth(9));
+    let out = match class {
+        Some('t') => crate::acer::thrfix::thrfix_type1(&text, &req)?,
+        Some('u') => crate::acer::phnfix::phnfix_type1(&text, &req)?,
+        _ => crate::acer::acefix::acefix_type1(&text, &req)?,
+    };
     if c.nace > 0 {
         units.put_text(c.nace, out.ace);
         if c.ndir != 0 {
             units.put_text(c.ndir, out.xsdir);
         }
     }
+    // `phnfix` writes the table (`phnout`) before it plots (`phnplo`,
+    // `acepn.f90:1955-1956`); ~~the plot is not ported, so the deck stops here~~
+    // **CORRECTED 2026-11-13 (gh:#1369):** `phnplo` is ported
+    // (`acer::phnplo`) and its text goes to `ngend` below like the others.
     if c.ngend != 0 {
         if let Some(p) = out.plot {
             units.put_text(c.ngend, p);
@@ -443,26 +794,36 @@ fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
 
 /// ACER (`acer.f90`, `acefc.f90`), `iopt = 1` (fast data) with the options this
 /// crate has: `newfor = 1` (or 0: the old equally probable angular bins, MF=4
-/// only, gh:#1449), `iopp = 1`, `ismooth = 1`, no thinning, ZAID rule 0,
+/// only, gh:#1449), ~~`iopp = 1`, `ismooth = 1`~~ `iopp` and `ismooth` 0 or 1
+/// (gh:#1369, upstream test 28), no thinning, ZAID rule 0,
 /// Type 1 output. The table is [`build_deck`] on the PENDF's pointwise block
 /// for `tempd` (`first`: the block within 1 K), HEATR and PURR as the chain ran
-/// them. The ACE text goes to unit `nace`; the directory unit `ndir` is not
-/// written.
+/// them. The ACE text goes to unit `nace`; ~~the directory unit `ndir` is not
+/// written~~ **CORRECTED 2026-11-12:** the directory line goes to `ndir`
+/// ([`write_directory`]).
 fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
     if c.iopt == 7 {
         return run_acer_fix(c, units);
     }
     if c.iopt == 2 {
-        return crate::deck::acer_thermal::run_acer_thermal(c, units, dater());
+        let date = units.dater();
+        return crate::deck::acer_thermal::run_acer_thermal(c, units, date);
+    }
+    if c.iopt == 4 || c.iopt == 5 {
+        let date = units.dater();
+        return crate::deck::acer_photon::run_acer_photon(c, units, date);
     }
     if c.iopt != 1 {
-        return Err(NjoyError::NotPorted("ACER iopt other than 1, 2 and 7 from a deck (typed APIs exist: acer::thermal, dosimetry, photoatomic, photonuclear)"));
+        return Err(NjoyError::NotPorted("ACER iopt 3 or 8 from a deck (typed API exists: acer::dosimetry)"));
     }
     if c.newfor != 1 && c.newfor != 0 {
         return Err(NjoyError::InvalidInput(format!("acer: newfor = {} is not 0 or 1", c.newfor)));
     }
-    if c.iopp != 1 || c.ismooth != 1 || c.thin != [0.0; 3] || c.izaopt != 0 || c.mcnpx || c.itype != 1 || c.nxtra != 0 {
-        return Err(NjoyError::NotPorted("ACER iopp/ismooth/thin/izaopt/mcnpx/itype/nxtra other than the defaults"));
+    if c.izaopt != 0 && c.izaopt != 1 {
+        return Err(NjoyError::InvalidInput("acer: illegal izaopt.".into()));
+    }
+    if c.thin != [0.0; 3] || c.mcnpx || c.itype != 1 || c.nxtra != 0 {
+        return Err(NjoyError::NotPorted("ACER thin/mcnpx/itype/nxtra other than the defaults"));
     }
     units.openz(c.nendf, 0)?;
     units.openz(c.npend, 0)?;
@@ -483,8 +844,13 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         let suffix = (c.suff * 100.0).round() as u32;
         let mut table = crate::acer::charged::build_charged(&endf, c.matd, kt_mev, suffix, c.npend > 0, c.nendf > 0)?;
         table.comment = c.hk.clone();
-        table.date = dater();
-        let ace = table.to_type1_text()?;
+        table.date = units.dater();
+        apply_acelod_isomer(&mut table, c, &endf, &pend.tape);
+        // `aceout` prints XSS through `change` (`acefc.f90:13024`) for a
+        // charged-particle table too; `acelcp`'s rewrite before an HPD block
+        // (`acefc.f90:9376-9384`) leaves integer words the builder flagged as
+        // reals (upstream test 14, 5 lines of tape31).
+        let ace = crate::acer::acefix_change::type1_text(&table)?;
         write_directory(c, &ace, units, notes);
         units.put_text(c.nace, ace);
         return Ok(());
@@ -497,7 +863,7 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     if !pend.meta.heatr {
         deck = deck.without_heatr();
     }
-    deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor).with_pendf_binary(c.npend < 0).with_endf_binary(c.nendf < 0);
+    deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor).with_iopp(c.iopp != 0).with_ismooth(c.ismooth > 0).with_pendf_binary(c.npend < 0).with_endf_binary(c.nendf < 0);
     // rows[0] is the HEAD, rows[1] the TAB1 record (NR, NP), then the
     // interpolation table (three pairs a row), then the points.
     let tab1_pairs = |mt: i32| -> Option<Vec<(f64, f64)>> {
@@ -537,7 +903,7 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         if temps.first().is_none_or(|t| (t - c.tempd).abs() >= 1.0) {
             return Err(NjoyError::NotPorted("ACER at a PURR temperature other than PURR's first"));
         }
-        deck = deck.with_purr(*nbin, *nladr, 10_000).with_temperature(c.tempd);
+        deck = deck.with_purr(*nbin, *nladr, 10_000).with_purr_nunx(pend.meta.purr_nunx).with_temperature(c.tempd);
     }
     // `ngend`: the GROUPR photon-production GENDF, `gamout` (gh:#1481).
     if c.ngend != 0 {
@@ -546,13 +912,72 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     }
     let kt_mev = 8.617_333_262e-11 * c.tempd;
     let suffix = (c.suff * 100.0).round() as u32;
-    let mut table = build_deck(&endf, c.matd, res, kt_mev, suffix, &deck)?;
+    let mut table = match gamsum_block(&pend.meta, &pend.tape, c.matd, c.tempd) {
+        None => build_deck(&endf, c.matd, res, kt_mev, suffix, &deck)?,
+        Some(other) => {
+            // `build_deck`'s two steps, with GPD's MF=3 from the block `gamsum` reads.
+            let text = c.npend > 0;
+            let pendf = if text { res.through_pendf_text() } else { res.clone() };
+            let mut modules = crate::acer::deck_modules(&endf, c.matd, &pendf, kt_mev, &deck)?;
+            modules.gamsum_pendf = Some(if text { other.through_pendf_text() } else { other });
+            crate::acer::assemble(&endf, c.matd, &pendf, kt_mev, suffix, &modules)?
+        }
+    };
     table.comment = c.hk.clone();
-    table.date = dater();
-    let ace = table.to_type1_text()?;
+    table.date = units.dater();
+    apply_acelod_isomer(&mut table, c, &endf, &pend.tape);
+    // `aceout` prints XSS through `change` (`acefc.f90:13024`), gh:#1498.
+    let ace = crate::acer::acefix_change::type1_text(&table)?;
     write_directory(c, &ace, units, notes);
     units.put_text(c.nace, ace);
     Ok(())
+}
+
+/// `acelod`'s ZAID under card 2's `izaoption` (`acefc.f90:4951-4961`):
+/// `izaid + suff`, or with `izaopt = 1` and a metastable target (`is > 0`)
+/// `izaid + 300 + 100 is + suff`; Am-242 (`95242`) swaps the two, its ground
+/// state taking `+400` and its first isomer the plain ZA.
+pub(crate) fn izaopt_zaid(izaid: i32, is: i32, suff: f64, izaopt: i32) -> f64 {
+    let mut zaid = f64::from(izaid) + suff;
+    if izaopt == 1 && is > 0 {
+        zaid = f64::from(izaid + 300 + 100 * is) + suff;
+    }
+    if izaopt == 1 && izaid == 95242 {
+        if is == 0 {
+            zaid = f64::from(izaid + 400) + suff;
+        } else if is == 1 {
+            zaid = f64::from(izaid) + suff;
+        }
+    }
+    zaid
+}
+
+/// `is` as `first` reads it (`acefc.f90:304-309`): LISO, the `L2` of the
+/// second record of the PENDF's MF=1/MT=451, when the ENDF tape's format
+/// (`iverf`, from its first material, `:155-167`) is 5 or 6; else 0.
+fn liso(endf: &Tape, pendf: &Tape, matd: i32) -> i32 {
+    let first = endf.sections().iter().find(|s| s.key.mf == 1 && s.key.mt == 451);
+    let iverf = first.map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
+    if iverf < 5 {
+        return 0;
+    }
+    pendf.section(matd, 1, 451).and_then(|s| s.rows.get(1)).map_or(0, |r| r[3].round() as i32)
+}
+
+/// What `acelod` takes from `first`'s `is` (LISO): `NXS(9)`, which `aceout`
+/// writes as `is` (`acefc.f90:13019`) and the builder leaves 0, and, under
+/// card 2's `izaopt = 1`, the `f9.2` ZAID field (the class letter after it is
+/// kept).
+fn apply_acelod_isomer(table: &mut crate::acer::AceTable, c: &AcerCards, endf: &Tape, pendf: &Tape) {
+    let is = liso(endf, pendf, c.matd);
+    table.nxs[crate::acer::nxs::S] = is;
+    if c.izaopt != 1 || table.zaid.len() < 9 {
+        return;
+    }
+    let Ok(num) = table.zaid[..9].trim().parse::<f64>() else { return };
+    let izaid = (num - c.suff).round() as i32;
+    let z = izaopt_zaid(izaid, is, c.suff, c.izaopt);
+    table.zaid = format!("{z:9.2}{}", &table.zaid[9..]);
 }
 
 /// `aceout`'s directory line on `ndir` for the Type 1 table just written
@@ -566,5 +991,48 @@ fn write_directory(c: &AcerCards, ace: &str, units: &mut TapeUnits, notes: &mut 
     match crate::acer::acefix::acefix_type1(ace, &keep) {
         Ok(out) if c.itype == 1 && !c.mcnpx => units.put_text(c.ndir, out.xsdir),
         _ => notes.push("acer: directory unit not written".into()),
+    }
+}
+
+#[cfg(test)]
+mod izaopt_tests {
+    use super::izaopt_zaid;
+
+    /// `acelod`'s four cases (`acefc.f90:4951-4961`), the ZAIDs upstream test
+    /// 82's comments name.
+    #[test]
+    fn izaopt_follows_acelod() {
+        assert_eq!(format!("{:9.2}", izaopt_zaid(27058, 1, 0.01, 0)), " 27058.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(27058, 1, 0.01, 1)), " 27458.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(27058, 0, 0.01, 1)), " 27058.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(95242, 0, 0.01, 1)), " 95642.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(95242, 1, 0.01, 1)), " 95242.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(95242, 1, 0.01, 0)), " 95242.01");
+    }
+}
+
+#[cfg(test)]
+mod moder_gendf_tests {
+    use super::select_gendf_text;
+
+    fn line(mat: i32, mf: i32, mt: i32) -> String {
+        format!("{:>66}{:>4}{:>2}{:>3}{:>5}", "x", mat, mf, mt, 1)
+    }
+
+    /// MODER `nin = 2`: the label with `MAT = 1`, each pick's records (both
+    /// temperatures of MAT 9237, MENDs kept), the next material excluded, then TEND;
+    /// a material not on its tape is skipped.
+    #[test]
+    fn gendf_selection_copies_each_material_through_its_mend() {
+        let mend = format!("{:>66}{:>4}{:>2}{:>3}{:>5}", "", 0, 0, 0, 0);
+        let a = [line(9237, 1, 451), line(9237, 3, 1), mend.clone(), line(9237, 1, 451), mend.clone(), line(9999, 1, 451)].join("\n");
+        let b = [line(9228, 1, 451), mend.clone()].join("\n");
+        let out = select_gendf_text("merged", &[(&b, 9228), (&a, 9237), (&a, 1111)]);
+        let l: Vec<&str> = out.lines().collect();
+        assert_eq!(l.len(), 1 + 2 + 5 + 1);
+        assert!(l[0].starts_with("merged") && l[0].ends_with("   1 0  0    0"));
+        assert_eq!(l[1], line(9228, 1, 451));
+        assert_eq!(l[7], mend);
+        assert!(l[8].ends_with("  -1 0  0    0"));
     }
 }

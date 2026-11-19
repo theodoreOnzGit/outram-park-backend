@@ -64,7 +64,10 @@
 //! to distribute — and would need the tallied `KappaFission` shape the moment
 //! more than one thermal node exists.
 
-use std::sync::Arc;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::sync::Arc;
 
 use outram_foam_appbuilder_lib::genfoam::multi_region::coupling_fields::CouplingRegion;
 use outram_foam_appbuilder_lib::genfoam::multi_region::outer_iteration::{

@@ -34,7 +34,10 @@
 //! "one chord per face, applied in sequence" behaviour. A pair that shares no
 //! face, or is already an edge, is skipped.
 
-use std::collections::BTreeSet;
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use alloc::collections::BTreeSet;
 
 use crate::knife::{Chord, KnifePoint};
 use crate::mesh::{FaceId, Mesh, VertexId};

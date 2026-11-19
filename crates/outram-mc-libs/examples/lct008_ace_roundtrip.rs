@@ -316,8 +316,6 @@ fn main() {
             lct008_model::Z_HI,
         ),
     };
-    let make_material = |_name: &str| -> Vec<Material> { materials.clone() };
-
     // S(a,b) H in H2O on H-1, the SAME table on every arm (see module docs).
     let sab = ThermalScattering::from_endf_file(
         reference_endf("tsl-HinH2O.endf")
@@ -329,11 +327,17 @@ fn main() {
         "c_H_in_H2O",
     )
     .expect("H(H2O) S(a,b)");
-    let h1 = slots["H1"];
-    via_endf[h1] = via_endf[h1].clone().with_thermal_scattering(sab.clone());
-    if !endf_only {
-        via_ace[h1] = via_ace[h1].clone().with_thermal_scattering(sab);
-    }
+    // Per-material H(H2O), as the model's <sab> card says (gh:#462, #1581).
+    // Both arms get the same table and the same material list.
+    let (bound_materials, via_endf) =
+        lct008_model::assign_spec_sab(&spec, &materials, &via_endf, &slots, Some(&sab));
+    let via_ace = if endf_only {
+        via_ace
+    } else {
+        lct008_model::assign_spec_sab(&spec, &materials, &via_ace, &slots, Some(&sab)).1
+    };
+    let materials = bound_materials;
+    let make_material = |_name: &str| -> Vec<Material> { materials.clone() };
 
     let settings = KeffSettings {
         n_particles,
@@ -513,6 +517,18 @@ fn main() {
         st.transport_endf_ablated += t.elapsed();
         std_abl = r.k_std;
         k_abl.push(r.k_mean);
+        // Per-seed line for the DBRC-ablated arm (gh:#1644): the summary above
+        // prints only its mean, which hid an 8-seed block mean moving by
+        // +282 pcm. Print-only, in `main`'s glue (no test reaches `main`).
+        // `ABLATED` not `ENDF` so the `seed N: ENDF ... ACE ...` parsers of
+        // the #1583/#1635 scripts do not match it; 7 decimals so two runs can
+        // be compared bit-for-bit.
+        if n_seeds > 1 {
+            println!(
+                "    seed {:>3}: ABLATED {:.7} +/- {:.7}",
+                set.seed, r.k_mean, r.k_std
+            );
+        }
     }
     let a_abl = summarise(&k_abl, std_abl);
     let r_abl = KRes {

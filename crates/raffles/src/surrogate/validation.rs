@@ -50,6 +50,9 @@
 //! Predictive inference with the jackknife+. *Annals of Statistics, 49*(1),
 //! 486–507. doi:10.1214/20-AOS1965
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use super::PolynomialSurrogate;
 use crate::{RafflesError, Result};

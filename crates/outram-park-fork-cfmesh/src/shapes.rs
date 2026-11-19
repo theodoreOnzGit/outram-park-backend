@@ -36,9 +36,12 @@
 //! divergence formula), used to sanity-check both these generators and any
 //! imported surface. Pure Rust, no dependencies.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// A triangle-soup surface: point positions and triangle vertex-index triples.
 pub type TriSoup = (Vec<Vec3>, Vec<[usize; 3]>);
@@ -117,7 +120,7 @@ pub fn box_surface_subdivided(min: Vec3, max: Vec3, h: f64) -> (Vec<Vec3>, Vec<[
     let span = max.sub(min);
     let n = [(span.x / h).ceil().max(1.0) as usize, (span.y / h).ceil().max(1.0) as usize, (span.z / h).ceil().max(1.0) as usize];
     // Lattice points on the box surface, keyed by integer position.
-    let mut index: std::collections::BTreeMap<[usize; 3], usize> = std::collections::BTreeMap::new();
+    let mut index: alloc::collections::BTreeMap<[usize; 3], usize> = alloc::collections::BTreeMap::new();
     let mut pts: Vec<Vec3> = Vec::new();
     let mut id = |k: [usize; 3], pts: &mut Vec<Vec3>| -> usize {
         *index.entry(k).or_insert_with(|| {

@@ -14,6 +14,9 @@
 //!   operator could actually run, and it **cannot see** an error that the
 //!   observations do not carry (the double-pipe pilot, gh:#1191, shows one).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use super::numpy_ops::{ddot, Matrix};
 use crate::{RafflesError, Result};
 

@@ -88,6 +88,9 @@
 //! establishes the translation is faithful; it says nothing about whether the
 //! model reproduces measured dispersion.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod wgsl;
 pub mod climatology;
 pub mod concentration;

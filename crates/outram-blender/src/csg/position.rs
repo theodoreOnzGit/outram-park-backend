@@ -34,7 +34,10 @@
 //! are in cm; this is not enforced by the type system (raw f64) because the
 //! particle tracking inner loop is performance-critical.
 
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// Cartesian position in cm.  Maps to `openmc::Position`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]

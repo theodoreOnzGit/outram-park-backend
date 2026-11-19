@@ -34,6 +34,9 @@
 //! increment — and in the direction of *more* accuracy, since the discarded
 //! residual is now carried rather than thrown away.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 
 use std::time::Instant;

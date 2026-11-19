@@ -37,6 +37,9 @@
 //! > validated: never for operation, licensing, safety decisions or
 //! > emergency response (`RESPONSIBLE_USE.md`).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 pub mod aerosol;
 pub mod iodine;
 pub mod params;

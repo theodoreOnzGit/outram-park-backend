@@ -1,0 +1,4 @@
+35a36
+> forAll(localSurface, ti) { const labelledTri& t = localSurface[ti]; const pointField& pp = localSurface.points(); std::printf("TRI %d agg %d  %.17g %.17g %.17g  %.17g %.17g %.17g  %.17g %.17g %.17g\n", int(ti), int(triSurfaceToAgglom[ti]), pp[t[0]].x(),pp[t[0]].y(),pp[t[0]].z(), pp[t[1]].x(),pp[t[1]].y(),pp[t[1]].z(), pp[t[2]].x(),pp[t[2]].y(),pp[t[2]].z()); }
+51a53
+> { const triSurface& ss = static_cast<const triSurface&>(surfacesMesh); const pointField& pp = ss.points(); std::printf("NSURF %d npts %d\n", int(ss.size()), int(pp.size())); forAll(ss, ti) { const labelledTri& t = ss[ti]; std::printf("STRI %d  %.17g %.17g %.17g  %.17g %.17g %.17g  %.17g %.17g %.17g\n", int(ti), pp[t[0]].x(),pp[t[0]].y(),pp[t[0]].z(), pp[t[1]].x(),pp[t[1]].y(),pp[t[1]].z(), pp[t[2]].x(),pp[t[2]].y(),pp[t[2]].z()); } }

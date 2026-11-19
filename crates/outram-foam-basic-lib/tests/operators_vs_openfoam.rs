@@ -573,15 +573,30 @@ fn more_operators(text: &str) -> Vec<(String, Stat)> {
     // non-orthogonal correction vectors, internal faces (upstream
     // `basicFvGeometryScheme::nonOrthCorrectionVectors`)
     let ncv: Vec<Vector3> = fvc::non_orth_correction_vectors(&mesh);
-    // the port-original `non_ortho_geometry` (used by appbuilder) keeps `Sf*(1/magSf)`
-    let ncv_old: Vec<Vector3> = (0..r.n_int)
+    // `non_ortho_geometry` takes upstream's `Sf/magSf` since 2026-11-12 (gh:#1362);
+    // `non_ortho_geometry_port_original` keeps the previous `Sf*(1/magSf)`
+    let ncv_geo: Vec<Vector3> = (0..r.n_int)
         .map(|f| {
             let d = mesh.cell_centres[mesh.neighbour[f]] - mesh.cell_centres[mesh.owner[f]];
             fvm::non_ortho_geometry(mesh.face_area_vectors[f], d).unwrap().corr_vec
         })
         .collect();
+    let ncv_old: Vec<Vector3> = (0..r.n_int)
+        .map(|f| {
+            let d = mesh.cell_centres[mesh.neighbour[f]] - mesh.cell_centres[mesh.owner[f]];
+            fvm::non_ortho_geometry_port_original(mesh.face_area_vectors[f], d)
+                .unwrap()
+                .corr_vec
+        })
+        .collect();
     push(
-        "nonOrthCorrVec (port-original non_ortho_geometry)",
+        "nonOrthCorrVec (non_ortho_geometry)",
+        &comps(&ncv_geo),
+        &comps(&r.v("nonOrthCorrVec")[..r.n_int]),
+        &mut out,
+    );
+    push(
+        "nonOrthCorrVec (non_ortho_geometry_port_original)",
         &comps(&ncv_old),
         &comps(&r.v("nonOrthCorrVec")[..r.n_int]),
         &mut out,
@@ -1030,8 +1045,10 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("poly", "laplacian mixed upper", 1236, 1236, 0), // gh:#1362
     ("poly", "laplacian mixed diag (+bnd)", 470, 470, 0), // gh:#1362
     ("poly", "laplacian mixed source (+bnd)", 470, 470, 0), // gh:#1362
-    ("hex", "nonOrthCorrVec (port-original non_ortho_geometry)", 2367, 1699, 4375247037990436864), // gh:#1362: port keeps `Sf*(1/magSf)`, 668 differ (values near 0 make the ulp count huge)
-    ("poly", "nonOrthCorrVec (port-original non_ortho_geometry)", 3708, 2639, 16777216), // gh:#1362
+    ("hex", "nonOrthCorrVec (non_ortho_geometry)", 2367, 2367, 0), // gh:#1362: upstream `Sf/magSf` since 2026-11-12; ~~1699/2367~~ -> 2367/2367
+    ("poly", "nonOrthCorrVec (non_ortho_geometry)", 3708, 3708, 0), // gh:#1362: ~~2639/3708~~ -> 3708/3708
+    ("hex", "nonOrthCorrVec (non_ortho_geometry_port_original)", 2367, 1699, 4375247037990436864), // gh:#1362: previous form `Sf*(1/magSf)`, 668 differ (values near 0 make the ulp count huge)
+    ("poly", "nonOrthCorrVec (non_ortho_geometry_port_original)", 3708, 2639, 16777216), // gh:#1362
 ];
 
 #[test]

@@ -19,6 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 /// Inverse error function.
 ///
@@ -32,7 +35,7 @@ use petir::mathf::RealMath;
 /// its inverse", preprint 2008.
 pub fn erf_inv(y: f64) -> f64 {
     const A: f64 = 0.147;
-    let pi = std::f64::consts::PI;
+    let pi = core::f64::consts::PI;
 
     let k = 2.0 / (A * pi) + 0.5 * (1.0 - y * y).r_ln();
     let h = (1.0 - y * y).r_ln() / A;

@@ -36,6 +36,9 @@
 //! For an explicit polyline (rather than a mesh selection) use
 //! [`crate::revolve`].
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
@@ -78,7 +81,7 @@ pub fn screw(
     turns: f64,
     steps: usize,
 ) -> Mesh {
-    let angle = turns * std::f64::consts::TAU;
+    let angle = turns * core::f64::consts::TAU;
     sweep(
         mesh,
         profile,
@@ -122,7 +125,7 @@ fn sweep(
         .map(|f| f.iter().map(|v| v.0).collect())
         .collect();
 
-    let full_turn = (angle - std::f64::consts::TAU).abs() < 1e-6;
+    let full_turn = (angle - core::f64::consts::TAU).abs() < 1e-6;
     let mut rings: Vec<Vec<usize>> = Vec::with_capacity(steps + 1);
     // step 0 reuses the original profile vertex ids.
     rings.push(profile.iter().map(|v| v.0).collect());
@@ -148,7 +151,7 @@ fn sweep(
 
     if !use_duplicates {
         let seg_rings: Vec<&Vec<usize>> = if full_turn {
-            rings.iter().chain(std::iter::once(&rings[0])).collect()
+            rings.iter().chain(core::iter::once(&rings[0])).collect()
         } else {
             rings.iter().collect()
         };
@@ -211,7 +214,7 @@ mod tests {
             &prof,
             Vec3::ZERO,
             Axis::Z,
-            std::f64::consts::TAU,
+            core::f64::consts::TAU,
             12,
             false,
         );
@@ -231,7 +234,7 @@ mod tests {
             &prof,
             Vec3::ZERO,
             Axis::Z,
-            std::f64::consts::PI,
+            core::f64::consts::PI,
             6,
             false,
         );
@@ -256,7 +259,7 @@ mod tests {
             &prof,
             Vec3::ZERO,
             Axis::Z,
-            std::f64::consts::TAU,
+            core::f64::consts::TAU,
             4,
             true,
         );
@@ -265,7 +268,7 @@ mod tests {
             &prof,
             Vec3::ZERO,
             Axis::Z,
-            std::f64::consts::TAU,
+            core::f64::consts::TAU,
             4,
             false,
         );
@@ -278,8 +281,8 @@ mod tests {
     /// quads — the band closed around the axis.
     fn vertical_edges_paired(m: &Mesh) -> bool {
         let pos = m.positions();
-        let mut count: std::collections::HashMap<(usize, usize), usize> =
-            std::collections::HashMap::new();
+        let mut count: crate::hash::HashMap<(usize, usize), usize> =
+            crate::hash::HashMap::new();
         for poly in m.polygons() {
             if poly.len() != 4 {
                 continue;

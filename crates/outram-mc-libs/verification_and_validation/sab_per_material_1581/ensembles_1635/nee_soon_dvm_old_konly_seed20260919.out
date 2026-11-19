@@ -1,0 +1,5 @@
+Tue Nov 17 18:21:09 UTC 2026
+HTR-10: deterministic (diffusion + SP3) vs Monte Carlo, k_inf
+=============================================================
+  geometry: 5746 tiles, 19410 cells, 767 universes; bed r=90.0 cm, half-height=22.6 cm
+K_ONLY seed 20260919 histories 2000 k_eff = 0.547218 +/- 0.003348
