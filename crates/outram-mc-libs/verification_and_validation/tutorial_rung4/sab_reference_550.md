@@ -300,7 +300,7 @@ quadrature of the two sems (unpaired), z = move / sigma.
 | id | case | old | new | move | z | predicted |
 |---|---|---|---|---|---|---|
 | N1 | LCT-008 pin cell 2.40 cm, 5000 x [50+200], 11 nuclides | 0.70536 +- 0.00027 (16 seeds) | 0.70568 +- 0.00024 (8 seeds, sd 68 pcm) | **+32 +- 36 pcm** | +0.88 | +90 (+10 .. +170): **missed low**, inside the range |
-| N1' | same, outram-mc minus OpenMC (0.70653 +- 0.00029, 16 seeds) | -117 +- 39 pcm (z -2.97) | **-85 +- 38 pcm** | +32 | z -2.26 | gap to shrink to about -30: **not met**; the |z| <= 2 gate still misses |
+| N1' | same, outram-mc minus OpenMC (0.70653 +- 0.00029, 16 seeds) | -117 +- 39 pcm (z -2.97) | **-85 +- 38 pcm** | +32 | z -2.26 | gap to shrink to about -30: **not met**; the |z| <= 2 gate still misses | **CORRECTED 2026-11-19 (`gap_240_550.md`): 24 seeds give 0.70642 +- 0.00020, -10 +- 28 pcm (z -0.37), the gate passes; the 8-seed -85 was a fluctuation** |
 | N2 | same, 1.63576 cm | 1.06216 +- 0.00031 (16) | 1.06323 +- 0.00040 (8, sd 112) | **+107 +- 50 pcm** | +2.14 | +40 (-40 .. +120): inside the range (upper end +120); sign right, size 2.7 x the central value |
 | N3 | same, 1.75 cm | 1.01104 +- 0.00016 (16) | 1.01168 +- 0.00033 (8, sd 93) | **+64 +- 37 pcm** | +1.76 | +10 (-60 .. +80): inside the range, larger than central |
 | N4 | HST-009 case 1, 5000 x [40+120], 32 seeds | +80 +- 13 pcm (128 seeds, 2026-11-12); +80 +- 22 (32 seeds, 2026-11-14) | **+119 +- 23 pcm** (sd 131; k 1.00119) | **+39 +- 26** (vs 128) / +39 +- 32 (vs 32) | +1.5 / +1.2 | +40 (-30 .. +120): **held** |
@@ -312,7 +312,7 @@ arm E, and each is below 2.2 sigma on its own. At 8 seeds I cannot call any one
 of them resolved; the three together average +68 pcm with sigma about 26 pcm
 (treating the three as independent, 2.6 sigma), a combination chosen after
 seeing the data. **The 2.40 cm gap to OpenMC is not closed on the default
-(tape-data) route**: -85 +- 38 pcm (z -2.26). Arm E closed it (-1 +- 44) with
+(tape-data) route**: -85 +- 38 pcm (z -2.26). ~~Not closed~~ **CORRECTED 2026-11-19 (`gap_240_550.md`):** with seeds 9-24 added the default route is -10 +- 28 pcm (z -0.37) and E minus default is -15 +- 29; ~~the two routes differ in neutron data (RECONR/BROADR against NJOY ACE)~~ their cross sections, URR tables, 0 K elastic, nu-bar, fission spectrum and kT agree to 1e-6 or better, so there is no neutron-data difference. (Original text follows.) Arm E closed it (-1 +- 44) with
 OpenMC's `.h5` neutron data; the two routes differ in neutron data (RECONR/BROADR
 against NJOY ACE), so the E result and this one are not the same experiment,
 and the flip's +32 +- 36 on tape data is smaller than E minus B (+92 +- 47)

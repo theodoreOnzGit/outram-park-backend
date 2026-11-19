@@ -30,8 +30,9 @@ Maintainer decision, 2026-11-19: "Chase the 2.40 cm gap".
   per OpenMC's tally), not in resonance capture or fast fission.
 - The 11-nuclide `.h5` library at `openmc-libs/lct008_pin11/h5_njoy` is NJOY2016
   RECONR/BROADR/UNRESR/PURR/ACER of the same ENDF/B-VIII.0 tapes, at 0 K and
-  294 K. The `.h5` route sets the free-gas kT from the data (294 K =
+  294 K. ~~The `.h5` route sets the free-gas kT from the data (294 K =
   0.025334 eV) where the tape route uses 293.6 K (0.025300 eV), a 0.13 %
+  difference in kT~~ **CORRECTED 2026-11-19 (`gap_240_550.md`): the `.h5` kT is 0.0253000 eV; `294K` is OpenMC's label for 293.6 K; no difference.** (Original text: a 0.13 %
   difference in kT for O-16 and the other free-gas scatterers (read from
   `Nuclide::free_gas_kt`, which cites OpenMC `physics.cpp:734`).
 
