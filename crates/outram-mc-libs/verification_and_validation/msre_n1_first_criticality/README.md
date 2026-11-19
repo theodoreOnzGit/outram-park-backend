@@ -104,7 +104,11 @@ llvmpipe / Vulkan, 4 cores, Intel Xeon, 15.7 GiB RAM, 4 threads, about
 `+u234+<ablation>` (Mo omitted: `mo-omitted@…+u234`).
 
 **Open, waiting on the maintainer:**
-- the rod worth, whose geometry is built but needs the Gd tapes;
+- ~~the rod worth, whose geometry is built but needs the Gd tapes;~~
+  **CORRECTED 2026-11-19:** the Gd tapes are in `reference-data/ace`
+  (20cbe5e). The seed-1 worths are recorded in "The k_eff tab's parameters"
+  below (rod 1 and the bank about 10.5 % above ORNL-4233's measurements),
+  and the six-seed runs and rod 1's integral curve are running (gh:#1658);
 - the defaults in the ablation table above.
 
 ## Methodology
@@ -1207,6 +1211,53 @@ summary table were measured on the previous default salt; their shifts are
 differences, which the U-234 change should move by much less than their σ,
 but they were not re-run.~~ **2026-11-13:** the ablation rows were re-run on
 this default; each moved by less than 1σ.
+
+### The k_eff tab's parameters: salt level, enrichment, rods (2026-11-19, gh:#1658, #1659, #1660)
+
+**Methodology.**
+- **Model:** the default (`--mo natural`, hot dimensions, full TM-0728 shield).
+- **Settings:** the record's, 20 000 × [100 + 200], 4 threads, seed 1 unless stated.
+- **Binaries:** `msre_n1_params` (42b372a59) and `msre_n1_rods` (54d472f7f).
+- **Hardware:** llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, Intel Xeon, 15.7 GiB RAM, Linux, CPU transport. The machine was shared with builds, so wall times are not quoted.
+- **Data:** `data/` labels `+salt-level-<z>cm`, `+u235wt-<w>`, `+rodpos-<a>_<b>_<c>`.
+- **Comparison:** each case against the default re-run on the same binary, k = **1.019902 ± 0.000544**. That re-run is **+237 pcm** from the 2026-11-13 binary's 1.017528 ± 0.000538. The shift is not from these parameters, whose `None` defaults are pinned to today's geometry and salt; it is reported on gh:#1128 and not yet bisected.
+- **Predictions:** posted on each issue before its runs.
+
+**Salt level (#1659).** Salt below `z` (above the stringer bottom), void above it. Drawn at 162.8, 100 and 40 cm in `images/parameters/`. There is **no reference**: ORNL-4233 measured nothing against level.
+
+| z (cm) | k | Δk vs full | predicted |
+|---|---|---|---|
+| 162.8 (graphite top) | 1.005016 ± 0.000526 | −1489 pcm | ≈ −600 (**missed**, 2.5×) |
+| 140 | 0.994181 ± 0.000536 | −2572 | ≈ −2600 |
+| 120 | 0.973990 ± 0.000555 | −4591 | ≈ −5200 |
+| 100 | 0.941381 ± 0.000580 | −7852 | ≈ −9100 |
+
+The one-group prediction undervalued the upper head's 26 cm of salt. That salt both fissions and reflects, and the prediction counted it as about 9 cm of height. Below the graphite top the prediction holds within 15 %.
+
+**Enrichment (#1660).** U-235 wt fraction w of the uranium, at fixed uranium atoms. The default is w₀ = 0.30993.
+
+| w | k | Δk vs w₀ | predicted |
+|---|---|---|---|
+| 0.34 (N₅ +9.7 %) | 1.042589 ± 0.000497 | +2269 pcm | +2200 to +2400 |
+| 0.28 (N₅ −9.7 %) | 0.990600 ± 0.000540 | −2930 pcm | −2200 to −2400 (**missed** by 530 pcm) |
+
+- **Up side:** gives a coefficient of 0.234 against ORNL-4233's measured 0.223 (+5 %). This is the side ORNL measured, by adding enriching salt.
+- **Down side:** 0.30. k(N₅) is concave, which the prediction did not carry.
+
+**Rods (#1658).** Positions are ORNL inches withdrawn (rod 2, rod 1, rod 3), with poison placed by ORNL-4233 Fig. 2. Worth Δρ = 1/k₂ − 1/k₁.
+
+| configuration | k | compared with | Δρ | ORNL-4233 measured | predicted |
+|---|---|---|---|---|---|
+| all at 51 in | 1.017298 ± 0.000536 | no rods | −251 ± 74 pcm | 80 pcm (an estimate) | −50 to −150 (**missed**) |
+| rod 1 at 0 | 0.992089 ± 0.000543 | all at 51 | **2.498 ± 0.076 %** | **2.26 %** | 1.9 to 2.6 |
+| all at 0 | 0.956938 ± 0.000612 | all at 51 | **6.200 ± 0.085 %** | **5.59 %** | 4.8 to 6.2 |
+
+- **Interpretation:** rod 1 and the bank both come out about **10.5 % above** the measured worths, at 3.1σ and 7.2σ. Their ratio agrees: 2.48 against ORNL's 2.47. So a single cause scales the whole poison worth.
+- **Suspects, not yet tested:**
+  - the poison's Gd₂O₃ content or density (TM-0728 Table 5.4);
+  - the axial smearing of the elements;
+  - the static-worth normalisation.
+- **Statistics:** these are single seeds. The six-seed runs at all three configurations, and rod 1 at 40, 30, 20 and 10 in for its integral curve, were launched 2026-11-19. Their curve prediction is on gh:#1658. ORNL-4233 Figs. 5–6, the measured curve, are not digitised here.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
