@@ -461,11 +461,10 @@ impl Filter for UniverseFilter {
 /// Ported from `src/tallies/filter_mesh.cpp` (`MeshFilter::get_all_bins`, the
 /// non-track-length branch: `mesh->get_bin(r)`; a single bin, weight 1). The
 /// track-length "bins crossed" sub-segmentation
-/// (`StructuredMesh::bins_crossed`) is split at the grid planes for **regular and
-/// rectilinear** meshes (gh:#678, 2026-11-19); ~~a documented gap for the four
-/// structured kinds~~ it remains one for **cylindrical and spherical** meshes,
-/// which score the whole segment into the midpoint's cell (exact only for a
-/// mesh whose cells are large relative to the mean free path). **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
+/// (`StructuredMesh::bins_crossed`) is split at the grid surfaces for ALL four
+/// structured kinds (gh:#678, 2026-11-19: planes for regular and rectilinear,
+/// quadratic cuts for cylindrical and spherical); ~~a documented gap for the four
+/// structured kinds, scored whole into the midpoint's cell~~. **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
 /// #492) the segment IS split** across the cells it crosses
 /// ([`Filter::track_length_bins`], after `MOABMesh::bins_crossed`).
 /// **CHANGED 2026-09-22 (GitHub #260, scope item 4).** `mesh` was a concrete
@@ -487,8 +486,7 @@ impl Filter for MeshFilter {
         self.mesh.bin(ev.position)
     }
     /// Unstructured meshes split the segment across the cells it crosses
-    /// (GitHub #492), as do regular and rectilinear meshes (gh:#678); cylindrical
-    /// and spherical meshes return `None` and keep the midpoint binning.
+    /// (GitHub #492), as do all four structured kinds (gh:#678).
     fn track_length_bins(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
         self.mesh.bins_crossed(r0, r1)
     }
@@ -949,11 +947,10 @@ fn bin_in_edges(edges: &[f64], x: f64) -> Option<usize> {
     if n < 2 || x < edges[0] || x > edges[n - 1] {
         return None;
     }
-    if x == edges[n - 1] {
-        return Some(n - 2);
-    }
-    // Ascending edges, so a linear walk is correct; bin counts here are small.
-    (0..n - 1).find(|&i| x >= edges[i] && x < edges[i + 1])
+    // `lower_bound_index` (gh:#687): an interior edge belongs to the LOWER bin,
+    // the top edge to the last. ~~An interior edge went to the upper bin.~~
+    // **CORRECTED 2026-11-19.**
+    Some(lower_bound_index(edges, x))
 }
 
 /// Zernike moments `Z_n^m(rho, theta)` in OpenMC's ordering, for

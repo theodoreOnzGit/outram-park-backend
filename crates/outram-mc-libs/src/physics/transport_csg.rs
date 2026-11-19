@@ -1386,25 +1386,22 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             } else {
                 Vec::new()
             };
-            for ParHistory {
-                outcome,
-                bank,
-                batch: local_batch,
-                leak: local_leak,
-            } in chunks.into_iter().flat_map(|c| c.histories)
-            {
-                production += outcome.production;
-                totals.absorb(&outcome);
-                next_bank.extend(bank);
-                if !local_batch.is_empty() {
-                    for (b, v) in batch.iter_mut().zip(local_batch) {
+            for chunk in chunks {
+                // Chunk batches in chunk (= history-index) order (gh:#686).
+                if !chunk.batch.is_empty() {
+                    for (b, v) in batch.iter_mut().zip(chunk.batch) {
                         *b += v;
                     }
                 }
-                if !local_leak.is_empty() {
-                    for (b, v) in leak_batch.iter_mut().zip(local_leak) {
+                if !chunk.leak.is_empty() {
+                    for (b, v) in leak_batch.iter_mut().zip(chunk.leak) {
                         *b += v;
                     }
+                }
+                for ParHistory { outcome, bank, .. } in chunk.histories {
+                    production += outcome.production;
+                    totals.absorb(&outcome);
+                    next_bank.extend(bank);
                 }
             }
 
@@ -1482,6 +1479,11 @@ pub(crate) struct ParHistory {
 pub(crate) struct ParChunk {
     pub(crate) histories: Vec<ParHistory>,
     pub(crate) extra: Option<ExtraScoring>,
+    /// The chunk's tally batch: its histories' batches summed in history order,
+    /// the histories' own `batch` left EMPTY (gh:#686). Empty when not scored.
+    pub(crate) batch: Vec<f64>,
+    /// The chunk's leakage batch, likewise.
+    pub(crate) leak: Vec<f64>,
 }
 
 /// **The parallel history loop of one generation**, shared by
@@ -1530,7 +1532,7 @@ pub(crate) fn transport_generation_par(
             let lo = c * PAR_CHUNK;
             let hi = (lo + PAR_CHUNK).min(source.len());
             let mut scratch = extra.map(ExtraScoring::scratch);
-            let histories = (lo..hi)
+            let histories: Vec<ParHistory> = (lo..hi)
                 .map(|hist_idx| {
                     // Independent, deterministic sub-stream for this history;
                     // owned locally — never shared across threads.
@@ -1599,9 +1601,42 @@ pub(crate) fn transport_generation_par(
                     }
                 })
                 .collect();
+            // gh:#686: fold the histories' private batches into ONE vector per
+            // chunk, in history order, and drop them. Memory is then
+            // `PAR_CHUNK x n_bins` per chunk in flight, not `n_particles x
+            // n_bins` per generation. ~~Every history's `n_bins` vector stayed
+            // alive until the generation's reduction.~~ **CORRECTED
+            // 2026-11-19.** This changes the floating-point association of the
+            // tally sums (chunk subtotals, then chunks in order), thread-count
+            // independent but not bit-identical to the old per-history sum.
+            let mut histories: Vec<ParHistory> = histories;
+            let mut chunk_batch: Vec<f64> = Vec::new();
+            let mut chunk_leak: Vec<f64> = Vec::new();
+            for h in histories.iter_mut() {
+                let hb = core::mem::take(&mut h.batch);
+                if !hb.is_empty() {
+                    if chunk_batch.is_empty() {
+                        chunk_batch = vec![0.0; hb.len()];
+                    }
+                    for (b, v) in chunk_batch.iter_mut().zip(hb) {
+                        *b += v;
+                    }
+                }
+                let hl = core::mem::take(&mut h.leak);
+                if !hl.is_empty() {
+                    if chunk_leak.is_empty() {
+                        chunk_leak = vec![0.0; hl.len()];
+                    }
+                    for (b, v) in chunk_leak.iter_mut().zip(hl) {
+                        *b += v;
+                    }
+                }
+            }
             ParChunk {
                 histories,
                 extra: scratch,
+                batch: chunk_batch,
+                leak: chunk_leak,
             }
         })
         .collect()
@@ -3778,6 +3813,34 @@ mod leakage_tests {
         let closed = heu_sphere(8.7407, BoundaryType::Vacuum);
         let ok = try_run_keff_csg(&closed, &mats, &nucs, src(), &s, None).expect("vacuum loses none");
         assert_eq!(ok.lost_locate, 0);
+    }
+
+    /// gh:#686: the parallel driver folds each chunk's per-history tally batches
+    /// into one chunk batch (memory `PAR_CHUNK x n_bins`, not `n_particles x
+    /// n_bins`). The tally stays thread-count independent bit for bit (1 vs 4
+    /// threads), the flux is positive, and `k` is untouched by the reduction.
+    #[test]
+    fn chunked_tally_reduction_is_thread_count_independent() {
+        use crate::physics::keff::{ComputeType, ThreadCount};
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.7407, BoundaryType::Vacuum);
+        let run = |threads: usize| {
+            let (mut t, _) = tally_and_leak_grid();
+            let s = KeffSettings {
+                n_particles: 700,
+                n_inactive: 2,
+                n_active: 3,
+                compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(threads)),
+                ..KeffSettings::default()
+            };
+            let r = run_keff_csg_hybrid(&geom, &mats, &nucs, &[], None, src(), &s, Some(&mut t));
+            (r.k_by_generation, t.bins.iter().map(|b| (b.sum, b.sum_sq)).collect::<Vec<_>>())
+        };
+        let (k1, b1) = run(1);
+        let (k4, b4) = run(4);
+        assert_eq!(k1, k4);
+        assert_eq!(b1, b4, "chunk reduction must not depend on the thread count");
+        assert!(b1.iter().any(|(s, _)| *s > 0.0));
     }
 
     /// gh:#675: a triggered run reports how many active generations it realized

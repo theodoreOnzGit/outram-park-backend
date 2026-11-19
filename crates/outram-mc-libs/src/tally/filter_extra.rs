@@ -591,10 +591,8 @@ impl ParticleProductionFilter {
             if s.energy < self.energy_bins[0] || s.energy > *self.energy_bins.last().unwrap() {
                 continue;
             }
-            let ei = self
-                .energy_bins
-                .partition_point(|&b| b <= s.energy)
-                .saturating_sub(1)
+            // `lower_bound_index` (gh:#687): an edge belongs to the lower bin.
+            let ei = crate::tally::filter::lower_bound_index(&self.energy_bins, s.energy)
                 .min(self.n_energy() - 1);
             out.push((pi * self.n_energy() + ei, s.weight));
         }

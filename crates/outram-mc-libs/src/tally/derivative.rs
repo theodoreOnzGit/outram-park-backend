@@ -324,15 +324,16 @@ impl TallyDerivative {
             DerivativeVariable::Density => {
                 let rho: f64 = material.components.iter().map(|c| c.atom_density).sum();
                 match score_type {
+                    // gh:#683 item 3: upstream's `apply_derivative_to_score` has
+                    // no case for ScatterN, NuScatter, PromptNuFission or
+                    // DelayedNuFission and raises a fatal error, so they fall
+                    // through to the error arm. ~~They were accepted.~~
+                    // **CORRECTED 2026-11-19.**
                     ScoreType::Total
                     | ScoreType::Scatter
-                    | ScoreType::NuScatter
-                    | ScoreType::ScatterN
                     | ScoreType::Absorption
                     | ScoreType::Fission
-                    | ScoreType::NuFission
-                    | ScoreType::PromptNuFission
-                    | ScoreType::DelayedNuFission => 1.0 / rho,
+                    | ScoreType::NuFission => 1.0 / rho,
                     other => {
                         return Err(format!(
                             "a density derivative of {other:?} is not defined; upstream \
@@ -358,17 +359,19 @@ impl TallyDerivative {
                 // `derivative.cpp:211-271`), which needs cross sections this
                 // signature does not carry (gh:#683 item 2). **Still not
                 // enforced (item 3):** the analog/collision-only restriction and
-                // the `event_nuclide` check for analog scores.
+                // the `event_nuclide` check for analog scores (the score-type
+                // restriction IS enforced below).
                 match score_type {
+                    // gh:#683 item 3: upstream's `apply_derivative_to_score` has
+                    // no case for ScatterN, NuScatter, PromptNuFission or
+                    // DelayedNuFission and raises a fatal error, so they fall
+                    // through to the error arm. ~~They were accepted.~~
+                    // **CORRECTED 2026-11-19.**
                     ScoreType::Total
                     | ScoreType::Scatter
-                    | ScoreType::NuScatter
-                    | ScoreType::ScatterN
                     | ScoreType::Absorption
                     | ScoreType::Fission
-                    | ScoreType::NuFission
-                    | ScoreType::PromptNuFission
-                    | ScoreType::DelayedNuFission => 1.0 / c.atom_density,
+                    | ScoreType::NuFission => 1.0 / c.atom_density,
                     other => {
                         return Err(format!(
                             "a nuclide-density derivative of {other:?} is not defined"
@@ -618,5 +621,24 @@ mod tests {
         assert!(d.apply_to_material_total_score(4.0, &f, 2.0, 0.0).is_err());
         let dd = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Density };
         assert!(dd.apply_to_material_total_score(4.0, &f, 2.0, 8.0).is_err());
+    }
+
+    /// gh:#683 item 3: scores upstream refuses to differentiate are refused here
+    /// too, under both density and nuclide-density derivatives.
+    #[test]
+    fn scores_upstream_refuses_to_differentiate_are_refused() {
+        let m = two_nuclide_material();
+        let f = FluxDerivative { value: 1.0 };
+        let vars = [
+            DerivativeVariable::Density,
+            DerivativeVariable::NuclideDensity { nuclide_idx: 0 },
+        ];
+        for variable in vars {
+            let d = TallyDerivative { material_idx: 0, variable };
+            for bad in [ScoreType::ScatterN, ScoreType::NuScatter, ScoreType::PromptNuFission, ScoreType::DelayedNuFission] {
+                assert!(d.apply_to_score(2.0, &f, Some(0), Some(&m), bad).is_err(), "{variable:?} {bad:?}");
+            }
+            assert!(d.apply_to_score(2.0, &f, Some(0), Some(&m), ScoreType::Fission).is_ok());
+        }
     }
 }
