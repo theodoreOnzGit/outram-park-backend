@@ -200,9 +200,9 @@ For the 12 small pieces the poles agree within 1e-8 in 10 of 12 (pieces 5,
 show OpenMC moving by the same size as the port differs from it (piece 7
 residues 6.1e-5 against 5.8e-5 and 1.8e-5), so the cause there is the same: the
 conditioning of the fit and different linear algebra (petir's QR, SVD and
-eigensolver in place of LAPACK/OpenBLAS), as for Mg-26. For the other nine
+eigensolver in place of LAPACK/OpenBLAS), as for Mg-26. ~~For the other nine
 small pieces no self-sensitivity run was made, so their residuals are
-unexplained beyond that. No bit-identity was reached anywhere.
+unexplained beyond that.~~ **CORRECTED 2026-11-19**: made, see "Extension run" below. No bit-identity was reached anywhere.
 
 ### Windowing of OpenMC's own poles (the lowest 12 pieces, 0 to 31.2 eV)
 
@@ -273,7 +273,7 @@ Sensitivity log: `sensitivity_u238_run.log`.
   test `u238_all_fitted_pieces_against_openmc` runs what exists.
   This leaves gh:#1390's "pole counts and window parameters identical" shown
   for 15 pieces and the 12-piece prefix windowing, not for the full library.
-- Piece 303 has no OpenMC self-sensitivity run (about 40 min per trial).
+- ~~Piece 303 has no OpenMC self-sensitivity run (about 40 min per trial).~~ **CORRECTED 2026-11-19**: run, two trials of 1 099 s and 707 s on the quieter machine ("Extension run" below).
 - The installed OpenMC 0.15.3 (27e38e89) was not used for any fit; see the top.
 
 ## Extension run, 2026-11-18 evening (maintainer: "run more pieces here", a budget of about 5 h)
@@ -311,6 +311,184 @@ Same machine, reference (OpenMC `8f79d9d`, pure Python `vectfit`), tape and driv
 | OpenMC run time | 5 to 60 min per new piece on a quiet machine, growing with energy; at least 6 of the 12 pieces in A and B finish in the budget; the largest of B (7 900 points) probably more than 1 h |
 | port run time | 3 to 13 times shorter than OpenMC (as above) |
 | longer-prefix windowing (if run) | windows, spacing, fit order, used poles identical; curve fit within 1e-4 of scale; sigma 100 % inside rtol/atol |
+
+### Extension run: what was run (20:05 to about 01:00 UTC, 2026-11-18 / 19)
+
+Hardware for every timing in this section: Intel Xeon @ 2.10 GHz, 4 logical cores, 15 GB RAM, shared with two
+other agents (load average 8 for most of the run); OpenMC `OMP_NUM_THREADS=2`, `OPENBLAS_NUM_THREADS=2`;
+the port single-threaded; at most two heavy processes (one OpenMC fit or sensitivity process, one port
+process; the OpenMC sensitivity process was suspended with SIGSTOP while a port run needed its slot,
+so the wall seconds of the sensitivity trials that straddle those pauses, pieces 150 and 175, include the
+pause). `ulimit -v 12582912`. Times are loaded wall times: quote ratios, not seconds.
+
+- Inputs: `openmc_inputs/capture_u238_inputs.py` ran OpenMC's `vectfit_nuclide` once (NJOY + front end,
+  about 4 min) with `_vectfit_xs` replaced by a stand-in that saved every piece's input and checked its
+  checksum against `pieces.txt` (304 of 304 equal). `fit_u238_pieces.py` then ran upstream's `_vectfit_xs` on the
+  saved inputs (the same call `vectfit_nuclide` makes, upstream defaults) for the selected pieces; the
+  port ran `vectfit_xs` on its own front end's input (bit-identical to OpenMC's, the gate above).
+- Fixtures: `fitted_pieces_ext.f64` (OpenMC's poles and residues of the 12 new pieces),
+  `pieces.txt` rows updated (`fitted`, `n_poles`); `openmc_inputs/to_fixture_ext_u238.py`.
+- Logs: `openmc_fit_extension.log` (OpenMC fits, with their seconds), `sensitivity_extension_*.log` (OpenMC against
+  itself; the lines of the first runs, pieces 0 to 11 and 303, are in `sensitivity_extension_early.log`),
+  `port_extension_*.log` (the port's runs).
+- Pieces fitted by both codes, rule 2 above, all run: A = 25, 50, 75, 125, 150, 175, 225, 250, 275;
+  B = 298, 296, 299. **12 new pieces, 27 fitted in all.** Rule 2 set C and rule 3 (a longer prefix, and its
+  windowing) were **not run**: the budget went to the fits, the port runs and the self-sensitivity runs
+  (the OpenMC fits of A and B took until 22:48, and the port runs of the dense pieces take 20 to 35 min each).
+
+### Pole counts and agreement, new pieces
+
+| piece | points | OpenMC poles | port poles | OpenMC fit s | port fit s | points outside rtol/atol of the data: OpenMC | port |
+|---|---|---|---|---|---|---|---|
+| 25 | 884 | 10 | 10 | 292 | 34 | 13 | 13 |
+| 50 | 1 546 | 12 | 12 | 528 | 51 | 0 | 0 |
+| 75 | 2 791 | 16 | 16 | 730 | 80 | 0 | 0 |
+| 125 | 3 508 | 20 | 20 | 818 | 160 | 1 | 1 |
+| 150 | 4 176 | 24 | **25** | 466 | 163 | 2 | 2 |
+| 175 | 4 101 | 30 | **29** | 716 | 175 | 0 | 0 |
+| 225 | 5 022 | 34 | 34 | 403 | 256 | 21 | **22** |
+| 250 | 6 860 | 50 | 50 | 779 | 821 | 0 | 0 |
+| 275 | 6 343 | 46 | **57** | 595 | 987 | 0 | **72** |
+| 296 | 7 789 | 67 | **60** | 1 319 | 1 357 | 0 | **2 094** |
+| 298 | 7 929 | 62 | **67** | 1 222 | 2 081 | 0 | **1 064** |
+| 299 | 7 689 | 66 | **59** | 959 | 1 245 | 3 | **661** |
+
+Pole count identical in **6 of 12** new pieces (50 %), and in **21 of 27** fitted pieces overall (78 %; the 15
+earlier ones 15 of 15). Prediction (at least 90 %): **missed**. The difference is not spread evenly: the counts agree in every fitted
+piece up to 3 508 points (and at 225 and 250), differ by one pole at 150 and 175 (4 100 to 4 200 points), and by 5 to
+11 poles in the four densest pieces (6 343 to 7 929 points, 46 to 67 poles), where **the port also leaves far
+more grid points outside the tolerance than OpenMC** (72, 2 094, 1 064, 661 against 0, 0, 0, 3). The gate "the port misses no more grid
+points than OpenMC" therefore fails on those four and, by one point (22 against 21), on piece 225.
+`known_pole_count_difference` and `known_extra_misses` in the test pin these exact values; they are findings
+to be understood, not accepted behaviour.
+
+Where the pole counts agree (pieces 25, 50, 75, 125, 225, 250), port against OpenMC, same input:
+
+| piece | poles (relative) | residues (relative) | sigma on the grid, worst (b) |
+|---|---|---|---|
+| 25 | 7.3e-9 | 2.2e-2 | 1.7e-3 |
+| 50 | 3.7e-5 | 5.8e-3 | 1.7e-5 |
+| 75 | 1.7e-2 | 9.4e-1 | 6.3e-3 |
+| 125 | 1.6e-2 | 7.5e-2 | 3.8e-4 |
+| 225 | 9.5e-4 | 9.4e-1 | 5.9e-3 |
+| 250 | 4.0e-3 | 1.3 | 8.8e-2 |
+
+### OpenMC against itself (+-1 ulp), every fitted piece that was run
+
+Trials: 2 perturbed per piece unless stated; OpenMC 8f79d9d unmodified, drivers
+`openmc_inputs/sensitivity_u238_inputs.py`. Verdict rule (rule 1): a port-vs-OpenMC value is **in** if it does not
+exceed the largest value OpenMC shows against itself on that metric, **out (xN)** if it exceeds it by the factor
+N. Two trials are a thin sample (see the last paragraph).
+
+| piece | port - OpenMC: poles / residues / sigma | OpenMC vs itself, worst trial: poles / residues / sigma | verdict: poles, residues, sigma |
+|---|---|---|---|
+| 0 | 3.3e-9 / 1.5e-8 / 4.7e-9 | 2.1e-9 / 9.5e-9 / 3.1e-9 | out x1.6, out x1.6, out x1.5 |
+| 1 | 1.5e-12 / 3.6e-12 / 1.3e-11 | 8.6e-12 / 6.0e-11 / 4.9e-12 | in, in, out x2.6 |
+| 2 | 6.0e-11 / 9.3e-10 / 4.7e-13 | 1.3e-10 / 8.5e-10 / 7.1e-13 | in, out x1.1, in |
+| 3 | 6.7e-10 / 2.6e-7 / 2.0e-12 | 5.3e-10 / 1.8e-7 / 1.3e-12 | out x1.3, out x1.4, out x1.6 |
+| 4 | 8.7e-12 / 4.8e-10 / 1.3e-12 | 2.1e-11 / 1.6e-9 / 2.0e-12 | in, in, in |
+| 5 | 8.0e-8 / 1.6e-6 / 3.6e-8 | 7.3e-8 / 2.0e-6 / 2.6e-8 | out x1.1, in, out x1.4 |
+| 6 | 1.5e-9 / 2.2e-8 / 2.8e-8 | 2.4e-10 / 8.0e-8 / 2.3e-8 | out x6, in, out x1.2 |
+| 7 | 4.2e-10 / 6.1e-5 / 9.5e-7 | 2.0e-9 / 5.8e-5 / 6.4e-7 | in, out x1.05, out x1.5 |
+| 8 | 2.7e-8 / 8.5e-6 / 2.5e-10 | 1.1e-7 / 3.4e-5 / 9.4e-10 | in, in, in |
+| 9 | 9.8e-9 / 3.3e-7 / 6.1e-9 | 2.3e-9 / 2.1e-7 / 5.2e-8 | out x4.2, out x1.6, in |
+| 10 | 2.2e-9 / 2.2e-7 / 6.1e-8 | 3.6e-10 / 1.4e-7 / 6.2e-8 | out x6.1, out x1.6, in |
+| 11 | 3.8e-10 / 7.0e-9 / 5.5e-12 | 2.5e-10 / 1.2e-8 / 2.3e-12 | out x1.5, in, out x2.4 |
+| 25 | 7.3e-9 / 2.2e-2 / 1.7e-3 | 1.6e-9 / 2.0e-2 / 1.5e-3 | out x4.7, out x1.1, out x1.1 |
+| 50 | 3.7e-5 / 5.8e-3 / 1.7e-5 | 1.4e-5 / 2.3e-3 / 6.6e-6 | out x2.6, out x2.5, out x2.5 |
+| 75 (1 trial) | 1.7e-2 / 9.4e-1 / 6.3e-3 | 1.1e-3 / 6.2e-2 / 4.0e-4 | out x16, out x15, out x16 |
+| 100 | 1.5e-3 / 1.5e-1 / 2.1e-3 | 2.9e-3 / 2.8e-1 / 4.5e-3 | in, in, in |
+| 200 (1 trial) | 3.0e-2 / 4.1e1 / 3.9e-2 | 2.8e-2 / 3.6e1 / 3.6e-2 | out x1.1, out x1.1, out x1.1 |
+| 303 | 1.9e-3 / 5.6e-1 / 5.8e-3 | 1.5e-3 / 4.8e-1 / 5.5e-3 (the other trial: 1.3e-4 / 3.8e-2 / 3.7e-4) | out x1.2, out x1.2, out x1.1 |
+| 125 (1 trial) | 1.6e-2 / 7.5e-2 / 3.8e-4 | 1.1e-2 / 5.1e-2 / 2.6e-4 | out x1.5, out x1.5, out x1.5 |
+| 225 (1 trial) | 9.5e-4 / 9.4e-1 / 5.9e-3 | 2.4e-3 / 2.3 / 1.4e-2 (23 points outside the data; OpenMC unperturbed 21, port 22) | in, in, in |
+| 150 | pole counts differ (25 against 24) | 4 trials: counts 24, 24, **25**, 24; poles 3.4e-2, 2.0e-2, 2.7e-9; residues 1.0 | count: **inside** (OpenMC itself gives 25) |
+| 175 | pole counts differ (29 against 30) | 4 trials: counts 30, **29**, 30, **29**; poles 1.5e-2, 8.0e-2 | count: **inside** (OpenMC itself gives 29) |
+| 275 | 57 against 46 poles, port 72 points outside | 3 trials: counts **50, 48, 46** (poles 1.9e-4 and residues 0.38 in the one that kept 46) | count: **outside** (46 to 50 against 57), see below |
+| 296 (1 trial) | 60 against 67, port 2 094 points outside | count **74**, 66 points outside | count: outside the one OpenMC trial (74), as is the 67 |
+| 298 (1 trial) | 67 against 62, port 1 064 points outside | count **57**, 0 points outside | count: outside the one OpenMC trial (57), as is the 62 |
+| 250, 299 | | **not run** | not stated |
+
+Tally for the 20 pieces with equal pole counts and a self-sensitivity run (0-11, 25, 50, 75, 100, 125, 200, 225,
+303): all three metrics inside OpenMC's own spread on **4 pieces** (4, 8, 100, 225). Of the 60 comparisons 22
+are inside and 38 outside; of the 38, 26 are outside by a factor of at most 1.6, 9 by 2.4 to 6.1 (poles of pieces
+6, 9, 10, 25; sigma of pieces 1 and 11; all three metrics of piece 50) and 3 by 15 to 16 (all three metrics of piece
+75, whose single OpenMC trial moved 1.1e-3 in the poles against the port's 1.7e-2). Prediction (**inside on all three metrics in at least 7 of the 10 pieces 0-4, 6, 9, 10, 11,
+303**): **missed** (1 of 10: piece 4). Prediction "303 inside": **missed** by a factor 1.1 to 1.2 on the worse
+of two trials.
+
+How to read that. OpenMC's own spread is heavy-tailed, not a fixed size: piece 303's two trials differ by 12 to
+100 times from each other (poles 1.3e-4 and 1.5e-3), piece 150's four by a factor 10^7 (2.7e-9 to 3.4e-2),
+and with two trials the worst one is a lower bound of the tail. A port difference at 1.1 to 2.7 times the worst of
+two OpenMC trials is therefore not evidence of a defect: it is what a third trial would often have supplied. The
+factors of 4.2 to 6.1 on the poles of pieces 6, 9, 10 and 25 are larger than that, but there OpenMC moves its
+poles by 2e-10 to 2e-9 and the port differs by 1.5e-9 to 1.5e-8: both are round-off of different linear algebra
+(petir's QR, SVD and eigensolver in place of LAPACK), not a visible disagreement in the cross section (sigma
+differs by at most 1.7e-3 b at piece 25, whose OpenMC trials differ by 1.5e-3 b). Piece 50 is out by 2.5 to
+2.6 on all three, with a sigma difference of 1.7e-5 b. What the self-sensitivity does **not** explain is the
+dense end, next.
+
+### The dense end (pieces 275, 296, 298, 299)
+
+OpenMC's unperturbed fit reproduces the pointwise data on every grid point (0, 0, 0 and 3 points outside rtol/atol)
+at 46 to 67 poles; the port's fit has 72, 2 094, 1 064 and 661 outside, at 57, 60, 67 and 59 poles.
+
+Two measurements bear on whether that is a defect or the same chaos in the order search that OpenMC shows:
+
+- **OpenMC against itself** (above): its pole count moves when its input moves by one ulp (piece 275: 46, then 50, 48
+  and 46; piece 296: 67, then 74, and the 74-pole fit leaves 66 grid points outside; piece 298: 62, then 57 with 0 outside).
+- **The port against itself**, `u238_port_self_sensitivity` (piece 275, one trial, the cross sections moved by +-1 ulp
+  with a fixed xorshift sign pattern; 925 s): **55 poles and 0 grid points outside**, against 57 poles and 72 outside
+  unperturbed. So the port's search also reaches a fit that reproduces every grid point once the input moves by one
+  ulp, and the 72 misses are not a fixed property of its algorithm on this piece. One trial: it shows that the miss
+  is not stable, not how often it occurs. The same instrument was not run on 296, 298 or 299, and OpenMC's
+  perturbed trials were not run on 275 with the points-outside count printed (the script gained that column after
+  that run).
+
+Reading: the pole-count differences of the dense pieces are consistent with a search that is chaotic at 46 to 67
+poles in both codes, and I found no evidence of a defect in the port. It is **not shown** that the port's miss
+rate matches OpenMC's: unperturbed, OpenMC missed 0, 0, 0 and 3 grid points on four pieces and the port 72 to
+2 094; OpenMC's perturbed 296 left 66 outside. That is a count of four to eight pieces, not a distribution.
+Not done, and what would settle it: the port's order search traced against OpenMC's (which order each ends on, the
+quality value reached) on one dense piece, and several +-1 ulp trials of both codes on 296 and 298 with the
+points-outside count. Nothing was changed in the port.
+
+### Predictions against results (extension)
+
+| prediction | outcome |
+|---|---|
+| pole count identical in at least 90 % of the pieces that finish | **missed**: 6 of 12 new (50 %), 21 of 27 overall (78 %) |
+| inside OpenMC's self-sensitivity on all three metrics in at least 7 of 10 small/old pieces; 303 inside | **missed**: 1 of 10; 303 outside by x1.1 to x1.2 |
+| new pieces with more than 16 poles inside in at least 75 % | **not testable**: self-sensitivity was run on 75, 125, 150, 175, 225, 275, 296, 298 and not on 250, 299; inside on all three metrics at 225 only, outside at 75 (x15 to 16) and 125 (x1.5); pole counts of 150 and 175 inside, of 275, 296 and 298 outside |
+| port not worse than OpenMC on points outside rtol/atol in at least 80 % of the new pieces | **missed**: worse in 6 of 12 (225 by one point; 275, 296, 298, 299 by 72 to 2 094) |
+| OpenMC 5 to 60 min per new piece, at least 6 of the 12 finish | **held**: 4.9 to 22 min per piece (the dense ones 16 to 22 min), all 12 finished |
+| port 3 to 13 times faster than OpenMC | **held up to 4 200 points** (OpenMC / port 8.6, 10.4, 9.1, 5.1, 2.9 (borderline), 4.1 for pieces 25 to 175); **missed from 225 up** (1.6, 0.95, 0.60, 0.97, 0.59, 0.77 for 225, 250, 275, 296, 298, 299: the port is as slow as OpenMC or slower) |
+| longer-prefix windowing | **not run** |
+
+(Ratios use each code's own loaded wall seconds, not run side by side under one load, with the port single-threaded and
+OpenMC on two threads, so they carry the load of the time. That the port is slower at the dense end is as measured; why
+is not examined. A search that never reaches an "ideal" fit goes through every order, which would explain it for
+the pieces where the port misses grid points, but the order the port stopped at was not printed.)
+
+### Verification run (extension)
+
+`cargo check --release -p njoy-outram-park-fork --lib --tests --examples -j 2`: passes (unchanged warnings only).
+`wmp_generate_u238_vs_openmc.rs`, default tests (3 passed, 3 ignored, 327.6 s): front end 304 of 304 pieces
+bit-identical (116.8 s under load), the nine earlier cheap pieces and the new 25 (33 s) and 50 (51 s) within
+their gates, prefix windowing as before. The ignored pins were run on pieces 75, 150, 175 and 225 with the
+final test code (`OUTRAM_WMP_U238_PIECES=75,150,175,225`, passed, 784 s): 75 and 225 within their gates (225 with
+its recorded 21 against 22 misses), 150 and 175 with their recorded pole-count differences. Pieces 125, 250, 275,
+296, 298 and 299 were measured with an earlier build of the same code that printed instead of asserting; their
+pins and gates are the printed values and have not been re-run in the committed form (hours).
+
+### What was not done (extension)
+
+- Rule 2 set C and rule 3: no contiguous prefix beyond piece 11, so no longer windowing differential; the 12-piece
+  prefix stays the only windowing result.
+- OpenMC self-sensitivity of pieces 250 and 299 (queued, not reached), a second perturbed trial of 75, 125, 225, 296
+  and 298, and OpenMC's perturbed trials of 275 with the points-outside count.
+- The 304-piece fit, the whole-library pole count and the window parameters of the whole library.
+- Any diagnosis of the dense-end difference above. No change was made to the port.
 
 ## Appendix: the reference driver, verbatim
 

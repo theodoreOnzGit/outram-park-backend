@@ -1,0 +1,20 @@
+piece 150 trial 1 (xs +-1 ulp): 24 poles, poles move 3.403e-02, residues 1.006e+00 relative; sigma worst 8.894e-03 b absolute, 7.387e-04 relative above atol; 382 s
+piece 150 trial 2 (xs +-1 ulp): 24 poles, poles move 2.035e-02, residues 1.006e+00 relative; sigma worst 2.303e-03 b absolute, 1.913e-04 relative above atol; 2280 s
+piece 150 trial 3 (xs +-1 ulp): pole count 25 vs saved 24, 1485 s
+piece 150 trial 4 (xs +-1 ulp): 24 poles, poles move 2.663e-09, residues 6.172e-07 relative; sigma worst 1.010e-07 b absolute, 0.000e+00 relative above atol; 289 s
+piece 175 trial 1 (xs +-1 ulp): 30 poles, poles move 1.509e-02, residues 6.861e-02 relative; sigma worst 3.424e-05 b absolute, 8.348e-07 relative above atol; 278 s
+piece 175 trial 2 (xs +-1 ulp): pole count 29 vs saved 30, 286 s
+piece 175 trial 3 (xs +-1 ulp): 30 poles, poles move 8.026e-02, residues 4.803e-01 relative; sigma worst 1.174e-04 b absolute, 2.290e-06 relative above atol; 274 s
+piece 175 trial 4 (xs +-1 ulp): pole count 29 vs saved 30, 279 s
+piece 275 trial 1 (xs +-1 ulp): pole count 50 vs saved 46, 696 s
+piece 275 trial 2 (xs +-1 ulp): pole count 48 vs saved 46, 643 s
+piece 275 trial 3 (xs +-1 ulp): 46 poles, poles move 1.936e-04, residues 3.833e-01 relative; sigma worst 1.457e-02 b absolute, 2.607e-04 relative above atol; 586 s
+piece 25 trial 1 (xs +-1 ulp): 10 poles, poles move 1.299e-09, residues 1.148e-02 relative; 13 points outside rtol/atol of the data; sigma worst 8.659e-04 b absolute, 9.058e-06 relative above atol; 123 s
+piece 25 trial 2 (xs +-1 ulp): 10 poles, poles move 1.562e-09, residues 2.009e-02 relative; 13 points outside rtol/atol of the data; sigma worst 1.525e-03 b absolute, 4.808e-06 relative above atol; 108 s
+piece 50 trial 1 (xs +-1 ulp): 12 poles, poles move 5.835e-06, residues 9.304e-04 relative; 0 points outside rtol/atol of the data; sigma worst 2.695e-06 b absolute, 0.000e+00 relative above atol; 159 s
+piece 50 trial 2 (xs +-1 ulp): 12 poles, poles move 1.445e-05, residues 2.303e-03 relative; 0 points outside rtol/atol of the data; sigma worst 6.641e-06 b absolute, 0.000e+00 relative above atol; 160 s
+piece 296 trial 1 (xs +-1 ulp): pole count 74 vs saved 67, 66 grid points outside rtol/atol of the data, 1631 s
+piece 298 trial 1 (xs +-1 ulp): pole count 57 vs saved 62, 0 grid points outside rtol/atol of the data, 887 s
+piece 75 trial 1 (xs +-1 ulp): 16 poles, poles move 1.051e-03, residues 6.157e-02 relative; 0 points outside rtol/atol of the data; sigma worst 3.993e-04 b absolute, 1.198e-05 relative above atol; 198 s
+piece 125 trial 1 (xs +-1 ulp): 20 poles, poles move 1.085e-02, residues 5.111e-02 relative; 1 points outside rtol/atol of the data; sigma worst 2.563e-04 b absolute, 6.164e-06 relative above atol; 308 s
+piece 225 trial 1 (xs +-1 ulp): 34 poles, poles move 2.442e-03, residues 2.334e+00 relative; 23 points outside rtol/atol of the data; sigma worst 1.432e-02 b absolute, 6.732e-04 relative above atol; 334 s

@@ -1,0 +1,2 @@
+piece 299: 7689 points, port 59 poles, OpenMC 66 poles (DIFFERENT), 1245.1 s; points outside rtol/atol of the data: OpenMC 3, port 661
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 1363.70s

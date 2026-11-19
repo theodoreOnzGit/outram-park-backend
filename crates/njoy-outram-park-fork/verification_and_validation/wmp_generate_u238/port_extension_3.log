@@ -1,0 +1,6 @@
+piece 150: 4176 points, port 25 poles, OpenMC 24 poles (DIFFERENT), 163.4 s; points outside rtol/atol of the data: OpenMC 2, port 2
+piece 175: 4101 points, port 29 poles, OpenMC 30 poles (DIFFERENT), 174.5 s; points outside rtol/atol of the data: OpenMC 0, port 0
+piece 275: 6343 points, port 57 poles, OpenMC 46 poles (DIFFERENT), 987.0 s; points outside rtol/atol of the data: OpenMC 0, port 72
+piece 298: 7929 points, port 67 poles, OpenMC 62 poles (DIFFERENT), 2081.3 s; points outside rtol/atol of the data: OpenMC 0, port 1064
+piece 296: 7789 points, port 60 poles, OpenMC 67 poles (DIFFERENT), 1357.0 s; points outside rtol/atol of the data: OpenMC 0, port 2094
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 4876.78s
