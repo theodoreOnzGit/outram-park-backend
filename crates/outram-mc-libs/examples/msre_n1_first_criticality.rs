@@ -240,7 +240,18 @@ fn main() {
     // case), for the rod worth (gh:#1128). Default: none, every recorded run.
     let rods_spec = flag(&args, "--rods").unwrap_or_else(|| "none".to_string());
     let rods = m::rods_inserted(&rods_spec);
-    let rodded = rods.iter().any(|&r| r);
+    // `--rod-positions a,b,c`: the rods at ORNL rod positions (inches
+    // withdrawn, 0 the driven lower limit, 51 the upper limit; ORNL-4233
+    // Fig. 2), in `m::OPENINGS` order: rod 2, rod 1, rod 3; `-` leaves a
+    // thimble empty (gh:#1658, `m::geometry_with_rods_at`). Exclusive with
+    // `--rods` (full-length rods).
+    let rod_positions: Option<[Option<f64>; 3]> = flag(&args, "--rod-positions").map(|v| {
+        let p: Vec<Option<f64>> = v.split(',').map(|x| if x.trim() == "-" { None } else { Some(x.trim().parse::<f64>().expect("inches withdrawn")) }).collect();
+        assert_eq!(p.len(), 3, "--rod-positions takes three values (rod 2, rod 1, rod 3)");
+        [p[0], p[1], p[2]]
+    });
+    assert!(rod_positions.is_none() || !rods.iter().any(|&r| r), "--rod-positions and --rods are exclusive");
+    let rodded = rods.iter().any(|&r| r) || rod_positions.is_some();
     if let Some(d) = flag(&args, "--draw") {
         let dims = if hot_dims {
             m::Dims::hot(m::REFERENCE_TEMPERATURE_F, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
@@ -341,6 +352,14 @@ fn main() {
     if no_minor_u {
         eprintln!("  ABLATION: --minor-uranium none, the salt has no U-234/U-236");
         mats[m::SALT_IDX].1 = m::salt_without_minor_uranium(&mats[m::SALT_IDX].1);
+    }
+    // `--u235-wt w`: the salt's uranium at U-235 weight fraction `w`, same
+    // uranium atoms, U-234/U-236 kept in ratio (gh:#1660,
+    // `m::salt_with_enrichment`). Applied after `--u235-scale` and
+    // `--minor-uranium`; the basket keeps the default salt.
+    if let Some(w) = flag(&args, "--u235-wt").map(|v| v.parse::<f64>().expect("weight fraction")) {
+        eprintln!("  --u235-wt {w}: salt U-235 weight fraction {:.5} -> {w}", m::u235_weight_fraction(&mats[m::SALT_IDX].1));
+        mats[m::SALT_IDX].1 = m::salt_with_enrichment(&mats[m::SALT_IDX].1, w);
     }
     let mut names: Vec<&str> = Vec::new();
     for (_, comps) in &mats {
@@ -474,8 +493,28 @@ fn main() {
         m::Shield::Tm0728Cylinder => m::geometry_with_shield(t_k, t_g, dims, ends, base_materials),
         m::Shield::Tm0728Full => m::geometry_with_full_shield(t_k, t_g, dims, ends, base_materials),
     };
-    let g = if rodded { m::geometry_with_rods(g, dims, rods, first_rod_material, t_k) } else { g };
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_minor_u { "" } else { "+u234" } + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + match shield { m::Shield::Tm0728Cylinder => "+shield-tm0728", m::Shield::Tm0728Full => "+shield-tm0728-full", m::Shield::Omitted => "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + if rodded { format!("+rods-{rods_spec}") } else { String::new() }.as_str();
+    let g = match rod_positions {
+        Some(p) => m::geometry_with_rods_at(g, dims, p, first_rod_material, t_k),
+        None if rodded => m::geometry_with_rods(g, dims, rods, first_rod_material, t_k),
+        None => g,
+    };
+    // `--salt-level-cm z`: the salt surface at z (stringer bottom at 0),
+    // void above it (gh:#1659, `m::geometry_with_salt_level`).
+    let g = match flag(&args, "--salt-level-cm").map(|v| v.parse::<f64>().expect("cm")) {
+        Some(z) => {
+            eprintln!("  --salt-level-cm {z}: salt surface at z = {z} cm");
+            m::geometry_with_salt_level(g, z)
+        }
+        None => g,
+    };
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_minor_u { "" } else { "+u234" } + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + match shield { m::Shield::Tm0728Cylinder => "+shield-tm0728", m::Shield::Tm0728Full => "+shield-tm0728-full", m::Shield::Omitted => "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + match (rod_positions, rodded) {
+        (Some(p), _) => format!("+rodpos-{}", p.iter().map(|x| x.map_or("-".to_string(), |v| format!("{v}"))).collect::<Vec<_>>().join("_")),
+        (None, true) => format!("+rods-{rods_spec}"),
+        (None, false) => String::new(),
+    }.as_str();
+    let label = label
+        + flag(&args, "--salt-level-cm").map_or(String::new(), |z| format!("+salt-level-{z}cm")).as_str()
+        + flag(&args, "--u235-wt").map_or(String::new(), |w| format!("+u235wt-{w}")).as_str();
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {

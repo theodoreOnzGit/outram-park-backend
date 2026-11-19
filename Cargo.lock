@@ -6615,6 +6615,7 @@ dependencies = [
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-mc-libs",
+ "outram-park-fork-liggghts",
  "petir",
  "serde",
  "serde_json",

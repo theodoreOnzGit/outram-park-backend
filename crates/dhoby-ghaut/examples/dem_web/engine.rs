@@ -8,7 +8,6 @@
 //! µ_r = 0, E = 5e8 Pa, ν = 0.2, e = 0.5, dt = 35 µs), unchanged. This file
 //! only steps it in chunks and streams the centres.
 
-use petir::mathf::RealMath;
 use outram_park_fork_liggghts::compute::ThreadCount;
 use outram_park_fork_liggghts::htr10_fill::{
     wall_radius_at, FillProgress, Htr10Fill, Htr10FillSettings, PEBBLE_RADIUS_M, VALVE_Z_M,
@@ -91,34 +90,11 @@ pub fn settings(n: usize, seed: u64) -> Htr10FillSettings {
 /// vessel so a reduced pour has a slab at all. It includes the wall-effect
 /// layers of the tube and conus, which a full-size core slab does not.
 pub fn vessel_bulk_fraction(centres: &[[f64; 3]]) -> f64 {
-    let r = PEBBLE_RADIUS_M;
-    if centres.is_empty() {
-        return f64::NAN;
-    }
-    let mut zs: Vec<f64> = centres.iter().map(|c| c[2]).collect();
-    zs.sort_by(f64::total_cmp);
-    let k = ((zs.len() as f64 * 0.99) as usize).min(zs.len() - 1);
-    let (z_lo, z_hi) = (VALVE_Z_M + 4.0 * r, zs[k] + r - 4.0 * r);
-    if z_hi <= z_lo {
-        return f64::NAN;
-    }
-    let cap = |zc: f64| {
-        let (lo, hi) = (z_lo.max(zc - r), z_hi.min(zc + r));
-        if hi <= lo {
-            return 0.0;
-        }
-        let f = |z: f64| std::f64::consts::PI * (r * r * (z - zc) - (z - zc).r_powi(3) / 3.0);
-        f(hi) - f(lo)
-    };
-    let solid: f64 = centres.iter().map(|c| cap(c[2])).sum();
-    // ∫ π R(z)² dz by the midpoint rule on 1 mm slices (R is piecewise
-    // linear; the error is far below the sampling noise of a bed).
-    let n = ((z_hi - z_lo) / 1e-3).ceil().max(1.0) as usize;
-    let dz = (z_hi - z_lo) / n as f64;
-    let volume: f64 = (0..n)
-        .map(|i| std::f64::consts::PI * wall_radius_at(z_lo + (i as f64 + 0.5) * dz).r_powi(2) * dz)
-        .sum();
-    solid / volume
+    // The calculator is outram-mc-libs' (2026-11-18, maintainer: "the
+    // packing fraction calculator should also go to OUTRAM MC libs"),
+    // operation for operation the copy that stood here; this vessel's
+    // bottom (the valve) and wall, on 1 mm slices.
+    outram_mc_libs::pebble_beds::packing_fraction::bulk_fraction(centres, PEBBLE_RADIUS_M, VALVE_Z_M, wall_radius_at, 1e-3)
 }
 
 fn snapshot(id: u32, fill: &Htr10Fill, p: FillProgress, ms_per_step: f64) -> Snapshot {

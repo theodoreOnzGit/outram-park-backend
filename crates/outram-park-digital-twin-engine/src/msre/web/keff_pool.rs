@@ -88,7 +88,7 @@ impl Split {
             1 => (up, b),
             _ => (b, up),
         };
-        Study { salt_f, graphite_f, u235_scale: self.u235_scale, shield: self.shield }
+        Study { salt_f, graphite_f, u235_scale: self.u235_scale, shield: self.shield, ..Study::default() }
     }
 
     /// The coefficients, once the three runs are in.

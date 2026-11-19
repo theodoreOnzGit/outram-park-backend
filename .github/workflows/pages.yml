@@ -180,6 +180,10 @@ jobs:
         env:
           KOVAN_CALL_GRAPH_BACKEND: scip
           KOVAN_INDEX_BUDGET: "2400"
+          # Stop `rust-analyzer scip` after 35 min and fall back to the cached
+          # graphs (data.sh), before a thrashing runner is lost (~60 min on
+          # 2026-11-17 and 2026-11-18; a healthy run took 27 min, 2026-11-15).
+          KOVAN_SCIP_BUDGET: "2100"
         run: scripts/build-pages.sh target/pages callgraph
       - name: Drop the SCIP index (not for rust-cache)
         if: always()

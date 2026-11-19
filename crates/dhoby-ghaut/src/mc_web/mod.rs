@@ -11,6 +11,10 @@
 //! | [`tapes`] | ENDF tapes for the browser: covariances stripped, zlib, wire names, the LEAPR "tapes" |
 //! | [`processed_cache`] | the processed nuclear data every demo shares, read back from the browser's cache when it is there (gh:#818) |
 //! | [`keff`] | a run's settings, caps, console and summary |
+//! | [`keffplot`] | the k and Shannon-entropy plots of the bottom dock, for any k_eff simulator (gh:#1653) |
+//! | [`run_settings`] | the run-settings fields of the left panel: particles, inactive, active, seed, Defaults and Recorded (gh:#1653) |
+//! | [`rod_bank`] | control-rod sliders for any number of rods, and the rod-insertion drawing for the right dock (gh:#1654) |
+//! | [`raster`] | a live slice of the assembled geometry, rasterised off the UI thread (gh:#1653) |
 //! | [`pool`] | the page side of a worker pool: process and relay the data ([`pool::DataRelay`]), then run k_eff on the workers ([`pool::KeffPool`]); the worker side of a CSG model |
 //!
 //! Moved, not rewritten: each file is the example's, with its paths
@@ -18,6 +22,10 @@
 //! so its rungs did not change. Research, education and V&V only.
 
 pub mod keff;
+pub mod keffplot;
 pub mod pool;
 pub mod processed_cache;
+pub mod raster;
+pub mod rod_bank;
+pub mod run_settings;
 pub mod tapes;
