@@ -291,20 +291,29 @@ impl Htr10Fill {
     /// A [`DemError`] if a setting is out of range (e.g. µ < 0, a non-positive
     /// timestep).
     pub fn new(settings: Htr10FillSettings) -> Result<Self, DemError> {
+        Self::in_vessel(settings, &crate::axisym_vessel::AxisymVessel::htr10())
+    }
+
+    /// [`Self::new`] in any `vessel` (gh:#1655): the same seed, walls,
+    /// contact law and gravity (−9.81 m/s² along −z, so `vessel.up` should
+    /// be +z), 120 quads per mesh band. With [`AxisymVessel::htr10`] it is
+    /// [`Self::new`], bit for bit. The progress measures ([`FillProgress`])
+    /// stay HTR-10's: "core" is `z > 0`, the barrel above the conus inlet.
+    ///
+    /// [`AxisymVessel::htr10`]: crate::axisym_vessel::AxisymVessel::htr10
+    ///
+    /// # Errors
+    ///
+    /// A [`DemError`] as [`Self::new`].
+    pub fn in_vessel(settings: Htr10FillSettings, vessel: &crate::axisym_vessel::AxisymVessel) -> Result<Self, DemError> {
         // Since 2026-11-19 (gh:#1656) the walls and the system come from
         // `axisym_vessel`, shared with `outram-mc-libs`' region pour; the
         // fingerprint test pins this to the code it replaced.
-        let particles: Vec<Particle> = seed_loose(settings.n_pebbles, settings.seed)
+        let particles: Vec<Particle> = crate::axisym_vessel::seed_in_vessel(vessel, settings.n_pebbles, settings.seed, PEBBLE_RADIUS_M)
             .into_iter()
             .map(pebble)
             .collect::<Result<_, _>>()?;
-        let sys = crate::axisym_vessel::vessel_system(
-            &crate::axisym_vessel::AxisymVessel::htr10(),
-            particles,
-            Vec3::new(0.0, 0.0, -9.81),
-            &settings,
-            120,
-        )?;
+        let sys = crate::axisym_vessel::vessel_system(vessel, particles, Vec3::new(0.0, 0.0, -9.81), &settings, 120)?;
         Ok(Self {
             sys,
             settings,

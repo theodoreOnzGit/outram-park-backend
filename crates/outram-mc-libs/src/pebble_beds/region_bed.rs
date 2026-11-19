@@ -618,6 +618,31 @@ fn z_stack(region: &[RegionToken], surfaces: &[SurfaceKind]) -> Result<Option<ZS
     Ok(Some(ZStack { knots, floor: slabs[0].lo, top, axis }))
 }
 
+/// A z-stack as the DEM's vessel, in metres (`up` = +z, origin on the
+/// axis at z = 0).
+fn vessel_of(z: &ZStack, unit: LengthUnit) -> Result<outram_park_fork_liggghts::axisym_vessel::AxisymVessel, RegionBedError> {
+    use outram_park_fork_liggghts::axisym_vessel::AxisymVessel;
+    use outram_park_fork_liggghts::particle::Vec3;
+    let to_m = unit.to_m();
+    let knots = z.knots.iter().map(|&(s, rr)| (s * to_m, rr * to_m)).collect();
+    AxisymVessel::new(Vec3::new(z.axis.0 * to_m, z.axis.1 * to_m, 0.0), Vec3::new(0.0, 0.0, 1.0), knots, z.floor * to_m).map_err(|e| RegionBedError::Dem(format!("{e:?}")))
+}
+
+/// Cell `cell` of `geom` (in `unit`) as the DEM's axisymmetric vessel, in
+/// metres (gh:#1655): the region must be a vessel stacked along z (module
+/// docs). For a pour stepped by its caller, e.g.
+/// `outram_park_fork_liggghts::htr10_fill::Htr10Fill::in_vessel`; with
+/// [`htr10_vessel_geometry`] it is `AxisymVessel::htr10()`, bit for bit.
+///
+/// # Errors
+/// [`RegionBedError::NoSuchCell`]; [`RegionBedError::UnsupportedWall`] if
+/// the region is not a z-stack, or its wall steps or its slabs leave a gap.
+pub fn axisym_vessel(geom: &Geometry, cell: usize, unit: LengthUnit) -> Result<outram_park_fork_liggghts::axisym_vessel::AxisymVessel, RegionBedError> {
+    let region = &geom.cells.get(cell).ok_or(RegionBedError::NoSuchCell(cell))?.region;
+    let z = z_stack(region, &geom.surfaces)?.ok_or_else(|| RegionBedError::UnsupportedWall("not a vessel stacked along z (a union of z-slabs inside z-cylinders or z-cones)".into()))?;
+    vessel_of(&z, unit)
+}
+
 /// The pour of a z-stack: `outram_park_fork_liggghts::axisym_vessel`, with
 /// HTR-10's pour settings (`Htr10FillSettings::default`, graphite at
 /// `PEBBLE_DENSITY`), gravity 9.81 m/s² along −z, 120 quads per mesh band.
@@ -627,13 +652,12 @@ fn z_stack(region: &[RegionToken], surfaces: &[SurfaceKind]) -> Result<Option<ZS
 /// [`RegionBedError::Invalid`] if the loose seed reaches above the top
 /// plane; [`RegionBedError::Dem`] if the DEM refuses the set-up.
 fn pour_z_stack(z: &ZStack, r: f64, n: usize, seed: u64, steps: usize, unit: LengthUnit) -> Result<Vec<Position>, RegionBedError> {
-    use outram_park_fork_liggghts::axisym_vessel::{pebble_at, seed_in_vessel, vessel_system, AxisymVessel};
+    use outram_park_fork_liggghts::axisym_vessel::{pebble_at, seed_in_vessel, vessel_system};
     use outram_park_fork_liggghts::htr10_fill::{Htr10FillSettings, PEBBLE_DENSITY};
     use outram_park_fork_liggghts::particle::Vec3;
     let (to_m, from_m) = (unit.to_m(), unit.from_m());
     let dem = |e: outram_park_fork_liggghts::DemError| RegionBedError::Dem(format!("{e:?}"));
-    let knots = z.knots.iter().map(|&(s, rr)| (s * to_m, rr * to_m)).collect();
-    let vessel = AxisymVessel::new(Vec3::new(z.axis.0 * to_m, z.axis.1 * to_m, 0.0), Vec3::new(0.0, 0.0, 1.0), knots, z.floor * to_m).map_err(dem)?;
+    let vessel = vessel_of(z, unit)?;
     let rm = r * to_m;
     let start = seed_in_vessel(&vessel, n, seed, rm);
     if let Some(c) = start.iter().find(|c| c.z + rm > z.top * to_m) {

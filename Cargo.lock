@@ -6626,6 +6626,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tuas_boussinesq_solver",
  "uom",
+ "wasm-bindgen",
 ]
 
 [[package]]

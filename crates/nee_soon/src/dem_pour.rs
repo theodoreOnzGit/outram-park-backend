@@ -15,11 +15,16 @@
 //! - [`draw_pour`]: the pour side-on, the pebbles cut by `y = 0`, inside a
 //!   container given as its wall radius against height.
 //!
+//! - [`engine`]: the pour itself, stepped in chunks off the UI thread
+//!   (a native thread or a Web Worker), its vessel from the CSG API.
+//!
 //! The vessel-specific parts stay with the caller: the bulk fraction of a
 //! particular vessel (`phi_bulk`) and the timing (`secs`) are passed in.
 //! Behind the `dem_ui` feature (std, egui), so nee_soon's `no_std` core and
 //! its Android build are unaffected (gh:#1640). Research, education and V&V
 //! only.
+
+pub mod engine;
 
 use egui::{Color32, Pos2, Rect, Vec2};
 use outram_mc_libs::pebble_beds::packing_fraction::{surface_height, whole_core_fraction};
