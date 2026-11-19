@@ -349,7 +349,24 @@ impl Tally {
     /// score would deposit nothing, a silent zero, so it is an error instead.
     /// A delayed-group filter beside a track-splitting mesh filter is also
     /// refused: the per-group deposit is not split across mesh cells.
+    ///
+    /// **A `MuFilter` or `LegendreFilter` is refused too** (gh:#676): no
+    /// production scoring path sets `FilterEvent::mu`, so such a tally would score
+    /// `P_n(0)` or exactly zero while looking plausible. ~~Accepted silently.~~
+    /// **CORRECTED 2026-11-19.** Lift this when the scatter arms supply the lab
+    /// cosine.
     pub fn validate(&self) -> Result<(), String> {
+        if self
+            .filters
+            .iter()
+            .any(|f| matches!(f, FilterKind::Mu(_) | FilterKind::Legendre(_)))
+        {
+            return Err(format!(
+                "tally {}: a Mu or Legendre filter needs the scattering cosine, which no \
+                 scoring path supplies yet (gh:#676); it would score P_n(0) or zero",
+                self.id
+            ));
+        }
         if self.filters.iter().any(|f| matches!(f, FilterKind::DelayedGroup(_))) {
             for s in &self.scores {
                 if !matches!(s, ScoreType::DelayedNuFission | ScoreType::DecayRate) {
@@ -369,5 +386,28 @@ impl Tally {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod validate_tests {
+    use super::*;
+    use crate::tally::filter::{FilterKind, MuFilter};
+
+    /// gh:#676: a Mu or Legendre filter is refused at validation, since nothing
+    /// supplies `mu`; an ordinary tally still validates.
+    #[test]
+    fn validate_refuses_mu_filters_and_accepts_an_ordinary_tally() {
+        let mut t = Tally {
+            id: 4,
+            name: "mu".into(),
+            filters: vec![FilterKind::Mu(MuFilter { bounds: vec![-1.0, 0.0, 1.0] })],
+            scores: vec![ScoreType::Scatter],
+            bins: vec![],
+        };
+        let e = t.validate().unwrap_err();
+        assert!(e.contains("scattering cosine"), "{e}");
+        t.filters.clear();
+        assert!(t.validate().is_ok());
     }
 }

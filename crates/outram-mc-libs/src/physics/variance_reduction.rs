@@ -84,6 +84,13 @@ pub struct VarianceReduction {
     /// `ww_born = 1` if it is still unset (`weight_windows.cpp:965-967`).
     /// gh:#1582 item 4.
     pub weight_window_no_window_born_one: bool,
+    /// Events one history may take before it is cut off with weight 0
+    /// (`max_particle_events`, OpenMC default 1 000 000, `settings.cpp:112`;
+    /// `particle.cpp:548-552`: a warning and `wgt = 0`, not a leak). gh:#699
+    /// item 5. ~~A hard-coded 100 000, scored as a leak.~~ **CORRECTED
+    /// 2026-11-19.** Carried here because this is the settings object the
+    /// transport kernel already receives; it is not a variance-reduction knob.
+    pub max_particle_events: u32,
 }
 
 /// `OUTRAM_MC_LEGACY_WW_GAME=1` makes [`VarianceReduction::default`] carry the
@@ -125,6 +132,7 @@ impl Default for VarianceReduction {
             weight_window_at_birth: true,
             weight_window_split_keeps_ww_factor: false,
             weight_window_no_window_born_one: true,
+            max_particle_events: 1_000_000,
         };
         if legacy_weight_window_game() {
             base.with_legacy_weight_window_game()

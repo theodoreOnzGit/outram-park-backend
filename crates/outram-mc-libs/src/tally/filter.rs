@@ -62,6 +62,10 @@ pub trait Filter: Send + Sync {
         None
     }
 }
+/// Coordinate levels a [`FilterEvent`] carries for the multi-level cell and
+/// universe filters (gh:#677).
+pub const MAX_PATH_LEVELS: usize = 8;
+
 #[derive(Debug, Clone, PartialEq)]
 
 /// Snapshot of particle state passed to filters at scoring time.
@@ -73,6 +77,17 @@ pub trait Filter: Send + Sync {
 /// particle type at all, so those filters could not have been written even as
 /// stubs.
 pub struct FilterEvent {
+    /// Cells and universes of every coordinate level of the particle's path,
+    /// root first, `usize::MAX` where a level has none (gh:#677). Only the
+    /// first [`MAX_PATH_LEVELS`] levels are kept. Filled on the track-length
+    /// path from the caller's [`super::history_events::EventHistory`]; empty
+    /// (`n_levels == 0`) elsewhere, where [`CellFilter`] and
+    /// [`UniverseFilter`] fall back to the leaf indices.
+    pub cell_levels: [usize; MAX_PATH_LEVELS],
+    /// See [`Self::cell_levels`].
+    pub universe_levels: [usize; MAX_PATH_LEVELS],
+    /// How many entries of the two level arrays are valid.
+    pub n_levels: usize,
     pub cell_idx: usize,
     pub material_idx: usize,
     pub universe_idx: usize,
@@ -194,6 +209,9 @@ impl Default for FilterEvent {
     /// to a `CellFilter` will match bin 0.
     fn default() -> Self {
         FilterEvent {
+            cell_levels: [usize::MAX; MAX_PATH_LEVELS],
+            universe_levels: [usize::MAX; MAX_PATH_LEVELS],
+            n_levels: 0,
             cell_idx: 0,
             material_idx: 0,
             universe_idx: 0,
@@ -246,11 +264,14 @@ impl Default for FilterEvent {
 
 /// Filter by cell.  Maps to `openmc::CellFilter`.
 ///
-/// **Leaf level only (gh:#677, 2026-11-19).** OpenMC matches the cell at EVERY
-/// coordinate level (`filter_cell.cpp:51-56`); this port matches only the leaf
-/// cell, so a tally on a cell filled with a universe or lattice scores 0 with no
-/// error. Name the leaf cells. Matching every level needs the `(bin, weight)`
-/// `get_all_bins` refactor the issue proposes.
+/// **Every coordinate level on the track-length path (gh:#677, 2026-11-19).**
+/// OpenMC matches the cell at EVERY coordinate level (`filter_cell.cpp:51-56`).
+/// ~~This port matched only the leaf cell, so a tally on a cell filled with a
+/// universe or lattice scored 0 with no error.~~ **CORRECTED 2026-11-19:** where
+/// the event carries its path ([`FilterEvent::cell_levels`]: the track-length
+/// estimator) a container cell now matches. Elsewhere (collision, scatter and
+/// fission-birth scores) only the leaf matches. Upstream emits one bin per
+/// matching level; this returns the deepest match only.
 ///
 /// **These are 0-based indices into the geometry's cell array, not cell IDs.**
 /// OpenMC's C++ filters bin by user-assigned global ID; this port bins by
@@ -273,7 +294,18 @@ impl Filter for CellFilter {
         self.cell_indices.len()
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        self.cell_indices.iter().position(|&c| c == ev.cell_idx)
+        // Leaf first (the previous behaviour, unchanged where the path is not
+        // carried), then every ancestor level (gh:#677: OpenMC matches every
+        // level, `filter_cell.cpp:51-56`). Upstream returns EVERY matching
+        // level as its own bin; this returns the deepest one, so a filter that
+        // lists both a container cell and one of its descendants under-scores
+        // the shallower one.
+        if let Some(i) = self.cell_indices.iter().position(|&c| c == ev.cell_idx) {
+            return Some(i);
+        }
+        (0..ev.n_levels)
+            .rev()
+            .find_map(|l| self.cell_indices.iter().position(|&c| c == ev.cell_levels[l]))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -398,8 +430,8 @@ impl Filter for EnergyOutFilter {
 
 /// Filter by universe.  Maps to `openmc::UniverseFilter`.
 ///
-/// **Leaf level only (gh:#677, 2026-11-19):** OpenMC matches every coordinate
-/// level (`filter_universe.cpp:50-55`); this port matches only the leaf universe.
+/// **Every coordinate level on the track-length path (gh:#677, 2026-11-19):** see
+/// [`CellFilter`]; OpenMC `filter_universe.cpp:50-55`. Deepest match only.
 pub struct UniverseFilter {
     pub universe_indices: Vec<usize>,
 }
@@ -408,9 +440,13 @@ impl Filter for UniverseFilter {
         self.universe_indices.len()
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        self.universe_indices
-            .iter()
-            .position(|&u| u == ev.universe_idx)
+        // As [`CellFilter::get_bin`]: leaf, then the deepest ancestor (gh:#677).
+        if let Some(i) = self.universe_indices.iter().position(|&u| u == ev.universe_idx) {
+            return Some(i);
+        }
+        (0..ev.n_levels).rev().find_map(|l| {
+            self.universe_indices.iter().position(|&u| u == ev.universe_levels[l])
+        })
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -659,6 +695,29 @@ pub struct PolarAzimuthalFilter {
     pub polar: Vec<f64>,
     /// Ascending `phi` edges on `[-pi, pi]` \[rad\].
     pub azimuthal: Vec<f64>,
+}
+
+impl PolarAzimuthalFilter {
+    /// Build the filter from OpenMC `PolarFilter` **theta** edges (ascending
+    /// angle from +z, `[0, pi]`) and `AzimuthalFilter` phi edges (gh:#691). The
+    /// polar edges are converted to `cos(theta)` (ascending), so polar bin `p`
+    /// here is OpenMC's theta bin `n_polar - 1 - p`: **the polar bin order is
+    /// reversed relative to OpenMC's**. Edges outside `[0, pi]` are rejected
+    /// rather than mis-binned silently.
+    ///
+    /// # Errors
+    ///
+    /// A theta edge outside `[0, pi]`, or a non-ascending list.
+    pub fn from_theta_edges(theta: &[f64], azimuthal: Vec<f64>) -> Result<Self, String> {
+        if theta.len() < 2 || !theta.windows(2).all(|w| w[1] > w[0]) {
+            return Err("theta edges must be ascending, at least two".into());
+        }
+        if theta.iter().any(|t| !(0.0..=core::f64::consts::PI).contains(t)) {
+            return Err(format!("theta edges {theta:?} must lie in [0, pi] radians"));
+        }
+        let polar: Vec<f64> = theta.iter().rev().map(|t| t.r_cos()).collect();
+        Ok(Self { polar, azimuthal })
+    }
 }
 
 impl Filter for PolarAzimuthalFilter {
@@ -1259,6 +1318,22 @@ impl FilterKind {
 
 #[cfg(test)]
 mod tests {
+    /// gh:#691: theta edges `[0, pi/2, pi]` become cosine edges `[-1, 0, 1]`; a
+    /// downward direction (theta > pi/2) lands in OpenMC theta-bin 1 = polar bin
+    /// 0 here (reversed order), an upward one in theta-bin 0 = polar bin 1, and
+    /// edges passed in cosine space by mistake (`[0, 1.57, 3.14]`) are rejected.
+    #[test]
+    fn theta_edges_are_converted_to_cosine_edges() {
+        let pi = core::f64::consts::PI;
+        let f = PolarAzimuthalFilter::from_theta_edges(&[0.0, 0.5 * pi, pi], vec![-pi, pi]).unwrap();
+        assert!((f.polar[0] + 1.0).abs() < 1e-12 && f.polar[1].abs() < 1e-12 && (f.polar[2] - 1.0).abs() < 1e-12);
+        let ev = |w: f64| FilterEvent { direction: Direction::new((1.0 - w * w).sqrt(), 0.0, w), ..Default::default() };
+        assert_eq!(f.get_bin(&ev(-0.5)), Some(0), "downward = theta bin 1");
+        assert_eq!(f.get_bin(&ev(0.5)), Some(1), "upward = theta bin 0");
+        assert!(PolarAzimuthalFilter::from_theta_edges(&[0.0, 1.57, 3.5], vec![-pi, pi]).is_err());
+        assert!(PolarAzimuthalFilter::from_theta_edges(&[1.0, 0.5], vec![-pi, pi]).is_err());
+    }
+
     /// gh:#687: OpenMC `lower_bound_index` edge convention. `[0,1,2]`: E = 1.0 is
     /// bin 0 (upstream lower; was 1), E = 2.0 is bin 1 (upstream kept; was
     /// dropped), E = 0.0 is bin 0, outside is `None`; empty edges do not panic.

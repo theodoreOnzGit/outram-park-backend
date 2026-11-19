@@ -390,6 +390,17 @@ pub struct KeffResult {
     pub histories: u64,
 }
 
+impl KeffResult {
+    /// Active generations that actually ran, i.e. the tally realization count
+    /// (gh:#675). With a `keff_trigger` a run stops before `n_active`, so a tally
+    /// read back with `settings.n_active` is too low by `n_active / realized`
+    /// (measured 20x on a Godiva trigger run); read it with this instead:
+    /// `bin.mean(result.active_generations(&settings) as u64)`.
+    pub fn active_generations(&self, settings: &KeffSettings) -> usize {
+        self.k_by_generation.len().saturating_sub(settings.n_inactive)
+    }
+}
+
 /// **Analog counts of how neutrons ended**, from the bare-sphere transport
 /// itself (gh:#521: the Godiva lesson teaches leakage and fast fission by
 /// counting).
@@ -426,6 +437,12 @@ pub struct HistoryCounts {
     pub captured: u64,
     /// Ended in fission, by incident energy: `[< 0.625 eV, 0.625 eV - 100 keV, > 100 keV]`.
     pub fissions_by_energy: [u64; 3],
+    /// **Lost** (gh:#699): a failed `locate` after the `TINY_BIT` retry, or a
+    /// negative boundary distance. Upstream gives such a particle weight 0 and
+    /// tallies **no** leak (`Particle::mark_as_lost`, `src/particle.cpp:866-889`),
+    /// so these are counted here and in no other bucket:
+    /// `tracked = leaked + captured + fissions + lost`.
+    pub lost: u64,
 }
 
 impl HistoryCounts {
@@ -443,6 +460,7 @@ impl HistoryCounts {
         self.tracked += other.tracked;
         self.leaked += other.leaked;
         self.captured += other.captured;
+        self.lost += other.lost;
         for (a, b) in self.fissions_by_energy.iter_mut().zip(other.fissions_by_energy) {
             *a += b;
         }
@@ -452,6 +470,13 @@ impl HistoryCounts {
     pub(crate) fn record_leak(&mut self) {
         self.tracked += 1;
         self.leaked += 1;
+    }
+
+    /// One neutron ended **lost** (gh:#699): counted in `tracked` and `lost`, scored
+    /// as no leak.
+    pub(crate) fn record_lost(&mut self) {
+        self.tracked += 1;
+        self.lost += 1;
     }
 
     /// One neutron ended by capture (absorption without fission).
@@ -3030,7 +3055,7 @@ mod tests {
                 // Every neutron ends exactly one way; each source neutron is
                 // tracked, plus any (n,xn) secondaries.
                 let c = g.counts;
-                assert_eq!(c.leaked + c.captured + c.fissions(), c.tracked, "generation {}", g.index);
+                assert_eq!(c.leaked + c.captured + c.fissions() + c.lost, c.tracked, "generation {}", g.index);
                 assert!(c.tracked >= 300 && c.fissions() > 0 && c.leaked > 0);
                 assert_eq!((g.production / 300.0).to_bits(), g.k.to_bits());
             }

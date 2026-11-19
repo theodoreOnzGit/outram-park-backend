@@ -260,6 +260,33 @@ impl TallyDerivative {
         Ok(())
     }
 
+    /// The derivative of a **material-total** score under a nuclide-density
+    /// derivative (gh:#683 item 2): `score * (flux_deriv + sigma_i / Sigma)`,
+    /// where `sigma_i` is the differentiated nuclide's microscopic cross section
+    /// for the score's reaction and `Sigma` the material's macroscopic one
+    /// (`src/tallies/derivative.cpp:211-271`). ~~`apply_to_score` used `1/N_i`~~,
+    /// which is correct only for a score ON that nuclide and overstates a
+    /// material total by `Sigma_x / (N_i sigma_x,i)`.
+    ///
+    /// # Errors
+    ///
+    /// A non-nuclide-density derivative, or `Sigma <= 0`.
+    pub fn apply_to_material_total_score(
+        &self,
+        score: f64,
+        flux_deriv: &FluxDerivative,
+        sigma_nuclide: f64,
+        sigma_macro: f64,
+    ) -> Result<f64, String> {
+        if !matches!(self.variable, DerivativeVariable::NuclideDensity { .. }) {
+            return Err("sigma_i/Sigma applies to a nuclide-density derivative only".into());
+        }
+        if !(sigma_macro > 0.0) {
+            return Err(format!("macroscopic cross section {sigma_macro} must be positive"));
+        }
+        Ok(score * (flux_deriv.value + sigma_nuclide / sigma_macro))
+    }
+
     /// Turn a score into its derivative —
     /// `apply_derivative_to_score` (`src/tallies/derivative.cpp`).
     ///
@@ -325,14 +352,13 @@ impl TallyDerivative {
                         self.material_idx
                     ));
                 };
-                // **KNOWN DEFECT (gh:#683 item 2, not fixed here):** `1/N_i` is
-                // upstream's term only for a score ON this nuclide. For a
-                // material-total score upstream uses `sigma_i / Sigma`
-                // (`derivative.cpp:211-271`), which needs the event's cross
-                // sections that this signature does not carry. Likewise the
-                // analog-only / `event_nuclide` guards (item 3) are not
-                // enforced. Do not wire this up for material-total scores
-                // until a `sigma_i / Sigma` form exists.
+                // `1/N_i` is upstream's term only for a score ON this nuclide.
+                // For a MATERIAL-TOTAL score use
+                // [`Self::apply_to_material_total_score`] (`sigma_i / Sigma`,
+                // `derivative.cpp:211-271`), which needs cross sections this
+                // signature does not carry (gh:#683 item 2). **Still not
+                // enforced (item 3):** the analog/collision-only restriction and
+                // the `event_nuclide` check for analog scores.
                 match score_type {
                     ScoreType::Total
                     | ScoreType::Scatter
@@ -579,5 +605,18 @@ mod tests {
         // Temperature: refused, not zero.
         let dt = TallyDerivative { material_idx: 3, variable: DerivativeVariable::Temperature };
         assert!(dt.accumulate_along_track(&mut FluxDerivative::default(), 3, &m, &nucs, 1.0, e).is_err());
+    }
+
+    /// gh:#683 item 2: the material-total term is `sigma_i / Sigma`, not `1/N_i`.
+    /// With `sigma_i = 2`, `Sigma = 8` and flux derivative 0.5 a score of 4 gives
+    /// `4 * (0.5 + 0.25) = 3`; a density derivative is refused.
+    #[test]
+    fn a_nuclide_density_derivative_of_a_material_total_uses_sigma_over_sigma() {
+        let d = TallyDerivative { material_idx: 0, variable: DerivativeVariable::NuclideDensity { nuclide_idx: 0 } };
+        let f = FluxDerivative { value: 0.5 };
+        assert!((d.apply_to_material_total_score(4.0, &f, 2.0, 8.0).unwrap() - 3.0).abs() < 1e-15);
+        assert!(d.apply_to_material_total_score(4.0, &f, 2.0, 0.0).is_err());
+        let dd = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Density };
+        assert!(dd.apply_to_material_total_score(4.0, &f, 2.0, 8.0).is_err());
     }
 }
