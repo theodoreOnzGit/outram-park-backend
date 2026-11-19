@@ -5,6 +5,10 @@
 //! geometry (region minus the pebbles, plus one sphere cell per pebble):
 //! a cubic lattice, random addition, a DEM pour under the default gravity
 //! (−z), and one with gravity along +x, each 20 000 DEM steps (0.7 s).
+//! Then HTR-10's DEM vessel as CSG (`region_bed::htr10_vessel_geometry`,
+//! gh:#1656): 4000 pebbles poured in metres, the route pinned bit for bit
+//! against `htr10_fill`, 15 000 steps (0.5 s), drawn x-z at y = 0 and x-y at
+//! z = −20 cm (in the conus), at ×100 so the axes read in cm.
 //!
 //! ```text
 //! cargo run --release -p outram-mc-libs --example region_bed_images -- <out dir>
@@ -19,7 +23,7 @@ use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, Slic
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, XPlane, ZCylinder, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
-use outram_mc_libs::pebble_beds::region_bed::{pack_in_region, RegionBed, RegionPacking};
+use outram_mc_libs::pebble_beds::region_bed::{htr10_vessel_geometry, pack_in_region, pack_in_region_in, LengthUnit, RegionBed, RegionPacking};
 use std::path::PathBuf;
 
 fn hs(surface_idx: usize, sense: HalfSpaceSense) -> RegionToken {
@@ -46,9 +50,9 @@ fn region() -> Geometry {
     Geometry { surfaces, cells: vec![Cell::material(1, region, 0, 293.6)], universes: vec![Universe { id: 0, cell_indices: vec![0] }], lattices: vec![], root_universe: 0 }
 }
 
-/// The region with the bed in it: pebbles material 1, the rest material 0.
-fn assembled(bed: &RegionBed) -> Geometry {
-    let mut g = region();
+/// `g` (one cell) with the bed in it: pebbles material 1, the rest
+/// material 0.
+fn assembled(mut g: Geometry, bed: &RegionBed) -> Geometry {
     for (i, c) in bed.centres.iter().enumerate() {
         g.surfaces.push(SurfaceKind::Sphere(Sphere { x0: c.x, y0: c.y, z0: c.z, r: bed.radius, bc: BoundaryType::Transmissive }));
         let s = g.surfaces.len() - 1;
@@ -73,12 +77,29 @@ fn main() {
     ];
     for (stem, packing, title) in cases {
         let bed = pack_in_region(&g, 0, r, packing).expect("bed");
-        let geom = assembled(&bed);
+        let geom = assembled(region(), &bed);
         let plot = SlicePlot { origin: Position::new(15.0, 0.0, 20.0), basis: PlotBasis::Xz, width: [24.0, 44.0], pixels: [300, 550], level: None, show_overlaps: true, meshlines: None };
         let palette = [(Rgb::new(60, 130, 200), "region (between pebbles)"), (Rgb::new(70, 70, 70), "pebble")];
         let (_raw, img) = render_material_slice(&geom, &plot, &palette, &format!("REGION_BED {title}: {} PEBBLES, X-Z AT Y = 0", bed.centres.len()));
         let path = dir.join(format!("{stem}.png"));
         img.write_png(&path).expect("png");
         eprintln!("drew {} ({} pebbles)", path.display(), bed.centres.len());
+    }
+    let seed = outram_park_fork_liggghts::htr10_fill::Htr10FillSettings::default().seed;
+    let rm = outram_park_fork_liggghts::htr10_fill::PEBBLE_RADIUS_M;
+    let bed_m = pack_in_region_in(&htr10_vessel_geometry(LengthUnit::Metre), 0, rm, RegionPacking::Pour { n: 4000, seed, gravity: None, steps: 15_000 }, LengthUnit::Metre).expect("HTR-10 pour");
+    let bed = RegionBed { centres: bed_m.centres.iter().map(|c| Position::new(c.x * 100.0, c.y * 100.0, c.z * 100.0)).collect(), radius: rm * 100.0 };
+    let geom = assembled(htr10_vessel_geometry(LengthUnit::Centimetre), &bed);
+    let palette = [(Rgb::new(60, 130, 200), "vessel (between pebbles)"), (Rgb::new(70, 70, 70), "pebble")];
+    let views = [
+        ("htr10_vessel_xz", Position::new(0.0, 0.0, 30.0), PlotBasis::Xz, [200.0, 200.0], [600, 600], "X-Z AT Y = 0"),
+        ("htr10_vessel_xy_conus", Position::new(0.0, 0.0, -20.0), PlotBasis::Xy, [200.0, 200.0], [600, 600], "X-Y AT Z = -20 CM (CONUS)"),
+    ];
+    for (stem, origin, basis, width, pixels, what) in views {
+        let plot = SlicePlot { origin, basis, width, pixels, level: None, show_overlaps: true, meshlines: None };
+        let (_raw, img) = render_material_slice(&geom, &plot, &palette, &format!("HTR-10 DEM VESSEL AS CSG, {} PEBBLES POURED (GH:#1656), {what}", bed.centres.len()));
+        let path = dir.join(format!("{stem}.png"));
+        img.write_png(&path).expect("png");
+        eprintln!("drew {}", path.display());
     }
 }

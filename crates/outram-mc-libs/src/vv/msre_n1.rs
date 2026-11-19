@@ -1519,7 +1519,7 @@ pub fn geometry_with_rods_at(mut g: Geometry, d: Dims, positions_in: [Option<f64
         // The thimble's own void keeps only the gap outside the rod.
         g.cells[idx].region.push(hs(s[5], false));
         g.cells[idx].region.push(RegionToken::Intersection);
-        let mut push = |g: &mut Geometry, cell: Cell| {
+        let push = |g: &mut Geometry, cell: Cell| {
             g.cells.push(cell);
             let n = g.cells.len() - 1;
             g.universes[root].cell_indices.push(n);

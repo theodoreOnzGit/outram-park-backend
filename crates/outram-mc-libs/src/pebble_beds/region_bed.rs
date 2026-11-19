@@ -15,18 +15,34 @@
 //!   LCG;
 //! - [`RegionPacking::Pour`]: a granular DEM pour on
 //!   `outram-park-fork-liggghts`' `GranularSystem` (the engine verified
-//!   against LIGGGHTS, as `DemBed` asks), the pebbles first placed loose by
-//!   random addition and then settled under gravity `g` along `gravity`
-//!   (**`None` is −z**), the region's planes and cylinders as the DEM's
-//!   walls. HTR-10's pour (`htr10_fill`) keeps its own vessel and −z.
+//!   against LIGGGHTS, as `DemBed` asks), settled under gravity `g` along
+//!   `gravity` (**`None` is −z**). Two routes:
+//!   - **a vessel stacked along z** (gh:#1656): a union of slabs, each
+//!     between two z-planes and inside one z-cylinder or z-cone on a common
+//!     axis, the wall continuous from slab to slab, poured with gravity −z.
+//!     It is read into `outram_park_fork_liggghts::axisym_vessel::
+//!     AxisymVessel` and poured exactly as HTR-10's fill is (slab-by-slab
+//!     loose seed from the floor, the top radius as a DEM cylinder, the
+//!     floor as a plane, the lower segments as a triangle mesh): HTR-10's
+//!     vessel given as CSG gives `htr10_fill::Htr10Fill`'s bed bit for bit
+//!     (`tests/region_bed_htr10_1656.rs`);
+//!   - **any other plain intersection** of planes and cylinder insides: the
+//!     pebbles placed loose by random addition, then settled, the region's
+//!     surfaces as the DEM's walls.
+//!
+//! **Units.** [`pack_in_region`] reads the region in cm;
+//! [`pack_in_region_in`] takes a [`LengthUnit`], so a region given in
+//! metres reaches the DEM (which runs in metres) with no conversion.
 //!
 //! **Containment is exact, not sampled**: a ball of radius `r` at `c` is in
 //! the region when `c` is and no surface of the region passes within `r`
 //! of `c` (each surface's closest distance is computed in closed form, see
 //! [`surface_distance`]). Then every point of the ball is on the same side
 //! of every surface as `c`, so in the region whatever its Boolean form.
-//! Cones, tori and general quadrics have no closed form here and are
-//! refused by name.
+//! z-cones are measured in the meridian plane (since gh:#1656); x/y-cones,
+//! tori and general quadrics have no closed form here and are refused by
+//! name. The lattice and random packings, and the second pour route, take a
+//! plain intersection (their bounding box is that of the intersection).
 //!
 //! New work, not a port: OpenMC builds its pebble beds outside the code
 //! (its `openmc.model.pack_spheres` is a random packing in a box, cylinder
@@ -44,6 +60,36 @@ use crate::geometry::cell::{HalfSpaceSense, RegionToken};
 use crate::geometry::geometry::Geometry;
 use crate::geometry::position::Position;
 use crate::geometry::surface::SurfaceKind;
+
+/// The length unit of a region's coordinates (and of the bed returned).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LengthUnit {
+    /// cm, the transport geometry's unit (the default).
+    #[default]
+    Centimetre,
+    /// m, the DEM's unit.
+    Metre,
+}
+
+impl LengthUnit {
+    /// Metres per unit.
+    #[must_use]
+    pub fn to_m(self) -> f64 {
+        match self {
+            Self::Centimetre => 1e-2,
+            Self::Metre => 1.0,
+        }
+    }
+
+    /// Units per metre.
+    #[must_use]
+    pub fn from_m(self) -> f64 {
+        match self {
+            Self::Centimetre => 1e2,
+            Self::Metre => 1.0,
+        }
+    }
+}
 
 /// How to fill the region.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -84,11 +130,11 @@ pub enum RegionBedError {
     Dem(String),
 }
 
-/// Closest distance \[cm\] from `p` to `s`, in closed form for planes,
-/// axis-aligned cylinders and spheres.
+/// Closest distance from `p` to `s` (in the region's unit), in closed form
+/// for planes, axis-aligned cylinders, spheres and z-cones.
 ///
 /// # Errors
-/// [`RegionBedError::UnsupportedSurface`] for cones, tori and general
+/// [`RegionBedError::UnsupportedSurface`] for x/y-cones, tori and general
 /// quadrics.
 pub fn surface_distance(s: &SurfaceKind, p: Position) -> Result<f64, RegionBedError> {
     let r2 = |a: f64, b: f64| (a * a + b * b).sqrt();
@@ -101,6 +147,17 @@ pub fn surface_distance(s: &SurfaceKind, p: Position) -> Result<f64, RegionBedEr
         SurfaceKind::XCylinder(c) => (r2(p.y - c.y0, p.z - c.z0) - c.r).abs(),
         SurfaceKind::YCylinder(c) => (r2(p.x - c.x0, p.z - c.z0) - c.r).abs(),
         SurfaceKind::Sphere(c) => (((p.x - c.x0).r_powi(2) + (p.y - c.y0).r_powi(2) + (p.z - c.z0).r_powi(2)).sqrt() - c.r).abs(),
+        // Both nappes of ρ = k |z − z0|: in the meridian half-plane each is
+        // the ray (k t, z0 ± t), t ≥ 0; the closest point on it, clamped at
+        // the apex.
+        SurfaceKind::ZCone(c) => {
+            let (rho, h, k) = (r2(p.x - c.x0, p.y - c.y0), p.z - c.z0, c.r_sq.sqrt());
+            let nappe = |sg: f64| {
+                let t = ((rho * k + sg * h) / (1.0 + k * k)).max(0.0);
+                r2(rho - k * t, h - sg * t)
+            };
+            nappe(1.0).min(nappe(-1.0))
+        }
         other => return Err(RegionBedError::UnsupportedSurface(format!("{other:?}"))),
     })
 }
@@ -189,15 +246,34 @@ fn bounding_box(region: &[RegionToken], surfaces: &[SurfaceKind]) -> Option<([f6
     (lo.iter().chain(hi.iter()).all(|v| v.is_finite())).then_some((lo, hi))
 }
 
-/// Pebbles of radius `radius` \[cm\] in cell `cell` of `geom`, by `packing`.
+/// Pebbles of radius `radius` \[cm\] in cell `cell` of `geom` (in cm), by
+/// `packing`: [`pack_in_region_in`] with [`LengthUnit::Centimetre`].
 ///
 /// # Errors
 /// See [`RegionBedError`].
 pub fn pack_in_region(geom: &Geometry, cell: usize, radius: f64, packing: RegionPacking) -> Result<RegionBed, RegionBedError> {
+    pack_in_region_in(geom, cell, radius, packing, LengthUnit::Centimetre)
+}
+
+/// Pebbles of radius `radius` in cell `cell` of `geom`, by `packing`, with
+/// the geometry, the radius and the returned bed all in `unit`.
+///
+/// # Errors
+/// See [`RegionBedError`].
+pub fn pack_in_region_in(geom: &Geometry, cell: usize, radius: f64, packing: RegionPacking, unit: LengthUnit) -> Result<RegionBed, RegionBedError> {
     let region = &geom.cells.get(cell).ok_or(RegionBedError::NoSuchCell(cell))?.region;
     let surfaces = &geom.surfaces;
     if !(radius > 0.0) {
         return Err(RegionBedError::Invalid(format!("radius {radius}")));
+    }
+    if let RegionPacking::Pour { n, seed, gravity, steps } = packing {
+        let down = gravity.is_none_or(|g| g[0] == 0.0 && g[1] == 0.0 && g[2] < 0.0);
+        if down {
+            if let Some(stack) = z_stack(region, surfaces)? {
+                let centres = pour_z_stack(&stack, radius, n, seed, steps, unit)?;
+                return Ok(RegionBed { centres, radius });
+            }
+        }
     }
     let (lo, hi) = bounding_box(region, surfaces).ok_or(RegionBedError::Unbounded)?;
     let centres = match packing {
@@ -220,7 +296,7 @@ pub fn pack_in_region(geom: &Geometry, cell: usize, radius: f64, packing: Region
             out
         }
         RegionPacking::Random { fraction, seed, max_attempts } => random_addition(region, surfaces, lo, hi, radius, fraction, usize::MAX, seed, max_attempts)?,
-        RegionPacking::Pour { n, seed, gravity, steps } => pour(region, surfaces, lo, hi, radius, n, seed, gravity, steps)?,
+        RegionPacking::Pour { n, seed, gravity, steps } => pour(region, surfaces, lo, hi, radius, n, seed, gravity, steps, unit)?,
     };
     Ok(RegionBed { centres, radius })
 }
@@ -286,8 +362,8 @@ fn random_addition(
     Ok(out)
 }
 
-/// The DEM pour (module docs). Units: the DEM runs in metres, the bed is
-/// returned in cm. Pebble density and contact parameters are HTR-10's
+/// The DEM pour of a plain intersection (module docs). Units: the DEM runs
+/// in metres, the bed is returned in `unit`. Pebble density and contact parameters are HTR-10's
 /// pour defaults (`htr10_fill::Htr10FillSettings`, graphite 1730 kg/m³):
 /// they set how the pebbles settle, not where the walls are.
 #[allow(clippy::too_many_arguments)]
@@ -301,6 +377,7 @@ fn pour(
     seed: u64,
     gravity: Option<[f64; 3]>,
     steps: usize,
+    unit: LengthUnit,
 ) -> Result<Vec<Position>, RegionBedError> {
     use outram_park_fork_liggghts::boundary::Boundary;
     use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
@@ -329,13 +406,14 @@ fn pour(
     let s = Htr10FillSettings::default();
     let material = GranularMaterial::new(s.youngs_modulus.get::<pascal>(), s.poisson_ratio, s.restitution, s.friction).map_err(|e| RegionBedError::Dem(format!("{e:?}")))?;
     let model = GranularContactModel::hertz_history(material);
-    let rm = r * 1e-2;
+    let (to_m, from_m) = (unit.to_m(), unit.from_m());
+    let rm = r * to_m;
     let mass = PEBBLE_DENSITY * 4.0 / 3.0 * core::f64::consts::PI * rm * rm * rm;
     let particles: Vec<Particle> = start
         .iter()
         .map(|c| {
             Particle::new(
-                Vec3::new(c.x * 1e-2, c.y * 1e-2, c.z * 1e-2),
+                Vec3::new(c.x * to_m, c.y * to_m, c.z * to_m),
                 Vec3::zero(),
                 Vec3::zero(),
                 Mass::new::<kilogram>(mass),
@@ -348,14 +426,224 @@ fn pour(
     let boundaries: Vec<Boundary> = walls
         .into_iter()
         .map(|w| match w {
-            Wall::Plane { point, normal } => Boundary::wall(Vec3::new(point[0] * 1e-2, point[1] * 1e-2, point[2] * 1e-2), Vec3::new(normal[0], normal[1], normal[2])),
-            Wall::Cylinder { point, axis, radius } => Boundary::cylinder(Vec3::new(point[0] * 1e-2, point[1] * 1e-2, point[2] * 1e-2), Vec3::new(axis[0], axis[1], axis[2]), radius * 1e-2),
+            Wall::Plane { point, normal } => Boundary::wall(Vec3::new(point[0] * to_m, point[1] * to_m, point[2] * to_m), Vec3::new(normal[0], normal[1], normal[2])),
+            Wall::Cylinder { point, axis, radius } => Boundary::cylinder(Vec3::new(point[0] * to_m, point[1] * to_m, point[2] * to_m), Vec3::new(axis[0], axis[1], axis[2]), radius * to_m),
         })
         .collect::<Result<_, _>>()
         .map_err(|e| RegionBedError::Dem(format!("{e:?}")))?;
     let mut sys = GranularSystem::new(particles, boundaries, model, g, s.dt.get::<second>()).map_err(|e| RegionBedError::Dem(format!("{e:?}")))?;
     sys.run(steps);
-    Ok(sys.particles().iter().map(|p| Position::new(p.position.x * 1e2, p.position.y * 1e2, p.position.z * 1e2)).collect())
+    Ok(sys.particles().iter().map(|p| Position::new(p.position.x * from_m, p.position.y * from_m, p.position.z * from_m)).collect())
+}
+
+/// HTR-10's DEM vessel (`outram_park_fork_liggghts::htr10_fill`) as one
+/// CSG cell in `unit`: the discharge tube from the valve, the conus and the
+/// barrel, three slabs joined by a union (the tube and barrel inside
+/// z-cylinders, the conus inside a z-cone whose slope and apex come from
+/// the same constants), with a top plane 3 m up. Poured with
+/// [`RegionPacking::Pour`] in metres it gives `Htr10Fill`'s bed bit for bit
+/// (`tests/region_bed_htr10_1656.rs`).
+#[must_use]
+pub fn htr10_vessel_geometry(unit: LengthUnit) -> Geometry {
+    use crate::geometry::cell::Cell;
+    use crate::geometry::surface::{BoundaryType, ZCone, ZCylinder, ZPlane};
+    use crate::geometry::universe::Universe;
+    use outram_park_fork_liggghts::htr10_fill::{CONE_HEIGHT_M, CORE_RADIUS_M, TUBE_RADIUS_M, VALVE_Z_M};
+    let (t, f) = (BoundaryType::Transmissive, unit.from_m());
+    let k = (CORE_RADIUS_M - TUBE_RADIUS_M) / CONE_HEIGHT_M;
+    let apex = -CONE_HEIGHT_M - TUBE_RADIUS_M / k;
+    let surfaces = vec![
+        SurfaceKind::ZPlane(ZPlane { z0: VALVE_Z_M * f, bc: t }),
+        SurfaceKind::ZPlane(ZPlane { z0: -CONE_HEIGHT_M * f, bc: t }),
+        SurfaceKind::ZPlane(ZPlane { z0: 0.0, bc: t }),
+        SurfaceKind::ZPlane(ZPlane { z0: 3.0 * f, bc: t }),
+        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: TUBE_RADIUS_M * f, bc: t }),
+        SurfaceKind::ZCone(ZCone { x0: 0.0, y0: 0.0, z0: apex * f, r_sq: k * k, bc: t }),
+        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: CORE_RADIUS_M * f, bc: t }),
+    ];
+    let hs = |surface_idx: usize, inside: bool| RegionToken::HalfSpace { surface_idx, sense: if inside { HalfSpaceSense::Inside } else { HalfSpaceSense::Outside } };
+    let i = RegionToken::Intersection;
+    let region = vec![
+        hs(0, false), hs(1, true), i.clone(), hs(4, true), i.clone(), // tube
+        hs(1, false), hs(2, true), i.clone(), hs(5, true), i.clone(), // conus
+        RegionToken::Union,
+        hs(2, false), hs(3, true), i.clone(), hs(6, true), i, // barrel
+        RegionToken::Union,
+    ];
+    Geometry { surfaces, cells: vec![Cell::material(1, region, 0, 293.6)], universes: vec![Universe { id: 0, cell_indices: vec![0] }], lattices: vec![], root_universe: 0 }
+}
+
+/// One slab of a z-stack: between `lo` and `hi`, inside `side`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Slab {
+    lo: f64,
+    hi: f64,
+    side: Side,
+}
+
+/// A slab's lateral wall.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Side {
+    Cylinder { x0: f64, y0: f64, r: f64 },
+    Cone { x0: f64, y0: f64, z0: f64, k: f64 },
+}
+
+impl Side {
+    fn axis(self) -> (f64, f64) {
+        match self {
+            Self::Cylinder { x0, y0, .. } | Self::Cone { x0, y0, .. } => (x0, y0),
+        }
+    }
+
+    fn radius(self, z: f64) -> f64 {
+        match self {
+            Self::Cylinder { r, .. } => r,
+            Self::Cone { z0, k, .. } => k * (z - z0).abs(),
+        }
+    }
+}
+
+/// A vessel stacked along z (module docs): knots `(z, R)` rising, the
+/// floor, the top plane and the axis, in the region's unit.
+#[derive(Debug, Clone, PartialEq)]
+struct ZStack {
+    knots: Vec<(f64, f64)>,
+    floor: f64,
+    top: f64,
+    axis: (f64, f64),
+}
+
+/// An RPN operand while reading a z-stack: one slab's half-spaces, or a
+/// union of slabs.
+enum Operand {
+    Leaves(Vec<(SurfaceKind, bool)>),
+    Union(Vec<Vec<(SurfaceKind, bool)>>),
+}
+
+/// The region read as a vessel stacked along z, `None` if it is not one
+/// (any other surface, a complement, an intersection of unions, a slab
+/// without exactly one floor, top and side, or sides on different axes).
+///
+/// # Errors
+/// [`RegionBedError::UnsupportedWall`] if it is a z-stack but the wall
+/// steps from one slab to the next, or the slabs leave a gap or overlap.
+fn z_stack(region: &[RegionToken], surfaces: &[SurfaceKind]) -> Result<Option<ZStack>, RegionBedError> {
+    let mut stack: Vec<Operand> = Vec::new();
+    for t in region {
+        match t {
+            RegionToken::HalfSpace { surface_idx, sense } => stack.push(Operand::Leaves(vec![(surfaces[*surface_idx].clone(), *sense == HalfSpaceSense::Inside)])),
+            RegionToken::Intersection => {
+                let (Some(Operand::Leaves(mut b)), Some(Operand::Leaves(a))) = (stack.pop(), stack.pop()) else { return Ok(None) };
+                b.extend(a);
+                stack.push(Operand::Leaves(b));
+            }
+            RegionToken::Union => {
+                let (Some(b), Some(a)) = (stack.pop(), stack.pop()) else { return Ok(None) };
+                let mut slabs = Vec::new();
+                for o in [a, b] {
+                    match o {
+                        Operand::Leaves(l) => slabs.push(l),
+                        Operand::Union(u) => slabs.extend(u),
+                    }
+                }
+                stack.push(Operand::Union(slabs));
+            }
+            RegionToken::Complement => return Ok(None),
+        }
+    }
+    let leaves = match (stack.pop(), stack.is_empty()) {
+        (Some(Operand::Leaves(l)), true) => vec![l],
+        (Some(Operand::Union(u)), true) => u,
+        _ => return Ok(None),
+    };
+    let mut slabs = Vec::with_capacity(leaves.len());
+    for l in leaves {
+        let (mut lo, mut hi, mut side) = (None, None, None);
+        for (s, inside) in l {
+            match (s, inside) {
+                (SurfaceKind::ZPlane(p), false) if lo.is_none() => lo = Some(p.z0),
+                (SurfaceKind::ZPlane(p), true) if hi.is_none() => hi = Some(p.z0),
+                (SurfaceKind::ZCylinder(c), true) if side.is_none() => side = Some(Side::Cylinder { x0: c.x0, y0: c.y0, r: c.r }),
+                (SurfaceKind::ZCone(c), true) if side.is_none() => side = Some(Side::Cone { x0: c.x0, y0: c.y0, z0: c.z0, k: c.r_sq.sqrt() }),
+                _ => return Ok(None),
+            }
+        }
+        let (Some(lo), Some(hi), Some(side)) = (lo, hi, side) else { return Ok(None) };
+        if !(hi > lo) {
+            return Ok(None);
+        }
+        if let Side::Cone { z0, .. } = side {
+            if z0 > lo && z0 < hi {
+                return Ok(None);
+            }
+        }
+        slabs.push(Slab { lo, hi, side });
+    }
+    let axis = slabs[0].side.axis();
+    if slabs.iter().any(|s| s.side.axis() != axis) {
+        return Ok(None);
+    }
+    slabs.sort_by(|a, b| a.lo.total_cmp(&b.lo));
+    let mut knots = vec![(slabs[0].lo, slabs[0].side.radius(slabs[0].lo))];
+    for (i, s) in slabs.iter().enumerate() {
+        let r_top = s.side.radius(s.hi);
+        let r = match slabs.get(i + 1) {
+            None => r_top,
+            Some(n) => {
+                if n.lo != s.hi {
+                    return Err(RegionBedError::UnsupportedWall(format!("z-stack slabs meet at {} and {}: a gap or an overlap", s.hi, n.lo)));
+                }
+                let r_up = n.side.radius(n.lo);
+                if (r_up - r_top).abs() > 1e-9 * r_top.max(r_up) {
+                    return Err(RegionBedError::UnsupportedWall(format!("the wall steps from {r_top} to {r_up} at z = {}", s.hi)));
+                }
+                // Continuous: a cylinder's radius is exact, a cone's is computed.
+                match (s.side, n.side) {
+                    (Side::Cylinder { r, .. }, _) | (_, Side::Cylinder { r, .. }) => r,
+                    _ => r_top,
+                }
+            }
+        };
+        knots.push((s.hi, r));
+    }
+    // The first knot: a cylinder's own radius when the bottom slab is one.
+    if let Side::Cylinder { r, .. } = slabs[0].side {
+        knots[0].1 = r;
+    }
+    let top = knots[knots.len() - 1].0;
+    // Constant top segments are the barrel (a DEM cylinder), not mesh.
+    while knots.len() > 1 && knots[knots.len() - 1].1 == knots[knots.len() - 2].1 {
+        knots.pop();
+    }
+    Ok(Some(ZStack { knots, floor: slabs[0].lo, top, axis }))
+}
+
+/// The pour of a z-stack: `outram_park_fork_liggghts::axisym_vessel`, with
+/// HTR-10's pour settings (`Htr10FillSettings::default`, graphite at
+/// `PEBBLE_DENSITY`), gravity 9.81 m/s² along −z, 120 quads per mesh band.
+/// Centres in `unit`.
+///
+/// # Errors
+/// [`RegionBedError::Invalid`] if the loose seed reaches above the top
+/// plane; [`RegionBedError::Dem`] if the DEM refuses the set-up.
+fn pour_z_stack(z: &ZStack, r: f64, n: usize, seed: u64, steps: usize, unit: LengthUnit) -> Result<Vec<Position>, RegionBedError> {
+    use outram_park_fork_liggghts::axisym_vessel::{pebble_at, seed_in_vessel, vessel_system, AxisymVessel};
+    use outram_park_fork_liggghts::htr10_fill::{Htr10FillSettings, PEBBLE_DENSITY};
+    use outram_park_fork_liggghts::particle::Vec3;
+    let (to_m, from_m) = (unit.to_m(), unit.from_m());
+    let dem = |e: outram_park_fork_liggghts::DemError| RegionBedError::Dem(format!("{e:?}"));
+    let knots = z.knots.iter().map(|&(s, rr)| (s * to_m, rr * to_m)).collect();
+    let vessel = AxisymVessel::new(Vec3::new(z.axis.0 * to_m, z.axis.1 * to_m, 0.0), Vec3::new(0.0, 0.0, 1.0), knots, z.floor * to_m).map_err(dem)?;
+    let rm = r * to_m;
+    let start = seed_in_vessel(&vessel, n, seed, rm);
+    if let Some(c) = start.iter().find(|c| c.z + rm > z.top * to_m) {
+        return Err(RegionBedError::Invalid(format!("{n} pebbles do not fit loosely below the top plane (one seeded at z = {} m)", c.z)));
+    }
+    let particles = start.into_iter().map(|x| pebble_at(x, rm, PEBBLE_DENSITY)).collect::<Result<Vec<_>, _>>().map_err(dem)?;
+    let settings = Htr10FillSettings { n_pebbles: n, seed, ..Htr10FillSettings::default() };
+    let mut sys = vessel_system(&vessel, particles, Vec3::new(0.0, 0.0, -9.81), &settings, 120).map_err(dem)?;
+    sys.run(steps);
+    Ok(sys.particles().iter().map(|p| Position::new(p.position.x * from_m, p.position.y * from_m, p.position.z * from_m)).collect())
 }
 
 /// A DEM wall in the region's terms \[cm\]: the domain is the side the
