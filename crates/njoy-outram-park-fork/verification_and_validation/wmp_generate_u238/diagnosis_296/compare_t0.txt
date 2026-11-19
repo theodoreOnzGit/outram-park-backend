@@ -1,0 +1,48 @@
+OpenMC: n_peaks=49, first_order=98, last_order_visited=154, orders_visited=519, stop=acceleration, final_poles=67, grid_points_outside=0, seconds=2599.772964000702
+port: n_peaks=49, first_order=98, last_order_visited=130, orders_visited=17, stop=acceleration, final_poles=60, grid_points_outside=2094, seconds=4454.7
+orders visited: OpenMC 98..138 (21), port 98..130 (17), common 17
+
+Iteration 1 of each common order (same deterministic initial poles):
+  order 98: quality -inf vs -inf, n_out 155670 vs 155665, poles max rel diff 1.96e-02
+  order 100: quality -inf vs -inf, n_out 155457 vs 155656, poles max rel diff 9.37e-03
+  order 102: quality -inf vs -inf, n_out 155677 vs 155653, poles max rel diff 2.09e-02
+  order 104: quality -inf vs -inf, n_out 155626 vs 155647, poles max rel diff 9.20e-03
+  order 106: quality -inf vs -inf, n_out 155583 vs 155667, poles max rel diff 2.03e-02
+  order 108: quality -inf vs -inf, n_out 155639 vs 155662, poles max rel diff 2.35e-02
+  order 110: quality -inf vs -inf, n_out 155670 vs 155658, poles max rel diff 2.05e-02
+  order 112: quality -inf vs -inf, n_out 155652 vs 155633, poles max rel diff 7.51e-03
+  order 114: quality -inf vs -inf, n_out 155686 vs 155655, poles max rel diff 8.92e-03
+  order 116: quality -inf vs -inf, n_out 155673 vs 155613, poles max rel diff 2.10e-02
+  order 118: quality -inf vs -inf, n_out 155669 vs 155621, poles max rel diff 9.22e-03
+  order 120: quality -inf vs -inf, n_out 155667 vs 155672, poles max rel diff 3.54e-02
+  order 122: quality -inf vs -inf, n_out 155701 vs 155652, poles max rel diff 2.01e-02
+  order 124: quality -inf vs -inf, n_out 155688 vs 155655, poles max rel diff 2.13e-02
+  order 126: quality -inf vs -inf, n_out 155682 vs 155661, poles max rel diff 1.00e-02
+  order 128: quality -inf vs -inf, n_out 155702 vs 155520, poles max rel diff 2.22e-02
+  order 130: quality -inf vs -inf, n_out 155661 vs 155664, poles max rel diff 2.05e-02
+  |dquality| <= 1e-9: 17/17, <= 1e-6: 17/17, <= 1e-3: 17/17; max 0.000e+00, median 0.000e+00
+  poles max rel diff <= 1e-9: 0/17, <= 1e-6: 0/17, <= 1e-3: 0/17; median 2.026e-02, max 3.542e-02
+  identical test-grid points outside (n_out): 0/17
+
+Drift inside an order: first iteration at which the pole sets differ by more than 1e-6 (relative); '-' = never over the common iterations
+  orders whose pole sets drift past 1e-6: 17/17; first-drift iteration median 1.0, min 1, max 1
+
+Per order: best (fewest test-grid points outside) over the iterations of that order, and the accepted-so-far quality
+order | OpenMC iters, best n_out, best quality | port iters, best n_out, best quality
+  98 | 30 135698   1.10063 | 30 135037   0.91631
+ 100 | 30 110525   1.28134 | 30 119294   1.22036
+ 102 | 30  87357   1.37502 | 30 124353   0.99103
+ 104 | 30  95498   1.35689 | 30  88283   1.37483
+ 106 | 30  70406   1.45395 | 30 103460   1.28404
+ 108 | 30  66937   1.46765 | 30 109868   1.25230
+ 110 | 30  59189   1.53428 | 30  64882   1.46938
+ 112 | 30  56200   1.52824 | 30  65023   1.46689
+ 114 | 30  55328   1.52942 | 30  76170   1.24828
+ 116 | 30  66475   1.45357 | 30 109125   1.08377
+ 118 | 30  51336   1.66073 | 30  64970   1.46014
+ 120 | 30  61701   1.48570 | 30  74635   1.23266
+ 122 | 30  66952   1.46671 | 30 115526   1.05529
+ 124 | 30  57280   1.52500 | 30  65256   1.45294
+ 126 | 30  84980   1.36806 | 30  63646   1.45760
+ 128 | 30  62727   1.49055 | 30  63297   1.45563
+ 130 | 30  55943   1.50455 | 30 114537   1.05112
