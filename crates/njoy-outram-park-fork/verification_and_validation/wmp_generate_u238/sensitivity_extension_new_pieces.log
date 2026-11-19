@@ -18,3 +18,4 @@ piece 298 trial 1 (xs +-1 ulp): pole count 57 vs saved 62, 0 grid points outside
 piece 75 trial 1 (xs +-1 ulp): 16 poles, poles move 1.051e-03, residues 6.157e-02 relative; 0 points outside rtol/atol of the data; sigma worst 3.993e-04 b absolute, 1.198e-05 relative above atol; 198 s
 piece 125 trial 1 (xs +-1 ulp): 20 poles, poles move 1.085e-02, residues 5.111e-02 relative; 1 points outside rtol/atol of the data; sigma worst 2.563e-04 b absolute, 6.164e-06 relative above atol; 308 s
 piece 225 trial 1 (xs +-1 ulp): 34 poles, poles move 2.442e-03, residues 2.334e+00 relative; 23 points outside rtol/atol of the data; sigma worst 1.432e-02 b absolute, 6.732e-04 relative above atol; 334 s
+piece 250 trial 1 (xs +-1 ulp): pole count 49 vs saved 50, 186 grid points outside rtol/atol of the data, 505 s

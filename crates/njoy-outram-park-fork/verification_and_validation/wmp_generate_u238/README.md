@@ -407,7 +407,8 @@ N. Two trials are a thin sample (see the last paragraph).
 | 275 | 57 against 46 poles, port 72 points outside | 3 trials: counts **50, 48, 46** (poles 1.9e-4 and residues 0.38 in the one that kept 46) | count: **outside** (46 to 50 against 57), see below |
 | 296 (1 trial) | 60 against 67, port 2 094 points outside | count **74**, 66 points outside | count: outside the one OpenMC trial (74), as is the 67 |
 | 298 (1 trial) | 67 against 62, port 1 064 points outside | count **57**, 0 points outside | count: outside the one OpenMC trial (57), as is the 62 |
-| 250, 299 | | **not run** | not stated |
+| 250 (1 trial) | 50 = 50 poles; 4.0e-3 / 1.3 / 8.8e-2 | count **49**, **186 grid points outside** the data (unperturbed OpenMC and port: 0) | the port-vs-OpenMC values themselves were not compared with this trial (it changed the pole count) |
+| 299 | | **not run** | not stated |
 
 Tally for the 20 pieces with equal pole counts and a self-sensitivity run (0-11, 25, 50, 75, 100, 125, 200, 225,
 303): all three metrics inside OpenMC's own spread on **4 pieces** (4, 8, 100, 225). Of the 60 comparisons 22
@@ -436,7 +437,9 @@ at 46 to 67 poles; the port's fit has 72, 2 094, 1 064 and 661 outside, at 57, 6
 Two measurements bear on whether that is a defect or the same chaos in the order search that OpenMC shows:
 
 - **OpenMC against itself** (above): its pole count moves when its input moves by one ulp (piece 275: 46, then 50, 48
-  and 46; piece 296: 67, then 74, and the 74-pole fit leaves 66 grid points outside; piece 298: 62, then 57 with 0 outside).
+  and 46; piece 296: 67, then 74, and the 74-pole fit leaves 66 grid points outside; piece 298: 62, then 57 with 0 outside;
+  piece 250, whose unperturbed fit and the port's both have 0 outside: 50, then 49 poles with **186 grid points outside**).
+  So one ulp is enough to take OpenMC from a perfect fit to hundreds of misses on a 6 900-point piece.
 - **The port against itself**, `u238_port_self_sensitivity` (piece 275, one trial, the cross sections moved by +-1 ulp
   with a fixed xorshift sign pattern; 925 s): **55 poles and 0 grid points outside**, against 57 poles and 72 outside
   unperturbed. So the port's search also reaches a fit that reproduces every grid point once the input moves by one
@@ -448,7 +451,7 @@ Two measurements bear on whether that is a defect or the same chaos in the order
 Reading: the pole-count differences of the dense pieces are consistent with a search that is chaotic at 46 to 67
 poles in both codes, and I found no evidence of a defect in the port. It is **not shown** that the port's miss
 rate matches OpenMC's: unperturbed, OpenMC missed 0, 0, 0 and 3 grid points on four pieces and the port 72 to
-2 094; OpenMC's perturbed 296 left 66 outside. That is a count of four to eight pieces, not a distribution.
+2 094; OpenMC's perturbed 296 left 66 outside and its perturbed 250 left 186. That is a handful of pieces, not a distribution.
 Not done, and what would settle it: the port's order search traced against OpenMC's (which order each ends on, the
 quality value reached) on one dense piece, and several +-1 ulp trials of both codes on 296 and 298 with the
 points-outside count. Nothing was changed in the port.
@@ -485,7 +488,7 @@ pins and gates are the printed values and have not been re-run in the committed 
 
 - Rule 2 set C and rule 3: no contiguous prefix beyond piece 11, so no longer windowing differential; the 12-piece
   prefix stays the only windowing result.
-- OpenMC self-sensitivity of pieces 250 and 299 (queued, not reached), a second perturbed trial of 75, 125, 225, 296
+- OpenMC self-sensitivity of piece 299 (not reached), a second perturbed trial of 75, 125, 225, 296
   and 298, and OpenMC's perturbed trials of 275 with the points-outside count.
 - The 304-piece fit, the whole-library pole count and the window parameters of the whole library.
 - Any diagnosis of the dense-end difference above. No change was made to the port.
