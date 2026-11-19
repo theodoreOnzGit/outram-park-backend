@@ -1239,7 +1239,7 @@ this default; each moved by less than 1σ.
 - **Binaries:** `msre_n1_params` (42b372a59) and `msre_n1_rods` (54d472f7f).
 - **Hardware:** llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, Intel Xeon, 15.7 GiB RAM, Linux, CPU transport. The machine was shared with builds, so wall times are not quoted.
 - **Data:** `data/` labels `+salt-level-<z>cm`, `+u235wt-<w>`, `+rodpos-<a>_<b>_<c>`.
-- **Comparison:** each case against the default re-run on the same binary, k = **1.019902 ± 0.000544**. That re-run is **+237 pcm** from the 2026-11-13 binary's 1.017528 ± 0.000538. The shift is not from these parameters, whose `None` defaults are pinned to today's geometry and salt; it is reported on gh:#1128 and not yet bisected.
+- **Comparison:** each case against the default re-run on the same binary, k = **1.019902 ± 0.000544**. That re-run is **+237 pcm** from the 2026-11-13 binary's 1.017528 ± 0.000538. The shift is not from these parameters, whose `None` defaults are pinned to today's geometry and salt; it is reported on gh:#1128 and ~~not yet bisected~~ **bisected 2026-11-19, part found** (see "The +237 pcm code shift" below).
 - **Predictions:** posted on each issue before its runs.
 
 **Salt level (#1659).** Salt below `z` (above the stringer bottom), void above it. Drawn at 162.8, 100 and 40 cm in `images/parameters/`. There is **no reference**: ORNL-4233 measured nothing against level.
@@ -1277,6 +1277,28 @@ The one-group prediction undervalued the upper head's 26 cm of salt. That salt b
   - the axial smearing of the elements;
   - the static-worth normalisation.
 - **Statistics:** these are single seeds. The six-seed runs at all three configurations, and rod 1 at 40, 30, 20 and 10 in for its integral curve, were launched 2026-11-19. Their curve prediction is on gh:#1658. ORNL-4233 Figs. 5–6, the measured curve, are not digitised here.
+
+#### The +237 pcm code shift, bisected (2026-11-19, gh:#1128)
+
+- **Method:** `git bisect` from 0dd316cb (good, the 2026-11-13 binary) to 57b484bc (bad). Each step builds the N-1 example at that commit and runs the default, seed 1, on today's data and today's checkout of `reference-data`. A step is good only if k is **exactly** 1.017528. A commit that does not compile is skipped. Each step takes about 50 min.
+- **Results:**
+
+| commit | k |
+|---|---|
+| 9fb69f83, 3f6338c9, 651dcd74, c0171d11 | 1.017528 (good) |
+| **323d5d93**, 66ff395c, a97ca6da | **1.018617** (+109 pcm) |
+| cedf0a10, 46d78180 | 1.019902 (+237 pcm) |
+| c1c427c5 | does not compile (duplicated `RealMath`), skipped |
+
+- **First change, +109 pcm: 323d5d93.** That commit makes four cross-section details match OpenMC by default (gh:#463 items 5, 6, 7 and 11):
+  - ν-fission is interpolated as a product;
+  - the energy grid extrapolates beyond its ends;
+  - S(α,β) is dropped only for E > E_max, where before it was dropped at E ≥ E_max;
+  - the S(α,β) total is computed as total + thermal − elastic.
+  
+  It is the commit predicted on gh:#1128 before the last steps ran. 66ff395c, the next commit, only adds a test, so it cannot move k.
+- **Interpretation:** this is a correction toward the upstream rule, not a defect. It is kept, as "correct physics is the default" requires, and it moves N-1 further from the reference. `OUTRAM_MC_LEGACY_XS_DETAILS=1` restores all four details together. Which of the four carries the +109 pcm is **not yet measured**.
+- **The remaining +128 pcm** comes from a later change, between a97ca6da and cedf0a10. A second bisect over that range was launched at 15:47 UTC, with a step good only if k is exactly 1.018617.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 

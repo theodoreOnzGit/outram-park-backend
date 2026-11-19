@@ -77,7 +77,10 @@ cgroup peak 16.8 GiB including its build-script `cargo check`), in 198 s
 and 301 s. Under a 15 GiB memory cap it was OOM-killed after 218 s. Two runs
 over the same tree wrote byte-identical indexes. This matters for CI: a
 16 GB GitHub-hosted runner cannot hold it without swap (see
-`.github/workflows/pages.yml`).
+`.github/workflows/pages.yml`). *(2026-11-19, #1668: this is why the index
+is now partitioned by default, at most 12.0 GiB per worker, with an
+identical call graph plus 11 cross-package `#[path]` calls; see
+`partitioned-indexing.md` §5.)*
 
 ### Edges
 

@@ -255,6 +255,14 @@ pub fn generate_scip(root: &Path) -> Result<PathBuf, String> {
 /// the child is run by [`super::index_control::run_child`], under `nice`
 /// when `ctl.nice`, and a cancel stops it by its own process id.
 pub fn generate_scip_controlled(root: &Path, ctl: &super::index_control::RunControl) -> Result<PathBuf, String> {
+    // Partitioned by default since 2026-11-19 (GitHub #1668, #1672):
+    // rust-analyzer loads one partition's closure at a time instead of the
+    // whole workspace. `KOVAN_INDEXER=monolithic` keeps the run below.
+    let choice = super::index_partition::Indexer::from_value(std::env::var("KOVAN_INDEXER").ok().as_deref());
+    if choice == super::index_partition::Indexer::Partitioned {
+        let settings = super::index_partition::LocalSettings::from(|k| std::env::var(k).ok());
+        return super::index_partition::generate_partitioned(root, ctl, settings);
+    }
     let dir = root.join("target").join("kovan-scip");
     std::fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     let out = dir.join("index.scip");
@@ -1134,6 +1142,16 @@ pub fn write_split(root: &Path, doc: &crate::call_graph::CallGraphDoc, dir: &Pat
 ///
 /// Deterministic: same tree, same keys.
 pub fn run_keys(root: &Path, crates: Option<Vec<String>>) -> Result<(), String> {
+    for (c, k) in crate_keys(root, crates)? {
+        println!("{c} {k}");
+    }
+    Ok(())
+}
+
+/// The keys [`run_keys`] prints, as `(crate, key)` in the order asked (all
+/// members sorted when `crates` is `None`). Also the base of a partition's
+/// cache key (GitHub #1672, `index_partition::partition_key`).
+pub fn crate_keys(root: &Path, crates: Option<Vec<String>>) -> Result<Vec<(String, String)>, String> {
     use sha2::{Digest, Sha256};
     use std::collections::BTreeMap;
     #[derive(Deserialize)]
@@ -1214,13 +1232,15 @@ pub fn run_keys(root: &Path, crates: Option<Vec<String>>) -> Result<(), String> 
     let tail = format!("{ra}\nschema {}\nsplit {}", crate::call_graph::SCHEMA_VERSION, crate::call_graph::split::SPLIT_SCHEMA);
     let mut memo = BTreeMap::new();
     let wanted: Vec<String> = crates.unwrap_or_else(|| names.iter().cloned().collect());
+    let mut out = Vec::new();
     for c in wanted {
         if !names.contains(&c) {
             return Err(format!("{c}: not a workspace member"));
         }
-        println!("{c} {}", key(&c, &own, &deps, &tail, &mut memo));
+        let k = key(&c, &own, &deps, &tail, &mut memo);
+        out.push((c, k));
     }
-    Ok(())
+    Ok(out)
 }
 
 /// `--backend` on the command line.

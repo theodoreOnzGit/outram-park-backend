@@ -62,6 +62,13 @@
 #
 # KOVAN_WEB_CRATES=a,b limits the call graph to those crates (local runs).
 # KOVAN_SCIP_THREADS=<n> is passed to `rust-analyzer scip --num-threads`.
+#
+# KOVAN_SCIP_FROM=<file> (scip backend; GitHub #1668): use this SCIP index
+# instead of running `rust-analyzer scip` here, e.g. the merged partition
+# index Pages' index-unify job writes (`kovan-cli scip-merge`, every member
+# indexed by a worker that loads only its partition's closure). Copied to
+# target/kovan-scip/index.scip; when the file is missing or empty, data.sh
+# says so and runs rust-analyzer as before.
 # Never commits anything. Release build (workspace rule); rust-analyzer's own
 # build-script `cargo check` is given `--release` too, so no target/debug.
 set -euo pipefail
@@ -127,6 +134,15 @@ ensure_scip() {
   fi
   mkdir -p "$SCIP_DIR"
   rm -f "$SCIP" "$SCIP_DIR/index.key"
+  if [[ -n "${KOVAN_SCIP_FROM:-}" ]]; then
+    if [[ -s "$KOVAN_SCIP_FROM" ]]; then
+      cp "$KOVAN_SCIP_FROM" "$SCIP"
+      echo "$want" > "$SCIP_DIR/index.key"
+      echo "data.sh: using the SCIP index $KOVAN_SCIP_FROM (KOVAN_SCIP_FROM); rust-analyzer scip not run"
+      return 0
+    fi
+    loud "KOVAN_SCIP_FROM=$KOVAN_SCIP_FROM is missing or empty: running rust-analyzer scip here"
+  fi
   # Keep rust-analyzer's build-script `cargo check` in the release profile.
   printf '{"cargo":{"extraArgs":["--release"]}}\n' > "$SCIP_DIR/ra-config.json"
   local threads=()
