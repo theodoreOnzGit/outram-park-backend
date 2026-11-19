@@ -429,15 +429,18 @@ pub struct Nuclide {
     /// `true` after [`Nuclide::without_other_neutron_channels`] (the ablation
     /// arm): those reactions fall back into the elastic remainder, as before.
     other_channels_ablated: bool,
-    /// Unresolved-resonance probability tables, when the caller has asked for
-    /// them with [`Nuclide::with_urr_probability_tables`]. `None` — the
-    /// default — means the unresolved range is treated as infinitely dilute,
-    /// which is what this crate did unconditionally before 2026-09-16.
+    /// Unresolved-resonance probability tables ([`Nuclide::with_urr_probability_tables`]).
+    /// ~~`None` — the default~~ **CORRECTED 2026-11-19** (gh:#693): the ENDF route applies them by default
+    /// (`with_urr_probability_tables` then `with_dbrc` in the constructor) and the
+    /// ACE route does too (gh:#307, `tests/correct_physics_is_default.rs`); `None`
+    /// is the explicit ablation, where the unresolved range is treated as
+    /// infinitely dilute, as this crate did unconditionally before 2026-09-16.
     urr: Option<UrrProbabilityTables>,
-    /// 0 K elastic cross section for the **DBRC** resonance-elastic correction,
-    /// when the caller asked for it with [`Nuclide::with_dbrc`]. `None` — the
-    /// default — is the constant-cross-section approximation this crate used
-    /// unconditionally before 2026-09-16.
+    /// 0 K elastic cross section for the **DBRC** resonance-elastic correction
+    /// ([`Nuclide::with_dbrc`]). ~~`None` — the default~~ **CORRECTED 2026-11-19** (gh:#693): applied by
+    /// default on the ENDF route (`DBRC_DEFAULT_E_MAX_EV`); `None` is the
+    /// explicit ablation, the constant-cross-section approximation this crate
+    /// used unconditionally before 2026-09-16.
     dbrc: Option<DbrcTable>,
     /// The 0 K elastic `(E [eV], σ [b])` grid retained at construction, capped
     /// at [`DBRC_GRID_MAX_EV`], from which [`Nuclide::with_dbrc`] builds its
@@ -1454,7 +1457,7 @@ impl Nuclide {
     /// this crate did unconditionally before 2026-09-16 and what
     /// `docs/neutronics-physics-coverage.md` recorded as known-absent physics.
     ///
-    /// # Cost — this is not free, which is why it is opt-in
+    /// # Cost — this is not free (~~which is why it is opt-in~~ **CORRECTED 2026-11-19** (gh:#693): the ENDF route applies it by default; correctness outranks runtime)
     ///
     /// PURR is a Monte Carlo calculation over resonance ladders. At the
     /// verified NJOY production settings (`nbin = 20`, `nladr = 64`,
@@ -6785,14 +6788,12 @@ impl Nuclide {
     ///
     /// # What this does NOT do
     ///
-    /// * It does **not** change the emission spectrum. A delayed neutron is
-    ///   still born from the prompt `chi` — MF=5/455's delayed spectra are read
-    ///   but not sampled here. Delayed spectra are softer, so a `beta_eff`
-    ///   computed through transport with this approximation carries that error.
-    /// * Nothing in the transport loop calls this yet. `Site` has no field for a
-    ///   precursor group (59 `Site {…}` literals across the crate), so carrying
-    ///   the tag across generations — which is what IFP's `beta_eff` needs — is a
-    ///   separate change. This is the sampler, verified on its own.
+    /// * ~~It does **not** change the emission spectrum: a delayed neutron is
+    ///   still born from the prompt `chi`.~~ **CORRECTED 2026-11-19** (gh:#693): `sample_fission_energy_below`
+    ///   samples the delayed spectra (MF=5/455).
+    /// * ~~Nothing in the transport loop calls this yet; `Site` has no field for
+    ///   a precursor group.~~ **CORRECTED 2026-11-19** (gh:#693): `transport_csg.rs` calls it at fission
+    ///   and `Site::delayed_group` carries the tag across generations.
     pub fn sample_delayed_group(&self, e: f64, seed: &mut u64) -> Option<usize> {
         let d = self.delayed()?;
         let beta = self.delayed_fraction(e);

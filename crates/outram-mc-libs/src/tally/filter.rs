@@ -626,9 +626,16 @@ impl Filter for MuFilter {
 }
 #[derive(Debug, Clone, PartialEq)]
 
-/// Filter by the particle's **polar and azimuthal angles of travel**. Maps to
-/// `openmc::PolarAzimuthalFilter` (`src/tallies/filter_azimuthal.cpp` +
-/// `filter_polar.cpp`, which OpenMC exposes as one filter).
+/// Filter by the particle's **polar and azimuthal angles of travel**.
+///
+/// ~~Maps to `openmc::PolarAzimuthalFilter`, which OpenMC exposes as one
+/// filter.~~ **CORRECTED 2026-11-19** (gh:#691): OpenMC has no such filter. It
+/// has two, `PolarFilter` (`src/tallies/filter_polar.cpp`) and
+/// `AzimuthalFilter` (`filter_azimuthal.cpp`), and `PolarFilter` bins the ANGLE
+/// `theta = acos(u.z)`, whereas this filter's polar axis bins `cos(theta)`.
+/// **Convert an OpenMC theta edge list `t` to `cos(t)` (descending in theta is
+/// ascending in cosine) before use**; theta edges passed unconverted are not
+/// rejected and mis-bin silently.
 ///
 /// `polar` holds ascending edges in `cos(theta)` on `[-1, 1]` — **cosine, not
 /// the angle** — where `theta` is measured from `+z`, so `cos(theta)` is the

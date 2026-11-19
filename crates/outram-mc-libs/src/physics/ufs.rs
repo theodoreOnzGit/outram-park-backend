@@ -2,6 +2,10 @@
 
 //! **Uniform fission site (UFS) weighting** — GitHub #258 scope item 5.
 //!
+//! **NOT CALLED (gh:#693, #692; checked 2026-11-19: no caller outside this file,
+//! and `Site` has no weight field).** The port is complete as a library but no
+//! driver applies it.
+//!
 //! Ported from `ufs_count_sites` and `ufs_get_weight` (`src/eigenvalue.cpp`)
 //! at OpenMC `afa7a14`.
 //!

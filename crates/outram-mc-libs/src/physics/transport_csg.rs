@@ -43,9 +43,11 @@
 //! **track-length estimator**: each streamed segment of length `d` deposits `w·d`
 //! (flux) and `w·d·Σ_x` (reaction rates) into its cell × energy bin, accumulated
 //! per generation and flushed as one realization per active batch (see
-//! [`crate::tally::scoring::score_track_length`] / `flush_batch`). The
+//! [`crate::tally::scoring::score_track_length`] / `flush_batch`). ~~The
 //! collision estimator ([`crate::tally::scoring::score_collision`]) remains
-//! available as an alternative. **Inside a delta-tracked region** there is no
+//! available as an alternative.~~ **CORRECTED 2026-11-19** (gh:#693, #679):
+//! `score_collision` has no caller here and accumulates one realization per
+//! collision, so it is not a batch-statistics alternative. **Inside a delta-tracked region** there is no
 //! track length; the tally is scored at points by
 //! [`crate::tally::scoring::score_collision_point`], by default at every
 //! tentative collision with `w/Σ_maj` ([`DeltaTallyEstimator`], gh:#598).

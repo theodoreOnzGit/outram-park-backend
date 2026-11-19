@@ -2,8 +2,14 @@
 //!
 //! C++ source: `src/tallies/tally_scoring.cpp`.
 //!
-//! After a real collision the transport loop (see
-//! [`crate::physics::transport_csg`]) calls [`score_collision`], which:
+//! ~~After a real collision the transport loop (see
+//! [`crate::physics::transport_csg`]) calls [`score_collision`]~~ **CORRECTED
+//! 2026-11-19** (gh:#693, #679): the transport loop does NOT call
+//! [`score_collision`] (it has no non-test caller; the transport scores
+//! track-length per batch and, in delta regions, [`score_collision_point`]).
+//! It scores each collision straight into the persistent bins, so its
+//! statistics are per-collision, not per-batch (gh:#679); use it only for a
+//! mean over a known realization count. It:
 //!   1. builds a [`FilterEvent`] snapshot of the particle state,
 //!   2. maps it through every filter on the tally to a flat bin index (a
 //!      conjunction — if any filter rejects the event, nothing is scored),
