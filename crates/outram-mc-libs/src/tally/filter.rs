@@ -313,6 +313,17 @@ pub struct EnergyFilter {
     /// Ascending bin EDGES in eV. `n + 1` edges produce `n` bins.
     pub bins: Vec<f64>,
 }
+/// OpenMC's `lower_bound_index` (`include/openmc/search.h:17-19`) on ascending
+/// `edges` (at least two, `x` within `[edges[0], edges[last]]`): `0` if `x` is
+/// the first edge, else `lower_bound(x) - 1`. An interior edge therefore belongs
+/// to the LOWER bin and the top edge to the last bin (gh:#687).
+pub fn lower_bound_index(edges: &[f64], x: f64) -> usize {
+    if x == edges[0] {
+        return 0;
+    }
+    edges.partition_point(|&e| e < x).saturating_sub(1)
+}
+
 impl Filter for EnergyFilter {
     fn n_bins(&self) -> usize {
         if self.bins.len() < 2 {
@@ -322,14 +333,15 @@ impl Filter for EnergyFilter {
         }
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        if ev.energy < self.bins[0] || ev.energy >= *self.bins.last().unwrap() {
+        // OpenMC `EnergyFilter::get_all_bins`: `E >= front && E <= back`, then
+        // `lower_bound_index` (gh:#687). ~~An event on an interior edge went to
+        // the upper bin, and one on the top edge was dropped~~ **CORRECTED
+        // 2026-11-19.** An empty `bins` no longer panics.
+        let (first, last) = (self.bins.first()?, self.bins.last()?);
+        if self.bins.len() < 2 || ev.energy < *first || ev.energy > *last {
             return None;
         }
-        let idx = self
-            .bins
-            .partition_point(|&e| e <= ev.energy)
-            .saturating_sub(1);
-        Some(idx)
+        Some(lower_bound_index(&self.bins, ev.energy))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -370,11 +382,10 @@ impl Filter for EnergyOutFilter {
         // No secondary produced: this event is not a scatter, so it belongs in
         // no outgoing-energy bin at all.
         let e_out = ev.energy_out?;
-        if self.bins.len() < 2 || e_out < self.bins[0] || e_out >= *self.bins.last().unwrap() {
+        if self.bins.len() < 2 || e_out < self.bins[0] || e_out > *self.bins.last().unwrap() {
             return None;
         }
-        let idx = self.bins.partition_point(|&e| e <= e_out).saturating_sub(1);
-        Some(idx)
+        Some(lower_bound_index(&self.bins, e_out))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -1231,6 +1242,26 @@ impl FilterKind {
 
 #[cfg(test)]
 mod tests {
+    /// gh:#687: OpenMC `lower_bound_index` edge convention. `[0,1,2]`: E = 1.0 is
+    /// bin 0 (upstream lower; was 1), E = 2.0 is bin 1 (upstream kept; was
+    /// dropped), E = 0.0 is bin 0, outside is `None`; empty edges do not panic.
+    #[test]
+    fn energy_edges_follow_lower_bound_index() {
+        let f = EnergyFilter { bins: vec![0.0, 1.0, 2.0] };
+        let at = |e: f64| f.get_bin(&FilterEvent { energy: e, ..Default::default() });
+        assert_eq!(at(0.0), Some(0));
+        assert_eq!(at(0.5), Some(0));
+        assert_eq!(at(1.0), Some(0));
+        assert_eq!(at(1.0 + 1e-12), Some(1));
+        assert_eq!(at(2.0), Some(1));
+        assert_eq!(at(2.0 + 1e-12), None);
+        assert_eq!(at(-1e-12), None);
+        assert_eq!(EnergyFilter { bins: vec![] }.get_bin(&FilterEvent::default()), None);
+        let g = EnergyOutFilter { bins: vec![0.0, 1.0, 2.0] };
+        let out = |e: f64| g.get_bin(&FilterEvent { energy_out: Some(e), ..Default::default() });
+        assert_eq!((out(1.0), out(2.0)), (Some(0), Some(1)));
+    }
+
     use super::*;
 
     /// `legendre_pn` matches the closed forms P_0..P_3 at a sample point.
@@ -1358,8 +1389,11 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(f.get_bin(&at(1.0)), Some(0), "lower edge is included");
-        assert_eq!(f.get_bin(&at(10.0)), Some(1), "interior edge -> upper bin");
-        assert_eq!(f.get_bin(&at(1000.0)), None, "top edge is excluded");
+        // ~~interior edge -> upper bin; top edge excluded~~ **CORRECTED
+        // 2026-11-19** (gh:#687): OpenMC `lower_bound_index`, interior edge ->
+        // LOWER bin, top edge kept (it is the same convention as `EnergyFilter`).
+        assert_eq!(f.get_bin(&at(10.0)), Some(0), "interior edge -> lower bin");
+        assert_eq!(f.get_bin(&at(1000.0)), Some(2), "top edge is kept, in the last bin");
         assert_eq!(f.get_bin(&at(0.5)), None, "below range");
         assert_eq!(f.get_bin(&at(5000.0)), None, "above range");
     }

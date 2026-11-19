@@ -58,24 +58,16 @@ pub use outram_blender::spatial_mesh::*;
 /// high and the error would only show at the boundaries.
 ///
 /// The upper edge is inclusive so a point exactly on the outer surface bins
-/// into the last cell rather than falling out of the mesh.
+/// into the last cell rather than falling out of the mesh. ~~An interior edge
+/// went to the upper bin~~ **CORRECTED 2026-11-19** (gh:#687): as OpenMC's
+/// `lower_bound_index`, it goes to the LOWER bin.
 #[inline]
 fn bin_on_grid(grid: &[f64], x: f64) -> Option<usize> {
     if grid.len() < 2 || x < grid[0] || x > grid[grid.len() - 1] {
         return None;
     }
-    // Ascending grid: find the last edge not exceeding `x`.
-    let mut lo = 0usize;
-    let mut hi = grid.len() - 1;
-    while hi - lo > 1 {
-        let mid = (lo + hi) / 2;
-        if grid[mid] <= x {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    Some(lo)
+    // `lower_bound_index` (gh:#687): an interior edge belongs to the lower bin.
+    Some(crate::tally::filter::lower_bound_index(grid, x))
 }
 
 /// `FP_PRECISION` (`include/openmc/constants.h`) — the on-axis guard above.
