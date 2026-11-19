@@ -439,7 +439,16 @@ impl KeffTab {
     /// geometry in the middle, the k and entropy dock below, the rods dock
     /// on the right. GUI drawing code.
     pub fn view_ui(&mut self, ui: &mut egui::Ui, rect: Rect) {
-        let views = self.views_dock.split(rect);
+        let mut views = self.views_dock.split(rect);
+        // Folded, the Rods tab goes to the screen's top-right corner, level
+        // with "Controls »" (maintainer, 2026-11-19, on the phone: "the rods
+        // ui needs to go top right"; the dock's own place, 56 px into a view
+        // that already starts below Controls and the clock, put it over the
+        // middle of the geometry). Mobile first: the same on every width.
+        if views.body.is_none() {
+            let screen = ui.ctx().content_rect();
+            views.header = Rect::from_min_size(egui::pos2(rect.right() - bugis::web_demo::dock::TAB_W, screen.top() + 8.0), Vec2::new(bugis::web_demo::dock::TAB_W, bugis::web_demo::dock::HEADER_PX));
+        }
         if let Some(body) = views.body {
             self.rods_ui(ui, body);
         }
