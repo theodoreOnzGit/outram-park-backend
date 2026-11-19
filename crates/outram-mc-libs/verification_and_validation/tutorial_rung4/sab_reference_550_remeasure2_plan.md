@@ -66,3 +66,21 @@ zero-mean. Sizes are rough: 2 K of neutron temperature at a few pcm per K.
 Order: G1, G2 first (graphite, cheapest resolution), then G4, G3, G5, then
 W2, W1, T1, T2. At most two heavy processes at once, 2 threads each. Anything
 not run is reported "not re-measured" with the reason.
+
+## Addendum, written after block 1 of G1 and before block 2 was read (2026-11-19)
+
+Block 1 of G1 (`OUTRAM_TKW_PAIR=1`, 8 replicas, master seeds 20260912..19):
+node grid minus log-spaced **-234.1 +- 108.4 pcm (z -2.2)** against the
+prediction -15 (-90 .. +60): **the prediction missed, same sign, outside its
+range.** A block chosen after seeing a 2.2 sigma result is a replication, not
+a second sample of the same hypothesis. Block 2 uses `OUTRAM_TKW_SEED0=1000`
+(master seeds 20261912..19, non-overlapping), 8 more replicas, same settings,
+run once; it was started before this paragraph was committed but its output
+had not been read. Prediction fixed now: if the effect is real and about -230
+the block gives -230 +- 108 (range -450 .. -10); if the true value is the
+originally predicted -15 the block gives -15 +- 108 (range -230 .. +200). Both
+blocks are reported, pooled N = 16 only as this pre-announced pool, and block 1
+is never dropped.
+
+Also found while planning: G2's ablation arm must reproduce the 2026-11-17
+record bit for bit if the knob is a true old-build control; checked below.
