@@ -1302,7 +1302,10 @@ The one-group prediction undervalued the upper head's 26 cm of salt. That salt b
   - The comparison that can resolve it is today's six-seed default mean against 1.01807 ± 0.00023 (2026-11-13). That run is queued, with its prediction on gh:#1128.
   - ~~**Interpretation:** this is a correction toward the upstream rule, not a defect.~~ The interpretation below holds for the commit, not for the size of the shift.
 - **Interpretation:** this is a correction toward the upstream rule, not a defect. It is kept, as "correct physics is the default" requires, and it moves N-1 further from the reference. `OUTRAM_MC_LEGACY_XS_DETAILS=1` restores all four details together. Which of the four carries the +109 pcm is **not yet measured**.
-- **The remaining +128 pcm** (also 1.6σ, so not resolved either) ~~comes from~~ is a change of k at a later commit, between a97ca6da and cedf0a10. A second bisect over that range was launched at 15:47 UTC, with a step good only if k is exactly 1.018617.
+- **The remaining +128 pcm** (also 1.6σ, so not resolved either) ~~comes from~~ is a change of k at a later commit, between a97ca6da and cedf0a10.
+  - **Bisected 2026-11-19 20:52 UTC:** the change is at **5d7c7644**, which was predicted on gh:#1128 before the last steps. Its parent 71025161 and fde69485 give 1.018617; 5d7c7644 and 0aadb663 give 1.019902. The runner-up, 970191bf, is inside fde69485, so it is ruled out.
+  - **What 5d7c7644 changes:** it moves the N-1 driver's S(α,β) from the C-12 and C-13 **nuclides** to the **materials** containing them (`assign_material_sab`, gh:#462, #1581). Its audit says the bound set is unchanged: C-12 and C-13 appear only in graphite compositions, and H-1 only in the shield water. The nuclide list is renumbered, so histories draw different random streams.
+  - **Reading:** a change of path, with no physics change claimed. Whether the k moved is decided by the six-seed comparison of today's default against 1.01807 ± 0.00023, not by this bisect. That run started 20:54 UTC, with its prediction on gh:#1128. A second bisect over that range was launched at 15:47 UTC, with a step good only if k is exactly 1.018617.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
