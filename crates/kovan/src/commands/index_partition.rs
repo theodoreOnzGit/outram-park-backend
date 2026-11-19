@@ -38,8 +38,11 @@ use std::time::{Duration, Instant};
 use kovan_common::code_index::partition::{plan, rust_project, BuildOutputs, Metadata, Partition};
 use serde::{Deserialize, Serialize};
 
-/// `partition.json`'s schema version.
-pub const PARTITION_SCHEMA: u32 = 1;
+/// `partition.json`'s schema version, part of every partition key: bump it
+/// whenever the generator's output changes, so no cached partition from the
+/// old generator is reused (2: `#[path]` folders a partition member owns are
+/// left to it, #1670).
+pub const PARTITION_SCHEMA: u32 = 2;
 
 /// How one partition run is bounded.
 #[derive(Debug, Clone, Copy, Default)]
@@ -216,18 +219,38 @@ fn rust_files(dir: &Path, out: &mut Vec<(String, String)>) {
 }
 
 /// For each member, the folders outside its package that its `#[path]`
-/// attributes reach ([`kovan_common::code_index::partition::external_path_dirs`]).
+/// attributes reach ([`kovan_common::code_index::partition::external_path_dirs`]),
+/// less those another member of the same partition owns ([`not_owned_by`]).
 fn external_path_folders(meta: &Metadata, members: &[String]) -> BTreeMap<String, Vec<String>> {
-    members
+    let dirs: Vec<(String, String)> = members
         .iter()
         .filter_map(|m| {
             let p = meta.packages.iter().find(|p| &p.name == m && meta.workspace_members.contains(&p.id))?;
-            let dir = p.manifest_path.rsplit_once('/').map_or("", |(d, _)| d).to_string();
+            Some((m.clone(), p.manifest_path.rsplit_once('/').map_or("", |(d, _)| d).to_string()))
+        })
+        .collect();
+    dirs.iter()
+        .filter_map(|(m, dir)| {
             let mut files = Vec::new();
-            rust_files(Path::new(&dir), &mut files);
-            let ext = kovan_common::code_index::partition::external_path_dirs(&dir, &files);
+            rust_files(Path::new(dir), &mut files);
+            let ext = kovan_common::code_index::partition::external_path_dirs(dir, &files);
+            let ext = not_owned_by(ext, &dirs);
             (!ext.is_empty()).then(|| (m.clone(), ext))
         })
+        .collect()
+}
+
+/// Drop the folders that lie inside a package folder in `dirs` (the
+/// partition's members, as `(member, folder)`). rust-analyzer indexes a file
+/// that two crates of one run both include under one crate only, and not
+/// always the owner: claiming the owner's folder for a `#[path]` user in the
+/// same partition lost the owner's own edges (16 in `kovan-literature`'s
+/// `tests/zotero_db`, 2026-11-19, #1670). The owner indexes it, as the
+/// monolithic run does; across partitions both contexts are kept and
+/// [`crate::scip::merge`] combines them.
+fn not_owned_by(ext: Vec<String>, dirs: &[(String, String)]) -> Vec<String> {
+    ext.into_iter()
+        .filter(|e| !dirs.iter().any(|(_, d)| e == d || e.starts_with(&format!("{d}/"))))
         .collect()
 }
 
@@ -663,6 +686,15 @@ mod tests {
         assert_eq!(Indexer::from_value(None), default);
         assert_eq!(Indexer::from_value(Some("monolithic")), Indexer::Monolithic);
         assert_eq!(Indexer::from_value(Some("partitioned")), Indexer::Partitioned);
+    }
+
+    /// A `#[path]` folder inside another member of the same partition is
+    /// left to its owner; one outside every member is kept.
+    #[test]
+    fn a_folder_a_partition_member_owns_is_left_to_it() {
+        let dirs = vec![("lit".to_string(), "/w/crates/lit".to_string()), ("app".to_string(), "/w/crates/app".to_string())];
+        let ext = vec!["/w/crates/lit/tests/db".to_string(), "/w/crates/other/tests/common".to_string(), "/w/crates/literature".to_string()];
+        assert_eq!(not_owned_by(ext, &dirs), vec!["/w/crates/other/tests/common".to_string(), "/w/crates/literature".to_string()]);
     }
 
     /// Documents are counted under the longest matching member folder; a
