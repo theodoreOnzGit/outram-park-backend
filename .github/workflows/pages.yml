@@ -132,9 +132,14 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+      # rust-analyzer too (2026-11-19): every partition key includes
+      # `rust-analyzer --version`, and without the component the plan keyed
+      # on "rust-analyzer missing" instead of the version the partitions run,
+      # so a rust-analyzer update would not have invalidated their caches.
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.98.0
+          components: rust-analyzer
       - uses: Swatinem/rust-cache@v2
         with:
           key: pages-index-plan
