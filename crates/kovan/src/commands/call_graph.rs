@@ -255,6 +255,14 @@ pub fn generate_scip(root: &Path) -> Result<PathBuf, String> {
 /// the child is run by [`super::index_control::run_child`], under `nice`
 /// when `ctl.nice`, and a cancel stops it by its own process id.
 pub fn generate_scip_controlled(root: &Path, ctl: &super::index_control::RunControl) -> Result<PathBuf, String> {
+    // Partitioned by default since 2026-11-19 (GitHub #1668, #1672):
+    // rust-analyzer loads one partition's closure at a time instead of the
+    // whole workspace. `KOVAN_INDEXER=monolithic` keeps the run below.
+    let choice = super::index_partition::Indexer::from_value(std::env::var("KOVAN_INDEXER").ok().as_deref());
+    if choice == super::index_partition::Indexer::Partitioned {
+        let settings = super::index_partition::LocalSettings::from(|k| std::env::var(k).ok());
+        return super::index_partition::generate_partitioned(root, ctl, settings);
+    }
     let dir = root.join("target").join("kovan-scip");
     std::fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     let out = dir.join("index.scip");

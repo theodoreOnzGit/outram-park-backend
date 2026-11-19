@@ -187,4 +187,29 @@ fn partitions_merge_into_the_same_call_graph_as_the_monolithic_index() {
     assert_eq!(from_parts["calls"], from_mono["calls"], "calls differ between merged and monolithic");
     assert_eq!(from_parts["uses"], from_mono["uses"], "uses differ between merged and monolithic");
     assert_eq!(from_parts["unresolved"], from_mono["unresolved"]);
+
+    // Local kovan (Phase F): with no index given, `call-graph --backend
+    // scip` runs the partitioned orchestrator by default (unix) into
+    // target/kovan-scip/, and a second run reuses every unchanged partition.
+    let local = |env: &[(&str, &str)]| -> (serde_json::Value, String) {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_kovan-cli"));
+        c.args(["call-graph", "--workspace", r, "--backend", "scip"]);
+        for (k, v) in env {
+            c.env(k, v);
+        }
+        let out = c.output().unwrap();
+        ok(&out, "call-graph --backend scip");
+        (serde_json::from_slice(&out.stdout).unwrap(), String::from_utf8_lossy(&out.stderr).into_owned())
+    };
+    let (first, log) = local(&[("KOVAN_INDEX_MAX_CLOSURE", "1"), ("KOVAN_INDEX_JOBS", "2")]);
+    assert!(log.contains("partitioned rust-analyzer index, 2 partitions"), "{log}");
+    assert!(root.join("target/kovan-scip/parts/p00/partition.json").is_file());
+    assert_eq!(first["calls"], from_mono["calls"], "local partitioned calls differ from monolithic");
+    assert_eq!(first["uses"], from_mono["uses"]);
+    let (_, again) = local(&[("KOVAN_INDEX_MAX_CLOSURE", "1")]);
+    assert_eq!(again.matches("unchanged, reused").count(), 2, "{again}");
+    // `KOVAN_INDEXER=monolithic` keeps the whole-workspace run.
+    let (mono_local, log) = local(&[("KOVAN_INDEXER", "monolithic")]);
+    assert!(!log.contains("partitioned"), "{log}");
+    assert_eq!(mono_local["calls"], from_mono["calls"]);
 }

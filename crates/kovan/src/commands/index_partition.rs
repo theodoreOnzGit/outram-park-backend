@@ -205,8 +205,16 @@ fn rss_mib(pid: u32) -> Option<(u64, u64)> {
 }
 
 /// Index one partition of `members` into `out` (module doc). Returns the
-/// record, also written to `out/partition.json`.
-pub fn run_partition(root: &Path, members: &[String], out: &Path, limits: Limits) -> Result<PartitionRecord, String> {
+/// record, also written to `out/partition.json`. A cancel on `ctl` stops
+/// rust-analyzer (recorded as stopped, never `ok`). I/O glue; reached by
+/// `tests/index_partition_cli.rs`.
+pub fn run_partition(
+    root: &Path,
+    members: &[String],
+    out: &Path,
+    limits: Limits,
+    ctl: &super::index_control::RunControl,
+) -> Result<PartitionRecord, String> {
     let started = Instant::now();
     let root = dunce::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))?;
     std::fs::create_dir_all(out).map_err(|e| format!("{}: {e}", out.display()))?;
@@ -262,6 +270,9 @@ pub fn run_partition(root: &Path, members: &[String], out: &Path, limits: Limits
         }
         if limits.timeout_s > 0 && ra_started.elapsed() > Duration::from_secs(limits.timeout_s) {
             stopped = Some(format!("still running after the timeout of {} s", limits.timeout_s));
+        }
+        if ctl.cancelled() {
+            stopped = Some(super::index_control::CANCELLED.to_string());
         }
         if stopped.is_some() {
             let _ = child.kill();
@@ -325,6 +336,154 @@ pub fn run_plan(root: &Path, max_closure: usize, max_members: usize) -> Result<P
         );
     }
     Ok(PlanFile { host, max_closure, max_members, partitions })
+}
+
+/// Local partitioned indexing settings (GitHub #1672, Phase F), from the
+/// environment: `KOVAN_INDEX_JOBS` (concurrent workers, default 1: each
+/// loads up to ~12 GiB on this workspace), `KOVAN_INDEX_MAX_CLOSURE` (750),
+/// `KOVAN_INDEX_MAX_MEMBERS` (8), `KOVAN_INDEX_MEMORY_MIB` (0: none),
+/// `KOVAN_INDEX_TIMEOUT` (s, 0: none), `KOVAN_INDEX_RETRIES` (1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalSettings {
+    pub jobs: usize,
+    pub max_closure: usize,
+    pub max_members: usize,
+    pub memory_mib: u64,
+    pub timeout_s: u64,
+    pub retries: usize,
+}
+
+impl LocalSettings {
+    /// Read from `get` (the environment in use; a closure in tests).
+    pub fn from(get: impl Fn(&str) -> Option<String>) -> LocalSettings {
+        let n = |k: &str, d: u64| get(k).and_then(|v| v.trim().parse::<u64>().ok()).unwrap_or(d);
+        LocalSettings {
+            jobs: n("KOVAN_INDEX_JOBS", 1).max(1) as usize,
+            max_closure: n("KOVAN_INDEX_MAX_CLOSURE", 750) as usize,
+            max_members: n("KOVAN_INDEX_MAX_MEMBERS", 8).max(1) as usize,
+            memory_mib: n("KOVAN_INDEX_MEMORY_MIB", 0),
+            timeout_s: n("KOVAN_INDEX_TIMEOUT", 0),
+            retries: n("KOVAN_INDEX_RETRIES", 1) as usize,
+        }
+    }
+}
+
+/// Which indexer [`super::call_graph::generate_scip_controlled`] runs:
+/// `KOVAN_INDEXER=partitioned` or `monolithic` (module doc; plan Phase G in
+/// `crates/kovan/docs/partitioned-indexing.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Indexer {
+    Partitioned,
+    Monolithic,
+}
+
+impl Indexer {
+    /// From `KOVAN_INDEXER`'s value; anything else is the default:
+    /// partitioned on unix (plan Phase G, 2026-11-19), monolithic elsewhere,
+    /// since the worker's view folder is made of symlinks (Windows is
+    /// GitHub #1672's open item).
+    pub fn from_value(v: Option<&str>) -> Indexer {
+        match v.map(str::trim) {
+            Some("monolithic") => Indexer::Monolithic,
+            Some("partitioned") => Indexer::Partitioned,
+            _ if cfg!(unix) => Indexer::Partitioned,
+            _ => Indexer::Monolithic,
+        }
+    }
+}
+
+/// Whether a stored partition record can be reused for a run whose key is
+/// `key`: complete and written for the same inputs (Phase E).
+pub fn reusable(rec: &PartitionRecord, members: &[String], key: &str) -> bool {
+    rec.ok && rec.key == key && rec.members == members
+}
+
+/// The local partitioned index (Phase F): plan, then index every partition
+/// on `settings.jobs` worker threads (each runs `cargo check` and one
+/// `rust-analyzer` process: memory is per process), reusing a partition
+/// whose stored record has the same key, retrying a failed one, and merge
+/// into `<root>/target/kovan-scip/index.scip`, where the monolithic run
+/// writes, so everything downstream reads it unchanged. An incomplete set
+/// is an error and nothing is written. I/O glue over tested parts (plan,
+/// keys, [`reusable`], merge, coverage); reached by
+/// `tests/index_partition_cli.rs`.
+pub fn generate_partitioned(
+    root: &Path,
+    ctl: &super::index_control::RunControl,
+    settings: LocalSettings,
+) -> Result<PathBuf, String> {
+    let dir = root.join("target").join("kovan-scip");
+    let parts_dir = dir.join("parts");
+    std::fs::create_dir_all(&parts_dir).map_err(|e| format!("{}: {e}", parts_dir.display()))?;
+    let plan = run_plan(root, settings.max_closure, settings.max_members)?;
+    let keys = partition_keys(root, &plan)?;
+    ctl.say(format!(
+        "index: partitioned rust-analyzer index, {} partitions, {} at a time (KOVAN_INDEXER=monolithic for one whole-workspace run)",
+        plan.partitions.len(),
+        settings.jobs
+    ));
+    let queue = std::sync::Mutex::new(plan.partitions.clone());
+    let failures = std::sync::Mutex::new(Vec::<String>::new());
+    let limits = Limits { memory_mib: settings.memory_mib, timeout_s: settings.timeout_s };
+    std::thread::scope(|s| {
+        for _ in 0..settings.jobs {
+            s.spawn(|| loop {
+                let Some(p) = queue.lock().ok().and_then(|mut q| if q.is_empty() { None } else { Some(q.remove(0)) }) else {
+                    return;
+                };
+                if ctl.cancelled() {
+                    return;
+                }
+                let out = parts_dir.join(&p.id);
+                let key = keys.get(&p.id).cloned().unwrap_or_default();
+                let stored: Option<PartitionRecord> = std::fs::read_to_string(out.join("partition.json"))
+                    .ok()
+                    .and_then(|t| serde_json::from_str(&t).ok());
+                if stored.as_ref().is_some_and(|r| reusable(r, &p.members, &key)) && out.join("partition.scip").is_file() {
+                    ctl.say(format!("index: {} unchanged, reused ({})", p.id, p.members.join(", ")));
+                    continue;
+                }
+                let mut last = String::new();
+                for attempt in 0..=settings.retries {
+                    ctl.say(format!("index: {} ({}), attempt {}", p.id, p.members.join(", "), attempt + 1));
+                    match run_partition(root, &p.members, &out, limits, ctl) {
+                        Ok(r) if r.ok => {
+                            ctl.say(format!(
+                                "index: {} done in {:.0} s, peak {} MiB",
+                                p.id,
+                                r.wall_s,
+                                r.peak_rss_mib.map_or("?".into(), |m| m.to_string())
+                            ));
+                            last.clear();
+                            break;
+                        }
+                        Ok(r) => last = format!("{}: incomplete ({:?})", p.id, r.stopped),
+                        Err(e) => last = format!("{}: {e}", p.id),
+                    }
+                    if ctl.cancelled() {
+                        break;
+                    }
+                }
+                if !last.is_empty() {
+                    ctl.say(format!("index: {last}"));
+                    if let Ok(mut f) = failures.lock() {
+                        f.push(last);
+                    }
+                }
+            });
+        }
+    });
+    ctl.check()?;
+    let failed = failures.into_inner().unwrap_or_default();
+    if !failed.is_empty() {
+        return Err(format!("partitioned index incomplete, nothing written: {}", failed.join("; ")));
+    }
+    let plan_path = dir.join("plan.json");
+    std::fs::write(&plan_path, serde_json::to_string_pretty(&plan).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let dirs: Vec<PathBuf> = plan.partitions.iter().map(|p| parts_dir.join(&p.id)).collect();
+    let out = dir.join("index.scip");
+    run_merge(root, &dirs, Some(&plan_path), &out, false)?;
+    Ok(out)
 }
 
 /// The plan as a GitHub Actions matrix:
@@ -447,6 +606,25 @@ pub fn run_merge(root: &Path, dirs: &[PathBuf], plan: Option<&Path>, out: &Path,
 mod tests {
     use super::*;
 
+    /// Settings come from the environment with defaults; jobs and members
+    /// are at least one. The indexer is partitioned unless `monolithic`.
+    #[test]
+    fn local_settings_and_indexer_choice() {
+        let none = LocalSettings::from(|_| None);
+        assert_eq!(none, LocalSettings { jobs: 1, max_closure: 750, max_members: 8, memory_mib: 0, timeout_s: 0, retries: 1 });
+        let set = LocalSettings::from(|k| match k {
+            "KOVAN_INDEX_JOBS" => Some("0".into()),
+            "KOVAN_INDEX_MEMORY_MIB" => Some(" 9000 ".into()),
+            "KOVAN_INDEX_MAX_CLOSURE" => Some("junk".into()),
+            _ => None,
+        });
+        assert_eq!((set.jobs, set.memory_mib, set.max_closure), (1, 9000, 750));
+        let default = if cfg!(unix) { Indexer::Partitioned } else { Indexer::Monolithic };
+        assert_eq!(Indexer::from_value(None), default);
+        assert_eq!(Indexer::from_value(Some("monolithic")), Indexer::Monolithic);
+        assert_eq!(Indexer::from_value(Some("partitioned")), Indexer::Partitioned);
+    }
+
     /// Documents are counted under the longest matching member folder; a
     /// path under no member is listed as outside.
     #[test]
@@ -490,6 +668,12 @@ mod tests {
         assert!(coverage(Some(&plan), &[rec(&["a"], true), rec(&["b", "c"], true)]).complete());
         assert_eq!(coverage(Some(&plan), &[rec(&["a"], true)]).missing, ["b", "c"]);
         let keys = BTreeMap::from([("p00".to_string(), "k0".to_string())]);
+        let stored = rec(&["a"], true);
+        let stored = PartitionRecord { key: "k".into(), ..stored };
+        assert!(reusable(&stored, &["a".to_string()], "k"));
+        assert!(!reusable(&stored, &["a".to_string()], "other key"));
+        assert!(!reusable(&stored, &["a".to_string(), "b".to_string()], "k"));
+        assert!(!reusable(&PartitionRecord { ok: false, ..stored.clone() }, &["a".to_string()], "k"));
         assert_eq!(
             matrix_json(&plan, &keys),
             r#"{"include":[{"crates":"a","id":"p00","key":"k0"},{"crates":"b,c","id":"p01","key":""}]}"#

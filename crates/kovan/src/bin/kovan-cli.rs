@@ -1085,7 +1085,7 @@ fn run(command: Command) -> Result<(), String> {
                 return Ok(());
             }
             let limits = commands::index_partition::Limits { memory_mib, timeout_s: timeout };
-            let r = commands::index_partition::run_partition(&root, &members, &out, limits)?;
+            let r = commands::index_partition::run_partition(&root, &members, &out, limits, &Default::default())?;
             eprintln!(
                 "index-partition: {} in {:.0} s, peak {} MiB, documents {:?}{}",
                 if r.ok { "complete" } else { "INCOMPLETE" },
