@@ -140,23 +140,27 @@ pub fn partition_key_for(root: &Path, members: &[String]) -> Result<String, Stri
     Ok(partition_key(&super::call_graph::crate_keys(root, Some(m))?, &lock, &host, &rustc, &ra))
 }
 
-/// The workspace-relative folder of each member (its `Cargo.toml`'s folder).
-fn member_dirs(meta: &Metadata, members: &[String]) -> BTreeMap<String, String> {
-    members
-        .iter()
-        .filter_map(|m| {
-            let p = meta.packages.iter().find(|p| &p.name == m && meta.workspace_members.contains(&p.id))?;
-            let dir = p.manifest_path.rsplit_once('/').map_or("", |(d, _)| d);
-            let rel = dir.strip_prefix(&meta.workspace_root).unwrap_or(dir).trim_start_matches('/');
-            Some((m.clone(), rel.to_string()))
-        })
-        .collect()
+/// The workspace-relative folders each member's documents may lie in, as
+/// `(member, folder)`: its package folder, and the folders outside it that
+/// its `#[path]` attributes reach (`external`, absolute).
+fn member_dirs(meta: &Metadata, members: &[String], external: &BTreeMap<String, Vec<String>>) -> Vec<(String, String)> {
+    let rel = |dir: &str| dir.strip_prefix(&meta.workspace_root).unwrap_or(dir).trim_start_matches('/').to_string();
+    let mut out = Vec::new();
+    for m in members {
+        let Some(p) = meta.packages.iter().find(|p| &p.name == m && meta.workspace_members.contains(&p.id)) else { continue };
+        out.push((m.clone(), rel(p.manifest_path.rsplit_once('/').map_or("", |(d, _)| d))));
+        for d in external.get(m).into_iter().flatten() {
+            out.push((m.clone(), rel(d)));
+        }
+    }
+    out
 }
 
-/// Count `paths` per member folder; the rest are outside every member.
-/// The longest matching folder wins (a member nested in another's folder).
-pub fn documents_by_member(dirs: &BTreeMap<String, String>, paths: &[String]) -> (BTreeMap<String, usize>, Vec<String>) {
-    let mut by: BTreeMap<String, usize> = dirs.keys().map(|m| (m.clone(), 0)).collect();
+/// Count `paths` per member, by the folders [`member_dirs`] gives; the rest
+/// are outside every member. The longest matching folder wins (a member
+/// nested in another's folder).
+pub fn documents_by_member(dirs: &[(String, String)], paths: &[String]) -> (BTreeMap<String, usize>, Vec<String>) {
+    let mut by: BTreeMap<String, usize> = dirs.iter().map(|(m, _)| (m.clone(), 0)).collect();
     let mut outside = Vec::new();
     for p in paths {
         let best = dirs
@@ -190,6 +194,41 @@ fn make_view(root: &Path, view: &Path) -> Result<(), String> {
         return Err("index-partition needs symlinks (unix) for its view folder".into());
     }
     Ok(())
+}
+
+/// Every `.rs` file under `dir` (not under `target/` or a hidden folder),
+/// with its text.
+fn rust_files(dir: &Path, out: &mut Vec<(String, String)>) {
+    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    for e in rd.flatten() {
+        let p = e.path();
+        let name = e.file_name().to_string_lossy().into_owned();
+        if p.is_dir() {
+            if name != "target" && !name.starts_with('.') {
+                rust_files(&p, out);
+            }
+        } else if name.ends_with(".rs") {
+            if let Ok(t) = std::fs::read_to_string(&p) {
+                out.push((p.to_string_lossy().into_owned(), t));
+            }
+        }
+    }
+}
+
+/// For each member, the folders outside its package that its `#[path]`
+/// attributes reach ([`kovan_common::code_index::partition::external_path_dirs`]).
+fn external_path_folders(meta: &Metadata, members: &[String]) -> BTreeMap<String, Vec<String>> {
+    members
+        .iter()
+        .filter_map(|m| {
+            let p = meta.packages.iter().find(|p| &p.name == m && meta.workspace_members.contains(&p.id))?;
+            let dir = p.manifest_path.rsplit_once('/').map_or("", |(d, _)| d).to_string();
+            let mut files = Vec::new();
+            rust_files(Path::new(&dir), &mut files);
+            let ext = kovan_common::code_index::partition::external_path_dirs(&dir, &files);
+            (!ext.is_empty()).then(|| (m.clone(), ext))
+        })
+        .collect()
 }
 
 /// Peak and current resident memory of `pid` in MiB (Linux `/proc`).
@@ -243,7 +282,8 @@ pub fn run_partition(
     let view = out.join("view");
     make_view(&root, &view)?;
     let sysroot = capture(&root, "rustc", &["--print", "sysroot"])?;
-    let project = rust_project(&meta, &outputs, &members, &sysroot, Some(&view.to_string_lossy()))?;
+    let external = external_path_folders(&meta, &members);
+    let project = rust_project(&meta, &outputs, &members, &sysroot, Some(&view.to_string_lossy()), &external)?;
     std::fs::write(view.join("rust-project.json"), serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
 
@@ -287,7 +327,7 @@ pub fn run_partition(
         Ok(b) => crate::scip::ScipIndex::decode(&b)?.documents.iter().map(|d| d.path.clone()).collect(),
         Err(_) => Vec::new(),
     };
-    let (documents, outside_members) = documents_by_member(&member_dirs(&meta, &members), &paths);
+    let (documents, outside_members) = documents_by_member(&member_dirs(&meta, &members, &external), &paths);
     let ok = scip_exit == Some(0) && outside_members.is_empty() && documents.values().all(|&n| n > 0);
     let record = PartitionRecord {
         schema: PARTITION_SCHEMA,
@@ -629,13 +669,14 @@ mod tests {
     /// path under no member is listed as outside.
     #[test]
     fn documents_are_counted_per_member_folder() {
-        let dirs = BTreeMap::from([
+        let dirs = [
             ("a".to_string(), "crates/a".to_string()),
             ("a-inner".to_string(), "crates/a/inner".to_string()),
-        ]);
-        let paths = ["crates/a/src/lib.rs", "crates/a/inner/src/lib.rs", "crates/ab/src/lib.rs"].map(String::from);
+            ("a".to_string(), "crates/m/common".to_string()),
+        ];
+        let paths = ["crates/a/src/lib.rs", "crates/a/inner/src/lib.rs", "crates/ab/src/lib.rs", "crates/m/common/x.rs"].map(String::from);
         let (by, outside) = documents_by_member(&dirs, &paths);
-        assert_eq!(by["a"], 1);
+        assert_eq!(by["a"], 2, "its package and its #[path] folder");
         assert_eq!(by["a-inner"], 1);
         assert_eq!(outside, ["crates/ab/src/lib.rs"]);
     }

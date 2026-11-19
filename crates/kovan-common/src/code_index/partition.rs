@@ -25,7 +25,14 @@
 //!   rust-analyzer sets it on workspace members;
 //! - env is Cargo's `CARGO_PKG_*` set, `OUT_DIR` and the build script's
 //!   `cargo:rustc-env`;
-//! - a crate's include dirs are its root module's folder and its `OUT_DIR`;
+//! - a crate's include dirs are its **package root** and its `OUT_DIR`
+//!   (~~its root module's folder~~ corrected 2026-11-19: a `#[path]` module
+//!   elsewhere in the package, `boon-lay`'s tests reaching
+//!   `verification_and_validation/`, was not loaded); a member's targets also
+//!   include every folder **outside** its package that its `#[path]`
+//!   attributes reach ([`external_path_dirs`]; `dhoby-ghaut`'s examples load
+//!   files of `outram-mc-libs/examples/common/`), so those files are indexed
+//!   in the member's context as the monolithic run did;
 //! - proc macros point at the dylib `cargo check` built;
 //! - the metadata must be `--filter-platform <host>`, as rust-analyzer's
 //!   loader asks for: unfiltered, a Linux closure also held `windows`,
@@ -268,15 +275,51 @@ fn env_of(p: &Package, t: &Target, b: &BuildOutputs) -> BTreeMap<String, String>
     e
 }
 
+/// Folders outside `package_dir` that `#[path = "…"]` attributes in `files`
+/// (`(absolute path, text)` of the package's `.rs` files) reach, sorted and
+/// de-duplicated. A path is taken relative to its file's folder (the rule
+/// for a declaration outside inline modules,
+/// [`crate::call_graph::modules`]), normalised lexically.
+pub fn external_path_dirs(package_dir: &str, files: &[(String, String)]) -> Vec<String> {
+    let mut out = BTreeSet::new();
+    for (file, text) in files {
+        for line in text.lines() {
+            let t = line.trim_start();
+            let Some(rest) = t.strip_prefix("#[path") else { continue };
+            let Some(q) = rest.split('"').nth(1) else { continue };
+            let joined = format!("{}/{q}", parent(file));
+            let mut parts: Vec<&str> = Vec::new();
+            for seg in joined.split('/') {
+                match seg {
+                    "" | "." => {}
+                    ".." => {
+                        parts.pop();
+                    }
+                    s => parts.push(s),
+                }
+            }
+            let resolved = format!("/{}", parts.join("/"));
+            let dir = parent(&resolved).to_string();
+            if dir != package_dir && !dir.starts_with(&format!("{package_dir}/")) {
+                out.insert(dir);
+            }
+        }
+    }
+    out.into_iter().collect()
+}
+
 /// The `rust-project.json` for a partition of `members` (module doc).
 /// `sysroot` is `rustc --print sysroot`; `view` the worker's view directory
-/// (`None`: the workspace root itself).
+/// (`None`: the workspace root itself); `external` the folders outside each
+/// member's package that its `#[path]` attributes reach, by member name
+/// ([`external_path_dirs`]).
 pub fn rust_project(
     meta: &Metadata,
     outputs: &BuildOutputs,
     members: &[String],
     sysroot: &str,
     view: Option<&str>,
+    external: &BTreeMap<String, Vec<String>>,
 ) -> Result<Value, String> {
     let need = closure(meta, members)?;
     let member_ids: BTreeSet<String> = members.iter().map(|m| meta.member_id(m)).collect::<Result<_, _>>()?;
@@ -292,7 +335,10 @@ pub fn rust_project(
             cfg.push("test".into());
         }
         let root_module = in_view(root, view, &t.src_path);
-        let mut include = vec![parent(&root_module).to_string()];
+        let mut include = vec![in_view(root, view, parent(&p.manifest_path))];
+        if member {
+            include.extend(external.get(&p.name).into_iter().flatten().map(|d| in_view(root, view, d)));
+        }
         include.extend(outputs.out_dir.get(&p.id).cloned());
         let is_proc_macro = t.kind.iter().any(|k| k == "proc-macro");
         let mut c = json!({
@@ -486,7 +532,8 @@ mod tests {
             r#"{"reason":"build-script-executed","package_id":"core#1","out_dir":"/t/out","cfgs":["has_x"],"env":[["K","v"]]}
 {"reason":"compiler-artifact","package_id":"pm#1","target":{"kind":["proc-macro"]},"filenames":["/t/libpm.so"]}"#,
         );
-        let p = rust_project(&m, &b, &["app".into()], "/sys", Some("/view")).unwrap();
+        let external = BTreeMap::from([("app".to_string(), vec!["/ws/crates/core/shared".to_string()])]);
+        let p = rust_project(&m, &b, &["app".into()], "/sys", Some("/view"), &external).unwrap();
         let crates = p["crates"].as_array().unwrap();
         let names: Vec<&str> = crates.iter().map(|c| c["display_name"].as_str().unwrap()).collect();
         assert_eq!(names, ["app", "core", "itoa_like", "pm", "serde_like", "app"], "libs sorted, then app's test");
@@ -502,7 +549,8 @@ mod tests {
         assert_eq!(by(1)["env"]["OUT_DIR"], "/t/out");
         assert_eq!(by(1)["env"]["K"], "v");
         assert_eq!(by(1)["env"]["CARGO_PKG_VERSION_PRE"], "rc.1");
-        assert_eq!(by(1)["source"]["include_dirs"], json!(["/view/crates/core/src", "/t/out"]));
+        assert_eq!(by(1)["source"]["include_dirs"], json!(["/view/crates/core", "/t/out"]), "the package root");
+        assert_eq!(by(0)["source"]["include_dirs"], json!(["/view/crates/app", "/view/crates/core/shared"]), "plus #[path] folders");
         assert_eq!(by(2)["root_module"], "/reg/itoa/src/lib.rs", "outside the workspace: not rewritten");
         assert_eq!(by(3)["is_proc_macro"], true);
         assert_eq!(by(3)["proc_macro_dylib_path"], "/t/libpm.so");
@@ -510,6 +558,18 @@ mod tests {
         assert_eq!(dep_names(by(5)), ["core", "serde_like", "pm", "app"]);
         assert_eq!(p["sysroot_src"], "/sys/lib/rustlib/src/rust/library");
         assert!(!names.contains(&"lone"), "an unrelated member is not loaded");
+    }
+
+    /// `#[path]` folders outside the package are found (relative to the
+    /// file, `..` resolved); ones inside it, and other attributes, are not.
+    #[test]
+    fn external_path_folders_are_found() {
+        let files = vec![
+            ("/ws/crates/d/examples/x/main.rs".to_string(), "#[path = \"../../../m/examples/common/a.rs\"]\nmod a;".to_string()),
+            ("/ws/crates/d/tests/t.rs".to_string(), "  #[path = \"../v/shared.rs\"]\nmod s;\n#[cfg(test)]".to_string()),
+            ("/ws/crates/d/src/lib.rs".to_string(), "#[path=\"../../e/f.rs\"] mod f;".to_string()),
+        ];
+        assert_eq!(external_path_dirs("/ws/crates/d", &files), ["/ws/crates/e", "/ws/crates/m/examples/common"]);
     }
 
     /// Every member is in exactly one partition; a member whose closure

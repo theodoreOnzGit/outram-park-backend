@@ -614,6 +614,23 @@ pub struct MergeReport {
     pub documents: Vec<usize>,
     /// Distinct external symbols kept.
     pub external_symbols: usize,
+    /// Documents written by more than one part, combined into one: a file
+    /// two crates load through `#[path]`, indexed in each crate's context.
+    pub shared_documents: Vec<String>,
+}
+
+/// One raw field of a document: `(field number, bytes, varint value)`.
+type RawField = (u64, Vec<u8>, Option<u64>);
+
+/// One document being merged: its path, its other fields (occurrences,
+/// symbols, language, encoding) in first-seen order, the set already taken,
+/// and the parts that wrote it. Owned: no lifetime parameters on structs
+/// (workspace rule).
+struct MergedDoc {
+    path: String,
+    fields: Vec<RawField>,
+    seen: std::collections::HashSet<RawField>,
+    parts: std::collections::BTreeSet<usize>,
 }
 
 /// Merge SCIP indexes written for **disjoint** sets of crates (GitHub
@@ -626,16 +643,21 @@ pub struct MergeReport {
 /// as that partition's definitions (checked on `changi` → `petir`,
 /// 2026-11-19, 51 of 51).
 ///
-/// Refused, so a mixed or overlapping index is never published: parts
-/// written by different rust-analyzer versions (symbol strings may differ),
-/// a document present in two parts (the partitions overlap), and a part
-/// with no metadata.
+/// Refused, so a mixed index is never published: parts written by
+/// different rust-analyzer versions (symbol strings may differ), and a part
+/// with no metadata. ~~A document present in two parts is refused (the
+/// partitions overlap).~~ **CHANGED 2026-11-19:** it is combined, the union
+/// of its occurrences and symbols, and listed in
+/// [`MergeReport::shared_documents`]: a file two packages load through
+/// `#[path]` is indexed in each one's context, as the monolithic index
+/// holds both in one document. Partitions that overlap by whole members are
+/// caught by the plan's coverage instead.
 pub fn merge(parts: &[Vec<u8>], project_root: &str) -> Result<(Vec<u8>, MergeReport), String> {
     let mut report = MergeReport::default();
     let mut first_meta: Option<Vec<(u64, Wire, usize)>> = None;
     let mut meta_src: &[u8] = &[];
-    let mut docs: Vec<&[u8]> = Vec::new();
-    let mut seen_paths: HashMap<String, usize> = HashMap::new();
+    let mut docs: Vec<MergedDoc> = Vec::new();
+    let mut by_path: HashMap<String, usize> = HashMap::new();
     let mut externals: Vec<&[u8]> = Vec::new();
     let mut seen_ext: std::collections::HashSet<&[u8]> = std::collections::HashSet::new();
     for (k, b) in parts.iter().enumerate() {
@@ -668,17 +690,35 @@ pub fn merge(parts: &[Vec<u8>], project_root: &str) -> Result<(Vec<u8>, MergeRep
                 (2, Wire::Len(s, e)) => {
                     let doc = &b[s..e];
                     let mut path = String::new();
+                    let mut fields = Vec::new();
                     for_each_field(doc, |n, w| {
-                        if let (1, Wire::Len(ps, pe)) = (n, w) {
-                            path = String::from_utf8_lossy(&doc[ps..pe]).replace('\\', "/");
+                        match w {
+                            Wire::Len(ps, pe) if n == 1 => {
+                                path = String::from_utf8_lossy(&doc[ps..pe]).replace('\\', "/");
+                            }
+                            Wire::Len(ps, pe) => fields.push((n, doc[ps..pe].to_vec(), None)),
+                            Wire::Varint(v) => fields.push((n, Vec::new(), Some(v))),
+                            Wire::Fixed => {}
                         }
                         Ok(())
                     })?;
-                    if let Some(other) = seen_paths.insert(path.clone(), k) {
-                        return Err(format!("{path} is in parts {other} and {k}: the partitions overlap"));
-                    }
-                    docs.push(doc);
+                    let i = *by_path.entry(path.clone()).or_insert_with(|| {
+                        docs.push(MergedDoc {
+                            path: path.clone(),
+                            fields: Vec::new(),
+                            seen: Default::default(),
+                            parts: Default::default(),
+                        });
+                        docs.len() - 1
+                    });
                     n_docs += 1;
+                    let d = &mut docs[i];
+                    d.parts.insert(k);
+                    for f in fields {
+                        if d.seen.insert(f.clone()) {
+                            d.fields.push(f);
+                        }
+                    }
                 }
                 (3, Wire::Len(s, e)) => {
                     if seen_ext.insert(&b[s..e]) {
@@ -715,9 +755,22 @@ pub fn merge(parts: &[Vec<u8>], project_root: &str) -> Result<(Vec<u8>, MergeRep
     put_bytes(3, project_root.as_bytes(), &mut meta);
     let mut out = Vec::new();
     put_bytes(1, &meta, &mut out);
-    for d in docs {
-        put_bytes(2, d, &mut out);
+    for d in &docs {
+        let mut enc = Vec::new();
+        put_bytes(1, d.path.as_bytes(), &mut enc);
+        for (n, bytes, v) in &d.fields {
+            match v {
+                Some(v) => {
+                    put_varint(n << 3, &mut enc);
+                    put_varint(*v, &mut enc);
+                }
+                None => put_bytes(*n, bytes, &mut enc),
+            }
+        }
+        put_bytes(2, &enc, &mut out);
     }
+    report.shared_documents = docs.iter().filter(|d| d.parts.len() > 1).map(|d| d.path.clone()).collect();
+    report.shared_documents.sort();
     for x in &externals {
         put_bytes(3, x, &mut out);
     }
@@ -836,8 +889,18 @@ mod tests {
         let d = ix.nearest_definition(r.symbol, "crates/app/src/main.rs", 4, None, &[], None).unwrap();
         assert_eq!(ix.documents[d.doc as usize].path, "crates/core/src/m.rs");
 
-        let e = merge(&[core.clone(), core.clone()], "file:///ws").unwrap_err();
-        assert!(e.contains("overlap"), "{e}");
+        // A file both parts wrote (a `#[path]` file shared by two crates):
+        // one document, the union of its occurrences, listed as shared.
+        let shared_def = [(&[2u32, 7, 8][..], "rust-analyzer cargo app 0.1.0 shared/g().", 1u64)];
+        let both = [(&[1u32, 7, 8][..], f, 1u64), (&[2, 7, 8], "rust-analyzer cargo app 0.1.0 shared/g().", 1)];
+        let other = encode::index("1.99.1", &[("crates/core/src/m.rs", &shared_def)]);
+        let (m, r) = merge(&[core.clone(), other], "file:///ws").unwrap();
+        assert_eq!(r.shared_documents, ["crates/core/src/m.rs"]);
+        let d = ScipIndex::decode(&m).unwrap();
+        assert_eq!(d.documents.len(), 1);
+        assert_eq!(d.documents[0].occurrences.len(), both.len());
+        let (_, r) = merge(&[core.clone(), core.clone()], "file:///ws").unwrap();
+        assert_eq!(r.shared_documents, ["crates/core/src/m.rs"], "identical occurrences are taken once");
         let old = encode::index("1.98.0", &[("crates/app/src/main.rs", &call)]);
         let e = merge(&[core, old], "file:///ws").unwrap_err();
         assert!(e.contains("1.98.0"), "{e}");

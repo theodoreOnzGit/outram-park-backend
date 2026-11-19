@@ -17,8 +17,11 @@
 //! documents (`ok`, nothing outside); the merge succeeds with the plan and
 //! is refused, naming the member, with one partition missing; `app`'s
 //! cross-crate calls resolve to `kern`'s functions through the merged
-//! index; and the merged and monolithic call graphs have **identical**
-//! `calls` and `uses`.
+//! index; and the merged call graph equals the monolithic one (`calls`,
+//! with kinds and lines, and `uses`) **plus exactly one edge**: a call into
+//! a file another package holds, loaded through `#[path]`, which the
+//! monolithic run leaves unresolved and the partition resolves (rustc
+//! compiles that call). Same-package `#[path]` files resolve in both.
 //!
 //! **Gate.** Needs `rust-analyzer` (and its `rust-src`) on `PATH`; without
 //! it the test prints why and passes without running. Unix (the worker's
@@ -106,6 +109,16 @@ fn partitions_merge_into_the_same_call_graph_as_the_monolithic_index() {
         "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\nkern = { path = \"../kern\" }\n",
     );
     write(root, "crates/app/src/lib.rs", APP);
+    // `#[path]` modules, the two cases the full-workspace comparison found
+    // (2026-11-19): one elsewhere in the same package, one in another
+    // package (as `dhoby-ghaut`'s examples load `outram-mc-libs` files).
+    write(root, "crates/app/extra/util.rs", "pub fn twice(x: f64) -> f64 {\n    2.0 * x\n}\n");
+    write(root, "crates/kern/shared/helper.rs", "pub fn half(x: f64) -> f64 {\n    x / 2.0\n}\n");
+    write(
+        root,
+        "crates/app/tests/it.rs",
+        "#[path = \"../extra/util.rs\"]\nmod util;\n#[path = \"../../kern/shared/helper.rs\"]\nmod helper;\n\n#[test]\nfn both() {\n    assert!(util::twice(helper::half(app::run(1.0))) > 0.0);\n}\n",
+    );
     let r = root.to_str().unwrap();
     let ok = |out: &std::process::Output, what: &str| {
         assert!(out.status.success(), "{what} failed: {}", String::from_utf8_lossy(&out.stderr));
@@ -184,7 +197,21 @@ fn partitions_merge_into_the_same_call_graph_as_the_monolithic_index() {
             "app::run -> kern::{to} missing: {cross:?}"
         );
     }
-    assert_eq!(from_parts["calls"], from_mono["calls"], "calls differ between merged and monolithic");
+    for to in ["crates/app/extra/util.rs::twice", "crates/kern/shared/helper.rs::half", "crates/app/src/lib.rs::run"] {
+        assert!(cross.contains(&("crates/app/tests/it.rs::both".into(), to.into())), "it::both -> {to} missing: {cross:?}");
+    }
+    // Merged = monolithic, plus exactly the cross-package `#[path]` edge:
+    // the monolithic run does not resolve a `#[path]` file in another
+    // package's source root (rustc compiles it, and `both` does call
+    // `half`); the partition includes that folder in `app`'s test target.
+    let mut want = calls(&from_mono);
+    want.push(("crates/app/tests/it.rs::both".into(), "crates/kern/shared/helper.rs::half".into()));
+    want.sort();
+    assert_eq!(calls(&from_parts), want, "merged calls are not monolithic plus the cross-package #[path] edge");
+    let without = |v: &serde_json::Value| -> Vec<serde_json::Value> {
+        v["calls"].as_array().unwrap().iter().filter(|c| c["to"] != "crates/kern/shared/helper.rs::half").cloned().collect()
+    };
+    assert_eq!(without(&from_parts), without(&from_mono), "every other edge identical, kinds and lines included");
     assert_eq!(from_parts["uses"], from_mono["uses"], "uses differ between merged and monolithic");
     assert_eq!(from_parts["unresolved"], from_mono["unresolved"]);
 
@@ -204,8 +231,8 @@ fn partitions_merge_into_the_same_call_graph_as_the_monolithic_index() {
     let (first, log) = local(&[("KOVAN_INDEX_MAX_CLOSURE", "1"), ("KOVAN_INDEX_JOBS", "2")]);
     assert!(log.contains("partitioned rust-analyzer index, 2 partitions"), "{log}");
     assert!(root.join("target/kovan-scip/parts/p00/partition.json").is_file());
-    assert_eq!(first["calls"], from_mono["calls"], "local partitioned calls differ from monolithic");
-    assert_eq!(first["uses"], from_mono["uses"]);
+    assert_eq!(first["calls"], from_parts["calls"], "local partitioned calls differ from the merged CLI run");
+    assert_eq!(first["uses"], from_parts["uses"]);
     let (_, again) = local(&[("KOVAN_INDEX_MAX_CLOSURE", "1")]);
     assert_eq!(again.matches("unchanged, reused").count(), 2, "{again}");
     // `KOVAN_INDEXER=monolithic` keeps the whole-workspace run.
