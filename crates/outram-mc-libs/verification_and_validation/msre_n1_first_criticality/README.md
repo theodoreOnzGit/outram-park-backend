@@ -1297,8 +1297,12 @@ The one-group prediction undervalued the upper head's 26 cm of salt. That salt b
   - the S(α,β) total is computed as total + thermal − elastic.
   
   It is the commit predicted on gh:#1128 before the last steps ran. 66ff395c, the next commit, only adds a test, so it cannot move k.
+- **CAVEAT, added 2026-11-19 20:00 UTC: the test cannot tell a physics change from a change of random path.** A step is good only if k is exactly 1.017528. So any commit that changes which random numbers a history consumes reads as bad, physics or not. 323d5d93's own record puts its largest cross-section move at 6.9e-7 relative.
+  - Two single seeds of the same physics differ with sd ≈ 78 pcm, so +109 is 1.4σ and is **not resolved** as a physics shift.
+  - The comparison that can resolve it is today's six-seed default mean against 1.01807 ± 0.00023 (2026-11-13). That run is queued, with its prediction on gh:#1128.
+  - ~~**Interpretation:** this is a correction toward the upstream rule, not a defect.~~ The interpretation below holds for the commit, not for the size of the shift.
 - **Interpretation:** this is a correction toward the upstream rule, not a defect. It is kept, as "correct physics is the default" requires, and it moves N-1 further from the reference. `OUTRAM_MC_LEGACY_XS_DETAILS=1` restores all four details together. Which of the four carries the +109 pcm is **not yet measured**.
-- **The remaining +128 pcm** comes from a later change, between a97ca6da and cedf0a10. A second bisect over that range was launched at 15:47 UTC, with a step good only if k is exactly 1.018617.
+- **The remaining +128 pcm** (also 1.6σ, so not resolved either) ~~comes from~~ is a change of k at a later commit, between a97ca6da and cedf0a10. A second bisect over that range was launched at 15:47 UTC, with a step good only if k is exactly 1.018617.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
