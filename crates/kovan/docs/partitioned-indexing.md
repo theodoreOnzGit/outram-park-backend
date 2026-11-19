@@ -334,3 +334,14 @@ seven started together at 12:43:34 UTC.
   CI (§2 table).
 - First run, so every partition cache was a miss; reuse on GitHub is
   shown on the next run whose partitions are unchanged.
+- **Cache scope (found on the first `web-deploy` run, 776, the same day):**
+  GitHub lets a run restore only caches saved on its own branch or on the
+  default branch (`main`). Run 776 on `web-deploy` looked up p06 under the
+  very key run 773 had saved on `develop` (`b3fe4321…`, the partition
+  unchanged) and missed. So partitions are reused between runs of the same
+  branch (consecutive deploys; consecutive nightlies on `develop`), not
+  across branches, until a `main` run seeds the shared scope.
+- **Plan job had no rust-analyzer (fixed the same day):** its key read
+  "rust-analyzer missing" rather than the version the partitions index
+  with, so a rust-analyzer update would not have invalidated a cached
+  partition. The plan job now installs the component; keys change once.
