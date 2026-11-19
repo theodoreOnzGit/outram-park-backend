@@ -29,9 +29,11 @@
 //!
 //! # Results (2026-11-18, Intel Xeon 2.10 GHz, 4 logical cores)
 //!
-//! Node-grid `<E'>` relative to the direct integral: 0.1 eV -1.3e-5, 1.0 eV
-//! -2.3e-5 (sampling sem 2e-4 to 3e-4); log-spaced: 0.1 eV -1.12e-2, 1.0 eV
-//! +1.46e-2. Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//! Node-grid `<E'>` relative to the direct integral (1e6 samples, sampling
+//! sem about 4e-4): 0.1 eV -2.4e-5, 1.0 eV -4.0e-5; log-spaced at 1.0 eV
+//! +1.46e-2 (4e6 samples in the record: 0.1 eV -1.12e-2). Independent
+//! node-interpolation prediction at 0.1 eV 0.082290 against sampled 0.082284.
+//! Run time 100 s. Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
 
 #![cfg(feature = "std")] // needs files (gh:#1605)
 

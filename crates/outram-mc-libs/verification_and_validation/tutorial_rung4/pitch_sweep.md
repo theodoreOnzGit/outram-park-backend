@@ -537,7 +537,16 @@ B - baseline = +23 +- 38 (z +0.60); D - B = -1 +- 43 (z -0.03); A - D = +134
   data pipeline (+23 +- 38); the S(a,b) cross sections; the emission-grid
   density of the ENDF-built table (-1 +- 43); resonance/fast factors (p, eps
   agree to 5e-5).
-- **What is not shown:** *which* feature of the ENDF-built outgoing-energy
+- ~~**What is not shown:** *which* feature of the ENDF-built outgoing-energy
+  kernel differs.~~ **CORRECTED 2026-11-19 (gh:#550, `sab_reference_550.md`):**
+  it is the incident-energy labelling of the emission tables (`emission`
+  returns the nearest `calcem` record, so the table labelled E carries a node
+  up to 5 % away: a staircase of up to 2.3 % in `<E'>`); NJOY's table is the
+  one within 1.9e-4 of a direct integral of the tape, and tables on THERMR's
+  own grid close the 2.40 cm gap (E - OpenMC -1 +- 44 pcm). Also the claims
+  below that the density of the grid "is not the cause" and that neither
+  table is closer to the evaluation are superseded there. Original text:
+  *which* feature of the ENDF-built outgoing-energy
   kernel differs. Both tables use 64 outgoing-energy bins, the same discrete
   sampling scheme and the same cross sections to 1e-4, and the difference does
   not shrink on a 4x finer grid, so it is not interpolation resolution. The
