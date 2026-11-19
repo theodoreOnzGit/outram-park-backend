@@ -1,0 +1,5 @@
+case,route,code,seed,k,k_std_internal,particles,inactive,active,threads,wall_s,load_s,n_nuclides,n_urr,n_dbrc,sab,commit,k_alt
+msre,new,outram-mc,1,1.654881,0.001146,5000,40,120,2,359.9,327.0,15,7,15,true,4c29b7f58,
+msre,new,outram-mc,2,1.654723,0.001066,5000,40,120,2,355.7,327.0,15,7,15,true,4c29b7f58,
+msre,new,outram-mc,3,1.654896,0.001201,5000,40,120,2,357.7,327.0,15,7,15,true,4c29b7f58,
+msre,new,outram-mc,4,1.655942,0.001151,5000,40,120,2,350.0,327.0,15,7,15,true,4c29b7f58,

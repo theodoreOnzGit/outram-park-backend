@@ -1,0 +1,94 @@
+   Compiling njoy-outram-park-fork v0.0.7 (/home/user/outram-park-backend/.claude/worktrees/agent-a47bf28edc4cdd26a/crates/njoy-outram-park-fork)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:27:9
+   |
+27 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+28 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+29 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1135:7
+     |
+1135 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+warning: unused variable: `kmt`
+   --> crates/njoy-outram-park-fork/src/acer/acelcp.rs:352:20
+    |
+352 |         for &(kmf, kmt) in keys.iter().filter(|&&(_, kmt)| kmt == mt) {
+    |                    ^^^ help: if this is intentional, prefix it with an underscore: `_kmt`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling outram-mc-libs v0.0.7 (/home/user/outram-park-backend/.claude/worktrees/agent-a47bf28edc4cdd26a/crates/outram-mc-libs)
+warning: unused import: `transport_history_vr`
+  --> crates/outram-mc-libs/src/physics/fixed_source.rs:38:37
+   |
+38 | use crate::physics::transport_csg::{transport_history_vr, Site};
+   |                                     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::energy::EnergyDist`
+  --> crates/outram-mc-libs/src/source/source.rs:16:5
+   |
+16 | use super::energy::EnergyDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::spatial::SpatialDist`
+  --> crates/outram-mc-libs/src/source/source.rs:17:5
+   |
+17 | use super::spatial::SpatialDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:184:19
+    |
+171 | impl Site {
+    | --------- associated function in this implementation
+...
+184 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 4 warnings (run `cargo fix --lib -p outram-mc-libs` to apply 1 suggestion)
+warning: `njoy-outram-park-fork` (lib) generated 1 warning (run `cargo fix --lib -p njoy-outram-park-fork` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 2m 19s
+     Running tests/correct_physics_is_default.rs (/tmp/claude-0/-home-user-outram-park-backend/208a80c6-8981-41e3-ac0f-1769a3a0e997/scratchpad/target-njoy/release/deps/correct_physics_is_default-2245a0a8015593a7)
+
+running 8 tests
+fatal: destination path '/home/user/outram-park-backend/.claude/worktrees/agent-a47bf28edc4cdd26a/reference-data/ace' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/theodoreOnzGit/ace_and_other_data.git' into submodule path '/home/user/outram-park-backend/.claude/worktrees/agent-a47bf28edc4cdd26a/reference-data/ace' failed
+Failed to clone 'reference-data/ace'. Retry scheduled
+fatal: destination path '/home/user/outram-park-backend/.claude/worktrees/agent-a47bf28edc4cdd26a/reference-data/ace' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/theodoreOnzGit/ace_and_other_data.git' into submodule path '/home/user/outram-park-backend/.claude/worktrees/agent-a47bf28edc4cdd26a/reference-data/ace' failed
+Failed to clone 'reference-data/ace' a second time, aborting
+test from_ace_applies_delayed_spectra_by_default ... ok
+test from_ace_applies_urr_by_default ... ok
+test mg_scattering_anisotropy_is_applied_by_default_when_the_set_carries_it ... ok
+test resonance_scattering_method_defaults_to_upstreams_rvs ... ok
+test other_neutron_channels_are_applied_by_default ... ok
+test endf_thermal_emission_is_on_the_calcem_grid_by_default has been running for over 60 seconds
+test from_endf_file_applies_urr_and_dbrc_by_default has been running for over 60 seconds
+test thermal_equiprobable_sampling_is_openmc_by_default has been running for over 60 seconds
+test thermal_equiprobable_sampling_is_openmc_by_default ... ok
+test from_endf_file_applies_urr_and_dbrc_by_default ... ok
+test endf_thermal_emission_is_on_the_calcem_grid_by_default ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 164.33s
+
+     Running tests/no_unmarked_nuclide_level_sab_462.rs (/tmp/claude-0/-home-user-outram-park-backend/208a80c6-8981-41e3-ac0f-1769a3a0e997/scratchpad/target-njoy/release/deps/no_unmarked_nuclide_level_sab_462-6fb273539346536c)
+
+running 1 test
+test every_nuclide_level_sab_call_site_is_marked_with_its_reason ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+

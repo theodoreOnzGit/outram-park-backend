@@ -442,8 +442,99 @@ before and after the flip, a gap of another origin and not moved by it.
 |---|---|---|---|---|---|---|
 | W2 | `icsbep_five_route_keff --case hst009 --route endf` (route 4, H(H2O) from the LEAPR deck, which also flips), 5000 x [40+120], 16 seeds | 1.00080 (sd 152, N 16, `501c16264`) | **1.00152** (sd 113) | **+73 +- 47 pcm** (paired by seed +73 +- 49) | +1.53 | +40 (-30 .. +120): **held** |
 | W2 | control: the knob on, seed 1 | record seed 1 1.00128 | 1.00128 +- 0.00143 | bit-identical | | the old build is reproduced; seeds 2 and 3 with the knob: 0.99926, 0.99853; new minus knob over seeds 1-3: -99, +335, +258, mean +165 +- 134 pcm |
-| W3 | `msre` unit cell (graphite, route 4) | see below | | | | |
+| W3 | `icsbep_five_route_keff --case msre --route endf` (graphite unit cell with salt, route 4, carbon S(a,b) from the LEAPR deck), 5000 x [40+120], 4 seeds against the record's 8 | 1.65536 (sd 118, N 8, `501c16264`) | 1.65511 (sd 56, N 4) | **-25 +- 50 pcm** | -0.50 | -10: held |
+| W3 | same, seeds 1-4 against the record's seeds 1-4 (1.65585, sd 94) | | | -74 +- 55 unpaired (z -1.35); the same-seed "paired" figure, -74 +- 24 (z -3.1), is NOT used: the code has moved since `501c16264` (no knob-on control was run for this case) and the two builds' random streams do not correlate | | |
 
 Both water numbers agree in sign and size with the first pass (HST-009
 +39 +- 26; the pin cells +32, +107, +64): the node grid raises k in
 H-in-H2O systems by tens of pcm, +73 +- 47 here.
+
+### MSRE N-1 (graphite at 911 K, salt, H2O in the shield)
+
+| id | case | old | new | new - old +- sigma | z | predicted |
+|---|---|---|---|---|---|---|
+| W1 | `msre_n1_first_criticality --mo natural --seeds 1-3 --threads 2`, 20000 x [100+200], default model (natural Mo, hot dimensions, whole TM-0728 shield, U-234/U-236); **2 of 3 seeds finished** (2852 s and 3340 s a seed on 2 shared threads) | 1.01807 +- 0.00023 (6 seeds, 2026-11-13) | seeds 1, 2: 1.016934 +- 0.000488, 1.015550 +- 0.000573; mean 1.016242 (sd 98 pcm, sem 69) | **-183 +- 73 pcm** against the 6-seed record (z -2.5) | -2.5 | -10 (-80 .. +60): **missed**, 2.5 sigma, and **not attributable to the flip** |
+
+**Why W1 is not a measurement of the flip.** No knob-on control was run (one
+seed costs about 50 min here, and the budget ended). The 2026-11-13 record is
+six days and many commits old: the msre_n1 README itself records the default
+re-run on a later binary (`42b372a59`, 2026-11-19, before the flip) at seed 1 =
+1.019902 +- 0.000544, **+237 pcm** from the 11-13 binary's seed 1 (1.017528),
+for a reason the README does not isolate. This run's seed 1 (1.016934) is -59
+pcm from the 11-13 binary's and **-297 +- 73 pcm** from the later pre-flip
+binary's; the code differs from both by more than the flip. The honest
+statement: N-1 read 1.0162 +- 0.0007 (2 seeds) on today's binary, 183 pcm
+below the 11-13 six-seed record and 297 pcm below the same-day pre-flip seed
+1; a paired knob-on pair at the same seeds (about two hours) is what would
+say how much of that is the flip. A lower k moves N-1 toward k_ref (1.00080),
+a flattering direction, which is a reason for suspicion and not for acceptance;
+and if it were all the flip it would be the largest move in this pass. The
+data are in `remeasure2_550/msre_new.csv`. The README's headline
+(+1726 +- 23 pcm) is not changed by this.
+
+### Tests, the cache and items that do not move
+
+| id | item | verdict |
+|---|---|---|
+| T1 | `openmc_notebooks` pincell tests (6, includes `pincell_lwr_thermal_pin_benchmark`, which reads `tsl-HinH2O.endf` through `from_endf_file`) | pass, no re-pin |
+| T1 | `correct_physics_is_default` (8, includes the flip's pin), `no_unmarked_nuclide_level_sab_462` (1) | pass |
+| T2 | `dhoby-ghaut` `mc_web::processed_cache` tests (6) | pass. **A defect found and fixed in the same change:** `processed_cache::CODE` (the version every cached product carries; its doc says to bump it when THERMR or LEAPR changes a product) was not bumped by the flip, so a browser would have kept serving pre-flip thermal laws as current. Bumped to `nd-2026-11-19.1`. No cache is committed (IndexedDB state per browser), so nothing was regenerated. The existing hash pin covers only neutron products (He-4, U-234, which hold no thermal data: unchanged), which is how the flip passed unnoticed; a second pin, `the_code_version_pins_the_thermal_law`, now fixes the SHA-256 of the Si-in-SiC law (MAT 43, 300.15 K, `from_tape`) as `ef7c770d...d6d1a` and asserts that the pre-flip build gives a different one (`556208e0...ac8439`) |
+| P0 | `pincell_depletion_vs_openmc` | **does not move, by construction**: `ThermalScattering::from_ace` and `Nuclide::from_ace_file` (lines 125-126), no ENDF thermal build. Not run |
+| P0 | `thermal_kernel_keff_worth`'s four pre-existing arms | do not move: they call `from_tape_with_grids` explicitly (the log-spaced constructor), unchanged by the flip; only the new fifth arm is the default |
+| P0 | MSRE "NC-1" | no case of that name exists in the repository (searched `.rs`, `.md`, `.toml`, `.sh`); the MSRE cases are N-1 and N-3. N-1 was run (below) |
+
+### Summary of this pass (new minus old, pcm)
+
+Positive = the node grid raised k. Predictions are from the plan, fixed before
+any run. About twenty comparisons were made, so one or two at 2 sigma are
+expected under zero true difference.
+
+| case | move | z | predicted | outcome |
+|---|---|---|---|---|
+| graphite medium k_inf (G1, N=16 pooled) | -123 +- 68 | -1.8 | -15 | block 1 -234 (missed), block 2 -12; pooled unresolved |
+| HTR-10 fuel zone het (G2) | -49 +- 121 | -0.4 | -10 | held |
+| HTR-10 pebble delta, natural B (G3) | -225 +- 205 | -1.1 | -15 | unresolved |
+| FHR ring-RPT MOVING (G4) | +77 +- 86 | +0.9 | -10 | sign wrong, unresolved |
+| FHR worth AT-REST - MOVING (G4) | -108 +- 115 (-261 vs -153) | -0.9 | 0 +- 100 | held |
+| `dh_keff_vv` delta (G5) | -56 +- 62 | -0.9 | -10 | held |
+| `dh_keff_vv` ring-RPT (G5) | +192 +- 82 | +2.3 | -10 | **missed, wrong sign** |
+| HST-009 route 4 (W2) | +73 +- 47 | +1.5 | +40 | held |
+| MSRE unit cell route 4 (W3) | -25 +- 50 | -0.5 | -10 | held |
+| MSRE N-1 (W1) | -183 +- 73 (uncontrolled) | -2.5 | -10 | **missed; not attributable to the flip** |
+| processed-law cache version | `CODE` not bumped by the flip | | | defect fixed |
+
+What the pass supports: no graphite or water system moved by an amount the
+available statistics resolve, except two 2.3 to 2.5 sigma values (the ring-RPT
+pebble up, MSRE N-1 down) and G1's block 1, which a replication did not
+confirm. The graphite signs are mixed (G1 and G5-delta down, G4 and G5-ring
+up), which fits an effect smaller than the statistics and does not fit a
+single physical story. The water systems keep rising by tens of pcm
+(+32, +107, +64, +39 in the first pass; +73 here). Nothing was tuned, no
+tolerance moved, no pin re-set for k; the only pin added is the thermal-law
+hash of the processed-law cache.
+
+### Not re-measured, and why
+
+- `nee_soon::htr10_rmc` (HTR-10 whole core) at the record's protocol:
+  10000 x [5+135] took 2945 s of transport on 16 threads on 18 cores, about
+  33 ms per history per thread, so about 6.5 h on the 2 threads available, and
+  a data load of 420 s on 16 threads. A reduced pair would have a sigma near 500
+  pcm and resolve nothing (the original pair already could only bound
+  |LEAPR - TAPE| below 380 pcm). Reached: yes (`ThermalScattering::from_leapr`
+  -> `from_tape`, `data.rs`, `data_jobs.rs`). The graphite instruments that can
+  resolve something are G1 to G5 above, and they are the evidence for graphite.
+  The `htr10_correct_physics_is_default` test of `nee_soon` was not run.
+- `icsbep_five_route_keff` routes 3 and 5, and the HST-009 / MSRE cases at the
+  2026-11-17 record's 16 and 8 seeds on the knob-on side (only 3 knob-on seeds
+  of HST-009 were run, as a control).
+- `fhr_ring_rpt_endf`'s other six solves (explicit TRISO, ring-RPT and naive
+  homogenised, cube and sphere, delta-tracked): the driver has no seed loop
+  (see `sab_per_material_1581`); its CSG solve is G4. G5 is the nearest
+  delta-tracked ring-RPT pebble.
+- The 24-seed G3 protocol (12 were run), and the FHR AT-REST arm with the knob
+  on (the control for it is the 2026-11-17 record, checked only through the
+  MOVING arm's seeds 1 and 2).
+- `dh_keff_vv`'s older single-draw doc record (1.38647 +- 0.00211, another
+  machine and commit) is not a comparison here; the paired knob-on arm is.
+- Timings of the node-grid build against the log-spaced one.
+- LCT-008 cases, deliberately.
