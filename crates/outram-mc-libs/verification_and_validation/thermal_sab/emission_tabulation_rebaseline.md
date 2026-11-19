@@ -93,6 +93,16 @@ are two dimensions of the same ACE equiprobable pre-tabulation, not one defect.
 (−3.24 % → −2.89 %, and only −2.79 % at 128 bins). Water still moderates ~3 %
 less per collision here than in NJOY.
 
+~~**#188 is mitigated, not closed.** ... Water still moderates ~3 % less per
+collision here than in NJOY.~~ **CORRECTED 2026-11-19 (gh:#1666):** the
+first-moment (⟨E′⟩/E) half is gone: re-run on base `516f559f8`,
+`examples/h2o_kernel_vs_njoy_thermr.rs` gives a worst deviation of +0.098 % at
+1.5 meV against THERMR (sampling 1 sigma 0.15 %, envelope 1.5 %). It went with
+`cecd8bd92` (2026-09-13, −1.75 % to −0.38 % at 1.5 meV), not with #407 (the
+pre-#407 commit `4a456a2fb` already reads +0.34 %); the full bisect is in the
+doc comment of `golden_gate` in that example. The ξ and width columns above
+were **not re-checked** on 2026-11-19.
+
 ## 3.1 Independent confirmation: the kernel's own fixed point
 
 A second agent working in the same tree added
