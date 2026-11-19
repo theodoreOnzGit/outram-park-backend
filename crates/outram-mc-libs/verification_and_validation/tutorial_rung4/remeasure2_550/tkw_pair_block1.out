@@ -1,0 +1,6 @@
+
+            tabulation          k    sigma_k delta vs 48x16   sigma_d    sigma
+      384x64 (current)    1.38590    0.00068              -         -        -
+calcem nodes x64 (#550)    1.38356    0.00102         -234.1     108.4      2.2
+
+  delta k in pcm; 8 replicas x 320000 active histories each; paired by master seed.

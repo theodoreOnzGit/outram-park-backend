@@ -1,0 +1,19 @@
+FHR ring-RPT CSG pebble, free-gas target motion (in-process hook)
+  arm        n      k_eff        sd        sem
+  MOVING     8   1.36384   0.00214   0.00076
+  AT-REST    8   1.36123   0.00206   0.00073
+
+  p  (2-group): MOVING 0.4833 ± 0.0002   AT-REST 0.4849 ± 0.0003   difference +0.0017 ± 0.0003
+  eps(2-group): MOVING 1.5050 ± 0.0003   AT-REST 1.5001 ± 0.0003   difference -0.0049 ± 0.0005
+
+  difference (AT-REST − MOVING), unpaired = -261 ± 105 pcm  (2.5 sigma)
+  difference (AT-REST − MOVING), paired   = -261 ± 107 pcm  (2.4 sigma), paired sd 303
+  -> paired sd (303) EXCEEDS either arm's (214); the seeds do not pair, so quote the UNPAIRED figure.
+
+  Prediction on record: -153 +/- 43 pcm, this driver on the default build, 8 seeds (gh:#1636, 2026-11-17); the -556 of 60f6bb261 is reproduced only with resonance scattering ablated; build 7b5dd858d.
+  (-2242 pcm / k 1.40546 predates the F-19 fix 45f8d72d; -556 / 60f6bb261 predates default resonance scattering; both struck through in the doc comment.)
+  Unablated arm: k_MOVING 1.36384 vs the reference build's 1.36307: +77 pcm (+1.0 sigma of this run's own sem).
+
+  VERDICT:
+    gap -108 pcm from the reference, 1.0 sigma of (this run + reference) errors (gh:#1636 task gate abs(z) <= 2; HELD below is the older 3 sigma).
+    HELD. The in-process hook reproduces the recorded like-for-like value.

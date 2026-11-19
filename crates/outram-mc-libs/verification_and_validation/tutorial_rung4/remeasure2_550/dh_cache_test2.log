@@ -1,0 +1,183 @@
+warning: unused variable: `kmt`
+   --> crates/njoy-outram-park-fork/src/acer/acelcp.rs:352:20
+    |
+352 |         for &(kmf, kmt) in keys.iter().filter(|&&(_, kmt)| kmt == mt) {
+    |                    ^^^ help: if this is intentional, prefix it with an underscore: `_kmt`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `njoy-outram-park-fork` (lib) generated 1 warning (run `cargo fix --lib -p njoy-outram-park-fork` to apply 1 suggestion)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:27:9
+   |
+27 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+28 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+29 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1135:7
+     |
+1135 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+warning: unused import: `transport_history_vr`
+  --> crates/outram-mc-libs/src/physics/fixed_source.rs:38:37
+   |
+38 | use crate::physics::transport_csg::{transport_history_vr, Site};
+   |                                     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::energy::EnergyDist`
+  --> crates/outram-mc-libs/src/source/source.rs:16:5
+   |
+16 | use super::energy::EnergyDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::spatial::SpatialDist`
+  --> crates/outram-mc-libs/src/source/source.rs:17:5
+   |
+17 | use super::spatial::SpatialDist;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:184:19
+    |
+171 | impl Site {
+    | --------- associated function in this implementation
+...
+184 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 4 warnings (run `cargo fix --lib -p outram-mc-libs` to apply 1 suggestion)
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:9:5
+  |
+9 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:82:5
+   |
+82 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:8:5
+  |
+8 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:8:5
+  |
+8 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:56:5
+   |
+56 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:8:5
+  |
+8 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:288:15
+    |
+288 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+warning: unused import: `uom::si::ratio::ratio`
+  --> crates/tampines/src/components/pump_coastdown.rs:72:5
+   |
+72 | use uom::si::ratio::ratio;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/two_fluid.rs:319:5
+    |
+319 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/drift_flux.rs:104:5
+    |
+104 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `tampines` (lib) generated 3 warnings (run `cargo fix --lib -p tampines` to apply 1 suggestion)
+warning: unused import: `crate::index::PaperEntry`
+   --> crates/kovan/src/mindmap.rs:100:5
+    |
+100 | use crate::index::PaperEntry;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `PICKER_RESULTS` is never used
+  --> crates/kovan/src/collection_picker.rs:28:18
+   |
+28 | pub(crate) const PICKER_RESULTS: usize = 8;
+   |                  ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `rank` is never used
+  --> crates/kovan/src/collection_picker.rs:38:15
+   |
+38 | pub(crate) fn rank<'a>(
+   |               ^^^^
+
+warning: function `would_create` is never used
+  --> crates/kovan/src/collection_picker.rs:68:15
+   |
+68 | pub(crate) fn would_create(index: &KnowledgeIndex, kind: EntityKind, query: &str) -> bool {
+   |               ^^^^^^^^^^^^
+
+warning: constant `CENTRE_FONT_SCALE` is never used
+    --> crates/kovan/src/mindmap.rs:1003:7
+     |
+1003 | const CENTRE_FONT_SCALE: f64 = 1.35;
+     |       ^^^^^^^^^^^^^^^^^
+
+warning: `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` (lib) generated 5 warnings (run `cargo fix --lib -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` to apply 1 suggestion)
+   Compiling dhoby-ghaut v0.0.2 (/home/user/outram-park-backend/.claude/worktrees/agent-a47bf28edc4cdd26a/crates/dhoby-ghaut)
+    Finished `release` profile [optimized] target(s) in 25.17s
+     Running unittests src/lib.rs (/tmp/claude-0/-home-user-outram-park-backend/208a80c6-8981-41e3-ac0f-1769a3a0e997/scratchpad/target-njoy/release/deps/dhoby_ghaut-fc114b4261d3a417)
+
+running 6 tests
+test mc_web::processed_cache::tests::the_code_version_pins_the_processing_output ... ok
+test mc_web::processed_cache::tests::a_cached_law_is_the_processed_law_bit_for_bit has been running for over 60 seconds
+test mc_web::processed_cache::tests::a_cached_nuclide_is_the_processed_nuclide_bit_for_bit has been running for over 60 seconds
+test mc_web::processed_cache::tests::a_nuclide_made_from_cached_stages_is_the_processed_nuclide_bit_for_bit has been running for over 60 seconds
+test mc_web::processed_cache::tests::a_cached_law_is_the_processed_law_bit_for_bit ... ok
+test mc_web::processed_cache::tests::the_code_version_pins_the_thermal_law has been running for over 60 seconds
+test mc_web::processed_cache::tests::the_code_version_pins_the_thermal_law ... ok
+test mc_web::processed_cache::tests::the_store_is_route_4_and_process_bit_for_bit has been running for over 60 seconds
+test mc_web::processed_cache::tests::the_store_is_route_4_and_process_bit_for_bit ... ok
+test mc_web::processed_cache::tests::a_nuclide_made_from_cached_stages_is_the_processed_nuclide_bit_for_bit ... ok
+test mc_web::processed_cache::tests::a_cached_nuclide_is_the_processed_nuclide_bit_for_bit ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 353.28s
+

@@ -129,6 +129,16 @@
 //! three. Every arm agrees within statistics, and the two unresolved nulls stay
 //! unresolved as the statistics improve rather than resolving into something.
 //!
+//! ## After the S(a,b) emission-grid flip (gh:#550, 2026-11-19)
+//!
+//! The 24-seed numbers below were taken with the log-spaced emission tables.
+//! Re-run with the node-grid default, 12 seeds, same settings: natural-B atom
+//! ppm 1.68456 (sd 573 pcm) against 1.68681, **-225 +/- 205 pcm** (z -1.10);
+//! the other four arms -156, -80, +278 and -159 pcm, all |z| <= 1.25. A paired
+//! control with `OUTRAM_SAB_LOG_SPACED_GRID=1` over seeds 1-3 swings by
+//! +-1000 pcm per seed. Nothing is resolved; the table below is not
+//! superseded. Record: `verification_and_validation/tutorial_rung4/sab_reference_550.md`.
+//!
 //! ## After the per-material S(a,b) migration (gh:#1581, #1583)
 //!
 //! The table above was measured 2026-09-16 at 6000 histories, **before** the
