@@ -177,14 +177,23 @@ coverage check against the plan passed.
 
 **Against the targets.** Peak memory per worker fell from the monolithic
 13.2 GiB (which needed swap on this 15 GB machine) to at most 12.0 GiB, and
-four of seven partitions sit under 8 GiB. **The 8 GiB per-worker target is
-not met for the four GUI- or GPU-heavy closures (10.0–12.0 GiB)**: memory
+three of seven partitions sit under 8 GiB. ~~**The 8 GiB per-worker target is
+not met for the four GUI- or GPU-heavy closures (10.0–12.0 GiB)**~~
+**TARGET REVISED 2026-11-19 (maintainer: "Okay 14GB acceptable"): the
+per-worker target is 14 GiB, and every partition meets it (worst 12.0 GiB).**
+Why 8 GiB was out of reach, kept for the record: memory
 follows the dependency closure (§2, item 2), and those closures are
 dominated by `wgpu`/`egui`/`eframe` and their platform crates, which every
 member that draws a window pulls in. A partition cannot be smaller than its
 largest member's closure, so a finer plan does not help p00; what would is
 indexing several partitions from one loaded dependency database (`ra_ap_*`,
-§3), not started. Sequential wall time is 1.4× the monolithic run, the price
+§3), not started. Two cheaper levers were measured and ruled out
+(2026-11-19): dev-dependencies are not the cause (the engine's library alone
+needs 834 packages, 839 with dev-dependencies; likewise `dhoby-ghaut`
+747/749, `kovan` 707/712), so splitting tests and examples from libraries
+would not help; and rust-analyzer's syntax-tree cache is not either (p00
+with `lru.capacity = 16`: 11,130 MiB against 11,139 MiB), because the peak
+is the semantic database of the closure, held for the whole run. Sequential wall time is 1.4× the monolithic run, the price
 of loading shared dependencies once per partition; on CI the partitions run
 in parallel, so the critical path is the slowest one (350 s plus setup).
 
@@ -281,10 +290,47 @@ key, coverage, settings and `#[path]` ownership
 |---|---|
 | B `index-partition` | done; every member measured (§5.1) |
 | C `scip-merge` + equivalence | done; 100 % recall on an identical tree (§5.2) |
-| D `index-plan` + Pages matrix | done in `pages.yml`; **not yet run on GitHub** (Pages deploys from `web-deploy`), so runner wall times and memory are unmeasured |
+| D `index-plan` + Pages matrix | done; ~~**not yet run on GitHub**~~ **first GitHub run passed 2026-11-19** (§5.6) |
 | E partition cache key | done (members' call-graph keys + `Cargo.lock` + host + rustc + rust-analyzer + schema); reuse shown locally |
 | F local Index | done |
 | G default + fallback | partitioned is the default on Linux/macOS; monolithic kept as `KOVAN_INDEXER=monolithic` until several CI builds have matched (brief §12) |
 
-Open: the 8 GiB per-worker target for the GUI closures (§5.1); Windows
+Open: ~~the 8 GiB per-worker target for the GUI closures (§5.1)~~ (target
+revised to 14 GiB, met; §5.1); Windows
 (symlink view); a wasm32 configuration axis (not indexed, as before).
+
+### 5.6 First run on GitHub's runners (2026-11-19)
+
+`pages.yml` run 44524814281, dispatched on `develop` at `1f4e9cc47` (a
+dispatch builds every job but deploys nothing; `deploy` runs only from
+`web-deploy`). Standard `ubuntu-latest` runners (16 GB), toolchain and
+rust-analyzer **1.98.0** (the Pages pin), one runner per partition, all
+seven started together at 12:43:34 UTC.
+
+| Partition | Peak RSS | `index-partition` wall (incl. `cargo check`) |
+|---|---|---|
+| p00 `outram-park-digital-twin-engine` | 11,536 MiB | 301 s |
+| p01 `dhoby-ghaut`, `kovan`, … | **13,026 MiB** | 338 s |
+| p02 | 10,749 MiB | 288 s |
+| p03 | 10,834 MiB | 392 s |
+| p04 / p05 / p06 | not read (jobs 2–4 min) | — |
+
+- **Every partition succeeded; `index-unify` merged all seven** with
+  coverage checked against the plan (4 s).
+- **`callgraph` used the merged index:** its log reads `data.sh: using the
+  SCIP index …/merged.scip (KOVAN_SCIP_FROM); rust-analyzer scip not run`,
+  then `call graph of 49 crates` and `every crate built from this commit`.
+  The monolithic fallback and its swap step were skipped.
+- **Against the 14 GiB target:** met, with p01 the tightest (1.3 GiB to
+  spare). It is ~1.0 GiB above the local 1.99.1 figure; the rust-analyzer
+  version is the likely reason (not isolated). A partition over budget is
+  stopped by `--memory-mib 14336` and reported, and `callgraph` then falls
+  back to the monolithic run.
+- **Wall time:** start to call graph written, 36 min (12:32 → 13:08). The
+  critical path is `index-plan`'s kovan-cli build (10 min), the slowest
+  partition (~7.5 min with setup), unify (<1 min) and `callgraph` (16 min,
+  mostly building kovan-cli again and writing the split graph; the graph
+  itself took 81 s). The monolithic scip step alone had taken 27–60 min on
+  CI (§2 table).
+- First run, so every partition cache was a miss; reuse on GitHub is
+  shown on the next run whose partitions are unchanged.
