@@ -528,8 +528,10 @@ fn score_length_like(
         // **`mu` stays defaulted, and that is correct.** It is the
         // change-of-direction cosine of a SCATTERING event — a collision
         // quantity. A flight segment has a direction (threaded above) but no
-        // scattering cosine, so there is nothing to thread: `MuFilter` belongs
-        // on the collision estimator, where it is supplied. Defaulting an
+        // scattering cosine, so there is nothing to thread. ~~`MuFilter` belongs
+        // on the collision estimator, where it is supplied.~~ **CORRECTED
+        // 2026-11-19** (gh:#676): no production path supplies `mu` either, so a
+        // `MuFilter`/`LegendreFilter` scores `P_n(0)` or zero. Defaulting an
         // undefined quantity is not the same failure as defaulting an available
         // one, which is what `time` and `direction` were.
         ..Default::default()

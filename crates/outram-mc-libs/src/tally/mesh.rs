@@ -31,8 +31,11 @@
 //! built from or converted to OpenFOAM `polyMesh`), scored by
 //! [`super::mesh_unstructured::UnstructuredMeshExt`] — point location, and a
 //! track-length estimator that **does** split a segment across the cells it
-//! crosses (`MOABMesh::bins_crossed`). For the four **structured** kinds the
-//! following gap is unchanged: the
+//! crosses (`MOABMesh::bins_crossed`). **CORRECTED 2026-11-19 (gh:#678):**
+//! regular and rectilinear meshes now split too, at each grid plane
+//! (`planar_bins_crossed`); the gap below remains for **cylindrical and
+//! spherical** meshes only. ~~For the four structured kinds the
+//! following gap is unchanged:~~ the
 //! track-length **`bins_crossed`** sub-segmentation, so a segment is scored
 //! whole into its midpoint's cell rather than split across the cells it
 //! actually crosses. That approximation is exact only while a mesh cell is
@@ -470,22 +473,119 @@ impl MeshKindExt for MeshKind {
 
     fn splits_track_length(&self) -> bool {
         match self {
-            Self::Regular(_) | Self::Rectilinear(_) | Self::Cylindrical(_) | Self::Spherical(_) => false,
-            Self::Unstructured(_) => true,
+            // gh:#678: planar grids split a segment at every grid plane, as
+            // `StructuredMesh::bins_crossed` does. ~~All four structured kinds
+            // scored the whole segment into its midpoint's bin~~ **CORRECTED
+            // 2026-11-19** for regular and rectilinear meshes; cylindrical and
+            // spherical meshes (curved boundaries, quadratic crossings) still
+            // use the midpoint approximation.
+            Self::Regular(_) | Self::Rectilinear(_) | Self::Unstructured(_) => true,
+            Self::Cylindrical(_) | Self::Spherical(_) => false,
         }
     }
 
     fn bins_crossed(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
         match self {
-            Self::Regular(_) | Self::Rectilinear(_) | Self::Cylindrical(_) | Self::Spherical(_) => None,
+            Self::Regular(m) => {
+                let edges: [Vec<f64>; 3] = core::array::from_fn(|a| {
+                    let n = m.dimension[a];
+                    let w = (m.upper_right[a] - m.lower_left[a]) / n as f64;
+                    (0..=n).map(|k| m.lower_left[a] + k as f64 * w).collect()
+                });
+                Some(planar_bins_crossed(&edges, r0, r1, |p| m.get_bin(p)))
+            }
+            Self::Rectilinear(m) => Some(planar_bins_crossed(&m.grid, r0, r1, |p| m.bin(p))),
+            Self::Cylindrical(_) | Self::Spherical(_) => None,
             Self::Unstructured(m) => Some(m.bins_crossed(r0, r1)),
         }
     }
 }
 
+/// `(bin, length fraction)` for each cell of a planar grid that the segment
+/// `r0 -> r1` crosses (gh:#678, after `StructuredMesh::bins_crossed`,
+/// `src/mesh.cpp`): the segment is cut at every grid plane it crosses and each
+/// piece is binned at its own midpoint, so a piece outside the mesh scores
+/// nothing and the fractions sum to the in-mesh share of the segment.
+fn planar_bins_crossed(
+    edges: &[Vec<f64>; 3],
+    r0: Position,
+    r1: Position,
+    bin: impl Fn(Position) -> Option<usize>,
+) -> Vec<(usize, f64)> {
+    let o = [r0.x, r0.y, r0.z];
+    let d = [r1.x - r0.x, r1.y - r0.y, r1.z - r0.z];
+    let mut ts = vec![0.0_f64, 1.0];
+    for a in 0..3 {
+        if d[a] == 0.0 {
+            continue;
+        }
+        for &e in &edges[a] {
+            let t = (e - o[a]) / d[a];
+            if t > 0.0 && t < 1.0 {
+                ts.push(t);
+            }
+        }
+    }
+    ts.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    let mut out: Vec<(usize, f64)> = Vec::new();
+    for w in ts.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        if b <= a {
+            continue;
+        }
+        let m = 0.5 * (a + b);
+        let mid = Position::new(o[0] + m * d[0], o[1] + m * d[1], o[2] + m * d[2]);
+        if let Some(i) = bin(mid) {
+            match out.last_mut() {
+                Some(last) if last.0 == i => last.1 += b - a,
+                _ => out.push((i, b - a)),
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 #[cfg(test)]
 mod tests {
+    /// gh:#678: the issue's case. Segment (-1,0,0)->(0.2,0,0) over a one-cell-in-x
+    /// mesh on [0,1]^3: only 0.2 of the 1.2 cm is inside, so the fraction is
+    /// 0.2/1.2 (upstream scores 0.2 cm; the midpoint rule scored 0). A segment
+    /// across two cells splits at the plane, and the fractions sum to 1.
+    #[test]
+    fn planar_mesh_track_length_is_split_at_the_grid_planes() {
+        let one = MeshKind::Regular(RegularMesh {
+            lower_left: [0.0; 3],
+            upper_right: [1.0; 3],
+            dimension: [1, 1, 1],
+        });
+        assert!(one.splits_track_length());
+        let r = one
+            .bins_crossed(Position::new(-1.0, 0.5, 0.5), Position::new(0.2, 0.5, 0.5))
+            .unwrap();
+        assert_eq!(r.len(), 1);
+        assert!((r[0].1 - 0.2 / 1.2).abs() < 1e-12, "{r:?}");
+
+        let two = MeshKind::Regular(RegularMesh {
+            lower_left: [0.0; 3],
+            upper_right: [2.0, 1.0, 1.0],
+            dimension: [2, 1, 1],
+        });
+        let r = two
+            .bins_crossed(Position::new(0.5, 0.5, 0.5), Position::new(1.5, 0.5, 0.5))
+            .unwrap();
+        assert_eq!(r.iter().map(|x| x.0).collect::<Vec<_>>(), vec![0, 1]);
+        assert!((r[0].1 - 0.5).abs() < 1e-12 && (r[1].1 - 0.5).abs() < 1e-12);
+
+        let rect = MeshKind::Rectilinear(RectilinearMesh {
+            grid: [vec![0.0, 0.25, 1.0], vec![0.0, 1.0], vec![0.0, 1.0]],
+        });
+        let r = rect
+            .bins_crossed(Position::new(0.0, 0.5, 0.5), Position::new(1.0, 0.5, 0.5))
+            .unwrap();
+        assert!((r[0].1 - 0.25).abs() < 1e-12 && (r[1].1 - 0.75).abs() < 1e-12, "{r:?}");
+    }
+
     use super::*;
 
     /// A 4×4×1 unit mesh bins interior points into the expected row-major cell,

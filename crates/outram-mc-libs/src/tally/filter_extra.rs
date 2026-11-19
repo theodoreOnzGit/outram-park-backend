@@ -398,8 +398,11 @@ use crate::tally::mesh::MeshKind;
 /// This is the tally that MGXS generation is built on. `Sigma_s,l,g->g'` is
 /// the `l`-th Legendre moment of the scattering kernel, and this filter
 /// crossed with an [`crate::tally::filter::EnergyFilter`] and an
-/// [`crate::tally::filter::EnergyOutFilter`] is exactly how it is measured.
-/// Without it a generated library can only ever be P0 — which is the defect
+/// [`crate::tally::filter::EnergyOutFilter`] is ~~exactly how it is measured~~
+/// **CORRECTED 2026-11-19** (gh:#676): how it WILL be measured. Today that
+/// combination scores exactly zero: `get_bin` returns `None` for this filter and
+/// no production scoring path sets `FilterEvent::mu`. Do not tally a P_l matrix
+/// with it yet. Without it a generated library can only ever be P0 — which is the defect
 /// GitHub #265 priced at **−4371 pcm** on a leakage-dominated case.
 ///
 /// # Why the weights are NOT `(l + 1/2) P_l`

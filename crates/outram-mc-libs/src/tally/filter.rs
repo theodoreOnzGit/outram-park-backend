@@ -246,6 +246,12 @@ impl Default for FilterEvent {
 
 /// Filter by cell.  Maps to `openmc::CellFilter`.
 ///
+/// **Leaf level only (gh:#677, 2026-11-19).** OpenMC matches the cell at EVERY
+/// coordinate level (`filter_cell.cpp:51-56`); this port matches only the leaf
+/// cell, so a tally on a cell filled with a universe or lattice scores 0 with no
+/// error. Name the leaf cells. Matching every level needs the `(bin, weight)`
+/// `get_all_bins` refactor the issue proposes.
+///
 /// **These are 0-based indices into the geometry's cell array, not cell IDs.**
 /// OpenMC's C++ filters bin by user-assigned global ID; this port bins by
 /// array position, matching [`FilterEvent::cell_idx`]. Passing an ID here
@@ -391,6 +397,9 @@ impl Filter for EnergyOutFilter {
 #[derive(Debug, Clone, PartialEq)]
 
 /// Filter by universe.  Maps to `openmc::UniverseFilter`.
+///
+/// **Leaf level only (gh:#677, 2026-11-19):** OpenMC matches every coordinate
+/// level (`filter_universe.cpp:50-55`); this port matches only the leaf universe.
 pub struct UniverseFilter {
     pub universe_indices: Vec<usize>,
 }
@@ -416,10 +425,11 @@ impl Filter for UniverseFilter {
 /// Ported from `src/tallies/filter_mesh.cpp` (`MeshFilter::get_all_bins`, the
 /// non-track-length branch: `mesh->get_bin(r)`; a single bin, weight 1). The
 /// track-length "bins crossed" sub-segmentation
-/// (`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) **for
-/// the four structured kinds** — this port scores the whole segment into the
-/// midpoint's cell, which is exact for a mesh whose cells are large relative
-/// to the mean free path. **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
+/// (`StructuredMesh::bins_crossed`) is split at the grid planes for **regular and
+/// rectilinear** meshes (gh:#678, 2026-11-19); ~~a documented gap for the four
+/// structured kinds~~ it remains one for **cylindrical and spherical** meshes,
+/// which score the whole segment into the midpoint's cell (exact only for a
+/// mesh whose cells are large relative to the mean free path). **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
 /// #492) the segment IS split** across the cells it crosses
 /// ([`Filter::track_length_bins`], after `MOABMesh::bins_crossed`).
 /// **CHANGED 2026-09-22 (GitHub #260, scope item 4).** `mesh` was a concrete
@@ -441,8 +451,8 @@ impl Filter for MeshFilter {
         self.mesh.bin(ev.position)
     }
     /// Unstructured meshes split the segment across the cells it crosses
-    /// (GitHub #492); the structured kinds return `None` and keep the
-    /// midpoint binning documented above.
+    /// (GitHub #492), as do regular and rectilinear meshes (gh:#678); cylindrical
+    /// and spherical meshes return `None` and keep the midpoint binning.
     fn track_length_bins(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
         self.mesh.bins_crossed(r0, r1)
     }
