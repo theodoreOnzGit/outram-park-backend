@@ -177,8 +177,11 @@ coverage check against the plan passed.
 
 **Against the targets.** Peak memory per worker fell from the monolithic
 13.2 GiB (which needed swap on this 15 GB machine) to at most 12.0 GiB, and
-four of seven partitions sit under 8 GiB. **The 8 GiB per-worker target is
-not met for the four GUI- or GPU-heavy closures (10.0–12.0 GiB)**: memory
+three of seven partitions sit under 8 GiB. ~~**The 8 GiB per-worker target is
+not met for the four GUI- or GPU-heavy closures (10.0–12.0 GiB)**~~
+**TARGET REVISED 2026-11-19 (maintainer: "Okay 14GB acceptable"): the
+per-worker target is 14 GiB, and every partition meets it (worst 12.0 GiB).**
+Why 8 GiB was out of reach, kept for the record: memory
 follows the dependency closure (§2, item 2), and those closures are
 dominated by `wgpu`/`egui`/`eframe` and their platform crates, which every
 member that draws a window pulls in. A partition cannot be smaller than its
@@ -292,5 +295,6 @@ key, coverage, settings and `#[path]` ownership
 | F local Index | done |
 | G default + fallback | partitioned is the default on Linux/macOS; monolithic kept as `KOVAN_INDEXER=monolithic` until several CI builds have matched (brief §12) |
 
-Open: the 8 GiB per-worker target for the GUI closures (§5.1); Windows
+Open: ~~the 8 GiB per-worker target for the GUI closures (§5.1)~~ (target
+revised to 14 GiB, met; §5.1); Windows
 (symlink view); a wasm32 configuration axis (not indexed, as before).
