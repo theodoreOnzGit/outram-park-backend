@@ -1,9 +1,17 @@
-# Partitioned semantic indexing: plan and feasibility (Phase A, Phase B gate)
+# Partitioned semantic indexing: plan, implementation and results (#1668)
 
-**Status: plan for maintainer review, 2026-11-19 (GitHub #1668). Nothing in the indexing
+~~**Status: plan for maintainer review, 2026-11-19 (GitHub #1668). Nothing in the indexing
 pipeline has changed yet.** The measurements below were taken by throwaway
 probes in a cloud session (4 cores, 15 GB RAM, rust-analyzer 1.99.1
-`58cf8f9 2026-10-13`); they are not yet a kovan command.
+`58cf8f9 2026-10-13`); they are not yet a kovan command.~~
+**UPDATED 2026-11-19 (same day):** Phases B–G are implemented
+(`kovan-cli index-plan`, `index-partition`, `scip-merge`; Pages job matrix;
+local Index) and the partitioned indexer is the default on Linux and macOS.
+§2 is the feasibility gate as first recorded; **§5 holds the whole-workspace
+results**, including the equivalence check against the monolithic index. All
+measurements: a cloud session (4 cores, 15 GB RAM plus a 12 GiB swap file for
+the monolithic reference), rust-analyzer 1.99.1 `58cf8f9 2026-10-13`. Not yet
+measured on GitHub's runners (§5.5).
 
 Guiding principle (maintainer brief, 2026-11-19): **partition computation,
 not coverage.** Every workspace crate is still indexed; no single process
@@ -76,23 +84,29 @@ partition was indexed again (the `changi` partition wrote 182 `petir` and
 - The `--exclude-vendored-libraries` run of `changi` took 40 s against 115 s
   with the dependencies indexed, at similar memory.
 
-**What this does not show yet (the open risks, Phase B/C work):**
+**What this did not show yet (the open risks, Phase B/C work; each is answered in §5):**
 
-1. **Equivalence with the monolithic cargo-based index** is not measured:
-   the monolithic run needs ~16 GiB, more than this machine has. Phase C
+1. ~~**Equivalence with the monolithic cargo-based index** is not measured:
+   the monolithic run needs ~16 GiB, more than this machine has.~~
+   **MEASURED (§5.2):** with a 12 GiB swap file the monolithic run completed
+   (966 s, 13.2 GiB resident); the merged graph holds every one of its edges.
+   The rest of this item was the plan: Phase C
    compares the kovan call graph built from merged partitions with the one
    from a monolithic index (on a ≥32 GB machine or the maintainer's), using
    the existing `kovan_common::call_graph::compare`.
 2. **Memory scales with the dependency closure, not the crate's size**
    (0.5 GiB with `std` alone; ~6 GiB for 175–184 packages). The largest
    closures (`outram-park-digital-twin-engine` with 48 direct deps,
-   `kovan` 35, `dhoby-ghaut` 34) are unmeasured. If one exceeds the 8 GiB
+   `kovan` 35, `dhoby-ghaut` 34) ~~are unmeasured~~ **were measured (§5.1):
+   10.0–12.0 GiB, over the 8 GiB target**. If one exceeds the 8 GiB
    target alone, that is reported and investigated (finer cfg/target split,
    or `ra_ap_*` with a shared dependency database), never hidden.
 3. **Feature resolution:** the generated project takes features from the
    workspace's unified `cargo metadata` resolve (what the monolithic run
    sees), but build scripts come from a `-p` check of the partition, whose
-   feature set may differ. To be measured in Phase C.
+   feature set may differ. ~~To be measured in Phase C.~~ **Not measured on
+   its own;** the end-to-end equivalence in §5.2 would show a feature
+   difference that changed a resolved call, and none did.
 4. **cfg coverage:** native target only, `test` on members, as today.
    wasm32 is a separate configuration axis, tracked in the coverage report,
    not silently assumed.
@@ -130,3 +144,147 @@ source (brief §8) is secondary and not started.
 
 **Configurable (Phase D/F):** maximum concurrent workers, per-worker memory
 budget, partition size, retries, timeout.
+
+## 5. Results on the whole workspace (2026-11-19)
+
+### 5.1 Every member in seven bounded partitions
+
+`kovan-cli index-plan` (max closure 750 packages, max 8 members per
+partition, largest closure first) splits the 49 members into 7 partitions;
+`outram-park-digital-twin-engine` stands alone because its closure (818)
+exceeds the cap by itself. Each partition was run with
+`kovan-cli index-partition` one after another (the local default), with the
+generator as committed (partition schema 2). Peak RSS is rust-analyzer's
+`VmHWM`, sampled every second (the `cargo check` before it is a separate,
+smaller step); the monolithic figure is the largest waited child's
+`ru_maxrss`, the same process.
+
+| Partition | Members | Closure (packages) | Documents | Wall | Peak RSS |
+|---|---|---|---|---|---|
+| p00 | 1 (`outram-park-digital-twin-engine`) | 818 | 216 | 188 s | **10.9 GiB** |
+| p01 | 8 (`dhoby-ghaut`, `kovan`, `kovan-web`, …) | 736 | 944 | 244 s | **12.0 GiB** |
+| p02 | 8 (`boon-lay`, `tampines-steam-tables`, …) | 617 | 1,177 | 243 s | **10.0 GiB** |
+| p03 | 8 (`njoy-outram-park-fork`, `outram-mc-libs`, …) | 358 | 1,580 | 350 s | **10.3 GiB** |
+| p04 | 8 (`changi`, `outram-foam-*`, …) | 163 | 859 | 119 s | 6.4 GiB |
+| p05 | 8 | 121 | 628 | 80 s | 4.8 GiB |
+| p06 | 8 (`petir`, `bedok`, …) | 109 | 418 | 134 s | 5.9 GiB |
+| **all, merged** (`scip-merge`) | 49 | — | 5,822 | 1,358 s in sequence | **12.0 GiB** worst worker |
+| *monolithic, same tree* | 49 | *all* | — | *966 s* | ***13.2 GiB resident*** (plus swap; ~16 GiB recorded on larger machines) |
+
+The merged index is 550 MB (monolithic 545 MB). Every partition wrote only
+its own members' documents (`outside_members` empty), and the merge's
+coverage check against the plan passed.
+
+**Against the targets.** Peak memory per worker fell from the monolithic
+13.2 GiB (which needed swap on this 15 GB machine) to at most 12.0 GiB, and
+four of seven partitions sit under 8 GiB. **The 8 GiB per-worker target is
+not met for the four GUI- or GPU-heavy closures (10.0–12.0 GiB)**: memory
+follows the dependency closure (§2, item 2), and those closures are
+dominated by `wgpu`/`egui`/`eframe` and their platform crates, which every
+member that draws a window pulls in. A partition cannot be smaller than its
+largest member's closure, so a finer plan does not help p00; what would is
+indexing several partitions from one loaded dependency database (`ra_ap_*`,
+§3), not started. Sequential wall time is 1.4× the monolithic run, the price
+of loading shared dependencies once per partition; on CI the partitions run
+in parallel, so the critical path is the slowest one (350 s plus setup).
+
+### 5.2 Equivalence with the monolithic index
+
+**Method.** The monolithic `rust-analyzer scip` (as `data.sh` runs it) and
+the seven partitions were run on **the identical tree** (HEAD `4b0737ec6`,
+empty `git diff`, recorded before and after the monolithic run), and the
+call graph was built from each with `kovan-cli call-graph --scip`, then
+compared with `kovan-cli call-graph-diff` (`call_graph::compare`). An edge
+matches when caller, callee and kind agree; lines are compared too.
+
+**Result.**
+
+| | monolithic (A) | merged partitions (B) |
+|---|---|---|
+| functions | 66,648 | 66,648 (all in both) |
+| edges | 176,329 | 176,340 |
+| in both, same lines and kind | **176,329** | |
+| only in A | **0** | |
+| only in B | | **11** |
+| unresolved: closure / macro / trait / other | 20,276 / 12 / 1,278 / 7,537 | identical |
+| unresolved: no definition | 3,677 | 3,657 |
+
+**Every edge of the monolithic graph is in the merged graph, with the same
+lines and kind.** The 11 extra edges are all calls through a **cross-package
+`#[path]` module**: `dhoby-ghaut`'s web examples include
+`outram-mc-libs/examples/common/*.rs` and `outram-mc-libs/src/vv/lct008.rs`
+(10 edges), and `tampines/tests/pcice.rs` includes
+`tampines-steam-tables/tests/common/toro_exact.rs` (1). The monolithic run
+indexes such a file only in its owning package, so the including crate's
+calls into it have no definition (they are among A's 20 extra
+no-definition entries). The partitioned run indexes the file in both
+packages' partitions, and `scip-merge` combines the two documents, so both
+crates' references resolve. These are real calls, correctly attributed; the
+partitioned graph is a strict superset.
+
+**Which number to quote:** 100 % recall of the monolithic edges (0 missed)
+on an identical tree. Jaccard (99.99 %) counts the 11 extra real calls
+against it and is not the measure of agreement.
+
+**How it got there (kept because each step was a real defect).** The first
+whole-workspace merge (generator as first written) missed 459 monolithic
+edges (99.74 % recall) in `boon-lay`, `dhoby-ghaut`, `kovan` and
+`outram-mc-libs`, all same- or cross-package `#[path]` modules. Three fixes
+followed: include the package root rather than the root module's folder;
+include the folders a member's `#[path]` attributes reach; combine documents
+with the same path in the merge. The rerun then missed 16 `kovan-literature`
+edges into `tests/zotero_db/mod.rs`, a folder `kovan`'s tests also include
+by `#[path]`: when two crates in one rust-analyzer run include the same file,
+it is indexed under one of them only, and here not under its owner. A member
+now leaves a `#[path]` folder to a member of the same partition that owns it
+(`not_owned_by`, schema 2), and the third run gave the table above. The
+throwaway comparison scripts are not committed; the method above reproduces
+them.
+
+### 5.3 Where it runs
+
+- **Pages (`.github/workflows/pages.yml`):** `index-plan` → a job matrix
+  `index-partition` (one runner per partition, `fail-fast: false`, cached
+  by partition key with `actions/cache`) → `index-unify` (`scip-merge
+  --plan`, which refuses a missing member or a failed partition) →
+  `callgraph`, which uses the merged index through `data.sh`'s
+  `KOVAN_SCIP_FROM`. If unify fails, `callgraph` falls back to the
+  monolithic run and says so; an incomplete merge is never published as
+  complete.
+- **Local kovan (desktop Index, `kovan-cli call-graph --backend scip`,
+  `kovan-cli index`):** the same planner and workers, run in-process with
+  cancel, progress, retries and reuse by partition key under
+  `target/kovan-scip/`. **Default one partition at a time**
+  (`KOVAN_INDEX_JOBS=1`; maintainer choice, 2026-11-19), so a desktop's
+  peak is one worker's (§5.1), below the monolithic run's.
+  `KOVAN_INDEXER=monolithic` restores the single whole-workspace run; other
+  knobs: `KOVAN_INDEX_MAX_CLOSURE`, `KOVAN_INDEX_MAX_MEMBERS`,
+  `KOVAN_INDEX_MEMORY_MIB`, `KOVAN_INDEX_TIMEOUT`, `KOVAN_INDEX_RETRIES`.
+- **Windows stays monolithic by default**: the worker's view directory is
+  made of symlinks, which Windows does not grant by default.
+
+### 5.4 Tests
+
+`crates/kovan/tests/index_partition_cli.rs` runs the whole chain on a
+throwaway two-crate workspace: plan → two partitions → merge (and its
+refusal of a missing member) → call graph equal to the monolithic one plus
+exactly the cross-package `#[path]` edge; the local default is partitioned,
+a second run reuses both partitions, and `KOVAN_INDEXER=monolithic` still
+works. Unit tests cover the planner, closure and `rust-project.json`
+(`kovan_common::code_index::partition`), the merge (`crate::scip`), and the
+key, coverage, settings and `#[path]` ownership
+(`commands::index_partition`).
+
+### 5.5 Phase status and what is left
+
+| Phase | Status |
+|---|---|
+| B `index-partition` | done; every member measured (§5.1) |
+| C `scip-merge` + equivalence | done; 100 % recall on an identical tree (§5.2) |
+| D `index-plan` + Pages matrix | done in `pages.yml`; **not yet run on GitHub** (Pages deploys from `web-deploy`), so runner wall times and memory are unmeasured |
+| E partition cache key | done (members' call-graph keys + `Cargo.lock` + host + rustc + rust-analyzer + schema); reuse shown locally |
+| F local Index | done |
+| G default + fallback | partitioned is the default on Linux/macOS; monolithic kept as `KOVAN_INDEXER=monolithic` until several CI builds have matched (brief §12) |
+
+Open: the 8 GiB per-worker target for the GUI closures (§5.1); Windows
+(symlink view); a wasm32 configuration axis (not indexed, as before).
