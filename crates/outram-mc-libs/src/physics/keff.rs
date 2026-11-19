@@ -191,6 +191,27 @@ pub struct KeffSettings {
     /// tightened threshold silently multiply the cost of a study, which is
     /// the opposite of what this feature is for.
     pub keff_trigger: Option<crate::tally::trigger::Trigger>,
+    /// **Fewest active generations before `keff_trigger` is first checked**
+    /// (gh:#703). Default 20. Upstream evaluates triggers only from `n_batches`
+    /// on (`check_triggers`, `src/tallies/trigger.cpp:160-172`); a standard error
+    /// from two active generations is a one-degree-of-freedom estimate, so a run
+    /// stopped there is often stopped *because* its sigma is under-estimated
+    /// (optional-stopping bias). Values below 2 behave as 2. ~~The trigger could
+    /// stop a run after 2 active generations.~~ **CORRECTED 2026-11-19**
+    /// (gh:#703).
+    pub keff_trigger_min_active: usize,
+    /// **Lost-particle limit, absolute** (gh:#699). Upstream aborts when
+    /// `n_lost >= max_lost_particles (10)` **and**
+    /// `n_lost >= rel_max_lost_particles (1e-6) * n_simulated`
+    /// (`Particle::mark_as_lost`, `src/particle.cpp:866-889`;
+    /// `settings.cpp:105-106`). Checked after the run by
+    /// [`crate::physics::transport_csg::check_lost_particle_limit`], which the
+    /// `try_run_keff_csg*` entry points call, so a geometry defect cannot finish
+    /// as a plausible `k`. `u64::MAX` is the explicit tolerant ablation.
+    pub max_lost_particles: u64,
+    /// **Lost-particle limit, relative to histories run** (gh:#699). See
+    /// [`Self::max_lost_particles`].
+    pub rel_max_lost_particles: f64,
     /// **How a tally is scored inside a delta-tracked region** (gh:#598).
     ///
     /// The default, [`DeltaTallyEstimator::TentativeCollision`], scores
@@ -231,6 +252,9 @@ impl Default for KeffSettings {
             compute: ComputeType::CpuSingleThread,
             variance_reduction: Default::default(),
             keff_trigger: None,
+            keff_trigger_min_active: 20,
+            max_lost_particles: 10,
+            rel_max_lost_particles: 1.0e-6,
             delta_tally_estimator: Default::default(),
             seeding: Default::default(),
             tally_batch_log: None,

@@ -333,10 +333,25 @@ pub struct EmptyFissionBank {
     /// eigenvalue: it averages the active generations that ran, or is 0 when
     /// none did.
     pub partial: KeffResult,
+    /// `Some((lost, simulated))` when the run was refused for exceeding the
+    /// lost-particle limit (gh:#699) rather than for an empty bank; `None` for
+    /// an empty bank. One error type so the `try_run_keff_csg*` signatures and
+    /// their callers are unchanged.
+    pub lost_particles: Option<(u64, u64)>,
 }
 
 impl core::fmt::Display for EmptyFissionBank {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if let Some((lost, simulated)) = self.lost_particles {
+            return write!(
+                f,
+                "Maximum number of lost particles has been reached: {lost} of {simulated} \
+                 histories were lost (OpenMC aborts here, Particle::mark_as_lost, \
+                 src/particle.cpp:866-889; GitHub #699). A geometry defect (overlap, gap, \
+                 coincident surfaces) loses histories and biases k low; fix the model, or \
+                 raise KeffSettings::max_lost_particles to tolerate it explicitly."
+            );
+        }
         write!(
             f,
             "No fission sites banked: the fission bank was empty after {} of {} \
@@ -517,9 +532,10 @@ pub fn check_fission_bank_survived(
                 generations_completed: requested - 1,
                 generations_requested: requested,
                 partial: result,
+                lost_particles: None,
             });
         }
-        return Ok(result);
+        return check_lost_particle_limit(settings, result);
     }
     let active_k: Vec<f64> = result
         .k_by_generation
@@ -528,13 +544,45 @@ pub fn check_fission_bank_survived(
         .copied()
         .collect();
     if keff_trigger_met(settings, !active_k.is_empty(), &active_k) {
-        return Ok(result);
+        return check_lost_particle_limit(settings, result);
     }
     Err(EmptyFissionBank {
         generations_completed: completed,
         generations_requested: requested,
         partial: result,
+        lost_particles: None,
     })
+}
+
+/// **Refuse a run that lost too many histories** (gh:#699): OpenMC's
+/// `Particle::mark_as_lost` aborts once `n_lost >= max_lost_particles` **and**
+/// `n_lost >= rel_max_lost_particles * n_simulated`
+/// (`src/particle.cpp:866-889`, defaults 10 and 1e-6, `settings.cpp:105-106`).
+/// "Lost" is [`KeffResult::lost_locate`] (a failed `locate` after the `TINY_BIT`
+/// retry, or a negative boundary distance). Checked here after the run rather
+/// than mid-run, which refuses the same runs without touching the reviewed
+/// drivers; `n_simulated` is `n_particles` times the generations that ran.
+///
+/// # Errors
+///
+/// [`EmptyFissionBank`] with `lost_particles` set when both limits are met.
+pub fn check_lost_particle_limit(
+    settings: &KeffSettings,
+    result: KeffResult,
+) -> Result<KeffResult, EmptyFissionBank> {
+    let lost = result.lost_locate;
+    let simulated = (settings.n_particles as u64) * (result.k_by_generation.len() as u64);
+    if lost >= settings.max_lost_particles
+        && (lost as f64) >= settings.rel_max_lost_particles * (simulated as f64)
+    {
+        return Err(EmptyFissionBank {
+            generations_completed: result.k_by_generation.len(),
+            generations_requested: settings.n_inactive + settings.n_active,
+            partial: result,
+            lost_particles: Some((lost, simulated)),
+        });
+    }
+    Ok(result)
 }
 
 /// **One surface-tracked history, step by step** (gh:#784): the neutron at
@@ -2224,7 +2272,29 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                 break 'history;
             }
             // Locate: which cell/material are we in?
-            let Some(path) = geom.locate(r, u, on_surface) else {
+            // gh:#699: a failed search clears the surface token, advances by
+            // `TINY_BIT` along the flight direction and searches again; only a
+            // second failure marks the particle lost (`Particle::cross_surface`,
+            // OpenMC `src/particle.cpp:707-730`; `TINY_BIT = 1e-8` cm).
+            let located = match geom.locate(r, u, on_surface) {
+                Some(p) => Some(p),
+                None => {
+                    const TINY_BIT: f64 = 1.0e-8;
+                    let r_retry = Position::new(
+                        r.x + u.u * TINY_BIT,
+                        r.y + u.v * TINY_BIT,
+                        r.z + u.w * TINY_BIT,
+                    );
+                    match geom.locate(r_retry, u, SurfaceToken::NONE) {
+                        Some(p) => {
+                            r = r_retry;
+                            Some(p)
+                        }
+                        None => None,
+                    }
+                }
+            };
+            let Some(path) = located else {
                 lost_locate += 1;
                 // Lost the particle (numerical edge case) — treat as a leak at
                 // last-known energy, same reasoning as the MAX_EVENTS arm.
@@ -2283,6 +2353,20 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     Crossing::None => {}
                 }
                 neg_worst = neg_worst.min(d_bound.distance);
+                // gh:#699: upstream marks a particle with a negative boundary
+                // distance as lost (`distance_to_boundary`, `src/geometry.cpp:
+                // 473-477`) instead of streaming it backwards. ~~The history
+                // continued with the negative distance.~~ **CORRECTED
+                // 2026-11-19.** Ended like a failed locate, so it stays in the
+                // leak-scored balance and in the lost-particle count below.
+                lost_locate += 1;
+                score_leak(leak_batch, leak_edges, e, w);
+                if let Some(x) = extra.as_deref_mut() {
+                    x.leak(e, w);
+                }
+                ends.record_leak();
+                record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Lost, usize::MAX, None);
+                break 'history;
             }
 
             // ── How far to the next REAL collision, and in what material ───
@@ -3273,7 +3357,10 @@ fn keff_trigger_met(settings: &KeffSettings, active: bool, active_k: &[f64]) -> 
     let Some(trig) = settings.keff_trigger else {
         return false;
     };
-    if !active || active_k.len() < 2 {
+    // gh:#703: first checked at `keff_trigger_min_active` active generations
+    // (default 20, never fewer than 2), as upstream checks triggers only from
+    // `n_batches` on (`src/tallies/trigger.cpp:160-172`).
+    if !active || active_k.len() < settings.keff_trigger_min_active.max(2) {
         return false;
     }
     let stats = crate::tally::trigger::BinStats {
@@ -3662,6 +3749,49 @@ mod leakage_tests {
             lower: Position::new(-3.0, -3.0, -3.0),
             upper: Position::new(3.0, 3.0, 3.0),
         }
+    }
+
+    /// gh:#699: a model with a hole (a transmissive fuel sphere with NO cell
+    /// outside it) loses every history that leaves the fuel. The run must be
+    /// refused, not returned as a plausible `k`; the explicit tolerant limit
+    /// (`max_lost_particles = u64::MAX`) restores the old behaviour, and a
+    /// vacuum boundary on the same sphere loses nothing.
+    #[test]
+    fn a_model_with_a_hole_is_refused_not_returned_as_k() {
+        let (mats, nucs) = godiva();
+        let s = KeffSettings { n_particles: 100, n_inactive: 2, n_active: 3, ..KeffSettings::default() };
+        let holed = heu_sphere(8.7407, BoundaryType::Transmissive);
+        let err = try_run_keff_csg(&holed, &mats, &nucs, src(), &s, None).unwrap_err();
+        let (lost, simulated) = err.lost_particles.expect("refused for lost particles");
+        assert!(lost >= 10 && simulated == 500, "lost {lost} of {simulated}");
+        assert!(err.to_string().contains("lost particles"), "{err}");
+
+        let tolerant = KeffSettings { max_lost_particles: u64::MAX, ..s.clone() };
+        let r = try_run_keff_csg(&holed, &mats, &nucs, src(), &tolerant, None).expect("tolerant");
+        assert!(r.lost_locate >= 10, "lost_locate {}", r.lost_locate);
+
+        let closed = heu_sphere(8.7407, BoundaryType::Vacuum);
+        let ok = try_run_keff_csg(&closed, &mats, &nucs, src(), &s, None).expect("vacuum loses none");
+        assert_eq!(ok.lost_locate, 0);
+    }
+
+    /// gh:#703: the `k` trigger is not evaluated before
+    /// `keff_trigger_min_active` active generations (default 20, never below 2),
+    /// even when two generations would satisfy it.
+    #[test]
+    fn the_k_trigger_waits_for_its_minimum_of_active_generations() {
+        use crate::tally::trigger::{Trigger, TriggerMetric};
+        let trig = Trigger { metric: TriggerMetric::StandardDeviation, threshold: 1.0, ignore_zeros: false };
+        let mut s = KeffSettings { keff_trigger: Some(trig), ..KeffSettings::default() };
+        assert_eq!(s.keff_trigger_min_active, 20);
+        let k: Vec<f64> = (0..25).map(|i| 1.0 + 1.0e-4 * (i % 3) as f64).collect();
+        assert!(!keff_trigger_met(&s, true, &k[..2]), "2 generations never suffice");
+        assert!(!keff_trigger_met(&s, true, &k[..19]), "below the minimum");
+        assert!(keff_trigger_met(&s, true, &k[..20]), "at the minimum, sd < 1");
+        s.keff_trigger_min_active = 0;
+        assert!(!keff_trigger_met(&s, true, &k[..1]), "still at least 2");
+        assert!(keff_trigger_met(&s, true, &k[..2]), "an explicit minimum of 0 restores 2");
+        assert!(!keff_trigger_met(&s, false, &k), "inactive generations never");
     }
 
     /// [`CsgPowerIteration`] IS the single-thread reference, stepped: its
