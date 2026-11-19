@@ -4,6 +4,16 @@
 > unreviewed. **Validation** against a measurement, on a model with stated
 > simplifications.
 
+> **S(α,β) DEFAULT CHANGED 2026-11-19 (gh:#550, commit 44f365bbb): ENDF thermal
+> emission is now built on THERMR's `calcem` node grid.** The k values below were
+> measured on the earlier log-spaced build and have **not been re-measured** here.
+> The second re-measure, in `tutorial_rung4/sab_reference_550.md` ("Second
+> re-measure"), covers HTR-10, FHR, `dh_keff_vv`, HST-009 and MSRE; no graphite or
+> water case moved by an amount its statistics resolve. Re-run with
+> `OUTRAM_SAB_LOG_SPACED_GRID=1` to reproduce the old build.
+> MSRE N-1 there: −183 ± 73 pcm on 2 seeds with no paired control, so not a
+> measurement of the change.
+
 > **DEFAULTS CHANGED 2026-11-13 (maintainer, gh:#1128): "Have a dimension
 > dynamically shifting with temp. Shields all in shld be default … physical
 > realism without crippling the simulation."** The model now expands each

@@ -1,0 +1,4 @@
+case,route,code,seed,k,k_std_internal,particles,inactive,active,threads,wall_s,load_s,n_nuclides,n_urr,n_dbrc,sab,commit,k_alt
+hst009,abl,outram-mc,1,1.001276,0.001430,5000,40,120,2,48.8,351.2,12,5,12,true,4c29b7f58,
+hst009,abl,outram-mc,2,0.999259,0.001349,5000,40,120,2,62.7,351.2,12,5,12,true,4c29b7f58,
+hst009,abl,outram-mc,3,0.998534,0.001257,5000,40,120,2,65.7,351.2,12,5,12,true,4c29b7f58,

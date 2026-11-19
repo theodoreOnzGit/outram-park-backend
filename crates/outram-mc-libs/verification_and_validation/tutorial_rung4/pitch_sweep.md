@@ -599,5 +599,5 @@ build. `ThermalScattering::from_tape` now puts its tables on THERMR's own
 incident-energy grid. Re-measured on the tape-data route (8 seeds, same
 protocol): 2.40 cm 0.70568 +- 0.00024 (was 0.70536, +32 +- 36 pcm), 1.63576 cm
 1.06323 +- 0.00040 (was 1.06216, +107 +- 50), 1.75 cm 1.01168 +- 0.00033 (was
-1.01104, +64 +- 37). The 2.40 cm gap to OpenMC is now -85 +- 38 pcm (z -2.26),
+1.01104, +64 +- 37). ~~The 2.40 cm gap to OpenMC is now -85 +- 38 pcm (z -2.26),~~ **CORRECTED 2026-11-19 (`gap_240_550.md`): 24 seeds give -10 +- 28 pcm (z -0.37); the 8-seed -85 was a fluctuation.** (Original: the gap was -85 +- 38 (z -2.26),
 ~~-117 +- 39 (z -2.97)~~. Record: `sab_reference_550.md`, "Flip and re-measure".
