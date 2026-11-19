@@ -91,3 +91,23 @@ balancing is the cause, E2 should move the share back up to 55 % and E1 should n
 is in the Francis QR itself (GSL deflation and shifts against DHSEQR's aggressive early deflation, n = 99 to 131 > NMIN = 75).
 Static prediction: the port's eigenvalues have a larger error than DGEEV's against the extended-precision reference
 (60 %: median error ratio port / DGEEV between 2 and 20; 25 %: about 1, errors of both set by conditioning; 15 %: port smaller).
+
+## Addendum 2, written after E2's and R's first results and BEFORE E1 and E3 ran (2026-11-19 23:55 UTC)
+
+Seen: R (residue solve served by the port, t0) leaves OpenMC's per-iteration record almost unchanged (9 of 510 above 1.5, as
+the baseline's 9 of 510; 55.9 % unusable). That is expected in hindsight and not a measurement of the residue solve's
+quality effect on its own: the poles evolve from the pole-identification solves only, so the chain of poles is identical and
+only the quality of each iteration's fit could differ. E2 (DGEBAL + port Francis QR, t0): 0 of 510 above 1.5, unusable 60.8 %,
+per-order best median 1.443. So with GSL's balancing the unusable share is 46 % and with DGEBAL 61 %, DGEEV 56 %; the tail
+is low (port-like) in both port variants. Balancing therefore moves the unusable share but not the tail; the tail follows the
+Francis QR (or the Hessenberg reduction). The static eigenvalue accuracy on the first three dumped matrices does not support
+"the port is less accurate" (port median error 1e-14, DGEEV 5e-12 on one matrix, equal on two).
+
+New variant E3: LAPACK DGEBAL and DGEHRD (scipy) first, then ONLY the port's Francis iteration. Predictions: if the port's
+Francis QR is what lowers the tail, E3 stays low (0 to 4 of 510 above 1.5): probability 60 %. If the cause is in balancing
+or Hessenberg reduction, E3 returns to the baseline (6 to 14 of 510): 30 %. Unusable share of E3 under the first outcome:
+50 to 62 %. E1 (no balancing at all): tail low (0 to 4 of 510) 65 %, baseline-like 20 %, other 15 %.
+If the Francis QR is the cause, a candidate fix is to carry LAPACK's `DLAHQR` deflation criterion and shift strategy instead of
+GSL's; but DHSEQR switches to DLAQR0 (aggressive early deflation) for n > 75 and these matrices have n = 99 to 131, so a
+fix that matches upstream's behaviour would be a port of DLAQR0..DLAQR5 (several thousand lines). That is not a function
+edit and I will not attempt it inside this budget; the decision belongs to the maintainer.

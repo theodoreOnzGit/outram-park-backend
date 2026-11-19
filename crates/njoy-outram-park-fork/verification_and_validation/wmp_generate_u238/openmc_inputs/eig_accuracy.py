@@ -8,7 +8,8 @@ candidate eigenvalue of either code is refined by Newton iteration on det(H - z 
 values; the reference set is the union of the refined roots, duplicates (relative distance < 1e-13) removed.  The
 differences of interest (1e-4 and up) are far above the reference's own round-off unless an eigenvalue has a condition
 number above about 1e12, which `roots_found < n` would show.  Reported, per code and matrix:
-the largest and median over eigenvalues of |computed - nearest reference root| / |root|, and the number of
+the largest, 90th percentile and median over eigenvalues of |computed - nearest reference root| / max(|root|, 0.01)
+(the poles live in sqrt(E), 0.003 to 4.4; the floor keeps a root near zero from dominating), the count above 1e-8, and the number of
 reference roots found (n expected).  A reference with fewer than n distinct roots means the matrix has
 numerically multiple eigenvalues and the per-eigenvalue error is only a conditioning measure.
 """
@@ -64,8 +65,11 @@ def refine(hl, z0):
     n = hl.shape[0]
     eye = np.eye(n, dtype=np.clongdouble)
     for _ in range(40):
-        inv = inv_ld(hl - z * eye)
-        dz = 1 / np.trace(inv)
+        with np.errstate(all='ignore'):
+            inv = inv_ld(hl - z * eye)
+            dz = 1 / np.trace(inv)
+        if not np.isfinite(dz):   # z sits on an eigenvalue to working precision (singular pivot): done
+            break
         z = z + dz
         if abs(dz) < 1e-17 * max(abs(z), 1e-30):
             break
@@ -73,7 +77,7 @@ def refine(hl, z0):
 
 
 with open(outp, 'w') as out:
-    out.write('file\tn\tcode\tmax_rel_err\tmedian_rel_err\troots_found\n')
+    out.write('file\tn\tcode\tmax_err\tp90_err\tmedian_err\tn_above_1e-8\troots_found\n')
     for f in files:
         h = np.load(f)
         n = h.shape[0]
@@ -87,8 +91,8 @@ with open(outp, 'w') as out:
             if not any(abs(z - q) < 1e-13 * max(abs(z), 1e-30) for q in roots):
                 roots.append(z)
         for name, ev in (('dgeev', ev_l), ('port', ev_p)):
-            err = np.array([float(min(abs(np.clongdouble(complex(e)) - q) / abs(q) for q in roots)) for e in ev])
-            out.write(f'{os.path.basename(f)}\t{n}\t{name}\t{err.max():.4e}\t{np.median(err):.4e}\t{len(roots)}\n')
+            err = np.array([float(min(abs(np.clongdouble(complex(e)) - q) / max(abs(q), 1e-2) for q in roots)) for e in ev])
+            out.write(f'{os.path.basename(f)}\t{n}\t{name}\t{err.max():.4e}\t{np.percentile(err, 90):.4e}\t{np.median(err):.4e}\t{int((err > 1e-8).sum())}\t{len(roots)}\n')
             out.flush()
 w.write((0).to_bytes(8, 'little'))
 w.flush()

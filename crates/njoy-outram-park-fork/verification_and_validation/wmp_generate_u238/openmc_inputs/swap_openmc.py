@@ -19,7 +19,8 @@ port's kernel (opcodes in trace_server.rs) and return what the port returns in s
   qr          `qr(A, mode="economic")`                  -> npy.rs::HouseholderQr (unblocked DGEQR2); Q is never formed:
               the two ways `vectfit.py` reads it, `Q[-1, a:b]` and `Q[:, a:b].T @ b`, are served by `apply_qt`
               SWAP_EIG_MODE=0/1/2 picks a balancing variant of the port's solver (op 6 of trace_server.rs): 0 GSL
-              balancing (= the library), 1 none, 2 LAPACK DGEBAL('B') then the Francis QR without GSL's balancing
+              balancing (= the library), 1 none, 2 LAPACK DGEBAL('B') then the Francis QR without GSL's balancing,
+              3 LAPACK DGEBAL and DGEHRD (scipy) then only the port's Francis QR iteration
   eval        `evaluate` on the 10x test grid           -> vectfit.rs::evaluate (sequential complex sum)
 The loop, the metric and the stopping rule are upstream's; per-iteration rows are logged exactly as in
 trace_openmc.py (`order` here is the true order).
@@ -120,7 +121,15 @@ def match_dist(a, b):
 
 def eig_srv(h, *args, **kw):
     n = h.shape[0]
-    mode = os.environ.get('SWAP_EIG_MODE')   # unset: op 2 (the library's eigvals); 0, 1, 2: op 6 variants (trace_server.rs)
+    mode = os.environ.get('SWAP_EIG_MODE')
+    if mode == '3':
+        # LAPACK's DGEBAL (scipy matrix_balance, permute + scale) and DGEHRD (scipy hessenberg) here, then ONLY the
+        # port's Francis QR iteration (op 6, mode 1, whose own Hessenberg step sees a Hessenberg matrix and does nothing)
+        from scipy.linalg import hessenberg, matrix_balance
+        hb, _ = matrix_balance(np.asarray(h, dtype=float))
+        h = hessenberg(hb)
+        mode = '1'
+    # unset: op 2 (the library's eigvals); 0, 1, 2: op 6 variants (trace_server.rs)
     if mode is None:
         srv.send(2, n, np.asarray(h, dtype=float).ravel(order='C'))
     else:
