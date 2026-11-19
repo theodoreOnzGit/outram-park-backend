@@ -38,6 +38,7 @@ struct Row {
     order: usize,
     it: usize,
     n_real: usize,
+    npoles: usize,
     ratio: f64,
     ratio2: f64,
     maxre: f64,
@@ -211,6 +212,7 @@ fn traced_fit(energy: &[f64], ce_xs: &[Vec<f64>], opts: &VectfitOptions) -> Trac
                 order,
                 it: it + 1,
                 n_real: new_poles.iter().filter(|p| p.im == 0.0).count(),
+                npoles: new_poles.len(),
                 ratio,
                 ratio2,
                 maxre,
@@ -326,12 +328,12 @@ fn trace_one_piece() {
     let (mp, mr) = merge(&tr.best_poles, &tr.best_residues);
     let outside = grid_outside(&energy, &ce_ref, &mp, &mr);
 
-    let mut log = String::from("order\tit\tn_real\tratio\tratio2\tmaxre\tquality\tn_out\taccepted\n");
+    let mut log = String::from("order\tit\tn_real\tnpoles\tratio\tratio2\tmaxre\tquality\tn_out\taccepted\n");
     for r in &tr.rows {
         let _ = writeln!(
             log,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            r.order, r.it, r.n_real, fmt_f(r.ratio), fmt_f(r.ratio2), fmt_f(r.maxre), fmt_f(r.quality), r.n_out, r.accepted as u8
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            r.order, r.it, r.n_real, r.npoles, fmt_f(r.ratio), fmt_f(r.ratio2), fmt_f(r.maxre), fmt_f(r.quality), r.n_out, r.accepted as u8
         );
     }
     std::fs::write(format!("{out}.log.tsv"), log).unwrap();

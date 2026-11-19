@@ -17,7 +17,7 @@ unperturbed trace reproduces the saved fixture (checked by the caller).
 Outputs: <out>.log.tsv, <out>.orders.tsv, <out>.poles.f64, <out>.final.f64 (poles, residues),
 <out>.summary.txt.
 """
-import sys, time, json
+import sys, os, time, json
 import numpy as np
 from scipy.signal import find_peaks
 import openmc.data  # noqa: F401  (`openmc.data.vectfit` the attribute is the function, so take the module from sys.modules)
@@ -60,7 +60,14 @@ orig_lstsq, orig_evaluate = vf.lstsq, mp.evaluate
 eps = np.finfo(float).eps
 
 
+# Optional experiment (gh:#1390): TRACE_LSTSQ_DRIVER=gelss makes every least-squares solve use DGELSS (same `cond = eps` rule)
+# instead of scipy's default DGELSD. Unset = upstream exactly as shipped.
+_drv = os.environ.get("TRACE_LSTSQ_DRIVER")
+
+
 def lstsq_w(a, b, *args, **kw):
+    if _drv:
+        kw["lapack_driver"] = _drv
     sol = orig_lstsq(a, b, *args, **kw)
     s = sol[3]
     smax = s.max() if s.size else 0.0

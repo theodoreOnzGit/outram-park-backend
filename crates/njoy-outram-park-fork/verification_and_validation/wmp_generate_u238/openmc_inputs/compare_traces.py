@@ -11,27 +11,47 @@ import numpy as np
 
 
 def load(prefix):
-    rows = {}
     keys = None
+    raw = []
     for line in open(prefix + ".log.tsv"):
         f = line.rstrip("\n").split("\t")
         if keys is None:
             keys = f
             continue
-        d = dict(zip(keys, f))
-        rows[(int(d["order"]), int(d["it"]))] = dict(
+        raw.append(dict(zip(keys, f)))
+    summ = json.load(open(prefix + ".summary.txt"))
+    # The OpenMC trace logs `order` = the size of new_poles, which is order + n_real (a real pole is split
+    # into two); every order runs n_vf_iter = 30 iterations (the last one may stop early at `found_ideal`),
+    # so the true order of row r is first_order + 2 * (r // 30). The port trace logs the true order.
+    openmc = summ["code"] == "openmc"
+    rows = {}
+    sizes = []
+    for r, d in enumerate(raw):
+        o = summ["first_order"] + 2 * (r // 30) if openmc else int(d["order"])
+        it = r % 30 + 1 if openmc else int(d["it"])
+        sizes.append(int(d["order"]) if openmc else int(d["npoles"]))
+        rows[(o, it)] = dict(
             ratio=float(d["ratio"]), ratio2=float(d["ratio2"]), maxre=float(d["maxre"]), quality=float(d["quality"]),
-            n_out=int(d["n_out"]), accepted=int(d["accepted"]), n_real=int(d["n_real"]), **{k: d[k] for k in keys if k.startswith(("rank", "near", "smin"))})
+            n_out=int(d["n_out"]), accepted=int(d["accepted"]), n_real=int(d["n_real"]))
     poles = np.fromfile(prefix + ".poles.f64", dtype="<f8")
     off = 0
     P = {}
-    for (o, i) in rows:  # dict preserves insertion (= file) order
-        n = 2 * o
-        z = poles[off:off + n].reshape(-1, 2)
-        P[(o, i)] = z[:, 0] + 1j * z[:, 1]
-        off += n
+    for (k, n) in zip(rows, sizes):
+        z = poles[off:off + 2 * n].reshape(-1, 2)
+        zz = z[:, 0] + 1j * z[:, 1]
+        raw, i = [], 0  # collapse each split pair p(1 +- 0.01j) back to the real pole (the raw relocation output)
+        while i < zz.size:
+            if i + 1 < zz.size and zz[i].imag != 0 and zz[i].imag == zz[i].real * 0.01 and zz[i + 1].real == zz[i].real \
+                    and zz[i + 1].imag == -(zz[i].real * 0.01):
+                raw.append(complex(zz[i].real, 0.0))
+                i += 2
+            else:
+                raw.append(zz[i])
+                i += 1
+        P[k] = np.array(raw)
+        off += 2 * n
     assert off == poles.size, (off, poles.size)
-    return rows, P, json.load(open(prefix + ".summary.txt"))
+    return rows, P, summ
 
 
 def key(z):

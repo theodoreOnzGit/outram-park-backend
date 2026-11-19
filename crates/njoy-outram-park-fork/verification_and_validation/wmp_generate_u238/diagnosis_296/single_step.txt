@@ -1,0 +1,15 @@
+188 steps: relocation call from the exact poles OpenMC logged at iteration k, next iteration's poles as reference
+percentiles 10/25/50/75/90 of max-over-poles relative difference (inf where a pole is lost/NaN):
+  port step vs OpenMC (DGELSD)            : 1.9e-03 2.6e-02 1.0e+00 2.6e+00 8.6e+00
+  OpenMC DGELSS vs OpenMC DGELSD          : 8.6e-04 2.2e-02 1.0e+00 1.9e+00 8.0e+00
+  OpenMC, input poles perturbed by 1 ulp  : 3.5e-04 4.1e-03 9.9e-01 1.8e+00 7.3e+00
+percentiles of the median-over-poles difference:
+  port: 1.5e-13 7.8e-11 1.8e-09 3.2e-06 8.4e-05 | DGELSS: 8.6e-14 2.3e-11 1.6e-09 3.4e-06 6.9e-05 | 1-ulp: 2.0e-13 3.4e-11 1.4e-09 2.3e-06 2.2e-05
+  iterations 1-3 (n=20): median max-diff port 7.9e-03, DGELSS 7.3e-03, 1-ulp 6.7e-04
+  iterations 4-8 (n=42): median max-diff port 3.4e-01, DGELSS 2.2e-01, 1-ulp 7.6e-02
+  iterations 9-15 (n=42): median max-diff port 1.0e+00, DGELSS 1.0e+00, 1-ulp 1.1e+00
+  iterations 16-29 (n=84): median max-diff port 1.4e+00, DGELSS 1.0e+00, 1-ulp 1.2e+00
+  fraction of steps with max diff <= 1e-09: port 0.048, DGELSS 0.064, 1-ulp 0.043
+  fraction of steps with max diff <= 1e-06: port 0.064, DGELSS 0.074, 1-ulp 0.059
+  fraction of steps with max diff <= 0.001: port 0.080, DGELSS 0.101, 1-ulp 0.170
+  fraction of steps with max diff <= 0.1: port 0.271, DGELSS 0.287, 1-ulp 0.309
