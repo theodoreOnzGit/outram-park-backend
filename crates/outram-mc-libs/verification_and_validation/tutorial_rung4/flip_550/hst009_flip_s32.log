@@ -1,0 +1,83 @@
+HEU-SOL-THERM-009 case 1 — water-reflected sphere of uranium oxyfluoride
+Reconstructing nuclides (RECONR + BROADR @ 293.6 K):
+  H(H2O) S(α,β): ENDF/B-VIII.0 tsl-HinH2O (MAT 1) … ok
+  reconstructing U234   … 27.9s
+  reconstructing U235   … 257.5s
+  reconstructing U238   … 237.8s
+  reconstructing F19    … 543.9ms
+  reconstructing O16    … 8.7s
+  reconstructing H1     … 180.4ms
+  reconstructing Al27   … 4.3s
+  reconstructing Si28   … 3.4s
+  reconstructing Si29   … 3.2s
+  reconstructing Si30   … 2.7s
+  reconstructing Mn55   … 20.0s
+  reconstructing U236   … 54.6s
+Nuclear data ready in 663.2 s.
+
+solution r < 11.5177 cm, 1100-Al tank to 11.6764 cm, water to 35 cm (vacuum)
+  speed tier: fast (OUTRAM_SPEED)
+  5000 histories/gen, 40 inactive + 120 active generations
+
+  [transport losses] hst009_keff seed 1
+    histories 800000   collisions 71350818   leaks: vacuum 23215 / infinity 0
+    lost_locate           0  (0.0000 % of histories)
+    stuck_events          0  (0.0000 %)   mean path 0.000e0 cm   last E 0.000e0 eV
+    neg_dist              0  (0.0000 %)   worst 0.000e0   from lattice 0
+    => CLEAN: no history was lost, trapped, or given a negative distance.
+  [source convergence] hst009_keff seed 1
+    inactive quarters: 0.9999  0.9918  1.0030  1.0003
+    active halves:     0.99912 then 0.99971   drift +58 +/- 248 pcm (>= this err)
+    Shannon entropy:   NOT COMPUTED for this run
+    => no resolved drift; source looks converged.
+    seed 2: k = 1.00035 +/- 0.00150
+    seed 3: k = 1.00184 +/- 0.00136
+    seed 4: k = 1.00245 +/- 0.00143
+    seed 5: k = 1.00163 +/- 0.00134
+    seed 6: k = 1.00293 +/- 0.00130
+    seed 7: k = 0.99854 +/- 0.00148
+    seed 8: k = 1.00094 +/- 0.00141
+    seed 9: k = 0.99996 +/- 0.00145
+    seed 10: k = 1.00146 +/- 0.00150
+    seed 11: k = 1.00304 +/- 0.00141
+    seed 12: k = 1.00188 +/- 0.00135
+    seed 13: k = 1.00173 +/- 0.00155
+    seed 14: k = 1.00173 +/- 0.00131
+    seed 15: k = 0.99996 +/- 0.00148
+    seed 16: k = 0.99872 +/- 0.00146
+    seed 17: k = 1.00113 +/- 0.00129
+    seed 18: k = 1.00151 +/- 0.00136
+    seed 19: k = 1.00117 +/- 0.00170
+    seed 20: k = 1.00181 +/- 0.00126
+    seed 21: k = 1.00200 +/- 0.00132
+    seed 22: k = 1.00037 +/- 0.00131
+    seed 23: k = 1.00238 +/- 0.00144
+    seed 24: k = 1.00074 +/- 0.00123
+    seed 25: k = 1.00101 +/- 0.00154
+    seed 26: k = 0.99888 +/- 0.00125
+    seed 27: k = 1.00188 +/- 0.00130
+    seed 28: k = 1.00191 +/- 0.00135
+    seed 29: k = 1.00057 +/- 0.00139
+    seed 30: k = 0.99944 +/- 0.00149
+    seed 31: k = 1.00411 +/- 0.00142
+    seed 32: k = 1.00247 +/- 0.00141
+
+  ENSEMBLE HEU-SOL-THERM-009 case 1: 32 seeds
+    pooled dk    = +119 pcm
+    seed-to-seed sd  = 131 pcm   (what ONE run scatters by)
+    uncertainty  sem = +/-23 pcm   (on the pooled mean)
+    distance from benchmark = 5.1 sem
+  transport: 4282.3 s
+  k_eff = 0.99942 ± 0.00124
+  ICSBEP HEU-SOL-THERM-009 case 1 (critical) = 1.0000 ± ~0.006
+  Δk from the benchmark = -58 ± 124 pcm
+
+  For scale, the FHR pebble sat +4004 pcm above its reference when this
+  was written; GitHub #193 has since closed that to +37 pcm.
+  (The U-238 resonance-escape reading of that residual was later REFUTED:
+  see examples/lct008_keff.rs and GitHub #188. Three LEU-COMP-THERM-008
+  cases sharing one lattice give +2950/+2271/+1713 pcm, a 14-sigma spread
+  that an error in `p` cannot produce.)
+
+=== V&V gate: ICSBEP HEU-SOL-THERM-009 case 1 ===
+  [PASS] HEU-SOL-THERM-009 case 1 (critical HEU solution): k = 0.99942 ± 0.00124 vs benchmark 1.00000 ± 0.00600  (-58 pcm, gate ±1096 pcm)

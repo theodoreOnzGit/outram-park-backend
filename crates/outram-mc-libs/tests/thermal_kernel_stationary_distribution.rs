@@ -46,6 +46,30 @@
 //! making — they were wrong by 3.9–5.3 % purely from the missing collision-rate
 //! weighting, which is the same size as the effect being hunted.
 //!
+//! # Re-pinned 2026-11-19 (GitHub #550): emission tables on THERMR's own grid
+//!
+//! `ThermalScattering::from_tape` now puts its emission tables on the `calcem`
+//! incident-energy grid (the ACE layout) instead of 384 log-spaced labels.
+//! The recorded pins moved beyond their gates and were re-pinned, tolerances
+//! unchanged, same committed statistics and seeds:
+//!
+//! ```text
+//!   law            T_eff old -> new [K]     shape old -> new    (hot-cold)
+//!   c_H_in_H2O     292.96 -> 294.31 (+1.35)  1.6660 -> 1.6557   (new: +0.73 K, 2.22 sigma)
+//!   c_Graphite     604.17 -> 606.29 (+2.12)  1.6456 -> 1.6448   (new: +0.95 K, 0.76 sigma)
+//! ```
+//!
+//! sem of each new T_eff about 0.17 K (water) and 0.62 K (graphite). Predicted
+//! before the run (`sab_reference_550_flip_plan.md`): water shift under 1 K,
+//! graphite uncertain; **the water prediction missed** (+1.35 K, 8 sem).
+//! Unflattering: water's fixed point moved from -0.22 % to +0.24 % of nominal
+//! (same distance) and its shape from 0.04 % to 0.66 % below the Maxwellian
+//! 5/3; graphite moved from +0.70 % to +1.05 % above nominal, further away.
+//! The cause is not isolated here (the node-grid tables interpolate between
+//! `calcem` records as the ACE does; the old tables were nearest-record
+//! labels). Nothing was tuned. The ablation `from_tape_log_spaced_grid` is the
+//! old build; it was NOT re-run through this test.
+//!
 //! # Re-recorded 2026-09-29: OpenMC's S(α,β) sampler is the default (GitHub #407)
 //!
 //! The equiprobable tables are now sampled with OpenMC's
@@ -473,9 +497,9 @@ fn graphite_thermalises_onto_its_own_temperature() {
         "c_Graphite",
         TEMP_K,
         Recorded {
-            t_eff_k: 604.17,
+            t_eff_k: 606.29,
             t_tol_k: 2.0,
-            shape: 1.6456,
+            shape: 1.6448,
             shape_tol: 0.005,
         },
         hot,
@@ -543,9 +567,9 @@ fn light_water_thermalises_onto_its_own_temperature() {
         "c_H_in_H2O",
         TEMP_K,
         Recorded {
-            t_eff_k: 292.96,
+            t_eff_k: 294.31,
             t_tol_k: 1.0,
-            shape: 1.6660,
+            shape: 1.6557,
             shape_tol: 0.005,
         },
         hot,

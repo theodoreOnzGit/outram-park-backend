@@ -1,0 +1,36 @@
+   Compiling outram-mc-libs v0.0.7 (/home/user/outram-park-backend/.claude/worktrees/agent-a780c0c30e0cbfbbf/crates/outram-mc-libs)
+    Finished `release` profile [optimized] target(s) in 1m 15s
+     Running tests/thermal_kernel_stationary_distribution.rs (/tmp/claude-0/-home-user-outram-park-backend/208a80c6-8981-41e3-ac0f-1769a3a0e997/scratchpad/target-njoy/release/deps/thermal_kernel_stationary_distribution-1588b188f5b7fa85)
+running 3 tests
+[free-gas C-12] T_eff = 601.28 +/- 0.63 K (nominal 600), shape = 1.6650 +/- 0.0010 (Maxwellian 1.6667)
+test the_estimator_recovers_the_gas_temperature_it_is_calibrated_on ... ok
+[c_Graphite] hot  start: T_eff = 606.76 +/- 0.87 K, shape = 1.6444 +/- 0.0015
+[c_Graphite] cold start: T_eff = 605.81 +/- 0.88 K, shape = 1.6452 +/- 0.0016
+[c_Graphite] fixed point 606.29 K against a nominal 600 K (+1.05 %), shape 1.6448 against 1.6667 (-1.31 %); hot-cold +0.95 K (0.76 sigma); recorded 604.17 K / 1.6456
+thread 'graphite_thermalises_onto_its_own_temperature' (15930) panicked at crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs:621:5:
+[c_Graphite] the kernel's fixed point moved: 606.29 K against the recorded 604.17 +/- 2.00 K (nominal 600 K). If the law was FIXED this is the expected failure -- record the new value and tighten. If nothing was meant to change here, it is a regression.
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: thermal_kernel_stationary_distribution::report
+   3: <thermal_kernel_stationary_distribution::graphite_thermalises_onto_its_own_temperature::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test graphite_thermalises_onto_its_own_temperature ... FAILED
+[c_H_in_H2O] hot  start: T_eff = 294.68 +/- 0.23 K, shape = 1.6556 +/- 0.0009
+[c_H_in_H2O] cold start: T_eff = 293.94 +/- 0.24 K, shape = 1.6559 +/- 0.0009
+[c_H_in_H2O] fixed point 294.31 K against a nominal 293.6 K (+0.24 %), shape 1.6557 against 1.6667 (-0.66 %); hot-cold +0.73 K (2.22 sigma); recorded 292.96 K / 1.6660
+thread 'light_water_thermalises_onto_its_own_temperature' (15931) panicked at crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs:621:5:
+[c_H_in_H2O] the kernel's fixed point moved: 294.31 K against the recorded 292.96 +/- 1.00 K (nominal 293.6 K). If the law was FIXED this is the expected failure -- record the new value and tighten. If nothing was meant to change here, it is a regression.
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: thermal_kernel_stationary_distribution::report
+   3: <thermal_kernel_stationary_distribution::light_water_thermalises_onto_its_own_temperature::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test light_water_thermalises_onto_its_own_temperature ... FAILED
+failures:
+failures:
+    graphite_thermalises_onto_its_own_temperature
+    light_water_thermalises_onto_its_own_temperature
+test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 56.68s
+error: test failed, to rerun pass `-p outram-mc-libs --test thermal_kernel_stationary_distribution`

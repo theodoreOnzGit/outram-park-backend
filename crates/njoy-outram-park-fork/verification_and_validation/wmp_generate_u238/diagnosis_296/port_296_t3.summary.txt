@@ -1,0 +1,1 @@
+{"code": "port", "input": "/tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/wmp1390d/in_296_t3.f64", "n_peaks": 49, "first_order": 98, "last_order_in_list": 200, "last_order_visited": 126, "orders_visited": 15, "stop": "acceleration", "final_poles": 55, "grid_points_outside": 1944, "seconds": 1070.9}
