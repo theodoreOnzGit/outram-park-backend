@@ -732,6 +732,87 @@ impl Filter for PolarAzimuthalFilter {
 }
 #[derive(Debug, Clone, PartialEq)]
 
+/// Filter by the particle's **polar angle** `theta = acos(u.z)` \[rad\], as
+/// OpenMC's `PolarFilter` (`src/tallies/filter_polar.cpp`, gh:#691).
+///
+/// `edges` are ascending angles in `[0, pi]`, so bin `i` is OpenMC's bin `i`
+/// (unlike [`PolarAzimuthalFilter`], whose polar axis is `cos(theta)` and runs
+/// the other way). Edges outside `[0, pi]` are rejected by
+/// [`PolarFilter::new`]. The direction binned is [`FilterEvent::direction`];
+/// upstream uses the pre-collision direction `u_last` for non-track-length
+/// estimators, so a collision-estimator caller must put that direction in the
+/// event.
+pub struct PolarFilter {
+    /// Ascending `theta` edges \[rad\] on `[0, pi]`; `n_bins = len() - 1`.
+    pub edges: Vec<f64>,
+}
+
+impl PolarFilter {
+    /// Build the filter from `theta` edges.
+    ///
+    /// # Errors
+    ///
+    /// Fewer than two edges, not ascending, or outside `[0, pi]`.
+    pub fn new(edges: Vec<f64>) -> Result<Self, String> {
+        if edges.len() < 2 || !edges.windows(2).all(|w| w[1] > w[0]) {
+            return Err("polar edges must be ascending, at least two".into());
+        }
+        if edges.iter().any(|t| !(0.0..=core::f64::consts::PI).contains(t)) {
+            return Err(format!("polar edges {edges:?} must lie in [0, pi] radians"));
+        }
+        Ok(Self { edges })
+    }
+}
+
+impl Filter for PolarFilter {
+    fn n_bins(&self) -> usize {
+        self.edges.len().saturating_sub(1)
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        let theta = ev.direction.w.clamp(-1.0, 1.0).r_acos();
+        bin_in_edges(&self.edges, theta)
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+
+/// Filter by the particle's **azimuthal angle** `phi = atan2(u.y, u.x)` \[rad\],
+/// as OpenMC's `AzimuthalFilter` (`src/tallies/filter_azimuthal.cpp`, gh:#691).
+///
+/// `edges` are ascending angles in `[-pi, pi]`; bin `i` is OpenMC's bin `i`.
+/// Direction convention as [`PolarFilter`].
+pub struct AzimuthalFilter {
+    /// Ascending `phi` edges \[rad\] on `[-pi, pi]`; `n_bins = len() - 1`.
+    pub edges: Vec<f64>,
+}
+
+impl AzimuthalFilter {
+    /// Build the filter from `phi` edges.
+    ///
+    /// # Errors
+    ///
+    /// Fewer than two edges, not ascending, or outside `[-pi, pi]`.
+    pub fn new(edges: Vec<f64>) -> Result<Self, String> {
+        if edges.len() < 2 || !edges.windows(2).all(|w| w[1] > w[0]) {
+            return Err("azimuthal edges must be ascending, at least two".into());
+        }
+        let pi = core::f64::consts::PI;
+        if edges.iter().any(|p| !(-pi..=pi).contains(p)) {
+            return Err(format!("azimuthal edges {edges:?} must lie in [-pi, pi] radians"));
+        }
+        Ok(Self { edges })
+    }
+}
+
+impl Filter for AzimuthalFilter {
+    fn n_bins(&self) -> usize {
+        self.edges.len().saturating_sub(1)
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        bin_in_edges(&self.edges, ev.direction.v.r_atan2(ev.direction.u))
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+
 /// Filter by time since the particle was born. Maps to `openmc::TimeFilter`
 /// (`src/tallies/filter_time.cpp`).
 ///
@@ -1111,6 +1192,10 @@ pub enum FilterKind {
     Mu(MuFilter),
     /// [`PolarAzimuthalFilter`].
     PolarAzimuthal(PolarAzimuthalFilter),
+    /// [`PolarFilter`] — OpenMC's polar-angle filter (gh:#691).
+    Polar(PolarFilter),
+    /// [`AzimuthalFilter`] — OpenMC's azimuthal-angle filter (gh:#691).
+    Azimuthal(AzimuthalFilter),
     /// [`TimeFilter`].
     Time(TimeFilter),
     /// [`ParticleFilter`].
@@ -1246,6 +1331,8 @@ impl FilterKind {
             FilterKind::Surface(_) => "surface",
             FilterKind::Mu(_) => "mu",
             FilterKind::PolarAzimuthal(_) => "polar-azimuthal",
+            FilterKind::Polar(_) => "polar",
+            FilterKind::Azimuthal(_) => "azimuthal",
             FilterKind::Time(_) => "time",
             FilterKind::Particle(_) => "particle",
             FilterKind::DelayedGroup(_) => "delayedgroup",
@@ -1288,6 +1375,8 @@ impl FilterKind {
             FilterKind::Surface(f) => f,
             FilterKind::Mu(f) => f,
             FilterKind::PolarAzimuthal(f) => f,
+            FilterKind::Polar(f) => f,
+            FilterKind::Azimuthal(f) => f,
             FilterKind::Time(f) => f,
             FilterKind::Particle(f) => f,
             FilterKind::DelayedGroup(f) => f,
@@ -1330,6 +1419,26 @@ mod tests {
         assert_eq!(f.get_bin(&ev(0.5)), Some(1), "upward = theta bin 0");
         assert!(PolarAzimuthalFilter::from_theta_edges(&[0.0, 1.57, 3.5], vec![-pi, pi]).is_err());
         assert!(PolarAzimuthalFilter::from_theta_edges(&[1.0, 0.5], vec![-pi, pi]).is_err());
+    }
+
+    /// gh:#691: OpenMC's own `PolarFilter` (theta = acos(u.z), same bin order as
+    /// upstream) and `AzimuthalFilter` (phi = atan2(u.y, u.x)) beside the
+    /// cosine-binned combined filter. Upward = theta bin 0, downward = bin 1;
+    /// theta edges outside [0, pi] and phi edges outside [-pi, pi] are rejected.
+    #[test]
+    fn upstream_polar_and_azimuthal_filters_bin_the_angles() {
+        let pi = core::f64::consts::PI;
+        let p = PolarFilter::new(vec![0.0, 0.5 * pi, pi]).unwrap();
+        let ev = |u: f64, v: f64, w: f64| FilterEvent { direction: Direction::new(u, v, w), ..Default::default() };
+        assert_eq!(p.get_bin(&ev(0.6, 0.0, 0.8)), Some(0));
+        assert_eq!(p.get_bin(&ev(0.6, 0.0, -0.8)), Some(1));
+        assert!(PolarFilter::new(vec![0.0, 1.57, 3.5]).is_err());
+        assert!(PolarFilter::new(vec![1.0]).is_err());
+        let a = AzimuthalFilter::new(vec![-pi, 0.0, pi]).unwrap();
+        assert_eq!(a.get_bin(&ev(1.0, -0.5, 0.0)), Some(0), "phi < 0");
+        assert_eq!(a.get_bin(&ev(-1.0, 0.5, 0.0)), Some(1), "phi > 0");
+        assert!(AzimuthalFilter::new(vec![-4.0, 0.0]).is_err());
+        assert_eq!((p.n_bins(), a.n_bins()), (2, 2));
     }
 
     /// gh:#687: OpenMC `lower_bound_index` edge convention. `[0,1,2]`: E = 1.0 is

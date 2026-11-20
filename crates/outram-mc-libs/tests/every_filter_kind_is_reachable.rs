@@ -66,6 +66,8 @@ fn one_of_each() -> Vec<FilterKind> {
             polar: vec![0.0, std::f64::consts::FRAC_PI_2, std::f64::consts::PI],
             azimuthal: vec![-std::f64::consts::PI, 0.0, std::f64::consts::PI],
         }),
+        FilterKind::Polar(PolarFilter::new(vec![0.0, std::f64::consts::FRAC_PI_2, std::f64::consts::PI]).unwrap()),
+        FilterKind::Azimuthal(AzimuthalFilter::new(vec![-std::f64::consts::PI, 0.0, std::f64::consts::PI]).unwrap()),
         FilterKind::Time(TimeFilter {
             bounds: vec![0.0, 1.0],
         }),
