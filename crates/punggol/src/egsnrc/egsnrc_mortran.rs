@@ -10,16 +10,18 @@
 //! `HEN_HOUSE/src/egsnrc.mortran` (EGSnrc, 9016 lines): HATCH (data set-up),
 //! the ELECTR and PHOTON transport loops and the physics routines they call.
 //!
-//! **Status: first port of three routines, not differentially tested (gh:#1680).**
+//! **Status: first port of four routines, not differentially tested (gh:#1680).**
 //! Everything else in the file is still a placeholder.
 //!
 //! | upstream | here |
 //! |---|---|
 //! | `SUBROUTINE ANNIH` (`egsnrc.mortran:70-183`) | [`annih`] |
 //! | `SUBROUTINE ANNIH_AT_REST` (`egsnrc.mortran:186-224`) | [`annih_at_rest`] |
-//! | `SUBROUTINE UPHI` (`egsnrc.mortran:6722-6838`), entries 2 and 3 | [`uphi`] |
+//! | `SUBROUTINE UPHI` (`egsnrc.mortran:6722-6838`), `IENTRY` 2 and 3 | [`uphi`] |
+//! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
+//! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
-//! Not yet ported from this file: `BHABHA`, `BREMS`, `COMPT`, `ELECTR`,
+//! Not yet ported from this file: `BHABHA`, `BREMS`, `ELECTR`,
 //! `HATCH`, `MOLLER`, `PAIR`, `PHOTO`, `RELAX`, `EDGSET`, `PHOTON`, `SHOWER`,
 //! `PHOTONUC`. `UPHI` entry 1 (which derives `sinthe`/`costhe` from `theta`
 //! through the sine look-up table) is also not ported: it needs the table that
@@ -211,11 +213,20 @@ pub struct UphiSaved {
     pub b: f64,
     /// `C`.
     pub c: f64,
+    /// `COSPHI` (kept so `IENTRY = 3` can reuse the azimuth of the last call).
+    pub cosphi: f64,
+    /// `SINPHI`.
+    pub sinphi: f64,
 }
 
-/// `UPHI` (`egsnrc.mortran:6722-6838`), entries 2 and 3: rotate the direction
-/// of a stack particle by the polar angle `(sinthe, costhe)` and a fresh uniform
-/// azimuth (box method).
+/// `UPHI` (`egsnrc.mortran:6722-6838`), `IENTRY` 2 and 3: rotate the direction
+/// of a stack particle by the polar angle `(sinthe, costhe)`.
+///
+/// `ientry = 2` draws a fresh uniform azimuth (box method) and stores it in
+/// `saved`; `ientry = 3` (`:NRK:`) **reuses the azimuth of the previous call**,
+/// as `COMPT` does for the recoil electron (opposite side of the same plane).
+/// `ientry = 1` (derive the angle from `theta` through the sine table) is not
+/// ported and is refused.
 ///
 /// `lvl` selects the particle: `1` old particle (its direction is saved and
 /// adjusted), `2` new particle (properties copied from `np - 1`, saved
@@ -224,17 +235,27 @@ pub struct UphiSaved {
 ///
 /// # Errors
 ///
-/// [`EgsError::BadEntry`] for an `lvl` outside 1..=3.
+/// [`EgsError::BadEntry`] for an `ientry` other than 2 or 3, or an `lvl`
+/// outside 1..=3.
 pub fn uphi<R: UniformSource>(
     stack: &mut Stack,
     saved: &mut UphiSaved,
+    ientry: i32,
     lvl: i32,
     sinthe: f64,
     costhe: f64,
     rng: &mut R,
 ) -> Result<(), EgsError> {
-    // UPHI2: azimuth
-    let (cosphi, sinphi) = select_azimuthal_angle(rng);
+    match ientry {
+        2 => {
+            let (c, sn) = select_azimuthal_angle(rng);
+            saved.cosphi = c;
+            saved.sinphi = sn;
+        }
+        3 => {}
+        _ => return Err(EgsError::BadEntry { ientry, lvl }),
+    }
+    let (cosphi, sinphi) = (saved.cosphi, saved.sinphi);
     let np = stack.np;
     match lvl {
         1 => {
@@ -251,7 +272,7 @@ pub fn uphi<R: UniformSource>(
         2 => {
             stack.transfer_properties(np, np - 1);
         }
-        _ => return Err(EgsError::BadEntry { ientry: 2, lvl }),
+        _ => return Err(EgsError::BadEntry { ientry, lvl }),
     }
     let (a, b, c) = (saved.a, saved.b, saved.c);
     let sinps2 = a * a + b * b;
@@ -271,6 +292,402 @@ pub fn uphi<R: UniformSource>(
         stack.w[np] = -sinpsi * us + c * costhe;
     }
     Ok(())
+}
+
+/// Electron rest energy, MeV (`RM` and `PRM`, `egsnrc.macros:1140`).
+pub const RM: f64 = 0.5109989461;
+
+/// The Compton data `COMPT` reads (`COMMON/COMPTON-DATA/`,
+/// `egsnrc.macros:450-472`), filled upstream by `HATCH` from the media's
+/// shell lists. All arrays are **1-based** (index 0 unused), per-medium ones
+/// indexed `[medium][shell-slot]`.
+#[derive(Debug, Clone, Default)]
+pub struct ComptonData {
+    /// `iz_array`: atomic number of each shell.
+    pub iz_array: Vec<i32>,
+    /// `be_array`: shell binding energies in units of `rm`.
+    pub be_array: Vec<f64>,
+    /// `Jo_array`: Compton profile parameter.
+    pub jo_array: Vec<f64>,
+    /// `erfJo_array`: erf-related constant of the shell's profile.
+    pub erf_jo_array: Vec<f64>,
+    /// `shn_array`: shell type (K, L1, ...).
+    pub shn_array: Vec<i32>,
+    /// `shell_array(slot, medium)`: shell number of a slot.
+    pub shell_array: Vec<Vec<i32>>,
+    /// `eno_array(slot, medium)`: alias probability of a slot.
+    pub eno_array: Vec<Vec<f64>>,
+    /// `eno_atbin_array(slot, medium)`: alias partner slot.
+    pub eno_atbin_array: Vec<Vec<i32>>,
+    /// `n_shell(medium)`: number of slots.
+    pub n_shell: Vec<i32>,
+}
+
+/// A shell vacancy `COMPT` leaves for `RELAX` (not ported): upstream calls
+/// `relax(Uj, shn_array(j), iz_array(j))` when `Uj > 1e-3` MeV.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShellVacancy {
+    /// Binding energy `Uj`, MeV.
+    pub uj: f64,
+    /// Shell type `shn_array(j)`.
+    pub shn: i32,
+    /// Atomic number `iz_array(j)`.
+    pub iz: i32,
+}
+
+/// What `COMPT` produced besides the stack change.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ComptonOutcome {
+    /// `:INTERACTION-REJECTED:` (only with `ibcmp = 1`): the photon is
+    /// unscattered, nothing was pushed.
+    pub rejected: bool,
+    /// A vacancy for `RELAX` (`ibcmp` 1 or 3 and `Uj > 1e-3` MeV).
+    pub vacancy: Option<ShellVacancy>,
+    /// `edep` deposited locally when the vacancy energy is too small to relax
+    /// (`Uj <= 1e-3`), otherwise `0`.
+    pub edep_local: f64,
+}
+
+/// `$PLAY RUSSIAN ROULETTE WITH ELECTRONS FROM #;`
+/// (`egsnrc.macros:3479-3516`): each charged particle from stack slot `from`
+/// to `np` survives with probability `prob_rr` (weight divided by it) or is
+/// replaced by the top of the stack. Returns the number killed
+/// (`i_survived_RR` upstream, which counts the kills). `prob_rr <= 0` plays
+/// nothing (upstream prints a warning, not reproduced). An emptied stack gets
+/// one zero-weight photon so the transport loop can exit.
+pub fn play_russian_roulette<R: UniformSource>(stack: &mut Stack, from: usize, prob_rr: f64, rng: &mut R) -> usize {
+    let mut killed = 0;
+    if prob_rr <= 0.0 {
+        return killed;
+    }
+    let mut ip = from;
+    loop {
+        if stack.iq[ip] != 0 {
+            let rnno_rr = rng.uniform();
+            if rnno_rr < prob_rr {
+                stack.wt[ip] /= prob_rr;
+                ip += 1;
+            } else {
+                killed += 1;
+                let np = stack.np;
+                if ip < np {
+                    stack.e[ip] = stack.e[np];
+                    stack.iq[ip] = stack.iq[np];
+                    stack.wt[ip] = stack.wt[np];
+                    stack.u[ip] = stack.u[np];
+                    stack.v[ip] = stack.v[np];
+                    stack.w[ip] = stack.w[np];
+                }
+                stack.np -= 1;
+            }
+        } else {
+            ip += 1;
+        }
+        if ip > stack.np {
+            break;
+        }
+    }
+    if stack.np == 0 {
+        stack.np = 1;
+        stack.e[1] = 0.0;
+        stack.iq[1] = 0;
+        stack.wt[1] = 0.0;
+    }
+    killed
+}
+
+/// `COMPT` (`egsnrc.mortran:528-806`): incoherent (Compton) scattering of the
+/// photon on top of the stack. `ibcmp` (the region's flag): 0 Klein-Nishina,
+/// 1 impulse approximation with rejection of the whole interaction, 2 impulse
+/// approximation without binding or Doppler energy and 3 the full bound
+/// cross section with resampling.
+///
+/// The scattered photon stays in slot `np_old`; the recoil electron is pushed
+/// (`iq = -1`, total energy `pese`). `medium` and `region` are 1-based. `rr`
+/// is `Some(prob_RR)` when `i_play_RR = 1`.
+///
+/// **Seams, deliberate:**
+/// - A shell vacancy is *returned* ([`ComptonOutcome::vacancy`]) because `RELAX`
+///   is not ported. Upstream plays Russian roulette after `RELAX`; here it is
+///   played inside only when no vacancy is pending, so with a vacancy the
+///   caller applies [`play_russian_roulette`] from `np_old + 1` after relaxing.
+/// - Radiative Compton corrections (`$RADC_CHECK`, `$RADC_REJECTION`, empty by
+///   default, `egsnrc.macros:3531`) and the `AUSGAB` calls are omitted.
+/// - `$egs_warning` for a `br` outside its range is not reproduced.
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`] when `np + 1 > $MXSTACK`.
+#[allow(unused_assignments, clippy::too_many_arguments)]
+pub fn compt<R: UniformSource>(
+    stack: &mut Stack,
+    data: &ComptonData,
+    medium: usize,
+    region: usize,
+    ibcmp: i32,
+    rr: Option<f64>,
+    prm: f64,
+    rng: &mut R,
+) -> Result<ComptonOutcome, EgsError> {
+    let rm = RM;
+    stack.np_old = stack.np;
+    let np_old = stack.np_old;
+    let peig = stack.e[stack.np];
+    let ko = peig / rm;
+    let broi = 1.0 + 2.0 * ko;
+    let broi2 = broi * broi;
+    let _ = region;
+    let ibcmpl = ibcmp;
+    let mut first_time = true;
+
+    // sampling state that persists across the RESAMPLE loops
+    let (mut alph1, mut alpha, mut bro, mut bro1, mut rejmax) = (0.0, 0.0, 0.0, 0.0, 0.0);
+    let (mut uj, mut jo) = (0.0, 0.0);
+    let mut j = 0usize;
+    let mut br;
+    let mut temp;
+    let mut sinthe;
+    let mut costhe;
+
+    'resample_compton: loop {
+        if ibcmpl > 0 {
+            // first sample the shell and see whether an interaction is possible
+            let mut rnno17 = rng.uniform();
+            rnno17 = 1.0 + rnno17 * data.n_shell[medium] as f64;
+            let mut i = rnno17 as usize;
+            if rnno17 > data.eno_array[medium][i] {
+                i = data.eno_atbin_array[medium][i] as usize;
+            }
+            j = data.shell_array[medium][i] as usize;
+            uj = data.be_array[j];
+            if ko <= uj {
+                if ibcmpl == 1 {
+                    return Ok(ComptonOutcome { rejected: true, ..Default::default() });
+                }
+                continue 'resample_compton;
+            }
+            jo = data.jo_array[j];
+        }
+
+        // We always sample the scattering angle from Klein-Nishina
+        'resample: loop {
+            if ko > 2.0 {
+                if first_time {
+                    alph1 = RealMath::r_ln(broi);
+                    bro = 1.0 / broi;
+                    let alph2 = ko * (broi + 1.0) * bro * bro;
+                    alpha = alph1 + alph2;
+                }
+                loop {
+                    let rnno15 = rng.uniform();
+                    let rnno16 = rng.uniform();
+                    if rnno15 * alpha < alph1 {
+                        br = RealMath::r_exp(alph1 * rnno16) * bro;
+                    } else {
+                        br = Real::sqrt(rnno16 * broi2 + (1.0 - rnno16)) * bro;
+                    }
+                    temp = (1.0 - br) / (ko * br);
+                    sinthe = (0.0_f64).max(temp * (2.0 - temp));
+                    let aux = 1.0 + br * br;
+                    let rejf3 = aux - br * sinthe;
+                    let rnno19 = rng.uniform();
+                    if rnno19 * aux <= rejf3 {
+                        break;
+                    }
+                }
+            } else {
+                if first_time {
+                    bro = 1.0 / broi;
+                    bro1 = 1.0 - bro;
+                    rejmax = broi + bro;
+                }
+                loop {
+                    let rnno15 = rng.uniform();
+                    let rnno16 = rng.uniform();
+                    br = bro + bro1 * rnno15;
+                    temp = (1.0 - br) / (ko * br);
+                    sinthe = (0.0_f64).max(temp * (2.0 - temp));
+                    let rejf3 = 1.0 + br * br - br * sinthe;
+                    if rnno16 * br * rejmax <= rejf3 {
+                        break;
+                    }
+                }
+            }
+            first_time = false;
+            if br < bro || br > 1.0 {
+                continue 'resample;
+            }
+            break;
+        }
+
+        costhe = 1.0 - temp;
+        if ibcmp == 0 {
+            // Klein-Nishina: done
+            uj = 0.0;
+            break 'resample_compton;
+        }
+
+        // Check for rejection due to the limited range of pzmax
+        let br2 = br * br;
+        let mut aux = ko * (ko - uj) * temp;
+        let aux1 = 2.0 * aux + uj * uj;
+        let mut pzmax = aux - uj;
+        if pzmax < 0.0 && pzmax * pzmax >= aux1 {
+            if ibcmpl == 1 {
+                return Ok(ComptonOutcome { rejected: true, ..Default::default() });
+            }
+            continue 'resample_compton;
+        }
+        pzmax /= Real::sqrt(aux1);
+        let qc2 = 1.0 + br * br - 2.0 * br * costhe;
+        let qc = Real::sqrt(qc2);
+
+        let mut af = 0.0;
+        let mut fmax = 1.0;
+        let mut fpz = 1.0;
+        'retry_setup: {
+            if pzmax > 1.0 {
+                pzmax = 1.0;
+                af = 0.0;
+                fmax = 1.0;
+                fpz = 1.0;
+                break 'retry_setup;
+            }
+            let mut aux3 = 1.0 + 2.0 * jo * pzmax.abs();
+            let mut aux4 = 0.5 * (1.0 - aux3 * aux3);
+            fpz = 0.5 * RealMath::r_exp(aux4);
+            af = qc * (1.0 + br * (br - costhe) / qc2);
+            if af < 0.0 {
+                if pzmax > 0.0 {
+                    fpz = 1.0 - fpz;
+                }
+                let eta_incoh = rng.uniform();
+                if eta_incoh > fpz {
+                    if ibcmpl == 1 {
+                        return Ok(ComptonOutcome { rejected: true, ..Default::default() });
+                    }
+                    continue 'resample_compton;
+                }
+                af = 0.0;
+                fmax = 1.0;
+                break 'retry_setup;
+            }
+            let fpz1;
+            if pzmax < -0.15 {
+                fmax = 1.0 - af * 0.15;
+                fpz1 = fpz * fmax * jo;
+            } else if pzmax < 0.15 {
+                fmax = 1.0 + af * pzmax;
+                aux3 = 1.0 / (1.0 + 0.33267252734 * aux3);
+                aux4 = fpz * aux3 * (0.3480242 + aux3 * (-0.0958798 + aux3 * 0.7478556)) + data.erf_jo_array[j];
+                if pzmax > 0.0 {
+                    fpz1 = (1.0 - fmax * fpz) * jo - 0.62665706866 * af * aux4;
+                    fpz = 1.0 - fpz;
+                } else {
+                    fpz1 = fmax * fpz * jo - 0.62665706866 * af * aux4;
+                }
+            } else {
+                fmax = 1.0 + af * 0.15;
+                fpz1 = (1.0 - fmax * fpz) * jo;
+                fpz = 1.0 - fpz;
+            }
+            let eta_incoh = rng.uniform();
+            if eta_incoh * jo > fpz1 {
+                if ibcmpl == 1 {
+                    return Ok(ComptonOutcome { rejected: true, ..Default::default() });
+                }
+                continue 'resample_compton;
+            }
+        }
+
+        // sample pz between -1 and pzmax from the Compton profile of the shell
+        let mut pz;
+        if ibcmpl != 2 {
+            loop {
+                let mut rnno18 = rng.uniform();
+                rnno18 *= fpz;
+                if rnno18 < 0.5 {
+                    rnno18 = (1e-30_f64).max(2.0 * rnno18);
+                    pz = 0.5 * (1.0 - Real::sqrt(1.0 - 2.0 * RealMath::r_ln(rnno18))) / jo;
+                } else {
+                    rnno18 = 2.0 * (1.0 - rnno18);
+                    pz = 0.5 * (Real::sqrt(1.0 - 2.0 * RealMath::r_ln(rnno18)) - 1.0) / jo;
+                }
+                if pz.abs() > 1.0 {
+                    continue;
+                }
+                if pz < 0.15 {
+                    let frej = if pz < -0.15 { 1.0 - af * 0.15 } else { 1.0 + af * pz };
+                    let eta = rng.uniform();
+                    if eta * fmax > frej {
+                        continue;
+                    }
+                }
+                break;
+            }
+        } else {
+            pz = 0.0;
+            uj = 0.0;
+        }
+
+        // energy of the scattered photon
+        let pz2 = pz * pz;
+        if pz.abs() < 0.01 {
+            br *= 1.0 + pz * (qc + (br2 - costhe) * pz);
+        } else {
+            aux = 1.0 - pz2 * br * costhe;
+            let aux1 = 1.0 - pz2 * br2;
+            let aux2 = qc2 - br2 * pz2 * sinthe;
+            if aux2 > 1e-10 {
+                br = br / aux1 * (aux + pz * Real::sqrt(aux2));
+            }
+        }
+        uj *= prm;
+        break 'resample_compton;
+    }
+
+    // :FINISHED-COMPTON-SAMPLING:
+    let pesg = br * peig;
+    let pese = peig - pesg - uj + prm;
+    sinthe = Real::sqrt(sinthe);
+    let mut saved = UphiSaved::default();
+    uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)?;
+    let np = stack.np;
+    stack.e[np] = pesg;
+    let aux = 1.0 + br * br - 2.0 * br * costhe;
+    if aux > 1e-8 {
+        costhe = (1.0 - br * costhe) / Real::sqrt(aux);
+        sinthe = (1.0 - costhe) * (1.0 + costhe);
+        if sinthe > 0.0 {
+            sinthe = -Real::sqrt(sinthe);
+        } else {
+            sinthe = 0.0;
+        }
+    } else {
+        costhe = 0.0;
+        sinthe = -1.0;
+    }
+    stack.np += 1;
+    stack.check_stack(stack.np, "COMPT")?;
+    uphi(stack, &mut saved, 3, 2, sinthe, costhe, rng)?;
+    let np = stack.np;
+    stack.e[np] = pese;
+    stack.iq[np] = -1;
+
+    let mut out = ComptonOutcome::default();
+    if ibcmpl == 1 || ibcmpl == 3 {
+        if uj > 1e-3 {
+            out.vacancy = Some(ShellVacancy { uj, shn: data.shn_array[j], iz: data.iz_array[j] });
+        } else {
+            out.edep_local = uj;
+        }
+    }
+    if out.vacancy.is_none() {
+        if let Some(prob) = rr {
+            play_russian_roulette(stack, np_old + 1, prob, rng);
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -382,21 +799,182 @@ mod tests {
         let costhe = 0.6;
         let sinthe = 0.8;
         let mut saved = UphiSaved::default();
-        uphi(&mut st, &mut saved, 1, sinthe, costhe, &mut rng).unwrap();
+        uphi(&mut st, &mut saved, 2, 1, sinthe, costhe, &mut rng).unwrap();
         assert!((norm(&st, 1) - 1.0).abs() < 1e-12);
         let dot = st.u[1] * u + st.v[1] * v + st.w[1] * w;
         assert!((dot - costhe).abs() < 1e-12, "angle to the old direction is theta");
         // lvl 2: a new particle above, using the saved direction
         st.np = 2;
-        uphi(&mut st, &mut saved, 2, sinthe, costhe, &mut rng).unwrap();
+        uphi(&mut st, &mut saved, 2, 2, sinthe, costhe, &mut rng).unwrap();
         let dot2 = st.u[2] * u + st.v[2] * v + st.w[2] * w;
         assert!((dot2 - costhe).abs() < 1e-12);
         // lvl 3: brems photon, relative to the electron at np-1
         st.np = 3;
-        uphi(&mut st, &mut saved, 3, sinthe, costhe, &mut rng).unwrap();
+        uphi(&mut st, &mut saved, 2, 3, sinthe, costhe, &mut rng).unwrap();
         let dot3 = st.u[3] * st.u[2] + st.v[3] * st.v[2] + st.w[3] * st.w[2];
         assert!((dot3 - costhe).abs() < 1e-12);
-        assert_eq!(uphi(&mut st, &mut saved, 4, sinthe, costhe, &mut rng), Err(EgsError::BadEntry { ientry: 2, lvl: 4 }));
+        assert_eq!(uphi(&mut st, &mut saved, 2, 4, sinthe, costhe, &mut rng), Err(EgsError::BadEntry { ientry: 2, lvl: 4 }));
+    }
+
+
+    fn toy_compton_data(be: f64) -> ComptonData {
+        // one medium (index 1), one shell (index 1)
+        ComptonData {
+            iz_array: alloc::vec![0, 6],
+            be_array: alloc::vec![0.0, be],
+            jo_array: alloc::vec![0.0, 10.0],
+            erf_jo_array: alloc::vec![0.0, 0.9],
+            shn_array: alloc::vec![0, 1],
+            shell_array: alloc::vec![Vec::new(), alloc::vec![0, 1]],
+            eno_array: alloc::vec![Vec::new(), alloc::vec![0.0, 1.0]],
+            eno_atbin_array: alloc::vec![Vec::new(), alloc::vec![0, 1]],
+            n_shell: alloc::vec![0, 1],
+        }
+    }
+
+    fn photon_stack(e: f64) -> Stack {
+        let mut st = Stack::new(40);
+        st.np = 1;
+        st.e[1] = e;
+        st.w[1] = 1.0;
+        st.wt[1] = 1.0;
+        st.ir[1] = 1;
+        st
+    }
+
+    #[test]
+    fn compt_klein_nishina_conserves_energy_and_momentum() {
+        let mut rng = Ranmar::new(10, 20);
+        let data = toy_compton_data(0.0);
+        // below and above the ko = 2 switch between the two br samplers
+        for &e in &[0.3, 0.9, 1.2, 5.0] {
+            for _ in 0..40 {
+                let mut st = photon_stack(e);
+                let o = compt(&mut st, &data, 1, 1, 0, None, RM, &mut rng).unwrap();
+                assert_eq!(o, ComptonOutcome::default());
+                assert_eq!((st.np_old, st.np), (1, 2));
+                assert_eq!((st.iq[1], st.iq[2]), (0, -1));
+                assert!((st.e[1] + st.e[2] - (e + RM)).abs() < 1e-12);
+                let pe = (st.e[2] * st.e[2] - RM * RM).max(0.0).sqrt();
+                let px = st.e[1] * st.u[1] + pe * st.u[2];
+                let pz = st.e[1] * st.w[1] + pe * st.w[2];
+                assert!(px.abs() < 1e-5 * e, "px {px}");
+                assert!((pz - e).abs() < 1e-5 * e, "pz {pz} vs {e}");
+                assert!((norm(&st, 1) - 1.0).abs() < 1e-9 && (norm(&st, 2) - 1.0).abs() < 1e-9);
+            }
+        }
+    }
+
+    #[test]
+    fn compt_bound_modes_reject_resample_and_leave_vacancies() {
+        let mut rng = Ranmar::new(30, 40);
+        // binding energy 0.002 rm... large enough that Uj*prm > 1e-3 MeV
+        let data = toy_compton_data(0.01);
+        // photon below the binding energy: ibcmp 1 rejects (unscattered)
+        let mut st = photon_stack(0.001);
+        let o = compt(&mut st, &data, 1, 1, 1, None, RM, &mut rng).unwrap();
+        assert!(o.rejected && st.np == 1 && st.np_old == 1);
+        let (mut ok, mut rej, mut vac) = (0, 0, 0);
+        for _ in 0..200 {
+            let mut st = photon_stack(0.3);
+            let o = compt(&mut st, &data, 1, 1, 1, None, RM, &mut rng).unwrap();
+            if o.rejected {
+                rej += 1;
+                assert_eq!(st.np, 1);
+            } else {
+                ok += 1;
+                assert_eq!(st.np, 2);
+                if let Some(v) = o.vacancy {
+                    vac += 1;
+                    assert_eq!((v.iz, v.shn), (6, 1));
+                    assert!(v.uj > 1e-3);
+                    // electron energy lost the binding energy
+                    assert!(st.e[1] + st.e[2] + v.uj - (0.3 + RM) < 1e-9);
+                }
+            }
+        }
+        assert!(ok > 0 && rej > 0 && vac == ok, "ok {ok} rej {rej} vac {vac}");
+        // ibcmp 3 resamples instead of rejecting, ibcmp 2 has no binding energy
+        for &mode in &[2, 3] {
+            for _ in 0..100 {
+                let mut st = photon_stack(0.3);
+                let o = compt(&mut st, &data, 1, 1, mode, None, RM, &mut rng).unwrap();
+                assert!(!o.rejected && st.np == 2);
+                assert_eq!(o.vacancy.is_some(), mode == 3);
+            }
+        }
+        // a tiny binding energy is deposited locally, not relaxed
+        let small = toy_compton_data(1e-5);
+        let mut st = photon_stack(0.5);
+        let o = compt(&mut st, &small, 1, 1, 3, None, RM, &mut rng).unwrap();
+        assert!(o.vacancy.is_none() && o.edep_local > 0.0);
+        // a full stack is an error
+        let mut full = Stack::new(1);
+        full.np = 1;
+        full.e[1] = 0.5;
+        assert!(matches!(
+            compt(&mut full, &data, 1, 1, 0, None, RM, &mut rng),
+            Err(EgsError::StackExceeded { routine: "COMPT", .. })
+        ));
+    }
+
+    #[test]
+    fn russian_roulette_kills_and_reweights_charged_only() {
+        let mut rng = Ranmar::new(50, 60);
+        let mut st = Stack::new(10);
+        st.np = 4;
+        for i in 1..=4 {
+            st.wt[i] = 1.0;
+            st.e[i] = i as f64;
+            st.iq[i] = if i == 2 { 0 } else { -1 };
+        }
+        // prob <= 0 plays nothing
+        assert_eq!(play_russian_roulette(&mut st, 1, 0.0, &mut rng), 0);
+        assert_eq!(st.np, 4);
+        let killed = play_russian_roulette(&mut st, 1, 0.5, &mut rng);
+        assert_eq!(st.np, 4 - killed);
+        assert!((1..=st.np).all(|i| st.iq[i] == 0 || st.wt[i] == 2.0));
+        assert!((1..=st.np).any(|i| st.iq[i] == 0), "the photon is never killed");
+        // killing everything charged leaves a placeholder particle
+        let mut all = Stack::new(5);
+        all.np = 1;
+        all.iq[1] = -1;
+        all.e[1] = 3.0;
+        all.wt[1] = 1.0;
+        let mut r2 = Ranmar::new(1, 1);
+        let mut guard = 0;
+        while all.np == 1 && all.iq[1] != 0 && guard < 1000 {
+            all.iq[1] = -1;
+            all.wt[1] = 1.0;
+            play_russian_roulette(&mut all, 1, 1e-9, &mut r2);
+            guard += 1;
+        }
+        assert_eq!((all.np, all.iq[1], all.wt[1], all.e[1]), (1, 0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn compt_with_roulette_applies_it_when_no_vacancy() {
+        let mut rng = Ranmar::new(70, 80);
+        let data = toy_compton_data(0.0);
+        let mut st = photon_stack(1.0);
+        compt(&mut st, &data, 1, 1, 0, Some(1e-12), RM, &mut rng).unwrap();
+        // the recoil electron was killed; the scattered photon remains
+        assert_eq!((st.np, st.iq[1]), (1, 0));
+    }
+
+    #[test]
+    fn uphi_entry3_reuses_the_azimuth() {
+        let mut rng = Ranmar::new(2, 3);
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.w[1] = 1.0;
+        let mut saved = UphiSaved::default();
+        uphi(&mut st, &mut saved, 2, 1, 0.6, 0.8, &mut rng).unwrap();
+        st.np = 2;
+        // opposite side of the same plane: negative sin(theta), same azimuth
+        uphi(&mut st, &mut saved, 3, 2, -0.6, 0.8, &mut rng).unwrap();
+        assert!((st.u[1] + st.u[2]).abs() < 1e-12 && (st.v[1] + st.v[2]).abs() < 1e-12);
+        assert_eq!(uphi(&mut st, &mut saved, 1, 1, 0.6, 0.8, &mut rng), Err(EgsError::BadEntry { ientry: 1, lvl: 1 }));
     }
 
     #[test]
@@ -406,7 +984,7 @@ mod tests {
         st.np = 1;
         st.w[1] = -1.0; // along -z: a = b = 0
         let mut saved = UphiSaved::default();
-        uphi(&mut st, &mut saved, 1, 0.6, 0.8, &mut rng).unwrap();
+        uphi(&mut st, &mut saved, 2, 1, 0.6, 0.8, &mut rng).unwrap();
         assert!((norm(&st, 1) - 1.0).abs() < 1e-12);
         assert!((st.w[1] + 0.8).abs() < 1e-15, "w = c * costhe");
     }
