@@ -180,10 +180,19 @@ pub struct FixedSourceSettings {
     pub temperature_k: f64,
     /// Master RNG seed (fixed → reproducible on the single-thread path).
     pub seed: u64,
-    /// Safety cap on fission secondaries transported per source particle — the
-    /// backstop against runaway multiplication if a (mis-specified)
-    /// super-critical system is run as a fixed source.
+    /// Safety cap on fission secondaries — the backstop against runaway
+    /// multiplication if a (mis-specified) super-critical system is run as a
+    /// fixed source. **Since 2026-11-20 (gh:#685) it caps the LIVE secondary bank**
+    /// (secondaries waiting to be transported), as OpenMC's
+    /// `settings::max_secondaries` caps the live secondary bank (the issue's
+    /// citation; the vendored source is not in this checkout). ~~It capped the
+    /// CUMULATIVE number transported per source particle.~~ That earlier meaning
+    /// is kept as an option: [`Self::cumulative_secondary_cap`].
     pub max_secondaries: usize,
+    /// `true` restores the pre-2026-11-20 meaning of
+    /// [`Self::max_secondaries`]: a cap on the total secondaries transported per
+    /// source particle. `false` (default) caps the live bank, as upstream.
+    pub cumulative_secondary_cap: bool,
     /// Normalise each batch per source particle before it is flushed (gh:#675,
     /// OpenMC `Tally::accumulate`); `false` (default) keeps the raw per-batch sums.
     /// The divisor is that batch's own particle count.
@@ -226,6 +235,7 @@ impl Default for FixedSourceSettings {
             temperature_k: 293.6,
             seed: 1,
             max_secondaries: 10_000,
+            cumulative_secondary_cap: false,
             normalise_tallies: false,
             seeding: Default::default(),
             tally_batch_log: None,
@@ -455,7 +465,12 @@ pub fn run_fixed_source_traced(
                 is_source_particle = false;
                 production_sum += prod.production;
                 for s in next {
-                    if secondaries < settings.max_secondaries {
+                    let room = if settings.cumulative_secondary_cap {
+                        secondaries < settings.max_secondaries
+                    } else {
+                        bank.len() < settings.max_secondaries
+                    };
+                    if room {
                         bank.push(s);
                         secondaries += 1;
                     } else {
@@ -778,6 +793,24 @@ mod tests {
         );
         assert!(refused.unwrap_err().contains("dropped"), "the try_ form refuses");
         assert_eq!(run(10_000).dropped_secondaries, 0);
+        // gh:#685: the cap is on the LIVE bank, so it never drops more than the
+        // old cumulative cap does (the live bank is at most the cumulative count),
+        // and the cumulative meaning stays available as an option.
+        let cumulative = run_fixed_source(
+            &geom,
+            &[heu.clone()],
+            &nuclides,
+            &src,
+            &FixedSourceSettings {
+                n_particles: 200,
+                n_batches: 2,
+                max_secondaries: 1,
+                cumulative_secondary_cap: true,
+                ..Default::default()
+            },
+            None,
+        );
+        assert!(cumulative.dropped_secondaries >= capped.dropped_secondaries);
     }
 
     /// gh:#683 / #263, analytic: in an infinite (reflective) non-fissile medium
