@@ -225,7 +225,8 @@ fn fixed_source_run_reproduces_path_and_energy_split() {
         Some(&mut total),
     );
     assert_eq!(res.total_histories, n);
-    let mean_l = total.bins[0].sum / n as f64;
+    // gh:#675: batches are normalised per source particle by default.
+    let mean_l = total.bins[0].mean_realized();
     let el = (2.0 / (3.0 * A * A)) * (R.powi(3) - (R * R - A * A).powf(1.5));
     let var_l = (R * R - A * A / 2.0 - el * el) + H * H / 3.0;
     println!("MEASURED mean path {mean_l:.5} analytic {el:.5} sigma {:.5}", (var_l / n as f64).sqrt());
@@ -277,7 +278,7 @@ fn biased_point_cloud_weights_reach_the_tally() {
         &FixedSourceSettings { n_particles: n, n_batches: 10, seed: 13_880_004, ..Default::default() }.with_seeding(SeedingMode::OpenMc { total_gen: 0 }),
         Some(&mut t),
     );
-    let mean = t.bins[0].sum / n as f64;
+    let mean = t.bins[0].mean_realized();
     println!("MEASURED weighted mean path {mean:.5} analytic 10 sigma {:.5}", (12.0 / n as f64).sqrt());
     assert!((mean - 10.0).abs() < five_sigma(12.0, n), "weighted mean path {mean}");
 }

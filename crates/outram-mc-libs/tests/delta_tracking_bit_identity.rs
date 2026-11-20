@@ -424,6 +424,10 @@ fn settings(compute: ComputeType, est: DeltaTallyEstimator) -> KeffSettings {
         seed: 20_261_006,
         compute,
         delta_tally_estimator: est,
+        // The pins below fingerprint RAW per-batch tally sums; the default became
+        // per-source-particle normalisation on 2026-11-20 (gh:#675), which only
+        // rescales them, so the explicit ablation keeps these pins meaningful.
+        normalise_tallies: false,
         ..KeffSettings::default()
     }
 }

@@ -178,7 +178,7 @@ fn every_filter_kind_is_reachable_and_binnable() {
     // 29 variants: 28 constructed above plus the refused `DelayedGroup`.
     assert_eq!(
         filters.len() + REFUSED_VARIANTS,
-        31,
+        33, // 31 + `Polar` and `Azimuthal` (gh:#691)
         "the variant count changed. If a filter was ADDED, construct it above \
          so this gate covers it; `FilterKind::name` will already have failed \
          to compile if it was not dispatched."
