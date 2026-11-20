@@ -32,6 +32,8 @@
 //! | `SUBROUTINE msdist_pI` (`egsnrc.mortran:4309-4455`), `msdist_pII` (`:4049-4290`) | [`msdist_p1`], [`msdist_p2`] |
 //! | `SUBROUTINE ELECTR` (`egsnrc.mortran:985-1825`) with the step, range and energy-loss macros of `egsnrc.macros:1308-1360, 2358-2395, 3105-3330` | [`electr`] |
 //! | `SUBROUTINE HATCH`, the regular PEGS4 intake block and the `DUNIT` scaling (`egsnrc.mortran:2036-2250`) | [`Pegs4Medium`], [`parse_pegs4_media`] |
+//! | `SUBROUTINE fix_brems`, `FCOULC`, `XSIF` (`egsnrc.mortran:2325-2420`) | [`fix_brems`] |
+//! | `SUBROUTINE init_compton` (`egsnrc.mortran:2422-2575`) | [`init_compton`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -327,6 +329,8 @@ pub struct ComptonData {
     pub erf_jo_array: Vec<f64>,
     /// `shn_array`: shell type (K, L1, ...).
     pub shn_array: Vec<i32>,
+    /// `ne_array`: number of electrons in each shell.
+    pub ne_array: Vec<i32>,
     /// `shell_array(slot, medium)`: shell number of a slot.
     pub shell_array: Vec<Vec<i32>>,
     /// `eno_array(slot, medium)`: alias probability of a slot.
@@ -4326,6 +4330,201 @@ impl Pegs4Medium {
     }
 }
 
+/// `FCOULC` (`egsnrc.mortran:2413-2421`): the Coulomb correction function.
+pub fn fcoulc(z: f64) -> f64 {
+    const FINE: f64 = 137.03604;
+    let mut asq = z / FINE;
+    asq *= asq;
+    asq * (1.0 / (1.0 + asq) + 0.20206 + asq * (-0.0369 + asq * (0.0083 + asq * (-0.002))))
+}
+
+/// `XSIF` (`egsnrc.mortran:2423-2437`): the ratio of the inelastic to the
+/// elastic radiation logarithms.
+pub fn xsif(z: f64) -> f64 {
+    const ALRAD: [f64; 4] = [5.31, 4.79, 4.74, 4.71];
+    const ALRADP: [f64; 4] = [6.144, 5.621, 5.805, 5.924];
+    const A1440: f64 = 1194.0;
+    const A183: f64 = 184.15;
+    if z <= 4.0 {
+        let iz = z as usize; // 1-based in upstream
+        ALRADP[iz - 1] / (ALRAD[iz - 1] - fcoulc(z))
+    } else {
+        RealMath::r_ln(A1440 * RealMath::r_powf(z, -0.666667))
+            / (RealMath::r_ln(A183 * RealMath::r_powf(z, -0.33333)) - fcoulc(z))
+    }
+}
+
+/// The screening-function fits `fix_brems` computes for one medium.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BremsFits {
+    /// `log_ap(medium) = log(ap)`.
+    pub log_ap: f64,
+    /// `dl1..dl6(l)`, `l = 1..8` (index 0 unused): `dl[k - 1][l]`.
+    pub dl: [Vec<f64>; 6],
+    /// `bpar(1..2)` (index 0 unused).
+    pub bpar: [f64; 3],
+}
+
+/// `fix_brems` (`egsnrc.mortran:2325-2410`): re-calculates the `dl1..dl6`
+/// parameters for the bremsstrahlung and pair sampling used here (the old
+/// EGS4 sampling had a bug that shows up when `AP` is not much smaller than the
+/// electron kinetic energy). `elements` is `(ZELEM, PZ)` per element of the
+/// medium, `ap` its photon threshold in MeV.
+pub fn fix_brems(elements: &[(f64, f64)], ap: f64) -> BremsFits {
+    let log_ap = RealMath::r_ln(ap);
+    let (mut zt, mut zb, mut zf) = (0.0, 0.0, 0.0);
+    for &(zi, pi) in elements {
+        let fc = fcoulc(zi);
+        let xi = xsif(zi);
+        let aux = pi * zi * (zi + xi);
+        zt += aux;
+        zb -= aux * RealMath::r_ln(zi) / 3.0;
+        zf += aux * fc;
+    }
+    let zv = (zb - zf) / zt;
+    let zg = zb / zt;
+    let fmax1 = 2.0 * (20.863 + 4.0 * zg) - 2.0 * (20.029 + 4.0 * zg) / 3.0;
+    let fmax2 = 2.0 * (20.863 + 4.0 * zv) - 2.0 * (20.029 + 4.0 * zv) / 3.0;
+    let mut dl: [Vec<f64>; 6] = core::array::from_fn(|_| alloc::vec![0.0; 9]);
+    let mut set = |l: usize, v: [f64; 6]| {
+        for k in 0..6 {
+            dl[k][l] = v[k];
+        }
+    };
+    // used in BREMS
+    set(1, [(20.863 + 4.0 * zg) / fmax1, -3.242 / fmax1, 0.625 / fmax1, (21.12 + 4.0 * zg) / fmax1, -4.184 / fmax1, 0.952]);
+    set(2, [(20.029 + 4.0 * zg) / fmax1, -1.93 / fmax1, -0.086 / fmax1, (21.12 + 4.0 * zg) / fmax1, -4.184 / fmax1, 0.952]);
+    set(3, [(20.863 + 4.0 * zv) / fmax2, -3.242 / fmax2, 0.625 / fmax2, (21.12 + 4.0 * zv) / fmax2, -4.184 / fmax2, 0.952]);
+    set(4, [(20.029 + 4.0 * zv) / fmax2, -1.93 / fmax2, -0.086 / fmax2, (21.12 + 4.0 * zv) / fmax2, -4.184 / fmax2, 0.952]);
+    // and these in PAIR
+    set(5, [3.0 * (20.863 + 4.0 * zg) - (20.029 + 4.0 * zg), 3.0 * (-3.242) - (-1.930), 3.0 * 0.625 - (-0.086), 2.0 * 21.12 + 8.0 * zg, 2.0 * (-4.184), 0.952]);
+    set(6, [3.0 * (20.863 + 4.0 * zg) + (20.029 + 4.0 * zg), 3.0 * (-3.242) + (-1.930), 3.0 * 0.625 + (-0.086), 4.0 * 21.12 + 16.0 * zg, 4.0 * (-4.184), 0.952]);
+    set(7, [3.0 * (20.863 + 4.0 * zv) - (20.029 + 4.0 * zv), 3.0 * (-3.242) - (-1.930), 3.0 * 0.625 - (-0.086), 2.0 * 21.12 + 8.0 * zv, 2.0 * (-4.184), 0.952]);
+    set(8, [3.0 * (20.863 + 4.0 * zv) + (20.029 + 4.0 * zv), 3.0 * (-3.242) + (-1.930), 3.0 * 0.625 + (-0.086), 4.0 * 21.12 + 16.0 * zv, 4.0 * (-4.184), 0.952]);
+    let mut bpar = [0.0; 3];
+    bpar[2] = dl[0][7] / (3.0 * dl[0][8] + dl[0][7]);
+    bpar[1] = 12.0 * dl[0][8] / (3.0 * dl[0][8] + dl[0][7]);
+    BremsFits { log_ap, dl, bpar }
+}
+
+/// `$MXTOTSH` (`egsnrc.macros:444`): shells for Z = 1..100.
+pub const MXTOTSH: usize = 1538;
+/// `$MXMDSH` (`egsnrc.macros:445`): maximum shells per medium.
+pub const MXMDSH: usize = 200;
+
+/// `init_compton` (`egsnrc.mortran:2422-2575`), the non-EADL path: the bound
+/// Compton data from an in-memory copy of `incoh.data` (skip 18 comment lines,
+/// then `MXTOTSH` records `iz shn ne Jo be` with `Jo` in units of 1/137 and
+/// `be` in eV), and the per-medium alias tables `COMPT` samples shells from.
+/// `media[m]` is `(ZELEM, PZ)` for each element of medium `m + 1`; `prm` is
+/// `PRM` (MeV). The `ComptonData` arrays are 1-based, the per-medium ones
+/// indexed `[medium]` (index 0 unused).
+///
+/// Not ported: the `eadl_relax` variant (shell numbers and binding energies
+/// replaced by the photoelectric data's), the radiative-Compton data
+/// (`$RADC_HATCH`, empty by default), and the trailing check that relaxations
+/// are on (the caller's).
+///
+/// # Errors
+///
+/// A message when the data is short, a medium has no shells, or has more than
+/// `MXMDSH` (upstream stops).
+pub fn init_compton(incoh_text: &str, media: &[Vec<(f64, f64)>], prm: f64) -> Result<ComptonData, String> {
+    let mut lines = incoh_text.lines();
+    for _ in 0..18 {
+        lines.next().ok_or_else(|| String::from("incoh data ends early"))?;
+    }
+    let mut d = ComptonData {
+        iz_array: alloc::vec![0; MXTOTSH + 1],
+        be_array: alloc::vec![0.0; MXTOTSH + 1],
+        jo_array: alloc::vec![0.0; MXTOTSH + 1],
+        erf_jo_array: alloc::vec![0.0; MXTOTSH + 1],
+        shn_array: alloc::vec![0; MXTOTSH + 1],
+        ne_array: alloc::vec![0; MXTOTSH + 1],
+        shell_array: alloc::vec![Vec::new(); media.len() + 1],
+        eno_array: alloc::vec![Vec::new(); media.len() + 1],
+        eno_atbin_array: alloc::vec![Vec::new(); media.len() + 1],
+        n_shell: alloc::vec![0; media.len() + 1],
+    };
+    for j in 1..=MXTOTSH {
+        let r = read_record(&mut lines, 5)?;
+        d.iz_array[j] = r[0] as i32;
+        d.shn_array[j] = r[1] as i32;
+        d.ne_array[j] = r[2] as i32;
+        d.jo_array[j] = r[3] * 137.0;
+        d.be_array[j] = r[4] * 1e-6 / prm;
+        let aux_erf = 0.70710678119 * (1.0 + 0.3 * d.jo_array[j]);
+        d.erf_jo_array[j] = 0.82436063535 * (super::egs_utilities_mortran::erf1(aux_erf) - 1.0);
+    }
+    for (m0, comp) in media.iter().enumerate() {
+        let medium = m0 + 1;
+        let mut pztot = 0.0;
+        let mut shell = alloc::vec![0i32; MXMDSH + 2];
+        let mut eno = alloc::vec![0.0_f64; MXMDSH + 2];
+        let mut atbin = alloc::vec![0i32; MXMDSH + 2];
+        let mut nsh = 0usize;
+        for &(zelem, pz) in comp {
+            let iz = zelem as i32;
+            for j in 1..=MXTOTSH {
+                if iz == d.iz_array[j] {
+                    nsh += 1;
+                    if nsh > MXMDSH {
+                        return Err(alloc::format!("medium {medium}: more than {MXMDSH} shells"));
+                    }
+                    shell[nsh] = j as i32;
+                    let aux = pz * d.ne_array[j] as f64;
+                    eno[nsh] = aux;
+                    pztot += aux;
+                }
+            }
+        }
+        if nsh == 0 {
+            return Err(alloc::format!("medium {medium} has zero shells"));
+        }
+        d.n_shell[medium] = nsh as i32;
+        for i in 1..=nsh {
+            eno[i] /= pztot;
+            eno[i] = -eno[i];
+            atbin[i] = i as i32;
+        }
+        let atav = 1.0 / nsh as f64;
+        for i in 1..=nsh.saturating_sub(1) {
+            // Mortran DO loops leave the index at `nsh` when they run out
+            let mut j_h = nsh;
+            for jh in 1..nsh {
+                if eno[jh] < 0.0 && eno[jh].abs() > atav {
+                    j_h = jh;
+                    break;
+                }
+            }
+            let mut j_l = nsh;
+            for jl in 1..nsh {
+                if eno[jl] < 0.0 && eno[jl].abs() < atav {
+                    j_l = jl;
+                    break;
+                }
+            }
+            let aux = atav - eno[j_l].abs();
+            eno[j_h] += aux;
+            eno[j_l] = -eno[j_l] / atav + j_l as f64;
+            atbin[j_l] = j_h as i32;
+            if i == nsh - 1 {
+                eno[j_h] = 1.0 + j_h as f64;
+            }
+        }
+        for i in 1..=nsh {
+            if eno[i] < 0.0 {
+                eno[i] = 1.0 + i as f64;
+            }
+        }
+        // store 1-based, trimmed to nsh
+        d.shell_array[medium] = shell[..=nsh].to_vec();
+        d.eno_array[medium] = eno[..=nsh].to_vec();
+        d.eno_atbin_array[medium] = atbin[..=nsh].to_vec();
+    }
+    Ok(d)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4461,6 +4660,7 @@ mod tests {
             jo_array: alloc::vec![0.0, 10.0],
             erf_jo_array: alloc::vec![0.0, 0.9],
             shn_array: alloc::vec![0, 1],
+            ne_array: alloc::vec![0, 2],
             shell_array: alloc::vec![Vec::new(), alloc::vec![0, 1]],
             eno_array: alloc::vec![Vec::new(), alloc::vec![0.0, 1.0]],
             eno_atbin_array: alloc::vec![Vec::new(), alloc::vec![0, 1]],
@@ -5932,6 +6132,91 @@ mod tests {
         // the fits are over increasing energy: the cut-off energy sits in the table
         assert!(m.eke[1] > 0.0 && m.ge[1] > 0.0);
         std::eprintln!("PEGS4 {name}: rho {} rlc {} ae {} neke {} nge {}", m.rho, m.rlc, m.ae, m.sizes[3], m.sizes[1]);
+    }
+
+
+    #[test]
+    fn fix_brems_fits_are_consistent() {
+        // hydrogen-like (Z <= 4 branch of XSIF) and a heavier element
+        for z in [1.0, 4.0, 6.0, 82.0] {
+            assert!(xsif(z).is_finite() && fcoulc(z) >= 0.0);
+        }
+        assert!((fcoulc(1.0) - (1.0 / 137.03604f64).powi(2) * (1.0 / (1.0 + (1.0 / 137.03604f64).powi(2)) + 0.20206)).abs() < 1e-5);
+        let f = fix_brems(&[(6.0, 1.0), (8.0, 2.0)], 0.001);
+        assert!((f.log_ap - 0.001f64.ln()).abs() < 1e-15);
+        // dl6 is the constant 0.952 for every l, dl1(1..4) are normalised by the maxima
+        assert!((1..=8).all(|l| f.dl[5][l] == 0.952));
+        // the normalised brems rejection functions peak at one
+        let phi1_at_zero = f.dl[0][1];
+        let phi2_at_zero = f.dl[0][2];
+        assert!(2.0 * phi1_at_zero - 2.0 * phi2_at_zero / 3.0 > 0.999 && 2.0 * phi1_at_zero - 2.0 * phi2_at_zero / 3.0 < 1.001);
+        // bpar derives from dl1(7), dl1(8)
+        assert!((f.bpar[2] - f.dl[0][7] / (3.0 * f.dl[0][8] + f.dl[0][7])).abs() < 1e-15);
+        assert!((f.bpar[1] - 12.0 * f.dl[0][8] / (3.0 * f.dl[0][8] + f.dl[0][7])).abs() < 1e-15);
+        // a single element: Zg == Zv - Zf/Zt relation holds and nothing is NaN
+        let g = fix_brems(&[(82.0, 1.0)], 0.01);
+        assert!(g.dl.iter().all(|v| v.iter().all(|x| x.is_finite())));
+    }
+
+    /// An `incoh.data`-shaped text: 18 comment lines, then `MXTOTSH` shells.
+    /// Z = 6 has shells with 2,2,1,1 electrons, Z = 8 has 2,2,2,1,1; the rest
+    /// is filler.
+    fn synthetic_incoh_text() -> String {
+        let mut t = String::new();
+        for k in 0..18 {
+            t.push_str(&alloc::format!("# comment {k}\n"));
+        }
+        let mut n = 0;
+        for (z, nes) in [(6, alloc::vec![2, 2, 1, 1]), (8, alloc::vec![2, 2, 2, 1, 1])] {
+            for (k, ne) in nes.iter().enumerate() {
+                t.push_str(&alloc::format!("{z} {} {ne} {:.5} {:.1}\n", k + 1, 0.05 + 0.01 * k as f64, 300.0 / (k + 1) as f64));
+                n += 1;
+            }
+        }
+        while n < MXTOTSH {
+            t.push_str("99 1 2 0.05 1000.0\n");
+            n += 1;
+        }
+        t
+    }
+
+    #[test]
+    fn init_compton_builds_exact_alias_tables() {
+        let text = synthetic_incoh_text();
+        let media = alloc::vec![alloc::vec![(6.0, 1.0), (8.0, 2.0)], alloc::vec![(6.0, 1.0)]];
+        let d = init_compton(&text, &media, RM).unwrap();
+        // unit conversions
+        assert!((d.jo_array[1] - 0.05 * 137.0).abs() < 1e-12);
+        assert!((d.be_array[1] - 300.0 * 1e-6 / RM).abs() < 1e-15);
+        assert!((d.erf_jo_array[1] - 0.82436063535 * (petir::specfunc::erf(0.70710678119 * (1.0 + 0.3 * d.jo_array[1])) - 1.0)).abs() < 1e-11);
+        assert_eq!((d.n_shell[1], d.n_shell[2]), (9, 4));
+        // the alias table reproduces the shell probabilities pz*ne/sum exactly
+        for medium in 1..=2 {
+            let nsh = d.n_shell[medium] as usize;
+            let comp = &media[medium - 1];
+            let total: f64 = comp
+                .iter()
+                .map(|&(z, pz)| pz * (1..=MXTOTSH).filter(|&j| d.iz_array[j] == z as i32).map(|j| d.ne_array[j] as f64).sum::<f64>())
+                .sum();
+            for s in 1..=nsh {
+                let j = d.shell_array[medium][s] as usize;
+                let pz = comp.iter().find(|&&(z, _)| z as i32 == d.iz_array[j]).unwrap().1;
+                let want = pz * d.ne_array[j] as f64 / total;
+                let stay = d.eno_array[medium][s] - s as f64;
+                let mut got = stay.clamp(0.0, 1.0);
+                for i in 1..=nsh {
+                    if d.eno_atbin_array[medium][i] as usize == s && i != s {
+                        got += 1.0 - (d.eno_array[medium][i] - i as f64).clamp(0.0, 1.0);
+                    }
+                }
+                got /= nsh as f64;
+                assert!((got - want).abs() < 1e-12, "medium {medium} shell {s}: {got} vs {want}");
+            }
+        }
+        // errors: short data, a medium with no shells
+        assert!(init_compton("x\n", &media, RM).is_err());
+        assert!(init_compton(&text, &[alloc::vec![(50.0, 1.0)]], RM).is_err());
+        assert!(init_compton(&text, &[alloc::vec![(99.0, 1.0)]], RM).is_err(), "more than MXMDSH shells");
     }
 
     #[test]
