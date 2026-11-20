@@ -34,6 +34,7 @@
 //! | `SUBROUTINE HATCH`, the regular PEGS4 intake block and the `DUNIT` scaling (`egsnrc.mortran:2036-2250`) | [`Pegs4Medium`], [`parse_pegs4_media`] |
 //! | `SUBROUTINE fix_brems`, `FCOULC`, `XSIF` (`egsnrc.mortran:2325-2420`) | [`fix_brems`] |
 //! | `SUBROUTINE init_compton` (`egsnrc.mortran:2422-2575`) | [`init_compton`] |
+//! | `SUBROUTINE mscati` (`egsnrc.mortran:2749-2975`), without `init_spin` | [`mscati`], [`MscatiSettings::resolve`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -2780,7 +2781,7 @@ pub fn mscat<R: UniformSource>(
 /// A piecewise-linear fit `f(lelke) = a1(lelke) * elke + a0(lelke)`
 /// (`$EVALUATE f USING name(elke)` with the interval `lelke` already set,
 /// `egsnrc.macros:1237-1247`). Both vectors are 1-based.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Pwlf {
     /// `name0(lelke, medium)`.
     pub a0: Vec<f64>,
@@ -4525,6 +4526,253 @@ pub fn init_compton(incoh_text: &str, media: &[Vec<(f64, f64)>], prm: f64) -> Re
     Ok(d)
 }
 
+/// `$MAX-ELOSS` (`egsnrc.macros:2265`).
+pub const MAX_ELOSS: f64 = 0.25;
+/// `$EXACT-BCA-XIMAX`, `$INEXACT-BCA-XIMAX` (`egsnrc.macros:2260-2262`).
+pub const BCA_XIMAX: f64 = 0.5;
+/// `$SKIN-DEPTH-FOR-BCA` (`egsnrc.macros:2256`).
+pub const SKIN_DEPTH_FOR_BCA: f64 = 3.0;
+
+/// The step-size settings `mscati` resolves from the user's inputs
+/// (`egsnrc.mortran:2775-2810`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MscatiSettings {
+    /// `exact_bca`.
+    pub exact_bca: bool,
+    /// `estepe`: maximum fractional energy loss per step.
+    pub estepe: f64,
+    /// `ximax`: maximum first multiple-scattering moment per step.
+    pub ximax: f64,
+    /// `skindepth_for_bca`, in elastic MFPs.
+    pub skindepth_for_bca: f64,
+}
+
+impl MscatiSettings {
+    /// The defaults block of `mscati`: `exact_bca = (bca_algorithm == 0)`,
+    /// `estepe` and `ximax` outside `(0, 1)` become their defaults, and a
+    /// `skindepth_for_bca <= 1e-4` becomes the PRESTA-I default (from the
+    /// smallest `ECUT` and each medium's `blcc` and `xcc`, as read from PEGS4,
+    /// before `mscati` rescales them) when the BCA is not exact, else
+    /// [`SKIN_DEPTH_FOR_BCA`]. `media` is `(blcc, xcc)` per medium.
+    pub fn resolve(bca_algorithm: i32, estepe: f64, ximax: f64, skindepth_for_bca: f64, ecutmn: f64, prm: f64, media: &[(f64, f64)]) -> Self {
+        let exact_bca = bca_algorithm == 0;
+        let estepe = if estepe <= 0.0 || estepe >= 1.0 { MAX_ELOSS } else { estepe };
+        let ximax = if ximax <= 0.0 || ximax >= 1.0 { BCA_XIMAX } else { ximax };
+        let mut skin = skindepth_for_bca;
+        if skin <= 1e-4 {
+            if !exact_bca {
+                let mut tstbmn = 1e30_f64;
+                for &(blcc, xcc) in media {
+                    let mut tstbm = (ecutmn - prm) * (ecutmn + prm) / (ecutmn * ecutmn);
+                    let r = ecutmn / xcc;
+                    tstbm = blcc * tstbm * r * r;
+                    let aux = RealMath::r_ln(tstbm);
+                    tstbm = RealMath::r_ln(tstbm / aux);
+                    tstbmn = tstbmn.min(tstbm);
+                }
+                skin = RealMath::r_exp(tstbmn);
+            } else {
+                skin = SKIN_DEPTH_FOR_BCA;
+            }
+        }
+        Self { exact_bca, estepe, ximax, skindepth_for_bca: skin }
+    }
+}
+
+/// The stopping-power and cross-section fits `mscati` reads for one medium
+/// (`COMMON/ELECIN/`), straight from PEGS4 after the `DUNIT` scaling.
+#[derive(Debug, Clone, Default)]
+pub struct MscatiMedium {
+    /// `eke0`, `eke1`.
+    pub eke0: f64,
+    /// See `eke0`.
+    pub eke1: f64,
+    /// `meke(medium)`: number of table energies.
+    pub neke: usize,
+    /// `ededx`, `pdedx`, `esig`, `psig` fits (1-based over the `neke` bins).
+    pub ededx: Pwlf,
+    /// See `ededx`.
+    pub pdedx: Pwlf,
+    /// See `ededx`.
+    pub esig: Pwlf,
+    /// See `ededx`.
+    pub psig: Pwlf,
+    /// `blcc(medium)` as read.
+    pub blcc: f64,
+    /// `xcc(medium)` as read.
+    pub xcc: f64,
+}
+
+/// What `mscati` computes for one medium.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MscatiTables {
+    /// `blcc(medium)` with the Euler constant absorbed: `1.16699413758864573 * blcc`.
+    pub blcc: f64,
+    /// `xcc(medium)` squared, as `ELECTR` uses it.
+    pub xcc: f64,
+    /// `E_array(i, medium)`, 1-based.
+    pub e_array: Vec<f64>,
+    /// `expeke1(medium) = exp(1/eke1) - 1`.
+    pub expeke1: f64,
+    /// `range_ep(qel, i, medium)`: `[qel][i]`, 1-based; `qel` 0 is e-, 1 is e+.
+    pub range_ep: [Vec<f64>; 2],
+    /// `tmxs0`, `tmxs1`: the maximum multiple-scattering step.
+    pub tmxs: Pwlf,
+    /// `esig_e(medium)`, `psig_e(medium)`: maximum cross section per energy loss.
+    pub esig_e: f64,
+    /// See `esig_e`.
+    pub psig_e: f64,
+    /// `sig_ismonotone(0..1, medium)`.
+    pub sig_ismonotone: [bool; 2],
+}
+
+/// `mscati` (`egsnrc.mortran:2749-2975`) without `init_spin` and the MS-table
+/// read (`init_ms_SR`, see [`MsData::from_text`]): for each medium, absorb
+/// the Euler constant into `blcc`, square `xcc`, find the maximum cross section
+/// per energy loss (and whether it is monotone), build the range-to-threshold
+/// arrays `range_ep` and the PRESTA step-size limit `tmxs`. Returns the
+/// tables per medium and `(esige_max, psige_max)`.
+///
+/// `rm` is `RM`.
+pub fn mscati(media: &[MscatiMedium], settings: &MscatiSettings, rm: f64) -> (Vec<MscatiTables>, f64, f64) {
+    let rmt2 = 2.0 * rm;
+    let rmsq = rm * rm;
+    let (mut esige_max, mut psige_max) = (0.0_f64, 0.0_f64);
+    let mut out = Vec::with_capacity(media.len());
+    for m in media {
+        let neke = m.neke;
+        let blcc = 1.16699413758864573 * m.blcc;
+        let xcc = m.xcc * m.xcc;
+        let (eke0, eke1) = (m.eke0, m.eke1);
+
+        // maximum cross section per energy loss
+        let (mut sigee, mut sigep) = (1e-15_f64, 1e-15_f64);
+        let (mut ise_monoton, mut isp_monoton) = (true, true);
+        let (mut sige_old, mut sigp_old) = (-1.0_f64, -1.0_f64);
+        for i in 1..=neke {
+            let ei = RealMath::r_exp((i as f64 - eke0) / eke1);
+            let eil = RealMath::r_ln(ei);
+            let sig = m.esig.eval(i, eil) / m.ededx.eval(i, eil);
+            if sig > sigee {
+                sigee = sig;
+            }
+            if sig < sige_old {
+                ise_monoton = false;
+            }
+            sige_old = sig;
+            let sig = m.psig.eval(i, eil) / m.pdedx.eval(i, eil);
+            if sig > sigep {
+                sigep = sig;
+            }
+            if sig < sigp_old {
+                isp_monoton = false;
+            }
+            sigp_old = sig;
+        }
+        if sigee > esige_max {
+            esige_max = sigee;
+        }
+        if sigep > psige_max {
+            psige_max = sigep;
+        }
+
+        // range array
+        let mut e_array = alloc::vec![0.0; neke + 2];
+        let mut range_ep = [alloc::vec![0.0; neke + 2], alloc::vec![0.0; neke + 2]];
+        let mut ei = RealMath::r_exp((1.0 - eke0) / eke1);
+        e_array[1] = ei;
+        let expeke1 = RealMath::r_exp(1.0 / eke1) - 1.0;
+        for i in 1..neke {
+            let eip1 = RealMath::r_exp(((i + 1) as f64 - eke0) / eke1);
+            e_array[i + 1] = eip1;
+            let eke = 0.5 * (eip1 + ei);
+            let elke = RealMath::r_ln(eke);
+            let lelke = (eke1 * elke + eke0) as usize;
+            let d = eip1 - ei;
+            let ededx = m.pdedx.eval(lelke, elke);
+            let aux = m.pdedx.a1[i] / ededx;
+            range_ep[1][i + 1] = range_ep[1][i] + d / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * (d / eke) * (d / eke) / 24.0);
+            let ededx = m.ededx.eval(lelke, elke);
+            let aux = m.ededx.a1[i] / ededx;
+            range_ep[0][i + 1] = range_ep[0][i] + d / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * (d / eke) * (d / eke) / 24.0);
+            ei = eip1;
+        }
+
+        // tmxs
+        let mut tmxs0 = alloc::vec![0.0; neke + 2];
+        let mut tmxs1 = alloc::vec![0.0; neke + 2];
+        let eil = (1.0 - eke0) / eke1;
+        let ei = RealMath::r_exp(eil);
+        let p2 = ei * (ei + rmt2);
+        let beta2 = p2 / (p2 + rmsq);
+        let chia2 = xcc / (4.0 * p2 * blcc);
+        let dedx0 = m.ededx.eval(1, eil);
+        let mut estepx = 2.0 * p2 * beta2 * dedx0 / ei / xcc / (RealMath::r_ln(1.0 + 1.0 / chia2) * (1.0 + chia2) - 1.0);
+        estepx *= settings.ximax;
+        if estepx > settings.estepe {
+            estepx = settings.estepe;
+        }
+        let mut si = estepx * ei / dedx0;
+        for i in 1..neke {
+            let elke = ((i + 1) as f64 - eke0) / eke1;
+            let eke = RealMath::r_exp(elke);
+            let lelke = i + 1;
+            let p2 = eke * (eke + rmt2);
+            let beta2 = p2 / (p2 + rmsq);
+            let chia2 = xcc / (4.0 * p2 * blcc);
+            let ededx = m.ededx.eval(lelke, elke);
+            let mut estepx = 2.0 * p2 * beta2 * ededx / eke / xcc / (RealMath::r_ln(1.0 + 1.0 / chia2) * (1.0 + chia2) - 1.0);
+            estepx *= settings.ximax;
+            if estepx > settings.estepe {
+                estepx = settings.estepe;
+            }
+            let mut ekef = (1.0 - estepx) * eke;
+            let mut sip1;
+            let lelkef;
+            if ekef <= e_array[1] {
+                sip1 = (e_array[1] - ekef) / dedx0;
+                ekef = e_array[1];
+                let _ = ekef;
+                lelkef = 1usize;
+            } else {
+                let elkef = RealMath::r_ln(ekef);
+                lelkef = (eke1 * elkef + eke0) as usize;
+                let leip1l = lelkef + 1;
+                let eip1l = (leip1l as f64 - eke0) / eke1;
+                let eip1 = e_array[leip1l];
+                let mut aux = (eip1 - ekef) / eip1;
+                let elktmp = 0.5 * (elkef + eip1l + 0.25 * aux * aux * (1.0 + aux * (1.0 + 0.875 * aux)));
+                let ektmp = 0.5 * (ekef + eip1);
+                let lelktmp = lelkef;
+                let ededx = m.ededx.eval(lelktmp, elktmp);
+                aux = m.ededx.a1[lelktmp] / ededx;
+                let dd = eip1 - ekef;
+                sip1 = dd / ededx * (1.0 + aux * (1.0 + 2.0 * aux) * (dd / ektmp) * (dd / ektmp) / 24.0);
+            }
+            sip1 += range_ep[0][lelke] - range_ep[0][lelkef + 1];
+            tmxs1[i] = (sip1 - si) * eke1;
+            tmxs0[i] = sip1 - tmxs1[i] * elke;
+            si = sip1;
+        }
+        if neke >= 2 {
+            tmxs0[neke] = tmxs0[neke - 1];
+            tmxs1[neke] = tmxs1[neke - 1];
+        }
+        out.push(MscatiTables {
+            blcc,
+            xcc,
+            e_array,
+            expeke1,
+            range_ep,
+            tmxs: Pwlf { a0: tmxs0, a1: tmxs1 },
+            esig_e: sigee,
+            psig_e: sigep,
+            sig_ismonotone: [ise_monoton, isp_monoton],
+        });
+    }
+    (out, esige_max, psige_max)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -6217,6 +6465,86 @@ mod tests {
         assert!(init_compton("x\n", &media, RM).is_err());
         assert!(init_compton(&text, &[alloc::vec![(50.0, 1.0)]], RM).is_err());
         assert!(init_compton(&text, &[alloc::vec![(99.0, 1.0)]], RM).is_err(), "more than MXMDSH shells");
+    }
+
+
+    fn constant_mscati_medium(dedx: f64, esig: f64) -> MscatiMedium {
+        let neke = 14;
+        MscatiMedium {
+            eke0: 11.0,
+            eke1: 2.0,
+            neke,
+            ededx: const_pwlf(dedx),
+            pdedx: const_pwlf(dedx),
+            esig: const_pwlf(esig),
+            psig: const_pwlf(esig),
+            blcc: 1.0e4,
+            xcc: 1.0e-2,
+        }
+    }
+
+    #[test]
+    fn mscati_settings_resolve_defaults() {
+        let media = [(1.0e4, 1.0e-2)];
+        let s = MscatiSettings::resolve(0, -1.0, 2.0, 0.0, 0.7, RM, &media);
+        assert_eq!((s.exact_bca, s.estepe, s.ximax, s.skindepth_for_bca), (true, MAX_ELOSS, BCA_XIMAX, SKIN_DEPTH_FOR_BCA));
+        // user values inside (0, 1) are kept, a skin depth above 1e-4 too
+        let s = MscatiSettings::resolve(0, 0.1, 0.3, 5.0, 0.7, RM, &media);
+        assert_eq!((s.estepe, s.ximax, s.skindepth_for_bca), (0.1, 0.3, 5.0));
+        // an inexact BCA derives the PRESTA-I skin depth from ecut, blcc, xcc
+        let s = MscatiSettings::resolve(1, 0.0, 0.0, 0.0, 0.7, RM, &media);
+        assert!(!s.exact_bca && s.skindepth_for_bca.is_finite() && s.skindepth_for_bca > 0.0);
+        let tstbm = (0.7 - RM) * (0.7 + RM) / 0.49;
+        let tstbm = 1.0e4 * tstbm * (0.7f64 / 1.0e-2).powi(2);
+        let want = (tstbm / tstbm.ln()).ln().exp();
+        assert!((s.skindepth_for_bca - want).abs() < 1e-9 * want);
+    }
+
+    #[test]
+    fn mscati_builds_range_tmxs_and_maxima() {
+        let m = constant_mscati_medium(2.0, 5.0);
+        let settings = MscatiSettings { exact_bca: true, estepe: 0.25, ximax: 0.5, skindepth_for_bca: 3.0 };
+        let (tabs, esige, psige) = mscati(&[m.clone()], &settings, RM);
+        let t = &tabs[0];
+        // Euler constant absorbed, xcc squared
+        assert!((t.blcc - 1.16699413758864573e4).abs() < 1e-9);
+        assert!((t.xcc - 1.0e-4).abs() < 1e-15);
+        // constant cross section per energy loss: max 5/2, monotone (not decreasing)
+        assert!((t.esig_e - 2.5).abs() < 1e-12 && (t.psig_e - 2.5).abs() < 1e-12);
+        assert_eq!((esige, psige), (2.5, 2.5));
+        assert_eq!(t.sig_ismonotone, [true, true]);
+        // E_array follows the table definition and range_ep = (E_i - E_1)/dedx for constant stopping power
+        assert!((t.e_array[1] - ((1.0 - 11.0) / 2.0f64).exp()).abs() < 1e-15);
+        assert!((t.expeke1 - ((0.5f64).exp() - 1.0)).abs() < 1e-15);
+        for i in 1..=14 {
+            let want = (t.e_array[i] - t.e_array[1]) / 2.0;
+            assert!((t.range_ep[0][i] - want).abs() < 1e-12 * want.max(1e-9), "e- range at {i}");
+            assert!((t.range_ep[1][i] - want).abs() < 1e-12 * want.max(1e-9), "e+ range at {i}");
+        }
+        assert!(t.range_ep[0].windows(2).take(14).all(|w| w[1] >= w[0]));
+        // tmxs at a table node is the path for a fractional energy loss estepx(E) * E / dedx
+        for i in 2..=13usize {
+            let elke = (i as f64 - 11.0) / 2.0;
+            let e = elke.exp();
+            let p2 = e * (e + 2.0 * RM);
+            let beta2 = p2 / (p2 + RM * RM);
+            let xcc = t.xcc;
+            let blcc = t.blcc;
+            let chia2 = xcc / (4.0 * p2 * blcc);
+            let mut estepx = 2.0 * p2 * beta2 * 2.0 / e / xcc / ((1.0 + 1.0 / chia2).ln() * (1.0 + chia2) - 1.0) * 0.5;
+            estepx = estepx.min(0.25);
+            let want = estepx * e / 2.0;
+            let got = t.tmxs.a1[i - 1] * elke + t.tmxs.a0[i - 1];
+            assert!((got - want).abs() < 1e-8 * want.max(1e-9), "tmxs at node {i}: {got} vs {want}");
+        }
+        // the last table entry repeats the one before it
+        assert_eq!(t.tmxs.a0[14], t.tmxs.a0[13]);
+        assert_eq!(t.tmxs.a1[14], t.tmxs.a1[13]);
+        // a cross section per energy loss that falls with energy is not monotone-increasing
+        let mut falling = constant_mscati_medium(2.0, 5.0);
+        falling.esig = Pwlf { a0: (0..16).map(|i| 5.0 - 0.1 * i as f64).collect(), a1: alloc::vec![0.0; 16] };
+        let (tf, _, _) = mscati(&[falling], &settings, RM);
+        assert!(!tf[0].sig_ismonotone[0] && tf[0].sig_ismonotone[1]);
     }
 
     #[test]
