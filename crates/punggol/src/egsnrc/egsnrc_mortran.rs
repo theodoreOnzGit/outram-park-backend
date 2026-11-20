@@ -10,7 +10,7 @@
 //! `HEN_HOUSE/src/egsnrc.mortran` (EGSnrc, 9016 lines): HATCH (data set-up),
 //! the ELECTR and PHOTON transport loops and the physics routines they call.
 //!
-//! **Status: first port of twelve routines, not differentially tested (gh:#1680).**
+//! **Status: first port of fourteen routines, not differentially tested (gh:#1680).**
 //! Everything else in the file is still a placeholder.
 //!
 //! | upstream | here |
@@ -30,6 +30,7 @@
 //! | `SUBROUTINE mscat`, `spin_rejection`, `sscat` (`egsnrc.mortran:2983-3263`) and the table reader of `init_ms_SR` (`:3266-3306`) | [`mscat`], [`spin_rejection`], [`sscat`], [`MsData::from_text`] |
 //! | `SUBROUTINE EDGSET` (`egsnrc.mortran:6311-6430`), the data readers | [`edgset_from_text`] |
 //! | `SUBROUTINE msdist_pI` (`egsnrc.mortran:4309-4455`), `msdist_pII` (`:4049-4290`) | [`msdist_p1`], [`msdist_p2`] |
+//! | `SUBROUTINE ELECTR` (`egsnrc.mortran:985-1825`) with the step, range and energy-loss macros of `egsnrc.macros:1308-1360, 2358-2395, 3105-3330` | [`electr`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -3135,6 +3136,861 @@ pub fn msdist_p2<R: UniformSource>(
     Ok(out)
 }
 
+/// `$EPSEMFP` (`egsnrc.macros:1401`): smallest electron MFP value.
+pub const EPSEMFP: f64 = 1.0e-8;
+
+/// A geometry that can also say how far the nearest boundary is
+/// (`$CALL-HOWNEAR(tperp)`, a user macro in EGSnrc; PRESTA-II aborts without it).
+pub trait ElectronGeometry: Geometry {
+    /// The perpendicular distance to the nearest boundary, cm.
+    fn hownear(&mut self, stack: &Stack) -> f64;
+}
+
+/// Per-medium data `ELECTR` reads (`COMMON/ELECIN/`, `BREMPR`, `THRESH`,
+/// filled by `HATCH` and `mscati`). Interval-indexed vectors are 1-based.
+#[derive(Debug, Clone, Default)]
+pub struct ElectronMediumData {
+    /// `rho(medium)`.
+    pub rho: f64,
+    /// `eke0`, `eke1`: `lelke = eke1 * elke + eke0`.
+    pub eke0: f64,
+    /// See `eke0`.
+    pub eke1: f64,
+    /// `E_array(i, medium)`: the energies of the table, MeV, 1-based.
+    pub e_array: Vec<f64>,
+    /// `range_ep(qel, i, medium)`: range from table energy `i` to the lowest, `[qel][i]`.
+    pub range_ep: [Vec<f64>; 2],
+    /// `ededx`, `pdedx`: restricted stopping power for e-, e+ (its `a1` is the
+    /// slope the range formulas use as `ededx1`).
+    pub ededx: Pwlf,
+    /// See `ededx`.
+    pub pdedx: Pwlf,
+    /// `esig`, `psig`: discrete-interaction cross sections.
+    pub esig: Pwlf,
+    /// See `esig`.
+    pub psig: Pwlf,
+    /// `ebr1`, `pbr1`, `pbr2`: branching ratios.
+    pub ebr1: Pwlf,
+    /// See `ebr1`.
+    pub pbr1: Pwlf,
+    /// See `ebr1`.
+    pub pbr2: Pwlf,
+    /// `tmxs`: maximum step for multiple scattering.
+    pub tmxs: Pwlf,
+    /// `esig_e`, `psig_e`: global maxima of cross section per energy loss.
+    pub esig_e: f64,
+    /// See `esig_e`.
+    pub psig_e: f64,
+    /// `sig_ismonotone(0..1)`.
+    pub sig_ismonotone: [bool; 2],
+    /// `TE(medium)`, `THMOLL(medium)`, `AE(medium)`, MeV.
+    pub te: f64,
+    /// See `te`.
+    pub thmoll: f64,
+    /// See `te`.
+    pub ae: f64,
+    /// Multiple-scattering data (`blcc`, `xcc`, and the spin fits).
+    pub ms: MsMedium,
+    /// Bremsstrahlung data.
+    pub brems: BremsMedium,
+}
+
+/// Per-region data `ELECTR` reads.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ElectrRegion {
+    /// `med(region)`; `0` is vacuum.
+    pub med: usize,
+    /// `rhor(region)`.
+    pub rhor: f64,
+    /// `ecut(region)`, total energy, MeV.
+    pub ecut: f64,
+    /// `smaxir(region)`: maximum step in the region, cm.
+    pub smaxir: f64,
+}
+
+/// All tables `electr` needs; `regions` and `media` are 1-based.
+#[derive(Debug, Clone, Default)]
+pub struct ElectrTables {
+    /// Regions.
+    pub regions: Vec<ElectrRegion>,
+    /// Media.
+    pub media: Vec<ElectronMediumData>,
+    /// The multiple-scattering `q^(2+)` surface.
+    pub ms: Option<MsData>,
+    /// The spin-effect tables.
+    pub spin: SpinData,
+}
+
+/// Switches `ELECTR` reads.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ElectrConfig {
+    /// `spin_effects`.
+    pub spin_effects: bool,
+    /// `exact_bca` (default true): exact boundary-crossing algorithm.
+    pub exact_bca: bool,
+    /// `skindepth_for_bca` (default 3): skin depth in elastic MFPs.
+    pub skindepth_for_bca: f64,
+    /// `transport_algorithm`: true PRESTA-II (default), false PRESTA-I.
+    pub presta_ii: bool,
+    /// `PRM`, MeV.
+    pub prm: f64,
+    /// `VACDST`: step through vacuum, cm.
+    pub vacdst: f64,
+    /// `nbr_split`, `ibrdst`, `ibr_nist`.
+    pub brems: BremsConfig,
+}
+
+/// What `ELECTR` keeps between calls and the CH-step counters
+/// (`COMMON/CH-Steps/`, `save ierust`).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ElectrCounters {
+    /// `count_pII_steps`.
+    pub count_p2_steps: f64,
+    /// `count_all_steps`.
+    pub count_all_steps: f64,
+    /// `ierust`: negative-`ustep` errors seen.
+    pub ierust: i32,
+}
+
+/// What `electr` returns.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ElectrResult {
+    /// `IRCODE`: `1` normal (a photon is on top, or the stack changed),
+    /// `2` the particle was discarded (`np` decremented).
+    pub ircode: i32,
+    /// `EDEP` of a discard (valid when a particle was discarded), MeV.
+    pub edep: f64,
+    /// Sum of the energy loss `de` of the condensed-history steps, MeV
+    /// (what upstream hands to `AUSGAB` as `EDEP` at each step).
+    pub edep_steps: f64,
+}
+
+/// `$SET INTERVAL elke,eke` (`egsnrc.macros:1225`): the table interval.
+fn eke_interval(m: &ElectronMediumData, elke: f64) -> usize {
+    (m.eke1 * elke + m.eke0) as usize
+}
+
+/// The ELECTR-local variables the macros share (`$DEFINE-LOCAL-VARIABLES-ELECTR`).
+#[derive(Debug, Clone, Copy, Default)]
+struct Loc {
+    blccl: f64,
+    xccl: f64,
+    p2: f64,
+    beta2: f64,
+    chia2: f64,
+    xi: f64,
+    xi_corr: f64,
+    etap: f64,
+    ms_corr: f64,
+    ekems: f64,
+    elkems: f64,
+    rhof: f64,
+}
+
+/// `$EVALUATE ededx|pdedx USING ...(x)` with the index of that variable.
+fn eval_dedx(m: &ElectronMediumData, lelec: i32, l: usize, x: f64) -> f64 {
+    if lelec < 0 {
+        m.ededx.eval(l, x)
+    } else {
+        m.pdedx.eval(l, x)
+    }
+}
+
+/// `$COMPUTE-DRANGE(p1, p2, p3, p4, p5, result)` (`egsnrc.macros:3207-3236`):
+/// the path length between energies `e1` and `e2` in interpolation bin `l`
+/// (`ln e1 = el1`, `ln e2 = el2`).
+fn compute_drange(m: &ElectronMediumData, lelec: i32, e1: f64, e2: f64, l: usize, el1: f64, el2: f64) -> f64 {
+    let fedep = 1.0 - e2 / e1;
+    let elktmp = 0.5 * (el1 + el2 + 0.25 * fedep * fedep * (1.0 + fedep * (1.0 + 0.875 * fedep)));
+    let dedxmid = 1.0 / eval_dedx(m, lelec, l, elktmp);
+    let slope = if lelec < 0 { m.ededx.a1[l] } else { m.pdedx.a1[l] };
+    let mut aux = slope * dedxmid;
+    let r = fedep / (2.0 - fedep);
+    aux = aux * (1.0 + 2.0 * aux) * r * r / 6.0;
+    fedep * e1 * dedxmid * (1.0 + aux)
+}
+
+/// `$COMPUTE-ELOSS(path, e, elog, l, de)` (`egsnrc.macros:3282-3300`): the
+/// energy loss over `path` when initial and final energy share bin `l`.
+fn compute_eloss(m: &ElectronMediumData, lelec: i32, rhof: f64, path: f64, e: f64, elog: f64, l: usize) -> f64 {
+    let dedxmid = eval_dedx(m, lelec, l, elog);
+    let slope = if lelec < 0 { m.ededx.a1[l] } else { m.pdedx.a1[l] };
+    let aux = slope / dedxmid;
+    let mut de = dedxmid * path * rhof;
+    let fedep = de / e;
+    de *= 1.0 - 0.5 * fedep * aux * (1.0 - 0.333333 * fedep * (aux - 1.0 - 0.25 * fedep * (2.0 - aux * (4.0 - aux))));
+    de
+}
+
+/// `$COMPUTE-ELOSS-G(path, e, elog, l, de)` (`egsnrc.macros:3304-3350`).
+#[allow(clippy::too_many_arguments)]
+fn compute_eloss_g(
+    m: &ElectronMediumData,
+    lelec: i32,
+    qel: usize,
+    rhof: f64,
+    range: f64,
+    path: f64,
+    e: f64,
+    elog: f64,
+    l: usize,
+) -> f64 {
+    let mut tuss = range - m.range_ep[qel][l] / rhof;
+    if tuss >= path {
+        compute_eloss(m, lelec, rhof, path, e, elog, l)
+    } else {
+        let mut lelktmp = l;
+        tuss = (range - path) * rhof;
+        if tuss <= 0.0 {
+            e - m.te * 0.99
+        } else {
+            while tuss < m.range_ep[qel][lelktmp] {
+                lelktmp -= 1;
+            }
+            let elktmp = ((lelktmp + 1) as f64 - m.eke0) / m.eke1;
+            let eketmp = m.e_array[lelktmp + 1];
+            tuss = (m.range_ep[qel][lelktmp + 1] - tuss) / rhof;
+            compute_eloss(m, lelec, rhof, tuss, eketmp, elktmp, lelktmp) + e - eketmp
+        }
+    }
+}
+
+/// `$COMPUTE-RANGE` (`egsnrc.macros:3245-3256`).
+fn compute_range(m: &ElectronMediumData, lelec: i32, qel: usize, rhof: f64, eke: f64, elke: f64, l: usize) -> f64 {
+    let ekei = m.e_array[l];
+    let elkei = (l as f64 - m.eke0) / m.eke1;
+    let range = compute_drange(m, lelec, eke, ekei, l, elke, elkei);
+    (range + m.range_ep[qel][l]) / rhof
+}
+
+/// `$EVALUATE-SIGF` (`egsnrc.macros:3125-3141`): cross section per energy
+/// loss at `elke` (and `dedx0` as a side effect, returned too).
+fn evaluate_sigf(m: &ElectronMediumData, lelec: i32, l: usize, elke: f64) -> (f64, f64) {
+    let (sig, dedx0) = if lelec < 0 {
+        (m.esig.eval(l, elke), m.ededx.eval(l, elke))
+    } else {
+        (m.psig.eval(l, elke), m.pdedx.eval(l, elke))
+    };
+    (sig / dedx0, dedx0)
+}
+
+/// `$CALCULATE-ELASTIC-SCATTERING-MFP(ssmfp, e, elog)` (`egsnrc.macros:2372-2392`).
+fn elastic_scattering_mfp(m: &ElectronMediumData, loc: &mut Loc, cfg: &ElectrConfig, lelec: i32, eke: f64, elke: f64, l: usize) -> f64 {
+    loc.blccl = loc.rhof * m.ms.blcc;
+    loc.xccl = loc.rhof * m.ms.xcc;
+    let rmt2 = 2.0 * RM;
+    let rmsq = RM * RM;
+    loc.p2 = eke * (eke + rmt2);
+    loc.beta2 = loc.p2 / (loc.p2 + rmsq);
+    if cfg.spin_effects {
+        loc.etap = if lelec < 0 { m.ms.etae_ms.eval(l, elke) } else { m.ms.etap_ms.eval(l, elke) };
+        loc.ms_corr = m.ms.blcce.eval(l, elke);
+        loc.blccl = loc.blccl / loc.etap / (1.0 + 0.25 * loc.etap * loc.xccl / loc.blccl / loc.p2) * loc.ms_corr;
+    }
+    loc.beta2 / loc.blccl
+}
+
+/// `$CALCULATE-XI(path)` (`egsnrc.macros:1316-1338`), using `loc.ekems`.
+fn calculate_xi(m: &ElectronMediumData, loc: &mut Loc, cfg: &ElectrConfig, lelec: i32, path: f64) {
+    let rmt2 = 2.0 * RM;
+    let rmsq = RM * RM;
+    loc.p2 = loc.ekems * (loc.ekems + rmt2);
+    loc.beta2 = loc.p2 / (loc.p2 + rmsq);
+    loc.chia2 = loc.xccl / (4.0 * loc.blccl * loc.p2);
+    loc.xi = 0.5 * loc.xccl / loc.p2 / loc.beta2 * path;
+    if cfg.spin_effects {
+        loc.elkems = RealMath::r_ln(loc.ekems);
+        let l = eke_interval(m, loc.elkems);
+        if lelec < 0 {
+            loc.etap = m.ms.etae_ms.eval(l, loc.elkems);
+            loc.xi_corr = m.ms.q1ce_ms.eval(l, loc.elkems);
+        } else {
+            loc.etap = m.ms.etap_ms.eval(l, loc.elkems);
+            loc.xi_corr = m.ms.q1cp_ms.eval(l, loc.elkems);
+        }
+        loc.chia2 *= loc.etap;
+        loc.xi *= loc.xi_corr;
+        loc.ms_corr = m.ms.blcce.eval(l, loc.elkems);
+        loc.blccl *= loc.ms_corr;
+    } else {
+        loc.xi_corr = 1.0;
+        loc.etap = 1.0;
+    }
+    loc.xi *= RealMath::r_ln(1.0 + 1.0 / loc.chia2) - 1.0 / (1.0 + loc.chia2);
+}
+
+/// How the discard section is entered.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Discard {
+    /// `:ECUT-DISCARD:`.
+    Ecut,
+    /// `:USER-ELECTRON-DISCARD:`.
+    User,
+}
+
+/// `ELECTR` (`egsnrc.mortran:985-1825`): transport the charged particle on top
+/// of the stack by condensed-history steps (PRESTA-II or PRESTA-I
+/// boundary crossing, multiple scattering, continuous energy loss, discrete
+/// Moller, Bhabha, bremsstrahlung and annihilation) until it is discarded or a
+/// photon tops the stack.
+///
+/// Not ported: the EM-field macros (all empty by default), range rejection
+/// (`i_do_rr = 0`), `$USER-RANGE-DISCARD`, the energy-loss fluctuation hook
+/// (`$DE-FLUCTUATION`, empty), electron-impact ionisation (`eii_flag = 0`),
+/// the `AUSGAB` calls, and all diagnostic output. The `ustep <= 0` message is
+/// not printed but its 1000-error limit is kept.
+///
+/// **Assumption to check in phase 2:** upstream's `NEXT :TSTEP:` is read as a
+/// restart of the `:TSTEP:` loop without re-testing its trailing
+/// `UNTIL (rfict <= sigratio)` (re-testing stale random numbers would make
+/// every vacuum step an interaction). The Mortran language definition is not
+/// in the EGSnrc source; a differential run settles it.
+///
+/// # Errors
+///
+/// [`EgsError`] from the interaction routines; [`EgsError::Fatal`] where
+/// upstream stops the run (too many negative `ustep`s, `xi > 1` in
+/// `$SET-TVSTEP`, `lambda` beyond the table).
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+pub fn electr<R: UniformSource, G: ElectronGeometry>(
+    stack: &mut Stack,
+    tables: &ElectrTables,
+    cfg: &ElectrConfig,
+    geometry: &mut G,
+    counters: &mut ElectrCounters,
+    rng: &mut R,
+) -> Result<ElectrResult, EgsError> {
+    let rm = RM;
+    let prm = cfg.prm;
+    let rmt2 = 2.0 * RM;
+    let rmsq = RM * RM;
+    let ms = tables.ms.as_ref().ok_or(EgsError::Unsupported("ELECTR: no multiple-scattering data"))?;
+    let mut res = ElectrResult { ircode: 1, ..Default::default() };
+
+    let mut irl = stack.ir[stack.np] as usize;
+    let mut medium = tables.regions[irl].med;
+    let mut loc = Loc { etap: 1.0, xi_corr: 1.0, ms_corr: 1.0, rhof: 1.0, ..Default::default() };
+    let (mut lelec, mut qel);
+    let (mut peie, mut eie);
+    let mut eke = 0.0;
+    let mut elke = 0.0;
+    let mut lelke = 0usize;
+    let mut total_tstep = 0.0;
+    let mut sig0 = 0.0;
+
+    // :NEWELECTRON:
+    'newelectron: loop {
+        lelec = stack.iq[stack.np];
+        qel = ((1 + lelec) / 2) as usize;
+        peie = stack.e[stack.np];
+        eie = peie;
+
+        let mut discard: Option<Discard> = None;
+        let mut idisc;
+
+        if eie <= tables.regions[irl].ecut {
+            discard = Some(Discard::Ecut);
+        } else if stack.wt[stack.np] == 0.0 {
+            discard = Some(Discard::User);
+        }
+        idisc = 0;
+
+        if discard.is_none() {
+            // :TSTEP:
+            'tstep: loop {
+                let mut compute_tstep = true;
+                let mut demfp = 0.0;
+                let mut tstep = 0.0;
+                eke = eie - rm;
+                if medium != 0 {
+                    // $SELECT-ELECTRON-MFP
+                    let mut rnne1 = rng.uniform();
+                    if rnne1 == 0.0 {
+                        rnne1 = 1.0e-30;
+                    }
+                    demfp = (-RealMath::r_ln(rnne1)).max(EPSEMFP);
+                    elke = RealMath::r_ln(eke);
+                    let m = &tables.media[medium];
+                    lelke = eke_interval(m, elke);
+                    // $EVALUATE-SIG0
+                    if m.sig_ismonotone[qel] {
+                        sig0 = evaluate_sigf(m, lelec, lelke, elke).0;
+                    } else if lelec < 0 {
+                        sig0 = m.esig_e;
+                    } else {
+                        sig0 = m.psig_e;
+                    }
+                }
+
+                // :USTEP:
+                loop {
+                    let mut callhowfar;
+                    let mut domultiple = false;
+                    let mut dosingle = false;
+                    let mut callmsdist = false;
+                    let (mut uscat, mut vscat, mut wscat) = (0.0, 0.0, 0.0);
+                    let (mut xtrans, mut ytrans, mut ztrans) = (0.0, 0.0, 0.0);
+                    let mut ustep;
+                    let mut tustep;
+                    let mut dedx = 0.0;
+                    let mut range = 0.0;
+                    let mut de = 0.0;
+                    let mut tvstep;
+                    let mut sig = 0.0;
+                    let m = &tables.media[medium.max(1).min(tables.media.len() - 1)];
+                    let np = stack.np;
+
+                    if medium == 0 {
+                        // vacuum
+                        tstep = cfg.vacdst;
+                        ustep = tstep;
+                        tustep = ustep;
+                        callhowfar = true;
+                    } else {
+                        // non-vacuum
+                        loc.rhof = tables.regions[irl].rhor / m.rho; // $SET-RHOF
+                        sig = sig0; // $SCALE-SIG0
+                        if sig <= 0.0 {
+                            tstep = cfg.vacdst;
+                            sig0 = 1.0e-15;
+                        } else {
+                            // $CALCULATE-TSTEP-FROM-DEMFP
+                            if compute_tstep {
+                                let total_de = demfp / sig;
+                                let ekef = eke - total_de;
+                                if ekef <= m.e_array[1] {
+                                    tstep = cfg.vacdst;
+                                } else {
+                                    let elkef = RealMath::r_ln(ekef);
+                                    let lelkef = eke_interval(m, elkef);
+                                    if lelkef == lelke {
+                                        tstep = compute_drange(m, lelec, eke, ekef, lelke, elke, elkef);
+                                    } else {
+                                        let ekei = m.e_array[lelke];
+                                        let elkei = (lelke as f64 - m.eke0) / m.eke1;
+                                        let tuss = compute_drange(m, lelec, eke, ekei, lelke, elke, elkei);
+                                        let ekei = m.e_array[lelkef + 1];
+                                        let elkei = ((lelkef + 1) as f64 - m.eke0) / m.eke1;
+                                        tstep = compute_drange(m, lelec, ekei, ekef, lelkef, elkei, elkef);
+                                        tstep = tstep + tuss + m.range_ep[qel][lelke] - m.range_ep[qel][lelkef + 1];
+                                    }
+                                }
+                                total_tstep = tstep;
+                                compute_tstep = false;
+                            }
+                            tstep = total_tstep / loc.rhof;
+                        }
+
+                        let dedx0 = eval_dedx(m, lelec, lelke, elke);
+                        dedx = loc.rhof * dedx0;
+                        let mut tmxs = m.tmxs.eval(lelke, elke) / loc.rhof;
+                        range = compute_range(m, lelec, qel, loc.rhof, eke, elke, lelke);
+                        // $RANDOMIZE-TUSTEP is .false.
+                        tmxs = tmxs.min(tables.regions[irl].smaxir);
+                        tustep = tstep.min(tmxs).min(range);
+                        let tperp = geometry.hownear(stack);
+                        stack.dnear[np] = tperp;
+                        // $SET-SKINDEPTH(eke, elke)
+                        let ssmfp = elastic_scattering_mfp(m, &mut loc, cfg, lelec, eke, elke, lelke);
+                        let skindepth = cfg.skindepth_for_bca * ssmfp;
+                        tustep = tustep.min(tperp.max(skindepth));
+
+                        counters.count_all_steps += 1.0;
+                        ustep = tustep;
+                        tvstep = tustep;
+                        de = 0.0;
+                        if tustep <= tperp && (!cfg.exact_bca || tustep > skindepth) {
+                            // a normal condensed-history step
+                            callhowfar = false;
+                            domultiple = false;
+                            dosingle = false;
+                            callmsdist = true;
+                            de = compute_eloss_g(m, lelec, qel, loc.rhof, range, tustep, eke, elke, lelke);
+                            tvstep = tustep;
+                            let inp = MsDistInput {
+                                e0: eke,
+                                eloss: de,
+                                tustep,
+                                rhof: loc.rhof,
+                                qel,
+                                spin_effects: cfg.spin_effects,
+                                u0: stack.u[np],
+                                v0: stack.v[np],
+                                w0: stack.w[np],
+                                x0: stack.x[np],
+                                y0: stack.y[np],
+                                z0: stack.z[np],
+                            };
+                            let o = if cfg.presta_ii {
+                                msdist_p2(&m.ms, ms, &tables.spin, &inp, medium, &mut counters.count_p2_steps, rng)?
+                            } else {
+                                msdist_p1(&m.ms, ms, &tables.spin, &inp, medium, rng)?
+                            };
+                            uscat = o.us;
+                            vscat = o.vs;
+                            wscat = o.ws;
+                            xtrans = o.xf;
+                            ytrans = o.yf;
+                            ztrans = o.zf;
+                            ustep = o.ustep;
+                        } else {
+                            // within a skin depth of a boundary
+                            callmsdist = false;
+                            if cfg.exact_bca {
+                                domultiple = false;
+                                let mut rnnoss = rng.uniform();
+                                if rnnoss < 1.0e-30 {
+                                    rnnoss = 1.0e-30;
+                                }
+                                let lambda = -RealMath::r_ln(1.0 - rnnoss);
+                                let lambda_max = 0.5 * loc.blccl * rm / dedx * {
+                                    let t = eke / rm + 1.0;
+                                    t * t * t
+                                };
+                                if lambda >= 0.0 && lambda_max > 0.0 {
+                                    let tuss = if lambda < lambda_max {
+                                        lambda * ssmfp * (1.0 - 0.5 * lambda / lambda_max)
+                                    } else {
+                                        0.5 * lambda * ssmfp
+                                    };
+                                    if tuss < tustep {
+                                        tustep = tuss;
+                                        dosingle = true;
+                                    } else {
+                                        dosingle = false;
+                                    }
+                                } else {
+                                    // upstream warns, drops the particle and returns
+                                    stack.np -= 1;
+                                    return Ok(res);
+                                }
+                                ustep = tustep;
+                            } else {
+                                // EGS4/PRESTA-I boundary crossing with exact PLC: $SET-USTEP
+                                dosingle = false;
+                                domultiple = true;
+                                loc.ekems = eke - 0.5 * tustep * dedx;
+                                calculate_xi(m, &mut loc, cfg, lelec, tustep);
+                                ustep = if loc.xi < 0.1 {
+                                    tustep * (1.0 - loc.xi * (0.5 - loc.xi * 0.166667))
+                                } else {
+                                    tustep * (1.0 - RealMath::r_exp(-loc.xi)) / loc.xi
+                                };
+                            }
+                            callhowfar = ustep >= tperp;
+                        }
+                    }
+
+                    let irold = stack.ir[np] as usize;
+                    let mut st = HowfarState { ustep, irnew: irold, idisc: 0 };
+                    let ustep0 = ustep;
+                    // $CALL-HOWFAR-IN-ELECTR
+                    if callhowfar || stack.wt[np] <= 0.0 {
+                        geometry.howfar(stack, &mut st);
+                    }
+                    ustep = st.ustep;
+                    let irnew = st.irnew;
+                    idisc = st.idisc;
+                    if idisc > 0 {
+                        discard = Some(Discard::User);
+                        break 'tstep;
+                    }
+                    // $CHECK-NEGATIVE-USTEP
+                    if ustep <= 0.0 {
+                        if ustep < -1e-4 {
+                            counters.ierust += 1;
+                            if counters.ierust > 1000 {
+                                return Err(EgsError::Fatal("ELECTR: too many negative ustep errors"));
+                            }
+                        }
+                        ustep = 0.0;
+                    }
+
+                    if ustep == 0.0 || medium == 0 {
+                        // fast step in vacuum
+                        if ustep != 0.0 {
+                            let vstep = ustep;
+                            stack.x[np] += stack.u[np] * vstep;
+                            stack.y[np] += stack.v[np] * vstep;
+                            stack.z[np] += stack.w[np] * vstep;
+                            stack.dnear[np] -= vstep;
+                        }
+                        if irnew != irold {
+                            stack.ir[np] = irnew as i32;
+                            irl = irnew;
+                            medium = tables.regions[irl].med;
+                        }
+                        if eie <= tables.regions[irl].ecut {
+                            discard = Some(Discard::Ecut);
+                            break 'tstep;
+                        }
+                        if ustep != 0.0 && idisc < 0 {
+                            discard = Some(Discard::User);
+                            break 'tstep;
+                        }
+                        continue 'tstep; // NEXT :TSTEP:
+                    }
+
+                    let vstep = ustep;
+                    if callhowfar {
+                        if cfg.exact_bca {
+                            tvstep = vstep;
+                            if tvstep != tustep {
+                                dosingle = false;
+                            }
+                        } else {
+                            // $SET-TVSTEP
+                            if vstep < ustep0 {
+                                loc.ekems = eke - 0.5 * tustep * vstep / ustep0 * dedx;
+                                calculate_xi(m, &mut loc, cfg, lelec, vstep);
+                                if loc.xi < 0.1 {
+                                    tvstep = vstep * (1.0 + loc.xi * (0.5 + loc.xi * 0.333333));
+                                } else if loc.xi < 0.999999 {
+                                    tvstep = -vstep * RealMath::r_ln(1.0 - loc.xi) / loc.xi;
+                                } else {
+                                    return Err(EgsError::Fatal("ELECTR: xi > 1 in $SET-TVSTEP"));
+                                }
+                            } else {
+                                tvstep = tustep;
+                            }
+                        }
+                        de = compute_eloss_g(m, lelec, qel, loc.rhof, range, tvstep, eke, elke, lelke);
+                    } else {
+                        tvstep = tustep;
+                        if !callmsdist {
+                            de = compute_eloss_g(m, lelec, qel, loc.rhof, range, tvstep, eke, elke, lelke);
+                        }
+                    }
+                    let save_de = de;
+                    let edep = de; // $DE-FLUCTUATION is empty
+                    let ekef = eke - de;
+                    let _eold = eie;
+                    let _enew = _eold - de;
+                    let (mut costhe, mut sinthe) = (1.0, 0.0);
+
+                    // multiple scattering
+                    if !callmsdist {
+                        if domultiple {
+                            let lambda = loc.blccl * tvstep / loc.beta2 / loc.etap / (1.0 + loc.chia2);
+                            let xi = loc.xi / loc.xi_corr;
+                            let (mut findindex, mut spin_index) = (true, true);
+                            let mut mst = MscatState::default();
+                            let mut sst = SpinState::default();
+                            let r = mscat(
+                                ms, &tables.spin, lambda, loc.chia2, xi, loc.elkems, loc.beta2, qel, medium,
+                                cfg.spin_effects, &mut findindex, &mut spin_index, &mut mst, &mut sst, rng,
+                            )?;
+                            costhe = r.0;
+                            sinthe = r.1;
+                        } else if dosingle {
+                            // single scattering
+                            loc.ekems = ekef.max(tables.regions[irl].ecut - rm);
+                            loc.p2 = loc.ekems * (loc.ekems + rmt2);
+                            loc.beta2 = loc.p2 / (loc.p2 + rmsq);
+                            loc.chia2 = m.ms.xcc / (4.0 * m.ms.blcc * loc.p2);
+                            if cfg.spin_effects {
+                                loc.elkems = RealMath::r_ln(loc.ekems);
+                                let l = eke_interval(m, loc.elkems);
+                                loc.etap = if lelec < 0 {
+                                    m.ms.etae_ms.eval(l, loc.elkems)
+                                } else {
+                                    m.ms.etap_ms.eval(l, loc.elkems)
+                                };
+                                loc.chia2 *= loc.etap;
+                            }
+                            let mut sst = SpinState::default();
+                            let r = sscat(
+                                &tables.spin, loc.chia2, loc.elkems, loc.beta2, qel, medium, cfg.spin_effects,
+                                &mut sst, rng,
+                            );
+                            costhe = r.0;
+                            sinthe = r.1;
+                        } else {
+                            sinthe = 0.0;
+                            costhe = 1.0;
+                        }
+                    }
+
+                    // final position and direction
+                    let (x_final, y_final, z_final, u_final, v_final, w_final);
+                    if callmsdist {
+                        u_final = uscat;
+                        v_final = vscat;
+                        w_final = wscat;
+                        x_final = xtrans;
+                        y_final = ytrans;
+                        z_final = ztrans;
+                    } else {
+                        x_final = stack.x[np] + stack.u[np] * vstep;
+                        y_final = stack.y[np] + stack.v[np] * vstep;
+                        z_final = stack.z[np] + stack.w[np] * vstep;
+                        if domultiple || dosingle {
+                            let (u_tmp, v_tmp, w_tmp) = (stack.u[np], stack.v[np], stack.w[np]);
+                            let mut saved = UphiSaved::default();
+                            uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)?;
+                            u_final = stack.u[np];
+                            v_final = stack.v[np];
+                            w_final = stack.w[np];
+                            stack.u[np] = u_tmp;
+                            stack.v[np] = v_tmp;
+                            stack.w[np] = w_tmp;
+                        } else {
+                            u_final = stack.u[np];
+                            v_final = stack.v[np];
+                            w_final = stack.w[np];
+                        }
+                    }
+
+                    // transport the particle
+                    stack.x[np] = x_final;
+                    stack.y[np] = y_final;
+                    stack.z[np] = z_final;
+                    stack.u[np] = u_final;
+                    stack.v[np] = v_final;
+                    stack.w[np] = w_final;
+                    stack.dnear[np] -= vstep;
+                    res.edep_steps += edep;
+
+                    peie -= de;
+                    eie = peie;
+                    stack.e[np] = peie;
+                    if irnew == irl && eie <= tables.regions[irl].ecut {
+                        discard = Some(Discard::Ecut);
+                        break 'tstep;
+                    }
+                    let medold = medium;
+                    if medium != 0 {
+                        eke = eie - rm;
+                        elke = RealMath::r_ln(eke);
+                        lelke = eke_interval(&tables.media[medium], elke);
+                    }
+                    if irnew != irold {
+                        stack.ir[np] = irnew as i32;
+                        irl = irnew;
+                        medium = tables.regions[irl].med;
+                    }
+                    if eie <= tables.regions[irl].ecut {
+                        discard = Some(Discard::Ecut);
+                        break 'tstep;
+                    }
+                    if idisc < 0 {
+                        discard = Some(Discard::User);
+                        break 'tstep;
+                    }
+                    if medium != medold {
+                        continue 'tstep;
+                    }
+                    // $UPDATE-DEMFP
+                    demfp -= save_de * sig;
+                    total_tstep -= tvstep * loc.rhof;
+                    if total_tstep < 1e-9 {
+                        demfp = 0.0;
+                    }
+                    if demfp < EPSEMFP {
+                        break;
+                    }
+                }
+
+                // compute the final sigma to see if a resample is needed
+                let m = &tables.media[medium];
+                let sigf = evaluate_sigf(m, lelec, lelke, elke).0;
+                let sigratio = sigf / sig0;
+                let rfict = rng.uniform();
+                if rfict <= sigratio {
+                    break 'tstep;
+                }
+            }
+        }
+
+        if discard.is_none() {
+            // now sample the electron interaction
+            let m = &tables.media[medium];
+            let mut do_brems = false;
+            if lelec < 0 {
+                let ebr1 = m.ebr1.eval(lelke, elke);
+                let rnno24 = rng.uniform();
+                if rnno24 <= ebr1 {
+                    do_brems = true;
+                } else {
+                    if stack.e[stack.np] <= m.thmoll {
+                        // not enough energy for Moller: force bremsstrahlung if allowed
+                        if ebr1 <= 0.0 {
+                            continue 'newelectron;
+                        }
+                        do_brems = true;
+                    }
+                    if !do_brems {
+                        moller(stack, m.te, m.thmoll, false, prm, rng)?;
+                        if stack.iq[stack.np] == 0 {
+                            return Ok(res);
+                        }
+                        continue 'newelectron;
+                    }
+                }
+            } else {
+                // e+: pbr1 = brems/(brems + bhabha + annih)
+                let pbr1 = m.pbr1.eval(lelke, elke);
+                let rnno25 = rng.uniform();
+                if rnno25 < pbr1 {
+                    do_brems = true;
+                } else {
+                    let pbr2 = m.pbr2.eval(lelke, elke);
+                    if rnno25 < pbr2 {
+                        bhabha(stack, m.te, prm, rng)?;
+                        if stack.iq[stack.np] == 0 {
+                            return Ok(res);
+                        }
+                    } else {
+                        // in-flight annihilation
+                        annih(stack, cfg.brems.nbr_split, rm, rng)?;
+                        return Ok(res);
+                    }
+                    continue 'newelectron;
+                }
+            }
+            if do_brems {
+                brems(stack, &m.brems, &cfg.brems, elke, prm, rng)?;
+                if stack.iq[stack.np] == 0 {
+                    return Ok(res);
+                }
+                continue 'newelectron;
+            }
+        }
+
+        // discard sections
+        let kind = discard.unwrap_or(Discard::Ecut);
+        let np = stack.np;
+        let mut annihilate_at_rest = false;
+        match kind {
+            Discard::Ecut => {
+                if medium > 0 {
+                    if eie > tables.media[medium].ae {
+                        res.edep = if lelec < 0 { stack.e[np] - prm } else { peie - prm };
+                    } else {
+                        res.edep = stack.e[np] - prm;
+                    }
+                } else {
+                    res.edep = 0.0;
+                }
+                annihilate_at_rest = lelec > 0;
+            }
+            Discard::User => {
+                let d = idisc.abs();
+                res.edep = if lelec < 0 || d == 99 { stack.e[np] - prm } else { stack.e[np] + prm };
+                annihilate_at_rest = d == 99 && lelec > 0;
+            }
+        }
+        if annihilate_at_rest && res.edep < peie {
+            annih_at_rest(stack, cfg.brems.nbr_split, prm, rng)?;
+            res.ircode = 1;
+            return Ok(res);
+        }
+        stack.np -= 1;
+        res.ircode = 2;
+        return Ok(res);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4393,6 +5249,191 @@ mod tests {
         // elke = -5 gives an interval below 1: clamped to 1 and elke reset
         assert_eq!(spin_interval(&med, -5.0), (1, 1.0));
         assert_eq!(spin_interval(&med, 2.5), (2, 2.5));
+    }
+
+
+    impl ElectronGeometry for Slab {
+        fn hownear(&mut self, stack: &Stack) -> f64 {
+            let z = stack.z[stack.np];
+            z.min(self.length - z).max(0.0)
+        }
+    }
+
+    const N_EKE: usize = 14;
+
+    fn const_pwlf(v: f64) -> Pwlf {
+        Pwlf { a0: alloc::vec![v; N_EKE + 2], a1: alloc::vec![0.0; N_EKE + 2] }
+    }
+
+    /// One medium, 14 energy bins: `lelke = 2 ln(E) + 11`, constant stopping
+    /// power 2 MeV/cm so that range = (E - E_1)/2, constant cross sections.
+    fn toy_electron_tables() -> ElectrTables {
+        let (eke0, eke1) = (11.0, 2.0);
+        let e_array: Vec<f64> =
+            core::iter::once(0.0).chain((1..=N_EKE).map(|i| ((i as f64 - eke0) / eke1).exp())).collect();
+        let range_ep: Vec<f64> = e_array.iter().map(|&e| (e - e_array[1]) / 2.0).collect();
+        let mut ms_med = toy_ms_medium();
+        ms_med.eke0 = eke0;
+        ms_med.eke1 = eke1;
+        let ones = const_pwlf(1.0);
+        ms_med.etae_ms = ones.clone();
+        ms_med.etap_ms = ones.clone();
+        ms_med.q1ce_ms = ones.clone();
+        ms_med.q1cp_ms = ones.clone();
+        ms_med.q2ce_ms = ones.clone();
+        ms_med.q2cp_ms = ones.clone();
+        ms_med.blcce = ones;
+        let te = 0.01;
+        let med = ElectronMediumData {
+            rho: 1.0,
+            eke0,
+            eke1,
+            e_array,
+            range_ep: [range_ep.clone(), range_ep],
+            ededx: const_pwlf(2.0),
+            pdedx: const_pwlf(2.0),
+            esig: const_pwlf(5.0),
+            psig: const_pwlf(5.0),
+            ebr1: const_pwlf(0.3),
+            pbr1: const_pwlf(0.3),
+            pbr2: const_pwlf(0.6),
+            tmxs: const_pwlf(0.1),
+            esig_e: 2.5,
+            psig_e: 2.5,
+            sig_ismonotone: [true, true],
+            te,
+            thmoll: 2.0 * te + RM,
+            ae: te + RM,
+            ms: ms_med,
+            brems: toy_brems_medium(),
+        };
+        let slab = ElectrRegion { med: 1, rhor: 1.0, ecut: te + RM, smaxir: 1.0e10 };
+        let outside = ElectrRegion { med: 0, ..slab };
+        ElectrTables {
+            regions: alloc::vec![ElectrRegion::default(), slab, outside],
+            media: alloc::vec![ElectronMediumData::default(), med],
+            ms: Some(MsData::from_text(&synthetic_ms_text()).unwrap()),
+            spin: flat_spin(1.0),
+        }
+    }
+
+    /// `ELECTR` behind the `ElectronTransport` seam of `SHOWER`.
+    struct ElectrDriver {
+        tables: ElectrTables,
+        cfg: ElectrConfig,
+        geo: Slab,
+        counters: ElectrCounters,
+        tally: f64,
+    }
+
+    impl ElectronTransport for ElectrDriver {
+        fn electr<R: UniformSource>(&mut self, stack: &mut Stack, rng: &mut R) -> Result<i32, EgsError> {
+            let r = electr(stack, &self.tables, &self.cfg, &mut self.geo, &mut self.counters, rng)?;
+            self.tally += r.edep_steps + r.edep;
+            Ok(r.ircode)
+        }
+    }
+
+    fn electr_cfg(presta_ii: bool, exact_bca: bool, spin_effects: bool) -> ElectrConfig {
+        ElectrConfig {
+            spin_effects,
+            exact_bca,
+            skindepth_for_bca: 3.0,
+            presta_ii,
+            prm: RM,
+            vacdst: 1.0e8,
+            brems: BremsConfig::default(),
+        }
+    }
+
+    #[test]
+    fn electron_showers_conserve_energy() {
+        let mut rng = Ranmar::new(91, 92);
+        let ptables = photon_tables(0.0, 0.5, 0);
+        let pcfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 100.0 };
+        let mut pgeo = Slab { length: 3.0 };
+        let configs = [
+            electr_cfg(true, true, false),
+            electr_cfg(false, false, false),
+            electr_cfg(true, true, true),
+            electr_cfg(true, false, false),
+        ];
+        for cfg in configs {
+            for &(iqi, zi, wi) in &[(-1, 1.0, 1.0), (-1, 2.9999, 1.0), (1, 1.5, 1.0), (-1, 1.5, -1.0)] {
+                for _ in 0..8 {
+                    let mut drv = ElectrDriver {
+                        tables: toy_electron_tables(),
+                        cfg,
+                        geo: Slab { length: 3.0 },
+                        counters: ElectrCounters::default(),
+                        tally: 0.0,
+                    };
+                    let ei = 0.5 + RM + 0.3;
+                    let mut st = Stack::new(500);
+                    let start = ShowerStart { iqi, ei, xi: 0.0, yi: 0.0, zi, ui: 0.0, vi: 0.0, wi, iri: 1, wti: 1.0 };
+                    let r = shower(&mut st, &ptables, &pcfg, &mut pgeo, &mut drv, &start, &mut rng).unwrap();
+                    assert_eq!(st.np, 0);
+                    let total = r.edep_photon_discards + r.edep_local + drv.tally;
+                    let expect = (ei - RM) + if iqi == 1 { 2.0 * RM } else { 0.0 };
+                    if iqi == 1 && zi > 2.0 {
+                        continue;
+                    }
+                    assert!((total - expect).abs() < 1e-6, "cfg {cfg:?} iqi {iqi} z {zi}: {total} vs {expect}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn electr_vacuum_step_and_error_paths() {
+        let mut rng = Ranmar::new(5, 6);
+        let tables = toy_electron_tables();
+        let cfg = electr_cfg(true, true, false);
+        let mut geo = Slab { length: 3.0 };
+        let mut counters = ElectrCounters::default();
+        // an electron below the cut-off is discarded at once with its kinetic energy
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.iq[1] = -1;
+        st.e[1] = RM + 0.005;
+        st.ir[1] = 1;
+        st.wt[1] = 1.0;
+        let r = electr(&mut st, &tables, &cfg, &mut geo, &mut counters, &mut rng).unwrap();
+        assert_eq!((r.ircode, st.np), (2, 0));
+        assert!((r.edep - 0.005).abs() < 1e-12);
+        // zero weight: user discard
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.iq[1] = -1;
+        st.e[1] = RM + 1.0;
+        st.ir[1] = 1;
+        let r = electr(&mut st, &tables, &cfg, &mut geo, &mut counters, &mut rng).unwrap();
+        assert_eq!((r.ircode, st.np), (2, 0));
+        assert!((r.edep - 1.0).abs() < 1e-12);
+        // an electron in the vacuum region is discarded by the geometry
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.iq[1] = -1;
+        st.e[1] = RM + 1.0;
+        st.ir[1] = 2;
+        st.wt[1] = 1.0;
+        st.w[1] = 1.0;
+        let r = electr(&mut st, &tables, &cfg, &mut geo, &mut counters, &mut rng).unwrap();
+        assert_eq!(r.ircode, 2);
+        // a missing MS table is refused
+        let mut none = tables.clone();
+        none.ms = None;
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.iq[1] = -1;
+        st.e[1] = RM + 1.0;
+        st.ir[1] = 1;
+        st.wt[1] = 1.0;
+        assert!(matches!(
+            electr(&mut st, &none, &cfg, &mut geo, &mut counters, &mut rng),
+            Err(EgsError::Unsupported(_))
+        ));
+        assert!(counters.count_all_steps >= 0.0);
     }
 
     #[test]

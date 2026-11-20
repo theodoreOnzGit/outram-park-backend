@@ -11,7 +11,7 @@ port, not differentially tested** (phase 2).
 scheme), `PAIR` (no NRC tables or triplets), `PHOTO` (no MCDF or EADL),
 `BHABHA`, `MOLLER` (no EII), `BREMS` (Bethe-Heitler), `PHOTON` (behind the
 `Geometry` trait, no Rayleigh or photonuclear), `SHOWER` (behind the
-`ElectronTransport` trait), `UPHI` (IENTRY 1, 2, 3), `mscat`, `sscat`,
+`ElectronTransport` trait), `ELECTR` (behind `ElectronGeometry`; no EM fields, range rejection or EII; **assumption:** `NEXT :TSTEP:` restarts the loop without re-testing its `UNTIL`, to be settled by a differential run), `UPHI` (IENTRY 1, 2, 3), `mscat`, `sscat`,
 `spin_rejection`, the MS-table text reader of `init_ms_SR`, the `EDGSET` data readers (`edgset_from_text`), `msdist_pI` and `msdist_pII` (`msdist_p1`, `msdist_p2`), Russian roulette,
 and the stack, azimuth and `$RANDOMSET` macros.
 
@@ -19,7 +19,6 @@ and the stack, azimuth and `$RANDOMSET` macros.
 
 | Item | Upstream | Why it is a chain, not a routine |
 |---|---|---|
-| `ELECTR` | `:985-1825` (840 lines) | The condensed-history loop. Needs the macros `$EVALUATE-SIG0`, `$SCALE-SIG0`, `$CALCULATE-TSTEP-FROM-DEMFP`, `$COMPUTE-RANGE`, `$COMPUTE-ELOSS-G`, `$SET-USTEP`, `$SET-TVSTEP`, `$SET-SKINDEPTH` (`egsnrc.macros:1308-1360, 2358, 3113-3330`), the per-medium tables below. (`msdist_pII` and `msdist_pI` are ported as `msdist_p2` and `msdist_p1`.) Plug in through `ElectronTransport`. |
 | `mscati` | `:2749-2980` | Builds range, `tmxs` and the maximum cross sections per medium from `HATCH`'s tables. |
 | `init_spin` | `egsnrc.mortran` (spin data) | Fills `SpinData::spin_rej`; reads a data file. |
 | `HATCH` | `:1827-2598` | Reads PEGS4 data and builds every per-medium table the ported routines take as arguments (`PairMedium`, `BremsMedium`, `PhotonMediumData`, `ComptonData`, `RelaxData`, `PhotoData`). Needs PEGS4 data files (not vendored). |
@@ -28,10 +27,10 @@ and the stack, azimuth and `$RANDOMSET` macros.
 | `sample_triplet`, NRC pair, NIST/NRC brems tables, EII (`eii_sample`), shellwise PE, EADL relaxation | various | Off by default; each is refused with `EgsError::Unsupported`. |
 | Whole files | `pegs4/pegs4.mortran`, `get_media_inputs`, `egs_utilities`, `nrcaux`, `eii` (`src/`) | Not started. |
 
-## Why `ELECTR` was not rushed
+## What now binds `ELECTR` to data
 
-A first port of `ELECTR` without `msdist_pII`, `HATCH`'s tables and the range
-and energy-loss macros would compile and could not be tested for anything but
-its own consistency. The routines above were each checked against a physical
-identity (energy, momentum, norm); `ELECTR` needs its tables first so the same
-can be done.
+`electr` takes the per-medium tables (`ElectrTables`) as arguments; `HATCH`,
+`mscati` and `init_spin` are what would fill them from PEGS4 data, and they are
+not ported. Until then `ELECTR` runs on tables the caller builds (the tests use
+a synthetic constant-stopping-power medium and check the energy balance of
+full showers through `SHOWER`, `ELECTR` and `PHOTON`).
