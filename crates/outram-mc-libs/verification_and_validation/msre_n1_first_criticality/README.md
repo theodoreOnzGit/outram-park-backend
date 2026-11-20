@@ -18,10 +18,20 @@
 > −297 ± 73 pcm (z −4.1; 1.019902 ± 0.000544 → 1.016934 ± 0.000488).** The knob-on
 > arm reproduces the pre-flip binary's seed 1 digit for digit; the other +237 pcm
 > since the 2026-11-13 record (seed 1: 1.017528) is other code, not the flip.
-> One seed pair, not replicated, and the predicted −10 pcm missed. **Every k in
+> One seed pair, not replicated, and the predicted −10 pcm missed. ~~**Every k in
 > this README below predates both and is not re-measured: on seed 1 alone the
 > 6-seed headline 1.01807 ± 0.00023 is stale by about −60 pcm net (+237 other
-> code, −297 flip).**
+> code, −297 flip).**~~
+>
+> **REPLICATED 2026-11-20 (gh:#1128), six seed pairs at 20000 × [100 + 200], 4 threads:**
+> - **Old build:** 54d472f7f, pre-flip; it reproduces the knob-on arm, seed 1 = 1.019902.
+> - **New default:** 516f559f8. Its seed 1, 1.016934, reproduces the third re-measure at 4 threads.
+> - **The flip moves N-1 by Δk = −229 ± 28 pcm (z −8.0).** Pairs: −297, −310, −117, −216, −210, −224. The single pair's −297 was 2.4σ high. The prediction posted on gh:#1128 before the runs (−50 to −250) held.
+> - **"Other code" since 2026-11-13 is +73 ± 35 pcm (z 2.1), not +237.** The old build's six-seed mean is 1.018804 ± 0.000272, against the record's 1.018074 ± 0.000227. Seed 1 was a high draw.
+> - **New default, six seeds: k = 1.016515 ± 0.000329, +1571 pcm against k_ref.** It replaces 1.01807 in the table below.
+> - **Still pre-flip below:** every other number, including the coefficients, the ablations, the parameter sweeps and the rods (all on 54d472f7f). It is labelled as such and not re-measured.
+> - **The split between graphite and H(H2O) S(α,β)** (`--sab-log-grid-graphite` / `--sab-log-grid-water`) is in progress on gh:#1128.
+> - **Not in either binary:** `develop` commits after 516f559f8, among them #698's coincident-boundary rule, which re-pinned a nested-lattice k (3060a346d). Whether they move N-1 is checked next, on gh:#1128.
 
 > **DEFAULTS CHANGED 2026-11-13 (maintainer, gh:#1128): "Have a dimension
 > dynamically shifting with temp. Shields all in shld be default … physical
@@ -47,8 +57,8 @@ adds no number of its own.
 
 | quantity | this model | reference | section |
 |---|---|---|---|
-| N-1 k at 1181 °F (6 seeds) | **1.01807 ± 0.00023, +1726 ± 23 pcm** (~~1.00536, +455 ± 23~~ previous default; ~~1.00882, +801 ± 22~~ before U-234) | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [new default](#re-measured-on-the-2026-11-13-default-dimensions-at-temperature-and-the-whole-shield-gh1128-gh1129) |
-| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **fails, by 726 pcm** (~~passes~~ on the previous default) | — | [Methodology](#methodology) |
+| N-1 k at 1181 °F (6 seeds) | **1.016515 ± 0.000329, +1571 ± 33 pcm** (S(α,β) on the calcem grid, 516f559f8, 2026-11-20; ~~1.01807 ± 0.00023, +1726 ± 23~~ log-spaced build, 2026-11-13; ~~1.00536, +455 ± 23~~ previous default; ~~1.00882, +801 ± 22~~ before U-234) | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [new default](#re-measured-on-the-2026-11-13-default-dimensions-at-temperature-and-the-whole-shield-gh1128-gh1129) |
+| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **fails, by 571 pcm** (~~fails, by 726 pcm~~ log-spaced build; ~~passes~~ on the previous default) | — | [Methodology](#methodology) |
 | ²³⁵U concentration coefficient | **0.208 ± 0.004** (~~0.235 ± 0.006~~) | measured 0.223; ORNL calc. 0.234–0.248 | new default |
 | equivalent ²³⁵U excess behind the N-1 residual | **about 2.7 g/L (8.3 %)** (~~0.63 g/L, 1.9 %~~) | measured 32.8 ± 0.3 g/L | same |
 | α_iso (×10⁻⁵ /°F) | **−7.17 ± 0.42** (~~−7.69 ± 0.35~~) | measured −7.24 | same |
@@ -1279,6 +1289,8 @@ The one-group prediction undervalued the upper head's 26 cm of salt. That salt b
 - **Statistics:** these are single seeds. The six-seed runs at all three configurations, and rod 1 at 40, 30, 20 and 10 in for its integral curve, were launched 2026-11-19. Their curve prediction is on gh:#1658. ORNL-4233 Figs. 5–6, the measured curve, are not digitised here.
 
 #### The +237 pcm code shift, bisected (2026-11-19, gh:#1128)
+
+> **SETTLED 2026-11-20 by six-seed means.** The "+237 pcm" was one seed. The old build, 54d472f7f, at seeds 1–6 averages **1.018804 ± 0.000272**, against the 2026-11-13 record's 1.018074 ± 0.000227: **+73 ± 35 pcm (z 2.06)**. The bisect below correctly names the two commits where seed 1's random path changes (323d5d93 and 5d7c7644). But its +109 / +128 split is one seed's, and neither piece is resolved. The two commits together are worth about +73 pcm, marginally resolved. Whether they move k by any physics, and not by re-randomisation alone, is not separated here. Data: `data/keff.csv`, rows for the label `…+shield-tm0728-full` with binary 54d472f7f (the 2026-11-19 runs).
 
 - **Method:** `git bisect` from 0dd316cb (good, the 2026-11-13 binary) to 57b484bc (bad). Each step builds the N-1 example at that commit and runs the default, seed 1, on today's data and today's checkout of `reference-data`. A step is good only if k is **exactly** 1.017528. A commit that does not compile is skipped. Each step takes about 50 min.
 - **Results:**

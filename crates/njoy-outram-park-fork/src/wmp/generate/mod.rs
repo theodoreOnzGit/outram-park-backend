@@ -61,6 +61,8 @@ mod trace;
 mod trace_step;
 #[cfg(all(test, feature = "std"))]
 mod trace_kernel;
+#[cfg(all(test, feature = "std"))]
+mod trace_server;
 
 #[cfg(feature = "std")]
 use std::path::Path;

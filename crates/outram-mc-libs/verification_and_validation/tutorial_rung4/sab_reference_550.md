@@ -770,8 +770,12 @@ flip**. It is code drift since 2026-11-05, or the different protocol (4000 x
 [5+90] against 10000 x [5+135], one thread against sixteen: the CSG hybrid
 driver's thread-count independence is assumed, not tested, see the example's
 doc), or a seed draw; I did not decompose it. The record 0.995309 is not
-reproduced on today's code at this size, and should not be quoted as the current
-value until a like-for-like re-run decides which.
+reproduced on today's code at this size, ~~and should not be quoted as the current
+value until a like-for-like re-run decides which.~~ **CORRECTED 2026-11-20:** it
+is reproduced within the statistics. Four seeds at this protocol average
+0.993020, −229 ± 175 pcm from the record (z −1.3), and seed 20260917 is the
+lowest of the four. 1 and 2 threads are bit-identical. Record:
+`crates/nee_soon/verification_and_validation/htr10_record_offset_2026_11_19/`.
 
 `htr10_correct_physics_is_default` (nee_soon) builds no data and cannot move; it
 is run as a test, see the hand-off.

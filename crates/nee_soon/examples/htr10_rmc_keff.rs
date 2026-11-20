@@ -632,6 +632,11 @@ fn main() {
         // order-dependent, every single-seed number in the HTR-10 V&V record is
         // irreproducible and the ablation chain built from their differences is
         // unsound. Pinning the count is what makes that testable.
+        //
+        // MEASURED 2026-11-19 (verification_and_validation/
+        // htr10_record_offset_2026_11_19/): 1 and 2 threads give a
+        // bit-identical k on this model (500 x [1+2], seed 20260917,
+        // k = 0.976148 +/- 0.014659 both). 16 threads not tested.
         compute: ComputeType::CpuMultiThread(
             match std::env::var("OUTRAM_HTR10_THREADS")
                 .ok()
