@@ -9,11 +9,12 @@ specific to this crate.
 
 ## Status (2026-11-20)
 
-Decay-photon source spectra (`src/decay_spectrum.rs`, gh:#1391) are the only
-code. The EGSnrc port (gh:#976) is **scaffolded, nothing implemented**
+Decay-photon source spectra (`src/decay_spectrum.rs`, gh:#1391) and the
+first port of OpenMC's photon samplers (`src/openmc_photon/`, gh:#1683, not
+differentially tested) are the code. The EGSnrc port (gh:#976) is **scaffolded, nothing implemented**
 (`src/egsnrc/`: one placeholder module per upstream Mortran file, no stub
-functions). The OpenMC photon port (gh:#975) is not begun. Do not describe
-this crate as transporting anything.
+functions). ~~The OpenMC photon port (gh:#975) is not begun.~~ **CORRECTED 2026-11-20** — samplers, TTB and reaction sampling exist (`src/openmc_photon/`). There is no transport loop: do not describe
+this crate as tracking particles through geometry.
 
 ## The particle split (maintainer, 2026-10-16 and 2026-10-20)
 

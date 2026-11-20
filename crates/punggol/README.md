@@ -17,13 +17,13 @@ recoils) stay in `boon-lay`.
 
 ## Status
 
-Stated plainly: **decay-photon source spectra only, and no transport yet.**
+Stated plainly: **decay-photon source spectra and a first port of OpenMC's photon samplers; no transport loop yet.**
 
 | Part | State |
 |---|---|
 | `decay_spectrum`: OpenMC's `decay_photon_energy`, `Material.get_decay_photon_energy` and `DecaySpectrum` (gh:#1391), from the depletion chain's `<source>` elements | implemented, AI draft; checked against OpenMC in `verification_and_validation/decay_photon_spectra/` |
 | `egsnrc`: the EGSnrc port (gh:#976) | **scaffolded, nothing implemented**: 21 placeholder modules, one per upstream Mortran file |
-| OpenMC photon transport (gh:#975) | not begun |
+| `openmc_photon`: OpenMC photon samplers (`photon.cpp`), thick-target bremsstrahlung (`bremsstrahlung.cpp`) and `sample_photon/electron/positron_reaction`, `process_charged_secondary` (`physics.cpp`) (gh:#975, gh:#1683) | first port, **not differentially tested**; AI draft; data passed in, no HDF5 reader; TTB and atomic relaxation on by default with `without_*` ablations |
 
 ## Boundaries
 

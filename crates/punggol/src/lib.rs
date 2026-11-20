@@ -17,8 +17,13 @@
 //!   `verification_and_validation/decay_photon_spectra/`.
 //! - [`egsnrc`]: the EGSnrc port (gh:#976), **scaffolded, nothing
 //!   implemented**: one placeholder module per upstream Mortran file.
-//! - **No transport.** Nothing here moves a photon; the OpenMC photon port
-//!   (gh:#975) is not begun.
+//! - [`openmc_photon`]: the OpenMC photon interaction samplers
+//!   (Klein-Nishina, Compton with Doppler broadening, Rayleigh, pair
+//!   production, atomic relaxation), thick-target bremsstrahlung and the
+//!   photon/electron/positron reaction sampling (gh:#975, gh:#1683).
+//!   **First port, not differentially tested.** Data is passed in; no HDF5
+//!   reader yet.
+//! - **No transport loop.** Nothing here tracks a photon through geometry.
 //!
 //! # Boundaries
 //!
@@ -55,10 +60,11 @@ pub(crate) mod nostd_prelude {
 
 pub mod decay_spectrum;
 pub mod egsnrc;
+pub mod openmc_photon;
 
 /// The scope this crate states, as a machine-readable string.
 pub const SCOPE: &str =
-    "Radiation transport beyond neutrons: decay-photon source spectra (EGSnrc scaffolded, no transport)";
+    "Radiation transport beyond neutrons: decay-photon source spectra (EGSnrc scaffolded, OpenMC photon samplers first port, no transport loop)";
 
 #[cfg(test)]
 mod tests {
@@ -68,6 +74,6 @@ mod tests {
     #[test]
     fn the_scope_is_recorded() {
         assert!(SCOPE.contains("decay-photon"));
-        assert!(SCOPE.contains("no transport"));
+        assert!(SCOPE.contains("no transport loop"));
     }
 }
