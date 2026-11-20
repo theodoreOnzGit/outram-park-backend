@@ -250,7 +250,7 @@ fn depletion_collapses_against_a_transport_solved_spectrum_each_step() {
                 bins: edges_for_cb.clone(),
             })],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); N_GROUPS],
+            bins: vec![TallyBin::default(); N_GROUPS], derivative: None,
         };
         let ks = KeffSettings {
             n_particles: 300,

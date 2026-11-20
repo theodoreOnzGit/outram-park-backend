@@ -360,6 +360,11 @@ pub struct Tally {
     pub scores: Vec<ScoreType>,
     /// Accumulated bins, indexed `[filter_bin * n_scores + score_idx]`.
     pub bins: Vec<TallyBin>,
+    /// A differential operator this tally is estimated under (gh:#263), or `None`
+    /// for an ordinary tally. It is a declaration the derivative drivers read:
+    /// `physics::derivative_run::DerivativeSpec::for_tally` builds the spec for a
+    /// bin's score. Scoring by the ordinary drivers ignores it.
+    pub derivative: Option<crate::tally::derivative::TallyDerivative>,
 }
 
 impl Tally {
@@ -452,7 +457,7 @@ mod validate_tests {
             name: "mu".into(),
             filters: vec![FilterKind::Mu(MuFilter { bounds: vec![-1.0, 0.0, 1.0] })],
             scores: vec![ScoreType::Scatter],
-            bins: vec![],
+            bins: vec![], derivative: None,
         };
         let e = t.validate().unwrap_err();
         assert!(e.contains("scattering cosine"), "{e}");
@@ -481,7 +486,7 @@ mod realization_tests {
     /// remembers `n_active`; `mean(40)` shows the old mistake.
     #[test]
     fn a_tally_reports_its_own_realization_count() {
-        let mut t = Tally { id: 1, name: "n".into(), filters: vec![], scores: vec![ScoreType::Flux], bins: vec![TallyBin::default()] };
+        let mut t = Tally { id: 1, name: "n".into(), filters: vec![], scores: vec![ScoreType::Flux], bins: vec![TallyBin::default()], derivative: None };
         assert_eq!(t.n_realizations(), 0);
         for _ in 0..4 {
             t.bins[0].score(10.0);

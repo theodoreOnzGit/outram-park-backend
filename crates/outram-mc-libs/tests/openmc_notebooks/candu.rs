@@ -288,6 +288,7 @@ fn candu_cluster_per_pin_flux_tally() {
         filters: vec![FilterKind::Cell(filter)],
         scores: vec![ScoreType::Flux, ScoreType::NuFission],
         bins: vec![TallyBin::default(); N_PINS * 2], // 7 pins × 2 scores
+        derivative: None,
     };
 
     let settings = KeffSettings {

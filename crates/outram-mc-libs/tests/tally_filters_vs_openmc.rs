@@ -174,7 +174,7 @@ fn mesh() -> RegularMesh {
 
 fn tally(filters: Vec<FilterKind>, score: ScoreType) -> Tally {
     let n: usize = filters.iter().map(|f| f.n_bins()).product();
-    Tally { id: 1, name: "t".into(), filters, scores: vec![score], bins: vec![TallyBin::default(); n] }
+    Tally { id: 1, name: "t".into(), filters, scores: vec![score], bins: vec![TallyBin::default(); n], derivative: None }
 }
 
 /// Run one site through the REAL fixed-source runner; the tally's per-bin sums.

@@ -3773,7 +3773,7 @@ mod leakage_tests {
                 }),
             ],
             scores: vec![ScoreType::Flux, ScoreType::Absorption, ScoreType::NuFission],
-            bins: vec![TallyBin::default(); 2 * 1 * 3],
+            bins: vec![TallyBin::default(); 2 * 1 * 3], derivative: None,
         };
         (tally, edges)
     }
@@ -4557,7 +4557,7 @@ impl ExtraScoring {
                     name: t.name.clone(),
                     filters: t.filters.clone(),
                     scores: t.scores.clone(),
-                    bins: Vec::new(),
+                    bins: Vec::new(), derivative: None,
                 })
                 .collect(),
             batches: self.batches.iter().map(|b| vec![0.0; b.len()]).collect(),
@@ -5071,7 +5071,7 @@ mod scored_step_tests {
                 }),
             ],
             scores: vec![ScoreType::Flux, ScoreType::NuFission],
-            bins: vec![],
+            bins: vec![], derivative: None,
         }
     }
 

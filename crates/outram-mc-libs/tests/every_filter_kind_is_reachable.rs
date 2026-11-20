@@ -168,7 +168,7 @@ fn every_filter_kind_is_reachable_and_binnable() {
             name: name.into(),
             filters: vec![f],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); n],
+            bins: vec![TallyBin::default(); n], derivative: None,
         };
         assert_eq!(t.n_bins(), n, "{name} does not size its tally correctly");
     }

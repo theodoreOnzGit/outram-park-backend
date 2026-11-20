@@ -144,7 +144,7 @@ fn shell_flux_tally() -> Tally {
             cell_indices: vec![1],
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 1],
+        bins: vec![TallyBin::default(); 1], derivative: None,
     }
 }
 

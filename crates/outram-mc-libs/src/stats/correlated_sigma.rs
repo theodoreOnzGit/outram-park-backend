@@ -307,7 +307,7 @@ mod tests {
             name: "t".into(),
             filters: Vec::new(),
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default()],
+            bins: vec![TallyBin::default()], derivative: None,
         };
         let mut rec = TallyBatchRecorder::new(&t);
         for v in [1.0, 2.0, 4.0] {

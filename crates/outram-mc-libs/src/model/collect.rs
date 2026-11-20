@@ -489,7 +489,7 @@ fn add_tally(extra: &mut ExtraScoring, filters: Vec<FilterKind>, scores: Vec<Sco
         name: "diagnostics".into(),
         filters,
         scores,
-        bins: vec![],
+        bins: vec![], derivative: None,
     };
     let mut i = 0;
     while let Some(have) = extra.tallies().get(i) {

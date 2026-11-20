@@ -1741,7 +1741,7 @@ fn power_tally(id: i32, name: &str, filter: FilterKind, n_bins: usize) -> Tally 
         name: name.into(),
         filters: vec![filter],
         scores: vec![ScoreType::KappaFission],
-        bins: vec![TallyBin::default(); n_bins],
+        bins: vec![TallyBin::default(); n_bins], derivative: None,
     }
 }
 

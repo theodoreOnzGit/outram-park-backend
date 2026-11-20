@@ -63,6 +63,23 @@ pub struct DerivativeSpec {
     pub score_material: usize,
 }
 
+impl DerivativeSpec {
+    /// The spec for score `score_idx` of `tally`, accumulated in `score_material`,
+    /// under the derivative the tally declares (gh:#263).
+    ///
+    /// # Errors
+    ///
+    /// The tally declares no derivative, or `score_idx` is out of range.
+    pub fn for_tally(tally: &crate::tally::tally::Tally, score_idx: usize, score_material: usize) -> Result<Self, String> {
+        let derivative = tally.derivative.ok_or_else(|| format!("tally {} declares no derivative", tally.id))?;
+        let score = *tally
+            .scores
+            .get(score_idx)
+            .ok_or_else(|| format!("tally {} has no score {score_idx}", tally.id))?;
+        Ok(Self { derivative, score, score_material })
+    }
+}
+
 /// A score and its derivative, per source particle, with the standard error of
 /// each over the batches.
 #[derive(Debug, Clone, PartialEq)]
@@ -515,4 +532,30 @@ pub fn run_keff_derivative_with_majorants(
     }
     temperature_dependence_check(spec, t_dep)?;
     Ok(finish(&score_b, &d_b))
+}
+
+#[cfg(test)]
+mod for_tally_tests {
+    use super::*;
+    use crate::tally::tally::{Tally, TallyBin};
+
+    /// A tally's declared derivative becomes a spec; an undeclared one, or a bad
+    /// score index, is an error.
+    #[test]
+    fn a_tally_declares_its_derivative() {
+        let mut t = Tally {
+            id: 7,
+            name: "t".into(),
+            filters: vec![],
+            scores: vec![ScoreType::Flux, ScoreType::Absorption],
+            bins: vec![TallyBin::default(); 2],
+            derivative: None,
+        };
+        assert!(DerivativeSpec::for_tally(&t, 0, 0).unwrap_err().contains("no derivative"));
+        let d = TallyDerivative { material_idx: 1, variable: DerivativeVariable::Density };
+        t.derivative = Some(d);
+        let s = DerivativeSpec::for_tally(&t, 1, 2).unwrap();
+        assert_eq!((s.derivative, s.score, s.score_material), (d, ScoreType::Absorption, 2));
+        assert!(DerivativeSpec::for_tally(&t, 5, 0).unwrap_err().contains("no score"));
+    }
 }

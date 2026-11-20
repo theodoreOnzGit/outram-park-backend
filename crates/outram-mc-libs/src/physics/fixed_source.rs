@@ -572,7 +572,7 @@ mod tests {
             name: "flux".into(),
             filters: vec![filter],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); 1],
+            bins: vec![TallyBin::default(); 1], derivative: None,
         }
     }
 

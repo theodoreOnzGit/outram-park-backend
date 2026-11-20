@@ -1197,7 +1197,7 @@ mod tests {
             name: "flux".into(),
             filters: vec![FilterKind::Cell(filter)],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); n],
+            bins: vec![TallyBin::default(); n], derivative: None,
         }
     }
 
@@ -1220,7 +1220,7 @@ mod tests {
                 FilterKind::EnergyOut(EnergyOutFilter { bins: edges }),
             ],
             scores: vec![ScoreType::ScatterN, ScoreType::Scatter],
-            bins: vec![TallyBin::default(); 2 * 2 * 2],
+            bins: vec![TallyBin::default(); 2 * 2 * 2], derivative: None,
         };
         let mut batch = vec![0.0; t.bins.len()];
         let r = Position::new(0.0, 0.0, 0.0);
@@ -1257,7 +1257,7 @@ mod tests {
                 FilterKind::Legendre(LegendreFilter { order: 2 }),
             ],
             scores: vec![ScoreType::NuScatter],
-            bins: vec![TallyBin::default(); 2 * 2 * 3],
+            bins: vec![TallyBin::default(); 2 * 2 * 3], derivative: None,
         };
         assert!(t.validate().is_ok());
         let r = Position::new(0.0, 0.0, 0.0);
@@ -1282,7 +1282,7 @@ mod tests {
             name: "mu".into(),
             filters: vec![FilterKind::Mu(MuFilter { bounds: vec![-1.0, 0.0, 1.0] })],
             scores: vec![ScoreType::NuScatter],
-            bins: vec![TallyBin::default(); 2],
+            bins: vec![TallyBin::default(); 2], derivative: None,
         };
         assert!(t.validate().is_ok());
         let r = Position::new(0.0, 0.0, 0.0);
@@ -1307,7 +1307,7 @@ mod tests {
                 FilterKind::EnergyOut(EnergyOutFilter { bins: vec![1.0e-5, 2.0e7] }),
             ],
             scores: vec![ScoreType::NuScatter, ScoreType::NuFission],
-            bins: vec![TallyBin::default(); 2],
+            bins: vec![TallyBin::default(); 2], derivative: None,
         };
         let r = Position::new(0.0, 0.0, 0.0);
         let mut hist = EventHistory::default();
@@ -1407,7 +1407,7 @@ mod tests {
                 FilterKind::Mesh(MeshFilter { mesh: MeshKind::Unstructured(Arc::new(mesh)) }),
             ],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); 2],
+            bins: vec![TallyBin::default(); 2], derivative: None,
         };
         let mut batch = vec![0.0; 2];
         score_track_length(
@@ -1449,7 +1449,7 @@ mod tests {
                 FilterKind::DelayedGroup(DelayedGroupFilter::new(vec![2, 0]).unwrap()),
             ],
             scores: vec![ScoreType::DelayedNuFission, ScoreType::DecayRate],
-            bins: vec![TallyBin::default(); 2 * 2 * 2],
+            bins: vec![TallyBin::default(); 2 * 2 * 2], derivative: None,
         }
     }
 
@@ -1509,7 +1509,7 @@ mod tests {
             name: "nu".into(),
             filters: vec![FilterKind::Cell(CellFilter { cell_indices: vec![0] })],
             scores: vec![ScoreType::NuScatter, ScoreType::ScatterN],
-            bins: vec![TallyBin::default(); 2],
+            bins: vec![TallyBin::default(); 2], derivative: None,
         };
         let r = Position::ZERO;
         let mut batch = vec![0.0; 2];

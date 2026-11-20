@@ -109,6 +109,7 @@ pub fn encode_event(e: &TraceEvent) -> [f64; PER_EVENT] {
             cell,
             material,
             sigma_t,
+            ..
         } => {
             v[0] = 1.0;
             p(&mut v, 1, r);
@@ -208,6 +209,7 @@ pub fn decode_event(v: &[f64]) -> Result<TraceEvent, String> {
             cell: v[4] as usize,
             material: from_idx(v[5]),
             sigma_t: v[6],
+            urr_seed: 0,
         },
         2 => TraceEvent::Segment {
             xi: from_opt(v[1]),

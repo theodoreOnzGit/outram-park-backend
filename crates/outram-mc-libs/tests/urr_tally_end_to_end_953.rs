@@ -219,7 +219,7 @@ fn fixed_source_batches(nuclides: &[Nuclide], n_batches: usize, per_batch: usize
                     bins: WINDOW.to_vec(),
                 })],
                 scores: vec![ScoreType::Absorption],
-                bins: vec![TallyBin::default(); 1],
+                bins: vec![TallyBin::default(); 1], derivative: None,
             };
             let mut rec = TrackRecorder::new(4 * per_batch, 100_000);
             let settings = FixedSourceSettings {
@@ -356,7 +356,7 @@ fn window_tally() -> Tally {
             bins: WINDOW.to_vec(),
         })],
         scores: vec![ScoreType::Flux, ScoreType::Absorption],
-        bins: vec![TallyBin::default(); 2],
+        bins: vec![TallyBin::default(); 2], derivative: None,
     }
 }
 

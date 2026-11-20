@@ -624,7 +624,7 @@ pub fn run_keff_reactor_physics(
             }),
         ],
         scores: vec![ScoreType::Flux, ScoreType::Absorption, ScoreType::NuFission],
-        bins: vec![TallyBin::default(); n_e * n_mat * N_SCORES],
+        bins: vec![TallyBin::default(); n_e * n_mat * N_SCORES], derivative: None,
     };
     let mut leak_bins: Vec<TallyBin> = vec![TallyBin::default(); n_e];
 

@@ -243,7 +243,7 @@ fn scatter_matrix_conserves_events_and_admits_upscatter() {
             }),
         ],
         scores: vec![ScoreType::ScatterN],
-        bins: vec![TallyBin::default(); N_GROUPS * N_GROUPS],
+        bins: vec![TallyBin::default(); N_GROUPS * N_GROUPS], derivative: None,
     };
     run_keff_csg(
         &geom,
@@ -275,7 +275,7 @@ fn scatter_matrix_conserves_events_and_admits_upscatter() {
             }),
         ],
         scores: vec![ScoreType::ScatterN],
-        bins: vec![TallyBin::default(); 1],
+        bins: vec![TallyBin::default(); 1], derivative: None,
     };
     run_keff_csg(
         &geom,

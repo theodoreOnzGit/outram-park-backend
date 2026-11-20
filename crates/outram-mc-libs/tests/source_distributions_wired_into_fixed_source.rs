@@ -137,7 +137,7 @@ fn flux_tally(filters: Vec<FilterKind>, n_bins: usize) -> Tally {
         name: "flux".into(),
         filters,
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); n_bins],
+        bins: vec![TallyBin::default(); n_bins], derivative: None,
     }
 }
 

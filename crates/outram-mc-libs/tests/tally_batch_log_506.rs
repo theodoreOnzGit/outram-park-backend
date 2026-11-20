@@ -93,7 +93,7 @@ fn flux_tally() -> Tally {
         name: "flux".into(),
         filters: vec![FilterKind::Cell(CellFilter { cell_indices: vec![0] })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 1],
+        bins: vec![TallyBin::default(); 1], derivative: None,
     }
 }
 

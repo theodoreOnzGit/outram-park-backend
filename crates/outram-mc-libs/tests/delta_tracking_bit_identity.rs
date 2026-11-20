@@ -453,7 +453,7 @@ fn tally() -> Tally {
             }),
         ],
         scores: vec![ScoreType::Flux, ScoreType::Total],
-        bins: vec![TallyBin::default(); n],
+        bins: vec![TallyBin::default(); n], derivative: None,
     }
 }
 

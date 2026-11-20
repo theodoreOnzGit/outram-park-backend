@@ -138,7 +138,7 @@ fn lambda_tally() -> Tally {
             cell_indices: vec![0],
         })],
         scores: vec![ScoreType::InverseVelocity, ScoreType::NuFission],
-        bins: vec![TallyBin::default(); 2],
+        bins: vec![TallyBin::default(); 2], derivative: None,
     }
 }
 

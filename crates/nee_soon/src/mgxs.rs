@@ -1751,7 +1751,7 @@ pub fn scalar_tally(id: i32, groups: &GroupStructure, material_indices: Vec<usiz
             }),
         ],
         scores: SCALAR_SCORES.to_vec(),
-        bins: vec![TallyBin::default(); n],
+        bins: vec![TallyBin::default(); n], derivative: None,
     }
 }
 
@@ -1785,7 +1785,7 @@ pub fn matrix_tally(id: i32, groups: &GroupStructure, material_indices: Vec<usiz
         // because it carries no outgoing energy and the EnergyOutFilter
         // rejects it. That is what lets chi ride along without another pass.
         scores: MATRIX_SCORE_TYPES.to_vec(),
-        bins: vec![TallyBin::default(); n * MATRIX_SCORES],
+        bins: vec![TallyBin::default(); n * MATRIX_SCORES], derivative: None,
     }
 }
 
@@ -1813,7 +1813,7 @@ mod tests {
             name: "scalar".into(),
             filters: vec![],
             scores: SCALAR_SCORES.to_vec(),
-            bins,
+            bins, derivative: None,
         }
     }
 
@@ -1833,7 +1833,7 @@ mod tests {
             name: "matrix".into(),
             filters: vec![],
             scores: MATRIX_SCORE_TYPES.to_vec(),
-            bins,
+            bins, derivative: None,
         }
     }
 
@@ -2463,14 +2463,14 @@ mod tests {
             name: "scalar".into(),
             filters: vec![],
             scores: SCALAR_SCORES.to_vec(),
-            bins: sb,
+            bins: sb, derivative: None,
         };
         let matrix = Tally {
             id: 2,
             name: "matrix".into(),
             filters: vec![],
             scores: vec![ScoreType::ScatterN, ScoreType::NuFission],
-            bins: mb,
+            bins: mb, derivative: None,
         };
         let lib = condense(&two_group(), &["z".into()], &scalar, &matrix, 2).expect("condense");
         let z = &lib.zones[0];
@@ -2595,7 +2595,7 @@ mod tests {
             name: "m".into(),
             filters: vec![],
             scores: MATRIX_SCORE_TYPES.to_vec(),
-            bins: mb,
+            bins: mb, derivative: None,
         };
         let lib = condense(&two_group(), &["z".into()], &scalar, &matrix, 1).expect("condense");
         let z = &lib.zones[0];

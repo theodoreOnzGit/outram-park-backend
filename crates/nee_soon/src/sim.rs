@@ -346,7 +346,7 @@ pub fn cell_flux_tally(cell_indices: Vec<usize>) -> Tally {
         name: "cell flux".into(),
         filters: vec![filter],
         scores,
-        bins: vec![TallyBin::default(); n_bins],
+        bins: vec![TallyBin::default(); n_bins], derivative: None,
     }
 }
 
