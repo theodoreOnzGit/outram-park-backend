@@ -41,6 +41,7 @@
 >   - **Result:** **+52 ± 44 pcm (z 1.2), not resolved.** Pairs: +138, +201, −21, +30, +60, −95.
 >   - **Prediction** (within ±80 of zero, posted before the runs): held.
 >   - **Seed 1's +138 is mostly re-randomisation.** c1b106728's six seeds give 1.017037 ± 0.000386, consistent with the headline below. The headline stays on 516f559f8, its paired reference.
+>   - **`develop` 122217f38 (2026-11-20)** reproduces c1b106728's seed 1 bit for bit (1.018318). So nothing in between reaches N-1, including e771dbb94 (#689, the rule for laws 44/61).
 
 > **DEFAULTS CHANGED 2026-11-13 (maintainer, gh:#1128): "Have a dimension
 > dynamically shifting with temp. Shields all in shld be default … physical
