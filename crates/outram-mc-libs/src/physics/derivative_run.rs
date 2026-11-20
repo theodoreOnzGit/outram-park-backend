@@ -25,8 +25,12 @@
 //!
 //! **Scope.** Surface tracking, analog. Scores: flux, total, absorption,
 //! fission, scatter, and nu-fission for a DENSITY derivative (a nuclide-density
-//! derivative of nu-fission is refused: `MicroXS` has no nu-fission). Cross sections are the infinitely dilute ones
-//! (`Material::macro_xs`), not the sampled URR bands. Temperature derivatives
+//! derivative of nu-fission is refused: `MicroXS` has no nu-fission). ~~Cross sections are the infinitely dilute ones
+//! (`Material::macro_xs`), not the sampled URR bands.~~ **CORRECTED 2026-11-20
+//! (gh:#263):** the score, the density and nuclide-density track terms and the
+//! explicit term use the URR bands the kernel followed (`TraceEvent::Located`
+//! carries the flight's `urr_seed`; `Material::macro_xs_urr`). The temperature
+//! finite difference still differences the ordinary cross sections. Temperature derivatives
 //! use a central finite difference of the nuclides' cross sections over the
 //! temperature argument (OpenMC's multipole derivative, the same quantity) and
 //! are available only where the cross sections depend on it (the WMP `Core`
@@ -75,6 +79,19 @@ pub struct DerivativeResult {
     pub n_batches: usize,
 }
 
+/// The microscopic cross sections nuclide `idx` presents to the kernel at `e`:
+/// its **sampled unresolved-resonance band** (the draw `urr_xi(idx, urr_seed)`) when
+/// the energy is in its unresolved range with probability tables on, else the
+/// ordinary ones (gh:#263, as `Material::macro_xs_urr`).
+fn micro_urr(nuclides: &[Nuclide], idx: usize, e: f64, temperature: f64, urr_seed: u64) -> crate::material::nuclide::MicroXS {
+    let nuc = &nuclides[idx];
+    if nuc.needs_urr_draw(e) {
+        nuc.xs_at_energy_urr(e, temperature, crate::material::material::urr_xi(idx, urr_seed))
+    } else {
+        nuc.xs_at_energy(e, temperature)
+    }
+}
+
 /// `(d Sigma_s/dT, d Sigma_a/dT, d Sigma_f/dT)` of `material` at `e` \[cm^-1 K^-1\]: a
 /// central finite difference of each nuclide's microscopic cross sections over
 /// `+-TEMPERATURE_STEP_K` times its atom density (OpenMC uses the multipole
@@ -100,6 +117,8 @@ struct Accum {
     fd: FluxDerivative,
     err: Option<String>,
     cur_mat: Option<usize>,
+    /// The URR stream seed of the current flight (from `Located`).
+    urr_seed: u64,
     e_cur: f64,
     /// A collision-limited segment waiting for its collision:
     /// `(material, d * Sigma_x score value, explicit term)`.
@@ -112,7 +131,7 @@ struct Accum {
 
 impl Accum {
     fn new() -> Self {
-        Self { fd: FluxDerivative::default(), err: None, cur_mat: None, e_cur: 0.0, pending: None, sum: 0.0, dsum: 0.0, t_dep: false }
+        Self { fd: FluxDerivative::default(), err: None, cur_mat: None, urr_seed: 0, e_cur: 0.0, pending: None, sum: 0.0, dsum: 0.0, t_dep: false }
     }
 
     fn flush(&mut self, spec: &DerivativeSpec) {
@@ -131,11 +150,12 @@ impl Accum {
         nuclides: &[Nuclide],
         e: f64,
         d: f64,
+        urr_seed: u64,
     ) -> Result<(f64, f64), String> {
         if spec.score == ScoreType::Flux {
             return Ok((d, 0.0));
         }
-        let x = material.macro_xs(e, nuclides);
+        let x = material.macro_xs_urr(e, nuclides, urr_seed);
         let sigma_x = match spec.score {
             ScoreType::Total => x.total,
             ScoreType::Absorption => x.absorption,
@@ -153,7 +173,7 @@ impl Accum {
                 return Err("a nuclide-density derivative of nu-fission is not supported: MicroXS carries no nu-fission".into())
             }
             DerivativeVariable::NuclideDensity { nuclide_idx } => {
-                let micro = nuclides[nuclide_idx].xs_at_energy(e, material.temperature);
+                let micro = micro_urr(nuclides, nuclide_idx, e, material.temperature, urr_seed);
                 let sigma_i = match spec.score {
                     ScoreType::Total => micro.total,
                     ScoreType::Absorption => micro.absorption,
@@ -182,9 +202,10 @@ impl Accum {
                 self.flush(spec);
                 self.e_cur = e;
             }
-            TraceEvent::Located { material, .. } => {
+            TraceEvent::Located { material, urr_seed, .. } => {
                 self.flush(spec);
                 self.cur_mat = material;
+                self.urr_seed = urr_seed;
             }
             TraceEvent::Segment { d_collision, d_boundary, .. } => {
                 let d = d_collision.min(d_boundary);
@@ -196,10 +217,28 @@ impl Accum {
                             self.t_dep |= ds != 0.0 || da != 0.0;
                             self.fd.value -= d * (ds + da);
                         }
-                    } else if let Err(e) = spec.derivative.accumulate_along_track(&mut self.fd, m, &materials[m], nuclides, d, self.e_cur) {
-                        self.err.get_or_insert(e);
+                    } else if m == spec.derivative.material_idx {
+                        // Track term with the SAMPLED cross sections the flight used
+                        // (gh:#263): density -d * Sigma_t / rho; nuclide density
+                        // -d * sigma_t,i.
+                        match spec.derivative.variable {
+                            DerivativeVariable::Density => {
+                                let rho: f64 = materials[m].components.iter().map(|c| c.atom_density).sum();
+                                if rho > 0.0 {
+                                    let st = materials[m].macro_xs_urr(self.e_cur, nuclides, self.urr_seed).total;
+                                    self.fd.value -= d * st / rho;
+                                } else {
+                                    self.err.get_or_insert(format!("material {m} has zero atom density"));
+                                }
+                            }
+                            DerivativeVariable::NuclideDensity { nuclide_idx } => {
+                                let st = micro_urr(nuclides, nuclide_idx, self.e_cur, materials[m].temperature, self.urr_seed).total;
+                                self.fd.value -= d * st;
+                            }
+                            DerivativeVariable::Temperature => {}
+                        }
                     }
-                    match Self::segment_score(spec, &materials[m], nuclides, self.e_cur, d) {
+                    match Self::segment_score(spec, &materials[m], nuclides, self.e_cur, d, self.urr_seed) {
                         Ok((s, explicit)) => {
                             if d_collision <= d_boundary {
                                 self.pending = Some((m, s, explicit));

@@ -2452,6 +2452,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                 cell: cell_idx,
                 material: path.material,
                 sigma_t,
+                urr_seed,
             });
 
             let d_bound = geom.distance_to_boundary(&path);
