@@ -12,7 +12,7 @@ scheme), `PAIR` (no NRC tables or triplets), `PHOTO` (no MCDF or EADL),
 `BHABHA`, `MOLLER` (no EII), `BREMS` (Bethe-Heitler), `PHOTON` (behind the
 `Geometry` trait, no Rayleigh or photonuclear), `SHOWER` (behind the
 `ElectronTransport` trait), `UPHI` (IENTRY 1, 2, 3), `mscat`, `sscat`,
-`spin_rejection`, the MS-table text reader of `init_ms_SR`, Russian roulette,
+`spin_rejection`, the MS-table text reader of `init_ms_SR`, the `EDGSET` data readers (`edgset_from_text`), Russian roulette,
 and the stack, azimuth and `$RANDOMSET` macros.
 
 ## Not ported, and what each needs
@@ -23,7 +23,6 @@ and the stack, azimuth and `$RANDOMSET` macros.
 | `mscati` | `:2749-2980` | Builds range, `tmxs` and the maximum cross sections per medium from `HATCH`'s tables. |
 | `init_spin` | `egsnrc.mortran` (spin data) | Fills `SpinData::spin_rej`; reads a data file. |
 | `HATCH` | `:1827-2598` | Reads PEGS4 data and builds every per-medium table the ported routines take as arguments (`PairMedium`, `BremsMedium`, `PhotonMediumData`, `ComptonData`, `RelaxData`, `PhotoData`). Needs PEGS4 data files (not vendored). |
-| `EDGSET` | `:6311-6438` | Photo-absorption edge fits (`PhotoData`), called from `HATCH`. |
 | `PHOTONUC` | `:9001` | Photonuclear reactions; off by default. |
 | `egs_rayleigh_sampling` | `:8558` | Rayleigh scattering; off by default (refused by `photon`). |
 | `sample_triplet`, NRC pair, NIST/NRC brems tables, EII (`eii_sample`), shellwise PE, EADL relaxation | various | Off by default; each is refused with `EgsError::Unsupported`. |

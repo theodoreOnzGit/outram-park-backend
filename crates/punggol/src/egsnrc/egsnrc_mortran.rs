@@ -28,6 +28,7 @@
 //! | `SUBROUTINE PHOTON` (`egsnrc.mortran:6438-6640`), without Rayleigh or photonuclear | [`photon`] |
 //! | `SUBROUTINE SHOWER` (`egsnrc.mortran:6645-6718`) | [`shower`] |
 //! | `SUBROUTINE mscat`, `spin_rejection`, `sscat` (`egsnrc.mortran:2983-3263`) and the table reader of `init_ms_SR` (`:3266-3306`) | [`mscat`], [`spin_rejection`], [`sscat`], [`MsData::from_text`] |
+//! | `SUBROUTINE EDGSET` (`egsnrc.mortran:6311-6430`), the data readers | [`edgset_from_text`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -2269,6 +2270,100 @@ pub const QMIN_MS: f64 = 1e-3;
 /// `$QMAX_MS`.
 pub const QMAX_MS: f64 = 0.5;
 
+/// One Fortran list-directed `read(unit,*) a, b, c ...` of `n` values: values
+/// are separated by blanks or commas, `D` exponents are accepted, and the
+/// read continues over lines until `n` values are in; a record's surplus
+/// values are dropped, as the Fortran `read` drops them.
+fn read_record(lines: &mut core::str::Lines<'_>, n: usize) -> Result<Vec<f64>, String> {
+    let mut out: Vec<f64> = Vec::with_capacity(n);
+    while out.len() < n {
+        let line = lines.next().ok_or_else(|| String::from("data ends early"))?;
+        for tok in line.split(|c: char| c.is_whitespace() || c == ',').filter(|t| !t.is_empty()) {
+            if out.len() == n {
+                break;
+            }
+            let t = tok.replace(['D', 'd'], "e");
+            out.push(t.parse::<f64>().map_err(|_| alloc::format!("bad value '{tok}'"))?);
+        }
+    }
+    Ok(out)
+}
+
+/// `EDGSET` (`egsnrc.mortran:6311-6430`): the readers of the simplified
+/// photo-absorption and relaxation data and the parametrised XCOM photoelectric
+/// fits, from in-memory copies of EGSnrc's `*_photo.data` (`photo`) and
+/// `*_phocs.data`-style (`phocs`) files. Opening the files is the caller's
+/// (EGSnrc's files are not vendored). Returns the [`RelaxData`] part
+/// (`binding_energies` in MeV, `relaxation_prob`) and the [`PhotoData`] part
+/// (`interaction_prob`, `edge_*`), 1-based over 100 elements.
+///
+/// Not ported: the `eadl_relax` variant (binding energies skipped, then
+/// `egs_init_relax`), and the "relaxations not requested" early return (the
+/// caller decides whether to read at all).
+///
+/// # Errors
+///
+/// A message when the text is short or a value does not parse.
+pub fn edgset_from_text(photo: &str, phocs: &str) -> Result<(RelaxData, PhotoData), String> {
+    const NEL: usize = 100; // $MXELEMENT
+    let mut lines = photo.lines();
+    let mut rd = RelaxData {
+        binding_energies: alloc::vec![alloc::vec![0.0; MXSHELL + 1]; NEL + 1],
+        relaxation_prob: alloc::vec![alloc::vec![0.0; MXTRANS + 1]; NEL + 1],
+    };
+    let mut pd = PhotoData {
+        edge_energies: alloc::vec![alloc::vec![0.0; MXEDGE + 2]; NEL + 1],
+        edge_number: alloc::vec![0; NEL + 1],
+        edge_a: alloc::vec![alloc::vec![0.0; MXEDGE + 2]; NEL + 1],
+        edge_b: alloc::vec![alloc::vec![0.0; MXEDGE + 2]; NEL + 1],
+        edge_c: alloc::vec![alloc::vec![0.0; MXEDGE + 2]; NEL + 1],
+        edge_d: alloc::vec![alloc::vec![0.0; MXEDGE + 2]; NEL + 1],
+        interaction_prob: alloc::vec![alloc::vec![0.0; MXSHELL + 1]; NEL + 1],
+    };
+    for i in 1..=NEL {
+        let r = read_record(&mut lines, 1 + MXSHELL)?;
+        for k in 1..=MXSHELL {
+            rd.binding_energies[i][k] = r[k] * 1e-6; // to MeV
+        }
+    }
+    lines.next();
+    for i in 1..=NEL {
+        let r = read_record(&mut lines, 1 + MXINTER)?;
+        for k in 1..=MXINTER {
+            pd.interaction_prob[i][k] = r[k];
+        }
+        pd.interaction_prob[i][MXSHELL] = 1.01;
+    }
+    // K, L1, L2, L3 and M relaxation probabilities, each after a header line
+    for &(first, last) in &[(1usize, 19usize), (20, 26), (27, 32), (33, 37), (38, 38)] {
+        lines.next();
+        for i in 1..=NEL {
+            let r = read_record(&mut lines, 1 + last - first + 1)?;
+            for k in first..=last {
+                rd.relaxation_prob[i][k] = r[k - first + 1];
+            }
+        }
+    }
+    let mut lines = phocs.lines();
+    for i in 1..=NEL {
+        let r = read_record(&mut lines, 2)?;
+        let n = r[1] as usize;
+        if n > MXEDGE {
+            return Err(alloc::format!("element {i} has {n} edges, more than {MXEDGE}"));
+        }
+        pd.edge_number[i] = n as i32;
+        for j in 1..=n {
+            let e = read_record(&mut lines, 5)?;
+            pd.edge_a[i][j] = e[0];
+            pd.edge_b[i][j] = e[1];
+            pd.edge_c[i][j] = e[2];
+            pd.edge_d[i][j] = e[3];
+            pd.edge_energies[i][j] = e[4];
+        }
+    }
+    Ok((rd, pd))
+}
+
 /// `COMMON/MS-DATA/` (`egsnrc.macros:861-871`): the pre-calculated screened
 /// Rutherford multiple-scattering `q^(2+)` surface. **Stored in single
 /// precision, as upstream** (`real*4`, `ims_array` a short integer): reading,
@@ -2305,30 +2400,17 @@ impl MsData {
     /// A message when the text is short or a value does not parse.
     pub fn from_text(text: &str) -> Result<Self, String> {
         let mut lines = text.lines();
-        fn record(lines: &mut core::str::Lines<'_>, n: usize) -> Result<Vec<f64>, String> {
-            let mut out: Vec<f64> = Vec::with_capacity(n);
-            while out.len() < n {
-                let line = lines.next().ok_or_else(|| String::from("MS data ends early"))?;
-                for tok in line.split(|c: char| c.is_whitespace() || c == ',').filter(|t| !t.is_empty()) {
-                    if out.len() == n {
-                        break;
-                    }
-                    let t = tok.replace(['D', 'd'], "e");
-                    out.push(t.parse::<f64>().map_err(|_| alloc::format!("bad MS value '{tok}'"))?);
-                }
-            }
-            Ok(out)
-        }
+        let mut record = |n: usize| read_record(&mut lines, n);
         let mut ums = alloc::vec![0.0_f32; MS_N];
         let mut fms = alloc::vec![0.0_f32; MS_N];
         let mut wms = alloc::vec![0.0_f32; MS_N];
         let mut ims = alloc::vec![0_i16; MS_N];
         for i in 0..=MAXL_MS {
             for j in 0..=MAXQ_MS {
-                let u = record(&mut lines, MAXU_MS + 1)?;
-                let f = record(&mut lines, MAXU_MS + 1)?;
-                let w = record(&mut lines, MAXU_MS)?;
-                let ii = record(&mut lines, MAXU_MS)?;
+                let u = record(MAXU_MS + 1)?;
+                let f = record(MAXU_MS + 1)?;
+                let w = record(MAXU_MS)?;
+                let ii = record(MAXU_MS)?;
                 for k in 0..=MAXU_MS {
                     ums[ms_idx(i, j, k)] = u[k] as f32;
                     fms[ms_idx(i, j, k)] = f[k] as f32;
@@ -3806,6 +3888,70 @@ mod tests {
         let cost = 1.0 - 2.0 * (0.5 / MAXU_SPIN as f64).powi(2); // xi*MAXU = 0.5
         let r = spin_rejection(&spin, 0, 1, 0.0, 0.9, 50.0, cost, &mut idx, false, &mut st, &mut rng);
         assert!((r - 0.5).abs() < 1e-6, "{r}");
+    }
+
+
+    fn synthetic_photo_text() -> String {
+        let mut t = String::new();
+        for i in 1..=100 {
+            // j then K, L1, L2, L3, M, N binding energies in eV
+            t.push_str(&alloc::format!("{i} {}.0 {}.0 {}.0 {}.0 {}.0 {}.0\n", i * 100, i * 10, i * 9, i * 8, i * 3, i));
+        }
+        t.push_str("header\n");
+        for i in 1..=100 {
+            t.push_str(&alloc::format!("{i} 0.8 0.5 0.5 0.5 0.5\n"));
+        }
+        for (first, last) in [(1usize, 19usize), (20, 26), (27, 32), (33, 37), (38, 38)] {
+            t.push_str("header\n");
+            for i in 1..=100 {
+                let vals: Vec<String> = (first..=last).map(|k| alloc::format!("{}.{}", k, i)).collect();
+                t.push_str(&alloc::format!("{i} {}\n", vals.join(" ")));
+            }
+        }
+        t
+    }
+
+    fn synthetic_phocs_text() -> String {
+        let mut t = String::new();
+        for i in 1..=100 {
+            let n = 2 + i % 3;
+            t.push_str(&alloc::format!("{i} {n}\n"));
+            for j in 1..=n {
+                t.push_str(&alloc::format!("{}.0 {}.5 {}.25 {}.75 0.0{}\n", j, j, j, j, i % 10 + j));
+            }
+        }
+        t
+    }
+
+    #[test]
+    fn edgset_reads_photo_and_relaxation_data() {
+        let (rd, pd) = edgset_from_text(&synthetic_photo_text(), &synthetic_phocs_text()).unwrap();
+        // binding energies converted from eV to MeV
+        assert!((rd.binding_energies[6][1] - 600.0e-6).abs() < 1e-15);
+        assert!((rd.binding_energies[6][6] - 6.0e-6).abs() < 1e-15);
+        assert_eq!(pd.interaction_prob[6][1], 0.8);
+        assert_eq!(pd.interaction_prob[6][MXSHELL], 1.01, "the last shell always interacts");
+        // the five relaxation blocks land at their k ranges
+        assert_eq!(rd.relaxation_prob[7][1], 1.7);
+        assert_eq!(rd.relaxation_prob[7][19], 19.7);
+        assert_eq!(rd.relaxation_prob[7][20], 20.7);
+        assert_eq!(rd.relaxation_prob[7][26], 26.7);
+        assert_eq!(rd.relaxation_prob[7][27], 27.7);
+        assert_eq!(rd.relaxation_prob[7][33], 33.7);
+        assert_eq!(rd.relaxation_prob[7][37], 37.7);
+        assert_eq!(rd.relaxation_prob[7][38], 38.7);
+        assert_eq!(rd.relaxation_prob[7][39], 0.0, "transition 39 is never read");
+        // edge fits
+        assert_eq!(pd.edge_number[3], 2);
+        assert_eq!(pd.edge_a[3][2], 2.0);
+        assert_eq!(pd.edge_b[3][2], 2.5);
+        assert_eq!(pd.edge_c[3][1], 1.25);
+        assert_eq!(pd.edge_d[3][1], 1.75);
+        // short or malformed input is an error
+        assert!(edgset_from_text("1 2 3", &synthetic_phocs_text()).is_err());
+        assert!(edgset_from_text(&synthetic_photo_text(), "1 3\n").is_err());
+        assert!(edgset_from_text(&synthetic_photo_text(), "1 99\n").is_err(), "more edges than MXEDGE");
+        assert!(edgset_from_text(&synthetic_photo_text().replacen("0.8", "q", 1), &synthetic_phocs_text()).is_err());
     }
 
     #[test]
