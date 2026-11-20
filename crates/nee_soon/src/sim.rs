@@ -307,6 +307,23 @@ pub fn csg_from_mesh(mesh: &Mesh, material_idx: usize) -> Result<SimGeometry, Si
     if let Some(cell) = geometry.cells.first_mut() {
         cell.fill = CellFill::Material(material_idx);
     }
+    // The exported body is the WHOLE model: nothing lies outside its surfaces, so
+    // they are vacuum boundaries. The export tags them Transmissive (it cannot
+    // know), and since gh:#699 a particle leaving through a Transmissive surface
+    // into no cell is a LOST particle (OpenMC `mark_as_lost`) that aborts the run
+    // past the lost-particle limit, instead of the silent leak it used to be.
+    for surface in &mut geometry.surfaces {
+        use outram_mc_libs::geometry::surface::{BoundaryType, SurfaceKind};
+        match surface {
+            SurfaceKind::XPlane(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::YPlane(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::ZPlane(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::Plane(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::Sphere(x) => x.bc = BoundaryType::Vacuum,
+            SurfaceKind::ZCylinder(x) => x.bc = BoundaryType::Vacuum,
+            _ => {}
+        }
+    }
 
     // Source box = the mesh's bounding box (a fissile body sits inside it).
     let verts = mesh.positions();

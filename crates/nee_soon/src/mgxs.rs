@@ -62,7 +62,7 @@
 //! | pass | filters | scores |
 //! |---|---|---|
 //! | scalar | `[Material, Energy]` | `Flux, Total, Absorption, NuFission, KappaFission, Fission` |
-//! | matrix | `[Material, Energy, EnergyOut]` | `ScatterN` (nu-scatter), `NuFission` (births, for `chi`), `Scatter` (scatter-only, since 2026-10-13) |
+//! | matrix | `[Material, Energy, EnergyOut]` | `NuScatter` (nu-scatter; `ScatterN` until 2026-11-20, gh:#680), `NuFission` (births, for `chi`), `Scatter` (scatter-only, since 2026-10-13) |
 //!
 //! Because the histories are identical, the flux denominator from the scalar
 //! pass is the correct denominator for the matrix pass; they are not two
@@ -1519,14 +1519,14 @@ fn reverse_matrix(m: &[Vec<f64>]) -> Vec<Vec<f64>> {
 }
 
 /// The score order the matrix pass must declare, and that [`condense`]
-/// assumes: the nu-scatter matrix (`ScatterN`), the fission births that give
+/// assumes: the nu-scatter matrix (`NuScatter`, gh:#680), the fission births that give
 /// `chi` (`NuFission`) and, appended 2026-10-13 (gh:#682), the scatter-only
 /// matrix (`Scatter`). All three need the same
 /// `[Material, Energy, EnergyOut]` filters, so they share one tally and one
 /// transport pass. Exposed so a caller building its own matrix tally
 /// (`dhoby-ghaut`'s mesh tally) cannot disagree with the reader.
 pub const MATRIX_SCORE_TYPES: [ScoreType; 3] =
-    [ScoreType::ScatterN, ScoreType::NuFission, ScoreType::Scatter];
+    [ScoreType::NuScatter, ScoreType::NuFission, ScoreType::Scatter];
 
 /// Number of scores in the matrix pass (`MATRIX_SCORE_TYPES.len()`).
 pub const MATRIX_SCORES: usize = MATRIX_SCORE_TYPES.len();
@@ -2469,7 +2469,7 @@ mod tests {
             id: 2,
             name: "matrix".into(),
             filters: vec![],
-            scores: vec![ScoreType::ScatterN, ScoreType::NuFission],
+            scores: vec![ScoreType::NuScatter, ScoreType::NuFission],
             bins: mb, derivative: None,
         };
         let lib = condense(&two_group(), &["z".into()], &scalar, &matrix, 2).expect("condense");
