@@ -1307,6 +1307,19 @@ The one-group prediction undervalued the upper head's 26 cm of salt. That salt b
 - **Reading:** most of the ~10 % rod overestimate came from the old S(α,β) emission grid, the staircase between calcem nodes (gh:#550). The poison model is not the cause. On the current default, rod 1 is within 3 % of the measured worth.
   - The **bank (all rods at 0) is not re-measured** on the current default. It probably drops by a similar fraction, but that is not tested.
   - The suspects below now explain at most a few percent.
+- **Rod 1 integral curve, pre-#550 build (54d472f7f), six seeds per position, 2026-11-20.**
+  - **Method:** rods 2 and 3 at 51 in, rod 1 at p. The worth inserted is 1/k(p) − 1/k(51), paired by seed. The fraction is that worth over rod 1's full worth (p = 0), also paired by seed.
+
+| rod 1 at | k (6 seeds) | worth inserted | fraction | predicted (gh:#1658) | z |
+|---|---|---|---|---|---|
+| 40 in | 1.015052 ± 0.000281 | 0.257 ± 0.032 % | 0.104 ± 0.013 | 0.06 | +3.4 |
+| 30 in | 1.010245 ± 0.000260 | 0.726 ± 0.023 % | 0.293 ± 0.009 | 0.33 | −4.2 |
+| 20 in | 1.003790 ± 0.000158 | 1.362 ± 0.018 % | 0.551 ± 0.009 | 0.71 | −18.2 |
+| 10 in | 0.996982 ± 0.000222 | 2.042 ± 0.030 % | 0.825 ± 0.010 | 0.95 | −11.9 |
+
+  - **The prediction missed at every point.** It assumed a cosine-shaped flux over the rod's travel, giving an S-shaped integral curve. The computed curve is close to linear in the lower half: the bottom 10 in still carry 17.5 % of the worth, against 5 % predicted. Why the shape differs is **not investigated**.
+  - **No comparison with the measured curve:** ORNL-4233 Figs. 5–6 are not digitised here.
+  - **Pre-flip build:** the S(α,β) change moves the full worth by −6 %. The curve's fractions are ratios and may move less, but this is untested.
 - **Suspects, not yet tested:**
   - the poison's Gd₂O₃ content or density (TM-0728 Table 5.4);
   - the axial smearing of the elements;
