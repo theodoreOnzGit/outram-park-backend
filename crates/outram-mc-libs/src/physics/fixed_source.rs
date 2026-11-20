@@ -822,8 +822,12 @@ mod tests {
         let dn = TallyDerivative { material_idx: 0, variable: DerivativeVariable::NuclideDensity { nuclide_idx: 0 } };
         let rn = run_fixed_source_flux_derivative(&geom, &mats, &nuclides, &src, &settings, &dn, 0).unwrap();
         assert!((rn.d_flux - r.d_flux).abs() <= 1e-9 * r.d_flux.abs(), "{} vs {}", rn.d_flux, r.d_flux);
-        // Temperature is refused.
+        // ~~Temperature is refused.~~ **CORRECTED 2026-11-20:** it is supported on
+        // the WMP (`Core`) tier (finite-difference dSigma/dT); here it must run and
+        // give a finite number. Its analytic check is in
+        // `tests/tally_derivatives_wired.rs`.
         let dt = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Temperature };
-        assert!(run_fixed_source_flux_derivative(&geom, &mats, &nuclides, &src, &settings, &dt, 0).is_err());
+        let rt = run_fixed_source_flux_derivative(&geom, &mats, &nuclides, &src, &settings, &dt, 0).unwrap();
+        assert!(rt.d_flux.is_finite());
     }
 }
