@@ -366,7 +366,19 @@ fn ensemble_seeds() -> Option<Vec<u64>> {
 /// (`1.492429`).~~ **RE-PINNED 2026-11-17** (gh:#1635, maintainer-confirmed;
 /// per-material S(a,b) lengthens the nuclide array and re-draws the URR
 /// stream; old vs new z = +0.49 over 12 seeds).
-const HAND_K_MEAN_BITS_SEED_945: u64 = 0x3ff7e06041575ec6;
+///
+/// **RE-PINNED AGAIN 2026-11-20** (physics-default move, NOT rounding): was
+/// `0x3ff7e06041575ec6` (`1.492279`), now `0x3ff7dc1f2396f520` (`1.491241`), a
+/// change of -1.04e-3 absolute, -7.0e-4 relative (about -0.1 sigma at this
+/// run's sigma ~0.01). **Cause isolated by bisection:** the pin holds at
+/// `44f365bbb^` and fails at `44f365bbb` ("gh:#550 flip: ENDF-route S(a,b)
+/// emission tables on THERMR's calcem grid by default") with exactly this value;
+/// the flip re-pinned its own stationary-distribution tests but not this one.
+/// 7e-4 is beyond the 1e-4 propagated-rounding bound of CLAUDE.md, so this is
+/// recorded as a deliberate physics move, to be confirmed by the maintainer on
+/// gh:#550; the model-path agreement assertion above (3 combined sigma) is
+/// unchanged and passes.
+const HAND_K_MEAN_BITS_SEED_945: u64 = 0x3ff7dc1f2396f520;
 
 fn hand_materials(a: &AssembledModel) -> Vec<LowMaterial> {
     let comp = |nuclide_idx, atom_density| NuclideComponent {
