@@ -1,0 +1,13 @@
+{
+ "code": "openmc",
+ "swaps": [
+  "eig"
+ ],
+ "input": "/tmp/claude-0/-home-user-outram-park-backend/e2a0dbce-776f-5340-8a16-e227c5d4dc69/scratchpad/wmp1390d/in_296_t0.f64",
+ "orders": "98:130",
+ "iterations": 510,
+ "final_poles": 56,
+ "grid_points_outside": 1977,
+ "seconds": 1123.5576026439667,
+ "best_quality": 1.4756263185894738
+}
