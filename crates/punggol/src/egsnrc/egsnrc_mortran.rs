@@ -10,7 +10,7 @@
 //! `HEN_HOUSE/src/egsnrc.mortran` (EGSnrc, 9016 lines): HATCH (data set-up),
 //! the ELECTR and PHOTON transport loops and the physics routines they call.
 //!
-//! **Status: first port of nine routines, not differentially tested (gh:#1680).**
+//! **Status: first port of ten routines, not differentially tested (gh:#1680).**
 //! Everything else in the file is still a placeholder.
 //!
 //! | upstream | here |
@@ -24,6 +24,7 @@
 //! | `SUBROUTINE PHOTO` (`egsnrc.mortran:5049-5170`) with `$SELECT-PHOTOELECTRON-DIRECTION` (`egsnrc.macros:1916-1953`) | [`photo`], [`select_photoelectron_direction`] |
 //! | `SUBROUTINE BHABHA` (`egsnrc.mortran:229-309`) | [`bhabha`] |
 //! | `SUBROUTINE MOLLER` (`egsnrc.mortran:2598-2745`), without the EII branch | [`moller`] |
+//! | `SUBROUTINE BREMS` (`egsnrc.mortran:312-525`), Bethe-Heitler path | [`brems`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -1602,6 +1603,214 @@ pub fn moller<R: UniformSource>(
     Ok(true)
 }
 
+/// The per-medium bremsstrahlung data `BREMS` reads (`COMMON/BREMPR/`, filled
+/// by `HATCH` and `fix_brems`), `dl` 1-based as in [`PairMedium`].
+#[derive(Debug, Clone, Default)]
+pub struct BremsMedium {
+    /// `delcm`.
+    pub delcm: f64,
+    /// `dl1(l)`..`dl6(l)`.
+    pub dl: [Vec<f64>; 6],
+    /// `ZBRANG(MEDIUM)`.
+    pub zbrang: f64,
+    /// `LZBRANG(MEDIUM) = log(zbrang)`.
+    pub lzbrang: f64,
+    /// `AP(MEDIUM)`: photon production threshold, MeV.
+    pub ap: f64,
+    /// `log_ap(MEDIUM) = log(ap)`.
+    pub log_ap: f64,
+}
+
+/// Switches `BREMS` reads (`COMMON/BREMPR/`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BremsConfig {
+    /// `nbr_split` (default 1): photons per event; `0` turns bremsstrahlung off.
+    pub nbr_split: usize,
+    /// `ibrdst` (default 1): 1 Koch-Motz 2BS, 0 leading term, `< 0` photon
+    /// inherits the electron direction.
+    pub ibrdst: i32,
+    /// `ibr_nist` (default 0): 0 Bethe-Heitler; 1 and 2 (NIST / NRC alias
+    /// tables) are not ported and are refused.
+    pub ibr_nist: i32,
+}
+
+impl Default for BremsConfig {
+    fn default() -> Self {
+        Self { nbr_split: 1, ibrdst: 1, ibr_nist: 0 }
+    }
+}
+
+/// `BREMS` (`egsnrc.mortran:312-525`): bremsstrahlung by the electron on top
+/// of the stack. `nbr_split` photons of weight `wt/nbr_split` are pushed (energy
+/// from Bethe-Heitler, `L = 1` below 50 MeV and `3` above), the electron
+/// keeps slot `np_old` with `e = peie - e_photon(last)`. `elke` is
+/// `ln(E_kinetic)` as `ELECTR` computes it.
+///
+/// Not ported, refused with [`EgsError::Unsupported`]: the NIST/NRC
+/// cross-section alias tables (`ibr_nist >= 1`).
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`], or [`EgsError::Unsupported`] as above.
+pub fn brems<R: UniformSource>(
+    stack: &mut Stack,
+    med: &BremsMedium,
+    cfg: &BremsConfig,
+    elke: f64,
+    prm: f64,
+    rng: &mut R,
+) -> Result<(), EgsError> {
+    if cfg.nbr_split < 1 {
+        return Ok(());
+    }
+    if cfg.ibr_nist >= 1 {
+        return Err(EgsError::Unsupported("BREMS: NIST/NRC bremsstrahlung tables (ibr_nist >= 1)"));
+    }
+    let rm = RM;
+    stack.np_old = stack.np;
+    let npold = stack.np_old;
+    let peie = stack.e[stack.np];
+    let eie = peie;
+    let weight = stack.wt[stack.np] / cfg.nbr_split as f64;
+    let l = if eie < 50.0 { 1usize } else { 3usize };
+    let l1 = l + 1;
+    let ekin = peie - prm;
+    let brmin = med.ap / ekin;
+    let waux = elke - med.log_ap;
+
+    let (mut a, mut b, mut c) = (0.0, 0.0, 0.0);
+    let mut sinpsi = 0.0;
+    let (mut sindel, mut cosdel) = (0.0, 0.0);
+    let mut ztarg = 0.0;
+    let mut tteie = 0.0;
+    let mut y2max = 0.0;
+    let mut y2maxi = 0.0;
+    let (mut z2max, mut z2maxi) = (0.0, 0.0);
+    if cfg.ibrdst >= 0 {
+        let np = stack.np;
+        a = stack.u[np];
+        b = stack.v[np];
+        c = stack.w[np];
+        sinpsi = a * a + b * b;
+        if sinpsi > 1e-20 {
+            sinpsi = Real::sqrt(sinpsi);
+            sindel = b / sinpsi;
+            cosdel = a / sinpsi;
+        }
+        ztarg = med.zbrang;
+        tteie = eie / rm;
+        let beta = Real::sqrt((tteie - 1.0) * (tteie + 1.0)) / tteie;
+        y2max = 2.0 * beta * (1.0 + beta) * tteie * tteie;
+        y2maxi = 1.0 / y2max;
+        if cfg.ibrdst == 1 {
+            z2max = y2max + 1.0;
+            z2maxi = Real::sqrt(z2max);
+        }
+    }
+    let _ = z2max;
+
+    let mut pese = peie;
+    for _ in 1..=cfg.nbr_split {
+        // Bethe-Heitler
+        let (esg, ese);
+        loop {
+            let rnno06 = rng.uniform();
+            let rnno07 = rng.uniform();
+            let br = brmin * RealMath::r_exp(rnno06 * waux);
+            let e_g = ekin * br;
+            let e_e = peie - e_g;
+            let delta = e_g / eie / e_e * med.delcm;
+            let aux = e_e / eie;
+            let (phi1, phi2);
+            if delta < 1.0 {
+                phi1 = med.dl[0][l] + delta * (med.dl[1][l] + delta * med.dl[2][l]);
+                phi2 = med.dl[0][l1] + delta * (med.dl[1][l1] + delta * med.dl[2][l1]);
+            } else {
+                phi1 = med.dl[3][l] + med.dl[4][l] * RealMath::r_ln(delta + med.dl[5][l]);
+                phi2 = phi1;
+            }
+            let rejf = (1.0 + aux * aux) * phi1 - 2.0 * aux * phi2 / 3.0;
+            if rnno07 < rejf {
+                esg = e_g;
+                ese = e_e;
+                break;
+            }
+        }
+        pese = peie - esg;
+
+        // set up the new photon
+        stack.np += 1;
+        if stack.np > stack.mxstack() {
+            return Err(EgsError::StackExceeded { routine: "BREMS", needed: stack.np, mxstack: stack.mxstack() });
+        }
+        let np = stack.np;
+        stack.e[np] = esg;
+        stack.iq[np] = 0;
+        stack.transfer_properties(np, np - 1);
+        stack.wt[np] = weight;
+        if cfg.ibrdst < 0 {
+            stack.u[np] = stack.u[npold];
+            stack.v[np] = stack.v[npold];
+            stack.w[np] = stack.w[npold];
+        } else {
+            let mut y2tst;
+            if cfg.ibrdst == 1 {
+                let ttese = ese / rm;
+                let esedei = ttese / tteie;
+                let rjarg1 = 1.0 + esedei * esedei;
+                let rjarg2 = rjarg1 + 2.0 * esedei;
+                let mut aux = 2.0 * ese * tteie / esg;
+                aux *= aux;
+                let aux1 = aux * ztarg;
+                let rjarg3 = if aux1 > 10.0 {
+                    med.lzbrang + (1.0 - aux1) / (aux1 * aux1)
+                } else {
+                    RealMath::r_ln(aux / (1.0 + aux1))
+                };
+                let rejmax = rjarg1 * rjarg3 - rjarg2;
+                loop {
+                    y2tst = rng.uniform();
+                    let mut rtest = rng.uniform();
+                    let aux3 = z2maxi / (y2tst + (1.0 - y2tst) * z2maxi);
+                    rtest *= aux3 * rejmax;
+                    y2tst = aux3 * aux3 - 1.0;
+                    let a34 = aux3 * aux3 * aux3 * aux3;
+                    let y2tst1 = esedei * y2tst / a34;
+                    let aux4 = 16.0 * y2tst1 - rjarg2;
+                    let aux5 = rjarg1 - 4.0 * y2tst1;
+                    if rtest < aux4 + aux5 * rjarg3 {
+                        break;
+                    }
+                    let aux2 = RealMath::r_ln(aux / (1.0 + aux1 / a34));
+                    let rejtst = aux4 + aux5 * aux2;
+                    if rtest < rejtst {
+                        break;
+                    }
+                }
+            } else {
+                y2tst = rng.uniform();
+                y2tst /= 1.0 - y2tst + y2maxi;
+            }
+            let costhe = 1.0 - 2.0 * y2tst * y2maxi;
+            let sinthe = Real::sqrt(((1.0 - costhe) * (1.0 + costhe)).max(0.0));
+            let (cphi, sphi) = select_azimuthal_angle(rng);
+            if sinpsi >= 1e-10 {
+                let us = sinthe * cphi;
+                let vs = sinthe * sphi;
+                stack.u[np] = c * cosdel * us - sindel * vs + a * costhe;
+                stack.v[np] = c * sindel * us + cosdel * vs + b * costhe;
+                stack.w[np] = c * costhe - sinpsi * us;
+            } else {
+                stack.u[np] = sinthe * cphi;
+                stack.v[np] = sinthe * sphi;
+                stack.w[np] = c * costhe;
+            }
+        }
+    }
+    stack.e[npold] = pese;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2265,6 +2474,79 @@ mod tests {
         fullb.e[1] = 1.0 + RM;
         fullb.w[1] = 1.0;
         assert!(matches!(bhabha(&mut fullb, 0.01, RM, &mut rng), Err(EgsError::StackExceeded { routine: "BHABHA", .. })));
+    }
+
+
+    fn toy_brems_medium() -> BremsMedium {
+        let one = alloc::vec![1.0; 9];
+        let zero = alloc::vec![0.0; 9];
+        BremsMedium {
+            delcm: 0.5,
+            dl: [one.clone(), zero.clone(), zero, one.clone(), alloc::vec![0.0; 9], one],
+            zbrang: 0.02,
+            lzbrang: (0.02f64).ln(),
+            ap: 0.01,
+            log_ap: (0.01f64).ln(),
+        }
+    }
+
+    #[test]
+    fn brems_photon_energy_weight_and_direction() {
+        let mut rng = Ranmar::new(21, 22);
+        let med = toy_brems_medium();
+        for &ibrdst in &[1, 0, -1] {
+            for &ekin in &[0.1, 2.0, 60.0] {
+                for _ in 0..30 {
+                    let peie = ekin + RM;
+                    let mut st = Stack::new(10);
+                    st.np = 1;
+                    st.e[1] = peie;
+                    st.iq[1] = -1;
+                    st.wt[1] = 3.0;
+                    st.ir[1] = 4;
+                    (st.u[1], st.v[1], st.w[1]) = (0.0, 0.6, 0.8);
+                    let cfg = BremsConfig { ibrdst, ..Default::default() };
+                    brems(&mut st, &med, &cfg, ekin.ln(), RM, &mut rng).unwrap();
+                    assert_eq!((st.np_old, st.np), (1, 2));
+                    assert_eq!((st.iq[2], st.ir[2], st.wt[2]), (0, 4, 3.0));
+                    assert!(st.e[2] >= med.ap * 0.999 && st.e[2] <= ekin * (1.0 + 1e-12), "k {}", st.e[2]);
+                    assert!((st.e[1] + st.e[2] - peie).abs() < 1e-12);
+                    assert!((norm(&st, 2) - 1.0).abs() < 1e-9, "ibrdst {ibrdst}");
+                    if ibrdst < 0 {
+                        assert_eq!((st.u[2], st.v[2], st.w[2]), (0.0, 0.6, 0.8));
+                    }
+                }
+            }
+        }
+        // splitting: n photons of weight wt/n, the electron keeps the last photon's loss
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 1.0 + RM;
+        st.wt[1] = 6.0;
+        st.w[1] = 1.0;
+        let cfg = BremsConfig { nbr_split: 3, ..Default::default() };
+        brems(&mut st, &med, &cfg, (1.0f64).ln(), RM, &mut rng).unwrap();
+        assert_eq!(st.np, 4);
+        assert!((2..=4).all(|i| st.wt[i] == 2.0 && st.iq[i] == 0));
+        assert!((st.e[1] - (1.0 + RM - st.e[4])).abs() < 1e-12);
+        // off, refused tables, and a full stack
+        let mut off = Stack::new(10);
+        off.np = 1;
+        off.e[1] = 1.0 + RM;
+        brems(&mut off, &med, &BremsConfig { nbr_split: 0, ..Default::default() }, 0.0, RM, &mut rng).unwrap();
+        assert_eq!(off.np, 1);
+        assert!(matches!(
+            brems(&mut off, &med, &BremsConfig { ibr_nist: 1, ..Default::default() }, 0.0, RM, &mut rng),
+            Err(EgsError::Unsupported(_))
+        ));
+        let mut full = Stack::new(1);
+        full.np = 1;
+        full.e[1] = 1.0 + RM;
+        full.w[1] = 1.0;
+        assert!(matches!(
+            brems(&mut full, &med, &BremsConfig::default(), 0.0, RM, &mut rng),
+            Err(EgsError::StackExceeded { routine: "BREMS", .. })
+        ));
     }
 
     #[test]
