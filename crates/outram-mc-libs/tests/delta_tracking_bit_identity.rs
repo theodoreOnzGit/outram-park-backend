@@ -561,7 +561,14 @@ fn hybrid_csg_paths_are_bit_identical() {
     let mut fp = Fp::new();
     fp.keff(&r);
     fp.tally(&t, n_active);
-    check("hybrid_par2_tentative", fp.0, 0x5b8d4e1880b21e77, &describe(&r));
+    // Re-pinned 2026-11-20 (gh:#686): the parallel driver now folds each chunk's
+    // per-history tally batches into one chunk vector before the generation
+    // reduction, which changes the floating-point ASSOCIATION of the tally sums
+    // (chunk subtotals, then chunks in order; thread-count independent). `k`
+    // (1.25160 +/- 0.02114), every counter and the sequential pins are unchanged:
+    // restoring the old per-history summation alone reproduces
+    // 0x5b8d4e1880b21e77. The hash moves only through the tally means/errors.
+    check("hybrid_par2_tentative", fp.0, 0xf1fd8ce399f7dd4c, &describe(&r));
 }
 
 #[test]
