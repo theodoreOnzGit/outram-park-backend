@@ -249,7 +249,7 @@ mod context {
 
 #[cfg(all(feature = "std", not(target_os = "android")))]
 pub use context::{block_on, probe, GpuContext};
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "std", not(target_os = "android"), not(target_arch = "wasm32")))]
 pub use context::shared_probe;
 
 // ---------------------------------------------------------------------------
