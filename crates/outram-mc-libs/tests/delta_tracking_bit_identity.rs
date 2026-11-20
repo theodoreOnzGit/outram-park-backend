@@ -715,7 +715,7 @@ fn a_container_cell_filter_scores_inside_a_delta_region() {
     let mats = materials();
     let maj = majorant(&mats, &nucs);
     let geom = geometry(true);
-    let run = |cells: Vec<usize>| {
+    let run = |cells: Vec<usize>, est: DeltaTallyEstimator| {
         let n = cells.len();
         let mut t = Tally {
             id: 677,
@@ -732,15 +732,17 @@ fn a_container_cell_filter_scores_inside_a_delta_region() {
             std::slice::from_ref(&maj),
             None,
             source(),
-            &settings(ComputeType::CpuSingleThread, DeltaTallyEstimator::default()),
+            &settings(ComputeType::CpuSingleThread, est),
             Some(&mut t),
         );
         t.bins.iter().map(|b| b.sum).collect::<Vec<f64>>()
     };
-    let leaves = run(vec![0, 1, 2]);
-    let container = run(vec![3]);
-    println!("leaf sums {leaves:?}, container {container:?}");
+    for est in [DeltaTallyEstimator::TentativeCollision, DeltaTallyEstimator::RealCollision] {
+    let leaves = run(vec![0, 1, 2], est);
+    let container = run(vec![3], est);
+    println!("{est:?}: leaf sums {leaves:?}, container {container:?}");
     let total: f64 = leaves.iter().sum();
     assert!(container[0] > 0.0, "container cell must score");
     assert!((container[0] - total).abs() <= 1e-9 * total, "container {} vs leaf sum {}", container[0], total);
+    }
 }

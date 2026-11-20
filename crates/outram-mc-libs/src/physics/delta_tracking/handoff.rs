@@ -85,7 +85,7 @@ use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::tally::history_events::EventHistory;
-use crate::tally::scoring::{score_collision_point, score_collision_point_hist};
+use crate::tally::scoring::score_collision_point_hist;
 use crate::tally::tally::Tally;
 
 use crate::physics::tracking_trace::TraceEvent;
@@ -378,11 +378,15 @@ pub(crate) fn score_real_collision(
     distance: f64,
     material: usize,
     urr_seed: u64,
+    path: &GeometryPath,
 ) {
     let FlightStart { r, u, e, w, time_s } = p;
     let mxs = materials[material].macro_xs_urr(e, nuclides, urr_seed);
     if mxs.total > 0.0 {
-        score_collision_point(
+        // gh:#677: the whole coordinate path, as for the tentative sites.
+        let mut hist = EventHistory::default();
+        hist.set_levels(path.levels.iter().map(|c| (c.cell, c.universe)));
+        score_collision_point_hist(
             batch,
             tally,
             bins.cell,
@@ -396,6 +400,7 @@ pub(crate) fn score_real_collision(
             bins.instance,
             time_s + crate::physics::transport_csg::flight_time(distance, e),
             u,
+            &hist,
         );
     }
 }

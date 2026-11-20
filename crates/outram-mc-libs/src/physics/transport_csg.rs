@@ -2662,6 +2662,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                     d_col,
                                     m,
                                     urr_seed,
+                                    &path,
                                 );
                             }
                         }
