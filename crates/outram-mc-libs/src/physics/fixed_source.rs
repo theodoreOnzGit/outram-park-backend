@@ -194,8 +194,9 @@ pub struct FixedSourceSettings {
     /// source particle. `false` (default) caps the live bank, as upstream.
     pub cumulative_secondary_cap: bool,
     /// Normalise each batch per source particle before it is flushed (gh:#675,
-    /// OpenMC `Tally::accumulate`); `false` (default) keeps the raw per-batch sums.
-    /// The divisor is that batch's own particle count.
+    /// OpenMC `Tally::accumulate`). **`true` is the default since 2026-11-20**
+    /// (maintainer direction on gh:#675); ~~`false` kept the raw per-batch sums~~
+    /// and is the explicit ablation. The divisor is that batch's own particle count.
     pub normalise_tallies: bool,
     /// Variance reduction (GitHub #258). The [`Default`] is analog.
     ///
@@ -236,7 +237,7 @@ impl Default for FixedSourceSettings {
             seed: 1,
             max_secondaries: 10_000,
             cumulative_secondary_cap: false,
-            normalise_tallies: false,
+            normalise_tallies: true,
             seeding: Default::default(),
             tally_batch_log: None,
         }
@@ -628,8 +629,9 @@ mod tests {
         );
         assert_eq!(res.multiplication, 0.0, "no fissile material");
         // Flux tally sum is the total track length = N·R (exact for a void).
-        let total_path = tally.bins[0].sum;
-        let mean_path = total_path / n as f64;
+        // gh:#675: normalised per source particle by default, so the mean over
+        // batches IS the mean path length (before: raw sum / n).
+        let mean_path = tally.bins[0].mean_realized();
         assert!(
             (mean_path - r_cm).abs() < 1e-9,
             "mean path length = R; got {mean_path} vs {r_cm}"
