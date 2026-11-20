@@ -24,8 +24,8 @@
 //! length was sampled from a density that contains the collision.
 //!
 //! **Scope.** Surface tracking, analog. Scores: flux, total, absorption,
-//! fission, scatter (nuclide-density: not nu-fission, which has no microscopic
-//! counterpart on `MicroXS`). Cross sections are the infinitely dilute ones
+//! fission, scatter, and nu-fission for a DENSITY derivative (a nuclide-density
+//! derivative of nu-fission is refused: `MicroXS` has no nu-fission). Cross sections are the infinitely dilute ones
 //! (`Material::macro_xs`), not the sampled URR bands. Temperature derivatives
 //! are refused (they need `d Sigma / dT`). **Eigenvalue runs** differentiate the
 //! tally for a FIXED fission source, as OpenMC's differential tallies do: the
@@ -114,6 +114,7 @@ impl Accum {
             ScoreType::Total => x.total,
             ScoreType::Absorption => x.absorption,
             ScoreType::Fission => x.fission,
+            ScoreType::NuFission => x.nu_fission,
             ScoreType::Scatter => (x.total - x.absorption).max(0.0),
             other => return Err(format!("a derivative of {other:?} is not supported here")),
         };
@@ -121,6 +122,9 @@ impl Accum {
             DerivativeVariable::Density => {
                 let rho: f64 = material.components.iter().map(|c| c.atom_density).sum();
                 if rho > 0.0 { 1.0 / rho } else { 0.0 }
+            }
+            DerivativeVariable::NuclideDensity { .. } if spec.score == ScoreType::NuFission => {
+                return Err("a nuclide-density derivative of nu-fission is not supported: MicroXS carries no nu-fission".into())
             }
             DerivativeVariable::NuclideDensity { nuclide_idx } => {
                 let micro = nuclides[nuclide_idx].xs_at_energy(e, material.temperature);
@@ -188,7 +192,7 @@ fn check(spec: &DerivativeSpec) -> Result<(), String> {
     if matches!(spec.derivative.variable, DerivativeVariable::Temperature) {
         return Err("a temperature derivative needs d(Sigma)/dT, which this port does not have".into());
     }
-    if !matches!(spec.score, ScoreType::Flux | ScoreType::Total | ScoreType::Absorption | ScoreType::Fission | ScoreType::Scatter) {
+    if !matches!(spec.score, ScoreType::Flux | ScoreType::Total | ScoreType::Absorption | ScoreType::Fission | ScoreType::NuFission | ScoreType::Scatter) {
         return Err(format!("a derivative of {:?} is not supported here", spec.score));
     }
     Ok(())
