@@ -29,6 +29,7 @@
 //! | `SUBROUTINE SHOWER` (`egsnrc.mortran:6645-6718`) | [`shower`] |
 //! | `SUBROUTINE mscat`, `spin_rejection`, `sscat` (`egsnrc.mortran:2983-3263`) and the table reader of `init_ms_SR` (`:3266-3306`) | [`mscat`], [`spin_rejection`], [`sscat`], [`MsData::from_text`] |
 //! | `SUBROUTINE EDGSET` (`egsnrc.mortran:6311-6430`), the data readers | [`edgset_from_text`] |
+//! | `SUBROUTINE msdist_pI` (`egsnrc.mortran:4309-4455`), `msdist_pII` (`:4049-4290`) | [`msdist_p1`], [`msdist_p2`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -2770,6 +2771,370 @@ pub fn mscat<R: UniformSource>(
     Err(EgsError::Fatal("mscat: maximum step size exceeded (lambda > LAMBMAX_MS)"))
 }
 
+/// A piecewise-linear fit `f(lelke) = a1(lelke) * elke + a0(lelke)`
+/// (`$EVALUATE f USING name(elke)` with the interval `lelke` already set,
+/// `egsnrc.macros:1237-1247`). Both vectors are 1-based.
+#[derive(Debug, Clone, Default)]
+pub struct Pwlf {
+    /// `name0(lelke, medium)`.
+    pub a0: Vec<f64>,
+    /// `name1(lelke, medium)`.
+    pub a1: Vec<f64>,
+}
+
+impl Pwlf {
+    /// `a1(l) * x + a0(l)`.
+    pub fn eval(&self, l: usize, x: f64) -> f64 {
+        self.a1[l] * x + self.a0[l]
+    }
+}
+
+/// The per-medium data `msdist_pI` and `msdist_pII` read (`COMMON/ELECIN/`),
+/// for one medium.
+#[derive(Debug, Clone, Default)]
+pub struct MsMedium {
+    /// `blcc(medium)`: multiple-scattering parameter (with the Euler constant
+    /// absorbed, as `mscati` leaves it).
+    pub blcc: f64,
+    /// `xcc(medium)` (squared, as `mscati` leaves it).
+    pub xcc: f64,
+    /// `eke0`, `eke1`: `lelke = eke1 * elke + eke0`.
+    pub eke0: f64,
+    /// See `eke0`.
+    pub eke1: f64,
+    /// `etae_ms`, `etap_ms`: screening-angle correction for e-, e+.
+    pub etae_ms: Pwlf,
+    /// See `etae_ms`.
+    pub etap_ms: Pwlf,
+    /// `q1ce_ms`, `q1cp_ms`: first-moment correction.
+    pub q1ce_ms: Pwlf,
+    /// See `q1ce_ms`.
+    pub q1cp_ms: Pwlf,
+    /// `q2ce_ms`, `q2cp_ms`: second-moment correction (`msdist_pII` only).
+    pub q2ce_ms: Pwlf,
+    /// See `q2ce_ms`.
+    pub q2cp_ms: Pwlf,
+    /// `blcce`: correction to `blcc`.
+    pub blcce: Pwlf,
+}
+
+/// The inputs of `msdist_pI` / `msdist_pII`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MsDistInput {
+    /// `e0`: kinetic energy at the start of the step, MeV.
+    pub e0: f64,
+    /// `eloss`: energy loss for the step.
+    pub eloss: f64,
+    /// `tustep`: total path length, cm.
+    pub tustep: f64,
+    /// `rhof`: density scaling.
+    pub rhof: f64,
+    /// `qel`: 0 for e-, 1 for e+.
+    pub qel: usize,
+    /// `spin_effects`.
+    pub spin_effects: bool,
+    /// Initial direction cosines.
+    pub u0: f64,
+    /// See `u0`.
+    pub v0: f64,
+    /// See `u0`.
+    pub w0: f64,
+    /// Initial position, cm.
+    pub x0: f64,
+    /// See `x0`.
+    pub y0: f64,
+    /// See `x0`.
+    pub z0: f64,
+}
+
+/// The outputs of `msdist_pI` / `msdist_pII`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MsDistOutput {
+    /// Direction cosines after the step.
+    pub us: f64,
+    /// See `us`.
+    pub vs: f64,
+    /// See `us`.
+    pub ws: f64,
+    /// Final position, cm.
+    pub xf: f64,
+    /// See `xf`.
+    pub yf: f64,
+    /// See `xf`.
+    pub zf: f64,
+    /// Straight-line distance between the initial and final position.
+    pub ustep: f64,
+}
+
+/// The `SET INTERVAL elke,eke` of the spin-effect branches: `lelke`, with
+/// the "should normally not happen" clamp (`egsnrc.mortran:4119-4122`).
+fn spin_interval(med: &MsMedium, elke: f64) -> (usize, f64) {
+    let l = (med.eke1 * elke + med.eke0) as i64;
+    if l < 1 {
+        (1, (1.0 - med.eke0) / med.eke1)
+    } else {
+        (l as usize, elke)
+    }
+}
+
+/// Rotate the scattering and transport directions from the frame where the
+/// initial direction is along z into the lab frame, then transport
+/// (`egsnrc.mortran:4262-4290`, shared by both routines).
+#[allow(clippy::too_many_arguments)]
+fn ms_rotate_and_transport(
+    inp: &MsDistInput,
+    (mut us, mut vs, mut ws): (f64, f64, f64),
+    (mut ut, mut vt, mut wt): (f64, f64, f64),
+) -> MsDistOutput {
+    let sint02 = inp.u0 * inp.u0 + inp.v0 * inp.v0;
+    if sint02 > 1e-20 {
+        let sint0 = Real::sqrt(sint02);
+        let sint0i = 1.0 / sint0;
+        let cphi0 = sint0i * inp.u0;
+        let sphi0 = sint0i * inp.v0;
+        // scattering angles
+        let mut u2p = inp.w0 * us + sint0 * ws;
+        ws = inp.w0 * ws - sint0 * us;
+        us = u2p * cphi0 - vs * sphi0;
+        vs = u2p * sphi0 + vs * cphi0;
+        // transport angles
+        u2p = inp.w0 * ut + sint0 * wt;
+        wt = inp.w0 * wt - sint0 * ut;
+        ut = u2p * cphi0 - vt * sphi0;
+        vt = u2p * sphi0 + vt * cphi0;
+    } else {
+        wt *= inp.w0;
+        ws *= inp.w0;
+    }
+    MsDistOutput {
+        us,
+        vs,
+        ws,
+        xf: inp.x0 + inp.tustep * ut,
+        yf: inp.y0 + inp.tustep * vt,
+        zf: inp.z0 + inp.tustep * wt,
+        ustep: 0.0,
+    }
+}
+
+/// `msdist_pI` (`egsnrc.mortran:4309-4455`): multiple elastic scattering and
+/// the spatial deflection for a path length `tustep`, as PRESTA-I does it.
+/// `rmt2 = 2 RM`, `rmsq = RM^2`.
+///
+/// # Errors
+///
+/// From [`mscat`].
+#[allow(clippy::too_many_arguments)]
+pub fn msdist_p1<R: UniformSource>(
+    med: &MsMedium,
+    ms: &MsData,
+    spin: &SpinData,
+    inp: &MsDistInput,
+    medium: usize,
+    rng: &mut R,
+) -> Result<MsDistOutput, EgsError> {
+    let rmt2 = 2.0 * RM;
+    let rmsq = RM * RM;
+    let blccc = med.blcc;
+    let xcccc = med.xcc;
+    let e = inp.e0 - 0.5 * inp.eloss;
+    let p2 = e * (e + rmt2);
+    let p2i = 1.0 / p2;
+    let _chia2 = xcccc * p2i / (4.0 * blccc);
+    let beta2 = p2 / (p2 + rmsq);
+    let mut lambda = inp.tustep * inp.rhof * blccc / beta2;
+
+    // account for energy loss in the MS distribution
+    let factor = 1.0 / (1.0 + 0.9784671 * e);
+    let mut epsilon = inp.eloss / inp.e0;
+    epsilon /= 1.0 - 0.5 * epsilon;
+    let temp = 0.25 * (1.0 - factor * (1.0 - 0.333333 * factor)) * epsilon * epsilon;
+    lambda *= 1.0 + temp;
+
+    let (etap, xi_corr, ms_corr);
+    let mut elke = 0.0;
+    if inp.spin_effects {
+        elke = RealMath::r_ln(e);
+        let (l, el) = spin_interval(med, elke);
+        elke = el;
+        if inp.qel == 0 {
+            etap = med.etae_ms.eval(l, elke);
+            xi_corr = med.q1ce_ms.eval(l, elke);
+        } else {
+            etap = med.etap_ms.eval(l, elke);
+            xi_corr = med.q1cp_ms.eval(l, elke);
+        }
+        ms_corr = med.blcce.eval(l, elke);
+    } else {
+        etap = 1.0;
+        xi_corr = 1.0;
+        ms_corr = 1.0;
+    }
+    let chia2 = xcccc * p2i / (4.0 * blccc) * etap;
+    lambda = lambda / etap / (1.0 + chia2) * ms_corr;
+    let chilog = RealMath::r_ln(1.0 + 1.0 / chia2);
+    let q1 = 2.0 * chia2 * (chilog * (1.0 + chia2) - 1.0);
+    let mut xi = q1 * lambda;
+
+    // sample the multiple scattering angle
+    let (mut find_index, mut spin_index) = (true, true);
+    let mut st = MscatState::default();
+    let mut ss = SpinState::default();
+    let (ws, sint) = mscat(
+        ms, spin, lambda, chia2, xi, elke, beta2, inp.qel, medium, inp.spin_effects, &mut find_index,
+        &mut spin_index, &mut st, &mut ss, rng,
+    )?;
+    let (cphi, sphi) = select_azimuthal_angle(rng);
+    let us = sint * cphi;
+    let vs = sint * sphi;
+
+    // correct xi used for the PLC calculation for spin effects
+    xi *= xi_corr;
+    let z = if xi < 0.1 {
+        1.0 - xi * (0.5 - xi * (0.166666667 - 0.041666667 * xi))
+    } else {
+        (1.0 - RealMath::r_exp(-xi)) / xi
+    };
+    let mut r = 0.5 * sint;
+    let mut r2 = r * r;
+    let z2 = z * z;
+    let r2max = 1.0 - z2;
+    if r2max < r2 {
+        r2 = r2max;
+        r = Real::sqrt(r2);
+    }
+    let (ut, vt, wt) = (r * cphi, r * sphi, z);
+    let ustep = Real::sqrt(z2 + r2) * inp.tustep;
+    let mut out = ms_rotate_and_transport(inp, (us, vs, ws), (ut, vt, wt));
+    out.ustep = ustep;
+    Ok(out)
+}
+
+/// `msdist_pII` (`egsnrc.mortran:4049-4290`): multiple elastic scattering and
+/// the spatial deflection for a path length `tustep`, as PRESTA-II does it
+/// (two substeps with randomised transport distances). `count_p2_steps` is
+/// `count_pII_steps` (`COMMON/CH-Steps/`).
+///
+/// # Errors
+///
+/// From [`mscat`].
+#[allow(clippy::too_many_arguments)]
+pub fn msdist_p2<R: UniformSource>(
+    med: &MsMedium,
+    ms: &MsData,
+    spin: &SpinData,
+    inp: &MsDistInput,
+    medium: usize,
+    count_p2_steps: &mut f64,
+    rng: &mut R,
+) -> Result<MsDistOutput, EgsError> {
+    let rmt2 = 2.0 * RM;
+    let rmsq = RM * RM;
+    let prm = RM;
+    *count_p2_steps += 1.0;
+    let blccc = med.blcc;
+    let xcccc = med.xcc;
+
+    // commonly used factors
+    let mut e = inp.e0 - 0.5 * inp.eloss;
+    let tau = e / prm;
+    let tau2 = tau * tau;
+    let epsilon = inp.eloss / inp.e0;
+    let epsilonp = inp.eloss / e;
+    e *= 1.0 - epsilonp * epsilonp * (6.0 + 10.0 * tau + 5.0 * tau2) / (24.0 * tau2 + 72.0 * tau + 48.0);
+    let p2 = e * (e + rmt2);
+    let beta2 = p2 / (p2 + rmsq);
+    let mut chia2 = xcccc / (4.0 * p2 * blccc);
+    let mut lambda = 0.5 * inp.tustep * inp.rhof * blccc / beta2; // a half step
+    let q = epsilonp / ((tau + 1.0) * (tau + 2.0));
+    let temp2 = 0.166666 * (4.0 + tau * (6.0 + tau * (7.0 + tau * (4.0 + tau)))) * q * q;
+    lambda *= 1.0 - temp2;
+
+    let (etap, xi_corr, mut gamma, ms_corr);
+    let mut elke = 0.0;
+    if inp.spin_effects {
+        elke = RealMath::r_ln(e);
+        let (l, el) = spin_interval(med, elke);
+        elke = el;
+        if inp.qel == 0 {
+            etap = med.etae_ms.eval(l, elke);
+            xi_corr = med.q1ce_ms.eval(l, elke);
+            gamma = med.q2ce_ms.eval(l, elke);
+        } else {
+            etap = med.etap_ms.eval(l, elke);
+            xi_corr = med.q1cp_ms.eval(l, elke);
+            gamma = med.q2cp_ms.eval(l, elke);
+        }
+        ms_corr = med.blcce.eval(l, elke);
+    } else {
+        etap = 1.0;
+        xi_corr = 1.0;
+        gamma = 1.0;
+        ms_corr = 1.0;
+    }
+    chia2 *= etap;
+    lambda = lambda / (etap * (1.0 + chia2)) * ms_corr;
+    let chilog = RealMath::r_ln(1.0 + 1.0 / chia2);
+    let q1 = 2.0 * chia2 * (chilog * (1.0 + chia2) - 1.0);
+    gamma = 6.0 * chia2 * (1.0 + chia2) * (chilog * (1.0 + 2.0 * chia2) - 2.0) / q1 * gamma;
+    let mut xi = q1 * lambda;
+
+    // first substep scattering angle
+    let (mut find_index, mut spin_index) = (true, true);
+    let mut st = MscatState::default();
+    let mut ss = SpinState::default();
+    let (w1, sint1) = mscat(
+        ms, spin, lambda, chia2, xi, elke, beta2, inp.qel, medium, inp.spin_effects, &mut find_index,
+        &mut spin_index, &mut st, &mut ss, rng,
+    )?;
+    let (cphi1, sphi1) = select_azimuthal_angle(rng);
+    // second substep (re-using the indices the first call found)
+    let (w2, sint2) = mscat(
+        ms, spin, lambda, chia2, xi, elke, beta2, inp.qel, medium, inp.spin_effects, &mut find_index,
+        &mut spin_index, &mut st, &mut ss, rng,
+    )?;
+    let (cphi2, sphi2) = select_azimuthal_angle(rng);
+
+    // final direction of motion, relative to the z axis
+    let u2 = sint2 * cphi2;
+    let v2 = sint2 * sphi2;
+    let u2p = w1 * u2 + sint1 * w2;
+    let us = u2p * cphi1 - v2 * sphi1;
+    let vs = u2p * sphi1 + v2 * cphi1;
+    let ws = w1 * w2 - sint1 * u2;
+
+    // delta, b, c
+    xi = 2.0 * xi * xi_corr; // xi was for a half step
+    let mut eta = rng.uniform();
+    eta = Real::sqrt(eta);
+    let eta1 = 0.5 * (1.0 - eta);
+    let mut delta = 0.9082483 - (0.1020621 - 0.0263747 * gamma) * xi;
+
+    // correct the coefficients for energy loss
+    let mut temp1 = 2.0 + tau;
+    let mut temp = (2.0 + tau * temp1) / ((tau + 1.0) * temp1);
+    temp -= (tau + 1.0) / ((tau + 2.0) * (chilog * (1.0 + chia2) - 1.0));
+    temp *= epsilonp;
+    temp1 = 1.0 - temp;
+    delta += 0.40824829
+        * (epsilon * (tau + 1.0)
+            / ((tau + 2.0) * (chilog * (1.0 + chia2) - 1.0) * (chilog * (1.0 + 2.0 * chia2) - 2.0))
+            - 0.25 * temp * temp);
+    let b = eta * delta;
+    let c = eta * (1.0 - delta);
+
+    // transport direction cosines
+    let w1v2 = w1 * v2;
+    let ut = b * sint1 * cphi1 + c * (cphi1 * u2 - sphi1 * w1v2) + eta1 * us * temp1;
+    let vt = b * sint1 * sphi1 + c * (sphi1 * u2 + cphi1 * w1v2) + eta1 * vs * temp1;
+    let wt = eta1 * (1.0 + temp) + b * w1 + c * w2 + eta1 * ws * temp1;
+    let ustep = inp.tustep * Real::sqrt(ut * ut + vt * vt + wt * wt);
+
+    let mut out = ms_rotate_and_transport(inp, (us, vs, ws), (ut, vt, wt));
+    out.ustep = ustep;
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3952,6 +4317,82 @@ mod tests {
         assert!(edgset_from_text(&synthetic_photo_text(), "1 3\n").is_err());
         assert!(edgset_from_text(&synthetic_photo_text(), "1 99\n").is_err(), "more edges than MXEDGE");
         assert!(edgset_from_text(&synthetic_photo_text().replacen("0.8", "q", 1), &synthetic_phocs_text()).is_err());
+    }
+
+
+    fn toy_ms_medium() -> MsMedium {
+        let one = Pwlf { a0: alloc::vec![0.0, 1.0, 1.0, 1.0], a1: alloc::vec![0.0, 0.0, 0.0, 0.0] };
+        MsMedium {
+            blcc: 1.0e4,
+            xcc: 1.0e-4,
+            eke0: 1.0,
+            eke1: 0.0,
+            etae_ms: one.clone(),
+            etap_ms: one.clone(),
+            q1ce_ms: one.clone(),
+            q1cp_ms: one.clone(),
+            q2ce_ms: one.clone(),
+            q2cp_ms: one.clone(),
+            blcce: one,
+        }
+    }
+
+    #[test]
+    fn msdist_preserves_norms_and_distances() {
+        let ms = MsData::from_text(&synthetic_ms_text()).unwrap();
+        let spin = flat_spin(1.0);
+        let med = toy_ms_medium();
+        let mut rng = Ranmar::new(83, 84);
+        let mut count = 0.0;
+        let dirs = [(0.0, 0.0, 1.0), (0.3, -0.4, (1.0f64 - 0.25).sqrt()), (0.0, 0.0, -1.0)];
+        for &(u0, v0, w0) in &dirs {
+            for &spin_effects in &[false, true] {
+                for &qel in &[0usize, 1] {
+                    for _ in 0..30 {
+                        let inp = MsDistInput {
+                            e0: 1.0,
+                            eloss: 0.002,
+                            tustep: 0.01,
+                            rhof: 1.0,
+                            qel,
+                            spin_effects,
+                            u0,
+                            v0,
+                            w0,
+                            x0: 1.0,
+                            y0: 2.0,
+                            z0: 3.0,
+                        };
+                        for which in 0..2 {
+                            let o = if which == 0 {
+                                msdist_p1(&med, &ms, &spin, &inp, 1, &mut rng).unwrap()
+                            } else {
+                                msdist_p2(&med, &ms, &spin, &inp, 1, &mut count, &mut rng).unwrap()
+                            };
+                            let n = o.us * o.us + o.vs * o.vs + o.ws * o.ws;
+                            assert!((n - 1.0).abs() < 1e-6, "direction norm {n} (pII = {which})");
+                            // the straight-line distance is the displacement
+                            let d = ((o.xf - 1.0).powi(2) + (o.yf - 2.0).powi(2) + (o.zf - 3.0).powi(2)).sqrt();
+                            assert!((d - o.ustep).abs() < 1e-9 * inp.tustep.max(d), "d {d} vs ustep {}", o.ustep);
+                            assert!(o.ustep <= inp.tustep * (1.0 + 1e-9) && o.ustep > 0.0);
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(count, 3.0 * 2.0 * 2.0 * 30.0);
+    }
+
+    #[test]
+    fn msdist_spin_interval_clamp_and_pwlf() {
+        let p = Pwlf { a0: alloc::vec![0.0, 2.0, 5.0], a1: alloc::vec![0.0, 3.0, 4.0] };
+        assert_eq!(p.eval(2, 0.5), 7.0);
+        let mut med = toy_ms_medium();
+        med.eke1 = 1.0;
+        med.eke0 = 0.0;
+        // elke = -5 gives an interval below 1: clamped to 1 and elke reset
+        assert_eq!(spin_interval(&med, -5.0), (1, 1.0));
+        assert_eq!(spin_interval(&med, 2.5), (2, 2.5));
     }
 
     #[test]
