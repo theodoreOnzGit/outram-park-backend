@@ -10,7 +10,7 @@
 //! `HEN_HOUSE/src/egsnrc.mortran` (EGSnrc, 9016 lines): HATCH (data set-up),
 //! the ELECTR and PHOTON transport loops and the physics routines they call.
 //!
-//! **Status: first port of seven routines, not differentially tested (gh:#1680).**
+//! **Status: first port of nine routines, not differentially tested (gh:#1680).**
 //! Everything else in the file is still a placeholder.
 //!
 //! | upstream | here |
@@ -22,6 +22,8 @@
 //! | `SUBROUTINE PAIR` (`egsnrc.mortran:4517-4670`) with `$SET-PAIR-ANGLE` (`egsnrc.macros:2070-2165`) | [`pair`] |
 //! | `UPHI` `IENTRY = 1` (angle from `theta`, `egsnrc.mortran:6759-6769`) | [`uphi_from_theta`] |
 //! | `SUBROUTINE PHOTO` (`egsnrc.mortran:5049-5170`) with `$SELECT-PHOTOELECTRON-DIRECTION` (`egsnrc.macros:1916-1953`) | [`photo`], [`select_photoelectron_direction`] |
+//! | `SUBROUTINE BHABHA` (`egsnrc.mortran:229-309`) | [`bhabha`] |
+//! | `SUBROUTINE MOLLER` (`egsnrc.mortran:2598-2745`), without the EII branch | [`moller`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -1456,6 +1458,150 @@ pub fn photo<R: UniformSource>(
     Ok(out)
 }
 
+/// `BHABHA` (`egsnrc.mortran:229-309`): discrete Bhabha scattering of the
+/// positron on top of the stack, with a secondary "electron" above the
+/// threshold `te` (kinetic energy, MeV, `TE(MEDIUM)`). The exact Bhabha
+/// cross section is sampled; the angles follow from the kinematics. The
+/// incident positron keeps slot `np_old`, the other particle goes to
+/// `np_old + 1`, the lower-energy one on top and positively charged if it is
+/// the positron.
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`] when `np + 1 > $MXSTACK`.
+pub fn bhabha<R: UniformSource>(stack: &mut Stack, te: f64, prm: f64, rng: &mut R) -> Result<(), EgsError> {
+    let rm = RM;
+    stack.np_old = stack.np;
+    let np = stack.np;
+    let peip = stack.e[np];
+    let pekin = peip - prm;
+    let ekin = pekin;
+    let t0 = ekin / rm;
+    let e0 = t0 + 1.0;
+    let yy = 1.0 / (t0 + 2.0);
+    let e02 = e0 * e0;
+    let beta2 = (e02 - 1.0) / e02;
+    let ep0 = te / ekin;
+    let ep0c = 1.0 - ep0;
+    let y2 = yy * yy;
+    let yp = 1.0 - 2.0 * yy;
+    let yp2 = yp * yp;
+    let b4 = yp2 * yp;
+    let b3 = b4 + yp2;
+    let b2 = yp * (3.0 + y2);
+    let b1 = 2.0 - y2;
+    let mut br;
+    loop {
+        let rnno03 = rng.uniform();
+        br = ep0 / (1.0 - ep0c * rnno03);
+        let rnno04 = rng.uniform();
+        let rejf2 = 1.0 - beta2 * br * (b1 - br * (b2 - br * (b3 - br * b4)));
+        if rnno04 <= rejf2 {
+            break;
+        }
+    }
+    stack.check_stack(stack.np + 1, "BHABHA")?;
+    if br < 0.5 {
+        stack.iq[np + 1] = -1;
+    } else {
+        stack.iq[np] = -1;
+        stack.iq[np + 1] = 1;
+        br = 1.0 - br;
+    }
+    br = br.max(0.0);
+    let pekse2 = br * ekin;
+    let pese1 = peip - pekse2;
+    let pese2 = pekse2 + prm;
+    stack.e[np] = pese1;
+    stack.e[np + 1] = pese2;
+    // Bhabha angles are uniquely determined by kinematics
+    let h1 = (peip + prm) / pekin;
+    let mut dcosth = (1.0_f64).min(h1 * (pese1 - prm) / (pese1 + prm));
+    let mut sinthe = Real::sqrt(1.0 - dcosth);
+    let mut costhe = Real::sqrt(dcosth);
+    let mut saved = UphiSaved::default();
+    uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)?;
+    stack.np += 1;
+    dcosth = h1 * (pese2 - prm) / (pese2 + prm);
+    sinthe = -Real::sqrt(1.0 - dcosth);
+    costhe = Real::sqrt(dcosth);
+    uphi(stack, &mut saved, 3, 2, sinthe, costhe, rng)
+}
+
+/// `MOLLER` (`egsnrc.mortran:2598-2745`): discrete Moller scattering of the
+/// electron on top of the stack, with a secondary above the threshold `te`
+/// (kinetic energy, `TE(MEDIUM)`); `thmoll = 2 te + rm` is `THMOLL(MEDIUM)`.
+/// Returns `false` without scattering when `ekin <= 2 te`. The secondary
+/// goes to `np_old + 1` with `iq = -1`.
+///
+/// Not ported, refused with [`EgsError::Unsupported`] when `eii_active`
+/// (`eii_flag > 0` and the medium has EII shells): electron-impact ionisation
+/// sampling (`eii_sample`, `eii.mortran`). It is off by default.
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`], or [`EgsError::Unsupported`] as above.
+pub fn moller<R: UniformSource>(
+    stack: &mut Stack,
+    te: f64,
+    thmoll: f64,
+    eii_active: bool,
+    prm: f64,
+    rng: &mut R,
+) -> Result<bool, EgsError> {
+    if eii_active {
+        return Err(EgsError::Unsupported("MOLLER: electron-impact ionisation (eii_flag > 0)"));
+    }
+    let rm = RM;
+    stack.np_old = stack.np;
+    let np = stack.np;
+    let peie = stack.e[np];
+    let pekin = peie - prm;
+    let ekin = pekin;
+    if ekin <= 2.0 * te {
+        return Ok(false);
+    }
+    let t0 = ekin / rm;
+    let e0 = t0 + 1.0;
+    let extrae = peie - thmoll;
+    let e02 = e0 * e0;
+    let g2 = t0 * t0 / e02;
+    let g3 = (2.0 * t0 + 1.0) / e02;
+    let gmax = 1.0 + 1.25 * g2;
+    let mut br;
+    loop {
+        let rnno27 = rng.uniform();
+        br = te / (ekin - extrae * rnno27);
+        let r = br / (1.0 - br);
+        let mut rnno28 = rng.uniform();
+        let rejf4 = 1.0 + g2 * br * br + r * (r - g3);
+        rnno28 *= gmax;
+        if rnno28 <= rejf4 {
+            break;
+        }
+    }
+    let pekse2 = br * ekin;
+    let pese1 = peie - pekse2;
+    let pese2 = pekse2 + prm;
+    stack.e[np] = pese1;
+    stack.check_stack(stack.np + 1, "MOLLER")?;
+    stack.e[np + 1] = pese2;
+    let h1 = (peie + prm) / pekin;
+    let mut dcosth = h1 * (pese1 - prm) / (pese1 + prm);
+    let mut sinthe = Real::sqrt(1.0 - dcosth);
+    let mut costhe = Real::sqrt(dcosth);
+    let mut saved = UphiSaved::default();
+    uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)?;
+    stack.np += 1;
+    let np = stack.np;
+    stack.iq[np] = -1;
+    dcosth = h1 * (pese2 - prm) / (pese2 + prm);
+    sinthe = -Real::sqrt(1.0 - dcosth);
+    costhe = Real::sqrt(dcosth);
+    uphi(stack, &mut saved, 3, 2, sinthe, costhe, rng)?;
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2042,6 +2188,83 @@ mod tests {
             photo(&mut st, &d, &rd, &bad, &reg, (0.05f64).ln(), None, RM, &mut rng),
             Err(EgsError::Unsupported(_))
         ));
+    }
+
+
+    fn momentum_balance(st: &Stack, etot: f64, dir: (f64, f64, f64)) -> f64 {
+        let p0 = (etot * etot - RM * RM).sqrt();
+        let mut px = -p0 * dir.0;
+        let mut py = -p0 * dir.1;
+        let mut pz = -p0 * dir.2;
+        for i in st.np_old..=st.np {
+            let p = (st.e[i] * st.e[i] - RM * RM).max(0.0).sqrt();
+            px += p * st.u[i];
+            py += p * st.v[i];
+            pz += p * st.w[i];
+        }
+        (px * px + py * py + pz * pz).sqrt()
+    }
+
+    #[test]
+    fn moller_and_bhabha_conserve_energy_and_momentum() {
+        let mut rng = Ranmar::new(13, 17);
+        let te = 0.01;
+        let thmoll = 2.0 * te + RM;
+        for &ekin in &[0.05, 0.5, 3.0, 20.0] {
+            for _ in 0..40 {
+                let (u, v) = (0.3, -0.2);
+                let w = (1.0f64 - u * u - v * v).sqrt();
+                // electron
+                let mut st = Stack::new(10);
+                st.np = 1;
+                st.e[1] = ekin + RM;
+                st.iq[1] = -1;
+                (st.u[1], st.v[1], st.w[1]) = (u, v, w);
+                assert!(moller(&mut st, te, thmoll, false, RM, &mut rng).unwrap());
+                assert_eq!((st.np_old, st.np), (1, 2));
+                assert!((st.e[1] + st.e[2] - (ekin + 2.0 * RM)).abs() < 1e-12);
+                assert_eq!((st.iq[1], st.iq[2]), (-1, -1));
+                assert!(momentum_balance(&st, ekin + RM, (u, v, w)) < 1e-6 * (ekin + RM), "moller {ekin}");
+                // positron
+                let mut sp = Stack::new(10);
+                sp.np = 1;
+                sp.e[1] = ekin + RM;
+                sp.iq[1] = 1;
+                (sp.u[1], sp.v[1], sp.w[1]) = (u, v, w);
+                bhabha(&mut sp, te, RM, &mut rng).unwrap();
+                assert_eq!((sp.np_old, sp.np), (1, 2));
+                assert!((sp.e[1] + sp.e[2] - (ekin + 2.0 * RM)).abs() < 1e-12);
+                assert_eq!(sp.iq[1] + sp.iq[2], 0, "one positron, one electron");
+                assert!(momentum_balance(&sp, ekin + RM, (u, v, w)) < 1e-6 * (ekin + RM), "bhabha {ekin}");
+            }
+        }
+    }
+
+    #[test]
+    fn moller_edge_cases() {
+        let mut rng = Ranmar::new(1, 9);
+        // below twice the threshold: nothing happens
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 0.01 + RM;
+        st.w[1] = 1.0;
+        assert!(!moller(&mut st, 0.01, 0.02 + RM, false, RM, &mut rng).unwrap());
+        assert_eq!(st.np, 1);
+        // EII is refused, a full stack is an error
+        assert!(matches!(moller(&mut st, 0.01, 0.02 + RM, true, RM, &mut rng), Err(EgsError::Unsupported(_))));
+        let mut full = Stack::new(1);
+        full.np = 1;
+        full.e[1] = 1.0 + RM;
+        full.w[1] = 1.0;
+        assert!(matches!(
+            moller(&mut full, 0.01, 0.02 + RM, false, RM, &mut rng),
+            Err(EgsError::StackExceeded { routine: "MOLLER", .. })
+        ));
+        let mut fullb = Stack::new(1);
+        fullb.np = 1;
+        fullb.e[1] = 1.0 + RM;
+        fullb.w[1] = 1.0;
+        assert!(matches!(bhabha(&mut fullb, 0.01, RM, &mut rng), Err(EgsError::StackExceeded { routine: "BHABHA", .. })));
     }
 
     #[test]
