@@ -1290,12 +1290,27 @@ The one-group prediction undervalued the upper head's 26 cm of salt. That salt b
 | rod 1 at 0 | 0.992089 ± 0.000543 | all at 51 | **2.498 ± 0.076 %** | **2.26 %** | 1.9 to 2.6 |
 | all at 0 | 0.956938 ± 0.000612 | all at 51 | **6.200 ± 0.085 %** | **5.59 %** | 4.8 to 6.2 |
 
-- **Interpretation:** rod 1 and the bank both come out about **10.5 % above** the measured worths, at 3.1σ and 7.2σ. Their ratio agrees: 2.48 against ORNL's 2.47. So a single cause scales the whole poison worth.
+- ~~**Interpretation:** rod 1 and the bank both come out about **10.5 % above** the measured worths, at 3.1σ and 7.2σ. Their ratio agrees: 2.48 against ORNL's 2.47. So a single cause scales the whole poison worth.~~ **SUPERSEDED 2026-11-20** by the six-seed rows and the new-default check below. The table above is single seeds on the pre-#550 build.
+- **Six seeds, pre-#550 build (54d472f7f), 2026-11-19/20:**
+
+| configuration | k (6 seeds) | worth | ORNL-4233 | model / measured |
+|---|---|---|---|---|
+| all at 51 in | 1.017704 ± 0.000156 | — | — | — |
+| rod 1 at 0 | 0.992700 ± 0.000234 | 2.475 ± 0.028 % | 2.26 % | 1.095 |
+| all at 0 | 0.957610 ± 0.000209 | 6.166 ± 0.027 % | 5.59 % | 1.103 |
+
+- **Rod 1 on the current default (516f559f8, S(α,β) on the calcem grid), six seeds, 2026-11-20:** all at 51 in gives 1.015216 ± 0.000239 and rod 1 at 0 gives 0.991799 ± 0.000195.
+  - **The worth is 2.326 ± 0.031 %, 1.029 against ORNL-4233** (+2.9 %, 2.2σ).
+  - **Paired by seed against the old build: −0.149 ± 0.027 % (z −5.5).** Pairs: −0.138, −0.045, −0.243, −0.122, −0.180, −0.167.
+  - **The prediction missed.** It was posted on gh:#1658 before the runs: within ±0.10 % of 2.475, because "a worth is a difference". The worth moved by 5.5σ, so that reasoning was wrong. The band itself is missed by 1.6σ, short of the posted 2σ refutation line.
+- **Reading:** most of the ~10 % rod overestimate came from the old S(α,β) emission grid, the staircase between calcem nodes (gh:#550). The poison model is not the cause. On the current default, rod 1 is within 3 % of the measured worth.
+  - The **bank (all rods at 0) is not re-measured** on the current default. It probably drops by a similar fraction, but that is not tested.
+  - The suspects below now explain at most a few percent.
 - **Suspects, not yet tested:**
   - the poison's Gd₂O₃ content or density (TM-0728 Table 5.4);
   - the axial smearing of the elements;
   - the static-worth normalisation.
-- **Statistics:** these are single seeds. The six-seed runs at all three configurations, and rod 1 at 40, 30, 20 and 10 in for its integral curve, were launched 2026-11-19. Their curve prediction is on gh:#1658. ORNL-4233 Figs. 5–6, the measured curve, are not digitised here.
+- **Statistics:** ~~these are single seeds.~~ The table at the top of this section is single seeds; the six-seed rows above supersede it. The six-seed runs at all three configurations, and rod 1 at 40, 30, 20 and 10 in for its integral curve, were launched 2026-11-19. Their curve prediction is on gh:#1658. ORNL-4233 Figs. 5–6, the measured curve, are not digitised here.
 
 #### The +237 pcm code shift, bisected (2026-11-19, gh:#1128)
 
