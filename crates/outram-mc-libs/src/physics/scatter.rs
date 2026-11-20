@@ -804,6 +804,27 @@ fn sample_cxs_target(beta_vn: f64, alpha: f64, seed: &mut u64) -> (f64, f64) {
     (beta_vt_sq, mu)
 }
 
+/// Whether the CM continuum emission is clamped to the two-body bound (gh:#690).
+/// **On by default** (energy balance); `OUTRAM_MC_NO_TWO_BODY_CAP=1` switches it
+/// off for an OpenMC-parity comparison, which applies no clamp
+/// (`src/physics.cpp:1160-1175`). Cached on first use, like the other
+/// `OUTRAM_MC_*` ablations. Measured extent of the clamp: 1.78 % of U-238 MT=91
+/// draws at 1 MeV, none from 3 MeV (`tests/continuum_cm_cap_measurement_690.rs`).
+pub fn continuum_two_body_cap_enabled() -> bool {
+    use core::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    if cached != u8::MAX {
+        return cached == 1;
+    }
+    let off = match crate::env::var("OUTRAM_MC_NO_TWO_BODY_CAP") {
+        Ok(v) => !v.is_empty() && v != "0",
+        Err(_) => false,
+    };
+    FLAG.store((!off) as u8, Ordering::Relaxed);
+    !off
+}
+
 /// A uniform strictly inside `(0, 1)`, so `ln` of it is always finite.
 #[inline]
 fn safe_prn(seed: &mut u64) -> f64 {
@@ -1067,7 +1088,9 @@ fn continuum_evaluated_impl(
         // needs an ICSBEP re-measurement. Maintainer decision.
         let ap1 = awr + 1.0;
         let cap = (e * (awr / ap1).r_powi(2) + q * awr / ap1).max(0.0);
-        let e_cm_out = sampled.min(cap);
+        // `OUTRAM_MC_NO_TWO_BODY_CAP=1` is the explicit ablation (OpenMC parity,
+        // gh:#690); the cap is the default.
+        let e_cm_out = if continuum_two_body_cap_enabled() { sampled.min(cap) } else { sampled };
         // `mu` is a CM cosine here (ENDF LCT=2), so it goes through the same
         // frame transform as the energy.
         cm_lab_rotate(kernels, u, e, e_cm_out, mu, awr, seed)
@@ -1995,6 +2018,16 @@ pub fn elastic_scatter_openmc<F: FnOnce(&mut u64) -> f64>(
 
 #[cfg(test)]
 mod tests {
+    /// gh:#690: the two-body cap is the DEFAULT (an ablation must be an explicit
+    /// act). Pins the default; the knob itself is read once per process, so the
+    /// off position is exercised by `OUTRAM_MC_NO_TWO_BODY_CAP=1` runs, not here.
+    #[test]
+    fn the_two_body_cap_is_on_by_default() {
+        if std::env::var("OUTRAM_MC_NO_TWO_BODY_CAP").map_or(true, |v| v.is_empty() || v == "0") {
+            assert!(continuum_two_body_cap_enabled());
+        }
+    }
+
 
     /// **DBRC samples the target as OpenMC's kernel does (GitHub #407).**
     ///

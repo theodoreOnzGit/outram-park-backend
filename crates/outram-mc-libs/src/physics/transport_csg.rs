@@ -3928,6 +3928,36 @@ mod leakage_tests {
         assert!(r.k_mean > 0.0);
     }
 
+    /// gh:#692 unbiasedness: UFS leaves the expected `k` unchanged. Ten seeds of
+    /// 400 particles x (5 + 15) on the Godiva sphere with and without a 4x4x4 UFS
+    /// mesh; the difference of the ensemble means must be within four combined
+    /// standard errors of the ensemble means (the seeds are fixed, so the result is
+    /// deterministic). Prints the numbers for the record.
+    #[test]
+    fn uniform_fission_site_weighting_leaves_k_unbiased() {
+        use crate::physics::variance_reduction::VarianceReduction;
+        use crate::tally::mesh::RegularMesh;
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.7407, BoundaryType::Vacuum);
+        let mesh = RegularMesh { lower_left: [-9.0; 3], upper_right: [9.0; 3], dimension: [4; 3] };
+        let ens = |vr: VarianceReduction| -> (f64, f64) {
+            let ks: Vec<f64> = (1..=10u64)
+                .map(|seed| {
+                    let s = KeffSettings { n_particles: 400, n_inactive: 5, n_active: 15, seed, variance_reduction: vr.clone(), ..KeffSettings::default() };
+                    run_keff_csg(&geom, &mats, &nucs, src(), &s, None).k_mean
+                })
+                .collect();
+            let m = ks.iter().sum::<f64>() / ks.len() as f64;
+            let var = ks.iter().map(|k| (k - m) * (k - m)).sum::<f64>() / (ks.len() - 1) as f64;
+            (m, (var / ks.len() as f64).sqrt())
+        };
+        let (mb, sb) = ens(VarianceReduction::default());
+        let (mu, su) = ens(VarianceReduction::default().with_ufs(mesh));
+        let sigma = (sb * sb + su * su).sqrt();
+        println!("UFS ensemble: base k = {mb:.5} +- {sb:.5}, UFS k = {mu:.5} +- {su:.5}, diff = {:.5} ({:.2} sigma)", mu - mb, (mu - mb) / sigma);
+        assert!((mu - mb).abs() < 4.0 * sigma, "UFS shifted k by {:.2} sigma", (mu - mb) / sigma);
+    }
+
     /// gh:#692: uniform fission site weighting is wired into the drivers. A
     /// one-element mesh has weight exactly 1 everywhere, so it reproduces the
     /// no-UFS run bit for bit (plumbing is a no-op). A 4x4x4 mesh over the

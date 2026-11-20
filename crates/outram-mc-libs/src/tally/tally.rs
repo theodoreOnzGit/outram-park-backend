@@ -350,7 +350,7 @@ impl Tally {
     /// A delayed-group filter beside a track-splitting mesh filter is also
     /// refused: the per-group deposit is not split across mesh cells.
     ///
-    /// **A `LegendreFilter`, and a `MuFilter` off the scatter matrix, are refused
+    /// **A `LegendreFilter` or `MuFilter` off the scatter matrix is refused
     /// too** (gh:#676): ~~no production path set `FilterEvent::mu`~~ **CORRECTED
     /// 2026-11-19:** the scatter arms now supply the lab cosine to the matrix
     /// estimator; any other tally would still bin `mu = 0` and look plausible.
@@ -369,10 +369,13 @@ impl Tally {
                 self.id
             ));
         }
-        if self.filters.iter().any(|f| matches!(f, FilterKind::Legendre(_))) {
+        // A Legendre filter likewise expands in the cosine, on the scatter matrix
+        // only (`score_scatter_matrix_mu`); on any other tally it has no path.
+        if self.filters.iter().any(|f| matches!(f, FilterKind::Legendre(_))) && !matrix {
             return Err(format!(
-                "tally {}: a Legendre filter has no scoring path yet (gh:#676); it would \
-                 score P_n(0) or zero",
+                "tally {}: a Legendre filter expands in the scattering cosine, which only the \
+                 scatter matrix supplies (an EnergyOut filter or a NuScatter score); on this \
+                 tally it would score P_n(0) or zero (gh:#676)",
                 self.id
             ));
         }
@@ -417,6 +420,12 @@ mod validate_tests {
         let e = t.validate().unwrap_err();
         assert!(e.contains("scattering cosine"), "{e}");
         // On the scatter matrix (a NuScatter score) the cosine is supplied.
+        t.scores = vec![ScoreType::NuScatter];
+        assert!(t.validate().is_ok());
+        t.scores = vec![ScoreType::Scatter];
+        // Legendre: the same rule.
+        t.filters = vec![FilterKind::Legendre(crate::tally::filter_extra::LegendreFilter { order: 1 })];
+        assert!(t.validate().is_err());
         t.scores = vec![ScoreType::NuScatter];
         assert!(t.validate().is_ok());
         t.scores = vec![ScoreType::Scatter];

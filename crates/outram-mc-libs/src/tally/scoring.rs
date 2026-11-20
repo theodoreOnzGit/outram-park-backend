@@ -923,18 +923,41 @@ pub fn score_scatter_matrix_mu(
         ..Default::default()
     };
 
+    let n_scores = tally.scores.len();
+    let value_of = |score: &ScoreType| match (score, emission) {
+        (ScoreType::NuScatter, _) => weight,
+        _ if !matrix => 0.0,
+        (ScoreType::ScatterN | ScoreType::Events, _) => weight,
+        (ScoreType::Scatter, ScatterEmission::Primary) => weight,
+        _ => 0.0,
+    };
+    // Functional expansion in the scattering cosine (gh:#676): a
+    // `LegendreFilter` deposits `value * P_l(mu)` into EVERY moment bin `l`, the
+    // analogue of OpenMC's `LegendreFilter::get_all_bins` (`calc_pn_c(order,
+    // p.mu())`, `filter_legendre.cpp`). The other filters are matched as usual
+    // with the Legendre digit of the row-major index pinned to `l`.
+    if let Some(pos) = tally.filters.iter().position(|f| matches!(f, FilterKind::Legendre(_))) {
+        let Some(moments) = tally.filters[pos].expansion_moments(&ev) else {
+            return;
+        };
+        for (l, &pl) in moments.iter().enumerate() {
+            let Some(bin) = filter_bin_with_group(tally, &ev, pos, l) else {
+                return;
+            };
+            for (s_idx, score) in tally.scores.iter().enumerate() {
+                let val = value_of(score) * pl;
+                if val != 0.0 && val.is_finite() {
+                    batch[bin * n_scores + s_idx] += val;
+                }
+            }
+        }
+        return;
+    }
     let Some(bin) = filter_bin(tally, &ev) else {
         return;
     };
-    let n_scores = tally.scores.len();
     for (s_idx, score) in tally.scores.iter().enumerate() {
-        let val = match (score, emission) {
-            (ScoreType::NuScatter, _) => weight,
-            _ if !matrix => 0.0,
-            (ScoreType::ScatterN | ScoreType::Events, _) => weight,
-            (ScoreType::Scatter, ScatterEmission::Primary) => weight,
-            _ => 0.0,
-        };
+        let val = value_of(score);
         if val != 0.0 && val.is_finite() {
             batch[bin * n_scores + s_idx] += val;
         }
@@ -1164,6 +1187,37 @@ mod tests {
         let mut b2 = vec![0.0; plain.bins.len()];
         score_scatter_matrix(&mut b2, &plain, 0, 0, 0, 1.0e7, 2.0e6, r, 1.0, ScatterEmission::Primary);
         assert!(b2.iter().all(|v| *v == 0.0), "opt-in: no EnergyOutFilter, no score");
+    }
+
+    /// gh:#676: a `[EnergyOut, Legendre(2)]`-style tally gets `w * P_l(mu)` in
+    /// every moment bin from the scatter matrix. mu = 0.5: P0 = 1, P1 = 0.5,
+    /// P2 = (3*0.25 - 1)/2 = -0.125; weight 2 doubles each.
+    #[test]
+    fn the_scatter_matrix_expands_in_legendre_moments_of_the_lab_cosine() {
+        use crate::tally::filter::{EnergyFilter, EnergyOutFilter};
+        use crate::tally::filter_extra::LegendreFilter;
+        let edges = vec![1.0e-5, 1.0e6, 2.0e7];
+        let t = Tally {
+            id: 3,
+            name: "p_l".into(),
+            filters: vec![
+                FilterKind::Energy(EnergyFilter { bins: edges.clone() }),
+                FilterKind::EnergyOut(EnergyOutFilter { bins: edges }),
+                FilterKind::Legendre(LegendreFilter { order: 2 }),
+            ],
+            scores: vec![ScoreType::NuScatter],
+            bins: vec![TallyBin::default(); 2 * 2 * 3],
+        };
+        assert!(t.validate().is_ok());
+        let r = Position::new(0.0, 0.0, 0.0);
+        let mut batch = vec![0.0; t.bins.len()];
+        // g_in = 1 (10 MeV), g_out = 0 (0.5 MeV): flat bin = (1*2 + 0)*3 + l.
+        score_scatter_matrix_mu(&mut batch, &t, 0, 0, 0, 1.0e7, 5.0e5, r, 2.0, ScatterEmission::Primary, 0.5);
+        let base = (1 * 2 + 0) * 3;
+        assert!((batch[base] - 2.0).abs() < 1e-15);
+        assert!((batch[base + 1] - 1.0).abs() < 1e-15);
+        assert!((batch[base + 2] + 0.25).abs() < 1e-15);
+        assert_eq!(batch.iter().filter(|v| **v != 0.0).count(), 3, "only that (g_in, g_out) row");
     }
 
     /// gh:#676: the scatter matrix bins the lab cosine of each emitted neutron on
