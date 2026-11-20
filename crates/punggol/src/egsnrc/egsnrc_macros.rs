@@ -64,6 +64,8 @@ pub enum EgsError {
         /// `$MXSTACK`.
         mxstack: usize,
     },
+    /// `$egs_fatal`: upstream stops the run (named in the message).
+    Fatal(&'static str),
     /// A branch that is not ported was requested (named in the message).
     Unsupported(&'static str),
     /// `UPHI` was called with an `ientry` or `lvl` outside 1..=3.

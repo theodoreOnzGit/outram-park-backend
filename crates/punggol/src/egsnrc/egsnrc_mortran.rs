@@ -10,7 +10,7 @@
 //! `HEN_HOUSE/src/egsnrc.mortran` (EGSnrc, 9016 lines): HATCH (data set-up),
 //! the ELECTR and PHOTON transport loops and the physics routines they call.
 //!
-//! **Status: first port of eleven routines, not differentially tested (gh:#1680).**
+//! **Status: first port of twelve routines, not differentially tested (gh:#1680).**
 //! Everything else in the file is still a placeholder.
 //!
 //! | upstream | here |
@@ -26,6 +26,7 @@
 //! | `SUBROUTINE MOLLER` (`egsnrc.mortran:2598-2745`), without the EII branch | [`moller`] |
 //! | `SUBROUTINE BREMS` (`egsnrc.mortran:312-525`), Bethe-Heitler path | [`brems`] |
 //! | `SUBROUTINE PHOTON` (`egsnrc.mortran:6438-6640`), without Rayleigh or photonuclear | [`photon`] |
+//! | `SUBROUTINE SHOWER` (`egsnrc.mortran:6645-6718`) | [`shower`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -2122,6 +2123,136 @@ pub fn photon<R: UniformSource, G: Geometry>(
     }
 }
 
+/// The electron-transport seam `SHOWER` calls (`SUBROUTINE ELECTR(IRCODE)`,
+/// `egsnrc.mortran:985-1825`, not yet ported). A compile-time contract:
+/// [`shower`] is generic over it, no trait objects.
+pub trait ElectronTransport {
+    /// Transport the charged particle on top of the stack until it is
+    /// discarded or a photon tops the stack; returns `IRCODE`.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the implementation raises.
+    fn electr<R: UniformSource>(&mut self, stack: &mut Stack, rng: &mut R) -> Result<i32, EgsError>;
+}
+
+/// Energy `SHOWER` saw leave the stack through the photon routine.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ShowerResult {
+    /// Sum of the `edep` of discarded photons, MeV.
+    pub edep_photon_discards: f64,
+    /// Sum of the local energy deposited by `RELAX` and Compton binding, MeV.
+    pub edep_local: f64,
+}
+
+/// The starting particle of a shower (`SHOWER`'s arguments).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShowerStart {
+    /// `IQI`: -1, 0, +1, or 2 for the pi-zero option.
+    pub iqi: i32,
+    /// `EI`: total energy, MeV.
+    pub ei: f64,
+    /// `XI`.
+    pub xi: f64,
+    /// `YI`.
+    pub yi: f64,
+    /// `ZI`.
+    pub zi: f64,
+    /// `UI`.
+    pub ui: f64,
+    /// `VI`.
+    pub vi: f64,
+    /// `WI`.
+    pub wi: f64,
+    /// `IRI`: region.
+    pub iri: i32,
+    /// `WTI`: weight.
+    pub wti: f64,
+}
+
+/// `SHOWER` (`egsnrc.mortran:6645-6718`): follow one incident particle and all
+/// it creates until the stack is empty. The pi-zero option (`iqi = 2`) turns
+/// the incident into two decay photons first. Photons go to [`photon`],
+/// charged particles to the [`ElectronTransport`] seam.
+///
+/// # Errors
+///
+/// [`EgsError::Fatal`] for a pi-zero start below its rest energy, otherwise
+/// whatever the transport routines raise.
+pub fn shower<R: UniformSource, G: Geometry, E: ElectronTransport>(
+    stack: &mut Stack,
+    tables: &PhotonTables,
+    cfg: &PhotonConfig,
+    geometry: &mut G,
+    electrons: &mut E,
+    start: &ShowerStart,
+    rng: &mut R,
+) -> Result<ShowerResult, EgsError> {
+    const PI0MSQ: f64 = 1.8215416e4; // pi-zero mass (MeV) squared
+    let mut out = ShowerResult::default();
+    stack.np = 1;
+    stack.np_old = stack.np;
+    let dneari = 0.0;
+    stack.iq[1] = start.iqi;
+    stack.e[1] = start.ei;
+    stack.u[1] = start.ui;
+    stack.v[1] = start.vi;
+    stack.w[1] = start.wi;
+    // $TRANSFER PROPERTIES TO (1) FROM I
+    stack.x[1] = start.xi;
+    stack.y[1] = start.yi;
+    stack.z[1] = start.zi;
+    stack.ir[1] = start.iri;
+    stack.wt[1] = start.wti;
+    stack.dnear[1] = dneari;
+    stack.latch[1] = stack.latchi;
+
+    if start.iqi == 2 {
+        // pi-zero option
+        if start.ei * start.ei <= PI0MSQ {
+            return Err(EgsError::Fatal("SHOWER: pi-zero option invoked but the total energy was too small"));
+        }
+        let csth = rng.uniform();
+        let dcsth = csth;
+        let dei = start.ei;
+        let dpi = Real::sqrt(dei * dei - PI0MSQ);
+        let deg = dei + dpi * dcsth;
+        let dpgl = dpi + dei * dcsth;
+        let dcosth = dpgl / deg;
+        let mut costhe = dcosth;
+        let mut sinthe = Real::sqrt(1.0 - dcosth * dcosth);
+        stack.iq[1] = 0;
+        stack.e[1] = deg / 2.0;
+        let mut saved = UphiSaved::default();
+        uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)?;
+        stack.np = 2;
+        let deg = dei - dpi * dcsth;
+        let dpgl = dpi - dei * dcsth;
+        let dcosth = dpgl / deg;
+        costhe = dcosth;
+        sinthe = -Real::sqrt(1.0 - dcosth * dcosth);
+        stack.iq[2] = 0;
+        stack.e[2] = deg / 2.0;
+        uphi(stack, &mut saved, 3, 2, sinthe, costhe, rng)?;
+    }
+
+    loop {
+        if stack.np == 0 {
+            break;
+        }
+        if stack.iq[stack.np] == 0 {
+            let r = photon(stack, tables, cfg, geometry, rng)?;
+            if r.ircode == 2 {
+                out.edep_photon_discards += r.edep;
+            }
+            out.edep_local += r.edep_local;
+        } else {
+            electrons.electr(stack, rng)?;
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3035,6 +3166,76 @@ mod tests {
         st.w[1] = 1.0;
         let r = photon(&mut st, &vac, &cfg, &mut geo, &mut rng).unwrap();
         assert_eq!((r.ircode, st.np), (2, 0));
+    }
+
+
+    /// Stands in for `ELECTR`: deposits the kinetic energy on the spot.
+    struct DepositElectrons {
+        kinetic: f64,
+        positrons: usize,
+    }
+
+    impl ElectronTransport for DepositElectrons {
+        fn electr<R: UniformSource>(&mut self, stack: &mut Stack, _rng: &mut R) -> Result<i32, EgsError> {
+            let np = stack.np;
+            self.kinetic += stack.e[np] - RM;
+            if stack.iq[np] == 1 {
+                self.positrons += 1;
+            }
+            stack.np -= 1;
+            Ok(2)
+        }
+    }
+
+    #[test]
+    fn shower_balances_energy_for_each_starting_particle() {
+        let mut rng = Ranmar::new(31, 32);
+        let tables = photon_tables(0.2, 0.4, 0);
+        let cfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 100.0 };
+        let mut geo = Slab { length: 3.0 };
+        for &(iqi, ei) in &[(0, 5.0), (0, 0.1), (-1, 1.0 + RM), (1, 1.0 + RM)] {
+            for _ in 0..50 {
+                let mut st = Stack::new(200);
+                let mut el = DepositElectrons { kinetic: 0.0, positrons: 0 };
+                let start = ShowerStart { iqi, ei, xi: 0.0, yi: 0.0, zi: 1e-4, ui: 0.0, vi: 0.0, wi: 1.0, iri: 1, wti: 1.0 };
+                let r = shower(&mut st, &tables, &cfg, &mut geo, &mut el, &start, &mut rng).unwrap();
+                assert_eq!(st.np, 0);
+                if iqi == 0 {
+                    // photon start: everything ends up discarded, deposited
+                    // locally or as kinetic energy (plus the pair rest masses)
+                    let total = r.edep_photon_discards + r.edep_local + el.kinetic + 2.0 * RM * el.positrons as f64;
+                    assert!((total - ei).abs() < 1e-9, "total {total} vs {ei}");
+                } else {
+                    // charged start: the stand-in ELECTR deposits it and makes no photons
+                    assert!((el.kinetic - (ei - RM)).abs() < 1e-12);
+                    assert_eq!((r.edep_photon_discards, r.edep_local), (0.0, 0.0));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn shower_pi_zero_makes_two_gammas_summing_to_the_pion_energy() {
+        let mut rng = Ranmar::new(41, 42);
+        let mut tables = photon_tables(0.0, 0.5, 0);
+        tables.regions[1].pcut = 1.0e9; // both gammas are discarded at once
+        let cfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 100.0 };
+        let mut geo = Slab { length: 3.0 };
+        for _ in 0..20 {
+            let mut st = Stack::new(20);
+            let mut el = DepositElectrons { kinetic: 0.0, positrons: 0 };
+            let start = ShowerStart { iqi: 2, ei: 200.0, xi: 0.0, yi: 0.0, zi: 1e-4, ui: 0.0, vi: 0.0, wi: 1.0, iri: 1, wti: 1.0 };
+            let r = shower(&mut st, &tables, &cfg, &mut geo, &mut el, &start, &mut rng).unwrap();
+            assert!((r.edep_photon_discards - 200.0).abs() < 1e-9, "{}", r.edep_photon_discards);
+        }
+        // below the pi-zero rest energy
+        let mut st = Stack::new(20);
+        let mut el = DepositElectrons { kinetic: 0.0, positrons: 0 };
+        let start = ShowerStart { iqi: 2, ei: 100.0, xi: 0.0, yi: 0.0, zi: 0.0, ui: 0.0, vi: 0.0, wi: 1.0, iri: 1, wti: 1.0 };
+        assert!(matches!(
+            shower(&mut st, &tables, &cfg, &mut geo, &mut el, &start, &mut rng),
+            Err(EgsError::Fatal(_))
+        ));
     }
 
     #[test]
