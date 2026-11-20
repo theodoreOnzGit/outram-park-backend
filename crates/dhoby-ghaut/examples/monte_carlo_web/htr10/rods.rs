@@ -320,123 +320,76 @@ pub fn worth(k_ref: (f64, f64), k: (f64, f64)) -> (f64, f64) {
 
 // ─── live runs on the pool ────────────────────────────────────────────────
 
-/// One live result.
-#[derive(Clone, Debug, PartialEq)]
-pub struct LiveResult {
-    pub rods: [f64; N],
-    pub cfg: KeffConfig,
-    pub k: f64,
-    pub sem: f64,
-    pub wall_s: f64,
-}
+/// One live result: `setting` is the ten insertions the run was built with.
+pub type LiveResult = dhoby_ghaut::mc_web::sweep::SweepResult<[f64; N]>;
 
-/// What a sweep is doing.
-#[derive(Clone, Debug, PartialEq)]
-pub enum SweepStep {
-    /// Waiting for the pool (data, a rebuild, or another run).
-    Waiting(String),
-    /// Running position `i` of `n`.
-    Running { i: usize, n: usize },
-    Done,
-    Failed(String),
-}
+/// What a sweep is doing (the library's, gh:#1677).
+pub use dhoby_ghaut::mc_web::sweep::SweepStep;
 
 /// **k_eff at a list of rod settings, run one after another on the pool.**
+/// The stepping is the library's [`dhoby_ghaut::mc_web::sweep::Sweep`]
+/// (moved from here, gh:#1677); this keeps the curve it belongs to and the
+/// record's positions.
 pub struct LiveSweep {
     /// The curve it belongs to (`None`: a one-off setting).
     pub family: Option<Family>,
-    pub targets: Vec<[f64; N]>,
-    pub cfg: KeffConfig,
-    next: usize,
-    /// The run for `targets[next]` has been started (and its epoch).
-    started: Option<u32>,
-    pub results: Vec<LiveResult>,
-    pub failed: Option<String>,
+    pub sweep: dhoby_ghaut::mc_web::sweep::Sweep<[f64; N]>,
 }
 
 impl LiveSweep {
     /// One setting.
     pub fn one(rods: [f64; N], cfg: KeffConfig) -> Self {
-        Self { family: None, targets: vec![rods], cfg, next: 0, started: None, results: Vec::new(), failed: None }
+        Self { family: None, sweep: dhoby_ghaut::mc_web::sweep::Sweep::new(vec![rods], cfg) }
     }
     /// A worth curve for `family` at the record's positions
     /// ([`BANK_CURVE_ZT_CM`]: withdrawn, the experiment's start, TECDOC
     /// B42's seven).
     pub fn curve(family: Family, cfg: KeffConfig) -> Self {
         let targets = BANK_CURVE_ZT_CM.iter().map(|&z| rods_for(family, insertion(z))).collect();
-        Self { family: Some(family), targets, cfg, next: 0, started: None, results: Vec::new(), failed: None }
+        Self { family: Some(family), sweep: dhoby_ghaut::mc_web::sweep::Sweep::new(targets, cfg) }
     }
     pub fn done(&self) -> bool {
-        self.next >= self.targets.len() || self.failed.is_some()
+        self.sweep.done()
     }
     /// Positions finished, and in all.
     pub fn progress(&self) -> (usize, usize) {
-        (self.results.len(), self.targets.len())
+        self.sweep.progress()
     }
-
     /// Drive the sweep one step (call every frame): rebuild the pool's core
     /// with the next setting's rods, start its run, collect it when done.
     pub fn step(&mut self, s: &mut super::core::pool::PoolState, now_s: f64) -> SweepStep {
+        self.sweep.step(s, now_s)
+    }
+}
+
+/// The HTR-10 core pool as a sweep's pool (gh:#1677): a setting is the ten
+/// rod insertions, compared bit for bit as [`super::core::pool::PoolState::set_rods`]
+/// does.
+impl dhoby_ghaut::mc_web::sweep::SweepPool for super::core::pool::PoolState {
+    type Setting = [f64; N];
+    type Model = super::core::pool::HtrRun;
+    fn not_ready(&self) -> Option<String> {
         use super::core::pool::PoolPhase;
-        if let Some(e) = &self.failed {
-            return SweepStep::Failed(e.clone());
+        match self.phase {
+            PoolPhase::Ready => None,
+            PoolPhase::Assembling => Some("the workers are rebuilding the core with these rods".into()),
+            _ => Some("the nuclear data are not ready yet".into()),
         }
-        let n = self.targets.len();
-        if self.next >= n {
-            return SweepStep::Done;
-        }
-        if let Some(epoch) = self.started {
-            let Some(run) = s.keff.run.as_ref().filter(|r| r.epoch == epoch) else {
-                self.failed = Some("the run was replaced by another one".into());
-                return SweepStep::Failed(self.failed.clone().unwrap_or_default());
-            };
-            if run.going() {
-                return SweepStep::Running { i: self.next, n };
-            }
-            if let Some(e) = &run.failed {
-                self.failed = Some(format!("position {} failed: {e}", self.next + 1));
-                return SweepStep::Failed(self.failed.clone().unwrap_or_default());
-            }
-            if run.stopped {
-                self.failed = Some("stopped".into());
-                return SweepStep::Failed("stopped".into());
-            }
-            let (k, sem) = run.gens.last().and_then(|g| g.gen.k_mean).unwrap_or((f64::NAN, f64::NAN));
-            let wall_s = run.gens.iter().map(|g| g.wall_s).sum();
-            self.results.push(LiveResult { rods: self.targets[self.next], cfg: run.cfg, k, sem, wall_s });
-            self.next += 1;
-            self.started = None;
-            return if self.next >= n { SweepStep::Done } else { SweepStep::Waiting("next position".into()) };
-        }
-        if s.phase != PoolPhase::Ready {
-            return SweepStep::Waiting(match s.phase {
-                PoolPhase::Assembling => "the workers are rebuilding the core with these rods".into(),
-                _ => "the nuclear data are not ready yet".into(),
-            });
-        }
-        if s.keff.run.as_ref().is_some_and(|r| r.going()) {
-            return SweepStep::Waiting("another run is going".into());
-        }
-        let want = self.targets[self.next];
-        if want.map(f64::to_bits) != s.rods.map(f64::to_bits) {
-            return match s.set_rods(want) {
-                Ok(()) => SweepStep::Waiting("the workers are rebuilding the core with these rods".into()),
-                Err(e) => {
-                    self.failed = Some(e.clone());
-                    SweepStep::Failed(e)
-                }
-            };
-        }
-        match s.start_run(self.cfg, now_s) {
-            Ok(()) => {
-                self.started = s.keff.run.as_ref().map(|r| r.epoch);
-                SweepStep::Running { i: self.next, n }
-            }
-            Err(e) => {
-                self.failed = Some(e.clone());
-                SweepStep::Failed(e)
-            }
-        }
+    }
+    fn keff(&self) -> &dhoby_ghaut::mc_web::pool::KeffPool<Self::Model> {
+        &self.keff
+    }
+    fn holds(&self, want: &[f64; N]) -> bool {
+        want.map(f64::to_bits) == self.rods.map(f64::to_bits)
+    }
+    fn rebuild(&mut self, want: [f64; N]) -> Result<(), String> {
+        self.set_rods(want)
+    }
+    fn start(&mut self, cfg: KeffConfig, now_s: f64) -> Result<(), String> {
+        self.start_run(cfg, now_s)
+    }
+    fn rebuilding_note(&self) -> String {
+        "the workers are rebuilding the core with these rods".into()
     }
 }
 
@@ -520,10 +473,10 @@ pub fn sweeps_ui(ui: &mut egui::Ui, core: &mut super::core::screen::CoreScreen) 
     }
     if !core.live_results.is_empty() {
         ui.label("Live results (yours, this page):");
-        let w0 = core.live_results.iter().find(|(_, r)| r.rods == [0.0; N]).map(|(_, r)| (r.k, r.sem));
+        let w0 = core.live_results.iter().find(|(_, r)| r.setting == [0.0; N]).map(|(_, r)| (r.k, r.sem));
         for (_, r) in core.live_results.iter().rev().take(20) {
-            let mut line = format!("{}: k = {:.4} ± {:.4} ({} × [{} + {}], {:.0} s)", summary(&r.rods), r.k, r.sem, r.cfg.n_particles, r.cfg.n_inactive, r.cfg.n_active, r.wall_s);
-            if let (Some(w0), true) = (w0, r.rods != [0.0; N]) {
+            let mut line = format!("{}: k = {:.4} ± {:.4} ({} × [{} + {}], {:.0} s)", summary(&r.setting), r.k, r.sem, r.cfg.n_particles, r.cfg.n_inactive, r.cfg.n_active, r.wall_s);
+            if let (Some(w0), true) = (w0, r.setting != [0.0; N]) {
                 let (w, s) = worth(w0, (r.k, r.sem));
                 line.push_str(&format!("; worth against your all-out run {:.2} ± {:.2} % Δk/k", 100.0 * w, 100.0 * s));
             }
@@ -721,7 +674,7 @@ impl RodsView {
             let live: Vec<(Family, Point)> = core
                 .live_results
                 .iter()
-                .filter_map(|(_, res)| Family::of(config_of(&res.rods)).map(|(fam, f)| (fam, Point { zt: zt(f), k: res.k, sigma: res.sem })))
+                .filter_map(|(_, res)| Family::of(config_of(&res.setting)).map(|(fam, f)| (fam, Point { zt: zt(f), k: res.k, sigma: res.sem })))
                 .filter(|(fam, _)| Family::of(core.rods.config()).is_some_and(|(g, _)| g == *fam) || core.rods.config() == Config::Bank(0.0))
                 .collect();
             let here = lookup(&self.curves, &reader);
@@ -1038,9 +991,9 @@ mod tests {
         let mut s = PoolState::new(2, Vec::new(), Vec::new(), 12, 0.0);
         let cfg = KeffConfig { n_particles: 100, n_inactive: 1, n_active: 2, seed: 1, point_source: false, want_sites: false };
         let mut sw = LiveSweep::curve(Family::Single(S3_ROD), cfg);
-        assert_eq!(sw.targets.len(), 9);
-        assert_eq!(sw.targets[0], [0.0; N]);
-        assert!((sw.targets[8][S3_ROD] - 1.0).abs() < 1e-12 && sw.targets[8][0] == 0.0);
+        assert_eq!(sw.sweep.targets.len(), 9);
+        assert_eq!(sw.sweep.targets[0], [0.0; N]);
+        assert!((sw.sweep.targets[8][S3_ROD] - 1.0).abs() < 1e-12 && sw.sweep.targets[8][0] == 0.0);
         assert!(matches!(sw.step(&mut s, 0.0), SweepStep::Waiting(_)), "data not ready");
         for w in 0..2 {
             s.on_event(w, CoreEv::Assembled(rep), 0.0);

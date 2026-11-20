@@ -14,6 +14,7 @@
 //! | [`keffplot`] | the k and Shannon-entropy plots of the bottom dock, for any k_eff simulator (gh:#1653) |
 //! | [`run_settings`] | the run-settings fields of the left panel: particles, inactive, active, seed, Defaults and Recorded (gh:#1653) |
 //! | [`rod_bank`] | control-rod sliders for any number of rods, and the rod-insertion drawing for the right dock (gh:#1654) |
+//! | [`sweep`] | k_eff at a list of settings run one after another on the pool, e.g. a rod worth curve, for any simulator implementing [`sweep::SweepPool`] (gh:#1677) |
 //! | [`raster`] | a live slice of the assembled geometry, rasterised off the UI thread (gh:#1653) |
 //! | [`pool`] | the page side of a worker pool: process and relay the data ([`pool::DataRelay`]), then run k_eff on the workers ([`pool::KeffPool`]); the worker side of a CSG model |
 //!
@@ -28,4 +29,5 @@ pub mod processed_cache;
 pub mod raster;
 pub mod rod_bank;
 pub mod run_settings;
+pub mod sweep;
 pub mod tapes;

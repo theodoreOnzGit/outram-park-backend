@@ -587,7 +587,7 @@ impl CoreScreen {
                 };
                 if sw.done() {
                     let fam = sw.family;
-                    for r in sw.results.drain(..) {
+                    for r in sw.sweep.results.drain(..) {
                         self.live_results.push((fam, r));
                     }
                     self.sweep = None;
