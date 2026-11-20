@@ -766,10 +766,14 @@ Elapsed times are loaded wall seconds and not comparable (the port 1 071 to 4 45
 **Is the DGELSD rank rule the cause of the port's lower quality?** The test: OpenMC's loop with `scipy.linalg.lstsq`
 told to use DGELSS (`TRACE_LSTSQ_DRIVER=gelss`, nothing else changed; its rank equals the port's in 41 of 42 matrices,
 Step 5), on the same input files. If the rank rule drove the shift, those runs should look like the port's (best quality
-1.47 to 1.53). OpenMC with DGELSS (4 trials, t0, t1, t2, t3): t0: 74 poles, 129 outside, best quality 1.650; t1: 76 poles, 478 outside, best quality 1.632; t2: 64 poles, 807 outside, best quality 1.540; t3: 66 poles, 656 outside, best quality 1.540. They stay in OpenMC's range (1.54 to 1.67) rather than
-moving to the port's, but two of the four (1.540) are at its bottom edge, 0.008 above the port's best. **The DGELSD rank rule is
-not shown to be what shifts the port's distribution** (none of the 4 trials is below 1.53, where the port's five all are), and four trials cannot
-exclude a partial contribution.
+1.47 to 1.53). OpenMC with DGELSS (4 trials, t0, t1, t2, t3): t0: 74 poles, 129 outside, best quality 1.650; t1: 76 poles, 478 outside, best quality 1.632; t2: 64 poles, 807 outside, best quality 1.540; t3: 66 poles, 656 outside, best quality 1.540. ~~They stay in OpenMC's range (1.54 to 1.67) rather than
+moving to the port's, but two of the four (1.540) are at its bottom edge, 0.008 above the port's best.~~ **The DGELSD rank rule is
+not shown to be what shifts the port's distribution** (none of the 4 trials is below 1.53, where the port's five all are), and ~~four trials cannot
+exclude a partial contribution.~~
+**CORRECTED 2026-11-20 (gh:#1667), read per iteration instead of per run:** on the orders 98 to 130 that every trace visited, forcing OpenMC onto
+DGELSS gives 71 of 2 040 iterations with quality above 1.5 (3.5 %), against 32 of 2 520 for DGELSD as shipped (1.3 %; two-sided exact p = 6e-7) and 4 of 2 490
+for the port (0.16 %). So DGELSS does not leave OpenMC "in range": it moves it **away** from the port, by a factor 2.7, and the
+rank rule is disfavoured by the direction, not just by the size (`openmc_inputs/tail_stats.py`; the table in "Kernel swaps" below).
 
 ### Conclusion
 
@@ -800,10 +804,14 @@ is not identical to OpenMC's, and the reason for that shift was not found.**
    * the one systematic kernel difference found (Step 5, DGELSD keeping one more singular value than DGELSS, DGESDD and
      DGESVD in 40 % of the pole-identification solves, which the port, like those three, does not) is **not shown to be the cause**: OpenMC
      run with DGELSS kept its quality (previous paragraph; four trials).
-   Candidates not tested: petir's eigenvalue solver against DGEEV on the many near-degenerate poles (single-step eigenvalue
+   ~~Candidates not tested: petir's eigenvalue solver against DGEEV on the many near-degenerate poles (single-step eigenvalue
    agreement was measured on five matrices only), the unblocked QR, `evaluate`'s summation order inside the quality
    metric (every test-grid count passes through it), and the residue solves (six matrices measured). Each of them is a
-   round-off-level difference whose effect the chaos magnifies, which is why no single-step measurement can see it.
+   round-off-level difference whose effect the chaos magnifies, which is why no single-step measurement can see it.~~
+   **CORRECTED 2026-11-20 (gh:#1667): all four were tested, one at a time, by serving the port's kernel to OpenMC's unmodified
+   loop; the port's eigensolver, its Francis QR iteration, is the cause of the shift** (section "Kernel swaps on piece 296" below). The sentence "no single-step
+   measurement can see it" stands: the effect is in the distribution of many iterations, which the 2 500-iteration tail
+   statistic resolves and five best-of-run numbers barely did.
 5. **No fix was made.** (a) The only systematic difference found, DGELSD's rank rule, would need `DLALSD`'s divide and
    conquer ported (thousands of lines) and does not explain the shift. (b) Changing `rcond` or the truncation to make the port
    match would be fitting the comparison, which the process rule forbids. The function (`npy.rs::lstsq`) is not
@@ -859,3 +867,159 @@ file's `//!` comment); `trace_reproduces_vectfit_xs` passed on piece 50.
 * The cause of the one-sided DGELSD rank was identified by comparing five routines, not by reading `DLALSD`'s Fortran
   line by line (the LAPACK source is not in this repository): the statement about its sub-problem test is the
   expected mechanism, **Not re-checked** against `dlalsd.f`.
+
+## Kernel swaps on piece 296: the shift is the eigensolver's Francis QR iteration (gh:#1667, 2026-11-19 / 20)
+
+Question (gh:#1667): on U-238 piece 296 the port's best `vectfit_xs` quality is below OpenMC's in 5 of 5 trials (exact
+p = 0.008). Which numerical kernel causes the shift? Method, fixed before any swap ran, with the predictions (sign and size)
+and two addenda written after the first results and before the next variants:
+[`PREDICTIONS_1667_kernel_swaps.md`](PREDICTIONS_1667_kernel_swaps.md) (commits `2781569d9`, `59bffd48a`, `be3049ebc` and `121999167`). Everything below is piece 296 (7 789 points, 3 reactions), OpenMC `8f79d9d` unmodified, inputs `in_296_t0` / `in_296_t1`
+(the files of the diagnosis above). Hardware: Intel Xeon @ 2.10 GHz, 4 logical cores shared with other agents (load average 3 to 8),
+one BLAS thread per run, `ulimit -v 12582912`; no second of it is a speed.
+
+### Instrument
+
+* **A statistic with power.** The best quality of a run is one number per trial (five against five gave p = 0.008). A trace row
+  is one of 30 vector-fitting iterations of one order and each is a draw, so the share of iterations with quality above 1.5, and
+  the per-order best, over the 17 orders 98 to 130 both codes visited, give about 2 500 draws per condition from the old traces.
+  `openmc_inputs/tail_stats.py` and `openmc_inputs/condition_table.py`.
+* **A swap changes one kernel on identical inputs.** `openmc_inputs/swap_openmc.py` runs OpenMC's own `_vectfit_xs` loop
+  (nothing in OpenMC is edited, fixed order list 98 to 130, 30 iterations per order, upstream's acceleration rule) and
+  replaces ONE module-level name by a call into the port's own Rust kernel, served over two named pipes by the test-only
+  `src/wmp/generate/trace_server.rs` (`kernel_server`, `#[ignore]`; its protocol is pinned by the non-ignored
+  `kernel_server_protocol_matches_library_calls`). The server calls `npy.rs::{lstsq, eigvals, HouseholderQr}` and
+  `vectfit.rs::evaluate` as the library does; no library function was changed or copied (the eigenvalue variants of
+  op 6 call petir's public `eigen_nonsymm`, `dgebal`). The loop, the metric and the stopping rule stay upstream's.
+* **Per-call comparison.** With `SWAP_COMPARE=1` every swapped call also computes LAPACK's answer; the port's answer is
+  what OpenMC then uses (`diagnosis_296/swaps_1667/smokeall_t0.kcmp.tsv`: one order, 30 iterations, everything swapped).
+* **Controls.** `base1` is the unswapped loop under this protocol (the pipe and the wrapper change nothing that the table can see: `base1_t0` and the old
+  pool agree, and the V swap below, which changes only round-off in the metric, leaves the whole chain of poles and every usability flag as in `base1_t0`). The old five-trial OpenMC pool (two BLAS threads) and `base1` (two trials) agree (1.27 % and 1.57 %
+  above 1.5).
+
+### Results
+
+| condition | trials | iterations | unusable | quality > 1.5 | median per-order best | p(lower than `base1`) | p(lower than old pool) |
+|---|---|---|---|---|---|---|---|
+| OpenMC as shipped, old five trials (2 threads) | 5 | 2520 | 55.5 % | 32 (1.27 %) | 1.460 | 0.29 | 0.55 |
+| OpenMC as shipped, this protocol (`base1`) | 2 | 1020 | 57.2 % | 16 (1.57 %) | 1.458 | 0.57 | 0.81 |
+| port, five trials | 5 | 2490 | 46.3 % | 4 (0.16 %) | 1.384 | 3.3e-06 | 1.1e-06 |
+| E: eigvals = port (GSL balance + Francis) | 2 | 870 | 45.7 % | 2 (0.23 %) | 1.289 | 0.0018 | 0.0032 |
+| E1: port Francis, no balancing | 2 | 1020 | 69.1 % | 0 (0.00 %) | 1.196 | 1.4e-05 | 1.8e-05 |
+| E2: DGEBAL then port Francis | 2 | 990 | 60.1 % | 1 (0.10 %) | 1.437 | 0.00016 | 0.00024 |
+| E3: DGEBAL + DGEHRD (LAPACK), port Francis only | 2 | 1020 | 57.9 % | 0 (0.00 %) | 1.287 | 1.4e-05 | 1.8e-05 |
+| L: pole-identification lstsq = port | 1 | 510 | 51.2 % | 14 (2.75 %) | 1.488 | 0.96 | 0.99 |
+| R: residue lstsq = port | 1 | 510 | 55.9 % | 9 (1.76 %) | 1.459 | 0.7 | 0.86 |
+| Q: qr = port (unblocked) | 2 | 1020 | 57.8 % | 9 (0.88 %) | 1.457 | 0.11 | 0.21 |
+| V: test-grid evaluate = port | 1 | 510 | 55.7 % | 9 (1.76 %) | 1.451 | 0.7 | 0.86 |
+| OpenMC forced onto DGELSS, old four trials | 4 | 2040 | 53.9 % | 71 (3.48 %) | 1.511 | 1 | 1 |
+
+(`p(lower than ...)`: one-sided exact Fisher on the count above 1.5 against the baseline named. Each trial is 510 iterations
+(17 orders x 30); the acceleration rule ended some runs early, those rows are fewer. Raw logs: `diagnosis_296/swaps_1667/`.)
+
+Per candidate, against the predictions of [the predictions file](PREDICTIONS_1667_kernel_swaps.md):
+
+| candidate | swap | prediction (probability it is the cause) | outcome |
+|---|---|---|---|
+| E, eigensolver | `eigvals` = the port's (petir Francis QR, GSL balancing) | 25 %; tail 0.1 to 0.5 % if the cause | **moves OpenMC to the port's tail** (0.23 % against 1.3 to 1.6 %, p = 0.002; unusable share 45.7 %, the port's 46.3 %, against 55.6 %); replicated in two trials |
+| E3, which part of it | LAPACK DGEBAL + DGEHRD (scipy), then ONLY the port's Francis QR iteration | 60 % that the iteration alone keeps the tail low | **tail stays at the port's level** (0 of 1 020 iterations above 1.5, two trials; p = 1.4e-5): the cause is the Francis QR iteration, not balancing or the Hessenberg reduction |
+| E2 | DGEBAL then the port's Francis QR (GSL Hessenberg) | 55 % that the tail returns to baseline | **missed**: tail stays low (1 of 990); but the unusable share rises to 60 % |
+| E1 | the port's Francis QR, no balancing | 65 % tail stays low | held: 0 of 1 020 above 1.5 (two trials); unusable share **69 %** |
+| L, pole-identification least squares | `lstsq` of the 3(n+1) x (n+1) systems = the port's (QR, then Golub-Reinsch SVD) | 30 %; tail 0.1 to 0.6 % | **null, wrong direction**: tail 2.7 %, higher than the baseline, like DGELSS (3.5 %); the port's residual equals DGELSS's to 1 % in 28 of 30 solves and DGELSD's in 25 of 30 (`kcmp`) |
+| R, residue solve | `lstsq` of the 2 n_s x n system = the port's | 20 % | null: the poles evolve from the pole-identification solves only, so the chain of poles is the `base1_t0` chain, and only the score of each iteration can change: the count `n_out` differs in 247 of 510 rows (43 rows usable in one run only, the worst difference 51 021 points), yet the distribution is the baseline's (9 of 510 above 1.5 in both, 55.9 % and 55.7 % unusable); static: the port's residual is within 1 % of DGELSD's in 144 of 165 residue solves, and within 1 % of DGELSS's in 163 |
+| Q, QR | `qr` = the port's unblocked Householder (R and the two rows of Q the loop reads) | 10 % | null (9 of 1 020 above 1.5 (0.88 %) against `base1`'s 16 of 1 020 (1.57 %), p = 0.11, two trials: it misses my own criterion (at most half the baseline with p < 0.01), and a partial contribution is not excluded by two trials); static, below |
+| V, summation order of `evaluate` | test-grid `evaluate` = the port's sequential sum | 3 % | **null**: same chain, same usability flag in all 510 rows, same count above 1.5 (9 of 510) and unusable share (55.7 %); `n_out` differs in 196 rows (median 6 points of 233 643, at most 498) and quality by at most 0.0025; the port's `evaluate` differs from BLAS by 2.7e-14 (median, relative to the largest value), 3.9e-4 at worst |
+
+The DGELSS run of the diagnosis (OpenMC forced onto DGELSS, 71 of 2 040 above 1.5, 3.5 %) was already in this table's
+direction: solver-level changes of the least squares raise OpenMC's tail, they do not lower it. The port's SVD is DGELSS-like;
+**the port's tail is low in spite of its least squares, because its eigensolver lowers it by more** (a factor 6 to 8 against
+the baseline in the share above 1.5, 12 to 15 against the DGELSS-like least-squares level).
+
+#### Static measurements (no chaos)
+
+* **Eigenvalues** (`openmc_inputs/eig_accuracy.py`, matrices dumped from a baseline run, order 120, n = 120; reference =
+  Newton refinement in 80-bit extended precision of every candidate eigenvalue of both solvers; the error is
+  `|computed - nearest root| / max(|root|, 0.01)`): the port's worst error is **below** DGEEV's in 4 of 4 matrices
+  (4.5e-4 against 5.5e-4, 2.5e-4 against 4.7e-4, 1.6e-4 against 2.9e-4, 0.9e-4 against 2.3e-4; medians 1e-15 to 1e-5),
+  and 26 to 94 (DGEEV) and 26 to 72 (port) of the 120 eigenvalues of each matrix are more than 1e-8 from any reference root
+  (`diagnosis_296/swaps_1667/eigacc2.tsv`). **My prediction that the port's eigenvalues are the less accurate ones (60 %) was
+  wrong.** These relocation matrices are numerically defective (clusters of tens of eigenvalues at a common point, spread on a
+  ring of radius about `eps^(1/m)`); no double-precision solver determines those eigenvalues, and the 80-bit reference is itself
+  only good to 1e-19^(1/m) there (more reference roots than eigenvalues are found, 134 to 170 for n = 120), so the table says "equally
+  poor", not which is nearer the truth.
+* **Shape of the eigenvalue set** (`openmc_inputs/eig_geometry.py`, 10 matrices): DGEEV and the four port variants give the same
+  largest |Im| and the same largest real-part spread to 3 to 4 digits; what differs is the number of eigenvalues returned as real
+  (matrix h_00004: DGEEV 8, GSL balancing 16, no balancing 12, DGEBAL 12; h_00008: 26, 32, 32, 28). The mean number of real poles
+  per iteration in the traces is alike (8.4 to 9.3) and the real-pole split does not distinguish the codes.
+* **Paired one-step test** (`openmc_inputs/paired_step.py`, `paired_stats.py`; orders 98 to 130 step 4 on input t0 and 100 to 130 step 4
+  on input t1, 510 relocations): OpenMC's loop runs with DGEEV, and at every relocation the same matrix H is also solved by the port's
+  `eigvals`; both pole sets are scored one step on (the loop's own real-pole split, residues, test grid, quality). No chaos accumulates.
+  Predictions of addendum 3 against results: (a) the port's unusable share is the lower one: **held**, 51.6 % against 58.0 %,
+  McNemar exact p = 0.002 (71 pairs where only the port's set is usable, 38 where only DGEEV's is). (b) DGEEV's poles give the higher
+  share above 1.4: **missed**, 21 for DGEEV against 25 for the port (only DGEEV 15, only port 19, p = 0.61); at the extreme tail the
+  direction is the chains' but not resolved: above 1.5, DGEEV 6, port 1, p = 0.125. (c) usable pairs indistinguishable: **held**
+  (91 higher for the port, 80 lower, median difference 0.0000, sign test p = 0.45). **So one step from the same matrix, the port's
+  eigenvalues are not a worse starting point: they are usable more often.** The lower tail of the chains is therefore a property of the
+  sequence of iterations (what the eigenvalue set of one step does to the next least squares), not of the quality of one solve,
+  which also explains why the single-step comparisons of the diagnosis above saw nothing.
+* **QR** (`openmc_inputs/qr_check.py`, `diagnosis_296/swaps_1667/qr_check.txt`): the port's R and LAPACK's differ by O(0.1) of
+  `max|R|` and by the sign of 70 to 100 of 197 diagonal entries on the first two blocks, because the matrices are numerically
+  rank deficient (R's rows beyond the numerical rank are arbitrary); the invariant `R^T R = A^T A` holds to 2.6e-15 to 8.9e-15 for the port and 4.8e-16 to 1.3e-15
+  for LAPACK (relative to its largest entry, six matrices), so both are backward stable and the port's backward error is 4 to 9 times
+  LAPACK's. Not a defect; the Q swap above shows it does not move the tail.
+* **Least squares** (`kcmp`, 195 solves): the port's residual `||A x - b||` is within 1 % of DGELSS's in 191, higher in 4 and never lower; against DGELSD's it is
+  lower by more than 1 % in 22 and higher in 4 (DGELSD keeps one more singular value than DGELSS in 35 of 195 solves, the other two differ otherwise, as Step 5 found).
+
+### What this says
+
+1. **The cause is the port's Francis QR iteration** (`petir::linalg::eigen_nonsymm`: GSL's `gsl_eigen_nonsymm`). Swapping the
+   eigensolver moves OpenMC to the port's tail in both trials; keeping LAPACK's balancing and Hessenberg reduction and swapping
+   only the QR iteration (E3) does too; no other kernel does (L and Q null, R and V identical, DGELSS the other way).
+2. **This is a finding about distributions, not a defect in the sense of a wrong eigenvalue.** On the matrices measured both
+   solvers are backward stable and equally poor on the defective cluster, the port's are not the worse, and in a paired one-step
+   test the port's eigenvalues give a usable fit more often than DGEEV's (51.6 % against 58.0 % unusable). The relocation matrix
+   is numerically defective on purpose of the algorithm (rank 17 of 99 to 131 least squares, step 4 above), so the *shape of the
+   round-off* in the cluster decides which poles the next iteration starts from, and GSL's iteration and LAPACK's draw
+   differently. Balancing alone moves the share of unusable fits (GSL balance 46 %, DGEBAL 61 %, none 71 %, DGEEV 56 %) but not the tail.
+3. **What differs in the iteration is read, not measured.** GSL's `francis_search_subdiag_small_elements` deflates on the crude
+   `|h(i,i-1)| < eps (|h(i,i)| + |h(i-1,i-1)|)` (petir `eigen_nonsymm.rs:258`), where LAPACK's `DLAHQR` adds the Ahues-Tisseur
+   test, which is conservative for non-normal matrices; GSL has no search for two consecutive small subdiagonals before a
+   sweep and applies the exceptional shift at every tenth iteration (`DLAHQR`: iterations 10 and 20 only); and for n above 75
+   (these matrices: 99 to 131) `DHSEQR` does not call `DLAHQR` at all but `DLAQR0`, the small-bulge multishift QR with aggressive
+   early deflation. **None of these three was isolated by an experiment**; the LAPACK sources are not in this repository, so
+   the statements about `DLAHQR` and `DHSEQR` are **Not re-checked** against `dlahqr.f` and `dhseqr.f`.
+4. **No fix was made, and none was possible inside the rules.** A fix that matches upstream's behaviour would be a new eigensolver
+   in petir following `DGEEV`: `DGEBAL` (exists, `petir::linalg::dgebal`), `DGEHRD`, and `DHSEQR` including the `DLAQR0` family
+   (`DLAQR0`..`DLAQR5`, `DLAHQR`, `DTREXC`/`DLAEXC`: several thousand lines of Fortran, not in the repository). It would be a new
+   function beside `eigen_nonsymm`, whose GSL parity gate (`gsl_eigen_nonsymm_code_to_code.rs`) must not move; no function
+   marked as reviewed by kovan is touched by it (the `review.md` of `crates/petir/src/linalg` and the generator's folder hold no
+   `kind = "review"` block). Moving the generator to it would change every fit the port makes (the order search is chaotic), so
+   `known_pole_count_difference` / `known_extra_misses` in `tests/wmp_generate_u238_vs_openmc.rs` and the `wmp_generate_vs_openmc.rs`
+   pins would move; the process rule forbids moving a pin to make a comparison pass, so that step is the maintainer's decision, with
+   the re-measured pins recorded beside the change.
+5. **What would settle the mechanism, next, with a prediction** (not run): (i) a `DLAHQR`-faithful double-shift QR (about 300
+   lines, no AED) in the test server beside the GSL one, served to OpenMC's loop in place of `eigvals`: if the Ahues-Tisseur
+   deflation and the shift schedule are the cause the tail returns to 1.3 to 1.8 % (my odds 25 %); if it stays low, `DLAQR0`'s
+   aggressive early deflation is (or the isolation is wrong). (ii) The reverse swap, the port's loop calling DGEEV through the same pipes
+   (needs a test-only copy of `identify_poles`; not built), which the swaps above do not replace: they show OpenMC moves to the
+   port when given the port's QR, not that the port moves to OpenMC when given LAPACK's. (iii) More paired relocations, at the order of 5 000,
+   to resolve the extreme tail (6 against 1 of 510 above 1.5).
+
+### Verification run (this investigation)
+
+Run in release after the last source edit (`trace_server.rs` and one `mod.rs` line; test-only code, no library function
+changed): `cargo check --release -p outram-mc-libs -p nee_soon -p dhoby-ghaut -p njoy-outram-park-fork --lib --tests --examples --features outram-mc-libs/endf-pebble-cases -j 2` passes;
+`cargo check --release -p outram-mc-libs`, `-p nee_soon`, `-p njoy-outram-park-fork` `--lib --no-default-features --target x86_64-unknown-none -j 2` pass;
+`cargo test --release -p petir --test no_platform_libm -j 2`: 4 passed;
+`cargo test --release -p njoy-outram-park-fork --test wmp_generate_u238_vs_openmc -j 2`: 3 passed, 3 ignored, 440 s. The pins were not touched.
+`kernel_server_protocol_matches_library_calls` (new, non-ignored) passes; it reaches every function of `trace_server.rs` except `kernel_server`
+itself (`#[ignore]`, the pipe wrapper, exercised by every swap run above).
+
+### What was not done (this investigation)
+
+* The reverse swap (the port with LAPACK's eigensolver) and the `DLAHQR`-style variant.
+* The closing test of the predictions file (every kernel swapped at once); E alone already reproduces the port's tail, and it
+  would not separate the Francis iteration from the rest of the port.
+* Pieces 275, 298, 299; only inputs t0 and t1; two trials for E, E1, E2, E3, Q and `base1`, one for L, R and V.
+* A fix; see 4 above.
+* The unexplained part: why the eigenvalue set's distribution in a numerically defective cluster, not any single eigenvalue's
+  error, is what moves the tail; the static measurements above could not show a solver-level accuracy difference.
