@@ -30,7 +30,13 @@
 > - **"Other code" since 2026-11-13 is +73 ± 35 pcm (z 2.1), not +237.** The old build's six-seed mean is 1.018804 ± 0.000272, against the record's 1.018074 ± 0.000227. Seed 1 was a high draw.
 > - **New default, six seeds: k = 1.016515 ± 0.000329, +1571 pcm against k_ref.** It replaces 1.01807 in the table below.
 > - **Still pre-flip below:** every other number, including the coefficients, the ablations, the parameter sweeps and the rods (all on 54d472f7f). It is labelled as such and not re-measured.
-> - **The split between graphite and H(H2O) S(α,β)** (`--sab-log-grid-graphite` / `--sab-log-grid-water`) is in progress on gh:#1128.
+> - **Split, 2026-11-20 (gh:#1128).**
+>   - **Method:** seeds 1–3 per arm, paired with the new default, on binary `msre_n1_split_cfbabfad6` (516f559f8 plus the example's two ablation flags). Each flag puts that one table back on the old grid, so k(arm) − k(new) is the table's share.
+>   - **Graphite carries the move: +238 ± 66 pcm.** That is 104 % of the six-seed −229. Pairs: +112, +337, +264.
+>   - **H(H2O) in the shield: +49 ± 55 pcm, consistent with zero.** Pairs: +88, +119, −59.
+>   - **The shares add up:** their sum minus the full move on the same seeds is +46 ± 73.
+>   - **Both predictions posted before the runs held:** graphite ≥ 80 %, water within ±60.
+>   - **Caveat:** three seeds. This resolves which table carries the move, not its exact fraction.
 > - **Not in either binary:** `develop` commits after 516f559f8, among them #698's coincident-boundary rule, which re-pinned a nested-lattice k (3060a346d). Whether they move N-1 is checked next, on gh:#1128.
 
 > **DEFAULTS CHANGED 2026-11-13 (maintainer, gh:#1128): "Have a dimension
