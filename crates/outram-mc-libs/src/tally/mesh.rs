@@ -591,7 +591,7 @@ fn push_quadratic_roots(ts: &mut Vec<f64>, a: f64, b: f64, c: f64) {
 /// used, its mirror half only adds a harmless cut.
 fn push_azimuthal_cuts(ts: &mut Vec<f64>, phis: &[f64], o: [f64; 2], p0: [f64; 2], d: [f64; 2]) {
     for &phi in phis {
-        let (nx, ny) = (-phi.sin(), phi.cos());
+        let (nx, ny) = (-phi.r_sin(), phi.r_cos());
         let den = nx * d[0] + ny * d[1];
         if den != 0.0 {
             let t = -(nx * (p0[0] - o[0]) + ny * (p0[1] - o[1])) / den;
@@ -643,7 +643,7 @@ fn spherical_bins_crossed(m: &SphericalMesh, r0: Position, r1: Position) -> Vec<
         push_quadratic_roots(&mut ts, dot(d, d), 2.0 * dot(p0, d), dot(p0, p0) - r * r);
     }
     for &th in &m.theta_grid {
-        let c2 = th.cos() * th.cos();
+        let c2 = th.r_cos() * th.r_cos();
         push_quadratic_roots(
             &mut ts,
             d[2] * d[2] - c2 * dot(d, d),
