@@ -10,7 +10,7 @@
 //! `HEN_HOUSE/src/egsnrc.mortran` (EGSnrc, 9016 lines): HATCH (data set-up),
 //! the ELECTR and PHOTON transport loops and the physics routines they call.
 //!
-//! **Status: first port of four routines, not differentially tested (gh:#1680).**
+//! **Status: first port of five routines, not differentially tested (gh:#1680).**
 //! Everything else in the file is still a placeholder.
 //!
 //! | upstream | here |
@@ -18,11 +18,12 @@
 //! | `SUBROUTINE ANNIH` (`egsnrc.mortran:70-183`) | [`annih`] |
 //! | `SUBROUTINE ANNIH_AT_REST` (`egsnrc.mortran:186-224`) | [`annih_at_rest`] |
 //! | `SUBROUTINE UPHI` (`egsnrc.mortran:6722-6838`), `IENTRY` 2 and 3 | [`uphi`] |
+//! | `SUBROUTINE RELAX` (`egsnrc.mortran:5556-5790`), the built-in K/L1/L2/L3/M/N scheme | [`relax`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
 //! Not yet ported from this file: `BHABHA`, `BREMS`, `ELECTR`,
-//! `HATCH`, `MOLLER`, `PAIR`, `PHOTO`, `RELAX`, `EDGSET`, `PHOTON`, `SHOWER`,
+//! `HATCH`, `MOLLER`, `PAIR`, `PHOTO`, `EDGSET`, `PHOTON`, `SHOWER`,
 //! `PHOTONUC`. `UPHI` entry 1 (which derives `sinthe`/`costhe` from `theta`
 //! through the sine look-up table) is also not ported: it needs the table that
 //! `HATCH` fills. The user-scoring `$AUSCALL` hooks are omitted (no `AUSGAB`).
@@ -690,6 +691,206 @@ pub fn compt<R: UniformSource>(
     Ok(out)
 }
 
+/// `$MXSHELL`: shells the built-in relaxation treats (K, L1, L2, L3, M, N).
+pub const MXSHELL: usize = 6;
+/// `$MXTRANS`: possible transitions per element.
+pub const MXTRANS: usize = 39;
+/// `$MXVAC`: maximum vacancies during one cascade.
+pub const MXVAC: usize = 50;
+/// `$RELAX-CUTOFF` (`egsnrc.macros:777`): binding energies below this, MeV,
+/// are absorbed locally.
+pub const RELAX_CUTOFF: f64 = 0.001;
+
+/// `COMMON/EDGE/` as `RELAX` reads it (`egsnrc.macros:501-515`), 1-based:
+/// `binding_energies[iz][shell]` (MeV) and `relaxation_prob[iz][transition]`
+/// (the cumulative-free probabilities `RELAX` subtracts one by one).
+#[derive(Debug, Clone, Default)]
+pub struct RelaxData {
+    /// `binding_energies(shell, iZ)`: K, L1, L2, L3, M, N.
+    pub binding_energies: Vec<Vec<f64>>,
+    /// `relaxation_prob(transition, iZ)`.
+    pub relaxation_prob: Vec<Vec<f64>>,
+}
+
+/// What `RELAX` leaves for the caller.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct RelaxOutcome {
+    /// Energy deposited locally (added to the caller's `edep`).
+    pub edep: f64,
+}
+
+/// `final_state(1..39)` (`egsnrc.mortran:5598-5614`): K fluorescence 4,3,5,6;
+/// Auger codes `n1 + 100*n2`; Coster-Kronig the new vacancy plus 10.
+const FINAL_STATE: [i32; MXTRANS] = [
+    4, 3, 5, 6, 202, 302, 402, 404, 403, 303, 502, 503, 504, 602, 603, 604, 505, 605, 606, 13, 14, 5, 6, 505, 605, 606,
+    14, 5, 6, 505, 605, 606, 5, 6, 505, 605, 606, 6, 606,
+];
+/// `first_transition(1..5)` (`egsnrc.mortran:5596`).
+const FIRST_TRANSITION: [usize; 5] = [1, 20, 27, 33, 38];
+/// `last_transition(1..5)` (`egsnrc.mortran:5597`).
+const LAST_TRANSITION: [usize; 5] = [19, 26, 32, 37, 39];
+
+/// `RELAX` (`egsnrc.mortran:5556-5790`), the built-in scheme (not the EADL
+/// tables, `eadl_relax`, whose `egs_eadl_relax` is not ported): fill a vacancy
+/// of energy `energy` (MeV) in shell `n` of element `iz` by fluorescence,
+/// Coster-Kronig and Auger transitions. Charged and photon products above the
+/// cut-offs go on the stack (copying properties of slot `np - 1`, as upstream),
+/// the rest accumulates in the returned `edep`.
+///
+/// `ecut` is the region's `ECUT` (total energy, MeV) and `pcut` its `PCUT`;
+/// `prm` is `PRM`. The `COMIN/RELAX-USER/` outputs and the `AUSGAB` calls
+/// are omitted.
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`] when the stack fills.
+pub fn relax<R: UniformSource>(
+    stack: &mut Stack,
+    data: &RelaxData,
+    energy: f64,
+    n: i32,
+    iz: usize,
+    ecut: f64,
+    pcut: f64,
+    prm: f64,
+    rng: &mut R,
+) -> Result<RelaxOutcome, EgsError> {
+    let mut out = RelaxOutcome::default();
+    if n < 1 || n as usize > MXSHELL {
+        return Ok(out); // unknown vacancy
+    }
+    let ekcut = ecut - RM;
+    let pkcut = pcut;
+    let min_e = RELAX_CUTOFF;
+    if energy <= min_e {
+        out.edep += energy;
+        return Ok(out);
+    }
+    let mut vac_array = [0usize; MXVAC + 1];
+    let mut e_array = [0.0_f64; MXVAC + 1];
+    let mut n_vac = 1usize;
+    vac_array[n_vac] = n as usize;
+    e_array[n_vac] = energy;
+
+    'start: loop {
+        let shell = vac_array[n_vac];
+        let ei = e_array[n_vac];
+        n_vac -= 1;
+
+        if ei <= min_e {
+            // below cut-off: local absorption
+            out.edep += ei;
+            if n_vac > 0 {
+                continue 'start;
+            }
+            break;
+        }
+
+        if shell == MXSHELL {
+            // N-shell vacancy: just produce an Auger electron
+            if ei > ekcut {
+                relax_push_isotropic(stack, ei + prm, -1, rng)?;
+            } else {
+                out.edep += ei;
+            }
+            if n_vac > 0 {
+                continue 'start;
+            }
+            break;
+        }
+
+        // sample the transition for this vacancy
+        let mut eta = rng.uniform();
+        let first = FIRST_TRANSITION[shell - 1];
+        let last = LAST_TRANSITION[shell - 1];
+        let mut k = first;
+        while k <= last - 1 {
+            eta -= data.relaxation_prob[iz][k];
+            if eta <= 0.0 {
+                break;
+            }
+            k += 1;
+        }
+        // (if the loop ran out, k == last, as the Mortran DO leaves it)
+        let mut final_state = FINAL_STATE[k - 1];
+        let finala = final_state;
+        let iql;
+        let elcut;
+        let ex;
+        if final_state < 100 {
+            if final_state < 10 {
+                // fluorescence
+                iql = 0;
+                elcut = pkcut;
+            } else {
+                // Coster-Kronig
+                final_state -= 10;
+                iql = -1;
+                elcut = ekcut;
+            }
+            let ef = data.binding_energies[iz][final_state as usize];
+            ex = ei - ef;
+            n_vac += 1;
+            vac_array[n_vac] = final_state as usize;
+            e_array[n_vac] = ef;
+        } else {
+            // Auger
+            let final1 = final_state / 100;
+            let final2 = final_state - final1 * 100;
+            n_vac += 1;
+            vac_array[n_vac] = final1 as usize;
+            e_array[n_vac] = data.binding_energies[iz][final1 as usize];
+            n_vac += 1;
+            vac_array[n_vac] = final2 as usize;
+            e_array[n_vac] = data.binding_energies[iz][final2 as usize];
+            iql = -1;
+            ex = ei - e_array[n_vac] - e_array[n_vac - 1];
+            elcut = ekcut;
+        }
+        if ex <= elcut {
+            // below cut-off
+            out.edep += ex;
+        } else {
+            let e_new = if iql == 0 { ex } else { ex + RM };
+            relax_push_isotropic(stack, e_new, iql, rng)?;
+        }
+        let _ = finala;
+    }
+    Ok(out)
+}
+
+/// The particle-creation block `RELAX` repeats (`egsnrc.mortran:5667-5679`,
+/// `5766-5777`): push slot `np + 1` with properties of `np`, energy `e` and
+/// charge `iq`, direction isotropic (`w` uniform, azimuth by the box method).
+fn relax_push_isotropic<R: UniformSource>(
+    stack: &mut Stack,
+    e: f64,
+    iq: i32,
+    rng: &mut R,
+) -> Result<(), EgsError> {
+    stack.np += 1;
+    stack.check_stack(stack.np, "RELAX")?;
+    let np = stack.np;
+    stack.e[np] = e;
+    stack.iq[np] = iq;
+    stack.transfer_properties(np, np - 1);
+    let mut eta = rng.uniform();
+    eta = 2.0 * eta - 1.0;
+    stack.w[np] = eta;
+    eta = (1.0 - eta) * (1.0 + eta);
+    if eta > 1e-20 {
+        eta = Real::sqrt(eta);
+        let (cphi, sphi) = select_azimuthal_angle(rng);
+        stack.u[np] = eta * cphi;
+        stack.v[np] = eta * sphi;
+    } else {
+        stack.u[np] = 0.0;
+        stack.v[np] = 0.0;
+        stack.w[np] = 1.0;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -975,6 +1176,85 @@ mod tests {
         uphi(&mut st, &mut saved, 3, 2, -0.6, 0.8, &mut rng).unwrap();
         assert!((st.u[1] + st.u[2]).abs() < 1e-12 && (st.v[1] + st.v[2]).abs() < 1e-12);
         assert_eq!(uphi(&mut st, &mut saved, 1, 1, 0.6, 0.8, &mut rng), Err(EgsError::BadEntry { ientry: 1, lvl: 1 }));
+    }
+
+
+    /// A toy element: K binding 0.01 MeV, L1..L3 0.0008 (under the 1 keV relax
+    /// cut-off, so the cascade ends there), M 0.0005, N 0.0001; one certain
+    /// K transition per element (fluorescence or Auger).
+    fn toy_relax() -> RelaxData {
+        let mut prob = alloc::vec![0.0; MXTRANS + 1];
+        prob[1] = 1.0; // K -> K-L3 fluorescence (final state 4: vacancy in L3... index 4)
+        let mut prob_auger = alloc::vec![0.0; MXTRANS + 1];
+        prob_auger[5] = 1.0; // K-L1L1 Auger: final 202 = vacancies 2 and 2
+        RelaxData {
+            binding_energies: alloc::vec![
+                Vec::new(),
+                alloc::vec![0.0, 0.01, 0.0008, 0.0008, 0.0008, 0.0005, 0.0001],
+                alloc::vec![0.0, 0.01, 0.0008, 0.0008, 0.0008, 0.0005, 0.0001],
+            ],
+            // iz 1 -> fluorescence, iz 2 -> Auger
+            relaxation_prob: alloc::vec![Vec::new(), prob, prob_auger],
+        }
+    }
+
+    #[test]
+    fn relax_fluorescence_and_auger_conserve_energy() {
+        let d = toy_relax();
+        let mut rng = Ranmar::new(8, 9);
+        for (iz, charged) in [(1usize, false), (2usize, true)] {
+            let mut st = Stack::new(40);
+            st.np = 1;
+            st.wt[1] = 1.0;
+            st.ir[1] = 3;
+            // cut-offs low enough that nothing is absorbed at the first step
+            let out = relax(&mut st, &d, 0.01, 1, iz, RM + 1e-4, 1e-4, RM, &mut rng).unwrap();
+            let mut ekin = out.edep;
+            for i in 2..=st.np {
+                ekin += if st.iq[i] == 0 { st.e[i] } else { st.e[i] - RM };
+                assert_eq!(st.ir[i], 3, "properties come from the parent slot");
+                assert!((norm(&st, i) - 1.0).abs() < 1e-12);
+            }
+            assert!((ekin - 0.01).abs() < 1e-12, "iz {iz}: {ekin}");
+            assert_eq!((2..=st.np).any(|i| st.iq[i] == -1), charged);
+        }
+    }
+
+    #[test]
+    fn relax_local_absorption_and_edge_cases() {
+        let d = toy_relax();
+        let mut rng = Ranmar::new(1, 4);
+        let mut st = Stack::new(40);
+        st.np = 1;
+        // unknown shell: nothing
+        assert_eq!(relax(&mut st, &d, 0.01, 0, 1, 1.0, 1.0, RM, &mut rng).unwrap(), RelaxOutcome::default());
+        assert_eq!(relax(&mut st, &d, 0.01, 7, 1, 1.0, 1.0, RM, &mut rng).unwrap().edep, 0.0);
+        // below the 1 keV relax cut-off: all local
+        assert_eq!(relax(&mut st, &d, 5e-4, 1, 1, 1.0, 1.0, RM, &mut rng).unwrap().edep, 5e-4);
+        assert_eq!(st.np, 1);
+        // cut-offs above everything: all deposited, nothing pushed
+        let out = relax(&mut st, &d, 0.01, 1, 2, 10.0, 10.0, RM, &mut rng).unwrap();
+        assert_eq!(st.np, 1);
+        assert!((out.edep - 0.01).abs() < 1e-12);
+        // an N-shell vacancy produces one Auger electron
+        let out = relax(&mut st, &d, 0.0005, 6, 1, RM + 1e-9, 1e-4, RM, &mut rng).unwrap();
+        assert_eq!(out.edep, 0.0 + 0.0005);
+        // (0.0005 < RELAX_CUTOFF: absorbed before the N-shell branch)
+        let out = relax(&mut st, &d, 0.003, 6, 1, RM + 1e-9, 1e-4, RM, &mut rng).unwrap();
+        assert_eq!((st.np, st.iq[2], out.edep), (2, -1, 0.0));
+        assert!((st.e[2] - (0.003 + RM)).abs() < 1e-12);
+        // N-shell vacancy below ekcut is absorbed
+        let mut s2 = Stack::new(40);
+        s2.np = 1;
+        let out = relax(&mut s2, &d, 0.003, 6, 1, 10.0, 1e-4, RM, &mut rng).unwrap();
+        assert_eq!((s2.np, out.edep), (1, 0.003));
+        // a full stack is an error
+        let mut full = Stack::new(1);
+        full.np = 1;
+        assert!(matches!(
+            relax(&mut full, &d, 0.01, 1, 1, RM + 1e-4, 1e-4, RM, &mut rng),
+            Err(EgsError::StackExceeded { routine: "RELAX", .. })
+        ));
     }
 
     #[test]
