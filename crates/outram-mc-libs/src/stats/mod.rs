@@ -37,8 +37,10 @@
 //!
 //! Draft, AI-assisted, with **no V&V measured yet**: the maintainer deferred
 //! all test and benchmark runs on 2026-10-03, so every V&V gate named in these
-//! modules' docs reads "NOT YET MEASURED". The unit tests are written and
-//! compile; they have not been run. V&V stubs live under
+//! modules' docs reads "NOT YET MEASURED". ~~The unit tests are written and
+//! compile; they have not been run.~~ **CORRECTED 2026-11-19** (gh:#693): they
+//! have been run; `cargo test --release -p outram-mc-libs --lib stats::` gives
+//! 20 passed, 0 failed (2026-11-19). V&V stubs live under
 //! `verification_and_validation/stats_epic_493/`.
 
 #[cfg(not(any(feature = "std", test)))]

@@ -241,6 +241,14 @@ pub struct FixedSourceResult {
     /// (`Σ ν·σ_f / σ_t` over collisions) — the sub-critical multiplication `M`.
     /// `0` for a non-fissile (shielding) system.
     pub multiplication: f64,
+    /// Fission secondaries **discarded** because a source particle's chain hit
+    /// [`FixedSourceSettings::max_secondaries`] (gh:#685). Non-zero means
+    /// `multiplication` and any tally are **biased low**: upstream aborts here
+    /// (`fatal_error`, `src/physics.cpp:122-130`) rather than truncating, and
+    /// this port reports instead of aborting, so check this field. Near
+    /// critical (`k -> 1`) the expected chain length is `1/(1-k)`, so a fixed
+    /// cap truncates a growing share of the answer.
+    pub dropped_secondaries: usize,
 }
 
 /// Run a fixed-source transport calculation.
@@ -289,6 +297,37 @@ pub fn run_fixed_source(
     )
 }
 
+/// [`run_fixed_source`], failing as OpenMC does when the secondary bank is
+/// truncated (gh:#685): `fatal_error("The secondary particle bank appears to be
+/// growing without bound ...")`, `src/physics.cpp:122-130`. `Ok` is bit-identical
+/// to [`run_fixed_source`]; an `Err` carries the message and the truncated
+/// result is dropped, since its `multiplication` and tallies are biased low.
+///
+/// # Errors
+///
+/// A message naming how many secondaries were dropped and the cap, when
+/// [`FixedSourceResult::dropped_secondaries`] is non-zero.
+pub fn try_run_fixed_source(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source: &FixedSource,
+    settings: &FixedSourceSettings,
+    tally: Option<&mut Tally>,
+) -> Result<FixedSourceResult, String> {
+    let res = run_fixed_source(geom, materials, nuclides, source, settings, tally);
+    if res.dropped_secondaries > 0 {
+        return Err(format!(
+            "{} fission secondaries were dropped at max_secondaries = {} (OpenMC aborts, \
+             src/physics.cpp:122-130): the multiplication and any tally are biased low. \
+             Raise FixedSourceSettings::max_secondaries, or use run_fixed_source and \
+             check dropped_secondaries.",
+            res.dropped_secondaries, settings.max_secondaries
+        ));
+    }
+    Ok(res)
+}
+
 /// [`run_fixed_source`] with **particle track capture** — GitHub #271.
 ///
 /// Every phase-space state of the first `recorder.max_tracks` histories is
@@ -325,18 +364,23 @@ pub fn run_fixed_source_traced(
 
     let n = settings.n_particles.max(1);
     let n_batches = settings.n_batches.max(1);
-    // Even split; the last batch absorbs the remainder.
+    // gh:#675: EXACTLY `n_batches` batches, sizes differing by at most one
+    // (`n / nb`, the first `n % nb` batches one larger). ~~`ceil(n / nb)` per
+    // batch with an early `break`, which flushed fewer than `n_batches`
+    // realizations (n = 100, nb = 40 gave 34) though the docs say to read a
+    // tally with `n_batches`.~~ **CORRECTED 2026-11-19.** An empty batch
+    // (n < nb) still closes as a zero realization. `per_batch` stays the
+    // largest batch for the OpenMC seeding layout (unchanged when `nb | n`).
+    let (base, rem) = (n / n_batches, n % n_batches);
     let per_batch = n.div_ceil(n_batches);
 
     let mut total_histories = 0usize;
+    let mut dropped_secondaries = 0usize;
     let mut production_sum = 0.0;
     let mut done = 0usize;
 
     for b in 0..n_batches {
-        let this_batch = per_batch.min(n - done);
-        if this_batch == 0 {
-            break;
-        }
+        let this_batch = base + usize::from(b < rem);
         for i in 0..this_batch {
             // SeedingMode::OpenMc: this particle's three OpenMC streams.
             let openmc = match settings.seeding {
@@ -409,6 +453,8 @@ pub fn run_fixed_source_traced(
                     if secondaries < settings.max_secondaries {
                         bank.push(s);
                         secondaries += 1;
+                    } else {
+                        dropped_secondaries += 1;
                     }
                 }
             }
@@ -431,6 +477,7 @@ pub fn run_fixed_source_traced(
         source_particles: done,
         total_histories,
         multiplication: production_sum / done.max(1) as f64,
+        dropped_secondaries,
     }
 }
 
@@ -595,5 +642,74 @@ mod tests {
             "secondaries were transported"
         );
         assert!(tally.bins[0].sum > 0.0, "flux tally is positive");
+        assert_eq!(res.dropped_secondaries, 0, "default cap not reached here");
+    }
+
+    /// gh:#675: exactly `n_batches` realizations are flushed, whatever `n`
+    /// (100 particles in 40 batches flushed 34 before; 10 in 6 flushed 5), and the
+    /// void-sphere tally, where every particle scores exactly R, has zero variance.
+    #[test]
+    fn exactly_n_batches_realizations_are_flushed() {
+        let r_cm = 5.0;
+        let geom = sphere_geom(r_cm, BoundaryType::Vacuum, CellFill::Void);
+        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 1.0e6 };
+        for (n, nb) in [(100usize, 40usize), (10, 6), (1000, 20), (7, 7)] {
+            let mut tally = flux_tally();
+            let res = run_fixed_source(
+                &geom,
+                &[],
+                &[],
+                &src,
+                &FixedSourceSettings { n_particles: n, n_batches: nb, ..Default::default() },
+                Some(&mut tally),
+            );
+            assert_eq!(res.source_particles, n);
+            assert_eq!(tally.bins[0].count, nb as u64, "n = {n}, n_batches = {nb}");
+        }
+    }
+
+    /// gh:#685: a cap that truncates a chain is REPORTED, not silent. The same
+    /// strongly sub-critical HEU sphere with `max_secondaries = 1` must drop
+    /// secondaries and say so, and the default cap drops none.
+    #[test]
+    fn a_truncating_secondary_cap_is_reported() {
+        use crate::material::material::{Material, NuclideComponent};
+        use crate::material::nuclide::Nuclide;
+        let nuclides = vec![
+            Nuclide::from_core("U234").unwrap(),
+            Nuclide::from_core("U235").unwrap(),
+            Nuclide::from_core("U238").unwrap(),
+        ];
+        let heu = Material {
+            id: 1,
+            name: "HEU".into(),
+            temperature: 293.6,
+            components: vec![
+                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
+                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
+                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+            ],
+        };
+        let geom = sphere_geom(4.0, BoundaryType::Vacuum, CellFill::Material(0));
+        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 2.0e6 };
+        let run = |cap: usize| {
+            run_fixed_source(
+                &geom,
+                &[heu.clone()],
+                &nuclides,
+                &src,
+                &FixedSourceSettings { n_particles: 200, n_batches: 2, max_secondaries: cap, ..Default::default() },
+                None,
+            )
+        };
+        let capped = run(1);
+        assert!(capped.dropped_secondaries > 0, "cap of 1 must truncate");
+        let refused = try_run_fixed_source(
+            &geom, &[heu.clone()], &nuclides, &src,
+            &FixedSourceSettings { n_particles: 200, n_batches: 2, max_secondaries: 1, ..Default::default() },
+            None,
+        );
+        assert!(refused.unwrap_err().contains("dropped"), "the try_ form refuses");
+        assert_eq!(run(10_000).dropped_secondaries, 0);
     }
 }

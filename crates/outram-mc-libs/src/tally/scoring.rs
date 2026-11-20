@@ -2,8 +2,14 @@
 //!
 //! C++ source: `src/tallies/tally_scoring.cpp`.
 //!
-//! After a real collision the transport loop (see
-//! [`crate::physics::transport_csg`]) calls [`score_collision`], which:
+//! ~~After a real collision the transport loop (see
+//! [`crate::physics::transport_csg`]) calls [`score_collision`]~~ **CORRECTED
+//! 2026-11-19** (gh:#693, #679): the transport loop does NOT call
+//! [`score_collision`] (it has no non-test caller; the transport scores
+//! track-length per batch and, in delta regions, [`score_collision_point`]).
+//! It scores each collision straight into the persistent bins, so its
+//! statistics are per-collision, not per-batch (gh:#679); use it only for a
+//! mean over a known realization count. It:
 //!   1. builds a [`FilterEvent`] snapshot of the particle state,
 //!   2. maps it through every filter on the tally to a flat bin index (a
 //!      conjunction — if any filter rejects the event, nothing is scored),
@@ -508,6 +514,9 @@ fn score_length_like(
         // a caller that keeps none), and the particle weight, which was left at
         // the default 1.0 and so made a `WeightFilter` see every event at unit
         // weight.
+        cell_levels: core::array::from_fn(|l| hist.levels[l].0),
+        universe_levels: core::array::from_fn(|l| hist.levels[l].1),
+        n_levels: hist.n_levels,
         cell_born: hist.cell_born,
         position_born: hist.position_born,
         n_collision: hist.n_collision,
@@ -522,8 +531,11 @@ fn score_length_like(
         // **`mu` stays defaulted, and that is correct.** It is the
         // change-of-direction cosine of a SCATTERING event — a collision
         // quantity. A flight segment has a direction (threaded above) but no
-        // scattering cosine, so there is nothing to thread: `MuFilter` belongs
-        // on the collision estimator, where it is supplied. Defaulting an
+        // scattering cosine, so there is nothing to thread. ~~`MuFilter` belongs
+        // on the collision estimator, where it is supplied.~~ **CORRECTED
+        // 2026-11-19** (gh:#676): only the scatter-matrix estimator supplies
+        // `mu` (`score_scatter_matrix_mu`); a track-length tally has none, so
+        // `Tally::validate` refuses a `MuFilter` there. Defaulting an
         // undefined quantity is not the same failure as defaulting an available
         // one, which is what `time` and `direction` were.
         ..Default::default()
@@ -745,6 +757,27 @@ pub fn score_fission_birth(
     position: Position,
     weight: f64,
 ) {
+    score_fission_birth_hist(
+        batch, tally, cell_idx, material_idx, universe_idx, energy_in, energy_born, position,
+        weight, &EventHistory::default(),
+    );
+}
+
+/// [`score_fission_birth`] with the particle's [`EventHistory`], so cell and
+/// universe filters match every coordinate level (gh:#677).
+#[allow(clippy::too_many_arguments)]
+pub fn score_fission_birth_hist(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_born: f64,
+    position: Position,
+    weight: f64,
+    hist: &EventHistory,
+) {
     if !energy_in.is_finite() || !energy_born.is_finite() || energy_born < 0.0 {
         return;
     }
@@ -763,6 +796,9 @@ pub fn score_fission_birth(
         energy_out: Some(energy_born),
         surface_idx: usize::MAX,
         position,
+        cell_levels: core::array::from_fn(|l| hist.levels[l].0),
+        universe_levels: core::array::from_fn(|l| hist.levels[l].1),
+        n_levels: hist.n_levels,
         ..Default::default()
     };
     let Some(bin) = filter_bin(tally, &ev) else {
@@ -850,6 +886,54 @@ pub fn score_scatter_matrix(
     weight: f64,
     emission: ScatterEmission,
 ) {
+    score_scatter_matrix_mu(
+        batch, tally, cell_idx, material_idx, universe_idx, energy_in, energy_out, position,
+        weight, emission, 0.0,
+    );
+}
+
+/// [`score_scatter_matrix`] with the **laboratory scattering cosine** `mu = u_in
+/// . u_out` of the emitted neutron (gh:#676), which a `MuFilter` on the tally
+/// bins. [`score_scatter_matrix`] is this with `mu = 0.0`, kept for callers with
+/// no direction; the transport arms pass the real cosine.
+#[allow(clippy::too_many_arguments)]
+pub fn score_scatter_matrix_mu(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_out: f64,
+    position: Position,
+    weight: f64,
+    emission: ScatterEmission,
+    mu: f64,
+) {
+    score_scatter_matrix_full(
+        batch, tally, cell_idx, material_idx, universe_idx, energy_in, energy_out, position,
+        weight, emission, mu, &EventHistory::default(),
+    );
+}
+
+/// [`score_scatter_matrix_mu`] with the particle's [`EventHistory`], so a
+/// `CellFilter` / `UniverseFilter` matches every coordinate level of the path on
+/// the scatter matrix too (gh:#677), not only the leaf.
+#[allow(clippy::too_many_arguments)]
+pub fn score_scatter_matrix_full(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_out: f64,
+    position: Position,
+    weight: f64,
+    emission: ScatterEmission,
+    mu: f64,
+    hist: &EventHistory,
+) {
     if !energy_in.is_finite() || !energy_out.is_finite() || energy_out < 0.0 {
         return;
     }
@@ -883,21 +967,48 @@ pub fn score_scatter_matrix(
         energy_out: Some(energy_out),
         surface_idx: usize::MAX,
         position,
+        mu,
+        cell_levels: core::array::from_fn(|l| hist.levels[l].0),
+        universe_levels: core::array::from_fn(|l| hist.levels[l].1),
+        n_levels: hist.n_levels,
         ..Default::default()
     };
 
+    let n_scores = tally.scores.len();
+    let value_of = |score: &ScoreType| match (score, emission) {
+        (ScoreType::NuScatter, _) => weight,
+        _ if !matrix => 0.0,
+        (ScoreType::ScatterN | ScoreType::Events, _) => weight,
+        (ScoreType::Scatter, ScatterEmission::Primary) => weight,
+        _ => 0.0,
+    };
+    // Functional expansion in the scattering cosine (gh:#676): a
+    // `LegendreFilter` deposits `value * P_l(mu)` into EVERY moment bin `l`, the
+    // analogue of OpenMC's `LegendreFilter::get_all_bins` (`calc_pn_c(order,
+    // p.mu())`, `filter_legendre.cpp`). The other filters are matched as usual
+    // with the Legendre digit of the row-major index pinned to `l`.
+    if let Some(pos) = tally.filters.iter().position(|f| matches!(f, FilterKind::Legendre(_))) {
+        let Some(moments) = tally.filters[pos].expansion_moments(&ev) else {
+            return;
+        };
+        for (l, &pl) in moments.iter().enumerate() {
+            let Some(bin) = filter_bin_with_group(tally, &ev, pos, l) else {
+                return;
+            };
+            for (s_idx, score) in tally.scores.iter().enumerate() {
+                let val = value_of(score) * pl;
+                if val != 0.0 && val.is_finite() {
+                    batch[bin * n_scores + s_idx] += val;
+                }
+            }
+        }
+        return;
+    }
     let Some(bin) = filter_bin(tally, &ev) else {
         return;
     };
-    let n_scores = tally.scores.len();
     for (s_idx, score) in tally.scores.iter().enumerate() {
-        let val = match (score, emission) {
-            (ScoreType::NuScatter, _) => weight,
-            _ if !matrix => 0.0,
-            (ScoreType::ScatterN | ScoreType::Events, _) => weight,
-            (ScoreType::Scatter, ScatterEmission::Primary) => weight,
-            _ => 0.0,
-        };
+        let val = value_of(score);
         if val != 0.0 && val.is_finite() {
             batch[bin * n_scores + s_idx] += val;
         }
@@ -959,6 +1070,18 @@ pub fn flush_bins(bins: &mut [TallyBin], batch: &mut [f64]) {
 ///
 /// If any attached filter does not match the event, the collision is not scored
 /// (the filters act as a conjunction).
+///
+/// **Deprecated (gh:#679, 2026-11-19).** This scores every collision straight
+/// into the persistent bins, so each COLLISION is one "realization": its mean is
+/// right only by accident and its `rel_std_dev` is not the variance of batch
+/// totals. It also builds its [`FilterEvent`] without position, direction, time
+/// or `mu`, so spatial, angular and time filters bin it wrongly. Nothing outside
+/// its own unit tests calls it. Use [`score_collision_point`] (per-batch,
+/// full state), as the delta-tracked transport does.
+#[deprecated(
+    since = "0.0.0",
+    note = "per-collision realizations and an incomplete FilterEvent (gh:#679); use score_collision_point"
+)]
 #[allow(clippy::too_many_arguments)]
 pub fn score_collision(
     tally: &mut Tally,
@@ -1059,6 +1182,7 @@ pub fn score_collision(
 
 #[cfg(test)]
 mod tests {
+    #![allow(deprecated)]
     use super::*;
     use crate::tally::filter::{CellFilter, Filter, FilterKind};
     use crate::tally::tally::{Tally, TallyBin};
@@ -1114,6 +1238,114 @@ mod tests {
         let mut b2 = vec![0.0; plain.bins.len()];
         score_scatter_matrix(&mut b2, &plain, 0, 0, 0, 1.0e7, 2.0e6, r, 1.0, ScatterEmission::Primary);
         assert!(b2.iter().all(|v| *v == 0.0), "opt-in: no EnergyOutFilter, no score");
+    }
+
+    /// gh:#676: a `[EnergyOut, Legendre(2)]`-style tally gets `w * P_l(mu)` in
+    /// every moment bin from the scatter matrix. mu = 0.5: P0 = 1, P1 = 0.5,
+    /// P2 = (3*0.25 - 1)/2 = -0.125; weight 2 doubles each.
+    #[test]
+    fn the_scatter_matrix_expands_in_legendre_moments_of_the_lab_cosine() {
+        use crate::tally::filter::{EnergyFilter, EnergyOutFilter};
+        use crate::tally::filter_extra::LegendreFilter;
+        let edges = vec![1.0e-5, 1.0e6, 2.0e7];
+        let t = Tally {
+            id: 3,
+            name: "p_l".into(),
+            filters: vec![
+                FilterKind::Energy(EnergyFilter { bins: edges.clone() }),
+                FilterKind::EnergyOut(EnergyOutFilter { bins: edges }),
+                FilterKind::Legendre(LegendreFilter { order: 2 }),
+            ],
+            scores: vec![ScoreType::NuScatter],
+            bins: vec![TallyBin::default(); 2 * 2 * 3],
+        };
+        assert!(t.validate().is_ok());
+        let r = Position::new(0.0, 0.0, 0.0);
+        let mut batch = vec![0.0; t.bins.len()];
+        // g_in = 1 (10 MeV), g_out = 0 (0.5 MeV): flat bin = (1*2 + 0)*3 + l.
+        score_scatter_matrix_mu(&mut batch, &t, 0, 0, 0, 1.0e7, 5.0e5, r, 2.0, ScatterEmission::Primary, 0.5);
+        let base = (1 * 2 + 0) * 3;
+        assert!((batch[base] - 2.0).abs() < 1e-15);
+        assert!((batch[base + 1] - 1.0).abs() < 1e-15);
+        assert!((batch[base + 2] + 0.25).abs() < 1e-15);
+        assert_eq!(batch.iter().filter(|v| **v != 0.0).count(), 3, "only that (g_in, g_out) row");
+    }
+
+    /// gh:#676: the scatter matrix bins the lab cosine of each emitted neutron on
+    /// a `MuFilter`: `mu = +0.5` lands in the upper bin, `-0.5` in the lower, and
+    /// a tally with a `NuScatter` score and no `EnergyOutFilter` still scores.
+    #[test]
+    fn the_scatter_matrix_bins_the_lab_cosine_on_a_mu_filter() {
+        use crate::tally::filter::MuFilter;
+        let t = Tally {
+            id: 2,
+            name: "mu".into(),
+            filters: vec![FilterKind::Mu(MuFilter { bounds: vec![-1.0, 0.0, 1.0] })],
+            scores: vec![ScoreType::NuScatter],
+            bins: vec![TallyBin::default(); 2],
+        };
+        assert!(t.validate().is_ok());
+        let r = Position::new(0.0, 0.0, 0.0);
+        let mut batch = vec![0.0; 2];
+        score_scatter_matrix_mu(&mut batch, &t, 0, 0, 0, 1.0e6, 5.0e5, r, 1.0, ScatterEmission::Primary, 0.5);
+        score_scatter_matrix_mu(&mut batch, &t, 0, 0, 0, 1.0e6, 5.0e5, r, 2.0, ScatterEmission::Primary, -0.5);
+        assert_eq!(batch, vec![2.0, 1.0], "mu = -0.5 -> bin 0 (weight 2), mu = +0.5 -> bin 1 (weight 1)");
+    }
+
+    /// gh:#677 (scatter matrix and fission birth): a cell filter on a CONTAINER
+    /// cell matches the leaf's ancestors on these estimators too when the path
+    /// is carried; without it only the leaf matches, as before.
+    #[test]
+    fn container_cell_filters_match_on_the_scatter_matrix_and_fission_birth() {
+        use crate::tally::filter::{EnergyOutFilter, FilterKind};
+        use crate::tally::history_events::EventHistory;
+        let t = Tally {
+            id: 5,
+            name: "c".into(),
+            filters: vec![
+                FilterKind::Cell(CellFilter { cell_indices: vec![5] }),
+                FilterKind::EnergyOut(EnergyOutFilter { bins: vec![1.0e-5, 2.0e7] }),
+            ],
+            scores: vec![ScoreType::NuScatter, ScoreType::NuFission],
+            bins: vec![TallyBin::default(); 2],
+        };
+        let r = Position::new(0.0, 0.0, 0.0);
+        let mut hist = EventHistory::default();
+        hist.set_levels([(5usize, 0usize), (1, 2)].into_iter());
+        let mut b = vec![0.0; 2];
+        score_scatter_matrix_full(&mut b, &t, 1, 0, 2, 1.0e6, 5.0e5, r, 1.0, ScatterEmission::Primary, 0.0, &hist);
+        assert_eq!(b, vec![1.0, 0.0], "scatter matrix: container cell 5 matches");
+        let mut b = vec![0.0; 2];
+        score_fission_birth_hist(&mut b, &t, 1, 0, 2, 1.0e6, 2.0e6, r, 1.0, &hist);
+        assert_eq!(b, vec![0.0, 1.0], "fission birth: container cell 5 matches");
+        let mut b = vec![0.0; 2];
+        score_scatter_matrix_mu(&mut b, &t, 1, 0, 2, 1.0e6, 5.0e5, r, 1.0, ScatterEmission::Primary, 0.0);
+        assert_eq!(b, vec![0.0, 0.0], "no path carried: leaf only");
+    }
+
+    /// gh:#677: a flux tally on a CONTAINER cell (filled with a universe or
+    /// lattice) scores the flights of its leaf cells, as OpenMC's `CellFilter`
+    /// matches every coordinate level. The leaf is cell 1 inside container cell 5;
+    /// before, the tally on `[5]` scored 0. A leaf-only event (no path carried)
+    /// keeps the old behaviour, and an unrelated container does not match.
+    #[test]
+    fn a_cell_filter_on_a_container_cell_scores_its_leaf_flights() {
+        use crate::tally::history_events::EventHistory;
+        let t = cell_flux_tally(vec![5]);
+        let r = Position::new(0.0, 0.0, 0.0);
+        let u = Direction::new(1.0, 0.0, 0.0);
+        let mut hist = EventHistory::default();
+        hist.set_levels([(5usize, 0usize), (usize::MAX, 0), (1, 2)].into_iter());
+        let mut batch = vec![0.0; 1];
+        score_track_length_hist(&mut batch, &t, 1, 0, 2, 1.0e6, 3.0, r, None, 1.0, None, 0.0, u, &hist);
+        assert_eq!(batch[0], 3.0, "container cell 5 sees the 3 cm flight in its leaf");
+        let mut b2 = vec![0.0; 1];
+        score_track_length_hist(&mut b2, &t, 1, 0, 2, 1.0e6, 3.0, r, None, 1.0, None, 0.0, u, &EventHistory::default());
+        assert_eq!(b2[0], 0.0, "no path carried: leaf only, as before");
+        let other = cell_flux_tally(vec![9]);
+        let mut b3 = vec![0.0; 1];
+        score_track_length_hist(&mut b3, &other, 1, 0, 2, 1.0e6, 3.0, r, None, 1.0, None, 0.0, u, &hist);
+        assert_eq!(b3[0], 0.0, "an unrelated cell does not match");
     }
 
     /// A collision in a filtered cell scores `1/Σ_t`; a collision in an

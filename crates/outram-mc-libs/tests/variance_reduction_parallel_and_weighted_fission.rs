@@ -152,12 +152,19 @@ fn parallel_path_applies_survival_biasing() {
 
 #[test]
 fn parallel_path_honours_the_keff_trigger() {
+    let trigger = Some(Trigger {
+        metric: TriggerMetric::StandardDeviation,
+        threshold: 1.0,
+        ignore_zeros: false,
+    });
+    // gh:#703 (2026-11-20): the trigger is first checked at
+    // `keff_trigger_min_active` active generations, default 20, as upstream
+    // checks triggers only from `n_batches` on. ~~A trigger met by any two active
+    // generations stopped the run after two.~~ An explicit minimum of 2 restores
+    // that, and still pins that the PARALLEL path honours a trigger (gh:#461).
     let s = KeffSettings {
-        keff_trigger: Some(Trigger {
-            metric: TriggerMetric::StandardDeviation,
-            threshold: 1.0,
-            ignore_zeros: false,
-        }),
+        keff_trigger: trigger,
+        keff_trigger_min_active: 2,
         ..base(par())
     };
     let r = run(&s);
@@ -167,6 +174,9 @@ fn parallel_path_honours_the_keff_trigger() {
         "a trigger met by any two active generations did not stop the parallel run \
          (GitHub #461)"
     );
+    // The default waits for 20 active generations.
+    let d = KeffSettings { keff_trigger: trigger, ..base(par()) };
+    assert_eq!(run(&d).k_by_generation.len(), d.n_inactive + 20, "default minimum of 20");
 }
 
 #[test]

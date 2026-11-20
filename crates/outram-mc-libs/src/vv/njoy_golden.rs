@@ -29,7 +29,9 @@
 //! Agreement here is a claim about this crate's fidelity to the code it ports.
 //! Where the port is known to be wrong, the discrepancy is recorded in the table
 //! comments rather than smoothed away — see [`H2O_KERNEL`], whose −2 % to −5.5 %
-//! column is the open defect tracked as GitHub #188.
+//! column was the defect tracked as GitHub #188. ~~is the open defect~~
+//! **CORRECTED 2026-11-19 (gh:#1666):** the first-moment defect is gone (see
+//! [`H2O_KERNEL`]); the width tables are not re-checked here.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -129,9 +131,22 @@ pub const H2O_LAW_UPPER_BOUND_EV: (f64, f64) = (9.99, 10.00008);
 /// 293.6 K, reduced to its first moment: `(E [eV], <E'>/E, xi = <ln(E/E')>)`.
 /// Oracle measured 2026-09-11; this crate re-measured against it 2026-09-12.
 ///
-/// # This table records an open defect, deliberately
+/// # ~~This table records an open defect, deliberately~~ CORRECTED 2026-11-19 (gh:#1666)
 ///
-/// This crate's kernel is **too narrow**: as first measured on 2026-09-11 it
+/// **The first-moment defect below is gone.** Re-run 2026-11-19 on base
+/// `516f559f8` (`examples/h2o_kernel_vs_njoy_thermr.rs`, 1 600 000 samples),
+/// the worst `<E'>/E` deviation against this table is **+0.098 % at 1.5 meV**
+/// (sampling 1 sigma 0.15 %), inside [`H2O_KERNEL_TOL`]; the example's last
+/// assertion now bounds that row below the tolerance instead of requiring the
+/// defect to be visible. It went with `cecd8bd92` (2026-09-13, "adaptively
+/// linearise THERMR's E' grid", −1.75 % to −0.38 %), not with #407. The per-row
+/// "ours" comments below are the 2026-09-13 values and the text below the
+/// 2026-09-11/12 history; both are kept as they were. Full bisect: the doc
+/// comment of `golden_gate` in that example.
+///
+/// # (History, 2026-09-11) This table recorded an open defect, deliberately
+///
+/// This crate's kernel was **too narrow**: as first measured on 2026-09-11 it
 /// moved neutrons −5.5 % at 1.5 meV through to +1.5 % at 1.9 eV, crossing over
 /// at 0.1116 eV, with `xi` 3–5 % low. Water therefore moderated about 4 % less
 /// per collision here than in NJOY. That is [GitHub #188].
@@ -160,7 +175,9 @@ pub const H2O_LAW_UPPER_BOUND_EV: (f64, f64) = (9.99, 10.00008);
 /// there is — barely moves (−2.89 % at 64 bins, −2.79 % at 128). What is being
 /// measured is the equiprobable representation truncating both tails of the
 /// distribution, and the proper fix is a **continuous** outgoing-energy law
-/// (NJOY's `iform = 1`), not more bins. **#188 stays open.**
+/// (NJOY's `iform = 1`), not more bins. ~~**#188 stays open.**~~ **CORRECTED
+/// 2026-11-19 (gh:#1666):** not open for the first moment any more; see the
+/// section at the top of this comment.
 ///
 /// **Do not "fix" a failure of the kernel assertions by widening them.** The
 /// envelope is pinned just above the measured defect — it is sized to catch the

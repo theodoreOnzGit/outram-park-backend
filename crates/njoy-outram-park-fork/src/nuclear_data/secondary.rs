@@ -351,7 +351,10 @@ pub struct ChiTabular {
     /// unit-base. That is a real discrepancy against the *evaluation* — but it
     /// is **not** a discrepancy against this crate's reference implementation:
     /// NJOY's ACER preserves the flag into the ACE Law-4 header, OpenMC applies
-    /// unit-base regardless, and this port's sampled spectra reproduce OpenMC's
+    /// unit-base regardless (~~"regardless"~~ **CORRECTED 2026-11-19**, gh:#689,
+    /// #693 item 6: except a single histogram (INT=1) incident region, where it
+    /// uses the lower table with no random pick and no scaling; ported in
+    /// `sample_continuous_tabular_indexed`), and this port's sampled spectra reproduce OpenMC's
     /// construction to 0.02 % (`outram-mc-libs`'s
     /// `mt91_transfer_vs_openmc.rs`). Diverging from OpenMC here is a
     /// maintainer decision, not something to do silently — hence: carried,

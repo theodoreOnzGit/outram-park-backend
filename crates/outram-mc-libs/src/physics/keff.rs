@@ -191,6 +191,27 @@ pub struct KeffSettings {
     /// tightened threshold silently multiply the cost of a study, which is
     /// the opposite of what this feature is for.
     pub keff_trigger: Option<crate::tally::trigger::Trigger>,
+    /// **Fewest active generations before `keff_trigger` is first checked**
+    /// (gh:#703). Default 20. Upstream evaluates triggers only from `n_batches`
+    /// on (`check_triggers`, `src/tallies/trigger.cpp:160-172`); a standard error
+    /// from two active generations is a one-degree-of-freedom estimate, so a run
+    /// stopped there is often stopped *because* its sigma is under-estimated
+    /// (optional-stopping bias). Values below 2 behave as 2. ~~The trigger could
+    /// stop a run after 2 active generations.~~ **CORRECTED 2026-11-19**
+    /// (gh:#703).
+    pub keff_trigger_min_active: usize,
+    /// **Lost-particle limit, absolute** (gh:#699). Upstream aborts when
+    /// `n_lost >= max_lost_particles (10)` **and**
+    /// `n_lost >= rel_max_lost_particles (1e-6) * n_simulated`
+    /// (`Particle::mark_as_lost`, `src/particle.cpp:866-889`;
+    /// `settings.cpp:105-106`). Checked after the run by
+    /// [`crate::physics::transport_csg::check_lost_particle_limit`], which the
+    /// `try_run_keff_csg*` entry points call, so a geometry defect cannot finish
+    /// as a plausible `k`. `u64::MAX` is the explicit tolerant ablation.
+    pub max_lost_particles: u64,
+    /// **Lost-particle limit, relative to histories run** (gh:#699). See
+    /// [`Self::max_lost_particles`].
+    pub rel_max_lost_particles: f64,
     /// **How a tally is scored inside a delta-tracked region** (gh:#598).
     ///
     /// The default, [`DeltaTallyEstimator::TentativeCollision`], scores
@@ -231,6 +252,9 @@ impl Default for KeffSettings {
             compute: ComputeType::CpuSingleThread,
             variance_reduction: Default::default(),
             keff_trigger: None,
+            keff_trigger_min_active: 20,
+            max_lost_particles: 10,
+            rel_max_lost_particles: 1.0e-6,
             delta_tally_estimator: Default::default(),
             seeding: Default::default(),
             tally_batch_log: None,
@@ -366,6 +390,17 @@ pub struct KeffResult {
     pub histories: u64,
 }
 
+impl KeffResult {
+    /// Active generations that actually ran, i.e. the tally realization count
+    /// (gh:#675). With a `keff_trigger` a run stops before `n_active`, so a tally
+    /// read back with `settings.n_active` is too low by `n_active / realized`
+    /// (measured 20x on a Godiva trigger run); read it with this instead:
+    /// `bin.mean(result.active_generations(&settings) as u64)`.
+    pub fn active_generations(&self, settings: &KeffSettings) -> usize {
+        self.k_by_generation.len().saturating_sub(settings.n_inactive)
+    }
+}
+
 /// **Analog counts of how neutrons ended**, from the bare-sphere transport
 /// itself (gh:#521: the Godiva lesson teaches leakage and fast fission by
 /// counting).
@@ -402,6 +437,12 @@ pub struct HistoryCounts {
     pub captured: u64,
     /// Ended in fission, by incident energy: `[< 0.625 eV, 0.625 eV - 100 keV, > 100 keV]`.
     pub fissions_by_energy: [u64; 3],
+    /// **Lost** (gh:#699): a failed `locate` after the `TINY_BIT` retry, or a
+    /// negative boundary distance. Upstream gives such a particle weight 0 and
+    /// tallies **no** leak (`Particle::mark_as_lost`, `src/particle.cpp:866-889`),
+    /// so these are counted here and in no other bucket:
+    /// `tracked = leaked + captured + fissions + lost`.
+    pub lost: u64,
 }
 
 impl HistoryCounts {
@@ -419,6 +460,7 @@ impl HistoryCounts {
         self.tracked += other.tracked;
         self.leaked += other.leaked;
         self.captured += other.captured;
+        self.lost += other.lost;
         for (a, b) in self.fissions_by_energy.iter_mut().zip(other.fissions_by_energy) {
             *a += b;
         }
@@ -428,6 +470,13 @@ impl HistoryCounts {
     pub(crate) fn record_leak(&mut self) {
         self.tracked += 1;
         self.leaked += 1;
+    }
+
+    /// One neutron ended **lost** (gh:#699): counted in `tracked` and `lost`, scored
+    /// as no leak.
+    pub(crate) fn record_lost(&mut self) {
+        self.tracked += 1;
+        self.lost += 1;
     }
 
     /// One neutron ended by capture (absorption without fission).
@@ -3006,7 +3055,7 @@ mod tests {
                 // Every neutron ends exactly one way; each source neutron is
                 // tracked, plus any (n,xn) secondaries.
                 let c = g.counts;
-                assert_eq!(c.leaked + c.captured + c.fissions(), c.tracked, "generation {}", g.index);
+                assert_eq!(c.leaked + c.captured + c.fissions() + c.lost, c.tracked, "generation {}", g.index);
                 assert!(c.tracked >= 300 && c.fissions() > 0 && c.leaked > 0);
                 assert_eq!((g.production / 300.0).to_bits(), g.k.to_bits());
             }

@@ -445,7 +445,7 @@ impl GeometryExt for Geometry {
         };
         let cell = &self.cells[coord.cell];
         let (d_surf, _) =
-            cell.distance_to_boundary(coord.r, coord.u, &self.surfaces, path.on_surface);
+            cell.distance_to_boundary(coord.r, coord.u, &self.surfaces, path.token_at(level));
         let mut best = d_surf;
         if let Some(l_idx) = coord.lattice {
             let d_tile = self.lattices[l_idx]

@@ -84,6 +84,25 @@ pub struct VarianceReduction {
     /// `ww_born = 1` if it is still unset (`weight_windows.cpp:965-967`).
     /// gh:#1582 item 4.
     pub weight_window_no_window_born_one: bool,
+    /// Events one history may take before it is cut off with weight 0
+    /// (`max_particle_events`, OpenMC default 1 000 000, `settings.cpp:112`;
+    /// `particle.cpp:548-552`: a warning and `wgt = 0`, not a leak). gh:#699
+    /// item 5. ~~A hard-coded 100 000, scored as a leak.~~ **CORRECTED
+    /// 2026-11-19.** Carried here because this is the settings object the
+    /// transport kernel already receives; it is not a variance-reduction knob.
+    pub max_particle_events: u32,
+    /// **Uniform fission site weighting** mesh (gh:#692): `Some(mesh)` turns UFS
+    /// on, as OpenMC's `settings.ufs_mesh`; `None` (the default, as upstream)
+    /// is off. Each generation the drivers compute [`crate::physics::ufs::UfsWeights`]
+    /// from that generation's source ([`Self::ufs_weights`]); the expected fission
+    /// site count at a collision is scaled by the weight at the collision and each
+    /// banked site is born at `1 / weight`. Not carried across ranks (the
+    /// distributed wire format has no site weight).
+    pub ufs_mesh: Option<crate::tally::mesh::RegularMesh>,
+    /// This generation's UFS weights, set by the drivers from [`Self::ufs_mesh`];
+    /// leave `None` when configuring a run. `None` also means "no biasing" if the
+    /// source has a site outside the mesh.
+    pub ufs_weights: Option<alloc::sync::Arc<crate::physics::ufs::UfsWeights>>,
 }
 
 /// `OUTRAM_MC_LEGACY_WW_GAME=1` makes [`VarianceReduction::default`] carry the
@@ -125,6 +144,9 @@ impl Default for VarianceReduction {
             weight_window_at_birth: true,
             weight_window_split_keeps_ww_factor: false,
             weight_window_no_window_born_one: true,
+            max_particle_events: 1_000_000,
+            ufs_mesh: None,
+            ufs_weights: None,
         };
         if legacy_weight_window_game() {
             base.with_legacy_weight_window_game()
@@ -135,12 +157,19 @@ impl Default for VarianceReduction {
 }
 
 impl VarianceReduction {
+    /// Turn on **uniform fission site weighting** over `mesh` (gh:#692); see
+    /// [`Self::ufs_mesh`].
+    pub fn with_ufs(mut self, mesh: crate::tally::mesh::RegularMesh) -> Self {
+        self.ufs_mesh = Some(mesh);
+        self
+    }
+
     /// Is this an analog run — nothing to do, take the untouched path?
     ///
     /// Weight windows count: a run that splits and rouletted at the
     /// checkpoints is not analog, whatever `survival_biasing` says.
     pub fn is_analog(&self) -> bool {
-        !self.survival_biasing && self.weight_windows.is_none()
+        !self.survival_biasing && self.weight_windows.is_none() && self.ufs_mesh.is_none()
     }
 
     /// Attach mesh weight windows.

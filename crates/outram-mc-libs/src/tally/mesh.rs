@@ -31,8 +31,12 @@
 //! built from or converted to OpenFOAM `polyMesh`), scored by
 //! [`super::mesh_unstructured::UnstructuredMeshExt`] — point location, and a
 //! track-length estimator that **does** split a segment across the cells it
-//! crosses (`MOABMesh::bins_crossed`). For the four **structured** kinds the
-//! following gap is unchanged: the
+//! crosses (`MOABMesh::bins_crossed`). **CORRECTED 2026-11-19 (gh:#678):**
+//! regular and rectilinear meshes now split too, at each grid plane
+//! (`planar_bins_crossed`), and so do **cylindrical and spherical** meshes
+//! (`cylindrical_bins_crossed`, `spherical_bins_crossed`, quadratic cuts); the
+//! gap below is closed for all four kinds. ~~For the four structured kinds the
+//! following gap is unchanged:~~ the
 //! track-length **`bins_crossed`** sub-segmentation, so a segment is scored
 //! whole into its midpoint's cell rather than split across the cells it
 //! actually crosses. That approximation is exact only while a mesh cell is
@@ -58,24 +62,16 @@ pub use outram_blender::spatial_mesh::*;
 /// high and the error would only show at the boundaries.
 ///
 /// The upper edge is inclusive so a point exactly on the outer surface bins
-/// into the last cell rather than falling out of the mesh.
+/// into the last cell rather than falling out of the mesh. ~~An interior edge
+/// went to the upper bin~~ **CORRECTED 2026-11-19** (gh:#687): as OpenMC's
+/// `lower_bound_index`, it goes to the LOWER bin.
 #[inline]
 fn bin_on_grid(grid: &[f64], x: f64) -> Option<usize> {
     if grid.len() < 2 || x < grid[0] || x > grid[grid.len() - 1] {
         return None;
     }
-    // Ascending grid: find the last edge not exceeding `x`.
-    let mut lo = 0usize;
-    let mut hi = grid.len() - 1;
-    while hi - lo > 1 {
-        let mid = (lo + hi) / 2;
-        if grid[mid] <= x {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    Some(lo)
+    // `lower_bound_index` (gh:#687): an interior edge belongs to the lower bin.
+    Some(crate::tally::filter::lower_bound_index(grid, x))
 }
 
 /// `FP_PRECISION` (`include/openmc/constants.h`) — the on-axis guard above.
@@ -478,22 +474,259 @@ impl MeshKindExt for MeshKind {
 
     fn splits_track_length(&self) -> bool {
         match self {
-            Self::Regular(_) | Self::Rectilinear(_) | Self::Cylindrical(_) | Self::Spherical(_) => false,
-            Self::Unstructured(_) => true,
+            // gh:#678: planar grids split a segment at every grid plane, as
+            // `StructuredMesh::bins_crossed` does. ~~All four structured kinds
+            // scored the whole segment into its midpoint's bin~~ **CORRECTED
+            // 2026-11-19** for regular and rectilinear meshes, and for
+            // cylindrical and spherical ones (quadratic crossings).
+            Self::Regular(_)
+            | Self::Rectilinear(_)
+            | Self::Cylindrical(_)
+            | Self::Spherical(_)
+            | Self::Unstructured(_) => true,
         }
     }
 
     fn bins_crossed(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
         match self {
-            Self::Regular(_) | Self::Rectilinear(_) | Self::Cylindrical(_) | Self::Spherical(_) => None,
+            Self::Regular(m) => {
+                let edges: [Vec<f64>; 3] = core::array::from_fn(|a| {
+                    let n = m.dimension[a];
+                    let w = (m.upper_right[a] - m.lower_left[a]) / n as f64;
+                    (0..=n).map(|k| m.lower_left[a] + k as f64 * w).collect()
+                });
+                Some(planar_bins_crossed(&edges, r0, r1, |p| m.get_bin(p)))
+            }
+            Self::Rectilinear(m) => Some(planar_bins_crossed(&m.grid, r0, r1, |p| m.bin(p))),
+            Self::Cylindrical(m) => Some(cylindrical_bins_crossed(m, r0, r1)),
+            Self::Spherical(m) => Some(spherical_bins_crossed(m, r0, r1)),
             Self::Unstructured(m) => Some(m.bins_crossed(r0, r1)),
         }
     }
 }
 
+/// `(bin, length fraction)` for each cell of a planar grid that the segment
+/// `r0 -> r1` crosses (gh:#678, after `StructuredMesh::bins_crossed`,
+/// `src/mesh.cpp`): the segment is cut at every grid plane it crosses and each
+/// piece is binned at its own midpoint, so a piece outside the mesh scores
+/// nothing and the fractions sum to the in-mesh share of the segment.
+fn planar_bins_crossed(
+    edges: &[Vec<f64>; 3],
+    r0: Position,
+    r1: Position,
+    bin: impl Fn(Position) -> Option<usize>,
+) -> Vec<(usize, f64)> {
+    let o = [r0.x, r0.y, r0.z];
+    let d = [r1.x - r0.x, r1.y - r0.y, r1.z - r0.z];
+    let mut ts = vec![0.0_f64, 1.0];
+    for a in 0..3 {
+        if d[a] == 0.0 {
+            continue;
+        }
+        for &e in &edges[a] {
+            let t = (e - o[a]) / d[a];
+            if t > 0.0 && t < 1.0 {
+                ts.push(t);
+            }
+        }
+    }
+    bins_from_cuts(ts, r0, r1, bin)
+}
+
+/// Sort the cut parameters `ts` (including 0 and 1), bin each piece at its
+/// midpoint, and merge neighbouring pieces in the same bin. Surplus cuts that do
+/// not change the bin are harmless, so callers may add candidates liberally.
+fn bins_from_cuts(
+    mut ts: Vec<f64>,
+    r0: Position,
+    r1: Position,
+    bin: impl Fn(Position) -> Option<usize>,
+) -> Vec<(usize, f64)> {
+    let o = [r0.x, r0.y, r0.z];
+    let d = [r1.x - r0.x, r1.y - r0.y, r1.z - r0.z];
+    ts.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    let mut out: Vec<(usize, f64)> = Vec::new();
+    for w in ts.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        if b <= a {
+            continue;
+        }
+        let m = 0.5 * (a + b);
+        let mid = Position::new(o[0] + m * d[0], o[1] + m * d[1], o[2] + m * d[2]);
+        if let Some(i) = bin(mid) {
+            match out.last_mut() {
+                Some(last) if last.0 == i => last.1 += b - a,
+                _ => out.push((i, b - a)),
+            }
+        }
+    }
+    out
+}
+
+/// Push the roots in `(0, 1)` of `a t^2 + b t + c = 0` onto `ts`.
+fn push_quadratic_roots(ts: &mut Vec<f64>, a: f64, b: f64, c: f64) {
+    if a == 0.0 {
+        if b != 0.0 {
+            let t = -c / b;
+            if t > 0.0 && t < 1.0 {
+                ts.push(t);
+            }
+        }
+        return;
+    }
+    let disc = b * b - 4.0 * a * c;
+    if disc < 0.0 {
+        return;
+    }
+    let q = disc.sqrt();
+    for t in [(-b - q) / (2.0 * a), (-b + q) / (2.0 * a)] {
+        if t > 0.0 && t < 1.0 {
+            ts.push(t);
+        }
+    }
+}
+
+/// Cut parameters of the segment `p(t) = r0 + t (r1 - r0)` against the azimuthal
+/// half-planes of angle `phi` through the axis `(ox, oy)`: the full plane is
+/// used, its mirror half only adds a harmless cut.
+fn push_azimuthal_cuts(ts: &mut Vec<f64>, phis: &[f64], o: [f64; 2], p0: [f64; 2], d: [f64; 2]) {
+    for &phi in phis {
+        let (nx, ny) = (-phi.sin(), phi.cos());
+        let den = nx * d[0] + ny * d[1];
+        if den != 0.0 {
+            let t = -(nx * (p0[0] - o[0]) + ny * (p0[1] - o[1])) / den;
+            if t > 0.0 && t < 1.0 {
+                ts.push(t);
+            }
+        }
+    }
+}
+
+/// Cylindrical-mesh `bins_crossed` (gh:#678): cuts at the radial cylinders, the
+/// axial planes and the azimuthal planes.
+fn cylindrical_bins_crossed(
+    m: &CylindricalMesh,
+    r0: Position,
+    r1: Position,
+) -> Vec<(usize, f64)> {
+    let o = m.origin;
+    let (p0, d) = ([r0.x - o.x, r0.y - o.y, r0.z - o.z], [r1.x - r0.x, r1.y - r0.y, r1.z - r0.z]);
+    let mut ts = vec![0.0_f64, 1.0];
+    for &r in &m.r_grid {
+        push_quadratic_roots(
+            &mut ts,
+            d[0] * d[0] + d[1] * d[1],
+            2.0 * (p0[0] * d[0] + p0[1] * d[1]),
+            p0[0] * p0[0] + p0[1] * p0[1] - r * r,
+        );
+    }
+    if d[2] != 0.0 {
+        for &z in &m.z_grid {
+            let t = (z - p0[2]) / d[2];
+            if t > 0.0 && t < 1.0 {
+                ts.push(t);
+            }
+        }
+    }
+    push_azimuthal_cuts(&mut ts, &m.phi_grid, [0.0, 0.0], [p0[0], p0[1]], [d[0], d[1]]);
+    bins_from_cuts(ts, r0, r1, |p| m.bin(p))
+}
+
+/// Spherical-mesh `bins_crossed` (gh:#678): cuts at the radial spheres, the polar
+/// cones (`p_z^2 = cos^2(theta) |p|^2`, both nappes) and the azimuthal planes.
+fn spherical_bins_crossed(m: &SphericalMesh, r0: Position, r1: Position) -> Vec<(usize, f64)> {
+    let o = m.origin;
+    let (p0, d) = ([r0.x - o.x, r0.y - o.y, r0.z - o.z], [r1.x - r0.x, r1.y - r0.y, r1.z - r0.z]);
+    let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let mut ts = vec![0.0_f64, 1.0];
+    for &r in &m.r_grid {
+        push_quadratic_roots(&mut ts, dot(d, d), 2.0 * dot(p0, d), dot(p0, p0) - r * r);
+    }
+    for &th in &m.theta_grid {
+        let c2 = th.cos() * th.cos();
+        push_quadratic_roots(
+            &mut ts,
+            d[2] * d[2] - c2 * dot(d, d),
+            2.0 * (p0[2] * d[2] - c2 * dot(p0, d)),
+            p0[2] * p0[2] - c2 * dot(p0, p0),
+        );
+    }
+    push_azimuthal_cuts(&mut ts, &m.phi_grid, [0.0, 0.0], [p0[0], p0[1]], [d[0], d[1]]);
+    bins_from_cuts(ts, r0, r1, |p| m.bin(p))
+}
+
 #[cfg(test)]
 #[cfg(test)]
 mod tests {
+    /// gh:#678: a chord through the axis/centre of a cylindrical and a spherical
+    /// mesh with radial edges `[0, 1, 2]`: x from -3 to 3, so 1 cm of each outer
+    /// shell, 2 cm of the core, and 1 cm outside on each side that scores nothing.
+    /// Fractions (of the 6 cm segment): 1/6, 2/6, 1/6, summing to the in-mesh 4/6.
+    #[test]
+    fn curved_mesh_track_length_is_split_at_the_radial_surfaces() {
+        let (a, b) = (Position::new(-3.0, 0.0, 0.1), Position::new(3.0, 0.0, 0.1));
+        let two_pi = 2.0 * core::f64::consts::PI;
+        let cyl = MeshKind::Cylindrical(CylindricalMesh {
+            r_grid: vec![0.0, 1.0, 2.0],
+            phi_grid: vec![0.0, two_pi],
+            z_grid: vec![-1.0, 1.0],
+            origin: Position::ZERO,
+        });
+        let sph = MeshKind::Spherical(SphericalMesh {
+            r_grid: vec![0.0, 1.0, 2.0],
+            theta_grid: vec![0.0, core::f64::consts::PI],
+            phi_grid: vec![0.0, two_pi],
+            origin: Position::ZERO,
+        });
+        for (name, m) in [("cylindrical", cyl), ("spherical", sph)] {
+            assert!(m.splits_track_length(), "{name}");
+            let r = m.bins_crossed(a, b).unwrap();
+            assert_eq!(r.len(), 3, "{name}: {r:?}");
+            let f = |i: usize| r[i].1;
+            assert!((f(0) - 1.0 / 6.0).abs() < 1e-3 && (f(1) - 2.0 / 6.0).abs() < 2e-3 && (f(2) - 1.0 / 6.0).abs() < 1e-3, "{name}: {r:?}");
+            assert_eq!(r[0].0, r[2].0, "{name}: both outer shells are the same bin");
+            assert_ne!(r[0].0, r[1].0, "{name}: the core is another");
+        }
+    }
+
+    /// gh:#678: the issue's case. Segment (-1,0,0)->(0.2,0,0) over a one-cell-in-x
+    /// mesh on [0,1]^3: only 0.2 of the 1.2 cm is inside, so the fraction is
+    /// 0.2/1.2 (upstream scores 0.2 cm; the midpoint rule scored 0). A segment
+    /// across two cells splits at the plane, and the fractions sum to 1.
+    #[test]
+    fn planar_mesh_track_length_is_split_at_the_grid_planes() {
+        let one = MeshKind::Regular(RegularMesh {
+            lower_left: [0.0; 3],
+            upper_right: [1.0; 3],
+            dimension: [1, 1, 1],
+        });
+        assert!(one.splits_track_length());
+        let r = one
+            .bins_crossed(Position::new(-1.0, 0.5, 0.5), Position::new(0.2, 0.5, 0.5))
+            .unwrap();
+        assert_eq!(r.len(), 1);
+        assert!((r[0].1 - 0.2 / 1.2).abs() < 1e-12, "{r:?}");
+
+        let two = MeshKind::Regular(RegularMesh {
+            lower_left: [0.0; 3],
+            upper_right: [2.0, 1.0, 1.0],
+            dimension: [2, 1, 1],
+        });
+        let r = two
+            .bins_crossed(Position::new(0.5, 0.5, 0.5), Position::new(1.5, 0.5, 0.5))
+            .unwrap();
+        assert_eq!(r.iter().map(|x| x.0).collect::<Vec<_>>(), vec![0, 1]);
+        assert!((r[0].1 - 0.5).abs() < 1e-12 && (r[1].1 - 0.5).abs() < 1e-12);
+
+        let rect = MeshKind::Rectilinear(RectilinearMesh {
+            grid: [vec![0.0, 0.25, 1.0], vec![0.0, 1.0], vec![0.0, 1.0]],
+        });
+        let r = rect
+            .bins_crossed(Position::new(0.0, 0.5, 0.5), Position::new(1.0, 0.5, 0.5))
+            .unwrap();
+        assert!((r[0].1 - 0.25).abs() < 1e-12 && (r[1].1 - 0.75).abs() < 1e-12, "{r:?}");
+    }
+
     use super::*;
 
     /// A 4×4×1 unit mesh bins interior points into the expected row-major cell,
