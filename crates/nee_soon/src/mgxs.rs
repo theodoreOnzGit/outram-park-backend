@@ -840,6 +840,30 @@ impl MgxsLibrary {
             .collect()
     }
 
+    /// [`Self::balance_check`] on the **scatter-only** row ([`ZoneMgxs::scatter_only`]),
+    /// which counts a reaction once however many neutrons it emits, so
+    /// `Sigma_t = Sigma_a + Sigma_s` holds and the discrepancy is a CONDENSATION
+    /// defect only, with no (n,xn) gain in it (gh:#680, #682). A zone condensed
+    /// before 2026-10-13 has no scatter-only row; it falls back to the
+    /// nu-scatter row, as [`Self::balance_check`] does.
+    #[must_use]
+    pub fn balance_check_scatter_only(&self) -> Vec<(String, Vec<(f64, f64, f64)>)> {
+        self.zones
+            .iter()
+            .map(|z| {
+                let rows = (0..z.flux.len())
+                    .map(|g| {
+                        let row = z.scatter_only.get(g).unwrap_or(&z.scatter[g]);
+                        let rebuilt = z.absorption[g] + row.iter().sum::<f64>();
+                        let rel = if z.total[g] > 0.0 { (rebuilt - z.total[g]) / z.total[g] } else { 0.0 };
+                        (z.total[g], rebuilt, rel)
+                    })
+                    .collect();
+                (z.name.clone(), rows)
+            })
+            .collect()
+    }
+
     /// Solve for the buckling that reproduces a **measured** leakage fraction.
     ///
     /// `leak_fraction` is neutrons lost per neutron produced, taken from the
@@ -1941,6 +1965,34 @@ mod tests {
         );
         assert_eq!(s[0][0], 0.0);
         assert_eq!(s[1][1], 0.0);
+    }
+
+    /// gh:#680: with an (n,2n)-style gain the nu-scatter row over-counts by the
+    /// extra neutron, so [`MgxsLibrary::balance_check`] shows it as a discrepancy,
+    /// while [`MgxsLibrary::balance_check_scatter_only`] closes to round-off.
+    #[test]
+    fn the_scatter_only_balance_has_no_nxn_gain_in_it() {
+        let lib = MgxsLibrary {
+            groups: GroupStructure::new(vec![1.0e-5, 2.0e7]).expect("edges ascend"),
+            zones: vec![ZoneMgxs {
+                name: "nxn".into(),
+                flux: vec![1.0],
+                total: vec![0.51],
+                absorption: vec![0.01],
+                fission: vec![0.0],
+                nu_fission: vec![0.0],
+                kappa_fission: vec![0.0],
+                // 0.50 scatter-only, plus 0.02 of (n,2n) gain in the nu row.
+                scatter: vec![vec![0.52]],
+                chi: vec![1.0],
+                sigma: None,
+                scatter_only: vec![vec![0.50]],
+            }],
+        };
+        let nu = lib.balance_check()[0].1[0].2;
+        let only = lib.balance_check_scatter_only()[0].1[0].2;
+        assert!(nu > 0.03, "nu-scatter row carries the gain: {nu}");
+        assert!(only.abs() < 1e-12, "scatter-only row closes: {only}");
     }
 
     /// Rebalancing makes the solver's absorption equal the tallied absorption.
