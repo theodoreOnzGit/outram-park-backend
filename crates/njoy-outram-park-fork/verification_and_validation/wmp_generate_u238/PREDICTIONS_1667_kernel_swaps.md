@@ -111,3 +111,19 @@ If the Francis QR is the cause, a candidate fix is to carry LAPACK's `DLAHQR` de
 GSL's; but DHSEQR switches to DLAQR0 (aggressive early deflation) for n > 75 and these matrices have n = 99 to 131, so a
 fix that matches upstream's behaviour would be a port of DLAQR0..DLAQR5 (several thousand lines). That is not a function
 edit and I will not attempt it inside this budget; the decision belongs to the maintainer.
+
+## Addendum 3, written after E1, E2, E3, L, R, Q (t0) and V had run, BEFORE the paired one-step test (2026-11-20 01:50 UTC)
+
+Seen: E3 (LAPACK balance and Hessenberg, port Francis only) 0 of 1 020 iterations above 1.5, so the Francis iteration is the
+cause of the low tail; L, R, Q, V null. Paired one-step test (`openmc_inputs/paired_step.py`): OpenMC's loop runs with
+DGEEV (its chain is the baseline chain, orders 98 to 130 step 4, input t0). At every relocation, the SAME matrix H is also
+solved by the port's `eigvals` (op 2); both pole sets are scored one step on (real-pole split, upstream `vectfit` with
+`skip_pole_update`, residues, test-grid metric, quality exactly as the loop computes it). No chaos accumulates: it is the
+same H, one step.
+Predictions: (a) the unusable share (negative cross section) of the port's poles is the lower of the two, as in the chains
+(DGEEV about 56 %, port about 46 %): 60 %. (b) The share of usable fits with quality above 1.4 is higher for DGEEV's poles than
+for the port's: 55 %; and among H where exactly one set exceeds 1.4, DGEEV's is the one in 60 % or more of them: 50 %.
+(c) The two sets' qualities are statistically indistinguishable in paired comparison (sign test p > 0.1 on usable pairs):
+30 %. If (b) holds the port's eigenvalue set is systematically a worse starting point for the same matrix, a one-step
+property of the solver; if (c) holds the shift in the chains is carried by the iteration across steps (the way the cluster
+shape feeds the next least squares), which a single step cannot see.

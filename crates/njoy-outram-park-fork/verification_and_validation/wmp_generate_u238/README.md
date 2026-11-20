@@ -766,10 +766,14 @@ Elapsed times are loaded wall seconds and not comparable (the port 1 071 to 4 45
 **Is the DGELSD rank rule the cause of the port's lower quality?** The test: OpenMC's loop with `scipy.linalg.lstsq`
 told to use DGELSS (`TRACE_LSTSQ_DRIVER=gelss`, nothing else changed; its rank equals the port's in 41 of 42 matrices,
 Step 5), on the same input files. If the rank rule drove the shift, those runs should look like the port's (best quality
-1.47 to 1.53). OpenMC with DGELSS (4 trials, t0, t1, t2, t3): t0: 74 poles, 129 outside, best quality 1.650; t1: 76 poles, 478 outside, best quality 1.632; t2: 64 poles, 807 outside, best quality 1.540; t3: 66 poles, 656 outside, best quality 1.540. They stay in OpenMC's range (1.54 to 1.67) rather than
-moving to the port's, but two of the four (1.540) are at its bottom edge, 0.008 above the port's best. **The DGELSD rank rule is
-not shown to be what shifts the port's distribution** (none of the 4 trials is below 1.53, where the port's five all are), and four trials cannot
-exclude a partial contribution.
+1.47 to 1.53). OpenMC with DGELSS (4 trials, t0, t1, t2, t3): t0: 74 poles, 129 outside, best quality 1.650; t1: 76 poles, 478 outside, best quality 1.632; t2: 64 poles, 807 outside, best quality 1.540; t3: 66 poles, 656 outside, best quality 1.540. ~~They stay in OpenMC's range (1.54 to 1.67) rather than
+moving to the port's, but two of the four (1.540) are at its bottom edge, 0.008 above the port's best.~~ **The DGELSD rank rule is
+not shown to be what shifts the port's distribution** (none of the 4 trials is below 1.53, where the port's five all are), and ~~four trials cannot
+exclude a partial contribution.~~
+**CORRECTED 2026-11-20 (gh:#1667), read per iteration instead of per run:** on the orders 98 to 130 that every trace visited, forcing OpenMC onto
+DGELSS gives 71 of 2 040 iterations with quality above 1.5 (3.5 %), against 32 of 2 520 for DGELSD as shipped (1.3 %; two-sided exact p = 6e-7) and 4 of 2 490
+for the port (0.16 %). So DGELSS does not leave OpenMC "in range": it moves it **away** from the port, by a factor 2.7, and the
+rank rule is disfavoured by the direction, not just by the size (`openmc_inputs/tail_stats.py`; the table in "Kernel swaps" below).
 
 ### Conclusion
 
@@ -800,10 +804,14 @@ is not identical to OpenMC's, and the reason for that shift was not found.**
    * the one systematic kernel difference found (Step 5, DGELSD keeping one more singular value than DGELSS, DGESDD and
      DGESVD in 40 % of the pole-identification solves, which the port, like those three, does not) is **not shown to be the cause**: OpenMC
      run with DGELSS kept its quality (previous paragraph; four trials).
-   Candidates not tested: petir's eigenvalue solver against DGEEV on the many near-degenerate poles (single-step eigenvalue
+   ~~Candidates not tested: petir's eigenvalue solver against DGEEV on the many near-degenerate poles (single-step eigenvalue
    agreement was measured on five matrices only), the unblocked QR, `evaluate`'s summation order inside the quality
    metric (every test-grid count passes through it), and the residue solves (six matrices measured). Each of them is a
-   round-off-level difference whose effect the chaos magnifies, which is why no single-step measurement can see it.
+   round-off-level difference whose effect the chaos magnifies, which is why no single-step measurement can see it.~~
+   **CORRECTED 2026-11-20 (gh:#1667): all four were tested, one at a time, by serving the port's kernel to OpenMC's unmodified
+   loop; the eigensolver is the cause of the shift** (section "Kernel swaps on piece 296" below). The sentence "no single-step
+   measurement can see it" stands: the effect is in the distribution of many iterations, which the 2 500-iteration tail
+   statistic resolves and five best-of-run numbers barely did.
 5. **No fix was made.** (a) The only systematic difference found, DGELSD's rank rule, would need `DLALSD`'s divide and
    conquer ported (thousands of lines) and does not explain the shift. (b) Changing `rcond` or the truncation to make the port
    match would be fitting the comparison, which the process rule forbids. The function (`npy.rs::lstsq`) is not
