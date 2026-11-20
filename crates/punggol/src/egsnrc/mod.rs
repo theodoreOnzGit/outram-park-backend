@@ -1,5 +1,5 @@
 //! **EGSnrc port scaffold** (gh:#976): one placeholder module per upstream
-//! Mortran file. **Nothing is implemented.**
+//! Mortran file. **Only `egsnrc_mortran` (`ANNIH_AT_REST`, `UPHI`) and `egsnrc_macros` (stack, azimuth) hold code (first port, not differentially tested, gh:#1680);** the rest are placeholders.
 //!
 //! Upstream: EGSnrc, <https://github.com/nrc-cnrc/EGSnrc>, commit
 //! `bd49a47aae3938f49f4100b8e018091861408b19` (the file list below was read
@@ -116,7 +116,7 @@ mod tests {
         assert_eq!(UPSTREAM_COMMIT.len(), 40);
     }
 
-    /// Each placeholder file names its upstream path and says nothing is ported.
+    /// Each file names its upstream path and commit and states its status.
     #[test]
     fn every_placeholder_says_so() {
         let docs = [
@@ -144,7 +144,12 @@ mod tests {
         ];
         for (path, doc) in UPSTREAM_FILES.iter().zip(docs) {
             assert!(doc.contains(path), "{path}");
-            assert!(doc.contains("placeholder, nothing ported (gh:#976)"), "{path}");
+            // A file is a placeholder, a first port, or deliberately not
+            // re-ported (it lives in PETIR); it must say which.
+            let says = doc.contains("placeholder, nothing ported (gh:#976)")
+                || doc.contains("first port")
+                || doc.contains("not re-ported, deliberately (gh:#1680)");
+            assert!(says, "{path}");
             assert!(doc.contains(UPSTREAM_COMMIT), "{path}");
         }
     }

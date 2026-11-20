@@ -22,7 +22,7 @@ Stated plainly: **decay-photon source spectra and a first port of OpenMC's photo
 | Part | State |
 |---|---|
 | `decay_spectrum`: OpenMC's `decay_photon_energy`, `Material.get_decay_photon_energy` and `DecaySpectrum` (gh:#1391), from the depletion chain's `<source>` elements | implemented, AI draft; checked against OpenMC in `verification_and_validation/decay_photon_spectra/` |
-| `egsnrc`: the EGSnrc port (gh:#976) | **scaffolded, nothing implemented**: 21 placeholder modules, one per upstream Mortran file |
+| `egsnrc`: the EGSnrc port (gh:#976, gh:#1680) | **barely begun**: 21 modules, one per upstream Mortran file; `ANNIH_AT_REST` and `UPHI` (entries 2, 3) plus the stack/azimuth macros are a first port, **not differentially tested**; RANMAR/RANLUX stay in PETIR (`petir::egsnrc`); everything else (PEGS4, media, `COMPT`, `PAIR`, `PHOTO`, `RELAX`, `BREMS`, `MOLLER`, `BHABHA`, `ELECTR`, `PHOTON`, `HATCH`) is still a placeholder |
 | `openmc_photon`: OpenMC photon samplers (`photon.cpp`), thick-target bremsstrahlung (`bremsstrahlung.cpp`) and `sample_photon/electron/positron_reaction`, `process_charged_secondary` (`physics.cpp`) (gh:#975, gh:#1683) | first port, **not differentially tested**; AI draft; data passed in, no HDF5 reader; TTB and atomic relaxation on by default with `without_*` ablations |
 
 ## Boundaries

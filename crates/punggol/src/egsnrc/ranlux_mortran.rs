@@ -7,6 +7,9 @@
 //!
 //! The RANLUX random number generator routines (235 lines). Generators go to `petir`. Description from the file's header and size; not yet read line by line.
 //!
-//! **Status: placeholder, nothing ported (gh:#976).** When code lands here it
-//! carries the attribution header block (upstream project, file, commit,
-//! copyright, licence) and a doc-comment `file:line` for every routine.
+//! **Status: not re-ported, deliberately (gh:#1680).** RANLUX is already
+//! ported in PETIR as [`petir::rng::ranlux`], reachable under the EGSnrc name as
+//! [`petir::egsnrc`]. A second implementation would drift from the first (the
+//! workspace's search-before-building rule), so this module holds no code.
+//! Differential testing of PETIR's generator against a built EGSnrc belongs to
+//! phase 2.
