@@ -5163,6 +5163,22 @@ pub(crate) fn sample_continuous_tabular_indexed(
     e_in: f64,
     seed: &mut u64,
 ) -> (f64, usize, AnglePick) {
+    sample_continuous_tabular_indexed_with(chi, e_in, seed, true)
+}
+
+/// [`sample_continuous_tabular_indexed`] with the single-histogram-region rule
+/// (gh:#689) switchable. `histogram_ok = true` is OpenMC's `ContinuousTabular`
+/// (MF5 LF=1 / law 4); `false` always picks the lower or upper table at random,
+/// which is what the Kalbach-Mann and correlated energy-angle laws (44/61) do:
+/// the maintainer's meta-audit of #689 says upstream applies `histogram_interp`
+/// to `ContinuousTabular` only (the vendored source is not in this checkout, so
+/// not re-read).
+pub(crate) fn sample_continuous_tabular_indexed_with(
+    chi: &ChiTabular,
+    e_in: f64,
+    seed: &mut u64,
+    histogram_ok: bool,
+) -> (f64, usize, AnglePick) {
     let energy = &chi.incident;
     let n = energy.len();
     if n == 0 {
@@ -5194,7 +5210,7 @@ pub(crate) fn sample_continuous_tabular_indexed(
     // taken from the issue's citation, the vendored source is not in this
     // checkout). ~~The pick and the scaling were unconditional.~~ **CORRECTED
     // 2026-11-19.**
-    let histogram_interp = chi.incident_interp.len() == 1 && chi.incident_interp[0].1 == 1;
+    let histogram_interp = histogram_ok && chi.incident_interp.len() == 1 && chi.incident_interp[0].1 == 1;
     let l = if histogram_interp {
         i
     } else if r > prn(seed) {
@@ -6105,6 +6121,13 @@ mod tests {
         assert!(draws(&mk(1)).iter().all(|&e| e == 1.0e6), "histogram: lower table only");
         let lin = draws(&mk(2));
         assert!(lin.contains(&1.0e6) && lin.contains(&5.0e6), "control: lin-lin draws both");
+        // The Kalbach-Mann / correlated laws (44/61) call the sampler with the
+        // histogram rule off: a single INT=1 region still picks at random.
+        let mut seed = 3u64;
+        let both: Vec<f64> = (0..200)
+            .map(|_| sample_continuous_tabular_indexed_with(&mk(1), 1.5e6, &mut seed, false).0)
+            .collect();
+        assert!(both.contains(&1.0e6) && both.contains(&5.0e6), "histogram_ok = false: random pick");
     }
 
     /// gh:#688: mixture weights `p_k(E)` clamp to the end value outside their

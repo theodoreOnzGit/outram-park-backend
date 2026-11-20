@@ -66,7 +66,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use crate::geometry::position::Direction;
-use crate::material::nuclide::sample_continuous_tabular_indexed;
+use crate::material::nuclide::sample_continuous_tabular_indexed_with;
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
 use core::f64::consts::PI;
@@ -1119,7 +1119,7 @@ pub fn sample_continuum_branch(
     mode: ContinuumAngularMode,
     seed: &mut u64,
 ) -> (f64, f64) {
-    let (sampled, table, pick) = sample_continuous_tabular_indexed(&branch.spectrum, e, seed);
+    let (sampled, table, pick) = sample_continuous_tabular_indexed_with(&branch.spectrum, e, seed, false);
     // One variate, spent either on inverting the row's cosine CDF or on the flat
     // map — so the ablation does not shift the RNG stream.
     let xi = prn(seed);
