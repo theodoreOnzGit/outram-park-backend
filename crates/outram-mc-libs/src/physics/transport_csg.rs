@@ -99,7 +99,7 @@ use crate::rng::lcg::{future_seed, prn};
 use crate::rng::openmc_seeding::{comb_resample_openmc, OpenMcRunLayout, SeedingMode};
 use crate::tally::history_events::{score_crossing, score_mesh_surface_segment, EventHistory};
 use crate::tally::scoring::{
-    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix, ScatterEmission,
+    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix_mu, ScatterEmission,
     score_track_length_hist,
 };
 use crate::tally::tally::{Tally, TallyBin};
@@ -2886,11 +2886,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // short: inelastic is where a fast neutron loses most of its
                     // energy on a heavy nuclide.
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                     });
                     }
                     e = e2;
@@ -2940,38 +2940,16 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // neutron actually emitted scores its own (E_in, E_out). The
                     // secondary is scored only when emitted, matching its gate.
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                         if nuc.emits_n2n_secondary() {
-                            score_scatter_matrix(
-                                batch,
-                                t,
-                                cell_idx,
-                                m,
-                                leaf.universe,
-                                e,
-                                sec_e2,
-                                r,
-                                w,
-                                ScatterEmission::Secondary,
-                            );
+                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, sec_e2, r, w, ScatterEmission::Secondary, u.u * sec_u2.u + u.v * sec_u2.v + u.w * sec_u2.w);
                         }
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                         if nuc.emits_n2n_secondary() {
-                            score_scatter_matrix(
-                                batch,
-                                t,
-                                cell_idx,
-                                m,
-                                leaf.universe,
-                                e,
-                                sec_e2,
-                                r,
-                                w,
-                                ScatterEmission::Secondary,
-                            );
+                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, sec_e2, r, w, ScatterEmission::Secondary, u.u * sec_u2.u + u.v * sec_u2.v + u.w * sec_u2.w);
                         }
                     });
                     }
@@ -3013,43 +2991,21 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                 time_s,
                             ));
                             if let Some(t) = tally {
-                                score_scatter_matrix(
-                                    batch,
-                                    t,
-                                    cell_idx,
-                                    m,
-                                    leaf.universe,
-                                    e,
-                                    se,
-                                    r,
-                                    w,
-                                    ScatterEmission::Secondary,
-                                );
+                                score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, se, r, w, ScatterEmission::Secondary, u.u * su.u + u.v * su.v + u.w * su.w);
                             }
                             if let Some(x) = extra.as_deref_mut() {
                                 x.each_tally(|t, batch| {
-                                score_scatter_matrix(
-                                    batch,
-                                    t,
-                                    cell_idx,
-                                    m,
-                                    leaf.universe,
-                                    e,
-                                    se,
-                                    r,
-                                    w,
-                                    ScatterEmission::Secondary,
-                                );
+                                score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, se, r, w, ScatterEmission::Secondary, u.u * su.u + u.v * su.v + u.w * su.w);
                             });
                             }
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                     });
                     }
                     e = e2;
@@ -3095,42 +3051,20 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             time_s,
                         ));
                         if let Some(t) = tally {
-                            score_scatter_matrix(
-                                batch,
-                                t,
-                                cell_idx,
-                                m,
-                                leaf.universe,
-                                e,
-                                *se,
-                                r,
-                                w,
-                                ScatterEmission::Secondary,
-                            );
+                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w);
                         }
                         if let Some(x) = extra.as_deref_mut() {
                             x.each_tally(|t, batch| {
-                            score_scatter_matrix(
-                                batch,
-                                t,
-                                cell_idx,
-                                m,
-                                leaf.universe,
-                                e,
-                                *se,
-                                r,
-                                w,
-                                ScatterEmission::Secondary,
-                            );
+                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w);
                         });
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                     });
                     }
                     e = e2;
@@ -3160,20 +3094,20 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             time_s,
                         ));
                         if let Some(t) = tally {
-                            score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary);
+                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w);
                         }
                         if let Some(x) = extra.as_deref_mut() {
                             x.each_tally(|t, batch| {
-                            score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary);
+                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w);
                         });
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary, u.u * o.u.u + u.v * o.u.v + u.w * o.u.w);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary, u.u * o.u.u + u.v * o.u.v + u.w * o.u.w);
                     });
                     }
                     e = o.e;
@@ -3198,11 +3132,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // is left to the track-length estimator (see
                     // `score_scatter_matrix`).
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
                     });
                     }
                     e = e2;

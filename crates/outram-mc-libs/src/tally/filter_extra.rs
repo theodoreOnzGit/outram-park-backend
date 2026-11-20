@@ -401,8 +401,9 @@ use crate::tally::mesh::MeshKind;
 /// [`crate::tally::filter::EnergyOutFilter`] is ~~exactly how it is measured~~
 /// **CORRECTED 2026-11-19** (gh:#676): how it WILL be measured. Today that
 /// combination scores exactly zero: `get_bin` returns `None` for this filter and
-/// no production scoring path sets `FilterEvent::mu`. Do not tally a P_l matrix
-/// with it yet. Without it a generated library can only ever be P0 — which is the defect
+/// no scoring path expands in Legendre polynomials (the scatter matrix now sets
+/// `FilterEvent::mu`, gh:#676, but only a `MuFilter` bins it). Do not tally a P_l
+/// matrix with it yet; `Tally::validate` refuses this filter. Without it a generated library can only ever be P0 — which is the defect
 /// GitHub #265 priced at **−4371 pcm** on a leakage-dominated case.
 ///
 /// # Why the weights are NOT `(l + 1/2) P_l`

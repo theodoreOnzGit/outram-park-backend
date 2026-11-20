@@ -350,20 +350,29 @@ impl Tally {
     /// A delayed-group filter beside a track-splitting mesh filter is also
     /// refused: the per-group deposit is not split across mesh cells.
     ///
-    /// **A `MuFilter` or `LegendreFilter` is refused too** (gh:#676): no
-    /// production scoring path sets `FilterEvent::mu`, so such a tally would score
-    /// `P_n(0)` or exactly zero while looking plausible. ~~Accepted silently.~~
-    /// **CORRECTED 2026-11-19.** Lift this when the scatter arms supply the lab
-    /// cosine.
+    /// **A `LegendreFilter`, and a `MuFilter` off the scatter matrix, are refused
+    /// too** (gh:#676): ~~no production path set `FilterEvent::mu`~~ **CORRECTED
+    /// 2026-11-19:** the scatter arms now supply the lab cosine to the matrix
+    /// estimator; any other tally would still bin `mu = 0` and look plausible.
     pub fn validate(&self) -> Result<(), String> {
-        if self
-            .filters
-            .iter()
-            .any(|f| matches!(f, FilterKind::Mu(_) | FilterKind::Legendre(_)))
-        {
+        // The scatter matrix ([`super::scoring::score_scatter_matrix_mu`]) now
+        // supplies the lab cosine, so a `MuFilter` is meaningful on a tally that
+        // goes through it (an `EnergyOutFilter`, or a `NuScatter` score). On any
+        // other tally nothing sets `mu` and it would bin `mu = 0`.
+        let matrix = self.filters.iter().any(|f| matches!(f, FilterKind::EnergyOut(_)))
+            || self.scores.iter().any(|s| matches!(s, ScoreType::NuScatter));
+        if self.filters.iter().any(|f| matches!(f, FilterKind::Mu(_))) && !matrix {
             return Err(format!(
-                "tally {}: a Mu or Legendre filter needs the scattering cosine, which no \
-                 scoring path supplies yet (gh:#676); it would score P_n(0) or zero",
+                "tally {}: a Mu filter needs the scattering cosine, which only the scatter \
+                 matrix supplies (an EnergyOut filter or a NuScatter score); on this tally \
+                 it would bin mu = 0 (gh:#676)",
+                self.id
+            ));
+        }
+        if self.filters.iter().any(|f| matches!(f, FilterKind::Legendre(_))) {
+            return Err(format!(
+                "tally {}: a Legendre filter has no scoring path yet (gh:#676); it would \
+                 score P_n(0) or zero",
                 self.id
             ));
         }
@@ -407,6 +416,10 @@ mod validate_tests {
         };
         let e = t.validate().unwrap_err();
         assert!(e.contains("scattering cosine"), "{e}");
+        // On the scatter matrix (a NuScatter score) the cosine is supplied.
+        t.scores = vec![ScoreType::NuScatter];
+        assert!(t.validate().is_ok());
+        t.scores = vec![ScoreType::Scatter];
         t.filters.clear();
         assert!(t.validate().is_ok());
     }

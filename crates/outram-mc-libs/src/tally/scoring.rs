@@ -533,8 +533,9 @@ fn score_length_like(
         // quantity. A flight segment has a direction (threaded above) but no
         // scattering cosine, so there is nothing to thread. ~~`MuFilter` belongs
         // on the collision estimator, where it is supplied.~~ **CORRECTED
-        // 2026-11-19** (gh:#676): no production path supplies `mu` either, so a
-        // `MuFilter`/`LegendreFilter` scores `P_n(0)` or zero. Defaulting an
+        // 2026-11-19** (gh:#676): only the scatter-matrix estimator supplies
+        // `mu` (`score_scatter_matrix_mu`); a track-length tally has none, so
+        // `Tally::validate` refuses a `MuFilter` there. Defaulting an
         // undefined quantity is not the same failure as defaulting an available
         // one, which is what `time` and `direction` were.
         ..Default::default()
@@ -861,6 +862,30 @@ pub fn score_scatter_matrix(
     weight: f64,
     emission: ScatterEmission,
 ) {
+    score_scatter_matrix_mu(
+        batch, tally, cell_idx, material_idx, universe_idx, energy_in, energy_out, position,
+        weight, emission, 0.0,
+    );
+}
+
+/// [`score_scatter_matrix`] with the **laboratory scattering cosine** `mu = u_in
+/// . u_out` of the emitted neutron (gh:#676), which a `MuFilter` on the tally
+/// bins. [`score_scatter_matrix`] is this with `mu = 0.0`, kept for callers with
+/// no direction; the transport arms pass the real cosine.
+#[allow(clippy::too_many_arguments)]
+pub fn score_scatter_matrix_mu(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_out: f64,
+    position: Position,
+    weight: f64,
+    emission: ScatterEmission,
+    mu: f64,
+) {
     if !energy_in.is_finite() || !energy_out.is_finite() || energy_out < 0.0 {
         return;
     }
@@ -894,6 +919,7 @@ pub fn score_scatter_matrix(
         energy_out: Some(energy_out),
         surface_idx: usize::MAX,
         position,
+        mu,
         ..Default::default()
     };
 
@@ -1138,6 +1164,27 @@ mod tests {
         let mut b2 = vec![0.0; plain.bins.len()];
         score_scatter_matrix(&mut b2, &plain, 0, 0, 0, 1.0e7, 2.0e6, r, 1.0, ScatterEmission::Primary);
         assert!(b2.iter().all(|v| *v == 0.0), "opt-in: no EnergyOutFilter, no score");
+    }
+
+    /// gh:#676: the scatter matrix bins the lab cosine of each emitted neutron on
+    /// a `MuFilter`: `mu = +0.5` lands in the upper bin, `-0.5` in the lower, and
+    /// a tally with a `NuScatter` score and no `EnergyOutFilter` still scores.
+    #[test]
+    fn the_scatter_matrix_bins_the_lab_cosine_on_a_mu_filter() {
+        use crate::tally::filter::MuFilter;
+        let t = Tally {
+            id: 2,
+            name: "mu".into(),
+            filters: vec![FilterKind::Mu(MuFilter { bounds: vec![-1.0, 0.0, 1.0] })],
+            scores: vec![ScoreType::NuScatter],
+            bins: vec![TallyBin::default(); 2],
+        };
+        assert!(t.validate().is_ok());
+        let r = Position::new(0.0, 0.0, 0.0);
+        let mut batch = vec![0.0; 2];
+        score_scatter_matrix_mu(&mut batch, &t, 0, 0, 0, 1.0e6, 5.0e5, r, 1.0, ScatterEmission::Primary, 0.5);
+        score_scatter_matrix_mu(&mut batch, &t, 0, 0, 0, 1.0e6, 5.0e5, r, 2.0, ScatterEmission::Primary, -0.5);
+        assert_eq!(batch, vec![2.0, 1.0], "mu = -0.5 -> bin 0 (weight 2), mu = +0.5 -> bin 1 (weight 1)");
     }
 
     /// gh:#677: a flux tally on a CONTAINER cell (filled with a universe or

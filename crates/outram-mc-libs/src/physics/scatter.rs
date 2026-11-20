@@ -1059,6 +1059,12 @@ fn continuum_evaluated_impl(
         // envelope scaling between neighbouring incident tables can land a
         // fraction above it; clamp so no draw can exceed what energy balance
         // allows, exactly as the stand-in path does.
+        // **DELIBERATE DEVIATION from OpenMC, which applies no clamp**
+        // (`inelastic_scatter`, `src/physics.cpp:1160-1175`; gh:#690). Measured
+        // 2026-11-20 on U-238 MT=91 (`tests/continuum_cm_cap_measurement_690.rs`):
+        // the clamp binds on 1.8 % of draws at 1 MeV (just above threshold),
+        // 5e-6 at 2 MeV, none from 3 MeV. Kept for energy balance; removing it
+        // needs an ICSBEP re-measurement. Maintainer decision.
         let ap1 = awr + 1.0;
         let cap = (e * (awr / ap1).r_powi(2) + q * awr / ap1).max(0.0);
         let e_cm_out = sampled.min(cap);

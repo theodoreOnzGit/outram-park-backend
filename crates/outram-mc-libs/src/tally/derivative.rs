@@ -103,7 +103,39 @@ pub struct FluxDerivative {
     pub value: f64,
 }
 
+/// The estimator a tally scores with, for [`TallyDerivative::check_estimator`]
+/// (gh:#683 item 3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DerivativeEstimator {
+    /// Analog (event-by-event) scoring.
+    Analog,
+    /// Collision estimator.
+    Collision,
+    /// Track-length estimator.
+    TrackLength,
+}
+
 impl TallyDerivative {
+    /// Refuse an estimator upstream refuses (gh:#683 item 3): OpenMC's
+    /// `apply_derivative_to_score` stops with a fatal error unless the tally is
+    /// analog or collision ("only implemented for analog and collision
+    /// estimators", `src/tallies/derivative.cpp`). A track-length tally would
+    /// otherwise be differentiated without its streaming-weighted score.
+    ///
+    /// # Errors
+    ///
+    /// [`DerivativeEstimator::TrackLength`].
+    pub fn check_estimator(&self, estimator: DerivativeEstimator) -> Result<(), String> {
+        match estimator {
+            DerivativeEstimator::Analog | DerivativeEstimator::Collision => Ok(()),
+            DerivativeEstimator::TrackLength => Err(
+                "a tally derivative is implemented for the analog and collision estimators \
+                 only, as upstream; a track-length tally cannot be differentiated"
+                    .into(),
+            ),
+        }
+    }
+
     /// The temperature step used by the finite difference \[K\].
     ///
     /// 1 K is small against the ~hundreds of K over which a resonance profile
@@ -357,10 +389,10 @@ impl TallyDerivative {
                 // For a MATERIAL-TOTAL score use
                 // [`Self::apply_to_material_total_score`] (`sigma_i / Sigma`,
                 // `derivative.cpp:211-271`), which needs cross sections this
-                // signature does not carry (gh:#683 item 2). **Still not
-                // enforced (item 3):** the analog/collision-only restriction and
-                // the `event_nuclide` check for analog scores (the score-type
-                // restriction IS enforced below).
+                // signature does not carry (gh:#683 item 2). The
+                // analog/collision-only restriction is [`Self::check_estimator`];
+                // the `event_nuclide` check is in `accumulate_at_collision`; the
+                // score-type restriction is enforced below.
                 match score_type {
                     // gh:#683 item 3: upstream's `apply_derivative_to_score` has
                     // no case for ScatterN, NuScatter, PromptNuFission or
@@ -640,5 +672,14 @@ mod tests {
             }
             assert!(d.apply_to_score(2.0, &f, Some(0), Some(&m), ScoreType::Fission).is_ok());
         }
+    }
+
+    /// gh:#683 item 3: only analog and collision tallies may be differentiated.
+    #[test]
+    fn only_analog_and_collision_estimators_may_be_differentiated() {
+        let d = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Density };
+        assert!(d.check_estimator(DerivativeEstimator::Analog).is_ok());
+        assert!(d.check_estimator(DerivativeEstimator::Collision).is_ok());
+        assert!(d.check_estimator(DerivativeEstimator::TrackLength).is_err());
     }
 }
