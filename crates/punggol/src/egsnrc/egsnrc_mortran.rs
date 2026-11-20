@@ -10,7 +10,7 @@
 //! `HEN_HOUSE/src/egsnrc.mortran` (EGSnrc, 9016 lines): HATCH (data set-up),
 //! the ELECTR and PHOTON transport loops and the physics routines they call.
 //!
-//! **Status: first port of six routines, not differentially tested (gh:#1680).**
+//! **Status: first port of seven routines, not differentially tested (gh:#1680).**
 //! Everything else in the file is still a placeholder.
 //!
 //! | upstream | here |
@@ -21,11 +21,12 @@
 //! | `SUBROUTINE RELAX` (`egsnrc.mortran:5556-5790`), the built-in K/L1/L2/L3/M/N scheme | [`relax`] |
 //! | `SUBROUTINE PAIR` (`egsnrc.mortran:4517-4670`) with `$SET-PAIR-ANGLE` (`egsnrc.macros:2070-2165`) | [`pair`] |
 //! | `UPHI` `IENTRY = 1` (angle from `theta`, `egsnrc.mortran:6759-6769`) | [`uphi_from_theta`] |
+//! | `SUBROUTINE PHOTO` (`egsnrc.mortran:5049-5170`) with `$SELECT-PHOTOELECTRON-DIRECTION` (`egsnrc.macros:1916-1953`) | [`photo`], [`select_photoelectron_direction`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
 //! Not yet ported from this file: `BHABHA`, `BREMS`, `ELECTR`,
-//! `HATCH`, `MOLLER`, `PHOTO`, `EDGSET`, `PHOTON`, `SHOWER`,
+//! `HATCH`, `MOLLER`, `EDGSET`, `PHOTON`, `SHOWER`,
 //! `PHOTONUC`. `UPHI` entry 1 (which derives `sinthe`/`costhe` from `theta`
 //! through the sine look-up table) is also not ported: it needs the table that
 //! `HATCH` fills. The user-scoring `$AUSCALL` hooks are omitted (no `AUSGAB`).
@@ -1207,6 +1208,254 @@ pub fn pair<R: UniformSource>(
     Ok(false)
 }
 
+/// `$MXEDGE` (`egsnrc.macros:495`): maximum photo-absorption edges above 1 keV.
+pub const MXEDGE: usize = 16;
+/// `$MXINTER` (`egsnrc.macros:493`): `$MXSHELL - 1`.
+pub const MXINTER: usize = MXSHELL - 1;
+
+/// The photoelectric data `PHOTO` reads from `COMMON/EDGE/`
+/// (`egsnrc.macros:501-522`), 1-based `[iz][edge]` with every inner array
+/// sized `$MXEDGE + 1` (upstream reads one past `edge_number` when no edge
+/// matches, and so may this port).
+#[derive(Debug, Clone, Default)]
+pub struct PhotoData {
+    /// `edge_energies(edge, iZ)`, MeV.
+    pub edge_energies: Vec<Vec<f64>>,
+    /// `edge_number(iZ)`.
+    pub edge_number: Vec<i32>,
+    /// `edge_a(edge, iZ)`.
+    pub edge_a: Vec<Vec<f64>>,
+    /// `edge_b`.
+    pub edge_b: Vec<Vec<f64>>,
+    /// `edge_c`.
+    pub edge_c: Vec<Vec<f64>>,
+    /// `edge_d`.
+    pub edge_d: Vec<Vec<f64>>,
+    /// `interaction_prob(shell, iZ)`, shells K..M (1..5).
+    pub interaction_prob: Vec<Vec<f64>>,
+}
+
+/// The medium's elements (`nne`, `zelem`, `pz`), 1-based.
+#[derive(Debug, Clone, Default)]
+pub struct PhotoMedium {
+    /// `zelem(medium, k)`: atomic number of element `k`.
+    pub zelem: Vec<f64>,
+    /// `pz(medium, k)`: number of atoms of element `k`.
+    pub pz: Vec<f64>,
+}
+
+/// Per-region switches `PHOTO` reads.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PhotoRegion {
+    /// `iedgfl`: 0 no atomic relaxation, otherwise relaxation on.
+    pub iedgfl: i32,
+    /// `iphter`: 1 samples the photoelectron angular distribution.
+    pub iphter: i32,
+    /// `ecut(region)`, total energy MeV.
+    pub ecut: f64,
+    /// `pcut(region)`, MeV.
+    pub pcut: f64,
+}
+
+/// What `PHOTO` leaves for the caller.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct PhotoOutcome {
+    /// Energy deposited locally by `RELAX`.
+    pub edep: f64,
+}
+
+/// `$SELECT-PHOTOELECTRON-DIRECTION` (`egsnrc.macros:1916-1953`): Sauter-type
+/// rejection for the photoelectron angle; the electron on top of the stack
+/// (total energy `e[np]`) gets its direction rotated about the photon's.
+/// Does nothing unless `iphter == 1` and the electron is above `ecut`.
+///
+/// # Errors
+///
+/// As [`uphi`].
+pub fn select_photoelectron_direction<R: UniformSource>(
+    stack: &mut Stack,
+    iphter: i32,
+    ecut: f64,
+    rng: &mut R,
+) -> Result<(), EgsError> {
+    if iphter != 1 {
+        return Ok(());
+    }
+    let np = stack.np;
+    let eelec = stack.e[np];
+    if !(eelec > ecut) {
+        return Ok(());
+    }
+    let rm = RM;
+    let beta = Real::sqrt((eelec - rm) * (eelec + rm)) / eelec;
+    let gamma = eelec / rm;
+    let alpha = 0.5 * gamma - 0.5 + 1.0 / gamma;
+    let ratio = beta / alpha;
+    let (mut costhe, mut sinth2);
+    loop {
+        let mut rnpht = rng.uniform();
+        rnpht = 2.0 * rnpht - 1.0;
+        let xi;
+        if ratio <= 0.2 {
+            let fkappa = rnpht + 0.5 * ratio * (1.0 - rnpht) * (1.0 + rnpht);
+            if gamma < 100.0 {
+                costhe = (beta + fkappa) / (1.0 + beta * fkappa);
+            } else if fkappa > 0.0 {
+                let g1 = gamma - 1.0;
+                costhe = 1.0 - (1.0 - fkappa) * (gamma - 3.0) / (2.0 * (1.0 + fkappa) * g1 * g1 * g1);
+            } else {
+                costhe = (beta + fkappa) / (1.0 + beta * fkappa);
+            }
+            xi = (1.0 + beta * fkappa) * gamma * gamma;
+        } else {
+            xi = gamma * gamma * (1.0 + alpha * (Real::sqrt(1.0 + ratio * (2.0 * rnpht + ratio)) - 1.0));
+            costhe = (1.0 - 1.0 / xi) / beta;
+        }
+        sinth2 = ((1.0 - costhe) * (1.0 + costhe)).max(0.0);
+        let rnpht2 = rng.uniform();
+        if !(rnpht2 > 0.5 * (1.0 + gamma) * sinth2 * xi / gamma) {
+            break;
+        }
+    }
+    let sinthe = Real::sqrt(sinth2);
+    let mut saved = UphiSaved::default();
+    uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)
+}
+
+/// `PHOTO` (`egsnrc.mortran:5049-5171`): photoelectric absorption of the
+/// photon on top of the stack, which becomes a photoelectron (`iq = -1`, total
+/// energy `e - binding + prm`). With relaxation on (`iedgfl`) the element is
+/// sampled from the fits in `data`, then the shell; a K..M vacancy goes to
+/// [`relax`]. `gle` is `ln(E)` of the photon (the caller's `GLE`).
+///
+/// Not ported: the shellwise MCDF branch (`mcdf_pe_xsections`,
+/// `egs_shellwise_photo`) and the EADL branch (`eadl_relax`), both off by
+/// default. The below-1 keV warning is not printed. If the element or edge
+/// loops run off their end (round-off), the index is clamped to the last
+/// element instead of reading past the arrays.
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`] from `RELAX`, or an atomic number outside
+/// `1..=100` as [`EgsError::Unsupported`] (upstream `$egs_fatal`).
+#[allow(clippy::too_many_arguments)]
+pub fn photo<R: UniformSource>(
+    stack: &mut Stack,
+    data: &PhotoData,
+    relax_data: &RelaxData,
+    medium: &PhotoMedium,
+    region: &PhotoRegion,
+    gle: f64,
+    rr: Option<f64>,
+    prm: f64,
+    rng: &mut R,
+) -> Result<PhotoOutcome, EgsError> {
+    let mut out = PhotoOutcome::default();
+    stack.np_old = stack.np;
+    let np = stack.np;
+    let peig = stack.e[np];
+    if peig < data.edge_energies[1][2] {
+        // below the minimum energy of 1 keV: convert to an electron
+        stack.iq[np] = -1;
+        stack.e[np] = peig + prm;
+        return Ok(out);
+    }
+    let mut do_relax = false;
+    let (mut e_vac, mut k_shell, mut iz) = (0.0, 0usize, 0usize);
+    if region.iedgfl != 0 {
+        let nne = medium.zelem.len() - 1;
+        if nne == 1 {
+            iz = (medium.zelem[1] + 0.5) as usize;
+        } else {
+            let mut aux = peig * peig;
+            let aux1 = aux * peig;
+            aux *= Real::sqrt(peig);
+            let mut sigtot = 0.0;
+            let mut probs = alloc::vec![0.0; nne + 1];
+            for k in 1..=nne {
+                let izk = (medium.zelem[k] + 0.5) as i64;
+                if izk < 1 || izk > 100 {
+                    return Err(EgsError::Unsupported("PHOTO: atomic number not between 1 and 100"));
+                }
+                let izk = izk as usize;
+                let mut sigma;
+                if peig > data.edge_energies[izk][1] {
+                    sigma = (data.edge_a[izk][1]
+                        + data.edge_b[izk][1] / peig
+                        + data.edge_c[izk][1] / aux
+                        + data.edge_d[izk][1] / aux1)
+                        / peig;
+                } else {
+                    let mut j = 2usize;
+                    while j <= data.edge_number[izk] as usize {
+                        if peig >= data.edge_energies[izk][j] {
+                            break;
+                        }
+                        j += 1;
+                    }
+                    sigma = data.edge_a[izk][j]
+                        + gle * (data.edge_b[izk][j] + gle * (data.edge_c[izk][j] + gle * data.edge_d[izk][j]));
+                    sigma = RealMath::r_exp(sigma);
+                }
+                sigma *= medium.pz[k];
+                sigtot += sigma;
+                probs[k] = sigma;
+            }
+            let mut br = rng.uniform();
+            br *= sigtot;
+            let mut k = 1usize;
+            while k <= nne {
+                br -= probs[k];
+                if br <= 0.0 {
+                    break;
+                }
+                k += 1;
+            }
+            let k = k.min(nne);
+            iz = (medium.zelem[k] + 0.5) as usize;
+        }
+        // sample the shell
+        if peig <= relax_data.binding_energies[iz][MXSHELL] {
+            // outer shells, no atomic relaxation
+            stack.iq[np] = -1;
+            stack.e[np] = peig + prm;
+        } else {
+            let mut br = rng.uniform();
+            let mut k = 1usize;
+            while k <= MXINTER {
+                if peig > relax_data.binding_energies[iz][k] {
+                    if br < data.interaction_prob[iz][k] {
+                        break;
+                    }
+                    br = (br - data.interaction_prob[iz][k]) / (1.0 - data.interaction_prob[iz][k]);
+                }
+                k += 1;
+            }
+            // (defaults to the MXSHELL shell if the loop completes)
+            e_vac = relax_data.binding_energies[iz][k];
+            k_shell = k;
+            stack.e[np] = peig - e_vac + prm;
+            do_relax = true;
+            stack.iq[np] = -1;
+        }
+    } else {
+        stack.e[np] = peig + prm;
+        stack.iq[np] = -1;
+    }
+
+    if stack.iq[np] == -1 {
+        select_photoelectron_direction(stack, region.iphter, region.ecut, rng)?;
+    }
+    if do_relax {
+        let r = relax(stack, relax_data, e_vac, k_shell as i32, iz, region.ecut, region.pcut, prm, rng)?;
+        out.edep += r.edep;
+    }
+    if let Some(prob) = rr {
+        play_russian_roulette(stack, stack.np_old, prob, rng);
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1665,6 +1914,134 @@ mod tests {
         uphi(&mut b, &mut UphiSaved::default(), 2, 1, theta.sin(), theta.cos(), &mut r2).unwrap();
         assert!((a.w[1] - b.w[1]).abs() < 1e-12 && (a.u[1] - b.u[1]).abs() < 1e-12);
         assert!((a.w[1] - theta.cos()).abs() < 1e-12);
+    }
+
+
+    fn toy_photo_data() -> (PhotoData, PhotoMedium, PhotoMedium) {
+        let mut d = PhotoData::default();
+        let mk = |v: f64| alloc::vec![0.0, v, v, v, v];
+        // element 6 (index 6) and 8 (index 8); others empty
+        for iz in 0..=8usize {
+            let _ = iz;
+            d.edge_energies.push(alloc::vec![0.0; MXEDGE + 2]);
+            d.edge_number.push(3);
+            d.edge_a.push(alloc::vec![0.0; MXEDGE + 2]);
+            d.edge_b.push(alloc::vec![0.0; MXEDGE + 2]);
+            d.edge_c.push(alloc::vec![0.0; MXEDGE + 2]);
+            d.edge_d.push(alloc::vec![0.0; MXEDGE + 2]);
+            d.interaction_prob.push(alloc::vec![0.0; MXSHELL + 1]);
+        }
+        let _ = mk;
+        // the 1 keV minimum lives in edge_energies(2, 1)
+        d.edge_energies[1][2] = 0.001;
+        for &iz in &[6usize, 8] {
+            d.edge_energies[iz][1] = 0.01;
+            d.edge_energies[iz][2] = 0.002;
+            d.edge_energies[iz][3] = 0.001;
+            // above the first edge: sigma = (a + b/E + c/E^2.5 + d/E^3)/E
+            d.edge_a[iz][1] = 1.0;
+            for j in 2..=4 {
+                d.edge_a[iz][j] = if iz == 6 { 1.0 } else { 2.0 };
+            }
+            d.interaction_prob[iz][1] = 0.8; // K
+            for k in 2..=5 {
+                d.interaction_prob[iz][k] = 0.5;
+            }
+        }
+        let one = PhotoMedium { zelem: alloc::vec![0.0, 6.0], pz: alloc::vec![0.0, 1.0] };
+        let two = PhotoMedium { zelem: alloc::vec![0.0, 6.0, 8.0], pz: alloc::vec![0.0, 1.0, 2.0] };
+        (d, one, two)
+    }
+
+    fn photo_relax_data() -> RelaxData {
+        let t = toy_relax();
+        // reuse the toy cascade for iz 6 and 8 (fluorescence)
+        let be = t.binding_energies[1].clone();
+        let rp = t.relaxation_prob[1].clone();
+        let mut d = RelaxData::default();
+        for _ in 0..=8 {
+            d.binding_energies.push(be.clone());
+            d.relaxation_prob.push(rp.clone());
+        }
+        d
+    }
+
+    #[test]
+    fn photoelectron_direction_branches() {
+        let mut rng = Ranmar::new(99, 98);
+        // 30 keV (ratio > 0.2), 5 MeV (ratio <= 0.2, gamma < 100), 100 MeV (gamma >= 100)
+        for &e in &[0.54, 5.5, 100.0] {
+            for _ in 0..50 {
+                let mut st = Stack::new(5);
+                st.np = 1;
+                st.e[1] = e;
+                st.w[1] = 1.0;
+                select_photoelectron_direction(&mut st, 1, 0.512, &mut rng).unwrap();
+                assert!((norm(&st, 1) - 1.0).abs() < 1e-9, "e {e}");
+            }
+        }
+        // iphter != 1 or below ecut: the direction is untouched
+        let mut st = Stack::new(5);
+        st.np = 1;
+        st.e[1] = 1.0;
+        st.w[1] = 1.0;
+        select_photoelectron_direction(&mut st, 0, 0.0, &mut rng).unwrap();
+        select_photoelectron_direction(&mut st, 1, 5.0, &mut rng).unwrap();
+        assert_eq!((st.u[1], st.v[1], st.w[1]), (0.0, 0.0, 1.0));
+    }
+
+    #[test]
+    fn photo_converts_and_conserves_energy() {
+        let (d, one, two) = toy_photo_data();
+        let rd = photo_relax_data();
+        let mut rng = Ranmar::new(5, 7);
+        let reg = PhotoRegion { iedgfl: 1, iphter: 1, ecut: RM + 0.0001, pcut: 0.0001 };
+        // below the 1 keV minimum: electron with the photon energy as kinetic energy
+        let mut st = photon_stack(0.0005);
+        photo(&mut st, &d, &rd, &one, &reg, (0.0005f64).ln(), None, RM, &mut rng).unwrap();
+        assert_eq!((st.iq[1], st.np), (-1, 1));
+        assert!((st.e[1] - (0.0005 + RM)).abs() < 1e-15);
+        // no relaxation requested
+        let off = PhotoRegion { iedgfl: 0, ..reg };
+        let mut st = photon_stack(0.05);
+        photo(&mut st, &d, &rd, &one, &off, (0.05f64).ln(), None, RM, &mut rng).unwrap();
+        assert_eq!((st.iq[1], st.np), (-1, 1));
+        assert!((st.e[1] - (0.05 + RM)).abs() < 1e-15);
+        // relaxation on, one and two elements: kinetic energy + products + edep = photon
+        for medium in [&one, &two] {
+            for _ in 0..50 {
+                let e = 0.05;
+                let mut st = photon_stack(e);
+                let o = photo(&mut st, &d, &rd, medium, &reg, e.ln(), None, RM, &mut rng).unwrap();
+                assert_eq!(st.np_old, 1);
+                let mut tot = o.edep;
+                for i in 1..=st.np {
+                    tot += match st.iq[i] {
+                        0 => st.e[i],
+                        _ => st.e[i] - RM,
+                    };
+                }
+                assert!((tot + 0.0 - e).abs() < 1e-9, "tot {tot} vs {e}");
+                assert!((1..=st.np).all(|i| (norm(&st, i) - 1.0).abs() < 1e-9));
+            }
+        }
+        // photon energy under the outermost binding energy: electron, no relaxation
+        let mut st = photon_stack(0.00005);
+        let mut low_d = d.clone();
+        low_d.edge_energies[1][2] = 1e-9;
+        photo(&mut st, &low_d, &rd, &one, &reg, (0.00005f64).ln(), None, RM, &mut rng).unwrap();
+        assert!((st.e[1] - (0.00005 + RM)).abs() < 1e-15 && st.np == 1);
+        // roulette kills the electron
+        let mut st = photon_stack(0.05);
+        photo(&mut st, &d, &rd, &one, &off, (0.05f64).ln(), Some(1e-12), RM, &mut rng).unwrap();
+        assert_eq!((st.np, st.wt[1]), (1, 0.0));
+        // a bad atomic number is refused
+        let bad = PhotoMedium { zelem: alloc::vec![0.0, 0.0, 6.0], pz: alloc::vec![0.0, 1.0, 1.0] };
+        let mut st = photon_stack(0.05);
+        assert!(matches!(
+            photo(&mut st, &d, &rd, &bad, &reg, (0.05f64).ln(), None, RM, &mut rng),
+            Err(EgsError::Unsupported(_))
+        ));
     }
 
     #[test]
