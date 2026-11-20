@@ -10,7 +10,7 @@
 //! `HEN_HOUSE/src/egsnrc.mortran` (EGSnrc, 9016 lines): HATCH (data set-up),
 //! the ELECTR and PHOTON transport loops and the physics routines they call.
 //!
-//! **Status: first port of ten routines, not differentially tested (gh:#1680).**
+//! **Status: first port of eleven routines, not differentially tested (gh:#1680).**
 //! Everything else in the file is still a placeholder.
 //!
 //! | upstream | here |
@@ -25,6 +25,7 @@
 //! | `SUBROUTINE BHABHA` (`egsnrc.mortran:229-309`) | [`bhabha`] |
 //! | `SUBROUTINE MOLLER` (`egsnrc.mortran:2598-2745`), without the EII branch | [`moller`] |
 //! | `SUBROUTINE BREMS` (`egsnrc.mortran:312-525`), Bethe-Heitler path | [`brems`] |
+//! | `SUBROUTINE PHOTON` (`egsnrc.mortran:6438-6640`), without Rayleigh or photonuclear | [`photon`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -1811,6 +1812,316 @@ pub fn brems<R: UniformSource>(
     Ok(())
 }
 
+/// What `HOWFAR` reads and writes in `PHOTON` (`USTEP`, `IRNEW`, `IDISC`):
+/// the geometry shortens `ustep` to the boundary, sets `irnew` to the region
+/// beyond it, and may request a discard with `idisc`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HowfarState {
+    /// Requested and returned step, cm.
+    pub ustep: f64,
+    /// Region after the step (the geometry sets it when a boundary is hit).
+    pub irnew: usize,
+    /// `> 0` discard now, `< 0` discard after the step, `0` keep.
+    pub idisc: i32,
+}
+
+/// The geometry seam (`SUBROUTINE HOWFAR`, a user routine in EGSnrc). A
+/// compile-time contract: `photon` is generic over it, no trait objects.
+pub trait Geometry {
+    /// Called when `ustep > dnear` or the weight is not positive
+    /// (`$CALL-HOWFAR-IN-PHOTON`, `egsnrc.macros:2422`). Reads the particle
+    /// from `stack[np]`; sets `state`.
+    fn howfar(&mut self, stack: &Stack, state: &mut HowfarState);
+}
+
+/// Per-region data `PHOTON` reads.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct PhotonRegionData {
+    /// `med(region)`; `0` is vacuum.
+    pub med: usize,
+    /// `rhor(region)`: density of the region, g/cm^3.
+    pub rhor: f64,
+    /// `pcut(region)`, MeV.
+    pub pcut: f64,
+    /// `ecut(region)`, total energy MeV.
+    pub ecut: f64,
+    /// `ibcmp(region)`.
+    pub ibcmp: i32,
+    /// `iedgfl(region)`.
+    pub iedgfl: i32,
+    /// `iphter(region)`.
+    pub iphter: i32,
+    /// `iraylr(region)`; `1` (Rayleigh) is not ported and is refused.
+    pub irayl: i32,
+    /// `iphotonucr(region)`; `1` (photonuclear) is not ported and is refused.
+    pub iphotonucr: i32,
+}
+
+/// Per-medium tables `PHOTON` reads: the piecewise-linear `GMFP`, `GBR1`,
+/// `GBR2` fits (`$SET INTERVAL GLE,GE` then `f = f1(L) * GLE + f0(L)` with
+/// `L = ge1 * GLE + ge0`), the density, and the data its interactions need.
+/// Interval-indexed vectors are 1-based.
+#[derive(Debug, Clone, Default)]
+pub struct PhotonMediumData {
+    /// `rho(medium)`.
+    pub rho: f64,
+    /// `ge0`, `ge1`: interval index `L = ge1 * GLE + ge0`.
+    pub ge0: f64,
+    /// See `ge0`.
+    pub ge1: f64,
+    /// `gmfp0(L)`, `gmfp1(L)`: photon mean free path, cm.
+    pub gmfp0: Vec<f64>,
+    /// See `gmfp0`.
+    pub gmfp1: Vec<f64>,
+    /// `gbr10(L)`, `gbr11(L)`: pair probability.
+    pub gbr10: Vec<f64>,
+    /// See `gbr10`.
+    pub gbr11: Vec<f64>,
+    /// `gbr20(L)`, `gbr21(L)`: (pair + Compton) probability.
+    pub gbr20: Vec<f64>,
+    /// See `gbr20`.
+    pub gbr21: Vec<f64>,
+    /// The element list `PHOTO` samples from.
+    pub photo: PhotoMedium,
+    /// The data `PAIR` reads.
+    pub pair: PairMedium,
+}
+
+/// All tables `photon` needs. `regions` and `media` are 1-based (index 0 unused).
+#[derive(Debug, Clone, Default)]
+pub struct PhotonTables {
+    /// Regions.
+    pub regions: Vec<PhotonRegionData>,
+    /// Media.
+    pub media: Vec<PhotonMediumData>,
+    /// `COMMON/COMPTON-DATA/`.
+    pub compton: ComptonData,
+    /// `COMMON/EDGE/` relaxation part.
+    pub relax: RelaxData,
+    /// `COMMON/EDGE/` photoelectric part.
+    pub photo: PhotoData,
+}
+
+/// Switches `photon` reads.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PhotonConfig {
+    /// `PAIR` switches.
+    pub pair: PairConfig,
+    /// `Some(prob_RR)` when `i_play_RR = 1`.
+    pub rr: Option<f64>,
+    /// `PRM`, MeV.
+    pub prm: f64,
+    /// `VACDST`: step through vacuum, cm.
+    pub vacdst: f64,
+}
+
+/// What `photon` returns.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct PhotonResult {
+    /// `IRCODE`: `1` normal return (an electron is on top of the stack, or the
+    /// stack changed so the caller must re-enter), `2` the photon was discarded
+    /// (`np` has been decremented).
+    pub ircode: i32,
+    /// `EDEP` of a discard: the energy of the discarded photon, MeV.
+    pub edep: f64,
+    /// Energy deposited locally by `RELAX`, and by sub-1 keV Compton binding
+    /// energies, that upstream hands to `AUSGAB`.
+    pub edep_local: f64,
+}
+
+/// `$EPSGMFP` (`egsnrc.macros:1402`): smallest gamma MFP value.
+pub const EPSGMFP: f64 = 1e-8;
+
+/// A photon removed from the stack: its energy is `edep`, `ircode = 2`.
+fn photon_discard(stack: &mut Stack, res: &mut PhotonResult, peig: f64) -> PhotonResult {
+    res.edep = peig;
+    res.ircode = 2;
+    stack.np -= 1;
+    *res
+}
+
+/// `PHOTON` (`egsnrc.mortran:6438-6640`): transport the photon on top of the
+/// stack until it interacts and an electron tops the stack (`ircode = 1`) or
+/// it is discarded (`ircode = 2`). Interactions call [`pair`], [`compt`]
+/// (with [`relax`] for its vacancy) and [`photo`].
+///
+/// Not ported: Rayleigh scattering (`iraylr = 1`, `egs_rayleigh_sampling`)
+/// and photonuclear reactions (`iphotonucr = 1`, `PHOTONUC`), refused with
+/// [`EgsError::Unsupported`]; the `AUSGAB` hooks; `$PARTICLE-SELECTION-*`
+/// (empty by default). `lgle` is recomputed whenever the medium changes, as
+/// upstream.
+///
+/// # Errors
+///
+/// [`EgsError`] from the interaction routines, or `Unsupported` as above.
+pub fn photon<R: UniformSource, G: Geometry>(
+    stack: &mut Stack,
+    tables: &PhotonTables,
+    cfg: &PhotonConfig,
+    geometry: &mut G,
+    rng: &mut R,
+) -> Result<PhotonResult, EgsError> {
+    let rmt2 = 2.0 * RM;
+    let mut res = PhotonResult { ircode: 1, ..Default::default() };
+    let mut peig = stack.e[stack.np];
+    let mut eig = peig;
+    let mut irl = stack.ir[stack.np] as usize;
+    let mut medium = tables.regions[irl].med;
+    let mut lgle = 0usize;
+    let mut gmfpr0 = 0.0;
+    let mut gmfp = 0.0;
+
+    if eig <= tables.regions[irl].pcut {
+        return Ok(photon_discard(stack, &mut res, peig));
+    }
+
+    // :PNEWENERGY:
+    loop {
+        if stack.wt[stack.np] == 0.0 {
+            return Ok(photon_discard(stack, &mut res, peig));
+        }
+        let gle = RealMath::r_ln(eig);
+        // $SELECT-PHOTON-MFP
+        let mut rnno35 = rng.uniform();
+        if rnno35 == 0.0 {
+            rnno35 = 1.0e-30;
+        }
+        let mut dpmfp = -RealMath::r_ln(rnno35);
+
+        // :PNEWMEDIUM:
+        'pnewmedium: loop {
+            if medium != 0 {
+                let m = &tables.media[medium];
+                lgle = (m.ge1 * gle + m.ge0) as usize;
+                gmfpr0 = m.gmfp1[lgle] * gle + m.gmfp0[lgle];
+            }
+            // :PTRANS:
+            loop {
+                let tstep;
+                if medium == 0 {
+                    tstep = cfg.vacdst;
+                } else {
+                    let region = &tables.regions[irl];
+                    if region.irayl == 1 {
+                        return Err(EgsError::Unsupported("PHOTON: Rayleigh scattering (iraylr = 1)"));
+                    }
+                    if region.iphotonucr == 1 {
+                        return Err(EgsError::Unsupported("PHOTON: photonuclear reactions (iphotonucr = 1)"));
+                    }
+                    let rhof = region.rhor / tables.media[medium].rho;
+                    gmfp = gmfpr0 / rhof;
+                    tstep = gmfp * dpmfp;
+                }
+                let np = stack.np;
+                let mut st = HowfarState { ustep: tstep, irnew: stack.ir[np] as usize, idisc: 0 };
+                if st.ustep > stack.dnear[np] || stack.wt[np] <= 0.0 {
+                    geometry.howfar(stack, &mut st);
+                }
+                if st.idisc > 0 {
+                    return Ok(photon_discard(stack, &mut res, peig));
+                }
+                let vstep = st.ustep;
+                // transport the photon
+                stack.x[np] += stack.u[np] * vstep;
+                stack.y[np] += stack.v[np] * vstep;
+                stack.z[np] += stack.w[np] * vstep;
+                stack.dnear[np] -= st.ustep;
+                if medium != 0 {
+                    dpmfp = (0.0_f64).max(dpmfp - st.ustep / gmfp);
+                }
+                let medold = medium;
+                if st.irnew != stack.ir[np] as usize {
+                    // $photon_region_change
+                    stack.ir[np] = st.irnew as i32;
+                    irl = st.irnew;
+                    medium = tables.regions[irl].med;
+                }
+                if eig <= tables.regions[irl].pcut {
+                    return Ok(photon_discard(stack, &mut res, peig));
+                }
+                if st.idisc < 0 {
+                    return Ok(photon_discard(stack, &mut res, peig));
+                }
+                if medium != medold {
+                    continue 'pnewmedium;
+                }
+                if medium != 0 && dpmfp <= EPSGMFP {
+                    break 'pnewmedium;
+                }
+            }
+        }
+
+        // it is finally time to interact
+        {
+            let region = &tables.regions[irl];
+            if region.irayl == 1 {
+                return Err(EgsError::Unsupported("PHOTON: Rayleigh scattering (iraylr = 1)"));
+            }
+            if region.iphotonucr == 1 {
+                return Err(EgsError::Unsupported("PHOTON: photonuclear reactions (iphotonucr = 1)"));
+            }
+        }
+        let rnno36 = rng.uniform();
+        let m = &tables.media[medium];
+        let gbr1 = m.gbr11[lgle] * gle + m.gbr10[lgle];
+        let mut pair_done = false;
+        if rnno36 <= gbr1 && stack.e[stack.np] > rmt2 {
+            pair(stack, &m.pair, &cfg.pair, RM, rng)?;
+            if stack.iq[stack.np] != 0 {
+                return Ok(res);
+            }
+            // pair electrons killed via Russian roulette
+            pair_done = true;
+        }
+        if !pair_done {
+            let gbr2 = m.gbr21[lgle] * gle + m.gbr20[lgle];
+            let region = tables.regions[irl];
+            if rnno36 < gbr2 {
+                let out = compt(stack, &tables.compton, medium, irl, region.ibcmp, cfg.rr, cfg.prm, rng)?;
+                if let Some(v) = out.vacancy {
+                    let r = relax(
+                        stack,
+                        &tables.relax,
+                        v.uj,
+                        v.shn,
+                        v.iz as usize,
+                        region.ecut,
+                        region.pcut,
+                        cfg.prm,
+                        rng,
+                    )?;
+                    res.edep_local += r.edep;
+                    if let Some(p) = cfg.rr {
+                        play_russian_roulette(stack, stack.np_old + 1, p, rng);
+                    }
+                }
+                res.edep_local += out.edep_local;
+                if stack.iq[stack.np] != 0 {
+                    return Ok(res);
+                }
+            } else {
+                let preg = PhotoRegion { iedgfl: region.iedgfl, iphter: region.iphter, ecut: region.ecut, pcut: region.pcut };
+                let o = photo(stack, &tables.photo, &tables.relax, &m.photo, &preg, gle, cfg.rr, cfg.prm, rng)?;
+                res.edep_local += o.edep;
+                // Russian roulette may have emptied the stack or removed the
+                // electrons: force a return so the caller re-enters properly
+                if stack.np == 0 || stack.np < stack.np_old {
+                    return Ok(res);
+                }
+                if stack.iq[stack.np] != 0 {
+                    return Ok(res);
+                }
+            }
+        }
+        // :PAIR-ELECTRONS-KILLED: the gamma is the lowest-energy particle
+        peig = stack.e[stack.np];
+        eig = peig;
+        if eig < tables.regions[irl].pcut {
+            return Ok(photon_discard(stack, &mut res, peig));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2547,6 +2858,183 @@ mod tests {
             brems(&mut full, &med, &BremsConfig::default(), 0.0, RM, &mut rng),
             Err(EgsError::StackExceeded { routine: "BREMS", .. })
         ));
+    }
+
+
+    /// A slab 0 < z < L (region 1, medium 1) in vacuum (region 2): the photon
+    /// is discarded once outside.
+    struct Slab {
+        length: f64,
+    }
+
+    impl Geometry for Slab {
+        fn howfar(&mut self, stack: &Stack, st: &mut HowfarState) {
+            let np = stack.np;
+            if stack.ir[np] == 2 {
+                st.idisc = 1;
+                return;
+            }
+            let w = stack.w[np];
+            let z = stack.z[np];
+            let d = if w > 0.0 {
+                (self.length - z) / w
+            } else if w < 0.0 {
+                -z / w
+            } else {
+                f64::INFINITY
+            };
+            if st.ustep > d {
+                st.ustep = d;
+                st.irnew = 2;
+            }
+        }
+    }
+
+    fn photon_tables(gbr_pair: f64, gbr_compt: f64, ibcmp: i32) -> PhotonTables {
+        let (photo, photo_med, _) = toy_photo_data();
+        let med = PhotonMediumData {
+            rho: 1.0,
+            ge0: 1.0,
+            ge1: 0.0,
+            gmfp0: alloc::vec![0.0, 1.0],
+            gmfp1: alloc::vec![0.0, 0.0],
+            gbr10: alloc::vec![0.0, gbr_pair],
+            gbr11: alloc::vec![0.0, 0.0],
+            gbr20: alloc::vec![0.0, gbr_pair + gbr_compt],
+            gbr21: alloc::vec![0.0, 0.0],
+            photo: photo_med,
+            pair: toy_pair_medium(),
+        };
+        let slab = PhotonRegionData { med: 1, rhor: 1.0, pcut: 0.01, ecut: RM + 0.01, ibcmp, iedgfl: 1, iphter: 1, irayl: 0, iphotonucr: 0 };
+        let outside = PhotonRegionData { med: 0, rhor: 0.0, pcut: 0.01, ecut: RM + 0.01, ..slab };
+        PhotonTables {
+            regions: alloc::vec![PhotonRegionData::default(), slab, outside],
+            media: alloc::vec![PhotonMediumData::default(), med],
+            compton: toy_compton_data(0.01),
+            relax: photo_relax_data(),
+            photo,
+        }
+    }
+
+    /// Follow one photon and everything it makes until the stack is empty:
+    /// charged particles deposit their kinetic energy on the spot. Returns the
+    /// energy balance residual.
+    fn run_history(tables: &PhotonTables, cfg: &PhotonConfig, e0: f64, rng: &mut Ranmar) -> f64 {
+        let mut st = Stack::new(200);
+        st.np = 1;
+        st.e[1] = e0;
+        st.w[1] = 1.0;
+        st.z[1] = 1e-4;
+        st.ir[1] = 1;
+        st.wt[1] = 1.0;
+        let mut geo = Slab { length: 3.0 };
+        let mut tally = 0.0;
+        let mut pairs = 0;
+        let mut guard = 0;
+        while st.np > 0 {
+            guard += 1;
+            assert!(guard < 100_000, "history did not terminate");
+            if st.iq[st.np] == 0 {
+                let r = photon(&mut st, tables, cfg, &mut geo, rng).unwrap();
+                tally += r.edep + r.edep_local;
+                if r.ircode == 1 && st.np > 0 && st.iq[st.np] == 1 {
+                    // (counted below when the positron is popped)
+                }
+            } else {
+                let np = st.np;
+                if st.iq[np] == 1 {
+                    pairs += 1;
+                }
+                tally += st.e[np] - RM;
+                st.np -= 1;
+            }
+        }
+        tally + 2.0 * RM * pairs as f64 - e0
+    }
+
+    #[test]
+    fn photon_histories_conserve_energy() {
+        let mut rng = Ranmar::new(77, 78);
+        // Compton + photoelectric only
+        let t1 = photon_tables(0.0, 0.5, 3);
+        let cfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 100.0 };
+        for _ in 0..200 {
+            let r = run_history(&t1, &cfg, 0.1, &mut rng);
+            assert!(r.abs() < 1e-9, "residual {r}");
+        }
+        // with pair production at 5 MeV, Klein-Nishina Compton
+        let t2 = photon_tables(0.3, 0.4, 0);
+        for _ in 0..200 {
+            let r = run_history(&t2, &cfg, 5.0, &mut rng);
+            assert!(r.abs() < 1e-9, "residual {r}");
+        }
+    }
+
+    #[test]
+    fn photon_discards_refusals_and_roulette() {
+        let mut rng = Ranmar::new(3, 5);
+        let tables = photon_tables(0.0, 0.5, 0);
+        let cfg = PhotonConfig { pair: PairConfig::default(), rr: None, prm: RM, vacdst: 100.0 };
+        let mut geo = Slab { length: 3.0 };
+        // below pcut: discarded at once with its energy
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 0.005;
+        st.ir[1] = 1;
+        st.wt[1] = 1.0;
+        let r = photon(&mut st, &tables, &cfg, &mut geo, &mut rng).unwrap();
+        assert_eq!((r.ircode, r.edep, st.np), (2, 0.005, 0));
+        // zero weight: user discard
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 1.0;
+        st.ir[1] = 1;
+        let r = photon(&mut st, &tables, &cfg, &mut geo, &mut rng).unwrap();
+        assert_eq!((r.ircode, r.edep, st.np), (2, 1.0, 0));
+        // a photon in the vacuum region is discarded by the geometry
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 1.0;
+        st.ir[1] = 2;
+        st.wt[1] = 1.0;
+        st.w[1] = 1.0;
+        let r = photon(&mut st, &tables, &cfg, &mut geo, &mut rng).unwrap();
+        assert_eq!(r.ircode, 2);
+        // Rayleigh and photonuclear are refused
+        let mut bad = tables.clone();
+        bad.regions[1].irayl = 1;
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 1.0;
+        st.ir[1] = 1;
+        st.wt[1] = 1.0;
+        st.w[1] = 1.0;
+        assert!(matches!(photon(&mut st, &bad, &cfg, &mut geo, &mut rng), Err(EgsError::Unsupported(_))));
+        let mut bad2 = tables.clone();
+        bad2.regions[1].iphotonucr = 1;
+        let mut st2 = Stack::new(10);
+        st2.np = 1;
+        st2.e[1] = 1.0;
+        st2.ir[1] = 1;
+        st2.wt[1] = 1.0;
+        st2.w[1] = 1.0;
+        assert!(matches!(photon(&mut st2, &bad2, &cfg, &mut geo, &mut rng), Err(EgsError::Unsupported(_))));
+        // Russian roulette: histories still terminate
+        let cfg_rr = PhotonConfig { rr: Some(0.5), ..cfg };
+        for _ in 0..50 {
+            let _ = run_history(&tables, &cfg_rr, 0.1, &mut rng);
+        }
+        // a passing photon in vacuum (medium 0) uses VACDST and crosses regions
+        let mut vac = tables.clone();
+        vac.regions[1].med = 0;
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 1.0;
+        st.ir[1] = 1;
+        st.wt[1] = 1.0;
+        st.w[1] = 1.0;
+        let r = photon(&mut st, &vac, &cfg, &mut geo, &mut rng).unwrap();
+        assert_eq!((r.ircode, st.np), (2, 0));
     }
 
     #[test]
