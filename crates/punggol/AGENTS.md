@@ -29,6 +29,27 @@ this crate as transporting anything.
 - **General numerics go to `petir`**: alias tables, RANMAR and RANLUX,
   interpolation. Do not grow a second copy here.
 
+## Where each port goes: an `egsnrc` module in every crate it touches (maintainer, 2026-11-20)
+
+Both PUNGGOL ports live in this crate: the OpenMC photon port (gh:#975) and
+the EGSnrc port (gh:#976). **Code ported from EGSnrc always lives in a module
+named `egsnrc`**, in whichever crate owns that kind of code, so a reader can
+tell its upstream from the path:
+
+| EGSnrc part | Goes to |
+|---|---|
+| Physics: the `HEN_HOUSE/src` core and PEGS4 | `punggol::egsnrc` (scaffolded) |
+| egs++ geometry (`HEN_HOUSE/egs++/geometry`) | `outram_blender::egsnrc`, the workspace's geometry crate (see `crates/outram-blender/AGENTS.md`) |
+| General numerics (RANMAR, RANLUX, alias table, interpolator) | `petir`. These are **already ported** and pinned against compiled EGSnrc, but they live at `petir::rng::{ranmar, ranlux, alias_table}` and `petir::interp_egs`. Give them the `egsnrc` label by adding a `petir::egsnrc` module that re-exports them, not by moving them: moving the files would edit possibly-reviewed code. Never port them a second time. |
+| Any other part, "and such" | an `egsnrc` module in the crate that owns that kind of code |
+
+- **Keep the OpenMC photon port out of `punggol::egsnrc`.** It goes in its
+  own module named for OpenMC.
+- **Ports are done in three phases** (gh:#1680-#1685):
+  1. a Sonnet first port;
+  2. differential testing against the compiled upstream;
+  3. one Opus pass that reads only what the differential tests did not reach.
+
 ## Rules
 
 - **Search before building.** The chain `<source>` codec is
