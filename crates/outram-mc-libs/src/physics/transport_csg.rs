@@ -2268,6 +2268,9 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
         let mut u = start.u;
         let mut e = start.e;
         let mut on_surface = SurfaceToken::NONE;
+        // gh:#698: the coordinate level at which `on_surface` names a surface (the
+        // crossing's own level); the cell search applies the token only there.
+        let mut on_level: usize = 0;
         let mut events = 0u32;
         // Statistical weight. Fission sites are always born at 1 (upstream
         // `create_fission_sites`: `site.wgt = 1./weight`, and `weight` is 1
@@ -2353,7 +2356,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
             // `TINY_BIT` along the flight direction and searches again; only a
             // second failure marks the particle lost (`Particle::cross_surface`,
             // OpenMC `src/particle.cpp:707-730`; `TINY_BIT = 1e-8` cm).
-            let located = match geom.locate(r, u, on_surface) {
+            let located = match if on_surface == SurfaceToken::NONE {
+                geom.locate(r, u, on_surface)
+            } else {
+                geom.locate_at_level(r, u, on_surface, on_level)
+            } {
                 Some(p) => Some(p),
                 None => {
                     const TINY_BIT: f64 = 1.0e-8;
@@ -3295,6 +3302,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         // so the next `locate` cannot re-select the cell it just
                         // left (GitHub #168 — see `Geometry::cross_surface`).
                         on_surface = crossed.on_surface;
+                        on_level = d_bound.coord_level;
                         record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::SurfaceCrossing, cell_idx, path.material);
                         // `surf_source_` with NO boundary condition: record
                         // AFTER the crossing. The far-side state is what a
@@ -3860,6 +3868,64 @@ mod leakage_tests {
         assert!(r.stuck_events > 0, "a 1-event cap cuts histories off");
         let d = run_keff_csg(&geom, &mats, &nucs, src(), &KeffSettings { n_particles: 50, n_inactive: 1, n_active: 1, ..KeffSettings::default() }, None);
         assert_eq!(d.stuck_events, 0, "the default cap cuts nothing off");
+    }
+
+    /// gh:#698: a 2x2 lattice of a pin universe bounded by its own planes, which
+    /// coincide with the tile edges (the issue's model: 20 000 / 20 000 histories
+    /// lost before). The tie now resolves to the lattice edge and the token is
+    /// applied only at the crossing's level, so a k-eigenvalue run through it
+    /// loses no history, and the lost-particle limit is not triggered.
+    #[test]
+    fn a_lattice_of_tile_bounded_pins_loses_no_histories() {
+        use crate::geometry::cell::CellFill;
+        use crate::geometry::lattice::{Lattice, RectLattice};
+        use crate::geometry::surface::{XPlane, YPlane};
+        let (mats, nucs) = godiva();
+        let (pitch, h) = (1.26_f64, 0.63_f64);
+        let xp = |x0: f64, bc| SurfaceKind::XPlane(XPlane { x0, bc });
+        let yp = |y0: f64, bc| SurfaceKind::YPlane(YPlane { y0, bc });
+        let (v, t) = (BoundaryType::Vacuum, BoundaryType::Transmissive);
+        let surfaces = vec![
+            xp(0.0, v), xp(2.0 * pitch, v), yp(0.0, v), yp(2.0 * pitch, v),
+            xp(-h, t), xp(h, t), yp(-h, t), yp(h, t),
+        ];
+        let hs = |i: usize, sense| RegionToken::HalfSpace { surface_idx: i, sense };
+        let (out, ins, and) = (HalfSpaceSense::Outside, HalfSpaceSense::Inside, RegionToken::Intersection);
+        let root = Cell::fill(
+            1,
+            vec![hs(0, out), hs(1, ins), and, hs(2, out), and, hs(3, ins), and],
+            CellFill::Lattice(0),
+            Position::ZERO,
+        );
+        let pin = Cell::material(
+            2,
+            vec![hs(4, out), hs(5, ins), and, hs(6, out), and, hs(7, ins), and],
+            0,
+            293.6,
+        );
+        let geom = Geometry {
+            surfaces,
+            cells: vec![root, pin],
+            universes: vec![
+                Universe { id: 0, cell_indices: vec![0] },
+                Universe { id: 1, cell_indices: vec![1] },
+            ],
+            lattices: vec![Lattice::Rect(RectLattice {
+                id: 1,
+                n: [2, 2, 1],
+                lower_left: Position::new(0.0, 0.0, -0.5),
+                pitch: [pitch, pitch, 1.0],
+                universes: vec![1, 1, 1, 1],
+                outer: None,
+            })],
+            root_universe: 0,
+        };
+        let source = SourceBox { lower: Position::new(0.2, 0.2, -0.3), upper: Position::new(2.3, 2.3, 0.3) };
+        let s = KeffSettings { n_particles: 300, n_inactive: 2, n_active: 3, ..KeffSettings::default() };
+        let r = try_run_keff_csg(&geom, &mats, &nucs, source, &s, None).expect("no lost-particle refusal");
+        assert_eq!(r.lost_locate, 0, "no history may be lost in a tile-bounded lattice");
+        assert_eq!(r.neg_dist, 0);
+        assert!(r.k_mean > 0.0);
     }
 
     /// gh:#692: uniform fission site weighting is wired into the drivers. A

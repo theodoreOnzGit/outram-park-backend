@@ -124,9 +124,26 @@ pub struct GeometryPath {
     ///
     /// NEW WORK, no OpenMC counterpart (`bn:op-867c.4`).
     pub tracking_level: usize,
+    /// The coordinate level at which [`Self::on_surface`] names a surface, or
+    /// `None` for "every level" (the behaviour of [`Geometry::locate`]). Set by
+    /// [`Geometry::locate_at_level`] (gh:#698): a surface index names the same
+    /// physical plane only at the level where the particle crossed it, so the
+    /// token is not consulted at any other level.
+    pub on_level: Option<usize>,
 }
 
 impl GeometryPath {
+    /// The surface token to apply to the cell at coordinate level `level`:
+    /// [`Self::on_surface`] where it names a surface, [`SurfaceToken::NONE`]
+    /// at every other level when [`Self::on_level`] is set (gh:#698).
+    #[inline]
+    pub fn token_at(&self, level: usize) -> SurfaceToken {
+        match self.on_level {
+            Some(l) if l != level => SurfaceToken::NONE,
+            _ => self.on_surface,
+        }
+    }
+
     /// The leaf (lowest) coordinate level — where the material fill lives.
     #[inline]
     pub fn leaf(&self) -> &Coord {
@@ -217,6 +234,34 @@ impl Geometry {
         u: Direction,
         on_surface: SurfaceToken,
     ) -> Option<GeometryPath> {
+        self.locate_impl(r, u, on_surface, None)
+    }
+
+    /// [`Self::locate`] with `on_surface` applied only at coordinate level
+    /// `token_level` (gh:#698): the level of the crossing that produced the token
+    /// (`BoundaryHit::coord_level`). OpenMC restarts the cell search at the
+    /// crossing's own level (`cross_surface`, `particle.cpp:345`), so a surface
+    /// index never constrains a cell in another level or another tile of a
+    /// repeated universe, where it names a different physical plane. The returned
+    /// path carries `on_level = Some(token_level)`, which the distance queries
+    /// honour through [`GeometryPath::token_at`].
+    pub fn locate_at_level(
+        &self,
+        r: Position,
+        u: Direction,
+        on_surface: SurfaceToken,
+        token_level: usize,
+    ) -> Option<GeometryPath> {
+        self.locate_impl(r, u, on_surface, Some(token_level))
+    }
+
+    fn locate_impl(
+        &self,
+        r: Position,
+        u: Direction,
+        on_surface: SurfaceToken,
+        token_level: Option<usize>,
+    ) -> Option<GeometryPath> {
         let mut levels: Vec<Coord> = Vec::new();
         let mut level = Coord {
             universe: self.root_universe,
@@ -241,7 +286,10 @@ impl Geometry {
                 level.u,
                 &self.surfaces,
                 &self.cells,
-                on_surface,
+                match token_level {
+                    Some(l) if l != levels.len() => SurfaceToken::NONE,
+                    _ => on_surface,
+                },
             )?;
             level.cell = i_cell;
             let cell = &self.cells[i_cell];
@@ -260,6 +308,7 @@ impl Geometry {
                         on_surface,
                         tracking,
                         tracking_level,
+                        on_level: token_level,
                     });
                 }
                 CellFill::Void => {
@@ -270,6 +319,7 @@ impl Geometry {
                         on_surface,
                         tracking,
                         tracking_level,
+                        on_level: token_level,
                     });
                 }
                 CellFill::Universe(u_idx) => {
@@ -346,7 +396,7 @@ impl Geometry {
         for (i, coord) in path.levels.iter().enumerate() {
             let cell = &self.cells[coord.cell];
             let (d_surf, i_surf) =
-                cell.distance_to_boundary(coord.r, coord.u, &self.surfaces, path.on_surface);
+                cell.distance_to_boundary(coord.r, coord.u, &self.surfaces, path.token_at(i));
             let d_lat = match coord.lattice {
                 Some(l_idx) => {
                     self.lattices[l_idx]
