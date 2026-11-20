@@ -165,6 +165,20 @@ impl TallyBin {
         self.mean(self.count)
     }
 
+    /// [`Self::mean_realized`] **normalised per source particle** (gh:#675).
+    /// OpenMC divides every realization by its batch's source weight
+    /// (`Tally::accumulate`, `src/tallies/tally.cpp:845-900`: `norm = total_source
+    /// / (contributing_particles * gen_per_batch)`); this port's bins hold the raw
+    /// per-batch sum, so the reader divides. Pass the source weight of ONE batch:
+    /// `n_particles` for an eigenvalue run, `n_particles / n_batches` for a
+    /// fixed-source run, or the sum of the source weights under UFS. With equal
+    /// batches this equals upstream's per-realization normalisation; the
+    /// relative standard deviation is scale-free, so
+    /// [`Self::rel_std_dev_realized`] needs no counterpart.
+    pub fn mean_per_source_particle(&self, source_weight_per_batch: f64) -> f64 {
+        self.mean_realized() / source_weight_per_batch
+    }
+
     /// [`Self::rel_std_dev`] over the bin's OWN realization count
     /// (gh:#675).
     pub fn rel_std_dev_realized(&self) -> f64 {
@@ -476,5 +490,6 @@ mod realization_tests {
         assert_eq!(t.bins[0].mean_realized(), 10.0);
         assert_eq!(t.bins[0].rel_std_dev_realized(), 0.0, "identical batches: zero variance");
         assert_eq!(t.bins[0].mean(40), 1.0, "the caller-supplied n of the old API reads 10x low");
+        assert_eq!(t.bins[0].mean_per_source_particle(5.0), 2.0, "10 per batch over 5 source particles");
     }
 }

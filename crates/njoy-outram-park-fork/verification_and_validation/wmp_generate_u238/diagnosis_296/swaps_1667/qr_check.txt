@@ -1,0 +1,14 @@
+order 98, in_296_t0, iteration 1 of upstream vectfit
+   |R^T R - A^T A|_max / |A^T A|_max: LAPACK 1.20e-15, port 8.06e-15
+qr 15579x197: max|R| = 9.310e+01; max ||R_port|-|R_lapack|| / max|R| = 1.99e-01; with signs 2.00e+00; diagonal sign flips 87; diag abs difference max 2.91e-01, worst relative to |R_ii| 4.91e+00
+   |R^T R - A^T A|_max / |A^T A|_max: LAPACK 1.20e-15, port 6.13e-15
+qr 15579x197: max|R| = 9.997e+01; max ||R_port|-|R_lapack|| / max|R| = 3.45e-02; with signs 8.78e-02; diagonal sign flips 71; diag abs difference max 3.55e-02, worst relative to |R_ii| 7.07e+00
+   |R^T R - A^T A|_max / |A^T A|_max: LAPACK 4.81e-16, port 2.65e-15
+qr 15579x197: max|R| = 2.129e+02; max ||R_port|-|R_lapack|| / max|R| = 1.95e-06; with signs 7.15e-06; diagonal sign flips 81; diag abs difference max 5.71e-07, worst relative to |R_ii| 2.95e+00
+order 120, in_296_t0, iteration 1 of upstream vectfit
+   |R^T R - A^T A|_max / |A^T A|_max: LAPACK 1.32e-15, port 5.53e-15
+qr 15579x241: max|R| = 9.300e+01; max ||R_port|-|R_lapack|| / max|R| = 1.06e-01; with signs 1.99e+00; diagonal sign flips 93; diag abs difference max 2.83e-01, worst relative to |R_ii| 6.59e+00
+   |R^T R - A^T A|_max / |A^T A|_max: LAPACK 9.62e-16, port 8.90e-15
+qr 15579x241: max|R| = 1.000e+02; max ||R_port|-|R_lapack|| / max|R| = 3.79e-02; with signs 8.01e-02; diagonal sign flips 94; diag abs difference max 8.27e-02, worst relative to |R_ii| 7.79e+00
+   |R^T R - A^T A|_max / |A^T A|_max: LAPACK 6.02e-16, port 2.56e-15
+qr 15579x241: max|R| = 2.129e+02; max ||R_port|-|R_lapack|| / max|R| = 3.86e-06; with signs 1.44e-05; diagonal sign flips 103; diag abs difference max 5.41e-06, worst relative to |R_ii| 1.40e+01

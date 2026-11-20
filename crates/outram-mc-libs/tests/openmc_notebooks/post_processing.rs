@@ -75,6 +75,20 @@
 //! (the `date` column in that generated CSV is a literal in the test body and
 //! still reads 2026-07-17 — the authoritative date is this block).
 //!
+//! **CORRECTED 2026-11-20 (gh:#678).** ~~"The fuel cylinder raises the flux at the
+//! pitch centre" and the pass criterion `(max-min)/max > 0.10`.~~ Those figures
+//! were measured with the midpoint rule. With regular-mesh track-length segments
+//! split at the grid planes, the same model gives k_inf = 1.87262 +/- 0.00934
+//! (other changes on `develop` since 2026-08-06 also moved k) and a FLAT grid:
+//! rows `[5.302e2, 5.277e2, 5.278e2, 5.300e2]`, `[5.261e2, 5.182e2, 5.187e2,
+//! 5.301e2]`, `[5.253e2, 5.218e2, 5.232e2, 5.265e2]`, `[5.273e2, 5.327e2,
+//! 5.295e2, 5.272e2]`; max-min over max = 0.027; corner mean 5.287e2 (0.3 %),
+//! centre mean 5.205e2 (0.4 %). A cell-resolved flux tally of the same transport
+//! gives fuel/moderator flux per volume = 0.9866 against the mesh's centre/corner
+//! 0.9845 +/- 0.0048, so the flat grid is the physical one and the earlier
+//! "structure" was the midpoint bias. Gate:
+//! `post_processing_mesh_structure_matches_the_cell_resolved_flux`.
+//!
 //! **Supersedes (pre-`op-jis` figures, measured 2026-07-17).** The numbers above
 //! replace values taken with the old `prn` output function (uniforms formed from
 //! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
@@ -410,10 +424,21 @@ fn post_processing_statepoint() {
         result.k_std
     );
 
-    // ── Spatial structure: the grid is not flat ────────────────────────────────
+    // ── Spatial structure ──────────────────────────────────────────────────────
+    // ~~The grid is not flat: `(max-min)/max > 0.10`.~~ **CORRECTED 2026-11-20
+    // (gh:#678).** That threshold was an artefact of the midpoint rule, which
+    // scores a flight whole into the cell holding its midpoint and so piles long
+    // flights into central cells. With the flight split at the mesh planes the
+    // grid is flat (structure 0.027, centre/corner 0.9845), and an independent
+    // cell-resolved flux tally of the SAME transport gives a fuel/moderator flux
+    // per volume of 0.9866: the fast pin cell has a flat flux at this resolution.
+    // The gate is now `post_processing_mesh_structure_matches_the_cell_resolved_flux`
+    // (mesh centre/corner must agree with the cell-resolved ratio), not a
+    // threshold on the mesh alone. The threshold was not loosened to pass: its
+    // premise was tested and found to be the bias.
     assert!(
-        structure > 0.10,
-        "expected appreciable spatial structure (fuel vs moderator cells), got (max-min)/max = {structure:.3}"
+        structure.is_finite() && structure >= 0.0,
+        "structure must be a finite non-negative number, got {structure:.3}"
     );
 
     // ── Four-fold symmetry: corner cells agree within statistics ───────────────
@@ -443,8 +468,97 @@ fn post_processing_statepoint() {
         }
     }
     rows.push(format!(
-        "2026-07-17,post-processing,summary,max={:.3e} min={:.3e} total={:.3e},structure>0.10 & corners symmetric,structure={:.3},{}",
+        "2026-07-17,post-processing,summary,max={:.3e} min={:.3e} total={:.3e},mesh agrees with cell-resolved flux & corners symmetric,structure={:.3},{}",
         vmax, vmin, total, structure, "shape check not benchmark"
     ));
     write_csv(&rows);
+}
+
+/// **Independent check of the mesh flux structure (gh:#678, 2026-11-20).**
+///
+/// The `post_processing_statepoint` gate once asked for `(max-min)/max > 0.10`,
+/// "because the central cells overlap the dense fuel cylinder". That expectation
+/// was measured under the **midpoint** rule (a flight scored whole into the cell
+/// holding its midpoint), which piles long flights into central cells. With
+/// regular-mesh track-length segments split at the grid planes (gh:#678) the same
+/// run gives a flat grid. To decide which is right without assuming either, this
+/// test runs the SAME transport (same seed; tallies draw no random numbers) with
+/// a **cell-resolved** flux tally, which needs no splitting and no midpoint:
+///
+/// - the total flux of the mesh tally equals the total of the cell tally
+///   (conservation of flight length, to 1e-9 relative);
+/// - the volume-normalised fuel/moderator flux ratio `rho` is printed, and the
+///   mesh's centre/corner ratio must lie within `rho`'s neighbourhood: centre
+///   cells are almost entirely fuel, corner cells pure moderator, so
+///   centre/corner must agree with `rho` to within the statistical error of the
+///   mesh cells plus a 3 % allowance for the fuel/moderator mix of the centre
+///   cells.
+///
+/// **Result (2026-11-20, 500 particles, 20 + 35 generations):** see the printed
+/// line; recorded in the V&V block of this file.
+#[test]
+fn post_processing_mesh_structure_matches_the_cell_resolved_flux() {
+    use outram_mc_libs::tally::filter::CellFilter;
+    let nuclides = nuclides();
+    let moderator = Material {
+        id: 2,
+        name: "H moderator".into(),
+        temperature: 293.6,
+        components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 6.6e-2 }],
+    };
+    let materials = vec![heu_fuel(), moderator];
+    let (half, r_fuel, zmax) = (0.63_f64, 0.4_f64, 10.0_f64);
+    let geom = reflective_box(r_fuel, half, zmax);
+    let settings = KeffSettings { n_particles: 500, n_inactive: 20, n_active: 35, ..KeffSettings::default() };
+    let src = SourceBox {
+        lower: Position::new(-r_fuel, -r_fuel, -zmax),
+        upper: Position::new(r_fuel, r_fuel, zmax),
+    };
+    let n_active = settings.n_active as u64;
+
+    let mesh_tally = |n: usize| Tally {
+        id: 1,
+        name: "mesh".into(),
+        filters: vec![FilterKind::Mesh(MeshFilter {
+            mesh: outram_mc_libs::tally::mesh::MeshKind::Regular(RegularMesh {
+                lower_left: [-half, -half, -zmax],
+                upper_right: [half, half, zmax],
+                dimension: [n, n, 1],
+            }),
+        })],
+        scores: vec![ScoreType::Flux],
+        bins: vec![TallyBin::default(); n * n],
+    };
+    let mut mesh = mesh_tally(4);
+    run_keff_csg(&geom, &materials, &nuclides, src, &settings, Some(&mut mesh));
+    let mut cells = Tally {
+        id: 2,
+        name: "cells".into(),
+        filters: vec![FilterKind::Cell(CellFilter { cell_indices: vec![0, 1] })],
+        scores: vec![ScoreType::Flux],
+        bins: vec![TallyBin::default(); 2],
+    };
+    run_keff_csg(&geom, &materials, &nuclides, src, &settings, Some(&mut cells));
+
+    let m: Vec<f64> = mesh.bins.iter().map(|b| b.mean(n_active)).collect();
+    let c: Vec<f64> = cells.bins.iter().map(|b| b.mean(n_active)).collect();
+    let (tm, tc) = (m.iter().sum::<f64>(), c.iter().sum::<f64>());
+    assert!((tm - tc).abs() < 1e-9 * tc, "flight length not conserved: mesh {tm} vs cells {tc}");
+
+    let v_fuel = std::f64::consts::PI * r_fuel * r_fuel * 2.0 * zmax;
+    let v_mod = (2.0 * half) * (2.0 * half) * 2.0 * zmax - v_fuel;
+    let rho = (c[0] / v_fuel) / (c[1] / v_mod);
+    let centre = [m[5], m[6], m[9], m[10]];
+    let corner = [m[0], m[3], m[12], m[15]];
+    let (cm, cs) = mean_std(&centre);
+    let (km, ks) = mean_std(&corner);
+    let ratio = cm / km;
+    let stat = ((cs / cm).powi(2) + (ks / km).powi(2)).sqrt();
+    println!(
+        "[post-processing] cell-resolved fuel/moderator flux per volume rho = {rho:.4}; mesh centre/corner = {ratio:.4} (stat {stat:.4})"
+    );
+    assert!(
+        (ratio - rho).abs() < 3.0 * stat + 0.03,
+        "mesh centre/corner {ratio:.4} disagrees with the cell-resolved ratio {rho:.4}"
+    );
 }
