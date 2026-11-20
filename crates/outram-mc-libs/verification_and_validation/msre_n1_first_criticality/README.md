@@ -1304,9 +1304,18 @@ The one-group prediction undervalued the upper head's 26 cm of salt. That salt b
   - **The worth is 2.326 ± 0.031 %, 1.029 against ORNL-4233** (+2.9 %, 2.2σ).
   - **Paired by seed against the old build: −0.149 ± 0.027 % (z −5.5).** Pairs: −0.138, −0.045, −0.243, −0.122, −0.180, −0.167.
   - **The prediction missed.** It was posted on gh:#1658 before the runs: within ±0.10 % of 2.475, because "a worth is a difference". The worth moved by 5.5σ, so that reasoning was wrong. The band itself is missed by 1.6σ, short of the posted 2σ refutation line.
-- **Reading:** most of the ~10 % rod overestimate came from the old S(α,β) emission grid, the staircase between calcem nodes (gh:#550). The poison model is not the cause. On the current default, rod 1 is within 3 % of the measured worth.
-  - The **bank (all rods at 0) is not re-measured** on the current default. It probably drops by a similar fraction, but that is not tested.
-  - The suspects below now explain at most a few percent.
+- ~~**Reading:** most of the ~10 % rod overestimate came from the old S(α,β) emission grid, the staircase between calcem nodes (gh:#550). The poison model is not the cause. On the current default, rod 1 is within 3 % of the measured worth.~~ **CORRECTED 2026-11-20 19:40 by the bank result below.** The S(α,β) change accounts for rod 1's overestimate only. It does not account for the bank's.
+  - ~~The **bank (all rods at 0) is not re-measured** on the current default. It probably drops by a similar fraction, but that is not tested.~~
+  - ~~The suspects below now explain at most a few percent.~~
+- **Bank (all rods at 0) on the current default (516f559f8), six seeds, 2026-11-20:** k = 0.956054 ± 0.000166, paired with the all-withdrawn seeds above.
+  - **Worth: 6.095 ± 0.040 %, 1.090 against ORNL-4233's 5.59 %.** The old build gave 6.166 ± 0.030 %.
+  - **Paired move: −0.071 ± 0.033 % (−1.2 %, z −2.2).** Rod 1 moved −6.0 %.
+  - **The prediction is refuted** (posted on gh:#1658 before the runs: 5.80 ± 0.15 %, scaling with rod 1). The result is 3.7σ above the band.
+  - **The bank-to-rod-1 ratio rises from 2.49 to 2.62 ± 0.02**, against ORNL's 2.47.
+- **Reading, corrected:** the S(α,β) change moves rod 1's worth six times more, in proportion, than the bank's.
+  - On the current default, **rod 1 is +2.9 % and the bank +9.0 %** against ORNL-4233. The old build's "one cause scales all the poison" reading (a common 10 %) no longer holds.
+  - **Why rod 1 alone is sensitive to the graphite kernel is not investigated.** Rod 1 sits in a different lattice position from rods 2 and 3, with a different local spectrum.
+  - **The bank's +9 % stays open.** The suspects below (Gd₂O₃ content, axial smearing, normalisation) apply to it in full.
 - **Rod 1 integral curve, pre-#550 build (54d472f7f), six seeds per position, 2026-11-20.**
   - **Method:** rods 2 and 3 at 51 in, rod 1 at p. The worth inserted is 1/k(p) − 1/k(51), paired by seed. The fraction is that worth over rod 1's full worth (p = 0), also paired by seed.
 
