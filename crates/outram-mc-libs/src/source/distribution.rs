@@ -36,7 +36,13 @@
 //! - `Legendre` is in `openmc.stats` (Python) only: its `sample` raises
 //!   `NotImplementedError` upstream. [`Legendre`] therefore evaluates the density
 //!   and nothing more.
-//! - `DecaySpectrum` needs the depletion chain (pairs with gh:#975).
+//! - ~~`DecaySpectrum` needs the depletion chain (pairs with gh:#975).~~
+//!   **CORRECTED 2026-11-20 (gh:#1391, maintainer decision):** it is ported,
+//!   but in `punggol::decay_spectrum` (`DecaySpectrum`, and the C++ side as
+//!   `ResolvedDecaySpectrum`), not here: decay photons are PUNGGOL's, and this
+//!   crate is neutrons only. It builds on this enum's `Discrete`/`Tabular`/
+//!   `Mixture` samplers and on the chain's `<source>` elements. Photon
+//!   *transport* stays with gh:#975.
 //! - `MeshSpatial` is [`super::extra::MeshSource`] (gh:#264).
 //! - `Equiprobable`: upstream's `sample_unbiased` reads `x_[i + i]` where `x_[i + 1]`
 //!   is meant, so it is wrong for `i > 0`; not ported rather than copying a defect.
