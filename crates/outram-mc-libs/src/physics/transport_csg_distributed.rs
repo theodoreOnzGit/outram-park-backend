@@ -91,6 +91,8 @@ impl SourceSite {
             // Not carried across ranks: only IFP reads it, and the
             // distributed driver does not run IFP.
             parent_lifetime_s: 0.0,
+            // The wire format carries no weight: UFS is not supported across ranks.
+            wgt: 1.0,
         }
     }
 

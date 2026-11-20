@@ -148,6 +148,10 @@ pub(crate) struct Site {
     /// onto the lineage by `ifp()`, `src/ifp.cpp:24`). Recording it draws no
     /// random number, so every eigenvalue is unchanged.
     pub(crate) parent_lifetime_s: f64,
+    /// Statistical weight the neutron is born with: `1.0`, or `1 / ufs_weight` for a
+    /// fission site banked under uniform fission site weighting (gh:#692;
+    /// OpenMC `create_fission_sites`, `site.wgt = 1. / weight`).
+    pub(crate) wgt: f64,
 }
 
 /// Flight time over `d` cm at energy `e` eV \[s\].
@@ -170,6 +174,32 @@ pub(crate) fn flight_time(d: f64, e: f64) -> f64 {
     }
 }
 
+/// The UFS weight at `r` for this generation (`ufs_get_weight`), `1.0` when UFS is
+/// off, or when `r` is outside the mesh (no biasing there; upstream raises).
+#[inline]
+pub(crate) fn ufs_weight(vr: &VarianceReduction, r: Position) -> f64 {
+    match &vr.ufs_weights {
+        Some(u) => u.weight_at(r).unwrap_or(1.0),
+        None => 1.0,
+    }
+}
+
+/// The run's variance reduction **for one generation**: a clone, with the UFS
+/// weights computed from this generation's source (`ufs_count_sites`,
+/// `src/eigenvalue.cpp`, called at the start of each generation) when
+/// [`VarianceReduction::ufs_mesh`] is set (gh:#692). Without UFS it is a plain
+/// clone (two `Arc` bumps), so every existing run is unchanged.
+pub(crate) fn vr_for_generation(vr: &VarianceReduction, source: &[Site]) -> VarianceReduction {
+    let mut out = vr.clone();
+    if let Some(mesh) = &vr.ufs_mesh {
+        let sites: Vec<(Position, f64)> = source.iter().map(|s| (s.r, s.wgt)).collect();
+        out.ufs_weights = crate::physics::ufs::UfsWeights::from_bank(mesh.clone(), &sites)
+            .ok()
+            .map(alloc::sync::Arc::new);
+    }
+    out
+}
+
 impl Site {
     /// A source/fission neutron at position `r`, direction `u`, energy `e` \[eV\].
     pub(crate) fn new(r: Position, u: Direction, e: f64) -> Site {
@@ -179,6 +209,7 @@ impl Site {
             e,
             delayed_group: None,
             parent_lifetime_s: 0.0,
+            wgt: 1.0,
         }
     }
 
@@ -195,6 +226,7 @@ impl Site {
             e,
             delayed_group,
             parent_lifetime_s: 0.0,
+            wgt: 1.0,
         }
     }
 }
@@ -1013,6 +1045,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
             } else {
                 &[]
             };
+            let vr_gen = vr_for_generation(&settings.variance_reduction, &source);
             for (hist_idx, site) in source.iter().enumerate() {
                 // SeedingMode::OpenMc: each history on OpenMC's own tracking and
                 // URR seeds (gh:#1386); the default keeps one stream for the
@@ -1042,14 +1075,14 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                     leak_edges_gen,
                     &mut leak_batch,
                     None,
-                    &settings.variance_reduction,
+                    &vr_gen,
                     settings.delta_tally_estimator,
                     None,
                     None,
                     None,
-                    // Eigenvalue path: a fission source particle is born at
-                    // weight 1 by definition of the normalisation.
-                    1.0,
+                    // Eigenvalue path: a fission source particle is born at the
+                    // weight it was banked with: 1, or `1 / ufs_weight` (gh:#692).
+                    site.wgt,
                     urr_start,
                     &mut no_trace,
                 );
@@ -1075,7 +1108,10 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
             }
         }
 
-        let k_gen = production / settings.n_particles as f64;
+        // gh:#692: normalise by the source WEIGHT (`n` unless UFS births sites at
+        // `1 / weight`); a sum of `n` ones is exactly `n as f64`, so non-UFS runs
+        // are bit-identical.
+        let k_gen = production / source.iter().map(|s| s.wgt).sum::<f64>();
         // Shannon entropy of THIS generation's fission source, before the
         // bank is resampled. Ported from OpenMC `src/eigenvalue.cpp:587` --
         // the bank must be the pre-synchronisation one, which is why this sits
@@ -1422,7 +1458,7 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
                 }
             }
 
-            let k_gen = production / settings.n_particles as f64;
+            let k_gen = production / source.iter().map(|s| s.wgt).sum::<f64>(); // gh:#692, see above
             // Shannon entropy of THIS generation's fission source, before the
             // bank is resampled. Ported from OpenMC `src/eigenvalue.cpp:587` --
             // the bank must be the pre-synchronisation one, which is why this sits
@@ -1523,6 +1559,7 @@ pub(crate) fn transport_generation_par(
     use crate::wasm_par::prelude::*;
 
     let gen_base_seed = future_seed((generation as u64).wrapping_mul(GEN_STRIDE), run_seed);
+    let vr_gen = vr_for_generation(&settings.variance_reduction, source);
     let n_bins = tally_def.map_or(0, Tally::n_bins);
     let n_leak = leak_edges_gen.len().saturating_sub(1);
     let n_chunks = source.len().div_ceil(PAR_CHUNK);
@@ -1584,12 +1621,12 @@ pub(crate) fn transport_generation_par(
                         leak_edges_gen,
                         &mut leak,
                         scratch.as_mut(),
-                        &settings.variance_reduction,
+                        &vr_gen,
                         settings.delta_tally_estimator,
                         None,
                         None,
                         None,
-                        1.0,
+                        source[hist_idx].wgt,
                         urr_start,
                         &mut no_trace,
                     );
@@ -1896,6 +1933,7 @@ fn weight_window_checkpoint(
                                 e,
                                 delayed_group: my_group,
                                 parent_lifetime_s: 0.0,
+                                wgt: 1.0,
                             },
                             weight,
                             Some(child_seed),
@@ -2666,7 +2704,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     == crate::physics::scatter::FissionBanking::PerCollision;
                 if (vr.survival_biasing || per_collision_banking) && x.nu_fission > 0.0 && x.total > 0.0 {
                     // `create_fission_sites`: nu_t = wgt/keff * nuSigma_f/Sigma_t.
-                    let nu_t = w * x.nu_fission / (k_running * x.total);
+                    // gh:#692: uniform fission site weighting scales the expected
+                    // site count by the mesh weight and births each site at
+                    // `1 / weight` (`src/physics.cpp:180-183, 210`).
+                    let ufs_w = ufs_weight(vr, r);
+                    let nu_t = w * ufs_w * x.nu_fission / (k_running * x.total);
                     production += w * x.nu_fission / x.total;
                     let mut n = nu_t as usize;
                     if prn(seed) <= nu_t - n as f64 {
@@ -2710,6 +2752,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                 nuc.sample_delayed_group(e, &mut delayed_seed)
                             },
                             parent_lifetime_s: time_s,
+                            wgt: 1.0 / ufs_w,
                         });
                     }
                 }
@@ -2782,11 +2825,12 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // GitHub #461. Analog `w` is exactly 1.0, so this is
                     // bit-identical there; under weight windows the split and
                     // rouletted particles used to bank as if at weight 1.
+                    let ufs_w = ufs_weight(vr, r);
                     let n = if per_collision_banking {
                         0 // already banked above, as OpenMC's create_fission_sites
                     } else {
                         production += w * nu_bar;
-                        sample_num_neutrons(w * nu_bar, k_running, seed)
+                        sample_num_neutrons(w * nu_bar * ufs_w, k_running, seed)
                     };
                     for _ in 0..n {
                         let fission_legacy = crate::physics::scatter::fission_neutron_order_from_env()
@@ -2843,6 +2887,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                 nuc.sample_delayed_group(e, &mut delayed_seed)
                             },
                             parent_lifetime_s: time_s,
+                            wgt: 1.0 / ufs_w,
                         });
                     }
                     ends.record_fission_end(e);
@@ -2927,6 +2972,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                 e: sec_e2,
                                 delayed_group: my_group,
                                 parent_lifetime_s: 0.0,
+                                wgt: 1.0,
                             },
                             w,
                             None,
@@ -2984,6 +3030,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                     e: se,
                                     delayed_group: my_group,
                                     parent_lifetime_s: 0.0,
+                                    wgt: 1.0,
                                 },
                                 w,
                                 None,
@@ -3044,6 +3091,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                 e: *se,
                                 delayed_group: my_group,
                                 parent_lifetime_s: 0.0,
+                                wgt: 1.0,
                             },
                             w,
                             None,
@@ -3087,6 +3135,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                 e: *se,
                                 delayed_group: my_group,
                                 parent_lifetime_s: 0.0,
+                                wgt: 1.0,
                             },
                             w,
                             None,
@@ -3450,6 +3499,7 @@ fn sample_box_source_openmc(
                 e: 2.0e6,
                 delayed_group: None,
                 parent_lifetime_s: 0.0,
+                wgt: 1.0,
             });
             break;
         }
@@ -3499,6 +3549,7 @@ fn sample_box_source(
                 // fission ancestor to have come from.
                 delayed_group: None,
                 parent_lifetime_s: 0.0,
+                wgt: 1.0,
             });
         }
     }
@@ -3514,7 +3565,7 @@ fn bank_entropy(mesh: &crate::tally::mesh::RegularMesh, bank: &[Site]) -> Option
             r: s.r,
             u: s.u,
             e: s.e,
-            wgt: 1.0,
+            wgt: s.wgt,
             seed: 0,
         })
         .collect();
@@ -3809,6 +3860,40 @@ mod leakage_tests {
         assert!(r.stuck_events > 0, "a 1-event cap cuts histories off");
         let d = run_keff_csg(&geom, &mats, &nucs, src(), &KeffSettings { n_particles: 50, n_inactive: 1, n_active: 1, ..KeffSettings::default() }, None);
         assert_eq!(d.stuck_events, 0, "the default cap cuts nothing off");
+    }
+
+    /// gh:#692: uniform fission site weighting is wired into the drivers. A
+    /// one-element mesh has weight exactly 1 everywhere, so it reproduces the
+    /// no-UFS run bit for bit (plumbing is a no-op). A 4x4x4 mesh over the
+    /// sphere changes the stream, still returns a finite k near the no-UFS k
+    /// (UFS leaves the expectation unchanged), and the sites it banks carry
+    /// weight `1 / ufs_weight` rather than 1.
+    #[test]
+    fn uniform_fission_site_weighting_is_wired_into_the_drivers() {
+        use crate::tally::mesh::RegularMesh;
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.7407, BoundaryType::Vacuum);
+        let mesh = |n: usize| RegularMesh { lower_left: [-9.0; 3], upper_right: [9.0; 3], dimension: [n; 3] };
+        let run = |vr: crate::physics::variance_reduction::VarianceReduction| {
+            let s = KeffSettings { n_particles: 400, n_inactive: 5, n_active: 15, variance_reduction: vr, ..KeffSettings::default() };
+            run_keff_csg(&geom, &mats, &nucs, src(), &s, None)
+        };
+        let base = run(crate::physics::variance_reduction::VarianceReduction::default());
+        let one = run(crate::physics::variance_reduction::VarianceReduction::default().with_ufs(mesh(1)));
+        assert_eq!(base.k_by_generation, one.k_by_generation, "weight 1 everywhere is a no-op");
+        let fine = run(crate::physics::variance_reduction::VarianceReduction::default().with_ufs(mesh(4)));
+        assert!(fine.k_mean.is_finite() && (fine.k_mean - base.k_mean).abs() < 0.08, "k {} vs {}", fine.k_mean, base.k_mean);
+        assert_ne!(base.k_by_generation, fine.k_by_generation, "a real mesh changes the run");
+
+        // The sites carry 1/weight: bank one generation by hand through the helper.
+        let vr = crate::physics::variance_reduction::VarianceReduction::default().with_ufs(mesh(2));
+        let mk = |x: f64| Site { r: Position::new(x, 0.0, 0.0), u: Direction::new(1.0, 0.0, 0.0), e: 1.0e6, delayed_group: None, parent_lifetime_s: 0.0, wgt: 1.0 };
+        // 3 sites in the +x half, 1 in the -x half: weights differ by element.
+        let source = vec![mk(3.0), mk(4.0), mk(5.0), mk(-3.0)];
+        let g = vr_for_generation(&vr, &source);
+        let (hi, lo) = (ufs_weight(&g, Position::new(3.0, 0.0, 0.0)), ufs_weight(&g, Position::new(-3.0, 0.0, 0.0)));
+        assert!(lo > hi, "the sparse half gets the larger weight: {lo} vs {hi}");
+        assert_eq!(ufs_weight(&vr, Position::new(3.0, 0.0, 0.0)), 1.0, "no per-generation weights: no biasing");
     }
 
     /// gh:#684: with survival biasing AND weight windows on, the cutoff roulette
@@ -4444,6 +4529,7 @@ impl CsgPowerIteration {
         let (mut batch, mut leak_batch) = (Vec::new(), Vec::new());
         let mut totals = GenerationTotals::default();
         let mut ifp_scores = IfpTallies::default();
+        let vr_gen = vr_for_generation(&self.settings.variance_reduction, &self.source);
         for (i, site) in self.source.iter().enumerate() {
             let before = next_bank.len();
             // SeedingMode::OpenMc: OpenMC's tracking and URR seeds for this
@@ -4478,12 +4564,12 @@ impl CsgPowerIteration {
                 &[],
                 &mut leak_batch,
                 extra.as_deref_mut(),
-                &self.settings.variance_reduction,
+                &vr_gen,
                 self.settings.delta_tally_estimator,
                 None,
                 None,
                 None,
-                1.0,
+                site.wgt,
                 urr_start,
                 observe,
             );
@@ -4615,7 +4701,7 @@ impl CsgPowerIteration {
         let gen = self.generation;
         let n = self.settings.n_particles;
         let active = gen >= self.settings.n_inactive;
-        let k_gen = production / n as f64;
+        let k_gen = production / self.source.iter().map(|s| s.wgt).sum::<f64>(); // gh:#692, see above
         self.k_running = k_gen.max(1.0e-6);
         if active {
             self.active_k.push(k_gen);
