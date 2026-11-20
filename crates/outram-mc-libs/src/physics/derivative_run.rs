@@ -41,6 +41,9 @@
 //! secondary, which the kernel starts as a new particle, does not inherit its
 //! parent's accumulated derivative (a fixed-source fission secondary does).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::geometry::Geometry;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
@@ -61,6 +64,23 @@ pub struct DerivativeSpec {
     pub score: ScoreType,
     /// The material whose flights are scored.
     pub score_material: usize,
+}
+
+impl DerivativeSpec {
+    /// The spec for score `score_idx` of `tally`, accumulated in `score_material`,
+    /// under the derivative the tally declares (gh:#263).
+    ///
+    /// # Errors
+    ///
+    /// The tally declares no derivative, or `score_idx` is out of range.
+    pub fn for_tally(tally: &crate::tally::tally::Tally, score_idx: usize, score_material: usize) -> Result<Self, String> {
+        let derivative = tally.derivative.ok_or_else(|| format!("tally {} declares no derivative", tally.id))?;
+        let score = *tally
+            .scores
+            .get(score_idx)
+            .ok_or_else(|| format!("tally {} has no score {score_idx}", tally.id))?;
+        Ok(Self { derivative, score, score_material })
+    }
 }
 
 /// A score and its derivative, per source particle, with the standard error of
@@ -275,7 +295,79 @@ impl Accum {
                 self.flush(spec);
                 self.e_cur = st.energy;
             }
+            TraceEvent::Tentative { site, real, .. } => self.tentative(site, real, spec, materials, nuclides),
             _ => {}
+        }
+    }
+
+    /// **Delta tracking** (gh:#263). The flight is sampled on the majorant, which
+    /// is fixed, so the flight carries no derivative term; only the accept/reject
+    /// step at each tentative site depends on the perturbation. With
+    /// `P(real) = Sigma_t / Sigma_maj`:
+    /// - **real:** `d ln P = dSigma_t / Sigma_t`; for a density derivative that is
+    ///   `1/rho`, for a nuclide-density derivative the nuclide selection at the
+    ///   collision restores `1/N_i` for the struck nuclide: both are the
+    ///   [`TraceEvent::Collision`] term, so the real site is scored when its
+    ///   collision arrives (`pending`);
+    /// - **virtual:** `d ln (1 - P) = -dSigma_t / (Sigma_maj - Sigma_t)`
+    ///   (density: `-(Sigma_t / rho) / (Sigma_maj - Sigma_t)`; nuclide density:
+    ///   `-sigma_t,i / (Sigma_maj - Sigma_t)`), applied before the site is scored.
+    ///
+    /// The site is scored with the tentative-collision estimator
+    /// ([`crate::physics::transport_csg::DeltaTallyEstimator`]'s default): flux
+    /// `1/Sigma_maj`, a reaction `Sigma_x/Sigma_maj`, multiplied by the derivative
+    /// accumulated up to and including the site. Dilute cross sections are used
+    /// here (the event carries no URR seed). Temperature is not supported.
+    fn tentative(
+        &mut self,
+        site: crate::physics::delta_tracking::flight::TentativeSite,
+        real: bool,
+        spec: &DerivativeSpec,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+    ) {
+        self.flush(spec);
+        let Some(m) = site.material else { return };
+        if matches!(spec.derivative.variable, DerivativeVariable::Temperature) {
+            self.err.get_or_insert("temperature derivatives are not supported on delta-tracked regions".into());
+            return;
+        }
+        let in_perturbed = m == spec.derivative.material_idx;
+        if !real && in_perturbed {
+            let gap = site.majorant - site.sigma_t;
+            if gap > 0.0 {
+                let d_sigma = match spec.derivative.variable {
+                    DerivativeVariable::Density => {
+                        let rho: f64 = materials[m].components.iter().map(|c| c.atom_density).sum();
+                        if rho > 0.0 { site.sigma_t / rho } else { 0.0 }
+                    }
+                    DerivativeVariable::NuclideDensity { nuclide_idx } => {
+                        nuclides[nuclide_idx].xs_at_energy(self.e_cur, materials[m].temperature).total
+                    }
+                    DerivativeVariable::Temperature => 0.0,
+                };
+                self.fd.value -= d_sigma / gap;
+            }
+        }
+        if m != spec.score_material || !(site.majorant > 0.0) {
+            return;
+        }
+        let (s_site, explicit) = if spec.score == ScoreType::Flux {
+            (1.0 / site.majorant, 0.0)
+        } else {
+            match Self::segment_score(spec, &materials[m], nuclides, self.e_cur, 1.0 / site.majorant, 0) {
+                Ok(v) => v,
+                Err(e) => {
+                    self.err.get_or_insert(e);
+                    return;
+                }
+            }
+        };
+        if real {
+            self.pending = Some((m, s_site, explicit)); // scored once its collision term is in
+        } else {
+            self.sum += s_site;
+            self.dsum += s_site * (self.fd.value + explicit);
         }
     }
 }
@@ -384,8 +476,32 @@ pub fn run_keff_derivative(
     settings: &KeffSettings,
     spec: &DerivativeSpec,
 ) -> Result<DerivativeResult, String> {
+    run_keff_derivative_with_majorants(geom, materials, nuclides, &[], source_box, settings, spec)
+}
+
+/// [`run_keff_derivative`] with **delta-tracked regions**: `majorants[i]` bounds
+/// `Sigma_t` over every material a cell declaring `TrackingMethod::Delta {
+/// majorant: i }` can present, as in `CsgPowerIteration::with_majorants`. The
+/// delta-tracking derivative terms are described at `Accum::tentative`; in a delta
+/// region the score is the tentative-collision estimator. The majorant must still
+/// bound the perturbed cross section (give it headroom).
+///
+/// # Errors
+///
+/// As [`run_keff_derivative`]; a temperature derivative that reaches a delta
+/// region is an error.
+pub fn run_keff_derivative_with_majorants(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[crate::physics::delta_tracking::Majorant],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    spec: &DerivativeSpec,
+) -> Result<DerivativeResult, String> {
     check(spec)?;
-    let mut it = CsgPowerIteration::new(geom, materials, nuclides, source_box, settings);
+    let mut it = CsgPowerIteration::new(geom, materials, nuclides, source_box, settings)
+        .with_majorants(majorants.to_vec());
     let (mut score_b, mut d_b) = (Vec::new(), Vec::new());
     let mut gen = 0usize;
     let n_per = settings.n_particles.max(1) as f64;
@@ -419,4 +535,30 @@ pub fn run_keff_derivative(
     }
     temperature_dependence_check(spec, t_dep)?;
     Ok(finish(&score_b, &d_b))
+}
+
+#[cfg(test)]
+mod for_tally_tests {
+    use super::*;
+    use crate::tally::tally::{Tally, TallyBin};
+
+    /// A tally's declared derivative becomes a spec; an undeclared one, or a bad
+    /// score index, is an error.
+    #[test]
+    fn a_tally_declares_its_derivative() {
+        let mut t = Tally {
+            id: 7,
+            name: "t".into(),
+            filters: vec![],
+            scores: vec![ScoreType::Flux, ScoreType::Absorption],
+            bins: vec![TallyBin::default(); 2],
+            derivative: None,
+        };
+        assert!(DerivativeSpec::for_tally(&t, 0, 0).unwrap_err().contains("no derivative"));
+        let d = TallyDerivative { material_idx: 1, variable: DerivativeVariable::Density };
+        t.derivative = Some(d);
+        let s = DerivativeSpec::for_tally(&t, 1, 2).unwrap();
+        assert_eq!((s.derivative, s.score, s.score_material), (d, ScoreType::Absorption, 2));
+        assert!(DerivativeSpec::for_tally(&t, 5, 0).unwrap_err().contains("no score"));
+    }
 }

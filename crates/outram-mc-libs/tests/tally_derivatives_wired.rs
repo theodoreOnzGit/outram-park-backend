@@ -45,7 +45,8 @@ use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
-use outram_mc_libs::physics::derivative_run::{run_fixed_source_derivative, run_keff_derivative, DerivativeSpec};
+use outram_mc_libs::physics::derivative_run::{run_fixed_source_derivative, run_keff_derivative, run_keff_derivative_with_majorants, DerivativeSpec};
+use outram_mc_libs::physics::delta_tracking::Majorant;
 use outram_mc_libs::physics::fixed_source::{FixedSource, FixedSourceSettings};
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::transport_csg::SourceBox;
@@ -208,4 +209,48 @@ fn the_absorption_rate_temperature_derivative_is_zero_in_an_infinite_medium() {
     );
     assert!((a.flux - 1.0).abs() < 4.0 * a.flux_std + 0.02);
     assert!(a.d_flux.abs() < 4.0 * a.d_flux_std + 1e-12, "d abs/dT = {} +- {}", a.d_flux, a.d_flux_std);
+}
+
+/// **Delta-tracked region (gh:#263).** The same zero-derivative identity as above
+/// in an infinite reflective HEU medium, but tracked by delta tracking against a
+/// majorant with 50 % headroom: the derivative then comes only from the
+/// accept/reject terms at tentative sites plus the real-collision term, and the
+/// absorption rate per source particle must still be a density-independent 1.
+/// Result: see the printed line (run with `--nocapture`); gate is 4 sigma.
+#[test]
+fn the_absorption_rate_derivative_is_zero_in_an_infinite_delta_tracked_medium() {
+    let nuclides = vec![
+        Nuclide::from_core("U234").unwrap(),
+        Nuclide::from_core("U235").unwrap(),
+        Nuclide::from_core("U238").unwrap(),
+    ];
+    let mats = vec![Material {
+        id: 1,
+        name: "HEU".into(),
+        temperature: 293.6,
+        components: vec![
+            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
+            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
+            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+        ],
+    }];
+    let mut geom = reflective_sphere(8.7407);
+    geom.cells[0] = geom.cells[0].clone().delta_tracked(0);
+    let (lo, hi) = (1.0e-5_f64, 2.0e7_f64);
+    let grid: Vec<f64> = (0..512).map(|i| (lo.ln() + (hi.ln() - lo.ln()) * i as f64 / 511.0).exp()).collect();
+    let maj = Majorant::over_indices(&mats, &[0], &nuclides, &grid, 0.5);
+    let settings = KeffSettings { n_particles: 2000, n_inactive: 10, n_active: 20, seed: 5, ..KeffSettings::default() };
+    let src = SourceBox { lower: Position::new(-3.0, -3.0, -3.0), upper: Position::new(3.0, 3.0, 3.0) };
+    let spec = DerivativeSpec {
+        derivative: TallyDerivative { material_idx: 0, variable: DerivativeVariable::Density },
+        score: ScoreType::Absorption,
+        score_material: 0,
+    };
+    let r = run_keff_derivative_with_majorants(&geom, &mats, &nuclides, &[maj], src, &settings, &spec).unwrap();
+    println!(
+        "delta-tracked k-eigenvalue, HEU, absorption rate = {:.4} +- {:.4}; d/d rho = {:.3} +- {:.3} (expected 0)",
+        r.flux, r.flux_std, r.d_flux, r.d_flux_std
+    );
+    assert!(r.flux >= 0.99 && r.flux < 1.3, "absorption rate per source particle {}", r.flux);
+    assert!(r.d_flux.abs() < 4.0 * r.d_flux_std + 1e-9, "d/d rho {} +- {}", r.d_flux, r.d_flux_std);
 }

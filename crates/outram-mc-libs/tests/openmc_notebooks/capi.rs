@@ -191,6 +191,7 @@ fn run_and_read(
         filters: vec![FilterKind::Cell(filter)],
         scores: vec![ScoreType::Flux, ScoreType::NuFission],
         bins: vec![TallyBin::default(); 2], // 1 cell × 2 scores
+        derivative: None,
     };
 
     let src = SourceBox {

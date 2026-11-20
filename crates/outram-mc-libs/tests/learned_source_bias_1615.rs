@@ -78,7 +78,7 @@ fn tally() -> Tally {
         name: "chord".into(),
         filters: vec![FilterKind::Mesh(MeshFilter { mesh: MeshKind::Regular(mesh) })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 1],
+        bins: vec![TallyBin::default(); 1], derivative: None,
     }
 }
 

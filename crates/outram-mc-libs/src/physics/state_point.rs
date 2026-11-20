@@ -293,7 +293,7 @@ mod tests {
             name: "t".into(),
             filters: vec![],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); 1000],
+            bins: vec![TallyBin::default(); 1000], derivative: None,
         });
         assert!(with_tally.approx_bytes() > small.approx_bytes());
     }

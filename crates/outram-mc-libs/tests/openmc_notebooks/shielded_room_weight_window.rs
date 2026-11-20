@@ -395,7 +395,7 @@ fn flux_tally() -> Tally {
             mesh: MeshKind::Regular(m),
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); n],
+        bins: vec![TallyBin::default(); n], derivative: None,
     }
 }
 

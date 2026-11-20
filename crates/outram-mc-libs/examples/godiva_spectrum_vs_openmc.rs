@@ -207,7 +207,7 @@ mod desktop {
                 bins: edges.clone(),
             })],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); N_BINS],
+            bins: vec![TallyBin::default(); N_BINS], derivative: None,
         };
 
         let settings = KeffSettings {

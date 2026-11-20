@@ -624,7 +624,7 @@ pub fn run_keff_reactor_physics(
             }),
         ],
         scores: vec![ScoreType::Flux, ScoreType::Absorption, ScoreType::NuFission],
-        bins: vec![TallyBin::default(); n_e * n_mat * N_SCORES],
+        bins: vec![TallyBin::default(); n_e * n_mat * N_SCORES], derivative: None,
     };
     let mut leak_bins: Vec<TallyBin> = vec![TallyBin::default(); n_e];
 
@@ -640,7 +640,14 @@ pub fn run_keff_reactor_physics(
         &mut leak_bins,
     );
     let n_active = config.keff.n_active as u64;
-    let per_source = config.keff.n_particles.max(1) as f64;
+    // gh:#675: with `normalise_tallies` (the default since 2026-11-20) every
+    // realization is already per source particle; dividing again by
+    // `n_particles` made every rate 1/n_particles too small.
+    let per_source = if config.keff.normalise_tallies {
+        1.0
+    } else {
+        config.keff.n_particles.max(1) as f64
+    };
 
     // ── Pull per-fine-bin rates out of the flat tally ────────────────────────
     // idx(e, m, s) = (e * n_mat + m) * N_SCORES + s

@@ -680,6 +680,30 @@ mod tests {
     /// the 7th figure of its path length (2.708451e2 -> 2.708453e2 cm) and
     /// the chain decorrelates after it (40 histories: 25 fissions / 15
     /// captures before, 20 / 20 after, a draw, not a trend).
+    ///
+    /// **Re-blessed 2026-11-20 (gh:#1675)** on develop `c49f5cf29`. Before
+    /// re-blessing, a path-limited `git bisect` found every commit after
+    /// 8349661c1 that moves this trace. Each round used the previous
+    /// mover's own trace as its reference, and the trace at `c49f5cf29` is
+    /// byte-identical to the last mover's. There are eight movers, each a
+    /// deliberate default change or bug fix, so none is a regression:
+    /// 1. 457d4ca97: resonance scattering defaults to RVS (gh:#1311).
+    /// 2. 3134e3134 with its build fix f95d4473e: OpenMC collision kernels
+    ///    are the default (gh:#1386).
+    /// 3. bb2199b66: OpenMC reaction order and single-cutoff level pick
+    ///    (gh:#1444 a, b).
+    /// 4. 2235f1684: per-collision fission banking (gh:#1444 c).
+    /// 5. 0b502abfa: fixed-source seeding fix (gh:#1493).
+    /// 6. 323d5d933: OpenMC cross-section details (gh:#463).
+    /// 7. d6bcf02d3: per-material S(a,b) in this rung's loader (gh:#1581).
+    /// 8. 44f365bbb: S(a,b) emission tables on THERMR's calcem grid
+    ///    (gh:#550).
+    ///
+    /// History 0 went from capture after 85 scatters and 517.4 cm to
+    /// capture after 82 scatters and 367.5 cm. Over the 40 histories,
+    /// fissions / captures went from 20 / 20 to 22 / 18, a draw, not a
+    /// trend. This trace pins reproducibility only; it is not a physics
+    /// check.
     #[test]
     fn the_headless_run_matches_the_committed_fixture() {
         let got = triso::sim::headless_csv(physics(), FIXTURE_N, FIXTURE_SEED);

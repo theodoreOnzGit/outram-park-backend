@@ -174,7 +174,7 @@ fn mesh() -> RegularMesh {
 
 fn tally(filters: Vec<FilterKind>, score: ScoreType) -> Tally {
     let n: usize = filters.iter().map(|f| f.n_bins()).product();
-    Tally { id: 1, name: "t".into(), filters, scores: vec![score], bins: vec![TallyBin::default(); n] }
+    Tally { id: 1, name: "t".into(), filters, scores: vec![score], bins: vec![TallyBin::default(); n], derivative: None }
 }
 
 /// Run one site through the REAL fixed-source runner; the tally's per-bin sums.
@@ -798,7 +798,9 @@ fn real_stats(
             let n = b.count as f64;
             let mean = b.sum / n;
             let var = ((b.sum_sq - n * mean * mean) / (n - 1.0)).max(0.0);
-            (mean / per as f64, (var / n).sqrt() / per as f64)
+            // gh:#675: batches are already per source particle (the default), so no
+            // second division by `per`.
+            (mean, (var / n).sqrt())
         })
         .collect()
 }

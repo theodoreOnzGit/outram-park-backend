@@ -84,10 +84,13 @@ use crate::geometry::geometry::{Geometry, GeometryPath};
 use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
-use crate::tally::scoring::score_collision_point;
+use crate::tally::history_events::EventHistory;
+use crate::tally::scoring::score_collision_point_hist;
 use crate::tally::tally::Tally;
 
-use super::flight::{fly, BoundedRay, DeltaStep, SiteContent, SiteTotal, TentativeSite};
+use crate::physics::tracking_trace::TraceEvent;
+
+use super::flight::{fly_traced, BoundedRay, DeltaStep, SiteContent, SiteTotal, TentativeSite};
 use super::majorant::Majorant;
 
 /// **Which collision estimator a tally uses inside a delta-tracked region**
@@ -197,7 +200,7 @@ fn travelled(r: Position, u: Direction, p: Position) -> f64 {
 /// - `seed`, `urr_seed` — the transport stream (advanced) and the history's
 ///   URR stream (read).
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn fly_delta_region(
+pub(crate) fn fly_delta_region<O: FnMut(TraceEvent)>(
     geom: &Geometry,
     path: &GeometryPath,
     majorant: &Majorant,
@@ -209,6 +212,7 @@ pub(crate) fn fly_delta_region(
     tentative: Option<(&Tally, &mut [f64])>,
     seed: &mut u64,
     urr_seed: u64,
+    observe: &mut O,
 ) -> RegionFlight {
     let FlightStart { r, u, e, w, time_s } = p;
     // The region's OWN extent, not the nearest surface -- a bed is full of
@@ -234,7 +238,7 @@ pub(crate) fn fly_delta_region(
     // flux `w/Σ_maj` with no material, as surface tracking's track length
     // scores a void cell.
     let mut majorant_violations = 0_u32;
-    let visit = |site: TentativeSite| {
+    let mut visit = |site: TentativeSite| {
         // Counted, never clamped silently (gh:#721). Draws nothing.
         if site.violates_majorant() {
             majorant_violations += 1;
@@ -250,7 +254,12 @@ pub(crate) fn fly_delta_region(
         let mxs = site
             .material
             .map(|m| materials[m].macro_xs_urr(e, nuclides, urr_seed));
-        score_collision_point(
+        // gh:#677: every coordinate level of the region's path, so a cell or
+        // universe filter on a container level matches the site (the site lies
+        // inside the start leaf, so the path is the start path).
+        let mut site_hist = EventHistory::default();
+        site_hist.set_levels(path.levels.iter().map(|c| (c.cell, c.universe)));
+        score_collision_point_hist(
             batch,
             t,
             bins.cell,
@@ -264,6 +273,7 @@ pub(crate) fn fly_delta_region(
             bins.instance,
             time_s + crate::physics::transport_csg::flight_time(d, e),
             u,
+            &site_hist,
         );
     };
     let region = BoundedRay {
@@ -288,7 +298,11 @@ pub(crate) fn fly_delta_region(
                 .map_or(SiteContent::Void, SiteContent::Material),
         },
     };
-    let end = fly(
+    // Every tentative site before the nearest surface is also reported to the
+    // caller's observer with its verdict (gh:#263: derivatives need the
+    // accept/reject of each site); sites past `d_surface` are discarded by the
+    // hand-off, so they are not reported. The observer draws nothing.
+    let end = fly_traced(
         r,
         u,
         e,
@@ -299,7 +313,14 @@ pub(crate) fn fly_delta_region(
         SiteTotal::UrrBand(urr_seed),
         MAX_VIRTUAL_COLLISIONS,
         seed,
-        visit,
+        |ev: TraceEvent| {
+            if let TraceEvent::Tentative { site, .. } = &ev {
+                visit(*site);
+                if travelled(r, u, site.position) < d_surface {
+                    observe(ev);
+                }
+            }
+        },
     );
     let step = DeltaStep::from(end);
     match step {
@@ -357,11 +378,15 @@ pub(crate) fn score_real_collision(
     distance: f64,
     material: usize,
     urr_seed: u64,
+    path: &GeometryPath,
 ) {
     let FlightStart { r, u, e, w, time_s } = p;
     let mxs = materials[material].macro_xs_urr(e, nuclides, urr_seed);
     if mxs.total > 0.0 {
-        score_collision_point(
+        // gh:#677: the whole coordinate path, as for the tentative sites.
+        let mut hist = EventHistory::default();
+        hist.set_levels(path.levels.iter().map(|c| (c.cell, c.universe)));
+        score_collision_point_hist(
             batch,
             tally,
             bins.cell,
@@ -375,6 +400,7 @@ pub(crate) fn score_real_collision(
             bins.instance,
             time_s + crate::physics::transport_csg::flight_time(distance, e),
             u,
+            &hist,
         );
     }
 }

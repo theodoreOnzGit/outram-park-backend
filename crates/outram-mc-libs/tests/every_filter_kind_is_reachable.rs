@@ -66,6 +66,8 @@ fn one_of_each() -> Vec<FilterKind> {
             polar: vec![0.0, std::f64::consts::FRAC_PI_2, std::f64::consts::PI],
             azimuthal: vec![-std::f64::consts::PI, 0.0, std::f64::consts::PI],
         }),
+        FilterKind::Polar(PolarFilter::new(vec![0.0, std::f64::consts::FRAC_PI_2, std::f64::consts::PI]).unwrap()),
+        FilterKind::Azimuthal(AzimuthalFilter::new(vec![-std::f64::consts::PI, 0.0, std::f64::consts::PI]).unwrap()),
         FilterKind::Time(TimeFilter {
             bounds: vec![0.0, 1.0],
         }),
@@ -168,7 +170,7 @@ fn every_filter_kind_is_reachable_and_binnable() {
             name: name.into(),
             filters: vec![f],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); n],
+            bins: vec![TallyBin::default(); n], derivative: None,
         };
         assert_eq!(t.n_bins(), n, "{name} does not size its tally correctly");
     }
@@ -176,7 +178,7 @@ fn every_filter_kind_is_reachable_and_binnable() {
     // 29 variants: 28 constructed above plus the refused `DelayedGroup`.
     assert_eq!(
         filters.len() + REFUSED_VARIANTS,
-        31,
+        33, // 31 + `Polar` and `Azimuthal` (gh:#691)
         "the variant count changed. If a filter was ADDED, construct it above \
          so this gate covers it; `FilterKind::name` will already have failed \
          to compile if it was not dispatched."

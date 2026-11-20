@@ -335,7 +335,7 @@ fn reflective_concentric_shells_do_not_leak() {
             bins: edges.clone(),
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 2],
+        bins: vec![TallyBin::default(); 2], derivative: None,
     };
     let mut leak = vec![TallyBin::default(); edges.len() - 1];
     let settings = KeffSettings {

@@ -180,13 +180,27 @@ pub struct FixedSourceSettings {
     pub temperature_k: f64,
     /// Master RNG seed (fixed → reproducible on the single-thread path).
     pub seed: u64,
-    /// Safety cap on fission secondaries transported per source particle — the
-    /// backstop against runaway multiplication if a (mis-specified)
-    /// super-critical system is run as a fixed source.
+    /// Safety cap on fission secondaries — the backstop against runaway
+    /// multiplication if a (mis-specified) super-critical system is run as a
+    /// fixed source. **Since 2026-11-20 (gh:#685) it caps the LIVE secondary bank**
+    /// (secondaries waiting to be transported), as OpenMC's
+    /// `settings::max_secondaries` caps the live secondary bank (the issue's
+    /// citation; the vendored source is not in this checkout). ~~It capped the
+    /// CUMULATIVE number transported per source particle.~~ That earlier meaning
+    /// is kept as an option: [`Self::cumulative_secondary_cap`].
     pub max_secondaries: usize,
+    /// `true` (default) ALSO keeps the pre-2026-11-20 meaning of
+    /// [`Self::max_secondaries`] as a runaway backstop: at most that many
+    /// secondaries are transported per source particle in total. `false` is pure
+    /// upstream (live-bank cap only), which does not bound a near-critical or
+    /// supercritical chain: measured 2026-11-20, a Godiva-sized HEU sphere run as
+    /// a fixed source with only the live cap did not finish in 50 minutes
+    /// (`tests/tally_batch_log_506.rs`), where the cumulative cap ends it.
+    pub cumulative_secondary_cap: bool,
     /// Normalise each batch per source particle before it is flushed (gh:#675,
-    /// OpenMC `Tally::accumulate`); `false` (default) keeps the raw per-batch sums.
-    /// The divisor is that batch's own particle count.
+    /// OpenMC `Tally::accumulate`). **`true` is the default since 2026-11-20**
+    /// (maintainer direction on gh:#675); ~~`false` kept the raw per-batch sums~~
+    /// and is the explicit ablation. The divisor is that batch's own particle count.
     pub normalise_tallies: bool,
     /// Variance reduction (GitHub #258). The [`Default`] is analog.
     ///
@@ -226,7 +240,8 @@ impl Default for FixedSourceSettings {
             temperature_k: 293.6,
             seed: 1,
             max_secondaries: 10_000,
-            normalise_tallies: false,
+            cumulative_secondary_cap: true,
+            normalise_tallies: true,
             seeding: Default::default(),
             tally_batch_log: None,
         }
@@ -455,7 +470,9 @@ pub fn run_fixed_source_traced(
                 is_source_particle = false;
                 production_sum += prod.production;
                 for s in next {
-                    if secondaries < settings.max_secondaries {
+                    let room = bank.len() < settings.max_secondaries
+                        && (!settings.cumulative_secondary_cap || secondaries < settings.max_secondaries);
+                    if room {
                         bank.push(s);
                         secondaries += 1;
                     } else {
@@ -572,7 +589,7 @@ mod tests {
             name: "flux".into(),
             filters: vec![filter],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); 1],
+            bins: vec![TallyBin::default(); 1], derivative: None,
         }
     }
 
@@ -613,8 +630,9 @@ mod tests {
         );
         assert_eq!(res.multiplication, 0.0, "no fissile material");
         // Flux tally sum is the total track length = N·R (exact for a void).
-        let total_path = tally.bins[0].sum;
-        let mean_path = total_path / n as f64;
+        // gh:#675: normalised per source particle by default, so the mean over
+        // batches IS the mean path length (before: raw sum / n).
+        let mean_path = tally.bins[0].mean_realized();
         assert!(
             (mean_path - r_cm).abs() < 1e-9,
             "mean path length = R; got {mean_path} vs {r_cm}"
@@ -778,6 +796,24 @@ mod tests {
         );
         assert!(refused.unwrap_err().contains("dropped"), "the try_ form refuses");
         assert_eq!(run(10_000).dropped_secondaries, 0);
+        // gh:#685: the cap is on the LIVE bank, so it never drops more than the
+        // old cumulative cap does (the live bank is at most the cumulative count),
+        // and the cumulative meaning stays available as an option.
+        let cumulative = run_fixed_source(
+            &geom,
+            &[heu.clone()],
+            &nuclides,
+            &src,
+            &FixedSourceSettings {
+                n_particles: 200,
+                n_batches: 2,
+                max_secondaries: 1,
+                cumulative_secondary_cap: true,
+                ..Default::default()
+            },
+            None,
+        );
+        assert!(cumulative.dropped_secondaries >= capped.dropped_secondaries);
     }
 
     /// gh:#683 / #263, analytic: in an infinite (reflective) non-fissile medium

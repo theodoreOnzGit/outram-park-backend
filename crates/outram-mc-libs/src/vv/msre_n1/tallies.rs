@@ -39,6 +39,7 @@ pub fn balance_tally(n_materials: usize) -> Tally {
         filters: vec![FilterKind::Material(MaterialFilter { material_indices: (0..n_materials).collect() })],
         scores: vec![ScoreType::Absorption, ScoreType::NuFission],
         bins: vec![TallyBin::default(); n_materials * 2],
+        derivative: None,
     }
 }
 
@@ -72,7 +73,7 @@ pub fn salt_spectrum_tally() -> Tally {
             FilterKind::Energy(EnergyFilter { bins: edges }),
         ],
         scores: vec![ScoreType::Flux, ScoreType::Absorption],
-        bins: vec![TallyBin::default(); n * 2],
+        bins: vec![TallyBin::default(); n * 2], derivative: None,
     }
 }
 
@@ -138,7 +139,7 @@ pub fn axial_tally() -> Tally {
         name: "N-4 axial fission and flux".into(),
         filters: vec![FilterKind::Mesh(MeshFilter { mesh }), FilterKind::Energy(EnergyFilter { bins: vec![1e-11, 0.625, 2e7] })],
         scores: vec![ScoreType::Fission, ScoreType::Flux],
-        bins: vec![TallyBin::default(); n * 2 * 2],
+        bins: vec![TallyBin::default(); n * 2 * 2], derivative: None,
     }
 }
 

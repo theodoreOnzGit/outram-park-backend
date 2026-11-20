@@ -223,7 +223,7 @@ impl TransportOperator for CoupledOperator {
                 FilterKind::Energy(EnergyFilter { bins: self.energies.clone() }),
             ],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); self.depletable.len() * groups],
+            bins: vec![TallyBin::default(); self.depletable.len() * groups], derivative: None,
         };
         let mut settings = self.settings.clone();
         settings.seed = self.settings.seed.wrapping_add(self.calls);

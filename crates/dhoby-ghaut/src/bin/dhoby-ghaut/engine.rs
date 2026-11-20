@@ -496,7 +496,7 @@ impl Engine {
                 bins: edges.clone(),
             })],
             scores: vec![ScoreType::Flux],
-            bins: vec![TallyBin::default(); n_bins],
+            bins: vec![TallyBin::default(); n_bins], derivative: None,
         };
         let settings = KeffSettings {
             n_particles: job.particles,

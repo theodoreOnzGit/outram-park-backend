@@ -360,6 +360,11 @@ pub struct Tally {
     pub scores: Vec<ScoreType>,
     /// Accumulated bins, indexed `[filter_bin * n_scores + score_idx]`.
     pub bins: Vec<TallyBin>,
+    /// A differential operator this tally is estimated under (gh:#263), or `None`
+    /// for an ordinary tally. It is a declaration the derivative drivers read:
+    /// `physics::derivative_run::DerivativeSpec::for_tally` builds the spec for a
+    /// bin's score. Scoring by the ordinary drivers ignores it.
+    pub derivative: Option<crate::tally::derivative::TallyDerivative>,
 }
 
 impl Tally {
@@ -369,6 +374,38 @@ impl Tally {
     /// a caller-supplied `n` (gh:#675).
     pub fn n_realizations(&self) -> u64 {
         self.bins.iter().map(|b| b.count).max().unwrap_or(0)
+    }
+
+    /// [`Self::validate`] plus a check against the geometry (gh:#677): a Cell or
+    /// Universe filter reads the coordinate path into fixed arrays of
+    /// [`super::filter::MAX_PATH_LEVELS`] levels, and a deeper level would be
+    /// dropped from the filter's match WITHOUT any signal. OpenMC sizes its
+    /// coordinate array per model, with no such cap (taken from its design, the
+    /// vendored source is not in this checkout), so a deeper model is refused
+    /// here rather than truncated.
+    ///
+    /// # Errors
+    ///
+    /// What [`Self::validate`] refuses, or a Cell/Universe-filtered tally on a
+    /// geometry whose coordinate path can be deeper than `MAX_PATH_LEVELS`.
+    pub fn validate_for_geometry(&self, geom: &crate::geometry::geometry::Geometry) -> Result<(), String> {
+        self.validate()?;
+        let uses_path = self.filters.iter().any(|f| {
+            matches!(
+                f,
+                super::filter::FilterKind::Cell(_) | super::filter::FilterKind::Universe(_)
+            )
+        });
+        let depth = geometry_path_depth(geom);
+        if uses_path && depth > super::filter::MAX_PATH_LEVELS {
+            return Err(format!(
+                "tally {} filters on cell/universe, but the geometry's coordinate path can be {depth} levels deep and \
+                 the filter records at most {} (gh:#677)",
+                self.id,
+                super::filter::MAX_PATH_LEVELS
+            ));
+        }
+        Ok(())
     }
 
     /// Total number of bins = product of each filter's bin count × number of scores.
@@ -452,7 +489,7 @@ mod validate_tests {
             name: "mu".into(),
             filters: vec![FilterKind::Mu(MuFilter { bounds: vec![-1.0, 0.0, 1.0] })],
             scores: vec![ScoreType::Scatter],
-            bins: vec![],
+            bins: vec![], derivative: None,
         };
         let e = t.validate().unwrap_err();
         assert!(e.contains("scattering cosine"), "{e}");
@@ -481,7 +518,7 @@ mod realization_tests {
     /// remembers `n_active`; `mean(40)` shows the old mistake.
     #[test]
     fn a_tally_reports_its_own_realization_count() {
-        let mut t = Tally { id: 1, name: "n".into(), filters: vec![], scores: vec![ScoreType::Flux], bins: vec![TallyBin::default()] };
+        let mut t = Tally { id: 1, name: "n".into(), filters: vec![], scores: vec![ScoreType::Flux], bins: vec![TallyBin::default()], derivative: None };
         assert_eq!(t.n_realizations(), 0);
         for _ in 0..4 {
             t.bins[0].score(10.0);
@@ -491,5 +528,97 @@ mod realization_tests {
         assert_eq!(t.bins[0].rel_std_dev_realized(), 0.0, "identical batches: zero variance");
         assert_eq!(t.bins[0].mean(40), 1.0, "the caller-supplied n of the old API reads 10x low");
         assert_eq!(t.bins[0].mean_per_source_particle(5.0), 2.0, "10 per batch over 5 source particles");
+    }
+}
+
+/// The deepest coordinate path a particle can have in `geom`: one level per
+/// nested universe, plus one per lattice tile coordinate (a lattice is a level of
+/// its own). A reference cycle is cut at 64 levels, which is deeper than any cap.
+pub fn geometry_path_depth(geom: &crate::geometry::geometry::Geometry) -> usize {
+    use crate::geometry::cell::CellFill;
+    use crate::geometry::lattice::Lattice;
+    fn universe_depth(geom: &crate::geometry::geometry::Geometry, u: usize, guard: usize) -> usize {
+        if guard >= 64 {
+            return guard;
+        }
+        let Some(univ) = geom.universes.get(u) else { return 1 };
+        let mut deepest = 1;
+        for &ci in &univ.cell_indices {
+            let below = match geom.cells.get(ci).map(|c| &c.fill) {
+                Some(CellFill::Universe(v)) => universe_depth(geom, *v, guard + 1),
+                Some(CellFill::Lattice(l)) => {
+                    let members: Vec<usize> = match geom.lattices.get(*l) {
+                        Some(Lattice::Rect(r)) => r.universes.iter().copied().chain(r.outer).collect(),
+                        Some(Lattice::Hex(h)) => h
+                            .universes
+                            .iter()
+                            .filter_map(|&x| usize::try_from(x).ok())
+                            .chain(h.outer)
+                            .collect(),
+                        None => Vec::new(),
+                    };
+                    1 + members.into_iter().map(|v| universe_depth(geom, v, guard + 1)).max().unwrap_or(0)
+                }
+                _ => 0,
+            };
+            deepest = deepest.max(1 + below);
+        }
+        deepest
+    }
+    universe_depth(geom, geom.root_universe, 0)
+}
+
+#[cfg(test)]
+mod path_depth_tests {
+    use super::*;
+    use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
+    use crate::geometry::geometry::Geometry;
+    use crate::geometry::position::Position;
+    use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
+    use crate::geometry::universe::Universe;
+    use crate::tally::filter::{CellFilter, FilterKind, MAX_PATH_LEVELS};
+
+    /// A chain of `n` universes, each one cell filled with the next: depth `n`.
+    fn chain(n: usize) -> Geometry {
+        let cells = (0..n)
+            .map(|i| {
+                let fill = if i + 1 < n { CellFill::Universe(i + 1) } else { CellFill::Material(0) };
+                Cell::fill(
+                    i as i32 + 1,
+                    vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+                    fill,
+                    Position::ZERO,
+                )
+            })
+            .collect();
+        Geometry {
+            surfaces: vec![SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 1.0, bc: BoundaryType::Vacuum })],
+            cells,
+            universes: (0..n).map(|i| Universe { id: i as i32, cell_indices: vec![i] }).collect(),
+            lattices: vec![],
+            root_universe: 0,
+        }
+    }
+
+    /// gh:#677: a geometry nested deeper than the filter arrays is refused for a
+    /// Cell-filtered tally instead of silently truncated; a shallow one is fine,
+    /// and a tally with no path filter is not affected by depth.
+    #[test]
+    fn a_too_deep_geometry_is_refused_for_a_cell_filter() {
+        let tally = |filters| Tally {
+            id: 1,
+            name: "t".into(),
+            filters,
+            scores: vec![ScoreType::Flux],
+            bins: vec![TallyBin::default(); 1],
+            derivative: None,
+        };
+        let cell_filtered = tally(vec![FilterKind::Cell(CellFilter { cell_indices: vec![0] })]);
+        let plain = tally(vec![]);
+        assert_eq!(geometry_path_depth(&chain(3)), 3);
+        assert!(cell_filtered.validate_for_geometry(&chain(MAX_PATH_LEVELS)).is_ok());
+        let deep = chain(MAX_PATH_LEVELS + 1);
+        assert!(cell_filtered.validate_for_geometry(&deep).unwrap_err().contains("coordinate path"));
+        assert!(plain.validate_for_geometry(&deep).is_ok());
     }
 }

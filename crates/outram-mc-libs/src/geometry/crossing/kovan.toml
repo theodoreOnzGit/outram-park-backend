@@ -118,8 +118,8 @@ qual = "SurfaceKindExt"
 item = "type"
 shape = "trait"
 lines = [
-    36,
-    130,
+    39,
+    133,
 ]
 hash = "sha256:7756dd5d4aa4bd819409525ffb61557b95879379d82ece6265063a3a1099e475"
 doc_hash = "sha256:629063e1b84f42063c3218a634b5e8e715b89f19d96b61cfc8f40714a2446e92"
@@ -133,8 +133,8 @@ id = "fn:403bd2aa376b1045"
 name = "diffuse_reflect"
 qual = "SurfaceKindExt::diffuse_reflect"
 lines = [
-    40,
-    81,
+    43,
+    84,
 ]
 hash = "sha256:5dd4f4f8f9ac4afb3ba36646e34ff21e7111bebe5531bbe5760f2704e37e6313"
 doc_hash = "sha256:34a0c6ea52827f408f8aeb926958a0423933bc05a514653a5797ce3475019f98"
@@ -149,8 +149,8 @@ id = "fn:3aea93ce348f0b4c"
 name = "sphere_centre_radius"
 qual = "SurfaceKindExt::sphere_centre_radius"
 lines = [
-    82,
-    92,
+    85,
+    95,
 ]
 hash = "sha256:62b3038f775d5eac988617c68baa3f645642ef9d594f7e097c2d5d00ac7d952a"
 doc_hash = "sha256:dca202b12e6dfd398efee08ec16792bb14346f989799494df8fd00e72ad7df2d"
@@ -161,8 +161,8 @@ id = "fn:bd77d0f68f791013"
 name = "overlaps_voxel"
 qual = "SurfaceKindExt::overlaps_voxel"
 lines = [
-    93,
-    129,
+    96,
+    132,
 ]
 hash = "sha256:ae3c9d19926740281dc134122bad7e59475dc45c61aaf3d97cd9c5f554215fbf"
 doc_hash = "sha256:7666cba197d3a4c73096b09a05fad8755a7399bdd5f1693e959e4a95e0f25e2c"
@@ -173,8 +173,8 @@ id = "fn:1d0ebb24c7a2dcdf"
 name = "diffuse_reflect"
 qual = "SurfaceKind::diffuse_reflect"
 lines = [
-    133,
-    154,
+    136,
+    157,
 ]
 hash = "sha256:a4f36de0aca3f252f1fd1eeedcdbca2eadf97cce9e773b633f2e33526b9a2053"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -194,8 +194,8 @@ id = "fn:cb617d027c41b6a2"
 name = "sphere_centre_radius"
 qual = "SurfaceKind::sphere_centre_radius"
 lines = [
-    156,
-    162,
+    159,
+    165,
 ]
 hash = "sha256:721dceb91a5c3788e29455d927a7490ca8b402e7534f43c38727b7f3a1253bd5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -205,8 +205,8 @@ id = "fn:69be0e825d93ac92"
 name = "overlaps_voxel"
 qual = "SurfaceKind::overlaps_voxel"
 lines = [
-    164,
-    201,
+    167,
+    204,
 ]
 hash = "sha256:86d1e4808cf687676fae6df0da877370322c2feab8e0695d982b8b1c498f0583"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -218,8 +218,8 @@ qual = "SurfaceCrossing"
 item = "type"
 shape = "struct"
 lines = [
-    204,
-    222,
+    207,
+    225,
 ]
 hash = "sha256:5dba2dee8f0f8adf1d55157aba50d89b3d6ac78cbf4c8cb29317fd6a69f69ee4"
 doc_hash = "sha256:e304898c62fde86af695f0692b27c55fecf3a682a47f3b4979e8a5e99970dd58"
@@ -336,8 +336,8 @@ id = "fn:ff8113ae718123fb"
 name = "outgoing_side"
 qual = "outgoing_side"
 lines = [
-    224,
-    244,
+    227,
+    247,
 ]
 hash = "sha256:7515ce340b8ef49ca33cd6e223c265c1b1674073f3af2e9f56afd70d7660357d"
 doc_hash = "sha256:e6cebc4de938e51ba74e0549ab7ef5821af4c70c9cccaff5e52a3e7e6cb6d5ce"
@@ -462,8 +462,8 @@ qual = "GeometryExt"
 item = "type"
 shape = "trait"
 lines = [
-    246,
-    436,
+    249,
+    439,
 ]
 hash = "sha256:c5616d22a2e0b26b3a531722d89449bd49b61c729ed572022f54b3d4d0589602"
 doc_hash = "sha256:ee90f470793fae7bd5aaf4a86fe54a54ceada8e14ca51c178268c8e0d1e3d770"
@@ -482,8 +482,8 @@ id = "fn:1e9b91ce1dc2b936"
 name = "distance_out_of_level"
 qual = "GeometryExt::distance_out_of_level"
 lines = [
-    251,
-    281,
+    254,
+    284,
 ]
 hash = "sha256:3e421df26b2d28ca6e3d607fd6725467ae01168a373e189554289e58528e74c3"
 doc_hash = "sha256:114cb518108a541e3f66b3a9e8d4901e731c73ed10046e1df99572447a755f3e"
@@ -497,8 +497,8 @@ id = "fn:baffe911bdcae082"
 name = "sigma_t_at"
 qual = "GeometryExt::sigma_t_at"
 lines = [
-    282,
-    294,
+    285,
+    297,
 ]
 hash = "sha256:cf666f111f10af25e5c5b7e5c46099fdc9cdda28ae8fad2818e533fe0a82d0a5"
 doc_hash = "sha256:76d9076a725aeae0ae18c4fc9e71334d822866202357e9556a67520bdd5faf01"
@@ -509,8 +509,8 @@ id = "fn:ef8820a866dace85"
 name = "validate_boundary_conditions"
 qual = "GeometryExt::validate_boundary_conditions"
 lines = [
-    295,
-    333,
+    298,
+    336,
 ]
 hash = "sha256:f3fca8b967c3459634f7e3811b7b74155c95149773ad9455112b0465e122846e"
 doc_hash = "sha256:cf478d367883c5f9e5f4fcad23f480cf3ab1e191539a7be971f1618a00f07e55"
@@ -521,8 +521,8 @@ id = "fn:89bee7d00f9bcd92"
 name = "cross_surface"
 qual = "GeometryExt::cross_surface"
 lines = [
-    334,
-    385,
+    337,
+    388,
 ]
 hash = "sha256:462493c2ba407a3019cf135521218dbcad2c72e2ff10fb9761c746956fe42863"
 doc_hash = "sha256:60fb0a310d9f4ba1e92576709aa169be8dea23644fc1d31cb4593f27456b5f25"
@@ -533,8 +533,8 @@ id = "fn:bf087907ac6de26e"
 name = "cross_surface_in_frame"
 qual = "GeometryExt::cross_surface_in_frame"
 lines = [
-    386,
-    435,
+    389,
+    438,
 ]
 hash = "sha256:9ba34714a6e2b21aa698ae2e48ea12992664c8e7dbbc516ac8ed5ef4cc195ec5"
 doc_hash = "sha256:5f1230bdb273c63f3e5d0d120440090287ba1dc5e3865f560643f6fead0b1622"
@@ -545,10 +545,10 @@ id = "fn:a98db9315eea92c8"
 name = "distance_out_of_level"
 qual = "Geometry::distance_out_of_level"
 lines = [
-    439,
-    456,
+    442,
+    459,
 ]
-hash = "sha256:8c012376fff02c71c6da4342e4cb29e3b9e804d442cb78df3db5345116221c40"
+hash = "sha256:968d7598980fbe60f0d4cffb06909c128b83b47f5178abce7f3a88ff62188dd8"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = [
     "fn:6d91c0915874508f",
@@ -642,14 +642,15 @@ reached_by = [
     "#101",
     "#102",
 ]
+index_out_of_date = true
 
 [[module."mod.rs".function]]
 id = "fn:652b256d13eff27e"
 name = "sigma_t_at"
 qual = "Geometry::sigma_t_at"
 lines = [
-    458,
-    469,
+    461,
+    472,
 ]
 hash = "sha256:db9f6949bdfdcefffd08ef1b06f9e5cc3ba62cc11779c65fb37e8670be7f4e4f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -670,8 +671,8 @@ id = "fn:028548830a282ece"
 name = "validate_boundary_conditions"
 qual = "Geometry::validate_boundary_conditions"
 lines = [
-    471,
-    488,
+    474,
+    491,
 ]
 hash = "sha256:a0b1555171de8220a2abf98cbfd24e725fcd6603b5cda7a682348bbadc625cf3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -689,8 +690,8 @@ id = "fn:673040f25f2a1db1"
 name = "cross_surface"
 qual = "Geometry::cross_surface"
 lines = [
-    490,
-    609,
+    493,
+    612,
 ]
 hash = "sha256:9ae15e36dd7ff991c0146e434de8557fd45c08b74e56db46635e9b3dec03465a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -816,8 +817,8 @@ id = "fn:83ec5419de1db3fb"
 name = "cross_surface_in_frame"
 qual = "Geometry::cross_surface_in_frame"
 lines = [
-    611,
-    634,
+    614,
+    637,
 ]
 hash = "sha256:20dc86b2fe12d8869ab0547f0f14f26245133381544d2a8cb74517f9bcce7576"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -933,8 +934,8 @@ id = "fn:2f8925c169a09a1f"
 name = "compose_corner_reflection"
 qual = "compose_corner_reflection"
 lines = [
-    637,
-    735,
+    640,
+    738,
 ]
 hash = "sha256:d5a75cb173eddb0fdae78025ee097053ba879cb06f4762d01a66b0556465aead"
 doc_hash = "sha256:a0221cb851191e5b2e8f85aa5f033e3f7c8cb1f96ab86be312707934152c8678"
@@ -1060,8 +1061,8 @@ qual = "FP_PRECISION"
 item = "const"
 shape = "const"
 lines = [
-    737,
-    738,
+    740,
+    741,
 ]
 hash = "sha256:059f5353e5b7a681870f6ffc1b07cf1a8f2600d2a5ccce0428d50ab76b524bd7"
 doc_hash = "sha256:7d770d4151268b8c955c76a9efd5051117415e0a0bb1b3980aa96975dbd6e97a"
@@ -1074,8 +1075,8 @@ qual = "PeriodicTransform"
 item = "type"
 shape = "enum"
 lines = [
-    740,
-    758,
+    743,
+    761,
 ]
 hash = "sha256:61e30d67de0175a1563cc7baa54e6cb55e1da587015a3dcd216b6a2246baf894"
 doc_hash = "sha256:b1dc9589b576c36f7088f2637f141fef7884c4f4d2e5b7b41c3768039032495d"
@@ -1086,8 +1087,8 @@ id = "fn:8afc32acf00898ed"
 name = "apply"
 qual = "PeriodicTransform::apply"
 lines = [
-    761,
-    794,
+    764,
+    797,
 ]
 hash = "sha256:c09b6d11978a30a79d3039bc070d8f0fd6443194cc53e8253c0c2ded1f57fc72"
 doc_hash = "sha256:f11c24926a593a470a9e441bca961240b769a4a8e179fdc6a5156c464cdd8665"
@@ -1098,8 +1099,8 @@ id = "fn:5fe094475b7eec22"
 name = "periodic_surface_sense"
 qual = "periodic_surface_sense"
 lines = [
-    797,
-    815,
+    800,
+    818,
 ]
 hash = "sha256:ba31eb512d255e349d5611a692a3350ba194911c1ec3134f040c74ad97831ef7"
 doc_hash = "sha256:8a0f0443d8f676cae277c45c92ecfefaf5546cd4aa805fa00711198c0c83cc57"
@@ -1110,10 +1111,10 @@ id = "fn:aadb8ea121253941"
 name = "periodic_transform"
 qual = "periodic_transform"
 lines = [
-    817,
-    953,
+    820,
+    956,
 ]
-hash = "sha256:b2447326e2c83f7ef617c2f1abd5518fa9bcde280be58fd666ae46025c19406c"
+hash = "sha256:d5463b6592b5aeddfdd67dcb3c4beeda3c646fd28f8a69f58fb7f13a07ab192c"
 doc_hash = "sha256:2c62735ae07f875ec88475ed7871c467073deab507cefebbf9667fd58760cca2"
 index_out_of_date = true
 
@@ -1122,8 +1123,8 @@ id = "fn:3a676ca277c8022a"
 name = "translational_periodic_translation"
 qual = "translational_periodic_translation"
 lines = [
-    955,
-    975,
+    958,
+    978,
 ]
 hash = "sha256:07c0561054bf4a63f46de70827f9433177154b908b77068fcbe40dd1467a7fb3"
 doc_hash = "sha256:905a02483fede7a8b90199155355b318efa12e1a430e219edf6b8c8de2c7b233"
@@ -1134,8 +1135,8 @@ id = "fn:db6b1a77ed19de9c"
 name = "signed_plane_offset"
 qual = "signed_plane_offset"
 lines = [
-    977,
-    990,
+    980,
+    993,
 ]
 hash = "sha256:6558cd7d4b9689cdcb1956069c4f8b6ee502a005d8336b933d608393cdd0a84c"
 doc_hash = "sha256:68c836f756b52f56ba1c4e064dbe4c13885bdcf16f555e2c766fda1d339b845e"
@@ -1146,8 +1147,8 @@ id = "fn:a030a2ef27d52d77"
 name = "unit_direction"
 qual = "unit_direction"
 lines = [
-    992,
-    996,
+    995,
+    999,
 ]
 hash = "sha256:2007f89d0f5b2e0afd1bb7fe3d2a8b463014d2fc8f80d1a8d319b6f50f3f7d0b"
 doc_hash = "sha256:d21611fab835376da392828628c71af7c649c7fcb85872a5f036b522b6efd075"
@@ -1158,8 +1159,8 @@ id = "fn:405d37ae5563eb29"
 name = "nudge_across"
 qual = "nudge_across"
 lines = [
-    998,
-    1033,
+    1001,
+    1036,
 ]
 hash = "sha256:20ff61f43bc0ede19ebdc04786f4db3730c985b3cbe7f1bccdf2b7265f4a0b44"
 doc_hash = "sha256:5ce400c118e72c214ed5e826f3e023a93d6b62aaf41deb7d683d44824381b4f5"
@@ -1284,8 +1285,8 @@ id = "fn:bde55fcb896fe6b5"
 name = "periodic_box"
 qual = "periodic_box"
 lines = [
-    11,
-    57,
+    14,
+    60,
 ]
 hash = "sha256:892e2de57adea5fd4afd81e8152ab96b3ff523a79abe6468332a15ad5c5b32ac"
 doc_hash = "sha256:be3df4172c58075669ec8e2f9b74cda5c5cf429aa2f7f3e501c40b1331dfdead"
@@ -1296,8 +1297,8 @@ id = "fn:da083a74e232b5d3"
 name = "translation_is_the_plane_spacing"
 qual = "translation_is_the_plane_spacing"
 lines = [
-    59,
-    69,
+    62,
+    72,
 ]
 hash = "sha256:82315409508da6c7d8808a91d80fc0e281ce9eaf681668e21f0325a747bf285d"
 doc_hash = "sha256:52fa39d99df0ddc9ca94f90b5db34c6ec0aa198c6aca2616240395ed67aebbaf"
@@ -1309,8 +1310,8 @@ id = "fn:8d15320742b23855"
 name = "crossing_translates_and_keeps_direction"
 qual = "crossing_translates_and_keeps_direction"
 lines = [
-    71,
-    93,
+    74,
+    96,
 ]
 hash = "sha256:a1c928ebeb5857c5daa51d5cd2c90294010d44ab9e0c2ac64eabd1dd279e3e30"
 doc_hash = "sha256:049f0a56057525baefc0a9cd15943f63ee97d31d679f16d542dbb4b9cea3fd97"
@@ -1322,8 +1323,8 @@ id = "fn:20377b70e5e60db8"
 name = "free_streaming_is_a_straight_line_in_the_unfolded_lattice"
 qual = "free_streaming_is_a_straight_line_in_the_unfolded_lattice"
 lines = [
-    95,
-    132,
+    98,
+    135,
 ]
 hash = "sha256:e43ff07245afa85bf46cd0875f5566abd335d7f246a30de16ae6b2e4cbcb9227"
 doc_hash = "sha256:b0d7c8f835e2cc1b063c7b40e4ccc49014923fde3455c1d515ed506e4dae661b"
@@ -1335,8 +1336,8 @@ id = "fn:d48c409f232b320b"
 name = "non_translational_pairs_are_refused"
 qual = "non_translational_pairs_are_refused"
 lines = [
-    134,
-    162,
+    137,
+    165,
 ]
 hash = "sha256:e2ebe4fca6db641a8d7c4e44616e381769d4f7f3177dfadf4b1ed5a54b7fd008"
 doc_hash = "sha256:96ef56ce5669ab8ddbfa374466588da49084aad946de863734d8508f6238a8b3"
@@ -1351,8 +1352,8 @@ id = "fn:493cac9ee52a215c"
 name = "wedge"
 qual = "wedge"
 lines = [
-    26,
-    72,
+    29,
+    75,
 ]
 hash = "sha256:ac604c5eb72b92551d21d7ca385518f1386edda661cd09ec94fd4bdcef2407b2"
 doc_hash = "sha256:4d81de2d23c30b51843f3df6b6dfaa1ecd06ae92eda08e490a3458fd440f16c9"
@@ -1363,8 +1364,8 @@ id = "fn:0d425cbf33f9a848"
 name = "unit"
 qual = "unit"
 lines = [
-    74,
     77,
+    80,
 ]
 hash = "sha256:91d40361f66a6f3d6e8064caa92a3c1b8eb5a64a56057d55ba3c6b8426e4be47"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1375,8 +1376,8 @@ id = "fn:65a846f1d84fa025"
 name = "angle_of"
 qual = "angle_of"
 lines = [
-    79,
-    87,
+    82,
+    90,
 ]
 hash = "sha256:50724668ae3a18f8968a1d5b592cb0a9b7fa16523ac4107e9b62d1b5708211b5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1387,8 +1388,8 @@ id = "fn:132fe310b4cbd92d"
 name = "rotation_angle_is_the_wedge_angle"
 qual = "rotation_angle_is_the_wedge_angle"
 lines = [
-    89,
-    102,
+    92,
+    105,
 ]
 hash = "sha256:7965508a38db54fd31f07f7338f2cac6bddd6f8129a0a0e21abdbc141d16788c"
 doc_hash = "sha256:0ed1cfed1e2ffbee0bf2b62fdf8e10db126a631435bcea6ae0a63cc403c94fa7"
@@ -1400,8 +1401,8 @@ id = "fn:c5b3b71092147957"
 name = "quarter_wedge_crossing_matches_the_hand_rotation"
 qual = "quarter_wedge_crossing_matches_the_hand_rotation"
 lines = [
-    104,
-    122,
+    107,
+    125,
 ]
 hash = "sha256:94dd492bc2cb0b70babedefe8e2b7851591f8f535f5e7b28db09c2a4c9ee4c28"
 doc_hash = "sha256:2f1ab45ea0946a055485620d872f4f06f0bcf5c94af2bc91eaeea54fc5fc4afc"
@@ -1413,8 +1414,8 @@ id = "fn:77e8834a162bc015"
 name = "sixty_degree_crossing_rotates_position_and_direction_together"
 qual = "sixty_degree_crossing_rotates_position_and_direction_together"
 lines = [
-    124,
-    146,
+    127,
+    149,
 ]
 hash = "sha256:6f8f7d562aa2efa31077625e64139c18623ad9cbe5a65ea7c80e0cc6b676bea8"
 doc_hash = "sha256:2b776fa2b85b06c76bd52422ff03d91e93a35b7ae91e9eef0f20dfe633f7f345"
@@ -1426,8 +1427,8 @@ id = "fn:4819c8eb93b94a7f"
 name = "there_and_back_is_the_identity"
 qual = "there_and_back_is_the_identity"
 lines = [
-    148,
-    176,
+    151,
+    179,
 ]
 hash = "sha256:6068392f718f219914757e0d2ccadf6934948bee77261d31b0111ab3a2bf77cc"
 doc_hash = "sha256:bc89c1e9818d689c0c19d767a3419bbc4a15bc87671269355721153f28e5fd42"
@@ -1439,10 +1440,10 @@ id = "fn:2164c7cf84a6c2fe"
 name = "folded_straight_lines_stay_consistent_over_many_crossings"
 qual = "folded_straight_lines_stay_consistent_over_many_crossings"
 lines = [
-    178,
-    244,
+    181,
+    247,
 ]
-hash = "sha256:f884356762fcd8a8dfb9ac2d3d35c74bcf0b5f6cafc1f82fda02b788352caf2a"
+hash = "sha256:79f4bbbe3c33ee8c466a1509ee14aa33752025f06468819b76fafd3e9a853af6"
 doc_hash = "sha256:43a4461f8a785c11042bba261b06dfaeeae29d4c358eb3c4c933169b69525cbc"
 test = true
 index_out_of_date = true
@@ -1452,8 +1453,8 @@ id = "fn:eaf7aa879dccfd51"
 name = "malformed_rotational_pairs_are_refused"
 qual = "malformed_rotational_pairs_are_refused"
 lines = [
-    246,
-    286,
+    249,
+    289,
 ]
 hash = "sha256:efbc69331dd8c35595e8bf5228128b3f194f10fa97f665d8d784d33f03a41e0a"
 doc_hash = "sha256:7d6e12c00aed477a5ff63d97e09f790f30c6c0c2ef6f73701fe7a6285cf1ee22"
@@ -1468,8 +1469,8 @@ id = "fn:13efba5f70c8ec5c"
 name = "reflective_plane_flips_direction"
 qual = "reflective_plane_flips_direction"
 lines = [
-    12,
-    56,
+    15,
+    59,
 ]
 hash = "sha256:54d082d8912395043d195cc429652fb2bfba2c3d9931397909f17dfd6632c70e"
 doc_hash = "sha256:8386e9bad1eb83bd0650616818073fd997be4ffbc6a130fbbed08e79c3f87d35"
@@ -1500,8 +1501,8 @@ id = "fn:7f8c5caf3c33c5cc"
 name = "vacuum_sphere_leaks"
 qual = "vacuum_sphere_leaks"
 lines = [
-    58,
-    95,
+    61,
+    98,
 ]
 hash = "sha256:80ff04f2a5075f50ec1608759076d46876606666db06ac78bf13082016f2ff30"
 doc_hash = "sha256:345a438af01fffc62f2c2ecb5594a5f5a17c8affbaa7892878947afa3149d2dc"
@@ -1530,8 +1531,8 @@ id = "fn:4e286b3c5c66dc6f"
 name = "concentric_shells"
 qual = "concentric_shells"
 lines = [
-    114,
-    161,
+    117,
+    164,
 ]
 hash = "sha256:10f5a103ca89177d800ca8eb21ae02001ff4de2b20eb6dcd4c766f08fa3c270d"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
@@ -1553,8 +1554,8 @@ id = "fn:e34c0184fafbbbca"
 name = "crossing_a_shell_boundary_lands_in_the_adjacent_cell"
 qual = "crossing_a_shell_boundary_lands_in_the_adjacent_cell"
 lines = [
-    163,
-    228,
+    166,
+    231,
 ]
 hash = "sha256:56976c3d9c32c3fa6b1b097732d3afd9cde947a72fc35ac231d1208df1ad1788"
 doc_hash = "sha256:10d0626bd2db64a94d10e113e5c735aa0706a5773e277dc12439d701e1821e1b"
@@ -1579,8 +1580,8 @@ id = "fn:e23136e7b3c47c12"
 name = "reflecting_off_the_outer_sphere_stays_in_the_outer_shell"
 qual = "reflecting_off_the_outer_sphere_stays_in_the_outer_shell"
 lines = [
-    230,
-    262,
+    233,
+    265,
 ]
 hash = "sha256:e84edf2df432140a7f9396d67d60c9b240219796a4857c38ccafe8a09b0d5ec7"
 doc_hash = "sha256:512824194112192947b672fbdf51d93f10c839dc256e1703f629f187917aa795"
@@ -1607,10 +1608,10 @@ id = "fn:5653a0b1a01eff0a"
 name = "reflective_concentric_shells_do_not_leak"
 qual = "reflective_concentric_shells_do_not_leak"
 lines = [
-    264,
-    364,
+    267,
+    368,
 ]
-hash = "sha256:5a299be25eaf8f8649f95d072f8a3964256da66f91e3fe014a3c324e6a2ddbe9"
+hash = "sha256:e5ef7e41f45594456379913be6dcd53d755923a0128c4e77ff6cda103d72f0a4"
 doc_hash = "sha256:08f1e1f593e04236e2021fddd7c0cf13ed9fbc8921adebc584c76ef82e06a477"
 callees = [
     "fn:14a6fa25c0a1f183",
@@ -1634,6 +1635,7 @@ uses = [
     "fn:f8778793521a3c25",
 ]
 test = true
+index_out_of_date = true
 
 [test_run]
 commit = "13e891e5b491e162abaf022ef19097f07222b12e"

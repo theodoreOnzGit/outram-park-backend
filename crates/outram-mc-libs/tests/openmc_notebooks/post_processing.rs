@@ -328,7 +328,7 @@ fn post_processing_statepoint() {
         name: "mesh flux".into(),
         filters: vec![FilterKind::Mesh(filter)],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); n_cells],
+        bins: vec![TallyBin::default(); n_cells], derivative: None,
     };
 
     let settings = KeffSettings {
@@ -527,7 +527,7 @@ fn post_processing_mesh_structure_matches_the_cell_resolved_flux() {
             }),
         })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); n * n],
+        bins: vec![TallyBin::default(); n * n], derivative: None,
     };
     let mut mesh = mesh_tally(4);
     run_keff_csg(&geom, &materials, &nuclides, src, &settings, Some(&mut mesh));
@@ -536,7 +536,7 @@ fn post_processing_mesh_structure_matches_the_cell_resolved_flux() {
         name: "cells".into(),
         filters: vec![FilterKind::Cell(CellFilter { cell_indices: vec![0, 1] })],
         scores: vec![ScoreType::Flux],
-        bins: vec![TallyBin::default(); 2],
+        bins: vec![TallyBin::default(); 2], derivative: None,
     };
     run_keff_csg(&geom, &materials, &nuclides, src, &settings, Some(&mut cells));
 
