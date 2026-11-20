@@ -166,6 +166,9 @@ pub mod depletion;
 /// Z/A/metastable state, `uom` amounts by region, the time point and who
 /// produced it (gh:#951).
 pub mod inventory;
+/// Waste classification and disposal rating from an activated inventory:
+/// a port of OpenMC's `openmc/waste.py` (gh:#1391).
+pub mod waste;
 pub mod plotter;
 /// Beginner thermal profile: a coarse steady conduction solve on any CSG
 /// shape (outram-foam-basic-lib), from a stated power and a ballpark

@@ -91,6 +91,14 @@ pub use chain::{
 };
 pub use matrix::DepletionMatrix;
 pub use operator::deplete_with;
+/// The depletion-chain XML codec this crate builds [`DepletionChain`] from,
+/// re-exported so a crate that reads the chain's non-neutron data (the decay
+/// `<source>` spectra, which have no home in [`NuclideData`]) goes through
+/// this crate and not a second parser (gh:#1391: `punggol` reads decay
+/// photons this way). A re-export only: no code was added.
+pub use njoy_outram_park_fork::hdf5::depletion_chain_xml::{
+    ChainDecaySource, ChainNuclide, DepletionChainXml,
+};
 
 use crate::hash::HashMap;
 
