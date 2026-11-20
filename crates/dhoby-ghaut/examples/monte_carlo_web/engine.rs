@@ -441,7 +441,7 @@ pub fn decode_history(v: &[f64]) -> Result<History, String> {
     if v.len() < HEAD {
         return Err("history message too short".into());
     }
-    let n = v[15] as usize;
+    let n = v[14] as usize;
     if v.len() != HEAD + PER_STATE * n {
         return Err(format!("history message: {} values for {n} states", v.len()));
     }
@@ -512,7 +512,7 @@ pub fn decode_generation(v: &[f64]) -> Result<Generation, String> {
     if v.len() < GEN_HEAD {
         return Err("generation message too short".into());
     }
-    let n = v[14] as usize;
+    let n = v[15] as usize;
     if v.len() != GEN_HEAD + 2 * n {
         return Err(format!("generation message: {} values for {n} sites", v.len()));
     }
