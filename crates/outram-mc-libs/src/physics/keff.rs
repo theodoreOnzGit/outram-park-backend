@@ -209,6 +209,15 @@ pub struct KeffSettings {
     /// `try_run_keff_csg*` entry points call, so a geometry defect cannot finish
     /// as a plausible `k`. `u64::MAX` is the explicit tolerant ablation.
     pub max_lost_particles: u64,
+    /// **Normalise each tally realization per source particle** (gh:#675), as
+    /// OpenMC's `Tally::accumulate` does (`norm = total_source /
+    /// (contributing_particles * gen_per_batch)`, `src/tallies/tally.cpp:845-900`).
+    /// `false` (the default) keeps the raw per-batch sums every recorded tally and
+    /// pin in this crate was measured with; `true` divides each batch by that
+    /// generation's total source weight before it is flushed, so `mean_realized()`
+    /// is already per source particle and independent of `n_particles`. The
+    /// per-batch log ([`Self::tally_batch_log`]) always records the raw sums.
+    pub normalise_tallies: bool,
     /// **Lost-particle limit, relative to histories run** (gh:#699). See
     /// [`Self::max_lost_particles`].
     pub rel_max_lost_particles: f64,
@@ -254,6 +263,7 @@ impl Default for KeffSettings {
             keff_trigger: None,
             keff_trigger_min_active: 20,
             max_lost_particles: 10,
+            normalise_tallies: false,
             rel_max_lost_particles: 1.0e-6,
             delta_tally_estimator: Default::default(),
             seeding: Default::default(),

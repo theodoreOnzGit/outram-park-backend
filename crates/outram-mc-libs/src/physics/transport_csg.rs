@@ -1113,6 +1113,12 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                 if let Some(log) = &settings.tally_batch_log {
                     log.push(&batch);
                 }
+                // gh:#675: per source particle, as upstream's `Tally::accumulate`
+                // (opt-in, so recorded tallies are unchanged).
+                if settings.normalise_tallies {
+                    let w: f64 = source.iter().map(|s| s.wgt).sum();
+                    batch.iter_mut().for_each(|v| *v /= w);
+                }
                 flush_batch(t, &mut batch);
             }
             if let Some(lb) = leak_bins.as_deref_mut() {
@@ -1465,6 +1471,11 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
                     // Report-only per-batch log (GitHub #506): reads, draws nothing.
                     if let Some(log) = &settings.tally_batch_log {
                         log.push(&batch);
+                    }
+                    // gh:#675: per source particle (opt-in), as the sequential driver.
+                    if settings.normalise_tallies {
+                        let w: f64 = source.iter().map(|s| s.wgt).sum();
+                        batch.iter_mut().for_each(|v| *v /= w);
                     }
                     flush_batch(t, &mut batch);
                 }
@@ -3805,6 +3816,32 @@ mod leakage_tests {
         let closed = heu_sphere(8.7407, BoundaryType::Vacuum);
         let ok = try_run_keff_csg(&closed, &mats, &nucs, src(), &s, None).expect("vacuum loses none");
         assert_eq!(ok.lost_locate, 0);
+    }
+
+    /// gh:#675: `normalise_tallies` divides each realization by the generation's
+    /// source weight, so every bin's mean is the raw mean over `n_particles`, `k`
+    /// is untouched, and the default (`false`) leaves the raw sums as recorded. On
+    /// the sequential and the parallel driver.
+    #[test]
+    fn normalised_tallies_are_the_raw_ones_per_source_particle() {
+        use crate::physics::keff::{ComputeType, ThreadCount};
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.7407, BoundaryType::Vacuum);
+        for compute in [ComputeType::CpuSingleThread, ComputeType::CpuMultiThread(ThreadCount::Fixed(2))] {
+            let run = |norm: bool| {
+                let (mut t, _) = tally_and_leak_grid();
+                let s = KeffSettings { n_particles: 300, n_inactive: 2, n_active: 4, compute, normalise_tallies: norm, ..KeffSettings::default() };
+                let r = run_keff_csg_hybrid(&geom, &mats, &nucs, &[], None, src(), &s, Some(&mut t));
+                (r.k_by_generation, t.bins.iter().map(|b| b.mean_realized()).collect::<Vec<f64>>())
+            };
+            let (k_raw, raw) = run(false);
+            let (k_norm, norm) = run(true);
+            assert_eq!(k_raw, k_norm, "{compute:?}: normalising must not touch k");
+            assert!(raw.iter().any(|v| *v > 0.0));
+            for (r, n) in raw.iter().zip(&norm) {
+                assert!((r / 300.0 - n).abs() <= 1e-12 * r.abs().max(1e-300), "{compute:?}: {r} / 300 vs {n}");
+            }
+        }
     }
 
     /// gh:#686: the parallel driver folds each chunk's per-history tally batches
