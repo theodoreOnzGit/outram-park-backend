@@ -2556,6 +2556,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         tentative,
                         seed,
                         urr_seed,
+                        observe,
                     );
                     // ANCHOR_END: delta_arm
                     virtual_collisions += u64::from(flight.virtual_collisions);
