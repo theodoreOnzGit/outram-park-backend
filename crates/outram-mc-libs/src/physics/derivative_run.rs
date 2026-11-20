@@ -27,7 +27,11 @@
 //! fission, scatter, and nu-fission for a DENSITY derivative (a nuclide-density
 //! derivative of nu-fission is refused: `MicroXS` has no nu-fission). Cross sections are the infinitely dilute ones
 //! (`Material::macro_xs`), not the sampled URR bands. Temperature derivatives
-//! are refused (they need `d Sigma / dT`). **Eigenvalue runs** differentiate the
+//! use a central finite difference of the nuclides' cross sections over the
+//! temperature argument (OpenMC's multipole derivative, the same quantity) and
+//! are available only where the cross sections depend on it (the WMP `Core`
+//! tier); on the pointwise tier the derivative is exactly zero and the run
+//! reports that as an error rather than a result. **Eigenvalue runs** differentiate the
 //! tally for a FIXED fission source, as OpenMC's differential tallies do: the
 //! change of the source distribution itself is not included, and an (n,xn)
 //! secondary, which the kernel starts as a new particle, does not inherit its
@@ -71,6 +75,26 @@ pub struct DerivativeResult {
     pub n_batches: usize,
 }
 
+/// `(d Sigma_s/dT, d Sigma_a/dT, d Sigma_f/dT)` of `material` at `e` \[cm^-1 K^-1\]: a
+/// central finite difference of each nuclide's microscopic cross sections over
+/// `+-TEMPERATURE_STEP_K` times its atom density (OpenMC uses the multipole
+/// derivative, `evaluate_deriv`; the finite difference is the same quantity,
+/// `O(dT^2)`). All three are exactly zero on a tier whose cross sections do not
+/// depend on the temperature argument (the pointwise tier).
+fn dxs_dt(material: &Material, nuclides: &[Nuclide], e: f64) -> (f64, f64, f64) {
+    let h = TallyDerivative::TEMPERATURE_STEP_K;
+    let t = material.temperature;
+    let (mut ds, mut da, mut df) = (0.0, 0.0, 0.0);
+    for c in &material.components {
+        let nuc = &nuclides[c.nuclide_idx];
+        let (lo, hi) = (nuc.xs_at_energy(e, t - h), nuc.xs_at_energy(e, t + h));
+        ds += c.atom_density * ((hi.total - hi.absorption) - (lo.total - lo.absorption)) / (2.0 * h);
+        da += c.atom_density * (hi.absorption - lo.absorption) / (2.0 * h);
+        df += c.atom_density * (hi.fission - lo.fission) / (2.0 * h);
+    }
+    (ds, da, df)
+}
+
 /// Per-history accumulation state, driven by [`TraceEvent`]s.
 struct Accum {
     fd: FluxDerivative,
@@ -82,11 +106,13 @@ struct Accum {
     pending: Option<(usize, f64, f64)>,
     sum: f64,
     dsum: f64,
+    /// A temperature derivative saw a non-zero `dSigma/dT` at least once.
+    t_dep: bool,
 }
 
 impl Accum {
     fn new() -> Self {
-        Self { fd: FluxDerivative::default(), err: None, cur_mat: None, e_cur: 0.0, pending: None, sum: 0.0, dsum: 0.0 }
+        Self { fd: FluxDerivative::default(), err: None, cur_mat: None, e_cur: 0.0, pending: None, sum: 0.0, dsum: 0.0, t_dep: false }
     }
 
     fn flush(&mut self, spec: &DerivativeSpec) {
@@ -136,7 +162,16 @@ impl Accum {
                 };
                 if sigma_x > 0.0 { sigma_i / sigma_x } else { 0.0 }
             }
-            DerivativeVariable::Temperature => return Err("temperature derivatives are not supported".into()),
+            DerivativeVariable::Temperature => {
+                let (ds, da, df) = dxs_dt(material, nuclides, e);
+                let d_x = match spec.score {
+                    ScoreType::Total => ds + da,
+                    ScoreType::Absorption => da,
+                    ScoreType::Fission => df,
+                    _ => ds,
+                };
+                if sigma_x > 0.0 { d_x / sigma_x } else { 0.0 }
+            }
         };
         Ok((d * sigma_x, explicit))
     }
@@ -154,7 +189,14 @@ impl Accum {
             TraceEvent::Segment { d_collision, d_boundary, .. } => {
                 let d = d_collision.min(d_boundary);
                 if let (Some(m), true) = (self.cur_mat, d.is_finite() && d > 0.0) {
-                    if let Err(e) = spec.derivative.accumulate_along_track(&mut self.fd, m, &materials[m], nuclides, d, self.e_cur) {
+                    if matches!(spec.derivative.variable, DerivativeVariable::Temperature) {
+                        // Track term: -d * dSigma_t/dT of the perturbed material.
+                        if m == spec.derivative.material_idx {
+                            let (ds, da, _) = dxs_dt(&materials[m], nuclides, self.e_cur);
+                            self.t_dep |= ds != 0.0 || da != 0.0;
+                            self.fd.value -= d * (ds + da);
+                        }
+                    } else if let Err(e) = spec.derivative.accumulate_along_track(&mut self.fd, m, &materials[m], nuclides, d, self.e_cur) {
                         self.err.get_or_insert(e);
                     }
                     match Self::segment_score(spec, &materials[m], nuclides, self.e_cur, d) {
@@ -173,7 +215,18 @@ impl Accum {
                 }
             }
             TraceEvent::Collision { material, nuclide, e, .. } => {
-                if let Err(er) = spec.derivative.accumulate_at_collision(&mut self.fd, material, &materials[material], nuclides, nuclide, e) {
+                if matches!(spec.derivative.variable, DerivativeVariable::Temperature) {
+                    // Collision term (OpenMC `score_collision_derivative`):
+                    // (dSigma_s/dT) / Sigma_s of the whole material.
+                    if material == spec.derivative.material_idx {
+                        let (ds, _, _) = dxs_dt(&materials[material], nuclides, e);
+                        let x = materials[material].macro_xs(e, nuclides);
+                        let sig_s = (x.total - x.absorption).max(0.0);
+                        if sig_s > 0.0 {
+                            self.fd.value += ds / sig_s;
+                        }
+                    }
+                } else if let Err(er) = spec.derivative.accumulate_at_collision(&mut self.fd, material, &materials[material], nuclides, nuclide, e) {
                     self.err.get_or_insert(er);
                 }
                 self.flush(spec);
@@ -189,11 +242,17 @@ impl Accum {
 }
 
 fn check(spec: &DerivativeSpec) -> Result<(), String> {
-    if matches!(spec.derivative.variable, DerivativeVariable::Temperature) {
-        return Err("a temperature derivative needs d(Sigma)/dT, which this port does not have".into());
-    }
     if !matches!(spec.score, ScoreType::Flux | ScoreType::Total | ScoreType::Absorption | ScoreType::Fission | ScoreType::NuFission | ScoreType::Scatter) {
         return Err(format!("a derivative of {:?} is not supported here", spec.score));
+    }
+    Ok(())
+}
+
+/// A temperature derivative on cross sections that never moved with the
+/// temperature argument is exactly zero, not a result (the pointwise tier).
+fn temperature_dependence_check(spec: &DerivativeSpec, t_dep: bool) -> Result<(), String> {
+    if matches!(spec.derivative.variable, DerivativeVariable::Temperature) && !t_dep {
+        return Err("the cross sections of this material do not depend on the temperature argument (pointwise tier, or outside the windowed-multipole range): a temperature derivative is exactly zero there, not a physical result. Use the WMP (Core) tier.".into());
     }
     Ok(())
 }
@@ -232,6 +291,7 @@ pub fn run_fixed_source_derivative(
     let mut seed = settings.seed;
     let (mut score_b, mut d_b) = (Vec::with_capacity(n_batches), Vec::with_capacity(n_batches));
     let mut dummy: Vec<f64> = Vec::new();
+    let mut t_dep = false;
     for b in 0..n_batches {
         let this_batch = base + usize::from(b < rem);
         let (mut sum, mut dsum) = (0.0, 0.0);
@@ -256,6 +316,7 @@ pub fn run_fixed_source_derivative(
             if let Some(e) = acc.err {
                 return Err(e);
             }
+            t_dep |= acc.t_dep;
             sum += acc.sum;
             dsum += acc.dsum;
             seed = hseed;
@@ -264,6 +325,7 @@ pub fn run_fixed_source_derivative(
         score_b.push(sum / w);
         d_b.push(dsum / w);
     }
+    temperature_dependence_check(spec, t_dep)?;
     Ok(finish(&score_b, &d_b))
 }
 
@@ -288,6 +350,7 @@ pub fn run_keff_derivative(
     let (mut score_b, mut d_b) = (Vec::new(), Vec::new());
     let mut gen = 0usize;
     let n_per = settings.n_particles.max(1) as f64;
+    let mut t_dep = false;
     loop {
         let mut acc = Accum::new();
         let mut first = true;
@@ -305,6 +368,7 @@ pub fn run_keff_derivative(
         if let Some(e) = acc.err {
             return Err(e);
         }
+        t_dep |= acc.t_dep;
         if gen >= settings.n_inactive {
             score_b.push(acc.sum / n_per);
             d_b.push(acc.dsum / n_per);
@@ -314,5 +378,6 @@ pub fn run_keff_derivative(
     if score_b.is_empty() {
         return Err("no active generation ran".into());
     }
+    temperature_dependence_check(spec, t_dep)?;
     Ok(finish(&score_b, &d_b))
 }

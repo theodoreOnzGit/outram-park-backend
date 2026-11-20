@@ -24,6 +24,12 @@
 //! | fixed source, H-1 reflective sphere, 20 x 1000 histories, seed 11 | 1.0125 +- 0.0063 | -1.26 +- 1.63 |
 //! | k-eigenvalue, HEU reflective sphere, 2000 x (10 + 20), seed 5 | 1.0004 +- 0.0054 | +0.114 +- 0.358 |
 //! | same, NU-FISSION rate per source particle | 2.2074 +- 0.0111 | +0.258 +- 0.730 |
+//! | fixed source, H-1 (WMP `Core` tier), 20 x 5000, seed 13, TEMPERATURE derivative | 0.9996 +- 0.0040 | +0.00000 +- 0.00003 per K |
+//!
+//! The temperature row's discriminating power: the flux itself moves, d flux/dT =
+//! 0.0070 +- 0.0017 per K on a flux of 74.70, so a missing explicit
+//! `dSigma_a/dT / Sigma_a` term would leave an absorption-rate derivative of about
+//! `(d flux/dT)/flux = 9.4e-5`, three standard errors from the measured value.
 //!
 //! Both derivatives are zero within one standard error. The scale that matters:
 //! with the explicit `1/rho` term dropped the fixed-source value would be about
@@ -168,4 +174,38 @@ fn the_nu_fission_rate_derivative_is_zero_in_an_infinite_keff_medium() {
     );
     assert!(r.flux > 1.0 && r.flux < 4.0, "nu-fission rate per source particle {}", r.flux);
     assert!(r.d_flux.abs() < 4.0 * r.d_flux_std + 1e-9, "d/d rho {} +- {}", r.d_flux, r.d_flux_std);
+}
+
+/// Temperature derivative (gh:#263): in the infinite hydrogen medium the
+/// absorption rate per source particle is 1 whatever the cross sections do, so its
+/// TEMPERATURE derivative is zero too, while the flux derivative is not. That
+/// tests the temperature track term, the collision term and the explicit term
+/// `dSigma_a/dT / Sigma_a` together on the windowed-multipole tier (`Core`).
+#[test]
+fn the_absorption_rate_temperature_derivative_is_zero_in_an_infinite_medium() {
+    let nuclides = vec![Nuclide::from_core("H1").unwrap()];
+    let mats = vec![Material {
+        id: 1,
+        name: "H".into(),
+        temperature: 293.6,
+        components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 6.6e-2 }],
+    }];
+    let geom = reflective_sphere(30.0);
+    let src = FixedSource::Point { r: Position::ZERO, energy_ev: 2.0e6 };
+    let settings = FixedSourceSettings { n_particles: 100000, n_batches: 20, seed: 13, ..Default::default() };
+    let var = DerivativeVariable::Temperature;
+    let abs = DerivativeSpec {
+        derivative: TallyDerivative { material_idx: 0, variable: var },
+        score: ScoreType::Absorption,
+        score_material: 0,
+    };
+    let a = run_fixed_source_derivative(&geom, &mats, &nuclides, &src, &settings, &abs).unwrap();
+    let flux = DerivativeSpec { score: ScoreType::Flux, ..abs.clone() };
+    let f = run_fixed_source_derivative(&geom, &mats, &nuclides, &src, &settings, &flux).unwrap();
+    println!(
+        "T derivative, H-1: absorption rate {:.4} +- {:.4}, d/dT = {:.5} +- {:.5} (expected 0); flux {:.3}, d flux/dT = {:.4} +- {:.4}",
+        a.flux, a.flux_std, a.d_flux, a.d_flux_std, f.flux, f.d_flux, f.d_flux_std
+    );
+    assert!((a.flux - 1.0).abs() < 4.0 * a.flux_std + 0.02);
+    assert!(a.d_flux.abs() < 4.0 * a.d_flux_std + 1e-12, "d abs/dT = {} +- {}", a.d_flux, a.d_flux_std);
 }
