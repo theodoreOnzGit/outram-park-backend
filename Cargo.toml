@@ -134,6 +134,12 @@ members = [
     # slides made visible in the workspace; no code, no deps. Boundary with
     # SEMBAWANG's severe-accident scope is an open maintainer decision.
     "crates/bishan",
+    # punggol — PUNGGOL (Particle transport, UNcertainty, Geometry, Gamma
+    # transport, Optimization Library): radiation transport beyond neutrons.
+    # Created 2026-11-20 (gh:#1391, #976, maintainer direction): decay-photon
+    # source spectra only, no transport; the EGSnrc port is scaffolded as
+    # placeholders. Depends on outram-mc-libs, never the reverse.
+    "crates/punggol",
     # bugis — BUGIS (Branding, User-interface and Graphics for Interactive
     # Simulators): the shared Gruvbox Dark/Light egui theme every simulator
     # uses (maintainer, 2026-11-02). egui only, never eframe.
@@ -636,6 +642,7 @@ petir                        = { path = "crates/petir",                        v
 # `outram-foam-basic-lib` above for why the root must leave it off).
 changi                       = { path = "crates/changi",                       version = "0.0.3", default-features = false }
 bishan                       = { path = "crates/bishan",                       version = "0.0.3" }
+punggol                      = { path = "crates/punggol",                      version = "0.0.1", default-features = false }
 bugis                        = { path = "crates/bugis",                        version = "0.0.1" }
 buangkok                     = { path = "crates/buangkok",                     version = "0.0.2", default-features = false }
 sembawang                    = { path = "crates/sembawang",                    version = "0.0.2", default-features = false }

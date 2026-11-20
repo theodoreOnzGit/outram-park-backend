@@ -840,6 +840,15 @@ prescribed with a reference, or depletion with code and run).
   `BurnupStep`'s densities into atoms (`N * 1e24 * V`) and activities
   (`lambda * N`, `lambda` from the same chain). Every chain nuclide is kept,
   stable ones at zero activity; a negative density is refused, not clipped.
+- **Waste rating from an inventory (2026-11-20, gh:#1391):** `waste` ports
+  OpenMC's `openmc/waste.py` (Fetter and 10 CFR 61.55 tables, classification
+  rules) and takes this inventory type through `WasteInventory::from_inventory`.
+  Bit-identical to OpenMC on 90 classifications and 1020 ratios
+  (`tests/waste_vs_openmc_1391.rs`, `verification_and_validation/waste_1391/`).
+  Half-lives are a caller-supplied `HalfLifeTable`, not embedded. The decay-photon
+  spectra of the same issue are **not here**: they are `punggol`'s (photons are
+  not this crate's), which reads the chain through this crate's re-export
+  `depletion::DepletionChainXml`.
 - **Dependency direction:** `sembawang -> outram-mc-libs`. **This crate must
   never depend on `sembawang`.**
 - `sembawang` reads it in TRISO-ATOPS terms (`sembawang::inventory`), and

@@ -156,7 +156,9 @@ fn the_spelling_rule_accepts_marked_letters_only() {
 /// project). ~~Seventeen crates carry one (2026-10-13; sembawang alone
 /// before).~~ **CORRECTED 2026-11-03:** eighteen, with `bugis` (backronym
 /// set by the maintainer 2026-11-02, "Browser-based User Graphics
-/// Interaction System").
+/// Interaction System"). ~~Eighteen~~ **CORRECTED 2026-11-20:** nineteen, with
+/// `punggol` (backronym set by the maintainer 2026-10-20, crate created
+/// 2026-11-20, gh:#1391).
 #[test]
 fn every_backronym_spells_its_crate_name() {
     let map = workspace();
@@ -177,6 +179,7 @@ fn every_backronym_spells_its_crate_name() {
     assert_eq!(with, [
         "bedok", "bishan", "boon-lay", "buangkok", "bugis", "changi",
         "deck-based-open-source-visualisation-engine-for-reactors-dover", "dhoby-ghaut", "farrer-park", "kaki-bukit",
-        "nee_soon", "pasir-ris", "petir", "raffles", "redhill", "sembawang", "tampines", "tuas_boussinesq_solver",
+        "nee_soon", "pasir-ris", "petir", "punggol", "raffles", "redhill", "sembawang", "tampines",
+        "tuas_boussinesq_solver",
     ]);
 }
