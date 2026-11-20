@@ -41,6 +41,9 @@
 //! secondary, which the kernel starts as a new particle, does not inherit its
 //! parent's accumulated derivative (a fixed-source fission secondary does).
 
+#[cfg(not(any(feature = "std", test)))]
+#[allow(unused_imports)]
+use crate::nostd_prelude::*;
 use crate::geometry::geometry::Geometry;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
