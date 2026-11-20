@@ -189,9 +189,13 @@ pub struct FixedSourceSettings {
     /// CUMULATIVE number transported per source particle.~~ That earlier meaning
     /// is kept as an option: [`Self::cumulative_secondary_cap`].
     pub max_secondaries: usize,
-    /// `true` restores the pre-2026-11-20 meaning of
-    /// [`Self::max_secondaries`]: a cap on the total secondaries transported per
-    /// source particle. `false` (default) caps the live bank, as upstream.
+    /// `true` (default) ALSO keeps the pre-2026-11-20 meaning of
+    /// [`Self::max_secondaries`] as a runaway backstop: at most that many
+    /// secondaries are transported per source particle in total. `false` is pure
+    /// upstream (live-bank cap only), which does not bound a near-critical or
+    /// supercritical chain: measured 2026-11-20, a Godiva-sized HEU sphere run as
+    /// a fixed source with only the live cap did not finish in 50 minutes
+    /// (`tests/tally_batch_log_506.rs`), where the cumulative cap ends it.
     pub cumulative_secondary_cap: bool,
     /// Normalise each batch per source particle before it is flushed (gh:#675,
     /// OpenMC `Tally::accumulate`). **`true` is the default since 2026-11-20**
@@ -236,7 +240,7 @@ impl Default for FixedSourceSettings {
             temperature_k: 293.6,
             seed: 1,
             max_secondaries: 10_000,
-            cumulative_secondary_cap: false,
+            cumulative_secondary_cap: true,
             normalise_tallies: true,
             seeding: Default::default(),
             tally_batch_log: None,
@@ -466,11 +470,8 @@ pub fn run_fixed_source_traced(
                 is_source_particle = false;
                 production_sum += prod.production;
                 for s in next {
-                    let room = if settings.cumulative_secondary_cap {
-                        secondaries < settings.max_secondaries
-                    } else {
-                        bank.len() < settings.max_secondaries
-                    };
+                    let room = bank.len() < settings.max_secondaries
+                        && (!settings.cumulative_secondary_cap || secondaries < settings.max_secondaries);
                     if room {
                         bank.push(s);
                         secondaries += 1;

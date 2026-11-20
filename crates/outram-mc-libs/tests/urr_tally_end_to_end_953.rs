@@ -257,7 +257,8 @@ fn fixed_source_batches(nuclides: &[Nuclide], n_batches: usize, per_batch: usize
             }
             let n = per_batch as f64;
             Batch {
-                track_length: tally.bins[0].sum / n,
+                // gh:#675: one batch, normalised per source particle by default.
+                track_length: tally.bins[0].sum,
                 analog: inw as f64 / n,
                 analog_all: all as f64 / n,
             }

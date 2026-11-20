@@ -798,7 +798,9 @@ fn real_stats(
             let n = b.count as f64;
             let mean = b.sum / n;
             let var = ((b.sum_sq - n * mean * mean) / (n - 1.0)).max(0.0);
-            (mean / per as f64, (var / n).sqrt() / per as f64)
+            // gh:#675: batches are already per source particle (the default), so no
+            // second division by `per`.
+            (mean, (var / n).sqrt())
         })
         .collect()
 }
