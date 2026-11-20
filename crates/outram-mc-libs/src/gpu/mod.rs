@@ -208,6 +208,11 @@ mod context {
     /// `Send + Sync` and are meant to be shared, so tests (and any caller that
     /// does not need a private device) take this one instead. A caller that
     /// wants its own device still calls [`probe`].
+    ///
+    /// Not built for `wasm32`: there `wgpu`'s WebGPU device holds `Rc`, so the
+    /// context is neither `Send` nor `Sync` and cannot sit in a `static`
+    /// (the `scripts/check-wasm.sh` gate failed on it; its callers are tests).
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn shared_probe() -> Option<Arc<GpuContext>> {
         static SHARED: std::sync::OnceLock<Option<Arc<GpuContext>>> = std::sync::OnceLock::new();
         SHARED.get_or_init(|| probe().map(Arc::new)).clone()
@@ -243,7 +248,9 @@ mod context {
 }
 
 #[cfg(all(feature = "std", not(target_os = "android")))]
-pub use context::{block_on, probe, shared_probe, GpuContext};
+pub use context::{block_on, probe, GpuContext};
+#[cfg(not(target_arch = "wasm32"))]
+pub use context::shared_probe;
 
 // ---------------------------------------------------------------------------
 // Android path: CPU-only shim so call sites compile unchanged (no wgpu there).
