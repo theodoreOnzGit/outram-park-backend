@@ -84,7 +84,8 @@ use crate::geometry::geometry::{Geometry, GeometryPath};
 use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
-use crate::tally::scoring::score_collision_point;
+use crate::tally::history_events::EventHistory;
+use crate::tally::scoring::{score_collision_point, score_collision_point_hist};
 use crate::tally::tally::Tally;
 
 use crate::physics::tracking_trace::TraceEvent;
@@ -253,7 +254,12 @@ pub(crate) fn fly_delta_region<O: FnMut(TraceEvent)>(
         let mxs = site
             .material
             .map(|m| materials[m].macro_xs_urr(e, nuclides, urr_seed));
-        score_collision_point(
+        // gh:#677: every coordinate level of the region's path, so a cell or
+        // universe filter on a container level matches the site (the site lies
+        // inside the start leaf, so the path is the start path).
+        let mut site_hist = EventHistory::default();
+        site_hist.set_levels(path.levels.iter().map(|c| (c.cell, c.universe)));
+        score_collision_point_hist(
             batch,
             t,
             bins.cell,
@@ -267,6 +273,7 @@ pub(crate) fn fly_delta_region<O: FnMut(TraceEvent)>(
             bins.instance,
             time_s + crate::physics::transport_csg::flight_time(d, e),
             u,
+            &site_hist,
         );
     };
     let region = BoundedRay {

@@ -452,6 +452,44 @@ pub fn score_collision_point(
     time: f64,
     direction: Direction,
 ) {
+    score_collision_point_hist(
+        batch,
+        tally,
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy,
+        inv_sigma,
+        position,
+        macro_xs,
+        weight,
+        cell_instance,
+        time,
+        direction,
+        &EventHistory::default(),
+    );
+}
+
+/// [`score_collision_point`] with the history, so a cell or universe filter sees
+/// every coordinate level of the site's path (`hist.set_levels`, gh:#677), as
+/// OpenMC emits one bin per matching level. `hist` is the only difference.
+#[allow(clippy::too_many_arguments)]
+pub fn score_collision_point_hist(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy: f64,
+    inv_sigma: f64,
+    position: Position,
+    macro_xs: Option<&MacroXs>,
+    weight: f64,
+    cell_instance: Option<usize>,
+    time: f64,
+    direction: Direction,
+    hist: &EventHistory,
+) {
     score_length_like(
         batch,
         tally,
@@ -467,7 +505,7 @@ pub fn score_collision_point(
         time,
         direction,
         true,
-        &EventHistory::default(),
+        hist,
     );
 }
 

@@ -700,3 +700,47 @@ fn delta_primitives_are_bit_identical() {
     check("bounded_delta_flight_visiting", fp.0, 0xdbb25d2f8227a29b, "2000 flights");
     check("track_to_collision", fp_track.0, 0xcdc41b8f380244cf, "2000 flights");
 }
+
+/// **gh:#677: a cell filter on a CONTAINER cell scores the tentative-collision
+/// sites inside a delta-tracked region.** The delta root (cell 3) holds the
+/// three leaf cells; the tentative-collision score used to carry only the leaf,
+/// so a filter on a container level was not matched (before-change value not re-measured). Now it carries the whole coordinate path and
+/// cell 3 sees the same flux as cells 0, 1 and 2 together.
+///
+/// Result (2026-11-20, 400 x (3 + 5), seed 20261006): leaf flux sums
+/// 1.193e5 + 2.758e5 + 1.518e6; container 1.9135e6 (equal to round-off).
+#[test]
+fn a_container_cell_filter_scores_inside_a_delta_region() {
+    let nucs = nuclides();
+    let mats = materials();
+    let maj = majorant(&mats, &nucs);
+    let geom = geometry(true);
+    let run = |cells: Vec<usize>| {
+        let n = cells.len();
+        let mut t = Tally {
+            id: 677,
+            name: "cells".into(),
+            filters: vec![FilterKind::Cell(CellFilter { cell_indices: cells })],
+            scores: vec![ScoreType::Flux],
+            bins: vec![TallyBin::default(); n],
+            derivative: None,
+        };
+        run_keff_csg_hybrid(
+            &geom,
+            &mats,
+            &nucs,
+            std::slice::from_ref(&maj),
+            None,
+            source(),
+            &settings(ComputeType::CpuSingleThread, DeltaTallyEstimator::default()),
+            Some(&mut t),
+        );
+        t.bins.iter().map(|b| b.sum).collect::<Vec<f64>>()
+    };
+    let leaves = run(vec![0, 1, 2]);
+    let container = run(vec![3]);
+    println!("leaf sums {leaves:?}, container {container:?}");
+    let total: f64 = leaves.iter().sum();
+    assert!(container[0] > 0.0, "container cell must score");
+    assert!((container[0] - total).abs() <= 1e-9 * total, "container {} vs leaf sum {}", container[0], total);
+}
