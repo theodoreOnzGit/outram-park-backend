@@ -27,6 +27,7 @@
 //! | `SUBROUTINE BREMS` (`egsnrc.mortran:312-525`), Bethe-Heitler path | [`brems`] |
 //! | `SUBROUTINE PHOTON` (`egsnrc.mortran:6438-6640`), without Rayleigh or photonuclear | [`photon`] |
 //! | `SUBROUTINE SHOWER` (`egsnrc.mortran:6645-6718`) | [`shower`] |
+//! | `SUBROUTINE mscat`, `spin_rejection`, `sscat` (`egsnrc.mortran:2983-3263`) and the table reader of `init_ms_SR` (`:3266-3306`) | [`mscat`], [`spin_rejection`], [`sscat`], [`MsData::from_text`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -2253,6 +2254,440 @@ pub fn shower<R: UniformSource, G: Geometry, E: ElectronTransport>(
     Ok(out)
 }
 
+/// `$MAXL_MS` (`egsnrc.macros:851`).
+pub const MAXL_MS: usize = 63;
+/// `$MAXQ_MS`.
+pub const MAXQ_MS: usize = 7;
+/// `$MAXU_MS`.
+pub const MAXU_MS: usize = 31;
+/// `$LAMBMIN_MS`.
+pub const LAMBMIN_MS: f64 = 1.0;
+/// `$LAMBMAX_MS`.
+pub const LAMBMAX_MS: f64 = 1e5;
+/// `$QMIN_MS`.
+pub const QMIN_MS: f64 = 1e-3;
+/// `$QMAX_MS`.
+pub const QMAX_MS: f64 = 0.5;
+
+/// `COMMON/MS-DATA/` (`egsnrc.macros:861-871`): the pre-calculated screened
+/// Rutherford multiple-scattering `q^(2+)` surface. **Stored in single
+/// precision, as upstream** (`real*4`, `ims_array` a short integer): reading,
+/// the `fms`/`ims` fix-ups and the scalar constants round to `f32` exactly where
+/// `init_ms_SR` stores them, and `mscat` widens them on use.
+#[derive(Debug, Clone)]
+pub struct MsData {
+    ums: Vec<f32>,
+    fms: Vec<f32>,
+    wms: Vec<f32>,
+    ims: Vec<i16>,
+    /// `dllambi` (`real*4`).
+    pub dllambi: f32,
+    /// `dqmsi` (`real*4`).
+    pub dqmsi: f32,
+}
+
+const MS_N: usize = (MAXL_MS + 1) * (MAXQ_MS + 1) * (MAXU_MS + 1);
+
+fn ms_idx(i: usize, j: usize, k: usize) -> usize {
+    (i * (MAXQ_MS + 1) + j) * (MAXU_MS + 1) + k
+}
+
+impl MsData {
+    /// The reader of `init_ms_SR` (`egsnrc.mortran:3266-3306`) on an
+    /// in-memory copy of the data file (list-directed text: for every
+    /// `(i, j)`, records of `MAXU_MS + 1` `u` values, `MAXU_MS + 1` `f`
+    /// values, `MAXU_MS` `w` values and `MAXU_MS` `i` values; a record's
+    /// surplus values are ignored as a Fortran `read` ignores them). Reading
+    /// the file from disk is the caller's. EGSnrc's file is not vendored here.
+    ///
+    /// # Errors
+    ///
+    /// A message when the text is short or a value does not parse.
+    pub fn from_text(text: &str) -> Result<Self, String> {
+        let mut lines = text.lines();
+        fn record(lines: &mut core::str::Lines<'_>, n: usize) -> Result<Vec<f64>, String> {
+            let mut out: Vec<f64> = Vec::with_capacity(n);
+            while out.len() < n {
+                let line = lines.next().ok_or_else(|| String::from("MS data ends early"))?;
+                for tok in line.split(|c: char| c.is_whitespace() || c == ',').filter(|t| !t.is_empty()) {
+                    if out.len() == n {
+                        break;
+                    }
+                    let t = tok.replace(['D', 'd'], "e");
+                    out.push(t.parse::<f64>().map_err(|_| alloc::format!("bad MS value '{tok}'"))?);
+                }
+            }
+            Ok(out)
+        }
+        let mut ums = alloc::vec![0.0_f32; MS_N];
+        let mut fms = alloc::vec![0.0_f32; MS_N];
+        let mut wms = alloc::vec![0.0_f32; MS_N];
+        let mut ims = alloc::vec![0_i16; MS_N];
+        for i in 0..=MAXL_MS {
+            for j in 0..=MAXQ_MS {
+                let u = record(&mut lines, MAXU_MS + 1)?;
+                let f = record(&mut lines, MAXU_MS + 1)?;
+                let w = record(&mut lines, MAXU_MS)?;
+                let ii = record(&mut lines, MAXU_MS)?;
+                for k in 0..=MAXU_MS {
+                    ums[ms_idx(i, j, k)] = u[k] as f32;
+                    fms[ms_idx(i, j, k)] = f[k] as f32;
+                }
+                for k in 0..MAXU_MS {
+                    wms[ms_idx(i, j, k)] = w[k] as f32;
+                    ims[ms_idx(i, j, k)] = ii[k] as i16;
+                }
+                for k in 0..MAXU_MS {
+                    // fms(k) = fms(k+1)/fms(k) - 1 in double, stored real*4
+                    let a = fms[ms_idx(i, j, k)] as f64;
+                    let b = fms[ms_idx(i, j, k + 1)] as f64;
+                    fms[ms_idx(i, j, k)] = (b / a - 1.0) as f32;
+                    ims[ms_idx(i, j, k)] -= 1;
+                }
+                fms[ms_idx(i, j, MAXU_MS)] = fms[ms_idx(i, j, MAXU_MS - 1)];
+            }
+        }
+        let llammin = RealMath::r_ln(LAMBMIN_MS) as f32 as f64;
+        let llammax = RealMath::r_ln(LAMBMAX_MS) as f32 as f64;
+        let dllamb = ((llammax - llammin) / MAXL_MS as f64) as f32 as f64;
+        let dllambi = (1.0 / dllamb) as f32;
+        let dqms = (QMAX_MS / MAXQ_MS as f64) as f32 as f64;
+        let dqmsi = (1.0 / dqms) as f32;
+        Ok(Self { ums, fms, wms, ims, dllambi, dqmsi })
+    }
+}
+
+/// `$MAXE_SPIN`, `$MAXQ_SPIN`, `$MAXU_SPIN` (`egsnrc.macros:877-880`).
+pub const MAXE_SPIN: usize = 15;
+/// See [`MAXE_SPIN`].
+pub const MAXQ_SPIN: usize = 15;
+/// See [`MAXE_SPIN`].
+pub const MAXU_SPIN: usize = 31;
+/// `$MAXE_SPI1 = 2 * $MAXE_SPIN + 1`.
+pub const MAXE_SPI1: usize = 2 * MAXE_SPIN + 1;
+
+/// `COMMON/SPIN-DATA/` (`egsnrc.macros:884-896`): the spin (Mott)
+/// correction tables, `real*4` upstream and stored as `f32` here.
+/// `spin_rej` is indexed `[medium][qel][i][j][k]`, flattened; the data is
+/// built by `init_spin` (not ported), so the fields are public.
+#[derive(Debug, Clone, Default)]
+pub struct SpinData {
+    /// `spin_rej`, `(nmed, 2, MAXE_SPI1 + 1, MAXQ_SPIN + 1, MAXU_SPIN + 1)`
+    /// with `medium` 1-based mapped to `medium - 1`.
+    pub spin_rej: Vec<f32>,
+    /// `espml`.
+    pub espml: f32,
+    /// `b2spin_min`.
+    pub b2spin_min: f32,
+    /// `dbeta2i`.
+    pub dbeta2i: f32,
+    /// `dleneri`.
+    pub dleneri: f32,
+    /// `dqq1i`.
+    pub dqq1i: f32,
+}
+
+fn spin_idx(medium: usize, qel: usize, i: usize, j: usize, k: usize) -> usize {
+    ((((medium - 1) * 2 + qel) * (MAXE_SPI1 + 1) + i) * (MAXQ_SPIN + 1) + j) * (MAXU_SPIN + 1) + k
+}
+
+/// The variables `spin_rejection` keeps between calls (`save i, j`).
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct SpinState {
+    /// Energy index `i`.
+    pub i: usize,
+    /// `q1` index `j`.
+    pub j: usize,
+}
+
+/// `spin_rejection` (`egsnrc.mortran:3163-3221`): the rejection function from
+/// spin effects for charge `qel` (0 for e-, 1 for e+), `elke = ln(E)`, speed
+/// `beta2`, first MS moment `q1` and `cost`. With `spin_index` set the energy
+/// and `q1` bins are re-chosen (stochastically) and stored in `state`.
+pub fn spin_rejection<R: UniformSource>(
+    spin: &SpinData,
+    qel: usize,
+    medium: usize,
+    elke: f64,
+    beta2: f64,
+    q1: f64,
+    cost: f64,
+    spin_index: &mut bool,
+    is_single: bool,
+    state: &mut SpinState,
+    rng: &mut R,
+) -> f64 {
+    if *spin_index {
+        *spin_index = false;
+        let mut ai;
+        let mut i;
+        if beta2 >= spin.b2spin_min as f64 {
+            ai = (beta2 - spin.b2spin_min as f64) * spin.dbeta2i as f64;
+            i = ai as usize;
+            ai -= i as f64;
+            i += MAXE_SPIN + 1;
+        } else if elke > spin.espml as f64 {
+            ai = (elke - spin.espml as f64) * spin.dleneri as f64;
+            i = ai as usize;
+            ai -= i as f64;
+        } else {
+            i = 0;
+            ai = -1.0;
+        }
+        let rnno = rng.uniform();
+        if rnno < ai {
+            i += 1;
+        }
+        let j;
+        if is_single {
+            j = 0;
+        } else {
+            let mut qq1 = 2.0 * q1;
+            qq1 /= 1.0 + qq1;
+            let aj = qq1 * spin.dqq1i as f64;
+            let mut jj = aj as usize;
+            if jj >= MAXQ_SPIN {
+                jj = MAXQ_SPIN;
+            } else {
+                let aj = aj - jj as f64;
+                let rnno = rng.uniform();
+                if rnno < aj {
+                    jj += 1;
+                }
+            }
+            j = jj;
+        }
+        state.i = i;
+        state.j = j;
+    }
+    let xi = Real::sqrt(0.5 * (1.0 - cost));
+    let mut ak = xi * MAXU_SPIN as f64;
+    let k = ak as usize;
+    ak -= k as f64;
+    let (i, j) = (state.i, state.j);
+    (1.0 - ak) * spin.spin_rej[spin_idx(medium, qel, i, j, k)] as f64
+        + ak * spin.spin_rej[spin_idx(medium, qel, i, j, k + 1)] as f64
+}
+
+/// `sscat` (`egsnrc.mortran:3225-3260`): single elastic scattering,
+/// returning `(cost, sint)`.
+pub fn sscat<R: UniformSource>(
+    spin: &SpinData,
+    chia2: f64,
+    elke: f64,
+    beta2: f64,
+    qel: usize,
+    medium: usize,
+    spin_effects: bool,
+    state: &mut SpinState,
+    rng: &mut R,
+) -> (f64, f64) {
+    let mut spin_index = true;
+    loop {
+        let mut xi = rng.uniform();
+        xi = 2.0 * chia2 * xi / (1.0 - xi + chia2);
+        let cost = 1.0 - xi;
+        if spin_effects {
+            let qzero = 0.0;
+            let rejf = spin_rejection(spin, qel, medium, elke, beta2, qzero, cost, &mut spin_index, true, state, rng);
+            let rnno = rng.uniform();
+            if rnno > rejf {
+                continue;
+            }
+        }
+        return (cost, Real::sqrt(xi * (2.0 - xi)));
+    }
+}
+
+/// What `mscat` keeps between calls (`save i, j, omega2`), so a re-iteration
+/// with `find_index = false` reuses them.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct MscatState {
+    /// Lambda bin.
+    pub i: usize,
+    /// `q1` bin.
+    pub j: usize,
+    /// `omega2`.
+    pub omega2: f64,
+}
+
+/// `mscat` (`egsnrc.mortran:2983-3153`): multiple elastic scattering angle
+/// `(cost, sint)` from the exact screened-Rutherford distribution (with the
+/// Mott correction if `spin_effects`). `lambda` is the number of elastic MFPs
+/// in the step, `chia2` the screening angle squared.
+///
+/// # Errors
+///
+/// [`EgsError::Fatal`] when `lambda > LAMBMAX_MS` (upstream stops: "Maximum
+/// step size in mscat exceeded").
+#[allow(clippy::too_many_arguments)]
+pub fn mscat<R: UniformSource>(
+    ms: &MsData,
+    spin: &SpinData,
+    lambda: f64,
+    chia2: f64,
+    q1: f64,
+    elke: f64,
+    beta2: f64,
+    qel: usize,
+    medium: usize,
+    spin_effects: bool,
+    find_index: &mut bool,
+    spin_index: &mut bool,
+    state: &mut MscatState,
+    spin_state: &mut SpinState,
+    rng: &mut R,
+) -> Result<(f64, f64), EgsError> {
+    if lambda <= 13.8 {
+        let sprob = rng.uniform();
+        let explambda = RealMath::r_exp(-lambda);
+        if sprob < explambda {
+            // no scattering
+            return Ok((1.0, 0.0));
+        }
+        let wsum = (1.0 + lambda) * explambda;
+        if sprob < wsum {
+            loop {
+                let mut xi = rng.uniform();
+                xi = 2.0 * chia2 * xi / (1.0 - xi + chia2);
+                let cost = 1.0 - xi;
+                if spin_effects {
+                    let rejf = spin_rejection(
+                        spin, qel, medium, elke, beta2, q1, cost, spin_index, false, spin_state, rng,
+                    );
+                    let rnno = rng.uniform();
+                    if rnno > rejf {
+                        continue;
+                    }
+                }
+                return Ok((cost, Real::sqrt(xi * (2.0 - xi))));
+            }
+        }
+        if lambda <= 1.0 {
+            let mut wprob = explambda;
+            let mut wsum = explambda;
+            let mut cost = 1.0;
+            let mut sint = 0.0;
+            let mut icount = 0;
+            loop {
+                icount += 1;
+                if icount > 20 {
+                    break;
+                }
+                wprob = wprob * lambda / icount as f64;
+                wsum += wprob;
+                let cosz;
+                let mut xi;
+                loop {
+                    xi = rng.uniform();
+                    xi = 2.0 * chia2 * xi / (1.0 - xi + chia2);
+                    let c = 1.0 - xi;
+                    if spin_effects {
+                        let rejf = spin_rejection(
+                            spin, qel, medium, elke, beta2, q1, c, spin_index, false, spin_state, rng,
+                        );
+                        let rnno = rng.uniform();
+                        if rnno > rejf {
+                            continue;
+                        }
+                    }
+                    cosz = c;
+                    break;
+                }
+                let mut sinz = xi * (2.0 - xi);
+                if sinz > 1.0e-20 {
+                    sinz = Real::sqrt(sinz);
+                    xi = rng.uniform();
+                    let phi = xi * 6.2831853;
+                    cost = cost * cosz - sint * sinz * RealMath::r_cos(phi);
+                    sint = Real::sqrt((0.0_f64).max((1.0 - cost) * (1.0 + cost)));
+                }
+                if wsum > sprob {
+                    break;
+                }
+            }
+            return Ok((cost, sint));
+        }
+    }
+
+    // a multiple scattering event: sample from the q^(2+) surface
+    if lambda <= LAMBMAX_MS {
+        if *find_index {
+            let llmbda = RealMath::r_ln(lambda);
+            let mut ai = llmbda * ms.dllambi as f64;
+            let mut i = ai as usize;
+            ai -= i as f64;
+            let xi = rng.uniform();
+            if xi < ai {
+                i += 1;
+            }
+            let j;
+            if q1 < QMIN_MS {
+                j = 0;
+            } else if q1 < QMAX_MS {
+                let mut aj = q1 * ms.dqmsi as f64;
+                let mut jj = aj as usize;
+                aj -= jj as f64;
+                let xi = rng.uniform();
+                if xi < aj {
+                    jj += 1;
+                }
+                j = jj;
+            } else {
+                j = MAXQ_MS;
+            }
+            state.omega2 = if llmbda < 2.2299 {
+                chia2
+                    * (lambda + 4.0)
+                    * (1.347006
+                        + llmbda * (0.209364 - llmbda * (0.45525 - llmbda * (0.50142 - 0.081234 * llmbda))))
+            } else {
+                chia2
+                    * (lambda + 4.0)
+                    * (-2.77164 + llmbda * (2.94874 - llmbda * (0.1535754 - llmbda * 0.00552888)))
+            };
+            state.i = i;
+            state.j = j;
+            *find_index = false;
+        }
+        loop {
+            let xi = rng.uniform();
+            let mut ak = xi * MAXU_MS as f64;
+            let mut k = ak as usize;
+            ak -= k as f64;
+            let (i, j) = (state.i, state.j);
+            if ak > ms.wms[ms_idx(i, j, k)] as f64 {
+                k = ms.ims[ms_idx(i, j, k)] as usize;
+            }
+            let a = ms.fms[ms_idx(i, j, k)] as f64;
+            let mut u = ms.ums[ms_idx(i, j, k)] as f64;
+            let du = ms.ums[ms_idx(i, j, k + 1)] as f64 - u;
+            let xi = rng.uniform();
+            if a.abs() < 0.2 {
+                let x1 = 0.5 * (1.0 - xi) * a;
+                u += xi * du * (1.0 + x1 * (1.0 - xi * a));
+            } else {
+                u -= du / a * (1.0 - Real::sqrt(1.0 + xi * a * (2.0 + a)));
+            }
+            let mut xi = state.omega2 * u / (1.0 + 0.5 * state.omega2 - u);
+            if xi > 1.99999 {
+                xi = 1.99999;
+            }
+            let cost = 1.0 - xi;
+            if spin_effects {
+                let rejf =
+                    spin_rejection(spin, qel, medium, elke, beta2, q1, cost, spin_index, false, spin_state, rng);
+                let rnno = rng.uniform();
+                if rnno > rejf {
+                    continue;
+                }
+            }
+            return Ok((cost, Real::sqrt(xi * (2.0 - xi))));
+        }
+    }
+    Err(EgsError::Fatal("mscat: maximum step size exceeded (lambda > LAMBMAX_MS)"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3236,6 +3671,141 @@ mod tests {
             shower(&mut st, &tables, &cfg, &mut geo, &mut el, &start, &mut rng),
             Err(EgsError::Fatal(_))
         ));
+    }
+
+
+    /// A synthetic MS data file: for every (i, j), `u` rising 0..1, `f` = 1 + k/50,
+    /// `w` = 1 (no alias redirection), `i` = k + 1 (the identity after the fix-up).
+    fn synthetic_ms_text() -> String {
+        let mut t = String::new();
+        for _ in 0..=MAXL_MS {
+            for _ in 0..=MAXQ_MS {
+                let u: Vec<String> = (0..=MAXU_MS).map(|k| alloc::format!("{:.6}", k as f64 / MAXU_MS as f64)).collect();
+                let f: Vec<String> = (0..=MAXU_MS).map(|k| alloc::format!("{:.6}", 1.0 + k as f64 / 50.0)).collect();
+                let w: Vec<String> = (0..MAXU_MS).map(|_| String::from("1.0")).collect();
+                let ii: Vec<String> = (0..MAXU_MS).map(|k| alloc::format!("{}", k + 1)).collect();
+                t.push_str(&u.join(" "));
+                t.push('\n');
+                t.push_str(&f.join(" "));
+                t.push('\n');
+                t.push_str(&w.join(" "));
+                t.push('\n');
+                t.push_str(&ii.join(" "));
+                t.push('\n');
+            }
+        }
+        t
+    }
+
+    fn flat_spin(rej: f32) -> SpinData {
+        SpinData {
+            spin_rej: alloc::vec![rej; 2 * (MAXE_SPI1 + 1) * (MAXQ_SPIN + 1) * (MAXU_SPIN + 1)],
+            espml: -5.0,
+            b2spin_min: 0.5,
+            dbeta2i: 10.0,
+            dleneri: 2.0,
+            dqq1i: 20.0,
+        }
+    }
+
+    #[test]
+    fn ms_reader_parses_fixes_up_and_rejects_bad_input() {
+        let ms = MsData::from_text(&synthetic_ms_text()).unwrap();
+        // fms(k) = fms(k+1)/fms(k) - 1, ims(k) = ims(k) - 1
+        let f0 = 1.0f64;
+        let f1 = 1.0 + 1.0 / 50.0;
+        assert!((ms.fms[ms_idx(0, 0, 0)] as f64 - (f1 / f0 - 1.0)).abs() < 1e-6);
+        assert_eq!(ms.ims[ms_idx(3, 2, 5)], 5);
+        assert_eq!(ms.fms[ms_idx(0, 0, MAXU_MS)], ms.fms[ms_idx(0, 0, MAXU_MS - 1)]);
+        assert!((ms.dllambi as f64 - 63.0 / 1e5f64.ln()).abs() < 1e-5);
+        assert!((ms.dqmsi as f64 - 14.0).abs() < 1e-6);
+        assert!(MsData::from_text("1 2 3\n").is_err());
+        assert!(MsData::from_text(&synthetic_ms_text().replacen("0.000000", "x", 1)).is_err());
+        // list-directed leniency: D exponents and commas
+        let t = synthetic_ms_text().replacen("1.0 1.0", "1.0D0, 1.0", 1);
+        assert!(MsData::from_text(&t).is_ok());
+    }
+
+    #[test]
+    fn scattering_samplers_return_unit_cosines() {
+        let ms = MsData::from_text(&synthetic_ms_text()).unwrap();
+        let spin = flat_spin(1.0);
+        let mut rng = Ranmar::new(61, 62);
+        // single scattering, with and without spin rejection (always accepted here)
+        for &se in &[false, true] {
+            let mut ss = SpinState::default();
+            for _ in 0..50 {
+                let (c, s) = sscat(&spin, 1e-6, 0.0, 0.9, 0, 1, se, &mut ss, &mut rng);
+                assert!((c * c + s * s - 1.0).abs() < 1e-9);
+            }
+        }
+        // lambda regimes: <1 (Poisson series), 1..13.8 (single/multi), large (table)
+        for &lambda in &[0.3, 2.0, 12.0, 50.0, 1000.0] {
+            for &se in &[false, true] {
+                let mut st = MscatState::default();
+                let mut ss = SpinState::default();
+                for _ in 0..50 {
+                    let (mut find, mut sidx) = (true, true);
+                    let (c, s) =
+                        mscat(&ms, &spin, lambda, 1e-5, 0.1, 0.0, 0.9, 0, 1, se, &mut find, &mut sidx, &mut st, &mut ss, &mut rng)
+                            .unwrap();
+                    assert!((c * c + s * s - 1.0).abs() < 1e-6, "lambda {lambda}: {c} {s}");
+                    assert!((-1.0..=1.0).contains(&c));
+                }
+            }
+        }
+        // a re-iteration with find_index = false reuses the stored bins
+        let mut st = MscatState::default();
+        let mut ss = SpinState::default();
+        let (mut find, mut sidx) = (true, true);
+        mscat(&ms, &spin, 100.0, 1e-5, 0.01, 0.0, 0.9, 0, 1, false, &mut find, &mut sidx, &mut st, &mut ss, &mut rng).unwrap();
+        assert!(!find);
+        let keep = st;
+        mscat(&ms, &spin, 100.0, 1e-5, 0.01, 0.0, 0.9, 0, 1, false, &mut find, &mut sidx, &mut st, &mut ss, &mut rng).unwrap();
+        assert_eq!(st, keep);
+        // q1 bins: below QMIN, above QMAX
+        for &q1 in &[1e-4, 0.7] {
+            let (mut f, mut sx) = (true, true);
+            let mut st = MscatState::default();
+            mscat(&ms, &spin, 100.0, 1e-5, q1, 0.0, 0.9, 0, 1, false, &mut f, &mut sx, &mut st, &mut ss, &mut rng).unwrap();
+        }
+        // beyond LAMBMAX_MS is fatal
+        let (mut f, mut sx) = (true, true);
+        let mut st = MscatState::default();
+        assert!(matches!(
+            mscat(&ms, &spin, 2e5, 1e-5, 0.1, 0.0, 0.9, 0, 1, false, &mut f, &mut sx, &mut st, &mut ss, &mut rng),
+            Err(EgsError::Fatal(_))
+        ));
+    }
+
+    #[test]
+    fn spin_rejection_bins_and_interpolates() {
+        let mut spin = flat_spin(0.5);
+        let mut rng = Ranmar::new(1, 2);
+        let mut st = SpinState::default();
+        // all-0.5 table: the rejection function is 0.5 everywhere, in every branch
+        for &(beta2, elke, is_single) in &[(0.9, 0.0, false), (0.3, 1.0, false), (0.3, -10.0, true), (0.99, 0.0, true)] {
+            let mut idx = true;
+            let r = spin_rejection(&spin, 0, 1, elke, beta2, 0.2, 0.3, &mut idx, is_single, &mut st, &mut rng);
+            assert!((r - 0.5).abs() < 1e-6 && !idx);
+            // without re-indexing, the stored bins are reused
+            let keep = st;
+            let r2 = spin_rejection(&spin, 1, 1, elke, beta2, 0.2, -0.5, &mut idx, is_single, &mut st, &mut rng);
+            assert!((r2 - 0.5).abs() < 1e-6 && st == keep);
+        }
+        // large q1 saturates the q bin
+        let mut idx = true;
+        spin_rejection(&spin, 0, 1, 0.0, 0.9, 50.0, 0.0, &mut idx, false, &mut st, &mut rng);
+        assert_eq!(st.j, MAXQ_SPIN);
+        // linear interpolation in k
+        let n = MAXU_SPIN + 1;
+        for k in 0..n {
+            spin.spin_rej[spin_idx(1, 0, st.i, st.j, k)] = k as f32;
+        }
+        let mut idx = false;
+        let cost = 1.0 - 2.0 * (0.5 / MAXU_SPIN as f64).powi(2); // xi*MAXU = 0.5
+        let r = spin_rejection(&spin, 0, 1, 0.0, 0.9, 50.0, cost, &mut idx, false, &mut st, &mut rng);
+        assert!((r - 0.5).abs() < 1e-6, "{r}");
     }
 
     #[test]
