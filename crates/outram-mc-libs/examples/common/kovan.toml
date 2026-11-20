@@ -1234,127 +1234,41 @@ index_out_of_date = true
 path = "example:icsbep_five_route_keff::lct008_model"
 
 [[module."lct008_model.rs".function]]
-id = "fn:0a886f2dc5073baf"
-name = "TEMP_K"
-qual = "TEMP_K"
-item = "const"
-shape = "const"
-lines = [
-    53,
-    56,
-]
-hash = "sha256:f4ce2639d80bbabd67335ac8b0beee08b26ada34cb863813ef0920cb27b0a3fe"
-doc_hash = "sha256:dc73df3f51b03017dcbe526c90409cd319f6e33936f9bb25df7264a85703e817"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:4287f144ecf0390b"
-name = "MATERIALS_XML_CASE1"
-qual = "MATERIALS_XML_CASE1"
-item = "const"
-shape = "const"
-lines = [
-    58,
-    59,
-]
-hash = "sha256:7105fd08d2a6165447bab12644cec1413c9f92cb176e5492d00b06c112def0cd"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:8ca1abe38f8a9d1f"
-name = "GEOMETRY_XML_CASE1"
-qual = "GEOMETRY_XML_CASE1"
-item = "const"
-shape = "const"
-lines = [
-    60,
-    61,
-]
-hash = "sha256:d15793963c1db4c65f9764328eaad2c182847d50c7c612d8fa6e667beba58364"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:bb32e386def1425b"
-name = "MATERIALS_XML_CASE2"
-qual = "MATERIALS_XML_CASE2"
-item = "const"
-shape = "const"
-lines = [
-    62,
-    64,
-]
-hash = "sha256:526d541109d677cd06c8958d4221b9728b16b68fe3ba5929f7eb9c91e0e7ce9f"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:695e7799d4c0c2c5"
-name = "GEOMETRY_XML_CASE2"
-qual = "GEOMETRY_XML_CASE2"
-item = "const"
-shape = "const"
-lines = [
-    65,
-    66,
-]
-hash = "sha256:f5a460eb119e8c6e63918a74a2f5b5eed5a7050e8bcf90a26599e285129b30ff"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:161b84ce18e4eb34"
-name = "MATERIALS_XML_CASE8"
-qual = "MATERIALS_XML_CASE8"
-item = "const"
-shape = "const"
-lines = [
-    67,
-    69,
-]
-hash = "sha256:e256ddbe01c2403b7b60bfd9c69968e72bd3951d1d089b11a2477b592e2b9060"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:f1b50a7b19c3bbdf"
-name = "GEOMETRY_XML_CASE8"
-qual = "GEOMETRY_XML_CASE8"
-item = "const"
-shape = "const"
-lines = [
-    70,
-    71,
-]
-hash = "sha256:1a51a2e39279c6d976ae0283d13f4b1d62cf2e4d208e55dc0b1936d3b09ca81e"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
 id = "fn:6997d4798e32d274"
 name = "ACTIVE_CASE"
 qual = "ACTIVE_CASE"
 item = "static"
 shape = "static"
 lines = [
-    73,
-    83,
+    28,
+    29,
 ]
 hash = "sha256:fa0d5605bf1921f5cfb142ef53b265137df119d1597258913277c9a63f819961"
-doc_hash = "sha256:cbeaac0705c38d561508254429d8b5c58b803fe2ed481188e4c94ded091d7aae"
+doc_hash = "sha256:aeacc1179d95a6f3b47555f055a0193ea21d72b5c0f9e6f69d2a1ad6b9633fca"
 reached_by = ["#0"]
+
+[[module."lct008_model.rs".function]]
+id = "fn:784636de47e467d3"
+name = "active_case"
+qual = "active_case"
+lines = [
+    31,
+    34,
+]
+hash = "sha256:5e9a8f74c84f14d74e32c1a0384d6af8bb7ace4dd5e985c1cd657fd07d473c68"
+doc_hash = "sha256:7482630f0f953219f26956422ebdcb2db642992756f8d99ca7a2c31f68527cfb"
+index_out_of_date = true
 
 [[module."lct008_model.rs".function]]
 id = "fn:2cf2a141da11bd9c"
 name = "materials_xml"
 qual = "materials_xml"
 lines = [
-    85,
-    91,
+    36,
+    39,
 ]
-hash = "sha256:97c8961c81341fd0c913443e46ede0f36ad73774f4ee8e8a9bf4923457a972a7"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+hash = "sha256:8764d9221b040a6ba86d2057e3a8ed2b4c7fb40d096ead3e443abf524f89143b"
+doc_hash = "sha256:aa9d53c494ceeb330e1249f29d5c1abc2f2b28c52a98498acc0a002318e37f48"
 uses = [
     "fn:161b84ce18e4eb34",
     "fn:4287f144ecf0390b",
@@ -1362,17 +1276,18 @@ uses = [
     "fn:bb32e386def1425b",
 ]
 reached_by = ["#0"]
+index_out_of_date = true
 
 [[module."lct008_model.rs".function]]
 id = "fn:bd36fdc574acbf12"
 name = "geometry_xml"
 qual = "geometry_xml"
 lines = [
-    92,
-    98,
+    41,
+    44,
 ]
-hash = "sha256:0a0a7ca4c488a6ac366f12a163e9eae9d4de4f41e04224ad37896bebb7e7d45c"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+hash = "sha256:cf70bf6eea093051827d89357e75ab4a9c84651d6d7e97d2020216eb5c0ee49e"
+doc_hash = "sha256:b2b039de01a6a3164b9dcf059fe66fb7f0804075cb949a85e4869885a953f7a6"
 uses = [
     "fn:695e7799d4c0c2c5",
     "fn:6997d4798e32d274",
@@ -1380,229 +1295,7 @@ uses = [
     "fn:f1b50a7b19c3bbdf",
 ]
 reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:68c0c1e7f39be431"
-name = "PIN_SHELLS"
-qual = "PIN_SHELLS"
-item = "const"
-shape = "const"
-lines = [
-    100,
-    111,
-]
-hash = "sha256:d0dee9a773481ccfeb66058e7892e305024ab9a6e121f9db523563f21843433d"
-doc_hash = "sha256:d1053e231b7720b75ab4c4190b75ca8e23d81fb1a12abac7acc2788111c98ee5"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:7dcac1c603659322"
-name = "TAPES"
-qual = "TAPES"
-item = "const"
-shape = "const"
-lines = [
-    113,
-    182,
-]
-hash = "sha256:10bdd38f51d2be3fb51ff3a8b2a9045993ffc2239da08cca3ff546f1a43ac2c8"
-doc_hash = "sha256:c1177f2476b6f4bd06fb4b74812a17ad960aff6863b0d4e49e9fbf9c68e70574"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:6db6050f64d46468"
-name = "TAPES_CHEAP"
-qual = "TAPES_CHEAP"
-item = "const"
-shape = "const"
-lines = [
-    184,
-    208,
-]
-hash = "sha256:92011637a9e52716318789ebe4483015a8c37476b01ff89753635b6ad2cda809"
-doc_hash = "sha256:ded09501efb55e1bde4cae090f6911199f3bffd94b7bcfb5ab019179f03f9f53"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:ddcad67b694275cf"
-name = "elements"
-qual = "elements"
-lines = [
-    210,
-    246,
-]
-hash = "sha256:46690d809e35cefb6d2990a52a084fc587788f37ef17cddb41b4e399d64ad847"
-doc_hash = "sha256:14404e52e045117ccd3fa35f8afd0c1d2225212842d4c7e6c2c6e297778dd9cd"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:6a44d1d8d1377b76"
-name = "attr"
-qual = "attr"
-lines = [
-    248,
-    266,
-]
-hash = "sha256:0a2a3f2b9cf8fa7ec5331be7d7416b2587b3fc9d479617c111c332f087884909"
-doc_hash = "sha256:c0b05194e4baf584bc1dfa4d837fbf73bdeb28f558089303e0d836ca65228c03"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:4e1c1bcb25b856fc"
-name = "strip_comments"
-qual = "strip_comments"
-lines = [
-    268,
-    282,
-]
-hash = "sha256:7d973cc24b3890f4592db8eee260fab6c5002676dbaee94cd08d13d952ef6b95"
-doc_hash = "sha256:88841e88ef1eaa98032ec3404141d7d9891e254968f95e6064220e37cde9ec0a"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:e7570b3004d7b0d6"
-name = "num"
-qual = "num"
-lines = [
-    284,
-    288,
-]
-hash = "sha256:8a0983ab3278ca667447a5014d43485befc9b9e9755dcd254b1e233337d07c09"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:c0b35f354a957c5c"
-name = "MaterialSpec"
-qual = "MaterialSpec"
-item = "type"
-shape = "struct"
-lines = [
-    294,
-    299,
-]
-hash = "sha256:5fa88cad314bb1ca3471ae980d981ee93d34aa63399353623d4f704a9d57760e"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:e86425c2d5597a49"
-name = "parse_materials"
-qual = "parse_materials"
-lines = [
-    301,
-    323,
-]
-hash = "sha256:fe64a2bd9beaeb674cd0751c8209a5acd885ce33bddc03a51ce4406e2a4873e9"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:4e1c1bcb25b856fc",
-    "fn:6a44d1d8d1377b76",
-    "fn:ddcad67b694275cf",
-    "fn:e7570b3004d7b0d6",
-]
-uses = ["fn:c0b35f354a957c5c"]
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:f5fd360ffc35221b"
-name = "build_materials"
-qual = "build_materials"
-lines = [
-    325,
-    375,
-]
-hash = "sha256:371e3054415f203fa72ecf80d66faef2423b66d6f9882ad95308b69c20b5df42"
-doc_hash = "sha256:cbaddb266f0953762e1377a74d532c74d1d48a3c561cdc2d0ecb5ab314d3ee1d"
-uses = [
-    "fn:0a886f2dc5073baf",
-    "fn:86fec0a94b7f6b00",
-    "fn:c0b35f354a957c5c",
-    "fn:f8778793521a3c25",
-]
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:1f3922d3eea0c812"
-name = "assign_spec_sab"
-qual = "assign_spec_sab"
-lines = [
-    377,
-    408,
-]
-hash = "sha256:37be36a70a723dcd27ee7c3f1a8780ef0bd039e2281d1f9c7d1d9eb48ab34e41"
-doc_hash = "sha256:d3dbc7d39aba2ddc394c67493f600bf20b148c4677e351d5d7524a73f1cf902f"
 index_out_of_date = true
-
-[[module."lct008_model.rs".function]]
-id = "fn:482119544e9e9496"
-name = "report_omissions"
-qual = "report_omissions"
-lines = [
-    410,
-    441,
-]
-hash = "sha256:358d94cfcd29b76df1bc8022d941211f583a61059b9f503fe588c0d3aacd605e"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:c0b35f354a957c5c"]
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:eacf3ae9bbfe321b"
-name = "R_CORE"
-qual = "R_CORE"
-item = "const"
-shape = "const"
-lines = [
-    447,
-    448,
-]
-hash = "sha256:8c0e825c69a8e1be68693fa21eb946d61edaab01fac201036e3390bfd457fbd4"
-doc_hash = "sha256:425104b260e7b71f436588ccf1c2a998af32d71f244c07414327b98bc95d7dd7"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:76ed9658bd08109f"
-name = "Z_LO"
-qual = "Z_LO"
-item = "const"
-shape = "const"
-lines = [
-    449,
-    450,
-]
-hash = "sha256:44961ffe5c6345974187a61f6f17bb29a50f3ed0c888ab370f02e50bf947e7ab"
-doc_hash = "sha256:f6678efb71d88f71d4500e774398a43b89c894b3f45e268ddf18acff33b73ab0"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:5c2be9bea58db35a"
-name = "Z_HI"
-qual = "Z_HI"
-item = "const"
-shape = "const"
-lines = [
-    451,
-    451,
-]
-hash = "sha256:8b2b716c2c49a03a1cfa344f75f709303b089e1e3dcb70e2265aebf0d74c87fe"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:09283f6dce73b7e7"
-name = "Model"
-qual = "Model"
-item = "type"
-shape = "struct"
-lines = [
-    453,
-    464,
-]
-hash = "sha256:29abaf831e758be708b02e0d137f6e76f2d8525926db86cadeacd1bcaa85dcc7"
-doc_hash = "sha256:4ef2669c0d4dc964929f7003b6b42aa21a3fe87b0fca5bdef9701a6bbda7be32"
-uses = ["fn:d89a7a4cb065bdb7"]
-reached_by = ["#0"]
 
 [[module."lct008_model.rs".function]]
 id = "fn:1a60f019dffc9577"
@@ -1611,11 +1304,11 @@ qual = "MODEL"
 item = "static"
 shape = "static"
 lines = [
-    468,
-    468,
+    46,
+    47,
 ]
 hash = "sha256:6985ba56ada242f6586773b9dcb82e061632930280e0835ccc4b1179d269cd92"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+doc_hash = "sha256:61f19f505f509e8ef05bf0e08c47a8e9590eb515216fbaf703d837d44e682ab4"
 uses = ["fn:09283f6dce73b7e7"]
 reached_by = ["#0"]
 
@@ -1624,11 +1317,11 @@ id = "fn:b1303e570c701a80"
 name = "build_geometry"
 qual = "build_geometry"
 lines = [
-    470,
-    672,
+    49,
+    59,
 ]
-hash = "sha256:7012d7be2785a66a5eeb5da3186a2b6217a9412384867bffaa6ba390ebb01093"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+hash = "sha256:69427eb515c9272b0f7a94ccc9cfda2736449d973def998cd74fe1eed560787d"
+doc_hash = "sha256:66a134d38d9487447433803f84bc61a87aceba9f06d90cf95173bf12f83e1bbc"
 callees = [
     "fn:4e1c1bcb25b856fc",
     "fn:6a44d1d8d1377b76",
@@ -1660,50 +1353,18 @@ uses = [
     "fn:f9e1cb2a3dac88e1",
 ]
 reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:e06accd43e58aaea"
-name = "block"
-qual = "block"
-lines = [
-    674,
-    683,
-]
-hash = "sha256:b0e35542879581ec441c3b73f5512356fb052bd762d7b85752466d8a38ef869b"
-doc_hash = "sha256:ba8413145bd241537219731d1cbcf4a7f3f44d8e2cb451251b55cd85ab154dae"
-callees = [
-    "fn:ddcad67b694275cf",
-    "fn:e7570b3004d7b0d6",
-]
-reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:e0dbfc7ecee52e7b"
-name = "parse_region"
-qual = "parse_region"
-lines = [
-    685,
-    721,
-]
-hash = "sha256:8370b52e4413f93f5c99c63b0908e0707a629445c516c3eb520326e258cb2774"
-doc_hash = "sha256:072ef3881dd17a4877e978b696b56b1b4b520433b204962da361822a85f6e475"
-callees = ["fn:e7570b3004d7b0d6"]
-uses = [
-    "fn:0101487ca706ad91",
-    "fn:647cfe485b5afd17",
-]
-reached_by = ["#0"]
+index_out_of_date = true
 
 [[module."lct008_model.rs".function]]
 id = "fn:295e34d2bc825f07"
 name = "check_geometry"
 qual = "check_geometry"
 lines = [
-    727,
-    908,
+    61,
+    69,
 ]
-hash = "sha256:75baaf0cf742715b99e7cfadeffd6adb691622e563fff39f577b89fb27c40a27"
-doc_hash = "sha256:cdbc5a6a8fcfa145112e3da6ecf5a14210c94e421fb5c2ef251711ba748a3dc7"
+hash = "sha256:4565c9d4a08fd83691e1949905500d874899d4c578bac28cf295b240590c62cd"
+doc_hash = "sha256:bfc16e3d1598f1965cfa496550292f73aefb6b2e24c7fb5cdc564c43deb6c91a"
 callees = [
     "fn:b1303e570c701a80",
     "fn:cb1fc1a67d38f99a",
@@ -1723,208 +1384,20 @@ uses = [
     "fn:eacf3ae9bbfe321b",
 ]
 reached_by = ["#0"]
-
-[[module."lct008_model.rs".function]]
-id = "fn:b2c3c7ad7375e82f"
-name = "R_FUEL"
-qual = "R_FUEL"
-item = "const"
-shape = "const"
-lines = [
-    910,
-    911,
-]
-hash = "sha256:44652305bbf20888362c9a8e21f775eb172ddb6aaff32a6ea137290f27e44fc6"
-doc_hash = "sha256:7c459bb0c0b24ef4cbcdd99f873d55d627cfbc6949f0d07728e6cfc00b56b7af"
-
-[[module."lct008_model.rs".function]]
-id = "fn:fb4350e1fad4b1a9"
-name = "R_CLAD"
-qual = "R_CLAD"
-item = "const"
-shape = "const"
-lines = [
-    912,
-    912,
-]
-hash = "sha256:9b719130488a7859911647b4321d901dfc760ae6ac228c4af8ca0502c6580e40"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[module."lct008_pin_cell.rs"]
-path = "example:lct008_pitch_sweep::lct008_pin_cell"
-
-[[module."lct008_pin_cell.rs".function]]
-id = "fn:8d43f05cc8c76efd"
-name = "HALF_Z"
-qual = "HALF_Z"
-item = "const"
-shape = "const"
-lines = [
-    25,
-    27,
-]
-hash = "sha256:0001c7d3151dbfd354fb8704a8c85f0677ff0bb522a0021d7eabedf168c50966"
-doc_hash = "sha256:80d80c1da68cd400d6d454c60760524df8743ec61ab00138d09ac7ee9a26490e"
-
-[[module."lct008_pin_cell.rs".function]]
-id = "fn:579f381eebb1fb09"
-name = "vm_over_vf"
-qual = "vm_over_vf"
-lines = [
-    29,
-    32,
-]
-hash = "sha256:0e54fdc125c6030a0cc39fd0662e93f47a0ce0824517886e49eb2d75001c66a6"
-doc_hash = "sha256:834bba130b63b386334b05d294df68e0ad92419fec39649b97ef7ad0d5f9a797"
-
-[[module."lct008_pin_cell.rs".function]]
-id = "fn:38441689a52e99e7"
-name = "source_box"
-qual = "source_box"
-lines = [
-    34,
-    37,
-]
-hash = "sha256:97f2a2fdc541032363f6536fd9505e40d605c944a4118540507ce2344a056fdb"
-doc_hash = "sha256:08644f08d0192f2e72537d36a1387a2952b67531e80b1c520ab062a2df793da7"
-callees = ["fn:cb1fc1a67d38f99a"]
-uses = [
-    "fn:006d55971bc9e1e3",
-    "fn:8d43f05cc8c76efd",
-    "fn:b714e8912ed36446",
-]
-
-[[module."lct008_pin_cell.rs".function]]
-id = "fn:c2b70a69aabd0c69"
-name = "pin_cell"
-qual = "pin_cell"
-lines = [
-    39,
-    79,
-]
-hash = "sha256:448c6a28066522b1ac5c7ceaa7bc4e31bbe36fac031a5d82087a0f27c3997a10"
-doc_hash = "sha256:c567ea2c19ca4570febf8e59a067373f27e5690108cfc6f5b76338b45c3d0912"
-callees = ["fn:8b1b36725917b52d"]
-uses = [
-    "fn:0101487ca706ad91",
-    "fn:15c0bf0d621b4704",
-    "fn:286d54607f01cd59",
-    "fn:37836d247be84011",
-    "fn:647cfe485b5afd17",
-    "fn:67471f938c1a6896",
-    "fn:8a6f6c1ba4a90a90",
-    "fn:8d43f05cc8c76efd",
-    "fn:8e084736391ffc11",
-    "fn:9c3dd49a69f0dca2",
-    "fn:c4356ef17a120c1a",
-    "fn:f9e1cb2a3dac88e1",
-]
-
-[module."lct008_tutorial_model.rs"]
-path = "?"
-
-[[module."lct008_tutorial_model.rs".function]]
-id = "fn:e3af3827c55c9310"
-name = "Cards"
-qual = "Cards"
-item = "type"
-shape = "struct"
-lines = [
-    57,
-    74,
-]
-hash = "sha256:8576c673e6fc9dbd745d9405208c25a944929d5c0d3d48b44e6c9998ab4a51c1"
-doc_hash = "sha256:45d4a71c6b392127a1f3fb29529d375385d8197b3f15f4fe72ec30e1fb60f214"
 index_out_of_date = true
 
-[[module."lct008_tutorial_model.rs".function]]
-id = "fn:5d457d1a29073ad8"
-name = "Lct008"
-qual = "Lct008"
-item = "type"
-shape = "struct"
+[[module."lct008_model.rs".function]]
+id = "fn:482119544e9e9496"
+name = "report_omissions"
+qual = "report_omissions"
 lines = [
+    71,
     76,
-    82,
 ]
-hash = "sha256:a4145017497f883e48c9693c777905ebd35ae490942250f4226b7c14248560be"
-doc_hash = "sha256:ba1f3bd2fb3a929c0e1c55289695e0db993976c371c1693894cfbff991251e53"
-index_out_of_date = true
-
-[[module."lct008_tutorial_model.rs".function]]
-id = "fn:f59fe1ea5a80877c"
-name = "RowOrder"
-qual = "RowOrder"
-item = "type"
-shape = "enum"
-lines = [
-    84,
-    96,
-]
-hash = "sha256:9cf8701b4fabc1ac405a0dcc2dab1a9d1c104a232af8c43b3e0ba5b1c6b20c9f"
-doc_hash = "sha256:248390f14d7b8b95386351c8a4f18f16251e345fb64136a3190947a2cff63551"
-index_out_of_date = true
-
-[[module."lct008_tutorial_model.rs".function]]
-id = "fn:9b0791646022ad3f"
-name = "grid"
-qual = "grid"
-lines = [
-    98,
-    106,
-]
-hash = "sha256:4bbbee1cc6260373334fed5dc85add18827b55324def8ab58e8ff674b075b010"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-index_out_of_date = true
-
-[[module."lct008_tutorial_model.rs".function]]
-id = "fn:df8586b015a91716"
-name = "CardLattice"
-qual = "CardLattice"
-item = "type"
-shape = "struct"
-lines = [
-    108,
-    114,
-]
-hash = "sha256:fd6f6578af8c59420ffa6d6e13aab5c50e0f641ccdba13e3d63137c03d6ee2ec"
-doc_hash = "sha256:6fd545a7c023053d6d31d0e030e0c0ee25bba57bbeb92503ef996f9720b5543c"
-index_out_of_date = true
-
-[[module."lct008_tutorial_model.rs".function]]
-id = "fn:e85073fbf76b77f6"
-name = "card_lattices"
-qual = "card_lattices"
-lines = [
-    116,
-    148,
-]
-hash = "sha256:a22b87663e6e5735e4cad6ac28adcabeb6448b326b952eecab1f28246a005ddb"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-index_out_of_date = true
-
-[[module."lct008_tutorial_model.rs".function]]
-id = "fn:c9b7f3efe8896c42"
-name = "build"
-qual = "build"
-lines = [
-    150,
-    162,
-]
-hash = "sha256:bf30d1938048604bbc5faaa2cb8a662c114ecb94f57b1a8470ec028653164118"
-doc_hash = "sha256:ac02512a4a25ecb9d8b799147d25bd4c2af5e319e0570f335d70bbebf85b5950"
-index_out_of_date = true
-
-[[module."lct008_tutorial_model.rs".function]]
-id = "fn:ab7cb17d63cfaae7"
-name = "build_ordered"
-qual = "build_ordered"
-lines = [
-    164,
-    323,
-]
-hash = "sha256:76961a145f36b6bf8e8cdf68934dd14147eeec1771a232ef49e10d58515f9094"
-doc_hash = "sha256:fadf5960ad80901bb3cba48e98ecfa672b78f1bc26939376e3de8cf6fe47571d"
+hash = "sha256:40846d7b2cd0f788fae84202e00f7229e89296439c322b8eb2e73f62cccf4c57"
+doc_hash = "sha256:671ebbd95c51b8b28bcc78267c436c9f7d408c2aab5612a085b6a8408531ef91"
+uses = ["fn:c0b35f354a957c5c"]
+reached_by = ["#0"]
 index_out_of_date = true
 
 [module."seker_bed_model.rs"]
@@ -2700,69 +2173,12 @@ hash = "sha256:83b2620ea1e07e3b09c4ab23eb6a68582bc0304b54be66f1b6f91d39439a6af7"
 doc_hash = "sha256:224e0ab7bf41f5473e8ef6e8c8883d2bc9fcaae44d4d4921e8d7a277836f16ab"
 
 [[module."ugraphite_common.rs".function]]
-id = "fn:0abdae25ae70956a"
-name = "U234"
-qual = "U234"
-item = "const"
-shape = "const"
-lines = [
-    59,
-    59,
-]
-hash = "sha256:55922d70fee2703be4265116e6b7736a8c01671da5c41425a21a905ab4c7b72d"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."ugraphite_common.rs".function]]
-id = "fn:714fd68be05e6f58"
-name = "U235"
-qual = "U235"
-item = "const"
-shape = "const"
-lines = [
-    60,
-    60,
-]
-hash = "sha256:45461bc197d4378dd403d33457a1fa38eb5acdbc9a1bc7769a659cd40c42b76a"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."ugraphite_common.rs".function]]
-id = "fn:74e84ee0a1aeaa9e"
-name = "U238"
-qual = "U238"
-item = "const"
-shape = "const"
-lines = [
-    61,
-    61,
-]
-hash = "sha256:1fba0217c1208464f6c0a2ea135aa119eb08f382185bf5d94d463b493951c232"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-
-[[module."ugraphite_common.rs".function]]
-id = "fn:f2b7aff5a2dd1003"
-name = "URANIUM"
-qual = "URANIUM"
-item = "const"
-shape = "const"
-lines = [
-    62,
-    62,
-]
-hash = "sha256:537e7778426159cc08f46d2c194b61962e7826e10d539e6e286d86496401db4d"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = [
-    "fn:0abdae25ae70956a",
-    "fn:714fd68be05e6f58",
-    "fn:74e84ee0a1aeaa9e",
-]
-
-[[module."ugraphite_common.rs".function]]
 id = "fn:bc625df4184edcf2"
 name = "htr10_pebble_mix"
 qual = "htr10_pebble_mix"
 lines = [
+    56,
     65,
-    74,
 ]
 hash = "sha256:078e8d3df5a48232f3e1f2e16b9c1dc7ee8f94c95192ff0f80e697a39ea6907a"
 doc_hash = "sha256:7b6841f8c730f08f24e7ab6acf9081a808e67bda09d63cd3125568a6de9b9641"
@@ -2774,22 +2190,48 @@ id = "fn:87511a2ce103a9bf"
 name = "env_or"
 qual = "env_or"
 lines = [
-    76,
-    81,
+    67,
+    72,
 ]
 hash = "sha256:5351067ac22c8c083b83dfb5b886cc2b9135484107f64d8debf3f14eb39009c6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."ugraphite_common.rs".function]]
+id = "fn:124188bcc41a8bdf"
+name = "UgData"
+qual = "UgData"
+item = "type"
+shape = "struct"
+lines = [
+    74,
+    83,
+]
+hash = "sha256:e2264f97097fcae1bebdcc126b4405368eb9e7ecb7f29af80a10beeb3d7be2ff"
+doc_hash = "sha256:ced4fccb6b5e4d09ffede209c3c9bd15cf8aef3fd3776986108c6fcf5ce4b2a9"
+index_out_of_date = true
+
+[[module."ugraphite_common.rs".function]]
+id = "fn:04fae8ebc4b334c3"
+name = "bind"
+qual = "UgData::bind"
+lines = [
+    86,
+    91,
+]
+hash = "sha256:802fc039b31727fc24f14466c4ad70884ac0852ca20590d325c3f8b1846ba9f5"
+doc_hash = "sha256:388777463d2255aa297e0a9f3a22baa633799e05e1afdbd9af77536fe8b3c09a"
+index_out_of_date = true
 
 [[module."ugraphite_common.rs".function]]
 id = "fn:94e9e6a63d7e83a9"
 name = "load_nuclides"
 qual = "load_nuclides"
 lines = [
-    83,
-    118,
+    94,
+    121,
 ]
-hash = "sha256:85827ad232487e1031e22bf9519705201f2451d645de129e7f19eff352699934"
-doc_hash = "sha256:85b83d05e9f51624022e5b94321e9158b8c542c8c3ee6a1d861cd3d82e261b29"
+hash = "sha256:4e3e78156f5ed3bcdbbfa35d6b1d90c6deb636bfdb807aebd51f0f47149435bd"
+doc_hash = "sha256:bf908c83ae68ea186c7fe420c911b2dd7532c9874aad5126772302b86b20482e"
 callees = [
     "fn:2c945092147fdb01",
     "fn:9014fa79e1c55492",
@@ -2812,8 +2254,8 @@ qual = "FuelSplit"
 item = "type"
 shape = "enum"
 lines = [
-    120,
-    131,
+    123,
+    134,
 ]
 hash = "sha256:15da76b77fa4a041dd6a672e4f41986f7b7e7ca755b3394af304979853de7805"
 doc_hash = "sha256:8938a44bc7620eb82d65146c03ffac86a41f98bfbf6658118e94efd8795a0857"
@@ -2826,8 +2268,8 @@ qual = "CaseResult"
 item = "type"
 shape = "struct"
 lines = [
-    133,
-    144,
+    136,
+    147,
 ]
 hash = "sha256:36d24d9c7da852de56c9ad797570a2496ea9a7497e2d4766db87f72825ee6741"
 doc_hash = "sha256:f2e1a8f5c4d62a0af5d7fa66c620e0156b63ff8762eefd2c0f97ab62cbb0e1bc"
@@ -2841,8 +2283,8 @@ id = "fn:ac1a2e5292e97c56"
 name = "physics_config"
 qual = "physics_config"
 lines = [
-    146,
-    167,
+    149,
+    170,
 ]
 hash = "sha256:f631d825bd0903c69c6d011fd406896d4e9dc638d418576700f8db0ed7b45408"
 doc_hash = "sha256:40b81a657047f0b4c5fb8552dddc73f1de1e21a3b00d730e020833227e232508"
@@ -2869,11 +2311,11 @@ id = "fn:73f825a210032b56"
 name = "run_case"
 qual = "run_case"
 lines = [
-    169,
-    241,
+    172,
+    249,
 ]
-hash = "sha256:a93e89bab0ed8c1341e73faded39e0bd79ca23fc34166f83e5dfcbe02820198d"
-doc_hash = "sha256:7faaee3806c5d1b9fb7a5dcd8328b9ca38703e3b6aa32f640bb0de579822e3b8"
+hash = "sha256:e178bd70f47b62cd39e5c4a2ff7aaa70c92a1a3262e501455edf9650d355d29b"
+doc_hash = "sha256:92aba500e99cf07ef08cb45e0f864e172ac44ced32d4a380a3015bf2065ff223"
 callees = [
     "fn:26a670e7c3186f7a",
     "fn:8f4be9b7092d2161",
@@ -2895,14 +2337,15 @@ uses = [
     "fn:db39829f500f2e09",
     "fn:f2b7aff5a2dd1003",
 ]
+index_out_of_date = true
 
 [[module."ugraphite_common.rs".function]]
 id = "fn:f4533b242cc74427"
 name = "print_case"
 qual = "print_case"
 lines = [
-    243,
-    307,
+    251,
+    315,
 ]
 hash = "sha256:6ee9b7780b4e2d82371a4f0978ac12bcfe77b2bcb9c64ebed9493f65a8144722"
 doc_hash = "sha256:1ef528d7a3ee214c50f6720b04ec83f6bc293c27c386d150236cce99349db9df"
