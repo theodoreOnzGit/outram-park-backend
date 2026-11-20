@@ -66,6 +66,7 @@ pub mod ufs;
 pub mod variance_reduction;
 pub mod weight_windows;
 pub mod fixed_source;
+pub mod derivative_run;
 pub mod scatter;
 pub mod nbody;
 pub mod fission;

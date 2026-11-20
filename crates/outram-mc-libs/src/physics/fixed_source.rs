@@ -120,7 +120,7 @@ impl FixedSource {
     /// what makes a two-stage run answer the same problem as a single-stage
     /// one — under variance reduction the recorded weights are nowhere near 1,
     /// and discarding them would rescale stage two's answer silently.
-    fn sample(&self, seed: &mut u64) -> (Site, f64) {
+    pub(crate) fn sample(&self, seed: &mut u64) -> (Site, f64) {
         match self {
             FixedSource::Point { r, energy_ev } => {
                 let (dx, dy, dz) = isotropic_direction(seed);
@@ -184,6 +184,10 @@ pub struct FixedSourceSettings {
     /// backstop against runaway multiplication if a (mis-specified)
     /// super-critical system is run as a fixed source.
     pub max_secondaries: usize,
+    /// Normalise each batch per source particle before it is flushed (gh:#675,
+    /// OpenMC `Tally::accumulate`); `false` (default) keeps the raw per-batch sums.
+    /// The divisor is that batch's own particle count.
+    pub normalise_tallies: bool,
     /// Variance reduction (GitHub #258). The [`Default`] is analog.
     ///
     /// A fixed-source shielding run is the case variance reduction exists for:
@@ -222,6 +226,7 @@ impl Default for FixedSourceSettings {
             temperature_k: 293.6,
             seed: 1,
             max_secondaries: 10_000,
+            normalise_tallies: false,
             seeding: Default::default(),
             tally_batch_log: None,
         }
@@ -469,6 +474,10 @@ pub fn run_fixed_source_traced(
             if let Some(log) = &settings.tally_batch_log {
                 log.push(&batch);
             }
+            if settings.normalise_tallies && this_batch > 0 {
+                let w = this_batch as f64;
+                batch.iter_mut().for_each(|v| *v /= w);
+            }
             flush_batch(t, &mut batch);
         }
     }
@@ -479,6 +488,42 @@ pub fn run_fixed_source_traced(
         multiplication: production_sum / done.max(1) as f64,
         dropped_secondaries,
     }
+}
+
+/// The result of [`run_fixed_source_flux_derivative`] (the general type of
+/// [`crate::physics::derivative_run`]).
+pub use crate::physics::derivative_run::DerivativeResult as FluxDerivativeResult;
+
+/// **A tally derivative, wired into the transport** (gh:#683, #263): the FLUX in
+/// `score_material` and its derivative with respect to the variable of
+/// `derivative`, from one fixed-source run. A thin wrapper over
+/// [`crate::physics::derivative_run::run_fixed_source_derivative`] with the flux
+/// score; see that module for the method, scope and the other scores.
+///
+/// # Errors
+///
+/// A temperature derivative, or any error of the derivative accumulators.
+pub fn run_fixed_source_flux_derivative(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source: &FixedSource,
+    settings: &FixedSourceSettings,
+    derivative: &crate::tally::derivative::TallyDerivative,
+    score_material: usize,
+) -> Result<FluxDerivativeResult, String> {
+    crate::physics::derivative_run::run_fixed_source_derivative(
+        geom,
+        materials,
+        nuclides,
+        source,
+        settings,
+        &crate::physics::derivative_run::DerivativeSpec {
+            derivative: derivative.clone(),
+            score: crate::tally::tally::ScoreType::Flux,
+            score_material,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -645,6 +690,28 @@ mod tests {
         assert_eq!(res.dropped_secondaries, 0, "default cap not reached here");
     }
 
+    /// gh:#675: `normalise_tallies` divides each batch by its own particle count:
+    /// 100 particles in 4 batches of 25, so every bin mean is the raw one over 25;
+    /// the run itself (histories, multiplication) is untouched.
+    #[test]
+    fn normalised_fixed_source_tallies_are_the_raw_ones_per_source_particle() {
+        let geom = sphere_geom(5.0, BoundaryType::Vacuum, CellFill::Void);
+        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 1.0e6 };
+        let run = |norm: bool| {
+            let mut tally = flux_tally();
+            let res = run_fixed_source(
+                &geom, &[], &[], &src,
+                &FixedSourceSettings { n_particles: 100, n_batches: 4, normalise_tallies: norm, ..Default::default() },
+                Some(&mut tally),
+            );
+            (res.total_histories, tally.bins[0].mean_realized())
+        };
+        let (h_raw, raw) = run(false);
+        let (h_norm, norm) = run(true);
+        assert_eq!(h_raw, h_norm);
+        assert!((raw / 25.0 - norm).abs() <= 1e-12 * raw, "{raw} / 25 vs {norm}");
+    }
+
     /// gh:#675: exactly `n_batches` realizations are flushed, whatever `n`
     /// (100 particles in 40 batches flushed 34 before; 10 in 6 flushed 5), and the
     /// void-sphere tally, where every particle scores exactly R, has zero variance.
@@ -711,5 +778,56 @@ mod tests {
         );
         assert!(refused.unwrap_err().contains("dropped"), "the try_ form refuses");
         assert_eq!(run(10_000).dropped_secondaries, 0);
+    }
+
+    /// gh:#683 / #263, analytic: in an infinite (reflective) non-fissile medium
+    /// every neutron dies by absorption, and the spectrum shape does not depend
+    /// on the density, so the track-length flux is `Phi = 1 / Sigma_a_eff` and
+    /// scales as `1 / rho`: `d Phi / d rho = -Phi / rho`. Hydrogen, reflective
+    /// sphere, a 2 MeV point source, 20 batches of 1000 histories (measured 2026-11-20:
+    /// flux 75.54 +- 0.38, d flux/d rho -1049 +- 94 against the analytic -1144, +1.01
+    /// sigma; the same run with 50 histories per batch gave -1488 +- 281, -1.32 sigma). The derivative
+    /// accumulated along each history through the trace observer must reproduce
+    /// `-Phi / rho` within four combined standard errors; a missing streaming or
+    /// collision term (the gh:#683 defect) gives a different sign or size. The
+    /// density derivative of a run on a DIFFERENT material (the filter) is zero.
+    #[test]
+    fn the_flux_derivative_in_an_infinite_medium_is_minus_flux_over_density() {
+        use crate::material::material::{Material, NuclideComponent};
+        use crate::material::nuclide::Nuclide;
+        use crate::tally::derivative::{DerivativeVariable, TallyDerivative};
+        let nuclides = vec![Nuclide::from_core("H1").unwrap()];
+        let rho = 6.6e-2;
+        let mats = vec![Material {
+            id: 1,
+            name: "H".into(),
+            temperature: 293.6,
+            components: vec![NuclideComponent { nuclide_idx: 0, atom_density: rho }],
+        }];
+        let geom = sphere_geom(30.0, BoundaryType::Reflective, CellFill::Material(0));
+        let src = FixedSource::Point { r: Position::ZERO, energy_ev: 2.0e6 };
+        let settings = FixedSourceSettings { n_particles: 20000, n_batches: 20, seed: 7, ..Default::default() };
+        let d = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Density };
+        let r = run_fixed_source_flux_derivative(&geom, &mats, &nuclides, &src, &settings, &d, 0).unwrap();
+        let expected = -r.flux / rho;
+        let sigma = (r.d_flux_std.powi(2) + (r.flux_std / rho).powi(2)).sqrt();
+        println!(
+            "flux = {:.4} +- {:.4}; d flux/d rho = {:.3} +- {:.3}; analytic -flux/rho = {:.3} ({:+.2} sigma)",
+            r.flux, r.flux_std, r.d_flux, r.d_flux_std, expected, (r.d_flux - expected) / sigma
+        );
+        assert!(r.flux > 0.0 && r.d_flux < 0.0, "flux {} and derivative {} must have opposite signs", r.flux, r.d_flux);
+        assert!((r.d_flux - expected).abs() < 4.0 * sigma, "d flux/d rho {} vs -flux/rho {expected} (sigma {sigma})", r.d_flux);
+        // One nuclide in the material: a nuclide-density derivative is the density
+        // derivative (`d Sigma/d N_i = sigma_i = Sigma/rho`), on the same histories.
+        let dn = TallyDerivative { material_idx: 0, variable: DerivativeVariable::NuclideDensity { nuclide_idx: 0 } };
+        let rn = run_fixed_source_flux_derivative(&geom, &mats, &nuclides, &src, &settings, &dn, 0).unwrap();
+        assert!((rn.d_flux - r.d_flux).abs() <= 1e-9 * r.d_flux.abs(), "{} vs {}", rn.d_flux, r.d_flux);
+        // ~~Temperature is refused.~~ **CORRECTED 2026-11-20:** it is supported on
+        // the WMP (`Core`) tier (finite-difference dSigma/dT); here it must run and
+        // give a finite number. Its analytic check is in
+        // `tests/tally_derivatives_wired.rs`.
+        let dt = TallyDerivative { material_idx: 0, variable: DerivativeVariable::Temperature };
+        let rt = run_fixed_source_flux_derivative(&geom, &mats, &nuclides, &src, &settings, &dt, 0).unwrap();
+        assert!(rt.d_flux.is_finite());
     }
 }
