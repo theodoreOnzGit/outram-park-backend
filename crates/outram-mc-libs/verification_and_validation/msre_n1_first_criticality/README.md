@@ -37,7 +37,10 @@
 >   - **The shares add up:** their sum minus the full move on the same seeds is +46 ± 73.
 >   - **Both predictions posted before the runs held:** graphite ≥ 80 %, water within ±60.
 >   - **Caveat:** three seeds. This resolves which table carries the move, not its exact fraction.
-> - **Not in either binary:** `develop` commits after 516f559f8, among them #698's coincident-boundary rule, which re-pinned a nested-lattice k (3060a346d). Whether they move N-1 is checked next, on gh:#1128.
+> - ~~**Not in either binary:** `develop` commits after 516f559f8, among them #698's coincident-boundary rule, which re-pinned a nested-lattice k (3060a346d). Whether they move N-1 is checked next, on gh:#1128.~~ **Checked 2026-11-20:** `develop` c1b106728 (with #698, #699, #692 and others) against 516f559f8, six seed pairs.
+>   - **Result:** **+52 ± 44 pcm (z 1.2), not resolved.** Pairs: +138, +201, −21, +30, +60, −95.
+>   - **Prediction** (within ±80 of zero, posted before the runs): held.
+>   - **Seed 1's +138 is mostly re-randomisation.** c1b106728's six seeds give 1.017037 ± 0.000386, consistent with the headline below. The headline stays on 516f559f8, its paired reference.
 
 > **DEFAULTS CHANGED 2026-11-13 (maintainer, gh:#1128): "Have a dimension
 > dynamically shifting with temp. Shields all in shld be default … physical
