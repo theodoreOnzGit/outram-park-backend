@@ -12,7 +12,7 @@ specific to this crate.
 Decay-photon source spectra (`src/decay_spectrum.rs`, gh:#1391) and the
 first port of OpenMC's photon samplers (`src/openmc_photon/`, gh:#1683, not
 differentially tested) are the code. The EGSnrc port (gh:#976) is **barely begun** (`src/egsnrc/`: one module
-per upstream Mortran file; `ANNIH_AT_REST`, `ANNIH`, `COMPT`, `RELAX`, `UPHI` (IENTRY 2 and 3), Russian
+per upstream Mortran file; `ANNIH_AT_REST`, `ANNIH`, `COMPT`, `RELAX`, `PAIR`, `UPHI` (IENTRY 2 and 3), Russian
 roulette and the stack and azimuth macros are a first port, not differentially tested, gh:#1680; the
 rest are placeholders with no stub functions; RANMAR/RANLUX are in PETIR). ~~The OpenMC photon port (gh:#975) is not begun.~~ **CORRECTED 2026-11-20** — samplers, TTB and reaction sampling exist (`src/openmc_photon/`). There is no transport loop: do not describe
 this crate as tracking particles through geometry.

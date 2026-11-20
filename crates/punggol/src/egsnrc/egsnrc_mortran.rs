@@ -10,7 +10,7 @@
 //! `HEN_HOUSE/src/egsnrc.mortran` (EGSnrc, 9016 lines): HATCH (data set-up),
 //! the ELECTR and PHOTON transport loops and the physics routines they call.
 //!
-//! **Status: first port of five routines, not differentially tested (gh:#1680).**
+//! **Status: first port of six routines, not differentially tested (gh:#1680).**
 //! Everything else in the file is still a placeholder.
 //!
 //! | upstream | here |
@@ -19,11 +19,13 @@
 //! | `SUBROUTINE ANNIH_AT_REST` (`egsnrc.mortran:186-224`) | [`annih_at_rest`] |
 //! | `SUBROUTINE UPHI` (`egsnrc.mortran:6722-6838`), `IENTRY` 2 and 3 | [`uphi`] |
 //! | `SUBROUTINE RELAX` (`egsnrc.mortran:5556-5790`), the built-in K/L1/L2/L3/M/N scheme | [`relax`] |
+//! | `SUBROUTINE PAIR` (`egsnrc.mortran:4517-4670`) with `$SET-PAIR-ANGLE` (`egsnrc.macros:2070-2165`) | [`pair`] |
+//! | `UPHI` `IENTRY = 1` (angle from `theta`, `egsnrc.mortran:6759-6769`) | [`uphi_from_theta`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
 //! Not yet ported from this file: `BHABHA`, `BREMS`, `ELECTR`,
-//! `HATCH`, `MOLLER`, `PAIR`, `PHOTO`, `EDGSET`, `PHOTON`, `SHOWER`,
+//! `HATCH`, `MOLLER`, `PHOTO`, `EDGSET`, `PHOTON`, `SHOWER`,
 //! `PHOTONUC`. `UPHI` entry 1 (which derives `sinthe`/`costhe` from `theta`
 //! through the sine look-up table) is also not ported: it needs the table that
 //! `HATCH` fills. The user-scoring `$AUSCALL` hooks are omitted (no `AUSGAB`).
@@ -891,6 +893,320 @@ fn relax_push_isotropic<R: UniformSource>(
     Ok(())
 }
 
+/// `UPHI` with `IENTRY = 1` (`egsnrc.mortran:6759-6769`): `sinthe` and `costhe`
+/// from the polar angle `theta`, then the rest of `UPHI` as for `IENTRY = 2`.
+/// The sine look-up table of EGS4 is `sin()` in this EGSnrc
+/// (`$EVALUATE # USING SIN(#)` is `# = sin(#)`, `egsnrc.macros:1265`), and the
+/// cosine is `sin(5 pi/2 - theta)` as upstream writes it.
+///
+/// # Errors
+///
+/// As [`uphi`].
+pub fn uphi_from_theta<R: UniformSource>(
+    stack: &mut Stack,
+    saved: &mut UphiSaved,
+    lvl: i32,
+    theta: f64,
+    rng: &mut R,
+) -> Result<(), EgsError> {
+    let sinthe = RealMath::r_sin(theta);
+    let cthet = 2.5 * core::f64::consts::PI - theta;
+    let costhe = RealMath::r_sin(cthet);
+    uphi(stack, saved, 2, lvl, sinthe, costhe, rng)
+}
+
+/// The per-medium pair-production data `PAIR` reads (`COMMON/BREMPR/`, filled
+/// by `HATCH`), with 1-based inner arrays (index 0 unused).
+#[derive(Debug, Clone, Default)]
+pub struct PairMedium {
+    /// `delcm`: `136 m exp(Zg)`, eq. (2.7.51).
+    pub delcm: f64,
+    /// `dl1(l)`..`dl6(l)`, `l = 1..8`: screening-function fits.
+    pub dl: [Vec<f64>; 6],
+    /// `bpar(1..2)`.
+    pub bpar: [f64; 3],
+    /// `ZBRANG(MEDIUM) = ((1/111) Zeff^(1/3))^2`.
+    pub zbrang: f64,
+}
+
+/// Switches `PAIR` reads.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PairConfig {
+    /// `iprdst` (default 1): 0 EGS4, 1 lowest-order angular distribution,
+    /// 2 Motz-Olsen-Koch, 3 uniform, 4 mixture.
+    pub iprdst: i32,
+    /// `Some(prob_RR)` when `i_play_RR = 1`: Russian roulette on the pair.
+    pub rr: Option<f64>,
+    /// `pair_nrc` (default 0): NRC pair tables (not ported; `1` is refused).
+    pub pair_nrc: bool,
+    /// `itriplet` (default 0): triplet production (not ported; `> 0` is refused).
+    pub itriplet: i32,
+}
+
+impl Default for PairConfig {
+    fn default() -> Self {
+        Self { iprdst: 1, rr: None, pair_nrc: false, itriplet: 0 }
+    }
+}
+
+/// `PAIR` (`egsnrc.mortran:4517-4663`): pair production by the photon on top
+/// of the stack. Below 2.1 MeV the energies are uniform; between 2.1 and 50
+/// the Bethe-Heitler cross section is sampled, above it the
+/// Coulomb-corrected one. The pair lands in slots `np_old` and `np_old + 1`
+/// (charges `iq1`, `iq2`). With Russian roulette the pair may be killed before
+/// sampling (`killed` in the result).
+///
+/// `rm` is `RM` (= `PRM`). Not ported, refused with
+/// [`EgsError::Unsupported`]: the NRC pair tables (`pair_nrc`) and triplet
+/// production (`itriplet > 0`), both off by default.
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`], or [`EgsError::Unsupported`] as above.
+pub fn pair<R: UniformSource>(
+    stack: &mut Stack,
+    med: &PairMedium,
+    cfg: &PairConfig,
+    rm: f64,
+    rng: &mut R,
+) -> Result<bool, EgsError> {
+    if cfg.pair_nrc {
+        return Err(EgsError::Unsupported("PAIR: NRC pair cross sections (pair_nrc = 1)"));
+    }
+    if cfg.itriplet > 0 {
+        return Err(EgsError::Unsupported("PAIR: triplet production (itriplet > 0)"));
+    }
+    stack.np_old = stack.np;
+    if let Some(prob_rr) = cfg.rr {
+        if prob_rr > 0.0 {
+            let rnno_rr = rng.uniform();
+            if rnno_rr > prob_rr {
+                let np = stack.np;
+                if np > 1 {
+                    stack.np -= 1;
+                } else {
+                    stack.wt[np] = 0.0;
+                    stack.e[np] = 0.0;
+                }
+                return Ok(true);
+            }
+            let np = stack.np;
+            stack.wt[np] /= prob_rr;
+        }
+    }
+    stack.check_stack(stack.np + 1, "PAIR")?;
+    let peig = stack.e[stack.np];
+    let eig = peig;
+    let rmt2 = 2.0 * rm;
+    let (pese1, pese2, iq1, iq2);
+
+    if eig <= 2.1 {
+        // below 2.1: uniform energies
+        let rnno30 = rng.uniform();
+        let rnno34 = rng.uniform();
+        let p2 = rm + 0.5 * rnno30 * (peig - 2.0 * rm);
+        pese2 = p2;
+        pese1 = peig - p2;
+        if rnno34 < 0.5 {
+            iq1 = -1;
+            iq2 = 1;
+        } else {
+            iq1 = 1;
+            iq2 = -1;
+        }
+    } else {
+        let l;
+        let (amax, bmax, aux1);
+        if eig < 50.0 {
+            // Bethe-Heitler without Coulomb correction
+            l = 5usize;
+            let l1 = l + 1;
+            let delta = 4.0 * med.delcm / eig;
+            if delta < 1.0 {
+                amax = med.dl[0][l] + delta * (med.dl[1][l] + delta * med.dl[2][l]);
+                bmax = med.dl[0][l1] + delta * (med.dl[1][l1] + delta * med.dl[2][l1]);
+            } else {
+                let aux2 = RealMath::r_ln(delta + med.dl[5][l]);
+                amax = med.dl[3][l] + med.dl[4][l] * aux2;
+                bmax = med.dl[3][l1] + med.dl[4][l1] * aux2;
+            }
+            let mut a1 = 1.0 - rmt2 / eig;
+            a1 *= a1;
+            a1 = a1 * amax / 3.0;
+            aux1 = a1 / (bmax + a1);
+        } else {
+            // Coulomb-corrected
+            l = 7;
+            amax = med.dl[0][l];
+            bmax = med.dl[0][l + 1];
+            aux1 = med.bpar[2] * (1.0 - med.bpar[1] * rm / eig);
+        }
+        let del0 = eig * med.delcm;
+        let eavail = eig - rmt2;
+        let mut eminus;
+        loop {
+            let rnno30 = rng.uniform();
+            let rnno31 = rng.uniform();
+            let rnno34 = rng.uniform();
+            let br;
+            let rejmax;
+            let l1;
+            if rnno30 > aux1 {
+                br = 0.5 * rnno31;
+                rejmax = bmax;
+                l1 = l + 1;
+            } else {
+                let rnno32 = rng.uniform();
+                let rnno33 = rng.uniform();
+                br = 0.5 * (1.0 - rnno31.max(rnno32).max(rnno33));
+                rejmax = amax;
+                l1 = l;
+            }
+            eminus = br * eavail + rm;
+            let eplus = eig - eminus;
+            let delta = del0 / (eminus * eplus);
+            let rejf = if delta < 1.0 {
+                med.dl[0][l1] + delta * (med.dl[1][l1] + delta * med.dl[2][l1])
+            } else {
+                med.dl[3][l1] + med.dl[4][l1] * RealMath::r_ln(delta + med.dl[5][l1])
+            };
+            if rnno34 * rejmax <= rejf {
+                break;
+            }
+        }
+        pese2 = eminus;
+        pese1 = peig - pese2;
+        let rnno34 = rng.uniform();
+        if rnno34 < 0.5 {
+            iq1 = -1;
+            iq2 = 1;
+        } else {
+            iq1 = 1;
+            iq2 = -1;
+        }
+    }
+
+    // energy going to the lower secondary has now been determined
+    let ese2 = pese2;
+    let np = stack.np;
+    stack.e[np] = pese1;
+    stack.e[np + 1] = pese2;
+    let mut saved = UphiSaved::default();
+
+    // $SET-PAIR-ANGLE
+    if cfg.iprdst > 0 {
+        let mut iprdst_use;
+        if cfg.iprdst == 4 {
+            let rtest = rng.uniform();
+            let gbeta = pese1 / (pese1 + 10.0);
+            iprdst_use = if rtest < gbeta { 1 } else { 4 };
+        } else if cfg.iprdst == 2 && eig < 4.14 {
+            iprdst_use = 1;
+        } else {
+            iprdst_use = cfg.iprdst;
+        }
+        for ichrg in 1..=2 {
+            let ese;
+            if ichrg == 1 {
+                ese = pese1;
+            } else {
+                ese = ese2;
+                if cfg.iprdst == 4 {
+                    let gbeta = ese / (ese + 10.0);
+                    let rtest = rng.uniform();
+                    iprdst_use = if rtest < gbeta { 1 } else { 4 };
+                }
+            }
+            let (sinthe, costhe);
+            if iprdst_use == 1 {
+                let pse = Real::sqrt(((ese - rm) * (ese + rm)).max(0.0));
+                let mut c = rng.uniform();
+                c = 1.0 - 2.0 * c;
+                sinthe = rm * Real::sqrt((1.0 - c) * (1.0 + c)) / (pse * c + ese);
+                costhe = (ese * c + pse) / (pse * c + ese);
+            } else if iprdst_use == 2 {
+                let ztarg = med.zbrang;
+                let tteig = eig / rm;
+                let ttese = ese / rm;
+                let esedei = ttese / (tteig - ttese);
+                let eseder = 1.0 / esedei;
+                let rej = |xi: f64| -> f64 {
+                    2.0 + 3.0 * (esedei + eseder)
+                        - 4.00
+                            * (esedei + eseder + 1.0 - 4.0 * (xi - 0.5) * (xi - 0.5))
+                            * (1.0
+                                + 0.25
+                                    * RealMath::r_ln(
+                                        ((1.0 + eseder) * (1.0 + esedei) / (2.0 * tteig))
+                                            * ((1.0 + eseder) * (1.0 + esedei) / (2.0 * tteig))
+                                            + ztarg * xi * xi,
+                                    ))
+                };
+                let pi_ttese = 3.141593 * ttese;
+                let ximin = 1.0 / (1.0 + pi_ttese * pi_ttese);
+                let rejmin = rej(ximin);
+                let ya = (2.0 / tteig) * (2.0 / tteig);
+                let xitry = (0.01_f64).max(ximin.max((0.5_f64).min(Real::sqrt(ya / ztarg))));
+                let mut galpha = 1.0 + 0.25 * RealMath::r_ln(ya + ztarg * xitry * xitry);
+                let gbeta = 0.5 * ztarg * xitry / (ya + ztarg * xitry * xitry);
+                galpha -= gbeta * (xitry - 0.5);
+                let mut ximid = galpha / (3.0 * gbeta);
+                if galpha >= 0.0 {
+                    ximid = 0.5 - ximid + Real::sqrt(ximid * ximid + 0.25);
+                } else {
+                    ximid = 0.5 - ximid - Real::sqrt(ximid * ximid + 0.25);
+                }
+                ximid = (0.01_f64).max(ximin.max((0.5_f64).min(ximid)));
+                let rejmid = rej(ximid);
+                let rejtop = 1.02 * rejmin.max(rejmid);
+                let mut theta;
+                loop {
+                    let xitst = rng.uniform();
+                    let rejtst = rej(xitst);
+                    let rtest = rng.uniform();
+                    theta = Real::sqrt(1.0 / xitst - 1.0) / ttese;
+                    let ratio = rejtst / rejtop;
+                    if rtest <= ratio && theta < core::f64::consts::PI {
+                        break;
+                    }
+                }
+                sinthe = RealMath::r_sin(theta);
+                costhe = RealMath::r_cos(theta);
+            } else if iprdst_use == 3 {
+                let c = 1.0 - 2.0 * rng.uniform();
+                let s = (1.0 - c) * (1.0 + c);
+                sinthe = if s > 0.0 { Real::sqrt(s) } else { 0.0 };
+                costhe = c;
+            } else {
+                let c = 1.0 - 2.0 * Real::sqrt(rng.uniform());
+                let s = (1.0 - c) * (1.0 + c);
+                sinthe = if s > 0.0 { Real::sqrt(s) } else { 0.0 };
+                costhe = c;
+            }
+            if ichrg == 1 {
+                uphi(stack, &mut saved, 2, 1, sinthe, costhe, rng)?;
+            } else {
+                stack.np += 1;
+                uphi(stack, &mut saved, 3, 2, -sinthe, costhe, rng)?;
+            }
+        }
+        let np = stack.np;
+        stack.iq[np] = iq2;
+        stack.iq[np - 1] = iq1;
+        return Ok(false);
+    }
+    // iprdst = 0: theta = 0
+    uphi_from_theta(stack, &mut saved, 1, 0.0, rng)?;
+    stack.np += 1;
+    let sinthe = -RealMath::r_sin(0.0);
+    let costhe = RealMath::r_sin(2.5 * core::f64::consts::PI);
+    uphi(stack, &mut saved, 3, 2, sinthe, costhe, rng)?;
+    let np = stack.np;
+    stack.iq[np] = iq2;
+    stack.iq[np - 1] = iq1;
+    Ok(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1255,6 +1571,100 @@ mod tests {
             relax(&mut full, &d, 0.01, 1, 1, RM + 1e-4, 1e-4, RM, &mut rng),
             Err(EgsError::StackExceeded { routine: "RELAX", .. })
         ));
+    }
+
+
+    fn toy_pair_medium() -> PairMedium {
+        // rejection functions identically 1, so every candidate is accepted
+        let one = alloc::vec![1.0; 9];
+        let zero = alloc::vec![0.0; 9];
+        PairMedium {
+            delcm: 0.5,
+            dl: [one.clone(), zero.clone(), zero, one.clone(), alloc::vec![0.0; 9], one],
+            bpar: [0.0, 0.5, 0.5],
+            zbrang: 0.02,
+        }
+    }
+
+    #[test]
+    fn pair_conserves_energy_and_makes_opposite_charges() {
+        let mut rng = Ranmar::new(12, 34);
+        let med = toy_pair_medium();
+        for iprdst in 0..=4 {
+            let cfg = PairConfig { iprdst, ..Default::default() };
+            for &eig in &[1.5, 3.0, 10.0, 100.0] {
+                for _ in 0..30 {
+                    let mut st = photon_stack(eig);
+                    st.w[1] = 1.0;
+                    let killed = pair(&mut st, &med, &cfg, RM, &mut rng).unwrap();
+                    assert!(!killed);
+                    assert_eq!((st.np_old, st.np), (1, 2), "iprdst {iprdst} eig {eig}");
+                    assert!((st.e[1] + st.e[2] - eig).abs() < 1e-12);
+                    assert_eq!(st.iq[1] + st.iq[2], 0);
+                    assert!(st.iq[1] != 0);
+                    assert!(st.e[1] >= RM - 1e-12 && st.e[2] >= RM - 1e-12);
+                    for i in 1..=2 {
+                        assert!((norm(&st, i) - 1.0).abs() < 1e-9, "iprdst {iprdst} eig {eig}: {}", norm(&st, i));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn pair_roulette_and_refused_branches() {
+        let mut rng = Ranmar::new(5, 6);
+        let med = toy_pair_medium();
+        // probability ~0: the pair is killed (np > 1: the stack shrinks)
+        let mut st = photon_stack(5.0);
+        st.np = 2;
+        st.e[2] = 5.0;
+        st.w[2] = 1.0;
+        let cfg = PairConfig { rr: Some(1e-12), ..Default::default() };
+        assert!(pair(&mut st, &med, &cfg, RM, &mut rng).unwrap());
+        assert_eq!(st.np, 1);
+        // a lone photon stays, with zero weight and energy
+        let mut lone = photon_stack(5.0);
+        assert!(pair(&mut lone, &med, &cfg, RM, &mut rng).unwrap());
+        assert_eq!((lone.np, lone.wt[1], lone.e[1]), (1, 0.0, 0.0));
+        // survivors have their weight divided
+        let mut surv = photon_stack(5.0);
+        let cfg2 = PairConfig { rr: Some(1.0), ..Default::default() };
+        assert!(!pair(&mut surv, &med, &cfg2, RM, &mut rng).unwrap());
+        assert_eq!(surv.wt[1], 1.0);
+        // non-positive probability plays nothing
+        let mut none = photon_stack(5.0);
+        let cfg3 = PairConfig { rr: Some(0.0), ..Default::default() };
+        assert!(!pair(&mut none, &med, &cfg3, RM, &mut rng).unwrap());
+        // refused branches
+        let mut st = photon_stack(5.0);
+        let nrc = PairConfig { pair_nrc: true, ..Default::default() };
+        assert!(matches!(pair(&mut st, &med, &nrc, RM, &mut rng), Err(EgsError::Unsupported(_))));
+        let trip = PairConfig { itriplet: 1, ..Default::default() };
+        assert!(matches!(pair(&mut st, &med, &trip, RM, &mut rng), Err(EgsError::Unsupported(_))));
+        // a full stack
+        let mut full = Stack::new(1);
+        full.np = 1;
+        full.e[1] = 5.0;
+        assert!(matches!(
+            pair(&mut full, &med, &PairConfig::default(), RM, &mut rng),
+            Err(EgsError::StackExceeded { routine: "PAIR", .. })
+        ));
+    }
+
+    #[test]
+    fn uphi_from_theta_matches_explicit_angle() {
+        let mut r1 = Ranmar::new(3, 3);
+        let mut r2 = Ranmar::new(3, 3);
+        let mut a = Stack::new(5);
+        a.np = 1;
+        a.w[1] = 1.0;
+        let mut b = a.clone();
+        let theta = 0.7;
+        uphi_from_theta(&mut a, &mut UphiSaved::default(), 1, theta, &mut r1).unwrap();
+        uphi(&mut b, &mut UphiSaved::default(), 2, 1, theta.sin(), theta.cos(), &mut r2).unwrap();
+        assert!((a.w[1] - b.w[1]).abs() < 1e-12 && (a.u[1] - b.u[1]).abs() < 1e-12);
+        assert!((a.w[1] - theta.cos()).abs() < 1e-12);
     }
 
     #[test]
