@@ -120,7 +120,7 @@ impl FixedSource {
     /// what makes a two-stage run answer the same problem as a single-stage
     /// one — under variance reduction the recorded weights are nowhere near 1,
     /// and discarding them would rescale stage two's answer silently.
-    fn sample(&self, seed: &mut u64) -> (Site, f64) {
+    pub(crate) fn sample(&self, seed: &mut u64) -> (Site, f64) {
         match self {
             FixedSource::Point { r, energy_ev } => {
                 let (dx, dy, dz) = isotropic_direction(seed);
@@ -490,45 +490,15 @@ pub fn run_fixed_source_traced(
     }
 }
 
-/// The result of [`run_fixed_source_flux_derivative`]: the flux integrated over
-/// one material and its derivative with respect to the perturbed variable, both
-/// per source particle, with the standard error of each over the batches.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FluxDerivativeResult {
-    /// Track-length flux in the scored material, per source particle \[cm\].
-    pub flux: f64,
-    /// Standard error of [`Self::flux`] over the batches.
-    pub flux_std: f64,
-    /// `d flux / d p` per source particle, `p` being the derivative's variable
-    /// (density, nuclide density).
-    pub d_flux: f64,
-    /// Standard error of [`Self::d_flux`] over the batches.
-    pub d_flux_std: f64,
-    /// Batches the statistics are over.
-    pub n_batches: usize,
-}
+/// The result of [`run_fixed_source_flux_derivative`] (the general type of
+/// [`crate::physics::derivative_run`]).
+pub use crate::physics::derivative_run::DerivativeResult as FluxDerivativeResult;
 
-/// **A tally derivative, wired into the transport** (gh:#683, #263): the flux in
+/// **A tally derivative, wired into the transport** (gh:#683, #263): the FLUX in
 /// `score_material` and its derivative with respect to the variable of
-/// `derivative`, from ONE fixed-source run, by accumulating the logarithmic flux
-/// derivative along each history as OpenMC's `score_track_derivative` and
-/// `score_collision_derivative` do (`src/tallies/derivative.cpp`).
-///
-/// Built on the transport kernel's [`TraceEvent`] observer, so the kernel and its
-/// random stream are untouched: the histories are those of [`run_fixed_source`]
-/// (same settings, same seed) bit for bit. Surface tracking, analog. Per
-/// segment the flight length is added to the track term
-/// ([`TallyDerivative::accumulate_along_track`]); at the collision that ended it
-/// the collision term is added
-/// ([`TallyDerivative::accumulate_at_collision`]) **before** the segment is
-/// scored, because that segment's length was sampled from a density that
-/// contains the collision: the score `w d` is multiplied by the log-derivative
-/// of the whole path probability up to and including its end event. (A
-/// flux score has no explicit dependence on the variable.) A fission
-/// secondary inherits its parent's accumulated derivative.
-///
-/// Supported variables: density and nuclide density. Temperature is refused
-/// (it needs `d Sigma / dT`).
+/// `derivative`, from one fixed-source run. A thin wrapper over
+/// [`crate::physics::derivative_run::run_fixed_source_derivative`] with the flux
+/// score; see that module for the method, scope and the other scores.
 ///
 /// # Errors
 ///
@@ -542,123 +512,18 @@ pub fn run_fixed_source_flux_derivative(
     derivative: &crate::tally::derivative::TallyDerivative,
     score_material: usize,
 ) -> Result<FluxDerivativeResult, String> {
-    use crate::physics::tracking_trace::TraceEvent;
-    use crate::tally::derivative::{DerivativeVariable, FluxDerivative};
-    if matches!(derivative.variable, DerivativeVariable::Temperature) {
-        return Err("a temperature flux derivative needs d(Sigma)/dT, which this port does not have".into());
-    }
-    let n = settings.n_particles.max(1);
-    let n_batches = settings.n_batches.max(1);
-    let (base, rem) = (n / n_batches, n % n_batches);
-    let mut seed = settings.seed;
-    let mut flux_b: Vec<f64> = Vec::with_capacity(n_batches);
-    let mut dflux_b: Vec<f64> = Vec::with_capacity(n_batches);
-    let mut dummy_batch: Vec<f64> = Vec::new();
-    for b in 0..n_batches {
-        let this_batch = base + usize::from(b < rem);
-        let (mut flux_sum, mut dflux_sum) = (0.0_f64, 0.0_f64);
-        for _ in 0..this_batch {
-            let (birth_site, birth_weight) = source.sample(&mut seed);
-            let mut hseed = seed;
-            let mut bank = vec![birth_site];
-            let mut is_source = true;
-            let mut fd = FluxDerivative::default();
-            let mut err: Option<String> = None;
-            let (mut cur_mat, mut e_cur): (Option<usize>, f64) = (None, 0.0);
-            // A collision-limited segment waits here for its collision.
-            let mut pending: Option<(usize, f64)> = None;
-            while let Some(site) = bank.pop() {
-                let mut next: Vec<Site> = Vec::new();
-                let mut observe = |ev: TraceEvent| {
-                    // Score a segment still waiting (no collision followed).
-                    let flush = |fd: &FluxDerivative, pending: &mut Option<(usize, f64)>, fl: &mut f64, dfl: &mut f64| {
-                        if let Some((m, d)) = pending.take() {
-                            if m == score_material {
-                                *fl += d;
-                                *dfl += d * fd.value;
-                            }
-                        }
-                    };
-                    match ev {
-                        TraceEvent::Start { e, .. } => {
-                            flush(&fd, &mut pending, &mut flux_sum, &mut dflux_sum);
-                            e_cur = e;
-                        }
-                        TraceEvent::Located { material, .. } => {
-                            flush(&fd, &mut pending, &mut flux_sum, &mut dflux_sum);
-                            cur_mat = material;
-                        }
-                        TraceEvent::Segment { d_collision, d_boundary, .. } => {
-                            let d = d_collision.min(d_boundary);
-                            if let (Some(m), true) = (cur_mat, d.is_finite() && d > 0.0) {
-                                if let Err(e) = derivative.accumulate_along_track(&mut fd, m, &materials[m], nuclides, d, e_cur) {
-                                    err.get_or_insert(e);
-                                }
-                                if d_collision <= d_boundary {
-                                    pending = Some((m, d)); // scored once its collision is known
-                                } else if m == score_material {
-                                    flux_sum += d;
-                                    dflux_sum += d * fd.value;
-                                }
-                            }
-                        }
-                        TraceEvent::Collision { material, nuclide, e, .. } => {
-                            if let Err(er) = derivative.accumulate_at_collision(&mut fd, material, &materials[material], nuclides, nuclide, e) {
-                                err.get_or_insert(er);
-                            }
-                            flush(&fd, &mut pending, &mut flux_sum, &mut dflux_sum);
-                            e_cur = e;
-                        }
-                        TraceEvent::State(st) => {
-                            flush(&fd, &mut pending, &mut flux_sum, &mut dflux_sum);
-                            e_cur = st.energy;
-                        }
-                        _ => {}
-                    }
-                };
-                crate::physics::transport_csg::transport_history_vr_urr(
-                    site,
-                    geom,
-                    materials,
-                    nuclides,
-                    &[],
-                    1.0,
-                    &mut next,
-                    &mut hseed,
-                    None,
-                    &mut dummy_batch,
-                    &[],
-                    &mut [],
-                    None,
-                    &settings.variance_reduction,
-                    crate::physics::transport_csg::DeltaTallyEstimator::default(),
-                    None,
-                    None,
-                    None,
-                    if is_source { birth_weight } else { 1.0 },
-                    None,
-                    &mut observe,
-                );
-                is_source = false;
-                bank.extend(next);
-            }
-            if let Some(e) = err {
-                return Err(e);
-            }
-            seed = hseed;
-        }
-        let w = this_batch.max(1) as f64;
-        flux_b.push(flux_sum / w);
-        dflux_b.push(dflux_sum / w);
-    }
-    let stats = |v: &[f64]| {
-        let m = v.iter().sum::<f64>() / v.len() as f64;
-        let var = if v.len() > 1 { v.iter().map(|x| (x - m) * (x - m)).sum::<f64>() / (v.len() - 1) as f64 } else { 0.0 };
-        (m, (var / v.len() as f64).sqrt())
-    };
-    let (flux, flux_std) = stats(&flux_b);
-    let (d_flux, d_flux_std) = stats(&dflux_b);
-    Ok(FluxDerivativeResult { flux, flux_std, d_flux, d_flux_std, n_batches })
+    crate::physics::derivative_run::run_fixed_source_derivative(
+        geom,
+        materials,
+        nuclides,
+        source,
+        settings,
+        &crate::physics::derivative_run::DerivativeSpec {
+            derivative: derivative.clone(),
+            score: crate::tally::tally::ScoreType::Flux,
+            score_material,
+        },
+    )
 }
 
 #[cfg(test)]
