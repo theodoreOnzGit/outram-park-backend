@@ -6806,7 +6806,7 @@ pub fn check_name_against_za(name: &str, za: f64) -> Result<(), njoy_outram_park
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/material/nuclide.rs:593:7: 593:22 (#0) }])]")`
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/material/nuclide.rs:596:7: 596:22 (#0) }])]")`
 
 Where a 0 K companion table for the broadened ACE file at `path` would be.
 
@@ -7233,6 +7233,10 @@ pub mod reaction { /* ... */ }
 #### Enum `ReactionMT`
 
 Reaction types and secondary particle sampling.
+
+**NOT USED (gh:#693, checked 2026-11-19: no user in `src/`, `tests/` or
+`examples/`).** Secondary sampling lives in `material/nuclide.rs`; this file
+is the unported skeleton of upstream `reaction.cpp`.
 
 C++ source: `src/reaction.cpp` (424 LOC), `include/openmc/reaction.h`.
 Also: `src/physics_common.cpp` — secondary product angle/energy sampling.
@@ -15856,6 +15860,13 @@ notebook).
 
 ###### `ScatterN`
 
+~~`(n,xn)` scatter~~ **CORRECTED 2026-11-19** (gh:#680): the track-length
+and collision estimators score the **elastic** channel only; the
+scatter matrix ([`super::scoring::score_scatter_matrix`]) scores
+**every** scattering reaction weighted by its multiplicity, i.e. a
+*nu*-scatter matrix. Its row sum therefore differs from a track-length
+`ScatterN` (and from `Scatter`) by construction, by the (n,xn) excess.
+
 ###### `Current`
 
 ###### `Events`
@@ -16077,6 +16088,21 @@ pub struct TallyBin {
   Whether the textbook `sum_sq/n - mean^2` form has **catastrophically
 
 - ```rust
+  pub fn mean_realized(self: &Self) -> f64 { /* ... */ }
+  ```
+  The mean over the bin's **own** realization count: the number of batches
+
+- ```rust
+  pub fn mean_per_source_particle(self: &Self, source_weight_per_batch: f64) -> f64 { /* ... */ }
+  ```
+  [`Self::mean_realized`] **normalised per source particle** (gh:#675).
+
+- ```rust
+  pub fn rel_std_dev_realized(self: &Self) -> f64 { /* ... */ }
+  ```
+  [`Self::rel_std_dev`] over the bin's OWN realization count
+
+- ```rust
   pub fn mean(self: &Self, n_realizations: u64) -> f64 { /* ... */ }
   ```
   Mean over `n_realizations` active batches.
@@ -16214,6 +16240,7 @@ pub struct Tally {
     pub filters: Vec<super::filter::FilterKind>,
     pub scores: Vec<ScoreType>,
     pub bins: Vec<TallyBin>,
+    pub derivative: Option<crate::tally::derivative::TallyDerivative>,
 }
 ```
 
@@ -16226,10 +16253,16 @@ pub struct Tally {
 | `filters` | `Vec<super::filter::FilterKind>` | The filters this tally is conditioned on, as a closed enum rather than<br>trait objects — see [`super::filter::FilterKind`] for why (workspace<br>design rules: traits for the contract, enums for dispatch). |
 | `scores` | `Vec<ScoreType>` |  |
 | `bins` | `Vec<TallyBin>` | Accumulated bins, indexed `[filter_bin * n_scores + score_idx]`. |
+| `derivative` | `Option<crate::tally::derivative::TallyDerivative>` | A differential operator this tally is estimated under (gh:#263), or `None`<br>for an ordinary tally. It is a declaration the derivative drivers read:<br>`physics::derivative_run::DerivativeSpec::for_tally` builds the spec for a<br>bin's score. Scoring by the ordinary drivers ignores it. |
 
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn n_realizations(self: &Self) -> u64 { /* ... */ }
+  ```
+  Realizations (flushed batches) this tally has accumulated: the largest bin
 
 - ```rust
   pub fn n_bins(self: &Self) -> usize { /* ... */ }
@@ -16374,6 +16407,9 @@ stubs.
 
 ```rust
 pub struct FilterEvent {
+    pub cell_levels: [usize; 8],
+    pub universe_levels: [usize; 8],
+    pub n_levels: usize,
     pub cell_idx: usize,
     pub material_idx: usize,
     pub universe_idx: usize,
@@ -16405,6 +16441,9 @@ pub struct FilterEvent {
 
 | Name | Type | Documentation |
 |------|------|---------------|
+| `cell_levels` | `[usize; 8]` | Cells and universes of every coordinate level of the particle's path,<br>root first, `usize::MAX` where a level has none (gh:#677). Only the<br>first [`MAX_PATH_LEVELS`] levels are kept. Filled on the track-length<br>path from the caller's [`super::history_events::EventHistory`]; empty<br>(`n_levels == 0`) elsewhere, where [`CellFilter`] and<br>[`UniverseFilter`] fall back to the leaf indices. |
+| `universe_levels` | `[usize; 8]` | See [`Self::cell_levels`]. |
+| `n_levels` | `usize` | How many entries of the two level arrays are valid. |
 | `cell_idx` | `usize` |  |
 | `material_idx` | `usize` |  |
 | `universe_idx` | `usize` |  |
@@ -16689,6 +16728,16 @@ pub struct SecondarySite {
 #### Struct `CellFilter`
 
 Filter by cell.  Maps to `openmc::CellFilter`.
+
+**Every coordinate level on the track-length path (gh:#677, 2026-11-19).**
+OpenMC matches the cell at EVERY coordinate level (`filter_cell.cpp:51-56`).
+~~This port matched only the leaf cell, so a tally on a cell filled with a
+universe or lattice scored 0 with no error.~~ **CORRECTED 2026-11-19, extended
+2026-11-20:** where the event carries its path ([`FilterEvent::cell_levels`]:
+the track-length estimator, the scatter matrix and fission-birth scores) a
+container cell now matches. Only the delta-tracking collision-point score
+still matches the leaf alone. Upstream emits one bin per
+matching level; this returns the deepest match only.
 
 **These are 0-based indices into the geometry's cell array, not cell IDs.**
 OpenMC's C++ filters bin by user-assigned global ID; this port bins by
@@ -17297,6 +17346,9 @@ pub struct EnergyOutFilter {
 
 Filter by universe.  Maps to `openmc::UniverseFilter`.
 
+**Every coordinate level on the track-length path (gh:#677, 2026-11-19):** see
+[`CellFilter`]; OpenMC `filter_universe.cpp:50-55`. Deepest match only.
+
 ```rust
 pub struct UniverseFilter {
     pub universe_indices: Vec<usize>,
@@ -17444,10 +17496,10 @@ mesh box is unbinned (`get_bin` returns `None`, so the tally drops it).
 Ported from `src/tallies/filter_mesh.cpp` (`MeshFilter::get_all_bins`, the
 non-track-length branch: `mesh->get_bin(r)`; a single bin, weight 1). The
 track-length "bins crossed" sub-segmentation
-(`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) **for
-the four structured kinds** — this port scores the whole segment into the
-midpoint's cell, which is exact for a mesh whose cells are large relative
-to the mean free path. **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
+(`StructuredMesh::bins_crossed`) is split at the grid surfaces for ALL four
+structured kinds (gh:#678, 2026-11-19: planes for regular and rectilinear,
+quadratic cuts for cylindrical and spherical); ~~a documented gap for the four
+structured kinds, scored whole into the midpoint's cell~~. **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
 #492) the segment IS split** across the cells it crosses
 ([`Filter::track_length_bins`], after `MOABMesh::bins_crossed`).
 **CHANGED 2026-09-22 (GitHub #260, scope item 4).** `mesh` was a concrete
@@ -18230,9 +18282,16 @@ pub struct MuFilter {
 - **WasmNotSync**
 #### Struct `PolarAzimuthalFilter`
 
-Filter by the particle's **polar and azimuthal angles of travel**. Maps to
-`openmc::PolarAzimuthalFilter` (`src/tallies/filter_azimuthal.cpp` +
-`filter_polar.cpp`, which OpenMC exposes as one filter).
+Filter by the particle's **polar and azimuthal angles of travel**.
+
+~~Maps to `openmc::PolarAzimuthalFilter`, which OpenMC exposes as one
+filter.~~ **CORRECTED 2026-11-19** (gh:#691): OpenMC has no such filter. It
+has two, `PolarFilter` (`src/tallies/filter_polar.cpp`) and
+`AzimuthalFilter` (`filter_azimuthal.cpp`), and `PolarFilter` bins the ANGLE
+`theta = acos(u.z)`, whereas this filter's polar axis bins `cos(theta)`.
+**Convert an OpenMC theta edge list `t` to `cos(t)` (descending in theta is
+ascending in cosine) before use**; theta edges passed unconverted are not
+rejected and mis-bin silently.
 
 `polar` holds ascending edges in `cos(theta)` on `[-1, 1]` — **cosine, not
 the angle** — where `theta` is measured from `+z`, so `cos(theta)` is the
@@ -18257,6 +18316,318 @@ pub struct PolarAzimuthalFilter {
 | `azimuthal` | `Vec<f64>` | Ascending `phi` edges on `[-pi, pi]` \[rad\]. |
 
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_theta_edges(theta: &[f64], azimuthal: Vec<f64>) -> Result<Self, String> { /* ... */ }
+  ```
+  Build the filter from OpenMC `PolarFilter` **theta** edges (ascending
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PolarFilter`
+
+Filter by the particle's **polar angle** `theta = acos(u.z)` \[rad\], as
+OpenMC's `PolarFilter` (`src/tallies/filter_polar.cpp`, gh:#691).
+
+`edges` are ascending angles in `[0, pi]`, so bin `i` is OpenMC's bin `i`
+(unlike [`PolarAzimuthalFilter`], whose polar axis is `cos(theta)` and runs
+the other way). Edges outside `[0, pi]` are rejected by
+[`PolarFilter::new`]. The direction binned is [`FilterEvent::direction`];
+upstream uses the pre-collision direction `u_last` for non-track-length
+estimators, so a collision-estimator caller must put that direction in the
+event.
+
+```rust
+pub struct PolarFilter {
+    pub edges: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `edges` | `Vec<f64>` | Ascending `theta` edges \[rad\] on `[0, pi]`; `n_bins = len() - 1`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(edges: Vec<f64>) -> Result<Self, String> { /* ... */ }
+  ```
+  Build the filter from `theta` edges.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `AzimuthalFilter`
+
+Filter by the particle's **azimuthal angle** `phi = atan2(u.y, u.x)` \[rad\],
+as OpenMC's `AzimuthalFilter` (`src/tallies/filter_azimuthal.cpp`, gh:#691).
+
+`edges` are ascending angles in `[-pi, pi]`; bin `i` is OpenMC's bin `i`.
+Direction convention as [`PolarFilter`].
+
+```rust
+pub struct AzimuthalFilter {
+    pub edges: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `edges` | `Vec<f64>` | Ascending `phi` edges \[rad\] on `[-pi, pi]`; `n_bins = len() - 1`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(edges: Vec<f64>) -> Result<Self, String> { /* ... */ }
+  ```
+  Build the filter from `phi` edges.
 
 ###### Trait Implementations
 
@@ -19177,6 +19548,8 @@ pub enum FilterKind {
     Surface(SurfaceFilter),
     Mu(MuFilter),
     PolarAzimuthal(PolarAzimuthalFilter),
+    Polar(PolarFilter),
+    Azimuthal(AzimuthalFilter),
     Time(TimeFilter),
     Particle(ParticleFilter),
     DelayedGroup(DelayedGroupFilter),
@@ -19293,6 +19666,26 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `PolarAzimuthalFilter` |  |
+
+###### `Polar`
+
+[`PolarFilter`] — OpenMC's polar-angle filter (gh:#691).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PolarFilter` |  |
+
+###### `Azimuthal`
+
+[`AzimuthalFilter`] — OpenMC's azimuthal-angle filter (gh:#691).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `AzimuthalFilter` |  |
 
 ###### `Time`
 
@@ -19715,6 +20108,8 @@ This trait is implemented for the following types:
 - `SurfaceFilter`
 - `MuFilter`
 - `PolarAzimuthalFilter`
+- `PolarFilter`
+- `AzimuthalFilter`
 - `TimeFilter`
 - `ParticleFilter`
 - `DelayedGroupFilter`
@@ -19738,6 +20133,17 @@ This trait is implemented for the following types:
 - `DistribcellFilter`
 
 ### Functions
+
+#### Function `lower_bound_index`
+
+OpenMC's `lower_bound_index` (`include/openmc/search.h:17-19`) on ascending
+`edges` (at least two, `x` within `[edges[0], edges[last]]`): `0` if `x` is
+the first edge, else `lower_bound(x) - 1`. An interior edge therefore belongs
+to the LOWER bin and the top edge to the last bin (gh:#687).
+
+```rust
+pub fn lower_bound_index(edges: &[f64], x: f64) -> usize { /* ... */ }
+```
 
 #### Function `legendre_pn`
 
@@ -19802,6 +20208,17 @@ filter scored with rather than a re-derivation that could drift.
 
 ```rust
 pub fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f64> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MAX_PATH_LEVELS`
+
+Coordinate levels a [`FilterEvent`] carries for the multi-level cell and
+universe filters (gh:#677).
+
+```rust
+pub const MAX_PATH_LEVELS: usize = 8;
 ```
 
 ## Module `derivative`
@@ -20047,9 +20464,24 @@ pub struct TallyDerivative {
 ###### Methods
 
 - ```rust
+  pub fn check_estimator(self: &Self, estimator: DerivativeEstimator) -> Result<(), String> { /* ... */ }
+  ```
+  Refuse an estimator upstream refuses (gh:#683 item 3): OpenMC's
+
+- ```rust
   pub fn accumulate_at_collision(self: &Self, flux_deriv: &mut FluxDerivative, material_idx: usize, material: &Material, nuclides: &[Nuclide], event_nuclide: usize, e: f64) -> Result<(), String> { /* ... */ }
   ```
   Accumulate this derivative's contribution at a collision —
+
+- ```rust
+  pub fn accumulate_along_track(self: &Self, flux_deriv: &mut FluxDerivative, material_idx: usize, material: &Material, nuclides: &[Nuclide], distance: f64, e: f64) -> Result<(), String> { /* ... */ }
+  ```
+  Accumulate this derivative's **streaming (track) term** over a flight of
+
+- ```rust
+  pub fn apply_to_material_total_score(self: &Self, score: f64, flux_deriv: &FluxDerivative, sigma_nuclide: f64, sigma_macro: f64) -> Result<f64, String> { /* ... */ }
+  ```
+  The derivative of a **material-total** score under a nuclide-density
 
 - ```rust
   pub fn apply_to_score(self: &Self, score: f64, flux_deriv: &FluxDerivative, material_idx: Option<usize>, material: Option<&Material>, score_type: ScoreType) -> Result<f64, String> { /* ... */ }
@@ -20234,6 +20666,158 @@ pub struct FluxDerivative {
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `DerivativeEstimator`
+
+The estimator a tally scores with, for [`TallyDerivative::check_estimator`]
+(gh:#683 item 3).
+
+```rust
+pub enum DerivativeEstimator {
+    Analog,
+    Collision,
+    TrackLength,
+}
+```
+
+##### Variants
+
+###### `Analog`
+
+Analog (event-by-event) scoring.
+
+###### `Collision`
+
+Collision estimator.
+
+###### `TrackLength`
+
+Track-length estimator.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
 - **Forget**
@@ -21533,8 +22117,14 @@ see [`crate::tally::filter::FilterKind::is_expansion`].
 This is the tally that MGXS generation is built on. `Sigma_s,l,g->g'` is
 the `l`-th Legendre moment of the scattering kernel, and this filter
 crossed with an [`crate::tally::filter::EnergyFilter`] and an
-[`crate::tally::filter::EnergyOutFilter`] is exactly how it is measured.
-Without it a generated library can only ever be P0 — which is the defect
+[`crate::tally::filter::EnergyOutFilter`] is ~~exactly how it is measured~~
+**CORRECTED 2026-11-19** (gh:#676): how it WILL be measured. ~~Today that
+combination scores exactly zero~~ **CORRECTED 2026-11-20** (gh:#676): the
+scatter matrix (`score_scatter_matrix_mu`) sets `FilterEvent::mu` and deposits
+`w * P_l(mu)` into every moment bin, so `[Energy, EnergyOut, Legendre]` on a
+`NuScatter` score measures the P_l matrix (test
+`the_scatter_matrix_expands_in_legendre_moments_of_the_lab_cosine`). On any
+other tally the filter has no scoring path and `Tally::validate` refuses it. Without it a generated library can only ever be P0 — which is the defect
 GitHub #265 priced at **−4371 pcm** on a leakage-dominated case.
 
 # Why the weights are NOT `(l + 1/2) P_l`
@@ -23227,6 +23817,8 @@ pub struct EventHistory {
     pub material: Option<usize>,
     pub material_last: Option<usize>,
     pub after_boundary: bool,
+    pub levels: [(usize, usize); 8],
+    pub n_levels: usize,
     // Some fields omitted
 }
 ```
@@ -23241,6 +23833,8 @@ pub struct EventHistory {
 | `material` | `Option<usize>` | Material of the cell the particle is in (`None` in a void). |
 | `material_last` | `Option<usize>` | OpenMC's `material_last`. |
 | `after_boundary` | `bool` | The current flight began at a surface or lattice crossing, whose 1e-9 cm<br>nudge [`score_mesh_surface_segment`] undoes. |
+| `levels` | `[(usize, usize); 8]` | Cell and universe of each coordinate level of the current path, root<br>first (gh:#677); see [`EventHistory::set_levels`]. |
+| `n_levels` | `usize` | Valid entries of [`Self::levels`]. |
 | *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
@@ -23256,6 +23850,11 @@ pub struct EventHistory {
   pub fn located(self: &mut Self, cell: usize, material: Option<usize>) { /* ... */ }
   ```
   The loop located the particle in `cell` with `material`.
+
+- ```rust
+  pub fn set_levels</* synthetic */ impl Iterator<Item = (usize, usize)>: Iterator<Item = (usize, usize)>>(self: &mut Self, levels: impl Iterator<Item = (usize, usize)>) { /* ... */ }
+  ```
+  Record the `(cell, universe)` of every coordinate level of the path just
 
 - ```rust
   pub fn collided(self: &mut Self) { /* ... */ }
@@ -23994,8 +24593,12 @@ is planned via OpenFOAM `polyMesh` reuse and is explicitly out of scope for
 built from or converted to OpenFOAM `polyMesh`), scored by
 [`super::mesh_unstructured::UnstructuredMeshExt`] — point location, and a
 track-length estimator that **does** split a segment across the cells it
-crosses (`MOABMesh::bins_crossed`). For the four **structured** kinds the
-following gap is unchanged: the
+crosses (`MOABMesh::bins_crossed`). **CORRECTED 2026-11-19 (gh:#678):**
+regular and rectilinear meshes now split too, at each grid plane
+(`planar_bins_crossed`), and so do **cylindrical and spherical** meshes
+(`cylindrical_bins_crossed`, `spherical_bins_crossed`, quadratic cuts); the
+gap below is closed for all four kinds. ~~For the four structured kinds the
+following gap is unchanged:~~ the
 track-length **`bins_crossed`** sub-segmentation, so a segment is scored
 whole into its midpoint's cell rather than split across the cells it
 actually crosses. That approximation is exact only while a mesh cell is
@@ -24237,8 +24840,14 @@ Tally scoring — accumulate scores at collision events (collision estimator).
 
 C++ source: `src/tallies/tally_scoring.cpp`.
 
-After a real collision the transport loop (see
-[`crate::physics::transport_csg`]) calls [`score_collision`], which:
+~~After a real collision the transport loop (see
+[`crate::physics::transport_csg`]) calls [`score_collision`]~~ **CORRECTED
+2026-11-19** (gh:#693, #679): the transport loop does NOT call
+[`score_collision`] (it has no non-test caller; the transport scores
+track-length per batch and, in delta regions, [`score_collision_point`]).
+It scores each collision straight into the persistent bins, so its
+statistics are per-collision, not per-batch (gh:#679); use it only for a
+mean over a known realization count. It:
   1. builds a [`FilterEvent`] snapshot of the particle state,
   2. maps it through every filter on the tally to a flat bin index (a
      conjunction — if any filter rejects the event, nothing is scored),
@@ -24570,6 +25179,19 @@ birth counts, which are different quantities in different units.
 pub fn score_fission_birth(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy_in: f64, energy_born: f64, position: crate::geometry::position::Position, weight: f64) { /* ... */ }
 ```
 
+#### Function `score_fission_birth_hist`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"too_many_arguments\" },\nkind: Allow}])]")`
+
+[`score_fission_birth`] with the particle's [`EventHistory`], so cell and
+universe filters match every coordinate level (gh:#677).
+
+```rust
+pub fn score_fission_birth_hist(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy_in: f64, energy_born: f64, position: crate::geometry::position::Position, weight: f64, hist: &super::history_events::EventHistory) { /* ... */ }
+```
+
 #### Function `score_scatter_matrix`
 
 **Attributes:**
@@ -24638,6 +25260,35 @@ accumulator and combining them is the MGXS layer's job.
 pub fn score_scatter_matrix(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy_in: f64, energy_out: f64, position: crate::geometry::position::Position, weight: f64, emission: ScatterEmission) { /* ... */ }
 ```
 
+#### Function `score_scatter_matrix_mu`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"too_many_arguments\" },\nkind: Allow}])]")`
+
+[`score_scatter_matrix`] with the **laboratory scattering cosine** `mu = u_in
+. u_out` of the emitted neutron (gh:#676), which a `MuFilter` on the tally
+bins. [`score_scatter_matrix`] is this with `mu = 0.0`, kept for callers with
+no direction; the transport arms pass the real cosine.
+
+```rust
+pub fn score_scatter_matrix_mu(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy_in: f64, energy_out: f64, position: crate::geometry::position::Position, weight: f64, emission: ScatterEmission, mu: f64) { /* ... */ }
+```
+
+#### Function `score_scatter_matrix_full`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"too_many_arguments\" },\nkind: Allow}])]")`
+
+[`score_scatter_matrix_mu`] with the particle's [`EventHistory`], so a
+`CellFilter` / `UniverseFilter` matches every coordinate level of the path on
+the scatter matrix too (gh:#677), not only the leaf.
+
+```rust
+pub fn score_scatter_matrix_full(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy_in: f64, energy_out: f64, position: crate::geometry::position::Position, weight: f64, emission: ScatterEmission, mu: f64, hist: &super::history_events::EventHistory) { /* ... */ }
+```
+
 #### Function `flush_batch`
 
 Close a batch (generation): flush every per-batch accumulator into the tally's
@@ -24692,8 +25343,18 @@ Score one real collision into `tally` via the collision estimator.
 If any attached filter does not match the event, the collision is not scored
 (the filters act as a conjunction).
 
+**Per-batch since 2026-11-20 (gh:#679).** ~~This scored every collision
+straight into the persistent bins, so each COLLISION was one "realization"
+and its `rel_std_dev` was not the variance of batch totals; it also built its
+[`FilterEvent`] without position, direction, time or `mu`.~~ It now
+accumulates into the caller's per-batch accumulator (`batch`, flushed once per
+batch with [`flush_batch`]) by delegating to [`score_collision_point`], so the
+statistics are those of batch totals. It has no position or direction: it
+scores at the origin along the default direction, so a spatial or angular
+filter needs [`score_collision_point`] directly.
+
 ```rust
-pub fn score_collision(tally: &mut super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy: f64, sigma_t: f64, macro_xs: &crate::material::material::MacroXs, weight: f64, cell_instance: Option<usize>) { /* ... */ }
+pub fn score_collision(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy: f64, sigma_t: f64, macro_xs: &crate::material::material::MacroXs, weight: f64, cell_instance: Option<usize>) { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -28650,9 +29311,11 @@ collision physics and data tiers as [`crate::physics::keff`]. Tallies use the
 **track-length estimator**: each streamed segment of length `d` deposits `w·d`
 (flux) and `w·d·Σ_x` (reaction rates) into its cell × energy bin, accumulated
 per generation and flushed as one realization per active batch (see
-[`crate::tally::scoring::score_track_length`] / `flush_batch`). The
+[`crate::tally::scoring::score_track_length`] / `flush_batch`). ~~The
 collision estimator ([`crate::tally::scoring::score_collision`]) remains
-available as an alternative. **Inside a delta-tracked region** there is no
+available as an alternative.~~ **CORRECTED 2026-11-19** (gh:#693, #679):
+`score_collision` has no caller here and accumulates one realization per
+collision, so it is not a batch-statistics alternative. **Inside a delta-tracked region** there is no
 track length; the tally is scored at points by
 [`crate::tally::scoring::score_collision_point`], by default at every
 tentative collision with `w/Σ_maj` ([`DeltaTallyEstimator`], gh:#598).
@@ -29848,6 +30511,7 @@ pub struct EmptyFissionBank {
     pub generations_completed: usize,
     pub generations_requested: usize,
     pub partial: crate::physics::keff::KeffResult,
+    pub lost_particles: Option<(u64, u64)>,
 }
 ```
 
@@ -29858,6 +30522,7 @@ pub struct EmptyFissionBank {
 | `generations_completed` | `usize` | Generations that completed before the bank (or the initial source)<br>was empty. |
 | `generations_requested` | `usize` | Generations asked for, `n_inactive + n_active`. |
 | `partial` | `crate::physics::keff::KeffResult` | The run as far as it got, for diagnosis. Its `k_mean` is NOT an<br>eigenvalue: it averages the active generations that ran, or is 0 when<br>none did. |
+| `lost_particles` | `Option<(u64, u64)>` | `Some((lost, simulated))` when the run was refused for exceeding the<br>lost-particle limit (gh:#699) rather than for an empty bank; `None` for<br>an empty bank. One error type so the `try_run_keff_csg*` signatures and<br>their callers are unchanged. |
 
 ##### Implementations
 
@@ -31026,6 +31691,25 @@ A run is an empty-bank failure when
 
 ```rust
 pub fn check_fission_bank_survived(settings: &crate::physics::keff::KeffSettings, result: crate::physics::keff::KeffResult) -> Result<crate::physics::keff::KeffResult, EmptyFissionBank> { /* ... */ }
+```
+
+#### Function `check_lost_particle_limit`
+
+**Refuse a run that lost too many histories** (gh:#699): OpenMC's
+`Particle::mark_as_lost` aborts once `n_lost >= max_lost_particles` **and**
+`n_lost >= rel_max_lost_particles * n_simulated`
+(`src/particle.cpp:866-889`, defaults 10 and 1e-6, `settings.cpp:105-106`).
+"Lost" is [`KeffResult::lost_locate`] (a failed `locate` after the `TINY_BIT`
+retry, or a negative boundary distance). Checked here after the run rather
+than mid-run, which refuses the same runs without touching the reviewed
+drivers; `n_simulated` is `n_particles` times the generations that ran.
+
+# Errors
+
+[`EmptyFissionBank`] with `lost_particles` set when both limits are met.
+
+```rust
+pub fn check_lost_particle_limit(settings: &crate::physics::keff::KeffSettings, result: crate::physics::keff::KeffResult) -> Result<crate::physics::keff::KeffResult, EmptyFissionBank> { /* ... */ }
 ```
 
 #### Function `trace_csg_history`
@@ -34062,6 +34746,7 @@ pub enum TraceEvent {
         cell: usize,
         material: Option<usize>,
         sigma_t: f64,
+        urr_seed: u64,
     },
     Segment {
         xi: Option<f64>,
@@ -34121,6 +34806,7 @@ Fields:
 | `cell` | `usize` | Leaf cell index. |
 | `material` | `Option<usize>` | Its material; `None` for a void cell. |
 | `sigma_t` | `f64` | `Σ_t` \[cm⁻¹\] there at the particle's energy (`0` in a void). |
+| `urr_seed` | `u64` | The URR stream seed of this flight (`urr_seed`): the sampled-band draw of<br>nuclide `i` is `material::urr_xi(i, urr_seed)`, so an observer can<br>reproduce the cross sections the kernel used (gh:#263). |
 
 ###### `Segment`
 
@@ -34510,8 +35196,15 @@ pub fn no_trace(_: TraceEvent) { /* ... */ }
 
 **Uniform fission site (UFS) weighting** — GitHub #258 scope item 5.
 
-Ported from `ufs_count_sites` and `ufs_get_weight` (`src/eigenvalue.cpp`)
-at OpenMC `afa7a14`.
+**WIRED 2026-11-20 (gh:#692).** ~~NOT CALLED: no caller outside this file, and
+`Site` has no weight field.~~ `VarianceReduction::with_ufs(mesh)` turns it on;
+each generation the drivers (`run_keff_csg_seq/par`, `CsgPowerIteration`) build
+[`UfsWeights`] from that generation's source, scale the expected fission-site
+count at each collision by [`UfsWeights::weight_at`], bank each site at
+`Site::wgt = 1 / weight`, start the next history at that weight and normalise
+`k` by the source weight. Off by default, as upstream. **Not carried across
+ranks** (the distributed wire format has no site weight) and a source site
+outside the mesh turns biasing off for that generation (upstream errors).
 
 # What it does and why it is not the same as a weight window
 
@@ -34772,6 +35465,9 @@ pub struct VarianceReduction {
     pub weight_window_at_birth: bool,
     pub weight_window_split_keeps_ww_factor: bool,
     pub weight_window_no_window_born_one: bool,
+    pub max_particle_events: u32,
+    pub ufs_mesh: Option<crate::tally::mesh::RegularMesh>,
+    pub ufs_weights: Option<alloc::sync::Arc<crate::physics::ufs::UfsWeights>>,
 }
 ```
 
@@ -34788,10 +35484,18 @@ pub struct VarianceReduction {
 | `weight_window_at_birth` | `bool` | Apply the window to a source particle at birth, before its first<br>flight (`simulation.cpp:757-761`), so `ww_born` anchors at the source<br>and not at the first checkpoint. gh:#1582 item 2. |
 | `weight_window_split_keeps_ww_factor` | `bool` | A split daughter copies the parent's `ww_factor`. Upstream's<br>`Particle::split` does NOT (`particle.cpp:122-145`; daughters restart<br>at 0), so the upstream behaviour is `false`. No effect while<br>`max_lb_ratio = 1`. gh:#1582 item 3. |
 | `weight_window_no_window_born_one` | `bool` | When the surface checkpoint (or birth) finds no valid window, set<br>`ww_born = 1` if it is still unset (`weight_windows.cpp:965-967`).<br>gh:#1582 item 4. |
+| `max_particle_events` | `u32` | Events one history may take before it is cut off with weight 0<br>(`max_particle_events`, OpenMC default 1 000 000, `settings.cpp:112`;<br>`particle.cpp:548-552`: a warning and `wgt = 0`, not a leak). gh:#699<br>item 5. ~~A hard-coded 100 000, scored as a leak.~~ **CORRECTED<br>2026-11-19.** Carried here because this is the settings object the<br>transport kernel already receives; it is not a variance-reduction knob. |
+| `ufs_mesh` | `Option<crate::tally::mesh::RegularMesh>` | **Uniform fission site weighting** mesh (gh:#692): `Some(mesh)` turns UFS<br>on, as OpenMC's `settings.ufs_mesh`; `None` (the default, as upstream)<br>is off. Each generation the drivers compute [`crate::physics::ufs::UfsWeights`]<br>from that generation's source ([`Self::ufs_weights`]); the expected fission<br>site count at a collision is scaled by the weight at the collision and each<br>banked site is born at `1 / weight`. Not carried across ranks (the<br>distributed wire format has no site weight). |
+| `ufs_weights` | `Option<alloc::sync::Arc<crate::physics::ufs::UfsWeights>>` | This generation's UFS weights, set by the drivers from [`Self::ufs_mesh`];<br>leave `None` when configuring a run. `None` also means "no biasing" if the<br>source has a site outside the mesh. |
 
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn with_ufs(self: Self, mesh: crate::tally::mesh::RegularMesh) -> Self { /* ... */ }
+  ```
+  Turn on **uniform fission site weighting** over `mesh` (gh:#692); see
 
 - ```rust
   pub fn is_analog(self: &Self) -> bool { /* ... */ }
@@ -36026,6 +36730,8 @@ pub struct FixedSourceSettings {
     pub temperature_k: f64,
     pub seed: u64,
     pub max_secondaries: usize,
+    pub cumulative_secondary_cap: bool,
+    pub normalise_tallies: bool,
     pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
     pub seeding: crate::rng::openmc_seeding::SeedingMode,
     pub tally_batch_log: Option<crate::stats::correlated_sigma::TallyBatchLog>,
@@ -36040,7 +36746,9 @@ pub struct FixedSourceSettings {
 | `n_batches` | `usize` | Number of statistical batches (realizations) the particles are split into<br>for the tally's mean/uncertainty. Each batch is flushed as one<br>realization; read a tally with `n_batches` as the realization count. |
 | `temperature_k` | `f64` | ~~Material temperature \[K\] for the cross-section lookup.~~<br>**CORRECTED 2026-09-30 (GitHub #313).** Not read by the fixed-source<br>transport: cross sections use each `Material::temperature`, and the<br>free-gas kinematics use the nuclide's data temperature (pointwise) or<br>the material's (multipole), see [`crate::material::nuclide::Nuclide::free_gas_kt`].<br>Until 2026-09-30 it set the free-gas kT only. |
 | `seed` | `u64` | Master RNG seed (fixed → reproducible on the single-thread path). |
-| `max_secondaries` | `usize` | Safety cap on fission secondaries transported per source particle — the<br>backstop against runaway multiplication if a (mis-specified)<br>super-critical system is run as a fixed source. |
+| `max_secondaries` | `usize` | Safety cap on fission secondaries — the backstop against runaway<br>multiplication if a (mis-specified) super-critical system is run as a<br>fixed source. **Since 2026-11-20 (gh:#685) it caps the LIVE secondary bank**<br>(secondaries waiting to be transported), as OpenMC's<br>`settings::max_secondaries` caps the live secondary bank (the issue's<br>citation; the vendored source is not in this checkout). ~~It capped the<br>CUMULATIVE number transported per source particle.~~ That earlier meaning<br>is kept as an option: [`Self::cumulative_secondary_cap`]. |
+| `cumulative_secondary_cap` | `bool` | `true` restores the pre-2026-11-20 meaning of<br>[`Self::max_secondaries`]: a cap on the total secondaries transported per<br>source particle. `false` (default) caps the live bank, as upstream. |
+| `normalise_tallies` | `bool` | Normalise each batch per source particle before it is flushed (gh:#675,<br>OpenMC `Tally::accumulate`); `false` (default) keeps the raw per-batch sums.<br>The divisor is that batch's own particle count. |
 | `variance_reduction` | `crate::physics::variance_reduction::VarianceReduction` | Variance reduction (GitHub #258). The [`Default`] is analog.<br><br>A fixed-source shielding run is the case variance reduction exists for:<br>analog histories die long before reaching a detector behind a shield,<br>so the attenuated tally never converges. That is why this field is here<br>and not only on [`crate::physics::keff::KeffSettings`]. |
 | `seeding` | `crate::rng::openmc_seeding::SeedingMode` | Where each history's random streams start. The default is the run's<br>single sequential stream. [`SeedingMode::OpenMc`] puts particle `p` of<br>batch `b` (OpenMC's `current_batch = b + 1`, `n_particles` per batch,<br>one generation per batch) on OpenMC's `init_particle_seeds` layout: the<br>source is sampled from `STREAM_SOURCE`, the transport (and the fission<br>progeny, which continue the parent's stream as in OpenMC) from<br>`STREAM_TRACKING`, the URR bands from `STREAM_URR_PTABLE`<br>(gh:#1386, `initialize_history`, `src/simulation.cpp`). |
 | `tally_batch_log` | `Option<crate::stats::correlated_sigma::TallyBatchLog>` | Report-only log of each batch's tally bin sums (GitHub #506); `None`<br>(the default) records nothing. Never read by transport. |
@@ -36175,6 +36883,7 @@ pub struct FixedSourceResult {
     pub source_particles: usize,
     pub total_histories: usize,
     pub multiplication: f64,
+    pub dropped_secondaries: usize,
 }
 ```
 
@@ -36185,6 +36894,7 @@ pub struct FixedSourceResult {
 | `source_particles` | `usize` | Source particles transported. |
 | `total_histories` | `usize` | Total histories transported (source particles **plus** every fission<br>secondary) — `> source_particles` reveals sub-critical multiplication. |
 | `multiplication` | `f64` | Mean number of fission neutrons produced per **source** particle<br>(`Σ ν·σ_f / σ_t` over collisions) — the sub-critical multiplication `M`.<br>`0` for a non-fissile (shielding) system. |
+| `dropped_secondaries` | `usize` | Fission secondaries **discarded** because a source particle's chain hit<br>[`FixedSourceSettings::max_secondaries`] (gh:#685). Non-zero means<br>`multiplication` and any tally are **biased low**: upstream aborts here<br>(`fatal_error`, `src/physics.cpp:122-130`) rather than truncating, and<br>this port reports instead of aborting, so check this field. Near<br>critical (`k -> 1`) the expected chain length is `1/(1-k)`, so a fixed<br>cap truncates a growing share of the answer. |
 
 ##### Implementations
 
@@ -36337,6 +37047,23 @@ assert_eq!(res.total_histories, 1000); // void: no collisions, no secondaries
 pub fn run_fixed_source(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source: &FixedSource, settings: &FixedSourceSettings, tally: Option<&mut crate::tally::tally::Tally>) -> FixedSourceResult { /* ... */ }
 ```
 
+#### Function `try_run_fixed_source`
+
+[`run_fixed_source`], failing as OpenMC does when the secondary bank is
+truncated (gh:#685): `fatal_error("The secondary particle bank appears to be
+growing without bound ...")`, `src/physics.cpp:122-130`. `Ok` is bit-identical
+to [`run_fixed_source`]; an `Err` carries the message and the truncated
+result is dropped, since its `multiplication` and tallies are biased low.
+
+# Errors
+
+A message naming how many secondaries were dropped and the cap, when
+[`FixedSourceResult::dropped_secondaries`] is non-zero.
+
+```rust
+pub fn try_run_fixed_source(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source: &FixedSource, settings: &FixedSourceSettings, tally: Option<&mut crate::tally::tally::Tally>) -> Result<FixedSourceResult, String> { /* ... */ }
+```
+
 #### Function `run_fixed_source_traced`
 
 [`run_fixed_source`] with **particle track capture** — GitHub #271.
@@ -36349,6 +37076,407 @@ that changes the thing being debugged is worse than none.
 
 ```rust
 pub fn run_fixed_source_traced(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source: &FixedSource, settings: &FixedSourceSettings, tally: Option<&mut crate::tally::tally::Tally>, tracks: Option<&mut crate::physics::track_output::TrackRecorder>, surface_source: Option<&mut crate::source::extra::SurfaceSource>, distribcell: Option<&crate::geometry::distribcell::DistribcellOffsets>) -> FixedSourceResult { /* ... */ }
+```
+
+#### Function `run_fixed_source_flux_derivative`
+
+**A tally derivative, wired into the transport** (gh:#683, #263): the FLUX in
+`score_material` and its derivative with respect to the variable of
+`derivative`, from one fixed-source run. A thin wrapper over
+[`crate::physics::derivative_run::run_fixed_source_derivative`] with the flux
+score; see that module for the method, scope and the other scores.
+
+# Errors
+
+A temperature derivative, or any error of the derivative accumulators.
+
+```rust
+pub fn run_fixed_source_flux_derivative(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source: &FixedSource, settings: &FixedSourceSettings, derivative: &crate::tally::derivative::TallyDerivative, score_material: usize) -> Result<FluxDerivativeResult, String> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `DerivativeResult`
+
+The result of [`run_fixed_source_flux_derivative`] (the general type of
+[`crate::physics::derivative_run`]).
+
+```rust
+pub use crate::physics::derivative_run::DerivativeResult as FluxDerivativeResult;
+```
+
+## Module `derivative_run`
+
+**Tally derivatives wired into the transport** (gh:#683, #263).
+
+One run gives a tally score and its derivative with respect to a material
+perturbation (density or nuclide density), by accumulating the logarithmic
+flux derivative along each history: a **track term** per flight
+([`TallyDerivative::accumulate_along_track`]) and a **collision term** at each
+real collision ([`TallyDerivative::accumulate_at_collision`]). The score of a
+segment is multiplied by the accumulated derivative plus the score's own
+explicit dependence (`1/rho` for a density derivative of a reaction rate;
+`sigma_i / Sigma` for a nuclide-density derivative of a material total;
+none for the flux).
+
+It is built on the transport kernel's [`TraceEvent`] observer, so the kernel
+and its random stream are untouched: the histories are those of the
+underlying driver bit for bit. The collision term of a segment's ending
+collision is added **before** that segment is scored, because the segment's
+length was sampled from a density that contains the collision.
+
+**Scope.** Surface tracking, analog. Scores: flux, total, absorption,
+fission, scatter, and nu-fission for a DENSITY derivative (a nuclide-density
+derivative of nu-fission is refused: `MicroXS` has no nu-fission). ~~Cross sections are the infinitely dilute ones
+(`Material::macro_xs`), not the sampled URR bands.~~ **CORRECTED 2026-11-20
+(gh:#263):** the score, the density and nuclide-density track terms and the
+explicit term use the URR bands the kernel followed (`TraceEvent::Located`
+carries the flight's `urr_seed`; `Material::macro_xs_urr`). The temperature
+finite difference still differences the ordinary cross sections. Temperature derivatives
+use a central finite difference of the nuclides' cross sections over the
+temperature argument (OpenMC's multipole derivative, the same quantity) and
+are available only where the cross sections depend on it (the WMP `Core`
+tier); on the pointwise tier the derivative is exactly zero and the run
+reports that as an error rather than a result. **Eigenvalue runs** differentiate the
+tally for a FIXED fission source, as OpenMC's differential tallies do: the
+change of the source distribution itself is not included, and an (n,xn)
+secondary, which the kernel starts as a new particle, does not inherit its
+parent's accumulated derivative (a fixed-source fission secondary does).
+
+```rust
+pub mod derivative_run { /* ... */ }
+```
+
+### Types
+
+#### Struct `DerivativeSpec`
+
+What to differentiate: a tally derivative, the score, and the material the
+score is accumulated in.
+
+```rust
+pub struct DerivativeSpec {
+    pub derivative: crate::tally::derivative::TallyDerivative,
+    pub score: crate::tally::tally::ScoreType,
+    pub score_material: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `derivative` | `crate::tally::derivative::TallyDerivative` | The perturbation. |
+| `score` | `crate::tally::tally::ScoreType` | The score (flux, total, absorption, fission or scatter). |
+| `score_material` | `usize` | The material whose flights are scored. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn for_tally(tally: &crate::tally::tally::Tally, score_idx: usize, score_material: usize) -> Result<Self, String> { /* ... */ }
+  ```
+  The spec for score `score_idx` of `tally`, accumulated in `score_material`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DerivativeResult`
+
+A score and its derivative, per source particle, with the standard error of
+each over the batches.
+
+```rust
+pub struct DerivativeResult {
+    pub flux: f64,
+    pub flux_std: f64,
+    pub d_flux: f64,
+    pub d_flux_std: f64,
+    pub n_batches: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `flux` | `f64` | The score per source particle. |
+| `flux_std` | `f64` | Standard error of [`Self::flux`] over the batches. |
+| `d_flux` | `f64` | `d score / d p` per source particle. |
+| `d_flux_std` | `f64` | Standard error of [`Self::d_flux`] over the batches. |
+| `n_batches` | `usize` | Batches the statistics are over. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `run_fixed_source_derivative`
+
+A [`DerivativeSpec`] score and its derivative from one **fixed-source** run
+(see the module docs). A fission secondary inherits its parent's accumulated
+derivative.
+
+# Errors
+
+A temperature derivative, an unsupported score, or an accumulator error.
+
+```rust
+pub fn run_fixed_source_derivative(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source: &crate::physics::fixed_source::FixedSource, settings: &crate::physics::fixed_source::FixedSourceSettings, spec: &DerivativeSpec) -> Result<DerivativeResult, String> { /* ... */ }
+```
+
+#### Function `run_keff_derivative`
+
+A [`DerivativeSpec`] score and its derivative from a **k-eigenvalue** run, over
+the active generations, per source particle: each generation's histories are
+transported by [`CsgPowerIteration`] and observed. The derivative is for a
+fixed fission source (module docs).
+
+# Errors
+
+A temperature derivative, an unsupported score, or an accumulator error.
+
+```rust
+pub fn run_keff_derivative(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source_box: crate::physics::transport_csg::SourceBox, settings: &crate::physics::keff::KeffSettings, spec: &DerivativeSpec) -> Result<DerivativeResult, String> { /* ... */ }
+```
+
+#### Function `run_keff_derivative_with_majorants`
+
+[`run_keff_derivative`] with **delta-tracked regions**: `majorants[i]` bounds
+`Sigma_t` over every material a cell declaring `TrackingMethod::Delta {
+majorant: i }` can present, as in `CsgPowerIteration::with_majorants`. The
+delta-tracking derivative terms are described at `Accum::tentative`; in a delta
+region the score is the tentative-collision estimator. The majorant must still
+bound the perturbed cross section (give it headroom).
+
+# Errors
+
+As [`run_keff_derivative`]; a temperature derivative that reaches a delta
+region is an error.
+
+```rust
+pub fn run_keff_derivative_with_majorants(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::physics::delta_tracking::Majorant], source_box: crate::physics::transport_csg::SourceBox, settings: &crate::physics::keff::KeffSettings, spec: &DerivativeSpec) -> Result<DerivativeResult, String> { /* ... */ }
 ```
 
 ## Module `scatter`
@@ -37966,6 +39094,19 @@ approximation drops. See [`DbrcTable`] for why that matters and where.
 pub fn free_gas_elastic_scatter_dbrc(e: f64, u: crate::geometry::position::Direction, awr: f64, kt_ev: f64, mu_cm: f64, seed: &mut u64, dbrc: Option<&DbrcTable>) -> (f64, crate::geometry::position::Direction) { /* ... */ }
 ```
 
+#### Function `continuum_two_body_cap_enabled`
+
+Whether the CM continuum emission is clamped to the two-body bound (gh:#690).
+**On by default** (energy balance); `OUTRAM_MC_NO_TWO_BODY_CAP=1` switches it
+off for an OpenMC-parity comparison, which applies no clamp
+(`src/physics.cpp:1160-1175`). Cached on first use, like the other
+`OUTRAM_MC_*` ablations. Measured extent of the clamp: 1.78 % of U-238 MT=91
+draws at 1 MeV, none from 3 MeV (`tests/continuum_cm_cap_measurement_690.rs`).
+
+```rust
+pub fn continuum_two_body_cap_enabled() -> bool { /* ... */ }
+```
+
 #### Function `continuum_inelastic_scatter`
 
 Continuum inelastic scatter (MT=91) — the outgoing neutron energy is sampled
@@ -38817,6 +39958,10 @@ pub struct KeffSettings {
     pub compute: ComputeType,
     pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
     pub keff_trigger: Option<crate::tally::trigger::Trigger>,
+    pub keff_trigger_min_active: usize,
+    pub max_lost_particles: u64,
+    pub normalise_tallies: bool,
+    pub rel_max_lost_particles: f64,
     pub delta_tally_estimator: crate::physics::transport_csg::DeltaTallyEstimator,
     pub seeding: crate::rng::openmc_seeding::SeedingMode,
     pub tally_batch_log: Option<crate::stats::correlated_sigma::TallyBatchLog>,
@@ -38837,6 +39982,10 @@ pub struct KeffSettings {
 | `compute` | `ComputeType` | Which transport backend [`run_keff`] dispatches to.<br><br>- [`ComputeType::CpuSingleThread`] — the scalar, single-RNG-stream path<br>  ([`run_keff_cpu_single`]); the trusted, bit-reproducible **deterministic<br>  reference**. This is the [`Default`].<br>- [`ComputeType::CpuMultiThread`] — [`rayon`]-parallel over the histories<br>  of each generation ([`run_keff_cpu_multi`]) in a dedicated pool sized by<br>  the carried [`ThreadCount`] (default [`ThreadCount::Auto`] = every<br>  logical core); each history runs on its own deterministically derived RNG<br>  sub-stream, so the eigenvalue is reproducible independent of thread count<br>  (but does **not** bit-match the single-thread stream — see that<br>  function's docs).<br>- [`ComputeType::Gpu`] — GPU-accelerated macroscopic Sigma_t lookup<br>  ([`run_keff_gpu`]), with a transparent CPU fallback (never an error) when<br>  no GPU adapter is available. The GPU is `f32` acceleration only; the CPU<br>  single-thread path stays the trusted reference. |
 | `variance_reduction` | `crate::physics::variance_reduction::VarianceReduction` | Variance reduction for the CSG transport path (GitHub #258).<br><br>The [`Default`] is **analog** — survival biasing off, no roulette —<br>and that is deliberate. This is not a physics term the data supplies<br>(which the workspace rule would require on by default); it is a choice<br>of *estimator*, and the analog estimator is the reference every<br>recorded V&V number in this crate was measured with. Turning it on is<br>a named act, and<br>`tests/variance_reduction_is_bit_identical_when_analog.rs` pins that<br>leaving it alone changes nothing at all. |
 | `keff_trigger` | `Option<crate::tally::trigger::Trigger>` | **Run until `k` reaches a target precision** rather than for a fixed<br>generation count — GitHub #263 scope items 1, 2 and 4.<br><br>`None` (the default) runs exactly `n_active` active generations, which<br>is what every recorded result in this crate was measured with. With a<br>trigger, `n_active` becomes the **maximum**: the run stops early once<br>the metric is met, and still stops at `n_active` if it never is.<br><br>A trigger cannot make a run go longer than `n_active`. Upstream has a<br>separate `n_max_batches` for that; conflating the two here would let a<br>tightened threshold silently multiply the cost of a study, which is<br>the opposite of what this feature is for. |
+| `keff_trigger_min_active` | `usize` | **Fewest active generations before `keff_trigger` is first checked**<br>(gh:#703). Default 20. Upstream evaluates triggers only from `n_batches`<br>on (`check_triggers`, `src/tallies/trigger.cpp:160-172`); a standard error<br>from two active generations is a one-degree-of-freedom estimate, so a run<br>stopped there is often stopped *because* its sigma is under-estimated<br>(optional-stopping bias). Values below 2 behave as 2. ~~The trigger could<br>stop a run after 2 active generations.~~ **CORRECTED 2026-11-19**<br>(gh:#703). |
+| `max_lost_particles` | `u64` | **Lost-particle limit, absolute** (gh:#699). Upstream aborts when<br>`n_lost >= max_lost_particles (10)` **and**<br>`n_lost >= rel_max_lost_particles (1e-6) * n_simulated`<br>(`Particle::mark_as_lost`, `src/particle.cpp:866-889`;<br>`settings.cpp:105-106`). Checked after the run by<br>[`crate::physics::transport_csg::check_lost_particle_limit`], which the<br>`try_run_keff_csg*` entry points call, so a geometry defect cannot finish<br>as a plausible `k`. `u64::MAX` is the explicit tolerant ablation. |
+| `normalise_tallies` | `bool` | **Normalise each tally realization per source particle** (gh:#675), as<br>OpenMC's `Tally::accumulate` does (`norm = total_source /<br>(contributing_particles * gen_per_batch)`, `src/tallies/tally.cpp:845-900`).<br>`false` (the default) keeps the raw per-batch sums every recorded tally and<br>pin in this crate was measured with; `true` divides each batch by that<br>generation's total source weight before it is flushed, so `mean_realized()`<br>is already per source particle and independent of `n_particles`. The<br>per-batch log ([`Self::tally_batch_log`]) always records the raw sums. |
+| `rel_max_lost_particles` | `f64` | **Lost-particle limit, relative to histories run** (gh:#699). See<br>[`Self::max_lost_particles`]. |
 | `delta_tally_estimator` | `crate::physics::transport_csg::DeltaTallyEstimator` | **How a tally is scored inside a delta-tracked region** (gh:#598).<br><br>The default, [`DeltaTallyEstimator::TentativeCollision`], scores<br>`w/Σ_maj` (flux) and `w·Σ_x/Σ_maj` (reaction rates) at every<br>tentative collision site, virtual and real: unbiased everywhere in the<br>region, the near-void helium between pebbles included.<br>[`DeltaTallyEstimator::RealCollision`] (`w/Σ_t` at real collisions<br>only) is the explicit ablation. Neither draws random numbers, so the<br>eigenvalue does not depend on this choice; only the tallies do.<br>Surface-tracked regions always use the track-length estimator. |
 | `seeding` | `crate::rng::openmc_seeding::SeedingMode` | How the CSG parallel drivers derive each history's random streams.<br>`SeedingMode::Outram` (the default) is the crate's own layout;<br>`SeedingMode::OpenMc` is OpenMC's `init_particle_seeds` layout<br>(gh:#1386). See `crate::rng::openmc_seeding` for what it does and does<br>not make identical to OpenMC. |
 | `tally_batch_log` | `Option<crate::stats::correlated_sigma::TallyBatchLog>` | Report-only log of each active batch's tally bin sums (GitHub #506);<br>`None` (the default) records nothing. See<br>[`crate::stats::correlated_sigma::TallyBatchLog`]. Never read by<br>transport, so `k` is bit-identical with or without it. |
@@ -39028,6 +40177,13 @@ pub struct KeffResult {
 
 ##### Implementations
 
+###### Methods
+
+- ```rust
+  pub fn active_generations(self: &Self, settings: &KeffSettings) -> usize { /* ... */ }
+  ```
+  Active generations that actually ran, i.e. the tally realization count
+
 ###### Trait Implementations
 
 - **Any**
@@ -39168,6 +40324,7 @@ pub struct HistoryCounts {
     pub leaked: u64,
     pub captured: u64,
     pub fissions_by_energy: [u64; 3],
+    pub lost: u64,
 }
 ```
 
@@ -39179,6 +40336,7 @@ pub struct HistoryCounts {
 | `leaked` | `u64` | Ended by leaking out through the surface. |
 | `captured` | `u64` | Ended by absorption without fission. |
 | `fissions_by_energy` | `[u64; 3]` | Ended in fission, by incident energy: `[< 0.625 eV, 0.625 eV - 100 keV, > 100 keV]`. |
+| `lost` | `u64` | **Lost** (gh:#699): a failed `locate` after the `TINY_BIT` retry, or a<br>negative boundary distance. Upstream gives such a particle weight 0 and<br>tallies **no** leak (`Particle::mark_as_lost`, `src/particle.cpp:866-889`),<br>so these are counted here and in no other bucket:<br>`tracked = leaked + captured + fissions + lost`. |
 
 ##### Implementations
 
@@ -39957,7 +41115,7 @@ pub fn run_keff_gpu(radius_cm: f64, material: &crate::material::material::Materi
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/physics/keff.rs:1144:11: 1144:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1144:32: 1144:53 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1144:31: 1144:54 (#0))], crates/outram-mc-libs/src/physics/keff.rs:1144:10: 1144:55 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/physics/keff.rs:1203:11: 1203:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1203:32: 1203:53 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1203:31: 1203:54 (#0))], crates/outram-mc-libs/src/physics/keff.rs:1203:10: 1203:55 (#0))])]")`
 
 The genuine GPU path behind [`run_keff_gpu`] (desktop / non-Android only).
 
@@ -40007,7 +41165,7 @@ pub fn run_keff_gpu_inner(ctx: &crate::gpu::GpuContext, radius_cm: f64, material
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/physics/keff.rs:1349:11: 1349:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1349:32: 1349:53 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1349:31: 1349:54 (#0))], crates/outram-mc-libs/src/physics/keff.rs:1349:10: 1349:55 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/physics/keff.rs:1408:11: 1408:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1408:32: 1408:53 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1408:31: 1408:54 (#0))], crates/outram-mc-libs/src/physics/keff.rs:1408:10: 1408:55 (#0))])]")`
 
 **Event-based, batched-flight GPU power iteration** ([`ComputeType::Gpu`]) —
 the deep GPU penetration of beads op-u6s.7. Desktop / non-Android only.
@@ -40092,7 +41250,7 @@ pub fn run_keff_event_cpu_mirror_reports(radius_cm: f64, material: &crate::mater
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/physics/keff.rs:1789:11: 1789:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1789:32: 1789:53 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1789:31: 1789:54 (#0))], crates/outram-mc-libs/src/physics/keff.rs:1789:10: 1789:55 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/physics/keff.rs:1848:11: 1848:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1848:32: 1848:53 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1848:31: 1848:54 (#0))], crates/outram-mc-libs/src/physics/keff.rs:1848:10: 1848:55 (#0))])]")`
 
 [`run_keff_gpu_event`] that also returns each generation's
 [`EventGenerationReport`].
@@ -40105,7 +41263,7 @@ pub fn run_keff_gpu_event_reports(ctx: &crate::gpu::GpuContext, radius_cm: f64, 
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/physics/keff.rs:1831:11: 1831:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1831:32: 1831:53 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1831:31: 1831:54 (#0))], crates/outram-mc-libs/src/physics/keff.rs:1831:10: 1831:55 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-mc-libs/src/physics/keff.rs:1890:11: 1890:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1890:32: 1890:53 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1890:31: 1890:54 (#0))], crates/outram-mc-libs/src/physics/keff.rs:1890:10: 1890:55 (#0))])]")`
 
 **Event-based COLLISION-on-GPU power iteration** ([`ComputeType::Gpu`]) — the
 op-u6s.8 deep-penetration path. Desktop / non-Android only.
@@ -87278,8 +88436,10 @@ whose default stays analog.
 
 Draft, AI-assisted, with **no V&V measured yet**: the maintainer deferred
 all test and benchmark runs on 2026-10-03, so every V&V gate named in these
-modules' docs reads "NOT YET MEASURED". The unit tests are written and
-compile; they have not been run. V&V stubs live under
+modules' docs reads "NOT YET MEASURED". ~~The unit tests are written and
+compile; they have not been run.~~ **CORRECTED 2026-11-19** (gh:#693): they
+have been run; `cargo test --release -p outram-mc-libs --lib stats::` gives
+20 passed, 0 failed (2026-11-19). V&V stubs live under
 `verification_and_validation/stats_epic_493/`.
 
 ```rust
