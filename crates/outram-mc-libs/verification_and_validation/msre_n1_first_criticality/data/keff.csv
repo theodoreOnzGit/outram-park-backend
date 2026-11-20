@@ -209,3 +209,4 @@ mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full,2,1.017557,0
 mo-natural@salt1181F/graphite1181F+sablog-water+u234+hot-dims+shield-tm0728-full,2,1.016737,0.000543,20000,100,200,4,3411.5,469.7,"CPU only, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.10GHz, 15.7 GiB RAM"
 mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full+rodpos-51_30_51,1,1.009067,0.000570,20000,100,200,4,3499.8,752.7,"CPU only, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.10GHz, 15.7 GiB RAM"
 mo-natural@salt1181F/graphite1181F+u234+hot-dims+shield-tm0728-full,3,1.017510,0.000517,20000,100,200,4,3465.6,465.6,"CPU only, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.10GHz, 15.7 GiB RAM"
+mo-natural@salt1181F/graphite1181F+sablog-water+u234+hot-dims+shield-tm0728-full,3,1.017132,0.000558,20000,100,200,4,3392.2,469.7,"CPU only, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.10GHz, 15.7 GiB RAM"
