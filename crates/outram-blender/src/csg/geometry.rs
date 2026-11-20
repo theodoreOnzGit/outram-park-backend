@@ -640,4 +640,55 @@ mod tests {
         assert!((hit.distance - 0.26).abs() < 1e-12, "d = {}", hit.distance);
         assert_eq!(hit.crossing, Crossing::Lattice, "tile edge must beat the coincident local plane");
     }
+
+    /// gh:#698 (token level): surface 0 is used by the ROOT cell (global `x > 0`)
+    /// and by the pin universe in a lattice tile centred at x = 10.5 (local
+    /// `x < 0`, i.e. a different physical plane at x = 10.5). A particle that has
+    /// just crossed the tile-local plane moving to its inside carries the token
+    /// (0, Inside). Applied at every level (`locate`) the token is also forced on
+    /// the root cell, whose region wants Outside(0), so the search fails; applied
+    /// only at the crossing's level (`locate_at_level`) the root cell is judged by
+    /// the particle's real position and the particle is found in the inside pin
+    /// cell.
+    #[test]
+    fn the_surface_token_applies_only_at_the_crossing_level() {
+        use crate::csg::cell::CellFill;
+        use crate::csg::lattice::{Lattice, RectLattice};
+        let plane = |x0: f64| SurfaceKind::XPlane(XPlane { x0, bc: BoundaryType::Transmissive });
+        let hs = |i: usize, sense| RegionToken::HalfSpace { surface_idx: i, sense };
+        let (out, ins, and) = (HalfSpaceSense::Outside, HalfSpaceSense::Inside, RegionToken::Intersection);
+        let root = Cell::fill(
+            1,
+            vec![hs(0, out), hs(1, ins), and],
+            CellFill::Lattice(0),
+            Position::ZERO,
+        );
+        let inside_pin = Cell::material(2, vec![hs(0, ins)], 7, 293.6);
+        let outside_pin = Cell::material(3, vec![hs(0, out)], 8, 293.6);
+        let geom = Geometry {
+            surfaces: vec![plane(0.0), plane(20.0)],
+            cells: vec![root, inside_pin, outside_pin],
+            universes: vec![
+                Universe { id: 0, cell_indices: vec![0] },
+                Universe { id: 1, cell_indices: vec![1, 2] },
+            ],
+            lattices: vec![Lattice::Rect(RectLattice {
+                id: 1,
+                n: [1, 1, 1],
+                lower_left: Position::new(10.0, -0.5, -0.5),
+                pitch: [1.0, 1.0, 1.0],
+                universes: vec![1],
+                outer: None,
+            })],
+            root_universe: 0,
+        };
+        let r = Position::new(10.5 - 1.0e-9, 0.0, 0.0);
+        let u = Direction::new(-1.0, 0.0, 0.0);
+        let token = SurfaceToken::on(0, HalfSpaceSense::Inside);
+        assert!(geom.locate(r, u, token).is_none(), "token at every level rejects the root cell");
+        let p = geom.locate_at_level(r, u, token, 1).expect("found with the token at its own level");
+        assert_eq!(p.material, Some(7), "the inside pin cell");
+        assert_eq!(p.token_at(0), SurfaceToken::NONE);
+        assert_eq!(p.token_at(1), token);
+    }
 }

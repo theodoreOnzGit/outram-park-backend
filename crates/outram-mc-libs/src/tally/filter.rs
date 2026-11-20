@@ -267,10 +267,11 @@ impl Default for FilterEvent {
 /// **Every coordinate level on the track-length path (gh:#677, 2026-11-19).**
 /// OpenMC matches the cell at EVERY coordinate level (`filter_cell.cpp:51-56`).
 /// ~~This port matched only the leaf cell, so a tally on a cell filled with a
-/// universe or lattice scored 0 with no error.~~ **CORRECTED 2026-11-19:** where
-/// the event carries its path ([`FilterEvent::cell_levels`]: the track-length
-/// estimator) a container cell now matches. Elsewhere (collision, scatter and
-/// fission-birth scores) only the leaf matches. Upstream emits one bin per
+/// universe or lattice scored 0 with no error.~~ **CORRECTED 2026-11-19, extended
+/// 2026-11-20:** where the event carries its path ([`FilterEvent::cell_levels`]:
+/// the track-length estimator, the scatter matrix and fission-birth scores) a
+/// container cell now matches. Only the delta-tracking collision-point score
+/// still matches the leaf alone. Upstream emits one bin per
 /// matching level; this returns the deepest match only.
 ///
 /// **These are 0-based indices into the geometry's cell array, not cell IDs.**

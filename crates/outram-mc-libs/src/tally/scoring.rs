@@ -757,6 +757,27 @@ pub fn score_fission_birth(
     position: Position,
     weight: f64,
 ) {
+    score_fission_birth_hist(
+        batch, tally, cell_idx, material_idx, universe_idx, energy_in, energy_born, position,
+        weight, &EventHistory::default(),
+    );
+}
+
+/// [`score_fission_birth`] with the particle's [`EventHistory`], so cell and
+/// universe filters match every coordinate level (gh:#677).
+#[allow(clippy::too_many_arguments)]
+pub fn score_fission_birth_hist(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_born: f64,
+    position: Position,
+    weight: f64,
+    hist: &EventHistory,
+) {
     if !energy_in.is_finite() || !energy_born.is_finite() || energy_born < 0.0 {
         return;
     }
@@ -775,6 +796,9 @@ pub fn score_fission_birth(
         energy_out: Some(energy_born),
         surface_idx: usize::MAX,
         position,
+        cell_levels: core::array::from_fn(|l| hist.levels[l].0),
+        universe_levels: core::array::from_fn(|l| hist.levels[l].1),
+        n_levels: hist.n_levels,
         ..Default::default()
     };
     let Some(bin) = filter_bin(tally, &ev) else {
@@ -886,6 +910,30 @@ pub fn score_scatter_matrix_mu(
     emission: ScatterEmission,
     mu: f64,
 ) {
+    score_scatter_matrix_full(
+        batch, tally, cell_idx, material_idx, universe_idx, energy_in, energy_out, position,
+        weight, emission, mu, &EventHistory::default(),
+    );
+}
+
+/// [`score_scatter_matrix_mu`] with the particle's [`EventHistory`], so a
+/// `CellFilter` / `UniverseFilter` matches every coordinate level of the path on
+/// the scatter matrix too (gh:#677), not only the leaf.
+#[allow(clippy::too_many_arguments)]
+pub fn score_scatter_matrix_full(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_out: f64,
+    position: Position,
+    weight: f64,
+    emission: ScatterEmission,
+    mu: f64,
+    hist: &EventHistory,
+) {
     if !energy_in.is_finite() || !energy_out.is_finite() || energy_out < 0.0 {
         return;
     }
@@ -920,6 +968,9 @@ pub fn score_scatter_matrix_mu(
         surface_idx: usize::MAX,
         position,
         mu,
+        cell_levels: core::array::from_fn(|l| hist.levels[l].0),
+        universe_levels: core::array::from_fn(|l| hist.levels[l].1),
+        n_levels: hist.n_levels,
         ..Default::default()
     };
 
@@ -1239,6 +1290,37 @@ mod tests {
         score_scatter_matrix_mu(&mut batch, &t, 0, 0, 0, 1.0e6, 5.0e5, r, 1.0, ScatterEmission::Primary, 0.5);
         score_scatter_matrix_mu(&mut batch, &t, 0, 0, 0, 1.0e6, 5.0e5, r, 2.0, ScatterEmission::Primary, -0.5);
         assert_eq!(batch, vec![2.0, 1.0], "mu = -0.5 -> bin 0 (weight 2), mu = +0.5 -> bin 1 (weight 1)");
+    }
+
+    /// gh:#677 (scatter matrix and fission birth): a cell filter on a CONTAINER
+    /// cell matches the leaf's ancestors on these estimators too when the path
+    /// is carried; without it only the leaf matches, as before.
+    #[test]
+    fn container_cell_filters_match_on_the_scatter_matrix_and_fission_birth() {
+        use crate::tally::filter::{EnergyOutFilter, FilterKind};
+        use crate::tally::history_events::EventHistory;
+        let t = Tally {
+            id: 5,
+            name: "c".into(),
+            filters: vec![
+                FilterKind::Cell(CellFilter { cell_indices: vec![5] }),
+                FilterKind::EnergyOut(EnergyOutFilter { bins: vec![1.0e-5, 2.0e7] }),
+            ],
+            scores: vec![ScoreType::NuScatter, ScoreType::NuFission],
+            bins: vec![TallyBin::default(); 2],
+        };
+        let r = Position::new(0.0, 0.0, 0.0);
+        let mut hist = EventHistory::default();
+        hist.set_levels([(5usize, 0usize), (1, 2)].into_iter());
+        let mut b = vec![0.0; 2];
+        score_scatter_matrix_full(&mut b, &t, 1, 0, 2, 1.0e6, 5.0e5, r, 1.0, ScatterEmission::Primary, 0.0, &hist);
+        assert_eq!(b, vec![1.0, 0.0], "scatter matrix: container cell 5 matches");
+        let mut b = vec![0.0; 2];
+        score_fission_birth_hist(&mut b, &t, 1, 0, 2, 1.0e6, 2.0e6, r, 1.0, &hist);
+        assert_eq!(b, vec![0.0, 1.0], "fission birth: container cell 5 matches");
+        let mut b = vec![0.0; 2];
+        score_scatter_matrix_mu(&mut b, &t, 1, 0, 2, 1.0e6, 5.0e5, r, 1.0, ScatterEmission::Primary, 0.0);
+        assert_eq!(b, vec![0.0, 0.0], "no path carried: leaf only");
     }
 
     /// gh:#677: a flux tally on a CONTAINER cell (filled with a universe or

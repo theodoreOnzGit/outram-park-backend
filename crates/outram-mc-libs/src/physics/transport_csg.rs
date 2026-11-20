@@ -99,7 +99,7 @@ use crate::rng::lcg::{future_seed, prn};
 use crate::rng::openmc_seeding::{comb_resample_openmc, OpenMcRunLayout, SeedingMode};
 use crate::tally::history_events::{score_crossing, score_mesh_surface_segment, EventHistory};
 use crate::tally::scoring::{
-    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix_mu, ScatterEmission,
+    flush_batch, flush_bins, score_fission_birth_hist, score_scatter_matrix_full, ScatterEmission,
     score_track_length_hist,
 };
 use crate::tally::tally::{Tally, TallyBin};
@@ -580,6 +580,10 @@ pub fn check_fission_bank_survived(
     if keff_trigger_met(settings, !active_k.is_empty(), &active_k) {
         return check_lost_particle_limit(settings, result);
     }
+    // Stopped early by the lost-particle limit (gh:#699), not by an empty bank.
+    if lost_limit_hit(settings, result.lost_locate, (settings.n_particles as u64) * (completed as u64)) {
+        return check_lost_particle_limit(settings, result);
+    }
     Err(EmptyFissionBank {
         generations_completed: completed,
         generations_requested: requested,
@@ -606,9 +610,7 @@ pub fn check_lost_particle_limit(
 ) -> Result<KeffResult, EmptyFissionBank> {
     let lost = result.lost_locate;
     let simulated = (settings.n_particles as u64) * (result.k_by_generation.len() as u64);
-    if lost >= settings.max_lost_particles
-        && (lost as f64) >= settings.rel_max_lost_particles * (simulated as f64)
-    {
+    if lost_limit_hit(settings, lost, simulated) {
         return Err(EmptyFissionBank {
             generations_completed: result.k_by_generation.len(),
             generations_requested: settings.n_inactive + settings.n_active,
@@ -617,6 +619,16 @@ pub fn check_lost_particle_limit(
         });
     }
     Ok(result)
+}
+
+/// OpenMC's lost-particle abort condition (`Particle::mark_as_lost`,
+/// `src/particle.cpp:866-889`): `lost >= max_lost_particles` **and**
+/// `lost >= rel_max_lost_particles * simulated`. Shared by the post-run check
+/// ([`check_lost_particle_limit`]) and the drivers, which stop their generation
+/// loop as soon as it holds (gh:#699).
+fn lost_limit_hit(settings: &KeffSettings, lost: u64, simulated: u64) -> bool {
+    lost >= settings.max_lost_particles
+        && (lost as f64) >= settings.rel_max_lost_particles * (simulated as f64)
 }
 
 /// **One surface-tracked history, step by step** (gh:#784): the neutron at
@@ -1138,6 +1150,11 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
         if keff_trigger_met(settings, active, &active_k) {
             break;
         }
+        // gh:#699: stop as soon as the lost-particle limit is hit, as upstream
+        // aborts mid-run; the `try_run_keff_csg*` entry points then report it.
+        if lost_limit_hit(settings, totals.lost_locate, (gen as u64 + 1) * settings.n_particles as u64) {
+            break;
+        }
 
         source = resample_for_generation(settings, gen, &next_bank, settings.n_particles, &mut seed);
     }
@@ -1484,6 +1501,10 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             // The `k` trigger, as the sequential path (GitHub #461).
             // ~~Checked only on the sequential path~~ until 2026-09-30.
             if keff_trigger_met(settings, active, &active_k) {
+                break;
+            }
+            // gh:#699: as the sequential path.
+            if lost_limit_hit(settings, totals.lost_locate, (gen as u64 + 1) * settings.n_particles as u64) {
                 break;
             }
             source = resample_for_generation(settings, gen, &next_bank, settings.n_particles, &mut src_seed);
@@ -2734,15 +2755,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             nuc.sample_fission_neutron_openmc(e, e_cap_fission, u, seed)
                         };
                         if let Some(t) = tally {
-                            score_fission_birth(
-                                batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
-                            );
+                            score_fission_birth_hist(batch, t, cell_idx, m, leaf.universe, e, e_born, r, w, &hist);
                         }
                         if let Some(x) = extra.as_deref_mut() {
                             x.each_tally(|t, batch| {
-                            score_fission_birth(
-                                batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
-                            );
+                            score_fission_birth_hist(batch, t, cell_idx, m, leaf.universe, e, e_born, r, w, &hist);
                         });
                         }
                         next_bank.push(Site {
@@ -2855,31 +2872,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         // energies neutrons are actually born with, rather than
                         // assumed from an analytic Watt form.
                         if let Some(t) = tally {
-                            score_fission_birth(
-                                batch,
-                                t,
-                                cell_idx,
-                                m,
-                                leaf.universe,
-                                e,
-                                e_born,
-                                r,
-                                w,
-                            );
+                            score_fission_birth_hist(batch, t, cell_idx, m, leaf.universe, e, e_born, r, w, &hist);
                         }
                         if let Some(x) = extra.as_deref_mut() {
                             x.each_tally(|t, batch| {
-                            score_fission_birth(
-                                batch,
-                                t,
-                                cell_idx,
-                                m,
-                                leaf.universe,
-                                e,
-                                e_born,
-                                r,
-                                w,
-                            );
+                            score_fission_birth_hist(batch, t, cell_idx, m, leaf.universe, e, e_born, r, w, &hist);
                         });
                         }
                         next_bank.push(Site {
@@ -2938,11 +2935,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // short: inelastic is where a fast neutron loses most of its
                     // energy on a heavy nuclide.
                     if let Some(t) = tally {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                     });
                     }
                     e = e2;
@@ -2993,16 +2990,16 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // neutron actually emitted scores its own (E_in, E_out). The
                     // secondary is scored only when emitted, matching its gate.
                     if let Some(t) = tally {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                         if nuc.emits_n2n_secondary() {
-                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, sec_e2, r, w, ScatterEmission::Secondary, u.u * sec_u2.u + u.v * sec_u2.v + u.w * sec_u2.w);
+                            score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, sec_e2, r, w, ScatterEmission::Secondary, u.u * sec_u2.u + u.v * sec_u2.v + u.w * sec_u2.w, &hist);
                         }
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                         if nuc.emits_n2n_secondary() {
-                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, sec_e2, r, w, ScatterEmission::Secondary, u.u * sec_u2.u + u.v * sec_u2.v + u.w * sec_u2.w);
+                            score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, sec_e2, r, w, ScatterEmission::Secondary, u.u * sec_u2.u + u.v * sec_u2.v + u.w * sec_u2.w, &hist);
                         }
                     });
                     }
@@ -3045,21 +3042,21 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                 time_s,
                             ));
                             if let Some(t) = tally {
-                                score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, se, r, w, ScatterEmission::Secondary, u.u * su.u + u.v * su.v + u.w * su.w);
+                                score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, se, r, w, ScatterEmission::Secondary, u.u * su.u + u.v * su.v + u.w * su.w, &hist);
                             }
                             if let Some(x) = extra.as_deref_mut() {
                                 x.each_tally(|t, batch| {
-                                score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, se, r, w, ScatterEmission::Secondary, u.u * su.u + u.v * su.v + u.w * su.w);
+                                score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, se, r, w, ScatterEmission::Secondary, u.u * su.u + u.v * su.v + u.w * su.w, &hist);
                             });
                             }
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                     });
                     }
                     e = e2;
@@ -3106,20 +3103,20 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             time_s,
                         ));
                         if let Some(t) = tally {
-                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w);
+                            score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w, &hist);
                         }
                         if let Some(x) = extra.as_deref_mut() {
                             x.each_tally(|t, batch| {
-                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w);
+                            score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w, &hist);
                         });
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                     });
                     }
                     e = e2;
@@ -3150,20 +3147,20 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             time_s,
                         ));
                         if let Some(t) = tally {
-                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w);
+                            score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w, &hist);
                         }
                         if let Some(x) = extra.as_deref_mut() {
                             x.each_tally(|t, batch| {
-                            score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w);
+                            score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary, u.u * (*su).u + u.v * (*su).v + u.w * (*su).w, &hist);
                         });
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary, u.u * o.u.u + u.v * o.u.v + u.w * o.u.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary, u.u * o.u.u + u.v * o.u.v + u.w * o.u.w, &hist);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary, u.u * o.u.u + u.v * o.u.v + u.w * o.u.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary, u.u * o.u.u + u.v * o.u.v + u.w * o.u.w, &hist);
                     });
                     }
                     e = o.e;
@@ -3188,11 +3185,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // is left to the track-length estimator (see
                     // `score_scatter_matrix`).
                     if let Some(t) = tally {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                     }
                     if let Some(x) = extra.as_deref_mut() {
                         x.each_tally(|t, batch| {
-                        score_scatter_matrix_mu(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w);
+                        score_scatter_matrix_full(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary, u.u * u2.u + u.v * u2.v + u.w * u2.w, &hist);
                     });
                     }
                     e = e2;
@@ -3796,7 +3793,9 @@ mod leakage_tests {
         let holed = heu_sphere(8.7407, BoundaryType::Transmissive);
         let err = try_run_keff_csg(&holed, &mats, &nucs, src(), &s, None).unwrap_err();
         let (lost, simulated) = err.lost_particles.expect("refused for lost particles");
-        assert!(lost >= 10 && simulated == 500, "lost {lost} of {simulated}");
+        // gh:#699: stopped MID-RUN, at the first generation where the limit holds
+        // (every history of the holed model is lost), not after all five.
+        assert!(lost >= 10 && simulated < 500 && simulated % 100 == 0, "lost {lost} of {simulated}");
         assert!(err.to_string().contains("lost particles"), "{err}");
 
         let tolerant = KeffSettings { max_lost_particles: u64::MAX, ..s.clone() };
@@ -3956,6 +3955,64 @@ mod leakage_tests {
         let sigma = (sb * sb + su * su).sqrt();
         println!("UFS ensemble: base k = {mb:.5} +- {sb:.5}, UFS k = {mu:.5} +- {su:.5}, diff = {:.5} ({:.2} sigma)", mu - mb, (mu - mb) / sigma);
         assert!((mu - mb).abs() < 4.0 * sigma, "UFS shifted k by {:.2} sigma", (mu - mb) / sigma);
+    }
+
+    /// gh:#692 flattening: with UFS the fission-site COUNT per mesh element is
+    /// flatter than without. Godiva sphere, 8x8x8 mesh over [-9, 9], 20 000
+    /// particles, 30 stepped generations; the metric is the coefficient of
+    /// variation of the per-element site counts over the elements whose centre is
+    /// inside 7.5 cm (a fixed set, so both runs are compared on the same
+    /// elements), which must be lower with UFS.
+    ///
+    /// **Measured 2026-11-20:** CV 0.301 without UFS, 0.217 with. **The same
+    /// measurement on a coarse 4x4x4 mesh with 2000 particles went the other way**
+    /// (CV 0.100 without, 0.213 with): at 4 cm resolution Godiva's source is
+    /// nearly uniform already, and UFS feeds the sampling noise of the measured
+    /// source fraction (~13 % at ~60 sites per element) back into the site
+    /// counts. UFS flattens a genuinely peaked source; it adds noise to a flat
+    /// one. (A `max/min` over "elements with enough sites" is not used: UFS
+    /// populates more elements, which changes the set it ranges over.)
+    #[test]
+    fn uniform_fission_site_weighting_flattens_the_site_count() {
+        use crate::physics::variance_reduction::VarianceReduction;
+        use crate::tally::mesh::{RegularMesh, RegularMeshExt};
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.7407, BoundaryType::Vacuum);
+        let mesh = RegularMesh { lower_left: [-9.0; 3], upper_right: [9.0; 3], dimension: [8; 3] };
+        let centre = |b: usize| {
+            let (i, j, k) = (b / 64, (b / 8) % 8, b % 8);
+            let c = |n: usize| -9.0 + 2.25 * (n as f64 + 0.5);
+            (c(i), c(j), c(k))
+        };
+        let cv = |vr: VarianceReduction| -> f64 {
+            let s = KeffSettings { n_particles: 20000, n_inactive: 30, n_active: 0, seed: 3, variance_reduction: vr, ..KeffSettings::default() };
+            let mut it = CsgPowerIteration::new(&geom, &mats, &nucs, src(), &s);
+            for _ in 0..30 {
+                if it.step(&geom, &mats, &nucs).is_none() {
+                    break;
+                }
+            }
+            let mut counts = vec![0.0f64; 512];
+            for site in &it.source {
+                if let Some(b) = mesh.get_bin(site.r) {
+                    counts[b] += 1.0;
+                }
+            }
+            let inside: Vec<f64> = (0..512)
+                .filter(|&b| {
+                    let (x, y, z) = centre(b);
+                    (x * x + y * y + z * z).sqrt() < 7.5
+                })
+                .map(|b| counts[b])
+                .collect();
+            let m = inside.iter().sum::<f64>() / inside.len() as f64;
+            let var = inside.iter().map(|c| (c - m) * (c - m)).sum::<f64>() / inside.len() as f64;
+            var.sqrt() / m
+        };
+        let base = cv(VarianceReduction::default());
+        let ufs = cv(VarianceReduction::default().with_ufs(mesh.clone()));
+        println!("site-count CV over the inner elements: base {base:.3}, UFS {ufs:.3}");
+        assert!(ufs < base, "UFS must flatten the site count: CV {ufs:.3} vs {base:.3}");
     }
 
     /// gh:#692: uniform fission site weighting is wired into the drivers. A

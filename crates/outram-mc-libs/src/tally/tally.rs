@@ -156,6 +156,21 @@ impl TallyBin {
         naive <= 0.0 && self.variance() > 0.0
     }
 
+    /// The mean over the bin's **own** realization count: the number of batches
+    /// it was flushed (`self.count`), not a caller-supplied `n` (gh:#675). A
+    /// triggered k run flushes fewer than `n_active` batches and fixed-source
+    /// batching used to flush fewer than `n_batches`; `mean(settings.n_active)`
+    /// was then 20x low. Prefer this to [`Self::mean`].
+    pub fn mean_realized(&self) -> f64 {
+        self.mean(self.count)
+    }
+
+    /// [`Self::rel_std_dev`] over the bin's OWN realization count
+    /// (gh:#675).
+    pub fn rel_std_dev_realized(&self) -> f64 {
+        self.rel_std_dev(self.count)
+    }
+
     /// Mean over `n_realizations` active batches.
     pub fn mean(&self, n_realizations: u64) -> f64 {
         if n_realizations == 0 {
@@ -334,6 +349,14 @@ pub struct Tally {
 }
 
 impl Tally {
+    /// Realizations (flushed batches) this tally has accumulated: the largest bin
+    /// count (every bin of a tally is flushed together, so they are all equal;
+    /// an unflushed tally gives 0). The count tally readers should use instead of
+    /// a caller-supplied `n` (gh:#675).
+    pub fn n_realizations(&self) -> u64 {
+        self.bins.iter().map(|b| b.count).max().unwrap_or(0)
+    }
+
     /// Total number of bins = product of each filter's bin count × number of scores.
     pub fn n_bins(&self) -> usize {
         self.filters.iter().map(|f| f.n_bins()).product::<usize>() * self.scores.len()
@@ -431,5 +454,27 @@ mod validate_tests {
         t.scores = vec![ScoreType::Scatter];
         t.filters.clear();
         assert!(t.validate().is_ok());
+    }
+}
+
+#[cfg(test)]
+mod realization_tests {
+    use super::*;
+
+    /// gh:#675: a tally reports its own realization count, and `mean_realized`
+    /// divides by it, so a run that flushed fewer batches than the caller asked
+    /// for is not read 20x low. Four batches of 10: mean 10 whether or not anyone
+    /// remembers `n_active`; `mean(40)` shows the old mistake.
+    #[test]
+    fn a_tally_reports_its_own_realization_count() {
+        let mut t = Tally { id: 1, name: "n".into(), filters: vec![], scores: vec![ScoreType::Flux], bins: vec![TallyBin::default()] };
+        assert_eq!(t.n_realizations(), 0);
+        for _ in 0..4 {
+            t.bins[0].score(10.0);
+        }
+        assert_eq!(t.n_realizations(), 4);
+        assert_eq!(t.bins[0].mean_realized(), 10.0);
+        assert_eq!(t.bins[0].rel_std_dev_realized(), 0.0, "identical batches: zero variance");
+        assert_eq!(t.bins[0].mean(40), 1.0, "the caller-supplied n of the old API reads 10x low");
     }
 }
