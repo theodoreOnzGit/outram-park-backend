@@ -1071,20 +1071,19 @@ pub fn flush_bins(bins: &mut [TallyBin], batch: &mut [f64]) {
 /// If any attached filter does not match the event, the collision is not scored
 /// (the filters act as a conjunction).
 ///
-/// **Deprecated (gh:#679, 2026-11-19).** This scores every collision straight
-/// into the persistent bins, so each COLLISION is one "realization": its mean is
-/// right only by accident and its `rel_std_dev` is not the variance of batch
-/// totals. It also builds its [`FilterEvent`] without position, direction, time
-/// or `mu`, so spatial, angular and time filters bin it wrongly. Nothing outside
-/// its own unit tests calls it. Use [`score_collision_point`] (per-batch,
-/// full state), as the delta-tracked transport does.
-#[deprecated(
-    since = "0.0.0",
-    note = "per-collision realizations and an incomplete FilterEvent (gh:#679); use score_collision_point"
-)]
+/// **Per-batch since 2026-11-20 (gh:#679).** ~~This scored every collision
+/// straight into the persistent bins, so each COLLISION was one "realization"
+/// and its `rel_std_dev` was not the variance of batch totals; it also built its
+/// [`FilterEvent`] without position, direction, time or `mu`.~~ It now
+/// accumulates into the caller's per-batch accumulator (`batch`, flushed once per
+/// batch with [`flush_batch`]) by delegating to [`score_collision_point`], so the
+/// statistics are those of batch totals. It has no position or direction: it
+/// scores at the origin along the default direction, so a spatial or angular
+/// filter needs [`score_collision_point`] directly.
 #[allow(clippy::too_many_arguments)]
 pub fn score_collision(
-    tally: &mut Tally,
+    batch: &mut [f64],
+    tally: &Tally,
     cell_idx: usize,
     material_idx: usize,
     universe_idx: usize,
@@ -1098,91 +1097,25 @@ pub fn score_collision(
     if sigma_t <= 0.0 {
         return;
     }
-    let ev = FilterEvent {
-        cell_instance,
+    score_collision_point(
+        batch,
+        tally,
         cell_idx,
         material_idx,
         universe_idx,
         energy,
-        surface_idx: usize::MAX,
-        // This function has no spatial-filter callers; a mesh / Legendre
-        // tally uses the track-length estimator, or `score_collision_point`
-        // inside a delta-tracked region (gh:#598). Score at the origin.
-        position: Position::ZERO,
-        ..Default::default()
-    };
-
-    // Delayed-group path (gh:#262), collision estimator: `w·Σ_x,k/Σ_t` per
-    // group bin. See the track-length branch.
-    if let Some(dg_pos) = delayed_group_position(tally) {
-        let deposits =
-            delayed_group_deposits(tally, &ev, dg_pos, Some(macro_xs), weight / sigma_t);
-        for (i, v) in deposits {
-            tally.bins[i].score(v);
-        }
-        return;
-    }
-
-    // Map the event through every filter to a flat bin index (row-major, first
-    // filter slowest-varying). A rejecting filter drops the score.
-    let Some(bin) = filter_bin(tally, &ev) else {
-        return;
-    };
-
-    let n_scores = tally.scores.len();
-    for (s_idx, score) in tally.scores.iter().enumerate() {
-        let val = match score {
-            ScoreType::Flux => weight / sigma_t,
-            ScoreType::Total => weight,
-            ScoreType::Fission => weight * macro_xs.fission / sigma_t,
-            ScoreType::NuFission => weight * macro_xs.nu_fission / sigma_t,
-            // Kappa-fission collision estimator: `w·(Σ_f/Σ_t)·Q` — the fission
-            // reaction-rate estimate scaled by the recoverable energy per fission
-            // `Q` [J] (`src/tallies/tally_scoring.cpp:1480`, SCORE_KAPPA_FISSION).
-            ScoreType::KappaFission => weight * macro_xs.fission / sigma_t * Q_FISSION_J,
-            // Real absorption rate: `w·(Σ_a/Σ_t)` with Σ_a = capture + fission
-            // (`MacroXs::absorption`) — the OpenMC MT=27 quantity
-            // (`src/nuclide.cpp:409-417`), not `Σ_t − Σ_elastic`.
-            ScoreType::Absorption => weight * macro_xs.absorption.max(0.0) / sigma_t,
-            ScoreType::ScatterN => weight * macro_xs.elastic / sigma_t,
-            // ── GitHub #262 ─────────────────────────────────────────────────
-            ScoreType::Scatter => {
-                weight * (macro_xs.total - macro_xs.absorption).max(0.0) / sigma_t
-            }
-            // Analog-only upstream; scored by `score_scatter_matrix`. See the
-            // track-length arm.
-            ScoreType::NuScatter => 0.0,
-            ScoreType::DelayedNuFission => weight * macro_xs.nu_fission_delayed / sigma_t,
-            ScoreType::PromptNuFission => {
-                weight * (macro_xs.nu_fission - macro_xs.nu_fission_delayed).max(0.0) / sigma_t
-            }
-            ScoreType::DecayRate => weight * macro_xs.decay_rate / sigma_t,
-            ScoreType::FissionQPrompt => {
-                weight * macro_xs.fission / sigma_t * Q_FISSION_PROMPT_J
-            }
-            ScoreType::FissionQRecoverable => {
-                weight * macro_xs.fission / sigma_t * Q_FISSION_RECOVERABLE_J
-            }
-            // `tally_scoring.cpp:1161`: the collision estimator for 1/v is
-            // `flux / (Sigma_t * v)`, i.e. the same `w/Sigma_t` flux estimate
-            // divided by the speed.
-            ScoreType::InverseVelocity => {
-                let v = neutron_speed_cm_per_s(energy);
-                if v > 0.0 {
-                    weight / (sigma_t * v)
-                } else {
-                    0.0
-                }
-            }
-            ScoreType::Current | ScoreType::Events => weight,
-        };
-        tally.bins[bin * n_scores + s_idx].score(val);
-    }
+        1.0 / sigma_t,
+        Position::ZERO,
+        Some(macro_xs),
+        weight,
+        cell_instance,
+        0.0,
+        Direction::new(0.0, 0.0, 1.0),
+    );
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(deprecated)]
     use super::*;
     use crate::tally::filter::{CellFilter, Filter, FilterKind};
     use crate::tally::tally::{Tally, TallyBin};
@@ -1364,16 +1297,20 @@ mod tests {
             ..Default::default()
         };
         // Two collisions in cell 0 (Σ_t = 0.5 ⇒ 2 cm each), one in cell 5 (ignored).
-        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
-        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
-        score_collision(&mut t, 5, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
+        // One batch: gh:#679, a batch is ONE realization, not one per collision.
+        let mut batch = vec![0.0; t.bins.len()];
+        score_collision(&mut batch, &t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
+        score_collision(&mut batch, &t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
+        score_collision(&mut batch, &t, 5, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
+        flush_batch(&mut t, &mut batch);
         assert!(
             (t.bins[0].sum - 4.0).abs() < 1e-12,
             "cell-0 flux sum {}",
             t.bins[0].sum
         );
-        assert_eq!(t.bins[0].count, 2);
-        assert_eq!(t.bins[1].count, 0, "cell-1 saw no collisions");
+        assert_eq!(t.bins[0].count, 1, "one batch is one realization");
+        assert_eq!(t.bins[1].count, 1, "cell-1 saw no collisions: a zero realization");
+        assert_eq!(t.bins[1].sum, 0.0);
     }
 
     /// GitHub #492: a track-length flux tally on an **unstructured** mesh
@@ -1481,7 +1418,9 @@ mod tests {
     #[test]
     fn delayed_group_collision_estimator_deposits_per_group() {
         let mut t = dg_tally();
-        score_collision(&mut t, 0, 0, 0, 1.0e6, 2.0, &dg_xs(), 4.0, None);
+        let mut batch = vec![0.0; t.bins.len()];
+        score_collision(&mut batch, &t, 0, 0, 0, 1.0e6, 2.0, &dg_xs(), 4.0, None);
+        flush_batch(&mut t, &mut batch);
         assert!((t.bins[0].sum - 4.0 / 2.0 * 0.003).abs() < 1e-15);
         assert!((t.bins[2].sum - 4.0 / 2.0 * 0.001).abs() < 1e-15);
     }
