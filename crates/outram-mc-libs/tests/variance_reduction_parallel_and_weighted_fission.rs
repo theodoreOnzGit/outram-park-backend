@@ -243,3 +243,47 @@ fn birth_window_parity_game_differs_from_legacy_and_both_are_unbiased() {
     }
     assert_ne!(ks[0].to_bits(), ks[1].to_bits(), "birth/parity knobs did not reach the kernel");
 }
+
+/// **gh:#703 sigma validation (measurement, ignored).** Triggered runs stop on
+/// the first generation at which the reported sigma is small enough, a
+/// data-dependent stopping rule that can bias the REPORTED sigma low. Compare the
+/// mean reported `k_std` of 40 triggered runs (trigger: sigma <= 0.0025, minimum
+/// 20 active generations, at most 200) with the seed-to-seed standard deviation
+/// of their `k_mean`. Printed, not asserted: the ratio's own uncertainty with 40
+/// runs is ~11 %, so a pass/fail gate would be noise.
+///
+/// **Result (2026-11-20, bare HEU sphere, 2000 particles, 10 inactive, seeds
+/// 7000-7039, sequential):** the 40 runs stopped after 51-102 active generations
+/// (none hit the 200 cap); mean k = 1.00441, seed-to-seed sd = 0.00293, mean
+/// reported sigma = 0.00249, **ratio sd/sigma = 1.18 +- ~0.13**. The reported
+/// sigma is ~15 % low, 1.4 sigma of the ratio's own uncertainty from unity:
+/// suggestive of the usual under-estimate from ignoring generation-to-generation
+/// correlation (not measured here on an untriggered control, so the stopping rule
+/// is not separated from it).
+#[test]
+#[ignore = "measurement: ~40 triggered runs"]
+fn triggered_sigma_against_seed_to_seed_spread_703() {
+    let trigger = Some(Trigger { metric: TriggerMetric::StandardDeviation, threshold: 0.0025, ignore_zeros: false });
+    let mut ks = Vec::new();
+    let mut sigmas = Vec::new();
+    let mut gens = Vec::new();
+    for seed in 0..40u64 {
+        let s = KeffSettings {
+            keff_trigger: trigger.clone(),
+            n_active: 200,
+            seed: 7000 + seed,
+            ..base(ComputeType::CpuSingleThread)
+        };
+        let r = run(&s);
+        ks.push(r.k_mean);
+        sigmas.push(r.k_std);
+        gens.push(r.active_generations(&s));
+    }
+    let n = ks.len() as f64;
+    let mean = ks.iter().sum::<f64>() / n;
+    let sd = (ks.iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+    let mean_sigma = sigmas.iter().sum::<f64>() / n;
+    println!("triggered runs: active generations {gens:?}");
+    println!("mean k = {mean:.5}; seed-to-seed sd = {sd:.5}; mean reported sigma = {mean_sigma:.5}; ratio sd/sigma = {:.2}", sd / mean_sigma);
+    assert!(sd.is_finite() && mean_sigma > 0.0);
+}
