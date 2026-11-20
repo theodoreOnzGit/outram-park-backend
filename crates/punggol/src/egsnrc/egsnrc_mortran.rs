@@ -31,6 +31,7 @@
 //! | `SUBROUTINE EDGSET` (`egsnrc.mortran:6311-6430`), the data readers | [`edgset_from_text`] |
 //! | `SUBROUTINE msdist_pI` (`egsnrc.mortran:4309-4455`), `msdist_pII` (`:4049-4290`) | [`msdist_p1`], [`msdist_p2`] |
 //! | `SUBROUTINE ELECTR` (`egsnrc.mortran:985-1825`) with the step, range and energy-loss macros of `egsnrc.macros:1308-1360, 2358-2395, 3105-3330` | [`electr`] |
+//! | `SUBROUTINE HATCH`, the regular PEGS4 intake block and the `DUNIT` scaling (`egsnrc.mortran:2036-2250`) | [`Pegs4Medium`], [`parse_pegs4_media`] |
 //! | `SUBROUTINE COMPT` (`egsnrc.mortran:528-806`) | [`compt`] |
 //! | `$PLAYRUSSIANROULETTEWITHELECTRONSFROM#` (`egsnrc.macros:3479-3516`) | [`play_russian_roulette`] |
 //!
@@ -3991,6 +3992,340 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
     }
 }
 
+/// One element of a PEGS4 medium (`ASYM`, `ZELEM`, `WA`, `PZ`, `RHOZ`).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Pegs4Element {
+    /// Two-character symbol.
+    pub asym: String,
+    /// Atomic number.
+    pub zelem: f64,
+    /// Atomic weight.
+    pub wa: f64,
+    /// Number of atoms (relative).
+    pub pz: f64,
+    /// Partial density, g/cm^3.
+    pub rhoz: f64,
+}
+
+/// The optional Rayleigh block of a PEGS4 medium (`IRAYL = 1`).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Pegs4Rayleigh {
+    /// `NGR(IM)`.
+    pub ngr: i32,
+    /// `RCO0`, `RCO1`.
+    pub rco: [f64; 2],
+    /// `RSCT0(i)`, `RSCT1(i)` for `i = 1..NGR`.
+    pub rsct: Vec<[f64; 2]>,
+    /// `COHE0(i)`, `COHE1(i)` for `i = 1..NGE`.
+    pub cohe: Vec<[f64; 2]>,
+}
+
+/// The data of one medium as `HATCH` reads it from a PEGS4 data set
+/// (`egsnrc.mortran:2036-2165`), before `DUNIT` scaling. Arrays are
+/// 0-based here; where a Mortran loop runs `i = 1..N` the entry for `i` is at
+/// index `i - 1`.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Pegs4Medium {
+    /// The 24-character medium name as in the file.
+    pub name: String,
+    /// `RHO(IM)`, g/cm^3.
+    pub rho: f64,
+    /// `NNE(IM)`: number of elements.
+    pub nne: usize,
+    /// `IUNRST`, `EPSTFL`, `IAPRIM`.
+    pub iunrst: i32,
+    /// See `iunrst`.
+    pub epstfl: i32,
+    /// See `iunrst`.
+    pub iaprim: i32,
+    /// The elements.
+    pub elements: Vec<Pegs4Element>,
+    /// `RLC`: radiation length, cm.
+    pub rlc: f64,
+    /// `AE`, `AP`, `UE`, `UP`: thresholds and upper limits, MeV.
+    pub ae: f64,
+    /// See `ae`.
+    pub ap: f64,
+    /// See `ae`.
+    pub ue: f64,
+    /// See `ae`.
+    pub up: f64,
+    /// `MSGE, MGE, MSEKE, MEKE, MLEKE, MCMFP, MRANGE` (array sizes).
+    pub sizes: [i32; 7],
+    /// `IRAYL`: Rayleigh data present.
+    pub irayl: i32,
+    /// `DL1..DL6(I)`: `dl[k][i]` for `k = 0..5`, `i = 0..5`.
+    pub dl: [[f64; 6]; 6],
+    /// `DELCM`.
+    pub delcm: f64,
+    /// `ALPHI(I)`, `I = 1..2`.
+    pub alphi: [f64; 2],
+    /// `BPAR(I)`.
+    pub bpar: [f64; 2],
+    /// `DELPOS(I)`.
+    pub delpos: [f64; 2],
+    /// `XR0`, `TEFF0`, `BLCC`, `XCC`.
+    pub xr0: f64,
+    /// See `xr0`.
+    pub teff0: f64,
+    /// See `xr0`.
+    pub blcc: f64,
+    /// See `xr0`.
+    pub xcc: f64,
+    /// `EKE0`, `EKE1`.
+    pub eke: [f64; 2],
+    /// Per energy point `i = 1..NEKE`:
+    /// `[ESIG0, ESIG1, PSIG0, PSIG1, EDEDX0, EDEDX1, PDEDX0, PDEDX1, EBR10, EBR11,
+    /// PBR10, PBR11, PBR20, PBR21, TMXS0, TMXS1]`.
+    pub elecin: Vec<[f64; 16]>,
+    /// `EBINDA`.
+    pub ebinda: f64,
+    /// `GE0`, `GE1`.
+    pub ge: [f64; 2],
+    /// Per gamma energy point `i = 1..NGE`:
+    /// `[GMFP0, GMFP1, GBR10, GBR11, GBR20, GBR21]`.
+    pub photin: Vec<[f64; 6]>,
+    /// The Rayleigh block, when `irayl == 1`.
+    pub rayleigh: Option<Pegs4Rayleigh>,
+}
+
+/// A line padded with blanks to `n` characters (a Fortran `A1` read of a short
+/// record gives blanks).
+fn padded(line: &str, n: usize) -> Vec<char> {
+    let mut v: Vec<char> = line.chars().collect();
+    while v.len() < n {
+        v.push(' ');
+    }
+    v
+}
+
+/// A fixed-width Fortran `Fw.d` / `Iw` field from columns `[start, start + w)`
+/// of `chars`; a blank field is zero.
+fn fixed_field(chars: &[char], start: usize, w: usize) -> Result<f64, String> {
+    let f: String = chars.iter().skip(start).take(w).collect();
+    let t = f.trim().replace(['D', 'd'], "e");
+    if t.is_empty() {
+        return Ok(0.0);
+    }
+    t.parse::<f64>().map_err(|_| alloc::format!("bad numeric field '{}'", f.trim()))
+}
+
+/// A cursor over the lines of a PEGS4 data set that reads Fortran-formatted
+/// lists as `HATCH` does.
+struct Pegs4Lines<'a> {
+    lines: core::str::Lines<'a>,
+}
+
+impl<'a> Pegs4Lines<'a> {
+    fn next_line(&mut self) -> Result<&'a str, String> {
+        self.lines.next().ok_or_else(|| String::from("PEGS4 data ends early"))
+    }
+
+    /// `READ(KMPI, :FLT:)` of `n` values: format `(1X, 1PE14.5, 4E14.5)`, five
+    /// 14-column values per record, a fresh record per five.
+    fn flt(&mut self, n: usize) -> Result<Vec<f64>, String> {
+        let mut out = Vec::with_capacity(n);
+        while out.len() < n {
+            let chars = padded(self.next_line()?, 71);
+            for k in 0..5 {
+                if out.len() == n {
+                    break;
+                }
+                out.push(fixed_field(&chars, 1 + 14 * k, 14)?);
+            }
+        }
+        Ok(out)
+    }
+
+    /// `READ(KMPI, :INT:)` of `n` values: format `(1X, 14I5)`.
+    fn int(&mut self, n: usize) -> Result<Vec<i32>, String> {
+        let mut out = Vec::with_capacity(n);
+        while out.len() < n {
+            let chars = padded(self.next_line()?, 71);
+            for k in 0..14 {
+                if out.len() == n {
+                    break;
+                }
+                out.push(fixed_field(&chars, 1 + 5 * k, 5)? as i32);
+            }
+        }
+        Ok(out)
+    }
+}
+
+/// The composition header line: format 1 `(5A1,5X,F11.0,4X,I2,9X,I1,9X,I1,9X,I1)`
+/// or, when a gas pressure is present, format 2 (`...,I2,26X,I1,9X,I1,9X,I1`),
+/// tried when format 1 does not parse (`egsnrc.mortran:2092-2108`).
+fn parse_medium_header(line: &str) -> Result<(f64, usize, i32, i32, i32), String> {
+    let c = padded(line, 80);
+    let rho = fixed_field(&c, 10, 11)?;
+    let nne = fixed_field(&c, 25, 2)? as usize;
+    let f1 = (|| -> Result<(i32, i32, i32), String> {
+        Ok((fixed_field(&c, 36, 1)? as i32, fixed_field(&c, 46, 1)? as i32, fixed_field(&c, 56, 1)? as i32))
+    })();
+    if let Ok((a, b, d)) = f1 {
+        // format 1 only holds if the text between the fields is the expected
+        // label text (a gas-pressure line puts different text there)
+        let label: String = c[27..36].iter().collect();
+        if label.trim_start().starts_with(',') && label.contains("IUNRST") {
+            return Ok((rho, nne, a, b, d));
+        }
+    }
+    // format 2: 26 columns of gas pressure before IUNRST
+    let a = fixed_field(&c, 52, 1)? as i32;
+    let b = fixed_field(&c, 62, 1)? as i32;
+    let d = fixed_field(&c, 72, 1)? as i32;
+    Ok((rho, nne, a, b, d))
+}
+
+/// The regular PEGS4 intake of `HATCH` (`egsnrc.mortran:2036-2165`) on an
+/// in-memory copy of a PEGS4 data set: for each name in `names` (padded to 24
+/// characters as `MEDIA(IB,IM)` is), find its ` MEDIUM=` header and read its
+/// data, returned in the order of `names`. Reading the file is the caller's
+/// (the data sets are not vendored here).
+///
+/// # Errors
+///
+/// A message when a requested medium is not in the file (upstream stops with
+/// the list of unrecognised names), or the data is short or malformed.
+pub fn parse_pegs4_media(text: &str, names: &[&str]) -> Result<Vec<Pegs4Medium>, String> {
+    const LMDL: usize = 8;
+    const LMDN: usize = 24;
+    let wanted: Vec<Vec<char>> = names.iter().map(|n| padded(n, LMDN)).collect();
+    let mut found: Vec<Option<Pegs4Medium>> = alloc::vec![None; names.len()];
+    let mut cur = Pegs4Lines { lines: text.lines() };
+    let mut nfound = 0;
+    while nfound < names.len() {
+        // medium header search
+        let mut im = None;
+        loop {
+            let line = match cur.lines.next() {
+                Some(l) => l,
+                None => {
+                    let missing: Vec<&str> =
+                        names.iter().zip(&found).filter(|(_, f)| f.is_none()).map(|(n, _)| *n).collect();
+                    return Err(alloc::format!("PEGS4 media not recognised: {missing:?}"));
+                }
+            };
+            let mbuf = padded(line, 72);
+            let label: String = mbuf[..LMDL].iter().collect();
+            if label != " MEDIUM=" {
+                continue;
+            }
+            if let Some(i) = wanted.iter().position(|w| mbuf[LMDL..LMDL + LMDN] == w[..]) {
+                im = Some(i);
+                break;
+            }
+        }
+        let im = im.unwrap_or(0);
+        if found[im].is_some() {
+            continue; // we already have this one
+        }
+        let mut med = Pegs4Medium { name: wanted[im].iter().collect(), ..Default::default() };
+        let (rho, nne, iunrst, epstfl, iaprim) = parse_medium_header(cur.next_line()?)?;
+        med.rho = rho;
+        med.nne = nne;
+        med.iunrst = iunrst;
+        med.epstfl = epstfl;
+        med.iaprim = iaprim;
+        for _ in 0..nne {
+            let c = padded(cur.next_line()?, 60);
+            med.elements.push(Pegs4Element {
+                asym: c[6..8].iter().collect(),
+                zelem: fixed_field(&c, 11, 3)?,
+                wa: fixed_field(&c, 17, 9)?,
+                pz: fixed_field(&c, 30, 12)?,
+                rhoz: fixed_field(&c, 48, 12)?,
+            });
+        }
+        // MEDIA and THRESH
+        let v = cur.flt(5)?;
+        (med.rlc, med.ae, med.ap, med.ue, med.up) = (v[0], v[1], v[2], v[3], v[4]);
+        // actual array sizes from PEGS
+        let v = cur.int(8)?;
+        med.sizes = [v[0], v[1], v[2], v[3], v[4], v[5], v[6]];
+        med.irayl = v[7];
+        let (nge, neke) = (med.sizes[1] as usize, med.sizes[3] as usize);
+        // BREMPR
+        let v = cur.flt(36)?;
+        for i in 0..6 {
+            for k in 0..6 {
+                med.dl[k][i] = v[i * 6 + k];
+            }
+        }
+        let v = cur.flt(7)?;
+        med.delcm = v[0];
+        for i in 0..2 {
+            med.alphi[i] = v[1 + i * 3];
+            med.bpar[i] = v[2 + i * 3];
+            med.delpos[i] = v[3 + i * 3];
+        }
+        // ELECIN
+        let v = cur.flt(4)?;
+        (med.xr0, med.teff0, med.blcc, med.xcc) = (v[0], v[1], v[2], v[3]);
+        let v = cur.flt(2)?;
+        med.eke = [v[0], v[1]];
+        let v = cur.flt(16 * neke)?;
+        for i in 0..neke {
+            let mut row = [0.0; 16];
+            row.copy_from_slice(&v[16 * i..16 * i + 16]);
+            med.elecin.push(row);
+        }
+        // PHOTIN
+        let v = cur.flt(3)?;
+        med.ebinda = v[0];
+        med.ge = [v[1], v[2]];
+        let v = cur.flt(6 * nge)?;
+        for i in 0..nge {
+            let mut row = [0.0; 6];
+            row.copy_from_slice(&v[6 * i..6 * i + 6]);
+            med.photin.push(row);
+        }
+        // optional Rayleigh input
+        if med.irayl == 1 {
+            let ngr = cur.int(1)?[0];
+            let v = cur.flt(2)?;
+            let rco = [v[0], v[1]];
+            let v = cur.flt(2 * ngr as usize)?;
+            let rsct: Vec<[f64; 2]> = (0..ngr as usize).map(|i| [v[2 * i], v[2 * i + 1]]).collect();
+            let v = cur.flt(2 * nge)?;
+            let cohe: Vec<[f64; 2]> = (0..nge).map(|i| [v[2 * i], v[2 * i + 1]]).collect();
+            med.rayleigh = Some(Pegs4Rayleigh { ngr, rco, rsct, cohe });
+        }
+        found[im] = Some(med);
+        nfound += 1;
+    }
+    Ok(found.into_iter().map(|m| m.expect("every requested medium was found")).collect())
+}
+
+impl Pegs4Medium {
+    /// The distance-unit change of `HATCH` (`egsnrc.mortran:2204-2223`): PEGS4
+    /// data is per radiation length; `dunit` (cm) is the unit EGSnrc will run
+    /// in (the caller resolves a negative `DUNIT` to the radiation length of
+    /// the medium it names). Cross sections and stopping powers scale by
+    /// `DFACTI`, step limits and mean free paths by `DFACT`. Returns
+    /// `RLDU = RLC / DUNIT`.
+    pub fn apply_dunit(&mut self, dunit: f64) -> f64 {
+        let dfact = self.rlc / dunit;
+        let dfacti = 1.0 / dfact;
+        for row in &mut self.elecin {
+            for v in &mut row[0..8] {
+                *v *= dfacti; // ESIG, PSIG, EDEDX, PDEDX (both coefficients)
+            }
+            row[14] *= dfact; // TMXS0
+            row[15] *= dfact; // TMXS1
+        }
+        self.teff0 *= dfact;
+        self.blcc *= dfacti;
+        self.xcc *= Real::sqrt(dfacti);
+        for row in &mut self.photin {
+            row[0] *= dfact; // GMFP0
+            row[1] *= dfact; // GMFP1
+        }
+        self.rlc / dunit
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5434,6 +5769,169 @@ mod tests {
             Err(EgsError::Unsupported(_))
         ));
         assert!(counters.count_all_steps >= 0.0);
+    }
+
+
+    /// A synthetic PEGS4 data set in the real file's fixed-width format.
+    fn pegs4_text(name: &str, rayleigh: bool, gas: bool) -> String {
+        fn flt(vals: &[f64]) -> String {
+            let mut s = String::new();
+            for chunk in vals.chunks(5) {
+                s.push(' ');
+                for v in chunk {
+                    s.push_str(&alloc::format!("{:>14}", alloc::format!("{:.5E}", v).replace("E", "E+").replace("E+-", "E-")));
+                }
+                s.push('\n');
+            }
+            s
+        }
+        fn int(vals: &[i32]) -> String {
+            let mut s = String::new();
+            for chunk in vals.chunks(14) {
+                s.push(' ');
+                for v in chunk {
+                    s.push_str(&alloc::format!("{:>5}", v));
+                }
+                s.push('\n');
+            }
+            s
+        }
+        let (nge, neke) = (3usize, 4usize);
+        let mut t = String::new();
+        t.push_str(&alloc::format!(" MEDIUM={:<24},STERNCID=XX\n", name));
+        if gas {
+            t.push_str(" GAS ,RHO= 1.2000E-03,NE= 1,GASP= 1.0000E+00 IUNRST=0, EPSTFL=1, IAPRIM=1\n");
+        } else {
+            t.push_str(" ELEM,RHO= 1.1340E+01,NE= 2, IUNRST=0, EPSTFL=1, IAPRIM=1\n");
+        }
+        let nne = if gas { 1 } else { 2 };
+        for i in 0..nne {
+            t.push_str(&alloc::format!(
+                " ASYM=PB,Z={:>2}.,A={:>9.3},PZ={:>12.5E},RHOZ={:>12.5E}\n",
+                82 - i,
+                207.19,
+                1.0,
+                207.19
+            ));
+        }
+        t.push_str(&flt(&[0.5617, 0.512, 0.001, 2.511, 2.0]));
+        t.push_str(&int(&[0, nge as i32, 0, neke as i32, 0, 0, 0, rayleigh as i32]));
+        let dl: Vec<f64> = (0..36).map(|k| 1.0 + k as f64 * 0.1).collect();
+        t.push_str(&flt(&dl));
+        t.push_str(&flt(&[16.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]));
+        t.push_str(&flt(&[0.3, 0.0006, 3.4e4, 5.7]));
+        t.push_str(&flt(&[136.5, 19.4]));
+        let el: Vec<f64> = (0..16 * neke).map(|k| 100.0 + k as f64).collect();
+        t.push_str(&flt(&el));
+        t.push_str(&flt(&[0.057, 2.5, 7.0]));
+        let ph: Vec<f64> = (0..6 * nge).map(|k| 10.0 + k as f64).collect();
+        t.push_str(&flt(&ph));
+        if rayleigh {
+            t.push_str(&int(&[2]));
+            t.push_str(&flt(&[1.0, 2.0]));
+            t.push_str(&flt(&[3.0, 4.0, 5.0, 6.0]));
+            let co: Vec<f64> = (0..2 * nge).map(|k| 7.0 + k as f64).collect();
+            t.push_str(&flt(&co));
+        }
+        t
+    }
+
+    #[test]
+    fn pegs4_reader_parses_the_fixed_width_layout() {
+        let text = pegs4_text("PB", true, false);
+        let meds = parse_pegs4_media(&text, &["PB"]).unwrap();
+        let m = &meds[0];
+        assert_eq!(m.name.trim_end(), "PB");
+        assert_eq!((m.nne, m.iunrst, m.epstfl, m.iaprim), (2, 0, 1, 1));
+        assert!((m.rho - 11.34).abs() < 1e-12);
+        assert_eq!(m.elements.len(), 2);
+        assert_eq!(m.elements[0].asym, "PB");
+        assert_eq!((m.elements[0].zelem, m.elements[1].zelem), (82.0, 81.0));
+        assert!((m.elements[0].wa - 207.19).abs() < 1e-9 && m.elements[0].pz == 1.0);
+        assert_eq!((m.rlc, m.ae, m.ap, m.ue, m.up), (0.5617, 0.512, 0.001, 2.511, 2.0));
+        assert_eq!(m.sizes, [0, 3, 0, 4, 0, 0, 0]);
+        assert_eq!(m.irayl, 1);
+        // DL(k, i): i-major order in the file
+        assert!((m.dl[0][0] - 1.0).abs() < 1e-9 && (m.dl[1][0] - 1.1).abs() < 1e-9 && (m.dl[0][1] - 1.6).abs() < 1e-9);
+        assert_eq!((m.delcm, m.alphi, m.bpar, m.delpos), (16.0, [0.9, 0.6], [0.8, 0.5], [0.7, 0.4]));
+        assert_eq!((m.xr0, m.teff0, m.blcc, m.xcc), (0.3, 0.0006, 3.4e4, 5.7));
+        assert_eq!(m.eke, [136.5, 19.4]);
+        assert_eq!(m.elecin.len(), 4);
+        assert_eq!(m.elecin[1][0], 116.0);
+        assert_eq!((m.ebinda, m.ge), (0.057, [2.5, 7.0]));
+        assert_eq!(m.photin.len(), 3);
+        assert_eq!(m.photin[2][5], 10.0 + 17.0);
+        let r = m.rayleigh.as_ref().unwrap();
+        assert_eq!((r.ngr, r.rco), (2, [1.0, 2.0]));
+        assert_eq!(r.rsct, alloc::vec![[3.0, 4.0], [5.0, 6.0]]);
+        assert_eq!(r.cohe.len(), 3);
+        // without a Rayleigh block
+        let plain = parse_pegs4_media(&pegs4_text("AL", false, false), &["AL"]).unwrap();
+        assert!(plain[0].rayleigh.is_none());
+        // a gas-pressure header line (format 2)
+        let gas = parse_pegs4_media(&pegs4_text("AIR", false, true), &["AIR"]).unwrap();
+        assert_eq!((gas[0].nne, gas[0].iunrst, gas[0].epstfl, gas[0].iaprim), (1, 0, 1, 1));
+    }
+
+    #[test]
+    fn pegs4_reader_finds_media_in_request_order_and_reports_missing() {
+        let text = alloc::format!("{}{}{}", pegs4_text("A1", false, false), pegs4_text("B2", false, false), pegs4_text("C3", true, false));
+        let meds = parse_pegs4_media(&text, &["C3", "A1"]).unwrap();
+        assert_eq!((meds[0].name.trim_end(), meds[1].name.trim_end()), ("C3", "A1"));
+        assert!(meds[0].rayleigh.is_some() && meds[1].rayleigh.is_none());
+        // a duplicated name in the request: the second copy of its data is skipped
+        let dup = alloc::format!("{}{}", pegs4_text("A1", false, false), pegs4_text("A1", false, false));
+        assert!(parse_pegs4_media(&dup, &["A1", "A1"]).is_err(), "only one copy of A1 exists to match the second request");
+        let e = parse_pegs4_media(&text, &["A1", "ZZ"]).unwrap_err();
+        assert!(e.contains("ZZ"), "{e}");
+        assert!(parse_pegs4_media(" MEDIUM=PB\n", &["PB"]).is_err(), "truncated data");
+    }
+
+    #[test]
+    fn dunit_scaling_follows_radiation_length() {
+        let mut m = parse_pegs4_media(&pegs4_text("PB", true, false), &["PB"]).unwrap().remove(0);
+        let before = m.clone();
+        let rldu = m.apply_dunit(m.rlc); // unit = one radiation length: no change
+        assert!((rldu - 1.0).abs() < 1e-15);
+        assert!((m.blcc - before.blcc).abs() < 1e-9 * before.blcc);
+        let mut m2 = before.clone();
+        let rldu2 = m2.apply_dunit(1.0); // centimetres
+        assert!((rldu2 - before.rlc).abs() < 1e-15);
+        let dfact = before.rlc;
+        assert!((m2.elecin[0][0] - before.elecin[0][0] / dfact).abs() < 1e-9, "stopping power per cm");
+        assert!((m2.elecin[0][14] - before.elecin[0][14] * dfact).abs() < 1e-9, "tmxs in cm");
+        assert!((m2.teff0 - before.teff0 * dfact).abs() < 1e-12);
+        assert!((m2.blcc - before.blcc / dfact).abs() < 1e-6);
+        assert!((m2.xcc - before.xcc / dfact.sqrt()).abs() < 1e-9);
+        assert!((m2.photin[0][1] - before.photin[0][1] * dfact).abs() < 1e-9, "mean free path in cm");
+        assert_eq!(m2.photin[0][2], before.photin[0][2], "branching ratios do not scale");
+    }
+
+
+    /// Reads a real PEGS4 data set when `EGSNRC_PEGS4_DATA` names one (the file
+    /// is EGSnrc's, not vendored here, so the test is skipped without it) and
+    /// checks the structural invariants the layout implies: the array sizes
+    /// match what was read and the tables are finite and ordered.
+    #[cfg(feature = "std")]
+    #[test]
+    fn pegs4_reader_on_a_real_data_set_when_available() {
+        let Ok(path) = std::env::var("EGSNRC_PEGS4_DATA") else {
+            return;
+        };
+        let text = std::fs::read_to_string(&path).expect("EGSNRC_PEGS4_DATA is readable");
+        let first = text.lines().next().unwrap();
+        let name = first[8..32].trim().to_string();
+        let meds = parse_pegs4_media(&text, &[name.as_str()]).unwrap();
+        let m = &meds[0];
+        assert_eq!(m.elecin.len(), m.sizes[3] as usize);
+        assert_eq!(m.photin.len(), m.sizes[1] as usize);
+        assert!(m.rho > 0.0 && m.rlc > 0.0 && m.ae > 0.5 && m.ap > 0.0);
+        assert_eq!(m.elements.len(), m.nne);
+        assert!(m.elecin.iter().flatten().all(|v| v.is_finite()));
+        assert!(m.photin.iter().flatten().all(|v| v.is_finite()));
+        // the fits are over increasing energy: the cut-off energy sits in the table
+        assert!(m.eke[1] > 0.0 && m.ge[1] > 0.0);
+        std::eprintln!("PEGS4 {name}: rho {} rlc {} ae {} neke {} nge {}", m.rho, m.rlc, m.ae, m.sizes[3], m.sizes[1]);
     }
 
     #[test]

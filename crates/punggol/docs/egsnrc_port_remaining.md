@@ -12,7 +12,7 @@ scheme), `PAIR` (no NRC tables or triplets), `PHOTO` (no MCDF or EADL),
 `BHABHA`, `MOLLER` (no EII), `BREMS` (Bethe-Heitler), `PHOTON` (behind the
 `Geometry` trait, no Rayleigh or photonuclear), `SHOWER` (behind the
 `ElectronTransport` trait), `ELECTR` (behind `ElectronGeometry`; no EM fields, range rejection or EII; **assumption:** `NEXT :TSTEP:` restarts the loop without re-testing its `UNTIL`, to be settled by a differential run), `UPHI` (IENTRY 1, 2, 3), `mscat`, `sscat`,
-`spin_rejection`, the MS-table text reader of `init_ms_SR`, the `EDGSET` data readers (`edgset_from_text`), `msdist_pI` and `msdist_pII` (`msdist_p1`, `msdist_p2`), Russian roulette,
+`spin_rejection`, the MS-table text reader of `init_ms_SR`, the `EDGSET` data readers (`edgset_from_text`), `msdist_pI` and `msdist_pII` (`msdist_p1`, `msdist_p2`), the PEGS4 intake of `HATCH` (`parse_pegs4_media`, `Pegs4Medium::apply_dunit`), Russian roulette,
 and the stack, azimuth and `$RANDOMSET` macros.
 
 ## Not ported, and what each needs
@@ -21,7 +21,7 @@ and the stack, azimuth and `$RANDOMSET` macros.
 |---|---|---|
 | `mscati` | `:2749-2980` | Builds range, `tmxs` and the maximum cross sections per medium from `HATCH`'s tables. |
 | `init_spin` | `egsnrc.mortran` (spin data) | Fills `SpinData::spin_rej`; reads a data file. |
-| `HATCH` | `:1827-2598` | Reads PEGS4 data and builds every per-medium table the ported routines take as arguments (`PairMedium`, `BremsMedium`, `PhotonMediumData`, `ComptonData`, `RelaxData`, `PhotoData`). Needs PEGS4 data files (not vendored). |
+| `HATCH` (rest) | `:1827-2598` | The PEGS4 intake (`parse_pegs4_media`) and `DUNIT` scaling (`Pegs4Medium::apply_dunit`) are ported and were checked on a real `pb.pegs4dat` (`EGSNRC_PEGS4_DATA`). Not yet: turning `Pegs4Medium` into the per-medium tables the routines take (`PairMedium`, `BremsMedium`, `PhotonMediumData`, `ComptonData`, `ElectronMediumData`), `fix_brems`, `mscati`, `init_compton`, `egs_init_user_photon`, `init_nist_brems`, `init_nrc_pair`, `eii_init`, `init_triplet`, `egs_init_rayleigh_sampling`. |
 | `PHOTONUC` | `:9001` | Photonuclear reactions; off by default. |
 | `egs_rayleigh_sampling` | `:8558` | Rayleigh scattering; off by default (refused by `photon`). |
 | `sample_triplet`, NRC pair, NIST/NRC brems tables, EII (`eii_sample`), shellwise PE, EADL relaxation | various | Off by default; each is refused with `EgsError::Unsupported`. |
