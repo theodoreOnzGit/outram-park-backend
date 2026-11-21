@@ -4639,4 +4639,87 @@ mod tests {
         assert_eq!(m.irayl, 1);
         assert!(m.rayleigh.is_some());
     }
+    /// Differential test against a REAL compiled PEGS4 (phase 2, gh:#1680).
+    /// `PEGS4_REFERENCE_DIR` holds the `pb700`, `h2o700` and `tis521`
+    /// `.pegs4dat` files written by the upstream program built from
+    /// `pegs4.mortran` at the pinned commit (Mortran3 + gfortran, inputs
+    /// `HEN_HOUSE/pegs4/inputs/{pb700,h2o700,tis521}.pegs4inp`, one run each);
+    /// the data files come from `PEGS4_DATA_DIR`. Compares every number of
+    /// every line and prints the worst differences; only structure (line
+    /// count, token count per line, header lines identical) is asserted. The
+    /// numbers are in `docs/egsnrc_phase2_differential.md`.
+    #[test]
+    fn differential_against_compiled_pegs4() {
+        let Ok(refdir) = std::env::var("PEGS4_REFERENCE_DIR") else {
+            eprintln!("PEGS4_REFERENCE_DIR not set: differential test skipped");
+            return;
+        };
+        let dir = std::env::var("PEGS4_DATA_DIR").unwrap_or_else(|_| String::from("/tmp/claude-0/up/egsnrc/HEN_HOUSE/pegs4"));
+        let read = |f: &str| std::fs::read_to_string(format!("{dir}/{f}")).unwrap();
+        let (x, f, a) = (read("pgs4pepr.dat"), read("pgs4form.dat"), read("aprime.data"));
+        let water = Pegs4Block::Comp(MediumBlock::from_cards(
+            Pegs4Inp { ne: Some(2), rho: Some(1.0), pz: Some(vec![2.0, 1.0]), irayl: Some(1), ..Default::default() },
+            &format!("{:<30}H2O", "H2O"),
+            "H  O",
+        ));
+        let tissue = Pegs4Block::Mixt(MediumBlock::from_cards(
+            Pegs4Inp { ne: Some(4), rho: Some(1.0), rhoz: Some(vec![0.101, 0.111, 0.026, 0.762]), irayl: Some(1), ..Default::default() },
+            &format!("{:<30}ICRUTISSUE", "ICRUTISSUE"),
+            "H  C  N  O",
+        ));
+        let lead = Pegs4Block::Elem(MediumBlock::from_cards(
+            Pegs4Inp { irayl: Some(1), ..Default::default() },
+            &format!("{:<30}PB", "PB"),
+            "PB",
+        ));
+        let cases = [
+            ("pb700", lead, ener(0.700, 50.511, 0.010, 50.0)),
+            ("h2o700", water, ener(0.700, 50.511, 0.01, 50.0)),
+            ("tis521", tissue, ener(0.521, 20.511, 0.010, 20.0)),
+        ];
+        let num = |l: &str| -> Vec<f64> {
+            l.split(|c: char| c.is_whitespace() || c == ',').filter_map(|t| t.replace('D', "E").parse::<f64>().ok()).collect()
+        };
+        for (name, medium, energies) in cases {
+            let refs = std::fs::read_to_string(format!("{refdir}/{name}.pegs4dat")).unwrap();
+            let blocks = [medium, energies, Pegs4Block::Pwlf(Pegs4Inp::default()), Pegs4Block::Deck(Pegs4Inp::default())];
+            let out = run(&x, &f, Some(&a), None, &blocks).unwrap();
+            if let Ok(path) = std::env::var("PEGS4_PORT_OUT_DIR") {
+                std::fs::write(format!("{path}/{name}.port.pegs4dat"), out.deck_text()).unwrap();
+            }
+            let mine = &out.deck;
+            let theirs: Vec<&str> = refs.lines().collect();
+            let (mut worst, mut worst_line, mut worst_abs, mut n_exact, mut n_diff, mut n_tok) = (0.0_f64, 0usize, 0.0_f64, 0usize, 0usize, 0usize);
+            for (i, (m, r)) in mine.iter().zip(theirs.iter()).enumerate() {
+                if m.trim_end() == r.trim_end() {
+                    n_exact += 1;
+                    continue;
+                }
+                n_diff += 1;
+                let (nm, nr) = (num(m), num(r));
+                if nm.len() != nr.len() {
+                    n_tok += 1;
+                    eprintln!("{name} line {}: token count {} vs {}\n  port: {}\n  ref : {}", i + 1, nm.len(), nr.len(), m.trim_end(), r.trim_end());
+                    continue;
+                }
+                let scale = nr.iter().fold(0.0_f64, |s, v| s.max(v.abs())).max(1e-300);
+                for (a, b) in nm.iter().zip(&nr) {
+                    let rel = (a - b).abs() / b.abs().max(1e-300);
+                    if rel > worst {
+                        worst = rel;
+                        worst_line = i + 1;
+                    }
+                    worst_abs = worst_abs.max((a - b).abs() / scale);
+                }
+            }
+            eprintln!(
+                "{name}: lines port {} ref {}; identical {n_exact}, differing {n_diff} (token-count mismatches {n_tok}); worst relative {worst:e} at line {worst_line}; worst |d|/max|line| {worst_abs:e}",
+                mine.len(),
+                theirs.len()
+            );
+            assert_eq!(mine.len(), theirs.len(), "{name}: line count");
+            assert_eq!(n_tok, 0, "{name}: token counts");
+        }
+    }
+
 }
