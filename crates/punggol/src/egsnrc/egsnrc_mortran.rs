@@ -961,7 +961,7 @@ pub struct PairConfig {
     pub rr: Option<f64>,
     /// `pair_nrc` (default 0): NRC pair tables (not ported; `1` is refused).
     pub pair_nrc: bool,
-    /// `itriplet` (default 0): triplet production (not ported; `> 0` is refused).
+    /// `itriplet` (default 0): triplet production (`> 0` needs [`pair_with_triplet`]).
     pub itriplet: i32,
 }
 
@@ -979,8 +979,8 @@ impl Default for PairConfig {
 /// sampling (`killed` in the result).
 ///
 /// `rm` is `RM` (= `PRM`). Not ported, refused with
-/// [`EgsError::Unsupported`]: the NRC pair tables (`pair_nrc`) and triplet
-/// production (`itriplet > 0`), both off by default.
+/// [`EgsError::Unsupported`]: the NRC pair tables (`pair_nrc`); triplet
+/// production (`itriplet > 0`) needs [`pair_with_triplet`].
 ///
 /// # Errors
 ///
@@ -992,11 +992,42 @@ pub fn pair<R: UniformSource>(
     rm: f64,
     rng: &mut R,
 ) -> Result<bool, EgsError> {
+    pair_core(stack, med, cfg, rm, None, rng)
+}
+
+/// [`pair`] with triplet production (`itriplet > 0`): `triplet` is the
+/// medium's [`TripletData`], the sampler's persistent [`TripletState`], the
+/// medium index, and the largest photon energy any medium's tables reach
+/// (`UP`, MeV; the `kmax` of `sample_triplet`'s binning). `gle` is taken as
+/// `ln` of the photon energy, which is the value `PHOTON` leaves in `GLE`.
+///
+/// # Errors
+///
+/// As [`pair`].
+pub fn pair_with_triplet<R: UniformSource>(
+    stack: &mut Stack,
+    med: &PairMedium,
+    cfg: &PairConfig,
+    rm: f64,
+    triplet: (&TripletData, &mut TripletState, usize, f64),
+    rng: &mut R,
+) -> Result<bool, EgsError> {
+    pair_core(stack, med, cfg, rm, Some(triplet), rng)
+}
+
+fn pair_core<R: UniformSource>(
+    stack: &mut Stack,
+    med: &PairMedium,
+    cfg: &PairConfig,
+    rm: f64,
+    triplet: Option<(&TripletData, &mut TripletState, usize, f64)>,
+    rng: &mut R,
+) -> Result<bool, EgsError> {
     if cfg.pair_nrc {
         return Err(EgsError::Unsupported("PAIR: NRC pair cross sections (pair_nrc = 1)"));
     }
-    if cfg.itriplet > 0 {
-        return Err(EgsError::Unsupported("PAIR: triplet production (itriplet > 0)"));
+    if cfg.itriplet > 0 && triplet.is_none() {
+        return Err(EgsError::Unsupported("PAIR: triplet production (itriplet > 0) without triplet data"));
     }
     stack.np_old = stack.np;
     if let Some(prob_rr) = cfg.rr {
@@ -1019,6 +1050,22 @@ pub fn pair<R: UniformSource>(
     stack.check_stack(stack.np + 1, "PAIR")?;
     let peig = stack.e[stack.np];
     let eig = peig;
+    if cfg.itriplet > 0 && eig > 4.0 * rm {
+        if let Some((td, state, imed, up_max)) = triplet {
+            let gle = RealMath::r_ln(eig);
+            let itrip = (td.dli_triplet * gle + td.bli_triplet) as usize;
+            let ftrip = if itrip < td.a_triplet[imed].len() {
+                td.a_triplet[imed][itrip] * gle + td.b_triplet[imed][itrip]
+            } else {
+                0.0
+            };
+            let rnno34 = rng.uniform();
+            if rnno34 < ftrip {
+                sample_triplet(stack, state, up_max, rm, gle, rng)?;
+                return Ok(false);
+            }
+        }
+    }
     let rmt2 = 2.0 * rm;
     let (pese1, pese2, iq1, iq2);
 
@@ -2307,6 +2354,431 @@ pub fn rayleigh_sampling<R: UniformSource>(d: &RayleighData, e: f64, gle: f64, l
         }
     }
     (costhe, Real::sqrt(1.0 - csqthe))
+}
+
+/// `$N_TRIPLET_DATA` (`egsnrc.mortran:6215`) and `$MAX_TRIPLET`
+/// (`egsnrc.macros:432`).
+pub const N_TRIPLET_DATA: usize = 55;
+/// See [`N_TRIPLET_DATA`].
+pub const MAX_TRIPLET: usize = 250;
+
+/// `COMMON/triplet_data/`, filled by [`init_triplet`]: the triplet fraction of
+/// pair production as `a * ln(E) + b` in `MAX_TRIPLET` log-energy bins per
+/// medium (1-based medium and bin).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TripletData {
+    /// `a_triplet(bin, medium)`: `a_triplet[medium][bin]`.
+    pub a_triplet: Vec<Vec<f64>>,
+    /// `b_triplet(bin, medium)`.
+    pub b_triplet: Vec<Vec<f64>>,
+    /// `dl_triplet`.
+    pub dl_triplet: f64,
+    /// `dli_triplet`.
+    pub dli_triplet: f64,
+    /// `bli_triplet`.
+    pub bli_triplet: f64,
+    /// `log_4rm`.
+    pub log_4rm: f64,
+}
+
+/// `init_triplet` (`egsnrc.mortran:6218-6285`) for `itriplet > 0`: reads
+/// `triplet.data` from `text` (the energy count and grid, then per element a
+/// header line, the pair and the triplet cross sections) and builds the
+/// per-medium triplet fraction by cubic spline. `comp[medium]` is that
+/// medium's `(ZELEM, PZ)` per element (`comp[0]` unused); `rm` is `RM`.
+///
+/// # Errors
+///
+/// A message when the data are short, malformed or exceed `N_TRIPLET_DATA`.
+pub fn init_triplet(text: &str, comp: &[Vec<(f64, f64)>], rm: f64) -> Result<TripletData, String> {
+    let mut lines = text.lines();
+    let ntrip = read_record(&mut lines, 1)?[0] as usize;
+    if ntrip > N_TRIPLET_DATA || ntrip < 3 {
+        return Err(alloc::format!("Max. number of data points per element is {N_TRIPLET_DATA}"));
+    }
+    let mut energies = core::iter::once(0.0).chain(read_record(&mut lines, ntrip)?).collect::<Vec<f64>>();
+    let mut sig_pair = alloc::vec![alloc::vec![0.0; ntrip + 1]];
+    let mut sig_triplet = alloc::vec![alloc::vec![0.0; ntrip + 1]];
+    for _ in 1..=100 {
+        lines.next().ok_or_else(|| String::from("data ends early"))?;
+        sig_pair.push(core::iter::once(0.0).chain(read_record(&mut lines, ntrip)?).collect());
+        sig_triplet.push(core::iter::once(0.0).chain(read_record(&mut lines, ntrip)?).collect());
+    }
+    let mut ifirst = 0usize;
+    for i in 1..=ntrip {
+        if ifirst == 0 && energies[i] > 4.01 * rm {
+            ifirst = i;
+        }
+        energies[i] = RealMath::r_ln(energies[i]);
+    }
+    if ifirst < 2 {
+        return Err(String::from("triplet energies must start below 4.01 m and rise above it"));
+    }
+    let log_4rm = RealMath::r_ln(4.0 * rm);
+    energies[ifirst - 1] = log_4rm;
+    let dl_triplet = (energies[ntrip] - log_4rm) / MAX_TRIPLET as f64;
+    let dli_triplet = 1.0 / dl_triplet;
+    let bli_triplet = 1.0 - log_4rm / dl_triplet;
+    let nmed = comp.len() - 1;
+    let mut a_triplet = alloc::vec![alloc::vec![0.0; MAX_TRIPLET + 1]; nmed + 1];
+    let mut b_triplet = a_triplet.clone();
+    let npts = ntrip - ifirst + 2;
+    let xs: Vec<f64> = core::iter::once(0.0).chain(energies[ifirst - 1..=ntrip].iter().copied()).collect();
+    for imed in 1..=nmed {
+        let mut sigp = alloc::vec![0.0; ntrip + 1];
+        let mut sigt = alloc::vec![0.0; ntrip + 1];
+        for i in 1..=ntrip {
+            for &(z, pz) in &comp[imed] {
+                let iz = (z + 0.1) as usize;
+                sigp[i] += pz * sig_pair[iz][i];
+                sigt[i] += pz * sig_triplet[iz][i];
+            }
+        }
+        let mut f_triplet = alloc::vec![0.0; npts + 1];
+        for i in ifirst..=ntrip {
+            f_triplet[i - ifirst + 2] = sigt[i] / (sigp[i] + sigt[i]);
+        }
+        f_triplet[1] = 0.0;
+        let co = super::egs_utilities_mortran::set_spline(&xs, &f_triplet);
+        let mut log_e = log_4rm;
+        let mut f_old = 0.0;
+        for i in 1..MAX_TRIPLET {
+            log_e += dl_triplet;
+            let f_new = super::egs_utilities_mortran::spline(log_e, &xs, &co);
+            a_triplet[imed][i] = (f_new - f_old) * dli_triplet;
+            b_triplet[imed][i] = f_new - a_triplet[imed][i] * log_e;
+            f_old = f_new;
+        }
+    }
+    Ok(TripletData { a_triplet, b_triplet, dl_triplet, dli_triplet, bli_triplet, log_4rm })
+}
+
+/// The `save`d state of `sample_triplet` (`egsnrc.mortran:4744-4757`): the
+/// per-energy-bin Markov chain (best cross section so far and the random
+/// numbers that gave it) and the binning, set up on the first call.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TripletState {
+    is_initialized: bool,
+    fmax: Vec<f64>,
+    eta_p: Vec<f64>,
+    eta_ep: Vec<f64>,
+    eta_costp: Vec<f64>,
+    eta_costm: Vec<f64>,
+    ebin: Vec<f64>,
+    wp: Vec<f64>,
+    qmin: Vec<f64>,
+    kmin: f64,
+    kmax: f64,
+    dlogki: f64,
+    alogkm: f64,
+    prmi: f64,
+}
+
+/// Kinematic limits of the positron energy for pair momentum `pr`.
+fn triplet_pp_limits(k: f64, pr: f64, er: f64) -> (f64, f64) {
+    let aux = er - pr - 1.0;
+    let a1 = (k - pr) * (1.0 - er - k * aux);
+    let a2 = 1.0 + k - er;
+    let a3 = 1.0 / (aux * (pr + er - 2.0 * k - 1.0));
+    let d = a2 * Real::sqrt(aux * (2.0 * k * er + k * k * aux - pr * (er + pr + 1.0) / 2.0));
+    let px1 = (a1 + d) * a3;
+    let px2 = (a1 - d) * a3;
+    if px1 < px2 { (px1, px2) } else { (px2, px1) }
+}
+
+/// `sample_triplet` (`egsnrc.mortran:4732-5043`): triplet production by the
+/// photon on top of the stack, after Borsellino's first Born approximation,
+/// by a Markov chain over the kinematic variables in `MAX_TRIPLET`
+/// log-energy bins. The recoil electron goes on top (slot `np + 2`), the pair
+/// below it. `up_max` is the largest photon energy in any medium's tables
+/// (`UP(i)`, MeV), `prm` is `PRM`, `gle` is `ln` of the photon energy. A
+/// photon at or below `4 prm`, or a state whose `up_max` is not above
+/// `4.1 prm`, returns with the stack untouched, as upstream does.
+///
+/// # Errors
+///
+/// [`EgsError::StackExceeded`].
+pub fn sample_triplet<R: UniformSource>(
+    stack: &mut Stack,
+    st: &mut TripletState,
+    up_max: f64,
+    prm: f64,
+    gle: f64,
+    rng: &mut R,
+) -> Result<(), EgsError> {
+    let tiny_eta = 1e-6;
+    if !st.is_initialized {
+        st.is_initialized = true;
+        st.fmax = alloc::vec![-1.0; MAX_TRIPLET + 1];
+        st.eta_p = alloc::vec![0.0; MAX_TRIPLET + 1];
+        st.eta_ep = st.eta_p.clone();
+        st.eta_costp = st.eta_p.clone();
+        st.eta_costm = st.eta_p.clone();
+        st.ebin = st.eta_p.clone();
+        st.wp = st.eta_p.clone();
+        st.qmin = st.eta_p.clone();
+        st.kmax = up_max;
+        st.kmin = 4.1 * prm;
+        if st.kmax <= st.kmin {
+            return Ok(());
+        }
+        st.dlogki = (MAX_TRIPLET - 1) as f64;
+        st.dlogki /= RealMath::r_ln(st.kmax / st.kmin);
+        st.alogkm = 1.0 - st.dlogki * RealMath::r_ln(st.kmin);
+        st.prmi = 1.0 / prm;
+        for i in 1..=MAX_TRIPLET {
+            let k = 4.1 * RealMath::r_exp((i as f64 - 1.0) / st.dlogki);
+            st.ebin[i] = k;
+            let qmin = 4.0 * k / (k * (k - 1.0) + (k + 1.0) * Real::sqrt(k * (k - 4.0)));
+            let qmax = (k * (k - 1.0) + (k + 1.0) * Real::sqrt(k * (k - 4.0))) / (2.0 * k + 1.0);
+            st.qmin[i] = qmin;
+            st.wp[i] = RealMath::r_ln(qmax / qmin);
+        }
+    }
+    if st.kmax <= st.kmin {
+        return Ok(());
+    }
+    let peig = stack.e[stack.np];
+    if peig <= 4.0 * prm {
+        return Ok(());
+    }
+    stack.check_stack(stack.np + 2, "sample_triplet")?;
+
+    // energy bin
+    let i;
+    if peig <= st.kmin {
+        i = 1usize;
+    } else if peig >= st.kmax {
+        i = MAX_TRIPLET;
+    } else {
+        let ai = st.alogkm + st.dlogki * gle;
+        let mut ii = ai as usize;
+        let ai = ai - ii as f64;
+        let rnno = rng.uniform();
+        if rnno < ai {
+            ii += 1;
+        }
+        i = ii;
+    }
+
+    let mut k = st.ebin[i];
+    let (mut eta_pr, mut eta_ep, mut eta_costp, mut eta_costm);
+    // the retry loop of the bin-energy trial
+    loop {
+        eta_pr = rng.uniform();
+        if eta_pr < tiny_eta {
+            eta_pr = tiny_eta;
+        }
+        let pr = st.qmin[i] * RealMath::r_exp(eta_pr * st.wp[i]);
+        let pr2 = pr * pr;
+        let er = Real::sqrt(1.0 + pr2);
+        let (pp_min, pp_max) = triplet_pp_limits(k, pr, er);
+        let ep_min = Real::sqrt(1.0 + pp_min * pp_min);
+        let ep_max = Real::sqrt(1.0 + pp_max * pp_max);
+        eta_ep = rng.uniform();
+        if eta_ep < tiny_eta {
+            eta_ep = tiny_eta;
+        }
+        let w_ep = ep_max - ep_min;
+        let ep = ep_min + eta_ep * w_ep;
+        let pp2 = ep * ep - 1.0;
+        let pp = Real::sqrt(pp2);
+        let k2p2 = k * k + pp2;
+        let em = k + 1.0 - er - ep;
+        let pm2 = em * em - 1.0;
+        let pm = Real::sqrt(pm2);
+        let mup_min = (k2p2 - (pr + pm) * (pr + pm)) / (2.0 * k * pp);
+        eta_costp = rng.uniform();
+        if eta_costp < tiny_eta {
+            eta_costp = tiny_eta;
+        }
+        let epp = ep / pp;
+        let mut wmup = RealMath::r_ln((epp - 1.0) / (epp - mup_min));
+        let cost_p = epp - (epp - mup_min) * RealMath::r_exp(wmup * eta_costp);
+        wmup *= cost_p - epp;
+        let mut sint_p = 1.0 - cost_p * cost_p;
+        if sint_p > 1e-20 {
+            sint_p = Real::sqrt(sint_p);
+        } else {
+            sint_p = 1e-10;
+        }
+        let k2p2x = k2p2 - 2.0 * k * pp * cost_p;
+        let b = pr2 - k2p2x - pm2;
+        let aux1 = k - pp * cost_p;
+        let aux12 = aux1 * aux1;
+        let pp_sintp = pp * sint_p;
+        let pp_sntp2 = pp_sintp * pp_sintp;
+        let d1 = pm2 * (aux12 + pp_sntp2) - b * b / 4.0;
+        if d1 <= 0.0 {
+            continue;
+        }
+        let d = 2.0 * pp_sintp * Real::sqrt(d1);
+        let aux3 = 0.5 / (aux12 + pp_sntp2);
+        let xmin = (-b * aux1 - d) * aux3;
+        let xmax = (-b * aux1 + d) * aux3;
+        eta_costm = rng.uniform();
+        if eta_costm < tiny_eta {
+            eta_costm = tiny_eta;
+        }
+        let aux6 = Real::sqrt((em - xmin) / (em - xmax));
+        let aux7 = aux6 * RealMath::r_tan(1.570796326794897 * eta_costm);
+        let uu = (aux7 - 1.0) / (aux7 + 1.0);
+        let mut cost_m = 0.5 * (xmax + xmin + 2.0 * uu * (xmax - xmin) / (1.0 + uu * uu));
+        let mut wmum = Real::sqrt((xmax - cost_m) * (cost_m - xmin));
+        wmum = wmum * aux6 * (em - cost_m) / (em - xmin);
+        cost_m /= pm;
+        let sint_m = Real::sqrt(1.0 - cost_m * cost_m);
+        let pm_sintm = pm * sint_m;
+        let cphi = (b + 2.0 * pm * cost_m * aux1) / (2.0 * pp_sintp * pm_sintm);
+        if cphi.abs() >= 1.0 {
+            continue;
+        }
+        let sphi = Real::sqrt(1.0 - cphi * cphi);
+        // the Borsellino cross section
+        let k3 = k * (pp * cost_p - ep);
+        let k2 = k * (pm * cost_m - em);
+        let k22 = k2 * k2;
+        let k32 = k3 * k3;
+        let k2k3i = 1.0 / (k2 * k3);
+        let s2 = pp * pm * (cost_p * cost_m + sint_p * sint_m * cphi) - ep * em;
+        let s3 = k2 - em + 1.0 - s2;
+        let q2 = 2.0 * (er - 1.0);
+        let s_1 = k32 + k22 + (q2 - 2.0) * s2 - (1.0 - q2 / 2.0) * (k32 + k22) * k2k3i;
+        let aux4 = k3 * ep - k2 * em;
+        let s_2 = -q2 * (ep * ep + em * em) + 2.0 * s2 - (2.0 * aux4 * aux4 - k22 - k32) * k2k3i;
+        let mut sigma = (pp * pm2 * pm * k2k3i / (q2 * q2 * (em * s3 + er)) * (s_1 * (1.0 - q2 / 4.0) + s_2 * (1.0 + q2 / 4.0))).abs();
+        let cphi_factor = (2.0 * er * pm2 - em * (k2p2x - pr2 - pm2)).abs() / (2.0 * pp_sintp * pm_sintm * pm2 * sphi);
+        sigma = sigma * cphi_factor * w_ep * wmup * wmum * st.wp[i] * pr2 / er;
+        let mut use_it = true;
+        if sigma < st.fmax[i] {
+            let rnno = rng.uniform();
+            if sigma < st.fmax[i] * rnno {
+                use_it = false;
+            }
+        }
+        if use_it {
+            st.fmax[i] = sigma;
+            st.eta_p[i] = eta_pr;
+            st.eta_ep[i] = eta_ep;
+            st.eta_costp[i] = eta_costp;
+            st.eta_costm[i] = eta_costm;
+        } else {
+            eta_pr = st.eta_p[i];
+            eta_ep = st.eta_ep[i];
+            eta_costp = st.eta_costp[i];
+            eta_costm = st.eta_costm[i];
+        }
+        // recompute with the actual photon energy; a failure retries from the top
+        k = peig * st.prmi;
+        let aux5 = k * (k - 1.0) + (k + 1.0) * Real::sqrt(k * (k - 4.0));
+        let qmin = 4.0 * k / aux5;
+        let qmax = aux5 / (2.0 * k + 1.0);
+        let pr = qmin * RealMath::r_exp(eta_pr * RealMath::r_ln(qmax / qmin));
+        let pr2 = pr * pr;
+        let er = Real::sqrt(1.0 + pr2);
+        let (pp_min, pp_max) = triplet_pp_limits(k, pr, er);
+        let ep_min = Real::sqrt(1.0 + pp_min * pp_min);
+        let ep_max = Real::sqrt(1.0 + pp_max * pp_max);
+        let w_ep = ep_max - ep_min;
+        let ep = ep_min + eta_ep * w_ep;
+        let pp2 = ep * ep - 1.0;
+        let pp = Real::sqrt(pp2);
+        let k2p2 = k * k + pp2;
+        let em = k + 1.0 - er - ep;
+        let pm2 = em * em - 1.0;
+        let pm = Real::sqrt(pm2);
+        let mup_min = (k2p2 - (pr + pm) * (pr + pm)) / (2.0 * k * pp);
+        let epp = ep / pp;
+        let wmup = RealMath::r_ln((epp - 1.0) / (epp - mup_min));
+        let cost_p = epp - (epp - mup_min) * RealMath::r_exp(wmup * eta_costp);
+        let sint_p = Real::sqrt(1.0 - cost_p * cost_p);
+        let k2p2x = k2p2 - 2.0 * k * pp * cost_p;
+        let b = pr2 - k2p2x - pm2;
+        let aux1 = k - pp * cost_p;
+        let aux12 = aux1 * aux1;
+        let pp_sintp = pp * sint_p;
+        let pp_sntp2 = pp_sintp * pp_sintp;
+        let d1 = pm2 * (aux12 + pp_sntp2) - b * b / 4.0;
+        if d1 <= 0.0 {
+            // upstream does not reset `k` before `goto :retry_triplet:`
+            continue;
+        }
+        let d = 2.0 * pp_sintp * Real::sqrt(d1);
+        let aux3 = 0.5 / (aux12 + pp_sntp2);
+        let xmin = (-b * aux1 - d) * aux3;
+        let xmax = (-b * aux1 + d) * aux3;
+        let aux6 = Real::sqrt((em - xmin) / (em - xmax));
+        let aux7 = aux6 * RealMath::r_tan(1.570796326794897 * eta_costm);
+        let uu = (aux7 - 1.0) / (aux7 + 1.0);
+        let cost_m = 0.5 * (xmax + xmin + 2.0 * uu * (xmax - xmin) / (1.0 + uu * uu)) / pm;
+        let sint_m = Real::sqrt(1.0 - cost_m * cost_m);
+        let pm_sintm = pm * sint_m;
+        let cphi = (b + 2.0 * pm * cost_m * aux1) / (2.0 * pp_sintp * pm_sintm);
+        if cphi.abs() >= 1.0 {
+            // upstream does not reset `k` before `goto :retry_triplet:`
+            continue;
+        }
+        let sphi = Real::sqrt(1.0 - cphi * cphi);
+
+        // the final momenta, in the frame with the photon along z
+        let phi = rng.uniform() * 6.283185307179586;
+        let mut ppx = pp * sint_p;
+        let mut ppy = 0.0;
+        let mut pmx = pm * sint_m * cphi;
+        let mut pmy = pm * sint_m * sphi;
+        let cphi = RealMath::r_cos(phi);
+        let sphi = RealMath::r_sin(phi);
+        let mut tmp = ppx * sphi;
+        ppx = ppx * cphi - ppy * sphi;
+        ppy = tmp + ppy * cphi;
+        tmp = pmx * sphi;
+        pmx = pmx * cphi - pmy * sphi;
+        pmy = tmp + pmy * cphi;
+        let ppz = pp * cost_p;
+        let pmz = pm * cost_m;
+        let prx = -ppx - pmx;
+        let pry = -ppy - pmy;
+        let prz = k - ppz - pmz;
+
+        let np = stack.np;
+        stack.np_old = np;
+        stack.transfer_properties(np, np);
+        stack.transfer_properties(np + 1, np);
+        stack.transfer_properties(np + 2, np + 1);
+        let (ppi, pmi, pri) = (1.0 / pp, 1.0 / pm, 1.0 / pr);
+        let (a, bb, c) = (stack.u[np], stack.v[np], stack.w[np]);
+        let sinpsi2 = a * a + bb * bb;
+        // (slot, charge, energy, 1/p, px, py, pz) for the positron, electron, recoil
+        let ep_gt_em = ep > em;
+        let (slot_p, slot_m) = if ep_gt_em { (np, np + 1) } else { (np + 1, np) };
+        let parts = [
+            (slot_p, 1_i32, ep * prm, ppi, ppx, ppy, ppz),
+            (slot_m, -1_i32, em * prm, pmi, pmx, pmy, pmz),
+            (np + 2, -1_i32, er * prm, pri, prx, pry, prz),
+        ];
+        if sinpsi2 > 1e-20 {
+            let sinpsi = Real::sqrt(sinpsi2);
+            let sindel = bb / sinpsi;
+            let cosdel = a / sinpsi;
+            for (slot, iq, en, pi, px, py, pz) in parts {
+                stack.u[slot] = pi * (c * cosdel * px - sindel * py + a * pz);
+                stack.v[slot] = pi * (c * sindel * px + cosdel * py + bb * pz);
+                stack.w[slot] = pi * (c * pz - sinpsi * px);
+                stack.iq[slot] = iq;
+                stack.e[slot] = en;
+            }
+        } else {
+            for (slot, iq, en, pi, px, py, pz) in parts {
+                stack.u[slot] = pi * px;
+                stack.v[slot] = pi * py;
+                stack.w[slot] = c * pi * pz;
+                stack.iq[slot] = iq;
+                stack.e[slot] = en;
+            }
+        }
+        stack.np = np + 2;
+        return Ok(());
+    }
 }
 
 /// A photon removed from the stack: its energy is `edep`, `ircode = 2`.
@@ -7949,6 +8421,102 @@ mod tests {
             let r = run_history(&tables, &cfg, 0.1, &mut rng);
             assert!(r.abs() < 1e-9, "residual {r}");
         }
+    }
+
+    fn toy_triplet_text() -> String {
+        // 6 energies (MeV): two below 4.01 m = 2.044, four above; same
+        // cross sections for every element
+        let en = [1.5, 2.0, 3.0, 5.0, 10.0, 100.0];
+        let mut t = String::from("6\n");
+        t += &en.iter().map(|e| alloc::format!("{e}")).collect::<Vec<_>>().join(" ");
+        t += "\n";
+        for z in 1..=100 {
+            t += &alloc::format!("Z={z}\n");
+            t += &en.iter().map(|e| alloc::format!("{}", 1.0e-3 * (e - 1.0))).collect::<Vec<_>>().join(" ");
+            t += "\n";
+            t += &en.iter().map(|e| alloc::format!("{}", 1.0e-5 * e)).collect::<Vec<_>>().join(" ");
+            t += "\n";
+        }
+        t
+    }
+
+    #[test]
+    fn init_triplet_builds_a_sensible_fraction() {
+        let comp = vec![vec![], vec![(8.0, 1.0)]];
+        let td = init_triplet(&toy_triplet_text(), &comp, RM).unwrap();
+        // fraction rises from 0 at threshold; check a mid bin
+        let gle = RealMath::r_ln(5.0);
+        let i = (td.dli_triplet * gle + td.bli_triplet) as usize;
+        let f = td.a_triplet[1][i] * gle + td.b_triplet[1][i];
+        // sigma_t/(sigma_p+sigma_t) at 5 MeV = 5e-5/(4e-3+5e-5)
+        assert!((f - 5e-5 / (4e-3 + 5e-5)).abs() < 5e-4, "{f}");
+        assert!(init_triplet("1000\n", &comp, RM).is_err());
+        assert!(init_triplet("6\n1 2 3 4 5 6\n", &comp, RM).is_err());
+    }
+
+    #[test]
+    fn sample_triplet_conserves_energy_and_momentum() {
+        let mut rng = Ranmar::new(31, 41);
+        let mut state = TripletState::default();
+        for &e0 in &[3.0_f64, 5.0, 30.0] {
+            for _ in 0..50 {
+                let mut st = Stack::new(10);
+                st.np = 1;
+                st.e[1] = e0;
+                st.wt[1] = 1.0;
+                let (u, v, w) = (0.3_f64, 0.4_f64, (1.0_f64 - 0.25).sqrt());
+                st.u[1] = u;
+                st.v[1] = v;
+                st.w[1] = w;
+                sample_triplet(&mut st, &mut state, 50.0, RM, e0.ln(), &mut rng).unwrap();
+                assert_eq!((st.np_old, st.np), (1, 3));
+                let (mut et, mut px, mut py, mut pz) = (0.0, 0.0, 0.0, 0.0);
+                for i in 1..=3 {
+                    et += st.e[i];
+                    let p = (st.e[i] * st.e[i] - RM * RM).sqrt();
+                    px += p * st.u[i];
+                    py += p * st.v[i];
+                    pz += p * st.w[i];
+                    assert!((norm(&st, i) - 1.0).abs() < 1e-9);
+                }
+                assert_eq!(st.iq[3], -1);
+                assert!((et - e0 - RM).abs() < 1e-9 * e0, "{et} {e0}");
+                assert!((px - e0 * u).abs() < 1e-7 && (py - e0 * v).abs() < 1e-7 && (pz - e0 * w).abs() < 1e-7);
+            }
+        }
+        // at or below threshold nothing happens
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 1.9;
+        sample_triplet(&mut st, &mut state, 50.0, RM, 1.9_f64.ln(), &mut rng).unwrap();
+        assert_eq!(st.np, 1);
+    }
+
+    #[test]
+    fn pair_with_triplet_takes_the_triplet_branch() {
+        let comp = vec![vec![], vec![(8.0, 1.0)]];
+        let mut td = init_triplet(&toy_triplet_text(), &comp, RM).unwrap();
+        // force the triplet fraction to 1 everywhere
+        for i in 0..td.a_triplet[1].len() {
+            td.a_triplet[1][i] = 0.0;
+            td.b_triplet[1][i] = 1.0;
+        }
+        let mut state = TripletState::default();
+        let cfg = PairConfig { itriplet: 1, ..Default::default() };
+        let mut rng = Ranmar::new(8, 9);
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 5.0;
+        st.w[1] = 1.0;
+        st.wt[1] = 1.0;
+        let killed = pair_with_triplet(&mut st, &toy_pair_medium(), &cfg, RM, (&td, &mut state, 1, 50.0), &mut rng).unwrap();
+        assert!(!killed);
+        assert_eq!(st.np, 3);
+        // without the data the plain entry point refuses
+        let mut st = Stack::new(10);
+        st.np = 1;
+        st.e[1] = 5.0;
+        assert!(matches!(pair(&mut st, &toy_pair_medium(), &cfg, RM, &mut rng), Err(EgsError::Unsupported(_))));
     }
 
 }

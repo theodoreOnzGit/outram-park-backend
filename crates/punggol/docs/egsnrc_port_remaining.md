@@ -8,7 +8,7 @@ port, not differentially tested** (phase 2).
 ## Ported (all in `src/egsnrc/egsnrc_mortran.rs` and `egsnrc_macros.rs`)
 
 `ANNIH_AT_REST`, `ANNIH`, `COMPT` (RELAX returned as a seam), `RELAX` (built-in
-scheme), `PAIR` (no NRC tables or triplets), `PHOTO` (no MCDF or EADL),
+scheme), `PAIR` (no NRC tables; triplets via `pair_with_triplet`), `PHOTO` (no MCDF or EADL),
 `BHABHA`, `MOLLER` (no EII), `BREMS` (Bethe-Heitler), `PHOTON` (behind the
 `Geometry` trait; Rayleigh when the medium carries `RayleighData`), `PHOTONUC`, `SHOWER` (behind the
 `ElectronTransport` trait), `ELECTR` (behind `ElectronGeometry`; no EM fields, range rejection or EII; **assumption:** `NEXT :TSTEP:` restarts the loop without re-testing its `UNTIL`, to be settled by a differential run), `UPHI` (IENTRY 1, 2, 3), `mscat`, `sscat`,
@@ -23,7 +23,7 @@ and the stack, azimuth and `$RANDOMSET` macros.
 | `HATCH` (rest) | `:1827-2598` | The PEGS4 intake (`parse_pegs4_media`) and `DUNIT` scaling (`Pegs4Medium::apply_dunit`) are ported and were checked on a real `pb.pegs4dat` (`EGSNRC_PEGS4_DATA`). Not yet: turning `Pegs4Medium` into the per-medium tables the routines take (`PairMedium`, `BremsMedium`, `PhotonMediumData`, `ComptonData`, `ElectronMediumData`), `egs_init_user_photon`, `init_nist_brems`, `init_nrc_pair`, `eii_init`, `init_triplet`. The Rayleigh initialiser from `pgs4form.dat` (`FormFactorTable::from_text`, `init_rayleigh_sampling`) is ported; `hatch_media` copies the PEGS4 `cohe` fit into `PhotonMediumData.cohe` but leaves `rayleigh: None`; the caller attaches `init_rayleigh_sampling(..)` (needs `pgs4form.dat`) before using `iraylr = 1`. |
 | `PHOTONUC` | `:9001-9015` | Ported (`photonuc`, with the `$PHOTONUC-CORRECTION` and `$PHOTONUCLEAR` hooks in `photon`). Upstream is a placeholder: it zeroes the photon's energy and weight, and `photon` then discards it with `edep = peig`, so scoring is told the energy was deposited. Pinned by a test. |
 | ~~`egs_rayleigh_sampling`~~ | `:8558` | **PORTED 2026-11-21** with `egs_init_rayleigh_sampling`, `prepare_rayleigh_data`, `egs_rayleigh_sigma`, `zero()` and the `$RAYLEIGH-*` hooks in `photon` (first port, not differentially tested; tests are toy-data and energy balance, not compared to EGSnrc). |
-| `sample_triplet`, NRC pair, NIST/NRC brems tables, EII (`eii_sample`), shellwise PE, EADL relaxation | various | Off by default; each is refused with `EgsError::Unsupported`. |
+| ~~`sample_triplet`~~ **PORTED 2026-11-21** (`sample_triplet`, `init_triplet`, `pair_with_triplet`; first port, toy-data and conservation tests only, `photon` does not yet carry the triplet state so `itriplet > 0` there is still refused), NRC pair, NIST/NRC brems tables, EII (`eii_sample`), shellwise PE, EADL relaxation | various | Off by default; each is refused with `EgsError::Unsupported`. |
 | Whole files | `pegs4/pegs4.mortran`, `get_media_inputs`, `egs_utilities` (rest), `eii` (`src/`) | `nrcaux` is ported except `WATCH` (event-trace printing); `erf1`, `set_spline`, `spline`, `alias_sample1` from `egs_utilities`. `eii` is not ported: see the findings below. The rest is not started. |
 
 ## What now binds `ELECTR` to data
