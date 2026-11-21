@@ -214,4 +214,5 @@ See the GitHub issues linked from `egsnrc_port_remaining.md`. In short:
 - gh:#1688 PEGS4 residual of 2e-4, cause not identified.
 - gh:#1689 the four `eii.mortran` oddities, now checkable against the built EGSnrc.
 - gh:#1690 OpenMC phase 2: needs vendored sources and HDF5 photon data.
+- gh:#1692 EADL relaxation (the stock default) not ported; triplet, NRC pair, NIST/NRC bremsstrahlung and EII not wired into a full run.
 - gh:#1691 `egs_compoundstoelements` source missing; `rad_compton1`; duplicate `ztbl`.
