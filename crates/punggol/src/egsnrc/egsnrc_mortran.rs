@@ -58,7 +58,7 @@ use crate::nostd_prelude::*;
 use super::egsnrc_macros::{EgsError, Stack, UniformSource, select_azimuthal_angle};
 use super::egs_utilities_mortran::{alias_sample1, gauss_legendre, prepare_alias_table, set_spline, spline};
 use super::lit;
-use super::eemf_macros_mortran::{EemfField, EemfState, EemfStepVars, InitiateInput, PiiDirections, PiiInput};
+use super::eemf_macros_mortran::{EemfField, EemfVariant, EemfState, EemfStepVars, InitiateInput, PiiDirections, PiiInput};
 use petir::mathf::RealMath;
 use petir::real::Real;
 
@@ -7106,7 +7106,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 f,
                                 stack,
                                 np,
-                                &InitiateInput { eke, tperp, skindepth, exact_bca: cfg.exact_bca },
+                                &InitiateInput { eke, tperp, skindepth, exact_bca: cfg.exact_bca, in_medium: false },
                                 &mut scratch,
                             );
                         }
@@ -7173,7 +7173,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 f,
                                 stack,
                                 np,
-                                &InitiateInput { eke, tperp, skindepth, exact_bca: cfg.exact_bca },
+                                &InitiateInput { eke, tperp, skindepth, exact_bca: cfg.exact_bca, in_medium: true },
                                 &mut tustep,
                             );
                         }
@@ -7310,6 +7310,7 @@ pub fn electr<R: UniformSource, G: ElectronGeometry>(
                                 ..Default::default()
                             };
                             counters.eemf.emfield_in_vacuum(stack, geometry, &mut v);
+                            tperp = v.tperp;
                             stack.x_final = v.final_pos;
                             [eie, eke, peie] = v.energies;
                             ustep = v.ustep;
@@ -13323,13 +13324,15 @@ mod tests {
             let x: Vec<f64> = v.split(',').map(|t| t.parse().unwrap()).collect();
             EmField { e_in: [x[0], x[1], x[2]], b: [x[3], x[4], x[5]], emlmt: x[6] }
         });
+        // `EGSNRC_EEMF_BEAMNRC`: the user code was built with `EEMF_macros_beamnrc.mortran`
+        let eemf_variant = if std::env::var("EGSNRC_EEMF_BEAMNRC").is_ok() { EemfVariant::BeamNrc } else { EemfVariant::Standard };
         // `EGSNRC_EEMF_FIELD=ex,ey,ez,bx,by,bz,emlmt` (or `bx,by,bz,emlmt`): the field the EEMF user code set (`emB1`, ...)
         let eemf = std::env::var("EGSNRC_EEMF_FIELD").ok().map(|v| {
             let x: Vec<f64> = v.split(',').map(|t| t.parse().unwrap()).collect();
             if x.len() == 4 {
-                EemfField { e_in: [0.0; 3], b_in: [x[0], x[1], x[2]], emlmt: x[3], estepe: MAX_ELOSS }
+                EemfField { e_in: [0.0; 3], b_in: [x[0], x[1], x[2]], emlmt: x[3], estepe: MAX_ELOSS, variant: eemf_variant }
             } else {
-                EemfField { e_in: [x[0], x[1], x[2]], b_in: [x[3], x[4], x[5]], emlmt: x[6], estepe: MAX_ELOSS }
+                EemfField { e_in: [x[0], x[1], x[2]], b_in: [x[3], x[4], x[5]], emlmt: x[6], estepe: MAX_ELOSS, variant: eemf_variant }
             }
         });
         let ecfg = ElectrConfig { spin_effects: true, exact_bca: r.settings.exact_bca, skindepth_for_bca: r.settings.skindepth_for_bca, presta_ii: !presta1, prm: RM, vacdst: 1.0e8, brems: BremsConfig { ibr_nist, ..BremsConfig::default() }, em, eemf };

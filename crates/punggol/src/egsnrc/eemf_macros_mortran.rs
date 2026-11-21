@@ -83,8 +83,9 @@
 //!   [`EemfState::mf_transport`] are ported and unit-tested for completeness;
 //!   **no code path of the default configuration calls them** (`$MF_Transport`
 //!   is defined and never expanded anywhere in the source tree).
-//! - `EEMF_macros_beamnrc.mortran`: not the same algorithm plus plumbing (see
-//!   `eemf_macros_beamnrc_mortran.rs`).
+//! - ~~`EEMF_macros_beamnrc.mortran`: not the same algorithm plus plumbing~~
+//!   **CORRECTED 2026-11-21 (later):** ported here as `EemfVariant::BeamNrc`
+//!   (see `eemf_macros_beamnrc_mortran.rs` and the phase-2 doc).
 //!
 //! **Faithfulness to the compiled build.** Three properties of the Fortran are
 //! reproduced on purpose and matter to the result: (1) `COMMON/EM/` persists
@@ -132,6 +133,18 @@ pub fn bca_lin_dist(skindepth: f64) -> f64 {
     lit(1e-5).min(skindepth)
 }
 
+/// Which of the two upstream files supplies the field macros.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EemfVariant {
+    /// `EEMF_macros.mortran`.
+    #[default]
+    Standard,
+    /// `EEMF_macros_beamnrc.mortran`: identical for a magnetic field in a
+    /// medium; a different vacuum step, a different electric-field transport
+    /// and an INITIATE that does nothing in vacuum.
+    BeamNrc,
+}
+
 /// The field and limits the user gave (`BxIN, ByIN, BzIN`, `ExIN, EyIN, EzIN`,
 /// `EMLMTIN` of `COMMON/EMF-INPUTS/`, and `ESTEPE` of `COMMON/ET-Control/`).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -145,6 +158,8 @@ pub struct EemfField {
     /// `estepe`: global energy-loss constraint, read by
     /// `$EMFIELD_INITIATE_SET_TUSTEP` (default `$MAX-ELOSS`, 0.25).
     pub estepe: f64,
+    /// Which upstream file.
+    pub variant: EemfVariant,
 }
 
 impl EemfField {
@@ -152,7 +167,7 @@ impl EemfField {
     /// `estepe = 0.25`).
     #[must_use]
     pub fn magnetic(b_in: [f64; 3]) -> Self {
-        Self { e_in: [0.0; 3], b_in, emlmt: DELTA_U_DEFAULT, estepe: lit(0.25) }
+        Self { e_in: [0.0; 3], b_in, emlmt: DELTA_U_DEFAULT, estepe: lit(0.25), variant: EemfVariant::Standard }
     }
 
     /// `emfield_on` (`egs_utilities.mortran:934`): any component non-zero.
@@ -187,6 +202,9 @@ pub struct InitiateInput {
     pub skindepth: f64,
     /// `exact_bca`.
     pub exact_bca: bool,
+    /// `medium ~= 0`: the [`EemfVariant::BeamNrc`] INITIATE skips its
+    /// restrictions in vacuum.
+    pub in_medium: bool,
 }
 
 /// What `$EMFIELD_PII` reads from `msdist_pII` (all its locals).
@@ -365,6 +383,11 @@ pub struct EemfState {
     pub third_order: bool,
     /// `EMVacuumDone`.
     pub em_vacuum_done: bool,
+    /// The file the macros come from (set by `$EMFIELD_INITIATE_SET_TUSTEP`).
+    pub variant: EemfVariant,
+    /// `EF_currentEnergy`: the kinetic energy the variant's electric
+    /// transport carries between segments, MeV.
+    pub ef_current_energy: f64,
 }
 
 /// `$CALL-HOWFAR-IN-ELECTR` (`egsnrc.macros:2418`): `IF(callhowfar | wt(np) <= 0) call howfar`.
@@ -432,7 +455,8 @@ impl EemfState {
     /// set so that it cannot change the step; medium, after the skin-depth
     /// restriction).
     pub fn initiate_set_tustep(&mut self, f: &EemfField, stack: &Stack, np: usize, inp: &InitiateInput, tustep: &mut f64) {
-        let InitiateInput { eke, tperp, skindepth, exact_bca } = *inp;
+        let InitiateInput { eke, tperp, skindepth, exact_bca, in_medium } = *inp;
+        self.variant = f.variant;
         self.b = [0.0; 3];
         self.b_amp = 0.0;
         self.delta_u = DELTA_U_DEFAULT;
@@ -476,6 +500,10 @@ impl EemfState {
         self.em_const = 1.0;
         self.interact_em(self.u0);
         self.udot_b = self.u0[0] * self.b[0] + self.u0[1] * self.b[1] + self.u0[2] * self.b[2];
+        // `IF(medium~=0)[;` of `EEMF_macros_beamnrc.mortran:358`: nothing else in vacuum
+        if f.variant == EemfVariant::BeamNrc && !in_medium {
+            return;
+        }
 
         // tmax_CH: velocity lower bound and the energy-loss correction of the time
         let q = ERM / (self.e_total - f.estepe * eke);
@@ -542,7 +570,7 @@ impl EemfState {
                 *tustep = tustep.max(skindepth);
             }
             // `$ssFieldAlg = 2` with an electric field: the step is also limited to `tmax_CH`
-            if tperp > buffer && self.e_field_transport {
+            if tperp > buffer && self.e_field_transport && f.variant == EemfVariant::Standard {
                 *tustep = tustep.min(self.tmax_ch);
             }
         }
@@ -934,6 +962,10 @@ impl EemfState {
         }
         let buffer = bca_lin_buffer(v.skindepth);
         let dist = bca_lin_dist(v.skindepth);
+        if self.e_field_transport && self.variant == EemfVariant::BeamNrc {
+            self.em_field_ss_e_beamnrc(stack, geometry, v);
+            return;
+        }
         if self.e_field_transport {
             // an electric field (alone or with B): linear near a boundary, else
             // first-order integration over the step (`$ssFieldAlg > 0`); B is in
@@ -1049,6 +1081,10 @@ impl EemfState {
     /// and `dnear`, moves the particle and rotates its direction. `v.tperp`
     /// and `v.skindepth` are the (possibly stale) `ELECTR` locals.
     pub fn emfield_in_vacuum<G: ElectronGeometry>(&mut self, stack: &mut Stack, geometry: &mut G, v: &mut EemfStepVars) {
+        if self.variant == EemfVariant::BeamNrc {
+            self.emfield_in_vacuum_beamnrc(stack, geometry, v);
+            return;
+        }
         let np = stack.np;
         let buffer = bca_lin_buffer(v.skindepth);
         let dist = bca_lin_dist(v.skindepth);
@@ -1250,6 +1286,460 @@ impl EemfState {
     }
 }
 
+/// `$SL**4.` of `EEMF_macros_beamnrc.mortran:1827`, folded by the Fortran
+/// compiler to the correctly rounded value of `299792458^4`.
+const SL4: f64 = (299_792_458_u128 * 299_792_458 * 299_792_458 * 299_792_458) as f64;
+/// `$ERMJ` (`:93`): electron rest energy, J.
+pub const ERMJ: f64 = lit(8.18710506e-14);
+/// `$ERM_kg` (`:94`), `D` notation (double precision in every build).
+pub const ERM_KG: f64 = 9.10938356e-31;
+/// `$EC_em` (`:95`): electron charge, C.
+pub const EC_EM: f64 = lit(1.60217662e-19);
+
+/// Fortran `ASINH` as glibc computes it (`sysdeps/ieee754/dbl-64/s_asinh.c`,
+/// the fdlibm algorithm with `log`, `log1p` and `sqrt`): `asinh` of a
+/// difference of two nearly equal arguments is what `$SS_EF_Transport` takes,
+/// so a last-bit difference of `asinh` (the `libm` crate and `std` use other
+/// formulas) is amplified to 1e-10 in the position.
+#[must_use]
+pub fn asinh_glibc(x: f64) -> f64 {
+    let xa = x.abs();
+    if xa < 3.725_290_298_461_914e-9 {
+        // |x| < 2^-28
+        return x;
+    }
+    let w = if xa > 268_435_456.0 {
+        // |x| > 2^28
+        xa.r_ln() + 6.931_471_805_599_452_862_27e-01
+    } else if xa > 2.0 {
+        (2.0 * xa + 1.0 / (Real::sqrt(xa * xa + 1.0) + xa)).r_ln()
+    } else {
+        let t = xa * xa;
+        (xa + t / (1.0 + Real::sqrt(1.0 + t))).r_ln_1p()
+    };
+    if x.is_sign_negative() { -w } else { w }
+}
+
+impl EemfState {
+    /// `$EF_velocityFunction(t)` (`:2379`): the speed after time `t` in the
+    /// field, from the momentum components. Returns `vTotEtemp`.
+    #[must_use]
+    pub fn ef_velocity_function(&self, t: f64, lelec: i32, p_prll: f64, p_perp: f64) -> f64 {
+        let a = SL * (p_prll + EC_EM * f64::from(lelec) * self.e_amp * t);
+        let mut v = a * a;
+        let b = SL * p_perp;
+        v = ERMJ * ERMJ + b * b + v;
+        v = 1.0 - (ERMJ * ERMJ) / v;
+        SL * Real::sqrt(v)
+    }
+
+    /// `$EF_simpsonOverEnergy(t, 20.)` and `$EF_distanceFunction(t)`
+    /// (`:2333-2392`): the distance travelled in time `t`, Simpson's rule
+    /// with 20 intervals over the speed. Returns `distanceTravelled`.
+    #[must_use]
+    pub fn ef_distance_function(&self, t: f64, lelec: i32, p_prll: f64, p_perp: f64) -> f64 {
+        let n = lit(20.0);
+        let delta_t = t / n;
+        let mut total = 0.0;
+        let mut time_int = delta_t;
+        let mut counter = 1.0;
+        while counter < (n / 2.0 + 1.0) {
+            total += 4.0 * self.ef_velocity_function(time_int, lelec, p_prll, p_perp);
+            time_int += 2.0 * delta_t;
+            counter += 1.0;
+        }
+        counter = 1.0;
+        time_int = 2.0 * delta_t;
+        while counter < (n / 2.0) {
+            total += 2.0 * self.ef_velocity_function(time_int, lelec, p_prll, p_perp);
+            time_int += 2.0 * delta_t;
+            counter += 1.0;
+        }
+        total += self.ef_velocity_function(0.0, lelec, p_prll, p_perp);
+        total += self.ef_velocity_function(t, lelec, p_prll, p_perp);
+        delta_t * total / 3.0
+    }
+
+    /// `$EF_timeRootFinder(distance, approx)` (`:2394-2427`): the time to
+    /// travel `distance` (m), by fixed-point iteration to 0.5 %. Returns
+    /// `EF_foundTime`. Upstream prints a message and sleeps when it takes
+    /// more than 100 cycles and then keeps iterating; here it stops at 10 000
+    /// cycles (not reached in the runs compared).
+    #[must_use]
+    pub fn ef_time_root_finder(&self, distance: f64, approx: f64, lelec: i32, p_prll: f64, p_perp: f64) -> f64 {
+        let mut counter = 0.0;
+        let mut current = 10.0 * approx;
+        let mut future = approx;
+        while (100.0 * (current - future) / current).abs() > 0.5 {
+            counter += 1.0;
+            if counter > 10_000.0 {
+                break;
+            }
+            current = future;
+            let dtravel = self.ef_distance_function(current, lelec, p_prll, p_perp) - distance;
+            let vt = self.ef_velocity_function(current, lelec, p_prll, p_perp);
+            future = current - dtravel / vt;
+        }
+        future
+    }
+
+    /// `$SS_EF_Transport(P1)` (`:1755-1884`): transport by `p1` cm in the
+    /// electric field alone (a magnetic field present is not used), exactly
+    /// in the field's own frame with the energy loss of the field; updates
+    /// `uEMF`, `xEMF` and `EF_currentEnergy`.
+    pub fn ss_ef_transport(&mut self, p1: f64, lelec: i32) {
+        let distance_m = p1 / lit(100.0);
+        let [ex, ey, ez] = self.e;
+        let u = self.u_emf;
+        self.udot_b = u[0] * ex + u[1] * ey + u[2] * ez;
+        self.prll = [self.udot_b * ex, self.udot_b * ey, self.udot_b * ez];
+        let p = [u[0] - self.prll[0], u[1] - self.prll[1], u[2] - self.prll[2]];
+        let (px, py, pz, r) = normalize(p[0], p[1], p[2]);
+        self.perp = [px, py, pz];
+        self.ssc = r;
+        // the kinetic energy in joules
+        let ecur = lit(1.0e6) * self.ef_current_energy * EC_EM;
+        let q = ERMJ / (ERMJ + ecur);
+        let mut initial_v = q * q;
+        initial_v = SL * Real::sqrt(1.0 - initial_v);
+        let q2 = initial_v / SL;
+        let gamma = 1.0 / Real::sqrt(1.0 - q2 * q2);
+        let vprll = self.udot_b * initial_v;
+        let vperp = Real::sqrt(1.0 - self.udot_b * self.udot_b) * initial_v;
+        let p_prll = vprll * gamma * ERM_KG;
+        let p_perp = vperp * gamma * ERM_KG;
+        let approx_time = distance_m / initial_v;
+        let found = self.ef_time_root_finder(distance_m, approx_time, lelec, p_prll, p_perp);
+        let c = f64::from(lelec) * self.e_amp * EC_EM * found;
+        let pp = p_perp / SL;
+        self.em_const = ERM_KG * ERM_KG + pp * pp;
+        self.em_const2 = c + p_prll;
+        let a = SL * self.em_const2;
+        let mut x_prll = a * a;
+        x_prll = Real::sqrt(self.em_const * SL4 + x_prll);
+        let b = SL * p_prll;
+        x_prll -= Real::sqrt(self.em_const * SL4 + b * b);
+        x_prll /= f64::from(lelec) * EC_EM * self.e_amp;
+        x_prll *= lit(100.0);
+        let mut x_perp = asinh_glibc(self.em_const2 / (SL * Real::sqrt(self.em_const)));
+        x_perp -= asinh_glibc(p_prll / (SL * Real::sqrt(self.em_const)));
+        x_perp = x_perp * p_perp * SL / (f64::from(lelec) * self.e_amp * EC_EM);
+        x_perp *= lit(100.0);
+        let vt = self.ef_velocity_function(found, lelec, p_prll, p_perp);
+        let q3 = vt / SL;
+        let gamma = 1.0 / Real::sqrt(1.0 - q3 * q3);
+        let omega_e = gamma * ERM_KG;
+        let v_prll_f = self.em_const2 / omega_e;
+        let v_perp_f = p_perp / omega_e;
+        let un = [
+            v_prll_f * ex + v_perp_f * self.perp[0],
+            v_prll_f * ey + v_perp_f * self.perp[1],
+            v_prll_f * ez + v_perp_f * self.perp[2],
+        ];
+        let (ux, uy, uz, r) = normalize(un[0], un[1], un[2]);
+        self.u_emf = [ux, uy, uz];
+        self.ssc = r;
+        self.x_emf = [
+            x_prll * ex + x_perp * self.perp[0] + self.x_emf[0],
+            x_prll * ey + x_perp * self.perp[1] + self.x_emf[1],
+            x_prll * ez + x_perp * self.perp[2] + self.x_emf[2],
+        ];
+        // the energy after the transport
+        let vt = self.ef_velocity_function(found, lelec, p_prll, p_perp);
+        let q4 = vt / SL;
+        let e_new = (Real::sqrt(1.0 / (1.0 - q4 * q4)) - 1.0) * ERMJ;
+        self.ef_current_energy = e_new / (lit(1.0e6) * EC_EM);
+        self.em_const = Real::sqrt(x_perp * x_perp + x_prll * x_prll);
+    }
+
+    /// The electric branch of `$EM_FIELD_SS` of `EEMF_macros_beamnrc.mortran`
+    /// (`:1121-1330`), `$ssFieldAlg = 2`: [`Self::ss_ef_transport`] by the
+    /// distance to the boundary in steps (`:EF_BCA_tperpCheck:`); the linear
+    /// branch has no `irl ~= ir(np)` clause, and `ELSEIF(.false.)` makes the
+    /// next branch live.
+    fn em_field_ss_e_beamnrc<G: ElectronGeometry>(&mut self, stack: &mut Stack, geometry: &mut G, v: &mut EemfStepVars) {
+        let np = stack.np;
+        let buffer = bca_lin_buffer(v.skindepth);
+        let dist = bca_lin_dist(v.skindepth);
+        if v.vstep <= dist && v.tperp <= buffer {
+            v.final_pos = [self.x0[0] + self.u0[0] * v.vstep, self.x0[1] + self.u0[1] * v.vstep, self.x0[2] + self.u0[2] * v.vstep];
+            return;
+        }
+        self.em_const0 = v.vstep;
+        self.r02_em = v.tustep;
+        if v.callhowfar {
+            v.vstep = v.tperp;
+        }
+        self.u_emf = [stack.u[np], stack.v[np], stack.w[np]];
+        self.x_emf = [stack.x[np], stack.y[np], stack.z[np]];
+        let mut trans = v.vstep;
+        self.ef_current_energy = v.energies[1];
+        self.ss_ef_transport(trans, v.lelec);
+        if v.callhowfar {
+            v.irl = stack.ir[np] as usize;
+            v.irnew = v.irl;
+            // :EF_BCA_tperpCheck:
+            loop {
+                stack.x[np] = self.x_emf[0];
+                stack.y[np] = self.x_emf[1];
+                stack.z[np] = self.x_emf[2];
+                self.tperp_em = geometry.hownear(stack);
+                if (v.vstep + self.tperp_em) >= v.tustep {
+                    v.dosingle = true;
+                    if v.tustep < v.tuss {
+                        v.dosingle = false;
+                    }
+                    trans = v.tustep - v.vstep;
+                    v.vstep = v.tustep;
+                    self.ss_ef_transport(trans, v.lelec);
+                } else if self.tperp_em <= buffer {
+                    v.dosingle = false;
+                    v.ustep = v.tustep - v.vstep;
+                    stack.x[np] = self.x_emf[0];
+                    stack.y[np] = self.x_emf[1];
+                    stack.z[np] = self.x_emf[2];
+                    stack.u[np] = self.u_emf[0];
+                    stack.v[np] = self.u_emf[1];
+                    stack.w[np] = self.u_emf[2];
+                    call_howfar(geometry, stack, v);
+                    if (v.vstep + v.ustep) <= v.tustep && v.ustep <= dist {
+                        for k in 0..3 {
+                            self.x_emf[k] += self.u_emf[k] * v.ustep;
+                        }
+                        v.vstep += v.ustep;
+                    } else if (v.vstep + v.ustep) <= v.tustep {
+                        // a small linear step towards the boundary, then another check
+                        for k in 0..3 {
+                            self.x_emf[k] += self.u_emf[k] * dist;
+                        }
+                        v.vstep += dist;
+                        v.irl = stack.ir[np] as usize;
+                        v.irnew = v.irl;
+                        continue;
+                    } else if v.ustep <= dist {
+                        v.dosingle = true;
+                        if v.tustep < v.tuss {
+                            v.dosingle = false;
+                        }
+                        v.ustep = v.tustep - v.vstep;
+                        for k in 0..3 {
+                            self.x_emf[k] += self.u_emf[k] * v.ustep;
+                        }
+                        v.vstep += v.ustep;
+                        v.irl = stack.ir[np] as usize;
+                        v.irnew = v.irl;
+                    } else {
+                        v.irl = stack.ir[np] as usize;
+                        v.irnew = v.irl;
+                        v.ustep = dist.min(v.tustep - v.vstep);
+                        // upstream adds to the (stale) `x_final`
+                        v.final_pos[0] += stack.u[np] * v.ustep;
+                        v.final_pos[1] += stack.v[np] * v.ustep;
+                        v.final_pos[2] += stack.w[np] * v.ustep;
+                        v.vstep += v.ustep;
+                        if v.ustep == dist && (v.tustep - v.vstep) > 0.0 {
+                            continue;
+                        }
+                    }
+                } else {
+                    trans = self.tperp_em;
+                    v.vstep = trans + v.vstep;
+                    self.ss_ef_transport(trans, v.lelec);
+                    continue;
+                }
+                break;
+            }
+            v.callhowfar = false;
+            v.ustep = v.vstep;
+            v.tustep = v.vstep;
+            stack.x[np] = self.x0[0];
+            stack.y[np] = self.x0[1];
+            stack.z[np] = self.x0[2];
+        }
+        stack.u[np] = self.u_emf[0];
+        stack.v[np] = self.u_emf[1];
+        stack.w[np] = self.u_emf[2];
+        v.final_pos = self.x_emf;
+    }
+
+    /// `$EMFieldInVacuum` of `EEMF_macros_beamnrc.mortran` (`:1950-2268`).
+    /// Sets `v.tperp` (a `$CALL-HOWNEAR_EM(7,tperp)` at the start), takes
+    /// linear steps from `x0_em` near a boundary, and otherwise the electric
+    /// transport (`E` present, alone or with `B`) or the magnetic helix by the
+    /// distance to the nearest boundary; no `HOWFAR` probe in the linear buffer
+    /// of the first branch.
+    fn emfield_in_vacuum_beamnrc<G: ElectronGeometry>(&mut self, stack: &mut Stack, geometry: &mut G, v: &mut EemfStepVars) {
+        let np = stack.np;
+        if !self.em_transport_active {
+            v.vstep = v.ustep;
+            stack.x[np] += stack.u[np] * v.vstep;
+            stack.y[np] += stack.v[np] * v.vstep;
+            stack.z[np] += stack.w[np] * v.vstep;
+            stack.dnear[np] -= v.vstep;
+            return;
+        }
+        // $CALL-HOWNEAR_EM(7,tperp): the ELECTR local is overwritten
+        v.tperp = geometry.hownear(stack);
+        let buffer = bca_lin_buffer(v.skindepth);
+        let dist = bca_lin_dist(v.skindepth);
+        if v.ustep <= dist && v.tperp <= buffer {
+            stack.x[np] = self.x0[0] + self.u0[0] * v.ustep;
+            stack.y[np] = self.x0[1] + self.u0[1] * v.ustep;
+            stack.z[np] = self.x0[2] + self.u0[2] * v.ustep;
+            v.vstep = v.ustep;
+        } else {
+            self.em_vacuum_done = false;
+            v.vstep = 0.0;
+            if v.tperp <= buffer {
+                // a short linear step from the start of the step
+                v.final_pos = [self.x0[0] + self.u0[0] * dist, self.x0[1] + self.u0[1] * dist, self.x0[2] + self.u0[2] * dist];
+                v.vstep = dist;
+                v.ustep -= dist;
+                // :EMFieldVacuumHNCheck_linear:
+                loop {
+                    stack.x[np] = v.final_pos[0];
+                    stack.y[np] = v.final_pos[1];
+                    stack.z[np] = v.final_pos[2];
+                    self.tperp_em = geometry.hownear(stack);
+                    if self.tperp_em <= buffer {
+                        if v.ustep > dist {
+                            v.ustep -= dist;
+                            v.vstep += dist;
+                            for k in 0..3 {
+                                v.final_pos[k] += self.u0[k] * dist;
+                            }
+                            continue;
+                        }
+                        v.vstep += v.ustep;
+                        for k in 0..3 {
+                            v.final_pos[k] += self.u0[k] * v.ustep;
+                        }
+                        self.em_vacuum_done = true;
+                    }
+                    break;
+                }
+                if self.e_field_transport {
+                    // the energy change in the E field after the linear transport
+                    let de_em = self.echange_in_ef(v.lelec, self.x0, v.final_pos);
+                    v.energies[0] -= de_em;
+                    v.energies[1] = v.energies[0] - ERM;
+                    v.energies[2] = v.energies[0];
+                    stack.e[np] = v.energies[0];
+                    self.e_total = v.energies[1] + ERM;
+                }
+                stack.x[np] = v.final_pos[0];
+                stack.y[np] = v.final_pos[1];
+                stack.z[np] = v.final_pos[2];
+            }
+            if !self.em_vacuum_done {
+                if self.e_field_transport {
+                    v.irl = stack.ir[np] as usize;
+                    v.irnew = v.irl;
+                    self.u_emf = [stack.u[np], stack.v[np], stack.w[np]];
+                    self.x_emf = [stack.x[np], stack.y[np], stack.z[np]];
+                    self.ef_current_energy = v.energies[1];
+                    // :EF_VAC_tperpCheck:
+                    loop {
+                        stack.x[np] = self.x_emf[0];
+                        stack.y[np] = self.x_emf[1];
+                        stack.z[np] = self.x_emf[2];
+                        self.tperp_em = geometry.hownear(stack);
+                        if self.tperp_em <= buffer {
+                            v.ustep = lit(1e20);
+                            stack.x[np] = self.x_emf[0];
+                            stack.y[np] = self.x_emf[1];
+                            stack.z[np] = self.x_emf[2];
+                            stack.u[np] = self.u_emf[0];
+                            stack.v[np] = self.u_emf[1];
+                            stack.w[np] = self.u_emf[2];
+                            call_howfar(geometry, stack, v);
+                            if v.ustep <= dist {
+                                for k in 0..3 {
+                                    self.x_emf[k] += self.u_emf[k] * v.ustep;
+                                }
+                                v.vstep += v.ustep;
+                            } else {
+                                for k in 0..3 {
+                                    self.x_emf[k] += self.u_emf[k] * dist;
+                                }
+                                v.vstep += dist;
+                                v.irl = stack.ir[np] as usize;
+                                v.irnew = v.irl;
+                                continue;
+                            }
+                        } else {
+                            v.vstep = self.tperp_em + v.vstep;
+                            let t = self.tperp_em;
+                            self.ss_ef_transport(t, v.lelec);
+                            continue;
+                        }
+                        break;
+                    }
+                    stack.x[np] = self.x_emf[0];
+                    stack.y[np] = self.x_emf[1];
+                    stack.z[np] = self.x_emf[2];
+                    stack.u[np] = self.u_emf[0];
+                    stack.v[np] = self.u_emf[1];
+                    stack.w[np] = self.u_emf[2];
+                    v.energies[1] = self.ef_current_energy;
+                    v.energies[0] = v.energies[1] + ERM;
+                    v.energies[2] = v.energies[0];
+                    stack.e[np] = v.energies[0];
+                    self.e_total = v.energies[0];
+                } else if self.b_field_transport {
+                    self.xs = [stack.x[np], stack.y[np], stack.z[np]];
+                    self.us = [stack.u[np], stack.v[np], stack.w[np]];
+                    // :EMFieldVacuumHFCheck:
+                    loop {
+                        stack.x[np] = self.xs[0];
+                        stack.y[np] = self.xs[1];
+                        stack.z[np] = self.xs[2];
+                        self.tperp_em = geometry.hownear(stack);
+                        if self.tperp_em <= buffer {
+                            v.ustep = lit(1e20);
+                            stack.x[np] = self.xs[0];
+                            stack.y[np] = self.xs[1];
+                            stack.z[np] = self.xs[2];
+                            stack.u[np] = self.us[0];
+                            stack.v[np] = self.us[1];
+                            stack.w[np] = self.us[2];
+                            call_howfar(geometry, stack, v);
+                            if v.ustep <= dist {
+                                // upstream puts the end of the step in `x_final` and then
+                                // stores `xs_em` (the position before it) into `x(np)`
+                                v.final_pos = [self.xs[0] + v.ustep * self.us[0], self.xs[1] + v.ustep * self.us[1], self.xs[2] + v.ustep * self.us[2]];
+                                v.vstep += v.ustep;
+                            } else {
+                                for k in 0..3 {
+                                    self.xs[k] += dist * self.us[k];
+                                }
+                                v.vstep += dist;
+                                v.irl = stack.ir[np] as usize;
+                                continue;
+                            }
+                        } else {
+                            v.vstep += self.tperp_em;
+                            self.u_emf = self.us;
+                            self.x_emf = self.xs;
+                            self.ss_mf_transport(v.vstep, 1.0, v.lelec);
+                            continue;
+                        }
+                        break;
+                    }
+                    stack.x[np] = self.xs[0];
+                    stack.y[np] = self.xs[1];
+                    stack.z[np] = self.xs[2];
+                    stack.u[np] = self.us[0];
+                    stack.v[np] = self.us[1];
+                    stack.w[np] = self.us[2];
+                }
+            }
+        }
+        v.ustep = v.vstep;
+        stack.dnear[np] -= v.vstep;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1307,7 +1797,7 @@ mod tests {
         let st = one_electron([0.0, 0.0, 0.5], [0.0, 0.0, 1.0], 2);
         let mut s = EemfState::default();
         let mut tustep = 1.0;
-        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tustep);
+        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tustep);
         (f, s, st)
     }
 
@@ -1350,13 +1840,13 @@ mod tests {
         st2.u[1] = 1.0;
         st2.w[1] = 0.0;
         let mut tustep = 0.4; // inside tperp: a condensed-history step
-        s.initiate_set_tustep(&f, &st2, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tustep);
+        s.initiate_set_tustep(&f, &st2, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tustep);
         assert!(s.tmax_ch > 0.0 && s.tmax_ch.is_finite());
         assert!(tustep <= 0.4 && tustep <= s.tmax_ch.max(1.0e-3));
         // and a parallel step afterwards keeps that limit
         let keep = s.tmax_ch;
         let mut tustep = 10.0;
-        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tustep);
+        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tustep);
         assert_eq!(s.tmax_ch, keep);
     }
 
@@ -1458,7 +1948,7 @@ mod tests {
         let mut st = one_electron([0.0, 0.0, 0.5], [0.0, 0.0, 1.0], 2);
         st.u[1] = 0.0;
         let mut tustep = 1.0;
-        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tustep);
+        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tustep);
         assert!(s.smin_p3 > 0.0);
         let mk = |ts: f64| PiiInput { u0: [0.0, 0.0, 1.0], x0: [0.0, 0.0, 0.5], tustep: ts, eloss: 1.0e-3, qel: 0, s1: [0.01, 1.0, 0.0, 0.99995], s2: [0.01, 0.0, 1.0, 0.99995] };
         let dirs = |s: &mut EemfState, ts: f64| {
@@ -1527,7 +2017,7 @@ mod tests {
         st.e[1] = 0.5 + 0.5109989461;
         let mut s = EemfState::default();
         let mut tustep = 1.0e8;
-        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 0.5, tperp: 0.001, skindepth: 1.0e-3, exact_bca: true }, &mut tustep);
+        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 0.5, tperp: 0.001, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tustep);
         let mut v = EemfStepVars { callhowfar: true, ustep: 1.0e8, tustep: 1.0e8, vstep: 0.0, tperp: 0.001, skindepth: 1.0e-3, irl: 2, irnew: 2, lelec: -1, ..Default::default() };
         // howfar of the straight line first, as ELECTR does
         call_howfar(&mut g, &st, &mut v);
@@ -1572,7 +2062,7 @@ mod tests {
         let st = one_electron([0.0, 0.0, 0.5], [1.0, 0.0, 0.0], 2);
         let mut s = EemfState::default();
         let mut tustep = 0.4;
-        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tustep);
+        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tustep);
         assert!(s.e_field_transport && !s.b_field_transport && s.em_transport_active);
         assert_eq!(s.e_amp, 2.0e5 * 100.0);
         assert!(s.tmax_ch > 0.0 && tustep <= 0.4);
@@ -1610,7 +2100,7 @@ mod tests {
         stv.e[1] = 0.5 + 0.5109989461;
         let mut sv = EemfState::default();
         let mut tu = 1.0e8;
-        sv.initiate_set_tustep(&f, &stv, 1, &InitiateInput { eke: 0.5, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tu);
+        sv.initiate_set_tustep(&f, &stv, 1, &InitiateInput { eke: 0.5, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tu);
         let e0 = stv.e[1];
         let mut vv = EemfStepVars { callhowfar: true, ustep: 1.0e8, tustep: 1.0e8, tperp: 0.5, skindepth: 1.0e-3, irl: 2, irnew: 2, lelec: -1, energies: [e0, 0.5, e0], ..Default::default() };
         call_howfar(&mut g, &stv, &mut vv);
@@ -1621,7 +2111,169 @@ mod tests {
         // E + B: the vacuum macro follows the helix (B branch) and the SS step is the electric one
         let fb = EemfField { e_in: [0.0, 0.0, 2.0e5], b_in: [1.0, 0.0, 0.0], ..f };
         let mut sb = EemfState::default();
-        sb.initiate_set_tustep(&fb, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true }, &mut tustep);
+        sb.initiate_set_tustep(&fb, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tustep);
         assert!(sb.e_field_transport && sb.b_field_transport);
+    }
+
+    /// `asinh` as glibc computes it agrees with the platform function to the
+    /// last bit or two over all its branches, and is odd.
+    #[test]
+    fn asinh_glibc_matches_the_platform_function() {
+        for x in [0.0, 1.0e-10, 1.0e-3, 0.3, 1.9, 2.0, 2.5, 30.0, 1.0e3, 1.0e10, -0.7, -5.0] {
+            let (a, b) = (asinh_glibc(x), x.asinh());
+            assert!((a - b).abs() <= 4.0e-16 * b.abs().max(1e-300), "{x}: {a} vs {b}");
+        }
+        assert_eq!(asinh_glibc(-0.7), -asinh_glibc(0.7));
+    }
+
+    /// A state with an electric field `e_amp` (V/m) along `e`.
+    fn with_efield(e_amp: f64, e: [f64; 3]) -> EemfState {
+        EemfState { e_amp, e, em_transport_active: true, e_field_transport: true, variant: EemfVariant::BeamNrc, ..Default::default() }
+    }
+
+    /// The variant's electric transport: without a field the speed is the
+    /// relativistic speed of the kinetic energy, the distance is `v t`, the root
+    /// finder returns `d / v` (to its 0.5 %), and `$SS_EF_Transport` moves the
+    /// particle straight by the distance and keeps its energy; with a field
+    /// along the motion the energy changes by `q E d`.
+    #[test]
+    fn electric_transport_functions() {
+        let ek = 2.0; // MeV
+        let gamma = 1.0 + ek / 0.510_998_910;
+        let beta = (1.0 - 1.0 / (gamma * gamma)).sqrt();
+        let v = beta * SL;
+        let p = gamma * ERM_KG * v;
+        let s0 = with_efield(0.0, [0.0, 0.0, 1.0]);
+        let vt = s0.ef_velocity_function(0.0, -1, p, 0.0);
+        assert!((vt - v).abs() / v < 1e-6, "{vt} vs {v}");
+        let d = s0.ef_distance_function(1.0e-9, -1, p, 0.0);
+        assert!((d - vt * 1.0e-9).abs() / d < 1e-12);
+        let t = s0.ef_time_root_finder(0.01, 0.01 / v, -1, p, 0.0);
+        assert!((t - 0.01 / v).abs() / t < 5.0e-3 + 1e-12);
+        // straight transport, 1 cm, no field strength (e_amp = 0 is not active upstream; use a tiny one)
+        let mut st = with_efield(1.0e-3, [0.0, 0.0, 1.0]);
+        st.u_emf = [0.0, 0.0, 1.0];
+        st.x_emf = [0.0, 0.0, 0.0];
+        st.ef_current_energy = ek;
+        st.ss_ef_transport(1.0, -1);
+        assert!((st.x_emf[2] - 1.0).abs() < 1e-3, "{:?}", st.x_emf);
+        assert!((st.ef_current_energy - ek).abs() < 1e-6);
+        assert!((st.u_emf[2] - 1.0).abs() < 1e-12);
+        // 1e7 V/m decelerates an electron moving along +z (lelec = -1): -0.1 MeV over 1 cm
+        let mut sf = with_efield(1.0e7, [0.0, 0.0, 1.0]);
+        sf.u_emf = [0.0, 0.0, 1.0];
+        sf.x_emf = [0.0, 0.0, 0.0];
+        sf.ef_current_energy = ek;
+        sf.ss_ef_transport(1.0, -1);
+        let lost = ek - sf.ef_current_energy;
+        assert!((lost - 0.1).abs() < 5.0e-3, "lost {lost}");
+        // a sideways start: the direction stays a unit vector and the particle moves forward
+        let mut sp = with_efield(1.0e7, [0.0, 0.0, 1.0]);
+        sp.u_emf = [0.6, 0.0, 0.8];
+        sp.ef_current_energy = ek;
+        sp.ss_ef_transport(0.5, -1);
+        let n = (sp.u_emf[0].powi(2) + sp.u_emf[1].powi(2) + sp.u_emf[2].powi(2)).sqrt();
+        assert!((n - 1.0).abs() < 1e-12);
+        assert!(sp.x_emf[0] > 0.0 && sp.x_emf[2] > 0.0);
+    }
+
+    /// The variant's INITIATE does nothing after the field set-up in vacuum:
+    /// no step limit, `show_B` untouched; in a medium it is the standard one.
+    #[test]
+    fn beamnrc_initiate_is_inert_in_vacuum() {
+        let mut f = EemfField::magnetic([0.0, 0.0, 2.0]);
+        f.variant = EemfVariant::BeamNrc;
+        let mut st = one_electron([0.0, 0.0, 0.5], [1.0, 0.0, 0.0], 2);
+        st.u[1] = 1.0;
+        st.w[1] = 0.0;
+        let mut s = EemfState::default();
+        let mut tustep = 0.4;
+        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: false }, &mut tustep);
+        assert_eq!((s.show_b, s.tmax_ch, tustep), (0, 0.0, 0.4));
+        assert!(s.b_field_transport && s.em_transport_active && s.e_total > 5.0);
+        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tustep);
+        assert_eq!(s.show_b, 1000);
+        assert!(s.tmax_ch > 0.0);
+    }
+
+    /// The variant's vacuum macro and electric single-scatter transport in
+    /// the gap: the magnetic helix and the electric transport each end at a wall,
+    /// `tperp` (an `ELECTR` local) is set by the macro's own `HOWNEAR`, and the
+    /// electric single-scatter step walks to `tustep` or the boundary.
+    #[test]
+    fn beamnrc_vacuum_and_electric_single_scatter() {
+        let mut g = Gap;
+        // magnetic field, started 1 mm from the wall at z = 1
+        let mut f = EemfField::magnetic([1.0, 0.0, 0.0]);
+        f.variant = EemfVariant::BeamNrc;
+        let mut st = one_electron([0.0, 0.0, 0.999], [0.0, 0.0, 1.0], 2);
+        st.e[1] = 0.5 + 0.5109989461;
+        let mut s = EemfState::default();
+        let mut tu = 1.0e8;
+        s.initiate_set_tustep(&f, &st, 1, &InitiateInput { eke: 0.5, tperp: 0.001, skindepth: 1.0e-3, exact_bca: true, in_medium: false }, &mut tu);
+        let mut v = EemfStepVars { callhowfar: true, ustep: 1.0e8, tustep: 1.0e8, tperp: 9.0, skindepth: 1.0e-3, irl: 2, irnew: 2, lelec: -1, energies: [st.e[1], 0.5, st.e[1]], ..Default::default() };
+        call_howfar(&mut g, &st, &mut v);
+        s.emfield_in_vacuum(&mut st, &mut g, &mut v);
+        assert!((v.tperp - 0.001).abs() < 1e-12, "the macro's HOWNEAR set tperp: {}", v.tperp);
+        assert!(v.vstep > 0.0 && v.ustep == v.vstep);
+        let n = (st.u[1].powi(2) + st.v[1].powi(2) + st.w[1].powi(2)).sqrt();
+        assert!((n - 1.0).abs() < 1e-9);
+        // a short step near the wall: linear from x0_em
+        let mut s2 = s;
+        s2.x0 = [0.0, 0.0, 0.9999995];
+        s2.u0 = [0.0, 0.0, 1.0];
+        let mut st2 = one_electron([0.0, 0.0, 0.9999995], [0.0, 0.0, 1.0], 2);
+        let mut v2 = EemfStepVars { callhowfar: true, ustep: 5.0e-6, tustep: 5.0e-6, skindepth: 1.0e-3, irl: 2, irnew: 2, lelec: -1, ..Default::default() };
+        s2.emfield_in_vacuum(&mut st2, &mut g, &mut v2);
+        assert_eq!(v2.vstep, 5.0e-6);
+        assert!((st2.z[1] - (0.9999995 + 5.0e-6)).abs() < 1e-15);
+        // no field: a straight step
+        let mut s3 = EemfState { variant: EemfVariant::BeamNrc, ..Default::default() };
+        let mut st3 = one_electron([0.0, 0.0, 0.5], [0.0, 0.0, 1.0], 2);
+        let mut v3 = EemfStepVars { ustep: 0.25, ..Default::default() };
+        s3.emfield_in_vacuum(&mut st3, &mut g, &mut v3);
+        assert_eq!((st3.z[1], v3.vstep), (0.75, 0.25));
+
+        // electric field, vacuum: not parallel to E so the segments advance; the energy changes
+        let mut fe = EemfField::magnetic([0.0; 3]);
+        fe.e_in = [0.0, 0.0, 2.0e5];
+        fe.variant = EemfVariant::BeamNrc;
+        let mut ste = one_electron([0.0, 0.0, 0.5], [0.6, 0.0, 0.8], 2);
+        ste.e[1] = 0.5 + 0.5109989461;
+        let mut se = EemfState::default();
+        let mut tu = 1.0e8;
+        se.initiate_set_tustep(&fe, &ste, 1, &InitiateInput { eke: 0.5, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: false }, &mut tu);
+        let e0 = ste.e[1];
+        let mut ve = EemfStepVars { callhowfar: true, ustep: 1.0e8, tustep: 1.0e8, tperp: 9.0, skindepth: 1.0e-3, irl: 2, irnew: 2, lelec: -1, energies: [e0, 0.5, e0], ..Default::default() };
+        call_howfar(&mut g, &ste, &mut ve);
+        se.emfield_in_vacuum(&mut ste, &mut g, &mut ve);
+        assert!(ve.energies[0] != e0 && (ste.z[1] - 1.0).abs() < 1.0e-4, "{:?} z {}", ve.energies, ste.z[1]);
+        assert_eq!(ste.e[1], ve.energies[0]);
+
+        // electric single scatter in the gap: walks to the wall with callhowfar
+        let mut ss = EemfState::default();
+        let mut sts = one_electron([0.0, 0.0, 0.5], [0.6, 0.0, 0.8], 2);
+        let mut tu = 5.0;
+        ss.initiate_set_tustep(&fe, &sts, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tu);
+        let mut vs = EemfStepVars { callhowfar: true, vstep: 5.0, ustep: 5.0, tustep: 5.0, tperp: 0.5, skindepth: 1.0e-3, irl: 2, irnew: 2, lelec: -1, energies: [5.0 + 0.5109989461, 5.0, 5.0 + 0.5109989461], ..Default::default() };
+        ss.em_field_ss(&mut sts, &mut g, &mut vs);
+        assert!(!vs.callhowfar && vs.ustep == vs.vstep && vs.vstep > 0.0 && vs.vstep <= 5.0, "{vs:?}");
+        let n = (sts.u[1].powi(2) + sts.v[1].powi(2) + sts.w[1].powi(2)).sqrt();
+        assert!((n - 1.0).abs() < 1e-12);
+        // a step that does not reach a wall: one transport
+        let mut ss2 = EemfState::default();
+        let mut sts2 = one_electron([0.0, 0.0, 0.5], [0.6, 0.0, 0.8], 2);
+        let mut tu = 0.1;
+        ss2.initiate_set_tustep(&fe, &sts2, 1, &InitiateInput { eke: 5.0, tperp: 0.5, skindepth: 1.0e-3, exact_bca: true, in_medium: true }, &mut tu);
+        let mut vs2 = EemfStepVars { callhowfar: false, vstep: 0.1, ustep: 0.1, tustep: 0.1, tperp: 0.5, skindepth: 1.0e-3, irl: 2, irnew: 2, lelec: -1, energies: [5.0 + 0.5109989461, 5.0, 5.0 + 0.5109989461], ..Default::default() };
+        ss2.em_field_ss(&mut sts2, &mut g, &mut vs2);
+        assert!((vs2.final_pos[2] - 0.58).abs() < 1e-3 && vs2.final_pos[0] > 0.05, "{:?}", vs2.final_pos);
+        // linear near the boundary
+        let mut ss3 = ss2;
+        let mut vs3 = EemfStepVars { vstep: 5.0e-6, tperp: 1.0e-7, skindepth: 1.0e-3, ..Default::default() };
+        ss3.x0 = [0.0, 0.0, 0.9];
+        ss3.u0 = [0.0, 0.0, 1.0];
+        ss3.em_field_ss(&mut sts2, &mut g, &mut vs3);
+        assert_eq!(vs3.final_pos, [0.0, 0.0, 0.9 + 5.0e-6]);
     }
 }

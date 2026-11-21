@@ -633,7 +633,7 @@ removed) showed the first three photon interactions agree and the divergence
 followed a relaxation draw, which pointed at the option mismatch; with the EADL
 test the run agrees to round-off. No port defect.
 
-~~Still not ported: `EEMF`, `EEMF_macros_beamnrc` and `egs_parallel` (gh:#1697); there is no Rust to compare.~~ **CORRECTED 2026-11-21:** `EEMF_macros` is ported and compared ("EEMF (Malkov-Rogers)" below); `EEMF_macros_beamnrc` and `egs_parallel` are not ported (gh:#1697).
+~~Still not ported: `EEMF`, `EEMF_macros_beamnrc` and `egs_parallel` (gh:#1697); there is no Rust to compare.~~ **CORRECTED 2026-11-21:** `EEMF_macros` is ported and compared ("EEMF (Malkov-Rogers)" below); ~~`EEMF_macros_beamnrc` and `egs_parallel` are not ported (gh:#1697).~~ **CORRECTED 2026-11-21 (later):** `egs_parallel` and `EEMF_macros_beamnrc` (`EemfVariant::BeamNrc`) are ported and compared.
 
 
 ## Electromagnetic fields: `emf_macros` ported and compared (2026-11-21, gh:#1697)
@@ -669,7 +669,7 @@ reference agrees to 1e-15 with an E field, so the stack garbage was 0 in that
 build, but the behaviour is undefined in the source. For a constant field the
 test then evaluates to 1 and never limits the step.
 
-**Not ported when this section was written (2026-11-21, earlier):** `EEMF_macros.mortran` and `EEMF_macros_beamnrc.mortran`
+**Not ported when this section was written (2026-11-21, earlier; both are now ported, `EEMF_macros_beamnrc` as `EemfVariant::BeamNrc`, see its section at the end):** `EEMF_macros.mortran` and `EEMF_macros_beamnrc.mortran`
 (2400 and 2546 lines, Malkov and Rogers, Med. Phys. 43, 4447 (2016)): a
 different, much larger EM-field algorithm (1PI/3PI integration, boundary
 handling, single-scattering in fields, vacuum transport) that replaces PRESTA-II
@@ -937,86 +937,108 @@ about upstream: `egs_pjob_finish` of the last job sets `i_parallel = 0`
 the last finish must save it.
 
 
-## EEMF_macros_beamnrc: attempted, built and run, not ported (2026-11-21, gh:#1697)
+## EEMF_macros_beamnrc: ported as `EemfVariant::BeamNrc` and compared (2026-11-21, gh:#1697)
 
 ~~`EEMF_macros_beamnrc.mortran` needs BEAMnrc's component modules and cannot be
-ported.~~ **CORRECTED 2026-11-21:** BEAMnrc is public code; a BEAMnrc
-accelerator was built with this file and run. The file was **not ported** inside
-the time box (about 90 minutes); what was measured and what is left is below.
+ported.~~ **CORRECTED 2026-11-21:** BEAMnrc is public code. ~~Attempted, built
+and run, **not ported** inside a 90-minute time box.~~ **CORRECTED 2026-11-21
+(later):** it is **ported** (`EemfVariant::{Standard, BeamNrc}` on
+`EemfField`, in `src/egsnrc/eemf_macros_mortran.rs`; the standard code is reused
+where the two files are the same text) and compared with a compiled EGSnrc in
+the same host as the standard file. What the variant expands and the port
+carries: the `IF(medium~=0)` block of `$EMFIELD_INITIATE_SET_TUSTEP` (nothing is
+computed in vacuum), the magnetic branch of `$EM_FIELD_SS` (same as standard),
+`$EMFieldInVacuum` (B and E branches, `emfield_in_vacuum_beamnrc`), the electric
+branch of `$EM_FIELD_SS` and `$SS_EF_Transport` with `$EF_timeRootFinder`,
+`$EF_simpsonOverEnergy`, `$EF_velocityFunction`, `$EF_distanceFunction`
+(`em_field_ss_e_beamnrc`, `ss_ef_transport`, `ef_*`), SI constants `$ERMJ`,
+`$ERM_kg`, `$EC` and `$SL**4.` (folded by the compiler to the correctly rounded
+`299792458^4`). For an electric field with or without a magnetic one the variant
+uses the electric branch alone (B ignored), as upstream.
 
 **Constants and structure** (`diff -w` of the two files, 1359 lines): every
-`REPLACE` at the top is the same (`$IntegrationAlg 3`, `$ssFieldAlg 2`,
-`$orderBoundary`, `$orderAdaptive`, `$duAdaptive`, `$energyLossViaPotential`
-false, `$ss_em`, `$changingEMField`, `$SL`, `$ERM`, `$epsilon_em`) except new
-`$ERMJ`, `$ERM_kg2` and `$ERM_kg` in `D` notation, and the new
-`$CALL-HOWNEAR_EM(n,tperp)`. Section by section, on the magnetic path already
-ported: `$EMFIELD_PII` (203 lines each): identical but for a space;
-`$TUSTEP_RIST_B`, `$NORM_VEC_B`, `$INTERACT_EM`: identical;
-`$EMFIELD_INITIATE_SET_TUSTEP`: gains an `IF(medium~=0)[; howfarCheck=0;` block
-(closed by a `];` after the restrictions) and `$ssFieldAlg = 1` where the
-standard file has `= 2` in the electric-field restriction (no effect for B);
-`$EM_FIELD_SS` magnetic branch: 22 differing lines, the `$CALL-HOWNEAR` becoming
-`$CALL-HOWNEAR_EM(2,...)` and a re-ordering of statements in the dead
-`ELSEIF` chain; `$EM_FIELD_SS` electric branch and `$SS_EF_Transport`: entirely
-different (the variant's electric transport integrates the motion with a time
-root finder and Simpson over the energy, in SI units); `$EMFieldInVacuum`: 201
-differing lines, a different algorithm (see below).
+`REPLACE` at the top is the same (`$IntegrationAlg 3`, `$ssFieldAlg 2`, ...)
+except new `$ERMJ`, `$ERM_kg2`, `$ERM_kg` and `$CALL-HOWNEAR_EM(n,tperp)`.
+`$EMFIELD_PII`, `$TUSTEP_RIST_B`, `$NORM_VEC_B`, `$INTERACT_EM`: identical; the
+magnetic `$EM_FIELD_SS` branch: same up to dead code; INITIATE: gains the
+`IF(medium~=0)` block and `$ssFieldAlg = 1` in the electric restriction;
+`$EMFieldInVacuum`: a different algorithm (`HOWNEAR_EM(7,tperp)` overwrites
+`tperp` before the first branch, linear steps from `x0_em`, no `HOWFAR` probe in
+`:EMFieldVacuumHNCheck_linear:`, the B loop uses the total `vstep` in
+`$SS_MF_Transport(tperp_em,vstep,1.)`, the final position goes to `x_final` while
+`xs_em` is stored to `x(np)`: an upstream quirk kept); the electric transport is
+different.
 
-**Reference build.** Sparse clone extended with `HEN_HOUSE/omega` and
-`HEN_HOUSE/utils` (`git sparse-checkout add`); `beam_build` is a Mortran program
-that writes two text files, so they were written by a script instead
-(`BEAM_slabs1_macros.mortran` = `beamnrc_cm_macros.hdr` + the `$CM_LIST`/`$CM_TYPE`
-/`$SYNC_CM_LIST`/`$DYN_CM_LIST` macros + `SLABS_macros.mortran` with `$SLABS`
-replaced by the identifier `slabs1`; `BEAM_slabs1_cm.mortran` = `SLABS_cm.mortran`
-likewise + `%N`). Mortran3 command: `egsnrc.macros`, a two-line macro file
-(`$HAVE_C_COMPILER(#);`, `$HAVE_LOAD_DSO(#);` as `;`; `configure` writes these),
-`EEMF_macros_beamnrc.mortran` (or nothing for the control), `timing.macros`,
-`machine.macros`, `ranlux.macros`, `transportp.macros`, `pegs4_macros.mortran`,
-`beamnrc_user_macros.mortran`, `phsp_macros.mortran`, the `_macros` file,
-`beam_main.mortran`, `beamnrc.mortran`, `xvgrplot.mortran`, the `_cm` file,
-`egs_utilities`, `get_inputs`, `get_media_inputs`, `ranlux.mortran`, `nrcaux`,
-`machine.mortran`, `egs_parallel`, `pegs4_routines`, `egsnrc.mortran` (the order
-of `specs/beamnrc.spec`). gfortran `-x f77-cpp-input -std=legacy -O1
--fdefault-real-8 -fdefault-double-8 -DHAVE_C_COMPILER`, linked with
-`egs_c_utils.o` and stubs for `egs_estar`, `egs_compoundstoelements`,
-`egs_time`, `egs_time_diff` (the first two are pegsless-mode C++; unused with a
-PEGS4 file). Both builds (control, and with the variant) compiled and linked
-without error. Run as `BEAM_slabs1 -p 700icru -i NAME` with `HEN_HOUSE` and
-`EGS_HOME` set. Input: the `EXslabs` example with a 3-slab SLABS CM (Ta 0.01 cm,
-vacuum 0.45 cm, Ta 0.01 cm), 1000 electrons of 3 MeV, `ECUT 1.0`, exact BCA,
-PRESTA-II, and `Magnetic Field= 0.0, 0.5, 0.8` and `EM ESTEPE` in the
-`:Start MC Transport Parameter:` block (BEAMnrc reads the field through the
-ordinary `get_inputs`; the run log prints `Magnetic Field [T] 0.00 0.50 0.80`).
-Result: a phase-space file of 26 432 bytes with the variant and field against
-26 824 bytes for the no-field control: BEAMnrc with this variant runs and the
-field acts. The comparison with Rust was **not** made: BEAMnrc's host (the
-`SLABS` `HOWFAR`/`HOWNEAR`, the source, RANLUX seeding from the input file,
-the phase-space scoring and `IREJCT`/`ESAVE` handling) would have to be
-mirrored too, and the vacuum macro is not ported.
+**Reference ("same-host method").** BEAMnrc was built by hand (a one-slab CM,
+`beam_build` replaced by a script, recipe unchanged from the earlier attempt:
+Mortran3 chain in the order of `specs/beamnrc.spec`, gfortran `-x f77-cpp-input
+-std=legacy -O1 -fdefault-real-8 -fdefault-double-8`); it runs with the variant
+and a field (phase-space file 26 432 bytes against 26 824 for the no-field
+control). A BEAMnrc host would need its `SLABS` geometry, source and scoring
+mirrored, so the comparison uses the lighter route: the tutor1 user code and the
+5-region layered vacuum-gap user code, compiled with `EEMF_macros_beamnrc.mortran`
+in place of `EEMF_macros.mortran`, `$CALL-HOWNEAR_EM(n,tperp)` defined as a plain
+`HOWNEAR` call and the BEAMnrc common `EIN` supplied (`COMMON/BEAMEIN/EIN`); same
+seeds, 200 histories, Rust against the compiled Fortran (test harness:
+`EGSNRC_EEMF_BEAMNRC=1` selects the variant in
+`differential_tutor1_histories_against_compiled_egsnrc`). The generator script
+(`mkbv.py`) lives in scratch only.
 
-**Variant against standard, in the same host** (the lighter route that isolates
-the macros: the tutor1 and layered user codes with `$CALL-HOWNEAR_EM(#,#)`
-defined as a `HOWNEAR` call and the BEAMnrc common `EIN` supplied; Fortran
-against Fortran, 200 histories):
+**Results** (200 histories each; "seq" is histories with the same charge
+sequence; worst relative kinetic-energy difference / worst |dw|):
 
-| host, field | same charge sequence | worst difference |
+| host | field | seq | energy | \|dw\| |
+|---|---|---|---|---|
+| tutor1 | B (0,0.5,0.8) T | 200/200 | 4.7e-15 | 3.5e-14 |
+| tutor1 | B (1,0,0) T | 200/200 | 8.9e-16 | 1.2e-15 |
+| tutor1 | B (0,0.05,0) T | 200/200 | 1.3e-15 | 7.8e-16 |
+| tutor1 | B (0.9,0,1.2) T | 200/200 | 6.9e-16 | 1.3e-15 |
+| layers | B (1,0,0) | 200/200 | 1.2e-13 | 3.5e-13 |
+| layers | B (0,0.5,0.8) | 200/200 | 2.9e-14 | 3.8e-13 |
+| layers | B (0,0.05,0) | 200/200 | 3.2e-14 | 1.2e-13 |
+| layers | B (0,1.5,0) | 200/200 | 1.5e-11 | 1.9e-11 |
+| tutor1 | E (0,0,5e3) V/m | 200/200 | 1.7e-12 | 1.1e-15 |
+| tutor1 | E (2e4,-1e4,5e3) | 200/200 | 4.5e-12 | 3.4e-11 |
+| tutor1 | E (2e4,-1e4,5e3) + B (0,0.5,0.8) | 200/200 | 9.2e-11 | 4.1e-10 |
+| layers | E (0,0,5e3) | 200/200 | 1.0e-10 | 1.1e-8 |
+| layers | E (0,0,2e5) | 200/200 | 5.3e-13 | 9.8e-13 |
+| layers | E (2e4,-1e4,5e3) | 200/200 | 1.0e-10 | 4.7e-10 |
+| layers | E (2e4,-1e4,5e3) + B (0,0.5,0.8) | 200/200 | 4.6e-13 | 3.5e-10 |
+| layers | E (1e5,-5e4,8e4) + B (0,0.5,0.8) | 200/200 | 2.8e-12 | 3.1e-12 |
+
+(Standard-file layers B: 8.7e-8 and 4.3e-7 in the earlier follow-up, there with
+ulp-amplified paths; the variant's vacuum path is linear and shorter.) A
+magnetic field **in a medium** is bit-identical to the standard algorithm.
+
+**Residuals above 1e-9 on the layers host, and why they are round-off, not a
+defect.** The only one is layers E (0,0,5e3), |dw| 1.1e-8. No trace of a
+difference in the algorithm was found (the charge sequence agrees in all 200
+histories, the first divergence by value was traced to `asinh(a)-asinh(b)` and
+`sqrt()-sqrt()` of the distance function: two nearly equal numbers, so a last-bit
+difference in an argument becomes a relative 1e-12 to 1e-11 in the difference).
+Test: the compiled Fortran was rebuilt with the beam energy `EINP` moved by k ulp
+(k = 1..6, a change of 1 part in 1e16) and compared **with itself**:
+
+| k ulp | worst relative E difference | worst \|dw\| |
 |---|---|---|
-| tutor1 (Ta plate, no vacuum steps), B (0,0.5,0.8) | 200 of 200 | **0** (bit-identical) |
-| layers (vacuum gap), B (1,0,0) | 59 of 200 | first different history 2 |
-| layers, B (0,0.5,0.8) | 41 of 200 | first different history 4 |
-| layers, B (0,1.5,0) | 69 of 200 | first different history 16 |
+| 1 | 1.5e-10 | 2.2e-7 |
+| 2 | 4.9e-10 | 1.2e-8 |
+| 3 | 4.9e-10 | 4.0e-8 |
+| 4 | 2.4e-10 | 6.1e-9 |
+| 5 | 8.6e-10 | 5.5e-8 |
+| 6 | 6.7e-10 | 1.2e-7 |
 
-So for a magnetic field **in a medium** the variant is the standard algorithm
-already ported (bit-identical), and the whole difference is in vacuum and in
-the electric field.
+The compiled code alone moves by 6e-9 to 2e-7 in |dw| under a one-ulp input
+change, which brackets the port-against-reference 1.1e-8. For tutor1 E-only the
+same probe gave 4.4e-12 to 8.7e-12 in energy and 1.8e-11 in |dw| against our
+1.7e-12 to 4.5e-12 / 3.4e-11. The port also carries an `asinh_glibc` (the
+fdlibm algorithm glibc's `asinh` uses) because Rust's `asinh` differs by an ulp
+from it. These residuals exceed the 1e-9 bit-level allowance and are **flagged for
+the maintainer**; they are explained by amplification, not hidden.
 
-**What a port still needs.** `$EMFieldInVacuum` of the variant, B branch (about
-180 lines: `$CALL-HOWNEAR_EM(7,tperp)` before the first branch,
-`x0_em + u0_em*ustep` linear steps, a different linear-buffer loop
-`:EMFieldVacuumHNCheck_linear:` without the `HOWFAR` probe, `irnew = irl`); the
-`IF(medium~=0)` block of INITIATE; the numbered `HOWNEAR` sites in a seam (a
-`hownear_em(n)` method, or the plain `hownear`); the variant's electric
-transport (`$EF_timeRootFinder`, `$EF_simpsonOverEnergy`, `$EF_velocityFunction`,
-`$EF_distanceFunction`, ~600 lines); then the layered-host comparison as for the
-standard file. The comparison harness (`mkbv.py`, the BEAMnrc build and run
-scripts) lives in scratch only.
+**Left.** Nothing in the file is unported that the compiled configuration
+expands. Not exercised: the BEAMnrc `IR_to_CM`/`$GOTO_CM_LIST` `HOWNEAR`
+dispatch itself (the port's `Geometry::hownear` seam takes its place), the
+SLABS component module, and a full BEAMnrc run with Rust (the host would have
+to be mirrored). `EemfVariant::BeamNrc` needs the caller to implement
+`hownear` for the geometry, as BEAMnrc does per component module.

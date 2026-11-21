@@ -7,37 +7,24 @@
 //!
 //! The BEAMnrc variant of `EEMF_macros.mortran` (2546 lines).
 //!
-//! **Not ported (2026-11-21), after an attempt; the blocker is size, not data.**
-//! ~~Not ported because it needs BEAMnrc component modules~~ **CORRECTED
-//! 2026-11-21:** BEAMnrc is public; its sources were fetched (`git
-//! sparse-checkout add HEN_HOUSE/omega HEN_HOUSE/utils`) and a one-slab-CM
-//! accelerator was **built and run** with this file as its field macros (recipe
-//! and results: `docs/egsnrc_phase2_differential.md`, "EEMF_macros_beamnrc").
-//! What the comparison showed about the variant:
-//! - the **only host dependency** of the file is `$CALL-HOWNEAR_EM(n, tperp)`
-//!   (BEAMnrc: the component module's `HOWNEAR` through `IR_to_CM`/`$GOTO_CM_LIST`;
-//!   a user code can define it as a plain `HOWNEAR` call) and the BEAMnrc common
-//!   variable `EIN`, read only in an error message of the electric-field root
-//!   finder;
-//! - **magnetic field in a medium: bit-identical to `EEMF_macros.mortran`**
-//!   (tutor1 host, B = (0, 0.5, 0.8) T: 200 of 200 histories, worst difference 0);
-//!   `$EMFIELD_PII`, `$TUSTEP_RIST_B`, `$NORM_VEC_B`, `$INTERACT_EM` and the
-//!   magnetic single-scatter branch are the same text up to dead code;
-//! - **in vacuum it is a different algorithm** (`$EMFieldInVacuum`: a
-//!   `HOWNEAR` call before the first branch, `x0_em`-based linear steps, no
-//!   `HOWFAR` probe, `$CALL-HOWNEAR_EM` at five numbered sites): in the layered
-//!   vacuum-gap host only 41 to 69 of 200 histories keep the charge sequence;
-//! - the electric field is a different algorithm too (`$SS_EF_Transport`
-//!   expanded with `$EF_timeRootFinder`, Simpson over energy, `$ERMJ`, `$ERM_kg`
-//!   in SI units, `$EF_simpsonOverEnergy`, `$EF_velocityFunction`,
-//!   `$EF_distanceFunction`), ~600 lines that exist only in this variant.
+//! **Status: first port, compared with a compiled EGSnrc (gh:#1697)**; the code
+//! lives in `eemf_macros_mortran.rs` as `EemfVariant::BeamNrc` (the two files
+//! share most text, so the standard code is reused and the variant branches on
+//! `EemfField::variant`): `emfield_in_vacuum_beamnrc`, `em_field_ss_e_beamnrc`,
+//! `ss_ef_transport` with `ef_velocity_function`, `ef_distance_function`,
+//! `ef_time_root_finder`, `asinh_glibc`, and the `IF(medium~=0)` block of
+//! INITIATE (`InitiateInput::in_medium`). This file holds no code on purpose.
 //!
-//! What a port still needs: the vacuum macro of the variant (B branch, ~180
-//! lines), the `IF(medium ~= 0)` block of `$EMFIELD_INITIATE_SET_TUSTEP`, the
-//! numbered `$CALL-HOWNEAR_EM` sites in a `Geometry` seam, and the electric
-//! transport above; then a host comparison in the layered geometry. It was not
-//! done inside the time box.
+//! ~~**Not ported (2026-11-21), after an attempt; the blocker is size, not
+//! data.**~~ **CORRECTED 2026-11-21 (later):** ported. Measured against the
+//! same-host Fortran (tutor1 and the layered vacuum-gap code compiled with this
+//! file, `$CALL-HOWNEAR_EM` a plain `HOWNEAR`, 200 histories): magnetic field
+//! in a medium bit-level (<= 5e-15), in vacuum <= 1.5e-11; electric and
+//! combined fields: same charge sequence in 200 of 200, energy 5e-13 to 1e-10,
+//! |dw| up to 1.1e-8, which compiled-Fortran one-ulp input probes (6e-9 to
+//! 2e-7) show to be round-off amplification through `asinh`/`sqrt`
+//! cancellation. Tables, probe and recipe: `docs/egsnrc_phase2_differential.md`,
+//! "EEMF_macros_beamnrc".
 //!
-//! **Status: placeholder, nothing ported (gh:#976).** When code lands here it
-//! carries the attribution header block (upstream project, file, commit,
-//! copyright, licence) and a doc-comment `file:line` for every routine.
+//! ~~**Status: placeholder, nothing ported (gh:#976).**~~ **CORRECTED
+//! 2026-11-21 (later):** first port, above.

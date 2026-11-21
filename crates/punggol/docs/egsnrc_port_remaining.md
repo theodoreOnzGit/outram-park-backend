@@ -108,9 +108,9 @@ photoelectric option (`mcdf_pe_xsections`, off by default).
 **CORRECTED 2026-11-21 (later):** `EEMF_macros.mortran` is ported (magnetic, electric
 and combined fields, PRESTA-II and PRESTA-I, exact and inexact BCA,
 `src/egsnrc/eemf_macros_mortran.rs`) and compared, see
-`docs/egsnrc_phase2_differential.md`, "EEMF (Malkov-Rogers)". Still not
+`docs/egsnrc_phase2_differential.md`, "EEMF (Malkov-Rogers)". ~~Still not
 ported: `EEMF_macros_beamnrc.mortran` (a different algorithm, needs BEAMnrc
-geometry) (gh:#1697). ~~`egs_parallel` (lock-file job control, no physics)~~ **CORRECTED 2026-11-21 (later):** `egs_parallel.mortran` is ported (`egs_pjob_control`, `egs_pjob_finish`, the control-string format and reader as pure functions over the lock-file text; the C-utility file calls stay with the caller) and compared with real processes ("egs_parallel" in `docs/egsnrc_phase2_differential.md`).
+geometry) (gh:#1697).~~ **CORRECTED 2026-11-21 (later):** `EEMF_macros_beamnrc.mortran` is ported as `EemfVariant::BeamNrc` and compared in the same host (gh:#1697, phase-2 doc). ~~`egs_parallel` (lock-file job control, no physics)~~ **CORRECTED 2026-11-21 (later):** `egs_parallel.mortran` is ported (`egs_pjob_control`, `egs_pjob_finish`, the control-string format and reader as pure functions over the lock-file text; the C-utility file calls stay with the caller) and compared with real processes ("egs_parallel" in `docs/egsnrc_phase2_differential.md`).
 ~~The electric-field macros of `EEMF_macros` and `$EMFIELD_PI` are not ported~~
 **CORRECTED:** what the compiled configuration expands of them is ported; the
 rest is never expanded (see the phase-2 doc).
